@@ -46,6 +46,10 @@ MCP should stay a thin client-facing adapter for agents and tools. It should not
 become the place where retrieval policy, ranking profiles, or domain-specific
 relationship behavior live.
 
+The MCP server is read-only by default. Mutating tools are not advertised and
+are rejected unless the process is started with `--allow-writes`. Requests are
+validated as JSON-RPC before dispatching to the native core.
+
 The richer orchestration surface belongs in CREXX Level G. The raw `rxrag`
 plugin exposes native functions, and `crexx/cprag.crexx` starts the higher-level
 `cprag.raglibrary` class wrapper. That wrapper currently preserves JSON as the

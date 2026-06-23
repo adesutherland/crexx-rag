@@ -33,9 +33,9 @@ place where those semantics exist.
 - Chunking is Qt-free and adapted from the useful CognitivePipelines chunking
   behavior: smart overlap, Markdown header/table awareness, and Rexx-friendly
   separators.
-- `crexx-rag-mcp` is a minimal stdio MCP server scaffold with status, search,
-  vocabulary, shortest path, typed subgraph, ingest, source/chunk listing,
-  source deletion, and graph edit tools.
+- `crexx-rag-mcp` is a hardened stdio MCP adapter with structured JSON parsing,
+  JSON-RPC validation, central tool declarations, typed argument checks, and a
+  read-only default. Mutating tools require `--allow-writes`.
 - `rx_rag.rxplugin` publishes Level G native signatures through RXPA.
 - `crexx/cprag.crexx` is the first CREXX Level G wrapper surface. It exposes
   `cprag.raglibrary`, keeps JSON as the interchange format, and uses CREXX
@@ -92,3 +92,5 @@ Record CREXX packaging/API issues in `docs/crexx-integration-issues.md`.
   wants it.
 - Expand the CREXX Level G wrapper and profile scripts for ranking and query
   policies.
+- Keep adding MCP negative tests as tools are added so malformed requests,
+  wrong argument types, and write-gating behavior remain covered.

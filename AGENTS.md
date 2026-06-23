@@ -108,6 +108,9 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
   - simple ranking hooks
 - Keep user-tunable ranking and retrieval policy in CREXX Level G/profile
   scripts where practical. MCP should remain a thin client-facing adapter.
+- Keep MCP read-only by default. Mutating MCP tools must require explicit
+  `--allow-writes` process startup and need negative tests for write gating and
+  argument validation.
 - Dynamic CREXX plugins are preferred for this project.
 - The CREXX plugin is an integration target and diagnostic surface. Do not hide
   installed CREXX defects by silently depending on the sibling source tree.
@@ -137,9 +140,10 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
   typed subgraph extraction are available in the native core.
 - Chunking is a Qt-free port inspired by CognitivePipelines' RAG chunkers,
   currently covering plain text, Markdown, and Rexx-oriented source.
-- MCP server is a stdio scaffold with status, search, vocabulary, shortest
-  path, typed subgraph, ingest, source/chunk listing, source deletion, and graph
-  edit tools.
+- MCP server is a hardened stdio adapter with status, search, vocabulary,
+  shortest path, typed subgraph, ingest, source/chunk listing, source deletion,
+  and graph edit tools. It validates JSON-RPC shape and typed arguments, and it
+  is read-only by default.
 - CREXX plugin publishes Level G RXPA signatures and currently builds through
   the temporary vendored rxpa headers.
 - `crexx/cprag.crexx` provides the first Level G class-shaped wrapper surface

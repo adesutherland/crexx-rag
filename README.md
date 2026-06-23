@@ -93,6 +93,20 @@ The initial typed architecture vocabulary is documented in
 ./cmake-build-debug/crexx-rag search ./example.cprag "what database does auth use" 3 2
 ```
 
+## MCP Direction
+
+`crexx-rag-mcp` is deliberately a thin stdio adapter over `cprag_core`. It is
+read-only by default and only advertises read tools unless started with explicit
+write access:
+
+```bash
+./cmake-build-debug/crexx-rag-mcp --library ./example.cprag
+./cmake-build-debug/crexx-rag-mcp --allow-writes --library ./example.cprag
+```
+
+The MCP adapter validates JSON-RPC request shape, tool names, argument objects,
+required arguments, and argument types before calling the native core.
+
 ## CREXX Direction
 
 The richer user-facing surface should live in CREXX. MCP remains a thin
