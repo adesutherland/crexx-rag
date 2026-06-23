@@ -9,18 +9,32 @@ contributors.
 plain command-line workflows. The core should stay native and reusable; CREXX
 should provide tunable retrieval profiles; MCP should provide agent access.
 
+A central vision is the typed relationship map. The primary workload is an IT
+architecture view of the world, likely with an ArchiMate-inspired vocabulary, but
+the same mechanism should work for other domains. Node types and relationship
+types are core model concepts because they shape traversal, retrieval, ranking,
+and explanations; CREXX profiles can tune policy, but should not be the only
+place where those semantics exist.
+
 ## Current Implementation
 
 - `cprag_core` exposes a stable C ABI in `include/crexx_rag/ragcore.h`.
-- SQLite stores entities and edges in a shareable `.cprag` folder bundle.
-- Search is currently a placeholder text-overlap scorer.
+- SQLite stores entities, edges, documents, and chunks in a shareable `.cprag`
+  folder bundle.
+- Current entity and edge labels are the first surface for node and relationship
+  type semantics.
+- Search currently combines placeholder text-overlap entity anchors with SQLite
+  FTS5 lexical chunk retrieval.
 - Graph context is expanded with simple BFS over both incoming and outgoing
   edges.
 - Chunking is Qt-free and adapted from the useful CognitivePipelines chunking
   behavior: smart overlap, Markdown header/table awareness, and Rexx-friendly
   separators.
-- `crexx-rag-mcp` is a minimal stdio MCP server scaffold.
-- `rx_rag.rxplugin` is the CREXX dynamic plugin target.
+- `crexx-rag-mcp` is a minimal stdio MCP server scaffold with status, search,
+  ingest, source listing, and graph edit tools.
+- `rx_rag.rxplugin` is the CREXX dynamic plugin target and has a CTest smoke
+  that compiles with installed `rxc`, assembles with installed `rxas`, and runs
+  with installed `rxvme`.
 
 ## Build Context
 
@@ -53,12 +67,23 @@ repo temporarily vendors `crexxpa.h` and generated `crexx_version.h` under
 `third_party/crexx-rxpa/`. Remove that shim once CREXX distributes development
 headers.
 
+The sibling `../CREXX` checkout is reference material only. Runtime and compiler
+smokes should use the installed CREXX tools. The important dynamic plugin shape
+is documented in `docs/crexx-plugin-pattern.md`: compile with `-i` so `rxc` can
+see the `.rxplugin` signatures, then run `rxvme` with `rx_rag` listed as a
+runtime module and the plugin directory supplied through `-l`. `rxvme` already
+embeds the CREXX library, so do not pass `library` as another runtime module.
+
 Record CREXX packaging/API issues in `docs/crexx-integration-issues.md`.
 
 ## Next Steps
 
-- Add document/chunk tables and ingestion commands.
+- Document a small initial relationship vocabulary, starting with
+  ArchiMate-inspired architecture types and relations while keeping the storage
+  domain-neutral.
+- Make node type and relationship type semantics explicit in schema/API naming
+  as the document/chunk ingestion schema lands.
 - Add FAISS behind the C ABI as an optional vector index dependency.
 - Add embedding-provider adapters, starting local-first.
-- Expand MCP tools around ingest, source listing, and graph expansion.
+- Expand MCP tools around graph expansion and source inspection.
 - Add CREXX profile scripts for ranking and query policies.

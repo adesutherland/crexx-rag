@@ -6,9 +6,11 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <limits>
 #include <queue>
 #include <sstream>
@@ -47,6 +49,29 @@ struct Edge {
 struct Anchor {
     std::string id;
     double score {0.0};
+};
+
+struct DocumentSummary {
+    long long id {0};
+    std::string sourceUri;
+    std::string title;
+    std::string contentHash;
+    int fileType {CPRAG_CHUNK_PLAIN_TEXT};
+    std::string metadataJson;
+    long long chunkCount {0};
+    std::string createdAt;
+    std::string updatedAt;
+};
+
+struct ChunkHit {
+    long long id {0};
+    long long documentId {0};
+    std::string sourceUri;
+    std::string title;
+    int chunkIndex {0};
+    std::string text;
+    int length {0};
+    double rank {0.0};
 };
 
 std::filesystem::path dbPathForLibrary(const std::filesystem::path& libraryPath)
@@ -112,6 +137,59 @@ CREATE TABLE IF NOT EXISTS edges (
 );
 CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id);
+CREATE TABLE IF NOT EXISTS documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_uri TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    file_type INTEGER NOT NULL DEFAULT 0,
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS chunks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_id INTEGER NOT NULL,
+    chunk_index INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    length INTEGER NOT NULL,
+    start_offset INTEGER NOT NULL DEFAULT -1,
+    end_offset INTEGER NOT NULL DEFAULT -1,
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
+    UNIQUE(document_id, chunk_index)
+);
+CREATE INDEX IF NOT EXISTS idx_documents_source_uri ON documents(source_uri);
+CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id, chunk_index);
+CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
+    text,
+    source_uri UNINDEXED,
+    title UNINDEXED,
+    content='chunks',
+    content_rowid='id'
+);
+CREATE TRIGGER IF NOT EXISTS chunks_ai AFTER INSERT ON chunks BEGIN
+    INSERT INTO chunks_fts(rowid, text, source_uri, title)
+    SELECT new.id, new.text, documents.source_uri, documents.title
+    FROM documents
+    WHERE documents.id = new.document_id;
+END;
+CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
+    INSERT INTO chunks_fts(chunks_fts, rowid, text, source_uri, title)
+    SELECT 'delete', old.id, old.text, documents.source_uri, documents.title
+    FROM documents
+    WHERE documents.id = old.document_id;
+END;
+CREATE TRIGGER IF NOT EXISTS chunks_au AFTER UPDATE ON chunks BEGIN
+    INSERT INTO chunks_fts(chunks_fts, rowid, text, source_uri, title)
+    SELECT 'delete', old.id, old.text, documents.source_uri, documents.title
+    FROM documents
+    WHERE documents.id = old.document_id;
+    INSERT INTO chunks_fts(rowid, text, source_uri, title)
+    SELECT new.id, new.text, documents.source_uri, documents.title
+    FROM documents
+    WHERE documents.id = new.document_id;
+END;
 )SQL";
     return execSql(handle, kSchema);
 }
@@ -134,6 +212,64 @@ int prepare(cprag_handle* handle, const char* sql, sqlite3_stmt** outStmt)
         return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
     }
     return CPRAG_OK;
+}
+
+std::string metadataOrDefault(const char* metadataJson)
+{
+    const std::string metadata = valueOrEmpty(metadataJson);
+    return metadata.empty() ? "{}" : metadata;
+}
+
+int validateMetadataJson(cprag_handle* handle, const std::string& metadata)
+{
+    sqlite3_stmt* stmt = nullptr;
+    const int prepRc = prepare(
+        handle,
+        "SELECT CASE WHEN json_valid(?) THEN json_type(?) = 'object' ELSE 0 END",
+        &stmt);
+    if (prepRc != CPRAG_OK) {
+        return prepRc;
+    }
+
+    bindText(stmt, 1, metadata);
+    bindText(stmt, 2, metadata);
+    const int stepRc = sqlite3_step(stmt);
+    const bool valid = stepRc == SQLITE_ROW && sqlite3_column_int(stmt, 0) != 0;
+    sqlite3_finalize(stmt);
+    if (!valid) {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "metadata_json must be a valid JSON object");
+    }
+    return CPRAG_OK;
+}
+
+std::string fnv1a64Hex(const std::string& text)
+{
+    uint64_t value = 14695981039346656037ull;
+    for (const unsigned char ch : text) {
+        value ^= ch;
+        value *= 1099511628211ull;
+    }
+
+    std::ostringstream out;
+    out << std::hex << std::setw(16) << std::setfill('0') << value;
+    return out.str();
+}
+
+long long countRows(cprag_handle* handle, const char* tableName)
+{
+    std::string sql = "SELECT COUNT(*) FROM ";
+    sql += tableName;
+    sqlite3_stmt* stmt = nullptr;
+    if (prepare(handle, sql.c_str(), &stmt) != CPRAG_OK) {
+        throw std::runtime_error(handle->lastError);
+    }
+
+    long long count = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        count = sqlite3_column_int64(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+    return count;
 }
 
 std::vector<Entity> loadEntities(cprag_handle* handle)
@@ -176,6 +312,43 @@ std::vector<Edge> loadEdges(cprag_handle* handle)
     }
     sqlite3_finalize(stmt);
     return edges;
+}
+
+std::vector<DocumentSummary> loadDocumentSummaries(cprag_handle* handle)
+{
+    sqlite3_stmt* stmt = nullptr;
+    if (prepare(handle,
+            "SELECT d.id, d.source_uri, d.title, d.content_hash, d.file_type, d.metadata_json, "
+            "COUNT(c.id) AS chunk_count, d.created_at, d.updated_at "
+            "FROM documents d "
+            "LEFT JOIN chunks c ON c.document_id = d.id "
+            "GROUP BY d.id, d.source_uri, d.title, d.content_hash, d.file_type, d.metadata_json, d.created_at, d.updated_at "
+            "ORDER BY d.source_uri",
+            &stmt)
+        != CPRAG_OK) {
+        throw std::runtime_error(handle->lastError);
+    }
+
+    std::vector<DocumentSummary> documents;
+    int stepRc = SQLITE_OK;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        DocumentSummary document;
+        document.id = sqlite3_column_int64(stmt, 0);
+        document.sourceUri = columnText(stmt, 1);
+        document.title = columnText(stmt, 2);
+        document.contentHash = columnText(stmt, 3);
+        document.fileType = sqlite3_column_int(stmt, 4);
+        document.metadataJson = columnText(stmt, 5);
+        document.chunkCount = sqlite3_column_int64(stmt, 6);
+        document.createdAt = columnText(stmt, 7);
+        document.updatedAt = columnText(stmt, 8);
+        documents.push_back(std::move(document));
+    }
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        throw std::runtime_error(sqliteError(handle->db));
+    }
+    return documents;
 }
 
 std::string jsonEscape(const std::string& input)
@@ -306,6 +479,84 @@ std::vector<Anchor> findAnchors(cprag_handle* handle, const std::string& query, 
     return anchors;
 }
 
+std::string ftsQueryForText(const std::string& text)
+{
+    std::vector<std::string> tokens;
+    std::string current;
+    for (const char ch : text) {
+        const unsigned char uch = static_cast<unsigned char>(ch);
+        if (std::isalnum(uch) != 0 || ch == '_') {
+            current.push_back(static_cast<char>(std::tolower(uch)));
+        } else if (!current.empty()) {
+            tokens.push_back(current);
+            current.clear();
+        }
+    }
+    if (!current.empty()) {
+        tokens.push_back(current);
+    }
+
+    std::sort(tokens.begin(), tokens.end());
+    tokens.erase(std::unique(tokens.begin(), tokens.end()), tokens.end());
+
+    std::ostringstream out;
+    for (const std::string& token : tokens) {
+        if (token.empty()) {
+            continue;
+        }
+        if (out.tellp() > 0) {
+            out << " OR ";
+        }
+        out << token << '*';
+    }
+    return out.str();
+}
+
+std::vector<ChunkHit> searchChunks(cprag_handle* handle, const std::string& query, int limit)
+{
+    const std::string ftsQuery = ftsQueryForText(query);
+    if (ftsQuery.empty() || limit <= 0) {
+        return {};
+    }
+
+    sqlite3_stmt* stmt = nullptr;
+    if (prepare(handle,
+            "SELECT c.id, c.document_id, d.source_uri, d.title, c.chunk_index, c.text, c.length, bm25(chunks_fts) AS rank "
+            "FROM chunks_fts "
+            "JOIN chunks c ON c.id = chunks_fts.rowid "
+            "JOIN documents d ON d.id = c.document_id "
+            "WHERE chunks_fts MATCH ? "
+            "ORDER BY rank "
+            "LIMIT ?",
+            &stmt)
+        != CPRAG_OK) {
+        throw std::runtime_error(handle->lastError);
+    }
+
+    bindText(stmt, 1, ftsQuery);
+    sqlite3_bind_int(stmt, 2, limit);
+
+    std::vector<ChunkHit> chunks;
+    int stepRc = SQLITE_OK;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        ChunkHit chunk;
+        chunk.id = sqlite3_column_int64(stmt, 0);
+        chunk.documentId = sqlite3_column_int64(stmt, 1);
+        chunk.sourceUri = columnText(stmt, 2);
+        chunk.title = columnText(stmt, 3);
+        chunk.chunkIndex = sqlite3_column_int(stmt, 4);
+        chunk.text = columnText(stmt, 5);
+        chunk.length = sqlite3_column_int(stmt, 6);
+        chunk.rank = sqlite3_column_double(stmt, 7);
+        chunks.push_back(std::move(chunk));
+    }
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        throw std::runtime_error(sqliteError(handle->db));
+    }
+    return chunks;
+}
+
 std::unordered_set<std::string> relationFilterSet(const std::string& filterCsv)
 {
     std::unordered_set<std::string> filters;
@@ -335,7 +586,8 @@ std::string buildSubgraphJson(
     const std::vector<Edge>& edges,
     const std::vector<Anchor>& anchors,
     int hops,
-    const std::string& relationFilterCsv)
+    const std::string& relationFilterCsv,
+    const std::vector<ChunkHit>& chunkHits)
 {
     std::unordered_map<std::string, Entity> entityById;
     for (const Entity& entity : entities) {
@@ -391,6 +643,23 @@ std::string buildSubgraphJson(
             out << ',';
         }
         out << "{\"id\":" << jsonString(anchor.id) << ",\"score\":" << anchor.score << '}';
+    }
+
+    out << "],\"chunks\":[";
+    for (size_t i = 0; i < chunkHits.size(); ++i) {
+        const ChunkHit& chunk = chunkHits[i];
+        if (i != 0) {
+            out << ',';
+        }
+        out << "{\"id\":" << chunk.id
+            << ",\"document_id\":" << chunk.documentId
+            << ",\"source_uri\":" << jsonString(chunk.sourceUri)
+            << ",\"title\":" << jsonString(chunk.title)
+            << ",\"chunk_index\":" << chunk.chunkIndex
+            << ",\"text\":" << jsonString(chunk.text)
+            << ",\"length\":" << chunk.length
+            << ",\"rank\":" << chunk.rank
+            << '}';
     }
 
     out << "],\"subgraph\":{\"nodes\":[";
@@ -467,6 +736,208 @@ int initLibraryPath(const std::filesystem::path& libraryPath, std::string* error
         }
         return CPRAG_IO_ERROR;
     }
+}
+
+cprag::ChunkFileType chunkFileTypeFromInt(int fileType)
+{
+    if (fileType == CPRAG_CHUNK_CODE_REXX) {
+        return cprag::ChunkFileType::CodeRexx;
+    }
+    if (fileType == CPRAG_CHUNK_MARKDOWN) {
+        return cprag::ChunkFileType::Markdown;
+    }
+    return cprag::ChunkFileType::PlainText;
+}
+
+int selectDocumentId(cprag_handle* handle, const std::string& sourceUri, long long* outId)
+{
+    sqlite3_stmt* stmt = nullptr;
+    const int prepRc = prepare(handle, "SELECT id FROM documents WHERE source_uri = ?", &stmt);
+    if (prepRc != CPRAG_OK) {
+        return prepRc;
+    }
+    bindText(stmt, 1, sourceUri);
+    const int stepRc = sqlite3_step(stmt);
+    if (stepRc == SQLITE_ROW) {
+        *outId = sqlite3_column_int64(stmt, 0);
+        sqlite3_finalize(stmt);
+        return CPRAG_OK;
+    }
+    sqlite3_finalize(stmt);
+    return setErrorCode(handle, CPRAG_NOT_FOUND, "document was not found after ingest");
+}
+
+int upsertDocument(
+    cprag_handle* handle,
+    const std::string& sourceUri,
+    const std::string& title,
+    const std::string& contentHash,
+    int fileType,
+    const std::string& metadata,
+    long long* outId)
+{
+    sqlite3_stmt* stmt = nullptr;
+    const int prepRc = prepare(handle,
+        "INSERT INTO documents (source_uri, title, content_hash, file_type, metadata_json) "
+        "VALUES (?, ?, ?, ?, ?) "
+        "ON CONFLICT(source_uri) DO UPDATE SET "
+        "title=excluded.title, content_hash=excluded.content_hash, file_type=excluded.file_type, "
+        "metadata_json=excluded.metadata_json, updated_at=CURRENT_TIMESTAMP",
+        &stmt);
+    if (prepRc != CPRAG_OK) {
+        return prepRc;
+    }
+
+    bindText(stmt, 1, sourceUri);
+    bindText(stmt, 2, title);
+    bindText(stmt, 3, contentHash);
+    sqlite3_bind_int(stmt, 4, fileType);
+    bindText(stmt, 5, metadata);
+
+    const int stepRc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    return selectDocumentId(handle, sourceUri, outId);
+}
+
+int deleteDocumentChunks(cprag_handle* handle, long long documentId)
+{
+    sqlite3_stmt* stmt = nullptr;
+    const int prepRc = prepare(handle, "DELETE FROM chunks WHERE document_id = ?", &stmt);
+    if (prepRc != CPRAG_OK) {
+        return prepRc;
+    }
+    sqlite3_bind_int64(stmt, 1, documentId);
+    const int stepRc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    return CPRAG_OK;
+}
+
+std::pair<long long, long long> locateChunkOffsets(
+    const std::string& text,
+    const std::string& chunk,
+    int chunkOverlap,
+    size_t* searchStart)
+{
+    if (chunk.empty()) {
+        return {-1, -1};
+    }
+
+    size_t begin = text.find(chunk, std::min(*searchStart, text.size()));
+    if (begin == std::string::npos) {
+        begin = text.find(chunk);
+    }
+    if (begin == std::string::npos) {
+        return {-1, -1};
+    }
+
+    const size_t end = begin + chunk.size();
+    const size_t rewind = chunkOverlap <= 0 ? 0 : std::min(static_cast<size_t>(chunkOverlap + 128), chunk.size());
+    *searchStart = end > rewind ? end - rewind : end;
+    return {static_cast<long long>(begin), static_cast<long long>(end)};
+}
+
+int insertChunkRows(
+    cprag_handle* handle,
+    long long documentId,
+    const std::string& text,
+    const std::vector<std::string>& chunks,
+    int chunkOverlap,
+    std::vector<long long>* chunkIds)
+{
+    sqlite3_stmt* stmt = nullptr;
+    const int prepRc = prepare(handle,
+        "INSERT INTO chunks (document_id, chunk_index, text, length, start_offset, end_offset, metadata_json) "
+        "VALUES (?, ?, ?, ?, ?, ?, '{}')",
+        &stmt);
+    if (prepRc != CPRAG_OK) {
+        return prepRc;
+    }
+
+    size_t searchStart = 0;
+    for (size_t i = 0; i < chunks.size(); ++i) {
+        const auto offsets = locateChunkOffsets(text, chunks[i], chunkOverlap, &searchStart);
+        sqlite3_reset(stmt);
+        sqlite3_clear_bindings(stmt);
+        sqlite3_bind_int64(stmt, 1, documentId);
+        sqlite3_bind_int(stmt, 2, static_cast<int>(i));
+        bindText(stmt, 3, chunks[i]);
+        sqlite3_bind_int(stmt, 4, static_cast<int>(chunks[i].size()));
+        sqlite3_bind_int64(stmt, 5, offsets.first);
+        sqlite3_bind_int64(stmt, 6, offsets.second);
+
+        const int stepRc = sqlite3_step(stmt);
+        if (stepRc != SQLITE_DONE) {
+            sqlite3_finalize(stmt);
+            return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+        }
+        chunkIds->push_back(sqlite3_last_insert_rowid(handle->db));
+    }
+
+    sqlite3_finalize(stmt);
+    return CPRAG_OK;
+}
+
+std::string buildIngestJson(
+    long long documentId,
+    const std::string& sourceUri,
+    const std::string& title,
+    const std::string& contentHash,
+    int fileType,
+    const std::string& metadata,
+    const std::vector<std::string>& chunks,
+    const std::vector<long long>& chunkIds)
+{
+    std::ostringstream out;
+    out << "{\"success\":true,\"document\":{\"id\":" << documentId
+        << ",\"source_uri\":" << jsonString(sourceUri)
+        << ",\"title\":" << jsonString(title)
+        << ",\"content_hash\":" << jsonString(contentHash)
+        << ",\"file_type\":" << fileType
+        << ",\"metadata\":" << metadata
+        << "},\"chunk_count\":" << chunks.size()
+        << ",\"chunks\":[";
+
+    for (size_t i = 0; i < chunks.size(); ++i) {
+        if (i != 0) {
+            out << ',';
+        }
+        out << "{\"id\":" << chunkIds[i]
+            << ",\"index\":" << i
+            << ",\"length\":" << chunks[i].size()
+            << '}';
+    }
+    out << "]}";
+    return out.str();
+}
+
+std::string buildSourcesJson(const std::vector<DocumentSummary>& documents)
+{
+    std::ostringstream out;
+    out << "{\"success\":true,\"sources\":[";
+    for (size_t i = 0; i < documents.size(); ++i) {
+        const DocumentSummary& document = documents[i];
+        if (i != 0) {
+            out << ',';
+        }
+        out << "{\"id\":" << document.id
+            << ",\"source_uri\":" << jsonString(document.sourceUri)
+            << ",\"title\":" << jsonString(document.title)
+            << ",\"content_hash\":" << jsonString(document.contentHash)
+            << ",\"file_type\":" << document.fileType
+            << ",\"chunk_count\":" << document.chunkCount
+            << ",\"created_at\":" << jsonString(document.createdAt)
+            << ",\"updated_at\":" << jsonString(document.updatedAt)
+            << ",\"metadata\":" << (document.metadataJson.empty() ? "{}" : document.metadataJson)
+            << '}';
+    }
+    out << "]}";
+    return out.str();
 }
 
 } // namespace
@@ -559,14 +1030,11 @@ int cprag_chunk_text(
         return setErrorCode(&tempHandle, CPRAG_INVALID_ARGUMENT, "text is required");
     }
 
-    cprag::ChunkFileType type = cprag::ChunkFileType::PlainText;
-    if (file_type == CPRAG_CHUNK_CODE_REXX) {
-        type = cprag::ChunkFileType::CodeRexx;
-    } else if (file_type == CPRAG_CHUNK_MARKDOWN) {
-        type = cprag::ChunkFileType::Markdown;
-    }
-
-    const std::vector<std::string> chunks = cprag::chunkText(text, chunk_size, chunk_overlap, type);
+    const std::vector<std::string> chunks = cprag::chunkText(
+        text,
+        chunk_size,
+        chunk_overlap,
+        chunkFileTypeFromInt(file_type));
     std::ostringstream out;
     out << "{\"success\":true,\"chunks\":[";
     for (size_t i = 0; i < chunks.size(); ++i) {
@@ -606,7 +1074,12 @@ int cprag_add_entity(
         return prepRc;
     }
 
-    const std::string metadata = valueOrEmpty(metadata_json).empty() ? "{}" : valueOrEmpty(metadata_json);
+    const std::string metadata = metadataOrDefault(metadata_json);
+    const int metadataRc = validateMetadataJson(handle, metadata);
+    if (metadataRc != CPRAG_OK) {
+        sqlite3_finalize(stmt);
+        return metadataRc;
+    }
     bindText(stmt, 1, id);
     bindText(stmt, 2, label);
     bindText(stmt, 3, description);
@@ -643,7 +1116,12 @@ int cprag_add_edge(
         return prepRc;
     }
 
-    const std::string metadata = valueOrEmpty(metadata_json).empty() ? "{}" : valueOrEmpty(metadata_json);
+    const std::string metadata = metadataOrDefault(metadata_json);
+    const int metadataRc = validateMetadataJson(handle, metadata);
+    if (metadataRc != CPRAG_OK) {
+        sqlite3_finalize(stmt);
+        return metadataRc;
+    }
     bindText(stmt, 1, source_id);
     bindText(stmt, 2, target_id);
     bindText(stmt, 3, label);
@@ -656,6 +1134,94 @@ int cprag_add_edge(
         return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
     }
     return CPRAG_OK;
+}
+
+int cprag_ingest_text(
+    cprag_handle* handle,
+    const char* source_uri,
+    const char* title,
+    const char* text,
+    int file_type,
+    int chunk_size,
+    int chunk_overlap,
+    const char* metadata_json,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || source_uri == nullptr || text == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    if (handle->readOnly) {
+        return setErrorCode(handle, CPRAG_IO_ERROR, "library is open read-only");
+    }
+
+    const std::string sourceUri(source_uri);
+    if (sourceUri.empty()) {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "source_uri is required");
+    }
+
+    const std::string effectiveTitle = valueOrEmpty(title).empty() ? sourceUri : valueOrEmpty(title);
+    const std::string metadata = metadataOrDefault(metadata_json);
+    const int metadataRc = validateMetadataJson(handle, metadata);
+    if (metadataRc != CPRAG_OK) {
+        return metadataRc;
+    }
+
+    const std::string content(text);
+    const std::string contentHash = fnv1a64Hex(content);
+    const int effectiveChunkSize = chunk_size <= 0 ? 1000 : chunk_size;
+    const int effectiveOverlap = chunk_overlap < 0 ? 0 : chunk_overlap;
+    const std::vector<std::string> chunks = cprag::chunkText(
+        content,
+        effectiveChunkSize,
+        effectiveOverlap,
+        chunkFileTypeFromInt(file_type));
+
+    const int beginRc = execSql(handle, "BEGIN IMMEDIATE TRANSACTION");
+    if (beginRc != CPRAG_OK) {
+        return beginRc;
+    }
+
+    long long documentId = 0;
+    int rc = upsertDocument(handle, sourceUri, effectiveTitle, contentHash, file_type, metadata, &documentId);
+    if (rc == CPRAG_OK) {
+        rc = deleteDocumentChunks(handle, documentId);
+    }
+
+    std::vector<long long> chunkIds;
+    if (rc == CPRAG_OK) {
+        rc = insertChunkRows(handle, documentId, content, chunks, effectiveOverlap, &chunkIds);
+    }
+
+    if (rc != CPRAG_OK) {
+        execSql(handle, "ROLLBACK");
+        return rc;
+    }
+
+    rc = execSql(handle, "COMMIT");
+    if (rc != CPRAG_OK) {
+        execSql(handle, "ROLLBACK");
+        return rc;
+    }
+
+    return copyJson(
+        handle,
+        buildIngestJson(documentId, sourceUri, effectiveTitle, contentHash, file_type, metadata, chunks, chunkIds),
+        out_json,
+        out_json_size);
+}
+
+int cprag_list_sources(cprag_handle* handle, char* out_json, size_t out_json_size)
+{
+    if (handle == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+
+    try {
+        return copyJson(handle, buildSourcesJson(loadDocumentSummaries(handle)), out_json, out_json_size);
+    } catch (const std::exception& ex) {
+        return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
+    }
 }
 
 int cprag_search(
@@ -674,7 +1240,8 @@ int cprag_search(
         const int effectiveTopK = top_k <= 0 ? 3 : top_k;
         const int effectiveHops = hops < 0 ? 0 : hops;
         const std::vector<Anchor> anchors = findAnchors(handle, query, effectiveTopK);
-        const std::string json = buildSubgraphJson(loadEntities(handle), loadEdges(handle), anchors, effectiveHops, "");
+        const std::vector<ChunkHit> chunks = searchChunks(handle, query, effectiveTopK);
+        const std::string json = buildSubgraphJson(loadEntities(handle), loadEdges(handle), anchors, effectiveHops, "", chunks);
         return copyJson(handle, json, out_json, out_json_size);
     } catch (const std::exception& ex) {
         return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
@@ -704,7 +1271,8 @@ int cprag_expand(
             loadEdges(handle),
             anchors,
             effectiveHops,
-            valueOrEmpty(relation_filter_csv));
+            valueOrEmpty(relation_filter_csv),
+            {});
         return copyJson(handle, json, out_json, out_json_size);
     } catch (const std::exception& ex) {
         return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
@@ -720,6 +1288,8 @@ int cprag_stats(cprag_handle* handle, char* out_json, size_t out_json_size)
     sqlite3_stmt* stmt = nullptr;
     long long entityCount = 0;
     long long edgeCount = 0;
+    long long documentCount = 0;
+    long long chunkCount = 0;
 
     if (prepare(handle, "SELECT COUNT(*) FROM entities", &stmt) != CPRAG_OK) {
         return CPRAG_DATABASE_ERROR;
@@ -737,9 +1307,27 @@ int cprag_stats(cprag_handle* handle, char* out_json, size_t out_json_size)
     }
     sqlite3_finalize(stmt);
 
+    if (prepare(handle, "SELECT COUNT(*) FROM documents", &stmt) != CPRAG_OK) {
+        return CPRAG_DATABASE_ERROR;
+    }
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        documentCount = sqlite3_column_int64(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+
+    if (prepare(handle, "SELECT COUNT(*) FROM chunks", &stmt) != CPRAG_OK) {
+        return CPRAG_DATABASE_ERROR;
+    }
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        chunkCount = sqlite3_column_int64(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+
     std::ostringstream out;
     out << "{\"success\":true,\"entities\":" << entityCount
         << ",\"edges\":" << edgeCount
+        << ",\"documents\":" << documentCount
+        << ",\"chunks\":" << chunkCount
         << ",\"library\":" << jsonString(handle->libraryPath.string())
         << '}';
     return copyJson(handle, out.str(), out_json, out_json_size);

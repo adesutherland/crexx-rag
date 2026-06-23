@@ -1,5 +1,4 @@
 options levelb
-import rxfnsb
 import rxrag
 
 /**
@@ -10,9 +9,10 @@ import rxrag
  */
 
 library = "./example.cprag"
-query = "what database does auth use"
+searchText = "what database does auth use"
 topK = 4
 hops = 2
 
-say search(library, query, topK, hops)
-
+say ingest(library, "profile:balanced", "Balanced profile", "Auth uses the PostgreSQL user profile database.", "plain", 120, 20, "{}")
+say listsources(library)
+say search(library, searchText, topK, hops)

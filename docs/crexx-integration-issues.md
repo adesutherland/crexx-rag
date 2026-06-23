@@ -18,13 +18,29 @@ because it can change independently of the installed user experience.
   callback typed as mutable `char *`, so plugin code that naturally has
   `const char *` status messages needs local mutable copies to avoid compiler
   warnings.
+- The installed driver separates compile-time import roots from runtime module
+  loading. `-i cmake-build-debug/bin` lets `rxc` read native signatures from the
+  plugin, but the VM still needs `rx_rag` listed as a runtime module and
+  `cmake-build-debug/bin` on the VM location path.
 
 ## Current Impact
 
 `crexx-rag` can build the native core, CLI, MCP server, and tests from the
-installed system dependencies. It cannot build the `rx_rag.rxplugin` dynamic
-CREXX plugin from the installed CREXX package alone because the rxpa development
-header is not installed.
+installed system dependencies. It can also build and run the `rx_rag.rxplugin`
+dynamic CREXX plugin against the installed CREXX runtime, provided the temporary
+vendored rxpa development header remains available.
+
+The runtime smoke is:
+
+```bash
+ctest --preset debug -R crexx_profile_smoke --output-on-failure
+```
+
+The underlying installed-tool pattern is documented in
+[`crexx-plugin-pattern.md`](crexx-plugin-pattern.md).
+
+The project still cannot build the plugin from the installed CREXX package alone
+because the rxpa development header is not installed.
 
 As a temporary bridge, this repo vendors a copy of `crexxpa.h` from the sibling
 CREXX source tree at `third_party/crexx-rxpa/crexxpa.h`. That header depends on
@@ -66,6 +82,8 @@ cmake --preset debug -DCPRAG_ALLOW_VENDORED_CREXXPA=OFF
   - CREXX version/build id
 - Document the recommended external dynamic plugin build flow against an
   installed CREXX tree.
+- Document clearly that an external project must expose a locally built
+  `.rxplugin` to both the compiler/import phase and the runtime module loader.
 - Consider making rxpa string setter APIs accept `const char *` where the
   callee does not mutate the passed string.
 

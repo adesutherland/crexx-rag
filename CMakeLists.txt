@@ -26,6 +26,9 @@ set(CPRAG_VENDORED_CREXXPA_DIR "${CMAKE_CURRENT_LIST_DIR}/third_party/crexx-rxpa
 
 if(CREXX_EXECUTABLE)
     get_filename_component(CREXX_INSTALL_BIN_DIR "${CREXX_EXECUTABLE}" DIRECTORY)
+    find_program(CREXX_RXC_EXECUTABLE rxc HINTS "${CREXX_INSTALL_BIN_DIR}")
+    find_program(CREXX_RXAS_EXECUTABLE rxas HINTS "${CREXX_INSTALL_BIN_DIR}")
+    find_program(CREXX_RXVME_EXECUTABLE rxvme HINTS "${CREXX_INSTALL_BIN_DIR}")
     if(NOT CREXX_RXPA_INCLUDE_DIR)
         foreach(candidate
                 "${CREXX_INSTALL_BIN_DIR}"
@@ -111,4 +114,25 @@ if(CPRAG_BUILD_TESTS)
     add_executable(ragcore_smoke tests/ragcore_smoke.cpp)
     target_link_libraries(ragcore_smoke PRIVATE cprag_core)
     add_test(NAME ragcore_smoke COMMAND ragcore_smoke)
+
+    if(CPRAG_BUILD_CREXX_PLUGIN
+            AND TARGET _rag
+            AND CREXX_EXECUTABLE
+            AND CREXX_RXC_EXECUTABLE
+            AND CREXX_RXAS_EXECUTABLE
+            AND CREXX_RXVME_EXECUTABLE)
+        add_test(
+            NAME crexx_profile_smoke
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_PROFILE=${CMAKE_CURRENT_LIST_DIR}/crexx/profiles/balanced.crexx"
+                "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_rag>"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/crexx-profile-smoke"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CrexxProfileSmoke.cmake")
+    elseif(CPRAG_BUILD_CREXX_PLUGIN)
+        message(STATUS "Skipping CREXX profile smoke test; installed rxc/rxas/rxvme was not found.")
+    endif()
 endif()

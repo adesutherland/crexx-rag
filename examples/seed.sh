@@ -10,5 +10,7 @@ LIB="${2:-./example.cprag}"
 "${BIN}" add-entity "${LIB}" entity:backup Service "Nightly backup service for PostgreSQL"
 "${BIN}" add-edge "${LIB}" entity:auth entity:postgres CONNECTS_TO 1.0
 "${BIN}" add-edge "${LIB}" entity:postgres entity:backup BACKED_UP_BY 0.8
+"${BIN}" ingest-text "${LIB}" docs/auth.md "Auth architecture notes" markdown 120 20 \
+  $'# Auth\n\nAuthentication depends on PostgreSQL and the backup service protects the user profile data.'
+"${BIN}" list-sources "${LIB}"
 "${BIN}" search "${LIB}" "what database does auth use" 3 2
-

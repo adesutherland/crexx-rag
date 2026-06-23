@@ -8,6 +8,9 @@ Repository guidance for `crexx-rag`.
 - Keep CREXX as the tunable orchestration/profile layer.
 - Keep MCP as a thin client-facing adapter over the same core.
 - Prefer small, shareable local library bundles over server-only storage.
+- Treat the typed relationship map as fundamental to the vision. The primary
+  use case is an IT architecture view of the world, likely ArchiMate-inspired,
+  but the same model should be useful for other structured domains.
 - Keep the first storage format folder-based and shareable:
   `manifest.json`, `library.sqlite`, and later `vectors.faiss`.
 
@@ -68,6 +71,15 @@ gap in `docs/crexx-integration-issues.md`. One project goal is to surface CREXX
 packaging defects and missing native-plugin ergonomics clearly enough that the
 CREXX team can improve them.
 
+For dynamic plugin execution, remember that `-i` is compile/import only. The VM
+also needs the plugin as a runtime module, for example:
+
+```bash
+rxvme -l cmake-build-debug/bin <program> rx_rag
+```
+
+The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
+
 ## Design Rules
 
 - The C ABI in `include/crexx_rag/ragcore.h` is the stable boundary.
@@ -75,6 +87,9 @@ CREXX team can improve them.
   through the C ABI.
 - Keep `cprag_core` usable on its own; CREXX, CLI, and MCP are adapters over
   the same core.
+- Nodes have meaningful types and relationships have meaningful type/semantic
+  labels. Do not treat these as presentation-only metadata; they affect
+  traversal, filtering, ranking, and explanation.
 - Keep graph features intentionally essential until a real workload proves the
   need for a graph database:
   - k-hop expansion
@@ -103,14 +118,21 @@ CREXX team can improve them.
 ## Current Milestone
 
 - Native core supports SQLite-backed entities and edges.
-- Search is intentionally naive text overlap over entity ids, labels, and
-  descriptions.
+- Native core supports persistent documents and chunks with SQLite FTS5 lexical
+  retrieval.
+- Entity and edge labels currently serve as the first surface for typed
+  architecture map semantics.
+- Search combines naive text overlap over entity ids, labels, and descriptions
+  with FTS5 chunk hits.
 - Graph expansion is BFS over incoming and outgoing edges.
 - Chunking is a Qt-free port inspired by CognitivePipelines' RAG chunkers,
   currently covering plain text, Markdown, and Rexx-oriented source.
 - MCP server is a stdio scaffold with `library_status`, `library_search`,
-  `library_add_entity`, and `library_add_edge`.
+  `library_ingest`, `library_list_sources`, `library_add_entity`, and
+  `library_add_edge`.
 - CREXX plugin currently builds through the temporary vendored rxpa headers.
+- CREXX plugin runtime is covered by `crexx_profile_smoke` when installed
+  `rxc`, `rxas`, and `rxvme` are available.
 
 ## Publication
 

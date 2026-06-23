@@ -58,6 +58,23 @@ int cprag_add_edge(
     double weight,
     const char* metadata_json);
 
+int cprag_ingest_text(
+    cprag_handle* handle,
+    const char* source_uri,
+    const char* title,
+    const char* text,
+    int file_type,
+    int chunk_size,
+    int chunk_overlap,
+    const char* metadata_json,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_list_sources(
+    cprag_handle* handle,
+    char* out_json,
+    size_t out_json_size);
+
 int cprag_search(
     cprag_handle* handle,
     const char* query,

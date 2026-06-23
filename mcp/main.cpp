@@ -2,7 +2,9 @@
 
 #include <cctype>
 #include <cstdlib>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -18,18 +20,39 @@ std::string envOrDefault(const char* name, const char* fallback)
 
 std::string jsonEscape(const std::string& value)
 {
-    std::string out;
-    for (const char ch : value) {
-        if (ch == '"' || ch == '\\') {
-            out.push_back('\\');
-        }
-        if (ch == '\n') {
-            out += "\\n";
-        } else {
-            out.push_back(ch);
+    std::ostringstream out;
+    for (const unsigned char ch : value) {
+        switch (ch) {
+        case '"':
+            out << "\\\"";
+            break;
+        case '\\':
+            out << "\\\\";
+            break;
+        case '\b':
+            out << "\\b";
+            break;
+        case '\f':
+            out << "\\f";
+            break;
+        case '\n':
+            out << "\\n";
+            break;
+        case '\r':
+            out << "\\r";
+            break;
+        case '\t':
+            out << "\\t";
+            break;
+        default:
+            if (ch < 0x20) {
+                out << "\\u" << std::hex << std::setw(4) << std::setfill('0') << static_cast<int>(ch);
+            } else {
+                out << ch;
+            }
         }
     }
-    return out;
+    return out.str();
 }
 
 std::string requestId(const std::string& line)
@@ -64,6 +87,60 @@ std::string requestId(const std::string& line)
     return line.substr(begin, end - begin);
 }
 
+bool decodeJsonStringAt(const std::string& line, size_t quote, std::string* out)
+{
+    if (quote >= line.size() || line[quote] != '"') {
+        return false;
+    }
+
+    std::string value;
+    for (size_t i = quote + 1; i < line.size(); ++i) {
+        const char ch = line[i];
+        if (ch == '"') {
+            *out = value;
+            return true;
+        }
+        if (ch != '\\' || i + 1 >= line.size()) {
+            value.push_back(ch);
+            continue;
+        }
+
+        const char escaped = line[++i];
+        switch (escaped) {
+        case '"':
+        case '\\':
+        case '/':
+            value.push_back(escaped);
+            break;
+        case 'b':
+            value.push_back('\b');
+            break;
+        case 'f':
+            value.push_back('\f');
+            break;
+        case 'n':
+            value.push_back('\n');
+            break;
+        case 'r':
+            value.push_back('\r');
+            break;
+        case 't':
+            value.push_back('\t');
+            break;
+        case 'u':
+            if (i + 4 < line.size()) {
+                i += 4;
+                value.push_back('?');
+            }
+            break;
+        default:
+            value.push_back(escaped);
+            break;
+        }
+    }
+    return false;
+}
+
 std::string jsonStringField(const std::string& line, const std::string& field, const std::string& fallback = "")
 {
     const std::string key = "\"" + field + "\"";
@@ -79,11 +156,11 @@ std::string jsonStringField(const std::string& line, const std::string& field, c
     if (quote == std::string::npos) {
         return fallback;
     }
-    const size_t end = line.find('"', quote + 1);
-    if (end == std::string::npos) {
+    std::string value;
+    if (!decodeJsonStringAt(line, quote, &value)) {
         return fallback;
     }
-    return line.substr(quote + 1, end - quote - 1);
+    return value;
 }
 
 int jsonIntField(const std::string& line, const std::string& field, int fallback)
@@ -100,6 +177,31 @@ int jsonIntField(const std::string& line, const std::string& field, int fallback
     return std::atoi(line.c_str() + colon + 1);
 }
 
+double jsonDoubleField(const std::string& line, const std::string& field, double fallback)
+{
+    const std::string key = "\"" + field + "\"";
+    const size_t keyPos = line.find(key);
+    if (keyPos == std::string::npos) {
+        return fallback;
+    }
+    const size_t colon = line.find(':', keyPos + key.size());
+    if (colon == std::string::npos) {
+        return fallback;
+    }
+    return std::atof(line.c_str() + colon + 1);
+}
+
+int fileTypeFromString(const std::string& type)
+{
+    if (type == "rexx") {
+        return CPRAG_CHUNK_CODE_REXX;
+    }
+    if (type == "markdown" || type == "md") {
+        return CPRAG_CHUNK_MARKDOWN;
+    }
+    return CPRAG_CHUNK_PLAIN_TEXT;
+}
+
 void respond(const std::string& id, const std::string& resultJson)
 {
     std::cout << "{\"jsonrpc\":\"2.0\",\"id\":" << id << ",\"result\":" << resultJson << "}" << std::endl;
@@ -113,7 +215,7 @@ void respondError(const std::string& id, int code, const std::string& message)
 
 std::string toolListJson()
 {
-    return R"JSON({"tools":[{"name":"library_status","description":"Return local GraphRAG library statistics.","inputSchema":{"type":"object","properties":{}}},{"name":"library_search","description":"Search the local GraphRAG library and expand graph context.","inputSchema":{"type":"object","properties":{"query":{"type":"string"},"top_k":{"type":"integer"},"hops":{"type":"integer"}},"required":["query"]}},{"name":"library_add_entity","description":"Add or update one graph entity.","inputSchema":{"type":"object","properties":{"id":{"type":"string"},"label":{"type":"string"},"description":{"type":"string"},"metadata_json":{"type":"string"}},"required":["id","label","description"]}},{"name":"library_add_edge","description":"Add a relationship between two entities.","inputSchema":{"type":"object","properties":{"source_id":{"type":"string"},"target_id":{"type":"string"},"label":{"type":"string"},"weight":{"type":"number"},"metadata_json":{"type":"string"}},"required":["source_id","target_id","label"]}}]})JSON";
+    return R"JSON({"tools":[{"name":"library_status","description":"Return local GraphRAG library statistics.","inputSchema":{"type":"object","properties":{}}},{"name":"library_search","description":"Search the local GraphRAG library and expand graph context.","inputSchema":{"type":"object","properties":{"query":{"type":"string"},"top_k":{"type":"integer"},"hops":{"type":"integer"}},"required":["query"]}},{"name":"library_ingest","description":"Ingest one text source into persistent document chunks.","inputSchema":{"type":"object","properties":{"source_uri":{"type":"string"},"title":{"type":"string"},"text":{"type":"string"},"file_type":{"type":"string","enum":["plain","rexx","markdown"]},"chunk_size":{"type":"integer"},"overlap":{"type":"integer"},"metadata_json":{"type":"string"}},"required":["source_uri","text"]}},{"name":"library_list_sources","description":"List ingested document sources.","inputSchema":{"type":"object","properties":{}}},{"name":"library_add_entity","description":"Add or update one graph entity.","inputSchema":{"type":"object","properties":{"id":{"type":"string"},"label":{"type":"string"},"description":{"type":"string"},"metadata_json":{"type":"string"}},"required":["id","label","description"]}},{"name":"library_add_edge","description":"Add a relationship between two entities.","inputSchema":{"type":"object","properties":{"source_id":{"type":"string"},"target_id":{"type":"string"},"label":{"type":"string"},"weight":{"type":"number"},"metadata_json":{"type":"string"}},"required":["source_id","target_id","label"]}}]})JSON";
 }
 
 std::string textContentResult(const std::string& text)
@@ -180,6 +282,43 @@ int main(int argc, char** argv)
                 continue;
             }
 
+            if (name == "library_ingest") {
+                const std::string sourceUri = jsonStringField(line, "source_uri");
+                const std::string title = jsonStringField(line, "title", sourceUri);
+                const std::string text = jsonStringField(line, "text");
+                const std::string fileType = jsonStringField(line, "file_type", "plain");
+                const int chunkSize = jsonIntField(line, "chunk_size", 1000);
+                const int overlap = jsonIntField(line, "overlap", 200);
+                const std::string metadata = jsonStringField(line, "metadata_json", "{}");
+                rc = cprag_ingest_text(
+                    handle,
+                    sourceUri.c_str(),
+                    title.c_str(),
+                    text.c_str(),
+                    fileTypeFromString(fileType),
+                    chunkSize,
+                    overlap,
+                    metadata.c_str(),
+                    buffer.data(),
+                    buffer.size());
+                if (rc == CPRAG_OK) {
+                    respond(id, textContentResult(buffer.data()));
+                } else {
+                    respondError(id, -32000, cprag_last_error(handle));
+                }
+                continue;
+            }
+
+            if (name == "library_list_sources") {
+                rc = cprag_list_sources(handle, buffer.data(), buffer.size());
+                if (rc == CPRAG_OK) {
+                    respond(id, textContentResult(buffer.data()));
+                } else {
+                    respondError(id, -32000, cprag_last_error(handle));
+                }
+                continue;
+            }
+
             if (name == "library_add_entity") {
                 const std::string entityId = jsonStringField(line, "id");
                 const std::string label = jsonStringField(line, "label");
@@ -199,7 +338,8 @@ int main(int argc, char** argv)
                 const std::string target = jsonStringField(line, "target_id");
                 const std::string label = jsonStringField(line, "label");
                 const std::string metadata = jsonStringField(line, "metadata_json", "{}");
-                rc = cprag_add_edge(handle, source.c_str(), target.c_str(), label.c_str(), 1.0, metadata.c_str());
+                const double weight = jsonDoubleField(line, "weight", 1.0);
+                rc = cprag_add_edge(handle, source.c_str(), target.c_str(), label.c_str(), weight, metadata.c_str());
                 if (rc == CPRAG_OK) {
                     respond(id, textContentResult("{\"success\":true}"));
                 } else {

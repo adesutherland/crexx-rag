@@ -1,7 +1,9 @@
 #include "crexx_rag/ragcore.h"
 
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -16,6 +18,9 @@ void usage()
         << "  crexx-rag init <library>\n"
         << "  crexx-rag add-entity <library> <id> <label> <description> [metadata-json]\n"
         << "  crexx-rag add-edge <library> <source-id> <target-id> <label> [weight] [metadata-json]\n"
+        << "  crexx-rag ingest-text <library> <source-uri> <title> <plain|rexx|markdown> <chunk-size> <overlap> <text> [metadata-json]\n"
+        << "  crexx-rag ingest-file <library> <path> <plain|rexx|markdown> <chunk-size> <overlap> [title] [metadata-json]\n"
+        << "  crexx-rag list-sources <library>\n"
         << "  crexx-rag search <library> <query> [top-k] [hops]\n"
         << "  crexx-rag expand <library> <anchor-csv> [hops] [relation-filter-csv]\n"
         << "  crexx-rag chunk <plain|rexx|markdown> <chunk-size> <overlap> <text>\n"
@@ -52,6 +57,29 @@ int printJsonResult(cprag_handle* handle, int rc, std::vector<char>& buffer)
     }
     std::cout << buffer.data() << '\n';
     return 0;
+}
+
+int fileTypeFromString(const std::string& type)
+{
+    if (type == "rexx") {
+        return CPRAG_CHUNK_CODE_REXX;
+    }
+    if (type == "markdown" || type == "md") {
+        return CPRAG_CHUNK_MARKDOWN;
+    }
+    return CPRAG_CHUNK_PLAIN_TEXT;
+}
+
+bool readFile(const std::string& path, std::string* out)
+{
+    std::ifstream input(path, std::ios::binary);
+    if (!input) {
+        return false;
+    }
+    std::ostringstream buffer;
+    buffer << input.rdbuf();
+    *out = buffer.str();
+    return true;
 }
 
 } // namespace
@@ -108,6 +136,66 @@ int main(int argc, char** argv)
         });
     }
 
+    if (command == "ingest-text") {
+        if (argc < 9) {
+            usage();
+            return 2;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const char* metadata = argc >= 10 ? argv[9] : "{}";
+            const int rc = cprag_ingest_text(
+                handle,
+                argv[3],
+                argv[4],
+                argv[8],
+                fileTypeFromString(argv[5]),
+                std::atoi(argv[6]),
+                std::atoi(argv[7]),
+                metadata,
+                buffer.data(),
+                buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "ingest-file") {
+        if (argc < 7) {
+            usage();
+            return 2;
+        }
+        std::string text;
+        if (!readFile(argv[3], &text)) {
+            std::cerr << "failed to read file: " << argv[3] << '\n';
+            return CPRAG_IO_ERROR;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const char* title = argc >= 8 ? argv[7] : argv[3];
+            const char* metadata = argc >= 9 ? argv[8] : "{}";
+            const int rc = cprag_ingest_text(
+                handle,
+                argv[3],
+                title,
+                text.c_str(),
+                fileTypeFromString(argv[4]),
+                std::atoi(argv[5]),
+                std::atoi(argv[6]),
+                metadata,
+                buffer.data(),
+                buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "list-sources") {
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const int rc = cprag_list_sources(handle, buffer.data(), buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
     if (command == "search") {
         if (argc < 4) {
             usage();
@@ -151,12 +239,7 @@ int main(int argc, char** argv)
         }
 
         int fileType = CPRAG_CHUNK_PLAIN_TEXT;
-        const std::string type = library;
-        if (type == "rexx") {
-            fileType = CPRAG_CHUNK_CODE_REXX;
-        } else if (type == "markdown" || type == "md") {
-            fileType = CPRAG_CHUNK_MARKDOWN;
-        }
+        fileType = fileTypeFromString(library);
 
         std::vector<char> buffer(kJsonBufferSize);
         const int rc = cprag_chunk_text(
