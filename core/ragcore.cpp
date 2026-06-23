@@ -32,6 +32,7 @@ namespace {
 
 struct Entity {
     std::string id;
+    std::string nodeType;
     std::string label;
     std::string description;
     std::string metadataJson;
@@ -41,6 +42,7 @@ struct Edge {
     long long rowid {0};
     std::string sourceId;
     std::string targetId;
+    std::string relationshipType;
     std::string label;
     double weight {1.0};
     std::string metadataJson;
@@ -72,6 +74,47 @@ struct ChunkHit {
     std::string text;
     int length {0};
     double rank {0.0};
+};
+
+struct StoredChunk {
+    long long id {0};
+    long long documentId {0};
+    std::string sourceUri;
+    std::string title;
+    int chunkIndex {0};
+    std::string text;
+    int length {0};
+    long long startOffset {-1};
+    long long endOffset {-1};
+    std::string metadataJson;
+};
+
+struct VocabularyItem {
+    const char* id;
+    const char* label;
+    const char* description;
+};
+
+static constexpr VocabularyItem kArchitectureNodeTypes[] = {
+    {"component", "Component", "Deployable or logical software component."},
+    {"service", "Service", "Externally meaningful application, business, or platform service."},
+    {"capability", "Capability", "Ability or outcome provided by people, process, or technology."},
+    {"data-object", "Data object", "Structured information used or produced by the architecture."},
+    {"technology-node", "Technology node", "Runtime, host, platform, or infrastructure node."},
+    {"deployment-target", "Deployment target", "Environment or target where components run."},
+    {"process", "Process", "Operational or business process."},
+    {"material", "Material", "Domain material, resource, or physical thing."}
+};
+
+static constexpr VocabularyItem kArchitectureRelationshipTypes[] = {
+    {"depends-on", "Depends on", "Source requires target to function."},
+    {"realizes", "Realizes", "Source implements or fulfills target."},
+    {"serves", "Serves", "Source provides behavior or value to target."},
+    {"accesses", "Accesses", "Source reads, writes, or otherwise uses target data."},
+    {"flows-to", "Flows to", "Information, control, or material flows from source to target."},
+    {"composed-of", "Composed of", "Source is structurally composed of target."},
+    {"deployed-on", "Deployed on", "Source runs on or is installed on target."},
+    {"associated-with", "Associated with", "General intentionally weak relationship."}
 };
 
 std::filesystem::path dbPathForLibrary(const std::filesystem::path& libraryPath)
@@ -115,12 +158,56 @@ int execSql(cprag_handle* handle, const char* sql)
     return CPRAG_OK;
 }
 
+bool columnExists(cprag_handle* handle, const std::string& table, const std::string& column)
+{
+    sqlite3_stmt* stmt = nullptr;
+    const std::string sql = "PRAGMA table_info(" + table + ")";
+    if (sqlite3_prepare_v2(handle->db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        return false;
+    }
+
+    bool found = false;
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        const unsigned char* text = sqlite3_column_text(stmt, 1);
+        const std::string columnName = text == nullptr ? std::string() : reinterpret_cast<const char*>(text);
+        if (columnName == column) {
+            found = true;
+            break;
+        }
+    }
+    sqlite3_finalize(stmt);
+    return found;
+}
+
+int ensureColumn(
+    cprag_handle* handle,
+    const std::string& table,
+    const std::string& column,
+    const std::string& definition,
+    bool* added = nullptr)
+{
+    if (added != nullptr) {
+        *added = false;
+    }
+    if (columnExists(handle, table, column)) {
+        return CPRAG_OK;
+    }
+
+    const std::string sql = "ALTER TABLE " + table + " ADD COLUMN " + definition;
+    const int rc = execSql(handle, sql.c_str());
+    if (rc == CPRAG_OK && added != nullptr) {
+        *added = true;
+    }
+    return rc;
+}
+
 int createSchema(cprag_handle* handle)
 {
     static constexpr const char* kSchema = R"SQL(
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS entities (
     id TEXT PRIMARY KEY,
+    node_type TEXT NOT NULL DEFAULT 'entity',
     label TEXT NOT NULL,
     description TEXT NOT NULL,
     metadata_json TEXT NOT NULL DEFAULT '{}'
@@ -129,6 +216,7 @@ CREATE TABLE IF NOT EXISTS edges (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     source_id TEXT NOT NULL,
     target_id TEXT NOT NULL,
+    relationship_type TEXT NOT NULL DEFAULT 'relationship',
     label TEXT NOT NULL,
     weight REAL NOT NULL DEFAULT 1.0,
     metadata_json TEXT NOT NULL DEFAULT '{}',
@@ -191,7 +279,38 @@ CREATE TRIGGER IF NOT EXISTS chunks_au AFTER UPDATE ON chunks BEGIN
     WHERE documents.id = new.document_id;
 END;
 )SQL";
-    return execSql(handle, kSchema);
+    int rc = execSql(handle, kSchema);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bool addedNodeType = false;
+    bool addedRelationshipType = false;
+    rc = ensureColumn(handle, "entities", "node_type", "node_type TEXT NOT NULL DEFAULT 'entity'", &addedNodeType);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    rc = ensureColumn(
+        handle,
+        "edges",
+        "relationship_type",
+        "relationship_type TEXT NOT NULL DEFAULT 'relationship'",
+        &addedRelationshipType);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    if (addedNodeType) {
+        rc = execSql(handle, "UPDATE entities SET node_type = label WHERE label <> ''");
+        if (rc != CPRAG_OK) {
+            return rc;
+        }
+    }
+    if (addedRelationshipType) {
+        rc = execSql(handle, "UPDATE edges SET relationship_type = label WHERE label <> ''");
+        if (rc != CPRAG_OK) {
+            return rc;
+        }
+    }
+    return CPRAG_OK;
 }
 
 bool bindText(sqlite3_stmt* stmt, int index, const std::string& value)
@@ -275,7 +394,7 @@ long long countRows(cprag_handle* handle, const char* tableName)
 std::vector<Entity> loadEntities(cprag_handle* handle)
 {
     sqlite3_stmt* stmt = nullptr;
-    if (prepare(handle, "SELECT id, label, description, metadata_json FROM entities", &stmt) != CPRAG_OK) {
+    if (prepare(handle, "SELECT id, node_type, label, description, metadata_json FROM entities", &stmt) != CPRAG_OK) {
         throw std::runtime_error(handle->lastError);
     }
 
@@ -283,9 +402,10 @@ std::vector<Entity> loadEntities(cprag_handle* handle)
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         Entity entity;
         entity.id = columnText(stmt, 0);
-        entity.label = columnText(stmt, 1);
-        entity.description = columnText(stmt, 2);
-        entity.metadataJson = columnText(stmt, 3);
+        entity.nodeType = columnText(stmt, 1);
+        entity.label = columnText(stmt, 2);
+        entity.description = columnText(stmt, 3);
+        entity.metadataJson = columnText(stmt, 4);
         entities.push_back(std::move(entity));
     }
     sqlite3_finalize(stmt);
@@ -295,7 +415,7 @@ std::vector<Entity> loadEntities(cprag_handle* handle)
 std::vector<Edge> loadEdges(cprag_handle* handle)
 {
     sqlite3_stmt* stmt = nullptr;
-    if (prepare(handle, "SELECT id, source_id, target_id, label, weight, metadata_json FROM edges", &stmt) != CPRAG_OK) {
+    if (prepare(handle, "SELECT id, source_id, target_id, relationship_type, label, weight, metadata_json FROM edges", &stmt) != CPRAG_OK) {
         throw std::runtime_error(handle->lastError);
     }
 
@@ -305,9 +425,10 @@ std::vector<Edge> loadEdges(cprag_handle* handle)
         edge.rowid = sqlite3_column_int64(stmt, 0);
         edge.sourceId = columnText(stmt, 1);
         edge.targetId = columnText(stmt, 2);
-        edge.label = columnText(stmt, 3);
-        edge.weight = sqlite3_column_double(stmt, 4);
-        edge.metadataJson = columnText(stmt, 5);
+        edge.relationshipType = columnText(stmt, 3);
+        edge.label = columnText(stmt, 4);
+        edge.weight = sqlite3_column_double(stmt, 5);
+        edge.metadataJson = columnText(stmt, 6);
         edges.push_back(std::move(edge));
     }
     sqlite3_finalize(stmt);
@@ -349,6 +470,46 @@ std::vector<DocumentSummary> loadDocumentSummaries(cprag_handle* handle)
         throw std::runtime_error(sqliteError(handle->db));
     }
     return documents;
+}
+
+std::vector<StoredChunk> loadChunksForSource(cprag_handle* handle, const std::string& sourceUri)
+{
+    sqlite3_stmt* stmt = nullptr;
+    if (prepare(handle,
+            "SELECT c.id, c.document_id, d.source_uri, d.title, c.chunk_index, c.text, c.length, "
+            "c.start_offset, c.end_offset, c.metadata_json "
+            "FROM chunks c "
+            "JOIN documents d ON d.id = c.document_id "
+            "WHERE d.source_uri = ? "
+            "ORDER BY c.chunk_index",
+            &stmt)
+        != CPRAG_OK) {
+        throw std::runtime_error(handle->lastError);
+    }
+
+    bindText(stmt, 1, sourceUri);
+
+    std::vector<StoredChunk> chunks;
+    int stepRc = SQLITE_OK;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        StoredChunk chunk;
+        chunk.id = sqlite3_column_int64(stmt, 0);
+        chunk.documentId = sqlite3_column_int64(stmt, 1);
+        chunk.sourceUri = columnText(stmt, 2);
+        chunk.title = columnText(stmt, 3);
+        chunk.chunkIndex = sqlite3_column_int(stmt, 4);
+        chunk.text = columnText(stmt, 5);
+        chunk.length = sqlite3_column_int(stmt, 6);
+        chunk.startOffset = sqlite3_column_int64(stmt, 7);
+        chunk.endOffset = sqlite3_column_int64(stmt, 8);
+        chunk.metadataJson = columnText(stmt, 9);
+        chunks.push_back(std::move(chunk));
+    }
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        throw std::runtime_error(sqliteError(handle->db));
+    }
+    return chunks;
 }
 
 std::string jsonEscape(const std::string& input)
@@ -440,7 +601,7 @@ double scoreEntity(const std::string& query, const Entity& entity)
         return 0.0;
     }
 
-    std::string haystack = entity.id + " " + entity.label + " " + entity.description;
+    std::string haystack = entity.id + " " + entity.nodeType + " " + entity.label + " " + entity.description;
     std::transform(haystack.begin(), haystack.end(), haystack.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));
     });
@@ -569,16 +730,50 @@ std::unordered_set<std::string> relationFilterSet(const std::string& filterCsv)
     return filters;
 }
 
+std::string lowerCopy(std::string value)
+{
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return value;
+}
+
 bool edgeAllowed(const Edge& edge, const std::unordered_set<std::string>& filters)
 {
     if (filters.empty()) {
         return true;
     }
-    std::string label = edge.label;
-    std::transform(label.begin(), label.end(), label.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
-    return filters.find(label) != filters.end();
+    return filters.find(lowerCopy(edge.relationshipType)) != filters.end()
+        || filters.find(lowerCopy(edge.label)) != filters.end();
+}
+
+bool entityAllowed(const Entity& entity, const std::unordered_set<std::string>& filters)
+{
+    return filters.empty()
+        || filters.find(lowerCopy(entity.nodeType)) != filters.end()
+        || filters.find(lowerCopy(entity.label)) != filters.end();
+}
+
+void appendEntityJson(std::ostringstream& out, const Entity& entity)
+{
+    out << "{\"id\":" << jsonString(entity.id)
+        << ",\"node_type\":" << jsonString(entity.nodeType)
+        << ",\"label\":" << jsonString(entity.label)
+        << ",\"description\":" << jsonString(entity.description)
+        << ",\"metadata\":" << (entity.metadataJson.empty() ? "{}" : entity.metadataJson)
+        << '}';
+}
+
+void appendEdgeJson(std::ostringstream& out, const Edge& edge)
+{
+    out << "{\"id\":" << edge.rowid
+        << ",\"source\":" << jsonString(edge.sourceId)
+        << ",\"target\":" << jsonString(edge.targetId)
+        << ",\"relationship_type\":" << jsonString(edge.relationshipType)
+        << ",\"label\":" << jsonString(edge.label)
+        << ",\"weight\":" << edge.weight
+        << ",\"metadata\":" << (edge.metadataJson.empty() ? "{}" : edge.metadataJson)
+        << '}';
 }
 
 std::string buildSubgraphJson(
@@ -675,12 +870,7 @@ std::string buildSubgraphJson(
             out << ',';
         }
         first = false;
-        const Entity& entity = it->second;
-        out << "{\"id\":" << jsonString(entity.id)
-            << ",\"label\":" << jsonString(entity.label)
-            << ",\"description\":" << jsonString(entity.description)
-            << ",\"metadata\":" << (entity.metadataJson.empty() ? "{}" : entity.metadataJson)
-            << '}';
+        appendEntityJson(out, it->second);
     }
 
     out << "],\"edges\":[";
@@ -693,13 +883,7 @@ std::string buildSubgraphJson(
             out << ',';
         }
         first = false;
-        out << "{\"id\":" << edge.rowid
-            << ",\"source\":" << jsonString(edge.sourceId)
-            << ",\"target\":" << jsonString(edge.targetId)
-            << ",\"label\":" << jsonString(edge.label)
-            << ",\"weight\":" << edge.weight
-            << ",\"metadata\":" << (edge.metadataJson.empty() ? "{}" : edge.metadataJson)
-            << '}';
+        appendEdgeJson(out, edge);
     }
     out << "]}}";
     return out.str();
@@ -940,6 +1124,192 @@ std::string buildSourcesJson(const std::vector<DocumentSummary>& documents)
     return out.str();
 }
 
+std::string buildChunksJson(const std::vector<StoredChunk>& chunks, const std::string& sourceUri)
+{
+    std::ostringstream out;
+    out << "{\"success\":true,\"source_uri\":" << jsonString(sourceUri) << ",\"chunks\":[";
+    for (size_t i = 0; i < chunks.size(); ++i) {
+        const StoredChunk& chunk = chunks[i];
+        if (i != 0) {
+            out << ',';
+        }
+        out << "{\"id\":" << chunk.id
+            << ",\"document_id\":" << chunk.documentId
+            << ",\"source_uri\":" << jsonString(chunk.sourceUri)
+            << ",\"title\":" << jsonString(chunk.title)
+            << ",\"chunk_index\":" << chunk.chunkIndex
+            << ",\"text\":" << jsonString(chunk.text)
+            << ",\"length\":" << chunk.length
+            << ",\"start_offset\":" << chunk.startOffset
+            << ",\"end_offset\":" << chunk.endOffset
+            << ",\"metadata\":" << (chunk.metadataJson.empty() ? "{}" : chunk.metadataJson)
+            << '}';
+    }
+    out << "]}";
+    return out.str();
+}
+
+std::string buildDeleteSourceJson(const std::string& sourceUri, int deleted)
+{
+    std::ostringstream out;
+    out << "{\"success\":true,\"source_uri\":" << jsonString(sourceUri)
+        << ",\"deleted\":" << deleted
+        << '}';
+    return out.str();
+}
+
+void appendVocabularyArray(std::ostringstream& out, const VocabularyItem* items, size_t count)
+{
+    out << '[';
+    for (size_t i = 0; i < count; ++i) {
+        if (i != 0) {
+            out << ',';
+        }
+        out << "{\"id\":" << jsonString(items[i].id)
+            << ",\"label\":" << jsonString(items[i].label)
+            << ",\"description\":" << jsonString(items[i].description)
+            << '}';
+    }
+    out << ']';
+}
+
+std::string buildVocabularyJson()
+{
+    std::ostringstream out;
+    out << "{\"success\":true,\"profile\":\"architecture-initial\",\"node_types\":";
+    appendVocabularyArray(out, kArchitectureNodeTypes, sizeof(kArchitectureNodeTypes) / sizeof(kArchitectureNodeTypes[0]));
+    out << ",\"relationship_types\":";
+    appendVocabularyArray(
+        out,
+        kArchitectureRelationshipTypes,
+        sizeof(kArchitectureRelationshipTypes) / sizeof(kArchitectureRelationshipTypes[0]));
+    out << '}';
+    return out.str();
+}
+
+std::string buildShortestPathJson(
+    const std::vector<Entity>& entities,
+    const std::vector<Edge>& edges,
+    const std::vector<std::string>& nodeIds,
+    const std::vector<long long>& edgeIds)
+{
+    std::unordered_map<std::string, Entity> entityById;
+    for (const Entity& entity : entities) {
+        entityById.emplace(entity.id, entity);
+    }
+    std::unordered_map<long long, Edge> edgeById;
+    for (const Edge& edge : edges) {
+        edgeById.emplace(edge.rowid, edge);
+    }
+
+    std::ostringstream out;
+    out << "{\"success\":true,\"found\":" << (nodeIds.empty() ? "false" : "true") << ",\"path\":{\"nodes\":[";
+    for (size_t i = 0; i < nodeIds.size(); ++i) {
+        if (i != 0) {
+            out << ',';
+        }
+        const auto it = entityById.find(nodeIds[i]);
+        if (it != entityById.end()) {
+            appendEntityJson(out, it->second);
+        }
+    }
+    out << "],\"edges\":[";
+    for (size_t i = 0; i < edgeIds.size(); ++i) {
+        if (i != 0) {
+            out << ',';
+        }
+        const auto it = edgeById.find(edgeIds[i]);
+        if (it != edgeById.end()) {
+            appendEdgeJson(out, it->second);
+        }
+    }
+    out << "]}}";
+    return out.str();
+}
+
+std::string buildTypedSubgraphJson(
+    const std::vector<Entity>& entities,
+    const std::vector<Edge>& edges,
+    const std::string& nodeTypeFilterCsv,
+    const std::string& relationshipTypeFilterCsv,
+    int limit)
+{
+    const auto nodeFilters = relationFilterSet(nodeTypeFilterCsv);
+    const auto relationFilters = relationFilterSet(relationshipTypeFilterCsv);
+    const int effectiveLimit = limit <= 0 ? 100 : limit;
+
+    std::unordered_map<std::string, Entity> entityById;
+    for (const Entity& entity : entities) {
+        entityById.emplace(entity.id, entity);
+    }
+
+    std::unordered_set<std::string> includedNodes;
+    std::vector<std::string> orderedNodeIds;
+    for (const Entity& entity : entities) {
+        if (!entityAllowed(entity, nodeFilters)) {
+            continue;
+        }
+        if (static_cast<int>(orderedNodeIds.size()) >= effectiveLimit) {
+            break;
+        }
+        if (includedNodes.insert(entity.id).second) {
+            orderedNodeIds.push_back(entity.id);
+        }
+    }
+
+    if (nodeFilters.empty() && !relationFilters.empty()) {
+        for (const Edge& edge : edges) {
+            if (!edgeAllowed(edge, relationFilters)) {
+                continue;
+            }
+            if (includedNodes.insert(edge.sourceId).second) {
+                orderedNodeIds.push_back(edge.sourceId);
+            }
+            if (static_cast<int>(orderedNodeIds.size()) >= effectiveLimit) {
+                break;
+            }
+            if (includedNodes.insert(edge.targetId).second) {
+                orderedNodeIds.push_back(edge.targetId);
+            }
+            if (static_cast<int>(orderedNodeIds.size()) >= effectiveLimit) {
+                break;
+            }
+        }
+    }
+
+    std::ostringstream out;
+    out << "{\"success\":true,\"subgraph\":{\"nodes\":[";
+    bool first = true;
+    for (const std::string& nodeId : orderedNodeIds) {
+        const auto it = entityById.find(nodeId);
+        if (it == entityById.end()) {
+            continue;
+        }
+        if (!first) {
+            out << ',';
+        }
+        first = false;
+        appendEntityJson(out, it->second);
+    }
+
+    out << "],\"edges\":[";
+    first = true;
+    for (const Edge& edge : edges) {
+        if (includedNodes.find(edge.sourceId) == includedNodes.end()
+            || includedNodes.find(edge.targetId) == includedNodes.end()
+            || !edgeAllowed(edge, relationFilters)) {
+            continue;
+        }
+        if (!first) {
+            out << ',';
+        }
+        first = false;
+        appendEdgeJson(out, edge);
+    }
+    out << "]}}";
+    return out.str();
+}
+
 } // namespace
 
 extern "C" {
@@ -1058,6 +1428,17 @@ int cprag_add_entity(
     const char* description,
     const char* metadata_json)
 {
+    return cprag_add_entity_typed(handle, id, label, label, description, metadata_json);
+}
+
+int cprag_add_entity_typed(
+    cprag_handle* handle,
+    const char* id,
+    const char* node_type,
+    const char* label,
+    const char* description,
+    const char* metadata_json)
+{
     if (handle == nullptr || id == nullptr || label == nullptr || description == nullptr) {
         return CPRAG_INVALID_ARGUMENT;
     }
@@ -1067,8 +1448,8 @@ int cprag_add_entity(
 
     sqlite3_stmt* stmt = nullptr;
     const int prepRc = prepare(handle,
-        "INSERT INTO entities (id, label, description, metadata_json) VALUES (?, ?, ?, ?) "
-        "ON CONFLICT(id) DO UPDATE SET label=excluded.label, description=excluded.description, metadata_json=excluded.metadata_json",
+        "INSERT INTO entities (id, node_type, label, description, metadata_json) VALUES (?, ?, ?, ?, ?) "
+        "ON CONFLICT(id) DO UPDATE SET node_type=excluded.node_type, label=excluded.label, description=excluded.description, metadata_json=excluded.metadata_json",
         &stmt);
     if (prepRc != CPRAG_OK) {
         return prepRc;
@@ -1080,10 +1461,12 @@ int cprag_add_entity(
         sqlite3_finalize(stmt);
         return metadataRc;
     }
+    const std::string effectiveType = valueOrEmpty(node_type).empty() ? "entity" : valueOrEmpty(node_type);
     bindText(stmt, 1, id);
-    bindText(stmt, 2, label);
-    bindText(stmt, 3, description);
-    bindText(stmt, 4, metadata);
+    bindText(stmt, 2, effectiveType);
+    bindText(stmt, 3, label);
+    bindText(stmt, 4, description);
+    bindText(stmt, 5, metadata);
 
     const int stepRc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -1101,6 +1484,18 @@ int cprag_add_edge(
     double weight,
     const char* metadata_json)
 {
+    return cprag_add_edge_typed(handle, source_id, target_id, label, label, weight, metadata_json);
+}
+
+int cprag_add_edge_typed(
+    cprag_handle* handle,
+    const char* source_id,
+    const char* target_id,
+    const char* relationship_type,
+    const char* label,
+    double weight,
+    const char* metadata_json)
+{
     if (handle == nullptr || source_id == nullptr || target_id == nullptr || label == nullptr) {
         return CPRAG_INVALID_ARGUMENT;
     }
@@ -1110,7 +1505,7 @@ int cprag_add_edge(
 
     sqlite3_stmt* stmt = nullptr;
     const int prepRc = prepare(handle,
-        "INSERT INTO edges (source_id, target_id, label, weight, metadata_json) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO edges (source_id, target_id, relationship_type, label, weight, metadata_json) VALUES (?, ?, ?, ?, ?, ?)",
         &stmt);
     if (prepRc != CPRAG_OK) {
         return prepRc;
@@ -1122,11 +1517,13 @@ int cprag_add_edge(
         sqlite3_finalize(stmt);
         return metadataRc;
     }
+    const std::string effectiveType = valueOrEmpty(relationship_type).empty() ? "relationship" : valueOrEmpty(relationship_type);
     bindText(stmt, 1, source_id);
     bindText(stmt, 2, target_id);
-    bindText(stmt, 3, label);
-    sqlite3_bind_double(stmt, 4, weight);
-    bindText(stmt, 5, metadata);
+    bindText(stmt, 3, effectiveType);
+    bindText(stmt, 4, label);
+    sqlite3_bind_double(stmt, 5, weight);
+    bindText(stmt, 6, metadata);
 
     const int stepRc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -1224,6 +1621,76 @@ int cprag_list_sources(cprag_handle* handle, char* out_json, size_t out_json_siz
     }
 }
 
+int cprag_list_chunks(cprag_handle* handle, const char* source_uri, char* out_json, size_t out_json_size)
+{
+    if (handle == nullptr || source_uri == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+
+    try {
+        const std::string sourceUri(source_uri);
+        return copyJson(handle, buildChunksJson(loadChunksForSource(handle, sourceUri), sourceUri), out_json, out_json_size);
+    } catch (const std::exception& ex) {
+        return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
+    }
+}
+
+int cprag_delete_source(cprag_handle* handle, const char* source_uri, char* out_json, size_t out_json_size)
+{
+    if (handle == nullptr || source_uri == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    if (handle->readOnly) {
+        return setErrorCode(handle, CPRAG_IO_ERROR, "library is open read-only");
+    }
+
+    int rc = execSql(handle, "BEGIN IMMEDIATE");
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+
+    sqlite3_stmt* stmt = nullptr;
+    rc = prepare(handle, "DELETE FROM chunks WHERE document_id IN (SELECT id FROM documents WHERE source_uri = ?)", &stmt);
+    if (rc != CPRAG_OK) {
+        execSql(handle, "ROLLBACK");
+        return rc;
+    }
+    bindText(stmt, 1, source_uri);
+    int stepRc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        execSql(handle, "ROLLBACK");
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+
+    rc = prepare(handle, "DELETE FROM documents WHERE source_uri = ?", &stmt);
+    if (rc != CPRAG_OK) {
+        execSql(handle, "ROLLBACK");
+        return rc;
+    }
+    bindText(stmt, 1, source_uri);
+    stepRc = sqlite3_step(stmt);
+    const int deleted = sqlite3_changes(handle->db);
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        execSql(handle, "ROLLBACK");
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+
+    rc = execSql(handle, "COMMIT");
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+
+    return copyJson(handle, buildDeleteSourceJson(source_uri, deleted), out_json, out_json_size);
+}
+
+int cprag_vocabulary(char* out_json, size_t out_json_size)
+{
+    cprag_handle tempHandle;
+    return copyJson(&tempHandle, buildVocabularyJson(), out_json, out_json_size);
+}
+
 int cprag_search(
     cprag_handle* handle,
     const char* query,
@@ -1273,6 +1740,111 @@ int cprag_expand(
             effectiveHops,
             valueOrEmpty(relation_filter_csv),
             {});
+        return copyJson(handle, json, out_json, out_json_size);
+    } catch (const std::exception& ex) {
+        return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
+    }
+}
+
+int cprag_shortest_path(
+    cprag_handle* handle,
+    const char* source_id,
+    const char* target_id,
+    const char* relationship_filter_csv,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || source_id == nullptr || target_id == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+
+    try {
+        const std::string source(source_id);
+        const std::string target(target_id);
+        const std::vector<Entity> entities = loadEntities(handle);
+        const std::vector<Edge> edges = loadEdges(handle);
+        std::unordered_set<std::string> entityIds;
+        for (const Entity& entity : entities) {
+            entityIds.insert(entity.id);
+        }
+        if (entityIds.find(source) == entityIds.end() || entityIds.find(target) == entityIds.end()) {
+            return copyJson(handle, buildShortestPathJson(entities, edges, {}, {}), out_json, out_json_size);
+        }
+
+        const auto filters = relationFilterSet(valueOrEmpty(relationship_filter_csv));
+        std::queue<std::string> queue;
+        std::unordered_set<std::string> visited;
+        std::unordered_map<std::string, std::string> previousNode;
+        std::unordered_map<std::string, long long> previousEdge;
+
+        visited.insert(source);
+        queue.push(source);
+        while (!queue.empty() && visited.find(target) == visited.end()) {
+            const std::string current = queue.front();
+            queue.pop();
+            for (const Edge& edge : edges) {
+                if (!edgeAllowed(edge, filters)) {
+                    continue;
+                }
+                std::string next;
+                if (edge.sourceId == current) {
+                    next = edge.targetId;
+                } else if (edge.targetId == current) {
+                    next = edge.sourceId;
+                } else {
+                    continue;
+                }
+                if (visited.insert(next).second) {
+                    previousNode[next] = current;
+                    previousEdge[next] = edge.rowid;
+                    queue.push(next);
+                    if (next == target) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (visited.find(target) == visited.end()) {
+            return copyJson(handle, buildShortestPathJson(entities, edges, {}, {}), out_json, out_json_size);
+        }
+
+        std::vector<std::string> nodeIds;
+        std::vector<long long> edgeIdsReversed;
+        std::string current = target;
+        nodeIds.push_back(current);
+        while (current != source) {
+            edgeIdsReversed.push_back(previousEdge[current]);
+            current = previousNode[current];
+            nodeIds.push_back(current);
+        }
+        std::reverse(nodeIds.begin(), nodeIds.end());
+        std::reverse(edgeIdsReversed.begin(), edgeIdsReversed.end());
+        return copyJson(handle, buildShortestPathJson(entities, edges, nodeIds, edgeIdsReversed), out_json, out_json_size);
+    } catch (const std::exception& ex) {
+        return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
+    }
+}
+
+int cprag_subgraph(
+    cprag_handle* handle,
+    const char* node_type_filter_csv,
+    const char* relationship_type_filter_csv,
+    int limit,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+
+    try {
+        const std::string json = buildTypedSubgraphJson(
+            loadEntities(handle),
+            loadEdges(handle),
+            valueOrEmpty(node_type_filter_csv),
+            valueOrEmpty(relationship_type_filter_csv),
+            limit);
         return copyJson(handle, json, out_json, out_json_size);
     } catch (const std::exception& ex) {
         return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());

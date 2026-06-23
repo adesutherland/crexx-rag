@@ -49,6 +49,10 @@ types such as component, service, capability, data object, technology node, or
 deployment target. Edges should carry relationship semantics such as depends-on,
 realizes, serves, accesses, flows-to, composed-of, or deployed-on.
 
+The first shared vocabulary is documented in
+[`architecture-vocabulary.md`](architecture-vocabulary.md) and exposed through
+the native, CLI, MCP, and CREXX adapters.
+
 Those type semantics belong in the native model because they affect retrieval,
 expansion, filtering, ranking, and explanation. CREXX/profile scripts may choose
 which vocabularies and policies to prefer for a workload, but the core should
@@ -58,10 +62,12 @@ The first implementation remains deliberately small:
 
 - entities are nodes
 - edges are directed relationships
-- current entity and edge labels are the first type surface
+- entities have explicit `node_type`
+- edges have explicit `relationship_type`
 - expansion traverses both incoming and outgoing edges
 - relation filters are optional
 - BFS controls hop depth
+- shortest path and typed subgraph extraction are provided by the native core
 
 This covers the useful part of the local GraphRAG pattern without committing to
 a graph database too early.

@@ -115,6 +115,15 @@ if(CPRAG_BUILD_TESTS)
     target_link_libraries(ragcore_smoke PRIVATE cprag_core)
     add_test(NAME ragcore_smoke COMMAND ragcore_smoke)
 
+    if(CPRAG_BUILD_MCP AND TARGET crexx-rag-mcp)
+        add_test(
+            NAME mcp_smoke
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_MCP=$<TARGET_FILE:crexx-rag-mcp>"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/mcp-smoke"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/McpSmoke.cmake")
+    endif()
+
     if(CPRAG_BUILD_CREXX_PLUGIN
             AND TARGET _rag
             AND CREXX_EXECUTABLE

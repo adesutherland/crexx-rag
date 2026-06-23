@@ -141,10 +141,24 @@ bool decodeJsonStringAt(const std::string& line, size_t quote, std::string* out)
     return false;
 }
 
-std::string jsonStringField(const std::string& line, const std::string& field, const std::string& fallback = "")
+size_t jsonArgumentsOffset(const std::string& line)
+{
+    const size_t keyPos = line.find("\"arguments\"");
+    if (keyPos == std::string::npos) {
+        return 0;
+    }
+    const size_t objectStart = line.find('{', keyPos);
+    return objectStart == std::string::npos ? keyPos : objectStart;
+}
+
+std::string jsonStringFieldFrom(
+    const std::string& line,
+    size_t offset,
+    const std::string& field,
+    const std::string& fallback = "")
 {
     const std::string key = "\"" + field + "\"";
-    const size_t keyPos = line.find(key);
+    const size_t keyPos = line.find(key, offset);
     if (keyPos == std::string::npos) {
         return fallback;
     }
@@ -163,10 +177,15 @@ std::string jsonStringField(const std::string& line, const std::string& field, c
     return value;
 }
 
-int jsonIntField(const std::string& line, const std::string& field, int fallback)
+std::string jsonStringField(const std::string& line, const std::string& field, const std::string& fallback = "")
+{
+    return jsonStringFieldFrom(line, 0, field, fallback);
+}
+
+int jsonIntFieldFrom(const std::string& line, size_t offset, const std::string& field, int fallback)
 {
     const std::string key = "\"" + field + "\"";
-    const size_t keyPos = line.find(key);
+    const size_t keyPos = line.find(key, offset);
     if (keyPos == std::string::npos) {
         return fallback;
     }
@@ -177,10 +196,15 @@ int jsonIntField(const std::string& line, const std::string& field, int fallback
     return std::atoi(line.c_str() + colon + 1);
 }
 
-double jsonDoubleField(const std::string& line, const std::string& field, double fallback)
+int jsonIntField(const std::string& line, const std::string& field, int fallback)
+{
+    return jsonIntFieldFrom(line, 0, field, fallback);
+}
+
+double jsonDoubleFieldFrom(const std::string& line, size_t offset, const std::string& field, double fallback)
 {
     const std::string key = "\"" + field + "\"";
-    const size_t keyPos = line.find(key);
+    const size_t keyPos = line.find(key, offset);
     if (keyPos == std::string::npos) {
         return fallback;
     }
@@ -189,6 +213,11 @@ double jsonDoubleField(const std::string& line, const std::string& field, double
         return fallback;
     }
     return std::atof(line.c_str() + colon + 1);
+}
+
+double jsonDoubleField(const std::string& line, const std::string& field, double fallback)
+{
+    return jsonDoubleFieldFrom(line, 0, field, fallback);
 }
 
 int fileTypeFromString(const std::string& type)
@@ -215,7 +244,7 @@ void respondError(const std::string& id, int code, const std::string& message)
 
 std::string toolListJson()
 {
-    return R"JSON({"tools":[{"name":"library_status","description":"Return local GraphRAG library statistics.","inputSchema":{"type":"object","properties":{}}},{"name":"library_search","description":"Search the local GraphRAG library and expand graph context.","inputSchema":{"type":"object","properties":{"query":{"type":"string"},"top_k":{"type":"integer"},"hops":{"type":"integer"}},"required":["query"]}},{"name":"library_ingest","description":"Ingest one text source into persistent document chunks.","inputSchema":{"type":"object","properties":{"source_uri":{"type":"string"},"title":{"type":"string"},"text":{"type":"string"},"file_type":{"type":"string","enum":["plain","rexx","markdown"]},"chunk_size":{"type":"integer"},"overlap":{"type":"integer"},"metadata_json":{"type":"string"}},"required":["source_uri","text"]}},{"name":"library_list_sources","description":"List ingested document sources.","inputSchema":{"type":"object","properties":{}}},{"name":"library_add_entity","description":"Add or update one graph entity.","inputSchema":{"type":"object","properties":{"id":{"type":"string"},"label":{"type":"string"},"description":{"type":"string"},"metadata_json":{"type":"string"}},"required":["id","label","description"]}},{"name":"library_add_edge","description":"Add a relationship between two entities.","inputSchema":{"type":"object","properties":{"source_id":{"type":"string"},"target_id":{"type":"string"},"label":{"type":"string"},"weight":{"type":"number"},"metadata_json":{"type":"string"}},"required":["source_id","target_id","label"]}}]})JSON";
+    return R"JSON({"tools":[{"name":"library_status","description":"Return local GraphRAG library statistics.","inputSchema":{"type":"object","properties":{}}},{"name":"library_vocabulary","description":"Return the initial architecture node and relationship vocabulary.","inputSchema":{"type":"object","properties":{}}},{"name":"library_search","description":"Search the local GraphRAG library and expand graph context.","inputSchema":{"type":"object","properties":{"query":{"type":"string"},"top_k":{"type":"integer"},"hops":{"type":"integer"}},"required":["query"]}},{"name":"library_shortest_path","description":"Find the shortest typed relationship path between two entities.","inputSchema":{"type":"object","properties":{"source_id":{"type":"string"},"target_id":{"type":"string"},"relationship_filter_csv":{"type":"string"}},"required":["source_id","target_id"]}},{"name":"library_subgraph","description":"Extract a typed subgraph by node and relationship filters.","inputSchema":{"type":"object","properties":{"node_type_filter_csv":{"type":"string"},"relationship_type_filter_csv":{"type":"string"},"limit":{"type":"integer"}}}},{"name":"library_ingest","description":"Ingest or update one text source into persistent document chunks.","inputSchema":{"type":"object","properties":{"source_uri":{"type":"string"},"title":{"type":"string"},"text":{"type":"string"},"file_type":{"type":"string","enum":["plain","rexx","markdown"]},"chunk_size":{"type":"integer"},"overlap":{"type":"integer"},"metadata_json":{"type":"string"}},"required":["source_uri","text"]}},{"name":"library_list_sources","description":"List ingested document sources.","inputSchema":{"type":"object","properties":{}}},{"name":"library_list_chunks","description":"List stored chunks for one source URI.","inputSchema":{"type":"object","properties":{"source_uri":{"type":"string"}},"required":["source_uri"]}},{"name":"library_delete_source","description":"Delete one ingested source and its chunks.","inputSchema":{"type":"object","properties":{"source_uri":{"type":"string"}},"required":["source_uri"]}},{"name":"library_add_entity","description":"Add or update one graph entity.","inputSchema":{"type":"object","properties":{"id":{"type":"string"},"label":{"type":"string"},"description":{"type":"string"},"metadata_json":{"type":"string"}},"required":["id","label","description"]}},{"name":"library_add_entity_typed","description":"Add or update one typed graph entity.","inputSchema":{"type":"object","properties":{"id":{"type":"string"},"node_type":{"type":"string"},"label":{"type":"string"},"description":{"type":"string"},"metadata_json":{"type":"string"}},"required":["id","node_type","label","description"]}},{"name":"library_add_edge","description":"Add a relationship between two entities.","inputSchema":{"type":"object","properties":{"source_id":{"type":"string"},"target_id":{"type":"string"},"label":{"type":"string"},"weight":{"type":"number"},"metadata_json":{"type":"string"}},"required":["source_id","target_id","label"]}},{"name":"library_add_edge_typed","description":"Add a typed relationship between two entities.","inputSchema":{"type":"object","properties":{"source_id":{"type":"string"},"target_id":{"type":"string"},"relationship_type":{"type":"string"},"label":{"type":"string"},"weight":{"type":"number"},"metadata_json":{"type":"string"}},"required":["source_id","target_id","relationship_type","label"]}}]})JSON";
 }
 
 std::string textContentResult(const std::string& text)
@@ -257,6 +286,7 @@ int main(int argc, char** argv)
 
         if (line.find("\"method\":\"tools/call\"") != std::string::npos || line.find("\"method\": \"tools/call\"") != std::string::npos) {
             const std::string name = jsonStringField(line, "name");
+            const size_t argumentsOffset = jsonArgumentsOffset(line);
             std::vector<char> buffer(kJsonBufferSize);
 
             if (name == "library_status") {
@@ -269,10 +299,20 @@ int main(int argc, char** argv)
                 continue;
             }
 
+            if (name == "library_vocabulary") {
+                rc = cprag_vocabulary(buffer.data(), buffer.size());
+                if (rc == CPRAG_OK) {
+                    respond(id, textContentResult(buffer.data()));
+                } else {
+                    respondError(id, -32000, cprag_status_message(rc));
+                }
+                continue;
+            }
+
             if (name == "library_search") {
-                const std::string query = jsonStringField(line, "query");
-                const int topK = jsonIntField(line, "top_k", 3);
-                const int hops = jsonIntField(line, "hops", 2);
+                const std::string query = jsonStringFieldFrom(line, argumentsOffset, "query");
+                const int topK = jsonIntFieldFrom(line, argumentsOffset, "top_k", 3);
+                const int hops = jsonIntFieldFrom(line, argumentsOffset, "hops", 2);
                 rc = cprag_search(handle, query.c_str(), topK, hops, buffer.data(), buffer.size());
                 if (rc == CPRAG_OK) {
                     respond(id, textContentResult(buffer.data()));
@@ -282,14 +322,41 @@ int main(int argc, char** argv)
                 continue;
             }
 
+            if (name == "library_shortest_path") {
+                const std::string source = jsonStringFieldFrom(line, argumentsOffset, "source_id");
+                const std::string target = jsonStringFieldFrom(line, argumentsOffset, "target_id");
+                const std::string filter = jsonStringFieldFrom(line, argumentsOffset, "relationship_filter_csv", "");
+                rc = cprag_shortest_path(handle, source.c_str(), target.c_str(), filter.c_str(), buffer.data(), buffer.size());
+                if (rc == CPRAG_OK) {
+                    respond(id, textContentResult(buffer.data()));
+                } else {
+                    respondError(id, -32000, cprag_last_error(handle));
+                }
+                continue;
+            }
+
+            if (name == "library_subgraph") {
+                const std::string nodeFilter = jsonStringFieldFrom(line, argumentsOffset, "node_type_filter_csv", "");
+                const std::string relationshipFilter =
+                    jsonStringFieldFrom(line, argumentsOffset, "relationship_type_filter_csv", "");
+                const int limit = jsonIntFieldFrom(line, argumentsOffset, "limit", 100);
+                rc = cprag_subgraph(handle, nodeFilter.c_str(), relationshipFilter.c_str(), limit, buffer.data(), buffer.size());
+                if (rc == CPRAG_OK) {
+                    respond(id, textContentResult(buffer.data()));
+                } else {
+                    respondError(id, -32000, cprag_last_error(handle));
+                }
+                continue;
+            }
+
             if (name == "library_ingest") {
-                const std::string sourceUri = jsonStringField(line, "source_uri");
-                const std::string title = jsonStringField(line, "title", sourceUri);
-                const std::string text = jsonStringField(line, "text");
-                const std::string fileType = jsonStringField(line, "file_type", "plain");
-                const int chunkSize = jsonIntField(line, "chunk_size", 1000);
-                const int overlap = jsonIntField(line, "overlap", 200);
-                const std::string metadata = jsonStringField(line, "metadata_json", "{}");
+                const std::string sourceUri = jsonStringFieldFrom(line, argumentsOffset, "source_uri");
+                const std::string title = jsonStringFieldFrom(line, argumentsOffset, "title", sourceUri);
+                const std::string text = jsonStringFieldFrom(line, argumentsOffset, "text");
+                const std::string fileType = jsonStringFieldFrom(line, argumentsOffset, "file_type", "plain");
+                const int chunkSize = jsonIntFieldFrom(line, argumentsOffset, "chunk_size", 1000);
+                const int overlap = jsonIntFieldFrom(line, argumentsOffset, "overlap", 200);
+                const std::string metadata = jsonStringFieldFrom(line, argumentsOffset, "metadata_json", "{}");
                 rc = cprag_ingest_text(
                     handle,
                     sourceUri.c_str(),
@@ -319,11 +386,33 @@ int main(int argc, char** argv)
                 continue;
             }
 
+            if (name == "library_list_chunks") {
+                const std::string sourceUri = jsonStringFieldFrom(line, argumentsOffset, "source_uri");
+                rc = cprag_list_chunks(handle, sourceUri.c_str(), buffer.data(), buffer.size());
+                if (rc == CPRAG_OK) {
+                    respond(id, textContentResult(buffer.data()));
+                } else {
+                    respondError(id, -32000, cprag_last_error(handle));
+                }
+                continue;
+            }
+
+            if (name == "library_delete_source") {
+                const std::string sourceUri = jsonStringFieldFrom(line, argumentsOffset, "source_uri");
+                rc = cprag_delete_source(handle, sourceUri.c_str(), buffer.data(), buffer.size());
+                if (rc == CPRAG_OK) {
+                    respond(id, textContentResult(buffer.data()));
+                } else {
+                    respondError(id, -32000, cprag_last_error(handle));
+                }
+                continue;
+            }
+
             if (name == "library_add_entity") {
-                const std::string entityId = jsonStringField(line, "id");
-                const std::string label = jsonStringField(line, "label");
-                const std::string description = jsonStringField(line, "description");
-                const std::string metadata = jsonStringField(line, "metadata_json", "{}");
+                const std::string entityId = jsonStringFieldFrom(line, argumentsOffset, "id");
+                const std::string label = jsonStringFieldFrom(line, argumentsOffset, "label");
+                const std::string description = jsonStringFieldFrom(line, argumentsOffset, "description");
+                const std::string metadata = jsonStringFieldFrom(line, argumentsOffset, "metadata_json", "{}");
                 rc = cprag_add_entity(handle, entityId.c_str(), label.c_str(), description.c_str(), metadata.c_str());
                 if (rc == CPRAG_OK) {
                     respond(id, textContentResult("{\"success\":true}"));
@@ -333,13 +422,58 @@ int main(int argc, char** argv)
                 continue;
             }
 
+            if (name == "library_add_entity_typed") {
+                const std::string entityId = jsonStringFieldFrom(line, argumentsOffset, "id");
+                const std::string nodeType = jsonStringFieldFrom(line, argumentsOffset, "node_type");
+                const std::string label = jsonStringFieldFrom(line, argumentsOffset, "label");
+                const std::string description = jsonStringFieldFrom(line, argumentsOffset, "description");
+                const std::string metadata = jsonStringFieldFrom(line, argumentsOffset, "metadata_json", "{}");
+                rc = cprag_add_entity_typed(
+                    handle,
+                    entityId.c_str(),
+                    nodeType.c_str(),
+                    label.c_str(),
+                    description.c_str(),
+                    metadata.c_str());
+                if (rc == CPRAG_OK) {
+                    respond(id, textContentResult("{\"success\":true}"));
+                } else {
+                    respondError(id, -32000, cprag_last_error(handle));
+                }
+                continue;
+            }
+
             if (name == "library_add_edge") {
-                const std::string source = jsonStringField(line, "source_id");
-                const std::string target = jsonStringField(line, "target_id");
-                const std::string label = jsonStringField(line, "label");
-                const std::string metadata = jsonStringField(line, "metadata_json", "{}");
-                const double weight = jsonDoubleField(line, "weight", 1.0);
+                const std::string source = jsonStringFieldFrom(line, argumentsOffset, "source_id");
+                const std::string target = jsonStringFieldFrom(line, argumentsOffset, "target_id");
+                const std::string label = jsonStringFieldFrom(line, argumentsOffset, "label");
+                const std::string metadata = jsonStringFieldFrom(line, argumentsOffset, "metadata_json", "{}");
+                const double weight = jsonDoubleFieldFrom(line, argumentsOffset, "weight", 1.0);
                 rc = cprag_add_edge(handle, source.c_str(), target.c_str(), label.c_str(), weight, metadata.c_str());
+                if (rc == CPRAG_OK) {
+                    respond(id, textContentResult("{\"success\":true}"));
+                } else {
+                    respondError(id, -32000, cprag_last_error(handle));
+                }
+                continue;
+            }
+
+            if (name == "library_add_edge_typed") {
+                const std::string source = jsonStringFieldFrom(line, argumentsOffset, "source_id");
+                const std::string target = jsonStringFieldFrom(line, argumentsOffset, "target_id");
+                const std::string relationshipType =
+                    jsonStringFieldFrom(line, argumentsOffset, "relationship_type");
+                const std::string label = jsonStringFieldFrom(line, argumentsOffset, "label");
+                const std::string metadata = jsonStringFieldFrom(line, argumentsOffset, "metadata_json", "{}");
+                const double weight = jsonDoubleFieldFrom(line, argumentsOffset, "weight", 1.0);
+                rc = cprag_add_edge_typed(
+                    handle,
+                    source.c_str(),
+                    target.c_str(),
+                    relationshipType.c_str(),
+                    label.c_str(),
+                    weight,
+                    metadata.c_str());
                 if (rc == CPRAG_OK) {
                     respond(id, textContentResult("{\"success\":true}"));
                 } else {

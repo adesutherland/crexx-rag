@@ -90,6 +90,8 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
 - Nodes have meaningful types and relationships have meaningful type/semantic
   labels. Do not treat these as presentation-only metadata; they affect
   traversal, filtering, ranking, and explanation.
+- The initial shared vocabulary is in `docs/architecture-vocabulary.md`, but the
+  storage remains domain-neutral and may accept workload-specific types.
 - Keep graph features intentionally essential until a real workload proves the
   need for a graph database:
   - k-hop expansion
@@ -120,11 +122,12 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
 - Native core supports SQLite-backed entities and edges.
 - Native core supports persistent documents and chunks with SQLite FTS5 lexical
   retrieval.
-- Entity and edge labels currently serve as the first surface for typed
-  architecture map semantics.
+- Entity `node_type` and edge `relationship_type` are explicit schema/API
+  fields.
 - Search combines naive text overlap over entity ids, labels, and descriptions
   with FTS5 chunk hits.
-- Graph expansion is BFS over incoming and outgoing edges.
+- Graph expansion is BFS over incoming and outgoing edges; shortest path and
+  typed subgraph extraction are available in the native core.
 - Chunking is a Qt-free port inspired by CognitivePipelines' RAG chunkers,
   currently covering plain text, Markdown, and Rexx-oriented source.
 - MCP server is a stdio scaffold with `library_status`, `library_search`,

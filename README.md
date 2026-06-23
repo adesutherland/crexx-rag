@@ -75,16 +75,20 @@ Known CREXX integration/package gaps are tracked in
 [`docs/crexx-integration-issues.md`](docs/crexx-integration-issues.md).
 The repeatable dynamic plugin compile/run pattern is documented in
 [`docs/crexx-plugin-pattern.md`](docs/crexx-plugin-pattern.md).
+The initial typed architecture vocabulary is documented in
+[`docs/architecture-vocabulary.md`](docs/architecture-vocabulary.md).
 
 ## CLI Sketch
 
 ```bash
 ./cmake-build-debug/crexx-rag init ./example.cprag
-./cmake-build-debug/crexx-rag add-entity ./example.cprag entity:auth Service "Authentication service"
-./cmake-build-debug/crexx-rag add-entity ./example.cprag entity:db Database "PostgreSQL user database"
-./cmake-build-debug/crexx-rag add-edge ./example.cprag entity:auth entity:db CONNECTS_TO 1.0
+./cmake-build-debug/crexx-rag add-entity-typed ./example.cprag entity:auth service Authentication "Authentication service"
+./cmake-build-debug/crexx-rag add-entity-typed ./example.cprag entity:db data-object PostgreSQL "PostgreSQL user database"
+./cmake-build-debug/crexx-rag add-edge-typed ./example.cprag entity:auth entity:db accesses "Reads user profiles" 1.0
 ./cmake-build-debug/crexx-rag ingest-text ./example.cprag docs/auth.md "Auth notes" markdown 800 120 $'# Auth\n\nAuth depends on PostgreSQL.'
 ./cmake-build-debug/crexx-rag list-sources ./example.cprag
+./cmake-build-debug/crexx-rag list-chunks ./example.cprag docs/auth.md
+./cmake-build-debug/crexx-rag shortest-path ./example.cprag entity:auth entity:db
 ./cmake-build-debug/crexx-rag search ./example.cprag "what database does auth use" 3 2
 ```
 
@@ -94,11 +98,18 @@ The plugin exposes stateless path-based functions first:
 
 - `rxrag.init(path)`
 - `rxrag.addentity(path, id, label, description, metadata_json)`
+- `rxrag.addentitytyped(path, id, node_type, label, description, metadata_json)`
 - `rxrag.addedge(path, source_id, target_id, label, weight, metadata_json)`
+- `rxrag.addedgetyped(path, source_id, target_id, relationship_type, label, weight, metadata_json)`
 - `rxrag.ingest(path, source_uri, title, text, file_type, chunk_size, overlap, metadata_json)`
 - `rxrag.listsources(path)`
+- `rxrag.listchunks(path, source_uri)`
+- `rxrag.deletesource(path, source_uri)`
+- `rxrag.vocabulary()`
 - `rxrag.search(path, query, top_k, hops)`
 - `rxrag.expand(path, anchors_csv, hops)`
+- `rxrag.shortestpath(path, source_id, target_id, relationship_filter_csv)`
+- `rxrag.subgraph(path, node_type_filter_csv, relationship_type_filter_csv, limit)`
 - `rxrag.stats(path)`
 - `rxrag.chunk(text, chunk_size, overlap, file_type)`
 
@@ -116,5 +127,7 @@ ctest --preset debug -R crexx_profile_smoke --output-on-failure
 
 This is a scaffold, not a finished RAG engine. The current search is intentionally
 simple: text-overlap anchors over entity ids, labels, and descriptions, plus
-SQLite FTS5 over persisted chunks. The next major piece is a FAISS-backed vector
-index and embedding-provider adapter.
+SQLite FTS5 over persisted chunks. The graph layer now has explicit node and
+relationship types, shortest path, typed subgraph extraction, and source/chunk
+maintenance APIs. The next major piece is a FAISS-backed vector index and
+embedding-provider adapter.

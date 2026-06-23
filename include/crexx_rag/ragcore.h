@@ -50,10 +50,27 @@ int cprag_add_entity(
     const char* description,
     const char* metadata_json);
 
+int cprag_add_entity_typed(
+    cprag_handle* handle,
+    const char* id,
+    const char* node_type,
+    const char* label,
+    const char* description,
+    const char* metadata_json);
+
 int cprag_add_edge(
     cprag_handle* handle,
     const char* source_id,
     const char* target_id,
+    const char* label,
+    double weight,
+    const char* metadata_json);
+
+int cprag_add_edge_typed(
+    cprag_handle* handle,
+    const char* source_id,
+    const char* target_id,
+    const char* relationship_type,
     const char* label,
     double weight,
     const char* metadata_json);
@@ -75,6 +92,22 @@ int cprag_list_sources(
     char* out_json,
     size_t out_json_size);
 
+int cprag_list_chunks(
+    cprag_handle* handle,
+    const char* source_uri,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_delete_source(
+    cprag_handle* handle,
+    const char* source_uri,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_vocabulary(
+    char* out_json,
+    size_t out_json_size);
+
 int cprag_search(
     cprag_handle* handle,
     const char* query,
@@ -88,6 +121,22 @@ int cprag_expand(
     const char* anchors_csv,
     int hops,
     const char* relation_filter_csv,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_shortest_path(
+    cprag_handle* handle,
+    const char* source_id,
+    const char* target_id,
+    const char* relationship_filter_csv,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_subgraph(
+    cprag_handle* handle,
+    const char* node_type_filter_csv,
+    const char* relationship_type_filter_csv,
+    int limit,
     char* out_json,
     size_t out_json_size);
 

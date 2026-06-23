@@ -18,11 +18,15 @@ int main()
     assert(rc == CPRAG_OK);
     assert(handle != nullptr);
 
-    rc = cprag_add_entity(handle, "entity:auth", "Service", "Authentication service handling login", "{}");
+    rc = cprag_add_entity_typed(handle, "entity:auth", "service", "Authentication", "Authentication service handling login", "{}");
     assert(rc == CPRAG_OK);
-    rc = cprag_add_entity(handle, "entity:postgres", "Database", "PostgreSQL user profile database", "{}");
+    rc = cprag_add_entity_typed(handle, "entity:postgres", "data-object", "PostgreSQL", "PostgreSQL user profile database", "{}");
     assert(rc == CPRAG_OK);
-    rc = cprag_add_edge(handle, "entity:auth", "entity:postgres", "CONNECTS_TO", 1.0, "{}");
+    rc = cprag_add_entity_typed(handle, "entity:k8s", "technology-node", "Kubernetes", "Kubernetes runtime platform", "{}");
+    assert(rc == CPRAG_OK);
+    rc = cprag_add_edge_typed(handle, "entity:auth", "entity:postgres", "accesses", "Reads user profiles", 1.0, "{}");
+    assert(rc == CPRAG_OK);
+    rc = cprag_add_edge_typed(handle, "entity:auth", "entity:k8s", "deployed-on", "Runs on Kubernetes", 1.0, "{}");
     assert(rc == CPRAG_OK);
 
     std::vector<char> buffer(65536);
@@ -59,12 +63,53 @@ int main()
         return 1;
     }
 
+    rc = cprag_list_chunks(handle, "docs/auth.md", buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string listedChunks(buffer.data());
+    if (listedChunks.find("\"source_uri\":\"docs/auth.md\"") == std::string::npos
+        || listedChunks.find("token validation") == std::string::npos) {
+        std::cerr << listedChunks << '\n';
+        return 1;
+    }
+
+    rc = cprag_vocabulary(buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string vocabulary(buffer.data());
+    if (vocabulary.find("\"id\":\"service\"") == std::string::npos
+        || vocabulary.find("\"id\":\"deployed-on\"") == std::string::npos) {
+        std::cerr << vocabulary << '\n';
+        return 1;
+    }
+
     rc = cprag_search(handle, "what database does auth use", 3, 2, buffer.data(), buffer.size());
     assert(rc == CPRAG_OK);
 
     const std::string result(buffer.data());
-    if (result.find("entity:auth") == std::string::npos || result.find("entity:postgres") == std::string::npos) {
+    if (result.find("entity:auth") == std::string::npos
+        || result.find("entity:postgres") == std::string::npos
+        || result.find("\"node_type\":\"service\"") == std::string::npos
+        || result.find("\"relationship_type\":\"accesses\"") == std::string::npos) {
         std::cerr << result << '\n';
+        return 1;
+    }
+
+    rc = cprag_shortest_path(handle, "entity:postgres", "entity:k8s", "", buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string path(buffer.data());
+    if (path.find("\"found\":true") == std::string::npos
+        || path.find("\"relationship_type\":\"accesses\"") == std::string::npos
+        || path.find("\"relationship_type\":\"deployed-on\"") == std::string::npos) {
+        std::cerr << path << '\n';
+        return 1;
+    }
+
+    rc = cprag_subgraph(handle, "service,technology-node", "deployed-on", 10, buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string typedSubgraph(buffer.data());
+    if (typedSubgraph.find("entity:k8s") == std::string::npos
+        || typedSubgraph.find("\"relationship_type\":\"deployed-on\"") == std::string::npos
+        || typedSubgraph.find("entity:postgres") != std::string::npos) {
+        std::cerr << typedSubgraph << '\n';
         return 1;
     }
 
@@ -81,8 +126,8 @@ int main()
     rc = cprag_stats(handle, buffer.data(), buffer.size());
     assert(rc == CPRAG_OK);
     const std::string stats(buffer.data());
-    if (stats.find("\"entities\":2") == std::string::npos
-        || stats.find("\"edges\":1") == std::string::npos
+    if (stats.find("\"entities\":3") == std::string::npos
+        || stats.find("\"edges\":2") == std::string::npos
         || stats.find("\"documents\":1") == std::string::npos
         || stats.find("\"chunks\":") == std::string::npos) {
         std::cerr << stats << '\n';
@@ -100,6 +145,22 @@ int main()
     const std::string chunks(buffer.data());
     if (chunks.find("# Title") == std::string::npos || chunks.find("## Next") == std::string::npos) {
         std::cerr << chunks << '\n';
+        return 1;
+    }
+
+    rc = cprag_delete_source(handle, "docs/auth.md", buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string deleted(buffer.data());
+    if (deleted.find("\"deleted\":1") == std::string::npos) {
+        std::cerr << deleted << '\n';
+        return 1;
+    }
+
+    rc = cprag_list_chunks(handle, "docs/auth.md", buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string chunksAfterDelete(buffer.data());
+    if (chunksAfterDelete.find("\"chunks\":[]") == std::string::npos) {
+        std::cerr << chunksAfterDelete << '\n';
         return 1;
     }
 

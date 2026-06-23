@@ -17,12 +17,19 @@ void usage()
         << "usage:\n"
         << "  crexx-rag init <library>\n"
         << "  crexx-rag add-entity <library> <id> <label> <description> [metadata-json]\n"
+        << "  crexx-rag add-entity-typed <library> <id> <node-type> <label> <description> [metadata-json]\n"
         << "  crexx-rag add-edge <library> <source-id> <target-id> <label> [weight] [metadata-json]\n"
+        << "  crexx-rag add-edge-typed <library> <source-id> <target-id> <relationship-type> <label> [weight] [metadata-json]\n"
         << "  crexx-rag ingest-text <library> <source-uri> <title> <plain|rexx|markdown> <chunk-size> <overlap> <text> [metadata-json]\n"
         << "  crexx-rag ingest-file <library> <path> <plain|rexx|markdown> <chunk-size> <overlap> [title] [metadata-json]\n"
         << "  crexx-rag list-sources <library>\n"
+        << "  crexx-rag list-chunks <library> <source-uri>\n"
+        << "  crexx-rag delete-source <library> <source-uri>\n"
         << "  crexx-rag search <library> <query> [top-k] [hops]\n"
         << "  crexx-rag expand <library> <anchor-csv> [hops] [relation-filter-csv]\n"
+        << "  crexx-rag shortest-path <library> <source-id> <target-id> [relationship-filter-csv]\n"
+        << "  crexx-rag subgraph <library> [node-type-csv] [relationship-type-csv] [limit]\n"
+        << "  crexx-rag vocabulary\n"
         << "  crexx-rag chunk <plain|rexx|markdown> <chunk-size> <overlap> <text>\n"
         << "  crexx-rag stats <library>\n";
 }
@@ -86,12 +93,27 @@ bool readFile(const std::string& path, std::string* out)
 
 int main(int argc, char** argv)
 {
-    if (argc < 3) {
+    if (argc < 2) {
         usage();
         return 2;
     }
 
     const std::string command = argv[1];
+    if (command == "vocabulary") {
+        std::vector<char> buffer(kJsonBufferSize);
+        const int rc = cprag_vocabulary(buffer.data(), buffer.size());
+        if (rc != CPRAG_OK) {
+            return fail(rc);
+        }
+        std::cout << buffer.data() << '\n';
+        return 0;
+    }
+
+    if (argc < 3) {
+        usage();
+        return 2;
+    }
+
     const std::string library = argv[2];
 
     if (command == "init") {
@@ -119,6 +141,22 @@ int main(int argc, char** argv)
         });
     }
 
+    if (command == "add-entity-typed") {
+        if (argc < 7) {
+            usage();
+            return 2;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            const char* metadata = argc >= 8 ? argv[7] : "{}";
+            const int rc = cprag_add_entity_typed(handle, argv[3], argv[4], argv[5], argv[6], metadata);
+            if (rc != CPRAG_OK) {
+                return fail(rc, handle);
+            }
+            std::cout << "entity added: " << argv[3] << '\n';
+            return 0;
+        });
+    }
+
     if (command == "add-edge") {
         if (argc < 6) {
             usage();
@@ -128,6 +166,23 @@ int main(int argc, char** argv)
             const double weight = argc >= 7 ? std::atof(argv[6]) : 1.0;
             const char* metadata = argc >= 8 ? argv[7] : "{}";
             const int rc = cprag_add_edge(handle, argv[3], argv[4], argv[5], weight, metadata);
+            if (rc != CPRAG_OK) {
+                return fail(rc, handle);
+            }
+            std::cout << "edge added: " << argv[3] << " -" << argv[5] << "-> " << argv[4] << '\n';
+            return 0;
+        });
+    }
+
+    if (command == "add-edge-typed") {
+        if (argc < 8) {
+            usage();
+            return 2;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            const double weight = argc >= 9 ? std::atof(argv[8]) : 1.0;
+            const char* metadata = argc >= 10 ? argv[9] : "{}";
+            const int rc = cprag_add_edge_typed(handle, argv[3], argv[4], argv[5], argv[6], weight, metadata);
             if (rc != CPRAG_OK) {
                 return fail(rc, handle);
             }
@@ -196,6 +251,30 @@ int main(int argc, char** argv)
         });
     }
 
+    if (command == "list-chunks") {
+        if (argc < 4) {
+            usage();
+            return 2;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const int rc = cprag_list_chunks(handle, argv[3], buffer.data(), buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "delete-source") {
+        if (argc < 4) {
+            usage();
+            return 2;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const int rc = cprag_delete_source(handle, argv[3], buffer.data(), buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
     if (command == "search") {
         if (argc < 4) {
             usage();
@@ -220,6 +299,30 @@ int main(int argc, char** argv)
             const int hops = argc >= 5 ? std::atoi(argv[4]) : 2;
             const char* filter = argc >= 6 ? argv[5] : "";
             const int rc = cprag_expand(handle, argv[3], hops, filter, buffer.data(), buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "shortest-path") {
+        if (argc < 5) {
+            usage();
+            return 2;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const char* filter = argc >= 6 ? argv[5] : "";
+            const int rc = cprag_shortest_path(handle, argv[3], argv[4], filter, buffer.data(), buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "subgraph") {
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const char* nodeFilter = argc >= 4 ? argv[3] : "";
+            const char* relationFilter = argc >= 5 ? argv[4] : "";
+            const int limit = argc >= 6 ? std::atoi(argv[5]) : 100;
+            const int rc = cprag_subgraph(handle, nodeFilter, relationFilter, limit, buffer.data(), buffer.size());
             return printJsonResult(handle, rc, buffer);
         });
     }

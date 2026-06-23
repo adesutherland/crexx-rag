@@ -86,6 +86,34 @@ PROCEDURE(addentity)
     RESETSIGNAL
 }
 
+PROCEDURE(addentitytyped)
+{
+    if (NUM_ARGS < 5 || NUM_ARGS > 6) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, id, node_type, label, description, optional metadata_json expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    const char* metadata = NUM_ARGS >= 6 ? GETSTRING(ARG(5)) : "{}";
+    rc = cprag_add_entity_typed(handle, GETSTRING(ARG(1)), GETSTRING(ARG(2)), GETSTRING(ARG(3)), GETSTRING(ARG(4)), metadata);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    cprag_close(handle);
+    SETSTRING(RETURN, "1");
+    RESETSIGNAL
+}
+
 PROCEDURE(addedge)
 {
     if (NUM_ARGS < 4 || NUM_ARGS > 6) {
@@ -103,6 +131,35 @@ PROCEDURE(addedge)
     const double weight = NUM_ARGS >= 5 ? GETFLOAT(ARG(4)) : 1.0;
     const char* metadata = NUM_ARGS >= 6 ? GETSTRING(ARG(5)) : "{}";
     rc = cprag_add_edge(handle, GETSTRING(ARG(1)), GETSTRING(ARG(2)), GETSTRING(ARG(3)), weight, metadata);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    cprag_close(handle);
+    SETSTRING(RETURN, "1");
+    RESETSIGNAL
+}
+
+PROCEDURE(addedgetyped)
+{
+    if (NUM_ARGS < 5 || NUM_ARGS > 7) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, source_id, target_id, relationship_type, label, optional weight, optional metadata_json expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    const double weight = NUM_ARGS >= 6 ? GETFLOAT(ARG(5)) : 1.0;
+    const char* metadata = NUM_ARGS >= 7 ? GETSTRING(ARG(6)) : "{}";
+    rc = cprag_add_edge_typed(handle, GETSTRING(ARG(1)), GETSTRING(ARG(2)), GETSTRING(ARG(3)), GETSTRING(ARG(4)), weight, metadata);
     if (rc != CPRAG_OK) {
         char err[512];
         copy_message(err, sizeof(err), cprag_last_error(handle));
@@ -199,6 +256,100 @@ PROCEDURE(listsources)
     RESETSIGNAL
 }
 
+PROCEDURE(listchunks)
+{
+    if (NUM_ARGS != 2) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, source_uri expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    rc = cprag_list_chunks(handle, GETSTRING(ARG(1)), buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(deletesource)
+{
+    if (NUM_ARGS != 2) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, source_uri expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    rc = cprag_delete_source(handle, GETSTRING(ARG(1)), buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(vocabulary)
+{
+    if (NUM_ARGS != 0) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "no arguments expected")
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    int rc = cprag_vocabulary(buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        free(buffer);
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    SETSTRING(RETURN, buffer);
+    free(buffer);
+    RESETSIGNAL
+}
+
 PROCEDURE(search)
 {
     if (NUM_ARGS < 2 || NUM_ARGS > 4) {
@@ -259,6 +410,80 @@ PROCEDURE(expand)
     const int hops = NUM_ARGS >= 3 ? GETINT(ARG(2)) : 2;
     const char* filter = NUM_ARGS >= 4 ? GETSTRING(ARG(3)) : "";
     rc = cprag_expand(handle, GETSTRING(ARG(1)), hops, filter, buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(shortestpath)
+{
+    if (NUM_ARGS < 3 || NUM_ARGS > 4) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, source_id, target_id, optional relationship_filter_csv expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* filter = NUM_ARGS >= 4 ? GETSTRING(ARG(3)) : "";
+    rc = cprag_shortest_path(handle, GETSTRING(ARG(1)), GETSTRING(ARG(2)), filter, buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(subgraph)
+{
+    if (NUM_ARGS < 1 || NUM_ARGS > 4) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, optional node_type_filter_csv, relationship_type_filter_csv, limit expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* node_filter = NUM_ARGS >= 2 ? GETSTRING(ARG(1)) : "";
+    const char* relation_filter = NUM_ARGS >= 3 ? GETSTRING(ARG(2)) : "";
+    const int limit = NUM_ARGS >= 4 ? GETINT(ARG(3)) : 100;
+    rc = cprag_subgraph(handle, node_filter, relation_filter, limit, buffer, RXRAG_JSON_BUFFER_SIZE);
     if (rc != CPRAG_OK) {
         char err[512];
         copy_message(err, sizeof(err), cprag_last_error(handle));
@@ -342,11 +567,18 @@ PROCEDURE(chunk)
 LOADFUNCS
 ADDPROC(init,      "rxrag.init",      "b", ".string", "path=.string");
 ADDPROC(addentity, "rxrag.addentity", "b", ".string", "path=.string,id=.string,label=.string,description=.string,metadata_json=.string");
+ADDPROC(addentitytyped, "rxrag.addentitytyped", "b", ".string", "path=.string,id=.string,node_type=.string,label=.string,description=.string,metadata_json=.string");
 ADDPROC(addedge,   "rxrag.addedge",   "b", ".string", "path=.string,source_id=.string,target_id=.string,label=.string,weight=.float,metadata_json=.string");
+ADDPROC(addedgetyped, "rxrag.addedgetyped", "b", ".string", "path=.string,source_id=.string,target_id=.string,relationship_type=.string,label=.string,weight=.float,metadata_json=.string");
 ADDPROC(ingest,    "rxrag.ingest",    "b", ".string", "path=.string,source_uri=.string,title=.string,text=.string,file_type=.string,chunk_size=.int,overlap=.int,metadata_json=.string");
 ADDPROC(listsources, "rxrag.listsources", "b", ".string", "path=.string");
+ADDPROC(listchunks, "rxrag.listchunks", "b", ".string", "path=.string,source_uri=.string");
+ADDPROC(deletesource, "rxrag.deletesource", "b", ".string", "path=.string,source_uri=.string");
+ADDPROC(vocabulary, "rxrag.vocabulary", "b", ".string", "");
 ADDPROC(search,    "rxrag.search",    "b", ".string", "path=.string,query=.string,top_k=.int,hops=.int");
 ADDPROC(expand,    "rxrag.expand",    "b", ".string", "path=.string,anchors_csv=.string,hops=.int,relation_filter_csv=.string");
+ADDPROC(shortestpath, "rxrag.shortestpath", "b", ".string", "path=.string,source_id=.string,target_id=.string,relationship_filter_csv=.string");
+ADDPROC(subgraph, "rxrag.subgraph", "b", ".string", "path=.string,node_type_filter_csv=.string,relationship_type_filter_csv=.string,limit=.int");
 ADDPROC(stats,     "rxrag.stats",     "b", ".string", "path=.string");
 ADDPROC(chunk,     "rxrag.chunk",     "b", ".string", "text=.string,chunk_size=.int,overlap=.int,file_type=.string");
 ENDLOADFUNCS

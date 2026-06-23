@@ -21,17 +21,20 @@ place where those semantics exist.
 - `cprag_core` exposes a stable C ABI in `include/crexx_rag/ragcore.h`.
 - SQLite stores entities, edges, documents, and chunks in a shareable `.cprag`
   folder bundle.
-- Current entity and edge labels are the first surface for node and relationship
-  type semantics.
+- Entities have explicit `node_type`; edges have explicit `relationship_type`.
+- The initial architecture vocabulary lives in `docs/architecture-vocabulary.md`
+  and is exposed as JSON through the adapters.
 - Search currently combines placeholder text-overlap entity anchors with SQLite
   FTS5 lexical chunk retrieval.
 - Graph context is expanded with simple BFS over both incoming and outgoing
   edges.
+- Graph query APIs include shortest path and typed subgraph extraction.
 - Chunking is Qt-free and adapted from the useful CognitivePipelines chunking
   behavior: smart overlap, Markdown header/table awareness, and Rexx-friendly
   separators.
 - `crexx-rag-mcp` is a minimal stdio MCP server scaffold with status, search,
-  ingest, source listing, and graph edit tools.
+  vocabulary, shortest path, typed subgraph, ingest, source/chunk listing,
+  source deletion, and graph edit tools.
 - `rx_rag.rxplugin` is the CREXX dynamic plugin target and has a CTest smoke
   that compiles with installed `rxc`, assembles with installed `rxas`, and runs
   with installed `rxvme`.
@@ -78,12 +81,8 @@ Record CREXX packaging/API issues in `docs/crexx-integration-issues.md`.
 
 ## Next Steps
 
-- Document a small initial relationship vocabulary, starting with
-  ArchiMate-inspired architecture types and relations while keeping the storage
-  domain-neutral.
-- Make node type and relationship type semantics explicit in schema/API naming
-  as the document/chunk ingestion schema lands.
 - Add FAISS behind the C ABI as an optional vector index dependency.
 - Add embedding-provider adapters, starting local-first.
-- Expand MCP tools around graph expansion and source inspection.
+- Add stricter optional validation against named vocabularies when a profile
+  wants it.
 - Add CREXX profile scripts for ranking and query policies.
