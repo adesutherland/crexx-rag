@@ -15,6 +15,7 @@ enum {
     CPRAG_DATABASE_ERROR = 3,
     CPRAG_NOT_FOUND = 4,
     CPRAG_BUFFER_TOO_SMALL = 5,
+    CPRAG_UNSUPPORTED = 6,
     CPRAG_INTERNAL_ERROR = 100
 };
 
@@ -101,6 +102,35 @@ int cprag_list_chunks(
 int cprag_delete_source(
     cprag_handle* handle,
     const char* source_uri,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_vector_index_available(void);
+
+int cprag_add_chunk_embedding(
+    cprag_handle* handle,
+    long long chunk_id,
+    const char* embedding_model,
+    const float* vector,
+    size_t dimension);
+
+int cprag_rebuild_vector_index(
+    cprag_handle* handle,
+    const char* embedding_model,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_vector_search(
+    cprag_handle* handle,
+    const char* embedding_model,
+    const float* query_vector,
+    size_t dimension,
+    int top_k,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_vector_status(
+    cprag_handle* handle,
     char* out_json,
     size_t out_json_size);
 

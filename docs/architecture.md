@@ -19,7 +19,7 @@ CREXX Level G surface ---> rx_rag.rxplugin
        +----------+----------+
        |                     |
    SQLite metadata      FAISS vectors
-   graph/doc chunks     planned
+   graph/doc chunks     optional sidecar
 ```
 
 ## Native Core
@@ -37,6 +37,8 @@ Current capabilities:
 - add edges
 - perform naive text anchor search over entities
 - perform SQLite FTS5 lexical search over chunks
+- store caller-provided chunk embeddings in SQLite
+- rebuild and search an optional FAISS `vectors.faiss` chunk index
 - expand anchors through k-hop graph traversal
 - return JSON suitable for CLI, CREXX, or MCP wrappers
 
@@ -92,10 +94,10 @@ The model should stay domain-neutral enough to describe non-IT maps, including
 materials, processes, and other structured knowledge domains, while keeping the
 architecture relationship map as the guiding use case.
 
-## Next Dependency: FAISS
+## Optional FAISS Index
 
-FAISS should be added behind the C ABI as an optional native dependency.
-Expected files inside a library bundle:
+FAISS is behind the C ABI as an optional native dependency. Expected files
+inside a library bundle:
 
 ```text
 library.cprag/
@@ -107,3 +109,9 @@ library.cprag/
 SQLite should remain the source of truth for ids, metadata, document chunks, and
 graph structure. FAISS should hold vector ids that map back through SQLite chunk
 rows.
+
+The first vector surface intentionally accepts caller-provided chunk embeddings.
+Embedding generation belongs in an adapter layer, then ranking and retrieval
+policy can be tuned from CREXX/profile code. The current FAISS sidecar is a
+single active chunk index for one embedding model/dimension at a time and can be
+rebuilt from SQLite metadata.

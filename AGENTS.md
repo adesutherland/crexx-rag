@@ -12,7 +12,7 @@ Repository guidance for `crexx-rag`.
   use case is an IT architecture view of the world, likely ArchiMate-inspired,
   but the same model should be useful for other structured domains.
 - Keep the first storage format folder-based and shareable:
-  `manifest.json`, `library.sqlite`, and later `vectors.faiss`.
+  `manifest.json`, `library.sqlite`, and optional `vectors.faiss`.
 
 ## Build
 
@@ -121,7 +121,8 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
 ## Dependency Direction
 
 - SQLite is acceptable as a baseline dependency.
-- FAISS should be optional until the first vector-index milestone lands.
+- FAISS is optional and must stay behind the C ABI. SQLite remains the source of
+  truth for vector metadata; `vectors.faiss` is a rebuildable sidecar.
 - Avoid adding a graph database dependency until the native essential graph layer
   is clearly insufficient.
 - CREXX development headers and plugin build metadata should come from the
@@ -132,6 +133,9 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
 - Native core supports SQLite-backed entities and edges.
 - Native core supports persistent documents and chunks with SQLite FTS5 lexical
   retrieval.
+- Native core can store caller-provided chunk embeddings in SQLite and, when
+  built with `CPRAG_ENABLE_FAISS=ON`, rebuild/search a FAISS `vectors.faiss`
+  sidecar for one active embedding model/dimension.
 - Entity `node_type` and edge `relationship_type` are explicit schema/API
   fields.
 - Search combines naive text overlap over entity ids, labels, and descriptions
@@ -145,7 +149,9 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
   and graph edit tools. It validates JSON-RPC shape and typed arguments, and it
   is read-only by default.
 - CREXX plugin publishes Level G RXPA signatures and currently builds through
-  the temporary vendored rxpa headers.
+  the temporary vendored rxpa headers. It includes vector status, chunk
+  embedding storage, FAISS rebuild, and vector search functions using
+  comma-separated float vectors at the CREXX boundary.
 - `crexx/cprag.crexx` provides the first Level G class-shaped wrapper surface
   over the raw plugin functions.
 - CREXX plugin runtime is covered by `crexx_profile_smoke` when installed

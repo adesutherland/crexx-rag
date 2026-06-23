@@ -1,9 +1,11 @@
 #include "crexx_rag/ragcore.h"
 
 #include <cstdlib>
+#include <cctype>
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -25,6 +27,10 @@ void usage()
         << "  crexx-rag list-sources <library>\n"
         << "  crexx-rag list-chunks <library> <source-uri>\n"
         << "  crexx-rag delete-source <library> <source-uri>\n"
+        << "  crexx-rag add-chunk-embedding <library> <chunk-id> <embedding-model> <comma-separated-floats>\n"
+        << "  crexx-rag rebuild-vector-index <library> <embedding-model>\n"
+        << "  crexx-rag vector-search <library> <embedding-model> <comma-separated-floats> [top-k]\n"
+        << "  crexx-rag vector-status <library>\n"
         << "  crexx-rag search <library> <query> [top-k] [hops]\n"
         << "  crexx-rag expand <library> <anchor-csv> [hops] [relation-filter-csv]\n"
         << "  crexx-rag shortest-path <library> <source-id> <target-id> [relationship-filter-csv]\n"
@@ -87,6 +93,34 @@ bool readFile(const std::string& path, std::string* out)
     buffer << input.rdbuf();
     *out = buffer.str();
     return true;
+}
+
+std::vector<float> parseFloatCsv(const std::string& text)
+{
+    std::vector<float> values;
+    std::string current;
+    std::istringstream stream(text);
+    while (std::getline(stream, current, ',')) {
+        const auto first = current.find_first_not_of(" \t\r\n");
+        if (first == std::string::npos) {
+            continue;
+        }
+        const auto last = current.find_last_not_of(" \t\r\n");
+        std::string item = current.substr(first, last - first + 1);
+        size_t consumed = 0;
+        const float value = std::stof(item, &consumed);
+        while (consumed < item.size() && std::isspace(static_cast<unsigned char>(item[consumed])) != 0) {
+            ++consumed;
+        }
+        if (consumed != item.size()) {
+            throw std::invalid_argument("invalid float value: " + item);
+        }
+        values.push_back(value);
+    }
+    if (values.empty()) {
+        throw std::invalid_argument("vector must contain at least one float");
+    }
+    return values;
 }
 
 } // namespace
@@ -271,6 +305,76 @@ int main(int argc, char** argv)
         return withLibrary(library, [&](cprag_handle* handle) {
             std::vector<char> buffer(kJsonBufferSize);
             const int rc = cprag_delete_source(handle, argv[3], buffer.data(), buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "add-chunk-embedding") {
+        if (argc < 6) {
+            usage();
+            return 2;
+        }
+        std::vector<float> vector;
+        try {
+            vector = parseFloatCsv(argv[5]);
+        } catch (const std::exception& ex) {
+            std::cerr << ex.what() << '\n';
+            return CPRAG_INVALID_ARGUMENT;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            const long long chunkId = std::atoll(argv[3]);
+            const int rc = cprag_add_chunk_embedding(handle, chunkId, argv[4], vector.data(), vector.size());
+            if (rc != CPRAG_OK) {
+                return fail(rc, handle);
+            }
+            std::cout << "chunk embedding added: " << chunkId << '\n';
+            return 0;
+        });
+    }
+
+    if (command == "rebuild-vector-index") {
+        if (argc < 4) {
+            usage();
+            return 2;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const int rc = cprag_rebuild_vector_index(handle, argv[3], buffer.data(), buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "vector-search") {
+        if (argc < 5) {
+            usage();
+            return 2;
+        }
+        std::vector<float> vector;
+        try {
+            vector = parseFloatCsv(argv[4]);
+        } catch (const std::exception& ex) {
+            std::cerr << ex.what() << '\n';
+            return CPRAG_INVALID_ARGUMENT;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const int topK = argc >= 6 ? std::atoi(argv[5]) : 3;
+            const int rc = cprag_vector_search(
+                handle,
+                argv[3],
+                vector.data(),
+                vector.size(),
+                topK,
+                buffer.data(),
+                buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "vector-status") {
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const int rc = cprag_vector_status(handle, buffer.data(), buffer.size());
             return printJsonResult(handle, rc, buffer);
         });
     }

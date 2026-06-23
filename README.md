@@ -29,8 +29,8 @@ small built-in graph traversal layer. It stores both the typed relationship map
 and persistent document chunks, with SQLite FTS5 providing the first local
 lexical retrieval path. It also ports the useful chunking ideas from
 CognitivePipelines into a Qt-free native chunker for plain text, Markdown, and
-Rexx-oriented source. FAISS is planned as the next native dependency for vector
-search.
+Rexx-oriented source. Optional FAISS support adds a rebuildable `vectors.faiss`
+sidecar for chunk vector search when callers provide embeddings.
 
 ## Build
 
@@ -79,6 +79,19 @@ The repeatable dynamic plugin compile/run pattern is documented in
 The initial typed architecture vocabulary is documented in
 [`docs/architecture-vocabulary.md`](docs/architecture-vocabulary.md).
 
+FAISS is optional and off by default. To build the FAISS-backed vector path,
+install FAISS and configure with:
+
+```bash
+cmake -S . -B cmake-build-faiss -G Ninja -DCPRAG_ENABLE_FAISS=ON
+cmake --build cmake-build-faiss
+ctest --test-dir cmake-build-faiss --output-on-failure
+```
+
+The first vector milestone is bring-your-own embeddings: the core stores chunk
+embedding vectors in SQLite, rebuilds `vectors.faiss` from that metadata, and
+searches the sidecar. It does not choose or call an embedding model provider.
+
 ## CLI Sketch
 
 ```bash
@@ -89,8 +102,18 @@ The initial typed architecture vocabulary is documented in
 ./cmake-build-debug/crexx-rag ingest-text ./example.cprag docs/auth.md "Auth notes" markdown 800 120 $'# Auth\n\nAuth depends on PostgreSQL.'
 ./cmake-build-debug/crexx-rag list-sources ./example.cprag
 ./cmake-build-debug/crexx-rag list-chunks ./example.cprag docs/auth.md
+./cmake-build-debug/crexx-rag vector-status ./example.cprag
 ./cmake-build-debug/crexx-rag shortest-path ./example.cprag entity:auth entity:db
 ./cmake-build-debug/crexx-rag search ./example.cprag "what database does auth use" 3 2
+```
+
+With a FAISS-enabled build, callers can attach embeddings and rebuild/search the
+sidecar:
+
+```bash
+./cmake-build-faiss/crexx-rag add-chunk-embedding ./example.cprag 1 test-model 1.0,0.0,0.0
+./cmake-build-faiss/crexx-rag rebuild-vector-index ./example.cprag test-model
+./cmake-build-faiss/crexx-rag vector-search ./example.cprag test-model 0.9,0.1,0.0 3
 ```
 
 ## MCP Direction
@@ -124,6 +147,10 @@ The raw plugin exposes stateless path-based Level G functions:
 - `rxrag.listsources(path)`
 - `rxrag.listchunks(path, source_uri)`
 - `rxrag.deletesource(path, source_uri)`
+- `rxrag.vectorstatus(path)`
+- `rxrag.addchunkembedding(path, chunk_id, embedding_model, vector_csv)`
+- `rxrag.rebuildvectorindex(path, embedding_model)`
+- `rxrag.vectorsearch(path, embedding_model, vector_csv, top_k)`
 - `rxrag.vocabulary()`
 - `rxrag.search(path, query, top_k, hops)`
 - `rxrag.expand(path, anchors_csv, hops)`
@@ -136,7 +163,11 @@ The first CREXX wrapper is `cprag.raglibrary` in
 [`crexx/cprag.crexx`](crexx/cprag.crexx). It wraps the raw plugin calls as a
 small class-shaped API and uses CREXX's `rxjson` helpers for JSON-aware
 convenience methods such as `sourceCount()`. The native functions still return
-JSON so the same ABI works for CLI, CREXX, and MCP.
+JSON so the same ABI works for CLI, CREXX, and MCP. Vector methods use
+comma-separated float strings at the CREXX boundary for now; embedding provider
+adapters can replace that with a richer profile-level flow later. The wrapper
+names are `vectorStatusJson()`, `attachChunkEmbedding()`, `buildVectorIndex()`,
+and `searchVector()` to avoid colliding with raw imported plugin function names.
 
 The CREXX dynamic plugin smoke is part of the debug test preset when the
 installed `rxc`, `rxas`, and `rxvme` are available:
@@ -151,5 +182,6 @@ This is a scaffold, not a finished RAG engine. The current search is intentional
 simple: text-overlap anchors over entity ids, labels, and descriptions, plus
 SQLite FTS5 over persisted chunks. The graph layer now has explicit node and
 relationship types, shortest path, typed subgraph extraction, and source/chunk
-maintenance APIs. The next major piece is a FAISS-backed vector index and
-embedding-provider adapter.
+maintenance APIs. The vector layer now stores caller-provided chunk embeddings
+and can use FAISS for local vector search when enabled. The next major piece is
+an embedding-provider adapter and hybrid ranking policy in CREXX/profile code.

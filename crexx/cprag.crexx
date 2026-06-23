@@ -49,6 +49,21 @@ raglibrary: class
     arg source_uri = .string
     return deletesource(_path, source_uri)
 
+  vectorStatusJson: method = .string
+    return vectorstatus(_path)
+
+  attachChunkEmbedding: method = .string
+    arg chunk_id = .int, embedding_model = .string, vector_csv = .string
+    return addchunkembedding(_path, chunk_id, embedding_model, vector_csv)
+
+  buildVectorIndex: method = .string
+    arg embedding_model = .string
+    return rebuildvectorindex(_path, embedding_model)
+
+  searchVector: method = .string
+    arg embedding_model = .string, vector_csv = .string, top_k = 3
+    return vectorsearch(_path, embedding_model, vector_csv, top_k)
+
   vocabularyJson: method = .string
     return vocabulary()
 

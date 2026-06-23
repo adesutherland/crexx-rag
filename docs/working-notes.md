@@ -27,6 +27,9 @@ place where those semantics exist.
   and is exposed as JSON through the adapters.
 - Search currently combines placeholder text-overlap entity anchors with SQLite
   FTS5 lexical chunk retrieval.
+- Optional FAISS support stores caller-provided chunk embeddings in SQLite,
+  rebuilds a `vectors.faiss` sidecar for one active embedding model/dimension,
+  and searches that sidecar by vector.
 - Graph context is expanded with simple BFS over both incoming and outgoing
   edges.
 - Graph query APIs include shortest path and typed subgraph extraction.
@@ -39,7 +42,11 @@ place where those semantics exist.
 - `rx_rag.rxplugin` publishes Level G native signatures through RXPA.
 - `crexx/cprag.crexx` is the first CREXX Level G wrapper surface. It exposes
   `cprag.raglibrary`, keeps JSON as the interchange format, and uses CREXX
-  `rxjson` helpers for JSON-aware convenience methods.
+  `rxjson` helpers for JSON-aware convenience methods. Vector status,
+  add-chunk-embedding, rebuild, and vector-search calls are exposed through the
+  wrapper with comma-separated float vectors. Wrapper method names avoid raw
+  plugin-name collisions: `vectorStatusJson`, `attachChunkEmbedding`,
+  `buildVectorIndex`, and `searchVector`.
 - The CREXX smoke compiles `cprag.crexx`, compiles the profile against it,
   assembles both modules with installed `rxas`, and runs with installed
   `rxvme`.
@@ -86,8 +93,11 @@ Record CREXX packaging/API issues in `docs/crexx-integration-issues.md`.
 
 ## Next Steps
 
-- Add FAISS behind the C ABI as an optional vector index dependency.
 - Add embedding-provider adapters, starting local-first.
+- Add hybrid lexical/vector ranking policy in CREXX/profile code.
+- Add larger generated or fixture-based retrieval corpora when recall,
+  performance, or hybrid ranking needs tuning. The current FAISS smoke uses
+  tiny deterministic vectors so CI stays fast and reliable.
 - Add stricter optional validation against named vocabularies when a profile
   wants it.
 - Expand the CREXX Level G wrapper and profile scripts for ranking and query

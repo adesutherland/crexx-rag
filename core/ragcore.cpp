@@ -8,10 +8,12 @@
 #include <cctype>
 #include <cstdint>
 #include <cmath>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <limits>
+#include <memory>
 #include <queue>
 #include <sstream>
 #include <stdexcept>
@@ -20,6 +22,12 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+
+#ifdef CPRAG_HAVE_FAISS
+#include <faiss/IndexFlat.h>
+#include <faiss/IndexIDMap.h>
+#include <faiss/index_io.h>
+#endif
 
 struct cprag_handle {
     std::filesystem::path libraryPath;
@@ -89,6 +97,29 @@ struct StoredChunk {
     std::string metadataJson;
 };
 
+struct ChunkEmbedding {
+    long long chunkId {0};
+    int dimension {0};
+    std::vector<float> vector;
+};
+
+struct VectorIndexState {
+    bool present {false};
+    std::string embeddingModel;
+    int dimension {0};
+    std::string metric;
+    long long embeddingCount {0};
+    std::string indexPath;
+    std::string backend;
+    std::string updatedAt;
+};
+
+struct VectorHit {
+    StoredChunk chunk;
+    double distance {0.0};
+    double score {0.0};
+};
+
 struct VocabularyItem {
     const char* id;
     const char* label;
@@ -120,6 +151,11 @@ static constexpr VocabularyItem kArchitectureRelationshipTypes[] = {
 std::filesystem::path dbPathForLibrary(const std::filesystem::path& libraryPath)
 {
     return libraryPath / "library.sqlite";
+}
+
+std::filesystem::path vectorIndexPathForLibrary(const std::filesystem::path& libraryPath)
+{
+    return libraryPath / "vectors.faiss";
 }
 
 std::string valueOrEmpty(const char* value)
@@ -157,6 +193,8 @@ int execSql(cprag_handle* handle, const char* sql)
     }
     return CPRAG_OK;
 }
+
+int invalidateVectorIndexState(cprag_handle* handle);
 
 bool columnExists(cprag_handle* handle, const std::string& table, const std::string& column)
 {
@@ -249,6 +287,27 @@ CREATE TABLE IF NOT EXISTS chunks (
 );
 CREATE INDEX IF NOT EXISTS idx_documents_source_uri ON documents(source_uri);
 CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id, chunk_index);
+CREATE TABLE IF NOT EXISTS chunk_embeddings (
+    chunk_id INTEGER NOT NULL,
+    embedding_model TEXT NOT NULL,
+    dimension INTEGER NOT NULL,
+    vector BLOB NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (chunk_id, embedding_model),
+    FOREIGN KEY (chunk_id) REFERENCES chunks(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_chunk_embeddings_model ON chunk_embeddings(embedding_model, dimension);
+CREATE TABLE IF NOT EXISTS vector_index_state (
+    index_name TEXT PRIMARY KEY,
+    embedding_model TEXT NOT NULL,
+    dimension INTEGER NOT NULL,
+    metric TEXT NOT NULL DEFAULT 'l2',
+    embedding_count INTEGER NOT NULL DEFAULT 0,
+    index_path TEXT NOT NULL DEFAULT 'vectors.faiss',
+    backend TEXT NOT NULL DEFAULT 'faiss',
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
     text,
     source_uri UNINDEXED,
@@ -391,6 +450,21 @@ long long countRows(cprag_handle* handle, const char* tableName)
     return count;
 }
 
+long long countStoredEmbeddings(cprag_handle* handle)
+{
+    sqlite3_stmt* stmt = nullptr;
+    if (prepare(handle, "SELECT COUNT(*) FROM chunk_embeddings", &stmt) != CPRAG_OK) {
+        throw std::runtime_error(handle->lastError);
+    }
+
+    long long count = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        count = sqlite3_column_int64(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+    return count;
+}
+
 std::vector<Entity> loadEntities(cprag_handle* handle)
 {
     sqlite3_stmt* stmt = nullptr;
@@ -510,6 +584,203 @@ std::vector<StoredChunk> loadChunksForSource(cprag_handle* handle, const std::st
         throw std::runtime_error(sqliteError(handle->db));
     }
     return chunks;
+}
+
+StoredChunk loadChunkById(cprag_handle* handle, long long chunkId)
+{
+    sqlite3_stmt* stmt = nullptr;
+    if (prepare(handle,
+            "SELECT c.id, c.document_id, d.source_uri, d.title, c.chunk_index, c.text, c.length, "
+            "c.start_offset, c.end_offset, c.metadata_json "
+            "FROM chunks c "
+            "JOIN documents d ON d.id = c.document_id "
+            "WHERE c.id = ?",
+            &stmt)
+        != CPRAG_OK) {
+        throw std::runtime_error(handle->lastError);
+    }
+
+    sqlite3_bind_int64(stmt, 1, chunkId);
+    StoredChunk chunk;
+    const int stepRc = sqlite3_step(stmt);
+    if (stepRc == SQLITE_ROW) {
+        chunk.id = sqlite3_column_int64(stmt, 0);
+        chunk.documentId = sqlite3_column_int64(stmt, 1);
+        chunk.sourceUri = columnText(stmt, 2);
+        chunk.title = columnText(stmt, 3);
+        chunk.chunkIndex = sqlite3_column_int(stmt, 4);
+        chunk.text = columnText(stmt, 5);
+        chunk.length = sqlite3_column_int(stmt, 6);
+        chunk.startOffset = sqlite3_column_int64(stmt, 7);
+        chunk.endOffset = sqlite3_column_int64(stmt, 8);
+        chunk.metadataJson = columnText(stmt, 9);
+        sqlite3_finalize(stmt);
+        return chunk;
+    }
+
+    sqlite3_finalize(stmt);
+    if (stepRc == SQLITE_DONE) {
+        throw std::runtime_error("chunk was not found");
+    }
+    throw std::runtime_error(sqliteError(handle->db));
+}
+
+bool chunkExists(cprag_handle* handle, long long chunkId)
+{
+    sqlite3_stmt* stmt = nullptr;
+    if (prepare(handle, "SELECT 1 FROM chunks WHERE id = ?", &stmt) != CPRAG_OK) {
+        return false;
+    }
+    sqlite3_bind_int64(stmt, 1, chunkId);
+    const bool exists = sqlite3_step(stmt) == SQLITE_ROW;
+    sqlite3_finalize(stmt);
+    return exists;
+}
+
+bool bindBlob(sqlite3_stmt* stmt, int index, const void* data, int size)
+{
+    return sqlite3_bind_blob(stmt, index, data, size, SQLITE_TRANSIENT) == SQLITE_OK;
+}
+
+int validateVector(
+    cprag_handle* handle,
+    const float* vector,
+    size_t dimension,
+    int* outDimension)
+{
+    if (vector == nullptr) {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "vector is required");
+    }
+    if (dimension == 0 || dimension > static_cast<size_t>(std::numeric_limits<int>::max())) {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "vector dimension must be positive");
+    }
+    if (dimension > 65536) {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "vector dimension is too large");
+    }
+    for (size_t i = 0; i < dimension; ++i) {
+        if (!std::isfinite(vector[i])) {
+            return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "vector values must be finite");
+        }
+    }
+    *outDimension = static_cast<int>(dimension);
+    return CPRAG_OK;
+}
+
+std::vector<float> vectorFromBlob(const void* blob, int bytes)
+{
+    if (blob == nullptr || bytes <= 0 || bytes % static_cast<int>(sizeof(float)) != 0) {
+        return {};
+    }
+    std::vector<float> values(static_cast<size_t>(bytes) / sizeof(float));
+    std::memcpy(values.data(), blob, static_cast<size_t>(bytes));
+    return values;
+}
+
+std::vector<ChunkEmbedding> loadChunkEmbeddings(cprag_handle* handle, const std::string& embeddingModel)
+{
+    sqlite3_stmt* stmt = nullptr;
+    if (prepare(handle,
+            "SELECT chunk_id, dimension, vector "
+            "FROM chunk_embeddings "
+            "WHERE embedding_model = ? "
+            "ORDER BY chunk_id",
+            &stmt)
+        != CPRAG_OK) {
+        throw std::runtime_error(handle->lastError);
+    }
+
+    bindText(stmt, 1, embeddingModel);
+    std::vector<ChunkEmbedding> embeddings;
+    int stepRc = SQLITE_OK;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        ChunkEmbedding embedding;
+        embedding.chunkId = sqlite3_column_int64(stmt, 0);
+        embedding.dimension = sqlite3_column_int(stmt, 1);
+        const void* blob = sqlite3_column_blob(stmt, 2);
+        const int bytes = sqlite3_column_bytes(stmt, 2);
+        embedding.vector = vectorFromBlob(blob, bytes);
+        if (embedding.dimension <= 0
+            || embedding.vector.size() != static_cast<size_t>(embedding.dimension)) {
+            sqlite3_finalize(stmt);
+            throw std::runtime_error("stored embedding dimension does not match vector bytes");
+        }
+        embeddings.push_back(std::move(embedding));
+    }
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        throw std::runtime_error(sqliteError(handle->db));
+    }
+    return embeddings;
+}
+
+VectorIndexState loadVectorIndexState(cprag_handle* handle)
+{
+    sqlite3_stmt* stmt = nullptr;
+    if (prepare(handle,
+            "SELECT embedding_model, dimension, metric, embedding_count, index_path, backend, updated_at "
+            "FROM vector_index_state "
+            "WHERE index_name = 'chunks'",
+            &stmt)
+        != CPRAG_OK) {
+        throw std::runtime_error(handle->lastError);
+    }
+
+    VectorIndexState state;
+    const int stepRc = sqlite3_step(stmt);
+    if (stepRc == SQLITE_ROW) {
+        state.present = true;
+        state.embeddingModel = columnText(stmt, 0);
+        state.dimension = sqlite3_column_int(stmt, 1);
+        state.metric = columnText(stmt, 2);
+        state.embeddingCount = sqlite3_column_int64(stmt, 3);
+        state.indexPath = columnText(stmt, 4);
+        state.backend = columnText(stmt, 5);
+        state.updatedAt = columnText(stmt, 6);
+        sqlite3_finalize(stmt);
+        return state;
+    }
+
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        throw std::runtime_error(sqliteError(handle->db));
+    }
+    return state;
+}
+
+int upsertVectorIndexState(
+    cprag_handle* handle,
+    const std::string& embeddingModel,
+    int dimension,
+    long long embeddingCount)
+{
+    sqlite3_stmt* stmt = nullptr;
+    const int prepRc = prepare(handle,
+        "INSERT INTO vector_index_state "
+        "(index_name, embedding_model, dimension, metric, embedding_count, index_path, backend, updated_at) "
+        "VALUES ('chunks', ?, ?, 'l2', ?, 'vectors.faiss', 'faiss', CURRENT_TIMESTAMP) "
+        "ON CONFLICT(index_name) DO UPDATE SET "
+        "embedding_model=excluded.embedding_model, dimension=excluded.dimension, metric=excluded.metric, "
+        "embedding_count=excluded.embedding_count, index_path=excluded.index_path, backend=excluded.backend, "
+        "updated_at=CURRENT_TIMESTAMP",
+        &stmt);
+    if (prepRc != CPRAG_OK) {
+        return prepRc;
+    }
+
+    bindText(stmt, 1, embeddingModel);
+    sqlite3_bind_int(stmt, 2, dimension);
+    sqlite3_bind_int64(stmt, 3, embeddingCount);
+    const int stepRc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    return CPRAG_OK;
+}
+
+int invalidateVectorIndexState(cprag_handle* handle)
+{
+    return execSql(handle, "DELETE FROM vector_index_state WHERE index_name = 'chunks'");
 }
 
 std::string jsonEscape(const std::string& input)
@@ -910,8 +1181,8 @@ int initLibraryPath(const std::filesystem::path& libraryPath, std::string* error
         manifest << "{\n"
                  << "  \"format\": \"crexx-rag-library\",\n"
                  << "  \"version\": 1,\n"
-                 << "  \"vector_index\": \"planned-faiss\",\n"
-                 << "  \"database\": \"library.sqlite\"\n"
+                 << "  \"database\": \"library.sqlite\",\n"
+                 << "  \"vector_index\": \"vectors.faiss\"\n"
                  << "}\n";
         return CPRAG_OK;
     } catch (const std::exception& ex) {
@@ -999,7 +1270,7 @@ int deleteDocumentChunks(cprag_handle* handle, long long documentId)
     if (stepRc != SQLITE_DONE) {
         return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
     }
-    return CPRAG_OK;
+    return invalidateVectorIndexState(handle);
 }
 
 std::pair<long long, long long> locateChunkOffsets(
@@ -1144,6 +1415,96 @@ std::string buildChunksJson(const std::vector<StoredChunk>& chunks, const std::s
             << ",\"end_offset\":" << chunk.endOffset
             << ",\"metadata\":" << (chunk.metadataJson.empty() ? "{}" : chunk.metadataJson)
             << '}';
+    }
+    out << "]}";
+    return out.str();
+}
+
+void appendStoredChunkJson(std::ostringstream& out, const StoredChunk& chunk)
+{
+    out << "{\"id\":" << chunk.id
+        << ",\"document_id\":" << chunk.documentId
+        << ",\"source_uri\":" << jsonString(chunk.sourceUri)
+        << ",\"title\":" << jsonString(chunk.title)
+        << ",\"chunk_index\":" << chunk.chunkIndex
+        << ",\"text\":" << jsonString(chunk.text)
+        << ",\"length\":" << chunk.length
+        << ",\"start_offset\":" << chunk.startOffset
+        << ",\"end_offset\":" << chunk.endOffset
+        << ",\"metadata\":" << (chunk.metadataJson.empty() ? "{}" : chunk.metadataJson)
+        << '}';
+}
+
+std::string buildVectorStatusJson(
+    cprag_handle* handle,
+    const VectorIndexState& state,
+    long long storedEmbeddingCount)
+{
+    std::ostringstream out;
+    out << "{\"success\":true,\"enabled\":";
+#ifdef CPRAG_HAVE_FAISS
+    out << "true";
+#else
+    out << "false";
+#endif
+    out << ",\"backend\":\"faiss\""
+        << ",\"index_path\":" << jsonString(vectorIndexPathForLibrary(handle->libraryPath).string())
+        << ",\"stored_embeddings\":" << storedEmbeddingCount
+        << ",\"active_index\":";
+    if (!state.present) {
+        out << "null";
+    } else {
+        out << "{\"embedding_model\":" << jsonString(state.embeddingModel)
+            << ",\"dimension\":" << state.dimension
+            << ",\"metric\":" << jsonString(state.metric)
+            << ",\"embedding_count\":" << state.embeddingCount
+            << ",\"index_path\":" << jsonString(state.indexPath)
+            << ",\"backend\":" << jsonString(state.backend)
+            << ",\"updated_at\":" << jsonString(state.updatedAt)
+            << '}';
+    }
+    out << '}';
+    return out.str();
+}
+
+std::string buildVectorRebuildJson(
+    cprag_handle* handle,
+    const std::string& embeddingModel,
+    int dimension,
+    long long embeddingCount)
+{
+    std::ostringstream out;
+    out << "{\"success\":true,\"backend\":\"faiss\""
+        << ",\"embedding_model\":" << jsonString(embeddingModel)
+        << ",\"dimension\":" << dimension
+        << ",\"metric\":\"l2\""
+        << ",\"embedding_count\":" << embeddingCount
+        << ",\"index_path\":" << jsonString(vectorIndexPathForLibrary(handle->libraryPath).string())
+        << '}';
+    return out.str();
+}
+
+std::string buildVectorSearchJson(
+    const std::string& embeddingModel,
+    int dimension,
+    const std::vector<VectorHit>& hits)
+{
+    std::ostringstream out;
+    out << "{\"success\":true,\"backend\":\"faiss\""
+        << ",\"embedding_model\":" << jsonString(embeddingModel)
+        << ",\"dimension\":" << dimension
+        << ",\"metric\":\"l2\""
+        << ",\"results\":[";
+    for (size_t i = 0; i < hits.size(); ++i) {
+        if (i != 0) {
+            out << ',';
+        }
+        out << "{\"chunk_id\":" << hits[i].chunk.id
+            << ",\"distance\":" << hits[i].distance
+            << ",\"score\":" << hits[i].score
+            << ",\"chunk\":";
+        appendStoredChunkJson(out, hits[i].chunk);
+        out << '}';
     }
     out << "]}";
     return out.str();
@@ -1677,12 +2038,265 @@ int cprag_delete_source(cprag_handle* handle, const char* source_uri, char* out_
         return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
     }
 
+    if (deleted > 0) {
+        rc = invalidateVectorIndexState(handle);
+        if (rc != CPRAG_OK) {
+            execSql(handle, "ROLLBACK");
+            return rc;
+        }
+    }
+
     rc = execSql(handle, "COMMIT");
     if (rc != CPRAG_OK) {
         return rc;
     }
 
     return copyJson(handle, buildDeleteSourceJson(source_uri, deleted), out_json, out_json_size);
+}
+
+int cprag_vector_index_available(void)
+{
+#ifdef CPRAG_HAVE_FAISS
+    return 1;
+#else
+    return 0;
+#endif
+}
+
+int cprag_add_chunk_embedding(
+    cprag_handle* handle,
+    long long chunk_id,
+    const char* embedding_model,
+    const float* vector,
+    size_t dimension)
+{
+    if (handle == nullptr || embedding_model == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    if (handle->readOnly) {
+        return setErrorCode(handle, CPRAG_IO_ERROR, "library is open read-only");
+    }
+    const std::string model(embedding_model);
+    if (model.empty()) {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "embedding_model is required");
+    }
+    if (chunk_id <= 0) {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "chunk_id must be positive");
+    }
+
+    int effectiveDimension = 0;
+    const int vectorRc = validateVector(handle, vector, dimension, &effectiveDimension);
+    if (vectorRc != CPRAG_OK) {
+        return vectorRc;
+    }
+    if (!chunkExists(handle, chunk_id)) {
+        return setErrorCode(handle, CPRAG_NOT_FOUND, "chunk was not found");
+    }
+
+    sqlite3_stmt* stmt = nullptr;
+    const int prepRc = prepare(handle,
+        "INSERT INTO chunk_embeddings (chunk_id, embedding_model, dimension, vector) "
+        "VALUES (?, ?, ?, ?) "
+        "ON CONFLICT(chunk_id, embedding_model) DO UPDATE SET "
+        "dimension=excluded.dimension, vector=excluded.vector, updated_at=CURRENT_TIMESTAMP",
+        &stmt);
+    if (prepRc != CPRAG_OK) {
+        return prepRc;
+    }
+
+    sqlite3_bind_int64(stmt, 1, chunk_id);
+    const bool bound = bindText(stmt, 2, model)
+        && sqlite3_bind_int(stmt, 3, effectiveDimension) == SQLITE_OK
+        && bindBlob(
+            stmt,
+            4,
+            vector,
+            static_cast<int>(static_cast<size_t>(effectiveDimension) * sizeof(float)));
+    if (!bound) {
+        sqlite3_finalize(stmt);
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+
+    const int stepRc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    return invalidateVectorIndexState(handle);
+}
+
+int cprag_rebuild_vector_index(
+    cprag_handle* handle,
+    const char* embedding_model,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || embedding_model == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    if (handle->readOnly) {
+        return setErrorCode(handle, CPRAG_IO_ERROR, "library is open read-only");
+    }
+    const std::string model(embedding_model);
+    if (model.empty()) {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "embedding_model is required");
+    }
+
+#ifndef CPRAG_HAVE_FAISS
+    (void)out_json;
+    (void)out_json_size;
+    return setErrorCode(handle, CPRAG_UNSUPPORTED, "FAISS support is not enabled in this build");
+#else
+    try {
+        const std::vector<ChunkEmbedding> embeddings = loadChunkEmbeddings(handle, model);
+        if (embeddings.empty()) {
+            return setErrorCode(handle, CPRAG_NOT_FOUND, "no chunk embeddings were found for embedding_model");
+        }
+
+        const int dimension = embeddings.front().dimension;
+        std::vector<float> matrix;
+        matrix.reserve(embeddings.size() * static_cast<size_t>(dimension));
+        std::vector<faiss::idx_t> ids;
+        ids.reserve(embeddings.size());
+        for (const ChunkEmbedding& embedding : embeddings) {
+            if (embedding.dimension != dimension) {
+                return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "all embeddings for a model must have the same dimension");
+            }
+            matrix.insert(matrix.end(), embedding.vector.begin(), embedding.vector.end());
+            ids.push_back(static_cast<faiss::idx_t>(embedding.chunkId));
+        }
+
+        faiss::IndexIDMap index(new faiss::IndexFlatL2(dimension));
+        index.add_with_ids(
+            static_cast<faiss::idx_t>(embeddings.size()),
+            matrix.data(),
+            ids.data());
+        const std::filesystem::path indexPath = vectorIndexPathForLibrary(handle->libraryPath);
+        faiss::write_index(&index, indexPath.string().c_str());
+
+        const int stateRc = upsertVectorIndexState(handle, model, dimension, static_cast<long long>(embeddings.size()));
+        if (stateRc != CPRAG_OK) {
+            return stateRc;
+        }
+        return copyJson(
+            handle,
+            buildVectorRebuildJson(handle, model, dimension, static_cast<long long>(embeddings.size())),
+            out_json,
+            out_json_size);
+    } catch (const std::exception& ex) {
+        return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
+    }
+#endif
+}
+
+int cprag_vector_search(
+    cprag_handle* handle,
+    const char* embedding_model,
+    const float* query_vector,
+    size_t dimension,
+    int top_k,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+
+    int effectiveDimension = 0;
+    const int vectorRc = validateVector(handle, query_vector, dimension, &effectiveDimension);
+    if (vectorRc != CPRAG_OK) {
+        return vectorRc;
+    }
+
+#ifndef CPRAG_HAVE_FAISS
+    (void)embedding_model;
+    (void)top_k;
+    (void)out_json;
+    (void)out_json_size;
+    return setErrorCode(handle, CPRAG_UNSUPPORTED, "FAISS support is not enabled in this build");
+#else
+    try {
+        const VectorIndexState state = loadVectorIndexState(handle);
+        if (!state.present) {
+            return setErrorCode(handle, CPRAG_NOT_FOUND, "vector index has not been rebuilt");
+        }
+
+        const std::string requestedModel = valueOrEmpty(embedding_model).empty()
+            ? state.embeddingModel
+            : valueOrEmpty(embedding_model);
+        if (requestedModel != state.embeddingModel) {
+            return setErrorCode(handle, CPRAG_NOT_FOUND, "active vector index was built for a different embedding_model");
+        }
+        if (state.metric != "l2" || state.backend != "faiss") {
+            return setErrorCode(handle, CPRAG_UNSUPPORTED, "active vector index uses an unsupported backend or metric");
+        }
+        if (effectiveDimension != state.dimension) {
+            return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "query vector dimension does not match active index");
+        }
+
+        const std::filesystem::path indexPath = vectorIndexPathForLibrary(handle->libraryPath);
+        if (!std::filesystem::exists(indexPath)) {
+            return setErrorCode(handle, CPRAG_NOT_FOUND, "vectors.faiss was not found");
+        }
+
+        std::unique_ptr<faiss::Index> index(faiss::read_index(indexPath.string().c_str()));
+        if (!index || index->d != state.dimension) {
+            return setErrorCode(handle, CPRAG_INTERNAL_ERROR, "vectors.faiss dimension does not match index metadata");
+        }
+
+        const int effectiveTopK = top_k <= 0 ? 3 : top_k;
+        std::vector<float> distances(static_cast<size_t>(effectiveTopK), 0.0f);
+        std::vector<faiss::idx_t> labels(static_cast<size_t>(effectiveTopK), -1);
+        index->search(
+            1,
+            query_vector,
+            effectiveTopK,
+            distances.data(),
+            labels.data());
+
+        std::vector<VectorHit> hits;
+        for (int i = 0; i < effectiveTopK; ++i) {
+            if (labels[static_cast<size_t>(i)] < 0) {
+                continue;
+            }
+            try {
+                VectorHit hit;
+                hit.chunk = loadChunkById(handle, static_cast<long long>(labels[static_cast<size_t>(i)]));
+                hit.distance = distances[static_cast<size_t>(i)];
+                hit.score = -hit.distance;
+                hits.push_back(std::move(hit));
+            } catch (const std::exception&) {
+                continue;
+            }
+        }
+
+        return copyJson(
+            handle,
+            buildVectorSearchJson(state.embeddingModel, state.dimension, hits),
+            out_json,
+            out_json_size);
+    } catch (const std::exception& ex) {
+        return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
+    }
+#endif
+}
+
+int cprag_vector_status(cprag_handle* handle, char* out_json, size_t out_json_size)
+{
+    if (handle == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+
+    try {
+        const VectorIndexState state = loadVectorIndexState(handle);
+        return copyJson(
+            handle,
+            buildVectorStatusJson(handle, state, countStoredEmbeddings(handle)),
+            out_json,
+            out_json_size);
+    } catch (const std::exception& ex) {
+        return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
+    }
 }
 
 int cprag_vocabulary(char* out_json, size_t out_json_size)
@@ -1862,6 +2476,7 @@ int cprag_stats(cprag_handle* handle, char* out_json, size_t out_json_size)
     long long edgeCount = 0;
     long long documentCount = 0;
     long long chunkCount = 0;
+    long long embeddingCount = 0;
 
     if (prepare(handle, "SELECT COUNT(*) FROM entities", &stmt) != CPRAG_OK) {
         return CPRAG_DATABASE_ERROR;
@@ -1895,11 +2510,45 @@ int cprag_stats(cprag_handle* handle, char* out_json, size_t out_json_size)
     }
     sqlite3_finalize(stmt);
 
+    try {
+        embeddingCount = countStoredEmbeddings(handle);
+    } catch (const std::exception&) {
+        embeddingCount = 0;
+    }
+
+    VectorIndexState vectorState;
+    try {
+        vectorState = loadVectorIndexState(handle);
+    } catch (const std::exception&) {
+        vectorState = {};
+    }
+
     std::ostringstream out;
     out << "{\"success\":true,\"entities\":" << entityCount
         << ",\"edges\":" << edgeCount
         << ",\"documents\":" << documentCount
         << ",\"chunks\":" << chunkCount
+        << ",\"vectors\":{\"enabled\":";
+#ifdef CPRAG_HAVE_FAISS
+    out << "true";
+#else
+    out << "false";
+#endif
+    out << ",\"stored_embeddings\":" << embeddingCount
+        << ",\"active_index\":";
+    if (!vectorState.present) {
+        out << "null";
+    } else {
+        out << "{\"embedding_model\":" << jsonString(vectorState.embeddingModel)
+            << ",\"dimension\":" << vectorState.dimension
+            << ",\"metric\":" << jsonString(vectorState.metric)
+            << ",\"embedding_count\":" << vectorState.embeddingCount
+            << ",\"index_path\":" << jsonString(vectorState.indexPath)
+            << ",\"backend\":" << jsonString(vectorState.backend)
+            << ",\"updated_at\":" << jsonString(vectorState.updatedAt)
+            << '}';
+    }
+    out << '}'
         << ",\"library\":" << jsonString(handle->libraryPath.string())
         << '}';
     return copyJson(handle, out.str(), out_json, out_json_size);
@@ -1920,6 +2569,8 @@ const char* cprag_status_message(int code)
         return "not found";
     case CPRAG_BUFFER_TOO_SMALL:
         return "buffer too small";
+    case CPRAG_UNSUPPORTED:
+        return "unsupported";
     case CPRAG_INTERNAL_ERROR:
         return "internal error";
     default:

@@ -1,6 +1,7 @@
 #include "crexxpa.h"
 #include "crexx_rag/ragcore.h"
 
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -39,6 +40,67 @@ static int file_type_from_string(const char* type)
         return CPRAG_CHUNK_MARKDOWN;
     }
     return CPRAG_CHUNK_PLAIN_TEXT;
+}
+
+static int parse_float_csv(const char* text, float** out_values, size_t* out_count, char* error, size_t error_size)
+{
+    if (text == NULL || out_values == NULL || out_count == NULL) {
+        copy_message(error, error_size, "vector_csv is required");
+        return 0;
+    }
+
+    size_t capacity = 1;
+    for (const char* p = text; *p != '\0'; ++p) {
+        if (*p == ',') {
+            ++capacity;
+        }
+    }
+
+    float* values = (float*)malloc(capacity * sizeof(float));
+    if (values == NULL) {
+        copy_message(error, error_size, "failed to allocate vector buffer");
+        return 0;
+    }
+
+    const char* p = text;
+    size_t count = 0;
+    while (*p != '\0') {
+        while (isspace((unsigned char)*p) || *p == ',') {
+            ++p;
+        }
+        if (*p == '\0') {
+            break;
+        }
+
+        char* end = NULL;
+        const float value = strtof(p, &end);
+        if (end == p) {
+            free(values);
+            copy_message(error, error_size, "invalid vector_csv float");
+            return 0;
+        }
+        values[count++] = value;
+        p = end;
+
+        while (isspace((unsigned char)*p)) {
+            ++p;
+        }
+        if (*p != '\0' && *p != ',') {
+            free(values);
+            copy_message(error, error_size, "vector_csv must contain comma-separated floats");
+            return 0;
+        }
+    }
+
+    if (count == 0) {
+        free(values);
+        copy_message(error, error_size, "vector_csv must contain at least one float");
+        return 0;
+    }
+
+    *out_values = values;
+    *out_count = count;
+    return 1;
 }
 
 PROCEDURE(init)
@@ -326,6 +388,158 @@ PROCEDURE(deletesource)
     RESETSIGNAL
 }
 
+PROCEDURE(vectorstatus)
+{
+    if (NUM_ARGS != 1) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path argument expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    rc = cprag_vector_status(handle, buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(addchunkembedding)
+{
+    if (NUM_ARGS != 4) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, chunk_id, embedding_model, vector_csv expected")
+    }
+
+    char parse_error[256];
+    float* values = NULL;
+    size_t count = 0;
+    if (!parse_float_csv(GETSTRING(ARG(3)), &values, &count, parse_error, sizeof(parse_error))) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, parse_error)
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        free(values);
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    rc = cprag_add_chunk_embedding(handle, GETINT(ARG(1)), GETSTRING(ARG(2)), values, count);
+    free(values);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    cprag_close(handle);
+    SETSTRING(RETURN, "1");
+    RESETSIGNAL
+}
+
+PROCEDURE(rebuildvectorindex)
+{
+    if (NUM_ARGS != 2) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, embedding_model expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    rc = cprag_rebuild_vector_index(handle, GETSTRING(ARG(1)), buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(vectorsearch)
+{
+    if (NUM_ARGS < 3 || NUM_ARGS > 4) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, embedding_model, vector_csv, optional top_k expected")
+    }
+
+    char parse_error[256];
+    float* values = NULL;
+    size_t count = 0;
+    if (!parse_float_csv(GETSTRING(ARG(2)), &values, &count, parse_error, sizeof(parse_error))) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, parse_error)
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        free(values);
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        free(values);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const int top_k = NUM_ARGS >= 4 ? GETINT(ARG(3)) : 3;
+    rc = cprag_vector_search(handle, GETSTRING(ARG(1)), values, count, top_k, buffer, RXRAG_JSON_BUFFER_SIZE);
+    free(values);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
 PROCEDURE(vocabulary)
 {
     if (NUM_ARGS != 0) {
@@ -574,6 +788,10 @@ ADDPROC(ingest,    "rxrag.ingest",    "g", ".string", "path=.string,source_uri=.
 ADDPROC(listsources, "rxrag.listsources", "g", ".string", "path=.string");
 ADDPROC(listchunks, "rxrag.listchunks", "g", ".string", "path=.string,source_uri=.string");
 ADDPROC(deletesource, "rxrag.deletesource", "g", ".string", "path=.string,source_uri=.string");
+ADDPROC(vectorstatus, "rxrag.vectorstatus", "g", ".string", "path=.string");
+ADDPROC(addchunkembedding, "rxrag.addchunkembedding", "g", ".string", "path=.string,chunk_id=.int,embedding_model=.string,vector_csv=.string");
+ADDPROC(rebuildvectorindex, "rxrag.rebuildvectorindex", "g", ".string", "path=.string,embedding_model=.string");
+ADDPROC(vectorsearch, "rxrag.vectorsearch", "g", ".string", "path=.string,embedding_model=.string,vector_csv=.string,top_k=.int");
 ADDPROC(vocabulary, "rxrag.vocabulary", "g", ".string", "");
 ADDPROC(search,    "rxrag.search",    "g", ".string", "path=.string,query=.string,top_k=.int,hops=.int");
 ADDPROC(expand,    "rxrag.expand",    "g", ".string", "path=.string,anchors_csv=.string,hops=.int,relation_filter_csv=.string");
