@@ -1,0 +1,14 @@
+cmake-build-*/
+build/
+out/
+.DS_Store
+.idea/
+*.user
+*.swp
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.rxplugin
+*.cprag/

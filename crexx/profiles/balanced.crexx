@@ -1,0 +1,18 @@
+options levelb
+import rxfnsb
+import rxrag
+
+/**
+ * Example CREXX-side policy profile for local GraphRAG.
+ *
+ * The native plugin owns storage and graph expansion. This script keeps the
+ * retrieval knobs visible and easy to edit.
+ */
+
+library = "./example.cprag"
+query = "what database does auth use"
+topK = 4
+hops = 2
+
+say search(library, query, topK, hops)
+

@@ -1,0 +1,19 @@
+#ifndef CREXX_VERSION_H
+#define CREXX_VERSION_H
+
+#define CREXX_VERSION "1.0.0-beta.3+local.g27be77d3eae9.dirty"
+#define CREXX_VERSION_SOURCE "1.0.0-beta.3"
+#define CREXX_VERSION_CORE "1.0.0"
+#define CREXX_VERSION_MAJOR 1
+#define CREXX_VERSION_MINOR 0
+#define CREXX_VERSION_PATCH 0
+#define CREXX_VERSION_DISPLAY "crexx-1.0.0-beta.3+local.g27be77d3eae9.dirty"
+#define CREXX_BUILD_CHANNEL "local"
+#define CREXX_BUILD_TIMESTAMP "20260611T184348Z"
+#define CREXX_BUILD_COMMIT "27be77d3eae90a518258c5c332048ee98b2b50c6"
+#define CREXX_BUILD_COMMIT_SHORT "27be77d3eae9"
+
+#define rxversion CREXX_VERSION_DISPLAY
+#define rxpa_version CREXX_VERSION_DISPLAY
+
+#endif /* CREXX_VERSION_H */

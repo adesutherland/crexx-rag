@@ -1,0 +1,114 @@
+cmake_minimum_required(VERSION 3.21)
+
+project(crexx-rag
+    VERSION 0.1.0
+    DESCRIPTION "Lightweight local GraphRAG core with CREXX and MCP frontends"
+    LANGUAGES C CXX)
+
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+option(CPRAG_BUILD_CLI "Build the crexx-rag command line tool" ON)
+option(CPRAG_BUILD_MCP "Build the crexx-rag-mcp stdio server" ON)
+option(CPRAG_BUILD_CREXX_PLUGIN "Build the CREXX rxpa plugin when CREXX_ROOT is available" ON)
+option(CPRAG_BUILD_TESTS "Build unit tests" ON)
+option(CPRAG_ENABLE_FAISS "Enable FAISS vector index support (planned, off for initial scaffold)" OFF)
+option(CPRAG_ALLOW_VENDORED_CREXXPA "Allow temporary vendored crexxpa.h fallback until CREXX installs development headers" ON)
+option(CPRAG_ALLOW_CREXX_SOURCE_FALLBACK "Allow building against a source checkout when installed CREXX headers are unavailable" OFF)
+
+find_program(CREXX_EXECUTABLE crexx)
+set(CREXX_RXPA_INCLUDE_DIR "" CACHE PATH "Installed CREXX rxpa include directory containing crexxpa.h")
+set(CREXX_SOURCE_ROOT "${CMAKE_CURRENT_LIST_DIR}/../CREXX" CACHE PATH "Optional CREXX source checkout for development-only fallback builds")
+set(CPRAG_VENDORED_CREXXPA_DIR "${CMAKE_CURRENT_LIST_DIR}/third_party/crexx-rxpa")
+
+if(CREXX_EXECUTABLE)
+    get_filename_component(CREXX_INSTALL_BIN_DIR "${CREXX_EXECUTABLE}" DIRECTORY)
+    if(NOT CREXX_RXPA_INCLUDE_DIR)
+        foreach(candidate
+                "${CREXX_INSTALL_BIN_DIR}"
+                "${CREXX_INSTALL_BIN_DIR}/include"
+                "${CREXX_INSTALL_BIN_DIR}/../include"
+                "${CREXX_INSTALL_BIN_DIR}/../include/crexx"
+                "${CREXX_INSTALL_BIN_DIR}/../rxpa")
+            if(EXISTS "${candidate}/crexxpa.h")
+                set(CREXX_RXPA_INCLUDE_DIR "${candidate}" CACHE PATH "Installed CREXX rxpa include directory containing crexxpa.h" FORCE)
+                break()
+            endif()
+        endforeach()
+    endif()
+endif()
+
+if(NOT CREXX_RXPA_INCLUDE_DIR
+        AND CPRAG_ALLOW_VENDORED_CREXXPA
+        AND EXISTS "${CPRAG_VENDORED_CREXXPA_DIR}/crexxpa.h")
+    set(CREXX_RXPA_INCLUDE_DIR "${CPRAG_VENDORED_CREXXPA_DIR}" CACHE PATH "CREXX rxpa include directory containing crexxpa.h" FORCE)
+    message(WARNING "Using vendored third_party/crexx-rxpa/crexxpa.h. TODO: remove this fallback once CREXX installs development headers.")
+endif()
+
+if(NOT CREXX_RXPA_INCLUDE_DIR
+        AND CPRAG_ALLOW_CREXX_SOURCE_FALLBACK
+        AND EXISTS "${CREXX_SOURCE_ROOT}/rxpa/crexxpa.h")
+    set(CREXX_RXPA_INCLUDE_DIR "${CREXX_SOURCE_ROOT}/rxpa" CACHE PATH "CREXX rxpa include directory containing crexxpa.h" FORCE)
+    message(WARNING "Using CREXX source checkout fallback for rxpa headers. Prefer an installed CREXX development header package.")
+endif()
+
+find_package(SQLite3 REQUIRED)
+
+if(TARGET SQLite3::SQLite3)
+    set(CPRAG_SQLITE_LINK SQLite3::SQLite3)
+elseif(TARGET SQLite::SQLite3)
+    set(CPRAG_SQLITE_LINK SQLite::SQLite3)
+else()
+    set(CPRAG_SQLITE_LINK ${SQLite3_LIBRARIES})
+    set(CPRAG_SQLITE_INCLUDE_DIRS ${SQLite3_INCLUDE_DIRS})
+endif()
+
+add_library(cprag_core
+    core/chunker.cpp
+    core/ragcore.cpp)
+add_library(crexx-rag::core ALIAS cprag_core)
+target_include_directories(cprag_core
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
+        $<INSTALL_INTERFACE:include>)
+if(CPRAG_SQLITE_INCLUDE_DIRS)
+    target_include_directories(cprag_core PUBLIC ${CPRAG_SQLITE_INCLUDE_DIRS})
+endif()
+target_link_libraries(cprag_core PUBLIC ${CPRAG_SQLITE_LINK})
+
+if(CPRAG_BUILD_CLI)
+    add_executable(crexx-rag cli/main.cpp)
+    target_link_libraries(crexx-rag PRIVATE cprag_core)
+endif()
+
+if(CPRAG_BUILD_MCP)
+    add_executable(crexx-rag-mcp mcp/main.cpp)
+    target_link_libraries(crexx-rag-mcp PRIVATE cprag_core)
+endif()
+
+if(CPRAG_BUILD_CREXX_PLUGIN)
+    if(CREXX_RXPA_INCLUDE_DIR AND EXISTS "${CREXX_RXPA_INCLUDE_DIR}/crexxpa.h")
+        add_library(_rag MODULE crexx/plugins/rag/rxrag.c)
+        target_include_directories(_rag PRIVATE
+            "${CREXX_RXPA_INCLUDE_DIR}"
+            "${CMAKE_CURRENT_LIST_DIR}/include")
+        target_compile_definitions(_rag PRIVATE BUILD_DLL "PLUGIN_ID=rx_rag")
+        target_link_libraries(_rag PRIVATE cprag_core)
+        set_target_properties(_rag PROPERTIES
+            PREFIX "rx"
+            SUFFIX ".rxplugin"
+            LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+    else()
+        message(WARNING "Installed CREXX rxpa header crexxpa.h was not found; skipping CREXX plugin. See docs/crexx-integration-issues.md.")
+    endif()
+endif()
+
+if(CPRAG_BUILD_TESTS)
+    enable_testing()
+    add_executable(ragcore_smoke tests/ragcore_smoke.cpp)
+    target_link_libraries(ragcore_smoke PRIVATE cprag_core)
+    add_test(NAME ragcore_smoke COMMAND ragcore_smoke)
+endif()
