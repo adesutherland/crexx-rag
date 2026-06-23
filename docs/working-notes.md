@@ -26,7 +26,9 @@ place where those semantics exist.
 - The initial architecture vocabulary lives in `docs/architecture-vocabulary.md`
   and is exposed as JSON through the adapters.
 - Search currently combines placeholder text-overlap entity anchors with SQLite
-  FTS5 lexical chunk retrieval.
+  FTS5 lexical chunk retrieval. `cprag_search_with_vector` adds lexical,
+  vector, hybrid, and auto chunk retrieval modes while keeping graph expansion
+  over text anchors for now.
 - Optional FAISS support stores caller-provided chunk embeddings in SQLite,
   rebuilds a `vectors.faiss` sidecar for one active embedding model/dimension,
   and searches that sidecar by vector.
@@ -38,7 +40,10 @@ place where those semantics exist.
   separators.
 - `crexx-rag-mcp` is a hardened stdio MCP adapter with structured JSON parsing,
   JSON-RPC validation, central tool declarations, typed argument checks, and a
-  read-only default. Mutating tools require `--allow-writes`.
+  read-only default. Mutating tools require `--allow-writes`. `library_search`
+  accepts `mode=auto|lexical|vector|hybrid`; `auto` is the LLM default and only
+  uses vector search when an active vector index and embedding command are
+  configured.
 - `rx_rag.rxplugin` publishes Level G native signatures through RXPA.
 - `crexx/cprag.crexx` is the first CREXX Level G wrapper surface. It exposes
   `cprag.raglibrary`, keeps JSON as the interchange format, and uses CREXX
@@ -93,8 +98,9 @@ Record CREXX packaging/API issues in `docs/crexx-integration-issues.md`.
 
 ## Next Steps
 
-- Add embedding-provider adapters, starting local-first.
-- Add hybrid lexical/vector ranking policy in CREXX/profile code.
+- Add richer embedding-provider adapters, starting local-first.
+- Add hybrid lexical/vector ranking policy in CREXX/profile code. The current
+  hybrid merge is intentionally simple and deterministic.
 - Add larger generated or fixture-based retrieval corpora when recall,
   performance, or hybrid ranking needs tuning. The current FAISS smoke uses
   tiny deterministic vectors so CI stays fast and reliable.

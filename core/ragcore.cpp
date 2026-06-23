@@ -82,6 +82,9 @@ struct ChunkHit {
     std::string text;
     int length {0};
     double rank {0.0};
+    std::string retrieval;
+    bool hasVectorDistance {false};
+    double vectorDistance {0.0};
 };
 
 struct StoredChunk {
@@ -1009,6 +1012,22 @@ std::string lowerCopy(std::string value)
     return value;
 }
 
+std::string searchModeName(int mode)
+{
+    switch (mode) {
+    case CPRAG_SEARCH_AUTO:
+        return "auto";
+    case CPRAG_SEARCH_LEXICAL:
+        return "lexical";
+    case CPRAG_SEARCH_VECTOR:
+        return "vector";
+    case CPRAG_SEARCH_HYBRID:
+        return "hybrid";
+    default:
+        return "unknown";
+    }
+}
+
 bool edgeAllowed(const Edge& edge, const std::unordered_set<std::string>& filters)
 {
     if (filters.empty()) {
@@ -1053,7 +1072,8 @@ std::string buildSubgraphJson(
     const std::vector<Anchor>& anchors,
     int hops,
     const std::string& relationFilterCsv,
-    const std::vector<ChunkHit>& chunkHits)
+    const std::vector<ChunkHit>& chunkHits,
+    const std::string& searchMetadataJson = "")
 {
     std::unordered_map<std::string, Entity> entityById;
     for (const Entity& entity : entities) {
@@ -1102,7 +1122,11 @@ std::string buildSubgraphJson(
     }
 
     std::ostringstream out;
-    out << "{\"success\":true,\"anchors\":[";
+    out << "{\"success\":true";
+    if (!searchMetadataJson.empty()) {
+        out << ",\"search\":" << searchMetadataJson;
+    }
+    out << ",\"anchors\":[";
     for (size_t i = 0; i < anchors.size(); ++i) {
         const Anchor& anchor = anchors[i];
         if (i != 0) {
@@ -1124,8 +1148,14 @@ std::string buildSubgraphJson(
             << ",\"chunk_index\":" << chunk.chunkIndex
             << ",\"text\":" << jsonString(chunk.text)
             << ",\"length\":" << chunk.length
-            << ",\"rank\":" << chunk.rank
-            << '}';
+            << ",\"rank\":" << chunk.rank;
+        if (!chunk.retrieval.empty()) {
+            out << ",\"retrieval\":" << jsonString(chunk.retrieval);
+        }
+        if (chunk.hasVectorDistance) {
+            out << ",\"vector_distance\":" << chunk.vectorDistance;
+        }
+        out << '}';
     }
 
     out << "],\"subgraph\":{\"nodes\":[";
@@ -1507,6 +1537,194 @@ std::string buildVectorSearchJson(
         out << '}';
     }
     out << "]}";
+    return out.str();
+}
+
+int loadVectorHits(
+    cprag_handle* handle,
+    const char* embeddingModel,
+    const float* queryVector,
+    size_t dimension,
+    int topK,
+    std::vector<VectorHit>* outHits,
+    std::string* outEmbeddingModel,
+    int* outDimension)
+{
+    if (handle == nullptr || outHits == nullptr || outEmbeddingModel == nullptr || outDimension == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+
+    int effectiveDimension = 0;
+    const int vectorRc = validateVector(handle, queryVector, dimension, &effectiveDimension);
+    if (vectorRc != CPRAG_OK) {
+        return vectorRc;
+    }
+
+#ifndef CPRAG_HAVE_FAISS
+    (void)embeddingModel;
+    (void)topK;
+    return setErrorCode(handle, CPRAG_UNSUPPORTED, "FAISS support is not enabled in this build");
+#else
+    try {
+        const VectorIndexState state = loadVectorIndexState(handle);
+        if (!state.present) {
+            return setErrorCode(handle, CPRAG_NOT_FOUND, "vector index has not been rebuilt");
+        }
+
+        const std::string requestedModel = valueOrEmpty(embeddingModel).empty()
+            ? state.embeddingModel
+            : valueOrEmpty(embeddingModel);
+        if (requestedModel != state.embeddingModel) {
+            return setErrorCode(handle, CPRAG_NOT_FOUND, "active vector index was built for a different embedding_model");
+        }
+        if (state.metric != "l2" || state.backend != "faiss") {
+            return setErrorCode(handle, CPRAG_UNSUPPORTED, "active vector index uses an unsupported backend or metric");
+        }
+        if (effectiveDimension != state.dimension) {
+            return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "query vector dimension does not match active index");
+        }
+
+        const std::filesystem::path indexPath = vectorIndexPathForLibrary(handle->libraryPath);
+        if (!std::filesystem::exists(indexPath)) {
+            return setErrorCode(handle, CPRAG_NOT_FOUND, "vectors.faiss was not found");
+        }
+
+        std::unique_ptr<faiss::Index> index(faiss::read_index(indexPath.string().c_str()));
+        if (!index || index->d != state.dimension) {
+            return setErrorCode(handle, CPRAG_INTERNAL_ERROR, "vectors.faiss dimension does not match index metadata");
+        }
+
+        const int effectiveTopK = topK <= 0 ? 3 : topK;
+        std::vector<float> distances(static_cast<size_t>(effectiveTopK), 0.0f);
+        std::vector<faiss::idx_t> labels(static_cast<size_t>(effectiveTopK), -1);
+        index->search(
+            1,
+            queryVector,
+            effectiveTopK,
+            distances.data(),
+            labels.data());
+
+        outHits->clear();
+        for (int i = 0; i < effectiveTopK; ++i) {
+            if (labels[static_cast<size_t>(i)] < 0) {
+                continue;
+            }
+            try {
+                VectorHit hit;
+                hit.chunk = loadChunkById(handle, static_cast<long long>(labels[static_cast<size_t>(i)]));
+                hit.distance = distances[static_cast<size_t>(i)];
+                hit.score = -hit.distance;
+                outHits->push_back(std::move(hit));
+            } catch (const std::exception&) {
+                continue;
+            }
+        }
+
+        *outEmbeddingModel = state.embeddingModel;
+        *outDimension = state.dimension;
+        return CPRAG_OK;
+    } catch (const std::exception& ex) {
+        return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
+    }
+#endif
+}
+
+ChunkHit chunkHitFromVectorHit(const VectorHit& hit)
+{
+    ChunkHit chunk;
+    chunk.id = hit.chunk.id;
+    chunk.documentId = hit.chunk.documentId;
+    chunk.sourceUri = hit.chunk.sourceUri;
+    chunk.title = hit.chunk.title;
+    chunk.chunkIndex = hit.chunk.chunkIndex;
+    chunk.text = hit.chunk.text;
+    chunk.length = hit.chunk.length;
+    chunk.rank = hit.score;
+    chunk.retrieval = "vector";
+    chunk.hasVectorDistance = true;
+    chunk.vectorDistance = hit.distance;
+    return chunk;
+}
+
+std::vector<ChunkHit> mergeChunkHits(
+    std::vector<ChunkHit> lexicalHits,
+    const std::vector<VectorHit>& vectorHits,
+    int limit)
+{
+    const int effectiveLimit = limit <= 0 ? 3 : limit;
+    std::vector<ChunkHit> merged;
+    std::unordered_map<long long, size_t> positionById;
+
+    auto appendLexical = [&](ChunkHit chunk) {
+        chunk.retrieval = "lexical";
+        const auto existing = positionById.find(chunk.id);
+        if (existing != positionById.end()) {
+            if (merged[existing->second].retrieval == "vector") {
+                merged[existing->second].retrieval = "hybrid";
+            }
+            return;
+        }
+        if (static_cast<int>(merged.size()) < effectiveLimit) {
+            positionById.emplace(chunk.id, merged.size());
+            merged.push_back(std::move(chunk));
+        }
+    };
+
+    auto appendVector = [&](const VectorHit& vectorHit) {
+        const auto existing = positionById.find(vectorHit.chunk.id);
+        if (existing != positionById.end()) {
+            ChunkHit& chunk = merged[existing->second];
+            chunk.retrieval = "hybrid";
+            chunk.hasVectorDistance = true;
+            chunk.vectorDistance = vectorHit.distance;
+            return;
+        }
+        if (static_cast<int>(merged.size()) < effectiveLimit) {
+            positionById.emplace(vectorHit.chunk.id, merged.size());
+            merged.push_back(chunkHitFromVectorHit(vectorHit));
+        }
+    };
+
+    const size_t maxCount = std::max(lexicalHits.size(), vectorHits.size());
+    for (size_t i = 0; i < maxCount; ++i) {
+        if (i < lexicalHits.size()) {
+            appendLexical(std::move(lexicalHits[i]));
+        }
+        if (i < vectorHits.size()) {
+            appendVector(vectorHits[i]);
+        }
+    }
+    return merged;
+}
+
+std::string buildSearchMetadataJson(
+    int requestedMode,
+    int effectiveMode,
+    bool vectorUsed,
+    const std::string& embeddingModel,
+    int dimension,
+    const std::string& fallbackReason)
+{
+    std::ostringstream out;
+    out << "{\"requested_mode\":" << jsonString(searchModeName(requestedMode))
+        << ",\"effective_mode\":" << jsonString(searchModeName(effectiveMode))
+        << ",\"vector_used\":" << (vectorUsed ? "true" : "false")
+        << ",\"embedding_model\":";
+    if (embeddingModel.empty()) {
+        out << "null";
+    } else {
+        out << jsonString(embeddingModel);
+    }
+    out << ",\"dimension\":";
+    if (dimension > 0) {
+        out << dimension;
+    } else {
+        out << "null";
+    }
+    if (!fallbackReason.empty()) {
+        out << ",\"fallback_reason\":" << jsonString(fallbackReason);
+    }
+    out << '}';
     return out.str();
 }
 
@@ -2202,83 +2420,26 @@ int cprag_vector_search(
         return CPRAG_INVALID_ARGUMENT;
     }
 
+    std::vector<VectorHit> hits;
+    std::string effectiveModel;
     int effectiveDimension = 0;
-    const int vectorRc = validateVector(handle, query_vector, dimension, &effectiveDimension);
-    if (vectorRc != CPRAG_OK) {
-        return vectorRc;
+    const int rc = loadVectorHits(
+        handle,
+        embedding_model,
+        query_vector,
+        dimension,
+        top_k,
+        &hits,
+        &effectiveModel,
+        &effectiveDimension);
+    if (rc != CPRAG_OK) {
+        return rc;
     }
-
-#ifndef CPRAG_HAVE_FAISS
-    (void)embedding_model;
-    (void)top_k;
-    (void)out_json;
-    (void)out_json_size;
-    return setErrorCode(handle, CPRAG_UNSUPPORTED, "FAISS support is not enabled in this build");
-#else
-    try {
-        const VectorIndexState state = loadVectorIndexState(handle);
-        if (!state.present) {
-            return setErrorCode(handle, CPRAG_NOT_FOUND, "vector index has not been rebuilt");
-        }
-
-        const std::string requestedModel = valueOrEmpty(embedding_model).empty()
-            ? state.embeddingModel
-            : valueOrEmpty(embedding_model);
-        if (requestedModel != state.embeddingModel) {
-            return setErrorCode(handle, CPRAG_NOT_FOUND, "active vector index was built for a different embedding_model");
-        }
-        if (state.metric != "l2" || state.backend != "faiss") {
-            return setErrorCode(handle, CPRAG_UNSUPPORTED, "active vector index uses an unsupported backend or metric");
-        }
-        if (effectiveDimension != state.dimension) {
-            return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "query vector dimension does not match active index");
-        }
-
-        const std::filesystem::path indexPath = vectorIndexPathForLibrary(handle->libraryPath);
-        if (!std::filesystem::exists(indexPath)) {
-            return setErrorCode(handle, CPRAG_NOT_FOUND, "vectors.faiss was not found");
-        }
-
-        std::unique_ptr<faiss::Index> index(faiss::read_index(indexPath.string().c_str()));
-        if (!index || index->d != state.dimension) {
-            return setErrorCode(handle, CPRAG_INTERNAL_ERROR, "vectors.faiss dimension does not match index metadata");
-        }
-
-        const int effectiveTopK = top_k <= 0 ? 3 : top_k;
-        std::vector<float> distances(static_cast<size_t>(effectiveTopK), 0.0f);
-        std::vector<faiss::idx_t> labels(static_cast<size_t>(effectiveTopK), -1);
-        index->search(
-            1,
-            query_vector,
-            effectiveTopK,
-            distances.data(),
-            labels.data());
-
-        std::vector<VectorHit> hits;
-        for (int i = 0; i < effectiveTopK; ++i) {
-            if (labels[static_cast<size_t>(i)] < 0) {
-                continue;
-            }
-            try {
-                VectorHit hit;
-                hit.chunk = loadChunkById(handle, static_cast<long long>(labels[static_cast<size_t>(i)]));
-                hit.distance = distances[static_cast<size_t>(i)];
-                hit.score = -hit.distance;
-                hits.push_back(std::move(hit));
-            } catch (const std::exception&) {
-                continue;
-            }
-        }
-
-        return copyJson(
-            handle,
-            buildVectorSearchJson(state.embeddingModel, state.dimension, hits),
-            out_json,
-            out_json_size);
-    } catch (const std::exception& ex) {
-        return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
-    }
-#endif
+    return copyJson(
+        handle,
+        buildVectorSearchJson(effectiveModel, effectiveDimension, hits),
+        out_json,
+        out_json_size);
 }
 
 int cprag_vector_status(cprag_handle* handle, char* out_json, size_t out_json_size)
@@ -2323,6 +2484,101 @@ int cprag_search(
         const std::vector<Anchor> anchors = findAnchors(handle, query, effectiveTopK);
         const std::vector<ChunkHit> chunks = searchChunks(handle, query, effectiveTopK);
         const std::string json = buildSubgraphJson(loadEntities(handle), loadEdges(handle), anchors, effectiveHops, "", chunks);
+        return copyJson(handle, json, out_json, out_json_size);
+    } catch (const std::exception& ex) {
+        return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
+    }
+}
+
+int cprag_search_with_vector(
+    cprag_handle* handle,
+    const char* query,
+    int top_k,
+    int hops,
+    int mode,
+    const char* embedding_model,
+    const float* query_vector,
+    size_t dimension,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || query == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    if (mode != CPRAG_SEARCH_AUTO
+        && mode != CPRAG_SEARCH_LEXICAL
+        && mode != CPRAG_SEARCH_VECTOR
+        && mode != CPRAG_SEARCH_HYBRID) {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "search mode must be auto, lexical, vector, or hybrid");
+    }
+
+    try {
+        const int effectiveTopK = top_k <= 0 ? 3 : top_k;
+        const int effectiveHops = hops < 0 ? 0 : hops;
+        const std::string queryText(query);
+        const std::vector<Anchor> anchors = findAnchors(handle, queryText, effectiveTopK);
+
+        std::vector<ChunkHit> chunks;
+        std::vector<VectorHit> vectorHits;
+        std::string effectiveModel;
+        int effectiveDimension = 0;
+        int effectiveMode = CPRAG_SEARCH_LEXICAL;
+        bool vectorUsed = false;
+        std::string fallbackReason;
+
+        if (mode == CPRAG_SEARCH_LEXICAL || (mode == CPRAG_SEARCH_AUTO && query_vector == nullptr)) {
+            chunks = searchChunks(handle, queryText, effectiveTopK);
+            effectiveMode = CPRAG_SEARCH_LEXICAL;
+            if (mode == CPRAG_SEARCH_AUTO && query_vector == nullptr) {
+                fallbackReason = "query vector was not provided";
+            }
+        } else {
+            const int vectorRc = loadVectorHits(
+                handle,
+                embedding_model,
+                query_vector,
+                dimension,
+                effectiveTopK,
+                &vectorHits,
+                &effectiveModel,
+                &effectiveDimension);
+
+            if (vectorRc == CPRAG_OK) {
+                vectorUsed = true;
+                if (mode == CPRAG_SEARCH_VECTOR) {
+                    effectiveMode = CPRAG_SEARCH_VECTOR;
+                    for (const VectorHit& hit : vectorHits) {
+                        chunks.push_back(chunkHitFromVectorHit(hit));
+                    }
+                } else {
+                    effectiveMode = CPRAG_SEARCH_HYBRID;
+                    chunks = mergeChunkHits(searchChunks(handle, queryText, effectiveTopK), vectorHits, effectiveTopK);
+                }
+            } else if (mode == CPRAG_SEARCH_AUTO
+                && (vectorRc == CPRAG_UNSUPPORTED || vectorRc == CPRAG_NOT_FOUND)) {
+                chunks = searchChunks(handle, queryText, effectiveTopK);
+                effectiveMode = CPRAG_SEARCH_LEXICAL;
+                fallbackReason = cprag_last_error(handle);
+            } else {
+                return vectorRc;
+            }
+        }
+
+        const std::string metadata = buildSearchMetadataJson(
+            mode,
+            effectiveMode,
+            vectorUsed,
+            effectiveModel,
+            effectiveDimension,
+            fallbackReason);
+        const std::string json = buildSubgraphJson(
+            loadEntities(handle),
+            loadEdges(handle),
+            anchors,
+            effectiveHops,
+            "",
+            chunks,
+            metadata);
         return copyJson(handle, json, out_json, out_json_size);
     } catch (const std::exception& ex) {
         return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());

@@ -148,12 +148,79 @@ int main()
             std::cerr << vectorSearch << '\n';
             return 1;
         }
+
+        rc = cprag_search_with_vector(
+            handle,
+            "what database does auth use",
+            3,
+            2,
+            CPRAG_SEARCH_AUTO,
+            "unit-test",
+            queryVector,
+            3,
+            buffer.data(),
+            buffer.size());
+        assert(rc == CPRAG_OK);
+        const std::string hybridSearch(buffer.data());
+        if (hybridSearch.find("\"requested_mode\":\"auto\"") == std::string::npos
+            || hybridSearch.find("\"effective_mode\":\"hybrid\"") == std::string::npos
+            || hybridSearch.find("\"vector_used\":true") == std::string::npos
+            || hybridSearch.find("\"retrieval\":") == std::string::npos) {
+            std::cerr << hybridSearch << '\n';
+            return 1;
+        }
     } else {
         rc = cprag_rebuild_vector_index(handle, "unit-test", buffer.data(), buffer.size());
         assert(rc == CPRAG_UNSUPPORTED);
         rc = cprag_vector_search(handle, "unit-test", queryVector, 3, 3, buffer.data(), buffer.size());
         assert(rc == CPRAG_UNSUPPORTED);
+
+        rc = cprag_search_with_vector(
+            handle,
+            "what database does auth use",
+            3,
+            2,
+            CPRAG_SEARCH_AUTO,
+            "unit-test",
+            queryVector,
+            3,
+            buffer.data(),
+            buffer.size());
+        assert(rc == CPRAG_OK);
+        const std::string autoFallback(buffer.data());
+        if (autoFallback.find("\"requested_mode\":\"auto\"") == std::string::npos
+            || autoFallback.find("\"effective_mode\":\"lexical\"") == std::string::npos
+            || autoFallback.find("\"vector_used\":false") == std::string::npos) {
+            std::cerr << autoFallback << '\n';
+            return 1;
+        }
     }
+
+    rc = cprag_search_with_vector(
+        handle,
+        "what database does auth use",
+        3,
+        2,
+        CPRAG_SEARCH_VECTOR,
+        "unit-test",
+        nullptr,
+        0,
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_INVALID_ARGUMENT);
+
+    rc = cprag_search_with_vector(
+        handle,
+        "what database does auth use",
+        3,
+        2,
+        99,
+        "unit-test",
+        queryVector,
+        3,
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_INVALID_ARGUMENT);
 
     rc = cprag_vocabulary(buffer.data(), buffer.size());
     assert(rc == CPRAG_OK);

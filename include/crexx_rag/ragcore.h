@@ -30,6 +30,13 @@ enum {
     CPRAG_CHUNK_MARKDOWN = 7
 };
 
+enum {
+    CPRAG_SEARCH_AUTO = 0,
+    CPRAG_SEARCH_LEXICAL = 1,
+    CPRAG_SEARCH_VECTOR = 2,
+    CPRAG_SEARCH_HYBRID = 3
+};
+
 int cprag_open(const char* library_path, unsigned flags, cprag_handle** out_handle);
 void cprag_close(cprag_handle* handle);
 const char* cprag_last_error(cprag_handle* handle);
@@ -143,6 +150,18 @@ int cprag_search(
     const char* query,
     int top_k,
     int hops,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_search_with_vector(
+    cprag_handle* handle,
+    const char* query,
+    int top_k,
+    int hops,
+    int mode,
+    const char* embedding_model,
+    const float* query_vector,
+    size_t dimension,
     char* out_json,
     size_t out_json_size);
 

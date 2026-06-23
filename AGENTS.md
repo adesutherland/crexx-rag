@@ -108,6 +108,9 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
   - simple ranking hooks
 - Keep user-tunable ranking and retrieval policy in CREXX Level G/profile
   scripts where practical. MCP should remain a thin client-facing adapter.
+- LLM-facing MCP search should default to `mode=auto`: use lexical search unless
+  a compatible active vector index and embedding command are configured. Manual
+  `lexical`, `vector`, and `hybrid` modes are for diagnostics and profiles.
 - Keep MCP read-only by default. Mutating MCP tools must require explicit
   `--allow-writes` process startup and need negative tests for write gating and
   argument validation.
@@ -139,15 +142,17 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
 - Entity `node_type` and edge `relationship_type` are explicit schema/API
   fields.
 - Search combines naive text overlap over entity ids, labels, and descriptions
-  with FTS5 chunk hits.
+  with FTS5 chunk hits. `cprag_search_with_vector` supports lexical, vector,
+  hybrid, and auto chunk retrieval modes.
 - Graph expansion is BFS over incoming and outgoing edges; shortest path and
   typed subgraph extraction are available in the native core.
 - Chunking is a Qt-free port inspired by CognitivePipelines' RAG chunkers,
   currently covering plain text, Markdown, and Rexx-oriented source.
 - MCP server is a hardened stdio adapter with status, search, vocabulary,
-  shortest path, typed subgraph, ingest, source/chunk listing, source deletion,
-  and graph edit tools. It validates JSON-RPC shape and typed arguments, and it
-  is read-only by default.
+  vector status, shortest path, typed subgraph, ingest, source/chunk listing,
+  source deletion, and graph edit tools. It validates JSON-RPC shape and typed
+  arguments, and it is read-only by default. It can call an external embedding
+  command for automatic hybrid search when configured.
 - CREXX plugin publishes Level G RXPA signatures and currently builds through
   the temporary vendored rxpa headers. It includes vector status, chunk
   embedding storage, FAISS rebuild, and vector search functions using

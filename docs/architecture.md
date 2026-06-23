@@ -39,6 +39,8 @@ Current capabilities:
 - perform SQLite FTS5 lexical search over chunks
 - store caller-provided chunk embeddings in SQLite
 - rebuild and search an optional FAISS `vectors.faiss` chunk index
+- perform lexical, vector, or hybrid chunk retrieval when a query vector is
+  supplied by an adapter
 - expand anchors through k-hop graph traversal
 - return JSON suitable for CLI, CREXX, or MCP wrappers
 
@@ -51,6 +53,12 @@ relationship behavior live.
 The MCP server is read-only by default. Mutating tools are not advertised and
 are rejected unless the process is started with `--allow-writes`. Requests are
 validated as JSON-RPC before dispatching to the native core.
+
+For ordinary LLM use, MCP should route read requests through `library_search`
+with `mode=auto`. Auto mode uses lexical search unless a compatible active
+vector index and configured embedding command are available, in which case MCP
+passes a query vector to the native hybrid search path. Manual `lexical`,
+`vector`, and `hybrid` modes are diagnostic/profile controls.
 
 The richer orchestration surface belongs in CREXX Level G. The raw `rxrag`
 plugin exposes native functions, and `crexx/cprag.crexx` starts the higher-level
@@ -114,4 +122,6 @@ The first vector surface intentionally accepts caller-provided chunk embeddings.
 Embedding generation belongs in an adapter layer, then ranking and retrieval
 policy can be tuned from CREXX/profile code. The current FAISS sidecar is a
 single active chunk index for one embedding model/dimension at a time and can be
-rebuilt from SQLite metadata.
+rebuilt from SQLite metadata. MCP currently has a small external-command
+embedding hook for query-time vectors; richer provider integration and ranking
+policy still belong above the core.

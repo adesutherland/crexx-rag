@@ -148,6 +148,8 @@ if(CPRAG_BUILD_TESTS)
             NAME mcp_smoke
             COMMAND "${CMAKE_COMMAND}"
                 "-DCPRAG_MCP=$<TARGET_FILE:crexx-rag-mcp>"
+                "-DCPRAG_CLI=$<TARGET_FILE:crexx-rag>"
+                "-DCPRAG_FAISS_ENABLED=${CPRAG_ENABLE_FAISS}"
                 "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/mcp-smoke"
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/McpSmoke.cmake")
     endif()

@@ -88,9 +88,10 @@ cmake --build cmake-build-faiss
 ctest --test-dir cmake-build-faiss --output-on-failure
 ```
 
-The first vector milestone is bring-your-own embeddings: the core stores chunk
-embedding vectors in SQLite, rebuilds `vectors.faiss` from that metadata, and
-searches the sidecar. It does not choose or call an embedding model provider.
+The vector milestone is bring-your-own embeddings at the core boundary: the
+core stores chunk embedding vectors in SQLite, rebuilds `vectors.faiss` from
+that metadata, and searches the sidecar. MCP can optionally call an external
+embedding command for query-time automatic hybrid search.
 
 ## CLI Sketch
 
@@ -129,6 +130,23 @@ write access:
 
 The MCP adapter validates JSON-RPC request shape, tool names, argument objects,
 required arguments, and argument types before calling the native core.
+
+`library_search` is the main LLM-facing read tool. It accepts `mode` as
+`auto`, `lexical`, `vector`, or `hybrid`; default `auto` falls back to lexical
+search unless a compatible active vector index and embedding command are
+available. Manual modes are intended for diagnostics and profiles, not ordinary
+LLM use.
+
+To enable query-time embeddings for automatic MCP hybrid search, start the MCP
+server with an embedding command that prints a JSON number array, or an object
+with an `embedding` array:
+
+```bash
+./cmake-build-faiss/crexx-rag-mcp \
+  --library ./example.cprag \
+  --embedding-command ./embed-query \
+  --embedding-model test-model
+```
 
 ## CREXX Direction
 
@@ -183,5 +201,6 @@ simple: text-overlap anchors over entity ids, labels, and descriptions, plus
 SQLite FTS5 over persisted chunks. The graph layer now has explicit node and
 relationship types, shortest path, typed subgraph extraction, and source/chunk
 maintenance APIs. The vector layer now stores caller-provided chunk embeddings
-and can use FAISS for local vector search when enabled. The next major piece is
-an embedding-provider adapter and hybrid ranking policy in CREXX/profile code.
+and can use FAISS for local vector search when enabled. MCP has a small external
+embedding-command hook for automatic hybrid search; the next major piece is
+hybrid ranking policy in CREXX/profile code.

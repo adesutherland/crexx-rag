@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
+#include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -11,6 +13,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -584,6 +587,123 @@ int fileTypeFromString(const std::string& type, std::string* error)
     return CPRAG_CHUNK_PLAIN_TEXT;
 }
 
+int searchModeFromString(const std::string& mode, std::string* error)
+{
+    if (mode == "auto") {
+        return CPRAG_SEARCH_AUTO;
+    }
+    if (mode == "lexical") {
+        return CPRAG_SEARCH_LEXICAL;
+    }
+    if (mode == "vector") {
+        return CPRAG_SEARCH_VECTOR;
+    }
+    if (mode == "hybrid") {
+        return CPRAG_SEARCH_HYBRID;
+    }
+    *error = "mode must be one of auto, lexical, vector, or hybrid";
+    return CPRAG_SEARCH_AUTO;
+}
+
+std::string shellQuote(const std::string& value)
+{
+    std::string quoted = "'";
+    for (const char ch : value) {
+        if (ch == '\'') {
+            quoted += "'\\''";
+        } else {
+            quoted.push_back(ch);
+        }
+    }
+    quoted.push_back('\'');
+    return quoted;
+}
+
+bool parseFloatArray(const Json& value, std::vector<float>* out, std::string* error)
+{
+    if (value.type != Json::Type::Array) {
+        *error = "embedding command output must be a JSON number array";
+        return false;
+    }
+    std::vector<float> parsed;
+    parsed.reserve(value.array.size());
+    for (const Json& item : value.array) {
+        if (item.type != Json::Type::Number || !std::isfinite(item.number)) {
+            *error = "embedding values must be finite numbers";
+            return false;
+        }
+        parsed.push_back(static_cast<float>(item.number));
+    }
+    if (parsed.empty()) {
+        *error = "embedding command returned an empty vector";
+        return false;
+    }
+    *out = std::move(parsed);
+    return true;
+}
+
+bool parseEmbeddingOutput(const std::string& output, std::vector<float>* out, std::string* error)
+{
+    Json root;
+    try {
+        root = JsonParser(output).parse();
+    } catch (const std::exception& ex) {
+        *error = std::string("embedding command did not return valid JSON: ") + ex.what();
+        return false;
+    }
+
+    if (root.type == Json::Type::Array) {
+        return parseFloatArray(root, out, error);
+    }
+    const Json* embedding = member(root, "embedding");
+    if (embedding != nullptr) {
+        return parseFloatArray(*embedding, out, error);
+    }
+    *error = "embedding command output must be a JSON array or an object with an embedding array";
+    return false;
+}
+
+bool runEmbeddingCommand(
+    const std::string& command,
+    const std::string& query,
+    const std::string& embeddingModel,
+    std::vector<float>* out,
+    std::string* error)
+{
+    if (command.empty()) {
+        *error = "embedding command is not configured";
+        return false;
+    }
+
+    std::string shellCommand = command + " " + shellQuote(query);
+    if (!embeddingModel.empty()) {
+        shellCommand += " " + shellQuote(embeddingModel);
+    }
+
+    FILE* pipe = popen(shellCommand.c_str(), "r");
+    if (pipe == nullptr) {
+        *error = "failed to start embedding command";
+        return false;
+    }
+
+    std::string output;
+    char buffer[4096];
+    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+        output += buffer;
+        if (output.size() > kJsonBufferSize) {
+            pclose(pipe);
+            *error = "embedding command output is too large";
+            return false;
+        }
+    }
+    const int status = pclose(pipe);
+    if (status != 0) {
+        *error = "embedding command failed";
+        return false;
+    }
+    return parseEmbeddingOutput(output, out, error);
+}
+
 void respond(const std::string& idJson, const std::string& resultJson)
 {
     std::cout << "{\"jsonrpc\":\"2.0\",\"id\":" << idJson << ",\"result\":" << resultJson << "}" << std::endl;
@@ -618,9 +738,13 @@ const std::vector<ToolSpec>& toolSpecs()
             "Return the initial architecture node and relationship vocabulary.",
             R"JSON({"type":"object","properties":{}})JSON",
             false},
+        {"library_vector_status",
+            "Return FAISS/vector index readiness and active embedding metadata.",
+            R"JSON({"type":"object","properties":{}})JSON",
+            false},
         {"library_search",
-            "Search the local GraphRAG library and expand graph context.",
-            R"JSON({"type":"object","properties":{"query":{"type":"string"},"top_k":{"type":"integer","minimum":0},"hops":{"type":"integer","minimum":0}},"required":["query"]})JSON",
+            "Search the local GraphRAG library and expand graph context. mode defaults to auto.",
+            R"JSON({"type":"object","properties":{"query":{"type":"string"},"top_k":{"type":"integer","minimum":0},"hops":{"type":"integer","minimum":0},"mode":{"type":"string","enum":["auto","lexical","vector","hybrid"]},"embedding_model":{"type":"string"}},"required":["query"]})JSON",
             false},
         {"library_shortest_path",
             "Find the shortest typed relationship path between two entities.",
@@ -783,12 +907,51 @@ bool requireHandleForTool(
     return false;
 }
 
+struct Config {
+    std::string libraryPath {envOrDefault("CPRAG_LIBRARY", "./library.cprag")};
+    bool allowWrites {envFlag("CPRAG_MCP_ALLOW_WRITES")};
+    std::string embeddingCommand {envOrDefault("CPRAG_EMBEDDING_COMMAND", "")};
+    std::string embeddingModel {envOrDefault("CPRAG_EMBEDDING_MODEL", "")};
+};
+
+bool vectorIndexReady(cprag_handle* handle, std::string* activeModel, int* activeDimension)
+{
+    std::vector<char> buffer(kJsonBufferSize);
+    if (cprag_vector_status(handle, buffer.data(), buffer.size()) != CPRAG_OK) {
+        return false;
+    }
+
+    Json root;
+    try {
+        root = JsonParser(buffer.data()).parse();
+    } catch (const std::exception&) {
+        return false;
+    }
+
+    const Json* enabled = member(root, "enabled");
+    const Json* active = member(root, "active_index");
+    if (enabled == nullptr || enabled->type != Json::Type::Bool || !enabled->boolean
+        || active == nullptr || active->type != Json::Type::Object) {
+        return false;
+    }
+
+    const Json* model = member(*active, "embedding_model");
+    const Json* dimension = member(*active, "dimension");
+    int parsedDimension = 0;
+    if (model == nullptr || model->type != Json::Type::String
+        || dimension == nullptr || !jsonIntegerToInt(*dimension, &parsedDimension)) {
+        return false;
+    }
+    *activeModel = model->text;
+    *activeDimension = parsedDimension;
+    return true;
+}
+
 void handleToolCall(
     const std::string& idJson,
     const Json& params,
     cprag_handle** handle,
-    const std::string& libraryPath,
-    bool allowWrites)
+    const Config& config)
 {
     std::string error;
     std::string name;
@@ -802,7 +965,7 @@ void handleToolCall(
         respondError(idJson, kInvalidParams, "unknown tool: " + name);
         return;
     }
-    if (spec->mutating && !allowWrites) {
+    if (spec->mutating && !config.allowWrites) {
         respondError(idJson, kWritesDisabled, "write tools are disabled; restart with --allow-writes to enable mutations");
         return;
     }
@@ -826,7 +989,7 @@ void handleToolCall(
         return;
     }
 
-    if (!requireHandleForTool(idJson, handle, libraryPath, allowWrites)) {
+    if (!requireHandleForTool(idJson, handle, config.libraryPath, config.allowWrites)) {
         return;
     }
 
@@ -836,17 +999,70 @@ void handleToolCall(
         return;
     }
 
+    if (name == "library_vector_status") {
+        rc = cprag_vector_status(*handle, buffer.data(), buffer.size());
+        coreJsonResult(idJson, *handle, rc, buffer);
+        return;
+    }
+
     if (name == "library_search") {
         std::string query;
+        std::string modeText;
+        std::string requestedModel;
         int topK = 3;
         int hops = 2;
         if (!requireString(*args, "query", &query, &error)
             || !optionalInt(*args, "top_k", 3, 0, &topK, &error)
-            || !optionalInt(*args, "hops", 2, 0, &hops, &error)) {
+            || !optionalInt(*args, "hops", 2, 0, &hops, &error)
+            || !optionalString(*args, "mode", "auto", &modeText, &error)
+            || !optionalString(*args, "embedding_model", config.embeddingModel, &requestedModel, &error)) {
             respondError(idJson, kInvalidParams, error);
             return;
         }
-        rc = cprag_search(*handle, query.c_str(), topK, hops, buffer.data(), buffer.size());
+        const int mode = searchModeFromString(modeText, &error);
+        if (!error.empty()) {
+            respondError(idJson, kInvalidParams, error);
+            return;
+        }
+
+        std::vector<float> queryVector;
+        const float* queryVectorData = nullptr;
+        size_t queryVectorDimension = 0;
+        std::string activeModel;
+        int activeDimension = 0;
+        const bool vectorReady = vectorIndexReady(*handle, &activeModel, &activeDimension);
+        const std::string effectiveModel = requestedModel.empty() ? activeModel : requestedModel;
+        const bool vectorRequested = mode == CPRAG_SEARCH_VECTOR || mode == CPRAG_SEARCH_HYBRID;
+        const bool shouldEmbed = vectorRequested || (mode == CPRAG_SEARCH_AUTO && vectorReady && !config.embeddingCommand.empty());
+
+        if (vectorRequested && config.embeddingCommand.empty()) {
+            respondError(idJson, kInvalidParams, "embedding command is not configured; use mode=lexical or configure --embedding-command");
+            return;
+        }
+        if (vectorRequested && !vectorReady) {
+            respondError(idJson, kCoreError, "active vector index is not available");
+            return;
+        }
+        if (shouldEmbed) {
+            if (!runEmbeddingCommand(config.embeddingCommand, query, effectiveModel, &queryVector, &error)) {
+                respondError(idJson, kCoreError, error);
+                return;
+            }
+            queryVectorData = queryVector.data();
+            queryVectorDimension = queryVector.size();
+        }
+
+        rc = cprag_search_with_vector(
+            *handle,
+            query.c_str(),
+            topK,
+            hops,
+            mode,
+            effectiveModel.c_str(),
+            queryVectorData,
+            queryVectorDimension,
+            buffer.data(),
+            buffer.size());
         coreJsonResult(idJson, *handle, rc, buffer);
         return;
     }
@@ -1052,11 +1268,6 @@ void handleToolCall(
     }
 }
 
-struct Config {
-    std::string libraryPath {envOrDefault("CPRAG_LIBRARY", "./library.cprag")};
-    bool allowWrites {envFlag("CPRAG_MCP_ALLOW_WRITES")};
-};
-
 bool parseArgs(int argc, char** argv, Config* config)
 {
     for (int i = 1; i < argc; ++i) {
@@ -1067,12 +1278,24 @@ bool parseArgs(int argc, char** argv, Config* config)
                 return false;
             }
             config->libraryPath = argv[++i];
+        } else if (arg == "--embedding-command") {
+            if (i + 1 >= argc) {
+                std::cerr << "crexx-rag-mcp: --embedding-command requires a command\n";
+                return false;
+            }
+            config->embeddingCommand = argv[++i];
+        } else if (arg == "--embedding-model") {
+            if (i + 1 >= argc) {
+                std::cerr << "crexx-rag-mcp: --embedding-model requires a model name\n";
+                return false;
+            }
+            config->embeddingModel = argv[++i];
         } else if (arg == "--allow-writes") {
             config->allowWrites = true;
         } else if (arg == "--read-only") {
             config->allowWrites = false;
         } else if (arg == "--help" || arg == "-h") {
-            std::cout << "Usage: crexx-rag-mcp [--library PATH] [--allow-writes|--read-only]\n";
+            std::cout << "Usage: crexx-rag-mcp [--library PATH] [--allow-writes|--read-only] [--embedding-command COMMAND] [--embedding-model MODEL]\n";
             return false;
         } else {
             std::cerr << "crexx-rag-mcp: unknown argument: " << arg << '\n';
@@ -1162,7 +1385,7 @@ int main(int argc, char** argv)
                 continue;
             }
             if (hasId) {
-                handleToolCall(idJson, *params, &handle, config.libraryPath, config.allowWrites);
+                handleToolCall(idJson, *params, &handle, config);
             }
             continue;
         }
