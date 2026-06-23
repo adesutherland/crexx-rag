@@ -88,10 +88,12 @@ cmake --build cmake-build-faiss
 ctest --test-dir cmake-build-faiss --output-on-failure
 ```
 
-The vector milestone is bring-your-own embeddings at the core boundary: the
-core stores chunk embedding vectors in SQLite, rebuilds `vectors.faiss` from
-that metadata, and searches the sidecar. MCP can optionally call an external
-embedding command for query-time automatic hybrid search.
+The vector milestone is bring-your-own embeddings at the core boundary: FAISS
+does not create embeddings, it indexes and searches fixed-length numeric
+vectors. The core stores chunk embedding vectors in SQLite, rebuilds
+`vectors.faiss` from that metadata, and searches the sidecar. CLI and MCP
+adapters can call an external embedding command for local-first vector
+generation.
 
 ## CLI Sketch
 
@@ -116,6 +118,26 @@ sidecar:
 ./cmake-build-faiss/crexx-rag rebuild-vector-index ./example.cprag test-model
 ./cmake-build-faiss/crexx-rag vector-search ./example.cprag test-model 0.9,0.1,0.0 3
 ```
+
+For ordinary local use, the CLI can embed all stored chunks by calling an
+external command, then rebuild the FAISS sidecar:
+
+```bash
+./cmake-build-faiss/crexx-rag embed-chunks ./example.cprag test-model ./embed-text
+./cmake-build-faiss/crexx-rag embed-chunks ./example.cprag test-model ./embed-text docs/auth.md
+```
+
+The embedding command is invoked as:
+
+```text
+<embedding-command> <text> <embedding-model>
+```
+
+It must print either a JSON number array, such as `[0.1,0.2,0.3]`, or an object
+with an `embedding` array. Ollama can be used behind a small wrapper when a
+local embedding-capable model is installed, but a general Gemma chat model is
+not a substitute for a stable embedding model unless it exposes consistent
+embedding vectors.
 
 ## MCP Direction
 

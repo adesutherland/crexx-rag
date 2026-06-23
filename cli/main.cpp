@@ -1,12 +1,17 @@
 #include "crexx_rag/ragcore.h"
 
+#include <cerrno>
+#include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cctype>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -28,6 +33,7 @@ void usage()
         << "  crexx-rag list-chunks <library> <source-uri>\n"
         << "  crexx-rag delete-source <library> <source-uri>\n"
         << "  crexx-rag add-chunk-embedding <library> <chunk-id> <embedding-model> <comma-separated-floats>\n"
+        << "  crexx-rag embed-chunks <library> <embedding-model> <embedding-command> [source-uri]\n"
         << "  crexx-rag rebuild-vector-index <library> <embedding-model>\n"
         << "  crexx-rag vector-search <library> <embedding-model> <comma-separated-floats> [top-k]\n"
         << "  crexx-rag vector-status <library>\n"
@@ -95,6 +101,60 @@ bool readFile(const std::string& path, std::string* out)
     return true;
 }
 
+std::string jsonString(const std::string& value)
+{
+    std::ostringstream out;
+    out << '"';
+    for (const unsigned char ch : value) {
+        switch (ch) {
+        case '"':
+            out << "\\\"";
+            break;
+        case '\\':
+            out << "\\\\";
+            break;
+        case '\b':
+            out << "\\b";
+            break;
+        case '\f':
+            out << "\\f";
+            break;
+        case '\n':
+            out << "\\n";
+            break;
+        case '\r':
+            out << "\\r";
+            break;
+        case '\t':
+            out << "\\t";
+            break;
+        default:
+            if (ch < 0x20) {
+                out << "\\u" << std::hex << std::setw(4) << std::setfill('0') << static_cast<int>(ch)
+                    << std::dec << std::setfill(' ');
+            } else {
+                out << static_cast<char>(ch);
+            }
+        }
+    }
+    out << '"';
+    return out.str();
+}
+
+std::string shellQuote(const std::string& value)
+{
+    std::string quoted = "'";
+    for (const char ch : value) {
+        if (ch == '\'') {
+            quoted += "'\\''";
+        } else {
+            quoted.push_back(ch);
+        }
+    }
+    quoted.push_back('\'');
+    return quoted;
+}
+
 std::vector<float> parseFloatCsv(const std::string& text)
 {
     std::vector<float> values;
@@ -121,6 +181,162 @@ std::vector<float> parseFloatCsv(const std::string& text)
         throw std::invalid_argument("vector must contain at least one float");
     }
     return values;
+}
+
+size_t skipWhitespace(const std::string& text, size_t position)
+{
+    while (position < text.size() && std::isspace(static_cast<unsigned char>(text[position])) != 0) {
+        ++position;
+    }
+    return position;
+}
+
+bool parseJsonNumberArrayAt(
+    const std::string& text,
+    size_t position,
+    std::vector<float>* out,
+    std::string* error)
+{
+    position = skipWhitespace(text, position);
+    if (position >= text.size() || text[position] != '[') {
+        *error = "embedding command output must contain a JSON number array";
+        return false;
+    }
+    ++position;
+
+    std::vector<float> values;
+    while (true) {
+        position = skipWhitespace(text, position);
+        if (position >= text.size()) {
+            *error = "unterminated embedding array";
+            return false;
+        }
+        if (text[position] == ']') {
+            ++position;
+            break;
+        }
+
+        errno = 0;
+        const char* begin = text.c_str() + position;
+        char* end = nullptr;
+        const float value = std::strtof(begin, &end);
+        if (end == begin || errno == ERANGE || !std::isfinite(value)) {
+            *error = "embedding values must be finite numbers";
+            return false;
+        }
+        values.push_back(value);
+        position = static_cast<size_t>(end - text.c_str());
+        position = skipWhitespace(text, position);
+        if (position >= text.size()) {
+            *error = "unterminated embedding array";
+            return false;
+        }
+        if (text[position] == ',') {
+            ++position;
+            continue;
+        }
+        if (text[position] == ']') {
+            ++position;
+            break;
+        }
+        *error = "embedding array values must be separated by commas";
+        return false;
+    }
+
+    if (values.empty()) {
+        *error = "embedding command returned an empty vector";
+        return false;
+    }
+    *out = std::move(values);
+    return true;
+}
+
+bool parseEmbeddingOutput(const std::string& output, std::vector<float>* out, std::string* error)
+{
+    const size_t first = skipWhitespace(output, 0);
+    if (first < output.size() && output[first] == '[') {
+        return parseJsonNumberArrayAt(output, first, out, error);
+    }
+
+    const size_t key = output.find("\"embedding\"");
+    if (key == std::string::npos) {
+        *error = "embedding command output must be a JSON array or an object with an embedding array";
+        return false;
+    }
+    const size_t colon = output.find(':', key + 11);
+    if (colon == std::string::npos) {
+        *error = "embedding object is missing ':' after embedding key";
+        return false;
+    }
+    return parseJsonNumberArrayAt(output, colon + 1, out, error);
+}
+
+bool runEmbeddingCommand(
+    const std::string& command,
+    const std::string& text,
+    const std::string& embeddingModel,
+    std::vector<float>* out,
+    std::string* error)
+{
+    if (command.empty()) {
+        *error = "embedding command is required";
+        return false;
+    }
+
+    std::string shellCommand = command + " " + shellQuote(text);
+    if (!embeddingModel.empty()) {
+        shellCommand += " " + shellQuote(embeddingModel);
+    }
+
+    FILE* pipe = popen(shellCommand.c_str(), "r");
+    if (pipe == nullptr) {
+        *error = "failed to start embedding command";
+        return false;
+    }
+
+    std::string output;
+    char buffer[4096];
+    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+        output += buffer;
+        if (output.size() > kJsonBufferSize) {
+            pclose(pipe);
+            *error = "embedding command output is too large";
+            return false;
+        }
+    }
+    const int status = pclose(pipe);
+    if (status != 0) {
+        *error = "embedding command failed";
+        return false;
+    }
+    return parseEmbeddingOutput(output, out, error);
+}
+
+struct ChunkForEmbedding {
+    long long id {0};
+    std::string sourceUri;
+    std::string title;
+    int chunkIndex {0};
+    std::string text;
+};
+
+int collectChunkForEmbedding(
+    long long chunkId,
+    const char* sourceUri,
+    const char* title,
+    int chunkIndex,
+    const char* text,
+    void* userData)
+{
+    auto* chunks = static_cast<std::vector<ChunkForEmbedding>*>(userData);
+    chunks->push_back(ChunkForEmbedding {
+        chunkId,
+        sourceUri == nullptr ? std::string() : std::string(sourceUri),
+        title == nullptr ? std::string() : std::string(title),
+        chunkIndex,
+        text == nullptr ? std::string() : std::string(text)
+    });
+    return CPRAG_OK;
 }
 
 } // namespace
@@ -328,6 +544,96 @@ int main(int argc, char** argv)
                 return fail(rc, handle);
             }
             std::cout << "chunk embedding added: " << chunkId << '\n';
+            return 0;
+        });
+    }
+
+    if (command == "embed-chunks") {
+        if (argc < 5) {
+            usage();
+            return 2;
+        }
+        if (cprag_vector_index_available() == 0) {
+            std::cerr << cprag_status_message(CPRAG_UNSUPPORTED)
+                      << ": FAISS support is not enabled in this build\n";
+            return CPRAG_UNSUPPORTED;
+        }
+
+        const std::string embeddingModel = argv[3];
+        const std::string embeddingCommand = argv[4];
+        const std::string sourceFilter = argc >= 6 ? argv[5] : "";
+        if (embeddingModel.empty()) {
+            std::cerr << "embedding model is required\n";
+            return CPRAG_INVALID_ARGUMENT;
+        }
+
+        return withLibrary(library, [&](cprag_handle* handle) -> int {
+            std::vector<ChunkForEmbedding> chunks;
+            int rc = cprag_each_chunk(
+                handle,
+                sourceFilter.empty() ? nullptr : sourceFilter.c_str(),
+                collectChunkForEmbedding,
+                &chunks);
+            if (rc != CPRAG_OK) {
+                return fail(rc, handle);
+            }
+            if (chunks.empty()) {
+                std::cerr << "no chunks matched";
+                if (!sourceFilter.empty()) {
+                    std::cerr << " source_uri: " << sourceFilter;
+                }
+                std::cerr << '\n';
+                return CPRAG_NOT_FOUND;
+            }
+
+            size_t dimension = 0;
+            size_t embedded = 0;
+            for (const ChunkForEmbedding& chunk : chunks) {
+                std::vector<float> vector;
+                std::string error;
+                if (!runEmbeddingCommand(embeddingCommand, chunk.text, embeddingModel, &vector, &error)) {
+                    std::cerr << "failed to embed chunk " << chunk.id << " (" << chunk.sourceUri
+                              << "#" << chunk.chunkIndex << "): " << error << '\n';
+                    return CPRAG_IO_ERROR;
+                }
+                if (dimension == 0) {
+                    dimension = vector.size();
+                } else if (vector.size() != dimension) {
+                    std::cerr << "embedding dimension changed at chunk " << chunk.id
+                              << ": expected " << dimension << ", got " << vector.size() << '\n';
+                    return CPRAG_INVALID_ARGUMENT;
+                }
+
+                rc = cprag_add_chunk_embedding(
+                    handle,
+                    chunk.id,
+                    embeddingModel.c_str(),
+                    vector.data(),
+                    vector.size());
+                if (rc != CPRAG_OK) {
+                    return fail(rc, handle);
+                }
+                ++embedded;
+            }
+
+            std::vector<char> buffer(kJsonBufferSize);
+            rc = cprag_rebuild_vector_index(handle, embeddingModel.c_str(), buffer.data(), buffer.size());
+            if (rc != CPRAG_OK) {
+                return fail(rc, handle);
+            }
+
+            std::cout << "{\"success\":true"
+                      << ",\"embedding_model\":" << jsonString(embeddingModel)
+                      << ",\"source_uri\":";
+            if (sourceFilter.empty()) {
+                std::cout << "null";
+            } else {
+                std::cout << jsonString(sourceFilter);
+            }
+            std::cout << ",\"embedded\":" << embedded
+                      << ",\"dimension\":" << dimension
+                      << ",\"index\":" << buffer.data()
+                      << "}\n";
             return 0;
         });
     }

@@ -8,6 +8,14 @@ extern "C" {
 
 typedef struct cprag_handle cprag_handle;
 
+typedef int (*cprag_chunk_visitor)(
+    long long chunk_id,
+    const char* source_uri,
+    const char* title,
+    int chunk_index,
+    const char* text,
+    void* user_data);
+
 enum {
     CPRAG_OK = 0,
     CPRAG_INVALID_ARGUMENT = 1,
@@ -105,6 +113,12 @@ int cprag_list_chunks(
     const char* source_uri,
     char* out_json,
     size_t out_json_size);
+
+int cprag_each_chunk(
+    cprag_handle* handle,
+    const char* source_uri,
+    cprag_chunk_visitor visitor,
+    void* user_data);
 
 int cprag_delete_source(
     cprag_handle* handle,

@@ -28,6 +28,33 @@ std::vector<long long> chunkIdsFromJson(const std::string& json)
     return ids;
 }
 
+struct VisitedChunk {
+    long long id {0};
+    std::string sourceUri;
+    std::string title;
+    int chunkIndex {0};
+    std::string text;
+};
+
+int visitChunk(
+    long long chunkId,
+    const char* sourceUri,
+    const char* title,
+    int chunkIndex,
+    const char* text,
+    void* userData)
+{
+    auto* visited = static_cast<std::vector<VisitedChunk>*>(userData);
+    visited->push_back(VisitedChunk {
+        chunkId,
+        sourceUri == nullptr ? std::string() : std::string(sourceUri),
+        title == nullptr ? std::string() : std::string(title),
+        chunkIndex,
+        text == nullptr ? std::string() : std::string(text)
+    });
+    return CPRAG_OK;
+}
+
 } // namespace
 
 int main()
@@ -96,6 +123,17 @@ int main()
     }
     const std::vector<long long> chunkIds = chunkIdsFromJson(listedChunks);
     assert(!chunkIds.empty());
+
+    std::vector<VisitedChunk> visitedChunks;
+    rc = cprag_each_chunk(handle, "docs/auth.md", visitChunk, &visitedChunks);
+    assert(rc == CPRAG_OK);
+    if (visitedChunks.size() != chunkIds.size()
+        || visitedChunks.front().id != chunkIds.front()
+        || visitedChunks.front().sourceUri != "docs/auth.md"
+        || visitedChunks.front().text.find("authentication service") == std::string::npos) {
+        std::cerr << "cprag_each_chunk did not visit expected chunks\n";
+        return 1;
+    }
 
     rc = cprag_vector_status(handle, buffer.data(), buffer.size());
     assert(rc == CPRAG_OK);

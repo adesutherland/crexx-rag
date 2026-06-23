@@ -94,6 +94,9 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
   through the C ABI.
 - Keep `cprag_core` usable on its own; CREXX, CLI, and MCP are adapters over
   the same core.
+- FAISS is a vector index/search backend, not an embedding provider. Keep
+  embedding generation in adapters, scripts, CREXX/profile orchestration, or
+  provider wrappers, and pass fixed-length vectors into the native core.
 - Nodes have meaningful types and relationships have meaningful type/semantic
   labels. Do not treat these as presentation-only metadata; they affect
   traversal, filtering, ranking, and explanation.
@@ -126,6 +129,8 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
 - SQLite is acceptable as a baseline dependency.
 - FAISS is optional and must stay behind the C ABI. SQLite remains the source of
   truth for vector metadata; `vectors.faiss` is a rebuildable sidecar.
+- Embedding providers should remain optional and adapter-level; local Ollama or
+  other providers can be wrapped as commands that emit JSON vectors.
 - Avoid adding a graph database dependency until the native essential graph layer
   is clearly insufficient.
 - CREXX development headers and plugin build metadata should come from the

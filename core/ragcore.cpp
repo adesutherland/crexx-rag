@@ -2214,6 +2214,69 @@ int cprag_list_chunks(cprag_handle* handle, const char* source_uri, char* out_js
     }
 }
 
+int cprag_each_chunk(
+    cprag_handle* handle,
+    const char* source_uri,
+    cprag_chunk_visitor visitor,
+    void* user_data)
+{
+    if (handle == nullptr || visitor == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+
+    const std::string sourceUri = valueOrEmpty(source_uri);
+    const bool hasSourceFilter = !sourceUri.empty();
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql = hasSourceFilter
+        ? "SELECT c.id, d.source_uri, d.title, c.chunk_index, c.text "
+          "FROM chunks c "
+          "JOIN documents d ON d.id = c.document_id "
+          "WHERE d.source_uri = ? "
+          "ORDER BY d.source_uri, c.chunk_index"
+        : "SELECT c.id, d.source_uri, d.title, c.chunk_index, c.text "
+          "FROM chunks c "
+          "JOIN documents d ON d.id = c.document_id "
+          "ORDER BY d.source_uri, c.chunk_index";
+
+    int rc = prepare(handle, sql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    if (hasSourceFilter && !bindText(stmt, 1, sourceUri)) {
+        sqlite3_finalize(stmt);
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+
+    int stepRc = SQLITE_OK;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        const long long chunkId = sqlite3_column_int64(stmt, 0);
+        const std::string rowSourceUri = columnText(stmt, 1);
+        const std::string title = columnText(stmt, 2);
+        const int chunkIndex = sqlite3_column_int(stmt, 3);
+        const std::string text = columnText(stmt, 4);
+        const int visitorRc = visitor(
+            chunkId,
+            rowSourceUri.c_str(),
+            title.c_str(),
+            chunkIndex,
+            text.c_str(),
+            user_data);
+        if (visitorRc != 0) {
+            sqlite3_finalize(stmt);
+            if (handle->lastError.empty()) {
+                setError(handle, "chunk visitor failed");
+            }
+            return visitorRc;
+        }
+    }
+
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    return CPRAG_OK;
+}
+
 int cprag_delete_source(cprag_handle* handle, const char* source_uri, char* out_json, size_t out_json_size)
 {
     if (handle == nullptr || source_uri == nullptr) {

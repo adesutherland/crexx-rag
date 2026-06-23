@@ -31,7 +31,8 @@ place where those semantics exist.
   over text anchors for now.
 - Optional FAISS support stores caller-provided chunk embeddings in SQLite,
   rebuilds a `vectors.faiss` sidecar for one active embedding model/dimension,
-  and searches that sidecar by vector.
+  and searches that sidecar by vector. FAISS is not an embedder; local/provider
+  adapters must generate fixed-length vectors before the core can index them.
 - Graph context is expanded with simple BFS over both incoming and outgoing
   edges.
 - Graph query APIs include shortest path and typed subgraph extraction.
@@ -44,6 +45,9 @@ place where those semantics exist.
   accepts `mode=auto|lexical|vector|hybrid`; `auto` is the LLM default and only
   uses vector search when an active vector index and embedding command are
   configured.
+- `crexx-rag embed-chunks` batch-generates chunk embeddings through an external
+  command and rebuilds the FAISS sidecar. The command contract is provider
+  neutral: print a JSON number array, or an object with an `embedding` array.
 - `rx_rag.rxplugin` publishes Level G native signatures through RXPA.
 - `crexx/cprag.crexx` is the first CREXX Level G wrapper surface. It exposes
   `cprag.raglibrary`, keeps JSON as the interchange format, and uses CREXX
@@ -98,7 +102,9 @@ Record CREXX packaging/API issues in `docs/crexx-integration-issues.md`.
 
 ## Next Steps
 
-- Add richer embedding-provider adapters, starting local-first.
+- Add richer embedding-provider adapters, starting local-first. Ollama is a good
+  candidate when an embedding-capable model is installed, but the core should
+  stay provider-neutral.
 - Add hybrid lexical/vector ranking policy in CREXX/profile code. The current
   hybrid merge is intentionally simple and deterministic.
 - Add larger generated or fixture-based retrieval corpora when recall,

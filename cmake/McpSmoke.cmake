@@ -123,27 +123,18 @@ if(CPRAG_FAISS_ENABLED AND CPRAG_CLI)
         message(FATAL_ERROR "Hybrid MCP ingest failed\n${hybrid_ingest_output}\n${hybrid_ingest_error}")
     endif()
 
+    file(WRITE "${embed_script}" "#!/bin/sh\nprintf '[1.0,0.0,0.0]\\n'\n")
+    file(CHMOD "${embed_script}"
+        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+
     execute_process(
-        COMMAND "${CPRAG_CLI}" add-chunk-embedding "${hybrid_library}" 1 smoke-model 1.0,0.0,0.0
+        COMMAND "${CPRAG_CLI}" embed-chunks "${hybrid_library}" smoke-model "${embed_script}"
         RESULT_VARIABLE hybrid_embedding_result
         OUTPUT_VARIABLE hybrid_embedding_output
         ERROR_VARIABLE hybrid_embedding_error)
     if(NOT hybrid_embedding_result EQUAL 0)
-        message(FATAL_ERROR "Hybrid MCP add embedding failed\n${hybrid_embedding_output}\n${hybrid_embedding_error}")
+        message(FATAL_ERROR "Hybrid MCP embed chunks failed\n${hybrid_embedding_output}\n${hybrid_embedding_error}")
     endif()
-
-    execute_process(
-        COMMAND "${CPRAG_CLI}" rebuild-vector-index "${hybrid_library}" smoke-model
-        RESULT_VARIABLE hybrid_rebuild_result
-        OUTPUT_VARIABLE hybrid_rebuild_output
-        ERROR_VARIABLE hybrid_rebuild_error)
-    if(NOT hybrid_rebuild_result EQUAL 0)
-        message(FATAL_ERROR "Hybrid MCP rebuild failed\n${hybrid_rebuild_output}\n${hybrid_rebuild_error}")
-    endif()
-
-    file(WRITE "${embed_script}" "#!/bin/sh\nprintf '[1.0,0.0,0.0]\\n'\n")
-    file(CHMOD "${embed_script}"
-        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
     string(CONCAT hybrid_requests
         "{\"jsonrpc\":\"2.0\",\"id\":\"search\",\"method\":\"tools/call\",\"params\":{\"name\":\"library_search\",\"arguments\":{\"query\":\"find the checkout vector smoke chunk\",\"mode\":\"auto\",\"top_k\":3,\"hops\":1}}}\n")
