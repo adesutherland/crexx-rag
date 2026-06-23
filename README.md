@@ -22,6 +22,7 @@ scriptable:
 - `crexx-rag`: command-line tool for local use and smoke testing.
 - `crexx-rag-mcp`: stdio MCP server starter for Codex and other MCP clients.
 - `rx_rag.rxplugin`: CREXX `rxpa` dynamic plugin exposing native functions.
+- `cprag.crexx`: Level G CREXX wrapper for profiles and policy scripts.
 
 The first implementation uses SQLite for a shareable local library bundle and a
 small built-in graph traversal layer. It stores both the typed relationship map
@@ -94,7 +95,11 @@ The initial typed architecture vocabulary is documented in
 
 ## CREXX Direction
 
-The plugin exposes stateless path-based functions first:
+The richer user-facing surface should live in CREXX. MCP remains a thin
+client-facing adapter over the same native core, while CREXX Level G scripts and
+classes own profiles, retrieval policy, and higher-level orchestration.
+
+The raw plugin exposes stateless path-based Level G functions:
 
 - `rxrag.init(path)`
 - `rxrag.addentity(path, id, label, description, metadata_json)`
@@ -113,8 +118,11 @@ The plugin exposes stateless path-based functions first:
 - `rxrag.stats(path)`
 - `rxrag.chunk(text, chunk_size, overlap, file_type)`
 
-That gives CREXX scripts a safe tuning/orchestration layer while the storage and
-graph traversal stay native.
+The first CREXX wrapper is `cprag.raglibrary` in
+[`crexx/cprag.crexx`](crexx/cprag.crexx). It wraps the raw plugin calls as a
+small class-shaped API and uses CREXX's `rxjson` helpers for JSON-aware
+convenience methods such as `sourceCount()`. The native functions still return
+JSON so the same ABI works for CLI, CREXX, and MCP.
 
 The CREXX dynamic plugin smoke is part of the debug test preset when the
 installed `rxc`, `rxas`, and `rxvme` are available:

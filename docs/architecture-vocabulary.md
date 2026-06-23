@@ -28,5 +28,5 @@ for IT architecture.
 - `associated-with`: general intentionally weak relationship.
 
 The native `cprag_vocabulary` API, CLI `vocabulary` command, MCP
-`library_vocabulary` tool, and CREXX `rxrag.vocabulary()` function expose the
-same list as JSON.
+`library_vocabulary` tool, raw CREXX `rxrag.vocabulary()` function, and
+`cprag.raglibrary.vocabularyJson()` wrapper method expose the same list as JSON.

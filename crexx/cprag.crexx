@@ -1,0 +1,85 @@
+options levelg
+
+namespace cprag expose raglibrary
+import rxjson
+import rxrag
+
+raglibrary: class
+  _path = .string
+
+  *: factory
+    arg path = .string
+    _path = path
+    return
+
+  path: method = .string
+    return _path
+
+  create: method = .string
+    return init(_path)
+
+  addEntity: method = .string
+    arg id = .string, node_type = .string, label = .string, description = .string, metadata_json = "{}"
+    return addentitytyped(_path, id, node_type, label, description, metadata_json)
+
+  addEntityUntyped: method = .string
+    arg id = .string, label = .string, description = .string, metadata_json = "{}"
+    return addentity(_path, id, label, description, metadata_json)
+
+  addEdge: method = .string
+    arg source_id = .string, target_id = .string, relationship_type = .string, label = .string, weight = 1.0, metadata_json = "{}"
+    return addedgetyped(_path, source_id, target_id, relationship_type, label, weight, metadata_json)
+
+  addEdgeUntyped: method = .string
+    arg source_id = .string, target_id = .string, label = .string, weight = 1.0, metadata_json = "{}"
+    return addedge(_path, source_id, target_id, label, weight, metadata_json)
+
+  ingestText: method = .string
+    arg source_uri = .string, title = .string, text = .string, file_type = "plain", chunk_size = 1000, overlap = 200, metadata_json = "{}"
+    return ingest(_path, source_uri, title, text, file_type, chunk_size, overlap, metadata_json)
+
+  sourcesJson: method = .string
+    return listsources(_path)
+
+  chunksJson: method = .string
+    arg source_uri = .string
+    return listchunks(_path, source_uri)
+
+  removeSource: method = .string
+    arg source_uri = .string
+    return deletesource(_path, source_uri)
+
+  vocabularyJson: method = .string
+    return vocabulary()
+
+  searchGraph: method = .string
+    arg query = .string, top_k = 3, hops = 2
+    return search(_path, query, top_k, hops)
+
+  expandGraph: method = .string
+    arg anchors_csv = .string, hops = 2, relation_filter_csv = ""
+    return expand(_path, anchors_csv, hops, relation_filter_csv)
+
+  pathJson: method = .string
+    arg source_id = .string, target_id = .string, relationship_filter_csv = ""
+    return shortestpath(_path, source_id, target_id, relationship_filter_csv)
+
+  typedSubgraph: method = .string
+    arg node_type_filter_csv = "", relationship_type_filter_csv = "", limit = 100
+    return subgraph(_path, node_type_filter_csv, relationship_type_filter_csv, limit)
+
+  statsJson: method = .string
+    return stats(_path)
+
+  chunkText: method = .string
+    arg text = .string, chunk_size = 1000, overlap = 200, file_type = "plain"
+    return chunk(text, chunk_size, overlap, file_type)
+
+  sourceCount: method = .int
+    json = listsources(_path)
+    if jsonvalid(json) = 0 then return -1
+    return jsoncount(json, "sources")
+
+  validJson: method = .int
+    arg json = .string
+    return jsonvalid(json)

@@ -7,7 +7,8 @@ contributors.
 
 `crexx-rag` is a lightweight local GraphRAG component for CREXX, Codex, and
 plain command-line workflows. The core should stay native and reusable; CREXX
-should provide tunable retrieval profiles; MCP should provide agent access.
+Level G should provide the tunable retrieval/profile surface; MCP should provide
+thin agent access.
 
 A central vision is the typed relationship map. The primary workload is an IT
 architecture view of the world, likely with an ArchiMate-inspired vocabulary, but
@@ -35,9 +36,13 @@ place where those semantics exist.
 - `crexx-rag-mcp` is a minimal stdio MCP server scaffold with status, search,
   vocabulary, shortest path, typed subgraph, ingest, source/chunk listing,
   source deletion, and graph edit tools.
-- `rx_rag.rxplugin` is the CREXX dynamic plugin target and has a CTest smoke
-  that compiles with installed `rxc`, assembles with installed `rxas`, and runs
-  with installed `rxvme`.
+- `rx_rag.rxplugin` publishes Level G native signatures through RXPA.
+- `crexx/cprag.crexx` is the first CREXX Level G wrapper surface. It exposes
+  `cprag.raglibrary`, keeps JSON as the interchange format, and uses CREXX
+  `rxjson` helpers for JSON-aware convenience methods.
+- The CREXX smoke compiles `cprag.crexx`, compiles the profile against it,
+  assembles both modules with installed `rxas`, and runs with installed
+  `rxvme`.
 
 ## Build Context
 
@@ -85,4 +90,5 @@ Record CREXX packaging/API issues in `docs/crexx-integration-issues.md`.
 - Add embedding-provider adapters, starting local-first.
 - Add stricter optional validation against named vocabularies when a profile
   wants it.
-- Add CREXX profile scripts for ranking and query policies.
+- Expand the CREXX Level G wrapper and profile scripts for ranking and query
+  policies.

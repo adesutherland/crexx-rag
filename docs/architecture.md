@@ -9,7 +9,7 @@ Codex / MCP clients
 crexx-rag-mcp
         |
         v
-CREXX scripts / profiles ---> rx_rag.rxplugin
+CREXX Level G surface ---> rx_rag.rxplugin
         |                         |
         +-------------------------+
                   |
@@ -39,6 +39,18 @@ Current capabilities:
 - perform SQLite FTS5 lexical search over chunks
 - expand anchors through k-hop graph traversal
 - return JSON suitable for CLI, CREXX, or MCP wrappers
+
+## Adapter Roles
+
+MCP should stay a thin client-facing adapter for agents and tools. It should not
+become the place where retrieval policy, ranking profiles, or domain-specific
+relationship behavior live.
+
+The richer orchestration surface belongs in CREXX Level G. The raw `rxrag`
+plugin exposes native functions, and `crexx/cprag.crexx` starts the higher-level
+`cprag.raglibrary` class wrapper. That wrapper currently preserves JSON as the
+interchange format and can use CREXX's `rxjson` helpers for profile logic and
+small convenience methods.
 
 ## Graph Layer
 

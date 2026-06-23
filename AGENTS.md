@@ -78,6 +78,13 @@ also needs the plugin as a runtime module, for example:
 rxvme -l cmake-build-debug/bin <program> rx_rag
 ```
 
+When using the CREXX wrapper surface, compile `crexx/cprag.crexx` as a module
+and load both runtime modules:
+
+```bash
+rxvme -l cmake-build-debug/bin <program> cprag rx_rag
+```
+
 The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
 
 ## Design Rules
@@ -99,8 +106,8 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
   - shortest path
   - subgraph extraction
   - simple ranking hooks
-- Keep user-tunable ranking and retrieval policy in CREXX/profile scripts where
-  practical.
+- Keep user-tunable ranking and retrieval policy in CREXX Level G/profile
+  scripts where practical. MCP should remain a thin client-facing adapter.
 - Dynamic CREXX plugins are preferred for this project.
 - The CREXX plugin is an integration target and diagnostic surface. Do not hide
   installed CREXX defects by silently depending on the sibling source tree.
@@ -130,10 +137,13 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
   typed subgraph extraction are available in the native core.
 - Chunking is a Qt-free port inspired by CognitivePipelines' RAG chunkers,
   currently covering plain text, Markdown, and Rexx-oriented source.
-- MCP server is a stdio scaffold with `library_status`, `library_search`,
-  `library_ingest`, `library_list_sources`, `library_add_entity`, and
-  `library_add_edge`.
-- CREXX plugin currently builds through the temporary vendored rxpa headers.
+- MCP server is a stdio scaffold with status, search, vocabulary, shortest
+  path, typed subgraph, ingest, source/chunk listing, source deletion, and graph
+  edit tools.
+- CREXX plugin publishes Level G RXPA signatures and currently builds through
+  the temporary vendored rxpa headers.
+- `crexx/cprag.crexx` provides the first Level G class-shaped wrapper surface
+  over the raw plugin functions.
 - CREXX plugin runtime is covered by `crexx_profile_smoke` when installed
   `rxc`, `rxas`, and `rxvme` are available.
 

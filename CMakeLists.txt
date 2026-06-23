@@ -137,6 +137,7 @@ if(CPRAG_BUILD_TESTS)
                 "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
                 "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
                 "-DCPRAG_PROFILE=${CMAKE_CURRENT_LIST_DIR}/crexx/profiles/balanced.crexx"
+                "-DCPRAG_CREXX_SOURCE_DIR=${CMAKE_CURRENT_LIST_DIR}/crexx"
                 "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_rag>"
                 "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
                 "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/crexx-profile-smoke"

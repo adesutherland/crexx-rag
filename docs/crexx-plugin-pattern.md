@@ -25,14 +25,18 @@ PROCEDURE(search)
 }
 
 LOADFUNCS
-ADDPROC(search, "rxrag.search", "b", ".string", "path=.string,query=.string,top_k=.int,hops=.int");
+ADDPROC(search, "rxrag.search", "g", ".string", "path=.string,query=.string,top_k=.int,hops=.int");
 ENDLOADFUNCS
 ```
 
-Class and interface metadata also exists through macros such as `ADDCLASS`,
-`ADDINTERFACE`, `ADDIMPLEMENTS`, `ADDFACTORY`, and `ADDMETHOD`, but object
-construction is less complete. For now, `crexx-rag` exposes procedure-style
-functions and keeps object-shaped APIs as a later layer.
+Level G is currently close to Level B in the installed toolchain, but it is the
+right compatibility level for this project because CREXX-facing RAG policy and
+LLM/RAG orchestration are expected to diverge there.
+
+Class and interface metadata also exists through RXPA macros such as `ADDCLASS`,
+`ADDINTERFACE`, `ADDIMPLEMENTS`, `ADDFACTORY`, and `ADDMETHOD`, but the native
+plugin stays procedure-style for now. The object-shaped surface is implemented
+in CREXX itself by `crexx/cprag.crexx`.
 
 ## Compile And Run
 
@@ -40,9 +44,10 @@ There are two separate paths:
 
 - Compile/import path: `rxc -i <plugin-dir>...` lets the compiler read native
   signatures from `.rxplugin` files.
-- Runtime module path: `rxvme -l <plugin-dir> <program> rx_rag` lets the VM
-  load `rx_rag.rxplugin` as a runtime module. `rxvme` already embeds the CREXX
-  library; use `rxvm` only if you need to list the library module explicitly.
+- Runtime module path: `rxvme -l <plugin-dir> <program> cprag rx_rag` lets the
+  VM load the CREXX wrapper module and the `rx_rag.rxplugin` runtime module.
+  `rxvme` already embeds the CREXX library; use `rxvm` only if you need to list
+  the library module explicitly.
 
 The installed CREXX driver `crexx -i ...` is not enough by itself because `-i`
 only affects compilation/import. The runtime still needs the native plugin in
@@ -52,13 +57,18 @@ The CTest smoke uses the installed tools directly:
 
 ```bash
 rxc -i "cmake-build-debug/bin;/Users/adrian/.local/bin" \
+  -o cmake-build-debug/crexx-profile-smoke/cprag \
+  crexx/cprag.crexx
+rxas -o cmake-build-debug/crexx-profile-smoke/cprag \
+  cmake-build-debug/crexx-profile-smoke/cprag
+rxc -i "cmake-build-debug/crexx-profile-smoke;cmake-build-debug/bin;/Users/adrian/.local/bin" \
   -o cmake-build-debug/crexx-profile-smoke/balanced-profile \
   crexx/profiles/balanced.crexx
 rxas -o cmake-build-debug/crexx-profile-smoke/balanced-profile \
   cmake-build-debug/crexx-profile-smoke/balanced-profile
 rxvme -l cmake-build-debug/bin \
   cmake-build-debug/crexx-profile-smoke/balanced-profile \
-  rx_rag
+  cprag rx_rag
 ```
 
 The portable project entry point is:

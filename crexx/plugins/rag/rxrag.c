@@ -565,20 +565,20 @@ PROCEDURE(chunk)
 }
 
 LOADFUNCS
-ADDPROC(init,      "rxrag.init",      "b", ".string", "path=.string");
-ADDPROC(addentity, "rxrag.addentity", "b", ".string", "path=.string,id=.string,label=.string,description=.string,metadata_json=.string");
-ADDPROC(addentitytyped, "rxrag.addentitytyped", "b", ".string", "path=.string,id=.string,node_type=.string,label=.string,description=.string,metadata_json=.string");
-ADDPROC(addedge,   "rxrag.addedge",   "b", ".string", "path=.string,source_id=.string,target_id=.string,label=.string,weight=.float,metadata_json=.string");
-ADDPROC(addedgetyped, "rxrag.addedgetyped", "b", ".string", "path=.string,source_id=.string,target_id=.string,relationship_type=.string,label=.string,weight=.float,metadata_json=.string");
-ADDPROC(ingest,    "rxrag.ingest",    "b", ".string", "path=.string,source_uri=.string,title=.string,text=.string,file_type=.string,chunk_size=.int,overlap=.int,metadata_json=.string");
-ADDPROC(listsources, "rxrag.listsources", "b", ".string", "path=.string");
-ADDPROC(listchunks, "rxrag.listchunks", "b", ".string", "path=.string,source_uri=.string");
-ADDPROC(deletesource, "rxrag.deletesource", "b", ".string", "path=.string,source_uri=.string");
-ADDPROC(vocabulary, "rxrag.vocabulary", "b", ".string", "");
-ADDPROC(search,    "rxrag.search",    "b", ".string", "path=.string,query=.string,top_k=.int,hops=.int");
-ADDPROC(expand,    "rxrag.expand",    "b", ".string", "path=.string,anchors_csv=.string,hops=.int,relation_filter_csv=.string");
-ADDPROC(shortestpath, "rxrag.shortestpath", "b", ".string", "path=.string,source_id=.string,target_id=.string,relationship_filter_csv=.string");
-ADDPROC(subgraph, "rxrag.subgraph", "b", ".string", "path=.string,node_type_filter_csv=.string,relationship_type_filter_csv=.string,limit=.int");
-ADDPROC(stats,     "rxrag.stats",     "b", ".string", "path=.string");
-ADDPROC(chunk,     "rxrag.chunk",     "b", ".string", "text=.string,chunk_size=.int,overlap=.int,file_type=.string");
+ADDPROC(init,      "rxrag.init",      "g", ".string", "path=.string");
+ADDPROC(addentity, "rxrag.addentity", "g", ".string", "path=.string,id=.string,label=.string,description=.string,metadata_json=.string");
+ADDPROC(addentitytyped, "rxrag.addentitytyped", "g", ".string", "path=.string,id=.string,node_type=.string,label=.string,description=.string,metadata_json=.string");
+ADDPROC(addedge,   "rxrag.addedge",   "g", ".string", "path=.string,source_id=.string,target_id=.string,label=.string,weight=.float,metadata_json=.string");
+ADDPROC(addedgetyped, "rxrag.addedgetyped", "g", ".string", "path=.string,source_id=.string,target_id=.string,relationship_type=.string,label=.string,weight=.float,metadata_json=.string");
+ADDPROC(ingest,    "rxrag.ingest",    "g", ".string", "path=.string,source_uri=.string,title=.string,text=.string,file_type=.string,chunk_size=.int,overlap=.int,metadata_json=.string");
+ADDPROC(listsources, "rxrag.listsources", "g", ".string", "path=.string");
+ADDPROC(listchunks, "rxrag.listchunks", "g", ".string", "path=.string,source_uri=.string");
+ADDPROC(deletesource, "rxrag.deletesource", "g", ".string", "path=.string,source_uri=.string");
+ADDPROC(vocabulary, "rxrag.vocabulary", "g", ".string", "");
+ADDPROC(search,    "rxrag.search",    "g", ".string", "path=.string,query=.string,top_k=.int,hops=.int");
+ADDPROC(expand,    "rxrag.expand",    "g", ".string", "path=.string,anchors_csv=.string,hops=.int,relation_filter_csv=.string");
+ADDPROC(shortestpath, "rxrag.shortestpath", "g", ".string", "path=.string,source_id=.string,target_id=.string,relationship_filter_csv=.string");
+ADDPROC(subgraph, "rxrag.subgraph", "g", ".string", "path=.string,node_type_filter_csv=.string,relationship_type_filter_csv=.string,limit=.int");
+ADDPROC(stats,     "rxrag.stats",     "g", ".string", "path=.string");
+ADDPROC(chunk,     "rxrag.chunk",     "g", ".string", "text=.string,chunk_size=.int,overlap=.int,file_type=.string");
 ENDLOADFUNCS

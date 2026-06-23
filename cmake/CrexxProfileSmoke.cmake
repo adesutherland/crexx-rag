@@ -3,6 +3,7 @@ foreach(required_var
         CPRAG_RXAS
         CPRAG_RXVME
         CPRAG_PROFILE
+        CPRAG_CREXX_SOURCE_DIR
         CPRAG_PLUGIN_DIR
         CPRAG_CREXX_BIN_DIR
         CPRAG_WORK_DIR)
@@ -12,20 +13,42 @@ foreach(required_var
 endforeach()
 
 set(output_base "${CPRAG_WORK_DIR}/balanced-profile")
+set(wrapper_base "${CPRAG_WORK_DIR}/cprag")
 set(import_path "${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}")
+set(profile_import_path "${CPRAG_WORK_DIR};${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}")
 
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
-file(REMOVE "${output_base}.rxas" "${output_base}.rxbin")
+file(REMOVE "${output_base}.rxas" "${output_base}.rxbin" "${wrapper_base}.rxas" "${wrapper_base}.rxbin")
 file(REMOVE_RECURSE "${CPRAG_WORK_DIR}/example.cprag")
 
 execute_process(
-    COMMAND "${CPRAG_RXC}" -i "${import_path}" -o "${output_base}" "${CPRAG_PROFILE}"
+    COMMAND "${CPRAG_RXC}" -i "${import_path}" -o "${wrapper_base}" "${CPRAG_CREXX_SOURCE_DIR}/cprag.crexx"
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     RESULT_VARIABLE rxc_result
     OUTPUT_VARIABLE rxc_output
     ERROR_VARIABLE rxc_error)
 if(NOT rxc_result EQUAL 0)
-    message(FATAL_ERROR "rxc failed (${rxc_result})\n${rxc_output}\n${rxc_error}")
+    message(FATAL_ERROR "rxc wrapper failed (${rxc_result})\n${rxc_output}\n${rxc_error}")
+endif()
+
+execute_process(
+    COMMAND "${CPRAG_RXAS}" -o "${wrapper_base}" "${wrapper_base}"
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    RESULT_VARIABLE rxas_result
+    OUTPUT_VARIABLE rxas_output
+    ERROR_VARIABLE rxas_error)
+if(NOT rxas_result EQUAL 0)
+    message(FATAL_ERROR "rxas wrapper failed (${rxas_result})\n${rxas_output}\n${rxas_error}")
+endif()
+
+execute_process(
+    COMMAND "${CPRAG_RXC}" -i "${profile_import_path}" -o "${output_base}" "${CPRAG_PROFILE}"
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    RESULT_VARIABLE rxc_result
+    OUTPUT_VARIABLE rxc_output
+    ERROR_VARIABLE rxc_error)
+if(NOT rxc_result EQUAL 0)
+    message(FATAL_ERROR "rxc profile failed (${rxc_result})\n${rxc_output}\n${rxc_error}")
 endif()
 
 execute_process(
@@ -35,11 +58,11 @@ execute_process(
     OUTPUT_VARIABLE rxas_output
     ERROR_VARIABLE rxas_error)
 if(NOT rxas_result EQUAL 0)
-    message(FATAL_ERROR "rxas failed (${rxas_result})\n${rxas_output}\n${rxas_error}")
+    message(FATAL_ERROR "rxas profile failed (${rxas_result})\n${rxas_output}\n${rxas_error}")
 endif()
 
 execute_process(
-    COMMAND "${CPRAG_RXVME}" -l "${CPRAG_PLUGIN_DIR}" "${output_base}" rx_rag
+    COMMAND "${CPRAG_RXVME}" -l "${CPRAG_PLUGIN_DIR}" "${output_base}" cprag rx_rag
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     RESULT_VARIABLE rxvme_result
     OUTPUT_VARIABLE rxvme_output
