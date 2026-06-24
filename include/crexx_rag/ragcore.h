@@ -103,8 +103,31 @@ int cprag_ingest_text(
     char* out_json,
     size_t out_json_size);
 
+int cprag_ingest_text_ex(
+    cprag_handle* handle,
+    const char* source_uri,
+    const char* title,
+    const char* text,
+    int file_type,
+    int chunk_size,
+    int chunk_overlap,
+    const char* metadata_json,
+    const char* source_type,
+    double confidence,
+    const char* captured_at,
+    const char* event_start_at,
+    const char* event_end_at,
+    char* out_json,
+    size_t out_json_size);
+
 int cprag_list_sources(
     cprag_handle* handle,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_timeline(
+    cprag_handle* handle,
+    int limit,
     char* out_json,
     size_t out_json_size);
 
@@ -135,11 +158,33 @@ int cprag_add_chunk_embedding(
     const float* vector,
     size_t dimension);
 
+int cprag_add_chunk_embedding_profile(
+    cprag_handle* handle,
+    long long chunk_id,
+    const char* embedding_model,
+    const char* embedding_profile,
+    const float* vector,
+    size_t dimension);
+
 int cprag_rebuild_vector_index(
     cprag_handle* handle,
     const char* embedding_model,
     char* out_json,
     size_t out_json_size);
+
+int cprag_rebuild_vector_index_profile(
+    cprag_handle* handle,
+    const char* embedding_model,
+    const char* embedding_profile,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_build_chunk_embedding_text(
+    cprag_handle* handle,
+    long long chunk_id,
+    const char* embedding_profile,
+    char* out_text,
+    size_t out_text_size);
 
 int cprag_vector_search(
     cprag_handle* handle,

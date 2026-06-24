@@ -84,7 +84,7 @@ int main()
     rc = cprag_add_entity(handle, "entity:bad", "Component", "Bad metadata should be rejected", "{not-json");
     assert(rc == CPRAG_INVALID_ARGUMENT);
 
-    rc = cprag_ingest_text(
+    rc = cprag_ingest_text_ex(
         handle,
         "docs/auth.md",
         "Authentication architecture notes",
@@ -94,12 +94,20 @@ int main()
         80,
         16,
         "{\"domain\":\"architecture\"}",
+        "meeting-note",
+        0.8,
+        "2026-06-24T09:30:00Z",
+        "2026-06-20T10:00:00Z",
+        "2026-06-20T11:00:00Z",
         buffer.data(),
         buffer.size());
     assert(rc == CPRAG_OK);
     const std::string ingest(buffer.data());
     if (ingest.find("\"source_uri\":\"docs/auth.md\"") == std::string::npos
-        || ingest.find("\"chunk_count\":") == std::string::npos) {
+        || ingest.find("\"chunk_count\":") == std::string::npos
+        || ingest.find("\"source_type\":\"meeting-note\"") == std::string::npos
+        || ingest.find("\"confidence\":0.8") == std::string::npos
+        || ingest.find("\"event_start_at\":\"2026-06-20T10:00:00Z\"") == std::string::npos) {
         std::cerr << ingest << '\n';
         return 1;
     }
@@ -108,8 +116,19 @@ int main()
     assert(rc == CPRAG_OK);
     const std::string sources(buffer.data());
     if (sources.find("Authentication architecture notes") == std::string::npos
-        || sources.find("\"chunk_count\":") == std::string::npos) {
+        || sources.find("\"chunk_count\":") == std::string::npos
+        || sources.find("\"source_type\":\"meeting-note\"") == std::string::npos) {
         std::cerr << sources << '\n';
+        return 1;
+    }
+
+    rc = cprag_timeline(handle, 10, buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string timeline(buffer.data());
+    if (timeline.find("\"events\":[") == std::string::npos
+        || timeline.find("\"sort_time\":\"2026-06-20T10:00:00Z\"") == std::string::npos
+        || timeline.find("\"source_type\":\"meeting-note\"") == std::string::npos) {
+        std::cerr << timeline << '\n';
         return 1;
     }
 
@@ -117,7 +136,8 @@ int main()
     assert(rc == CPRAG_OK);
     const std::string listedChunks(buffer.data());
     if (listedChunks.find("\"source_uri\":\"docs/auth.md\"") == std::string::npos
-        || listedChunks.find("token validation") == std::string::npos) {
+        || listedChunks.find("token validation") == std::string::npos
+        || listedChunks.find("\"source_type\":\"meeting-note\"") == std::string::npos) {
         std::cerr << listedChunks << '\n';
         return 1;
     }
@@ -132,6 +152,17 @@ int main()
         || visitedChunks.front().sourceUri != "docs/auth.md"
         || visitedChunks.front().text.find("authentication service") == std::string::npos) {
         std::cerr << "cprag_each_chunk did not visit expected chunks\n";
+        return 1;
+    }
+
+    rc = cprag_build_chunk_embedding_text(handle, chunkIds[0], "semantic-context-v1", buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string embeddingText(buffer.data());
+    if (embeddingText.find("Embedding profile: semantic-context-v1") == std::string::npos
+        || embeddingText.find("Source type: meeting-note") == std::string::npos
+        || embeddingText.find("Event start at: 2026-06-20T10:00:00Z") == std::string::npos
+        || embeddingText.find("Text:\n") == std::string::npos) {
+        std::cerr << embeddingText << '\n';
         return 1;
     }
 
@@ -169,6 +200,7 @@ int main()
         const std::string rebuilt(buffer.data());
         if (rebuilt.find("\"backend\":\"faiss\"") == std::string::npos
             || rebuilt.find("\"embedding_model\":\"unit-test\"") == std::string::npos
+            || rebuilt.find("\"embedding_profile\":\"raw-text-v1\"") == std::string::npos
             || rebuilt.find("\"dimension\":3") == std::string::npos) {
             std::cerr << rebuilt << '\n';
             return 1;
@@ -182,6 +214,7 @@ int main()
         const std::string vectorSearch(buffer.data());
         if (vectorSearch.find("\"results\":[") == std::string::npos
             || vectorSearch.find("\"chunk_id\":" + std::to_string(chunkIds[0])) == std::string::npos
+            || vectorSearch.find("\"embedding_profile\":\"raw-text-v1\"") == std::string::npos
             || vectorSearch.find("\"metric\":\"l2\"") == std::string::npos) {
             std::cerr << vectorSearch << '\n';
             return 1;
@@ -203,6 +236,7 @@ int main()
         if (hybridSearch.find("\"requested_mode\":\"auto\"") == std::string::npos
             || hybridSearch.find("\"effective_mode\":\"hybrid\"") == std::string::npos
             || hybridSearch.find("\"vector_used\":true") == std::string::npos
+            || hybridSearch.find("\"embedding_profile\":\"raw-text-v1\"") == std::string::npos
             || hybridSearch.find("\"retrieval\":") == std::string::npos) {
             std::cerr << hybridSearch << '\n';
             return 1;
@@ -264,7 +298,11 @@ int main()
     assert(rc == CPRAG_OK);
     const std::string vocabulary(buffer.data());
     if (vocabulary.find("\"id\":\"service\"") == std::string::npos
-        || vocabulary.find("\"id\":\"deployed-on\"") == std::string::npos) {
+        || vocabulary.find("\"id\":\"deployed-on\"") == std::string::npos
+        || vocabulary.find("\"source_types\"") == std::string::npos
+        || vocabulary.find("\"id\":\"meeting-note\"") == std::string::npos
+        || vocabulary.find("\"embedding_profiles\"") == std::string::npos
+        || vocabulary.find("\"id\":\"semantic-context-v1\"") == std::string::npos) {
         std::cerr << vocabulary << '\n';
         return 1;
     }
@@ -306,7 +344,8 @@ int main()
     const std::string chunkResult(buffer.data());
     if (chunkResult.find("\"chunks\":[") == std::string::npos
         || chunkResult.find("docs/auth.md") == std::string::npos
-        || chunkResult.find("Kubernetes") == std::string::npos) {
+        || chunkResult.find("Kubernetes") == std::string::npos
+        || chunkResult.find("\"source_type\":\"meeting-note\"") == std::string::npos) {
         std::cerr << chunkResult << '\n';
         return 1;
     }

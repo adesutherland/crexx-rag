@@ -12,8 +12,9 @@ and deployed-on. The same idea should remain useful outside IT architecture, for
 example when modelling domains such as materials, processes, or knowledge maps.
 
 CREXX profiles can tune ranking, traversal, and vocabulary choices, but typed
-nodes and typed relationships are fundamental to the native core rather than a
-presentation-layer concern.
+nodes, typed relationships, source provenance, timeline fields, and confidence
+ratings are fundamental to the native core rather than presentation-layer
+concerns.
 
 The initial architecture keeps the hot path native and the tunable policy layer
 scriptable:
@@ -95,6 +96,12 @@ vectors. The core stores chunk embedding vectors in SQLite, rebuilds
 adapters can call an external embedding command for local-first vector
 generation.
 
+Source provenance and timeline context are first-class retrieval metadata. Text
+sources can carry `source_type`, `confidence`, `captured_at`, `event_start_at`,
+and `event_end_at`; chunks inherit those fields, search results return them, and
+lexical ranking applies the confidence value as a trust weight. `timeline`
+provides the first source-level chronological view.
+
 ## CLI Sketch
 
 ```bash
@@ -103,7 +110,9 @@ generation.
 ./cmake-build-debug/crexx-rag add-entity-typed ./example.cprag entity:db data-object PostgreSQL "PostgreSQL user database"
 ./cmake-build-debug/crexx-rag add-edge-typed ./example.cprag entity:auth entity:db accesses "Reads user profiles" 1.0
 ./cmake-build-debug/crexx-rag ingest-text ./example.cprag docs/auth.md "Auth notes" markdown 800 120 $'# Auth\n\nAuth depends on PostgreSQL.'
+./cmake-build-debug/crexx-rag ingest-text ./example.cprag docs/decision.md "Decision note" plain 800 120 "The client confirmed the API database decision." '{}' decision-record 0.9 2026-06-24T09:00:00Z 2026-06-23T14:00:00Z
 ./cmake-build-debug/crexx-rag list-sources ./example.cprag
+./cmake-build-debug/crexx-rag timeline ./example.cprag 20
 ./cmake-build-debug/crexx-rag list-chunks ./example.cprag docs/auth.md
 ./cmake-build-debug/crexx-rag vector-status ./example.cprag
 ./cmake-build-debug/crexx-rag shortest-path ./example.cprag entity:auth entity:db
@@ -120,11 +129,14 @@ sidecar:
 ```
 
 For ordinary local use, the CLI can embed all stored chunks by calling an
-external command, then rebuild the FAISS sidecar:
+external command, then rebuild the FAISS sidecar. By default this uses the
+`semantic-context-v1` embedding profile, which sends a stable envelope with
+source type, confidence, timeline fields, title, and chunk text to the embedder:
 
 ```bash
 ./cmake-build-faiss/crexx-rag embed-chunks ./example.cprag test-model ./embed-text
 ./cmake-build-faiss/crexx-rag embed-chunks ./example.cprag test-model ./embed-text docs/auth.md
+./cmake-build-faiss/crexx-rag embedding-text ./example.cprag 1 semantic-context-v1
 ```
 
 The embedding command is invoked as:
@@ -183,13 +195,15 @@ The raw plugin exposes stateless path-based Level G functions:
 - `rxrag.addentitytyped(path, id, node_type, label, description, metadata_json)`
 - `rxrag.addedge(path, source_id, target_id, label, weight, metadata_json)`
 - `rxrag.addedgetyped(path, source_id, target_id, relationship_type, label, weight, metadata_json)`
-- `rxrag.ingest(path, source_uri, title, text, file_type, chunk_size, overlap, metadata_json)`
+- `rxrag.ingest(path, source_uri, title, text, file_type, chunk_size, overlap, metadata_json, source_type, confidence, captured_at, event_start_at, event_end_at)`
 - `rxrag.listsources(path)`
+- `rxrag.timeline(path, limit)`
 - `rxrag.listchunks(path, source_uri)`
 - `rxrag.deletesource(path, source_uri)`
 - `rxrag.vectorstatus(path)`
-- `rxrag.addchunkembedding(path, chunk_id, embedding_model, vector_csv)`
-- `rxrag.rebuildvectorindex(path, embedding_model)`
+- `rxrag.embeddingtext(path, chunk_id, embedding_profile)`
+- `rxrag.addchunkembedding(path, chunk_id, embedding_model, vector_csv, embedding_profile)`
+- `rxrag.rebuildvectorindex(path, embedding_model, embedding_profile)`
 - `rxrag.vectorsearch(path, embedding_model, vector_csv, top_k)`
 - `rxrag.vocabulary()`
 - `rxrag.search(path, query, top_k, hops)`
@@ -207,7 +221,8 @@ JSON so the same ABI works for CLI, CREXX, and MCP. Vector methods use
 comma-separated float strings at the CREXX boundary for now; embedding provider
 adapters can replace that with a richer profile-level flow later. The wrapper
 names are `vectorStatusJson()`, `attachChunkEmbedding()`, `buildVectorIndex()`,
-and `searchVector()` to avoid colliding with raw imported plugin function names.
+`searchVector()`, and `chunkEmbeddingInput()` to avoid colliding with raw
+imported plugin function names.
 
 The CREXX dynamic plugin smoke is part of the debug test preset when the
 installed `rxc`, `rxas`, and `rxvme` are available:
@@ -222,7 +237,8 @@ This is a scaffold, not a finished RAG engine. The current search is intentional
 simple: text-overlap anchors over entity ids, labels, and descriptions, plus
 SQLite FTS5 over persisted chunks. The graph layer now has explicit node and
 relationship types, shortest path, typed subgraph extraction, and source/chunk
-maintenance APIs. The vector layer now stores caller-provided chunk embeddings
-and can use FAISS for local vector search when enabled. MCP has a small external
-embedding-command hook for automatic hybrid search; the next major piece is
-hybrid ranking policy in CREXX/profile code.
+maintenance APIs, plus provenance, confidence, and timeline fields for sources
+and chunks. The vector layer stores caller-provided chunk embeddings with an
+embedding profile and can use FAISS for local vector search when enabled. MCP
+has a small external embedding-command hook for automatic hybrid search; the
+next major piece is hybrid ranking policy in CREXX/profile code.

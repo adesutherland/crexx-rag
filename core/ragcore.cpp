@@ -67,6 +67,11 @@ struct DocumentSummary {
     std::string title;
     std::string contentHash;
     int fileType {CPRAG_CHUNK_PLAIN_TEXT};
+    std::string sourceType;
+    double confidence {1.0};
+    std::string capturedAt;
+    std::string eventStartAt;
+    std::string eventEndAt;
     std::string metadataJson;
     long long chunkCount {0};
     std::string createdAt;
@@ -81,6 +86,11 @@ struct ChunkHit {
     int chunkIndex {0};
     std::string text;
     int length {0};
+    std::string sourceType;
+    double confidence {1.0};
+    std::string capturedAt;
+    std::string eventStartAt;
+    std::string eventEndAt;
     double rank {0.0};
     std::string retrieval;
     bool hasVectorDistance {false};
@@ -97,18 +107,25 @@ struct StoredChunk {
     int length {0};
     long long startOffset {-1};
     long long endOffset {-1};
+    std::string sourceType;
+    double confidence {1.0};
+    std::string capturedAt;
+    std::string eventStartAt;
+    std::string eventEndAt;
     std::string metadataJson;
 };
 
 struct ChunkEmbedding {
     long long chunkId {0};
     int dimension {0};
+    std::string embeddingProfile;
     std::vector<float> vector;
 };
 
 struct VectorIndexState {
     bool present {false};
     std::string embeddingModel;
+    std::string embeddingProfile;
     int dimension {0};
     std::string metric;
     long long embeddingCount {0};
@@ -128,6 +145,11 @@ struct VocabularyItem {
     const char* label;
     const char* description;
 };
+
+constexpr const char* kDefaultSourceType = "unknown";
+constexpr const char* kRawEmbeddingProfile = "raw-text-v1";
+constexpr const char* kSemanticEmbeddingProfile = "semantic-context-v1";
+constexpr const char* kVocabularyProfile = "architecture-provenance-v1";
 
 static constexpr VocabularyItem kArchitectureNodeTypes[] = {
     {"component", "Component", "Deployable or logical software component."},
@@ -149,6 +171,37 @@ static constexpr VocabularyItem kArchitectureRelationshipTypes[] = {
     {"composed-of", "Composed of", "Source is structurally composed of target."},
     {"deployed-on", "Deployed on", "Source runs on or is installed on target."},
     {"associated-with", "Associated with", "General intentionally weak relationship."}
+};
+
+static constexpr VocabularyItem kSourceTypes[] = {
+    {"primary-source", "Primary source", "Original authoritative material, document, system export, or record."},
+    {"client-stated", "Client stated", "Information stated directly by a client or stakeholder."},
+    {"meeting-note", "Meeting note", "Information captured during or from a meeting."},
+    {"decision-record", "Decision record", "A recorded decision, rationale, or accepted outcome."},
+    {"derived", "Derived", "Information derived from analysis, transformation, or summarization."},
+    {"inferred", "Inferred", "Information inferred by a person, agent, rule, or model."},
+    {"external-reference", "External reference", "Information from an outside reference or third-party source."},
+    {"unknown", "Unknown", "Source type was not supplied or has not been assessed."}
+};
+
+static constexpr VocabularyItem kTemporalRoles[] = {
+    {"captured-at", "Captured at", "When this information was gathered or entered into the library."},
+    {"event-start-at", "Event start at", "When the represented event, meeting, decision, or validity period starts."},
+    {"event-end-at", "Event end at", "When the represented event, meeting, decision, or validity period ends."},
+    {"created-at", "Created at", "When the library record was first created."},
+    {"updated-at", "Updated at", "When the library record was last updated."}
+};
+
+static constexpr VocabularyItem kConfidenceScale[] = {
+    {"1.0", "High confidence", "Use for authoritative, directly observed, or otherwise strongly trusted information."},
+    {"0.7", "Medium confidence", "Use for plausible information with some uncertainty or indirect support."},
+    {"0.4", "Low confidence", "Use for tentative, weakly supported, or partially conflicting information."},
+    {"0.0", "Rejected confidence", "Use when information should remain traceable but should not influence retrieval."}
+};
+
+static constexpr VocabularyItem kEmbeddingProfiles[] = {
+    {"raw-text-v1", "Raw text", "Embed the chunk text as supplied; kept for compatibility and manual vector loading."},
+    {"semantic-context-v1", "Semantic context", "Embed a stable envelope containing source type, confidence, timeline fields, title, and chunk text."}
 };
 
 std::filesystem::path dbPathForLibrary(const std::filesystem::path& libraryPath)
@@ -272,6 +325,11 @@ CREATE TABLE IF NOT EXISTS documents (
     title TEXT NOT NULL,
     content_hash TEXT NOT NULL,
     file_type INTEGER NOT NULL DEFAULT 0,
+    source_type TEXT NOT NULL DEFAULT 'unknown',
+    confidence REAL NOT NULL DEFAULT 1.0,
+    captured_at TEXT NOT NULL DEFAULT '',
+    event_start_at TEXT NOT NULL DEFAULT '',
+    event_end_at TEXT NOT NULL DEFAULT '',
     metadata_json TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -284,6 +342,11 @@ CREATE TABLE IF NOT EXISTS chunks (
     length INTEGER NOT NULL,
     start_offset INTEGER NOT NULL DEFAULT -1,
     end_offset INTEGER NOT NULL DEFAULT -1,
+    source_type TEXT NOT NULL DEFAULT 'unknown',
+    confidence REAL NOT NULL DEFAULT 1.0,
+    captured_at TEXT NOT NULL DEFAULT '',
+    event_start_at TEXT NOT NULL DEFAULT '',
+    event_end_at TEXT NOT NULL DEFAULT '',
     metadata_json TEXT NOT NULL DEFAULT '{}',
     FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
     UNIQUE(document_id, chunk_index)
@@ -293,6 +356,7 @@ CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id, chunk_inde
 CREATE TABLE IF NOT EXISTS chunk_embeddings (
     chunk_id INTEGER NOT NULL,
     embedding_model TEXT NOT NULL,
+    embedding_profile TEXT NOT NULL DEFAULT 'raw-text-v1',
     dimension INTEGER NOT NULL,
     vector BLOB NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -304,6 +368,7 @@ CREATE INDEX IF NOT EXISTS idx_chunk_embeddings_model ON chunk_embeddings(embedd
 CREATE TABLE IF NOT EXISTS vector_index_state (
     index_name TEXT PRIMARY KEY,
     embedding_model TEXT NOT NULL,
+    embedding_profile TEXT NOT NULL DEFAULT 'raw-text-v1',
     dimension INTEGER NOT NULL,
     metric TEXT NOT NULL DEFAULT 'l2',
     embedding_count INTEGER NOT NULL DEFAULT 0,
@@ -357,6 +422,48 @@ END;
         "relationship_type",
         "relationship_type TEXT NOT NULL DEFAULT 'relationship'",
         &addedRelationshipType);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    const std::pair<const char*, const char*> documentColumns[] = {
+        {"source_type", "source_type TEXT NOT NULL DEFAULT 'unknown'"},
+        {"confidence", "confidence REAL NOT NULL DEFAULT 1.0"},
+        {"captured_at", "captured_at TEXT NOT NULL DEFAULT ''"},
+        {"event_start_at", "event_start_at TEXT NOT NULL DEFAULT ''"},
+        {"event_end_at", "event_end_at TEXT NOT NULL DEFAULT ''"}
+    };
+    for (const auto& column : documentColumns) {
+        rc = ensureColumn(handle, "documents", column.first, column.second);
+        if (rc != CPRAG_OK) {
+            return rc;
+        }
+    }
+    const std::pair<const char*, const char*> chunkColumns[] = {
+        {"source_type", "source_type TEXT NOT NULL DEFAULT 'unknown'"},
+        {"confidence", "confidence REAL NOT NULL DEFAULT 1.0"},
+        {"captured_at", "captured_at TEXT NOT NULL DEFAULT ''"},
+        {"event_start_at", "event_start_at TEXT NOT NULL DEFAULT ''"},
+        {"event_end_at", "event_end_at TEXT NOT NULL DEFAULT ''"}
+    };
+    for (const auto& column : chunkColumns) {
+        rc = ensureColumn(handle, "chunks", column.first, column.second);
+        if (rc != CPRAG_OK) {
+            return rc;
+        }
+    }
+    rc = ensureColumn(
+        handle,
+        "chunk_embeddings",
+        "embedding_profile",
+        "embedding_profile TEXT NOT NULL DEFAULT 'raw-text-v1'");
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    rc = ensureColumn(
+        handle,
+        "vector_index_state",
+        "embedding_profile",
+        "embedding_profile TEXT NOT NULL DEFAULT 'raw-text-v1'");
     if (rc != CPRAG_OK) {
         return rc;
     }
@@ -419,6 +526,26 @@ int validateMetadataJson(cprag_handle* handle, const std::string& metadata)
     sqlite3_finalize(stmt);
     if (!valid) {
         return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "metadata_json must be a valid JSON object");
+    }
+    return CPRAG_OK;
+}
+
+std::string sourceTypeOrDefault(const char* sourceType)
+{
+    const std::string value = valueOrEmpty(sourceType);
+    return value.empty() ? kDefaultSourceType : value;
+}
+
+std::string embeddingProfileOrDefault(const char* embeddingProfile)
+{
+    const std::string value = valueOrEmpty(embeddingProfile);
+    return value.empty() ? kRawEmbeddingProfile : value;
+}
+
+int validateConfidence(cprag_handle* handle, double confidence)
+{
+    if (!std::isfinite(confidence) || confidence < 0.0 || confidence > 1.0) {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "confidence must be a finite number between 0.0 and 1.0");
     }
     return CPRAG_OK;
 }
@@ -516,11 +643,14 @@ std::vector<DocumentSummary> loadDocumentSummaries(cprag_handle* handle)
 {
     sqlite3_stmt* stmt = nullptr;
     if (prepare(handle,
-            "SELECT d.id, d.source_uri, d.title, d.content_hash, d.file_type, d.metadata_json, "
+            "SELECT d.id, d.source_uri, d.title, d.content_hash, d.file_type, "
+            "d.source_type, d.confidence, d.captured_at, d.event_start_at, d.event_end_at, d.metadata_json, "
             "COUNT(c.id) AS chunk_count, d.created_at, d.updated_at "
             "FROM documents d "
             "LEFT JOIN chunks c ON c.document_id = d.id "
-            "GROUP BY d.id, d.source_uri, d.title, d.content_hash, d.file_type, d.metadata_json, d.created_at, d.updated_at "
+            "GROUP BY d.id, d.source_uri, d.title, d.content_hash, d.file_type, "
+            "d.source_type, d.confidence, d.captured_at, d.event_start_at, d.event_end_at, "
+            "d.metadata_json, d.created_at, d.updated_at "
             "ORDER BY d.source_uri",
             &stmt)
         != CPRAG_OK) {
@@ -536,10 +666,15 @@ std::vector<DocumentSummary> loadDocumentSummaries(cprag_handle* handle)
         document.title = columnText(stmt, 2);
         document.contentHash = columnText(stmt, 3);
         document.fileType = sqlite3_column_int(stmt, 4);
-        document.metadataJson = columnText(stmt, 5);
-        document.chunkCount = sqlite3_column_int64(stmt, 6);
-        document.createdAt = columnText(stmt, 7);
-        document.updatedAt = columnText(stmt, 8);
+        document.sourceType = columnText(stmt, 5);
+        document.confidence = sqlite3_column_double(stmt, 6);
+        document.capturedAt = columnText(stmt, 7);
+        document.eventStartAt = columnText(stmt, 8);
+        document.eventEndAt = columnText(stmt, 9);
+        document.metadataJson = columnText(stmt, 10);
+        document.chunkCount = sqlite3_column_int64(stmt, 11);
+        document.createdAt = columnText(stmt, 12);
+        document.updatedAt = columnText(stmt, 13);
         documents.push_back(std::move(document));
     }
     sqlite3_finalize(stmt);
@@ -554,7 +689,8 @@ std::vector<StoredChunk> loadChunksForSource(cprag_handle* handle, const std::st
     sqlite3_stmt* stmt = nullptr;
     if (prepare(handle,
             "SELECT c.id, c.document_id, d.source_uri, d.title, c.chunk_index, c.text, c.length, "
-            "c.start_offset, c.end_offset, c.metadata_json "
+            "c.start_offset, c.end_offset, c.source_type, c.confidence, "
+            "c.captured_at, c.event_start_at, c.event_end_at, c.metadata_json "
             "FROM chunks c "
             "JOIN documents d ON d.id = c.document_id "
             "WHERE d.source_uri = ? "
@@ -579,7 +715,12 @@ std::vector<StoredChunk> loadChunksForSource(cprag_handle* handle, const std::st
         chunk.length = sqlite3_column_int(stmt, 6);
         chunk.startOffset = sqlite3_column_int64(stmt, 7);
         chunk.endOffset = sqlite3_column_int64(stmt, 8);
-        chunk.metadataJson = columnText(stmt, 9);
+        chunk.sourceType = columnText(stmt, 9);
+        chunk.confidence = sqlite3_column_double(stmt, 10);
+        chunk.capturedAt = columnText(stmt, 11);
+        chunk.eventStartAt = columnText(stmt, 12);
+        chunk.eventEndAt = columnText(stmt, 13);
+        chunk.metadataJson = columnText(stmt, 14);
         chunks.push_back(std::move(chunk));
     }
     sqlite3_finalize(stmt);
@@ -594,7 +735,8 @@ StoredChunk loadChunkById(cprag_handle* handle, long long chunkId)
     sqlite3_stmt* stmt = nullptr;
     if (prepare(handle,
             "SELECT c.id, c.document_id, d.source_uri, d.title, c.chunk_index, c.text, c.length, "
-            "c.start_offset, c.end_offset, c.metadata_json "
+            "c.start_offset, c.end_offset, c.source_type, c.confidence, "
+            "c.captured_at, c.event_start_at, c.event_end_at, c.metadata_json "
             "FROM chunks c "
             "JOIN documents d ON d.id = c.document_id "
             "WHERE c.id = ?",
@@ -616,7 +758,12 @@ StoredChunk loadChunkById(cprag_handle* handle, long long chunkId)
         chunk.length = sqlite3_column_int(stmt, 6);
         chunk.startOffset = sqlite3_column_int64(stmt, 7);
         chunk.endOffset = sqlite3_column_int64(stmt, 8);
-        chunk.metadataJson = columnText(stmt, 9);
+        chunk.sourceType = columnText(stmt, 9);
+        chunk.confidence = sqlite3_column_double(stmt, 10);
+        chunk.capturedAt = columnText(stmt, 11);
+        chunk.eventStartAt = columnText(stmt, 12);
+        chunk.eventEndAt = columnText(stmt, 13);
+        chunk.metadataJson = columnText(stmt, 14);
         sqlite3_finalize(stmt);
         return chunk;
     }
@@ -679,28 +826,39 @@ std::vector<float> vectorFromBlob(const void* blob, int bytes)
     return values;
 }
 
-std::vector<ChunkEmbedding> loadChunkEmbeddings(cprag_handle* handle, const std::string& embeddingModel)
+std::vector<ChunkEmbedding> loadChunkEmbeddings(
+    cprag_handle* handle,
+    const std::string& embeddingModel,
+    const std::string& embeddingProfile)
 {
     sqlite3_stmt* stmt = nullptr;
-    if (prepare(handle,
-            "SELECT chunk_id, dimension, vector "
-            "FROM chunk_embeddings "
-            "WHERE embedding_model = ? "
-            "ORDER BY chunk_id",
-            &stmt)
-        != CPRAG_OK) {
+    const bool hasProfile = !embeddingProfile.empty();
+    const char* sql = hasProfile
+        ? "SELECT chunk_id, dimension, embedding_profile, vector "
+          "FROM chunk_embeddings "
+          "WHERE embedding_model = ? AND embedding_profile = ? "
+          "ORDER BY chunk_id"
+        : "SELECT chunk_id, dimension, embedding_profile, vector "
+          "FROM chunk_embeddings "
+          "WHERE embedding_model = ? "
+          "ORDER BY chunk_id";
+    if (prepare(handle, sql, &stmt) != CPRAG_OK) {
         throw std::runtime_error(handle->lastError);
     }
 
     bindText(stmt, 1, embeddingModel);
+    if (hasProfile) {
+        bindText(stmt, 2, embeddingProfile);
+    }
     std::vector<ChunkEmbedding> embeddings;
     int stepRc = SQLITE_OK;
     while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
         ChunkEmbedding embedding;
         embedding.chunkId = sqlite3_column_int64(stmt, 0);
         embedding.dimension = sqlite3_column_int(stmt, 1);
-        const void* blob = sqlite3_column_blob(stmt, 2);
-        const int bytes = sqlite3_column_bytes(stmt, 2);
+        embedding.embeddingProfile = columnText(stmt, 2);
+        const void* blob = sqlite3_column_blob(stmt, 3);
+        const int bytes = sqlite3_column_bytes(stmt, 3);
         embedding.vector = vectorFromBlob(blob, bytes);
         if (embedding.dimension <= 0
             || embedding.vector.size() != static_cast<size_t>(embedding.dimension)) {
@@ -720,7 +878,7 @@ VectorIndexState loadVectorIndexState(cprag_handle* handle)
 {
     sqlite3_stmt* stmt = nullptr;
     if (prepare(handle,
-            "SELECT embedding_model, dimension, metric, embedding_count, index_path, backend, updated_at "
+            "SELECT embedding_model, embedding_profile, dimension, metric, embedding_count, index_path, backend, updated_at "
             "FROM vector_index_state "
             "WHERE index_name = 'chunks'",
             &stmt)
@@ -733,12 +891,13 @@ VectorIndexState loadVectorIndexState(cprag_handle* handle)
     if (stepRc == SQLITE_ROW) {
         state.present = true;
         state.embeddingModel = columnText(stmt, 0);
-        state.dimension = sqlite3_column_int(stmt, 1);
-        state.metric = columnText(stmt, 2);
-        state.embeddingCount = sqlite3_column_int64(stmt, 3);
-        state.indexPath = columnText(stmt, 4);
-        state.backend = columnText(stmt, 5);
-        state.updatedAt = columnText(stmt, 6);
+        state.embeddingProfile = columnText(stmt, 1);
+        state.dimension = sqlite3_column_int(stmt, 2);
+        state.metric = columnText(stmt, 3);
+        state.embeddingCount = sqlite3_column_int64(stmt, 4);
+        state.indexPath = columnText(stmt, 5);
+        state.backend = columnText(stmt, 6);
+        state.updatedAt = columnText(stmt, 7);
         sqlite3_finalize(stmt);
         return state;
     }
@@ -753,16 +912,18 @@ VectorIndexState loadVectorIndexState(cprag_handle* handle)
 int upsertVectorIndexState(
     cprag_handle* handle,
     const std::string& embeddingModel,
+    const std::string& embeddingProfile,
     int dimension,
     long long embeddingCount)
 {
     sqlite3_stmt* stmt = nullptr;
     const int prepRc = prepare(handle,
         "INSERT INTO vector_index_state "
-        "(index_name, embedding_model, dimension, metric, embedding_count, index_path, backend, updated_at) "
-        "VALUES ('chunks', ?, ?, 'l2', ?, 'vectors.faiss', 'faiss', CURRENT_TIMESTAMP) "
+        "(index_name, embedding_model, embedding_profile, dimension, metric, embedding_count, index_path, backend, updated_at) "
+        "VALUES ('chunks', ?, ?, ?, 'l2', ?, 'vectors.faiss', 'faiss', CURRENT_TIMESTAMP) "
         "ON CONFLICT(index_name) DO UPDATE SET "
-        "embedding_model=excluded.embedding_model, dimension=excluded.dimension, metric=excluded.metric, "
+        "embedding_model=excluded.embedding_model, embedding_profile=excluded.embedding_profile, "
+        "dimension=excluded.dimension, metric=excluded.metric, "
         "embedding_count=excluded.embedding_count, index_path=excluded.index_path, backend=excluded.backend, "
         "updated_at=CURRENT_TIMESTAMP",
         &stmt);
@@ -771,8 +932,9 @@ int upsertVectorIndexState(
     }
 
     bindText(stmt, 1, embeddingModel);
-    sqlite3_bind_int(stmt, 2, dimension);
-    sqlite3_bind_int64(stmt, 3, embeddingCount);
+    bindText(stmt, 2, embeddingProfile);
+    sqlite3_bind_int(stmt, 3, dimension);
+    sqlite3_bind_int64(stmt, 4, embeddingCount);
     const int stepRc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
     if (stepRc != SQLITE_DONE) {
@@ -828,6 +990,15 @@ std::string jsonEscape(const std::string& input)
 std::string jsonString(const std::string& value)
 {
     return "\"" + jsonEscape(value) + "\"";
+}
+
+void appendNullableString(std::ostringstream& out, const std::string& value)
+{
+    if (value.empty()) {
+        out << "null";
+    } else {
+        out << jsonString(value);
+    }
 }
 
 std::vector<std::string> splitCsv(const std::string& input)
@@ -956,7 +1127,9 @@ std::vector<ChunkHit> searchChunks(cprag_handle* handle, const std::string& quer
 
     sqlite3_stmt* stmt = nullptr;
     if (prepare(handle,
-            "SELECT c.id, c.document_id, d.source_uri, d.title, c.chunk_index, c.text, c.length, bm25(chunks_fts) AS rank "
+            "SELECT c.id, c.document_id, d.source_uri, d.title, c.chunk_index, c.text, c.length, "
+            "c.source_type, c.confidence, c.captured_at, c.event_start_at, c.event_end_at, "
+            "(bm25(chunks_fts) * c.confidence) AS rank "
             "FROM chunks_fts "
             "JOIN chunks c ON c.id = chunks_fts.rowid "
             "JOIN documents d ON d.id = c.document_id "
@@ -982,7 +1155,12 @@ std::vector<ChunkHit> searchChunks(cprag_handle* handle, const std::string& quer
         chunk.chunkIndex = sqlite3_column_int(stmt, 4);
         chunk.text = columnText(stmt, 5);
         chunk.length = sqlite3_column_int(stmt, 6);
-        chunk.rank = sqlite3_column_double(stmt, 7);
+        chunk.sourceType = columnText(stmt, 7);
+        chunk.confidence = sqlite3_column_double(stmt, 8);
+        chunk.capturedAt = columnText(stmt, 9);
+        chunk.eventStartAt = columnText(stmt, 10);
+        chunk.eventEndAt = columnText(stmt, 11);
+        chunk.rank = sqlite3_column_double(stmt, 12);
         chunks.push_back(std::move(chunk));
     }
     sqlite3_finalize(stmt);
@@ -1148,6 +1326,15 @@ std::string buildSubgraphJson(
             << ",\"chunk_index\":" << chunk.chunkIndex
             << ",\"text\":" << jsonString(chunk.text)
             << ",\"length\":" << chunk.length
+            << ",\"source_type\":" << jsonString(chunk.sourceType)
+            << ",\"confidence\":" << chunk.confidence
+            << ",\"captured_at\":";
+        appendNullableString(out, chunk.capturedAt);
+        out << ",\"event_start_at\":";
+        appendNullableString(out, chunk.eventStartAt);
+        out << ",\"event_end_at\":";
+        appendNullableString(out, chunk.eventEndAt);
+        out
             << ",\"rank\":" << chunk.rank;
         if (!chunk.retrieval.empty()) {
             out << ",\"retrieval\":" << jsonString(chunk.retrieval);
@@ -1200,6 +1387,19 @@ int copyJson(cprag_handle* handle, const std::string& json, char* outJson, size_
     }
     std::copy(json.begin(), json.end(), outJson);
     outJson[json.size()] = '\0';
+    return CPRAG_OK;
+}
+
+int copyText(cprag_handle* handle, const std::string& text, char* outText, size_t outTextSize)
+{
+    if (outText == nullptr || outTextSize == 0) {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "output buffer is required");
+    }
+    if (text.size() + 1 > outTextSize) {
+        return setErrorCode(handle, CPRAG_BUFFER_TOO_SMALL, "output buffer is too small");
+    }
+    std::copy(text.begin(), text.end(), outText);
+    outText[text.size()] = '\0';
     return CPRAG_OK;
 }
 
@@ -1259,14 +1459,22 @@ int upsertDocument(
     const std::string& contentHash,
     int fileType,
     const std::string& metadata,
+    const std::string& sourceType,
+    double confidence,
+    const std::string& capturedAt,
+    const std::string& eventStartAt,
+    const std::string& eventEndAt,
     long long* outId)
 {
     sqlite3_stmt* stmt = nullptr;
     const int prepRc = prepare(handle,
-        "INSERT INTO documents (source_uri, title, content_hash, file_type, metadata_json) "
-        "VALUES (?, ?, ?, ?, ?) "
+        "INSERT INTO documents "
+        "(source_uri, title, content_hash, file_type, source_type, confidence, captured_at, event_start_at, event_end_at, metadata_json) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
         "ON CONFLICT(source_uri) DO UPDATE SET "
         "title=excluded.title, content_hash=excluded.content_hash, file_type=excluded.file_type, "
+        "source_type=excluded.source_type, confidence=excluded.confidence, captured_at=excluded.captured_at, "
+        "event_start_at=excluded.event_start_at, event_end_at=excluded.event_end_at, "
         "metadata_json=excluded.metadata_json, updated_at=CURRENT_TIMESTAMP",
         &stmt);
     if (prepRc != CPRAG_OK) {
@@ -1277,7 +1485,12 @@ int upsertDocument(
     bindText(stmt, 2, title);
     bindText(stmt, 3, contentHash);
     sqlite3_bind_int(stmt, 4, fileType);
-    bindText(stmt, 5, metadata);
+    bindText(stmt, 5, sourceType);
+    sqlite3_bind_double(stmt, 6, confidence);
+    bindText(stmt, 7, capturedAt);
+    bindText(stmt, 8, eventStartAt);
+    bindText(stmt, 9, eventEndAt);
+    bindText(stmt, 10, metadata);
 
     const int stepRc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -1333,12 +1546,19 @@ int insertChunkRows(
     const std::string& text,
     const std::vector<std::string>& chunks,
     int chunkOverlap,
+    const std::string& sourceType,
+    double confidence,
+    const std::string& capturedAt,
+    const std::string& eventStartAt,
+    const std::string& eventEndAt,
     std::vector<long long>* chunkIds)
 {
     sqlite3_stmt* stmt = nullptr;
     const int prepRc = prepare(handle,
-        "INSERT INTO chunks (document_id, chunk_index, text, length, start_offset, end_offset, metadata_json) "
-        "VALUES (?, ?, ?, ?, ?, ?, '{}')",
+        "INSERT INTO chunks "
+        "(document_id, chunk_index, text, length, start_offset, end_offset, source_type, confidence, "
+        "captured_at, event_start_at, event_end_at, metadata_json) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '{}')",
         &stmt);
     if (prepRc != CPRAG_OK) {
         return prepRc;
@@ -1355,6 +1575,11 @@ int insertChunkRows(
         sqlite3_bind_int(stmt, 4, static_cast<int>(chunks[i].size()));
         sqlite3_bind_int64(stmt, 5, offsets.first);
         sqlite3_bind_int64(stmt, 6, offsets.second);
+        bindText(stmt, 7, sourceType);
+        sqlite3_bind_double(stmt, 8, confidence);
+        bindText(stmt, 9, capturedAt);
+        bindText(stmt, 10, eventStartAt);
+        bindText(stmt, 11, eventEndAt);
 
         const int stepRc = sqlite3_step(stmt);
         if (stepRc != SQLITE_DONE) {
@@ -1375,6 +1600,11 @@ std::string buildIngestJson(
     const std::string& contentHash,
     int fileType,
     const std::string& metadata,
+    const std::string& sourceType,
+    double confidence,
+    const std::string& capturedAt,
+    const std::string& eventStartAt,
+    const std::string& eventEndAt,
     const std::vector<std::string>& chunks,
     const std::vector<long long>& chunkIds)
 {
@@ -1384,6 +1614,15 @@ std::string buildIngestJson(
         << ",\"title\":" << jsonString(title)
         << ",\"content_hash\":" << jsonString(contentHash)
         << ",\"file_type\":" << fileType
+        << ",\"source_type\":" << jsonString(sourceType)
+        << ",\"confidence\":" << confidence
+        << ",\"captured_at\":";
+    appendNullableString(out, capturedAt);
+    out << ",\"event_start_at\":";
+    appendNullableString(out, eventStartAt);
+    out << ",\"event_end_at\":";
+    appendNullableString(out, eventEndAt);
+    out
         << ",\"metadata\":" << metadata
         << "},\"chunk_count\":" << chunks.size()
         << ",\"chunks\":[";
@@ -1416,8 +1655,72 @@ std::string buildSourcesJson(const std::vector<DocumentSummary>& documents)
             << ",\"content_hash\":" << jsonString(document.contentHash)
             << ",\"file_type\":" << document.fileType
             << ",\"chunk_count\":" << document.chunkCount
+            << ",\"source_type\":" << jsonString(document.sourceType)
+            << ",\"confidence\":" << document.confidence
+            << ",\"captured_at\":";
+        appendNullableString(out, document.capturedAt);
+        out << ",\"event_start_at\":";
+        appendNullableString(out, document.eventStartAt);
+        out << ",\"event_end_at\":";
+        appendNullableString(out, document.eventEndAt);
+        out
             << ",\"created_at\":" << jsonString(document.createdAt)
             << ",\"updated_at\":" << jsonString(document.updatedAt)
+            << ",\"metadata\":" << (document.metadataJson.empty() ? "{}" : document.metadataJson)
+            << '}';
+    }
+    out << "]}";
+    return out.str();
+}
+
+std::string timelineSortTime(const DocumentSummary& document)
+{
+    if (!document.eventStartAt.empty()) {
+        return document.eventStartAt;
+    }
+    if (!document.capturedAt.empty()) {
+        return document.capturedAt;
+    }
+    return document.createdAt;
+}
+
+std::string buildTimelineJson(std::vector<DocumentSummary> documents, int limit)
+{
+    std::sort(documents.begin(), documents.end(), [](const DocumentSummary& lhs, const DocumentSummary& rhs) {
+        const std::string lhsTime = timelineSortTime(lhs);
+        const std::string rhsTime = timelineSortTime(rhs);
+        if (lhsTime == rhsTime) {
+            return lhs.sourceUri < rhs.sourceUri;
+        }
+        return lhsTime < rhsTime;
+    });
+
+    const size_t effectiveLimit = limit <= 0
+        ? documents.size()
+        : std::min(documents.size(), static_cast<size_t>(limit));
+    std::ostringstream out;
+    out << "{\"success\":true,\"events\":[";
+    for (size_t i = 0; i < effectiveLimit; ++i) {
+        const DocumentSummary& document = documents[i];
+        if (i != 0) {
+            out << ',';
+        }
+        out << "{\"id\":" << document.id
+            << ",\"source_uri\":" << jsonString(document.sourceUri)
+            << ",\"title\":" << jsonString(document.title)
+            << ",\"source_type\":" << jsonString(document.sourceType)
+            << ",\"confidence\":" << document.confidence
+            << ",\"sort_time\":";
+        appendNullableString(out, timelineSortTime(document));
+        out << ",\"captured_at\":";
+        appendNullableString(out, document.capturedAt);
+        out << ",\"event_start_at\":";
+        appendNullableString(out, document.eventStartAt);
+        out << ",\"event_end_at\":";
+        appendNullableString(out, document.eventEndAt);
+        out << ",\"created_at\":" << jsonString(document.createdAt)
+            << ",\"updated_at\":" << jsonString(document.updatedAt)
+            << ",\"chunk_count\":" << document.chunkCount
             << ",\"metadata\":" << (document.metadataJson.empty() ? "{}" : document.metadataJson)
             << '}';
     }
@@ -1443,6 +1746,15 @@ std::string buildChunksJson(const std::vector<StoredChunk>& chunks, const std::s
             << ",\"length\":" << chunk.length
             << ",\"start_offset\":" << chunk.startOffset
             << ",\"end_offset\":" << chunk.endOffset
+            << ",\"source_type\":" << jsonString(chunk.sourceType)
+            << ",\"confidence\":" << chunk.confidence
+            << ",\"captured_at\":";
+        appendNullableString(out, chunk.capturedAt);
+        out << ",\"event_start_at\":";
+        appendNullableString(out, chunk.eventStartAt);
+        out << ",\"event_end_at\":";
+        appendNullableString(out, chunk.eventEndAt);
+        out
             << ",\"metadata\":" << (chunk.metadataJson.empty() ? "{}" : chunk.metadataJson)
             << '}';
     }
@@ -1461,6 +1773,15 @@ void appendStoredChunkJson(std::ostringstream& out, const StoredChunk& chunk)
         << ",\"length\":" << chunk.length
         << ",\"start_offset\":" << chunk.startOffset
         << ",\"end_offset\":" << chunk.endOffset
+        << ",\"source_type\":" << jsonString(chunk.sourceType)
+        << ",\"confidence\":" << chunk.confidence
+        << ",\"captured_at\":";
+    appendNullableString(out, chunk.capturedAt);
+    out << ",\"event_start_at\":";
+    appendNullableString(out, chunk.eventStartAt);
+    out << ",\"event_end_at\":";
+    appendNullableString(out, chunk.eventEndAt);
+    out
         << ",\"metadata\":" << (chunk.metadataJson.empty() ? "{}" : chunk.metadataJson)
         << '}';
 }
@@ -1485,6 +1806,7 @@ std::string buildVectorStatusJson(
         out << "null";
     } else {
         out << "{\"embedding_model\":" << jsonString(state.embeddingModel)
+            << ",\"embedding_profile\":" << jsonString(state.embeddingProfile)
             << ",\"dimension\":" << state.dimension
             << ",\"metric\":" << jsonString(state.metric)
             << ",\"embedding_count\":" << state.embeddingCount
@@ -1500,12 +1822,14 @@ std::string buildVectorStatusJson(
 std::string buildVectorRebuildJson(
     cprag_handle* handle,
     const std::string& embeddingModel,
+    const std::string& embeddingProfile,
     int dimension,
     long long embeddingCount)
 {
     std::ostringstream out;
     out << "{\"success\":true,\"backend\":\"faiss\""
         << ",\"embedding_model\":" << jsonString(embeddingModel)
+        << ",\"embedding_profile\":" << jsonString(embeddingProfile)
         << ",\"dimension\":" << dimension
         << ",\"metric\":\"l2\""
         << ",\"embedding_count\":" << embeddingCount
@@ -1516,12 +1840,14 @@ std::string buildVectorRebuildJson(
 
 std::string buildVectorSearchJson(
     const std::string& embeddingModel,
+    const std::string& embeddingProfile,
     int dimension,
     const std::vector<VectorHit>& hits)
 {
     std::ostringstream out;
     out << "{\"success\":true,\"backend\":\"faiss\""
         << ",\"embedding_model\":" << jsonString(embeddingModel)
+        << ",\"embedding_profile\":" << jsonString(embeddingProfile)
         << ",\"dimension\":" << dimension
         << ",\"metric\":\"l2\""
         << ",\"results\":[";
@@ -1540,6 +1866,34 @@ std::string buildVectorSearchJson(
     return out.str();
 }
 
+std::string buildChunkEmbeddingText(const StoredChunk& chunk, const std::string& embeddingProfile)
+{
+    if (embeddingProfile == kRawEmbeddingProfile) {
+        return chunk.text;
+    }
+
+    std::ostringstream out;
+    out << "Embedding profile: " << embeddingProfile << '\n'
+        << "Vocabulary profile: " << kVocabularyProfile << '\n'
+        << "Source type: " << (chunk.sourceType.empty() ? kDefaultSourceType : chunk.sourceType) << '\n'
+        << "Confidence: " << chunk.confidence << '\n';
+    if (!chunk.capturedAt.empty()) {
+        out << "Captured at: " << chunk.capturedAt << '\n';
+    }
+    if (!chunk.eventStartAt.empty()) {
+        out << "Event start at: " << chunk.eventStartAt << '\n';
+    }
+    if (!chunk.eventEndAt.empty()) {
+        out << "Event end at: " << chunk.eventEndAt << '\n';
+    }
+    out << "Source URI: " << chunk.sourceUri << '\n'
+        << "Title: " << chunk.title << '\n'
+        << "Chunk index: " << chunk.chunkIndex << '\n'
+        << "Text:\n"
+        << chunk.text;
+    return out.str();
+}
+
 int loadVectorHits(
     cprag_handle* handle,
     const char* embeddingModel,
@@ -1548,9 +1902,10 @@ int loadVectorHits(
     int topK,
     std::vector<VectorHit>* outHits,
     std::string* outEmbeddingModel,
+    std::string* outEmbeddingProfile,
     int* outDimension)
 {
-    if (handle == nullptr || outHits == nullptr || outEmbeddingModel == nullptr || outDimension == nullptr) {
+    if (handle == nullptr || outHits == nullptr || outEmbeddingModel == nullptr || outEmbeddingProfile == nullptr || outDimension == nullptr) {
         return CPRAG_INVALID_ARGUMENT;
     }
 
@@ -1613,14 +1968,19 @@ int loadVectorHits(
                 VectorHit hit;
                 hit.chunk = loadChunkById(handle, static_cast<long long>(labels[static_cast<size_t>(i)]));
                 hit.distance = distances[static_cast<size_t>(i)];
-                hit.score = -hit.distance;
+                const double confidence = std::max(0.01, hit.chunk.confidence);
+                hit.score = -(hit.distance / confidence);
                 outHits->push_back(std::move(hit));
             } catch (const std::exception&) {
                 continue;
             }
         }
 
+        std::sort(outHits->begin(), outHits->end(), [](const VectorHit& lhs, const VectorHit& rhs) {
+            return lhs.score > rhs.score;
+        });
         *outEmbeddingModel = state.embeddingModel;
+        *outEmbeddingProfile = state.embeddingProfile;
         *outDimension = state.dimension;
         return CPRAG_OK;
     } catch (const std::exception& ex) {
@@ -1639,6 +1999,11 @@ ChunkHit chunkHitFromVectorHit(const VectorHit& hit)
     chunk.chunkIndex = hit.chunk.chunkIndex;
     chunk.text = hit.chunk.text;
     chunk.length = hit.chunk.length;
+    chunk.sourceType = hit.chunk.sourceType;
+    chunk.confidence = hit.chunk.confidence;
+    chunk.capturedAt = hit.chunk.capturedAt;
+    chunk.eventStartAt = hit.chunk.eventStartAt;
+    chunk.eventEndAt = hit.chunk.eventEndAt;
     chunk.rank = hit.score;
     chunk.retrieval = "vector";
     chunk.hasVectorDistance = true;
@@ -1702,6 +2067,7 @@ std::string buildSearchMetadataJson(
     int effectiveMode,
     bool vectorUsed,
     const std::string& embeddingModel,
+    const std::string& embeddingProfile,
     int dimension,
     const std::string& fallbackReason)
 {
@@ -1714,6 +2080,12 @@ std::string buildSearchMetadataJson(
         out << "null";
     } else {
         out << jsonString(embeddingModel);
+    }
+    out << ",\"embedding_profile\":";
+    if (embeddingProfile.empty()) {
+        out << "null";
+    } else {
+        out << jsonString(embeddingProfile);
     }
     out << ",\"dimension\":";
     if (dimension > 0) {
@@ -1755,13 +2127,21 @@ void appendVocabularyArray(std::ostringstream& out, const VocabularyItem* items,
 std::string buildVocabularyJson()
 {
     std::ostringstream out;
-    out << "{\"success\":true,\"profile\":\"architecture-initial\",\"node_types\":";
+    out << "{\"success\":true,\"profile\":" << jsonString(kVocabularyProfile) << ",\"node_types\":";
     appendVocabularyArray(out, kArchitectureNodeTypes, sizeof(kArchitectureNodeTypes) / sizeof(kArchitectureNodeTypes[0]));
     out << ",\"relationship_types\":";
     appendVocabularyArray(
         out,
         kArchitectureRelationshipTypes,
         sizeof(kArchitectureRelationshipTypes) / sizeof(kArchitectureRelationshipTypes[0]));
+    out << ",\"source_types\":";
+    appendVocabularyArray(out, kSourceTypes, sizeof(kSourceTypes) / sizeof(kSourceTypes[0]));
+    out << ",\"temporal_roles\":";
+    appendVocabularyArray(out, kTemporalRoles, sizeof(kTemporalRoles) / sizeof(kTemporalRoles[0]));
+    out << ",\"confidence_scale\":";
+    appendVocabularyArray(out, kConfidenceScale, sizeof(kConfidenceScale) / sizeof(kConfidenceScale[0]));
+    out << ",\"embedding_profiles\":";
+    appendVocabularyArray(out, kEmbeddingProfiles, sizeof(kEmbeddingProfiles) / sizeof(kEmbeddingProfiles[0]));
     out << '}';
     return out.str();
 }
@@ -2124,6 +2504,41 @@ int cprag_ingest_text(
     char* out_json,
     size_t out_json_size)
 {
+    return cprag_ingest_text_ex(
+        handle,
+        source_uri,
+        title,
+        text,
+        file_type,
+        chunk_size,
+        chunk_overlap,
+        metadata_json,
+        kDefaultSourceType,
+        1.0,
+        "",
+        "",
+        "",
+        out_json,
+        out_json_size);
+}
+
+int cprag_ingest_text_ex(
+    cprag_handle* handle,
+    const char* source_uri,
+    const char* title,
+    const char* text,
+    int file_type,
+    int chunk_size,
+    int chunk_overlap,
+    const char* metadata_json,
+    const char* source_type,
+    double confidence,
+    const char* captured_at,
+    const char* event_start_at,
+    const char* event_end_at,
+    char* out_json,
+    size_t out_json_size)
+{
     if (handle == nullptr || source_uri == nullptr || text == nullptr) {
         return CPRAG_INVALID_ARGUMENT;
     }
@@ -2142,6 +2557,14 @@ int cprag_ingest_text(
     if (metadataRc != CPRAG_OK) {
         return metadataRc;
     }
+    const int confidenceRc = validateConfidence(handle, confidence);
+    if (confidenceRc != CPRAG_OK) {
+        return confidenceRc;
+    }
+    const std::string effectiveSourceType = sourceTypeOrDefault(source_type);
+    const std::string capturedAt = valueOrEmpty(captured_at);
+    const std::string eventStartAt = valueOrEmpty(event_start_at);
+    const std::string eventEndAt = valueOrEmpty(event_end_at);
 
     const std::string content(text);
     const std::string contentHash = fnv1a64Hex(content);
@@ -2159,14 +2582,37 @@ int cprag_ingest_text(
     }
 
     long long documentId = 0;
-    int rc = upsertDocument(handle, sourceUri, effectiveTitle, contentHash, file_type, metadata, &documentId);
+    int rc = upsertDocument(
+        handle,
+        sourceUri,
+        effectiveTitle,
+        contentHash,
+        file_type,
+        metadata,
+        effectiveSourceType,
+        confidence,
+        capturedAt,
+        eventStartAt,
+        eventEndAt,
+        &documentId);
     if (rc == CPRAG_OK) {
         rc = deleteDocumentChunks(handle, documentId);
     }
 
     std::vector<long long> chunkIds;
     if (rc == CPRAG_OK) {
-        rc = insertChunkRows(handle, documentId, content, chunks, effectiveOverlap, &chunkIds);
+        rc = insertChunkRows(
+            handle,
+            documentId,
+            content,
+            chunks,
+            effectiveOverlap,
+            effectiveSourceType,
+            confidence,
+            capturedAt,
+            eventStartAt,
+            eventEndAt,
+            &chunkIds);
     }
 
     if (rc != CPRAG_OK) {
@@ -2182,7 +2628,20 @@ int cprag_ingest_text(
 
     return copyJson(
         handle,
-        buildIngestJson(documentId, sourceUri, effectiveTitle, contentHash, file_type, metadata, chunks, chunkIds),
+        buildIngestJson(
+            documentId,
+            sourceUri,
+            effectiveTitle,
+            contentHash,
+            file_type,
+            metadata,
+            effectiveSourceType,
+            confidence,
+            capturedAt,
+            eventStartAt,
+            eventEndAt,
+            chunks,
+            chunkIds),
         out_json,
         out_json_size);
 }
@@ -2195,6 +2654,19 @@ int cprag_list_sources(cprag_handle* handle, char* out_json, size_t out_json_siz
 
     try {
         return copyJson(handle, buildSourcesJson(loadDocumentSummaries(handle)), out_json, out_json_size);
+    } catch (const std::exception& ex) {
+        return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
+    }
+}
+
+int cprag_timeline(cprag_handle* handle, int limit, char* out_json, size_t out_json_size)
+{
+    if (handle == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+
+    try {
+        return copyJson(handle, buildTimelineJson(loadDocumentSummaries(handle), limit), out_json, out_json_size);
     } catch (const std::exception& ex) {
         return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
     }
@@ -2351,6 +2823,23 @@ int cprag_add_chunk_embedding(
     const float* vector,
     size_t dimension)
 {
+    return cprag_add_chunk_embedding_profile(
+        handle,
+        chunk_id,
+        embedding_model,
+        kRawEmbeddingProfile,
+        vector,
+        dimension);
+}
+
+int cprag_add_chunk_embedding_profile(
+    cprag_handle* handle,
+    long long chunk_id,
+    const char* embedding_model,
+    const char* embedding_profile,
+    const float* vector,
+    size_t dimension)
+{
     if (handle == nullptr || embedding_model == nullptr) {
         return CPRAG_INVALID_ARGUMENT;
     }
@@ -2361,6 +2850,7 @@ int cprag_add_chunk_embedding(
     if (model.empty()) {
         return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "embedding_model is required");
     }
+    const std::string profile = embeddingProfileOrDefault(embedding_profile);
     if (chunk_id <= 0) {
         return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "chunk_id must be positive");
     }
@@ -2376,10 +2866,11 @@ int cprag_add_chunk_embedding(
 
     sqlite3_stmt* stmt = nullptr;
     const int prepRc = prepare(handle,
-        "INSERT INTO chunk_embeddings (chunk_id, embedding_model, dimension, vector) "
-        "VALUES (?, ?, ?, ?) "
+        "INSERT INTO chunk_embeddings (chunk_id, embedding_model, embedding_profile, dimension, vector) "
+        "VALUES (?, ?, ?, ?, ?) "
         "ON CONFLICT(chunk_id, embedding_model) DO UPDATE SET "
-        "dimension=excluded.dimension, vector=excluded.vector, updated_at=CURRENT_TIMESTAMP",
+        "embedding_profile=excluded.embedding_profile, dimension=excluded.dimension, "
+        "vector=excluded.vector, updated_at=CURRENT_TIMESTAMP",
         &stmt);
     if (prepRc != CPRAG_OK) {
         return prepRc;
@@ -2387,10 +2878,11 @@ int cprag_add_chunk_embedding(
 
     sqlite3_bind_int64(stmt, 1, chunk_id);
     const bool bound = bindText(stmt, 2, model)
-        && sqlite3_bind_int(stmt, 3, effectiveDimension) == SQLITE_OK
+        && bindText(stmt, 3, profile)
+        && sqlite3_bind_int(stmt, 4, effectiveDimension) == SQLITE_OK
         && bindBlob(
             stmt,
-            4,
+            5,
             vector,
             static_cast<int>(static_cast<size_t>(effectiveDimension) * sizeof(float)));
     if (!bound) {
@@ -2412,6 +2904,16 @@ int cprag_rebuild_vector_index(
     char* out_json,
     size_t out_json_size)
 {
+    return cprag_rebuild_vector_index_profile(handle, embedding_model, "", out_json, out_json_size);
+}
+
+int cprag_rebuild_vector_index_profile(
+    cprag_handle* handle,
+    const char* embedding_model,
+    const char* embedding_profile,
+    char* out_json,
+    size_t out_json_size)
+{
     if (handle == nullptr || embedding_model == nullptr) {
         return CPRAG_INVALID_ARGUMENT;
     }
@@ -2422,6 +2924,7 @@ int cprag_rebuild_vector_index(
     if (model.empty()) {
         return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "embedding_model is required");
     }
+    const std::string requestedProfile = valueOrEmpty(embedding_profile);
 
 #ifndef CPRAG_HAVE_FAISS
     (void)out_json;
@@ -2429,12 +2932,15 @@ int cprag_rebuild_vector_index(
     return setErrorCode(handle, CPRAG_UNSUPPORTED, "FAISS support is not enabled in this build");
 #else
     try {
-        const std::vector<ChunkEmbedding> embeddings = loadChunkEmbeddings(handle, model);
+        const std::vector<ChunkEmbedding> embeddings = loadChunkEmbeddings(handle, model, requestedProfile);
         if (embeddings.empty()) {
             return setErrorCode(handle, CPRAG_NOT_FOUND, "no chunk embeddings were found for embedding_model");
         }
 
         const int dimension = embeddings.front().dimension;
+        const std::string effectiveProfile = embeddings.front().embeddingProfile.empty()
+            ? kRawEmbeddingProfile
+            : embeddings.front().embeddingProfile;
         std::vector<float> matrix;
         matrix.reserve(embeddings.size() * static_cast<size_t>(dimension));
         std::vector<faiss::idx_t> ids;
@@ -2442,6 +2948,12 @@ int cprag_rebuild_vector_index(
         for (const ChunkEmbedding& embedding : embeddings) {
             if (embedding.dimension != dimension) {
                 return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "all embeddings for a model must have the same dimension");
+            }
+            const std::string profile = embedding.embeddingProfile.empty()
+                ? kRawEmbeddingProfile
+                : embedding.embeddingProfile;
+            if (profile != effectiveProfile) {
+                return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "all embeddings for a model must have the same embedding_profile");
             }
             matrix.insert(matrix.end(), embedding.vector.begin(), embedding.vector.end());
             ids.push_back(static_cast<faiss::idx_t>(embedding.chunkId));
@@ -2455,13 +2967,18 @@ int cprag_rebuild_vector_index(
         const std::filesystem::path indexPath = vectorIndexPathForLibrary(handle->libraryPath);
         faiss::write_index(&index, indexPath.string().c_str());
 
-        const int stateRc = upsertVectorIndexState(handle, model, dimension, static_cast<long long>(embeddings.size()));
+        const int stateRc = upsertVectorIndexState(
+            handle,
+            model,
+            effectiveProfile,
+            dimension,
+            static_cast<long long>(embeddings.size()));
         if (stateRc != CPRAG_OK) {
             return stateRc;
         }
         return copyJson(
             handle,
-            buildVectorRebuildJson(handle, model, dimension, static_cast<long long>(embeddings.size())),
+            buildVectorRebuildJson(handle, model, effectiveProfile, dimension, static_cast<long long>(embeddings.size())),
             out_json,
             out_json_size);
     } catch (const std::exception& ex) {
@@ -2485,6 +3002,7 @@ int cprag_vector_search(
 
     std::vector<VectorHit> hits;
     std::string effectiveModel;
+    std::string effectiveProfile;
     int effectiveDimension = 0;
     const int rc = loadVectorHits(
         handle,
@@ -2494,15 +3012,40 @@ int cprag_vector_search(
         top_k,
         &hits,
         &effectiveModel,
+        &effectiveProfile,
         &effectiveDimension);
     if (rc != CPRAG_OK) {
         return rc;
     }
     return copyJson(
         handle,
-        buildVectorSearchJson(effectiveModel, effectiveDimension, hits),
+        buildVectorSearchJson(effectiveModel, effectiveProfile, effectiveDimension, hits),
         out_json,
         out_json_size);
+}
+
+int cprag_build_chunk_embedding_text(
+    cprag_handle* handle,
+    long long chunk_id,
+    const char* embedding_profile,
+    char* out_text,
+    size_t out_text_size)
+{
+    if (handle == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    if (chunk_id <= 0) {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "chunk_id must be positive");
+    }
+
+    const std::string profile = valueOrEmpty(embedding_profile).empty()
+        ? kSemanticEmbeddingProfile
+        : valueOrEmpty(embedding_profile);
+    try {
+        return copyText(handle, buildChunkEmbeddingText(loadChunkById(handle, chunk_id), profile), out_text, out_text_size);
+    } catch (const std::exception& ex) {
+        return setErrorCode(handle, CPRAG_NOT_FOUND, ex.what());
+    }
 }
 
 int cprag_vector_status(cprag_handle* handle, char* out_json, size_t out_json_size)
@@ -2584,6 +3127,7 @@ int cprag_search_with_vector(
         std::vector<ChunkHit> chunks;
         std::vector<VectorHit> vectorHits;
         std::string effectiveModel;
+        std::string effectiveProfile;
         int effectiveDimension = 0;
         int effectiveMode = CPRAG_SEARCH_LEXICAL;
         bool vectorUsed = false;
@@ -2604,6 +3148,7 @@ int cprag_search_with_vector(
                 effectiveTopK,
                 &vectorHits,
                 &effectiveModel,
+                &effectiveProfile,
                 &effectiveDimension);
 
             if (vectorRc == CPRAG_OK) {
@@ -2632,6 +3177,7 @@ int cprag_search_with_vector(
             effectiveMode,
             vectorUsed,
             effectiveModel,
+            effectiveProfile,
             effectiveDimension,
             fallbackReason);
         const std::string json = buildSubgraphJson(

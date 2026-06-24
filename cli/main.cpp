@@ -27,14 +27,16 @@ void usage()
         << "  crexx-rag add-entity-typed <library> <id> <node-type> <label> <description> [metadata-json]\n"
         << "  crexx-rag add-edge <library> <source-id> <target-id> <label> [weight] [metadata-json]\n"
         << "  crexx-rag add-edge-typed <library> <source-id> <target-id> <relationship-type> <label> [weight] [metadata-json]\n"
-        << "  crexx-rag ingest-text <library> <source-uri> <title> <plain|rexx|markdown> <chunk-size> <overlap> <text> [metadata-json]\n"
-        << "  crexx-rag ingest-file <library> <path> <plain|rexx|markdown> <chunk-size> <overlap> [title] [metadata-json]\n"
+        << "  crexx-rag ingest-text <library> <source-uri> <title> <plain|rexx|markdown> <chunk-size> <overlap> <text> [metadata-json [source-type confidence [captured-at] [event-start-at] [event-end-at]]]\n"
+        << "  crexx-rag ingest-file <library> <path> <plain|rexx|markdown> <chunk-size> <overlap> [title] [metadata-json [source-type confidence [captured-at] [event-start-at] [event-end-at]]]\n"
         << "  crexx-rag list-sources <library>\n"
+        << "  crexx-rag timeline <library> [limit]\n"
         << "  crexx-rag list-chunks <library> <source-uri>\n"
         << "  crexx-rag delete-source <library> <source-uri>\n"
-        << "  crexx-rag add-chunk-embedding <library> <chunk-id> <embedding-model> <comma-separated-floats>\n"
-        << "  crexx-rag embed-chunks <library> <embedding-model> <embedding-command> [source-uri]\n"
-        << "  crexx-rag rebuild-vector-index <library> <embedding-model>\n"
+        << "  crexx-rag embedding-text <library> <chunk-id> [embedding-profile]\n"
+        << "  crexx-rag add-chunk-embedding <library> <chunk-id> <embedding-model> <comma-separated-floats> [embedding-profile]\n"
+        << "  crexx-rag embed-chunks <library> <embedding-model> <embedding-command> [source-uri] [embedding-profile]\n"
+        << "  crexx-rag rebuild-vector-index <library> <embedding-model> [embedding-profile]\n"
         << "  crexx-rag vector-search <library> <embedding-model> <comma-separated-floats> [top-k]\n"
         << "  crexx-rag vector-status <library>\n"
         << "  crexx-rag search <library> <query> [top-k] [hops]\n"
@@ -317,7 +319,6 @@ struct ChunkForEmbedding {
     std::string sourceUri;
     std::string title;
     int chunkIndex {0};
-    std::string text;
 };
 
 int collectChunkForEmbedding(
@@ -328,13 +329,13 @@ int collectChunkForEmbedding(
     const char* text,
     void* userData)
 {
+    (void)text;
     auto* chunks = static_cast<std::vector<ChunkForEmbedding>*>(userData);
     chunks->push_back(ChunkForEmbedding {
         chunkId,
         sourceUri == nullptr ? std::string() : std::string(sourceUri),
         title == nullptr ? std::string() : std::string(title),
-        chunkIndex,
-        text == nullptr ? std::string() : std::string(text)
+        chunkIndex
     });
     return CPRAG_OK;
 }
@@ -449,7 +450,12 @@ int main(int argc, char** argv)
         return withLibrary(library, [&](cprag_handle* handle) {
             std::vector<char> buffer(kJsonBufferSize);
             const char* metadata = argc >= 10 ? argv[9] : "{}";
-            const int rc = cprag_ingest_text(
+            const char* sourceType = argc >= 12 ? argv[10] : "unknown";
+            const double confidence = argc >= 12 ? std::atof(argv[11]) : 1.0;
+            const char* capturedAt = argc >= 13 ? argv[12] : "";
+            const char* eventStartAt = argc >= 14 ? argv[13] : "";
+            const char* eventEndAt = argc >= 15 ? argv[14] : "";
+            const int rc = cprag_ingest_text_ex(
                 handle,
                 argv[3],
                 argv[4],
@@ -458,6 +464,11 @@ int main(int argc, char** argv)
                 std::atoi(argv[6]),
                 std::atoi(argv[7]),
                 metadata,
+                sourceType,
+                confidence,
+                capturedAt,
+                eventStartAt,
+                eventEndAt,
                 buffer.data(),
                 buffer.size());
             return printJsonResult(handle, rc, buffer);
@@ -478,7 +489,12 @@ int main(int argc, char** argv)
             std::vector<char> buffer(kJsonBufferSize);
             const char* title = argc >= 8 ? argv[7] : argv[3];
             const char* metadata = argc >= 9 ? argv[8] : "{}";
-            const int rc = cprag_ingest_text(
+            const char* sourceType = argc >= 11 ? argv[9] : "unknown";
+            const double confidence = argc >= 11 ? std::atof(argv[10]) : 1.0;
+            const char* capturedAt = argc >= 12 ? argv[11] : "";
+            const char* eventStartAt = argc >= 13 ? argv[12] : "";
+            const char* eventEndAt = argc >= 14 ? argv[13] : "";
+            const int rc = cprag_ingest_text_ex(
                 handle,
                 argv[3],
                 title,
@@ -487,6 +503,11 @@ int main(int argc, char** argv)
                 std::atoi(argv[5]),
                 std::atoi(argv[6]),
                 metadata,
+                sourceType,
+                confidence,
+                capturedAt,
+                eventStartAt,
+                eventEndAt,
                 buffer.data(),
                 buffer.size());
             return printJsonResult(handle, rc, buffer);
@@ -497,6 +518,15 @@ int main(int argc, char** argv)
         return withLibrary(library, [&](cprag_handle* handle) {
             std::vector<char> buffer(kJsonBufferSize);
             const int rc = cprag_list_sources(handle, buffer.data(), buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "timeline") {
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const int limit = argc >= 4 ? std::atoi(argv[3]) : 100;
+            const int rc = cprag_timeline(handle, limit, buffer.data(), buffer.size());
             return printJsonResult(handle, rc, buffer);
         });
     }
@@ -525,6 +555,28 @@ int main(int argc, char** argv)
         });
     }
 
+    if (command == "embedding-text") {
+        if (argc < 4) {
+            usage();
+            return 2;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const char* profile = argc >= 5 ? argv[4] : "semantic-context-v1";
+            const int rc = cprag_build_chunk_embedding_text(
+                handle,
+                std::atoll(argv[3]),
+                profile,
+                buffer.data(),
+                buffer.size());
+            if (rc != CPRAG_OK) {
+                return fail(rc, handle);
+            }
+            std::cout << buffer.data() << '\n';
+            return 0;
+        });
+    }
+
     if (command == "add-chunk-embedding") {
         if (argc < 6) {
             usage();
@@ -539,7 +591,14 @@ int main(int argc, char** argv)
         }
         return withLibrary(library, [&](cprag_handle* handle) {
             const long long chunkId = std::atoll(argv[3]);
-            const int rc = cprag_add_chunk_embedding(handle, chunkId, argv[4], vector.data(), vector.size());
+            const char* profile = argc >= 7 ? argv[6] : "raw-text-v1";
+            const int rc = cprag_add_chunk_embedding_profile(
+                handle,
+                chunkId,
+                argv[4],
+                profile,
+                vector.data(),
+                vector.size());
             if (rc != CPRAG_OK) {
                 return fail(rc, handle);
             }
@@ -562,6 +621,7 @@ int main(int argc, char** argv)
         const std::string embeddingModel = argv[3];
         const std::string embeddingCommand = argv[4];
         const std::string sourceFilter = argc >= 6 ? argv[5] : "";
+        const std::string embeddingProfile = argc >= 7 ? argv[6] : "semantic-context-v1";
         if (embeddingModel.empty()) {
             std::cerr << "embedding model is required\n";
             return CPRAG_INVALID_ARGUMENT;
@@ -589,9 +649,20 @@ int main(int argc, char** argv)
             size_t dimension = 0;
             size_t embedded = 0;
             for (const ChunkForEmbedding& chunk : chunks) {
+                std::vector<char> textBuffer(kJsonBufferSize);
+                rc = cprag_build_chunk_embedding_text(
+                    handle,
+                    chunk.id,
+                    embeddingProfile.c_str(),
+                    textBuffer.data(),
+                    textBuffer.size());
+                if (rc != CPRAG_OK) {
+                    return fail(rc, handle);
+                }
+
                 std::vector<float> vector;
                 std::string error;
-                if (!runEmbeddingCommand(embeddingCommand, chunk.text, embeddingModel, &vector, &error)) {
+                if (!runEmbeddingCommand(embeddingCommand, textBuffer.data(), embeddingModel, &vector, &error)) {
                     std::cerr << "failed to embed chunk " << chunk.id << " (" << chunk.sourceUri
                               << "#" << chunk.chunkIndex << "): " << error << '\n';
                     return CPRAG_IO_ERROR;
@@ -604,10 +675,11 @@ int main(int argc, char** argv)
                     return CPRAG_INVALID_ARGUMENT;
                 }
 
-                rc = cprag_add_chunk_embedding(
+                rc = cprag_add_chunk_embedding_profile(
                     handle,
                     chunk.id,
                     embeddingModel.c_str(),
+                    embeddingProfile.c_str(),
                     vector.data(),
                     vector.size());
                 if (rc != CPRAG_OK) {
@@ -617,13 +689,19 @@ int main(int argc, char** argv)
             }
 
             std::vector<char> buffer(kJsonBufferSize);
-            rc = cprag_rebuild_vector_index(handle, embeddingModel.c_str(), buffer.data(), buffer.size());
+            rc = cprag_rebuild_vector_index_profile(
+                handle,
+                embeddingModel.c_str(),
+                embeddingProfile.c_str(),
+                buffer.data(),
+                buffer.size());
             if (rc != CPRAG_OK) {
                 return fail(rc, handle);
             }
 
             std::cout << "{\"success\":true"
                       << ",\"embedding_model\":" << jsonString(embeddingModel)
+                      << ",\"embedding_profile\":" << jsonString(embeddingProfile)
                       << ",\"source_uri\":";
             if (sourceFilter.empty()) {
                 std::cout << "null";
@@ -645,7 +723,8 @@ int main(int argc, char** argv)
         }
         return withLibrary(library, [&](cprag_handle* handle) {
             std::vector<char> buffer(kJsonBufferSize);
-            const int rc = cprag_rebuild_vector_index(handle, argv[3], buffer.data(), buffer.size());
+            const char* profile = argc >= 5 ? argv[4] : "";
+            const int rc = cprag_rebuild_vector_index_profile(handle, argv[3], profile, buffer.data(), buffer.size());
             return printJsonResult(handle, rc, buffer);
         });
     }

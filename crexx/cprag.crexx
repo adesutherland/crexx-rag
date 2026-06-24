@@ -35,11 +35,15 @@ raglibrary: class
     return addedge(_path, source_id, target_id, label, weight, metadata_json)
 
   ingestText: method = .string
-    arg source_uri = .string, title = .string, text = .string, file_type = "plain", chunk_size = 1000, overlap = 200, metadata_json = "{}"
-    return ingest(_path, source_uri, title, text, file_type, chunk_size, overlap, metadata_json)
+    arg source_uri = .string, title = .string, text = .string, file_type = "plain", chunk_size = 1000, overlap = 200, metadata_json = "{}", source_type = "unknown", confidence = 1.0, captured_at = "", event_start_at = "", event_end_at = ""
+    return ingest(_path, source_uri, title, text, file_type, chunk_size, overlap, metadata_json, source_type, confidence, captured_at, event_start_at, event_end_at)
 
   sourcesJson: method = .string
     return listsources(_path)
+
+  timelineJson: method = .string
+    arg limit = 100
+    return timeline(_path, limit)
 
   chunksJson: method = .string
     arg source_uri = .string
@@ -52,13 +56,17 @@ raglibrary: class
   vectorStatusJson: method = .string
     return vectorstatus(_path)
 
+  chunkEmbeddingInput: method = .string
+    arg chunk_id = .int, embedding_profile = "semantic-context-v1"
+    return embeddingtext(_path, chunk_id, embedding_profile)
+
   attachChunkEmbedding: method = .string
-    arg chunk_id = .int, embedding_model = .string, vector_csv = .string
-    return addchunkembedding(_path, chunk_id, embedding_model, vector_csv)
+    arg chunk_id = .int, embedding_model = .string, vector_csv = .string, embedding_profile = "raw-text-v1"
+    return addchunkembedding(_path, chunk_id, embedding_model, vector_csv, embedding_profile)
 
   buildVectorIndex: method = .string
-    arg embedding_model = .string
-    return rebuildvectorindex(_path, embedding_model)
+    arg embedding_model = .string, embedding_profile = ""
+    return rebuildvectorindex(_path, embedding_model, embedding_profile)
 
   searchVector: method = .string
     arg embedding_model = .string, vector_csv = .string, top_k = 3

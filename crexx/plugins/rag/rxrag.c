@@ -236,8 +236,8 @@ PROCEDURE(addedgetyped)
 
 PROCEDURE(ingest)
 {
-    if (NUM_ARGS < 4 || NUM_ARGS > 8) {
-        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, source_uri, title, text, optional file_type, chunk_size, overlap, metadata_json expected")
+    if (NUM_ARGS < 4 || NUM_ARGS > 13) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, source_uri, title, text, optional file_type, chunk_size, overlap, metadata_json, source_type, confidence, captured_at, event_start_at, event_end_at expected")
     }
 
     cprag_handle* handle = NULL;
@@ -258,7 +258,12 @@ PROCEDURE(ingest)
     const int chunk_size = NUM_ARGS >= 6 ? GETINT(ARG(5)) : 1000;
     const int overlap = NUM_ARGS >= 7 ? GETINT(ARG(6)) : 200;
     const char* metadata = NUM_ARGS >= 8 ? GETSTRING(ARG(7)) : "{}";
-    rc = cprag_ingest_text(
+    const char* source_type = NUM_ARGS >= 9 ? GETSTRING(ARG(8)) : "unknown";
+    const double confidence = NUM_ARGS >= 10 ? GETFLOAT(ARG(9)) : 1.0;
+    const char* captured_at = NUM_ARGS >= 11 ? GETSTRING(ARG(10)) : "";
+    const char* event_start_at = NUM_ARGS >= 12 ? GETSTRING(ARG(11)) : "";
+    const char* event_end_at = NUM_ARGS >= 13 ? GETSTRING(ARG(12)) : "";
+    rc = cprag_ingest_text_ex(
         handle,
         GETSTRING(ARG(1)),
         GETSTRING(ARG(2)),
@@ -267,6 +272,11 @@ PROCEDURE(ingest)
         chunk_size,
         overlap,
         metadata,
+        source_type,
+        confidence,
+        captured_at,
+        event_start_at,
+        event_end_at,
         buffer,
         RXRAG_JSON_BUFFER_SIZE);
     if (rc != CPRAG_OK) {
@@ -304,6 +314,42 @@ PROCEDURE(listsources)
     }
 
     rc = cprag_list_sources(handle, buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(timeline)
+{
+    if (NUM_ARGS < 1 || NUM_ARGS > 2) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, optional limit expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const int limit = NUM_ARGS >= 2 ? GETINT(ARG(1)) : 100;
+    rc = cprag_timeline(handle, limit, buffer, RXRAG_JSON_BUFFER_SIZE);
     if (rc != CPRAG_OK) {
         char err[512];
         copy_message(err, sizeof(err), cprag_last_error(handle));
@@ -423,10 +469,46 @@ PROCEDURE(vectorstatus)
     RESETSIGNAL
 }
 
+PROCEDURE(embeddingtext)
+{
+    if (NUM_ARGS < 2 || NUM_ARGS > 3) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, chunk_id, optional embedding_profile expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* profile = NUM_ARGS >= 3 ? GETSTRING(ARG(2)) : "semantic-context-v1";
+    rc = cprag_build_chunk_embedding_text(handle, GETINT(ARG(1)), profile, buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
 PROCEDURE(addchunkembedding)
 {
-    if (NUM_ARGS != 4) {
-        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, chunk_id, embedding_model, vector_csv expected")
+    if (NUM_ARGS < 4 || NUM_ARGS > 5) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, chunk_id, embedding_model, vector_csv, optional embedding_profile expected")
     }
 
     char parse_error[256];
@@ -445,7 +527,8 @@ PROCEDURE(addchunkembedding)
         RETURNSIGNAL(SIGNAL_FAILURE, message)
     }
 
-    rc = cprag_add_chunk_embedding(handle, GETINT(ARG(1)), GETSTRING(ARG(2)), values, count);
+    const char* profile = NUM_ARGS >= 5 ? GETSTRING(ARG(4)) : "raw-text-v1";
+    rc = cprag_add_chunk_embedding_profile(handle, GETINT(ARG(1)), GETSTRING(ARG(2)), profile, values, count);
     free(values);
     if (rc != CPRAG_OK) {
         char err[512];
@@ -461,8 +544,8 @@ PROCEDURE(addchunkembedding)
 
 PROCEDURE(rebuildvectorindex)
 {
-    if (NUM_ARGS != 2) {
-        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, embedding_model expected")
+    if (NUM_ARGS < 2 || NUM_ARGS > 3) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, embedding_model, optional embedding_profile expected")
     }
 
     cprag_handle* handle = NULL;
@@ -479,7 +562,8 @@ PROCEDURE(rebuildvectorindex)
         RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
     }
 
-    rc = cprag_rebuild_vector_index(handle, GETSTRING(ARG(1)), buffer, RXRAG_JSON_BUFFER_SIZE);
+    const char* profile = NUM_ARGS >= 3 ? GETSTRING(ARG(2)) : "";
+    rc = cprag_rebuild_vector_index_profile(handle, GETSTRING(ARG(1)), profile, buffer, RXRAG_JSON_BUFFER_SIZE);
     if (rc != CPRAG_OK) {
         char err[512];
         copy_message(err, sizeof(err), cprag_last_error(handle));
@@ -784,13 +868,15 @@ ADDPROC(addentity, "rxrag.addentity", "g", ".string", "path=.string,id=.string,l
 ADDPROC(addentitytyped, "rxrag.addentitytyped", "g", ".string", "path=.string,id=.string,node_type=.string,label=.string,description=.string,metadata_json=.string");
 ADDPROC(addedge,   "rxrag.addedge",   "g", ".string", "path=.string,source_id=.string,target_id=.string,label=.string,weight=.float,metadata_json=.string");
 ADDPROC(addedgetyped, "rxrag.addedgetyped", "g", ".string", "path=.string,source_id=.string,target_id=.string,relationship_type=.string,label=.string,weight=.float,metadata_json=.string");
-ADDPROC(ingest,    "rxrag.ingest",    "g", ".string", "path=.string,source_uri=.string,title=.string,text=.string,file_type=.string,chunk_size=.int,overlap=.int,metadata_json=.string");
+ADDPROC(ingest,    "rxrag.ingest",    "g", ".string", "path=.string,source_uri=.string,title=.string,text=.string,file_type=.string,chunk_size=.int,overlap=.int,metadata_json=.string,source_type=.string,confidence=.float,captured_at=.string,event_start_at=.string,event_end_at=.string");
 ADDPROC(listsources, "rxrag.listsources", "g", ".string", "path=.string");
+ADDPROC(timeline, "rxrag.timeline", "g", ".string", "path=.string,limit=.int");
 ADDPROC(listchunks, "rxrag.listchunks", "g", ".string", "path=.string,source_uri=.string");
 ADDPROC(deletesource, "rxrag.deletesource", "g", ".string", "path=.string,source_uri=.string");
 ADDPROC(vectorstatus, "rxrag.vectorstatus", "g", ".string", "path=.string");
-ADDPROC(addchunkembedding, "rxrag.addchunkembedding", "g", ".string", "path=.string,chunk_id=.int,embedding_model=.string,vector_csv=.string");
-ADDPROC(rebuildvectorindex, "rxrag.rebuildvectorindex", "g", ".string", "path=.string,embedding_model=.string");
+ADDPROC(embeddingtext, "rxrag.embeddingtext", "g", ".string", "path=.string,chunk_id=.int,embedding_profile=.string");
+ADDPROC(addchunkembedding, "rxrag.addchunkembedding", "g", ".string", "path=.string,chunk_id=.int,embedding_model=.string,vector_csv=.string,embedding_profile=.string");
+ADDPROC(rebuildvectorindex, "rxrag.rebuildvectorindex", "g", ".string", "path=.string,embedding_model=.string,embedding_profile=.string");
 ADDPROC(vectorsearch, "rxrag.vectorsearch", "g", ".string", "path=.string,embedding_model=.string,vector_csv=.string,top_k=.int");
 ADDPROC(vocabulary, "rxrag.vocabulary", "g", ".string", "");
 ADDPROC(search,    "rxrag.search",    "g", ".string", "path=.string,query=.string,top_k=.int,hops=.int");

@@ -100,6 +100,10 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
 - Nodes have meaningful types and relationships have meaningful type/semantic
   labels. Do not treat these as presentation-only metadata; they affect
   traversal, filtering, ranking, and explanation.
+- Source provenance, confidence, and temporal fields are also retrieval
+  semantics, not presentation-only metadata. Preserve `source_type`,
+  `confidence`, `captured_at`, `event_start_at`, and `event_end_at` through
+  sources, chunks, search results, timelines, and embedding envelopes.
 - The initial shared vocabulary is in `docs/architecture-vocabulary.md`, but the
   storage remains domain-neutral and may accept workload-specific types.
 - Keep graph features intentionally essential until a real workload proves the
@@ -143,25 +147,27 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
   retrieval.
 - Native core can store caller-provided chunk embeddings in SQLite and, when
   built with `CPRAG_ENABLE_FAISS=ON`, rebuild/search a FAISS `vectors.faiss`
-  sidecar for one active embedding model/dimension.
+  sidecar for one active embedding model/profile/dimension.
 - Entity `node_type` and edge `relationship_type` are explicit schema/API
   fields.
 - Search combines naive text overlap over entity ids, labels, and descriptions
   with FTS5 chunk hits. `cprag_search_with_vector` supports lexical, vector,
-  hybrid, and auto chunk retrieval modes.
+  hybrid, and auto chunk retrieval modes. Lexical chunk rank is weighted by
+  chunk confidence.
 - Graph expansion is BFS over incoming and outgoing edges; shortest path and
   typed subgraph extraction are available in the native core.
 - Chunking is a Qt-free port inspired by CognitivePipelines' RAG chunkers,
   currently covering plain text, Markdown, and Rexx-oriented source.
 - MCP server is a hardened stdio adapter with status, search, vocabulary,
-  vector status, shortest path, typed subgraph, ingest, source/chunk listing,
-  source deletion, and graph edit tools. It validates JSON-RPC shape and typed
-  arguments, and it is read-only by default. It can call an external embedding
-  command for automatic hybrid search when configured.
+  vector status, shortest path, typed subgraph, ingest, timeline, source/chunk
+  listing, source deletion, and graph edit tools. It validates JSON-RPC shape
+  and typed arguments, and it is read-only by default. It can call an external
+  embedding command for automatic hybrid search when configured.
 - CREXX plugin publishes Level G RXPA signatures and currently builds through
-  the temporary vendored rxpa headers. It includes vector status, chunk
-  embedding storage, FAISS rebuild, and vector search functions using
-  comma-separated float vectors at the CREXX boundary.
+  the temporary vendored rxpa headers. It includes timeline, vector status,
+  chunk embedding input rendering, chunk embedding storage, FAISS rebuild, and
+  vector search functions using comma-separated float vectors at the CREXX
+  boundary.
 - `crexx/cprag.crexx` provides the first Level G class-shaped wrapper surface
   over the raw plugin functions.
 - CREXX plugin runtime is covered by `crexx_profile_smoke` when installed

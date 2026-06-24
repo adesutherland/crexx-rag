@@ -735,7 +735,7 @@ const std::vector<ToolSpec>& toolSpecs()
             R"JSON({"type":"object","properties":{}})JSON",
             false},
         {"library_vocabulary",
-            "Return the initial architecture node and relationship vocabulary.",
+            "Return node, relationship, provenance, time, confidence, and embedding profile vocabulary.",
             R"JSON({"type":"object","properties":{}})JSON",
             false},
         {"library_vector_status",
@@ -758,13 +758,17 @@ const std::vector<ToolSpec>& toolSpecs()
             "List ingested document sources.",
             R"JSON({"type":"object","properties":{}})JSON",
             false},
+        {"library_timeline",
+            "List source-level timeline events ordered by event, captured, or created time.",
+            R"JSON({"type":"object","properties":{"limit":{"type":"integer","minimum":0}}})JSON",
+            false},
         {"library_list_chunks",
             "List stored chunks for one source URI.",
             R"JSON({"type":"object","properties":{"source_uri":{"type":"string"}},"required":["source_uri"]})JSON",
             false},
         {"library_ingest",
-            "Ingest or update one text source into persistent document chunks.",
-            R"JSON({"type":"object","properties":{"source_uri":{"type":"string"},"title":{"type":"string"},"text":{"type":"string"},"file_type":{"type":"string","enum":["plain","rexx","markdown","md"]},"chunk_size":{"type":"integer","minimum":1},"overlap":{"type":"integer","minimum":0},"metadata_json":{"type":"string"}},"required":["source_uri","text"]})JSON",
+            "Ingest or update one text source into persistent document chunks, with optional provenance and timeline fields.",
+            R"JSON({"type":"object","properties":{"source_uri":{"type":"string"},"title":{"type":"string"},"text":{"type":"string"},"file_type":{"type":"string","enum":["plain","rexx","markdown","md"]},"chunk_size":{"type":"integer","minimum":1},"overlap":{"type":"integer","minimum":0},"metadata_json":{"type":"string"},"source_type":{"type":"string"},"confidence":{"type":"number","minimum":0},"captured_at":{"type":"string"},"event_start_at":{"type":"string"},"event_end_at":{"type":"string"}},"required":["source_uri","text"]})JSON",
             true},
         {"library_delete_source",
             "Delete one ingested source and its chunks.",
@@ -1103,6 +1107,17 @@ void handleToolCall(
         return;
     }
 
+    if (name == "library_timeline") {
+        int limit = 100;
+        if (!optionalInt(*args, "limit", 100, 0, &limit, &error)) {
+            respondError(idJson, kInvalidParams, error);
+            return;
+        }
+        rc = cprag_timeline(*handle, limit, buffer.data(), buffer.size());
+        coreJsonResult(idJson, *handle, rc, buffer);
+        return;
+    }
+
     if (name == "library_list_chunks") {
         std::string sourceUri;
         if (!requireString(*args, "source_uri", &sourceUri, &error)) {
@@ -1120,15 +1135,25 @@ void handleToolCall(
         std::string text;
         std::string fileType;
         std::string metadata;
+        std::string sourceType;
+        std::string capturedAt;
+        std::string eventStartAt;
+        std::string eventEndAt;
         int chunkSize = 1000;
         int overlap = 200;
+        double confidence = 1.0;
         if (!requireString(*args, "source_uri", &sourceUri, &error)
             || !optionalString(*args, "title", sourceUri, &title, &error)
             || !requireString(*args, "text", &text, &error)
             || !optionalString(*args, "file_type", "plain", &fileType, &error)
             || !optionalInt(*args, "chunk_size", 1000, 1, &chunkSize, &error)
             || !optionalInt(*args, "overlap", 200, 0, &overlap, &error)
-            || !optionalString(*args, "metadata_json", "{}", &metadata, &error)) {
+            || !optionalString(*args, "metadata_json", "{}", &metadata, &error)
+            || !optionalString(*args, "source_type", "unknown", &sourceType, &error)
+            || !optionalDouble(*args, "confidence", 1.0, 0.0, &confidence, &error)
+            || !optionalString(*args, "captured_at", "", &capturedAt, &error)
+            || !optionalString(*args, "event_start_at", "", &eventStartAt, &error)
+            || !optionalString(*args, "event_end_at", "", &eventEndAt, &error)) {
             respondError(idJson, kInvalidParams, error);
             return;
         }
@@ -1137,7 +1162,7 @@ void handleToolCall(
             respondError(idJson, kInvalidParams, error);
             return;
         }
-        rc = cprag_ingest_text(
+        rc = cprag_ingest_text_ex(
             *handle,
             sourceUri.c_str(),
             title.c_str(),
@@ -1146,6 +1171,11 @@ void handleToolCall(
             chunkSize,
             overlap,
             metadata.c_str(),
+            sourceType.c_str(),
+            confidence,
+            capturedAt.c_str(),
+            eventStartAt.c_str(),
+            eventEndAt.c_str(),
             buffer.data(),
             buffer.size());
         coreJsonResult(idJson, *handle, rc, buffer);

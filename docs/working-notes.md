@@ -25,14 +25,19 @@ place where those semantics exist.
 - Entities have explicit `node_type`; edges have explicit `relationship_type`.
 - The initial architecture vocabulary lives in `docs/architecture-vocabulary.md`
   and is exposed as JSON through the adapters.
+- Sources and chunks now carry `source_type`, `confidence`, `captured_at`,
+  `event_start_at`, and `event_end_at`. `cprag_timeline`, CLI `timeline`, and
+  MCP `library_timeline` expose the first source-level timeline. Lexical search
+  applies confidence as a ranking weight.
 - Search currently combines placeholder text-overlap entity anchors with SQLite
   FTS5 lexical chunk retrieval. `cprag_search_with_vector` adds lexical,
   vector, hybrid, and auto chunk retrieval modes while keeping graph expansion
   over text anchors for now.
 - Optional FAISS support stores caller-provided chunk embeddings in SQLite,
-  rebuilds a `vectors.faiss` sidecar for one active embedding model/dimension,
-  and searches that sidecar by vector. FAISS is not an embedder; local/provider
-  adapters must generate fixed-length vectors before the core can index them.
+  rebuilds a `vectors.faiss` sidecar for one active embedding model, profile,
+  and dimension, and searches that sidecar by vector. FAISS is not an embedder;
+  local/provider adapters must generate fixed-length vectors before the core
+  can index them.
 - Graph context is expanded with simple BFS over both incoming and outgoing
   edges.
 - Graph query APIs include shortest path and typed subgraph extraction.
@@ -48,13 +53,16 @@ place where those semantics exist.
 - `crexx-rag embed-chunks` batch-generates chunk embeddings through an external
   command and rebuilds the FAISS sidecar. The command contract is provider
   neutral: print a JSON number array, or an object with an `embedding` array.
+  The default `semantic-context-v1` profile renders an embedding envelope with
+  source type, confidence, timeline fields, title, and chunk text.
 - `rx_rag.rxplugin` publishes Level G native signatures through RXPA.
 - `crexx/cprag.crexx` is the first CREXX Level G wrapper surface. It exposes
   `cprag.raglibrary`, keeps JSON as the interchange format, and uses CREXX
-  `rxjson` helpers for JSON-aware convenience methods. Vector status,
-  add-chunk-embedding, rebuild, and vector-search calls are exposed through the
-  wrapper with comma-separated float vectors. Wrapper method names avoid raw
-  plugin-name collisions: `vectorStatusJson`, `attachChunkEmbedding`,
+  `rxjson` helpers for JSON-aware convenience methods. Timeline, vector status,
+  embedding input rendering, add-chunk-embedding, rebuild, and vector-search
+  calls are exposed through the wrapper with comma-separated float vectors.
+  Wrapper method names avoid raw plugin-name collisions: `timelineJson`,
+  `vectorStatusJson`, `chunkEmbeddingInput`, `attachChunkEmbedding`,
   `buildVectorIndex`, and `searchVector`.
 - The CREXX smoke compiles `cprag.crexx`, compiles the profile against it,
   assembles both modules with installed `rxas`, and runs with installed
