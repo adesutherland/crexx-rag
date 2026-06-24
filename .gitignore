@@ -3,6 +3,7 @@ build/
 out/
 .DS_Store
 .idea/
+.local/
 *.user
 *.swp
 *.o

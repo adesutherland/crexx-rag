@@ -77,5 +77,8 @@ endif()
 if(NOT rxvme_output MATCHES "\"chunks\"")
     message(FATAL_ERROR "rxvme output did not include search chunks\n${rxvme_output}\n${rxvme_error}")
 endif()
+if(NOT rxvme_output MATCHES "digraph cprag")
+    message(FATAL_ERROR "rxvme output did not include DOT graph export\n${rxvme_output}\n${rxvme_error}")
+endif()
 
 message(STATUS "CREXX profile smoke passed")

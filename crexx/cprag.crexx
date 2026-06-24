@@ -49,6 +49,22 @@ raglibrary: class
     arg source_uri = .string
     return listchunks(_path, source_uri)
 
+  chunkIdCsv: method = .string
+    arg source_uri = ""
+    return chunkids(_path, source_uri)
+
+  storedChunkText: method = .string
+    arg chunk_id = .int
+    return chunktextbyid(_path, chunk_id)
+
+  conceptsJson: method = .string
+    arg node_type_filter_csv = ""
+    return listconcepts(_path, node_type_filter_csv)
+
+  matchConceptsJson: method = .string
+    arg text = .string, node_type_filter_csv = ""
+    return matchconcepts(_path, text, node_type_filter_csv)
+
   removeSource: method = .string
     arg source_uri = .string
     return deletesource(_path, source_uri)
@@ -90,6 +106,10 @@ raglibrary: class
   typedSubgraph: method = .string
     arg node_type_filter_csv = "", relationship_type_filter_csv = "", limit = 100
     return subgraph(_path, node_type_filter_csv, relationship_type_filter_csv, limit)
+
+  graphDot: method = .string
+    arg node_type_filter_csv = "", relationship_type_filter_csv = "", limit = 100
+    return exportdot(_path, node_type_filter_csv, relationship_type_filter_csv, limit)
 
   statsJson: method = .string
     return stats(_path)

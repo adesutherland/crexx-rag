@@ -1232,6 +1232,181 @@ void appendEntityJson(std::ostringstream& out, const Entity& entity)
         << '}';
 }
 
+std::string jsonObjectStringValue(const std::string& json, const std::string& key)
+{
+    const std::string quotedKey = "\"" + key + "\"";
+    size_t pos = json.find(quotedKey);
+    if (pos == std::string::npos) {
+        return {};
+    }
+    pos = json.find(':', pos + quotedKey.size());
+    if (pos == std::string::npos) {
+        return {};
+    }
+    ++pos;
+    while (pos < json.size() && std::isspace(static_cast<unsigned char>(json[pos])) != 0) {
+        ++pos;
+    }
+    if (pos >= json.size() || json[pos] != '"') {
+        return {};
+    }
+    ++pos;
+
+    std::string value;
+    bool escaped = false;
+    for (; pos < json.size(); ++pos) {
+        const char ch = json[pos];
+        if (escaped) {
+            switch (ch) {
+            case '"':
+            case '\\':
+            case '/':
+                value.push_back(ch);
+                break;
+            case 'b':
+                value.push_back('\b');
+                break;
+            case 'f':
+                value.push_back('\f');
+                break;
+            case 'n':
+                value.push_back('\n');
+                break;
+            case 'r':
+                value.push_back('\r');
+                break;
+            case 't':
+                value.push_back('\t');
+                break;
+            default:
+                value.push_back(ch);
+                break;
+            }
+            escaped = false;
+            continue;
+        }
+        if (ch == '\\') {
+            escaped = true;
+            continue;
+        }
+        if (ch == '"') {
+            break;
+        }
+        value.push_back(ch);
+    }
+    return value;
+}
+
+std::vector<std::string> conceptAliases(const Entity& entity)
+{
+    std::vector<std::string> aliases;
+    if (!entity.label.empty()) {
+        aliases.push_back(entity.label);
+    }
+
+    const std::string aliasCsv = jsonObjectStringValue(entity.metadataJson, "aliases");
+    for (std::string alias : splitCsv(aliasCsv)) {
+        if (alias.find('|') != std::string::npos) {
+            std::string current;
+            std::istringstream stream(alias);
+            while (std::getline(stream, current, '|')) {
+                if (!current.empty()) {
+                    aliases.push_back(current);
+                }
+            }
+        } else if (!alias.empty()) {
+            aliases.push_back(alias);
+        }
+    }
+
+    std::sort(aliases.begin(), aliases.end(), [](const std::string& lhs, const std::string& rhs) {
+        if (lhs.size() != rhs.size()) {
+            return lhs.size() > rhs.size();
+        }
+        return lhs < rhs;
+    });
+    aliases.erase(std::unique(aliases.begin(), aliases.end()), aliases.end());
+    return aliases;
+}
+
+bool containsFolded(const std::string& text, const std::string& needle)
+{
+    if (needle.empty()) {
+        return false;
+    }
+    return lowerCopy(text).find(lowerCopy(needle)) != std::string::npos;
+}
+
+void appendAliasArray(std::ostringstream& out, const std::vector<std::string>& aliases)
+{
+    out << '[';
+    for (size_t i = 0; i < aliases.size(); ++i) {
+        if (i > 0) {
+            out << ',';
+        }
+        out << jsonString(aliases[i]);
+    }
+    out << ']';
+}
+
+std::string buildConceptListJson(const std::vector<Entity>& entities, const std::string& nodeTypeFilterCsv)
+{
+    const std::unordered_set<std::string> filters = relationFilterSet(nodeTypeFilterCsv);
+    std::ostringstream out;
+    out << "{\"success\":true,\"concepts\":[";
+    bool first = true;
+    for (const Entity& entity : entities) {
+        if (!entityAllowed(entity, filters)) {
+            continue;
+        }
+        if (!first) {
+            out << ',';
+        }
+        first = false;
+        out << "{\"id\":" << jsonString(entity.id)
+            << ",\"node_type\":" << jsonString(entity.nodeType)
+            << ",\"label\":" << jsonString(entity.label)
+            << ",\"aliases\":";
+        appendAliasArray(out, conceptAliases(entity));
+        out << '}';
+    }
+    out << "]}";
+    return out.str();
+}
+
+std::string buildConceptMatchesJson(
+    const std::vector<Entity>& entities,
+    const std::string& text,
+    const std::string& nodeTypeFilterCsv)
+{
+    const std::unordered_set<std::string> filters = relationFilterSet(nodeTypeFilterCsv);
+    std::ostringstream out;
+    out << "{\"success\":true,\"matches\":[";
+    bool first = true;
+    for (const Entity& entity : entities) {
+        if (!entityAllowed(entity, filters)) {
+            continue;
+        }
+        const std::vector<std::string> aliases = conceptAliases(entity);
+        for (const std::string& alias : aliases) {
+            if (!containsFolded(text, alias)) {
+                continue;
+            }
+            if (!first) {
+                out << ',';
+            }
+            first = false;
+            out << "{\"id\":" << jsonString(entity.id)
+                << ",\"node_type\":" << jsonString(entity.nodeType)
+                << ",\"label\":" << jsonString(entity.label)
+                << ",\"matched_alias\":" << jsonString(alias)
+                << '}';
+        }
+    }
+    out << "]}";
+    return out.str();
+}
+
 void appendEdgeJson(std::ostringstream& out, const Edge& edge)
 {
     out << "{\"id\":" << edge.rowid
@@ -2186,7 +2361,12 @@ std::string buildShortestPathJson(
     return out.str();
 }
 
-std::string buildTypedSubgraphJson(
+struct TypedSubgraphSelection {
+    std::unordered_set<std::string> includedNodes;
+    std::vector<std::string> orderedNodeIds;
+};
+
+TypedSubgraphSelection selectTypedSubgraph(
     const std::vector<Entity>& entities,
     const std::vector<Edge>& edges,
     const std::string& nodeTypeFilterCsv,
@@ -2197,22 +2377,16 @@ std::string buildTypedSubgraphJson(
     const auto relationFilters = relationFilterSet(relationshipTypeFilterCsv);
     const int effectiveLimit = limit <= 0 ? 100 : limit;
 
-    std::unordered_map<std::string, Entity> entityById;
-    for (const Entity& entity : entities) {
-        entityById.emplace(entity.id, entity);
-    }
-
-    std::unordered_set<std::string> includedNodes;
-    std::vector<std::string> orderedNodeIds;
+    TypedSubgraphSelection selection;
     for (const Entity& entity : entities) {
         if (!entityAllowed(entity, nodeFilters)) {
             continue;
         }
-        if (static_cast<int>(orderedNodeIds.size()) >= effectiveLimit) {
+        if (static_cast<int>(selection.orderedNodeIds.size()) >= effectiveLimit) {
             break;
         }
-        if (includedNodes.insert(entity.id).second) {
-            orderedNodeIds.push_back(entity.id);
+        if (selection.includedNodes.insert(entity.id).second) {
+            selection.orderedNodeIds.push_back(entity.id);
         }
     }
 
@@ -2221,25 +2395,51 @@ std::string buildTypedSubgraphJson(
             if (!edgeAllowed(edge, relationFilters)) {
                 continue;
             }
-            if (includedNodes.insert(edge.sourceId).second) {
-                orderedNodeIds.push_back(edge.sourceId);
+            if (selection.includedNodes.insert(edge.sourceId).second) {
+                selection.orderedNodeIds.push_back(edge.sourceId);
             }
-            if (static_cast<int>(orderedNodeIds.size()) >= effectiveLimit) {
+            if (static_cast<int>(selection.orderedNodeIds.size()) >= effectiveLimit) {
                 break;
             }
-            if (includedNodes.insert(edge.targetId).second) {
-                orderedNodeIds.push_back(edge.targetId);
+            if (selection.includedNodes.insert(edge.targetId).second) {
+                selection.orderedNodeIds.push_back(edge.targetId);
             }
-            if (static_cast<int>(orderedNodeIds.size()) >= effectiveLimit) {
+            if (static_cast<int>(selection.orderedNodeIds.size()) >= effectiveLimit) {
                 break;
             }
         }
     }
 
+    return selection;
+}
+
+std::string buildTypedSubgraphJson(
+    const std::vector<Entity>& entities,
+    const std::vector<Edge>& edges,
+    const std::string& nodeTypeFilterCsv,
+    const std::string& relationshipTypeFilterCsv,
+    int limit)
+{
+    const auto relationFilters = relationFilterSet(relationshipTypeFilterCsv);
+    const TypedSubgraphSelection selection = selectTypedSubgraph(
+        entities,
+        edges,
+        nodeTypeFilterCsv,
+        relationshipTypeFilterCsv,
+        limit);
+    if (selection.orderedNodeIds.empty()) {
+        return "";
+    }
+
+    std::unordered_map<std::string, Entity> entityById;
+    for (const Entity& entity : entities) {
+        entityById.emplace(entity.id, entity);
+    }
+
     std::ostringstream out;
     out << "{\"success\":true,\"subgraph\":{\"nodes\":[";
     bool first = true;
-    for (const std::string& nodeId : orderedNodeIds) {
+    for (const std::string& nodeId : selection.orderedNodeIds) {
         const auto it = entityById.find(nodeId);
         if (it == entityById.end()) {
             continue;
@@ -2254,8 +2454,8 @@ std::string buildTypedSubgraphJson(
     out << "],\"edges\":[";
     first = true;
     for (const Edge& edge : edges) {
-        if (includedNodes.find(edge.sourceId) == includedNodes.end()
-            || includedNodes.find(edge.targetId) == includedNodes.end()
+        if (selection.includedNodes.find(edge.sourceId) == selection.includedNodes.end()
+            || selection.includedNodes.find(edge.targetId) == selection.includedNodes.end()
             || !edgeAllowed(edge, relationFilters)) {
             continue;
         }
@@ -2266,6 +2466,100 @@ std::string buildTypedSubgraphJson(
         appendEdgeJson(out, edge);
     }
     out << "]}}";
+    return out.str();
+}
+
+std::string dotEscape(const std::string& value)
+{
+    std::ostringstream out;
+    for (const char ch : value) {
+        switch (ch) {
+        case '\\':
+            out << "\\\\";
+            break;
+        case '"':
+            out << "\\\"";
+            break;
+        case '\n':
+        case '\r':
+            out << "\\n";
+            break;
+        case '\t':
+            out << "\\t";
+            break;
+        default:
+            out << ch;
+            break;
+        }
+    }
+    return out.str();
+}
+
+std::string dotQuoted(const std::string& value)
+{
+    return "\"" + dotEscape(value) + "\"";
+}
+
+std::string buildTypedSubgraphDot(
+    const std::vector<Entity>& entities,
+    const std::vector<Edge>& edges,
+    const std::string& nodeTypeFilterCsv,
+    const std::string& relationshipTypeFilterCsv,
+    int limit)
+{
+    const auto relationFilters = relationFilterSet(relationshipTypeFilterCsv);
+    const TypedSubgraphSelection selection = selectTypedSubgraph(
+        entities,
+        edges,
+        nodeTypeFilterCsv,
+        relationshipTypeFilterCsv,
+        limit);
+    if (selection.orderedNodeIds.empty()) {
+        return "";
+    }
+
+    std::unordered_map<std::string, Entity> entityById;
+    for (const Entity& entity : entities) {
+        entityById.emplace(entity.id, entity);
+    }
+
+    std::ostringstream out;
+    out << "digraph cprag {\n";
+    out << "  graph [rankdir=LR, label=\"crexx-rag typed graph\", labelloc=t, fontsize=18];\n";
+    out << "  node [shape=box, style=\"rounded,filled\", fillcolor=\"#f8fafc\", color=\"#64748b\", fontname=\"Helvetica\"];\n";
+    out << "  edge [color=\"#475569\", fontname=\"Helvetica\", fontsize=10];\n\n";
+
+    for (const std::string& nodeId : selection.orderedNodeIds) {
+        const auto it = entityById.find(nodeId);
+        if (it == entityById.end()) {
+            continue;
+        }
+        const Entity& entity = it->second;
+        const std::string label = entity.label.empty() ? entity.id : entity.label;
+        out << "  " << dotQuoted(entity.id)
+            << " [label=" << dotQuoted(label + "\n" + entity.nodeType)
+            << ", tooltip=" << dotQuoted(entity.id)
+            << "];\n";
+    }
+
+    out << '\n';
+    for (const Edge& edge : edges) {
+        if (selection.includedNodes.find(edge.sourceId) == selection.includedNodes.end()
+            || selection.includedNodes.find(edge.targetId) == selection.includedNodes.end()
+            || !edgeAllowed(edge, relationFilters)) {
+            continue;
+        }
+        std::string label = edge.relationshipType;
+        if (!edge.label.empty() && edge.label != edge.relationshipType) {
+            label += "\n" + edge.label;
+        }
+        out << "  " << dotQuoted(edge.sourceId)
+            << " -> " << dotQuoted(edge.targetId)
+            << " [label=" << dotQuoted(label)
+            << ", tooltip=" << dotQuoted("weight=" + std::to_string(edge.weight))
+            << "];\n";
+    }
+    out << "}\n";
     return out.str();
 }
 
@@ -2462,27 +2756,90 @@ int cprag_add_edge_typed(
         return setErrorCode(handle, CPRAG_IO_ERROR, "library is open read-only");
     }
 
+    const std::string metadata = metadataOrDefault(metadata_json);
+    const int metadataRc = validateMetadataJson(handle, metadata);
+    if (metadataRc != CPRAG_OK) {
+        return metadataRc;
+    }
+    const std::string effectiveType = valueOrEmpty(relationship_type).empty() ? "relationship" : valueOrEmpty(relationship_type);
+
+    sqlite3_stmt* findStmt = nullptr;
+    int prepRc = prepare(handle,
+        "SELECT id FROM edges WHERE source_id = ? AND target_id = ? AND relationship_type = ? AND label = ? LIMIT 1",
+        &findStmt);
+    if (prepRc != CPRAG_OK) {
+        return prepRc;
+    }
+    bindText(findStmt, 1, source_id);
+    bindText(findStmt, 2, target_id);
+    bindText(findStmt, 3, effectiveType);
+    bindText(findStmt, 4, label);
+
+    const int findRc = sqlite3_step(findStmt);
+    const bool existingEdge = findRc == SQLITE_ROW;
+    const sqlite3_int64 edgeId = existingEdge ? sqlite3_column_int64(findStmt, 0) : 0;
+    if (findRc != SQLITE_ROW && findRc != SQLITE_DONE) {
+        sqlite3_finalize(findStmt);
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    sqlite3_finalize(findStmt);
+
+    if (existingEdge) {
+        sqlite3_stmt* updateStmt = nullptr;
+        prepRc = prepare(
+            handle,
+            "UPDATE edges SET "
+            "weight = max(weight, ?), "
+            "metadata_json = CASE "
+            "WHEN json_type(metadata_json, '$.support_evidence') = 'array' THEN "
+            "  json_insert("
+            "    json_set(metadata_json, "
+            "      '$.support_count', COALESCE(json_extract(metadata_json, '$.support_count'), json_array_length(json_extract(metadata_json, '$.support_evidence')), 1) + 1, "
+            "      '$.last_support', json(?)), "
+            "    '$.support_evidence[#]', json(?)) "
+            "ELSE "
+            "  json_set(metadata_json, "
+            "    '$.support_count', COALESCE(json_extract(metadata_json, '$.support_count'), 1) + 1, "
+            "    '$.support_evidence', json_array(json(metadata_json), json(?)), "
+            "    '$.last_support', json(?)) "
+            "END "
+            "WHERE id = ?",
+            &updateStmt);
+        if (prepRc != CPRAG_OK) {
+            return prepRc;
+        }
+        sqlite3_bind_double(updateStmt, 1, weight);
+        bindText(updateStmt, 2, metadata);
+        bindText(updateStmt, 3, metadata);
+        bindText(updateStmt, 4, metadata);
+        bindText(updateStmt, 5, metadata);
+        sqlite3_bind_int64(updateStmt, 6, edgeId);
+
+        const int updateRc = sqlite3_step(updateStmt);
+        sqlite3_finalize(updateStmt);
+        if (updateRc != SQLITE_DONE) {
+            return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+        }
+        return CPRAG_OK;
+    }
+
     sqlite3_stmt* stmt = nullptr;
-    const int prepRc = prepare(handle,
-        "INSERT INTO edges (source_id, target_id, relationship_type, label, weight, metadata_json) VALUES (?, ?, ?, ?, ?, ?)",
+    prepRc = prepare(handle,
+        "INSERT INTO edges (source_id, target_id, relationship_type, label, weight, metadata_json) "
+        "VALUES (?, ?, ?, ?, ?, json_set(json(?), '$.support_count', 1, '$.support_evidence', json_array(json(?)), '$.last_support', json(?)))",
         &stmt);
     if (prepRc != CPRAG_OK) {
         return prepRc;
     }
 
-    const std::string metadata = metadataOrDefault(metadata_json);
-    const int metadataRc = validateMetadataJson(handle, metadata);
-    if (metadataRc != CPRAG_OK) {
-        sqlite3_finalize(stmt);
-        return metadataRc;
-    }
-    const std::string effectiveType = valueOrEmpty(relationship_type).empty() ? "relationship" : valueOrEmpty(relationship_type);
     bindText(stmt, 1, source_id);
     bindText(stmt, 2, target_id);
     bindText(stmt, 3, effectiveType);
     bindText(stmt, 4, label);
     sqlite3_bind_double(stmt, 5, weight);
     bindText(stmt, 6, metadata);
+    bindText(stmt, 7, metadata);
+    bindText(stmt, 8, metadata);
 
     const int stepRc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -2747,6 +3104,77 @@ int cprag_each_chunk(
         return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
     }
     return CPRAG_OK;
+}
+
+int cprag_chunk_ids(cprag_handle* handle, const char* source_uri, char* out_csv, size_t out_csv_size)
+{
+    if (handle == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+
+    const std::string sourceUri = valueOrEmpty(source_uri);
+    const bool hasSourceFilter = !sourceUri.empty();
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql = hasSourceFilter
+        ? "SELECT c.id "
+          "FROM chunks c "
+          "JOIN documents d ON d.id = c.document_id "
+          "WHERE d.source_uri = ? "
+          "ORDER BY d.source_uri, c.chunk_index"
+        : "SELECT c.id "
+          "FROM chunks c "
+          "JOIN documents d ON d.id = c.document_id "
+          "ORDER BY d.source_uri, c.chunk_index";
+
+    int rc = prepare(handle, sql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    if (hasSourceFilter && !bindText(stmt, 1, sourceUri)) {
+        sqlite3_finalize(stmt);
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+
+    std::ostringstream out;
+    bool first = true;
+    int stepRc = SQLITE_OK;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        if (!first) {
+            out << ',';
+        }
+        first = false;
+        out << sqlite3_column_int64(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    return copyText(handle, out.str(), out_csv, out_csv_size);
+}
+
+int cprag_chunk_text_by_id(cprag_handle* handle, long long chunk_id, char* out_text, size_t out_text_size)
+{
+    if (handle == nullptr || chunk_id <= 0) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+
+    sqlite3_stmt* stmt = nullptr;
+    int rc = prepare(handle, "SELECT text FROM chunks WHERE id = ?", &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    sqlite3_bind_int64(stmt, 1, chunk_id);
+    const int stepRc = sqlite3_step(stmt);
+    if (stepRc == SQLITE_ROW) {
+        const std::string text = columnText(stmt, 0);
+        sqlite3_finalize(stmt);
+        return copyText(handle, text, out_text, out_text_size);
+    }
+    sqlite3_finalize(stmt);
+    if (stepRc == SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_NOT_FOUND, "chunk not found");
+    }
+    return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
 }
 
 int cprag_delete_source(cprag_handle* handle, const char* source_uri, char* out_json, size_t out_json_size)
@@ -3072,6 +3500,49 @@ int cprag_vocabulary(char* out_json, size_t out_json_size)
     return copyJson(&tempHandle, buildVocabularyJson(), out_json, out_json_size);
 }
 
+int cprag_list_concepts(
+    cprag_handle* handle,
+    const char* node_type_filter_csv,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+
+    try {
+        return copyJson(
+            handle,
+            buildConceptListJson(loadEntities(handle), valueOrEmpty(node_type_filter_csv)),
+            out_json,
+            out_json_size);
+    } catch (const std::exception& ex) {
+        return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
+    }
+}
+
+int cprag_match_concepts(
+    cprag_handle* handle,
+    const char* text,
+    const char* node_type_filter_csv,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || text == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+
+    try {
+        return copyJson(
+            handle,
+            buildConceptMatchesJson(loadEntities(handle), valueOrEmpty(text), valueOrEmpty(node_type_filter_csv)),
+            out_json,
+            out_json_size);
+    } catch (const std::exception& ex) {
+        return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
+    }
+}
+
 int cprag_search(
     cprag_handle* handle,
     const char* query,
@@ -3325,6 +3796,34 @@ int cprag_subgraph(
             valueOrEmpty(relationship_type_filter_csv),
             limit);
         return copyJson(handle, json, out_json, out_json_size);
+    } catch (const std::exception& ex) {
+        return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
+    }
+}
+
+int cprag_export_dot(
+    cprag_handle* handle,
+    const char* node_type_filter_csv,
+    const char* relationship_type_filter_csv,
+    int limit,
+    char* out_dot,
+    size_t out_dot_size)
+{
+    if (handle == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+
+    try {
+        const std::string dot = buildTypedSubgraphDot(
+            loadEntities(handle),
+            loadEdges(handle),
+            valueOrEmpty(node_type_filter_csv),
+            valueOrEmpty(relationship_type_filter_csv),
+            limit);
+        if (dot.empty()) {
+            return setErrorCode(handle, CPRAG_NOT_FOUND, "no nodes matched DOT export filters");
+        }
+        return copyJson(handle, dot, out_dot, out_dot_size);
     } catch (const std::exception& ex) {
         return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
     }

@@ -2,6 +2,9 @@
 
 `crexx-rag` is designed as a small native core with multiple frontends.
 
+For a less technical explanation of the moving parts and why they exist, start
+with [`how-it-fits-together.md`](how-it-fits-together.md).
+
 ```text
 Codex / MCP clients
         |
@@ -98,7 +101,10 @@ The first implementation remains deliberately small:
 - expansion traverses both incoming and outgoing edges
 - relation filters are optional
 - BFS controls hop depth
-- shortest path and typed subgraph extraction are provided by the native core
+- shortest path, typed subgraph extraction, and Graphviz DOT export are provided
+  by the native core
+- entity writes upsert by id, and repeated relationship writes update the
+  existing source/target/type/label connection instead of creating duplicates
 
 This covers the useful part of the local GraphRAG pattern without committing to
 a graph database too early.
@@ -106,6 +112,40 @@ a graph database too early.
 The model should stay domain-neutral enough to describe non-IT maps, including
 materials, processes, and other structured knowledge domains, while keeping the
 architecture relationship map as the guiding use case.
+
+CREXX profiles are the tunable extraction layer. A profile may use
+deterministic rules or a configured local LLM to propose candidate concepts and
+relationships from chunks, but the native engine stores, links, de-duplicates,
+walks, and exports the graph.
+
+The first hybrid profile keeps the model calls above the core. Cheap local LLM
+advisory calls return simple scalar or word answers for route/value/complexity
+decisions. Only the final gated extraction call returns candidate JSON, and
+CREXX validates those candidates before writing through the native graph APIs.
+This preserves the dependency direction: Qwen/Gemma/llama.cpp are adapters and
+profile policy, not build requirements for `cprag_core`.
+
+The current graph-building methodology is corpus-first rather than
+chunk-by-chunk extraction-first. A profile should run a cheap candidate census,
+collate candidate strings by normalized name, use deterministic rules and/or a
+small local LLM to adjudicate keep/junk/ambiguous/type/alias decisions, then feed
+that registry back into chunk and concept ranking. Expensive extraction is
+reserved for a ranked shortlist where graph utility, relationship cues,
+ambiguity, or vector-neighborhood evidence suggest that typed relationships are
+worth writing.
+
+The native core should therefore grow reusable operations such as candidate
+collation, candidate registry storage, mention evidence, extraction queues, edge
+support accumulation, ambiguity work items, and external extraction pushes. Those
+operations should have one implementation with thin bindings for CLI, CREXX
+functions, CREXX address environments, and MCP where appropriate.
+
+External LLM workflows are valid producers. If another process analyzes a
+document, it may push proposed concepts and relationships into the library with
+source/chunk/span provenance, extractor id, model/prompt/profile version,
+confidence, timestamp, and evidence text. The proposals still pass through the
+same de-duplication, support accumulation, ambiguity handling, and profile
+validation as internally generated candidates.
 
 ## Provenance, Confidence, and Time
 
@@ -154,3 +194,16 @@ CLI can batch-embed stored chunks through an external command, using an
 embedding profile to render either raw text or a semantic-context envelope.
 MCP has the same external-command hook for query-time vectors. Richer provider
 integration and ranking policy still belong above the core.
+
+Vector-near chunks are extraction and retrieval signals, not typed facts. They
+can reduce redundant extraction, expose related context when names differ, and
+identify possible bridges between graph communities. They should not directly
+create domain relationships such as `conflicted-with` or `held-land-in`.
+
+Provider configuration should name adapter-level providers without creating a
+native dependency. The first open local provider id is `llama-server`, backed by
+llama.cpp's OpenAI-compatible embeddings endpoint at
+`http://127.0.0.1:8081/v1` by default and overrideable with
+`CPRAG_LLAMA_SERVER_BASE_URL`. Nomic embeddings should use `search_document:`
+prefixes for chunks and `search_query:` prefixes for queries. Ollama remains a
+supported local provider through the same external-command contract.

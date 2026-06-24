@@ -70,7 +70,7 @@ int main()
 
     rc = cprag_add_entity_typed(handle, "entity:auth", "service", "Authentication", "Authentication service handling login", "{}");
     assert(rc == CPRAG_OK);
-    rc = cprag_add_entity_typed(handle, "entity:postgres", "data-object", "PostgreSQL", "PostgreSQL user profile database", "{}");
+    rc = cprag_add_entity_typed(handle, "entity:postgres", "data-object", "PostgreSQL", "PostgreSQL user profile database", "{\"aliases\":\"Postgres|PG\"}");
     assert(rc == CPRAG_OK);
     rc = cprag_add_entity_typed(handle, "entity:k8s", "technology-node", "Kubernetes", "Kubernetes runtime platform", "{}");
     assert(rc == CPRAG_OK);
@@ -78,11 +78,36 @@ int main()
     assert(rc == CPRAG_OK);
     rc = cprag_add_edge_typed(handle, "entity:auth", "entity:k8s", "deployed-on", "Runs on Kubernetes", 1.0, "{}");
     assert(rc == CPRAG_OK);
+    rc = cprag_add_edge_typed(handle, "entity:auth", "entity:postgres", "accesses", "Reads user profiles", 0.9, "{\"updated\":true}");
+    assert(rc == CPRAG_OK);
 
     std::vector<char> buffer(65536);
 
     rc = cprag_add_entity(handle, "entity:bad", "Component", "Bad metadata should be rejected", "{not-json");
     assert(rc == CPRAG_INVALID_ARGUMENT);
+
+    rc = cprag_list_concepts(handle, "data-object", buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string concepts(buffer.data());
+    if (concepts.find("\"id\":\"entity:postgres\"") == std::string::npos
+        || concepts.find("\"aliases\":[") == std::string::npos
+        || concepts.find("\"Postgres\"") == std::string::npos
+        || concepts.find("\"PG\"") == std::string::npos
+        || concepts.find("\"id\":\"entity:auth\"") != std::string::npos) {
+        std::cerr << concepts << '\n';
+        return 1;
+    }
+
+    rc = cprag_match_concepts(handle, "Auth stores user profiles in Postgres.", "data-object", buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string conceptMatches(buffer.data());
+    if (conceptMatches.find("\"id\":\"entity:postgres\"") == std::string::npos
+        || conceptMatches.find("\"node_type\":\"data-object\"") == std::string::npos
+        || conceptMatches.find("\"matched_alias\":\"Postgres\"") == std::string::npos
+        || conceptMatches.find("\"id\":\"entity:auth\"") != std::string::npos) {
+        std::cerr << conceptMatches << '\n';
+        return 1;
+    }
 
     rc = cprag_ingest_text_ex(
         handle,
@@ -143,6 +168,22 @@ int main()
     }
     const std::vector<long long> chunkIds = chunkIdsFromJson(listedChunks);
     assert(!chunkIds.empty());
+
+    rc = cprag_chunk_ids(handle, "docs/auth.md", buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string chunkIdCsv(buffer.data());
+    if (chunkIdCsv.find(std::to_string(chunkIds.front())) == std::string::npos) {
+        std::cerr << chunkIdCsv << '\n';
+        return 1;
+    }
+
+    rc = cprag_chunk_text_by_id(handle, chunkIds.front(), buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string chunkText(buffer.data());
+    if (chunkText.find("authentication service") == std::string::npos) {
+        std::cerr << chunkText << '\n';
+        return 1;
+    }
 
     std::vector<VisitedChunk> visitedChunks;
     rc = cprag_each_chunk(handle, "docs/auth.md", visitChunk, &visitedChunks);
@@ -314,7 +355,10 @@ int main()
     if (result.find("entity:auth") == std::string::npos
         || result.find("entity:postgres") == std::string::npos
         || result.find("\"node_type\":\"service\"") == std::string::npos
-        || result.find("\"relationship_type\":\"accesses\"") == std::string::npos) {
+        || result.find("\"relationship_type\":\"accesses\"") == std::string::npos
+        || result.find("\"support_count\":2") == std::string::npos
+        || result.find("\"support_evidence\"") == std::string::npos
+        || result.find("\"updated\":true") == std::string::npos) {
         std::cerr << result << '\n';
         return 1;
     }
@@ -338,6 +382,19 @@ int main()
         std::cerr << typedSubgraph << '\n';
         return 1;
     }
+
+    rc = cprag_export_dot(handle, "service,technology-node", "deployed-on", 10, buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string dot(buffer.data());
+    if (dot.find("digraph cprag") == std::string::npos
+        || dot.find("\"entity:auth\" -> \"entity:k8s\"") == std::string::npos
+        || dot.find("deployed-on") == std::string::npos
+        || dot.find("entity:postgres") != std::string::npos) {
+        std::cerr << dot << '\n';
+        return 1;
+    }
+    rc = cprag_export_dot(handle, "no-such-node-type", "", 10, buffer.data(), buffer.size());
+    assert(rc == CPRAG_NOT_FOUND);
 
     rc = cprag_search(handle, "kubernetes payment token", 3, 1, buffer.data(), buffer.size());
     assert(rc == CPRAG_OK);

@@ -1,0 +1,238 @@
+options levelg
+import rxfnsb
+import rxrag
+
+/*
+ * Deterministic history extractor profile.
+ *
+ * This is a deliberately small demonstration of the intended shape:
+ *
+ * - generic mention extraction creates concept nodes and evidence-chunk links
+ * - domain profiles provide vocabularies and cue words
+ * - profile memory can learn accepted LLM candidates between chunk calls
+ * - typed relationships are inferred from concept types plus cue words
+ * - the native engine stores, de-duplicates, searches, walks, and exports
+ */
+
+library = "./history-deterministic.cprag"
+
+scotland_profile = "history.scotland.deterministic.v2"
+scotland_source = "profile:history:scotland:deterministic"
+scotland_text = "The Macnicols held lands in Assynt. The Macnicols are connected with Sutherland. The Mackays and Gunns are grouped with the Sutherlands. Angus Dhu Mackay was encountered at Dingwall by men from Sutherland and defeated in fierce conflict."
+
+athens_profile = "history.athens.deterministic.v2"
+athens_source = "profile:history:athens:deterministic"
+athens_text = "Themistocles is connected with Athens and the new harbour of the Piraeus. Athens rose to the head of the Ionian League. Delos was made the senate and treasury of the allies. Aristides managed the league and Cimon succeeds to the command."
+
+say init(library)
+say ingest(library, scotland_source, "Scotland deterministic extraction source", scotland_text, "plain", 1000, 0, '{"profile_id":"history.scotland.deterministic.v2"}', "external-reference", 0.72, "", "", "")
+say ingest(library, athens_source, "Athens deterministic extraction source", athens_text, "plain", 1000, 0, '{"profile_id":"history.athens.deterministic.v2"}', "external-reference", 0.78, "", "", "")
+
+call extract_scotland library, scotland_source, scotland_profile
+call extract_athens library, athens_source, athens_profile
+
+scotland_chunk = first_chunk_id(library, scotland_source)
+
+say stats(library)
+say matchconcepts(library, "The Sudrland men were with the Macnicols at Assynt.", "clan,place")
+say search(library, "Macnicol Sutherland Assynt fought", 8, 2)
+say shortestpath(library, "history:scotland:clan:macnicol", evidence_id(scotland_chunk), "")
+say exportdot(library, "clan,place,evidence-chunk", "mentioned-in,held-land-in,associated-with,conflicted-with", 40)
+say search(library, "Themistocles Piraeus Athens Delos treasury", 8, 3)
+say shortestpath(library, "history:athens:person:themistocles", "history:athens:place:delos", "served,led-by,treasury-at")
+say exportdot(library, "person,polity,place,institution,evidence-chunk", "mentioned-in,built-or-improved,served,led-by,treasury-at,succeeded-by,associated-with", 50)
+
+extract_scotland: procedure
+  arg library = .string, source_uri = .string, profile_id = .string
+  context = context_new("history.scotland")
+  ids = chunkids(library, source_uri)
+  do while ids <> ""
+    parse var ids chunk_id "," ids
+    text = chunktextbyid(library, chunk_id)
+    context = scotland_accept_llm_candidates(context, text)
+    present = scotland_mentions(library, chunk_id, profile_id, text, context)
+    call scotland_relationships library, chunk_id, profile_id, text, present
+  end
+  return
+
+scotland_mentions: procedure = .string
+  arg library = .string, chunk_id = .string, profile_id = .string, text = .string, context = .string
+  present = ""
+  present = mention_concept(library, chunk_id, profile_id, text, present, "history:scotland:clan:macnicol", "clan", "Clan Macnicol", "Macnicol|Macnicols|Nicholson|Nicholsons")
+  present = mention_concept(library, chunk_id, profile_id, text, present, "history:scotland:clan:mackay", "clan", "Clan Mackay", "Mackay|Mackays")
+  present = mention_concept(library, chunk_id, profile_id, text, present, "history:scotland:clan:gunn", "clan", "Clan Gunn", "Gunn|Gunns")
+  present = mention_concept(library, chunk_id, profile_id, text, present, "history:scotland:place:assynt", "place", "Assynt", "Assynt|Assint")
+  present = mention_concept(library, chunk_id, profile_id, text, present, "history:scotland:place:dingwall", "place", "Dingwall", "Dingwall")
+  present = mention_context_concepts(library, chunk_id, profile_id, text, present, context)
+  return present
+
+scotland_relationships: procedure
+  arg library = .string, chunk_id = .string, profile_id = .string, text = .string, present = .string
+  if contains_any(text, "held|holds|lands|land|barony|estate") = 1 then do
+    call connect_if_present library, chunk_id, profile_id, present, "history:scotland:clan:macnicol", "history:scotland:place:assynt", "held-land-in", 0.68, "Scotland land-holding cue"
+  end
+  if contains_any(text, "connected|grouped|joined|allied|clan|clans") = 1 then do
+    call connect_if_present library, chunk_id, profile_id, present, "history:scotland:clan:macnicol", "history:scotland:clan:sutherland", "associated-with", 0.56, "Scotland clan association cue"
+    call connect_if_present library, chunk_id, profile_id, present, "history:scotland:clan:mackay", "history:scotland:clan:sutherland", "associated-with", 0.56, "Scotland clan association cue"
+    call connect_if_present library, chunk_id, profile_id, present, "history:scotland:clan:gunn", "history:scotland:clan:sutherland", "associated-with", 0.56, "Scotland clan association cue"
+  end
+  if contains_any(text, "defeated|conflict|battle|fought|encountered|feud") = 1 then do
+    call connect_if_present library, chunk_id, profile_id, present, "history:scotland:clan:mackay", "history:scotland:clan:sutherland", "conflicted-with", 0.62, "Scotland conflict cue"
+    call connect_if_present library, chunk_id, profile_id, present, "history:scotland:clan:mackay", "history:scotland:place:dingwall", "associated-with", 0.5, "Scotland battle place cue"
+  end
+  return
+
+extract_athens: procedure
+  arg library = .string, source_uri = .string, profile_id = .string
+  ids = chunkids(library, source_uri)
+  do while ids <> ""
+    parse var ids chunk_id "," ids
+    text = chunktextbyid(library, chunk_id)
+    present = athens_mentions(library, chunk_id, profile_id, text)
+    call athens_relationships library, chunk_id, profile_id, text, present
+  end
+  return
+
+athens_mentions: procedure = .string
+  arg library = .string, chunk_id = .string, profile_id = .string, text = .string
+  present = ""
+  present = mention_concept(library, chunk_id, profile_id, text, present, "history:athens:person:themistocles", "person", "Themistocles", "Themistocles")
+  present = mention_concept(library, chunk_id, profile_id, text, present, "history:athens:person:aristides", "person", "Aristides", "Aristides")
+  present = mention_concept(library, chunk_id, profile_id, text, present, "history:athens:person:cimon", "person", "Cimon", "Cimon")
+  present = mention_concept(library, chunk_id, profile_id, text, present, "history:athens:polity:athens", "polity", "Athens", "Athens|Athenians|Athenian")
+  present = mention_concept(library, chunk_id, profile_id, text, present, "history:athens:place:piraeus", "place", "Piraeus", "Piraeus|Peiraeus")
+  present = mention_concept(library, chunk_id, profile_id, text, present, "history:athens:institution:ionian-league", "institution", "Ionian League", "Ionian League")
+  present = mention_concept(library, chunk_id, profile_id, text, present, "history:athens:place:delos", "place", "Delos", "Delos")
+  return present
+
+athens_relationships: procedure
+  arg library = .string, chunk_id = .string, profile_id = .string, text = .string, present = .string
+  if contains_any(text, "harbour|harbor|fortification|walls|improvements|built|new") = 1 then do
+    call connect_if_present library, chunk_id, profile_id, present, "history:athens:person:themistocles", "history:athens:place:piraeus", "built-or-improved", 0.72, "Athens public works cue"
+  end
+  if contains_any(text, "connected|conduct|command|managed|influence|statesman") = 1 then do
+    call connect_if_present library, chunk_id, profile_id, present, "history:athens:person:themistocles", "history:athens:polity:athens", "served", 0.58, "Athens person-polity cue"
+  end
+  if contains_any(text, "head|led|lead|rise|rose|command") = 1 then do
+    call connect_if_present library, chunk_id, profile_id, present, "history:athens:polity:athens", "history:athens:institution:ionian-league", "led-by", 0.7, "Athens leadership cue"
+  end
+  if contains_any(text, "treasury|senate|allies|tribute") = 1 then do
+    call connect_if_present library, chunk_id, profile_id, present, "history:athens:institution:ionian-league", "history:athens:place:delos", "treasury-at", 0.74, "Athens treasury cue"
+  end
+  if contains_any(text, "succeeds|succeeded|replaces|after") = 1 then do
+    call connect_if_present library, chunk_id, profile_id, present, "history:athens:person:aristides", "history:athens:person:cimon", "succeeded-by", 0.62, "Athens succession cue"
+  end
+  return
+
+mention_concept: procedure = .string
+  arg library = .string, chunk_id = .string, profile_id = .string, text = .string, present = .string, id = .string, node_type = .string, label = .string, aliases = .string
+  if contains_any(text, aliases) = 0 then return present
+  call add_evidence_chunk library, chunk_id, profile_id
+  say addentitytyped(library, id, node_type, label, "Extracted by deterministic profile from chunk evidence.", '{"profile_id":"' || profile_id || '","aliases":"' || aliases || '"}')
+  say addedgetyped(library, id, evidence_id(chunk_id), "mentioned-in", "Mention found in source chunk.", 0.9, metadata(profile_id, chunk_id, "Mention alias: " || label))
+  return present || id || "|" || node_type || "|" || label || ";"
+
+add_evidence_chunk: procedure
+  arg library = .string, chunk_id = .string, profile_id = .string
+  say addentitytyped(library, evidence_id(chunk_id), "evidence-chunk", "Chunk " || chunk_id, "Source chunk used as extraction evidence.", '{"profile_id":"' || profile_id || '","chunk_id":' || chunk_id || '}')
+  return
+
+connect_if_present: procedure
+  arg library = .string, chunk_id = .string, profile_id = .string, present = .string, source_id = .string, target_id = .string, relationship_type = .string, weight = .float, evidence = .string
+  if has_concept(present, source_id) = 0 then return
+  if has_concept(present, target_id) = 0 then return
+  source_label = concept_label(present, source_id)
+  target_label = concept_label(present, target_id)
+  label = "Rule found " || relationship_type || " cue between " || source_label || " and " || target_label || "."
+  say addedgetyped(library, source_id, target_id, relationship_type, label, weight, metadata(profile_id, chunk_id, evidence))
+  return
+
+context_new: procedure = .string
+  arg profile_id = .string
+  return ""
+
+context_learn_concept: procedure = .string
+  arg context = .string, id = .string, node_type = .string, label = .string, aliases = .string, learned_from = .string
+  if context_has_id(context, id) = 1 then return context
+  return context || id || "^" || node_type || "^" || label || "^" || aliases || "^" || learned_from || ";"
+
+context_has_id: procedure = .int
+  arg context = .string, id = .string
+  rest = context
+  do while rest <> ""
+    parse var rest entry ";" rest
+    parse var entry entry_id "^" entry_type "^" entry_label "^" entry_aliases "^" learned_from
+    if entry_id = id then return 1
+  end
+  return 0
+
+scotland_accept_llm_candidates: procedure = .string
+  arg context = .string, text = .string
+  /*
+   * This stands in for the later configurable LLM call. Once the profile accepts
+   * a candidate, the deterministic pass can use it for this and later chunks.
+   */
+  if contains_any(text, "Sutherland|Sutherlands") = 1 then do
+    context = context_learn_concept(context, "history:scotland:clan:sutherland", "clan", "Clan Sutherland", "Sutherland|Sutherlands|Sudrland", "accepted-llm-candidate")
+  end
+  return context
+
+mention_context_concepts: procedure = .string
+  arg library = .string, chunk_id = .string, profile_id = .string, text = .string, present = .string, context = .string
+  rest = context
+  do while rest <> ""
+    parse var rest entry ";" rest
+    parse var entry id "^" node_type "^" label "^" aliases "^" learned_from
+    present = mention_concept(library, chunk_id, profile_id, text, present, id, node_type, label, aliases)
+  end
+  return present
+
+has_concept: procedure = .int
+  arg present = .string, id = .string
+  rest = present
+  do while rest <> ""
+    parse var rest entry ";" rest
+    parse var entry entry_id "|" entry_type "|" entry_label
+    if entry_id = id then return 1
+  end
+  return 0
+
+concept_label: procedure = .string
+  arg present = .string, id = .string
+  rest = present
+  do while rest <> ""
+    parse var rest entry ";" rest
+    parse var entry entry_id "|" entry_type "|" entry_label
+    if entry_id = id then return entry_label
+  end
+  return id
+
+first_chunk_id: procedure = .string
+  arg library = .string, source_uri = .string
+  ids = chunkids(library, source_uri)
+  parse var ids chunk_id "," rest
+  return chunk_id
+
+contains_any: procedure = .int
+  arg text = .string, needles = .string
+  rest = needles
+  do while rest <> ""
+    parse var rest needle "|" rest
+    if needle <> "" then do
+      if contains(text, needle) = 1 then return 1
+    end
+  end
+  return 0
+
+contains: procedure = .int
+  arg text = .string, needle = .string
+  if pos(upper(needle), upper(text)) > 0 then return 1
+  return 0
+
+evidence_id: procedure = .string
+  arg chunk_id = .string
+  return "evidence:chunk:" || chunk_id
+
+metadata: procedure = .string
+  arg profile_id = .string, chunk_id = .string, evidence = .string
+  return '{"profile_id":"' || profile_id || '","chunk_id":' || chunk_id || ',"extractor":"deterministic-crexx","evidence":"' || evidence || '"}'

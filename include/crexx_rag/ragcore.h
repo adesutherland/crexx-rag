@@ -143,6 +143,18 @@ int cprag_each_chunk(
     cprag_chunk_visitor visitor,
     void* user_data);
 
+int cprag_chunk_ids(
+    cprag_handle* handle,
+    const char* source_uri,
+    char* out_csv,
+    size_t out_csv_size);
+
+int cprag_chunk_text_by_id(
+    cprag_handle* handle,
+    long long chunk_id,
+    char* out_text,
+    size_t out_text_size);
+
 int cprag_delete_source(
     cprag_handle* handle,
     const char* source_uri,
@@ -204,6 +216,19 @@ int cprag_vocabulary(
     char* out_json,
     size_t out_json_size);
 
+int cprag_list_concepts(
+    cprag_handle* handle,
+    const char* node_type_filter_csv,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_match_concepts(
+    cprag_handle* handle,
+    const char* text,
+    const char* node_type_filter_csv,
+    char* out_json,
+    size_t out_json_size);
+
 int cprag_search(
     cprag_handle* handle,
     const char* query,
@@ -247,6 +272,14 @@ int cprag_subgraph(
     int limit,
     char* out_json,
     size_t out_json_size);
+
+int cprag_export_dot(
+    cprag_handle* handle,
+    const char* node_type_filter_csv,
+    const char* relationship_type_filter_csv,
+    int limit,
+    char* out_dot,
+    size_t out_dot_size);
 
 int cprag_stats(
     cprag_handle* handle,

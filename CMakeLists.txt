@@ -59,6 +59,7 @@ if(NOT CREXX_RXPA_INCLUDE_DIR
 endif()
 
 find_package(SQLite3 REQUIRED)
+find_package(CURL QUIET)
 
 if(TARGET SQLite3::SQLite3)
     set(CPRAG_SQLITE_LINK SQLite3::SQLite3)
@@ -113,6 +114,10 @@ endif()
 if(CPRAG_BUILD_CLI)
     add_executable(crexx-rag cli/main.cpp)
     target_link_libraries(crexx-rag PRIVATE cprag_core)
+    if(TARGET CURL::libcurl)
+        target_link_libraries(crexx-rag PRIVATE CURL::libcurl)
+        target_compile_definitions(crexx-rag PRIVATE CPRAG_HAVE_CURL=1)
+    endif()
 endif()
 
 if(CPRAG_BUILD_MCP)
@@ -143,6 +148,29 @@ if(CPRAG_BUILD_TESTS)
     target_link_libraries(ragcore_smoke PRIVATE cprag_core)
     add_test(NAME ragcore_smoke COMMAND ragcore_smoke)
 
+    if(CPRAG_BUILD_CLI AND TARGET crexx-rag)
+        add_test(
+            NAME llama_extract_prompt_smoke
+            COMMAND $<TARGET_FILE:crexx-rag>
+                extract-llama-server
+                --dry-prompt
+                --profile scotland
+                "The Macnicols held lands in Assynt and were connected with Sutherland.")
+        set_tests_properties(llama_extract_prompt_smoke PROPERTIES
+            PASS_REGULAR_EXPRESSION "Scotland profile node types")
+        add_test(
+            NAME llama_advice_prompt_smoke
+            COMMAND $<TARGET_FILE:crexx-rag>
+                advise-llama-server
+                --dry-prompt
+                --task route
+                --profile scotland
+                --context "known=Clan Sutherland score=18"
+                "The Mackays fought the Sutherlands at Dingwall.")
+        set_tests_properties(llama_advice_prompt_smoke PROPERTIES
+            PASS_REGULAR_EXPRESSION "gemma-extract")
+    endif()
+
     if(CPRAG_BUILD_MCP AND TARGET crexx-rag-mcp)
         add_test(
             NAME mcp_smoke
@@ -172,6 +200,28 @@ if(CPRAG_BUILD_TESTS)
                 "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
                 "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/crexx-profile-smoke"
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CrexxProfileSmoke.cmake")
+        add_test(
+            NAME crexx_deterministic_extractor_smoke
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_PROFILE=${CMAKE_CURRENT_LIST_DIR}/crexx/profiles/history/deterministic_extract.crexx"
+                "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_rag>"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/crexx-deterministic-extractor-smoke"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CrexxDeterministicExtractorSmoke.cmake")
+        add_test(
+            NAME crexx_hybrid_extractor_smoke
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_PROFILE=${CMAKE_CURRENT_LIST_DIR}/crexx/profiles/history/hybrid_ingest_extract.crexx"
+                "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_rag>"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/crexx-hybrid-extractor-smoke"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CrexxHybridExtractorSmoke.cmake")
     elseif(CPRAG_BUILD_CREXX_PLUGIN)
         message(STATUS "Skipping CREXX profile smoke test; installed rxc/rxas/rxvme was not found.")
     endif()

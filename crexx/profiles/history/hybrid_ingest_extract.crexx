@@ -1,0 +1,968 @@
+options levelg
+import rxfnsb
+import rxjson
+import rxrag
+
+/*
+ * Hybrid history ingestion/extraction profile.
+ *
+ * CREXX owns the policy gate. The native engine owns storage, de-duplication,
+ * traversal, and DOT export. Cheap LLM advisory calls return simple scalars;
+ * only the final Gemma extraction call returns candidate JSON for validation.
+ */
+
+arg args = .string[]
+
+library = "./history-hybrid.cprag"
+profile = "scotland"
+mode = "offline"
+source_file = ""
+source_uri = ""
+title = ""
+text = ""
+limit = 20
+offset = 0
+stage1 = "auto"
+stage1_limit = 0
+stage3 = "on"
+chunk_size = 1200
+overlap = 180
+cli = "./cmake-build-debug/crexx-rag"
+qwen_base_url = "http://127.0.0.1:8084/v1"
+qwen_model = "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M"
+gemma_base_url = "http://127.0.0.1:8080/v1"
+gemma_model = "ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M"
+
+ai = 1
+do while ai <= args.0
+  token = args[ai]
+  select
+    when token = "--library" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--library needs a value"
+      library = args[ai]
+    end
+    when token = "--profile" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--profile needs a value"
+      profile = args[ai]
+    end
+    when token = "--mode" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--mode needs a value"
+      mode = args[ai]
+    end
+    when token = "--source-file" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--source-file needs a value"
+      source_file = args[ai]
+    end
+    when token = "--source-uri" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--source-uri needs a value"
+      source_uri = args[ai]
+    end
+    when token = "--title" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--title needs a value"
+      title = args[ai]
+    end
+    when token = "--text" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--text needs a value"
+      text = args[ai]
+    end
+    when token = "--limit" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--limit needs a value"
+      limit = args[ai]
+    end
+    when token = "--offset" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--offset needs a value"
+      offset = args[ai]
+    end
+    when token = "--stage1" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--stage1 needs a value"
+      stage1 = args[ai]
+    end
+    when token = "--stage1-limit" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--stage1-limit needs a value"
+      stage1_limit = args[ai]
+    end
+    when token = "--stage3" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--stage3 needs a value"
+      stage3 = args[ai]
+    end
+    when token = "--chunk-size" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--chunk-size needs a value"
+      chunk_size = args[ai]
+    end
+    when token = "--overlap" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--overlap needs a value"
+      overlap = args[ai]
+    end
+    when token = "--cli" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--cli needs a value"
+      cli = args[ai]
+    end
+    when token = "--qwen-base-url" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--qwen-base-url needs a value"
+      qwen_base_url = args[ai]
+    end
+    when token = "--qwen-model" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--qwen-model needs a value"
+      qwen_model = args[ai]
+    end
+    when token = "--gemma-base-url" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--gemma-base-url needs a value"
+      gemma_base_url = args[ai]
+    end
+    when token = "--gemma-model" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--gemma-model needs a value"
+      gemma_model = args[ai]
+    end
+    when token = "--help" | token = "-h" then call usage
+    otherwise call usage_error "unexpected argument: " || token
+  end
+  ai = ai + 1
+end
+
+if profile <> "scotland" & profile <> "athens" then call usage_error "--profile must be scotland or athens"
+if mode <> "offline" & mode <> "online" then call usage_error "--mode must be offline or online"
+if stage1 <> "auto" & stage1 <> "off" & stage1 <> "deterministic" & stage1 <> "llm" then call usage_error "--stage1 must be auto, off, deterministic, or llm"
+if stage3 <> "on" & stage3 <> "off" then call usage_error "--stage3 must be on or off"
+if text = "" & source_file <> "" then text = read_text_file(source_file)
+if text = "" then text = sample_text(profile)
+if source_uri = "" then do
+  if source_file <> "" then source_uri = source_file
+  else source_uri = "profile:history:" || profile || ":hybrid-sample"
+end
+if title = "" then do
+  if source_file <> "" then title = source_file
+  else title = "Hybrid " || profile || " extraction sample"
+end
+
+profile_id = "history." || profile || ".hybrid.v1"
+ignored = init(library)
+call seed_profile_vocabulary library, profile, profile_id
+ingest_result = ingest(library, source_uri, title, text, "plain", chunk_size, overlap, '{"profile_id":"' || profile_id || '"}', "external-reference", 0.76, "", "", "")
+say ingest_summary(ingest_result)
+call run_pipeline library, source_uri, profile, profile_id, mode, offset, limit, stage1, stage1_limit, stage3, cli, qwen_base_url, qwen_model, gemma_base_url, gemma_model
+say stats(library)
+say exportdot(library, graph_node_filter(profile), relation_filter(profile), 120)
+
+exit 0
+
+usage: procedure
+  call lineout "stderr", "usage: hybrid_ingest_extract.crexx [--library PATH] [--profile scotland|athens] [--mode offline|online] [--source-file PATH|--text TEXT] [--offset N] [--limit N] [--stage1 auto|off|deterministic|llm] [--stage1-limit N] [--stage3 on|off] [--cli PATH]"
+  exit 0
+return
+
+usage_error: procedure
+  arg message = .string
+  call lineout "stderr", "hybrid_ingest_extract: " || message
+  call lineout "stderr", "usage: hybrid_ingest_extract.crexx [--library PATH] [--profile scotland|athens] [--mode offline|online] [--source-file PATH|--text TEXT] [--offset N] [--limit N] [--stage1 auto|off|deterministic|llm] [--stage1-limit N] [--stage3 on|off] [--cli PATH]"
+  exit 2
+return
+
+ingest_summary: procedure = .string
+  arg result = .string
+  success = fast_field(result, '"success":', ',')
+  source = fast_field(result, '"source_uri":"', '"')
+  chunks = fast_field(result, '"chunk_count":', ',')
+  profile_id = fast_field(result, '"profile_id":"', '"')
+  if source = "" then source = "unknown"
+  if success = "" then success = "unknown"
+  if chunks = "" then chunks = "unknown"
+return "ingest success=" || success || " profile_id=" || profile_id || " source_uri=" || source || " chunks=" || chunks
+
+fast_field: procedure = .string
+  arg text = .string, marker = .string, terminator = .string
+  start = pos(marker, text)
+  if start = 0 then return ""
+  start = start + length(marker)
+  stop = pos(terminator, text, start)
+  if stop = 0 then return strip(substr(text, start))
+return strip(substr(text, start, stop - start))
+
+run_pipeline: procedure
+  arg library = .string, source_uri = .string, profile = .string, profile_id = .string, mode = .string, offset = .int, limit = .int, stage1 = .string, stage1_limit = .int, stage3 = .string, cli = .string, qwen_base_url = .string, qwen_model = .string, gemma_base_url = .string, gemma_model = .string
+  priorities = stage1_priorities(library, source_uri, profile, mode, offset, limit, stage1, stage1_limit, cli, qwen_base_url, qwen_model)
+  processed = 0
+  do while priorities <> "" & processed < limit
+    entry = best_priority_entry(priorities)
+    if entry = "" then leave
+    priorities = remove_priority_entry(priorities, entry)
+    parse var entry chunk_id "|" stage1_priority "|" stage1_proper_count "|" stage1_cue_count "|" stage1_known_count "|" stage1_names
+    text = chunktextbyid(library, chunk_id)
+    processed = processed + 1
+    say "stage2 start chunk=" || chunk_id || " order=" || processed || " priority=" || stage1_priority || " proper_names=" || stage1_proper_count || " stage1_known=" || stage1_known_count
+    present = mention_matches(library, chunk_id, profile, profile_id, text)
+    known_count = count_present(present)
+    cue_count = relation_cue_count(profile, text)
+    unknown_count = unknown_proper_name_count(text, present)
+    type_count = type_diversity(present)
+    deterministic_relations = deterministic_relationships(library, chunk_id, profile, profile_id, text, present)
+    score = graph_value_score(known_count, cue_count, unknown_count, type_count, deterministic_relations, text)
+    route = deterministic_route(score, deterministic_relations)
+    route = maybe_model_route(mode, cli, profile, text, present, score, route, qwen_base_url, qwen_model, gemma_base_url, gemma_model)
+    say "pipeline chunk=" || chunk_id || " known=" || known_count || " cues=" || cue_count || " unknown_names=" || unknown_count || " type_diversity=" || type_count || " deterministic_edges=" || deterministic_relations || " score=" || score || " route=" || route
+    if mode = "online" & route = "gemma-extract" then do
+      candidates = gemma_extract(cli, profile, text, gemma_base_url, gemma_model)
+      applied = apply_extraction_json(library, chunk_id, profile, profile_id, candidates)
+      say "pipeline chunk=" || chunk_id || " gemma_applied=" || applied
+    end
+  end
+  say "pipeline processed=" || processed || " offset=" || offset || " mode=" || mode || " profile=" || profile
+  if stage3 = "on" then call stage3_fixup library, profile, profile_id
+return
+
+stage1_priorities: procedure = .string
+  arg library = .string, source_uri = .string, profile = .string, mode = .string, offset = .int, limit = .int, stage1 = .string, stage1_limit = .int, cli = .string, qwen_base_url = .string, qwen_model = .string
+  effective_stage1 = stage1
+  if effective_stage1 = "auto" then do
+    if mode = "online" then effective_stage1 = "llm"
+    else effective_stage1 = "deterministic"
+  end
+  if effective_stage1 = "off" then effective_stage1 = "deterministic"
+  scan_limit = stage1_limit
+  if scan_limit = 0 then scan_limit = limit
+  ids = chunkids(library, source_uri)
+  skipped = 0
+  scanned = 0
+  priorities = ""
+  say "stage1 start mode=" || effective_stage1 || " offset=" || offset || " scan_limit=" || scan_limit || " profile=" || profile
+  do while ids <> ""
+    parse var ids chunk_id "," ids
+    if skipped < offset then do
+      skipped = skipped + 1
+      iterate
+    end
+    if scan_limit > 0 & scanned >= scan_limit then leave
+    text = chunktextbyid(library, chunk_id)
+    scanned = scanned + 1
+    names = ""
+    model_names = ""
+    deterministic_names = proper_names(text)
+    if effective_stage1 = "llm" then do
+      model_names = normalize_name_list(llm_advice(cli, "proper-nouns", profile, "", text, qwen_base_url, qwen_model))
+      if model_names <> "" then names = model_names
+      else names = deterministic_names
+    end
+    else names = normalize_name_list(deterministic_names)
+    proper_count = name_list_count(names)
+    if proper_count = 0 & deterministic_names <> "" then do
+      names = deterministic_names
+      proper_count = name_list_count(names)
+      if effective_stage1 = "llm" then say "stage1 llm fallback chunk=" || chunk_id || " reason=no-proper-nouns"
+    end
+    cue_count = relation_cue_count(profile, text)
+    matches = matchconcepts(library, text, match_node_filter(profile))
+    known_count = jsoncount(matches, "matches")
+    priority = stage1_priority(proper_count, cue_count, known_count, text)
+    safe_names = sanitize_field(names)
+    priorities = priorities || chunk_id || "|" || priority || "|" || proper_count || "|" || cue_count || "|" || known_count || "|" || safe_names || ";"
+    say "stage1 chunk=" || chunk_id || " scanned=" || scanned || " priority=" || priority || " proper_names=" || proper_count || " known=" || known_count || " cues=" || cue_count || " names=" || safe_names
+  end
+  say "stage1 complete scanned=" || scanned || " candidates=" || entry_count(priorities)
+return priorities
+
+stage1_priority: procedure = .int
+  arg proper_count = .int, cue_count = .int, known_count = .int, text = .string
+  priority = (2 * proper_count) + (5 * cue_count) + (6 * known_count)
+  if contains_any(text, "called|anciently|formerly|known as|descended|sons of|sprung from") = 1 then priority = priority + 6
+return priority
+
+proper_names: procedure = .string
+  arg text = .string
+  out = ""
+  phrase = ""
+  do wi = 1 to words(text)
+    token = clean_token(word(text, wi))
+    if token <> "" & is_capitalized(token) = 1 & is_stop_name(token) = 0 then do
+      if phrase = "" then phrase = token
+      else phrase = phrase || " " || token
+    end
+    else do
+      if phrase <> "" then do
+        out = append_name(out, phrase)
+        phrase = ""
+      end
+    end
+  end
+  if phrase <> "" then out = append_name(out, phrase)
+return out
+
+normalize_name_list: procedure = .string
+  arg names = .string
+  out = ""
+  token = ""
+  do i = 1 to length(names)
+    ch = substr(names, i, 1)
+    if ch = "," | ch = "|" | ch = ";" | ch = "0a"x | ch = "0d"x then do
+      out = append_name(out, token)
+      token = ""
+    end
+    else token = token || ch
+  end
+  out = append_name(out, token)
+return out
+
+append_name: procedure = .string
+  arg names = .string, value = .string
+  value = clean_name_candidate(value)
+  if value = "" then return names
+  if is_stop_name(value) = 1 | is_stage1_generic_name(value) = 1 then return names
+  if list_has_value(names, value) = 1 then return names
+  if names = "" then return value
+return names || "|" || value
+
+clean_name_candidate: procedure = .string
+  arg value = .string
+  value = strip(value)
+  if upper(value) = "NONE" then return ""
+  do while value <> "" & is_candidate_edge_char(left(value, 1)) = 0
+    value = substr(value, 2)
+  end
+  do while value <> "" & is_candidate_edge_char(right(value, 1)) = 0
+    value = left(value, length(value) - 1)
+  end
+return strip(value)
+
+is_candidate_edge_char: procedure = .int
+  arg ch = .string
+  if ch >= "A" & ch <= "Z" then return 1
+  if ch >= "a" & ch <= "z" then return 1
+  if ch >= "0" & ch <= "9" then return 1
+  if ch = "'" then return 1
+return 0
+
+list_has_value: procedure = .int
+  arg values = .string, value = .string
+  rest = values
+  do while rest <> ""
+    parse var rest item "|" rest
+    if upper(strip(item)) = upper(strip(value)) then return 1
+  end
+return 0
+
+name_list_count: procedure = .int
+  arg names = .string
+  count = 0
+  token = ""
+  do i = 1 to length(names)
+    ch = substr(names, i, 1)
+    if ch = "," | ch = "|" | ch = ";" | ch = "0a"x | ch = "0d"x then do
+      if strip(token) <> "" then count = count + 1
+      token = ""
+    end
+    else token = token || ch
+  end
+  if strip(token) <> "" then count = count + 1
+return count
+
+sanitize_field: procedure = .string
+  arg value = .string
+  out = ""
+  last_was_separator = 0
+  do i = 1 to length(value)
+    ch = substr(value, i, 1)
+    if ch = "|" | ch = ";" | ch = "0a"x | ch = "0d"x | ch = "09"x then do
+      if last_was_separator = 0 & out <> "" then out = out || ", "
+      last_was_separator = 1
+    end
+    else do
+      out = out || ch
+      last_was_separator = 0
+    end
+    if length(out) >= 220 then leave
+  end
+return strip(out)
+
+best_priority_entry: procedure = .string
+  arg entries = .string
+  best = ""
+  best_priority = -999999
+  rest = entries
+  do while rest <> ""
+    parse var rest entry ";" rest
+    if entry = "" then iterate
+    parse var entry chunk_id "|" priority "|" remaining
+    if priority > best_priority then do
+      best_priority = priority
+      best = entry
+    end
+  end
+return best
+
+remove_priority_entry: procedure = .string
+  arg entries = .string, remove = .string
+  out = ""
+  removed = 0
+  rest = entries
+  do while rest <> ""
+    parse var rest entry ";" rest
+    if entry = "" then iterate
+    if removed = 0 & entry = remove then removed = 1
+    else out = out || entry || ";"
+  end
+return out
+
+entry_count: procedure = .int
+  arg entries = .string
+  count = 0
+  rest = entries
+  do while rest <> ""
+    parse var rest entry ";" rest
+    if entry <> "" then count = count + 1
+  end
+return count
+
+stage3_fixup: procedure
+  arg library = .string, profile = .string, profile_id = .string
+  ambiguities = listconcepts(library, "ambiguity")
+  ambiguity_count = jsoncount(ambiguities, "concepts")
+  say "stage3 start profile=" || profile || " ambiguity_nodes=" || ambiguity_count
+  do i = 1 to ambiguity_count
+    id = jsonget(ambiguities, "concepts." || i || ".id")
+    label = jsonget(ambiguities, "concepts." || i || ".label")
+    say "stage3 ambiguity id=" || id || " label=" || label || " action=revisit-with-context"
+  end
+  say "stage3 complete ambiguity_nodes=" || ambiguity_count
+return
+
+maybe_model_route: procedure = .string
+  arg mode = .string, cli = .string, profile = .string, text = .string, present = .string, score = .int, route = .string, qwen_base_url = .string, qwen_model = .string, gemma_base_url = .string, gemma_model = .string
+  if mode <> "online" then return route
+  if route = "deterministic" & score < 18 then return route
+  context = "known=" || present || " score=" || score || " deterministic_route=" || route
+  qwen_route = llm_advice(cli, "route", profile, context, text, qwen_base_url, qwen_model)
+  qwen_value = llm_advice(cli, "value", profile, context, text, qwen_base_url, qwen_model)
+  qwen_complexity = llm_advice(cli, "complexity", profile, context, text, qwen_base_url, qwen_model)
+  say "pipeline qwen route=" || qwen_route || " value=" || qwen_value || " complexity=" || qwen_complexity
+  if qwen_route = "skip" & score < 10 then return "skip"
+  if qwen_route = "deterministic" & route = "deterministic" then return route
+  if qwen_route = "medium" & qwen_complexity <> "high" then return "gemma-advice"
+  if qwen_route = "gemma-advice" | qwen_route = "gemma-extract" | qwen_value >= 4 | qwen_complexity = "high" | route = "gemma-extract" then do
+    gemma_route = llm_advice(cli, "route", profile, context || " qwen_route=" || qwen_route || " qwen_value=" || qwen_value || " qwen_complexity=" || qwen_complexity, text, gemma_base_url, gemma_model)
+    say "pipeline gemma_advice route=" || gemma_route
+    if gemma_route = "gemma-extract" then return "gemma-extract"
+    if gemma_route = "deterministic" then return route
+    return gemma_route
+  end
+return route
+
+llm_advice: procedure = .string
+  arg cli = .string, task = .string, profile = .string, context = .string, text = .string, base_url = .string, model = .string
+  command = shell_quote(cli) || " advise-llama-server --task " || shell_quote(task) || " --profile " || shell_quote(profile) || " --context " || shell_quote(context) || " --base-url " || shell_quote(base_url) || " --model " || shell_quote(model) || " --temperature 0 --max-tokens 64 " || shell_quote(text)
+  answer = run_shell_stdout(command)
+  answer = first_line(answer)
+  if answer = "" then return "skip"
+return answer
+
+gemma_extract: procedure = .string
+  arg cli = .string, profile = .string, text = .string, base_url = .string, model = .string
+  command = shell_quote(cli) || " extract-llama-server --profile " || shell_quote(profile) || " --base-url " || shell_quote(base_url) || " --model " || shell_quote(model) || " --temperature 0.1 --max-tokens 2048 " || shell_quote(text)
+return run_shell_stdout(command)
+
+apply_extraction_json: procedure = .int
+  arg library = .string, chunk_id = .string, profile = .string, profile_id = .string, candidates = .string
+  if jsonvalid(candidates) = 0 then return 0
+  applied = 0
+  nodes = jsoncount(candidates, "nodes")
+  do i = 1 to nodes
+    id = jsonget(candidates, "nodes." || i || ".id")
+    node_type = jsonget(candidates, "nodes." || i || ".node_type")
+    label = jsonget(candidates, "nodes." || i || ".label")
+    confidence = jsonget(candidates, "nodes." || i || ".confidence")
+    evidence = jsonget(candidates, "nodes." || i || ".evidence")
+    aliases = aliases_from_json(candidates, "nodes." || i || ".aliases", label)
+    if id <> "" & label <> "" & allowed_node_type(profile, node_type) = 1 & confidence_at_least(confidence, 0.45) = 1 then do
+      call add_evidence_chunk library, chunk_id, profile_id
+      ignored = addentitytyped(library, id, node_type, label, "Accepted from Gemma extraction candidate.", metadata(profile_id, chunk_id, "gemma-extraction", evidence, aliases))
+      ignored = addedgetyped(library, id, evidence_id(chunk_id), "mentioned-in", "Gemma candidate mentioned in source chunk.", confidence_or_default(confidence, 0.62), metadata(profile_id, chunk_id, "gemma-extraction", evidence, ""))
+      applied = applied + 1
+    end
+  end
+  relationships = jsoncount(candidates, "relationships")
+  do i = 1 to relationships
+    source_id = jsonget(candidates, "relationships." || i || ".source_id")
+    target_id = jsonget(candidates, "relationships." || i || ".target_id")
+    relationship_type = jsonget(candidates, "relationships." || i || ".relationship_type")
+    label = jsonget(candidates, "relationships." || i || ".label")
+    confidence = jsonget(candidates, "relationships." || i || ".confidence")
+    evidence = jsonget(candidates, "relationships." || i || ".evidence")
+    if source_id <> "" & target_id <> "" & allowed_relation_type(profile, relationship_type) = 1 & confidence_at_least(confidence, 0.52) = 1 then do
+      ignored = addedgetyped(library, source_id, target_id, relationship_type, label, confidence_or_default(confidence, 0.58), metadata(profile_id, chunk_id, "gemma-extraction", evidence, ""))
+      applied = applied + 1
+    end
+  end
+return applied
+
+mention_matches: procedure = .string
+  arg library = .string, chunk_id = .string, profile = .string, profile_id = .string, text = .string
+  matches = matchconcepts(library, text, match_node_filter(profile))
+  count = jsoncount(matches, "matches")
+  present = ""
+  ambiguity_seen = ""
+  do i = 1 to count
+    id = jsonget(matches, "matches." || i || ".id")
+    node_type = jsonget(matches, "matches." || i || ".node_type")
+    label = jsonget(matches, "matches." || i || ".label")
+    matched_alias = jsonget(matches, "matches." || i || ".matched_alias")
+    if id <> "" then do
+      if alias_match_count(matches, count, matched_alias) > 1 then do
+        if contains_any(matched_alias, ambiguity_seen) = 0 then do
+          ambiguity_seen = append_pipe(ambiguity_seen, matched_alias)
+          call add_ambiguity_node library, chunk_id, profile_id, matched_alias, matches, count
+        end
+      end
+      else do
+        if has_concept(present, id) = 0 then do
+          call add_evidence_chunk library, chunk_id, profile_id
+          ignored = addedgetyped(library, id, evidence_id(chunk_id), "mentioned-in", "Known concept mention: " || matched_alias, 0.88, metadata(profile_id, chunk_id, "known-concept-match", matched_alias, ""))
+          present = present || id || "|" || node_type || "|" || label || ";"
+        end
+      end
+    end
+  end
+return present
+
+alias_match_count: procedure = .int
+  arg matches = .string, count = .int, alias = .string
+  found = 0
+  do i = 1 to count
+    matched_alias = jsonget(matches, "matches." || i || ".matched_alias")
+    if matched_alias = alias then found = found + 1
+  end
+return found
+
+add_ambiguity_node: procedure
+  arg library = .string, chunk_id = .string, profile_id = .string, alias = .string, matches = .string, count = .int
+  ambiguity_id = "ambiguity:chunk:" || chunk_id || ":" || slug(alias)
+  candidate_ids = ""
+  call add_evidence_chunk library, chunk_id, profile_id
+  ignored = addentitytyped(library, ambiguity_id, "ambiguity", "Ambiguous mention: " || alias, "Mention matched multiple profile concepts and requires Stage 3 disambiguation.", metadata(profile_id, chunk_id, "ambiguity-detection", "pending", ""))
+  ignored = addedgetyped(library, ambiguity_id, evidence_id(chunk_id), "mentioned-in", "Ambiguous mention found in source chunk.", 0.5, metadata(profile_id, chunk_id, "ambiguity-detection", alias, ""))
+  do i = 1 to count
+    id = jsonget(matches, "matches." || i || ".id")
+    node_type = jsonget(matches, "matches." || i || ".node_type")
+    label = jsonget(matches, "matches." || i || ".label")
+    matched_alias = jsonget(matches, "matches." || i || ".matched_alias")
+    if matched_alias = alias & id <> "" then do
+      candidate_ids = append_pipe(candidate_ids, id)
+      ignored = addedgetyped(library, id, ambiguity_id, "candidate-for", "Candidate interpretation for ambiguous mention " || alias || ".", 0.4, metadata(profile_id, chunk_id, "ambiguity-candidate", alias || " -> " || label || " (" || node_type || ")", ""))
+    end
+  end
+  ignored = addentitytyped(library, ambiguity_id, "ambiguity", "Ambiguous mention: " || alias, "Mention matched multiple profile concepts and requires Stage 3 disambiguation.", metadata(profile_id, chunk_id, "ambiguity-detection", "candidates=" || candidate_ids, ""))
+return
+
+deterministic_relationships: procedure = .int
+  arg library = .string, chunk_id = .string, profile = .string, profile_id = .string, text = .string, present = .string
+  relations = 0
+  if profile = "scotland" then do
+    if contains_any(text, "held|holds|lands|land|barony|estate") = 1 then do
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:scotland:clan:macnicol", "history:scotland:place:assynt", "held-land-in", 0.68, "Scotland land-holding cue")
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:scotland:clan:sutherland", "history:scotland:place:sutherland", "held-land-in", 0.58, "Scotland land/place cue")
+    end
+    if contains_any(text, "connected|grouped|joined|allied|confederated|clan|clans") = 1 then do
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:scotland:clan:macnicol", "history:scotland:clan:sutherland", "associated-with", 0.56, "Scotland clan association cue")
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:scotland:clan:mackay", "history:scotland:clan:sutherland", "associated-with", 0.56, "Scotland clan association cue")
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:scotland:clan:gunn", "history:scotland:clan:sutherland", "associated-with", 0.56, "Scotland clan association cue")
+    end
+    if contains_any(text, "defeated|conflict|battle|fought|encountered|feud|slain|killed") = 1 then do
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:scotland:clan:mackay", "history:scotland:clan:sutherland", "conflicted-with", 0.62, "Scotland conflict cue")
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:scotland:clan:gunn", "history:scotland:clan:sutherland", "conflicted-with", 0.58, "Scotland conflict cue")
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:scotland:person:angus-dhu-mackay", "history:scotland:place:dingwall", "associated-with", 0.54, "Scotland battle place cue")
+    end
+  end
+  else do
+    if contains_any(text, "harbour|harbor|fortification|walls|improvements|built|new") = 1 then relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:athens:person:themistocles", "history:athens:place:piraeus", "built-or-improved", 0.72, "Athens public works cue")
+    if contains_any(text, "connected|conduct|command|managed|influence|statesman|general") = 1 then relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:athens:person:themistocles", "history:athens:polity:athens", "served", 0.58, "Athens person-polity cue")
+    if contains_any(text, "head|led|lead|rise|rose|command") = 1 then relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:athens:polity:athens", "history:athens:institution:ionian-league", "led-by", 0.7, "Athens leadership cue")
+    if contains_any(text, "treasury|senate|allies|tribute") = 1 then relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:athens:institution:ionian-league", "history:athens:place:delos", "treasury-at", 0.74, "Athens treasury cue")
+    if contains_any(text, "succeeds|succeeded|replaces|after") = 1 then relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:athens:person:aristides", "history:athens:person:cimon", "succeeded-by", 0.62, "Athens succession cue")
+  end
+return relations
+
+connect_if_present: procedure = .int
+  arg library = .string, chunk_id = .string, profile_id = .string, present = .string, source_id = .string, target_id = .string, relationship_type = .string, weight = .float, evidence = .string
+  if has_concept(present, source_id) = 0 then return 0
+  if has_concept(present, target_id) = 0 then return 0
+  source_label = concept_label(present, source_id)
+  target_label = concept_label(present, target_id)
+  label = "Rule found " || relationship_type || " cue between " || source_label || " and " || target_label || "."
+  ignored = addedgetyped(library, source_id, target_id, relationship_type, label, weight, metadata(profile_id, chunk_id, "deterministic-crexx", evidence, ""))
+return 1
+
+graph_value_score: procedure = .int
+  arg known = .int, cues = .int, unknown = .int, type_count = .int, deterministic_relations = .int, text = .string
+  score = (3 * known) + (4 * cues) + (2 * unknown) + (5 * type_count) + (6 * deterministic_relations)
+  if contains_any(text, "called|anciently|formerly|alias|known as|descended|sons of|sprung from") = 1 then score = score + 5
+  if known = 0 & cues = 0 then score = score - 5
+return score
+
+deterministic_route: procedure = .string
+  arg score = .int, deterministic_relations = .int
+  if deterministic_relations > 0 & score >= 8 then return "deterministic"
+  if score >= 22 then return "gemma-extract"
+  if score >= 14 then return "gemma-advice"
+  if score >= 6 then return "medium"
+return "skip"
+
+relation_cue_count: procedure = .int
+  arg profile = .string, text = .string
+  cues = 0
+  if profile = "scotland" then do
+    cues = cues + contains_any(text, "held|holds|lands|barony|estate")
+    cues = cues + contains_any(text, "connected|grouped|joined|allied|confederated")
+    cues = cues + contains_any(text, "defeated|conflict|battle|fought|encountered|feud|slain|killed")
+    cues = cues + contains_any(text, "called|anciently|formerly|known as|descended|sons of|sprung from")
+  end
+  else do
+    cues = cues + contains_any(text, "harbour|harbor|fortification|walls|built")
+    cues = cues + contains_any(text, "command|managed|statesman|general")
+    cues = cues + contains_any(text, "head|led|lead|rose")
+    cues = cues + contains_any(text, "treasury|senate|tribute|allies")
+    cues = cues + contains_any(text, "succeeds|succeeded|replaces")
+  end
+return cues
+
+unknown_proper_name_count: procedure = .int
+  arg text = .string, present = .string
+  count = 0
+  do wi = 1 to words(text)
+    token = clean_token(word(text, wi))
+    if token <> "" & is_capitalized(token) = 1 & is_stop_name(token) = 0 then do
+      if present_contains_label(present, token) = 0 then count = count + 1
+    end
+  end
+return count
+
+type_diversity: procedure = .int
+  arg present = .string
+  seen = ""
+  count = 0
+  rest = present
+  do while rest <> ""
+    parse var rest entry ";" rest
+    parse var entry id "|" node_type "|" label
+    if node_type <> "" & contains_any(node_type, seen) = 0 then do
+      seen = append_pipe(seen, node_type)
+      count = count + 1
+    end
+  end
+return count
+
+count_present: procedure = .int
+  arg present = .string
+  count = 0
+  rest = present
+  do while rest <> ""
+    parse var rest entry ";" rest
+    if entry <> "" then count = count + 1
+  end
+return count
+
+has_concept: procedure = .int
+  arg present = .string, id = .string
+  rest = present
+  do while rest <> ""
+    parse var rest entry ";" rest
+    parse var entry entry_id "|" entry_type "|" entry_label
+    if entry_id = id then return 1
+  end
+return 0
+
+present_contains_label: procedure = .int
+  arg present = .string, token = .string
+  rest = present
+  do while rest <> ""
+    parse var rest entry ";" rest
+    parse var entry entry_id "|" entry_type "|" entry_label
+    if contains(entry_label, token) = 1 then return 1
+  end
+return 0
+
+concept_label: procedure = .string
+  arg present = .string, id = .string
+  rest = present
+  do while rest <> ""
+    parse var rest entry ";" rest
+    parse var entry entry_id "|" entry_type "|" entry_label
+    if entry_id = id then return entry_label
+  end
+return id
+
+add_evidence_chunk: procedure
+  arg library = .string, chunk_id = .string, profile_id = .string
+  ignored = addentitytyped(library, evidence_id(chunk_id), "evidence-chunk", "Chunk " || chunk_id, "Source chunk used as extraction evidence.", metadata(profile_id, chunk_id, "evidence", "source chunk", ""))
+return
+
+seed_profile_vocabulary: procedure
+  arg library = .string, profile = .string, profile_id = .string
+  if profile = "scotland" then do
+    call seed_concept library, profile_id, "history:scotland:clan:macnicol", "clan", "Clan Macnicol", "Macnicol|Macnicols|Nicholson|Nicholsons"
+    call seed_concept library, profile_id, "history:scotland:clan:sutherland", "clan", "Clan Sutherland", "Sutherland|Sutherlands|Sudrland"
+    call seed_concept library, profile_id, "history:scotland:clan:mackay", "clan", "Clan Mackay", "Mackay|Mackays|MacKay|MacKays"
+    call seed_concept library, profile_id, "history:scotland:clan:gunn", "clan", "Clan Gunn", "Gunn|Gunns"
+    call seed_concept library, profile_id, "history:scotland:person:angus-dhu-mackay", "person", "Angus Dhu Mackay", "Angus Dhu Mackay|Angus Mackay"
+    call seed_concept library, profile_id, "history:scotland:place:assynt", "place", "Assynt", "Assynt|Assint"
+    call seed_concept library, profile_id, "history:scotland:place:dingwall", "place", "Dingwall", "Dingwall"
+    call seed_concept library, profile_id, "history:scotland:place:sutherland", "place", "Sutherland", "Sutherland"
+  end
+  else do
+    call seed_concept library, profile_id, "history:athens:person:themistocles", "person", "Themistocles", "Themistocles"
+    call seed_concept library, profile_id, "history:athens:person:aristides", "person", "Aristides", "Aristides"
+    call seed_concept library, profile_id, "history:athens:person:cimon", "person", "Cimon", "Cimon"
+    call seed_concept library, profile_id, "history:athens:polity:athens", "polity", "Athens", "Athens|Athenians|Athenian"
+    call seed_concept library, profile_id, "history:athens:place:piraeus", "place", "Piraeus", "Piraeus|Peiraeus"
+    call seed_concept library, profile_id, "history:athens:institution:ionian-league", "institution", "Ionian League", "Ionian League|allies"
+    call seed_concept library, profile_id, "history:athens:place:delos", "place", "Delos", "Delos"
+  end
+return
+
+seed_concept: procedure
+  arg library = .string, profile_id = .string, id = .string, node_type = .string, label = .string, aliases = .string
+  ignored = addentitytyped(library, id, node_type, label, "Profile vocabulary seed.", metadata(profile_id, 0, "profile-vocabulary", "seed", aliases))
+return
+
+match_node_filter: procedure = .string
+  arg profile = .string
+  if profile = "scotland" then return "clan,person,place"
+return "person,polity,place,institution"
+
+graph_node_filter: procedure = .string
+  arg profile = .string
+  if profile = "scotland" then return "clan,person,place,evidence-chunk,ambiguity"
+return "person,polity,place,institution,evidence-chunk,ambiguity"
+
+node_filter: procedure = .string
+  arg profile = .string
+return graph_node_filter(profile)
+
+relation_filter: procedure = .string
+  arg profile = .string
+  if profile = "scotland" then return "mentioned-in,candidate-for,held-land-in,associated-with,conflicted-with,claimed-descent-from,served,source-claims"
+return "mentioned-in,candidate-for,served,led-by,built-or-improved,treasury-at,succeeded-by,opposed-by,source-claims"
+
+allowed_node_type: procedure = .int
+  arg profile = .string, node_type = .string
+  if profile = "scotland" then return contains_any(node_type, "clan|person|place|source-work|evidence-chunk|ambiguity")
+return contains_any(node_type, "person|polity|place|institution|source-work|evidence-chunk|ambiguity")
+
+allowed_relation_type: procedure = .int
+  arg profile = .string, relationship_type = .string
+  if relationship_type = "mentioned-in" then return 1
+  if relationship_type = "candidate-for" then return 1
+  if profile = "scotland" then return contains_any(relationship_type, "held-land-in|associated-with|conflicted-with|claimed-descent-from|served|source-claims")
+return contains_any(relationship_type, "served|led-by|built-or-improved|treasury-at|succeeded-by|opposed-by|source-claims")
+
+metadata: procedure = .string
+  arg profile_id = .string, chunk_id = .string, extractor = .string, evidence = .string, aliases = .string
+  keys = .string[]
+  values = .string[]
+  keys[1] = "profile_id"; values[1] = jsonquote(profile_id)
+  keys[2] = "chunk_id"; values[2] = chunk_id
+  keys[3] = "extractor"; values[3] = jsonquote(extractor)
+  keys[4] = "evidence"; values[4] = jsonquote(evidence)
+  if aliases <> "" then do
+    keys[5] = "aliases"; values[5] = jsonquote(aliases)
+  end
+return jsonobject(keys, values)
+
+aliases_from_json: procedure = .string
+  arg json = .string, path = .string, fallback = .string
+  count = jsoncount(json, path)
+  out = ""
+  do i = 1 to count
+    value = jsonget(json, path || "." || i)
+    if value <> "" then out = append_pipe(out, value)
+  end
+  if out = "" then out = fallback
+return out
+
+confidence_at_least: procedure = .int
+  arg value = .string, threshold = .float
+  if value = "" then return 1
+  if value >= threshold then return 1
+return 0
+
+confidence_or_default: procedure = .float
+  arg value = .string, fallback = .float
+  if value = "" then return fallback
+return value
+
+sample_text: procedure = .string
+  arg profile = .string
+  if profile = "scotland" then return "The Macnicols held lands in Assynt. The Macnicols are connected with Sutherland. The Mackays and Gunns are grouped with the Sutherlands. Angus Dhu Mackay was encountered at Dingwall by men from Sutherland and defeated in fierce conflict."
+return "Themistocles is connected with Athens and the new harbour of the Piraeus. Athens rose to the head of the Ionian League. Delos was made the senate and treasury of the allies. Aristides managed the league and Cimon succeeds to the command."
+
+read_text_file: procedure = .string
+  arg path = .string
+  command = "cat " || shell_quote(path)
+return run_shell_stdout(command)
+
+run_shell_stdout: procedure = .string
+  arg command = .string
+  command_lines = .string[]
+  command_lines[1] = command
+  out = .string[]
+  err = .string[]
+  address command "sh" input command_lines output out error err
+  shell_rc = rc
+  if shell_rc <> 0 then do
+    call lineout "stderr", "hybrid_ingest_extract: command failed rc=" || shell_rc || " command=" || command
+    call write_stem "stderr", err
+    return ""
+  end
+return join_lines(out)
+
+write_stem: procedure
+  arg stream = .string, values = .string[]
+  do i = 1 to values.0
+    call lineout stream, values[i]
+  end
+return
+
+join_lines: procedure = .string
+  arg values = .string[]
+  out = ""
+  do i = 1 to values.0
+    if i > 1 then out = out || "0a"x
+    out = out || values[i]
+  end
+return out
+
+first_line: procedure = .string
+  arg text = .string
+  newline = pos("0a"x, text)
+  if newline = 0 then return strip(text)
+  line = substr(text, 1, newline - 1)
+return strip(line)
+
+shell_quote: procedure = .string
+  arg value = .string
+  quote = "'"
+  out = quote
+  do i = 1 to length(value)
+    ch = substr(value, i, 1)
+    if ch = quote then out = out || quote || "\" || quote || quote
+    else out = out || ch
+  end
+return out || quote
+
+append_pipe: procedure = .string
+  arg text = .string, value = .string
+  if value = "" then return text
+  if text = "" then return value
+return text || "|" || value
+
+contains_any: procedure = .int
+  arg text = .string, needles = .string
+  rest = needles
+  do while rest <> ""
+    parse var rest needle "|" rest
+    if needle <> "" then do
+      if contains(text, needle) = 1 then return 1
+    end
+  end
+return 0
+
+contains: procedure = .int
+  arg text = .string, needle = .string
+  if pos(upper(needle), upper(text)) > 0 then return 1
+return 0
+
+clean_token: procedure = .string
+  arg token = .string
+  do while token <> "" & is_name_char(left(token, 1)) = 0
+    token = substr(token, 2)
+  end
+  do while token <> "" & is_name_char(right(token, 1)) = 0
+    token = left(token, length(token) - 1)
+  end
+return token
+
+is_name_char: procedure = .int
+  arg ch = .string
+  if ch >= "A" & ch <= "Z" then return 1
+  if ch >= "a" & ch <= "z" then return 1
+  if ch = "-" | ch = "'" then return 1
+return 0
+
+is_capitalized: procedure = .int
+  arg token = .string
+  if token = "" then return 0
+  ch = left(token, 1)
+  if ch >= "A" & ch <= "Z" then return 1
+return 0
+
+is_stop_name: procedure = .int
+  arg token = .string
+  clean = strip(token)
+  if clean = "" then return 1
+  if length(clean) = 1 then return 1
+  stops = "The|A|An|And|But|Or|In|On|Of|To|For|From|By|With|As|At|This|That|These|Those|It|Its|He|She|They|We|I|His|Her|Their|When|Where|While|After|Before|Since|There|Here|Yet|One|What|Into|Down|Every|Each|Such|Chapter|Book|Volume|Part|Section|Appendix|No|Mr|Mrs|Dr|Sir|Lord|Lady|Clan|Clans|Chief|Chiefs|King|Kings|Queen|Queens"
+  rest = stops
+  do while rest <> ""
+    parse var rest stop "|" rest
+    if upper(clean) = upper(stop) then return 1
+  end
+return 0
+
+is_stage1_generic_name: procedure = .int
+  arg value = .string
+  clean = upper(strip(value))
+  generics = "SCOTLAND|SCOTTISH|SCOTS|HIGHLAND|HIGHLANDS|HIGHLANDERS|GAELIC|CELTIC|LOWLANDS|GOVERNMENT|ACCORDING|ILLUSTRATION|ILLUSTRATIONS|FOOTNOTE|FOOTNOTES|PREFACE|TITLE|CONTENTS|LISTS|INDEX|TEXT|MANY|GENERAL HISTORY|GREATER|SECOND|ORIGIN|DETAILED ACCOUNT|EACH SEPARATE|MOST RECENT INVESTIGATIONS ILLUSTRATIONS BESIDES"
+  rest = generics
+  do while rest <> ""
+    parse var rest generic "|" rest
+    if clean = generic then return 1
+  end
+return 0
+
+slug: procedure = .string
+  arg value = .string
+  out = ""
+  last_was_dash = 0
+  do i = 1 to length(value)
+    ch = substr(value, i, 1)
+    if is_slug_char(ch) = 1 then do
+      out = out || ch
+      last_was_dash = 0
+    end
+    else do
+      if out <> "" & last_was_dash = 0 then do
+        out = out || "-"
+        last_was_dash = 1
+      end
+    end
+  end
+  do while right(out, 1) = "-"
+    out = left(out, length(out) - 1)
+  end
+  if out = "" then out = "unknown"
+return out
+
+is_slug_char: procedure = .int
+  arg ch = .string
+  if ch >= "A" & ch <= "Z" then return 1
+  if ch >= "a" & ch <= "z" then return 1
+  if ch >= "0" & ch <= "9" then return 1
+return 0
+
+evidence_id: procedure = .string
+  arg chunk_id = .string
+return "evidence:chunk:" || chunk_id

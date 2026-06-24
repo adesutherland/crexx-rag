@@ -15,8 +15,12 @@ hops = 2
 rag = .raglibrary(library)
 
 say rag.create()
+say rag.addEntity("entity:auth", "service", "Authentication", "Authentication service", "{}")
+say rag.addEntity("entity:postgres", "data-object", "PostgreSQL", "User profile database", "{}")
+say rag.addEdge("entity:auth", "entity:postgres", "accesses", "Reads user profiles", 1.0, "{}")
 say rag.ingestText("profile:balanced", "Balanced profile", "Auth uses the PostgreSQL user profile database.", "plain", 120, 20, "{}")
 say rag.sourcesJson()
 say rag.vectorStatusJson()
 say rag.searchGraph(searchText, topK, hops)
+say rag.graphDot("service,data-object", "accesses", 20)
 say rag.sourceCount()

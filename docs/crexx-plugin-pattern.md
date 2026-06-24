@@ -76,3 +76,46 @@ The portable project entry point is:
 ```bash
 ctest --preset debug -R crexx_profile_smoke --output-on-failure
 ```
+
+For manual late-bound profile experiments that use CREXXSAA caching, inspect or
+clear the cache with:
+
+```bash
+crexxsaa --location
+crexxsaa --list
+crexxsaa --clear
+```
+
+The CTest path above still compiles and assembles explicitly with `rxc` and
+`rxas`, so it is a direct installed-toolchain smoke rather than a CREXXSAA cache
+test.
+
+## Address Environments
+
+CREXX/Rexx address environments are the right style for command-shaped RAG and
+model operations. They should be treated as a programmer-friendly surface over
+the same operations exposed by the native API and CLI, not as a separate
+implementation.
+
+The design target is one operation vocabulary with several bindings:
+
+```text
+native helper/API
+  -> CLI command for humans and shell scripts
+  -> CREXX function for direct profile calls
+  -> CREXX address environment command for profile orchestration
+```
+
+For example, a future `ADDRESS CPRAG` surface could expose commands shaped like:
+
+```text
+COLLATE CANDIDATES PROFILE scotland
+ADJUDICATE CANDIDATES MODEL qwen2.5-3b
+RANK CHUNKS USING graph vector
+PUSH EXTRACTION SOURCE chunk:123
+EXPORT DOT TYPES clan,place
+```
+
+Those commands should call the same core/adapter operations as `crexx-rag`
+commands. This keeps the CLI useful for humans while making CREXX profiles read
+like policy scripts rather than hand-written shell pipelines.

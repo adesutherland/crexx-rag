@@ -399,6 +399,149 @@ PROCEDURE(listchunks)
     RESETSIGNAL
 }
 
+PROCEDURE(chunkids)
+{
+    if (NUM_ARGS < 1 || NUM_ARGS > 2) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, optional source_uri expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* source_uri = NUM_ARGS >= 2 ? GETSTRING(ARG(1)) : "";
+    rc = cprag_chunk_ids(handle, source_uri, buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(chunktextbyid)
+{
+    if (NUM_ARGS != 2) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, chunk_id expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    rc = cprag_chunk_text_by_id(handle, GETINT(ARG(1)), buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(listconcepts)
+{
+    if (NUM_ARGS < 1 || NUM_ARGS > 2) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, optional node_type_filter_csv expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* node_filter = NUM_ARGS >= 2 ? GETSTRING(ARG(1)) : "";
+    rc = cprag_list_concepts(handle, node_filter, buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(matchconcepts)
+{
+    if (NUM_ARGS < 2 || NUM_ARGS > 3) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, text, optional node_type_filter_csv expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* node_filter = NUM_ARGS >= 3 ? GETSTRING(ARG(2)) : "";
+    rc = cprag_match_concepts(handle, GETSTRING(ARG(1)), node_filter, buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
 PROCEDURE(deletesource)
 {
     if (NUM_ARGS != 2) {
@@ -796,6 +939,44 @@ PROCEDURE(subgraph)
     RESETSIGNAL
 }
 
+PROCEDURE(exportdot)
+{
+    if (NUM_ARGS < 1 || NUM_ARGS > 4) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, optional node_type_filter_csv, relationship_type_filter_csv, limit expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* node_filter = NUM_ARGS >= 2 ? GETSTRING(ARG(1)) : "";
+    const char* relation_filter = NUM_ARGS >= 3 ? GETSTRING(ARG(2)) : "";
+    const int limit = NUM_ARGS >= 4 ? GETINT(ARG(3)) : 100;
+    rc = cprag_export_dot(handle, node_filter, relation_filter, limit, buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
 PROCEDURE(stats)
 {
     if (NUM_ARGS != 1) {
@@ -872,6 +1053,10 @@ ADDPROC(ingest,    "rxrag.ingest",    "g", ".string", "path=.string,source_uri=.
 ADDPROC(listsources, "rxrag.listsources", "g", ".string", "path=.string");
 ADDPROC(timeline, "rxrag.timeline", "g", ".string", "path=.string,limit=.int");
 ADDPROC(listchunks, "rxrag.listchunks", "g", ".string", "path=.string,source_uri=.string");
+ADDPROC(chunkids, "rxrag.chunkids", "g", ".string", "path=.string,source_uri=.string");
+ADDPROC(chunktextbyid, "rxrag.chunktextbyid", "g", ".string", "path=.string,chunk_id=.int");
+ADDPROC(listconcepts, "rxrag.listconcepts", "g", ".string", "path=.string,node_type_filter_csv=.string");
+ADDPROC(matchconcepts, "rxrag.matchconcepts", "g", ".string", "path=.string,text=.string,node_type_filter_csv=.string");
 ADDPROC(deletesource, "rxrag.deletesource", "g", ".string", "path=.string,source_uri=.string");
 ADDPROC(vectorstatus, "rxrag.vectorstatus", "g", ".string", "path=.string");
 ADDPROC(embeddingtext, "rxrag.embeddingtext", "g", ".string", "path=.string,chunk_id=.int,embedding_profile=.string");
@@ -883,6 +1068,7 @@ ADDPROC(search,    "rxrag.search",    "g", ".string", "path=.string,query=.strin
 ADDPROC(expand,    "rxrag.expand",    "g", ".string", "path=.string,anchors_csv=.string,hops=.int,relation_filter_csv=.string");
 ADDPROC(shortestpath, "rxrag.shortestpath", "g", ".string", "path=.string,source_id=.string,target_id=.string,relationship_filter_csv=.string");
 ADDPROC(subgraph, "rxrag.subgraph", "g", ".string", "path=.string,node_type_filter_csv=.string,relationship_type_filter_csv=.string,limit=.int");
+ADDPROC(exportdot, "rxrag.exportdot", "g", ".string", "path=.string,node_type_filter_csv=.string,relationship_type_filter_csv=.string,limit=.int");
 ADDPROC(stats,     "rxrag.stats",     "g", ".string", "path=.string");
 ADDPROC(chunk,     "rxrag.chunk",     "g", ".string", "text=.string,chunk_size=.int,overlap=.int,file_type=.string");
 ENDLOADFUNCS

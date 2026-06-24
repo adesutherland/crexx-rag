@@ -97,6 +97,10 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
 - FAISS is a vector index/search backend, not an embedding provider. Keep
   embedding generation in adapters, scripts, CREXX/profile orchestration, or
   provider wrappers, and pass fixed-length vectors into the native core.
+- Keep local embedding providers optional and adapter-level. The first open
+  local provider path is `llama-server` from llama.cpp, with setup notes in
+  `docs/local-embeddings.md`; Ollama remains supported through the same
+  external embedding-command contract.
 - Nodes have meaningful types and relationships have meaningful type/semantic
   labels. Do not treat these as presentation-only metadata; they affect
   traversal, filtering, ranking, and explanation.
@@ -115,6 +119,10 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
   - simple ranking hooks
 - Keep user-tunable ranking and retrieval policy in CREXX Level G/profile
   scripts where practical. MCP should remain a thin client-facing adapter.
+- Prefer CREXX and C++ for project pipeline logic and hot paths. Python may be
+  useful for optional experiments or user-provided tools, but do not make the
+  repeatable ingestion/extraction pipeline shell through Python when a CREXX,
+  C++, or direct CLI/address-environment route is practical.
 - LLM-facing MCP search should default to `mode=auto`: use lexical search unless
   a compatible active vector index and embedding command are configured. Manual
   `lexical`, `vector`, and `hybrid` modes are for diagnostics and profiles.
@@ -134,7 +142,12 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
 - FAISS is optional and must stay behind the C ABI. SQLite remains the source of
   truth for vector metadata; `vectors.faiss` is a rebuildable sidecar.
 - Embedding providers should remain optional and adapter-level; local Ollama or
-  other providers can be wrapped as commands that emit JSON vectors.
+  llama.cpp `llama-server` can be wrapped as commands that emit JSON vectors.
+  Use provider id `llama-server`, default base URL
+  `http://127.0.0.1:8081/v1`, and `CPRAG_LLAMA_SERVER_BASE_URL` for overrides.
+  The default llama.cpp embedder is
+  `nomic-ai/nomic-embed-text-v1.5-GGUF:Q4_K_M`; Nomic inputs should be prefixed
+  with `search_document: ` for chunks and `search_query: ` for queries.
 - Avoid adding a graph database dependency until the native essential graph layer
   is clearly insufficient.
 - CREXX development headers and plugin build metadata should come from the
@@ -154,8 +167,10 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
   with FTS5 chunk hits. `cprag_search_with_vector` supports lexical, vector,
   hybrid, and auto chunk retrieval modes. Lexical chunk rank is weighted by
   chunk confidence.
-- Graph expansion is BFS over incoming and outgoing edges; shortest path and
-  typed subgraph extraction are available in the native core.
+- Graph expansion is BFS over incoming and outgoing edges; shortest path, typed
+  subgraph extraction, and Graphviz DOT export are available in the native core.
+  Entity writes upsert by id, and repeated relationship writes update the
+  existing source/target/type/label connection instead of duplicating it.
 - Chunking is a Qt-free port inspired by CognitivePipelines' RAG chunkers,
   currently covering plain text, Markdown, and Rexx-oriented source.
 - MCP server is a hardened stdio adapter with status, search, vocabulary,
@@ -164,14 +179,68 @@ The repeatable pattern is documented in `docs/crexx-plugin-pattern.md`.
   and typed arguments, and it is read-only by default. It can call an external
   embedding command for automatic hybrid search when configured.
 - CREXX plugin publishes Level G RXPA signatures and currently builds through
-  the temporary vendored rxpa headers. It includes timeline, vector status,
-  chunk embedding input rendering, chunk embedding storage, FAISS rebuild, and
-  vector search functions using comma-separated float vectors at the CREXX
-  boundary.
+  the temporary vendored rxpa headers. It includes timeline, source/chunk
+  listing, chunk id/text lookup for profile extractors, known-concept listing
+  and text matching, vector status, chunk embedding input rendering, chunk
+  embedding storage, FAISS rebuild, and vector search functions using
+  comma-separated float vectors at the CREXX boundary.
 - `crexx/cprag.crexx` provides the first Level G class-shaped wrapper surface
   over the raw plugin functions.
+- `crexx/profiles/history/deterministic_extract.crexx` is the first executable
+  deterministic domain extractor. It is CREXX policy code that decides candidate
+  nodes and relationships from chunks; the native core links, de-duplicates,
+  stores, searches, walks, exports the graph, and can match stored concept
+  aliases back against later text blocks.
+- `crexx/profiles/history/hybrid_ingest_extract.crexx` is the first
+  CREXX-controlled hybrid ingestion/extraction pipeline. It ingests and chunks
+  text, uses native concept matching as the cheap known-concept API, and now
+  proves the front of a corpus-scale pipeline: cheap candidate census,
+  candidate collation/adjudication into keep/junk/ambiguous/type/alias decisions,
+  mention/co-occurrence graph seeding, graph/vector ranking, then gated
+  extraction on a shortlist. It can optionally route through Qwen2.5 advisory,
+  Gemma advisory, and final gated Gemma JSON extraction. Cheap advisory calls
+  must stay simple scalar/word outputs such as `proper-nouns`, `value`, `route`,
+  `relation`, `alias`, and `complexity`; only final extraction should use
+  candidate JSON. If a fast advisory model returns no usable Stage 1 proper
+  nouns, CREXX should fall back to deterministic extraction rather than losing
+  the chunk's score.
+- Stage 1 output is a census, not truth. Collate it by normalized candidate,
+  preserve counts and supporting chunks, classify likely junk/good/ambiguous
+  candidates and types, then feed that registry back into chunk scoring. Do not
+  choose the expensive extraction queue from raw proper-noun counts alone.
+- Vectors may influence extraction ranking, redundancy control, coverage, and
+  bridge detection, but vector similarity must not directly create typed domain
+  relationships. Typed edges need deterministic evidence or accepted extraction.
+- Ambiguous aliases must remain explicit graph facts, not silent guesses. For
+  example, `Sutherland` can create an `ambiguity` node with `candidate-for`
+  edges to both clan and place concepts while clear aliases still create normal
+  `mentioned-in` evidence links.
+- Repeated typed edge writes should accumulate evidence in the native core
+  (`support_count`, `support_evidence`, `last_support`) and keep the strongest
+  weight, rather than overwriting earlier metadata.
+- `crexx-rag extract-llama-server` is the first local LLM extraction adapter. It
+  returns candidate node/relationship JSON from llama.cpp chat completions but
+  does not write to the graph. CREXX/profile code decides when to call it and
+  validates accepted candidates before using the native graph APIs.
+- `crexx-rag advise-llama-server` is the local LLM triage adapter for
+  `proper-nouns`, `value`, `route`, `relation`, `alias`, and `complexity`
+  questions. It should remain adapter-level and must not become a native-core
+  dependency.
+- Prefer one operation vocabulary across native helpers, CLI commands, CREXX
+  functions, CREXX address environments, and MCP adapters. The CLI is needed for
+  humans and scripts; the CREXX address environment is a programmer-friendly
+  orchestration surface over the same operations, not a separate shell-script
+  implementation.
+- Incremental ingestion and external extractor push are first-class design
+  cases. New documents should reuse the existing concept/alias registry and only
+  adjudicate deltas. External LLM workflows may push proposed concepts and
+  relationships with provenance, but those proposals must pass through the same
+  de-duplication, ambiguity handling, support accumulation, and profile
+  validation as internal extraction.
 - CREXX plugin runtime is covered by `crexx_profile_smoke` when installed
   `rxc`, `rxas`, and `rxvme` are available.
+- CREXXSAA cache cleanup, when needed for manual late-bound runs, is
+  `crexxsaa --clear`.
 
 ## Publication
 
