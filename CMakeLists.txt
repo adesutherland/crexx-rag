@@ -218,10 +218,22 @@ if(CPRAG_BUILD_TESTS)
                 "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
                 "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
                 "-DCPRAG_PROFILE=${CMAKE_CURRENT_LIST_DIR}/crexx/profiles/history/hybrid_ingest_extract.crexx"
+                "-DCPRAG_PROFILE_MODULE=${CMAKE_CURRENT_LIST_DIR}/crexx/profiles/pipeline_profile.crexx"
+                "-DCPRAG_STAGE1B_PROFILE=${CMAKE_CURRENT_LIST_DIR}/crexx/profiles/history/stage1b_adjudicate_candidates.crexx"
                 "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_rag>"
                 "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
                 "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/crexx-hybrid-extractor-smoke"
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CrexxHybridExtractorSmoke.cmake")
+        add_test(
+            NAME crexx_generic_pipeline_smoke
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RUNNER=${CMAKE_CURRENT_LIST_DIR}/scripts/run_history_pipeline.sh"
+                "-DCPRAG_IMPROVER=${CMAKE_CURRENT_LIST_DIR}/scripts/run_background_improvement.sh"
+                "-DCPRAG_CLI=$<TARGET_FILE:crexx-rag>"
+                "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_rag>"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/crexx-generic-pipeline-smoke"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CrexxGenericPipelineSmoke.cmake")
     elseif(CPRAG_BUILD_CREXX_PLUGIN)
         message(STATUS "Skipping CREXX profile smoke test; installed rxc/rxas/rxvme was not found.")
     endif()

@@ -86,6 +86,7 @@ Git:
 
 ```bash
 scripts/start_local_llama_servers.sh
+scripts/status_local_llama_servers.sh --smoke
 scripts/stop_local_llama_servers.sh
 ```
 
@@ -93,12 +94,35 @@ By default this starts:
 
 - Nomic embeddings on `127.0.0.1:8081`
 - Gemma chat extraction on `127.0.0.1:8080`
+- Qwen advisory/triage on `127.0.0.1:8084`
+
+The scripts deliberately redirect `llama-server` output into log files. Avoid
+running chatty local model servers in a long-lived foreground PTY for batch
+ingestion: a full terminal/log buffer can stall requests even when the model is
+answering quickly.
+
+On macOS the start wrapper defaults to `launchctl submit`, writes a launch label
+next to the pid file, and keeps `llama-server` stdin open through a harmless
+`tail -f /dev/null` pipe. This avoids the failure mode where llama-server reaches
+`listening` and then exits because stdin closed after a supervised command
+finished. Set `CPRAG_LLAMA_START_MODE=fork` to use plain `nohup ... &` from a
+normal terminal.
+
+Use the status script before long runs:
+
+```bash
+scripts/status_local_llama_servers.sh --smoke --require embedding --require chat
+```
+
+It checks pid files, listening ports, `/v1/models`, and optional embedding/chat
+smoke calls.
 
 Start only one side when needed:
 
 ```bash
 scripts/start_local_llama_servers.sh --embedding-only
 scripts/start_local_llama_servers.sh --chat-only
+scripts/start_local_llama_servers.sh --advisor-only
 ```
 
 Use environment variables to pick the model and ports:
@@ -109,9 +133,17 @@ CPRAG_CHAT_CTX_SIZE=8192 \
 scripts/start_local_llama_servers.sh --chat-only
 ```
 
+For the small advisory model used by Stage 1 and Stage 1b experiments:
+
+```bash
+CPRAG_ADVISOR_MODEL_REF=Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M \
+CPRAG_ADVISOR_CTX_SIZE=4096 \
+scripts/start_local_llama_servers.sh --advisor-only
+```
+
 If you later want automatic startup on login, wrap the same script in a macOS
-`launchd` LaunchAgent. Keeping the script as the single start path avoids
-debugging two different sets of flags.
+`launchd` LaunchAgent or keep using the built-in `launchctl` mode. Keeping the
+script as the single start path avoids debugging two different sets of flags.
 
 ## Default Model
 
@@ -131,6 +163,8 @@ llama-server \
   --embedding \
   --pooling mean \
   -c 2048 \
+  --batch-size 2048 \
+  --ubatch-size 1024 \
   --host 127.0.0.1 \
   --port 8081
 ```
@@ -138,6 +172,9 @@ llama-server \
 The explicit context size leaves room for the default `semantic-context-v1`
 embedding envelope. If a server was started with a smaller effective context,
 large chunks may fail with an HTTP 500 even though the JSON request is valid.
+For the Scotland corpus, Nomic failed deterministically on a 519-token chunk
+when llama.cpp used its default physical batch size of 512; restarting with
+`--ubatch-size 1024` cleared the failure and embedded all 11,684 chunks.
 
 Smoke-test the OpenAI-compatible endpoint:
 

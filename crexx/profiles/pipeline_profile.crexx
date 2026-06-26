@@ -1,0 +1,310 @@
+options levelg
+namespace pipeline_profile expose profile_supported profile_default_id profile_graph_namespace profile_source_uri profile_seed_types profile_match_node_filter profile_graph_node_filter profile_relation_filter profile_allowed_node_type profile_allowed_relation_type profile_relation_cue_count profile_sample_text profile_seed_vocabulary profile_deterministic_relationships profile_candidate_type profile_ambiguity_decision profile_concept_id
+
+import rxrag
+
+/*
+ * Profile contract for staged GraphRAG pipelines.
+ *
+ * The native core owns durable state, graph writes, queue mechanics, scoring
+ * primitives, and search. Staged CREXX controllers own control flow. This
+ * module is the profile policy/config layer: vocabulary, filters, cue words,
+ * deterministic seed concepts, and small gate decisions.
+ */
+
+profile_supported: procedure = .int
+  arg profile = .string
+  if profile = "generic" | profile = "scotland" | profile = "athens" then return 1
+return 0
+
+profile_default_id: procedure = .string
+  arg profile = .string
+  if profile = "generic" then return "generic.hybrid.v1"
+return "history." || profile || ".hybrid.v1"
+
+profile_graph_namespace: procedure = .string
+  arg profile = .string
+  if profile = "generic" then return "generic"
+return "history:" || profile
+
+profile_source_uri: procedure = .string
+  arg profile = .string
+  if profile = "generic" then return "profile:generic:hybrid-sample"
+return "profile:history:" || profile || ":hybrid-sample"
+
+profile_seed_types: procedure = .string
+  arg profile = .string
+  if profile = "scotland" then return "clan,person,place,event,office,military-unit,institution,polity,source-work"
+  if profile = "athens" then return "person,polity,place,institution,event,office,military-unit,source-work"
+return "service,data-object,component,person,place,institution,source-work"
+
+profile_match_node_filter: procedure = .string
+  arg profile = .string
+  if profile = "scotland" then return "clan,person,place"
+  if profile = "athens" then return "person,polity,place,institution"
+return "service,data-object,component,person,place,institution"
+
+profile_graph_node_filter: procedure = .string
+  arg profile = .string
+  if profile = "scotland" then return "clan,person,place,evidence-chunk,ambiguity"
+  if profile = "athens" then return "person,polity,place,institution,evidence-chunk,ambiguity"
+return "service,data-object,component,person,place,institution,evidence-chunk,ambiguity"
+
+profile_relation_filter: procedure = .string
+  arg profile = .string
+  if profile = "scotland" then return "mentioned-in,candidate-for,held-land-in,associated-with,conflicted-with,claimed-descent-from,served,source-claims"
+  if profile = "athens" then return "mentioned-in,candidate-for,served,led-by,built-or-improved,treasury-at,succeeded-by,opposed-by,source-claims"
+return "mentioned-in,candidate-for,associated-with,part-of,located-in,caused-by,succeeded-by,source-claims"
+
+profile_allowed_node_type: procedure = .int
+  arg profile = .string, node_type = .string
+  if profile = "scotland" then return contains_any(node_type, "clan|person|place|event|office|military-unit|institution|polity|source-work|evidence-chunk|ambiguity")
+  if profile = "athens" then return contains_any(node_type, "person|polity|place|institution|event|office|source-work|evidence-chunk|ambiguity")
+return contains_any(node_type, "service|data-object|component|person|place|institution|event|office|source-work|evidence-chunk|ambiguity")
+
+profile_allowed_relation_type: procedure = .int
+  arg profile = .string, relationship_type = .string
+  if relationship_type = "mentioned-in" then return 1
+  if relationship_type = "candidate-for" then return 1
+  if profile = "scotland" then return contains_any(relationship_type, "held-land-in|associated-with|conflicted-with|claimed-descent-from|served|source-claims")
+  if profile = "athens" then return contains_any(relationship_type, "served|led-by|built-or-improved|treasury-at|succeeded-by|opposed-by|source-claims")
+return contains_any(relationship_type, "associated-with|part-of|located-in|caused-by|succeeded-by|source-claims")
+
+profile_relation_cue_count: procedure = .int
+  arg profile = .string, text = .string
+  cues = 0
+  if profile = "scotland" then do
+    cues = cues + contains_any(text, "held|holds|lands|barony|estate")
+    cues = cues + contains_any(text, "connected|grouped|joined|allied|confederated")
+    cues = cues + contains_any(text, "defeated|conflict|battle|fought|encountered|feud|slain|killed")
+    cues = cues + contains_any(text, "called|anciently|formerly|known as|descended|sons of|sprung from")
+  end
+  else if profile = "athens" then do
+    cues = cues + contains_any(text, "harbour|harbor|fortification|walls|built")
+    cues = cues + contains_any(text, "command|managed|statesman|general")
+    cues = cues + contains_any(text, "head|led|lead|rose")
+    cues = cues + contains_any(text, "treasury|senate|tribute|allies")
+    cues = cues + contains_any(text, "succeeds|succeeded|replaces")
+  end
+  else do
+    cues = cues + contains_any(text, "uses|depends|connects|connected|calls")
+    cues = cues + contains_any(text, "database|stores|reads|writes|data")
+    cues = cues + contains_any(text, "protects|backup|backs up|service")
+    cues = cues + contains_any(text, "known as|called|alias")
+  end
+return cues
+
+profile_sample_text: procedure = .string
+  arg profile = .string
+  if profile = "scotland" then return "The Macnicols held lands in Assynt. The Macnicols are connected with Sutherland. The Mackays and Gunns are grouped with the Sutherlands. Angus Dhu Mackay was encountered at Dingwall by men from Sutherland and defeated in fierce conflict."
+  if profile = "athens" then return "Themistocles is connected with Athens and the new harbour of the Piraeus. Athens rose to the head of the Ionian League. Delos was made the senate and treasury of the allies. Aristides managed the league and Cimon succeeds to the command."
+return "The Authentication Service uses PostgreSQL to read User Profile Data. The Backup Service protects User Profile Data and depends on PostgreSQL availability."
+
+profile_seed_vocabulary: procedure
+  arg library = .string, profile = .string, profile_id = .string
+  if profile = "scotland" then do
+    call seed_concept library, profile_id, "history:scotland:clan:macnicol", "clan", "Clan Macnicol", "Macnicol|Macnicols|Nicholson|Nicholsons"
+    call seed_concept library, profile_id, "history:scotland:clan:sutherland", "clan", "Clan Sutherland", "Sutherland|Sutherlands|Sudrland"
+    call seed_concept library, profile_id, "history:scotland:clan:mackay", "clan", "Clan Mackay", "Mackay|Mackays|MacKay|MacKays"
+    call seed_concept library, profile_id, "history:scotland:clan:gunn", "clan", "Clan Gunn", "Gunn|Gunns"
+    call seed_concept library, profile_id, "history:scotland:person:angus-dhu-mackay", "person", "Angus Dhu Mackay", "Angus Dhu Mackay|Angus Mackay"
+    call seed_concept library, profile_id, "history:scotland:place:assynt", "place", "Assynt", "Assynt|Assint"
+    call seed_concept library, profile_id, "history:scotland:place:dingwall", "place", "Dingwall", "Dingwall"
+    call seed_concept library, profile_id, "history:scotland:place:sutherland", "place", "Sutherland", "Sutherland"
+  end
+  else if profile = "athens" then do
+    call seed_concept library, profile_id, "history:athens:person:themistocles", "person", "Themistocles", "Themistocles"
+    call seed_concept library, profile_id, "history:athens:person:aristides", "person", "Aristides", "Aristides"
+    call seed_concept library, profile_id, "history:athens:person:cimon", "person", "Cimon", "Cimon"
+    call seed_concept library, profile_id, "history:athens:polity:athens", "polity", "Athens", "Athens|Athenians|Athenian"
+    call seed_concept library, profile_id, "history:athens:place:piraeus", "place", "Piraeus", "Piraeus|Peiraeus"
+    call seed_concept library, profile_id, "history:athens:institution:ionian-league", "institution", "Ionian League", "Ionian League|allies"
+    call seed_concept library, profile_id, "history:athens:place:delos", "place", "Delos", "Delos"
+  end
+  else do
+    call seed_concept library, profile_id, "generic:service:authentication-service", "service", "Authentication Service", "Authentication Service|Auth Service|Auth"
+    call seed_concept library, profile_id, "generic:service:backup-service", "service", "Backup Service", "Backup Service|backup service|backups"
+    call seed_concept library, profile_id, "generic:data-object:postgresql", "data-object", "PostgreSQL", "PostgreSQL|Postgres|database"
+    call seed_concept library, profile_id, "generic:data-object:user-profile-data", "data-object", "User Profile Data", "User Profile Data|profile data|user profiles"
+  end
+return
+
+profile_deterministic_relationships: procedure = .int
+  arg library = .string, chunk_id = .string, profile = .string, profile_id = .string, text = .string, present = .string
+  relations = 0
+  if profile = "scotland" then do
+    if contains_any(text, "held|holds|lands|land|barony|estate") = 1 then do
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:scotland:clan:macnicol", "history:scotland:place:assynt", "held-land-in", 0.68, "Scotland land-holding cue")
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:scotland:clan:sutherland", "history:scotland:place:sutherland", "held-land-in", 0.58, "Scotland land/place cue")
+    end
+    if contains_any(text, "connected|grouped|joined|allied|confederated|clan|clans") = 1 then do
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:scotland:clan:macnicol", "history:scotland:clan:sutherland", "associated-with", 0.56, "Scotland clan association cue")
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:scotland:clan:mackay", "history:scotland:clan:sutherland", "associated-with", 0.56, "Scotland clan association cue")
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:scotland:clan:gunn", "history:scotland:clan:sutherland", "associated-with", 0.56, "Scotland clan association cue")
+    end
+    if contains_any(text, "defeated|conflict|battle|fought|encountered|feud|slain|killed") = 1 then do
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:scotland:clan:mackay", "history:scotland:clan:sutherland", "conflicted-with", 0.62, "Scotland conflict cue")
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:scotland:clan:gunn", "history:scotland:clan:sutherland", "conflicted-with", 0.58, "Scotland conflict cue")
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:scotland:person:angus-dhu-mackay", "history:scotland:place:dingwall", "associated-with", 0.54, "Scotland battle place cue")
+    end
+  end
+  else if profile = "athens" then do
+    if contains_any(text, "harbour|harbor|fortification|walls|improvements|built|new") = 1 then relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:athens:person:themistocles", "history:athens:place:piraeus", "built-or-improved", 0.72, "Athens public works cue")
+    if contains_any(text, "connected|conduct|command|managed|influence|statesman|general") = 1 then relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:athens:person:themistocles", "history:athens:polity:athens", "served", 0.58, "Athens person-polity cue")
+    if contains_any(text, "head|led|lead|rise|rose|command") = 1 then relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:athens:polity:athens", "history:athens:institution:ionian-league", "led-by", 0.7, "Athens leadership cue")
+    if contains_any(text, "treasury|senate|allies|tribute") = 1 then relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:athens:institution:ionian-league", "history:athens:place:delos", "treasury-at", 0.74, "Athens treasury cue")
+    if contains_any(text, "succeeds|succeeded|replaces|after") = 1 then relations = relations + connect_if_present(library, chunk_id, profile_id, present, "history:athens:person:aristides", "history:athens:person:cimon", "succeeded-by", 0.62, "Athens succession cue")
+  end
+  else do
+    if contains_any(text, "uses|depends|connects|connected|calls|reads|writes|protects|backs up|backup|stores|database|service") = 1 then do
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "generic:service:authentication-service", "generic:data-object:postgresql", "associated-with", 0.64, "Generic dependency/data cue")
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "generic:service:backup-service", "generic:data-object:user-profile-data", "associated-with", 0.6, "Generic protection cue")
+      relations = relations + connect_if_present(library, chunk_id, profile_id, present, "generic:service:authentication-service", "generic:data-object:user-profile-data", "associated-with", 0.6, "Generic service/data cue")
+    end
+  end
+return relations
+
+profile_candidate_type: procedure = .string
+  arg profile = .string, upper_name = .string, display = .string
+  if profile = "scotland" then do
+    if starts_with_any(upper_name, "MAC|MC|CLAN ") = 1 then return "clan"
+    if contains_any(upper_name, "EARL|LORD|DUKE|SIR|COLONEL|GENERAL") = 1 then return "person"
+    if contains_any(upper_name, "EDINBURGH|PERTH|DUNDEE|INVERNESS|CAITHNESS|ASSYNT|STIRLING|ABERDEEN") = 1 then return "place"
+  end
+  else if profile = "athens" then do
+    if contains_any(upper_name, "ATHENS|PIRAEUS|DELOS|SPARTA|IONIA") = 1 then return "place"
+    if contains_any(upper_name, "LEAGUE|COUNCIL|ASSEMBLY") = 1 then return "institution"
+  end
+  else do
+    if contains_any(upper_name, "SERVICE|API|WORKER|PROCESSOR") = 1 then return "service"
+    if contains_any(upper_name, "DATA|DATABASE|POSTGRES|POSTGRESQL|STORE|TABLE|INDEX") = 1 then return "data-object"
+    if contains_any(upper_name, "COMPONENT|MODULE|LIBRARY") = 1 then return "component"
+  end
+  if words(display) > 1 then return "person"
+return "unknown"
+
+profile_ambiguity_decision: procedure = .string
+  arg profile = .string, upper_name = .string, display = .string
+  if profile = "scotland" & upper_name = "SUTHERLAND" then return "ambiguous|unknown|Sutherland|Sutherlands|clan or place; resolve from adjacent evidence|0.85"
+return ""
+
+profile_concept_id: procedure = .string
+  arg profile = .string, candidate_type = .string, canonical_label = .string, normalized = .string
+  basis = canonical_label
+  if basis = "" then basis = normalized
+  if profile = "generic" then return "generic:" || candidate_type || ":" || slug(basis)
+return "history:" || profile || ":" || candidate_type || ":" || slug(basis)
+
+seed_concept: procedure
+  arg library = .string, profile_id = .string, id = .string, node_type = .string, label = .string, aliases = .string
+  ignored = addentitytyped(library, id, node_type, label, "Profile vocabulary seed.", profile_metadata(profile_id, 0, "profile-vocabulary", "seed", aliases))
+return
+
+connect_if_present: procedure = .int
+  arg library = .string, chunk_id = .string, profile_id = .string, present = .string, source_id = .string, target_id = .string, relationship_type = .string, weight = .float, evidence = .string
+  if has_concept(present, source_id) = 0 then return 0
+  if has_concept(present, target_id) = 0 then return 0
+  source_label = concept_label(present, source_id)
+  target_label = concept_label(present, target_id)
+  label = "Rule found " || relationship_type || " cue between " || source_label || " and " || target_label || "."
+  ignored = addedgetyped(library, source_id, target_id, relationship_type, label, weight, profile_metadata(profile_id, chunk_id, "deterministic-crexx", evidence, ""))
+return 1
+
+has_concept: procedure = .int
+  arg present = .string, id = .string
+  rest = present
+  do while rest <> ""
+    parse var rest entry ";" rest
+    parse var entry entry_id "|" entry_type "|" entry_label
+    if entry_id = id then return 1
+  end
+return 0
+
+concept_label: procedure = .string
+  arg present = .string, id = .string
+  rest = present
+  do while rest <> ""
+    parse var rest entry ";" rest
+    parse var entry entry_id "|" entry_type "|" entry_label
+    if entry_id = id then return entry_label
+  end
+return id
+
+profile_metadata: procedure = .string
+  arg profile_id = .string, chunk_id = .string, extractor = .string, evidence = .string, aliases = .string
+  out = '{"profile_id":' || json_quote(profile_id) || ',"chunk_id":' || number_or_zero(chunk_id) || ',"extractor":' || json_quote(extractor) || ',"evidence":' || json_quote(evidence)
+  if aliases <> "" then out = out || ',"aliases":' || json_quote(aliases)
+return out || '}'
+
+number_or_zero: procedure = .string
+  arg value = .string
+  value = strip(value)
+  if value = "" then return "0"
+return value
+
+json_quote: procedure = .string
+  arg value = .string
+return '"' || json_escape(value) || '"'
+
+json_escape: procedure = .string
+  arg value = .string
+  out = ""
+  do i = 1 to length(value)
+    ch = substr(value, i, 1)
+    if ch = '"' then out = out || '\"'
+    else if ch = "\" then out = out || "\\"
+    else out = out || ch
+  end
+return out
+
+contains_any: procedure = .int
+  arg text = .string, needles = .string
+  upper_text = upper(text)
+  rest = needles
+  do while rest <> ""
+    parse var rest needle "|" rest
+    needle = strip(needle)
+    if needle <> "" & pos(upper(needle), upper_text) > 0 then return 1
+  end
+return 0
+
+starts_with_any: procedure = .int
+  arg text = .string, needles = .string
+  rest = needles
+  do while rest <> ""
+    parse var rest needle "|" rest
+    if needle <> "" & left(text, length(needle)) = needle then return 1
+  end
+return 0
+
+slug: procedure = .string
+  arg value = .string
+  out = ""
+  value = lower_word(value)
+  last_dash = 0
+  do i = 1 to length(value)
+    ch = substr(value, i, 1)
+    if is_slug_char(ch) = 1 then do
+      out = out || ch
+      last_dash = 0
+    end
+    else if last_dash = 0 & out <> "" then do
+      out = out || "-"
+      last_dash = 1
+    end
+  end
+  do while right(out, 1) = "-"
+    out = left(out, length(out) - 1)
+  end
+  if out = "" then out = "unknown"
+return out
+
+is_slug_char: procedure = .int
+  arg ch = .string
+  if ch >= "a" & ch <= "z" then return 1
+  if ch >= "0" & ch <= "9" then return 1
+return 0
+
+lower_word: procedure = .string
+  arg value = .string
+return translate(strip(value), "abcdefghijklmnopqrstuvwxyz", "ABCDEFGHIJKLMNOPQRSTUVWXYZ")

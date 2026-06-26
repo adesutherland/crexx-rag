@@ -196,6 +196,105 @@ int main()
         return 1;
     }
 
+    rc = cprag_clear_candidate_census(handle, "architecture.test.v1", "docs/auth.md", buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    rc = cprag_add_candidate_mention(
+        handle,
+        "architecture.test.v1",
+        "docs/auth.md",
+        chunkIds.front(),
+        "stage1",
+        "deterministic",
+        "PostgreSQL",
+        "POSTGRESQL",
+        11,
+        2,
+        1,
+        1,
+        "{\"source\":\"unit\"}");
+    assert(rc == CPRAG_OK);
+    rc = cprag_add_candidate_mention(
+        handle,
+        "architecture.test.v1",
+        "docs/auth.md",
+        chunkIds.front(),
+        "stage1",
+        "deterministic",
+        "Postgres",
+        "POSTGRESQL",
+        12,
+        2,
+        1,
+        1,
+        "{\"source\":\"unit-update\"}");
+    assert(rc == CPRAG_OK);
+    rc = cprag_candidate_census(handle, "architecture.test.v1", "docs/auth.md", 1, 10, buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string candidateCensus(buffer.data());
+    if (candidateCensus.find("\"normalized\":\"POSTGRESQL\"") == std::string::npos
+        || candidateCensus.find("\"count\":1") == std::string::npos
+        || candidateCensus.find("\"max_priority\":12") == std::string::npos) {
+        std::cerr << candidateCensus << '\n';
+        return 1;
+    }
+    rc = cprag_adjudicate_candidate(
+        handle,
+        "architecture.test.v1",
+        "POSTGRESQL",
+        "keep",
+        "data-object",
+        "PostgreSQL",
+        "Postgres|PG",
+        "",
+        0.95,
+        "unit-test",
+        "{\"reason\":\"known database\"}");
+    assert(rc == CPRAG_OK);
+    rc = cprag_candidate_census(handle, "architecture.test.v1", "docs/auth.md", 1, 10, buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string adjudicatedCensus(buffer.data());
+    if (adjudicatedCensus.find("\"adjudication\"") == std::string::npos
+        || adjudicatedCensus.find("\"status\":\"keep\"") == std::string::npos
+        || adjudicatedCensus.find("\"candidate_type\":\"data-object\"") == std::string::npos) {
+        std::cerr << adjudicatedCensus << '\n';
+        return 1;
+    }
+    rc = cprag_pending_candidate_census(handle, "architecture.test.v1", "docs/auth.md", 1, 10, buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string pendingCensus(buffer.data());
+    if (pendingCensus.find("\"pending_only\":true") == std::string::npos
+        || pendingCensus.find("\"normalized\":\"POSTGRESQL\"") != std::string::npos) {
+        std::cerr << pendingCensus << '\n';
+        return 1;
+    }
+    rc = cprag_list_candidate_adjudications(handle, "architecture.test.v1", "keep", 10, buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string adjudications(buffer.data());
+    if (adjudications.find("\"normalized\":\"POSTGRESQL\"") == std::string::npos
+        || adjudications.find("\"adjudicator\":\"unit-test\"") == std::string::npos) {
+        std::cerr << adjudications << '\n';
+        return 1;
+    }
+    rc = cprag_list_candidate_mention_evidence(
+        handle,
+        "architecture.test.v1",
+        "keep",
+        "data-object",
+        1,
+        0,
+        10,
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string candidateEvidence(buffer.data());
+    if (candidateEvidence.find("\"mentions\"") == std::string::npos
+        || candidateEvidence.find("\"normalized\":\"POSTGRESQL\"") == std::string::npos
+        || candidateEvidence.find("\"candidate_type\":\"data-object\"") == std::string::npos
+        || candidateEvidence.find("\"mention_count\":1") == std::string::npos) {
+        std::cerr << candidateEvidence << '\n';
+        return 1;
+    }
+
     rc = cprag_build_chunk_embedding_text(handle, chunkIds[0], "semantic-context-v1", buffer.data(), buffer.size());
     assert(rc == CPRAG_OK);
     const std::string embeddingText(buffer.data());
@@ -415,6 +514,161 @@ int main()
         || stats.find("\"documents\":1") == std::string::npos
         || stats.find("\"chunks\":") == std::string::npos) {
         std::cerr << stats << '\n';
+        return 1;
+    }
+
+    rc = cprag_seed_candidate_mention_graph(
+        handle,
+        "architecture.test.v1",
+        "test:architecture",
+        "keep",
+        "data-object",
+        1,
+        0,
+        10,
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string seededCandidates(buffer.data());
+    if (seededCandidates.find("\"rows\":1") == std::string::npos
+        || seededCandidates.find("\"edge_writes\":1") == std::string::npos
+        || seededCandidates.find("\"skipped_replay\":0") == std::string::npos
+        || seededCandidates.find("\"last_id\":") == std::string::npos) {
+        std::cerr << seededCandidates << '\n';
+        return 1;
+    }
+    rc = cprag_seed_candidate_mention_graph(
+        handle,
+        "architecture.test.v1",
+        "test:architecture",
+        "keep",
+        "data-object",
+        1,
+        0,
+        10,
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string replayedCandidates(buffer.data());
+    if (replayedCandidates.find("\"rows\":1") == std::string::npos
+        || replayedCandidates.find("\"edge_writes\":0") == std::string::npos
+        || replayedCandidates.find("\"skipped_replay\":1") == std::string::npos) {
+        std::cerr << replayedCandidates << '\n';
+        return 1;
+    }
+    rc = cprag_build_extraction_queue(
+        handle,
+        "architecture.test.v1",
+        "unit",
+        "test:architecture",
+        "data-object",
+        10,
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string builtQueue(buffer.data());
+    if (builtQueue.find("\"queued\":1") == std::string::npos
+        || builtQueue.find("\"top_chunk_id\":") == std::string::npos
+        || builtQueue.find("concepts=1") == std::string::npos) {
+        std::cerr << builtQueue << '\n';
+        return 1;
+    }
+    rc = cprag_list_extraction_queue(
+        handle,
+        "architecture.test.v1",
+        "unit",
+        "pending",
+        10,
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string listedQueue(buffer.data());
+    if (listedQueue.find("\"items\"") == std::string::npos
+        || listedQueue.find("\"status\":\"pending\"") == std::string::npos
+        || listedQueue.find("\"queue_id\":\"unit\"") == std::string::npos) {
+        std::cerr << listedQueue << '\n';
+        return 1;
+    }
+    rc = cprag_record_extraction_attempt(
+        handle,
+        "architecture.test.v1",
+        "unit",
+        chunkIds.front(),
+        "unit-extractor",
+        "unit-model",
+        "processed",
+        1,
+        1,
+        "{\"nodes\":[],\"relationships\":[]}",
+        "{\"source\":\"unit\"}",
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string recordedAttempt(buffer.data());
+    if (recordedAttempt.find("\"status\":\"processed\"") == std::string::npos
+        || recordedAttempt.find("\"queue_updated\":true") == std::string::npos) {
+        std::cerr << recordedAttempt << '\n';
+        return 1;
+    }
+    rc = cprag_list_extraction_queue(
+        handle,
+        "architecture.test.v1",
+        "unit",
+        "processed",
+        10,
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string processedQueue(buffer.data());
+    if (processedQueue.find("\"status\":\"processed\"") == std::string::npos) {
+        std::cerr << processedQueue << '\n';
+        return 1;
+    }
+    rc = cprag_list_extraction_attempts(
+        handle,
+        "architecture.test.v1",
+        "unit",
+        chunkIds.front(),
+        10,
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string listedAttempts(buffer.data());
+    if (listedAttempts.find("\"attempts\"") == std::string::npos
+        || listedAttempts.find("\"extractor\":\"unit-extractor\"") == std::string::npos
+        || listedAttempts.find("\"accepted_relationships\":1") == std::string::npos) {
+        std::cerr << listedAttempts << '\n';
+        return 1;
+    }
+    rc = cprag_queue_status(
+        handle,
+        "architecture.test.v1",
+        "unit",
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string queueStatus(buffer.data());
+    if (queueStatus.find("\"queue_items\"") == std::string::npos
+        || queueStatus.find("\"status\":\"processed\"") == std::string::npos
+        || queueStatus.find("\"attempts\":1") == std::string::npos
+        || queueStatus.find("\"accepted_nodes\":1") == std::string::npos
+        || queueStatus.find("\"accepted_relationships\":1") == std::string::npos) {
+        std::cerr << queueStatus << '\n';
+        return 1;
+    }
+    rc = cprag_build_extraction_queue(
+        handle,
+        "architecture.test.v1",
+        "unit-after",
+        "test:architecture",
+        "data-object",
+        10,
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string rebuiltAfterAttempt(buffer.data());
+    if (rebuiltAfterAttempt.find("\"queued\":0") == std::string::npos) {
+        std::cerr << rebuiltAfterAttempt << '\n';
         return 1;
     }
 

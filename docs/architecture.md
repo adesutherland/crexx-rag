@@ -68,6 +68,12 @@ vector index and configured embedding command are available, in which case MCP
 passes a query vector to the native hybrid search path. Manual `lexical`,
 `vector`, and `hybrid` modes are diagnostic/profile controls.
 
+For source-bound QA, MCP exposes the higher-level `library_answer_evidence` read
+tool. It still uses the same native search path underneath, but returns an
+LLM-ready evidence bundle with retrieved chunks, accepted graph claims,
+graph-only leads, and answer guidance so the model does not need to reason from
+raw implementation-shaped JSON.
+
 The richer orchestration surface belongs in CREXX Level G. The raw `rxrag`
 plugin exposes native functions, and `crexx/cprag.crexx` starts the higher-level
 `cprag.raglibrary` class wrapper. That wrapper currently preserves JSON as the
@@ -116,12 +122,21 @@ architecture relationship map as the guiding use case.
 CREXX profiles are the tunable extraction layer. A profile may use
 deterministic rules or a configured local LLM to propose candidate concepts and
 relationships from chunks, but the native engine stores, links, de-duplicates,
-walks, and exports the graph.
+walks, and exports the graph. The current production-shaped split is:
+
+- native core/API: durable state, graph mutation, queues, support accumulation,
+  traversal, and search;
+- staged CREXX controllers: stage order, limits, cursors, queue names, model
+  routing, and progress;
+- `crexx/profiles/pipeline_profile.crexx`: profile ids, namespaces, seed
+  vocabulary, filters, cue words, candidate typing, ambiguity handling,
+  validation, and concept id shape.
 
 The first hybrid profile keeps the model calls above the core. Cheap local LLM
 advisory calls return simple scalar or word answers for route/value/complexity
-decisions. Only the final gated extraction call returns candidate JSON, and
-CREXX validates those candidates before writing through the native graph APIs.
+decisions. Only the final gated extraction call returns candidate proposals
+(`--format tagged` or `--format json`), and CREXX validates those candidates
+before writing through the native graph APIs.
 This preserves the dependency direction: Qwen/Gemma/llama.cpp are adapters and
 profile policy, not build requirements for `cprag_core`.
 
@@ -135,10 +150,18 @@ ambiguity, or vector-neighborhood evidence suggest that typed relationships are
 worth writing.
 
 The native core should therefore grow reusable operations such as candidate
-collation, candidate registry storage, mention evidence, extraction queues, edge
-support accumulation, ambiguity work items, and external extraction pushes. Those
-operations should have one implementation with thin bindings for CLI, CREXX
-functions, CREXX address environments, and MCP where appropriate.
+collation, candidate registry storage, mention evidence, generic work queues,
+edge support accumulation, ambiguity work items, and external extraction pushes.
+Stage 1, Stage 1b, Stage 2, and Stage 2b now have the concrete version of that
+pattern: `candidate_mentions` stores the raw census handoff,
+`candidate_adjudications` stores keep/junk/ambiguous/type/alias decisions, the
+Stage 2 seed helper materializes accepted mention evidence as concept nodes,
+`evidence-chunk` nodes, and `mentioned-in` support edges, and Stage 2b persists
+ranked chunk work in `work_queue` with `item_type=chunk-extraction`. CREXX owns
+profile policy, cursors, and queue names; the native core owns durable paged state
+mutation. Those operations
+should have one implementation with thin bindings for CLI, CREXX functions,
+CREXX address environments, and MCP where appropriate.
 
 External LLM workflows are valid producers. If another process analyzes a
 document, it may push proposed concepts and relationships into the library with

@@ -3,9 +3,17 @@ import rxfnsb
 import rxrag
 
 /*
- * Deterministic history extractor profile.
+ * Legacy deterministic history extractor demo.
  *
- * This is a deliberately small demonstration of the intended shape:
+ * This file is kept as a cheap offline comparison and compatibility smoke for
+ * typed graph writes, shortest paths, concept matching, and DOT export.
+ *
+ * Do not use this file as the template for new production profiles. The
+ * production-shaped path is the staged pipeline plus
+ * crexx/profiles/pipeline_profile.crexx, where the native core owns durable
+ * state and CREXX supplies orchestration/configuration.
+ *
+ * This demo still shows the old hand-tuned shape:
  *
  * - generic mention extraction creates concept nodes and evidence-chunk links
  * - domain profiles provide vocabularies and cue words

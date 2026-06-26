@@ -44,14 +44,27 @@ void usage()
         << "  crexx-rag add-chunk-embedding <library> <chunk-id> <embedding-model> <comma-separated-floats> [embedding-profile]\n"
         << "  crexx-rag embed-chunks <library> <embedding-model> <embedding-command> [source-uri] [embedding-profile]\n"
         << "  crexx-rag embed-llama-server [--role document|query|raw] [--base-url URL] [--prefix PREFIX] <text> [embedding-model]\n"
-        << "  crexx-rag advise-llama-server [--task value|route|relation|alias|complexity|proper-nouns] [--profile generic|scotland|athens] [--context TEXT] [--base-url URL] [--model MODEL] [--temperature N] [--max-tokens N] [--dry-prompt] <text>\n"
-        << "  crexx-rag extract-llama-server [--profile generic|scotland|athens] [--base-url URL] [--model MODEL] [--temperature N] [--max-tokens N] [--dry-prompt] <text>\n"
+        << "  crexx-rag advise-llama-server [--stdin] [--task value|route|relation|alias|complexity|proper-nouns|candidate-adjudication|candidate-adjudication-batch] [--profile generic|scotland|athens] [--context TEXT] [--base-url URL] [--model MODEL] [--temperature N] [--max-tokens N] [--dry-prompt] <text>\n"
+        << "  crexx-rag extract-llama-server [--stdin] [--profile generic|scotland|athens] [--base-url URL] [--model MODEL] [--format json|tagged] [--temperature N] [--max-tokens N] [--dry-prompt] <text>\n"
         << "  crexx-rag extract-chunks-llama-server <library> [--source-uri URI] [--offset N] [--limit N] [--profile generic|scotland|athens] [--base-url URL] [--model MODEL]\n"
         << "  crexx-rag rebuild-vector-index <library> <embedding-model> [embedding-profile]\n"
         << "  crexx-rag vector-search <library> <embedding-model> <comma-separated-floats> [top-k]\n"
         << "  crexx-rag vector-status <library>\n"
         << "  crexx-rag list-concepts <library> [node-type-csv]\n"
         << "  crexx-rag match-concepts <library> <text> [node-type-csv]\n"
+        << "  crexx-rag clear-candidate-census <library> <profile-id> [source-uri]\n"
+        << "  crexx-rag add-candidate-mention <library> <profile-id> <source-uri> <chunk-id> <candidate> <normalized> <priority> <proper-count> <known-count> <cue-count> [stage] [extractor] [metadata-json]\n"
+        << "  crexx-rag candidate-census <library> <profile-id> [source-uri] [min-count] [limit]\n"
+        << "  crexx-rag pending-candidate-census <library> <profile-id> [source-uri] [min-count] [limit]\n"
+        << "  crexx-rag adjudicate-candidate <library> <profile-id> <normalized> <status> <type> <canonical-label> <aliases> <disambiguation> <confidence> [adjudicator] [metadata-json]\n"
+        << "  crexx-rag candidate-adjudications <library> <profile-id> [status] [limit]\n"
+        << "  crexx-rag candidate-mention-evidence <library> <profile-id> [status] [type-csv] [min-count] [after-id] [limit]\n"
+        << "  crexx-rag seed-candidate-graph <library> <profile-id> <graph-namespace> [status] [type-csv] [min-count] [after-id] [limit]\n"
+        << "  crexx-rag build-extraction-queue <library> <profile-id> <queue-id> <graph-namespace> [node-type-csv] [limit]\n"
+        << "  crexx-rag extraction-queue <library> <profile-id> <queue-id> [status] [limit]\n"
+        << "  crexx-rag record-extraction-attempt <library> <profile-id> <queue-id> <chunk-id> <extractor> <model> <status> <accepted-nodes> <accepted-relationships> <raw-output> [metadata-json]\n"
+        << "  crexx-rag extraction-attempts <library> <profile-id> <queue-id> [chunk-id] [limit]\n"
+        << "  crexx-rag queue-status <library> <profile-id> [queue-id]\n"
         << "  crexx-rag search <library> <query> [top-k] [hops]\n"
         << "  crexx-rag expand <library> <anchor-csv> [hops] [relation-filter-csv]\n"
         << "  crexx-rag shortest-path <library> <source-id> <target-id> [relationship-filter-csv]\n"
@@ -70,6 +83,13 @@ int fail(int code, cprag_handle* handle = nullptr)
     }
     std::cerr << '\n';
     return code == CPRAG_OK ? 0 : code;
+}
+
+std::string readStdinText()
+{
+    std::ostringstream buffer;
+    buffer << std::cin.rdbuf();
+    return buffer.str();
 }
 
 template <typename Fn>
@@ -403,15 +423,19 @@ std::string extractionSystemPrompt(const std::string& profile)
         << "{\"nodes\":[{\"id\":\"\",\"node_type\":\"\",\"label\":\"\",\"aliases\":[],\"confidence\":0.0,\"evidence\":\"\"}],"
         << "\"relationships\":[{\"source_id\":\"\",\"target_id\":\"\",\"relationship_type\":\"\",\"label\":\"\",\"confidence\":0.0,\"evidence\":\"\"}]}\n"
         << "Rules:\n"
+        << "- Return one JSON object with exactly two top-level keys: nodes and relationships.\n"
+        << "- Always include both top-level arrays; use [] for relationships when none are supported.\n"
+        << "- Do not put a nodes object inside the nodes array.\n"
+        << "- Limit output to the 8 strongest nodes and 6 strongest relationships.\n"
         << "- Only include candidates directly supported by the input text.\n"
         << "- Prefer stable lower-case ids with a domain prefix when obvious.\n"
-        << "- Keep evidence as a short source phrase copied from the input.\n"
+        << "- Keep evidence as a short source phrase copied from the input, preferably under 12 words.\n"
         << "- The 0.0 confidence values in the schema are placeholders; choose real values from 0.1 to 1.0.\n"
         << "- Use an empty array when nothing is supported.\n";
 
     if (profile == "scotland") {
         prompt
-            << "Scotland profile node types: clan, person, place, source-work, evidence-chunk.\n"
+            << "Scotland profile node types: clan, person, place, event, office, military-unit, institution, polity, source-work, evidence-chunk.\n"
             << "Scotland relationship types: mentioned-in, held-land-in, associated-with, conflicted-with, claimed-descent-from, served, source-claims.\n"
             << "Prefer ids like history:scotland:clan:mackay or history:scotland:place:assynt.\n";
     } else if (profile == "athens") {
@@ -421,7 +445,47 @@ std::string extractionSystemPrompt(const std::string& profile)
             << "Prefer ids like history:athens:person:themistocles or history:athens:place:piraeus.\n";
     } else {
         prompt
-            << "Generic node types: person, organization, place, work, concept, event, evidence-chunk.\n"
+            << "Generic node types: service, data-object, component, person, place, institution, event, office, source-work, evidence-chunk.\n"
+            << "Generic relationship types: mentioned-in, associated-with, part-of, located-in, caused-by, succeeded-by, source-claims.\n";
+    }
+
+    return prompt.str();
+}
+
+std::string taggedExtractionSystemPrompt(const std::string& profile)
+{
+    std::ostringstream prompt;
+    prompt
+        << "You extract source-grounded knowledge graph candidates for crexx-rag.\n"
+        << "Return only plain tagged records. No JSON. No Markdown. No explanations.\n"
+        << "Use exactly these record shapes:\n"
+        << "NODE|id|node_type|label|confidence|evidence|aliases\n"
+        << "EDGE|source_id|relationship_type|target_id|confidence|label|evidence\n"
+        << "Rules:\n"
+        << "- Use one record per line.\n"
+        << "- Do not use the pipe character inside any field.\n"
+        << "- Use none for empty aliases, labels, or evidence.\n"
+        << "- Limit output to the 8 strongest nodes and 6 strongest relationships.\n"
+        << "- Only include candidates directly supported by the input text.\n"
+        << "- Prefer stable lower-case ids with a domain prefix when obvious.\n"
+        << "- Keep evidence as a short source phrase copied from the input, preferably under 12 words.\n"
+        << "- Confidence is a number from 0.1 to 1.0.\n"
+        << "- Relationships should use node ids emitted in NODE records when possible.\n"
+        << "- If nothing is supported, return exactly: NONE\n";
+
+    if (profile == "scotland") {
+        prompt
+            << "Scotland profile node types: clan, person, place, event, office, military-unit, institution, polity, source-work, evidence-chunk.\n"
+            << "Scotland relationship types: mentioned-in, held-land-in, associated-with, conflicted-with, claimed-descent-from, served, source-claims.\n"
+            << "Prefer ids like history:scotland:clan:mackay or history:scotland:place:assynt.\n";
+    } else if (profile == "athens") {
+        prompt
+            << "Athens profile node types: person, polity, place, institution, source-work, evidence-chunk.\n"
+            << "Athens relationship types: mentioned-in, served, led-by, built-or-improved, treasury-at, succeeded-by, opposed-by, source-claims.\n"
+            << "Prefer ids like history:athens:person:themistocles or history:athens:place:piraeus.\n";
+    } else {
+        prompt
+            << "Generic node types: service, data-object, component, person, place, institution, event, office, source-work, evidence-chunk.\n"
             << "Generic relationship types: mentioned-in, associated-with, part-of, located-in, caused-by, succeeded-by, source-claims.\n";
     }
 
@@ -467,6 +531,14 @@ std::string adviceSystemPrompt(const std::string& task, const std::string& profi
         prompt << "Task: return low, medium, or high. High means relationship direction, pronouns, many unknown names, or multiple events need a stronger model.\n";
     } else if (task == "proper-nouns") {
         prompt << "Task: return a comma-separated list of proper nouns and multi-word proper names from the chunk. Include people, clans, places, polities, institutions, and source works. Return none if there are no proper nouns. Do not include common nouns, verbs, explanations, or bullets.\n";
+    } else if (task == "candidate-adjudication") {
+        prompt << "Task: classify one aggregated Stage 1 candidate. Return exactly one line with six pipe-separated fields:\n";
+        prompt << "status|type|canonical_label|aliases|disambiguation|confidence\n";
+        prompt << "Allowed status values: keep, junk, ambiguous. Allowed type values: clan, person, place, event, office, military-unit, institution, polity, service, data-object, component, source-work, work, generic, unknown. Use comma-separated aliases, not pipe characters. Use the literal word none for empty aliases or disambiguation; do not omit fields. Confidence is 0.0 to 1.0. Mark generic words, sentence fragments, adjectives, months, and boilerplate as junk. Mark names that can be more than one real thing as ambiguous.\n";
+    } else if (task == "candidate-adjudication-batch") {
+        prompt << "Task: classify each tab-separated Stage 1 candidate row. Return exactly one non-empty line per input row with seven pipe-separated fields:\n";
+        prompt << "index|status|type|canonical_label|aliases|disambiguation|confidence\n";
+        prompt << "Copy the input index exactly. Allowed status values: keep, junk, ambiguous. Allowed type values: clan, person, place, event, office, military-unit, institution, polity, service, data-object, component, source-work, work, generic, unknown. Use comma-separated aliases, not pipe characters. Use the literal word none for empty aliases or disambiguation; do not omit fields. Confidence is 0.0 to 1.0. Mark generic words, sentence fragments, adjectives, months, and boilerplate as junk. Mark names that can be more than one real thing as ambiguous. Do not add bullets, tables, JSON, Markdown, or explanations.\n";
     }
 
     return prompt.str();
@@ -621,6 +693,46 @@ std::string normalizeAdvice(const std::string& task, const std::string& profile,
             return "none";
         }
         return cleaned;
+    }
+
+    if (task == "candidate-adjudication") {
+        std::string line;
+        std::istringstream in(text);
+        while (std::getline(in, line)) {
+            line = trimCopy(line);
+            if (!line.empty()) {
+                break;
+            }
+        }
+        if (line.empty()) {
+            return "ambiguous|unknown||||0.2";
+        }
+        std::replace(line.begin(), line.end(), '\t', ' ');
+        return line;
+    }
+
+    if (task == "candidate-adjudication-batch") {
+        std::ostringstream out;
+        std::string line;
+        bool first = true;
+        std::istringstream in(text);
+        while (std::getline(in, line)) {
+            line = trimCopy(line);
+            while (!line.empty() && (line.front() == '-' || line.front() == '*' || line.front() == ' ')) {
+                line.erase(line.begin());
+                line = trimCopy(line);
+            }
+            if (line.empty() || line.find('|') == std::string::npos) {
+                continue;
+            }
+            std::replace(line.begin(), line.end(), '\t', ' ');
+            if (!first) {
+                out << '\n';
+            }
+            out << line;
+            first = false;
+        }
+        return out.str();
     }
 
     return text;
@@ -1233,12 +1345,15 @@ int main(int argc, char** argv)
         double temperature = std::strtod(envOrDefault("CPRAG_LLM_ADVICE_TEMPERATURE", "0.0").c_str(), nullptr);
         int maxTokens = envIntOrDefault("CPRAG_LLM_ADVICE_MAX_TOKENS", 32);
         bool dryPrompt = false;
+        bool readStdin = false;
 
         for (int i = 2; i < argc; ++i) {
             const std::string arg = argv[i];
-            if (arg == "--task") {
+            if (arg == "--stdin") {
+                readStdin = true;
+            } else if (arg == "--task") {
                 if (i + 1 >= argc) {
-                    std::cerr << "advise-llama-server: --task requires value, route, relation, alias, complexity, or proper-nouns\n";
+                    std::cerr << "advise-llama-server: --task requires value, route, relation, alias, complexity, proper-nouns, candidate-adjudication, or candidate-adjudication-batch\n";
                     return 2;
                 }
                 task = argv[++i];
@@ -1293,7 +1408,7 @@ int main(int argc, char** argv)
             } else if (arg == "--dry-prompt") {
                 dryPrompt = true;
             } else if (arg == "--help" || arg == "-h") {
-                std::cout << "Usage: crexx-rag advise-llama-server [--task value|route|relation|alias|complexity|proper-nouns] [--profile generic|scotland|athens] [--context TEXT] [--base-url URL] [--model MODEL] [--temperature N] [--max-tokens N] [--system PROMPT] [--dry-prompt] <text>\n";
+                std::cout << "Usage: crexx-rag advise-llama-server [--stdin] [--task value|route|relation|alias|complexity|proper-nouns|candidate-adjudication|candidate-adjudication-batch] [--profile generic|scotland|athens] [--context TEXT] [--base-url URL] [--model MODEL] [--temperature N] [--max-tokens N] [--system PROMPT] [--dry-prompt] <text>\n";
                 return 0;
             } else if (text.empty()) {
                 text = arg;
@@ -1302,13 +1417,20 @@ int main(int argc, char** argv)
                 text += arg;
             }
         }
+        if (readStdin) {
+            const std::string stdinText = readStdinText();
+            if (!text.empty() && !stdinText.empty()) {
+                text += "\n";
+            }
+            text += stdinText;
+        }
 
         if (text.empty()) {
             usage();
             return 2;
         }
-        if (task != "value" && task != "route" && task != "relation" && task != "alias" && task != "complexity" && task != "proper-nouns") {
-            std::cerr << "advise-llama-server: task must be value, route, relation, alias, complexity, or proper-nouns\n";
+        if (task != "value" && task != "route" && task != "relation" && task != "alias" && task != "complexity" && task != "proper-nouns" && task != "candidate-adjudication" && task != "candidate-adjudication-batch") {
+            std::cerr << "advise-llama-server: task must be value, route, relation, alias, complexity, proper-nouns, candidate-adjudication, or candidate-adjudication-batch\n";
             return 2;
         }
         if (profile != "generic" && profile != "scotland" && profile != "athens") {
@@ -1356,15 +1478,19 @@ int main(int argc, char** argv)
         std::string profile = envOrDefault("CPRAG_LLM_EXTRACT_PROFILE", "generic");
         std::string baseUrl = envOrDefault("CPRAG_LLAMA_SERVER_CHAT_BASE_URL", "http://127.0.0.1:8080/v1");
         std::string model = envOrDefault("CPRAG_LLM_MODEL", "ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M");
+        std::string outputFormat = envOrDefault("CPRAG_LLM_EXTRACT_FORMAT", "json");
         std::string systemPrompt;
         std::string text;
         double temperature = std::strtod(envOrDefault("CPRAG_LLM_TEMPERATURE", "0.1").c_str(), nullptr);
         int maxTokens = envIntOrDefault("CPRAG_LLM_MAX_TOKENS", 2048);
         bool dryPrompt = false;
+        bool readStdin = false;
 
         for (int i = 2; i < argc; ++i) {
             const std::string arg = argv[i];
-            if (arg == "--profile") {
+            if (arg == "--stdin") {
+                readStdin = true;
+            } else if (arg == "--profile") {
                 if (i + 1 >= argc) {
                     std::cerr << "extract-llama-server: --profile requires generic, scotland, or athens\n";
                     return 2;
@@ -1382,6 +1508,12 @@ int main(int argc, char** argv)
                     return 2;
                 }
                 model = argv[++i];
+            } else if (arg == "--format") {
+                if (i + 1 >= argc) {
+                    std::cerr << "extract-llama-server: --format requires json or tagged\n";
+                    return 2;
+                }
+                outputFormat = argv[++i];
             } else if (arg == "--temperature") {
                 if (i + 1 >= argc) {
                     std::cerr << "extract-llama-server: --temperature requires a number\n";
@@ -1409,7 +1541,7 @@ int main(int argc, char** argv)
             } else if (arg == "--dry-prompt") {
                 dryPrompt = true;
             } else if (arg == "--help" || arg == "-h") {
-                std::cout << "Usage: crexx-rag extract-llama-server [--profile generic|scotland|athens] [--base-url URL] [--model MODEL] [--temperature N] [--max-tokens N] [--system PROMPT] [--dry-prompt] <text>\n";
+                std::cout << "Usage: crexx-rag extract-llama-server [--stdin] [--profile generic|scotland|athens] [--base-url URL] [--model MODEL] [--format json|tagged] [--temperature N] [--max-tokens N] [--system PROMPT] [--dry-prompt] <text>\n";
                 return 0;
             } else if (text.empty()) {
                 text = arg;
@@ -1417,6 +1549,13 @@ int main(int argc, char** argv)
                 text += "\n";
                 text += arg;
             }
+        }
+        if (readStdin) {
+            const std::string stdinText = readStdinText();
+            if (!text.empty() && !stdinText.empty()) {
+                text += "\n";
+            }
+            text += stdinText;
         }
 
         if (text.empty()) {
@@ -1435,9 +1574,13 @@ int main(int argc, char** argv)
             std::cerr << "extract-llama-server: temperature must be a non-negative number\n";
             return 2;
         }
+        if (outputFormat != "json" && outputFormat != "tagged") {
+            std::cerr << "extract-llama-server: format must be json or tagged\n";
+            return 2;
+        }
 
         if (systemPrompt.empty()) {
-            systemPrompt = extractionSystemPrompt(profile);
+            systemPrompt = outputFormat == "tagged" ? taggedExtractionSystemPrompt(profile) : extractionSystemPrompt(profile);
         }
         const std::string userPrompt = extractionUserPrompt(text);
 
@@ -1445,6 +1588,7 @@ int main(int argc, char** argv)
             std::cout << "{\"profile\":" << jsonString(profile)
                       << ",\"model\":" << jsonString(model)
                       << ",\"base_url\":" << jsonString(baseUrl)
+                      << ",\"format\":" << jsonString(outputFormat)
                       << ",\"temperature\":" << temperature
                       << ",\"max_tokens\":" << maxTokens
                       << ",\"system\":" << jsonString(systemPrompt)
@@ -1455,7 +1599,7 @@ int main(int argc, char** argv)
 
         std::string candidates;
         std::string error;
-        if (!runLlamaServerChat(userPrompt, systemPrompt, model, baseUrl, temperature, maxTokens, true, &candidates, &error)) {
+        if (!runLlamaServerChat(userPrompt, systemPrompt, model, baseUrl, temperature, maxTokens, outputFormat == "json", &candidates, &error)) {
             std::cerr << error << '\n';
             return CPRAG_IO_ERROR;
         }
@@ -1885,6 +2029,122 @@ int main(int argc, char** argv)
         });
     }
 
+    if (command == "clear-candidate-census") {
+        if (argc < 4) {
+            usage();
+            return 2;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const char* sourceUri = argc >= 5 ? argv[4] : "";
+            const int rc = cprag_clear_candidate_census(handle, argv[3], sourceUri, buffer.data(), buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "add-candidate-mention") {
+        if (argc < 12) {
+            usage();
+            return 2;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            const char* stage = argc >= 13 ? argv[12] : "stage1";
+            const char* extractor = argc >= 14 ? argv[13] : "deterministic";
+            const char* metadata = argc >= 15 ? argv[14] : "{}";
+            const int rc = cprag_add_candidate_mention(
+                handle,
+                argv[3],
+                argv[4],
+                std::atoll(argv[5]),
+                stage,
+                extractor,
+                argv[6],
+                argv[7],
+                std::atoi(argv[8]),
+                std::atoi(argv[9]),
+                std::atoi(argv[10]),
+                std::atoi(argv[11]),
+                metadata);
+            if (rc != CPRAG_OK) {
+                return fail(rc, handle);
+            }
+            std::cout << "candidate mention added: " << argv[7] << '\n';
+            return 0;
+        });
+    }
+
+    if (command == "candidate-census") {
+        if (argc < 4) {
+            usage();
+            return 2;
+        }
+        return withLibraryReadOnly(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const char* sourceUri = argc >= 5 ? argv[4] : "";
+            const int minCount = argc >= 6 ? std::atoi(argv[5]) : 1;
+            const int limit = argc >= 7 ? std::atoi(argv[6]) : 100;
+            const int rc = cprag_candidate_census(handle, argv[3], sourceUri, minCount, limit, buffer.data(), buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "pending-candidate-census") {
+        if (argc < 4) {
+            usage();
+            return 2;
+        }
+        return withLibraryReadOnly(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const char* sourceUri = argc >= 5 ? argv[4] : "";
+            const int minCount = argc >= 6 ? std::atoi(argv[5]) : 1;
+            const int limit = argc >= 7 ? std::atoi(argv[6]) : 100;
+            const int rc = cprag_pending_candidate_census(handle, argv[3], sourceUri, minCount, limit, buffer.data(), buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "adjudicate-candidate") {
+        if (argc < 11) {
+            usage();
+            return 2;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            const char* adjudicator = argc >= 12 ? argv[11] : "";
+            const char* metadata = argc >= 13 ? argv[12] : "{}";
+            const int rc = cprag_adjudicate_candidate(
+                handle,
+                argv[3],
+                argv[4],
+                argv[5],
+                argv[6],
+                argv[7],
+                argv[8],
+                argv[9],
+                std::atof(argv[10]),
+                adjudicator,
+                metadata);
+            if (rc != CPRAG_OK) {
+                return fail(rc, handle);
+            }
+            std::cout << "candidate adjudicated: " << argv[4] << '\n';
+            return 0;
+        });
+    }
+
+    if (command == "candidate-adjudications") {
+        if (argc < 4) {
+            usage();
+            return 2;
+        }
+        return withLibraryReadOnly(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const char* status = argc >= 5 ? argv[4] : "";
+            const int limit = argc >= 6 ? std::atoi(argv[5]) : 100;
+            const int rc = cprag_list_candidate_adjudications(handle, argv[3], status, limit, buffer.data(), buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
     if (command == "embedding-text") {
         if (argc < 4) {
             usage();
@@ -2112,6 +2372,171 @@ int main(int argc, char** argv)
         return withLibrary(library, [&](cprag_handle* handle) {
             std::vector<char> buffer(kJsonBufferSize);
             const int rc = cprag_vector_status(handle, buffer.data(), buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "candidate-mention-evidence") {
+        if (argc < 4) {
+            usage();
+            return 2;
+        }
+        return withLibraryReadOnly(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const char* status = argc >= 5 ? argv[4] : "";
+            const char* typeCsv = argc >= 6 ? argv[5] : "";
+            const int minCount = argc >= 7 ? std::atoi(argv[6]) : 1;
+            const long long afterId = argc >= 8 ? std::atoll(argv[7]) : 0;
+            const int limit = argc >= 9 ? std::atoi(argv[8]) : 100;
+            const int rc = cprag_list_candidate_mention_evidence(
+                handle,
+                argv[3],
+                status,
+                typeCsv,
+                minCount,
+                afterId,
+                limit,
+                buffer.data(),
+                buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "seed-candidate-graph") {
+        if (argc < 5) {
+            usage();
+            return 2;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const char* status = argc >= 6 ? argv[5] : "keep";
+            const char* typeCsv = argc >= 7 ? argv[6] : "";
+            const int minCount = argc >= 8 ? std::atoi(argv[7]) : 1;
+            const long long afterId = argc >= 9 ? std::atoll(argv[8]) : 0;
+            const int limit = argc >= 10 ? std::atoi(argv[9]) : 100;
+            const int rc = cprag_seed_candidate_mention_graph(
+                handle,
+                argv[3],
+                argv[4],
+                status,
+                typeCsv,
+                minCount,
+                afterId,
+                limit,
+                buffer.data(),
+                buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "build-extraction-queue") {
+        if (argc < 6) {
+            usage();
+            return 2;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const char* typeCsv = argc >= 7 ? argv[6] : "";
+            const int limit = argc >= 8 ? std::atoi(argv[7]) : 100;
+            const int rc = cprag_build_extraction_queue(
+                handle,
+                argv[3],
+                argv[4],
+                argv[5],
+                typeCsv,
+                limit,
+                buffer.data(),
+                buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "extraction-queue") {
+        if (argc < 5) {
+            usage();
+            return 2;
+        }
+        return withLibraryReadOnly(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const char* status = argc >= 6 ? argv[5] : "";
+            const int limit = argc >= 7 ? std::atoi(argv[6]) : 100;
+            const int rc = cprag_list_extraction_queue(
+                handle,
+                argv[3],
+                argv[4],
+                status,
+                limit,
+                buffer.data(),
+                buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "record-extraction-attempt") {
+        if (argc < 11) {
+            usage();
+            return 2;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const long long chunkId = std::atoll(argv[5]);
+            const int acceptedNodes = std::atoi(argv[9]);
+            const int acceptedRelationships = std::atoi(argv[10]);
+            const char* rawOutput = argc >= 12 ? argv[11] : "";
+            const char* metadata = argc >= 13 ? argv[12] : "{}";
+            const int rc = cprag_record_extraction_attempt(
+                handle,
+                argv[3],
+                argv[4],
+                chunkId,
+                argv[6],
+                argv[7],
+                argv[8],
+                acceptedNodes,
+                acceptedRelationships,
+                rawOutput,
+                metadata,
+                buffer.data(),
+                buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "extraction-attempts") {
+        if (argc < 5) {
+            usage();
+            return 2;
+        }
+        return withLibraryReadOnly(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const long long chunkId = argc >= 6 ? std::atoll(argv[5]) : 0;
+            const int limit = argc >= 7 ? std::atoi(argv[6]) : 100;
+            const int rc = cprag_list_extraction_attempts(
+                handle,
+                argv[3],
+                argv[4],
+                chunkId,
+                limit,
+                buffer.data(),
+                buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "queue-status") {
+        if (argc < 4) {
+            usage();
+            return 2;
+        }
+        return withLibraryReadOnly(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const char* queueId = argc >= 5 ? argv[4] : "";
+            const int rc = cprag_queue_status(
+                handle,
+                argv[3],
+                queueId,
+                buffer.data(),
+                buffer.size());
             return printJsonResult(handle, rc, buffer);
         });
     }

@@ -1,0 +1,518 @@
+options levelg
+import rxfnsb
+import rxjson
+import rxrag
+import pipeline_profile
+
+/*
+ * Stage 1b candidate adjudication controller.
+ *
+ * Input:  candidate census persisted by Stage 1.
+ * Output: candidate_adjudications rows persisted through the native engine.
+ */
+
+arg args = .string[]
+
+library = "./history-hybrid.cprag"
+profile = "scotland"
+profile_id = ""
+source_uri = ""
+mode = "offline"
+min_count = 1
+limit = 50
+batch_size = 1
+cli = "./cmake-build-debug/crexx-rag"
+base_url = "http://127.0.0.1:8084/v1"
+model = "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M"
+
+ai = 1
+do while ai <= args.0
+  token = args[ai]
+  select
+    when token = "--library" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--library needs a value"
+      library = args[ai]
+    end
+    when token = "--profile" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--profile needs a value"
+      profile = args[ai]
+    end
+    when token = "--profile-id" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--profile-id needs a value"
+      profile_id = args[ai]
+    end
+    when token = "--source-uri" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--source-uri needs a value"
+      source_uri = args[ai]
+    end
+    when token = "--mode" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--mode needs a value"
+      mode = args[ai]
+    end
+    when token = "--min-count" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--min-count needs a value"
+      min_count = args[ai]
+    end
+    when token = "--limit" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--limit needs a value"
+      limit = args[ai]
+    end
+    when token = "--batch-size" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--batch-size needs a value"
+      batch_size = args[ai]
+    end
+    when token = "--cli" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--cli needs a value"
+      cli = args[ai]
+    end
+    when token = "--base-url" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--base-url needs a value"
+      base_url = args[ai]
+    end
+    when token = "--model" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--model needs a value"
+      model = args[ai]
+    end
+    when token = "--help" | token = "-h" then call usage
+    otherwise call usage_error "unexpected argument: " || token
+  end
+  ai = ai + 1
+end
+
+if profile_supported(profile) = 0 then call usage_error "--profile must be generic, scotland, or athens"
+if mode <> "offline" & mode <> "online" then call usage_error "--mode must be offline or online"
+if batch_size < 1 then call usage_error "--batch-size must be at least 1"
+if profile_id = "" then profile_id = profile_default_id(profile)
+
+call adjudicate_candidates library, profile, profile_id, source_uri, mode, min_count, limit, batch_size, cli, base_url, model
+exit 0
+
+usage: procedure
+  call lineout "stderr", "usage: stage1b_adjudicate_candidates.crexx [--library PATH] [--profile generic|scotland|athens] [--profile-id ID] [--source-uri URI] [--mode offline|online] [--min-count N] [--limit N] [--batch-size N] [--cli PATH]"
+  exit 0
+return
+
+usage_error: procedure
+  arg message = .string
+  call lineout "stderr", "stage1b_adjudicate_candidates: " || message
+  call lineout "stderr", "usage: stage1b_adjudicate_candidates.crexx [--library PATH] [--profile generic|scotland|athens] [--profile-id ID] [--source-uri URI] [--mode offline|online] [--min-count N] [--limit N] [--batch-size N] [--cli PATH]"
+  exit 2
+return
+
+adjudicate_candidates: procedure
+  arg library = .string, profile = .string, profile_id = .string, source_uri = .string, mode = .string, min_count = .int, limit = .int, batch_size = .int, cli = .string, base_url = .string, model = .string
+  census = pendingcandidatecensus(library, profile_id, source_uri, min_count, limit)
+  count = jsoncount(census, "candidates")
+  say "stage1b start profile=" || profile || " profile_id=" || profile_id || " source_uri=" || source_uri || " candidates=" || count || " mode=" || mode || " batch_size=" || batch_size
+  adjudicated = 0
+
+  if mode = "online" & batch_size > 1 then do
+    i = 1
+    do while i <= count
+      batch_end = i + batch_size - 1
+      if batch_end > count then batch_end = count
+      batch_text = candidate_batch_text(census, i, batch_end)
+      batch_answer = llm_adjudication_batch(cli, profile, batch_text, base_url, model)
+      handled_csv = apply_batch_adjudications(library, profile_id, census, i, batch_end, batch_answer)
+      handled_count = csv_count(handled_csv)
+      if handled_count = 0 & batch_answer <> "" then say "stage1b batch rejected raw=" || compact_debug_text(batch_answer)
+      adjudicated = adjudicated + handled_count
+      do j = i to batch_end
+        if csv_contains(handled_csv, j) = 0 then do
+          normalized = jsonget(census, "candidates." || j || ".normalized")
+          display = jsonget(census, "candidates." || j || ".display")
+          mentions = jsonget(census, "candidates." || j || ".count")
+          max_priority = jsonget(census, "candidates." || j || ".max_priority")
+          line = llm_adjudication(cli, profile, display, normalized, mentions, max_priority, base_url, model)
+          adjudicated = adjudicated + store_adjudication(library, profile_id, j, normalized, display, mentions, max_priority, line, "stage1b-online-repair")
+        end
+      end
+      say "stage1b batch start=" || i || " end=" || batch_end || " handled=" || handled_count
+      i = batch_end + 1
+    end
+  end
+  else do
+    do i = 1 to count
+      normalized = jsonget(census, "candidates." || i || ".normalized")
+      display = jsonget(census, "candidates." || i || ".display")
+      mentions = jsonget(census, "candidates." || i || ".count")
+      max_priority = jsonget(census, "candidates." || i || ".max_priority")
+      if mode = "online" then line = llm_adjudication(cli, profile, display, normalized, mentions, max_priority, base_url, model)
+      else line = heuristic_adjudication(profile, display, normalized, mentions, max_priority)
+      adjudicated = adjudicated + store_adjudication(library, profile_id, i, normalized, display, mentions, max_priority, line, "stage1b-" || mode)
+    end
+  end
+  say "stage1b complete adjudicated=" || adjudicated || " profile_id=" || profile_id
+  say candidateadjudications(library, profile_id, "", limit)
+return
+
+candidate_batch_text: procedure = .string
+  arg census = .string, first_index = .int, last_index = .int
+  out = "index" || "09"x || "normalized" || "09"x || "display" || "09"x || "mentions" || "09"x || "max_priority"
+  do i = first_index to last_index
+    normalized = jsonget(census, "candidates." || i || ".normalized")
+    display = jsonget(census, "candidates." || i || ".display")
+    mentions = jsonget(census, "candidates." || i || ".count")
+    max_priority = jsonget(census, "candidates." || i || ".max_priority")
+    out = out || "0a"x || i || "09"x || normalized || "09"x || display || "09"x || mentions || "09"x || max_priority
+  end
+return out
+
+apply_batch_adjudications: procedure = .string
+  arg library = .string, profile_id = .string, census = .string, first_index = .int, last_index = .int, answer = .string
+  handled_csv = ""
+  remaining = answer
+  next_index = first_index
+  do while remaining <> ""
+    parse var remaining line ";" remaining
+    line = strip(line)
+    do while left(line, 1) = "-" | left(line, 1) = "*"
+      line = strip(substr(line, 2))
+    end
+    do while left(line, 1) = "|"
+      line = strip(substr(line, 2))
+    end
+    do while right(line, 1) = "|"
+      line = strip(left(line, length(line) - 1))
+    end
+    if line = "" then iterate
+    if pos("---", line) > 0 then iterate
+    upper_line = upper(line)
+    if left(upper_line, 5) = "INDEX" then iterate
+    parse var line index_text "|" status "|" candidate_type "|" canonical_label "|" aliases "|" disambiguation "|" confidence
+    candidate_index = first_integer(index_text)
+    if candidate_index < first_index then candidate_index = next_index
+    if candidate_index > last_index then do
+      if next_index <= last_index then candidate_index = next_index
+      else iterate
+    end
+    normalized = jsonget(census, "candidates." || candidate_index || ".normalized")
+    display = jsonget(census, "candidates." || candidate_index || ".display")
+    mentions = jsonget(census, "candidates." || candidate_index || ".count")
+    max_priority = jsonget(census, "candidates." || candidate_index || ".max_priority")
+    decision = status || "|" || candidate_type || "|" || canonical_label || "|" || aliases || "|" || disambiguation || "|" || confidence
+    ignored = store_adjudication(library, profile_id, candidate_index, normalized, display, mentions, max_priority, decision, "stage1b-online-batch")
+    if handled_csv = "" then handled_csv = candidate_index
+    else handled_csv = handled_csv || "," || candidate_index
+    next_index = candidate_index + 1
+  end
+return handled_csv
+
+compact_debug_text: procedure = .string
+  arg value = .string
+  out = ""
+  do i = 1 to length(value)
+    ch = substr(value, i, 1)
+    if ch = "0a"x | ch = "0d"x then do
+      if right(out, 1) <> "/" then out = out || " / "
+    end
+    else out = out || ch
+    if length(out) >= 500 then do
+      out = out || "..."
+      leave
+    end
+  end
+return strip(out)
+
+store_adjudication: procedure = .int
+  arg library = .string, profile_id = .string, index = .int, normalized = .string, display = .string, mentions = .string, max_priority = .string, line = .string, adjudicator = .string
+  parse var line status "|" candidate_type "|" canonical_label "|" aliases "|" disambiguation "|" confidence
+  status = normalize_status(status)
+  candidate_type = normalize_candidate_type(candidate_type)
+  canonical_label = clean_optional_field(canonical_label)
+  if canonical_label = "" then canonical_label = display
+  aliases = clean_optional_field(aliases)
+  if confidence = "" & disambiguation = "" & numeric_like(aliases) = 1 then do
+    confidence = aliases
+    aliases = ""
+  end
+  if confidence = "" & numeric_like(disambiguation) = 1 then do
+    confidence = disambiguation
+    disambiguation = ""
+  end
+  disambiguation = clean_optional_field(disambiguation)
+  confidence = normalize_confidence(confidence)
+  metadata_json = '{"display":"' || json_escape(display) || '","mentions":' || mentions || ',"max_priority":' || max_priority || '}'
+  ignored = adjudicatecandidate(library, profile_id, normalized, status, candidate_type, canonical_label, aliases, disambiguation, confidence, adjudicator, metadata_json)
+  say "stage1b candidate=" || index || " normalized=" || normalized || " status=" || status || " type=" || candidate_type || " label=" || canonical_label
+return 1
+
+csv_count: procedure = .int
+  arg csv = .string
+  if csv = "" then return 0
+  count = 1
+  do i = 1 to length(csv)
+    if substr(csv, i, 1) = "," then count = count + 1
+  end
+return count
+
+csv_contains: procedure = .int
+  arg csv = .string, value = .string
+  if csv = "" then return 0
+  needle = "," || value || ","
+  haystack = "," || csv || ","
+  if pos(needle, haystack) > 0 then return 1
+return 0
+
+flatten_lines: procedure = .string
+  arg value = .string
+  out = ""
+  separator = row_separator()
+  do i = 1 to length(value)
+    ch = substr(value, i, 1)
+    if ch = "0a"x then out = out || separator
+    else if ch <> "0d"x then out = out || ch
+  end
+return out
+
+row_separator: procedure = .string
+return ";"
+
+heuristic_adjudication: procedure = .string
+  arg profile = .string, display = .string, normalized = .string, mentions = .string, max_priority = .string
+  upper_name = upper(strip(display))
+  if is_junk_candidate(upper_name) = 1 then return "junk|generic|" || display || "||generic or fragment|0.75"
+  ambiguity = profile_ambiguity_decision(profile, upper_name, display)
+  if ambiguity <> "" then return ambiguity
+  candidate_type = profile_candidate_type(profile, upper_name, display)
+return "keep|" || candidate_type || "|" || display || "||heuristic stage1b classification|0.55"
+
+llm_adjudication: procedure = .string
+  arg cli = .string, profile = .string, display = .string, normalized = .string, mentions = .string, max_priority = .string, base_url = .string, model = .string
+  context = "normalized=" || normalized || "; mentions=" || mentions || "; max_priority=" || max_priority
+  text = "Candidate: " || display
+  command = cli || " advise-llama-server --stdin --task candidate-adjudication --profile " || command_quote(profile) || " --context " || command_quote(context) || " --base-url " || command_quote(base_url) || " --model " || command_quote(model) || " --temperature 0 --max-tokens 96"
+return run_command_stdout_input(command, text)
+
+llm_adjudication_batch: procedure = .string
+  arg cli = .string, profile = .string, batch_text = .string, base_url = .string, model = .string
+  context = "rows are tab-separated: index, normalized, display, mentions, max_priority"
+  command = cli || " advise-llama-server --stdin --task candidate-adjudication-batch --profile " || command_quote(profile) || " --context " || command_quote(context) || " --base-url " || command_quote(base_url) || " --model " || command_quote(model) || " --temperature 0 --max-tokens 768"
+return run_command_stdout_input_rows(command, batch_text)
+
+normalize_status: procedure = .string
+  arg status = .string
+  status = lower_word(status)
+  if status = "keep" | status = "junk" | status = "ambiguous" then return status
+return "ambiguous"
+
+normalize_candidate_type: procedure = .string
+  arg candidate_type = .string
+  candidate_type = lower_word(candidate_type)
+  select
+    when candidate_type = "clan" then return candidate_type
+    when candidate_type = "person" then return candidate_type
+    when candidate_type = "place" then return candidate_type
+    when candidate_type = "event" then return candidate_type
+    when candidate_type = "office" then return candidate_type
+    when candidate_type = "military-unit" then return candidate_type
+    when candidate_type = "institution" then return candidate_type
+    when candidate_type = "polity" then return candidate_type
+    when candidate_type = "source-work" then return candidate_type
+    when candidate_type = "service" then return candidate_type
+    when candidate_type = "data-object" then return candidate_type
+    when candidate_type = "component" then return candidate_type
+    when candidate_type = "work" then return candidate_type
+    when candidate_type = "generic" then return candidate_type
+    otherwise return "unknown"
+  end
+return "unknown"
+
+clean_optional_field: procedure = .string
+  arg value = .string
+  value = strip(value)
+  do while left(value, 1) = ","
+    value = strip(substr(value, 2))
+  end
+  do while right(value, 1) = ","
+    value = strip(left(value, length(value) - 1))
+  end
+  if value = "," then return ""
+  upper_value = upper(value)
+  if upper_value = "NONE" | upper_value = "N/A" | upper_value = "NA" | upper_value = "NULL" then return ""
+return value
+
+normalize_confidence: procedure = .string
+  arg value = .string
+  value = strip(value)
+  number = ""
+  saw_digit = 0
+  saw_dot = 0
+  do i = 1 to length(value)
+    ch = substr(value, i, 1)
+    if pos(ch, "0123456789") > 0 then do
+      number = number || ch
+      saw_digit = 1
+    end
+    else if ch = "." & saw_dot = 0 then do
+      number = number || ch
+      saw_dot = 1
+    end
+    else if saw_digit = 1 then leave
+  end
+  if saw_digit = 0 then return "0.5"
+  if number = "." then return "0.5"
+  if number > 1 then return "1.0"
+return number
+
+first_integer: procedure = .int
+  arg value = .string
+  number = ""
+  do i = 1 to length(value)
+    ch = substr(value, i, 1)
+    if pos(ch, "0123456789") > 0 then number = number || ch
+    else if number <> "" then leave
+  end
+  if number = "" then return 0
+return number
+
+numeric_like: procedure = .int
+  arg value = .string
+  value = strip(value)
+  if value = "" then return 0
+  saw_digit = 0
+  do i = 1 to length(value)
+    ch = substr(value, i, 1)
+    if pos(ch, "0123456789") > 0 then saw_digit = 1
+    else if ch <> "." & ch <> "," & ch <> " " then return 0
+  end
+return saw_digit
+
+is_junk_candidate: procedure = .int
+  arg value = .string
+  if value = "" then return 1
+  if length(value) < 3 then return 1
+  if contains_any(value, "THUS|MOST|SOME|MANY|EVERY|NEITHER|ALTHOUGH|HAVING|THOUGH|NOT|COUNCIL") = 1 then return 1
+  if contains_any(value, "JANUARY|FEBRUARY|MARCH|APRIL|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER") = 1 then return 1
+  if contains_any(value, "PROJECT GUTENBERG|LITERARY ARCHIVE FOUNDATION") = 1 then return 1
+return 0
+
+contains_any: procedure = .int
+  arg text = .string, needles = .string
+  rest = needles
+  do while rest <> ""
+    parse var rest needle "|" rest
+    if needle <> "" & pos(needle, text) > 0 then return 1
+  end
+return 0
+
+lower_word: procedure = .string
+  arg value = .string
+return translate(strip(value), "abcdefghijklmnopqrstuvwxyz", "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+json_escape: procedure = .string
+  arg value = .string
+  out = ""
+  do i = 1 to length(value)
+    ch = substr(value, i, 1)
+    if ch = '"' then out = out || '\"'
+    else if ch = "\" then out = out || "\\"
+    else out = out || ch
+  end
+return out
+
+run_command_stdout_input: procedure = .string
+  arg command = .string, text = .string
+  input_lines = .string[]
+  line = ""
+  line_index = 1
+  do i = 1 to length(text)
+    ch = substr(text, i, 1)
+    if ch = "0a"x then do
+      input_lines[line_index] = line
+      line_index = line_index + 1
+      line = ""
+    end
+    else if ch <> "0d"x then line = line || ch
+  end
+  input_lines[line_index] = line
+  out = .string[]
+  err = .string[]
+  call arraydrop out
+  call arraydrop err
+  address command command input input_lines output out error err
+  command_rc = rc
+  if command_rc <> 0 then do
+    call lineout "stderr", "stage1b_adjudicate_candidates: command failed rc=" || command_rc || " command=" || command
+    call write_stem "stderr", err
+    return ""
+  end
+return join_lines(out)
+
+run_command_stdout_input_rows: procedure = .string
+  arg command = .string, text = .string
+  input_lines = .string[]
+  line = ""
+  line_index = 1
+  do i = 1 to length(text)
+    ch = substr(text, i, 1)
+    if ch = "0a"x then do
+      input_lines[line_index] = line
+      line_index = line_index + 1
+      line = ""
+    end
+    else if ch <> "0d"x then line = line || ch
+  end
+  input_lines[line_index] = line
+  out = .string[]
+  err = .string[]
+  call arraydrop out
+  call arraydrop err
+  address command command input input_lines output out error err
+  command_rc = rc
+  if command_rc <> 0 then do
+    call lineout "stderr", "stage1b_adjudicate_candidates: command failed rc=" || command_rc || " command=" || command
+    call write_stem "stderr", err
+    return ""
+  end
+return join_rows(out)
+
+write_stem: procedure
+  arg stream = .string, values = .string[]
+  do i = 1 to values.0
+    call lineout stream, values[i]
+  end
+return
+
+join_lines: procedure = .string
+  arg values = .string[]
+  out = ""
+  do i = 1 to values.0
+    if i > 1 then out = out || "0a"x
+    out = out || values[i]
+  end
+return out
+
+join_rows: procedure = .string
+  arg values = .string[]
+  out = ""
+  do i = 1 to values.0
+    if i > 1 then out = out || row_separator()
+    out = out || values[i]
+  end
+return out
+
+command_quote: procedure = .string
+  arg value = .string
+return shell_quote(value)
+
+shell_quote: procedure = .string
+  arg value = .string
+  out = "'"
+  do i = 1 to length(value)
+    ch = substr(value, i, 1)
+    if ch = "'" then out = out || "'\''"
+    else out = out || ch
+  end
+return out || "'"

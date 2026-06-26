@@ -542,6 +542,560 @@ PROCEDURE(matchconcepts)
     RESETSIGNAL
 }
 
+PROCEDURE(clearcandidatecensus)
+{
+    if (NUM_ARGS < 2 || NUM_ARGS > 3) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, optional source_uri expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* source_uri = NUM_ARGS >= 3 ? GETSTRING(ARG(2)) : "";
+    rc = cprag_clear_candidate_census(handle, GETSTRING(ARG(1)), source_uri, buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(addcandidatemention)
+{
+    if (NUM_ARGS < 11 || NUM_ARGS > 14) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, source_uri, chunk_id, candidate, normalized_candidate, priority, proper_count, known_count, cue_count, optional stage, extractor, metadata_json expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    const char* stage = NUM_ARGS >= 12 ? GETSTRING(ARG(11)) : "stage1";
+    const char* extractor = NUM_ARGS >= 13 ? GETSTRING(ARG(12)) : "deterministic";
+    const char* metadata = NUM_ARGS >= 14 ? GETSTRING(ARG(13)) : "{}";
+    rc = cprag_add_candidate_mention(
+        handle,
+        GETSTRING(ARG(1)),
+        GETSTRING(ARG(2)),
+        GETINT(ARG(3)),
+        stage,
+        extractor,
+        GETSTRING(ARG(4)),
+        GETSTRING(ARG(5)),
+        GETINT(ARG(6)),
+        GETINT(ARG(7)),
+        GETINT(ARG(8)),
+        GETINT(ARG(9)),
+        metadata);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    SETSTRING(RETURN, "{\"success\":true}");
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(candidatecensus)
+{
+    if (NUM_ARGS < 2 || NUM_ARGS > 5) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, optional source_uri, min_count, limit expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* source_uri = NUM_ARGS >= 3 ? GETSTRING(ARG(2)) : "";
+    const int min_count = NUM_ARGS >= 4 ? GETINT(ARG(3)) : 1;
+    const int limit = NUM_ARGS >= 5 ? GETINT(ARG(4)) : 100;
+    rc = cprag_candidate_census(handle, GETSTRING(ARG(1)), source_uri, min_count, limit, buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(pendingcandidatecensus)
+{
+    if (NUM_ARGS < 2 || NUM_ARGS > 5) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, optional source_uri, min_count, limit expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* source_uri = NUM_ARGS >= 3 ? GETSTRING(ARG(2)) : "";
+    const int min_count = NUM_ARGS >= 4 ? GETINT(ARG(3)) : 1;
+    const int limit = NUM_ARGS >= 5 ? GETINT(ARG(4)) : 100;
+    rc = cprag_pending_candidate_census(handle, GETSTRING(ARG(1)), source_uri, min_count, limit, buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(adjudicatecandidate)
+{
+    if (NUM_ARGS < 10 || NUM_ARGS > 12) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, normalized_candidate, status, type, canonical_label, aliases, disambiguation, confidence, optional adjudicator, metadata_json expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    const char* adjudicator = NUM_ARGS >= 10 ? GETSTRING(ARG(9)) : "";
+    const char* metadata = NUM_ARGS >= 11 ? GETSTRING(ARG(10)) : "{}";
+    rc = cprag_adjudicate_candidate(
+        handle,
+        GETSTRING(ARG(1)),
+        GETSTRING(ARG(2)),
+        GETSTRING(ARG(3)),
+        GETSTRING(ARG(4)),
+        GETSTRING(ARG(5)),
+        GETSTRING(ARG(6)),
+        GETSTRING(ARG(7)),
+        GETFLOAT(ARG(8)),
+        adjudicator,
+        metadata);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    SETSTRING(RETURN, "{\"success\":true}");
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(candidateadjudications)
+{
+    if (NUM_ARGS < 2 || NUM_ARGS > 4) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, optional status_filter, limit expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* status_filter = NUM_ARGS >= 3 ? GETSTRING(ARG(2)) : "";
+    const int limit = NUM_ARGS >= 4 ? GETINT(ARG(3)) : 100;
+    rc = cprag_list_candidate_adjudications(handle, GETSTRING(ARG(1)), status_filter, limit, buffer, RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(candidatementionevidence)
+{
+    if (NUM_ARGS < 2 || NUM_ARGS > 7) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, optional status_filter, type_filter_csv, min_count, after_id, limit expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* status_filter = NUM_ARGS >= 3 ? GETSTRING(ARG(2)) : "";
+    const char* type_filter_csv = NUM_ARGS >= 4 ? GETSTRING(ARG(3)) : "";
+    const int min_count = NUM_ARGS >= 5 ? GETINT(ARG(4)) : 1;
+    const int after_id = NUM_ARGS >= 6 ? GETINT(ARG(5)) : 0;
+    const int limit = NUM_ARGS >= 7 ? GETINT(ARG(6)) : 100;
+    rc = cprag_list_candidate_mention_evidence(
+        handle,
+        GETSTRING(ARG(1)),
+        status_filter,
+        type_filter_csv,
+        min_count,
+        after_id,
+        limit,
+        buffer,
+        RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(seedcandidategraph)
+{
+    if (NUM_ARGS < 3 || NUM_ARGS > 8) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, graph_namespace, optional status_filter, type_filter_csv, min_count, after_id, limit expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* status_filter = NUM_ARGS >= 4 ? GETSTRING(ARG(3)) : "keep";
+    const char* type_filter_csv = NUM_ARGS >= 5 ? GETSTRING(ARG(4)) : "";
+    const int min_count = NUM_ARGS >= 6 ? GETINT(ARG(5)) : 1;
+    const int after_id = NUM_ARGS >= 7 ? GETINT(ARG(6)) : 0;
+    const int limit = NUM_ARGS >= 8 ? GETINT(ARG(7)) : 100;
+    rc = cprag_seed_candidate_mention_graph(
+        handle,
+        GETSTRING(ARG(1)),
+        GETSTRING(ARG(2)),
+        status_filter,
+        type_filter_csv,
+        min_count,
+        after_id,
+        limit,
+        buffer,
+        RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(buildextractionqueue)
+{
+    if (NUM_ARGS < 4 || NUM_ARGS > 6) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, queue_id, graph_namespace, optional node_type_filter_csv, limit expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* node_type_filter_csv = NUM_ARGS >= 5 ? GETSTRING(ARG(4)) : "";
+    const int limit = NUM_ARGS >= 6 ? GETINT(ARG(5)) : 100;
+    rc = cprag_build_extraction_queue(
+        handle,
+        GETSTRING(ARG(1)),
+        GETSTRING(ARG(2)),
+        GETSTRING(ARG(3)),
+        node_type_filter_csv,
+        limit,
+        buffer,
+        RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(extractionqueue)
+{
+    if (NUM_ARGS < 3 || NUM_ARGS > 5) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, queue_id, optional status_filter, limit expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READONLY, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* status_filter = NUM_ARGS >= 4 ? GETSTRING(ARG(3)) : "";
+    const int limit = NUM_ARGS >= 5 ? GETINT(ARG(4)) : 100;
+    rc = cprag_list_extraction_queue(
+        handle,
+        GETSTRING(ARG(1)),
+        GETSTRING(ARG(2)),
+        status_filter,
+        limit,
+        buffer,
+        RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(recordextractionattempt)
+{
+    if (NUM_ARGS < 10 || NUM_ARGS > 11) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, queue_id, chunk_id, extractor, model, status, accepted_nodes, accepted_relationships, raw_output, optional metadata_json expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* metadata = NUM_ARGS >= 11 ? GETSTRING(ARG(10)) : "{}";
+    rc = cprag_record_extraction_attempt(
+        handle,
+        GETSTRING(ARG(1)),
+        GETSTRING(ARG(2)),
+        GETINT(ARG(3)),
+        GETSTRING(ARG(4)),
+        GETSTRING(ARG(5)),
+        GETSTRING(ARG(6)),
+        GETINT(ARG(7)),
+        GETINT(ARG(8)),
+        GETSTRING(ARG(9)),
+        metadata,
+        buffer,
+        RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(extractionattempts)
+{
+    if (NUM_ARGS < 3 || NUM_ARGS > 5) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, queue_id, optional chunk_id, limit expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READONLY, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const int chunk_id = NUM_ARGS >= 4 ? GETINT(ARG(3)) : 0;
+    const int limit = NUM_ARGS >= 5 ? GETINT(ARG(4)) : 100;
+    rc = cprag_list_extraction_attempts(
+        handle,
+        GETSTRING(ARG(1)),
+        GETSTRING(ARG(2)),
+        chunk_id,
+        limit,
+        buffer,
+        RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(queuestatus)
+{
+    if (NUM_ARGS < 2 || NUM_ARGS > 3) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, optional queue_id expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READONLY, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* queue_id = NUM_ARGS >= 3 ? GETSTRING(ARG(2)) : "";
+    rc = cprag_queue_status(
+        handle,
+        GETSTRING(ARG(1)),
+        queue_id,
+        buffer,
+        RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
 PROCEDURE(deletesource)
 {
     if (NUM_ARGS != 2) {
@@ -1057,6 +1611,19 @@ ADDPROC(chunkids, "rxrag.chunkids", "g", ".string", "path=.string,source_uri=.st
 ADDPROC(chunktextbyid, "rxrag.chunktextbyid", "g", ".string", "path=.string,chunk_id=.int");
 ADDPROC(listconcepts, "rxrag.listconcepts", "g", ".string", "path=.string,node_type_filter_csv=.string");
 ADDPROC(matchconcepts, "rxrag.matchconcepts", "g", ".string", "path=.string,text=.string,node_type_filter_csv=.string");
+ADDPROC(clearcandidatecensus, "rxrag.clearcandidatecensus", "g", ".string", "path=.string,profile_id=.string,source_uri=.string");
+ADDPROC(addcandidatemention, "rxrag.addcandidatemention", "g", ".string", "path=.string,profile_id=.string,source_uri=.string,chunk_id=.int,candidate=.string,normalized_candidate=.string,priority=.int,proper_count=.int,known_count=.int,cue_count=.int,stage=.string,extractor=.string,metadata_json=.string");
+ADDPROC(candidatecensus, "rxrag.candidatecensus", "g", ".string", "path=.string,profile_id=.string,source_uri=.string,min_count=.int,limit=.int");
+ADDPROC(pendingcandidatecensus, "rxrag.pendingcandidatecensus", "g", ".string", "path=.string,profile_id=.string,source_uri=.string,min_count=.int,limit=.int");
+ADDPROC(adjudicatecandidate, "rxrag.adjudicatecandidate", "g", ".string", "path=.string,profile_id=.string,normalized_candidate=.string,status=.string,candidate_type=.string,canonical_label=.string,aliases=.string,disambiguation=.string,confidence=.float,adjudicator=.string,metadata_json=.string");
+ADDPROC(candidateadjudications, "rxrag.candidateadjudications", "g", ".string", "path=.string,profile_id=.string,status_filter=.string,limit=.int");
+ADDPROC(candidatementionevidence, "rxrag.candidatementionevidence", "g", ".string", "path=.string,profile_id=.string,status_filter=.string,type_filter_csv=.string,min_count=.int,after_id=.int,limit=.int");
+ADDPROC(seedcandidategraph, "rxrag.seedcandidategraph", "g", ".string", "path=.string,profile_id=.string,graph_namespace=.string,status_filter=.string,type_filter_csv=.string,min_count=.int,after_id=.int,limit=.int");
+ADDPROC(buildextractionqueue, "rxrag.buildextractionqueue", "g", ".string", "path=.string,profile_id=.string,queue_id=.string,graph_namespace=.string,node_type_filter_csv=.string,limit=.int");
+ADDPROC(extractionqueue, "rxrag.extractionqueue", "g", ".string", "path=.string,profile_id=.string,queue_id=.string,status_filter=.string,limit=.int");
+ADDPROC(recordextractionattempt, "rxrag.recordextractionattempt", "g", ".string", "path=.string,profile_id=.string,queue_id=.string,chunk_id=.int,extractor=.string,model=.string,status=.string,accepted_nodes=.int,accepted_relationships=.int,raw_output=.string,metadata_json=.string");
+ADDPROC(extractionattempts, "rxrag.extractionattempts", "g", ".string", "path=.string,profile_id=.string,queue_id=.string,chunk_id=.int,limit=.int");
+ADDPROC(queuestatus, "rxrag.queuestatus", "g", ".string", "path=.string,profile_id=.string,queue_id=.string");
 ADDPROC(deletesource, "rxrag.deletesource", "g", ".string", "path=.string,source_uri=.string");
 ADDPROC(vectorstatus, "rxrag.vectorstatus", "g", ".string", "path=.string");
 ADDPROC(embeddingtext, "rxrag.embeddingtext", "g", ".string", "path=.string,chunk_id=.int,embedding_profile=.string");

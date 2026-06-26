@@ -35,7 +35,8 @@ string(CONCAT positive_requests
     "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{\"name\":\"library_shortest_path\",\"arguments\":{\"source_id\":\"entity:api\",\"target_id\":\"entity:db\"}}}\n"
     "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"tools/call\",\"params\":{\"name\":\"library_search\",\"arguments\":{\"query\":\"api database\",\"mode\":\"auto\",\"top_k\":2,\"hops\":1}}}\n"
     "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/call\",\"params\":{\"name\":\"library_ingest\",\"arguments\":{\"source_uri\":\"docs/decision.md\",\"title\":\"Decision note\",\"text\":\"The API database access decision was confirmed in a client meeting.\",\"file_type\":\"plain\",\"chunk_size\":200,\"overlap\":20,\"source_type\":\"decision-record\",\"confidence\":0.9,\"captured_at\":\"2026-06-24T09:00:00Z\",\"event_start_at\":\"2026-06-23T14:00:00Z\"}}}\n"
-    "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"tools/call\",\"params\":{\"name\":\"library_timeline\",\"arguments\":{\"limit\":5}}}\n")
+    "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"tools/call\",\"params\":{\"name\":\"library_timeline\",\"arguments\":{\"limit\":5}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":11,\"method\":\"tools/call\",\"params\":{\"name\":\"library_answer_evidence\",\"arguments\":{\"question\":\"What evidence connects the API to the database?\",\"focus\":\"API database access\",\"mode\":\"auto\",\"top_k\":4,\"hops\":1}}}\n")
 file(WRITE "${CPRAG_WORK_DIR}/positive.jsonl" "${positive_requests}")
 
 execute_process(
@@ -49,7 +50,7 @@ if(NOT positive_result EQUAL 0)
     message(FATAL_ERROR "MCP write-enabled smoke failed with ${positive_result}: ${positive_error}")
 endif()
 
-foreach(required library_vocabulary library_timeline library_vector_status library_add_entity_typed entity:api accesses source_types decision-record "\\\"stored_embeddings\\\":0" "\\\"active_index\\\":null" "\\\"requested_mode\\\":\\\"auto\\\"" "\\\"effective_mode\\\":\\\"lexical\\\"" "\\\"found\\\":true")
+foreach(required library_vocabulary library_timeline library_vector_status library_answer_evidence library_add_entity_typed entity:api accesses source_types decision-record "\\\"stored_embeddings\\\":0" "\\\"active_index\\\":null" "\\\"requested_mode\\\":\\\"auto\\\"" "\\\"effective_mode\\\":\\\"lexical\\\"" "\\\"found\\\":true" "\\\"source_bound\\\":true" "\\\"retrieval_plan\\\"" "\\\"narrative_chunks\\\"" "\\\"graph_claims\\\"" "\\\"graph_leads\\\"" "\\\"answer_guidance\\\"")
     assert_contains("${positive_output}" "${required}" "MCP write-enabled smoke output")
 endforeach()
 
@@ -76,6 +77,7 @@ endif()
 
 assert_contains("${read_only_output}" "write tools are disabled" "MCP read-only smoke output")
 assert_contains("${read_only_output}" "library_vector_status" "MCP read-only tools/list output")
+assert_contains("${read_only_output}" "library_answer_evidence" "MCP read-only tools/list output")
 assert_contains("${read_only_output}" "\\\"entities\\\":2" "MCP read-only smoke output")
 assert_contains("${read_only_output}" "\\\"documents\\\":1" "MCP read-only smoke output")
 assert_not_contains("${read_only_output}" "library_add_entity_typed" "MCP read-only tools/list output")

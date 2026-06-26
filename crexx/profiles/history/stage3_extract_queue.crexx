@@ -1,0 +1,514 @@
+options levelg
+import rxfnsb
+import rxjson
+import rxrag
+import pipeline_profile
+
+/*
+ * Stage 3 queued LLM extraction controller.
+ *
+ * Input:  pending chunk-extraction work queue rows from Stage 2b.
+ * Output: accepted typed graph writes plus durable work_attempts records.
+ */
+
+arg args = .string[]
+
+library = "./history-stage2.cprag"
+profile = "scotland"
+profile_id = ""
+queue_id = "stage3-default"
+mode = "online"
+limit = 3
+cli = "./cmake-build-debug/crexx-rag"
+base_url = "http://127.0.0.1:8080/v1"
+model = "ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M"
+max_tokens = 2048
+extract_format = "tagged"
+
+ai = 1
+do while ai <= args.0
+  token = args[ai]
+  select
+    when token = "--library" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--library needs a value"
+      library = args[ai]
+    end
+    when token = "--profile" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--profile needs a value"
+      profile = args[ai]
+    end
+    when token = "--profile-id" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--profile-id needs a value"
+      profile_id = args[ai]
+    end
+    when token = "--queue-id" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--queue-id needs a value"
+      queue_id = args[ai]
+    end
+    when token = "--mode" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--mode needs a value"
+      mode = args[ai]
+    end
+    when token = "--limit" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--limit needs a value"
+      limit = args[ai]
+    end
+    when token = "--cli" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--cli needs a value"
+      cli = args[ai]
+    end
+    when token = "--base-url" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--base-url needs a value"
+      base_url = args[ai]
+    end
+    when token = "--model" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--model needs a value"
+      model = args[ai]
+    end
+    when token = "--format" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--format needs a value"
+      extract_format = args[ai]
+    end
+    when token = "--max-tokens" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--max-tokens needs a value"
+      max_tokens = args[ai]
+    end
+    when token = "--help" | token = "-h" then call usage
+    otherwise call usage_error "unexpected argument: " || token
+  end
+  ai = ai + 1
+end
+
+if profile_supported(profile) = 0 then call usage_error "--profile must be generic, scotland, or athens"
+if mode <> "online" & mode <> "dry-run" then call usage_error "--mode must be online or dry-run"
+if extract_format <> "json" & extract_format <> "tagged" then call usage_error "--format must be json or tagged"
+if limit < 1 then call usage_error "--limit must be at least 1"
+if profile_id = "" then profile_id = profile_default_id(profile)
+
+call extract_queue library, profile, profile_id, queue_id, mode, limit, cli, base_url, model, max_tokens, extract_format
+exit 0
+
+usage: procedure
+  call lineout "stderr", "usage: stage3_extract_queue.crexx [--library PATH] [--profile generic|scotland|athens] [--profile-id ID] [--queue-id ID] [--mode online|dry-run] [--limit N] [--cli PATH] [--base-url URL] [--model MODEL] [--format json|tagged] [--max-tokens N]"
+  exit 0
+return
+
+usage_error: procedure
+  arg message = .string
+  call lineout "stderr", "stage3_extract_queue: " || message
+  call lineout "stderr", "usage: stage3_extract_queue.crexx [--library PATH] [--profile generic|scotland|athens] [--profile-id ID] [--queue-id ID] [--mode online|dry-run] [--limit N] [--cli PATH] [--base-url URL] [--model MODEL] [--format json|tagged] [--max-tokens N]"
+  exit 2
+return
+
+extract_queue: procedure
+  arg library = .string, profile = .string, profile_id = .string, queue_id = .string, mode = .string, limit = .int, cli = .string, base_url = .string, model = .string, max_tokens = .int, extract_format = .string
+  queue = extractionqueue(library, profile_id, queue_id, "pending", limit)
+  count = jsoncount(queue, "items")
+  say "stage3 start profile=" || profile || " profile_id=" || profile_id || " queue_id=" || queue_id || " mode=" || mode || " format=" || extract_format || " pending_selected=" || count
+  processed = 0
+  accepted_nodes = 0
+  accepted_relationships = 0
+  failed = 0
+  skipped = 0
+  dry_runs = 0
+
+  do i = 1 to count
+    chunk_id = jsonget(queue, "items." || i || ".chunk_id")
+    score = jsonget(queue, "items." || i || ".score")
+    reason = jsonget(queue, "items." || i || ".reason")
+    text = chunktextbyid(library, chunk_id)
+    raw_output = ""
+    attempt_status = ""
+    node_count_text = "0"
+    relationship_count_text = "0"
+    say "stage3 chunk=" || chunk_id || " rank=" || i || " score=" || score || " reason=" || reason
+
+    if mode = "dry-run" then do
+      raw_output = '{"nodes":[],"relationships":[]}'
+      attempt_status = "dry-run"
+      dry_runs = dry_runs + 1
+    end
+    else do
+      raw_output = gemma_extract(cli, profile, text, base_url, model, max_tokens, extract_format)
+      if raw_output = "" then do
+        attempt_status = "failed"
+        failed = failed + 1
+      end
+      else do
+        if extract_format = "json" then do
+          if jsonvalid(raw_output) = 0 then do
+            attempt_status = "failed"
+            failed = failed + 1
+          end
+          else do
+            applied = apply_extraction_json(library, chunk_id, profile, profile_id, queue_id, raw_output)
+            parse var applied node_count_text "|" relationship_count_text
+            if int_or_zero(node_count_text) + int_or_zero(relationship_count_text) > 0 then attempt_status = "processed"
+            else attempt_status = "skipped"
+          end
+        end
+        else do
+          applied = apply_tagged_extraction_lines(library, chunk_id, profile, profile_id, queue_id, raw_output)
+          parse var applied node_count_text "|" relationship_count_text
+          if int_or_zero(node_count_text) + int_or_zero(relationship_count_text) > 0 then attempt_status = "processed"
+          else attempt_status = "skipped"
+        end
+      end
+    end
+
+    if attempt_status = "processed" then do
+      accepted_nodes = accepted_nodes + int_or_zero(node_count_text)
+      accepted_relationships = accepted_relationships + int_or_zero(relationship_count_text)
+    end
+    else if attempt_status = "skipped" then skipped = skipped + 1
+
+    metadata_json = attempt_metadata(profile_id, queue_id, mode, extract_format, score, reason)
+    result = recordextractionattempt(library, profile_id, queue_id, chunk_id, "stage3-gemma", model, attempt_status, int_or_zero(node_count_text), int_or_zero(relationship_count_text), raw_output, metadata_json)
+    say "stage3 attempt chunk=" || chunk_id || " status=" || attempt_status || " nodes=" || node_count_text || " relationships=" || relationship_count_text || " record=" || fast_field(result, '"attempt_id":', ',')
+    processed = processed + 1
+  end
+
+  say "stage3 complete processed=" || processed || " accepted_nodes=" || accepted_nodes || " accepted_relationships=" || accepted_relationships || " skipped=" || skipped || " failed=" || failed || " dry_runs=" || dry_runs
+return
+
+gemma_extract: procedure = .string
+  arg cli = .string, profile = .string, text = .string, base_url = .string, model = .string, max_tokens = .int, extract_format = .string
+  command = cli || " extract-llama-server --stdin --profile " || command_quote(profile) || " --base-url " || command_quote(base_url) || " --model " || command_quote(model) || " --format " || command_quote(extract_format) || " --temperature 0.1 --max-tokens " || max_tokens
+return run_command_stdout_input(command, text)
+
+apply_extraction_json: procedure = .string
+  arg library = .string, chunk_id = .string, profile = .string, profile_id = .string, queue_id = .string, candidates = .string
+  node_applied = 0
+  relationship_applied = 0
+  accepted_ids = ""
+  node_rejected = 0
+  relationship_rejected = 0
+  nodes = jsoncount(candidates, "nodes")
+  do i = 1 to nodes
+    id = jsonget(candidates, "nodes." || i || ".id")
+    node_type = jsonget(candidates, "nodes." || i || ".node_type")
+    label = jsonget(candidates, "nodes." || i || ".label")
+    confidence = jsonget(candidates, "nodes." || i || ".confidence")
+    evidence = jsonget(candidates, "nodes." || i || ".evidence")
+    aliases = aliases_from_json(candidates, "nodes." || i || ".aliases", label)
+    if id <> "" & label <> "" & profile_allowed_node_type(profile, node_type) = 1 & confidence_at_least(confidence, 0.45) = 1 then do
+      call add_evidence_chunk library, chunk_id, profile_id, queue_id
+      ignored = addentitytyped(library, id, node_type, label, "Accepted from Stage 3 queued Gemma extraction.", metadata(profile_id, queue_id, chunk_id, "stage3-gemma-node", evidence, aliases))
+      ignored = addedgetyped(library, id, evidence_id(chunk_id), "mentioned-in", "Stage 3 extracted candidate mentioned in source chunk.", confidence_or_default(confidence, 0.62), metadata(profile_id, queue_id, chunk_id, "stage3-gemma-mention", evidence, ""))
+      node_applied = node_applied + 1
+      accepted_ids = append_pipe(accepted_ids, id)
+    end
+  end
+
+  relationships = jsoncount(candidates, "relationships")
+  do i = 1 to relationships
+    source_id = jsonget(candidates, "relationships." || i || ".source_id")
+    target_id = jsonget(candidates, "relationships." || i || ".target_id")
+    relationship_type = jsonget(candidates, "relationships." || i || ".relationship_type")
+    label = jsonget(candidates, "relationships." || i || ".label")
+    confidence = jsonget(candidates, "relationships." || i || ".confidence")
+    evidence = jsonget(candidates, "relationships." || i || ".evidence")
+    if source_id <> "" & target_id <> "" & list_has_value(accepted_ids, source_id) = 1 & list_has_value(accepted_ids, target_id) = 1 & profile_allowed_relation_type(profile, relationship_type) = 1 & confidence_at_least(confidence, 0.52) = 1 then do
+      ignored = addedgetyped(library, source_id, target_id, relationship_type, label, confidence_or_default(confidence, 0.58), metadata(profile_id, queue_id, chunk_id, "stage3-gemma-relationship", evidence, ""))
+      relationship_applied = relationship_applied + 1
+    end
+  end
+return node_applied || "|" || relationship_applied
+
+apply_tagged_extraction_lines: procedure = .string
+  arg library = .string, chunk_id = .string, profile = .string, profile_id = .string, queue_id = .string, lines = .string
+  node_applied = 0
+  relationship_applied = 0
+  accepted_ids = ""
+  node_rejected = 0
+  relationship_rejected = 0
+  remaining = lines
+  do while remaining <> ""
+    line = ""
+    nl = pos("0a"x, remaining)
+    if nl = 0 then do
+      line = remaining
+      remaining = ""
+    end
+    else do
+      line = substr(remaining, 1, nl - 1)
+      remaining = substr(remaining, nl + 1)
+    end
+    line = clean_tag_line(line)
+    if line = "" | upper(line) = "NONE" then iterate
+    tag = tag_field(line, 1)
+    id = tag_field(line, 2)
+    node_type = tag_field(line, 3)
+    label = tag_field(line, 4)
+    confidence = tag_field(line, 5)
+    evidence = tag_field(line, 6)
+    aliases = tag_field(line, 7)
+    if upper(strip(tag)) <> "NODE" then iterate
+    id = clean_tag_field(id)
+    node_type = clean_tag_field(node_type)
+    label = clean_tag_field(label)
+    confidence = clean_tag_field(confidence)
+    evidence = clean_tag_field(evidence)
+    aliases = clean_tag_field(aliases)
+    if aliases = "" then aliases = label
+    if id <> "" & label <> "" & profile_allowed_node_type(profile, node_type) = 1 & confidence_at_least(confidence, 0.45) = 1 then do
+      call add_evidence_chunk library, chunk_id, profile_id, queue_id
+      ignored = addentitytyped(library, id, node_type, label, "Accepted from Stage 3 queued tagged extraction.", metadata(profile_id, queue_id, chunk_id, "stage3-tagged-node", evidence, aliases))
+      ignored = addedgetyped(library, id, evidence_id(chunk_id), "mentioned-in", "Stage 3 tagged candidate mentioned in source chunk.", confidence_or_default(confidence, 0.62), metadata(profile_id, queue_id, chunk_id, "stage3-tagged-mention", evidence, ""))
+      node_applied = node_applied + 1
+      accepted_ids = append_pipe(accepted_ids, id)
+    end
+    else do
+      node_rejected = node_rejected + 1
+      if node_rejected <= 3 then say "stage3 tagged reject node id=" || id || " type=" || node_type || " label=" || label || " confidence=" || confidence
+    end
+  end
+
+  remaining = lines
+  do while remaining <> ""
+    line = ""
+    nl = pos("0a"x, remaining)
+    if nl = 0 then do
+      line = remaining
+      remaining = ""
+    end
+    else do
+      line = substr(remaining, 1, nl - 1)
+      remaining = substr(remaining, nl + 1)
+    end
+    line = clean_tag_line(line)
+    if line = "" | upper(line) = "NONE" then iterate
+    tag = tag_field(line, 1)
+    source_id = tag_field(line, 2)
+    relationship_type = tag_field(line, 3)
+    target_id = tag_field(line, 4)
+    confidence = tag_field(line, 5)
+    label = tag_field(line, 6)
+    evidence = tag_field(line, 7)
+    if upper(strip(tag)) <> "EDGE" then iterate
+    source_id = clean_tag_field(source_id)
+    target_id = clean_tag_field(target_id)
+    relationship_type = clean_tag_field(relationship_type)
+    confidence = clean_tag_field(confidence)
+    label = clean_tag_field(label)
+    evidence = clean_tag_field(evidence)
+    if label = "" then label = relationship_type
+    if source_id <> "" & target_id <> "" & list_has_value(accepted_ids, source_id) = 1 & list_has_value(accepted_ids, target_id) = 1 & profile_allowed_relation_type(profile, relationship_type) = 1 & confidence_at_least(confidence, 0.52) = 1 then do
+      ignored = addedgetyped(library, source_id, target_id, relationship_type, label, confidence_or_default(confidence, 0.58), metadata(profile_id, queue_id, chunk_id, "stage3-tagged-relationship", evidence, ""))
+      relationship_applied = relationship_applied + 1
+    end
+    else do
+      relationship_rejected = relationship_rejected + 1
+      if relationship_rejected <= 3 then say "stage3 tagged reject edge source=" || source_id || " type=" || relationship_type || " target=" || target_id || " confidence=" || confidence
+    end
+  end
+return node_applied || "|" || relationship_applied
+
+add_evidence_chunk: procedure
+  arg library = .string, chunk_id = .string, profile_id = .string, queue_id = .string
+  ignored = addentitytyped(library, evidence_id(chunk_id), "evidence-chunk", "Chunk " || chunk_id, "Source chunk used as extraction evidence.", metadata(profile_id, queue_id, chunk_id, "stage3-evidence", "source chunk", ""))
+return
+
+attempt_metadata: procedure = .string
+  arg profile_id = .string, queue_id = .string, mode = .string, extract_format = .string, score = .string, reason = .string
+return '{"profile_id":' || json_quote(profile_id) || ',"queue_id":' || json_quote(queue_id) || ',"stage":"stage3","mode":' || json_quote(mode) || ',"format":' || json_quote(extract_format) || ',"queue_score":' || number_or_zero(score) || ',"queue_reason":' || json_quote(reason) || '}'
+
+metadata: procedure = .string
+  arg profile_id = .string, queue_id = .string, chunk_id = .string, extractor = .string, evidence = .string, aliases = .string
+  out = '{"profile_id":' || json_quote(profile_id) || ',"queue_id":' || json_quote(queue_id) || ',"chunk_id":' || number_or_zero(chunk_id) || ',"extractor":' || json_quote(extractor) || ',"evidence":' || json_quote(evidence)
+  if aliases <> "" then out = out || ',"aliases":' || json_quote(aliases)
+return out || '}'
+
+aliases_from_json: procedure = .string
+  arg json = .string, path = .string, fallback = .string
+  count = jsoncount(json, path)
+  out = ""
+  do i = 1 to count
+    value = jsonget(json, path || "." || i)
+    if value <> "" then out = append_pipe(out, value)
+  end
+  if out = "" then out = fallback
+return out
+
+confidence_at_least: procedure = .int
+  arg value = .string, threshold = .float
+  if value = "" then return 1
+  if value >= threshold then return 1
+return 0
+
+confidence_or_default: procedure = .float
+  arg value = .string, fallback = .float
+  if value = "" then return fallback
+return value
+
+evidence_id: procedure = .string
+  arg chunk_id = .string
+return "evidence:chunk:" || chunk_id
+
+contains_any: procedure = .int
+  arg text = .string, needles = .string
+  upper_text = upper(text)
+  rest = needles
+  do while rest <> ""
+    parse var rest needle "|" rest
+    needle = strip(needle)
+    if needle <> "" & pos(upper(needle), upper_text) > 0 then return 1
+  end
+return 0
+
+append_pipe: procedure = .string
+  arg value = .string, part = .string
+  part = strip(part)
+  if part = "" then return value
+  if value = "" then return part
+return value || "|" || part
+
+list_has_value: procedure = .int
+  arg values = .string, sought = .string
+  sought = strip(sought)
+  rest = values
+  do while rest <> ""
+    parse var rest item "|" rest
+    if strip(item) = sought then return 1
+  end
+return 0
+
+clean_tag_line: procedure = .string
+  arg value = .string
+  value = strip(value)
+  if left(value, 3) = "```" then return ""
+  do while left(value, 1) = "-" | left(value, 1) = "*"
+    value = strip(substr(value, 2))
+  end
+return value
+
+clean_tag_field: procedure = .string
+  arg value = .string
+  value = strip(value)
+  if upper(value) = "NONE" then return ""
+  out = ""
+  do i = 1 to length(value)
+    ch = substr(value, i, 1)
+    if ch = "|" | ch = "09"x | ch = "0a"x | ch = "0d"x then do
+      if out <> "" & right(out, 1) <> " " then out = out || " "
+    end
+    else out = out || ch
+  end
+return strip(out)
+
+tag_field: procedure = .string
+  arg line = .string, field_index = .int
+  rest = line
+  current = 1
+  do while current < field_index
+    separator = pos("|", rest)
+    if separator = 0 then return ""
+    rest = substr(rest, separator + 1)
+    current = current + 1
+  end
+  separator = pos("|", rest)
+  if separator = 0 then return rest
+return substr(rest, 1, separator - 1)
+
+number_or_zero: procedure = .string
+  arg value = .string
+  value = strip(value)
+  if value = "" then return "0"
+return value
+
+int_or_zero: procedure = .int
+  arg value = .string
+  value = strip(value)
+  if value = "" then return 0
+return value
+
+json_quote: procedure = .string
+  arg value = .string
+return '"' || json_escape(value) || '"'
+
+json_escape: procedure = .string
+  arg value = .string
+  out = ""
+  do i = 1 to length(value)
+    ch = substr(value, i, 1)
+    if ch = '"' then out = out || '\"'
+    else if ch = "\" then out = out || "\\"
+    else if ch = "0a"x then out = out || "\n"
+    else if ch = "0d"x then out = out || "\n"
+    else out = out || ch
+  end
+return out
+
+fast_field: procedure = .string
+  arg text = .string, marker = .string, terminator = .string
+  start = pos(marker, text)
+  if start = 0 then return ""
+  start = start + length(marker)
+  stop = pos(terminator, text, start)
+  if stop = 0 then return strip(substr(text, start))
+return strip(substr(text, start, stop - start))
+
+command_quote: procedure = .string
+  arg value = .string
+  out = "'"
+  do i = 1 to length(value)
+    ch = substr(value, i, 1)
+    if ch = "'" then out = out || "'\\''"
+    else out = out || ch
+  end
+return out || "'"
+
+run_command_stdout_input: procedure = .string
+  arg command = .string, text = .string
+  input_lines = .string[]
+  line = ""
+  line_index = 1
+  do i = 1 to length(text)
+    ch = substr(text, i, 1)
+    if ch = "0a"x then do
+      input_lines[line_index] = line
+      line_index = line_index + 1
+      line = ""
+    end
+    else if ch <> "0d"x then line = line || ch
+  end
+  input_lines[line_index] = line
+  out = .string[]
+  err = .string[]
+  call arraydrop out
+  call arraydrop err
+  address command command input input_lines output out error err
+  command_rc = rc
+  if command_rc <> 0 then do
+    call lineout "stderr", "stage3_extract_queue: command failed rc=" || command_rc || " command=" || command
+    call write_stem "stderr", err
+    return ""
+  end
+return join_lines(out)
+
+write_stem: procedure
+  arg stream = .string, values = .string[]
+  do i = 1 to values.0
+    call lineout stream, values[i]
+  end
+return
+
+join_lines: procedure = .string
+  arg values = .string[]
+  out = ""
+  do i = 1 to values.0
+    if i > 1 then out = out || "0a"x
+    out = out || values[i]
+  end
+return out

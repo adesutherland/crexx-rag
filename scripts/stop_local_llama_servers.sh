@@ -2,6 +2,9 @@
 set -euo pipefail
 
 state_dir="${CPRAG_LLAMA_STATE_DIR:-.local/llama-servers}"
+if [[ -d "${state_dir}" ]]; then
+  state_dir="$(cd "${state_dir}" && pwd)"
+fi
 kill_all=0
 
 usage() {
@@ -36,6 +39,17 @@ done
 stop_pid_file() {
   local pid_file="$1"
   local name="$2"
+  local label_file="${pid_file%.pid}.label"
+  if [[ -f "${label_file}" ]]; then
+    local label
+    label="$(cat "${label_file}")"
+    if [[ -n "${label}" ]] && command -v launchctl >/dev/null 2>&1; then
+      echo "removing launch job ${label} for ${name}"
+      launchctl remove "${label}" >/dev/null 2>&1 || true
+    fi
+    rm -f "${label_file}"
+  fi
+
   if [[ ! -f "${pid_file}" ]]; then
     echo "${name}: no pid file"
     return
@@ -78,3 +92,4 @@ fi
 
 stop_pid_file "${state_dir}/embedding.pid" "embedding llama-server"
 stop_pid_file "${state_dir}/chat.pid" "chat llama-server"
+stop_pid_file "${state_dir}/advisor.pid" "advisor llama-server"

@@ -572,6 +572,26 @@ bool optionalDouble(
     return true;
 }
 
+bool optionalBool(
+    const Json& args,
+    const std::string& name,
+    bool fallback,
+    bool* out,
+    std::string* error)
+{
+    const Json* value = member(args, name);
+    if (value == nullptr) {
+        *out = fallback;
+        return true;
+    }
+    if (value->type != Json::Type::Bool) {
+        *error = "argument must be a boolean: " + name;
+        return false;
+    }
+    *out = value->boolean;
+    return true;
+}
+
 int fileTypeFromString(const std::string& type, std::string* error)
 {
     if (type == "plain") {
@@ -704,6 +724,196 @@ bool runEmbeddingCommand(
     return parseEmbeddingOutput(output, out, error);
 }
 
+std::string jsonMemberOrNull(const Json& object, const std::string& name)
+{
+    const Json* value = member(object, name);
+    return value == nullptr ? "null" : renderJson(*value);
+}
+
+std::string jsonMemberStringOrEmpty(const Json& object, const std::string& name)
+{
+    const Json* value = member(object, name);
+    if (value == nullptr || value->type != Json::Type::String) {
+        return "";
+    }
+    return value->text;
+}
+
+std::string lowerAscii(std::string value)
+{
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return value;
+}
+
+bool containsFolded(const std::string& text, const std::string& needle)
+{
+    return lowerAscii(text).find(lowerAscii(needle)) != std::string::npos;
+}
+
+std::string chunkEvidenceClass(const Json& chunk)
+{
+    const std::string text = jsonMemberStringOrEmpty(chunk, "text");
+    const std::string title = jsonMemberStringOrEmpty(chunk, "title");
+    const std::string haystack = title + "\n" + text;
+    if (containsFolded(haystack, "index") || containsFolded(haystack, "contents")) {
+        return "index-or-toc";
+    }
+    if (containsFolded(haystack, "fig.") || containsFolded(haystack, "illustration")
+        || containsFolded(haystack, "caption")) {
+        return "caption-or-illustration";
+    }
+    if (containsFolded(haystack, "footnote") || containsFolded(haystack, "note.")) {
+        return "footnote-or-note";
+    }
+    if (containsFolded(haystack, "quoted") || containsFolded(haystack, "says ")
+        || containsFolded(haystack, "according to")) {
+        return "quoted-or-attributed";
+    }
+    return "narrative";
+}
+
+std::string edgeDirectness(const std::string& relationshipType)
+{
+    if (relationshipType == "mentioned-in") {
+        return "mention-only";
+    }
+    if (relationshipType == "candidate-for") {
+        return "ambiguity-lead";
+    }
+    return "accepted-typed-edge";
+}
+
+void appendSearchPlan(std::ostringstream& out, const std::string& question, const std::string& focus)
+{
+    out << '['
+        << jsonString("Search the corpus for the user's actual question and useful corrected/expanded terms.")
+        << ',' << jsonString("Prefer narrative chunks for factual claims; use index, caption, and graph-only evidence as leads.")
+        << ',' << jsonString("Compare accepted typed graph relationships with mention/co-mention paths before asserting relationships.")
+        << ',' << jsonString("Separate ambiguous names, titles, places, and organizations instead of resolving them from memory.");
+    if (!focus.empty()) {
+        out << ',' << jsonString("User-supplied focus: " + focus);
+    }
+    if (question.find('?') != std::string::npos) {
+        out << ',' << jsonString("If evidence is thin, ask a narrower follow-up search before answering.");
+    }
+    out << ']';
+}
+
+std::string buildEvidenceBundle(
+    const std::string& question,
+    const std::string& focus,
+    const std::string& searchJson,
+    bool includeRaw)
+{
+    Json root = JsonParser(searchJson).parse();
+    std::ostringstream out;
+    out << "{\"success\":true"
+        << ",\"question\":" << jsonString(question)
+        << ",\"policy\":{\"source_bound\":true,\"outside_knowledge_allowed\":false,"
+           "\"answer_requires_citations\":true,\"graph_mentions_are_leads\":true}"
+        << ",\"retrieval_plan\":";
+    appendSearchPlan(out, question, focus);
+    out << ",\"search\":";
+    const Json* search = member(root, "search");
+    out << (search == nullptr ? "{}" : renderJson(*search));
+
+    out << ",\"evidence\":{\"narrative_chunks\":[";
+    const Json* chunks = member(root, "chunks");
+    bool first = true;
+    if (chunks != nullptr && chunks->type == Json::Type::Array) {
+        for (const Json& chunk : chunks->array) {
+            if (chunk.type != Json::Type::Object) {
+                continue;
+            }
+            if (!first) {
+                out << ',';
+            }
+            first = false;
+            out << "{\"chunk_id\":" << jsonMemberOrNull(chunk, "id")
+                << ",\"source_uri\":" << jsonMemberOrNull(chunk, "source_uri")
+                << ",\"title\":" << jsonMemberOrNull(chunk, "title")
+                << ",\"chunk_index\":" << jsonMemberOrNull(chunk, "chunk_index")
+                << ",\"text\":" << jsonMemberOrNull(chunk, "text")
+                << ",\"source_type\":" << jsonMemberOrNull(chunk, "source_type")
+                << ",\"confidence\":" << jsonMemberOrNull(chunk, "confidence")
+                << ",\"rank\":" << jsonMemberOrNull(chunk, "rank")
+                << ",\"retrieval\":" << jsonMemberOrNull(chunk, "retrieval")
+                << ",\"evidence_class\":" << jsonString(chunkEvidenceClass(chunk))
+                << ",\"directness\":\"retrieved-source-passage\"}";
+        }
+    }
+
+    out << "],\"graph_claims\":[";
+    const Json* subgraph = member(root, "subgraph");
+    const Json* edges = subgraph == nullptr ? nullptr : member(*subgraph, "edges");
+    first = true;
+    if (edges != nullptr && edges->type == Json::Type::Array) {
+        for (const Json& edge : edges->array) {
+            if (edge.type != Json::Type::Object) {
+                continue;
+            }
+            const std::string relationshipType = jsonMemberStringOrEmpty(edge, "relationship_type");
+            if (edgeDirectness(relationshipType) != "accepted-typed-edge") {
+                continue;
+            }
+            if (!first) {
+                out << ',';
+            }
+            first = false;
+            out << "{\"source\":" << jsonMemberOrNull(edge, "source")
+                << ",\"relationship_type\":" << jsonMemberOrNull(edge, "relationship_type")
+                << ",\"target\":" << jsonMemberOrNull(edge, "target")
+                << ",\"label\":" << jsonMemberOrNull(edge, "label")
+                << ",\"weight\":" << jsonMemberOrNull(edge, "weight")
+                << ",\"metadata\":" << jsonMemberOrNull(edge, "metadata")
+                << ",\"directness\":\"accepted-typed-edge\"}";
+        }
+    }
+
+    out << "],\"graph_leads\":[";
+    first = true;
+    if (edges != nullptr && edges->type == Json::Type::Array) {
+        for (const Json& edge : edges->array) {
+            if (edge.type != Json::Type::Object) {
+                continue;
+            }
+            const std::string relationshipType = jsonMemberStringOrEmpty(edge, "relationship_type");
+            const std::string directness = edgeDirectness(relationshipType);
+            if (directness == "accepted-typed-edge") {
+                continue;
+            }
+            if (!first) {
+                out << ',';
+            }
+            first = false;
+            out << "{\"source\":" << jsonMemberOrNull(edge, "source")
+                << ",\"relationship_type\":" << jsonMemberOrNull(edge, "relationship_type")
+                << ",\"target\":" << jsonMemberOrNull(edge, "target")
+                << ",\"label\":" << jsonMemberOrNull(edge, "label")
+                << ",\"weight\":" << jsonMemberOrNull(edge, "weight")
+                << ",\"metadata\":" << jsonMemberOrNull(edge, "metadata")
+                << ",\"directness\":" << jsonString(directness) << '}';
+        }
+    }
+
+    out << "],\"anchors\":";
+    const Json* anchors = member(root, "anchors");
+    out << (anchors == nullptr ? "[]" : renderJson(*anchors));
+    out << "},\"answer_guidance\":["
+        << jsonString("Answer only from this evidence bundle and cite chunk ids such as [chunk 458].")
+        << ',' << jsonString("Treat graph_leads as discovery hints unless a source passage or accepted typed edge supports the claim.")
+        << ',' << jsonString("When evidence is weak, absent, or ambiguous, say so plainly.")
+        << ',' << jsonString("Do not mention MCP, FAISS, file paths, or model internals unless the user asks how retrieval was performed.")
+        << ']';
+    if (includeRaw) {
+        out << ",\"raw_search\":" << renderJson(root);
+    }
+    out << '}';
+    return out.str();
+}
+
 void respond(const std::string& idJson, const std::string& resultJson)
 {
     std::cout << "{\"jsonrpc\":\"2.0\",\"id\":" << idJson << ",\"result\":" << resultJson << "}" << std::endl;
@@ -745,6 +955,10 @@ const std::vector<ToolSpec>& toolSpecs()
         {"library_search",
             "Search the local GraphRAG library and expand graph context. mode defaults to auto.",
             R"JSON({"type":"object","properties":{"query":{"type":"string"},"top_k":{"type":"integer","minimum":0},"hops":{"type":"integer","minimum":0},"mode":{"type":"string","enum":["auto","lexical","vector","hybrid"]},"embedding_model":{"type":"string"}},"required":["query"]})JSON",
+            false},
+        {"library_answer_evidence",
+            "Return an LLM-ready source-bound evidence bundle for answering a corpus question. Includes a retrieval plan, source chunks, accepted graph claims, graph-only leads, and answer guidance. mode defaults to auto.",
+            R"JSON({"type":"object","properties":{"question":{"type":"string"},"focus":{"type":"string"},"top_k":{"type":"integer","minimum":0},"hops":{"type":"integer","minimum":0},"mode":{"type":"string","enum":["auto","lexical","vector","hybrid"]},"embedding_model":{"type":"string"},"include_raw":{"type":"boolean"}},"required":["question"]})JSON",
             false},
         {"library_shortest_path",
             "Find the shortest typed relationship path between two entities.",
@@ -1068,6 +1282,81 @@ void handleToolCall(
             buffer.data(),
             buffer.size());
         coreJsonResult(idJson, *handle, rc, buffer);
+        return;
+    }
+
+    if (name == "library_answer_evidence") {
+        std::string question;
+        std::string focus;
+        std::string modeText;
+        std::string requestedModel;
+        int topK = 8;
+        int hops = 2;
+        bool includeRaw = false;
+        if (!requireString(*args, "question", &question, &error)
+            || !optionalString(*args, "focus", "", &focus, &error)
+            || !optionalInt(*args, "top_k", 8, 0, &topK, &error)
+            || !optionalInt(*args, "hops", 2, 0, &hops, &error)
+            || !optionalString(*args, "mode", "auto", &modeText, &error)
+            || !optionalString(*args, "embedding_model", config.embeddingModel, &requestedModel, &error)
+            || !optionalBool(*args, "include_raw", false, &includeRaw, &error)) {
+            respondError(idJson, kInvalidParams, error);
+            return;
+        }
+        const int mode = searchModeFromString(modeText, &error);
+        if (!error.empty()) {
+            respondError(idJson, kInvalidParams, error);
+            return;
+        }
+
+        std::vector<float> queryVector;
+        const float* queryVectorData = nullptr;
+        size_t queryVectorDimension = 0;
+        std::string activeModel;
+        int activeDimension = 0;
+        const bool vectorReady = vectorIndexReady(*handle, &activeModel, &activeDimension);
+        const std::string effectiveModel = requestedModel.empty() ? activeModel : requestedModel;
+        const bool vectorRequested = mode == CPRAG_SEARCH_VECTOR || mode == CPRAG_SEARCH_HYBRID;
+        const bool shouldEmbed = vectorRequested || (mode == CPRAG_SEARCH_AUTO && vectorReady && !config.embeddingCommand.empty());
+
+        if (vectorRequested && config.embeddingCommand.empty()) {
+            respondError(idJson, kInvalidParams, "embedding command is not configured; use mode=lexical or configure --embedding-command");
+            return;
+        }
+        if (vectorRequested && !vectorReady) {
+            respondError(idJson, kCoreError, "active vector index is not available");
+            return;
+        }
+        if (shouldEmbed) {
+            if (!runEmbeddingCommand(config.embeddingCommand, question, effectiveModel, &queryVector, &error)) {
+                respondError(idJson, kCoreError, error);
+                return;
+            }
+            queryVectorData = queryVector.data();
+            queryVectorDimension = queryVector.size();
+        }
+
+        rc = cprag_search_with_vector(
+            *handle,
+            question.c_str(),
+            topK,
+            hops,
+            mode,
+            effectiveModel.c_str(),
+            queryVectorData,
+            queryVectorDimension,
+            buffer.data(),
+            buffer.size());
+        if (rc != CPRAG_OK) {
+            coreJsonResult(idJson, *handle, rc, buffer);
+            return;
+        }
+
+        try {
+            respond(idJson, textContentResult(buildEvidenceBundle(question, focus, buffer.data(), includeRaw)));
+        } catch (const std::exception& ex) {
+            respondError(idJson, kCoreError, std::string("failed to build evidence bundle: ") + ex.what());
+        }
         return;
     }
 

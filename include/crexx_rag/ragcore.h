@@ -229,6 +229,140 @@ int cprag_match_concepts(
     char* out_json,
     size_t out_json_size);
 
+int cprag_clear_candidate_census(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* source_uri,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_add_candidate_mention(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* source_uri,
+    long long chunk_id,
+    const char* stage,
+    const char* extractor,
+    const char* candidate,
+    const char* normalized_candidate,
+    int priority,
+    int proper_count,
+    int known_count,
+    int cue_count,
+    const char* metadata_json);
+
+int cprag_candidate_census(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* source_uri,
+    int min_count,
+    int limit,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_pending_candidate_census(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* source_uri,
+    int min_count,
+    int limit,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_adjudicate_candidate(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* normalized_candidate,
+    const char* status,
+    const char* candidate_type,
+    const char* canonical_label,
+    const char* aliases,
+    const char* disambiguation,
+    double confidence,
+    const char* adjudicator,
+    const char* metadata_json);
+
+int cprag_list_candidate_adjudications(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* status_filter,
+    int limit,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_list_candidate_mention_evidence(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* status_filter,
+    const char* type_filter_csv,
+    int min_count,
+    long long after_id,
+    int limit,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_seed_candidate_mention_graph(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* graph_namespace,
+    const char* status_filter,
+    const char* type_filter_csv,
+    int min_count,
+    long long after_id,
+    int limit,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_build_extraction_queue(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    const char* graph_namespace,
+    const char* node_type_filter_csv,
+    int limit,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_list_extraction_queue(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    const char* status_filter,
+    int limit,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_record_extraction_attempt(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    long long chunk_id,
+    const char* extractor,
+    const char* model,
+    const char* status,
+    int accepted_nodes,
+    int accepted_relationships,
+    const char* raw_output,
+    const char* metadata_json,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_list_extraction_attempts(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    long long chunk_id,
+    int limit,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_queue_status(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    char* out_json,
+    size_t out_json_size);
+
 int cprag_search(
     cprag_handle* handle,
     const char* query,

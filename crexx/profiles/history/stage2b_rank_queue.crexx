@@ -1,0 +1,112 @@
+options levelg
+import rxfnsb
+import rxjson
+import rxrag
+import pipeline_profile
+
+/*
+ * Stage 2b extraction queue controller.
+ *
+ * Input:  Stage 2 concept/evidence graph.
+ * Output: durable chunk-extraction work_queue rows ranked for Stage 3 LLM extraction.
+ *
+ * CREXX owns the profile knobs. The native core owns the ranked queue write.
+ */
+
+arg args = .string[]
+
+library = "./history-stage2.cprag"
+profile = "scotland"
+profile_id = ""
+queue_id = "stage3-default"
+graph_namespace = ""
+type_filter = ""
+limit = 100
+preview = 20
+
+ai = 1
+do while ai <= args.0
+  token = args[ai]
+  select
+    when token = "--library" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--library needs a value"
+      library = args[ai]
+    end
+    when token = "--profile" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--profile needs a value"
+      profile = args[ai]
+    end
+    when token = "--profile-id" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--profile-id needs a value"
+      profile_id = args[ai]
+    end
+    when token = "--queue-id" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--queue-id needs a value"
+      queue_id = args[ai]
+    end
+    when token = "--graph-namespace" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--graph-namespace needs a value"
+      graph_namespace = args[ai]
+    end
+    when token = "--types" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--types needs a value"
+      type_filter = args[ai]
+    end
+    when token = "--limit" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--limit needs a value"
+      limit = args[ai]
+    end
+    when token = "--preview" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--preview needs a value"
+      preview = args[ai]
+    end
+    when token = "--help" | token = "-h" then call usage
+    otherwise call usage_error "unexpected argument: " || token
+  end
+  ai = ai + 1
+end
+
+if profile_supported(profile) = 0 then call usage_error "--profile must be generic, scotland, or athens"
+if limit < 1 then call usage_error "--limit must be at least 1"
+if preview < 0 then call usage_error "--preview must not be negative"
+if profile_id = "" then profile_id = profile_default_id(profile)
+if graph_namespace = "" then graph_namespace = profile_graph_namespace(profile)
+if type_filter = "" then type_filter = profile_seed_types(profile)
+
+call rank_queue library, profile, profile_id, queue_id, graph_namespace, type_filter, limit, preview
+exit 0
+
+usage: procedure
+  call lineout "stderr", "usage: stage2b_rank_queue.crexx [--library PATH] [--profile generic|scotland|athens] [--profile-id ID] [--queue-id ID] [--graph-namespace NS] [--types CSV] [--limit N] [--preview N]"
+  exit 0
+return
+
+usage_error: procedure
+  arg message = .string
+  call lineout "stderr", "stage2b_rank_queue: " || message
+  call lineout "stderr", "usage: stage2b_rank_queue.crexx [--library PATH] [--profile generic|scotland|athens] [--profile-id ID] [--queue-id ID] [--graph-namespace NS] [--types CSV] [--limit N] [--preview N]"
+  exit 2
+return
+
+rank_queue: procedure
+  arg library = .string, profile = .string, profile_id = .string, queue_id = .string, graph_namespace = .string, type_filter = .string, limit = .int, preview = .int
+  say "stage2b start profile=" || profile || " profile_id=" || profile_id || " queue_id=" || queue_id || " graph_namespace=" || graph_namespace || " types=" || type_filter || " limit=" || limit
+  result = buildextractionqueue(library, profile_id, queue_id, graph_namespace, type_filter, limit)
+  say "stage2b complete ranked=" || jsonget(result, "ranked") || " queued=" || jsonget(result, "queued")
+
+  if preview > 0 then do
+    list = extractionqueue(library, profile_id, queue_id, "pending", preview)
+    count = jsoncount(list, "items")
+    do i = 1 to count
+      say right(jsonget(list, "items." || i || ".rank"), 3) || " chunk=" || jsonget(list, "items." || i || ".chunk_id") || " score=" || jsonget(list, "items." || i || ".score") || " " || jsonget(list, "items." || i || ".reason")
+    end
+  end
+return

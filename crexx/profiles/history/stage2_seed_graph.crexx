@@ -1,0 +1,141 @@
+options levelg
+import rxfnsb
+import rxjson
+import rxrag
+import pipeline_profile
+
+/*
+ * Stage 2 graph seeding controller.
+ *
+ * Input:  Stage 1 candidate mentions plus Stage 1b adjudications.
+ * Output: typed concept nodes and mentioned-in evidence links.
+ *
+ * This is intentionally conservative: it seeds evidence-backed mentions from
+ * accepted candidate types. Relationship extraction remains a later gated step.
+ */
+
+arg args = .string[]
+
+library = "./history-hybrid.cprag"
+profile = "scotland"
+profile_id = ""
+graph_namespace = ""
+status_filter = "keep"
+type_filter = ""
+min_count = 5
+page_size = 128
+limit_mentions = 0
+after_id = 0
+
+ai = 1
+do while ai <= args.0
+  token = args[ai]
+  select
+    when token = "--library" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--library needs a value"
+      library = args[ai]
+    end
+    when token = "--profile" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--profile needs a value"
+      profile = args[ai]
+    end
+    when token = "--profile-id" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--profile-id needs a value"
+      profile_id = args[ai]
+    end
+    when token = "--graph-namespace" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--graph-namespace needs a value"
+      graph_namespace = args[ai]
+    end
+    when token = "--status" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--status needs a value"
+      status_filter = args[ai]
+    end
+    when token = "--types" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--types needs a value"
+      type_filter = args[ai]
+    end
+    when token = "--min-count" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--min-count needs a value"
+      min_count = args[ai]
+    end
+    when token = "--page-size" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--page-size needs a value"
+      page_size = args[ai]
+    end
+    when token = "--limit-mentions" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--limit-mentions needs a value"
+      limit_mentions = args[ai]
+    end
+    when token = "--after-id" then do
+      ai = ai + 1
+      if ai > args.0 then call usage_error "--after-id needs a value"
+      after_id = args[ai]
+    end
+    when token = "--help" | token = "-h" then call usage
+    otherwise call usage_error "unexpected argument: " || token
+  end
+  ai = ai + 1
+end
+
+if profile_supported(profile) = 0 then call usage_error "--profile must be generic, scotland, or athens"
+if page_size < 1 then call usage_error "--page-size must be at least 1"
+if profile_id = "" then profile_id = profile_default_id(profile)
+if graph_namespace = "" then graph_namespace = profile_graph_namespace(profile)
+if type_filter = "" then type_filter = profile_seed_types(profile)
+
+call seed_graph library, profile, profile_id, graph_namespace, status_filter, type_filter, min_count, page_size, limit_mentions, after_id
+exit 0
+
+usage: procedure
+  call lineout "stderr", "usage: stage2_seed_graph.crexx [--library PATH] [--profile generic|scotland|athens] [--profile-id ID] [--graph-namespace NS] [--status keep|ambiguous|junk] [--types CSV] [--min-count N] [--page-size N] [--limit-mentions N] [--after-id N]"
+  exit 0
+return
+
+usage_error: procedure
+  arg message = .string
+  call lineout "stderr", "stage2_seed_graph: " || message
+  call lineout "stderr", "usage: stage2_seed_graph.crexx [--library PATH] [--profile generic|scotland|athens] [--profile-id ID] [--graph-namespace NS] [--status keep|ambiguous|junk] [--types CSV] [--min-count N] [--page-size N] [--limit-mentions N] [--after-id N]"
+  exit 2
+return
+
+seed_graph: procedure
+  arg library = .string, profile = .string, profile_id = .string, graph_namespace = .string, status_filter = .string, type_filter = .string, min_count = .int, page_size = .int, limit_mentions = .int, after_id = .int
+  pages = 0
+  rows_seen = 0
+  edge_writes = 0
+  skipped_replay = 0
+  say "stage2 start profile=" || profile || " profile_id=" || profile_id || " graph_namespace=" || graph_namespace || " status=" || status_filter || " types=" || type_filter || " min_count=" || min_count || " page_size=" || page_size || " limit_mentions=" || limit_mentions || " after_id=" || after_id
+
+  do forever
+    request_limit = page_size
+    if limit_mentions > 0 then do
+      remaining = limit_mentions - rows_seen
+      if remaining <= 0 then leave
+      if remaining < request_limit then request_limit = remaining
+    end
+
+    result = seedcandidategraph(library, profile_id, graph_namespace, status_filter, type_filter, min_count, after_id, request_limit)
+    count = jsonget(result, "rows")
+    if count = "" | count = 0 then leave
+    pages = pages + 1
+    rows_seen = rows_seen + count
+    edge_writes = edge_writes + jsonget(result, "edge_writes")
+    skipped_replay = skipped_replay + jsonget(result, "skipped_replay")
+    after_id = jsonget(result, "last_id")
+    say "stage2 page=" || pages || " rows_seen=" || rows_seen || " edge_writes=" || edge_writes || " skipped_replay=" || skipped_replay || " after_id=" || after_id
+    if count < request_limit then leave
+  end
+
+  say "stage2 complete rows_seen=" || rows_seen || " edge_writes=" || edge_writes || " skipped_replay=" || skipped_replay || " pages=" || pages || " after_id=" || after_id
+  say stats(library)
+return

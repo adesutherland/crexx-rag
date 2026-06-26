@@ -1,0 +1,2 @@
+The Authentication Service uses PostgreSQL to read User Profile Data.
+The Backup Service protects User Profile Data and depends on PostgreSQL availability.

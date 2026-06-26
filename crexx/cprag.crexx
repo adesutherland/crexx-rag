@@ -65,6 +65,58 @@ raglibrary: class
     arg text = .string, node_type_filter_csv = ""
     return matchconcepts(_path, text, node_type_filter_csv)
 
+  clearStage1Census: method = .string
+    arg profile_id = .string, source_uri = .string
+    return clearcandidatecensus(_path, profile_id, source_uri)
+
+  recordCandidateMention: method = .string
+    arg profile_id = .string, source_uri = .string, chunk_id = .int, candidate = .string, normalized_candidate = .string, priority = .int, proper_count = .int, known_count = .int, cue_count = .int, stage = .string, extractor = .string, metadata_json = .string
+    return addcandidatemention(_path, profile_id, source_uri, chunk_id, candidate, normalized_candidate, priority, proper_count, known_count, cue_count, stage, extractor, metadata_json)
+
+  candidateCensusJson: method = .string
+    arg profile_id = .string, source_uri = .string, min_count = .int, limit = .int
+    return candidatecensus(_path, profile_id, source_uri, min_count, limit)
+
+  pendingCandidateCensusJson: method = .string
+    arg profile_id = .string, source_uri = .string, min_count = .int, limit = .int
+    return pendingcandidatecensus(_path, profile_id, source_uri, min_count, limit)
+
+  saveCandidateAdjudication: method = .string
+    arg profile_id = .string, normalized_candidate = .string, status = .string, candidate_type = .string, canonical_label = .string, aliases = .string, disambiguation = .string, confidence = .float, adjudicator = .string, metadata_json = .string
+    return adjudicatecandidate(_path, profile_id, normalized_candidate, status, candidate_type, canonical_label, aliases, disambiguation, confidence, adjudicator, metadata_json)
+
+  candidateAdjudicationsJson: method = .string
+    arg profile_id = .string, status_filter = .string, limit = .int
+    return candidateadjudications(_path, profile_id, status_filter, limit)
+
+  candidateMentionEvidenceJson: method = .string
+    arg profile_id = .string, status_filter = .string, type_filter_csv = .string, min_count = .int, after_id = .int, limit = .int
+    return candidatementionevidence(_path, profile_id, status_filter, type_filter_csv, min_count, after_id, limit)
+
+  seedCandidateGraphJson: method = .string
+    arg profile_id = .string, graph_namespace = .string, status_filter = .string, type_filter_csv = .string, min_count = .int, after_id = .int, limit = .int
+    return seedcandidategraph(_path, profile_id, graph_namespace, status_filter, type_filter_csv, min_count, after_id, limit)
+
+  buildExtractionQueueJson: method = .string
+    arg profile_id = .string, queue_id = .string, graph_namespace = .string, node_type_filter_csv = .string, limit = .int
+    return buildextractionqueue(_path, profile_id, queue_id, graph_namespace, node_type_filter_csv, limit)
+
+  extractionQueueJson: method = .string
+    arg profile_id = .string, queue_id = .string, status_filter = .string, limit = .int
+    return extractionqueue(_path, profile_id, queue_id, status_filter, limit)
+
+  recordExtractionAttemptJson: method = .string
+    arg profile_id = .string, queue_id = .string, chunk_id = .int, extractor = .string, model = .string, status = .string, accepted_nodes = .int, accepted_relationships = .int, raw_output = .string, metadata_json = "{}"
+    return recordextractionattempt(_path, profile_id, queue_id, chunk_id, extractor, model, status, accepted_nodes, accepted_relationships, raw_output, metadata_json)
+
+  extractionAttemptsJson: method = .string
+    arg profile_id = .string, queue_id = .string, chunk_id = .int, limit = .int
+    return extractionattempts(_path, profile_id, queue_id, chunk_id, limit)
+
+  queueStatusJson: method = .string
+    arg profile_id = .string, queue_id = .string
+    return queuestatus(_path, profile_id, queue_id)
+
   removeSource: method = .string
     arg source_uri = .string
     return deletesource(_path, source_uri)

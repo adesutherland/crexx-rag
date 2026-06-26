@@ -86,6 +86,43 @@ cmake --preset debug -DCPRAG_ALLOW_VENDORED_CREXXPA=OFF
   `.rxplugin` to both the compiler/import phase and the runtime module loader.
 - Consider making rxpa string setter APIs accept `const char *` where the
   callee does not mutate the passed string.
+- Add first-class helpers for fuzzy parsing and validation of LLM/tool output.
+  The hybrid RAG profile repeatedly needs to accept "nearly right" local-model
+  output such as missing optional fields, extra commas around numbers, Markdown
+  table rows instead of plain pipe-separated records, and confidence values with
+  punctuation. Useful CREXX-level helpers would include tolerant record parsing,
+  field-count repair, numeric coercion with defaults/clamping, enum validation,
+  and structured diagnostics describing which field was repaired or rejected.
+- Improve ergonomic handling of multi-line ADDRESS command output. Profiles need
+  to call command-shaped model/CLI adapters and then parse line-oriented output
+  without fragile manual stem joining, embedded newline passing surprises, or
+  ad hoc row separators. A standard "capture stdout as lines" API plus helpers
+  to iterate or map those rows would make LLM-assist controllers much easier to
+  write safely.
+- Document or provide a first-class argv-vector form for `ADDRESS COMMAND`.
+  Current tests show stdout/stderr redirects to arrays and stdin from arrays
+  work well, but the executable token must be left unquoted while arguments may
+  need quoting. A direct argv array would avoid ambiguous command-string parsing
+  for executable paths, model ids, URLs, and user-provided text.
+- Document array lifecycle for command redirects prominently. In practice,
+  output arrays should be cleared with `arraydrop` before reuse; assigning a new
+  `.string[]` object is not the same as clearing an existing redirect target in
+  all repeated-capture cases.
+- Investigate large JSON traversal performance in Rexx controllers. During the
+  Scotland Stage 1b run, asking CREXX to load a full candidate census JSON array
+  and then repeatedly call `jsonget` over it made `rxvme` CPU-bound before the
+  first LLM call; the log stayed empty while the VM consumed a full core. Even a
+  small offline `limit=64` run took about 38 seconds without model work. The
+  repo-side countermeasure is to expose native pending/paged candidate-census
+  APIs and keep each CREXX page small. A CREXX-side improvement would be cached
+  parsed JSON handles, array/table iterators, or cursor-like access so profile
+  scripts can process large native result sets without reparsing or path-walking
+  a giant string repeatedly.
+- Consider a small schema/contract surface for CREXX scripts that consume
+  external tools: declare expected fields, allowed values, coercions, defaults,
+  and retry/repair policy, then get back either a typed record or a useful error
+  object. This would let a profile decide whether to repair locally, ask a tiny
+  model to reformat, or escalate to a stronger model.
 
 ## Policy For This Repo
 

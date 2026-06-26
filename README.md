@@ -24,6 +24,8 @@ scriptable:
 - `crexx-rag-mcp`: stdio MCP server starter for Codex and other MCP clients.
 - `rx_rag.rxplugin`: CREXX `rxpa` dynamic plugin exposing native functions.
 - `cprag.crexx`: Level G CREXX wrapper for profiles and policy scripts.
+- `crexx/profiles/pipeline_profile.crexx`: the shared CREXX profile contract
+  for vocabulary, filters, cue words, validation, and default profile ids.
 
 A plain-English explanation of the major pieces and why they fit together is in
 [`docs/how-it-fits-together.md`](docs/how-it-fits-together.md). It covers
@@ -172,6 +174,8 @@ llama-server \
   --embedding \
   --pooling mean \
   -c 2048 \
+  --batch-size 2048 \
+  --ubatch-size 1024 \
   --host 127.0.0.1 \
   --port 8081
 
@@ -183,8 +187,9 @@ llama-server \
 
 The explicit context size is useful with `semantic-context-v1`, which embeds a
 small provenance envelope around each chunk. If a large corpus trips a
-deterministic llama-server 500 on long inputs, either restart the server with a
-larger `-c` value or run that source with `raw-text-v1` for the first pass.
+deterministic llama-server 500 on long inputs, first check the llama.cpp server
+log for `input ... is too large to process`. The Nomic Scotland run needed
+`--ubatch-size 1024`; the default start wrapper now uses that value.
 Chunk embedding retries default to `CPRAG_EMBEDDING_RETRIES=3` and
 `CPRAG_EMBEDDING_RETRY_DELAY_MS=500`.
 
@@ -208,8 +213,9 @@ consistent embedding vectors.
 ## Local LLM Extraction
 
 `crexx-rag extract-llama-server` is the local llama.cpp chat adapter for
-LLM-assisted graph extraction. It does not write to the graph. It returns
-candidate JSON only, so CREXX/profile code can decide whether to call it
+LLM-assisted graph extraction. It does not write to the graph. It can return
+candidate JSON (`--format json`) or a simpler tagged line format
+(`--format tagged`), so CREXX/profile code can decide whether to call it
 `never`, `always`, or only when deterministic cues need support.
 
 Start a chat-capable `llama-server` separately, commonly on a different port
@@ -226,27 +232,36 @@ llama-server \
 Then ask for extraction candidates:
 
 ```bash
-./cmake-build-debug/crexx-rag extract-llama-server \
+printf '%s\n' \
+  "The Macnicols held lands in Assynt and were connected with Sutherland." |
+./cmake-build-debug/crexx-rag extract-llama-server --stdin \
   --profile scotland \
-  --model ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M \
-  "The Macnicols held lands in Assynt and were connected with Sutherland."
+  --format tagged \
+  --model ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M
 ```
 
-The command returns a JSON object shaped as:
+Tagged output is preferred for bulk local extraction because small local LLMs
+often accept JSON instructions better than they emit JSON. The tagged shape is:
 
-```json
-{
-  "nodes": [],
-  "relationships": []
-}
+```text
+NODE|id|node_type|label|confidence|evidence|aliases
+EDGE|source_id|relationship_type|target_id|confidence|label|evidence
 ```
+
+Use `--format json` when a workflow specifically wants candidate JSON shaped as
+`{"nodes":[],"relationships":[]}`. CREXX controllers should treat both formats
+as proposals: validate node types, relationship types, endpoints, confidence,
+and evidence before writing through the native graph APIs.
 
 Use `--dry-prompt` to inspect the exact prompt without touching a server.
+For CREXX/profile controllers, prefer `--stdin` for chunk text so punctuation,
+quotes, and long passages do not have to survive shell-style command quoting.
 Defaults are `CPRAG_LLAMA_SERVER_CHAT_BASE_URL=http://127.0.0.1:8080/v1`,
 `CPRAG_LLM_MODEL=ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M`,
-`CPRAG_LLM_TEMPERATURE=0.1`, and `CPRAG_LLM_MAX_TOKENS=2048`. Gemma E4B can
-spend a noticeable number of tokens internally before returning final JSON, so
-very small `--max-tokens` values may fail with no final content.
+`CPRAG_LLM_EXTRACT_FORMAT=json`, `CPRAG_LLM_TEMPERATURE=0.1`, and
+`CPRAG_LLM_MAX_TOKENS=2048`. Gemma E4B can spend a noticeable number of tokens
+internally before returning final output, so very small `--max-tokens` values may
+fail with no final content.
 
 For stored corpora, `extract-chunks-llama-server` runs the same adapter over a
 bounded chunk range. It prints progress and elapsed milliseconds to stderr and
@@ -283,45 +298,205 @@ alias. CREXX can use that cheap result for triage before calling a local LLM.
 triage. It asks a local chat model for one short answer rather than JSON:
 
 ```bash
-./cmake-build-debug/crexx-rag advise-llama-server \
+printf '%s\n' "The Mackays fought the Sutherlands at Dingwall." |
+./cmake-build-debug/crexx-rag advise-llama-server --stdin \
   --task route \
   --profile scotland \
-  --context "known=Clan Sutherland score=18" \
-  "The Mackays fought the Sutherlands at Dingwall."
+  --context "known=Clan Sutherland score=18"
 ```
 
-Supported advisory tasks are `proper-nouns`, `value`, `route`, `relation`,
-`alias`, and `complexity`. `proper-nouns` returns a comma-separated name list
-for Stage 1 prioritisation; the others normalize to small strings such as
-`0..5`, `yes`, `no`, `low`, `medium`, `high`, `skip`, `deterministic`,
-`gemma-advice`, or `gemma-extract`. This keeps the cheap Qwen2.5-style step
-simple enough for CREXX policy code. Defaults are
+Supported advisory tasks are `proper-nouns`, `candidate-adjudication`, `value`,
+`route`, `relation`, `alias`, and `complexity`. `proper-nouns` returns a
+comma-separated name list for Stage 1 prioritisation. `candidate-adjudication`
+returns one pipe-separated classification line for Stage 1b:
+`status|type|canonical_label|aliases|disambiguation|confidence`. The others
+normalize to small strings such as `0..5`, `yes`, `no`, `low`, `medium`, `high`,
+`skip`, `deterministic`, `gemma-advice`, or `gemma-extract`. This keeps the cheap
+Qwen2.5-style step simple enough for CREXX policy code. Defaults are
 `CPRAG_LLAMA_SERVER_ADVICE_BASE_URL=http://127.0.0.1:8084/v1` and
 `CPRAG_LLM_ADVICE_MODEL=Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M`; both can be
 overridden with environment variables or CLI flags.
+
+When called from CREXX, the profile uses direct `ADDRESS COMMAND` with stdin
+and captured stdout/stderr arrays. Clear captured arrays with `arraydrop` before
+reuse; Stage 1/1b data should be read back from `candidate_mentions` and
+`candidate_adjudications`, not scraped from progress logs.
 
 The first end-to-end profile is
 [`crexx/profiles/history/hybrid_ingest_extract.crexx`](crexx/profiles/history/hybrid_ingest_extract.crexx).
 It ingests text, chunks it through the native engine, seeds a small profile
 vocabulary, matches known concepts with `matchconcepts`, writes deterministic
-mention and relationship edges, and points toward this staged policy:
+mention and relationship edges, and points toward this staged policy. The
+profile-specific knobs used by the staged controllers live in
+[`crexx/profiles/pipeline_profile.crexx`](crexx/profiles/pipeline_profile.crexx):
+default profile ids, graph namespaces, seed vocabulary, node/relationship
+filters, cue words, candidate typing, ambiguity decisions, and concept id shape.
+The native core remains the durable engine for chunks, candidate tables, graph
+writes, support accumulation, queues, and search.
 
 ```text
 Stage 0  -> ingest/chunk/store sources with provenance
 Stage 1  -> run a cheap candidate census over chunks
 Stage 1b -> collate/adjudicate candidate names into keep/junk/ambiguous/types
-Stage 2  -> seed mention/co-occurrence graph and rank chunks/concepts
-Stage 3  -> extract typed edges from the ranked shortlist
+Stage 2  -> seed mention/co-occurrence graph
+Stage 2b -> rank chunks/concepts into a durable extraction queue
+Stage 3  -> extract typed edges from the ranked queue
 Stage 4  -> revisit ambiguity nodes and other fixup candidates
 ```
 
-The current executable proof implements the front of this shape. Stage 1 can run
-deterministically or ask the fast Qwen2.5-style advisory model for proper nouns.
-The raw output is a census, not truth: collate it by normalized candidate, count
-support, classify likely junk/good/ambiguous names and types, then feed that
-registry back into chunk scoring. Stage 2/3 extraction should spend Gemma-class
-calls only on chunks whose adjudicated concepts, graph position, relation cues,
-or vector neighborhoods suggest useful typed relationships.
+The current executable proof implements this shape for the generic baseline and
+the Scotland demonstrator. Stage 1 can run deterministically or ask the fast
+Qwen2.5-style advisory model for proper nouns. The raw output is a census, not
+truth: collate it by normalized candidate, count support, classify likely
+junk/good/ambiguous names and types, then feed that registry back into chunk
+scoring. Stage 2/3 extraction should spend Gemma-class calls only on chunks
+whose adjudicated concepts, graph position, relation cues, or vector
+neighborhoods suggest useful typed relationships.
+
+The handoff is now durable. Stage 1 writes candidate mentions into the native
+`candidate_mentions` table. Stage 1b reads the collated census, writes
+`candidate_adjudications`, and is available as
+[`crexx/profiles/history/stage1b_adjudicate_candidates.crexx`](crexx/profiles/history/stage1b_adjudicate_candidates.crexx).
+It can run offline with simple heuristics or online through the
+`candidate-adjudication` llama-server advice task.
+
+Stage 2 is also a CREXX-controlled stage, but it uses a native page helper for
+the hot graph writes. The controller
+[`crexx/profiles/history/stage2_seed_graph.crexx`](crexx/profiles/history/stage2_seed_graph.crexx)
+chooses status/type filters, minimum support, namespace, cursor, and page size,
+then calls `seed-candidate-graph` / `rxrag.seedcandidategraph(...)` to write
+concept nodes, `evidence-chunk` nodes, and `mentioned-in` support edges in one
+transaction per page. Replays are safe: existing `candidate_mention_id` support
+is counted as `skipped_replay`, not added again.
+
+Stage 2b turns the seeded graph into a Stage 3 work queue. The controller
+[`crexx/profiles/history/stage2b_rank_queue.crexx`](crexx/profiles/history/stage2b_rank_queue.crexx)
+calls `build-extraction-queue` / `rxrag.buildextractionqueue(...)`, which scores
+chunks by concept count, type diversity, relation cues, rare concepts,
+ambiguity risk, and support count. It also applies a small text-shape penalty
+for heading lists, footnote-heavy chunks, illustration captions, and very short
+chunks, so dense indexes do not crowd out prose evidence. The queue is stored in
+the generic `work_queue` table with `item_type=chunk-extraction`, reasons,
+scores, and pending status. Queue builds skip chunks that already have
+`processed` or `skipped` extraction attempts for the same profile, so a
+background improvement run naturally advances to unprocessed chunks unless the
+operator explicitly clears or changes the history.
+
+Stage 3 is a CREXX controller:
+[`crexx/profiles/history/stage3_extract_queue.crexx`](crexx/profiles/history/stage3_extract_queue.crexx).
+It consumes pending queue rows, calls the local LLM adapter, validates proposals,
+writes accepted graph facts, and records every attempt in `work_attempts`. Its
+default extraction format is tagged lines; JSON remains selectable with
+`--format json` for comparison or repair experiments.
+
+For operators and future agents, the repeatable surface is the staged runner:
+
+```bash
+scripts/run_history_pipeline.sh \
+  --library ./history-stage2.cprag \
+  --profile scotland \
+  --stages stage2b,stage3,status \
+  --mode online \
+  --queue-id stage3-scotland-default \
+  --stage2b-limit 100 \
+  --stage3-limit 25
+```
+
+The runner compiles the shared `pipeline_profile` module plus the requested
+CREXX controllers with the installed `rxc`/`rxas`, runs them through `rxvme`,
+captures logs under `.local/history-pipeline/`, and calls the same native/CLI
+operations documented below. It is orchestration glue, not a second
+implementation. Use `--stages status` for a read-only summary and
+`--stages stage1,embed,stage1b,stage2,stage2b,stage3,status` for a full
+source-to-queue run. Stage 1 requires `--source-file`; preloaded libraries can
+start at Stage 1b or later.
+
+`generic` is now the baseline profile path and is covered by CTest. It uses the
+same controllers as Scotland with neutral service/data-object/component
+vocabulary:
+
+```bash
+scripts/run_history_pipeline.sh \
+  --library ./generic-demo.cprag \
+  --profile generic \
+  --stages stage1,stage1b,stage2,stage2b,stage3,status \
+  --mode offline \
+  --source-file tests/fixtures/generic-it.txt \
+  --stage1-chunk-limit 2 \
+  --stage1b-min-count 1 \
+  --stage2b-limit 5 \
+  --stage3-limit 2 \
+  --stage3-mode dry-run \
+  --no-require-models
+```
+
+For budgeted improvement runs, use the single-worker wrapper:
+
+```bash
+scripts/run_background_improvement.sh \
+  --library ./generic-demo.cprag \
+  --profile generic \
+  --queue-id improve-generic \
+  --stage2b-limit 20 \
+  --stage3-limit 5 \
+  --stage3-mode dry-run \
+  --max-cycles 1 \
+  --no-require-models
+```
+
+The background worker intentionally reuses `run_history_pipeline.sh` and takes
+an atomic filesystem lock. It is safe as one foreground worker. Do not run
+multiple queue readers until native claim/lease semantics are added.
+
+Queue observability is first-class:
+
+```bash
+./cmake-build-debug/crexx-rag queue-status \
+  ./history-stage2.cprag \
+  history.scotland.hybrid.v1 \
+  stage3-scotland-default
+```
+
+`queue-status` is read-only and summarizes `work_queue` item counts plus
+`work_attempts` counts, accepted node/relationship totals, and the latest
+attempt id/time. The same operation is available to CREXX as
+`rxrag.queuestatus(...)` and `cprag.raglibrary.queueStatusJson(...)`.
+
+Before online stages, use the local model lifecycle wrappers:
+
+```bash
+scripts/start_local_llama_servers.sh
+scripts/status_local_llama_servers.sh --smoke --require embedding --require chat
+scripts/stop_local_llama_servers.sh
+```
+
+`status_local_llama_servers.sh` checks PID files, listening ports, `/v1/models`,
+and optional embedding/chat smoke calls. Long-running ingestion should rely on
+these detached wrappers, which write logs to `.local/llama-servers/`, rather
+than leaving chatty `llama-server` processes attached to a foreground terminal.
+
+The first real Scotland Stage 3 batch processed 100 queued chunks with one local
+Gemma E4B worker in about 83 minutes. It recorded 99 `processed`, 1 `skipped`,
+and 0 `failed` attempts, accepting 981 node proposals and 316 relationship
+proposals before native upsert/support merging. This is useful but clearly a
+background workload: future workers should use generic queue claim/lease
+semantics before multiple readers are allowed.
+
+The same run seeded the first endpoint-resolution follow-up queue from rejected
+but plausible tagged edge proposals. `stage4-endpoint-resolution-default`
+currently contains 199 pending items. The combined two-volume Scotland corpus
+has also been embedded with llama.cpp/Nomic through the FAISS build:
+11,684 chunks, 768-dimensional vectors, and an active `vectors.faiss` L2 index.
+
+The operational shape is now:
+
+```text
+initial load        -> build the first graph and extraction queue
+background improve  -> review ambiguity, weak edges, rejected proposal classes,
+                       and sparse graph areas
+add more documents  -> reuse the concept/alias registry and queue only deltas
+search              -> combine lexical, vector, graph, support, and provenance
+```
 
 Ambiguous aliases such as `Sutherland` are represented explicitly by creating an
 `ambiguity` node and `candidate-for` edges to possible concepts. Clear aliases
@@ -338,7 +513,13 @@ Run the repeatable offline proof with CTest:
 
 ```bash
 ctest --preset debug -R crexx_hybrid_extractor_smoke --output-on-failure
+ctest --preset debug -R crexx_generic_pipeline_smoke --output-on-failure
 ```
+
+See [`docs/pipeline-status.md`](docs/pipeline-status.md) for implemented versus
+planned pipeline status, and [`docs/test-strategy.md`](docs/test-strategy.md)
+for acceptance criteria. Executable operator/agent workflows are in
+[`docs/use-cases.md`](docs/use-cases.md).
 
 For a live local model experiment, run the compiled profile with `--mode online`
 and pass `--cli ./cmake-build-debug/crexx-rag` plus any model/base-url overrides
@@ -366,8 +547,14 @@ write access:
 The MCP adapter validates JSON-RPC request shape, tool names, argument objects,
 required arguments, and argument types before calling the native core.
 
-`library_search` is the main LLM-facing read tool. It accepts `mode` as
-`auto`, `lexical`, `vector`, or `hybrid`; default `auto` falls back to lexical
+`library_answer_evidence` is the preferred LLM-facing QA tool. It accepts a
+natural-language `question`, runs source-bound search, and returns a compact
+evidence bundle with retrieval-plan hints, retrieved chunks, accepted typed graph
+claims, graph-only leads, and answer guidance. An agent should answer from that
+bundle and cite chunk ids; `mentioned-in` paths are leads, not claims.
+
+`library_search` remains the lower-level diagnostic read tool. It accepts `mode`
+as `auto`, `lexical`, `vector`, or `hybrid`; default `auto` falls back to lexical
 search unless a compatible active vector index and embedding command are
 available. Manual modes are intended for diagnostics and profiles, not ordinary
 LLM use.
@@ -402,6 +589,16 @@ The raw plugin exposes stateless path-based Level G functions:
 - `rxrag.listchunks(path, source_uri)`
 - `rxrag.chunkids(path, source_uri)`
 - `rxrag.chunktextbyid(path, chunk_id)`
+- `rxrag.clearcandidatecensus(path, profile_id, source_uri)`
+- `rxrag.addcandidatemention(path, profile_id, source_uri, chunk_id, candidate, normalized_candidate, priority, proper_count, known_count, cue_count, stage, extractor, metadata_json)`
+- `rxrag.candidatecensus(path, profile_id, source_uri, min_count, limit)`
+- `rxrag.pendingcandidatecensus(path, profile_id, source_uri, min_count, limit)`
+- `rxrag.adjudicatecandidate(path, profile_id, normalized_candidate, status, candidate_type, canonical_label, aliases, disambiguation, confidence, adjudicator, metadata_json)`
+- `rxrag.candidateadjudications(path, profile_id, status_filter, limit)`
+- `rxrag.candidatementionevidence(path, profile_id, status_filter, type_filter_csv, min_count, after_id, limit)`
+- `rxrag.seedcandidategraph(path, profile_id, graph_namespace, status_filter, type_filter_csv, min_count, after_id, limit)`
+- `rxrag.buildextractionqueue(path, profile_id, queue_id, graph_namespace, node_type_filter_csv, limit)`
+- `rxrag.extractionqueue(path, profile_id, queue_id, status_filter, limit)`
 - `rxrag.deletesource(path, source_uri)`
 - `rxrag.vectorstatus(path)`
 - `rxrag.embeddingtext(path, chunk_id, embedding_profile)`
@@ -425,15 +622,23 @@ JSON so the same ABI works for CLI, CREXX, and MCP. Vector methods use
 comma-separated float strings at the CREXX boundary for now; embedding provider
 adapters can replace that with a richer profile-level flow later. The wrapper
 names are `vectorStatusJson()`, `attachChunkEmbedding()`, `buildVectorIndex()`,
-`searchVector()`, `graphDot()`, and `chunkEmbeddingInput()` to avoid colliding
+`searchVector()`, `graphDot()`, `chunkEmbeddingInput()`,
+`clearStage1Census()`, `recordCandidateMention()`,
+`candidateCensusJson()`, `pendingCandidateCensusJson()`,
+`saveCandidateAdjudication()`, `candidateAdjudicationsJson()`,
+`candidateMentionEvidenceJson()`, `seedCandidateGraphJson()`,
+`buildExtractionQueueJson()`, and `extractionQueueJson()` to avoid colliding
 with raw imported plugin function names.
 
 Executable CREXX domain profiles can iterate stored chunks with `chunkIdCsv()`
 and `storedChunkText()`, extract candidate concepts and relationships, and call
 the native engine to add or update nodes and edges. The engine owns
-de-duplication, traversal, search, and DOT export. The first proof is
+de-duplication, traversal, search, and DOT export. The legacy deterministic demo
+is
 [`crexx/profiles/history/deterministic_extract.crexx`](crexx/profiles/history/deterministic_extract.crexx),
-covered by `crexx_deterministic_extractor_smoke`.
+covered by `crexx_deterministic_extractor_smoke`; keep it for comparison and
+cheap graph/DOT/path coverage, but use `pipeline_profile.crexx` plus the staged
+controllers for new profile work.
 
 The project should expose one operation vocabulary through several thin
 surfaces. A command such as candidate collation, chunk ranking, embedding,

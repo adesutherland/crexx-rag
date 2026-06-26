@@ -5,6 +5,8 @@ model_ref="${CPRAG_LLAMA_SERVER_MODEL_REF:-nomic-ai/nomic-embed-text-v1.5-GGUF:Q
 host="${CPRAG_LLAMA_SERVER_HOST:-127.0.0.1}"
 port="${CPRAG_LLAMA_SERVER_PORT:-8081}"
 ctx_size="${CPRAG_LLAMA_SERVER_CTX_SIZE:-2048}"
+batch_size="${CPRAG_LLAMA_SERVER_BATCH_SIZE:-2048}"
+ubatch_size="${CPRAG_LLAMA_SERVER_UBATCH_SIZE:-1024}"
 
 install=0
 
@@ -24,6 +26,8 @@ Environment:
   CPRAG_LLAMA_SERVER_HOST       Server host, default 127.0.0.1
   CPRAG_LLAMA_SERVER_PORT       Server port, default 8081
   CPRAG_LLAMA_SERVER_CTX_SIZE   Context size, default 2048
+  CPRAG_LLAMA_SERVER_BATCH_SIZE Logical batch size, default 2048
+  CPRAG_LLAMA_SERVER_UBATCH_SIZE Physical batch size, default 1024
 USAGE
 }
 
@@ -102,6 +106,8 @@ llama-server \\
   --embedding \\
   --pooling mean \\
   -c ${ctx_size} \\
+  --batch-size ${batch_size} \\
+  --ubatch-size ${ubatch_size} \\
   --host ${host} \\
   --port ${port}
 

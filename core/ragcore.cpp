@@ -78,6 +78,49 @@ struct DocumentSummary {
     std::string updatedAt;
 };
 
+struct CandidateMentionEvidence {
+    long long id {0};
+    std::string sourceUri;
+    long long chunkId {0};
+    std::string candidate;
+    std::string normalized;
+    int priority {0};
+    int properCount {0};
+    int knownCount {0};
+    int cueCount {0};
+    int mentionCount {0};
+    std::string status;
+    std::string candidateType;
+    std::string canonicalLabel;
+    std::string aliases;
+    std::string disambiguation;
+    double confidence {0.0};
+    std::string adjudicator;
+};
+
+struct ExtractionQueueItem {
+    long long chunkId {0};
+    std::string sourceUri;
+    std::string title;
+    int chunkIndex {0};
+    int length {0};
+    double score {0.0};
+    int conceptCount {0};
+    int supportCount {0};
+    int typeDiversity {0};
+    int relationCueCount {0};
+    int rareConceptCount {0};
+    int ambiguityCount {0};
+    int maxPriority {0};
+    int qualityPenalty {0};
+    std::string qualityNotes;
+    std::unordered_map<std::string, int> typeCounts;
+    std::unordered_set<std::string> conceptIds;
+    std::vector<std::pair<std::string, std::string>> sampleConcepts;
+    std::string reason;
+    std::string metadataJson;
+};
+
 struct ChunkHit {
     long long id {0};
     long long documentId {0};
@@ -376,6 +419,83 @@ CREATE TABLE IF NOT EXISTS vector_index_state (
     backend TEXT NOT NULL DEFAULT 'faiss',
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS candidate_mentions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id TEXT NOT NULL,
+    source_uri TEXT NOT NULL DEFAULT '',
+    chunk_id INTEGER NOT NULL,
+    stage TEXT NOT NULL DEFAULT 'stage1',
+    extractor TEXT NOT NULL DEFAULT 'deterministic',
+    candidate TEXT NOT NULL,
+    normalized_candidate TEXT NOT NULL,
+    priority INTEGER NOT NULL DEFAULT 0,
+    proper_count INTEGER NOT NULL DEFAULT 0,
+    known_count INTEGER NOT NULL DEFAULT 0,
+    cue_count INTEGER NOT NULL DEFAULT 0,
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (chunk_id) REFERENCES chunks(id) ON DELETE CASCADE,
+    UNIQUE(profile_id, source_uri, chunk_id, stage, extractor, normalized_candidate)
+);
+CREATE INDEX IF NOT EXISTS idx_candidate_mentions_profile_source
+    ON candidate_mentions(profile_id, source_uri, normalized_candidate);
+CREATE INDEX IF NOT EXISTS idx_candidate_mentions_chunk
+    ON candidate_mentions(chunk_id);
+CREATE TABLE IF NOT EXISTS candidate_adjudications (
+    profile_id TEXT NOT NULL,
+    normalized_candidate TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    candidate_type TEXT NOT NULL DEFAULT '',
+    canonical_label TEXT NOT NULL DEFAULT '',
+    aliases TEXT NOT NULL DEFAULT '',
+    disambiguation TEXT NOT NULL DEFAULT '',
+    confidence REAL NOT NULL DEFAULT 0.0,
+    adjudicator TEXT NOT NULL DEFAULT '',
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (profile_id, normalized_candidate)
+);
+CREATE INDEX IF NOT EXISTS idx_candidate_adjudications_profile_status
+    ON candidate_adjudications(profile_id, status);
+CREATE TABLE IF NOT EXISTS work_queue (
+    profile_id TEXT NOT NULL,
+    queue_name TEXT NOT NULL DEFAULT 'default',
+    item_type TEXT NOT NULL DEFAULT 'work-item',
+    item_id TEXT NOT NULL,
+    subject_id INTEGER NOT NULL DEFAULT 0,
+    source_uri TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL DEFAULT '',
+    item_index INTEGER NOT NULL DEFAULT 0,
+    score REAL NOT NULL DEFAULT 0.0,
+    status TEXT NOT NULL DEFAULT 'pending',
+    reason TEXT NOT NULL DEFAULT '',
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (profile_id, queue_name, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_work_queue_profile_status
+    ON work_queue(profile_id, queue_name, item_type, status, score DESC);
+CREATE TABLE IF NOT EXISTS work_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id TEXT NOT NULL,
+    queue_name TEXT NOT NULL DEFAULT 'default',
+    item_type TEXT NOT NULL DEFAULT 'work-item',
+    item_id TEXT NOT NULL,
+    subject_id INTEGER NOT NULL DEFAULT 0,
+    worker TEXT NOT NULL DEFAULT '',
+    model TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT '',
+    accepted_nodes INTEGER NOT NULL DEFAULT 0,
+    accepted_relationships INTEGER NOT NULL DEFAULT 0,
+    raw_output TEXT NOT NULL DEFAULT '',
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_work_attempts_profile_queue
+    ON work_attempts(profile_id, queue_name, item_type, item_id, created_at DESC);
 CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
     text,
     source_uri UNINDEXED,
@@ -1018,6 +1138,355 @@ std::vector<std::string> splitCsv(const std::string& input)
         }
     }
     return parts;
+}
+
+std::string trimCopy(const std::string& value)
+{
+    const auto first = std::find_if_not(value.begin(), value.end(), [](unsigned char c) {
+        return std::isspace(c) != 0;
+    });
+    const auto last = std::find_if_not(value.rbegin(), value.rend(), [](unsigned char c) {
+        return std::isspace(c) != 0;
+    }).base();
+    if (first >= last) {
+        return {};
+    }
+    return std::string(first, last);
+}
+
+std::string lowerAscii(const std::string& value)
+{
+    std::string out;
+    out.reserve(value.size());
+    for (const unsigned char ch : value) {
+        out.push_back(static_cast<char>(std::tolower(ch)));
+    }
+    return out;
+}
+
+std::string slugForId(const std::string& value)
+{
+    std::string out;
+    bool lastDash = false;
+    for (const unsigned char ch : lowerAscii(value)) {
+        if (std::isalnum(ch) != 0) {
+            out.push_back(static_cast<char>(ch));
+            lastDash = false;
+        } else if (!lastDash && !out.empty()) {
+            out.push_back('-');
+            lastDash = true;
+        }
+    }
+    while (!out.empty() && out.back() == '-') {
+        out.pop_back();
+    }
+    return out.empty() ? "unknown" : out;
+}
+
+std::string sanitizeCsvField(const std::string& value)
+{
+    std::string out;
+    for (const char ch : value) {
+        if (ch == ',' || ch == '|' || ch == ';' || ch == '\t' || ch == '\n' || ch == '\r') {
+            if (!out.empty() && out.back() != ' ') {
+                out.push_back(' ');
+            }
+        } else {
+            out.push_back(ch);
+        }
+    }
+    return trimCopy(out);
+}
+
+bool appendAlias(std::string& out, const std::string& value)
+{
+    const std::string trimmed = trimCopy(value);
+    if (trimmed.empty()) {
+        return false;
+    }
+    const std::string upper = lowerAscii(trimmed);
+    if (upper == "none" || upper == "n/a" || upper == "na" || upper == "null") {
+        return false;
+    }
+    const std::string safe = sanitizeCsvField(trimmed);
+    if (safe.empty()) {
+        return false;
+    }
+    if (!out.empty()) {
+        out.push_back(',');
+    }
+    out += safe;
+    return true;
+}
+
+std::string candidateAliasCsv(const CandidateMentionEvidence& row)
+{
+    std::string out;
+    appendAlias(out, row.canonicalLabel);
+    appendAlias(out, row.candidate);
+    appendAlias(out, row.aliases);
+    appendAlias(out, row.normalized);
+    return out;
+}
+
+std::string candidateConceptId(const std::string& graphNamespace, const CandidateMentionEvidence& row)
+{
+    const std::string type = row.candidateType.empty() ? "unknown" : row.candidateType;
+    std::string basis = trimCopy(row.canonicalLabel);
+    if (basis.empty()) {
+        basis = trimCopy(row.candidate);
+    }
+    if (basis.empty()) {
+        basis = row.normalized;
+    }
+    return graphNamespace + ":" + type + ":" + slugForId(basis);
+}
+
+std::string evidenceChunkId(long long chunkId)
+{
+    return "evidence:chunk:" + std::to_string(chunkId);
+}
+
+std::string conceptSuffixFromId(const std::string& conceptId)
+{
+    const size_t pos = conceptId.rfind(':');
+    if (pos == std::string::npos || pos + 1 >= conceptId.size()) {
+        return conceptId;
+    }
+    return conceptId.substr(pos + 1);
+}
+
+int countOccurrences(const std::string& text, const std::string& needle)
+{
+    if (needle.empty()) {
+        return 0;
+    }
+    int count = 0;
+    size_t pos = 0;
+    while ((pos = text.find(needle, pos)) != std::string::npos) {
+        ++count;
+        pos += needle.size();
+    }
+    return count;
+}
+
+int countFootnoteMarkers(const std::string& text)
+{
+    int count = 0;
+    for (size_t i = 0; i + 2 < text.size(); ++i) {
+        if (text[i] == '[' && std::isdigit(static_cast<unsigned char>(text[i + 1])) != 0) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+int chunkShapePenalty(const std::string& text, std::string* notes)
+{
+    int penalty = 0;
+    std::vector<std::string> flags;
+    const int dashRuns = countOccurrences(text, "--");
+    if (dashRuns >= 4) {
+        penalty += 22;
+        flags.push_back("heading-list");
+    }
+    const int footnotes = countFootnoteMarkers(text);
+    if (footnotes >= 2) {
+        penalty += std::min(25, footnotes * 5);
+        flags.push_back("footnote-heavy");
+    }
+    if (text.find("[Illustration") != std::string::npos) {
+        penalty += 8;
+        flags.push_back("illustration-caption");
+    }
+    if (text.size() < 400) {
+        penalty += 5;
+        flags.push_back("short");
+    }
+    if (notes != nullptr) {
+        std::ostringstream out;
+        for (size_t i = 0; i < flags.size(); ++i) {
+            if (i != 0) {
+                out << ",";
+            }
+            out << flags[i];
+        }
+        *notes = out.str();
+    }
+    return penalty;
+}
+
+double typeWeight(const std::string& nodeType)
+{
+    if (nodeType == "event") {
+        return 4.0;
+    }
+    if (nodeType == "clan" || nodeType == "military-unit") {
+        return 2.5;
+    }
+    if (nodeType == "person") {
+        return 2.0;
+    }
+    if (nodeType == "office" || nodeType == "polity") {
+        return 1.5;
+    }
+    if (nodeType == "place" || nodeType == "institution") {
+        return 1.2;
+    }
+    if (nodeType == "source-work") {
+        return 0.8;
+    }
+    if (nodeType == "generic" || nodeType == "unknown") {
+        return -1.0;
+    }
+    return 1.0;
+}
+
+std::string joinTypeNames(const std::unordered_map<std::string, int>& typeCounts)
+{
+    std::vector<std::string> names;
+    names.reserve(typeCounts.size());
+    for (const auto& entry : typeCounts) {
+        names.push_back(entry.first);
+    }
+    std::sort(names.begin(), names.end());
+    std::ostringstream out;
+    for (size_t i = 0; i < names.size(); ++i) {
+        if (i != 0) {
+            out << "/";
+        }
+        out << names[i];
+    }
+    return out.str();
+}
+
+std::string topTypeSummary(const std::unordered_map<std::string, int>& typeCounts)
+{
+    std::vector<std::pair<std::string, int>> types(typeCounts.begin(), typeCounts.end());
+    std::sort(types.begin(), types.end(), [](const auto& lhs, const auto& rhs) {
+        if (lhs.second != rhs.second) {
+            return lhs.second > rhs.second;
+        }
+        return lhs.first < rhs.first;
+    });
+    std::ostringstream out;
+    const size_t count = std::min<size_t>(types.size(), 5);
+    for (size_t i = 0; i < count; ++i) {
+        if (i != 0) {
+            out << ",";
+        }
+        out << types[i].first << ":" << types[i].second;
+    }
+    return out.str();
+}
+
+std::string extractionQueueReason(const ExtractionQueueItem& item)
+{
+    std::ostringstream out;
+    out << "concepts=" << item.conceptCount
+        << "; types=" << joinTypeNames(item.typeCounts)
+        << "; relation_cues=" << item.relationCueCount
+        << "; rare=" << item.rareConceptCount
+        << "; ambiguity=" << item.ambiguityCount
+        << "; support=" << item.supportCount;
+    if (item.qualityPenalty > 0) {
+        out << "; text_penalty=" << item.qualityPenalty;
+        if (!item.qualityNotes.empty()) {
+            out << "(" << item.qualityNotes << ")";
+        }
+    }
+    const std::string topTypes = topTypeSummary(item.typeCounts);
+    if (!topTypes.empty()) {
+        out << "; top_types=" << topTypes;
+    }
+    return out.str();
+}
+
+std::string extractionQueueMetadata(
+    const ExtractionQueueItem& item,
+    const std::string& profileId,
+    const std::string& queueId,
+    const std::string& graphNamespace,
+    const std::string& nodeTypeFilterCsv)
+{
+    std::ostringstream out;
+    out << "{\"stage\":\"stage2b-rank\""
+        << ",\"profile_id\":" << jsonString(profileId)
+        << ",\"queue_id\":" << jsonString(queueId)
+        << ",\"graph_namespace\":" << jsonString(graphNamespace)
+        << ",\"node_type_filter_csv\":" << jsonString(nodeTypeFilterCsv)
+        << ",\"concept_count\":" << item.conceptCount
+        << ",\"support_count\":" << item.supportCount
+        << ",\"type_diversity\":" << item.typeDiversity
+        << ",\"relation_cue_count\":" << item.relationCueCount
+        << ",\"rare_concept_count\":" << item.rareConceptCount
+        << ",\"ambiguity_count\":" << item.ambiguityCount
+        << ",\"max_priority\":" << item.maxPriority
+        << ",\"quality_penalty\":" << item.qualityPenalty
+        << ",\"quality_notes\":" << jsonString(item.qualityNotes)
+        << ",\"type_counts\":{";
+    std::vector<std::pair<std::string, int>> types(item.typeCounts.begin(), item.typeCounts.end());
+    std::sort(types.begin(), types.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.first < rhs.first;
+    });
+    for (size_t i = 0; i < types.size(); ++i) {
+        if (i != 0) {
+            out << ",";
+        }
+        out << jsonString(types[i].first) << ":" << types[i].second;
+    }
+    out << "},\"sample_concepts\":[";
+    const size_t conceptCount = std::min<size_t>(item.sampleConcepts.size(), 8);
+    for (size_t i = 0; i < conceptCount; ++i) {
+        if (i != 0) {
+            out << ",";
+        }
+        out << "{\"label\":" << jsonString(item.sampleConcepts[i].first)
+            << ",\"type\":" << jsonString(item.sampleConcepts[i].second)
+            << "}";
+    }
+    out << "]}";
+    return out.str();
+}
+
+std::string candidateConceptMetadata(
+    const std::string& profileId,
+    const CandidateMentionEvidence& row,
+    const std::string& aliases)
+{
+    std::ostringstream out;
+    out << "{\"profile_id\":" << jsonString(profileId)
+        << ",\"stage\":\"stage2-candidate-seed\""
+        << ",\"normalized_candidate\":" << jsonString(row.normalized)
+        << ",\"aliases\":" << jsonString(aliases)
+        << ",\"mention_count\":" << row.mentionCount
+        << "}";
+    return out.str();
+}
+
+std::string candidateEvidenceChunkMetadata(const std::string& profileId, const CandidateMentionEvidence& row)
+{
+    std::ostringstream out;
+    out << "{\"profile_id\":" << jsonString(profileId)
+        << ",\"stage\":\"stage2-candidate-seed\""
+        << ",\"chunk_id\":" << row.chunkId
+        << ",\"source_uri\":" << jsonString(row.sourceUri)
+        << "}";
+    return out.str();
+}
+
+std::string candidateMentionMetadata(const std::string& profileId, const CandidateMentionEvidence& row)
+{
+    std::ostringstream out;
+    out << "{\"profile_id\":" << jsonString(profileId)
+        << ",\"stage\":\"stage2-candidate-seed\""
+        << ",\"chunk_id\":" << row.chunkId
+        << ",\"candidate_mention_id\":" << row.id
+        << ",\"normalized_candidate\":" << jsonString(row.normalized)
+        << ",\"priority\":" << row.priority
+        << ",\"confidence\":" << row.confidence
+        << "}";
+    return out.str();
 }
 
 std::vector<std::string> tokenize(std::string text)
@@ -2563,6 +3032,143 @@ std::string buildTypedSubgraphDot(
     return out.str();
 }
 
+int loadCandidateMentionEvidenceRows(
+    cprag_handle* handle,
+    const std::string& profileId,
+    const std::string& statusFilter,
+    const std::string& typeFilterCsv,
+    int minCount,
+    long long afterId,
+    int limit,
+    std::vector<CandidateMentionEvidence>& rows)
+{
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "WITH counts AS ("
+        "  SELECT normalized_candidate, COUNT(*) AS mention_count "
+        "  FROM candidate_mentions "
+        "  WHERE profile_id = ? "
+        "  GROUP BY normalized_candidate "
+        "  HAVING COUNT(*) >= ?"
+        ") "
+        "SELECT cm.id, cm.source_uri, cm.chunk_id, cm.candidate, cm.normalized_candidate, "
+        "cm.priority, cm.proper_count, cm.known_count, cm.cue_count, counts.mention_count, "
+        "ca.status, ca.candidate_type, ca.canonical_label, ca.aliases, ca.disambiguation, "
+        "ca.confidence, ca.adjudicator "
+        "FROM candidate_mentions cm "
+        "JOIN counts ON counts.normalized_candidate = cm.normalized_candidate "
+        "JOIN candidate_adjudications ca "
+        "  ON ca.profile_id = cm.profile_id AND ca.normalized_candidate = cm.normalized_candidate "
+        "WHERE cm.profile_id = ? AND cm.id > ? "
+        "AND (? = '' OR ca.status = ?) "
+        "AND (? = '' OR instr(',' || ? || ',', ',' || ca.candidate_type || ',') > 0) "
+        "ORDER BY cm.id ASC "
+        "LIMIT ?";
+    int rc = prepare(handle, sql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, profileId);
+    sqlite3_bind_int(stmt, 2, minCount);
+    bindText(stmt, 3, profileId);
+    sqlite3_bind_int64(stmt, 4, afterId);
+    bindText(stmt, 5, statusFilter);
+    bindText(stmt, 6, statusFilter);
+    bindText(stmt, 7, typeFilterCsv);
+    bindText(stmt, 8, typeFilterCsv);
+    sqlite3_bind_int(stmt, 9, limit);
+
+    int stepRc = SQLITE_OK;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        CandidateMentionEvidence row;
+        row.id = sqlite3_column_int64(stmt, 0);
+        row.sourceUri = columnText(stmt, 1);
+        row.chunkId = sqlite3_column_int64(stmt, 2);
+        row.candidate = columnText(stmt, 3);
+        row.normalized = columnText(stmt, 4);
+        row.priority = sqlite3_column_int(stmt, 5);
+        row.properCount = sqlite3_column_int(stmt, 6);
+        row.knownCount = sqlite3_column_int(stmt, 7);
+        row.cueCount = sqlite3_column_int(stmt, 8);
+        row.mentionCount = sqlite3_column_int(stmt, 9);
+        row.status = columnText(stmt, 10);
+        row.candidateType = columnText(stmt, 11);
+        row.canonicalLabel = columnText(stmt, 12);
+        row.aliases = columnText(stmt, 13);
+        row.disambiguation = columnText(stmt, 14);
+        row.confidence = sqlite3_column_double(stmt, 15);
+        row.adjudicator = columnText(stmt, 16);
+        rows.push_back(std::move(row));
+    }
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    return CPRAG_OK;
+}
+
+int loadConceptSlugTypes(
+    cprag_handle* handle,
+    const std::string& graphNamespace,
+    std::unordered_map<std::string, std::unordered_set<std::string>>& slugTypes)
+{
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql = "SELECT id, node_type FROM entities WHERE (? = '' OR id LIKE ?)";
+    int rc = prepare(handle, sql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, graphNamespace);
+    bindText(stmt, 2, graphNamespace.empty() ? "" : graphNamespace + ":%");
+    int stepRc = SQLITE_OK;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        const std::string id = columnText(stmt, 0);
+        const std::string nodeType = columnText(stmt, 1);
+        slugTypes[conceptSuffixFromId(id)].insert(nodeType);
+    }
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    return CPRAG_OK;
+}
+
+int edgeHasCandidateMentionSupport(
+    cprag_handle* handle,
+    const std::string& sourceId,
+    const std::string& targetId,
+    long long candidateMentionId,
+    bool* found)
+{
+    if (found == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    *found = false;
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT 1 "
+        "FROM edges e, json_each(e.metadata_json, '$.support_evidence') support "
+        "WHERE e.source_id = ? AND e.target_id = ? AND e.relationship_type = 'mentioned-in' "
+        "AND json_extract(support.value, '$.candidate_mention_id') = ? "
+        "LIMIT 1";
+    const int rc = prepare(handle, sql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, sourceId);
+    bindText(stmt, 2, targetId);
+    sqlite3_bind_int64(stmt, 3, candidateMentionId);
+    const int stepRc = sqlite3_step(stmt);
+    if (stepRc == SQLITE_ROW) {
+        *found = true;
+    } else if (stepRc != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    sqlite3_finalize(stmt);
+    return CPRAG_OK;
+}
+
 } // namespace
 
 extern "C" {
@@ -3541,6 +4147,1222 @@ int cprag_match_concepts(
     } catch (const std::exception& ex) {
         return setErrorCode(handle, CPRAG_INTERNAL_ERROR, ex.what());
     }
+}
+
+int cprag_clear_candidate_census(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* source_uri,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || profile_id == nullptr || profile_id[0] == '\0') {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+
+    const std::string profileId = valueOrEmpty(profile_id);
+    const std::string sourceUri = valueOrEmpty(source_uri);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql = sourceUri.empty()
+        ? "DELETE FROM candidate_mentions WHERE profile_id = ?"
+        : "DELETE FROM candidate_mentions WHERE profile_id = ? AND source_uri = ?";
+    int rc = prepare(handle, sql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, profileId);
+    if (!sourceUri.empty()) {
+        bindText(stmt, 2, sourceUri);
+    }
+    const int stepRc = sqlite3_step(stmt);
+    if (stepRc != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    const int deleted = sqlite3_changes(handle->db);
+    sqlite3_finalize(stmt);
+
+    std::ostringstream out;
+    out << "{\"success\":true"
+        << ",\"profile_id\":" << jsonString(profileId)
+        << ",\"source_uri\":" << jsonString(sourceUri)
+        << ",\"deleted\":" << deleted
+        << "}";
+    return copyJson(handle, out.str(), out_json, out_json_size);
+}
+
+int cprag_add_candidate_mention(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* source_uri,
+    long long chunk_id,
+    const char* stage,
+    const char* extractor,
+    const char* candidate,
+    const char* normalized_candidate,
+    int priority,
+    int proper_count,
+    int known_count,
+    int cue_count,
+    const char* metadata_json)
+{
+    if (handle == nullptr || profile_id == nullptr || candidate == nullptr || normalized_candidate == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    if (profile_id[0] == '\0' || candidate[0] == '\0' || normalized_candidate[0] == '\0') {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "profile_id, candidate, and normalized_candidate are required");
+    }
+    if (chunk_id <= 0) {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "chunk_id must be positive");
+    }
+
+    const std::string metadata = metadataOrDefault(metadata_json);
+    const int metadataRc = validateMetadataJson(handle, metadata);
+    if (metadataRc != CPRAG_OK) {
+        return metadataRc;
+    }
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "INSERT INTO candidate_mentions "
+        "(profile_id, source_uri, chunk_id, stage, extractor, candidate, normalized_candidate, "
+        "priority, proper_count, known_count, cue_count, metadata_json) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(profile_id, source_uri, chunk_id, stage, extractor, normalized_candidate) "
+        "DO UPDATE SET candidate=excluded.candidate, priority=excluded.priority, "
+        "proper_count=excluded.proper_count, known_count=excluded.known_count, "
+        "cue_count=excluded.cue_count, metadata_json=excluded.metadata_json, "
+        "updated_at=CURRENT_TIMESTAMP";
+    int rc = prepare(handle, sql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, valueOrEmpty(profile_id));
+    bindText(stmt, 2, valueOrEmpty(source_uri));
+    sqlite3_bind_int64(stmt, 3, chunk_id);
+    bindText(stmt, 4, valueOrEmpty(stage).empty() ? "stage1" : valueOrEmpty(stage));
+    bindText(stmt, 5, valueOrEmpty(extractor).empty() ? "deterministic" : valueOrEmpty(extractor));
+    bindText(stmt, 6, valueOrEmpty(candidate));
+    bindText(stmt, 7, valueOrEmpty(normalized_candidate));
+    sqlite3_bind_int(stmt, 8, priority);
+    sqlite3_bind_int(stmt, 9, proper_count);
+    sqlite3_bind_int(stmt, 10, known_count);
+    sqlite3_bind_int(stmt, 11, cue_count);
+    bindText(stmt, 12, metadata);
+    const int stepRc = sqlite3_step(stmt);
+    if (stepRc != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    sqlite3_finalize(stmt);
+    return CPRAG_OK;
+}
+
+static int candidateCensus(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* source_uri,
+    int min_count,
+    int limit,
+    bool pendingOnly,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || profile_id == nullptr || profile_id[0] == '\0') {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+
+    const std::string profileId = valueOrEmpty(profile_id);
+    const std::string sourceUri = valueOrEmpty(source_uri);
+    const int effectiveMinCount = min_count <= 0 ? 1 : min_count;
+    const int effectiveLimit = limit <= 0 ? 100 : limit;
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT cm.normalized_candidate, MIN(cm.candidate) AS display_candidate, COUNT(*) AS mention_count, "
+        "MIN(cm.chunk_id) AS first_chunk, MAX(cm.chunk_id) AS last_chunk, "
+        "MAX(cm.priority) AS max_priority, MAX(cm.proper_count) AS max_proper_count, "
+        "MAX(cm.known_count) AS max_known_count, MAX(cm.cue_count) AS max_cue_count, "
+        "COALESCE(ca.status, '') AS status, COALESCE(ca.candidate_type, '') AS candidate_type, "
+        "COALESCE(ca.canonical_label, '') AS canonical_label, COALESCE(ca.aliases, '') AS aliases, "
+        "COALESCE(ca.disambiguation, '') AS disambiguation, COALESCE(ca.confidence, 0.0) AS confidence "
+        "FROM candidate_mentions cm "
+        "LEFT JOIN candidate_adjudications ca "
+        "  ON ca.profile_id = cm.profile_id AND ca.normalized_candidate = cm.normalized_candidate "
+        "WHERE cm.profile_id = ? AND (? = '' OR cm.source_uri = ?) "
+        "AND (? = 0 OR ca.normalized_candidate IS NULL) "
+        "GROUP BY cm.normalized_candidate "
+        "HAVING COUNT(*) >= ? "
+        "ORDER BY mention_count DESC, max_priority DESC, cm.normalized_candidate ASC "
+        "LIMIT ?";
+    int rc = prepare(handle, sql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, profileId);
+    bindText(stmt, 2, sourceUri);
+    bindText(stmt, 3, sourceUri);
+    sqlite3_bind_int(stmt, 4, pendingOnly ? 1 : 0);
+    sqlite3_bind_int(stmt, 5, effectiveMinCount);
+    sqlite3_bind_int(stmt, 6, effectiveLimit);
+
+    std::ostringstream out;
+    out << "{\"success\":true"
+        << ",\"profile_id\":" << jsonString(profileId)
+        << ",\"source_uri\":" << jsonString(sourceUri)
+        << ",\"pending_only\":" << (pendingOnly ? "true" : "false")
+        << ",\"min_count\":" << effectiveMinCount
+        << ",\"limit\":" << effectiveLimit
+        << ",\"candidates\":[";
+    bool first = true;
+    int stepRc = SQLITE_OK;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        if (!first) {
+            out << ',';
+        }
+        first = false;
+        out << "{\"normalized\":" << jsonString(columnText(stmt, 0))
+            << ",\"display\":" << jsonString(columnText(stmt, 1))
+            << ",\"count\":" << sqlite3_column_int(stmt, 2)
+            << ",\"first_chunk\":" << sqlite3_column_int64(stmt, 3)
+            << ",\"last_chunk\":" << sqlite3_column_int64(stmt, 4)
+            << ",\"max_priority\":" << sqlite3_column_int(stmt, 5)
+            << ",\"max_proper_count\":" << sqlite3_column_int(stmt, 6)
+            << ",\"max_known_count\":" << sqlite3_column_int(stmt, 7)
+            << ",\"max_cue_count\":" << sqlite3_column_int(stmt, 8);
+        const std::string status = columnText(stmt, 9);
+        if (!status.empty()) {
+            out << ",\"adjudication\":{"
+                << "\"status\":" << jsonString(status)
+                << ",\"candidate_type\":" << jsonString(columnText(stmt, 10))
+                << ",\"canonical_label\":" << jsonString(columnText(stmt, 11))
+                << ",\"aliases\":" << jsonString(columnText(stmt, 12))
+                << ",\"disambiguation\":" << jsonString(columnText(stmt, 13))
+                << ",\"confidence\":" << sqlite3_column_double(stmt, 14)
+                << "}";
+        }
+        out << "}";
+    }
+    if (stepRc != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    sqlite3_finalize(stmt);
+    out << "]}";
+    return copyJson(handle, out.str(), out_json, out_json_size);
+}
+
+int cprag_candidate_census(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* source_uri,
+    int min_count,
+    int limit,
+    char* out_json,
+    size_t out_json_size)
+{
+    return candidateCensus(handle, profile_id, source_uri, min_count, limit, false, out_json, out_json_size);
+}
+
+int cprag_pending_candidate_census(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* source_uri,
+    int min_count,
+    int limit,
+    char* out_json,
+    size_t out_json_size)
+{
+    return candidateCensus(handle, profile_id, source_uri, min_count, limit, true, out_json, out_json_size);
+}
+
+int cprag_adjudicate_candidate(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* normalized_candidate,
+    const char* status,
+    const char* candidate_type,
+    const char* canonical_label,
+    const char* aliases,
+    const char* disambiguation,
+    double confidence,
+    const char* adjudicator,
+    const char* metadata_json)
+{
+    if (handle == nullptr || profile_id == nullptr || normalized_candidate == nullptr || status == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    if (profile_id[0] == '\0' || normalized_candidate[0] == '\0' || status[0] == '\0') {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "profile_id, normalized_candidate, and status are required");
+    }
+    const int confidenceRc = validateConfidence(handle, confidence);
+    if (confidenceRc != CPRAG_OK) {
+        return confidenceRc;
+    }
+    const std::string metadata = metadataOrDefault(metadata_json);
+    const int metadataRc = validateMetadataJson(handle, metadata);
+    if (metadataRc != CPRAG_OK) {
+        return metadataRc;
+    }
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "INSERT INTO candidate_adjudications "
+        "(profile_id, normalized_candidate, status, candidate_type, canonical_label, aliases, "
+        "disambiguation, confidence, adjudicator, metadata_json) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(profile_id, normalized_candidate) DO UPDATE SET "
+        "status=excluded.status, candidate_type=excluded.candidate_type, "
+        "canonical_label=excluded.canonical_label, aliases=excluded.aliases, "
+        "disambiguation=excluded.disambiguation, confidence=excluded.confidence, "
+        "adjudicator=excluded.adjudicator, metadata_json=excluded.metadata_json, "
+        "updated_at=CURRENT_TIMESTAMP";
+    int rc = prepare(handle, sql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, valueOrEmpty(profile_id));
+    bindText(stmt, 2, valueOrEmpty(normalized_candidate));
+    bindText(stmt, 3, valueOrEmpty(status));
+    bindText(stmt, 4, valueOrEmpty(candidate_type));
+    bindText(stmt, 5, valueOrEmpty(canonical_label));
+    bindText(stmt, 6, valueOrEmpty(aliases));
+    bindText(stmt, 7, valueOrEmpty(disambiguation));
+    sqlite3_bind_double(stmt, 8, confidence);
+    bindText(stmt, 9, valueOrEmpty(adjudicator));
+    bindText(stmt, 10, metadata);
+    const int stepRc = sqlite3_step(stmt);
+    if (stepRc != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    sqlite3_finalize(stmt);
+    return CPRAG_OK;
+}
+
+int cprag_list_candidate_adjudications(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* status_filter,
+    int limit,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || profile_id == nullptr || profile_id[0] == '\0') {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    const std::string profileId = valueOrEmpty(profile_id);
+    const std::string statusFilter = valueOrEmpty(status_filter);
+    const int effectiveLimit = limit <= 0 ? 100 : limit;
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT profile_id, normalized_candidate, status, candidate_type, canonical_label, aliases, "
+        "disambiguation, confidence, adjudicator, metadata_json, updated_at "
+        "FROM candidate_adjudications "
+        "WHERE profile_id = ? AND (? = '' OR status = ?) "
+        "ORDER BY updated_at DESC, normalized_candidate ASC "
+        "LIMIT ?";
+    int rc = prepare(handle, sql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, profileId);
+    bindText(stmt, 2, statusFilter);
+    bindText(stmt, 3, statusFilter);
+    sqlite3_bind_int(stmt, 4, effectiveLimit);
+
+    std::ostringstream out;
+    out << "{\"success\":true"
+        << ",\"profile_id\":" << jsonString(profileId)
+        << ",\"status_filter\":" << jsonString(statusFilter)
+        << ",\"limit\":" << effectiveLimit
+        << ",\"adjudications\":[";
+    bool first = true;
+    int stepRc = SQLITE_OK;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        if (!first) {
+            out << ',';
+        }
+        first = false;
+        out << "{\"normalized\":" << jsonString(columnText(stmt, 1))
+            << ",\"status\":" << jsonString(columnText(stmt, 2))
+            << ",\"candidate_type\":" << jsonString(columnText(stmt, 3))
+            << ",\"canonical_label\":" << jsonString(columnText(stmt, 4))
+            << ",\"aliases\":" << jsonString(columnText(stmt, 5))
+            << ",\"disambiguation\":" << jsonString(columnText(stmt, 6))
+            << ",\"confidence\":" << sqlite3_column_double(stmt, 7)
+            << ",\"adjudicator\":" << jsonString(columnText(stmt, 8))
+            << ",\"metadata\":" << (columnText(stmt, 9).empty() ? "{}" : columnText(stmt, 9))
+            << ",\"updated_at\":" << jsonString(columnText(stmt, 10))
+            << "}";
+    }
+    if (stepRc != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    sqlite3_finalize(stmt);
+    out << "]}";
+    return copyJson(handle, out.str(), out_json, out_json_size);
+}
+
+int cprag_list_candidate_mention_evidence(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* status_filter,
+    const char* type_filter_csv,
+    int min_count,
+    long long after_id,
+    int limit,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || profile_id == nullptr || profile_id[0] == '\0') {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    const std::string profileId = valueOrEmpty(profile_id);
+    const std::string statusFilter = valueOrEmpty(status_filter);
+    const std::string typeFilterCsv = valueOrEmpty(type_filter_csv);
+    const int effectiveMinCount = min_count <= 0 ? 1 : min_count;
+    const int effectiveLimit = limit <= 0 ? 100 : limit;
+    const long long effectiveAfterId = after_id < 0 ? 0 : after_id;
+
+    std::vector<CandidateMentionEvidence> rows;
+    int rc = loadCandidateMentionEvidenceRows(
+        handle,
+        profileId,
+        statusFilter,
+        typeFilterCsv,
+        effectiveMinCount,
+        effectiveAfterId,
+        effectiveLimit,
+        rows);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+
+    std::ostringstream out;
+    out << "{\"success\":true"
+        << ",\"profile_id\":" << jsonString(profileId)
+        << ",\"status_filter\":" << jsonString(statusFilter)
+        << ",\"type_filter_csv\":" << jsonString(typeFilterCsv)
+        << ",\"min_count\":" << effectiveMinCount
+        << ",\"after_id\":" << effectiveAfterId
+        << ",\"limit\":" << effectiveLimit
+        << ",\"mentions\":[";
+    bool first = true;
+    for (const CandidateMentionEvidence& row : rows) {
+        if (!first) {
+            out << ',';
+        }
+        first = false;
+        out << "{\"id\":" << row.id
+            << ",\"source_uri\":" << jsonString(row.sourceUri)
+            << ",\"chunk_id\":" << row.chunkId
+            << ",\"candidate\":" << jsonString(row.candidate)
+            << ",\"normalized\":" << jsonString(row.normalized)
+            << ",\"priority\":" << row.priority
+            << ",\"proper_count\":" << row.properCount
+            << ",\"known_count\":" << row.knownCount
+            << ",\"cue_count\":" << row.cueCount
+            << ",\"mention_count\":" << row.mentionCount
+            << ",\"status\":" << jsonString(row.status)
+            << ",\"candidate_type\":" << jsonString(row.candidateType)
+            << ",\"canonical_label\":" << jsonString(row.canonicalLabel)
+            << ",\"aliases\":" << jsonString(row.aliases)
+            << ",\"disambiguation\":" << jsonString(row.disambiguation)
+            << ",\"confidence\":" << row.confidence
+            << ",\"adjudicator\":" << jsonString(row.adjudicator)
+            << "}";
+    }
+    out << "]}";
+    return copyJson(handle, out.str(), out_json, out_json_size);
+}
+
+int cprag_seed_candidate_mention_graph(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* graph_namespace,
+    const char* status_filter,
+    const char* type_filter_csv,
+    int min_count,
+    long long after_id,
+    int limit,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || profile_id == nullptr || profile_id[0] == '\0') {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    if (handle->readOnly) {
+        return setErrorCode(handle, CPRAG_IO_ERROR, "library is open read-only");
+    }
+    const std::string profileId = valueOrEmpty(profile_id);
+    const std::string graphNamespace = valueOrEmpty(graph_namespace).empty()
+        ? "candidate"
+        : valueOrEmpty(graph_namespace);
+    const std::string statusFilter = valueOrEmpty(status_filter);
+    const std::string typeFilterCsv = valueOrEmpty(type_filter_csv);
+    const int effectiveMinCount = min_count <= 0 ? 1 : min_count;
+    const int effectiveLimit = limit <= 0 ? 100 : limit;
+    const long long effectiveAfterId = after_id < 0 ? 0 : after_id;
+
+    std::vector<CandidateMentionEvidence> rows;
+    int rc = loadCandidateMentionEvidenceRows(
+        handle,
+        profileId,
+        statusFilter,
+        typeFilterCsv,
+        effectiveMinCount,
+        effectiveAfterId,
+        effectiveLimit,
+        rows);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+
+    rc = execSql(handle, "BEGIN IMMEDIATE");
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+
+    int processed = 0;
+    int skippedReplay = 0;
+    int conceptUpserts = 0;
+    int evidenceUpserts = 0;
+    int edgeWrites = 0;
+    long long lastId = effectiveAfterId;
+
+    for (const CandidateMentionEvidence& row : rows) {
+        lastId = row.id;
+        const std::string conceptId = candidateConceptId(graphNamespace, row);
+        const std::string evidenceId = evidenceChunkId(row.chunkId);
+        std::string label = trimCopy(row.canonicalLabel);
+        if (label.empty()) {
+            label = trimCopy(row.candidate);
+        }
+        if (label.empty()) {
+            label = row.normalized;
+        }
+        const std::string aliases = candidateAliasCsv(row);
+
+        rc = cprag_add_entity_typed(
+            handle,
+            evidenceId.c_str(),
+            "evidence-chunk",
+            ("Chunk " + std::to_string(row.chunkId)).c_str(),
+            "Source chunk used as candidate evidence.",
+            candidateEvidenceChunkMetadata(profileId, row).c_str());
+        if (rc != CPRAG_OK) {
+            execSql(handle, "ROLLBACK");
+            return rc;
+        }
+        ++evidenceUpserts;
+
+        rc = cprag_add_entity_typed(
+            handle,
+            conceptId.c_str(),
+            row.candidateType.empty() ? "unknown" : row.candidateType.c_str(),
+            label.c_str(),
+            "Seeded from adjudicated Stage 1 candidate mentions.",
+            candidateConceptMetadata(profileId, row, aliases).c_str());
+        if (rc != CPRAG_OK) {
+            execSql(handle, "ROLLBACK");
+            return rc;
+        }
+        ++conceptUpserts;
+
+        bool replay = false;
+        rc = edgeHasCandidateMentionSupport(handle, conceptId, evidenceId, row.id, &replay);
+        if (rc != CPRAG_OK) {
+            execSql(handle, "ROLLBACK");
+            return rc;
+        }
+        if (replay) {
+            ++skippedReplay;
+            continue;
+        }
+
+        double weight = row.confidence;
+        if (!std::isfinite(weight) || weight <= 0.0) {
+            weight = 0.6;
+        } else if (weight > 1.0) {
+            weight = 1.0;
+        }
+        rc = cprag_add_edge_typed(
+            handle,
+            conceptId.c_str(),
+            evidenceId.c_str(),
+            "mentioned-in",
+            "Adjudicated candidate mention in source chunk.",
+            weight,
+            candidateMentionMetadata(profileId, row).c_str());
+        if (rc != CPRAG_OK) {
+            execSql(handle, "ROLLBACK");
+            return rc;
+        }
+        ++edgeWrites;
+        ++processed;
+    }
+
+    rc = execSql(handle, "COMMIT");
+    if (rc != CPRAG_OK) {
+        execSql(handle, "ROLLBACK");
+        return rc;
+    }
+
+    std::ostringstream out;
+    out << "{\"success\":true"
+        << ",\"profile_id\":" << jsonString(profileId)
+        << ",\"graph_namespace\":" << jsonString(graphNamespace)
+        << ",\"status_filter\":" << jsonString(statusFilter)
+        << ",\"type_filter_csv\":" << jsonString(typeFilterCsv)
+        << ",\"min_count\":" << effectiveMinCount
+        << ",\"after_id\":" << effectiveAfterId
+        << ",\"limit\":" << effectiveLimit
+        << ",\"rows\":" << rows.size()
+        << ",\"processed\":" << processed
+        << ",\"skipped_replay\":" << skippedReplay
+        << ",\"concept_upserts\":" << conceptUpserts
+        << ",\"evidence_upserts\":" << evidenceUpserts
+        << ",\"edge_writes\":" << edgeWrites
+        << ",\"last_id\":" << lastId
+        << "}";
+    return copyJson(handle, out.str(), out_json, out_json_size);
+}
+
+int cprag_build_extraction_queue(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    const char* graph_namespace,
+    const char* node_type_filter_csv,
+    int limit,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || profile_id == nullptr || profile_id[0] == '\0') {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    if (handle->readOnly) {
+        return setErrorCode(handle, CPRAG_IO_ERROR, "library is open read-only");
+    }
+
+    const std::string profileId = valueOrEmpty(profile_id);
+    const std::string queueId = valueOrEmpty(queue_id).empty() ? "default" : valueOrEmpty(queue_id);
+    const std::string graphNamespace = valueOrEmpty(graph_namespace);
+    const std::string nodeTypeFilterCsv = valueOrEmpty(node_type_filter_csv);
+    const int effectiveLimit = limit <= 0 ? 100 : limit;
+
+    std::unordered_map<std::string, std::unordered_set<std::string>> slugTypes;
+    int rc = loadConceptSlugTypes(handle, graphNamespace, slugTypes);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "WITH cue_stats AS ("
+        "  SELECT chunk_id, MAX(cue_count) AS max_cue_count, MAX(priority) AS max_priority "
+        "  FROM candidate_mentions "
+        "  WHERE profile_id = ? "
+        "  GROUP BY chunk_id"
+        ") "
+        "SELECT c.id, d.source_uri, d.title, c.chunk_index, c.length, "
+        "c.text, src.id, src.node_type, src.label, "
+        "COALESCE(json_extract(src.metadata_json, '$.mention_count'), 0) AS mention_count, "
+        "COALESCE(json_extract(e.metadata_json, '$.support_count'), 1) AS support_count, "
+        "COALESCE(cs.max_cue_count, 0) AS relation_cue_count, "
+        "COALESCE(cs.max_priority, 0) AS max_priority "
+        "FROM edges e "
+        "JOIN entities src ON src.id = e.source_id "
+        "JOIN chunks c ON c.id = CAST(json_extract(e.metadata_json, '$.chunk_id') AS INTEGER) "
+        "JOIN documents d ON d.id = c.document_id "
+        "LEFT JOIN cue_stats cs ON cs.chunk_id = c.id "
+        "WHERE e.relationship_type = 'mentioned-in' "
+        "AND json_extract(e.metadata_json, '$.profile_id') = ? "
+        "AND (? = '' OR src.id LIKE ?) "
+        "AND (? = '' OR instr(',' || ? || ',', ',' || src.node_type || ',') > 0) "
+        "AND NOT EXISTS ("
+        "  SELECT 1 FROM work_attempts wa "
+        "  WHERE wa.profile_id = ? "
+        "  AND wa.item_type = 'chunk-extraction' "
+        "  AND wa.subject_id = c.id "
+        "  AND wa.status IN ('processed', 'skipped')"
+        ")";
+    rc = prepare(handle, sql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, profileId);
+    bindText(stmt, 2, profileId);
+    bindText(stmt, 3, graphNamespace);
+    bindText(stmt, 4, graphNamespace.empty() ? "" : graphNamespace + ":%");
+    bindText(stmt, 5, nodeTypeFilterCsv);
+    bindText(stmt, 6, nodeTypeFilterCsv);
+    bindText(stmt, 7, profileId);
+
+    std::unordered_map<long long, ExtractionQueueItem> byChunk;
+    int stepRc = SQLITE_OK;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        const long long chunkId = sqlite3_column_int64(stmt, 0);
+        ExtractionQueueItem& item = byChunk[chunkId];
+        if (item.chunkId == 0) {
+            item.chunkId = chunkId;
+            item.sourceUri = columnText(stmt, 1);
+            item.title = columnText(stmt, 2);
+            item.chunkIndex = sqlite3_column_int(stmt, 3);
+            item.length = sqlite3_column_int(stmt, 4);
+            item.qualityPenalty = chunkShapePenalty(columnText(stmt, 5), &item.qualityNotes);
+        }
+
+        const std::string conceptId = columnText(stmt, 6);
+        const std::string nodeType = columnText(stmt, 7);
+        const std::string label = columnText(stmt, 8);
+        const int mentionCount = sqlite3_column_int(stmt, 9);
+        const int supportCount = std::max(1, sqlite3_column_int(stmt, 10));
+        item.supportCount += supportCount;
+        item.relationCueCount = std::max(item.relationCueCount, sqlite3_column_int(stmt, 11));
+        item.maxPriority = std::max(item.maxPriority, sqlite3_column_int(stmt, 12));
+
+        const auto inserted = item.conceptIds.insert(conceptId);
+        if (inserted.second) {
+            ++item.conceptCount;
+            ++item.typeCounts[nodeType];
+            if (mentionCount > 0 && mentionCount <= 10) {
+                ++item.rareConceptCount;
+            }
+            const std::string suffix = conceptSuffixFromId(conceptId);
+            const auto slugIt = slugTypes.find(suffix);
+            if (slugIt != slugTypes.end() && slugIt->second.size() > 1) {
+                ++item.ambiguityCount;
+            }
+            if (item.sampleConcepts.size() < 8) {
+                item.sampleConcepts.push_back({label, nodeType});
+            }
+        }
+    }
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+
+    std::vector<ExtractionQueueItem> ranked;
+    ranked.reserve(byChunk.size());
+    for (auto& entry : byChunk) {
+        ExtractionQueueItem& item = entry.second;
+        item.typeDiversity = static_cast<int>(item.typeCounts.size());
+        double typeBonus = 0.0;
+        for (const auto& typeEntry : item.typeCounts) {
+            typeBonus += static_cast<double>(typeEntry.second) * typeWeight(typeEntry.first);
+        }
+        const double bridgeBonus = (item.typeDiversity >= 3 ? 5.0 : 0.0) + (item.conceptCount >= 8 ? 4.0 : 0.0);
+        item.score =
+            static_cast<double>(item.conceptCount) * 2.0
+            + static_cast<double>(std::min(item.supportCount, 25)) * 0.7
+            + static_cast<double>(item.typeDiversity) * 4.0
+            + static_cast<double>(item.relationCueCount) * 6.0
+            + static_cast<double>(item.rareConceptCount) * 3.0
+            + static_cast<double>(item.ambiguityCount) * 5.0
+            + static_cast<double>(item.maxPriority) * 0.05
+            + typeBonus
+            + bridgeBonus
+            - static_cast<double>(item.qualityPenalty);
+        item.reason = extractionQueueReason(item);
+        item.metadataJson = extractionQueueMetadata(item, profileId, queueId, graphNamespace, nodeTypeFilterCsv);
+        ranked.push_back(std::move(item));
+    }
+
+    std::sort(ranked.begin(), ranked.end(), [](const ExtractionQueueItem& lhs, const ExtractionQueueItem& rhs) {
+        if (lhs.score != rhs.score) {
+            return lhs.score > rhs.score;
+        }
+        return lhs.chunkId < rhs.chunkId;
+    });
+    const int queued = std::min<int>(effectiveLimit, static_cast<int>(ranked.size()));
+
+    rc = execSql(handle, "BEGIN IMMEDIATE");
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    sqlite3_stmt* deleteStmt = nullptr;
+    rc = prepare(handle, "DELETE FROM work_queue WHERE profile_id = ? AND queue_name = ? AND item_type = 'chunk-extraction'", &deleteStmt);
+    if (rc != CPRAG_OK) {
+        execSql(handle, "ROLLBACK");
+        return rc;
+    }
+    bindText(deleteStmt, 1, profileId);
+    bindText(deleteStmt, 2, queueId);
+    stepRc = sqlite3_step(deleteStmt);
+    sqlite3_finalize(deleteStmt);
+    if (stepRc != SQLITE_DONE) {
+        execSql(handle, "ROLLBACK");
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+
+    sqlite3_stmt* insertStmt = nullptr;
+    rc = prepare(
+        handle,
+        "INSERT INTO work_queue "
+        "(profile_id, queue_name, item_type, item_id, subject_id, source_uri, title, item_index, score, status, reason, metadata_json) "
+        "VALUES (?, ?, 'chunk-extraction', ?, ?, ?, ?, ?, ?, 'pending', ?, ?) "
+        "ON CONFLICT(profile_id, queue_name, item_id) DO UPDATE SET "
+        "item_type=excluded.item_type, subject_id=excluded.subject_id, "
+        "source_uri=excluded.source_uri, title=excluded.title, item_index=excluded.item_index, "
+        "score=excluded.score, status=excluded.status, reason=excluded.reason, "
+        "metadata_json=excluded.metadata_json, updated_at=CURRENT_TIMESTAMP",
+        &insertStmt);
+    if (rc != CPRAG_OK) {
+        execSql(handle, "ROLLBACK");
+        return rc;
+    }
+    for (int i = 0; i < queued; ++i) {
+        const ExtractionQueueItem& item = ranked[static_cast<size_t>(i)];
+        sqlite3_reset(insertStmt);
+        sqlite3_clear_bindings(insertStmt);
+        bindText(insertStmt, 1, profileId);
+        bindText(insertStmt, 2, queueId);
+        bindText(insertStmt, 3, "chunk:" + std::to_string(item.chunkId));
+        sqlite3_bind_int64(insertStmt, 4, item.chunkId);
+        bindText(insertStmt, 5, item.sourceUri);
+        bindText(insertStmt, 6, item.title);
+        sqlite3_bind_int(insertStmt, 7, item.chunkIndex);
+        sqlite3_bind_double(insertStmt, 8, item.score);
+        bindText(insertStmt, 9, item.reason);
+        bindText(insertStmt, 10, item.metadataJson);
+        stepRc = sqlite3_step(insertStmt);
+        if (stepRc != SQLITE_DONE) {
+            sqlite3_finalize(insertStmt);
+            execSql(handle, "ROLLBACK");
+            return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+        }
+    }
+    sqlite3_finalize(insertStmt);
+    rc = execSql(handle, "COMMIT");
+    if (rc != CPRAG_OK) {
+        execSql(handle, "ROLLBACK");
+        return rc;
+    }
+
+    std::ostringstream out;
+    out << "{\"success\":true"
+        << ",\"profile_id\":" << jsonString(profileId)
+        << ",\"queue_id\":" << jsonString(queueId)
+        << ",\"graph_namespace\":" << jsonString(graphNamespace)
+        << ",\"node_type_filter_csv\":" << jsonString(nodeTypeFilterCsv)
+        << ",\"ranked\":" << ranked.size()
+        << ",\"queued\":" << queued;
+    if (queued > 0) {
+        const ExtractionQueueItem& item = ranked.front();
+        out << ",\"top_chunk_id\":" << item.chunkId
+            << ",\"top_score\":" << item.score
+            << ",\"top_reason\":" << jsonString(item.reason);
+    }
+    out << "}";
+    return copyJson(handle, out.str(), out_json, out_json_size);
+}
+
+int cprag_list_extraction_queue(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    const char* status_filter,
+    int limit,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || profile_id == nullptr || profile_id[0] == '\0') {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    const std::string profileId = valueOrEmpty(profile_id);
+    const std::string queueId = valueOrEmpty(queue_id).empty() ? "default" : valueOrEmpty(queue_id);
+    const std::string statusFilter = valueOrEmpty(status_filter);
+    const int effectiveLimit = limit <= 0 ? 100 : limit;
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT subject_id, source_uri, title, item_index, score, status, reason, updated_at "
+        "FROM work_queue "
+        "WHERE profile_id = ? AND queue_name = ? AND item_type = 'chunk-extraction' "
+        "AND (? = '' OR status = ?) "
+        "ORDER BY score DESC, subject_id ASC "
+        "LIMIT ?";
+    int rc = prepare(handle, sql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, profileId);
+    bindText(stmt, 2, queueId);
+    bindText(stmt, 3, statusFilter);
+    bindText(stmt, 4, statusFilter);
+    sqlite3_bind_int(stmt, 5, effectiveLimit);
+
+    std::ostringstream out;
+    out << "{\"success\":true"
+        << ",\"profile_id\":" << jsonString(profileId)
+        << ",\"queue_id\":" << jsonString(queueId)
+        << ",\"status_filter\":" << jsonString(statusFilter)
+        << ",\"limit\":" << effectiveLimit
+        << ",\"items\":[";
+    bool first = true;
+    int rank = 0;
+    int stepRc = SQLITE_OK;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        if (!first) {
+            out << ',';
+        }
+        first = false;
+        ++rank;
+        out << "{\"rank\":" << rank
+            << ",\"chunk_id\":" << sqlite3_column_int64(stmt, 0)
+            << ",\"source_uri\":" << jsonString(columnText(stmt, 1))
+            << ",\"title\":" << jsonString(columnText(stmt, 2))
+            << ",\"chunk_index\":" << sqlite3_column_int(stmt, 3)
+            << ",\"score\":" << sqlite3_column_double(stmt, 4)
+            << ",\"status\":" << jsonString(columnText(stmt, 5))
+            << ",\"reason\":" << jsonString(columnText(stmt, 6))
+            << ",\"updated_at\":" << jsonString(columnText(stmt, 7))
+            << "}";
+    }
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    out << "]}";
+    return copyJson(handle, out.str(), out_json, out_json_size);
+}
+
+int cprag_record_extraction_attempt(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    long long chunk_id,
+    const char* extractor,
+    const char* model,
+    const char* status,
+    int accepted_nodes,
+    int accepted_relationships,
+    const char* raw_output,
+    const char* metadata_json,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || profile_id == nullptr || profile_id[0] == '\0' || status == nullptr || status[0] == '\0') {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    if (handle->readOnly) {
+        return setErrorCode(handle, CPRAG_IO_ERROR, "library is open read-only");
+    }
+    if (chunk_id <= 0) {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "chunk_id must be positive");
+    }
+
+    const std::string profileId = valueOrEmpty(profile_id);
+    const std::string queueId = valueOrEmpty(queue_id).empty() ? "default" : valueOrEmpty(queue_id);
+    const std::string extractorValue = valueOrEmpty(extractor);
+    const std::string modelValue = valueOrEmpty(model);
+    const std::string statusValue = valueOrEmpty(status);
+    const std::string rawOutput = valueOrEmpty(raw_output);
+    const std::string itemId = "chunk:" + std::to_string(chunk_id);
+    const std::string metadata = metadataOrDefault(metadata_json);
+    int rc = validateMetadataJson(handle, metadata);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+
+    rc = execSql(handle, "BEGIN IMMEDIATE");
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+
+    sqlite3_stmt* stmt = nullptr;
+    rc = prepare(
+        handle,
+        "INSERT INTO work_attempts "
+        "(profile_id, queue_name, item_type, item_id, subject_id, worker, model, status, accepted_nodes, accepted_relationships, raw_output, metadata_json) "
+        "VALUES (?, ?, 'chunk-extraction', ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        &stmt);
+    if (rc != CPRAG_OK) {
+        execSql(handle, "ROLLBACK");
+        return rc;
+    }
+    bindText(stmt, 1, profileId);
+    bindText(stmt, 2, queueId);
+    bindText(stmt, 3, itemId);
+    sqlite3_bind_int64(stmt, 4, chunk_id);
+    bindText(stmt, 5, extractorValue);
+    bindText(stmt, 6, modelValue);
+    bindText(stmt, 7, statusValue);
+    sqlite3_bind_int(stmt, 8, std::max(0, accepted_nodes));
+    sqlite3_bind_int(stmt, 9, std::max(0, accepted_relationships));
+    bindText(stmt, 10, rawOutput);
+    bindText(stmt, 11, metadata);
+    int stepRc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        execSql(handle, "ROLLBACK");
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    const long long attemptId = sqlite3_last_insert_rowid(handle->db);
+
+    sqlite3_stmt* updateStmt = nullptr;
+    rc = prepare(
+        handle,
+        "UPDATE work_queue SET "
+        "status = ?, "
+        "metadata_json = json_set("
+        "  CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, "
+        "  '$.last_attempt_id', ?, "
+        "  '$.last_attempt_status', ?, "
+        "  '$.last_attempt_extractor', ?, "
+        "  '$.last_attempt_model', ?, "
+        "  '$.last_accepted_nodes', ?, "
+        "  '$.last_accepted_relationships', ?), "
+        "updated_at = CURRENT_TIMESTAMP "
+        "WHERE profile_id = ? AND queue_name = ? AND item_id = ?",
+        &updateStmt);
+    if (rc != CPRAG_OK) {
+        execSql(handle, "ROLLBACK");
+        return rc;
+    }
+    bindText(updateStmt, 1, statusValue);
+    sqlite3_bind_int64(updateStmt, 2, attemptId);
+    bindText(updateStmt, 3, statusValue);
+    bindText(updateStmt, 4, extractorValue);
+    bindText(updateStmt, 5, modelValue);
+    sqlite3_bind_int(updateStmt, 6, std::max(0, accepted_nodes));
+    sqlite3_bind_int(updateStmt, 7, std::max(0, accepted_relationships));
+    bindText(updateStmt, 8, profileId);
+    bindText(updateStmt, 9, queueId);
+    bindText(updateStmt, 10, itemId);
+    stepRc = sqlite3_step(updateStmt);
+    const int changed = sqlite3_changes(handle->db);
+    sqlite3_finalize(updateStmt);
+    if (stepRc != SQLITE_DONE) {
+        execSql(handle, "ROLLBACK");
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+
+    rc = execSql(handle, "COMMIT");
+    if (rc != CPRAG_OK) {
+        execSql(handle, "ROLLBACK");
+        return rc;
+    }
+
+    std::ostringstream out;
+    out << "{\"success\":true"
+        << ",\"attempt_id\":" << attemptId
+        << ",\"profile_id\":" << jsonString(profileId)
+        << ",\"queue_id\":" << jsonString(queueId)
+        << ",\"chunk_id\":" << chunk_id
+        << ",\"status\":" << jsonString(statusValue)
+        << ",\"accepted_nodes\":" << std::max(0, accepted_nodes)
+        << ",\"accepted_relationships\":" << std::max(0, accepted_relationships)
+        << ",\"queue_updated\":" << (changed > 0 ? "true" : "false")
+        << "}";
+    return copyJson(handle, out.str(), out_json, out_json_size);
+}
+
+int cprag_list_extraction_attempts(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    long long chunk_id,
+    int limit,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || profile_id == nullptr || profile_id[0] == '\0') {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    const std::string profileId = valueOrEmpty(profile_id);
+    const std::string queueId = valueOrEmpty(queue_id).empty() ? "default" : valueOrEmpty(queue_id);
+    const int effectiveLimit = limit <= 0 ? 100 : limit;
+    const long long effectiveChunkId = chunk_id < 0 ? 0 : chunk_id;
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT id, subject_id, worker, model, status, accepted_nodes, accepted_relationships, "
+        "length(raw_output), metadata_json, created_at "
+        "FROM work_attempts "
+        "WHERE profile_id = ? AND queue_name = ? AND item_type = 'chunk-extraction' "
+        "AND (? = 0 OR subject_id = ?) "
+        "ORDER BY id DESC "
+        "LIMIT ?";
+    int rc = prepare(handle, sql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, profileId);
+    bindText(stmt, 2, queueId);
+    sqlite3_bind_int64(stmt, 3, effectiveChunkId);
+    sqlite3_bind_int64(stmt, 4, effectiveChunkId);
+    sqlite3_bind_int(stmt, 5, effectiveLimit);
+
+    std::ostringstream out;
+    out << "{\"success\":true"
+        << ",\"profile_id\":" << jsonString(profileId)
+        << ",\"queue_id\":" << jsonString(queueId)
+        << ",\"chunk_id\":" << effectiveChunkId
+        << ",\"limit\":" << effectiveLimit
+        << ",\"attempts\":[";
+    bool first = true;
+    int stepRc = SQLITE_OK;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        if (!first) {
+            out << ',';
+        }
+        first = false;
+        const std::string metadata = columnText(stmt, 8);
+        out << "{\"id\":" << sqlite3_column_int64(stmt, 0)
+            << ",\"chunk_id\":" << sqlite3_column_int64(stmt, 1)
+            << ",\"extractor\":" << jsonString(columnText(stmt, 2))
+            << ",\"model\":" << jsonString(columnText(stmt, 3))
+            << ",\"status\":" << jsonString(columnText(stmt, 4))
+            << ",\"accepted_nodes\":" << sqlite3_column_int(stmt, 5)
+            << ",\"accepted_relationships\":" << sqlite3_column_int(stmt, 6)
+            << ",\"raw_output_size\":" << sqlite3_column_int(stmt, 7)
+            << ",\"metadata\":" << (metadata.empty() ? "{}" : metadata)
+            << ",\"created_at\":" << jsonString(columnText(stmt, 9))
+            << "}";
+    }
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    out << "]}";
+    return copyJson(handle, out.str(), out_json, out_json_size);
+}
+
+int cprag_queue_status(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || profile_id == nullptr || profile_id[0] == '\0') {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+
+    const std::string profileId = valueOrEmpty(profile_id);
+    const std::string queueId = valueOrEmpty(queue_id);
+
+    std::ostringstream out;
+    out << "{\"success\":true"
+        << ",\"profile_id\":" << jsonString(profileId)
+        << ",\"queue_id\":" << jsonString(queueId);
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* queueSql =
+        "SELECT queue_name, item_type, status, COUNT(*), "
+        "MIN(score), MAX(score), MIN(created_at), MAX(updated_at) "
+        "FROM work_queue "
+        "WHERE profile_id = ? AND (? = '' OR queue_name = ?) "
+        "GROUP BY queue_name, item_type, status "
+        "ORDER BY queue_name, item_type, status";
+    int rc = prepare(handle, queueSql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, profileId);
+    bindText(stmt, 2, queueId);
+    bindText(stmt, 3, queueId);
+
+    out << ",\"queue_items\":[";
+    bool first = true;
+    int stepRc = SQLITE_OK;
+    long long queueTotal = 0;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        if (!first) {
+            out << ',';
+        }
+        first = false;
+        const int count = sqlite3_column_int(stmt, 3);
+        queueTotal += count;
+        out << "{\"queue_id\":" << jsonString(columnText(stmt, 0))
+            << ",\"item_type\":" << jsonString(columnText(stmt, 1))
+            << ",\"status\":" << jsonString(columnText(stmt, 2))
+            << ",\"count\":" << count
+            << ",\"min_score\":" << sqlite3_column_double(stmt, 4)
+            << ",\"max_score\":" << sqlite3_column_double(stmt, 5)
+            << ",\"created_at_min\":" << jsonString(columnText(stmt, 6))
+            << ",\"updated_at_max\":" << jsonString(columnText(stmt, 7))
+            << "}";
+    }
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    out << "]";
+
+    stmt = nullptr;
+    const char* attemptSql =
+        "SELECT queue_name, item_type, status, COUNT(*), "
+        "COALESCE(SUM(accepted_nodes), 0), COALESCE(SUM(accepted_relationships), 0), "
+        "MAX(id), MAX(created_at) "
+        "FROM work_attempts "
+        "WHERE profile_id = ? AND (? = '' OR queue_name = ?) "
+        "GROUP BY queue_name, item_type, status "
+        "ORDER BY queue_name, item_type, status";
+    rc = prepare(handle, attemptSql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, profileId);
+    bindText(stmt, 2, queueId);
+    bindText(stmt, 3, queueId);
+
+    out << ",\"attempts\":[";
+    first = true;
+    long long attemptTotal = 0;
+    long long acceptedNodesTotal = 0;
+    long long acceptedRelationshipsTotal = 0;
+    long long lastAttemptId = 0;
+    std::string lastAttemptAt;
+    stepRc = SQLITE_OK;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        if (!first) {
+            out << ',';
+        }
+        first = false;
+        const int count = sqlite3_column_int(stmt, 3);
+        const long long acceptedNodes = sqlite3_column_int64(stmt, 4);
+        const long long acceptedRelationships = sqlite3_column_int64(stmt, 5);
+        const long long maxAttemptId = sqlite3_column_int64(stmt, 6);
+        const std::string maxCreatedAt = columnText(stmt, 7);
+        attemptTotal += count;
+        acceptedNodesTotal += acceptedNodes;
+        acceptedRelationshipsTotal += acceptedRelationships;
+        if (maxAttemptId > lastAttemptId) {
+            lastAttemptId = maxAttemptId;
+            lastAttemptAt = maxCreatedAt;
+        }
+        out << "{\"queue_id\":" << jsonString(columnText(stmt, 0))
+            << ",\"item_type\":" << jsonString(columnText(stmt, 1))
+            << ",\"status\":" << jsonString(columnText(stmt, 2))
+            << ",\"count\":" << count
+            << ",\"accepted_nodes\":" << acceptedNodes
+            << ",\"accepted_relationships\":" << acceptedRelationships
+            << ",\"last_attempt_id\":" << maxAttemptId
+            << ",\"last_attempt_at\":" << jsonString(maxCreatedAt)
+            << "}";
+    }
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    out << "]";
+
+    out << ",\"totals\":{"
+        << "\"queue_items\":" << queueTotal
+        << ",\"attempts\":" << attemptTotal
+        << ",\"accepted_nodes\":" << acceptedNodesTotal
+        << ",\"accepted_relationships\":" << acceptedRelationshipsTotal
+        << ",\"last_attempt_id\":" << lastAttemptId
+        << ",\"last_attempt_at\":" << jsonString(lastAttemptAt)
+        << "}}";
+    return copyJson(handle, out.str(), out_json, out_json_size);
 }
 
 int cprag_search(
