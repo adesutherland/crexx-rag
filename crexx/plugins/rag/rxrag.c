@@ -1055,6 +1055,245 @@ PROCEDURE(extractionattempts)
     RESETSIGNAL
 }
 
+PROCEDURE(upsertworkitem)
+{
+    if (NUM_ARGS < 12 || NUM_ARGS > 13) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, queue_id, item_type, item_id, subject_id, source_uri, title, item_index, score, status, reason, optional metadata_json, expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* metadata = NUM_ARGS >= 13 ? GETSTRING(ARG(12)) : "{}";
+    rc = cprag_upsert_work_item(
+        handle,
+        GETSTRING(ARG(1)),
+        GETSTRING(ARG(2)),
+        GETSTRING(ARG(3)),
+        GETSTRING(ARG(4)),
+        GETINT(ARG(5)),
+        GETSTRING(ARG(6)),
+        GETSTRING(ARG(7)),
+        GETINT(ARG(8)),
+        GETFLOAT(ARG(9)),
+        GETSTRING(ARG(10)),
+        GETSTRING(ARG(11)),
+        metadata,
+        buffer,
+        RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(workqueue)
+{
+    if (NUM_ARGS < 3 || NUM_ARGS > 6) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, queue_id, optional item_type_filter, status_filter, limit expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READONLY, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* item_type_filter = NUM_ARGS >= 4 ? GETSTRING(ARG(3)) : "";
+    const char* status_filter = NUM_ARGS >= 5 ? GETSTRING(ARG(4)) : "";
+    const int limit = NUM_ARGS >= 6 ? GETINT(ARG(5)) : 100;
+    rc = cprag_list_work_queue(
+        handle,
+        GETSTRING(ARG(1)),
+        GETSTRING(ARG(2)),
+        item_type_filter,
+        status_filter,
+        limit,
+        buffer,
+        RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(recordworkattempt)
+{
+    if (NUM_ARGS < 12 || NUM_ARGS > 13) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, queue_id, item_type, item_id, subject_id, worker, model, status, accepted_nodes, accepted_relationships, raw_output, optional metadata_json expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* metadata = NUM_ARGS >= 13 ? GETSTRING(ARG(12)) : "{}";
+    rc = cprag_record_work_attempt(
+        handle,
+        GETSTRING(ARG(1)),
+        GETSTRING(ARG(2)),
+        GETSTRING(ARG(3)),
+        GETSTRING(ARG(4)),
+        GETINT(ARG(5)),
+        GETSTRING(ARG(6)),
+        GETSTRING(ARG(7)),
+        GETSTRING(ARG(8)),
+        GETINT(ARG(9)),
+        GETINT(ARG(10)),
+        GETSTRING(ARG(11)),
+        metadata,
+        buffer,
+        RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(workattempts)
+{
+    if (NUM_ARGS < 3 || NUM_ARGS > 6) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, queue_id, optional item_type_filter, item_id_filter, limit expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READONLY, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const char* item_type_filter = NUM_ARGS >= 4 ? GETSTRING(ARG(3)) : "";
+    const char* item_id_filter = NUM_ARGS >= 5 ? GETSTRING(ARG(4)) : "";
+    const int limit = NUM_ARGS >= 6 ? GETINT(ARG(5)) : 100;
+    rc = cprag_list_work_attempts(
+        handle,
+        GETSTRING(ARG(1)),
+        GETSTRING(ARG(2)),
+        item_type_filter,
+        item_id_filter,
+        limit,
+        buffer,
+        RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
+PROCEDURE(resolveworkqueue)
+{
+    if (NUM_ARGS < 4 || NUM_ARGS > 6) {
+        RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "path, profile_id, queue_id, item_type, optional limit, dry_run expected")
+    }
+
+    cprag_handle* handle = NULL;
+    int rc = cprag_open(GETSTRING(ARG(0)), CPRAG_OPEN_READWRITE, &handle);
+    if (rc != CPRAG_OK) {
+        char message[128];
+        copy_message(message, sizeof(message), cprag_status_message(rc));
+        RETURNSIGNAL(SIGNAL_FAILURE, message)
+    }
+
+    char* buffer = (char*)malloc(RXRAG_JSON_BUFFER_SIZE);
+    if (buffer == NULL) {
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, "failed to allocate result buffer")
+    }
+
+    const int limit = NUM_ARGS >= 5 ? GETINT(ARG(4)) : 100;
+    const int dry_run = NUM_ARGS >= 6 ? GETINT(ARG(5)) : 1;
+    rc = cprag_resolve_work_queue(
+        handle,
+        GETSTRING(ARG(1)),
+        GETSTRING(ARG(2)),
+        GETSTRING(ARG(3)),
+        limit,
+        dry_run,
+        buffer,
+        RXRAG_JSON_BUFFER_SIZE);
+    if (rc != CPRAG_OK) {
+        char err[512];
+        copy_message(err, sizeof(err), cprag_last_error(handle));
+        free(buffer);
+        cprag_close(handle);
+        RETURNSIGNAL(SIGNAL_FAILURE, err)
+    }
+
+    set_result_or_signal(RETURN, rc, handle, buffer);
+    free(buffer);
+    cprag_close(handle);
+    RESETSIGNAL
+}
+
 PROCEDURE(queuestatus)
 {
     if (NUM_ARGS < 2 || NUM_ARGS > 3) {
@@ -1623,6 +1862,11 @@ ADDPROC(buildextractionqueue, "rxrag.buildextractionqueue", "g", ".string", "pat
 ADDPROC(extractionqueue, "rxrag.extractionqueue", "g", ".string", "path=.string,profile_id=.string,queue_id=.string,status_filter=.string,limit=.int");
 ADDPROC(recordextractionattempt, "rxrag.recordextractionattempt", "g", ".string", "path=.string,profile_id=.string,queue_id=.string,chunk_id=.int,extractor=.string,model=.string,status=.string,accepted_nodes=.int,accepted_relationships=.int,raw_output=.string,metadata_json=.string");
 ADDPROC(extractionattempts, "rxrag.extractionattempts", "g", ".string", "path=.string,profile_id=.string,queue_id=.string,chunk_id=.int,limit=.int");
+ADDPROC(upsertworkitem, "rxrag.upsertworkitem", "g", ".string", "path=.string,profile_id=.string,queue_id=.string,item_type=.string,item_id=.string,subject_id=.int,source_uri=.string,title=.string,item_index=.int,score=.float,status=.string,reason=.string,metadata_json=.string");
+ADDPROC(workqueue, "rxrag.workqueue", "g", ".string", "path=.string,profile_id=.string,queue_id=.string,item_type_filter=.string,status_filter=.string,limit=.int");
+ADDPROC(recordworkattempt, "rxrag.recordworkattempt", "g", ".string", "path=.string,profile_id=.string,queue_id=.string,item_type=.string,item_id=.string,subject_id=.int,worker=.string,model=.string,status=.string,accepted_nodes=.int,accepted_relationships=.int,raw_output=.string,metadata_json=.string");
+ADDPROC(workattempts, "rxrag.workattempts", "g", ".string", "path=.string,profile_id=.string,queue_id=.string,item_type_filter=.string,item_id_filter=.string,limit=.int");
+ADDPROC(resolveworkqueue, "rxrag.resolveworkqueue", "g", ".string", "path=.string,profile_id=.string,queue_id=.string,item_type=.string,limit=.int,dry_run=.int");
 ADDPROC(queuestatus, "rxrag.queuestatus", "g", ".string", "path=.string,profile_id=.string,queue_id=.string");
 ADDPROC(deletesource, "rxrag.deletesource", "g", ".string", "path=.string,source_uri=.string");
 ADDPROC(vectorstatus, "rxrag.vectorstatus", "g", ".string", "path=.string");

@@ -347,6 +347,70 @@ int cprag_record_extraction_attempt(
     char* out_json,
     size_t out_json_size);
 
+int cprag_upsert_work_item(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    const char* item_type,
+    const char* item_id,
+    long long subject_id,
+    const char* source_uri,
+    const char* title,
+    int item_index,
+    double score,
+    const char* status,
+    const char* reason,
+    const char* metadata_json,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_list_work_queue(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    const char* item_type_filter,
+    const char* status_filter,
+    int limit,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_record_work_attempt(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    const char* item_type,
+    const char* item_id,
+    long long subject_id,
+    const char* worker,
+    const char* model,
+    const char* status,
+    int accepted_nodes,
+    int accepted_relationships,
+    const char* raw_output,
+    const char* metadata_json,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_list_work_attempts(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    const char* item_type_filter,
+    const char* item_id_filter,
+    int limit,
+    char* out_json,
+    size_t out_json_size);
+
+int cprag_resolve_work_queue(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    const char* item_type,
+    int limit,
+    int dry_run,
+    char* out_json,
+    size_t out_json_size);
+
 int cprag_list_extraction_attempts(
     cprag_handle* handle,
     const char* profile_id,

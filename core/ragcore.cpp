@@ -105,6 +105,8 @@ struct ExtractionQueueItem {
     int chunkIndex {0};
     int length {0};
     double score {0.0};
+    std::string evidenceClass;
+    int evidencePenalty {0};
     int conceptCount {0};
     int supportCount {0};
     int typeDiversity {0};
@@ -1316,6 +1318,59 @@ int chunkShapePenalty(const std::string& text, std::string* notes)
     return penalty;
 }
 
+bool containsFolded(const std::string& text, const std::string& needle)
+{
+    if (needle.empty()) {
+        return false;
+    }
+    return lowerAscii(text).find(lowerAscii(needle)) != std::string::npos;
+}
+
+std::string evidenceClassForText(const std::string& title, const std::string& text)
+{
+    const std::string haystack = title + "\n" + text;
+    if (containsFolded(haystack, "index") || containsFolded(haystack, "contents")) {
+        return "index-or-toc";
+    }
+    if (containsFolded(haystack, "fig.") || containsFolded(haystack, "illustration")
+        || containsFolded(haystack, "caption")) {
+        return "caption-or-illustration";
+    }
+    if (containsFolded(haystack, "footnote") || containsFolded(haystack, "note.")) {
+        return "footnote-or-note";
+    }
+    if (containsFolded(haystack, "quoted") || containsFolded(haystack, "says ")
+        || containsFolded(haystack, "according to")) {
+        return "quoted-or-attributed";
+    }
+    return "narrative";
+}
+
+int evidenceClassPenalty(const std::string& evidenceClass)
+{
+    if (evidenceClass == "index-or-toc") {
+        return 24;
+    }
+    if (evidenceClass == "caption-or-illustration") {
+        return 14;
+    }
+    if (evidenceClass == "footnote-or-note") {
+        return 10;
+    }
+    return 0;
+}
+
+std::string directnessForRelationship(const std::string& relationshipType)
+{
+    if (relationshipType == "mentioned-in") {
+        return "mention-only";
+    }
+    if (relationshipType == "candidate-for") {
+        return "ambiguity-lead";
+    }
+    return "accepted-typed-edge";
+}
+
 double typeWeight(const std::string& nodeType)
 {
     if (nodeType == "event") {
@@ -1388,7 +1443,11 @@ std::string extractionQueueReason(const ExtractionQueueItem& item)
         << "; relation_cues=" << item.relationCueCount
         << "; rare=" << item.rareConceptCount
         << "; ambiguity=" << item.ambiguityCount
-        << "; support=" << item.supportCount;
+        << "; support=" << item.supportCount
+        << "; evidence=" << item.evidenceClass;
+    if (item.evidencePenalty > 0) {
+        out << "; evidence_penalty=" << item.evidencePenalty;
+    }
     if (item.qualityPenalty > 0) {
         out << "; text_penalty=" << item.qualityPenalty;
         if (!item.qualityNotes.empty()) {
@@ -1422,6 +1481,10 @@ std::string extractionQueueMetadata(
         << ",\"rare_concept_count\":" << item.rareConceptCount
         << ",\"ambiguity_count\":" << item.ambiguityCount
         << ",\"max_priority\":" << item.maxPriority
+        << ",\"evidence_class\":" << jsonString(item.evidenceClass)
+        << ",\"directness\":\"retrieved-source-passage\""
+        << ",\"source_directness\":\"mention-only\""
+        << ",\"evidence_penalty\":" << item.evidencePenalty
         << ",\"quality_penalty\":" << item.qualityPenalty
         << ",\"quality_notes\":" << jsonString(item.qualityNotes)
         << ",\"type_counts\":{";
@@ -1471,6 +1534,8 @@ std::string candidateEvidenceChunkMetadata(const std::string& profileId, const C
         << ",\"stage\":\"stage2-candidate-seed\""
         << ",\"chunk_id\":" << row.chunkId
         << ",\"source_uri\":" << jsonString(row.sourceUri)
+        << ",\"evidence_class\":\"candidate-evidence-chunk\""
+        << ",\"directness\":\"retrieved-source-passage\""
         << "}";
     return out.str();
 }
@@ -1485,6 +1550,8 @@ std::string candidateMentionMetadata(const std::string& profileId, const Candida
         << ",\"normalized_candidate\":" << jsonString(row.normalized)
         << ",\"priority\":" << row.priority
         << ",\"confidence\":" << row.confidence
+        << ",\"evidence_class\":\"candidate-mention\""
+        << ",\"directness\":\"mention-only\""
         << "}";
     return out.str();
 }
@@ -1798,14 +1865,6 @@ std::vector<std::string> conceptAliases(const Entity& entity)
     return aliases;
 }
 
-bool containsFolded(const std::string& text, const std::string& needle)
-{
-    if (needle.empty()) {
-        return false;
-    }
-    return lowerCopy(text).find(lowerCopy(needle)) != std::string::npos;
-}
-
 void appendAliasArray(std::ostringstream& out, const std::vector<std::string>& aliases)
 {
     out << '[';
@@ -1983,6 +2042,8 @@ std::string buildSubgraphJson(
         if (!chunk.retrieval.empty()) {
             out << ",\"retrieval\":" << jsonString(chunk.retrieval);
         }
+        out << ",\"evidence_class\":" << jsonString(evidenceClassForText(chunk.title, chunk.text))
+            << ",\"directness\":\"retrieved-source-passage\"";
         if (chunk.hasVectorDistance) {
             out << ",\"vector_distance\":" << chunk.vectorDistance;
         }
@@ -3166,6 +3227,195 @@ int edgeHasCandidateMentionSupport(
         return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
     }
     sqlite3_finalize(stmt);
+    return CPRAG_OK;
+}
+
+bool startsWith(const std::string& value, const std::string& prefix)
+{
+    return value.size() >= prefix.size() && value.compare(0, prefix.size(), prefix) == 0;
+}
+
+std::vector<std::string> splitIdList(const std::string& input)
+{
+    std::vector<std::string> ids;
+    std::string current;
+    for (const char ch : input) {
+        if (ch == ',' || ch == '|' || ch == ';' || ch == '\n' || ch == '\r' || ch == '\t') {
+            const std::string trimmed = trimCopy(current);
+            if (!trimmed.empty()) {
+                ids.push_back(trimmed);
+            }
+            current.clear();
+        } else {
+            current.push_back(ch);
+        }
+    }
+    const std::string trimmed = trimCopy(current);
+    if (!trimmed.empty()) {
+        ids.push_back(trimmed);
+    }
+    std::sort(ids.begin(), ids.end());
+    ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
+    return ids;
+}
+
+int entityExists(cprag_handle* handle, const std::string& id, bool* exists)
+{
+    if (exists == nullptr) {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    *exists = false;
+    sqlite3_stmt* stmt = nullptr;
+    const int rc = prepare(handle, "SELECT 1 FROM entities WHERE id = ? LIMIT 1", &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, id);
+    const int stepRc = sqlite3_step(stmt);
+    if (stepRc == SQLITE_ROW) {
+        *exists = true;
+    } else if (stepRc != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    sqlite3_finalize(stmt);
+    return CPRAG_OK;
+}
+
+int recordWorkAttemptInternal(
+    cprag_handle* handle,
+    const std::string& profileId,
+    const std::string& queueId,
+    const std::string& itemType,
+    const std::string& itemId,
+    long long subjectId,
+    const std::string& worker,
+    const std::string& model,
+    const std::string& status,
+    int acceptedNodes,
+    int acceptedRelationships,
+    const std::string& rawOutput,
+    const std::string& metadata,
+    bool manageTransaction,
+    std::string* resultJson)
+{
+    if (status.empty()) {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "status is required");
+    }
+    const int metadataRc = validateMetadataJson(handle, metadata);
+    if (metadataRc != CPRAG_OK) {
+        return metadataRc;
+    }
+
+    int rc = CPRAG_OK;
+    if (manageTransaction) {
+        rc = execSql(handle, "BEGIN IMMEDIATE");
+        if (rc != CPRAG_OK) {
+            return rc;
+        }
+    }
+
+    sqlite3_stmt* stmt = nullptr;
+    rc = prepare(
+        handle,
+        "INSERT INTO work_attempts "
+        "(profile_id, queue_name, item_type, item_id, subject_id, worker, model, status, accepted_nodes, accepted_relationships, raw_output, metadata_json) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        &stmt);
+    if (rc != CPRAG_OK) {
+        if (manageTransaction) {
+            execSql(handle, "ROLLBACK");
+        }
+        return rc;
+    }
+    bindText(stmt, 1, profileId);
+    bindText(stmt, 2, queueId);
+    bindText(stmt, 3, itemType);
+    bindText(stmt, 4, itemId);
+    sqlite3_bind_int64(stmt, 5, subjectId);
+    bindText(stmt, 6, worker);
+    bindText(stmt, 7, model);
+    bindText(stmt, 8, status);
+    sqlite3_bind_int(stmt, 9, std::max(0, acceptedNodes));
+    sqlite3_bind_int(stmt, 10, std::max(0, acceptedRelationships));
+    bindText(stmt, 11, rawOutput);
+    bindText(stmt, 12, metadata);
+    int stepRc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        if (manageTransaction) {
+            execSql(handle, "ROLLBACK");
+        }
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    const long long attemptId = sqlite3_last_insert_rowid(handle->db);
+
+    sqlite3_stmt* updateStmt = nullptr;
+    rc = prepare(
+        handle,
+        "UPDATE work_queue SET "
+        "status = ?, "
+        "metadata_json = json_set("
+        "  CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, "
+        "  '$.last_attempt_id', ?, "
+        "  '$.last_attempt_status', ?, "
+        "  '$.last_attempt_worker', ?, "
+        "  '$.last_attempt_model', ?, "
+        "  '$.last_accepted_nodes', ?, "
+        "  '$.last_accepted_relationships', ?), "
+        "updated_at = CURRENT_TIMESTAMP "
+        "WHERE profile_id = ? AND queue_name = ? AND item_id = ?",
+        &updateStmt);
+    if (rc != CPRAG_OK) {
+        if (manageTransaction) {
+            execSql(handle, "ROLLBACK");
+        }
+        return rc;
+    }
+    bindText(updateStmt, 1, status);
+    sqlite3_bind_int64(updateStmt, 2, attemptId);
+    bindText(updateStmt, 3, status);
+    bindText(updateStmt, 4, worker);
+    bindText(updateStmt, 5, model);
+    sqlite3_bind_int(updateStmt, 6, std::max(0, acceptedNodes));
+    sqlite3_bind_int(updateStmt, 7, std::max(0, acceptedRelationships));
+    bindText(updateStmt, 8, profileId);
+    bindText(updateStmt, 9, queueId);
+    bindText(updateStmt, 10, itemId);
+    stepRc = sqlite3_step(updateStmt);
+    const int changed = sqlite3_changes(handle->db);
+    sqlite3_finalize(updateStmt);
+    if (stepRc != SQLITE_DONE) {
+        if (manageTransaction) {
+            execSql(handle, "ROLLBACK");
+        }
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+
+    if (manageTransaction) {
+        rc = execSql(handle, "COMMIT");
+        if (rc != CPRAG_OK) {
+            execSql(handle, "ROLLBACK");
+            return rc;
+        }
+    }
+
+    if (resultJson != nullptr) {
+        std::ostringstream out;
+        out << "{\"success\":true"
+            << ",\"attempt_id\":" << attemptId
+            << ",\"profile_id\":" << jsonString(profileId)
+            << ",\"queue_id\":" << jsonString(queueId)
+            << ",\"item_type\":" << jsonString(itemType)
+            << ",\"item_id\":" << jsonString(itemId)
+            << ",\"subject_id\":" << subjectId
+            << ",\"status\":" << jsonString(status)
+            << ",\"accepted_nodes\":" << std::max(0, acceptedNodes)
+            << ",\"accepted_relationships\":" << std::max(0, acceptedRelationships)
+            << ",\"queue_updated\":" << (changed > 0 ? "true" : "false")
+            << "}";
+        *resultJson = out.str();
+    }
     return CPRAG_OK;
 }
 
@@ -4813,7 +5063,10 @@ int cprag_build_extraction_queue(
             item.title = columnText(stmt, 2);
             item.chunkIndex = sqlite3_column_int(stmt, 3);
             item.length = sqlite3_column_int(stmt, 4);
-            item.qualityPenalty = chunkShapePenalty(columnText(stmt, 5), &item.qualityNotes);
+            const std::string chunkText = columnText(stmt, 5);
+            item.evidenceClass = evidenceClassForText(item.title, chunkText);
+            item.evidencePenalty = evidenceClassPenalty(item.evidenceClass);
+            item.qualityPenalty = chunkShapePenalty(chunkText, &item.qualityNotes);
         }
 
         const std::string conceptId = columnText(stmt, 6);
@@ -4867,6 +5120,7 @@ int cprag_build_extraction_queue(
             + static_cast<double>(item.maxPriority) * 0.05
             + typeBonus
             + bridgeBonus
+            - static_cast<double>(item.evidencePenalty)
             - static_cast<double>(item.qualityPenalty);
         item.reason = extractionQueueReason(item);
         item.metadataJson = extractionQueueMetadata(item, profileId, queueId, graphNamespace, nodeTypeFilterCsv);
@@ -5029,6 +5283,640 @@ int cprag_list_extraction_queue(
         return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
     }
     out << "]}";
+    return copyJson(handle, out.str(), out_json, out_json_size);
+}
+
+int cprag_upsert_work_item(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    const char* item_type,
+    const char* item_id,
+    long long subject_id,
+    const char* source_uri,
+    const char* title,
+    int item_index,
+    double score,
+    const char* status,
+    const char* reason,
+    const char* metadata_json,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || profile_id == nullptr || profile_id[0] == '\0'
+        || item_type == nullptr || item_type[0] == '\0'
+        || item_id == nullptr || item_id[0] == '\0') {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    if (handle->readOnly) {
+        return setErrorCode(handle, CPRAG_IO_ERROR, "library is open read-only");
+    }
+
+    const std::string profileId = valueOrEmpty(profile_id);
+    const std::string queueId = valueOrEmpty(queue_id).empty() ? "default" : valueOrEmpty(queue_id);
+    const std::string itemType = valueOrEmpty(item_type);
+    const std::string itemId = valueOrEmpty(item_id);
+    const std::string sourceUri = valueOrEmpty(source_uri);
+    const std::string titleValue = valueOrEmpty(title);
+    const std::string statusValue = valueOrEmpty(status).empty() ? "pending" : valueOrEmpty(status);
+    const std::string reasonValue = valueOrEmpty(reason);
+    const std::string metadata = metadataOrDefault(metadata_json);
+    int rc = validateMetadataJson(handle, metadata);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+
+    sqlite3_stmt* stmt = nullptr;
+    rc = prepare(
+        handle,
+        "INSERT INTO work_queue "
+        "(profile_id, queue_name, item_type, item_id, subject_id, source_uri, title, item_index, score, status, reason, metadata_json) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(profile_id, queue_name, item_id) DO UPDATE SET "
+        "item_type=excluded.item_type, subject_id=excluded.subject_id, "
+        "source_uri=excluded.source_uri, title=excluded.title, item_index=excluded.item_index, "
+        "score=excluded.score, status=excluded.status, reason=excluded.reason, "
+        "metadata_json=excluded.metadata_json, updated_at=CURRENT_TIMESTAMP",
+        &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, profileId);
+    bindText(stmt, 2, queueId);
+    bindText(stmt, 3, itemType);
+    bindText(stmt, 4, itemId);
+    sqlite3_bind_int64(stmt, 5, std::max<long long>(0, subject_id));
+    bindText(stmt, 6, sourceUri);
+    bindText(stmt, 7, titleValue);
+    sqlite3_bind_int(stmt, 8, item_index);
+    sqlite3_bind_double(stmt, 9, score);
+    bindText(stmt, 10, statusValue);
+    bindText(stmt, 11, reasonValue);
+    bindText(stmt, 12, metadata);
+    const int stepRc = sqlite3_step(stmt);
+    const int changed = sqlite3_changes(handle->db);
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+
+    std::ostringstream out;
+    out << "{\"success\":true"
+        << ",\"profile_id\":" << jsonString(profileId)
+        << ",\"queue_id\":" << jsonString(queueId)
+        << ",\"item_type\":" << jsonString(itemType)
+        << ",\"item_id\":" << jsonString(itemId)
+        << ",\"subject_id\":" << std::max<long long>(0, subject_id)
+        << ",\"status\":" << jsonString(statusValue)
+        << ",\"changed\":" << changed
+        << "}";
+    return copyJson(handle, out.str(), out_json, out_json_size);
+}
+
+int cprag_list_work_queue(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    const char* item_type_filter,
+    const char* status_filter,
+    int limit,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || profile_id == nullptr || profile_id[0] == '\0') {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    const std::string profileId = valueOrEmpty(profile_id);
+    const std::string queueId = valueOrEmpty(queue_id).empty() ? "default" : valueOrEmpty(queue_id);
+    const std::string itemTypeFilter = valueOrEmpty(item_type_filter);
+    const std::string statusFilter = valueOrEmpty(status_filter);
+    const int effectiveLimit = limit <= 0 ? 100 : limit;
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT item_type, item_id, subject_id, source_uri, title, item_index, score, status, reason, "
+        "CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, created_at, updated_at "
+        "FROM work_queue "
+        "WHERE profile_id = ? AND queue_name = ? "
+        "AND (? = '' OR item_type = ?) "
+        "AND (? = '' OR status = ?) "
+        "ORDER BY score DESC, updated_at ASC, item_id ASC "
+        "LIMIT ?";
+    int rc = prepare(handle, sql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, profileId);
+    bindText(stmt, 2, queueId);
+    bindText(stmt, 3, itemTypeFilter);
+    bindText(stmt, 4, itemTypeFilter);
+    bindText(stmt, 5, statusFilter);
+    bindText(stmt, 6, statusFilter);
+    sqlite3_bind_int(stmt, 7, effectiveLimit);
+
+    std::ostringstream out;
+    out << "{\"success\":true"
+        << ",\"profile_id\":" << jsonString(profileId)
+        << ",\"queue_id\":" << jsonString(queueId)
+        << ",\"item_type_filter\":" << jsonString(itemTypeFilter)
+        << ",\"status_filter\":" << jsonString(statusFilter)
+        << ",\"limit\":" << effectiveLimit
+        << ",\"items\":[";
+    bool first = true;
+    int rank = 0;
+    int stepRc = SQLITE_OK;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        if (!first) {
+            out << ',';
+        }
+        first = false;
+        ++rank;
+        const std::string metadata = columnText(stmt, 9);
+        out << "{\"rank\":" << rank
+            << ",\"item_type\":" << jsonString(columnText(stmt, 0))
+            << ",\"item_id\":" << jsonString(columnText(stmt, 1))
+            << ",\"subject_id\":" << sqlite3_column_int64(stmt, 2)
+            << ",\"source_uri\":" << jsonString(columnText(stmt, 3))
+            << ",\"title\":" << jsonString(columnText(stmt, 4))
+            << ",\"item_index\":" << sqlite3_column_int(stmt, 5)
+            << ",\"score\":" << sqlite3_column_double(stmt, 6)
+            << ",\"status\":" << jsonString(columnText(stmt, 7))
+            << ",\"reason\":" << jsonString(columnText(stmt, 8))
+            << ",\"metadata\":" << (metadata.empty() ? "{}" : metadata)
+            << ",\"created_at\":" << jsonString(columnText(stmt, 10))
+            << ",\"updated_at\":" << jsonString(columnText(stmt, 11))
+            << "}";
+    }
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    out << "]}";
+    return copyJson(handle, out.str(), out_json, out_json_size);
+}
+
+int cprag_record_work_attempt(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    const char* item_type,
+    const char* item_id,
+    long long subject_id,
+    const char* worker,
+    const char* model,
+    const char* status,
+    int accepted_nodes,
+    int accepted_relationships,
+    const char* raw_output,
+    const char* metadata_json,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || profile_id == nullptr || profile_id[0] == '\0'
+        || item_type == nullptr || item_type[0] == '\0'
+        || item_id == nullptr || item_id[0] == '\0') {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    if (handle->readOnly) {
+        return setErrorCode(handle, CPRAG_IO_ERROR, "library is open read-only");
+    }
+    const std::string profileId = valueOrEmpty(profile_id);
+    const std::string queueId = valueOrEmpty(queue_id).empty() ? "default" : valueOrEmpty(queue_id);
+    const std::string metadata = metadataOrDefault(metadata_json);
+    std::string result;
+    const int rc = recordWorkAttemptInternal(
+        handle,
+        profileId,
+        queueId,
+        valueOrEmpty(item_type),
+        valueOrEmpty(item_id),
+        std::max<long long>(0, subject_id),
+        valueOrEmpty(worker),
+        valueOrEmpty(model),
+        valueOrEmpty(status),
+        accepted_nodes,
+        accepted_relationships,
+        valueOrEmpty(raw_output),
+        metadata,
+        true,
+        &result);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    return copyJson(handle, result, out_json, out_json_size);
+}
+
+int cprag_list_work_attempts(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    const char* item_type_filter,
+    const char* item_id_filter,
+    int limit,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || profile_id == nullptr || profile_id[0] == '\0') {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    const std::string profileId = valueOrEmpty(profile_id);
+    const std::string queueId = valueOrEmpty(queue_id).empty() ? "default" : valueOrEmpty(queue_id);
+    const std::string itemTypeFilter = valueOrEmpty(item_type_filter);
+    const std::string itemIdFilter = valueOrEmpty(item_id_filter);
+    const int effectiveLimit = limit <= 0 ? 100 : limit;
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT id, item_type, item_id, subject_id, worker, model, status, accepted_nodes, accepted_relationships, "
+        "length(raw_output), CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, created_at "
+        "FROM work_attempts "
+        "WHERE profile_id = ? AND queue_name = ? "
+        "AND (? = '' OR item_type = ?) "
+        "AND (? = '' OR item_id = ?) "
+        "ORDER BY id DESC "
+        "LIMIT ?";
+    int rc = prepare(handle, sql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, profileId);
+    bindText(stmt, 2, queueId);
+    bindText(stmt, 3, itemTypeFilter);
+    bindText(stmt, 4, itemTypeFilter);
+    bindText(stmt, 5, itemIdFilter);
+    bindText(stmt, 6, itemIdFilter);
+    sqlite3_bind_int(stmt, 7, effectiveLimit);
+
+    std::ostringstream out;
+    out << "{\"success\":true"
+        << ",\"profile_id\":" << jsonString(profileId)
+        << ",\"queue_id\":" << jsonString(queueId)
+        << ",\"item_type_filter\":" << jsonString(itemTypeFilter)
+        << ",\"item_id_filter\":" << jsonString(itemIdFilter)
+        << ",\"limit\":" << effectiveLimit
+        << ",\"attempts\":[";
+    bool first = true;
+    int stepRc = SQLITE_OK;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        if (!first) {
+            out << ',';
+        }
+        first = false;
+        const std::string metadata = columnText(stmt, 10);
+        out << "{\"id\":" << sqlite3_column_int64(stmt, 0)
+            << ",\"item_type\":" << jsonString(columnText(stmt, 1))
+            << ",\"item_id\":" << jsonString(columnText(stmt, 2))
+            << ",\"subject_id\":" << sqlite3_column_int64(stmt, 3)
+            << ",\"worker\":" << jsonString(columnText(stmt, 4))
+            << ",\"model\":" << jsonString(columnText(stmt, 5))
+            << ",\"status\":" << jsonString(columnText(stmt, 6))
+            << ",\"accepted_nodes\":" << sqlite3_column_int(stmt, 7)
+            << ",\"accepted_relationships\":" << sqlite3_column_int(stmt, 8)
+            << ",\"raw_output_size\":" << sqlite3_column_int(stmt, 9)
+            << ",\"metadata\":" << (metadata.empty() ? "{}" : metadata)
+            << ",\"created_at\":" << jsonString(columnText(stmt, 11))
+            << "}";
+    }
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+    out << "]}";
+    return copyJson(handle, out.str(), out_json, out_json_size);
+}
+
+int cprag_resolve_work_queue(
+    cprag_handle* handle,
+    const char* profile_id,
+    const char* queue_id,
+    const char* item_type,
+    int limit,
+    int dry_run,
+    char* out_json,
+    size_t out_json_size)
+{
+    if (handle == nullptr || profile_id == nullptr || profile_id[0] == '\0'
+        || item_type == nullptr || item_type[0] == '\0') {
+        return CPRAG_INVALID_ARGUMENT;
+    }
+    if (handle->readOnly) {
+        return setErrorCode(handle, CPRAG_IO_ERROR, "library is open read-only");
+    }
+
+    const std::string profileId = valueOrEmpty(profile_id);
+    const std::string queueId = valueOrEmpty(queue_id).empty() ? "default" : valueOrEmpty(queue_id);
+    const std::string itemType = valueOrEmpty(item_type);
+    if (itemType != "endpoint-resolution" && itemType != "ambiguity-review") {
+        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "item_type must be endpoint-resolution or ambiguity-review");
+    }
+    const int effectiveLimit = limit <= 0 ? 100 : limit;
+    const bool dryRun = dry_run != 0;
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT item_id, subject_id, score, reason, "
+        "CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, "
+        "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.source_id'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.source'), '') AS source_id, "
+        "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.target_id'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.target'), '') AS target_id, "
+        "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.relationship_type'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.relationship'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.type'), '') AS relationship_type, "
+        "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.label'), '') AS label, "
+        "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.weight'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.confidence'), 0.55) AS weight, "
+        "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.evidence'), '') AS evidence, "
+        "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.evidence_class'), '') AS evidence_class, "
+        "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.alias'), '') AS alias, "
+        "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.candidate_ids'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.candidate_id_csv'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.candidates'), '') AS candidate_ids "
+        "FROM work_queue "
+        "WHERE profile_id = ? AND queue_name = ? AND item_type = ? AND status = 'pending' "
+        "ORDER BY score DESC, updated_at ASC, item_id ASC "
+        "LIMIT ?";
+    int rc = prepare(handle, sql, &stmt);
+    if (rc != CPRAG_OK) {
+        return rc;
+    }
+    bindText(stmt, 1, profileId);
+    bindText(stmt, 2, queueId);
+    bindText(stmt, 3, itemType);
+    sqlite3_bind_int(stmt, 4, effectiveLimit);
+
+    struct ResolveItem {
+        std::string itemId;
+        long long subjectId {0};
+        double score {0.0};
+        std::string reason;
+        std::string metadata;
+        std::string sourceId;
+        std::string targetId;
+        std::string relationshipType;
+        std::string label;
+        double weight {0.55};
+        std::string evidence;
+        std::string evidenceClass;
+        std::string alias;
+        std::string candidateIds;
+    };
+    std::vector<ResolveItem> rows;
+    int stepRc = SQLITE_OK;
+    while ((stepRc = sqlite3_step(stmt)) == SQLITE_ROW) {
+        ResolveItem row;
+        row.itemId = columnText(stmt, 0);
+        row.subjectId = sqlite3_column_int64(stmt, 1);
+        row.score = sqlite3_column_double(stmt, 2);
+        row.reason = columnText(stmt, 3);
+        row.metadata = columnText(stmt, 4);
+        row.sourceId = trimCopy(columnText(stmt, 5));
+        row.targetId = trimCopy(columnText(stmt, 6));
+        row.relationshipType = trimCopy(columnText(stmt, 7));
+        row.label = trimCopy(columnText(stmt, 8));
+        row.weight = sqlite3_column_double(stmt, 9);
+        row.evidence = columnText(stmt, 10);
+        row.evidenceClass = trimCopy(columnText(stmt, 11));
+        row.alias = trimCopy(columnText(stmt, 12));
+        row.candidateIds = columnText(stmt, 13);
+        rows.push_back(std::move(row));
+    }
+    sqlite3_finalize(stmt);
+    if (stepRc != SQLITE_DONE) {
+        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+    }
+
+    if (!dryRun) {
+        rc = execSql(handle, "BEGIN IMMEDIATE");
+        if (rc != CPRAG_OK) {
+            return rc;
+        }
+    }
+
+    int processed = 0;
+    int skipped = 0;
+    int nodeWrites = 0;
+    int relationshipWrites = 0;
+    std::ostringstream items;
+    items << '[';
+    bool firstItem = true;
+
+    for (const ResolveItem& row : rows) {
+        std::string status = "processed";
+        std::string detail;
+        int acceptedNodes = 0;
+        int acceptedRelationships = 0;
+
+        if (itemType == "endpoint-resolution") {
+            bool sourceExists = false;
+            bool targetExists = false;
+            rc = entityExists(handle, row.sourceId, &sourceExists);
+            if (rc != CPRAG_OK) {
+                if (!dryRun) {
+                    execSql(handle, "ROLLBACK");
+                }
+                return rc;
+            }
+            rc = entityExists(handle, row.targetId, &targetExists);
+            if (rc != CPRAG_OK) {
+                if (!dryRun) {
+                    execSql(handle, "ROLLBACK");
+                }
+                return rc;
+            }
+            if (row.sourceId.empty() || row.targetId.empty() || row.relationshipType.empty() || !sourceExists || !targetExists) {
+                status = "skipped";
+                detail = "missing endpoint or relationship type";
+            } else {
+                const std::string label = row.label.empty() ? row.relationshipType : row.label;
+                double weight = row.weight;
+                if (!std::isfinite(weight) || weight <= 0.0) {
+                    weight = 0.55;
+                } else if (weight > 1.0) {
+                    weight = 1.0;
+                }
+                const std::string evidenceClass = row.evidenceClass.empty() ? "model-proposal" : row.evidenceClass;
+                std::ostringstream metadata;
+                metadata << "{\"profile_id\":" << jsonString(profileId)
+                    << ",\"queue_id\":" << jsonString(queueId)
+                    << ",\"item_id\":" << jsonString(row.itemId)
+                    << ",\"item_type\":\"endpoint-resolution\""
+                    << ",\"worker\":\"endpoint-resolution-consumer\""
+                    << ",\"evidence\":" << jsonString(row.evidence)
+                    << ",\"evidence_class\":" << jsonString(evidenceClass)
+                    << ",\"directness\":\"accepted-typed-edge\""
+                    << ",\"work_item\":" << (row.metadata.empty() ? "{}" : row.metadata)
+                    << "}";
+                if (!dryRun) {
+                    rc = cprag_add_edge_typed(
+                        handle,
+                        row.sourceId.c_str(),
+                        row.targetId.c_str(),
+                        row.relationshipType.c_str(),
+                        label.c_str(),
+                        weight,
+                        metadata.str().c_str());
+                    if (rc != CPRAG_OK) {
+                        execSql(handle, "ROLLBACK");
+                        return rc;
+                    }
+                }
+                acceptedRelationships = 1;
+                detail = "typed edge accepted";
+            }
+        } else {
+            std::string alias = row.alias;
+            if (alias.empty() && startsWith(row.itemId, "ambiguity:")) {
+                alias = row.itemId.substr(std::string("ambiguity:").size());
+            }
+            if (alias.empty()) {
+                status = "skipped";
+                detail = "missing alias";
+            } else {
+                const std::string ambiguityId = startsWith(row.itemId, "ambiguity:")
+                    ? row.itemId
+                    : "ambiguity:" + slugForId(alias);
+                std::ostringstream nodeMetadata;
+                nodeMetadata << "{\"profile_id\":" << jsonString(profileId)
+                    << ",\"queue_id\":" << jsonString(queueId)
+                    << ",\"item_id\":" << jsonString(row.itemId)
+                    << ",\"item_type\":\"ambiguity-review\""
+                    << ",\"alias\":" << jsonString(alias)
+                    << ",\"evidence_class\":\"ambiguity-review\""
+                    << ",\"directness\":\"ambiguity-lead\""
+                    << ",\"work_item\":" << (row.metadata.empty() ? "{}" : row.metadata)
+                    << "}";
+                if (!dryRun) {
+                    rc = cprag_add_entity_typed(
+                        handle,
+                        ambiguityId.c_str(),
+                        "ambiguity",
+                        ("Ambiguous mention: " + alias).c_str(),
+                        "Mention needs explicit resolution against possible concepts.",
+                        nodeMetadata.str().c_str());
+                    if (rc != CPRAG_OK) {
+                        execSql(handle, "ROLLBACK");
+                        return rc;
+                    }
+                }
+                acceptedNodes = 1;
+                ++nodeWrites;
+
+                for (const std::string& candidateId : splitIdList(row.candidateIds)) {
+                    bool candidateExists = false;
+                    rc = entityExists(handle, candidateId, &candidateExists);
+                    if (rc != CPRAG_OK) {
+                        if (!dryRun) {
+                            execSql(handle, "ROLLBACK");
+                        }
+                        return rc;
+                    }
+                    if (!candidateExists) {
+                        continue;
+                    }
+                    std::ostringstream edgeMetadata;
+                    edgeMetadata << "{\"profile_id\":" << jsonString(profileId)
+                        << ",\"queue_id\":" << jsonString(queueId)
+                        << ",\"item_id\":" << jsonString(row.itemId)
+                        << ",\"item_type\":\"ambiguity-review\""
+                        << ",\"alias\":" << jsonString(alias)
+                        << ",\"candidate_id\":" << jsonString(candidateId)
+                        << ",\"evidence_class\":\"ambiguity-review\""
+                        << ",\"directness\":\"ambiguity-lead\""
+                        << "}";
+                    if (!dryRun) {
+                        rc = cprag_add_edge_typed(
+                            handle,
+                            ambiguityId.c_str(),
+                            candidateId.c_str(),
+                            "candidate-for",
+                            ("Possible interpretation for " + alias).c_str(),
+                            0.4,
+                            edgeMetadata.str().c_str());
+                        if (rc != CPRAG_OK) {
+                            execSql(handle, "ROLLBACK");
+                            return rc;
+                        }
+                    }
+                    ++acceptedRelationships;
+                }
+                detail = acceptedRelationships > 0 ? "ambiguity candidates linked" : "ambiguity node accepted without candidate links";
+            }
+        }
+
+        if (!dryRun) {
+            std::ostringstream attemptMetadata;
+            attemptMetadata << "{\"profile_id\":" << jsonString(profileId)
+                << ",\"queue_id\":" << jsonString(queueId)
+                << ",\"item_type\":" << jsonString(itemType)
+                << ",\"resolver\":\"native-work-queue-consumer\""
+                << ",\"detail\":" << jsonString(detail)
+                << ",\"work_item\":" << (row.metadata.empty() ? "{}" : row.metadata)
+                << "}";
+            std::string ignoredResult;
+            rc = recordWorkAttemptInternal(
+                handle,
+                profileId,
+                queueId,
+                itemType,
+                row.itemId,
+                row.subjectId,
+                itemType + "-consumer",
+                "native",
+                status,
+                acceptedNodes,
+                acceptedRelationships,
+                row.metadata,
+                attemptMetadata.str(),
+                false,
+                &ignoredResult);
+            if (rc != CPRAG_OK) {
+                execSql(handle, "ROLLBACK");
+                return rc;
+            }
+        }
+
+        if (status == "processed") {
+            ++processed;
+            relationshipWrites += acceptedRelationships;
+        } else {
+            ++skipped;
+        }
+
+        if (!firstItem) {
+            items << ',';
+        }
+        firstItem = false;
+        items << "{\"item_id\":" << jsonString(row.itemId)
+            << ",\"status\":" << jsonString(dryRun ? "dry-run" : status)
+            << ",\"detail\":" << jsonString(detail)
+            << ",\"accepted_nodes\":" << acceptedNodes
+            << ",\"accepted_relationships\":" << acceptedRelationships
+            << "}";
+    }
+    items << ']';
+
+    if (!dryRun) {
+        rc = execSql(handle, "COMMIT");
+        if (rc != CPRAG_OK) {
+            execSql(handle, "ROLLBACK");
+            return rc;
+        }
+    }
+
+    std::ostringstream out;
+    out << "{\"success\":true"
+        << ",\"profile_id\":" << jsonString(profileId)
+        << ",\"queue_id\":" << jsonString(queueId)
+        << ",\"item_type\":" << jsonString(itemType)
+        << ",\"dry_run\":" << (dryRun ? "true" : "false")
+        << ",\"selected\":" << rows.size()
+        << ",\"processed\":" << processed
+        << ",\"skipped\":" << skipped
+        << ",\"accepted_nodes\":" << nodeWrites
+        << ",\"accepted_relationships\":" << relationshipWrites
+        << ",\"items\":" << items.str()
+        << "}";
     return copyJson(handle, out.str(), out_json, out_json_size);
 }
 

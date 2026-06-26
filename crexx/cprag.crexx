@@ -113,6 +113,26 @@ raglibrary: class
     arg profile_id = .string, queue_id = .string, chunk_id = .int, limit = .int
     return extractionattempts(_path, profile_id, queue_id, chunk_id, limit)
 
+  upsertWorkItemJson: method = .string
+    arg profile_id = .string, queue_id = .string, item_type = .string, item_id = .string, subject_id = .int, source_uri = .string, title = .string, item_index = .int, score = .float, status = .string, reason = .string, metadata_json = "{}"
+    return upsertworkitem(_path, profile_id, queue_id, item_type, item_id, subject_id, source_uri, title, item_index, score, status, reason, metadata_json)
+
+  workQueueJson: method = .string
+    arg profile_id = .string, queue_id = .string, item_type_filter = .string, status_filter = .string, limit = .int
+    return workqueue(_path, profile_id, queue_id, item_type_filter, status_filter, limit)
+
+  recordWorkAttemptJson: method = .string
+    arg profile_id = .string, queue_id = .string, item_type = .string, item_id = .string, subject_id = .int, worker = .string, model = .string, status = .string, accepted_nodes = .int, accepted_relationships = .int, raw_output = .string, metadata_json = "{}"
+    return recordworkattempt(_path, profile_id, queue_id, item_type, item_id, subject_id, worker, model, status, accepted_nodes, accepted_relationships, raw_output, metadata_json)
+
+  workAttemptsJson: method = .string
+    arg profile_id = .string, queue_id = .string, item_type_filter = .string, item_id_filter = .string, limit = .int
+    return workattempts(_path, profile_id, queue_id, item_type_filter, item_id_filter, limit)
+
+  resolveWorkQueueJson: method = .string
+    arg profile_id = .string, queue_id = .string, item_type = .string, limit = .int, dry_run = .int
+    return resolveworkqueue(_path, profile_id, queue_id, item_type, limit, dry_run)
+
   queueStatusJson: method = .string
     arg profile_id = .string, queue_id = .string
     return queuestatus(_path, profile_id, queue_id)

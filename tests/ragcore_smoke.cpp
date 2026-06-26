@@ -569,7 +569,8 @@ int main()
     const std::string builtQueue(buffer.data());
     if (builtQueue.find("\"queued\":1") == std::string::npos
         || builtQueue.find("\"top_chunk_id\":") == std::string::npos
-        || builtQueue.find("concepts=1") == std::string::npos) {
+        || builtQueue.find("concepts=1") == std::string::npos
+        || builtQueue.find("evidence=narrative") == std::string::npos) {
         std::cerr << builtQueue << '\n';
         return 1;
     }
@@ -669,6 +670,131 @@ int main()
     const std::string rebuiltAfterAttempt(buffer.data());
     if (rebuiltAfterAttempt.find("\"queued\":0") == std::string::npos) {
         std::cerr << rebuiltAfterAttempt << '\n';
+        return 1;
+    }
+
+    rc = cprag_upsert_work_item(
+        handle,
+        "architecture.test.v1",
+        "fixup",
+        "endpoint-resolution",
+        "endpoint:auth-postgres",
+        0,
+        "unit://fixup",
+        "Endpoint fixup",
+        0,
+        10.0,
+        "pending",
+        "unit endpoint fixup",
+        "{\"source_id\":\"entity:k8s\",\"target_id\":\"entity:postgres\",\"relationship_type\":\"depends-on\",\"label\":\"Kubernetes depends on PostgreSQL\",\"confidence\":0.73,\"evidence\":\"unit endpoint\",\"evidence_class\":\"model-extracted-claim\"}",
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string endpointUpsert(buffer.data());
+    if (endpointUpsert.find("\"item_type\":\"endpoint-resolution\"") == std::string::npos) {
+        std::cerr << endpointUpsert << '\n';
+        return 1;
+    }
+    rc = cprag_list_work_queue(
+        handle,
+        "architecture.test.v1",
+        "fixup",
+        "endpoint-resolution",
+        "pending",
+        10,
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string endpointList(buffer.data());
+    if (endpointList.find("\"item_id\":\"endpoint:auth-postgres\"") == std::string::npos
+        || endpointList.find("\"metadata\"") == std::string::npos) {
+        std::cerr << endpointList << '\n';
+        return 1;
+    }
+    rc = cprag_resolve_work_queue(
+        handle,
+        "architecture.test.v1",
+        "fixup",
+        "endpoint-resolution",
+        10,
+        0,
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string endpointResolved(buffer.data());
+    if (endpointResolved.find("\"processed\":1") == std::string::npos
+        || endpointResolved.find("\"accepted_relationships\":1") == std::string::npos) {
+        std::cerr << endpointResolved << '\n';
+        return 1;
+    }
+    rc = cprag_subgraph(handle, "", "depends-on", 10, buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string endpointSubgraph(buffer.data());
+    if (endpointSubgraph.find("\"relationship_type\":\"depends-on\"") == std::string::npos
+        || endpointSubgraph.find("\"directness\":\"accepted-typed-edge\"") == std::string::npos
+        || endpointSubgraph.find("\"evidence_class\":\"model-extracted-claim\"") == std::string::npos) {
+        std::cerr << endpointSubgraph << '\n';
+        return 1;
+    }
+
+    rc = cprag_upsert_work_item(
+        handle,
+        "architecture.test.v1",
+        "fixup",
+        "ambiguity-review",
+        "ambiguity:postgres",
+        0,
+        "unit://fixup",
+        "Ambiguity fixup",
+        0,
+        9.0,
+        "pending",
+        "unit ambiguity fixup",
+        "{\"alias\":\"Postgres\",\"candidate_ids\":\"entity:postgres|entity:k8s\"}",
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_OK);
+    rc = cprag_resolve_work_queue(
+        handle,
+        "architecture.test.v1",
+        "fixup",
+        "ambiguity-review",
+        10,
+        0,
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string ambiguityResolved(buffer.data());
+    if (ambiguityResolved.find("\"processed\":1") == std::string::npos
+        || ambiguityResolved.find("\"accepted_nodes\":1") == std::string::npos
+        || ambiguityResolved.find("\"accepted_relationships\":2") == std::string::npos) {
+        std::cerr << ambiguityResolved << '\n';
+        return 1;
+    }
+    rc = cprag_subgraph(handle, "ambiguity,data-object,technology-node", "candidate-for", 10, buffer.data(), buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string ambiguitySubgraph(buffer.data());
+    if (ambiguitySubgraph.find("\"id\":\"ambiguity:postgres\"") == std::string::npos
+        || ambiguitySubgraph.find("\"relationship_type\":\"candidate-for\"") == std::string::npos
+        || ambiguitySubgraph.find("\"directness\":\"ambiguity-lead\"") == std::string::npos) {
+        std::cerr << ambiguitySubgraph << '\n';
+        return 1;
+    }
+    rc = cprag_list_work_attempts(
+        handle,
+        "architecture.test.v1",
+        "fixup",
+        "",
+        "",
+        10,
+        buffer.data(),
+        buffer.size());
+    assert(rc == CPRAG_OK);
+    const std::string fixupAttempts(buffer.data());
+    if (fixupAttempts.find("\"item_type\":\"endpoint-resolution\"") == std::string::npos
+        || fixupAttempts.find("\"item_type\":\"ambiguity-review\"") == std::string::npos
+        || fixupAttempts.find("\"worker\":\"endpoint-resolution-consumer\"") == std::string::npos) {
+        std::cerr << fixupAttempts << '\n';
         return 1;
     }
 

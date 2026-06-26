@@ -92,7 +92,8 @@ The MCP QA surface is accepted when:
 - the returned bundle includes source-bound policy, retrieval plan,
   `narrative_chunks`, `graph_claims`, `graph_leads`, and answer guidance;
 - graph-only `mentioned-in` paths are labelled as leads rather than direct
-  claims.
+  claims;
+- stored `directness` and `evidence_class` metadata are preferred when present.
 
 CTest coverage:
 
@@ -100,8 +101,9 @@ CTest coverage:
 
 ## Test Layers
 
-1. Native unit tests: C++ core behavior, schema migration, search, queue status,
-   and support accumulation.
+1. Native unit tests: C++ core behavior, schema migration, search, generic work
+   queue APIs, endpoint/ambiguity consumers, queue status, evidence
+   directness/class metadata, and support accumulation.
 2. Profile contract tests: compile the shared `pipeline_profile` module and load
    it alongside every staged controller that imports it.
 3. CLI prompt tests: dry-run prompt shape for generic, Scotland, and Athens.

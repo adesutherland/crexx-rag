@@ -248,6 +248,9 @@ examples before guessing. Useful signposts for command/address/LLM work are:
   computes chunk scores from concept density, type diversity, relation cues,
   rare concepts, ambiguity risk, support count, and text-shape penalties. Keep
   result JSON compact for CREXX; store detailed metrics in SQLite metadata.
+  Stage 2b also classifies chunk `evidence_class` and records directness
+  metadata so rankings can prefer narrative source passages over indexes,
+  captions, footnotes, and mention-only leads.
   Queue builds skip chunks that already have `processed` or `skipped`
   extraction attempts for the same profile, so background improvement advances
   to unprocessed chunks by default.
@@ -263,6 +266,12 @@ examples before guessing. Useful signposts for command/address/LLM work are:
   example, `Sutherland` can create an `ambiguity` node with `candidate-for`
   edges to both clan and place concepts while clear aliases still create normal
   `mentioned-in` evidence links.
+- Endpoint and ambiguity fixups are generic work-queue consumers, not
+  Scotland-only scripts. Use `endpoint-resolution` work items only when both
+  endpoint ids are expected to exist and metadata supplies a relationship type.
+  Use `ambiguity-review` work items to create or refresh an `ambiguity` node and
+  candidate links; unresolved ambiguity should remain visible to search and
+  answers.
 - Repeated typed edge writes should accumulate evidence in the native core
   (`support_count`, `support_evidence`, `last_support`) and keep the strongest
   weight, rather than overwriting earlier metadata.
@@ -281,6 +290,11 @@ examples before guessing. Useful signposts for command/address/LLM work are:
   surface for generic work queues. Use it instead of direct SQLite polling for
   long runs; it summarizes queued item counts, attempt counts, accepted
   node/relationship totals, and latest attempt metadata by profile/queue.
+- `crexx-rag work-queue`, `upsert-work-item`, `record-work-attempt`,
+  `work-attempts`, and `resolve-work-queue` are the generic work-queue CLI
+  surface. The same capabilities are exposed through `rxrag.*` and
+  `crexx/cprag.crexx` wrapper methods so CREXX controllers can orchestrate
+  fixup without scraping logs or shell-specific output.
 - `scripts/run_history_pipeline.sh` is the operator-facing staged runner for
   the current staged controllers. It supports `generic`, `scotland`, and
   `athens` profiles. It compiles the shared `pipeline_profile` module and CREXX

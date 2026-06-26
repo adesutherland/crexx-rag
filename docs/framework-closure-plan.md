@@ -174,20 +174,20 @@ derive:
 ```text
 evidence_class:
   narrative
-  index
-  toc
-  caption
-  footnote
+  index-or-toc
+  caption-or-illustration
+  footnote-or-note
+  quoted-or-attributed
   genealogy
-  quoted-source
   inscription
-  model-extracted
+  model-extracted-claim
+  deterministic-claim
+  ambiguity-review
 
 directness:
-  direct-source-claim
+  retrieved-source-passage
   accepted-typed-edge
-  deterministic-rule
-  model-proposal
+  ambiguity-lead
   mention-only
   co-mention-only
   locator-only
@@ -288,10 +288,15 @@ The first Scotland QA smoke set:
 Order of work:
 
 1. Make the generic lifecycle scriptable and observable.
-2. Add evidence class/directness fields or derived metadata.
-3. Update Stage 2b ranking to use evidence quality and chunk shape.
+2. Add evidence class/directness fields or derived metadata. Implemented first
+   pass in native search/queue metadata, Stage 3 CREXX writes, and MCP evidence
+   bundles.
+3. Update Stage 2b ranking to use evidence quality and chunk shape. Implemented
+   first pass with evidence-class and text-shape penalties.
 4. Update Stage 3 writes to record extraction provenance and directness.
-5. Add ambiguity/type-review queues.
+   Implemented for current deterministic/hybrid/Stage 3 metadata emitters.
+5. Add ambiguity/type-review queues. Endpoint-resolution and ambiguity-review
+   consumers are implemented; type-review remains a later queue type.
 6. Update the QA wrapper to return grouped evidence. Implemented first through
    MCP `library_answer_evidence`; keep hardening evidence classes and regression
    questions.

@@ -811,6 +811,25 @@ chunks, accepted typed graph claims, graph-only leads, and answer guidance. Use
 lower-level `library_search` for diagnostics or custom retrieval experiments,
 not as the default agent prompt surface.
 
+Current ingestion also stores this distinction. Stage 2b adds
+`evidence_class`, `directness`, and `source_directness` metadata to queued chunk
+extraction work and penalizes locator-shaped chunks when ranking. Stage 3 and
+the fixup consumers attach `directness` / `evidence_class` to accepted edges and
+ambiguity links. MCP `library_answer_evidence` prefers stored metadata and only
+falls back to heuristics for older graph data.
+
+Endpoint and ambiguity resolution are queue consumers, not special Scotland
+scripts:
+
+```bash
+crexx-rag resolve-work-queue <library> <profile-id> <queue-id> endpoint-resolution 20 apply
+crexx-rag resolve-work-queue <library> <profile-id> <queue-id> ambiguity-review 20 apply
+```
+
+The endpoint consumer writes a typed edge only when both endpoints already
+exist. The ambiguity consumer keeps uncertainty explicit by writing an
+`ambiguity` node and `candidate-for` links to known candidate concepts.
+
 ## Ingestion Hardening From QA
 
 Source-bound QA tests feed back into ingestion policy:

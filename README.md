@@ -375,9 +375,12 @@ calls `build-extraction-queue` / `rxrag.buildextractionqueue(...)`, which scores
 chunks by concept count, type diversity, relation cues, rare concepts,
 ambiguity risk, and support count. It also applies a small text-shape penalty
 for heading lists, footnote-heavy chunks, illustration captions, and very short
-chunks, so dense indexes do not crowd out prose evidence. The queue is stored in
-the generic `work_queue` table with `item_type=chunk-extraction`, reasons,
-scores, and pending status. Queue builds skip chunks that already have
+chunks, plus an evidence-class penalty for index/table-of-contents, caption,
+and footnote-shaped passages, so dense locators do not crowd out narrative
+evidence. The queue is stored in the generic `work_queue` table with
+`item_type=chunk-extraction`, reasons, scores, pending status, and metadata such
+as `evidence_class`, `directness`, and source directness. Queue builds skip
+chunks that already have
 `processed` or `skipped` extraction attempts for the same profile, so a
 background improvement run naturally advances to unprocessed chunks unless the
 operator explicitly clears or changes the history.
@@ -462,6 +465,33 @@ Queue observability is first-class:
 attempt id/time. The same operation is available to CREXX as
 `rxrag.queuestatus(...)` and `cprag.raglibrary.queueStatusJson(...)`.
 
+Generic work queues can also be inspected and consumed directly:
+
+```bash
+./cmake-build-debug/crexx-rag work-queue \
+  ./history-stage2.cprag \
+  history.scotland.hybrid.v1 \
+  fixup \
+  endpoint-resolution \
+  pending \
+  20
+
+./cmake-build-debug/crexx-rag resolve-work-queue \
+  ./history-stage2.cprag \
+  history.scotland.hybrid.v1 \
+  fixup \
+  endpoint-resolution \
+  20 \
+  apply
+```
+
+`resolve-work-queue` currently consumes `endpoint-resolution` and
+`ambiguity-review` items. Endpoint resolution only writes a typed edge when both
+endpoint ids already exist and the item supplies a relationship type. Ambiguity
+review creates or refreshes an explicit `ambiguity` node and `candidate-for`
+links to known candidate concepts. Omitting `apply` performs a non-mutating
+preview.
+
 Before online stages, use the local model lifecycle wrappers:
 
 ```bash
@@ -483,9 +513,10 @@ background workload: future workers should use generic queue claim/lease
 semantics before multiple readers are allowed.
 
 The same run seeded the first endpoint-resolution follow-up queue from rejected
-but plausible tagged edge proposals. `stage4-endpoint-resolution-default`
-currently contains 199 pending items. The combined two-volume Scotland corpus
-has also been embedded with llama.cpp/Nomic through the FAISS build:
+but plausible tagged edge proposals. Those items can now be consumed through the
+generic `resolve-work-queue` endpoint-resolution consumer after inspection. The
+combined two-volume Scotland corpus has also been embedded with llama.cpp/Nomic
+through the FAISS build:
 11,684 chunks, 768-dimensional vectors, and an active `vectors.faiss` L2 index.
 
 The operational shape is now:
@@ -503,6 +534,9 @@ Ambiguous aliases such as `Sutherland` are represented explicitly by creating an
 such as `Sutherlands` still produce ordinary `mentioned-in` links. Repeated
 assertions of the same typed edge are merged by the native core with
 `support_count`, `support_evidence`, and `last_support` metadata.
+Edges and evidence chunks carry `directness` and `evidence_class` metadata so
+ranking and answer wrappers can prefer narrative claims and accepted typed edges
+over index rows, captions, and mention-only leads.
 
 Vectors influence the extraction queue but do not create typed facts directly. A
 vector-near chunk can indicate redundancy, related context, or a bridge between
@@ -551,7 +585,9 @@ required arguments, and argument types before calling the native core.
 natural-language `question`, runs source-bound search, and returns a compact
 evidence bundle with retrieval-plan hints, retrieved chunks, accepted typed graph
 claims, graph-only leads, and answer guidance. An agent should answer from that
-bundle and cite chunk ids; `mentioned-in` paths are leads, not claims.
+bundle and cite chunk ids; `mentioned-in` paths are leads, not claims. The
+bundle prefers stored `directness` and `evidence_class` metadata and falls back
+to conservative heuristics when older graph data lacks those fields.
 
 `library_search` remains the lower-level diagnostic read tool. It accepts `mode`
 as `auto`, `lexical`, `vector`, or `hybrid`; default `auto` falls back to lexical

@@ -327,6 +327,17 @@ return '{"profile_id":' || json_quote(profile_id) || ',"queue_id":' || json_quot
 metadata: procedure = .string
   arg profile_id = .string, queue_id = .string, chunk_id = .string, extractor = .string, evidence = .string, aliases = .string
   out = '{"profile_id":' || json_quote(profile_id) || ',"queue_id":' || json_quote(queue_id) || ',"chunk_id":' || number_or_zero(chunk_id) || ',"extractor":' || json_quote(extractor) || ',"evidence":' || json_quote(evidence)
+  directness = "accepted-typed-edge"
+  evidence_class = "model-extracted-claim"
+  if pos("mention", extractor) > 0 then do
+    directness = "mention-only"
+    evidence_class = "model-extracted-mention"
+  end
+  if pos("evidence", extractor) > 0 then do
+    directness = "retrieved-source-passage"
+    evidence_class = "source-chunk"
+  end
+  out = out || ',"directness":' || json_quote(directness) || ',"evidence_class":' || json_quote(evidence_class)
   if aliases <> "" then out = out || ',"aliases":' || json_quote(aliases)
 return out || '}'
 

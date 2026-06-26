@@ -754,6 +754,10 @@ bool containsFolded(const std::string& text, const std::string& needle)
 
 std::string chunkEvidenceClass(const Json& chunk)
 {
+    const std::string stored = jsonMemberStringOrEmpty(chunk, "evidence_class");
+    if (!stored.empty()) {
+        return stored;
+    }
     const std::string text = jsonMemberStringOrEmpty(chunk, "text");
     const std::string title = jsonMemberStringOrEmpty(chunk, "title");
     const std::string haystack = title + "\n" + text;
@@ -774,6 +778,23 @@ std::string chunkEvidenceClass(const Json& chunk)
     return "narrative";
 }
 
+std::string metadataMemberStringOrEmpty(const Json& object, const std::string& name)
+{
+    const Json* metadata = member(object, "metadata");
+    if (metadata == nullptr || metadata->type != Json::Type::Object) {
+        return "";
+    }
+    const std::string direct = jsonMemberStringOrEmpty(*metadata, name);
+    if (!direct.empty()) {
+        return direct;
+    }
+    const Json* lastSupport = member(*metadata, "last_support");
+    if (lastSupport != nullptr && lastSupport->type == Json::Type::Object) {
+        return jsonMemberStringOrEmpty(*lastSupport, name);
+    }
+    return "";
+}
+
 std::string edgeDirectness(const std::string& relationshipType)
 {
     if (relationshipType == "mentioned-in") {
@@ -783,6 +804,15 @@ std::string edgeDirectness(const std::string& relationshipType)
         return "ambiguity-lead";
     }
     return "accepted-typed-edge";
+}
+
+std::string edgeDirectness(const Json& edge)
+{
+    const std::string stored = metadataMemberStringOrEmpty(edge, "directness");
+    if (!stored.empty()) {
+        return stored;
+    }
+    return edgeDirectness(jsonMemberStringOrEmpty(edge, "relationship_type"));
 }
 
 void appendSearchPlan(std::ostringstream& out, const std::string& question, const std::string& focus)
@@ -841,7 +871,11 @@ std::string buildEvidenceBundle(
                 << ",\"rank\":" << jsonMemberOrNull(chunk, "rank")
                 << ",\"retrieval\":" << jsonMemberOrNull(chunk, "retrieval")
                 << ",\"evidence_class\":" << jsonString(chunkEvidenceClass(chunk))
-                << ",\"directness\":\"retrieved-source-passage\"}";
+                << ",\"directness\":"
+                << jsonString(jsonMemberStringOrEmpty(chunk, "directness").empty()
+                    ? "retrieved-source-passage"
+                    : jsonMemberStringOrEmpty(chunk, "directness"))
+                << "}";
         }
     }
 
@@ -854,8 +888,8 @@ std::string buildEvidenceBundle(
             if (edge.type != Json::Type::Object) {
                 continue;
             }
-            const std::string relationshipType = jsonMemberStringOrEmpty(edge, "relationship_type");
-            if (edgeDirectness(relationshipType) != "accepted-typed-edge") {
+            const std::string directness = edgeDirectness(edge);
+            if (directness != "accepted-typed-edge") {
                 continue;
             }
             if (!first) {
@@ -868,7 +902,8 @@ std::string buildEvidenceBundle(
                 << ",\"label\":" << jsonMemberOrNull(edge, "label")
                 << ",\"weight\":" << jsonMemberOrNull(edge, "weight")
                 << ",\"metadata\":" << jsonMemberOrNull(edge, "metadata")
-                << ",\"directness\":\"accepted-typed-edge\"}";
+                << ",\"directness\":" << jsonString(directness)
+                << ",\"evidence_class\":" << jsonString(metadataMemberStringOrEmpty(edge, "evidence_class")) << "}";
         }
     }
 
@@ -879,8 +914,7 @@ std::string buildEvidenceBundle(
             if (edge.type != Json::Type::Object) {
                 continue;
             }
-            const std::string relationshipType = jsonMemberStringOrEmpty(edge, "relationship_type");
-            const std::string directness = edgeDirectness(relationshipType);
+            const std::string directness = edgeDirectness(edge);
             if (directness == "accepted-typed-edge") {
                 continue;
             }
@@ -894,7 +928,8 @@ std::string buildEvidenceBundle(
                 << ",\"label\":" << jsonMemberOrNull(edge, "label")
                 << ",\"weight\":" << jsonMemberOrNull(edge, "weight")
                 << ",\"metadata\":" << jsonMemberOrNull(edge, "metadata")
-                << ",\"directness\":" << jsonString(directness) << '}';
+                << ",\"directness\":" << jsonString(directness)
+                << ",\"evidence_class\":" << jsonString(metadataMemberStringOrEmpty(edge, "evidence_class")) << '}';
         }
     }
 

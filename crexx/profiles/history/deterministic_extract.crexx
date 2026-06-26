@@ -142,7 +142,7 @@ mention_concept: procedure = .string
 
 add_evidence_chunk: procedure
   arg library = .string, chunk_id = .string, profile_id = .string
-  say addentitytyped(library, evidence_id(chunk_id), "evidence-chunk", "Chunk " || chunk_id, "Source chunk used as extraction evidence.", '{"profile_id":"' || profile_id || '","chunk_id":' || chunk_id || '}')
+  say addentitytyped(library, evidence_id(chunk_id), "evidence-chunk", "Chunk " || chunk_id, "Source chunk used as extraction evidence.", '{"profile_id":"' || profile_id || '","chunk_id":' || chunk_id || ',"directness":"retrieved-source-passage","evidence_class":"source-chunk"}')
   return
 
 connect_if_present: procedure
@@ -243,4 +243,4 @@ evidence_id: procedure = .string
 
 metadata: procedure = .string
   arg profile_id = .string, chunk_id = .string, evidence = .string
-  return '{"profile_id":"' || profile_id || '","chunk_id":' || chunk_id || ',"extractor":"deterministic-crexx","evidence":"' || evidence || '"}'
+  return '{"profile_id":"' || profile_id || '","chunk_id":' || chunk_id || ',"extractor":"deterministic-crexx","evidence":"' || evidence || '","directness":"accepted-typed-edge","evidence_class":"deterministic-claim"}'

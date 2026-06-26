@@ -64,6 +64,11 @@ void usage()
         << "  crexx-rag extraction-queue <library> <profile-id> <queue-id> [status] [limit]\n"
         << "  crexx-rag record-extraction-attempt <library> <profile-id> <queue-id> <chunk-id> <extractor> <model> <status> <accepted-nodes> <accepted-relationships> <raw-output> [metadata-json]\n"
         << "  crexx-rag extraction-attempts <library> <profile-id> <queue-id> [chunk-id] [limit]\n"
+        << "  crexx-rag upsert-work-item <library> <profile-id> <queue-id> <item-type> <item-id> <subject-id> <score> <status> <reason> [metadata-json] [source-uri] [title] [item-index]\n"
+        << "  crexx-rag work-queue <library> <profile-id> <queue-id> [item-type] [status] [limit]\n"
+        << "  crexx-rag record-work-attempt <library> <profile-id> <queue-id> <item-type> <item-id> <subject-id> <worker> <model> <status> <accepted-nodes> <accepted-relationships> <raw-output> [metadata-json]\n"
+        << "  crexx-rag work-attempts <library> <profile-id> <queue-id> [item-type] [item-id] [limit]\n"
+        << "  crexx-rag resolve-work-queue <library> <profile-id> <queue-id> <endpoint-resolution|ambiguity-review> [limit] [apply|dry-run]\n"
         << "  crexx-rag queue-status <library> <profile-id> [queue-id]\n"
         << "  crexx-rag search <library> <query> [top-k] [hops]\n"
         << "  crexx-rag expand <library> <anchor-csv> [hops] [relation-filter-csv]\n"
@@ -2517,6 +2522,139 @@ int main(int argc, char** argv)
                 argv[4],
                 chunkId,
                 limit,
+                buffer.data(),
+                buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "upsert-work-item") {
+        if (argc < 11) {
+            usage();
+            return 2;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const long long subjectId = std::atoll(argv[7]);
+            const double score = std::atof(argv[8]);
+            const char* metadata = argc >= 12 ? argv[11] : "{}";
+            const char* sourceUri = argc >= 13 ? argv[12] : "";
+            const char* title = argc >= 14 ? argv[13] : "";
+            const int itemIndex = argc >= 15 ? std::atoi(argv[14]) : 0;
+            const int rc = cprag_upsert_work_item(
+                handle,
+                argv[3],
+                argv[4],
+                argv[5],
+                argv[6],
+                subjectId,
+                sourceUri,
+                title,
+                itemIndex,
+                score,
+                argv[9],
+                argv[10],
+                metadata,
+                buffer.data(),
+                buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "work-queue") {
+        if (argc < 5) {
+            usage();
+            return 2;
+        }
+        return withLibraryReadOnly(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const char* itemType = argc >= 6 ? argv[5] : "";
+            const char* status = argc >= 7 ? argv[6] : "";
+            const int limit = argc >= 8 ? std::atoi(argv[7]) : 100;
+            const int rc = cprag_list_work_queue(
+                handle,
+                argv[3],
+                argv[4],
+                itemType,
+                status,
+                limit,
+                buffer.data(),
+                buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "record-work-attempt") {
+        if (argc < 14) {
+            usage();
+            return 2;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const long long subjectId = std::atoll(argv[7]);
+            const int acceptedNodes = std::atoi(argv[11]);
+            const int acceptedRelationships = std::atoi(argv[12]);
+            const char* metadata = argc >= 15 ? argv[14] : "{}";
+            const int rc = cprag_record_work_attempt(
+                handle,
+                argv[3],
+                argv[4],
+                argv[5],
+                argv[6],
+                subjectId,
+                argv[8],
+                argv[9],
+                argv[10],
+                acceptedNodes,
+                acceptedRelationships,
+                argv[13],
+                metadata,
+                buffer.data(),
+                buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "work-attempts") {
+        if (argc < 5) {
+            usage();
+            return 2;
+        }
+        return withLibraryReadOnly(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const char* itemType = argc >= 6 ? argv[5] : "";
+            const char* itemId = argc >= 7 ? argv[6] : "";
+            const int limit = argc >= 8 ? std::atoi(argv[7]) : 100;
+            const int rc = cprag_list_work_attempts(
+                handle,
+                argv[3],
+                argv[4],
+                itemType,
+                itemId,
+                limit,
+                buffer.data(),
+                buffer.size());
+            return printJsonResult(handle, rc, buffer);
+        });
+    }
+
+    if (command == "resolve-work-queue") {
+        if (argc < 6) {
+            usage();
+            return 2;
+        }
+        return withLibrary(library, [&](cprag_handle* handle) {
+            std::vector<char> buffer(kJsonBufferSize);
+            const int limit = argc >= 7 ? std::atoi(argv[6]) : 100;
+            const std::string mode = argc >= 8 ? argv[7] : "dry-run";
+            const int dryRun = mode == "apply" ? 0 : 1;
+            const int rc = cprag_resolve_work_queue(
+                handle,
+                argv[3],
+                argv[4],
+                argv[5],
+                limit,
+                dryRun,
                 buffer.data(),
                 buffer.size());
             return printJsonResult(handle, rc, buffer);

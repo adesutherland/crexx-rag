@@ -343,6 +343,18 @@ place where those semantics exist.
 - CREXXSAA cache maintenance uses `crexxsaa --clear`. The CTest path still uses
   explicit `rxc`/`rxas`/`rxvme` so it proves the installed compiler and VM
   directly.
+- Endpoint/ambiguity fixup now has a native generic consumer. The public surface
+  is `upsert-work-item`, `work-queue`, `record-work-attempt`,
+  `work-attempts`, and `resolve-work-queue`, with matching RXPA and
+  `cprag.crexx` wrappers. The endpoint consumer only writes typed edges when
+  both endpoints exist. The ambiguity consumer writes an explicit `ambiguity`
+  node and `candidate-for` links to existing concepts. Dry previews do not
+  mutate; pass `apply` for graph writes and durable attempts.
+- Evidence strength is now durable metadata, not just answer-prompt advice.
+  Stage 2b stores `evidence_class`, `directness`, and source directness in
+  queue metadata and penalizes locator-shaped chunks. Deterministic/hybrid/Stage
+  3 writes tag directness and evidence class, and MCP `library_answer_evidence`
+  prefers those fields before falling back to heuristics.
 
 ## Build Context
 
@@ -390,11 +402,11 @@ Record CREXX packaging/API issues in `docs/crexx-integration-issues.md`.
   `llama-server` is the first documented open local provider, and Ollama remains
   a valid provider when an embedding-capable model is installed. The core should
   stay provider-neutral.
-- Extend the hybrid extractor beyond the first proof. The current profile has
-  candidate validation/application helpers and proves the Qwen2.5-to-Gemma
-  routing shape. Candidate collation and LLM-assisted/offline candidate
-  adjudication now have first-class storage and CREXX APIs; the next major step
-  is graph/vector ranking and extraction queue persistence.
+- Extend the hybrid extractor beyond the first proof. Candidate collation,
+  LLM-assisted/offline adjudication, graph seeding, ranked extraction queues,
+  and first fixup consumers now have first-class storage and CREXX APIs. The
+  next major step is claim/lease semantics for safe multi-worker processing and
+  broader profile tuning.
 - Add the CREXX address environment for RAG/model operations so profiles can call
   the same operations exposed by the CLI without hand-building shell pipelines.
 - Add hybrid lexical/vector ranking policy in CREXX/profile code. The current

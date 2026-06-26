@@ -128,7 +128,35 @@ An MCP client should call:
 ```
 
 `mode=auto` uses lexical search unless a compatible active vector index and
-embedding command are configured, in which case it promotes to hybrid search.
+embedding command are configured.
+
+## Fixup Queues
+
+Endpoint and ambiguity fixups use the same durable queue tables as extraction:
+
+```bash
+./cmake-build-debug/crexx-rag work-queue \
+  ./generic-demo.cprag \
+  generic.hybrid.v1 \
+  fixup \
+  ambiguity-review \
+  pending \
+  20
+
+./cmake-build-debug/crexx-rag resolve-work-queue \
+  ./generic-demo.cprag \
+  generic.hybrid.v1 \
+  fixup \
+  ambiguity-review \
+  20 \
+  apply
+```
+
+Use `endpoint-resolution` for accepted/proposed typed edges whose endpoint ids
+should already exist. Use `ambiguity-review` for labels with multiple plausible
+senses. The resolver is conservative: it skips missing endpoints, keeps
+ambiguity explicit, records attempts, and attaches `directness` /
+`evidence_class` metadata for ranking and answers.
 
 ## 5. External Extractor Push
 

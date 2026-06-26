@@ -683,8 +683,28 @@ metadata: procedure = .string
   keys[2] = "chunk_id"; values[2] = chunk_id
   keys[3] = "extractor"; values[3] = jsonquote(extractor)
   keys[4] = "evidence"; values[4] = jsonquote(evidence)
+  directness = "accepted-typed-edge"
+  evidence_class = "model-extracted-claim"
+  if pos("mention", extractor) > 0 then do
+    directness = "mention-only"
+    evidence_class = "model-extracted-mention"
+  end
+  if pos("known-concept", extractor) > 0 then do
+    directness = "mention-only"
+    evidence_class = "deterministic-mention"
+  end
+  if pos("ambiguity", extractor) > 0 then do
+    directness = "ambiguity-lead"
+    evidence_class = "ambiguity-review"
+  end
+  if pos("evidence", extractor) > 0 then do
+    directness = "retrieved-source-passage"
+    evidence_class = "source-chunk"
+  end
+  keys[5] = "directness"; values[5] = jsonquote(directness)
+  keys[6] = "evidence_class"; values[6] = jsonquote(evidence_class)
   if aliases <> "" then do
-    keys[5] = "aliases"; values[5] = jsonquote(aliases)
+    keys[7] = "aliases"; values[7] = jsonquote(aliases)
   end
 return jsonobject(keys, values)
 
