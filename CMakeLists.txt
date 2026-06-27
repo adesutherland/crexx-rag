@@ -147,6 +147,12 @@ if(CPRAG_BUILD_TESTS)
     add_executable(ragcore_smoke tests/ragcore_smoke.cpp)
     target_link_libraries(ragcore_smoke PRIVATE cprag_core)
     add_test(NAME ragcore_smoke COMMAND ragcore_smoke)
+    set_tests_properties(ragcore_smoke PROPERTIES LABELS "core;smoke")
+
+    add_executable(ragcore_work_queue_consumers tests/ragcore_work_queue_consumers.cpp)
+    target_link_libraries(ragcore_work_queue_consumers PRIVATE cprag_core)
+    add_test(NAME ragcore_work_queue_consumers COMMAND ragcore_work_queue_consumers)
+    set_tests_properties(ragcore_work_queue_consumers PROPERTIES LABELS "core;queue;fixup;consumer")
 
     if(CPRAG_BUILD_CLI AND TARGET crexx-rag)
         add_test(
@@ -157,7 +163,8 @@ if(CPRAG_BUILD_TESTS)
                 --profile scotland
                 "The Macnicols held lands in Assynt and were connected with Sutherland.")
         set_tests_properties(llama_extract_prompt_smoke PROPERTIES
-            PASS_REGULAR_EXPRESSION "Scotland profile node types")
+            PASS_REGULAR_EXPRESSION "Scotland profile node types"
+            LABELS "cli;llm-adapter;prompt")
         add_test(
             NAME llama_advice_prompt_smoke
             COMMAND $<TARGET_FILE:crexx-rag>
@@ -168,7 +175,15 @@ if(CPRAG_BUILD_TESTS)
                 --context "known=Clan Sutherland score=18"
                 "The Mackays fought the Sutherlands at Dingwall.")
         set_tests_properties(llama_advice_prompt_smoke PROPERTIES
-            PASS_REGULAR_EXPRESSION "gemma-extract")
+            PASS_REGULAR_EXPRESSION "gemma-extract"
+            LABELS "cli;llm-adapter;prompt")
+        add_test(
+            NAME cli_work_queue_consumers_smoke
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_CLI=$<TARGET_FILE:crexx-rag>"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/cli-work-queue-consumers-smoke"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CliWorkQueueConsumersSmoke.cmake")
+        set_tests_properties(cli_work_queue_consumers_smoke PROPERTIES LABELS "cli;queue;fixup;consumer")
     endif()
 
     if(CPRAG_BUILD_MCP AND TARGET crexx-rag-mcp)
@@ -180,6 +195,7 @@ if(CPRAG_BUILD_TESTS)
                 "-DCPRAG_FAISS_ENABLED=${CPRAG_ENABLE_FAISS}"
                 "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/mcp-smoke"
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/McpSmoke.cmake")
+        set_tests_properties(mcp_smoke PROPERTIES LABELS "mcp;smoke")
     endif()
 
     if(CPRAG_BUILD_CREXX_PLUGIN
@@ -200,6 +216,7 @@ if(CPRAG_BUILD_TESTS)
                 "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
                 "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/crexx-profile-smoke"
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CrexxProfileSmoke.cmake")
+        set_tests_properties(crexx_profile_smoke PROPERTIES LABELS "crexx;profile;smoke")
         add_test(
             NAME crexx_deterministic_extractor_smoke
             COMMAND "${CMAKE_COMMAND}"
@@ -211,6 +228,7 @@ if(CPRAG_BUILD_TESTS)
                 "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
                 "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/crexx-deterministic-extractor-smoke"
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CrexxDeterministicExtractorSmoke.cmake")
+        set_tests_properties(crexx_deterministic_extractor_smoke PROPERTIES LABELS "crexx;extractor;profile")
         add_test(
             NAME crexx_hybrid_extractor_smoke
             COMMAND "${CMAKE_COMMAND}"
@@ -224,6 +242,7 @@ if(CPRAG_BUILD_TESTS)
                 "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
                 "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/crexx-hybrid-extractor-smoke"
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CrexxHybridExtractorSmoke.cmake")
+        set_tests_properties(crexx_hybrid_extractor_smoke PROPERTIES LABELS "crexx;extractor;profile")
         add_test(
             NAME crexx_generic_pipeline_smoke
             COMMAND "${CMAKE_COMMAND}"
@@ -234,6 +253,7 @@ if(CPRAG_BUILD_TESTS)
                 "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
                 "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/crexx-generic-pipeline-smoke"
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CrexxGenericPipelineSmoke.cmake")
+        set_tests_properties(crexx_generic_pipeline_smoke PROPERTIES LABELS "crexx;pipeline;generic")
     elseif(CPRAG_BUILD_CREXX_PLUGIN)
         message(STATUS "Skipping CREXX profile smoke test; installed rxc/rxas/rxvme was not found.")
     endif()

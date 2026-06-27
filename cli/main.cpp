@@ -68,7 +68,7 @@ void usage()
         << "  crexx-rag work-queue <library> <profile-id> <queue-id> [item-type] [status] [limit]\n"
         << "  crexx-rag record-work-attempt <library> <profile-id> <queue-id> <item-type> <item-id> <subject-id> <worker> <model> <status> <accepted-nodes> <accepted-relationships> <raw-output> [metadata-json]\n"
         << "  crexx-rag work-attempts <library> <profile-id> <queue-id> [item-type] [item-id] [limit]\n"
-        << "  crexx-rag resolve-work-queue <library> <profile-id> <queue-id> <endpoint-resolution|ambiguity-review> [limit] [apply|dry-run]\n"
+        << "  crexx-rag resolve-work-queue <library> <profile-id> <queue-id> <endpoint-resolution|ambiguity-review|type-review|external-extraction-review> [limit] [apply|dry-run]\n"
         << "  crexx-rag queue-status <library> <profile-id> [queue-id]\n"
         << "  crexx-rag search <library> <query> [top-k] [hops]\n"
         << "  crexx-rag expand <library> <anchor-csv> [hops] [relation-filter-csv]\n"

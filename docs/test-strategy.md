@@ -11,6 +11,14 @@ as a small layer on top.
 - `cmake --preset debug` succeeds.
 - `cmake --build --preset debug` succeeds.
 - `ctest --preset debug --output-on-failure` succeeds.
+- Refactor-focused subsets are runnable through CTest labels:
+  - `ctest --preset debug -L core --output-on-failure`
+  - `ctest --preset debug -L queue --output-on-failure`
+  - `ctest --preset debug -L fixup --output-on-failure`
+  - `ctest --preset debug -L cli --output-on-failure`
+  - `ctest --preset debug -L mcp --output-on-failure`
+  - `ctest --preset debug -L crexx --output-on-failure`
+  - `ctest --preset debug -L pipeline --output-on-failure`
 - `git diff --check` is clean.
 - CREXX smoke tests are skipped only when the installed CREXX toolchain is not
   available; otherwise they must pass.
@@ -102,8 +110,8 @@ CTest coverage:
 ## Test Layers
 
 1. Native unit tests: C++ core behavior, schema migration, search, generic work
-   queue APIs, endpoint/ambiguity consumers, queue status, evidence
-   directness/class metadata, and support accumulation.
+   queue APIs, endpoint/ambiguity/type/external-review consumers, queue status,
+   evidence directness/class metadata, and support accumulation.
 2. Profile contract tests: compile the shared `pipeline_profile` module and load
    it alongside every staged controller that imports it.
 3. CLI prompt tests: dry-run prompt shape for generic, Scotland, and Athens.
@@ -124,9 +132,19 @@ CTest coverage:
 - Regression tests should check durable state through public CLI/CREXX APIs,
   not direct SQLite queries, unless the test is specifically about schema state.
 
-## Open Gaps
+Current dedicated consumer coverage:
+
+- `ragcore_work_queue_consumers`: native type-review and external-review
+  semantics, dry-run protection, skipped items, attempts, and graph metadata.
+- `cli_work_queue_consumers_smoke`: CLI promotion path for type-review and
+  external-extraction-review.
+- `ragcore_smoke`: broad native regression including endpoint and ambiguity
+  review consumers.
+
+## Roadmap Gaps
 
 - Native queue claim/lease tests.
-- Endpoint-resolution worker tests.
-- External extractor push tests.
+- Multi-worker queue reader tests once claim/lease exists.
+- Broader golden QA/evidence tests for Scotland-style ambiguity and hard
+  corpus questions.
 - Performance budget tests for CREXX address-command calls and JSON parsing.

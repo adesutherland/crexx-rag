@@ -266,12 +266,14 @@ examples before guessing. Useful signposts for command/address/LLM work are:
   example, `Sutherland` can create an `ambiguity` node with `candidate-for`
   edges to both clan and place concepts while clear aliases still create normal
   `mentioned-in` evidence links.
-- Endpoint and ambiguity fixups are generic work-queue consumers, not
-  Scotland-only scripts. Use `endpoint-resolution` work items only when both
-  endpoint ids are expected to exist and metadata supplies a relationship type.
-  Use `ambiguity-review` work items to create or refresh an `ambiguity` node and
-  candidate links; unresolved ambiguity should remain visible to search and
-  answers.
+- Review/fixups are generic work-queue consumers, not Scotland-only scripts.
+  Use `endpoint-resolution` work items only when both endpoint ids are expected
+  to exist and metadata supplies a relationship type. Use `ambiguity-review`
+  work items to create or refresh an `ambiguity` node and candidate links; use
+  `type-review` to accept a proposed type for an existing entity; use
+  `external-extraction-review` only after an outside analyzer's output has been
+  normalized into one node proposal, edge proposal, or node-plus-edge proposal.
+  Unresolved ambiguity should remain visible to search and answers.
 - Repeated typed edge writes should accumulate evidence in the native core
   (`support_count`, `support_evidence`, `last_support`) and keep the strongest
   weight, rather than overwriting earlier metadata.
@@ -321,7 +323,8 @@ examples before guessing. Useful signposts for command/address/LLM work are:
 - The first endpoint-resolution follow-up queue is
   `stage4-endpoint-resolution-default` with 199 pending
   `endpoint-resolution` rows derived from credible rejected Stage 3 tagged edge
-  proposals. This queue is review/repair work, not automatic graph mutation.
+  proposals. This queue is review/repair work; process it through
+  `resolve-work-queue` after inspection, not by direct SQLite mutation.
 - The combined two-volume Scotland corpus has been embedded with
   llama.cpp/Nomic through the FAISS build: 11,684 `semantic-context-v1`
   embeddings for `nomic-embed-text-v1.5`, dimension 768, active L2

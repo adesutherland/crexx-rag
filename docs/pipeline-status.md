@@ -15,8 +15,8 @@ for new contributors and agents who need to know what can be trusted today.
 | Athens staged pipeline | Partial | Prompt/profile support exists, but it has not been hardened to the same level as generic and Scotland. |
 | Background improvement worker | Implemented budgeted single-worker wrapper | `scripts/run_background_improvement.sh` reuses the staged runner and uses an atomic lock. It is not yet a daemon. |
 | Multi-worker queue consumption | Planned | Needs native claim/lease semantics before multiple Stage 3 workers are safe. |
-| Endpoint/ambiguity resolution | Implemented first native consumer | `resolve-work-queue` consumes `endpoint-resolution` and `ambiguity-review` items conservatively. |
-| External LLM extract push | Partial | Explicit graph writes and Stage 3 attempts exist; review-queue workflow is still needed. |
+| Review/fixup consumers | Implemented first native consumers | `resolve-work-queue` consumes `endpoint-resolution`, `ambiguity-review`, `type-review`, and `external-extraction-review` items conservatively. |
+| External LLM extract push | Partial producer workflow | `external-extraction-review` can promote normalized proposals; raw-output capture/normalization workflow is still profile/controller work. |
 | Agent-facing QA wrapper | Implemented first read surface | MCP `library_answer_evidence` returns an LLM-ready evidence bundle; Scotland prompt/helper remains as a demo wrapper. |
 | Executable use-case wrapper | Implemented | `scripts/run_use_case.sh` dispatches initial-load, add-documents, background-improve, search, and MCP QA evidence workflows. |
 
@@ -105,6 +105,11 @@ Current consumers:
   and relationship type are present and both endpoint entities already exist.
 - `ambiguity-review`: creates or refreshes an explicit `ambiguity` node and
   `candidate-for` edges to existing candidate concepts.
+- `type-review`: accepts a proposed type for an existing entity without
+  overwriting its label or description.
+- `external-extraction-review`: promotes one normalized external node proposal,
+  edge proposal, or node-plus-edge proposal through native graph upsert/support
+  accumulation.
 
 Leaving off `apply` gives a dry preview. Applied runs record `work_attempts` and
 update queue item status through the same durable tables as Stage 3.

@@ -5606,8 +5606,14 @@ int cprag_resolve_work_queue(
     const std::string profileId = valueOrEmpty(profile_id);
     const std::string queueId = valueOrEmpty(queue_id).empty() ? "default" : valueOrEmpty(queue_id);
     const std::string itemType = valueOrEmpty(item_type);
-    if (itemType != "endpoint-resolution" && itemType != "ambiguity-review") {
-        return setErrorCode(handle, CPRAG_INVALID_ARGUMENT, "item_type must be endpoint-resolution or ambiguity-review");
+    if (itemType != "endpoint-resolution"
+        && itemType != "ambiguity-review"
+        && itemType != "type-review"
+        && itemType != "external-extraction-review") {
+        return setErrorCode(
+            handle,
+            CPRAG_INVALID_ARGUMENT,
+            "item_type must be endpoint-resolution, ambiguity-review, type-review, or external-extraction-review");
     }
     const int effectiveLimit = limit <= 0 ? 100 : limit;
     const bool dryRun = dry_run != 0;
@@ -5631,7 +5637,26 @@ int cprag_resolve_work_queue(
         "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.alias'), '') AS alias, "
         "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.candidate_ids'), "
         "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.candidate_id_csv'), "
-        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.candidates'), '') AS candidate_ids "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.candidates'), '') AS candidate_ids, "
+        "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.entity_id'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.node_id'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.id'), '') AS entity_id, "
+        "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.accepted_type'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.new_type'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.node_type'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.type'), '') AS accepted_type, "
+        "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.node_id'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.entity_id'), '') AS node_id, "
+        "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.node_type'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.accepted_type'), '') AS node_type, "
+        "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.node_label'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.label'), '') AS node_label, "
+        "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.description'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.node_description'), '') AS description, "
+        "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.aliases'), '') AS aliases, "
+        "COALESCE(json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.edge_label'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.relationship_label'), "
+        "         json_extract(CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, '$.label'), '') AS edge_label "
         "FROM work_queue "
         "WHERE profile_id = ? AND queue_name = ? AND item_type = ? AND status = 'pending' "
         "ORDER BY score DESC, updated_at ASC, item_id ASC "
@@ -5660,6 +5685,14 @@ int cprag_resolve_work_queue(
         std::string evidenceClass;
         std::string alias;
         std::string candidateIds;
+        std::string entityId;
+        std::string acceptedType;
+        std::string nodeId;
+        std::string nodeType;
+        std::string nodeLabel;
+        std::string description;
+        std::string aliases;
+        std::string edgeLabel;
     };
     std::vector<ResolveItem> rows;
     int stepRc = SQLITE_OK;
@@ -5679,6 +5712,14 @@ int cprag_resolve_work_queue(
         row.evidenceClass = trimCopy(columnText(stmt, 11));
         row.alias = trimCopy(columnText(stmt, 12));
         row.candidateIds = columnText(stmt, 13);
+        row.entityId = trimCopy(columnText(stmt, 14));
+        row.acceptedType = trimCopy(columnText(stmt, 15));
+        row.nodeId = trimCopy(columnText(stmt, 16));
+        row.nodeType = trimCopy(columnText(stmt, 17));
+        row.nodeLabel = trimCopy(columnText(stmt, 18));
+        row.description = trimCopy(columnText(stmt, 19));
+        row.aliases = trimCopy(columnText(stmt, 20));
+        row.edgeLabel = trimCopy(columnText(stmt, 21));
         rows.push_back(std::move(row));
     }
     sqlite3_finalize(stmt);
@@ -5764,7 +5805,7 @@ int cprag_resolve_work_queue(
                 acceptedRelationships = 1;
                 detail = "typed edge accepted";
             }
-        } else {
+        } else if (itemType == "ambiguity-review") {
             std::string alias = row.alias;
             if (alias.empty() && startsWith(row.itemId, "ambiguity:")) {
                 alias = row.itemId.substr(std::string("ambiguity:").size());
@@ -5841,6 +5882,175 @@ int cprag_resolve_work_queue(
                     ++acceptedRelationships;
                 }
                 detail = acceptedRelationships > 0 ? "ambiguity candidates linked" : "ambiguity node accepted without candidate links";
+            }
+        } else if (itemType == "type-review") {
+            const std::string entityId = row.entityId.empty() ? row.sourceId : row.entityId;
+            const std::string acceptedType = row.acceptedType;
+            bool exists = false;
+            rc = entityExists(handle, entityId, &exists);
+            if (rc != CPRAG_OK) {
+                if (!dryRun) {
+                    execSql(handle, "ROLLBACK");
+                }
+                return rc;
+            }
+            if (entityId.empty() || acceptedType.empty() || !exists) {
+                status = "skipped";
+                detail = "missing entity or accepted type";
+            } else {
+                if (!dryRun) {
+                    sqlite3_stmt* updateStmt = nullptr;
+                    rc = prepare(
+                        handle,
+                        "UPDATE entities SET "
+                        "node_type = ?, "
+                        "metadata_json = json_set("
+                        "  CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END, "
+                        "  '$.type_review.profile_id', ?, "
+                        "  '$.type_review.queue_id', ?, "
+                        "  '$.type_review.item_id', ?, "
+                        "  '$.type_review.previous_type', node_type, "
+                        "  '$.type_review.accepted_type', ?, "
+                        "  '$.type_review.evidence', ?, "
+                        "  '$.type_review.evidence_class', 'type-review', "
+                        "  '$.type_review.directness', 'accepted-type-review', "
+                        "  '$.type_review.work_item', json(?)) "
+                        "WHERE id = ?",
+                        &updateStmt);
+                    if (rc != CPRAG_OK) {
+                        execSql(handle, "ROLLBACK");
+                        return rc;
+                    }
+                    bindText(updateStmt, 1, acceptedType);
+                    bindText(updateStmt, 2, profileId);
+                    bindText(updateStmt, 3, queueId);
+                    bindText(updateStmt, 4, row.itemId);
+                    bindText(updateStmt, 5, acceptedType);
+                    bindText(updateStmt, 6, row.evidence);
+                    bindText(updateStmt, 7, row.metadata.empty() ? "{}" : row.metadata);
+                    bindText(updateStmt, 8, entityId);
+                    const int updateRc = sqlite3_step(updateStmt);
+                    sqlite3_finalize(updateStmt);
+                    if (updateRc != SQLITE_DONE) {
+                        execSql(handle, "ROLLBACK");
+                        return setErrorCode(handle, CPRAG_DATABASE_ERROR, sqliteError(handle->db));
+                    }
+                }
+                acceptedNodes = 1;
+                ++nodeWrites;
+                detail = "entity type accepted";
+            }
+        } else if (itemType == "external-extraction-review") {
+            bool wroteNode = false;
+            const std::string nodeId = row.nodeId;
+            const std::string nodeType = row.nodeType.empty() ? "unknown" : row.nodeType;
+            std::string nodeLabel = row.nodeLabel;
+            if (nodeLabel.empty()) {
+                nodeLabel = nodeId;
+            }
+            const std::string nodeDescription = row.description.empty()
+                ? "Accepted from external extraction review."
+                : row.description;
+            if (!nodeId.empty() && !nodeLabel.empty()) {
+                std::ostringstream nodeMetadata;
+                nodeMetadata << "{\"profile_id\":" << jsonString(profileId)
+                    << ",\"queue_id\":" << jsonString(queueId)
+                    << ",\"item_id\":" << jsonString(row.itemId)
+                    << ",\"item_type\":\"external-extraction-review\""
+                    << ",\"extractor\":\"external-extraction-review-consumer\""
+                    << ",\"evidence\":" << jsonString(row.evidence)
+                    << ",\"evidence_class\":\"external-extraction-review\""
+                    << ",\"directness\":\"accepted-external-node\"";
+                if (!row.aliases.empty()) {
+                    nodeMetadata << ",\"aliases\":" << jsonString(row.aliases);
+                }
+                nodeMetadata << ",\"work_item\":" << (row.metadata.empty() ? "{}" : row.metadata)
+                    << "}";
+                if (!dryRun) {
+                    rc = cprag_add_entity_typed(
+                        handle,
+                        nodeId.c_str(),
+                        nodeType.c_str(),
+                        nodeLabel.c_str(),
+                        nodeDescription.c_str(),
+                        nodeMetadata.str().c_str());
+                    if (rc != CPRAG_OK) {
+                        execSql(handle, "ROLLBACK");
+                        return rc;
+                    }
+                }
+                wroteNode = true;
+                acceptedNodes = 1;
+                ++nodeWrites;
+            }
+
+            bool sourceExists = false;
+            bool targetExists = false;
+            rc = entityExists(handle, row.sourceId, &sourceExists);
+            if (rc != CPRAG_OK) {
+                if (!dryRun) {
+                    execSql(handle, "ROLLBACK");
+                }
+                return rc;
+            }
+            if (!row.targetId.empty() && row.targetId == nodeId && wroteNode) {
+                targetExists = true;
+            } else {
+                rc = entityExists(handle, row.targetId, &targetExists);
+                if (rc != CPRAG_OK) {
+                    if (!dryRun) {
+                        execSql(handle, "ROLLBACK");
+                    }
+                    return rc;
+                }
+            }
+
+            if (!row.sourceId.empty() && !row.targetId.empty() && !row.relationshipType.empty() && sourceExists && targetExists) {
+                double weight = row.weight;
+                if (!std::isfinite(weight) || weight <= 0.0) {
+                    weight = 0.55;
+                } else if (weight > 1.0) {
+                    weight = 1.0;
+                }
+                const std::string label = row.edgeLabel.empty() ? row.relationshipType : row.edgeLabel;
+                const std::string evidenceClass = row.evidenceClass.empty() ? "external-extraction-review" : row.evidenceClass;
+                std::ostringstream edgeMetadata;
+                edgeMetadata << "{\"profile_id\":" << jsonString(profileId)
+                    << ",\"queue_id\":" << jsonString(queueId)
+                    << ",\"item_id\":" << jsonString(row.itemId)
+                    << ",\"item_type\":\"external-extraction-review\""
+                    << ",\"worker\":\"external-extraction-review-consumer\""
+                    << ",\"evidence\":" << jsonString(row.evidence)
+                    << ",\"evidence_class\":" << jsonString(evidenceClass)
+                    << ",\"directness\":\"accepted-typed-edge\""
+                    << ",\"work_item\":" << (row.metadata.empty() ? "{}" : row.metadata)
+                    << "}";
+                if (!dryRun) {
+                    rc = cprag_add_edge_typed(
+                        handle,
+                        row.sourceId.c_str(),
+                        row.targetId.c_str(),
+                        row.relationshipType.c_str(),
+                        label.c_str(),
+                        weight,
+                        edgeMetadata.str().c_str());
+                    if (rc != CPRAG_OK) {
+                        execSql(handle, "ROLLBACK");
+                        return rc;
+                    }
+                }
+                acceptedRelationships = 1;
+            }
+
+            if (acceptedNodes == 0 && acceptedRelationships == 0) {
+                status = "skipped";
+                detail = "no accepted external node or edge";
+            } else if (acceptedNodes > 0 && acceptedRelationships > 0) {
+                detail = "external node and edge accepted";
+            } else if (acceptedNodes > 0) {
+                detail = "external node accepted";
+            } else {
+                detail = "external edge accepted";
             }
         }
 

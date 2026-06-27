@@ -485,12 +485,16 @@ Generic work queues can also be inspected and consumed directly:
   apply
 ```
 
-`resolve-work-queue` currently consumes `endpoint-resolution` and
-`ambiguity-review` items. Endpoint resolution only writes a typed edge when both
-endpoint ids already exist and the item supplies a relationship type. Ambiguity
-review creates or refreshes an explicit `ambiguity` node and `candidate-for`
-links to known candidate concepts. Omitting `apply` performs a non-mutating
-preview.
+`resolve-work-queue` currently consumes `endpoint-resolution`,
+`ambiguity-review`, `type-review`, and `external-extraction-review` items.
+Endpoint resolution only writes a typed edge when both endpoint ids already
+exist and the item supplies a relationship type. Ambiguity review creates or
+refreshes an explicit `ambiguity` node and `candidate-for` links to known
+candidate concepts. Type review updates an existing entity's `node_type` while
+preserving its label and description. External extraction review promotes one
+pre-normalized external node proposal, edge proposal, or node-plus-edge
+proposal through the same native graph upsert/support path. Omitting `apply`
+performs a non-mutating preview.
 
 Before online stages, use the local model lifecycle wrappers:
 

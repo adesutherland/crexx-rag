@@ -818,17 +818,22 @@ the fixup consumers attach `directness` / `evidence_class` to accepted edges and
 ambiguity links. MCP `library_answer_evidence` prefers stored metadata and only
 falls back to heuristics for older graph data.
 
-Endpoint and ambiguity resolution are queue consumers, not special Scotland
-scripts:
+Review/fixup resolution is queue-driven, not special Scotland scripts:
 
 ```bash
 crexx-rag resolve-work-queue <library> <profile-id> <queue-id> endpoint-resolution 20 apply
 crexx-rag resolve-work-queue <library> <profile-id> <queue-id> ambiguity-review 20 apply
+crexx-rag resolve-work-queue <library> <profile-id> <queue-id> type-review 20 apply
+crexx-rag resolve-work-queue <library> <profile-id> <queue-id> external-extraction-review 20 apply
 ```
 
 The endpoint consumer writes a typed edge only when both endpoints already
 exist. The ambiguity consumer keeps uncertainty explicit by writing an
-`ambiguity` node and `candidate-for` links to known candidate concepts.
+`ambiguity` node and `candidate-for` links to known candidate concepts. The
+type-review consumer updates an existing entity type without replacing its
+label/description. The external extraction review consumer promotes one
+normalized external node, edge, or node-plus-edge proposal through the same
+native graph upsert/support path.
 
 ## Ingestion Hardening From QA
 

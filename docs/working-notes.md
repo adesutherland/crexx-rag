@@ -343,13 +343,16 @@ place where those semantics exist.
 - CREXXSAA cache maintenance uses `crexxsaa --clear`. The CTest path still uses
   explicit `rxc`/`rxas`/`rxvme` so it proves the installed compiler and VM
   directly.
-- Endpoint/ambiguity fixup now has a native generic consumer. The public surface
-  is `upsert-work-item`, `work-queue`, `record-work-attempt`,
-  `work-attempts`, and `resolve-work-queue`, with matching RXPA and
-  `cprag.crexx` wrappers. The endpoint consumer only writes typed edges when
-  both endpoints exist. The ambiguity consumer writes an explicit `ambiguity`
-  node and `candidate-for` links to existing concepts. Dry previews do not
-  mutate; pass `apply` for graph writes and durable attempts.
+- Review/fixup now has native generic consumers. The public surface is
+  `upsert-work-item`, `work-queue`, `record-work-attempt`, `work-attempts`, and
+  `resolve-work-queue`, with matching RXPA and `cprag.crexx` wrappers. The
+  endpoint consumer only writes typed edges when both endpoints exist. The
+  ambiguity consumer writes an explicit `ambiguity` node and `candidate-for`
+  links to existing concepts. The type-review consumer accepts a proposed type
+  for an existing entity without replacing its label/description. The external
+  extraction review consumer promotes one normalized node, edge, or
+  node-plus-edge proposal from an outside analyzer. Dry previews do not mutate;
+  pass `apply` for graph writes and durable attempts.
 - Evidence strength is now durable metadata, not just answer-prompt advice.
   Stage 2b stores `evidence_class`, `directness`, and source directness in
   queue metadata and penalizes locator-shaped chunks. Deterministic/hybrid/Stage

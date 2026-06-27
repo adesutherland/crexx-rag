@@ -132,7 +132,8 @@ embedding command are configured.
 
 ## Fixup Queues
 
-Endpoint and ambiguity fixups use the same durable queue tables as extraction:
+Fixups and reviewed external pushes use the same durable queue tables as
+extraction:
 
 ```bash
 ./cmake-build-debug/crexx-rag work-queue \
@@ -154,23 +155,23 @@ Endpoint and ambiguity fixups use the same durable queue tables as extraction:
 
 Use `endpoint-resolution` for accepted/proposed typed edges whose endpoint ids
 should already exist. Use `ambiguity-review` for labels with multiple plausible
-senses. The resolver is conservative: it skips missing endpoints, keeps
-ambiguity explicit, records attempts, and attaches `directness` /
-`evidence_class` metadata for ranking and answers.
+senses. Use `type-review` to accept a proposed type for an existing entity. Use
+`external-extraction-review` after an outside analyzer has normalized one node,
+edge, or node-plus-edge proposal into the queue item metadata. The resolver is
+conservative: it skips missing endpoints, keeps ambiguity explicit, records
+attempts, and attaches `directness` / `evidence_class` metadata for ranking and
+answers.
 
 ## 5. External Extractor Push
 
-External extractors are a supported design case, but the production push/review
-workflow is not complete yet. Today, accepted external facts can be written only
+External extractors are a supported design case. Today, reviewed external facts
+can be promoted through `external-extraction-review` work items, with one
+normalized node proposal, edge proposal, or node-plus-edge proposal per item.
+Accepted external facts can also still be written
 through the explicit mutating CLI/MCP graph tools, with provenance metadata, or
-through Stage 3 extraction attempts. The intended hardening path is an
-`external-extraction-review` queue item type that passes proposals through the
-same validation, de-duplication, ambiguity, and support accumulation rules as
-internal extraction.
-
-Until that worker exists, do not treat external LLM output as truth. Store it as
-proposed evidence with extractor/model/profile metadata, or route it through the
-Stage 3 validation path.
+through Stage 3 extraction attempts. Do not treat raw external LLM output as
+truth. Normalize it first, then either queue it for `external-extraction-review`
+or route it through the Stage 3 validation path.
 
 ## Validation
 

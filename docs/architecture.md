@@ -158,9 +158,10 @@ pattern: `candidate_mentions` stores the raw census handoff,
 Stage 2 seed helper materializes accepted mention evidence as concept nodes,
 `evidence-chunk` nodes, and `mentioned-in` support edges, and Stage 2b persists
 ranked chunk work in `work_queue` with `item_type=chunk-extraction`. The same
-generic queue table now also supports fixup work such as `endpoint-resolution`
-and `ambiguity-review`; native consumers apply those items conservatively and
-record attempts through the same `work_attempts` table. CREXX owns profile
+generic queue table now also supports fixup/review work such as
+`endpoint-resolution`, `ambiguity-review`, `type-review`, and
+`external-extraction-review`; native consumers apply those items conservatively
+and record attempts through the same `work_attempts` table. CREXX owns profile
 policy, cursors, and queue names; the native core owns durable paged state
 mutation. Those operations
 should have one implementation with thin bindings for CLI, CREXX functions,

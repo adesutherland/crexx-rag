@@ -295,8 +295,9 @@ Order of work:
    first pass with evidence-class and text-shape penalties.
 4. Update Stage 3 writes to record extraction provenance and directness.
    Implemented for current deterministic/hybrid/Stage 3 metadata emitters.
-5. Add ambiguity/type-review queues. Endpoint-resolution and ambiguity-review
-   consumers are implemented; type-review remains a later queue type.
+5. Add review/fixup queues. Endpoint-resolution, ambiguity-review,
+   type-review, and external-extraction-review consumers are implemented as the
+   first conservative native pass.
 6. Update the QA wrapper to return grouped evidence. Implemented first through
    MCP `library_answer_evidence`; keep hardening evidence classes and regression
    questions.
