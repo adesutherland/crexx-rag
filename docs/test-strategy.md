@@ -19,6 +19,7 @@ as a small layer on top.
   - `ctest --preset debug -L mcp --output-on-failure`
   - `ctest --preset debug -L crexx --output-on-failure`
   - `ctest --preset debug -L pipeline --output-on-failure`
+  - `ctest --preset debug -L use-case --output-on-failure`
 - `git diff --check` is clean.
 - CREXX smoke tests are skipped only when the installed CREXX toolchain is not
   available; otherwise they must pass.
@@ -140,6 +141,9 @@ Current dedicated consumer coverage:
   external-extraction-review.
 - `ragcore_smoke`: broad native regression including endpoint and ambiguity
   review consumers.
+- `use_case_wrapper_smoke`: executable wrapper coverage for initial-load,
+  add-documents, background-improve dry-run, search, MCP QA evidence, and the
+  tutorial review/fixup preview commands.
 
 ## Roadmap Gaps
 

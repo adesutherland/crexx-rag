@@ -15,6 +15,10 @@ behavior. CREXX staged controllers own orchestration. `pipeline_profile.crexx`
 owns profile policy. The wrapper only names common use cases and dispatches to
 the right existing surface.
 
+For a first-run walkthrough that creates a tutorial library, improves it, and
+queries it, see
+[`tutorial-import-improve-query.md`](tutorial-import-improve-query.md).
+
 ## 1. Initial Load
 
 Initial load builds the first useful library: source chunks, Stage 1 census,
@@ -183,5 +187,6 @@ cmake --build --preset debug
 ctest --preset debug --output-on-failure
 ```
 
-The MCP QA surface is covered by `mcp_smoke`, and the generic lifecycle wrapper
-is covered by `crexx_generic_pipeline_smoke`.
+The MCP QA surface is covered by `mcp_smoke`, the lower-level generic staged
+runner is covered by `crexx_generic_pipeline_smoke`, and this executable wrapper
+surface is covered by `use_case_wrapper_smoke`.

@@ -83,10 +83,11 @@ Each stage needs a repeatable command/controller with clear defaults:
 - run fixup/ambiguity review;
 - run search/QA smokes.
 
-The current CREXX controllers prove Stage 1b, Stage 2, Stage 2b, and Stage 3.
-The next closure step is a thin "pipeline runner" that calls the same
-operations in order and records checkpoints. The runner can be CREXX first, with
-CLI parity for humans.
+The current CREXX controllers prove Stage 1, Stage 1b, Stage 2, Stage 2b, and
+Stage 3. The thin runner now calls the same operations in order, records logs,
+and reports durable status. It remains intentionally small: CREXX and the native
+core own the actual pipeline behavior, while the runner gives humans and agents
+a repeatable command surface.
 
 Initial operator wrapper:
 
@@ -100,7 +101,9 @@ operator convenience until the same orchestration is promoted into a CREXX
 controller or address environment.
 
 Current status: `run_history_pipeline.sh` supports `generic`, `scotland`, and
-`athens`. The `generic` path is the baseline smoke path and is covered by
+`athens`; `scripts/run_use_case.sh` wraps the common initial-load,
+add-documents, background-improve, search, and QA evidence workflows. The
+`generic` path is the baseline smoke path and is covered by
 `crexx_generic_pipeline_smoke`.
 
 ### 2. Generic Work Queue
@@ -304,7 +307,8 @@ Order of work:
 7. Promote the Scotland QA tests into a repeatable regression smoke.
 8. Tune the Scotland profile with ignore lists, alias rules, type fixes, and
    cue weights.
-9. Add a generic/default profile and an IT architecture profile.
+9. Add a richer IT architecture profile once the generic/default profile remains
+   stable under ordinary corpora.
 
 This order keeps the framework honest: Scotland tuning should not hide generic
 pipeline gaps.

@@ -562,7 +562,7 @@ Suggested metadata:
 {
   "graph_processing": {
     "status": "pending|processed|needs-reprocess|skipped",
-    "profile_id": "history.scotland.v1",
+    "profile_id": "history.scotland.hybrid.v1",
     "profile_version": 1,
     "concept_pool_version": 12,
     "reason": "new aliases or concepts learned after first pass"

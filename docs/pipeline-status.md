@@ -3,6 +3,10 @@
 This page separates implemented behavior from planned behavior. It is intended
 for new contributors and agents who need to know what can be trusted today.
 
+The runnable end-to-end walkthrough is
+[`tutorial-import-improve-query.md`](tutorial-import-improve-query.md). Use this
+status page to understand what is implemented behind each tutorial step.
+
 ## Status Summary
 
 | Area | Status | Notes |
@@ -18,7 +22,7 @@ for new contributors and agents who need to know what can be trusted today.
 | Review/fixup consumers | Implemented first native consumers | `resolve-work-queue` consumes `endpoint-resolution`, `ambiguity-review`, `type-review`, and `external-extraction-review` items conservatively. |
 | External LLM extract push | Partial producer workflow | `external-extraction-review` can promote normalized proposals; raw-output capture/normalization workflow is still profile/controller work. |
 | Agent-facing QA wrapper | Implemented first read surface | MCP `library_answer_evidence` returns an LLM-ready evidence bundle; Scotland prompt/helper remains as a demo wrapper. |
-| Executable use-case wrapper | Implemented | `scripts/run_use_case.sh` dispatches initial-load, add-documents, background-improve, search, and MCP QA evidence workflows. |
+| Executable use-case wrapper | Implemented | `scripts/run_use_case.sh` dispatches initial-load, add-documents, background-improve, search, and MCP QA evidence workflows; covered by `use_case_wrapper_smoke`. |
 
 ## Generic Path
 

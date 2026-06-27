@@ -313,13 +313,15 @@ examples before guessing. Useful signposts for command/address/LLM work are:
   filesystem lock, runs a bounded number of cycles, and records logs under
   `.local/background-improvement/`. It is single-worker only until native
   queue claim/lease semantics exist.
-- The first real Scotland Stage 3 batch processed 100 queued chunks in about
+- The first measured Scotland Stage 3 batch processed 100 queued chunks in about
   82.7 minutes with one Gemma E4B/llama-server reader: 99 `processed`, 1
   `skipped`, 0 `failed`, 981 accepted node proposals, and 316 accepted
-  relationship proposals before native upsert/support merging. Treat Stage 3 and
-  later improvement passes as background work. Before running multiple readers,
-  add native queue claim/lease semantics (`running`, `worker_id`, `lease_until`,
-  expired lease recovery) so workers do not duplicate work.
+  relationship proposals before native upsert/support merging. Later Scotland
+  runs extended the processed total; see `docs/pipeline-status.md` for current
+  milestone status. Treat Stage 3 and later improvement passes as background
+  work. Before running multiple readers, add native queue claim/lease semantics
+  (`running`, `worker_id`, `lease_until`, expired lease recovery) so workers do
+  not duplicate work.
 - The first endpoint-resolution follow-up queue is
   `stage4-endpoint-resolution-default` with 199 pending
   `endpoint-resolution` rows derived from credible rejected Stage 3 tagged edge
@@ -347,6 +349,10 @@ examples before guessing. Useful signposts for command/address/LLM work are:
   `initial-load`, `add-documents`, `background-improve`, `search`, and
   `qa-evidence`. It dispatches to the staged runner, background worker, CLI
   search, or MCP evidence tool without reimplementing pipeline mechanics.
+- New agents should use `docs/tutorial-import-improve-query.md` for the
+  end-to-end corpus walkthrough before changing the staged pipeline. It shows the
+  generic offline path first, then optional local llama.cpp embeddings and online
+  extraction.
 - Keep `docs/pipeline-status.md` and `docs/test-strategy.md` current whenever
   staged pipeline behavior changes. These docs distinguish implemented behavior
   from planned work and define acceptance criteria for moving beyond proof of

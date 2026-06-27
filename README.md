@@ -31,6 +31,8 @@ A plain-English explanation of the major pieces and why they fit together is in
 [`docs/how-it-fits-together.md`](docs/how-it-fits-together.md). It covers
 chunks, lexical search, embeddings, FAISS, typed relationships, provenance,
 CREXX, and MCP without assuming GraphRAG expertise.
+For a hands-on path through importing, improving, and querying a corpus, follow
+[`docs/tutorial-import-improve-query.md`](docs/tutorial-import-improve-query.md).
 Concrete domain-profile examples for Scotland and Athens are in
 [`docs/domain-profiles.md`](docs/domain-profiles.md).
 
@@ -509,12 +511,13 @@ and optional embedding/chat smoke calls. Long-running ingestion should rely on
 these detached wrappers, which write logs to `.local/llama-servers/`, rather
 than leaving chatty `llama-server` processes attached to a foreground terminal.
 
-The first real Scotland Stage 3 batch processed 100 queued chunks with one local
-Gemma E4B worker in about 83 minutes. It recorded 99 `processed`, 1 `skipped`,
-and 0 `failed` attempts, accepting 981 node proposals and 316 relationship
-proposals before native upsert/support merging. This is useful but clearly a
-background workload: future workers should use generic queue claim/lease
-semantics before multiple readers are allowed.
+The first measured Scotland Stage 3 batch processed 100 queued chunks with one
+local Gemma E4B worker in about 83 minutes. It recorded 99 `processed`, 1
+`skipped`, and 0 `failed` attempts, accepting 981 node proposals and 316
+relationship proposals before native upsert/support merging. Later Scotland
+runs extended that total; see `docs/pipeline-status.md` for current milestone
+status. This is useful but clearly a background workload: future workers should
+use generic queue claim/lease semantics before multiple readers are allowed.
 
 The same run seeded the first endpoint-resolution follow-up queue from rejected
 but plausible tagged edge proposals. Those items can now be consumed through the
@@ -557,7 +560,8 @@ ctest --preset debug -R crexx_generic_pipeline_smoke --output-on-failure
 See [`docs/pipeline-status.md`](docs/pipeline-status.md) for implemented versus
 planned pipeline status, and [`docs/test-strategy.md`](docs/test-strategy.md)
 for acceptance criteria. Executable operator/agent workflows are in
-[`docs/use-cases.md`](docs/use-cases.md).
+[`docs/use-cases.md`](docs/use-cases.md). A full first-run tutorial is in
+[`docs/tutorial-import-improve-query.md`](docs/tutorial-import-improve-query.md).
 
 For a live local model experiment, run the compiled profile with `--mode online`
 and pass `--cli ./cmake-build-debug/crexx-rag` plus any model/base-url overrides

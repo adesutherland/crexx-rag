@@ -254,6 +254,22 @@ if(CPRAG_BUILD_TESTS)
                 "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/crexx-generic-pipeline-smoke"
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CrexxGenericPipelineSmoke.cmake")
         set_tests_properties(crexx_generic_pipeline_smoke PROPERTIES LABELS "crexx;pipeline;generic")
+        if(CPRAG_BUILD_MCP AND TARGET crexx-rag-mcp)
+            add_test(
+                NAME use_case_wrapper_smoke
+                COMMAND "${CMAKE_COMMAND}"
+                    "-DCPRAG_USE_CASE=${CMAKE_CURRENT_LIST_DIR}/scripts/run_use_case.sh"
+                    "-DCPRAG_CLI=$<TARGET_FILE:crexx-rag>"
+                    "-DCPRAG_MCP=$<TARGET_FILE:crexx-rag-mcp>"
+                    "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_rag>"
+                    "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                    "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/use-case-wrapper-smoke"
+                    "-DCPRAG_SOURCE_FILE=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/generic-it.txt"
+                    "-DCPRAG_INCREMENTAL_SOURCE_FILE=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/generic-it-incremental.txt"
+                    -P "${CMAKE_CURRENT_LIST_DIR}/cmake/UseCaseWrapperSmoke.cmake")
+            set_tests_properties(use_case_wrapper_smoke PROPERTIES
+                LABELS "crexx;pipeline;generic;mcp;queue;fixup;use-case")
+        endif()
     elseif(CPRAG_BUILD_CREXX_PLUGIN)
         message(STATUS "Skipping CREXX profile smoke test; installed rxc/rxas/rxvme was not found.")
     endif()
