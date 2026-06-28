@@ -21,6 +21,7 @@ option(CPRAG_ALLOW_CREXX_SOURCE_FALLBACK "Allow building against a source checko
 
 find_program(CREXX_EXECUTABLE crexx)
 set(CREXX_RXPA_INCLUDE_DIR "" CACHE PATH "Installed CREXX rxpa include directory containing crexxpa.h")
+set(CREXX_VERSION_INCLUDE_DIR "" CACHE PATH "Installed CREXX include directory containing crexx_version.h")
 set(CREXX_SOURCE_ROOT "${CMAKE_CURRENT_LIST_DIR}/../CREXX" CACHE PATH "Optional CREXX source checkout for development-only fallback builds")
 set(CPRAG_VENDORED_CREXXPA_DIR "${CMAKE_CURRENT_LIST_DIR}/third_party/crexx-rxpa")
 
@@ -42,6 +43,19 @@ if(CREXX_EXECUTABLE)
             endif()
         endforeach()
     endif()
+    if(NOT CREXX_VERSION_INCLUDE_DIR)
+        foreach(candidate
+                "${CREXX_INSTALL_BIN_DIR}"
+                "${CREXX_INSTALL_BIN_DIR}/include"
+                "${CREXX_INSTALL_BIN_DIR}/../include"
+                "${CREXX_INSTALL_BIN_DIR}/../include/crexx"
+                "${CREXX_INSTALL_BIN_DIR}/../rxpa")
+            if(EXISTS "${candidate}/crexx_version.h")
+                set(CREXX_VERSION_INCLUDE_DIR "${candidate}" CACHE PATH "Installed CREXX include directory containing crexx_version.h" FORCE)
+                break()
+            endif()
+        endforeach()
+    endif()
 endif()
 
 if(NOT CREXX_RXPA_INCLUDE_DIR
@@ -56,6 +70,20 @@ if(NOT CREXX_RXPA_INCLUDE_DIR
         AND EXISTS "${CREXX_SOURCE_ROOT}/rxpa/crexxpa.h")
     set(CREXX_RXPA_INCLUDE_DIR "${CREXX_SOURCE_ROOT}/rxpa" CACHE PATH "CREXX rxpa include directory containing crexxpa.h" FORCE)
     message(WARNING "Using CREXX source checkout fallback for rxpa headers. Prefer an installed CREXX development header package.")
+endif()
+
+set(CPRAG_EFFECTIVE_CREXX_RXPA_INCLUDE_DIR "${CREXX_RXPA_INCLUDE_DIR}")
+if(CREXX_RXPA_INCLUDE_DIR
+        AND EXISTS "${CREXX_RXPA_INCLUDE_DIR}/crexxpa.h"
+        AND "${CREXX_RXPA_INCLUDE_DIR}" STREQUAL "${CPRAG_VENDORED_CREXXPA_DIR}"
+        AND CREXX_VERSION_INCLUDE_DIR
+        AND EXISTS "${CREXX_VERSION_INCLUDE_DIR}/crexx_version.h")
+    set(CPRAG_GENERATED_CREXX_RXPA_DIR "${CMAKE_BINARY_DIR}/generated/crexx-rxpa")
+    file(MAKE_DIRECTORY "${CPRAG_GENERATED_CREXX_RXPA_DIR}")
+    configure_file("${CREXX_RXPA_INCLUDE_DIR}/crexxpa.h" "${CPRAG_GENERATED_CREXX_RXPA_DIR}/crexxpa.h" COPYONLY)
+    configure_file("${CREXX_VERSION_INCLUDE_DIR}/crexx_version.h" "${CPRAG_GENERATED_CREXX_RXPA_DIR}/crexx_version.h" COPYONLY)
+    set(CPRAG_EFFECTIVE_CREXX_RXPA_INCLUDE_DIR "${CPRAG_GENERATED_CREXX_RXPA_DIR}")
+    message(STATUS "Using vendored crexxpa.h with installed crexx_version.h from ${CREXX_VERSION_INCLUDE_DIR}.")
 endif()
 
 find_package(SQLite3 REQUIRED)
@@ -126,10 +154,10 @@ if(CPRAG_BUILD_MCP)
 endif()
 
 if(CPRAG_BUILD_CREXX_PLUGIN)
-    if(CREXX_RXPA_INCLUDE_DIR AND EXISTS "${CREXX_RXPA_INCLUDE_DIR}/crexxpa.h")
+    if(CPRAG_EFFECTIVE_CREXX_RXPA_INCLUDE_DIR AND EXISTS "${CPRAG_EFFECTIVE_CREXX_RXPA_INCLUDE_DIR}/crexxpa.h")
         add_library(_rag MODULE crexx/plugins/rag/rxrag.c)
         target_include_directories(_rag PRIVATE
-            "${CREXX_RXPA_INCLUDE_DIR}"
+            "${CPRAG_EFFECTIVE_CREXX_RXPA_INCLUDE_DIR}"
             "${CMAKE_CURRENT_LIST_DIR}/include")
         target_compile_definitions(_rag PRIVATE BUILD_DLL "PLUGIN_ID=rx_rag")
         target_link_libraries(_rag PRIVATE cprag_core)
