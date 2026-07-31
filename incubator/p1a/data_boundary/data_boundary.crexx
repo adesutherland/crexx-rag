@@ -1,0 +1,508 @@
+options levelb
+
+namespace data_boundary expose provider_payload_record paged_value_record flattenjson providermaterialize providerparse encodeprovider pagevalues
+
+import rxfnsb
+import rxjson
+import sqlite_boundary
+
+provider_payload_record: class
+  _request_id = .string
+  _model = .string
+  _text = .string
+  _prompt_tokens = .int
+  _output_tokens = .int
+  _empty_text = .string
+  _empty_present = .int
+  _nullable_is_null = .int
+  _missing_present = .int
+  _label_count = .int
+  _first_label = .string
+  _metadata_mode = .string
+  _metadata_active = .int
+
+  *: factory
+    arg request_id = "", model = "", text = "", prompt_tokens = 0, output_tokens = 0, empty_text = "", empty_present = 0, nullable_is_null = 0, missing_present = 0, label_count = 0, first_label = "", metadata_mode = "", metadata_active = 0
+    _request_id = request_id
+    _model = model
+    _text = text
+    _prompt_tokens = prompt_tokens
+    _output_tokens = output_tokens
+    _empty_text = empty_text
+    _empty_present = empty_present
+    _nullable_is_null = nullable_is_null
+    _missing_present = missing_present
+    _label_count = label_count
+    _first_label = first_label
+    _metadata_mode = metadata_mode
+    _metadata_active = metadata_active
+
+  request_id: method = .string
+    return _request_id
+  model: method = .string
+    return _model
+  text: method = .string
+    return _text
+  prompt_tokens: method = .int
+    return _prompt_tokens
+  output_tokens: method = .int
+    return _output_tokens
+  empty_text: method = .string
+    return _empty_text
+  empty_present: method = .int
+    return _empty_present
+  nullable_is_null: method = .int
+    return _nullable_is_null
+  missing_present: method = .int
+    return _missing_present
+  label_count: method = .int
+    return _label_count
+  first_label: method = .string
+    return _first_label
+  metadata_mode: method = .string
+    return _metadata_mode
+  metadata_active: method = .int
+    return _metadata_active
+
+paged_value_record: class
+  _sequence = .int
+  _name = .string
+  _score = .float
+  _note_kind = .string
+  _note = .string
+
+  *: factory
+    arg sequence = 0, name = "", score = 0.0, note_kind = "null", note = ""
+    _sequence = sequence
+    _name = name
+    _score = score
+    _note_kind = note_kind
+    _note = note
+
+  sequence: method = .int
+    return _sequence
+  name: method = .string
+    return _name
+  score: method = .float
+    return _score
+  note_kind: method = .string
+    return _note_kind
+  note: method = .string
+    return _note
+
+/* Parse and flatten a complete JSON document in one structural traversal.
+ * Containers and scalar values become parallel typed arrays. */
+flattenjson: procedure = .int
+  arg json = .string, expose paths = .string[], expose kinds = .string[], expose values = .string[], expose error = .string
+  paths = .string[]
+  kinds = .string[]
+  values = .string[]
+  error = ""
+  p = 1
+  count = 0
+  n = length(json)
+  if _parse_value(json, n, p, "", paths, kinds, values, count, error) = 0 then return -1
+  call _skip_ws json, n, p
+  if p <= n then do
+    error = "trailing data at character " || p
+    return -1
+  end
+  return count
+
+_parse_value: procedure = .int
+  arg json = .string, n = .int, expose p = .int, path = .string, expose paths = .string[], expose kinds = .string[], expose values = .string[], expose count = .int, expose error = .string
+  call _skip_ws json, n, p
+  if p > n then do
+    error = "missing value at end of input"
+    return 0
+  end
+  ch = substr(json, p, 1)
+  if ch = '"' then do
+    scalar = ""
+    if _parse_string(json, n, p, scalar, error) = 0 then return 0
+    call _append_value paths, kinds, values, count, path, "string", scalar
+    return 1
+  end
+  if ch = "{" then return _parse_object(json, n, p, path, paths, kinds, values, count, error)
+  if ch = "[" then return _parse_array(json, n, p, path, paths, kinds, values, count, error)
+  if substr(json, p, 4) = "true" then do
+    p = p + 4
+    call _append_value paths, kinds, values, count, path, "boolean", "true"
+    return 1
+  end
+  if substr(json, p, 5) = "false" then do
+    p = p + 5
+    call _append_value paths, kinds, values, count, path, "boolean", "false"
+    return 1
+  end
+  if substr(json, p, 4) = "null" then do
+    p = p + 4
+    call _append_value paths, kinds, values, count, path, "null", ""
+    return 1
+  end
+  if ch = "-" | pos(ch, "0123456789") > 0 then do
+    number = ""
+    number_kind = ""
+    if _parse_number(json, n, p, number, number_kind, error) = 0 then return 0
+    call _append_value paths, kinds, values, count, path, number_kind, number
+    return 1
+  end
+  error = "unexpected value at character " || p
+  return 0
+
+_parse_object: procedure = .int
+  arg json = .string, n = .int, expose p = .int, path = .string, expose paths = .string[], expose kinds = .string[], expose values = .string[], expose count = .int, expose error = .string
+  call _append_value paths, kinds, values, count, path, "object", "0"
+  container = count
+  members = 0
+  p = p + 1
+  call _skip_ws json, n, p
+  if p <= n & substr(json, p, 1) = "}" then do
+    p = p + 1
+    return 1
+  end
+  do forever
+    call _skip_ws json, n, p
+    if p > n | substr(json, p, 1) \= '"' then do
+      error = "object key expected at character " || p
+      return 0
+    end
+    key = ""
+    if _parse_string(json, n, p, key, error) = 0 then return 0
+    call _skip_ws json, n, p
+    if p > n | substr(json, p, 1) \= ":" then do
+      error = "colon expected at character " || p
+      return 0
+    end
+    p = p + 1
+    child_path = key
+    if path \= "" then child_path = path || "." || key
+    if _parse_value(json, n, p, child_path, paths, kinds, values, count, error) = 0 then return 0
+    members = members + 1
+    call _skip_ws json, n, p
+    if p > n then do
+      error = "unterminated object"
+      return 0
+    end
+    delimiter = substr(json, p, 1)
+    if delimiter = "}" then do
+      p = p + 1
+      values[container] = members
+      return 1
+    end
+    if delimiter \= "," then do
+      error = "comma or object end expected at character " || p
+      return 0
+    end
+    p = p + 1
+  end
+
+_parse_array: procedure = .int
+  arg json = .string, n = .int, expose p = .int, path = .string, expose paths = .string[], expose kinds = .string[], expose values = .string[], expose count = .int, expose error = .string
+  call _append_value paths, kinds, values, count, path, "array", "0"
+  container = count
+  elements = 0
+  p = p + 1
+  call _skip_ws json, n, p
+  if p <= n & substr(json, p, 1) = "]" then do
+    p = p + 1
+    return 1
+  end
+  do forever
+    elements = elements + 1
+    child_path = elements as .string
+    if path \= "" then child_path = path || "." || (elements as .string)
+    if _parse_value(json, n, p, child_path, paths, kinds, values, count, error) = 0 then return 0
+    call _skip_ws json, n, p
+    if p > n then do
+      error = "unterminated array"
+      return 0
+    end
+    delimiter = substr(json, p, 1)
+    if delimiter = "]" then do
+      p = p + 1
+      values[container] = elements
+      return 1
+    end
+    if delimiter \= "," then do
+      error = "comma or array end expected at character " || p
+      return 0
+    end
+    p = p + 1
+  end
+
+_parse_string: procedure = .int
+  arg json = .string, n = .int, expose p = .int, expose output = .string, expose error = .string
+  output = ""
+  if p > n | substr(json, p, 1) \= '"' then do
+    error = "string expected at character " || p
+    return 0
+  end
+  p = p + 1
+  do while p <= n
+    ch = substr(json, p, 1)
+    if ch = '"' then do
+      p = p + 1
+      return 1
+    end
+    if ch = "\\" then do
+      p = p + 1
+      if p > n then do
+        error = "unterminated string escape"
+        return 0
+      end
+      escaped = substr(json, p, 1)
+      if escaped = '"' | escaped = "\\" | escaped = "/" then output = output || escaped
+      else if escaped = "b" then output = output || "08"x
+      else if escaped = "f" then output = output || "0C"x
+      else if escaped = "n" then output = output || "0A"x
+      else if escaped = "r" then output = output || "0D"x
+      else if escaped = "t" then output = output || "09"x
+      else if escaped = "u" then do
+        if p + 4 > n then do
+          error = "short unicode escape"
+          return 0
+        end
+        hex = substr(json, p + 1, 4)
+        if verify(hex, "0123456789abcdefABCDEF") \= 0 then do
+          error = "invalid unicode escape"
+          return 0
+        end
+        codepoint = x2d(hex)
+        if codepoint <= 127 then output = output || d2c(codepoint)
+        else output = output || "?"
+        p = p + 4
+      end
+      else do
+        error = "invalid string escape at character " || p
+        return 0
+      end
+      p = p + 1
+      iterate
+    end
+    if c2d(ch) < 32 then do
+      error = "unescaped control character in string"
+      return 0
+    end
+    output = output || ch
+    p = p + 1
+  end
+  error = "unterminated string"
+  return 0
+
+_parse_number: procedure = .int
+  arg json = .string, n = .int, expose p = .int, expose output = .string, expose kind = .string, expose error = .string
+  start = p
+  kind = "integer"
+  if substr(json, p, 1) = "-" then p = p + 1
+  if p > n then do
+    error = "incomplete number"
+    return 0
+  end
+  ch = substr(json, p, 1)
+  if ch = "0" then p = p + 1
+  else if pos(ch, "123456789") > 0 then do
+    p = p + 1
+    do while p <= n & pos(substr(json, p, 1), "0123456789") > 0
+      p = p + 1
+    end
+  end
+  else do
+    error = "invalid number at character " || p
+    return 0
+  end
+  if p <= n & substr(json, p, 1) = "." then do
+    kind = "real"
+    p = p + 1
+    if p > n | pos(substr(json, p, 1), "0123456789") = 0 then do
+      error = "fraction digits expected"
+      return 0
+    end
+    do while p <= n & pos(substr(json, p, 1), "0123456789") > 0
+      p = p + 1
+    end
+  end
+  if p <= n & pos(substr(json, p, 1), "eE") > 0 then do
+    kind = "real"
+    p = p + 1
+    if p <= n & pos(substr(json, p, 1), "+-") > 0 then p = p + 1
+    if p > n | pos(substr(json, p, 1), "0123456789") = 0 then do
+      error = "exponent digits expected"
+      return 0
+    end
+    do while p <= n & pos(substr(json, p, 1), "0123456789") > 0
+      p = p + 1
+    end
+  end
+  output = substr(json, start, p - start)
+  return 1
+
+_append_value: procedure
+  arg expose paths = .string[], expose kinds = .string[], expose values = .string[], expose count = .int, path = .string, kind = .string, value = .string
+  count = count + 1
+  paths[count] = path
+  kinds[count] = kind
+  values[count] = value
+  return
+
+_skip_ws: procedure
+  arg json = .string, n = .int, expose p = .int
+  do while p <= n & pos(substr(json, p, 1), " " || "09"x || "0A"x || "0D"x) > 0
+    p = p + 1
+  end
+  return
+
+_find_path: procedure = .int
+  arg paths = .string[], sought = .string
+  do i = 1 to paths.0
+    if paths[i] = sought then return i
+  end
+  return 0
+
+_require: procedure = .int
+  arg paths = .string[], kinds = .string[], sought = .string, expected = .string, expose error = .string
+  index = _find_path(paths, sought)
+  if index = 0 then do
+    error = "missing required field " || sought
+    return 0
+  end
+  if kinds[index] \= expected then do
+    error = "field " || sought || " expected " || expected || " but was " || kinds[index]
+    return 0
+  end
+  return index
+
+providermaterialize: procedure = .int
+  arg paths = .string[], kinds = .string[], values = .string[], expose record = .provider_payload_record, expose error = .string
+  error = ""
+  root = _require(paths, kinds, "", "object", error)
+  if root = 0 then return -2
+  request_index = _require(paths, kinds, "id", "string", error)
+  if request_index = 0 then return -2
+  model_index = _require(paths, kinds, "model", "string", error)
+  if model_index = 0 then return -2
+  text_index = _require(paths, kinds, "candidates.1.content.parts.1.text", "string", error)
+  if text_index = 0 then return -2
+  prompt_index = _require(paths, kinds, "usageMetadata.promptTokenCount", "integer", error)
+  if prompt_index = 0 then return -2
+  output_index = _require(paths, kinds, "usageMetadata.candidatesTokenCount", "integer", error)
+  if output_index = 0 then return -2
+  empty_index = _require(paths, kinds, "optionalEmpty", "string", error)
+  if empty_index = 0 then return -2
+  null_index = _require(paths, kinds, "nullable", "null", error)
+  if null_index = 0 then return -2
+  labels_index = _require(paths, kinds, "labels", "array", error)
+  if labels_index = 0 then return -2
+  label_index = _require(paths, kinds, "labels.1", "string", error)
+  if label_index = 0 then return -2
+  metadata_index = _require(paths, kinds, "metadata", "object", error)
+  if metadata_index = 0 then return -2
+  mode_index = _require(paths, kinds, "metadata.mode", "string", error)
+  if mode_index = 0 then return -2
+  active_index = _require(paths, kinds, "metadata.active", "boolean", error)
+  if active_index = 0 then return -2
+  missing_index = _find_path(paths, "intentionallyMissing")
+  record = .provider_payload_record(values[request_index], values[model_index], values[text_index], values[prompt_index] as .int, values[output_index] as .int, values[empty_index], 1, 1, missing_index > 0, values[labels_index] as .int, values[label_index], values[mode_index], values[active_index] = "true")
+  return 0
+
+providerparse: procedure = .int
+  arg json = .string, expose record = .provider_payload_record, expose error = .string
+  paths = .string[]
+  kinds = .string[]
+  values = .string[]
+  status = flattenjson(json, paths, kinds, values, error)
+  if status < 0 then return status
+  return providermaterialize(paths, kinds, values, record, error)
+
+encodeprovider: procedure = .string
+  arg record = .provider_payload_record
+  label_values = .string[]
+  label_values[1] = jsonquote(record.first_label())
+  metadata_keys = .string[]
+  metadata_values = .string[]
+  metadata_keys[1] = "mode"
+  metadata_values[1] = jsonquote(record.metadata_mode())
+  metadata_keys[2] = "active"
+  if record.metadata_active() then metadata_values[2] = "true"
+  else metadata_values[2] = "false"
+  keys = .string[]
+  values = .string[]
+  keys[1] = "id"
+  values[1] = jsonquote(record.request_id())
+  keys[2] = "model"
+  values[2] = jsonquote(record.model())
+  keys[3] = "text"
+  values[3] = jsonquote(record.text())
+  keys[4] = "prompt_tokens"
+  values[4] = record.prompt_tokens()
+  keys[5] = "output_tokens"
+  values[5] = record.output_tokens()
+  keys[6] = "optional_empty"
+  values[6] = jsonquote(record.empty_text())
+  keys[7] = "nullable"
+  values[7] = "null"
+  keys[8] = "labels"
+  values[8] = jsonarray(label_values)
+  keys[9] = "metadata"
+  values[9] = jsonobject(metadata_keys, metadata_values)
+  return jsonobject(keys, values)
+
+pagevalues: procedure = .int
+  arg database = .binary, offset = .int, page_size = .int, expose rows = .paged_value_record[], expose error = .string
+  rows = .paged_value_record[]
+  error = ""
+  if offset < 0 | page_size <= 0 then do
+    error = "offset must be nonnegative and page_size positive"
+    return -1
+  end
+  statement = .binary
+  status = sqliteprepare(database, "SELECT sequence,name,score,note FROM boundary_page_values ORDER BY sequence LIMIT ?1 OFFSET ?2", statement)
+  if status \= 0 then do
+    error = sqliteerrorjson()
+    return status
+  end
+  status = sqlitebindint(statement, 1, page_size)
+  if status = 0 then status = sqlitebindint(statement, 2, offset)
+  if status \= 0 then do
+    error = sqliteerrorjson()
+    ignored = sqlitefinalize(statement)
+    return status
+  end
+  count = 0
+  do forever
+    status = sqlitestep(statement)
+    if status = 101 then leave
+    if status \= 100 then do
+      error = sqliteerrorjson()
+      ignored = sqlitefinalize(statement)
+      return status
+    end
+    sequence = 0
+    name = ""
+    score = 0.0
+    note = ""
+    is_null = 0
+    status = sqlitecolumnint(statement, 0, sequence)
+    if status = 0 then status = sqlitecolumntext(statement, 1, name)
+    if status = 0 then status = sqlitecolumnreal(statement, 2, score)
+    if status = 0 then status = sqlitecolumnisnull(statement, 3, is_null)
+    if status \= 0 then do
+      error = sqliteerrorjson()
+      ignored = sqlitefinalize(statement)
+      return status
+    end
+    note_kind = "null"
+    if \is_null then do
+      note_kind = "text"
+      status = sqlitecolumntext(statement, 3, note)
+      if status \= 0 then do
+        error = sqliteerrorjson()
+        ignored = sqlitefinalize(statement)
+        return status
+      end
+    end
+    count = count + 1
+    rows[count] = .paged_value_record(sequence, name, score, note_kind, note)
+  end
+  ignored = sqlitefinalize(statement)
+  return count

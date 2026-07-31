@@ -1,0 +1,52 @@
+P1A-LLM-01 real Google/Gemini canary failure
+Date: 2026-07-28 Europe/London
+
+Credential handling:
+  environment_variable=GEMINI_API_KEY
+  present=yes
+  value_printed=no
+  credential_retained=no
+
+Intended bounded calls, in this order:
+  1. POST /v1beta/models/gemini-3.5-flash:generateContent
+  2. POST /v1beta/models/gemini-embedding-001:embedContent
+     requested outputDimensionality=8
+
+The Level B canary uses rxhttp/httpclient directly with TLS and the
+x-goog-api-key header. It does not use curl, a native-v1 CLI, or a RAG-specific
+native adapter.
+
+Outer command result:
+  timeout=75 seconds
+  result=Process terminated due to timeout
+  stdout_bytes=0
+  stderr_bytes=0
+  semantic_generation_result=unavailable
+  semantic_embedding_result=unavailable
+  retry_performed=no
+
+Exact CMake diagnostic:
+  CMake Error at cmake/P1AGeminiCanary.cmake:33 (message):
+    Gemini canary failed (Process terminated due to timeout)
+
+Post-failure audit:
+  canary_process_remaining=no
+  installed_commit=057592681c0c68e90f436bf02d8c5a116111952a
+  sister_HEAD=12a11815ab082086fb95e4ca5e41bd1c0e241342
+  installed_to_sister_diff_for_rxvmsock_rxhttp_rxsocket=none
+
+Evidence-gate test:
+  ctest --preset debug -R '^p1a_gemini_canary_evidence$' --output-on-failure
+  0/1 passed
+  Retained Gemini canary evidence is missing
+
+Canary input SHA-256:
+  2443de849e01a71234891d8fa0206026708daa2aabaf7c4ed2cfea1cb3e30312  incubator/p1a/provider_boundary/gemini_canary.crexx
+  291fa3326ce669d780e1bf3aa82743f735dfda99c41944aff0feb92761a963fd  cmake/P1AGeminiCanary.cmake
+  3dcb6c11a2845b45359936275a76a3899e4fd46bdd90c2f948abf7b17391b607  cmake/P1AGeminiCanaryEvidence.cmake
+
+Decision:
+  P1A-LLM-01 is not accepted. The required real generation and embedding
+  correctness evidence is absent, and the outer deadline did not receive the
+  structured timeout promised by the inner request contract. Per the explicit
+  programme stop rule, P1A-VEC-01 and all later slices were not started.

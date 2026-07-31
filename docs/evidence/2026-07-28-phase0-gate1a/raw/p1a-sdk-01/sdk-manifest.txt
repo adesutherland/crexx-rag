@@ -1,0 +1,21 @@
+installed_version=crexx-1.0.0-beta.3+local.g057592681c0c
+installed_commit=057592681c0c68e90f436bf02d8c5a116111952a
+scratch_prefix=/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-sdk-probe/sdk
+vendored_fallback=OFF
+
+SDK input hashes:
+30926b1527a19b21dc0cfe28f8ec7bccc4a47444af9f0287c7de042e471a40f0  include/rxpa/crexxpa.h
+663e667b3343900f0e6535add8ee8c3946431eb246dd4cb67f0aa631c3cd6d0b  include/platform/rxinteger.h
+c56d86e86deba19f93c629b614d5c5a2e7a723e53cd4ca203b3ebfed26717044  share/cmake/rxpa/RXPluginFunction.cmake
+6cb3dd8f18b98c1794b32b1d174624b5106aa2fd6645ceb965b241ef8242a788  include/rxpa/crexx_version.h
+
+Probe input hashes:
+37862620fb2dd0f5c356128e35b63ff8a4ea719600639abbec233abbc63feea7  incubator/p1a/sdk_probe/CMakeLists.txt
+ed494a683b163a754ba19e722b8eff2fd621adca00eca32fe1bf83e130de0f8b  incubator/p1a/sdk_probe/sdk_probe.c
+2fde812cc439786e4fae48a7dcbdbc57c9fdb7efe38a2fd00cf983eef943ba24  incubator/p1a/sdk_probe/sdk_probe.crexx
+d6951c3dbff72e386f1b7715c3480e8266284a70d9748ebf994eb33d8892abe3  cmake/P1ASdkProbe.cmake
+
+The three CREXX-source artifacts were extracted with `git show` from the exact
+installed commit, not from the moving sister HEAD. The installed version header
+was copied from /Users/adrian/.local. Nothing was installed there and the
+read-only sister checkout received no write or build artifact.

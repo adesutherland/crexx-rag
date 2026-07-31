@@ -1,0 +1,16 @@
+Command:
+  ctest --preset debug -R phase0_oracle_defect_golden --output-on-failure
+
+Result:
+  phase0_oracle_defect_golden passed (0.80 sec)
+  100% tests passed, 0 tests failed out of 1
+
+Scratch-only demonstrations:
+  same-URI revision replacement changed the chunk id and invalidated the old id;
+  seeded mention support survived both revision replacement and source deletion;
+  two consumers observed the same pending item and the schema exposed no lease
+  or fencing token; and a 1 MiB output buffer failed on a 1,200-row whole-result
+  subgraph with CPRAG_BUFFER_TOO_SMALL.
+
+All four retained JSONL records say desired_parity=false. No live library was
+written and no defect is treated as a desired migration behavior.

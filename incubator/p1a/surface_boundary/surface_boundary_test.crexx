@@ -1,0 +1,55 @@
+options levelg
+
+import _rxsysb
+import rxjson
+import surface_contract
+import surface_facade
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P1A_SUR_FAIL=" || label
+    return 1
+  end
+  return 0
+
+signature: procedure = .string
+  arg document = .jsondocument, prefix = .string
+  return document.get(prefix || "status") || "|" || document.get(prefix || "operation") || "|" || document.get(prefix || "evidence.passage") || "|" || document.get(prefix || "evidence.supportedClaim.subject") || "|" || document.get(prefix || "evidence.supportedClaim.predicate") || "|" || document.get(prefix || "evidence.supportedClaim.object") || "|" || document.get(prefix || "evidence.supportedClaim.direction") || "|" || document.get(prefix || "evidence.citation") || "|" || document.get(prefix || "evidence.gap")
+
+main: procedure = .int
+arg args = .string[]
+if args.0 < 1 then return 2
+cli_json = args[1]
+errors = 0
+
+facade = .statusfacade()
+facade_record = facade.statusEvidence()
+facade_json = statusrecordjson(facade_record)
+
+call _register_address_environment "RAG", .ragaddressenvironment("RAG")
+address_json = ""
+rc = -1
+address rag "STATUS EVIDENCE INTO ${address_json}"
+errors = errors + check(rc = 0 & address_json \= "", "ADDRESS RAG execution")
+
+mcp_json = mcpstructuredfactory()
+facade_document = .jsondocument(facade_json)
+cli_document = .jsondocument(cli_json)
+address_document = .jsondocument(address_json)
+mcp_document = .jsondocument(mcp_json)
+errors = errors + check(facade_document.valid() = 1 & cli_document.valid() = 1 & address_document.valid() = 1 & mcp_document.valid() = 1, "valid JSON surfaces")
+expected = signature(facade_document, "")
+errors = errors + check(signature(cli_document, "") = expected, "CLI semantic equality")
+errors = errors + check(signature(address_document, "") = expected, "ADDRESS semantic equality")
+errors = errors + check(signature(mcp_document, "structuredContent.") = expected, "MCP semantic equality")
+errors = errors + check(mcp_document.type("structuredContent") = "object" & mcp_document.get("structuredContent.status") = "ready", "MCP structuredContent shape")
+errors = errors + check(facade_document.get("operation") = "status-evidence" & facade_document.get("evidence.supportedClaim.predicate") = "depends_on" & facade_document.get("evidence.gap") \= "", "typed Level-B record retained")
+errors = errors + check(facade_record.operation() = "status-evidence" & facade_record.predicate() = "depends_on", "typed Level-G imported record return")
+
+if errors \= 0 then do
+  say "P1A_SUR_ERRORS=" || errors
+  return 1
+end
+say "P1A_SUR_OK levelg=1 cli_json=1 address_rag=1 mcp_structuredContent=1 typed_record=1 semantic_equal=1"
+return 0

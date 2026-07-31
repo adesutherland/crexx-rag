@@ -1,0 +1,50 @@
+foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_CREXX_BIN_DIR CPRAG_PLUGIN_DIR CPRAG_MODULE CPRAG_SOURCE CPRAG_WORK_DIR)
+    if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
+        message(FATAL_ERROR "${required_var} is required")
+    endif()
+endforeach()
+file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
+file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
+set(native_import "${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}")
+set(program_import "${CPRAG_WORK_DIR};${native_import}")
+
+function(build_crexx name source imports)
+    execute_process(COMMAND "${CPRAG_RXC}" -i "${imports}" -o "${CPRAG_WORK_DIR}/${name}" "${source}"
+        OUTPUT_VARIABLE rxc_out ERROR_VARIABLE rxc_err RESULT_VARIABLE rxc_result)
+    if(NOT rxc_result EQUAL 0)
+        message(FATAL_ERROR "${name} compile failed:\n${rxc_out}\n${rxc_err}")
+    endif()
+    execute_process(COMMAND "${CPRAG_RXAS}" -o "${CPRAG_WORK_DIR}/${name}" "${CPRAG_WORK_DIR}/${name}"
+        OUTPUT_VARIABLE rxas_out ERROR_VARIABLE rxas_err RESULT_VARIABLE rxas_result)
+    if(NOT rxas_result EQUAL 0)
+        message(FATAL_ERROR "${name} assembly failed:\n${rxas_out}\n${rxas_err}")
+    endif()
+    file(APPEND "${CPRAG_WORK_DIR}/commands-and-output.txt" "${name} rxc:\n${rxc_out}${rxc_err}\n${name} rxas:\n${rxas_out}${rxas_err}\n")
+endfunction()
+
+build_crexx(job_slice "${CPRAG_MODULE}" "${native_import}")
+build_crexx(job-slice-scenario "${CPRAG_SOURCE}" "${program_import}")
+set(database "${CPRAG_WORK_DIR}/job-slice.sqlite")
+
+execute_process(COMMAND "${CPRAG_RXVME}" -l "${program_import}" "${CPRAG_WORK_DIR}/job-slice-scenario" job_slice rx_sqlite_boundary library -a init "${database}" OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err RESULT_VARIABLE init_result)
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "stage=init status=ok")
+    message(FATAL_ERROR "Job init failed (${init_result}):\n${init_out}\n${init_err}")
+endif()
+execute_process(COMMAND "${CPRAG_RXVME}" -l "${program_import}" "${CPRAG_WORK_DIR}/job-slice-scenario" job_slice rx_sqlite_boundary library -a crash-before "${database}" OUTPUT_VARIABLE before_out ERROR_VARIABLE before_err RESULT_VARIABLE before_result)
+if(NOT before_result EQUAL 73 OR NOT before_out MATCHES "stage=crash-before status=forced")
+    message(FATAL_ERROR "Before-promotion crash boundary failed (${before_result}):\n${before_out}\n${before_err}")
+endif()
+execute_process(COMMAND "${CPRAG_RXVME}" -l "${program_import}" "${CPRAG_WORK_DIR}/job-slice-scenario" job_slice rx_sqlite_boundary library -a replace-promote-crash "${database}" OUTPUT_VARIABLE after_out ERROR_VARIABLE after_err RESULT_VARIABLE after_result)
+if(NOT after_result EQUAL 74 OR NOT after_out MATCHES "promotion_committed=1")
+    message(FATAL_ERROR "After-promotion crash boundary failed (${after_result}):\n${after_out}\n${after_err}")
+endif()
+execute_process(COMMAND "${CPRAG_RXVME}" -l "${program_import}" "${CPRAG_WORK_DIR}/job-slice-scenario" job_slice rx_sqlite_boundary library -a recover "${database}" OUTPUT_VARIABLE recover_out ERROR_VARIABLE recover_err RESULT_VARIABLE recover_result)
+if(NOT recover_result EQUAL 0 OR NOT recover_out MATCHES "P1A_JOB_OK")
+    message(FATAL_ERROR "Job recovery failed (${recover_result}):\n${recover_out}\n${recover_err}")
+endif()
+file(APPEND "${CPRAG_WORK_DIR}/commands-and-output.txt"
+    "init:\n${init_out}${init_err}result=${init_result}\n"
+    "crash-before:\n${before_out}${before_err}result=${before_result}\n"
+    "replace-promote-crash:\n${after_out}${after_err}result=${after_result}\n"
+    "recover:\n${recover_out}${recover_err}result=${recover_result}\n")
+message(STATUS "${recover_out}")

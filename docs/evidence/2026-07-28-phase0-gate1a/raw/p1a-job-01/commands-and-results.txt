@@ -1,0 +1,40 @@
+P1A-JOB-01 durable item, DB fencing, crash and recovery matrix
+Date: 2026-07-29 Europe/London
+
+Command:
+  ctest --preset debug -R '^p1a_job_slice$' --output-on-failure
+
+Focused result:
+  1/1 passed in 0.54 seconds
+
+Separate-process crash matrix:
+  init result=0
+    P1A_JOB_STAGE stage=init status=ok state=ready
+  crash-before result=73 (expected forced termination)
+    P1A_JOB_STAGE stage=crash-before status=forced fence=1 claim_committed=1 promotion=0
+  replace-promote-crash result=74 (expected forced termination)
+    P1A_JOB_STAGE stage=replace-promote-crash status=forced old_fence=1 fence=2 work_outside_claim_transaction=1 stale_rejected=1 promotion_committed=1
+  recover result=0
+    P1A_JOB_OK atomic_claim=1 db_monotonic_fence=2 outside_work=1 crash_before=1 crash_after=1 stale_rejected=1 idempotent_recovery=1 duplicate_support=0
+
+Semantics:
+  claim=BEGIN IMMEDIATE, database AUTOINCREMENT token issue, item update, COMMIT
+  work=pure cREXX operation after claim commit and before promotion transaction
+  promotion=BEGIN IMMEDIATE, current-fence verification, unique support insert, item finalization, COMMIT
+  stale_worker=fence 1 rejected with -4 after fence 2 replacement and after recovery
+  recovery=done state observed, same fence/output returns idempotent status 1
+  support_rows=1
+  issued_tokens=2, monotonically 1 then 2
+
+SHA-256:
+  08ce23720d0f8d08ee3abd7ddd8962f0c8439afb78c58afc6be8d1f7afdae83c  incubator/p1a/job_slice/job_slice.crexx
+  3d6377cf98ef8841cf01639535bd72aa4136729d54c1c96ecf4a73705ce276e3  incubator/p1a/job_slice/job_slice_scenario.crexx
+  63aabbb5ae597555140786d6205fc59ff2d0e8ba1db19706cdd15b0cba22928c  cmake/P1AJobSlice.cmake
+  e4b86c2cd907f966971350856e3b7c90d3ddf1e1baf418f2b3c27b52171b927b  cmake-build-debug/p1a-job-slice/job_slice.rxbin
+  36e1b8de857af6ab8f268802037f1f482de5be5f466ed50b8c2c231eabe954b2  cmake-build-debug/p1a-job-slice/job-slice-scenario.rxbin
+
+Boundary recommendation:
+  Use short atomic claims with database-issued monotonic fences, execute work
+  outside that transaction, and require the current fence again inside atomic
+  promotion/finalization. Uniqueness constraints plus same-fence idempotency
+  prevent duplicate support across the tested crash boundaries.

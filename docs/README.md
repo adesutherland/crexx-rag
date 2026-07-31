@@ -1,0 +1,52 @@
+# Documentation Map
+
+Status: canonical navigation for the approved cREXX-only programme,
+2026-07-31.
+
+## Current Programme Documents
+
+| Document | Authority |
+| --- | --- |
+| [Vision and product specification](crexx-only-vision-and-specification.md) | Approved product purpose, requirements, ownership, and cutover rules |
+| [Review findings](crexx-only-review-findings.md) | Point-in-time evidence behind the decision; Phase 0 must make it reproducible |
+| [Architecture](crexx-only-architecture.md) | Approved target boundaries, data model, lifecycle, jobs, retrieval, and surfaces |
+| [Implementation roadmap](crexx-only-implementation-roadmap.md) | Resumable worklist and gates; current authority ends at Gate 1A |
+| [User guide](crexx-only-user-guide.md) | Target interface contract; clearly marks unimplemented commands |
+| [Test strategy](test-strategy.md) | Living validation and acceptance policy |
+| [Programme status](pipeline-status.md) | Living implemented-versus-specified status |
+| [Semantic vocabulary](architecture-vocabulary.md) | Initial domain-neutral typed-graph vocabulary |
+| [CREXX integration issues](crexx-integration-issues.md) | Dated installed-toolchain and capability-gap ledger |
+| [Approved CREXX candidate closeout](evidence/2026-07-31-gate1a-crexx-candidate/CANDIDATE-INTEGRATION-CLOSEOUT.md) | Exact downstream CRI-01 through CRI-14 replay, provenance, results and Gate-1A stop |
+
+Agent-facing material:
+
+- [Phase 0 and Phase 1A implementation handoff](../prompts/phase0-phase1a-implementation-handoff.md)
+- [Target knowledge-agent instructions](../prompts/crexx-rag-agent-AGENTS.md)
+
+## Historical Native-v1 Evidence
+
+The former native-core architecture, tutorials, use cases, pipeline status,
+test strategy, local-provider instructions, engineering notes, and Scotland QA
+material have been removed from current guidance and retained under
+[the native-v1 archive](archive/README.md).
+
+Archive material is valuable for Phase 0 oracle reproduction and migration
+goldens. It is not an alternative architecture and must not be copied forward
+as target design. In particular, references there to a RAG-specific native core,
+fixed JSON bridge, native queue ownership, shell orchestration, and current CLI
+commands are historical.
+
+`crexx-team-briefing.md` is a dated user-owned historical briefing retained at
+its original path for continuity. Its archive banner points to the approved
+replacement programme.
+
+## Documentation Rule
+
+New documentation must be either:
+
+1. current and linked from this page;
+2. dated evidence linked from a roadmap item; or
+3. explicitly archived.
+
+Do not leave an unlabeled competing plan, tutorial, architecture, status page,
+or agent prompt in the current documentation surface.

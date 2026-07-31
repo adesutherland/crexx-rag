@@ -1,0 +1,39 @@
+P1A-LLM-01 deterministic provider boundary
+Date: 2026-07-29 Europe/London
+
+Commands:
+  cmake --preset debug
+  cmake --build --preset debug --target p1a_provider_loopback
+  ctest --preset debug -R '^p1a_provider_boundary$' --output-on-failure
+
+Focused result:
+  p1a_provider_boundary and p1a_json_document: 2/2 passed in 4.30 seconds
+
+Runtime output:
+  P1A_LLM_DIAG case=malformed code=-102 category=malformed_response message=provider response is not valid JSON: unterminated array
+  P1A_LLM_DIAG case=timeout code=-5 category=timeout message=socket receive timed out
+  P1A_LLM_OK generation=1 embedding=1 packed_f32=1 dimension_request=1 malformed=1 timeout=1 connection=1 structured_errors=1 hosted=0
+
+Loopback request paths:
+  /v1beta/models/loopback-generate:generateContent
+  /v1beta/models/loopback-embed:embedContent
+  /v1beta/models/malformed:generateContent
+  /v1beta/models/timeout:generateContent
+  /v1beta/models/provider-error:generateContent
+
+SHA-256:
+  a5266e25d752fe5ad438c2992d4aa6f3a3769229f7f1de362d2fc49ae4d73f17  incubator/p1a/provider_boundary/provider_boundary.crexx
+  eb5090f456675bb99f8224fdf4bb03674554c5c740df891825e5e99f6e75ad9f  incubator/p1a/provider_boundary/provider_boundary_test.crexx
+  c662b1de10de63bc2395395cf3906d3d6fe7034d80c2bd18274ed23aa99dc92d  tests/p1a_provider_loopback.cpp
+  453e0c82f1823e9c1d3a73d2101f484f322643be009269b05b7fb661d11415d7  cmake/P1AProviderBoundary.cmake
+  c580cfbb0fa7a24c5707e9dd190e36c8f941618452177da397b94ce5aa523f37  cmake-build-debug/p1a-provider-boundary/provider_boundary.rxbin
+
+Contract result:
+  llm_request is provider-neutral across generate/embed, model, input, timeout,
+  and bounded embedding dimensions. llm_result carries provider/model, text or
+  a versioned packed f32 vector, and token counts. llm_error carries category,
+  local code, HTTP status, retryability, and message. The Google adapter maps
+  this contract to generateContent/embedContent through Level B rxhttp directly
+  and parses every response exactly once.
+
+No hosted endpoint or hosted credential was used by this deterministic test.

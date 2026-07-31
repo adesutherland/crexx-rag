@@ -1,0 +1,215 @@
+options levelb
+
+import rxfnsb
+import sqlite_boundary
+import vector_boundary
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P1A_VEC_FAIL=" || label
+    return 1
+  end
+  return 0
+
+elapsed_us: procedure = .int
+  arg started = .int
+  elapsed = time("us") - started
+  if elapsed < 0 then elapsed = elapsed + 86400000000
+  return elapsed
+
+main: procedure = .int
+arg args = .string[]
+runtime = "unknown"
+if args.0 > 0 then runtime = args[1]
+errors = 0
+db = .binary
+statement = .binary
+errors = errors + check(sqliteopen(":memory:", db) = 0, "open")
+errors = errors + check(sqliteexec(db, "CREATE TABLE vectors(identity INTEGER PRIMARY KEY, element_type TEXT NOT NULL, element_count INTEGER NOT NULL, dimensional_meaning TEXT NOT NULL, payload BLOB NOT NULL)") = 0, "schema")
+
+query_values = .float[]
+query_values[1] = 1.0
+query_values[2] = 0.0
+query_values[3] = 0.0
+query_values[4] = 0.0
+query_payload = .binary
+errors = errors + check(f32pack(query_values, query_payload) = 0, "query pack")
+
+ids = .int[]
+ids[1] = 10
+ids[2] = 20
+ids[3] = 30
+ids[4] = 40
+ids[5] = 50
+candidate_values = .float[]
+payload = .binary
+errors = errors + check(sqliteprepare(db, "INSERT INTO vectors(identity,element_type,element_count,dimensional_meaning,payload) VALUES(?1,?2,?3,?4,?5)", statement) = 0, "insert prepare")
+do row = 1 to ids.0
+  candidate_values = .float[]
+  if row = 1 then do
+    candidate_values[1] = 1.0; candidate_values[2] = 0.0
+  end
+  else if row = 2 | row = 3 then do
+    candidate_values[1] = 0.8; candidate_values[2] = 0.6
+  end
+  else if row = 4 then do
+    candidate_values[1] = 0.0; candidate_values[2] = 1.0
+  end
+  else do
+    candidate_values[1] = -1.0; candidate_values[2] = 0.0
+  end
+  candidate_values[3] = 0.0
+  candidate_values[4] = 0.0
+  errors = errors + check(f32pack(candidate_values, payload) = 0, "candidate pack")
+  errors = errors + check(sqlitebindint(statement, 1, ids[row]) = 0 & sqlitebindtext(statement, 2, "f32le") = 0 & sqlitebindint(statement, 3, candidate_values.0) = 0 & sqlitebindtext(statement, 4, "embedding") = 0 & sqlitebindblob(statement, 5, payload) = 0, "candidate bind")
+  errors = errors + check(sqlitestep(statement) = 101, "candidate insert")
+  errors = errors + check(sqlitereset(statement) = 0, "candidate reset")
+end
+errors = errors + check(sqlitefinalize(statement) = 0, "insert finalize")
+
+/* One bounded ordered page; no whole-corpus materialization. */
+page_ids = .int[]
+page_payloads = .binary[]
+page_counts = .int[]
+transfer_bytes = 0
+total_start = time("us")
+transfer_start = time("us")
+errors = errors + check(sqliteprepare(db, "SELECT identity,element_type,element_count,dimensional_meaning,payload FROM vectors ORDER BY identity LIMIT 8 OFFSET 0", statement) = 0, "page prepare")
+page_count = 0
+do forever
+  status = sqlitestep(statement)
+  if status = 101 then leave
+  errors = errors + check(status = 100, "page step")
+  page_count = page_count + 1
+  page_identity = 0
+  element_type = ""
+  element_count = 0
+  dimensional_meaning = ""
+  page_blob = .binary
+  errors = errors + check(sqlitecolumnint(statement, 0, page_identity) = 0 & sqlitecolumntext(statement, 1, element_type) = 0 & sqlitecolumnint(statement, 2, element_count) = 0 & sqlitecolumntext(statement, 3, dimensional_meaning) = 0 & sqlitecolumnblob(statement, 4, page_blob) = 0, "page typed read")
+  errors = errors + check(element_type = "f32le" & element_count = 4 & dimensional_meaning = "embedding", "page application schema")
+  page_ids[page_count] = page_identity
+  page_counts[page_count] = element_count
+  page_payloads[page_count] = page_blob
+  transfer_bytes = transfer_bytes + binlength(page_blob)
+end
+errors = errors + check(sqlitefinalize(statement) = 0, "page finalize")
+transfer_elapsed = elapsed_us(transfer_start)
+errors = errors + check(page_count = 5 & page_ids[1] = 10 & page_ids[5] = 50, "bounded page")
+
+decode_start = time("us")
+decode_checksum = 0
+do i = 1 to page_payloads.0
+  errors = errors + check(page_counts[i] = 4 & binlength(page_payloads[i]) = page_counts[i] * 4, "raw schema decode")
+  decode_checksum = decode_checksum + binlength(page_payloads[i])
+end
+decode_elapsed = elapsed_us(decode_start)
+
+scores = .float[]
+arithmetic_start = time("us")
+errors = errors + check(cosinesf32(page_payloads, page_counts, query_payload, query_values.0, scores) = 0, "cosine")
+arithmetic_elapsed = elapsed_us(arithmetic_start)
+errors = errors + check(scores[1] > 0.99999 & scores[2] > 0.79999 & scores[2] < 0.80001 & scores[2] = scores[3] & scores[4] = 0.0 & scores[5] < -0.99999, "cosine oracle")
+
+top_ids = .int[]
+top_scores = .float[]
+selection_start = time("us")
+errors = errors + check(selecttopk(page_ids, scores, 3, top_ids, top_scores) = 0, "top-k")
+selection_elapsed = elapsed_us(selection_start)
+total_elapsed = elapsed_us(total_start)
+errors = errors + check(top_ids.0 = 3 & top_ids[1] = 10 & top_ids[2] = 20 & top_ids[3] = 30, "ordering and ties")
+
+/* Measurement page uses an embedding-sized 768-dimensional payload.  The
+ * correctness oracle above stays deliberately tiny and human-auditable. */
+errors = errors + check(sqliteexec(db, "DELETE FROM vectors") = 0, "benchmark clear")
+benchmark_rows = 32
+benchmark_dimension = 768
+query_values = .float[]
+do column = 1 to benchmark_dimension
+  query_values[column] = ((column - (column % 17) * 17) - 8) / 8.0
+end
+errors = errors + check(f32pack(query_values, query_payload) = 0, "benchmark query pack")
+errors = errors + check(sqliteprepare(db, "INSERT INTO vectors(identity,element_type,element_count,dimensional_meaning,payload) VALUES(?1,?2,?3,?4,?5)", statement) = 0, "benchmark insert prepare")
+do row = 1 to benchmark_rows
+  candidate_values = .float[]
+  do column = 1 to benchmark_dimension
+    if row = 1 then candidate_values[column] = query_values[column]
+    else candidate_values[column] = (((row * column) - ((row * column) % 23) * 23) - 11) / 11.0
+  end
+  errors = errors + check(f32pack(candidate_values, payload) = 0, "benchmark candidate pack")
+  errors = errors + check(sqlitebindint(statement, 1, row) = 0 & sqlitebindtext(statement, 2, "f32le") = 0 & sqlitebindint(statement, 3, benchmark_dimension) = 0 & sqlitebindtext(statement, 4, "embedding") = 0 & sqlitebindblob(statement, 5, payload) = 0, "benchmark bind")
+  errors = errors + check(sqlitestep(statement) = 101 & sqlitereset(statement) = 0, "benchmark insert")
+end
+errors = errors + check(sqlitefinalize(statement) = 0, "benchmark insert finalize")
+
+page_ids = .int[]
+page_payloads = .binary[]
+page_counts = .int[]
+transfer_bytes = 0
+total_start = time("us")
+transfer_start = time("us")
+errors = errors + check(sqliteprepare(db, "SELECT identity,element_type,element_count,dimensional_meaning,payload FROM vectors ORDER BY identity LIMIT 32 OFFSET 0", statement) = 0, "benchmark page prepare")
+page_count = 0
+do forever
+  status = sqlitestep(statement)
+  if status = 101 then leave
+  errors = errors + check(status = 100, "benchmark page step")
+  page_count = page_count + 1
+  page_identity = 0
+  element_type = ""
+  element_count = 0
+  dimensional_meaning = ""
+  page_blob = .binary
+  errors = errors + check(sqlitecolumnint(statement, 0, page_identity) = 0 & sqlitecolumntext(statement, 1, element_type) = 0 & sqlitecolumnint(statement, 2, element_count) = 0 & sqlitecolumntext(statement, 3, dimensional_meaning) = 0 & sqlitecolumnblob(statement, 4, page_blob) = 0, "benchmark typed read")
+  errors = errors + check(element_type = "f32le" & element_count = benchmark_dimension & dimensional_meaning = "embedding", "benchmark application schema")
+  page_ids[page_count] = page_identity
+  page_counts[page_count] = element_count
+  page_payloads[page_count] = page_blob
+  transfer_bytes = transfer_bytes + binlength(page_blob)
+end
+errors = errors + check(sqlitefinalize(statement) = 0, "benchmark page finalize")
+transfer_elapsed = elapsed_us(transfer_start)
+errors = errors + check(page_count = benchmark_rows & page_ids[1] = 1 & page_ids[benchmark_rows] = benchmark_rows, "benchmark bounded page")
+
+decode_start = time("us")
+decode_checksum = 0
+do i = 1 to page_payloads.0
+  errors = errors + check(page_counts[i] = benchmark_dimension & binlength(page_payloads[i]) = page_counts[i] * 4, "benchmark raw schema decode")
+  decode_checksum = decode_checksum + binlength(page_payloads[i])
+end
+decode_elapsed = elapsed_us(decode_start)
+
+scores = .float[]
+arithmetic_start = time("us")
+errors = errors + check(cosinesf32(page_payloads, page_counts, query_payload, benchmark_dimension, scores) = 0, "benchmark cosine")
+arithmetic_elapsed = elapsed_us(arithmetic_start)
+errors = errors + check(scores[1] > 0.9999 & scores[1] < 1.0001, "benchmark exact self cosine=" || scores[1])
+
+bench_top_ids = .int[]
+bench_top_scores = .float[]
+selection_start = time("us")
+errors = errors + check(selecttopk(page_ids, scores, 5, bench_top_ids, bench_top_scores) = 0, "benchmark top-k")
+selection_elapsed = elapsed_us(selection_start)
+total_elapsed = elapsed_us(total_start)
+errors = errors + check(bench_top_ids.0 = 5 & bench_top_ids[1] = 1, "benchmark selection oracle")
+
+score_checksum = 0.0
+do i = 1 to scores.0
+  score_checksum = score_checksum + scores[i]
+end
+estimated_peak = transfer_bytes + binlength(query_payload) + page_count * 24
+say runtime || ",db_transfer," || transfer_elapsed || "," || page_count || "," || transfer_bytes || "," || page_ids[1] || ",ok"
+say runtime || ",decode," || decode_elapsed || "," || page_count || "," || transfer_bytes || "," || decode_checksum || ",ok"
+say runtime || ",arithmetic," || arithmetic_elapsed || "," || (page_count * benchmark_dimension) || "," || transfer_bytes || "," || score_checksum || ",ok"
+say runtime || ",selection," || selection_elapsed || "," || page_count || ",0," || (bench_top_ids[1] + bench_top_ids[2] + bench_top_ids[3] + bench_top_ids[4] + bench_top_ids[5]) || ",ok"
+say runtime || ",estimated_working_memory," || 0 || "," || page_count || "," || estimated_peak || "," || estimated_peak || ",ok"
+say runtime || ",total," || total_elapsed || "," || page_count || "," || transfer_bytes || "," || top_ids[1] || ",ok"
+
+errors = errors + check(sqliteclose(db) = 0, "close")
+if errors \= 0 then do
+  say "P1A_VEC_ERRORS=" || errors
+  return 1
+end
+say "P1A_VEC_OK runtime=" || runtime || " oracle_rows=5 oracle_dimension=4 top_ids=10,20,30 tie_order=identity_ascending page_rows=" || benchmark_rows || " page_dimension=" || benchmark_dimension || " element_type=f32le envelope=none schema_owned=1"
+return 0

@@ -1,0 +1,21 @@
+Command:
+  ctest --preset debug -R 'phase0_(oracle_semantic|answer_evidence)_golden' --output-on-failure
+
+Result:
+  phase0_oracle_semantic_golden passed (0.02 sec)
+  phase0_answer_evidence_golden passed (0.06 sec)
+  100% tests passed, 0 tests failed out of 2
+  Total Test time (real) = 0.09 sec
+
+Comparison protocol:
+  The oracle capture emits semantic JSONL with volatile document, chunk, edge,
+  work-attempt, and timestamp identifiers excluded. CMake compares that JSONL
+  byte-for-byte with the retained golden. The MCP test first asserts live
+  narrative-passage, accepted-claim, graph-lead, source-bound policy, citation,
+  and explicit-gap fields, then compares its stable semantic record.
+
+Covered behaviors:
+  markdown chunking; candidate census and adjudication; mention/graph seeding;
+  extraction ranking; queue status; source deletion; lexical retrieval; current
+  FAISS-disabled vector result and lexical fallback; directed graph retrieval;
+  answer-evidence packet assembly.

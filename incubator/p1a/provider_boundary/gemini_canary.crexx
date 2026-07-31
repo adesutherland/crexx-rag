@@ -1,0 +1,62 @@
+options levelb
+
+import rxfnsb
+import provider_boundary
+
+elapsed_us: procedure = .int
+  arg started = .int
+  elapsed = time("us") - started
+  if elapsed < 0 then elapsed = elapsed + 86400000000
+  return elapsed
+
+main: procedure = .int
+key = strip(changestr("0A"x, changestr("0D"x, getenv("GEMINI_API_KEY"), ""), ""))
+if key = "" then do
+  say "P1A_GEMINI_CANARY status=unavailable reason=missing_environment_key"
+  return 2
+end
+
+result = .llm_result()
+failure = .llm_error()
+generation_model = "gemini-3.5-flash"
+request = .llm_request("generate", generation_model, "Return exactly PHASE1A-GEMINI-CANARY and nothing else.", 30000, 0)
+started = time("us")
+status = geminicall(request, "generativelanguage.googleapis.com", 443, 1, key, result, failure)
+generation_elapsed = elapsed_us(started)
+if status \= 0 then do
+  say "P1A_GEMINI_CANARY status=failed operation=generation model=" || generation_model || " category=" || failure.category() || " code=" || failure.code() || " http_status=" || failure.http_status() || " retryable=" || failure.retryable() || " message=" || failure.message()
+  return 3
+end
+generated = result.text()
+generation_match = pos("PHASE1A-GEMINI-CANARY", generated) > 0
+if \generation_match then do
+  say "P1A_GEMINI_CANARY status=failed operation=generation model=" || generation_model || " category=semantic_mismatch generated_chars=" || length(generated)
+  return 4
+end
+generation_input_tokens = result.input_tokens()
+generation_output_tokens = result.output_tokens()
+generation_chars = length(generated)
+say "P1A_GEMINI_CANARY_PROGRESS operation=generation status=ok model=" || generation_model || " generation_match=1 generation_chars=" || generation_chars || " elapsed_us=" || generation_elapsed
+
+embedding_model = "gemini-embedding-001"
+request = .llm_request("embed", embedding_model, "Phase 1A Gemini embedding canary", 30000, 8)
+started = time("us")
+status = geminicall(request, "generativelanguage.googleapis.com", 443, 1, key, result, failure)
+embedding_elapsed = elapsed_us(started)
+if status \= 0 then do
+  say "P1A_GEMINI_CANARY status=failed operation=embedding model=" || embedding_model || " category=" || failure.category() || " code=" || failure.code() || " http_status=" || failure.http_status() || " retryable=" || failure.retryable() || " message=" || failure.message()
+  return 5
+end
+embedding = result.embedding()
+checksum = 0.0
+embedding_payload = embedding.payload()
+do i = 1 to embedding.dimension()
+  checksum = checksum + <at..f32>(embedding.data_offset() + (i - 1) * embedding.element_bytes()) embedding_payload * i
+end
+if embedding.dimension() \= 8 then do
+  say "P1A_GEMINI_CANARY status=failed operation=embedding model=" || embedding_model || " category=dimension_mismatch dimensions=" || embedding.dimension()
+  return 6
+end
+
+say "P1A_GEMINI_CANARY status=ok api_version=v1beta generation_model=" || generation_model || " generation_match=1 generation_chars=" || generation_chars || " generation_input_tokens=" || generation_input_tokens || " generation_output_tokens=" || generation_output_tokens || " generation_elapsed_us=" || generation_elapsed || " embedding_model=" || embedding_model || " requested_embedding_dimensions=8 embedding_dimensions=" || embedding.dimension() || " embedding_codec=" || embedding.codec() || " embedding_bytes=" || embedding.byte_length() || " embedding_checksum=" || checksum || " embedding_elapsed_us=" || embedding_elapsed
+return 0

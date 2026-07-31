@@ -1,0 +1,84 @@
+options levelb
+
+import sqlite_boundary
+import job_slice
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P1A_JOB_FAIL=" || label
+    return 1
+  end
+  return 0
+
+scalar: procedure = .int
+  arg db = .binary, sql = .string
+  statement = .binary
+  if sqliteprepare(db, sql, statement) \= 0 | sqlitestep(statement) \= 100 then return -1
+  value = -1
+  call sqlitecolumnint statement, 0, value
+  call sqlitefinalize statement
+  return value
+
+main: procedure = .int
+arg args = .string[]
+if args.0 < 2 then return 2
+stage = args[1]
+path = args[2]
+db = .binary
+if sqliteopen(path, db) \= 0 then return 3
+item_key = "durable-1"
+support_key = "support-1"
+
+if stage = "init" then do
+  errors = 0
+  errors = errors + check(jobschema(db) = 0, "schema")
+  errors = errors + check(createitem(db, item_key, "bounded work") = 0, "create")
+  call sqliteclose db
+  if errors \= 0 then return 1
+  say "P1A_JOB_STAGE stage=init status=ok state=ready"
+  return 0
+end
+
+if stage = "crash-before" then do
+  fence = 0
+  if claimitem(db, item_key, "worker-a", 0, fence) \= 0 | fence \= 1 then return 4
+  /* Claim transaction is committed.  Terminate before work/promotion. */
+  say "P1A_JOB_STAGE stage=crash-before status=forced fence=" || fence || " claim_committed=1 promotion=0"
+  call sqliteclose db
+  return 73
+end
+
+if stage = "replace-promote-crash" then do
+  state = ""; old_fence = 0; prior_output = ""
+  if itemstate(db, item_key, state, old_fence, prior_output) \= 0 | state \= "running" | old_fence \= 1 then return 5
+  fence = 0
+  if claimitem(db, item_key, "worker-b", 1, fence) \= 0 | fence <= old_fence then return 6
+  /* Pure work happens after claimitem committed and before promoteitem opens
+   * its own atomic verification/promotion transaction. */
+  output = performwork("bounded work")
+  stale_result = promoteitem(db, item_key, old_fence, support_key, "STALE")
+  if stale_result \= -4 | scalar(db, "SELECT count(*) FROM promoted_support") \= 0 then return 7
+  if promoteitem(db, item_key, fence, support_key, output) \= 0 then return 8
+  say "P1A_JOB_STAGE stage=replace-promote-crash status=forced old_fence=" || old_fence || " fence=" || fence || " work_outside_claim_transaction=1 stale_rejected=1 promotion_committed=1"
+  call sqliteclose db
+  return 74
+end
+
+if stage = "recover" then do
+  errors = 0
+  state = ""; fence = 0; output = ""
+  errors = errors + check(itemstate(db, item_key, state, fence, output) = 0 & state = "done" & fence = 2, "done state and monotonic fence")
+  errors = errors + check(output = "BOUNDED WORK:COMPLETE", "outside work output")
+  errors = errors + check(promoteitem(db, item_key, fence, support_key, output) = 1, "idempotent finalization")
+  errors = errors + check(promoteitem(db, item_key, fence - 1, support_key, "STALE") = -4, "stale worker rejected after recovery")
+  errors = errors + check(scalar(db, "SELECT count(*) FROM promoted_support") = 1, "non-duplicated support")
+  errors = errors + check(scalar(db, "SELECT count(*) FROM fence_tokens") = 2, "DB issued fencing sequence")
+  call sqliteclose db
+  if errors \= 0 then return 1
+  say "P1A_JOB_OK atomic_claim=1 db_monotonic_fence=2 outside_work=1 crash_before=1 crash_after=1 stale_rejected=1 idempotent_recovery=1 duplicate_support=0"
+  return 0
+end
+
+call sqliteclose db
+return 9

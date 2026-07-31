@@ -1,0 +1,15 @@
+Command:
+  ctest --preset debug -R phase0_judgement_catalog --output-on-failure
+
+Result:
+  phase0_judgement_catalog passed (0.01 sec)
+  100% tests passed, 0 tests failed out of 1
+
+Catalog counts:
+  Scotland-shaped cases: 5
+  held-out IT questions: 4
+  held-out IT answer judgements: 4
+  stable passage mappings: 14
+
+Validation also proved that blinded question IDs match answer-key IDs and every
+case has required claim labels, graph-lead rules, and evidence-gap expectations.

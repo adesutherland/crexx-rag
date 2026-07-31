@@ -1,0 +1,110 @@
+options levelb
+
+import rxfnsb
+import rxjson
+import sqlite_boundary
+import data_boundary
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P1A_DATA_FAIL=" || label
+    return 1
+  end
+  return 0
+
+elapsed_us: procedure = .int
+  arg started = .int
+  elapsed = time("us") - started
+  if elapsed < 0 then elapsed = elapsed + 86400000000
+  return elapsed
+
+main: procedure = .int
+errors = 0
+payload = '{"id":"local-001","model":"gemini-fixture","candidates":[{"content":{"parts":[{"text":"Gràdh 中 ☺"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":4},"optionalEmpty":"","nullable":null,"labels":["alpha","β"],"metadata":{"mode":"fixture","active":true}}'
+
+record = .provider_payload_record()
+parse_error = ""
+status = providerparse(payload, record, parse_error)
+errors = errors + check(status = 0 & parse_error = "", "provider parse")
+errors = errors + check(record.request_id() = "local-001" & record.model() = "gemini-fixture", "typed identity")
+errors = errors + check(record.text() = "Gràdh 中 ☺", "typed Unicode")
+errors = errors + check(record.prompt_tokens() = 12 & record.output_tokens() = 4, "typed integers")
+errors = errors + check(record.empty_present() = 1 & record.empty_text() = "", "empty distinct from missing")
+errors = errors + check(record.nullable_is_null() = 1 & record.missing_present() = 0, "null distinct from missing")
+errors = errors + check(record.label_count() = 2 & record.first_label() = "alpha", "typed array")
+errors = errors + check(record.metadata_mode() = "fixture" & record.metadata_active() = 1, "typed object")
+
+encoded = encodeprovider(record)
+errors = errors + check(jsonvalid(encoded) = 1 & jsonget(encoded, "text") = "Gràdh 中 ☺", "encoded projection")
+errors = errors + check(jsontype(encoded, "nullable") = "null" & jsontype(encoded, "intentionallyMissing") = "missing", "encoded null and missing")
+
+bad_record = .provider_payload_record()
+bad_error = ""
+status = providerparse('{"id":"broken","labels":[1,}', bad_record, bad_error)
+errors = errors + check(status = -1 & length(bad_error) > 0, "malformed input")
+
+missing_record = .provider_payload_record()
+missing_error = ""
+status = providerparse('{"id":"only"}', missing_record, missing_error)
+errors = errors + check(status = -2 & pos("missing required field", missing_error) > 0, "missing required field")
+
+/* Page rows from SQLite directly into typed cREXX records. */
+database = .binary
+errors = errors + check(sqliteopen(":memory:", database) = 0, "page database open")
+errors = errors + check(sqliteexec(database, "CREATE TABLE boundary_page_values(sequence INTEGER PRIMARY KEY,name TEXT NOT NULL,score REAL NOT NULL,note TEXT)") = 0, "page table")
+errors = errors + check(sqliteexec(database, "INSERT INTO boundary_page_values VALUES(1,'alpha',1.5,NULL),(2,'Gràdh 中',2.5,''),(3,'gamma',3.5,'note'),(4,'delta',4.5,NULL),(5,'epsilon',5.5,'last')") = 0, "page seed")
+page = .paged_value_record[]
+page_error = ""
+count = pagevalues(database, 0, 2, page, page_error)
+errors = errors + check(count = 2 & page[1].sequence() = 1 & page[2].name() = "Gràdh 中", "first typed page")
+errors = errors + check(page[1].note_kind() = "null" & page[2].note_kind() = "text" & page[2].note() = "", "paged null and empty")
+count = pagevalues(database, 2, 2, page, page_error)
+errors = errors + check(count = 2 & page[1].sequence() = 3 & page[2].sequence() = 4, "second typed page")
+count = pagevalues(database, 4, 2, page, page_error)
+errors = errors + check(count = 1 & page[1].sequence() = 5 & page[1].note() = "last", "partial final page")
+errors = errors + check(sqliteclose(database) = 0, "page database close")
+
+/* Measure parsing, record copy/materialization, and encoding independently. */
+iterations = 200
+paths = .string[]
+kinds = .string[]
+values = .string[]
+measure_error = ""
+parse_checksum = 0
+started = time("us")
+do i = 1 to iterations
+  flattened = flattenjson(payload, paths, kinds, values, measure_error)
+  parse_checksum = parse_checksum + flattened
+end
+parse_elapsed = elapsed_us(started)
+
+flattened = flattenjson(payload, paths, kinds, values, measure_error)
+copy_checksum = 0
+started = time("us")
+do i = 1 to iterations
+  measured_record = .provider_payload_record()
+  status = providermaterialize(paths, kinds, values, measured_record, measure_error)
+  copy_checksum = copy_checksum + measured_record.prompt_tokens() + length(measured_record.text())
+end
+copy_elapsed = elapsed_us(started)
+
+encode_checksum = 0
+started = time("us")
+do i = 1 to iterations
+  measured_json = encodeprovider(record)
+  encode_checksum = encode_checksum + length(measured_json)
+end
+encode_elapsed = elapsed_us(started)
+
+errors = errors + check(parse_checksum > 0 & copy_checksum > 0 & encode_checksum > 0, "component checksums")
+say "P1A_DATA_MEASURE component=parse_once elapsed_us=" || parse_elapsed || " iterations=" || iterations || " bytes=" || length(payload) || " checksum=" || parse_checksum
+say "P1A_DATA_MEASURE component=copy_materialize elapsed_us=" || copy_elapsed || " iterations=" || iterations || " records=1 checksum=" || copy_checksum
+say "P1A_DATA_MEASURE component=json_encode elapsed_us=" || encode_elapsed || " iterations=" || iterations || " bytes=" || length(encoded) || " checksum=" || encode_checksum
+
+if errors <> 0 then do
+  say "P1A_DATA_ERRORS=" || errors
+  return 1
+end
+say "P1A_DATA_OK unicode=1 empty=1 missing=1 null=1 arrays=1 objects=1 malformed=1 pages=2,2,1 whole_corpus_json=0"
+return 0

@@ -1,0 +1,8 @@
+options levelb
+
+must_return: procedure = .int
+  do forever
+    return 1
+  end
+
+say must_return()

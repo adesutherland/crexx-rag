@@ -1,0 +1,35 @@
+P0-01 Level B compatibility recovery
+Date: 2026-07-28
+
+User authorization:
+  "That may be a level b vs g bug in rxc? We can revert to B in the meantime"
+
+Scope:
+  Changed options levelg to options levelb only in maintained procedural
+  profile/controller programs. crexx/cprag.crexx and
+  crexx/profiles/balanced.crexx remain Level G as facade/example surfaces.
+
+Focused command:
+  ctest --preset debug -R 'crexx_deterministic_extractor_smoke|crexx_hybrid_extractor_smoke|crexx_generic_pipeline_smoke|use_case_wrapper_smoke' --output-on-failure
+
+Focused result:
+  100% tests passed, 0 tests failed out of 4
+  Total Test time (real) = 24.36 sec
+
+Repeated exact baseline:
+  cmake --preset debug
+  cmake --build --preset debug
+  ctest --preset debug --output-on-failure
+
+Configure result:
+  exit 0; generated cmake-build-debug
+Build result:
+  exit 0; ninja: no work to do.
+CTest result:
+  100% tests passed, 0 tests failed out of 11
+  Total Test time (real) = 24.93 sec
+
+Classification:
+  Installed cREXX Level G compiler-surface regression with a user-authorized
+  Level B source-mode compatibility recovery. The minimized Level G reproducer
+  remains retained; no sister-repository file was changed.

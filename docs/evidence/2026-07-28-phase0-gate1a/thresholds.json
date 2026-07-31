@@ -1,0 +1,40 @@
+{
+  "schema": "crexx-rag-gate0-thresholds-v1",
+  "status": "provisional-boundary-selection-thresholds",
+  "quality": {
+    "case_min_points": 13,
+    "case_max_points": 16,
+    "suite_min_fraction": 0.85,
+    "required_passage_recall_min": 0.90,
+    "citation_entailment_min_points_per_case": 1,
+    "critical_failures_allowed": 0
+  },
+  "context": {
+    "evidence_packet_max_bytes": 65536,
+    "narrative_passages_max": 12,
+    "accepted_claims_max": 8,
+    "graph_leads_max": 8,
+    "single_passage_max_chars": 4096,
+    "unresolved_citations_allowed": 0
+  },
+  "latency_us": {
+    "sqlite_write_512x128_max": 5000,
+    "vector_total_512x128_top10_max": 10000,
+    "crexx_algorithm_2000_max_each_vm": 10000,
+    "json_parse_1000_max_each_vm": 100000,
+    "record_materialize_512_max_each_vm": 5000,
+    "json_encode_1000_max_each_vm": 20000,
+    "loopback_provider_wait_25ms_max_each_vm": 100000
+  },
+  "memory_bytes": {
+    "native_vector_process_peak_max": 16777216,
+    "crexx_vm_process_peak_max_each": 67108864
+  },
+  "failure": {
+    "required_tests_may_fail": 0,
+    "malformed_or_timeout_may_crash": false,
+    "graph_lead_may_be_promoted_without_support": false,
+    "hosted_secret_may_appear_in_evidence": false,
+    "oracle_defects_are_desired_parity": false
+  }
+}

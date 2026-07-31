@@ -1,185 +1,84 @@
-# Pipeline Status
+# cREXX-Only Programme Status
 
-This page separates implemented behavior from planned behavior. It is intended
-for new contributors and agents who need to know what can be trusted today.
+Status date: 2026-07-31.
 
-The runnable end-to-end walkthrough is
-[`tutorial-import-improve-query.md`](tutorial-import-improve-query.md). Use this
-status page to understand what is implemented behind each tutorial step.
+This is the only living implementation-status page. The previous native-v1
+pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.md).
 
-## Status Summary
+## Decision And Gate State
 
-| Area | Status | Notes |
+| Area | State | Meaning |
 | --- | --- | --- |
-| Native core graph, chunk, candidate, queue, and attempt storage | Implemented | Domain-neutral C ABI and CLI surfaces exist. |
-| Local embedding provider abstraction | Implemented | `llama-server` and Ollama remain adapter-level; FAISS remains optional. |
-| Shared profile policy module | Implemented | `crexx/profiles/pipeline_profile.crexx` centralizes profile ids, namespaces, vocabulary, filters, cue words, validation, and concept id shape. |
-| Generic staged pipeline | Implemented baseline smoke path | `generic` now runs through Stage 1, 1b, 2, 2b, 3 dry-run, background improvement, and status. |
-| Scotland staged pipeline | Implemented demonstrator | Scotland uses the same staged controllers with profile-specific vocabulary and validation. |
-| Athens staged pipeline | Partial | Prompt/profile support exists, but it has not been hardened to the same level as generic and Scotland. |
-| Background improvement worker | Implemented budgeted single-worker wrapper | `scripts/run_background_improvement.sh` reuses the staged runner and uses an atomic lock. It is not yet a daemon. |
-| Multi-worker queue consumption | Planned | Needs native claim/lease semantics before multiple Stage 3 workers are safe. |
-| Review/fixup consumers | Implemented first native consumers | `resolve-work-queue` consumes `endpoint-resolution`, `ambiguity-review`, `type-review`, and `external-extraction-review` items conservatively. |
-| External LLM extract push | Partial producer workflow | `external-extraction-review` can promote normalized proposals; raw-output capture/normalization workflow is still profile/controller work. |
-| Agent-facing QA wrapper | Implemented first read surface | MCP `library_answer_evidence` returns an LLM-ready evidence bundle; Scotland prompt/helper remains as a demo wrapper. |
-| Executable use-case wrapper | Implemented | `scripts/run_use_case.sh` dispatches initial-load, add-documents, background-improve, search, and MCP QA evidence workflows; covered by `use_case_wrapper_smoke`. |
+| Product direction | Approved | Application and algorithms move to cREXX over generic facilities |
+| Specification and architecture | Approved target | They define intended behavior, not already-shipped commands |
+| Documentation retirement | Complete in this worktree | Competing native-v1 guidance is archived and indexed |
+| Native-v1 implementation | Preserved oracle | Buildable for fixtures, goldens, defects, and comparison; not the target architecture |
+| Phase 0 | Complete | P0-01 through P0-07 including P0-04A are accepted in the dated evidence bundle |
+| Gate 0 | Passed | Full configure/build/CTest passed 17/17 with 19 frozen hashes and raw measurements |
+| Phase 1A | Complete diagnostic unit | P1A-SDK-01 through P1A-SUR-01 all have focused retained correctness/failure/profile evidence |
+| Gate 1A | Reached; candidate replay passed; stopped for decision | All CRI items are closed downstream; no Phase-1B choice is approved by this evidence alone |
+| Phase 1B and later | Not authorized | No hardening, donation implementation, schema v2, cutover, or retirement yet |
 
-## Generic Path
+## Current Product Reality
 
-The generic path is deliberately small. It proves the reusable framework without
-depending on Scotland-specific concepts:
+The checked-in executable remains the native-v1 C++ core with CLI, MCP, RXPA
+bridge, cREXX profiles/controllers, SQLite/FTS, optional FAISS, queues, and the
+staged generic/Scotland proof. Those capabilities remain useful only as the
+executable comparison oracle during the approved phases.
 
-```bash
-scripts/run_history_pipeline.sh \
-  --library ./generic-demo.cprag \
-  --profile generic \
-  --stages stage1,stage1b,stage2,stage2b,stage3,status \
-  --mode offline \
-  --source-file ./tests/fixtures/generic-it.txt \
-  --stage1-chunk-limit 2 \
-  --stage1b-min-count 1 \
-  --stage2b-limit 5 \
-  --stage3-limit 2 \
-  --stage3-mode dry-run \
-  --no-require-models
-```
+At Gate 0 on 2026-07-28, the debug preset passed 17/17 tests after a
+user-authorized Level B compatibility recovery for an installed `rxc` Level G
+`PARSE VAR` regression. The initial 7/11 failure, minimized reproducer, recovery,
+fixtures, goldens, defects, judgements, hashes, raw measurements, and protocols
+are retained under `docs/evidence/2026-07-28-phase0-gate1a/`.
 
-Generic defaults:
+On 2026-07-31 the user approved the exact CREXX `develop` candidate
+`ea25d1720c8dc4044614fa6ac4789811289dc8ca` for a downstream-only replay. A
+fresh source build was installed into a scratch prefix; the downstream project
+configured with both SDK/source fallbacks off. The custom JSON/vector envelope
+was retired in favour of production `rxjson.jsondocument` and explicit owning
+headerless `node_f32_array`/`node_i64_array` projections. Element type, count
+and dimensional meaning now belong to the application schema.
 
-- profile id: `generic.hybrid.v1`
-- graph namespace: `generic`
-- node types: `service`, `data-object`, `component`, `person`, `place`,
-  `institution`, `source-work`
-- relationship types: `associated-with`, `part-of`, `located-in`,
-  `caused-by`, `succeeded-by`, `source-claims`
+The provider adapter uses that production parse-once path and raw binary.
+Deterministic generation, embedding, malformed response, timeout, connection
+and provider-error coverage passed on both VMs without the retired `rx_socket`
+module argument. No hosted call or credential was used. The historical failed
+and successful Gemini canaries remain separate evidence and are not
+reinterpreted as an `rxhttp` defect.
 
-The default generic sample seeds a small IT-style vocabulary:
+P1A-VEC-01 passed exact cosine/top-k ordering and tie behavior plus a 32 by 768
+raw-f32 page with application-owned schema on both VMs. P1A-ALG-01 passed immutable source revisions,
+zero-write identical reingest, paragraph reuse, exact claim support/retraction,
+citation, lead, and gap. P1A-JOB-01 passed real before/after-promotion process
+termination, DB-issued fences, stale-worker rejection, idempotent recovery, and
+one support row. P1A-SUR-01 now returns the imported Level-B record directly
+through Level G; CLI JSON, actual `ADDRESS RAG`, and MCP `structuredContent`
+remain semantically equal. The installed `crexx-contract` helper emits the
+external `crexx.operation-contract/1` status-evidence artifact.
 
-- `Authentication Service`
-- `Backup Service`
-- `PostgreSQL`
-- `User Profile Data`
+Concrete CRI-01/04/05 reproducers, the CRI-02 binary probe and the CRI-06/07
+SDK matrix pass optimized/non-optimized on both VMs where runtime-relevant. The
+fresh deterministic/loopback closeout suite passed 28/28, 0 failed, 0 skipped
+in 110.30 seconds. Exact evidence is under
+`docs/evidence/2026-07-31-gate1a-crexx-candidate/`.
 
-That sample is intentionally mundane. It is a framework test, not domain tuning.
+No cREXX-only production path, schema v2, selected provider contract,
+production `rxsqlite`, safe multi-worker queue, or target command set is claimed
+implemented yet.
 
-## Scotland Path
+## Gate-1A Decision Stop
 
-The Scotland path should remain profile-specific policy over the generic stages.
-Its current policy lives in `crexx/profiles/pipeline_profile.crexx`: vocabulary,
-type filters, cue words, validation rules, candidate typing, and ambiguity
-decisions. Scotland should not own queue mechanics, status, candidate
-persistence, or native graph writes directly.
+Use the [implementation handoff](../prompts/phase0-phase1a-implementation-handoff.md)
+and the [roadmap](crexx-only-implementation-roadmap.md). Update this page only
+from retained evidence:
 
-Current Scotland status:
+- use the refreshed Gate-1A decision packet and candidate-integration closeout;
+- choose the SQLite, record/JSON, provider, vector, publication, fencing, and
+  facade boundaries explicitly before Phase 1B;
+- preserve the failed and successful canary evidence as separate facts;
+- do not turn any incubation slice into a production library, CREXX donation,
+  schema-v2 module, or native replacement without new approval.
 
-- Stage 1 candidate census has been run over the two-volume corpus.
-- Stage 1b candidate adjudication has been run.
-- Stage 2 mention/co-occurrence graph seeding has been run.
-- Stage 2b ranked extraction queues are available.
-- Stage 3 has processed 124 real chunks plus one skipped chunk.
-- Endpoint-resolution and ambiguity-review backlogs can be consumed by the
-  generic native `resolve-work-queue` helper after inspection.
-
-## Fixup Queues
-
-Use generic work queues for fixup and review workloads rather than
-profile-specific shell scripts:
-
-```bash
-./cmake-build-debug/crexx-rag work-queue \
-  ./scotland.cprag \
-  history.scotland.hybrid.v1 \
-  fixup \
-  endpoint-resolution \
-  pending \
-  20
-
-./cmake-build-debug/crexx-rag resolve-work-queue \
-  ./scotland.cprag \
-  history.scotland.hybrid.v1 \
-  fixup \
-  endpoint-resolution \
-  20 \
-  apply
-```
-
-Current consumers:
-
-- `endpoint-resolution`: writes a typed edge only when the source id, target id,
-  and relationship type are present and both endpoint entities already exist.
-- `ambiguity-review`: creates or refreshes an explicit `ambiguity` node and
-  `candidate-for` edges to existing candidate concepts.
-- `type-review`: accepts a proposed type for an existing entity without
-  overwriting its label or description.
-- `external-extraction-review`: promotes one normalized external node proposal,
-  edge proposal, or node-plus-edge proposal through native graph upsert/support
-  accumulation.
-
-Leaving off `apply` gives a dry preview. Applied runs record `work_attempts` and
-update queue item status through the same durable tables as Stage 3.
-
-## Background Improvement
-
-Use the background improvement wrapper for budgeted local runs:
-
-```bash
-scripts/run_background_improvement.sh \
-  --library ./scotland.cprag \
-  --profile scotland \
-  --queue-id improve-scotland-$(date +%Y%m%d) \
-  --mode online \
-  --stage2b-limit 100 \
-  --stage3-limit 25 \
-  --stage3-mode online \
-  --max-cycles 1
-```
-
-The worker:
-
-- reuses `scripts/run_history_pipeline.sh`;
-- takes an atomic filesystem lock;
-- runs a bounded number of cycles;
-- records logs under `.local/background-improvement`;
-- is safe as a single-worker foreground process.
-
-It does not yet:
-
-- claim individual queue items;
-- coordinate multiple readers;
-- restart failed model servers;
-- install itself as a daemon.
-
-## Agent-Facing QA
-
-For LLM clients, prefer MCP `library_answer_evidence` over raw `library_search`.
-It returns source-bound policy, a retrieval plan, retrieved chunks, accepted
-typed graph claims, graph-only leads, and answer guidance in one bundle. Manual
-stdio smoke:
-
-```bash
-scripts/run_use_case.sh qa-evidence \
-  --library ./generic-demo.cprag \
-  --question "What evidence connects authentication to the database?"
-```
-
-Use `library_search` only for diagnostics or custom retrieval experiments.
-
-## Boundary Rules
-
-- Native core operations own durable state: chunks, candidate tables, graph
-  upserts, support accumulation, queues, attempts, traversal, and search.
-- Staged CREXX controllers own orchestration: which stage to run, limits,
-  cursors, queue names, and model routing.
-- `pipeline_profile.crexx` owns profile policy: default ids, namespaces,
-  vocabulary, filters, cue words, candidate typing, ambiguity handling,
-  validation choices, and concept id shape.
-- Scotland should remain a small policy layer over the generic framework, not a
-  fork of the pipeline.
-- Vector similarity may prioritize or find candidates for inspection, but must
-  not create typed domain edges by itself.
-- Dry-run Stage 3 attempts record `dry-run`, not `skipped`, so test probes do
-  not poison future ranking. `resolve-work-queue` dry previews are non-mutating;
-  pass `apply` to write graph facts and attempts.
-- Evidence chunks and edges should carry `evidence_class` and `directness`.
-  Answer wrappers and ranking should prefer narrative passages and accepted
-  typed edges over locators, captions, and mention-only graph leads.
+Do not copy milestone claims from the archived status page into this page unless
+Phase 0 re-verifies them.

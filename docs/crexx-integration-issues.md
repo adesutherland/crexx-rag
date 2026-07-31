@@ -1,131 +1,70 @@
 # CREXX Integration Issues
 
-This project intentionally treats the installed CREXX toolchain as the
-compatibility target. The sibling `../CREXX` checkout is useful for reading
-current source and documentation, but it is not the default build dependency
-because it can change independently of the installed user experience.
+Status date: 2026-07-31. The approved downstream replay used CREXX `develop`
+at `ea25d1720c8dc4044614fa6ac4789811289dc8ca`
+(`feat: close crexx-rag integration ledger`). It was built out of tree and
+installed only into `/tmp/crexx-rag-crexx-prefix.1GWSHu`.
 
-## Observed On This Machine
+All fourteen Gate-1A CREXX integration requests now have an accepted upstream
+disposition and a downstream replay. This closes compatibility and packaging
+issues; it does not authorize Phase 1B, production hardening, donation,
+cutover, or native-v1 retirement.
 
-- Installed `crexx`: `/Users/adrian/.local/bin/crexx`
-- Version reported by `crexx --help`:
-  `crexx-1.0.0-beta.2+local.g5eb8fdc73263` built `20260617`
-- Installed directory contains runtime binaries, `.rxplugin` files, static
-  libraries, and native link flag files.
-- No installed `crexxpa.h` was found under `/Users/adrian/.local`.
-- No installed `RXPluginFunction.cmake` was found under `/Users/adrian/.local`.
-- The rxpa `SETSTRING`/`RETURNSIGNAL` macros ultimately pass strings to a
-  callback typed as mutable `char *`, so plugin code that naturally has
-  `const char *` status messages needs local mutable copies to avoid compiler
-  warnings.
-- The installed driver separates compile-time import roots from runtime module
-  loading. `-i cmake-build-debug/bin` lets `rxc` read native signatures from the
-  plugin, but the VM still needs `rx_rag` listed as a runtime module and
-  `cmake-build-debug/bin` on the VM location path.
+## CRI-01 through CRI-14 downstream disposition
 
-## Current Impact
+| ID | CREXX disposition | Downstream disposition and proof |
+| --- | --- | --- |
+| CRI-01 | Fixed | Resolved by the approved CREXX candidate. Cross-module Level B record identity now survives Level G return, assignment and invocation without weakening nominal checks. The string-only facade was removed after CLI, ADDRESS and MCP semantic comparison passed. |
+| CRI-02 | Fixed | Resolved. Exact read-only, non-escaping by-value binary formals no longer materialize a payload copy when inlined. The retained probe has matching checksums on both VMs and no optimized inversion. Exposure is no longer required as a compiler workaround; direct access remains only in the naturally direct cosine hot loop. |
+| CRI-03 | No CREXX change | Closed as no CREXX transport defect. Deterministic timeout, malformed-response and connection failures remain structured; the historical hosted delay was repeated downstream reparsing plus an ineffective dimension field. No hosted call was made in this replay. |
+| CRI-04 | Fixed | Resolved. Terminal non-fall-through `do forever` is accepted while reachable fall-through still requires a return. The two downstream dummy returns were removed and the retained reproducer compiles optimized and non-optimized. |
+| CRI-05 | Fixed | Resolved. Authored Level G `PARSE` compiles normally while its certified lowering is legal and authored Level G assembler remains rejected. All affected profile/controller sources are Level G again, and the concrete PARSE reproducer passes both modes and both VMs. |
+| CRI-06 | Fixed | Resolved. Malformed RXPA signature declarations produce `RXPA_IMPORT_SIGNATURE_INVALID` with source location, plugin, routine, field and declaration; no internal compiler error remains. The downstream negative runs in both modes. |
+| CRI-07 | Documented/package-closed | Resolved. The installed package provides version-matched headers, imported CMake targets, explicit directories and the plugin helper. The external no-fallback consumer passes both VMs; vendored headers, generated-header copying and source-checkout fallback logic were removed. |
+| CRI-08 | Fixed | Resolved without an ABI layout change. Setter and signal paths accept immutable diagnostic/status strings. The external SDK probe now passes the installed version string as `const char *`; unnecessary mutable casts were removed. |
+| CRI-09 | Fixed | Resolved by generic JSON facilities, not provider vocabulary: production `rxjson.jsondocument` supplies parse-once typed traversal, noisy-container scanning, null/missing distinctions, Unicode, malformed/truncated failure and explicit statuses. The competing downstream JSON class was deleted and all callers migrated. |
+| CRI-10 | Documented/package-closed | Existing scalar/array ADDRESS redirects capture stdout, stderr, status, empty and Unicode/multiline output. The downstream surface equality test remains green. |
+| CRI-11 | Documented/package-closed | `CREXX run :argv[]` remains the supported shell-free argv-preserving route, with whitespace, empty arguments, quotes, Unicode and metacharacters covered by the retained package evidence. No downstream workaround was needed. |
+| CRI-12 | Documented/package-closed | Redirect arrays append; callers use `arraydrop` when replacement rather than accumulation is required. No downstream workaround was needed. |
+| CRI-13 | Fixed | Resolved. One immutable production JSON document projects explicit `node_f32_array`/`node_i64_array` owning raw little-endian binary. JSON does not infer width, byte order, dimensions or vector meaning; the application schema stores `element_type`, `element_count` and dimensional meaning. The F32V/I64V envelope and wrapper classes were deleted. |
+| CRI-14 | Fixed | Resolved by the durable build-time `crexx.operation-contract/1` artifact, `crexx-contract` and installed CMake helper. The status-evidence contract is generated by `crexx_add_operation_contract()` and consumers do not inspect private RXBIN graph metadata. |
 
-`crexx-rag` can build the native core, CLI, MCP server, and tests from the
-installed system dependencies. It can also build and run the `rx_rag.rxplugin`
-dynamic CREXX plugin against the installed CREXX runtime, provided the temporary
-vendored rxpa development header remains available.
+## Selected-package and replay facts
 
-The runtime smoke is:
+- Scratch install: 141 files; complete SHA-256 manifest
+  `ea5a0da5723c8f58f368d4beefc201a348b5c85147a5137bdbf650fef2fdc318`.
+- Selected identity: `crexx-1.0.0-beta.3+local.gea25d1720c8d`.
+- No-fallback cache: `CPRAG_ALLOW_VENDORED_CREXXPA=OFF` and
+  `CPRAG_ALLOW_CREXX_SOURCE_FALLBACK=OFF`.
+- Clean downstream build: 27 Ninja steps. Its build graph, CTest file and cache
+  contain no CREXX sister-checkout or normal-prefix selection.
+- Deterministic/loopback suite: 28/28 passed, 0 failed, 0 skipped in 110.30
+  seconds. The additional test registers CRI-01/04/05 concrete reproducer
+  coverage in optimized/non-optimized modes on both VMs.
+- Read-only binary probe checksum: `47201280` in every cell. Optimized
+  by-value was 1,194 us versus 3,573 us non-optimized on `rxvme`, and 1,209 us
+  versus 3,613 us on `rxbvm`, satisfying the accepted `<=0.90x` inversion gate.
+- Generated operation contract SHA-256:
+  `de7266e1bc7aeafb8b8731c0fac9305049b92f71ddcce8c426220f99be8b6c7f`.
 
-```bash
-ctest --preset debug -R crexx_profile_smoke --output-on-failure
-```
+Exact commands, artifact hashes, focused results, baseline failures and the
+preservation audit are indexed by
+[`evidence/2026-07-31-gate1a-crexx-candidate/`](evidence/2026-07-31-gate1a-crexx-candidate/).
 
-The underlying installed-tool pattern is documented in
-[`crexx-plugin-pattern.md`](crexx-plugin-pattern.md).
+## Remaining seams
 
-The project still cannot build the plugin from the installed CREXX package alone
-because the rxpa development header is not installed.
+No CREXX compatibility item remains open at Gate 1A. The still-bounded items
+are product decisions: Phase-1B boundary approval, production schema and
+migrations, provider hardening, representative vector crossover measurement,
+cross-platform validation and eventual cutover policy. They are not authorized
+by this replay.
 
-As a temporary bridge, this repo vendors a copy of `crexxpa.h` from the sibling
-CREXX source tree at `third_party/crexx-rxpa/crexxpa.h`. That header depends on
-generated `crexx_version.h`, so this repo also vendors a generated sibling-copy
-of that companion header. TODO: remove both files and the fallback when CREXX
-installs version-matched development headers.
+The historical Google timeout remains retained negative evidence. It must not
+be reclassified as an `rxhttp` defect, and no hosted credential or call belongs
+in the repeatable Gate-1A pipeline.
 
-The CMake build uses the CREXX plugin header in this order:
+## Policy for this repository
 
-- `-DCREXX_RXPA_INCLUDE_DIR=/path/to/installed/include` points at an installed
-  directory containing `crexxpa.h`.
-- `third_party/crexx-rxpa/crexxpa.h` exists and
-  `CPRAG_ALLOW_VENDORED_CREXXPA=ON`.
-- `-DCPRAG_ALLOW_CREXX_SOURCE_FALLBACK=ON` is set for temporary source-checkout
-  diagnosis.
-
-To verify the installed CREXX package without the vendored shim:
-
-```bash
-cmake --preset debug -DCPRAG_ALLOW_VENDORED_CREXXPA=OFF
-```
-
-## Requests For CREXX
-
-- Install `rxpa/crexxpa.h` as part of a CREXX development package or default
-  local install.
-- Install the transitive development headers required by `crexxpa.h`, including
-  a version-matched generated `crexx_version.h`.
-- Install or generate a CMake package/config file for external native plugin
-  projects.
-- Include the plugin target helper or equivalent metadata outside the source
-  tree, for example an installed `RXPluginFunction.cmake`.
-- Provide a machine-readable command such as `crexx --print-dev-info` or
-  `crexx --print-plugin-cflags` that reports:
-  - include directories
-  - plugin suffix and prefix
-  - linker flags for native/plugin builds
-  - runtime plugin search directories
-  - CREXX version/build id
-- Document the recommended external dynamic plugin build flow against an
-  installed CREXX tree.
-- Document clearly that an external project must expose a locally built
-  `.rxplugin` to both the compiler/import phase and the runtime module loader.
-- Consider making rxpa string setter APIs accept `const char *` where the
-  callee does not mutate the passed string.
-- Add first-class helpers for fuzzy parsing and validation of LLM/tool output.
-  The hybrid RAG profile repeatedly needs to accept "nearly right" local-model
-  output such as missing optional fields, extra commas around numbers, Markdown
-  table rows instead of plain pipe-separated records, and confidence values with
-  punctuation. Useful CREXX-level helpers would include tolerant record parsing,
-  field-count repair, numeric coercion with defaults/clamping, enum validation,
-  and structured diagnostics describing which field was repaired or rejected.
-- Improve ergonomic handling of multi-line ADDRESS command output. Profiles need
-  to call command-shaped model/CLI adapters and then parse line-oriented output
-  without fragile manual stem joining, embedded newline passing surprises, or
-  ad hoc row separators. A standard "capture stdout as lines" API plus helpers
-  to iterate or map those rows would make LLM-assist controllers much easier to
-  write safely.
-- Document or provide a first-class argv-vector form for `ADDRESS COMMAND`.
-  Current tests show stdout/stderr redirects to arrays and stdin from arrays
-  work well, but the executable token must be left unquoted while arguments may
-  need quoting. A direct argv array would avoid ambiguous command-string parsing
-  for executable paths, model ids, URLs, and user-provided text.
-- Document array lifecycle for command redirects prominently. In practice,
-  output arrays should be cleared with `arraydrop` before reuse; assigning a new
-  `.string[]` object is not the same as clearing an existing redirect target in
-  all repeated-capture cases.
-- Investigate large JSON traversal performance in Rexx controllers. During the
-  Scotland Stage 1b run, asking CREXX to load a full candidate census JSON array
-  and then repeatedly call `jsonget` over it made `rxvme` CPU-bound before the
-  first LLM call; the log stayed empty while the VM consumed a full core. Even a
-  small offline `limit=64` run took about 38 seconds without model work. The
-  repo-side countermeasure is to expose native pending/paged candidate-census
-  APIs and keep each CREXX page small. A CREXX-side improvement would be cached
-  parsed JSON handles, array/table iterators, or cursor-like access so profile
-  scripts can process large native result sets without reparsing or path-walking
-  a giant string repeatedly.
-- Consider a small schema/contract surface for CREXX scripts that consume
-  external tools: declare expected fields, allowed values, coercions, defaults,
-  and retry/repair policy, then get back either a typed record or a useful error
-  object. This would let a profile decide whether to repair locally, ask a tiny
-  model to reformat, or escalate to a stronger model.
-
-## Policy For This Repo
-
-Do not silently rely on `../CREXX/rxpa/crexxpa.h`. If that fallback is needed,
-enable it explicitly and leave a note here if the installed package is still
-missing something that external plugin authors need.
+Consume CREXX through an installed CMake package. Do not restore vendored RXPA
+headers, generated-header copying, a sister-source fallback, or a normal-prefix
+install as an implicit dependency. Keep the CREXX source checkout read-only.

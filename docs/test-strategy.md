@@ -1,154 +1,94 @@
-# Test Strategy And Acceptance Criteria
+# cREXX-Only Test Strategy
 
-The project is moving from proof of concept toward production quality. Tests
-should prove the generic framework first, then prove profile-specific behavior
-as a small layer on top.
+Status: living acceptance policy for the approved programme, 2026-07-31.
 
-## Acceptance Criteria
+The detailed item matrix and decision gates are in the
+[implementation roadmap](crexx-only-implementation-roadmap.md). The former
+native-v1 test strategy is [archived](archive/native-v1/test-strategy.md) and is
+an oracle input, not the target acceptance model.
 
-### Build And Unit Quality
+## Test Principles
 
-- `cmake --preset debug` succeeds.
-- `cmake --build --preset debug` succeeds.
-- `ctest --preset debug --output-on-failure` succeeds.
-- Refactor-focused subsets are runnable through CTest labels:
-  - `ctest --preset debug -L core --output-on-failure`
-  - `ctest --preset debug -L queue --output-on-failure`
-  - `ctest --preset debug -L fixup --output-on-failure`
-  - `ctest --preset debug -L cli --output-on-failure`
-  - `ctest --preset debug -L mcp --output-on-failure`
-  - `ctest --preset debug -L crexx --output-on-failure`
-  - `ctest --preset debug -L pipeline --output-on-failure`
-  - `ctest --preset debug -L use-case --output-on-failure`
-- `git diff --check` is clean.
-- CREXX smoke tests are skipped only when the installed CREXX toolchain is not
-  available; otherwise they must pass.
+- Test semantic records, citations, lifecycle effects, and failure behavior;
+  do not bless volatile row ids or incidental JSON formatting.
+- Keep the native-v1 path unchanged as a comparison oracle. Known defects are
+  negative fixtures, not desired parity.
+- Use redistributable generic IT and Scotland-shaped fixtures. Never commit
+  copyrighted corpus material, credentials, or private content.
+- Every benchmark result records the exact commit/dirty state, installed
+  toolchain, VM, build type, hardware, fixture hash, provider/model, command,
+  raw output, and measurement component.
+- Run comparisons in the same session and separate SQLite, cREXX algorithm,
+  provider wait, JSON/record/codec, vector transfer/decode/compute/selection,
+  and memory costs.
+- New maintained test, fixture, benchmark, and analysis logic should be cREXX
+  Level B where practical. CMake/CTest may orchestrate it; shell remains thin.
+- Generic native-plugin tests contain no RAG nouns or product schema.
+- Local and hosted providers share one target contract. Phase 0 makes no hosted
+  call and uses no hosted credential. For P1A-LLM-01 only, the user's later
+  instruction explicitly authorizes a Google/Gemini generation and embedding
+  canary using `GEMINI_API_KEY`; deterministic success/failure coverage remains
+  loopback-only and the key is never logged or retained.
 
-### Generic Pipeline
+## Phase 0 Acceptance
 
-The generic path is accepted when:
+Gate 0 requires all of the following to be reproducible:
 
-- Stage 1 can ingest and census a small text without domain-specific flags.
-- Stage 1b can adjudicate candidates offline.
-- Stage 2 can seed generic concept and evidence links.
-- Stage 2b can build a ranked `chunk-extraction` queue.
-- Stage 3 dry-run can consume queue items and record `dry-run` attempts.
-- `queue-status` reports queue items and attempts for `generic.hybrid.v1`.
-- A budgeted background improvement cycle can run through the same generic path.
-- The staged controllers import `pipeline_profile` for profile policy instead
-  of hard-coding generic, Scotland, or Athens vocabulary and type rules.
+1. Clean current-oracle configure, build, and CTest results with exact counts
+   and skips.
+2. Hashed generic IT and sanitized Scotland-shaped fixtures covering exact
+   keywords/keyphrases, aliases, semantic paraphrase, ambiguity, chronology,
+   multiple support, stance, deletion, and directed graph paths.
+3. Golden chunking, census, adjudication, graph seeding, extraction ranking,
+   queue, deletion, lexical/vector/graph retrieval, and evidence-packet outputs.
+4. Explicit demonstrations of same-URI chunk-id churn, stale support after
+   source change/deletion, unsafe queue crash boundaries, and fixed-buffer
+   whole-result JSON materialization.
+5. Scotland and held-out IT judgement sets for passage relevance, keyword/alias
+   expansion, claim support/stance/time, graph leads, citation entailment,
+   ambiguity/conflict, and expected gaps.
+6. Raw same-session benchmark results and a fixed/blinded answer-evaluation
+   protocol with predeclared quality, context-cost, latency, and memory metrics.
 
-CTest coverage:
+An incomplete or non-reproducible item fails Gate 0 and prevents Phase 1A.
 
-- `crexx_generic_pipeline_smoke`
+## Phase 1A Acceptance
 
-### Scotland Profile
+Each bounded slice needs target-only CTest coverage and retained raw evidence:
 
-The Scotland profile is accepted when:
+| Slice | Minimum proof |
+| --- | --- |
+| SDK | Scratch-installed package supplies headers, imported targets and helper; independent plugin builds with both fallbacks off; valid and structured-invalid signatures run in both modes/VMs |
+| SQLite | Typed null/integer/real/Unicode text/blob, values beyond old buffers, cursor paging, rollback, FTS5, stale handles, and forced cleanup |
+| Data | Production parse-once Unicode/missing/null/empty/array/object behavior and paged typed records; explicit owning headerless `f32le`/`i64le` projections; application-owned type/count; optimized/`-n` correctness and same-session benchmarks on both VMs |
+| Provider | Credential-free deterministic loopback generation/embedding/malformed/timeout/connection/provider failure on both VMs; any separately authorized hosted canary remains non-repeatable evidence |
+| Vector | Raw float32 round-trip with schema-owned count/meaning, deterministic cosine/top-k ordering/ties, and separate transfer/decode/compute/selection/memory results on both supported VMs |
+| Algorithm | First ingest, exact no-op, one-paragraph edit/reuse, support promotion/retraction, FTS, citation, and evidence packet |
+| Job | Atomic claim, DB-issued fence, forced termination before/after promotion, stale-worker rejection, and idempotent recovery |
+| Surfaces | Imported typed record returned through Level G; semantic equality through CLI JSON, `ADDRESS RAG`, and MCP `structuredContent`; external contract generated as `crexx.operation-contract/1` with the installed helper |
 
-- It uses the same staged runner and native queue APIs as generic.
-- Its profile-specific code is limited to `pipeline_profile` policy entries:
-  vocabulary, type filters, relationship filters, cue words, prompt hints,
-  ambiguity decisions, and validation choices.
-- It does not duplicate generic queue/status/background mechanics.
-- Scotland QA answers cite corpus evidence and separate direct claims from graph
-  adjacency.
+Gate 1A also requires a boundary decision packet that states rejected
+alternatives, surface weaknesses, donation candidates, unresolved risks, and
+exact Phase-1B choices. Passing PoCs are not production acceptance.
 
-Current CTest coverage:
+All Phase-1A slice prerequisites and the approved CREXX-candidate replay have
+retained focused passes. The failed first Gemini attempt remains negative
+diagnostic evidence; it is not an `rxhttp` defect and no hosted call belongs in
+the repeatable replay. The refreshed full suite passed 28/28 with zero failures
+and zero skips. Gate 1A remains an unconditional stop for Phase-1B approval.
 
-- `crexx_hybrid_extractor_smoke`
-- `crexx_deterministic_extractor_smoke` for the legacy deterministic demo until
-  staged tests cover the same graph/DOT/path behavior
-- prompt dry-runs for Scotland extraction/advice
+## Required Commands
 
-Additional Scotland acceptance tests should be added around:
+At the Phase-0 baseline and Gate 1A:
 
-- Sutherland ambiguity as clan/place/family/title;
-- Mackay/Sutherland/Strathnaver direct-vs-adjacent claims;
-- Black Watch/`Am Freiceadan Dubh` source-grounded origin;
-- MacGregor proscription and "Children of the Mist";
-- Ossian/Macpherson nuanced-authenticity evidence.
+```bash
+cmake --preset debug
+cmake --build --preset debug
+ctest --preset debug --output-on-failure
+git diff --check
+```
 
-### Background Improvement
-
-The background improvement worker is accepted when:
-
-- it reuses `scripts/run_history_pipeline.sh`;
-- it has a single-worker lock;
-- it is budgeted by cycle count and per-cycle limits;
-- it writes logs and leaves durable queue status;
-- dry-runs do not mark work as `processed` or `skipped`;
-- online mode requires models unless `--no-require-models` is explicitly set.
-
-Multi-worker operation is not accepted until native claim/lease semantics exist.
-
-### Model Adapter Stability
-
-Local model support is accepted when:
-
-- `scripts/status_local_llama_servers.sh --smoke` verifies embedding, chat, and
-  advisor endpoints;
-- server start/stop scripts do not hide missing tools;
-- llama.cpp remains optional and adapter-level;
-- no native-core build depends on llama.cpp, Ollama, FAISS, or Python.
-
-### Agent-Facing QA
-
-The MCP QA surface is accepted when:
-
-- `tools/list` advertises `library_answer_evidence` in read-only mode;
-- the tool validates typed arguments before search;
-- the returned bundle includes source-bound policy, retrieval plan,
-  `narrative_chunks`, `graph_claims`, `graph_leads`, and answer guidance;
-- graph-only `mentioned-in` paths are labelled as leads rather than direct
-  claims;
-- stored `directness` and `evidence_class` metadata are preferred when present.
-
-CTest coverage:
-
-- `mcp_smoke`
-
-## Test Layers
-
-1. Native unit tests: C++ core behavior, schema migration, search, generic work
-   queue APIs, endpoint/ambiguity/type/external-review consumers, queue status,
-   evidence directness/class metadata, and support accumulation.
-2. Profile contract tests: compile the shared `pipeline_profile` module and load
-   it alongside every staged controller that imports it.
-3. CLI prompt tests: dry-run prompt shape for generic, Scotland, and Athens.
-4. CREXX plugin tests: compile/import/runtime surface against installed CREXX.
-5. Generic pipeline smoke: offline full staged path plus one improvement cycle.
-6. Profile smokes: Scotland and Athens-specific behavior over shared stages.
-7. Live local-model smokes: optional, explicit, and not required by ordinary
-   `ctest`.
-8. Corpus acceptance runs: bounded, logged, and summarized with queue status and
-   graph/search deltas.
-
-## Test Data Rules
-
-- Tiny smoke corpora should be checked in or generated by CMake scripts.
-- Large `.cprag` libraries and generated FAISS sidecars stay out of git.
-- Tests should prefer dry-run LLM paths unless specifically validating local
-  model adapters.
-- Regression tests should check durable state through public CLI/CREXX APIs,
-  not direct SQLite queries, unless the test is specifically about schema state.
-
-Current dedicated consumer coverage:
-
-- `ragcore_work_queue_consumers`: native type-review and external-review
-  semantics, dry-run protection, skipped items, attempts, and graph metadata.
-- `cli_work_queue_consumers_smoke`: CLI promotion path for type-review and
-  external-extraction-review.
-- `ragcore_smoke`: broad native regression including endpoint and ambiguity
-  review consumers.
-- `use_case_wrapper_smoke`: executable wrapper coverage for initial-load,
-  add-documents, background-improve dry-run, search, MCP QA evidence, and the
-  tutorial review/fixup preview commands.
-
-## Roadmap Gaps
-
-- Native queue claim/lease tests.
-- Multi-worker queue reader tests once claim/lease exists.
-- Broader golden QA/evidence tests for Scotland-style ambiguity and hard
-  corpus questions.
-- Performance budget tests for CREXX address-command calls and JSON parsing.
+Use small target-only loops between those broad gates. Record an explicit reason
+for any unavailable CREXX VM or local-provider mode. Finish with a worktree audit
+showing all pre-existing user changes and every sister-repository file were
+preserved.

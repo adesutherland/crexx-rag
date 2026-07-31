@@ -1,0 +1,45 @@
+CTest command:
+  ctest --preset debug -R p1a_sdk_probe --output-on-failure
+
+Result:
+  p1a_sdk_probe passed (1.87 sec)
+  100% tests passed, 0 tests failed out of 1
+
+Scratch crexx-rag configuration boundary:
+  cmake -S /Users/adrian/CLionProjects/crexx-rag \
+    -B <work>/crexx-rag-no-fallback -G Ninja \
+    -DCPRAG_ALLOW_VENDORED_CREXXPA=OFF \
+    -DCPRAG_ALLOW_CREXX_SOURCE_FALLBACK=OFF \
+    -DCREXX_RXPA_INCLUDE_DIR=<sdk>/include/rxpa \
+    -DCREXX_VERSION_INCLUDE_DIR=<sdk>/include/rxpa \
+    -DCPRAG_BUILD_CLI=OFF -DCPRAG_BUILD_MCP=OFF -DCPRAG_BUILD_TESTS=OFF
+  cmake --build <work>/crexx-rag-no-fallback --target _rag
+
+Result: configuration exit 0; `_rag` built in 5 Ninja steps; no vendored
+fallback diagnostic occurred.
+
+External plugin build:
+  cmake -S incubator/p1a/sdk_probe -B <work>/external-build -G Ninja \
+    -DRXPA_SDK_ROOT=<sdk> -DCPRAG_ALLOW_VENDORED_CREXXPA=OFF
+  cmake --build <work>/external-build --target _sdk_probe --verbose
+
+Compile/link commands:
+  /usr/bin/cc -DBUILD_DLL -DPLUGIN_ID=rx_sdk_probe -D_sdk_probe_EXPORTS \
+    -I<sdk>/include/rxpa -arch arm64 -fPIC -c sdk_probe.c
+  /usr/bin/cc -arch arm64 -bundle -o bin/rx_sdk_probe.rxplugin sdk_probe.c.o
+
+Consumer compile/load commands:
+  rxc -i '<work>/external-build/bin;/Users/adrian/.local/bin' \
+    -o <work>/sdk-probe-program incubator/p1a/sdk_probe/sdk_probe.crexx
+  rxas -o <work>/sdk-probe-program <work>/sdk-probe-program
+  rxvme -l '<work>/external-build/bin;/Users/adrian/.local/bin' \
+    <work>/sdk-probe-program rx_sdk_probe library
+
+Runtime output:
+  SDK_VERSION=crexx-1.0.0-beta.3+local.g057592681c0c
+  SDK_ADD_RESULT=42
+
+Intermediate diagnostic retained as a cREXX surface weakness:
+  An early invalid RXPA argument declaration `.int,.int` produced
+  `#INTERNAL_ERROR_PARSING_IMPORT_AST` instead of a structured declaration
+  diagnostic. The valid declaration `left=.int,right=.int` compiled and ran.

@@ -1,0 +1,7 @@
+options levelb
+
+import rxfnsb
+import sdk_probe_bad
+
+say addints(20, 22)
+return 0

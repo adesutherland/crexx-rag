@@ -1,0 +1,7 @@
+runtime,component,elapsed_us,operations,bytes,checksum,status
+rxbvm,crexx_algorithm,1159,2000,0,78000,ok
+rxbvm,json_parse,38754,1000,142,26000,ok
+rxbvm,record_materialize,92,512,0,24288.8,ok
+rxbvm,json_encode,4924,1000,0,53786,ok
+rxbvm,provider_wait,31238,1,48,48,ok
+rxbvm,process_peak_memory,0,1,22970368,22970368,ok

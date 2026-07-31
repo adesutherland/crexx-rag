@@ -1,0 +1,14 @@
+{"case_id":"it-keyword-01","corpus":"generic-it-v1","behavior":"keyword-keyphrase","query":"Identity Gateway Cedar Store","sources":["it-auth-decision-v1.md","it-auth-decision-v2.md"]}
+{"case_id":"it-alias-01","corpus":"generic-it-v1","behavior":"alias","query":"Which component reads CSDB?","sources":["it-auth-decision-v1.md","it-auth-decision-v2.md"]}
+{"case_id":"it-semantic-01","corpus":"generic-it-v1","behavior":"semantic-paraphrase","query":"Where are login identities persisted?","sources":["it-auth-decision-v1.md","it-auth-decision-v2.md","it-operations-note.md"]}
+{"case_id":"it-ambiguity-01","corpus":"generic-it-v1","behavior":"ambiguity","query":"What database does Mercury use?","sources":["it-auth-decision-v1.md","it-auth-decision-v2.md"]}
+{"case_id":"it-chronology-01","corpus":"generic-it-v1","behavior":"chronology","query":"How did Identity Gateway deployment change between January and March?","sources":["it-auth-decision-v1.md","it-auth-decision-v2.md"]}
+{"case_id":"it-support-01","corpus":"generic-it-v1","behavior":"multiple-support","query":"What protects customer profile data?","sources":["it-auth-decision-v2.md","it-operations-note.md"]}
+{"case_id":"it-stance-01","corpus":"generic-it-v1","behavior":"source-stance","query":"Are audit events always delivered immediately?","sources":["it-auth-decision-v2.md","it-operations-note.md"]}
+{"case_id":"it-deletion-01","corpus":"generic-it-v1","behavior":"deletion","query":"Where is Identity Gateway deployed now?","sources":["it-auth-decision-v1.md","it-auth-decision-v2.md"]}
+{"case_id":"it-path-01","corpus":"generic-it-v1","behavior":"directed-path","query":"Trace the dependency from Identity Gateway to Vault Service.","sources":["it-auth-decision-v2.md"]}
+{"case_id":"scot-phrase-01","corpus":"scotland-shaped-v1","behavior":"keyword-keyphrase","query":"Why were they called Children of the Rain?","sources":["scotland-shaped-chronicle.md"]}
+{"case_id":"scot-ambiguity-01","corpus":"scotland-shaped-v1","behavior":"ambiguity","query":"What did Rannoch do in the removals?","sources":["scotland-shaped-chronicle.md","scotland-shaped-ledger.md"]}
+{"case_id":"scot-chronology-01","corpus":"scotland-shaped-v1","behavior":"chronology","query":"Trace the origin of the Northwatch Regiment.","sources":["scotland-shaped-chronicle.md","scotland-shaped-ledger.md"]}
+{"case_id":"scot-stance-01","corpus":"scotland-shaped-v1","behavior":"source-stance","query":"How does the source judge the Glen Mora removals?","sources":["scotland-shaped-chronicle.md","scotland-shaped-ledger.md"]}
+{"case_id":"scot-adjacency-01","corpus":"scotland-shaped-v1","behavior":"directed-path","query":"Were Brannoch and Rannoch allied?","sources":["scotland-shaped-ledger.md"]}

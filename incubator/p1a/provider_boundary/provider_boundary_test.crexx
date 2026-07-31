@@ -1,0 +1,61 @@
+options levelb
+
+import provider_boundary
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P1A_LLM_FAIL=" || label
+    return 1
+  end
+  return 0
+
+main: procedure = .int
+arg args = .string[]
+port = 18991
+if args.0 >= 1 then port = args[1] as .int
+errors = 0
+result = .llm_result()
+failure = .llm_error()
+
+request = .llm_request("generate", "loopback-generate", "say hello", 1000, 0)
+status = geminicall(request, "127.0.0.1", port, 0, "loopback-key", result, failure)
+if status \= 0 then say "P1A_LLM_DIAG case=generation code=" || status || " category=" || failure.category() || " message=" || failure.message()
+errors = errors + check(status = 0 & result.provider() = "google-gemini" & result.text() = "loopback generation" & result.input_tokens() = 3 & result.output_tokens() = 2, "deterministic generation")
+
+request = .llm_request("embed", "loopback-embed", "embed this", 1000, 3)
+status = geminicall(request, "127.0.0.1", port, 0, "loopback-key", result, failure)
+if status \= 0 then say "P1A_LLM_DIAG case=embedding code=" || status || " category=" || failure.category() || " message=" || failure.message()
+vector = result.embedding()
+errors = errors + check(status = 0 & vector.valid() = 1 & vector.count() = 3 & vector.dimensions() = 3 & vector.value(1) = 0.25 & vector.value(2) = -0.5 & vector.value(3) = 0.75, "deterministic raw embedding")
+vector_payload = vector.payload()
+errors = errors + check(vector.element_type() = "f32le" & vector.byte_length() = 12 & <at..f32>(0) vector_payload = 0.25, "application-owned embedding schema")
+
+request = .llm_request("generate", "malformed", "malformed", 1000, 0)
+status = geminicall(request, "127.0.0.1", port, 0, "loopback-key", result, failure)
+say "P1A_LLM_DIAG case=malformed code=" || status || " category=" || failure.category() || " message=" || failure.message()
+errors = errors + check(status = -102 & failure.category() = "malformed_response" & failure.retryable() = 0, "malformed response")
+
+request = .llm_request("generate", "timeout", "timeout", 50, 0)
+status = geminicall(request, "127.0.0.1", port, 0, "loopback-key", result, failure)
+say "P1A_LLM_DIAG case=timeout code=" || status || " category=" || failure.category() || " message=" || failure.message()
+errors = errors + check(status = -5 & failure.category() = "timeout" & failure.retryable() = 1, "timeout")
+
+request = .llm_request("generate", "connection", "connection", 100, 0)
+status = geminicall(request, "127.0.0.1", port + 1, 0, "loopback-key", result, failure)
+errors = errors + check(status = -3 & failure.category() = "connection" & failure.retryable() = 1, "connection failure")
+
+request = .llm_request("generate", "provider-error", "provider error", 1000, 0)
+status = geminicall(request, "127.0.0.1", port, 0, "loopback-key", result, failure)
+errors = errors + check(status = -103 & failure.category() = "provider" & failure.message() = "fixture provider failure", "provider structured error")
+
+request = .llm_request("generate", "no-key", "no key", 100, 0)
+status = geminicall(request, "127.0.0.1", port, 0, "", result, failure)
+errors = errors + check(status = -100 & failure.category() = "authentication" & failure.retryable() = 0, "missing key")
+
+if errors <> 0 then do
+  say "P1A_LLM_ERRORS=" || errors
+  return 1
+end
+say "P1A_LLM_OK generation=1 embedding=1 raw_f32le=1 schema_count=3 dimension_request=1 malformed=1 timeout=1 connection=1 structured_errors=1 hosted=0"
+return 0

@@ -1,0 +1,21 @@
+command: git -C /Users/adrian/CLionProjects/CREXX status --porcelain=v2 --branch
+# branch.oid 12a11815ab082086fb95e4ca5e41bd1c0e241342
+# branch.head develop
+# branch.upstream origin/develop
+# branch.ab +0 -0
+
+command: git -C /Users/adrian/CLionProjects/CREXX rev-parse HEAD
+12a11815ab082086fb95e4ca5e41bd1c0e241342
+
+command: git -C /Users/adrian/CLionProjects/CREXX diff --stat
+(no output)
+
+command: git -C /Users/adrian/CLionProjects/CREXX diff --cached --stat
+(no output)
+
+command: git -C /Users/adrian/CLionProjects/CREXX ls-files --others --exclude-standard
+(no output)
+
+Boundary result: read-only state captured before programme edits. No sister
+repository command in this execution wrote, built, configured, installed,
+stashed, cleaned, committed, or changed a file.

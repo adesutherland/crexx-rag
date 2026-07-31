@@ -1,0 +1,47 @@
+P1A-LLM-01 real Google/Gemini canary
+Date: 2026-07-29 Europe/London
+
+Credential handling:
+  environment_variable=GEMINI_API_KEY
+  present=yes
+  value_printed=no
+  credential_retained=no
+
+Transport and request boundary:
+  provider=google
+  api_version=v1beta
+  generation_model=gemini-3.5-flash
+  generation_path=/v1beta/models/gemini-3.5-flash:generateContent
+  embedding_model=gemini-embedding-001
+  embedding_path=/v1beta/models/gemini-embedding-001:embedContent
+  requested_embedding_dimensions=8
+  dimension_field=top-level outputDimensionality compatibility field
+  shell_transport=no
+  native_v1_adapter=no
+
+Runtime result:
+  P1A_GEMINI_CANARY_PROGRESS operation=generation status=ok model=gemini-3.5-flash generation_match=1 generation_chars=21 elapsed_us=1446777
+  P1A_GEMINI_CANARY status=ok api_version=v1beta generation_model=gemini-3.5-flash generation_match=1 generation_chars=21 generation_input_tokens=15 generation_output_tokens=10 generation_elapsed_us=1446777 embedding_model=gemini-embedding-001 requested_embedding_dimensions=8 embedding_dimensions=8 embedding_codec=f32le-v1 embedding_bytes=48 embedding_checksum=-0.395270958542824 embedding_elapsed_us=364282
+
+status=ok
+generation_match=1
+embedding_dimensions=8
+credential_retained=no
+outer_result=0
+hosted_calls=2
+retry_performed=no
+
+SHA-256:
+  a5266e25d752fe5ad438c2992d4aa6f3a3769229f7f1de362d2fc49ae4d73f17  incubator/p1a/provider_boundary/provider_boundary.crexx
+  eb5090f456675bb99f8224fdf4bb03674554c5c740df891825e5e99f6e75ad9f  incubator/p1a/provider_boundary/provider_boundary_test.crexx
+  09a967bb1fb1e15e271f56ba54efe0abf5ae225b396f4bc030736c7c6d0ce70c  incubator/p1a/provider_boundary/gemini_canary.crexx
+  c662b1de10de63bc2395395cf3906d3d6fe7034d80c2bd18274ed23aa99dc92d  tests/p1a_provider_loopback.cpp
+  453e0c82f1823e9c1d3a73d2101f484f322643be009269b05b7fb661d11415d7  cmake/P1AProviderBoundary.cmake
+  c51457c6e05000eb2fb7eaa2a1d692c449ddbd6858fc09ccb50fac3c9b391731  cmake/P1AGeminiCanary.cmake
+  c580cfbb0fa7a24c5707e9dd190e36c8f941618452177da397b94ce5aa523f37  cmake-build-debug/p1a-provider-boundary/provider_boundary.rxbin
+  601e529bf93300c2506bff17112b44a54cfd6914cc5a66c31ad0c6b9287c9965  cmake-build-debug/p1a-gemini-canary/gemini-canary.rxbin
+
+Decision:
+  The formerly missing real generation/embedding evidence is now complete.
+  Exact bounded embedding dimensions, packed-vector projection, correctness,
+  and component timing are retained without the credential. P1A-LLM-01 passes.

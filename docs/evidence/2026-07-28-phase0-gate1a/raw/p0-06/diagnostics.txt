@@ -1,0 +1,22 @@
+Command:
+  ctest --preset debug -R phase0_component_benchmark --output-on-failure
+
+Result:
+  phase0_component_benchmark passed (0.68 sec)
+  100% tests passed, 0 tests failed out of 1
+
+rxc: no diagnostics
+rxas: no diagnostics
+loopback provider: READY 18765; two deterministic responses; 25 ms intentional wait per response
+
+rxvme /usr/bin/time -l:
+  0.18 real, 0.13 user, 0.00 sys
+  33882112 maximum resident set size
+  27722232 peak memory footprint
+
+rxbvm /usr/bin/time -l:
+  0.10 real, 0.07 user, 0.00 sys
+  22970368 maximum resident set size
+  17613280 peak memory footprint
+
+No Gemini or other hosted credential was read and no hosted call was made.

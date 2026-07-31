@@ -1,0 +1,47 @@
+P1A-SUR-01 thin four-surface semantic pass-through
+Date: 2026-07-29 Europe/London
+
+Command:
+  ctest --preset debug -R '^p1a_surface_boundary$' --output-on-failure
+
+Focused result:
+  1/1 passed in 1.16 seconds
+
+Runtime result:
+  P1A_SUR_OK levelg=1 cli_json=1 address_rag=1 mcp_structuredContent=1 typed_record=1 semantic_equal=1
+
+CLI JSON:
+  {"status":"ready","operation":"status-evidence","evidence":{"passage":"Identity Gateway depends on Cedar Store.","supportedClaim":{"subject":"Identity Gateway","predicate":"depends_on","object":"Cedar Store","direction":"subject-to-object"},"citation":"fixture://it/architecture@r2#p1","gap":"deployment owner is not evidenced"}}
+
+Surface proof:
+  typed_record=Level-B statusrecord
+  level_g=string-only statusfacade over Level-B record factory/serializer
+  cli=separate compiled surface-cli executable
+  address=registered cREXX addressenvironment, actual ADDRESS RAG STATUS EVIDENCE command and host binding update
+  mcp=minimal wrapper with the same object under structuredContent
+  equality=parse-once semantic field comparison, not incidental serialization
+
+Minimized installed-rxc weakness:
+  command sequence=compile/assemble levelg-record-contract.crexx, then compile levelg-imported-record-return-repro.crexx with its import path
+  result=2
+  diagnostic=Error in levelg-imported-record-return-repro.crexx @ 9:12 - #TYPE_MISMATCH: Type mismatch., "makereprorecord"
+  workaround=keep typed record and serialization in Level B; Level G returns the serialized operation record
+  native_workaround=no
+
+SHA-256:
+  1a7c4a7e67827b1ecdc1278a6c69ee3aebedc6ad066c0b3b59030c64bfd44c3f  incubator/p1a/surface_boundary/surface_contract.crexx
+  215a136af643c058f6c9aff731fdb22383baa12350121cd329bce0df7801cc81  incubator/p1a/surface_boundary/surface_facade.crexx
+  cd90428f34f20803c8db6644e06ca7f5ee810a1a16a3ba56916081306b236b17  incubator/p1a/surface_boundary/surface_cli.crexx
+  651a17cce0bb8eba7c8ba27ab2a4d42573ec313b0ad78dd02afe1da3e46ab0a0  incubator/p1a/surface_boundary/surface_boundary_test.crexx
+  4265ac0c7034109f6505592039b121fe432e0552d69ce0bf0be1a1da2cb0bc0b  cmake/P1ASurfaceBoundary.cmake
+  ea907a16f1d606993cd7888da9a071f744425bfef8e98e6a525ee454f1ec98b8  cmake-build-debug/p1a-surface-boundary/surface_contract.rxbin
+  7abd3c430d6277d80c63086a057f7302431919d42eda6b3f24764d42337040ee  cmake-build-debug/p1a-surface-boundary/surface_facade.rxbin
+  1099fd93233cb3a92309940b309f34212996d68ff3733f28425292491d1540a3  cmake-build-debug/p1a-surface-boundary/surface-cli.rxbin
+  337598d4d835462d558f8dc138f979dab6dd2a981eeeed95e3e0ff731358a6a7  cmake-build-debug/p1a-surface-boundary/surface-boundary-test.rxbin
+  a54669ec666a0275658ff9d528e6812be309d804b812079a979098fe32447f07  docs/evidence/2026-07-28-phase0-gate1a/repro/levelg-record-contract.crexx
+  cfbd2d011d44108cfe8cd81db83d62172f21039aeb2296005c17b7fde84eb0e5  docs/evidence/2026-07-28-phase0-gate1a/repro/levelg-imported-record-return-repro.crexx
+
+Boundary recommendation:
+  Keep Level G as a string-only ergonomic facade until CREXX can carry imported
+  typed Level-B records across that method boundary. CLI, ADDRESS, and MCP stay
+  thin projections of one Level-B operation vocabulary and semantic record.

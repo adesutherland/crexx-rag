@@ -1,0 +1,37 @@
+P1A-ALG-01 small Level-B application lifecycle/evidence slice
+Date: 2026-07-29 Europe/London
+
+Command:
+  ctest --preset debug -R '^p1a_algorithm_slice$' --output-on-failure
+
+Focused result:
+  1/1 passed in 0.83 seconds
+
+Runtime result:
+  P1A_ALG_OK first_load=1 identical_no_writes=1 paragraph_reuse=1 active_revisions=1 directional_claim=1 exact_support=1 retracted=1 stable_citation=1 passage=1 ambiguity_lead=1 gap=1 provider_calls=0
+
+Semantic checks:
+  scratch_schema=source_artifacts,source_revisions,derived_chunks,chunks,chunk_fts,claims,supports
+  first_revision=immutable and active
+  chunking=two blank-line-delimited paragraphs, deterministic ordinal keys
+  fts5=Cedar matched one current passage
+  identical_reingest=total_changes unchanged, reported library_writes=0, provider_calls=0
+  paragraph_edit=one unchanged derived body reused, one new derived body inserted
+  publication=exactly one active revision
+  claim=Identity Gateway subject-to-object depends_on Cedar Store
+  support=one independently addressable active chunk support
+  evidence=passage, supported directional claim, ambiguity lead, deterministic revision/paragraph citation, explicit gap
+  deletion=revision inactive, support inactive, FTS current rows removed, gap packet emitted
+
+SHA-256:
+  0ea04b5aaecc37887bbb0a66e97c138f72b8ed05ddf2c938675cedcf664d3ff6  incubator/p1a/algorithm_slice/algorithm_slice.crexx
+  3efdec555c54c8517941acaa350009391d967769dee8e808a779899364b2ad9b  incubator/p1a/algorithm_slice/algorithm_slice_test.crexx
+  aaa69aa42e73dabd1cc08cdf7f582aa364c03575726e2ec36b61caeb5d65cc66  cmake/P1AAlgorithmSlice.cmake
+  06ed63f7167b7f3cd8177672755ce7f13af8df6e8af908354e2f0c32a5c12f85  cmake-build-debug/p1a-algorithm-slice/algorithm_slice.rxbin
+  9a0caceb8042957cacd15905db825db4b7c57188a6a01db448693b4e6f5c7497  cmake-build-debug/p1a-algorithm-slice/algorithm-slice-test.rxbin
+
+Boundary result:
+  Source/generation publication is immutable-revision plus one active pointer.
+  Derived values are reusable by content identity; claim support is promoted
+  only for the active revision and is retracted on supersession/removal. This
+  remains application cREXX and does not start the production schema-v2 tree.

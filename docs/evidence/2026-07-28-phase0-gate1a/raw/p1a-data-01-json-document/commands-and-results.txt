@@ -1,0 +1,403 @@
+mode=noopt kind=test module_rxc:
+
+mode=noopt kind=test module_rxas:
+
+mode=noopt kind=test program_rxc:
+
+mode=noopt kind=test program_rxas:
+
+mode=noopt kind=benchmark module_rxc:
+
+mode=noopt kind=benchmark module_rxas:
+
+mode=noopt kind=benchmark program_rxc:
+
+mode=noopt kind=benchmark program_rxas:
+
+mode=noopt runtime=rxvme test command=/Users/adrian/.local/bin/rxvme -l /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/noopt;/Users/adrian/.local/bin /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/noopt/json_document_test /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/noopt/json_document /Users/adrian/.local/bin/library
+P1A_JSON_DOCUMENT_OK parse_once=1 indexed=1 compatibility=1 malformed=1 unicode=1 f32=1 i64=1 direct_access=1
+real 0.06
+user 0.05
+sys 0.00
+            25214976  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                1711  page reclaims
+                   6  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   0  voluntary context switches
+                   9  involuntary context switches
+           464811664  instructions retired
+           270157378  cycles elapsed
+            19382704  peak memory footprint
+
+mode=noopt runtime=rxvme benchmark command=/Users/adrian/.local/bin/rxvme -l /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/noopt;/Users/adrian/.local/bin /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/noopt/json_document_benchmark /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/noopt/json_document /Users/adrian/.local/bin/library -a 60 30 3072 10
+P1A_JSON_BENCH workload=access implementation=legacy operation=valid elapsed_us=13370 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=legacy operation=deep_get elapsed_us=13418 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=legacy operation=tail_get elapsed_us=13270 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=legacy operation=count elapsed_us=25502 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=legacy operation=members elapsed_us=13038 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=indexed operation=parse_once elapsed_us=315 iterations=1 bytes=4394 index_bytes=20875
+P1A_JSON_BENCH workload=access implementation=indexed operation=valid elapsed_us=2 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=deep_get elapsed_us=177 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=tail_get elapsed_us=126 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=count elapsed_us=40 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=members elapsed_us=51 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=reconstruct_each_time elapsed_us=7968 iterations=30
+P1A_JSON_BENCH workload=numeric implementation=legacy operation=f32_extract dimension=128 elapsed_us=9221 note=exact_not_extrapolated
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=parse dimension=128 elapsed_us=63
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=f32_project dimension=128 elapsed_us=22 iterations=1 packed_bytes=528
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=parse dimension=3072 elapsed_us=1363 source_bytes=58435 index_bytes=123060
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=f32_project dimension=3072 elapsed_us=2422 iterations=10 packed_bytes=12304
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=f32_scan dimension=3072 elapsed_us=216 iterations=10
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=i64_parse dimension=3072 elapsed_us=999 source_bytes=14265 index_bytes=122966
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=i64_project dimension=3072 elapsed_us=4123 iterations=10 packed_bytes=24592
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=i64_scan dimension=3072 elapsed_us=249 iterations=10
+P1A_JSON_BENCH_OK legacy_exact=1 parse_once=1 indexed_access=1 f32=1 i64=1 large_dimension=3072
+real 0.16
+user 0.16
+sys 0.00
+            26918912  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                1819  page reclaims
+                   3  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   1  voluntary context switches
+                  26  involuntary context switches
+          2213459555  instructions retired
+           735482580  cycles elapsed
+            21070256  peak memory footprint
+
+mode=noopt runtime=rxvme optimizer_probe command=/Users/adrian/.local/bin/rxvme -l /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/noopt;/Users/adrian/.local/bin /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/noopt/binary_argument_optimizer_probe /Users/adrian/.local/bin/library -a 3072 10
+P1A_BINARY_ARGUMENT_PROBE variant=by_value elapsed_us=1328 dimension=3072 iterations=10
+P1A_BINARY_ARGUMENT_PROBE variant=exposed elapsed_us=897 dimension=3072 iterations=10
+P1A_BINARY_ARGUMENT_PROBE variant=direct elapsed_us=180 dimension=3072 iterations=10
+P1A_BINARY_ARGUMENT_PROBE_OK checksum=47201280
+real 0.04
+user 0.04
+sys 0.00
+            24494080  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                1671  page reclaims
+                   3  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   0  voluntary context switches
+                  10  involuntary context switches
+           367068732  instructions retired
+           214534311  cycles elapsed
+            18678192  peak memory footprint
+
+mode=noopt runtime=rxbvm test command=/Users/adrian/.local/bin/rxbvm -l /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/noopt;/Users/adrian/.local/bin /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/noopt/json_document_test /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/noopt/json_document /Users/adrian/.local/bin/library
+P1A_JSON_DOCUMENT_OK parse_once=1 indexed=1 compatibility=1 malformed=1 unicode=1 f32=1 i64=1 direct_access=1
+real 0.02
+user 0.01
+sys 0.00
+            19791872  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                1379  page reclaims
+                   6  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   0  voluntary context switches
+                   5  involuntary context switches
+           243241202  instructions retired
+            93388994  cycles elapsed
+            14778800  peak memory footprint
+
+mode=noopt runtime=rxbvm benchmark command=/Users/adrian/.local/bin/rxbvm -l /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/noopt;/Users/adrian/.local/bin /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/noopt/json_document_benchmark /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/noopt/json_document /Users/adrian/.local/bin/library -a 60 30 3072 10
+P1A_JSON_BENCH workload=access implementation=legacy operation=valid elapsed_us=14841 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=legacy operation=deep_get elapsed_us=15256 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=legacy operation=tail_get elapsed_us=15231 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=legacy operation=count elapsed_us=29069 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=legacy operation=members elapsed_us=14846 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=indexed operation=parse_once elapsed_us=383 iterations=1 bytes=4394 index_bytes=20875
+P1A_JSON_BENCH workload=access implementation=indexed operation=valid elapsed_us=2 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=deep_get elapsed_us=221 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=tail_get elapsed_us=163 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=count elapsed_us=50 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=members elapsed_us=62 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=reconstruct_each_time elapsed_us=10031 iterations=30
+P1A_JSON_BENCH workload=numeric implementation=legacy operation=f32_extract dimension=128 elapsed_us=11352 note=exact_not_extrapolated
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=parse dimension=128 elapsed_us=81
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=f32_project dimension=128 elapsed_us=28 iterations=1 packed_bytes=528
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=parse dimension=3072 elapsed_us=1696 source_bytes=58435 index_bytes=123060
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=f32_project dimension=3072 elapsed_us=2605 iterations=10 packed_bytes=12304
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=f32_scan dimension=3072 elapsed_us=255 iterations=10
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=i64_parse dimension=3072 elapsed_us=1234 source_bytes=14265 index_bytes=122966
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=i64_project dimension=3072 elapsed_us=4432 iterations=10 packed_bytes=24592
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=i64_scan dimension=3072 elapsed_us=284 iterations=10
+P1A_JSON_BENCH_OK legacy_exact=1 parse_once=1 indexed_access=1 f32=1 i64=1 large_dimension=3072
+real 0.14
+user 0.13
+sys 0.00
+            22183936  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                1534  page reclaims
+                   3  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   0  voluntary context switches
+                  24  involuntary context switches
+          2204506080  instructions retired
+           624393993  cycles elapsed
+            17187248  peak memory footprint
+
+mode=noopt runtime=rxbvm optimizer_probe command=/Users/adrian/.local/bin/rxbvm -l /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/noopt;/Users/adrian/.local/bin /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/noopt/binary_argument_optimizer_probe /Users/adrian/.local/bin/library -a 3072 10
+P1A_BINARY_ARGUMENT_PROBE variant=by_value elapsed_us=1213 dimension=3072 iterations=10
+P1A_BINARY_ARGUMENT_PROBE variant=exposed elapsed_us=928 dimension=3072 iterations=10
+P1A_BINARY_ARGUMENT_PROBE variant=direct elapsed_us=221 dimension=3072 iterations=10
+P1A_BINARY_ARGUMENT_PROBE_OK checksum=47201280
+real 0.01
+user 0.01
+sys 0.00
+            17678336  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                1254  page reclaims
+                   3  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   0  voluntary context switches
+                  10  involuntary context switches
+           175320081  instructions retired
+            67085547  cycles elapsed
+            12714416  peak memory footprint
+
+mode=opt kind=test module_rxc:
+
+mode=opt kind=test module_rxas:
+
+mode=opt kind=test program_rxc:
+
+mode=opt kind=test program_rxas:
+
+mode=opt kind=benchmark module_rxc:
+
+mode=opt kind=benchmark module_rxas:
+
+mode=opt kind=benchmark program_rxc:
+
+mode=opt kind=benchmark program_rxas:
+
+mode=opt runtime=rxvme test command=/Users/adrian/.local/bin/rxvme -l /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/opt;/Users/adrian/.local/bin /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/opt/json_document_test /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/opt/json_document /Users/adrian/.local/bin/library
+P1A_JSON_DOCUMENT_OK parse_once=1 indexed=1 compatibility=1 malformed=1 unicode=1 f32=1 i64=1 direct_access=1
+real 0.06
+user 0.06
+sys 0.00
+            25493504  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                1731  page reclaims
+                   3  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   0  voluntary context switches
+                   7  involuntary context switches
+           474645024  instructions retired
+           291580448  cycles elapsed
+            19661232  peak memory footprint
+
+mode=opt runtime=rxvme benchmark command=/Users/adrian/.local/bin/rxvme -l /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/opt;/Users/adrian/.local/bin /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/opt/json_document_benchmark /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/opt/json_document /Users/adrian/.local/bin/library -a 60 30 3072 10
+P1A_JSON_BENCH workload=access implementation=legacy operation=valid elapsed_us=13313 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=legacy operation=deep_get elapsed_us=13626 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=legacy operation=tail_get elapsed_us=13766 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=legacy operation=count elapsed_us=26126 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=legacy operation=members elapsed_us=13380 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=indexed operation=parse_once elapsed_us=218 iterations=1 bytes=4394 index_bytes=20875
+P1A_JSON_BENCH workload=access implementation=indexed operation=valid elapsed_us=1 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=deep_get elapsed_us=151 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=tail_get elapsed_us=114 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=count elapsed_us=62 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=members elapsed_us=88 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=reconstruct_each_time elapsed_us=5397 iterations=30
+P1A_JSON_BENCH workload=numeric implementation=legacy operation=f32_extract dimension=128 elapsed_us=9155 note=exact_not_extrapolated
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=parse dimension=128 elapsed_us=45
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=f32_project dimension=128 elapsed_us=19 iterations=1 packed_bytes=528
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=parse dimension=3072 elapsed_us=944 source_bytes=58435 index_bytes=123060
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=f32_project dimension=3072 elapsed_us=2393 iterations=10 packed_bytes=12304
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=f32_scan dimension=3072 elapsed_us=235 iterations=10
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=i64_parse dimension=3072 elapsed_us=624 source_bytes=14265 index_bytes=122966
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=i64_project dimension=3072 elapsed_us=3925 iterations=10 packed_bytes=24592
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=i64_scan dimension=3072 elapsed_us=279 iterations=10
+P1A_JSON_BENCH_OK legacy_exact=1 parse_once=1 indexed_access=1 f32=1 i64=1 large_dimension=3072
+real 0.16
+user 0.16
+sys 0.00
+            27738112  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                1869  page reclaims
+                   3  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   1  voluntary context switches
+                  20  involuntary context switches
+          2158660798  instructions retired
+           747392018  cycles elapsed
+            21905864  peak memory footprint
+
+mode=opt runtime=rxvme optimizer_probe command=/Users/adrian/.local/bin/rxvme -l /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/opt;/Users/adrian/.local/bin /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/opt/binary_argument_optimizer_probe /Users/adrian/.local/bin/library -a 3072 10
+P1A_BINARY_ARGUMENT_PROBE variant=by_value elapsed_us=3907 dimension=3072 iterations=10
+P1A_BINARY_ARGUMENT_PROBE variant=exposed elapsed_us=253 dimension=3072 iterations=10
+P1A_BINARY_ARGUMENT_PROBE variant=direct elapsed_us=222 dimension=3072 iterations=10
+P1A_BINARY_ARGUMENT_PROBE_OK checksum=47201280
+real 0.05
+user 0.04
+sys 0.00
+            24461312  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                1669  page reclaims
+                   3  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   0  voluntary context switches
+                  10  involuntary context switches
+           416086339  instructions retired
+           224570517  cycles elapsed
+            18678192  peak memory footprint
+
+mode=opt runtime=rxbvm test command=/Users/adrian/.local/bin/rxbvm -l /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/opt;/Users/adrian/.local/bin /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/opt/json_document_test /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/opt/json_document /Users/adrian/.local/bin/library
+P1A_JSON_DOCUMENT_OK parse_once=1 indexed=1 compatibility=1 malformed=1 unicode=1 f32=1 i64=1 direct_access=1
+real 0.02
+user 0.02
+sys 0.00
+            19365888  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                1356  page reclaims
+                   3  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   0  voluntary context switches
+                   7  involuntary context switches
+           226536932  instructions retired
+            95729474  cycles elapsed
+            14352816  peak memory footprint
+
+mode=opt runtime=rxbvm benchmark command=/Users/adrian/.local/bin/rxbvm -l /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/opt;/Users/adrian/.local/bin /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/opt/json_document_benchmark /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/opt/json_document /Users/adrian/.local/bin/library -a 60 30 3072 10
+P1A_JSON_BENCH workload=access implementation=legacy operation=valid elapsed_us=14796 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=legacy operation=deep_get elapsed_us=15219 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=legacy operation=tail_get elapsed_us=15391 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=legacy operation=count elapsed_us=29387 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=legacy operation=members elapsed_us=15117 iterations=30 bytes=4394
+P1A_JSON_BENCH workload=access implementation=indexed operation=parse_once elapsed_us=256 iterations=1 bytes=4394 index_bytes=20875
+P1A_JSON_BENCH workload=access implementation=indexed operation=valid elapsed_us=1 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=deep_get elapsed_us=208 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=tail_get elapsed_us=140 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=count elapsed_us=52 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=members elapsed_us=103 iterations=30
+P1A_JSON_BENCH workload=access implementation=indexed operation=reconstruct_each_time elapsed_us=6227 iterations=30
+P1A_JSON_BENCH workload=numeric implementation=legacy operation=f32_extract dimension=128 elapsed_us=11472 note=exact_not_extrapolated
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=parse dimension=128 elapsed_us=60
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=f32_project dimension=128 elapsed_us=21 iterations=1 packed_bytes=528
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=parse dimension=3072 elapsed_us=1239 source_bytes=58435 index_bytes=123060
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=f32_project dimension=3072 elapsed_us=2549 iterations=10 packed_bytes=12304
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=f32_scan dimension=3072 elapsed_us=286 iterations=10
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=i64_parse dimension=3072 elapsed_us=783 source_bytes=14265 index_bytes=122966
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=i64_project dimension=3072 elapsed_us=4947 iterations=10 packed_bytes=24592
+P1A_JSON_BENCH workload=numeric implementation=indexed operation=i64_scan dimension=3072 elapsed_us=277 iterations=10
+P1A_JSON_BENCH_OK legacy_exact=1 parse_once=1 indexed_access=1 f32=1 i64=1 large_dimension=3072
+real 0.13
+user 0.13
+sys 0.00
+            22822912  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                1568  page reclaims
+                   3  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   0  voluntary context switches
+                  17  involuntary context switches
+          2119231643  instructions retired
+           611419053  cycles elapsed
+            17826224  peak memory footprint
+
+mode=opt runtime=rxbvm optimizer_probe command=/Users/adrian/.local/bin/rxbvm -l /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/opt;/Users/adrian/.local/bin /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a-json-document/opt/binary_argument_optimizer_probe /Users/adrian/.local/bin/library -a 3072 10
+P1A_BINARY_ARGUMENT_PROBE variant=by_value elapsed_us=4045 dimension=3072 iterations=10
+P1A_BINARY_ARGUMENT_PROBE variant=exposed elapsed_us=255 dimension=3072 iterations=10
+P1A_BINARY_ARGUMENT_PROBE variant=direct elapsed_us=235 dimension=3072 iterations=10
+P1A_BINARY_ARGUMENT_PROBE_OK checksum=47201280
+real 0.01
+user 0.01
+sys 0.00
+            17530880  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                1245  page reclaims
+                   3  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   0  voluntary context switches
+                   8  involuntary context switches
+           222589293  instructions retired
+            76228793  cycles elapsed
+            12566960  peak memory footprint

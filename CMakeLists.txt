@@ -16,74 +16,36 @@ option(CPRAG_BUILD_MCP "Build the crexx-rag-mcp stdio server" ON)
 option(CPRAG_BUILD_CREXX_PLUGIN "Build the CREXX rxpa plugin when CREXX_ROOT is available" ON)
 option(CPRAG_BUILD_TESTS "Build unit tests" ON)
 option(CPRAG_ENABLE_FAISS "Enable optional FAISS-backed vector index support" OFF)
-option(CPRAG_ALLOW_VENDORED_CREXXPA "Allow temporary vendored crexxpa.h fallback until CREXX installs development headers" ON)
-option(CPRAG_ALLOW_CREXX_SOURCE_FALLBACK "Allow building against a source checkout when installed CREXX headers are unavailable" OFF)
+option(CPRAG_ALLOW_VENDORED_CREXXPA "Retired compatibility option; ignored" OFF)
+option(CPRAG_ALLOW_CREXX_SOURCE_FALLBACK "Retired compatibility option; ignored" OFF)
 
-find_program(CREXX_EXECUTABLE crexx)
-set(CREXX_RXPA_INCLUDE_DIR "" CACHE PATH "Installed CREXX rxpa include directory containing crexxpa.h")
-set(CREXX_VERSION_INCLUDE_DIR "" CACHE PATH "Installed CREXX include directory containing crexx_version.h")
-set(CREXX_SOURCE_ROOT "${CMAKE_CURRENT_LIST_DIR}/../CREXX" CACHE PATH "Optional CREXX source checkout for development-only fallback builds")
-set(CPRAG_VENDORED_CREXXPA_DIR "${CMAKE_CURRENT_LIST_DIR}/third_party/crexx-rxpa")
-
-if(CREXX_EXECUTABLE)
-    get_filename_component(CREXX_INSTALL_BIN_DIR "${CREXX_EXECUTABLE}" DIRECTORY)
-    find_program(CREXX_RXC_EXECUTABLE rxc HINTS "${CREXX_INSTALL_BIN_DIR}")
-    find_program(CREXX_RXAS_EXECUTABLE rxas HINTS "${CREXX_INSTALL_BIN_DIR}")
-    find_program(CREXX_RXVME_EXECUTABLE rxvme HINTS "${CREXX_INSTALL_BIN_DIR}")
-    if(NOT CREXX_RXPA_INCLUDE_DIR)
-        foreach(candidate
-                "${CREXX_INSTALL_BIN_DIR}"
-                "${CREXX_INSTALL_BIN_DIR}/include"
-                "${CREXX_INSTALL_BIN_DIR}/../include"
-                "${CREXX_INSTALL_BIN_DIR}/../include/crexx"
-                "${CREXX_INSTALL_BIN_DIR}/../rxpa")
-            if(EXISTS "${candidate}/crexxpa.h")
-                set(CREXX_RXPA_INCLUDE_DIR "${candidate}" CACHE PATH "Installed CREXX rxpa include directory containing crexxpa.h" FORCE)
-                break()
-            endif()
-        endforeach()
-    endif()
-    if(NOT CREXX_VERSION_INCLUDE_DIR)
-        foreach(candidate
-                "${CREXX_INSTALL_BIN_DIR}"
-                "${CREXX_INSTALL_BIN_DIR}/include"
-                "${CREXX_INSTALL_BIN_DIR}/../include"
-                "${CREXX_INSTALL_BIN_DIR}/../include/crexx"
-                "${CREXX_INSTALL_BIN_DIR}/../rxpa")
-            if(EXISTS "${candidate}/crexx_version.h")
-                set(CREXX_VERSION_INCLUDE_DIR "${candidate}" CACHE PATH "Installed CREXX include directory containing crexx_version.h" FORCE)
-                break()
-            endif()
-        endforeach()
-    endif()
+if(CPRAG_ALLOW_VENDORED_CREXXPA OR CPRAG_ALLOW_CREXX_SOURCE_FALLBACK)
+    message(WARNING
+        "Ignoring stale CREXX source/vendored SDK fallback settings and resetting them to OFF; "
+        "consume an installed CREXX package")
+    set(CPRAG_ALLOW_VENDORED_CREXXPA OFF CACHE BOOL
+        "Retired compatibility option; ignored" FORCE)
+    set(CPRAG_ALLOW_CREXX_SOURCE_FALLBACK OFF CACHE BOOL
+        "Retired compatibility option; ignored" FORCE)
 endif()
+mark_as_advanced(
+    CPRAG_ALLOW_VENDORED_CREXXPA
+    CPRAG_ALLOW_CREXX_SOURCE_FALLBACK)
 
-if(NOT CREXX_RXPA_INCLUDE_DIR
-        AND CPRAG_ALLOW_VENDORED_CREXXPA
-        AND EXISTS "${CPRAG_VENDORED_CREXXPA_DIR}/crexxpa.h")
-    set(CREXX_RXPA_INCLUDE_DIR "${CPRAG_VENDORED_CREXXPA_DIR}" CACHE PATH "CREXX rxpa include directory containing crexxpa.h" FORCE)
-    message(WARNING "Using vendored third_party/crexx-rxpa/crexxpa.h. TODO: remove this fallback once CREXX installs development headers.")
-endif()
-
-if(NOT CREXX_RXPA_INCLUDE_DIR
-        AND CPRAG_ALLOW_CREXX_SOURCE_FALLBACK
-        AND EXISTS "${CREXX_SOURCE_ROOT}/rxpa/crexxpa.h")
-    set(CREXX_RXPA_INCLUDE_DIR "${CREXX_SOURCE_ROOT}/rxpa" CACHE PATH "CREXX rxpa include directory containing crexxpa.h" FORCE)
-    message(WARNING "Using CREXX source checkout fallback for rxpa headers. Prefer an installed CREXX development header package.")
-endif()
-
-set(CPRAG_EFFECTIVE_CREXX_RXPA_INCLUDE_DIR "${CREXX_RXPA_INCLUDE_DIR}")
-if(CREXX_RXPA_INCLUDE_DIR
-        AND EXISTS "${CREXX_RXPA_INCLUDE_DIR}/crexxpa.h"
-        AND "${CREXX_RXPA_INCLUDE_DIR}" STREQUAL "${CPRAG_VENDORED_CREXXPA_DIR}"
-        AND CREXX_VERSION_INCLUDE_DIR
-        AND EXISTS "${CREXX_VERSION_INCLUDE_DIR}/crexx_version.h")
-    set(CPRAG_GENERATED_CREXX_RXPA_DIR "${CMAKE_BINARY_DIR}/generated/crexx-rxpa")
-    file(MAKE_DIRECTORY "${CPRAG_GENERATED_CREXX_RXPA_DIR}")
-    configure_file("${CREXX_RXPA_INCLUDE_DIR}/crexxpa.h" "${CPRAG_GENERATED_CREXX_RXPA_DIR}/crexxpa.h" COPYONLY)
-    configure_file("${CREXX_VERSION_INCLUDE_DIR}/crexx_version.h" "${CPRAG_GENERATED_CREXX_RXPA_DIR}/crexx_version.h" COPYONLY)
-    set(CPRAG_EFFECTIVE_CREXX_RXPA_INCLUDE_DIR "${CPRAG_GENERATED_CREXX_RXPA_DIR}")
-    message(STATUS "Using vendored crexxpa.h with installed crexx_version.h from ${CREXX_VERSION_INCLUDE_DIR}.")
+find_package(CREXX CONFIG QUIET)
+if(CREXX_FOUND)
+    set(CREXX_EXECUTABLE "${CREXX_crexx_EXECUTABLE}")
+    set(CREXX_RXC_EXECUTABLE "${CREXX_rxc_EXECUTABLE}")
+    set(CREXX_RXAS_EXECUTABLE "${CREXX_rxas_EXECUTABLE}")
+    set(CREXX_RXVME_EXECUTABLE "${CREXX_rxvme_EXECUTABLE}")
+    set(CREXX_RXBVM_EXECUTABLE "${CREXX_rxbvm_EXECUTABLE}")
+    set(CREXX_INSTALL_BIN_DIR "${CREXX_BIN_DIR}")
+    set(CREXX_VERSION_INCLUDE_DIR "${CREXX_INCLUDE_DIR}")
+    message(STATUS
+        "Using installed CREXX package ${CREXX_VERSION_DISPLAY} from ${CREXX_PACKAGE_PREFIX}")
+elseif(CPRAG_BUILD_CREXX_PLUGIN)
+    message(WARNING
+        "Installed CREXX CMake package was not found; CREXX plugins and integration tests are unavailable")
 endif()
 
 find_package(SQLite3 REQUIRED)
@@ -154,20 +116,45 @@ if(CPRAG_BUILD_MCP)
 endif()
 
 if(CPRAG_BUILD_CREXX_PLUGIN)
-    if(CPRAG_EFFECTIVE_CREXX_RXPA_INCLUDE_DIR AND EXISTS "${CPRAG_EFFECTIVE_CREXX_RXPA_INCLUDE_DIR}/crexxpa.h")
-        add_library(_rag MODULE crexx/plugins/rag/rxrag.c)
-        target_include_directories(_rag PRIVATE
-            "${CPRAG_EFFECTIVE_CREXX_RXPA_INCLUDE_DIR}"
-            "${CMAKE_CURRENT_LIST_DIR}/include")
-        target_compile_definitions(_rag PRIVATE BUILD_DLL "PLUGIN_ID=rx_rag")
+    if(CREXX_FOUND AND TARGET CREXX::RXPA)
+        set(CREXX_RXPA_PLUGIN_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+        add_dynamic_plugin_target(_rag crexx/plugins/rag/rxrag.c)
+        target_include_directories(_rag PRIVATE "${CMAKE_CURRENT_LIST_DIR}/include")
         target_link_libraries(_rag PRIVATE cprag_core)
-        set_target_properties(_rag PROPERTIES
-            PREFIX "rx"
-            SUFFIX ".rxplugin"
-            LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-    else()
-        message(WARNING "Installed CREXX rxpa header crexxpa.h was not found; skipping CREXX plugin. See docs/crexx-integration-issues.md.")
+
+        add_dynamic_plugin_target(_sqlite_boundary
+            incubator/p1a/sqlite_boundary/sqlite_boundary.c)
+        target_link_libraries(_sqlite_boundary PRIVATE ${CPRAG_SQLITE_LINK})
+        if(CPRAG_SQLITE_INCLUDE_DIRS)
+            target_include_directories(_sqlite_boundary PRIVATE ${CPRAG_SQLITE_INCLUDE_DIRS})
+        endif()
     endif()
+endif()
+
+if(CREXX_FOUND AND CPRAG_BUILD_TESTS)
+    set(CPRAG_SURFACE_OPERATION_BASE
+        "${CMAKE_BINARY_DIR}/contracts/surface_operation_contract")
+    set(CPRAG_SURFACE_OPERATION_RXBIN
+        "${CPRAG_SURFACE_OPERATION_BASE}.rxbin")
+    add_custom_command(
+        OUTPUT "${CPRAG_SURFACE_OPERATION_RXBIN}"
+        BYPRODUCTS "${CPRAG_SURFACE_OPERATION_BASE}.rxas"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_BINARY_DIR}/contracts"
+        COMMAND "${CREXX_RXC_EXECUTABLE}" -x
+            -o "${CPRAG_SURFACE_OPERATION_BASE}"
+            "${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/surface_boundary/surface_operation_contract.crexx"
+        COMMAND "${CREXX_RXAS_EXECUTABLE}"
+            -o "${CPRAG_SURFACE_OPERATION_BASE}" "${CPRAG_SURFACE_OPERATION_BASE}"
+        DEPENDS
+            "${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/surface_boundary/surface_operation_contract.crexx"
+        VERBATIM)
+    crexx_add_operation_contract(
+        TARGET p1a_surface_operation_contract
+        RXBIN "${CPRAG_SURFACE_OPERATION_RXBIN}"
+        OPERATION surface_operation.statusoperation.status_evidence
+        CONTRACT_VERSION 1.0.0
+        OUTPUT "${CMAKE_BINARY_DIR}/contracts/surface_operation_contract.rxcontract.json")
+    add_custom_target(p1a_contracts ALL DEPENDS p1a_surface_operation_contract)
 endif()
 
 if(CPRAG_BUILD_TESTS)
@@ -181,6 +168,144 @@ if(CPRAG_BUILD_TESTS)
     target_link_libraries(ragcore_work_queue_consumers PRIVATE cprag_core)
     add_test(NAME ragcore_work_queue_consumers COMMAND ragcore_work_queue_consumers)
     set_tests_properties(ragcore_work_queue_consumers PROPERTIES LABELS "core;queue;fixup;consumer")
+
+    add_executable(phase0_oracle_semantics tests/phase0_oracle_semantics.cpp)
+    target_link_libraries(phase0_oracle_semantics PRIVATE cprag_core)
+    target_compile_definitions(phase0_oracle_semantics PRIVATE
+        CPRAG_PHASE0_FIXTURE_DIR="${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/phase0")
+    add_test(
+        NAME phase0_oracle_semantic_golden
+        COMMAND "${CMAKE_COMMAND}"
+            "-DCPRAG_ORACLE_CAPTURE=$<TARGET_FILE:phase0_oracle_semantics>"
+            "-DCPRAG_GOLDEN=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/goldens/oracle-semantics.jsonl"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/phase0-oracle-semantic-golden"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase0OracleSemanticGolden.cmake")
+    set_tests_properties(phase0_oracle_semantic_golden PROPERTIES LABELS "phase0;oracle;golden")
+
+    add_executable(phase0_oracle_defects tests/phase0_oracle_defects.cpp)
+    target_link_libraries(phase0_oracle_defects PRIVATE cprag_core)
+    target_compile_definitions(phase0_oracle_defects PRIVATE
+        CPRAG_PHASE0_FIXTURE_DIR="${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/phase0")
+    add_test(
+        NAME phase0_oracle_defect_golden
+        COMMAND "${CMAKE_COMMAND}"
+            "-DCPRAG_DEFECT_CAPTURE=$<TARGET_FILE:phase0_oracle_defects>"
+            "-DCPRAG_GOLDEN=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/defects/oracle-defects.jsonl"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/phase0-oracle-defect-golden"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase0OracleDefectGolden.cmake")
+    set_tests_properties(phase0_oracle_defect_golden PROPERTIES LABELS "phase0;oracle;golden;defect")
+
+    add_executable(phase0_native_benchmark tests/phase0_native_benchmark.cpp)
+    target_link_libraries(phase0_native_benchmark PRIVATE ${CPRAG_SQLITE_LINK})
+    add_executable(phase0_loopback_provider tests/phase0_loopback_provider.cpp)
+    add_executable(p1a_provider_loopback tests/p1a_provider_loopback.cpp)
+    if(CREXX_RXC_EXECUTABLE AND CREXX_RXAS_EXECUTABLE AND CREXX_RXVME_EXECUTABLE AND CREXX_RXBVM_EXECUTABLE)
+        add_test(
+            NAME phase0_component_benchmark
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_BENCHMARK_SOURCE=${CMAKE_CURRENT_LIST_DIR}/crexx/benchmarks/phase0_components.crexx"
+                "-DCPRAG_NATIVE_BENCHMARK=$<TARGET_FILE:phase0_native_benchmark>"
+                "-DCPRAG_LOOPBACK_PROVIDER=$<TARGET_FILE:phase0_loopback_provider>"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/phase0-component-benchmark"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase0ComponentBenchmark.cmake")
+        set_tests_properties(phase0_component_benchmark PROPERTIES LABELS "phase0;benchmark;crexx;sqlite;vector;provider")
+        add_test(
+            NAME p1a_rxjson_projection
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_TEST_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/rxjson_projection/rxjson_projection_test.crexx"
+                "-DCPRAG_BENCHMARK_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/rxjson_projection/rxjson_projection_benchmark.crexx"
+                "-DCPRAG_PROBE_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/rxjson_projection/binary_argument_optimizer_probe.crexx"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1a-rxjson-projection"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1AJsonDocument.cmake")
+        set_tests_properties(p1a_rxjson_projection PROPERTIES
+            LABELS "p1a;data;rxjson;parse-once;raw-binary;benchmark")
+        if(CPRAG_BUILD_CREXX_PLUGIN AND TARGET _sqlite_boundary)
+            add_test(
+                NAME p1a_vector_boundary
+                COMMAND "${CMAKE_COMMAND}"
+                    "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                    "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                    "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                    "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+                    "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                    "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+                    "-DCPRAG_MODULE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/vector_boundary/vector_boundary.crexx"
+                    "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/vector_boundary/vector_boundary_test.crexx"
+                    "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1a-vector-boundary"
+                    -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1AVectorBoundary.cmake")
+            set_tests_properties(p1a_vector_boundary PROPERTIES
+                LABELS "p1a;vector;sqlite;cosine;raw-binary;schema-owned;benchmark;incubator")
+        endif()
+    endif()
+
+    if(CREXX_FOUND AND CREXX_RXC_EXECUTABLE AND CREXX_RXAS_EXECUTABLE
+            AND CREXX_RXVME_EXECUTABLE AND CREXX_RXBVM_EXECUTABLE)
+        add_test(
+            NAME p1a_crexx_closure_reproducers
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_RECORD_CONTRACT=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/repro/levelg-record-contract.crexx"
+                "-DCPRAG_RECORD_FACADE=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/repro/levelg-imported-record-return-repro.crexx"
+                "-DCPRAG_PARSE_REPRO=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/repro/levelg-parseplan-repro.crexx"
+                "-DCPRAG_LOOP_REPRO=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/repro/levelb-do-forever-return-repro.crexx"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1a-crexx-closure-reproducers"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1ACrexxClosureReproducers.cmake")
+        set_tests_properties(p1a_crexx_closure_reproducers PROPERTIES
+            LABELS "p1a;crexx;closure;levelg;record;parse;flow")
+        add_test(
+            NAME p1a_sdk_probe
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_CREXX_PREFIX=${CREXX_PACKAGE_PREFIX}"
+                "-DCPRAG_CREXX_DIR=${CREXX_DIR}"
+                "-DCPRAG_CREXX_VERSION=${CREXX_VERSION_DISPLAY}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_PROBE_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/sdk_probe"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1a-sdk-probe"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1ASdkProbe.cmake")
+        set_tests_properties(p1a_sdk_probe PROPERTIES LABELS "p1a;sdk;rxpa;incubator")
+    endif()
+
+    add_test(
+        NAME phase0_judgement_catalog
+        COMMAND "${CMAKE_COMMAND}"
+            "-DCPRAG_SCOTLAND=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/judgements/scotland-shaped-judgements.jsonl"
+            "-DCPRAG_IT_QUESTIONS=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/judgements/it-held-out-questions.jsonl"
+            "-DCPRAG_IT_JUDGEMENTS=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/judgements/it-held-out-judgements.jsonl"
+            "-DCPRAG_RUBRIC=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/judgements/rubric.md"
+            "-DCPRAG_PASSAGE_MAP=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/judgements/passage-map.tsv"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase0JudgementValidation.cmake")
+    set_tests_properties(phase0_judgement_catalog PROPERTIES LABELS "phase0;judgement;quality")
+
+    add_test(
+        NAME phase0_gate_protocol
+        COMMAND "${CMAKE_COMMAND}"
+            "-DCPRAG_ROOT=${CMAKE_CURRENT_LIST_DIR}"
+            "-DCPRAG_HASHES=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/frozen-hashes.tsv"
+            "-DCPRAG_THRESHOLDS=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/thresholds.json"
+            "-DCPRAG_PROTOCOL=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/ANSWER-EVALUATION-PROTOCOL.md"
+            "-DCPRAG_NATIVE_RESULTS=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/raw/p0-06/native.csv"
+            "-DCPRAG_RXVME_RESULTS=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/raw/p0-06/rxvme.csv"
+            "-DCPRAG_RXBVM_RESULTS=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/raw/p0-06/rxbvm.csv"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase0GateProtocolValidation.cmake")
+    set_tests_properties(phase0_gate_protocol PROPERTIES LABELS "phase0;gate;protocol")
 
     if(CPRAG_BUILD_CLI AND TARGET crexx-rag)
         add_test(
@@ -224,6 +349,17 @@ if(CPRAG_BUILD_TESTS)
                 "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/mcp-smoke"
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/McpSmoke.cmake")
         set_tests_properties(mcp_smoke PROPERTIES LABELS "mcp;smoke")
+        if(CPRAG_BUILD_CLI AND TARGET crexx-rag)
+            add_test(
+                NAME phase0_answer_evidence_golden
+                COMMAND "${CMAKE_COMMAND}"
+                    "-DCPRAG_CLI=$<TARGET_FILE:crexx-rag>"
+                    "-DCPRAG_MCP=$<TARGET_FILE:crexx-rag-mcp>"
+                    "-DCPRAG_GOLDEN=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/goldens/answer-evidence.jsonl"
+                    "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/phase0-answer-evidence-golden"
+                    -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase0AnswerEvidenceGolden.cmake")
+            set_tests_properties(phase0_answer_evidence_golden PROPERTIES LABELS "phase0;oracle;golden;mcp;evidence")
+        endif()
     endif()
 
     if(CPRAG_BUILD_CREXX_PLUGIN
@@ -232,6 +368,99 @@ if(CPRAG_BUILD_TESTS)
             AND CREXX_RXC_EXECUTABLE
             AND CREXX_RXAS_EXECUTABLE
             AND CREXX_RXVME_EXECUTABLE)
+        add_test(
+            NAME p1a_sqlite_boundary
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+                "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/sqlite_boundary/sqlite_boundary_test.crexx"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1a-sqlite-boundary"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1ASqliteBoundary.cmake")
+        set_tests_properties(p1a_sqlite_boundary PROPERTIES
+            LABELS "p1a;sqlite;typed;incubator")
+        add_test(
+            NAME p1a_data_boundary
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+                "-DCPRAG_MODULE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/data_boundary/data_boundary.crexx"
+                "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/data_boundary/data_boundary_test.crexx"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1a-data-boundary"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1ADataBoundary.cmake")
+        set_tests_properties(p1a_data_boundary PROPERTIES
+            LABELS "p1a;data;typed;incubator")
+        add_test(
+            NAME p1a_provider_boundary
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_MODULE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/provider_boundary/provider_boundary.crexx"
+                "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/provider_boundary/provider_boundary_test.crexx"
+                "-DCPRAG_LOOPBACK=$<TARGET_FILE:p1a_provider_loopback>"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1a-provider-boundary"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1AProviderBoundary.cmake")
+        set_tests_properties(p1a_provider_boundary PROPERTIES
+            LABELS "p1a;provider;gemini;loopback;incubator")
+        add_test(
+            NAME p1a_algorithm_slice
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+                "-DCPRAG_MODULE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/algorithm_slice/algorithm_slice.crexx"
+                "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/algorithm_slice/algorithm_slice_test.crexx"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1a-algorithm-slice"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1AAlgorithmSlice.cmake")
+        set_tests_properties(p1a_algorithm_slice PROPERTIES
+            LABELS "p1a;algorithm;source;claim;evidence;sqlite")
+        add_test(
+            NAME p1a_job_slice
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+                "-DCPRAG_MODULE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/job_slice/job_slice.crexx"
+                "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/job_slice/job_slice_scenario.crexx"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1a-job-slice"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1AJobSlice.cmake")
+        set_tests_properties(p1a_job_slice PROPERTIES
+            LABELS "p1a;job;fence;crash;recovery;sqlite")
+        add_test(
+            NAME p1a_surface_boundary
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_CONTRACT=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/surface_boundary/surface_contract.crexx"
+                "-DCPRAG_FACADE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/surface_boundary/surface_facade.crexx"
+                "-DCPRAG_CLI=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/surface_boundary/surface_cli.crexx"
+                "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/surface_boundary/surface_boundary_test.crexx"
+                "-DCPRAG_OPERATION_CONTRACT=${p1a_surface_operation_contract_OUTPUT}"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1a-surface-boundary"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1ASurfaceBoundary.cmake")
+        set_tests_properties(p1a_surface_boundary PROPERTIES
+            LABELS "p1a;surface;levelg;cli;address;mcp")
+        add_test(
+            NAME p1a_gemini_canary_evidence
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_EVIDENCE=${CMAKE_CURRENT_LIST_DIR}/docs/evidence/2026-07-28-phase0-gate1a/raw/p1a-llm-01/gemini-canary.txt"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1AGeminiCanaryEvidence.cmake")
+        set_tests_properties(p1a_gemini_canary_evidence PROPERTIES
+            LABELS "p1a;provider;gemini;canary;evidence")
         add_test(
             NAME crexx_profile_smoke
             COMMAND "${CMAKE_COMMAND}"

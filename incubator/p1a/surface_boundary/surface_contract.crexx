@@ -1,0 +1,118 @@
+/* One typed operation record plus deliberately thin surface adapters. */
+options levelb
+
+namespace surface_contract expose statusrecord statusrecordfactory statusrecordjson statusrecordjsonfactory clijson mcpstructured mcpstructuredfactory ragaddressenvironment
+
+import rxfnsb
+import rxjson
+import _rxsysb
+
+statusrecord: class
+  _status = .string
+  _operation = .string
+  _passage = .string
+  _subject = .string
+  _predicate = .string
+  _object = .string
+  _citation = .string
+  _gap = .string
+
+  *: factory
+    arg status = .string, operation = .string, passage = .string, subject = .string, predicate = .string, object = .string, citation = .string, gap = .string
+    _status = status
+    _operation = operation
+    _passage = passage
+    _subject = subject
+    _predicate = predicate
+    _object = object
+    _citation = citation
+    _gap = gap
+
+  status: method = .string
+    return _status
+  operation: method = .string
+    return _operation
+  passage: method = .string
+    return _passage
+  subject: method = .string
+    return _subject
+  predicate: method = .string
+    return _predicate
+  object: method = .string
+    return _object
+  citation: method = .string
+    return _citation
+  gap: method = .string
+    return _gap
+
+statusrecordfactory: procedure = .statusrecord
+  return .statusrecord("ready", "status-evidence", "Identity Gateway depends on Cedar Store.", "Identity Gateway", "depends_on", "Cedar Store", "fixture://it/architecture@r2#p1", "deployment owner is not evidenced")
+
+statusrecordjson: procedure = .string
+  arg record = .statusrecord
+  return '{"status":' || jsonquote(record.status()) || ',"operation":' || jsonquote(record.operation()) || ',"evidence":{"passage":' || jsonquote(record.passage()) || ',"supportedClaim":{"subject":' || jsonquote(record.subject()) || ',"predicate":' || jsonquote(record.predicate()) || ',"object":' || jsonquote(record.object()) || ',"direction":"subject-to-object"},"citation":' || jsonquote(record.citation()) || ',"gap":' || jsonquote(record.gap()) || '}}'
+
+statusrecordjsonfactory: procedure = .string
+  record = statusrecordfactory()
+  return statusrecordjson(record)
+
+clijson: procedure = .string
+  arg record = .statusrecord
+  return statusrecordjson(record)
+
+mcpstructured: procedure = .string
+  arg record = .statusrecord
+  return '{"structuredContent":' || statusrecordjson(record) || '}'
+
+mcpstructuredfactory: procedure = .string
+  record = statusrecordfactory()
+  return mcpstructured(record)
+
+ragaddressenvironment: class implements .addressenvironment .addressinstance .addressfunctionenvironment
+  _environment_name = .string
+  _environment_id = .string
+
+  *: factory
+    arg env_name = .string
+    _environment_name = _address_normalize_environment_name(env_name)
+    _environment_id = "rexx:" || _environment_name
+
+  bind_environment: method = .void
+    arg env_name = .string, instance_id = .string
+    _environment_name = _address_normalize_environment_name(env_name)
+    _environment_id = instance_id
+    if _environment_id = "" then _environment_id = "rexx:" || _environment_name
+
+  environment_name: method = .string
+    return _environment_name
+
+  environment_id: method = .string
+    return _environment_id
+
+  execute: method = .addressresponse
+    arg request = .addressrequest
+    original = strip(request.get_command())
+    normalized = _address_normalize_command(original)
+    marker = pos(" INTO ", normalized)
+    command = normalized
+    if marker > 0 then command = strip(substr(normalized, 1, marker - 1))
+    if command \= "STATUS EVIDENCE" then return _address_unknown_command_response("RAG", request.get_command())
+    target = ""
+    if marker > 0 then target = _surface_anchor(strip(substr(original, marker + 6)))
+    if target = "" then return .addressresponse(-3, "FAILURE")
+    response = .addressresponse(0)
+    call response.add_updated_binding("var", target, target, statusrecordjsonfactory(), "")
+    return response
+
+  invoke: method = .addressfunctionresponse
+    arg request = .addressfunctionrequest
+    name = _address_normalize_environment_name(request.get_function_name())
+    if name = "ID" then return .addressfunctionresponse(0, _environment_id)
+    if name = "STATUS_EVIDENCE" then return .addressfunctionresponse(0, statusrecordjsonfactory())
+    return .addressfunctionresponse(-3, "", "FAILURE")
+
+_surface_anchor: procedure = .string
+  arg token = .string
+  if length(token) > 3 & left(token, 2) = "${" & right(token, 1) = "}" then return substr(token, 3, length(token) - 3)
+  if length(token) > 1 & left(token, 1) = ":" then return substr(token, 2)
+  return ""

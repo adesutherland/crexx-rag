@@ -1,0 +1,21 @@
+Commands:
+  cmake --preset debug
+  cmake --build --preset debug
+  ctest --preset debug --output-on-failure
+
+Results:
+  configure exit 0
+  build exit 0; ninja: no work to do
+  100% tests passed, 0 tests failed out of 17
+  Total Test time (real) = 26.17 sec
+
+Phase-0 focused tests included in the count:
+  phase0_oracle_semantic_golden
+  phase0_oracle_defect_golden
+  phase0_component_benchmark
+  phase0_judgement_catalog
+  phase0_gate_protocol
+  phase0_answer_evidence_golden
+
+Gate decision: PASS. P1A-SDK-01 may activate under the already approved bounded
+execution unit. No later phase or publication action is authorized.

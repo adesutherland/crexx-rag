@@ -61,6 +61,6 @@ Confidence is stored as a numeric value from `0.0` to `1.0`.
 - `raw-text-v1`: embed the chunk text as supplied; retained for compatibility and manual vector loading.
 - `semantic-context-v1`: embed a stable text envelope containing vocabulary profile, source type, confidence, timeline fields, title, and chunk text.
 
-The native `cprag_vocabulary` API, CLI `vocabulary` command, MCP
-`library_vocabulary` tool, raw CREXX `rxrag.vocabulary()` function, and
-`cprag.raglibrary.vocabularyJson()` wrapper method expose the same list as JSON.
+The target cREXX profile owns this vocabulary and exposes it through the shared
+Level G, CLI, `ADDRESS RAG`, and MCP operation vocabulary. Native-v1 bindings
+are retained only in the [oracle archive](archive/README.md).

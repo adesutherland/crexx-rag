@@ -1,0 +1,9 @@
+options levelg
+namespace repro_facade expose reprofacade
+import repro_record
+
+reprofacade: class
+  *: factory
+    return
+  record: method = .reprorecord
+    return makereprorecord()

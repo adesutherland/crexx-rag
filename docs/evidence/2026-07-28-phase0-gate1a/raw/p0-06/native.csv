@@ -1,0 +1,8 @@
+runtime,component,elapsed_us,operations,bytes,checksum,status
+native,sqlite_write,498,512,262144,-1.52,ok
+native,vector_db_transfer,761,512,262144,512,ok
+native,vector_decode,195,512,262144,-1.52,ok
+native,vector_compute,600,65536,262144,0.213117,ok
+native,vector_selection,6,512,0,2410,ok
+native,vector_peak_memory,0,512,2867200,2.8672e+06,ok
+native,vector_total,2086,512,262144,2410,ok

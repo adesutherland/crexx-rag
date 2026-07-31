@@ -1,0 +1,44 @@
+options levelb
+
+import rxfnsb
+import rxjson
+
+elapsed_us: procedure = .int
+  arg started = .int
+  elapsed = time("us") - started
+  if elapsed < 0 then elapsed = elapsed + 86400000000
+  return elapsed
+
+main: procedure = .int
+arg args = .string[]
+runtime = "unknown"
+if args.0 > 0 then runtime = args[1]
+dimension = 3072
+iterations = 10
+
+encoded = .string[]
+do i = 1 to dimension
+  encoded[i] = ((i % 23) - 11) || ".25"
+end
+document = .jsondocument('{"embedding":' || jsonarray(encoded) || '}')
+root = document.root()
+node = document.member(root, "embedding")
+if document.valid() = 0 | document.node_count(node) \= dimension then return 1
+
+packed = .binary
+projection_error = ""
+checksum = 0.0
+started = time("us")
+do iteration = 1 to iterations
+  status = document.node_f32_array(node, dimension, packed, projection_error)
+  if status \= 0 then do
+    say "P1A_RXJSON_PROJECTION_BENCH_FAIL=" || projection_error
+    return 1
+  end
+  checksum = checksum + <at..f32>(0) packed + <at..f32>((dimension - 1) * 4) packed
+end
+elapsed = elapsed_us(started)
+if binlength(packed) \= dimension * 4 then return 1
+say runtime || ",rxjson_f32_projection," || elapsed || "," || iterations || "," || binlength(packed) || "," || checksum || ",ok"
+say "P1A_RXJSON_PROJECTION_BENCH_OK runtime=" || runtime || " dimension=" || dimension || " iterations=" || iterations || " bytes=" || binlength(packed)
+return 0
