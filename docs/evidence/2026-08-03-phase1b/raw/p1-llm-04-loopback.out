@@ -1,0 +1,26 @@
+READY 18994
+REQUEST /openai/v1/responses
+REQUEST /openai/v1/embeddings
+REQUEST /anthropic/v1/messages
+REQUEST /gemini/v1beta/models/gemini-2.5-flash-lite:generateContent
+REQUEST /gemini/v1beta/models/gemini-embedding-2:batchEmbedContents
+REQUEST /v1/chat/completions
+REQUEST /openai/v1/responses
+REQUEST /openai/v1/embeddings
+REQUEST /anthropic/v1/messages
+REQUEST /gemini/v1beta/models/gemini-2.5-flash-lite:generateContent
+REQUEST /gemini/v1beta/models/gemini-embedding-2:batchEmbedContents
+REQUEST /v1/chat/completions
+REQUEST /openai/v1/responses
+REQUEST /openai/v1/embeddings
+REQUEST /anthropic/v1/messages
+REQUEST /gemini/v1beta/models/gemini-2.5-flash-lite:generateContent
+REQUEST /gemini/v1beta/models/gemini-embedding-2:batchEmbedContents
+REQUEST /v1/chat/completions
+REQUEST /openai/v1/responses
+REQUEST /openai/v1/embeddings
+REQUEST /anthropic/v1/messages
+REQUEST /gemini/v1beta/models/gemini-2.5-flash-lite:generateContent
+REQUEST /gemini/v1beta/models/gemini-embedding-2:batchEmbedContents
+REQUEST /v1/chat/completions
+SUMMARY scenario=multiprovider connections=24 request_connection_close=24

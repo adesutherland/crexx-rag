@@ -1,0 +1,2 @@
+[0/1] Running P1-LLM-03 provider hardening proof
+-- P1-LLM-03 passed hardening contract on rxvme/rxbvm; rxhttp connection reuse remains unsupported

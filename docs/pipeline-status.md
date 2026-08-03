@@ -17,8 +17,8 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Gate 0 | Passed | Full configure/build/CTest passed 17/17 with 19 frozen hashes and raw measurements |
 | Phase 1A | Complete diagnostic unit | P1A-SDK-01 through P1A-SUR-01 all have focused retained correctness/failure/profile evidence |
 | Gate 1A | Accepted 2026-08-03 | D1-D8 boundaries and the bounded D9 worklist are recorded; CRI-15 remains an open Linux dependency |
-| Phase 1B | Active at P1-LLM-03 | Installed SDK, SQLite, structured data, provider contract, and available local OpenAI-compatible calls are accepted; provider hardening is active; stop at Gate 1B |
-| Phase 2 and later | Not authorized | No production schema, donation implementation, hosted qualification, cutover, or retirement |
+| Phase 1B | Between items after P1-LLM-05 | Installed SDK, SQLite, structured data, and the complete provider section are accepted; P1-VEC-01 is next but not started; stop at Gate 1B |
+| Phase 2 and later | Not authorized | No production schema, donation implementation, additional hosted qualification, cutover, or retirement |
 
 ## Current Product Reality
 
@@ -97,8 +97,17 @@ complete. `P1-JSON-01` and `P1-JSON-02` are accepted against installed
 `rxjson`; `P1-REC-01` selects nominal Level-B application records over generic
 plugin columns with direct Level-G crossings. `P1-LLM-01` and the available
 local OpenAI-compatible case in `P1-LLM-02` are accepted; a real
-`llama-server` executable was unavailable and is not claimed. `P1-LLM-03` is
-the sole active item.
+`llama-server` executable was unavailable and is not claimed. `P1-LLM-03`
+accepts ordered batch embedding, bounded structured validation, retry/backoff,
+usage, pre-transport privacy denial, and truthful unsupported capabilities.
+CRI-15 still blocks Linux timeout qualification; CRI-16 records that installed
+`rxhttp` is a one-connection-per-request synchronous transport. `P1-LLM-04`
+passes all local/OpenAI/Anthropic/Gemini shapes and five low-cost hosted calls,
+including two 128-dimensional batch-embedding results. `P1-LLM-05` proves zero
+outbound connections for denied routes and zero retained matches for all three
+credential values. The provider section is complete; `P1-VEC-01` is next but
+has not started. The accepted boundary, validation, and remaining transport
+gap are summarized in the [provider closeout](evidence/2026-08-03-phase1b/PROVIDER-CLOSEOUT.md).
 
 ## Phase-1B Authority And Gate-1B Stop
 

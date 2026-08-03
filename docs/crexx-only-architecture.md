@@ -171,6 +171,17 @@ Connection reuse, streaming, cancellation, structured output, compression,
 rate-limit handling, and bounded response assembly are capability work for the
 generic HTTP/provider layers.
 
+The Phase-1B incubation now implements the provider-neutral records, a dated
+model/cost/capability catalog, configurable local OpenAI compatibility, and
+distinct OpenAI Responses, Anthropic Messages, and Gemini generation/embedding
+payloads. It covers structured output, ordered batch embedding, bounded retry,
+usage/cost records, URL media modalities, pre-transport privacy denial, and
+secret-free evidence. This remains an incubation rather than the shipped
+`rxllm` package. CRI-15 withholds Linux timeout qualification and CRI-16 blocks
+an industrial high-throughput transport claim until the generic HTTP surface
+has connection reuse and bounded response handling; streaming, cancellation,
+compression, and multiplexing remain explicit capabilities.
+
 ### Hash and binary data
 
 Stable source identity requires SHA-256 or an equivalent collision-resistant

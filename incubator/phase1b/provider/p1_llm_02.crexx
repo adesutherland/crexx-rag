@@ -29,6 +29,10 @@ inputs[1] = "unused"
 generation_request = .providerrequest("generate", "answerer", "local-chat", messages, inputs, "", 2000, 1, "local", "local-gen-1", "client-gen-1")
 generation = backend.generate(generation_request)
 generation_usage = generation.usage()
+if generation.status() \= 0 then do
+  generation_error = generation.error()
+  say "P1_LLM_02_GENERATION_ERROR=" || generation_error.category() || ":" || generation_error.code() || ":" || generation_error.message()
+end
 errors = errors + check(generation.status() = 0 & generation.provider() = "local-openai-compatible" & generation.model() = "local-chat", "local generation identity")
 errors = errors + check(generation.request_id() = "chatcmpl-local-001" & generation.content() = "loopback OpenAI generation Gràdh 中" & generation.finish_reason() = "stop", "local generation result")
 errors = errors + check(generation_usage.input_tokens() = 9 & generation_usage.output_tokens() = 4 & generation.latency_us() > 0, "local generation usage")
@@ -39,9 +43,15 @@ embedding_request = .providerrequest("embed", "embedding", "local-embed", messag
 embedding_result = backend.embed(embedding_request)
 vectors = embedding_result.embeddings()
 usage = embedding_result.usage()
-payload = vectors[1].payload()
+if embedding_result.status() \= 0 then do
+  embedding_error = embedding_result.error()
+  say "P1_LLM_02_EMBEDDING_ERROR=" || embedding_error.category() || ":" || embedding_error.code() || ":" || embedding_error.message()
+end
 errors = errors + check(embedding_result.status() = 0 & embedding_result.provider() = "local-openai-compatible" & vectors.0 = 1 & vectors[1].valid() = 1 & vectors[1].count() = 3, "local embedding result")
-errors = errors + check(<at..f32>(0) payload = 0.125 & <at..f32>(4) payload = -0.25 & <at..f32>(8) payload = 0.5, "local embedding values")
+if vectors.0 = 1 then do
+  payload = vectors[1].payload()
+  errors = errors + check(<at..f32>(0) payload = 0.125 & <at..f32>(4) payload = -0.25 & <at..f32>(8) payload = 0.5, "local embedding values")
+end
 errors = errors + check(usage.input_tokens() = 4 & usage.input_count() = 1 & embedding_result.latency_us() > 0, "local embedding usage")
 
 if errors \= 0 then do

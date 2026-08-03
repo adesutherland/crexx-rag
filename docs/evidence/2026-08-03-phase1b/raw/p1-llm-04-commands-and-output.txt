@@ -1,0 +1,89 @@
+contract=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/provider/provider_contract.crexx
+catalog=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/provider/provider_catalog.crexx
+http=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/provider/provider_http.crexx
+adapter=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/provider/industrial_provider.crexx
+source=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/provider/p1_llm_04.crexx
+fixture=synthetic-local-openai-anthropic-gemini
+hosted_calls=0
+noopt contract compile:
+noopt contract assemble:
+
+noopt catalog compile:
+noopt catalog assemble:
+
+noopt facade compile:
+noopt facade assemble:
+
+noopt HTTP compile:
+noopt HTTP assemble:
+
+noopt adapter compile:
+noopt adapter assemble:
+
+noopt local adapter compile:
+noopt local adapter assemble:
+
+noopt test compile:
+noopt test assemble:
+
+opt contract compile:
+opt contract assemble:
+
+opt catalog compile:
+opt catalog assemble:
+
+opt facade compile:
+opt facade assemble:
+
+opt HTTP compile:
+opt HTTP assemble:
+
+opt adapter compile:
+opt adapter assemble:
+
+opt local adapter compile:
+opt local adapter assemble:
+
+opt test compile:
+opt test assemble:
+
+noopt-rxvme:
+P1_LLM_04_OK cell=noopt-rxvme providers=local,openai,anthropic,gemini facade=openai-level-g generation=structured modalities=image,document,audio embeddings=openai-batch,gemini-batch model_catalog=7
+
+noopt-rxbvm:
+P1_LLM_04_OK cell=noopt-rxbvm providers=local,openai,anthropic,gemini facade=openai-level-g generation=structured modalities=image,document,audio embeddings=openai-batch,gemini-batch model_catalog=7
+
+opt-rxvme:
+P1_LLM_04_OK cell=opt-rxvme providers=local,openai,anthropic,gemini facade=openai-level-g generation=structured modalities=image,document,audio embeddings=openai-batch,gemini-batch model_catalog=7
+
+opt-rxbvm:
+P1_LLM_04_OK cell=opt-rxbvm providers=local,openai,anthropic,gemini facade=openai-level-g generation=structured modalities=image,document,audio embeddings=openai-batch,gemini-batch model_catalog=7
+
+loopback:
+READY 18994
+REQUEST /openai/v1/responses
+REQUEST /openai/v1/embeddings
+REQUEST /anthropic/v1/messages
+REQUEST /gemini/v1beta/models/gemini-2.5-flash-lite:generateContent
+REQUEST /gemini/v1beta/models/gemini-embedding-2:batchEmbedContents
+REQUEST /v1/chat/completions
+REQUEST /openai/v1/responses
+REQUEST /openai/v1/embeddings
+REQUEST /anthropic/v1/messages
+REQUEST /gemini/v1beta/models/gemini-2.5-flash-lite:generateContent
+REQUEST /gemini/v1beta/models/gemini-embedding-2:batchEmbedContents
+REQUEST /v1/chat/completions
+REQUEST /openai/v1/responses
+REQUEST /openai/v1/embeddings
+REQUEST /anthropic/v1/messages
+REQUEST /gemini/v1beta/models/gemini-2.5-flash-lite:generateContent
+REQUEST /gemini/v1beta/models/gemini-embedding-2:batchEmbedContents
+REQUEST /v1/chat/completions
+REQUEST /openai/v1/responses
+REQUEST /openai/v1/embeddings
+REQUEST /anthropic/v1/messages
+REQUEST /gemini/v1beta/models/gemini-2.5-flash-lite:generateContent
+REQUEST /gemini/v1beta/models/gemini-embedding-2:batchEmbedContents
+REQUEST /v1/chat/completions
+SUMMARY scenario=multiprovider connections=24 request_connection_close=24
+result=0

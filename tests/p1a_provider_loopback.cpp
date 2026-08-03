@@ -10,6 +10,7 @@
 #include <iostream>
 #include <string>
 #include <thread>
+#include <unordered_map>
 
 namespace {
 
@@ -33,6 +34,26 @@ std::string request_path(const std::string& request)
     return request.substr(first_space + 1, second_space - first_space - 1);
 }
 
+std::string header_value(const std::string& request, const std::string& name)
+{
+    const std::string wanted = name + ":";
+    const std::size_t start = request.find(wanted);
+    if (start == std::string::npos) return {};
+    const std::size_t value_start = request.find_first_not_of(" \t", start + wanted.size());
+    if (value_start == std::string::npos) return {};
+    const std::size_t end = request.find("\r\n", value_start);
+    return request.substr(value_start, end == std::string::npos ? end : end - value_start);
+}
+
+const char* reason_phrase(int status)
+{
+    if (status == 200) return "OK";
+    if (status == 400) return "Bad Request";
+    if (status == 429) return "Too Many Requests";
+    if (status == 503) return "Service Unavailable";
+    return "Error";
+}
+
 } // namespace
 
 int main(int argc, char** argv)
@@ -40,6 +61,7 @@ int main(int argc, char** argv)
     ::signal(SIGPIPE, SIG_IGN);
     const int port = argc > 1 ? std::atoi(argv[1]) : 18991;
     const int requests = argc > 2 ? std::atoi(argv[2]) : 4;
+    const std::string scenario = argc > 3 ? argv[3] : "default";
     const int server = ::socket(AF_INET, SOCK_STREAM, 0);
     if (server < 0) return 1;
     int reuse = 1;
@@ -55,6 +77,22 @@ int main(int argc, char** argv)
     }
     std::cout << "READY " << port << std::endl;
 
+    if (scenario == "zero-outbound" && requests == 0) {
+        pollfd unexpected {server, POLLIN, 0};
+        if (::poll(&unexpected, 1, 1000) > 0) {
+            const int client = ::accept(server, nullptr, nullptr);
+            if (client >= 0) ::close(client);
+            std::cout << "SUMMARY scenario=zero-outbound connections=1" << std::endl;
+            ::close(server);
+            return 5;
+        }
+        std::cout << "SUMMARY scenario=zero-outbound connections=0" << std::endl;
+        ::close(server);
+        return 0;
+    }
+
+    int close_requests = 0;
+    std::unordered_map<std::string, int> retry_attempts;
     for (int index = 0; index < requests; ++index) {
         pollfd ready {server, POLLIN, 0};
         if (::poll(&ready, 1, 10000) <= 0) {
@@ -86,24 +124,123 @@ int main(int argc, char** argv)
 
         const std::string path = request_path(request);
         std::cout << "REQUEST " << path << std::endl;
+        if (request.find("Connection: close") != std::string::npos) ++close_requests;
         std::string body;
-        if (path == "/v1/chat/completions") {
-            const bool valid_model = request.find("\"model\":\"local-chat\"") != std::string::npos;
-            const bool valid_stream = request.find("\"stream\":false") != std::string::npos;
-            const bool valid_unicode = request.find("Generate Gr\xc3\xa0" "dh \xe4\xb8\xad") != std::string::npos;
-            if (!valid_model || !valid_stream || !valid_unicode) {
-                body = R"({"error":{"message":"OpenAI-compatible generation request shape mismatch"}})";
+        int http_status = 200;
+        if (path == "/openai/v1/responses") {
+            const bool valid_auth = request.find("Authorization: Bearer synthetic-openai-key") != std::string::npos;
+            const bool valid_shape = request.find("\"model\":\"gpt-5.6-luna\"") != std::string::npos
+                && request.find("\"type\":\"input_image\"") != std::string::npos
+                && request.find("\"image_url\":\"https://fixture.invalid/image.png\"") != std::string::npos
+                && request.find("\"format\":{\"type\":\"json_schema\"") != std::string::npos;
+            if (!valid_auth || !valid_shape) {
+                http_status = 400;
+                body = R"({"error":{"message":"OpenAI Responses request shape mismatch"}})";
             } else {
-                body = R"({"id":"chatcmpl-local-001","model":"local-chat","choices":[{"index":0,"message":{"role":"assistant","content":"loopback OpenAI generation Gr\u00e0dh \u4e2d"},"finish_reason":"stop"}],"usage":{"prompt_tokens":9,"completion_tokens":4,"total_tokens":13}})";
+                body = R"({"id":"resp-openai-001","model":"gpt-5.6-luna","status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"{\"answer\":\"openai\"}"}]}],"usage":{"input_tokens":11,"output_tokens":5}})";
+            }
+        } else if (path == "/openai/v1/embeddings") {
+            const bool valid_auth = request.find("Authorization: Bearer synthetic-openai-key") != std::string::npos;
+            const bool valid_shape = request.find("\"model\":\"text-embedding-3-small\"") != std::string::npos
+                && request.find("\"input\":[\"index one\",\"index two\"]") != std::string::npos
+                && request.find("\"dimensions\":3") != std::string::npos;
+            if (!valid_auth || !valid_shape) {
+                http_status = 400;
+                body = R"({"error":{"message":"OpenAI embedding request shape mismatch"}})";
+            } else {
+                body = R"({"data":[{"index":0,"embedding":[0.2,0.3,0.4]},{"index":1,"embedding":[-0.2,-0.3,-0.4]}],"usage":{"prompt_tokens":6,"total_tokens":6}})";
+            }
+        } else if (path == "/anthropic/v1/messages") {
+            const bool valid_auth = request.find("x-api-key: synthetic-anthropic-key") != std::string::npos
+                && request.find("anthropic-version: 2023-06-01") != std::string::npos;
+            const bool valid_shape = request.find("\"model\":\"claude-haiku-4-5\"") != std::string::npos
+                && request.find("\"type\":\"document\"") != std::string::npos
+                && request.find("\"url\":\"https://fixture.invalid/source.pdf\"") != std::string::npos
+                && request.find("\"output_config\":{\"format\":{\"type\":\"json_schema\"") != std::string::npos;
+            if (!valid_auth || !valid_shape) {
+                http_status = 400;
+                body = R"({"error":{"message":"Anthropic Messages request shape mismatch"}})";
+            } else {
+                body = R"({"id":"msg-anthropic-001","model":"claude-haiku-4-5","content":[{"type":"text","text":"{\"answer\":\"anthropic\"}"}],"stop_reason":"end_turn","usage":{"input_tokens":12,"output_tokens":5}})";
+            }
+        } else if (path.find("/gemini/v1beta/models/gemini-2.5-flash-lite:generateContent") != std::string::npos) {
+            const bool valid_auth = request.find("x-goog-api-key: synthetic-gemini-key") != std::string::npos;
+            const bool valid_shape = request.find("\"fileData\":{\"mimeType\":\"audio/wav\",\"fileUri\":\"https://fixture.invalid/audio.wav\"") != std::string::npos
+                && request.find("\"responseMimeType\":\"application/json\"") != std::string::npos
+                && request.find("\"responseJsonSchema\"") != std::string::npos;
+            if (!valid_auth || !valid_shape) {
+                http_status = 400;
+                body = R"({"error":{"message":"Gemini generateContent request shape mismatch"}})";
+            } else {
+                body = R"({"responseId":"gemini-response-001","candidates":[{"content":{"parts":[{"text":"{\"answer\":\"gemini\"}"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":13,"candidatesTokenCount":5}})";
+            }
+        } else if (path.find("/gemini/v1beta/models/gemini-embedding-2:batchEmbedContents") != std::string::npos) {
+            const bool valid_auth = request.find("x-goog-api-key: synthetic-gemini-key") != std::string::npos;
+            const bool valid_shape = request.find("\"model\":\"models/gemini-embedding-2\"") != std::string::npos
+                && request.find("\"outputDimensionality\":3") != std::string::npos
+                && request.find("\"text\":\"vector one\"") != std::string::npos
+                && request.find("\"text\":\"vector two\"") != std::string::npos;
+            if (!valid_auth || !valid_shape) {
+                http_status = 400;
+                body = R"({"error":{"message":"Gemini embedding request shape mismatch"}})";
+            } else {
+                body = R"({"embeddings":[{"values":[0.3,0.4,0.5]},{"values":[-0.3,-0.4,-0.5]}]})";
+            }
+        } else if (path == "/v1/chat/completions") {
+            if (request.find("\"model\":\"structured-valid\"") != std::string::npos) {
+                const bool valid_schema = request.find("\"response_format\":{\"type\":\"json_schema\"") != std::string::npos
+                    && request.find("\"strict\":true") != std::string::npos
+                    && request.find("\"max_completion_tokens\":32") != std::string::npos;
+                if (!valid_schema) {
+                    body = R"({"error":{"message":"structured request shape mismatch"}})";
+                } else {
+                    body = R"({"id":"structured-001","choices":[{"message":{"content":"{\"answer\":\"ok\",\"score\":1}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":6}})";
+                }
+            } else if (request.find("\"model\":\"structured-invalid\"") != std::string::npos) {
+                body = R"({"id":"structured-002","choices":[{"message":{"content":"{\"other\":true}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":3}})";
+            } else if (request.find("\"model\":\"retry-local-") != std::string::npos) {
+                const std::string request_id = header_value(request, "X-Client-Request-Id");
+                const int attempt = ++retry_attempts[request_id];
+                if (attempt == 1) {
+                    http_status = 429;
+                    body = R"({"error":{"message":"synthetic rate limit"}})";
+                } else if (attempt == 2) {
+                    http_status = 503;
+                    body = R"({"error":{"message":"synthetic unavailable"}})";
+                } else {
+                    body = R"({"id":"retry-001","choices":[{"message":{"content":"retry complete"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2}})";
+                }
+            } else if (request.find("\"model\":\"nonretry-local\"") != std::string::npos) {
+                http_status = 400;
+                body = R"({"error":{"message":"synthetic invalid request"}})";
+            } else {
+                const bool valid_model = request.find("\"model\":\"local-chat\"") != std::string::npos;
+                const bool valid_stream = request.find("\"stream\":false") != std::string::npos;
+                const bool valid_unicode = request.find("Generate Gr\xc3\xa0" "dh \xe4\xb8\xad") != std::string::npos;
+                if (!valid_model || !valid_stream || !valid_unicode) {
+                    body = R"({"error":{"message":"OpenAI-compatible generation request shape mismatch"}})";
+                } else {
+                    body = R"({"id":"chatcmpl-local-001","model":"local-chat","choices":[{"index":0,"message":{"role":"assistant","content":"loopback OpenAI generation Gr\u00e0dh \u4e2d"},"finish_reason":"stop"}],"usage":{"prompt_tokens":9,"completion_tokens":4,"total_tokens":13}})";
+                }
             }
         } else if (path == "/v1/embeddings") {
-            const bool valid_model = request.find("\"model\":\"local-embed\"") != std::string::npos;
-            const bool valid_encoding = request.find("\"encoding_format\":\"float\"") != std::string::npos;
-            const bool valid_input = request.find("\"input\":\"Embed this locally\"") != std::string::npos;
-            if (!valid_model || !valid_encoding || !valid_input) {
-                body = R"({"error":{"message":"OpenAI-compatible embedding request shape mismatch"}})";
+            if (request.find("\"model\":\"batch-local\"") != std::string::npos) {
+                const bool valid_batch = request.find("\"input\":[\"alpha\",\"beta\"]") != std::string::npos;
+                const bool valid_dimensions = request.find("\"dimensions\":3") != std::string::npos;
+                if (!valid_batch || !valid_dimensions) {
+                    body = R"({"error":{"message":"batch embedding request shape mismatch"}})";
+                } else {
+                    body = R"({"data":[{"index":0,"embedding":[0.1,0.2,0.3]},{"index":1,"embedding":[-0.1,-0.2,-0.3]}],"usage":{"prompt_tokens":4,"total_tokens":4}})";
+                }
             } else {
-                body = R"({"object":"list","model":"local-embed","data":[{"object":"embedding","index":0,"embedding":[0.125,-0.25,0.5]}],"usage":{"prompt_tokens":4,"total_tokens":4}})";
+                const bool valid_model = request.find("\"model\":\"local-embed\"") != std::string::npos;
+                const bool valid_encoding = request.find("\"encoding_format\":\"float\"") != std::string::npos;
+                const bool valid_input = request.find("\"input\":\"Embed this locally\"") != std::string::npos;
+                if (!valid_model || !valid_encoding || !valid_input) {
+                    body = R"({"error":{"message":"OpenAI-compatible embedding request shape mismatch"}})";
+                } else {
+                    body = R"({"object":"list","model":"local-embed","data":[{"object":"embedding","index":0,"embedding":[0.125,-0.25,0.5]}],"usage":{"prompt_tokens":4,"total_tokens":4}})";
+                }
             }
         } else if (path.find("loopback-generate") != std::string::npos) {
             body = R"({"candidates":[{"content":{"parts":[{"text":"loopback generation"}]} }],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":2}})";
@@ -125,11 +262,15 @@ int main(int argc, char** argv)
         } else {
             body = R"({"error":{"message":"unexpected loopback path"}})";
         }
-        const std::string response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: "
-            + std::to_string(body.size()) + "\r\nConnection: close\r\n\r\n" + body;
+        const std::string response = "HTTP/1.1 " + std::to_string(http_status) + " " + reason_phrase(http_status)
+            + "\r\nContent-Type: application/json\r\nContent-Length: "
+            + std::to_string(body.size()) + "\r\nX-Request-Id: loopback-request-" + std::to_string(index + 1)
+            + "\r\nConnection: close\r\n\r\n" + body;
         send_all(client, response);
         ::close(client);
     }
+    std::cout << "SUMMARY scenario=" << scenario << " connections=" << requests
+              << " request_connection_close=" << close_requests << std::endl;
     ::close(server);
     return 0;
 }

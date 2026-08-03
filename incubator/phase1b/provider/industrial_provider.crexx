@@ -1,0 +1,590 @@
+options levelb
+
+namespace industrial_provider expose industrialprovider
+
+import rxfnsb
+import rxjson
+import provider_contract
+import provider_catalog
+import provider_http
+
+industrialprovider: class implements .provider
+  _protocol = .string
+  _provider_name = .string
+  _base_path = .string
+  _transport = .providerhttptransport
+
+  *: factory
+    arg protocol = .string, host = .string, port = .int, tls = .int, base_path = .string, api_key = .string, route_class = .string
+    _protocol = protocol
+    _provider_name = protocol
+    _base_path = base_path
+    _transport = .providerhttptransport(host, port, tls, protocol, api_key, route_class)
+    return
+
+  capabilities: method = .providercapabilities
+    if _protocol = "openai" then return .providercapabilities("openai", 1, 1, 1, 1, 0, 0, 0, 2048, "text|image_url|document_url", "text|f32le", "openai-responses", 0)
+    if _protocol = "anthropic" then return .providercapabilities("anthropic", 1, 1, 0, 0, 0, 0, 0, 0, "text|image_url|document_url", "text", "anthropic-messages", 0)
+    if _protocol = "gemini" then return .providercapabilities("gemini", 1, 1, 1, 1, 0, 0, 0, 100, "text|image_url|document_url|audio_url", "text|f32le", "gemini-generateContent", 0)
+    return .providercapabilities(_protocol, 0, 0, 0, 0, 0, 0, 0, 0, "", "", "unsupported", 0)
+
+  generate: method = .providerresult
+    arg request = .providerrequest
+    validation = validateprovideroperation(request, "generate")
+    if validation.code() \= 0 then return _failed(request, validation)
+    return _generate(request, 0)
+
+  generate_structured: method = .providerresult
+    arg request = .providerrequest
+    validation = validateprovideroperation(request, "generate_structured")
+    if validation.code() \= 0 then return _failed(request, validation)
+    return _generate(request, 1)
+
+  embed: method = .providerresult
+    arg request = .providerrequest
+    validation = validateprovideroperation(request, "embed")
+    if validation.code() \= 0 then return _failed(request, validation)
+    return _embed(request, 0)
+
+  embed_batch: method = .providerresult
+    arg request = .providerrequest
+    validation = validateprovideroperation(request, "embed_batch")
+    if validation.code() \= 0 then return _failed(request, validation)
+    return _embed(request, 1)
+
+  cancel: method = .providerresult
+    arg request_id = .string
+    result = .providerresult()
+    call result.set_failure(_provider_name, "", request_id, .providererror("unsupported", -120, 0, 0, 0, "cancellation is not supported"))
+    return result
+
+  _generate: method = .providerresult
+    arg request = .providerrequest, structured = .int
+    if request.stream_requested() \= 0 then return _unsupported(request, "streaming")
+    modality_error = _validate_modalities(request)
+    if modality_error.code() \= 0 then return _failed(request, modality_error)
+    if _protocol \= "openai" & _protocol \= "anthropic" & _protocol \= "gemini" then return _unsupported(request, "generation protocol")
+    path = _generation_path(request.model())
+    body = _generation_body(request, structured)
+    response = _transport.post(request, path, body)
+    if response.status() \= 0 then return _transport_failure(request, response)
+    if _protocol = "openai" then result = _parse_openai_generation(request, response)
+    else if _protocol = "anthropic" then result = _parse_anthropic_generation(request, response)
+    else result = _parse_gemini_generation(request, response)
+    if result.status() \= 0 | structured = 0 then return result
+    structured_error = validatestructuredresponse(result.content(), request.schema())
+    if structured_error.code() \= 0 then return _failed(request, structured_error, result.usage(), result.latency_us())
+    return result
+
+  _embed: method = .providerresult
+    arg request = .providerrequest, batch = .int
+    if _protocol = "anthropic" then return _unsupported(request, "embeddings")
+    if _protocol \= "openai" & _protocol \= "gemini" then return _unsupported(request, "embedding protocol")
+    inputs = request.inputs()
+    if batch = 0 & inputs.0 \= 1 then return _failed(request, .providererror("invalid_request", -101, 0, 0, 0, "single embedding requires exactly one input"))
+    if _protocol = "gemini" & inputs.0 > 100 then return _failed(request, .providererror("invalid_request", -101, 0, 0, 0, "Gemini embedding batch exceeds 100 inputs"))
+    path = _embedding_path(request.model(), batch)
+    body = _embedding_body(request, batch)
+    response = _transport.post(request, path, body)
+    if response.status() \= 0 then return _transport_failure(request, response)
+    if _protocol = "openai" then return _parse_openai_embeddings(request, response)
+    return _parse_gemini_embeddings(request, response, batch)
+
+  _generation_path: method = .string
+    arg model = .string
+    if _protocol = "openai" then return _endpoint("/responses")
+    if _protocol = "anthropic" then return _endpoint("/messages")
+    return _endpoint("/models/" || model || ":generateContent")
+
+  _embedding_path: method = .string
+    arg model = .string, batch = .int
+    if _protocol = "openai" then return _endpoint("/embeddings")
+    if batch \= 0 then return _endpoint("/models/" || model || ":batchEmbedContents")
+    return _endpoint("/models/" || model || ":embedContent")
+
+  _endpoint: method = .string
+    arg suffix = .string
+    if _base_path = "" then return suffix
+    if right(_base_path, 1) = "/" then return left(_base_path, length(_base_path) - 1) || suffix
+    return _base_path || suffix
+
+  _generation_body: method = .string
+    arg request = .providerrequest, structured = .int
+    if _protocol = "openai" then return _openai_generation_body(request, structured)
+    if _protocol = "anthropic" then return _anthropic_generation_body(request, structured)
+    return _gemini_generation_body(request, structured)
+
+  _openai_generation_body: method = .string
+    arg request = .providerrequest, structured = .int
+    messages = request.messages()
+    encoded_messages = .string[]
+    do i = 1 to messages.0
+      parts = .string[]
+      part_keys = .string[]
+      part_values = .string[]
+      if messages[i].modality() = "text" then do
+        part_keys[1] = "type"
+        part_values[1] = jsonquote("input_text")
+        part_keys[2] = "text"
+        part_values[2] = jsonquote(messages[i].content())
+      end
+      else if messages[i].modality() = "image_url" then do
+        part_keys[1] = "type"
+        part_values[1] = jsonquote("input_image")
+        part_keys[2] = "image_url"
+        part_values[2] = jsonquote(messages[i].source())
+      end
+      else do
+        part_keys[1] = "type"
+        part_values[1] = jsonquote("input_file")
+        part_keys[2] = "file_url"
+        part_values[2] = jsonquote(messages[i].source())
+      end
+      parts[1] = jsonobject(part_keys, part_values)
+      message_keys = .string[]
+      message_values = .string[]
+      message_keys[1] = "role"
+      message_values[1] = jsonquote(messages[i].role())
+      message_keys[2] = "content"
+      message_values[2] = jsonarray(parts)
+      encoded_messages[i] = jsonobject(message_keys, message_values)
+    end
+    keys = .string[]
+    values = .string[]
+    keys[1] = "model"
+    values[1] = jsonquote(request.model())
+    keys[2] = "input"
+    values[2] = jsonarray(encoded_messages)
+    next = 3
+    if request.max_output_tokens() > 0 then do
+      keys[next] = "max_output_tokens"
+      values[next] = request.max_output_tokens()
+      next = next + 1
+    end
+    if structured \= 0 then do
+      format_keys = .string[]
+      format_values = .string[]
+      format_keys[1] = "type"
+      format_values[1] = jsonquote("json_schema")
+      format_keys[2] = "name"
+      format_values[2] = jsonquote("cprag_response")
+      format_keys[3] = "strict"
+      format_values[3] = "true"
+      format_keys[4] = "schema"
+      format_values[4] = request.schema()
+      text_keys = .string[]
+      text_values = .string[]
+      text_keys[1] = "format"
+      text_values[1] = jsonobject(format_keys, format_values)
+      keys[next] = "text"
+      values[next] = jsonobject(text_keys, text_values)
+    end
+    return jsonobject(keys, values)
+
+  _anthropic_generation_body: method = .string
+    arg request = .providerrequest, structured = .int
+    messages = request.messages()
+    encoded_messages = .string[]
+    system_text = ""
+    message_count = 0
+    do i = 1 to messages.0
+      if messages[i].role() = "system" then do
+        if system_text \= "" then system_text = system_text || "0a"x
+        system_text = system_text || messages[i].content()
+        iterate
+      end
+      part_keys = .string[]
+      part_values = .string[]
+      if messages[i].modality() = "text" then do
+        part_keys[1] = "type"
+        part_values[1] = jsonquote("text")
+        part_keys[2] = "text"
+        part_values[2] = jsonquote(messages[i].content())
+      end
+      else do
+        source_keys = .string[]
+        source_values = .string[]
+        source_keys[1] = "type"
+        source_values[1] = jsonquote("url")
+        source_keys[2] = "url"
+        source_values[2] = jsonquote(messages[i].source())
+        part_keys[1] = "type"
+        if messages[i].modality() = "image_url" then part_values[1] = jsonquote("image")
+        else part_values[1] = jsonquote("document")
+        part_keys[2] = "source"
+        part_values[2] = jsonobject(source_keys, source_values)
+      end
+      parts = .string[]
+      parts[1] = jsonobject(part_keys, part_values)
+      message_keys = .string[]
+      message_values = .string[]
+      message_keys[1] = "role"
+      message_values[1] = jsonquote(messages[i].role())
+      message_keys[2] = "content"
+      message_values[2] = jsonarray(parts)
+      message_count = message_count + 1
+      encoded_messages[message_count] = jsonobject(message_keys, message_values)
+    end
+    keys = .string[]
+    values = .string[]
+    keys[1] = "model"
+    values[1] = jsonquote(request.model())
+    keys[2] = "max_tokens"
+    if request.max_output_tokens() > 0 then values[2] = request.max_output_tokens()
+    else values[2] = 64
+    keys[3] = "messages"
+    values[3] = jsonarray(encoded_messages)
+    next = 4
+    if system_text \= "" then do
+      keys[next] = "system"
+      values[next] = jsonquote(system_text)
+      next = next + 1
+    end
+    if structured \= 0 then do
+      format_keys = .string[]
+      format_values = .string[]
+      format_keys[1] = "type"
+      format_values[1] = jsonquote("json_schema")
+      format_keys[2] = "schema"
+      format_values[2] = request.schema()
+      output_keys = .string[]
+      output_values = .string[]
+      output_keys[1] = "format"
+      output_values[1] = jsonobject(format_keys, format_values)
+      keys[next] = "output_config"
+      values[next] = jsonobject(output_keys, output_values)
+    end
+    return jsonobject(keys, values)
+
+  _gemini_generation_body: method = .string
+    arg request = .providerrequest, structured = .int
+    messages = request.messages()
+    contents = .string[]
+    system_parts = .string[]
+    content_count = 0
+    system_count = 0
+    do i = 1 to messages.0
+      part = _gemini_part(messages[i])
+      if messages[i].role() = "system" then do
+        system_count = system_count + 1
+        system_parts[system_count] = part
+        iterate
+      end
+      parts = .string[]
+      parts[1] = part
+      content_keys = .string[]
+      content_values = .string[]
+      content_keys[1] = "role"
+      if messages[i].role() = "assistant" then content_values[1] = jsonquote("model")
+      else content_values[1] = jsonquote("user")
+      content_keys[2] = "parts"
+      content_values[2] = jsonarray(parts)
+      content_count = content_count + 1
+      contents[content_count] = jsonobject(content_keys, content_values)
+    end
+    keys = .string[]
+    values = .string[]
+    keys[1] = "contents"
+    values[1] = jsonarray(contents)
+    next = 2
+    if system_count > 0 then do
+      system_keys = .string[]
+      system_values = .string[]
+      system_keys[1] = "parts"
+      system_values[1] = jsonarray(system_parts)
+      keys[next] = "systemInstruction"
+      values[next] = jsonobject(system_keys, system_values)
+      next = next + 1
+    end
+    generation_keys = .string[]
+    generation_values = .string[]
+    generation_count = 0
+    if request.max_output_tokens() > 0 then do
+      generation_count = generation_count + 1
+      generation_keys[generation_count] = "maxOutputTokens"
+      generation_values[generation_count] = request.max_output_tokens()
+    end
+    if structured \= 0 then do
+      generation_count = generation_count + 1
+      generation_keys[generation_count] = "responseMimeType"
+      generation_values[generation_count] = jsonquote("application/json")
+      generation_count = generation_count + 1
+      generation_keys[generation_count] = "responseJsonSchema"
+      generation_values[generation_count] = request.schema()
+    end
+    if generation_count > 0 then do
+      keys[next] = "generationConfig"
+      values[next] = jsonobject(generation_keys, generation_values)
+    end
+    return jsonobject(keys, values)
+
+  _gemini_part: method = .string
+    arg message = .providermessage
+    keys = .string[]
+    values = .string[]
+    if message.modality() = "text" then do
+      keys[1] = "text"
+      values[1] = jsonquote(message.content())
+    end
+    else do
+      file_keys = .string[]
+      file_values = .string[]
+      file_keys[1] = "mimeType"
+      file_values[1] = jsonquote(message.media_type())
+      file_keys[2] = "fileUri"
+      file_values[2] = jsonquote(message.source())
+      keys[1] = "fileData"
+      values[1] = jsonobject(file_keys, file_values)
+    end
+    return jsonobject(keys, values)
+
+  _embedding_body: method = .string
+    arg request = .providerrequest, batch = .int
+    if _protocol = "openai" then return _openai_embedding_body(request, batch)
+    return _gemini_embedding_body(request, batch)
+
+  _openai_embedding_body: method = .string
+    arg request = .providerrequest, batch = .int
+    inputs = request.inputs()
+    encoded_inputs = .string[]
+    do i = 1 to inputs.0
+      encoded_inputs[i] = jsonquote(inputs[i])
+    end
+    keys = .string[]
+    values = .string[]
+    keys[1] = "model"
+    values[1] = jsonquote(request.model())
+    keys[2] = "input"
+    if batch = 0 then values[2] = encoded_inputs[1]
+    else values[2] = jsonarray(encoded_inputs)
+    keys[3] = "encoding_format"
+    values[3] = jsonquote("float")
+    if request.embedding_dimensions() > 0 then do
+      keys[4] = "dimensions"
+      values[4] = request.embedding_dimensions()
+    end
+    return jsonobject(keys, values)
+
+  _gemini_embedding_body: method = .string
+    arg request = .providerrequest, batch = .int
+    inputs = request.inputs()
+    if batch = 0 then return _gemini_embedding_request(request.model(), inputs[1], request.embedding_dimensions(), 0)
+    requests = .string[]
+    do i = 1 to inputs.0
+      requests[i] = _gemini_embedding_request(request.model(), inputs[i], request.embedding_dimensions(), 1)
+    end
+    keys = .string[]
+    values = .string[]
+    keys[1] = "requests"
+    values[1] = jsonarray(requests)
+    return jsonobject(keys, values)
+
+  _gemini_embedding_request: method = .string
+    arg model = .string, input = .string, dimensions = .int, include_model = .int
+    part_keys = .string[]
+    part_values = .string[]
+    part_keys[1] = "text"
+    part_values[1] = jsonquote(input)
+    parts = .string[]
+    parts[1] = jsonobject(part_keys, part_values)
+    content_keys = .string[]
+    content_values = .string[]
+    content_keys[1] = "parts"
+    content_values[1] = jsonarray(parts)
+    keys = .string[]
+    values = .string[]
+    keys[1] = "content"
+    values[1] = jsonobject(content_keys, content_values)
+    next = 2
+    if include_model \= 0 then do
+      keys[next] = "model"
+      values[next] = jsonquote("models/" || model)
+      next = next + 1
+    end
+    if dimensions > 0 then do
+      keys[next] = "outputDimensionality"
+      values[next] = dimensions
+    end
+    return jsonobject(keys, values)
+
+  _parse_openai_generation: method = .providerresult
+    arg request = .providerrequest, response = .providerhttpresponse
+    document = .jsondocument(response.body())
+    if document.valid() = 0 then return _malformed(request, response, "OpenAI response is not valid JSON")
+    root = document.root()
+    content = ""
+    output_text = document.member(root, "output_text")
+    if document.node_type(output_text) = "string" then ignored = document.node_string(output_text, content)
+    if content = "" then do
+      output = document.member(root, "output")
+      message = document.element(output, 1)
+      parts = document.member(message, "content")
+      part = document.element(parts, 1)
+      text_node = document.member(part, "text")
+      ignored = document.node_string(text_node, content)
+    end
+    if content = "" then return _malformed(request, response, "OpenAI generated content is missing")
+    usage_node = document.member(root, "usage")
+    input_tokens = _optional_int(document, usage_node, "input_tokens")
+    output_tokens = _optional_int(document, usage_node, "output_tokens")
+    usage = .providerusage(input_tokens, output_tokens, 1, estimatecostmicrounits("openai", request.model(), input_tokens, output_tokens), response.attempts(), response.retry_delay_ms())
+    response_id = _response_id(document, root, request.request_id(), response.provider_request_id())
+    finish_reason = "complete"
+    status_node = document.member(root, "status")
+    if document.node_type(status_node) = "string" then ignored = document.node_string(status_node, finish_reason)
+    result = .providerresult()
+    call result.set_generation("openai", request.model(), response_id, content, finish_reason, usage, response.latency_us())
+    return result
+
+  _parse_anthropic_generation: method = .providerresult
+    arg request = .providerrequest, response = .providerhttpresponse
+    document = .jsondocument(response.body())
+    if document.valid() = 0 then return _malformed(request, response, "Anthropic response is not valid JSON")
+    root = document.root()
+    content_array = document.member(root, "content")
+    content_item = document.element(content_array, 1)
+    text_node = document.member(content_item, "text")
+    content = ""
+    if document.node_string(text_node, content) \= 0 then return _malformed(request, response, "Anthropic generated content is missing")
+    usage_node = document.member(root, "usage")
+    input_tokens = _optional_int(document, usage_node, "input_tokens")
+    output_tokens = _optional_int(document, usage_node, "output_tokens")
+    usage = .providerusage(input_tokens, output_tokens, 1, estimatecostmicrounits("anthropic", request.model(), input_tokens, output_tokens), response.attempts(), response.retry_delay_ms())
+    response_id = _response_id(document, root, request.request_id(), response.provider_request_id())
+    finish_reason = "unknown"
+    finish_node = document.member(root, "stop_reason")
+    if document.node_type(finish_node) = "string" then ignored = document.node_string(finish_node, finish_reason)
+    result = .providerresult()
+    call result.set_generation("anthropic", request.model(), response_id, content, finish_reason, usage, response.latency_us())
+    return result
+
+  _parse_gemini_generation: method = .providerresult
+    arg request = .providerrequest, response = .providerhttpresponse
+    document = .jsondocument(response.body())
+    if document.valid() = 0 then return _malformed(request, response, "Gemini response is not valid JSON")
+    root = document.root()
+    candidates = document.member(root, "candidates")
+    candidate = document.element(candidates, 1)
+    content_node = document.member(candidate, "content")
+    parts = document.member(content_node, "parts")
+    part = document.element(parts, 1)
+    text_node = document.member(part, "text")
+    content = ""
+    if document.node_string(text_node, content) \= 0 then return _malformed(request, response, "Gemini generated content is missing")
+    usage_node = document.member(root, "usageMetadata")
+    input_tokens = _optional_int(document, usage_node, "promptTokenCount")
+    output_tokens = _optional_int(document, usage_node, "candidatesTokenCount")
+    usage = .providerusage(input_tokens, output_tokens, 1, estimatecostmicrounits("gemini", request.model(), input_tokens, output_tokens), response.attempts(), response.retry_delay_ms())
+    response_id = request.request_id()
+    response_id_node = document.member(root, "responseId")
+    if document.node_type(response_id_node) = "string" then ignored = document.node_string(response_id_node, response_id)
+    finish_reason = "unknown"
+    finish_node = document.member(candidate, "finishReason")
+    if document.node_type(finish_node) = "string" then ignored = document.node_string(finish_node, finish_reason)
+    result = .providerresult()
+    call result.set_generation("gemini", request.model(), response_id, content, finish_reason, usage, response.latency_us())
+    return result
+
+  _parse_openai_embeddings: method = .providerresult
+    arg request = .providerrequest, response = .providerhttpresponse
+    document = .jsondocument(response.body())
+    if document.valid() = 0 then return _malformed(request, response, "OpenAI embedding response is not valid JSON")
+    data = document.member(document.root(), "data")
+    return _project_embeddings(request, response, document, data, "embedding")
+
+  _parse_gemini_embeddings: method = .providerresult
+    arg request = .providerrequest, response = .providerhttpresponse, batch = .int
+    document = .jsondocument(response.body())
+    if document.valid() = 0 then return _malformed(request, response, "Gemini embedding response is not valid JSON")
+    root = document.root()
+    if batch \= 0 then embeddings_node = document.member(root, "embeddings")
+    else do
+      embedding_node = document.member(root, "embedding")
+      return _project_single_embedding(request, response, document, embedding_node)
+    end
+    return _project_embeddings(request, response, document, embeddings_node, "values")
+
+  _project_embeddings: method = .providerresult
+    arg request = .providerrequest, response = .providerhttpresponse, document = .jsondocument, items_node = .int, value_name = .string
+    inputs = request.inputs()
+    if document.node_count(items_node) \= inputs.0 then return _malformed(request, response, "embedding result count does not match input count")
+    vectors = .embeddingrecord[]
+    do i = 1 to inputs.0
+      item = document.element(items_node, i)
+      if _protocol = "openai" & _optional_int(document, item, "index") \= i - 1 then return _malformed(request, response, "embedding result index is out of order")
+      values_node = document.member(item, value_name)
+      projection_error = ""
+      packed = .binary
+      projection_status = document.node_f32_array(values_node, -1, packed, projection_error)
+      dimensions = document.node_count(values_node)
+      if projection_status \= 0 | dimensions <= 0 then return _malformed(request, response, "embedding is invalid: " || projection_error)
+      if request.embedding_dimensions() > 0 & dimensions \= request.embedding_dimensions() then return _malformed(request, response, "embedding dimensions do not match request")
+      vectors[i] = .embeddingrecord("f32le-v1", dimensions, packed)
+    end
+    usage_node = document.member(document.root(), "usage")
+    input_tokens = _optional_int(document, usage_node, "prompt_tokens")
+    usage = .providerusage(input_tokens, 0, inputs.0, -1, response.attempts(), response.retry_delay_ms())
+    result = .providerresult()
+    call result.set_embeddings(_provider_name, request.model(), request.request_id(), vectors, usage, response.latency_us())
+    return result
+
+  _project_single_embedding: method = .providerresult
+    arg request = .providerrequest, response = .providerhttpresponse, document = .jsondocument, embedding_node = .int
+    values_node = document.member(embedding_node, "values")
+    projection_error = ""
+    packed = .binary
+    projection_status = document.node_f32_array(values_node, -1, packed, projection_error)
+    dimensions = document.node_count(values_node)
+    if projection_status \= 0 | dimensions <= 0 then return _malformed(request, response, "embedding is invalid: " || projection_error)
+    if request.embedding_dimensions() > 0 & dimensions \= request.embedding_dimensions() then return _malformed(request, response, "embedding dimensions do not match request")
+    vectors = .embeddingrecord[]
+    vectors[1] = .embeddingrecord("f32le-v1", dimensions, packed)
+    result = .providerresult()
+    call result.set_embeddings(_provider_name, request.model(), request.request_id(), vectors, .providerusage(0, 0, 1, -1, response.attempts(), response.retry_delay_ms()), response.latency_us())
+    return result
+
+  _validate_modalities: method = .providererror
+    arg request = .providerrequest
+    messages = request.messages()
+    do i = 1 to messages.0
+      modality = messages[i].modality()
+      if _protocol = "openai" & modality = "audio_url" then return .providererror("unsupported", -120, 0, 0, 0, "OpenAI audio URL input is not implemented")
+      if _protocol = "anthropic" & modality = "audio_url" then return .providererror("unsupported", -120, 0, 0, 0, "Anthropic audio URL input is not supported")
+      if modality \= "text" & messages[i].media_type() = "" then return .providererror("invalid_request", -101, 0, 0, 0, "media type is required for non-text input")
+    end
+    return .providererror()
+
+  _transport_failure: method = .providerresult
+    arg request = .providerrequest, response = .providerhttpresponse
+    failure = .providererror(response.category(), response.status(), response.http_status(), response.retryable(), response.attempts(), response.message())
+    usage = .providerusage(0, 0, 1, 0, response.attempts(), response.retry_delay_ms())
+    return _failed(request, failure, usage, response.latency_us())
+
+  _malformed: method = .providerresult
+    arg request = .providerrequest, response = .providerhttpresponse, message = .string
+    return _failed(request, .providererror("malformed_response", -102, response.http_status(), 0, response.attempts(), message), .providerusage(0, 0, 1, 0, response.attempts(), response.retry_delay_ms()), response.latency_us())
+
+  _failed: method = .providerresult
+    arg request = .providerrequest, failure = .providererror, usage = .providerusage(), latency_us = 0
+    result = .providerresult()
+    call result.set_failure(_provider_name, request.model(), request.request_id(), failure, usage, latency_us)
+    return result
+
+  _unsupported: method = .providerresult
+    arg request = .providerrequest, capability = .string
+    return _failed(request, .providererror("unsupported", -120, 0, 0, 0, capability || " is not supported"))
+
+_optional_int: procedure = .int
+  arg document = .jsondocument, parent = .int, name = .string
+  if parent <= 0 then return 0
+  node = document.member(parent, name)
+  value = 0
+  if document.node_int(node, value) \= 0 then return 0
+  return value
+
+_response_id: procedure = .string
+  arg document = .jsondocument, root = .int, fallback = .string, header_id = .string
+  if header_id \= "" then return header_id
+  id_node = document.member(root, "id")
+  if document.node_type(id_node) = "string" then ignored = document.node_string(id_node, fallback)
+  return fallback

@@ -1,0 +1,11 @@
+38b4d37079491a86f6d0131a5ec4dd6ff814a71e5ddff736e7d27f92e7610d6f  CMakeLists.txt
+8ad7891f209e153eba751b75b023809ac5ae703d93cd8e8a9b48f55fe4e70bb9  docs/crexx-integration-issues.md
+57278d37161511c2f8c46fd16bb40a3e1ab7a5970aa02b813ccb39e5d1d4cdfd  docs/crexx-only-architecture.md
+1821766ce4eb1ba236a70575b91b25892488a239ca7599837fd1d6a97472a849  docs/crexx-only-implementation-roadmap.md
+ab3f4df16b760a6767014ea98a82710751e0cb00799b35da07ad79369fa83012  docs/pipeline-status.md
+0c26c99f58630b90c710b173546e6e9aeb70bf07cf147150b72099ed7ea72793  docs/test-strategy.md
+496212853fe7b950ef39ac78ccd7396bd58944f485cae8e5c12b777af38890f6  docs/evidence/2026-08-03-phase1b/WORKLIST.md
+33bd31a547e108ffdac8ecaf80187a9ba991288584236546ea7c2c7e3f31325c  docs/evidence/2026-08-03-phase1b/PROVIDER-CLOSEOUT.md
+6ea5f669b438a9f673add1dac939241874a05efb062918e9b17bf3fbd50d8cd3  docs/evidence/2026-08-03-phase1b/P1-LLM-03.md
+d88ea9bf21bc3fa37506ee360724ee73d3c48eaa82df18717c6336f077becd3d  docs/evidence/2026-08-03-phase1b/P1-LLM-04.md
+b86a4302d9ddad864dec0bbae3fa3ddc49eda7a40c558149cec65a89841a6aa2  docs/evidence/2026-08-03-phase1b/P1-LLM-05.md

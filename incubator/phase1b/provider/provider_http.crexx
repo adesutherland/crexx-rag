@@ -1,0 +1,194 @@
+options levelb
+
+namespace provider_http expose providerhttpresponse providerhttptransport
+
+import rxfnsb
+import rxhttp
+import rxjson
+import provider_contract
+
+providerhttpresponse: class
+  _status = .int
+  _http_status = .int
+  _body = .string
+  _category = .string
+  _message = .string
+  _retryable = .int
+  _attempts = .int
+  _retry_delay_ms = .int
+  _latency_us = .int
+  _provider_request_id = .string
+
+  *: factory
+    _status = 0
+    _http_status = 0
+    _body = ""
+    _category = "none"
+    _message = ""
+    _retryable = 0
+    _attempts = 0
+    _retry_delay_ms = 0
+    _latency_us = 0
+    _provider_request_id = ""
+    return
+
+  set_success: method = .void
+    arg body = .string, http_status = .int, attempts = .int, retry_delay_ms = .int, latency_us = .int, provider_request_id = .string
+    _status = 0
+    _http_status = http_status
+    _body = body
+    _category = "none"
+    _message = ""
+    _retryable = 0
+    _attempts = attempts
+    _retry_delay_ms = retry_delay_ms
+    _latency_us = latency_us
+    _provider_request_id = provider_request_id
+    return
+
+  set_failure: method = .void
+    arg status = .int, http_status = .int, category = .string, message = .string, retryable = .int, attempts = .int, retry_delay_ms = .int, latency_us = .int
+    _status = status
+    _http_status = http_status
+    _body = ""
+    _category = category
+    _message = message
+    _retryable = retryable
+    _attempts = attempts
+    _retry_delay_ms = retry_delay_ms
+    _latency_us = latency_us
+    _provider_request_id = ""
+    return
+
+  status: method = .int
+    return _status
+  http_status: method = .int
+    return _http_status
+  body: method = .string
+    return _body
+  category: method = .string
+    return _category
+  message: method = .string
+    return _message
+  retryable: method = .int
+    return _retryable
+  attempts: method = .int
+    return _attempts
+  retry_delay_ms: method = .int
+    return _retry_delay_ms
+  latency_us: method = .int
+    return _latency_us
+  provider_request_id: method = .string
+    return _provider_request_id
+
+providerhttptransport: class
+  _host = .string
+  _port = .int
+  _tls = .int
+  _protocol = .string
+  _api_key = .string
+  _route_class = .string
+
+  *: factory
+    arg host = .string, port = .int, tls = .int, protocol = .string, api_key = .string, route_class = .string
+    _host = host
+    _port = port
+    _tls = tls
+    _protocol = protocol
+    _api_key = api_key
+    _route_class = route_class
+    return
+
+  post: method = .providerhttpresponse
+    arg request = .providerrequest, path = .string, body = .string
+    route_error = validateproviderroute(request, _route_class)
+    if route_error.code() \= 0 then return _policy_failure(route_error)
+    if _route_class = "hosted" & _api_key = "" then return _configuration_failure("provider credential is unavailable")
+    started = time("us")
+    retry_delay_ms = 0
+    do attempt = 1 to request.max_attempts()
+      client = .httpclient(_host, _port, request.timeout_ms(), _tls)
+      headers = .string[]
+      headers[1] = "Idempotency-Key: " || request.idempotency_key()
+      headers[2] = "X-Client-Request-Id: " || request.request_id()
+      if _protocol = "openai" then headers[3] = "Authorization: Bearer " || _api_key
+      else if _protocol = "anthropic" then do
+        headers[3] = "x-api-key: " || _api_key
+        headers[4] = "anthropic-version: 2023-06-01"
+      end
+      else if _protocol = "gemini" then headers[3] = "x-goog-api-key: " || _api_key
+      response_body = client.postWithHeaders(path, body, "application/json", headers)
+      if client.status() = 0 then do
+        provider_request_id = client.header("x-request-id")
+        if provider_request_id = "" then provider_request_id = client.header("request-id")
+        result = .providerhttpresponse()
+        call result.set_success(response_body, client.httpStatus(), attempt, retry_delay_ms, _elapsed_us(started), provider_request_id)
+        return result
+      end
+      retryable = _retryable(client.status(), client.httpStatus())
+      if retryable \= 0 & attempt < request.max_attempts() then do
+        delay_ms = _retry_delay_ms(attempt)
+        call _wait_ms delay_ms
+        retry_delay_ms = retry_delay_ms + delay_ms
+        iterate
+      end
+      message = _response_error_message(response_body)
+      if message = "" then message = client.error()
+      category = "http"
+      if client.status() = -5 then category = "timeout"
+      else if client.status() = -3 | client.status() = -8 then category = "connection"
+      result = .providerhttpresponse()
+      call result.set_failure(client.status(), client.httpStatus(), category, message, retryable, attempt, retry_delay_ms, _elapsed_us(started))
+      return result
+    end
+    return _configuration_failure("retry loop exhausted")
+
+  _policy_failure: method = .providerhttpresponse
+    arg failure = .providererror
+    result = .providerhttpresponse()
+    call result.set_failure(failure.code(), 0, failure.category(), failure.message(), 0, 0, 0, 0)
+    return result
+
+  _configuration_failure: method = .providerhttpresponse
+    arg message = .string
+    result = .providerhttpresponse()
+    call result.set_failure(-122, 0, "configuration", message, 0, 0, 0, 0)
+    return result
+
+_retryable: procedure = .int
+  arg status = .int, http_status = .int
+  if status = -5 | status = -3 | status = -8 then return 1
+  if http_status = 408 | http_status = 429 | http_status >= 500 then return 1
+  return 0
+
+_response_error_message: procedure = .string
+  arg body = .string
+  document = .jsondocument(body)
+  if document.valid() = 0 then return ""
+  error_node = document.member(document.root(), "error")
+  message_node = document.member(error_node, "message")
+  message = ""
+  if document.node_type(message_node) = "string" then ignored = document.node_string(message_node, message)
+  return message
+
+_elapsed_us: procedure = .int
+  arg started = .int
+  elapsed = time("us") - started
+  if elapsed < 0 then elapsed = elapsed + 86400000000
+  return elapsed
+
+_retry_delay_ms: procedure = .int
+  arg failed_attempt = .int
+  delay_ms = 1
+  do i = 2 to failed_attempt
+    delay_ms = delay_ms * 2
+  end
+  if delay_ms > 1000 then delay_ms = 1000
+  return delay_ms
+
+_wait_ms: procedure = .void
+  arg milliseconds = .int
+  if milliseconds <= 0 then return
+  seconds = milliseconds / 1000.0
+  address crexx "sleep " || seconds
+  return

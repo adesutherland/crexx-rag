@@ -1,0 +1,2 @@
+[0/1] Running P1-LLM-05 zero-outbound and secret-retention proof
+-- P1-LLM-05 passed zero-outbound and three-credential retention audit on rxvme/rxbvm

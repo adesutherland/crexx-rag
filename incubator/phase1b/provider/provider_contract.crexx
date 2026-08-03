@@ -1,8 +1,9 @@
 options levelb
 
-namespace provider_contract expose providercapabilities providermessage providerrequest providerusage providererror embeddingrecord providerresult provider validateproviderrequest validateprovideroperation
+namespace provider_contract expose providercapabilities providerroutepolicy providermessage providerrequest providerusage providererror embeddingrecord providerresult provider validateproviderrequest validateprovideroperation validateproviderroute validatestructuredresponse
 
 import rxfnsb
+import rxjson
 
 providercapabilities: class
   _provider = .string
@@ -14,9 +15,13 @@ providercapabilities: class
   _cancellation = .int
   _context_tokens = .int
   _batch_size = .int
+  _input_modalities = .string
+  _output_modalities = .string
+  _request_format = .string
+  _connection_reuse = .int
 
   *: factory
-    arg provider = .string, chat = .int, structured = .int, embeddings = .int, batch_embeddings = .int, streaming = .int, cancellation = .int, context_tokens = .int, batch_size = .int
+    arg provider = .string, chat = .int, structured = .int, embeddings = .int, batch_embeddings = .int, streaming = .int, cancellation = .int, context_tokens = .int, batch_size = .int, input_modalities = "text", output_modalities = "text", request_format = "provider-specific", connection_reuse = 0
     _provider = provider
     _chat = chat
     _structured = structured
@@ -26,6 +31,10 @@ providercapabilities: class
     _cancellation = cancellation
     _context_tokens = context_tokens
     _batch_size = batch_size
+    _input_modalities = input_modalities
+    _output_modalities = output_modalities
+    _request_format = request_format
+    _connection_reuse = connection_reuse
     return
 
   provider: method = .string
@@ -46,21 +55,64 @@ providercapabilities: class
     return _context_tokens
   batch_size: method = .int
     return _batch_size
+  input_modalities: method = .string
+    return _input_modalities
+  output_modalities: method = .string
+    return _output_modalities
+  request_format: method = .string
+    return _request_format
+  connection_reuse: method = .int
+    return _connection_reuse
+
+providerroutepolicy: class
+  _route_class = .string
+  _allow_local = .int
+  _allow_restricted = .int
+  _allow_public = .int
+
+  *: factory
+    arg route_class = .string, allow_local = .int, allow_restricted = .int, allow_public = .int
+    _route_class = route_class
+    _allow_local = allow_local
+    _allow_restricted = allow_restricted
+    _allow_public = allow_public
+    return
+
+  route_class: method = .string
+    return _route_class
+  permits: method = .int
+    arg privacy_class = .string
+    if privacy_class = "local" then return _allow_local
+    if privacy_class = "restricted" then return _allow_restricted
+    if privacy_class = "public" then return _allow_public
+    return 0
 
 providermessage: class
   _role = .string
   _content = .string
+  _modality = .string
+  _media_type = .string
+  _source = .string
 
   *: factory
-    arg role = .string, content = .string
+    arg role = .string, content = .string, modality = "text", media_type = "", source = ""
     _role = role
     _content = content
+    _modality = modality
+    _media_type = media_type
+    _source = source
     return
 
   role: method = .string
     return _role
   content: method = .string
     return _content
+  modality: method = .string
+    return _modality
+  media_type: method = .string
+    return _media_type
+  source: method = .string
+    return _source
 
 providerrequest: class
   _operation = .string
@@ -74,9 +126,12 @@ providerrequest: class
   _privacy_class = .string
   _idempotency_key = .string
   _request_id = .string
+  _max_output_tokens = .int
+  _embedding_dimensions = .int
+  _stream_requested = .int
 
   *: factory
-    arg operation = .string, role = .string, model = .string, messages = .providermessage[], inputs = .string[], schema = .string, timeout_ms = .int, max_attempts = .int, privacy_class = .string, idempotency_key = .string, request_id = .string
+    arg operation = .string, role = .string, model = .string, messages = .providermessage[], inputs = .string[], schema = .string, timeout_ms = .int, max_attempts = .int, privacy_class = .string, idempotency_key = .string, request_id = .string, max_output_tokens = 0, embedding_dimensions = 0, stream_requested = 0
     _operation = operation
     _role = role
     _model = model
@@ -88,6 +143,9 @@ providerrequest: class
     _privacy_class = privacy_class
     _idempotency_key = idempotency_key
     _request_id = request_id
+    _max_output_tokens = max_output_tokens
+    _embedding_dimensions = embedding_dimensions
+    _stream_requested = stream_requested
     return
 
   operation: method = .string
@@ -112,19 +170,29 @@ providerrequest: class
     return _idempotency_key
   request_id: method = .string
     return _request_id
+  max_output_tokens: method = .int
+    return _max_output_tokens
+  embedding_dimensions: method = .int
+    return _embedding_dimensions
+  stream_requested: method = .int
+    return _stream_requested
 
 providerusage: class
   _input_tokens = .int
   _output_tokens = .int
   _input_count = .int
   _cost_microunits = .int
+  _attempts = .int
+  _retry_delay_ms = .int
 
   *: factory
-    arg input_tokens = 0, output_tokens = 0, input_count = 0, cost_microunits = 0
+    arg input_tokens = 0, output_tokens = 0, input_count = 0, cost_microunits = 0, attempts = 1, retry_delay_ms = 0
     _input_tokens = input_tokens
     _output_tokens = output_tokens
     _input_count = input_count
     _cost_microunits = cost_microunits
+    _attempts = attempts
+    _retry_delay_ms = retry_delay_ms
     return
 
   input_tokens: method = .int
@@ -135,6 +203,10 @@ providerusage: class
     return _input_count
   cost_microunits: method = .int
     return _cost_microunits
+  attempts: method = .int
+    return _attempts
+  retry_delay_ms: method = .int
+    return _retry_delay_ms
 
 providererror: class
   _category = .string
@@ -245,7 +317,7 @@ providerresult: class
     return
 
   set_failure: method = .void
-    arg provider = .string, model = .string, request_id = .string, error = .providererror
+    arg provider = .string, model = .string, request_id = .string, error = .providererror, usage = .providerusage(), latency_us = 0
     vectors = .embeddingrecord[]
     _status = error.code()
     _provider = provider
@@ -254,8 +326,8 @@ providerresult: class
     _content = ""
     _finish_reason = "error"
     _embeddings = vectors
-    _usage = .providerusage()
-    _latency_us = 0
+    _usage = usage
+    _latency_us = latency_us
     _error = error
     return
 
@@ -300,12 +372,21 @@ validateproviderrequest: procedure = .providererror
   if request.model() = "" then return .providererror("invalid_request", -101, 0, 0, 0, "model is required")
   if request.timeout_ms() <= 0 then return .providererror("invalid_request", -101, 0, 0, 0, "timeout must be positive")
   if request.max_attempts() < 1 | request.max_attempts() > 10 then return .providererror("invalid_request", -101, 0, 0, 0, "max attempts must be from 1 through 10")
+  if request.max_output_tokens() < 0 then return .providererror("invalid_request", -101, 0, 0, 0, "maximum output tokens cannot be negative")
+  if request.embedding_dimensions() < 0 then return .providererror("invalid_request", -101, 0, 0, 0, "embedding dimensions cannot be negative")
+  if request.stream_requested() \= 0 & operation \= "generate" & operation \= "generate_structured" then return .providererror("invalid_request", -101, 0, 0, 0, "streaming is only valid for generation")
   privacy = request.privacy_class()
   if privacy \= "local" & privacy \= "restricted" & privacy \= "public" then return .providererror("invalid_request", -101, 0, 0, 0, "privacy class is invalid")
   if request.idempotency_key() = "" | request.request_id() = "" then return .providererror("invalid_request", -101, 0, 0, 0, "request identity is required")
   if operation = "generate" | operation = "generate_structured" then do
     messages = request.messages()
     if messages.0 < 1 then return .providererror("invalid_request", -101, 0, 0, 0, "generation messages are required")
+    do i = 1 to messages.0
+      modality = messages[i].modality()
+      if modality \= "text" & modality \= "image_url" & modality \= "document_url" & modality \= "audio_url" then return .providererror("invalid_request", -101, 0, 0, 0, "message modality is invalid")
+      if modality = "text" & messages[i].content() = "" then return .providererror("invalid_request", -101, 0, 0, 0, "text message content is required")
+      if modality \= "text" & messages[i].source() = "" then return .providererror("invalid_request", -101, 0, 0, 0, "media message source is required")
+    end
   end
   if operation = "embed" | operation = "embed_batch" then do
     inputs = request.inputs()
@@ -319,4 +400,38 @@ validateprovideroperation: procedure = .providererror
   validation = validateproviderrequest(request)
   if validation.code() \= 0 then return validation
   if request.operation() \= expected then return .providererror("invalid_request", -101, 0, 0, 0, "request operation does not match provider method")
+  return .providererror()
+
+validateproviderroute: procedure = .providererror
+  arg request = .providerrequest, route_class = .string
+  if route_class \= "local" & route_class \= "hosted" then return .providererror("configuration", -122, 0, 0, 0, "provider route class is invalid")
+  if route_class = "hosted" & request.privacy_class() \= "public" then return .providererror("privacy_denied", -121, 0, 0, 0, "privacy policy denies provider route")
+  return .providererror()
+
+validatestructuredresponse: procedure = .providererror
+  arg content = .string, schema = .string
+  response_document = .jsondocument(content)
+  if response_document.valid() = 0 then return .providererror("structured_validation", -123, 0, 0, 0, "structured response is not valid JSON")
+  schema_document = .jsondocument(schema)
+  if schema_document.valid() = 0 then return .providererror("invalid_request", -101, 0, 0, 0, "structured schema is not valid JSON")
+  response_root = response_document.root()
+  schema_root = schema_document.root()
+  schema_type_node = schema_document.member(schema_root, "type")
+  schema_type = ""
+  if schema_document.node_type(schema_type_node) = "string" then ignored = schema_document.node_string(schema_type_node, schema_type)
+  if schema_type \= "" & response_document.node_type(response_root) \= schema_type then return .providererror("structured_validation", -123, 0, 0, 0, "structured response root type does not match schema")
+  required_node = schema_document.member(schema_root, "required")
+  do i = 1 to schema_document.node_count(required_node)
+    required_name_node = schema_document.element(required_node, i)
+    required_name = ""
+    if schema_document.node_string(required_name_node, required_name) \= 0 then return .providererror("invalid_request", -101, 0, 0, 0, "structured schema required entries must be strings")
+    response_member = response_document.member(response_root, required_name)
+    if response_member <= 0 then return .providererror("structured_validation", -123, 0, 0, 0, "structured response is missing required member: " || required_name)
+    properties_node = schema_document.member(schema_root, "properties")
+    property_node = schema_document.member(properties_node, required_name)
+    property_type_node = schema_document.member(property_node, "type")
+    property_type = ""
+    if schema_document.node_type(property_type_node) = "string" then ignored = schema_document.node_string(property_type_node, property_type)
+    if property_type \= "" & response_document.node_type(response_member) \= property_type then return .providererror("structured_validation", -123, 0, 0, 0, "structured response member type does not match schema: " || required_name)
+  end
   return .providererror()

@@ -1,0 +1,18 @@
+Test project /home/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 32: p1_llm_03
+1/1 Test #32: p1_llm_03 ........................   Passed    7.76 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+P1-LLM-03       =   7.76 sec*proc (1 test)
+batch           =   7.76 sec*proc (1 test)
+capabilities    =   7.76 sec*proc (1 test)
+incubator       =   7.76 sec*proc (1 test)
+phase1b         =   7.76 sec*proc (1 test)
+privacy         =   7.76 sec*proc (1 test)
+provider        =   7.76 sec*proc (1 test)
+retry           =   7.76 sec*proc (1 test)
+structured      =   7.76 sec*proc (1 test)
+
+Total Test time (real) =   7.76 sec

@@ -1,0 +1,2 @@
+[1/2] Building CXX object CMakeFiles/p1a_provider_loopback.dir/tests/p1a_provider_loopback.cpp.o
+[2/2] Linking CXX executable p1a_provider_loopback

@@ -1,0 +1,124 @@
+options levelg
+
+namespace provider_catalog expose providermodelcapability knownmodelcount knownmodel lookupmodelcapability defaultgenerationmodel defaultembeddingmodel modelinputprice modeloutputprice estimatecostmicrounits
+
+providermodelcapability: class
+  _provider = .string
+  _model = .string
+  _model_family = .string
+  _operations = .string
+  _input_modalities = .string
+  _output_modalities = .string
+  _structured = .int
+  _streaming = .int
+  _context_tokens = .int
+  _max_output_tokens = .int
+  _embedding_dimensions = .string
+  _observed_date = .string
+  _cost_tier = .string
+  _input_usd_micros_per_million = .int
+  _output_usd_micros_per_million = .int
+
+  *: factory
+    arg provider = .string, model = .string, model_family = .string, operations = .string, input_modalities = .string, output_modalities = .string, structured = .int, streaming = .int, context_tokens = .int, max_output_tokens = .int, embedding_dimensions = .string, observed_date = .string, cost_tier = "unknown", input_usd_micros_per_million = -1, output_usd_micros_per_million = -1
+    _provider = provider
+    _model = model
+    _model_family = model_family
+    _operations = operations
+    _input_modalities = input_modalities
+    _output_modalities = output_modalities
+    _structured = structured
+    _streaming = streaming
+    _context_tokens = context_tokens
+    _max_output_tokens = max_output_tokens
+    _embedding_dimensions = embedding_dimensions
+    _observed_date = observed_date
+    _cost_tier = cost_tier
+    _input_usd_micros_per_million = input_usd_micros_per_million
+    _output_usd_micros_per_million = output_usd_micros_per_million
+    return
+
+  provider: method = .string
+    return _provider
+  model: method = .string
+    return _model
+  model_family: method = .string
+    return _model_family
+  operations: method = .string
+    return _operations
+  input_modalities: method = .string
+    return _input_modalities
+  output_modalities: method = .string
+    return _output_modalities
+  structured: method = .int
+    return _structured
+  streaming: method = .int
+    return _streaming
+  context_tokens: method = .int
+    return _context_tokens
+  max_output_tokens: method = .int
+    return _max_output_tokens
+  embedding_dimensions: method = .string
+    return _embedding_dimensions
+  observed_date: method = .string
+    return _observed_date
+  cost_tier: method = .string
+    return _cost_tier
+  input_usd_micros_per_million: method = .int
+    return _input_usd_micros_per_million
+  output_usd_micros_per_million: method = .int
+    return _output_usd_micros_per_million
+
+knownmodelcount: procedure = .int
+  return 7
+
+knownmodel: procedure = .providermodelcapability
+  arg index = .int
+  if index = 1 then return .providermodelcapability("openai", "gpt-5.6-luna", "gpt-5.6", "generate|generate_structured", "text|image_url", "text", 1, 1, 0, 0, "", "2026-08-03", "low", 200000, 1200000)
+  if index = 2 then return .providermodelcapability("openai", "gpt-5.6-terra", "gpt-5.6", "generate|generate_structured", "text|image_url", "text", 1, 1, 0, 0, "", "2026-08-03", "balanced")
+  if index = 3 then return .providermodelcapability("openai", "text-embedding-3-small", "text-embedding-3", "embed|embed_batch", "text", "f32le", 0, 0, 8191, 0, "1..1536", "2026-08-03", "low")
+  if index = 4 then return .providermodelcapability("anthropic", "claude-haiku-4-5", "claude-4.5", "generate|generate_structured", "text|image_url|document_url", "text", 1, 1, 200000, 64000, "", "2026-08-03", "low", 1000000, 5000000)
+  if index = 5 then return .providermodelcapability("anthropic", "claude-sonnet-5", "claude-5", "generate|generate_structured", "text|image_url|document_url", "text", 1, 1, 0, 0, "", "2026-08-03", "balanced")
+  if index = 6 then return .providermodelcapability("gemini", "gemini-2.5-flash-lite", "gemini-2.5", "generate|generate_structured", "text|image_url|document_url|audio_url", "text", 1, 1, 1048576, 65536, "", "2026-08-03", "low")
+  if index = 7 then return .providermodelcapability("gemini", "gemini-embedding-2", "gemini-embedding", "embed|embed_batch", "text|image_url|document_url|audio_url", "f32le", 0, 0, 8192, 0, "128..3072", "2026-08-03", "low")
+  return .providermodelcapability("", "", "", "", "", "", 0, 0, 0, 0, "", "2026-08-03")
+
+lookupmodelcapability: procedure = .providermodelcapability
+  arg provider = .string, model = .string
+  do i = 1 to knownmodelcount()
+    candidate = knownmodel(i)
+    if candidate.provider() = provider & candidate.model() = model then return candidate
+  end
+  return .providermodelcapability(provider, model, "unknown", "", "", "", 0, 0, 0, 0, "", "2026-08-03")
+
+defaultgenerationmodel: procedure = .string
+  arg provider = .string
+  if provider = "openai" then return "gpt-5.6-luna"
+  if provider = "anthropic" then return "claude-haiku-4-5"
+  if provider = "gemini" then return "gemini-2.5-flash-lite"
+  return ""
+
+defaultembeddingmodel: procedure = .string
+  arg provider = .string
+  if provider = "openai" then return "text-embedding-3-small"
+  if provider = "gemini" then return "gemini-embedding-2"
+  return ""
+
+modelinputprice: procedure = .int
+  arg provider = .string, model = .string
+  if provider = "openai" & model = "gpt-5.6-luna" then return 200000
+  if provider = "anthropic" & model = "claude-haiku-4-5" then return 1000000
+  return -1
+
+modeloutputprice: procedure = .int
+  arg provider = .string, model = .string
+  if provider = "openai" & model = "gpt-5.6-luna" then return 1200000
+  if provider = "anthropic" & model = "claude-haiku-4-5" then return 5000000
+  return -1
+
+estimatecostmicrounits: procedure = .int
+  arg provider = .string, model = .string, input_tokens = .int, output_tokens = .int
+  input_price = modelinputprice(provider, model)
+  output_price = modeloutputprice(provider, model)
+  if input_price < 0 | output_price < 0 then return -1
+  return (input_tokens * input_price + output_tokens * output_price) / 1000000

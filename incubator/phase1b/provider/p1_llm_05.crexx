@@ -1,0 +1,64 @@
+options levelb
+
+import provider_contract
+import industrial_provider
+import openai_compatible_provider
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P1_LLM_05_FAIL=" || label
+    return 1
+  end
+  return 0
+
+main: procedure = .int
+arg args = .string[]
+if args.0 < 3 then return 2
+host = args[1]
+port = args[2] as .int
+cell = args[3]
+errors = 0
+messages = .providermessage[]
+messages[1] = .providermessage("user", "This request must be denied")
+inputs = .string[]
+inputs[1] = "not sent"
+
+openai = .industrialprovider("openai", host, port, 0, "/openai/v1", "synthetic-openai-denied-secret", "hosted")
+anthropic = .industrialprovider("anthropic", host, port, 0, "/anthropic/v1", "synthetic-anthropic-denied-secret", "hosted")
+gemini = .industrialprovider("gemini", host, port, 0, "/gemini/v1beta", "synthetic-gemini-denied-secret", "hosted")
+local_compatible = .openaicompatibleprovider(host, port, 0, "/v1", "synthetic-local-denied-secret", "hosted-openai-compatible", "hosted")
+
+openai_request = .providerrequest("generate", "denial", "gpt-5.6-luna", messages, inputs, "", 2000, 1, "restricted", "denied-openai-" || cell, "denied-openai-" || cell, 8, 0, 0)
+openai_result = openai.generate(openai_request)
+openai_error = openai_result.error()
+openai_usage = openai_result.usage()
+errors = errors + check(openai_result.status() = -121 & openai_error.category() = "privacy_denied" & openai_usage.attempts() = 0 & openai_result.latency_us() = 0, "OpenAI pre-transport denial")
+
+anthropic_request = .providerrequest("generate", "denial", "claude-haiku-4-5", messages, inputs, "", 2000, 1, "local", "denied-anthropic-" || cell, "denied-anthropic-" || cell, 8, 0, 0)
+anthropic_result = anthropic.generate(anthropic_request)
+anthropic_error = anthropic_result.error()
+errors = errors + check(anthropic_result.status() = -121 & anthropic_error.category() = "privacy_denied", "Anthropic pre-transport denial")
+
+gemini_request = .providerrequest("embed_batch", "denial", "gemini-embedding-2", messages, inputs, "", 2000, 1, "restricted", "denied-gemini-" || cell, "denied-gemini-" || cell, 0, 128, 0)
+gemini_result = gemini.embed_batch(gemini_request)
+gemini_error = gemini_result.error()
+errors = errors + check(gemini_result.status() = -121 & gemini_error.category() = "privacy_denied", "Gemini embedding pre-transport denial")
+
+local_request = .providerrequest("generate", "denial", "local-chat", messages, inputs, "", 2000, 1, "restricted", "denied-local-" || cell, "denied-local-" || cell, 8, 0, 0)
+local_result = local_compatible.generate(local_request)
+local_error = local_result.error()
+errors = errors + check(local_result.status() = -121 & local_error.category() = "privacy_denied", "OpenAI-compatible pre-transport denial")
+
+unconfigured = .industrialprovider("openai", host, port, 0, "/openai/v1", "", "hosted")
+public_request = .providerrequest("generate", "configuration", "gpt-5.6-luna", messages, inputs, "", 2000, 1, "public", "missing-key-" || cell, "missing-key-" || cell, 8, 0, 0)
+public_result = unconfigured.generate(public_request)
+public_error = public_result.error()
+errors = errors + check(public_result.status() = -122 & public_error.category() = "configuration", "missing credential pre-transport failure")
+
+if errors \= 0 then do
+  say "P1_LLM_05_ERRORS=" || errors
+  return 1
+end
+say "P1_LLM_05_OK cell=" || cell || " denied_requests=4 missing_credentials=1 outbound_requests=0 secret_output=0"
+return 0

@@ -1,0 +1,6 @@
+P1_LLM_04_HOSTED provider=openai model=gpt-5.6-luna operation=generate_structured status=ok input_tokens=46 output_tokens=15 estimated_cost_usd_micros=27 latency_us=5761416
+P1_LLM_04_HOSTED provider=openai model=text-embedding-3-small operation=embed_batch status=ok input_count=2 input_tokens=6 dimensions=128 latency_us=387425
+P1_LLM_04_HOSTED provider=anthropic model=claude-haiku-4-5 operation=generate_structured status=ok input_tokens=160 output_tokens=8 estimated_cost_usd_micros=200 latency_us=1235860
+P1_LLM_04_HOSTED provider=gemini model=gemini-2.5-flash-lite operation=generate_structured status=ok input_tokens=13 output_tokens=11 estimated_cost_usd_micros=-1 latency_us=710942
+P1_LLM_04_HOSTED provider=gemini model=gemini-embedding-2 operation=embed_batch status=ok input_count=2 input_tokens=0 dimensions=128 latency_us=737436
+P1_LLM_04_HOSTED_SUMMARY status=ok providers=3 calls=5 generation=3 embedding_batches=2 max_attempts=1 max_output_tokens=32

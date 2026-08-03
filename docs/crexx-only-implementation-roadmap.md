@@ -266,16 +266,20 @@ unconditionally at Gate 1B.
   embedding call through a configurable OpenAI-compatible base URL. The
   available deterministic loopback case is [retained here](evidence/2026-08-03-phase1b/P1-LLM-02.md);
   the `llama-server` executable was unavailable and is not claimed.
-- [~] **P1-LLM-03** Add batch embedding, structured response validation,
+- [x] **P1-LLM-03** Add batch embedding, structured response validation,
   timeout, bounded retry/backoff, usage records, privacy route enforcement, and
   truthful streaming/cancellation capability reporting. Test both supported and
   explicit unsupported results; the RAG pipeline does not require every provider
-  to stream.
-- [ ] **P1-LLM-04** Pass synthetic contract tests for local, OpenAI, Anthropic,
+  to stream. The non-timeout result is [retained here](evidence/2026-08-03-phase1b/P1-LLM-03.md);
+  CRI-15 still blocks Linux timeout qualification and CRI-16 records the
+  installed HTTP industrialization gap.
+- [x] **P1-LLM-04** Pass synthetic contract tests for local, OpenAI, Anthropic,
   and Gemini shapes, then run the explicitly authorized low-cost, secret-gated
-  hosted qualification for OpenAI, Anthropic/Claude, and Google Gemini.
-- [ ] **P1-LLM-05** Prove that denied/restricted routes make zero outbound
-  requests and that credentials do not enter logs or fixtures.
+  hosted qualification for OpenAI, Anthropic/Claude, and Google Gemini. The
+  deterministic and five-call hosted result is [retained here](evidence/2026-08-03-phase1b/P1-LLM-04.md).
+- [x] **P1-LLM-05** Prove that denied/restricted routes make zero outbound
+  requests and that credentials do not enter logs or fixtures. The four-cell
+  observer and credential-value audit are [retained here](evidence/2026-08-03-phase1b/P1-LLM-05.md).
 
 ### A5. Hash, binary, and vector transfer
 

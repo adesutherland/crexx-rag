@@ -14,93 +14,53 @@ openaicompatibleprovider: class implements .provider
   _base_path = .string
   _api_key = .string
   _provider_name = .string
+  _route_class = .string
 
   *: factory
-    arg host = .string, port = .int, tls = .int, base_path = .string, api_key = .string, provider_name = .string
+    arg host = .string, port = .int, tls = .int, base_path = .string, api_key = .string, provider_name = .string, route_class = "local"
     _host = host
     _port = port
     _tls = tls
     _base_path = base_path
     _api_key = api_key
     _provider_name = provider_name
+    _route_class = route_class
     return
 
   capabilities: method = .providercapabilities
-    return .providercapabilities(_provider_name, 1, 0, 1, 0, 0, 0, 0, 1)
+    return .providercapabilities(_provider_name, 1, 1, 1, 1, 0, 0, 0, 2048, "text", "text|f32le", "openai-chat-completions", 0)
 
   generate: method = .providerresult
     arg request = .providerrequest
     validation = validateprovideroperation(request, "generate")
     if validation.code() \= 0 then return _failed_result(request, validation)
-    started = time("us")
-    client = .httpclient(_host, _port, request.timeout_ms(), _tls)
-    body = _generation_body(request)
-    response = _post(client, _endpoint("/chat/completions"), body)
-    if client.status() \= 0 then return _transport_failure(request, client, response)
-    document = .jsondocument(response)
-    if document.valid() = 0 then return _failed_result(request, .providererror("malformed_response", -102, client.httpStatus(), 0, 1, "response is not valid JSON: " || document.error()))
-    root = document.root()
-    provider_error = document.member(root, "error")
-    if provider_error > 0 then do
-      message_node = document.member(provider_error, "message")
-      message = document.node_get(message_node)
-      return _failed_result(request, .providererror("provider", -103, client.httpStatus(), 0, 1, message))
+    messages = request.messages()
+    do i = 1 to messages.0
+      if messages[i].modality() \= "text" then return _unsupported(request, "non-text message modality")
     end
-    choices = document.member(root, "choices")
-    choice = document.element(choices, 1)
-    message_node = document.member(choice, "message")
-    content_node = document.member(message_node, "content")
-    finish_node = document.member(choice, "finish_reason")
-    content = ""
-    finish_reason = ""
-    if document.node_string(content_node, content) \= 0 then return _failed_result(request, .providererror("malformed_response", -102, 200, 0, 1, "generated content is missing"))
-    if document.node_string(finish_node, finish_reason) \= 0 then finish_reason = "unknown"
-    usage_node = document.member(root, "usage")
-    input_tokens = _optional_int(document, usage_node, "prompt_tokens")
-    output_tokens = _optional_int(document, usage_node, "completion_tokens")
-    response_id = request.request_id()
-    id_node = document.member(root, "id")
-    if document.node_type(id_node) = "string" then ignored = document.node_string(id_node, response_id)
-    result = .providerresult()
-    call result.set_generation(_provider_name, request.model(), response_id, content, finish_reason, .providerusage(input_tokens, output_tokens, 1, 0), _elapsed_us(started))
-    return result
+    return _generate(request, 0)
 
   generate_structured: method = .providerresult
     arg request = .providerrequest
-    return _unsupported(request, "structured generation")
+    validation = validateprovideroperation(request, "generate_structured")
+    if validation.code() \= 0 then return _failed_result(request, validation)
+    messages = request.messages()
+    do i = 1 to messages.0
+      if messages[i].modality() \= "text" then return _unsupported(request, "non-text message modality")
+    end
+    return _generate(request, 1)
 
   embed: method = .providerresult
     arg request = .providerrequest
     validation = validateprovideroperation(request, "embed")
     if validation.code() \= 0 then return _failed_result(request, validation)
-    started = time("us")
-    client = .httpclient(_host, _port, request.timeout_ms(), _tls)
-    body = _embedding_body(request)
-    response = _post(client, _endpoint("/embeddings"), body)
-    if client.status() \= 0 then return _transport_failure(request, client, response)
-    document = .jsondocument(response)
-    if document.valid() = 0 then return _failed_result(request, .providererror("malformed_response", -102, client.httpStatus(), 0, 1, "response is not valid JSON: " || document.error()))
-    root = document.root()
-    data = document.member(root, "data")
-    item = document.element(data, 1)
-    embedding_node = document.member(item, "embedding")
-    packed = .binary
-    projection_error = ""
-    projection_status = document.node_f32_array(embedding_node, -1, packed, projection_error)
-    dimensions = document.node_count(embedding_node)
-    if projection_status \= 0 | dimensions <= 0 then return _failed_result(request, .providererror("malformed_response", -102, 200, 0, 1, "embedding is invalid: " || projection_error))
-    vectors = .embeddingrecord[]
-    vectors[1] = .embeddingrecord("f32le-v1", dimensions, packed)
-    usage_node = document.member(root, "usage")
-    input_tokens = _optional_int(document, usage_node, "prompt_tokens")
-    response_id = request.request_id()
-    result = .providerresult()
-    call result.set_embeddings(_provider_name, request.model(), response_id, vectors, .providerusage(input_tokens, 0, 1, 0), _elapsed_us(started))
-    return result
+    return _embed(request, 0)
 
   embed_batch: method = .providerresult
     arg request = .providerrequest
-    return _unsupported(request, "batch embeddings")
+    validation = validateprovideroperation(request, "embed_batch")
+    if validation.code() \= 0 then return _failed_result(request, validation)
+    return _embed(request, 1)
 
   cancel: method = .providerresult
     arg request_id = .string
@@ -115,14 +75,19 @@ openaicompatibleprovider: class implements .provider
     return _base_path || suffix
 
   _post: method = .string
-    arg client = .httpclient, path = .string, body = .string
-    if _api_key = "" then return client.post(path, body, "application/json")
+    arg client = .httpclient, path = .string, body = .string, request = .providerrequest
     headers = .string[]
-    headers[1] = "Authorization: Bearer " || _api_key
+    next = 1
+    headers[next] = "Idempotency-Key: " || request.idempotency_key()
+    next = next + 1
+    headers[next] = "X-Client-Request-Id: " || request.request_id()
+    if _api_key = "" then return client.postWithHeaders(path, body, "application/json", headers)
+    next = next + 1
+    headers[next] = "Authorization: Bearer " || _api_key
     return client.postWithHeaders(path, body, "application/json", headers)
 
   _generation_body: method = .string
-    arg request = .providerrequest
+    arg request = .providerrequest, structured = .int
     messages = request.messages()
     encoded_messages = .string[]
     do i = 1 to messages.0
@@ -142,33 +107,169 @@ openaicompatibleprovider: class implements .provider
     values[2] = jsonarray(encoded_messages)
     keys[3] = "stream"
     values[3] = "false"
+    next = 4
+    if request.max_output_tokens() > 0 then do
+      keys[next] = "max_completion_tokens"
+      values[next] = request.max_output_tokens()
+      next = next + 1
+    end
+    if structured \= 0 then do
+      schema_keys = .string[]
+      schema_values = .string[]
+      schema_keys[1] = "name"
+      schema_values[1] = jsonquote("cprag_response")
+      schema_keys[2] = "strict"
+      schema_values[2] = "true"
+      schema_keys[3] = "schema"
+      schema_values[3] = request.schema()
+      format_keys = .string[]
+      format_values = .string[]
+      format_keys[1] = "type"
+      format_values[1] = jsonquote("json_schema")
+      format_keys[2] = "json_schema"
+      format_values[2] = jsonobject(schema_keys, schema_values)
+      keys[next] = "response_format"
+      values[next] = jsonobject(format_keys, format_values)
+    end
     return jsonobject(keys, values)
 
   _embedding_body: method = .string
-    arg request = .providerrequest
+    arg request = .providerrequest, batch = .int
     inputs = request.inputs()
     keys = .string[]
     values = .string[]
     keys[1] = "model"
     values[1] = jsonquote(request.model())
     keys[2] = "input"
-    values[2] = jsonquote(inputs[1])
+    if batch = 0 then values[2] = jsonquote(inputs[1])
+    else do
+      encoded_inputs = .string[]
+      do i = 1 to inputs.0
+        encoded_inputs[i] = jsonquote(inputs[i])
+      end
+      values[2] = jsonarray(encoded_inputs)
+    end
     keys[3] = "encoding_format"
     values[3] = jsonquote("float")
+    if request.embedding_dimensions() > 0 then do
+      keys[4] = "dimensions"
+      values[4] = request.embedding_dimensions()
+    end
     return jsonobject(keys, values)
 
+  _generate: method = .providerresult
+    arg request = .providerrequest, structured = .int
+    route_error = validateproviderroute(request, _route_class)
+    if route_error.code() \= 0 then return _failed_result(request, route_error)
+    if request.stream_requested() \= 0 then return _unsupported(request, "streaming")
+    started = time("us")
+    retry_delay_ms = 0
+    do attempt = 1 to request.max_attempts()
+      client = .httpclient(_host, _port, request.timeout_ms(), _tls)
+      response = _post(client, _endpoint("/chat/completions"), _generation_body(request, structured), request)
+      if client.status() \= 0 then do
+        failure = _transport_error(client, response, attempt)
+        if failure.retryable() \= 0 & attempt < request.max_attempts() then do
+          delay_ms = _retry_delay_ms(attempt)
+          call _wait_ms delay_ms
+          retry_delay_ms = retry_delay_ms + delay_ms
+          iterate
+        end
+        return _failed_result(request, failure, .providerusage(0, 0, 1, 0, attempt, retry_delay_ms), _elapsed_us(started))
+      end
+      document = .jsondocument(response)
+      if document.valid() = 0 then return _failed_result(request, .providererror("malformed_response", -102, client.httpStatus(), 0, attempt, "response is not valid JSON: " || document.error()), .providerusage(0, 0, 1, 0, attempt, retry_delay_ms), _elapsed_us(started))
+      root = document.root()
+      provider_error = document.member(root, "error")
+      if provider_error > 0 then do
+        message_node = document.member(provider_error, "message")
+        message = document.node_get(message_node)
+        return _failed_result(request, .providererror("provider", -103, client.httpStatus(), 0, attempt, message), .providerusage(0, 0, 1, 0, attempt, retry_delay_ms), _elapsed_us(started))
+      end
+      choices = document.member(root, "choices")
+      choice = document.element(choices, 1)
+      message_node = document.member(choice, "message")
+      content_node = document.member(message_node, "content")
+      finish_node = document.member(choice, "finish_reason")
+      content = ""
+      finish_reason = ""
+      if document.node_string(content_node, content) \= 0 then return _failed_result(request, .providererror("malformed_response", -102, 200, 0, attempt, "generated content is missing"), .providerusage(0, 0, 1, 0, attempt, retry_delay_ms), _elapsed_us(started))
+      if document.node_string(finish_node, finish_reason) \= 0 then finish_reason = "unknown"
+      if structured \= 0 then do
+        structured_error = validatestructuredresponse(content, request.schema())
+        if structured_error.code() \= 0 then return _failed_result(request, structured_error, .providerusage(0, 0, 1, 0, attempt, retry_delay_ms), _elapsed_us(started))
+      end
+      usage_node = document.member(root, "usage")
+      input_tokens = _optional_int(document, usage_node, "prompt_tokens")
+      output_tokens = _optional_int(document, usage_node, "completion_tokens")
+      response_id = request.request_id()
+      id_node = document.member(root, "id")
+      if document.node_type(id_node) = "string" then ignored = document.node_string(id_node, response_id)
+      result = .providerresult()
+      call result.set_generation(_provider_name, request.model(), response_id, content, finish_reason, .providerusage(input_tokens, output_tokens, 1, 0, attempt, retry_delay_ms), _elapsed_us(started))
+      return result
+    end
+    return _failed_result(request, .providererror("internal", -199, 0, 0, request.max_attempts(), "retry loop exhausted"))
+
+  _embed: method = .providerresult
+    arg request = .providerrequest, batch = .int
+    route_error = validateproviderroute(request, _route_class)
+    if route_error.code() \= 0 then return _failed_result(request, route_error)
+    inputs = request.inputs()
+    if batch = 0 & inputs.0 \= 1 then return _failed_result(request, .providererror("invalid_request", -101, 0, 0, 0, "single embedding requires exactly one input"))
+    if inputs.0 > 2048 then return _failed_result(request, .providererror("invalid_request", -101, 0, 0, 0, "embedding batch exceeds provider limit"))
+    started = time("us")
+    retry_delay_ms = 0
+    do attempt = 1 to request.max_attempts()
+      client = .httpclient(_host, _port, request.timeout_ms(), _tls)
+      response = _post(client, _endpoint("/embeddings"), _embedding_body(request, batch), request)
+      if client.status() \= 0 then do
+        failure = _transport_error(client, response, attempt)
+        if failure.retryable() \= 0 & attempt < request.max_attempts() then do
+          delay_ms = _retry_delay_ms(attempt)
+          call _wait_ms delay_ms
+          retry_delay_ms = retry_delay_ms + delay_ms
+          iterate
+        end
+        return _failed_result(request, failure, .providerusage(0, 0, inputs.0, 0, attempt, retry_delay_ms), _elapsed_us(started))
+      end
+      document = .jsondocument(response)
+      if document.valid() = 0 then return _failed_result(request, .providererror("malformed_response", -102, client.httpStatus(), 0, attempt, "response is not valid JSON: " || document.error()), .providerusage(0, 0, inputs.0, 0, attempt, retry_delay_ms), _elapsed_us(started))
+      data = document.member(document.root(), "data")
+      if document.node_count(data) \= inputs.0 then return _failed_result(request, .providererror("malformed_response", -102, 200, 0, attempt, "embedding result count does not match input count"), .providerusage(0, 0, inputs.0, 0, attempt, retry_delay_ms), _elapsed_us(started))
+      vectors = .embeddingrecord[]
+      do i = 1 to inputs.0
+        item = document.element(data, i)
+        if _optional_int(document, item, "index") \= i - 1 then return _failed_result(request, .providererror("malformed_response", -102, 200, 0, attempt, "embedding result index is out of order"), .providerusage(0, 0, inputs.0, 0, attempt, retry_delay_ms), _elapsed_us(started))
+        embedding_node = document.member(item, "embedding")
+        packed = .binary
+        projection_error = ""
+        projection_status = document.node_f32_array(embedding_node, -1, packed, projection_error)
+        dimensions = document.node_count(embedding_node)
+        if projection_status \= 0 | dimensions <= 0 then return _failed_result(request, .providererror("malformed_response", -102, 200, 0, attempt, "embedding is invalid: " || projection_error), .providerusage(0, 0, inputs.0, 0, attempt, retry_delay_ms), _elapsed_us(started))
+        if request.embedding_dimensions() > 0 & dimensions \= request.embedding_dimensions() then return _failed_result(request, .providererror("malformed_response", -102, 200, 0, attempt, "embedding dimensions do not match request"), .providerusage(0, 0, inputs.0, 0, attempt, retry_delay_ms), _elapsed_us(started))
+        vectors[i] = .embeddingrecord("f32le-v1", dimensions, packed)
+      end
+      usage_node = document.member(document.root(), "usage")
+      input_tokens = _optional_int(document, usage_node, "prompt_tokens")
+      result = .providerresult()
+      call result.set_embeddings(_provider_name, request.model(), request.request_id(), vectors, .providerusage(input_tokens, 0, inputs.0, 0, attempt, retry_delay_ms), _elapsed_us(started))
+      return result
+    end
+    return _failed_result(request, .providererror("internal", -199, 0, 0, request.max_attempts(), "retry loop exhausted"))
+
   _failed_result: method = .providerresult
-    arg request = .providerrequest, failure = .providererror
+    arg request = .providerrequest, failure = .providererror, usage = .providerusage(), latency_us = 0
     result = .providerresult()
-    call result.set_failure(_provider_name, request.model(), request.request_id(), failure)
+    call result.set_failure(_provider_name, request.model(), request.request_id(), failure, usage, latency_us)
     return result
 
   _unsupported: method = .providerresult
     arg request = .providerrequest, capability = .string
     return _failed_result(request, .providererror("unsupported", -120, 0, 0, 0, capability || " is not supported"))
 
-  _transport_failure: method = .providerresult
-    arg request = .providerrequest, client = .httpclient, response = .string
+  _transport_error: method = .providererror
+    arg client = .httpclient, response = .string, attempt = .int
     code = client.status()
     category = "http"
     retryable = 0
@@ -184,7 +285,7 @@ openaicompatibleprovider: class implements .provider
         if document.node_type(message_node) = "string" then ignored = document.node_string(message_node, message)
       end
     end
-    return _failed_result(request, .providererror(category, code, client.httpStatus(), retryable, 1, message))
+    return .providererror(category, code, client.httpStatus(), retryable, attempt, message)
 
 _optional_int: procedure = .int
   arg document = .jsondocument, parent = .int, name = .string
@@ -199,3 +300,19 @@ _elapsed_us: procedure = .int
   elapsed = time("us") - started
   if elapsed < 0 then elapsed = elapsed + 86400000000
   return elapsed
+
+_retry_delay_ms: procedure = .int
+  arg failed_attempt = .int
+  delay_ms = 1
+  do i = 2 to failed_attempt
+    delay_ms = delay_ms * 2
+  end
+  if delay_ms > 1000 then delay_ms = 1000
+  return delay_ms
+
+_wait_ms: procedure = .void
+  arg milliseconds = .int
+  if milliseconds <= 0 then return
+  seconds = milliseconds / 1000.0
+  address crexx "sleep " || seconds
+  return

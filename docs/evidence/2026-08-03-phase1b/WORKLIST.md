@@ -47,11 +47,11 @@ roadmap item may be active.
 
 - [x] `P1-LLM-01` Provider-neutral capability/request/result/error contract.
 - [x] `P1-LLM-02` Configurable local OpenAI-compatible generation and embedding.
-- [~] `P1-LLM-03` Batch embedding, structured validation, bounded retry,
+- [x] `P1-LLM-03` Batch embedding, structured validation, bounded retry,
   usage, privacy routing, streaming, and cancellation capability results.
-- [ ] `P1-LLM-04` Deterministic local/OpenAI/Anthropic/Gemini protocol shapes
+- [x] `P1-LLM-04` Deterministic local/OpenAI/Anthropic/Gemini protocol shapes
   plus explicitly authorized low-cost, secret-gated hosted qualification.
-- [ ] `P1-LLM-05` Zero denied outbound requests and secret-free evidence.
+- [x] `P1-LLM-05` Zero denied outbound requests and secret-free evidence.
 
 ## 5. Vector Boundary
 

@@ -61,7 +61,7 @@ Each bounded slice needs target-only CTest coverage and retained raw evidence:
 | SDK | Scratch-installed package supplies headers, imported targets and helper; independent plugin builds with both fallbacks off; valid and structured-invalid signatures run in both modes/VMs |
 | SQLite | Typed null/integer/real/Unicode text/blob, values beyond old buffers, cursor paging, rollback, FTS5, stale handles, and forced cleanup |
 | Data | Production parse-once Unicode/missing/null/empty/array/object behavior and paged typed records; explicit owning headerless `f32le`/`i64le` projections; application-owned type/count; optimized/`-n` correctness and same-session benchmarks on both VMs |
-| Provider | Credential-free deterministic loopback generation/embedding/malformed/timeout/connection/provider failure on both VMs; any separately authorized hosted canary remains non-repeatable evidence |
+| Provider | Credential-free deterministic loopback generation, structured validation, ordered batch embedding, retry/error/usage, route denial, capability reporting, and provider-specific shapes on both VMs; separately authorized hosted canaries remain non-repeatable evidence |
 | Vector | Raw float32 round-trip with schema-owned count/meaning, deterministic cosine/top-k ordering/ties, and separate transfer/decode/compute/selection/memory results on both supported VMs |
 | Algorithm | First ingest, exact no-op, one-paragraph edit/reuse, support promotion/retraction, FTS, citation, and evidence packet |
 | Job | Atomic claim, DB-issued fence, forced termination before/after promotion, stale-worker rejection, and idempotent recovery |
@@ -113,10 +113,17 @@ values, transactions/capabilities, read-only zero-write, separate-process WAL
 concurrency, online backup/integrity/forced cleanup, and the optional
 output-asserting address facade. `P1-JSON-01`, `P1-JSON-02`, and `P1-REC-01`
 accept the installed parse-once JSON and nominal application-record boundary.
-`P1-LLM-01` and the available deterministic local OpenAI-compatible case in
-`P1-LLM-02` are accepted; `P1-LLM-03` is active. Provider transport evidence
-uses loopback only, measures HTTP behavior directly, never reads hosted
-credentials, and does not accept the CRI-15-affected Linux timeout path.
+`P1-LLM-01`, the available deterministic local OpenAI-compatible case in
+`P1-LLM-02`, bounded provider hardening in `P1-LLM-03`, multi-provider
+qualification in `P1-LLM-04`, and privacy controls in `P1-LLM-05` are accepted.
+P1-LLM-03 counts attempts and connections, validates the
+documented JSON Schema subset, and proves route denial before client
+construction. P1-LLM-04 keeps recurring CTest deterministic and places the
+authorized five-call hosted canary behind a separate target. P1-LLM-05 observes
+zero denied connections and scans real credential values without retaining
+them. The provider section does not accept the CRI-15-affected Linux timeout path or
+claim connection reuse, streaming, cancellation, compression, or bounded
+response buffering from installed `rxhttp`; CRI-16 tracks that ceiling.
 
 ## Required Commands
 

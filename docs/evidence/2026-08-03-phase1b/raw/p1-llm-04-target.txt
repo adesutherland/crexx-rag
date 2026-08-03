@@ -1,0 +1,2 @@
+[0/1] Running P1-LLM-04 deterministic multi-provider proof
+-- P1-LLM-04 passed deterministic local/OpenAI/Anthropic/Gemini shapes on rxvme/rxbvm

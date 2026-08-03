@@ -691,6 +691,100 @@ if(CPRAG_BUILD_TESTS)
         add_test(NAME p1_llm_02 COMMAND ${P1_LLM_02_COMMAND})
         set_tests_properties(p1_llm_02 PROPERTIES
             LABELS "P1-LLM-02;phase1b;provider;openai-compatible;local;loopback;incubator")
+        set(P1_LLM_03_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_CONTRACT=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_contract.crexx"
+            "-DCPRAG_CATALOG=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_catalog.crexx"
+            "-DCPRAG_ADAPTER=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/openai_compatible_provider.crexx"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/p1_llm_03.crexx"
+            "-DCPRAG_LOOPBACK=$<TARGET_FILE:p1a_provider_loopback>"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-llm-03"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1Llm03.cmake")
+        add_custom_target(p1_llm_03
+            COMMAND ${P1_LLM_03_COMMAND}
+            DEPENDS p1a_provider_loopback
+            COMMENT "Running P1-LLM-03 provider hardening proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_llm_03 COMMAND ${P1_LLM_03_COMMAND})
+        set_tests_properties(p1_llm_03 PROPERTIES
+            LABELS "P1-LLM-03;phase1b;provider;structured;batch;retry;privacy;capabilities;incubator")
+        set(P1_LLM_04_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_CONTRACT=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_contract.crexx"
+            "-DCPRAG_CATALOG=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_catalog.crexx"
+            "-DCPRAG_FACADE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_facade.crexx"
+            "-DCPRAG_HTTP=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_http.crexx"
+            "-DCPRAG_ADAPTER=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/industrial_provider.crexx"
+            "-DCPRAG_LOCAL_ADAPTER=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/openai_compatible_provider.crexx"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/p1_llm_04.crexx"
+            "-DCPRAG_LOOPBACK=$<TARGET_FILE:p1a_provider_loopback>"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-llm-04"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1Llm04.cmake")
+        add_custom_target(p1_llm_04
+            COMMAND ${P1_LLM_04_COMMAND}
+            DEPENDS p1a_provider_loopback
+            COMMENT "Running P1-LLM-04 deterministic multi-provider proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_llm_04 COMMAND ${P1_LLM_04_COMMAND})
+        set_tests_properties(p1_llm_04 PROPERTIES
+            LABELS "P1-LLM-04;phase1b;provider;openai;anthropic;gemini;multimodal;embeddings;incubator")
+        set(P1_LLM_04_HOSTED_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_CONTRACT=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_contract.crexx"
+            "-DCPRAG_CATALOG=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_catalog.crexx"
+            "-DCPRAG_HTTP=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_http.crexx"
+            "-DCPRAG_ADAPTER=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/industrial_provider.crexx"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/p1_llm_04_hosted.crexx"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-llm-04-hosted"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1Llm04Hosted.cmake")
+        add_custom_target(p1_llm_04_hosted
+            COMMAND ${P1_LLM_04_HOSTED_COMMAND}
+            COMMENT "Running one-time P1-LLM-04 low-cost hosted qualification"
+            USES_TERMINAL
+            VERBATIM)
+        set(P1_LLM_05_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_CONTRACT=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_contract.crexx"
+            "-DCPRAG_CATALOG=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_catalog.crexx"
+            "-DCPRAG_HTTP=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_http.crexx"
+            "-DCPRAG_ADAPTER=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/industrial_provider.crexx"
+            "-DCPRAG_LOCAL_ADAPTER=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/openai_compatible_provider.crexx"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/p1_llm_05.crexx"
+            "-DCPRAG_LOOPBACK=$<TARGET_FILE:p1a_provider_loopback>"
+            "-DCPRAG_SOURCE_ROOT=${CMAKE_CURRENT_LIST_DIR}"
+            "-DCPRAG_HOSTED_OUTPUT=${CMAKE_BINARY_DIR}/p1-llm-04-hosted/hosted-output.txt"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-llm-05"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1Llm05.cmake")
+        add_custom_target(p1_llm_05
+            COMMAND ${P1_LLM_05_COMMAND}
+            DEPENDS p1a_provider_loopback
+            COMMENT "Running P1-LLM-05 zero-outbound and secret-retention proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_llm_05 COMMAND ${P1_LLM_05_COMMAND})
+        set_tests_properties(p1_llm_05 PROPERTIES
+            LABELS "P1-LLM-05;phase1b;provider;privacy;zero-outbound;secrets;incubator")
         add_test(
             NAME p1a_data_boundary
             COMMAND "${CMAKE_COMMAND}"
