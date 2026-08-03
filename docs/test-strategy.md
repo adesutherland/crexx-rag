@@ -100,6 +100,11 @@ slice must retain:
 - fenced-worker crash recovery, cancellation, ceilings, reservations, and
   bounded-overrun results.
 
+The completed worker slice uses four optimized/non-optimized and `rxvme`/
+`rxbvm` cells. It includes real process termination before a provider call,
+after a provider call, during an open promotion transaction, and after commit;
+the budget slice retains distinct zero-write denial statuses and actual usage.
+
 `P1-RXPA-03`, `P1-HASH-01`, hosted calls outside the explicitly authorized
 low-cost `P1-LLM-04` qualification, normal-prefix/CREXX changes, production
 schema, dual-write, and later phases are outside the acceptance scope. Gate 1B
@@ -124,6 +129,15 @@ zero denied connections and scans real credential values without retaining
 them. The provider section does not accept the CRI-15-affected Linux timeout path or
 claim connection reuse, streaming, cancellation, compression, or bounded
 response buffering from installed `rxhttp`; CRI-16 tracks that ceiling.
+`P1-VEC-01` accepts canonical headerless `f32le-v1` bytes, application-owned
+codec/count/meaning, and an exact 768-dimensional typed SQLite round trip in
+all four compiler/runtime cells. `P1-VEC-02` accepts exact bounded-page
+ordering and ties for 11,684-by-768; `P1-VEC-03` retains separate SQLite,
+decode/validation, arithmetic, selection, working-memory, process-RSS, and
+total measurements on both VMs. `P1-VEC-04` retains exact cREXX as the bounded
+fallback and recommends separately authorized generic `rxvector`
+qualification; no accelerator is implemented or selected without a matched
+benchmark.
 
 ## Required Commands
 
@@ -137,6 +151,11 @@ cmake --preset release
 cmake --build --preset release
 git diff --check
 ```
+
+The final 2026-08-03 Gate-1B run passed 55/56 tests in 490.18 seconds. The only
+failure was the separately retained CRI-15 `rxvme` receive-timeout defect. All
+28 Phase-1B-labelled tests passed, Release built, the diff check was empty, and
+the three-value credential scan found zero publication-file matches.
 
 Use small target-only loops between those broad gates. Record an explicit reason
 for any unavailable CREXX VM or local-provider mode. Finish with a worktree audit

@@ -1,0 +1,259 @@
+native_oracle=/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/phase0_oracle_semantics
+golden=/home/adrian/CLionProjects/crexx-rag/docs/evidence/2026-07-28-phase0-gate1a/goldens/oracle-semantics.jsonl
+native_records=9
+native_peak_rss_bytes=8278016
+source=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/algorithm/p1_alg_05.crexx
+database=scratch-per-cell
+production_schema=0
+noopt source store compile:
+Warning in source_store.crexx @ 94:5 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 95:119 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 99:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 100:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 101:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 102:29 - #SHADOWING: Symbol shadows an earlier declaration., "(statemen"
+Warning in source_store.crexx @ 103:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 109:5 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 110:106 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 114:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 115:24 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 116:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 117:29 - #SHADOWING: Symbol shadows an earlier declaration., "(statemen"
+Warning in source_store.crexx @ 118:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 124:5 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 125:108 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 129:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 130:24 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 131:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 132:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 133:29 - #SHADOWING: Symbol shadows an earlier declaration., "(statemen"
+Warning in source_store.crexx @ 134:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 160:7 - #SHADOWING: Symbol shadows an earlier declaration., "hits"
+Warning in source_store.crexx @ 161:14 - #SHADOWING: Symbol shadows an earlier declaration., "hits"
+Warning in source_store.crexx @ 166:7 - #SHADOWING: Symbol shadows an earlier declaration., "hits"
+Warning in source_store.crexx @ 167:14 - #SHADOWING: Symbol shadows an earlier declaration., "hits"
+26 warning(s) in source file
+noopt source store assemble:
+
+noopt lifecycle compile:
+Warning in source_lifecycle.crexx @ 5:8 - #UNUSED_IMPORT: Import is recognised but not used., "rxfnsb"
+Warning in source_lifecycle.crexx @ 92:7 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 93:111 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 94:27 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 95:27 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 96:27 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 97:31 - #SHADOWING: Symbol shadows an earlier declaration., "(statemen"
+Warning in source_lifecycle.crexx @ 98:27 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 103:5 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 104:106 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 105:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 106:24 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 107:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 108:29 - #SHADOWING: Symbol shadows an earlier declaration., "(statemen"
+Warning in source_lifecycle.crexx @ 109:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 112:5 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 113:108 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 114:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 115:24 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 116:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 117:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 118:29 - #SHADOWING: Symbol shadows an earlier declaration., "(statemen"
+Warning in source_lifecycle.crexx @ 119:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+23 warning(s) in source file
+noopt lifecycle assemble:
+
+noopt claims compile:
+noopt claims assemble:
+
+noopt evidence compile:
+Warning in evidence_packet.crexx @ 5:8 - #UNUSED_IMPORT: Import is recognised but not used., "rxfnsb"
+1 warning(s) in source file
+noopt evidence assemble:
+
+noopt test compile:
+noopt test assemble:
+
+noopt-rxvme:
+P1_ALG_05_PROFILE cell=noopt-rxvme algorithm_2000_us=102460 threshold_us=10000 checksum=80000
+P1_ALG_05_OK cell=noopt-rxvme native_records=9 deterministic_chunking=1 lexical_sources=2,1 identical_writes=0 paragraph_reuse=1 direction=forward accepted_claim=1 exact_support=1 ambiguity=explicit vector_is_fact=0 retracted_claim=1 algorithm_2000_us=102460 threshold_us=10000 checksum=80000
+profile_trigger=crossed
+process_peak_rss_bytes=24952832
+	Command being timed: "/home/adrian/.local/bin/rxvme -l /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-alg-05;/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/bin;/home/adrian/.local/bin /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-alg-05/program-noopt source_store source_lifecycle claim_store evidence_packet rx_sqlite_boundary library -a /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-alg-05/noopt-rxvme.sqlite noopt-rxvme"
+	User time (seconds): 0.28
+	System time (seconds): 0.00
+	Percent of CPU this job got: 87%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.33
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 24368
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 5606
+	Voluntary context switches: 117
+	Involuntary context switches: 3
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 1536
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+
+noopt-rxbvm:
+P1_ALG_05_PROFILE cell=noopt-rxbvm algorithm_2000_us=104666 threshold_us=10000 checksum=80000
+P1_ALG_05_OK cell=noopt-rxbvm native_records=9 deterministic_chunking=1 lexical_sources=2,1 identical_writes=0 paragraph_reuse=1 direction=forward accepted_claim=1 exact_support=1 ambiguity=explicit vector_is_fact=0 retracted_claim=1 algorithm_2000_us=104666 threshold_us=10000 checksum=80000
+profile_trigger=crossed
+process_peak_rss_bytes=16785408
+	Command being timed: "/home/adrian/.local/bin/rxbvm -l /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-alg-05;/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/bin;/home/adrian/.local/bin /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-alg-05/program-noopt source_store source_lifecycle claim_store evidence_packet rx_sqlite_boundary library -a /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-alg-05/noopt-rxbvm.sqlite noopt-rxbvm"
+	User time (seconds): 0.16
+	System time (seconds): 0.01
+	Percent of CPU this job got: 79%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.21
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 16392
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 3727
+	Voluntary context switches: 125
+	Involuntary context switches: 1
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 1536
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+
+opt source store compile:
+Warning in source_store.crexx @ 94:5 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 95:119 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 99:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 100:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 101:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 102:29 - #SHADOWING: Symbol shadows an earlier declaration., "(statemen"
+Warning in source_store.crexx @ 103:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 109:5 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 110:106 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 114:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 115:24 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 116:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 117:29 - #SHADOWING: Symbol shadows an earlier declaration., "(statemen"
+Warning in source_store.crexx @ 118:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 124:5 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 125:108 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 129:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 130:24 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 131:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 132:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 133:29 - #SHADOWING: Symbol shadows an earlier declaration., "(statemen"
+Warning in source_store.crexx @ 134:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_store.crexx @ 160:7 - #SHADOWING: Symbol shadows an earlier declaration., "hits"
+Warning in source_store.crexx @ 161:14 - #SHADOWING: Symbol shadows an earlier declaration., "hits"
+Warning in source_store.crexx @ 166:7 - #SHADOWING: Symbol shadows an earlier declaration., "hits"
+Warning in source_store.crexx @ 167:14 - #SHADOWING: Symbol shadows an earlier declaration., "hits"
+26 warning(s) in source file
+opt source store assemble:
+
+opt lifecycle compile:
+Warning in source_lifecycle.crexx @ 5:8 - #UNUSED_IMPORT: Import is recognised but not used., "rxfnsb"
+Warning in source_lifecycle.crexx @ 92:7 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 93:111 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 94:27 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 95:27 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 96:27 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 97:31 - #SHADOWING: Symbol shadows an earlier declaration., "(statemen"
+Warning in source_lifecycle.crexx @ 98:27 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 103:5 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 104:106 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 105:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 106:24 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 107:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 108:29 - #SHADOWING: Symbol shadows an earlier declaration., "(statemen"
+Warning in source_lifecycle.crexx @ 109:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 112:5 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 113:108 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 114:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 115:24 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 116:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 117:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+Warning in source_lifecycle.crexx @ 118:29 - #SHADOWING: Symbol shadows an earlier declaration., "(statemen"
+Warning in source_lifecycle.crexx @ 119:25 - #SHADOWING: Symbol shadows an earlier declaration., "statement"
+23 warning(s) in source file
+opt lifecycle assemble:
+
+opt claims compile:
+opt claims assemble:
+
+opt evidence compile:
+Warning in evidence_packet.crexx @ 5:8 - #UNUSED_IMPORT: Import is recognised but not used., "rxfnsb"
+1 warning(s) in source file
+opt evidence assemble:
+
+opt test compile:
+opt test assemble:
+
+opt-rxvme:
+P1_ALG_05_PROFILE cell=opt-rxvme algorithm_2000_us=64396 threshold_us=10000 checksum=80000
+P1_ALG_05_OK cell=opt-rxvme native_records=9 deterministic_chunking=1 lexical_sources=2,1 identical_writes=0 paragraph_reuse=1 direction=forward accepted_claim=1 exact_support=1 ambiguity=explicit vector_is_fact=0 retracted_claim=1 algorithm_2000_us=64396 threshold_us=10000 checksum=80000
+profile_trigger=crossed
+process_peak_rss_bytes=25374720
+	Command being timed: "/home/adrian/.local/bin/rxvme -l /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-alg-05;/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/bin;/home/adrian/.local/bin /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-alg-05/program-opt source_store source_lifecycle claim_store evidence_packet rx_sqlite_boundary library -a /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-alg-05/opt-rxvme.sqlite opt-rxvme"
+	User time (seconds): 0.26
+	System time (seconds): 0.01
+	Percent of CPU this job got: 84%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.33
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 24780
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 5622
+	Voluntary context switches: 120
+	Involuntary context switches: 3
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 1536
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+
+opt-rxbvm:
+P1_ALG_05_PROFILE cell=opt-rxbvm algorithm_2000_us=63241 threshold_us=10000 checksum=80000
+P1_ALG_05_OK cell=opt-rxbvm native_records=9 deterministic_chunking=1 lexical_sources=2,1 identical_writes=0 paragraph_reuse=1 direction=forward accepted_claim=1 exact_support=1 ambiguity=explicit vector_is_fact=0 retracted_claim=1 algorithm_2000_us=63241 threshold_us=10000 checksum=80000
+profile_trigger=crossed
+process_peak_rss_bytes=17178624
+	Command being timed: "/home/adrian/.local/bin/rxbvm -l /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-alg-05;/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/bin;/home/adrian/.local/bin /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-alg-05/program-opt source_store source_lifecycle claim_store evidence_packet rx_sqlite_boundary library -a /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-alg-05/opt-rxbvm.sqlite opt-rxbvm"
+	User time (seconds): 0.12
+	System time (seconds): 0.01
+	Percent of CPU this job got: 76%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.18
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 16776
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 3751
+	Voluntary context switches: 127
+	Involuntary context switches: 1
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 1536
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+

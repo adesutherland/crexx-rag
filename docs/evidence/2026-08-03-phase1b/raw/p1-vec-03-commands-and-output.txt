@@ -1,0 +1,164 @@
+codec=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/vector/vector_codec.crexx
+search=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/vector/vector_search.crexx
+source=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/vector/p1_vec_03.crexx
+fixture=deterministic-11684-by-768
+production_schema=0
+metric_scope=fixture-build-separated-from-search-total
+noopt codec compile:
+noopt codec assemble:
+
+noopt search compile:
+noopt search assemble:
+
+noopt benchmark compile:
+noopt benchmark assemble:
+
+noopt-rxvme:
+noopt-rxvme,fixture_build,198169,11684,35893248,11684,ok
+noopt-rxvme,sqlite_transfer,56688,11684,35893248,11684,ok
+noopt-rxvme,decode,7213,11684,35893248,35893248,ok
+noopt-rxvme,arithmetic,666162,8973312,35893248,3.19999999523163,ok
+noopt-rxvme,selection,16230,11684,0,1031,ok
+noopt-rxvme,estimated_working_memory,0,128,399680,399680,ok
+noopt-rxvme,total,750316,11684,35893248,1031,ok
+P1_VEC_03_OK cell=noopt-rxvme rows=11684 dimension=768 pages=92 top_checksum=1031 components=sqlite_transfer,decode,arithmetic,selection,estimated_working_memory,total
+noopt-rxvme,process_peak_memory,0,1,26083328,26083328,ok
+noopt-rxvme process timing:
+	Command being timed: "/home/adrian/.local/bin/rxvme -l /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-vec-03;/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/bin;/home/adrian/.local/bin /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-vec-03/program-noopt vector_codec vector_search rx_sqlite_boundary library -a /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-vec-03/noopt-rxvme.sqlite noopt-rxvme"
+	User time (seconds): 0.97
+	System time (seconds): 0.07
+	Percent of CPU this job got: 94%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.11
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 25472
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 5802
+	Voluntary context switches: 122
+	Involuntary context switches: 15
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 93776
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+
+noopt-rxbvm:
+noopt-rxbvm,fixture_build,193905,11684,35893248,11684,ok
+noopt-rxbvm,sqlite_transfer,59214,11684,35893248,11684,ok
+noopt-rxbvm,decode,8695,11684,35893248,35893248,ok
+noopt-rxbvm,arithmetic,712400,8973312,35893248,3.19999999523163,ok
+noopt-rxbvm,selection,16464,11684,0,1031,ok
+noopt-rxbvm,estimated_working_memory,0,128,399680,399680,ok
+noopt-rxbvm,total,800996,11684,35893248,1031,ok
+P1_VEC_03_OK cell=noopt-rxbvm rows=11684 dimension=768 pages=92 top_checksum=1031 components=sqlite_transfer,decode,arithmetic,selection,estimated_working_memory,total
+noopt-rxbvm,process_peak_memory,0,1,18845696,18845696,ok
+noopt-rxbvm process timing:
+	Command being timed: "/home/adrian/.local/bin/rxbvm -l /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-vec-03;/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/bin;/home/adrian/.local/bin /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-vec-03/program-noopt vector_codec vector_search rx_sqlite_boundary library -a /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-vec-03/noopt-rxbvm.sqlite noopt-rxbvm"
+	User time (seconds): 0.90
+	System time (seconds): 0.07
+	Percent of CPU this job got: 94%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.04
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 18404
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 4199
+	Voluntary context switches: 178
+	Involuntary context switches: 7
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 93776
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+
+opt codec compile:
+opt codec assemble:
+
+opt search compile:
+opt search assemble:
+
+opt benchmark compile:
+opt benchmark assemble:
+
+opt-rxvme:
+opt-rxvme,fixture_build,284682,11684,35893248,11684,ok
+opt-rxvme,sqlite_transfer,60153,11684,35893248,11684,ok
+opt-rxvme,decode,7557,11684,35893248,35893248,ok
+opt-rxvme,arithmetic,688406,8973312,35893248,3.19999999523163,ok
+opt-rxvme,selection,15487,11684,0,1031,ok
+opt-rxvme,estimated_working_memory,0,128,399680,399680,ok
+opt-rxvme,total,776000,11684,35893248,1031,ok
+P1_VEC_03_OK cell=opt-rxvme rows=11684 dimension=768 pages=92 top_checksum=1031 components=sqlite_transfer,decode,arithmetic,selection,estimated_working_memory,total
+opt-rxvme,process_peak_memory,0,1,26595328,26595328,ok
+opt-rxvme process timing:
+	Command being timed: "/home/adrian/.local/bin/rxvme -l /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-vec-03;/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/bin;/home/adrian/.local/bin /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-vec-03/program-opt vector_codec vector_search rx_sqlite_boundary library -a /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-vec-03/opt-rxvme.sqlite opt-rxvme"
+	User time (seconds): 1.06
+	System time (seconds): 0.11
+	Percent of CPU this job got: 95%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.23
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 25972
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 6063
+	Voluntary context switches: 35
+	Involuntary context switches: 16
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 93776
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+
+opt-rxbvm:
+opt-rxbvm,fixture_build,197120,11684,35893248,11684,ok
+opt-rxbvm,sqlite_transfer,61755,11684,35893248,11684,ok
+opt-rxbvm,decode,8889,11684,35893248,35893248,ok
+opt-rxbvm,arithmetic,766924,8973312,35893248,3.19999999523163,ok
+opt-rxbvm,selection,15529,11684,0,1031,ok
+opt-rxbvm,estimated_working_memory,0,128,399680,399680,ok
+opt-rxbvm,total,857843,11684,35893248,1031,ok
+P1_VEC_03_OK cell=opt-rxbvm rows=11684 dimension=768 pages=92 top_checksum=1031 components=sqlite_transfer,decode,arithmetic,selection,estimated_working_memory,total
+opt-rxbvm,process_peak_memory,0,1,19587072,19587072,ok
+opt-rxbvm process timing:
+	Command being timed: "/home/adrian/.local/bin/rxbvm -l /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-vec-03;/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/bin;/home/adrian/.local/bin /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-vec-03/program-opt vector_codec vector_search rx_sqlite_boundary library -a /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-vec-03/opt-rxbvm.sqlite opt-rxbvm"
+	User time (seconds): 0.99
+	System time (seconds): 0.07
+	Percent of CPU this job got: 94%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.13
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 19128
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 4462
+	Voluntary context switches: 364
+	Involuntary context switches: 9
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 93776
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+

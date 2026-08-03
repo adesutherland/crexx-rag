@@ -1,0 +1,60 @@
+options levelb
+
+import rxfnsb
+import sqlite_boundary
+import job_queue
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P1_JOB_01_FAIL=" || label
+    return 1
+  end
+  return 0
+
+main: procedure = .int
+arg args = .string[]
+if args.0 < 2 then return 2
+database_path = args[1]
+cell = args[2]
+errors = 0
+db = .binary
+errors = errors + check(sqliteopen(database_path, db) = 0 & jobschema(db) = 0, "scratch schema")
+
+errors = errors + check(createjob(db, "job-main", "local-openai-compatible", "fixture-model") = 0 & createitem(db, "job-main", "item-main", "idem-main", "bounded work") = 0, "create main job")
+now_before = dbnow(db)
+fence = 0; attempt_key = ""; lease_until = 0
+errors = errors + check(claimitem(db, "item-main", "worker-a", 60, fence, attempt_key, lease_until) = 0 & fence = 1 & attempt_key = "item-main#attempt-1", "atomic claim")
+errors = errors + check(lease_until >= now_before + 60 & lease_until <= dbnow(db) + 60, "database clock lease")
+renewed_until = 0
+errors = errors + check(heartbeat(db, "item-main", "worker-a", fence, attempt_key, 120, renewed_until) = 0 & renewed_until >= lease_until + 60, "heartbeat")
+errors = errors + check(sqliteexec(db, "BEGIN") = 0 & sqliteexec(db, "ROLLBACK") = 0, "claim transaction closed before provider work")
+output = providerwork("bounded work")
+errors = errors + check(promoteitem(db, "item-main", "worker-a", fence, attempt_key, "support-main", output) = 0, "atomic promotion")
+errors = errors + check(promoteitem(db, "item-main", "worker-a", fence, attempt_key, "support-main", output) = 1, "idempotent promotion")
+main_status = readstatus(db, "job-main")
+errors = errors + check(main_status.state() = "completed" & main_status.planned_total() = 1 & main_status.queued() = 0 & main_status.running() = 0 & main_status.processed() = 1 & main_status.cancelled() = 0 & main_status.current_item() = "", "completed status")
+
+errors = errors + check(createjob(db, "job-queued-cancel", "none", "none") = 0 & createitem(db, "job-queued-cancel", "item-queued-cancel", "idem-queued-cancel", "unused") = 0 & requestcancel(db, "job-queued-cancel") = 0, "queued cancellation")
+queued_cancel = readstatus(db, "job-queued-cancel")
+errors = errors + check(queued_cancel.state() = "cancelled" & queued_cancel.cancelled() = 1 & queued_cancel.running() = 0, "queued cancellation status")
+
+errors = errors + check(createjob(db, "job-running-cancel", "local-openai-compatible", "fixture-model") = 0 & createitem(db, "job-running-cancel", "item-running-cancel", "idem-running-cancel", "cancel work") = 0, "create running cancellation")
+cancel_fence = 0; cancel_attempt = ""; cancel_lease = 0
+errors = errors + check(claimitem(db, "item-running-cancel", "worker-b", 60, cancel_fence, cancel_attempt, cancel_lease) = 0 & cancel_fence = 2, "second monotonic fence")
+errors = errors + check(requestcancel(db, "job-running-cancel") = 0, "request running cancellation")
+ignored_lease = 0
+errors = errors + check(heartbeat(db, "item-running-cancel", "worker-b", cancel_fence, cancel_attempt, 60, ignored_lease) = -5, "cancelled heartbeat rejected")
+errors = errors + check(promoteitem(db, "item-running-cancel", "worker-b", cancel_fence, cancel_attempt, "support-cancel", "LATE") = -5, "late promotion rejected")
+errors = errors + check(acknowledgecancel(db, "item-running-cancel", "worker-b", cancel_fence, cancel_attempt) = 0, "acknowledge cancellation")
+running_cancel = readstatus(db, "job-running-cancel")
+errors = errors + check(running_cancel.state() = "cancelled" & running_cancel.cancelled() = 1 & running_cancel.running() = 0, "running cancellation status")
+
+errors = errors + check(scalarcount(db, "SELECT count(*) FROM fence_tokens") = 2 & scalarcount(db, "SELECT count(*) FROM attempts") = 2 & scalarcount(db, "SELECT count(*) FROM promoted_support") = 1, "durable counts")
+errors = errors + check(sqliteclose(db) = 0, "close")
+if errors \= 0 then do
+  say "P1_JOB_01_ERRORS=" || errors
+  return 1
+end
+say "P1_JOB_01_OK cell=" || cell || " atomic_claim=1 db_clock_lease=1 heartbeat=1 monotonic_fence=2 attempts=2 work_outside_claim_transaction=1 idempotent_promotion=1 duplicate_support=0 queued_cancelled=1 running_cancelled=1 late_promotion_status=-5 status_typed=1"
+return 0

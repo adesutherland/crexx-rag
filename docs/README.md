@@ -19,6 +19,7 @@ Status: canonical navigation for the approved cREXX-only programme,
 | [Gate 1A decision ledger](gate1a-decision-ledger.md) | Approved D1-D9 boundaries, exact Phase-1B worklist, exclusions, and Gate-1B stop |
 | [Approved CREXX candidate closeout](evidence/2026-07-31-gate1a-crexx-candidate/CANDIDATE-INTEGRATION-CLOSEOUT.md) | Exact downstream CRI-01 through CRI-14 replay, provenance, results and Gate-1A stop |
 | [Linux build review](evidence/2026-08-03-linux-build/LINUX-BUILD-REVIEW.md) | Debug/Release portability result and open CRI-15 reproducer |
+| [Gate 1B decision packet](evidence/2026-08-03-phase1b/GATE-1B-DECISION-PACKET.md) | Completed Phase-1B evidence, capability limits, validation, recommendations, and mandatory production-decision stop |
 
 Agent-facing material:
 

@@ -1,0 +1,16 @@
+Test project /home/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 35: p1_vec_01
+1/1 Test #35: p1_vec_01 ........................   Passed    3.01 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+P1-VEC-01    =   3.01 sec*proc (1 test)
+codec        =   3.01 sec*proc (1 test)
+f32le        =   3.01 sec*proc (1 test)
+incubator    =   3.01 sec*proc (1 test)
+phase1b      =   3.01 sec*proc (1 test)
+sqlite       =   3.01 sec*proc (1 test)
+vector       =   3.01 sec*proc (1 test)
+
+Total Test time (real) =   3.01 sec

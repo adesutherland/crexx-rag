@@ -1,0 +1,10 @@
+cell,component,elapsed_us,operations,bytes,checksum,status
+opt-rxbvm,fixture_build,204244,11684,35893248,11684,ok
+opt-rxbvm,sqlite_transfer,59745,11684,35893248,11684,ok
+opt-rxbvm,decode,7946,11684,35893248,35893248,ok
+opt-rxbvm,arithmetic,689870,8973312,35893248,3.19999999523163,ok
+opt-rxbvm,selection,14038,11684,0,1031,ok
+opt-rxbvm,estimated_working_memory,0,128,399680,399680,ok
+opt-rxbvm,total,775770,11684,35893248,1031,ok
+P1_VEC_03_OK cell=opt-rxbvm rows=11684 dimension=768 pages=92 top_checksum=1031 components=sqlite_transfer,decode,arithmetic,selection,estimated_working_memory,total
+opt-rxbvm,process_peak_memory,0,1,19587072,19587072,ok

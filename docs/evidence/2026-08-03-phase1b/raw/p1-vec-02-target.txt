@@ -1,0 +1,2 @@
+[0/1] Running P1-VEC-02 representative exact-ordering proof
+-- P1-VEC-02 passed exact 11,684-by-768 ordering on rxvme/rxbvm

@@ -55,37 +55,37 @@ roadmap item may be active.
 
 ## 5. Vector Boundary
 
-- [ ] `P1-VEC-01` Versioned float32 codec with application-owned schema.
-- [ ] `P1-VEC-02` Exact ordering for the retained 11,684-by-768 workload.
-- [ ] `P1-VEC-03` Both-VM transfer/decode/arithmetic/selection/memory/total
+- [x] `P1-VEC-01` Versioned float32 codec with application-owned schema.
+- [x] `P1-VEC-02` Exact ordering for the retained 11,684-by-768 workload.
+- [x] `P1-VEC-03` Both-VM transfer/decode/arithmetic/selection/memory/total
   measurements.
-- [ ] `P1-VEC-04` Evidence-led backend recommendation at the retained triggers.
+- [x] `P1-VEC-04` Evidence-led backend recommendation at the retained triggers.
 
 ## 6. Algorithm Parity
 
-- [ ] `P1-ALG-01` Scratch schema, deterministic chunking, and lexical FTS.
-- [ ] `P1-ALG-02` Identical-ingest zero-write and edited-paragraph identity
+- [x] `P1-ALG-01` Scratch schema, deterministic chunking, and lexical FTS.
+- [x] `P1-ALG-02` Identical-ingest zero-write and edited-paragraph identity
   reuse.
-- [ ] `P1-ALG-03` Exact normalized support and source-revision retraction.
-- [ ] `P1-ALG-04` Passage/claim/support/ambiguity/vector-lead evidence packet.
-- [ ] `P1-ALG-05` Native-oracle semantic parity and profile evidence.
+- [x] `P1-ALG-03` Exact normalized support and source-revision retraction.
+- [x] `P1-ALG-04` Passage/claim/support/ambiguity/vector-lead evidence packet.
+- [x] `P1-ALG-05` Native-oracle semantic parity and profile evidence.
 
 ## 7. Fenced Worker
 
-- [ ] `P1-JOB-01` Atomic claim, database-clock lease, heartbeat, monotonic
+- [x] `P1-JOB-01` Atomic claim, database-clock lease, heartbeat, monotonic
   fence, attempts, idempotent promotion, cancellation, and status.
-- [ ] `P1-JOB-02` Forced termination at every authorized boundary and
+- [x] `P1-JOB-02` Forced termination at every authorized boundary and
   duplicate-free recovery.
-- [ ] `P1-JOB-03` Item/call ceilings, pre-call reservations, actual usage, and
+- [x] `P1-JOB-03` Item/call ceilings, pre-call reservations, actual usage, and
   maximum in-flight overrun.
 
 ## Gate 1B
 
-- [ ] Assemble the required packet and capability ledger.
-- [ ] Run Debug configure/build/CTest, Release configure/build, and
+- [x] Assemble the required packet and capability ledger.
+- [x] Run Debug configure/build/CTest, Release configure/build, and
   `git diff --check`.
-- [ ] Audit worktree and sister-checkout preservation.
-- [ ] Stop unconditionally for the production-capability decision.
+- [x] Audit worktree and sister-checkout preservation.
+- [x] Stop unconditionally for the production-capability decision.
 
 ## Exclusions
 

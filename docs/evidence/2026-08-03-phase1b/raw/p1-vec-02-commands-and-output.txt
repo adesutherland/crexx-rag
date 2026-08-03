@@ -1,0 +1,35 @@
+codec=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/vector/vector_codec.crexx
+search=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/vector/vector_search.crexx
+source=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/vector/p1_vec_02.crexx
+fixture=deterministic-11684-by-768
+production_schema=0
+noopt codec compile:
+noopt codec assemble:
+
+noopt search compile:
+noopt search assemble:
+
+noopt test compile:
+noopt test assemble:
+
+noopt-rxvme:
+P1_VEC_02_OK cell=noopt-rxvme rows=11684 dimension=768 page_size=128 pages=92 bytes=35893248 top_k=10 top_ids=101,202,303,404,1,2,3,4,5,6 tie=202,303 tie_rule=score_desc_identity_asc oracle=closed_form
+
+noopt-rxbvm:
+P1_VEC_02_OK cell=noopt-rxbvm rows=11684 dimension=768 page_size=128 pages=92 bytes=35893248 top_k=10 top_ids=101,202,303,404,1,2,3,4,5,6 tie=202,303 tie_rule=score_desc_identity_asc oracle=closed_form
+
+opt codec compile:
+opt codec assemble:
+
+opt search compile:
+opt search assemble:
+
+opt test compile:
+opt test assemble:
+
+opt-rxvme:
+P1_VEC_02_OK cell=opt-rxvme rows=11684 dimension=768 page_size=128 pages=92 bytes=35893248 top_k=10 top_ids=101,202,303,404,1,2,3,4,5,6 tie=202,303 tie_rule=score_desc_identity_asc oracle=closed_form
+
+opt-rxbvm:
+P1_VEC_02_OK cell=opt-rxbvm rows=11684 dimension=768 page_size=128 pages=92 bytes=35893248 top_k=10 top_ids=101,202,303,404,1,2,3,4,5,6 tie=202,303 tie_rule=score_desc_identity_asc oracle=closed_form
+

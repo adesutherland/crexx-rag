@@ -1,0 +1,10 @@
+cell,component,elapsed_us,operations,bytes,checksum,status
+noopt-rxvme,fixture_build,194253,11684,35893248,11684,ok
+noopt-rxvme,sqlite_transfer,61152,11684,35893248,11684,ok
+noopt-rxvme,decode,7632,11684,35893248,35893248,ok
+noopt-rxvme,arithmetic,679814,8973312,35893248,3.19999999523163,ok
+noopt-rxvme,selection,17981,11684,0,1031,ok
+noopt-rxvme,estimated_working_memory,0,128,399680,399680,ok
+noopt-rxvme,total,770868,11684,35893248,1031,ok
+P1_VEC_03_OK cell=noopt-rxvme rows=11684 dimension=768 pages=92 top_checksum=1031 components=sqlite_transfer,decode,arithmetic,selection,estimated_working_memory,total
+noopt-rxvme,process_peak_memory,0,1,26042368,26042368,ok

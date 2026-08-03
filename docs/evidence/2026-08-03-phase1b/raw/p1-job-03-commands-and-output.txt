@@ -1,0 +1,36 @@
+queue=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/job/job_queue.crexx
+budget=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/job/job_budget.crexx
+source=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/job/p1_job_03.crexx
+database=scratch-per-cell
+production_schema=0
+provider=deterministic-pure-work
+noopt job queue compile:
+noopt job queue assemble:
+
+noopt job budget compile:
+noopt job budget assemble:
+
+noopt test compile:
+noopt test assemble:
+
+noopt-rxvme:
+P1_JOB_03_OK cell=noopt-rxvme item_ceiling=2 item_denial=-10 call_ceiling=2 call_denial=-11 token_denial=-12 cost_denial=-13 time_denial=-14 per_call_cap_denial=-15 inflight_denial=-16 calls_actual=2 tokens_reserved=0 tokens_actual=130 cost_reserved=0 cost_actual=26 time_reserved_ms=0 time_actual_ms=650 max_inflight_calls=1 max_inflight_tokens=100 max_inflight_cost=20 max_inflight_time_ms=500 denied_writes=0
+
+noopt-rxbvm:
+P1_JOB_03_OK cell=noopt-rxbvm item_ceiling=2 item_denial=-10 call_ceiling=2 call_denial=-11 token_denial=-12 cost_denial=-13 time_denial=-14 per_call_cap_denial=-15 inflight_denial=-16 calls_actual=2 tokens_reserved=0 tokens_actual=130 cost_reserved=0 cost_actual=26 time_reserved_ms=0 time_actual_ms=650 max_inflight_calls=1 max_inflight_tokens=100 max_inflight_cost=20 max_inflight_time_ms=500 denied_writes=0
+
+opt job queue compile:
+opt job queue assemble:
+
+opt job budget compile:
+opt job budget assemble:
+
+opt test compile:
+opt test assemble:
+
+opt-rxvme:
+P1_JOB_03_OK cell=opt-rxvme item_ceiling=2 item_denial=-10 call_ceiling=2 call_denial=-11 token_denial=-12 cost_denial=-13 time_denial=-14 per_call_cap_denial=-15 inflight_denial=-16 calls_actual=2 tokens_reserved=0 tokens_actual=130 cost_reserved=0 cost_actual=26 time_reserved_ms=0 time_actual_ms=650 max_inflight_calls=1 max_inflight_tokens=100 max_inflight_cost=20 max_inflight_time_ms=500 denied_writes=0
+
+opt-rxbvm:
+P1_JOB_03_OK cell=opt-rxbvm item_ceiling=2 item_denial=-10 call_ceiling=2 call_denial=-11 token_denial=-12 cost_denial=-13 time_denial=-14 per_call_cap_denial=-15 inflight_denial=-16 calls_actual=2 tokens_reserved=0 tokens_actual=130 cost_reserved=0 cost_actual=26 time_reserved_ms=0 time_actual_ms=650 max_inflight_calls=1 max_inflight_tokens=100 max_inflight_cost=20 max_inflight_time_ms=500 denied_writes=0
+

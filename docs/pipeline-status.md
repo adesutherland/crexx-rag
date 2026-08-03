@@ -17,7 +17,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Gate 0 | Passed | Full configure/build/CTest passed 17/17 with 19 frozen hashes and raw measurements |
 | Phase 1A | Complete diagnostic unit | P1A-SDK-01 through P1A-SUR-01 all have focused retained correctness/failure/profile evidence |
 | Gate 1A | Accepted 2026-08-03 | D1-D8 boundaries and the bounded D9 worklist are recorded; CRI-15 remains an open Linux dependency |
-| Phase 1B | Between items after P1-LLM-05 | Installed SDK, SQLite, structured data, and the complete provider section are accepted; P1-VEC-01 is next but not started; stop at Gate 1B |
+| Phase 1B / Gate 1B | Decision required; stopped | Every bounded item is accepted; Gate validation is 55/56 with sole expected CRI-15; production claims remain withheld as recorded in the decision packet |
 | Phase 2 and later | Not authorized | No production schema, donation implementation, additional hosted qualification, cutover, or retirement |
 
 ## Current Product Reality
@@ -64,9 +64,10 @@ fresh deterministic/loopback closeout suite passed 28/28, 0 failed, 0 skipped
 in 110.30 seconds. Exact evidence is under
 `docs/evidence/2026-07-31-gate1a-crexx-candidate/`.
 
-No cREXX-only production path, schema v2, selected provider contract,
-production `rxsqlite`, safe multi-worker queue, or target command set is claimed
-implemented yet.
+No cREXX-only production path, schema v2, production `rxsqlite`, safe
+multi-worker queue, or target command set is claimed implemented yet. The
+provider contract is selected and qualified in local incubation, subject to
+the transport limitations recorded at Gate 1B.
 
 Fresh Linux validation on 2026-08-03 repaired the native build's missing direct
 `<algorithm>` dependency, PIC requirement for the RXPA plugin, and macOS-only
@@ -105,9 +106,19 @@ CRI-15 still blocks Linux timeout qualification; CRI-16 records that installed
 passes all local/OpenAI/Anthropic/Gemini shapes and five low-cost hosted calls,
 including two 128-dimensional batch-embedding results. `P1-LLM-05` proves zero
 outbound connections for denied routes and zero retained matches for all three
-credential values. The provider section is complete; `P1-VEC-01` is next but
-has not started. The accepted boundary, validation, and remaining transport
-gap are summarized in the [provider closeout](evidence/2026-08-03-phase1b/PROVIDER-CLOSEOUT.md).
+credential values. The provider section is complete. The accepted boundary,
+validation, and remaining transport gap are summarized in the
+[provider closeout](evidence/2026-08-03-phase1b/PROVIDER-CLOSEOUT.md).
+`P1-VEC-01` accepts a headerless canonical `f32le-v1` payload with
+application-owned type/count/meaning and an exact 768-dimensional scratch
+SQLite round trip. `P1-VEC-02` accepts exact keyset-paged ordering for the
+11,684-by-768 representative fixture, including deterministic tie behavior.
+`P1-VEC-03` measures full-workload search at 750,316 to 857,843 us with
+18,845,696 to 26,595,328 bytes peak RSS; arithmetic dominates while memory
+remains below 64 MiB. `P1-VEC-04` retains pure cREXX exact search as the bounded
+fallback and recommends separately authorized generic `rxvector`
+qualification because the latency trigger crossed. The vector section is
+complete; every bounded Phase-1B implementation item through `P1-JOB-03` is accepted. Gate 1B is reached with no active implementation item. The algorithm profile crossed its retained 10,000-us trigger in all four cells while remaining below 64 MiB. Full validation passed 55/56 tests; the sole failure is unchanged CRI-15. See the [Gate-1B decision packet](evidence/2026-08-03-phase1b/GATE-1B-DECISION-PACKET.md).
 
 ## Phase-1B Authority And Gate-1B Stop
 
@@ -125,5 +136,5 @@ active.
 - do not start excluded IDs, donation work, Phase 2, production schema, hosted
   calls, CREXX modifications, dual-write, cutover, or retirement.
 
-Run the full Gate-1B validation and stop unconditionally for the user's
-production-capability decision.
+The full Gate-1B validation is retained in the dated packet. Execution is
+stopped unconditionally for the user's production-capability decision.

@@ -1,0 +1,53 @@
+options levelb
+
+import rxfnsb
+import sqlite_boundary
+import source_store
+import source_lifecycle
+import claim_store
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P1_ALG_03_FAIL=" || label
+    return 1
+  end
+  return 0
+
+main: procedure = .int
+arg args = .string[]
+if args.0 < 2 then return 2
+database_path = args[1]
+cell = args[2]
+errors = 0
+db = .binary
+errors = errors + check(sqliteopen(database_path, db) = 0 & sourceschema(db) = 0 & claimschema(db) = 0, "scratch schemas")
+
+uri = "fixture://phase1b/claim-source"
+passage = "Identity Gateway depends on Cedar Store."
+content = passage || "0A0A"x || "Deployment ownership remains unresolved."
+ingest = ingestartifact(db, uri, content)
+errors = errors + check(ingest.status() = 0, "ingest source")
+
+claim_key = ""; support_key = ""
+errors = errors + check(promoteclaim(db, ingest.revision_key(), 1, 0, length(passage), passage, "concept:identity-gateway", "service", "depends_on", "concept:cedar-store", "data-store", claim_key, support_key) = 0, "promote exact support")
+state = ""; active_supports = -1
+errors = errors + check(claimstate(db, claim_key, state, active_supports) = 0 & state = "accepted" & active_supports = 1, "accepted claim state")
+errors = errors + check(claim_key = "CONCEPT:IDENTITY-GATEWAY|DEPENDS_ON|CONCEPT:CEDAR-STORE", "directional semantic identity")
+
+citation = ""; cited_passage = ""
+errors = errors + check(supportcitation(db, support_key, citation, cited_passage) = 0 & cited_passage = passage & citation = ingest.revision_key() || "#b0-" || length(passage), "normalized byte citation")
+bad_claim = ""; bad_support = ""
+errors = errors + check(promoteclaim(db, ingest.revision_key(), 1, 0, length(passage) - 1, passage, "concept:identity-gateway", "service", "depends_on", "concept:cedar-store", "data-store", bad_claim, bad_support) = -4, "reject mismatched span")
+
+errors = errors + check(retractrevision(db, ingest.revision_key()) = 0, "retract revision")
+errors = errors + check(claimstate(db, claim_key, state, active_supports) = 0 & state = "retracted" & active_supports = 0, "claim state recalculated")
+errors = errors + check(scalarcount(db, "SELECT count(*) FROM claim_support") = 1 & scalarcount(db, "SELECT count(*) FROM claim_support WHERE active=1") = 0 & scalarcount(db, "SELECT count(*) FROM source_revisions WHERE active=1") = 0, "historical support retained inactive")
+
+errors = errors + check(sqliteclose(db) = 0, "close")
+if errors \= 0 then do
+  say "P1_ALG_03_ERRORS=" || errors
+  return 1
+end
+say "P1_ALG_03_OK cell=" || cell || " direction=subject-to-object claim_state=accepted,retracted normalized_span=b0-" || length(passage) || " exact_passage=1 active_supports=1,0 historical_supports=1 mismatched_span_status=-4"
+return 0

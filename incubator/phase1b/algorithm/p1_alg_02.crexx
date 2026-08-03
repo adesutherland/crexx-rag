@@ -1,0 +1,70 @@
+options levelb
+
+import rxfnsb
+import sqlite_boundary
+import source_store
+import source_lifecycle
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P1_ALG_02_FAIL=" || label
+    return 1
+  end
+  return 0
+
+boundcount: procedure = .int
+  arg db = .binary, sql = .string, value = .string
+  statement = .binary
+  if sqliteprepare(db, sql, statement) \= 0 then return -1
+  call sqlitebindtext statement, 1, value
+  if sqlitestep(statement) \= 100 then do
+    call sqlitefinalize statement
+    return -1
+  end
+  count = -1
+  call sqlitecolumnint statement, 0, count
+  call sqlitefinalize statement
+  return count
+
+main: procedure = .int
+arg args = .string[]
+if args.0 < 2 then return 2
+database_path = args[1]
+cell = args[2]
+errors = 0
+db = .binary
+errors = errors + check(sqliteopen(database_path, db) = 0 & sourceschema(db) = 0, "scratch schema")
+
+uri = "fixture://phase1b/revisioned-source"
+first = "Identity Gateway depends on Cedar Store." || "0A0A"x || "Vault Service supplies credentials."
+edited = "Identity Gateway depends on Cedar Store." || "0A0A"x || "Vault Service supplies short-lived credentials."
+initial = ingestartifact(db, uri, first)
+errors = errors + check(initial.status() = 0 & initial.disposition() = "first-load" & initial.library_writes() > 0 & initial.provider_calls() = 0 & initial.created_chunks() = 2, "first load")
+
+before_noop = totalchanges(db)
+identical = ingestartifact(db, uri, first)
+after_noop = totalchanges(db)
+errors = errors + check(identical.status() = 0 & identical.revision_key() = initial.revision_key() & identical.disposition() = "identical-no-op", "identical result")
+errors = errors + check(identical.library_writes() = 0 & identical.provider_calls() = 0 & before_noop = after_noop, "identical zero write and call")
+
+changed = ingestartifact(db, uri, edited)
+errors = errors + check(changed.status() = 0 & changed.revision_key() \= initial.revision_key() & changed.disposition() = "superseding-edit", "edited result")
+errors = errors + check(changed.reused_chunks() = 1 & changed.created_chunks() = 1 & changed.library_writes() > 0 & changed.provider_calls() = 0, "one paragraph identity reuse")
+errors = errors + check(scalarcount(db, "SELECT count(*) FROM source_revisions") = 2 & scalarcount(db, "SELECT count(*) FROM source_revisions WHERE active=1") = 1 & scalarcount(db, "SELECT count(*) FROM chunk_contents") = 3 & scalarcount(db, "SELECT count(*) FROM revision_chunks") = 4, "immutable revision counts")
+
+stable_key = "chunk-fixture-v1:" || fixturefingerprint("Identity Gateway depends on Cedar Store.")
+errors = errors + check(boundcount(db, "SELECT count(*) FROM revision_chunks WHERE chunk_key=?1", stable_key) = 2, "same chunk key in both revisions")
+cedar = lexicalsearch(db, "Cedar", 10)
+old_credentials = lexicalsearch(db, 'credentials NOT "short-lived"', 10)
+new_credentials = lexicalsearch(db, '"short-lived"', 10)
+errors = errors + check(cedar.0 = 1 & cedar[1].revision_key() = changed.revision_key() & cedar[1].chunk_key() = stable_key, "active lexical reused chunk")
+errors = errors + check(old_credentials.0 = 0 & new_credentials.0 = 1 & new_credentials[1].revision_key() = changed.revision_key(), "inactive revision excluded")
+
+errors = errors + check(sqliteclose(db) = 0, "close")
+if errors \= 0 then do
+  say "P1_ALG_02_ERRORS=" || errors
+  return 1
+end
+say "P1_ALG_02_OK cell=" || cell || " identical_writes=0 identical_provider_calls=0 revisions=2 active_revisions=1 chunk_rows=3 occurrences=4 reused_chunk_identities=1 created_chunk_identities=1 inactive_fts_hits=0"
+return 0

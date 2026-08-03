@@ -1,0 +1,4 @@
+P1_ALG_05_PROFILE cell=noopt-rxvme algorithm_2000_us=102460 threshold_us=10000 checksum=80000
+P1_ALG_05_OK cell=noopt-rxvme native_records=9 deterministic_chunking=1 lexical_sources=2,1 identical_writes=0 paragraph_reuse=1 direction=forward accepted_claim=1 exact_support=1 ambiguity=explicit vector_is_fact=0 retracted_claim=1 algorithm_2000_us=102460 threshold_us=10000 checksum=80000
+profile_trigger=crossed
+process_peak_rss_bytes=24952832

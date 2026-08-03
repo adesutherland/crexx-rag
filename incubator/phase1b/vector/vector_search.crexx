@@ -1,0 +1,74 @@
+options levelb
+
+namespace vector_search expose cosinef32 cosinesf32 selecttopk
+
+import rxfnsb
+
+cosinef32: procedure = .int
+  arg left_payload = .binary, left_count = .int, right_payload = .binary, right_count = .int, expose score = .float
+  score = 0.0
+  if left_count <= 0 | left_count \= right_count then return -1
+  if binlength(left_payload) \= left_count * 4 | binlength(right_payload) \= right_count * 4 then return -2
+  left_norm = 0.0
+  right_norm = 0.0
+  dot = 0.0
+  do i = 1 to left_count
+    left_value = <at..f32>((i - 1) * 4) left_payload
+    right_value = <at..f32>((i - 1) * 4) right_payload
+    dot = dot + left_value * right_value
+    left_norm = left_norm + left_value * left_value
+    right_norm = right_norm + right_value * right_value
+  end
+  if left_norm = 0.0 | right_norm = 0.0 then return -3
+  score = dot / _vector_sqrt(left_norm * right_norm)
+  return 0
+
+cosinesf32: procedure = .int
+  arg payloads = .binary[], counts = .int[], query_payload = .binary, query_count = .int, expose scores = .float[]
+  scores = .float[]
+  if payloads.0 \= counts.0 then return -1
+  do i = 1 to payloads.0
+    score = 0.0
+    status = cosinef32(payloads[i], counts[i], query_payload, query_count, score)
+    if status \= 0 then return status
+    scores[i] = score
+  end
+  return 0
+
+selecttopk: procedure = .int
+  arg identities = .int[], scores = .float[], requested = .int, expose result_ids = .int[], expose result_scores = .float[]
+  result_ids = .int[]
+  result_scores = .float[]
+  if identities.0 \= scores.0 | requested < 0 then return -1
+  limit = requested
+  if limit > identities.0 then limit = identities.0
+  do i = 1 to identities.0
+    insert_at = result_ids.0 + 1
+    do j = 1 to result_ids.0
+      if scores[i] > result_scores[j] | (scores[i] = result_scores[j] & identities[i] < result_ids[j]) then do
+        insert_at = j
+        leave
+      end
+    end
+    if insert_at <= limit then do
+      upper = result_ids.0 + 1
+      if upper > limit then upper = limit
+      do j = upper to insert_at + 1 by -1
+        result_ids[j] = result_ids[j - 1]
+        result_scores[j] = result_scores[j - 1]
+      end
+      result_ids[insert_at] = identities[i]
+      result_scores[insert_at] = scores[i]
+    end
+  end
+  return 0
+
+_vector_sqrt: procedure = .float
+  arg value = .float
+  if value <= 0.0 then return 0.0
+  estimate = value
+  if estimate < 1.0 then estimate = 1.0
+  do 32
+    estimate = (estimate + value / estimate) / 2.0
+  end
+  return estimate

@@ -61,10 +61,10 @@ CRI-15 and CRI-16 are the open installed-CREXX items. CRI-15 blocks a Linux
 claim for deterministic structured provider receive timeout behavior. CRI-16
 does not invalidate the provider contract or low-volume qualification, but it
 blocks claiming an industrial high-throughput hosted transport. The remaining
-approved Phase-1B work is the bounded vector, algorithm, and fenced-worker
-worklist followed by the mandatory Gate-1B stop. Production schema and
-migrations, cross-platform production qualification, and cutover policy remain
-later product decisions; they are not authorized by the CREXX replay.
+approved Phase-1B work is complete and Gate 1B has been reached. Production
+schema and migrations, cross-platform production qualification, transport
+hardening, and cutover policy remain later product decisions; they are not
+authorized by the CREXX replay or Gate-1B evidence.
 
 The historical Google timeout remains retained negative evidence. It must not
 be reclassified as an `rxhttp` defect, and no hosted credential or call belongs

@@ -1,0 +1,129 @@
+module=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/job/job_queue.crexx
+source=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/job/p1_job_02.crexx
+database=scratch-per-cell
+production_schema=0
+forced_exit_codes=71,72,73,74
+noopt job queue compile:
+noopt job queue assemble:
+
+noopt scenario compile:
+Warning in p1_job_02.crexx @ 3:8 - #UNUSED_IMPORT: Import is recognised but not used., "rxfnsb"
+1 warning(s) in source file
+noopt scenario assemble:
+
+noopt-rxvme init:
+P1_JOB_02_STAGE cell=noopt-rxvme stage=init state=queued items=4
+result=0
+noopt-rxvme crash-before-call:
+P1_JOB_02_STAGE cell=noopt-rxvme stage=crash-before-call forced=1 fence=1 claim_committed=1 provider_calls=0
+result=71
+noopt-rxvme recover-before-call:
+P1_JOB_02_STAGE cell=noopt-rxvme stage=recover-before-call fence=2 stale_rejected=1 supports=1
+result=0
+noopt-rxvme crash-after-call:
+P1_JOB_02_STAGE cell=noopt-rxvme stage=crash-after-call forced=1 fence=3 provider_calls=1 output_uncommitted=1
+result=72
+noopt-rxvme recover-after-call:
+P1_JOB_02_STAGE cell=noopt-rxvme stage=recover-after-call fence=4 repeated_provider_call=1 duplicate_support=0
+result=0
+noopt-rxvme crash-during-promotion:
+P1_JOB_02_STAGE cell=noopt-rxvme stage=crash-during-promotion forced=1 fence=5 transaction_open=1 staged_support=1 commit=0
+result=73
+noopt-rxvme recover-during-promotion:
+P1_JOB_02_STAGE cell=noopt-rxvme stage=recover-during-promotion fence=6 uncommitted_support_rolled_back=1 duplicate_support=0
+result=0
+noopt-rxvme crash-after-promotion:
+P1_JOB_02_STAGE cell=noopt-rxvme stage=crash-after-promotion forced=1 fence=7 promotion_committed=1
+result=74
+noopt-rxvme recover-after-promotion:
+P1_JOB_02_OK cell=noopt-rxvme forced_boundaries=before-call,after-call,during-promotion,after-promotion fences=7 attempts=7 expired_attempts=3 succeeded_attempts=4 stale_rejected=1 uncommitted_rollback=1 committed_replay=idempotent supports=4 duplicate_support=0 maximum_provider_replay=1
+result=0
+noopt-rxbvm init:
+P1_JOB_02_STAGE cell=noopt-rxbvm stage=init state=queued items=4
+result=0
+noopt-rxbvm crash-before-call:
+P1_JOB_02_STAGE cell=noopt-rxbvm stage=crash-before-call forced=1 fence=1 claim_committed=1 provider_calls=0
+result=71
+noopt-rxbvm recover-before-call:
+P1_JOB_02_STAGE cell=noopt-rxbvm stage=recover-before-call fence=2 stale_rejected=1 supports=1
+result=0
+noopt-rxbvm crash-after-call:
+P1_JOB_02_STAGE cell=noopt-rxbvm stage=crash-after-call forced=1 fence=3 provider_calls=1 output_uncommitted=1
+result=72
+noopt-rxbvm recover-after-call:
+P1_JOB_02_STAGE cell=noopt-rxbvm stage=recover-after-call fence=4 repeated_provider_call=1 duplicate_support=0
+result=0
+noopt-rxbvm crash-during-promotion:
+P1_JOB_02_STAGE cell=noopt-rxbvm stage=crash-during-promotion forced=1 fence=5 transaction_open=1 staged_support=1 commit=0
+result=73
+noopt-rxbvm recover-during-promotion:
+P1_JOB_02_STAGE cell=noopt-rxbvm stage=recover-during-promotion fence=6 uncommitted_support_rolled_back=1 duplicate_support=0
+result=0
+noopt-rxbvm crash-after-promotion:
+P1_JOB_02_STAGE cell=noopt-rxbvm stage=crash-after-promotion forced=1 fence=7 promotion_committed=1
+result=74
+noopt-rxbvm recover-after-promotion:
+P1_JOB_02_OK cell=noopt-rxbvm forced_boundaries=before-call,after-call,during-promotion,after-promotion fences=7 attempts=7 expired_attempts=3 succeeded_attempts=4 stale_rejected=1 uncommitted_rollback=1 committed_replay=idempotent supports=4 duplicate_support=0 maximum_provider_replay=1
+result=0
+opt job queue compile:
+opt job queue assemble:
+
+opt scenario compile:
+Warning in p1_job_02.crexx @ 3:8 - #UNUSED_IMPORT: Import is recognised but not used., "rxfnsb"
+1 warning(s) in source file
+opt scenario assemble:
+
+opt-rxvme init:
+P1_JOB_02_STAGE cell=opt-rxvme stage=init state=queued items=4
+result=0
+opt-rxvme crash-before-call:
+P1_JOB_02_STAGE cell=opt-rxvme stage=crash-before-call forced=1 fence=1 claim_committed=1 provider_calls=0
+result=71
+opt-rxvme recover-before-call:
+P1_JOB_02_STAGE cell=opt-rxvme stage=recover-before-call fence=2 stale_rejected=1 supports=1
+result=0
+opt-rxvme crash-after-call:
+P1_JOB_02_STAGE cell=opt-rxvme stage=crash-after-call forced=1 fence=3 provider_calls=1 output_uncommitted=1
+result=72
+opt-rxvme recover-after-call:
+P1_JOB_02_STAGE cell=opt-rxvme stage=recover-after-call fence=4 repeated_provider_call=1 duplicate_support=0
+result=0
+opt-rxvme crash-during-promotion:
+P1_JOB_02_STAGE cell=opt-rxvme stage=crash-during-promotion forced=1 fence=5 transaction_open=1 staged_support=1 commit=0
+result=73
+opt-rxvme recover-during-promotion:
+P1_JOB_02_STAGE cell=opt-rxvme stage=recover-during-promotion fence=6 uncommitted_support_rolled_back=1 duplicate_support=0
+result=0
+opt-rxvme crash-after-promotion:
+P1_JOB_02_STAGE cell=opt-rxvme stage=crash-after-promotion forced=1 fence=7 promotion_committed=1
+result=74
+opt-rxvme recover-after-promotion:
+P1_JOB_02_OK cell=opt-rxvme forced_boundaries=before-call,after-call,during-promotion,after-promotion fences=7 attempts=7 expired_attempts=3 succeeded_attempts=4 stale_rejected=1 uncommitted_rollback=1 committed_replay=idempotent supports=4 duplicate_support=0 maximum_provider_replay=1
+result=0
+opt-rxbvm init:
+P1_JOB_02_STAGE cell=opt-rxbvm stage=init state=queued items=4
+result=0
+opt-rxbvm crash-before-call:
+P1_JOB_02_STAGE cell=opt-rxbvm stage=crash-before-call forced=1 fence=1 claim_committed=1 provider_calls=0
+result=71
+opt-rxbvm recover-before-call:
+P1_JOB_02_STAGE cell=opt-rxbvm stage=recover-before-call fence=2 stale_rejected=1 supports=1
+result=0
+opt-rxbvm crash-after-call:
+P1_JOB_02_STAGE cell=opt-rxbvm stage=crash-after-call forced=1 fence=3 provider_calls=1 output_uncommitted=1
+result=72
+opt-rxbvm recover-after-call:
+P1_JOB_02_STAGE cell=opt-rxbvm stage=recover-after-call fence=4 repeated_provider_call=1 duplicate_support=0
+result=0
+opt-rxbvm crash-during-promotion:
+P1_JOB_02_STAGE cell=opt-rxbvm stage=crash-during-promotion forced=1 fence=5 transaction_open=1 staged_support=1 commit=0
+result=73
+opt-rxbvm recover-during-promotion:
+P1_JOB_02_STAGE cell=opt-rxbvm stage=recover-during-promotion fence=6 uncommitted_support_rolled_back=1 duplicate_support=0
+result=0
+opt-rxbvm crash-after-promotion:
+P1_JOB_02_STAGE cell=opt-rxbvm stage=crash-after-promotion forced=1 fence=7 promotion_committed=1
+result=74
+opt-rxbvm recover-after-promotion:
+P1_JOB_02_OK cell=opt-rxbvm forced_boundaries=before-call,after-call,during-promotion,after-promotion fences=7 attempts=7 expired_attempts=3 succeeded_attempts=4 stale_rejected=1 uncommitted_rollback=1 committed_replay=idempotent supports=4 duplicate_support=0 maximum_provider_replay=1
+result=0

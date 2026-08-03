@@ -1,0 +1,17 @@
+Test project /home/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 36: p1_vec_02
+1/1 Test #36: p1_vec_02 ........................   Passed    7.63 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+P1-VEC-02    =   7.63 sec*proc (1 test)
+cosine       =   7.63 sec*proc (1 test)
+incubator    =   7.63 sec*proc (1 test)
+ordering     =   7.63 sec*proc (1 test)
+phase1b      =   7.63 sec*proc (1 test)
+sqlite       =   7.63 sec*proc (1 test)
+top-k        =   7.63 sec*proc (1 test)
+vector       =   7.63 sec*proc (1 test)
+
+Total Test time (real) =   7.63 sec

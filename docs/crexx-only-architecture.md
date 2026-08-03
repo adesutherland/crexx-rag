@@ -195,6 +195,14 @@ Pure cREXX exact cosine/top-k is a credible small-library baseline; a generic
 native vector/ANN backend is added only if the representative corpus proves it
 necessary.
 
+Phase-1B measurement confirms exact, deterministic, bounded-page cREXX search
+but reports 750,316 to 857,843 us total for the retained 11,684-by-768 shape,
+with arithmetic dominating and process RSS below 64 MiB. Exact cREXX therefore
+remains the correctness fallback, while a separately authorized generic
+`rxvector` qualification is recommended before a production backend decision.
+No SQLite vector extension, FAISS dependency, or native vector implementation
+is selected by this result.
+
 ## Library Bundle And Manifest
 
 ```text
@@ -599,6 +607,13 @@ versioned schema. Human output is only a rendering. `query answer` and
 configured optional `answerer`, and return both the unchanged packet and prose.
 When no answerer is configured, callers use `query evidence` or their own LLM;
 answer generation never changes retrieval or claim state.
+
+The Phase-1B scratch algorithm profile preserves semantic parity but crosses
+the provisional 10,000-us trigger for 2,000 fixture fingerprint/chunk
+operations on both VMs. This is a recorded production-boundary limitation, not
+permission to move source identity or chunking policy into product-specific
+native code. Durable hashing and any acceleration require separate approval
+and measurement.
 
 ## Public Surfaces
 

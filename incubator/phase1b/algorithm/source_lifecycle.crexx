@@ -1,0 +1,154 @@
+options levelb
+
+namespace source_lifecycle expose ingestresult ingestartifact
+
+import rxfnsb
+import sqlite_boundary
+import source_store
+
+ingestresult: class
+  _status = .int
+  _revision_key = .string
+  _disposition = .string
+  _library_writes = .int
+  _provider_calls = .int
+  _reused_chunks = .int
+  _created_chunks = .int
+
+  *: factory
+    arg status = .int, revision_key = .string, disposition = .string, library_writes = .int, provider_calls = .int, reused_chunks = .int, created_chunks = .int
+    _status = status
+    _revision_key = revision_key
+    _disposition = disposition
+    _library_writes = library_writes
+    _provider_calls = provider_calls
+    _reused_chunks = reused_chunks
+    _created_chunks = created_chunks
+    return
+
+  status: method = .int
+    return _status
+  revision_key: method = .string
+    return _revision_key
+  disposition: method = .string
+    return _disposition
+  library_writes: method = .int
+    return _library_writes
+  provider_calls: method = .int
+    return _provider_calls
+  reused_chunks: method = .int
+    return _reused_chunks
+  created_chunks: method = .int
+    return _created_chunks
+
+ingestartifact: procedure = .ingestresult
+  arg db = .binary, uri = .string, content = .string
+  revision_key = uri || "@fixture-v1:" || fixturefingerprint(content)
+  current_revision = ""
+  active_status = active_revision(db, uri, current_revision)
+  if active_status < 0 then return .ingestresult(active_status, "", "error", 0, 0, 0, 0)
+  if current_revision = revision_key then return .ingestresult(0, revision_key, "identical-no-op", 0, 0, 0, 0)
+  if active_status = 0 then do
+    before_changes = totalchanges(db)
+    chunks = 0
+    status = firstingest(db, uri, content, revision_key, chunks)
+    if status \= 0 then return .ingestresult(status, revision_key, "error", 0, 0, 0, 0)
+    return .ingestresult(0, revision_key, "first-load", totalchanges(db) - before_changes, 0, 0, chunks)
+  end
+
+  paragraphs = .string[]
+  call splitchunks content, paragraphs
+  if paragraphs.0 = 0 then return .ingestresult(-3, revision_key, "error", 0, 0, 0, 0)
+  before_changes = totalchanges(db)
+  if before_changes < 0 | sqliteexec(db, "BEGIN IMMEDIATE") \= 0 then return .ingestresult(-1, revision_key, "error", 0, 0, 0, 0)
+
+  if _bound_text_exec(db, "UPDATE source_revisions SET active=0 WHERE revision_key=?1", current_revision) \= 0 then return _rollback_result(db, revision_key)
+
+  statement = .binary
+  if sqliteprepare(db, "INSERT INTO source_revisions(revision_key,uri,content_fingerprint,content,active) VALUES(?1,?2,?3,?4,1)", statement) \= 0 then return _rollback_result(db, revision_key)
+  call sqlitebindtext statement, 1, revision_key
+  call sqlitebindtext statement, 2, uri
+  call sqlitebindtext statement, 3, fixturefingerprint(content)
+  call sqlitebindtext statement, 4, content
+  step_status = sqlitestep(statement)
+  call sqlitefinalize statement
+  if step_status \= 101 then return _rollback_result(db, revision_key)
+
+  reused = 0
+  created = 0
+  do ordinal = 1 to paragraphs.0
+    body = paragraphs[ordinal]
+    fingerprint = fixturefingerprint(body)
+    chunk_key = "chunk-fixture-v1:" || fingerprint
+    existing_body = ""
+    exists = _chunk_body(db, chunk_key, existing_body)
+    if exists < 0 then return _rollback_result(db, revision_key)
+    if exists = 1 & existing_body \= body then do
+      call sqliteexec db, "ROLLBACK"
+      return .ingestresult(-4, revision_key, "fixture-fingerprint-collision", 0, 0, 0, 0)
+    end
+    if exists = 1 then reused = reused + 1
+    else do
+      statement = .binary
+      if sqliteprepare(db, "INSERT INTO chunk_contents(chunk_key,content_fingerprint,body) VALUES(?1,?2,?3)", statement) \= 0 then return _rollback_result(db, revision_key)
+      call sqlitebindtext statement, 1, chunk_key
+      call sqlitebindtext statement, 2, fingerprint
+      call sqlitebindtext statement, 3, body
+      step_status = sqlitestep(statement)
+      call sqlitefinalize statement
+      if step_status \= 101 then return _rollback_result(db, revision_key)
+      created = created + 1
+    end
+
+    statement = .binary
+    if sqliteprepare(db, "INSERT INTO revision_chunks(revision_key,ordinal,chunk_key) VALUES(?1,?2,?3)", statement) \= 0 then return _rollback_result(db, revision_key)
+    call sqlitebindtext statement, 1, revision_key
+    call sqlitebindint statement, 2, ordinal
+    call sqlitebindtext statement, 3, chunk_key
+    step_status = sqlitestep(statement)
+    call sqlitefinalize statement
+    if step_status \= 101 then return _rollback_result(db, revision_key)
+
+    statement = .binary
+    if sqliteprepare(db, "INSERT INTO chunk_fts(revision_key,ordinal,chunk_key,body) VALUES(?1,?2,?3,?4)", statement) \= 0 then return _rollback_result(db, revision_key)
+    call sqlitebindtext statement, 1, revision_key
+    call sqlitebindint statement, 2, ordinal
+    call sqlitebindtext statement, 3, chunk_key
+    call sqlitebindtext statement, 4, body
+    step_status = sqlitestep(statement)
+    call sqlitefinalize statement
+    if step_status \= 101 then return _rollback_result(db, revision_key)
+  end
+  if sqliteexec(db, "COMMIT") \= 0 then return .ingestresult(-1, revision_key, "error", 0, 0, 0, 0)
+  return .ingestresult(0, revision_key, "superseding-edit", totalchanges(db) - before_changes, 0, reused, created)
+
+_rollback_result: procedure = .ingestresult
+  arg db = .binary, revision_key = .string
+  call sqliteexec db, "ROLLBACK"
+  return .ingestresult(-1, revision_key, "error", 0, 0, 0, 0)
+
+_bound_text_exec: procedure = .int
+  arg db = .binary, sql = .string, value = .string
+  statement = .binary
+  if sqliteprepare(db, sql, statement) \= 0 then return -1
+  if sqlitebindtext(statement, 1, value) \= 0 then do
+    call sqlitefinalize statement
+    return -1
+  end
+  status = sqlitestep(statement)
+  call sqlitefinalize statement
+  if status = 101 then return 0
+  return -1
+
+_chunk_body: procedure = .int
+  arg db = .binary, chunk_key = .string, expose body = .string
+  body = ""
+  statement = .binary
+  if sqliteprepare(db, "SELECT body FROM chunk_contents WHERE chunk_key=?1", statement) \= 0 then return -1
+  call sqlitebindtext statement, 1, chunk_key
+  status = sqlitestep(statement)
+  if status = 100 then call sqlitecolumntext statement, 0, body
+  call sqlitefinalize statement
+  if status = 100 then return 1
+  if status = 101 then return 0
+  return -1

@@ -1,0 +1,2 @@
+[0/1] Running P1-VEC-03 representative component measurements
+-- P1-VEC-03 measured full vector components and process RSS on rxvme/rxbvm

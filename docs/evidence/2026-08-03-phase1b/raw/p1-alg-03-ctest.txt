@@ -1,0 +1,17 @@
+Test project /home/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 40: p1_alg_03
+1/1 Test #40: p1_alg_03 ........................   Passed    6.13 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+P1-ALG-03     =   6.13 sec*proc (1 test)
+algorithm     =   6.13 sec*proc (1 test)
+claim         =   6.13 sec*proc (1 test)
+incubator     =   6.13 sec*proc (1 test)
+phase1b       =   6.13 sec*proc (1 test)
+retraction    =   6.13 sec*proc (1 test)
+sqlite        =   6.13 sec*proc (1 test)
+support       =   6.13 sec*proc (1 test)
+
+Total Test time (real) =   6.13 sec

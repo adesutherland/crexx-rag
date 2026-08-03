@@ -285,37 +285,43 @@ unconditionally at Gate 1B.
 
 - [ ] **P1-HASH-01** **Not authorized.** Add incremental binary file input and
   SHA-256 through a generic cREXX library/plugin surface.
-- [ ] **P1-VEC-01** Define a versioned float32 embedding blob codec and store the
-  existing 768-dimensional shape through `rxsqlite`.
-- [ ] **P1-VEC-02** Page 11,684 representative vectors into cREXX and compare
-  exact cosine/top-k ordering with the oracle.
-- [ ] **P1-VEC-03** Report SQLite transfer, decode, similarity arithmetic,
-  selection, memory, and total time separately on both VM variants.
-- [ ] **P1-VEC-04** Choose pure cREXX exact search, SQLite extension, or generic
-  `rxvector` only from measured evidence. Do not assume FAISS is required.
+- [x] **P1-VEC-01** Define a versioned float32 embedding blob codec and store the
+  existing 768-dimensional shape through `rxsqlite`. The four-cell codec and
+  scratch-SQLite result is [retained here](evidence/2026-08-03-phase1b/P1-VEC-01.md).
+- [x] **P1-VEC-02** Page 11,684 representative vectors into cREXX and compare
+  exact cosine/top-k ordering with the oracle. The four-cell closed-form oracle
+  result is [retained here](evidence/2026-08-03-phase1b/P1-VEC-02.md).
+- [x] **P1-VEC-03** Report SQLite transfer, decode, similarity arithmetic,
+  selection, memory, and total time separately on both VM variants. The
+  four-cell component result is [retained here](evidence/2026-08-03-phase1b/P1-VEC-03.md).
+- [x] **P1-VEC-04** Choose pure cREXX exact search, SQLite extension, or generic
+  `rxvector` only from measured evidence. Do not assume FAISS is required. The
+  [decision](evidence/2026-08-03-phase1b/P1-VEC-04.md) retains exact cREXX as
+  the bounded correctness fallback and recommends separately authorized
+  generic `rxvector` qualification because the latency trigger crossed.
 
 ### A6. Algorithm parity slice
 
-- [ ] **P1-ALG-01** In cREXX, initialize a small scratch schema through
+- [x] **P1-ALG-01** In cREXX, initialize a small scratch schema through
   `rxsqlite`, chunk a deterministic corpus, and run lexical FTS search.
-- [ ] **P1-ALG-02** Prove identical ingest is a no-op and a one-paragraph edit
+- [x] **P1-ALG-02** Prove identical ingest is a no-op and a one-paragraph edit
   reuses unaffected chunk identities.
-- [ ] **P1-ALG-03** Materialize one accepted typed claim with normalized support,
+- [x] **P1-ALG-03** Materialize one accepted typed claim with normalized support,
   retract its source revision, and prove the claim state updates.
-- [ ] **P1-ALG-04** Build an evidence packet combining lexical passage, graph
+- [x] **P1-ALG-04** Build an evidence packet combining lexical passage, graph
   claim/support, ambiguity, and one vector lead.
-- [ ] **P1-ALG-05** Record semantic parity and performance against the native
+- [x] **P1-ALG-05** Record semantic parity and performance against the native
   oracle.
 
 ### A7. Resumable worker slice
 
-- [ ] **P1-JOB-01** Implement a single-process durable queue with atomic claim,
+- [x] **P1-JOB-01** Implement a single-process durable queue with atomic claim,
   database-clock lease, heartbeat, monotonic fencing token, attempt, idempotent
   promotion, cancellation request, and status.
-- [ ] **P1-JOB-02** Force termination before provider call, after provider call,
+- [x] **P1-JOB-02** Force termination before provider call, after provider call,
   during promotion, and after promotion; prove recovery without duplicate
   support.
-- [ ] **P1-JOB-03** Enforce item and call ceilings plus pre-call token/cost/time
+- [x] **P1-JOB-03** Enforce item and call ceilings plus pre-call token/cost/time
   reservations; report actual use and the documented maximum in-flight overrun.
 
 ### Gate 1B — Hardened capability acceptance
@@ -336,6 +342,11 @@ Stop for a production-capability decision. Revise the target design if hardening
 disproves a selected boundary. Gate 1B acceptance authorizes the cREXX skeleton,
 not native core removal. It also does not authorize Phase 2 without a separate
 user decision.
+
+Gate 1B was reached on 2026-08-03. All bounded implementation items are
+accepted; full validation passed 55/56 with the sole unchanged CRI-15 failure.
+Execution is stopped for the production-capability decision recorded in the
+dated Gate-1B packet. Phase 2 remains unauthorized.
 
 ## Phase 2 — cREXX Product Skeleton And Schema V2
 

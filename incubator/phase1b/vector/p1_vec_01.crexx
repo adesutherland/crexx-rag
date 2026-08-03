@@ -1,0 +1,102 @@
+options levelb
+
+import rxfnsb
+import sqlite_boundary
+import vector_codec
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P1_VEC_01_FAIL=" || label
+    return 1
+  end
+  return 0
+
+main: procedure = .int
+arg args = .string[]
+if args.0 < 2 then return 2
+database_path = args[1]
+cell = args[2]
+errors = 0
+
+known = .float[]
+known[1] = 1.0
+known[2] = -2.5
+known[3] = 0.5
+known_payload = .binary
+errors = errors + check(encodef32(known, known_payload) = 0, "known encode")
+errors = errors + check(bin2x(known_payload) = "0000803F000020C00000003F", "canonical little-endian bytes")
+
+empty_values = .float[]
+empty_payload = "01"x as .binary
+errors = errors + check(encodef32(empty_values, empty_payload) = -2 & binlength(empty_payload) = 0, "empty encode rejection")
+errors = errors + check(validatef32blob("f32le", 3, "embedding", known_payload) = -1, "unversioned codec rejection")
+errors = errors + check(validatef32blob(f32codecversion(), 0, "embedding", known_payload) = -2, "invalid count rejection")
+errors = errors + check(validatef32blob(f32codecversion(), 3, "", known_payload) = -3, "missing meaning rejection")
+errors = errors + check(validatef32blob(f32codecversion(), 2, "embedding", known_payload) = -4, "length mismatch rejection")
+
+dimension = 768
+values = .float[]
+do i = 1 to dimension
+  pattern = (i - 1) % 5
+  if pattern = 0 then values[i] = -1.0
+  else if pattern = 1 then values[i] = -0.5
+  else if pattern = 2 then values[i] = 0.0
+  else if pattern = 3 then values[i] = 0.5
+  else values[i] = 1.0
+end
+payload = .binary
+errors = errors + check(encodef32(values, payload) = 0, "768 encode")
+record = .vectorblob(f32codecversion(), dimension, "embedding", payload)
+errors = errors + check(record.valid() = 1 & record.element_count() = dimension & binlength(record.payload()) = 3072, "application record")
+errors = errors + check(left(bin2x(payload), 40) = "000080BF000000BF000000000000003F0000803F", "768 byte prefix")
+
+db = .binary
+statement = .binary
+errors = errors + check(sqliteopen(database_path, db) = 0, "open scratch database")
+schema = "CREATE TABLE vector_fixture(identity INTEGER PRIMARY KEY,codec TEXT NOT NULL CHECK(codec='f32le-v1'),element_count INTEGER NOT NULL CHECK(element_count>0),dimensional_meaning TEXT NOT NULL CHECK(length(dimensional_meaning)>0),payload BLOB NOT NULL CHECK(length(payload)=element_count*4))"
+errors = errors + check(sqliteexec(db, schema) = 0, "create vector schema")
+errors = errors + check(sqliteprepare(db, "INSERT INTO vector_fixture(identity,codec,element_count,dimensional_meaning,payload) VALUES(?1,?2,?3,?4,?5)", statement) = 0, "prepare insert")
+errors = errors + check(sqlitebindint(statement, 1, 1) = 0 & sqlitebindtext(statement, 2, record.codec()) = 0 & sqlitebindint(statement, 3, record.element_count()) = 0 & sqlitebindtext(statement, 4, record.dimensional_meaning()) = 0 & sqlitebindblob(statement, 5, record.payload()) = 0, "bind typed vector")
+errors = errors + check(sqlitestep(statement) = 101, "insert vector")
+errors = errors + check(sqlitefinalize(statement) = 0, "finalize insert")
+errors = errors + check(sqliteexec(db, "INSERT INTO vector_fixture VALUES(2,'f32le-v1',768,'embedding',X'0000')") = -6, "schema rejects invalid byte count")
+boundary_code = 0
+sqlite_code = 0
+extended_code = 0
+operation = ""
+message = ""
+errors = errors + check(sqliteerrorextended(boundary_code, sqlite_code, extended_code, operation, message) = -6 & boundary_code = -6 & sqlite_code = 19 & extended_code = 275 & operation = "exec", "constraint diagnostic")
+
+statement = .binary
+errors = errors + check(sqliteprepare(db, "SELECT codec,element_count,dimensional_meaning,payload FROM vector_fixture WHERE identity=1", statement) = 0 & sqlitestep(statement) = 100, "select vector")
+stored_codec = ""
+stored_count = 0
+stored_meaning = ""
+stored_payload = .binary
+errors = errors + check(sqlitecolumntext(statement, 0, stored_codec) = 0 & sqlitecolumnint(statement, 1, stored_count) = 0 & sqlitecolumntext(statement, 2, stored_meaning) = 0 & sqlitecolumnblob(statement, 3, stored_payload) = 0, "typed vector read")
+errors = errors + check(sqlitestep(statement) = 101 & sqlitefinalize(statement) = 0, "finish vector read")
+stored = .vectorblob(stored_codec, stored_count, stored_meaning, stored_payload)
+errors = errors + check(stored.valid() = 1 & bin2x(stored.payload()) = bin2x(payload), "exact SQLite payload round trip")
+
+decoded = .float[]
+errors = errors + check(decodef32(stored.codec(), stored.element_count(), stored.dimensional_meaning(), stored.payload(), decoded) = 0, "decode stored vector")
+errors = errors + check(decoded.0 = dimension & decoded[1] = -1.0 & decoded[2] = -0.5 & decoded[4] = 0.5 & decoded[5] = 1.0 & decoded[768] = 0.0, "decoded values")
+checksum = 0.0
+do i = 1 to decoded.0
+  checksum = checksum + decoded[i]
+end
+errors = errors + check(checksum = -1.5, "decoded checksum")
+
+statement = .binary
+errors = errors + check(sqliteprepare(db, "SELECT COUNT(*) FROM vector_fixture", statement) = 0 & sqlitestep(statement) = 100, "prepare row count")
+row_count = 0
+errors = errors + check(sqlitecolumnint(statement, 0, row_count) = 0 & row_count = 1, "invalid row not retained")
+errors = errors + check(sqlitefinalize(statement) = 0 & sqliteclose(db) = 0, "close scratch database")
+
+if errors \= 0 then do
+  say "P1_VEC_01_ERRORS=" || errors || " cell=" || cell
+  return 1
+end
+say "P1_VEC_01_OK cell=" || cell || " codec=f32le-v1 dimension=768 payload_bytes=3072 header_bytes=0 endian=canonical-little schema_owned=1 sqlite_rows=1 roundtrip=exact invalid_statuses=-1,-2,-3,-4"
+return 0

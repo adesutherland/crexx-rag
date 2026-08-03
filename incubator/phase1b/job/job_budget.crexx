@@ -1,0 +1,274 @@
+options levelb
+
+namespace job_budget expose budgetstatus budgetschema configurebudget admititem reservecall settlecall readbudget
+
+import rxfnsb
+import sqlite_boundary
+
+budgetstatus: class
+  _item_ceiling = .int
+  _items_admitted = .int
+  _call_ceiling = .int
+  _calls_admitted = .int
+  _calls_actual = .int
+  _calls_inflight = .int
+  _tokens_reserved = .int
+  _tokens_actual = .int
+  _cost_reserved = .int
+  _cost_actual = .int
+  _time_reserved = .int
+  _time_actual = .int
+  _maximum_inflight_calls = .int
+  _maximum_inflight_tokens = .int
+  _maximum_inflight_cost = .int
+  _maximum_inflight_time = .int
+
+  *: factory
+    arg item_ceiling = .int, items_admitted = .int, call_ceiling = .int, calls_admitted = .int, calls_actual = .int, calls_inflight = .int, tokens_reserved = .int, tokens_actual = .int, cost_reserved = .int, cost_actual = .int, time_reserved = .int, time_actual = .int, maximum_inflight_calls = .int, maximum_inflight_tokens = .int, maximum_inflight_cost = .int, maximum_inflight_time = .int
+    _item_ceiling = item_ceiling; _items_admitted = items_admitted
+    _call_ceiling = call_ceiling; _calls_admitted = calls_admitted
+    _calls_actual = calls_actual; _calls_inflight = calls_inflight
+    _tokens_reserved = tokens_reserved; _tokens_actual = tokens_actual
+    _cost_reserved = cost_reserved; _cost_actual = cost_actual
+    _time_reserved = time_reserved; _time_actual = time_actual
+    _maximum_inflight_calls = maximum_inflight_calls
+    _maximum_inflight_tokens = maximum_inflight_tokens
+    _maximum_inflight_cost = maximum_inflight_cost
+    _maximum_inflight_time = maximum_inflight_time
+    return
+  item_ceiling: method = .int
+    return _item_ceiling
+  items_admitted: method = .int
+    return _items_admitted
+  call_ceiling: method = .int
+    return _call_ceiling
+  calls_admitted: method = .int
+    return _calls_admitted
+  calls_actual: method = .int
+    return _calls_actual
+  calls_inflight: method = .int
+    return _calls_inflight
+  tokens_reserved: method = .int
+    return _tokens_reserved
+  tokens_actual: method = .int
+    return _tokens_actual
+  cost_reserved: method = .int
+    return _cost_reserved
+  cost_actual: method = .int
+    return _cost_actual
+  time_reserved: method = .int
+    return _time_reserved
+  time_actual: method = .int
+    return _time_actual
+  maximum_inflight_calls: method = .int
+    return _maximum_inflight_calls
+  maximum_inflight_tokens: method = .int
+    return _maximum_inflight_tokens
+  maximum_inflight_cost: method = .int
+    return _maximum_inflight_cost
+  maximum_inflight_time: method = .int
+    return _maximum_inflight_time
+
+budgetschema: procedure = .int
+  arg db = .binary
+  if sqliteexec(db, "CREATE TABLE job_budgets(job_key TEXT PRIMARY KEY REFERENCES jobs(job_key),item_ceiling INTEGER NOT NULL CHECK(item_ceiling>=0),call_ceiling INTEGER NOT NULL CHECK(call_ceiling>=0),token_ceiling INTEGER NOT NULL CHECK(token_ceiling>=0),cost_ceiling INTEGER NOT NULL CHECK(cost_ceiling>=0),time_ceiling_ms INTEGER NOT NULL CHECK(time_ceiling_ms>=0),inflight_ceiling INTEGER NOT NULL CHECK(inflight_ceiling>0),max_call_tokens INTEGER NOT NULL CHECK(max_call_tokens>=0),max_call_cost INTEGER NOT NULL CHECK(max_call_cost>=0),max_call_time_ms INTEGER NOT NULL CHECK(max_call_time_ms>=0),items_admitted INTEGER NOT NULL DEFAULT 0,calls_admitted INTEGER NOT NULL DEFAULT 0,calls_actual INTEGER NOT NULL DEFAULT 0,calls_inflight INTEGER NOT NULL DEFAULT 0,tokens_reserved INTEGER NOT NULL DEFAULT 0,tokens_actual INTEGER NOT NULL DEFAULT 0,cost_reserved INTEGER NOT NULL DEFAULT 0,cost_actual INTEGER NOT NULL DEFAULT 0,time_reserved_ms INTEGER NOT NULL DEFAULT 0,time_actual_ms INTEGER NOT NULL DEFAULT 0)") \= 0 then return -1
+  if sqliteexec(db, "CREATE TABLE call_reservations(reservation_key TEXT PRIMARY KEY,job_key TEXT NOT NULL REFERENCES job_budgets(job_key),item_key TEXT NOT NULL REFERENCES job_items(item_key),fence INTEGER NOT NULL,attempt_key TEXT NOT NULL,max_tokens INTEGER NOT NULL,max_cost INTEGER NOT NULL,max_time_ms INTEGER NOT NULL,actual_tokens INTEGER NOT NULL DEFAULT 0,actual_cost INTEGER NOT NULL DEFAULT 0,actual_time_ms INTEGER NOT NULL DEFAULT 0,state TEXT NOT NULL CHECK(state IN('reserved','settled')))") \= 0 then return -1
+  return 0
+
+configurebudget: procedure = .int
+  arg db = .binary, job_key = .string, item_ceiling = .int, call_ceiling = .int, token_ceiling = .int, cost_ceiling = .int, time_ceiling_ms = .int, inflight_ceiling = .int, max_call_tokens = .int, max_call_cost = .int, max_call_time_ms = .int
+  statement = .binary
+  sql = "INSERT INTO job_budgets(job_key,item_ceiling,call_ceiling,token_ceiling,cost_ceiling,time_ceiling_ms,inflight_ceiling,max_call_tokens,max_call_cost,max_call_time_ms) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)"
+  if sqliteprepare(db, sql, statement) \= 0 then return -1
+  call sqlitebindtext statement, 1, job_key
+  call sqlitebindint statement, 2, item_ceiling
+  call sqlitebindint statement, 3, call_ceiling
+  call sqlitebindint statement, 4, token_ceiling
+  call sqlitebindint statement, 5, cost_ceiling
+  call sqlitebindint statement, 6, time_ceiling_ms
+  call sqlitebindint statement, 7, inflight_ceiling
+  call sqlitebindint statement, 8, max_call_tokens
+  call sqlitebindint statement, 9, max_call_cost
+  call sqlitebindint statement, 10, max_call_time_ms
+  status = sqlitestep(statement)
+  call sqlitefinalize statement
+  if status = 101 then return 0
+  return -1
+
+admititem: procedure = .int
+  arg db = .binary, job_key = .string, item_key = .string, idempotency_key = .string, input = .string
+  if sqliteexec(db, "BEGIN IMMEDIATE") \= 0 then return -1
+  item_ceiling = _budget_value(db, job_key, "item_ceiling")
+  items_admitted = _budget_value(db, job_key, "items_admitted")
+  if item_ceiling < 0 | items_admitted < 0 then return _rollback(db)
+  if items_admitted >= item_ceiling then do; call sqliteexec db, "ROLLBACK"; return -10; end
+  statement = .binary
+  if sqliteprepare(db, "INSERT INTO job_items(item_key,job_key,idempotency_key,input,state) VALUES(?1,?2,?3,?4,'queued')", statement) \= 0 then return _rollback(db)
+  call sqlitebindtext statement, 1, item_key
+  call sqlitebindtext statement, 2, job_key
+  call sqlitebindtext statement, 3, idempotency_key
+  call sqlitebindtext statement, 4, input
+  status = sqlitestep(statement)
+  call sqlitefinalize statement
+  if status \= 101 then return _rollback(db)
+  if _bound_text_exec(db, "UPDATE jobs SET planned_total=planned_total+1 WHERE job_key=?1 AND state='queued'", job_key) \= 0 then return _rollback(db)
+  if _scalar(db, "SELECT changes()") \= 1 then return _rollback(db)
+  if _bound_text_exec(db, "UPDATE job_budgets SET items_admitted=items_admitted+1 WHERE job_key=?1", job_key) \= 0 then return _rollback(db)
+  if sqliteexec(db, "COMMIT") \= 0 then return -1
+  return 0
+
+reservecall: procedure = .int
+  arg db = .binary, item_key = .string, worker_id = .string, fence = .int, attempt_key = .string, maximum_tokens = .int, maximum_cost = .int, maximum_time_ms = .int, expose reservation_key = .string
+  reservation_key = ""
+  if sqliteexec(db, "BEGIN IMMEDIATE") \= 0 then return -1
+  job_key = ""
+  if _active_fence_job(db, item_key, worker_id, fence, attempt_key, job_key) \= 1 then return _rollback(db)
+  status = readbudget(db, job_key)
+  if maximum_tokens < 0 | maximum_cost < 0 | maximum_time_ms < 0 | maximum_tokens > status.maximum_inflight_tokens() | maximum_cost > status.maximum_inflight_cost() | maximum_time_ms > status.maximum_inflight_time() then do; call sqliteexec db, "ROLLBACK"; return -15; end
+  if status.calls_admitted() >= status.call_ceiling() then do; call sqliteexec db, "ROLLBACK"; return -11; end
+  if status.calls_inflight() >= status.maximum_inflight_calls() then do; call sqliteexec db, "ROLLBACK"; return -16; end
+  token_ceiling = _budget_value(db, job_key, "token_ceiling")
+  cost_ceiling = _budget_value(db, job_key, "cost_ceiling")
+  time_ceiling = _budget_value(db, job_key, "time_ceiling_ms")
+  if status.tokens_actual() + status.tokens_reserved() + maximum_tokens > token_ceiling then do; call sqliteexec db, "ROLLBACK"; return -12; end
+  if status.cost_actual() + status.cost_reserved() + maximum_cost > cost_ceiling then do; call sqliteexec db, "ROLLBACK"; return -13; end
+  if status.time_actual() + status.time_reserved() + maximum_time_ms > time_ceiling then do; call sqliteexec db, "ROLLBACK"; return -14; end
+  reservation_key = job_key || "#call-" || (status.calls_admitted() + 1)
+  statement = .binary
+  sql = "INSERT INTO call_reservations(reservation_key,job_key,item_key,fence,attempt_key,max_tokens,max_cost,max_time_ms,state) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,'reserved')"
+  if sqliteprepare(db, sql, statement) \= 0 then return _rollback(db)
+  call sqlitebindtext statement, 1, reservation_key
+  call sqlitebindtext statement, 2, job_key
+  call sqlitebindtext statement, 3, item_key
+  call sqlitebindint statement, 4, fence
+  call sqlitebindtext statement, 5, attempt_key
+  call sqlitebindint statement, 6, maximum_tokens
+  call sqlitebindint statement, 7, maximum_cost
+  call sqlitebindint statement, 8, maximum_time_ms
+  step_status = sqlitestep(statement)
+  call sqlitefinalize statement
+  if step_status \= 101 then return _rollback(db)
+  statement = .binary
+  sql = "UPDATE job_budgets SET calls_admitted=calls_admitted+1,calls_inflight=calls_inflight+1,tokens_reserved=tokens_reserved+?1,cost_reserved=cost_reserved+?2,time_reserved_ms=time_reserved_ms+?3 WHERE job_key=?4"
+  if sqliteprepare(db, sql, statement) \= 0 then return _rollback(db)
+  call sqlitebindint statement, 1, maximum_tokens
+  call sqlitebindint statement, 2, maximum_cost
+  call sqlitebindint statement, 3, maximum_time_ms
+  call sqlitebindtext statement, 4, job_key
+  step_status = sqlitestep(statement)
+  call sqlitefinalize statement
+  if step_status \= 101 then return _rollback(db)
+  if sqliteexec(db, "COMMIT") \= 0 then return -1
+  return 0
+
+settlecall: procedure = .int
+  arg db = .binary, reservation_key = .string, actual_tokens = .int, actual_cost = .int, actual_time_ms = .int
+  if sqliteexec(db, "BEGIN IMMEDIATE") \= 0 then return -1
+  job_key = ""; state = ""; max_tokens = 0; max_cost = 0; max_time = 0
+  statement = .binary
+  if sqliteprepare(db, "SELECT job_key,state,max_tokens,max_cost,max_time_ms FROM call_reservations WHERE reservation_key=?1", statement) \= 0 then return _rollback(db)
+  call sqlitebindtext statement, 1, reservation_key
+  if sqlitestep(statement) \= 100 then do; call sqlitefinalize statement; return _rollback(db); end
+  call sqlitecolumntext statement, 0, job_key
+  call sqlitecolumntext statement, 1, state
+  call sqlitecolumnint statement, 2, max_tokens
+  call sqlitecolumnint statement, 3, max_cost
+  call sqlitecolumnint statement, 4, max_time
+  call sqlitefinalize statement
+  if state \= "reserved" then do; call sqliteexec db, "ROLLBACK"; return -17; end
+  if actual_tokens < 0 | actual_cost < 0 | actual_time_ms < 0 | actual_tokens > max_tokens | actual_cost > max_cost | actual_time_ms > max_time then do; call sqliteexec db, "ROLLBACK"; return -15; end
+  statement = .binary
+  if sqliteprepare(db, "UPDATE call_reservations SET state='settled',actual_tokens=?1,actual_cost=?2,actual_time_ms=?3 WHERE reservation_key=?4 AND state='reserved'", statement) \= 0 then return _rollback(db)
+  call sqlitebindint statement, 1, actual_tokens
+  call sqlitebindint statement, 2, actual_cost
+  call sqlitebindint statement, 3, actual_time_ms
+  call sqlitebindtext statement, 4, reservation_key
+  step_status = sqlitestep(statement)
+  call sqlitefinalize statement
+  if step_status \= 101 then return _rollback(db)
+  statement = .binary
+  sql = "UPDATE job_budgets SET calls_actual=calls_actual+1,calls_inflight=calls_inflight-1,tokens_reserved=tokens_reserved-?1,tokens_actual=tokens_actual+?2,cost_reserved=cost_reserved-?3,cost_actual=cost_actual+?4,time_reserved_ms=time_reserved_ms-?5,time_actual_ms=time_actual_ms+?6 WHERE job_key=?7"
+  if sqliteprepare(db, sql, statement) \= 0 then return _rollback(db)
+  call sqlitebindint statement, 1, max_tokens
+  call sqlitebindint statement, 2, actual_tokens
+  call sqlitebindint statement, 3, max_cost
+  call sqlitebindint statement, 4, actual_cost
+  call sqlitebindint statement, 5, max_time
+  call sqlitebindint statement, 6, actual_time_ms
+  call sqlitebindtext statement, 7, job_key
+  step_status = sqlitestep(statement)
+  call sqlitefinalize statement
+  if step_status \= 101 then return _rollback(db)
+  if sqliteexec(db, "COMMIT") \= 0 then return -1
+  return 0
+
+readbudget: procedure = .budgetstatus
+  arg db = .binary, job_key = .string
+  invalid = .budgetstatus(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
+  statement = .binary
+  sql = "SELECT item_ceiling,items_admitted,call_ceiling,calls_admitted,calls_actual,calls_inflight,tokens_reserved,tokens_actual,cost_reserved,cost_actual,time_reserved_ms,time_actual_ms,inflight_ceiling,max_call_tokens,max_call_cost,max_call_time_ms FROM job_budgets WHERE job_key=?1"
+  if sqliteprepare(db, sql, statement) \= 0 then return invalid
+  call sqlitebindtext statement, 1, job_key
+  if sqlitestep(statement) \= 100 then do; call sqlitefinalize statement; return invalid; end
+  values = .int[]
+  do i = 1 to 16
+    values[i] = 0
+    call sqlitecolumnint statement, i - 1, values[i]
+  end
+  call sqlitefinalize statement
+  return .budgetstatus(values[1],values[2],values[3],values[4],values[5],values[6],values[7],values[8],values[9],values[10],values[11],values[12],values[13],values[14],values[15],values[16])
+
+_active_fence_job: procedure = .int
+  arg db = .binary, item_key = .string, worker_id = .string, fence = .int, attempt_key = .string, expose job_key = .string
+  job_key = ""
+  statement = .binary
+  sql = "SELECT i.job_key FROM job_items i JOIN jobs j ON j.job_key=i.job_key WHERE i.item_key=?1 AND i.worker_id=?2 AND i.fence=?3 AND i.current_attempt=?4 AND i.state='running' AND i.lease_until>CAST(strftime('%s','now') AS INTEGER) AND j.state='running'"
+  if sqliteprepare(db, sql, statement) \= 0 then return -1
+  call sqlitebindtext statement, 1, item_key
+  call sqlitebindtext statement, 2, worker_id
+  call sqlitebindint statement, 3, fence
+  call sqlitebindtext statement, 4, attempt_key
+  status = sqlitestep(statement)
+  if status = 100 then call sqlitecolumntext statement, 0, job_key
+  call sqlitefinalize statement
+  if status = 100 then return 1
+  if status = 101 then return 0
+  return -1
+
+_budget_value: procedure = .int
+  arg db = .binary, job_key = .string, column = .string
+  allowed = "|item_ceiling|items_admitted|token_ceiling|cost_ceiling|time_ceiling_ms|"
+  if pos("|" || column || "|", allowed) = 0 then return -1
+  statement = .binary
+  if sqliteprepare(db, "SELECT " || column || " FROM job_budgets WHERE job_key=?1", statement) \= 0 then return -1
+  call sqlitebindtext statement, 1, job_key
+  if sqlitestep(statement) \= 100 then do; call sqlitefinalize statement; return -1; end
+  value = -1
+  call sqlitecolumnint statement, 0, value
+  call sqlitefinalize statement
+  return value
+
+_scalar: procedure = .int
+  arg db = .binary, sql = .string
+  statement = .binary
+  if sqliteprepare(db, sql, statement) \= 0 then return -1
+  if sqlitestep(statement) \= 100 then do; call sqlitefinalize statement; return -1; end
+  value = -1
+  call sqlitecolumnint statement, 0, value
+  call sqlitefinalize statement
+  return value
+
+_bound_text_exec: procedure = .int
+  arg db = .binary, sql = .string, value = .string
+  statement = .binary
+  if sqliteprepare(db, sql, statement) \= 0 then return -1
+  call sqlitebindtext statement, 1, value
+  status = sqlitestep(statement)
+  call sqlitefinalize statement
+  if status = 101 then return 0
+  return -1
+
+_rollback: procedure = .int
+  arg db = .binary
+  call sqliteexec db, "ROLLBACK"
+  return -1

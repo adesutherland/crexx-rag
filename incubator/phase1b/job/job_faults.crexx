@@ -1,0 +1,59 @@
+/* Test-only fault injection for P1-JOB-02. This deliberately leaves an open
+ * promotion transaction so process termination must trigger SQLite rollback. */
+options levelb
+
+namespace job_faults expose stagepromotion
+
+import rxfnsb
+import sqlite_boundary
+
+stagepromotion: procedure = .int
+  arg db = .binary, item_key = .string, worker_id = .string, fence = .int, attempt_key = .string, support_key = .string, output = .string
+  if sqliteexec(db, "BEGIN IMMEDIATE") \= 0 then return -1
+  job_key = ""
+  statement = .binary
+  sql = "SELECT job_key FROM job_items WHERE item_key=?1 AND worker_id=?2 AND fence=?3 AND current_attempt=?4 AND state='running'"
+  if sqliteprepare(db, sql, statement) \= 0 then return _rollback(db)
+  call sqlitebindtext statement, 1, item_key
+  call sqlitebindtext statement, 2, worker_id
+  call sqlitebindint statement, 3, fence
+  call sqlitebindtext statement, 4, attempt_key
+  if sqlitestep(statement) \= 100 then do; call sqlitefinalize statement; return _rollback(db); end
+  call sqlitecolumntext statement, 0, job_key
+  call sqlitefinalize statement
+
+  statement = .binary
+  if sqliteprepare(db, "INSERT INTO promoted_support(item_key,support_key,output,fence) VALUES(?1,?2,?3,?4)", statement) \= 0 then return _rollback(db)
+  call sqlitebindtext statement, 1, item_key
+  call sqlitebindtext statement, 2, support_key
+  call sqlitebindtext statement, 3, output
+  call sqlitebindint statement, 4, fence
+  status = sqlitestep(statement)
+  call sqlitefinalize statement
+  if status \= 101 then return _rollback(db)
+
+  statement = .binary
+  if sqliteprepare(db, "UPDATE job_items SET state='processed',output=?1,lease_until=0 WHERE item_key=?2", statement) \= 0 then return _rollback(db)
+  call sqlitebindtext statement, 1, output
+  call sqlitebindtext statement, 2, item_key
+  status = sqlitestep(statement)
+  call sqlitefinalize statement
+  if status \= 101 then return _rollback(db)
+  if _bound_text_exec(db, "UPDATE attempts SET state='succeeded',completed_at=CAST(strftime('%s','now') AS INTEGER) WHERE attempt_key=?1 AND state='running'", attempt_key) \= 0 then return _rollback(db)
+  if _bound_text_exec(db, "UPDATE jobs SET state='completed' WHERE job_key=?1", job_key) \= 0 then return _rollback(db)
+  return 0
+
+_bound_text_exec: procedure = .int
+  arg db = .binary, sql = .string, value = .string
+  statement = .binary
+  if sqliteprepare(db, sql, statement) \= 0 then return -1
+  call sqlitebindtext statement, 1, value
+  status = sqlitestep(statement)
+  call sqlitefinalize statement
+  if status = 101 then return 0
+  return -1
+
+_rollback: procedure = .int
+  arg db = .binary
+  call sqliteexec db, "ROLLBACK"
+  return -1

@@ -1,0 +1,131 @@
+# branch.oid 0baae87fecf0a851545aaf1e9f9a207c39aef213
+# branch.head main
+# branch.upstream origin/main
+# branch.ab +4 -0
+1 .M N... 100644 100644 100644 128d14f3b0482543a3be901748417570d1053eca 128d14f3b0482543a3be901748417570d1053eca CMakeLists.txt
+1 .M N... 100644 100644 100644 0ee9d0ec693ab0427899e53f45c7834d9b0a5e53 0ee9d0ec693ab0427899e53f45c7834d9b0a5e53 docs/README.md
+1 .M N... 100644 100644 100644 1807e4f9b6f2e466686d7234fdb12179917361b4 1807e4f9b6f2e466686d7234fdb12179917361b4 docs/crexx-integration-issues.md
+1 .M N... 100644 100644 100644 02db128cb85bffbbe215526d3254ac825b3ff5cd 02db128cb85bffbbe215526d3254ac825b3ff5cd docs/crexx-only-architecture.md
+1 .M N... 100644 100644 100644 c9e55c5e450916b5646d85f1283223a358e62c45 c9e55c5e450916b5646d85f1283223a358e62c45 docs/crexx-only-implementation-roadmap.md
+1 .M N... 100644 100644 100644 7571ea046ed9de47a26aca84a5ff4d7e965ebce3 7571ea046ed9de47a26aca84a5ff4d7e965ebce3 docs/evidence/2026-08-03-phase1b/WORKLIST.md
+1 .M N... 100644 100644 100644 a7ab21b01798adef0e42355e8be57780581ac11e a7ab21b01798adef0e42355e8be57780581ac11e docs/pipeline-status.md
+1 .M N... 100644 100644 100644 d89c60fc74de870e3520c5eb3de446b2f4bcab4a d89c60fc74de870e3520c5eb3de446b2f4bcab4a docs/test-strategy.md
+? cmake/P1Alg01.cmake
+? cmake/P1Alg02.cmake
+? cmake/P1Alg03.cmake
+? cmake/P1Alg04.cmake
+? cmake/P1Alg05.cmake
+? cmake/P1Job01.cmake
+? cmake/P1Job02.cmake
+? cmake/P1Job03.cmake
+? cmake/P1Vec01.cmake
+? cmake/P1Vec02.cmake
+? cmake/P1Vec03.cmake
+? docs/evidence/2026-08-03-phase1b/CAPABILITY-LEDGER.md
+? docs/evidence/2026-08-03-phase1b/GATE-1B-DECISION-PACKET.md
+? docs/evidence/2026-08-03-phase1b/INDEX.md
+? docs/evidence/2026-08-03-phase1b/P1-ALG-01.md
+? docs/evidence/2026-08-03-phase1b/P1-ALG-02.md
+? docs/evidence/2026-08-03-phase1b/P1-ALG-03.md
+? docs/evidence/2026-08-03-phase1b/P1-ALG-04.md
+? docs/evidence/2026-08-03-phase1b/P1-ALG-05.md
+? docs/evidence/2026-08-03-phase1b/P1-JOB-01.md
+? docs/evidence/2026-08-03-phase1b/P1-JOB-02.md
+? docs/evidence/2026-08-03-phase1b/P1-JOB-03.md
+? docs/evidence/2026-08-03-phase1b/P1-VEC-01.md
+? docs/evidence/2026-08-03-phase1b/P1-VEC-02.md
+? docs/evidence/2026-08-03-phase1b/P1-VEC-03.md
+? docs/evidence/2026-08-03-phase1b/P1-VEC-04.md
+? docs/evidence/2026-08-03-phase1b/raw/algorithm-closeout-ctest.time
+? docs/evidence/2026-08-03-phase1b/raw/algorithm-closeout-ctest.txt
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-crexx-source-preservation.txt
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-debug-build.time
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-debug-build.txt
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-debug-configure.txt
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-debug-ctest.time
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-debug-ctest.txt
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-decision-hashes.txt
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-diff-check.txt
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-final-debug-ctest.time
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-final-debug-ctest.txt
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-final-diff-check.txt
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-final-release-build.time
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-final-release-build.txt
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-final-release-configure.txt
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-implementation-hashes.txt
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-release-build.time
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-release-build.txt
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-release-configure.txt
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-secret-audit.txt
+? docs/evidence/2026-08-03-phase1b/raw/gate1b-worktree-before-publication.txt
+? docs/evidence/2026-08-03-phase1b/raw/job-closeout-ctest.time
+? docs/evidence/2026-08-03-phase1b/raw/job-closeout-ctest.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-01-commands-and-output.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-01-ctest.time
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-01-ctest.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-01-hashes.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-02-commands-and-output.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-02-ctest.time
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-02-ctest.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-02-hashes.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-03-commands-and-output.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-03-ctest.time
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-03-ctest.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-03-hashes.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-04-commands-and-output.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-04-ctest.time
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-04-ctest.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-04-hashes.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-05-commands-and-output.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-05-ctest.time
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-05-ctest.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-05-hashes.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-05-native-oracle.jsonl
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-05-noopt-rxbvm-metrics.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-05-noopt-rxvme-metrics.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-05-opt-rxbvm-metrics.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-alg-05-opt-rxvme-metrics.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-job-01-commands-and-output.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-job-01-ctest.time
+? docs/evidence/2026-08-03-phase1b/raw/p1-job-01-ctest.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-job-01-hashes.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-job-02-commands-and-output.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-job-02-ctest.time
+? docs/evidence/2026-08-03-phase1b/raw/p1-job-02-ctest.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-job-02-hashes.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-job-03-commands-and-output.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-job-03-ctest.time
+? docs/evidence/2026-08-03-phase1b/raw/p1-job-03-ctest.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-job-03-hashes.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-01-commands-and-output.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-01-ctest.time
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-01-ctest.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-01-hashes.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-01-target.time
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-01-target.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-02-commands-and-output.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-02-ctest.time
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-02-ctest.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-02-hashes.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-02-target.time
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-02-target.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-03-commands-and-output.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-03-ctest-noopt-rxbvm-metrics.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-03-ctest-noopt-rxvme-metrics.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-03-ctest-opt-rxbvm-metrics.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-03-ctest-opt-rxvme-metrics.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-03-ctest.time
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-03-ctest.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-03-hashes.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-03-target-noopt-rxbvm-metrics.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-03-target-noopt-rxvme-metrics.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-03-target-opt-rxbvm-metrics.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-03-target-opt-rxvme-metrics.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-03-target.time
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-03-target.txt
+? docs/evidence/2026-08-03-phase1b/raw/p1-vec-04-hashes.txt
+? docs/evidence/2026-08-03-phase1b/raw/vector-closeout-ctest.time
+? docs/evidence/2026-08-03-phase1b/raw/vector-closeout-ctest.txt
+? incubator/phase1b/algorithm/
+? incubator/phase1b/job/
+? incubator/phase1b/vector/

@@ -1,0 +1,18 @@
+Test project /home/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 44: p1_job_02
+1/1 Test #44: p1_job_02 ........................   Passed    9.02 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+P1-JOB-02      =   9.02 sec*proc (1 test)
+crash          =   9.02 sec*proc (1 test)
+fence          =   9.02 sec*proc (1 test)
+idempotence    =   9.02 sec*proc (1 test)
+incubator      =   9.02 sec*proc (1 test)
+job            =   9.02 sec*proc (1 test)
+phase1b        =   9.02 sec*proc (1 test)
+recovery       =   9.02 sec*proc (1 test)
+sqlite         =   9.02 sec*proc (1 test)
+
+Total Test time (real) =   9.02 sec
