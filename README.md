@@ -50,6 +50,18 @@ behavior, not the selected product direction.
 
 The native-v1 oracle remains buildable while Phase 0 captures its behavior:
 
+Build prerequisites are CMake 3.21 or newer, Ninja, a C/C++ toolchain, the
+installed CREXX CMake package, and the SQLite 3 development headers and link
+library. On Debian and Ubuntu, install the host build dependencies with:
+
+```bash
+sudo apt-get install build-essential cmake ninja-build libsqlite3-dev time
+```
+
+The `sqlite3` command-line program is not required. The runtime-only
+`libsqlite3-0` package is insufficient because the build also needs
+`sqlite3.h` and the unversioned link library.
+
 ```bash
 cmake --preset debug
 cmake --build --preset debug

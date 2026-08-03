@@ -1,5 +1,6 @@
 #include "crexx_rag/ragcore.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cerrno>
 #include <cmath>

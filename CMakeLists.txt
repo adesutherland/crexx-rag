@@ -48,7 +48,13 @@ elseif(CPRAG_BUILD_CREXX_PLUGIN)
         "Installed CREXX CMake package was not found; CREXX plugins and integration tests are unavailable")
 endif()
 
-find_package(SQLite3 REQUIRED)
+find_package(SQLite3 QUIET)
+if(NOT SQLite3_FOUND)
+    message(FATAL_ERROR
+        "SQLite3 development files are required (sqlite3.h and the link library). "
+        "On Debian/Ubuntu, install them with: sudo apt-get install libsqlite3-dev. "
+        "For a non-system installation, set SQLite3_INCLUDE_DIR and SQLite3_LIBRARY.")
+endif()
 find_package(CURL QUIET)
 
 if(TARGET SQLite3::SQLite3)
@@ -88,6 +94,7 @@ add_library(cprag_core
     core/chunker.cpp
     core/ragcore.cpp)
 add_library(crexx-rag::core ALIAS cprag_core)
+set_target_properties(cprag_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(cprag_core
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>

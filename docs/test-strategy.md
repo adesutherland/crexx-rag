@@ -1,6 +1,6 @@
 # cREXX-Only Test Strategy
 
-Status: living acceptance policy for the approved programme, 2026-07-31.
+Status: living acceptance policy for the approved programme, 2026-08-03.
 
 The detailed item matrix and decision gates are in the
 [implementation roadmap](crexx-only-implementation-roadmap.md). The former
@@ -71,11 +71,15 @@ Gate 1A also requires a boundary decision packet that states rejected
 alternatives, surface weaknesses, donation candidates, unresolved risks, and
 exact Phase-1B choices. Passing PoCs are not production acceptance.
 
-All Phase-1A slice prerequisites and the approved CREXX-candidate replay have
-retained focused passes. The failed first Gemini attempt remains negative
+All Phase-1A slice prerequisites and the approved Apple CREXX-candidate replay
+have retained focused passes. The failed first Gemini attempt remains negative
 diagnostic evidence; it is not an `rxhttp` defect and no hosted call belongs in
-the repeatable replay. The refreshed full suite passed 28/28 with zero failures
-and zero skips. Gate 1A remains an unconditional stop for Phase-1B approval.
+the repeatable replay. That refreshed Apple suite passed 28/28 with zero
+failures and zero skips. Fresh Linux validation builds Debug and Release and
+passes the portable process-metrics tests, but currently fails the deterministic
+provider timeout case because of the separately reproduced installed-CREXX
+CRI-15 socket status defect. Gate 1A remains an unconditional stop for Phase-1B
+approval.
 
 ## Required Commands
 

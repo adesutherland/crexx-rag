@@ -1,0 +1,29 @@
+options levelb
+
+import rxfnsb
+import rxsocket
+
+main: procedure = .int
+  arg args = .string[]
+  port = 18992
+  if args.0 >= 1 then port = args[1] as .int
+
+  sock = socketcreate()
+  if sock <= 0 then return 10
+  if sockettimeout(sock, 50) <> 0 then return 11
+  if socketconnect(sock, "127.0.0.1", port) <> 0 then return 12
+
+  crlf = "0d0a"x
+  request = "GET /timeout HTTP/1.1" || crlf || ,
+            "Host: 127.0.0.1" || crlf || ,
+            "Content-Length: 0" || crlf || crlf
+  if socketsend(sock, request) <> length(request) then return 13
+
+  received = socketrecv(sock, 8192)
+  status = socketstatus(sock)
+  error = socketerror(sock)
+  close_status = socketclose(sock)
+  say "RXSOCKET_TIMEOUT status=" || status || " length=" || length(received) || ,
+      " close=" || close_status || " error=" || error
+  if status = 2 then return 0
+  return 1

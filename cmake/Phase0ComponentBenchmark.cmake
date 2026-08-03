@@ -7,6 +7,8 @@ foreach(required_var
     endif()
 endforeach()
 
+include("${CMAKE_CURRENT_LIST_DIR}/CpragProcessMetrics.cmake")
+
 function(assert_output output runtime)
     foreach(component crexx_algorithm json_parse record_materialize json_encode provider_wait)
         if(NOT output MATCHES "${runtime},${component},[0-9]+")
@@ -69,7 +71,8 @@ endif()
 execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.2)
 
 execute_process(
-    COMMAND /usr/bin/time -l "${CPRAG_RXVME}" -l "${CPRAG_CREXX_BIN_DIR}"
+    COMMAND "${CPRAG_TIME_EXECUTABLE}" ${CPRAG_TIME_RESOURCE_ARGS}
+        "${CPRAG_RXVME}" -l "${CPRAG_CREXX_BIN_DIR}"
         "${output_base}" rxfnsg rxfnsc library -a rxvme "${port}"
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE rxvme_output
@@ -81,7 +84,8 @@ endif()
 assert_output("${rxvme_output}" rxvme)
 
 execute_process(
-    COMMAND /usr/bin/time -l "${CPRAG_RXBVM}" -l "${CPRAG_CREXX_BIN_DIR}"
+    COMMAND "${CPRAG_TIME_EXECUTABLE}" ${CPRAG_TIME_RESOURCE_ARGS}
+        "${CPRAG_RXBVM}" -l "${CPRAG_CREXX_BIN_DIR}"
         "${output_base}" rxfnsg rxfnsc library -a rxbvm "${port}"
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE rxbvm_output
@@ -94,11 +98,7 @@ assert_output("${rxbvm_output}" rxbvm)
 
 foreach(runtime rxvme rxbvm)
     set(timing_error "${${runtime}_error}")
-    string(REGEX MATCH "([0-9]+)[ \t]+maximum resident set size" rss_match "${timing_error}")
-    if(rss_match STREQUAL "")
-        message(FATAL_ERROR "Could not extract ${runtime} maximum resident set size:\n${timing_error}")
-    endif()
-    set(${runtime}_rss "${CMAKE_MATCH_1}")
+    cprag_extract_peak_rss("${timing_error}" ${runtime}_rss)
 endforeach()
 
 file(READ "${provider_out}" provider_log)

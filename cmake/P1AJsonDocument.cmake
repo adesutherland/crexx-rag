@@ -6,6 +6,8 @@ foreach(required_var
     endif()
 endforeach()
 
+include("${CMAKE_CURRENT_LIST_DIR}/CpragProcessMetrics.cmake")
+
 file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
 set(all_output "")
@@ -58,21 +60,24 @@ foreach(mode IN ITEMS noopt opt)
         endif()
 
         execute_process(
-            COMMAND /usr/bin/time -lp "${runtime}" -l "${CPRAG_CREXX_BIN_DIR}"
+            COMMAND "${CPRAG_TIME_EXECUTABLE}" ${CPRAG_TIME_RESOURCE_ARGS}
+                "${runtime}" -l "${CPRAG_CREXX_BIN_DIR}"
                 "${test_base}" library -a "${runtime_name}"
             OUTPUT_VARIABLE test_out ERROR_VARIABLE test_err RESULT_VARIABLE test_result)
         if(NOT test_result EQUAL 0 OR NOT test_out MATCHES "P1A_RXJSON_PROJECTION_OK")
             message(FATAL_ERROR "${mode}/${runtime_name} projection test failed (${test_result}):\n${test_out}\n${test_err}")
         endif()
         execute_process(
-            COMMAND /usr/bin/time -lp "${runtime}" -l "${CPRAG_CREXX_BIN_DIR}"
+            COMMAND "${CPRAG_TIME_EXECUTABLE}" ${CPRAG_TIME_RESOURCE_ARGS}
+                "${runtime}" -l "${CPRAG_CREXX_BIN_DIR}"
                 "${benchmark_base}" library -a "${runtime_name}"
             OUTPUT_VARIABLE benchmark_out ERROR_VARIABLE benchmark_err RESULT_VARIABLE benchmark_result)
         if(NOT benchmark_result EQUAL 0 OR NOT benchmark_out MATCHES "P1A_RXJSON_PROJECTION_BENCH_OK")
             message(FATAL_ERROR "${mode}/${runtime_name} projection benchmark failed (${benchmark_result}):\n${benchmark_out}\n${benchmark_err}")
         endif()
         execute_process(
-            COMMAND /usr/bin/time -lp "${runtime}" -l "${CPRAG_CREXX_BIN_DIR}"
+            COMMAND "${CPRAG_TIME_EXECUTABLE}" ${CPRAG_TIME_RESOURCE_ARGS}
+                "${runtime}" -l "${CPRAG_CREXX_BIN_DIR}"
                 "${probe_base}" library -a 3072 10
             OUTPUT_VARIABLE probe_out ERROR_VARIABLE probe_err RESULT_VARIABLE probe_result)
         if(NOT probe_result EQUAL 0 OR NOT probe_out MATCHES "P1A_BINARY_ARGUMENT_PROBE_OK")

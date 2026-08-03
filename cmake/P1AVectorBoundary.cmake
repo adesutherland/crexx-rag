@@ -6,6 +6,8 @@ foreach(required_var
     endif()
 endforeach()
 
+include("${CMAKE_CURRENT_LIST_DIR}/CpragProcessMetrics.cmake")
+
 file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
 set(native_import "${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}")
@@ -35,7 +37,8 @@ foreach(runtime IN ITEMS rxvme rxbvm)
         set(vm "${CPRAG_RXBVM}")
     endif()
     execute_process(
-        COMMAND /usr/bin/time -l "${vm}" -l "${program_import}" "${CPRAG_WORK_DIR}/vector-boundary-test"
+        COMMAND "${CPRAG_TIME_EXECUTABLE}" ${CPRAG_TIME_RESOURCE_ARGS}
+            "${vm}" -l "${program_import}" "${CPRAG_WORK_DIR}/vector-boundary-test"
             vector_boundary rx_sqlite_boundary library -a "${runtime}"
         OUTPUT_VARIABLE output ERROR_VARIABLE timing RESULT_VARIABLE result)
     if(NOT result EQUAL 0 OR NOT output MATCHES "P1A_VEC_OK runtime=${runtime}")
@@ -46,11 +49,7 @@ foreach(runtime IN ITEMS rxvme rxbvm)
             message(FATAL_ERROR "${runtime} omitted ${component}:\n${output}")
         endif()
     endforeach()
-    string(REGEX MATCH "([0-9]+)[ \t]+maximum resident set size" rss_match "${timing}")
-    if(rss_match STREQUAL "")
-        message(FATAL_ERROR "Could not extract ${runtime} RSS:\n${timing}")
-    endif()
-    set(rss "${CMAKE_MATCH_1}")
+    cprag_extract_peak_rss("${timing}" rss)
     file(WRITE "${CPRAG_WORK_DIR}/${runtime}.csv"
         "runtime,component,elapsed_us,operations,bytes,checksum,status\n${output}${runtime},process_peak_memory,0,1,${rss},${rss},ok\n")
     file(APPEND "${CPRAG_WORK_DIR}/diagnostics.txt" "${runtime} time:\n${timing}\n")

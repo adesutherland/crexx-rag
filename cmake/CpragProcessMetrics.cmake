@@ -1,0 +1,31 @@
+find_program(CPRAG_TIME_EXECUTABLE NAMES time PATHS /usr/bin)
+if(NOT CPRAG_TIME_EXECUTABLE)
+    message(FATAL_ERROR
+        "The external time command is required for process memory measurements")
+endif()
+
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+    set(CPRAG_TIME_RESOURCE_ARGS -l)
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+    set(CPRAG_TIME_RESOURCE_ARGS -v)
+else()
+    message(FATAL_ERROR
+        "Process memory measurement is not implemented for ${CMAKE_HOST_SYSTEM_NAME}")
+endif()
+
+function(cprag_extract_peak_rss timing output_variable)
+    if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+        string(REGEX MATCH "([0-9]+)[ \t]+maximum resident set size" rss_match "${timing}")
+        set(rss_bytes "${CMAKE_MATCH_1}")
+    else()
+        string(REGEX MATCH "Maximum resident set size \\(kbytes\\):[ \t]+([0-9]+)" rss_match "${timing}")
+        if(NOT rss_match STREQUAL "")
+            math(EXPR rss_bytes "${CMAKE_MATCH_1} * 1024")
+        endif()
+    endif()
+
+    if(rss_match STREQUAL "")
+        message(FATAL_ERROR "Could not extract maximum resident set size:\n${timing}")
+    endif()
+    set(${output_variable} "${rss_bytes}" PARENT_SCOPE)
+endfunction()

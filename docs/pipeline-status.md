@@ -1,6 +1,6 @@
 # cREXX-Only Programme Status
 
-Status date: 2026-07-31.
+Status date: 2026-08-03.
 
 This is the only living implementation-status page. The previous native-v1
 pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.md).
@@ -16,7 +16,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Phase 0 | Complete | P0-01 through P0-07 including P0-04A are accepted in the dated evidence bundle |
 | Gate 0 | Passed | Full configure/build/CTest passed 17/17 with 19 frozen hashes and raw measurements |
 | Phase 1A | Complete diagnostic unit | P1A-SDK-01 through P1A-SUR-01 all have focused retained correctness/failure/profile evidence |
-| Gate 1A | Reached; candidate replay passed; stopped for decision | All CRI items are closed downstream; no Phase-1B choice is approved by this evidence alone |
+| Gate 1A | Reached; Apple candidate replay passed; stopped for decision | CRI-01 through CRI-14 are closed downstream; Linux qualification opened CRI-15; no Phase-1B choice is approved by this evidence alone |
 | Phase 1B and later | Not authorized | No hardening, donation implementation, schema v2, cutover, or retirement yet |
 
 ## Current Product Reality
@@ -66,6 +66,15 @@ in 110.30 seconds. Exact evidence is under
 No cREXX-only production path, schema v2, selected provider contract,
 production `rxsqlite`, safe multi-worker queue, or target command set is claimed
 implemented yet.
+
+Fresh Linux validation on 2026-08-03 repaired the native build's missing direct
+`<algorithm>` dependency, PIC requirement for the RXPA plugin, and macOS-only
+process-memory measurement commands. Debug and Release each build all 27 Ninja
+targets. Three timing/benchmark tests now pass on GNU `time`; stable Debug
+validation has one installed-CREXX failure. CRI-15 records that `rxvme` loses the
+documented socket timeout status during string receive validation. Exact build
+and minimized reproducer evidence is in the
+[Linux build review](evidence/2026-08-03-linux-build/LINUX-BUILD-REVIEW.md).
 
 ## Gate-1A Decision Stop
 

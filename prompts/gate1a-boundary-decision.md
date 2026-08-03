@@ -43,8 +43,11 @@ decisions (edit any line before sending if I do not accept the recommendation):
    production JSON/projections, the RXPA SDK/CMake package, structured
    diagnostics and contract helper are installed CREXX facilities; donation
    candidates are only recorded/prepared when a later prompt explicitly
-   authorizes donation work. No CREXX compatibility dependency is open at
-   Gate 1A.
+   authorizes donation work. CRI-15 is an open installed-CREXX Linux dependency:
+   `rxvme` loses the documented socket timeout status during string receive.
+   Phase-1B provider hardening must not claim Linux timeout qualification until
+   it is closed or explicitly dispositioned; this prompt does not authorize a
+   CREXX edit or a product-specific workaround.
 
 For D9, do not infer implementation authority. First produce a bounded Phase-1B
 worklist mapped exactly to the roadmap items that these decisions unblock,

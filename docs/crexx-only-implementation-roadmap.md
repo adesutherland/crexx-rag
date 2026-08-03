@@ -186,6 +186,14 @@ stopped here for the user's boundary choices. The 2026-07-31 approved-candidate
 replay closes CRI-01 through CRI-14 downstream and passes 28/28 deterministic/
 loopback tests; it does not approve production boundaries or Phase 1B.
 
+Fresh Linux build qualification on 2026-08-03 builds all Debug and Release
+targets and makes process-memory evidence portable, but opens CRI-15: installed
+`rxvme` loses the documented socket timeout status during string receive. The
+[retained reproducer](evidence/2026-08-03-linux-build/LINUX-BUILD-REVIEW.md)
+must be closed or explicitly dispositioned before Phase-1B provider hardening
+can claim Linux timeout qualification. It does not authorize a CREXX edit or a
+downstream product-specific workaround.
+
 ### Phase 1B — Capability hardening and donation readiness
 
 The remaining Phase-1 items harden only the Gate-1A-selected boundaries.
