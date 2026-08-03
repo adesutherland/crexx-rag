@@ -87,7 +87,25 @@ int main(int argc, char** argv)
         const std::string path = request_path(request);
         std::cout << "REQUEST " << path << std::endl;
         std::string body;
-        if (path.find("loopback-generate") != std::string::npos) {
+        if (path == "/v1/chat/completions") {
+            const bool valid_model = request.find("\"model\":\"local-chat\"") != std::string::npos;
+            const bool valid_stream = request.find("\"stream\":false") != std::string::npos;
+            const bool valid_unicode = request.find("Generate Gr\xc3\xa0" "dh \xe4\xb8\xad") != std::string::npos;
+            if (!valid_model || !valid_stream || !valid_unicode) {
+                body = R"({"error":{"message":"OpenAI-compatible generation request shape mismatch"}})";
+            } else {
+                body = R"({"id":"chatcmpl-local-001","model":"local-chat","choices":[{"index":0,"message":{"role":"assistant","content":"loopback OpenAI generation Gr\u00e0dh \u4e2d"},"finish_reason":"stop"}],"usage":{"prompt_tokens":9,"completion_tokens":4,"total_tokens":13}})";
+            }
+        } else if (path == "/v1/embeddings") {
+            const bool valid_model = request.find("\"model\":\"local-embed\"") != std::string::npos;
+            const bool valid_encoding = request.find("\"encoding_format\":\"float\"") != std::string::npos;
+            const bool valid_input = request.find("\"input\":\"Embed this locally\"") != std::string::npos;
+            if (!valid_model || !valid_encoding || !valid_input) {
+                body = R"({"error":{"message":"OpenAI-compatible embedding request shape mismatch"}})";
+            } else {
+                body = R"({"object":"list","model":"local-embed","data":[{"object":"embedding","index":0,"embedding":[0.125,-0.25,0.5]}],"usage":{"prompt_tokens":4,"total_tokens":4}})";
+            }
+        } else if (path.find("loopback-generate") != std::string::npos) {
             body = R"({"candidates":[{"content":{"parts":[{"text":"loopback generation"}]} }],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":2}})";
         } else if (path.find("loopback-embed") != std::string::npos) {
             const bool top_level_dimension = request.find("\"outputDimensionality\":3") != std::string::npos;

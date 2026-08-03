@@ -1,0 +1,58 @@
+[0/1] Re-running CMake...
+-- Using installed CREXX package crexx-1.0.0-beta.3+local.gea25d1720c8d.dirty from /home/adrian/.local
+-- Configuring done (0.2s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/adrian/CLionProjects/crexx-rag/cmake-build-debug
+[1/4] Building CXX object CMakeFiles/p1a_provider_loopback.dir/tests/p1a_provider_loopback.cpp.o
+[2/4] Linking CXX executable p1a_provider_loopback
+[2/4] Running P1-LLM-02 local OpenAI-compatible calls
+CMake Error at /home/adrian/CLionProjects/crexx-rag/cmake/P1Llm02.cmake:31 (message):
+  noopt adapter compile failed:
+
+
+
+  Error in openai_compatible_provider.crexx @ 63:5 - #SYNTAX_ERROR: Syntax
+  error., "if"
+
+  Error in openai_compatible_provider.crexx @ 63:85 - #EXTRANEOUS: Unexpected
+  extra input., ","
+
+  Error in openai_compatible_provider.crexx @ 184:9 - #SYNTAX_ERROR: Syntax
+  error., "if"
+
+  Error in openai_compatible_provider.crexx @ 184:99 - #EXTRANEOUS:
+  Unexpected extra input., ","
+
+  4 error(s) in source file
+
+Call Stack (most recent call first):
+  /home/adrian/CLionProjects/crexx-rag/cmake/P1Llm02.cmake:52 (compile_crexx)
+
+
+FAILED: [code=1] CMakeFiles/p1_llm_02 /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/CMakeFiles/p1_llm_02 
+cd /home/adrian/CLionProjects/crexx-rag/cmake-build-debug && /snap/clion/481/bin/cmake/linux/x64/bin/cmake -DCPRAG_RXC=/home/adrian/.local/bin/rxc -DCPRAG_RXAS=/home/adrian/.local/bin/rxas -DCPRAG_RXVME=/home/adrian/.local/bin/rxvme -DCPRAG_RXBVM=/home/adrian/.local/bin/rxbvm -DCPRAG_CREXX_BIN_DIR=/home/adrian/.local/bin -DCPRAG_CONTRACT=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/provider/provider_contract.crexx -DCPRAG_ADAPTER=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/provider/openai_compatible_provider.crexx -DCPRAG_SOURCE=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/provider/p1_llm_02.crexx -DCPRAG_LOOPBACK=/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1a_provider_loopback -DCPRAG_WORK_DIR=/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-llm-02 -P /home/adrian/CLionProjects/crexx-rag/cmake/P1Llm02.cmake
+ninja: build stopped: subcommand failed.
+Command exited with non-zero status 1
+	Command being timed: "cmake --build --preset debug --target p1_llm_02"
+	User time (seconds): 4.52
+	System time (seconds): 0.70
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:05.25
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 118020
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 69482
+	Voluntary context switches: 75
+	Involuntary context switches: 336
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 2048
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 1

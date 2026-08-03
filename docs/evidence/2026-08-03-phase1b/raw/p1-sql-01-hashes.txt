@@ -1,0 +1,9 @@
+757752c411ce727c0c0490d0ce6c873b2e92ba0814baf04902c101417aac5e90  incubator/p1a/sqlite_boundary/sqlite_boundary.c
+bb82a692c34f6ef18e356ec14d010f92a8f877a15626e0b78ed61208c103866b  incubator/phase1b/rxsqlite/CONTRACT.md
+e1cf8e7e97bdc470bf3cdd61bc4ff2c2667e42621892695e2a7466bdc48d26fe  incubator/phase1b/rxsqlite/p1_sql_01.crexx
+2292fd489f7c6134d8236b5ae695310735e30c8043726a8abcbb92e62cb50a85  cmake/Phase1bCrexxDualVm.cmake
+e445528872d9011f27b37d9a392c41b18c779bfcf5a1a5e7077d7d3223bb7340  docs/evidence/2026-08-03-phase1b/raw/p1-sql-01-commands-and-output.txt
+84a41e79b6df3a55dbd0eae60aa0186315802104ad05a41630e0a30422865ce9  docs/evidence/2026-08-03-phase1b/raw/p1-sql-01-configure.txt
+eef5baff3683d53430ece884401a90ba992d5e37895f2a929361f2239a557b39  docs/evidence/2026-08-03-phase1b/raw/p1-sql-01-ctest.txt
+01204e0c4ddffc23eda9f79fcec5a2bcd8111d9c28fe4e88209147df95c248a7  docs/evidence/2026-08-03-phase1b/raw/p1-sql-01-hashes.txt
+fa872db59f6571b470c3ba1fd18c56b4f19b1ca0f99ab9df41da115eb4c67f64  docs/evidence/2026-08-03-phase1b/raw/p1-sql-01-target.txt

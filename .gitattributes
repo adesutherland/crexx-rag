@@ -1,0 +1,2 @@
+# Raw evidence is byte-preserved command output, not authored source text.
+docs/evidence/**/raw/** -whitespace

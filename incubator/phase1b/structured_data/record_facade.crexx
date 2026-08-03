@@ -1,0 +1,17 @@
+options levelg
+
+namespace record_facade expose typedrecordfacade
+
+import record_boundary
+
+typedrecordfacade: class
+  *: factory
+    return
+
+  page: method = .typedrow[]
+    arg database = .binary, after_sequence = .int, limit = .int
+    return loadrecords(database, after_sequence, limit)
+
+  checksum: method = .int
+    arg records = .typedrow[]
+    return recordchecksum(records)

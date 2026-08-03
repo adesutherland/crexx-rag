@@ -1,0 +1,56 @@
+options levelb
+
+import rxfnsb
+import sqlite_boundary
+
+read_int: procedure = .int
+  arg db = .binary, sql = .string, expose value = .int
+  statement = .binary
+  if sqliteprepare(db, sql, statement) \= 0 then return 1
+  if sqlitestep(statement) \= 100 then return 1
+  if sqlitecolumnint(statement, 0, value) \= 0 then return 1
+  if sqlitefinalize(statement) \= 0 then return 1
+  return 0
+
+main: procedure = .int
+arg args = .string[]
+if args.0 < 2 then return 2
+action = args[1]
+path = args[2]
+db = .binary
+
+if action = "setup" then do
+  if sqliteopenmode(path, "create", db) \= 0 then return 1
+  if sqliteexec(db, "PRAGMA user_version=7; CREATE TABLE stable_values(v INTEGER); INSERT INTO stable_values VALUES(42)") \= 0 then return 1
+  if sqliteclose(db) \= 0 then return 1
+  say "P1_SQL_04_SETUP_OK"
+  return 0
+end
+
+if action = "readonly" then do
+  if sqliteopenmode(path, "readonly", db) \= 0 then return 1
+  version = 0
+  count = 0
+  if read_int(db, "PRAGMA user_version", version) \= 0 | version \= 7 then return 1
+  if read_int(db, "SELECT count(*) FROM stable_values WHERE v=42", count) \= 0 | count \= 1 then return 1
+  if sqliteexec(db, "CREATE TABLE forbidden(v)") \= -6 then return 1
+  code = 0
+  sqlite_code = 0
+  extended_code = 0
+  operation = ""
+  message = ""
+  if sqliteerrorextended(code, sqlite_code, extended_code, operation, message) \= -6 | sqlite_code \= 8 then return 1
+  if sqliteexec(db, "PRAGMA user_version=8") \= -6 then return 1
+  if sqliteclose(db) \= 0 then return 1
+  say "P1_SQL_04_OK readonly=1 writes=0 migration=denied version=" || version
+  return 0
+end
+
+if action = "missing" then do
+  if sqliteopenmode(path, "readonly", db) \= -6 then return 1
+  if sqliteopenmode(path, "invalid", db) \= -1 then return 1
+  say "P1_SQL_04_MISSING_OK created=0"
+  return 0
+end
+
+return 2

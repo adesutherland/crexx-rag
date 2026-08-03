@@ -1,0 +1,53 @@
+UpdateCTestConfiguration  from :/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/DartConfiguration.tcl
+Test project /home/adrian/CLionProjects/crexx-rag/cmake-build-debug
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 22
+    Start 22: p1_sql_03
+
+22: Test command: /snap/clion/481/bin/cmake/linux/x64/bin/cmake "-DCPRAG_RXC=/home/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/home/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/home/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/home/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/home/adrian/.local/bin" "-DCPRAG_PLUGIN_DIR=/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/bin" "-DCPRAG_SOURCE=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/rxsqlite/p1_sql_03.crexx" "-DCPRAG_MODULES=rx_sqlite_boundary" "-DCPRAG_EXPECTED=P1_SQL_03_OK" "-DCPRAG_DATABASE_ARGUMENT=ON" "-DCPRAG_WORK_DIR=/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-sql-03" "-P" "/home/adrian/CLionProjects/crexx-rag/cmake/Phase1bCrexxDualVm.cmake"
+22: Working Directory: /home/adrian/CLionProjects/crexx-rag/cmake-build-debug
+22: Test timeout computed to be: 10000000
+22: -- P1_SQL_03_OK passed noopt/opt on rxvme/rxbvm
+1/1 Test #22: p1_sql_03 ........................   Passed    2.84 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+P1-SQL-03      =   2.84 sec*proc (1 test)
+fts5           =   2.84 sec*proc (1 test)
+incubator      =   2.84 sec*proc (1 test)
+json1          =   2.84 sec*proc (1 test)
+phase1b        =   2.84 sec*proc (1 test)
+sqlite         =   2.84 sec*proc (1 test)
+transaction    =   2.84 sec*proc (1 test)
+wal            =   2.84 sec*proc (1 test)
+
+Total Test time (real) =   2.84 sec
+	Command being timed: "ctest --test-dir cmake-build-debug -L ^P1-SQL-03$ --output-on-failure -V"
+	User time (seconds): 2.33
+	System time (seconds): 0.29
+	Percent of CPU this job got: 91%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:02.85
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 126456
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 83612
+	Voluntary context switches: 420
+	Involuntary context switches: 37
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 3624
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

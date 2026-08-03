@@ -1,0 +1,66 @@
+options levelb
+
+import rxfnsb
+import sqlite_boundary
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P1_SQL_01_FAIL=" || label
+    return 1
+  end
+  return 0
+
+main: procedure = .int
+errors = 0
+db = .binary
+statement = .binary
+
+errors = errors + check(sqliteopen(":memory:", db) = 0, "open")
+db_copy = db
+errors = errors + check(sqliteexec(db_copy, "CREATE TABLE ownership(v INTEGER UNIQUE)") = 0, "copied database handle")
+errors = errors + check(sqliteprepare(db, "SELECT 1", statement) = 0, "prepare")
+statement_copy = statement
+errors = errors + check(sqlitestep(statement_copy) = 100, "copied statement handle")
+errors = errors + check(sqlitereset(statement) = 0, "reset through original")
+
+errors = errors + check(sqliteclose(statement) = -4, "wrong handle kind")
+code = 0
+sqlite_code = 0
+extended_code = 0
+operation = ""
+message = ""
+errors = errors + check(sqliteerrorextended(code, sqlite_code, extended_code, operation, message) = -4 & code = -4 & sqlite_code = 0 & extended_code = 0 & operation = "close" & length(message) > 0, "wrong-kind structured error")
+
+invalid = "00"x as .binary
+errors = errors + check(sqliteclose(invalid) = -2, "invalid handle")
+errors = errors + check(sqliteerrorextended(code, sqlite_code, extended_code, operation, message) = -2 & operation = "close", "invalid-handle structured error")
+
+errors = errors + check(sqliteexec(db, "INSERT INTO ownership VALUES(1),(1)") = -6, "SQLite constraint status")
+errors = errors + check(sqliteerrorextended(code, sqlite_code, extended_code, operation, message) = -6 & code = -6 & sqlite_code > 0 & extended_code >= sqlite_code & operation = "exec" & length(message) > 0, "SQLite extended error")
+
+errors = errors + check(sqlitefinalize(statement) = 0, "finalize")
+errors = errors + check(sqlitestep(statement_copy) = -3, "finalize invalidates copy")
+
+child = .binary
+errors = errors + check(sqliteprepare(db, "SELECT 2", child) = 0, "prepare child")
+errors = errors + check(sqliteclose(db_copy) = 0, "close through copy")
+errors = errors + check(sqlitestep(child) = -3, "parent close invalidates child")
+errors = errors + check(sqliteexec(db, "SELECT 1") = -3, "parent close invalidates original")
+
+cleanup_db = .binary
+cleanup_statement = .binary
+errors = errors + check(sqliteopen(":memory:", cleanup_db) = 0, "cleanup open")
+errors = errors + check(sqliteprepare(cleanup_db, "SELECT 3", cleanup_statement) = 0, "cleanup prepare")
+closed = sqlitecleanup()
+errors = errors + check(closed >= 2, "cleanup close count")
+errors = errors + check(sqlitestep(cleanup_statement) = -3, "cleanup statement closed")
+errors = errors + check(sqliteexec(cleanup_db, "SELECT 1") = -3, "cleanup database closed")
+
+if errors <> 0 then do
+  say "P1_SQL_01_ERRORS=" || errors
+  return 1
+end
+
+say "P1_SQL_01_OK ownership=reference-counted invalid=-2 closed=-3 wrong-kind=-4 sqlite=-6 cleanup=" || closed
+return 0

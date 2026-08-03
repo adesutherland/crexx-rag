@@ -1,0 +1,7 @@
+1e98d74ca5e9569e76871c0a61bd257af4305f6973321679f0e7880c966598f1  docs/evidence/2026-08-03-phase1b/raw/p1-rec-01-commands-and-output.txt
+33a17a13d26eba415aabae213feefe04654603c0fd8fbda0db0921dd23fc5b8b  docs/evidence/2026-08-03-phase1b/raw/p1-rec-01-target.txt
+355eee428fe9884fe469668d327717ec0f7267e666fc1c9629258015e976978f  docs/evidence/2026-08-03-phase1b/raw/p1-rec-01-target-rerun.txt
+514cfc3f3f08db48f96b250216a73c794f3574b102cc55172fc0341cbb61e437  docs/evidence/2026-08-03-phase1b/raw/p1-rec-01-ctest.txt
+11c9ab5a98a0ddf4615c9aaeadb67b1041b75124987cd85864394dde50fe7eae  incubator/phase1b/structured_data/record_boundary.crexx
+0e9d52037574959cf77db58d6db624abd162f6c3d927e4dd9d5bf619981db989  incubator/phase1b/structured_data/record_facade.crexx
+4966f8f993a9a2f3df633f113e56a263db4f7e77bb99630ed239616f187ef5be  incubator/phase1b/structured_data/p1_rec_01.crexx

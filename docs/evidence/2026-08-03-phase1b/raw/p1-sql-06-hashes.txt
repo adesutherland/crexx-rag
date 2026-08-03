@@ -1,0 +1,4 @@
+960ca1dd259d285744585b746258fc45668454501b0d8b80417914865dcb2e6d  docs/evidence/2026-08-03-phase1b/raw/p1-sql-06-commands-and-output.txt
+16863a176dd5aa194687a79171586d467ba232d3eac6a1d1efb3665ee66a3183  docs/evidence/2026-08-03-phase1b/raw/p1-sql-06-target.txt
+1708e26c9d4b4deda693b76b95d4ae6691e26d13d8e9f33b49d80eee43930876  docs/evidence/2026-08-03-phase1b/raw/p1-sql-06-target-rerun.txt
+bea6c30e2d7480b453f575e47dedf4a3d0dd53e3fbac25b0ffa53da2173bea36  docs/evidence/2026-08-03-phase1b/raw/p1-sql-06-ctest.txt

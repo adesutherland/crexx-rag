@@ -1,0 +1,7 @@
+c6a9a57883f22b26d2209b475a3dc5a521881c62f4a206be5564fcc10676fac4  incubator/p1a/sqlite_boundary/sqlite_boundary.c
+f96ea214972d7dcc715a4f96dc9c74397cc7c9cbab825c09532c9df804627b12  incubator/phase1b/rxsqlite/p1_sql_02.crexx
+3f90dd19fc5c3855a4fb6cdc2059d764848dbb22e35587aed354f7e420b56148  docs/evidence/2026-08-03-phase1b/raw/p1-sql-02-commands-and-output.txt
+6dbdbb1c4ab69b3a367e69897cd9e627198500e95d3620c2fd348e1b72b0928f  docs/evidence/2026-08-03-phase1b/raw/p1-sql-02-ctest.txt
+2952568922a426b4c048b26f9363e55e7865895421cc6520e728b4ad6693f015  docs/evidence/2026-08-03-phase1b/raw/p1-sql-02-hashes.txt
+75f5c6f7a628a34fcf89a5f8df717e2098c77d19c09148cfe2c3425bcf26de0e  docs/evidence/2026-08-03-phase1b/raw/p1-sql-02-target-rerun.txt
+1cbb5d0446e2af604e8cfad74a5ea2a7185361e499db300e8e4c564cf368be4e  docs/evidence/2026-08-03-phase1b/raw/p1-sql-02-target.txt

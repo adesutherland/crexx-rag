@@ -1,0 +1,38 @@
+Test project /home/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 26: p1_sql_07
+1/1 Test #26: p1_sql_07 ........................   Passed    7.16 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+P1-SQL-07    =   7.16 sec*proc (1 test)
+address      =   7.16 sec*proc (1 test)
+incubator    =   7.16 sec*proc (1 test)
+phase1b      =   7.16 sec*proc (1 test)
+sqlite       =   7.16 sec*proc (1 test)
+syntax       =   7.16 sec*proc (1 test)
+
+Total Test time (real) =   7.16 sec
+	Command being timed: "ctest --test-dir cmake-build-debug -L ^P1-SQL-07$ --output-on-failure"
+	User time (seconds): 6.54
+	System time (seconds): 0.59
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:07.18
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 145640
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 155567
+	Voluntary context switches: 92
+	Involuntary context switches: 152
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 2176
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

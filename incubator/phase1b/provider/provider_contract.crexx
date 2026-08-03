@@ -1,0 +1,322 @@
+options levelb
+
+namespace provider_contract expose providercapabilities providermessage providerrequest providerusage providererror embeddingrecord providerresult provider validateproviderrequest validateprovideroperation
+
+import rxfnsb
+
+providercapabilities: class
+  _provider = .string
+  _chat = .int
+  _structured = .int
+  _embeddings = .int
+  _batch_embeddings = .int
+  _streaming = .int
+  _cancellation = .int
+  _context_tokens = .int
+  _batch_size = .int
+
+  *: factory
+    arg provider = .string, chat = .int, structured = .int, embeddings = .int, batch_embeddings = .int, streaming = .int, cancellation = .int, context_tokens = .int, batch_size = .int
+    _provider = provider
+    _chat = chat
+    _structured = structured
+    _embeddings = embeddings
+    _batch_embeddings = batch_embeddings
+    _streaming = streaming
+    _cancellation = cancellation
+    _context_tokens = context_tokens
+    _batch_size = batch_size
+    return
+
+  provider: method = .string
+    return _provider
+  chat: method = .int
+    return _chat
+  structured: method = .int
+    return _structured
+  embeddings: method = .int
+    return _embeddings
+  batch_embeddings: method = .int
+    return _batch_embeddings
+  streaming: method = .int
+    return _streaming
+  cancellation: method = .int
+    return _cancellation
+  context_tokens: method = .int
+    return _context_tokens
+  batch_size: method = .int
+    return _batch_size
+
+providermessage: class
+  _role = .string
+  _content = .string
+
+  *: factory
+    arg role = .string, content = .string
+    _role = role
+    _content = content
+    return
+
+  role: method = .string
+    return _role
+  content: method = .string
+    return _content
+
+providerrequest: class
+  _operation = .string
+  _role = .string
+  _model = .string
+  _messages = .providermessage[]
+  _inputs = .string[]
+  _schema = .string
+  _timeout_ms = .int
+  _max_attempts = .int
+  _privacy_class = .string
+  _idempotency_key = .string
+  _request_id = .string
+
+  *: factory
+    arg operation = .string, role = .string, model = .string, messages = .providermessage[], inputs = .string[], schema = .string, timeout_ms = .int, max_attempts = .int, privacy_class = .string, idempotency_key = .string, request_id = .string
+    _operation = operation
+    _role = role
+    _model = model
+    _messages = messages
+    _inputs = inputs
+    _schema = schema
+    _timeout_ms = timeout_ms
+    _max_attempts = max_attempts
+    _privacy_class = privacy_class
+    _idempotency_key = idempotency_key
+    _request_id = request_id
+    return
+
+  operation: method = .string
+    return _operation
+  role: method = .string
+    return _role
+  model: method = .string
+    return _model
+  messages: method = .providermessage[]
+    return _messages
+  inputs: method = .string[]
+    return _inputs
+  schema: method = .string
+    return _schema
+  timeout_ms: method = .int
+    return _timeout_ms
+  max_attempts: method = .int
+    return _max_attempts
+  privacy_class: method = .string
+    return _privacy_class
+  idempotency_key: method = .string
+    return _idempotency_key
+  request_id: method = .string
+    return _request_id
+
+providerusage: class
+  _input_tokens = .int
+  _output_tokens = .int
+  _input_count = .int
+  _cost_microunits = .int
+
+  *: factory
+    arg input_tokens = 0, output_tokens = 0, input_count = 0, cost_microunits = 0
+    _input_tokens = input_tokens
+    _output_tokens = output_tokens
+    _input_count = input_count
+    _cost_microunits = cost_microunits
+    return
+
+  input_tokens: method = .int
+    return _input_tokens
+  output_tokens: method = .int
+    return _output_tokens
+  input_count: method = .int
+    return _input_count
+  cost_microunits: method = .int
+    return _cost_microunits
+
+providererror: class
+  _category = .string
+  _code = .int
+  _http_status = .int
+  _retryable = .int
+  _attempt = .int
+  _message = .string
+
+  *: factory
+    arg category = "none", code = 0, http_status = 0, retryable = 0, attempt = 0, message = ""
+    _category = category
+    _code = code
+    _http_status = http_status
+    _retryable = retryable
+    _attempt = attempt
+    _message = message
+    return
+
+  category: method = .string
+    return _category
+  code: method = .int
+    return _code
+  http_status: method = .int
+    return _http_status
+  retryable: method = .int
+    return _retryable
+  attempt: method = .int
+    return _attempt
+  message: method = .string
+    return _message
+
+embeddingrecord: class
+  _codec = .string
+  _count = .int
+  _payload = .binary
+
+  *: factory
+    arg codec = .string, count = .int, payload = .binary
+    _codec = codec
+    _count = count
+    _payload = payload
+    return
+
+  codec: method = .string
+    return _codec
+  count: method = .int
+    return _count
+  payload: method = .binary
+    return _payload
+  valid: method = .int
+    if _codec \= "f32le-v1" | _count < 0 then return 0
+    return binlength(_payload) = _count * 4
+
+providerresult: class
+  _status = .int
+  _provider = .string
+  _model = .string
+  _request_id = .string
+  _content = .string
+  _finish_reason = .string
+  _embeddings = .embeddingrecord[]
+  _usage = .providerusage
+  _latency_us = .int
+  _error = .providererror
+
+  *: factory
+    vectors = .embeddingrecord[]
+    _status = 0
+    _provider = ""
+    _model = ""
+    _request_id = ""
+    _content = ""
+    _finish_reason = ""
+    _embeddings = vectors
+    _usage = .providerusage()
+    _latency_us = 0
+    _error = .providererror()
+    return
+
+  set_generation: method = .void
+    arg provider = .string, model = .string, request_id = .string, content = .string, finish_reason = .string, usage = .providerusage, latency_us = .int
+    vectors = .embeddingrecord[]
+    _status = 0
+    _provider = provider
+    _model = model
+    _request_id = request_id
+    _content = content
+    _finish_reason = finish_reason
+    _embeddings = vectors
+    _usage = usage
+    _latency_us = latency_us
+    _error = .providererror()
+    return
+
+  set_embeddings: method = .void
+    arg provider = .string, model = .string, request_id = .string, vectors = .embeddingrecord[], usage = .providerusage, latency_us = .int
+    _status = 0
+    _provider = provider
+    _model = model
+    _request_id = request_id
+    _content = ""
+    _finish_reason = "complete"
+    _embeddings = vectors
+    _usage = usage
+    _latency_us = latency_us
+    _error = .providererror()
+    return
+
+  set_failure: method = .void
+    arg provider = .string, model = .string, request_id = .string, error = .providererror
+    vectors = .embeddingrecord[]
+    _status = error.code()
+    _provider = provider
+    _model = model
+    _request_id = request_id
+    _content = ""
+    _finish_reason = "error"
+    _embeddings = vectors
+    _usage = .providerusage()
+    _latency_us = 0
+    _error = error
+    return
+
+  status: method = .int
+    return _status
+  provider: method = .string
+    return _provider
+  model: method = .string
+    return _model
+  request_id: method = .string
+    return _request_id
+  content: method = .string
+    return _content
+  finish_reason: method = .string
+    return _finish_reason
+  embeddings: method = .embeddingrecord[]
+    return _embeddings
+  usage: method = .providerusage
+    return _usage
+  latency_us: method = .int
+    return _latency_us
+  error: method = .providererror
+    return _error
+
+provider: interface
+  capabilities: method = .providercapabilities
+  generate: method = .providerresult
+    arg request = .providerrequest
+  generate_structured: method = .providerresult
+    arg request = .providerrequest
+  embed: method = .providerresult
+    arg request = .providerrequest
+  embed_batch: method = .providerresult
+    arg request = .providerrequest
+  cancel: method = .providerresult
+    arg request_id = .string
+
+validateproviderrequest: procedure = .providererror
+  arg request = .providerrequest
+  operation = request.operation()
+  if operation \= "generate" & operation \= "generate_structured" & operation \= "embed" & operation \= "embed_batch" then return .providererror("invalid_request", -101, 0, 0, 0, "unsupported operation")
+  if request.model() = "" then return .providererror("invalid_request", -101, 0, 0, 0, "model is required")
+  if request.timeout_ms() <= 0 then return .providererror("invalid_request", -101, 0, 0, 0, "timeout must be positive")
+  if request.max_attempts() < 1 | request.max_attempts() > 10 then return .providererror("invalid_request", -101, 0, 0, 0, "max attempts must be from 1 through 10")
+  privacy = request.privacy_class()
+  if privacy \= "local" & privacy \= "restricted" & privacy \= "public" then return .providererror("invalid_request", -101, 0, 0, 0, "privacy class is invalid")
+  if request.idempotency_key() = "" | request.request_id() = "" then return .providererror("invalid_request", -101, 0, 0, 0, "request identity is required")
+  if operation = "generate" | operation = "generate_structured" then do
+    messages = request.messages()
+    if messages.0 < 1 then return .providererror("invalid_request", -101, 0, 0, 0, "generation messages are required")
+  end
+  if operation = "embed" | operation = "embed_batch" then do
+    inputs = request.inputs()
+    if inputs.0 < 1 then return .providererror("invalid_request", -101, 0, 0, 0, "embedding inputs are required")
+  end
+  if operation = "generate_structured" & request.schema() = "" then return .providererror("invalid_request", -101, 0, 0, 0, "structured schema is required")
+  return .providererror()
+
+validateprovideroperation: procedure = .providererror
+  arg request = .providerrequest, expected = .string
+  validation = validateproviderrequest(request)
+  if validation.code() \= 0 then return validation
+  if request.operation() \= expected then return .providererror("invalid_request", -101, 0, 0, 0, "request operation does not match provider method")
+  return .providererror()

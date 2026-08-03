@@ -1,0 +1,90 @@
+options levelb
+
+namespace record_boundary expose typedrow loadrecords recordchecksum
+
+import rxfnsb
+import sqlite_boundary
+
+typedrow: class
+  _sequence = .int
+  _passage = .string
+  _score = .float
+  _note_kind = .string
+  _note = .string
+  _fingerprint = .binary
+
+  *: factory
+    arg sequence = .int, passage = .string, score = .float, note_kind = .string, note = .string, fingerprint = .binary
+    _sequence = sequence
+    _passage = passage
+    _score = score
+    _note_kind = note_kind
+    _note = note
+    _fingerprint = fingerprint
+    return
+
+  sequence: method = .int
+    return _sequence
+  passage: method = .string
+    return _passage
+  score: method = .float
+    return _score
+  note_kind: method = .string
+    return _note_kind
+  note: method = .string
+    return _note
+  fingerprint: method = .binary
+    return _fingerprint
+
+emptyrecords: procedure = .typedrow[]
+  empty = .typedrow[]
+  return empty
+
+loadrecords: procedure = .typedrow[]
+  arg database = .binary, after_sequence = .int, limit = .int
+  records = .typedrow[]
+  if limit <= 0 then return records
+  statement = .binary
+  status = sqliteprepare(database, "SELECT sequence,passage,score,note,fingerprint FROM typed_rows WHERE sequence>?1 ORDER BY sequence LIMIT ?2", statement)
+  if status \= 0 then return records
+  if sqlitebindint(statement, 1, after_sequence) \= 0 | sqlitebindint(statement, 2, limit) \= 0 then do
+    call sqlitefinalize statement
+    return records
+  end
+  row = 0
+  do forever
+    status = sqlitestep(statement)
+    if status = 101 then leave
+    if status \= 100 then do
+      call sqlitefinalize statement
+      return emptyrecords()
+    end
+    sequence = 0
+    passage = ""
+    score = 0.0
+    note_kind = ""
+    note = ""
+    fingerprint = .binary
+    if sqlitecolumnint(statement, 0, sequence) \= 0 then do; call sqlitefinalize statement; return emptyrecords(); end
+    if sqlitecolumntext(statement, 1, passage) \= 0 then do; call sqlitefinalize statement; return emptyrecords(); end
+    if sqlitecolumnreal(statement, 2, score) \= 0 then do; call sqlitefinalize statement; return emptyrecords(); end
+    if sqlitecolumntype(statement, 3, note_kind) \= 0 then do; call sqlitefinalize statement; return emptyrecords(); end
+    if note_kind = "text" then do
+      if sqlitecolumntext(statement, 3, note) \= 0 then do; call sqlitefinalize statement; return emptyrecords(); end
+    end
+    if sqlitecolumnblob(statement, 4, fingerprint) \= 0 then do; call sqlitefinalize statement; return emptyrecords(); end
+    row = row + 1
+    records[row] = .typedrow(sequence, passage, score, note_kind, note, fingerprint)
+  end
+  call sqlitefinalize statement
+  return records
+
+recordchecksum: procedure = .int
+  arg records = .typedrow[]
+  checksum = 0
+  do i = 1 to records.0
+    fingerprint = records[i].fingerprint()
+    checksum = checksum + records[i].sequence() + length(records[i].passage()) + length(records[i].note_kind()) + length(records[i].note()) + binlength(fingerprint)
+    if binlength(fingerprint) > 0 then checksum = checksum + <at..u8>(0) fingerprint + <at..u8>(binlength(fingerprint) - 1) fingerprint
+  end
+  return checksum

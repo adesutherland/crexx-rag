@@ -1,0 +1,14 @@
+source_hashes
+fc5619caab8092b83695cad589dfc37a83f9f899ccccc536a2350119a30b581e  incubator/phase1b/rxpa_consumer/CMakeLists.txt
+3c5d08a6a3578a447298d2c1a54cb1cdc663818f0e7c1c9a3c5fc5cbee48eb48  incubator/phase1b/rxpa_consumer/external_consumer.c
+94ba01bb336579b85ee19fdd1a354cca0dd06aec18b96dbbdfed08287f965ba7  incubator/phase1b/rxpa_consumer/external_consumer.crexx
+06a5e7b7d7e5d7b7a378a3d2dfcff28e261d968f484fa93b6ee97d1e4c9b5c17  cmake/P1Rxpa01.cmake
+
+retained_output_hashes
+1b159c4f87519176b267dc8c810470fb1246dd685a70225aed43140eed215975  docs/evidence/2026-08-03-phase1b/raw/p1-rxpa-01-commands-and-output.txt
+9cb3ba60bedacfe097a9d42cb6bb358fe4bfb659114da1eeffee6628c7059920  docs/evidence/2026-08-03-phase1b/raw/p1-rxpa-01-configure.txt
+5dbe719596ffb41eb79ac264c658157766f8f6cdb9bbba49c5fc9213f3386668  docs/evidence/2026-08-03-phase1b/raw/p1-rxpa-01-ctest.txt
+0b4651a710265b7ba10da37a78041d62896eeaeac3707c5eb149098b00ee1337  docs/evidence/2026-08-03-phase1b/raw/p1-rxpa-01-hashes.txt
+40a08e0ea102a76839cdc8a1e9babf76e6a9a9a175ab0b3fc2d7da166c13d3d2  docs/evidence/2026-08-03-phase1b/raw/p1-rxpa-01-selected-prefix-manifest.txt
+cc862106df138c9dd45e8c6054aa5115fd82ca40a26aabf1177fed8382dc1883  docs/evidence/2026-08-03-phase1b/raw/p1-rxpa-01-target-rerun.txt
+a67d9e9302f2e54e088ecc9fd5ef17cc6e6b4e82e07740a0e0559827121319c0  docs/evidence/2026-08-03-phase1b/raw/p1-rxpa-01-target.txt

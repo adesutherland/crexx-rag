@@ -1,0 +1,114 @@
+[0/1] Re-running CMake...
+-- Using installed CREXX package crexx-1.0.0-beta.3+local.gea25d1720c8d.dirty from /home/adrian/.local
+-- Configuring done (0.3s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/adrian/CLionProjects/crexx-rag/cmake-build-debug
+[0/2] Running P1-SQL-07 optional ADDRESS SQLITE facade proof
+CMake Error at /home/adrian/CLionProjects/crexx-rag/cmake/P1Sql07.cmake:29 (message):
+  noopt module compile failed:
+
+
+
+  Error in rxsqlite_address.crexx @ 40:16 - #FUNCTION_NOT_FOUND: Function was
+  not found., "strip"
+
+  Error in rxsqlite_address.crexx @ 42:12 - #FUNCTION_NOT_FOUND: Function was
+  not found., "word"
+
+  Error in rxsqlite_address.crexx @ 61:8 - #FUNCTION_NOT_FOUND: Function was
+  not found., "words"
+
+  Error in rxsqlite_address.crexx @ 61:29 - #FUNCTION_NOT_FOUND: Function was
+  not found., "words"
+
+  Error in rxsqlite_address.crexx @ 67:48 - #FUNCTION_NOT_FOUND: Function was
+  not found., "word"
+
+  Error in rxsqlite_address.crexx @ 69:8 - #FUNCTION_NOT_FOUND: Function was
+  not found., "words"
+
+  Error in rxsqlite_address.crexx @ 69:39 - #FUNCTION_NOT_FOUND: Function was
+  not found., "lower"
+
+  Error in rxsqlite_address.crexx @ 69:45 - #FUNCTION_NOT_FOUND: Function was
+  not found., "word"
+
+  Error in rxsqlite_address.crexx @ 80:11 - #FUNCTION_NOT_FOUND: Function was
+  not found., "strip"
+
+  Error in rxsqlite_address.crexx @ 80:17 - #FUNCTION_NOT_FOUND: Function was
+  not found., "substr"
+
+  Error in rxsqlite_address.crexx @ 91:14 - #FUNCTION_NOT_FOUND: Function was
+  not found., "lastpos"
+
+  Error in rxsqlite_address.crexx @ 91:32 - #FUNCTION_NOT_FOUND: Function was
+  not found., "upper"
+
+  Error in rxsqlite_address.crexx @ 93:11 - #FUNCTION_NOT_FOUND: Function was
+  not found., "strip"
+
+  Error in rxsqlite_address.crexx @ 93:17 - #FUNCTION_NOT_FOUND: Function was
+  not found., "substr"
+
+  Error in rxsqlite_address.crexx @ 94:40 - #FUNCTION_NOT_FOUND: Function was
+  not found., "strip"
+
+  Error in rxsqlite_address.crexx @ 94:46 - #FUNCTION_NOT_FOUND: Function was
+  not found., "substr"
+
+  Error in rxsqlite_address.crexx @ 187:6 - #FUNCTION_NOT_FOUND: Function was
+  not found., "length"
+
+  Error in rxsqlite_address.crexx @ 187:26 - #FUNCTION_NOT_FOUND: Function
+  was not found., "left"
+
+  Error in rxsqlite_address.crexx @ 187:59 - #FUNCTION_NOT_FOUND: Function
+  was not found., "substr"
+
+  Error in rxsqlite_address.crexx @ 188:6 - #FUNCTION_NOT_FOUND: Function was
+  not found., "length"
+
+  Error in rxsqlite_address.crexx @ 188:26 - #FUNCTION_NOT_FOUND: Function
+  was not found., "left"
+
+  Error in rxsqlite_address.crexx @ 188:50 - #FUNCTION_NOT_FOUND: Function
+  was not found., "right"
+
+  Error in rxsqlite_address.crexx @ 188:84 - #FUNCTION_NOT_FOUND: Function
+  was not found., "substr"
+
+  Error in rxsqlite_address.crexx @ 188:101 - #FUNCTION_NOT_FOUND: Function
+  was not found., "length"
+
+  24 error(s) in source file
+
+
+
+FAILED: [code=1] CMakeFiles/p1_sql_07 /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/CMakeFiles/p1_sql_07 
+cd /home/adrian/CLionProjects/crexx-rag/cmake-build-debug && /snap/clion/481/bin/cmake/linux/x64/bin/cmake -DCPRAG_RXC=/home/adrian/.local/bin/rxc -DCPRAG_RXAS=/home/adrian/.local/bin/rxas -DCPRAG_RXVME=/home/adrian/.local/bin/rxvme -DCPRAG_RXBVM=/home/adrian/.local/bin/rxbvm -DCPRAG_CREXX_BIN_DIR=/home/adrian/.local/bin -DCPRAG_PLUGIN_DIR=/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/bin -DCPRAG_MODULE=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/rxsqlite/rxsqlite_address.crexx -DCPRAG_SOURCE=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/rxsqlite/p1_sql_07.crexx -DCPRAG_WORK_DIR=/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-sql-07 -P /home/adrian/CLionProjects/crexx-rag/cmake/P1Sql07.cmake
+ninja: build stopped: subcommand failed.
+Command exited with non-zero status 1
+	Command being timed: "cmake --build --preset debug --target p1_sql_07"
+	User time (seconds): 1.50
+	System time (seconds): 0.36
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.87
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 119116
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 36322
+	Voluntary context switches: 67
+	Involuntary context switches: 108
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 792
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 1

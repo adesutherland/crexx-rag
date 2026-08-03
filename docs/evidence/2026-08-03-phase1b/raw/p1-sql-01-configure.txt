@@ -1,0 +1,4 @@
+-- Using installed CREXX package crexx-1.0.0-beta.3+local.gea25d1720c8d.dirty from /home/adrian/.local
+-- Configuring done (0.3s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/adrian/CLionProjects/crexx-rag/cmake-build-debug

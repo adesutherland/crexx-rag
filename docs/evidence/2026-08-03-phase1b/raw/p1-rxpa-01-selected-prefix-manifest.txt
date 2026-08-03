@@ -1,0 +1,13 @@
+95999ba9c8c17409aeec6b6247b8848885f4c92362a99dfd9259d44078fe752d  /home/adrian/.local/BUILDINFO
+8a00cc2d7c501252ffd15c0219b9c08e3dd539c7a06372c991607e8f5d7eac22  /home/adrian/.local/include/rxpa/crexxpa.h
+bb0d696e0f9e741a2721ca6a9e5108cc9d302929a8f3e79204a41110b0cbc0cd  /home/adrian/.local/include/crexx_version.h
+663e667b3343900f0e6535add8ee8c3946431eb246dd4cb67f0aa631c3cd6d0b  /home/adrian/.local/include/platform/rxinteger.h
+cfe38b6a94dad0754ca9069469d5b20ecfc3fe9455624877f6b4b41b7189fb64  /home/adrian/.local/lib/cmake/CREXX/CREXXConfig.cmake
+f1e79939dfaba0392f914537e69e0ad7ba208bd0e661cb35004e4ad51c3c1310  /home/adrian/.local/lib/cmake/CREXX/CREXXConfigVersion.cmake
+c6451c376307956053b7a601ba5e4835320c9af287c17ec7ddceff0be4af25d5  /home/adrian/.local/lib/cmake/CREXX/CREXXTargets.cmake
+c00716429bdb07b6b4017fa5c9ba16f8447a713f5cd509de0a1c51c47d8a62d8  /home/adrian/.local/lib/cmake/CREXX/RXPluginFunction.cmake
+c697b747f3847e91770cfd5cf7c31915fc242b641ed2a97b0f590cced98f36d5  /home/adrian/.local/bin/rxc
+53356a61789032a0f11823637661390a00365605d8f3c6b0ade16da7f8447e3b  /home/adrian/.local/bin/rxas
+0ae4cb247aa30d164652db5bb1d1e8b0904efe53930178961d66e7abb29c64e3  /home/adrian/.local/bin/rxvme
+f2218e4f340fb13846df18a6a6116464b2b6f4d3402c697c6a6748668f52a0e7  /home/adrian/.local/bin/rxbvm
+8bb1832b80fd778e552fc96fccdaad9c182155ab4a1df43970b846e4871a2104  /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-rxpa-01/external-build/bin/rx_external_consumer.rxplugin

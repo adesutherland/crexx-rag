@@ -1,0 +1,24 @@
+source=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/rxsqlite/p1_sql_03.crexx
+modules=rx_sqlite_boundary
+noopt compile:
+Warning in p1_sql_03.crexx @ 3:8 - #UNUSED_IMPORT: Import is recognised but not used., "rxfnsb"
+1 warning(s) in source file
+noopt assemble:
+
+noopt/rxvme:
+P1_SQL_03_OK transaction=1 savepoint=1 reuse=5 pages=3 fts5=1 json1=1 foreign_keys=1 wal=wal busy=5 checkpoint=0
+
+noopt/rxbvm:
+P1_SQL_03_OK transaction=1 savepoint=1 reuse=5 pages=3 fts5=1 json1=1 foreign_keys=1 wal=wal busy=5 checkpoint=0
+
+opt compile:
+Warning in p1_sql_03.crexx @ 3:8 - #UNUSED_IMPORT: Import is recognised but not used., "rxfnsb"
+1 warning(s) in source file
+opt assemble:
+
+opt/rxvme:
+P1_SQL_03_OK transaction=1 savepoint=1 reuse=5 pages=3 fts5=1 json1=1 foreign_keys=1 wal=wal busy=5 checkpoint=0
+
+opt/rxbvm:
+P1_SQL_03_OK transaction=1 savepoint=1 reuse=5 pages=3 fts5=1 json1=1 foreign_keys=1 wal=wal busy=5 checkpoint=0
+

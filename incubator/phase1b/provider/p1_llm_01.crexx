@@ -1,0 +1,124 @@
+options levelb
+
+import rxfnsb
+import provider_contract
+import provider_facade
+
+fixtureprovider: class implements .provider
+  *: factory
+    return
+
+  capabilities: method = .providercapabilities
+    return .providercapabilities("fixture", 1, 1, 1, 1, 0, 0, 4096, 16)
+
+  generate: method = .providerresult
+    arg request = .providerrequest
+    result = .providerresult()
+    usage = .providerusage(7, 3, 1, 0)
+    call result.set_generation("fixture", request.model(), request.request_id(), "normalized generation", "stop", usage, 120)
+    return result
+
+  generate_structured: method = .providerresult
+    arg request = .providerrequest
+    result = .providerresult()
+    usage = .providerusage(8, 4, 1, 0)
+    call result.set_generation("fixture", request.model(), request.request_id(), '{"answer":"structured"}', "stop", usage, 140)
+    return result
+
+  embed: method = .providerresult
+    arg request = .providerrequest
+    payload = .binary
+    call binresize payload, 8
+    <at..f32>(0) payload = 0.25
+    <at..f32>(4) payload = -0.5
+    vectors = .embeddingrecord[]
+    vectors[1] = .embeddingrecord("f32le-v1", 2, payload)
+    result = .providerresult()
+    call result.set_embeddings("fixture", request.model(), request.request_id(), vectors, .providerusage(2, 0, 1, 0), 80)
+    return result
+
+  embed_batch: method = .providerresult
+    arg request = .providerrequest
+    inputs = request.inputs()
+    vectors = .embeddingrecord[]
+    do i = 1 to inputs.0
+      payload = .binary
+      call binresize payload, 4
+      <at..f32>(0) payload = i
+      vectors[i] = .embeddingrecord("f32le-v1", 1, payload)
+    end
+    result = .providerresult()
+    call result.set_embeddings("fixture", request.model(), request.request_id(), vectors, .providerusage(inputs.0 * 2, 0, inputs.0, 0), 90)
+    return result
+
+  cancel: method = .providerresult
+    arg request_id = .string
+    result = .providerresult()
+    call result.set_failure("fixture", "", request_id, .providererror("unsupported", -120, 0, 0, 0, "cancellation is not supported"))
+    return result
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P1_LLM_01_FAIL=" || label
+    return 1
+  end
+  return 0
+
+main: procedure = .int
+errors = 0
+messages = .providermessage[]
+messages[1] = .providermessage("system", "Return a concise result")
+messages[2] = .providermessage("user", "Hello")
+inputs = .string[]
+inputs[1] = "alpha"
+request = .providerrequest("generate", "advisory", "fixture-model", messages, inputs, "", 1000, 2, "local", "idem-001", "req-001")
+validation = validateproviderrequest(request)
+errors = errors + check(validation.code() = 0, "valid normalized request")
+errors = errors + check(validateprovideroperation(request, "generate").code() = 0, "matching method operation")
+errors = errors + check(validateprovideroperation(request, "embed").code() = -101, "mismatched method operation")
+
+facade = .normalizedproviderfacade(.fixtureprovider())
+capabilities = facade.capabilities()
+errors = errors + check(capabilities.provider() = "fixture" & capabilities.chat() = 1 & capabilities.structured() = 1 & capabilities.embeddings() = 1 & capabilities.batch_embeddings() = 1, "capability discovery")
+errors = errors + check(capabilities.streaming() = 0 & capabilities.cancellation() = 0 & capabilities.context_tokens() = 4096 & capabilities.batch_size() = 16, "capability limits")
+
+generation = facade.generate(request)
+generation_usage = generation.usage()
+errors = errors + check(generation.status() = 0 & generation.provider() = "fixture" & generation.model() = "fixture-model" & generation.request_id() = "req-001", "normalized generation identity")
+errors = errors + check(generation.content() = "normalized generation" & generation.finish_reason() = "stop" & generation.latency_us() = 120, "normalized generation result")
+errors = errors + check(generation_usage.input_tokens() = 7 & generation_usage.output_tokens() = 3 & generation_usage.input_count() = 1, "normalized usage")
+
+structured_request = .providerrequest("generate_structured", "extractor", "fixture-model", messages, inputs, '{"type":"object"}', 1000, 1, "restricted", "idem-002", "req-002")
+errors = errors + check(validateproviderrequest(structured_request).code() = 0, "structured request validation")
+structured = facade.generate_structured(structured_request)
+errors = errors + check(structured.status() = 0 & structured.content() = '{"answer":"structured"}', "structured normalized result")
+
+embed_request = .providerrequest("embed", "embedding", "fixture-embed", messages, inputs, "", 1000, 2, "local", "idem-003", "req-003")
+embedded = facade.embed(embed_request)
+vectors = embedded.embeddings()
+vector_payload = vectors[1].payload()
+errors = errors + check(embedded.status() = 0 & vectors.0 = 1 & vectors[1].valid() = 1 & vectors[1].count() = 2, "single embedding result")
+errors = errors + check(<at..f32>(0) vector_payload = 0.25 & <at..f32>(4) vector_payload = -0.5, "single embedding payload")
+
+inputs[2] = "beta"
+batch_request = .providerrequest("embed_batch", "embedding", "fixture-embed", messages, inputs, "", 1000, 2, "public", "idem-004", "req-004")
+batch = facade.embed_batch(batch_request)
+batch_vectors = batch.embeddings()
+batch_usage = batch.usage()
+errors = errors + check(batch.status() = 0 & batch_vectors.0 = 2 & batch_usage.input_count() = 2, "batch embedding result")
+
+cancelled = facade.cancel("req-004")
+cancel_error = cancelled.error()
+errors = errors + check(cancelled.status() = -120 & cancel_error.category() = "unsupported" & cancel_error.retryable() = 0, "unsupported cancellation result")
+
+bad = .providerrequest("unknown", "answerer", "", messages, inputs, "", 0, 0, "secret", "", "")
+bad_error = validateproviderrequest(bad)
+errors = errors + check(bad_error.code() = -101 & bad_error.category() = "invalid_request" & bad_error.retryable() = 0, "invalid request result")
+
+if errors \= 0 then do
+  say "P1_LLM_01_ERRORS=" || errors
+  return 1
+end
+say "P1_LLM_01_OK contract=provider-neutral levelb=1 levelg=1 chat=1 structured=1 embeddings=1 batch=1 streaming=unsupported cancellation=unsupported usage=typed errors=typed"
+return 0

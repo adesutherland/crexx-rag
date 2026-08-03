@@ -55,6 +55,7 @@ typedef struct handle_payload {
 typedef struct error_state {
     int code;
     int sqlite_code;
+    int sqlite_extended_code;
     char operation[64];
     char message[768];
 } error_state;
@@ -81,6 +82,7 @@ static int fail_with(int code, int sqlite_code, const char *operation,
                      const char *message) {
     last_error.code = code;
     last_error.sqlite_code = sqlite_code;
+    last_error.sqlite_extended_code = sqlite_code;
     snprintf(last_error.operation, sizeof(last_error.operation), "%s",
              operation ? operation : "unknown");
     snprintf(last_error.message, sizeof(last_error.message), "%s",
@@ -92,7 +94,12 @@ static int fail_sqlite(sqlite3 *database, int sqlite_code,
                        const char *operation) {
     const char *message = database ? sqlite3_errmsg(database)
                                    : sqlite3_errstr(sqlite_code);
-    return fail_with(SQL_BOUNDARY_SQLITE_ERROR, sqlite_code, operation, message);
+    int status = fail_with(SQL_BOUNDARY_SQLITE_ERROR, sqlite_code, operation,
+                           message);
+    if (database) {
+        last_error.sqlite_extended_code = sqlite3_extended_errcode(database);
+    }
+    return status;
 }
 
 static int handle_is_registered(const boundary_handle *candidate) {
@@ -292,6 +299,54 @@ PROCEDURE(sqlite_open_boundary) {
     RESETSIGNAL
 }
 
+PROCEDURE(sqlite_open_mode_boundary) {
+    sqlite3 *database = NULL;
+    boundary_handle *handle;
+    const char *mode;
+    int flags;
+    int result;
+
+    if (NUM_ARGS != 3) RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "3 arguments expected")
+    clear_error();
+    SETNATIVEPAYLOAD(ARG(2), NULL, 0, NULL, 0);
+    mode = GETSTRING(ARG(1));
+    if (strcmp(mode, "readonly") == 0) {
+        flags = SQLITE_OPEN_READONLY;
+    } else if (strcmp(mode, "readwrite") == 0) {
+        flags = SQLITE_OPEN_READWRITE;
+    } else if (strcmp(mode, "create") == 0) {
+        flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
+    } else {
+        SETINT(RETURN,
+               fail_with(SQL_BOUNDARY_INVALID_ARGUMENT, 0, "open_mode",
+                         "open mode must be readonly, readwrite, or create"));
+        RESETSIGNAL
+        return;
+    }
+
+    result = sqlite3_open_v2(GETSTRING(ARG(0)), &database, flags, NULL);
+    if (result != SQLITE_OK) {
+        result = fail_sqlite(database, result, "open_mode");
+        if (database) sqlite3_close_v2(database);
+        SETINT(RETURN, result);
+        RESETSIGNAL
+        return;
+    }
+
+    handle = new_handle(HANDLE_DATABASE);
+    if (!handle) {
+        sqlite3_close_v2(database);
+        SETINT(RETURN,
+               fail_with(SQL_BOUNDARY_NO_MEMORY, SQLITE_NOMEM, "open_mode",
+                         "could not allocate database handle"));
+        RESETSIGNAL
+        return;
+    }
+    handle->resource.database = database;
+    SETINT(RETURN, publish_handle(ARG(2), handle));
+    RESETSIGNAL
+}
+
 PROCEDURE(sqlite_close_boundary) {
     boundary_handle *handle;
     int status;
@@ -317,11 +372,259 @@ PROCEDURE(sqlite_exec_boundary) {
             int status = fail_with(SQL_BOUNDARY_SQLITE_ERROR, result, "exec",
                                    error_message ? error_message :
                                    sqlite3_errmsg(handle->resource.database));
+            last_error.sqlite_extended_code =
+                sqlite3_extended_errcode(handle->resource.database);
             sqlite3_free(error_message);
             result = status;
         } else {
             result = SQL_BOUNDARY_OK;
         }
+    }
+    SETINT(RETURN, result);
+    RESETSIGNAL
+}
+
+PROCEDURE(sqlite_capability_boundary) {
+    boundary_handle *handle;
+    sqlite3_stmt *probe = NULL;
+    const char *name;
+    int available = 0;
+    int result;
+    if (NUM_ARGS != 3) RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "3 arguments expected")
+    clear_error();
+    result = get_handle(ARG(0), HANDLE_DATABASE, "capability", &handle);
+    if (result == SQL_BOUNDARY_OK) {
+        name = GETSTRING(ARG(1));
+        if (strcmp(name, "fts5") == 0) {
+            available = sqlite3_compileoption_used("ENABLE_FTS5") != 0;
+        } else if (strcmp(name, "json1") == 0) {
+            result = sqlite3_prepare_v2(handle->resource.database,
+                                        "SELECT json_valid('null')", -1,
+                                        &probe, NULL);
+            available = result == SQLITE_OK;
+            if (probe) sqlite3_finalize(probe);
+            result = SQL_BOUNDARY_OK;
+        } else {
+            result = fail_with(SQL_BOUNDARY_INVALID_ARGUMENT, 0, "capability",
+                               "unknown SQLite capability name");
+        }
+        if (result == SQL_BOUNDARY_OK) SETINT(ARG(2), available);
+    }
+    SETINT(RETURN, result);
+    RESETSIGNAL
+}
+
+PROCEDURE(sqlite_busy_timeout_boundary) {
+    boundary_handle *handle;
+    rxinteger milliseconds;
+    int result;
+    if (NUM_ARGS != 2) RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "2 arguments expected")
+    clear_error();
+    result = get_handle(ARG(0), HANDLE_DATABASE, "busy_timeout", &handle);
+    milliseconds = GETINT(ARG(1));
+    if (result == SQL_BOUNDARY_OK &&
+        (milliseconds < 0 || milliseconds > INT_MAX)) {
+        result = fail_with(SQL_BOUNDARY_INVALID_ARGUMENT, 0, "busy_timeout",
+                           "timeout milliseconds are outside the supported range");
+    }
+    if (result == SQL_BOUNDARY_OK) {
+        result = sqlite3_busy_timeout(handle->resource.database,
+                                      (int)milliseconds);
+        if (result != SQLITE_OK) {
+            result = fail_sqlite(handle->resource.database, result,
+                                 "busy_timeout");
+        }
+    }
+    SETINT(RETURN, result);
+    RESETSIGNAL
+}
+
+PROCEDURE(sqlite_checkpoint_boundary) {
+    boundary_handle *handle;
+    const char *mode_name;
+    int mode;
+    int log_frames = 0;
+    int checkpointed_frames = 0;
+    int result;
+    if (NUM_ARGS != 4) RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "4 arguments expected")
+    clear_error();
+    result = get_handle(ARG(0), HANDLE_DATABASE, "checkpoint", &handle);
+    if (result == SQL_BOUNDARY_OK) {
+        mode_name = GETSTRING(ARG(1));
+        if (strcmp(mode_name, "passive") == 0) mode = SQLITE_CHECKPOINT_PASSIVE;
+        else if (strcmp(mode_name, "full") == 0) mode = SQLITE_CHECKPOINT_FULL;
+        else if (strcmp(mode_name, "restart") == 0) mode = SQLITE_CHECKPOINT_RESTART;
+        else if (strcmp(mode_name, "truncate") == 0) mode = SQLITE_CHECKPOINT_TRUNCATE;
+        else {
+            mode = SQLITE_CHECKPOINT_PASSIVE;
+            result = fail_with(SQL_BOUNDARY_INVALID_ARGUMENT, 0, "checkpoint",
+                               "checkpoint mode must be passive, full, restart, or truncate");
+        }
+    }
+    if (result == SQL_BOUNDARY_OK) {
+        result = sqlite3_wal_checkpoint_v2(handle->resource.database, NULL, mode,
+                                           &log_frames,
+                                           &checkpointed_frames);
+        if (result != SQLITE_OK) {
+            result = fail_sqlite(handle->resource.database, result,
+                                 "checkpoint");
+        } else {
+            SETINT(ARG(2), log_frames);
+            SETINT(ARG(3), checkpointed_frames);
+        }
+    }
+    SETINT(RETURN, result);
+    RESETSIGNAL
+}
+
+PROCEDURE(sqlite_backup_boundary) {
+    boundary_handle *source;
+    boundary_handle *destination;
+    sqlite3_backup *backup = NULL;
+    rxinteger pages_per_step;
+    rxinteger busy_retries;
+    rxinteger sleep_milliseconds;
+    int step_result = SQLITE_OK;
+    int finish_result;
+    int retries = 0;
+    int remaining = 0;
+    int page_count = 0;
+    int result;
+
+    if (NUM_ARGS != 7) RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "7 arguments expected")
+    clear_error();
+    result = get_handle(ARG(0), HANDLE_DATABASE, "backup", &source);
+    if (result == SQL_BOUNDARY_OK) {
+        result = get_handle(ARG(1), HANDLE_DATABASE, "backup", &destination);
+    }
+    pages_per_step = GETINT(ARG(2));
+    busy_retries = GETINT(ARG(3));
+    sleep_milliseconds = GETINT(ARG(4));
+    if (result == SQL_BOUNDARY_OK &&
+        (pages_per_step <= 0 || pages_per_step > INT_MAX ||
+         busy_retries < 0 || busy_retries > INT_MAX ||
+         sleep_milliseconds < 0 || sleep_milliseconds > INT_MAX)) {
+        result = fail_with(SQL_BOUNDARY_INVALID_ARGUMENT, 0, "backup",
+                           "backup bounds are outside the supported range");
+    }
+    if (result == SQL_BOUNDARY_OK && source == destination) {
+        result = fail_with(SQL_BOUNDARY_INVALID_ARGUMENT, 0, "backup",
+                           "source and destination must be different handles");
+    }
+    if (result == SQL_BOUNDARY_OK) {
+        backup = sqlite3_backup_init(destination->resource.database, "main",
+                                     source->resource.database, "main");
+        if (!backup) {
+            result = fail_sqlite(destination->resource.database,
+                                 sqlite3_errcode(destination->resource.database),
+                                 "backup_init");
+        }
+    }
+    if (result == SQL_BOUNDARY_OK) {
+        for (;;) {
+            step_result = sqlite3_backup_step(backup, (int)pages_per_step);
+            remaining = sqlite3_backup_remaining(backup);
+            page_count = sqlite3_backup_pagecount(backup);
+            if (step_result == SQLITE_DONE) break;
+            if (step_result == SQLITE_OK) continue;
+            if ((step_result == SQLITE_BUSY || step_result == SQLITE_LOCKED) &&
+                retries < (int)busy_retries) {
+                retries++;
+                if (sleep_milliseconds > 0) {
+                    sqlite3_sleep((int)sleep_milliseconds);
+                }
+                continue;
+            }
+            result = fail_sqlite(destination->resource.database, step_result,
+                                 "backup_step");
+            break;
+        }
+    }
+    if (backup) {
+        finish_result = sqlite3_backup_finish(backup);
+        if (result == SQL_BOUNDARY_OK && finish_result != SQLITE_OK) {
+            result = fail_sqlite(destination->resource.database, finish_result,
+                                 "backup_finish");
+        }
+    }
+    if (result == SQL_BOUNDARY_OK) {
+        SETINT(ARG(5), remaining);
+        SETINT(ARG(6), page_count);
+    }
+    SETINT(RETURN, result);
+    RESETSIGNAL
+}
+
+PROCEDURE(sqlite_integrity_boundary) {
+    boundary_handle *handle;
+    sqlite3_stmt *statement = NULL;
+    const char *mode;
+    char sql[96];
+    char details[4096];
+    size_t used = 0;
+    rxinteger max_errors;
+    int rows = 0;
+    int result;
+
+    if (NUM_ARGS != 5) RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "5 arguments expected")
+    clear_error();
+    result = get_handle(ARG(0), HANDLE_DATABASE, "integrity", &handle);
+    mode = GETSTRING(ARG(1));
+    max_errors = GETINT(ARG(2));
+    if (result == SQL_BOUNDARY_OK &&
+        strcmp(mode, "quick") != 0 && strcmp(mode, "full") != 0) {
+        result = fail_with(SQL_BOUNDARY_INVALID_ARGUMENT, 0, "integrity",
+                           "integrity mode must be quick or full");
+    }
+    if (result == SQL_BOUNDARY_OK &&
+        (max_errors <= 0 || max_errors > 1000)) {
+        result = fail_with(SQL_BOUNDARY_INVALID_ARGUMENT, 0, "integrity",
+                           "maximum integrity errors must be from 1 through 1000");
+    }
+    if (result == SQL_BOUNDARY_OK) {
+        snprintf(sql, sizeof(sql), "PRAGMA %s_check(%lld)",
+                 strcmp(mode, "quick") == 0 ? "quick" : "integrity",
+                 (long long)max_errors);
+        result = sqlite3_prepare_v2(handle->resource.database, sql, -1,
+                                    &statement, NULL);
+        if (result != SQLITE_OK) {
+            result = fail_sqlite(handle->resource.database, result,
+                                 "integrity_prepare");
+        }
+    }
+    details[0] = '\0';
+    while (result == SQL_BOUNDARY_OK &&
+           (result = sqlite3_step(statement)) == SQLITE_ROW) {
+        const unsigned char *row = sqlite3_column_text(statement, 0);
+        size_t length = row ? strlen((const char *)row) : 0;
+        if (rows > 0 && used + 1 < sizeof(details)) details[used++] = '\n';
+        if (length > sizeof(details) - used - 1) {
+            length = sizeof(details) - used - 1;
+        }
+        if (length > 0) {
+            memcpy(details + used, row, length);
+            used += length;
+        }
+        details[used] = '\0';
+        rows++;
+        result = SQL_BOUNDARY_OK;
+    }
+    if (statement) {
+        int step_status = result;
+        int finalize_status = sqlite3_finalize(statement);
+        statement = NULL;
+        if (step_status == SQLITE_DONE) {
+            result = finalize_status == SQLITE_OK ? SQL_BOUNDARY_OK :
+                     fail_sqlite(handle->resource.database, finalize_status,
+                                 "integrity_finalize");
+        } else if (step_status != SQL_BOUNDARY_OK) {
+            result = fail_sqlite(handle->resource.database, step_status,
+                                 "integrity_step");
+        }
+    }
+    if (result == SQL_BOUNDARY_OK) {
+        SETINT(ARG(3), rows == 1 && strcmp(details, "ok") == 0);
+        SETSTRING(ARG(4), details);
     }
     SETINT(RETURN, result);
     RESETSIGNAL
@@ -394,6 +697,28 @@ PROCEDURE(sqlite_bind_null_boundary) {
     RESETSIGNAL
 }
 
+PROCEDURE(sqlite_bind_parameter_index_boundary) {
+    boundary_handle *handle;
+    int index;
+    int result;
+    if (NUM_ARGS != 3) RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "3 arguments expected")
+    clear_error();
+    result = get_statement(ARG(0), "bind_parameter_index", &handle);
+    if (result == SQL_BOUNDARY_OK) {
+        index = sqlite3_bind_parameter_index(handle->resource.statement,
+                                             GETSTRING(ARG(1)));
+        if (index == 0) {
+            result = fail_with(SQL_BOUNDARY_INVALID_ARGUMENT, 0,
+                               "bind_parameter_index",
+                               "named parameter does not exist");
+        } else {
+            SETINT(ARG(2), index);
+        }
+    }
+    SETINT(RETURN, result);
+    RESETSIGNAL
+}
+
 PROCEDURE(sqlite_bind_int_boundary) {
     boundary_handle *handle;
     int result;
@@ -456,8 +781,11 @@ PROCEDURE(sqlite_bind_blob_boundary) {
             result = fail_with(SQL_BOUNDARY_TYPE_MISMATCH, 0, "bind_blob",
                                "value is not an ordinary bounded binary value");
         } else {
+            static const unsigned char empty_blob = 0;
+            const void *sqlite_bytes = length == 0 ? &empty_blob : bytes;
             result = sqlite3_bind_blob(handle->resource.statement,
-                                       (int)GETINT(ARG(1)), bytes, (int)length,
+                                       (int)GETINT(ARG(1)), sqlite_bytes,
+                                       (int)length,
                                        SQLITE_TRANSIENT);
             if (result != SQLITE_OK) result = fail_sqlite(sqlite3_db_handle(handle->resource.statement), result, "bind_blob");
         }
@@ -631,6 +959,17 @@ PROCEDURE(sqlite_error_boundary) {
     RESETSIGNAL
 }
 
+PROCEDURE(sqlite_error_extended_boundary) {
+    if (NUM_ARGS != 5) RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "5 arguments expected")
+    SETINT(ARG(0), last_error.code);
+    SETINT(ARG(1), last_error.sqlite_code);
+    SETINT(ARG(2), last_error.sqlite_extended_code);
+    SETSTRING(ARG(3), last_error.operation);
+    SETSTRING(ARG(4), last_error.message);
+    SETINT(RETURN, last_error.code);
+    RESETSIGNAL
+}
+
 static void append_json_char(char *output, size_t capacity, size_t *used, char ch) {
     if (*used + 1 < capacity) output[(*used)++] = ch;
 }
@@ -666,8 +1005,10 @@ PROCEDURE(sqlite_error_json_boundary) {
     char number[64];
     if (NUM_ARGS != 0) RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "no arguments expected")
     append_json_char(json, sizeof(json), &used, '{');
-    snprintf(number, sizeof(number), "\"code\":%d,\"sqlite_code\":%d,\"operation\":",
-             last_error.code, last_error.sqlite_code);
+    snprintf(number, sizeof(number),
+             "\"code\":%d,\"sqlite_code\":%d,\"sqlite_extended_code\":%d,\"operation\":",
+             last_error.code, last_error.sqlite_code,
+             last_error.sqlite_extended_code);
     if (used + strlen(number) < sizeof(json)) {
         memcpy(json + used, number, strlen(number));
         used += strlen(number);
@@ -726,16 +1067,30 @@ FINALIZER(sqlite_boundary_shutdown)
 LOADFUNCS
     ADDPROC(sqlite_open_boundary, "sqlite_boundary.sqliteopen", "b", ".int",
             "path=.string, expose handle=.binary");
+    ADDPROC(sqlite_open_mode_boundary, "sqlite_boundary.sqliteopenmode", "b", ".int",
+            "path=.string, mode=.string, expose handle=.binary");
     ADDPROC(sqlite_close_boundary, "sqlite_boundary.sqliteclose", "b", ".int",
             "handle=.binary");
     ADDPROC(sqlite_exec_boundary, "sqlite_boundary.sqliteexec", "b", ".int",
             "handle=.binary, sql=.string");
+    ADDPROC(sqlite_capability_boundary, "sqlite_boundary.sqlitecapability", "b", ".int",
+            "handle=.binary, name=.string, expose available=.int");
+    ADDPROC(sqlite_busy_timeout_boundary, "sqlite_boundary.sqlitebusytimeout", "b", ".int",
+            "handle=.binary, milliseconds=.int");
+    ADDPROC(sqlite_checkpoint_boundary, "sqlite_boundary.sqlitecheckpoint", "b", ".int",
+            "handle=.binary, mode=.string, expose log_frames=.int, expose checkpointed_frames=.int");
+    ADDPROC(sqlite_backup_boundary, "sqlite_boundary.sqlitebackup", "b", ".int",
+            "source=.binary, destination=.binary, pages_per_step=.int, busy_retries=.int, sleep_milliseconds=.int, expose remaining=.int, expose page_count=.int");
+    ADDPROC(sqlite_integrity_boundary, "sqlite_boundary.sqliteintegrity", "b", ".int",
+            "handle=.binary, mode=.string, max_errors=.int, expose ok=.int, expose details=.string");
     ADDPROC(sqlite_prepare_boundary, "sqlite_boundary.sqliteprepare", "b", ".int",
             "handle=.binary, sql=.string, expose statement=.binary");
     ADDPROC(sqlite_finalize_boundary, "sqlite_boundary.sqlitefinalize", "b", ".int",
             "statement=.binary");
     ADDPROC(sqlite_bind_null_boundary, "sqlite_boundary.sqlitebindnull", "b", ".int",
             "statement=.binary, index=.int");
+    ADDPROC(sqlite_bind_parameter_index_boundary, "sqlite_boundary.sqlitebindindex", "b", ".int",
+            "statement=.binary, name=.string, expose index=.int");
     ADDPROC(sqlite_bind_int_boundary, "sqlite_boundary.sqlitebindint", "b", ".int",
             "statement=.binary, index=.int, value=.int");
     ADDPROC(sqlite_bind_real_boundary, "sqlite_boundary.sqlitebindreal", "b", ".int",
@@ -764,6 +1119,8 @@ LOADFUNCS
             "statement=.binary, column=.int, expose value=.binary");
     ADDPROC(sqlite_error_boundary, "sqlite_boundary.sqliteerror", "b", ".int",
             "expose code=.int, expose sqlite_code=.int, expose operation=.string, expose message=.string");
+    ADDPROC(sqlite_error_extended_boundary, "sqlite_boundary.sqliteerrorextended", "b", ".int",
+            "expose code=.int, expose sqlite_code=.int, expose sqlite_extended_code=.int, expose operation=.string, expose message=.string");
     ADDPROC(sqlite_error_json_boundary, "sqlite_boundary.sqliteerrorjson", "b", ".string", "");
     ADDPROC(sqlite_cleanup_boundary, "sqlite_boundary.sqlitecleanup", "b", ".int", "");
 ENDLOADFUNCS

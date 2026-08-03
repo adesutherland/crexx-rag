@@ -1,0 +1,50 @@
+contract=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/provider/provider_contract.crexx
+adapter=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/provider/openai_compatible_provider.crexx
+source=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/provider/p1_llm_02.crexx
+local_llama_server=unavailable reason=llama-server-executable-not-found
+hosted_calls=0
+noopt contract compile:
+Warning in provider_contract.crexx @ 211:5 - #SHADOWING: Symbol shadows an earlier declaration., "_embeddings"
+1 warning(s) in source file
+noopt contract assemble:
+
+noopt adapter compile:
+noopt adapter assemble:
+
+noopt test compile:
+noopt test assemble:
+
+opt contract compile:
+Warning in provider_contract.crexx @ 211:5 - #SHADOWING: Symbol shadows an earlier declaration., "_embeddings"
+1 warning(s) in source file
+opt contract assemble:
+
+opt adapter compile:
+opt adapter assemble:
+
+opt test compile:
+opt test assemble:
+
+noopt/rxvme:
+P1_LLM_02_OK endpoint=127.0.0.1:18992/v1 generation=1 embedding=1 dimensions=3 usage=typed hosted=0
+
+noopt/rxbvm:
+P1_LLM_02_OK endpoint=127.0.0.1:18992/v1 generation=1 embedding=1 dimensions=3 usage=typed hosted=0
+
+opt/rxvme:
+P1_LLM_02_OK endpoint=127.0.0.1:18992/v1 generation=1 embedding=1 dimensions=3 usage=typed hosted=0
+
+opt/rxbvm:
+P1_LLM_02_OK endpoint=127.0.0.1:18992/v1 generation=1 embedding=1 dimensions=3 usage=typed hosted=0
+
+loopback:
+READY 18992
+REQUEST /v1/chat/completions
+REQUEST /v1/embeddings
+REQUEST /v1/chat/completions
+REQUEST /v1/embeddings
+REQUEST /v1/chat/completions
+REQUEST /v1/embeddings
+REQUEST /v1/chat/completions
+REQUEST /v1/embeddings
+result=0

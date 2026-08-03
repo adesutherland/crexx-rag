@@ -1,0 +1,28 @@
+source=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/structured_data/p1_json_02.crexx
+modules=library
+noopt compile:
+noopt assemble:
+
+noopt/rxvme:
+P1_JSON_02_PROVIDER legacy_us=16589 parse_us=392 indexed_access_us=647 bytes=713 dimension=64 checksum=-12.75
+P1_JSON_02_EVIDENCE legacy_us=57624 indexed_parse_us=1614 indexed_access_us=810 pages=4 rows=32 checksum=2677
+P1_JSON_02_OK same_session=1 semantic_equal=1 provider=1 paged_evidence=1 parser=installed-rxjson
+
+noopt/rxbvm:
+P1_JSON_02_PROVIDER legacy_us=14739 parse_us=246 indexed_access_us=501 bytes=713 dimension=64 checksum=-12.75
+P1_JSON_02_EVIDENCE legacy_us=51355 indexed_parse_us=1499 indexed_access_us=766 pages=4 rows=32 checksum=2677
+P1_JSON_02_OK same_session=1 semantic_equal=1 provider=1 paged_evidence=1 parser=installed-rxjson
+
+opt compile:
+opt assemble:
+
+opt/rxvme:
+P1_JSON_02_PROVIDER legacy_us=16800 parse_us=386 indexed_access_us=707 bytes=713 dimension=64 checksum=-12.75
+P1_JSON_02_EVIDENCE legacy_us=55398 indexed_parse_us=1644 indexed_access_us=778 pages=4 rows=32 checksum=2677
+P1_JSON_02_OK same_session=1 semantic_equal=1 provider=1 paged_evidence=1 parser=installed-rxjson
+
+opt/rxbvm:
+P1_JSON_02_PROVIDER legacy_us=15367 parse_us=278 indexed_access_us=516 bytes=713 dimension=64 checksum=-12.75
+P1_JSON_02_EVIDENCE legacy_us=55612 indexed_parse_us=1607 indexed_access_us=826 pages=4 rows=32 checksum=2677
+P1_JSON_02_OK same_session=1 semantic_equal=1 provider=1 paged_evidence=1 parser=installed-rxjson
+

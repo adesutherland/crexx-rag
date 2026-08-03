@@ -1,0 +1,34 @@
+record_module=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/structured_data/record_boundary.crexx
+facade_module=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/structured_data/record_facade.crexx
+source=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/structured_data/p1_rec_01.crexx
+rxjson_imports=0
+noopt Level-B record module compile:
+noopt Level-B record module assemble:
+
+noopt Level-G facade compile:
+noopt Level-G facade assemble:
+
+noopt crossing test compile:
+noopt crossing test assemble:
+
+noopt-rxvme:
+P1_REC_01_OK plugin_columns=typed levelb_records=2 levelg_records=4 pages=2,2,2,0 blob_bytes=8 corpus_json_bytes=0 checksum=676
+
+noopt-rxbvm:
+P1_REC_01_OK plugin_columns=typed levelb_records=2 levelg_records=4 pages=2,2,2,0 blob_bytes=8 corpus_json_bytes=0 checksum=676
+
+opt Level-B record module compile:
+opt Level-B record module assemble:
+
+opt Level-G facade compile:
+opt Level-G facade assemble:
+
+opt crossing test compile:
+opt crossing test assemble:
+
+opt-rxvme:
+P1_REC_01_OK plugin_columns=typed levelb_records=2 levelg_records=4 pages=2,2,2,0 blob_bytes=8 corpus_json_bytes=0 checksum=676
+
+opt-rxbvm:
+P1_REC_01_OK plugin_columns=typed levelb_records=2 levelg_records=4 pages=2,2,2,0 blob_bytes=8 corpus_json_bytes=0 checksum=676
+

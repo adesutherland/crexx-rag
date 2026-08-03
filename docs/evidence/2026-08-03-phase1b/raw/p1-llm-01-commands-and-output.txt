@@ -1,0 +1,37 @@
+contract=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/provider/provider_contract.crexx
+facade=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/provider/provider_facade.crexx
+source=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/provider/p1_llm_01.crexx
+noopt Level-B contract compile:
+Warning in provider_contract.crexx @ 211:5 - #SHADOWING: Symbol shadows an earlier declaration., "_embeddings"
+1 warning(s) in source file
+noopt Level-B contract assemble:
+
+noopt Level-G facade compile:
+noopt Level-G facade assemble:
+
+noopt contract test compile:
+noopt contract test assemble:
+
+noopt/rxvme:
+P1_LLM_01_OK contract=provider-neutral levelb=1 levelg=1 chat=1 structured=1 embeddings=1 batch=1 streaming=unsupported cancellation=unsupported usage=typed errors=typed
+
+noopt/rxbvm:
+P1_LLM_01_OK contract=provider-neutral levelb=1 levelg=1 chat=1 structured=1 embeddings=1 batch=1 streaming=unsupported cancellation=unsupported usage=typed errors=typed
+
+opt Level-B contract compile:
+Warning in provider_contract.crexx @ 211:5 - #SHADOWING: Symbol shadows an earlier declaration., "_embeddings"
+1 warning(s) in source file
+opt Level-B contract assemble:
+
+opt Level-G facade compile:
+opt Level-G facade assemble:
+
+opt contract test compile:
+opt contract test assemble:
+
+opt/rxvme:
+P1_LLM_01_OK contract=provider-neutral levelb=1 levelg=1 chat=1 structured=1 embeddings=1 batch=1 streaming=unsupported cancellation=unsupported usage=typed errors=typed
+
+opt/rxbvm:
+P1_LLM_01_OK contract=provider-neutral levelb=1 levelg=1 chat=1 structured=1 embeddings=1 batch=1 streaming=unsupported cancellation=unsupported usage=typed errors=typed
+

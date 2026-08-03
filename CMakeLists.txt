@@ -288,6 +288,52 @@ if(CPRAG_BUILD_TESTS)
                 "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1a-sdk-probe"
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1ASdkProbe.cmake")
         set_tests_properties(p1a_sdk_probe PROPERTIES LABELS "p1a;sdk;rxpa;incubator")
+
+        set(P1_RXPA_01_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_CREXX_PREFIX=${CREXX_PACKAGE_PREFIX}"
+            "-DCPRAG_CREXX_DIR=${CREXX_DIR}"
+            "-DCPRAG_CREXX_VERSION=${CREXX_VERSION_DISPLAY}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_FORBIDDEN_CREXX_SOURCE_DIR=${CMAKE_CURRENT_LIST_DIR}/../CREXX"
+            "-DCPRAG_CONSUMER_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/rxpa_consumer"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-rxpa-01"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1Rxpa01.cmake")
+        add_custom_target(p1_rxpa_01
+            COMMAND ${P1_RXPA_01_COMMAND}
+            COMMENT "Running P1-RXPA-01 installed SDK external-consumer proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_rxpa_01 COMMAND ${P1_RXPA_01_COMMAND})
+        set_tests_properties(p1_rxpa_01 PROPERTIES
+            LABELS "P1-RXPA-01;phase1b;sdk;rxpa;installed-consumer")
+
+        set(P1_RXPA_02_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_CREXX_PREFIX=${CREXX_PACKAGE_PREFIX}"
+            "-DCPRAG_CREXX_DIR=${CREXX_DIR}"
+            "-DCPRAG_CREXX_VERSION=${CREXX_VERSION_DISPLAY}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_CONSUMER_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/rxpa_consumer"
+            "-DCPRAG_PACKAGE_PROBE_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/rxpa_consumer/package_probe"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-rxpa-02"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1Rxpa02.cmake")
+        add_custom_target(p1_rxpa_02
+            COMMAND ${P1_RXPA_02_COMMAND}
+            COMMENT "Running P1-RXPA-02 development-package qualification"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_rxpa_02 COMMAND ${P1_RXPA_02_COMMAND})
+        set_tests_properties(p1_rxpa_02 PROPERTIES
+            LABELS "P1-RXPA-02;phase1b;sdk;rxpa;package-diagnostics")
     endif()
 
     add_test(
@@ -388,6 +434,263 @@ if(CPRAG_BUILD_TESTS)
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1ASqliteBoundary.cmake")
         set_tests_properties(p1a_sqlite_boundary PROPERTIES
             LABELS "p1a;sqlite;typed;incubator")
+        set(P1_SQL_01_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/rxsqlite/p1_sql_01.crexx"
+            "-DCPRAG_MODULES=rx_sqlite_boundary"
+            "-DCPRAG_EXPECTED=P1_SQL_01_OK"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-sql-01"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase1bCrexxDualVm.cmake")
+        add_custom_target(p1_sql_01
+            COMMAND ${P1_SQL_01_COMMAND}
+            DEPENDS _sqlite_boundary
+            COMMENT "Running P1-SQL-01 ownership and error contract"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_sql_01 COMMAND ${P1_SQL_01_COMMAND})
+        set_tests_properties(p1_sql_01 PROPERTIES
+            LABELS "P1-SQL-01;phase1b;sqlite;ownership;errors;incubator")
+        set(P1_SQL_02_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/rxsqlite/p1_sql_02.crexx"
+            "-DCPRAG_MODULES=rx_sqlite_boundary"
+            "-DCPRAG_EXPECTED=P1_SQL_02_OK"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-sql-02"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase1bCrexxDualVm.cmake")
+        add_custom_target(p1_sql_02
+            COMMAND ${P1_SQL_02_COMMAND}
+            DEPENDS _sqlite_boundary
+            COMMENT "Running P1-SQL-02 typed and large-value proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_sql_02 COMMAND ${P1_SQL_02_COMMAND})
+        set_tests_properties(p1_sql_02 PROPERTIES
+            LABELS "P1-SQL-02;phase1b;sqlite;typed;large-values;incubator")
+        set(P1_SQL_03_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/rxsqlite/p1_sql_03.crexx"
+            "-DCPRAG_MODULES=rx_sqlite_boundary"
+            "-DCPRAG_EXPECTED=P1_SQL_03_OK"
+            -DCPRAG_DATABASE_ARGUMENT=ON
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-sql-03"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase1bCrexxDualVm.cmake")
+        add_custom_target(p1_sql_03
+            COMMAND ${P1_SQL_03_COMMAND}
+            DEPENDS _sqlite_boundary
+            COMMENT "Running P1-SQL-03 transaction and capability controls"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_sql_03 COMMAND ${P1_SQL_03_COMMAND})
+        set_tests_properties(p1_sql_03 PROPERTIES
+            LABELS "P1-SQL-03;phase1b;sqlite;transaction;fts5;json1;wal;incubator")
+        set(P1_SQL_04_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/rxsqlite/p1_sql_04.crexx"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-sql-04"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1Sql04.cmake")
+        add_custom_target(p1_sql_04
+            COMMAND ${P1_SQL_04_COMMAND}
+            DEPENDS _sqlite_boundary
+            COMMENT "Running P1-SQL-04 read-only zero-write proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_sql_04 COMMAND ${P1_SQL_04_COMMAND})
+        set_tests_properties(p1_sql_04 PROPERTIES
+            LABELS "P1-SQL-04;phase1b;sqlite;read-only;zero-write;incubator")
+        set(P1_SQL_05_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/rxsqlite/p1_sql_05.crexx"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-sql-05"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1Sql05.cmake")
+        add_custom_target(p1_sql_05
+            COMMAND ${P1_SQL_05_COMMAND}
+            DEPENDS _sqlite_boundary
+            COMMENT "Running P1-SQL-05 separate-process concurrency proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_sql_05 COMMAND ${P1_SQL_05_COMMAND})
+        set_tests_properties(p1_sql_05 PROPERTIES
+            LABELS "P1-SQL-05;phase1b;sqlite;concurrency;processes;wal;incubator")
+        set(P1_SQL_06_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/rxsqlite/p1_sql_06.crexx"
+            "-DCPRAG_MODULES=rx_sqlite_boundary"
+            "-DCPRAG_EXPECTED=P1_SQL_06_OK"
+            -DCPRAG_DATABASE_ARGUMENT=ON
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-sql-06"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase1bCrexxDualVm.cmake")
+        add_custom_target(p1_sql_06
+            COMMAND ${P1_SQL_06_COMMAND}
+            DEPENDS _sqlite_boundary
+            COMMENT "Running P1-SQL-06 backup, integrity, and cleanup proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_sql_06 COMMAND ${P1_SQL_06_COMMAND})
+        set_tests_properties(p1_sql_06 PROPERTIES
+            LABELS "P1-SQL-06;phase1b;sqlite;backup;integrity;cleanup;incubator")
+        set(P1_SQL_07_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+            "-DCPRAG_MODULE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/rxsqlite/rxsqlite_address.crexx"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/rxsqlite/p1_sql_07.crexx"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-sql-07"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1Sql07.cmake")
+        add_custom_target(p1_sql_07
+            COMMAND ${P1_SQL_07_COMMAND}
+            DEPENDS _sqlite_boundary
+            COMMENT "Running P1-SQL-07 optional ADDRESS SQLITE facade proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_sql_07 COMMAND ${P1_SQL_07_COMMAND})
+        set_tests_properties(p1_sql_07 PROPERTIES
+            LABELS "P1-SQL-07;phase1b;sqlite;address;syntax;incubator")
+        set(P1_JSON_01_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/structured_data/p1_json_01.crexx"
+            "-DCPRAG_MODULES=library"
+            "-DCPRAG_EXPECTED=P1_JSON_01_OK"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-json-01"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase1bCrexxDualVm.cmake")
+        add_custom_target(p1_json_01
+            COMMAND ${P1_JSON_01_COMMAND}
+            COMMENT "Running P1-JSON-01 installed parse-once JSON proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_json_01 COMMAND ${P1_JSON_01_COMMAND})
+        set_tests_properties(p1_json_01 PROPERTIES
+            LABELS "P1-JSON-01;phase1b;json;parse-once;unicode;typed;incubator")
+        set(P1_JSON_02_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/structured_data/p1_json_02.crexx"
+            "-DCPRAG_MODULES=library"
+            "-DCPRAG_EXPECTED=P1_JSON_02_OK"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-json-02"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase1bCrexxDualVm.cmake")
+        add_custom_target(p1_json_02
+            COMMAND ${P1_JSON_02_COMMAND}
+            COMMENT "Running P1-JSON-02 same-session provider/evidence comparison"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_json_02 COMMAND ${P1_JSON_02_COMMAND})
+        set_tests_properties(p1_json_02 PROPERTIES
+            LABELS "P1-JSON-02;phase1b;json;benchmark;provider;evidence;incubator")
+        set(P1_REC_01_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+            "-DCPRAG_RECORD_MODULE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/structured_data/record_boundary.crexx"
+            "-DCPRAG_FACADE_MODULE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/structured_data/record_facade.crexx"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/structured_data/p1_rec_01.crexx"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-rec-01"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1Rec01.cmake")
+        add_custom_target(p1_rec_01
+            COMMAND ${P1_REC_01_COMMAND}
+            DEPENDS _sqlite_boundary
+            COMMENT "Running P1-REC-01 typed record crossing proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_rec_01 COMMAND ${P1_REC_01_COMMAND})
+        set_tests_properties(p1_rec_01 PROPERTIES
+            LABELS "P1-REC-01;phase1b;record;levelb;levelg;sqlite;incubator")
+        set(P1_LLM_01_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_CONTRACT=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_contract.crexx"
+            "-DCPRAG_FACADE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_facade.crexx"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/p1_llm_01.crexx"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-llm-01"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1Llm01.cmake")
+        add_custom_target(p1_llm_01
+            COMMAND ${P1_LLM_01_COMMAND}
+            COMMENT "Running P1-LLM-01 provider-neutral contract proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_llm_01 COMMAND ${P1_LLM_01_COMMAND})
+        set_tests_properties(p1_llm_01 PROPERTIES
+            LABELS "P1-LLM-01;phase1b;provider;contract;levelb;levelg;incubator")
+        set(P1_LLM_02_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_CONTRACT=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_contract.crexx"
+            "-DCPRAG_ADAPTER=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/openai_compatible_provider.crexx"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/p1_llm_02.crexx"
+            "-DCPRAG_LOOPBACK=$<TARGET_FILE:p1a_provider_loopback>"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-llm-02"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1Llm02.cmake")
+        add_custom_target(p1_llm_02
+            COMMAND ${P1_LLM_02_COMMAND}
+            DEPENDS p1a_provider_loopback
+            COMMENT "Running P1-LLM-02 local OpenAI-compatible calls"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_llm_02 COMMAND ${P1_LLM_02_COMMAND})
+        set_tests_properties(p1_llm_02 PROPERTIES
+            LABELS "P1-LLM-02;phase1b;provider;openai-compatible;local;loopback;incubator")
         add_test(
             NAME p1a_data_boundary
             COMMAND "${CMAKE_COMMAND}"

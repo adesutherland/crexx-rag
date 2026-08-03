@@ -1,0 +1,50 @@
+UpdateCTestConfiguration  from :/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/DartConfiguration.tcl
+Test project /home/adrian/CLionProjects/crexx-rag/cmake-build-debug
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 11
+    Start 11: p1_rxpa_02
+
+11: Test command: /snap/clion/481/bin/cmake/linux/x64/bin/cmake "-DCPRAG_CREXX_PREFIX=/home/adrian/.local" "-DCPRAG_CREXX_DIR=/home/adrian/.local/lib/cmake/CREXX" "-DCPRAG_CREXX_VERSION=crexx-1.0.0-beta.3+local.gea25d1720c8d.dirty" "-DCPRAG_RXC=/home/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/home/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/home/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/home/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/home/adrian/.local/bin" "-DCPRAG_CONSUMER_SOURCE=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/rxpa_consumer" "-DCPRAG_PACKAGE_PROBE_SOURCE=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/rxpa_consumer/package_probe" "-DCPRAG_WORK_DIR=/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-rxpa-02" "-P" "/home/adrian/CLionProjects/crexx-rag/cmake/P1Rxpa02.cmake"
+11: Working Directory: /home/adrian/CLionProjects/crexx-rag/cmake-build-debug
+11: Test timeout computed to be: 10000000
+11: -- P1-RXPA-02 passed development-package, compatibility, and dual-VM module-discovery checks
+1/1 Test #11: p1_rxpa_02 .......................   Passed    2.00 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+P1-RXPA-02             =   2.00 sec*proc (1 test)
+package-diagnostics    =   2.00 sec*proc (1 test)
+phase1b                =   2.00 sec*proc (1 test)
+rxpa                   =   2.00 sec*proc (1 test)
+sdk                    =   2.00 sec*proc (1 test)
+
+Total Test time (real) =   2.00 sec
+	Command being timed: "ctest --test-dir cmake-build-debug -L ^P1-RXPA-02$ --output-on-failure -V"
+	User time (seconds): 1.52
+	System time (seconds): 0.49
+	Percent of CPU this job got: 100%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:02.02
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 113824
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 67984
+	Voluntary context switches: 249
+	Involuntary context switches: 70
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 1144
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

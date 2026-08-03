@@ -1,0 +1,20 @@
+options levelb
+
+import rxfnsb
+import external_consumer
+
+arg args = .string[]
+if args.0 < 1 then exit 2
+expected_version = args[1]
+version = installedversion()
+sum = addints(20, 22)
+if version \= expected_version then do
+  say "unexpected SDK/runtime version:" version
+  exit 1
+end
+if sum <> 42 then do
+  say "unexpected add result:" sum
+  exit 1
+end
+say "P1_RXPA_01_OK version=" || version || " result=" || sum
+exit 0

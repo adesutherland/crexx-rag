@@ -1,0 +1,75 @@
+options levelb
+
+import rxfnsb
+import sqlite_boundary
+import system
+
+read_count: procedure = .int
+  arg db = .binary, expose value = .int
+  statement = .binary
+  if sqliteprepare(db, "SELECT count(*) FROM concurrent_values", statement) \= 0 then return 1
+  if sqlitestep(statement) \= 100 then return 1
+  if sqlitecolumnint(statement, 0, value) \= 0 then return 1
+  if sqlitefinalize(statement) \= 0 then return 1
+  return 0
+
+main: procedure = .int
+arg args = .string[]
+if args.0 < 2 then return 2
+role = args[1]
+path = args[2]
+db = .binary
+
+if role = "setup" then do
+  if sqliteopenmode(path, "create", db) \= 0 then return 1
+  if sqliteexec(db, "PRAGMA journal_mode=WAL; CREATE TABLE concurrent_values(v INTEGER); INSERT INTO concurrent_values VALUES(1)") \= 0 then return 1
+  if sqliteclose(db) \= 0 then return 1
+  say "P1_SQL_05_SETUP_OK"
+  return 0
+end
+
+if role = "writer" then do
+  if args.0 < 4 then return 2
+  ready_path = args[3]
+  done_path = args[4]
+  if sqliteopenmode(path, "readwrite", db) \= 0 then return 1
+  if sqlitebusytimeout(db, 2000) \= 0 then return 1
+  if sqliteexec(db, "BEGIN IMMEDIATE; INSERT INTO concurrent_values VALUES(2)") \= 0 then return 1
+  if lineout(ready_path, "writer-ready") \= 0 then return 1
+  call lineout ready_path
+  call _wait 2500
+  if sqliteexec(db, "COMMIT") \= 0 then return 1
+  if lineout(done_path, "writer-done") \= 0 then return 1
+  call lineout done_path
+  if sqliteclose(db) \= 0 then return 1
+  say "P1_SQL_05_WRITER_OK committed=1"
+  return 0
+end
+
+if role = "reader" then do
+  if sqliteopenmode(path, "readonly", db) \= 0 then do; say "P1_SQL_05_READER_FAIL=open"; return 1; end
+  if sqlitebusytimeout(db, 2000) \= 0 then do; say "P1_SQL_05_READER_FAIL=timeout"; return 1; end
+  if sqliteexec(db, "BEGIN") \= 0 then do; say "P1_SQL_05_READER_FAIL=begin"; return 1; end
+  before = 0
+  during = 0
+  after = 0
+  if read_count(db, before) \= 0 | before \= 1 then do; say "P1_SQL_05_READER_FAIL=before value=" || before; return 1; end
+  call _wait 3000
+  if read_count(db, during) \= 0 | during \= 1 then do; say "P1_SQL_05_READER_FAIL=during value=" || during; return 1; end
+  if sqliteexec(db, "COMMIT") \= 0 then do; say "P1_SQL_05_READER_FAIL=commit"; return 1; end
+  if read_count(db, after) \= 0 | after \= 2 then do; say "P1_SQL_05_READER_FAIL=after value=" || after; return 1; end
+  if sqliteclose(db) \= 0 then do; say "P1_SQL_05_READER_FAIL=close"; return 1; end
+  say "P1_SQL_05_READER_OK before=" || before || " during=" || during || " after=" || after
+  return 0
+end
+
+if role = "verify" then do
+  if sqliteopenmode(path, "readonly", db) \= 0 then return 1
+  count = 0
+  if read_count(db, count) \= 0 | count \= 2 then return 1
+  if sqliteclose(db) \= 0 then return 1
+  say "P1_SQL_05_OK processes=2 final_rows=" || count
+  return 0
+end
+
+return 2

@@ -1,0 +1,9 @@
+READY 18992
+REQUEST /v1/chat/completions
+REQUEST /v1/embeddings
+REQUEST /v1/chat/completions
+REQUEST /v1/embeddings
+REQUEST /v1/chat/completions
+REQUEST /v1/embeddings
+REQUEST /v1/chat/completions
+REQUEST /v1/embeddings

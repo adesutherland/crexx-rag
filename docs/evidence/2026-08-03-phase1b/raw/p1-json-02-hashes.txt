@@ -1,0 +1,4 @@
+bc2b834c9e26de6bb55b1b06003b06ec3b5d25044552c2de7f6d7fa3b70a8b74  docs/evidence/2026-08-03-phase1b/raw/p1-json-02-commands-and-output.txt
+be86a9e0bed5282cd4446bc32928ac91ba429f04dfbe29749d204face488efc7  docs/evidence/2026-08-03-phase1b/raw/p1-json-02-target.txt
+bb74207c8bf244a686e3cb69042ec17ab111b302fd7c89ce8d91c591d34fca62  docs/evidence/2026-08-03-phase1b/raw/p1-json-02-ctest.txt
+d83431851f088fb05f24781d8254637d6ec1d41366a9fbb4957f1e69b9cf7c16  incubator/phase1b/structured_data/p1_json_02.crexx

@@ -3,6 +3,13 @@
 Status: approved by the user on 2026-08-03. This ledger records boundary and
 execution authority; it is not evidence that Phase 1B is implemented.
 
+Provider-scope revision: later on 2026-08-03, after `P1-LLM-02` acceptance,
+the user explicitly authorized low-cost, secret-gated hosted qualification for
+OpenAI, Anthropic/Claude, and Google Gemini during `P1-LLM-04`. Credentials
+must remain environment-only and secret-free evidence is still mandatory. This
+revision changes only the hosted-provider exclusion; all other limits and the
+Gate-1B stop remain in force.
+
 The decision uses the retained Gate-1A packet, the approved CREXX-candidate
 closeout, and the Linux build baseline at
 `4e0a40ad750f54d4b9653926e6aeb46b50461471`.
@@ -37,8 +44,9 @@ active:
 3. `P1-JSON-01`, `P1-JSON-02`, and `P1-REC-01`: parse-once JSON and typed-record
    boundary validation without corpus reserialization.
 4. `P1-LLM-01` through `P1-LLM-05`: provider-neutral hardening using local
-   loopback/OpenAI-compatible providers and deterministic synthetic provider
-   shapes only. The optional hosted canary in `P1-LLM-04` is excluded.
+   loopback/OpenAI-compatible providers, deterministic synthetic provider
+   shapes, and the explicitly authorized low-cost hosted qualification in
+   `P1-LLM-04` for OpenAI, Anthropic/Claude, and Google Gemini.
 5. `P1-VEC-01` through `P1-VEC-04`: versioned raw-f32 transfer, representative
    exact-search measurement, and evidence-led backend selection.
 6. `P1-ALG-01` through `P1-ALG-05`: the bounded application-cREXX algorithm
@@ -56,7 +64,8 @@ build/test loops; Gate 1B uses the full configured oracle validation.
 
 - `P1-RXPA-03` donation-ready packaging or any other donation preparation;
 - `P1-HASH-01` or a new native hashing/plugin boundary;
-- hosted-provider credentials, calls, or qualification;
+- hosted-provider calls outside the secret-gated, low-cost `P1-LLM-04`
+  qualification authorized above;
 - writes to the user's normal install prefix or modifications to CREXX;
 - a product-specific CRI-15 workaround;
 - production schema or migrations, live-library dual-write, cutover, or native

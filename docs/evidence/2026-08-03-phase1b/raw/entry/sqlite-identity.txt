@@ -1,0 +1,15 @@
+sqlite_packages
+dpkg-query: no packages found matching libsqlite3-dev
+dpkg-query: no packages found matching sqlite3
+libsqlite3-0	3.46.1-9ubuntu0.2	amd64
+
+local_header_version
+149:#define SQLITE_VERSION        "3.46.1"
+150:#define SQLITE_VERSION_NUMBER 3046001
+151:#define SQLITE_SOURCE_ID      "2024-08-13 09:16:08 c9c2ab54ba1f5f46360f1b4f35d849cd3f080e6fc2b6c60e91b16c63f69aalt1"
+
+runtime_library
+/usr/lib/x86_64-linux-gnu/libsqlite3.so.0.8.6
+c43daabc6597cb20c84ae5b785d7c6072220966bd79dd12b961b98fb48ba224a  /usr/lib/x86_64-linux-gnu/libsqlite3.so.0
+f319f664239fdd3154721a70b7cf37fa1475703c6a4deaf7605511851c1edb17  .local/sqlite-dev/usr/include/sqlite3.h
+c1978ab409aa5195e1819e4fe9d3fc8634de3fc9a5a6fc2bfdde69acaa8fab10  .local/sqlite-dev/usr/lib/x86_64-linux-gnu/libsqlite3.a

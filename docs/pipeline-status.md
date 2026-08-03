@@ -17,7 +17,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Gate 0 | Passed | Full configure/build/CTest passed 17/17 with 19 frozen hashes and raw measurements |
 | Phase 1A | Complete diagnostic unit | P1A-SDK-01 through P1A-SUR-01 all have focused retained correctness/failure/profile evidence |
 | Gate 1A | Accepted 2026-08-03 | D1-D8 boundaries and the bounded D9 worklist are recorded; CRI-15 remains an open Linux dependency |
-| Phase 1B | Authorized; not started | Only the IDs and local-only constraints in the Gate-1A decision ledger are approved; stop at Gate 1B |
+| Phase 1B | Active at P1-LLM-03 | Installed SDK, SQLite, structured data, provider contract, and available local OpenAI-compatible calls are accepted; provider hardening is active; stop at Gate 1B |
 | Phase 2 and later | Not authorized | No production schema, donation implementation, hosted qualification, cutover, or retirement |
 
 ## Current Product Reality
@@ -80,7 +80,25 @@ and minimized reproducer evidence is in the
 On 2026-08-03 the user approved D1 through D8 as recommended and the bounded D9
 worklist proposed from the successor decision prompt. The exact scope and
 exclusions are in the [Gate-1A decision ledger](gate1a-decision-ledger.md).
-This records authority only; no Phase-1B item is implemented or active yet.
+The Phase-1B entry audit reproduced 27/28 Debug tests with only CRI-15, built
+Release, and verified all 19 frozen hashes. Exact evidence and the resumable
+worklist are under
+[`docs/evidence/2026-08-03-phase1b/`](evidence/2026-08-03-phase1b/WORKLIST.md).
+
+`P1-RXPA-01` is accepted: the installed package builds an independent dynamic
+plugin with both fallbacks off, and optimized/non-optimized consumers pass on
+`rxvme` and `rxbvm` with an exact version match. `P1-RXPA-02` passed
+compatible/missing/incompatible package and dual-VM module-discovery
+qualification. The SDK section is complete. `P1-SQL-01` through `P1-SQL-07`
+are accepted with four-cell ownership, typed-value, SQLite behavior,
+read-only, separate-process concurrency, online-backup, integrity, forced
+cleanup, and optional address-facade evidence. The generic SQLite section is
+complete. `P1-JSON-01` and `P1-JSON-02` are accepted against installed
+`rxjson`; `P1-REC-01` selects nominal Level-B application records over generic
+plugin columns with direct Level-G crossings. `P1-LLM-01` and the available
+local OpenAI-compatible case in `P1-LLM-02` are accepted; a real
+`llama-server` executable was unavailable and is not claimed. `P1-LLM-03` is
+the sole active item.
 
 ## Phase-1B Authority And Gate-1B Stop
 
@@ -91,7 +109,9 @@ active.
 
 - preserve the native-v1 path as the executable oracle;
 - keep generic hardening inside the approved local incubations;
-- use scratch libraries, local/loopback providers, and synthetic shapes only;
+- use scratch libraries and deterministic synthetic/local provider fixtures by
+  default; hosted access is limited to the explicitly authorized low-cost,
+  secret-gated `P1-LLM-04` qualification;
 - leave CRI-15 open unless a separate decision authorizes its disposition; and
 - do not start excluded IDs, donation work, Phase 2, production schema, hosted
   calls, CREXX modifications, dual-write, cutover, or retirement.

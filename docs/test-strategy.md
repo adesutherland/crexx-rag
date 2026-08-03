@@ -100,9 +100,23 @@ slice must retain:
 - fenced-worker crash recovery, cancellation, ceilings, reservations, and
   bounded-overrun results.
 
-`P1-RXPA-03`, `P1-HASH-01`, hosted calls, normal-prefix/CREXX changes,
-production schema, dual-write, and later phases are outside the acceptance
-scope. Gate 1B is an unconditional stop even when every approved test passes.
+`P1-RXPA-03`, `P1-HASH-01`, hosted calls outside the explicitly authorized
+low-cost `P1-LLM-04` qualification, normal-prefix/CREXX changes, production
+schema, dual-write, and later phases are outside the acceptance scope. Gate 1B
+is an unconditional stop even when every approved test passes.
+
+Current Phase-1B progress: the installed-SDK section is accepted under
+`P1-RXPA-01` and `P1-RXPA-02`. `P1-SQL-01` through `P1-SQL-07` pass their
+dedicated targets and exact CTest labels for optimized/non-optimized programs
+on both VMs. The retained SQLite evidence covers ownership, typed and large
+values, transactions/capabilities, read-only zero-write, separate-process WAL
+concurrency, online backup/integrity/forced cleanup, and the optional
+output-asserting address facade. `P1-JSON-01`, `P1-JSON-02`, and `P1-REC-01`
+accept the installed parse-once JSON and nominal application-record boundary.
+`P1-LLM-01` and the available deterministic local OpenAI-compatible case in
+`P1-LLM-02` are accepted; `P1-LLM-03` is active. Provider transport evidence
+uses loopback only, measures HTTP behavior directly, never reads hosted
+credentials, and does not accept the CRI-15-affected Linux timeout path.
 
 ## Required Commands
 

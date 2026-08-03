@@ -29,7 +29,8 @@ for the user's production-capability decision.
 
 This authorizes only the listed local generic capability hardening and bounded
 application-cREXX slices. It does not authorize `P1-RXPA-03`, `P1-HASH-01`,
-hosted-provider calls or qualification, normal-prefix or CREXX changes,
+hosted-provider calls outside the explicitly authorized low-cost `P1-LLM-04`
+OpenAI/Anthropic/Gemini qualification, normal-prefix or CREXX changes,
 production schema/migrations, donation preparation, Phase 2, dual-write,
 cutover, native-core removal, commit, push, or pull request.
 
@@ -98,7 +99,10 @@ as current architecture, user guidance, or agent instructions.
 - Record exact correctness, time, memory, failure, and unsupported-capability
   evidence. Do not infer this workload's result from sister PERF2 benchmarks.
 - Use local loopback/OpenAI-compatible providers and deterministic synthetic
-  protocol fixtures only. Do not use hosted credentials or make hosted calls.
+  protocol fixtures by default. In `P1-LLM-04` only, the user's later
+  2026-08-03 decision authorizes low-cost, secret-gated OpenAI,
+  Anthropic/Claude, and Google Gemini qualification. Never retain credentials
+  or unredacted authorization material.
 - Use scratch libraries/copies only. Never dual-write a live library or touch a
   production schema.
 

@@ -20,8 +20,10 @@ decision ledger, and this handoff. Treat archives as oracle evidence, not
 current instructions.
 
 Use the installed CREXX package first. Keep every CREXX source checkout
-read-only. Do not install into the user's normal prefix and do not use hosted
-credentials or make hosted calls.
+read-only. Do not install into the user's normal prefix. The later 2026-08-03
+scope revision permits only low-cost, secret-gated OpenAI, Anthropic/Claude,
+and Google Gemini qualification in `P1-LLM-04`; credentials remain
+environment-only and must never enter output or evidence.
 
 ## Entry Audit
 
@@ -92,8 +94,9 @@ Gemini, and local shapes; batch embedding; structured validation; bounded
 retry/backoff; usage; privacy denial; supported/unsupported streaming and
 cancellation; zero denied outbound requests; and secret-free logs/fixtures.
 
-Exit: all deterministic and available local-provider cases pass. The optional
-hosted canary in `P1-LLM-04` remains excluded. Do not claim Linux timeout
+Exit: all deterministic and available local-provider cases pass, followed by
+the explicitly authorized low-cost hosted qualification for OpenAI,
+Anthropic/Claude, and Google Gemini in `P1-LLM-04`. Do not claim Linux timeout
 qualification or accept the affected timeout evidence while CRI-15 remains
 open; stop that acceptance path for an upstream fix or separate disposition.
 

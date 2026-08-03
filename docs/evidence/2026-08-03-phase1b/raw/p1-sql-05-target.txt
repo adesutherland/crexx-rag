@@ -1,0 +1,35 @@
+[0/1] Running P1-SQL-05 separate-process concurrency proof
+CMake Error at /home/adrian/CLionProjects/crexx-rag/cmake/P1Sql05.cmake:96 (message):
+  noopt-rxvme reader failed:
+
+
+
+
+
+FAILED: [code=1] CMakeFiles/p1_sql_05 /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/CMakeFiles/p1_sql_05 
+cd /home/adrian/CLionProjects/crexx-rag/cmake-build-debug && /usr/bin/cmake -DCPRAG_RXC=/home/adrian/.local/bin/rxc -DCPRAG_RXAS=/home/adrian/.local/bin/rxas -DCPRAG_RXVME=/home/adrian/.local/bin/rxvme -DCPRAG_RXBVM=/home/adrian/.local/bin/rxbvm -DCPRAG_CREXX_BIN_DIR=/home/adrian/.local/bin -DCPRAG_PLUGIN_DIR=/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/bin -DCPRAG_SOURCE=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/rxsqlite/p1_sql_05.crexx -DCPRAG_WORK_DIR=/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-sql-05 -P /home/adrian/CLionProjects/crexx-rag/cmake/P1Sql05.cmake
+ninja: build stopped: subcommand failed.
+Command exited with non-zero status 1
+	Command being timed: "cmake --build --preset debug --target p1_sql_05"
+	User time (seconds): 3.92
+	System time (seconds): 0.60
+	Percent of CPU this job got: 78%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:05.79
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 119304
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 74089
+	Voluntary context switches: 57
+	Involuntary context switches: 103
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 440
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 1

@@ -1,7 +1,8 @@
 # cREXX-Only Implementation Roadmap
 
-Status: bounded Phase 1B approved on 2026-08-03. Phase 2 and later work remain
-unauthorized.
+Status: bounded Phase 1B active on 2026-08-03. Phase 2 and later work remain
+unauthorized. The dated resumable worklist and entry evidence are under
+[`docs/evidence/2026-08-03-phase1b/`](evidence/2026-08-03-phase1b/WORKLIST.md).
 
 This is the execution plan for the target in
 [`crexx-only-vision-and-specification.md`](crexx-only-vision-and-specification.md)
@@ -204,57 +205,75 @@ unconditionally at Gate 1B.
 
 ### A1. Installed plugin development
 
-- [ ] **P1-RXPA-01** Harden the Gate-1A scratch SDK/install result into a
+- [x] **P1-RXPA-01** Harden the Gate-1A scratch SDK/install result into a
   repeatable external dynamic-plugin build with the vendored `crexxpa.h`
-  fallback disabled.
-- [ ] **P1-RXPA-02** Specify and locally validate the development package:
+  fallback disabled. The installed-only four-cell result is retained in
+  [the Phase-1B evidence](evidence/2026-08-03-phase1b/P1-RXPA-01.md).
+- [x] **P1-RXPA-02** Specify and locally validate the development package:
   version-matched headers, `RXPluginFunction.cmake`, imported target or package
   config, runtime module discovery, examples, and compatibility diagnostics.
+  Exact-compatible, missing, incompatible, and dual-VM discovery results are
+  retained in [the Phase-1B evidence](evidence/2026-08-03-phase1b/P1-RXPA-02.md).
 - [ ] **P1-RXPA-03** **Not authorized.** Produce a donation-ready
   installed-consumer test.
 
 ### A2. Production `rxsqlite`
 
-- [ ] **P1-SQL-01** Write the generic connection/statement/cursor/error contract
-  and ownership rules without RAG vocabulary.
-- [ ] **P1-SQL-02** Implement typed null/integer/real/text/blob bind and column
+- [x] **P1-SQL-01** Write the generic connection/statement/cursor/error contract
+  and ownership rules without RAG vocabulary. The four-cell ownership/error
+  result is [retained here](evidence/2026-08-03-phase1b/P1-SQL-01.md).
+- [x] **P1-SQL-02** Implement typed null/integer/real/text/blob bind and column
   round-trips, including values and result sets larger than current fixed
-  buffers.
-- [ ] **P1-SQL-03** Implement transactions, savepoints, rollback, prepared
+  buffers. Four-cell typed/large results are
+  [retained here](evidence/2026-08-03-phase1b/P1-SQL-02.md).
+- [x] **P1-SQL-03** Implement transactions, savepoints, rollback, prepared
   statement reuse, cursor paging, FTS5, JSON1 capability reporting, foreign
-  keys, WAL, busy timeout, and checkpoint.
-- [ ] **P1-SQL-04** Prove read-only opens perform zero writes and cannot migrate.
-- [ ] **P1-SQL-05** Prove concurrent reader plus writer behavior using separate
-  processes; do not assume cREXX VM thread safety.
-- [ ] **P1-SQL-06** Add online backup/integrity support and forced-error cleanup
-  tests.
-- [ ] **P1-SQL-07** Add `ADDRESS SQLITE` as an optional facade over the same API
+  keys, WAL, busy timeout, and checkpoint. The four-cell result is
+  [retained here](evidence/2026-08-03-phase1b/P1-SQL-03.md).
+- [x] **P1-SQL-04** Prove read-only opens perform zero writes and cannot migrate.
+  The four-cell byte-identical result is
+  [retained here](evidence/2026-08-03-phase1b/P1-SQL-04.md).
+- [x] **P1-SQL-05** Prove concurrent reader plus writer behavior using separate
+  processes; do not assume cREXX VM thread safety. The four-cell WAL snapshot
+  result is [retained here](evidence/2026-08-03-phase1b/P1-SQL-05.md).
+- [x] **P1-SQL-06** Add online backup/integrity support and forced-error cleanup
+  tests. The four-cell snapshot/failure result is
+  [retained here](evidence/2026-08-03-phase1b/P1-SQL-06.md).
+- [x] **P1-SQL-07** Add `ADDRESS SQLITE` as an optional facade over the same API
   and assert command output, including a minimized regression for the broken
-  demonstration syntax.
+  demonstration syntax. The four-cell output-asserting result is
+  [retained here](evidence/2026-08-03-phase1b/P1-SQL-07.md).
 
 ### A3. Structured data and records
 
-- [ ] **P1-JSON-01** Prove a parse-once JSON document/value handle with typed
+- [x] **P1-JSON-01** Prove a parse-once JSON document/value handle with typed
   iteration, Unicode correctness, missing/null/empty distinction, and bounded
-  encoding.
-- [ ] **P1-JSON-02** Compare it with repeated `rxjson` paths on representative
-  provider payloads and a paged evidence result.
-- [ ] **P1-REC-01** Establish how Level B typed records/arrays cross Level G and
-  plugin boundaries without reserializing the corpus.
+  encoding. The installed-parser four-cell result is
+  [retained here](evidence/2026-08-03-phase1b/P1-JSON-01.md).
+- [x] **P1-JSON-02** Compare it with repeated `rxjson` paths on representative
+  provider payloads and a paged evidence result. The same-session four-cell
+  comparison is [retained here](evidence/2026-08-03-phase1b/P1-JSON-02.md).
+- [x] **P1-REC-01** Establish how Level B typed records/arrays cross Level G and
+  plugin boundaries without reserializing the corpus. The four-cell nominal
+  record result is [retained here](evidence/2026-08-03-phase1b/P1-REC-01.md).
 
 ### A4. Provider contract
 
-- [ ] **P1-LLM-01** Refactor or wrap the existing Level G clients behind a
-  provider-neutral capability/result/error contract.
-- [ ] **P1-LLM-02** Complete one local llama-server generation call and one local
-  embedding call through a configurable OpenAI-compatible base URL.
-- [ ] **P1-LLM-03** Add batch embedding, structured response validation,
+- [x] **P1-LLM-01** Refactor or wrap the existing Level G clients behind a
+  provider-neutral capability/result/error contract. The four-cell contract
+  result is [retained here](evidence/2026-08-03-phase1b/P1-LLM-01.md).
+- [x] **P1-LLM-02** Complete one local llama-server generation call and one local
+  embedding call through a configurable OpenAI-compatible base URL. The
+  available deterministic loopback case is [retained here](evidence/2026-08-03-phase1b/P1-LLM-02.md);
+  the `llama-server` executable was unavailable and is not claimed.
+- [~] **P1-LLM-03** Add batch embedding, structured response validation,
   timeout, bounded retry/backoff, usage records, privacy route enforcement, and
   truthful streaming/cancellation capability reporting. Test both supported and
   explicit unsupported results; the RAG pipeline does not require every provider
   to stream.
 - [ ] **P1-LLM-04** Pass synthetic contract tests for local, OpenAI, Anthropic,
-  and Gemini shapes. The optional secret-gated hosted canary is not authorized.
+  and Gemini shapes, then run the explicitly authorized low-cost, secret-gated
+  hosted qualification for OpenAI, Anthropic/Claude, and Google Gemini.
 - [ ] **P1-LLM-05** Prove that denied/restricted routes make zero outbound
   requests and that credentials do not enter logs or fixtures.
 
@@ -603,7 +622,8 @@ The approved next implementation unit is the bounded Phase-1B sequence:
 1. `P1-RXPA-01` through `P1-RXPA-02`;
 2. `P1-SQL-01` through `P1-SQL-07`;
 3. `P1-JSON-01` through `P1-JSON-02` and `P1-REC-01`;
-4. `P1-LLM-01` through `P1-LLM-05`, excluding the hosted canary;
+4. `P1-LLM-01` through `P1-LLM-05`, including only the explicitly authorized
+   low-cost hosted qualification in `P1-LLM-04`;
 5. `P1-VEC-01` through `P1-VEC-04`;
 6. `P1-ALG-01` through `P1-ALG-05`;
 7. `P1-JOB-01` through `P1-JOB-03`; and

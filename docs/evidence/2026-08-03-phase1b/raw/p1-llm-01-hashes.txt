@@ -1,0 +1,9 @@
+8f07ac00456baa044b76bf7b89aaaa1217b8539895597dde3a72281f1b528f42  docs/evidence/2026-08-03-phase1b/raw/p1-llm-01-commands-and-output.txt
+d4c202c2ac5f1f29a34356430b06af5f28726525c759cbcf633e8b08cfb59121  docs/evidence/2026-08-03-phase1b/raw/p1-llm-01-target.txt
+0a4c74d83ef3f102c890ae0aafacc93cdd2b187cb1ec26d1f3c4557ee2a8ee73  docs/evidence/2026-08-03-phase1b/raw/p1-llm-01-target-rerun.txt
+27da895d150671b5d3bb16dc858d074f4f2a3c0b373ce95fee9105c9f9363e0c  docs/evidence/2026-08-03-phase1b/raw/p1-llm-01-target-rerun-2.txt
+1114f2044703b0824333c78e9488494796100ca0455678451fdada8aac335dbc  docs/evidence/2026-08-03-phase1b/raw/p1-llm-01-target-rerun-3.txt
+cb681ba7838b7a41954d49dfe2bd9c77a1b753149b0a01e731bb05a012beeed3  docs/evidence/2026-08-03-phase1b/raw/p1-llm-01-ctest-rerun.txt
+a549f4fdb2558edf8abd610374ae5b0dd356046aec4154a5bc3ecf2029d0202b  incubator/phase1b/provider/provider_contract.crexx
+b9c0fd50d510da3646ec40364d19fae6fe5b676ac1a3986644bac74d7fb3e11f  incubator/phase1b/provider/provider_facade.crexx
+085760d10eb2fee3f8b0bb17bfc387a8c3bdc9d7cd30e02b7d100704942445d7  incubator/phase1b/provider/p1_llm_01.crexx

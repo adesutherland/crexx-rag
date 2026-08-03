@@ -1,0 +1,56 @@
+options levelb
+
+import _rxsysb
+import rxsqlite_address
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P1_SQL_07_FAIL=" || label
+    return 1
+  end
+  return 0
+
+main: procedure = .int
+arg args = .string[]
+if args.0 < 1 then return 2
+dbpath = args[1]
+errors = 0
+
+call _register_address_environment "SQLITE", .sqliteaddressenvironment("SQLITE")
+
+address sqlite "OPEN ${dbpath} CREATE"
+errors = errors + check(rc = 0, "explicit OPEN command")
+address sqlite "EXEC CREATE TABLE people(id INTEGER PRIMARY KEY, name TEXT, role TEXT)"
+errors = errors + check(rc = 0, "explicit CREATE command")
+address sqlite "EXEC INSERT INTO people(name, role) VALUES('Ada','compiler'),('Grace','runtime')"
+errors = errors + check(rc = 0, "explicit INSERT command")
+
+total = ""
+address sqlite "VALUE SELECT count(*) FROM people INTO ${total}"
+errors = errors + check(rc = 0 & total = "2", "VALUE integer output")
+selected_role = ""
+address sqlite "VALUE SELECT role FROM people WHERE name='Grace' INTO ${selected_role}"
+errors = errors + check(rc = 0 & selected_role = "runtime", "VALUE text output")
+null_value = ""
+address sqlite "VALUE SELECT NULL INTO ${null_value}"
+errors = errors + check(rc = 0 & null_value = "NULL", "VALUE null output")
+
+address sqlite "EXEC INSERT INTO missing_table VALUES(1)"
+errors = errors + check(rc = 8, "SQL failure rc")
+errors = errors + check(addresscall("sqlite", "status") = "-6", "SQL failure status")
+errors = errors + check(addresscall("sqlite", "error") \= "", "SQL failure diagnostic")
+errors = errors + check(addresscall("sqlite", "name") = "SQLITE", "environment name")
+errors = errors + check(addresscall("sqlite", "id") \= "", "environment id")
+
+address sqlite "CLOSE"
+errors = errors + check(rc = 0, "explicit CLOSE command")
+address sqlite "VALUE SELECT 1 INTO ${total}"
+errors = errors + check(rc = 8 & addresscall("sqlite", "status") = "-3", "closed session failure")
+
+if errors \= 0 then do
+  say "P1_SQL_07_ERRORS=" || errors
+  return 1
+end
+say "P1_SQL_07_OK address_sqlite=1 explicit_syntax=1 integer_output=" || total || " text_output=" || selected_role || " null_output=" || null_value || " failure_rc=8"
+return 0

@@ -1,0 +1,33 @@
+[0/1] Running P1-RXPA-02 development-package qualification
+CMake Error at /home/adrian/CLionProjects/crexx-rag/cmake/P1Rxpa02.cmake:33 (message):
+  BUILDINFO display does not match the selected package:
+  crexx-1.0.0-beta.3+local.gea25d1720c8d.dirty
+
+
+FAILED: [code=1] CMakeFiles/p1_rxpa_02 /home/adrian/CLionProjects/crexx-rag/cmake-build-debug/CMakeFiles/p1_rxpa_02 
+cd /home/adrian/CLionProjects/crexx-rag/cmake-build-debug && /usr/bin/cmake -DCPRAG_CREXX_PREFIX=/home/adrian/.local -DCPRAG_CREXX_DIR=/home/adrian/.local/lib/cmake/CREXX -DCPRAG_CREXX_VERSION=crexx-1.0.0-beta.3+local.gea25d1720c8d.dirty -DCPRAG_RXC=/home/adrian/.local/bin/rxc -DCPRAG_RXAS=/home/adrian/.local/bin/rxas -DCPRAG_RXVME=/home/adrian/.local/bin/rxvme -DCPRAG_RXBVM=/home/adrian/.local/bin/rxbvm -DCPRAG_CREXX_BIN_DIR=/home/adrian/.local/bin -DCPRAG_CONSUMER_SOURCE=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/rxpa_consumer -DCPRAG_PACKAGE_PROBE_SOURCE=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/rxpa_consumer/package_probe -DCPRAG_WORK_DIR=/home/adrian/CLionProjects/crexx-rag/cmake-build-debug/p1-rxpa-02 -P /home/adrian/CLionProjects/crexx-rag/cmake/P1Rxpa02.cmake
+ninja: build stopped: subcommand failed.
+Command exited with non-zero status 1
+	Command being timed: "cmake --build --preset debug --target p1_rxpa_02"
+	User time (seconds): 0.02
+	System time (seconds): 0.05
+	Percent of CPU this job got: 97%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.08
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 20224
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 2535
+	Voluntary context switches: 10
+	Involuntary context switches: 14
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 1

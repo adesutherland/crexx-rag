@@ -1,0 +1,20 @@
+source=/home/adrian/CLionProjects/crexx-rag/incubator/phase1b/rxsqlite/p1_sql_06.crexx
+modules=rx_sqlite_boundary
+noopt compile:
+noopt assemble:
+
+noopt/rxvme:
+P1_SQL_06_OK pages=12 snapshot_rows=2000 source_rows=2001 forced_cleanup=3 readonly_error=8 integrity=ok
+
+noopt/rxbvm:
+P1_SQL_06_OK pages=12 snapshot_rows=2000 source_rows=2001 forced_cleanup=3 readonly_error=8 integrity=ok
+
+opt compile:
+opt assemble:
+
+opt/rxvme:
+P1_SQL_06_OK pages=12 snapshot_rows=2000 source_rows=2001 forced_cleanup=3 readonly_error=8 integrity=ok
+
+opt/rxbvm:
+P1_SQL_06_OK pages=12 snapshot_rows=2000 source_rows=2001 forced_cleanup=3 readonly_error=8 integrity=ok
+

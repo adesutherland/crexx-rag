@@ -1,0 +1,94 @@
+options levelb
+
+import sqlite_boundary
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P1_SQL_06_FAIL=" || label
+    return 1
+  end
+  return 0
+
+read_int: procedure = .int
+  arg db = .binary, sql = .string, expose value = .int
+  statement = .binary
+  if sqliteprepare(db, sql, statement) \= 0 then return 1
+  if sqlitestep(statement) \= 100 then return 1
+  if sqlitecolumnint(statement, 0, value) \= 0 then return 1
+  if sqlitefinalize(statement) \= 0 then return 1
+  return 0
+
+main: procedure = .int
+arg args = .string[]
+if args.0 < 1 then return 2
+source_path = args[1]
+backup_path = source_path || ".backup"
+errors = 0
+source = .binary
+destination = .binary
+readonly_destination = .binary
+abandoned_statement = .binary
+
+errors = errors + check(sqliteopenmode(source_path, "create", source) = 0, "open source")
+errors = errors + check(sqliteexec(source, "PRAGMA journal_mode=WAL; PRAGMA user_version=9; CREATE TABLE values_table(id INTEGER PRIMARY KEY, value TEXT); WITH RECURSIVE n(v) AS (VALUES(1) UNION ALL SELECT v+1 FROM n WHERE v<2000) INSERT INTO values_table SELECT v, printf('value-%06d',v) FROM n") = 0, "seed source")
+errors = errors + check(sqliteopenmode(backup_path, "create", destination) = 0, "open destination")
+
+remaining = -1
+pages = -1
+errors = errors + check(sqlitebackup(source, destination, 7, 3, 1, remaining, pages) = 0, "online backup")
+errors = errors + check(remaining = 0 & pages > 0, "backup counters")
+backup_pages = pages
+source_ok = 0
+source_details = ""
+backup_ok = 0
+backup_details = ""
+errors = errors + check(sqliteintegrity(source, "quick", 10, source_ok, source_details) = 0 & source_ok = 1 & source_details = "ok", "source quick check")
+errors = errors + check(sqliteintegrity(destination, "full", 10, backup_ok, backup_details) = 0 & backup_ok = 1 & backup_details = "ok", "backup integrity check")
+
+source_count = 0
+backup_count = 0
+errors = errors + check(read_int(source, "SELECT count(*) FROM values_table", source_count) = 0 & source_count = 2000, "source count")
+errors = errors + check(read_int(destination, "SELECT count(*) FROM values_table", backup_count) = 0 & backup_count = 2000, "backup count")
+errors = errors + check(sqliteexec(source, "INSERT INTO values_table VALUES(2001,'after-snapshot')") = 0, "mutate live source")
+errors = errors + check(read_int(source, "SELECT count(*) FROM values_table", source_count) = 0 & source_count = 2001, "source post-backup count")
+errors = errors + check(read_int(destination, "SELECT count(*) FROM values_table", backup_count) = 0 & backup_count = 2000, "backup snapshot stable")
+errors = errors + check(sqliteclose(destination) = 0, "close destination")
+
+errors = errors + check(sqliteopenmode(backup_path, "readonly", readonly_destination) = 0, "open read-only destination")
+remaining = -1
+pages = -1
+errors = errors + check(sqlitebackup(source, readonly_destination, 5, 0, 0, remaining, pages) = -6, "read-only backup failure")
+code = 0
+sqlite_code = 0
+extended_code = 0
+operation = ""
+message = ""
+errors = errors + check(sqliteerrorextended(code, sqlite_code, extended_code, operation, message) = -6 & sqlite_code = 8, "read-only backup diagnostic")
+errors = errors + check(read_int(readonly_destination, "SELECT count(*) FROM values_table", backup_count) = 0 & backup_count = 2000, "destination usable after failed backup")
+errors = errors + check(sqlitebackup(source, source, 1, 0, 0, remaining, pages) = -1, "same-handle validation")
+errors = errors + check(sqlitebackup(source, readonly_destination, 0, 0, 0, remaining, pages) = -1, "step bound validation")
+errors = errors + check(sqliteintegrity(source, "unknown", 1, source_ok, source_details) = -1, "integrity mode validation")
+errors = errors + check(sqliteintegrity(source, "quick", 0, source_ok, source_details) = -1, "integrity bound validation")
+
+errors = errors + check(sqliteprepare(source, "SELECT value FROM values_table", abandoned_statement) = 0, "abandoned statement")
+closed = sqlitecleanup()
+errors = errors + check(closed = 3, "forced cleanup count")
+errors = errors + check(sqlitestep(abandoned_statement) = -3, "cleaned statement closed")
+errors = errors + check(sqliteexec(source, "SELECT 1") = -3, "cleaned source closed")
+errors = errors + check(sqliteexec(readonly_destination, "SELECT 1") = -3, "cleaned destination closed")
+errors = errors + check(sqlitecleanup() = 0, "cleanup idempotent")
+
+destination = .binary
+errors = errors + check(sqliteopenmode(backup_path, "readonly", destination) = 0, "reopen backup")
+errors = errors + check(sqliteintegrity(destination, "quick", 10, backup_ok, backup_details) = 0 & backup_ok = 1, "reopened backup integrity")
+errors = errors + check(read_int(destination, "SELECT count(*) FROM values_table", backup_count) = 0 & backup_count = 2000, "reopened backup snapshot")
+errors = errors + check(sqliteclose(destination) = 0, "close reopened backup")
+
+if errors <> 0 then do
+  say "P1_SQL_06_ERRORS=" || errors
+  return 1
+end
+
+say "P1_SQL_06_OK pages=" || backup_pages || " snapshot_rows=" || backup_count || " source_rows=" || source_count || " forced_cleanup=" || closed || " readonly_error=8 integrity=ok"
+return 0
