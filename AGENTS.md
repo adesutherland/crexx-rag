@@ -21,16 +21,21 @@ minimized reproducer, workload measurement, and capability-ledger entry.
 
 ## Approved Scope And Stop Point
 
-The approved immediate execution unit is Phase 0 followed, only after a fully
-evidenced Gate 0 self-review, by bounded Phase 1A. Stop unconditionally at Gate
-1A for the user's boundary decision.
+Phase 0, Gate 0, Phase 1A, and the Gate-1A boundary decision are complete. The
+approved immediate execution unit is the bounded Phase-1B worklist in
+`docs/gate1a-decision-ledger.md`. Follow
+`prompts/phase1b-implementation-handoff.md` and stop unconditionally at Gate 1B
+for the user's production-capability decision.
 
-This does not authorize Phase 1B, Phase 2, production hardening, complete
-donation packages, hosted-provider qualification, cutover, native-core removal,
-commit, push, or pull request.
+This authorizes only the listed local generic capability hardening and bounded
+application-cREXX slices. It does not authorize `P1-RXPA-03`, `P1-HASH-01`,
+hosted-provider calls or qualification, normal-prefix or CREXX changes,
+production schema/migrations, donation preparation, Phase 2, dual-write,
+cutover, native-core removal, commit, push, or pull request.
 
-If Gate 0 is incomplete or non-reproducible, stop there. Gate 0 never authorizes
-dual-write or retirement.
+CRI-15 remains an open installed-CREXX Linux dependency. Do not hide it in a
+product workaround or claim Linux provider timeout qualification until it is
+fixed or separately dispositioned.
 
 ## Required Reading
 
@@ -44,7 +49,11 @@ Before programme implementation, read these files completely:
 - `docs/crexx-only-user-guide.md`
 - `docs/test-strategy.md`
 - `docs/pipeline-status.md`
-- `prompts/phase0-phase1a-implementation-handoff.md`
+- `docs/gate1a-decision-ledger.md`
+- `docs/evidence/2026-07-28-phase0-gate1a/GATE-1A-DECISION-PACKET.md`
+- `docs/evidence/2026-07-31-gate1a-crexx-candidate/CANDIDATE-INTEGRATION-CLOSEOUT.md`
+- `docs/evidence/2026-08-03-linux-build/LINUX-BUILD-REVIEW.md`
+- `prompts/phase1b-implementation-handoff.md`
 - `prompts/crexx-rag-agent-AGENTS.md`
 
 Files below `docs/archive/` and `prompts/archive/` are frozen native-v1 oracle
@@ -74,36 +83,35 @@ as current architecture, user guidance, or agent instructions.
 - Provider calls belong behind one cREXX local/hosted contract. Do not shell
   through `curl` or the native-v1 RAG CLI in the new path.
 
-## Phase 0 And Phase 1A Discipline
+## Phase 1B Discipline
 
 - Establish a resumable worklist mapped to the roadmap IDs before the first
   implementation edit; keep at most one item active.
-- Phase 0 freezes exact commits/toolchain/build/provider/corpus fingerprints,
-  redistributable fixtures, semantic goldens, current-defect demonstrations,
-  held-out judgements, raw same-session measurements, and provisional metrics.
-- Phase 1A is diagnostic boundary selection, not a production library
-  programme. Implement only `P1A-SDK-01` through `P1A-SUR-01`.
-- Put generic experiments in a clearly separated incubation area. SQL schemas,
-  graph/source/claim/job algorithms, and policy remain cREXX application code.
-- Use target-only loops during PoCs. Run the full configure/build/CTest baseline
-  at Phase 0 and again at Gate 1A.
+- Implement only the exact Phase-1B IDs in the decision ledger, in its stated
+  order. Do not start an item until its predecessor has retained exit evidence
+  or explicit blocker evidence and remains marked incomplete.
+- Keep approved generic mechanisms in a clearly separated incubation area.
+  SQL repositories/schema and graph/source/claim/job algorithms and policy
+  remain cREXX application code.
+- Use item targets and CTest labels for development loops. Run the full
+  configure/build/CTest baseline at entry and Gate 1B.
 - Record exact correctness, time, memory, failure, and unsupported-capability
   evidence. Do not infer this workload's result from sister PERF2 benchmarks.
-- This entire Phase-0/Phase-1A execution unit may use local loopback providers
-  and deterministic protocol fixtures only; it must not use hosted credentials
-  or make hosted calls.
+- Use local loopback/OpenAI-compatible providers and deterministic synthetic
+  protocol fixtures only. Do not use hosted credentials or make hosted calls.
+- Use scratch libraries/copies only. Never dual-write a live library or touch a
+  production schema.
 
 ## CREXX Compatibility Boundary
 
-Use the installed CREXX toolchain first. The sibling checkout
-`/Users/adrian/CLionProjects/CREXX` is read-only reference material and may be
-changing underneath this project.
+Use the installed CREXX toolchain first. Any sibling CREXX checkout is read-only
+reference material and may be changing underneath this project.
 
 For planning, assume the sister PERF2 programme completes successfully. Do not
 edit, build in, reconfigure, commit, stash, clean, sequence, or otherwise
-interfere with that work. A Phase-1A SDK probe may copy exact required artifacts
-from it into a temporary scratch prefix; it must write nothing back and must not
-install into the user's normal prefix.
+interfere with that work. An approved SDK qualification may copy exact required
+artifacts into a temporary scratch prefix; it must write nothing back and must
+not install into the user's normal prefix.
 
 Installed-package and plugin gaps belong in
 `docs/crexx-integration-issues.md`. The native-v1 RXPA workaround is historical

@@ -78,17 +78,42 @@ the repeatable replay. That refreshed Apple suite passed 28/28 with zero
 failures and zero skips. Fresh Linux validation builds Debug and Release and
 passes the portable process-metrics tests, but currently fails the deterministic
 provider timeout case because of the separately reproduced installed-CREXX
-CRI-15 socket status defect. Gate 1A remains an unconditional stop for Phase-1B
-approval.
+CRI-15 socket status defect. On 2026-08-03 the user accepted D1-D8 and the
+bounded D9 Phase-1B worklist. CRI-15 remains separate negative evidence and
+prevents a Linux provider-timeout qualification claim until fixed or separately
+dispositioned.
+
+## Phase 1B Acceptance
+
+Every approved Phase-1B roadmap item needs its own target and CTest label,
+retained entry/exit evidence, and a target-only development loop. The complete
+slice must retain:
+
+- installed-SDK external-consumer and compatibility diagnostics;
+- generic SQLite correctness, read-only, concurrency, backup, and forced-error
+  cleanup matrices;
+- JSON/typed-record correctness and representative same-session comparisons;
+- deterministic synthetic and available local-provider contract results with
+  zero denied outbound requests and secret-free evidence;
+- the 11,684-by-768 vector transfer/compute/memory breakdown and exact ordering;
+- scratch-schema algorithm parity and zero-write/retraction evidence; and
+- fenced-worker crash recovery, cancellation, ceilings, reservations, and
+  bounded-overrun results.
+
+`P1-RXPA-03`, `P1-HASH-01`, hosted calls, normal-prefix/CREXX changes,
+production schema, dual-write, and later phases are outside the acceptance
+scope. Gate 1B is an unconditional stop even when every approved test passes.
 
 ## Required Commands
 
-At the Phase-0 baseline and Gate 1A:
+At Phase-1B entry and Gate 1B:
 
 ```bash
 cmake --preset debug
 cmake --build --preset debug
 ctest --preset debug --output-on-failure
+cmake --preset release
+cmake --build --preset release
 git diff --check
 ```
 

@@ -1,5 +1,10 @@
 # Paste-ready Gate-1A successor decision prompt
 
+Status: consumed and approved on 2026-08-03. The authoritative decision is
+`docs/gate1a-decision-ledger.md`; implementation authority is defined by
+`prompts/phase1b-implementation-handoff.md`. Do not reuse this prompt as new or
+broader authority.
+
 Work in the checked-out `crexx-rag` repository and read `AGENTS.md` plus
 `docs/evidence/2026-07-28-phase0-gate1a/GATE-1A-DECISION-PACKET.md` completely.
 Also read the approved-candidate closeout linked from that packet. Preserve

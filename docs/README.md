@@ -1,7 +1,7 @@
 # Documentation Map
 
 Status: canonical navigation for the approved cREXX-only programme,
-2026-07-31.
+2026-08-03.
 
 ## Current Programme Documents
 
@@ -10,17 +10,20 @@ Status: canonical navigation for the approved cREXX-only programme,
 | [Vision and product specification](crexx-only-vision-and-specification.md) | Approved product purpose, requirements, ownership, and cutover rules |
 | [Review findings](crexx-only-review-findings.md) | Point-in-time evidence behind the decision; Phase 0 must make it reproducible |
 | [Architecture](crexx-only-architecture.md) | Approved target boundaries, data model, lifecycle, jobs, retrieval, and surfaces |
-| [Implementation roadmap](crexx-only-implementation-roadmap.md) | Resumable worklist and gates; current authority ends at Gate 1A |
+| [Implementation roadmap](crexx-only-implementation-roadmap.md) | Resumable worklist and gates; bounded Phase 1B is approved and authority ends at Gate 1B |
 | [User guide](crexx-only-user-guide.md) | Target interface contract; clearly marks unimplemented commands |
 | [Test strategy](test-strategy.md) | Living validation and acceptance policy |
 | [Programme status](pipeline-status.md) | Living implemented-versus-specified status |
 | [Semantic vocabulary](architecture-vocabulary.md) | Initial domain-neutral typed-graph vocabulary |
 | [CREXX integration issues](crexx-integration-issues.md) | Dated installed-toolchain and capability-gap ledger |
+| [Gate 1A decision ledger](gate1a-decision-ledger.md) | Approved D1-D9 boundaries, exact Phase-1B worklist, exclusions, and Gate-1B stop |
 | [Approved CREXX candidate closeout](evidence/2026-07-31-gate1a-crexx-candidate/CANDIDATE-INTEGRATION-CLOSEOUT.md) | Exact downstream CRI-01 through CRI-14 replay, provenance, results and Gate-1A stop |
+| [Linux build review](evidence/2026-08-03-linux-build/LINUX-BUILD-REVIEW.md) | Debug/Release portability result and open CRI-15 reproducer |
 
 Agent-facing material:
 
 - [Phase 0 and Phase 1A implementation handoff](../prompts/phase0-phase1a-implementation-handoff.md)
+- [Paste-ready Phase 1B implementation handoff](../prompts/phase1b-implementation-handoff.md)
 - [Target knowledge-agent instructions](../prompts/crexx-rag-agent-AGENTS.md)
 
 ## Historical Native-v1 Evidence

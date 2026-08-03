@@ -16,8 +16,9 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Phase 0 | Complete | P0-01 through P0-07 including P0-04A are accepted in the dated evidence bundle |
 | Gate 0 | Passed | Full configure/build/CTest passed 17/17 with 19 frozen hashes and raw measurements |
 | Phase 1A | Complete diagnostic unit | P1A-SDK-01 through P1A-SUR-01 all have focused retained correctness/failure/profile evidence |
-| Gate 1A | Reached; Apple candidate replay passed; stopped for decision | CRI-01 through CRI-14 are closed downstream; Linux qualification opened CRI-15; no Phase-1B choice is approved by this evidence alone |
-| Phase 1B and later | Not authorized | No hardening, donation implementation, schema v2, cutover, or retirement yet |
+| Gate 1A | Accepted 2026-08-03 | D1-D8 boundaries and the bounded D9 worklist are recorded; CRI-15 remains an open Linux dependency |
+| Phase 1B | Authorized; not started | Only the IDs and local-only constraints in the Gate-1A decision ledger are approved; stop at Gate 1B |
+| Phase 2 and later | Not authorized | No production schema, donation implementation, hosted qualification, cutover, or retirement |
 
 ## Current Product Reality
 
@@ -76,18 +77,24 @@ documented socket timeout status during string receive validation. Exact build
 and minimized reproducer evidence is in the
 [Linux build review](evidence/2026-08-03-linux-build/LINUX-BUILD-REVIEW.md).
 
-## Gate-1A Decision Stop
+On 2026-08-03 the user approved D1 through D8 as recommended and the bounded D9
+worklist proposed from the successor decision prompt. The exact scope and
+exclusions are in the [Gate-1A decision ledger](gate1a-decision-ledger.md).
+This records authority only; no Phase-1B item is implemented or active yet.
 
-Use the [implementation handoff](../prompts/phase0-phase1a-implementation-handoff.md)
-and the [roadmap](crexx-only-implementation-roadmap.md). Update this page only
-from retained evidence:
+## Phase-1B Authority And Gate-1B Stop
 
-- use the refreshed Gate-1A decision packet and candidate-integration closeout;
-- choose the SQLite, record/JSON, provider, vector, publication, fencing, and
-  facade boundaries explicitly before Phase 1B;
-- preserve the failed and successful canary evidence as separate facts;
-- do not turn any incubation slice into a production library, CREXX donation,
-  schema-v2 module, or native replacement without new approval.
+Use the [Phase-1B implementation handoff](../prompts/phase1b-implementation-handoff.md)
+and the [roadmap](crexx-only-implementation-roadmap.md). Before implementation,
+create the dated resumable evidence worklist and keep at most one approved item
+active.
 
-Do not copy milestone claims from the archived status page into this page unless
-Phase 0 re-verifies them.
+- preserve the native-v1 path as the executable oracle;
+- keep generic hardening inside the approved local incubations;
+- use scratch libraries, local/loopback providers, and synthetic shapes only;
+- leave CRI-15 open unless a separate decision authorizes its disposition; and
+- do not start excluded IDs, donation work, Phase 2, production schema, hosted
+  calls, CREXX modifications, dual-write, cutover, or retirement.
+
+Run the full Gate-1B validation and stop unconditionally for the user's
+production-capability decision.

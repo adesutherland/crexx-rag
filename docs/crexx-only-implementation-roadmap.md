@@ -1,7 +1,7 @@
 # cREXX-Only Implementation Roadmap
 
-Status: approved through the bounded Gate-1A decision programme, 2026-07-26.
-Phase 1B and later work remain unauthorized.
+Status: bounded Phase 1B approved on 2026-08-03. Phase 2 and later work remain
+unauthorized.
 
 This is the execution plan for the target in
 [`crexx-only-vision-and-specification.md`](crexx-only-vision-and-specification.md)
@@ -17,9 +17,9 @@ uses proof points and approval gates rather than authorizing a big-bang rewrite.
   separately requested.
 - Preserve the native implementation as the oracle until Gate 7.
 - Generic capability work may incubate here and later be donated to CREXX.
-- Current authority covers Phase 0 and, only after a fully evidenced Gate 0,
-  bounded Phase 1A. Stop unconditionally at Gate 1A. A gate never implicitly
-  authorizes removal of the existing path.
+- Current authority covers only the Phase-1B IDs and restrictions in the
+  [Gate-1A decision ledger](gate1a-decision-ledger.md). Stop unconditionally at
+  Gate 1B. A gate never implicitly authorizes removal of the existing path.
 
 ## Reviewed Baseline
 
@@ -181,10 +181,11 @@ provider contract, vector baseline, generation model, job fencing, and facade
 shape from retained correctness/profile evidence. Stop for approval before
 turning any PoC into a production/common library.
 
-Gate-1A evidence is complete in the dated decision packet. The programme is
-stopped here for the user's boundary choices. The 2026-07-31 approved-candidate
-replay closes CRI-01 through CRI-14 downstream and passes 28/28 deterministic/
-loopback tests; it does not approve production boundaries or Phase 1B.
+Gate-1A evidence is complete in the dated decision packet. The 2026-07-31
+approved-candidate replay closes CRI-01 through CRI-14 downstream and passes
+28/28 deterministic/loopback tests. On 2026-08-03 the user approved D1 through
+D8 and the bounded D9 worklist in the
+[decision ledger](gate1a-decision-ledger.md).
 
 Fresh Linux build qualification on 2026-08-03 builds all Debug and Release
 targets and makes process-memory evidence portable, but opens CRI-15: installed
@@ -196,7 +197,10 @@ downstream product-specific workaround.
 
 ### Phase 1B — Capability hardening and donation readiness
 
-The remaining Phase-1 items harden only the Gate-1A-selected boundaries.
+Only the Gate-1A-selected subset in the decision ledger is authorized. Local
+generic incubation may be hardened, but donation preparation remains excluded.
+Use the [Phase-1B handoff](../prompts/phase1b-implementation-handoff.md) and stop
+unconditionally at Gate 1B.
 
 ### A1. Installed plugin development
 
@@ -206,7 +210,8 @@ The remaining Phase-1 items harden only the Gate-1A-selected boundaries.
 - [ ] **P1-RXPA-02** Specify and locally validate the development package:
   version-matched headers, `RXPluginFunction.cmake`, imported target or package
   config, runtime module discovery, examples, and compatibility diagnostics.
-- [ ] **P1-RXPA-03** Produce a donation-ready installed-consumer test.
+- [ ] **P1-RXPA-03** **Not authorized.** Produce a donation-ready
+  installed-consumer test.
 
 ### A2. Production `rxsqlite`
 
@@ -249,14 +254,14 @@ The remaining Phase-1 items harden only the Gate-1A-selected boundaries.
   explicit unsupported results; the RAG pipeline does not require every provider
   to stream.
 - [ ] **P1-LLM-04** Pass synthetic contract tests for local, OpenAI, Anthropic,
-  and Gemini shapes; keep a secret-gated hosted canary optional.
+  and Gemini shapes. The optional secret-gated hosted canary is not authorized.
 - [ ] **P1-LLM-05** Prove that denied/restricted routes make zero outbound
   requests and that credentials do not enter logs or fixtures.
 
 ### A5. Hash, binary, and vector transfer
 
-- [ ] **P1-HASH-01** Add incremental binary file input and SHA-256 through a
-  generic cREXX library/plugin surface.
+- [ ] **P1-HASH-01** **Not authorized.** Add incremental binary file input and
+  SHA-256 through a generic cREXX library/plugin surface.
 - [ ] **P1-VEC-01** Define a versioned float32 embedding blob codec and store the
   existing 768-dimensional shape through `rxsqlite`.
 - [ ] **P1-VEC-02** Page 11,684 representative vectors into cREXX and compare
@@ -306,7 +311,8 @@ Required evidence:
 
 Stop for a production-capability decision. Revise the target design if hardening
 disproves a selected boundary. Gate 1B acceptance authorizes the cREXX skeleton,
-not native core removal.
+not native core removal. It also does not authorize Phase 2 without a separate
+user decision.
 
 ## Phase 2 — cREXX Product Skeleton And Schema V2
 
@@ -592,21 +598,18 @@ opportunities remain in an explicit ledger.
 
 ## Immediate Next Slice
 
-The approved first implementation programme is limited to Phase 0 and the
-bounded Phase 1A. Phase 1B requires a separate Gate-1A decision. The recommended
-implementation sequence is:
+The approved next implementation unit is the bounded Phase-1B sequence:
 
-1. oracle fixture/evidence harness and explicit defect tests;
-2. temporary installed-SDK package plus external-plugin probe;
-3. minimal generic `rxsqlite` typed/cursor/FTS transaction slice;
-4. one parse-once JSON/typed-record boundary experiment;
-5. one provider-neutral local generation and embedding slice;
-6. small binary/hash and vector-transfer/compute slice;
-7. small cREXX source-revision/claim-support/evidence vertical slice;
-8. one fenced single-worker crash-recovery slice;
-9. minimal facade/CLI/`ADDRESS RAG`/MCP typed-record pass-through; and
-10. Gate-1A evidence report and boundary-selection prompt.
+1. `P1-RXPA-01` through `P1-RXPA-02`;
+2. `P1-SQL-01` through `P1-SQL-07`;
+3. `P1-JSON-01` through `P1-JSON-02` and `P1-REC-01`;
+4. `P1-LLM-01` through `P1-LLM-05`, excluding the hosted canary;
+5. `P1-VEC-01` through `P1-VEC-04`;
+6. `P1-ALG-01` through `P1-ALG-05`;
+7. `P1-JOB-01` through `P1-JOB-03`; and
+8. full Gate-1B validation and the unconditional production-capability stop.
 
-Do not start broad module-by-module translation or Phase-1B hardening before
-that gate. Phase 1A is designed to reveal where cREXX needs strengthening while
-the cost of changing the architecture remains low.
+`P1-RXPA-03` and `P1-HASH-01` remain unauthorized. Follow the exact entry,
+target-only loop, evidence, exit, and exclusion rules in the
+[Phase-1B handoff](../prompts/phase1b-implementation-handoff.md). Do not begin
+Phase 2 from a Gate-1B pass without a separate user decision.
