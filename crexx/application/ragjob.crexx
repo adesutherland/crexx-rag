@@ -1,0 +1,142 @@
+options levelg
+
+namespace ragjob expose ragjobstatus ragjobevent ragjobeventpage ragjob
+
+import ragmodel
+
+ragjobstatus: class
+  _job_id = .string
+  _state = .string
+  _planned_total = .int
+  _queued = .int
+  _running = .int
+  _processed = .int
+  _skipped = .int
+  _dead_letter = .int
+  _cancelled = .int
+  _failed_attempts = .int
+  _current_item = .string
+  _provider = .string
+  _model = .string
+  _throughput_per_second = .float
+  _created_at = .string
+  _started_at = .string
+  _updated_at = .string
+  _completed_at = .string
+  _last_error = .string
+  _artifact_state = .string
+
+  *: factory
+    arg job_id = .string, state = .string, planned_total = .int, queued = .int, running = .int, processed = .int, skipped = .int, dead_letter = .int, cancelled = .int, failed_attempts = .int, current_item = .string, provider = .string, model = .string, throughput_per_second = .float, created_at = .string, started_at = .string, updated_at = .string, completed_at = .string, last_error = .string, artifact_state = .string
+    _job_id = job_id
+    _state = state
+    _planned_total = planned_total
+    _queued = queued
+    _running = running
+    _processed = processed
+    _skipped = skipped
+    _dead_letter = dead_letter
+    _cancelled = cancelled
+    _failed_attempts = failed_attempts
+    _current_item = current_item
+    _provider = provider
+    _model = model
+    _throughput_per_second = throughput_per_second
+    _created_at = created_at
+    _started_at = started_at
+    _updated_at = updated_at
+    _completed_at = completed_at
+    _last_error = last_error
+    _artifact_state = artifact_state
+    return
+
+  job_id: method = .string
+    return _job_id
+  state: method = .string
+    return _state
+  planned_total: method = .int
+    return _planned_total
+  queued: method = .int
+    return _queued
+  running: method = .int
+    return _running
+  processed: method = .int
+    return _processed
+  skipped: method = .int
+    return _skipped
+  dead_letter: method = .int
+    return _dead_letter
+  cancelled: method = .int
+    return _cancelled
+  failed_attempts: method = .int
+    return _failed_attempts
+  current_item: method = .string
+    return _current_item
+  provider: method = .string
+    return _provider
+  model: method = .string
+    return _model
+  throughput_per_second: method = .float
+    return _throughput_per_second
+  created_at: method = .string
+    return _created_at
+  started_at: method = .string
+    return _started_at
+  updated_at: method = .string
+    return _updated_at
+  completed_at: method = .string
+    return _completed_at
+  last_error: method = .string
+    return _last_error
+  artifact_state: method = .string
+    return _artifact_state
+
+ragjobevent: class
+  _event_id = .string
+  _event_type = .string
+  _occurred_at = .string
+  _item_id = .string
+  _message = .string
+
+  *: factory
+    arg event_id = .string, event_type = .string, occurred_at = .string, item_id = .string, message = .string
+    _event_id = event_id
+    _event_type = event_type
+    _occurred_at = occurred_at
+    _item_id = item_id
+    _message = message
+    return
+
+  event_id: method = .string
+    return _event_id
+  event_type: method = .string
+    return _event_type
+  occurred_at: method = .string
+    return _occurred_at
+  item_id: method = .string
+    return _item_id
+  message: method = .string
+    return _message
+
+ragjobeventpage: class
+  _events = .ragjobevent[]
+  _next_cursor = .string
+
+  *: factory
+    arg events = .ragjobevent[], next_cursor = .string
+    _events = events
+    _next_cursor = next_cursor
+    return
+
+  events: method = .ragjobevent[]
+    return _events
+  next_cursor: method = .string
+    return _next_cursor
+
+ragjob: interface
+  status: method = .ragjobstatus
+  events: method = .ragjobeventpage
+    arg cursor = .string, limit = .int
+  pause: method = .ragoperationresult
+  resume: method = .ragoperationresult
+  cancel: method = .ragoperationresult

@@ -118,6 +118,21 @@ qualified. After acceptance, all maintained Phase-1B cREXX sources were migrated
 to Level G under G1B-D6; the same optimized/non-optimized and dual-VM tests now
 guard the Level-G implementation without rewriting the retained evidence.
 
+## Phase 2 Acceptance To Date
+
+`P2-01` freezes the Level G application object boundary through a compiled
+consumer rather than documentation alone. CTest `p2_01_application_contract`
+compiles `ragmodel`, `ragevidence`, `ragjob`, `raglibrary`, and the consumer in
+optimized and non-optimized modes, then runs on `rxvme` and `rxbvm`. The fixture
+must exercise the complete method vocabulary, nominal pages and records,
+interface-valued library/job handles, directional independently cited claims,
+ambiguity, graph-lead limitations, gaps, trace, and truthful package limits.
+
+The accepted 2026-08-04 run passed all four cells and the full suite passed
+58/59 in 527.97 seconds with only the unchanged CRI-15 failure. This does not
+accept configuration, persistence, plan validation, commands, or provider
+execution assigned to later Phase-2 items.
+
 `P1-RXPA-03`, `P1-HASH-01`, hosted calls outside the explicitly authorized
 low-cost `P1-LLM-04` qualification, normal-prefix/CREXX changes, production
 schema, dual-write, and later phases are outside the acceptance scope. Gate 1B

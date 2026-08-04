@@ -1,9 +1,9 @@
 # cREXX-Only Implementation Roadmap
 
 Status: Gate 1B reached on 2026-08-03 and accepted on 2026-08-04. All bounded
-Phase-1B items are complete. Phase 2 is authorized as the next product
-workstream but has not started; establish its worklist and entry baseline before
-the first implementation edit. The decision is recorded in the
+Phase-1B items are complete. Phase 2 started on 2026-08-04 from the pushed
+entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` is accepted and
+`P2-02` is pending. The decision is recorded in the
 [Gate-1B ledger](gate1b-decision-ledger.md).
 
 This is the execution plan for the target in
@@ -354,18 +354,20 @@ user decision.
 Gate 1B was reached on 2026-08-03. All bounded implementation items are
 accepted; full validation passed 55/56 with the sole unchanged CRI-15 failure.
 The user accepted Gate 1B on 2026-08-04 and separately authorized Phase 2 as
-the next product workstream. Phase-2 implementation begins only after its dated
-worklist and entry baseline are established.
+the next product workstream. The dated worklist and pushed entry baseline are
+now established under `docs/evidence/2026-08-04-phase2/`.
 
 ## Phase 2 — cREXX Product Skeleton And Schema V2
 
 Goal: establish installed, recoverable product foundations without model-driven
 mutation.
 
-- [ ] **P2-01** Create the Level G application module layout and Level G
+- [x] **P2-01** Create the Level G application module layout and Level G
   `raglibrary`, `ragjob`, and `ragevidence` public contracts. Do not introduce
   pass-through language-level wrappers; record any necessary Level-B
-  foundation exception with a minimized reproducer and evidence.
+  foundation exception with a minimized reproducer and evidence. Accepted with
+  four-cell compiled-consumer and full-suite evidence in
+  [`P2-01.md`](evidence/2026-08-04-phase2/P2-01.md); no exception was needed.
 - [ ] **P2-02** Implement operator-registered declarative cREXX config modules
   with `env:` secret references and independent typed profiles; agents may
   select registered ids but never arbitrary executable paths.

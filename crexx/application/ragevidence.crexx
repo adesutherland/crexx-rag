@@ -1,0 +1,266 @@
+options levelg
+
+namespace ragevidence expose ragscore ragcitation ragpassage ragsupportcitation ragacceptedclaim raggraphlead ragevidence
+
+import ragmodel
+
+ragscore: class
+  _name = .string
+  _value = .float
+
+  *: factory
+    arg name = .string, value = .float
+    _name = name
+    _value = value
+    return
+
+  name: method = .string
+    return _name
+  value: method = .float
+    return _value
+
+ragcitation: class
+  _citation = .string
+  _source = .string
+  _revision = .string
+  _span_start = .int
+  _span_end = .int
+
+  *: factory
+    arg citation = .string, source = .string, revision = .string, span_start = .int, span_end = .int
+    _citation = citation
+    _source = source
+    _revision = revision
+    _span_start = span_start
+    _span_end = span_end
+    return
+
+  citation: method = .string
+    return _citation
+  source: method = .string
+    return _source
+  revision: method = .string
+    return _revision
+  span_start: method = .int
+    return _span_start
+  span_end: method = .int
+    return _span_end
+
+ragpassage: class
+  _citation = .ragcitation
+  _title = .string
+  _text = .string
+  _source_type = .string
+  _confidence = .float
+  _captured_at = .string
+  _event_start_at = .string
+  _event_end_at = .string
+  _evidence_class = .string
+  _directness = .string
+  _retrieval_channels = .string[]
+  _scores = .ragscore[]
+
+  *: factory
+    arg citation = .ragcitation, title = .string, text = .string, source_type = .string, confidence = .float, captured_at = .string, event_start_at = .string, event_end_at = .string, evidence_class = .string, directness = .string, retrieval_channels = .string[], scores = .ragscore[]
+    _citation = citation
+    _title = title
+    _text = text
+    _source_type = source_type
+    _confidence = confidence
+    _captured_at = captured_at
+    _event_start_at = event_start_at
+    _event_end_at = event_end_at
+    _evidence_class = evidence_class
+    _directness = directness
+    _retrieval_channels = retrieval_channels
+    _scores = scores
+    return
+
+  citation: method = .ragcitation
+    return _citation
+  title: method = .string
+    return _title
+  text: method = .string
+    return _text
+  source_type: method = .string
+    return _source_type
+  confidence: method = .float
+    return _confidence
+  captured_at: method = .string
+    return _captured_at
+  event_start_at: method = .string
+    return _event_start_at
+  event_end_at: method = .string
+    return _event_end_at
+  evidence_class: method = .string
+    return _evidence_class
+  directness: method = .string
+    return _directness
+  retrieval_channels: method = .string[]
+    return _retrieval_channels
+  scores: method = .ragscore[]
+    return _scores
+
+ragsupportcitation: class
+  _citation = .ragcitation
+  _polarity = .string
+  _stance = .string
+  _attribution = .string
+  _lineage = .string
+
+  *: factory
+    arg citation = .ragcitation, polarity = .string, stance = .string, attribution = .string, lineage = .string
+    _citation = citation
+    _polarity = polarity
+    _stance = stance
+    _attribution = attribution
+    _lineage = lineage
+    return
+
+  citation: method = .ragcitation
+    return _citation
+  polarity: method = .string
+    return _polarity
+  stance: method = .string
+    return _stance
+  attribution: method = .string
+    return _attribution
+  lineage: method = .string
+    return _lineage
+
+ragacceptedclaim: class
+  _claim_id = .string
+  _subject = .string
+  _relationship_type = .string
+  _object = .string
+  _direction = .string
+  _confidence = .float
+  _effective_start_at = .string
+  _effective_end_at = .string
+  _asserted_at = .string
+  _supports = .ragsupportcitation[]
+  _confidence_breakdown = .ragscore[]
+  _conflicts = .string[]
+
+  *: factory
+    arg claim_id = .string, subject = .string, relationship_type = .string, object = .string, direction = .string, confidence = .float, effective_start_at = .string, effective_end_at = .string, asserted_at = .string, supports = .ragsupportcitation[], confidence_breakdown = .ragscore[], conflicts = .string[]
+    _claim_id = claim_id
+    _subject = subject
+    _relationship_type = relationship_type
+    _object = object
+    _direction = direction
+    _confidence = confidence
+    _effective_start_at = effective_start_at
+    _effective_end_at = effective_end_at
+    _asserted_at = asserted_at
+    _supports = supports
+    _confidence_breakdown = confidence_breakdown
+    _conflicts = conflicts
+    return
+
+  claim_id: method = .string
+    return _claim_id
+  subject: method = .string
+    return _subject
+  relationship_type: method = .string
+    return _relationship_type
+  object: method = .string
+    return _object
+  direction: method = .string
+    return _direction
+  confidence: method = .float
+    return _confidence
+  effective_start_at: method = .string
+    return _effective_start_at
+  effective_end_at: method = .string
+    return _effective_end_at
+  asserted_at: method = .string
+    return _asserted_at
+  supports: method = .ragsupportcitation[]
+    return _supports
+  confidence_breakdown: method = .ragscore[]
+    return _confidence_breakdown
+  conflicts: method = .string[]
+    return _conflicts
+
+raggraphlead: class
+  _path = .string[]
+  _reason = .string
+  _supporting_mentions = .string[]
+  _limitation = .string
+
+  *: factory
+    arg path = .string[], reason = .string, supporting_mentions = .string[], limitation = .string
+    _path = path
+    _reason = reason
+    _supporting_mentions = supporting_mentions
+    _limitation = limitation
+    return
+
+  path: method = .string[]
+    return _path
+  reason: method = .string
+    return _reason
+  supporting_mentions: method = .string[]
+    return _supporting_mentions
+  limitation: method = .string
+    return _limitation
+
+ragevidence: class
+  _schema_version = .string
+  _library_id = .string
+  _active_generation = .int
+  _original_question = .string
+  _query_plan = .string[]
+  _passages = .ragpassage[]
+  _claims = .ragacceptedclaim[]
+  _ambiguities = .string[]
+  _leads = .raggraphlead[]
+  _gaps = .string[]
+  _trace = .ragtrace
+  _answer_guidance = .string
+  _generated_answer = .string
+
+  *: factory
+    arg schema_version = .string, library_id = .string, active_generation = .int, original_question = .string, query_plan = .string[], passages = .ragpassage[], claims = .ragacceptedclaim[], ambiguities = .string[], leads = .raggraphlead[], gaps = .string[], trace = .ragtrace, answer_guidance = .string, generated_answer = ""
+    _schema_version = schema_version
+    _library_id = library_id
+    _active_generation = active_generation
+    _original_question = original_question
+    _query_plan = query_plan
+    _passages = passages
+    _claims = claims
+    _ambiguities = ambiguities
+    _leads = leads
+    _gaps = gaps
+    _trace = trace
+    _answer_guidance = answer_guidance
+    _generated_answer = generated_answer
+    return
+
+  schema_version: method = .string
+    return _schema_version
+  library_id: method = .string
+    return _library_id
+  active_generation: method = .int
+    return _active_generation
+  original_question: method = .string
+    return _original_question
+  query_plan: method = .string[]
+    return _query_plan
+  passages: method = .ragpassage[]
+    return _passages
+  claims: method = .ragacceptedclaim[]
+    return _claims
+  ambiguities: method = .string[]
+    return _ambiguities
+  leads: method = .raggraphlead[]
+    return _leads
+  gaps: method = .string[]
+    return _gaps
+  trace: method = .ragtrace
+    return _trace
+  answer_guidance: method = .string
+    return _answer_guidance
+  generated_answer: method = .string
+    return _generated_answer

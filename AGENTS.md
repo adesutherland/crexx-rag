@@ -36,12 +36,14 @@ language levels.
 Phase 0, Gate 0, Phase 1A, Gate 1A, and the bounded Phase-1B worklist are
 complete. Gate 1B was accepted on 2026-08-04, including all 28 bounded
 Phase-1B item results and their recorded limitations. Phase 2, `P2-01` through
-`P2-10`, is approved as the next product workstream and is expected to begin
-shortly in parallel with separately bounded CREXX capability work.
+`P2-10`, is the active product workstream. Its dated worklist and entry
+baseline are under `docs/evidence/2026-08-04-phase2/`. `P2-01` is accepted;
+`P2-02` is pending and no later item is active. Work stops unconditionally at
+Gate 2.
 
-No Phase-2 implementation item is active until its dated worklist, entry
-baseline, ordering, evidence rules, and Gate-2 stop are established. The
-decision does not authorize Phase 3, additional hosted-provider calls,
+Do not activate a Phase-2 item until its predecessor has accepted evidence or
+explicit blocker evidence and remains marked incomplete. The decision does not
+authorize Phase 3, additional hosted-provider calls,
 normal-prefix or sibling-CREXX changes, donation submission, dual-write,
 cutover, native-core removal, commit, push, or pull request. Treat the Gate-1A
 ledger and Phase-1B handoff as completed execution evidence.
@@ -71,6 +73,9 @@ Before programme implementation, read these files completely:
 - `docs/evidence/2026-08-03-linux-build/LINUX-BUILD-REVIEW.md`
 - `docs/evidence/2026-08-03-phase1b/GATE-1B-DECISION-PACKET.md`
 - `docs/evidence/2026-08-03-phase1b/CAPABILITY-LEDGER.md`
+- `docs/evidence/2026-08-04-phase2/WORKLIST.md`
+- `docs/evidence/2026-08-04-phase2/ENTRY-BASELINE.md`
+- `docs/evidence/2026-08-04-phase2/P2-01.md`
 - `prompts/phase1b-implementation-handoff.md`
 - `prompts/crexx-rag-agent-AGENTS.md`
 
@@ -112,10 +117,9 @@ as current architecture, user guidance, or agent instructions.
 - Do not reinterpret the five secret-gated `P1-LLM-04` calls as authorization
   for more hosted traffic. Never retain credentials or unredacted authorization
   material.
-- Before the first Phase-2 edit, establish its bounded worklist, entry baseline,
-  evidence rules, ordering, and Gate-2 stop. Give every parallel generic
-  capability stream its own equivalent boundary. Continue to use scratch
-  libraries/copies and never dual-write a live library.
+- Follow the Phase-2 worklist in order with at most one item active. Give every
+  parallel generic capability stream its own equivalent boundary. Continue to
+  use scratch libraries/copies and never dual-write a live library.
 
 ## CREXX Compatibility Boundary
 

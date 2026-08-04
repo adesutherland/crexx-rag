@@ -12,9 +12,9 @@ performance with retained correctness and workload evidence.
 
 > **Programme status, 2026-08-04:** Gate 1B is accepted, including all 28
 > bounded Phase-1B results and their recorded limitations. Phase 2 is approved
-> as the next product phase and is expected to begin shortly alongside
-> separately bounded CREXX capability work. No Phase-2 implementation item has
-> started, and the native-v1 C++ path remains the executable oracle. Level G is
+> as the next product phase and has started from a pushed entry baseline.
+> `P2-01` is accepted and `P2-02` is pending. The native-v1 C++ path remains the
+> executable oracle. Level G is
 > now the required default for advanced libraries and application code; Level B
 > is reserved for CREXX bootstrap and justified low-level foundations.
 
@@ -95,7 +95,7 @@ schema, complete ingestion pipeline, public command set, or cutover candidate.
 | Phase 0 / Gate 0 | Complete | Native oracle, fixtures, judgements, defects, hashes, and measurement protocol frozen |
 | Phase 1A / Gate 1A | Complete | cREXX application and generic-plugin boundaries selected; CRI-01 through CRI-14 closed downstream |
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | 28 bounded items accepted; Debug/Release build; 55 of 56 tests pass with sole known CRI-15 failure |
-| Phase 2 / Gate 2 | Authorized next; not started | Product foundations and schema v2 will begin after a bounded worklist and entry baseline are recorded |
+| Phase 2 / Gate 2 | Active; P2-01 accepted | Level-G public application contracts pass optimized/non-optimized on both VMs; configuration and schema work remain pending |
 | Phase 3 and later | Not authorized | No production ingestion, cutover, or native retirement has started |
 
 Gate 1B established:
@@ -140,8 +140,9 @@ production claim:
 ## Roadmap
 
 The Gate-1B decision accepts the cREXX skeleton and authorizes Phase 2 as the
-next product workstream. Phase 2 will start after its bounded worklist and entry
-baseline are recorded. It may proceed in parallel with separately scoped work
+next product workstream. Its bounded worklist and pushed entry baseline are
+recorded, and the first Level-G application-contract item is accepted. It may
+proceed in parallel with separately scoped work
 on socket timeouts, HTTP/TLS, vector acceleration, and durable hashing; those
 capability streams retain their own evidence and stop points.
 

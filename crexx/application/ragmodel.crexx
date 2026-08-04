@@ -1,0 +1,213 @@
+options levelg
+
+namespace ragmodel expose ragerror ragoperationresult ragrequestoptions ragplan ragtrace ragpathresult ragtimelineentry ragtimelineresult ragreviewitem ragreviewpage
+
+ragerror: class
+  _category = .string
+  _code = .int
+  _retryable = .int
+  _message = .string
+
+  *: factory
+    arg category = "none", code = 0, retryable = 0, message = ""
+    _category = category
+    _code = code
+    _retryable = retryable
+    _message = message
+    return
+
+  category: method = .string
+    return _category
+  code: method = .int
+    return _code
+  retryable: method = .int
+    return _retryable
+  message: method = .string
+    return _message
+  ok: method = .int
+    return _code = 0
+
+ragoperationresult: class
+  _operation = .string
+  _status = .string
+  _error = .ragerror
+
+  *: factory
+    arg operation = .string, status = .string, error = .ragerror
+    _operation = operation
+    _status = status
+    _error = error
+    return
+
+  operation: method = .string
+    return _operation
+  status: method = .string
+    return _status
+  error: method = .ragerror
+    return _error
+  ok: method = .int
+    return _error.ok()
+
+ragrequestoptions: class
+  _profile_id = .string
+  _cursor = .string
+  _limit = .int
+  _include_trace = .int
+
+  *: factory
+    arg profile_id = .string, cursor = "", limit = 50, include_trace = 1
+    _profile_id = profile_id
+    _cursor = cursor
+    _limit = limit
+    _include_trace = include_trace
+    return
+
+  profile_id: method = .string
+    return _profile_id
+  cursor: method = .string
+    return _cursor
+  limit: method = .int
+    return _limit
+  include_trace: method = .int
+    return _include_trace
+
+ragplan: class
+  _schema_version = .string
+  _operation = .string
+  _payload = .string
+  _digest = .string
+  _expires_at = .string
+
+  *: factory
+    arg schema_version = .string, operation = .string, payload = .string, digest = .string, expires_at = .string
+    _schema_version = schema_version
+    _operation = operation
+    _payload = payload
+    _digest = digest
+    _expires_at = expires_at
+    return
+
+  schema_version: method = .string
+    return _schema_version
+  operation: method = .string
+    return _operation
+  payload: method = .string
+    return _payload
+  digest: method = .string
+    return _digest
+  expires_at: method = .string
+    return _expires_at
+
+ragtrace: class
+  _trace_id = .string
+  _query_plan = .string[]
+  _notes = .string[]
+
+  *: factory
+    arg trace_id = .string, query_plan = .string[], notes = .string[]
+    _trace_id = trace_id
+    _query_plan = query_plan
+    _notes = notes
+    return
+
+  trace_id: method = .string
+    return _trace_id
+  query_plan: method = .string[]
+    return _query_plan
+  notes: method = .string[]
+    return _notes
+
+ragpathresult: class
+  _nodes = .string[]
+  _reason = .string
+  _trace = .ragtrace
+
+  *: factory
+    arg nodes = .string[], reason = .string, trace = .ragtrace
+    _nodes = nodes
+    _reason = reason
+    _trace = trace
+    return
+
+  nodes: method = .string[]
+    return _nodes
+  reason: method = .string
+    return _reason
+  trace: method = .ragtrace
+    return _trace
+
+ragtimelineentry: class
+  _citation = .string
+  _event_start_at = .string
+  _event_end_at = .string
+  _summary = .string
+
+  *: factory
+    arg citation = .string, event_start_at = .string, event_end_at = .string, summary = .string
+    _citation = citation
+    _event_start_at = event_start_at
+    _event_end_at = event_end_at
+    _summary = summary
+    return
+
+  citation: method = .string
+    return _citation
+  event_start_at: method = .string
+    return _event_start_at
+  event_end_at: method = .string
+    return _event_end_at
+  summary: method = .string
+    return _summary
+
+ragtimelineresult: class
+  _entries = .ragtimelineentry[]
+  _next_cursor = .string
+  _trace = .ragtrace
+
+  *: factory
+    arg entries = .ragtimelineentry[], next_cursor = .string, trace = .ragtrace
+    _entries = entries
+    _next_cursor = next_cursor
+    _trace = trace
+    return
+
+  entries: method = .ragtimelineentry[]
+    return _entries
+  next_cursor: method = .string
+    return _next_cursor
+  trace: method = .ragtrace
+    return _trace
+
+ragreviewitem: class
+  _review_id = .string
+  _state = .string
+  _reason = .string
+
+  *: factory
+    arg review_id = .string, state = .string, reason = .string
+    _review_id = review_id
+    _state = state
+    _reason = reason
+    return
+
+  review_id: method = .string
+    return _review_id
+  state: method = .string
+    return _state
+  reason: method = .string
+    return _reason
+
+ragreviewpage: class
+  _items = .ragreviewitem[]
+  _next_cursor = .string
+
+  *: factory
+    arg items = .ragreviewitem[], next_cursor = .string
+    _items = items
+    _next_cursor = next_cursor
+    return
+
+  items: method = .ragreviewitem[]
+    return _items
+  next_cursor: method = .string
+    return _next_cursor

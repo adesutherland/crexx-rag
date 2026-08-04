@@ -19,7 +19,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Gate 1A | Accepted 2026-08-03 | D1-D8 boundaries and the bounded D9 worklist are recorded; CRI-15 remains an open Linux dependency |
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | Every bounded item is accepted; Gate validation is 55/56 with sole expected CRI-15; recorded production limitations remain in force |
 | Language strategy | Level G first, accepted 2026-08-04 | Advanced libraries and application code use Level G; Level B is limited to justified CREXX bootstrap/foundation work |
-| Phase 2 / Gate 2 | Authorized next; not started | Establish the bounded worklist and entry baseline before `P2-01`; work may then proceed to the mandatory Gate-2 stop |
+| Phase 2 / Gate 2 | Active; `P2-01` accepted | Level-G application contracts pass all four compiler/VM cells; `P2-02` is pending and work stops mandatorily at Gate 2 |
 | Phase 3 and later | Not authorized | No production ingestion, additional hosted qualification, cutover, or retirement |
 
 ## Current Product Reality
@@ -124,8 +124,15 @@ fallback and recommends separately authorized generic `rxvector`
 qualification because the latency trigger crossed. The vector section is
 complete; every bounded Phase-1B implementation item through `P1-JOB-03` is
 accepted. Gate 1B was reached on 2026-08-03 and accepted by the user on
-2026-08-04. Phase 2 is authorized next but no item has started. The algorithm
-profile crossed its retained 10,000-us trigger in all four cells while
+2026-08-04. Phase 2 is authorized and `P2-01` is accepted. Its pushed entry
+baseline reproduced 57/58 tests, with all 28 Phase-1B tests passing and the
+sole failure still CRI-15. The ordered worklist and entry record are under
+[`docs/evidence/2026-08-04-phase2/`](evidence/2026-08-04-phase2/WORKLIST.md).
+The new `ragmodel`, `ragevidence`, `ragjob`, and `raglibrary` Level-G modules
+and compiled consumer pass optimized/non-optimized on both VMs. The acceptance
+suite passed 58/59 with only CRI-15; concrete configuration, storage, command,
+and provider behavior remain unimplemented. `P2-02` is pending.
+The algorithm profile crossed its retained 10,000-us trigger in all four cells while
 remaining below 64 MiB. Full validation passed 55/56 tests; the sole failure is
 unchanged CRI-15. See the
 [Gate-1B decision packet](evidence/2026-08-03-phase1b/GATE-1B-DECISION-PACKET.md)
@@ -141,7 +148,7 @@ remain unchanged. The `crexx_language_level_audit` test enforces this boundary.
 Exact commands and results are in the
 [Level-G migration evidence](evidence/2026-08-04-levelg-migration/LEVEL-G-MIGRATION.md).
 
-## Gate-1B Acceptance And Phase-2 Preparation
+## Phase 2 Execution
 
 The [Phase-1B implementation handoff](../prompts/phase1b-implementation-handoff.md)
 and dated worklist are completed execution records, not active instructions.
@@ -149,10 +156,11 @@ The full validation remains in the evidence packet, and the user's acceptance
 and Phase-2 authority are recorded in the
 [Gate-1B decision ledger](gate1b-decision-ledger.md).
 
-Before the first Phase-2 implementation edit, establish its dated worklist,
-entry baseline, item ordering, evidence requirements, exclusions, and Gate-2
-stop. Separately bounded CREXX capability work may proceed in parallel once
-each stream records an equivalent boundary.
+The dated Phase-2 worklist, entry baseline, item ordering, evidence
+requirements, exclusions, and Gate-2 stop are established. `P2-01` is accepted
+and `P2-02` is pending; no later item is active. Separately bounded CREXX
+capability work may proceed in parallel only after each stream records an
+equivalent boundary.
 
 Native-v1 remains the executable oracle. CRI-15 and CRI-16 remain open;
 additional hosted calls, Phase 3, donation submission, dual-write, cutover, and

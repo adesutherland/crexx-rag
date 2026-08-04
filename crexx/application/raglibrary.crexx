@@ -1,0 +1,107 @@
+options levelg
+
+namespace raglibrary expose raglibrarystatus ragsearchresult raglibrary raglibraryfactory
+
+import ragmodel
+import ragevidence
+import ragjob
+
+raglibrarystatus: class
+  _library_id = .string
+  _path = .string
+  _access = .string
+  _config_id = .string
+  _state = .string
+  _schema_version = .int
+  _active_generation = .int
+  _read_only = .int
+  _required_capabilities = .string[]
+  _manifest_state = .string
+  _error = .ragerror
+
+  *: factory
+    arg library_id = .string, path = .string, access = .string, config_id = .string, state = .string, schema_version = .int, active_generation = .int, read_only = .int, required_capabilities = .string[], manifest_state = .string, error = .ragerror
+    _library_id = library_id
+    _path = path
+    _access = access
+    _config_id = config_id
+    _state = state
+    _schema_version = schema_version
+    _active_generation = active_generation
+    _read_only = read_only
+    _required_capabilities = required_capabilities
+    _manifest_state = manifest_state
+    _error = error
+    return
+
+  library_id: method = .string
+    return _library_id
+  path: method = .string
+    return _path
+  access: method = .string
+    return _access
+  config_id: method = .string
+    return _config_id
+  state: method = .string
+    return _state
+  schema_version: method = .int
+    return _schema_version
+  active_generation: method = .int
+    return _active_generation
+  read_only: method = .int
+    return _read_only
+  required_capabilities: method = .string[]
+    return _required_capabilities
+  manifest_state: method = .string
+    return _manifest_state
+  error: method = .ragerror
+    return _error
+
+ragsearchresult: class
+  _passages = .ragpassage[]
+  _next_cursor = .string
+  _trace = .ragtrace
+
+  *: factory
+    arg passages = .ragpassage[], next_cursor = .string, trace = .ragtrace
+    _passages = passages
+    _next_cursor = next_cursor
+    _trace = trace
+    return
+
+  passages: method = .ragpassage[]
+    return _passages
+  next_cursor: method = .string
+    return _next_cursor
+  trace: method = .ragtrace
+    return _trace
+
+raglibrary: interface
+  status: method = .raglibrarystatus
+  planIngest: method = .ragplan
+    arg sources = .string[], request_options = .ragrequestoptions
+  apply: method = .ragjob
+    arg plan = .ragplan, expected_digest = .string
+  search: method = .ragsearchresult
+    arg query = .string, request_options = .ragrequestoptions
+  evidence: method = .ragevidence
+    arg question = .string, request_options = .ragrequestoptions
+  answer: method = .ragevidence
+    arg question = .string, request_options = .ragrequestoptions
+  trace: method = .ragtrace
+    arg query = .string, request_options = .ragrequestoptions
+  path: method = .ragpathresult
+    arg source = .string, target = .string, request_options = .ragrequestoptions
+  timeline: method = .ragtimelineresult
+    arg request_options = .ragrequestoptions
+  planImprove: method = .ragplan
+    arg request_options = .ragrequestoptions
+  planProposals: method = .ragplan
+    arg input = .string, request_options = .ragrequestoptions
+  review: method = .ragreviewpage
+    arg filter = .string, request_options = .ragrequestoptions
+  close: method = .ragoperationresult
+
+raglibraryfactory: interface
+  open: method = .raglibrary
+    arg path = .string, access = .string, config_id = .string

@@ -1129,6 +1129,28 @@ if(CPRAG_BUILD_TESTS)
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1AGeminiCanaryEvidence.cmake")
         set_tests_properties(p1a_gemini_canary_evidence PROPERTIES
             LABELS "p1a;provider;gemini;canary;evidence")
+        set(P2_01_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_MODEL=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragmodel.crexx"
+            "-DCPRAG_EVIDENCE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragevidence.crexx"
+            "-DCPRAG_JOB=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragjob.crexx"
+            "-DCPRAG_LIBRARY=${CMAKE_CURRENT_LIST_DIR}/crexx/application/raglibrary.crexx"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p2_01_contract_consumer.crexx"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p2-01-application-contract"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P201.cmake")
+        add_custom_target(p2_01_application_contract
+            COMMAND ${P2_01_COMMAND}
+            COMMENT "Running P2-01 Level-G application contract proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p2_01_application_contract COMMAND ${P2_01_COMMAND})
+        set_tests_properties(p2_01_application_contract PROPERTIES
+            LABELS "P2-01;phase2;crexx;levelg;application;contract;evidence;job")
         add_test(
             NAME crexx_profile_smoke
             COMMAND "${CMAKE_COMMAND}"
