@@ -190,6 +190,12 @@ approved-candidate replay closes CRI-01 through CRI-14 downstream and passes
 D8 and the bounded D9 worklist in the
 [decision ledger](gate1a-decision-ledger.md).
 
+The later 2026-08-04 Level-G-first decision supersedes Gate-1A D7 for current
+and future implementation. The completed cross-level evidence remains valid as
+CREXX compatibility proof, but it is not the target application structure. The
+maintained-source migration and verification are retained in the
+[Level-G migration evidence](evidence/2026-08-04-levelg-migration/LEVEL-G-MIGRATION.md).
+
 Fresh Linux build qualification on 2026-08-03 builds all Debug and Release
 targets and makes process-memory evidence portable, but opens CRI-15: installed
 `rxvme` loses the documented socket timeout status during string receive. The
@@ -356,8 +362,10 @@ worklist and entry baseline are established.
 Goal: establish installed, recoverable product foundations without model-driven
 mutation.
 
-- [ ] **P2-01** Create the Level B module layout and Level G `raglibrary`,
-  `ragjob`, and `ragevidence` facade contracts.
+- [ ] **P2-01** Create the Level G application module layout and Level G
+  `raglibrary`, `ragjob`, and `ragevidence` public contracts. Do not introduce
+  pass-through language-level wrappers; record any necessary Level-B
+  foundation exception with a minimized reproducer and evidence.
 - [ ] **P2-02** Implement operator-registered declarative cREXX config modules
   with `env:` secret references and independent typed profiles; agents may
   select registered ids but never arbitrary executable paths.
@@ -379,7 +387,9 @@ mutation.
   `library init/status/verify/backup/restore/migrate`, provider status/test, and
   profile validate commands.
 - [ ] **P2-09** Publish the first cREXX-rag workload/capability report and prepare
-  donation bundles for accepted Phase-1 generic components.
+  donation bundles for accepted Phase-1 generic components. Require adjacent
+  user `README.md` and maintainer `SYSTEM.md` documentation and a current
+  incubation-audit entry for every included package.
 - [ ] **P2-10** Implement zero-library-write canonical plan encoding/digest and
   untrusted apply-time revalidation through the shared facade.
 
@@ -397,7 +407,7 @@ Goal: replace native ingestion while making lifecycle behavior strictly better.
   reference, raw and revision-envelope SHA-256 identities, MIME/encoding,
   semantic metadata fingerprints, immutable observations/revisions, and
   raw-to-normalized span maps.
-- [ ] **P3-02** Port deterministic plain/Markdown/Rexx chunking to Level B and
+- [ ] **P3-02** Port deterministic plain/Markdown/Rexx chunking to Level G and
   preserve format-aware golden behavior where useful.
 - [ ] **P3-03** Define two-layer chunk identity: immutable revision/span
   occurrences for citations and content/input fingerprints for safe reuse across
@@ -580,7 +590,8 @@ code only after explicit approval.
 
 - [ ] **P8-01** Prepare each mature generic facility as a donation bundle:
   contract, source, dual-VM tests, installed-consumer test, docs/example,
-  benchmark, packaging metadata, and minimized capability reproducer.
+  benchmark, packaging metadata, and minimized capability reproducer. Keep the
+  use `README.md` and system `SYSTEM.md` beside the donated implementation.
 - [ ] **P8-02** Coordinate upstream review without depending on immediate
   adoption; retain a namespaced local package while needed.
 - [ ] **P8-03** Detect and prefer compatible installed CREXX facilities, with

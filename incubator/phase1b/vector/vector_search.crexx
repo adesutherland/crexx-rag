@@ -1,4 +1,4 @@
-options levelb
+options levelg
 
 namespace vector_search expose cosinef32 cosinesf32 selecttopk
 

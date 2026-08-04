@@ -39,7 +39,7 @@ foreach(mode IN ITEMS noopt opt)
         set(mode_flag -n)
     endif()
     compile_crexx("${CPRAG_CONTRACT}" "${CPRAG_WORK_DIR}/provider_contract"
-        "${base_import}" "${mode_flag}" "${mode} Level-B contract")
+        "${base_import}" "${mode_flag}" "${mode} Level-G contract")
     compile_crexx("${CPRAG_FACADE}" "${CPRAG_WORK_DIR}/provider_facade"
         "${program_import}" "${mode_flag}" "${mode} Level-G facade")
     set(program "${CPRAG_WORK_DIR}/program-${mode}")

@@ -18,13 +18,29 @@ turn withheld production claims into accepted capabilities.
 | G1B-D3 | Permit Phase 2 to proceed in parallel with separately scoped CREXX capability work. Each parallel workstream must have its own ownership boundary, worklist, evidence, and stop point. |
 | G1B-D4 | Preserve native-v1 as the executable oracle. Gate-1B acceptance does not authorize dual-write, cutover, compatibility removal, or native-core retirement. |
 | G1B-D5 | Keep CRI-15, CRI-16, vector acceleration, durable hashing, multi-process workers, and all other withheld production claims explicit until their own evidence closes them. |
+| G1B-D6 | Use Level G for advanced user-facing libraries and all application code. Reserve Level B for CREXX bootstrap/foundation facilities or explicitly justified low-level mechanisms; never add a facade solely to cross language levels. |
+
+## Language-Level Amendment
+
+On 2026-08-04 the user accepted the Level-G-first recommendation after the
+installed compiler was requalified. All 46 Phase-1B cREXX sources compiled as
+Level G in optimized and non-optimized modes; provider, typed-record, algorithm,
+job, vector, and installed-RXPA representative runtime proofs passed on both
+VMs. The historical CRI-01 and CRI-05 constraints are closed.
+
+This amendment supersedes only Gate-1A D7's Level-B-core/Level-G-facade split
+and the corresponding language-level wording below. It does not change any
+Gate-1B measurement or authorize a withheld production capability. Level G may
+consume installed Level-B foundation libraries normally. A retained facade
+must define a stable user or transport contract rather than act as a
+compatibility wrapper.
 
 ## Phase 2 Authority
 
 Phase 2 may implement only the product-foundation items already specified in
 the roadmap:
 
-- Level B application modules and Level G facades;
+- Level G application modules, advanced libraries, and public contracts;
 - declarative typed configuration and secret references;
 - schema v2, migrations, generations, recovery, compatibility, backup, and
   restore;

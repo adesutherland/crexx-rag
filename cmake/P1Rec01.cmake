@@ -55,7 +55,7 @@ foreach(mode IN ITEMS noopt opt)
     endif()
     compile_crexx("${CPRAG_RECORD_MODULE}"
         "${CPRAG_WORK_DIR}/record_boundary" "${base_import}"
-        "${mode_flag}" "${mode} Level-B record module")
+        "${mode_flag}" "${mode} Level-G record module")
     compile_crexx("${CPRAG_FACADE_MODULE}"
         "${CPRAG_WORK_DIR}/record_facade" "${program_import}"
         "${mode_flag}" "${mode} Level-G facade")
@@ -78,7 +78,7 @@ foreach(mode IN ITEMS noopt opt)
             OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err
             RESULT_VARIABLE vm_result)
         if(NOT vm_result EQUAL 0 OR NOT vm_out MATCHES
-                "P1_REC_01_OK plugin_columns=typed levelb_records=2 levelg_records=4 pages=2,2,2,0 blob_bytes=8 corpus_json_bytes=0")
+                "P1_REC_01_OK plugin_columns=typed direct_records=2 facade_records=4 pages=2,2,2,0 blob_bytes=8 corpus_json_bytes=0")
             message(FATAL_ERROR
                 "${cell} failed (${vm_result}):\n${vm_out}\n${vm_err}")
         endif()
@@ -87,4 +87,4 @@ foreach(mode IN ITEMS noopt opt)
 endforeach()
 
 message(STATUS
-    "P1-REC-01 passed plugin/Level-B/Level-G typed record crossings on rxvme/rxbvm")
+    "P1-REC-01 passed plugin and Level-G typed record boundaries on rxvme/rxbvm")

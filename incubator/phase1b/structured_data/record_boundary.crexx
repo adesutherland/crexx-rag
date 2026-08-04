@@ -1,4 +1,4 @@
-options levelb
+options levelg
 
 namespace record_boundary expose typedrow loadrecords recordchecksum
 

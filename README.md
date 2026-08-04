@@ -14,7 +14,9 @@ performance with retained correctness and workload evidence.
 > bounded Phase-1B results and their recorded limitations. Phase 2 is approved
 > as the next product phase and is expected to begin shortly alongside
 > separately bounded CREXX capability work. No Phase-2 implementation item has
-> started, and the native-v1 C++ path remains the executable oracle.
+> started, and the native-v1 C++ path remains the executable oracle. Level G is
+> now the required default for advanced libraries and application code; Level B
+> is reserved for CREXX bootstrap and justified low-level foundations.
 
 ## What The Product Is For
 
@@ -102,7 +104,8 @@ Gate 1B established:
   modes;
 - a generic `rxsqlite` incubation with typed values, transactions, WAL,
   concurrency, read-only access, backup, integrity, and cleanup evidence;
-- parse-once `rxjson` use and nominal Level-B records crossing Level G;
+- parse-once `rxjson` use and nominal typed records crossing plugin and public
+  API boundaries without JSON reserialization;
 - one provider contract for configurable local OpenAI-compatible endpoints,
   OpenAI, Anthropic, and Gemini, including five low-cost hosted qualification
   calls and zero-outbound privacy-denial tests;
@@ -144,9 +147,10 @@ capability streams retain their own evidence and stop points.
 
 Subject to those decisions, the remaining roadmap is:
 
-1. **Phase 2: product foundations.** Level B modules and Level G facades,
-   declarative configuration, schema v2 and migrations, published generations,
-   backup/restore, repositories, stable command results, and plan/apply.
+1. **Phase 2: product foundations.** Level-G application modules and public
+   contracts, declarative configuration, schema v2 and migrations, published
+   generations, backup/restore, repositories, stable command results, and
+   plan/apply.
 2. **Phase 3: incremental ingestion.** Durable identities, format-aware
    chunking, source reconciliation, reuse and retraction, interruption recovery,
    invalidation, and semantic comparison with the oracle.
@@ -170,15 +174,21 @@ the itemized worklist and acceptance gates.
 
 Product algorithms, SQL repositories and migrations, orchestration, policy,
 configuration, commands, jobs, retrieval, and evidence assembly belong in
-cREXX. Native code is limited to small reusable mechanisms that reasonably
-require host APIs, initially SQLite and only measurement-justified hashing,
-HTTP/TLS, binary, or vector primitives.
+cREXX Level G. Reusable advanced libraries also use Level G even when they
+consume Level-B foundation libraries. Level B is reserved for CREXX bootstrap
+or an explicitly justified low-level capability. Native code is limited to
+small reusable mechanisms that reasonably require host APIs, initially SQLite
+and only measurement-justified hashing, HTTP/TLS, binary, or vector primitives.
 
 Any generic facility incubated here must have a RAG-neutral API, independent
 tests, examples, packaging, and workload benchmarks before it becomes a CREXX
 donation candidate. The native-v1 C++ core, C ABI, `rx_rag` bridge, CLI, MCP,
 and version-1 bundles remain the executable oracle until a later cutover gate.
 Live libraries are never dual-written during comparison.
+
+The [generic capability incubation audit](incubator/README.md) identifies every
+current or future candidate, its implementation boundary, its donation status,
+and the usage/system documentation kept beside implemented package code.
 
 ## Build And Test
 
@@ -201,10 +211,11 @@ cmake --build --preset debug
 ctest --preset debug --output-on-failure
 ```
 
-The current Linux baseline builds successfully and reports 55 of 56 tests
-passing. Test `p1a_provider_boundary` remains failing while CRI-15 is open; the
-exact failure and minimized reproducer are retained rather than hidden by a
-product workaround.
+The retained Gate-1B Linux baseline builds successfully and reports 55 of 56
+tests passing. Test `p1a_provider_boundary` remains failing while CRI-15 is
+open; the exact failure and minimized reproducer are retained rather than
+hidden by a product workaround. Later housekeeping tests do not rewrite that
+dated Gate result.
 
 Use the installed CREXX toolchain as the compatibility target. Any sibling
 CREXX source checkout is read-only reference material for this programme.
@@ -219,6 +230,7 @@ CREXX source checkout is read-only reference material for this programme.
 - [Gate-1B decision ledger](docs/gate1b-decision-ledger.md)
 - [CREXX capability ledger](docs/evidence/2026-08-03-phase1b/CAPABILITY-LEDGER.md)
 - [CREXX integration issues](docs/crexx-integration-issues.md)
+- [Generic capability incubation audit](incubator/README.md)
 - [Test strategy](docs/test-strategy.md)
 - [Complete documentation map](docs/README.md)
 

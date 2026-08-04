@@ -14,6 +14,12 @@ The decision uses the retained Gate-1A packet, the approved CREXX-candidate
 closeout, and the Linux build baseline at
 `4e0a40ad750f54d4b9653926e6aeb46b50461471`.
 
+Current-language-policy note: D7 below is the historical boundary used to run
+the completed Phase-1B programme. The user's 2026-08-04 Level-G-first amendment
+in the [Gate-1B decision ledger](gate1b-decision-ledger.md) supersedes its
+Level-B-core split for maintained and future implementation. This ledger is not
+rewritten because it remains the exact record of the earlier approval.
+
 ## Approved Boundaries
 
 | ID | Decision |

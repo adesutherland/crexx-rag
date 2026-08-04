@@ -1,4 +1,4 @@
-options levelb
+options levelg
 
 import rxfnsb
 import provider_contract
@@ -120,5 +120,5 @@ if errors \= 0 then do
   say "P1_LLM_01_ERRORS=" || errors
   return 1
 end
-say "P1_LLM_01_OK contract=provider-neutral levelb=1 levelg=1 chat=1 structured=1 embeddings=1 batch=1 streaming=unsupported cancellation=unsupported usage=typed errors=typed"
+say "P1_LLM_01_OK contract=provider-neutral levelg_contract=1 levelg_facade=1 chat=1 structured=1 embeddings=1 batch=1 streaming=unsupported cancellation=unsupported usage=typed errors=typed"
 return 0

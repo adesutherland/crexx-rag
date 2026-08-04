@@ -85,22 +85,30 @@ Names are provisional, but ownership is not.
 | `ragimprove` | Coverage analysis, extraction scheduling, fixup and review producers/consumers |
 | `ragsearch` | Query planning, lexical/vector/graph retrieval, fusion and evidence selection |
 | `ragevidence` | Stable citations, evidence packet schema, trace and optional answer handoff |
-| `raglibrary` | Level G public facade and library/job/evidence classes |
+| `raglibrary` | Level G public API and library/job/evidence classes |
 | `ragcli` | Human and JSON command adapter |
 | `ragaddress` | `ADDRESS RAG` line-command adapter |
 | `ragmcp` | MCP schema and transport adapter, read-only by default |
 
-Level B should hold deterministic algorithmic modules so the CREXX compiler can
-optimize and inline them. Level G should expose the ergonomic public object
-surface and provider classes. A module moves to the common CREXX libraries only
-after its API is demonstrably domain-neutral.
+Level G owns product algorithms, repositories, providers, orchestration, jobs,
+profiles, and advanced reusable libraries as well as the public object surface.
+It may import Level-B foundation libraries such as binary, JSON, HTTP, or other
+CREXX bootstrap facilities directly. Level B is not an application optimization
+tier: it is reserved for CREXX foundation implementation or an explicitly
+measured low-level mechanism that Level G cannot express. Facades exist only
+where they define a stable public contract, not to cross language levels. A
+module moves to the common CREXX libraries only after its API is demonstrably
+domain-neutral.
 
 ## Generic Capability Incubation
 
 Generic components may live under a clearly separated incubation tree in this
 repository, for example `incubator/crexx/`, until they are ready to donate.
 They must be independently buildable/testable and must not import `rag*`
-modules.
+modules. Each implemented donation-candidate directory must contain a user
+`README.md` and maintainer `SYSTEM.md` beside the source and must be classified
+in the [incubation audit](../incubator/README.md). Documentation completeness
+does not itself authorize donation.
 
 ### `rxsqlite` required contract
 
@@ -617,7 +625,7 @@ and measurement.
 
 ## Public Surfaces
 
-### Level G facade
+### Level G API
 
 The authoritative programmatic surface should resemble:
 

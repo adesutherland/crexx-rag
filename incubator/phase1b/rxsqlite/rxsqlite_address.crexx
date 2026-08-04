@@ -1,4 +1,4 @@
-options levelb
+options levelg
 
 namespace rxsqlite_address expose sqliteaddressenvironment
 

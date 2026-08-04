@@ -166,6 +166,22 @@ endif()
 
 if(CPRAG_BUILD_TESTS)
     enable_testing()
+    add_test(
+        NAME donation_docs_audit
+        COMMAND "${CMAKE_COMMAND}"
+            "-DCPRAG_SOURCE_ROOT=${CMAKE_CURRENT_LIST_DIR}"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/DonationDocsAudit.cmake")
+    set_tests_properties(donation_docs_audit PROPERTIES
+        LABELS "docs;incubation;donation;housekeeping")
+
+    add_test(
+        NAME crexx_language_level_audit
+        COMMAND "${CMAKE_COMMAND}"
+            "-DCPRAG_SOURCE_ROOT=${CMAKE_CURRENT_LIST_DIR}"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CrexxLanguageLevelAudit.cmake")
+    set_tests_properties(crexx_language_level_audit PROPERTIES
+        LABELS "crexx;levelg;architecture;housekeeping")
+
     add_executable(ragcore_smoke tests/ragcore_smoke.cpp)
     target_link_libraries(ragcore_smoke PRIVATE cprag_core)
     add_test(NAME ragcore_smoke COMMAND ragcore_smoke)
@@ -648,7 +664,7 @@ if(CPRAG_BUILD_TESTS)
             VERBATIM)
         add_test(NAME p1_rec_01 COMMAND ${P1_REC_01_COMMAND})
         set_tests_properties(p1_rec_01 PROPERTIES
-            LABELS "P1-REC-01;phase1b;record;levelb;levelg;sqlite;incubator")
+            LABELS "P1-REC-01;phase1b;record;levelg;sqlite;incubator")
         set(P1_LLM_01_COMMAND
             "${CMAKE_COMMAND}"
             "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
@@ -668,7 +684,7 @@ if(CPRAG_BUILD_TESTS)
             VERBATIM)
         add_test(NAME p1_llm_01 COMMAND ${P1_LLM_01_COMMAND})
         set_tests_properties(p1_llm_01 PROPERTIES
-            LABELS "P1-LLM-01;phase1b;provider;contract;levelb;levelg;incubator")
+            LABELS "P1-LLM-01;phase1b;provider;contract;levelg;incubator")
         set(P1_LLM_02_COMMAND
             "${CMAKE_COMMAND}"
             "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"

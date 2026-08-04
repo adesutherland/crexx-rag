@@ -64,9 +64,9 @@ instruction in the process.
 
 | Concern | Target owner |
 | --- | --- |
-| Chunking, normalization, ranking, graph algorithms, policy, validation | cREXX Level B modules |
+| Chunking, normalization, ranking, graph algorithms, policy, validation | cREXX Level G modules |
 | Domain vocabulary, weights, prompts, routing, budgets | cREXX profile/configuration |
-| Public classes and application facade | cREXX Level G |
+| Advanced reusable libraries, public classes, and application facade | cREXX Level G |
 | CLI and line-command dispatch | cREXX |
 | Ingestion, improvement, review, and query orchestration | cREXX |
 | MCP/agent tool behavior and evidence assembly | cREXX, with transport kept thin |
@@ -75,6 +75,12 @@ instruction in the process.
 | Optional ANN/vector acceleration | Generic measured backend, not a RAG-specific core |
 | Shell scripts | Bootstrap/developer convenience only; never algorithm owners |
 | Python | Optional user experiment only; never a required repeatable pipeline dependency |
+
+Level G is the application and advanced-library language. It may build on
+installed Level-B foundation libraries without introducing pass-through
+wrappers. Level B is reserved for CREXX bootstrap/foundation implementation or
+a measured low-level facility that Level G cannot express; every project-local
+exception requires a documented rationale and focused reproducer.
 
 A contribution is not generic merely because its name is generic. A candidate
 for donation must have no concepts such as chunk, source, claim, graph, RAG,
@@ -458,7 +464,8 @@ Reusable work developed here follows an incubation ladder:
 3. **Generic design:** remove all RAG vocabulary and define ownership,
    lifecycle, errors, and compatibility.
 4. **Local implementation:** build it in a clearly separated incubation area
-   with independent tests and documentation.
+   with independent tests plus user `README.md` and maintainer `SYSTEM.md`
+   documentation beside the implementation; record it in the incubation audit.
 5. **Application proof:** use it in the cREXX pipeline and record correctness
    and performance evidence.
 6. **Donation bundle:** prepare source, tests, docs, benchmark, packaging

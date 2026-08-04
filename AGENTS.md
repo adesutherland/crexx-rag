@@ -14,10 +14,22 @@ reasonably require host APIs, initially SQLite and only measurement-justified
 hashing, binary, HTTP/TLS, or vector primitives. Any such capability may be
 incubated here, but it must have an independent API, tests, examples, packaging,
 and benchmarks with no RAG vocabulary before it is a CREXX donation candidate.
+Every locally implemented donation candidate must also keep user-facing
+`README.md` and maintainer-facing `SYSTEM.md` documentation beside its
+implementation and have a current entry in `incubator/README.md`.
 
 This project is deliberately a non-trivial cREXX reference application. Do not
 hide a cREXX surface weakness in product-specific native code; preserve a
 minimized reproducer, workload measurement, and capability-ledger entry.
+
+Level G is the default language level for advanced user-facing libraries and
+all application code, including algorithms, repositories, orchestration,
+providers, jobs, fixtures, benchmarks, and tests. Level B is reserved for
+CREXX bootstrap/foundation facilities or a minimized low-level capability that
+cannot reasonably be expressed at Level G. Every local Level-B exception must
+state that reason beside the implementation and have focused evidence. A
+facade must provide a real public contract; do not add one only to bridge
+language levels.
 
 ## Approved Scope And Stop Point
 
@@ -53,6 +65,7 @@ Before programme implementation, read these files completely:
 - `docs/pipeline-status.md`
 - `docs/gate1a-decision-ledger.md`
 - `docs/gate1b-decision-ledger.md`
+- `incubator/README.md`
 - `docs/evidence/2026-07-28-phase0-gate1a/GATE-1A-DECISION-PACKET.md`
 - `docs/evidence/2026-07-31-gate1a-crexx-candidate/CANDIDATE-INTEGRATION-CLOSEOUT.md`
 - `docs/evidence/2026-08-03-linux-build/LINUX-BUILD-REVIEW.md`
@@ -77,8 +90,9 @@ as current architecture, user guidance, or agent instructions.
   vector similarity never creates a typed claim.
 - Every typed claim must be directional and backed by independently addressable
   source support. Ambiguity and contradiction stay explicit.
-- Implement maintained application, fixture, benchmark, and analysis logic in
-  cREXX Level B where practical, with Level G facades. C/C++ is for generic
+- Implement maintained application, reusable advanced-library, fixture,
+  benchmark, test, and analysis logic in cREXX Level G. Level G may consume
+  installed Level-B foundation libraries normally. C/C++ is for generic
   plugins; CMake/CTest is for integration. Shell may bootstrap but must not own
   product algorithms. Do not make Python part of the repeatable pipeline.
 - Keep CLI, `ADDRESS RAG`, Level G, and MCP as thin bindings over one cREXX

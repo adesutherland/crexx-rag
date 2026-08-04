@@ -1,4 +1,4 @@
-options levelb
+options levelg
 
 namespace provider_contract expose providercapabilities providerroutepolicy providermessage providerrequest providerusage providererror embeddingrecord providerresult provider validateproviderrequest validateprovideroperation validateproviderroute validatestructuredresponse
 

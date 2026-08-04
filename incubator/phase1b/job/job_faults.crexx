@@ -1,6 +1,6 @@
 /* Test-only fault injection for P1-JOB-02. This deliberately leaves an open
  * promotion transaction so process termination must trigger SQLite rollback. */
-options levelb
+options levelg
 
 namespace job_faults expose stagepromotion
 

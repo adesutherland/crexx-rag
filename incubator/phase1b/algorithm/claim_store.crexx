@@ -1,4 +1,4 @@
-options levelb
+options levelg
 
 namespace claim_store expose claimschema promoteclaim retractrevision claimstate supportcitation
 

@@ -1,6 +1,6 @@
 # cREXX-Only Test Strategy
 
-Status: living acceptance policy for the approved programme, 2026-08-03.
+Status: living acceptance policy for the approved programme, 2026-08-04.
 
 The detailed item matrix and decision gates are in the
 [implementation roadmap](crexx-only-implementation-roadmap.md). The former
@@ -21,9 +21,17 @@ an oracle input, not the target acceptance model.
 - Run comparisons in the same session and separate SQLite, cREXX algorithm,
   provider wait, JSON/record/codec, vector transfer/decode/compute/selection,
   and memory costs.
-- New maintained test, fixture, benchmark, and analysis logic should be cREXX
-  Level B where practical. CMake/CTest may orchestrate it; shell remains thin.
+- New maintained application, advanced-library, test, fixture, benchmark, and
+  analysis logic must be cREXX Level G. Level B is allowed only for CREXX
+  bootstrap/foundation code or a documented low-level capability that Level G
+  cannot express. CMake/CTest may orchestrate it; shell remains thin.
+- `crexx_language_level_audit` rejects Level B in maintained Phase-1B code and
+  checks that the current policy is present in the authoritative documents.
 - Generic native-plugin tests contain no RAG nouns or product schema.
+- Every implemented donation candidate is classified in `incubator/README.md`
+  and keeps use `README.md` plus system `SYSTEM.md` beside its source. The
+  `donation_docs_audit` CTest enforces the current candidate set and required
+  documentation sections.
 - Local and hosted providers share one target contract. Phase 0 makes no hosted
   call and uses no hosted credential. For P1A-LLM-01 only, the user's later
   instruction explicitly authorizes a Google/Gemini generation and embedding
@@ -104,6 +112,11 @@ The completed worker slice uses four optimized/non-optimized and `rxvme`/
 `rxbvm` cells. It includes real process termination before a provider call,
 after a provider call, during an open promotion transaction, and after commit;
 the budget slice retains distinct zero-write denial statuses and actual usage.
+
+The dated Gate-1B results preserve the language-level boundary they originally
+qualified. After acceptance, all maintained Phase-1B cREXX sources were migrated
+to Level G under G1B-D6; the same optimized/non-optimized and dual-VM tests now
+guard the Level-G implementation without rewriting the retained evidence.
 
 `P1-RXPA-03`, `P1-HASH-01`, hosted calls outside the explicitly authorized
 low-cost `P1-LLM-04` qualification, normal-prefix/CREXX changes, production

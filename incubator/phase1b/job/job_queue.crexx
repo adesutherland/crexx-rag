@@ -1,4 +1,4 @@
-options levelb
+options levelg
 
 namespace job_queue expose jobstatus jobschema createjob createitem claimitem heartbeat providerwork promoteitem requestcancel acknowledgecancel readstatus dbnow scalarcount
 

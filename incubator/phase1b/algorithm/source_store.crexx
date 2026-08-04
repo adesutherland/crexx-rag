@@ -1,6 +1,6 @@
 /* Phase-1B scratch source store. The fixture fingerprint is deliberately not
  * a durable content hash; P1-HASH-01 remains outside the approved worklist. */
-options levelb
+options levelg
 
 namespace source_store expose lexicalhit sourceschema firstingest lexicalsearch active_revision fixturefingerprint splitchunks totalchanges scalarcount
 

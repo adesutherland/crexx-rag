@@ -18,6 +18,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Phase 1A | Complete diagnostic unit | P1A-SDK-01 through P1A-SUR-01 all have focused retained correctness/failure/profile evidence |
 | Gate 1A | Accepted 2026-08-03 | D1-D8 boundaries and the bounded D9 worklist are recorded; CRI-15 remains an open Linux dependency |
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | Every bounded item is accepted; Gate validation is 55/56 with sole expected CRI-15; recorded production limitations remain in force |
+| Language strategy | Level G first, accepted 2026-08-04 | Advanced libraries and application code use Level G; Level B is limited to justified CREXX bootstrap/foundation work |
 | Phase 2 / Gate 2 | Authorized next; not started | Establish the bounded worklist and entry baseline before `P2-01`; work may then proceed to the mandatory Gate-2 stop |
 | Phase 3 and later | Not authorized | No production ingestion, additional hosted qualification, cutover, or retirement |
 
@@ -96,9 +97,11 @@ are accepted with four-cell ownership, typed-value, SQLite behavior,
 read-only, separate-process concurrency, online-backup, integrity, forced
 cleanup, and optional address-facade evidence. The generic SQLite section is
 complete. `P1-JSON-01` and `P1-JSON-02` are accepted against installed
-`rxjson`; `P1-REC-01` selects nominal Level-B application records over generic
-plugin columns with direct Level-G crossings. `P1-LLM-01` and the available
-local OpenAI-compatible case in `P1-LLM-02` are accepted; a real
+`rxjson`; `P1-REC-01` originally qualified nominal Level-B records crossing
+Level G over generic plugin columns. That cross-level result remains retained
+compatibility evidence, while the maintained record and consumer sources now
+use Level G under the later language-policy decision. `P1-LLM-01` and the
+available local OpenAI-compatible case in `P1-LLM-02` are accepted; a real
 `llama-server` executable was unavailable and is not claimed. `P1-LLM-03`
 accepts ordered batch embedding, bounded structured validation, retry/backoff,
 usage, pre-transport privacy denial, and truthful unsupported capabilities.
@@ -127,6 +130,16 @@ remaining below 64 MiB. Full validation passed 55/56 tests; the sole failure is
 unchanged CRI-15. See the
 [Gate-1B decision packet](evidence/2026-08-03-phase1b/GATE-1B-DECISION-PACKET.md)
 and [decision ledger](gate1b-decision-ledger.md).
+
+After Gate acceptance, the user confirmed Level G as the essential strategy for
+advanced user-facing libraries and application code. The installed toolchain
+requalification found no remaining Level-G blocker: every Phase-1B cREXX source
+compiled in both modes and representative provider, record, algorithm, job,
+vector, and installed-SDK runs passed on both VMs. The maintained Phase-1B
+sources were migrated to Level G; dated Gate evidence and low-level reproducers
+remain unchanged. The `crexx_language_level_audit` test enforces this boundary.
+Exact commands and results are in the
+[Level-G migration evidence](evidence/2026-08-04-levelg-migration/LEVEL-G-MIGRATION.md).
 
 ## Gate-1B Acceptance And Phase-2 Preparation
 

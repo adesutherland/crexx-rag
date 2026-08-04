@@ -17,8 +17,10 @@ as the next product workstream but has not yet started.
 | [Programme status](pipeline-status.md) | Living implemented-versus-specified status |
 | [Semantic vocabulary](architecture-vocabulary.md) | Initial domain-neutral typed-graph vocabulary |
 | [CREXX integration issues](crexx-integration-issues.md) | Dated installed-toolchain and capability-gap ledger |
+| [Generic capability incubation audit](../incubator/README.md) | Donation-candidate inventory, implementation boundaries, colocated use/system docs, and readiness status |
 | [Gate 1A decision ledger](gate1a-decision-ledger.md) | Historical approval for D1-D9, the now-completed Phase-1B worklist, exclusions, and Gate-1B stop |
-| [Gate 1B decision ledger](gate1b-decision-ledger.md) | Current acceptance decision, Phase-2 authority, parallel-work model, exclusions, and start state |
+| [Gate 1B decision ledger](gate1b-decision-ledger.md) | Current acceptance decision, Level-G-first amendment, Phase-2 authority, parallel-work model, exclusions, and start state |
+| [Level-G migration evidence](evidence/2026-08-04-levelg-migration/LEVEL-G-MIGRATION.md) | Installed-toolchain requalification, 46-source migration, language audit, and post-migration CTest result |
 | [Approved CREXX candidate closeout](evidence/2026-07-31-gate1a-crexx-candidate/CANDIDATE-INTEGRATION-CLOSEOUT.md) | Exact downstream CRI-01 through CRI-14 replay, provenance, results and Gate-1A stop |
 | [Linux build review](evidence/2026-08-03-linux-build/LINUX-BUILD-REVIEW.md) | Debug/Release portability result and open CRI-15 reproducer |
 | [Gate 1B decision packet](evidence/2026-08-03-phase1b/GATE-1B-DECISION-PACKET.md) | Completed Phase-1B evidence, capability limits, validation, recommendations, and mandatory production-decision stop |

@@ -323,6 +323,10 @@ independent dual-VM tests, installed-consumer test where relevant, docs/example,
 representative benchmark, packaging metadata, and a minimized non-RAG
 reproducer of the capability need.
 
+For a locally implemented candidate, `README.md` usage documentation and
+`SYSTEM.md` maintainer documentation must live beside the source and the
+candidate must appear in the [incubation audit](../incubator/README.md).
+
 ## Decision
 
 Proceed with Phase 0 and only the bounded Phase-1A vertical slices in
