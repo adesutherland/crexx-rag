@@ -1,6 +1,6 @@
 # cREXX-Only Programme Status
 
-Status date: 2026-08-03.
+Status date: 2026-08-04.
 
 This is the only living implementation-status page. The previous native-v1
 pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.md).
@@ -17,8 +17,9 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Gate 0 | Passed | Full configure/build/CTest passed 17/17 with 19 frozen hashes and raw measurements |
 | Phase 1A | Complete diagnostic unit | P1A-SDK-01 through P1A-SUR-01 all have focused retained correctness/failure/profile evidence |
 | Gate 1A | Accepted 2026-08-03 | D1-D8 boundaries and the bounded D9 worklist are recorded; CRI-15 remains an open Linux dependency |
-| Phase 1B / Gate 1B | Decision required; stopped | Every bounded item is accepted; Gate validation is 55/56 with sole expected CRI-15; production claims remain withheld as recorded in the decision packet |
-| Phase 2 and later | Not authorized | No production schema, donation implementation, additional hosted qualification, cutover, or retirement |
+| Phase 1B / Gate 1B | Accepted 2026-08-04 | Every bounded item is accepted; Gate validation is 55/56 with sole expected CRI-15; recorded production limitations remain in force |
+| Phase 2 / Gate 2 | Authorized next; not started | Establish the bounded worklist and entry baseline before `P2-01`; work may then proceed to the mandatory Gate-2 stop |
+| Phase 3 and later | Not authorized | No production ingestion, additional hosted qualification, cutover, or retirement |
 
 ## Current Product Reality
 
@@ -118,23 +119,28 @@ SQLite round trip. `P1-VEC-02` accepts exact keyset-paged ordering for the
 remains below 64 MiB. `P1-VEC-04` retains pure cREXX exact search as the bounded
 fallback and recommends separately authorized generic `rxvector`
 qualification because the latency trigger crossed. The vector section is
-complete; every bounded Phase-1B implementation item through `P1-JOB-03` is accepted. Gate 1B is reached with no active implementation item. The algorithm profile crossed its retained 10,000-us trigger in all four cells while remaining below 64 MiB. Full validation passed 55/56 tests; the sole failure is unchanged CRI-15. See the [Gate-1B decision packet](evidence/2026-08-03-phase1b/GATE-1B-DECISION-PACKET.md).
+complete; every bounded Phase-1B implementation item through `P1-JOB-03` is
+accepted. Gate 1B was reached on 2026-08-03 and accepted by the user on
+2026-08-04. Phase 2 is authorized next but no item has started. The algorithm
+profile crossed its retained 10,000-us trigger in all four cells while
+remaining below 64 MiB. Full validation passed 55/56 tests; the sole failure is
+unchanged CRI-15. See the
+[Gate-1B decision packet](evidence/2026-08-03-phase1b/GATE-1B-DECISION-PACKET.md)
+and [decision ledger](gate1b-decision-ledger.md).
 
-## Phase-1B Authority And Gate-1B Stop
+## Gate-1B Acceptance And Phase-2 Preparation
 
-Use the [Phase-1B implementation handoff](../prompts/phase1b-implementation-handoff.md)
-and the [roadmap](crexx-only-implementation-roadmap.md). Before implementation,
-create the dated resumable evidence worklist and keep at most one approved item
-active.
+The [Phase-1B implementation handoff](../prompts/phase1b-implementation-handoff.md)
+and dated worklist are completed execution records, not active instructions.
+The full validation remains in the evidence packet, and the user's acceptance
+and Phase-2 authority are recorded in the
+[Gate-1B decision ledger](gate1b-decision-ledger.md).
 
-- preserve the native-v1 path as the executable oracle;
-- keep generic hardening inside the approved local incubations;
-- use scratch libraries and deterministic synthetic/local provider fixtures by
-  default; hosted access is limited to the explicitly authorized low-cost,
-  secret-gated `P1-LLM-04` qualification;
-- leave CRI-15 open unless a separate decision authorizes its disposition; and
-- do not start excluded IDs, donation work, Phase 2, production schema, hosted
-  calls, CREXX modifications, dual-write, cutover, or retirement.
+Before the first Phase-2 implementation edit, establish its dated worklist,
+entry baseline, item ordering, evidence requirements, exclusions, and Gate-2
+stop. Separately bounded CREXX capability work may proceed in parallel once
+each stream records an equivalent boundary.
 
-The full Gate-1B validation is retained in the dated packet. Execution is
-stopped unconditionally for the user's production-capability decision.
+Native-v1 remains the executable oracle. CRI-15 and CRI-16 remain open;
+additional hosted calls, Phase 3, donation submission, dual-write, cutover, and
+native-core retirement remain unauthorized.

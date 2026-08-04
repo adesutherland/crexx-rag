@@ -1,31 +1,37 @@
 # Documentation Map
 
 Status: canonical navigation for the approved cREXX-only programme,
-2026-08-03.
+2026-08-04. Phase 1B is complete, Gate 1B is accepted, and Phase 2 is approved
+as the next product workstream but has not yet started.
 
 ## Current Programme Documents
 
 | Document | Authority |
 | --- | --- |
 | [Vision and product specification](crexx-only-vision-and-specification.md) | Approved product purpose, requirements, ownership, and cutover rules |
-| [Review findings](crexx-only-review-findings.md) | Point-in-time evidence behind the decision; Phase 0 must make it reproducible |
+| [Review findings](crexx-only-review-findings.md) | Point-in-time rationale behind the decision; reproducible Phase-0 evidence is now retained separately |
 | [Architecture](crexx-only-architecture.md) | Approved target boundaries, data model, lifecycle, jobs, retrieval, and surfaces |
-| [Implementation roadmap](crexx-only-implementation-roadmap.md) | Resumable worklist and gates; bounded Phase 1B is approved and authority ends at Gate 1B |
+| [Implementation roadmap](crexx-only-implementation-roadmap.md) | Completed work, future phases, and gates; Gate 1B is accepted and Phase 2 is authorized next |
 | [User guide](crexx-only-user-guide.md) | Target interface contract; clearly marks unimplemented commands |
 | [Test strategy](test-strategy.md) | Living validation and acceptance policy |
 | [Programme status](pipeline-status.md) | Living implemented-versus-specified status |
 | [Semantic vocabulary](architecture-vocabulary.md) | Initial domain-neutral typed-graph vocabulary |
 | [CREXX integration issues](crexx-integration-issues.md) | Dated installed-toolchain and capability-gap ledger |
-| [Gate 1A decision ledger](gate1a-decision-ledger.md) | Approved D1-D9 boundaries, exact Phase-1B worklist, exclusions, and Gate-1B stop |
+| [Gate 1A decision ledger](gate1a-decision-ledger.md) | Historical approval for D1-D9, the now-completed Phase-1B worklist, exclusions, and Gate-1B stop |
+| [Gate 1B decision ledger](gate1b-decision-ledger.md) | Current acceptance decision, Phase-2 authority, parallel-work model, exclusions, and start state |
 | [Approved CREXX candidate closeout](evidence/2026-07-31-gate1a-crexx-candidate/CANDIDATE-INTEGRATION-CLOSEOUT.md) | Exact downstream CRI-01 through CRI-14 replay, provenance, results and Gate-1A stop |
 | [Linux build review](evidence/2026-08-03-linux-build/LINUX-BUILD-REVIEW.md) | Debug/Release portability result and open CRI-15 reproducer |
 | [Gate 1B decision packet](evidence/2026-08-03-phase1b/GATE-1B-DECISION-PACKET.md) | Completed Phase-1B evidence, capability limits, validation, recommendations, and mandatory production-decision stop |
 
 Agent-facing material:
 
-- [Phase 0 and Phase 1A implementation handoff](../prompts/phase0-phase1a-implementation-handoff.md)
-- [Paste-ready Phase 1B implementation handoff](../prompts/phase1b-implementation-handoff.md)
+- [Completed Phase 0 and Phase 1A implementation handoff](../prompts/phase0-phase1a-implementation-handoff.md)
+- [Completed Phase 1B implementation handoff](../prompts/phase1b-implementation-handoff.md)
 - [Target knowledge-agent instructions](../prompts/crexx-rag-agent-AGENTS.md)
+
+The implementation handoffs are retained execution records. Phase-2 authority
+comes from the Gate-1B decision ledger, not from extending the old handoffs;
+they do not authorize replay or additional hosted calls.
 
 ## Historical Native-v1 Evidence
 

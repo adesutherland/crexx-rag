@@ -1,6 +1,6 @@
 # CREXX Integration Issues
 
-Status date: 2026-08-03. The approved downstream replay used CREXX `develop`
+Status date: 2026-08-04. The approved downstream replay used CREXX `develop`
 at `ea25d1720c8dc4044614fa6ac4789811289dc8ca`
 (`feat: close crexx-rag integration ledger`). It was built out of tree and
 installed only into `/tmp/crexx-rag-crexx-prefix.1GWSHu`.
@@ -9,8 +9,10 @@ All fourteen original Gate-1A CREXX integration requests have an accepted
 upstream disposition and an Apple downstream replay. Fresh Linux qualification
 opened CRI-15 for the installed socket receive timeout contract, and Phase-1B
 provider measurement opened CRI-16 for the installed HTTP capability ceiling.
-Neither issue authorizes a product workaround, production hardening, donation,
-a CREXX edit, cutover, or native-v1 retirement.
+Neither issue by itself authorizes a product workaround, donation, a CREXX
+edit, cutover, or native-v1 retirement. The Gate-1B decision permits separately
+bounded capability work to be prepared alongside Phase 2, with an explicit
+repository and write boundary required before implementation.
 
 ## CRI-01 through CRI-16 current disposition
 
@@ -61,10 +63,11 @@ CRI-15 and CRI-16 are the open installed-CREXX items. CRI-15 blocks a Linux
 claim for deterministic structured provider receive timeout behavior. CRI-16
 does not invalidate the provider contract or low-volume qualification, but it
 blocks claiming an industrial high-throughput hosted transport. The remaining
-approved Phase-1B work is complete and Gate 1B has been reached. Production
-schema and migrations, cross-platform production qualification, transport
-hardening, and cutover policy remain later product decisions; they are not
-authorized by the CREXX replay or Gate-1B evidence.
+approved Phase-1B work is complete and Gate 1B has been accepted. Schema v2 and
+migrations are now authorized only within the bounded Phase-2 product scope.
+Cross-platform production qualification, transport hardening, and cutover
+policy remain separate capability or later-phase work; they are not authorized
+merely by the CREXX replay or Gate-1B evidence.
 
 The historical Google timeout remains retained negative evidence. It must not
 be reclassified as an `rxhttp` defect, and no hosted credential or call belongs

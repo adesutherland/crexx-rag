@@ -1,5 +1,10 @@
 # Paste-Ready Phase 1B Implementation Handoff
 
+Status: completed on 2026-08-03 and retained as historical execution evidence.
+All bounded items reached Gate 1B. This handoff is not active authority for a
+replay, extension, Phase 2, or additional hosted-provider calls.
+Phase-2 authority is recorded separately in `docs/gate1b-decision-ledger.md`.
+
 Work in the checked-out `crexx-rag` repository. Execute only the bounded
 Phase-1B authority recorded in `docs/gate1a-decision-ledger.md`. Gate 1A was
 approved on 2026-08-03. Begin with the entry audit and dated resumable worklist,

@@ -1,8 +1,10 @@
 # cREXX-Only Implementation Roadmap
 
-Status: bounded Phase 1B active on 2026-08-03. Phase 2 and later work remain
-unauthorized. The dated resumable worklist and entry evidence are under
-[`docs/evidence/2026-08-03-phase1b/`](evidence/2026-08-03-phase1b/WORKLIST.md).
+Status: Gate 1B reached on 2026-08-03 and accepted on 2026-08-04. All bounded
+Phase-1B items are complete. Phase 2 is authorized as the next product
+workstream but has not started; establish its worklist and entry baseline before
+the first implementation edit. The decision is recorded in the
+[Gate-1B ledger](gate1b-decision-ledger.md).
 
 This is the execution plan for the target in
 [`crexx-only-vision-and-specification.md`](crexx-only-vision-and-specification.md)
@@ -345,8 +347,9 @@ user decision.
 
 Gate 1B was reached on 2026-08-03. All bounded implementation items are
 accepted; full validation passed 55/56 with the sole unchanged CRI-15 failure.
-Execution is stopped for the production-capability decision recorded in the
-dated Gate-1B packet. Phase 2 remains unauthorized.
+The user accepted Gate 1B on 2026-08-04 and separately authorized Phase 2 as
+the next product workstream. Phase-2 implementation begins only after its dated
+worklist and entry baseline are established.
 
 ## Phase 2 — cREXX Product Skeleton And Schema V2
 
@@ -630,21 +633,18 @@ opportunities remain in an explicit ledger.
 | Dual implementation corrupts libraries | Dual-run on copies, never dual-write; generation/manifest checks |
 | Command surface freezes before cREXX ergonomics are known | Freeze vocabulary now; freeze concrete syntax after compiled Phase-1/2 usage tests |
 
-## Immediate Next Slice
+## Post-Gate-1B Direction
 
-The approved next implementation unit is the bounded Phase-1B sequence:
+Gate 1B is accepted and Phase 2 is authorized as the next product workstream.
+Before implementation, create a dated Phase-2 worklist covering `P2-01` through
+`P2-10`, retain the entry baseline, activate one item at a time, and stop at
+Gate 2.
 
-1. `P1-RXPA-01` through `P1-RXPA-02`;
-2. `P1-SQL-01` through `P1-SQL-07`;
-3. `P1-JSON-01` through `P1-JSON-02` and `P1-REC-01`;
-4. `P1-LLM-01` through `P1-LLM-05`, including only the explicitly authorized
-   low-cost hosted qualification in `P1-LLM-04`;
-5. `P1-VEC-01` through `P1-VEC-04`;
-6. `P1-ALG-01` through `P1-ALG-05`;
-7. `P1-JOB-01` through `P1-JOB-03`; and
-8. full Gate-1B validation and the unconditional production-capability stop.
+Phase 2 may proceed in parallel with separately bounded CREXX capability work
+for CRI-15/CRI-16, vector acceleration, and durable hashing. Each workstream
+needs an explicit repository/write boundary, worklist, evidence protocol, and
+stop point before it changes code.
 
-`P1-RXPA-03` and `P1-HASH-01` remain unauthorized. Follow the exact entry,
-target-only loop, evidence, exit, and exclusion rules in the
-[Phase-1B handoff](../prompts/phase1b-implementation-handoff.md). Do not begin
-Phase 2 from a Gate-1B pass without a separate user decision.
+Additional hosted calls, Phase 3, donation submission, dual-write, cutover, and
+native-core removal remain unauthorized. Native-v1 remains the executable
+oracle throughout Phase 2.

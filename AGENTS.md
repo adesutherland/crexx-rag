@@ -21,22 +21,23 @@ minimized reproducer, workload measurement, and capability-ledger entry.
 
 ## Approved Scope And Stop Point
 
-Phase 0, Gate 0, Phase 1A, and the Gate-1A boundary decision are complete. The
-approved immediate execution unit is the bounded Phase-1B worklist in
-`docs/gate1a-decision-ledger.md`. Follow
-`prompts/phase1b-implementation-handoff.md` and stop unconditionally at Gate 1B
-for the user's production-capability decision.
+Phase 0, Gate 0, Phase 1A, Gate 1A, and the bounded Phase-1B worklist are
+complete. Gate 1B was accepted on 2026-08-04, including all 28 bounded
+Phase-1B item results and their recorded limitations. Phase 2, `P2-01` through
+`P2-10`, is approved as the next product workstream and is expected to begin
+shortly in parallel with separately bounded CREXX capability work.
 
-This authorizes only the listed local generic capability hardening and bounded
-application-cREXX slices. It does not authorize `P1-RXPA-03`, `P1-HASH-01`,
-hosted-provider calls outside the explicitly authorized low-cost `P1-LLM-04`
-OpenAI/Anthropic/Gemini qualification, normal-prefix or CREXX changes,
-production schema/migrations, donation preparation, Phase 2, dual-write,
-cutover, native-core removal, commit, push, or pull request.
+No Phase-2 implementation item is active until its dated worklist, entry
+baseline, ordering, evidence rules, and Gate-2 stop are established. The
+decision does not authorize Phase 3, additional hosted-provider calls,
+normal-prefix or sibling-CREXX changes, donation submission, dual-write,
+cutover, native-core removal, commit, push, or pull request. Treat the Gate-1A
+ledger and Phase-1B handoff as completed execution evidence.
 
 CRI-15 remains an open installed-CREXX Linux dependency. Do not hide it in a
 product workaround or claim Linux provider timeout qualification until it is
-fixed or separately dispositioned.
+fixed or separately dispositioned. CRI-16 separately withholds industrial
+high-throughput approval from the installed HTTP transport.
 
 ## Required Reading
 
@@ -51,9 +52,12 @@ Before programme implementation, read these files completely:
 - `docs/test-strategy.md`
 - `docs/pipeline-status.md`
 - `docs/gate1a-decision-ledger.md`
+- `docs/gate1b-decision-ledger.md`
 - `docs/evidence/2026-07-28-phase0-gate1a/GATE-1A-DECISION-PACKET.md`
 - `docs/evidence/2026-07-31-gate1a-crexx-candidate/CANDIDATE-INTEGRATION-CLOSEOUT.md`
 - `docs/evidence/2026-08-03-linux-build/LINUX-BUILD-REVIEW.md`
+- `docs/evidence/2026-08-03-phase1b/GATE-1B-DECISION-PACKET.md`
+- `docs/evidence/2026-08-03-phase1b/CAPABILITY-LEDGER.md`
 - `prompts/phase1b-implementation-handoff.md`
 - `prompts/crexx-rag-agent-AGENTS.md`
 
@@ -84,27 +88,20 @@ as current architecture, user guidance, or agent instructions.
 - Provider calls belong behind one cREXX local/hosted contract. Do not shell
   through `curl` or the native-v1 RAG CLI in the new path.
 
-## Phase 1B Discipline
+## Completed Phase 1B Evidence
 
-- Establish a resumable worklist mapped to the roadmap IDs before the first
-  implementation edit; keep at most one item active.
-- Implement only the exact Phase-1B IDs in the decision ledger, in its stated
-  order. Do not start an item until its predecessor has retained exit evidence
-  or explicit blocker evidence and remains marked incomplete.
-- Keep approved generic mechanisms in a clearly separated incubation area.
-  SQL repositories/schema and graph/source/claim/job algorithms and policy
-  remain cREXX application code.
-- Use item targets and CTest labels for development loops. Run the full
-  configure/build/CTest baseline at entry and Gate 1B.
-- Record exact correctness, time, memory, failure, and unsupported-capability
-  evidence. Do not infer this workload's result from sister PERF2 benchmarks.
-- Use local loopback/OpenAI-compatible providers and deterministic synthetic
-  protocol fixtures by default. In `P1-LLM-04` only, the user's later
-  2026-08-03 decision authorizes low-cost, secret-gated OpenAI,
-  Anthropic/Claude, and Google Gemini qualification. Never retain credentials
-  or unredacted authorization material.
-- Use scratch libraries/copies only. Never dual-write a live library or touch a
-  production schema.
+- Preserve the dated worklist, item evidence, raw results, and handoff as the
+  exact record of the completed bounded sequence.
+- Keep generic mechanisms separated from application code. SQL repositories,
+  schema, and graph/source/claim/job algorithms and policy remain cREXX
+  application responsibilities.
+- Do not reinterpret the five secret-gated `P1-LLM-04` calls as authorization
+  for more hosted traffic. Never retain credentials or unredacted authorization
+  material.
+- Before the first Phase-2 edit, establish its bounded worklist, entry baseline,
+  evidence rules, ordering, and Gate-2 stop. Give every parallel generic
+  capability stream its own equivalent boundary. Continue to use scratch
+  libraries/copies and never dual-write a live library.
 
 ## CREXX Compatibility Boundary
 
