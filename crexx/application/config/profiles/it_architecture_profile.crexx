@@ -1,0 +1,47 @@
+options levelg
+
+namespace it_architecture_profile expose itarchitectureprofile
+
+import ragprofile
+
+itarchitectureprofile: procedure = .ragprofile
+  concept_types = .string[]
+  concept_types[1] = "application-component"
+  concept_types[2] = "data-store"
+  concept_types[3] = "business-service"
+  concept_types[4] = "technology-service"
+  concept_types[5] = "actor"
+  concept_types[6] = "evidence-span"
+
+  relationship_types = .ragrelationshiptype[]
+  relationship_types[1] = .ragrelationshiptype("depends-on", "supports", 1)
+  relationship_types[2] = .ragrelationshiptype("supports", "depends-on", 1)
+  relationship_types[3] = .ragrelationshiptype("accesses", "accessed-by", 1)
+  relationship_types[4] = .ragrelationshiptype("accessed-by", "accesses", 1)
+
+  aliases = .ragalias[]
+  aliases[1] = .ragalias("db", "data store")
+  aliases[2] = .ragalias("service", "business service")
+  formats = .string[]
+  formats[1] = "plain"
+  formats[2] = "markdown"
+  formats[3] = "rexx"
+  chunk_policy = .ragchunkpolicy(1400, 180, formats)
+
+  ranking_weights = .ragrankingweight[]
+  ranking_weights[1] = .ragrankingweight("lexical", 1.0)
+  ranking_weights[2] = .ragrankingweight("semantic", 0.9)
+  ranking_weights[3] = .ragrankingweight("graph", 1.2)
+  ranking_weights[4] = .ragrankingweight("relationship-cue", 1.4)
+
+  prompts = .ragprompttemplate[]
+  prompts[1] = .ragprompttemplate("advisory", "1", "it-architecture-advisory")
+  prompts[2] = .ragprompttemplate("extractor", "1", "it-architecture-extractor")
+  prompts[3] = .ragprompttemplate("answerer", "1", "it-architecture-answerer")
+
+  validators = .string[]
+  validators[1] = "direction-required"
+  validators[2] = "support-required"
+  validators[3] = "known-type-required"
+  validators[4] = "canonical-conflict-review"
+  return .ragprofile("it-architecture-profile", "1", concept_types, relationship_types, aliases, chunk_policy, ranking_weights, prompts, validators)

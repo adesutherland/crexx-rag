@@ -1,6 +1,8 @@
 options levelg
 
-namespace ragmodel expose ragerror ragoperationresult ragrequestoptions ragplan ragtrace ragpathresult ragtimelineentry ragtimelineresult ragreviewitem ragreviewpage
+namespace ragmodel expose ragerror ragoperationresult ragrequestoptions ragplan ragtrace ragpathresult ragtimelineentry ragtimelineresult ragreviewitem ragreviewpage ragvalidationissue ragvalidationresult validregistryid validenvname
+
+import rxfnsb
 
 ragerror: class
   _category = .string
@@ -211,3 +213,63 @@ ragreviewpage: class
     return _items
   next_cursor: method = .string
     return _next_cursor
+
+ragvalidationissue: class
+  _scope = .string
+  _code = .string
+  _path = .string
+  _message = .string
+
+  *: factory
+    arg scope = .string, code = .string, path = .string, message = .string
+    _scope = scope
+    _code = code
+    _path = path
+    _message = message
+    return
+
+  scope: method = .string
+    return _scope
+  code: method = .string
+    return _code
+  path: method = .string
+    return _path
+  message: method = .string
+    return _message
+
+ragvalidationresult: class
+  _issues = .ragvalidationissue[]
+
+  *: factory
+    arg issues = .ragvalidationissue[]
+    _issues = issues
+    return
+
+  ok: method = .int
+    return _issues.0 = 0
+  issue_count: method = .int
+    return _issues.0
+  issues: method = .ragvalidationissue[]
+    return _issues
+
+validregistryid: procedure = .int
+  arg identifier = .string
+  if length(identifier) < 1 | length(identifier) > 64 then return 0
+  allowed_first = "abcdefghijklmnopqrstuvwxyz"
+  allowed_rest = allowed_first || "0123456789_-"
+  if pos(substr(identifier, 1, 1), allowed_first) = 0 then return 0
+  do i = 2 to length(identifier)
+    if pos(substr(identifier, i, 1), allowed_rest) = 0 then return 0
+  end
+  return 1
+
+validenvname: procedure = .int
+  arg name = .string
+  if length(name) < 1 | length(name) > 128 then return 0
+  allowed_first = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_"
+  allowed_rest = allowed_first || "0123456789"
+  if pos(substr(name, 1, 1), allowed_first) = 0 then return 0
+  do i = 2 to length(name)
+    if pos(substr(name, i, 1), allowed_rest) = 0 then return 0
+  end
+  return 1

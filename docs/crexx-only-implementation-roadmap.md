@@ -2,8 +2,8 @@
 
 Status: Gate 1B reached on 2026-08-03 and accepted on 2026-08-04. All bounded
 Phase-1B items are complete. Phase 2 started on 2026-08-04 from the pushed
-entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` is accepted and
-`P2-02` is pending. The decision is recorded in the
+entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` and `P2-02` are
+accepted, and `P2-03` is next and pending. The decision is recorded in the
 [Gate-1B ledger](gate1b-decision-ledger.md).
 
 This is the execution plan for the target in
@@ -368,9 +368,12 @@ mutation.
   foundation exception with a minimized reproducer and evidence. Accepted with
   four-cell compiled-consumer and full-suite evidence in
   [`P2-01.md`](evidence/2026-08-04-phase2/P2-01.md); no exception was needed.
-- [ ] **P2-02** Implement operator-registered declarative cREXX config modules
+- [x] **P2-02** Implement operator-registered declarative cREXX config modules
   with `env:` secret references and independent typed profiles; agents may
-  select registered ids but never arbitrary executable paths.
+  select registered ids but never arbitrary executable paths. Accepted with
+  four-cell validation, security, privacy, side-effect, resource, and
+  full-suite evidence in
+  [`P2-02.md`](evidence/2026-08-04-phase2/P2-02.md).
 - [ ] **P2-03** Implement schema v2 migrations, SQLite-authoritative published
   generations, reader snapshot/visibility rules, recoverable manifest
   projection, strict read-only opens, crash-order tests, library

@@ -1,0 +1,134 @@
+options levelg
+
+namespace ragregistry expose ragconfiglookup ragprofilelookup ragregistry
+
+import ragmodel
+import ragconfig
+import ragprofile
+
+ragconfiglookup: class
+  _status = .string
+  _config = .ragconfig
+
+  *: factory
+    arg status = .string, config = .ragconfig
+    _status = status
+    _config = config
+    return
+
+  status: method = .string
+    return _status
+  found: method = .int
+    return _status = "found"
+  config: method = .ragconfig
+    return _config
+
+ragprofilelookup: class
+  _status = .string
+  _profile = .ragprofile
+
+  *: factory
+    arg status = .string, profile = .ragprofile
+    _status = status
+    _profile = profile
+    return
+
+  status: method = .string
+    return _status
+  found: method = .int
+    return _status = "found"
+  profile: method = .ragprofile
+    return _profile
+
+ragregistry: class
+  _configs = .ragconfig[]
+  _profiles = .ragprofile[]
+  _validation = .ragvalidationresult
+
+  *: factory
+    arg configs = .ragconfig[], profiles = .ragprofile[]
+    _configs = configs
+    _profiles = profiles
+    _validation = _validateregistry(configs, profiles)
+    return
+
+  valid: method = .int
+    return _validation.ok()
+  validation: method = .ragvalidationresult
+    return _validation
+  config_ids: method = .string[]
+    ids = .string[]
+    do i = 1 to _configs.0
+      ids[i] = _configs[i].config_id()
+    end
+    return ids
+  profile_ids: method = .string[]
+    ids = .string[]
+    do i = 1 to _profiles.0
+      ids[i] = _profiles[i].profile_id()
+    end
+    return ids
+  config: method = .ragconfiglookup
+    arg config_id = .string
+    if validregistryid(config_id) = 0 then return .ragconfiglookup("invalid-id", invalidconfig())
+    if valid() = 0 then return .ragconfiglookup("registry-invalid", invalidconfig())
+    do i = 1 to _configs.0
+      if _configs[i].config_id() = config_id then return .ragconfiglookup("found", _configs[i])
+    end
+    return .ragconfiglookup("unknown-id", invalidconfig())
+  profile: method = .ragprofilelookup
+    arg profile_id = .string
+    if validregistryid(profile_id) = 0 then return .ragprofilelookup("invalid-id", invalidprofile())
+    if valid() = 0 then return .ragprofilelookup("registry-invalid", invalidprofile())
+    do i = 1 to _profiles.0
+      if _profiles[i].profile_id() = profile_id then return .ragprofilelookup("found", _profiles[i])
+    end
+    return .ragprofilelookup("unknown-id", invalidprofile())
+
+_validateregistry: procedure = .ragvalidationresult
+  arg configs = .ragconfig[], profiles = .ragprofile[]
+  issues = .ragvalidationissue[]
+  if configs.0 = 0 then issues[issues.0 + 1] = .ragvalidationissue("registry", "missing_config", "configs", "at least one configuration must be registered")
+  if profiles.0 = 0 then issues[issues.0 + 1] = .ragvalidationissue("registry", "missing_profile", "profiles", "at least one profile must be registered")
+  seen = .string[]
+  do i = 1 to configs.0
+    config = configs[i]
+    result = validateconfig(config)
+    config_issues = result.issues()
+    do j = 1 to config_issues.0
+      issues[issues.0 + 1] = config_issues[j]
+    end
+    if _contains(seen, config.config_id()) = 1 then issues[issues.0 + 1] = .ragvalidationissue("registry", "duplicate_config", "configs[" || i || "]", "configuration id is registered more than once")
+    seen[seen.0 + 1] = config.config_id()
+  end
+  seen = .string[]
+  do i = 1 to profiles.0
+    result = profiles[i].validation()
+    profile_issues = result.issues()
+    do j = 1 to profile_issues.0
+      issues[issues.0 + 1] = profile_issues[j]
+    end
+    if _contains(seen, profiles[i].profile_id()) = 1 then issues[issues.0 + 1] = .ragvalidationissue("registry", "duplicate_profile", "profiles[" || i || "]", "profile id is registered more than once")
+    seen[seen.0 + 1] = profiles[i].profile_id()
+  end
+  do i = 1 to configs.0
+    profile_ids = configs[i].profile_ids()
+    do j = 1 to profile_ids.0
+      if _profile_exists(profiles, profile_ids[j]) = 0 then issues[issues.0 + 1] = .ragvalidationissue("registry", "unknown_profile", "configs[" || i || "].profiles[" || j || "]", "configuration references an unregistered profile id")
+    end
+  end
+  return .ragvalidationresult(issues)
+
+_contains: procedure = .int
+  arg values = .string[], expected = .string
+  do i = 1 to values.0
+    if values[i] = expected then return 1
+  end
+  return 0
+
+_profile_exists: procedure = .int
+  arg profiles = .ragprofile[], profile_id = .string
+  do i = 1 to profiles.0
+    if profiles[i].profile_id() = profile_id then return 1
+  end
+  return 0

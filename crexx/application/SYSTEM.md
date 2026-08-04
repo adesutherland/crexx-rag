@@ -14,11 +14,20 @@ The current dependency direction is:
 ragmodel <- ragevidence
 ragmodel <- ragjob
 ragmodel + ragevidence + ragjob <- raglibrary
+ragmodel <- ragconfig + ragprofile <- ragregistry
+ragconfig + ragprofile + ragregistry <- operator registry
 ```
 
 `raglibrary` coordinates public operations. `ragjob` is a returned durable-work
 handle. `ragevidence` is the stable evidence packet object; passages, accepted
 claims, support, ambiguity, leads, and gaps remain distinct.
+
+`ragconfig` validates source sets, provider routes, symbolic secret references,
+budgets, and the currently qualified single-worker scope. `ragprofile` validates
+domain types, relationships, aliases, chunk policy, ranking weights, prompt
+identities, and validator identities. `ragregistry` receives already
+constructed operator modules and exposes typed id lookup only. Dynamic module
+loading is intentionally absent from the agent-facing boundary.
 
 ## Contract Discipline
 
@@ -35,4 +44,7 @@ claims, support, ambiguity, leads, and gaps remain distinct.
 
 CTest `p2_01_application_contract` compiles every module and the consumer in
 optimized and non-optimized modes, then runs the contract on `rxvme` and
-`rxbvm`. The language-level housekeeping audit also covers this directory.
+`rxbvm`. CTest `p2_02_config_contract` applies the same four-cell matrix to
+config/profile validation, registry security, symbolic secrets, zero retained
+secret values, and structural zero-side-effect checks. The language-level
+housekeeping audit also covers this directory.

@@ -1,0 +1,18 @@
+options levelg
+
+namespace operator_registry expose operatorregistry
+
+import ragconfig
+import ragprofile
+import ragregistry
+import architecture_local_config
+import generic_profile
+import it_architecture_profile
+
+operatorregistry: procedure = .ragregistry
+  configs = .ragconfig[]
+  configs[1] = architecturelocalconfig()
+  profiles = .ragprofile[]
+  profiles[1] = genericprofile()
+  profiles[2] = itarchitectureprofile()
+  return .ragregistry(configs, profiles)

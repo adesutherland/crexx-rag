@@ -22,8 +22,13 @@ retained blocker evidence. At most one roadmap item may be active.
   add a facade solely to cross language levels; retain a reproducer and
   explicit exception evidence if Level B proves necessary. Accepted evidence:
   [P2-01.md](P2-01.md).
-- [ ] **P2-02** Implement operator-registered declarative cREXX configuration
-  with `env:` secret references and independent typed profiles.
+- [x] **P2-02** Implement operator-registered declarative cREXX configuration
+  with `env:` secret references and independent typed profiles. Freeze typed
+  config/profile/registry use through an optimized/non-optimized, dual-VM
+  consumer; reject arbitrary module paths, duplicates, invalid references, and
+  unsupported worker scope; prove loading has zero provider, source, or library
+  side effects and retains no secret value. Accepted evidence:
+  [P2-02.md](P2-02.md).
 
 ## Storage Foundation
 

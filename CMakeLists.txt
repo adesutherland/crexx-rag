@@ -1151,6 +1151,32 @@ if(CPRAG_BUILD_TESTS)
         add_test(NAME p2_01_application_contract COMMAND ${P2_01_COMMAND})
         set_tests_properties(p2_01_application_contract PROPERTIES
             LABELS "P2-01;phase2;crexx;levelg;application;contract;evidence;job")
+        set(P2_02_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_MODEL=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragmodel.crexx"
+            "-DCPRAG_CONFIG=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragconfig.crexx"
+            "-DCPRAG_PROFILE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragprofile.crexx"
+            "-DCPRAG_REGISTRY=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragregistry.crexx"
+            "-DCPRAG_SAMPLE_CONFIG=${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/architecture_local_config.crexx"
+            "-DCPRAG_GENERIC_PROFILE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/profiles/generic_profile.crexx"
+            "-DCPRAG_IT_PROFILE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/profiles/it_architecture_profile.crexx"
+            "-DCPRAG_OPERATOR_REGISTRY=${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/operator_registry.crexx"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p2_02_config_consumer.crexx"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p2-02-config-contract"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P202.cmake")
+        add_custom_target(p2_02_config_contract
+            COMMAND ${P2_02_COMMAND}
+            COMMENT "Running P2-02 registered Level-G config/profile proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p2_02_config_contract COMMAND ${P2_02_COMMAND})
+        set_tests_properties(p2_02_config_contract PROPERTIES
+            LABELS "P2-02;phase2;crexx;levelg;application;config;profile;registry;privacy;zero-write;zero-outbound")
         add_test(
             NAME crexx_profile_smoke
             COMMAND "${CMAKE_COMMAND}"

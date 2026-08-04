@@ -130,8 +130,19 @@ ambiguity, graph-lead limitations, gaps, trace, and truthful package limits.
 
 The accepted 2026-08-04 run passed all four cells and the full suite passed
 58/59 in 527.97 seconds with only the unchanged CRI-15 failure. This does not
-accept configuration, persistence, plan validation, commands, or provider
-execution assigned to later Phase-2 items.
+accept persistence, plan validation, commands, or provider execution assigned
+to later Phase-2 items.
+
+`P2-02` freezes typed configuration/profile/registry consumption through
+`p2_02_config_contract`. It compiles optimized/non-optimized and runs both VMs;
+valid selection plus negative cases cover arbitrary paths, unknown ids,
+duplicate registration, invalid provider/profile/inverse references, symbolic
+secret handling, redacted diagnostics, worker scope, and bounds-safe snapshot
+inspection. Static imports and runtime worktree checks prove loading performs
+zero provider, source, or library activity. The final focused run passed in
+18.85 seconds at 134,736 KiB maximum process RSS; the full suite passed 59/60
+in 607.33 seconds with only CRI-15. This does not accept durable configuration
+snapshots, persistence, command parsing, or provider execution.
 
 `P1-RXPA-03`, `P1-HASH-01`, hosted calls outside the explicitly authorized
 low-cost `P1-LLM-04` qualification, normal-prefix/CREXX changes, production

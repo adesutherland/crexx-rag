@@ -1,0 +1,34 @@
+options levelg
+
+namespace architecture_local_config expose architecturelocalconfig
+
+import ragconfig
+
+architecturelocalconfig: procedure = .ragconfig
+  include_patterns = .string[]
+  include_patterns[1] = "**/*.md"
+  include_patterns[2] = "**/*.txt"
+  include_patterns[3] = "**/*.rexx"
+  include_patterns[4] = "**/*.crexx"
+  source_sets = .ragsourceset[]
+  source_sets[1] = .ragsourceset("architecture-docs", "folder", "./source-docs", include_patterns, "relative-path", "internal", 1)
+
+  providers = .ragproviderconfig[]
+  providers[1] = .ragproviderconfig("local-chat", "openai-compatible", "http://127.0.0.1:8080/v1", "local-chat-model", "local", "restricted-ok", .ragsecretref(), 30000, 2)
+  providers[2] = .ragproviderconfig("local-embed", "openai-compatible", "http://127.0.0.1:8081/v1", "nomic-embed-text-v1-5", "local", "restricted-ok", .ragsecretref(), 30000, 2)
+  providers[3] = .ragproviderconfig("hosted-strong", "openai", "https://api.openai.com/v1", "configured-hosted-model", "hosted", "public-only", .ragsecretref("env", "OPENAI_API_KEY"), 60000, 2)
+
+  roles = .ragrolebinding[]
+  roles[1] = .ragrolebinding("advisory", "local-chat")
+  roles[2] = .ragrolebinding("extractor", "local-chat")
+  roles[3] = .ragrolebinding("embedding", "local-embed")
+
+  profile_ids = .string[]
+  profile_ids[1] = "generic-profile"
+  profile_ids[2] = "it-architecture-profile"
+
+  budget = .ragbudget(120, 1000, 200, 200000, 100000, 5000000)
+  workers = .ragworkerpolicy(1, 1, 120)
+  schedules = .ragschedule[]
+  schedules[1] = .ragschedule("manual-improvement", "manual", 1)
+  return .ragconfig("architecture-local", "1", source_sets, providers, roles, profile_ids, budget, workers, schedules)

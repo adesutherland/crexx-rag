@@ -663,7 +663,7 @@ compiled usage test, not by this illustrative listing.
 Global options precede the noun/verb:
 
 ```text
-crexx-rag --library PATH --config MODULE --profile MODULE \
+crexx-rag --library PATH --config ID --profile ID \
           --format human|json|ndjson \
           --access CAPABILITY[,CAPABILITY...] \
           <noun> <verb> [options]

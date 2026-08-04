@@ -1,0 +1,249 @@
+options levelg
+
+namespace ragprofile expose ragalias ragrelationshiptype ragchunkpolicy ragrankingweight ragprompttemplate ragprofile validateprofile invalidprofile
+
+import ragmodel
+
+ragalias: class
+  _surface = .string
+  _canonical = .string
+
+  *: factory
+    arg surface = .string, canonical = .string
+    _surface = surface
+    _canonical = canonical
+    return
+
+  surface: method = .string
+    return _surface
+  canonical: method = .string
+    return _canonical
+
+ragrelationshiptype: class
+  _relationship_id = .string
+  _inverse_id = .string
+  _directional = .int
+
+  *: factory
+    arg relationship_id = .string, inverse_id = .string, directional = .int
+    _relationship_id = relationship_id
+    _inverse_id = inverse_id
+    _directional = directional
+    return
+
+  relationship_id: method = .string
+    return _relationship_id
+  inverse_id: method = .string
+    return _inverse_id
+  directional: method = .int
+    return _directional
+
+ragchunkpolicy: class
+  _max_characters = .int
+  _overlap_characters = .int
+  _formats = .string[]
+
+  *: factory
+    arg max_characters = .int, overlap_characters = .int, formats = .string[]
+    _max_characters = max_characters
+    _overlap_characters = overlap_characters
+    _formats = formats
+    return
+
+  max_characters: method = .int
+    return _max_characters
+  overlap_characters: method = .int
+    return _overlap_characters
+  formats: method = .string[]
+    return _formats
+
+ragrankingweight: class
+  _name = .string
+  _value = .float
+
+  *: factory
+    arg name = .string, value = .float
+    _name = name
+    _value = value
+    return
+
+  name: method = .string
+    return _name
+  value: method = .float
+    return _value
+
+ragprompttemplate: class
+  _role = .string
+  _version = .string
+  _template_id = .string
+
+  *: factory
+    arg role = .string, version = .string, template_id = .string
+    _role = role
+    _version = version
+    _template_id = template_id
+    return
+
+  role: method = .string
+    return _role
+  version: method = .string
+    return _version
+  template_id: method = .string
+    return _template_id
+
+ragprofile: class
+  _profile_id = .string
+  _version = .string
+  _concept_types = .string[]
+  _relationship_types = .ragrelationshiptype[]
+  _aliases = .ragalias[]
+  _chunk_policy = .ragchunkpolicy
+  _ranking_weights = .ragrankingweight[]
+  _prompts = .ragprompttemplate[]
+  _validators = .string[]
+
+  *: factory
+    arg profile_id = .string, version = .string, concept_types = .string[], relationship_types = .ragrelationshiptype[], aliases = .ragalias[], chunk_policy = .ragchunkpolicy, ranking_weights = .ragrankingweight[], prompts = .ragprompttemplate[], validators = .string[]
+    _profile_id = profile_id
+    _version = version
+    _concept_types = concept_types
+    _relationship_types = relationship_types
+    _aliases = aliases
+    _chunk_policy = chunk_policy
+    _ranking_weights = ranking_weights
+    _prompts = prompts
+    _validators = validators
+    return
+
+  profile_id: method = .string
+    return _profile_id
+  version: method = .string
+    return _version
+  concept_types: method = .string[]
+    return _concept_types
+  relationship_types: method = .ragrelationshiptype[]
+    return _relationship_types
+  aliases: method = .ragalias[]
+    return _aliases
+  chunk_policy: method = .ragchunkpolicy
+    return _chunk_policy
+  ranking_weights: method = .ragrankingweight[]
+    return _ranking_weights
+  prompts: method = .ragprompttemplate[]
+    return _prompts
+  validators: method = .string[]
+    return _validators
+  valid_identity: method = .int
+    return validregistryid(_profile_id) = 1 & _version \= ""
+  validation: method = .ragvalidationresult
+    return _validateprofileparts(_profile_id, _version, _concept_types, _relationship_types, _aliases, _chunk_policy, _ranking_weights, _prompts, _validators)
+
+validateprofile: procedure = .ragvalidationresult
+  arg profile = .ragprofile
+  return _validateprofileparts(profile.profile_id(), profile.version(), profile.concept_types(), profile.relationship_types(), profile.aliases(), profile.chunk_policy(), profile.ranking_weights(), profile.prompts(), profile.validators())
+
+_validateprofileparts: procedure = .ragvalidationresult
+  arg profile_id = .string, version = .string, concept_types = .string[], relationship_types = .ragrelationshiptype[], aliases = .ragalias[], chunk_policy = .ragchunkpolicy, ranking_weights = .ragrankingweight[], prompts = .ragprompttemplate[], validators = .string[]
+  issues = .ragvalidationissue[]
+  if validregistryid(profile_id) = 0 then issues[issues.0 + 1] = .ragvalidationissue("profile", "invalid_id", "profile.id", "profile id must be a registered identifier")
+  if version = "" then issues[issues.0 + 1] = .ragvalidationissue("profile", "missing_version", "profile.version", "profile version is required")
+
+  if concept_types.0 = 0 then issues[issues.0 + 1] = .ragvalidationissue("profile", "missing_concept_type", "concept_types", "at least one concept type is required")
+  seen = .string[]
+  do i = 1 to concept_types.0
+    if validregistryid(concept_types[i]) = 0 then issues[issues.0 + 1] = .ragvalidationissue("profile", "invalid_type", "concept_types[" || i || "]", "concept type id is invalid")
+    if _contains(seen, concept_types[i]) = 1 then issues[issues.0 + 1] = .ragvalidationissue("profile", "duplicate_type", "concept_types[" || i || "]", "concept type is duplicated")
+    seen[seen.0 + 1] = concept_types[i]
+  end
+
+  if relationship_types.0 = 0 then issues[issues.0 + 1] = .ragvalidationissue("profile", "missing_relationship_type", "relationship_types", "at least one relationship type is required")
+  seen = .string[]
+  do i = 1 to relationship_types.0
+    relationship = relationship_types[i]
+    path = "relationship_types[" || i || "]"
+    if validregistryid(relationship.relationship_id()) = 0 then issues[issues.0 + 1] = .ragvalidationissue("profile", "invalid_type", path || ".id", "relationship type id is invalid")
+    if relationship.inverse_id() \= "" & validregistryid(relationship.inverse_id()) = 0 then issues[issues.0 + 1] = .ragvalidationissue("profile", "invalid_inverse", path || ".inverse_id", "inverse relationship id is invalid")
+    if relationship.inverse_id() \= "" & _relationship_exists(relationship_types, relationship.inverse_id()) = 0 then issues[issues.0 + 1] = .ragvalidationissue("profile", "unknown_inverse", path || ".inverse_id", "inverse relationship type is not defined in this profile")
+    if relationship.inverse_id() \= "" & _inverse_matches(relationship_types, relationship.inverse_id(), relationship.relationship_id()) = 0 then issues[issues.0 + 1] = .ragvalidationissue("profile", "inverse_mismatch", path || ".inverse_id", "inverse relationship does not point back to this type")
+    if relationship.directional() \= 0 & relationship.directional() \= 1 then issues[issues.0 + 1] = .ragvalidationissue("profile", "invalid_boolean", path || ".directional", "directional must be boolean")
+    if _contains(seen, relationship.relationship_id()) = 1 then issues[issues.0 + 1] = .ragvalidationissue("profile", "duplicate_type", path || ".id", "relationship type is duplicated")
+    seen[seen.0 + 1] = relationship.relationship_id()
+  end
+
+  seen = .string[]
+  do i = 1 to aliases.0
+    alias = aliases[i]
+    if alias.surface() = "" | alias.canonical() = "" then issues[issues.0 + 1] = .ragvalidationissue("profile", "invalid_alias", "aliases[" || i || "]", "alias surface and canonical label are required")
+    if _contains(seen, alias.surface()) = 1 then issues[issues.0 + 1] = .ragvalidationissue("profile", "duplicate_alias", "aliases[" || i || "].surface", "alias surface is duplicated")
+    seen[seen.0 + 1] = alias.surface()
+  end
+
+  formats = chunk_policy.formats()
+  if chunk_policy.max_characters() <= 0 | chunk_policy.overlap_characters() < 0 | chunk_policy.overlap_characters() >= chunk_policy.max_characters() | formats.0 = 0 then issues[issues.0 + 1] = .ragvalidationissue("profile", "invalid_chunk_policy", "chunk_policy", "chunk size, overlap, and formats are invalid")
+  seen = .string[]
+  do i = 1 to formats.0
+    if validregistryid(formats[i]) = 0 then issues[issues.0 + 1] = .ragvalidationissue("profile", "invalid_format", "chunk_policy.formats[" || i || "]", "format id is invalid")
+    if _contains(seen, formats[i]) = 1 then issues[issues.0 + 1] = .ragvalidationissue("profile", "duplicate_format", "chunk_policy.formats[" || i || "]", "format id is duplicated")
+    seen[seen.0 + 1] = formats[i]
+  end
+
+  seen = .string[]
+  if ranking_weights.0 = 0 then issues[issues.0 + 1] = .ragvalidationissue("profile", "missing_weight", "ranking_weights", "at least one ranking weight is required")
+  do i = 1 to ranking_weights.0
+    weight = ranking_weights[i]
+    if validregistryid(weight.name()) = 0 | weight.value() < -1000.0 | weight.value() > 1000.0 then issues[issues.0 + 1] = .ragvalidationissue("profile", "invalid_weight", "ranking_weights[" || i || "]", "ranking weight name or value is invalid")
+    if _contains(seen, weight.name()) = 1 then issues[issues.0 + 1] = .ragvalidationissue("profile", "duplicate_weight", "ranking_weights[" || i || "].name", "ranking weight is duplicated")
+    seen[seen.0 + 1] = weight.name()
+  end
+
+  seen = .string[]
+  do i = 1 to prompts.0
+    prompt = prompts[i]
+    role = prompt.role()
+    if role \= "advisory" & role \= "extractor" & role \= "answerer" then issues[issues.0 + 1] = .ragvalidationissue("profile", "invalid_prompt_role", "prompts[" || i || "].role", "prompt role is invalid")
+    if prompt.version() = "" | validregistryid(prompt.template_id()) = 0 then issues[issues.0 + 1] = .ragvalidationissue("profile", "invalid_prompt", "prompts[" || i || "]", "prompt version and template id are required")
+    if _contains(seen, role) = 1 then issues[issues.0 + 1] = .ragvalidationissue("profile", "duplicate_prompt", "prompts[" || i || "].role", "prompt role is duplicated")
+    seen[seen.0 + 1] = role
+  end
+  if _contains(seen, "advisory") = 0 then issues[issues.0 + 1] = .ragvalidationissue("profile", "missing_prompt", "prompts.advisory", "advisory prompt is required")
+  if _contains(seen, "extractor") = 0 then issues[issues.0 + 1] = .ragvalidationissue("profile", "missing_prompt", "prompts.extractor", "extractor prompt is required")
+
+  if validators.0 = 0 then issues[issues.0 + 1] = .ragvalidationissue("profile", "missing_validator", "validators", "at least one validator id is required")
+  seen = .string[]
+  do i = 1 to validators.0
+    if validregistryid(validators[i]) = 0 then issues[issues.0 + 1] = .ragvalidationissue("profile", "invalid_validator", "validators[" || i || "]", "validator id is invalid")
+    if _contains(seen, validators[i]) = 1 then issues[issues.0 + 1] = .ragvalidationissue("profile", "duplicate_validator", "validators[" || i || "]", "validator id is duplicated")
+    seen[seen.0 + 1] = validators[i]
+  end
+  return .ragvalidationresult(issues)
+
+invalidprofile: procedure = .ragprofile
+  concept_types = .string[]
+  relationship_types = .ragrelationshiptype[]
+  aliases = .ragalias[]
+  formats = .string[]
+  ranking_weights = .ragrankingweight[]
+  prompts = .ragprompttemplate[]
+  validators = .string[]
+  return .ragprofile("", "", concept_types, relationship_types, aliases, .ragchunkpolicy(0, 0, formats), ranking_weights, prompts, validators)
+
+_contains: procedure = .int
+  arg values = .string[], expected = .string
+  do i = 1 to values.0
+    if values[i] = expected then return 1
+  end
+  return 0
+
+_relationship_exists: procedure = .int
+  arg relationships = .ragrelationshiptype[], relationship_id = .string
+  do i = 1 to relationships.0
+    if relationships[i].relationship_id() = relationship_id then return 1
+  end
+  return 0
+
+_inverse_matches: procedure = .int
+  arg relationships = .ragrelationshiptype[], relationship_id = .string, expected_inverse = .string
+  do i = 1 to relationships.0
+    if relationships[i].relationship_id() = relationship_id then return relationships[i].inverse_id() = expected_inverse
+  end
+  return 0
