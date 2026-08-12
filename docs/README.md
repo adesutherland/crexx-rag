@@ -40,6 +40,14 @@ The implementation handoffs are retained execution records. Phase-2 authority
 comes from the Gate-1B decision ledger, not from extending the old handoffs;
 they do not authorize replay or additional hosted calls.
 
+## Cross-Cutting Future Research
+
+- [Public-domain LLM response assurance pattern](llm-response-assurance-pattern.md)
+  describes a general maker-checker generate/evaluate/revise loop with
+  runtime monitoring and independent assessment. It is deliberately not
+  RAG-specific, is reusable outside this repository, and is not an implemented
+  feature or authorization to advance the cREXX-only programme.
+
 ## Historical Native-v1 Evidence
 
 The former native-core architecture, tutorials, use cases, pipeline status,
