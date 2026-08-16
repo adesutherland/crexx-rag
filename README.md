@@ -10,11 +10,11 @@ also a deliberately demanding cREXX reference workload: it exercises the
 language, runtimes, libraries, plugin model, packaging, diagnostics, and
 performance with retained correctness and workload evidence.
 
-> **Programme status, 2026-08-04:** Gate 1B is accepted, including all 28
+> **Programme status, 2026-08-06:** Gate 1B is accepted, including all 28
 > bounded Phase-1B results and their recorded limitations. Phase 2 is approved
 > as the next product phase and has started from a pushed entry baseline.
-> `P2-01` and `P2-02` are accepted; `P2-03` is next and pending. The native-v1 C++ path remains the
-> executable oracle. Level G is
+> `P2-01` through `P2-03` are accepted; `P2-04` is next and pending. The
+> native-v1 C++ path remains the executable oracle. Level G is
 > now the required default for advanced libraries and application code; Level B
 > is reserved for CREXX bootstrap and justified low-level foundations.
 
@@ -85,8 +85,11 @@ target semantics:
 - durable leased jobs with fencing, crash recovery, idempotent promotion,
   cancellation, and hard token/call/cost/time budgets.
 
-These slices prove boundaries and behavior. They are not yet a production
-schema, complete ingestion pipeline, public command set, or cutover candidate.
+These slices prove boundaries and behavior. Phase 2 now also has an accepted
+schema-v2 storage foundation with ordered migrations, published generations,
+pinned snapshots, recoverable manifests, strict read-only opens, verification,
+and rollback. It is not yet a complete ingestion pipeline, public command set,
+or cutover candidate.
 
 ## Current Status
 
@@ -95,7 +98,7 @@ schema, complete ingestion pipeline, public command set, or cutover candidate.
 | Phase 0 / Gate 0 | Complete | Native oracle, fixtures, judgements, defects, hashes, and measurement protocol frozen |
 | Phase 1A / Gate 1A | Complete | cREXX application and generic-plugin boundaries selected; CRI-01 through CRI-14 closed downstream |
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | 28 bounded items accepted; Debug/Release build; 55 of 56 tests pass with sole known CRI-15 failure |
-| Phase 2 / Gate 2 | Active; P2-03 pending | Level-G public contracts and typed registered configuration/profiles are accepted; schema v2 is next |
+| Phase 2 / Gate 2 | Active; P2-04 pending | Level-G contracts, registered configuration/profiles, and the schema-v2 storage foundation are accepted; version-1 read/import compatibility is next |
 | Phase 3 and later | Not authorized | No production ingestion, cutover, or native retirement has started |
 
 Gate 1B established:
@@ -134,15 +137,15 @@ production claim:
   require production qualification.
 - The local OpenAI-compatible protocol is qualified against deterministic
   fixtures, but a real `llama-server` deployment was unavailable.
-- There is no production schema v2, migration, public target CLI/MCP surface,
-  dual-write, cutover, or native-core removal.
+- There is no version-1 import, production repository/ingestion layer, public
+  target CLI/MCP surface, dual-write, cutover, or native-core removal.
 
 ## Roadmap
 
 The Gate-1B decision accepts the cREXX skeleton and authorizes Phase 2 as the
 next product workstream. Its bounded worklist and pushed entry baseline are
-recorded, and its Level-G contracts plus registered configuration/profile
-items are accepted. It may
+recorded, and its Level-G contracts, registered configuration/profile, and
+schema-v2 storage-foundation items are accepted. It may
 proceed in parallel with separately scoped work
 on socket timeouts, HTTP/TLS, vector acceleration, and durable hashing; those
 capability streams retain their own evidence and stop points.

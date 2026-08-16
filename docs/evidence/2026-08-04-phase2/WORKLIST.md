@@ -1,6 +1,6 @@
 # Phase 2 Resumable Worklist
 
-Status date: 2026-08-04. Authority is limited to `P2-01` through `P2-10` in
+Status date: 2026-08-06. Authority is limited to `P2-01` through `P2-10` in
 the [Gate-1B decision ledger](../../gate1b-decision-ledger.md) and
 [implementation roadmap](../../crexx-only-implementation-roadmap.md). `[ ]` is
 pending, `[~]` is active, `[x]` is accepted, and `[!]` is incomplete with
@@ -32,9 +32,10 @@ retained blocker evidence. At most one roadmap item may be active.
 
 ## Storage Foundation
 
-- [ ] **P2-03** Implement schema-v2 migrations, SQLite-authoritative published
+- [x] **P2-03** Implement schema-v2 migrations, SQLite-authoritative published
   generations, visibility and snapshot rules, manifest recovery, strict
   read-only opens, crash ordering, library lifecycle operations, and rollback.
+  Accepted evidence: [P2-03.md](P2-03.md).
 - [ ] **P2-04** Implement version-1 read/import compatibility and a dry-run
   conversion report without dual-writing either format.
 - [ ] **P2-05** Implement generation-pinned online backup, immutable matching

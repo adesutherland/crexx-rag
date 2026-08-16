@@ -1177,6 +1177,28 @@ if(CPRAG_BUILD_TESTS)
         add_test(NAME p2_02_config_contract COMMAND ${P2_02_COMMAND})
         set_tests_properties(p2_02_config_contract PROPERTIES
             LABELS "P2-02;phase2;crexx;levelg;application;config;profile;registry;privacy;zero-write;zero-outbound")
+        set(P2_03_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+            "-DCPRAG_SCHEMA=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragschema.crexx"
+            "-DCPRAG_STORE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragstore.crexx"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p2_03_store_scenario.crexx"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p2-03-storage-foundation"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P203.cmake")
+        add_custom_target(p2_03_storage_foundation
+            COMMAND ${P2_03_COMMAND}
+            DEPENDS _sqlite_boundary
+            COMMENT "Running P2-03 Level-G storage foundation proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p2_03_storage_foundation COMMAND ${P2_03_COMMAND})
+        set_tests_properties(p2_03_storage_foundation PROPERTIES
+            LABELS "P2-03;phase2;crexx;levelg;application;sqlite;schema;migration;generation;snapshot;manifest;read-only;crash;verify;rollback")
         add_test(
             NAME crexx_profile_smoke
             COMMAND "${CMAKE_COMMAND}"

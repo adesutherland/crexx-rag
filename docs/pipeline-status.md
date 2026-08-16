@@ -1,6 +1,6 @@
 # cREXX-Only Programme Status
 
-Status date: 2026-08-04.
+Status date: 2026-08-06.
 
 This is the only living implementation-status page. The previous native-v1
 pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.md).
@@ -19,7 +19,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Gate 1A | Accepted 2026-08-03 | D1-D8 boundaries and the bounded D9 worklist are recorded; CRI-15 remains an open Linux dependency |
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | Every bounded item is accepted; Gate validation is 55/56 with sole expected CRI-15; recorded production limitations remain in force |
 | Language strategy | Level G first, accepted 2026-08-04 | Advanced libraries and application code use Level G; Level B is limited to justified CREXX bootstrap/foundation work |
-| Phase 2 / Gate 2 | Active; `P2-03` pending | `P2-01` contracts and `P2-02` registered typed configuration/profiles are accepted; schema v2 is next |
+| Phase 2 / Gate 2 | Active; `P2-04` pending | `P2-01` contracts, `P2-02` registered typed configuration/profiles, and the `P2-03` schema-v2 storage foundation are accepted; version-1 compatibility is next |
 | Phase 3 and later | Not authorized | No production ingestion, additional hosted qualification, cutover, or retirement |
 
 ## Current Product Reality
@@ -66,10 +66,11 @@ fresh deterministic/loopback closeout suite passed 28/28, 0 failed, 0 skipped
 in 110.30 seconds. Exact evidence is under
 `docs/evidence/2026-07-31-gate1a-crexx-candidate/`.
 
-No cREXX-only production path, schema v2, production `rxsqlite`, safe
-multi-worker queue, or target command set is claimed implemented yet. The
-provider contract is selected and qualified in local incubation, subject to
-the transport limitations recorded at Gate 1B.
+No complete cREXX-only product path, production `rxsqlite` package, safe
+multi-worker queue, repository/ingestion layer, or target command set is
+claimed implemented yet. The Level-G schema-v2 storage foundation is accepted
+over the local generic SQLite incubation. The provider contract remains
+qualified in local incubation, subject to the Gate-1B transport limitations.
 
 Fresh Linux validation on 2026-08-03 repaired the native build's missing direct
 `<algorithm>` dependency, PIC requirement for the RXPA plugin, and macOS-only
@@ -132,8 +133,14 @@ The new Level-G application contracts and the registered typed
 configuration/profile boundary pass optimized/non-optimized on both VMs.
 `P2-02` rejects arbitrary paths, duplicates, invalid references, literal
 secrets, and unsupported worker scope while proving zero loading side effects.
-Its acceptance suite passed 59/60 in 607.33 seconds with only CRI-15; storage,
-commands, and provider execution remain unimplemented. `P2-03` is pending.
+Its acceptance suite passed 59/60 in 607.33 seconds with only CRI-15. `P2-03`
+now supplies two checksum-verified schema-v2 migrations, 32 logical tables,
+SQLite-authoritative immutable publications, generation-pinned snapshots,
+recoverable non-secret manifests, strict stable-bundle read-only opens, full
+verification, and ordered ancestor rollback. Its four-cell and real-`SIGKILL`
+proof passed, and the final full suite passed 60/61 in 553.13 seconds with only
+CRI-15. Version-1 compatibility, backup/restore, repositories, commands, and
+provider execution remain unimplemented. `P2-04` is pending.
 The algorithm profile crossed its retained 10,000-us trigger in all four cells while
 remaining below 64 MiB. Full validation passed 55/56 tests; the sole failure is
 unchanged CRI-15. See the
@@ -159,8 +166,8 @@ and Phase-2 authority are recorded in the
 [Gate-1B decision ledger](gate1b-decision-ledger.md).
 
 The dated Phase-2 worklist, entry baseline, item ordering, evidence
-requirements, exclusions, and Gate-2 stop are established. `P2-01` and
-`P2-02` are accepted; `P2-03` is next and pending, with no item active.
+requirements, exclusions, and Gate-2 stop are established. `P2-01` through
+`P2-03` are accepted; `P2-04` is next and pending, with no item active.
 Separately bounded CREXX
 capability work may proceed in parallel only after each stream records an
 equivalent boundary.

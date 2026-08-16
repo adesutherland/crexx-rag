@@ -37,8 +37,8 @@ Phase 0, Gate 0, Phase 1A, Gate 1A, and the bounded Phase-1B worklist are
 complete. Gate 1B was accepted on 2026-08-04, including all 28 bounded
 Phase-1B item results and their recorded limitations. Phase 2, `P2-01` through
 `P2-10`, is the active product workstream. Its dated worklist and entry
-baseline are under `docs/evidence/2026-08-04-phase2/`. `P2-01` and `P2-02` are
-accepted; `P2-03` is next and pending, with no item currently active. Work
+baseline are under `docs/evidence/2026-08-04-phase2/`. `P2-01` through `P2-03`
+are accepted; `P2-04` is next and pending, with no item currently active. Work
 stops unconditionally at Gate 2.
 
 Do not activate a Phase-2 item until its predecessor has accepted evidence or
@@ -77,6 +77,7 @@ Before programme implementation, read these files completely:
 - `docs/evidence/2026-08-04-phase2/ENTRY-BASELINE.md`
 - `docs/evidence/2026-08-04-phase2/P2-01.md`
 - `docs/evidence/2026-08-04-phase2/P2-02.md`
+- `docs/evidence/2026-08-04-phase2/P2-03.md`
 - `prompts/phase1b-implementation-handoff.md`
 - `prompts/crexx-rag-agent-AGENTS.md`
 

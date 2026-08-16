@@ -2,8 +2,8 @@
 
 Status: Gate 1B reached on 2026-08-03 and accepted on 2026-08-04. All bounded
 Phase-1B items are complete. Phase 2 started on 2026-08-04 from the pushed
-entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` and `P2-02` are
-accepted, and `P2-03` is next and pending. The decision is recorded in the
+entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` through `P2-03`
+are accepted, and `P2-04` is next and pending. The decision is recorded in the
 [Gate-1B ledger](gate1b-decision-ledger.md).
 
 This is the execution plan for the target in
@@ -374,10 +374,13 @@ mutation.
   four-cell validation, security, privacy, side-effect, resource, and
   full-suite evidence in
   [`P2-02.md`](evidence/2026-08-04-phase2/P2-02.md).
-- [ ] **P2-03** Implement schema v2 migrations, SQLite-authoritative published
+- [x] **P2-03** Implement schema v2 migrations, SQLite-authoritative published
   generations, reader snapshot/visibility rules, recoverable manifest
   projection, strict read-only opens, crash-order tests, library
-  init/status/verify, and ordered rollback policy.
+  init/status/verify, and ordered rollback policy. Accepted with ordered-DDL,
+  four-cell lifecycle, real `SIGKILL`, zero-write read-only, recovery,
+  verification, rollback, and full-suite evidence in
+  [`P2-03.md`](evidence/2026-08-04-phase2/P2-03.md).
 - [ ] **P2-04** Implement version-1 read/import compatibility and a dry-run
   conversion report. Do not write version 1 in both implementations.
 - [ ] **P2-05** Implement generation-pinned online backup with matching immutable

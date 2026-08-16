@@ -1,6 +1,6 @@
 # cREXX-Only Test Strategy
 
-Status: living acceptance policy for the approved programme, 2026-08-04.
+Status: living acceptance policy for the approved programme, 2026-08-06.
 
 The detailed item matrix and decision gates are in the
 [implementation roadmap](crexx-only-implementation-roadmap.md). The former
@@ -144,10 +144,29 @@ zero provider, source, or library activity. The final focused run passed in
 in 607.33 seconds with only CRI-15. This does not accept durable configuration
 snapshots, persistence, command parsing, or provider execution.
 
+`P2-03` accepts the Level-G storage foundation through
+`p2_03_storage_foundation`. Before compilation, CMake recomputes the SHA-256 of
+each ordered migration's exact DDL. Optimized/non-optimized consumers on both
+VMs cover all 32 schema-v2 logical tables, migration-record 1-to-2 upgrade,
+idempotent reapply with no row changes, downgrade/checksum denial,
+transactional failed DDL, generation immutability, old/new reader snapshots,
+visibility, manifest lag/recovery, full verification, ancestor rollback,
+complete stable-bundle zero-write read-only opens, and missing-path denial.
+
+The optimized crash proof starts child VMs and sends real `SIGKILL` before
+SQLite commit, after SQLite commit, and after temporary-manifest write. Each
+case proves the SQLite generation and manifest state through a separate
+read-only process before authorized recovery. Crash-left `-shm` coordination
+is transient and excluded; database, WAL, final/temporary manifests, and every
+other bundle artifact are hashed before and after inspection. The final
+measured focused target passed in 31.92 seconds at 180,672 KiB maximum RSS;
+the final full Debug suite passed 60/61 in 553.13 seconds with only CRI-15.
+
 `P1-RXPA-03`, `P1-HASH-01`, hosted calls outside the explicitly authorized
-low-cost `P1-LLM-04` qualification, normal-prefix/CREXX changes, production
-schema, dual-write, and later phases are outside the acceptance scope. Gate 1B
-is an unconditional stop even when every approved test passes.
+low-cost `P1-LLM-04` qualification, normal-prefix/CREXX changes, dual-write,
+and later phases are outside the acceptance scope. P2-03 does not imply P2-04
+through P2-10. Gate 2 remains an unconditional stop even when every approved
+test passes.
 
 Current Phase-1B progress: the installed-SDK section is accepted under
 `P1-RXPA-01` and `P1-RXPA-02`. `P1-SQL-01` through `P1-SQL-07` pass their
