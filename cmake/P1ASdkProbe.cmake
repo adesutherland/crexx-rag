@@ -1,11 +1,16 @@
 foreach(required_var
         CPRAG_CREXX_PREFIX CPRAG_CREXX_DIR CPRAG_CREXX_VERSION
         CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_RXBVM CPRAG_CREXX_BIN_DIR
-        CPRAG_PROBE_SOURCE CPRAG_WORK_DIR)
+        CPRAG_GENERATOR CPRAG_MAKE_PROGRAM CPRAG_PROBE_SOURCE CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
     endif()
 endforeach()
+
+set(generator_args -G "${CPRAG_GENERATOR}")
+if(NOT CPRAG_MAKE_PROGRAM STREQUAL "")
+    list(APPEND generator_args "-DCMAKE_MAKE_PROGRAM=${CPRAG_MAKE_PROGRAM}")
+endif()
 
 file(REAL_PATH "${CPRAG_CREXX_PREFIX}" selected_prefix)
 foreach(selected_path IN ITEMS
@@ -22,7 +27,8 @@ file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
 set(probe_build "${CPRAG_WORK_DIR}/external-build")
 execute_process(
-    COMMAND "${CMAKE_COMMAND}" -S "${CPRAG_PROBE_SOURCE}" -B "${probe_build}" -G Ninja
+    COMMAND "${CMAKE_COMMAND}" -S "${CPRAG_PROBE_SOURCE}" -B "${probe_build}"
+        ${generator_args}
         "-DCMAKE_PREFIX_PATH=${selected_prefix}"
         "-DCREXX_DIR=${CPRAG_CREXX_DIR}"
         "-DCMAKE_C_FLAGS=-Werror"
@@ -37,10 +43,12 @@ execute_process(
 if(NOT build_result EQUAL 0)
     message(FATAL_ERROR "Installed-package external build failed:\n${build_out}\n${build_err}")
 endif()
-file(READ "${probe_build}/build.ninja" build_graph)
-string(FIND "${build_graph}" "${CPRAG_CREXX_PREFIX}/include" selected_include_position)
+string(FIND "${build_out}" "${CPRAG_CREXX_PREFIX}/include" selected_include_position)
 if(selected_include_position EQUAL -1)
-    message(FATAL_ERROR "External build graph did not prove selected-prefix headers")
+    string(FIND "${build_out}" "${selected_prefix}/include" selected_include_position)
+endif()
+if(selected_include_position EQUAL -1)
+    message(FATAL_ERROR "External verbose build did not prove selected-prefix headers")
 endif()
 
 set(import_path "${probe_build}/bin;${CPRAG_CREXX_BIN_DIR}")

@@ -58,7 +58,7 @@ foreach(mode IN ITEMS noopt opt)
         set(database "${CPRAG_WORK_DIR}/${cell}.sqlite")
         execute_process(COMMAND "${runtime}" -l "${program_import}"
             "${CPRAG_WORK_DIR}/program-${mode}"
-            vector_codec vector_search rx_sqlite_boundary library
+            vector_codec vector_search rx_sqlite_boundary library rxfnsg
             -a "${database}" "${cell}"
             OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err
             RESULT_VARIABLE vm_result TIMEOUT 300)
@@ -72,4 +72,4 @@ foreach(mode IN ITEMS noopt opt)
 endforeach()
 
 message(STATUS
-    "P1-VEC-02 passed exact 11,684-by-768 ordering on rxvme/rxbvm")
+    "P1-VEC-02 passed bounded rxvector 11,684-by-768 ordering on rxvme/rxbvm")

@@ -1,10 +1,11 @@
-/* Phase-1B scratch source store. The fixture fingerprint is deliberately not
- * a durable content hash; P1-HASH-01 remains outside the approved worklist. */
+/* Phase-1B scratch source store using installed binary-safe SHA-256 content
+ * digests. Connector URI remains the logical source identity. */
 options levelg
 
-namespace source_store expose lexicalhit sourceschema firstingest lexicalsearch active_revision fixturefingerprint splitchunks totalchanges scalarcount
+namespace source_store expose lexicalhit sourceschema firstingest lexicalsearch active_revision contentdigest splitchunks totalchanges scalarcount
 
 import rxfnsb
+import rxhash
 import sqlite_boundary
 
 lexicalhit: class
@@ -47,7 +48,7 @@ sourceschema: procedure = .int
 
 firstingest: procedure = .int
   arg db = .binary, uri = .string, content = .string, expose revision_key = .string, expose chunk_count = .int
-  revision_key = uri || "@fixture-v1:" || fixturefingerprint(content)
+  revision_key = uri || "@sha256:" || contentdigest(content)
   chunk_count = 0
   current = ""
   status = active_revision(db, uri, current)
@@ -78,7 +79,7 @@ firstingest: procedure = .int
   end
   call sqlitebindtext statement, 1, revision_key
   call sqlitebindtext statement, 2, uri
-  call sqlitebindtext statement, 3, fixturefingerprint(content)
+  call sqlitebindtext statement, 3, contentdigest(content)
   call sqlitebindtext statement, 4, content
   step_status = sqlitestep(statement)
   call sqlitefinalize statement
@@ -89,8 +90,8 @@ firstingest: procedure = .int
 
   do ordinal = 1 to paragraphs.0
     body = paragraphs[ordinal]
-    fingerprint = fixturefingerprint(body)
-    chunk_key = "chunk-fixture-v1:" || fingerprint
+    fingerprint = contentdigest(body)
+    chunk_key = "chunk-sha256:" || fingerprint
     statement = .binary
     if sqliteprepare(db, "INSERT OR IGNORE INTO chunk_contents(chunk_key,content_fingerprint,body) VALUES(?1,?2,?3)", statement) \= 0 then do
       call sqliteexec db, "ROLLBACK"
@@ -184,13 +185,9 @@ active_revision: procedure = .int
   if status = 101 then return 0
   return -1
 
-fixturefingerprint: procedure = .string
+contentdigest: procedure = .string
   arg text = .string
-  checksum = 0
-  do i = 1 to length(text)
-    checksum = checksum + c2d(substr(text, i, 1)) * i
-  end
-  return length(text) || "-" || checksum
+  return lower(bin2x(rxhash..sha256(text as .binary)))
 
 splitchunks: procedure
   arg text = .string, expose chunks = .string[]

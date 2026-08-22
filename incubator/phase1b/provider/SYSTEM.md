@@ -27,7 +27,7 @@ promise.
 ## Dependencies
 
 - installed `rxjson` for parse-once response traversal and JSON encoding;
-- installed `rxhttp` for synchronous HTTP/TLS;
+- installed Level-G `rxfnsg` for typed, bounded, pooled HTTP/TLS;
 - `rxfnsb` for binary arrays and runtime functions; and
 - no RAG application module.
 
@@ -48,7 +48,8 @@ index identity, or vector storage policy.
 4. `validateproviderroute` rejects non-public data on hosted routes before
    constructing an HTTP client.
 5. The adapter renders one provider-specific payload.
-6. `providerhttptransport` sends the request with bounded attempts and backoff.
+6. `providerhttptransport` creates one bounded pool for the operation and sends
+   typed HTTP requests with bounded attempts and backoff.
 7. The adapter parses the response once and returns one `.providerresult`.
 8. Structured output and embedding shape are validated before success returns.
 
@@ -84,9 +85,11 @@ Adapter capability records are authoritative for implemented behavior. The
 catalog adds model-specific, date-stamped information but cannot upgrade an
 adapter capability. Unknown model facts and prices remain unknown.
 
-Streaming, cancellation, and connection reuse are reported as zero because the
-installed transport cannot provide them. The structured validator implements a
-small deterministic subset, not full JSON Schema.
+Streaming, cancellation, and cross-request connection reuse remain zero at the
+provider contract. Installed `rxfnsg` supplies the underlying primitives, and
+retry attempts within one operation share a client pool, but adapter instances
+do not yet retain that pool across separate method calls. The structured
+validator implements a small deterministic subset, not full JSON Schema.
 
 ## Evidence
 
@@ -103,13 +106,17 @@ secret- and budget-gated.
 
 ## Known System Limits
 
-- CRI-15: installed Linux `rxvme` loses the intended receive-timeout status.
-- CRI-16: installed `rxhttp` has one synchronous connection per request,
-  `Connection: close`, identity encoding, unbounded response buffering, and no
-  streaming or cancellation.
+- CRI-15: the historical installed Linux `rxvme` socket path loses the intended
+  receive-timeout status; the current Level-G HTTP path needs supported-Linux
+  replay before this is closed.
+- CRI-16: the generic `rxfnsg` transport now implements pooling, keep-alive,
+  bounded response buffering, compression, streaming, and cancellation, but
+  supported-Linux TLS, cancellation, concurrency, and sanitizer qualification
+  remain open.
 - Adapter instances retain credentials in process memory for their lifetime.
-- There is no concurrent request scheduler, connection pool, circuit breaker,
-  jittered retry, or external capability discovery.
+- The adapters expose no concurrent request scheduler, persistent
+  cross-operation pool, circuit breaker, jittered retry, or external capability
+  discovery.
 - Provider payloads and catalog data will evolve and need compatibility and
   review dates.
 

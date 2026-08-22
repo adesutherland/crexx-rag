@@ -1,4 +1,4 @@
-foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_RXBVM
+foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXLINK CPRAG_RXVME CPRAG_RXBVM
         CPRAG_CREXX_BIN_DIR CPRAG_CONTRACT CPRAG_CATALOG CPRAG_HTTP CPRAG_ADAPTER
         CPRAG_LOCAL_ADAPTER CPRAG_SOURCE CPRAG_LOOPBACK CPRAG_SOURCE_ROOT
         CPRAG_HOSTED_OUTPUT CPRAG_WORK_DIR)
@@ -6,6 +6,7 @@ foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_RXBVM
         message(FATAL_ERROR "${required_var} is required")
     endif()
 endforeach()
+include("${CMAKE_CURRENT_LIST_DIR}/CpragLinkCrexx.cmake")
 
 file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
@@ -52,6 +53,16 @@ foreach(mode IN ITEMS noopt opt)
         "${program_import}" "${mode_flag}" "${mode} local adapter")
     compile_crexx("${CPRAG_SOURCE}" "${CPRAG_WORK_DIR}/program-${mode}"
         "${program_import}" "${mode_flag}" "${mode} test")
+    cprag_link_crexx("${CPRAG_WORK_DIR}/program-${mode}-linked" "P1-LLM-05 ${mode}"
+        "${CPRAG_WORK_DIR}/program-${mode}.rxbin"
+        "${CPRAG_WORK_DIR}/provider_contract.rxbin"
+        "${CPRAG_WORK_DIR}/provider_catalog.rxbin"
+        "${CPRAG_WORK_DIR}/provider_http.rxbin"
+        "${CPRAG_WORK_DIR}/industrial_provider.rxbin"
+        "${CPRAG_WORK_DIR}/openai_compatible_provider.rxbin"
+        "${CPRAG_CREXX_BIN_DIR}/rxfnsg.rxbin"
+        "${CPRAG_CREXX_BIN_DIR}/classlib.rxbin"
+        "${CPRAG_CREXX_BIN_DIR}/library.rxbin")
 endforeach()
 
 set(server_out "${CPRAG_WORK_DIR}/loopback.out")
@@ -89,9 +100,7 @@ foreach(mode IN ITEMS noopt opt)
         endif()
         set(cell "${mode}-${runtime_name}")
         execute_process(COMMAND "${runtime}" -l "${program_import}"
-            "${CPRAG_WORK_DIR}/program-${mode}"
-            provider_contract provider_catalog provider_http industrial_provider
-            openai_compatible_provider library
+            "${CPRAG_WORK_DIR}/program-${mode}-linked.rxbin"
             -a "127.0.0.1" "${port}" "${cell}"
             OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err RESULT_VARIABLE vm_result)
         if(NOT vm_result EQUAL 0 OR NOT vm_out MATCHES "P1_LLM_05_OK")

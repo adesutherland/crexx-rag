@@ -1,8 +1,9 @@
-foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_CREXX_BIN_DIR CPRAG_MODULE CPRAG_SOURCE CPRAG_WORK_DIR)
+foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXLINK CPRAG_RXVME CPRAG_CREXX_BIN_DIR CPRAG_MODULE CPRAG_SOURCE CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
     endif()
 endforeach()
+include("${CMAKE_CURRENT_LIST_DIR}/CpragLinkCrexx.cmake")
 if("$ENV{GEMINI_API_KEY}" STREQUAL "")
     message(FATAL_ERROR "GEMINI_API_KEY is unavailable")
 endif()
@@ -27,7 +28,14 @@ execute_process(COMMAND "${CPRAG_RXAS}" -o "${program}" "${program}" OUTPUT_VARI
 if(NOT rxas_result EQUAL 0)
     message(FATAL_ERROR "Canary assembly failed:\n${rxas_out}\n${rxas_err}")
 endif()
-execute_process(COMMAND "${CPRAG_RXVME}" -l "${program_import_path}" "${program}" provider_boundary library OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err RESULT_VARIABLE vm_result TIMEOUT 75)
+set(linked_program "${CPRAG_WORK_DIR}/gemini-canary-linked")
+cprag_link_crexx("${linked_program}" "P1A Gemini canary"
+    "${program}.rxbin"
+    "${module_base}.rxbin"
+    "${CPRAG_CREXX_BIN_DIR}/rxfnsg.rxbin"
+    "${CPRAG_CREXX_BIN_DIR}/classlib.rxbin"
+    "${CPRAG_CREXX_BIN_DIR}/library.rxbin")
+execute_process(COMMAND "${CPRAG_RXVME}" -l "${program_import_path}" "${linked_program}.rxbin" OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err RESULT_VARIABLE vm_result TIMEOUT 75)
 file(WRITE "${CPRAG_WORK_DIR}/canary-result.txt" "provider module rxc:\n${module_rxc_out}${module_rxc_err}\nprovider module rxas:\n${module_rxas_out}${module_rxas_err}\ncanary rxc:\n${rxc_out}${rxc_err}\ncanary rxas:\n${rxas_out}${rxas_err}\nrxvme:\n${vm_out}${vm_err}\nresult=${vm_result}\n")
 if(NOT vm_result EQUAL 0 OR NOT vm_out MATCHES "P1A_GEMINI_CANARY status=ok")
     message(FATAL_ERROR "Gemini canary failed (${vm_result}):\n${vm_out}\n${vm_err}")

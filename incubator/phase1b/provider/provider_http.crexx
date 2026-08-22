@@ -3,8 +3,8 @@ options levelg
 namespace provider_http expose providerhttpresponse providerhttptransport
 
 import rxfnsb
-import rxhttp
 import rxjson
+import rxfnsg
 import provider_contract
 
 providerhttpresponse: class
@@ -104,28 +104,45 @@ providerhttptransport: class
     route_error = validateproviderroute(request, _route_class)
     if route_error.code() \= 0 then return _policy_failure(route_error)
     if _route_class = "hosted" & _api_key = "" then return _configuration_failure("provider credential is unavailable")
+    policy = .httppolicy.safe()
+    timeout_ms = request.timeout_ms()
+    if timeout_ms > 600000 then timeout_ms = 600000
+    call policy.set_timeouts(timeout_ms, timeout_ms, timeout_ms, timeout_ms, timeout_ms, timeout_ms)
+    scheme = "http://"
+    if _tls \= 0 then scheme = "https://"
+    client = .httpclient.pooled(scheme || _host || ":" || _port, 1, 2, 8388608, policy)
+    result = _post_with_client(request, path, body, client)
+    call client.close()
+    return result
+
+  _post_with_client: method = .providerhttpresponse
+    arg request = .providerrequest, path = .string, body = .string, client = .httpclient
     started = time("us")
     retry_delay_ms = 0
     do attempt = 1 to request.max_attempts()
-      client = .httpclient(_host, _port, request.timeout_ms(), _tls)
-      headers = .string[]
-      headers[1] = "Idempotency-Key: " || request.idempotency_key()
-      headers[2] = "X-Client-Request-Id: " || request.request_id()
-      if _protocol = "openai" then headers[3] = "Authorization: Bearer " || _api_key
+      headers = .httpheaders.json()
+      call headers.add("Idempotency-Key", request.idempotency_key())
+      call headers.add("X-Client-Request-Id", request.request_id())
+      if _protocol = "openai" then call headers.add("Authorization", "Bearer " || _api_key)
       else if _protocol = "anthropic" then do
-        headers[3] = "x-api-key: " || _api_key
-        headers[4] = "anthropic-version: 2023-06-01"
+        call headers.add("x-api-key", _api_key)
+        call headers.add("anthropic-version", "2023-06-01")
       end
-      else if _protocol = "gemini" then headers[3] = "x-goog-api-key: " || _api_key
-      response_body = client.postWithHeaders(path, body, "application/json", headers)
-      if client.status() = 0 then do
-        provider_request_id = client.header("x-request-id")
-        if provider_request_id = "" then provider_request_id = client.header("request-id")
+      else if _protocol = "gemini" then call headers.add("x-goog-api-key", _api_key)
+      response = client.post(path, body, headers)
+      response_body = response.body()
+      if response.succeeded() \= 0 then do
+        provider_request_id = response.header("x-request-id")
+        if provider_request_id = "" then provider_request_id = response.header("request-id")
         result = .providerhttpresponse()
-        call result.set_success(response_body, client.httpStatus(), attempt, retry_delay_ms, _elapsed_us(started), provider_request_id)
+        call result.set_success(response_body, response.status(), attempt, retry_delay_ms, _elapsed_us(started), provider_request_id)
         return result
       end
-      retryable = _retryable(client.status(), client.httpStatus())
+      transport_status = response.transport_status()
+      http_status = response.status()
+      status = transport_status
+      if status = 0 then status = http_status
+      retryable = _retryable(transport_status, http_status)
       if retryable \= 0 & attempt < request.max_attempts() then do
         delay_ms = _retry_delay_ms(attempt)
         call _wait_ms delay_ms
@@ -133,12 +150,12 @@ providerhttptransport: class
         iterate
       end
       message = _response_error_message(response_body)
-      if message = "" then message = client.error()
+      if message = "" then message = response.error()
       category = "http"
-      if client.status() = -5 then category = "timeout"
-      else if client.status() = -3 | client.status() = -8 then category = "connection"
+      if transport_status = -6 | transport_status = -10 | transport_status = -11 | transport_status = -12 then do; category = "timeout"; status = -5; end
+      else if transport_status = -1 | transport_status = -2 | transport_status = -3 | transport_status = -7 | transport_status = -8 then do; category = "connection"; status = -3; end
       result = .providerhttpresponse()
-      call result.set_failure(client.status(), client.httpStatus(), category, message, retryable, attempt, retry_delay_ms, _elapsed_us(started))
+      call result.set_failure(status, http_status, category, message, retryable, attempt, retry_delay_ms, _elapsed_us(started))
       return result
     end
     return _configuration_failure("retry loop exhausted")
@@ -157,7 +174,7 @@ providerhttptransport: class
 
 _retryable: procedure = .int
   arg status = .int, http_status = .int
-  if status = -5 | status = -3 | status = -8 then return 1
+  if status = -1 | status = -2 | status = -3 | status = -6 | status = -7 | status = -8 | status = -10 | status = -11 | status = -12 then return 1
   if http_status = 408 | http_status = 429 | http_status >= 500 then return 1
   return 0
 

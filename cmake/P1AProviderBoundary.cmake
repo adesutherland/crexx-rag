@@ -1,8 +1,9 @@
-foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_RXBVM CPRAG_CREXX_BIN_DIR CPRAG_MODULE CPRAG_SOURCE CPRAG_LOOPBACK CPRAG_WORK_DIR)
+foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXLINK CPRAG_RXVME CPRAG_RXBVM CPRAG_CREXX_BIN_DIR CPRAG_MODULE CPRAG_SOURCE CPRAG_LOOPBACK CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
     endif()
 endforeach()
+include("${CMAKE_CURRENT_LIST_DIR}/CpragLinkCrexx.cmake")
 file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
 set(module_base "${CPRAG_WORK_DIR}/provider_boundary")
@@ -26,6 +27,13 @@ execute_process(COMMAND "${CPRAG_RXAS}" -o "${program}" "${program}" OUTPUT_VARI
 if(NOT rxas_result EQUAL 0)
     message(FATAL_ERROR "Provider test assembly failed:\n${rxas_out}\n${rxas_err}")
 endif()
+set(linked_program "${CPRAG_WORK_DIR}/provider-boundary-linked")
+cprag_link_crexx("${linked_program}" "P1A provider boundary"
+    "${program}.rxbin"
+    "${module_base}.rxbin"
+    "${CPRAG_CREXX_BIN_DIR}/rxfnsg.rxbin"
+    "${CPRAG_CREXX_BIN_DIR}/classlib.rxbin"
+    "${CPRAG_CREXX_BIN_DIR}/library.rxbin")
 
 set(provider_out "${CPRAG_WORK_DIR}/loopback.out")
 set(provider_err "${CPRAG_WORK_DIR}/loopback.err")
@@ -43,9 +51,9 @@ foreach(runtime_name IN ITEMS rxvme rxbvm)
     else()
         set(runtime "${CPRAG_RXBVM}")
     endif()
-    execute_process(COMMAND "${runtime}" -l "${program_import_path}" "${program}" provider_boundary library -a "${port}" OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err RESULT_VARIABLE vm_result)
+    execute_process(COMMAND "${runtime}" -l "${program_import_path}" "${linked_program}.rxbin" -a "${port}" OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err RESULT_VARIABLE vm_result)
     file(APPEND "${CPRAG_WORK_DIR}/commands-and-output.txt"
-        "${runtime_name}: ${runtime} -l ${program_import_path} ${program} provider_boundary library -a ${port}\n${vm_out}${vm_err}\nresult=${vm_result}\n")
+        "${runtime_name}: ${runtime} -l ${program_import_path} ${linked_program}.rxbin -a ${port}\n${vm_out}${vm_err}\nresult=${vm_result}\n")
     if(NOT vm_result EQUAL 0 OR NOT vm_out MATCHES "P1A_LLM_OK")
         message(FATAL_ERROR "${runtime_name} provider boundary failed (${vm_result}):\n${vm_out}\n${vm_err}")
     endif()

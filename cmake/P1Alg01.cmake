@@ -14,7 +14,7 @@ set(report "${CPRAG_WORK_DIR}/commands-and-output.txt")
 file(WRITE "${report}"
     "store=${CPRAG_STORE}\nsource=${CPRAG_SOURCE}\n"
     "database=scratch-per-cell\nproduction_schema=0\n"
-    "fingerprint=fixture-v1-not-a-durable-content-hash\n")
+    "digest=sha256-via-installed-rxhash\n")
 
 function(compile_crexx source output imports mode_flag label)
     execute_process(COMMAND "${CPRAG_RXC}" ${mode_flag} -i "${imports}"
@@ -61,7 +61,7 @@ foreach(mode IN ITEMS noopt opt)
             OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err
             RESULT_VARIABLE vm_result)
         if(NOT vm_result EQUAL 0 OR NOT vm_out MATCHES
-                "P1_ALG_01_OK cell=${cell} scratch_schema=1 production_schema=0 paragraphs=3 deterministic=1 active_revisions=1 lexical_hits=1,1,0 chunk_identity=content-owned fingerprint=fixture-v1")
+                "P1_ALG_01_OK cell=${cell} scratch_schema=1 production_schema=0 paragraphs=3 deterministic=1 active_revisions=1 lexical_hits=1,1,0 chunk_identity=content-owned digest=sha256")
             message(FATAL_ERROR
                 "${cell} failed (${vm_result}):\n${vm_out}\n${vm_err}")
         endif()

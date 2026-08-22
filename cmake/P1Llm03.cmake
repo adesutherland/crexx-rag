@@ -1,10 +1,11 @@
-foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_RXBVM
+foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXLINK CPRAG_RXVME CPRAG_RXBVM
         CPRAG_CREXX_BIN_DIR CPRAG_CONTRACT CPRAG_CATALOG CPRAG_ADAPTER CPRAG_SOURCE
         CPRAG_LOOPBACK CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
     endif()
 endforeach()
+include("${CMAKE_CURRENT_LIST_DIR}/CpragLinkCrexx.cmake")
 
 file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
@@ -14,7 +15,7 @@ set(program_import "${CPRAG_WORK_DIR};${base_import}")
 set(report "${CPRAG_WORK_DIR}/commands-and-output.txt")
 file(WRITE "${report}"
     "contract=${CPRAG_CONTRACT}\nadapter=${CPRAG_ADAPTER}\nsource=${CPRAG_SOURCE}\n"
-    "hosted_calls=0\ntransport=installed-rxhttp\nconnection_reuse=unsupported\n"
+    "hosted_calls=0\ntransport=installed-rxfnsg-http\nconnection_reuse=cross-request-unqualified\n"
     "streaming=unsupported\ncancellation=unsupported\n")
 
 function(compile_crexx source output imports mode_flag label)
@@ -50,6 +51,14 @@ foreach(mode IN ITEMS noopt opt)
         "${mode_flag}" "${mode} adapter")
     compile_crexx("${CPRAG_SOURCE}" "${CPRAG_WORK_DIR}/program-${mode}"
         "${program_import}" "${mode_flag}" "${mode} test")
+    cprag_link_crexx("${CPRAG_WORK_DIR}/program-${mode}-linked" "P1-LLM-03 ${mode}"
+        "${CPRAG_WORK_DIR}/program-${mode}.rxbin"
+        "${CPRAG_WORK_DIR}/provider_contract.rxbin"
+        "${CPRAG_WORK_DIR}/provider_catalog.rxbin"
+        "${CPRAG_WORK_DIR}/openai_compatible_provider.rxbin"
+        "${CPRAG_CREXX_BIN_DIR}/rxfnsg.rxbin"
+        "${CPRAG_CREXX_BIN_DIR}/classlib.rxbin"
+        "${CPRAG_CREXX_BIN_DIR}/library.rxbin")
 endforeach()
 
 set(server_out "${CPRAG_WORK_DIR}/loopback.out")
@@ -87,8 +96,7 @@ foreach(mode IN ITEMS noopt opt)
         endif()
         set(cell "${mode}-${runtime_name}")
         execute_process(COMMAND "${runtime}" -l "${program_import}"
-            "${CPRAG_WORK_DIR}/program-${mode}"
-            provider_contract provider_catalog openai_compatible_provider library
+            "${CPRAG_WORK_DIR}/program-${mode}-linked.rxbin"
             -a "127.0.0.1" "${port}" "${cell}"
             OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err RESULT_VARIABLE vm_result)
         if(NOT vm_result EQUAL 0 OR NOT vm_out MATCHES "P1_LLM_03_OK")
@@ -118,9 +126,9 @@ file(APPEND "${report}"
 if(NOT server_result STREQUAL "0")
     message(FATAL_ERROR "Provider hardening loopback failed: ${server_result}")
 endif()
-if(NOT final_server_out MATCHES "connections=128 request_connection_close=128")
+if(NOT final_server_out MATCHES "connections=128 request_connection_close=0")
     message(FATAL_ERROR "Provider transport connection accounting mismatch")
 endif()
 
 message(STATUS
-    "P1-LLM-03 passed hardening contract on rxvme/rxbvm; rxhttp connection reuse remains unsupported")
+    "P1-LLM-03 passed hardening contract on rxvme/rxbvm with typed pooled HTTP; cross-request provider reuse remains unqualified")

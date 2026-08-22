@@ -113,8 +113,8 @@ return
 
 extract_queue: procedure
   arg library = .string, profile = .string, profile_id = .string, queue_id = .string, mode = .string, limit = .int, cli = .string, base_url = .string, model = .string, max_tokens = .int, extract_format = .string
-  queue = extractionqueue(library, profile_id, queue_id, "pending", limit)
-  count = jsoncount(queue, "items")
+  queue_json = extractionqueue(library, profile_id, queue_id, "pending", limit)
+  count = jsoncount(queue_json, "items")
   say "stage3 start profile=" || profile || " profile_id=" || profile_id || " queue_id=" || queue_id || " mode=" || mode || " format=" || extract_format || " pending_selected=" || count
   processed = 0
   accepted_nodes = 0
@@ -124,9 +124,9 @@ extract_queue: procedure
   dry_runs = 0
 
   do i = 1 to count
-    chunk_id = jsonget(queue, "items." || i || ".chunk_id")
-    score = jsonget(queue, "items." || i || ".score")
-    reason = jsonget(queue, "items." || i || ".reason")
+    chunk_id = jsonget(queue_json, "items." || i || ".chunk_id")
+    score = jsonget(queue_json, "items." || i || ".score")
+    reason = jsonget(queue_json, "items." || i || ".reason")
     text = chunktextbyid(library, chunk_id)
     raw_output = ""
     attempt_status = ""

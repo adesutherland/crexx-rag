@@ -664,6 +664,12 @@ for CRI-15/CRI-16, vector acceleration, and durable hashing. Each workstream
 needs an explicit repository/write boundary, worklist, evidence protocol, and
 stop point before it changes code.
 
+The 2026-08-22 capability-sync worklist subsequently completed the available
+macOS HTTP/toolchain, one-shot binary SHA-256, and exact packed `rxvector`
+work. It does not claim incremental/file hashing or close CRI-15/CRI-16;
+supported Linux sanitizer, transport, and cross-platform publication remain
+the named completion gates.
+
 Additional hosted calls, Phase 3, donation submission, dual-write, cutover, and
 native-core removal remain unauthorized. Native-v1 remains the executable
 oracle throughout Phase 2.

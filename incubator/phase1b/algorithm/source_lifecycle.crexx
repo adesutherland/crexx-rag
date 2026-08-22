@@ -43,7 +43,7 @@ ingestresult: class
 
 ingestartifact: procedure = .ingestresult
   arg db = .binary, uri = .string, content = .string
-  revision_key = uri || "@fixture-v1:" || fixturefingerprint(content)
+  revision_key = uri || "@sha256:" || contentdigest(content)
   current_revision = ""
   active_status = active_revision(db, uri, current_revision)
   if active_status < 0 then return .ingestresult(active_status, "", "error", 0, 0, 0, 0)
@@ -68,7 +68,7 @@ ingestartifact: procedure = .ingestresult
   if sqliteprepare(db, "INSERT INTO source_revisions(revision_key,uri,content_fingerprint,content,active) VALUES(?1,?2,?3,?4,1)", statement) \= 0 then return _rollback_result(db, revision_key)
   call sqlitebindtext statement, 1, revision_key
   call sqlitebindtext statement, 2, uri
-  call sqlitebindtext statement, 3, fixturefingerprint(content)
+  call sqlitebindtext statement, 3, contentdigest(content)
   call sqlitebindtext statement, 4, content
   step_status = sqlitestep(statement)
   call sqlitefinalize statement
@@ -78,14 +78,14 @@ ingestartifact: procedure = .ingestresult
   created = 0
   do ordinal = 1 to paragraphs.0
     body = paragraphs[ordinal]
-    fingerprint = fixturefingerprint(body)
-    chunk_key = "chunk-fixture-v1:" || fingerprint
+    fingerprint = contentdigest(body)
+    chunk_key = "chunk-sha256:" || fingerprint
     existing_body = ""
     exists = _chunk_body(db, chunk_key, existing_body)
     if exists < 0 then return _rollback_result(db, revision_key)
     if exists = 1 & existing_body \= body then do
       call sqliteexec db, "ROLLBACK"
-      return .ingestresult(-4, revision_key, "fixture-fingerprint-collision", 0, 0, 0, 0)
+      return .ingestresult(-4, revision_key, "content-digest-collision", 0, 0, 0, 0)
     end
     if exists = 1 then reused = reused + 1
     else do

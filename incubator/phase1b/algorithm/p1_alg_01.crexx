@@ -27,7 +27,7 @@ content = "Identity Gateway depends on Cedar Store." || "0A0A"x || "Vault Servic
 revision_key = ""
 chunk_count = 0
 errors = errors + check(firstingest(db, uri, content, revision_key, chunk_count) = 0, "initial ingest")
-errors = errors + check(chunk_count = 3 & revision_key = uri || "@fixture-v1:" || fixturefingerprint(content), "deterministic revision and chunks")
+errors = errors + check(chunk_count = 3 & revision_key = uri || "@sha256:" || contentdigest(content), "deterministic revision and chunks")
 errors = errors + check(scalarcount(db, "SELECT count(*) FROM source_artifacts") = 1 & scalarcount(db, "SELECT count(*) FROM source_revisions WHERE active=1") = 1 & scalarcount(db, "SELECT count(*) FROM chunk_contents") = 3 & scalarcount(db, "SELECT count(*) FROM revision_chunks") = 3, "scratch row counts")
 
 cedar = lexicalsearch(db, "Cedar", 10)
@@ -37,12 +37,12 @@ errors = errors + check(credentials.0 = 1 & credentials[1].ordinal() = 2, "lexic
 missing = lexicalsearch(db, "nonexistent", 10)
 errors = errors + check(missing.0 = 0, "lexical miss")
 
-first_chunk_key = "chunk-fixture-v1:" || fixturefingerprint("Identity Gateway depends on Cedar Store.")
+first_chunk_key = "chunk-sha256:" || contentdigest("Identity Gateway depends on Cedar Store.")
 errors = errors + check(cedar[1].chunk_key() = first_chunk_key, "content-owned chunk identity")
 errors = errors + check(sqliteclose(db) = 0, "close")
 if errors \= 0 then do
   say "P1_ALG_01_ERRORS=" || errors
   return 1
 end
-say "P1_ALG_01_OK cell=" || cell || " scratch_schema=1 production_schema=0 paragraphs=3 deterministic=1 active_revisions=1 lexical_hits=1,1,0 chunk_identity=content-owned fingerprint=fixture-v1"
+say "P1_ALG_01_OK cell=" || cell || " scratch_schema=1 production_schema=0 paragraphs=3 deterministic=1 active_revisions=1 lexical_hits=1,1,0 chunk_identity=content-owned digest=sha256"
 return 0

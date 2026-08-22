@@ -1,6 +1,8 @@
 options levelg
 
 import rxfnsb
+import rxfnsg
+import rxvector
 import sqlite_boundary
 import vector_codec
 import vector_search
@@ -51,6 +53,8 @@ errors = errors + check(makevector(0.0, 1.0, dimension, 1, background_payload) =
 errors = errors + check(makevector(1.0, 0.0, dimension, 0, top1_payload) = 0, "top-1 fixture")
 errors = errors + check(makevector(0.8, 0.6, dimension, 0, tie_payload) = 0, "tie fixture")
 errors = errors + check(makevector(0.6, 0.8, dimension, 0, top4_payload) = 0, "top-4 fixture")
+query_vector = rxvector..decodef32le(query_payload)
+errors = errors + check(query_vector.size() = dimension, "query conversion")
 
 db = .binary
 statement = .binary
@@ -91,9 +95,8 @@ do forever
     search_status = -1
     leave
   end
-  page_ids = .int[]
-  page_counts = .int[]
-  page_payloads = .binary[]
+  page_id_owner = .packedint(page_size)
+  page_wire = .binary
   page_rows = 0
   do forever
     step_status = sqlitestep(statement)
@@ -115,10 +118,9 @@ do forever
       search_status = -1
       leave
     end
+    call page_id_owner.set(page_rows, identity)
+    call binappend page_wire, payload
     page_rows = page_rows + 1
-    page_ids[page_rows] = identity
-    page_counts[page_rows] = count
-    page_payloads[page_rows] = payload
     transfer_bytes = transfer_bytes + binlength(payload)
     last_identity = identity
   end
@@ -127,16 +129,18 @@ do forever
   if page_rows = 0 then leave
   page_count = page_count + 1
   rows_seen = rows_seen + page_rows
-  page_scores = .float[]
-  if cosinesf32(page_payloads, page_counts, query_payload, dimension, page_scores) \= 0 then do
-    search_status = -1
-    leave
-  end
+  call page_id_owner.resize(page_rows)
+  page_vectors = rxvector..decodef32le(page_wire)
+  page_result_ids = .packedint(0)
+  page_result_scores = .packedfloat(0)
+  page_requested = top_k
+  if page_requested > page_rows then page_requested = page_rows
+  call rxvector..topkcosine(page_vectors, page_id_owner, dimension, query_vector, page_requested, page_result_ids, page_result_scores)
   page_top_ids = .int[]
   page_top_scores = .float[]
-  if selecttopk(page_ids, page_scores, top_k, page_top_ids, page_top_scores) \= 0 then do
-    search_status = -1
-    leave
+  do i = 0 to page_result_ids.size() - 1
+    page_top_ids[i + 1] = page_result_ids.get(i)
+    page_top_scores[i + 1] = page_result_scores.get(i)
   end
   combined_ids = .int[]
   combined_scores = .float[]

@@ -37,6 +37,7 @@ if(CREXX_FOUND)
     set(CREXX_EXECUTABLE "${CREXX_crexx_EXECUTABLE}")
     set(CREXX_RXC_EXECUTABLE "${CREXX_rxc_EXECUTABLE}")
     set(CREXX_RXAS_EXECUTABLE "${CREXX_rxas_EXECUTABLE}")
+    set(CREXX_RXLINK_EXECUTABLE "${CREXX_rxlink_EXECUTABLE}")
     set(CREXX_RXVME_EXECUTABLE "${CREXX_rxvme_EXECUTABLE}")
     set(CREXX_RXBVM_EXECUTABLE "${CREXX_rxbvm_EXECUTABLE}")
     set(CREXX_INSTALL_BIN_DIR "${CREXX_BIN_DIR}")
@@ -228,10 +229,13 @@ if(CPRAG_BUILD_TESTS)
             COMMAND "${CMAKE_COMMAND}"
                 "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
                 "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXLINK=${CREXX_RXLINK_EXECUTABLE}"
                 "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
                 "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
                 "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
-                "-DCPRAG_BENCHMARK_SOURCE=${CMAKE_CURRENT_LIST_DIR}/crexx/benchmarks/phase0_components.crexx"
+                # The original phase0_components.crexx is hash-frozen Gate-0
+                # evidence. Run the maintained Level-G compatibility successor.
+                "-DCPRAG_BENCHMARK_SOURCE=${CMAKE_CURRENT_LIST_DIR}/crexx/benchmarks/phase0_components_current.crexx"
                 "-DCPRAG_NATIVE_BENCHMARK=$<TARGET_FILE:phase0_native_benchmark>"
                 "-DCPRAG_LOOPBACK_PROVIDER=$<TARGET_FILE:phase0_loopback_provider>"
                 "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/phase0-component-benchmark"
@@ -300,6 +304,8 @@ if(CPRAG_BUILD_TESTS)
                 "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
                 "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
                 "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_GENERATOR=${CMAKE_GENERATOR}"
+                "-DCPRAG_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}"
                 "-DCPRAG_PROBE_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/p1a/sdk_probe"
                 "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1a-sdk-probe"
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1ASdkProbe.cmake")
@@ -315,6 +321,8 @@ if(CPRAG_BUILD_TESTS)
             "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
             "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
             "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_GENERATOR=${CMAKE_GENERATOR}"
+            "-DCPRAG_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}"
             "-DCPRAG_FORBIDDEN_CREXX_SOURCE_DIR=${CMAKE_CURRENT_LIST_DIR}/../CREXX"
             "-DCPRAG_CONSUMER_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/rxpa_consumer"
             "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-rxpa-01"
@@ -338,6 +346,8 @@ if(CPRAG_BUILD_TESTS)
             "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
             "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
             "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_GENERATOR=${CMAKE_GENERATOR}"
+            "-DCPRAG_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}"
             "-DCPRAG_CONSUMER_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/rxpa_consumer"
             "-DCPRAG_PACKAGE_PROBE_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/rxpa_consumer/package_probe"
             "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-rxpa-02"
@@ -689,6 +699,7 @@ if(CPRAG_BUILD_TESTS)
             "${CMAKE_COMMAND}"
             "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
             "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXLINK=${CREXX_RXLINK_EXECUTABLE}"
             "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
             "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
             "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
@@ -711,6 +722,7 @@ if(CPRAG_BUILD_TESTS)
             "${CMAKE_COMMAND}"
             "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
             "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXLINK=${CREXX_RXLINK_EXECUTABLE}"
             "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
             "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
             "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
@@ -734,6 +746,7 @@ if(CPRAG_BUILD_TESTS)
             "${CMAKE_COMMAND}"
             "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
             "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXLINK=${CREXX_RXLINK_EXECUTABLE}"
             "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
             "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
             "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
@@ -760,6 +773,7 @@ if(CPRAG_BUILD_TESTS)
             "${CMAKE_COMMAND}"
             "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
             "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXLINK=${CREXX_RXLINK_EXECUTABLE}"
             "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
             "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
             "-DCPRAG_CONTRACT=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_contract.crexx"
@@ -778,6 +792,7 @@ if(CPRAG_BUILD_TESTS)
             "${CMAKE_COMMAND}"
             "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
             "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXLINK=${CREXX_RXLINK_EXECUTABLE}"
             "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
             "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
             "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
@@ -843,7 +858,7 @@ if(CPRAG_BUILD_TESTS)
             VERBATIM)
         add_test(NAME p1_vec_02 COMMAND ${P1_VEC_02_COMMAND})
         set_tests_properties(p1_vec_02 PROPERTIES
-            LABELS "P1-VEC-02;phase1b;vector;cosine;top-k;ordering;sqlite;incubator")
+            LABELS "P1-VEC-02;phase1b;vector;rxvector;packed;cosine;top-k;ordering;sqlite;incubator")
         set(P1_VEC_03_COMMAND
             "${CMAKE_COMMAND}"
             "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
@@ -865,7 +880,25 @@ if(CPRAG_BUILD_TESTS)
             VERBATIM)
         add_test(NAME p1_vec_03 COMMAND ${P1_VEC_03_COMMAND})
         set_tests_properties(p1_vec_03 PROPERTIES
-            LABELS "P1-VEC-03;phase1b;vector;benchmark;transfer;memory;sqlite;incubator")
+            LABELS "P1-VEC-03;phase1b;vector;rxvector;packed;benchmark;transfer;memory;sqlite;incubator")
+        set(P1_HASH_01_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/hash/p1_hash_01.crexx"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p1-hash-01"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1Hash01.cmake")
+        add_custom_target(p1_hash_01
+            COMMAND ${P1_HASH_01_COMMAND}
+            COMMENT "Running P1-HASH-01 installed SHA-256 capability proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p1_hash_01 COMMAND ${P1_HASH_01_COMMAND})
+        set_tests_properties(p1_hash_01 PROPERTIES
+            LABELS "P1-HASH-01;capability-sync;hash;sha256;autoload;phase1b;incubator")
         set(P1_ALG_01_COMMAND
             "${CMAKE_COMMAND}"
             "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
@@ -1068,6 +1101,7 @@ if(CPRAG_BUILD_TESTS)
             COMMAND "${CMAKE_COMMAND}"
                 "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
                 "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXLINK=${CREXX_RXLINK_EXECUTABLE}"
                 "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
                 "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
                 "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"

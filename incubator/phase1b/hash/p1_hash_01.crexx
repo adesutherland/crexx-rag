@@ -1,0 +1,34 @@
+options levelg
+
+import rxfnsb
+import rxhash
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P1_HASH_01_FAIL=" || label
+    return 1
+  end
+  return 0
+
+digesthex: procedure = .string
+  arg data = .binary
+  return lower(bin2x(rxhash..sha256(data)))
+
+main: procedure = .int
+  errors = 0
+  empty_digest = rxhash..sha256(''x as .binary)
+  errors = errors + check(binlength(empty_digest) = 32, "raw digest size")
+  errors = errors + check(lower(bin2x(empty_digest)) = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "empty vector")
+  errors = errors + check(digesthex("abc" as .binary) = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "abc vector")
+  errors = errors + check(digesthex("00010200FF"x as .binary) = "ef7e301027f931dfba06c7ded4ef305797f43cc115a664f9af9b57d08c3172c2", "embedded zero vector")
+  errors = errors + check(digesthex("Gràdh 中" as .binary) = "c5dc3e654871466f56be80cd7ece66f31fad14013245028b349ce7b399545656", "UTF-8 vector")
+  errors = errors + check(digesthex("abc" as .binary) = digesthex("616263"x as .binary), "text and exact bytes agree")
+  if errors \= 0 then do
+    say "P1_HASH_01_ERRORS=" || errors
+    return 1
+  end
+  say "P1_HASH_01_OK algorithm=sha256 input=owned-binary output=raw-32-byte-digest vectors=5 native_provider=autoloaded one_shot=1 incremental=0 file=0"
+  return 0
+
+exit main()

@@ -1,10 +1,11 @@
-foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_CREXX_BIN_DIR
+foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXLINK CPRAG_RXVME CPRAG_CREXX_BIN_DIR
         CPRAG_CONTRACT CPRAG_CATALOG CPRAG_HTTP CPRAG_ADAPTER CPRAG_SOURCE
         CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
     endif()
 endforeach()
+include("${CMAKE_CURRENT_LIST_DIR}/CpragLinkCrexx.cmake")
 foreach(required_key OPENAI_API_KEY ANTHROPIC_API_KEY GEMINI_API_KEY)
     if("$ENV{${required_key}}" STREQUAL "")
         message(FATAL_ERROR "Required hosted qualification credential is unavailable")
@@ -43,10 +44,18 @@ compile_crexx("${CPRAG_ADAPTER}" "${CPRAG_WORK_DIR}/industrial_provider"
     "${program_import}" "adapter")
 compile_crexx("${CPRAG_SOURCE}" "${CPRAG_WORK_DIR}/program"
     "${program_import}" "hosted canary")
+cprag_link_crexx("${CPRAG_WORK_DIR}/program-linked" "P1-LLM-04 hosted canary"
+    "${CPRAG_WORK_DIR}/program.rxbin"
+    "${CPRAG_WORK_DIR}/provider_contract.rxbin"
+    "${CPRAG_WORK_DIR}/provider_catalog.rxbin"
+    "${CPRAG_WORK_DIR}/provider_http.rxbin"
+    "${CPRAG_WORK_DIR}/industrial_provider.rxbin"
+    "${CPRAG_CREXX_BIN_DIR}/rxfnsg.rxbin"
+    "${CPRAG_CREXX_BIN_DIR}/classlib.rxbin"
+    "${CPRAG_CREXX_BIN_DIR}/library.rxbin")
 
 execute_process(COMMAND "${CPRAG_RXVME}" -l "${program_import}"
-    "${CPRAG_WORK_DIR}/program" provider_contract provider_catalog provider_http
-    industrial_provider library
+    "${CPRAG_WORK_DIR}/program-linked.rxbin"
     OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err RESULT_VARIABLE vm_result)
 file(WRITE "${report}" "${vm_out}${vm_err}")
 if(NOT vm_result EQUAL 0 OR NOT vm_out MATCHES "P1_LLM_04_HOSTED_SUMMARY status=ok")

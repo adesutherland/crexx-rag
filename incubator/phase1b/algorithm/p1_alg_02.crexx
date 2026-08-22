@@ -53,7 +53,7 @@ errors = errors + check(changed.status() = 0 & changed.revision_key() \= initial
 errors = errors + check(changed.reused_chunks() = 1 & changed.created_chunks() = 1 & changed.library_writes() > 0 & changed.provider_calls() = 0, "one paragraph identity reuse")
 errors = errors + check(scalarcount(db, "SELECT count(*) FROM source_revisions") = 2 & scalarcount(db, "SELECT count(*) FROM source_revisions WHERE active=1") = 1 & scalarcount(db, "SELECT count(*) FROM chunk_contents") = 3 & scalarcount(db, "SELECT count(*) FROM revision_chunks") = 4, "immutable revision counts")
 
-stable_key = "chunk-fixture-v1:" || fixturefingerprint("Identity Gateway depends on Cedar Store.")
+stable_key = "chunk-sha256:" || contentdigest("Identity Gateway depends on Cedar Store.")
 errors = errors + check(boundcount(db, "SELECT count(*) FROM revision_chunks WHERE chunk_key=?1", stable_key) = 2, "same chunk key in both revisions")
 cedar = lexicalsearch(db, "Cedar", 10)
 old_credentials = lexicalsearch(db, 'credentials NOT "short-lived"', 10)

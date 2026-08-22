@@ -193,9 +193,11 @@ compression, and multiplexing remain explicit capabilities.
 ### Hash and binary data
 
 Stable source identity requires SHA-256 or an equivalent collision-resistant
-digest plus binary file input. FNV and MD5 are not sufficient for durable
-content identity. The generic facility should hash bytes incrementally and
-return a conventional digest without loading a whole source into one string.
+digest over bytes. FNV and MD5 are not sufficient for durable content
+identity. The installed `rxhash.sha256` capability now supplies a one-shot
+binary digest and is used by the downstream content-identity proof. Incremental
+and file-stream hashing remain future surfaces and must not be inferred from
+that contract.
 
 Embedding storage should use a versioned float32 blob codec. The first vector
 PoC must measure SQLite transfer/decoding separately from similarity arithmetic.
@@ -205,11 +207,12 @@ necessary.
 
 Phase-1B measurement confirms exact, deterministic, bounded-page cREXX search
 but reports 750,316 to 857,843 us total for the retained 11,684-by-768 shape,
-with arithmetic dominating and process RSS below 64 MiB. Exact cREXX therefore
-remains the correctness fallback, while a separately authorized generic
-`rxvector` qualification is recommended before a production backend decision.
-No SQLite vector extension, FAISS dependency, or native vector implementation
-is selected by this result.
+with arithmetic dominating and process RSS below 64 MiB. Exact cREXX remains
+the correctness fallback. The separately authorized generic `rxvector`
+qualification subsequently selected and implemented a stateless exact CPU
+provider over packed native values; the installed bounded replay totals
+122,740-129,974 us with exact results. No SQLite vector extension, FAISS
+dependency, persistent handle, or ANN backend is selected by this result.
 
 ## Library Bundle And Manifest
 

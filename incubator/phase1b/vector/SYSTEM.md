@@ -8,9 +8,9 @@ readiness:
 1. the `f32le-v1` storage/transfer codec; and
 2. exact cosine and deterministic top-k primitives used as an oracle/fallback.
 
-An accelerated `rxvector` or ANN backend is only a proposed capability. No
-native vector implementation, FAISS dependency, SQLite vector extension, index
-format, or backend selection is present here.
+The selected acceleration capability is the installed, generic CREXX
+`rxvector` exact CPU provider. It adds no FAISS dependency, SQLite vector
+extension, index format, persistent handle, or ANN backend.
 
 ## Representation
 
@@ -31,14 +31,16 @@ round trips.
 | Module | Responsibility |
 | --- | --- |
 | [`vector_codec.crexx`](vector_codec.crexx) | Typed metadata record, version, shape validation, array-to-binary encoding, binary-to-array decoding |
-| [`vector_search.crexx`](vector_search.crexx) | Direct binary cosine arithmetic, batch scoring, deterministic bounded top-k selection |
+| [`vector_search.crexx`](vector_search.crexx) | Pure direct-binary cosine and deterministic top-k oracle/fallback; small cross-page merge |
+| installed `rxvector` | Explicit f32le/packed conversion and exact packed cosine/top-k |
 | `p1_vec_01.crexx` | Codec and SQLite round-trip qualification |
-| `p1_vec_02.crexx` | Exact representative ordering and tie comparison |
-| `p1_vec_03.crexx` | Transfer, decode, arithmetic, selection, total-time, and memory measurement |
+| `p1_vec_02.crexx` | Bounded-page accelerated ordering and tie comparison |
+| `p1_vec_03.crexx` | Transfer, validation, conversion, arithmetic/selection, merge, total-time, and memory measurement |
 
-Both implementation modules are Level G and consume `rxfnsb` binary primitives
-as a CREXX foundation dependency. Direct float32 access is valid at Level G and
-does not require an authored assembler block or Level-B wrapper.
+Both local modules are Level G and consume `rxfnsb` binary primitives as a
+CREXX foundation dependency. The application imports installed `rxfnsg` packed
+owners and `rxvector` provider metadata directly; there is no Rexx declaration
+wrapper or manual runtime plugin list.
 
 ## Algorithms And Complexity
 
@@ -46,10 +48,11 @@ does not require an authored assembler block or Level-B wrapper.
 then uses a bounded Newton iteration for square root. Time is `O(d)` and
 additional memory is constant for dimension `d`.
 
-`cosinesf32` applies that operation to each candidate, taking `O(n*d)` and an
-`O(n)` output-score array. `selecttopk` maintains an ordered result of at most
-`k` entries, taking `O(n*k)` and `O(k)` result memory. Equal scores use ascending
-integer identity as the stable tie break.
+`rxvector.topkcosine` scans a page once and maintains a native size-`k` heap,
+taking `O(n*d + n*log(k))` and `O(k)` additional native memory. The application
+uses the retained pure `selecttopk` only to merge at most `page_count*k`
+candidates. Equal scores use ascending integer identity as the stable tie
+break; the provider adds source-row order for identical scores and identities.
 
 The exact equality tie rule is intentional for retained deterministic fixtures;
 callers must not reinterpret near-equal floating-point values as ties without a
@@ -57,31 +60,44 @@ separate policy.
 
 ## Ownership And Errors
 
-Encoded and decoded values are owning cREXX binary/array values. Procedures
+Encoded and decoded values are owning cREXX binary/packed/array values. Procedures
 initialize exposed outputs before validation, so a failed call does not return a
 partially populated result. Statuses describe shape, representation, and
 zero-norm errors; there is no global diagnostic state.
 
-The code validates version, positive counts, meaning, and byte length. It does
-not currently reject NaN or infinity or define cross-hardware tolerance beyond
-the qualified CREXX VMs.
+The local codec validates version, positive counts, meaning, and byte length.
+The installed provider additionally rejects NaN, infinity, zero norms,
+incompatible packed shapes and unrepresentable conversion/calculation results.
 
 ## Storage And Index Boundary
 
 SQLite remains the source of truth for embeddings and their identity metadata.
-A future accelerated index is a rebuildable sidecar and cannot create a typed
-fact. This package does not own SQLite access, paging, model selection, stale
+Each keyset page is concatenated as portable `f32le-v1`, converted once to an
+owning `.packedfloat` matrix, searched through `rxvector`, and discarded before
+the next page. A future accelerated index remains a rebuildable sidecar and
+cannot create a typed fact. This package does not own model selection, stale
 index rejection, or atomic index generation publication.
 
 ## Evidence
 
-The four-cell Phase-1B result proves an exact 768-element SQLite round trip and
-deterministic ordering over 11,684 x 768 values. Peak RSS stayed below 64 MiB.
-Full search measured 750,316 to 857,843 microseconds and arithmetic measured
-666,162 to 766,924 microseconds, crossing the retained 10,000-microsecond
-acceleration trigger by at least 66 times.
+The four-cell installed-only result proves the exact codec, identities, scores,
+and tie ordering over 11,684 x 768 values in 92 pages. The bounded provider path
+measured 122,740-129,974 microseconds total, including 29,444-31,261
+microseconds of conversion and 54,161-54,472 microseconds of native
+arithmetic/selection. The estimated per-page working set is 1,193,280 bytes;
+process peak RSS, which includes the VM and libraries, was 86,196,224-99,434,496
+bytes.
 
-Exact commands, hashes, scores, timings, and memory are retained under
+The retained pure path measured 750,316-857,843 microseconds total and
+666,162-766,924 microseconds for arithmetic. The broad endpoint comparison is
+therefore about 5.8x-7.0x in favor of the bounded installed path. The accepted
+upstream 8.4-8.5 millisecond result is a prepared full-matrix kernel boundary,
+so it is not presented as the SQLite application result.
+
+Current commands, package hashes, scores, timings, memory, and QA disposition
+are retained in
+[`MACOS-RXVECTOR.md`](../../../docs/evidence/2026-08-22-crexx-capability-sync/MACOS-RXVECTOR.md).
+The original pure evidence remains under
 [`docs/evidence/2026-08-03-phase1b/`](../../../docs/evidence/2026-08-03-phase1b/).
 
 ## Donation Readiness
@@ -94,11 +110,8 @@ For the codec/exact primitives:
 - retain dual-VM correctness and representative benchmark thresholds; and
 - decide whether codec and exact search should be one or two contributions.
 
-For acceleration:
-
-- run a separately authorized generic backend comparison against the exact
-  workload and oracle;
-- define dimension, input, metric, and backend compatibility fingerprints;
-- specify bounded memory, build/update, cancellation, and failure behavior;
-- package the backend without RAG vocabulary; and
-- select a backend only from matched evidence.
+For later prepared or ANN acceleration, define dimension, model/profile,
+metric and backend compatibility fingerprints; specify bounded memory,
+build/update, cancellation and stale-index recovery; and select a backend only
+from matched evidence. None of those concerns is hidden inside the accepted
+stateless exact provider.

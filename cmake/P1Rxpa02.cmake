@@ -1,11 +1,17 @@
 foreach(required_var
         CPRAG_CREXX_PREFIX CPRAG_CREXX_DIR CPRAG_CREXX_VERSION
         CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_RXBVM CPRAG_CREXX_BIN_DIR
-        CPRAG_CONSUMER_SOURCE CPRAG_PACKAGE_PROBE_SOURCE CPRAG_WORK_DIR)
+        CPRAG_GENERATOR CPRAG_MAKE_PROGRAM CPRAG_CONSUMER_SOURCE
+        CPRAG_PACKAGE_PROBE_SOURCE CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
     endif()
 endforeach()
+
+set(generator_args -G "${CPRAG_GENERATOR}")
+if(NOT CPRAG_MAKE_PROGRAM STREQUAL "")
+    list(APPEND generator_args "-DCMAKE_MAKE_PROGRAM=${CPRAG_MAKE_PROGRAM}")
+endif()
 
 file(REAL_PATH "${CPRAG_CREXX_PREFIX}" selected_prefix)
 set(required_files
@@ -52,6 +58,7 @@ execute_process(
     COMMAND "${CMAKE_COMMAND}"
         -S "${CPRAG_PACKAGE_PROBE_SOURCE}"
         -B "${compatible_build}"
+        ${generator_args}
         "-DCREXX_DIR=${CPRAG_CREXX_DIR}"
         "-DCREXX_REQUIRED_VERSION=${base_version}"
     OUTPUT_VARIABLE compatible_out
@@ -75,8 +82,7 @@ execute_process(
     COMMAND "${CMAKE_COMMAND}"
         -S "${CPRAG_PACKAGE_PROBE_SOURCE}"
         -B "${missing_build}"
-        -G Ninja
-        -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja
+        ${generator_args}
         "-DCREXX_DIR=${missing_root}/lib/cmake/CREXX"
         "-DCMAKE_PREFIX_PATH=${missing_root}"
         -DCMAKE_FIND_USE_PACKAGE_REGISTRY=FALSE
@@ -103,6 +109,7 @@ execute_process(
     COMMAND "${CMAKE_COMMAND}"
         -S "${CPRAG_PACKAGE_PROBE_SOURCE}"
         -B "${incompatible_build}"
+        ${generator_args}
         "-DCREXX_DIR=${CPRAG_CREXX_DIR}"
         -DCREXX_REQUIRED_VERSION=2.0.0
     OUTPUT_VARIABLE incompatible_out
@@ -123,7 +130,7 @@ execute_process(
     COMMAND "${CMAKE_COMMAND}"
         -S "${CPRAG_CONSUMER_SOURCE}"
         -B "${consumer_build}"
-        -G Ninja
+        ${generator_args}
         "-DCREXX_DIR=${CPRAG_CREXX_DIR}"
         "-DCREXX_REQUIRED_VERSION=${base_version}"
         -DCPRAG_ALLOW_VENDORED_CREXXPA=OFF

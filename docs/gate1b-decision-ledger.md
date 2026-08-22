@@ -1,8 +1,7 @@
 # Gate 1B Decision Ledger
 
-Status date: 2026-08-04. Gate 1B is accepted. Phase 2 is approved as the next
-product phase and is expected to begin shortly alongside separately bounded
-CREXX capability work.
+Status date: 2026-08-22. Gate 1B remains accepted. Phase 2 is the active product
+phase alongside separately bounded CREXX capability work.
 
 This ledger records the user's decision on the completed
 [Gate-1B evidence packet](evidence/2026-08-03-phase1b/GATE-1B-DECISION-PACKET.md).
@@ -67,6 +66,16 @@ This ledger authorizes the parallel delivery model, not unbounded or implicit
 changes to the installed CREXX prefix or a sibling CREXX checkout. Before any
 of these streams edits code, its exact repository, allowed write boundary,
 tests, packaging, measurements, and approval stop must be recorded.
+
+### 2026-08-22 capability disposition
+
+The separately bounded capability-sync worklist completed the available macOS
+items: current installed-only replay, HTTP/toolchain compatibility, installed
+one-shot `rxhash.sha256` content identity, and the accepted stateless exact
+packed `rxvector` provider. This closes the macOS vector-acceleration proof but
+does not claim an incremental/file-hash surface. CRI-15, CRI-16, supported
+Linux sanitizer and final cross-platform publication remain explicit open
+gates. No Phase-2 item was activated or reordered by this work.
 
 ## Start State
 

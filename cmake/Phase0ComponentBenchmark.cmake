@@ -1,5 +1,5 @@
 foreach(required_var
-        CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_RXBVM CPRAG_CREXX_BIN_DIR
+        CPRAG_RXC CPRAG_RXAS CPRAG_RXLINK CPRAG_RXVME CPRAG_RXBVM CPRAG_CREXX_BIN_DIR
         CPRAG_BENCHMARK_SOURCE CPRAG_NATIVE_BENCHMARK CPRAG_LOOPBACK_PROVIDER
         CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
@@ -8,6 +8,7 @@ foreach(required_var
 endforeach()
 
 include("${CMAKE_CURRENT_LIST_DIR}/CpragProcessMetrics.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/CpragLinkCrexx.cmake")
 
 function(assert_output output runtime)
     foreach(component crexx_algorithm json_parse record_materialize json_encode provider_wait)
@@ -43,6 +44,13 @@ execute_process(
 if(NOT rxas_result EQUAL 0)
     message(FATAL_ERROR "rxas Phase-0 benchmark failed (${rxas_result}):\n${rxas_output}\n${rxas_error}")
 endif()
+set(linked_base "${output_base}-linked")
+cprag_link_crexx("${linked_base}" "Phase-0 component benchmark"
+    "${output_base}.rxbin"
+    "${CPRAG_CREXX_BIN_DIR}/rxfnsg.rxbin"
+    "${CPRAG_CREXX_BIN_DIR}/rxfnsc.rxbin"
+    "${CPRAG_CREXX_BIN_DIR}/classlib.rxbin"
+    "${CPRAG_CREXX_BIN_DIR}/library.rxbin")
 
 execute_process(
     COMMAND "${CPRAG_NATIVE_BENCHMARK}"
@@ -73,7 +81,7 @@ execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.2)
 execute_process(
     COMMAND "${CPRAG_TIME_EXECUTABLE}" ${CPRAG_TIME_RESOURCE_ARGS}
         "${CPRAG_RXVME}" -l "${CPRAG_CREXX_BIN_DIR}"
-        "${output_base}" rxfnsg rxfnsc library -a rxvme "${port}"
+        "${linked_base}.rxbin" -a rxvme "${port}"
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE rxvme_output
     ERROR_VARIABLE rxvme_error
@@ -86,7 +94,7 @@ assert_output("${rxvme_output}" rxvme)
 execute_process(
     COMMAND "${CPRAG_TIME_EXECUTABLE}" ${CPRAG_TIME_RESOURCE_ARGS}
         "${CPRAG_RXBVM}" -l "${CPRAG_CREXX_BIN_DIR}"
-        "${output_base}" rxfnsg rxfnsc library -a rxbvm "${port}"
+        "${linked_base}.rxbin" -a rxbvm "${port}"
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE rxbvm_output
     ERROR_VARIABLE rxbvm_error

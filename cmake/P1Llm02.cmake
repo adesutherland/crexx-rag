@@ -1,10 +1,11 @@
-foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_RXBVM
+foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXLINK CPRAG_RXVME CPRAG_RXBVM
         CPRAG_CREXX_BIN_DIR CPRAG_CONTRACT CPRAG_ADAPTER CPRAG_SOURCE
         CPRAG_LOOPBACK CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
     endif()
 endforeach()
+include("${CMAKE_CURRENT_LIST_DIR}/CpragLinkCrexx.cmake")
 
 file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
@@ -55,6 +56,13 @@ foreach(mode IN ITEMS noopt opt)
     set(program "${CPRAG_WORK_DIR}/program-${mode}")
     compile_crexx("${CPRAG_SOURCE}" "${program}" "${program_import}"
         "${mode_flag}" "${mode} test")
+    cprag_link_crexx("${program}-linked" "P1-LLM-02 ${mode}"
+        "${program}.rxbin"
+        "${CPRAG_WORK_DIR}/provider_contract.rxbin"
+        "${CPRAG_WORK_DIR}/openai_compatible_provider.rxbin"
+        "${CPRAG_CREXX_BIN_DIR}/rxfnsg.rxbin"
+        "${CPRAG_CREXX_BIN_DIR}/classlib.rxbin"
+        "${CPRAG_CREXX_BIN_DIR}/library.rxbin")
 endforeach()
 
 set(server_out "${CPRAG_WORK_DIR}/loopback.out")
@@ -91,8 +99,7 @@ foreach(mode IN ITEMS noopt opt)
             set(runtime "${CPRAG_RXBVM}")
         endif()
         execute_process(COMMAND "${runtime}" -l "${program_import}"
-            "${CPRAG_WORK_DIR}/program-${mode}"
-            provider_contract openai_compatible_provider library
+            "${CPRAG_WORK_DIR}/program-${mode}-linked.rxbin"
             -a "127.0.0.1" "${port}"
             OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err RESULT_VARIABLE vm_result)
         if(NOT vm_result EQUAL 0 OR NOT vm_out MATCHES "P1_LLM_02_OK")

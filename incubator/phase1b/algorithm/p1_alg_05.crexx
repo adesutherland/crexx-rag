@@ -67,7 +67,7 @@ checksum = 0
 start = time("us")
 do i = 1 to iterations
   benchmark_text = "Identity Gateway depends on Cedar Store and Vault Service " || i
-  fingerprint = fixturefingerprint(benchmark_text)
+  fingerprint = contentdigest(benchmark_text)
   chunks = .string[]
   call splitchunks benchmark_text || "0A0A"x || "Deployment owner unresolved.", chunks
   checksum = checksum + length(fingerprint) + chunks.0 + pos("Cedar Store", chunks[1])

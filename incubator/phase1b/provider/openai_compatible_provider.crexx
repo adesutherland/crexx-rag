@@ -3,8 +3,8 @@ options levelg
 namespace openai_compatible_provider expose openaicompatibleprovider
 
 import rxfnsb
-import rxhttp
 import rxjson
+import rxfnsg
 import provider_contract
 
 openaicompatibleprovider: class implements .provider
@@ -74,17 +74,23 @@ openaicompatibleprovider: class implements .provider
     if right(_base_path, 1) = "/" then return left(_base_path, length(_base_path) - 1) || suffix
     return _base_path || suffix
 
-  _post: method = .string
+  _post: method = .httpresponse
     arg client = .httpclient, path = .string, body = .string, request = .providerrequest
-    headers = .string[]
-    next = 1
-    headers[next] = "Idempotency-Key: " || request.idempotency_key()
-    next = next + 1
-    headers[next] = "X-Client-Request-Id: " || request.request_id()
-    if _api_key = "" then return client.postWithHeaders(path, body, "application/json", headers)
-    next = next + 1
-    headers[next] = "Authorization: Bearer " || _api_key
-    return client.postWithHeaders(path, body, "application/json", headers)
+    headers = .httpheaders.json()
+    call headers.add("Idempotency-Key", request.idempotency_key())
+    call headers.add("X-Client-Request-Id", request.request_id())
+    if _api_key \= "" then call headers.add("Authorization", "Bearer " || _api_key)
+    return client.post(path, body, headers)
+
+  _client: method = .httpclient
+    arg timeout = .int
+    bounded_timeout = timeout
+    if bounded_timeout > 600000 then bounded_timeout = 600000
+    policy = .httppolicy.safe()
+    call policy.set_timeouts(bounded_timeout, bounded_timeout, bounded_timeout, bounded_timeout, bounded_timeout, bounded_timeout)
+    scheme = "http://"
+    if _tls \= 0 then scheme = "https://"
+    return .httpclient.pooled(scheme || _host || ":" || _port, 1, 2, 8388608, policy)
 
   _generation_body: method = .string
     arg request = .providerrequest, structured = .int
@@ -162,13 +168,19 @@ openaicompatibleprovider: class implements .provider
     route_error = validateproviderroute(request, _route_class)
     if route_error.code() \= 0 then return _failed_result(request, route_error)
     if request.stream_requested() \= 0 then return _unsupported(request, "streaming")
+    client = _client(request.timeout_ms())
+    result = _generate_with_client(request, structured, client)
+    call client.close()
+    return result
+
+  _generate_with_client: method = .providerresult
+    arg request = .providerrequest, structured = .int, client = .httpclient
     started = time("us")
     retry_delay_ms = 0
     do attempt = 1 to request.max_attempts()
-      client = .httpclient(_host, _port, request.timeout_ms(), _tls)
       response = _post(client, _endpoint("/chat/completions"), _generation_body(request, structured), request)
-      if client.status() \= 0 then do
-        failure = _transport_error(client, response, attempt)
+      if response.succeeded() = 0 then do
+        failure = _transport_error(response, attempt)
         if failure.retryable() \= 0 & attempt < request.max_attempts() then do
           delay_ms = _retry_delay_ms(attempt)
           call _wait_ms delay_ms
@@ -177,14 +189,14 @@ openaicompatibleprovider: class implements .provider
         end
         return _failed_result(request, failure, .providerusage(0, 0, 1, 0, attempt, retry_delay_ms), _elapsed_us(started))
       end
-      document = .jsondocument(response)
-      if document.valid() = 0 then return _failed_result(request, .providererror("malformed_response", -102, client.httpStatus(), 0, attempt, "response is not valid JSON: " || document.error()), .providerusage(0, 0, 1, 0, attempt, retry_delay_ms), _elapsed_us(started))
+      document = .jsondocument(response.body())
+      if document.valid() = 0 then return _failed_result(request, .providererror("malformed_response", -102, response.status(), 0, attempt, "response is not valid JSON: " || document.error()), .providerusage(0, 0, 1, 0, attempt, retry_delay_ms), _elapsed_us(started))
       root = document.root()
       provider_error = document.member(root, "error")
       if provider_error > 0 then do
         message_node = document.member(provider_error, "message")
         message = document.node_get(message_node)
-        return _failed_result(request, .providererror("provider", -103, client.httpStatus(), 0, attempt, message), .providerusage(0, 0, 1, 0, attempt, retry_delay_ms), _elapsed_us(started))
+        return _failed_result(request, .providererror("provider", -103, response.status(), 0, attempt, message), .providerusage(0, 0, 1, 0, attempt, retry_delay_ms), _elapsed_us(started))
       end
       choices = document.member(root, "choices")
       choice = document.element(choices, 1)
@@ -218,13 +230,20 @@ openaicompatibleprovider: class implements .provider
     inputs = request.inputs()
     if batch = 0 & inputs.0 \= 1 then return _failed_result(request, .providererror("invalid_request", -101, 0, 0, 0, "single embedding requires exactly one input"))
     if inputs.0 > 2048 then return _failed_result(request, .providererror("invalid_request", -101, 0, 0, 0, "embedding batch exceeds provider limit"))
+    client = _client(request.timeout_ms())
+    result = _embed_with_client(request, batch, client)
+    call client.close()
+    return result
+
+  _embed_with_client: method = .providerresult
+    arg request = .providerrequest, batch = .int, client = .httpclient
+    inputs = request.inputs()
     started = time("us")
     retry_delay_ms = 0
     do attempt = 1 to request.max_attempts()
-      client = .httpclient(_host, _port, request.timeout_ms(), _tls)
       response = _post(client, _endpoint("/embeddings"), _embedding_body(request, batch), request)
-      if client.status() \= 0 then do
-        failure = _transport_error(client, response, attempt)
+      if response.succeeded() = 0 then do
+        failure = _transport_error(response, attempt)
         if failure.retryable() \= 0 & attempt < request.max_attempts() then do
           delay_ms = _retry_delay_ms(attempt)
           call _wait_ms delay_ms
@@ -233,8 +252,8 @@ openaicompatibleprovider: class implements .provider
         end
         return _failed_result(request, failure, .providerusage(0, 0, inputs.0, 0, attempt, retry_delay_ms), _elapsed_us(started))
       end
-      document = .jsondocument(response)
-      if document.valid() = 0 then return _failed_result(request, .providererror("malformed_response", -102, client.httpStatus(), 0, attempt, "response is not valid JSON: " || document.error()), .providerusage(0, 0, inputs.0, 0, attempt, retry_delay_ms), _elapsed_us(started))
+      document = .jsondocument(response.body())
+      if document.valid() = 0 then return _failed_result(request, .providererror("malformed_response", -102, response.status(), 0, attempt, "response is not valid JSON: " || document.error()), .providerusage(0, 0, inputs.0, 0, attempt, retry_delay_ms), _elapsed_us(started))
       data = document.member(document.root(), "data")
       if document.node_count(data) \= inputs.0 then return _failed_result(request, .providererror("malformed_response", -102, 200, 0, attempt, "embedding result count does not match input count"), .providerusage(0, 0, inputs.0, 0, attempt, retry_delay_ms), _elapsed_us(started))
       vectors = .embeddingrecord[]
@@ -269,23 +288,27 @@ openaicompatibleprovider: class implements .provider
     return _failed_result(request, .providererror("unsupported", -120, 0, 0, 0, capability || " is not supported"))
 
   _transport_error: method = .providererror
-    arg client = .httpclient, response = .string, attempt = .int
-    code = client.status()
+    arg response = .httpresponse, attempt = .int
+    transport_status = response.transport_status()
+    http_status = response.status()
+    code = transport_status
+    if code = 0 then code = http_status
     category = "http"
     retryable = 0
-    if code = -5 then do; category = "timeout"; retryable = 1; end
-    else if code = -3 | code = -8 then do; category = "connection"; retryable = 1; end
-    else if client.httpStatus() = 408 | client.httpStatus() = 429 | client.httpStatus() >= 500 then retryable = 1
-    message = client.error()
-    if response \= "" then do
-      document = .jsondocument(response)
+    if transport_status = -6 | transport_status = -10 | transport_status = -11 | transport_status = -12 then do; category = "timeout"; code = -5; retryable = 1; end
+    else if transport_status = -1 | transport_status = -2 | transport_status = -3 | transport_status = -7 | transport_status = -8 then do; category = "connection"; code = -3; retryable = 1; end
+    else if http_status = 408 | http_status = 429 | http_status >= 500 then retryable = 1
+    message = response.error()
+    response_body = response.body()
+    if response_body \= "" then do
+      document = .jsondocument(response_body)
       if document.valid() = 1 then do
         error_node = document.member(document.root(), "error")
         message_node = document.member(error_node, "message")
         if document.node_type(message_node) = "string" then ignored = document.node_string(message_node, message)
       end
     end
-    return .providererror(category, code, client.httpStatus(), retryable, attempt, message)
+    return .providererror(category, code, http_status, retryable, attempt, message)
 
 _optional_int: procedure = .int
   arg document = .jsondocument, parent = .int, name = .string

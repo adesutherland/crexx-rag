@@ -1,11 +1,16 @@
 foreach(required_var
         CPRAG_CREXX_PREFIX CPRAG_CREXX_DIR CPRAG_CREXX_VERSION
         CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_RXBVM CPRAG_CREXX_BIN_DIR
-        CPRAG_CONSUMER_SOURCE CPRAG_WORK_DIR)
+        CPRAG_GENERATOR CPRAG_MAKE_PROGRAM CPRAG_CONSUMER_SOURCE CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
     endif()
 endforeach()
+
+set(generator_args -G "${CPRAG_GENERATOR}")
+if(NOT CPRAG_MAKE_PROGRAM STREQUAL "")
+    list(APPEND generator_args "-DCMAKE_MAKE_PROGRAM=${CPRAG_MAKE_PROGRAM}")
+endif()
 
 file(REAL_PATH "${CPRAG_CREXX_PREFIX}" selected_prefix)
 foreach(selected_path IN ITEMS
@@ -26,7 +31,7 @@ execute_process(
     COMMAND "${CMAKE_COMMAND}"
         -S "${CPRAG_CONSUMER_SOURCE}"
         -B "${consumer_build}"
-        -G Ninja
+        ${generator_args}
         "-DCMAKE_PREFIX_PATH=${selected_prefix}"
         "-DCREXX_DIR=${CPRAG_CREXX_DIR}"
         -DCPRAG_ALLOW_VENDORED_CREXXPA=OFF
@@ -59,15 +64,17 @@ foreach(fallback IN ITEMS
     endif()
 endforeach()
 
-file(READ "${consumer_build}/build.ninja" build_graph)
-string(FIND "${build_graph}" "${selected_prefix}/include" installed_include_position)
+string(FIND "${build_out}" "${CPRAG_CREXX_PREFIX}/include" installed_include_position)
 if(installed_include_position EQUAL -1)
-    message(FATAL_ERROR "External build graph did not select installed headers")
+    string(FIND "${build_out}" "${selected_prefix}/include" installed_include_position)
+endif()
+if(installed_include_position EQUAL -1)
+    message(FATAL_ERROR "External verbose build did not select installed headers")
 endif()
 if(DEFINED CPRAG_FORBIDDEN_CREXX_SOURCE_DIR
         AND NOT "${CPRAG_FORBIDDEN_CREXX_SOURCE_DIR}" STREQUAL "")
     file(REAL_PATH "${CPRAG_FORBIDDEN_CREXX_SOURCE_DIR}" forbidden_source)
-    string(FIND "${build_graph}" "${forbidden_source}" forbidden_position)
+    string(FIND "${build_out}" "${forbidden_source}" forbidden_position)
     if(NOT forbidden_position EQUAL -1)
         message(FATAL_ERROR
             "External build graph selected the CREXX source checkout: ${forbidden_source}")

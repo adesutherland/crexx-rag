@@ -1,6 +1,8 @@
 options levelg
 
 import rxfnsb
+import rxfnsg
+import rxvector
 import sqlite_boundary
 import vector_codec
 import vector_search
@@ -73,11 +75,12 @@ if sqliteexec(db, "COMMIT") \= 0 then status = -1
 fixture_elapsed = elapsed_us(fixture_start)
 
 transfer_elapsed = 0
-decode_elapsed = 0
-arithmetic_elapsed = 0
-selection_elapsed = 0
+validation_elapsed = 0
+conversion_elapsed = 0
+arithmetic_selection_elapsed = 0
+merge_selection_elapsed = 0
 transfer_bytes = 0
-decode_checksum = 0
+converted_items = 0
 score_checksum = 0.0
 page_count = 0
 rows_seen = 0
@@ -86,6 +89,11 @@ global_ids = .int[]
 global_scores = .float[]
 
 total_start = time("us")
+conversion_start = time("us")
+query_vector = rxvector..decodef32le(query_payload)
+conversion_elapsed = conversion_elapsed + elapsed_us(conversion_start)
+converted_items = query_vector.size()
+if query_vector.size() \= dimension then status = -1
 statement = .binary
 if sqliteprepare(db, "SELECT identity,codec,element_count,dimensional_meaning,payload FROM vector_fixture WHERE identity>?1 ORDER BY identity LIMIT ?2", statement) \= 0 then status = -1
 do while status = 0
@@ -128,27 +136,42 @@ do while status = 0
   page_count = page_count + 1
   rows_seen = rows_seen + page_rows
 
-  decode_start = time("us")
+  validation_start = time("us")
   do i = 1 to page_rows
     if validatef32blob(page_codecs[i], page_counts[i], page_meanings[i], page_payloads[i]) \= 0 then status = -1
-    decode_checksum = decode_checksum + binlength(page_payloads[i])
   end
-  decode_elapsed = decode_elapsed + elapsed_us(decode_start)
+  validation_elapsed = validation_elapsed + elapsed_us(validation_start)
   if status \= 0 then leave
 
-  page_scores = .float[]
+  conversion_start = time("us")
+  page_wire = .binary
+  page_id_owner = .packedint(page_rows)
+  do i = 1 to page_rows
+    call binappend page_wire, page_payloads[i]
+    call page_id_owner.set(i - 1, page_ids[i])
+  end
+  page_vectors = rxvector..decodef32le(page_wire)
+  converted_items = converted_items + page_vectors.size()
+  conversion_elapsed = conversion_elapsed + elapsed_us(conversion_start)
+  if page_vectors.size() \= page_rows * dimension then status = -1
+  if status \= 0 then leave
+
   arithmetic_start = time("us")
-  if cosinesf32(page_payloads, page_counts, query_payload, dimension, page_scores) \= 0 then status = -1
-  arithmetic_elapsed = arithmetic_elapsed + elapsed_us(arithmetic_start)
-  if status \= 0 then leave
-  do i = 1 to page_scores.0
-    score_checksum = score_checksum + page_scores[i]
-  end
+  page_result_ids = .packedint(0)
+  page_result_scores = .packedfloat(0)
+  page_requested = top_k
+  if page_requested > page_rows then page_requested = page_rows
+  call rxvector..topkcosine(page_vectors, page_id_owner, dimension, query_vector, page_requested, page_result_ids, page_result_scores)
+  arithmetic_selection_elapsed = arithmetic_selection_elapsed + elapsed_us(arithmetic_start)
 
-  selection_start = time("us")
+  merge_start = time("us")
   page_top_ids = .int[]
   page_top_scores = .float[]
-  if selecttopk(page_ids, page_scores, top_k, page_top_ids, page_top_scores) \= 0 then status = -1
+  do i = 0 to page_result_ids.size() - 1
+    page_top_ids[i + 1] = page_result_ids.get(i)
+    page_top_scores[i + 1] = page_result_scores.get(i)
+    score_checksum = score_checksum + page_result_scores.get(i)
+  end
   combined_ids = .int[]
   combined_scores = .float[]
   combined_count = 0
@@ -167,7 +190,7 @@ do while status = 0
   if selecttopk(combined_ids, combined_scores, top_k, next_ids, next_scores) \= 0 then status = -1
   global_ids = next_ids
   global_scores = next_scores
-  selection_elapsed = selection_elapsed + elapsed_us(selection_start)
+  merge_selection_elapsed = merge_selection_elapsed + elapsed_us(merge_start)
 end
 if sqlitefinalize(statement) \= 0 then status = -1
 total_elapsed = elapsed_us(total_start)
@@ -176,13 +199,14 @@ top_checksum = 0
 do i = 1 to global_ids.0
   top_checksum = top_checksum + global_ids[i]
 end
-estimated_working_bytes = page_size * dimension * 4 + binlength(query_payload) + page_size * 24 + top_k * 32
+estimated_working_bytes = page_size * dimension * 12 + binlength(query_payload) * 3 + page_size * 32 + top_k * 32
 
 say cell || ",fixture_build," || fixture_elapsed || "," || row_total || "," || transfer_bytes || "," || row_total || ",ok"
 say cell || ",sqlite_transfer," || transfer_elapsed || "," || rows_seen || "," || transfer_bytes || "," || last_identity || ",ok"
-say cell || ",decode," || decode_elapsed || "," || rows_seen || "," || transfer_bytes || "," || decode_checksum || ",ok"
-say cell || ",arithmetic," || arithmetic_elapsed || "," || (rows_seen * dimension) || "," || transfer_bytes || "," || score_checksum || ",ok"
-say cell || ",selection," || selection_elapsed || "," || rows_seen || ",0," || top_checksum || ",ok"
+say cell || ",validation," || validation_elapsed || "," || rows_seen || "," || transfer_bytes || "," || rows_seen || ",ok"
+say cell || ",conversion," || conversion_elapsed || "," || converted_items || "," || (transfer_bytes + binlength(query_payload)) || "," || converted_items || ",ok"
+say cell || ",arithmetic_selection," || arithmetic_selection_elapsed || "," || (rows_seen * dimension) || "," || (rows_seen * dimension * 8) || "," || score_checksum || ",ok"
+say cell || ",merge_selection," || merge_selection_elapsed || "," || rows_seen || ",0," || top_checksum || ",ok"
 say cell || ",estimated_working_memory,0," || page_size || "," || estimated_working_bytes || "," || estimated_working_bytes || ",ok"
 say cell || ",total," || total_elapsed || "," || rows_seen || "," || transfer_bytes || "," || top_checksum || ",ok"
 
@@ -195,5 +219,5 @@ if status \= 0 then do
   say "P1_VEC_03_FAIL cell=" || cell || " status=" || status
   return 1
 end
-say "P1_VEC_03_OK cell=" || cell || " rows=11684 dimension=768 pages=92 top_checksum=1031 components=sqlite_transfer,decode,arithmetic,selection,estimated_working_memory,total"
+say "P1_VEC_03_OK cell=" || cell || " rows=11684 dimension=768 pages=92 top_checksum=1031 components=sqlite_transfer,validation,conversion,arithmetic_selection,merge_selection,estimated_working_memory,total backend=rxvector"
 return 0

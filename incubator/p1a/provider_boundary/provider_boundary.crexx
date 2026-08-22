@@ -1,10 +1,10 @@
-options levelb
+options levelg
 
 namespace provider_boundary expose llm_request embeddingrecord llm_result llm_error geminicall
 
 import rxfnsb
 import rxjson
-import rxhttp
+import rxfnsg
 
 /* Application schema owns element type, count and dimensional meaning. The
  * payload itself is production rxjson's owning headerless little-endian bytes. */
@@ -158,16 +158,23 @@ geminicall: procedure = .int
   if request.operation() \= "generate" & request.operation() \= "embed" then return error.set("invalid_request", -101, 0, 0, "operation must be generate or embed")
   if request.operation() = "embed" & request.dimensions() < 0 then return error.set("invalid_request", -101, 0, 0, "embedding dimensions cannot be negative")
 
-  headers = .string[]
-  headers[1] = "x-goog-api-key: " || api_key
-  client = .httpclient(host, port, request.timeout_ms(), tls)
+  headers = .httpheaders.json()
+  call headers.add("x-goog-api-key", api_key)
+  policy = .httppolicy.safe()
+  timeout_ms = request.timeout_ms()
+  if timeout_ms > 600000 then timeout_ms = 600000
+  call policy.set_timeouts(timeout_ms, timeout_ms, timeout_ms, timeout_ms, timeout_ms, timeout_ms)
+  scheme = "http://"
+  if tls <> 0 then scheme = "https://"
+  client = .httpclient.pooled(scheme || host || ":" || port, 1, 2, 8388608, policy)
   path = _gemini_path(request)
   body = _gemini_body(request)
-  response = client.postWithHeaders(path, body, "application/json", headers)
-  if client.status() \= 0 then return _transport_error(client, response, error)
-  document = .jsondocument(response)
-  if document.valid() = 0 then return error.set("malformed_response", -102, client.httpStatus(), 0, "provider response is not valid JSON: " || document.error())
-  if document.type("error.message") = "string" then return error.set("provider", -103, client.httpStatus(), 0, document.get("error.message"))
+  response = client.post(path, body, headers)
+  call client.close()
+  if response.succeeded() = 0 then return _transport_error(response, error)
+  document = .jsondocument(response.body())
+  if document.valid() = 0 then return error.set("malformed_response", -102, response.status(), 0, "provider response is not valid JSON: " || document.error())
+  if document.type("error.message") = "string" then return error.set("provider", -103, response.status(), 0, document.get("error.message"))
   if request.operation() = "generate" then return _generation_result(request, document, result, error)
   return _embedding_result(request, document, result, error)
 
@@ -218,18 +225,21 @@ _gemini_body: procedure = .string
   return jsonobject(keys, values)
 
 _transport_error: procedure = .int
-  arg client = .httpclient, response = .string, expose error = .llm_error
-  code = client.status()
-  http_status = client.httpStatus()
-  message = client.error()
-  if response \= "" then do
-    document = .jsondocument(response)
+  arg response = .httpresponse, expose error = .llm_error
+  transport_status = response.transport_status()
+  http_status = response.status()
+  code = transport_status
+  if code = 0 then code = http_status
+  message = response.error()
+  response_body = response.body()
+  if response_body \= "" then do
+    document = .jsondocument(response_body)
     if document.valid() = 1 & document.type("error.message") = "string" then message = document.get("error.message")
   end
-  if code = -5 then return error.set("timeout", code, http_status, 1, message)
-  if code = -3 | code = -8 then return error.set("connection", code, http_status, 1, message)
-  if code >= 500 then return error.set("http", code, http_status, 1, message)
-  if code = 408 | code = 429 then return error.set("http", code, http_status, 1, message)
+  if transport_status = -6 | transport_status = -10 | transport_status = -11 | transport_status = -12 then return error.set("timeout", -5, http_status, 1, message)
+  if transport_status = -1 | transport_status = -2 | transport_status = -3 | transport_status = -7 | transport_status = -8 then return error.set("connection", -3, http_status, 1, message)
+  if http_status >= 500 then return error.set("http", http_status, http_status, 1, message)
+  if http_status = 408 | http_status = 429 then return error.set("http", http_status, http_status, 1, message)
   return error.set("http", code, http_status, 0, message)
 
 _generation_result: procedure = .int

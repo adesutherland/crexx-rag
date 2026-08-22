@@ -62,7 +62,7 @@ foreach(mode IN ITEMS noopt opt)
         execute_process(COMMAND "${CPRAG_TIME_EXECUTABLE}" ${CPRAG_TIME_RESOURCE_ARGS}
             "${runtime}" -l "${program_import}"
             "${CPRAG_WORK_DIR}/program-${mode}"
-            vector_codec vector_search rx_sqlite_boundary library
+            vector_codec vector_search rx_sqlite_boundary library rxfnsg
             -a "${database}" "${cell}"
             OUTPUT_VARIABLE vm_out ERROR_VARIABLE timing
             RESULT_VARIABLE vm_result TIMEOUT 300)
@@ -71,7 +71,8 @@ foreach(mode IN ITEMS noopt opt)
             message(FATAL_ERROR
                 "${cell} failed (${vm_result}):\n${vm_out}\n${timing}")
         endif()
-        foreach(component sqlite_transfer decode arithmetic selection
+        foreach(component sqlite_transfer validation conversion
+                arithmetic_selection merge_selection
                 estimated_working_memory total)
             if(NOT vm_out MATCHES "${cell},${component},[0-9]+")
                 message(FATAL_ERROR "${cell} omitted ${component}:\n${vm_out}")
@@ -88,4 +89,4 @@ foreach(mode IN ITEMS noopt opt)
 endforeach()
 
 message(STATUS
-    "P1-VEC-03 measured full vector components and process RSS on rxvme/rxbvm")
+    "P1-VEC-03 measured bounded rxvector components and process RSS on rxvme/rxbvm")

@@ -1,6 +1,6 @@
 # cREXX-Only Programme Status
 
-Status date: 2026-08-06.
+Status date: 2026-08-22.
 
 This is the only living implementation-status page. The previous native-v1
 pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.md).
@@ -20,6 +20,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | Every bounded item is accepted; Gate validation is 55/56 with sole expected CRI-15; recorded production limitations remain in force |
 | Language strategy | Level G first, accepted 2026-08-04 | Advanced libraries and application code use Level G; Level B is limited to justified CREXX bootstrap/foundation work |
 | Phase 2 / Gate 2 | Active; `P2-04` pending | `P2-01` contracts, `P2-02` registered typed configuration/profiles, and the `P2-03` schema-v2 storage foundation are accepted; version-1 compatibility is next |
+| Parallel CREXX capability sync | macOS complete; Linux pending | Current installed-only macOS replay, HTTP/toolchain repair, `rxhash.sha256` adoption, and accepted exact `rxvector` integration are complete. CRI-15/16 plus supported Linux sanitizer/cross-platform publication remain open. |
 | Phase 3 and later | Not authorized | No production ingestion, additional hosted qualification, cutover, or retirement |
 
 ## Current Product Reality
@@ -141,6 +142,21 @@ verification, and ordered ancestor rollback. Its four-cell and real-`SIGKILL`
 proof passed, and the final full suite passed 60/61 in 553.13 seconds with only
 CRI-15. Version-1 compatibility, backup/restore, repositories, commands, and
 provider execution remain unimplemented. `P2-04` is pending.
+
+On 2026-08-22 the separately bounded CREXX capability sync completed its
+macOS work against a fresh installed-only scratch prefix. Downstream content
+identity now exercises installed `rxhash.sha256`; the accepted exact CPU
+`rxvector` provider supplies explicit `f32le` conversion and deterministic
+packed cosine/top-k without a wrapper or manual plugin list. Its bounded
+11,684-by-768 replay totals 122,740-129,974 us across four cells, versus the
+retained pure 750,316-857,843 us result, with exact identities and scores.
+Installed dynamic and automatic native/static selection pass, and benchmark-
+only providers are absent from the package. The current 62-test downstream
+inventory has passing evidence for every test after the broad run exposed and
+the focused replay corrected one frozen-artifact preservation mistake. Exact
+status and evidence are in the
+[capability-sync worklist](evidence/2026-08-22-crexx-capability-sync/WORKLIST.md).
+
 The algorithm profile crossed its retained 10,000-us trigger in all four cells while
 remaining below 64 MiB. Full validation passed 55/56 tests; the sole failure is
 unchanged CRI-15. See the
@@ -172,6 +188,7 @@ Separately bounded CREXX
 capability work may proceed in parallel only after each stream records an
 equivalent boundary.
 
-Native-v1 remains the executable oracle. CRI-15 and CRI-16 remain open;
-additional hosted calls, Phase 3, donation submission, dual-write, cutover, and
-native-core retirement remain unauthorized.
+Native-v1 remains the executable oracle. CRI-15, CRI-16, supported Linux
+sanitizer qualification, and final cross-platform publication remain open;
+additional hosted calls, Phase 3, donation submission, dual-write, cutover,
+and native-core retirement remain unauthorized.

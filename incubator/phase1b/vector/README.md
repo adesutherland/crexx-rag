@@ -1,10 +1,9 @@
 # Float32 And Exact Vector Usage
 
-Status: implemented generic Level-G cREXX incubation. The directory contains a
-portable float32 blob codec and deterministic exact cosine/top-k primitives.
-They are potential CREXX contributions, but they are not a released `rxvector`
-package and exact search is not accepted as the sole production backend for the
-representative workload.
+Status: implemented Level-G integration with the installed CREXX `rxvector`
+provider. This directory retains the portable float32 blob codec and pure
+exact cosine/top-k oracle/fallback; the representative path converts bounded
+SQLite pages to host-native packed owners and calls the accepted provider.
 
 See [SYSTEM.md](SYSTEM.md) for representation, complexity, evidence, and the
 proposed donation split.
@@ -13,8 +12,10 @@ proposed donation split.
 
 - [`vector_codec.crexx`](vector_codec.crexx): `f32le-v1` encode, decode,
   validation, and `.vectorblob` metadata record.
-- [`vector_search.crexx`](vector_search.crexx): exact cosine scoring, batch
-  scoring, and deterministic top-k selection.
+- [`vector_search.crexx`](vector_search.crexx): pure exact cosine scoring and
+  deterministic top-k oracle/fallback, including the small cross-page merge.
+- installed `rxvector`: bulk `f32le` conversion and exact packed cosine/top-k
+  for each bounded page.
 
 Both modules use generic numeric and binary vocabulary and import no RAG
 application module.
@@ -25,26 +26,14 @@ application module.
 options levelg
 
 import vector_codec
-import vector_search
+import rxfnsg
+import rxvector
 
-left = .float[]
-left[1] = 1.0
-left[2] = 0.0
-right = .float[]
-right[1] = 0.5
-right[2] = 0.5
-
-left_payload = .binary
-right_payload = .binary
-if encodef32(left, left_payload) \= 0 then return 1
-if encodef32(right, right_payload) \= 0 then return 1
-
-left_blob = .vectorblob(f32codecversion(), left.0, "example-axis", left_payload)
-if left_blob.valid() = 0 then return 1
-
-score = 0.0
-if cosinef32(left_payload, left.0, right_payload, right.0, score) \= 0 then return 1
-say score
+left_payload = "0000803F00000000"x as .binary
+right_payload = "0000003F0000003F"x as .binary
+left = rxvector..decodef32le(left_payload)
+right = rxvector..decodef32le(right_payload)
+say rxvector..cosine(left, right)
 return 0
 ```
 
@@ -65,9 +54,16 @@ blob length alone.
 Validation statuses are `-1` for codec mismatch, `-2` for invalid count, `-3`
 for missing dimensional meaning, and `-4` for byte-length mismatch.
 
-## Search API
+## Search APIs
 
-`cosinef32` scores two equal-length payloads without decoding them into arrays.
+The selected installed surface is `rxvector.decodef32le`, `encodef32le`,
+`cosine`, and `topkcosine`. `topkcosine` consumes a row-major `.packedfloat`
+matrix, `.packedint` identities, the dimension, a `.packedfloat` query and the
+requested count. It returns owning packed identities and scores ordered by
+score descending, identity ascending, then source row ascending.
+
+The retained local `cosinef32` scores two equal-length payloads without
+decoding them into arrays.
 It returns `-1` for incompatible counts, `-2` for invalid payload lengths, and
 `-3` for a zero-norm input.
 
@@ -89,12 +85,18 @@ both compiler modes.
 
 ## Current Limits
 
-- Exact search is linear in vector count and dimension; it is a correctness
-  oracle and bounded fallback, not an ANN index.
-- Full representative exact search measured about 0.75 to 0.86 seconds, well
-  beyond the retained 10 ms acceleration trigger.
+- Exact search remains linear in vector count and dimension; `rxvector` is an
+  accelerated exact fallback, not an ANN index.
+- The retained pure implementation measured about 0.75 to 0.86 seconds on the
+  representative workload. The accepted upstream RXVECTOR verdict measured
+  an 8.4-8.5 ms prepared packed kernel. The installed bounded SQLite replay
+  totals 0.123-0.130 seconds, including 0.029-0.031 seconds of conversion and
+  0.054-0.055 seconds of native arithmetic/selection across 92 calls; these
+  timing boundaries are deliberately reported separately.
 - The modules do not store vectors, choose an embedding model, manage index
   generations, or define application similarity policy.
-- Inputs are shape-checked but there is no explicit finite-value/NaN policy.
-- A generic accelerated backend, package metadata, installed-consumer test, and
-  donation approval remain future work.
+- The installed provider rejects NaN and infinity. The retained local pure
+  fallback has no separate finite-value policy and remains an oracle/fallback,
+  not the selected production route for untrusted numeric input.
+- Prepared matrices, persistent handles, ANN indexes and external vector
+  backends remain future designs with explicit lifecycle gates.

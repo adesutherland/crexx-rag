@@ -2,8 +2,9 @@
 
 Status: implemented generic cREXX incubation for a possible future `rxllm`
 package. The normalized contract and protocol mappings are accepted on
-Phase-1B evidence, but the package is not installed, donation-ready, or approved
-for industrial high-throughput HTTP/TLS.
+Phase-1B evidence and now compile against installed `rxfnsg` typed HTTP. The
+package is not installed, donation-ready, or approved for industrial
+high-throughput HTTP/TLS until the Linux qualification gate is complete.
 
 See [SYSTEM.md](SYSTEM.md) for module ownership and known transport constraints.
 
@@ -88,7 +89,10 @@ schema.
 | `.industrialprovider("gemini", ...)` | Gemini generateContent and embedContent/batchEmbedContents | Text/media generation, structured generation, single/batch embeddings |
 
 Call `capabilities()` instead of assuming an operation or modality exists.
-Streaming, cancellation, and connection reuse currently report unsupported.
+Streaming, cancellation, and cross-request connection reuse currently report
+unsupported at the provider contract. The installed transport is pooled and
+reuses a client within one request's bounded retry sequence, but adapter
+instances do not yet retain a pool across separate provider method calls.
 
 ## Structured Output
 
@@ -118,9 +122,11 @@ Common normalized error codes are:
 | `-122` | provider/transport configuration |
 | `-123` | structured-response validation |
 
-Transport failures preserve their lower-level status and add an HTTP status,
-retryable flag, attempt number, and safe message. Usage records expose input and
-output tokens, input count, estimated cost microunits, attempts, and retry delay.
+Transport failures preserve a safe lower-level message and HTTP status while
+normalizing timeout and connection failures to the stable provider codes `-5`
+and `-3`. Results also record retryability and attempt number. Usage records
+expose input and output tokens, input count, estimated cost microunits,
+attempts, and retry delay.
 
 ## Credentials And Hosted Calls
 
@@ -141,14 +147,20 @@ Run deterministic contract and loopback qualification with:
 ctest --preset debug -R '^p1_llm_0[1-5]$' --output-on-failure
 ```
 
-The regular CTest selection makes no hosted calls. CRI-15 means the Linux
-receive-timeout cell remains the one known baseline failure.
+The regular CTest selection makes no hosted calls. The tests compile, assemble,
+and link final images before both VM runs because the installed HTTP task
+bindings must be resealed by `rxlink`. CRI-15 and CRI-16 remain open until the
+current transport is qualified on supported Linux.
 
 ## Current Limits
 
-- Installed `rxhttp` is synchronous, opens one connection per request, and has
-  no configured response-size ceiling, streaming, or cancellation.
-- Linux timeout behavior is not qualified while CRI-15 remains open.
+- Installed `rxfnsg` provides typed responses, bounded buffering, compression,
+  a connection-owner pool, streaming, and cancellation primitives.
+- Provider adapters currently use one pool per provider operation, so
+  cross-operation reuse, provider streaming, and provider cancellation remain
+  unimplemented.
+- Linux timeout and industrial TLS behavior are not qualified while CRI-15 and
+  CRI-16 remain open.
 - The capability catalogue must be reviewed and versioned as providers change.
 - A real local `llama-server` deployment was unavailable during Phase 1B.
 - Independent package metadata, installed-consumer qualification, and donation
