@@ -16,7 +16,10 @@ ragmodel <- ragjob
 ragmodel + ragevidence + ragjob <- raglibrary
 ragmodel <- ragconfig + ragprofile <- ragregistry
 ragconfig + ragprofile + ragregistry <- operator registry
+ragconfig + ragprofile <- ragcanonical -> installed rxhash
 ragschema <- ragstore -> installed SQLite boundary + rxjson + system
+ragstore + ragregistry + ragcanonical <- ragplanning
+ragcommand + lifecycle modules + ragplanning <- ragfoundation
 ```
 
 `raglibrary` coordinates public operations. `ragjob` is a returned durable-work
@@ -44,6 +47,16 @@ publishes the manifest using `manifest.json.new` plus atomic rename. Readers
 start a SQLite transaction and pin `library_meta.published_generation` before
 applying visibility bounds. A read-only open never migrates or repairs.
 
+`ragplanning` opens a generation-pinned read transaction, recomputes the exact
+registered effective-config/profile hashes, and fingerprints visible current
+source revisions plus active reservations. It separately hashes provider
+route/privacy declarations. The fixed canonical plan encodes those bindings,
+the registered action, required capability, creation epoch, and exact one-hour
+expiry. Validation first verifies the caller's reviewed digest, then parses and
+strictly reconstructs the canonical object before comparing a fresh context.
+The plan/apply foundation path never inserts a job; later phases own enqueue and
+execution after Gate approval.
+
 Rollback targets a published ancestor. While holding the SQLite writer lock it
 first publishes a projection of that already-committed older generation, then
 rebuilds FTS for the target visibility snapshot, moves the authoritative
@@ -61,7 +74,8 @@ database, WAL, manifest, temporary manifest, or migration state.
 
 - All modules and their consumers use Level G.
 - Public methods return nominal records or interfaces, not JSON strings.
-- JSON belongs at later CLI/MCP transport adapters.
+- Canonical plan JSON is the reviewed content-addressed authority; other JSON
+  belongs at CLI/MCP transport adapters.
 - Evidence claims remain directional and independently supported.
 - Vector or graph proximity remains a lead, never accepted support.
 - Later implementations must preserve truthful unsupported/error states.
@@ -85,3 +99,10 @@ transactional DDL failure, snapshot isolation, generation immutability,
 manifest recovery, read-only zero-write/missing paths, full verification,
 ordered rollback, and real `SIGKILL` before commit, after SQLite commit, and
 after temporary-manifest write.
+
+CTest `p2_10_plan_revalidation` compiles all facade dependencies and the Level-G
+scenario with and without optimization, then runs both VMs. It proves three
+canonical plan forms, access-first denial, zero-write planning/revalidation,
+digest and encoding rejection, expiry, generation, config/profile, current
+source, provider-route/privacy, reservation, and capability revalidation, and
+the explicit no-enqueue later-phase boundary.

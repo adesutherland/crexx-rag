@@ -1,0 +1,383 @@
+options levelg
+
+namespace ragplanning expose ragplancontext createfoundationplan validatefoundationplan
+
+import rxfnsb
+import rxjson
+import sqlite_boundary
+import ragmodel
+import ragconfig
+import ragprofile
+import ragregistry
+import ragstore
+import ragcanonical
+
+ragplancontext: class
+  _library_id = .string
+  _generation = .int
+  _config_snapshot_id = .string
+  _config_id = .string
+  _config_hash = .string
+  _profile_id = .string
+  _profile_hash = .string
+  _source_fingerprint_hash = .string
+  _provider_route_hash = .string
+  _reservation_hash = .string
+  _observed_epoch = .int
+
+  *: factory
+    arg library_id = .string, generation = .int, config_snapshot_id = .string, config_id = .string, config_hash = .string, profile_id = .string, profile_hash = .string, source_fingerprint_hash = .string, provider_route_hash = .string, reservation_hash = .string, observed_epoch = .int
+    _library_id = library_id
+    _generation = generation
+    _config_snapshot_id = config_snapshot_id
+    _config_id = config_id
+    _config_hash = config_hash
+    _profile_id = profile_id
+    _profile_hash = profile_hash
+    _source_fingerprint_hash = source_fingerprint_hash
+    _provider_route_hash = provider_route_hash
+    _reservation_hash = reservation_hash
+    _observed_epoch = observed_epoch
+    return
+
+  library_id: method = .string
+    return _library_id
+  generation: method = .int
+    return _generation
+  config_snapshot_id: method = .string
+    return _config_snapshot_id
+  config_id: method = .string
+    return _config_id
+  config_hash: method = .string
+    return _config_hash
+  profile_id: method = .string
+    return _profile_id
+  profile_hash: method = .string
+    return _profile_hash
+  source_fingerprint_hash: method = .string
+    return _source_fingerprint_hash
+  provider_route_hash: method = .string
+    return _provider_route_hash
+  reservation_hash: method = .string
+    return _reservation_hash
+  observed_epoch: method = .int
+    return _observed_epoch
+
+createfoundationplan: procedure = .int
+  arg library_path = .string, config_id = .string, profile_id = .string, operation = .string, action_json = .string, required_capability = .string, registry = .ragregistry, expose plan = .ragplan, expose error = .string
+  error = ""
+  if _validoperation(operation, required_capability) \= 1 then do
+    error = "unsupported foundation plan operation or capability"
+    return -1
+  end
+  config_lookup = registry.config(config_id)
+  if config_lookup.found() \= 1 then do
+    error = "configuration is not registered"
+    return -1
+  end
+  canonical_action = ""
+  if _canonicalaction(operation, action_json, config_lookup.config(), canonical_action, error) \= 0 then return -1
+  context = .ragplancontext
+  context_status = _capturecontext(library_path, config_id, profile_id, registry, context, error)
+  if context_status \= 0 then return context_status
+  created_at = context.observed_epoch()
+  expires_at = created_at + 3600
+  payload = _encodeplan(operation, canonical_action, required_capability, context, created_at, expires_at)
+  plan = .ragplan("crexx-rag.plan/1", operation, payload, ragsha256(payload), expires_at)
+  return 0
+
+validatefoundationplan: procedure = .int
+  arg library_path = .string, config_id = .string, profile_id = .string, expected_operation = .string, plan_json = .string, expected_digest = .string, registry = .ragregistry, expose plan = .ragplan, expose error = .string
+  error = ""
+  if length(plan_json) < 2 | length(plan_json) > 65535 | _validsha256(expected_digest) \= 1 then do
+    error = "plan JSON or expected digest is invalid"
+    return -1
+  end
+  actual_digest = ragsha256(plan_json)
+  if actual_digest \= expected_digest then do
+    error = "reviewed digest does not match the supplied plan"
+    return -1
+  end
+  document = .jsondocument(plan_json)
+  if document.valid() \= 1 | document.node_type(document.root()) \= "object" | document.node_count(document.root()) \= 12 then do
+    error = "plan must be one bounded canonical object"
+    return -1
+  end
+  root = document.root()
+  schema = ""; operation = ""; required_capability = ""
+  source_hash = ""; provider_hash = ""; reservation_hash = ""
+  created_at = 0; expires_at = 0
+  if document.node_string(document.member(root, "schema"), schema) \= 0 | document.node_string(document.member(root, "operation"), operation) \= 0 | document.node_string(document.member(root, "source_fingerprint_hash"), source_hash) \= 0 | document.node_string(document.member(root, "provider_route_hash"), provider_hash) \= 0 | document.node_string(document.member(root, "reservation_hash"), reservation_hash) \= 0 | document.node_string(document.member(root, "required_capability"), required_capability) \= 0 | document.node_int(document.member(root, "created_at_epoch"), created_at) \= 0 | document.node_int(document.member(root, "expires_at_epoch"), expires_at) \= 0 then do
+    error = "plan has a missing or mistyped scalar binding"
+    return -1
+  end
+  if schema \= "crexx-rag.plan/1" | operation \= expected_operation | _validoperation(operation, required_capability) \= 1 | _validsha256(source_hash) \= 1 | _validsha256(provider_hash) \= 1 | _validsha256(reservation_hash) \= 1 | created_at < 1 | expires_at - created_at \= 3600 then do
+    error = "plan schema, operation, digest binding, or expiry policy is invalid"
+    return -1
+  end
+
+  library_node = document.member(root, "library")
+  config_node = document.member(root, "configuration")
+  profile_node = document.member(root, "profile")
+  action_node = document.member(root, "action")
+  if document.node_type(library_node) \= "object" | document.node_count(library_node) \= 2 | document.node_type(config_node) \= "object" | document.node_count(config_node) \= 3 | document.node_type(profile_node) \= "object" | document.node_count(profile_node) \= 2 | document.node_type(action_node) \= "object" then do
+    error = "plan binding objects are invalid"
+    return -1
+  end
+  library_id = ""; generation = 0; bound_config_id = ""; config_snapshot_id = ""; config_hash = ""; bound_profile_id = ""; profile_hash = ""
+  if document.node_string(document.member(library_node, "id"), library_id) \= 0 | document.node_int(document.member(library_node, "generation"), generation) \= 0 | document.node_string(document.member(config_node, "id"), bound_config_id) \= 0 | document.node_string(document.member(config_node, "snapshot_id"), config_snapshot_id) \= 0 | document.node_string(document.member(config_node, "hash"), config_hash) \= 0 | document.node_string(document.member(profile_node, "id"), bound_profile_id) \= 0 | document.node_string(document.member(profile_node, "hash"), profile_hash) \= 0 then do
+    error = "plan library, configuration, or profile binding is mistyped"
+    return -1
+  end
+  if generation < 1 | library_id = "" | config_snapshot_id = "" | _validsha256(config_hash) \= 1 | _validsha256(profile_hash) \= 1 | bound_config_id \= config_id | bound_profile_id \= profile_id then do
+    error = "plan identity binding is invalid or differs from the selected registered ids"
+    return -1
+  end
+  config_lookup = registry.config(bound_config_id)
+  if config_lookup.found() \= 1 then do
+    error = "plan configuration is not registered"
+    return -1
+  end
+  canonical_action = ""
+  action_status = _canonicalactionnode(document, action_node, operation, config_lookup.config(), canonical_action, error)
+  if action_status \= 0 then return -1
+  bound_context = .ragplancontext(library_id, generation, config_snapshot_id, bound_config_id, config_hash, bound_profile_id, profile_hash, source_hash, provider_hash, reservation_hash, created_at)
+  canonical_plan = _encodeplan(operation, canonical_action, required_capability, bound_context, created_at, expires_at)
+  if canonical_plan \= plan_json then do
+    error = "plan is valid JSON but is not the canonical encoding"
+    return -1
+  end
+
+  current = .ragplancontext
+  context_status = _capturecontext(library_path, config_id, profile_id, registry, current, error)
+  if context_status \= 0 then return context_status
+  if current.observed_epoch() >= expires_at then do
+    error = "plan has expired; re-plan against current state"
+    return -2
+  end
+  if _samecontext(bound_context, current) \= 1 then do
+    error = "library generation, configuration, profile, sources, provider routes, or reservations changed; re-plan"
+    return -2
+  end
+  plan = .ragplan(schema, operation, plan_json, expected_digest, expires_at)
+  return 0
+
+_capturecontext: procedure = .int
+  arg library_path = .string, requested_config_id = .string, requested_profile_id = .string, registry = .ragregistry, expose context = .ragplancontext, expose error = .string
+  error = ""
+  if registry.valid() \= 1 then do
+    error = "operator registry is invalid"
+    return -1
+  end
+  config_lookup = registry.config(requested_config_id)
+  profile_lookup = registry.profile(requested_profile_id)
+  if config_lookup.found() \= 1 | profile_lookup.found() \= 1 then do
+    error = "selected configuration or profile is not registered"
+    return -1
+  end
+  config = config_lookup.config(); profile = profile_lookup.profile()
+  if _contains(config.profile_ids(), profile.profile_id()) \= 1 then do
+    error = "selected profile is not permitted by the configuration"
+    return -1
+  end
+  read_snapshot = .ragreadsnapshot
+  if beginreadsnapshot(library_path, read_snapshot, error) \= 0 then return -3
+  database = read_snapshot.database(); generation = read_snapshot.generation()
+  prepared = .binary
+  sql = "SELECT m.library_id,g.config_snapshot_id,c.config_id,c.config_hash,c.profile_id,c.profile_hash,CAST(strftime('%s','now') AS INTEGER) FROM library_meta m JOIN published_generations g ON g.generation=m.published_generation JOIN config_snapshots c ON c.config_snapshot_id=g.config_snapshot_id WHERE m.singleton=1 AND g.state='published'"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do
+    call sqlitefinalize prepared
+    ignored = ""; call closereadsnapshot read_snapshot, ignored
+    error = "cannot read current plan bindings"
+    return -3
+  end
+  library_id = ""; config_snapshot_id = ""; config_id = ""; config_hash = ""; profile_id = ""; profile_hash = ""; observed_epoch = 0
+  column_status = sqlitecolumntext(prepared, 0, library_id)
+  column_status = column_status | sqlitecolumntext(prepared, 1, config_snapshot_id)
+  column_status = column_status | sqlitecolumntext(prepared, 2, config_id)
+  column_status = column_status | sqlitecolumntext(prepared, 3, config_hash)
+  column_status = column_status | sqlitecolumntext(prepared, 4, profile_id)
+  column_status = column_status | sqlitecolumntext(prepared, 5, profile_hash)
+  column_status = column_status | sqlitecolumnint(prepared, 6, observed_epoch)
+  call sqlitefinalize prepared
+  if column_status \= 0 then do
+    ignored = ""; call closereadsnapshot read_snapshot, ignored
+    error = "cannot decode current plan bindings"
+    return -3
+  end
+  effective_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.effective-config/1") || "," || jsonquote("config") || ":" || canonicalconfig(config) || "," || jsonquote("profile") || ":" || canonicalprofile(profile) || "}"
+  expected_config_hash = ragsha256(effective_json)
+  expected_profile_hash = ragsha256(canonicalprofile(profile))
+  if config_id \= requested_config_id | profile_id \= requested_profile_id | config_hash \= expected_config_hash | profile_hash \= expected_profile_hash then do
+    ignored = ""; call closereadsnapshot read_snapshot, ignored
+    error = "registered configuration/profile no longer matches the published library snapshot"
+    return -2
+  end
+  source_canonical = ""
+  if _sourcecanonical(database, generation, source_canonical, error) \= 0 then do
+    ignored = ""; call closereadsnapshot read_snapshot, ignored
+    return -3
+  end
+  reservation_canonical = ""
+  if _reservationcanonical(database, reservation_canonical, error) \= 0 then do
+    ignored = ""; call closereadsnapshot read_snapshot, ignored
+    return -3
+  end
+  close_error = ""
+  if closereadsnapshot(read_snapshot, close_error) \= 0 then do
+    error = close_error
+    return -3
+  end
+  context = .ragplancontext(library_id, generation, config_snapshot_id, config_id, config_hash, profile_id, profile_hash, ragsha256(source_canonical), ragsha256(canonicalproviderroute(config)), ragsha256(reservation_canonical), observed_epoch)
+  return 0
+
+_sourcecanonical: procedure = .int
+  arg database = .binary, generation = .int, expose output = .string, expose error = .string
+  output = "["; error = ""; prepared = .binary
+  sql = "SELECT s.source_id,coalesce(s.current_revision_id,''),coalesce(r.revision_envelope_digest,''),coalesce(r.metadata_fingerprint,'') FROM sources s LEFT JOIN source_revisions r ON r.revision_id=s.current_revision_id WHERE s.visible_from_generation<=?1 AND (s.visible_to_generation IS NULL OR s.visible_to_generation>?1) ORDER BY s.source_id"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do
+    call sqlitefinalize prepared
+    error = "cannot prepare source fingerprint snapshot"
+    return -1
+  end
+  count = 0
+  do forever
+    status = sqlitestep(prepared)
+    if status = 101 then leave
+    if status \= 100 then do
+      call sqlitefinalize prepared
+      error = "cannot step source fingerprint snapshot"
+      return -1
+    end
+    source_id = ""; revision_id = ""; envelope_digest = ""; metadata_fingerprint = ""
+    column_status = sqlitecolumntext(prepared, 0, source_id)
+    column_status = column_status | sqlitecolumntext(prepared, 1, revision_id)
+    column_status = column_status | sqlitecolumntext(prepared, 2, envelope_digest)
+    column_status = column_status | sqlitecolumntext(prepared, 3, metadata_fingerprint)
+    if column_status \= 0 then do
+      call sqlitefinalize prepared
+      error = "cannot decode source fingerprint snapshot"
+      return -1
+    end
+    count = count + 1
+    if count > 1 then output = output || ","
+    output = output || "{" || jsonquote("source_id") || ":" || jsonquote(source_id) || "," || jsonquote("revision_id") || ":" || jsonquote(revision_id) || "," || jsonquote("revision_envelope_digest") || ":" || jsonquote(envelope_digest) || "," || jsonquote("metadata_fingerprint") || ":" || jsonquote(metadata_fingerprint) || "}"
+  end
+  call sqlitefinalize prepared
+  output = output || "]"
+  return 0
+
+_reservationcanonical: procedure = .int
+  arg database = .binary, expose output = .string, expose error = .string
+  output = "["; error = ""; prepared = .binary
+  sql = "SELECT job_id,state,reserved_calls,reserved_tokens,reserved_cost FROM jobs WHERE state NOT IN('completed','failed','cancelled') AND (reserved_calls<>0 OR reserved_tokens<>0 OR reserved_cost<>0) ORDER BY job_id"
+  if sqliteprepare(database, sql, prepared) \= 0 then do
+    error = "cannot prepare reservation snapshot"
+    return -1
+  end
+  count = 0
+  do forever
+    status = sqlitestep(prepared)
+    if status = 101 then leave
+    if status \= 100 then do
+      call sqlitefinalize prepared
+      error = "cannot step reservation snapshot"
+      return -1
+    end
+    job_id = ""; state = ""; calls = 0; tokens = 0; cost = 0
+    column_status = sqlitecolumntext(prepared, 0, job_id)
+    column_status = column_status | sqlitecolumntext(prepared, 1, state)
+    column_status = column_status | sqlitecolumnint(prepared, 2, calls)
+    column_status = column_status | sqlitecolumnint(prepared, 3, tokens)
+    column_status = column_status | sqlitecolumnint(prepared, 4, cost)
+    if column_status \= 0 then do
+      call sqlitefinalize prepared
+      error = "cannot decode reservation snapshot"
+      return -1
+    end
+    count = count + 1
+    if count > 1 then output = output || ","
+    output = output || "{" || jsonquote("job_id") || ":" || jsonquote(job_id) || "," || jsonquote("state") || ":" || jsonquote(state) || "," || jsonquote("reserved_calls") || ":" || calls || "," || jsonquote("reserved_tokens") || ":" || tokens || "," || jsonquote("reserved_cost") || ":" || cost || "}"
+  end
+  call sqlitefinalize prepared
+  output = output || "]"
+  return 0
+
+_encodeplan: procedure = .string
+  arg operation = .string, action_json = .string, required_capability = .string, context = .ragplancontext, created_at = .int, expires_at = .int
+  output = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.plan/1") || "," || jsonquote("operation") || ":" || jsonquote(operation) || "," || jsonquote("action") || ":" || action_json
+  output = output || "," || jsonquote("library") || ":{" || jsonquote("id") || ":" || jsonquote(context.library_id()) || "," || jsonquote("generation") || ":" || context.generation() || "}"
+  output = output || "," || jsonquote("configuration") || ":{" || jsonquote("id") || ":" || jsonquote(context.config_id()) || "," || jsonquote("snapshot_id") || ":" || jsonquote(context.config_snapshot_id()) || "," || jsonquote("hash") || ":" || jsonquote(context.config_hash()) || "}"
+  output = output || "," || jsonquote("profile") || ":{" || jsonquote("id") || ":" || jsonquote(context.profile_id()) || "," || jsonquote("hash") || ":" || jsonquote(context.profile_hash()) || "}"
+  output = output || "," || jsonquote("source_fingerprint_hash") || ":" || jsonquote(context.source_fingerprint_hash()) || "," || jsonquote("provider_route_hash") || ":" || jsonquote(context.provider_route_hash()) || "," || jsonquote("reservation_hash") || ":" || jsonquote(context.reservation_hash()) || "," || jsonquote("required_capability") || ":" || jsonquote(required_capability) || "," || jsonquote("created_at_epoch") || ":" || created_at || "," || jsonquote("expires_at_epoch") || ":" || expires_at || "}"
+  return output
+
+_canonicalaction: procedure = .int
+  arg operation = .string, action_json = .string, config = .ragconfig, expose output = .string, expose error = .string
+  document = .jsondocument(action_json)
+  if document.valid() \= 1 | document.node_type(document.root()) \= "object" then do
+    error = "plan action must be one JSON object"
+    return -1
+  end
+  return _canonicalactionnode(document, document.root(), operation, config, output, error)
+
+_canonicalactionnode: procedure = .int
+  arg document = .jsondocument, action_node = .int, operation = .string, config = .ragconfig, expose output = .string, expose error = .string
+  output = ""; error = ""
+  if operation = "ingest.apply" then do
+    source_set = ""
+    if document.node_count(action_node) \= 1 | document.node_string(document.member(action_node, "source_set"), source_set) \= 0 | validregistryid(source_set) \= 1 | _sourcesetexists(config, source_set) \= 1 then do
+      error = "ingest plan requires exactly one registered source_set"
+      return -1
+    end
+    output = "{" || jsonquote("source_set") || ":" || jsonquote(source_set) || "}"
+    return 0
+  end
+  if operation = "improve.apply" then do
+    if document.node_count(action_node) \= 0 then do
+      error = "improvement foundation plan action must be empty"
+      return -1
+    end
+    output = "{}"
+    return 0
+  end
+  if operation = "proposal.apply" then do
+    input_digest = ""
+    if document.node_count(action_node) \= 1 | document.node_string(document.member(action_node, "input_digest"), input_digest) \= 0 | _validsha256(input_digest) \= 1 then do
+      error = "proposal plan requires exactly one lowercase SHA-256 input_digest"
+      return -1
+    end
+    output = "{" || jsonquote("input_digest") || ":" || jsonquote(input_digest) || "}"
+    return 0
+  end
+  error = "operation is not a foundation plan operation"
+  return -1
+
+_validoperation: procedure = .int
+  arg operation = .string, required_capability = .string
+  if operation = "ingest.apply" then return required_capability = "ingest"
+  if operation = "improve.apply" | operation = "proposal.apply" then return required_capability = "curate"
+  return 0
+
+_samecontext: procedure = .int
+  arg expected = .ragplancontext, current = .ragplancontext
+  return expected.library_id() = current.library_id() & expected.generation() = current.generation() & expected.config_snapshot_id() = current.config_snapshot_id() & expected.config_id() = current.config_id() & expected.config_hash() = current.config_hash() & expected.profile_id() = current.profile_id() & expected.profile_hash() = current.profile_hash() & expected.source_fingerprint_hash() = current.source_fingerprint_hash() & expected.provider_route_hash() = current.provider_route_hash() & expected.reservation_hash() = current.reservation_hash()
+
+_sourcesetexists: procedure = .int
+  arg config = .ragconfig, source_set_id = .string
+  source_sets = config.source_sets()
+  do i = 1 to source_sets.0
+    if source_sets[i].source_set_id() = source_set_id then return 1
+  end
+  return 0
+
+_contains: procedure = .int
+  arg values = .string[], expected = .string
+  do i = 1 to values.0
+    if values[i] = expected then return 1
+  end
+  return 0
+
+_validsha256: procedure = .int
+  arg value = .string
+  return length(value) = 64 & verify(value, "0123456789abcdef") = 0

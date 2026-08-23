@@ -1368,6 +1368,27 @@ if(CPRAG_BUILD_TESTS)
         add_test(NAME p2_09_donation_bundles COMMAND ${P2_09_COMMAND})
         set_tests_properties(p2_09_donation_bundles PROPERTIES
             LABELS "P2-09;phase2;crexx;levelg;report;capability;donation;bundle;manifest;package;docs;example;benchmark;reproducer;dual-vm;zero-outbound")
+        set(P2_10_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+            "-DCPRAG_APP_DIR=${CMAKE_CURRENT_LIST_DIR}/crexx/application"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p2_10_plan_revalidation.crexx"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p2-10-plan-revalidation"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P210.cmake")
+        add_custom_target(p2_10_plan_revalidation
+            COMMAND ${P2_10_COMMAND}
+            DEPENDS _sqlite_boundary
+            COMMENT "Running P2-10 Level-G canonical plan/revalidation proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p2_10_plan_revalidation COMMAND ${P2_10_COMMAND})
+        set_tests_properties(p2_10_plan_revalidation PROPERTIES
+            LABELS "P2-10;phase2;crexx;levelg;application;facade;plan;canonical;digest;expiry;generation;config;profile;source;provider-route;reservation;access;zero-write;zero-outbound")
         add_test(
             NAME crexx_profile_smoke
             COMMAND "${CMAKE_COMMAND}"

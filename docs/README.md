@@ -1,9 +1,9 @@
 # Documentation Map
 
 Status: canonical navigation for the approved cREXX-only programme,
-2026-08-23. Phase 1B is complete, Gate 1B is accepted, and Phase 2 has started
-from its pushed entry baseline. `P2-01` through `P2-09` are accepted; `P2-10`
-is next and pending.
+2026-08-23. Phase 1B is complete, Gate 1B is accepted, and all bounded Phase-2
+items are accepted from its pushed entry baseline. Work is stopped at Gate 2;
+Phase 3 is not authorized.
 
 ## Current Programme Documents
 
@@ -12,7 +12,7 @@ is next and pending.
 | [Vision and product specification](crexx-only-vision-and-specification.md) | Approved product purpose, requirements, ownership, and cutover rules |
 | [Review findings](crexx-only-review-findings.md) | Point-in-time rationale behind the decision; reproducible Phase-0 evidence is now retained separately |
 | [Architecture](crexx-only-architecture.md) | Approved target boundaries, data model, lifecycle, jobs, retrieval, and surfaces |
-| [Implementation roadmap](crexx-only-implementation-roadmap.md) | Completed work, future phases, and gates; Phase 2 is active through accepted `P2-09` |
+| [Implementation roadmap](crexx-only-implementation-roadmap.md) | Completed work, future phases, and gates; Phase 2 is item-complete and stopped at Gate 2 |
 | [User guide](crexx-only-user-guide.md) | Target interface contract; clearly marks unimplemented commands |
 | [Test strategy](test-strategy.md) | Living validation and acceptance policy |
 | [Programme status](pipeline-status.md) | Living implemented-versus-specified status |
@@ -23,7 +23,7 @@ is next and pending.
 | [Generic capability incubation audit](../incubator/README.md) | Donation-candidate inventory, implementation boundaries, colocated use/system docs, and readiness status |
 | [Gate 1A decision ledger](gate1a-decision-ledger.md) | Historical approval for D1-D9, the now-completed Phase-1B worklist, exclusions, and Gate-1B stop |
 | [Gate 1B decision ledger](gate1b-decision-ledger.md) | Current acceptance decision, Level-G-first amendment, Phase-2 authority, parallel-work model, exclusions, and start state |
-| [Phase 2 worklist](evidence/2026-08-04-phase2/WORKLIST.md) | Active ordered `P2-01` through `P2-10` execution record, evidence rules, exclusions, and Gate-2 stop |
+| [Phase 2 worklist](evidence/2026-08-04-phase2/WORKLIST.md) | Completed ordered `P2-01` through `P2-10` execution record, evidence rules, exclusions, and Gate-2 stop |
 | [Phase 2 entry baseline](evidence/2026-08-04-phase2/ENTRY-BASELINE.md) | Pushed commit, installed toolchain, Debug/Release build, full CTest, and CRI-15 entry result |
 | [P2-01 application-contract evidence](evidence/2026-08-04-phase2/P2-01.md) | Level-G module layout, public object contracts, four-cell consumer proof, full validation, and explicit limits |
 | [P2-02 configuration/profile evidence](evidence/2026-08-04-phase2/P2-02.md) | Registered typed configuration and profiles, four-cell security/privacy proof, resource result, full validation, and explicit limits |
@@ -33,6 +33,7 @@ is next and pending.
 | [P2-08 foundation-facade evidence](evidence/2026-08-04-phase2/P2-08.md) | Shared lifecycle/diagnostic dispatch, access gates, read-only verification, backup/restore, and zero-outbound provider configuration tests |
 | [Workload and capability report](crexx-rag-workload-capability-report.md) | Versioned current-host workload observations, capability ownership, maturity boundaries, and prepared generic review bundles |
 | [P2-09 report/bundle evidence](evidence/2026-08-04-phase2/P2-09.md) | Three manifest-driven review bundles, 52 hash-verified files, required adjacent docs/roles, and 12 zero-call candidate probe cells |
+| [P2-10 plan/revalidation evidence](evidence/2026-08-04-phase2/P2-10.md) | Canonical content-addressed plans, zero-write planning, and hostile apply-time binding revalidation across four cells |
 | [Level-G migration evidence](evidence/2026-08-04-levelg-migration/LEVEL-G-MIGRATION.md) | Installed-toolchain requalification, 46-source migration, language audit, and post-migration CTest result |
 | [Approved CREXX candidate closeout](evidence/2026-07-31-gate1a-crexx-candidate/CANDIDATE-INTEGRATION-CLOSEOUT.md) | Exact downstream CRI-01 through CRI-14 replay, provenance, results and Gate-1A stop |
 | [Linux build review](evidence/2026-08-03-linux-build/LINUX-BUILD-REVIEW.md) | Debug/Release portability result and open CRI-15 reproducer |

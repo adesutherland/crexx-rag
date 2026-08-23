@@ -209,6 +209,27 @@ Invalid typed values, duplicate fields, status/exit disagreement, more than 100
 records, and unknown formats are rejected. CMake fingerprints every source
 input before and after the four cells.
 
+`P2-08` adds `p2_08_foundation_facade`: four cells dispatch doctor, six library
+operations, provider status/configuration-only test, and profile validation.
+They prove access-before-mutation, read-only status/verification fingerprints,
+idempotent current-schema migration, registered non-secret config snapshots,
+pinned backup/fresh restore, and zero provider calls or credential resolution.
+
+`P2-09` adds `p2_09_donation_bundles`: three explicitly non-released review
+bundles stage 52 role-labelled, hash-identical files outside the source tree.
+Twelve optimized/non-optimized and dual-VM probe cells cover typed SQLite,
+provider route denial without transport, and portable vector codec/search.
+
+`P2-10` adds `p2_10_plan_revalidation`: all four compiler/runtime cells create
+the ingest, improve, and proposal `crexx-rag.plan/1` forms, verify zero changes
+to database/manifest/WAL/shared-memory fingerprints, and require the operation
+capability before hostile input inspection. Digest, canonical encoding, exact
+one-hour expiry, generation, config/profile, visible source-revision,
+provider-route/privacy, and active-reservation bindings are independently
+revalidated. Valid input reaches a typed `revalidated` record but remains
+`enqueued=false` with unavailable exit 8 because later execution phases are not
+authorized.
+
 Current Phase-1B progress: the installed-SDK section is accepted under
 `P1-RXPA-01` and `P1-RXPA-02`. `P1-SQL-01` through `P1-SQL-07` pass their
 dedicated targets and exact CTest labels for optimized/non-optimized programs

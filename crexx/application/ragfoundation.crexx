@@ -4,7 +4,6 @@ namespace ragfoundation expose dispatchfoundation
 
 import rxfnsb
 import rxjson
-import rxhash
 import ragmodel
 import ragconfig
 import ragprofile
@@ -13,6 +12,8 @@ import ragcommand
 import ragstore
 import ragbackup
 import ragrepository
+import ragcanonical
+import ragplanning
 
 dispatchfoundation: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
@@ -27,6 +28,8 @@ dispatchfoundation: procedure = .ragcommandresult
   if operation = "provider.status" then return _providerstatus(request, registry)
   if operation = "provider.test" then return _providertest(request, registry)
   if operation = "profile.validate" then return _profilevalidate(request, registry)
+  if operation = "ingest.plan" | operation = "improve.plan" | operation = "proposal.plan" then return _plancreate(request, registry)
+  if operation = "ingest.apply" | operation = "improve.apply" | operation = "proposal.apply" then return _planapply(request, registry)
   return _failure(operation, 8, "operation is not implemented by the Phase-2 foundation facade")
 
 _doctor: procedure = .ragcommandresult
@@ -273,6 +276,71 @@ _profilevalidate: procedure = .ragcommandresult
   if validation.ok() \= 1 then return .ragcommandresult("profile.validate", "error", 3, "registered profile is invalid", records)
   return .ragcommandresult("profile.validate", "ok", 0, "registered profile is valid", records)
 
+_plancreate: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = request.operation(); error = ""; allowed = ""; apply_operation = ""; capability = ""; action = "{}"
+  if operation = "ingest.plan" then do
+    allowed = "source-set"; apply_operation = "ingest.apply"; capability = "ingest"
+  end
+  if operation = "improve.plan" then do
+    apply_operation = "improve.apply"; capability = "curate"
+  end
+  if operation = "proposal.plan" then do
+    allowed = "input-digest"; apply_operation = "proposal.apply"; capability = "curate"
+  end
+  if _validateoptions(request, allowed, error) \= 0 then return _failure(operation, 2, error)
+  if _hasaccess(request, "plan") \= 1 then return _failure(operation, 4, "planning requires plan access")
+  if request.config_id() = "" | request.profile_id() = "" then return _failure(operation, 2, "planning requires registered --config and --profile ids")
+  if operation = "ingest.plan" then do
+    source_set = _option(request, "source-set", error)
+    if error \= "" | source_set = "" then return _failure(operation, 2, "ingest plan requires one --source-set value")
+    action = "{" || jsonquote("source_set") || ":" || jsonquote(source_set) || "}"
+  end
+  if operation = "proposal.plan" then do
+    input_digest = _option(request, "input-digest", error)
+    if error \= "" | input_digest = "" then return _failure(operation, 2, "proposal plan requires one --input-digest value")
+    action = "{" || jsonquote("input_digest") || ":" || jsonquote(input_digest) || "}"
+  end
+  plan = .ragplan
+  status = createfoundationplan(request.library(), request.config_id(), request.profile_id(), apply_operation, action, capability, registry, plan, error)
+  if status = -1 then return _failure(operation, 3, error)
+  if status = -2 then return _failure(operation, 6, error)
+  if status \= 0 then return _failure(operation, 7, error)
+  records = .ragresultrecord[]; records[1] = _planrecord(plan, capability, "created", 0)
+  return .ragcommandresult(operation, "ok", 0, "canonical foundation plan created without library or managed-state writes", records)
+
+_planapply: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = request.operation(); error = ""; required = "curate"
+  if operation = "ingest.apply" then required = "ingest"
+  if _validateoptions(request, "plan-json expect-digest", error) \= 0 then return _failure(operation, 2, error)
+  if _hasaccess(request, required) \= 1 then return _failure(operation, 4, "apply requires " || required || " access")
+  if request.config_id() = "" | request.profile_id() = "" then return _failure(operation, 2, "apply requires registered --config and --profile ids")
+  plan_json = _option(request, "plan-json", error)
+  if error \= "" then return _failure(operation, 2, error)
+  expected_digest = _option(request, "expect-digest", error)
+  if error \= "" | plan_json = "" | expected_digest = "" then return _failure(operation, 2, "apply requires one --plan-json and one --expect-digest value")
+  plan = .ragplan
+  status = validatefoundationplan(request.library(), request.config_id(), request.profile_id(), operation, plan_json, expected_digest, registry, plan, error)
+  if status = -1 then return _failure(operation, 7, error)
+  if status = -2 then return _failure(operation, 6, error)
+  if status \= 0 then return _failure(operation, 7, error)
+  records = .ragresultrecord[]; records[1] = _planrecord(plan, required, "revalidated", 0)
+  return .ragcommandresult(operation, "error", 8, "plan revalidated; enqueue and domain execution remain unavailable until their later roadmap phases", records)
+
+_planrecord: procedure = .ragresultrecord
+  arg plan = .ragplan, required_capability = .string, state = .string, enqueued = .int
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("schema_version", "string", plan.schema_version())
+  fields[2] = .ragresultfield("operation", "string", plan.operation())
+  fields[3] = .ragresultfield("canonical_plan", "string", plan.payload())
+  fields[4] = .ragresultfield("digest", "string", plan.digest())
+  fields[5] = .ragresultfield("expires_at_epoch", "integer", plan.expires_at())
+  fields[6] = .ragresultfield("required_capability", "string", required_capability)
+  fields[7] = .ragresultfield("state", "string", state)
+  fields[8] = .ragresultfield("enqueued", "boolean", _boolean(enqueued))
+  return .ragresultrecord("canonical-plan", fields)
+
 _requestconfig: procedure = .ragconfiglookup
   arg request = .ragcommandrequest, registry = .ragregistry
   if request.config_id() \= "" then return registry.config(request.config_id())
@@ -402,99 +470,12 @@ _boolean: procedure = .string
 
 _sha256: procedure = .string
   arg value = .string
-  return lower(bin2x(rxhash..sha256(value)))
+  return ragsha256(value)
 
 _configcanonical: procedure = .string
   arg config = .ragconfig
-  output = "{" || jsonquote("config_id") || ":" || jsonquote(config.config_id()) || "," || jsonquote("version") || ":" || jsonquote(config.version())
-  output = output || "," || jsonquote("source_sets") || ":["
-  source_sets = config.source_sets()
-  do i = 1 to source_sets.0
-    if i > 1 then output = output || ","
-    source = source_sets[i]; patterns = source.include_patterns()
-    output = output || "{" || jsonquote("id") || ":" || jsonquote(source.source_set_id()) || "," || jsonquote("connector") || ":" || jsonquote(source.connector()) || "," || jsonquote("root") || ":" || jsonquote(source.root()) || "," || jsonquote("stable_key") || ":" || jsonquote(source.stable_key()) || "," || jsonquote("privacy") || ":" || jsonquote(source.privacy()) || "," || jsonquote("retain_raw_artifact") || ":" || _boolean(source.retain_raw_artifact()) || "," || jsonquote("include_patterns") || ":["
-    do j = 1 to patterns.0
-      if j > 1 then output = output || ","
-      output = output || jsonquote(patterns[j])
-    end
-    output = output || "]}"
-  end
-  output = output || "]," || jsonquote("providers") || ":["
-  providers = config.providers()
-  do i = 1 to providers.0
-    if i > 1 then output = output || ","
-    provider = providers[i]
-    output = output || "{" || jsonquote("id") || ":" || jsonquote(provider.provider_id()) || "," || jsonquote("kind") || ":" || jsonquote(provider.kind()) || "," || jsonquote("base_url") || ":" || jsonquote(provider.base_url()) || "," || jsonquote("model") || ":" || jsonquote(provider.model()) || "," || jsonquote("route_class") || ":" || jsonquote(provider.route_class()) || "," || jsonquote("privacy_policy") || ":" || jsonquote(provider.privacy_policy()) || "," || jsonquote("credential_ref") || ":" || jsonquote(provider.credential().ref_string()) || "," || jsonquote("timeout_ms") || ":" || provider.timeout_ms() || "," || jsonquote("max_attempts") || ":" || provider.max_attempts() || "}"
-  end
-  output = output || "]," || jsonquote("roles") || ":["
-  roles = config.roles()
-  do i = 1 to roles.0
-    if i > 1 then output = output || ","
-    output = output || "{" || jsonquote("role") || ":" || jsonquote(roles[i].role()) || "," || jsonquote("provider_id") || ":" || jsonquote(roles[i].provider_id()) || "}"
-  end
-  output = output || "]," || jsonquote("profile_ids") || ":["
-  ids = config.profile_ids()
-  do i = 1 to ids.0
-    if i > 1 then output = output || ","
-    output = output || jsonquote(ids[i])
-  end
-  budget = config.budget(); workers = config.workers()
-  output = output || "]," || jsonquote("budget") || ":{" || jsonquote("minutes") || ":" || budget.minutes() || "," || jsonquote("item_limit") || ":" || budget.item_limit() || "," || jsonquote("model_calls") || ":" || budget.model_calls() || "," || jsonquote("input_tokens") || ":" || budget.input_tokens() || "," || jsonquote("output_tokens") || ":" || budget.output_tokens() || "," || jsonquote("cost_microunits") || ":" || budget.cost_microunits() || "}"
-  output = output || "," || jsonquote("workers") || ":{" || jsonquote("processes") || ":" || workers.processes() || "," || jsonquote("max_in_flight") || ":" || workers.max_in_flight() || "," || jsonquote("lease_seconds") || ":" || workers.lease_seconds() || "}"
-  output = output || "," || jsonquote("schedules") || ":["
-  schedules = config.schedules()
-  do i = 1 to schedules.0
-    if i > 1 then output = output || ","
-    output = output || "{" || jsonquote("id") || ":" || jsonquote(schedules[i].schedule_id()) || "," || jsonquote("trigger") || ":" || jsonquote(schedules[i].trigger()) || "," || jsonquote("enabled") || ":" || _boolean(schedules[i].enabled()) || "}"
-  end
-  output = output || "]}"
-  return output
+  return canonicalconfig(config)
 
 _profilecanonical: procedure = .string
   arg profile = .ragprofile
-  output = "{" || jsonquote("profile_id") || ":" || jsonquote(profile.profile_id()) || "," || jsonquote("version") || ":" || jsonquote(profile.version())
-  output = output || "," || jsonquote("concept_types") || ":["
-  values = profile.concept_types()
-  do i = 1 to values.0
-    if i > 1 then output = output || ","
-    output = output || jsonquote(values[i])
-  end
-  output = output || "]," || jsonquote("relationship_types") || ":["
-  relationships = profile.relationship_types()
-  do i = 1 to relationships.0
-    if i > 1 then output = output || ","
-    relationship = relationships[i]
-    output = output || "{" || jsonquote("id") || ":" || jsonquote(relationship.relationship_id()) || "," || jsonquote("inverse_id") || ":" || jsonquote(relationship.inverse_id()) || "," || jsonquote("directional") || ":" || _boolean(relationship.directional()) || "}"
-  end
-  output = output || "]," || jsonquote("aliases") || ":["
-  aliases = profile.aliases()
-  do i = 1 to aliases.0
-    if i > 1 then output = output || ","
-    output = output || "{" || jsonquote("surface") || ":" || jsonquote(aliases[i].surface()) || "," || jsonquote("canonical") || ":" || jsonquote(aliases[i].canonical()) || "}"
-  end
-  chunk = profile.chunk_policy(); formats = chunk.formats()
-  output = output || "]," || jsonquote("chunk_policy") || ":{" || jsonquote("max_characters") || ":" || chunk.max_characters() || "," || jsonquote("overlap_characters") || ":" || chunk.overlap_characters() || "," || jsonquote("formats") || ":["
-  do i = 1 to formats.0
-    if i > 1 then output = output || ","
-    output = output || jsonquote(formats[i])
-  end
-  output = output || "]}," || jsonquote("ranking_weights") || ":["
-  weights = profile.ranking_weights()
-  do i = 1 to weights.0
-    if i > 1 then output = output || ","
-    output = output || "{" || jsonquote("name") || ":" || jsonquote(weights[i].name()) || "," || jsonquote("value") || ":" || weights[i].value() || "}"
-  end
-  output = output || "]," || jsonquote("prompts") || ":["
-  prompts = profile.prompts()
-  do i = 1 to prompts.0
-    if i > 1 then output = output || ","
-    output = output || "{" || jsonquote("role") || ":" || jsonquote(prompts[i].role()) || "," || jsonquote("version") || ":" || jsonquote(prompts[i].version()) || "," || jsonquote("template_id") || ":" || jsonquote(prompts[i].template_id()) || "}"
-  end
-  output = output || "]," || jsonquote("validators") || ":["
-  validators = profile.validators()
-  do i = 1 to validators.0
-    if i > 1 then output = output || ","
-    output = output || jsonquote(validators[i])
-  end
-  output = output || "]}"
-  return output
+  return canonicalprofile(profile)

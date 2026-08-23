@@ -2,8 +2,9 @@
 
 Status: Gate 1B reached on 2026-08-03 and accepted on 2026-08-04. All bounded
 Phase-1B items are complete. Phase 2 started on 2026-08-04 from the pushed
-entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` through `P2-09`
-are accepted, and `P2-10` is next and pending. The decision is recorded in the
+entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` through `P2-10`
+are accepted, and work is stopped at Gate 2 for a decision. The authority is
+recorded in the
 [Gate-1B ledger](gate1b-decision-ledger.md).
 
 This is the execution plan for the target in
@@ -418,8 +419,13 @@ mutation.
   manifest-driven review bundles, 52 hash-verified files, all required bundle
   roles, and 12 minimized dual-VM probe cells in
   [`P2-09.md`](evidence/2026-08-04-phase2/P2-09.md).
-- [ ] **P2-10** Implement zero-library-write canonical plan encoding/digest and
-  untrusted apply-time revalidation through the shared facade.
+- [x] **P2-10** Implement zero-library-write canonical plan encoding/digest and
+  untrusted apply-time revalidation through the shared facade. Accepted with
+  a fixed `crexx-rag.plan/1` encoding, installed SHA-256, one-hour expiry,
+  read-snapshot bindings, capability-first denial, hostile-input reconstruction,
+  zero-write plan/validation paths, and four-cell evidence in
+  [`P2-10.md`](evidence/2026-08-04-phase2/P2-10.md). Valid plans are revalidated
+  but not enqueued because domain execution remains assigned to later phases.
 
 ### Gate 2 — Foundation acceptance
 
@@ -674,9 +680,9 @@ opportunities remain in an explicit ledger.
 
 ## Post-Gate-1B Direction
 
-Gate 1B is accepted and Phase 2 is the active product workstream. Continue from
-the dated Phase-2 worklist, where `P2-01` through `P2-09` are accepted and
-`P2-10` is pending; activate one item at a time and stop at Gate 2.
+Gate 1B is accepted and the bounded Phase-2 item sequence is complete. The
+dated Phase-2 worklist records `P2-01` through `P2-10` as accepted. Work is
+stopped at Gate 2; do not activate Phase 3 without the user's decision.
 
 Phase 2 may proceed in parallel with separately bounded CREXX capability work
 for exact downstream CRI-15/CRI-16 Linux closure and any approved provider

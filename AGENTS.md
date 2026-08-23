@@ -36,10 +36,10 @@ language levels.
 Phase 0, Gate 0, Phase 1A, Gate 1A, and the bounded Phase-1B worklist are
 complete. Gate 1B was accepted on 2026-08-04, including all 28 bounded
 Phase-1B item results and their recorded limitations. Phase 2, `P2-01` through
-`P2-10`, is the active product workstream. Its dated worklist and entry
-baseline are under `docs/evidence/2026-08-04-phase2/`. `P2-01` through `P2-03`
-are accepted; `P2-04` is next and pending, with no item currently active. Work
-stops unconditionally at Gate 2.
+`P2-10`, is complete at its bounded item level. Its dated worklist and entry
+baseline are under `docs/evidence/2026-08-04-phase2/`. All ten items are
+accepted; Gate 2 is the active unconditional stop and no Phase-3 item is
+authorized.
 
 Do not activate a Phase-2 item until its predecessor has accepted evidence or
 explicit blocker evidence and remains marked incomplete. The decision does not

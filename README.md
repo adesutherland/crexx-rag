@@ -10,11 +10,11 @@ also a deliberately demanding cREXX reference workload: it exercises the
 language, runtimes, libraries, plugin model, packaging, diagnostics, and
 performance with retained correctness and workload evidence.
 
-> **Programme status, 2026-08-06:** Gate 1B is accepted, including all 28
-> bounded Phase-1B results and their recorded limitations. Phase 2 is approved
-> as the next product phase and has started from a pushed entry baseline.
-> `P2-01` through `P2-03` are accepted; `P2-04` is next and pending. The
-> native-v1 C++ path remains the executable oracle. Level G is
+> **Programme status, 2026-08-23:** Gate 1B is accepted, including all 28
+> bounded Phase-1B results and their recorded limitations. `P2-01` through
+> `P2-10` are accepted from the pushed Phase-2 entry baseline, and work is
+> stopped for the Gate-2 decision. Phase 3 is not authorized. The native-v1
+> C++ path remains the executable oracle. Level G is
 > now the required default for advanced libraries and application code; Level B
 > is reserved for CREXX bootstrap and justified low-level foundations.
 
@@ -98,7 +98,7 @@ or cutover candidate.
 | Phase 0 / Gate 0 | Complete | Native oracle, fixtures, judgements, defects, hashes, and measurement protocol frozen |
 | Phase 1A / Gate 1A | Complete | cREXX application and generic-plugin boundaries selected; CRI-01 through CRI-14 closed downstream |
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | 28 bounded items accepted; Debug/Release build; 55 of 56 tests pass with sole known CRI-15 failure |
-| Phase 2 / Gate 2 | Active; P2-10 pending | P2-01 through P2-09 are accepted, including the lifecycle facade, versioned workload/capability report, and three explicitly non-released generic review bundles; canonical zero-write plan/apply validation is next |
+| Phase 2 / Gate 2 | Item-complete; stopped for Gate 2 | P2-01 through P2-10 are accepted, including canonical zero-write planning and hostile apply-time revalidation; no job is enqueued and Phase 3 is not authorized |
 | Phase 3 and later | Not authorized | No production ingestion, cutover, or native retirement has started |
 
 Gate 1B established:

@@ -1,7 +1,8 @@
 # Gate 1B Decision Ledger
 
-Status date: 2026-08-23. Gate 1B remains accepted. Phase 2 is the active product
-phase alongside separately bounded CREXX capability work.
+Status date: 2026-08-23. Gate 1B remains accepted. The bounded Phase-2 items
+are complete and work is stopped for Gate 2 alongside separately bounded CREXX
+capability work.
 
 This ledger records the user's decision on the completed
 [Gate-1B evidence packet](evidence/2026-08-03-phase1b/GATE-1B-DECISION-PACKET.md).
@@ -104,8 +105,8 @@ requires explicit approval. No Phase-2 item was activated or reordered.
 
 ## Start State
 
-`P2-01` through `P2-03` are accepted. `P2-04` is the next product item and is
-pending with no item active. The capability-sync compatibility replay is
-complete. Provider-lifecycle work remains separately approval-gated, and the
-exact downstream Linux replay is deferred to later QA after material progress
-on this host; neither reorders or blocks Phase 2.
+`P2-01` through `P2-10` are accepted. No product item is active; Gate 2 is the
+mandatory stop. The capability-sync compatibility replay is complete.
+Provider-lifecycle work remains separately approval-gated, and the exact
+downstream Linux replay is deferred to later QA after material progress on this
+host. Neither authorizes or starts Phase 3.

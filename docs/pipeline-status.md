@@ -19,7 +19,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Gate 1A | Accepted 2026-08-03 | D1-D8 boundaries and the bounded D9 worklist are recorded; its historical Linux replay retained the original CRI-15 failure |
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | Every bounded item is accepted; the historical Gate validation was 55/56 with sole expected CRI-15; current disposition is tracked separately |
 | Language strategy | Level G first, accepted 2026-08-04 | Advanced libraries and application code use Level G; Level B is limited to justified CREXX bootstrap/foundation work |
-| Phase 2 / Gate 2 | Active; `P2-10` pending | `P2-01` through `P2-09` are accepted, including the shared lifecycle facade, versioned workload/capability report, and three explicitly non-released generic review bundles; canonical zero-write plan/apply validation is next |
+| Phase 2 / Gate 2 | Item-complete; stopped for Gate 2 | `P2-01` through `P2-10` are accepted, including canonical zero-write plans and hostile apply-time revalidation; no plan is enqueued and Phase 3 is not authorized |
 | Parallel CREXX capability sync | Current-head macOS replay complete; follow-up deferred | Current installed-only macOS replay, public Level-G HTTP/toolchain adoption, `rxhash.sha256`, and exact `rxvector` integration pass 62/62 against CREXX `e3d6b7b90158`. Remaining provider-lifecycle work is separately approval-gated, and exact downstream Linux confirmation is deferred to later QA after material local progress; neither blocks Phase 2. |
 | Phase 3 and later | Not authorized | No production ingestion, additional hosted qualification, cutover, or retirement |
 
@@ -173,6 +173,17 @@ retains adjacent use/system docs and metadata that explicitly denies release or
 donation-submission status. No hosted call, installed-capability copy, upstream
 submission, or CREXX edit occurred.
 
+`P2-10` adds `crexx-rag.plan/1` canonical envelopes and SHA-256 digests to the
+shared Level-G facade for ingest, improve, and proposal planning. Planning pins
+the published generation and binds the registered config/profile snapshot,
+current source-revision fingerprint set, provider route/privacy declarations,
+active reservations, required capability, and one-hour expiry without changing
+the database, manifest, WAL, or shared-memory fingerprints. Apply checks access
+before inspecting the hostile payload, verifies its reviewed digest, strictly
+reconstructs the canonical JSON, and re-reads every binding. A valid plan ends
+at stable unavailable exit 8 with `enqueued=false`; Phase-3/4 execution has not
+been smuggled into the foundation.
+
 On 2026-08-22 the separately bounded CREXX capability sync completed its
 macOS work against a fresh installed-only scratch prefix. Downstream content
 identity now exercises installed `rxhash.sha256`; the accepted exact CPU
@@ -225,7 +236,8 @@ and Phase-2 authority are recorded in the
 
 The dated Phase-2 worklist, entry baseline, item ordering, evidence
 requirements, exclusions, and Gate-2 stop are established. `P2-01` through
-`P2-09` are accepted; `P2-10` is next and pending, with no item active.
+`P2-10` are accepted; no later item is active, and work is stopped for the
+Gate-2 decision.
 Separately bounded CREXX
 capability work may proceed in parallel only after each stream records an
 equivalent boundary.

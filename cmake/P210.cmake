@@ -31,8 +31,9 @@ set(module_sources
     "${CPRAG_APP_DIR}/ragfoundation.crexx"
     "${CPRAG_SOURCE}")
 file(WRITE "${report}"
-    "item=P2-08\nlevel=G\ncommands=10\nlifecycle=7\n"
-    "provider_test=configuration-only\nprovider_calls=0\ncredential_resolutions=0\n")
+    "item=P2-10\nlevel=G\nplan_schema=crexx-rag.plan/1\n"
+    "planning_library_writes=0\napply_validation_library_writes=0\n"
+    "enqueue=withheld-later-phase\nprovider_calls=0\n")
 
 set(source_index 0)
 foreach(source IN LISTS module_sources)
@@ -100,7 +101,7 @@ foreach(mode IN ITEMS noopt opt)
     compile_crexx("${CPRAG_APP_DIR}/ragfoundation.crexx" "${CPRAG_WORK_DIR}/ragfoundation"
         "${program_import}" "${mode_flag}" "${mode} foundation facade")
     compile_crexx("${CPRAG_SOURCE}" "${CPRAG_WORK_DIR}/program-${mode}"
-        "${program_import}" "${mode_flag}" "${mode} foundation scenario")
+        "${program_import}" "${mode_flag}" "${mode} plan scenario")
 
     foreach(runtime_name IN ITEMS rxvme rxbvm)
         if(runtime_name STREQUAL "rxvme")
@@ -122,15 +123,9 @@ foreach(mode IN ITEMS noopt opt)
             OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err
             RESULT_VARIABLE vm_result TIMEOUT 90)
         if(NOT vm_result EQUAL 0 OR NOT vm_out MATCHES
-                "P2_08_FOUNDATION_OK cell=${cell} commands=10 lifecycle=7 providers=3 provider_calls=0 credential_resolutions=0 read_command_writes=0 restored_verified=1")
-            message(FATAL_ERROR "${cell} foundation scenario failed (${vm_result}):\n${vm_out}\n${vm_err}")
+                "P2_10_PLAN_OK cell=${cell} plans=3 canonical=1 zero_write=1 digest=1 hostile_revalidation=1 generation=1 expiry=1 config_profile=1 source=1 provider_route=1 reservations=1 capability=1 enqueued=0 provider_calls=0")
+            message(FATAL_ERROR "${cell} plan scenario failed (${vm_result}):\n${vm_out}\n${vm_err}")
         endif()
-        foreach(bundle IN ITEMS library.cprag backup.cprag restored.cprag)
-            if(NOT EXISTS "${cell_root}/${bundle}/library.sqlite" OR
-               NOT EXISTS "${cell_root}/${bundle}/manifest.json")
-                message(FATAL_ERROR "${cell} did not retain complete ${bundle}")
-            endif()
-        endforeach()
         file(APPEND "${report}" "${cell}:\n${vm_out}${vm_err}\n")
     endforeach()
 endforeach()
@@ -139,10 +134,10 @@ set(source_index 0)
 foreach(source IN LISTS module_sources)
     file(SHA256 "${source}" source_hash_after)
     if(NOT source_hash_after STREQUAL "${source_hash_${source_index}}")
-        message(FATAL_ERROR "P2-08 changed source input during facade execution: ${source}")
+        message(FATAL_ERROR "P2-10 changed source input during plan execution: ${source}")
     endif()
     math(EXPR source_index "${source_index} + 1")
 endforeach()
 
 message(STATUS
-    "P2-08 passed: shared foundation dispatch for doctor, seven library lifecycle commands, provider status/configuration-only test, and profile validation across noopt/opt x rxvme/rxbvm with access, zero-write, no-secret, and no-outbound proofs")
+    "P2-10 passed: canonical content-addressed planning and hostile apply-time revalidation across noopt/opt x rxvme/rxbvm with zero-write, access, expiry, generation, config/profile, source, provider-route, and reservation proofs")

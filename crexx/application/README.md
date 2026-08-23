@@ -23,6 +23,9 @@ import ragcompat
 import ragbackup
 import ragrepository
 import ragcommand
+import ragcanonical
+import ragplanning
+import ragfoundation
 ```
 
 `raglibrary` defines the library and factory interfaces. `ragjob` defines the
@@ -50,6 +53,14 @@ remain argv values rather than shell text. The stable exit range is 0 through
 10. Machine output uses `crexx-rag.command-result/1`; JSON is one result object,
 NDJSON is one bounded header plus one line per record, and human output is a
 sanitized rendering of the same typed result.
+
+`ragcanonical` owns byte-stable non-secret configuration, profile, and provider
+route/privacy projections plus installed SHA-256 use. `ragplanning` creates and
+revalidates `crexx-rag.plan/1` envelopes over a pinned read snapshot.
+`ragfoundation` is the shared command dispatcher. Its ingest, improve, and
+proposal planning operations are successful read-only previews; matching apply
+operations validate hostile JSON and the reviewed digest, then truthfully stop
+as unavailable with `enqueued=false` until later roadmap phases implement jobs.
 
 `ragrepositoryrecord` is the shared typed page envelope. `identity`,
 `parent_identity`, and `related_identity` retain graph/storage identity;
@@ -81,7 +92,9 @@ sidecars, binary hashing, and crash ordering are covered by
 `p2_05_backup_scenario.crexx`; pinned pagination and repository invariants are
 covered by `p2_06_repository_scenario.crexx`.
 Command parsing and result rendering are covered by
-`p2_07_command_contract.crexx`.
+`p2_07_command_contract.crexx`; lifecycle dispatch is covered by
+`p2_08_foundation_facade.crexx`; canonical planning and revalidation are covered
+by `p2_10_plan_revalidation.crexx`.
 
 `ragstore` uses a directory bundle containing `library.sqlite` and the
 recoverable `manifest.json` projection. SQLite is authoritative. A publication
@@ -92,14 +105,13 @@ returns the stable bundle to rollback-journal mode.
 
 ## Current Limits
 
-`P2-01` freezes the Level G object vocabulary and `P2-02` configuration loading
-is side-effect free with symbolic `env:NAME` references only. `P2-03` implements
-the storage foundation, `P2-04` adds version-1 conversion, and `P2-05` adds
-sidecar publication plus backup/restore. `P2-06` adds the internal paged
-repository API, and `P2-07` freezes command/result contracts. `P2-07` does not
-dispatch lifecycle behavior or replace the native executable; the first
-implemented cREXX commands arrive in P2-08. Provider execution, plan validation,
-and job workers remain later items. Sidecar verification currently reads at
+`P2-01` through `P2-10` now implement the bounded Level-G Phase-2 foundation:
+contracts, registered configuration, schema-v2 storage, version-1 conversion,
+backup/restore, paged repositories, command/result contracts, lifecycle and
+configuration-only diagnostic dispatch, and canonical plan/revalidation.
+The native executable remains the oracle and no plan is enqueued. Provider
+execution, ingestion algorithms, improvement/proposal execution, workers, and
+transport adapters remain later items. Sidecar verification currently reads at
 most 2,147,483,647 bytes into
 memory because installed `rxhash.sha256` is one-shot; incremental/file hashing
 remains a separately scoped CREXX capability backlog item.

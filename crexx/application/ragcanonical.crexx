@@ -1,0 +1,131 @@
+options levelg
+
+namespace ragcanonical expose ragsha256 canonicalconfig canonicalprofile canonicalproviderroute
+
+import rxfnsb
+import rxjson
+import rxhash
+import ragconfig
+import ragprofile
+
+ragsha256: procedure = .string
+  arg value = .string
+  return lower(bin2x(rxhash..sha256(value)))
+
+canonicalconfig: procedure = .string
+  arg config = .ragconfig
+  output = "{" || jsonquote("config_id") || ":" || jsonquote(config.config_id()) || "," || jsonquote("version") || ":" || jsonquote(config.version())
+  output = output || "," || jsonquote("source_sets") || ":["
+  source_sets = config.source_sets()
+  do i = 1 to source_sets.0
+    if i > 1 then output = output || ","
+    source = source_sets[i]; patterns = source.include_patterns()
+    output = output || "{" || jsonquote("id") || ":" || jsonquote(source.source_set_id()) || "," || jsonquote("connector") || ":" || jsonquote(source.connector()) || "," || jsonquote("root") || ":" || jsonquote(source.root()) || "," || jsonquote("stable_key") || ":" || jsonquote(source.stable_key()) || "," || jsonquote("privacy") || ":" || jsonquote(source.privacy()) || "," || jsonquote("retain_raw_artifact") || ":" || _boolean(source.retain_raw_artifact()) || "," || jsonquote("include_patterns") || ":["
+    do j = 1 to patterns.0
+      if j > 1 then output = output || ","
+      output = output || jsonquote(patterns[j])
+    end
+    output = output || "]}"
+  end
+  output = output || "]," || jsonquote("providers") || ":["
+  providers = config.providers()
+  do i = 1 to providers.0
+    if i > 1 then output = output || ","
+    provider = providers[i]
+    output = output || "{" || jsonquote("id") || ":" || jsonquote(provider.provider_id()) || "," || jsonquote("kind") || ":" || jsonquote(provider.kind()) || "," || jsonquote("base_url") || ":" || jsonquote(provider.base_url()) || "," || jsonquote("model") || ":" || jsonquote(provider.model()) || "," || jsonquote("route_class") || ":" || jsonquote(provider.route_class()) || "," || jsonquote("privacy_policy") || ":" || jsonquote(provider.privacy_policy()) || "," || jsonquote("credential_ref") || ":" || jsonquote(provider.credential().ref_string()) || "," || jsonquote("timeout_ms") || ":" || provider.timeout_ms() || "," || jsonquote("max_attempts") || ":" || provider.max_attempts() || "}"
+  end
+  output = output || "]," || jsonquote("roles") || ":["
+  roles = config.roles()
+  do i = 1 to roles.0
+    if i > 1 then output = output || ","
+    output = output || "{" || jsonquote("role") || ":" || jsonquote(roles[i].role()) || "," || jsonquote("provider_id") || ":" || jsonquote(roles[i].provider_id()) || "}"
+  end
+  output = output || "]," || jsonquote("profile_ids") || ":["
+  ids = config.profile_ids()
+  do i = 1 to ids.0
+    if i > 1 then output = output || ","
+    output = output || jsonquote(ids[i])
+  end
+  budget = config.budget(); workers = config.workers()
+  output = output || "]," || jsonquote("budget") || ":{" || jsonquote("minutes") || ":" || budget.minutes() || "," || jsonquote("item_limit") || ":" || budget.item_limit() || "," || jsonquote("model_calls") || ":" || budget.model_calls() || "," || jsonquote("input_tokens") || ":" || budget.input_tokens() || "," || jsonquote("output_tokens") || ":" || budget.output_tokens() || "," || jsonquote("cost_microunits") || ":" || budget.cost_microunits() || "}"
+  output = output || "," || jsonquote("workers") || ":{" || jsonquote("processes") || ":" || workers.processes() || "," || jsonquote("max_in_flight") || ":" || workers.max_in_flight() || "," || jsonquote("lease_seconds") || ":" || workers.lease_seconds() || "}"
+  output = output || "," || jsonquote("schedules") || ":["
+  schedules = config.schedules()
+  do i = 1 to schedules.0
+    if i > 1 then output = output || ","
+    output = output || "{" || jsonquote("id") || ":" || jsonquote(schedules[i].schedule_id()) || "," || jsonquote("trigger") || ":" || jsonquote(schedules[i].trigger()) || "," || jsonquote("enabled") || ":" || _boolean(schedules[i].enabled()) || "}"
+  end
+  output = output || "]}"
+  return output
+
+canonicalprofile: procedure = .string
+  arg profile = .ragprofile
+  output = "{" || jsonquote("profile_id") || ":" || jsonquote(profile.profile_id()) || "," || jsonquote("version") || ":" || jsonquote(profile.version())
+  output = output || "," || jsonquote("concept_types") || ":["
+  values = profile.concept_types()
+  do i = 1 to values.0
+    if i > 1 then output = output || ","
+    output = output || jsonquote(values[i])
+  end
+  output = output || "]," || jsonquote("relationship_types") || ":["
+  relationships = profile.relationship_types()
+  do i = 1 to relationships.0
+    if i > 1 then output = output || ","
+    relationship = relationships[i]
+    output = output || "{" || jsonquote("id") || ":" || jsonquote(relationship.relationship_id()) || "," || jsonquote("inverse_id") || ":" || jsonquote(relationship.inverse_id()) || "," || jsonquote("directional") || ":" || _boolean(relationship.directional()) || "}"
+  end
+  output = output || "]," || jsonquote("aliases") || ":["
+  aliases = profile.aliases()
+  do i = 1 to aliases.0
+    if i > 1 then output = output || ","
+    output = output || "{" || jsonquote("surface") || ":" || jsonquote(aliases[i].surface()) || "," || jsonquote("canonical") || ":" || jsonquote(aliases[i].canonical()) || "}"
+  end
+  chunk = profile.chunk_policy(); formats = chunk.formats()
+  output = output || "]," || jsonquote("chunk_policy") || ":{" || jsonquote("max_characters") || ":" || chunk.max_characters() || "," || jsonquote("overlap_characters") || ":" || chunk.overlap_characters() || "," || jsonquote("formats") || ":["
+  do i = 1 to formats.0
+    if i > 1 then output = output || ","
+    output = output || jsonquote(formats[i])
+  end
+  output = output || "]}," || jsonquote("ranking_weights") || ":["
+  weights = profile.ranking_weights()
+  do i = 1 to weights.0
+    if i > 1 then output = output || ","
+    output = output || "{" || jsonquote("name") || ":" || jsonquote(weights[i].name()) || "," || jsonquote("value") || ":" || weights[i].value() || "}"
+  end
+  output = output || "]," || jsonquote("prompts") || ":["
+  prompts = profile.prompts()
+  do i = 1 to prompts.0
+    if i > 1 then output = output || ","
+    output = output || "{" || jsonquote("role") || ":" || jsonquote(prompts[i].role()) || "," || jsonquote("version") || ":" || jsonquote(prompts[i].version()) || "," || jsonquote("template_id") || ":" || jsonquote(prompts[i].template_id()) || "}"
+  end
+  output = output || "]," || jsonquote("validators") || ":["
+  validators = profile.validators()
+  do i = 1 to validators.0
+    if i > 1 then output = output || ","
+    output = output || jsonquote(validators[i])
+  end
+  output = output || "]}"
+  return output
+
+canonicalproviderroute: procedure = .string
+  arg config = .ragconfig
+  output = "{" || jsonquote("providers") || ":["
+  providers = config.providers()
+  do i = 1 to providers.0
+    if i > 1 then output = output || ","
+    provider = providers[i]
+    output = output || "{" || jsonquote("id") || ":" || jsonquote(provider.provider_id()) || "," || jsonquote("route_class") || ":" || jsonquote(provider.route_class()) || "," || jsonquote("privacy_policy") || ":" || jsonquote(provider.privacy_policy()) || "}"
+  end
+  output = output || "]," || jsonquote("roles") || ":["
+  roles = config.roles()
+  do i = 1 to roles.0
+    if i > 1 then output = output || ","
+    output = output || "{" || jsonquote("role") || ":" || jsonquote(roles[i].role()) || "," || jsonquote("provider_id") || ":" || jsonquote(roles[i].provider_id()) || "}"
+  end
+  output = output || "]}"
+  return output
+
+_boolean: procedure = .string
+  arg value = .int
+  if value = 1 then return "true"
+  return "false"

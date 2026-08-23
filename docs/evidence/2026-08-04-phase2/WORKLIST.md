@@ -57,8 +57,9 @@ retained blocker evidence. At most one roadmap item may be active.
   prepare complete bundles for already accepted generic components. Donation
   submission remains outside Phase 2 authority. Accepted evidence:
   [P2-09.md](P2-09.md).
-- [ ] **P2-10** Implement zero-library-write canonical plan encoding and digest
-  plus untrusted apply-time revalidation through the shared facade.
+- [x] **P2-10** Implement zero-library-write canonical plan encoding and digest
+  plus untrusted apply-time revalidation through the shared facade. Accepted
+  evidence: [P2-10.md](P2-10.md).
 
 ## Item Evidence
 
