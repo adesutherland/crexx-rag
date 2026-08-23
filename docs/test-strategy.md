@@ -182,6 +182,18 @@ after sidecar preparation/install/SQLite commit/temporary manifest and after
 backup or restore database/sidecar/manifest staging. No partial final folder is
 visible at any pre-publication boundary.
 
+`P2-06` adds `p2_06_repositories`: 16 fixed repository names are paged one row
+at a time through bound opaque keyset cursors in all four compiler/runtime
+cells. A generation-2 read transaction continues to see the exact old semantic
+and operational rows while its already-open WAL writer publishes generation 3;
+a fresh snapshot sees the replacement rows and later job/review activity.
+Artifact and embedding BLOBs cross the typed record boundary byte-exactly.
+Invalid repository names, page limits, oversized cursors, and closed snapshots
+are denied. Repository verification covers visible parent/end-point/support/
+embedding membership, generation publication, FTS equality, job/item/attempt
+lifecycle, review decisions, and a deliberately injected cross-source current
+revision plus invalid job state.
+
 Current Phase-1B progress: the installed-SDK section is accepted under
 `P1-RXPA-01` and `P1-RXPA-02`. `P1-SQL-01` through `P1-SQL-07` pass their
 dedicated targets and exact CTest labels for optimized/non-optimized programs

@@ -1282,6 +1282,30 @@ if(CPRAG_BUILD_TESTS)
         add_test(NAME p2_05_backup_restore COMMAND ${P2_05_COMMAND})
         set_tests_properties(p2_05_backup_restore PROPERTIES
             LABELS "P2-05;phase2;crexx;levelg;levelb-foundation;application;sqlite;backup;restore;snapshot;generation;sidecar;sha256;read-only;crash;verify;atomic")
+        set(P2_06_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+            "-DCPRAG_SCHEMA=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragschema.crexx"
+            "-DCPRAG_FILE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragfile.crexx"
+            "-DCPRAG_STORE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragstore.crexx"
+            "-DCPRAG_REPOSITORY=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragrepository.crexx"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p2_06_repository_scenario.crexx"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p2-06-repositories"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P206.cmake")
+        add_custom_target(p2_06_repositories
+            COMMAND ${P2_06_COMMAND}
+            DEPENDS _sqlite_boundary
+            COMMENT "Running P2-06 Level-G paged repository proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p2_06_repositories COMMAND ${P2_06_COMMAND})
+        set_tests_properties(p2_06_repositories PROPERTIES
+            LABELS "P2-06;phase2;crexx;levelg;application;sqlite;repository;pagination;cursor;snapshot;generation;binary;lifecycle;orphan;verify")
         add_test(
             NAME crexx_profile_smoke
             COMMAND "${CMAKE_COMMAND}"

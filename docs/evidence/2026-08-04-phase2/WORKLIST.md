@@ -42,9 +42,9 @@ retained blocker evidence. At most one roadmap item may be active.
 - [x] **P2-05** Implement generation-pinned online backup, immutable matching
   sidecars, snapshot manifests, fresh-folder restore, and crash-order tests.
   Accepted evidence: [P2-05.md](P2-05.md).
-- [ ] **P2-06** Implement paged repositories for sources, revisions, chunks,
+- [x] **P2-06** Implement paged repositories for sources, revisions, chunks,
   generations, concepts, claims, support, lineage, embeddings, jobs, attempts,
-  and reviews.
+  and reviews. Accepted evidence: [P2-06.md](P2-06.md).
 
 ## Product Surfaces
 

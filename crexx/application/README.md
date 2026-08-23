@@ -21,6 +21,7 @@ import ragfile
 import ragstore
 import ragcompat
 import ragbackup
+import ragrepository
 ```
 
 `raglibrary` defines the library and factory interfaces. `ragjob` defines the
@@ -35,6 +36,20 @@ verification, and rollback ordering.
 `ragcompat` owns read-only version-1 inspection and side-by-side import.
 `ragbackup` owns immutable sidecar publication, generation-pinned online backup,
 and fresh-folder restore.
+`ragrepository` owns bounded keyset pages over pinned read snapshots. Its static
+registry covers sources, source artifacts, source revisions, normalization
+maps, chunk contents and occurrences, published generations, concepts, claims,
+support and lineage, embedding occurrences, jobs and items, attempts, and
+reviews. Repository names select fixed SQL; cursors are always bound values and
+cannot select arbitrary tables or query text.
+
+`ragrepositoryrecord` is the shared typed page envelope. `identity`,
+`parent_identity`, and `related_identity` retain graph/storage identity;
+`name`, `category`, `state`, `value`, and `detail` project each table's scalar
+and JSON metadata; `payload` retains exact artifact/vector bytes; `ordinal` and
+`metric` carry repository-specific integer values; and the visibility bounds
+are explicit. A page records its pinned semantic generation and an opaque next
+cursor. The repository never returns an unbounded corpus array.
 
 `ragfile` is the one narrow Level-B foundation exception. Level G has no binary
 file-read API in the consumed CREXX package, so this module uses the VM's
@@ -55,7 +70,8 @@ The compiled consumers are
 matrix is `crexx/application/tests/p2_03_store_scenario.crexx`; version-1
 conversion is covered by `p2_04_v1_compatibility.crexx`; backup/restore,
 sidecars, binary hashing, and crash ordering are covered by
-`p2_05_backup_scenario.crexx`.
+`p2_05_backup_scenario.crexx`; pinned pagination and repository invariants are
+covered by `p2_06_repository_scenario.crexx`.
 
 `ragstore` uses a directory bundle containing `library.sqlite` and the
 recoverable `manifest.json` projection. SQLite is authoritative. A publication
@@ -69,7 +85,8 @@ returns the stable bundle to rollback-journal mode.
 `P2-01` freezes the Level G object vocabulary and `P2-02` configuration loading
 is side-effect free with symbolic `env:NAME` references only. `P2-03` implements
 the storage foundation, `P2-04` adds version-1 conversion, and `P2-05` adds
-sidecar publication plus backup/restore. Paged repository APIs, command
+sidecar publication plus backup/restore. `P2-06` adds the internal paged
+repository API; it is not yet a CLI or other public command surface. Command
 adapters, provider execution, plan validation, and job workers remain later
 items. Sidecar verification currently reads at most 2,147,483,647 bytes into
 memory because installed `rxhash.sha256` is one-shot; incremental/file hashing

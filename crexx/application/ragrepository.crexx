@@ -1,0 +1,348 @@
+options levelg
+
+namespace ragrepository expose ragrepositoryrecord ragrepositorypage ragrepositoryverifyresult repositorynames pagerepository verifyrepositories
+
+import rxfnsb
+import sqlite_boundary
+import ragstore
+
+/* A repository record is a bounded typed envelope shared by the product
+ * repositories. Repository-specific field meaning is documented beside the
+ * module; identity, parent/related identity, binary payload and generation
+ * bounds are never serialized inside an untyped corpus-sized JSON value. */
+ragrepositoryrecord: class
+  _repository = .string
+  _identity = .string
+  _parent_identity = .string
+  _related_identity = .string
+  _name = .string
+  _category = .string
+  _state = .string
+  _value = .string
+  _detail = .string
+  _payload = .binary
+  _ordinal = .int
+  _metric = .int
+  _visible_from_generation = .int
+  _visible_to_generation = .int
+
+  *: factory
+    arg repository = .string, identity = .string, parent_identity = .string, related_identity = .string, name = .string, category = .string, state = .string, value = .string, detail = .string, payload = .binary, ordinal = .int, metric = .int, visible_from_generation = .int, visible_to_generation = .int
+    _repository = repository
+    _identity = identity
+    _parent_identity = parent_identity
+    _related_identity = related_identity
+    _name = name
+    _category = category
+    _state = state
+    _value = value
+    _detail = detail
+    _payload = payload
+    _ordinal = ordinal
+    _metric = metric
+    _visible_from_generation = visible_from_generation
+    _visible_to_generation = visible_to_generation
+    return
+
+  repository: method = .string
+    return _repository
+  identity: method = .string
+    return _identity
+  parent_identity: method = .string
+    return _parent_identity
+  related_identity: method = .string
+    return _related_identity
+  name: method = .string
+    return _name
+  category: method = .string
+    return _category
+  state: method = .string
+    return _state
+  value: method = .string
+    return _value
+  detail: method = .string
+    return _detail
+  payload: method = .binary
+    return _payload
+  ordinal: method = .int
+    return _ordinal
+  metric: method = .int
+    return _metric
+  visible_from_generation: method = .int
+    return _visible_from_generation
+  visible_to_generation: method = .int
+    return _visible_to_generation
+
+ragrepositorypage: class
+  _repository = .string
+  _snapshot_generation = .int
+  _records = .ragrepositoryrecord[]
+  _next_cursor = .string
+
+  *: factory
+    arg repository = .string, snapshot_generation = .int, records = .ragrepositoryrecord[], next_cursor = .string
+    _repository = repository
+    _snapshot_generation = snapshot_generation
+    _records = records
+    _next_cursor = next_cursor
+    return
+
+  repository: method = .string
+    return _repository
+  snapshot_generation: method = .int
+    return _snapshot_generation
+  records: method = .ragrepositoryrecord[]
+    return _records
+  next_cursor: method = .string
+    return _next_cursor
+
+ragrepositoryverifyresult: class
+  _issues = .int
+  _summary = .string
+
+  *: factory
+    arg issues = .int, summary = .string
+    _issues = issues
+    _summary = summary
+    return
+
+  ok: method = .int
+    return _issues = 0
+  issue_count: method = .int
+    return _issues
+  summary: method = .string
+    return _summary
+
+repositorynames: procedure = .string[]
+  names = .string[]
+  names[names.0 + 1] = "sources"
+  names[names.0 + 1] = "source-artifacts"
+  names[names.0 + 1] = "source-revisions"
+  names[names.0 + 1] = "normalization-maps"
+  names[names.0 + 1] = "chunk-contents"
+  names[names.0 + 1] = "chunk-occurrences"
+  names[names.0 + 1] = "generations"
+  names[names.0 + 1] = "concepts"
+  names[names.0 + 1] = "claims"
+  names[names.0 + 1] = "claim-support"
+  names[names.0 + 1] = "lineage"
+  names[names.0 + 1] = "embeddings"
+  names[names.0 + 1] = "jobs"
+  names[names.0 + 1] = "job-items"
+  names[names.0 + 1] = "attempts"
+  names[names.0 + 1] = "reviews"
+  return names
+
+pagerepository: procedure = .int
+  arg read_snapshot = .ragreadsnapshot, repository = .string, cursor = .string, limit = .int, expose page = .ragrepositorypage, expose error = .string
+  records = .ragrepositoryrecord[]
+  page = .ragrepositorypage(repository, 0, records, "")
+  error = ""
+  if read_snapshot.open() \= 1 then do
+    error = "read snapshot is closed"
+    return -5
+  end
+  if length(cursor) > 512 | limit < 1 | limit > 100 then do
+    error = "cursor must be at most 512 bytes and limit must be from 1 through 100"
+    return -1
+  end
+  generation = read_snapshot.generation()
+  visible = "visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ")"
+  empty_blob = "CAST(x'' AS BLOB)"
+
+  if repository = "sources" then do
+    sql = "SELECT source_id,source_id,'',coalesce(current_revision_id,''),observed_title,connector_type,lifecycle_state,observed_uri,stable_key," || empty_blob || ",0,0,visible_from_generation,coalesce(visible_to_generation,0) FROM sources WHERE source_id>?1 AND " || visible || " ORDER BY source_id LIMIT ?2"
+    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+  end
+  if repository = "source-artifacts" then do
+    sql = "SELECT a.artifact_id,a.artifact_id,'','',a.raw_digest,a.mime_type,a.encoding,coalesce(a.external_reference,''),a.created_at,coalesce(a.bytes," || empty_blob || "),0,coalesce(length(a.bytes),0),0,0 FROM source_artifacts a WHERE a.artifact_id>?1 AND EXISTS(SELECT 1 FROM source_revisions r WHERE r.artifact_id=a.artifact_id AND r.visible_from_generation<=" || generation || " AND (r.visible_to_generation IS NULL OR r.visible_to_generation>" || generation || ")) ORDER BY a.artifact_id LIMIT ?2"
+    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+  end
+  if repository = "source-revisions" then do
+    sql = "SELECT r.revision_id,r.revision_id,r.source_id,r.artifact_id,t.text_id,t.extractor_version,t.normalization_version,t.normalized_utf8,json_object('revision_envelope_digest',r.revision_envelope_digest,'text_digest',t.text_digest,'metadata_fingerprint',r.metadata_fingerprint,'captured_at',r.captured_at,'event_start_at',r.event_start_at,'event_end_at',r.event_end_at)," || empty_blob || ",0,length(t.normalized_utf8),r.visible_from_generation,coalesce(r.visible_to_generation,0) FROM source_revisions r JOIN source_revision_texts t ON t.text_id=r.text_id WHERE r.revision_id>?1 AND r." || visible || " ORDER BY r.revision_id LIMIT ?2"
+    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+  end
+  if repository = "normalization-maps" then do
+    sql = "SELECT m.map_id,m.map_id,m.revision_id,'','','span-map','mapped','',json_object('raw_start',m.raw_start,'raw_end',m.raw_end,'normalized_start',m.normalized_start,'normalized_end',m.normalized_end)," || empty_blob || ",m.line,m.unicode_column,r.visible_from_generation,coalesce(r.visible_to_generation,0) FROM normalization_maps m JOIN source_revisions r ON r.revision_id=m.revision_id WHERE m.map_id>?1 AND r." || visible || " ORDER BY m.map_id LIMIT ?2"
+    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+  end
+  if repository = "chunk-contents" then do
+    sql = "SELECT c.content_id,c.content_id,'','',c.content_digest,c.input_fingerprint,'immutable',c.text,''," || empty_blob || ",0,length(c.text),0,0 FROM chunk_contents c WHERE c.content_id>?1 AND EXISTS(SELECT 1 FROM revision_chunks r WHERE r.content_id=c.content_id AND r.visible_from_generation<=" || generation || " AND (r.visible_to_generation IS NULL OR r.visible_to_generation>" || generation || ")) ORDER BY c.content_id LIMIT ?2"
+    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+  end
+  if repository = "chunk-occurrences" then do
+    sql = "SELECT revision_chunk_id,revision_chunk_id,revision_id,content_id,continuity_key,parser_version,evidence_class,'',json_object('normalized_start',normalized_start,'normalized_end',normalized_end)," || empty_blob || ",ordinal,0,visible_from_generation,coalesce(visible_to_generation,0) FROM revision_chunks WHERE revision_chunk_id>?1 AND " || visible || " ORDER BY revision_chunk_id LIMIT ?2"
+    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+  end
+  if repository = "generations" then do
+    sql = "SELECT printf('%020d',generation),CAST(generation AS TEXT),coalesce(CAST(parent_generation AS TEXT),''),config_snapshot_id,summary,'generation',state,created_at,coalesce(published_at,'')," || empty_blob || ",generation,0,generation,0 FROM published_generations WHERE printf('%020d',generation)>?1 AND state='published' AND generation<=" || generation || " ORDER BY generation LIMIT ?2"
+    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+  end
+  if repository = "concepts" then do
+    sql = "SELECT concept_id,concept_id,'','',canonical_label,concept_type,lifecycle_state,'',''," || empty_blob || ",0,0,visible_from_generation,coalesce(visible_to_generation,0) FROM concepts WHERE concept_id>?1 AND " || visible || " ORDER BY concept_id LIMIT ?2"
+    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+  end
+  if repository = "claims" then do
+    sql = "SELECT claim_id,claim_id,source_concept_id,target_concept_id,relationship_type,'claim',direction,qualifiers_json,json_object('effective_from',effective_from,'effective_to',effective_to,'policy_version',policy_version)," || empty_blob || ",0,0,visible_from_generation,coalesce(visible_to_generation,0) FROM claims WHERE claim_id>?1 AND " || visible || " ORDER BY claim_id LIMIT ?2"
+    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+  end
+  if repository = "claim-support" then do
+    sql = "SELECT support_id,support_id,claim_id,revision_chunk_id,attribution,polarity,stance,directness,json_object('lineage_group',lineage_group,'extractor_identity',extractor_identity,'decision_id',decision_id)," || empty_blob || ",span_start,span_end,visible_from_generation,coalesce(visible_to_generation,0) FROM claim_support WHERE support_id>?1 AND " || visible || " ORDER BY support_id LIMIT ?2"
+    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+  end
+  if repository = "lineage" then do
+    sql = "SELECT lineage_group||char(31)||support_id,support_id,lineage_group,claim_id,attribution,polarity,stance,directness,extractor_identity," || empty_blob || ",span_start,span_end,visible_from_generation,coalesce(visible_to_generation,0) FROM claim_support WHERE (lineage_group||char(31)||support_id)>?1 AND " || visible || " ORDER BY lineage_group,support_id LIMIT ?2"
+    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+  end
+  if repository = "embeddings" then do
+    sql = "SELECT l.revision_chunk_id||char(31)||e.embedding_id,e.embedding_id,l.revision_chunk_id,e.embedding_profile_id,e.input_digest,coalesce(e.provider_run_id,''),'active',e.created_at,'',e.vector,e.dimension,length(e.vector),l.visible_from_generation,coalesce(l.visible_to_generation,0) FROM revision_chunk_embeddings l JOIN embeddings e ON e.embedding_id=l.embedding_id JOIN revision_chunks r ON r.revision_chunk_id=l.revision_chunk_id WHERE (l.revision_chunk_id||char(31)||e.embedding_id)>?1 AND l.visible_from_generation<=" || generation || " AND (l.visible_to_generation IS NULL OR l.visible_to_generation>" || generation || ") AND r.visible_from_generation<=" || generation || " AND (r.visible_to_generation IS NULL OR r.visible_to_generation>" || generation || ") ORDER BY l.revision_chunk_id,e.embedding_id LIMIT ?2"
+    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+  end
+  if repository = "jobs" then do
+    sql = "SELECT job_id,job_id,config_snapshot_id,'',plan_digest,'job',state,canonical_plan,json_object('item_budget',item_budget,'model_call_budget',model_call_budget,'input_token_budget',input_token_budget,'output_token_budget',output_token_budget,'cost_budget',cost_budget,'reserved_calls',reserved_calls,'reserved_tokens',reserved_tokens,'reserved_cost',reserved_cost,'created_at',created_at,'updated_at',updated_at)," || empty_blob || ",item_budget,model_call_budget,0,0 FROM jobs WHERE job_id>?1 ORDER BY job_id LIMIT ?2"
+    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+  end
+  if repository = "job-items" then do
+    sql = "SELECT item_id,item_id,job_id,'',idempotency_key,item_type,state,coalesce(worker_id,''),json_object('lease_until',lease_until,'fence',fence,'retry_at',retry_at,'input_hash',input_hash,'created_at',created_at,'updated_at',updated_at)," || empty_blob || ",priority,fence,0,0 FROM job_items WHERE item_id>?1 ORDER BY item_id LIMIT ?2"
+    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+  end
+  if repository = "attempts" then do
+    sql = "SELECT attempt_id,attempt_id,item_id,coalesce(provider_run_id,''),worker_id,validation_state,outcome,input_hash,json_object('output_hash',output_hash,'started_at',started_at,'completed_at',completed_at)," || empty_blob || ",fence,0,0,0 FROM attempts WHERE attempt_id>?1 ORDER BY attempt_id LIMIT ?2"
+    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+  end
+  if repository = "reviews" then do
+    sql = "SELECT review_id,review_id,subject_id,'',review_type,'review',state,proposal_json,coalesce(decision_json,'')," || empty_blob || ",0,0,0,0 FROM reviews WHERE review_id>?1 ORDER BY review_id LIMIT ?2"
+    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+  end
+  error = "unknown repository"
+  return -1
+
+verifyrepositories: procedure = .int
+  arg read_snapshot = .ragreadsnapshot, expose result = .ragrepositoryverifyresult, expose error = .string
+  result = .ragrepositoryverifyresult(1, "verification did not run")
+  error = ""
+  if read_snapshot.open() \= 1 then do
+    error = "read snapshot is closed"
+    return -5
+  end
+  database = read_snapshot.database()
+  generation = read_snapshot.generation()
+  visible_source = "s.visible_from_generation<=" || generation || " AND (s.visible_to_generation IS NULL OR s.visible_to_generation>" || generation || ")"
+  visible_revision = "r.visible_from_generation<=" || generation || " AND (r.visible_to_generation IS NULL OR r.visible_to_generation>" || generation || ")"
+  visible_chunk = "c.visible_from_generation<=" || generation || " AND (c.visible_to_generation IS NULL OR c.visible_to_generation>" || generation || ")"
+  visible_claim = "c.visible_from_generation<=" || generation || " AND (c.visible_to_generation IS NULL OR c.visible_to_generation>" || generation || ")"
+  visible_support = "s.visible_from_generation<=" || generation || " AND (s.visible_to_generation IS NULL OR s.visible_to_generation>" || generation || ")"
+
+  source_issues = _count(database, "SELECT count(*) FROM sources s WHERE " || visible_source || " AND (s.lifecycle_state NOT IN('active','retired') OR (s.current_revision_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM source_revisions r WHERE r.revision_id=s.current_revision_id AND r.source_id=s.source_id AND " || visible_revision || ")))", error)
+  revision_issues = _count(database, "SELECT count(*) FROM source_revisions r WHERE " || visible_revision || " AND NOT EXISTS(SELECT 1 FROM sources s WHERE s.source_id=r.source_id AND " || visible_source || ")", error)
+  chunk_issues = _count(database, "SELECT count(*) FROM revision_chunks c WHERE " || visible_chunk || " AND NOT EXISTS(SELECT 1 FROM source_revisions r WHERE r.revision_id=c.revision_id AND " || visible_revision || ")", error)
+  concept_issues = _count(database, "SELECT count(*) FROM concepts c WHERE c.visible_from_generation<=" || generation || " AND (c.visible_to_generation IS NULL OR c.visible_to_generation>" || generation || ") AND c.lifecycle_state NOT IN('active','retired')", error)
+  claim_issues = _count(database, "SELECT count(*) FROM claims c WHERE " || visible_claim || " AND (NOT EXISTS(SELECT 1 FROM concepts x WHERE x.concept_id=c.source_concept_id AND x.visible_from_generation<=" || generation || " AND (x.visible_to_generation IS NULL OR x.visible_to_generation>" || generation || ")) OR NOT EXISTS(SELECT 1 FROM concepts x WHERE x.concept_id=c.target_concept_id AND x.visible_from_generation<=" || generation || " AND (x.visible_to_generation IS NULL OR x.visible_to_generation>" || generation || ")))", error)
+  support_issues = _count(database, "SELECT count(*) FROM claim_support s WHERE " || visible_support || " AND (s.lineage_group='' OR s.extractor_identity='' OR NOT EXISTS(SELECT 1 FROM claims c WHERE c.claim_id=s.claim_id AND " || visible_claim || ") OR NOT EXISTS(SELECT 1 FROM revision_chunks c WHERE c.revision_chunk_id=s.revision_chunk_id AND " || visible_chunk || "))", error)
+  embedding_issues = _count(database, "SELECT count(*) FROM revision_chunk_embeddings l JOIN embeddings e ON e.embedding_id=l.embedding_id JOIN embedding_profiles p ON p.embedding_profile_id=e.embedding_profile_id WHERE l.visible_from_generation<=" || generation || " AND (l.visible_to_generation IS NULL OR l.visible_to_generation>" || generation || ") AND (NOT EXISTS(SELECT 1 FROM revision_chunks c WHERE c.revision_chunk_id=l.revision_chunk_id AND " || visible_chunk || ") OR e.dimension<>p.dimension OR length(e.vector)<>e.dimension*4)", error)
+  generation_issues = _count(database, "SELECT count(*) FROM (SELECT visible_from_generation AS g FROM sources UNION ALL SELECT visible_to_generation FROM sources WHERE visible_to_generation IS NOT NULL UNION ALL SELECT visible_from_generation FROM source_revisions UNION ALL SELECT visible_to_generation FROM source_revisions WHERE visible_to_generation IS NOT NULL UNION ALL SELECT visible_from_generation FROM revision_chunks UNION ALL SELECT visible_to_generation FROM revision_chunks WHERE visible_to_generation IS NOT NULL UNION ALL SELECT visible_from_generation FROM concepts UNION ALL SELECT visible_to_generation FROM concepts WHERE visible_to_generation IS NOT NULL UNION ALL SELECT visible_from_generation FROM claims UNION ALL SELECT visible_to_generation FROM claims WHERE visible_to_generation IS NOT NULL UNION ALL SELECT visible_from_generation FROM claim_support UNION ALL SELECT visible_to_generation FROM claim_support WHERE visible_to_generation IS NOT NULL UNION ALL SELECT visible_from_generation FROM revision_chunk_embeddings UNION ALL SELECT visible_to_generation FROM revision_chunk_embeddings WHERE visible_to_generation IS NOT NULL) v LEFT JOIN published_generations p ON p.generation=v.g WHERE p.generation IS NULL OR p.state<>'published'", error)
+  job_issues = _count(database, "SELECT count(*) FROM jobs WHERE state NOT IN('planned','queued','running','paused','cancel_requested','cancelled','completed','completed_with_errors','failed') OR item_budget<0 OR model_call_budget<0 OR input_token_budget<0 OR output_token_budget<0 OR cost_budget<0 OR reserved_calls<0 OR reserved_tokens<0 OR reserved_cost<0", error)
+  item_issues = _count(database, "SELECT count(*) FROM job_items WHERE state NOT IN('queued','running','processed','skipped','dead_letter','cancel_requested','cancelled') OR fence<0 OR (state IN('running','cancel_requested') AND (worker_id IS NULL OR worker_id='' OR fence<1 OR lease_until<1))", error)
+  attempt_issues = _count(database, "SELECT count(*) FROM attempts a WHERE a.fence<1 OR a.validation_state='' OR a.outcome NOT IN('running','succeeded','failed','expired','cancelled','skipped','dead_letter') OR (a.outcome='running' AND a.completed_at IS NOT NULL) OR (a.outcome<>'running' AND a.completed_at IS NULL) OR (a.outcome='running' AND NOT EXISTS(SELECT 1 FROM job_items i WHERE i.item_id=a.item_id AND i.state IN('running','cancel_requested') AND i.worker_id=a.worker_id AND i.fence=a.fence AND i.lease_until>0))", error)
+  review_issues = _count(database, "SELECT count(*) FROM reviews WHERE state NOT IN('pending','accepted','rejected','dismissed') OR (state='pending' AND (decision_json IS NOT NULL OR decided_at IS NOT NULL)) OR (state<>'pending' AND (decision_json IS NULL OR decided_at IS NULL))", error)
+  fts_issues = _count(database, "SELECT (SELECT count(*) FROM (SELECT c.revision_chunk_id,c.content_id,t.text FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE " || visible_chunk || " EXCEPT SELECT revision_chunk_id,content_id,body FROM chunks_fts))+(SELECT count(*) FROM (SELECT revision_chunk_id,content_id,body FROM chunks_fts EXCEPT SELECT c.revision_chunk_id,c.content_id,t.text FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE " || visible_chunk || "))", error)
+
+  counts = .int[]
+  counts[counts.0 + 1] = source_issues
+  counts[counts.0 + 1] = revision_issues
+  counts[counts.0 + 1] = chunk_issues
+  counts[counts.0 + 1] = concept_issues
+  counts[counts.0 + 1] = claim_issues
+  counts[counts.0 + 1] = support_issues
+  counts[counts.0 + 1] = embedding_issues
+  counts[counts.0 + 1] = generation_issues
+  counts[counts.0 + 1] = job_issues
+  counts[counts.0 + 1] = item_issues
+  counts[counts.0 + 1] = attempt_issues
+  counts[counts.0 + 1] = review_issues
+  counts[counts.0 + 1] = fts_issues
+  do i = 1 to counts.0
+    if counts[i] < 0 then return -3
+  end
+  issues = 0
+  do i = 1 to counts.0
+    issues = issues + counts[i]
+  end
+  summary = "sources=" || source_issues || ",revisions=" || revision_issues || ",chunks=" || chunk_issues || ",concepts=" || concept_issues || ",claims=" || claim_issues || ",support=" || support_issues || ",embeddings=" || embedding_issues || ",generations=" || generation_issues || ",jobs=" || job_issues || ",items=" || item_issues || ",attempts=" || attempt_issues || ",reviews=" || review_issues || ",fts=" || fts_issues
+  result = .ragrepositoryverifyresult(issues, summary)
+  return 0
+
+_page: procedure = .int
+  arg read_snapshot = .ragreadsnapshot, repository = .string, sql = .string, cursor = .string, limit = .int, expose page = .ragrepositorypage, expose error = .string
+  records = .ragrepositoryrecord[]
+  prepared = .binary
+  if sqliteprepare(read_snapshot.database(), sql, prepared) \= 0 then return _sqlitefailure("prepare " || repository || " page", error)
+  if sqlitebindtext(prepared, 1, cursor) \= 0 | sqlitebindint(prepared, 2, limit + 1) \= 0 then do
+    call sqlitefinalize prepared
+    return _sqlitefailure("bind " || repository || " page", error)
+  end
+  next_cursor = ""; last_cursor = ""; rows = 0
+  do forever
+    status = sqlitestep(prepared)
+    if status = 101 then leave
+    if status \= 100 then do
+      call sqlitefinalize prepared
+      return _sqlitefailure("step " || repository || " page", error)
+    end
+    cursor_token = ""; identity = ""; parent_identity = ""; related_identity = ""; name = ""; category = ""; state = ""; value = ""; detail = ""; payload = .binary; ordinal = 0; metric = 0; visible_from = 0; visible_to = 0
+    column_status = sqlitecolumntext(prepared, 0, cursor_token)
+    column_status = column_status | sqlitecolumntext(prepared, 1, identity)
+    column_status = column_status | sqlitecolumntext(prepared, 2, parent_identity)
+    column_status = column_status | sqlitecolumntext(prepared, 3, related_identity)
+    column_status = column_status | sqlitecolumntext(prepared, 4, name)
+    column_status = column_status | sqlitecolumntext(prepared, 5, category)
+    column_status = column_status | sqlitecolumntext(prepared, 6, state)
+    column_status = column_status | sqlitecolumntext(prepared, 7, value)
+    column_status = column_status | sqlitecolumntext(prepared, 8, detail)
+    column_status = column_status | sqlitecolumnblob(prepared, 9, payload)
+    column_status = column_status | sqlitecolumnint(prepared, 10, ordinal)
+    column_status = column_status | sqlitecolumnint(prepared, 11, metric)
+    column_status = column_status | sqlitecolumnint(prepared, 12, visible_from)
+    column_status = column_status | sqlitecolumnint(prepared, 13, visible_to)
+    if column_status \= 0 then do
+      call sqlitefinalize prepared
+      return _sqlitefailure("read " || repository || " page", error)
+    end
+    rows = rows + 1
+    if rows <= limit then do
+      records[records.0 + 1] = .ragrepositoryrecord(repository, identity, parent_identity, related_identity, name, category, state, value, detail, payload, ordinal, metric, visible_from, visible_to)
+      last_cursor = cursor_token
+    end
+    else next_cursor = last_cursor
+  end
+  call sqlitefinalize prepared
+  page = .ragrepositorypage(repository, read_snapshot.generation(), records, next_cursor)
+  return 0
+
+_count: procedure = .int
+  arg database = .binary, sql = .string, expose error = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 then do
+    ignored = _sqlitefailure("prepare repository invariant", error)
+    return -1
+  end
+  if sqlitestep(prepared) \= 100 then do
+    call sqlitefinalize prepared
+    ignored = _sqlitefailure("step repository invariant", error)
+    return -1
+  end
+  value = -1
+  status = sqlitecolumnint(prepared, 0, value)
+  call sqlitefinalize prepared
+  if status \= 0 then do
+    ignored = _sqlitefailure("read repository invariant", error)
+    return -1
+  end
+  return value
+
+_sqlitefailure: procedure = .int
+  arg prefix = .string, expose error = .string
+  boundary_code = 0; sqlite_code = 0; sqlite_extended = 0; operation = ""; message = ""
+  call sqliteerrorextended boundary_code, sqlite_code, sqlite_extended, operation, message
+  error = prefix || ": " || message || " [boundary=" || boundary_code || ",sqlite=" || sqlite_code || ",extended=" || sqlite_extended || ",operation=" || operation || "]"
+  return -3
