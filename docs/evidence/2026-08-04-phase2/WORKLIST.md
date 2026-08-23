@@ -51,8 +51,8 @@ retained blocker evidence. At most one roadmap item may be active.
 - [x] **P2-07** Establish command parsing, stable exit codes, and semantic
   `human`, `json`, and `ndjson` result contracts. Accepted evidence:
   [P2-07.md](P2-07.md).
-- [ ] **P2-08** Add `doctor`, library lifecycle, provider status/test, and
-  profile validation commands.
+- [x] **P2-08** Add `doctor`, library lifecycle, provider status/test, and
+  profile validation commands. Accepted evidence: [P2-08.md](P2-08.md).
 - [ ] **P2-09** Publish the first cREXX-rag workload/capability report and
   prepare complete bundles for already accepted generic components. Donation
   submission remains outside Phase 2 authority.

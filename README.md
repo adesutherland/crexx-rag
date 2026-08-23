@@ -98,7 +98,7 @@ or cutover candidate.
 | Phase 0 / Gate 0 | Complete | Native oracle, fixtures, judgements, defects, hashes, and measurement protocol frozen |
 | Phase 1A / Gate 1A | Complete | cREXX application and generic-plugin boundaries selected; CRI-01 through CRI-14 closed downstream |
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | 28 bounded items accepted; Debug/Release build; 55 of 56 tests pass with sole known CRI-15 failure |
-| Phase 2 / Gate 2 | Active; P2-04 pending | Level-G contracts, registered configuration/profiles, and the schema-v2 storage foundation are accepted; version-1 read/import compatibility is next |
+| Phase 2 / Gate 2 | Active; P2-09 pending | P2-01 through P2-08 are accepted: Level-G contracts, registered configuration/profiles, schema-v2 lifecycle and conversion, pinned backup/restore, repositories, command contracts, and the shared lifecycle/diagnostic facade |
 | Phase 3 and later | Not authorized | No production ingestion, cutover, or native retirement has started |
 
 Gate 1B established:

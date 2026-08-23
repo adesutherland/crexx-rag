@@ -1326,6 +1326,27 @@ if(CPRAG_BUILD_TESTS)
         add_test(NAME p2_07_command_contract COMMAND ${P2_07_COMMAND})
         set_tests_properties(p2_07_command_contract PROPERTIES
             LABELS "P2-07;phase2;crexx;levelg;application;command;parser;argv;exit-code;human;json;ndjson;schema;bounded;zero-write")
+        set(P2_08_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+            "-DCPRAG_APP_DIR=${CMAKE_CURRENT_LIST_DIR}/crexx/application"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p2_08_foundation_facade.crexx"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p2-08-foundation-facade"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P208.cmake")
+        add_custom_target(p2_08_foundation_facade
+            COMMAND ${P2_08_COMMAND}
+            DEPENDS _sqlite_boundary
+            COMMENT "Running P2-08 Level-G foundation facade proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p2_08_foundation_facade COMMAND ${P2_08_COMMAND})
+        set_tests_properties(p2_08_foundation_facade PROPERTIES
+            LABELS "P2-08;phase2;crexx;levelg;application;facade;doctor;library;backup;restore;migrate;provider;profile;access;zero-write;zero-outbound;secret-free")
         add_test(
             NAME crexx_profile_smoke
             COMMAND "${CMAKE_COMMAND}"

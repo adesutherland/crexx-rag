@@ -164,8 +164,10 @@ P2-07 freezes the target parser contract: global `--library`, `--config`,
 `--profile`, `--format`, and repeated `--access` options precede the noun;
 operation options and positionals follow the noun/verb; and `--` makes all
 remaining argv values positional. This is an argv grammar, never a shell-text
-grammar. The parser contract is implemented in cREXX, but the target lifecycle
-commands themselves remain unavailable until their owning roadmap items.
+grammar. The parser contract and the P2-08 shared lifecycle/diagnostic
+dispatcher are implemented in cREXX. The examples below describe that shared
+operation contract; the replacement CLI adapter itself remains a later product
+surface.
 
 Stable target exit meanings are:
 
@@ -212,6 +214,11 @@ crexx-rag \
 
 `doctor` must distinguish missing installation capabilities from a broken
 library or an unavailable optional model.
+
+The P2-08 provider test is deliberately configuration-only: local declarations
+can be validated without a request, while hosted tests report that a separately
+authorized canary is required. Neither path resolves a credential or claims
+provider reachability.
 
 ## Plan And Run Initial Ingestion
 

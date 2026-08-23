@@ -1,0 +1,500 @@
+options levelg
+
+namespace ragfoundation expose dispatchfoundation
+
+import rxfnsb
+import rxjson
+import rxhash
+import ragmodel
+import ragconfig
+import ragprofile
+import ragregistry
+import ragcommand
+import ragstore
+import ragbackup
+import ragrepository
+
+dispatchfoundation: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = request.operation()
+  if operation = "doctor" then return _doctor(request, registry)
+  if operation = "library.init" then return _libraryinit(request, registry)
+  if operation = "library.status" then return _librarystatus(request)
+  if operation = "library.verify" then return _libraryverify(request)
+  if operation = "library.backup" then return _librarybackup(request)
+  if operation = "library.restore" then return _libraryrestore(request)
+  if operation = "library.migrate" then return _librarymigrate(request)
+  if operation = "provider.status" then return _providerstatus(request, registry)
+  if operation = "provider.test" then return _providertest(request, registry)
+  if operation = "profile.validate" then return _profilevalidate(request, registry)
+  return _failure(operation, 8, "operation is not implemented by the Phase-2 foundation facade")
+
+_doctor: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  error = ""
+  if _validateoptions(request, "", error) \= 0 then return _failure("doctor", 2, error)
+  records = .ragresultrecord[]
+  records[records.0 + 1] = _capabilityrecord("sqlite-boundary-v1", "required", "loaded")
+  records[records.0 + 1] = _capabilityrecord("rxjson-document-v1", "required", "loaded")
+  records[records.0 + 1] = _capabilityrecord("rxhash-sha256-v1", "required", "loaded")
+  records[records.0 + 1] = _capabilityrecord("binary-file-v1", "required", "loaded")
+  config_ids = registry.config_ids(); profile_ids = registry.profile_ids()
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("valid", "boolean", _boolean(registry.valid()))
+  fields[2] = .ragresultfield("config_count", "integer", config_ids.0)
+  fields[3] = .ragresultfield("profile_count", "integer", profile_ids.0)
+  records[records.0 + 1] = .ragresultrecord("registry-status", fields)
+  if registry.valid() \= 1 then return .ragcommandresult("doctor", "error", 3, "operator registry is invalid", records)
+
+  if request.config_id() \= "" then do
+    lookup = registry.config(request.config_id())
+    if lookup.found() \= 1 then return .ragcommandresult("doctor", "error", 5, "configuration is not registered", records)
+    providers = lookup.config().providers()
+    do i = 1 to providers.0
+      records[records.0 + 1] = _providerrecord(providers[i], "configured-not-probed", 0, 0)
+    end
+  end
+  if request.library() \= "" then do
+    store = .ragstorehandle; verification = .ragverifyresult
+    if openragstore(request.library(), "readonly", store, error) \= 0 then return .ragcommandresult("doctor", "error", 7, "library diagnostic failed: " || error, records)
+    status = .ragstorestatus
+    status_result = storagestatus(store, status, error)
+    verify_result = verifyragstore(store, 1, verification, error)
+    close_error = ""; close_result = closeragstore(store, close_error)
+    if status_result \= 0 | verify_result \= 0 | close_result \= 0 | verification.ok() \= 1 then do
+      if error = "" then error = verification.summary()
+      if error = "" then error = close_error
+      return .ragcommandresult("doctor", "error", 7, "library diagnostic failed: " || error, records)
+    end
+    records[records.0 + 1] = _storagerecord(status, verification.issue_count(), "verified")
+  end
+  return .ragcommandresult("doctor", "ok", 0, "required installed capabilities and selected configuration are valid; providers were not contacted", records)
+
+_libraryinit: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  if _hasaccess(request, "admin") \= 1 then return _failure("library.init", 4, "library initialization requires admin access")
+  error = ""
+  if _validateoptions(request, "", error) \= 0 then return _failure("library.init", 2, error)
+  if request.config_id() = "" | request.profile_id() = "" then return _failure("library.init", 2, "library init requires --config and --profile")
+  if registry.valid() \= 1 then return _failure("library.init", 3, "operator registry is invalid")
+  config_lookup = registry.config(request.config_id())
+  profile_lookup = registry.profile(request.profile_id())
+  if config_lookup.found() \= 1 then return _failure("library.init", 5, "configuration is not registered")
+  if profile_lookup.found() \= 1 then return _failure("library.init", 5, "profile is not registered")
+  config = config_lookup.config(); profile = profile_lookup.profile()
+  if _contains(config.profile_ids(), profile.profile_id()) \= 1 then return _failure("library.init", 3, "profile is not permitted by the selected configuration")
+  config_json = _configcanonical(config)
+  profile_json = _profilecanonical(profile)
+  effective_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.effective-config/1") || "," || jsonquote("config") || ":" || config_json || "," || jsonquote("profile") || ":" || profile_json || "}"
+  profile_hash = _sha256(profile_json)
+  config_hash = _sha256(effective_json)
+  snapshot_id = "config-" || left(config_hash, 24)
+  library_id = "library-" || left(_sha256(request.library() || "0A"x || config_hash), 24)
+  store = .ragstorehandle
+  init_result = initragstore(request.library(), library_id, snapshot_id, config.config_id(), config.version(), profile.profile_id(), profile_hash, config_hash, effective_json, store, error)
+  if init_result \= 0 then do
+    if init_result = -2 then return _failure("library.init", 6, error)
+    return _failure("library.init", 7, error)
+  end
+  status = .ragstorestatus
+  if storagestatus(store, status, error) \= 0 then do
+    ignored = ""; call closeragstore store, ignored
+    return _failure("library.init", 7, error)
+  end
+  if closeragstore(store, error) \= 0 then return _failure("library.init", 7, error)
+  records = .ragresultrecord[]
+  records[1] = _storagerecord(status, 0, "initialized")
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("config_id", "string", config.config_id())
+  fields[2] = .ragresultfield("config_version", "string", config.version())
+  fields[3] = .ragresultfield("config_hash", "string", config_hash)
+  fields[4] = .ragresultfield("profile_id", "string", profile.profile_id())
+  fields[5] = .ragresultfield("profile_hash", "string", profile_hash)
+  fields[6] = .ragresultfield("secret_values", "integer", "0")
+  records[2] = .ragresultrecord("config-snapshot", fields)
+  return .ragcommandresult("library.init", "ok", 0, "library initialized", records)
+
+_librarystatus: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  error = ""
+  if _validateoptions(request, "", error) \= 0 then return _failure("library.status", 2, error)
+  if _hasaccess(request, "read") \= 1 then return _failure("library.status", 4, "library status requires read access")
+  store = .ragstorehandle; status = .ragstorestatus
+  if openragstore(request.library(), "readonly", store, error) \= 0 then return _openfailure("library.status", error)
+  status_result = storagestatus(store, status, error)
+  close_error = ""; close_result = closeragstore(store, close_error)
+  if status_result \= 0 | close_result \= 0 then do
+    if error = "" then error = close_error
+    return _failure("library.status", 7, error)
+  end
+  records = .ragresultrecord[]; records[1] = _storagerecord(status, 0, "opened-readonly")
+  return .ragcommandresult("library.status", "ok", 0, "library status read without mutation", records)
+
+_libraryverify: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  error = ""
+  if _validateoptions(request, "", error) \= 0 then return _failure("library.verify", 2, error)
+  if _hasaccess(request, "diagnose") \= 1 then return _failure("library.verify", 4, "library verify requires diagnose access")
+  store = .ragstorehandle; verification = .ragverifyresult; status = .ragstorestatus
+  if openragstore(request.library(), "readonly", store, error) \= 0 then return _openfailure("library.verify", error)
+  status_result = storagestatus(store, status, error)
+  verify_result = verifyragstore(store, 1, verification, error)
+  read_snapshot = .ragreadsnapshot; repository_result = .ragrepositoryverifyresult
+  repository_status = beginreadsnapshot(request.library(), read_snapshot, error)
+  if repository_status = 0 then do
+    repository_status = verifyrepositories(read_snapshot, repository_result, error)
+    snapshot_error = ""; close_snapshot = closereadsnapshot(read_snapshot, snapshot_error)
+    if repository_status = 0 & close_snapshot \= 0 then do
+      repository_status = close_snapshot; error = snapshot_error
+    end
+  end
+  close_error = ""; close_result = closeragstore(store, close_error)
+  if status_result \= 0 | verify_result \= 0 | repository_status \= 0 | close_result \= 0 then do
+    if error = "" then error = close_error
+    return _failure("library.verify", 7, error)
+  end
+  records = .ragresultrecord[]
+  records[1] = _storagerecord(status, verification.issue_count(), "verified")
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("issue_count", "integer", repository_result.issue_count())
+  fields[2] = .ragresultfield("summary", "string", repository_result.summary())
+  records[2] = .ragresultrecord("repository-verification", fields)
+  if verification.ok() \= 1 | repository_result.ok() \= 1 then return .ragcommandresult("library.verify", "error", 7, "library verification found integrity issues", records)
+  return .ragcommandresult("library.verify", "ok", 0, "library and repositories verified", records)
+
+_librarybackup: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  error = ""
+  if _validateoptions(request, "output", error) \= 0 then return _failure("library.backup", 2, error)
+  if _hasaccess(request, "admin") \= 1 then return _failure("library.backup", 4, "library backup requires admin access")
+  output = _option(request, "output", error)
+  if error \= "" | output = "" then return _failure("library.backup", 2, "library backup requires one --output value")
+  report = .ragbackupreport
+  backup_result = backupragstore(request.library(), output, report, error)
+  if backup_result \= 0 then do
+    if pos("already exists", error) > 0 then return _failure("library.backup", 6, error)
+    return _failure("library.backup", 7, error)
+  end
+  records = .ragresultrecord[]; records[1] = _backuprecord(output, report)
+  return .ragcommandresult("library.backup", "ok", 0, "generation-pinned backup published", records)
+
+_libraryrestore: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  error = ""
+  if _validateoptions(request, "input output", error) \= 0 then return _failure("library.restore", 2, error)
+  if _hasaccess(request, "admin") \= 1 then return _failure("library.restore", 4, "library restore requires admin access")
+  input = _option(request, "input", error)
+  if error \= "" then return _failure("library.restore", 2, error)
+  output = _option(request, "output", error)
+  if error \= "" | input = "" | output = "" then return _failure("library.restore", 2, "library restore requires one --input and one --output value")
+  report = .ragbackupreport
+  restore_result = restoreragstore(input, output, report, error)
+  if restore_result \= 0 then do
+    if pos("fresh target", error) > 0 then return _failure("library.restore", 6, error)
+    if pos("does not exist", error) > 0 then return _failure("library.restore", 5, error)
+    return _failure("library.restore", 7, error)
+  end
+  records = .ragresultrecord[]; records[1] = _backuprecord(output, report)
+  return .ragcommandresult("library.restore", "ok", 0, "backup restored into a fresh target", records)
+
+_librarymigrate: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  error = ""
+  if _validateoptions(request, "", error) \= 0 then return _failure("library.migrate", 2, error)
+  if _hasaccess(request, "admin") \= 1 then return _failure("library.migrate", 4, "library migration requires admin access")
+  store = .ragstorehandle; status = .ragstorestatus
+  if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure("library.migrate", error)
+  status_result = storagestatus(store, status, error)
+  close_error = ""; close_result = closeragstore(store, close_error)
+  if status_result \= 0 | close_result \= 0 then do
+    if error = "" then error = close_error
+    return _failure("library.migrate", 7, error)
+  end
+  records = .ragresultrecord[]; records[1] = _storagerecord(status, 0, "migration-current")
+  return .ragcommandresult("library.migrate", "ok", 0, "library is at the current schema version", records)
+
+_providerstatus: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  error = ""
+  if _validateoptions(request, "provider", error) \= 0 then return _failure("provider.status", 2, error)
+  if _hasaccess(request, "read") \= 1 then return _failure("provider.status", 4, "provider status requires read access")
+  if registry.valid() \= 1 then return _failure("provider.status", 3, "operator registry is invalid")
+  lookup = _requestconfig(request, registry)
+  if lookup.found() \= 1 then return _failure("provider.status", 5, "configuration is not registered")
+  requested = _option(request, "provider", error)
+  if error \= "" then return _failure("provider.status", 2, error)
+  providers = lookup.config().providers(); records = .ragresultrecord[]
+  do i = 1 to providers.0
+    if requested = "" | requested = providers[i].provider_id() then records[records.0 + 1] = _providerrecord(providers[i], "configured-not-probed", 0, 0)
+  end
+  if records.0 = 0 then return _failure("provider.status", 5, "provider is not registered in the selected configuration")
+  return .ragcommandresult("provider.status", "ok", 0, "provider declarations inspected without resolving credentials or making outbound requests", records)
+
+_providertest: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  error = ""
+  if _validateoptions(request, "provider", error) \= 0 then return _failure("provider.test", 2, error)
+  if _hasaccess(request, "diagnose") \= 1 then return _failure("provider.test", 4, "provider test requires diagnose access")
+  if registry.valid() \= 1 then return _failure("provider.test", 3, "operator registry is invalid")
+  lookup = _requestconfig(request, registry)
+  if lookup.found() \= 1 then return _failure("provider.test", 5, "configuration is not registered")
+  requested = _option(request, "provider", error)
+  if error \= "" | requested = "" then return _failure("provider.test", 2, "provider test requires one --provider value")
+  providers = lookup.config().providers(); provider_index = 0
+  do i = 1 to providers.0
+    if providers[i].provider_id() = requested then provider_index = i
+  end
+  if provider_index = 0 then return _failure("provider.test", 5, "provider is not registered in the selected configuration")
+  provider = providers[provider_index]; records = .ragresultrecord[]
+  if provider.route_class() = "hosted" then do
+    records[1] = _providerrecord(provider, "authorization-required", 0, 0)
+    return .ragcommandresult("provider.test", "error", 8, "hosted provider probe requires separately authorized canary qualification", records)
+  end
+  records[1] = _providerrecord(provider, "configuration-valid", 0, 0)
+  return .ragcommandresult("provider.test", "ok", 0, "local provider configuration is valid; Phase-2 test made no reachability request", records)
+
+_profilevalidate: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  error = ""
+  if _validateoptions(request, "", error) \= 0 then return _failure("profile.validate", 2, error)
+  if _hasaccess(request, "read") \= 1 then return _failure("profile.validate", 4, "profile validation requires read access")
+  if registry.valid() \= 1 then return _failure("profile.validate", 3, "operator registry is invalid")
+  if request.profile_id() = "" then return _failure("profile.validate", 2, "profile validate requires --profile")
+  lookup = registry.profile(request.profile_id())
+  if lookup.found() \= 1 then return _failure("profile.validate", 5, "profile is not registered")
+  profile = lookup.profile(); validation = .ragvalidationresult
+  validation = profile.validation(); records = .ragresultrecord[]
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("profile_id", "string", profile.profile_id())
+  fields[2] = .ragresultfield("version", "string", profile.version())
+  fields[3] = .ragresultfield("valid", "boolean", _boolean(validation.ok()))
+  fields[4] = .ragresultfield("issue_count", "integer", validation.issue_count())
+  records[1] = .ragresultrecord("profile-validation", fields)
+  if validation.ok() \= 1 then return .ragcommandresult("profile.validate", "error", 3, "registered profile is invalid", records)
+  return .ragcommandresult("profile.validate", "ok", 0, "registered profile is valid", records)
+
+_requestconfig: procedure = .ragconfiglookup
+  arg request = .ragcommandrequest, registry = .ragregistry
+  if request.config_id() \= "" then return registry.config(request.config_id())
+  ids = registry.config_ids()
+  if ids.0 = 1 then return registry.config(ids[1])
+  return .ragconfiglookup("unknown-id", invalidconfig())
+
+_capabilityrecord: procedure = .ragresultrecord
+  arg capability_id = .string, requirement = .string, state = .string
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("capability_id", "string", capability_id)
+  fields[2] = .ragresultfield("requirement", "string", requirement)
+  fields[3] = .ragresultfield("state", "string", state)
+  return .ragresultrecord("capability-status", fields)
+
+_providerrecord: procedure = .ragresultrecord
+  arg provider = .ragproviderconfig, state = .string, outbound_attempted = .int, credential_resolved = .int
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("provider_id", "string", provider.provider_id())
+  fields[2] = .ragresultfield("kind", "string", provider.kind())
+  fields[3] = .ragresultfield("route_class", "string", provider.route_class())
+  fields[4] = .ragresultfield("model", "string", provider.model())
+  fields[5] = .ragresultfield("base_url", "string", provider.base_url())
+  fields[6] = .ragresultfield("privacy_policy", "string", provider.privacy_policy())
+  fields[7] = .ragresultfield("credential_configured", "boolean", _boolean(provider.credential().empty() = 0))
+  fields[8] = .ragresultfield("timeout_ms", "integer", provider.timeout_ms())
+  fields[9] = .ragresultfield("max_attempts", "integer", provider.max_attempts())
+  fields[10] = .ragresultfield("state", "string", state)
+  fields[11] = .ragresultfield("outbound_attempted", "boolean", _boolean(outbound_attempted))
+  fields[12] = .ragresultfield("credential_resolved", "boolean", _boolean(credential_resolved))
+  return .ragresultrecord("provider-status", fields)
+
+_storagerecord: procedure = .ragresultrecord
+  arg status = .ragstorestatus, issue_count = .int, state = .string
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("library_id", "string", status.library_id())
+  fields[2] = .ragresultfield("schema_version", "integer", status.schema_version())
+  fields[3] = .ragresultfield("published_generation", "integer", status.published_generation())
+  fields[4] = .ragresultfield("next_generation", "integer", status.next_generation())
+  fields[5] = .ragresultfield("profile_id", "string", status.profile_id())
+  fields[6] = .ragresultfield("profile_hash", "string", status.profile_hash())
+  fields[7] = .ragresultfield("manifest_state", "string", status.manifest_state())
+  fields[8] = .ragresultfield("issue_count", "integer", issue_count)
+  fields[9] = .ragresultfield("state", "string", state)
+  return .ragresultrecord("library-status", fields)
+
+_backuprecord: procedure = .ragresultrecord
+  arg path = .string, report = .ragbackupreport
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("path", "string", path)
+  fields[2] = .ragresultfield("generation", "integer", report.generation())
+  fields[3] = .ragresultfield("sidecar_count", "integer", report.sidecar_count())
+  fields[4] = .ragresultfield("pages", "integer", report.pages())
+  fields[5] = .ragresultfield("published", "boolean", _boolean(report.published()))
+  return .ragresultrecord("backup-status", fields)
+
+_failure: procedure = .ragcommandresult
+  arg operation = .string, code = .int, message = .string
+  records = .ragresultrecord[]
+  return .ragcommandresult(operation, "error", code, message, records)
+
+_openfailure: procedure = .ragcommandresult
+  arg operation = .string, message = .string
+  if pos("does not exist", message) > 0 then return _failure(operation, 5, message)
+  return _failure(operation, 7, message)
+
+_hasaccess: procedure = .int
+  arg request = .ragcommandrequest, required = .string
+  access = request.access()
+  do i = 1 to access.0
+    if access[i] = "admin" | access[i] = required then return 1
+  end
+  return 0
+
+_validateoptions: procedure = .int
+  arg request = .ragcommandrequest, allowed = .string, expose error = .string
+  error = ""
+  positionals = request.positionals()
+  if positionals.0 \= 0 then do
+    error = "operation does not accept positional arguments"
+    return -1
+  end
+  command_options = request.command_options()
+  do i = 1 to command_options.0
+    if wordpos(command_options[i].name(), allowed) = 0 then do
+      error = "unknown option --" || command_options[i].name()
+      return -1
+    end
+    if command_options[i].flag() = 1 | command_options[i].value() = "" then do
+      error = "option --" || command_options[i].name() || " requires a value"
+      return -1
+    end
+    do j = 1 to i - 1
+      if command_options[j].name() = command_options[i].name() then do
+        error = "option --" || command_options[i].name() || " may be supplied once"
+        return -1
+      end
+    end
+  end
+  return 0
+
+_option: procedure = .string
+  arg request = .ragcommandrequest, name = .string, expose error = .string
+  error = ""; value = ""; command_options = request.command_options()
+  do i = 1 to command_options.0
+    if command_options[i].name() = name then do
+      if value \= "" then do
+        error = "option --" || name || " may be supplied once"
+        return ""
+      end
+      value = command_options[i].value()
+    end
+  end
+  return value
+
+_contains: procedure = .int
+  arg values = .string[], expected = .string
+  do i = 1 to values.0
+    if values[i] = expected then return 1
+  end
+  return 0
+
+_boolean: procedure = .string
+  arg value = .int
+  if value = 1 then return "true"
+  return "false"
+
+_sha256: procedure = .string
+  arg value = .string
+  return lower(bin2x(rxhash..sha256(value)))
+
+_configcanonical: procedure = .string
+  arg config = .ragconfig
+  output = "{" || jsonquote("config_id") || ":" || jsonquote(config.config_id()) || "," || jsonquote("version") || ":" || jsonquote(config.version())
+  output = output || "," || jsonquote("source_sets") || ":["
+  source_sets = config.source_sets()
+  do i = 1 to source_sets.0
+    if i > 1 then output = output || ","
+    source = source_sets[i]; patterns = source.include_patterns()
+    output = output || "{" || jsonquote("id") || ":" || jsonquote(source.source_set_id()) || "," || jsonquote("connector") || ":" || jsonquote(source.connector()) || "," || jsonquote("root") || ":" || jsonquote(source.root()) || "," || jsonquote("stable_key") || ":" || jsonquote(source.stable_key()) || "," || jsonquote("privacy") || ":" || jsonquote(source.privacy()) || "," || jsonquote("retain_raw_artifact") || ":" || _boolean(source.retain_raw_artifact()) || "," || jsonquote("include_patterns") || ":["
+    do j = 1 to patterns.0
+      if j > 1 then output = output || ","
+      output = output || jsonquote(patterns[j])
+    end
+    output = output || "]}"
+  end
+  output = output || "]," || jsonquote("providers") || ":["
+  providers = config.providers()
+  do i = 1 to providers.0
+    if i > 1 then output = output || ","
+    provider = providers[i]
+    output = output || "{" || jsonquote("id") || ":" || jsonquote(provider.provider_id()) || "," || jsonquote("kind") || ":" || jsonquote(provider.kind()) || "," || jsonquote("base_url") || ":" || jsonquote(provider.base_url()) || "," || jsonquote("model") || ":" || jsonquote(provider.model()) || "," || jsonquote("route_class") || ":" || jsonquote(provider.route_class()) || "," || jsonquote("privacy_policy") || ":" || jsonquote(provider.privacy_policy()) || "," || jsonquote("credential_ref") || ":" || jsonquote(provider.credential().ref_string()) || "," || jsonquote("timeout_ms") || ":" || provider.timeout_ms() || "," || jsonquote("max_attempts") || ":" || provider.max_attempts() || "}"
+  end
+  output = output || "]," || jsonquote("roles") || ":["
+  roles = config.roles()
+  do i = 1 to roles.0
+    if i > 1 then output = output || ","
+    output = output || "{" || jsonquote("role") || ":" || jsonquote(roles[i].role()) || "," || jsonquote("provider_id") || ":" || jsonquote(roles[i].provider_id()) || "}"
+  end
+  output = output || "]," || jsonquote("profile_ids") || ":["
+  ids = config.profile_ids()
+  do i = 1 to ids.0
+    if i > 1 then output = output || ","
+    output = output || jsonquote(ids[i])
+  end
+  budget = config.budget(); workers = config.workers()
+  output = output || "]," || jsonquote("budget") || ":{" || jsonquote("minutes") || ":" || budget.minutes() || "," || jsonquote("item_limit") || ":" || budget.item_limit() || "," || jsonquote("model_calls") || ":" || budget.model_calls() || "," || jsonquote("input_tokens") || ":" || budget.input_tokens() || "," || jsonquote("output_tokens") || ":" || budget.output_tokens() || "," || jsonquote("cost_microunits") || ":" || budget.cost_microunits() || "}"
+  output = output || "," || jsonquote("workers") || ":{" || jsonquote("processes") || ":" || workers.processes() || "," || jsonquote("max_in_flight") || ":" || workers.max_in_flight() || "," || jsonquote("lease_seconds") || ":" || workers.lease_seconds() || "}"
+  output = output || "," || jsonquote("schedules") || ":["
+  schedules = config.schedules()
+  do i = 1 to schedules.0
+    if i > 1 then output = output || ","
+    output = output || "{" || jsonquote("id") || ":" || jsonquote(schedules[i].schedule_id()) || "," || jsonquote("trigger") || ":" || jsonquote(schedules[i].trigger()) || "," || jsonquote("enabled") || ":" || _boolean(schedules[i].enabled()) || "}"
+  end
+  output = output || "]}"
+  return output
+
+_profilecanonical: procedure = .string
+  arg profile = .ragprofile
+  output = "{" || jsonquote("profile_id") || ":" || jsonquote(profile.profile_id()) || "," || jsonquote("version") || ":" || jsonquote(profile.version())
+  output = output || "," || jsonquote("concept_types") || ":["
+  values = profile.concept_types()
+  do i = 1 to values.0
+    if i > 1 then output = output || ","
+    output = output || jsonquote(values[i])
+  end
+  output = output || "]," || jsonquote("relationship_types") || ":["
+  relationships = profile.relationship_types()
+  do i = 1 to relationships.0
+    if i > 1 then output = output || ","
+    relationship = relationships[i]
+    output = output || "{" || jsonquote("id") || ":" || jsonquote(relationship.relationship_id()) || "," || jsonquote("inverse_id") || ":" || jsonquote(relationship.inverse_id()) || "," || jsonquote("directional") || ":" || _boolean(relationship.directional()) || "}"
+  end
+  output = output || "]," || jsonquote("aliases") || ":["
+  aliases = profile.aliases()
+  do i = 1 to aliases.0
+    if i > 1 then output = output || ","
+    output = output || "{" || jsonquote("surface") || ":" || jsonquote(aliases[i].surface()) || "," || jsonquote("canonical") || ":" || jsonquote(aliases[i].canonical()) || "}"
+  end
+  chunk = profile.chunk_policy(); formats = chunk.formats()
+  output = output || "]," || jsonquote("chunk_policy") || ":{" || jsonquote("max_characters") || ":" || chunk.max_characters() || "," || jsonquote("overlap_characters") || ":" || chunk.overlap_characters() || "," || jsonquote("formats") || ":["
+  do i = 1 to formats.0
+    if i > 1 then output = output || ","
+    output = output || jsonquote(formats[i])
+  end
+  output = output || "]}," || jsonquote("ranking_weights") || ":["
+  weights = profile.ranking_weights()
+  do i = 1 to weights.0
+    if i > 1 then output = output || ","
+    output = output || "{" || jsonquote("name") || ":" || jsonquote(weights[i].name()) || "," || jsonquote("value") || ":" || weights[i].value() || "}"
+  end
+  output = output || "]," || jsonquote("prompts") || ":["
+  prompts = profile.prompts()
+  do i = 1 to prompts.0
+    if i > 1 then output = output || ","
+    output = output || "{" || jsonquote("role") || ":" || jsonquote(prompts[i].role()) || "," || jsonquote("version") || ":" || jsonquote(prompts[i].version()) || "," || jsonquote("template_id") || ":" || jsonquote(prompts[i].template_id()) || "}"
+  end
+  output = output || "]," || jsonquote("validators") || ":["
+  validators = profile.validators()
+  do i = 1 to validators.0
+    if i > 1 then output = output || ","
+    output = output || jsonquote(validators[i])
+  end
+  output = output || "]}"
+  return output

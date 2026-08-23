@@ -19,7 +19,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Gate 1A | Accepted 2026-08-03 | D1-D8 boundaries and the bounded D9 worklist are recorded; its historical Linux replay retained the original CRI-15 failure |
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | Every bounded item is accepted; the historical Gate validation was 55/56 with sole expected CRI-15; current disposition is tracked separately |
 | Language strategy | Level G first, accepted 2026-08-04 | Advanced libraries and application code use Level G; Level B is limited to justified CREXX bootstrap/foundation work |
-| Phase 2 / Gate 2 | Active; `P2-08` pending | `P2-01` through `P2-07` are accepted, including version-1 conversion, pinned backup/restore, 16 snapshot-paged repositories, and the closed command/result contract; lifecycle command dispatch is next |
+| Phase 2 / Gate 2 | Active; `P2-09` pending | `P2-01` through `P2-08` are accepted, including version-1 conversion, pinned backup/restore, 16 snapshot-paged repositories, the closed command/result contract, and the shared lifecycle/diagnostic facade; capability reporting and donation bundles are next |
 | Parallel CREXX capability sync | Current-head macOS replay complete; follow-up deferred | Current installed-only macOS replay, public Level-G HTTP/toolchain adoption, `rxhash.sha256`, and exact `rxvector` integration pass 62/62 against CREXX `e3d6b7b90158`. Remaining provider-lifecycle work is separately approval-gated, and exact downstream Linux confirmation is deferred to later QA after material local progress; neither blocks Phase 2. |
 | Phase 3 and later | Not authorized | No production ingestion, additional hosted qualification, cutover, or retirement |
 
@@ -148,12 +148,21 @@ generation-pinned online backup during a concurrent writer generation, atomic
 snapshot-folder publication, and fresh-folder restore. `P2-06` adds 16 bounded
 keyset repositories over pinned old/new semantic and operational snapshots,
 typed artifact/vector payloads, and lifecycle/orphan verification. Command
-dispatch and provider execution remain unimplemented. `P2-08` is pending.
+contracts and the foundation facade are described below; live provider
+execution remains unimplemented.
 
 `P2-07` freezes the closed 40-operation argv grammar, 11 stable exit identities,
 bounded typed result records, and `crexx-rag.command-result/1` human, JSON, and
 NDJSON rendering. It executes no operation and does not replace the native CLI;
-P2-08 owns the first lifecycle/diagnostic dispatcher.
+the P2-08 facade consumes this contract.
+
+`P2-08` adds the shared typed dispatcher for doctor, library
+init/status/verify/backup/restore/migrate, provider status/configuration-only
+test, and profile validation. Its access gates precede mutation, read paths
+retain identical database/manifest hashes, backup/restore reuse the pinned
+P2-05 path, and all provider diagnostics retain zero outbound calls and zero
+credential resolution. The current executable remains the native-v1 oracle;
+Phase-6 adapters have not been installed.
 
 On 2026-08-22 the separately bounded CREXX capability sync completed its
 macOS work against a fresh installed-only scratch prefix. Downstream content
@@ -207,7 +216,7 @@ and Phase-2 authority are recorded in the
 
 The dated Phase-2 worklist, entry baseline, item ordering, evidence
 requirements, exclusions, and Gate-2 stop are established. `P2-01` through
-`P2-07` are accepted; `P2-08` is next and pending, with no item active.
+`P2-08` are accepted; `P2-09` is next and pending, with no item active.
 Separately bounded CREXX
 capability work may proceed in parallel only after each stream records an
 equivalent boundary.

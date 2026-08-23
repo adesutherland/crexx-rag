@@ -86,6 +86,8 @@ Names are provisional, but ownership is not.
 | `ragsearch` | Query planning, lexical/vector/graph retrieval, fusion and evidence selection |
 | `ragevidence` | Stable citations, evidence packet schema, trace and optional answer handoff |
 | `raglibrary` | Level G public API and library/job/evidence classes |
+| `ragcommand` | Closed argv request grammar and bounded typed human/JSON/NDJSON result contract |
+| `ragfoundation` | Shared doctor, lifecycle, provider-diagnostic, and profile-validation dispatch |
 | `ragcli` | Human and JSON command adapter |
 | `ragaddress` | `ADDRESS RAG` line-command adapter |
 | `ragmcp` | MCP schema and transport adapter, read-only by default |
