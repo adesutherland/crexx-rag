@@ -3,9 +3,10 @@
 Status: Gate 1B reached on 2026-08-03 and accepted on 2026-08-04. All bounded
 Phase-1B items are complete. Phase 2 started on 2026-08-04 from the pushed
 entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` through `P2-10`
-are accepted, and work is stopped at Gate 2 for a decision. The authority is
-recorded in the
-[Gate-1B ledger](gate1b-decision-ledger.md).
+and Gate 2 are accepted for the current macOS scope. Exact downstream Linux
+replay remains open and Phase 3 is not authorized. The authority is recorded in
+the [Gate-1B ledger](gate1b-decision-ledger.md) and
+[Gate-2 closeout](evidence/2026-08-23-phase2-gate2-closeout/README.md).
 
 This is the execution plan for the target in
 [`crexx-only-vision-and-specification.md`](crexx-only-vision-and-specification.md)
@@ -21,9 +22,9 @@ uses proof points and approval gates rather than authorizing a big-bang rewrite.
   separately requested.
 - Preserve the native implementation as the oracle until Gate 7.
 - Generic capability work may incubate here and later be donated to CREXX.
-- Current authority covers only the Phase-1B IDs and restrictions in the
-  [Gate-1A decision ledger](gate1a-decision-ledger.md). Stop unconditionally at
-  Gate 1B. A gate never implicitly authorizes removal of the existing path.
+- Current completed authority covers the Phase-2 IDs and restrictions in the
+  [Gate-1B decision ledger](gate1b-decision-ledger.md). Gate 2 acceptance does
+  not authorize Phase 3 or removal of the existing path.
 
 ## Reviewed Baseline
 
@@ -437,7 +438,10 @@ Gate 2 was reached on 2026-08-23 with 69/69 committed-head Debug tests, a fresh
 27-target Release build, all ten Phase-2 items accepted, and the preservation
 and limitation audit in the
 [`Gate-2 decision packet`](evidence/2026-08-04-phase2/GATE-2-DECISION-PACKET.md).
-Execution is stopped for the user's decision; Phase 3 is not authorized.
+The user accepted Gate 2 for the current macOS scope on 2026-08-23 after the
+application adopted the complete installed SHA-256 surface and repeated the
+current-package QA. Exact downstream Linux replay remains open. Phase 3 is not
+authorized.
 
 ## Phase 3 — True Initial And Incremental Ingestion
 
@@ -687,32 +691,34 @@ opportunities remain in an explicit ledger.
 ## Post-Gate-1B Direction
 
 Gate 1B is accepted and the bounded Phase-2 item sequence is complete. The
-dated Phase-2 worklist records `P2-01` through `P2-10` as accepted. Work is
-stopped at Gate 2; do not activate Phase 3 without the user's decision.
+dated Phase-2 worklist records `P2-01` through `P2-10` as accepted. Gate 2 is
+accepted for the current macOS scope; do not activate Phase 3 without separate
+authorization.
 
-Phase 2 may proceed in parallel with separately bounded CREXX capability work
-for exact downstream CRI-15/CRI-16 Linux closure and any approved provider
-lifecycle expansion. Each workstream needs an explicit repository/write
-boundary, worklist, evidence protocol, and stop point before it changes code.
+Phase 2 proceeded in parallel with separately bounded CREXX capability work.
+The remaining exact downstream CRI-15 Linux replay and any approved provider
+lifecycle expansion retain their own repository/write boundary, worklist,
+evidence protocol, and stop point.
 
-The 2026-08-22 capability-sync worklist completed the available macOS
+The 2026-08-22 capability-sync worklist completed the then-available macOS
 HTTP/toolchain, one-shot binary SHA-256, and exact packed `rxvector` work. The
 2026-08-23 continuation then pulled CREXX through
 `e3d6b7b9015847d247ab2b90e83c843881db9b2f`, reviewed its Linux sanitizer,
 HTTP and process-ownership closeout, and passed a fresh installed-only
 downstream build plus 62/62 CTests. This confirms that current `crexx-rag`
 already consumes the public Level-G HTTP, `rxhash` and `rxvector` facilities.
-It does not claim incremental/file hashing, provider-lifetime reuse, provider
-streaming/cancellation, or exact downstream Linux closure.
+The later installed package supplies and the application now consumes complete
+one-shot/hex, immutable incremental, and bounded-memory file SHA-256. It does
+not claim provider-lifetime reuse, provider streaming/cancellation, or exact
+downstream Linux closure.
 
 ## Parallel Capability Backlog — Not Phase 2 Preconditions
 
-No item in this section is active or a prerequisite for `P2-04` through
-`P2-10`. Phase 2 proceeds on this host in its established order. The exact
-downstream Linux replay is deferred to a later QA point after material local
-product progress, and provider-owned pool lifecycle, streaming/cancellation,
-independent `rxllm` packaging, and incremental/file hashing each remain
-separately scoped future decisions. Their retained detail belongs in the
+No item in this section was a prerequisite for `P2-04` through `P2-10`, and
+Phase 2 is complete for the current macOS scope. The exact
+downstream Linux replay is deferred to a later platform QA point, while
+provider-owned pool lifecycle, streaming/cancellation, and independent `rxllm`
+packaging remain separately scoped future decisions. Their retained detail belongs in the
 [capability-sync worklist](evidence/2026-08-22-crexx-capability-sync/WORKLIST.md),
 not in the Phase-2 execution sequence.
 

@@ -1,9 +1,9 @@
 # cREXX-RAG Workload And Capability Report
 
-Report version: 1. Status date: 2026-08-23. Evidence cutoff: local commit
-`3882098` plus the P2-09 qualification recorded beside this report.
+Report version: 2. Status date: 2026-08-23. Evidence cutoff: the Phase-2
+closeout commit plus the retained P2-09 qualification.
 
-This is the first consolidated workload report for the cREXX-only programme.
+This is the consolidated workload report for the cREXX-only programme.
 It distinguishes application capability, local generic incubation, consumed
 CREXX capability, and an external or deferred dependency. It is not a release,
 production-readiness statement, Linux qualification, or donation approval.
@@ -12,16 +12,19 @@ production-readiness statement, Linux qualification, or donation approval.
 
 - Host: Darwin arm64 on the current development machine.
 - Consumed CREXX revision:
-  `e3d6b7b9015847d247ab2b90e83c843881db9b2f`.
+  `1fbd89dc9afb7dbbf2e8e577624a87b1076ff11e`.
 - Installed identity:
-  `crexx-1.0.0-beta.3+local.ge3d6b7b90158.dirty` from a scratch prefix.
-- Current product qualification before P2-09: 67/67 Debug CTests, fresh
-  Release build, both VMs, and optimized/non-optimized cREXX where applicable.
+  scratch-installed existing builds whose configured display remains
+  `crexx-1.0.0-beta.3+local.ge3d6b7b90158.dirty`; executable provider symbols
+  and tests prove the `1fbd89d` SHA-256 surface without relabelling that display.
+- Current product qualification: 69/69 Debug and 69/69 fresh Release CTests,
+  both VMs, optimized/non-optimized cREXX, dynamic/static provider selection,
+  installed external consumers, and 10/10 Phase-2 Apple-ASan tests.
 - Current-host evidence is not substituted for the deferred exact downstream
   Linux replay. Historical Linux and upstream sanitizer evidence retains its
   own scope.
-- P2-09 makes no provider request, reads no credential, changes no sibling
-  checkout or normal install prefix, and does not submit a donation.
+- The closeout makes no provider request, reads no credential, changes no
+  sibling checkout or normal install prefix, and does not submit a donation.
 
 ## Workload Results
 
@@ -32,7 +35,7 @@ production-readiness statement, Linux qualification, or donation approval.
 | Parse-once JSON | 713-byte provider response and four pages of eight evidence rows | Indexed parse/traversal was 808-1,162 us for the provider response versus 14,761-17,168 us repeated paths; paged parse/traversal was 2,288-2,877 us versus 54,893-75,320 us | Installed `rxjson` is the selected consumed capability, not a local donation |
 | Provider contract | Deterministic local loopback; OpenAI-compatible, OpenAI, Anthropic and Gemini shapes; batch embeddings, structured results, failure/retry/privacy cases | Phase-1 contract passes; five separately authorized historical hosted canaries passed; current Phase-2/P2-09 runs make zero provider calls | RAG-neutral cREXX contract is accepted incubation; provider-lifetime reuse, streaming/cancellation and exact downstream Linux/package replay remain open |
 | Exact vector retrieval | 11,684 vectors x 768 dimensions, 128-row pages, top 10 | Current installed `rxvector` path totals 122,740-129,974 us; conversion 29,444-31,261 us; arithmetic/selection 54,161-54,472 us; process RSS 86,196,224-99,434,496 bytes | Installed packed exact provider is selected; local `f32le-v1` codec and pure exact implementation remain portable oracle/fallback |
-| Bounded content identity | Standard vectors, binary/Unicode cases, then 2,000 small fingerprint/chunk operations | Installed one-shot SHA-256 proof passes; combined small-content profile 24,219-24,721 us | `rxhash.sha256(.binary)` is accepted for already-owned bounded values; incremental/file hashing is deferred |
+| Bounded content identity | Standard vectors, binary/Unicode cases, immutable incremental state, binary files, then 2,000 small fingerprint/chunk operations | Complete installed SHA-256 family passes optimized/non-optimized on both VMs, dynamic autoload, and static/native packaging; the retained earlier small-content profile was 24,219-24,721 us | One-shot raw/hex, incremental, and bounded-memory file hashing are accepted consumed capabilities; application sidecars use fixed-memory incremental hashing with their own size policy |
 | Algorithm slice | Immutable revisions, stable chunks, FTS, no-op/reuse, claim support/retraction and evidence assembly; 2,000 profile operations | Semantic oracle overlap passes; historical profile 63,241-104,666 us and below 64 MiB process RSS | Application behavior is accepted evidence, not a generic package or production ingestion implementation |
 | Worker slice | One process, DB-clock lease, heartbeat/fence, four crash boundaries, hard admission and usage settlement | No duplicate promotion; seven budget denial paths are zero-write; maximum unreported exposure is one call/100 tokens/20 cost microunits/500 ms | Application queue semantics are accepted but multi-process scheduling remains later qualification |
 | Phase-2 foundation | Schema v2, version-1 import, pinned backup/restore, 16 repositories, closed results, ten-command foundation facade | P2-01 through P2-08 pass current installed-only macOS QA | Product foundation is implemented behind cREXX contracts; Phase-3 ingestion and Phase-6 adapters are not authorized/installed |
@@ -50,9 +53,9 @@ for a different corpus, provider, host, VM, or concurrency level.
 | Portable f32 codec and exact oracle | Local Level-G generic incubation | Correct oracle/fallback; installed `rxvector` is selected acceleration | `rxvector-portable-candidate` |
 | Parse-once JSON | Installed CREXX | Consumed directly | None; not locally owned |
 | HTTP/TLS and packed exact vector provider | Installed CREXX | Consumed directly within recorded limits | None; not locally owned |
-| One-shot binary SHA-256 | Installed CREXX | Consumed directly for bounded values | None; not locally owned |
+| Complete binary SHA-256 family | Installed CREXX | One-shot raw/hex, canonical immutable incremental state, and synchronous bounded-memory file hashing consumed directly | None; not locally owned |
 | Schema, repositories, commands, algorithms and jobs | cREXX-RAG application | Product-owned | None; explicitly excluded |
-| Incremental hashing, provider-lifetime reuse, streaming/cancellation, multi-process workers | Deferred decision/qualification | Not implemented or not qualified | None |
+| Provider-lifetime reuse, streaming/cancellation, multi-process workers | Deferred decision/qualification | Not implemented or not qualified | None |
 
 ## Prepared Review Bundles
 

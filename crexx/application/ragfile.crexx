@@ -1,12 +1,13 @@
 /*
  * Minimized Level-B foundation exception for opaque binary sidecars.
- * Level G has no binary file-read API in the consumed CREXX package. This
- * module performs only byte-preserving file input and delegates SHA-256 to the
- * installed generic rxhash facility; all storage policy remains in Level G.
+ * Level G has no binary file-read API that also exposes a caller-controlled
+ * byte ceiling and byte count. This module performs only byte-preserving file
+ * I/O and delegates incremental SHA-256 to the installed generic rxhash
+ * facility; all storage policy remains in Level G.
  */
 options levelb
 
-namespace ragfile expose sha256file writebinaryfile
+namespace ragfile expose sha256filebounded writebinaryfile
 
 import rxfnsb
 import rxhash
@@ -35,7 +36,7 @@ writebinaryfile: procedure = .int
   end
   return 0
 
-sha256file: procedure = .int
+sha256filebounded: procedure = .int
   arg path = .string, maximum_bytes = .int, expose digest = .string, expose byte_count = .int, expose error = .string
   digest = ""; byte_count = 0; error = ""
   if path = "" | maximum_bytes < 1 then do
@@ -48,7 +49,7 @@ sha256file: procedure = .int
     error = "could not open binary file"
     return -2
   end
-  data = ''x as .binary
+  state = rxhash..sha256init()
   chunk_size = 65536
   do forever
     chunk = .binary
@@ -61,7 +62,7 @@ sha256file: procedure = .int
       error = "binary file exceeds the configured verification ceiling"
       return -3
     end
-    call binappend data, chunk
+    state = rxhash..sha256update(state, chunk)
     byte_count = byte_count + count
   end
   read_error = 0; close_status = 0
@@ -71,5 +72,5 @@ sha256file: procedure = .int
     error = "could not read or close binary file"
     return -3
   end
-  digest = lower(bin2x(rxhash..sha256(data)))
+  digest = rxhash..sha256finalhex(state)
   return 0

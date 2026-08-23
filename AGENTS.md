@@ -36,22 +36,26 @@ language levels.
 Phase 0, Gate 0, Phase 1A, Gate 1A, and the bounded Phase-1B worklist are
 complete. Gate 1B was accepted on 2026-08-04, including all 28 bounded
 Phase-1B item results and their recorded limitations. Phase 2, `P2-01` through
-`P2-10`, is complete at its bounded item level. Its dated worklist and entry
-baseline are under `docs/evidence/2026-08-04-phase2/`. All ten items are
-accepted; Gate 2 is the active unconditional stop and no Phase-3 item is
+`P2-10`, and Gate 2 were accepted for the macOS scope on 2026-08-23. Its dated
+worklist and entry baseline are under `docs/evidence/2026-08-04-phase2/`; the
+decision and current-package replay are under
+`docs/evidence/2026-08-23-phase2-gate2-closeout/`. Exact downstream Linux
+replay remains an explicit platform qualification item. No Phase-3 item is
 authorized.
 
-Do not activate a Phase-2 item until its predecessor has accepted evidence or
-explicit blocker evidence and remains marked incomplete. The decision does not
-authorize Phase 3, additional hosted-provider calls,
+No Phase-2 item remains to activate; preserve its ordered item evidence and
+Gate-2 closeout. The decision does not authorize Phase 3, additional
+hosted-provider calls,
 normal-prefix or sibling-CREXX changes, donation submission, dual-write,
 cutover, native-core removal, commit, push, or pull request. Treat the Gate-1A
 ledger and Phase-1B handoff as completed execution evidence.
 
-CRI-15 remains an open installed-CREXX Linux dependency. Do not hide it in a
-product workaround or claim Linux provider timeout qualification until it is
-fixed or separately dispositioned. CRI-16 separately withholds industrial
-high-throughput approval from the installed HTTP transport.
+CRI-15 remains an open exact downstream installed-CREXX Linux replay. Do not
+hide it in a product workaround or claim Linux provider timeout qualification
+until it passes or is separately dispositioned. CRI-16 separately withholds
+provider-lifetime reuse, streaming, and cancellation claims from the current
+one-operation/one-pool application adapters; the installed HTTP substrate is
+already qualified within its own upstream scope.
 
 ## Required Reading
 
@@ -78,6 +82,7 @@ Before programme implementation, read these files completely:
 - `docs/evidence/2026-08-04-phase2/P2-01.md`
 - `docs/evidence/2026-08-04-phase2/P2-02.md`
 - `docs/evidence/2026-08-04-phase2/P2-03.md`
+- `docs/evidence/2026-08-23-phase2-gate2-closeout/README.md`
 - `prompts/phase1b-implementation-handoff.md`
 - `prompts/crexx-rag-agent-AGENTS.md`
 

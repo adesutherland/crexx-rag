@@ -168,8 +168,9 @@ the final full Debug suite passed 60/61 in 553.13 seconds with only CRI-15.
 `P1-RXPA-03`, `P1-HASH-01`, hosted calls outside the explicitly authorized
 low-cost `P1-LLM-04` qualification, normal-prefix/CREXX changes, dual-write,
 and later phases are outside the acceptance scope. P2-03 does not imply P2-04
-through P2-10. Gate 2 remains an unconditional stop even when every approved
-test passes.
+through P2-10. Gate 2 remained an unconditional stop until the user's
+2026-08-23 macOS acceptance decision; Phase 3 still requires separate
+authorization.
 
 `P2-04` adds `p2_04_v1_compatibility`: optimized/non-optimized builds on both
 VMs inspect and import a representative version-1 bundle, fingerprint every
@@ -177,7 +178,8 @@ source file across dry-run/import/rejection, verify deterministic schema-v2
 mapping and quarantine, and reject target overwrite and unsupported manifests.
 
 `P2-05` adds `p2_05_backup_restore`: all four cells exercise opaque binary file
-I/O and installed `rxhash.sha256`, immutable sidecar publication, checksum
+I/O, fixed-memory immutable incremental `rxhash` state, and direct public file
+raw/hex equivalence, plus immutable sidecar publication and checksum
 tamper detection, a generation-2 SQLite backup held stable while generation 3
 commits, regenerated snapshot manifests, fresh restore, and source-snapshot
 zero-write fingerprints. Optimized `rxvme` and `rxbvm` receive real `SIGKILL`
@@ -249,7 +251,7 @@ zero denied connections and scans real credential values without retaining
 them. The historical provider acceptance did not accept the CRI-15-affected
 Linux timeout path or the then-installed `rxhttp` ceiling. Current `main` now
 uses installed Level-G `rxfnsg` typed responses, bounded buffering, compression
-and one pool per operation; the current-head macOS inventory passes 62/62.
+and one pool per operation; the current macOS inventory passes 69/69.
 Exact downstream Linux confirmation remains open, and the provider contract
 truthfully continues to report cross-operation reuse, streaming and
 cancellation as unsupported pending separate lifecycle/capability decisions.
@@ -287,6 +289,21 @@ result: a fresh installed CREXX package from
 passed the 27-step downstream build and 62/62 CTests in 97.99 seconds on macOS.
 It does not replace the required exact downstream Linux CRI-15 replay or
 authorize provider-interface changes.
+
+The Gate-2 closeout adds `P1-HASH-01` coverage of all eight public SHA-256
+procedures in optimized/non-optimized Level G on both VMs, including empty
+updates, immutable/interleaved states, repeat finalization, binary input, and
+file hashing. The same installed consumer is packaged and run with
+`crexx -native`; `P2-05` independently proves the Level-B bounded-reader use and
+public file equivalence for embedded-NUL/invalid-UTF-8 bytes.
+
+The final current-worktree macOS result is 69/69 in ordinary Debug (98.58
+seconds) and 69/69 from a fresh Release build (103.26 seconds), both against a
+scratch-installed package with source fallbacks disabled. A coherent
+all-instrumented installed CREXX Apple-ASan product plus downstream ASan build
+passes 10/10 Phase-2 tests in 147.31 seconds and the focused hash/native package
+test in 6.71 seconds. Apple LeakSanitizer is unsupported and is not claimed.
+Exact downstream Linux replay remains separate.
 
 Use small target-only loops between those broad gates. Record an explicit reason
 for any unavailable CREXX VM or local-provider mode. Finish with a worktree audit

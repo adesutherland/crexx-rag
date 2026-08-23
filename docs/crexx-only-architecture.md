@@ -199,10 +199,28 @@ streaming and cancellation remain explicit separate capabilities.
 
 Stable source identity requires SHA-256 or an equivalent collision-resistant
 digest over bytes. FNV and MD5 are not sufficient for durable content
-identity. The installed `rxhash.sha256` capability now supplies a one-shot
-binary digest and is used by the downstream content-identity proof. Incremental
-and file-stream hashing remain future surfaces and must not be inferred from
-that contract.
+identity. The installed `rxhash` provider now supplies one-shot binary digests,
+canonical lowercase hexadecimal output, immutable incremental state, and
+synchronous bounded-memory file hashing. The public family is:
+
+```text
+rxhash.sha256(data = .binary) = .binary
+rxhash.sha256hex(data = .binary) = .string
+rxhash.sha256init() = .binary
+rxhash.sha256update(state = .binary, data = .binary) = .binary
+rxhash.sha256final(state = .binary) = .binary
+rxhash.sha256finalhex(state = .binary) = .string
+rxhash.sha256file(path = .string) = .binary
+rxhash.sha256filehex(path = .string) = .string
+```
+
+The 32-byte raw and 64-character lowercase hexadecimal forms hash arbitrary
+binary input. Incremental state is the provider's validated, canonical,
+pointer-free 152-byte version-1 value and is safe to copy or transfer. The
+application's `ragfile.sha256filebounded` foundation keeps its own byte ceiling
+and byte count while feeding fixed chunks through that immutable state; it
+does not accumulate a whole file. Direct file routines remain appropriate when
+the caller does not need that extra policy boundary.
 
 Embedding storage should use a versioned float32 blob codec. The first vector
 PoC must measure SQLite transfer/decoding separately from similarity arithmetic.

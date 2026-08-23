@@ -3,7 +3,7 @@
 Status: implemented generic cREXX incubation for a possible future `rxllm`
 package. The normalized contract and protocol mappings are accepted on
 Phase-1B evidence and now compile against installed `rxfnsg` typed HTTP. The
-current-head installed-only macOS inventory passes 62/62, and upstream has
+current-head installed-only macOS inventory passes 69/69, and upstream has
 supported Linux sanitizer/cross-platform HTTP evidence. The package is not
 installed, donation-ready, or approved for provider-lifetime high-throughput
 reuse until the downstream lifecycle and Linux/package gates are complete.

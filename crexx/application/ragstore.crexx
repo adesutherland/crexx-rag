@@ -832,7 +832,7 @@ _activesidecarfilesvalid: procedure = .int
     column_status = sqlitecolumntext(prepared, 0, sidecar_name)
     column_status = column_status | sqlitecolumntext(prepared, 1, expected_checksum)
     actual_checksum = ""; byte_count = 0; detail = ""
-    if column_status \= 0 | _safesidecarname(sidecar_name) \= 1 | testfile(path || "/" || sidecar_name) \= 0 | sha256file(path || "/" || sidecar_name, 2147483647, actual_checksum, byte_count, detail) \= 0 | actual_checksum \= expected_checksum then do
+    if column_status \= 0 | _safesidecarname(sidecar_name) \= 1 | testfile(path || "/" || sidecar_name) \= 0 | ragfile..sha256filebounded(path || "/" || sidecar_name, 2147483647, actual_checksum, byte_count, detail) \= 0 | actual_checksum \= expected_checksum then do
       call sqlitefinalize prepared
       if detail \= "" then error = detail
       return 0

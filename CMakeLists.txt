@@ -883,6 +883,8 @@ if(CPRAG_BUILD_TESTS)
             LABELS "P1-VEC-03;phase1b;vector;rxvector;packed;benchmark;transfer;memory;sqlite;incubator")
         set(P1_HASH_01_COMMAND
             "${CMAKE_COMMAND}"
+            "-DCPRAG_CREXX=${CREXX_EXECUTABLE}"
+            "-DCPRAG_EXE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
             "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
             "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
             "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
@@ -898,7 +900,7 @@ if(CPRAG_BUILD_TESTS)
             VERBATIM)
         add_test(NAME p1_hash_01 COMMAND ${P1_HASH_01_COMMAND})
         set_tests_properties(p1_hash_01 PROPERTIES
-            LABELS "P1-HASH-01;capability-sync;hash;sha256;autoload;phase1b;incubator")
+            LABELS "P1-HASH-01;capability-sync;hash;sha256;autoload;static;native;phase1b;incubator")
         set(P1_ALG_01_COMMAND
             "${CMAKE_COMMAND}"
             "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"

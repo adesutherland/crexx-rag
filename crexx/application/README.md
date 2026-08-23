@@ -70,12 +70,16 @@ and JSON metadata; `payload` retains exact artifact/vector bytes; `ordinal` and
 are explicit. A page records its pinned semantic generation and an opaque next
 cursor. The repository never returns an unbounded corpus array.
 
-`ragfile` is the one narrow Level-B foundation exception. Level G has no binary
-file-read API in the consumed CREXX package, so this module uses the VM's
-`freadb`/`fwriteb` byte instructions and delegates SHA-256 to installed
-`rxhash`. It contains no product policy; every application, lifecycle, fixture,
-and test consumer remains Level G. The four-cell P2-05 proof covers embedded
-NUL and invalid-UTF-8 bytes, the bounded reader, and exact SHA-256.
+`ragfile` is the one narrow Level-B foundation exception. The public CREXX file
+hash routines do not expose the application's byte count and pre-hash size
+ceiling, and Level G has no equivalent binary write surface, so this module
+uses the VM's `freadb`/`fwriteb` byte instructions. Its bounded reader feeds
+fixed 64 KiB chunks into immutable `rxhash.sha256init`, `sha256update`, and
+`sha256finalhex` state; it never accumulates the complete file. It contains no
+storage or lifecycle policy; every application, lifecycle, fixture, and test
+consumer remains Level G. The four-cell P2-05 proof covers embedded NUL and
+invalid-UTF-8 bytes, the application ceiling, exact incremental SHA-256, and
+direct `rxhash.sha256file`/`sha256filehex` equivalence.
 
 The example operator registry is constructed in
 `config/operator_registry.crexx`. It registers `architecture-local`,
@@ -111,7 +115,7 @@ backup/restore, paged repositories, command/result contracts, lifecycle and
 configuration-only diagnostic dispatch, and canonical plan/revalidation.
 The native executable remains the oracle and no plan is enqueued. Provider
 execution, ingestion algorithms, improvement/proposal execution, workers, and
-transport adapters remain later items. Sidecar verification currently reads at
-most 2,147,483,647 bytes into
-memory because installed `rxhash.sha256` is one-shot; incremental/file hashing
-remains a separately scoped CREXX capability backlog item.
+transport adapters remain later items. Sidecar verification retains the
+2,147,483,647-byte application ceiling but hashes in fixed memory. Callers that
+do not need an interposed ceiling or returned byte count can use the installed
+synchronous bounded-memory `rxhash.sha256file` or `sha256filehex` directly.

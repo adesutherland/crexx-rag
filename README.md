@@ -12,8 +12,9 @@ performance with retained correctness and workload evidence.
 
 > **Programme status, 2026-08-23:** Gate 1B is accepted, including all 28
 > bounded Phase-1B results and their recorded limitations. `P2-01` through
-> `P2-10` are accepted from the pushed Phase-2 entry baseline, and work is
-> stopped for the Gate-2 decision. Phase 3 is not authorized. The native-v1
+> `P2-10` and Gate 2 are accepted for the current macOS scope. Exact downstream
+> Linux replay remains open and is not represented by the macOS result. Phase
+> 3 is not authorized. The native-v1
 > C++ path remains the executable oracle. Level G is
 > now the required default for advanced libraries and application code; Level B
 > is reserved for CREXX bootstrap and justified low-level foundations.
@@ -98,7 +99,7 @@ or cutover candidate.
 | Phase 0 / Gate 0 | Complete | Native oracle, fixtures, judgements, defects, hashes, and measurement protocol frozen |
 | Phase 1A / Gate 1A | Complete | cREXX application and generic-plugin boundaries selected; CRI-01 through CRI-14 closed downstream |
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | 28 bounded items accepted; Debug/Release build; 55 of 56 tests pass with sole known CRI-15 failure |
-| Phase 2 / Gate 2 | Item-complete; stopped for Gate 2 | P2-01 through P2-10 are accepted, including canonical zero-write planning and hostile apply-time revalidation; no job is enqueued and Phase 3 is not authorized |
+| Phase 2 / Gate 2 | Accepted on macOS 2026-08-23 | P2-01 through P2-10, installed-capability adoption, canonical zero-write planning, and hostile apply-time revalidation are accepted; exact downstream Linux replay remains open, no job is enqueued, and Phase 3 is not authorized |
 | Phase 3 and later | Not authorized | No production ingestion, cutover, or native retirement has started |
 
 Gate 1B established:
@@ -118,37 +119,38 @@ Gate 1B established:
 
 ## Known Production Gaps
 
-The Gate-1B result is a strong capability skeleton, not an industrial
+The accepted Phase-2 foundation is substantial, but it is not an industrial
 production claim:
 
-- **CRI-15:** Linux `rxvme` overwrites a socket receive timeout with invalid
-  UTF-8 status; Linux provider timeout behavior is therefore not qualified.
-- **CRI-16:** installed `rxhttp` opens one synchronous connection per request,
-  forces connection close and identity encoding, has no configured response
-  ceiling, and exposes no streaming or cancellation. It is not approved for
-  high-throughput hosted traffic.
-- Pure cREXX exact search takes about 0.75 to 0.86 seconds for the representative
-  11,684 x 768 workload. It remains the correctness fallback while a generic
-  accelerated vector backend is evaluated.
-- The Phase-1B fixture fingerprint is deliberately weak. Durable incremental
-  binary SHA-256 support remains a separate capability decision.
+- **CRI-15:** the upstream HTTP/timeout path is repaired and qualified, but the
+  exact installed-package downstream Linux reproducer still needs both-VM
+  replay. macOS results are not substituted for it.
+- **CRI-16:** installed Level-G HTTP/TLS supplies typed bounded responses,
+  pooling, compression, streaming, and cancellation primitives. The current
+  adapters deliberately own one pool per operation, so cross-operation reuse,
+  streaming, and cancellation remain unsupported until a separate lifecycle
+  decision.
+- Pure cREXX exact search remains the correctness fallback. Installed packed
+  `rxvector` is the selected deterministic acceleration for the representative
+  11,684 x 768 workload.
+- Installed `rxhash` now owns durable one-shot, hexadecimal, immutable
+  incremental, and bounded-memory file SHA-256. Application sidecars preserve
+  their own byte ceiling while hashing fixed chunks.
 - Worker evidence is single-process. Supervision, multi-process claiming,
   cancellation races, overnight operation, and bounded in-flight overrun still
   require production qualification.
 - The local OpenAI-compatible protocol is qualified against deterministic
   fixtures, but a real `llama-server` deployment was unavailable.
-- There is no version-1 import, production repository/ingestion layer, public
-  target CLI/MCP surface, dual-write, cutover, or native-core removal.
+- There is no production ingestion pipeline, installed target CLI/MCP adapter,
+  dual-write, cutover, or native-core removal. Phase 2 provides version-1
+  import, paged repositories, and the shared command/foundation contracts only.
 
 ## Roadmap
 
-The Gate-1B decision accepts the cREXX skeleton and authorizes Phase 2 as the
-next product workstream. Its bounded worklist and pushed entry baseline are
-recorded, and its Level-G contracts, registered configuration/profile, and
-schema-v2 storage-foundation items are accepted. It may
-proceed in parallel with separately scoped work
-on socket timeouts, HTTP/TLS, vector acceleration, and durable hashing; those
-capability streams retain their own evidence and stop points.
+Phase 2 and Gate 2 are accepted for the current macOS scope. Their bounded
+worklist, entry baseline, item evidence, and closeout are recorded. Exact
+downstream Linux replay remains open; provider-lifecycle expansion remains a
+separate capability decision. Neither authorizes Phase 3.
 
 Subject to those decisions, the remaining roadmap is:
 

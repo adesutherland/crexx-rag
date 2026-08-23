@@ -39,7 +39,7 @@ fieldvalue: procedure = .string
 hashfile: procedure = .string
   arg path = .string, expose error = .string
   digest = ""; bytes = 0
-  if sha256file(path, 2147483647, digest, bytes, error) \= 0 then return ""
+  if ragfile..sha256filebounded(path, 2147483647, digest, bytes, error) \= 0 then return ""
   return digest
 
 main: procedure = .int

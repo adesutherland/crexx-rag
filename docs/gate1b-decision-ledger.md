@@ -1,8 +1,8 @@
 # Gate 1B Decision Ledger
 
 Status date: 2026-08-23. Gate 1B remains accepted. The bounded Phase-2 items
-are complete and work is stopped for Gate 2 alongside separately bounded CREXX
-capability work.
+and Gate 2 are accepted for the current macOS scope. Exact downstream Linux
+replay remains open; Phase 3 is not authorized.
 
 This ledger records the user's decision on the completed
 [Gate-1B evidence packet](evidence/2026-08-03-phase1b/GATE-1B-DECISION-PACKET.md).
@@ -50,9 +50,10 @@ the roadmap:
   components; and
 - canonical zero-write plan encoding and apply-time revalidation.
 
-Phase 2 stops at Gate 2. This decision does not authorize Phase 3 ingestion,
-additional hosted-provider qualification, donation submission, live-library
-dual-write, production cutover, or native removal.
+Phase 2 stopped at Gate 2 and was accepted for the current macOS scope on
+2026-08-23. This decision does not authorize Phase 3 ingestion, additional
+hosted-provider qualification, donation submission, live-library dual-write,
+production cutover, or native removal.
 
 ## Parallel Capability Work
 
@@ -62,8 +63,7 @@ The deferred parallel capability queue is:
    package;
 2. an approval-gated CRI-16 provider-owned pool lifecycle plus the selected
    downstream Linux/package qualification scope;
-3. a separate decision on provider streaming and cancellation; and
-4. incremental binary SHA-256 only when ingestion/stream ownership requires it.
+3. a separate decision on provider streaming and cancellation.
 
 Matched generic vector acceleration is complete through installed `rxvector`
 and is no longer an open queue item. None of the remaining entries is a
@@ -78,12 +78,12 @@ tests, packaging, measurements, and approval stop must be recorded.
 ### 2026-08-22 capability disposition
 
 The separately bounded capability-sync worklist completed the available macOS
-items: current installed-only replay, HTTP/toolchain compatibility, installed
-one-shot `rxhash.sha256` content identity, and the accepted stateless exact
-packed `rxvector` provider. This closes the macOS vector-acceleration proof but
-does not claim an incremental/file-hash surface. CRI-15, CRI-16, supported
-Linux sanitizer and final cross-platform publication remain explicit open
-gates. No Phase-2 item was activated or reordered by this work.
+items then available: current installed-only replay, HTTP/toolchain
+compatibility, installed one-shot `rxhash.sha256` content identity, and the
+accepted stateless exact packed `rxvector` provider. This closed the macOS
+vector-acceleration proof. The later Gate-2 closeout supersedes that historical
+hash limitation with the complete installed SHA-256 family. No Phase-2 item
+was activated or reordered by the earlier work.
 
 ### 2026-08-23 current-head disposition
 
@@ -103,10 +103,27 @@ downstream adapter features: provider-lifetime reuse, streaming and
 cancellation still report unsupported. Changing that lifecycle or interface
 requires explicit approval. No Phase-2 item was activated or reordered.
 
+### 2026-08-23 Gate-2 disposition
+
+The user accepted Phase 2 and Gate 2 for the current macOS scope, explicitly
+leaving Linux testing open. The application now hashes sidecars in fixed memory
+through immutable installed `rxhash.sha256init`/`sha256update`/
+`sha256finalhex` state while preserving the application byte ceiling and count.
+The permanent Level-G capability proof covers every public one-shot,
+incremental, raw/hex, and file procedure across optimized/non-optimized builds,
+both VMs, dynamic autoload, and installed static/native packaging. Existing
+installed `rxjson`, typed HTTP, `rxvector`, and RXPA package consumption remain
+direct and fallback-free.
+
+This decision closes the macOS Phase-2/Gate-2 stop. CRI-15 remains the exact
+downstream Linux replay; CRI-16 remains a separate provider-lifecycle feature
+decision. Neither starts Phase 3, hosted traffic, donation submission,
+dual-write, cutover, or native removal.
+
 ## Start State
 
-`P2-01` through `P2-10` are accepted. No product item is active; Gate 2 is the
-mandatory stop. The capability-sync compatibility replay is complete.
+`P2-01` through `P2-10` and Gate 2 are accepted for the current macOS scope. No
+product item is active. The capability-sync compatibility replay is complete.
 Provider-lifecycle work remains separately approval-gated, and the exact
 downstream Linux replay is deferred to later QA after material progress on this
 host. Neither authorizes or starts Phase 3.

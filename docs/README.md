@@ -1,9 +1,9 @@
 # Documentation Map
 
 Status: canonical navigation for the approved cREXX-only programme,
-2026-08-23. Phase 1B is complete, Gate 1B is accepted, and all bounded Phase-2
-items are accepted from its pushed entry baseline. Work is stopped at Gate 2;
-Phase 3 is not authorized.
+2026-08-23. Phase 1B is complete, Gate 1B is accepted, and Phase 2 plus Gate 2
+are accepted for the current macOS scope. Exact downstream Linux replay remains
+open; Phase 3 is not authorized.
 
 ## Current Programme Documents
 
@@ -12,13 +12,14 @@ Phase 3 is not authorized.
 | [Vision and product specification](crexx-only-vision-and-specification.md) | Approved product purpose, requirements, ownership, and cutover rules |
 | [Review findings](crexx-only-review-findings.md) | Point-in-time rationale behind the decision; reproducible Phase-0 evidence is now retained separately |
 | [Architecture](crexx-only-architecture.md) | Approved target boundaries, data model, lifecycle, jobs, retrieval, and surfaces |
-| [Implementation roadmap](crexx-only-implementation-roadmap.md) | Completed work, future phases, and gates; Phase 2 is item-complete and stopped at Gate 2 |
+| [Implementation roadmap](crexx-only-implementation-roadmap.md) | Completed work, future phases, and gates; Phase 2 and Gate 2 are accepted on macOS with exact downstream Linux replay open |
 | [User guide](crexx-only-user-guide.md) | Target interface contract; clearly marks unimplemented commands |
 | [Test strategy](test-strategy.md) | Living validation and acceptance policy |
 | [Programme status](pipeline-status.md) | Living implemented-versus-specified status |
 | [Semantic vocabulary](architecture-vocabulary.md) | Initial domain-neutral typed-graph vocabulary |
 | [CREXX integration issues](crexx-integration-issues.md) | Dated installed-toolchain and capability-gap ledger |
 | [Current CREXX integration replay](evidence/2026-08-23-crexx-current-integration/README.md) | Pulled-head review, fresh installed-only 62/62 downstream replay, exact current boundaries, and deferred follow-up |
+| [Phase 2 and Gate 2 closeout](evidence/2026-08-23-phase2-gate2-closeout/README.md) | Current installed-package capability adoption, macOS validation, Gate-2 acceptance, and the exact Linux-only residual |
 | [CREXX capability-sync worklist](evidence/2026-08-22-crexx-capability-sync/WORKLIST.md) | Completed macOS/current-head items and later parallel qualification backlog |
 | [Generic capability incubation audit](../incubator/README.md) | Donation-candidate inventory, implementation boundaries, colocated use/system docs, and readiness status |
 | [Gate 1A decision ledger](gate1a-decision-ledger.md) | Historical approval for D1-D9, the now-completed Phase-1B worklist, exclusions, and Gate-1B stop |

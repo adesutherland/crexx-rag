@@ -39,12 +39,13 @@ binaryfilefoundation: procedure = .int
   arg cell = .string, path = .string
   error = ""; actual = ""; byte_count = 0
   payload = x2bin("00ffc328004142437f80")
-  expected = lower(bin2x(rxhash..sha256(payload)))
+  expected = rxhash..sha256hex(payload)
   errors = check(writebinaryfile(path, payload, error) = 0, "write opaque binary fixture " || error)
-  errors = errors + check(sha256file(path, 1024, actual, byte_count, error) = 0 & byte_count = 10 & actual = expected, "read and hash opaque binary fixture " || error)
-  errors = errors + check(sha256file(path, 9, actual, byte_count, error) = -3, "binary verification ceiling")
+  errors = errors + check(ragfile..sha256filebounded(path, 1024, actual, byte_count, error) = 0 & byte_count = 10 & actual = expected, "incrementally read and hash opaque binary fixture " || error)
+  errors = errors + check(lower(bin2x(rxhash..sha256file(path))) = expected & rxhash..sha256filehex(path) = expected, "public file digest raw and hex equivalence")
+  errors = errors + check(ragfile..sha256filebounded(path, 9, actual, byte_count, error) = -3, "binary verification ceiling")
   if errors \= 0 then return 1
-  say "P2_05_BINARY_FILE_OK cell=" || cell || " bytes=10 embedded_nul=2 invalid_utf8=1 sha256=" || expected
+  say "P2_05_BINARY_FILE_OK cell=" || cell || " bytes=10 embedded_nul=2 invalid_utf8=1 bounded_incremental=1 public_file=1 sha256=" || expected
   return 0
 
 setuplibrary: procedure = .int

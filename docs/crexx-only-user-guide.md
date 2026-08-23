@@ -259,9 +259,10 @@ The accepted P2-10 shared facade implements the underlying canonical bytes,
 digest, expiry, and hostile apply-time revalidation. Its transport-neutral
 apply option is `--plan-json`; a later thin CLI adapter will read `--plan FILE`
 and pass those exact bytes to the facade. The currently shipped native-v1 CLI
-has not been replaced. At the Gate-2 stop, a fully valid plan is reported as
-revalidated with `enqueued=false` and stable unavailable status because actual
-job creation and ingestion begin only after Phase 3 is approved.
+has not been replaced. After macOS Gate-2 acceptance, a fully valid plan is
+still reported as revalidated with `enqueued=false` and stable unavailable
+status because actual job creation and ingestion begin only after Phase 3 is
+approved.
 
 After the later execution phase is implemented, apply will return a job id
 immediately. It will continue to refuse a stale plan if the library, sources,

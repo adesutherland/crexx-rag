@@ -167,7 +167,7 @@ foreach(mode IN ITEMS noopt opt)
         set(restored_library "${CPRAG_WORK_DIR}/restored-${cell}")
         run_scenario("${runtime}" "${program}" "${cell}" binary-file
             "${CPRAG_WORK_DIR}/binary-${cell}.dat"
-            "P2_05_BINARY_FILE_OK cell=${cell} bytes=10 embedded_nul=2 invalid_utf8=1 sha256=")
+            "P2_05_BINARY_FILE_OK cell=${cell} bytes=10 embedded_nul=2 invalid_utf8=1 bounded_incremental=1 public_file=1 sha256=")
         run_scenario("${runtime}" "${program}" "${cell}" setup "${source_library}"
             "P2_05_SETUP_OK cell=${cell} generation=2 sidecars=1"
             "${sidecar_source}" "${sidecar_size}" "${sidecar_checksum}")
