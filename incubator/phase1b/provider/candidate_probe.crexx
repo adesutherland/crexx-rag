@@ -1,0 +1,16 @@
+options levelg
+
+import provider_contract
+
+main: procedure = .int
+messages = .providermessage[]
+messages[1] = .providermessage("user", "capability probe")
+inputs = .string[]
+inputs[1] = "capability probe"
+request = .providerrequest("generate", "advisory", "fixture-model", messages, inputs, "", 1000, 1, "restricted", "probe-idempotency", "probe-request")
+if validateproviderrequest(request).code() \= 0 then return 1
+if validateprovideroperation(request, "generate").code() \= 0 then return 1
+if validateproviderroute(request, "local").code() \= 0 then return 1
+if validateproviderroute(request, "hosted").code() \= -121 then return 1
+say "P2_09_PROVIDER_CANDIDATE_OK local=allowed hosted_restricted=denied provider_calls=0"
+return 0

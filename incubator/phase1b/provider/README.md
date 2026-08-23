@@ -7,6 +7,9 @@ current-head installed-only macOS inventory passes 62/62, and upstream has
 supported Linux sanitizer/cross-platform HTTP evidence. The package is not
 installed, donation-ready, or approved for provider-lifetime high-throughput
 reuse until the downstream lifecycle and Linux/package gates are complete.
+P2-09 adds a reproducible review recipe in [`BUNDLE.tsv`](BUNDLE.tsv),
+explicitly non-released [`PACKAGE.toml`](PACKAGE.toml) metadata, and a zero-call
+compiled [`candidate_probe.crexx`](candidate_probe.crexx).
 
 See [SYSTEM.md](SYSTEM.md) for module ownership and known transport constraints.
 
@@ -168,5 +171,5 @@ Linux/package qualification decision.
   be replayed on supported Linux.
 - The capability catalogue must be reviewed and versioned as providers change.
 - A real local `llama-server` deployment was unavailable during Phase 1B.
-- Independent package metadata, installed-consumer qualification, and donation
-  approval remain outstanding.
+- Independent release packaging, installed-consumer qualification, and
+  donation approval remain outstanding beyond the P2-09 review recipe.

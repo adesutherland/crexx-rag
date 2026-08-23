@@ -31,7 +31,10 @@ an oracle input, not the target acceptance model.
 - Every implemented donation candidate is classified in `incubator/README.md`
   and keeps use `README.md` plus system `SYSTEM.md` beside its source. The
   `donation_docs_audit` CTest enforces the current candidate set and required
-  documentation sections.
+  documentation sections plus explicitly non-released `PACKAGE.toml` and
+  role-labelled `BUNDLE.tsv` manifests. `p2_09_donation_bundles` stages and
+  hashes every review bundle outside the source tree and runs its minimized
+  Level-G probes across optimized/non-optimized x both VMs.
 - Local and hosted providers share one target contract. Phase 0 makes no hosted
   call and uses no hosted credential. For P1A-LLM-01 only, the user's later
   instruction explicitly authorizes a Google/Gemini generation and embedding

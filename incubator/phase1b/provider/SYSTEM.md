@@ -124,6 +124,11 @@ secret- and budget-gated.
 
 ## Donation Readiness
 
+P2-09 prepares and hash-verifies a review bundle containing the contract,
+adapters, catalog, HTTP bridge, zero-call example/reproducer, deterministic
+tests and retained evidence. It does not run the qualification-only hosted
+program, release a package, or authorize submission.
+
 Before a donation proposal, this incubation still needs:
 
 - a stable package/module namespace and compatibility policy;

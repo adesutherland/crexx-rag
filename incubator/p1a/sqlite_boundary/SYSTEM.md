@@ -79,6 +79,10 @@ optional ADDRESS facade. Exact commands, hashes, and results are retained under
 
 ## Donation Readiness
 
+P2-09 prepares and hash-verifies a review bundle containing the implementation,
+contract, ADDRESS facade, example/reproducer, tests and representative evidence.
+The bundle metadata explicitly denies release and submission status.
+
 Before donation this candidate still needs:
 
 - a final package/module name and versioned compatibility contract;

@@ -1,0 +1,10 @@
+schema = "crexx-candidate-package/1"
+name = "rxsqlite-candidate"
+version = "0.1.0-phase2"
+status = "review-bundle-not-approved"
+implementation = "native-rxpa-mechanism"
+public_namespace = "sqlite_boundary"
+license = "not-yet-specified"
+requires = ["CREXX-RXPA", "SQLite3"]
+compatibility = "incubation API; no released compatibility promise"
+donation_submission_authorized = false

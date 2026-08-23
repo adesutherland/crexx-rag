@@ -1,0 +1,18 @@
+options levelg
+
+import sqlite_boundary
+
+main: procedure = .int
+database = .binary
+statement = .binary
+answer = 0
+if sqliteopenmode(":memory:", "create", database) \= 0 then return 1
+if sqliteprepare(database, "SELECT ?1", statement) \= 0 then return 1
+if sqlitebindint(statement, 1, 42) \= 0 then return 1
+if sqlitestep(statement) \= 100 then return 1
+if sqlitecolumnint(statement, 0, answer) \= 0 then return 1
+if sqlitefinalize(statement) \= 0 then return 1
+if sqliteclose(database) \= 0 then return 1
+if answer \= 42 then return 1
+say "P2_09_SQLITE_CANDIDATE_OK answer=42"
+return 0

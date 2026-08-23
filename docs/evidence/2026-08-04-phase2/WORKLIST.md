@@ -53,9 +53,10 @@ retained blocker evidence. At most one roadmap item may be active.
   [P2-07.md](P2-07.md).
 - [x] **P2-08** Add `doctor`, library lifecycle, provider status/test, and
   profile validation commands. Accepted evidence: [P2-08.md](P2-08.md).
-- [ ] **P2-09** Publish the first cREXX-rag workload/capability report and
+- [x] **P2-09** Publish the first cREXX-rag workload/capability report and
   prepare complete bundles for already accepted generic components. Donation
-  submission remains outside Phase 2 authority.
+  submission remains outside Phase 2 authority. Accepted evidence:
+  [P2-09.md](P2-09.md).
 - [ ] **P2-10** Implement zero-library-write canonical plan encoding and digest
   plus untrusted apply-time revalidation through the shared facade.
 

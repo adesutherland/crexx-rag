@@ -1347,6 +1347,27 @@ if(CPRAG_BUILD_TESTS)
         add_test(NAME p2_08_foundation_facade COMMAND ${P2_08_COMMAND})
         set_tests_properties(p2_08_foundation_facade PROPERTIES
             LABELS "P2-08;phase2;crexx;levelg;application;facade;doctor;library;backup;restore;migrate;provider;profile;access;zero-write;zero-outbound;secret-free")
+        set(P2_09_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+            "-DCPRAG_SOURCE_ROOT=${CMAKE_CURRENT_LIST_DIR}"
+            "-DCPRAG_REPORT=${CMAKE_CURRENT_LIST_DIR}/docs/crexx-rag-workload-capability-report.md"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p2-09-donation-bundles"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P209.cmake")
+        add_custom_target(p2_09_donation_bundles
+            COMMAND ${P2_09_COMMAND}
+            DEPENDS _sqlite_boundary
+            COMMENT "Running P2-09 workload report and review-bundle proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p2_09_donation_bundles COMMAND ${P2_09_COMMAND})
+        set_tests_properties(p2_09_donation_bundles PROPERTIES
+            LABELS "P2-09;phase2;crexx;levelg;report;capability;donation;bundle;manifest;package;docs;example;benchmark;reproducer;dual-vm;zero-outbound")
         add_test(
             NAME crexx_profile_smoke
             COMMAND "${CMAKE_COMMAND}"

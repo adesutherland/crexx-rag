@@ -102,6 +102,10 @@ The original pure evidence remains under
 
 ## Donation Readiness
 
+P2-09 prepares and hash-verifies a review bundle containing the codec, pure
+exact oracle, example/reproducer, tests, benchmark and matched evidence. It does
+not copy the installed `rxvector` implementation or authorize submission.
+
 For the codec/exact primitives:
 
 - settle package/module names and a compatibility/version policy;

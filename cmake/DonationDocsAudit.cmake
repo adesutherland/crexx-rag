@@ -11,7 +11,7 @@ set(candidate_count 0)
 foreach(candidate IN LISTS candidate_directories)
     math(EXPR candidate_count "${candidate_count} + 1")
     set(candidate_root "${CPRAG_SOURCE_ROOT}/${candidate}")
-    foreach(document IN ITEMS README.md SYSTEM.md)
+    foreach(document IN ITEMS README.md SYSTEM.md PACKAGE.toml BUNDLE.tsv)
         set(document_path "${candidate_root}/${document}")
         if(NOT EXISTS "${document_path}")
             message(FATAL_ERROR
@@ -41,6 +41,19 @@ foreach(candidate IN LISTS candidate_directories)
                 "${candidate}/SYSTEM.md is missing required content: ${required_heading}")
         endif()
     endforeach()
+
+    file(READ "${candidate_root}/PACKAGE.toml" package_document)
+    foreach(required_value IN ITEMS
+            "schema = \"crexx-candidate-package/1\""
+            "status = \"review-bundle-not-approved\""
+            "license = \"not-yet-specified\""
+            "donation_submission_authorized = false")
+        string(FIND "${package_document}" "${required_value}" value_position)
+        if(value_position EQUAL -1)
+            message(FATAL_ERROR
+                "${candidate}/PACKAGE.toml is missing required value: ${required_value}")
+        endif()
+    endforeach()
 endforeach()
 
 set(audit_path "${CPRAG_SOURCE_ROOT}/incubator/README.md")
@@ -58,4 +71,4 @@ foreach(candidate IN LISTS candidate_directories)
 endforeach()
 
 message(STATUS
-    "DONATION_DOCS_AUDIT_OK candidates=${candidate_count} use_docs=${candidate_count} system_docs=${candidate_count}")
+    "DONATION_DOCS_AUDIT_OK candidates=${candidate_count} use_docs=${candidate_count} system_docs=${candidate_count} package_manifests=${candidate_count} review_bundles=${candidate_count}")

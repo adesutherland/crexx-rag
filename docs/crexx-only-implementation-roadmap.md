@@ -2,8 +2,8 @@
 
 Status: Gate 1B reached on 2026-08-03 and accepted on 2026-08-04. All bounded
 Phase-1B items are complete. Phase 2 started on 2026-08-04 from the pushed
-entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` through `P2-08`
-are accepted, and `P2-09` is next and pending. The decision is recorded in the
+entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` through `P2-09`
+are accepted, and `P2-10` is next and pending. The decision is recorded in the
 [Gate-1B ledger](gate1b-decision-ledger.md).
 
 This is the execution plan for the target in
@@ -410,10 +410,14 @@ mutation.
   read-only verification, configuration-only provider diagnostics, zero
   outbound/credential resolution, and four-cell evidence in
   [`P2-08.md`](evidence/2026-08-04-phase2/P2-08.md).
-- [ ] **P2-09** Publish the first cREXX-rag workload/capability report and prepare
+- [x] **P2-09** Publish the first cREXX-rag workload/capability report and prepare
   donation bundles for accepted Phase-1 generic components. Require adjacent
   user `README.md` and maintainer `SYSTEM.md` documentation and a current
-  incubation-audit entry for every included package.
+  incubation-audit entry for every included package. Accepted with a versioned
+  ownership/maturity-safe workload report, three explicitly non-released
+  manifest-driven review bundles, 52 hash-verified files, all required bundle
+  roles, and 12 minimized dual-VM probe cells in
+  [`P2-09.md`](evidence/2026-08-04-phase2/P2-09.md).
 - [ ] **P2-10** Implement zero-library-write canonical plan encoding/digest and
   untrusted apply-time revalidation through the shared facade.
 
@@ -671,8 +675,8 @@ opportunities remain in an explicit ledger.
 ## Post-Gate-1B Direction
 
 Gate 1B is accepted and Phase 2 is the active product workstream. Continue from
-the dated Phase-2 worklist, where `P2-01` through `P2-08` are accepted and
-`P2-09` is pending; activate one item at a time and stop at Gate 2.
+the dated Phase-2 worklist, where `P2-01` through `P2-09` are accepted and
+`P2-10` is pending; activate one item at a time and stop at Gate 2.
 
 Phase 2 may proceed in parallel with separately bounded CREXX capability work
 for exact downstream CRI-15/CRI-16 Linux closure and any approved provider

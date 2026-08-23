@@ -13,7 +13,10 @@ keep these files beside its implementation:
   operations, a minimal example, tests, and current limitations;
 - `SYSTEM.md`: maintainer documentation covering boundaries, module layout,
   dependencies, ownership, errors, invariants, performance evidence, and the
-  remaining donation-readiness work.
+  remaining donation-readiness work;
+- `PACKAGE.toml`: explicitly non-released candidate identity, dependencies,
+  compatibility status, and submission authority; and
+- `BUNDLE.tsv`: source-root-relative, role-labelled review-bundle contents.
 
 Documentation completeness is necessary but does not imply that a package is
 approved for donation. Donation still requires the roadmap's independent API,
@@ -35,9 +38,9 @@ Status date: 2026-08-23.
 
 | Capability | Implementation boundary | Colocated documentation | Disposition |
 | --- | --- | --- | --- |
-| SQLite (`rxsqlite` candidate) | [`p1a/sqlite_boundary/`](p1a/sqlite_boundary/) | [use](p1a/sqlite_boundary/README.md), [system](p1a/sqlite_boundary/SYSTEM.md), [retained contract](phase1b/rxsqlite/CONTRACT.md) | Implemented generic candidate; correct on the Phase-1B matrix, not independently packaged or approved for donation |
-| Provider-neutral LLM/embedding (`rxllm` candidate) | [`phase1b/provider/`](phase1b/provider/) | [use](phase1b/provider/README.md), [system](phase1b/provider/SYSTEM.md) | Implemented cREXX incubation; protocol contract and current public HTTP integration pass, while provider-lifetime pooling/capability scope, exact downstream Linux replay and independent packaging remain approval/qualification work |
-| Float32 codec and exact vector primitives | [`phase1b/vector/`](phase1b/vector/) | [use](phase1b/vector/README.md), [system](phase1b/vector/SYSTEM.md) | Portable codec plus pure exact oracle/fallback remain local; the accepted installed CREXX `rxvector` provider supplies bounded-page acceleration without changing SQLite persistence |
+| SQLite (`rxsqlite` candidate) | [`p1a/sqlite_boundary/`](p1a/sqlite_boundary/) | [use](p1a/sqlite_boundary/README.md), [system](p1a/sqlite_boundary/SYSTEM.md), [package](p1a/sqlite_boundary/PACKAGE.toml), [bundle](p1a/sqlite_boundary/BUNDLE.tsv), [retained contract](phase1b/rxsqlite/CONTRACT.md) | Implemented generic candidate; P2-09 review bundle prepared and four-cell probe green, but final name/version, independent release packaging and donation approval remain open |
+| Provider-neutral LLM/embedding (`rxllm` candidate) | [`phase1b/provider/`](phase1b/provider/) | [use](phase1b/provider/README.md), [system](phase1b/provider/SYSTEM.md), [package](phase1b/provider/PACKAGE.toml), [bundle](phase1b/provider/BUNDLE.tsv) | Implemented cREXX incubation with a P2-09 review bundle and zero-call four-cell probe; provider-lifetime scope, selected downstream Linux/package replay, catalogue release policy and donation approval remain open |
+| Float32 codec and exact vector primitives | [`phase1b/vector/`](phase1b/vector/) | [use](phase1b/vector/README.md), [system](phase1b/vector/SYSTEM.md), [package](phase1b/vector/PACKAGE.toml), [bundle](phase1b/vector/BUNDLE.tsv) | Portable codec plus pure exact oracle/fallback have a P2-09 review bundle and four-cell probe; the installed CREXX `rxvector` provider remains selected acceleration, while final package split/policy and donation approval remain open |
 | Parse-once JSON (`rxjson`) | Installed CREXX package; local consumers in [`phase1b/structured_data/`](phase1b/structured_data/) | [use](phase1b/structured_data/README.md), [system](phase1b/structured_data/SYSTEM.md) | Consumed upstream capability, not a locally implemented donation package |
 | Industrial HTTP/TLS | Installed Level-G `rxfnsg`; local consumer in [`phase1b/provider/provider_http.crexx`](phase1b/provider/provider_http.crexx) | Provider [system documentation](phase1b/provider/SYSTEM.md) records the dependency and remaining downstream gates | Upstream public substrate has cross-platform build and supported Linux sanitizer evidence; the current macOS consumer passes 62/62. Exact downstream Linux confirmation and provider-lifetime reuse/stream/cancel decisions remain open |
 | Binary SHA-256 | Installed native `rxhash.sha256`; local proof in [`phase1b/hash/`](phase1b/hash/) and application use in [`phase1b/algorithm/`](phase1b/algorithm/) | [qualification notes](phase1b/hash/README.md) | One-shot binary capability consumed directly with provider autoload; incremental state and file/path convenience remain unimplemented |
@@ -58,7 +61,8 @@ Status date: 2026-08-23.
 
 ## Adding A Candidate
 
-Create the package boundary first, add `README.md` and `SYSTEM.md` in the same
-directory, and then add one row to this audit. The system document must state
+Create the package boundary first, add `README.md`, `SYSTEM.md`, `PACKAGE.toml`,
+and `BUNDLE.tsv` in the same directory, and then add one row to this audit. The
+system document must state
 which APIs are stable, experimental, or application-owned and must link the
 tests and measurements that justify the proposed generic boundary.

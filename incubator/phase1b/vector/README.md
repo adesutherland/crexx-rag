@@ -4,6 +4,9 @@ Status: implemented Level-G integration with the installed CREXX `rxvector`
 provider. This directory retains the portable float32 blob codec and pure
 exact cosine/top-k oracle/fallback; the representative path converts bounded
 SQLite pages to host-native packed owners and calls the accepted provider.
+P2-09 adds a reproducible review recipe in [`BUNDLE.tsv`](BUNDLE.tsv),
+explicitly non-released [`PACKAGE.toml`](PACKAGE.toml) metadata, and a compiled
+portable [`candidate_probe.crexx`](candidate_probe.crexx).
 
 See [SYSTEM.md](SYSTEM.md) for representation, complexity, evidence, and the
 proposed donation split.
@@ -82,6 +85,8 @@ ctest --preset debug -R '^p1_vec_0[1-3]$' --output-on-failure
 The retained workload is 11,684 vectors at dimension 768 with keyset-paged
 SQLite transfer. Tests compare exact top-k and tie behavior across both VMs and
 both compiler modes.
+P2-09 also stages the review bundle and runs the portable codec/cosine probe in
+all four compiler/VM cells through `p2_09_donation_bundles`.
 
 ## Current Limits
 

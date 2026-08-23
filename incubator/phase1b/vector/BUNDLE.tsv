@@ -1,0 +1,15 @@
+# source-root-relative path	bundle-relative path	roles
+incubator/phase1b/vector/README.md	README.md	user-doc
+incubator/phase1b/vector/SYSTEM.md	SYSTEM.md	system-doc
+incubator/phase1b/vector/PACKAGE.toml	PACKAGE.toml	package
+incubator/phase1b/vector/BUNDLE.tsv	BUNDLE.tsv	package
+incubator/phase1b/vector/vector_codec.crexx	src/vector_codec.crexx	contract,source
+incubator/phase1b/vector/vector_search.crexx	src/vector_search.crexx	source
+incubator/phase1b/vector/candidate_probe.crexx	examples/candidate_probe.crexx	example,reproducer,test
+incubator/phase1b/vector/p1_vec_01.crexx	tests/p1_vec_01.crexx	test
+incubator/phase1b/vector/p1_vec_02.crexx	tests/p1_vec_02.crexx	test
+incubator/phase1b/vector/p1_vec_03.crexx	benchmarks/p1_vec_03.crexx	test,benchmark
+docs/evidence/2026-08-03-phase1b/P1-VEC-01.md	evidence/P1-VEC-01.md	evidence
+docs/evidence/2026-08-03-phase1b/P1-VEC-02.md	evidence/P1-VEC-02.md	evidence
+docs/evidence/2026-08-03-phase1b/P1-VEC-03.md	evidence/P1-VEC-03.md	benchmark,evidence
+docs/evidence/2026-08-22-crexx-capability-sync/MACOS-RXVECTOR.md	evidence/MACOS-RXVECTOR.md	benchmark,evidence

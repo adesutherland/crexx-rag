@@ -2,7 +2,10 @@
 
 Status: implemented generic incubation and candidate for a future `rxsqlite`
 package. It is used by the Phase-1B capability and application slices, but it
-is not an installed standalone package and is not approved for donation.
+is not an installed standalone package and is not approved for donation. P2-09
+adds a reproducible review recipe in [`BUNDLE.tsv`](BUNDLE.tsv), explicitly
+non-released metadata in [`PACKAGE.toml`](PACKAGE.toml), and a compiled minimal
+[`candidate_probe.crexx`](candidate_probe.crexx).
 
 The native implementation is [`sqlite_boundary.c`](sqlite_boundary.c). Its
 normative Phase-1B ownership and status contract is retained in
@@ -97,6 +100,8 @@ ctest --preset debug -R '^(p1a_sqlite_boundary|p1_sql_0[1-7])$' --output-on-fail
 The tests cover both CREXX VMs and optimized/non-optimized compilation where
 runtime-relevant. The Phase-1B tests and immutable contract live in
 [`phase1b/rxsqlite/`](../../phase1b/rxsqlite/).
+P2-09 additionally stages the review bundle and runs the candidate probe in all
+four compiler/VM cells through `p2_09_donation_bundles`.
 
 ## Current Limits
 
@@ -104,5 +109,6 @@ runtime-relevant. The Phase-1B tests and immutable contract live in
   `_sqlite_boundary`/`rx_sqlite_boundary`, not a released `rxsqlite` identity.
 - Handles are process-local and no in-process thread-safety claim is made.
 - The plugin is not an ORM and does not own application SQL or migrations.
-- Independent packaging, installed-consumer qualification, examples outside
-  this repository, and donation approval remain outstanding.
+- The P2-09 review recipe is not independent release packaging or an installed
+  consumer qualification; final naming, package/release metadata and donation
+  approval remain outstanding.

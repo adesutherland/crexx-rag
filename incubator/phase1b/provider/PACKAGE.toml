@@ -1,0 +1,10 @@
+schema = "crexx-candidate-package/1"
+name = "rxllm-candidate"
+version = "0.1.0-phase2"
+status = "review-bundle-not-approved"
+implementation = "crexx-level-g-library"
+public_namespace = "provider_contract"
+license = "not-yet-specified"
+requires = ["rxfnsb", "rxjson", "rxfnsg"]
+compatibility = "incubation API; provider catalog and adapters remain versioned review surfaces"
+donation_submission_authorized = false

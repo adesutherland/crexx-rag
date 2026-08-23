@@ -19,7 +19,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Gate 1A | Accepted 2026-08-03 | D1-D8 boundaries and the bounded D9 worklist are recorded; its historical Linux replay retained the original CRI-15 failure |
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | Every bounded item is accepted; the historical Gate validation was 55/56 with sole expected CRI-15; current disposition is tracked separately |
 | Language strategy | Level G first, accepted 2026-08-04 | Advanced libraries and application code use Level G; Level B is limited to justified CREXX bootstrap/foundation work |
-| Phase 2 / Gate 2 | Active; `P2-09` pending | `P2-01` through `P2-08` are accepted, including version-1 conversion, pinned backup/restore, 16 snapshot-paged repositories, the closed command/result contract, and the shared lifecycle/diagnostic facade; capability reporting and donation bundles are next |
+| Phase 2 / Gate 2 | Active; `P2-10` pending | `P2-01` through `P2-09` are accepted, including the shared lifecycle facade, versioned workload/capability report, and three explicitly non-released generic review bundles; canonical zero-write plan/apply validation is next |
 | Parallel CREXX capability sync | Current-head macOS replay complete; follow-up deferred | Current installed-only macOS replay, public Level-G HTTP/toolchain adoption, `rxhash.sha256`, and exact `rxvector` integration pass 62/62 against CREXX `e3d6b7b90158`. Remaining provider-lifecycle work is separately approval-gated, and exact downstream Linux confirmation is deferred to later QA after material local progress; neither blocks Phase 2. |
 | Phase 3 and later | Not authorized | No production ingestion, additional hosted qualification, cutover, or retirement |
 
@@ -164,6 +164,15 @@ P2-05 path, and all provider diagnostics retain zero outbound calls and zero
 credential resolution. The current executable remains the native-v1 oracle;
 Phase-6 adapters have not been installed.
 
+`P2-09` publishes workload/capability report version 1 and prepares the
+`rxsqlite-candidate`, `rxllm-candidate`, and
+`rxvector-portable-candidate` review bundles. Their 52 files are selected by
+role-labelled manifests, staged outside the source tree with exact SHA-256
+identity, and covered by 12 minimized compiler/VM probe cells. Each bundle
+retains adjacent use/system docs and metadata that explicitly denies release or
+donation-submission status. No hosted call, installed-capability copy, upstream
+submission, or CREXX edit occurred.
+
 On 2026-08-22 the separately bounded CREXX capability sync completed its
 macOS work against a fresh installed-only scratch prefix. Downstream content
 identity now exercises installed `rxhash.sha256`; the accepted exact CPU
@@ -216,7 +225,7 @@ and Phase-2 authority are recorded in the
 
 The dated Phase-2 worklist, entry baseline, item ordering, evidence
 requirements, exclusions, and Gate-2 stop are established. `P2-01` through
-`P2-08` are accepted; `P2-09` is next and pending, with no item active.
+`P2-09` are accepted; `P2-10` is next and pending, with no item active.
 Separately bounded CREXX
 capability work may proceed in parallel only after each stream records an
 equivalent boundary.
