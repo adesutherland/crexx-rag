@@ -1,0 +1,1321 @@
+options levelg
+
+namespace ragingest expose ragsourceobservation ragnormalizedsource ragchunk ragingestplan ragingestresult ragtermstatistics normalizebytes chunktext createingestplan applyingestplan termstatistics
+
+import rxfnsb
+import rxjson
+import rxhash
+import sqlite_boundary
+import ragstore
+
+/* Phase-3 ingestion is deliberately expressed in Level G. Native facilities
+ * provide only generic SHA-256 and SQLite boundaries. Observations and plans
+ * expose no setters: the caller may transfer them, but apply always recomputes
+ * their canonical identities before any write transaction begins. */
+ragsourceobservation: class
+  _connector_type = .string
+  _stable_key = .string
+  _previous_stable_key = .string
+  _observed_uri = .string
+  _observed_title = .string
+  _mime_type = .string
+  _encoding = .string
+  _format = .string
+  _raw = .binary
+  _retain_raw = .int
+  _external_reference = .string
+  _expected_raw_digest = .string
+  _metadata = .string
+  _captured_at = .string
+
+  *: factory
+    arg connector_type = .string, stable_key = .string, previous_stable_key = .string, observed_uri = .string, observed_title = .string, mime_type = .string, encoding = .string, format = .string, raw = .binary, retain_raw = .int, external_reference = .string, expected_raw_digest = .string, metadata = .string, captured_at = .string
+    _connector_type = connector_type
+    _stable_key = stable_key
+    _previous_stable_key = previous_stable_key
+    _observed_uri = observed_uri
+    _observed_title = observed_title
+    _mime_type = mime_type
+    _encoding = encoding
+    _format = format
+    _raw = raw
+    _retain_raw = retain_raw
+    _external_reference = external_reference
+    _expected_raw_digest = expected_raw_digest
+    _metadata = metadata
+    _captured_at = captured_at
+    return
+
+  connector_type: method = .string
+    return _connector_type
+  stable_key: method = .string
+    return _stable_key
+  previous_stable_key: method = .string
+    return _previous_stable_key
+  observed_uri: method = .string
+    return _observed_uri
+  observed_title: method = .string
+    return _observed_title
+  mime_type: method = .string
+    return _mime_type
+  encoding: method = .string
+    return _encoding
+  format: method = .string
+    return _format
+  raw: method = .binary
+    return _raw
+  retain_raw: method = .int
+    return _retain_raw
+  external_reference: method = .string
+    return _external_reference
+  expected_raw_digest: method = .string
+    return _expected_raw_digest
+  metadata: method = .string
+    return _metadata
+  captured_at: method = .string
+    return _captured_at
+
+ragnormalizedsource: class
+  _text = .string
+  _raw_starts = .int[]
+  _raw_ends = .int[]
+  _normalized_starts = .int[]
+  _normalized_ends = .int[]
+  _lines = .int[]
+  _unicode_columns = .int[]
+
+  *: factory
+    arg text = .string, raw_starts = .int[], raw_ends = .int[], normalized_starts = .int[], normalized_ends = .int[], lines = .int[], unicode_columns = .int[]
+    _text = text
+    _raw_starts = raw_starts
+    _raw_ends = raw_ends
+    _normalized_starts = normalized_starts
+    _normalized_ends = normalized_ends
+    _lines = lines
+    _unicode_columns = unicode_columns
+    return
+
+  text: method = .string
+    return _text
+  raw_starts: method = .int[]
+    return _raw_starts
+  raw_ends: method = .int[]
+    return _raw_ends
+  normalized_starts: method = .int[]
+    return _normalized_starts
+  normalized_ends: method = .int[]
+    return _normalized_ends
+  lines: method = .int[]
+    return _lines
+  unicode_columns: method = .int[]
+    return _unicode_columns
+  map_count: method = .int
+    return _raw_starts.0
+
+ragchunk: class
+  _ordinal = .int
+  _normalized_start = .int
+  _normalized_end = .int
+  _text = .string
+  _content_digest = .string
+  _content_id = .string
+  _input_fingerprint = .string
+  _continuity_key = .string
+  _parser_version = .string
+  _evidence_class = .string
+
+  *: factory
+    arg ordinal = .int, normalized_start = .int, normalized_end = .int, text = .string, content_digest = .string, content_id = .string, input_fingerprint = .string, continuity_key = .string, parser_version = .string, evidence_class = .string
+    _ordinal = ordinal
+    _normalized_start = normalized_start
+    _normalized_end = normalized_end
+    _text = text
+    _content_digest = content_digest
+    _content_id = content_id
+    _input_fingerprint = input_fingerprint
+    _continuity_key = continuity_key
+    _parser_version = parser_version
+    _evidence_class = evidence_class
+    return
+
+  ordinal: method = .int
+    return _ordinal
+  normalized_start: method = .int
+    return _normalized_start
+  normalized_end: method = .int
+    return _normalized_end
+  text: method = .string
+    return _text
+  content_digest: method = .string
+    return _content_digest
+  content_id: method = .string
+    return _content_id
+  input_fingerprint: method = .string
+    return _input_fingerprint
+  continuity_key: method = .string
+    return _continuity_key
+  parser_version: method = .string
+    return _parser_version
+  evidence_class: method = .string
+    return _evidence_class
+
+ragingestplan: class
+  _schema = .string
+  _source_scope = .string
+  _expected_generation = .int
+  _config_snapshot_id = .string
+  _policy_version = .string
+  _parser_version = .string
+  _maximum_chunk_characters = .int
+  _canonical = .string
+  _digest = .string
+  _observation_count = .int
+
+  *: factory
+    arg schema = .string, source_scope = .string, expected_generation = .int, config_snapshot_id = .string, policy_version = .string, parser_version = .string, maximum_chunk_characters = .int, canonical = .string, digest = .string, observation_count = .int
+    _schema = schema
+    _source_scope = source_scope
+    _expected_generation = expected_generation
+    _config_snapshot_id = config_snapshot_id
+    _policy_version = policy_version
+    _parser_version = parser_version
+    _maximum_chunk_characters = maximum_chunk_characters
+    _canonical = canonical
+    _digest = digest
+    _observation_count = observation_count
+    return
+
+  schema: method = .string
+    return _schema
+  source_scope: method = .string
+    return _source_scope
+  expected_generation: method = .int
+    return _expected_generation
+  config_snapshot_id: method = .string
+    return _config_snapshot_id
+  policy_version: method = .string
+    return _policy_version
+  parser_version: method = .string
+    return _parser_version
+  maximum_chunk_characters: method = .int
+    return _maximum_chunk_characters
+  canonical: method = .string
+    return _canonical
+  digest: method = .string
+    return _digest
+  observation_count: method = .int
+    return _observation_count
+
+ragingestresult: class
+  _status = .int
+  _disposition = .string
+  _generation = .int
+  _library_writes = .int
+  _provider_calls = .int
+  _sources_observed = .int
+  _sources_unchanged = .int
+  _sources_added = .int
+  _sources_changed = .int
+  _sources_renamed = .int
+  _sources_deleted = .int
+  _chunks_created = .int
+  _chunks_reused = .int
+  _occurrences_created = .int
+  _embeddings_reused = .int
+  _support_reanchored = .int
+  _support_retracted = .int
+  _candidates_created = .int
+  _items_queued = .int
+  _error = .string
+
+  *: factory
+    arg status = .int, disposition = .string, generation = .int, library_writes = .int, provider_calls = .int, sources_observed = .int, sources_unchanged = .int, sources_added = .int, sources_changed = .int, sources_renamed = .int, sources_deleted = .int, chunks_created = .int, chunks_reused = .int, occurrences_created = .int, embeddings_reused = .int, support_reanchored = .int, support_retracted = .int, candidates_created = .int, items_queued = .int, error = .string
+    _status = status
+    _disposition = disposition
+    _generation = generation
+    _library_writes = library_writes
+    _provider_calls = provider_calls
+    _sources_observed = sources_observed
+    _sources_unchanged = sources_unchanged
+    _sources_added = sources_added
+    _sources_changed = sources_changed
+    _sources_renamed = sources_renamed
+    _sources_deleted = sources_deleted
+    _chunks_created = chunks_created
+    _chunks_reused = chunks_reused
+    _occurrences_created = occurrences_created
+    _embeddings_reused = embeddings_reused
+    _support_reanchored = support_reanchored
+    _support_retracted = support_retracted
+    _candidates_created = candidates_created
+    _items_queued = items_queued
+    _error = error
+    return
+
+  status: method = .int
+    return _status
+  ok: method = .int
+    return _status = 0
+  disposition: method = .string
+    return _disposition
+  generation: method = .int
+    return _generation
+  library_writes: method = .int
+    return _library_writes
+  provider_calls: method = .int
+    return _provider_calls
+  sources_observed: method = .int
+    return _sources_observed
+  sources_unchanged: method = .int
+    return _sources_unchanged
+  sources_added: method = .int
+    return _sources_added
+  sources_changed: method = .int
+    return _sources_changed
+  sources_renamed: method = .int
+    return _sources_renamed
+  sources_deleted: method = .int
+    return _sources_deleted
+  chunks_created: method = .int
+    return _chunks_created
+  chunks_reused: method = .int
+    return _chunks_reused
+  occurrences_created: method = .int
+    return _occurrences_created
+  embeddings_reused: method = .int
+    return _embeddings_reused
+  support_reanchored: method = .int
+    return _support_reanchored
+  support_retracted: method = .int
+    return _support_retracted
+  candidates_created: method = .int
+    return _candidates_created
+  items_queued: method = .int
+    return _items_queued
+  error: method = .string
+    return _error
+
+ragtermstatistics: class
+  _term = .string
+  _occurrences = .int
+  _chunks = .int
+  _source_diversity = .int
+  _policy_version = .string
+  _input_fingerprint = .string
+
+  *: factory
+    arg term = .string, occurrences = .int, chunks = .int, source_diversity = .int, policy_version = .string, input_fingerprint = .string
+    _term = term
+    _occurrences = occurrences
+    _chunks = chunks
+    _source_diversity = source_diversity
+    _policy_version = policy_version
+    _input_fingerprint = input_fingerprint
+    return
+
+  term: method = .string
+    return _term
+  occurrences: method = .int
+    return _occurrences
+  chunks: method = .int
+    return _chunks
+  source_diversity: method = .int
+    return _source_diversity
+  policy_version: method = .string
+    return _policy_version
+  input_fingerprint: method = .string
+    return _input_fingerprint
+
+normalizebytes: procedure = .int
+  arg raw = .binary, encoding = .string, expose normalized = .ragnormalizedsource, expose error = .string
+  error = ""
+  starts = .int[]; ends = .int[]; nstarts = .int[]; nends = .int[]; lines = .int[]; columns = .int[]
+  normalized = .ragnormalizedsource("", starts, ends, nstarts, nends, lines, columns)
+  if lower(encoding) \= "utf-8" & lower(encoding) \= "utf8" then do
+    error = "unsupported source encoding"
+    return -1
+  end
+  if _validutf8(raw) \= 1 then do
+    error = "source bytes are not valid UTF-8"
+    return -1
+  end
+  input = raw as .string
+  output = ""; line = 1; column = 0; i = 1; raw_offset = 0; normalized_offset = 0
+  do while i <= length(input)
+    character = substr(input, i, 1)
+    raw_width = binlength(character as .binary)
+    if c2x(character) = "0D" then do
+      character = "0A"x
+      if i < length(input) & c2x(substr(input, i + 1, 1)) = "0A" then do
+        i = i + 1
+        raw_width = raw_width + 1
+      end
+    end
+    normalized_width = binlength(character as .binary)
+    output = output || character
+    starts[starts.0 + 1] = raw_offset
+    ends[ends.0 + 1] = raw_offset + raw_width
+    nstarts[nstarts.0 + 1] = normalized_offset
+    nends[nends.0 + 1] = normalized_offset + normalized_width
+    lines[lines.0 + 1] = line
+    columns[columns.0 + 1] = column
+    if c2x(character) = "0A" then do
+      line = line + 1
+      column = 0
+    end
+    else column = column + 1
+    raw_offset = raw_offset + raw_width
+    normalized_offset = normalized_offset + normalized_width
+    i = i + 1
+  end
+  normalized = .ragnormalizedsource(output, starts, ends, nstarts, nends, lines, columns)
+  return 0
+
+chunktext: procedure = .int
+  arg text = .string, format = .string, maximum_characters = .int, parser_version = .string, policy_version = .string, expose chunks = .ragchunk[], expose error = .string
+  clear chunks
+  error = ""
+  if maximum_characters < 16 | parser_version = "" | policy_version = "" | (format \= "plain" & format \= "markdown" & format \= "rexx") then do
+    error = "chunk format, size, parser version, or policy version is invalid"
+    return -1
+  end
+  if text = "" then return 0
+  starts = .int[]; ends = .int[]
+  call _blockranges text, format, starts, ends
+  ordinal = 0
+  content_seen = .string[]
+  do i = 1 to starts.0
+    block_start = starts[i]
+    block_end = ends[i]
+    do while block_start < block_end
+      piece_end = block_start + maximum_characters
+      if piece_end > block_end then piece_end = block_end
+      if piece_end < block_end then do
+        break_at = _lastbreak(text, block_start, piece_end)
+        if break_at > block_start then piece_end = break_at
+      end
+      do while piece_end > block_start & _iswhitespace(substr(text, piece_end, 1)) = 1
+        piece_end = piece_end - 1
+      end
+      do while block_start < piece_end & _iswhitespace(substr(text, block_start + 1, 1)) = 1
+        block_start = block_start + 1
+      end
+      if piece_end > block_start then do
+        body = substr(text, block_start + 1, piece_end - block_start)
+        digest = rxhash..sha256hex(body as .binary)
+        input_fingerprint = rxhash..sha256hex(("crexx-rag.chunk-input/1" || "00"x || format || "00"x || maximum_characters || "00"x || parser_version || "00"x || policy_version) as .binary)
+        content_id = "content-sha256:" || rxhash..sha256hex((digest || "00"x || input_fingerprint) as .binary)
+        occurrence = _countseen(content_seen, digest) + 1
+        content_seen[content_seen.0 + 1] = digest
+        continuity = "continuity-sha256:" || rxhash..sha256hex((digest || "00"x || occurrence) as .binary)
+        ordinal = ordinal + 1
+        normalized_start = binlength(left(text, block_start) as .binary)
+        normalized_end = normalized_start + binlength(body as .binary)
+        chunks[chunks.0 + 1] = .ragchunk(ordinal, normalized_start, normalized_end, body, digest, content_id, input_fingerprint, continuity, parser_version, _evidenceclass(format, body))
+      end
+      block_start = piece_end
+      do while block_start < block_end & _iswhitespace(substr(text, block_start + 1, 1)) = 1
+        block_start = block_start + 1
+      end
+    end
+  end
+  return 0
+
+createingestplan: procedure = .int
+  arg store = .ragstorehandle, source_scope = .string, config_snapshot_id = .string, policy_version = .string, parser_version = .string, maximum_chunk_characters = .int, observations = .ragsourceobservation[], expose plan = .ragingestplan, expose error = .string
+  error = ""; canonical = ""; generation = 0
+  plan = .ragingestplan("", "", 0, "", "", "", 0, "", "", 0)
+  if store.open() \= 1 | source_scope = "" | config_snapshot_id = "" | policy_version = "" | parser_version = "" | maximum_chunk_characters < 16 then do
+    error = "ingest plan inputs are invalid"
+    return -1
+  end
+  generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if generation < 1 then do
+    error = "published generation is unavailable"
+    return -3
+  end
+  if _canonicalplan(source_scope, generation, config_snapshot_id, policy_version, parser_version, maximum_chunk_characters, observations, canonical, error) \= 0 then return -1
+  digest = rxhash..sha256hex(canonical as .binary)
+  plan = .ragingestplan("crexx-rag.ingest-plan/1", source_scope, generation, config_snapshot_id, policy_version, parser_version, maximum_chunk_characters, canonical, digest, observations.0)
+  return 0
+
+applyingestplan: procedure = .ragingestresult
+  arg store = .ragstorehandle, plan = .ragingestplan, observations = .ragsourceobservation[]
+  if store.writable() \= 1 then return _failure(-5, "ingest apply requires readwrite access")
+  if plan.schema() \= "crexx-rag.ingest-plan/1" | plan.observation_count() \= observations.0 | length(plan.digest()) \= 64 then return _failure(-1, "ingest plan shape is invalid")
+  current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if current < 1 | current \= plan.expected_generation() then return _failure(-2, "published generation changed; re-plan")
+  canonical = ""; validation_error = ""
+  if _canonicalplan(plan.source_scope(), current, plan.config_snapshot_id(), plan.policy_version(), plan.parser_version(), plan.maximum_chunk_characters(), observations, canonical, validation_error) \= 0 then return _failure(-1, validation_error)
+  if canonical \= plan.canonical() | rxhash..sha256hex(canonical as .binary) \= plan.digest() then return _failure(-1, "observations no longer match the reviewed canonical plan")
+  match_error = ""
+  match_status = _desiredmatches(store.database(), plan, observations, match_error)
+  if match_status < 0 then return _failure(-3, match_error)
+  if match_status = 1 then return .ragingestresult(0, "identical-no-op", current, 0, 0, observations.0, observations.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "")
+
+  before_changes = _scalarint(store.database(), "SELECT total_changes()")
+  if before_changes < 0 then return _failure(-3, "cannot read SQLite change counter")
+  generation = 0; error = ""
+  if begingeneration(store, current, plan.config_snapshot_id(), "ingest " || plan.digest(), generation, error) \= 0 then return _failure(-3, error)
+
+  added = 0; changed = 0; renamed = 0; deleted = 0
+  chunks_created = 0; chunks_reused = 0; occurrences = 0
+  embeddings_reused = 0; support_reanchored = 0; support_retracted = 0
+  candidates = 0; items = 0
+  do i = 1 to observations.0
+    stage_status = _stageobservation(store.database(), generation, plan, observations[i], added, changed, renamed, chunks_created, chunks_reused, occurrences, embeddings_reused, support_reanchored, support_retracted, candidates, error)
+    if stage_status \= 0 then return _abortresult(store, error)
+  end
+  if _stagedeletions(store.database(), generation, plan.source_scope(), observations, deleted, support_retracted, error) \= 0 then return _abortresult(store, error)
+  if _finalizecandidates(store.database(), generation, plan.policy_version(), error) \= 0 then return _abortresult(store, error)
+  if _queuework(store.database(), generation, plan, items, error) \= 0 then return _abortresult(store, error)
+  if commitgeneration(store, generation, error) \= 0 then return _failure(-3, error)
+  after_changes = _scalarint(store.database(), "SELECT total_changes()")
+  unchanged = observations.0 - added - changed
+  if publishmanifest(store, error) \= 0 then return .ragingestresult(-4, "published-manifest-stale", generation, after_changes - before_changes, 0, observations.0, unchanged, added, changed, renamed, deleted, chunks_created, chunks_reused, occurrences, embeddings_reused, support_reanchored, support_retracted, candidates, items, error)
+  return .ragingestresult(0, "published", generation, after_changes - before_changes, 0, observations.0, unchanged, added, changed, renamed, deleted, chunks_created, chunks_reused, occurrences, embeddings_reused, support_reanchored, support_retracted, candidates, items, "")
+
+termstatistics: procedure = .int
+  arg store = .ragstorehandle, term = .string, policy_version = .string, expose statistics = .ragtermstatistics, expose error = .string
+  error = ""; normalized_term = lower(strip(term))
+  statistics = .ragtermstatistics(normalized_term, 0, 0, 0, policy_version, "")
+  if store.open() \= 1 | normalized_term = "" | length(normalized_term) > 128 | policy_version = "" then do
+    error = "term statistics input is invalid"
+    return -1
+  end
+  generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if generation < 1 then do
+    error = "published generation is unavailable"
+    return -3
+  end
+  prepared = .binary
+  sql = "SELECT c.revision_chunk_id,s.source_id,t.text FROM revision_chunks c JOIN source_revisions r ON r.revision_id=c.revision_id JOIN sources s ON s.source_id=r.source_id JOIN chunk_contents t ON t.content_id=c.content_id WHERE c.visible_from_generation<=?1 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?1) ORDER BY c.revision_chunk_id"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do
+    call sqlitefinalize prepared
+    error = "cannot prepare term census"
+    return -3
+  end
+  occurrences = 0; chunks = 0; sources = .string[]
+  do forever
+    step_status = sqlitestep(prepared)
+    if step_status = 101 then leave
+    if step_status \= 100 then do
+      call sqlitefinalize prepared
+      error = "cannot read term census"
+      return -3
+    end
+    chunk_id = ""; source_id = ""; body = ""
+    column_status = sqlitecolumntext(prepared, 0, chunk_id)
+    column_status = column_status | sqlitecolumntext(prepared, 1, source_id)
+    column_status = column_status | sqlitecolumntext(prepared, 2, body)
+    if column_status \= 0 then do
+      call sqlitefinalize prepared
+      error = "cannot decode term census"
+      return -3
+    end
+    count = _wordcount(lower(body), normalized_term)
+    if count > 0 then do
+      occurrences = occurrences + count
+      chunks = chunks + 1
+      if _contains(sources, source_id) = 0 then sources[sources.0 + 1] = source_id
+    end
+  end
+  call sqlitefinalize prepared
+  fingerprint = rxhash..sha256hex(("crexx-rag.ranking-input/1" || "00"x || policy_version || "00"x || generation || "00"x || normalized_term || "00"x || occurrences || "00"x || chunks || "00"x || sources.0) as .binary)
+  statistics = .ragtermstatistics(normalized_term, occurrences, chunks, sources.0, policy_version, fingerprint)
+  return 0
+
+_failure: procedure = .ragingestresult
+  arg status = .int, error = .string
+  return .ragingestresult(status, "error", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, error)
+
+_abortresult: procedure = .ragingestresult
+  arg store = .ragstorehandle, error = .string
+  preserved = error; ignored = ""
+  call abortgeneration store, ignored
+  if preserved = "" then preserved = "ingest generation was aborted"
+  return _failure(-3, preserved)
+
+_canonicalplan: procedure = .int
+  arg source_scope = .string, generation = .int, config_snapshot_id = .string, policy_version = .string, parser_version = .string, maximum_chunk_characters = .int, observations = .ragsourceobservation[], expose canonical = .string, expose error = .string
+  error = ""; canonical = ""
+  if source_scope = "" | generation < 1 | config_snapshot_id = "" | policy_version = "" | parser_version = "" | maximum_chunk_characters < 16 then do
+    error = "canonical ingest plan header is invalid"
+    return -1
+  end
+  output = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.ingest-plan/1") || "," || jsonquote("source_scope") || ":" || jsonquote(source_scope) || "," || jsonquote("expected_generation") || ":" || generation || "," || jsonquote("config_snapshot_id") || ":" || jsonquote(config_snapshot_id) || "," || jsonquote("policy_version") || ":" || jsonquote(policy_version) || "," || jsonquote("parser_version") || ":" || jsonquote(parser_version) || "," || jsonquote("maximum_chunk_characters") || ":" || maximum_chunk_characters || "," || jsonquote("observations") || ":["
+  previous = ""; mapping_keys = .string[]; stable_keys = .string[]
+  do i = 1 to observations.0
+    stable_keys[stable_keys.0 + 1] = observations[i].connector_type() || "1F"x || observations[i].stable_key()
+  end
+  do i = 1 to observations.0
+    observation = observations[i]
+    if _validobservation(observation, source_scope, error) \= 1 then return -1
+    order_key = observation.connector_type() || "1F"x || observation.stable_key()
+    if previous \= "" & order_key <= previous then do
+      error = "observations must have unique stable keys in canonical sort order"
+      return -1
+    end
+    previous = order_key
+    if observation.previous_stable_key() \= "" then do
+      mapping_key = observation.connector_type() || "1F"x || observation.previous_stable_key()
+      if _contains(stable_keys, mapping_key) = 1 | _contains(mapping_keys, mapping_key) = 1 then do
+        error = "rename mappings must be distinct"
+        return -1
+      end
+      mapping_keys[mapping_keys.0 + 1] = mapping_key
+    end
+    normalized = .ragnormalizedsource; raw_digest = ""; text_digest = ""; metadata_fingerprint = ""; envelope = ""
+    if _observationidentity(observation, parser_version, policy_version, normalized, raw_digest, text_digest, metadata_fingerprint, envelope, error) \= 0 then return -1
+    if i > 1 then output = output || ","
+    output = output || "{" || jsonquote("connector_type") || ":" || jsonquote(observation.connector_type()) || "," || jsonquote("stable_key") || ":" || jsonquote(observation.stable_key()) || "," || jsonquote("previous_stable_key") || ":" || jsonquote(observation.previous_stable_key()) || "," || jsonquote("observed_uri") || ":" || jsonquote(observation.observed_uri()) || "," || jsonquote("observed_title") || ":" || jsonquote(observation.observed_title()) || "," || jsonquote("mime_type") || ":" || jsonquote(observation.mime_type()) || "," || jsonquote("encoding") || ":" || jsonquote(lower(observation.encoding())) || "," || jsonquote("format") || ":" || jsonquote(observation.format()) || "," || jsonquote("retain_raw") || ":" || observation.retain_raw() || "," || jsonquote("external_reference") || ":" || jsonquote(observation.external_reference()) || "," || jsonquote("raw_digest") || ":" || jsonquote(raw_digest) || "," || jsonquote("text_digest") || ":" || jsonquote(text_digest) || "," || jsonquote("metadata_fingerprint") || ":" || jsonquote(metadata_fingerprint) || "," || jsonquote("revision_envelope_digest") || ":" || jsonquote(envelope) || "}"
+  end
+  canonical = output || "]}"
+  return 0
+
+_validobservation: procedure = .int
+  arg observation = .ragsourceobservation, source_scope = .string, expose error = .string
+  if observation.connector_type() \= source_scope | observation.stable_key() = "" | observation.observed_uri() = "" | observation.observed_title() = "" | observation.mime_type() = "" | observation.encoding() = "" | observation.captured_at() = "" then do
+    error = "observation identity, metadata, or capture time is incomplete"
+    return 0
+  end
+  if length(observation.stable_key()) > 1024 | length(observation.previous_stable_key()) > 1024 | length(observation.metadata()) > 65535 then do
+    error = "observation exceeds bounded identity or metadata limits"
+    return 0
+  end
+  if observation.format() \= "plain" & observation.format() \= "markdown" & observation.format() \= "rexx" then do
+    error = "observation format is unsupported"
+    return 0
+  end
+  if observation.retain_raw() = 1 then do
+    if observation.external_reference() \= "" then do
+      error = "retained raw observations cannot also carry an external reference"
+      return 0
+    end
+  end
+  else do
+    if observation.retain_raw() \= 0 | observation.external_reference() = "" | _validsha256(observation.expected_raw_digest()) \= 1 then do
+      error = "external observations require a verified canonical SHA-256 reference"
+      return 0
+    end
+  end
+  return 1
+
+_observationidentity: procedure = .int
+  arg observation = .ragsourceobservation, parser_version = .string, policy_version = .string, expose normalized = .ragnormalizedsource, expose raw_digest = .string, expose text_digest = .string, expose metadata_fingerprint = .string, expose envelope = .string, expose error = .string
+  error = ""
+  if observation.retain_raw() = 1 then raw_digest = rxhash..sha256hex(observation.raw())
+  else raw_digest = observation.expected_raw_digest()
+  if observation.expected_raw_digest() \= "" & raw_digest \= observation.expected_raw_digest() then do
+    error = "raw bytes do not match the expected SHA-256 digest"
+    return -1
+  end
+  if normalizebytes(observation.raw(), observation.encoding(), normalized, error) \= 0 then return -1
+  text_digest = rxhash..sha256hex(normalized.text() as .binary)
+  metadata_canonical = "{" || jsonquote("uri") || ":" || jsonquote(observation.observed_uri()) || "," || jsonquote("title") || ":" || jsonquote(observation.observed_title()) || "," || jsonquote("mime_type") || ":" || jsonquote(observation.mime_type()) || "," || jsonquote("encoding") || ":" || jsonquote(lower(observation.encoding())) || "," || jsonquote("metadata") || ":" || jsonquote(observation.metadata()) || "}"
+  metadata_fingerprint = rxhash..sha256hex(metadata_canonical as .binary)
+  envelope_canonical = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.revision-envelope/1") || "," || jsonquote("stable_key") || ":" || jsonquote(observation.stable_key()) || "," || jsonquote("raw_digest") || ":" || jsonquote(raw_digest) || "," || jsonquote("text_digest") || ":" || jsonquote(text_digest) || "," || jsonquote("metadata_fingerprint") || ":" || jsonquote(metadata_fingerprint) || "," || jsonquote("extractor_version") || ":" || jsonquote("crexx-rag.extract-text/1") || "," || jsonquote("normalization_version") || ":" || jsonquote("crexx-rag.line-endings-utf8/1") || "," || jsonquote("parser_version") || ":" || jsonquote(parser_version) || "," || jsonquote("policy_version") || ":" || jsonquote(policy_version) || "}"
+  envelope = rxhash..sha256hex(envelope_canonical as .binary)
+  return 0
+
+_blockranges: procedure
+  arg text = .string, format = .string, expose starts = .int[], expose ends = .int[]
+  starts = .int[]; ends = .int[]
+  block_start = 0; line_start = 0; in_fence = 0; text_length = length(text)
+  markdown_headings = left(strip(text), 1) = "#" | pos("0A"x || "#", text) > 0
+  do while line_start < text_length
+    newline = pos("0A"x, text, line_start + 1)
+    if newline = 0 then line_end = text_length
+    else line_end = newline - 1
+    line_text = substr(text, line_start + 1, line_end - line_start)
+    stripped = strip(line_text)
+    boundary = 0
+    if format = "markdown" then do
+      if left(stripped, 3) = "```" then do
+        if in_fence = 0 & line_start > block_start then boundary = 2
+        in_fence = 1 - in_fence
+      end
+      else if in_fence = 0 & left(stripped, 1) = "#" & line_start > block_start then boundary = 2
+      else if in_fence = 0 & markdown_headings = 0 & stripped = "" then boundary = 1
+    end
+    else do
+      if stripped = "" then boundary = 1
+      if format = "rexx" & (pos(": procedure", lower(stripped)) > 0 | right(lower(stripped), 7) = ": class") & line_start > block_start then boundary = 2
+    end
+    if boundary > 0 then do
+      range_end = line_start
+      do while range_end > block_start & _iswhitespace(substr(text, range_end, 1)) = 1
+        range_end = range_end - 1
+      end
+      if range_end > block_start then do
+        starts[starts.0 + 1] = block_start
+        ends[ends.0 + 1] = range_end
+      end
+      if boundary = 1 then do
+        if newline = 0 then block_start = text_length
+        else block_start = newline
+      end
+      else block_start = line_start
+    end
+    if newline = 0 then leave
+    line_start = newline
+  end
+  range_end = text_length
+  do while range_end > block_start & _iswhitespace(substr(text, range_end, 1)) = 1
+    range_end = range_end - 1
+  end
+  do while block_start < range_end & _iswhitespace(substr(text, block_start + 1, 1)) = 1
+    block_start = block_start + 1
+  end
+  if range_end > block_start then do
+    starts[starts.0 + 1] = block_start
+    ends[ends.0 + 1] = range_end
+  end
+  return
+
+_lastbreak: procedure = .int
+  arg text = .string, start = .int, finish = .int
+  do i = finish to start + 2 by -1
+    character = substr(text, i, 1)
+    if character = " " | character = "09"x | character = "0A"x then return i - 1
+  end
+  return finish
+
+_iswhitespace: procedure = .int
+  arg character = .string
+  return character = " " | character = "09"x | character = "0A"x | character = "0D"x
+
+_evidenceclass: procedure = .string
+  arg format = .string, body = .string
+  stripped = strip(body)
+  if format = "markdown" & left(stripped, 1) = "#" then return "heading"
+  if format = "markdown" & left(stripped, 3) = "```" then return "code"
+  if format = "rexx" then return "source-code"
+  return "direct"
+
+_countseen: procedure = .int
+  arg values = .string[], expected = .string
+  count = 0
+  do i = 1 to values.0
+    if values[i] = expected then count = count + 1
+  end
+  return count
+
+_contains: procedure = .int
+  arg values = .string[], expected = .string
+  do i = 1 to values.0
+    if values[i] = expected then return 1
+  end
+  return 0
+
+_validsha256: procedure = .int
+  arg value = .string
+  return length(value) = 64 & verify(value, "0123456789abcdef") = 0
+
+_validutf8: procedure = .int
+  arg raw = .binary
+  hexadecimal = bin2x(raw); position = 1
+  do while position <= length(hexadecimal)
+    first = x2d(substr(hexadecimal, position, 2))
+    if first <= 127 then width = 1
+    else if first >= 194 & first <= 223 then width = 2
+    else if first >= 224 & first <= 239 then width = 3
+    else if first >= 240 & first <= 244 then width = 4
+    else return 0
+    if position + width * 2 - 1 > length(hexadecimal) then return 0
+    if width >= 2 then do
+      second = x2d(substr(hexadecimal, position + 2, 2))
+      if second < 128 | second > 191 then return 0
+      if first = 224 & second < 160 then return 0
+      if first = 237 & second > 159 then return 0
+      if first = 240 & second < 144 then return 0
+      if first = 244 & second > 143 then return 0
+    end
+    if width >= 3 then do
+      third = x2d(substr(hexadecimal, position + 4, 2))
+      if third < 128 | third > 191 then return 0
+    end
+    if width = 4 then do
+      fourth = x2d(substr(hexadecimal, position + 6, 2))
+      if fourth < 128 | fourth > 191 then return 0
+    end
+    position = position + width * 2
+  end
+  return 1
+
+_desiredmatches: procedure = .int
+  arg database = .binary, plan = .ragingestplan, observations = .ragsourceobservation[], expose error = .string
+  error = ""
+  active_count = _boundcount(database, "SELECT count(*) FROM sources WHERE connector_type=?1 AND visible_to_generation IS NULL AND lifecycle_state='active'", plan.source_scope())
+  if active_count < 0 then do
+    error = "cannot count current sources"
+    return -1
+  end
+  if active_count \= observations.0 then return 0
+  do i = 1 to observations.0
+    source_id = ""; current_revision = ""; current_stable = ""
+    found = _findsource(database, observations[i].connector_type(), observations[i].stable_key(), source_id, current_revision, current_stable)
+    if found < 0 then do
+      error = "cannot inspect current source identity"
+      return -1
+    end
+    if found = 0 | current_revision = "" then return 0
+    normalized = .ragnormalizedsource; raw_digest = ""; text_digest = ""; metadata_fingerprint = ""; envelope = ""
+    if _observationidentity(observations[i], plan.parser_version(), plan.policy_version(), normalized, raw_digest, text_digest, metadata_fingerprint, envelope, error) \= 0 then return -1
+    current_envelope = _boundscalartext(database, "SELECT revision_envelope_digest FROM source_revisions WHERE revision_id=?1", current_revision)
+    if current_envelope = "" | current_envelope \= envelope then return 0
+  end
+  return 1
+
+_stageobservation: procedure = .int
+  arg database = .binary, generation = .int, plan = .ragingestplan, observation = .ragsourceobservation, expose added = .int, expose changed = .int, expose renamed = .int, expose chunks_created = .int, expose chunks_reused = .int, expose occurrences = .int, expose embeddings_reused = .int, expose support_reanchored = .int, expose support_retracted = .int, expose candidates = .int, expose error = .string
+  normalized = .ragnormalizedsource; raw_digest = ""; text_digest = ""; metadata_fingerprint = ""; envelope = ""
+  if _observationidentity(observation, plan.parser_version(), plan.policy_version(), normalized, raw_digest, text_digest, metadata_fingerprint, envelope, error) \= 0 then return -1
+  chunks = .ragchunk[]
+  if chunktext(normalized.text(), observation.format(), plan.maximum_chunk_characters(), plan.parser_version(), plan.policy_version(), chunks, error) \= 0 then return -1
+
+  source_id = ""; old_revision = ""; current_stable = ""
+  found = _findsource(database, observation.connector_type(), observation.stable_key(), source_id, old_revision, current_stable)
+  if found < 0 then do; error = "cannot find source"; return -1; end
+  if found = 0 & observation.previous_stable_key() \= "" then do
+    found = _findsource(database, observation.connector_type(), observation.previous_stable_key(), source_id, old_revision, current_stable)
+    if found < 0 then do; error = "cannot resolve rename mapping"; return -1; end
+  end
+  if found = 1 & old_revision \= "" then do
+    current_envelope = _boundscalartext(database, "SELECT revision_envelope_digest FROM source_revisions WHERE revision_id=?1", old_revision)
+    if current_envelope = envelope & current_stable = observation.stable_key() then return 0
+  end
+
+  if found = 0 then do
+    source_id = "source-sha256:" || rxhash..sha256hex((observation.connector_type() || "00"x || observation.stable_key()) as .binary)
+    prepared = .binary
+    sql = "INSERT INTO sources(source_id,connector_type,stable_key,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES(?1,?2,?3,'active',?4,?5,?6)"
+    if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare source insert"; return -1; end
+    bind_status = sqlitebindtext(prepared, 1, source_id)
+    bind_status = bind_status | sqlitebindtext(prepared, 2, observation.connector_type())
+    bind_status = bind_status | sqlitebindtext(prepared, 3, observation.stable_key())
+    bind_status = bind_status | sqlitebindtext(prepared, 4, observation.observed_uri())
+    bind_status = bind_status | sqlitebindtext(prepared, 5, observation.observed_title())
+    bind_status = bind_status | sqlitebindint(prepared, 6, generation)
+    step_status = sqlitestep(prepared); call sqlitefinalize prepared
+    if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert source"; return -1; end
+    added = added + 1
+  end
+  else do
+    changed = changed + 1
+    if current_stable \= observation.stable_key() then renamed = renamed + 1
+    if _closeoldrevision(database, old_revision, generation, error) \= 0 then return -1
+    prepared = .binary
+    sql = "UPDATE sources SET stable_key=?1,observed_uri=?2,observed_title=?3,lifecycle_state='active' WHERE source_id=?4"
+    if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare source observation update"; return -1; end
+    bind_status = sqlitebindtext(prepared, 1, observation.stable_key())
+    bind_status = bind_status | sqlitebindtext(prepared, 2, observation.observed_uri())
+    bind_status = bind_status | sqlitebindtext(prepared, 3, observation.observed_title())
+    bind_status = bind_status | sqlitebindtext(prepared, 4, source_id)
+    step_status = sqlitestep(prepared); call sqlitefinalize prepared
+    if bind_status \= 0 | step_status \= 101 then do; error = "cannot update source observation"; return -1; end
+  end
+
+  artifact_id = "artifact-sha256:" || raw_digest
+  artifact_created = 0
+  if _insertartifact(database, artifact_id, raw_digest, observation, artifact_created, error) \= 0 then return -1
+  text_id = "text-sha256:" || rxhash..sha256hex((text_digest || "00"x || "crexx-rag.extract-text/1" || "00"x || "crexx-rag.line-endings-utf8/1") as .binary)
+  if _inserttext(database, text_id, text_digest, normalized.text(), error) \= 0 then return -1
+  revision_id = "revision-sha256:" || rxhash..sha256hex((source_id || "00"x || envelope) as .binary)
+  if _insertrevision(database, revision_id, source_id, envelope, artifact_id, text_id, metadata_fingerprint, observation.captured_at(), generation, error) \= 0 then return -1
+  if _insertmaps(database, revision_id, normalized, error) \= 0 then return -1
+  if _insertchunks(database, revision_id, generation, plan.policy_version(), chunks, chunks_created, chunks_reused, occurrences, candidates, error) \= 0 then return -1
+  if old_revision \= "" then do
+    old_support = _boundcount2(database, "SELECT count(*) FROM claim_support s JOIN revision_chunks c ON c.revision_chunk_id=s.revision_chunk_id WHERE c.revision_id=?1 AND s.visible_to_generation=?2", old_revision, generation)
+    if old_support < 0 then do; error = "cannot count superseded support"; return -1; end
+    local_embeddings = 0; local_support = 0
+    if _reanchorunchanged(database, old_revision, revision_id, generation, local_embeddings, local_support, error) \= 0 then return -1
+    embeddings_reused = embeddings_reused + local_embeddings
+    support_reanchored = support_reanchored + local_support
+    support_retracted = support_retracted + old_support - local_support
+  end
+  if _boundtextexec2(database, "UPDATE sources SET current_revision_id=?1 WHERE source_id=?2", revision_id, source_id) \= 0 then do; error = "cannot publish current source revision"; return -1; end
+  return 0
+
+_insertartifact: procedure = .int
+  arg database = .binary, artifact_id = .string, raw_digest = .string, observation = .ragsourceobservation, expose created = .int, expose error = .string
+  created = 0
+  existing = _boundcount(database, "SELECT count(*) FROM source_artifacts WHERE raw_digest=?1", raw_digest)
+  if existing < 0 then do; error = "cannot inspect raw artifact identity"; return -1; end
+  if existing = 1 then return 0
+  prepared = .binary
+  if observation.retain_raw() = 1 then sql = "INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES(?1,?2,?3,?4,?5,NULL,?6)"
+  else sql = "INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES(?1,?2,?3,?4,NULL,?5,?6)"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare raw artifact insert"; return -1; end
+  bind_status = sqlitebindtext(prepared, 1, artifact_id)
+  bind_status = bind_status | sqlitebindtext(prepared, 2, raw_digest)
+  bind_status = bind_status | sqlitebindtext(prepared, 3, observation.mime_type())
+  bind_status = bind_status | sqlitebindtext(prepared, 4, lower(observation.encoding()))
+  if observation.retain_raw() = 1 then bind_status = bind_status | sqlitebindblob(prepared, 5, observation.raw())
+  else bind_status = bind_status | sqlitebindtext(prepared, 5, observation.external_reference())
+  bind_status = bind_status | sqlitebindtext(prepared, 6, observation.captured_at())
+  step_status = sqlitestep(prepared); call sqlitefinalize prepared
+  if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert raw artifact"; return -1; end
+  created = 1
+  return 0
+
+_inserttext: procedure = .int
+  arg database = .binary, text_id = .string, text_digest = .string, text = .string, expose error = .string
+  existing = _boundcount(database, "SELECT count(*) FROM source_revision_texts WHERE text_id=?1", text_id)
+  if existing < 0 then do; error = "cannot inspect normalized text identity"; return -1; end
+  if existing = 1 then return 0
+  prepared = .binary
+  sql = "INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES(?1,?2,?3,'crexx-rag.extract-text/1','crexx-rag.line-endings-utf8/1',strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare normalized text insert"; return -1; end
+  bind_status = sqlitebindtext(prepared, 1, text_id)
+  bind_status = bind_status | sqlitebindtext(prepared, 2, text_digest)
+  bind_status = bind_status | sqlitebindtext(prepared, 3, text)
+  step_status = sqlitestep(prepared); call sqlitefinalize prepared
+  if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert normalized text"; return -1; end
+  return 0
+
+_insertrevision: procedure = .int
+  arg database = .binary, revision_id = .string, source_id = .string, envelope = .string, artifact_id = .string, text_id = .string, metadata_fingerprint = .string, captured_at = .string, generation = .int, expose error = .string
+  prepared = .binary
+  sql = "INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare revision insert"; return -1; end
+  bind_status = sqlitebindtext(prepared, 1, revision_id)
+  bind_status = bind_status | sqlitebindtext(prepared, 2, source_id)
+  bind_status = bind_status | sqlitebindtext(prepared, 3, envelope)
+  bind_status = bind_status | sqlitebindtext(prepared, 4, artifact_id)
+  bind_status = bind_status | sqlitebindtext(prepared, 5, text_id)
+  bind_status = bind_status | sqlitebindtext(prepared, 6, metadata_fingerprint)
+  bind_status = bind_status | sqlitebindtext(prepared, 7, captured_at)
+  bind_status = bind_status | sqlitebindint(prepared, 8, generation)
+  step_status = sqlitestep(prepared); call sqlitefinalize prepared
+  if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert immutable revision"; return -1; end
+  return 0
+
+_insertmaps: procedure = .int
+  arg database = .binary, revision_id = .string, normalized = .ragnormalizedsource, expose error = .string
+  raw_starts = normalized.raw_starts(); raw_ends = normalized.raw_ends(); normalized_starts = normalized.normalized_starts(); normalized_ends = normalized.normalized_ends(); lines = normalized.lines(); columns = normalized.unicode_columns()
+  i = 1
+  do while i <= raw_starts.0
+    first = i; last = i
+    regular = raw_ends[i] - raw_starts[i] = normalized_ends[i] - normalized_starts[i]
+    if regular then do while last < raw_starts.0
+      next = last + 1
+      next_regular = raw_ends[next] - raw_starts[next] = normalized_ends[next] - normalized_starts[next]
+      if \next_regular | lines[next] \= lines[first] | raw_starts[next] \= raw_ends[last] | normalized_starts[next] \= normalized_ends[last] then leave
+      last = next
+    end
+    map_id = "map-sha256:" || rxhash..sha256hex((revision_id || "00"x || raw_starts[first] || "00"x || raw_ends[last] || "00"x || normalized_starts[first] || "00"x || normalized_ends[last]) as .binary)
+    prepared = .binary
+    sql = "INSERT INTO normalization_maps(map_id,revision_id,raw_start,raw_end,normalized_start,normalized_end,line,unicode_column) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)"
+    if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare normalization span map"; return -1; end
+    bind_status = sqlitebindtext(prepared, 1, map_id)
+    bind_status = bind_status | sqlitebindtext(prepared, 2, revision_id)
+    bind_status = bind_status | sqlitebindint(prepared, 3, raw_starts[first])
+    bind_status = bind_status | sqlitebindint(prepared, 4, raw_ends[last])
+    bind_status = bind_status | sqlitebindint(prepared, 5, normalized_starts[first])
+    bind_status = bind_status | sqlitebindint(prepared, 6, normalized_ends[last])
+    bind_status = bind_status | sqlitebindint(prepared, 7, lines[first])
+    bind_status = bind_status | sqlitebindint(prepared, 8, columns[first])
+    step_status = sqlitestep(prepared); call sqlitefinalize prepared
+    if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert normalization span map"; return -1; end
+    i = last + 1
+  end
+  return 0
+
+_insertchunks: procedure = .int
+  arg database = .binary, revision_id = .string, generation = .int, policy_version = .string, chunks = .ragchunk[], expose chunks_created = .int, expose chunks_reused = .int, expose occurrences = .int, expose candidates = .int, expose error = .string
+  do i = 1 to chunks.0
+    chunk = chunks[i]
+    existing = _boundcount(database, "SELECT count(*) FROM chunk_contents WHERE content_id=?1", chunk.content_id())
+    if existing < 0 then do; error = "cannot inspect chunk content identity"; return -1; end
+    if existing = 0 then do
+      prepared = .binary
+      sql = "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES(?1,?2,?3,?4)"
+      if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare chunk content insert"; return -1; end
+      bind_status = sqlitebindtext(prepared, 1, chunk.content_id())
+      bind_status = bind_status | sqlitebindtext(prepared, 2, chunk.content_digest())
+      bind_status = bind_status | sqlitebindtext(prepared, 3, chunk.text())
+      bind_status = bind_status | sqlitebindtext(prepared, 4, chunk.input_fingerprint())
+      step_status = sqlitestep(prepared); call sqlitefinalize prepared
+      if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert immutable chunk content"; return -1; end
+      chunks_created = chunks_created + 1
+    end
+    else do
+      stored = _boundscalartext(database, "SELECT content_digest||char(31)||input_fingerprint||char(31)||text FROM chunk_contents WHERE content_id=?1", chunk.content_id())
+      expected = chunk.content_digest() || "1F"x || chunk.input_fingerprint() || "1F"x || chunk.text()
+      if stored \= expected then do; error = "chunk content identity collision"; return -1; end
+      chunks_reused = chunks_reused + 1
+    end
+    revision_chunk_id = "occurrence-sha256:" || rxhash..sha256hex((revision_id || "00"x || chunk.ordinal() || "00"x || chunk.normalized_start() || "00"x || chunk.normalized_end() || "00"x || chunk.content_id()) as .binary)
+    prepared = .binary
+    sql = "INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)"
+    if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare chunk occurrence insert"; return -1; end
+    bind_status = sqlitebindtext(prepared, 1, revision_chunk_id)
+    bind_status = bind_status | sqlitebindtext(prepared, 2, revision_id)
+    bind_status = bind_status | sqlitebindint(prepared, 3, chunk.ordinal())
+    bind_status = bind_status | sqlitebindint(prepared, 4, chunk.normalized_start())
+    bind_status = bind_status | sqlitebindint(prepared, 5, chunk.normalized_end())
+    bind_status = bind_status | sqlitebindtext(prepared, 6, chunk.content_id())
+    bind_status = bind_status | sqlitebindtext(prepared, 7, chunk.continuity_key())
+    bind_status = bind_status | sqlitebindtext(prepared, 8, chunk.parser_version())
+    bind_status = bind_status | sqlitebindtext(prepared, 9, chunk.evidence_class())
+    bind_status = bind_status | sqlitebindint(prepared, 10, generation)
+    step_status = sqlitestep(prepared); call sqlitefinalize prepared
+    if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert immutable chunk occurrence"; return -1; end
+    occurrences = occurrences + 1
+    prepared = .binary
+    if sqliteprepare(database, "INSERT INTO chunks_fts(revision_chunk_id,content_id,body) VALUES(?1,?2,?3)", prepared) \= 0 then do; error = "cannot prepare FTS projection"; return -1; end
+    bind_status = sqlitebindtext(prepared, 1, revision_chunk_id)
+    bind_status = bind_status | sqlitebindtext(prepared, 2, chunk.content_id())
+    bind_status = bind_status | sqlitebindtext(prepared, 3, chunk.text())
+    step_status = sqlitestep(prepared); call sqlitefinalize prepared
+    if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert FTS projection"; return -1; end
+    local_candidates = 0
+    if _insertcandidates(database, revision_chunk_id, chunk.text(), generation, policy_version, local_candidates, error) \= 0 then return -1
+    candidates = candidates + local_candidates
+  end
+  return 0
+
+_insertcandidates: procedure = .int
+  arg database = .binary, revision_chunk_id = .string, body = .string, generation = .int, policy_version = .string, expose count = .int, expose error = .string
+  count = 0; position = 1
+  do while position <= length(body)
+    do while position <= length(body) & _iswordcharacter(substr(body, position, 1)) = 0
+      position = position + 1
+    end
+    start = position
+    do while position <= length(body) & _iswordcharacter(substr(body, position, 1)) = 1
+      position = position + 1
+    end
+    finish = position
+    if finish - start >= 3 then do
+      word = substr(body, start, finish - start)
+      first = substr(word, 1, 1)
+      if verify(first, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") = 0 then do
+        normalized_candidate = lower(word)
+        candidate_id = "candidate-sha256:" || rxhash..sha256hex((revision_chunk_id || "00"x || (start - 1) || "00"x || (finish - 1) || "00"x || policy_version) as .binary)
+        prepared = .binary
+        sql = "INSERT INTO candidate_mentions(candidate_id,revision_chunk_id,normalized_candidate,span_start,span_end,extractor_version,visible_from_generation) VALUES(?1,?2,?3,?4,?5,?6,?7)"
+        if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare candidate mention"; return -1; end
+        bind_status = sqlitebindtext(prepared, 1, candidate_id)
+        bind_status = bind_status | sqlitebindtext(prepared, 2, revision_chunk_id)
+        bind_status = bind_status | sqlitebindtext(prepared, 3, normalized_candidate)
+        bind_status = bind_status | sqlitebindint(prepared, 4, start - 1)
+        bind_status = bind_status | sqlitebindint(prepared, 5, finish - 1)
+        bind_status = bind_status | sqlitebindtext(prepared, 6, "crexx-rag.candidate-census/1:" || policy_version)
+        bind_status = bind_status | sqlitebindint(prepared, 7, generation)
+        step_status = sqlitestep(prepared); call sqlitefinalize prepared
+        if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert candidate mention"; return -1; end
+        count = count + 1
+      end
+    end
+  end
+  return 0
+
+_iswordcharacter: procedure = .int
+  arg character = .string
+  if character = "-" | character = "_" then return 1
+  if binlength(character as .binary) > 1 then return 1
+  return verify(character, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") = 0
+
+_closeoldrevision: procedure = .int
+  arg database = .binary, revision_id = .string, generation = .int, expose error = .string
+  if revision_id = "" then return 0
+  statements = .string[]
+  statements[1] = "UPDATE claim_support SET visible_to_generation=" || generation || " WHERE visible_to_generation IS NULL AND revision_chunk_id IN(SELECT revision_chunk_id FROM revision_chunks WHERE revision_id=" || _sqlquote(revision_id) || ")"
+  statements[2] = "UPDATE mentions SET visible_to_generation=" || generation || " WHERE visible_to_generation IS NULL AND revision_chunk_id IN(SELECT revision_chunk_id FROM revision_chunks WHERE revision_id=" || _sqlquote(revision_id) || ")"
+  statements[3] = "UPDATE candidate_mentions SET visible_to_generation=" || generation || " WHERE visible_to_generation IS NULL AND revision_chunk_id IN(SELECT revision_chunk_id FROM revision_chunks WHERE revision_id=" || _sqlquote(revision_id) || ")"
+  statements[4] = "UPDATE revision_chunk_embeddings SET visible_to_generation=" || generation || " WHERE visible_to_generation IS NULL AND revision_chunk_id IN(SELECT revision_chunk_id FROM revision_chunks WHERE revision_id=" || _sqlquote(revision_id) || ")"
+  statements[5] = "DELETE FROM chunks_fts WHERE revision_chunk_id IN(SELECT revision_chunk_id FROM revision_chunks WHERE revision_id=" || _sqlquote(revision_id) || ")"
+  statements[6] = "UPDATE revision_chunks SET visible_to_generation=" || generation || " WHERE revision_id=" || _sqlquote(revision_id) || " AND visible_to_generation IS NULL"
+  statements[7] = "UPDATE source_revisions SET visible_to_generation=" || generation || " WHERE revision_id=" || _sqlquote(revision_id) || " AND visible_to_generation IS NULL"
+  do i = 1 to statements.0
+    if sqliteexec(database, statements[i]) \= 0 then do; error = "cannot close superseded revision dependencies"; return -1; end
+  end
+  return 0
+
+_reanchorunchanged: procedure = .int
+  arg database = .binary, old_revision = .string, new_revision = .string, generation = .int, expose embeddings = .int, expose supports = .int, expose error = .string
+  embeddings = 0; supports = 0
+  sql = "INSERT OR IGNORE INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation,visible_to_generation) SELECT n.revision_chunk_id,l.embedding_id," || generation || ",NULL FROM revision_chunk_embeddings l JOIN revision_chunks o ON o.revision_chunk_id=l.revision_chunk_id JOIN revision_chunks n ON n.revision_id=" || _sqlquote(new_revision) || " AND n.continuity_key=o.continuity_key AND n.content_id=o.content_id WHERE o.revision_id=" || _sqlquote(old_revision) || " AND l.visible_to_generation=" || generation
+  if sqliteexec(database, sql) \= 0 then do; error = "cannot re-anchor unchanged embeddings"; return -1; end
+  embeddings = _scalarint(database, "SELECT changes()")
+
+  prepared = .binary
+  sql = "SELECT s.claim_id,n.revision_chunk_id,s.span_start,s.span_end,s.polarity,s.stance,s.directness,s.attribution,s.lineage_group,s.extractor_identity,coalesce(s.decision_id,'') FROM claim_support s JOIN revision_chunks o ON o.revision_chunk_id=s.revision_chunk_id JOIN revision_chunks n ON n.revision_id=?1 AND n.continuity_key=o.continuity_key AND n.content_id=o.content_id WHERE o.revision_id=?2 AND s.visible_to_generation=?3 ORDER BY s.support_id"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, new_revision) \= 0 | sqlitebindtext(prepared, 2, old_revision) \= 0 | sqlitebindint(prepared, 3, generation) \= 0 then do
+    call sqlitefinalize prepared
+    error = "cannot prepare support re-anchoring"
+    return -1
+  end
+  do forever
+    step_status = sqlitestep(prepared)
+    if step_status = 101 then leave
+    if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read support re-anchoring"; return -1; end
+    claim_id = ""; new_chunk = ""; span_start = 0; span_end = 0; polarity = ""; stance = ""; directness = ""; attribution = ""; lineage = ""; extractor = ""; decision = ""
+    column_status = sqlitecolumntext(prepared, 0, claim_id)
+    column_status = column_status | sqlitecolumntext(prepared, 1, new_chunk)
+    column_status = column_status | sqlitecolumnint(prepared, 2, span_start)
+    column_status = column_status | sqlitecolumnint(prepared, 3, span_end)
+    column_status = column_status | sqlitecolumntext(prepared, 4, polarity)
+    column_status = column_status | sqlitecolumntext(prepared, 5, stance)
+    column_status = column_status | sqlitecolumntext(prepared, 6, directness)
+    column_status = column_status | sqlitecolumntext(prepared, 7, attribution)
+    column_status = column_status | sqlitecolumntext(prepared, 8, lineage)
+    column_status = column_status | sqlitecolumntext(prepared, 9, extractor)
+    column_status = column_status | sqlitecolumntext(prepared, 10, decision)
+    if column_status \= 0 then do; call sqlitefinalize prepared; error = "cannot decode support re-anchoring"; return -1; end
+    insert = .binary
+    sql_insert = "INSERT INTO claim_support(support_id,claim_id,revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity,decision_id,visible_from_generation) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)"
+    if sqliteprepare(database, sql_insert, insert) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare re-anchored support insert"; return -1; end
+    support_id = "support-sha256:" || rxhash..sha256hex((claim_id || "00"x || new_chunk || "00"x || span_start || "00"x || span_end || "00"x || polarity || "00"x || extractor) as .binary)
+    bind_status = sqlitebindtext(insert, 1, support_id)
+    bind_status = bind_status | sqlitebindtext(insert, 2, claim_id)
+    bind_status = bind_status | sqlitebindtext(insert, 3, new_chunk)
+    bind_status = bind_status | sqlitebindint(insert, 4, span_start)
+    bind_status = bind_status | sqlitebindint(insert, 5, span_end)
+    bind_status = bind_status | sqlitebindtext(insert, 6, polarity)
+    bind_status = bind_status | sqlitebindtext(insert, 7, stance)
+    bind_status = bind_status | sqlitebindtext(insert, 8, directness)
+    bind_status = bind_status | sqlitebindtext(insert, 9, attribution)
+    bind_status = bind_status | sqlitebindtext(insert, 10, lineage)
+    bind_status = bind_status | sqlitebindtext(insert, 11, extractor)
+    if decision = "" then bind_status = bind_status | sqlitebindnull(insert, 12)
+    else bind_status = bind_status | sqlitebindtext(insert, 12, decision)
+    bind_status = bind_status | sqlitebindint(insert, 13, generation)
+    insert_status = sqlitestep(insert); call sqlitefinalize insert
+    if bind_status \= 0 | insert_status \= 101 then do; call sqlitefinalize prepared; error = "cannot insert re-anchored support"; return -1; end
+    supports = supports + 1
+  end
+  call sqlitefinalize prepared
+  return 0
+
+_stagedeletions: procedure = .int
+  arg database = .binary, generation = .int, source_scope = .string, observations = .ragsourceobservation[], expose deleted = .int, expose support_retracted = .int, expose error = .string
+  prepared = .binary
+  sql = "SELECT source_id,stable_key,coalesce(current_revision_id,'') FROM sources WHERE connector_type=?1 AND lifecycle_state='active' AND visible_to_generation IS NULL ORDER BY stable_key"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, source_scope) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare source deletion census"; return -1; end
+  source_ids = .string[]; stable_keys = .string[]; revisions = .string[]
+  do forever
+    status = sqlitestep(prepared)
+    if status = 101 then leave
+    if status \= 100 then do; call sqlitefinalize prepared; error = "cannot read source deletion census"; return -1; end
+    source_id = ""; stable_key = ""; revision = ""
+    column_status = sqlitecolumntext(prepared, 0, source_id)
+    column_status = column_status | sqlitecolumntext(prepared, 1, stable_key)
+    column_status = column_status | sqlitecolumntext(prepared, 2, revision)
+    if column_status \= 0 then do; call sqlitefinalize prepared; error = "cannot decode source deletion census"; return -1; end
+    source_ids[source_ids.0 + 1] = source_id
+    stable_keys[stable_keys.0 + 1] = stable_key
+    revisions[revisions.0 + 1] = revision
+  end
+  call sqlitefinalize prepared
+  do i = 1 to source_ids.0
+    if _hasobservation(observations, source_scope, stable_keys[i]) = 0 then do
+      old_support = 0
+      if revisions[i] \= "" then do
+        old_support = _boundcount(database, "SELECT count(*) FROM claim_support s JOIN revision_chunks c ON c.revision_chunk_id=s.revision_chunk_id WHERE c.revision_id=?1 AND s.visible_to_generation IS NULL", revisions[i])
+        if old_support < 0 | _closeoldrevision(database, revisions[i], generation, error) \= 0 then return -1
+      end
+      sql = "UPDATE sources SET lifecycle_state='retired',visible_to_generation=" || generation || " WHERE source_id=" || _sqlquote(source_ids[i]) || " AND visible_to_generation IS NULL"
+      if sqliteexec(database, sql) \= 0 then do; error = "cannot retire deleted source"; return -1; end
+      support_retracted = support_retracted + old_support
+      deleted = deleted + 1
+    end
+  end
+  return 0
+
+_hasobservation: procedure = .int
+  arg observations = .ragsourceobservation[], connector_type = .string, stable_key = .string
+  do i = 1 to observations.0
+    if observations[i].connector_type() = connector_type & observations[i].stable_key() = stable_key then return 1
+  end
+  return 0
+
+_finalizecandidates: procedure = .int
+  arg database = .binary, generation = .int, policy_version = .string, expose error = .string
+  prepared = .binary
+  sql = "SELECT c.candidate_id,c.normalized_candidate FROM candidate_mentions c WHERE c.visible_from_generation=?1 AND NOT EXISTS(SELECT 1 FROM candidate_decisions d WHERE d.candidate_id=c.candidate_id) ORDER BY c.candidate_id"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare candidate adjudication"; return -1; end
+  ids = .string[]; labels = .string[]
+  do forever
+    status = sqlitestep(prepared)
+    if status = 101 then leave
+    if status \= 100 then do; call sqlitefinalize prepared; error = "cannot read candidate adjudication"; return -1; end
+    candidate_id = ""; label = ""
+    column_status = sqlitecolumntext(prepared, 0, candidate_id) | sqlitecolumntext(prepared, 1, label)
+    if column_status \= 0 then do; call sqlitefinalize prepared; error = "cannot decode candidate adjudication"; return -1; end
+    ids[ids.0 + 1] = candidate_id; labels[labels.0 + 1] = label
+  end
+  call sqlitefinalize prepared
+  do i = 1 to ids.0
+    occurrences = _candidatecount(database, labels[i], generation, 0)
+    diversity = _candidatecount(database, labels[i], generation, 1)
+    if occurrences < 0 | diversity < 0 then do; error = "cannot calculate representative candidate evidence"; return -1; end
+    if occurrences >= 2 | diversity >= 2 then state = "accepted"
+    else state = "review"
+    evidence = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.candidate-evidence/1") || "," || jsonquote("normalized_candidate") || ":" || jsonquote(labels[i]) || "," || jsonquote("occurrences") || ":" || occurrences || "," || jsonquote("source_diversity") || ":" || diversity || "}"
+    decision_id = "decision-sha256:" || rxhash..sha256hex((ids[i] || "00"x || policy_version || "00"x || evidence) as .binary)
+    insert = .binary
+    sql = "INSERT INTO candidate_decisions(decision_id,candidate_id,decision_version,state,evidence_json,provider_run_id,policy_version,created_at) VALUES(?1,?2,1,?3,?4,NULL,?5,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+    if sqliteprepare(database, sql, insert) \= 0 then do; error = "cannot prepare candidate decision"; return -1; end
+    bind_status = sqlitebindtext(insert, 1, decision_id)
+    bind_status = bind_status | sqlitebindtext(insert, 2, ids[i])
+    bind_status = bind_status | sqlitebindtext(insert, 3, state)
+    bind_status = bind_status | sqlitebindtext(insert, 4, evidence)
+    bind_status = bind_status | sqlitebindtext(insert, 5, policy_version)
+    step_status = sqlitestep(insert); call sqlitefinalize insert
+    if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert candidate decision"; return -1; end
+  end
+  return 0
+
+_candidatecount: procedure = .int
+  arg database = .binary, label = .string, generation = .int, distinct_sources = .int
+  if distinct_sources = 1 then sql = "SELECT count(DISTINCT r.source_id) FROM candidate_mentions c JOIN revision_chunks k ON k.revision_chunk_id=c.revision_chunk_id JOIN source_revisions r ON r.revision_id=k.revision_id WHERE c.normalized_candidate=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2)"
+  else sql = "SELECT count(*) FROM candidate_mentions c WHERE c.normalized_candidate=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2)"
+  return _boundcount2(database, sql, label, generation)
+
+_queuework: procedure = .int
+  arg database = .binary, generation = .int, plan = .ragingestplan, expose items = .int, expose error = .string
+  items = 0
+  prepared = .binary
+  sql = "SELECT c.revision_chunk_id,c.content_id FROM revision_chunks c WHERE c.visible_from_generation=?1 AND NOT EXISTS(SELECT 1 FROM revision_chunks p WHERE p.content_id=c.content_id AND p.visible_to_generation=?1) ORDER BY c.content_id,c.revision_chunk_id"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare missing-work census"; return -1; end
+  chunk_ids = .string[]; content_ids = .string[]
+  do forever
+    status = sqlitestep(prepared)
+    if status = 101 then leave
+    if status \= 100 then do; call sqlitefinalize prepared; error = "cannot read missing-work census"; return -1; end
+    chunk_id = ""; content_id = ""
+    column_status = sqlitecolumntext(prepared, 0, chunk_id) | sqlitecolumntext(prepared, 1, content_id)
+    if column_status \= 0 then do; call sqlitefinalize prepared; error = "cannot decode missing-work census"; return -1; end
+    chunk_ids[chunk_ids.0 + 1] = chunk_id; content_ids[content_ids.0 + 1] = content_id
+  end
+  call sqlitefinalize prepared
+  job_id = "job-sha256:" || plan.digest()
+  item_budget = chunk_ids.0 * 2
+  state = "queued"
+  if item_budget = 0 then state = "completed"
+  insert = .binary
+  sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,reserved_calls,reserved_tokens,reserved_cost,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,0,0,0,0,0,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(database, sql, insert) \= 0 then do; error = "cannot prepare ingest job"; return -1; end
+  bind_status = sqlitebindtext(insert, 1, job_id)
+  bind_status = bind_status | sqlitebindtext(insert, 2, plan.digest())
+  bind_status = bind_status | sqlitebindtext(insert, 3, plan.canonical())
+  bind_status = bind_status | sqlitebindtext(insert, 4, plan.config_snapshot_id())
+  bind_status = bind_status | sqlitebindtext(insert, 5, state)
+  bind_status = bind_status | sqlitebindint(insert, 6, item_budget)
+  bind_status = bind_status | sqlitebindint(insert, 7, item_budget)
+  step_status = sqlitestep(insert); call sqlitefinalize insert
+  if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert ingest job"; return -1; end
+
+  do i = 1 to chunk_ids.0
+    kinds = .string[]; kinds[1] = "embedding"; kinds[2] = "claim-extraction"
+    do j = 1 to kinds.0
+      idempotency = rxhash..sha256hex(("crexx-rag.work/1" || "00"x || kinds[j] || "00"x || content_ids[i] || "00"x || plan.policy_version()) as .binary)
+      item_id = "item-sha256:" || idempotency
+      input_hash = rxhash..sha256hex((chunk_ids[i] || "00"x || content_ids[i] || "00"x || plan.policy_version() || "00"x || plan.parser_version()) as .binary)
+      before = _scalarint(database, "SELECT total_changes()")
+      item = .binary
+      sql = "INSERT OR IGNORE INTO job_items(item_id,job_id,item_type,state,priority,worker_id,lease_until,fence,retry_at,idempotency_key,input_hash,created_at,updated_at) VALUES(?1,?2,?3,'queued',100,NULL,NULL,0,0,?4,?5,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+      if sqliteprepare(database, sql, item) \= 0 then do; error = "cannot prepare ingest work item"; return -1; end
+      bind_status = sqlitebindtext(item, 1, item_id)
+      bind_status = bind_status | sqlitebindtext(item, 2, job_id)
+      bind_status = bind_status | sqlitebindtext(item, 3, kinds[j])
+      bind_status = bind_status | sqlitebindtext(item, 4, idempotency)
+      bind_status = bind_status | sqlitebindtext(item, 5, input_hash)
+      step_status = sqlitestep(item); call sqlitefinalize item
+      if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert ingest work item"; return -1; end
+      after = _scalarint(database, "SELECT total_changes()")
+      items = items + after - before
+    end
+  end
+  if items = 0 & state \= "completed" then do
+    if sqliteexec(database, "UPDATE jobs SET state='completed',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _sqlquote(job_id)) \= 0 then do; error = "cannot converge empty ingest job"; return -1; end
+  end
+  return 0
+
+_findsource: procedure = .int
+  arg database = .binary, connector_type = .string, stable_key = .string, expose source_id = .string, expose current_revision = .string, expose current_stable = .string
+  source_id = ""; current_revision = ""; current_stable = ""
+  prepared = .binary
+  sql = "SELECT source_id,coalesce(current_revision_id,''),stable_key FROM sources WHERE connector_type=?1 AND stable_key=?2 AND lifecycle_state='active' AND visible_to_generation IS NULL"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, connector_type) \= 0 | sqlitebindtext(prepared, 2, stable_key) \= 0 then do; call sqlitefinalize prepared; return -1; end
+  column_status = 0
+  status = sqlitestep(prepared)
+  if status = 100 then do
+    column_status = sqlitecolumntext(prepared, 0, source_id)
+    column_status = column_status | sqlitecolumntext(prepared, 1, current_revision)
+    column_status = column_status | sqlitecolumntext(prepared, 2, current_stable)
+  end
+  call sqlitefinalize prepared
+  if status = 101 then return 0
+  if status \= 100 | column_status \= 0 then return -1
+  return 1
+
+_scalarint: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  value = -1
+  status = sqlitecolumnint(prepared, 0, value)
+  call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value
+
+_boundcount: procedure = .int
+  arg database = .binary, sql = .string, value = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, value) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  count = -1
+  status = sqlitecolumnint(prepared, 0, count)
+  call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return count
+
+_boundcount2: procedure = .int
+  arg database = .binary, sql = .string, text_value = .string, int_value = .int
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, text_value) \= 0 | sqlitebindint(prepared, 2, int_value) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  count = -1
+  status = sqlitecolumnint(prepared, 0, count)
+  call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return count
+
+_boundscalartext: procedure = .string
+  arg database = .binary, sql = .string, value = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, value) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  output = ""
+  status = sqlitecolumntext(prepared, 0, output)
+  call sqlitefinalize prepared
+  if status \= 0 then return ""
+  return output
+
+_boundtextexec2: procedure = .int
+  arg database = .binary, sql = .string, first = .string, second = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, first) \= 0 | sqlitebindtext(prepared, 2, second) \= 0 then do; call sqlitefinalize prepared; return -1; end
+  status = sqlitestep(prepared); call sqlitefinalize prepared
+  if status = 101 then return 0
+  return -1
+
+_wordcount: procedure = .int
+  arg text = .string, expected = .string
+  count = 0; position = 1
+  do while position <= length(text)
+    do while position <= length(text) & _iswordcharacter(substr(text, position, 1)) = 0
+      position = position + 1
+    end
+    start = position
+    do while position <= length(text) & _iswordcharacter(substr(text, position, 1)) = 1
+      position = position + 1
+    end
+    if position > start & substr(text, start, position - start) = expected then count = count + 1
+  end
+  return count
+
+_sqlquote: procedure = .string
+  arg value = .string
+  return "'" || changestr("'", value, "''") || "'"

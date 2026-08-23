@@ -7,7 +7,7 @@
  */
 options levelb
 
-namespace ragfile expose sha256filebounded writebinaryfile
+namespace ragfile expose readbinaryfilebounded sha256filebounded writebinaryfile
 
 import rxfnsb
 import rxhash
@@ -32,6 +32,44 @@ writebinaryfile: procedure = .int
   assembler fclose close_status,file_id
   if flush_status \= 0 | write_error \= 0 | close_status \= 0 then do
     error = "could not write or close binary file"
+    return -3
+  end
+  return 0
+
+readbinaryfilebounded: procedure = .int
+  arg path = .string, maximum_bytes = .int, expose data = .binary, expose byte_count = .int, expose error = .string
+  data = ''x as .binary; byte_count = 0; error = ""
+  if path = "" | maximum_bytes < 1 then do
+    error = "binary file path and positive size ceiling are required"
+    return -1
+  end
+  mode = "rb"; file_id = 0
+  assembler fopen file_id,path,mode
+  if file_id = 0 then do
+    error = "could not open binary file"
+    return -2
+  end
+  chunk_size = 65536
+  do forever
+    chunk = .binary
+    assembler freadb chunk,file_id,chunk_size
+    count = binlength(chunk)
+    if count = 0 then leave
+    if byte_count + count > maximum_bytes then do
+      close_status = 0
+      assembler fclose close_status,file_id
+      error = "binary file exceeds the configured ingestion ceiling"
+      return -3
+    end
+    data = data || chunk
+    byte_count = byte_count + count
+  end
+  read_error = 0; close_status = 0
+  assembler ferror read_error,file_id
+  assembler fclose close_status,file_id
+  if read_error \= 0 | close_status \= 0 then do
+    data = ''x as .binary; byte_count = 0
+    error = "could not read or close binary file"
     return -3
   end
   return 0

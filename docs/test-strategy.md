@@ -169,8 +169,8 @@ the final full Debug suite passed 60/61 in 553.13 seconds with only CRI-15.
 low-cost `P1-LLM-04` qualification, normal-prefix/CREXX changes, dual-write,
 and later phases are outside the acceptance scope. P2-03 does not imply P2-04
 through P2-10. Gate 2 remained an unconditional stop until the user's
-2026-08-23 macOS acceptance decision; Phase 3 still requires separate
-authorization.
+2026-08-23 macOS acceptance decision. The later sequential Phase-3-plus
+authority supersedes that stop without rewriting its dated evidence.
 
 `P2-04` adds `p2_04_v1_compatibility`: optimized/non-optimized builds on both
 VMs inspect and import a representative version-1 bundle, fingerprint every
@@ -264,6 +264,35 @@ total measurements on both VMs. `P1-VEC-04` retains exact cREXX as the bounded
 fallback and recommends separately authorized generic `rxvector`
 qualification; no accelerator is implemented or selected without a matched
 benchmark.
+
+## Phase 3 Acceptance
+
+CTest `phase3_ingestion` is the permanent Gate-3 proof. It compiles the schema,
+Level-B bounded file boundary, Level-G store/repositories/reconciler/folder
+connector, three scenarios, and executable tutorial with and without
+optimization. Every compiled shape runs on `rxvme` and `rxbvm`.
+
+The matrix covers raw/revision SHA-256, MIME/encoding, CRLF and Unicode byte
+span maps, invalid UTF-8 rejection, three format-aware chunkers, occurrence and
+content identity, immutable generation-bound plans, exact counters, append,
+middle edit, reorder, mapped/unmapped rename, duplicates, deletion,
+metadata-only revisioning, parser invalidation, candidate census/representative
+decisions, term/source-diversity fingerprints, FTS, job idempotency, embedding
+reuse, support re-anchor/retract, stale-plan zero writes, and final repository
+verification.
+
+The optimized `rxvme` and `rxbvm` cases are killed with real `SIGKILL` after a
+partial staging write. A separate process verifies transaction rollback and
+resumes the same desired source to exactly one source, revision, job and zero
+duplicate rows. The generic Phase-0 oracle capture must remain green. At the
+matched Scotland-shaped 512-character/no-overlap policy, native-v1 and cREXX
+must both project two sources and five chunks; candidate row ids are not
+compared. The exact tutorial NDJSON is checked independently.
+
+All recurring Phase-3 QA is credential-free and asserts zero provider calls.
+Hosted extraction, generation and embedding qualifications begin only in their
+later phase-specific, secret-gated targets with explicit call/token/cost/privacy
+budgets. Credential values must never enter CTest output or retained evidence.
 
 ## Required Commands
 

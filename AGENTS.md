@@ -33,22 +33,19 @@ language levels.
 
 ## Approved Scope And Stop Point
 
-Phase 0, Gate 0, Phase 1A, Gate 1A, and the bounded Phase-1B worklist are
-complete. Gate 1B was accepted on 2026-08-04, including all 28 bounded
-Phase-1B item results and their recorded limitations. Phase 2, `P2-01` through
-`P2-10`, and Gate 2 were accepted for the macOS scope on 2026-08-23. Its dated
-worklist and entry baseline are under `docs/evidence/2026-08-04-phase2/`; the
-decision and current-package replay are under
-`docs/evidence/2026-08-23-phase2-gate2-closeout/`. Exact downstream Linux
-replay remains an explicit platform qualification item. No Phase-3 item is
-authorized.
+Phase 0 through Gate 2 are complete and accepted for their recorded scope.
+Phase 3-plus sequential implementation was authorized on 2026-08-23, with QA
+and one focused commit after each phase. Phase 3 is the current workstream; its
+evidence is under `docs/evidence/2026-08-23-phase3/`. Exact downstream Linux
+replay remains an explicit platform qualification item.
 
-No Phase-2 item remains to activate; preserve its ordered item evidence and
-Gate-2 closeout. The decision does not authorize Phase 3, additional
-hosted-provider calls,
-normal-prefix or sibling-CREXX changes, donation submission, dual-write,
-cutover, native-core removal, commit, push, or pull request. Treat the Gate-1A
-ledger and Phase-1B handoff as completed execution evidence.
+Preserve the ordered Phase-2 evidence and Gate-2 closeout. Advance phases in
+roadmap order and do not combine their commits. Hosted-provider qualifications
+may use the phase's explicit bounded call/token/cost/privacy budget and symbolic
+secret references; never retain or print credentials. The sequential authority
+does not authorize normal-prefix or sibling-CREXX changes, donation submission,
+dual-write, cutover, native-core removal, push, pull request, or release. Phase
+commits are authorized; push remains separate.
 
 CRI-15 remains an open exact downstream installed-CREXX Linux replay. Do not
 hide it in a product workaround or claim Linux provider timeout qualification

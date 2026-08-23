@@ -14,7 +14,8 @@ performance with retained correctness and workload evidence.
 > bounded Phase-1B results and their recorded limitations. `P2-01` through
 > `P2-10` and Gate 2 are accepted for the current macOS scope. Exact downstream
 > Linux replay remains open and is not represented by the macOS result. Phase
-> 3 is not authorized. The native-v1
+> 3 true initial/incremental ingestion is implemented and accepted for the
+> recorded macOS scope; Phase 4 is next. The native-v1
 > C++ path remains the executable oracle. Level G is
 > now the required default for advanced libraries and application code; Level B
 > is reserved for CREXX bootstrap and justified low-level foundations.
@@ -86,11 +87,13 @@ target semantics:
 - durable leased jobs with fencing, crash recovery, idempotent promotion,
   cancellation, and hard token/call/cost/time budgets.
 
-These slices prove boundaries and behavior. Phase 2 now also has an accepted
+These slices prove boundaries and behavior. Phase 2 also has an accepted
 schema-v2 storage foundation with ordered migrations, published generations,
 pinned snapshots, recoverable manifests, strict read-only opens, verification,
-and rollback. It is not yet a complete ingestion pipeline, public command set,
-or cutover candidate.
+and rollback. Phase 3 now adds the production Level-G folder connector,
+canonical ingest plan, shared initial/incremental reconciler, deterministic
+chunking/candidate census, FTS/dependency invalidation, reuse, and resumable
+jobs. It is not yet a complete public command set or cutover candidate.
 
 ## Current Status
 
@@ -99,8 +102,9 @@ or cutover candidate.
 | Phase 0 / Gate 0 | Complete | Native oracle, fixtures, judgements, defects, hashes, and measurement protocol frozen |
 | Phase 1A / Gate 1A | Complete | cREXX application and generic-plugin boundaries selected; CRI-01 through CRI-14 closed downstream |
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | 28 bounded items accepted; Debug/Release build; 55 of 56 tests pass with sole known CRI-15 failure |
-| Phase 2 / Gate 2 | Accepted on macOS 2026-08-23 | P2-01 through P2-10, installed-capability adoption, canonical zero-write planning, and hostile apply-time revalidation are accepted; exact downstream Linux replay remains open, no job is enqueued, and Phase 3 is not authorized |
-| Phase 3 and later | Not authorized | No production ingestion, cutover, or native retirement has started |
+| Phase 2 / Gate 2 | Accepted on macOS 2026-08-23 | P2-01 through P2-10, installed-capability adoption, canonical zero-write planning, and hostile apply-time revalidation are accepted; exact downstream Linux replay remains open |
+| Phase 3 / Gate 3 | Accepted on macOS 2026-08-23 | Level-G initial/incremental ingestion, exact reuse/invalidation, executable tutorial, native semantic delta, and crash resume pass; Linux remains open |
+| Phase 4 and later | Authorized sequentially | Claims/improvement is next; no cutover or native retirement has started |
 
 Gate 1B established:
 
@@ -119,7 +123,7 @@ Gate 1B established:
 
 ## Known Production Gaps
 
-The accepted Phase-2 foundation is substantial, but it is not an industrial
+The accepted Phase-3 ingestion path is substantial, but it is not an industrial
 production claim:
 
 - **CRI-15:** the upstream HTTP/timeout path is repaired and qualified, but the

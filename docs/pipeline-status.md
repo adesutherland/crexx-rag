@@ -19,9 +19,10 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Gate 1A | Accepted 2026-08-03 | D1-D8 boundaries and the bounded D9 worklist are recorded; its historical Linux replay retained the original CRI-15 failure |
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | Every bounded item is accepted; the historical Gate validation was 55/56 with sole expected CRI-15; current disposition is tracked separately |
 | Language strategy | Level G first, accepted 2026-08-04 | Advanced libraries and application code use Level G; Level B is limited to justified CREXX bootstrap/foundation work |
-| Phase 2 / Gate 2 | Accepted on macOS 2026-08-23 | `P2-01` through `P2-10`, public installed-capability adoption, canonical zero-write plans, and hostile apply-time revalidation are accepted. Exact downstream Linux replay remains open; no plan is enqueued and Phase 3 is not authorized. |
+| Phase 2 / Gate 2 | Accepted on macOS 2026-08-23 | `P2-01` through `P2-10`, public installed-capability adoption, canonical zero-write plans, and hostile apply-time revalidation are accepted. Exact downstream Linux replay remains open. |
 | Parallel CREXX capability sync | Current installed package adopted on macOS | Public Level-G HTTP/JSON, complete `rxhash` SHA-256, and exact packed `rxvector` are consumed directly with source fallback disabled. Provider-lifecycle expansion remains separately approval-gated, and exact downstream Linux confirmation is the only deferred Phase-2 platform replay. |
-| Phase 3 and later | Not authorized | No production ingestion, additional hosted qualification, cutover, or retirement |
+| Phase 3 / Gate 3 | Accepted on macOS 2026-08-23 | Level-G folder ingestion, immutable plans, incremental reuse/invalidation, candidates, FTS, jobs, tutorial, oracle delta and crash resume pass; exact downstream Linux remains open. |
+| Phase 4 and later | Authorized sequentially | Claims/extraction/improvement is next; cutover and retirement remain later approval gates. |
 
 ## Current Product Reality
 
@@ -67,9 +68,9 @@ fresh deterministic/loopback closeout suite passed 28/28, 0 failed, 0 skipped
 in 110.30 seconds. Exact evidence is under
 `docs/evidence/2026-07-31-gate1a-crexx-candidate/`.
 
-No complete cREXX-only product path, production `rxsqlite` package, safe
-multi-worker queue, repository/ingestion layer, or target command set is
-claimed implemented yet. The Level-G schema-v2 storage foundation is accepted
+No complete cREXX-only public product path, safe multi-worker improvement
+queue, retrieval product, or target command set is claimed implemented yet.
+The Level-G schema-v2 storage and Phase-3 ingestion/repository path are accepted
 over the local generic SQLite incubation. The provider contract remains
 qualified in local incubation, subject to the Gate-1B transport limitations.
 
@@ -248,15 +249,30 @@ and Phase-2 authority are recorded in the
 The dated Phase-2 worklist, entry baseline, item ordering, evidence
 requirements, exclusions, and Gate-2 stop are established. `P2-01` through
 `P2-10` and Gate 2 are accepted for the current macOS scope; exact downstream
-Linux replay remains open. No later item is active.
-Separately bounded CREXX
-capability work may proceed in parallel only after each stream records an
-equivalent boundary.
+Linux replay remains open. The later sequential authority supersedes the old
+Gate-2 stop without changing its historical evidence.
 
 Native-v1 remains the executable oracle. The pulled upstream lineage's
 supported Linux sanitizer and HTTP substrate qualification is now green.
 CRI-15 remains open for the exact downstream Linux
 reproducer/current-package replay. CRI-16 remains a separately approval-gated
 provider-lifecycle decision, not a Phase-2 prerequisite.
-Additional hosted calls, Phase 3, donation submission, dual-write, cutover and
-native-core retirement remain unauthorized.
+Donation submission, dual-write, cutover, native-core retirement, push, and
+release remain unauthorized.
+
+## Phase 3 Execution
+
+`P3-01` through `P3-09` and Gate 3 are accepted for the recorded macOS scope.
+The Level-G `ragingest` reconciler and `ragfolder` connector use installed
+SHA-256 and the accepted SQLite boundary; no RAG-specific native mechanism was
+added. Four optimized/non-optimized dual-VM cells cover initial and incremental
+lifecycle semantics. Two additional optimized cells use real `SIGKILL` during
+a staging transaction and resume without duplicate sources, revisions or jobs.
+
+The native oracle and cREXX scratch libraries agree on the Scotland-shaped
+two-source/five-chunk projection at the matched 512-character/no-overlap policy.
+The executable tutorial is checked against exact NDJSON and repeats unchanged
+input with zero writes/provider calls. Provider-dependent queued work remains
+Phase 4; the Phase-3 path makes no outbound call and resolves no credential.
+Exact evidence and limitations are in
+[`docs/evidence/2026-08-23-phase3/`](evidence/2026-08-23-phase3/README.md).

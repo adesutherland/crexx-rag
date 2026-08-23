@@ -1,6 +1,6 @@
 # cREXX Application Modules
 
-Status: Phase 2 product implementation. These modules are application code,
+Status: Phase 3 product implementation. These modules are application code,
 not generic CREXX donation candidates.
 
 ## Use
@@ -26,6 +26,8 @@ import ragcommand
 import ragcanonical
 import ragplanning
 import ragfoundation
+import ragingest
+import ragfolder
 ```
 
 `raglibrary` defines the library and factory interfaces. `ragjob` defines the
@@ -57,10 +59,22 @@ sanitized rendering of the same typed result.
 `ragcanonical` owns byte-stable non-secret configuration, profile, and provider
 route/privacy projections plus installed SHA-256 use. `ragplanning` creates and
 revalidates `crexx-rag.plan/1` envelopes over a pinned read snapshot.
-`ragfoundation` is the shared command dispatcher. Its ingest, improve, and
-proposal planning operations are successful read-only previews; matching apply
-operations validate hostile JSON and the reviewed digest, then truthfully stop
-as unavailable with `enqueued=false` until later roadmap phases implement jobs.
+`ragfoundation` is the shared command dispatcher. Its Phase-2 generic ingest,
+improve, and proposal command plans remain read-only previews until Phase 6
+wires the public surface. `ragingest` now owns the Phase-3 domain plan and
+shared initial/incremental reconciler. `ragfolder` discovers bounded folder
+observations with sorted relative-path stable keys. The public facade does not
+yet expose apply, so the Phase-3 implementation is exercised through typed
+Level-G callers and the executable development tutorial.
+
+`ragingest` uses `crexx-rag.ingest-plan/1`. Apply recomputes its source,
+generation, parser, policy, raw/text/metadata and revision-envelope bindings
+before entering the generation transaction. It atomically publishes immutable
+artifact/text/revision/chunk occurrence rows and FTS, re-anchors exact unchanged
+support and embeddings, retracts removed dependencies, performs versioned
+candidate census/decisions, and queues missing embedding/claim-extraction work.
+An identical desired source set returns exact unchanged counters with zero
+SQLite writes and zero provider calls.
 
 `ragrepositoryrecord` is the shared typed page envelope. `identity`,
 `parent_identity`, and `related_identity` retain graph/storage identity;
@@ -70,16 +84,14 @@ and JSON metadata; `payload` retains exact artifact/vector bytes; `ordinal` and
 are explicit. A page records its pinned semantic generation and an opaque next
 cursor. The repository never returns an unbounded corpus array.
 
-`ragfile` is the one narrow Level-B foundation exception. The public CREXX file
-hash routines do not expose the application's byte count and pre-hash size
-ceiling, and Level G has no equivalent binary write surface, so this module
-uses the VM's `freadb`/`fwriteb` byte instructions. Its bounded reader feeds
-fixed 64 KiB chunks into immutable `rxhash.sha256init`, `sha256update`, and
-`sha256finalhex` state; it never accumulates the complete file. It contains no
-storage or lifecycle policy; every application, lifecycle, fixture, and test
-consumer remains Level G. The four-cell P2-05 proof covers embedded NUL and
-invalid-UTF-8 bytes, the application ceiling, exact incremental SHA-256, and
-direct `rxhash.sha256file`/`sha256filehex` equivalence.
+`ragfile` is the one narrow Level-B foundation exception. Level G has no binary
+file-read API with a caller-controlled byte ceiling/count and no binary write
+surface, so this module uses the VM's `freadb`/`fwriteb` instructions.
+`sha256filebounded` feeds fixed 64 KiB chunks into immutable `rxhash` state and
+never accumulates the file. `readbinaryfilebounded` accumulates only a single
+source artifact up to the explicit application ceiling so the Level-G folder
+connector can normalize and chunk it. The module contains no source selection,
+storage, or lifecycle policy.
 
 The example operator registry is constructed in
 `config/operator_registry.crexx`. It registers `architecture-local`,
@@ -98,7 +110,10 @@ covered by `p2_06_repository_scenario.crexx`.
 Command parsing and result rendering are covered by
 `p2_07_command_contract.crexx`; lifecycle dispatch is covered by
 `p2_08_foundation_facade.crexx`; canonical planning and revalidation are covered
-by `p2_10_plan_revalidation.crexx`.
+by `p2_10_plan_revalidation.crexx`. Phase-3 ingestion, oracle delta, and real
+resume coverage are `p3_01_ingest_scenario.crexx`,
+`p3_02_oracle_delta.crexx`, and `p3_03_resume_scenario.crexx`; the executable
+tutorial is `crexx/tutorials/phase3_ingestion_scenario.crexx`.
 
 `ragstore` uses a directory bundle containing `library.sqlite` and the
 recoverable `manifest.json` projection. SQLite is authoritative. A publication
@@ -109,12 +124,10 @@ returns the stable bundle to rollback-journal mode.
 
 ## Current Limits
 
-`P2-01` through `P2-10` now implement the bounded Level-G Phase-2 foundation:
-contracts, registered configuration, schema-v2 storage, version-1 conversion,
-backup/restore, paged repositories, command/result contracts, lifecycle and
-configuration-only diagnostic dispatch, and canonical plan/revalidation.
-The native executable remains the oracle and no plan is enqueued. Provider
-execution, ingestion algorithms, improvement/proposal execution, workers, and
+Phase 2 and Gate 2 remain accepted. Phase 3 implements the Level-G ingestion
+algorithm and queues missing downstream work; the Phase-2 public facade still
+does not expose apply. The native executable remains the oracle. Provider
+execution, graph promotion, improvement/proposal workers, retrieval, and
 transport adapters remain later items. Sidecar verification retains the
 2,147,483,647-byte application ceiling but hashes in fixed memory. Callers that
 do not need an interposed ceiling or returned byte count can use the installed

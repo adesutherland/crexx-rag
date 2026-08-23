@@ -1,0 +1,61 @@
+options levelg
+
+import rxfnsb
+import sqlite_boundary
+import ragstore
+import ragingest
+import system
+
+scalarint: procedure = .int
+  arg database = .binary, sql = .string
+  statement = .binary
+  if sqliteprepare(database, sql, statement) \= 0 | sqlitestep(statement) \= 100 then do; call sqlitefinalize statement; return -1; end
+  value = -1; status = sqlitecolumnint(statement, 0, value); call sqlitefinalize statement
+  if status \= 0 then return -1
+  return value
+
+setup: procedure = .int
+  arg path = .string
+  error = ""; store = .ragstorehandle
+  if initragstore(path, "p3-resume", "config-p3-resume", "phase3", "1", "generic-profile", "profile-p3-resume", "config-p3-resume", '{}', store, error) \= 0 then return 1
+  call closeragstore store, error
+  say "P3_RESUME_SETUP_OK generation=1"
+  return 0
+
+crashstage: procedure = .int
+  arg path = .string, marker = .string
+  error = ""; store = .ragstorehandle; generation = 0
+  if openragstore(path, "readwrite", store, error) \= 0 then return 1
+  if begingeneration(store, 1, "config-p3-resume", "interrupted ingest", generation, error) \= 0 then return 1
+  sql = "INSERT INTO sources(source_id,connector_type,stable_key,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('partial-source','folder:resume','resume.md','active','fixture://resume','Resume'," || generation || ")"
+  if sqliteexec(store.database(), sql) \= 0 then return 1
+  call lineout marker, "P3_RESUME_CRASH_POINT=staging generation=2"
+  call lineout marker
+  call _wait 60000
+  return 73
+
+resume: procedure = .int
+  arg path = .string, cell = .string
+  error = ""; store = .ragstorehandle
+  if openragstore(path, "readwrite", store, error) \= 0 then return 1
+  if scalarint(store.database(), "SELECT published_generation FROM library_meta") \= 1 | scalarint(store.database(), "SELECT count(*) FROM sources") \= 0 | scalarint(store.database(), "SELECT count(*) FROM published_generations WHERE state='staging'") \= 0 then do; say "P3_RESUME_FAIL=rollback"; return 1; end
+  observations = .ragsourceobservation[]
+  observations[1] = .ragsourceobservation("folder:resume", "resume.md", "", "fixture://resume", "Resume", "text/markdown", "utf-8", "markdown", ("# Resume" || "0A0A"x || "Identity Gateway resumes exactly once.") as .binary, 1, "", "", '{}', "2026-08-23T12:00:00Z")
+  plan = .ragingestplan
+  if createingestplan(store, "folder:resume", "config-p3-resume", "phase3-policy-v1", "phase3-parser-v1", 256, observations, plan, error) \= 0 then return 1
+  result = applyingestplan(store, plan, observations)
+  repeat_plan = .ragingestplan
+  if createingestplan(store, "folder:resume", "config-p3-resume", "phase3-policy-v1", "phase3-parser-v1", 256, observations, repeat_plan, error) \= 0 then return 1
+  repeat = applyingestplan(store, repeat_plan, observations)
+  if result.ok() \= 1 | result.generation() \= 2 | scalarint(store.database(), "SELECT count(*) FROM sources") \= 1 | scalarint(store.database(), "SELECT count(*) FROM source_revisions") \= 1 | scalarint(store.database(), "SELECT count(*) FROM jobs") \= 1 | repeat.disposition() \= "identical-no-op" | repeat.library_writes() \= 0 then do; say "P3_RESUME_FAIL=reconciliation " || result.error(); return 1; end
+  call closeragstore store, error
+  say "P3_RESUME_OK cell=" || cell || " killed_staging=rolled_back resumed_generation=2 sources=1 revisions=1 jobs=1 duplicate_rows=0 repeat_writes=0 provider_calls=0"
+  return 0
+
+main: procedure = .int
+arg args = .string[]
+if args.0 < 2 then return 2
+if args[1] = "setup" then return setup(args[2])
+if args[1] = "crash" & args.0 >= 3 then return crashstage(args[2], args[3])
+if args[1] = "resume" & args.0 >= 3 then return resume(args[2], args[3])
+return 2

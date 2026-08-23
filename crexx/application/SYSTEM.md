@@ -2,7 +2,7 @@
 
 ## Boundary
 
-The directory owns product-facing Level G contracts and, as Phase 2 proceeds,
+The directory owns product-facing Level G contracts and, as Phase 3 proceeds,
 the cREXX implementations behind them. It may consume installed CREXX
 foundation modules and separately qualified generic plugins. It must not call
 the native-v1 RAG bridge, shell through the CLI, or import product behavior from
@@ -19,6 +19,7 @@ ragconfig + ragprofile + ragregistry <- operator registry
 ragconfig + ragprofile <- ragcanonical -> installed rxhash
 ragschema <- ragstore -> installed SQLite boundary + rxjson + system
 ragstore + ragregistry + ragcanonical <- ragplanning
+ragstore + installed rxhash <- ragingest <- ragfolder + ragfile + rxfs
 ragcommand + lifecycle modules + ragplanning <- ragfoundation
 ```
 
@@ -56,6 +57,16 @@ expiry. Validation first verifies the caller's reviewed digest, then parses and
 strictly reconstructs the canonical object before comparing a fresh context.
 The plan/apply foundation path never inserts a job; later phases own enqueue and
 execution after Gate approval.
+
+The Phase-3 domain plan is distinct from that not-yet-wired command envelope.
+`ragingest` owns one reconciler for first and incremental ingestion. It binds
+raw, normalized text, metadata, parser and policy fingerprints; uses occurrence
+rows for citations and immutable content rows for reuse; closes dependent
+visibility at the new generation; rebuilds the live FTS projection in the same
+transaction; re-anchors only exact continuity/content matches; and queues new
+content inputs through schema-v2 jobs/items. Candidate census/representative
+decisions are deterministic and provider-free. Any failure rolls back the
+generation, so replaying a freshly revalidated plan is the resume mechanism.
 
 Rollback targets a published ancestor. While holding the SQLite writer lock it
 first publishes a projection of that already-committed older generation, then
@@ -106,3 +117,10 @@ canonical plan forms, access-first denial, zero-write planning/revalidation,
 digest and encoding rejection, expiry, generation, config/profile, current
 source, provider-route/privacy, reservation, and capability revalidation, and
 the explicit no-enqueue later-phase boundary.
+
+CTest `phase3_ingestion` compiles the schema, file boundary, store,
+repositories, reconciler, folder connector, scenarios and tutorial with and
+without optimization, then runs `rxvme` and `rxbvm`. It covers all P3-01 through
+P3-09 lifecycle cases, exact tutorial NDJSON, matched generic/Scotland native
+oracle semantics, pinned-reader visibility, and real dual-VM `SIGKILL` rollback
+and resume without duplicate semantic or job rows.

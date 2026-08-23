@@ -3,8 +3,9 @@
 Status: Gate 1B reached on 2026-08-03 and accepted on 2026-08-04. All bounded
 Phase-1B items are complete. Phase 2 started on 2026-08-04 from the pushed
 entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` through `P2-10`
-and Gate 2 are accepted for the current macOS scope. Exact downstream Linux
-replay remains open and Phase 3 is not authorized. The authority is recorded in
+and Gate 2 are accepted for the current macOS scope. Phase 3 and Gate 3 are
+accepted for the recorded macOS scope; exact downstream Linux replay remains
+open and Phase 4 is next. The authority is recorded in
 the [Gate-1B ledger](gate1b-decision-ledger.md) and
 [Gate-2 closeout](evidence/2026-08-23-phase2-gate2-closeout/README.md).
 
@@ -22,9 +23,9 @@ uses proof points and approval gates rather than authorizing a big-bang rewrite.
   separately requested.
 - Preserve the native implementation as the oracle until Gate 7.
 - Generic capability work may incubate here and later be donated to CREXX.
-- Current completed authority covers the Phase-2 IDs and restrictions in the
-  [Gate-1B decision ledger](gate1b-decision-ledger.md). Gate 2 acceptance does
-  not authorize Phase 3 or removal of the existing path.
+- Sequential Phase-3-plus implementation with QA and one commit per phase was
+  authorized on 2026-08-23. This does not authorize removal of the existing
+  path, push, release, or donation submission.
 
 ## Reviewed Baseline
 
@@ -440,36 +441,36 @@ and limitation audit in the
 [`Gate-2 decision packet`](evidence/2026-08-04-phase2/GATE-2-DECISION-PACKET.md).
 The user accepted Gate 2 for the current macOS scope on 2026-08-23 after the
 application adopted the complete installed SHA-256 surface and repeated the
-current-package QA. Exact downstream Linux replay remains open. Phase 3 is not
-authorized.
+current-package QA. Exact downstream Linux replay remains open. Sequential
+Phase-3-plus implementation was subsequently authorized.
 
 ## Phase 3 — True Initial And Incremental Ingestion
 
 Goal: replace native ingestion while making lifecycle behavior strictly better.
 
-- [ ] **P3-01** Implement connector stable keys, captured raw artifact or verified
+- [x] **P3-01** Implement connector stable keys, captured raw artifact or verified
   reference, raw and revision-envelope SHA-256 identities, MIME/encoding,
   semantic metadata fingerprints, immutable observations/revisions, and
   raw-to-normalized span maps.
-- [ ] **P3-02** Port deterministic plain/Markdown/Rexx chunking to Level G and
+- [x] **P3-02** Port deterministic plain/Markdown/Rexx chunking to Level G and
   preserve format-aware golden behavior where useful.
-- [ ] **P3-03** Define two-layer chunk identity: immutable revision/span
+- [x] **P3-03** Define two-layer chunk identity: immutable revision/span
   occurrences for citations and content/input fingerprints for safe reuse across
   unchanged and changed revisions.
-- [ ] **P3-04** Implement immutable `ingest plan`, generation checks, apply,
+- [x] **P3-04** Implement immutable `ingest plan`, generation checks, apply,
   resume, and exact counters.
-- [ ] **P3-05** Implement the generation/invalidation kernel: atomically publish
+- [x] **P3-05** Implement the generation/invalidation kernel: atomically publish
   chunks/FTS, re-anchor or retract existing imported/simple support, and queue
   missing embeddings/mentions/work. Full claim creation/confidence remains
   Phase 4.
-- [ ] **P3-06** Handle append, middle edit, reorder, rename with and without a
+- [x] **P3-06** Handle append, middle edit, reorder, rename with and without a
   connector mapping, duplicate identical files, deletion, metadata-only change,
   CRLF/Unicode normalization, parser-version change, interruption, and resume.
-- [ ] **P3-07** Port candidate census/collation/adjudication using representative
+- [x] **P3-07** Port candidate census/collation/adjudication using representative
   evidence and versioned decisions; failures stay retryable.
-- [ ] **P3-08** Dual-run generic fixtures and a bounded Scotland delta against
+- [x] **P3-08** Dual-run generic fixtures and a bounded Scotland delta against
   the oracle, comparing semantic records rather than row ids.
-- [ ] **P3-09** Version corpus term/rarity, source-diversity, candidate-decision,
+- [x] **P3-09** Version corpus term/rarity, source-diversity, candidate-decision,
   and extraction-ranking inputs; prove bounded transitive invalidation and that
   repeated planning converges without infinite requeue.
 
@@ -484,6 +485,12 @@ Required headline tests:
   source/FTS/support generation;
 - interrupted work resumes without duplicate mentions or decisions; and
 - initial and incremental paths are the same reconciler.
+
+Gate 3 was accepted for the current macOS scope on 2026-08-23. The permanent
+four-cell and real-process evidence, executable tutorial, native semantic delta,
+and exact limitations are retained in the
+[`Phase-3 evidence`](evidence/2026-08-23-phase3/README.md). Exact downstream
+Linux qualification remains open and native-v1 remains the oracle.
 
 ## Phase 4 — Claims, Extraction, Review, And Improvement
 

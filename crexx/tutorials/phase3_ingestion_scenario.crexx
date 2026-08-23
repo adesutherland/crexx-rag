@@ -1,0 +1,35 @@
+options levelg
+
+import ragstore
+import ragingest
+import ragfolder
+
+main: procedure = .int
+arg args = .string[]
+if args.0 < 2 then return 2
+library_path = args[1]
+fixture_root = args[2]
+error = ""; store = .ragstorehandle
+if openragstore(library_path, "readwrite", store, error) \= 0 then do
+  error = ""
+  if initragstore(library_path, "tutorial-phase3", "config-tutorial-p3", "tutorial", "1", "generic-profile", "profile-hash-tutorial", "config-hash-tutorial", '{}', store, error) \= 0 then do; say "ERROR=" || error; return 1; end
+end
+observations = .ragsourceobservation[]
+if collectfolderobservations(fixture_root, "architecture-mini", 1, 1048576, "2026-08-23T12:00:00Z", observations, error) \= 3 then do; say "ERROR=" || error; return 1; end
+keys = observations[1].stable_key() || "," || observations[2].stable_key() || "," || observations[3].stable_key()
+say '{"step":"discover","sources":3,"stable_keys":"' || keys || '"}'
+plan = .ragingestplan
+if createingestplan(store, "folder:architecture-mini", "config-tutorial-p3", "tutorial-policy-v1", "tutorial-parser-v1", 512, observations, plan, error) \= 0 then do; say "ERROR=" || error; return 1; end
+say '{"step":"plan","schema":"' || plan.schema() || '","expected_generation":' || plan.expected_generation() || ',"provider_calls":0}'
+result = applyingestplan(store, plan, observations)
+if result.ok() \= 1 then do; say "ERROR=" || result.error(); return 1; end
+say '{"step":"apply","generation":' || result.generation() || ',"sources_added":' || result.sources_added() || ',"sources_changed":' || result.sources_changed() || ',"sources_deleted":' || result.sources_deleted() || ',"chunks_created":' || result.chunks_created() || ',"chunks_reused":' || result.chunks_reused() || ',"provider_calls":' || result.provider_calls() || '}'
+repeat_plan = .ragingestplan
+if createingestplan(store, "folder:architecture-mini", "config-tutorial-p3", "tutorial-policy-v1", "tutorial-parser-v1", 512, observations, repeat_plan, error) \= 0 then return 1
+repeat = applyingestplan(store, repeat_plan, observations)
+say '{"step":"repeat","disposition":"' || repeat.disposition() || '","library_writes":' || repeat.library_writes() || ',"provider_calls":' || repeat.provider_calls() || '}'
+statistics = .ragtermstatistics
+if termstatistics(store, "identity", "tutorial-policy-v1", statistics, error) \= 0 then return 1
+say '{"step":"inspect","term":"identity","occurrences":' || statistics.occurrences() || ',"source_diversity":' || statistics.source_diversity() || '}'
+call closeragstore store, error
+return 0

@@ -1391,6 +1391,36 @@ if(CPRAG_BUILD_TESTS)
         add_test(NAME p2_10_plan_revalidation COMMAND ${P2_10_COMMAND})
         set_tests_properties(p2_10_plan_revalidation PROPERTIES
             LABELS "P2-10;phase2;crexx;levelg;application;facade;plan;canonical;digest;expiry;generation;config;profile;source;provider-route;reservation;access;zero-write;zero-outbound")
+        set(PHASE3_INGESTION_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+            "-DCPRAG_APP_DIR=${CMAKE_CURRENT_LIST_DIR}/crexx/application"
+            "-DCPRAG_SCENARIO=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p3_01_ingest_scenario.crexx"
+            "-DCPRAG_DELTA_SCENARIO=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p3_02_oracle_delta.crexx"
+            "-DCPRAG_RESUME_SCENARIO=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p3_03_resume_scenario.crexx"
+            "-DCPRAG_TUTORIAL=${CMAKE_CURRENT_LIST_DIR}/crexx/tutorials/phase3_ingestion_scenario.crexx"
+            "-DCPRAG_TUTORIAL_FIXTURE=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/tutorial/architecture-mini"
+            "-DCPRAG_TUTORIAL_EXPECTED=${CMAKE_CURRENT_LIST_DIR}/tests/expected/tutorial-phase3.jsonl"
+            "-DCPRAG_PHASE0_FIXTURE=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/phase0"
+            "-DCPRAG_NATIVE_CLI=$<TARGET_FILE:crexx-rag>"
+            "-DCPRAG_ORACLE_CAPTURE=$<TARGET_FILE:phase0_oracle_semantics>"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/phase3-ingestion"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase3Ingestion.cmake")
+        add_custom_target(phase3_ingestion
+            COMMAND ${PHASE3_INGESTION_COMMAND}
+            DEPENDS _sqlite_boundary crexx-rag phase0_oracle_semantics
+            COMMENT "Running Phase-3 Level-G ingestion and executable tutorial proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME phase3_ingestion COMMAND ${PHASE3_INGESTION_COMMAND})
+        set_tests_properties(phase3_ingestion PROPERTIES
+            TIMEOUT 300
+            LABELS "phase3;P3-01;P3-02;P3-03;P3-04;P3-05;P3-06;P3-07;P3-08;P3-09;crexx;levelg;ingest;incremental;generation;sha256;normalization;chunking;fts;candidate;resume;crash;oracle;tutorial;dual-vm;zero-write;zero-outbound")
         add_test(
             NAME crexx_profile_smoke
             COMMAND "${CMAKE_COMMAND}"

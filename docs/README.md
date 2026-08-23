@@ -1,9 +1,9 @@
 # Documentation Map
 
 Status: canonical navigation for the approved cREXX-only programme,
-2026-08-23. Phase 1B is complete, Gate 1B is accepted, and Phase 2 plus Gate 2
-are accepted for the current macOS scope. Exact downstream Linux replay remains
-open; Phase 3 is not authorized.
+2026-08-23. Phase 1B through Gate 2 are accepted, and Phase 3 plus Gate 3 are
+accepted for the current macOS scope. Exact downstream Linux replay remains
+open; Phase 4 is next in the authorized sequential programme.
 
 ## Current Programme Documents
 
@@ -20,6 +20,8 @@ open; Phase 3 is not authorized.
 | [CREXX integration issues](crexx-integration-issues.md) | Dated installed-toolchain and capability-gap ledger |
 | [Current CREXX integration replay](evidence/2026-08-23-crexx-current-integration/README.md) | Pulled-head review, fresh installed-only 62/62 downstream replay, exact current boundaries, and deferred follow-up |
 | [Phase 2 and Gate 2 closeout](evidence/2026-08-23-phase2-gate2-closeout/README.md) | Current installed-package capability adoption, macOS validation, Gate-2 acceptance, and the exact Linux-only residual |
+| [Phase 3 executable tutorial](tutorials/phase-3-ingestion.md) | Development tutorial over the real folder connector, immutable plan, reconciler, and zero-write replay |
+| [Phase 3 and Gate 3 evidence](evidence/2026-08-23-phase3/README.md) | P3-01 through P3-09, dual-VM/mode, crash resume, tutorial, oracle delta, QA, and current limits |
 | [CREXX capability-sync worklist](evidence/2026-08-22-crexx-capability-sync/WORKLIST.md) | Completed macOS/current-head items and later parallel qualification backlog |
 | [Generic capability incubation audit](../incubator/README.md) | Donation-candidate inventory, implementation boundaries, colocated use/system docs, and readiness status |
 | [Gate 1A decision ledger](gate1a-decision-ledger.md) | Historical approval for D1-D9, the now-completed Phase-1B worklist, exclusions, and Gate-1B stop |
