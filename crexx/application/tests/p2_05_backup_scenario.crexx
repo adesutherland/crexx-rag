@@ -1,0 +1,224 @@
+options levelg
+
+import rxfnsb
+import system
+import rxfs
+import rxhash
+import sqlite_boundary
+import ragstore
+import ragbackup
+import ragfile
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P2_05_FAIL=" || label
+    return 1
+  end
+  return 0
+
+scalarint: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 then return -1
+  if sqlitestep(prepared) \= 100 then do
+    call sqlitefinalize prepared
+    return -1
+  end
+  value = -1
+  status = sqlitecolumnint(prepared, 0, value)
+  call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value
+
+sidecarname: procedure = .string
+  arg checksum = .string
+  return "vectors.2.vg-fixture." || substr(checksum, 1, 16) || ".faiss"
+
+binaryfilefoundation: procedure = .int
+  arg cell = .string, path = .string
+  error = ""; actual = ""; byte_count = 0
+  payload = x2bin("00ffc328004142437f80")
+  expected = lower(bin2x(rxhash..sha256(payload)))
+  errors = check(writebinaryfile(path, payload, error) = 0, "write opaque binary fixture " || error)
+  errors = errors + check(sha256file(path, 1024, actual, byte_count, error) = 0 & byte_count = 10 & actual = expected, "read and hash opaque binary fixture " || error)
+  errors = errors + check(sha256file(path, 9, actual, byte_count, error) = -3, "binary verification ceiling")
+  if errors \= 0 then return 1
+  say "P2_05_BINARY_FILE_OK cell=" || cell || " bytes=10 embedded_nul=2 invalid_utf8=1 sha256=" || expected
+  return 0
+
+setuplibrary: procedure = .int
+  arg cell = .string, path = .string, source_sidecar = .string, sidecar_size = .int, checksum = .string, publish_sidecar = .int
+  errors = 0; error = ""; store = .ragstorehandle; publication = .ragsidecarpublication
+  errors = errors + check(initragstore(path, "library-p2-05-" || cell, "config-p205", "architecture-local", "1", "generic", "profile-hash-p205", "config-hash-p205", '{}', store, error) = 0, "initialize library " || error)
+  if errors \= 0 then return 1
+  errors = errors + check(sqliteexec(store.database(), "INSERT INTO embedding_profiles(embedding_profile_id,provider_id,model,dimension,input_envelope_fingerprint,created_at) VALUES('profile-p205','fixture','fixture-model',2,'fixture-envelope',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "install embedding profile")
+  generation = 0
+  errors = errors + check(begingeneration(store, 1, "config-p205", "P2-05 fixture generation", generation, error) = 0 & generation = 2, "begin fixture generation " || error)
+  errors = errors + check(sqliteexec(store.database(), "INSERT INTO sources(source_id,connector_type,stable_key,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('source-2','fixture','source-2','active','fixture://source-2','Source 2',2)") = 0, "stage fixture source")
+  errors = errors + check(commitgeneration(store, generation, error) = 0 & publishmanifest(store, error) = 0, "publish fixture generation " || error)
+  if publish_sidecar = 1 then errors = errors + check(publishsidecar(store, source_sidecar, "vg-fixture", "profile-p205", 2, sidecar_size, checksum, publication, error) = 0 & publication.state() = "published", "publish immutable sidecar " || error)
+  verification = .ragverifyresult
+  errors = errors + check(verifyragstore(store, 1, verification, error) = 0 & verification.ok() = 1, "verify fixture " || verification.summary() || " " || error)
+  errors = errors + check(closeragstore(store, error) = 0, "close fixture " || error)
+  if errors \= 0 then return 1
+  say "P2_05_SETUP_OK cell=" || cell || " generation=2 sidecars=" || publish_sidecar
+  return 0
+
+negativepublication: procedure = .int
+  arg cell = .string, path = .string, source_sidecar = .string, sidecar_size = .int, checksum = .string
+  errors = 0; error = ""; store = .ragstorehandle; publication = .ragsidecarpublication
+  errors = errors + check(openragstore(path, "readwrite", store, error) = 0, "open sidecar negative library " || error)
+  errors = errors + check(preparesidecar(store, source_sidecar, "bad/id", "profile-p205", 2, sidecar_size, checksum, publication, error) = -1, "reject unsafe sidecar identity")
+  errors = errors + check(preparesidecar(store, source_sidecar, "vg-invalid", "profile-p205", 2, sidecar_size, upper(checksum), publication, error) = -1, "reject noncanonical checksum")
+  errors = errors + check(publishsidecar(store, source_sidecar, "vg-fixture", "profile-p205", 2, sidecar_size, checksum, publication, error) = -3, "immutable target cannot be replaced")
+  status = .ragstorestatus; verification = .ragverifyresult
+  errors = errors + check(storagestatus(store, status, error) = 0 & status.manifest_state() = "aligned", "negative publication preserves manifest")
+  errors = errors + check(scalarint(store.database(), "SELECT count(*) FROM vector_generations WHERE state='published'") = 1, "negative publication preserves active identity")
+  errors = errors + check(verifyragstore(store, 1, verification, error) = 0 & verification.ok() = 1, "negative publication preserves verified library")
+  errors = errors + check(closeragstore(store, error) = 0, "close negative publication library")
+  if errors \= 0 then return 1
+  say "P2_05_SIDECAR_NEGATIVE_OK cell=" || cell || " unsafe=rejected checksum=rejected overwrite=rejected immutable=1"
+  return 0
+
+backupscenario: procedure = .int
+  arg cell = .string, source_path = .string, target_path = .string
+  errors = 0; error = ""; session = .ragbackupsession; live = .ragstorehandle
+  errors = errors + check(openragstore(source_path, "readwrite", live, error) = 0, "open live writer before backup " || error)
+  if errors \= 0 then return 1
+  errors = errors + check(beginragbackup(source_path, target_path, session, error) = 0 & session.generation() = 2 & session.state() = "database", "begin generation-pinned backup " || error)
+  if errors \= 0 then return 1
+  generation = 0
+  errors = errors + check(begingeneration(live, 2, "config-p205", "concurrent live generation", generation, error) = 0 & generation = 3, "begin concurrent generation " || error)
+  errors = errors + check(sqliteexec(live.database(), "INSERT INTO sources(source_id,connector_type,stable_key,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('source-3','fixture','source-3','active','fixture://source-3','Source 3',3)") = 0, "stage concurrent source")
+  errors = errors + check(commitgeneration(live, generation, error) = 0 & publishmanifest(live, error) = 0 & closeragstore(live, error) = 0, "publish concurrent live generation " || error)
+  errors = errors + check(copyragbackupsidecars(session, error) = 0 & session.sidecar_count() = 1, "copy matching pinned sidecar " || error)
+  errors = errors + check(writeragbackupmanifest(session, error) = 0 & session.state() = "manifest", "write backed-database manifest " || error)
+  errors = errors + check(publishragbackup(session, error) = 0 & session.state() = "published", "atomically publish backup folder " || error)
+  if errors \= 0 then return 1
+  backed = .ragstorehandle; backed_status = .ragstorestatus; verification = .ragverifyresult
+  errors = errors + check(openragstore(target_path, "readonly", backed, error) = 0, "open published backup " || error)
+  errors = errors + check(storagestatus(backed, backed_status, error) = 0 & backed_status.published_generation() = 2 & backed_status.manifest_state() = "aligned", "backup retains pinned generation")
+  errors = errors + check(scalarint(backed.database(), "SELECT count(*) FROM sources WHERE visible_from_generation<=2") = 1 & scalarint(backed.database(), "SELECT count(*) FROM vector_generations WHERE state='published' AND semantic_generation=2") = 1, "backup retains pinned data and sidecar identity")
+  errors = errors + check(verifyragstore(backed, 1, verification, error) = 0 & verification.ok() = 1, "verify published backup " || verification.summary())
+  errors = errors + check(closeragstore(backed, error) = 0, "close published backup")
+  source = .ragstorehandle; source_status = .ragstorestatus
+  errors = errors + check(openragstore(source_path, "readonly", source, error) = 0 & storagestatus(source, source_status, error) = 0 & source_status.published_generation() = 3 & source_status.manifest_state() = "aligned", "live library advances independently")
+  errors = errors + check(scalarint(source.database(), "SELECT count(*) FROM sources WHERE visible_from_generation<=3") = 2, "live library contains concurrent source")
+  errors = errors + check(closeragstore(source, error) = 0, "close advanced source")
+  if errors \= 0 then return 1
+  say "P2_05_BACKUP_OK cell=" || cell || " pinned_generation=2 live_generation=3 sidecars=1 atomic_folder=1 verified=1"
+  return 0
+
+restorescenario: procedure = .int
+  arg cell = .string, source_path = .string, target_path = .string
+  errors = 0; error = ""; report = .ragbackupreport
+  errors = errors + check(restoreragstore(source_path, target_path, report, error) = 0 & report.generation() = 2 & report.sidecar_count() = 1 & report.pages() > 0 & report.published() = 1, "restore verified backup " || error)
+  if errors \= 0 then return 1
+  store = .ragstorehandle; status = .ragstorestatus; verification = .ragverifyresult
+  errors = errors + check(openragstore(target_path, "readonly", store, error) = 0 & storagestatus(store, status, error) = 0 & status.published_generation() = 2 & status.manifest_state() = "aligned", "restored generation and manifest")
+  errors = errors + check(verifyragstore(store, 1, verification, error) = 0 & verification.ok() = 1, "verify restored library")
+  errors = errors + check(closeragstore(store, error) = 0, "close restored library")
+  second = .ragbackupreport
+  errors = errors + check(restoreragstore(source_path, target_path, second, error) = -2, "restore cannot overwrite target")
+  if errors \= 0 then return 1
+  say "P2_05_RESTORE_OK cell=" || cell || " fresh_target=1 generation=2 sidecars=1 overwrite=rejected verified=1"
+  return 0
+
+tamperedsidescenario: procedure = .int
+  arg cell = .string, target_path = .string, checksum = .string
+  errors = 0; error = ""; store = .ragstorehandle; verification = .ragverifyresult
+  sidecar_path = target_path || "/" || sidecarname(checksum)
+  errors = errors + check(lineout(sidecar_path, "tampered-sidecar") = 0 & lineout(sidecar_path) = 0, "replace active sidecar bytes")
+  errors = errors + check(openragstore(target_path, "readonly", store, error) = 0, "open checksum-fault restore")
+  errors = errors + check(verifyragstore(store, 1, verification, error) = 0 & verification.ok() = 0 & pos("sidecars", verification.summary()) > 0, "active sidecar checksum mismatch is detected")
+  errors = errors + check(closeragstore(store, error) = 0, "close checksum-fault restore")
+  errors = errors + check(rxfs..delete(sidecar_path) = 0, "remove active sidecar for verification fault")
+  errors = errors + check(openragstore(target_path, "readonly", store, error) = 0, "open sidecar-fault restore")
+  errors = errors + check(verifyragstore(store, 1, verification, error) = 0 & verification.ok() = 0 & pos("sidecars", verification.summary()) > 0, "missing active sidecar is detected")
+  errors = errors + check(closeragstore(store, error) = 0, "close sidecar-fault restore")
+  if errors \= 0 then return 1
+  say "P2_05_TAMPER_OK cell=" || cell || " checksum_mismatch=detected missing_sidecar=detected"
+  return 0
+
+crashsidecar: procedure = .int
+  arg path = .string, source_sidecar = .string, sidecar_size = .int, checksum = .string, boundary = .string, marker = .string
+  error = ""; store = .ragstorehandle; publication = .ragsidecarpublication
+  if openragstore(path, "readwrite", store, error) \= 0 then return 1
+  if preparesidecar(store, source_sidecar, "vg-fixture", "profile-p205", 2, sidecar_size, checksum, publication, error) \= 0 then return 1
+  if boundary = "prepared" then return crashmarker("sidecar-prepared", marker)
+  if installsidecar(publication, error) \= 0 then return 1
+  if boundary = "installed" then return crashmarker("sidecar-installed", marker)
+  if commitsidecar(store, publication, error) \= 0 then return 1
+  if boundary = "committed" then return crashmarker("sidecar-db-committed", marker)
+  if writemanifesttemporary(store, error) \= 0 then return 1
+  if boundary = "manifest-temp" then return crashmarker("sidecar-manifest-temp", marker)
+  return 2
+
+inspectsidecarcrash: procedure = .int
+  arg cell = .string, path = .string, checksum = .string, boundary = .string
+  error = ""; store = .ragstorehandle; status = .ragstorestatus; verification = .ragverifyresult
+  if openragstore(path, "readonly", store, error) \= 0 then return 1
+  rows = scalarint(store.database(), "SELECT count(*) FROM vector_generations WHERE state='published'")
+  if storagestatus(store, status, error) \= 0 then return 1
+  expected_rows = 0; expected_state = "aligned"
+  if boundary = "committed" then do; expected_rows = 1; expected_state = "stale-sidecars"; end
+  if boundary = "manifest-temp" then do; expected_rows = 1; expected_state = "stale-sidecars-temp"; end
+  errors = check(rows = expected_rows & status.manifest_state() = expected_state, "sidecar crash state " || boundary || " actual=" || status.manifest_state())
+  if boundary = "prepared" then errors = errors + check(testfile(path || "/" || sidecarname(checksum) || ".new") = 0 & testfile(path || "/" || sidecarname(checksum)) \= 0, "prepared sidecar crash files")
+  if boundary = "installed" | boundary = "committed" | boundary = "manifest-temp" then errors = errors + check(testfile(path || "/" || sidecarname(checksum)) = 0, "installed sidecar survives crash")
+  call verifyragstore store, 1, verification, error
+  if expected_rows = 0 then errors = errors + check(verification.ok() = 1, "orphan sidecar is not active")
+  else errors = errors + check(verification.ok() = 0, "committed sidecar requires manifest recovery")
+  call closeragstore store, error
+  if errors \= 0 then return 1
+  say "P2_05_SIDECAR_CRASH_OK cell=" || cell || " boundary=" || boundary || " rows=" || rows || " manifest=" || expected_state
+  return 0
+
+recoversidecar: procedure = .int
+  arg cell = .string, path = .string
+  error = ""; store = .ragstorehandle; verification = .ragverifyresult; status = .ragstorestatus
+  if openragstore(path, "readwrite", store, error) \= 0 | recovermanifest(store, error) \= 0 then return 1
+  if storagestatus(store, status, error) \= 0 | status.manifest_state() \= "aligned" then return 1
+  if verifyragstore(store, 1, verification, error) \= 0 | verification.ok() \= 1 then return 1
+  if closeragstore(store, error) \= 0 then return 1
+  say "P2_05_SIDECAR_RECOVERY_OK cell=" || cell || " manifest=aligned verified=1"
+  return 0
+
+crashfoldercopy: procedure = .int
+  arg kind = .string, source_path = .string, target_path = .string, boundary = .string, marker = .string
+  error = ""; session = .ragbackupsession
+  if beginragbackup(source_path, target_path, session, error) \= 0 then return 1
+  if boundary = "database" then return crashmarker(kind || "-database", marker)
+  if copyragbackupsidecars(session, error) \= 0 then return 1
+  if boundary = "sidecars" then return crashmarker(kind || "-sidecars", marker)
+  if writeragbackupmanifest(session, error) \= 0 then return 1
+  if boundary = "manifest" then return crashmarker(kind || "-manifest", marker)
+  return 2
+
+crashmarker: procedure = .int
+  arg label = .string, marker = .string
+  call lineout marker, "P2_05_CRASH_POINT=" || label
+  call lineout marker
+  call _wait 60000
+  return 73
+
+main: procedure = .int
+arg args = .string[]
+if args.0 < 3 then return 2
+cell = args[1]; mode = args[2]; path = args[3]
+if mode = "binary-file" then return binaryfilefoundation(cell, path)
+if mode = "setup" | mode = "setup-library" then do
+  if args.0 < 6 then return 2
+  publish_sidecar = mode = "setup"
+  return setuplibrary(cell, path, args[4], args[5] as .int, args[6], publish_sidecar)
+end
+if mode = "negative" then return negativepublication(cell, path, args[4], args[5] as .int, args[6])
+if mode = "backup" then return backupscenario(cell, path, args[4])
+if mode = "restore" then return restorescenario(cell, path, args[4])
+if mode = "tamper" then return tamperedsidescenario(cell, path, args[4])
+if mode = "crash-sidecar" then return crashsidecar(path, args[4], args[5] as .int, args[6], args[7], args[8])
+if mode = "inspect-sidecar-crash" then return inspectsidecarcrash(cell, path, args[4], args[5])
+if mode = "recover-sidecar" then return recoversidecar(cell, path)
+if mode = "crash-backup" | mode = "crash-restore" then return crashfoldercopy(substr(mode, 7), path, args[4], args[5], args[6])
+return 2

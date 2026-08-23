@@ -1,5 +1,5 @@
 foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_RXBVM
-        CPRAG_CREXX_BIN_DIR CPRAG_PLUGIN_DIR CPRAG_SCHEMA CPRAG_STORE
+        CPRAG_CREXX_BIN_DIR CPRAG_PLUGIN_DIR CPRAG_SCHEMA CPRAG_FILE CPRAG_STORE
         CPRAG_COMPAT CPRAG_SOURCE CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
@@ -54,7 +54,7 @@ endfunction()
 
 function(run_scenario runtime program cell mode source_path expected_pattern)
     execute_process(COMMAND "${runtime}" -l "${program_import}"
-        "${program}" ragschema ragstore ragcompat rx_sqlite_boundary rx_system library
+        "${program}" ragschema ragfile ragstore ragcompat rx_sqlite_boundary rx_hash rx_system library
         -a "${cell}" "${mode}" "${source_path}" ${ARGN}
         OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err
         RESULT_VARIABLE vm_result TIMEOUT 60)
@@ -72,6 +72,8 @@ foreach(mode IN ITEMS noopt opt)
     endif()
     compile_crexx("${CPRAG_SCHEMA}" "${CPRAG_WORK_DIR}/ragschema"
         "${base_import}" "${mode_flag}" "${mode} ragschema")
+    compile_crexx("${CPRAG_FILE}" "${CPRAG_WORK_DIR}/ragfile"
+        "${base_import}" "${mode_flag}" "${mode} ragfile")
     compile_crexx("${CPRAG_STORE}" "${CPRAG_WORK_DIR}/ragstore"
         "${program_import}" "${mode_flag}" "${mode} ragstore")
     compile_crexx("${CPRAG_COMPAT}" "${CPRAG_WORK_DIR}/ragcompat"

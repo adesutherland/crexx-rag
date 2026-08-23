@@ -1,5 +1,5 @@
 foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_RXBVM
-        CPRAG_CREXX_BIN_DIR CPRAG_PLUGIN_DIR CPRAG_SCHEMA CPRAG_STORE
+        CPRAG_CREXX_BIN_DIR CPRAG_PLUGIN_DIR CPRAG_SCHEMA CPRAG_FILE CPRAG_STORE
         CPRAG_SOURCE CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
@@ -95,7 +95,7 @@ endfunction()
 
 function(run_scenario runtime program cell mode path expected_result expected_pattern)
     execute_process(COMMAND "${runtime}" -l "${program_import}"
-        "${program}" ragschema ragstore rx_sqlite_boundary rx_system library
+        "${program}" ragschema ragfile ragstore rx_sqlite_boundary rx_hash rx_system library
         -a "${cell}" "${mode}" "${path}" ${ARGN}
         OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err
         RESULT_VARIABLE vm_result TIMEOUT 60)
@@ -112,7 +112,7 @@ function(run_crash runtime program cell mode path expected_pattern)
     set(stderr_file "${marker}.stderr")
     file(REMOVE "${marker}" "${stdout_file}" "${stderr_file}")
     execute_process(COMMAND /bin/sh -c [=[
-"$1" -l "$2" "$3" ragschema ragstore rx_sqlite_boundary rx_system library -a "$4" "$5" "$6" "$7" >"$8" 2>"$9" &
+"$1" -l "$2" "$3" ragschema ragfile ragstore rx_sqlite_boundary rx_hash rx_system library -a "$4" "$5" "$6" "$7" >"$8" 2>"$9" &
 child=$!
 tries=0
 while [ "$tries" -lt 200 ]; do
@@ -159,6 +159,8 @@ foreach(mode IN ITEMS noopt opt)
     endif()
     compile_crexx("${CPRAG_SCHEMA}" "${CPRAG_WORK_DIR}/ragschema"
         "${base_import}" "${mode_flag}" "${mode} ragschema")
+    compile_crexx("${CPRAG_FILE}" "${CPRAG_WORK_DIR}/ragfile"
+        "${base_import}" "${mode_flag}" "${mode} ragfile")
     compile_crexx("${CPRAG_STORE}" "${CPRAG_WORK_DIR}/ragstore"
         "${program_import}" "${mode_flag}" "${mode} ragstore")
     compile_crexx("${CPRAG_SOURCE}" "${CPRAG_WORK_DIR}/program-${mode}"

@@ -39,8 +39,9 @@ retained blocker evidence. At most one roadmap item may be active.
 - [x] **P2-04** Implement version-1 read/import compatibility and a dry-run
   conversion report without dual-writing either format. Accepted evidence:
   [P2-04.md](P2-04.md).
-- [ ] **P2-05** Implement generation-pinned online backup, immutable matching
+- [x] **P2-05** Implement generation-pinned online backup, immutable matching
   sidecars, snapshot manifests, fresh-folder restore, and crash-order tests.
+  Accepted evidence: [P2-05.md](P2-05.md).
 - [ ] **P2-06** Implement paged repositories for sources, revisions, chunks,
   generations, concepts, claims, support, lineage, embeddings, jobs, attempts,
   and reviews.

@@ -7,6 +7,7 @@ import rxjson
 import system
 import sqlite_boundary
 import ragschema
+import ragfile
 
 ragstorehandle: class
   _database = .binary
@@ -608,7 +609,7 @@ manifeststate: procedure = .int
     error = "manifest projection fields are invalid"
     return -7
   end
-  if manifest_format \= 2 | created_at = "" | updated_at = "" | document.node_type(required_capabilities) \= "array" | document.node_count(required_capabilities) \= 1 | document.node_string(document.element(required_capabilities, 1), required_capability) \= 0 | required_capability \= "sqlite-boundary-v1" | document.node_type(sidecars) \= "array" | document.node_count(sidecars) \= 0 | document.node_boolean(migration_pending, migration_value) \= 0 | migration_value \= 0 | document.node_boolean(recovery_pending, recovery_value) \= 0 | recovery_value \= 0 then do
+  if manifest_format \= 2 | created_at = "" | updated_at = "" | document.node_type(required_capabilities) \= "array" | document.node_count(required_capabilities) \= 1 | document.node_string(document.element(required_capabilities, 1), required_capability) \= 0 | required_capability \= "sqlite-boundary-v1" | document.node_type(sidecars) \= "array" | document.node_boolean(migration_pending, migration_value) \= 0 | migration_value \= 0 | document.node_boolean(recovery_pending, recovery_value) \= 0 | recovery_value \= 0 then do
     error = "manifest capability or recovery fields are invalid"
     return -7
   end
@@ -626,7 +627,16 @@ manifeststate: procedure = .int
     error = "manifest profile does not agree with SQLite"
     return -7
   end
-  else state = "aligned"
+  else do
+    sidecar_state = _manifestsidecarstate(document, sidecars, store.database(), manifest_generation, store.path(), error)
+    if sidecar_state = 1 then state = "aligned"
+    else if sidecar_state = 0 then state = "stale-sidecars"
+    else do
+      state = "invalid"
+      if error = "" then error = "manifest sidecars do not agree with SQLite or the bundle"
+      return -7
+    end
+  end
   if temporary_present then state = state || "-temp"
   return 0
 
@@ -679,6 +689,11 @@ verifyragstore: procedure = .int
   if _scalarint(store.database(), "SELECT count(*) FROM embeddings WHERE length(vector)<>dimension*4", error) \= 0 then do
     issues = issues + 1
     summary = _addissue(summary, "embedding-dimensions")
+  end
+  sidecar_sql = "SELECT count(*) FROM vector_generations v LEFT JOIN published_generations g ON g.generation=v.semantic_generation LEFT JOIN embedding_profiles p ON p.embedding_profile_id=v.embedding_profile_id WHERE v.state NOT IN('published','superseded') OR g.generation IS NULL OR p.embedding_profile_id IS NULL OR length(v.sidecar_checksum)<>64 OR v.sidecar_checksum GLOB '*[^0-9a-f]*' OR v.sidecar_name='' OR instr(v.sidecar_name,'/')>0 OR instr(v.sidecar_name,char(92))>0 OR (v.state='published' AND v.published_at IS NULL)"
+  if _scalarint(store.database(), sidecar_sql, error) \= 0 | _activesidecarfilesvalid(store.database(), generation, store.path(), error) \= 1 then do
+    issues = issues + 1
+    summary = _addissue(summary, "sidecars")
   end
   if require_manifest = 1 then do
     manifest_state = ""
@@ -747,9 +762,93 @@ _manifestprojectiongeneration: procedure = .int
   profile_id = _scalartext(database, "SELECT c.profile_id FROM published_generations g JOIN config_snapshots c ON c.config_snapshot_id=g.config_snapshot_id WHERE g.state='published' AND g.generation=" || generation, error)
   profile_hash = _scalartext(database, "SELECT c.profile_hash FROM published_generations g JOIN config_snapshots c ON c.config_snapshot_id=g.config_snapshot_id WHERE g.state='published' AND g.generation=" || generation, error)
   updated_at = _scalartext(database, "SELECT strftime('%Y-%m-%dT%H:%M:%fZ','now')", error)
+  sidecars = ""
+  if _sidecarprojection(database, generation, sidecars, error) \= 0 then return -4
   if library_id = "" | schema_version < 1 | created_at = "" | profile_id = "" | profile_hash = "" | updated_at = "" then return -4
-  manifest = "{" || jsonquote("bundle_format_version") || ":2," || jsonquote("schema_version") || ":" || schema_version || "," || jsonquote("library_id") || ":" || jsonquote(library_id) || "," || jsonquote("created_at") || ":" || jsonquote(created_at) || "," || jsonquote("published_generation") || ":" || generation || "," || jsonquote("profile_id") || ":" || jsonquote(profile_id) || "," || jsonquote("profile_hash") || ":" || jsonquote(profile_hash) || "," || jsonquote("required_capabilities") || ":[" || jsonquote("sqlite-boundary-v1") || "]," || jsonquote("sidecars") || ":[]," || jsonquote("migration_pending") || ":false," || jsonquote("recovery_pending") || ":false," || jsonquote("updated_at") || ":" || jsonquote(updated_at) || "}"
+  manifest = "{" || jsonquote("bundle_format_version") || ":2," || jsonquote("schema_version") || ":" || schema_version || "," || jsonquote("library_id") || ":" || jsonquote(library_id) || "," || jsonquote("created_at") || ":" || jsonquote(created_at) || "," || jsonquote("published_generation") || ":" || generation || "," || jsonquote("profile_id") || ":" || jsonquote(profile_id) || "," || jsonquote("profile_hash") || ":" || jsonquote(profile_hash) || "," || jsonquote("required_capabilities") || ":[" || jsonquote("sqlite-boundary-v1") || "]," || jsonquote("sidecars") || ":[" || sidecars || "]," || jsonquote("migration_pending") || ":false," || jsonquote("recovery_pending") || ":false," || jsonquote("updated_at") || ":" || jsonquote(updated_at) || "}"
   return 0
+
+_sidecarprojection: procedure = .int
+  arg database = .binary, generation = .int, expose projection = .string, expose error = .string
+  projection = ""
+  prepared = .binary
+  sql = "SELECT vector_generation_id,semantic_generation,embedding_profile_id,sidecar_name,sidecar_checksum,dimension FROM vector_generations WHERE state='published' AND semantic_generation=?1 ORDER BY embedding_profile_id,vector_generation_id"
+  if sqliteprepare(database, sql, prepared) \= 0 then return _sqlitefailure("prepare sidecar projection", error)
+  call sqlitebindint prepared, 1, generation
+  do forever
+    step_status = sqlitestep(prepared)
+    if step_status = 101 then leave
+    if step_status \= 100 then do
+      call sqlitefinalize prepared
+      return _sqlitefailure("step sidecar projection", error)
+    end
+    vector_generation_id = ""; semantic_generation = 0; embedding_profile_id = ""; sidecar_name = ""; sidecar_checksum = ""; dimension = 0
+    column_status = sqlitecolumntext(prepared, 0, vector_generation_id)
+    column_status = column_status | sqlitecolumnint(prepared, 1, semantic_generation)
+    column_status = column_status | sqlitecolumntext(prepared, 2, embedding_profile_id)
+    column_status = column_status | sqlitecolumntext(prepared, 3, sidecar_name)
+    column_status = column_status | sqlitecolumntext(prepared, 4, sidecar_checksum)
+    column_status = column_status | sqlitecolumnint(prepared, 5, dimension)
+    if column_status \= 0 then do
+      call sqlitefinalize prepared
+      return _sqlitefailure("read sidecar projection", error)
+    end
+    if projection \= "" then projection = projection || ","
+    projection = projection || "{" || jsonquote("vector_generation_id") || ":" || jsonquote(vector_generation_id) || "," || jsonquote("semantic_generation") || ":" || semantic_generation || "," || jsonquote("embedding_profile_id") || ":" || jsonquote(embedding_profile_id) || "," || jsonquote("name") || ":" || jsonquote(sidecar_name) || "," || jsonquote("sha256") || ":" || jsonquote(sidecar_checksum) || "," || jsonquote("dimension") || ":" || dimension || "}"
+  end
+  call sqlitefinalize prepared
+  return 0
+
+_manifestsidecarstate: procedure = .int
+  arg document = .jsondocument, sidecars = .int, database = .binary, generation = .int, path = .string, expose error = .string
+  manifest_count = document.node_count(sidecars)
+  database_count = _scalarint(database, "SELECT count(*) FROM vector_generations WHERE state='published' AND semantic_generation=" || generation, error)
+  if database_count < 0 then return -1
+  do i = 1 to manifest_count
+    item = document.element(sidecars, i)
+    vector_generation_id = ""; semantic_generation = 0; embedding_profile_id = ""; sidecar_name = ""; sidecar_checksum = ""; dimension = 0
+    if document.node_type(item) \= "object" | document.node_string(document.member(item, "vector_generation_id"), vector_generation_id) \= 0 | document.node_int(document.member(item, "semantic_generation"), semantic_generation) \= 0 | document.node_string(document.member(item, "embedding_profile_id"), embedding_profile_id) \= 0 | document.node_string(document.member(item, "name"), sidecar_name) \= 0 | document.node_string(document.member(item, "sha256"), sidecar_checksum) \= 0 | document.node_int(document.member(item, "dimension"), dimension) \= 0 then return -1
+    if semantic_generation \= generation | dimension < 1 | _safesidecarname(sidecar_name) \= 1 | _validsha256(sidecar_checksum) \= 1 | testfile(path || "/" || sidecar_name) \= 0 then return -1
+    sql = "SELECT count(*) FROM vector_generations WHERE state='published' AND vector_generation_id=" || _sqlquote(vector_generation_id) || " AND semantic_generation=" || semantic_generation || " AND embedding_profile_id=" || _sqlquote(embedding_profile_id) || " AND sidecar_name=" || _sqlquote(sidecar_name) || " AND sidecar_checksum=" || _sqlquote(sidecar_checksum) || " AND dimension=" || dimension
+    if _scalarint(database, sql, error) \= 1 then return -1
+  end
+  if manifest_count = database_count then return 1
+  if manifest_count < database_count then return 0
+  return -1
+
+_activesidecarfilesvalid: procedure = .int
+  arg database = .binary, generation = .int, path = .string, expose error = .string
+  prepared = .binary
+  if sqliteprepare(database, "SELECT sidecar_name,sidecar_checksum FROM vector_generations WHERE state='published' AND semantic_generation=?1", prepared) \= 0 then return -1
+  call sqlitebindint prepared, 1, generation
+  do forever
+    step_status = sqlitestep(prepared)
+    if step_status = 101 then leave
+    if step_status \= 100 then do
+      call sqlitefinalize prepared
+      return -1
+    end
+    sidecar_name = ""; expected_checksum = ""
+    column_status = sqlitecolumntext(prepared, 0, sidecar_name)
+    column_status = column_status | sqlitecolumntext(prepared, 1, expected_checksum)
+    actual_checksum = ""; byte_count = 0; detail = ""
+    if column_status \= 0 | _safesidecarname(sidecar_name) \= 1 | testfile(path || "/" || sidecar_name) \= 0 | sha256file(path || "/" || sidecar_name, 2147483647, actual_checksum, byte_count, detail) \= 0 | actual_checksum \= expected_checksum then do
+      call sqlitefinalize prepared
+      if detail \= "" then error = detail
+      return 0
+    end
+  end
+  call sqlitefinalize prepared
+  return 1
+
+_safesidecarname: procedure = .int
+  arg value = .string
+  if value = "" | length(value) > 180 | pos("/", value) > 0 | pos("\\", value) > 0 | pos("..", value) > 0 then return 0
+  return verify(value, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-") = 0
+
+_validsha256: procedure = .int
+  arg value = .string
+  return length(value) = 64 & verify(value, "0123456789abcdef") = 0
 
 _statusprojection: procedure = .int
   arg database = .binary, expose library_id = .string, expose schema_version = .int, expose generation = .int, expose profile_id = .string, expose profile_hash = .string, expose error = .string

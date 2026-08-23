@@ -19,7 +19,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Gate 1A | Accepted 2026-08-03 | D1-D8 boundaries and the bounded D9 worklist are recorded; its historical Linux replay retained the original CRI-15 failure |
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | Every bounded item is accepted; the historical Gate validation was 55/56 with sole expected CRI-15; current disposition is tracked separately |
 | Language strategy | Level G first, accepted 2026-08-04 | Advanced libraries and application code use Level G; Level B is limited to justified CREXX bootstrap/foundation work |
-| Phase 2 / Gate 2 | Active; `P2-05` pending | `P2-01` through `P2-04` are accepted, including the schema-v2 storage foundation and read-only version-1 dry-run/import boundary; pinned backup/restore and immutable sidecars are next |
+| Phase 2 / Gate 2 | Active; `P2-06` pending | `P2-01` through `P2-05` are accepted, including version-1 conversion, immutable sidecar publication, generation-pinned backup, and fresh restore; paged repositories are next |
 | Parallel CREXX capability sync | Current-head macOS replay complete; follow-up deferred | Current installed-only macOS replay, public Level-G HTTP/toolchain adoption, `rxhash.sha256`, and exact `rxvector` integration pass 62/62 against CREXX `e3d6b7b90158`. Remaining provider-lifecycle work is separately approval-gated, and exact downstream Linux confirmation is deferred to later QA after material local progress; neither blocks Phase 2. |
 | Phase 3 and later | Not authorized | No production ingestion, additional hosted qualification, cutover, or retirement |
 
@@ -140,10 +140,13 @@ Its acceptance suite passed 59/60 in 607.33 seconds with only CRI-15. `P2-03`
 now supplies two checksum-verified schema-v2 migrations, 32 logical tables,
 SQLite-authoritative immutable publications, generation-pinned snapshots,
 recoverable non-secret manifests, strict stable-bundle read-only opens, full
-verification, and ordered ancestor rollback. Its four-cell and real-`SIGKILL`
-proof passed, and the final full suite passed 60/61 in 553.13 seconds with only
-CRI-15. Version-1 compatibility, backup/restore, repositories, commands, and
-provider execution remain unimplemented. `P2-04` is pending.
+verification, and ordered ancestor rollback. `P2-04` adds read-only version-1
+inspection, dry-run reporting, deterministic side-by-side schema-v2 import,
+and quarantine without dual-write. `P2-05` adds immutable active sidecars,
+manifest/SQLite checksum identity, byte-for-byte SHA-256 verification,
+generation-pinned online backup during a concurrent writer generation, atomic
+snapshot-folder publication, and fresh-folder restore. Paged repositories,
+commands, and provider execution remain unimplemented. `P2-06` is pending.
 
 On 2026-08-22 the separately bounded CREXX capability sync completed its
 macOS work against a fresh installed-only scratch prefix. Downstream content
@@ -197,7 +200,7 @@ and Phase-2 authority are recorded in the
 
 The dated Phase-2 worklist, entry baseline, item ordering, evidence
 requirements, exclusions, and Gate-2 stop are established. `P2-01` through
-`P2-03` are accepted; `P2-04` is next and pending, with no item active.
+`P2-05` are accepted; `P2-06` is next and pending, with no item active.
 Separately bounded CREXX
 capability work may proceed in parallel only after each stream records an
 equivalent boundary.

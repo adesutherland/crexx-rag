@@ -9,8 +9,11 @@ file(GLOB_RECURSE crexx_sources
 
 set(historical_levelb_sources
     "${CPRAG_SOURCE_ROOT}/crexx/benchmarks/phase0_components.crexx")
+set(foundation_levelb_sources
+    "${CPRAG_SOURCE_ROOT}/crexx/application/ragfile.crexx")
 set(maintained_sources ${phase1b_sources} ${crexx_sources})
 list(REMOVE_ITEM maintained_sources ${historical_levelb_sources})
+list(REMOVE_ITEM maintained_sources ${foundation_levelb_sources})
 list(REMOVE_DUPLICATES maintained_sources)
 list(SORT maintained_sources)
 
@@ -27,6 +30,16 @@ foreach(source IN LISTS maintained_sources)
         file(RELATIVE_PATH relative_source "${CPRAG_SOURCE_ROOT}" "${source}")
         message(FATAL_ERROR
             "maintained cREXX source has no explicit Level G option: ${relative_source}")
+    endif()
+endforeach()
+
+foreach(source IN LISTS foundation_levelb_sources)
+    file(READ "${source}" source_text)
+    if(NOT source_text MATCHES "(^|\n)[ \t]*options[ \t]+levelb([ \t\r\n]|$)" OR
+       NOT source_text MATCHES "Minimized Level-B foundation exception")
+        file(RELATIVE_PATH relative_source "${CPRAG_SOURCE_ROOT}" "${source}")
+        message(FATAL_ERROR
+            "approved foundation exception is missing Level-B identity or rationale: ${relative_source}")
     endif()
 endforeach()
 
@@ -50,4 +63,4 @@ endforeach()
 
 list(LENGTH phase1b_sources phase1b_count)
 message(STATUS
-    "CREXX_LANGUAGE_LEVEL_AUDIT_OK maintained=${source_count} phase1b=${phase1b_count} historical_levelb=${historical_levelb_sources}")
+    "CREXX_LANGUAGE_LEVEL_AUDIT_OK maintained=${source_count} phase1b=${phase1b_count} foundation_levelb=${foundation_levelb_sources} historical_levelb=${historical_levelb_sources}")

@@ -1,0 +1,471 @@
+options levelg
+
+namespace ragbackup expose ragsidecarpublication ragbackupsession ragbackupreport preparesidecar installsidecar commitsidecar publishsidecar beginragbackup copyragbackupsidecars writeragbackupmanifest publishragbackup abortragbackup backupragstore restoreragstore
+
+import rxfnsb
+import system
+import rxfs
+import sqlite_boundary
+import ragstore
+
+ragsidecarpublication: class
+  _vector_generation_id = .string
+  _semantic_generation = .int
+  _embedding_profile_id = .string
+  _dimension = .int
+  _checksum = .string
+  _size = .int
+  _temporary_path = .string
+  _final_path = .string
+  _sidecar_name = .string
+  _state = .string
+
+  *: factory
+    arg vector_generation_id = .string, semantic_generation = .int, embedding_profile_id = .string, dimension = .int, checksum = .string, size = .int, temporary_path = .string, final_path = .string, sidecar_name = .string
+    _vector_generation_id = vector_generation_id
+    _semantic_generation = semantic_generation
+    _embedding_profile_id = embedding_profile_id
+    _dimension = dimension
+    _checksum = checksum
+    _size = size
+    _temporary_path = temporary_path
+    _final_path = final_path
+    _sidecar_name = sidecar_name
+    _state = "prepared"
+    return
+
+  vector_generation_id: method = .string
+    return _vector_generation_id
+  semantic_generation: method = .int
+    return _semantic_generation
+  embedding_profile_id: method = .string
+    return _embedding_profile_id
+  dimension: method = .int
+    return _dimension
+  checksum: method = .string
+    return _checksum
+  size: method = .int
+    return _size
+  temporary_path: method = .string
+    return _temporary_path
+  final_path: method = .string
+    return _final_path
+  sidecar_name: method = .string
+    return _sidecar_name
+  state: method = .string
+    return _state
+  markstate: method
+    arg state = .string
+    _state = state
+    return
+
+ragbackupsession: class
+  _read_view = .ragreadsnapshot
+  _source_path = .string
+  _target_path = .string
+  _staging_path = .string
+  _generation = .int
+  _pages = .int
+  _sidecar_count = .int
+  _state = .string
+
+  *: factory
+    arg read_view = .ragreadsnapshot, source_path = .string, target_path = .string, staging_path = .string, generation = .int, pages = .int
+    _read_view = read_view
+    _source_path = source_path
+    _target_path = target_path
+    _staging_path = staging_path
+    _generation = generation
+    _pages = pages
+    _sidecar_count = 0
+    _state = "database"
+    return
+
+  read_view: method = .ragreadsnapshot
+    return _read_view
+  source_path: method = .string
+    return _source_path
+  target_path: method = .string
+    return _target_path
+  staging_path: method = .string
+    return _staging_path
+  generation: method = .int
+    return _generation
+  pages: method = .int
+    return _pages
+  sidecar_count: method = .int
+    return _sidecar_count
+  state: method = .string
+    return _state
+  marksidecars: method
+    arg sidecar_count = .int
+    _sidecar_count = sidecar_count
+    _state = "sidecars"
+    return
+  markstate: method
+    arg state = .string
+    _state = state
+    return
+
+ragbackupreport: class
+  _generation = .int
+  _sidecar_count = .int
+  _pages = .int
+  _published = .int
+
+  *: factory
+    arg generation = .int, sidecar_count = .int, pages = .int, published = .int
+    _generation = generation
+    _sidecar_count = sidecar_count
+    _pages = pages
+    _published = published
+    return
+
+  generation: method = .int
+    return _generation
+  sidecar_count: method = .int
+    return _sidecar_count
+  pages: method = .int
+    return _pages
+  published: method = .int
+    return _published
+
+preparesidecar: procedure = .int
+  arg store = .ragstorehandle, source_path = .string, vector_generation_id = .string, embedding_profile_id = .string, dimension = .int, expected_size = .int, checksum = .string, expose publication = .ragsidecarpublication, expose error = .string
+  error = ""
+  if store.writable() \= 1 then do
+    error = "sidecar publication requires readwrite access"
+    return -5
+  end
+  if _safecomponent(vector_generation_id) \= 1 | _safecomponent(embedding_profile_id) \= 1 | dimension < 1 | expected_size < 1 | _validsha256(checksum) \= 1 then do
+    error = "sidecar identity, dimension, size, or SHA-256 is invalid"
+    return -1
+  end
+  if rxfs..isfile(source_path) \= 1 then do
+    error = "sidecar source file does not exist"
+    return -2
+  end
+  status = .ragstorestatus
+  if storagestatus(store, status, error) \= 0 | status.manifest_state() \= "aligned" then do
+    if error = "" then error = "library manifest must be aligned before sidecar publication"
+    return -4
+  end
+  generation = status.published_generation()
+  sql = "SELECT count(*) FROM embedding_profiles WHERE embedding_profile_id=" || _sqlquote(embedding_profile_id) || " AND dimension=" || dimension
+  if _scalarint(store.database(), sql, error) \= 1 then do
+    if error = "" then error = "embedding profile and dimension do not exist"
+    return -4
+  end
+  sidecar_name = "vectors." || generation || "." || vector_generation_id || "." || substr(checksum, 1, 16) || ".faiss"
+  final_path = store.path() || "/" || sidecar_name
+  temporary_path = final_path || ".new"
+  if source_path = final_path | source_path = temporary_path | rxfs..isfile(final_path) = 1 | rxfs..isfile(temporary_path) = 1 then do
+    error = "immutable sidecar target already exists or aliases the source"
+    return -2
+  end
+  copied = rxfs..append(source_path, temporary_path)
+  if copied \= expected_size then do
+    call rxfs..delete temporary_path
+    error = "sidecar byte count does not match the declared immutable payload"
+    return -3
+  end
+  publication = .ragsidecarpublication(vector_generation_id, generation, embedding_profile_id, dimension, checksum, expected_size, temporary_path, final_path, sidecar_name)
+  return 0
+
+installsidecar: procedure = .int
+  arg publication = .ragsidecarpublication, expose error = .string
+  error = ""
+  if publication.state() \= "prepared" | rxfs..isfile(publication.temporary_path()) \= 1 | rxfs..isfile(publication.final_path()) = 1 then do
+    error = "sidecar is not in the prepared state"
+    return -4
+  end
+  if rxfs..rename(publication.temporary_path(), publication.final_path()) \= 0 then do
+    error = "could not atomically install immutable sidecar"
+    return -2
+  end
+  call publication.markstate("installed")
+  return 0
+
+commitsidecar: procedure = .int
+  arg store = .ragstorehandle, publication = .ragsidecarpublication, expose error = .string
+  error = ""
+  if store.writable() \= 1 | publication.state() \= "installed" | rxfs..isfile(publication.final_path()) \= 1 then do
+    error = "installed sidecar and readwrite store are required"
+    return -5
+  end
+  if sqliteexec(store.database(), "BEGIN IMMEDIATE") \= 0 then return _sqlitefailure("begin sidecar publication", error)
+  current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1", error)
+  if current \= publication.semantic_generation() then do
+    call sqliteexec store.database(), "ROLLBACK"
+    error = "semantic generation changed during sidecar publication"
+    return -6
+  end
+  prepared = .binary
+  sql = "INSERT INTO vector_generations(vector_generation_id,semantic_generation,embedding_profile_id,state,sidecar_name,sidecar_checksum,dimension,created_at,published_at) VALUES(?1,?2,?3,'published',?4,?5,?6,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 then return _transactionfailure(store.database(), "prepare sidecar identity", error)
+  bind_status = sqlitebindtext(prepared, 1, publication.vector_generation_id())
+  bind_status = bind_status | sqlitebindint(prepared, 2, publication.semantic_generation())
+  bind_status = bind_status | sqlitebindtext(prepared, 3, publication.embedding_profile_id())
+  bind_status = bind_status | sqlitebindtext(prepared, 4, publication.sidecar_name())
+  bind_status = bind_status | sqlitebindtext(prepared, 5, publication.checksum())
+  bind_status = bind_status | sqlitebindint(prepared, 6, publication.dimension())
+  step_status = sqlitestep(prepared)
+  call sqlitefinalize prepared
+  if bind_status \= 0 | step_status \= 101 then return _transactionfailure(store.database(), "insert sidecar identity", error)
+  supersede_sql = "UPDATE vector_generations SET state='superseded' WHERE state='published' AND semantic_generation=" || publication.semantic_generation() || " AND embedding_profile_id=" || _sqlquote(publication.embedding_profile_id()) || " AND vector_generation_id<>" || _sqlquote(publication.vector_generation_id())
+  if sqliteexec(store.database(), supersede_sql) \= 0 then return _transactionfailure(store.database(), "supersede prior sidecar", error)
+  if sqliteexec(store.database(), "COMMIT") \= 0 then return _transactionfailure(store.database(), "commit sidecar publication", error)
+  call publication.markstate("committed")
+  return 0
+
+publishsidecar: procedure = .int
+  arg store = .ragstorehandle, source_path = .string, vector_generation_id = .string, embedding_profile_id = .string, dimension = .int, expected_size = .int, checksum = .string, expose publication = .ragsidecarpublication, expose error = .string
+  if preparesidecar(store, source_path, vector_generation_id, embedding_profile_id, dimension, expected_size, checksum, publication, error) \= 0 then return -3
+  if installsidecar(publication, error) \= 0 then do
+    call rxfs..delete publication.temporary_path()
+    return -3
+  end
+  if commitsidecar(store, publication, error) \= 0 then do
+    call rxfs..delete publication.final_path()
+    return -3
+  end
+  if publishmanifest(store, error) \= 0 then return -7
+  call publication.markstate("published")
+  return 0
+
+beginragbackup: procedure = .int
+  arg source_path = .string, target_path = .string, expose session = .ragbackupsession, expose error = .string
+  error = ""
+  staging_path = target_path || ".new"
+  if source_path = "" | target_path = "" | source_path = target_path then do
+    error = "distinct source and target paths are required"
+    return -1
+  end
+  if testdir(target_path) = 0 | testfile(target_path) = 0 | testdir(staging_path) = 0 | testfile(staging_path) = 0 then do
+    error = "backup target or staging path already exists"
+    return -2
+  end
+  if createdir(staging_path) \= 0 then do
+    error = "could not create backup staging folder"
+    return -2
+  end
+  read_view = .ragreadsnapshot
+  if beginreadsnapshot(source_path, read_view, error) \= 0 then do
+    call removedir staging_path
+    return -3
+  end
+  destination = .binary
+  if sqliteopenmode(staging_path || "/library.sqlite", "create", destination) \= 0 then do
+    ignored = ""
+    call closereadsnapshot read_view, ignored
+    call _cleanfolder staging_path
+    return _sqlitefailure("create backup database", error)
+  end
+  remaining = -1; pages = -1
+  if sqlitebackup(read_view.database(), destination, 128, 20, 5, remaining, pages) \= 0 | remaining \= 0 | pages < 1 then do
+    ignored = _sqlitefailure("copy pinned SQLite snapshot", error)
+    call sqliteclose destination
+    cleanup_error = ""
+    call closereadsnapshot read_view, cleanup_error
+    call _cleanfolder staging_path
+    return -3
+  end
+  if sqliteclose(destination) \= 0 then do
+    ignored = ""
+    call closereadsnapshot read_view, ignored
+    call _cleanfolder staging_path
+    return _sqlitefailure("close backup database", error)
+  end
+  session = .ragbackupsession(read_view, source_path, target_path, staging_path, read_view.generation(), pages)
+  return 0
+
+copyragbackupsidecars: procedure = .int
+  arg session = .ragbackupsession, expose error = .string
+  error = ""
+  if session.state() \= "database" | session.read_view().open() \= 1 then do
+    error = "backup database snapshot is not ready for sidecars"
+    return -4
+  end
+  prepared = .binary
+  sql = "SELECT sidecar_name FROM vector_generations WHERE state='published' AND semantic_generation=?1 ORDER BY embedding_profile_id,vector_generation_id"
+  if sqliteprepare(session.read_view().database(), sql, prepared) \= 0 then return _sqlitefailure("prepare backup sidecars", error)
+  call sqlitebindint prepared, 1, session.generation()
+  count = 0
+  do forever
+    step_status = sqlitestep(prepared)
+    if step_status = 101 then leave
+    if step_status \= 100 then do
+      call sqlitefinalize prepared
+      return _sqlitefailure("step backup sidecars", error)
+    end
+    sidecar_name = ""
+    if sqlitecolumntext(prepared, 0, sidecar_name) \= 0 | _safefilename(sidecar_name) \= 1 then do
+      call sqlitefinalize prepared
+      error = "active sidecar name is invalid"
+      return -4
+    end
+    source = session.source_path() || "/" || sidecar_name
+    target = session.staging_path() || "/" || sidecar_name
+    if rxfs..isfile(source) \= 1 | rxfs..isfile(target) = 1 | rxfs..append(source, target) < 1 then do
+      call sqlitefinalize prepared
+      error = "could not copy active immutable sidecar"
+      return -3
+    end
+    count = count + 1
+  end
+  call sqlitefinalize prepared
+  call session.marksidecars(count)
+  return 0
+
+writeragbackupmanifest: procedure = .int
+  arg session = .ragbackupsession, expose error = .string
+  error = ""
+  if session.state() \= "sidecars" | session.read_view().open() \= 1 then do
+    error = "backup sidecars are not ready for manifest publication"
+    return -4
+  end
+  store = .ragstorehandle; status = .ragstorestatus; verification = .ragverifyresult
+  if openragstore(session.staging_path(), "readwrite", store, error) \= 0 then return -3
+  if storagestatus(store, status, error) \= 0 | status.published_generation() \= session.generation() then do
+    ignored = ""
+    call closeragstore store, ignored
+    if error = "" then error = "backed-up database generation changed"
+    return -4
+  end
+  if publishmanifest(store, error) \= 0 | verifyragstore(store, 1, verification, error) \= 0 | verification.ok() \= 1 then do
+    ignored = ""
+    call closeragstore store, ignored
+    if error = "" then error = "assembled backup validation failed: " || verification.summary()
+    return -4
+  end
+  if closeragstore(store, error) \= 0 then return -3
+  call session.markstate("manifest")
+  return 0
+
+publishragbackup: procedure = .int
+  arg session = .ragbackupsession, expose error = .string
+  error = ""
+  if session.state() \= "manifest" | session.read_view().open() \= 1 then do
+    error = "validated backup manifest is not ready for publication"
+    return -4
+  end
+  if closereadsnapshot(session.read_view(), error) \= 0 then return -3
+  if rxfs..rename(session.staging_path(), session.target_path()) \= 0 then do
+    error = "could not atomically publish backup folder"
+    return -2
+  end
+  call session.markstate("published")
+  return 0
+
+abortragbackup: procedure = .int
+  arg session = .ragbackupsession, expose error = .string
+  error = ""
+  if session.state() = "published" then do
+    error = "published backup cannot be aborted"
+    return -5
+  end
+  if session.read_view().open() = 1 then do
+    ignored = ""
+    call closereadsnapshot session.read_view(), ignored
+  end
+  call _cleanfolder session.staging_path()
+  call session.markstate("aborted")
+  return 0
+
+backupragstore: procedure = .int
+  arg source_path = .string, target_path = .string, expose report = .ragbackupreport, expose error = .string
+  session = .ragbackupsession
+  if beginragbackup(source_path, target_path, session, error) \= 0 then return -3
+  if copyragbackupsidecars(session, error) \= 0 then return _backupfailure(session, error)
+  if writeragbackupmanifest(session, error) \= 0 then return _backupfailure(session, error)
+  if publishragbackup(session, error) \= 0 then return _backupfailure(session, error)
+  report = .ragbackupreport(session.generation(), session.sidecar_count(), session.pages(), 1)
+  return 0
+
+restoreragstore: procedure = .int
+  arg backup_path = .string, target_path = .string, expose report = .ragbackupreport, expose error = .string
+  error = ""
+  if testdir(target_path) = 0 | testfile(target_path) = 0 | testdir(target_path || ".new") = 0 | testfile(target_path || ".new") = 0 then do
+    error = "restore requires a fresh target and staging path"
+    return -2
+  end
+  store = .ragstorehandle; verification = .ragverifyresult
+  if openragstore(backup_path, "readonly", store, error) \= 0 then return -3
+  if verifyragstore(store, 1, verification, error) \= 0 | verification.ok() \= 1 then do
+    ignored = ""
+    call closeragstore store, ignored
+    if error = "" then error = "backup verification failed: " || verification.summary()
+    return -4
+  end
+  if closeragstore(store, error) \= 0 then return -3
+  return backupragstore(backup_path, target_path, report, error)
+
+_backupfailure: procedure = .int
+  arg session = .ragbackupsession, expose error = .string
+  preserved = error
+  ignored = ""
+  call abortragbackup session, ignored
+  error = preserved
+  return -3
+
+_cleanfolder: procedure
+  arg path = .string
+  entries = .string[]
+  count = rxfs..listdir(path, entries)
+  if count > 0 then do i = 1 to entries.0
+    call rxfs..delete path || "/" || entries[i]
+  end
+  call rxfs..rmdir path
+  return
+
+_safecomponent: procedure = .int
+  arg value = .string
+  if value = "" | length(value) > 80 | pos("..", value) > 0 then return 0
+  return verify(value, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") = 0
+
+_safefilename: procedure = .int
+  arg value = .string
+  if value = "" | length(value) > 180 | pos("/", value) > 0 | pos("..", value) > 0 then return 0
+  return verify(value, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-") = 0
+
+_validsha256: procedure = .int
+  arg value = .string
+  return length(value) = 64 & verify(value, "0123456789abcdef") = 0
+
+_scalarint: procedure = .int
+  arg database = .binary, sql = .string, expose error = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 then do
+    ignored = _sqlitefailure("prepare integer query", error)
+    return -1
+  end
+  if sqlitestep(prepared) \= 100 then do
+    call sqlitefinalize prepared
+    ignored = _sqlitefailure("step integer query", error)
+    return -1
+  end
+  value = 0
+  status = sqlitecolumnint(prepared, 0, value)
+  call sqlitefinalize prepared
+  if status \= 0 then do
+    ignored = _sqlitefailure("read integer query", error)
+    return -1
+  end
+  return value
+
+_sqlquote: procedure = .string
+  arg value = .string
+  return "'" || changestr("'", value, "''") || "'"
+
+_sqlitefailure: procedure = .int
+  arg prefix = .string, expose error = .string
+  boundary_code = 0; sqlite_code = 0; sqlite_extended = 0; operation = ""; message = ""
+  call sqliteerrorextended boundary_code, sqlite_code, sqlite_extended, operation, message
+  error = prefix || ": " || message || " [boundary=" || boundary_code || ",sqlite=" || sqlite_code || ",extended=" || sqlite_extended || ",operation=" || operation || "]"
+  return -3
+
+_transactionfailure: procedure = .int
+  arg database = .binary, prefix = .string, expose error = .string
+  ignored = _sqlitefailure(prefix, error)
+  call sqliteexec database, "ROLLBACK"
+  return -3

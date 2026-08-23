@@ -2,7 +2,7 @@
 
 Status: canonical navigation for the approved cREXX-only programme,
 2026-08-23. Phase 1B is complete, Gate 1B is accepted, and Phase 2 has started
-from its pushed entry baseline. `P2-01` through `P2-03` are accepted; `P2-04`
+from its pushed entry baseline. `P2-01` through `P2-05` are accepted; `P2-06`
 is next and pending.
 
 ## Current Programme Documents
@@ -12,7 +12,7 @@ is next and pending.
 | [Vision and product specification](crexx-only-vision-and-specification.md) | Approved product purpose, requirements, ownership, and cutover rules |
 | [Review findings](crexx-only-review-findings.md) | Point-in-time rationale behind the decision; reproducible Phase-0 evidence is now retained separately |
 | [Architecture](crexx-only-architecture.md) | Approved target boundaries, data model, lifecycle, jobs, retrieval, and surfaces |
-| [Implementation roadmap](crexx-only-implementation-roadmap.md) | Completed work, future phases, and gates; Phase 2 is active through accepted `P2-03` |
+| [Implementation roadmap](crexx-only-implementation-roadmap.md) | Completed work, future phases, and gates; Phase 2 is active through accepted `P2-05` |
 | [User guide](crexx-only-user-guide.md) | Target interface contract; clearly marks unimplemented commands |
 | [Test strategy](test-strategy.md) | Living validation and acceptance policy |
 | [Programme status](pipeline-status.md) | Living implemented-versus-specified status |

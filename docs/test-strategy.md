@@ -168,6 +168,20 @@ and later phases are outside the acceptance scope. P2-03 does not imply P2-04
 through P2-10. Gate 2 remains an unconditional stop even when every approved
 test passes.
 
+`P2-04` adds `p2_04_v1_compatibility`: optimized/non-optimized builds on both
+VMs inspect and import a representative version-1 bundle, fingerprint every
+source file across dry-run/import/rejection, verify deterministic schema-v2
+mapping and quarantine, and reject target overwrite and unsupported manifests.
+
+`P2-05` adds `p2_05_backup_restore`: all four cells exercise opaque binary file
+I/O and installed `rxhash.sha256`, immutable sidecar publication, checksum
+tamper detection, a generation-2 SQLite backup held stable while generation 3
+commits, regenerated snapshot manifests, fresh restore, and source-snapshot
+zero-write fingerprints. Optimized `rxvme` and `rxbvm` receive real `SIGKILL`
+after sidecar preparation/install/SQLite commit/temporary manifest and after
+backup or restore database/sidecar/manifest staging. No partial final folder is
+visible at any pre-publication boundary.
+
 Current Phase-1B progress: the installed-SDK section is accepted under
 `P1-RXPA-01` and `P1-RXPA-02`. `P1-SQL-01` through `P1-SQL-07` pass their
 dedicated targets and exact CTest labels for optimized/non-optimized programs
