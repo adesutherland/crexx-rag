@@ -81,13 +81,13 @@ separate decision.
 
 ## Gate 2 Stop
 
-- [ ] Assemble a Gate-2 packet covering every item, capability limitations,
+- [x] Assemble a Gate-2 packet covering every item, capability limitations,
   installed-package operation, fresh init/status/verify/backup/restore, and
-  version-1 fixture read/import.
-- [ ] Run Debug configure/build/full CTest, Release configure/build, and
+  version-1 fixture read/import: [GATE-2-DECISION-PACKET.md](GATE-2-DECISION-PACKET.md).
+- [x] Run Debug configure/build/full CTest, Release configure/build, and
   `git diff --check`.
-- [ ] Audit native-v1 and sibling-CREXX preservation.
-- [ ] Stop unconditionally for the user's Gate-2 decision.
+- [x] Audit native-v1 and sibling-CREXX preservation.
+- [x] Stop unconditionally for the user's Gate-2 decision.
 
 ## Exclusions
 

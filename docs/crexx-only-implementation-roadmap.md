@@ -433,6 +433,12 @@ Fresh installed CREXX users must be able to initialize, inspect, verify, back
 up, restore, and read/import a fixture without a sister source checkout or any
 product-specific native runtime.
 
+Gate 2 was reached on 2026-08-23 with 69/69 committed-head Debug tests, a fresh
+27-target Release build, all ten Phase-2 items accepted, and the preservation
+and limitation audit in the
+[`Gate-2 decision packet`](evidence/2026-08-04-phase2/GATE-2-DECISION-PACKET.md).
+Execution is stopped for the user's decision; Phase 3 is not authorized.
+
 ## Phase 3 — True Initial And Incremental Ingestion
 
 Goal: replace native ingestion while making lifecycle behavior strictly better.

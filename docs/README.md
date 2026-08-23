@@ -34,6 +34,7 @@ Phase 3 is not authorized.
 | [Workload and capability report](crexx-rag-workload-capability-report.md) | Versioned current-host workload observations, capability ownership, maturity boundaries, and prepared generic review bundles |
 | [P2-09 report/bundle evidence](evidence/2026-08-04-phase2/P2-09.md) | Three manifest-driven review bundles, 52 hash-verified files, required adjacent docs/roles, and 12 zero-call candidate probe cells |
 | [P2-10 plan/revalidation evidence](evidence/2026-08-04-phase2/P2-10.md) | Canonical content-addressed plans, zero-write planning, and hostile apply-time binding revalidation across four cells |
+| [Gate 2 decision packet](evidence/2026-08-04-phase2/GATE-2-DECISION-PACKET.md) | Ten-item acceptance matrix, committed-head installed-package replay, limitations, preservation audit, and mandatory decision stop |
 | [Level-G migration evidence](evidence/2026-08-04-levelg-migration/LEVEL-G-MIGRATION.md) | Installed-toolchain requalification, 46-source migration, language audit, and post-migration CTest result |
 | [Approved CREXX candidate closeout](evidence/2026-07-31-gate1a-crexx-candidate/CANDIDATE-INTEGRATION-CLOSEOUT.md) | Exact downstream CRI-01 through CRI-14 replay, provenance, results and Gate-1A stop |
 | [Linux build review](evidence/2026-08-03-linux-build/LINUX-BUILD-REVIEW.md) | Debug/Release portability result and open CRI-15 reproducer |
