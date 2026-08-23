@@ -3,8 +3,10 @@
 Status: implemented generic cREXX incubation for a possible future `rxllm`
 package. The normalized contract and protocol mappings are accepted on
 Phase-1B evidence and now compile against installed `rxfnsg` typed HTTP. The
-package is not installed, donation-ready, or approved for industrial
-high-throughput HTTP/TLS until the Linux qualification gate is complete.
+current-head installed-only macOS inventory passes 62/62, and upstream has
+supported Linux sanitizer/cross-platform HTTP evidence. The package is not
+installed, donation-ready, or approved for provider-lifetime high-throughput
+reuse until the downstream lifecycle and Linux/package gates are complete.
 
 See [SYSTEM.md](SYSTEM.md) for module ownership and known transport constraints.
 
@@ -149,8 +151,10 @@ ctest --preset debug -R '^p1_llm_0[1-5]$' --output-on-failure
 
 The regular CTest selection makes no hosted calls. The tests compile, assemble,
 and link final images before both VM runs because the installed HTTP task
-bindings must be resealed by `rxlink`. CRI-15 and CRI-16 remain open until the
-current transport is qualified on supported Linux.
+bindings must be resealed by `rxlink`. The current-head installed-only macOS
+replay passes all 62 repository tests. CRI-15 remains an exact downstream Linux
+confirmation; CRI-16 remains a provider-lifecycle and selected downstream
+Linux/package qualification decision.
 
 ## Current Limits
 
@@ -159,8 +163,9 @@ current transport is qualified on supported Linux.
 - Provider adapters currently use one pool per provider operation, so
   cross-operation reuse, provider streaming, and provider cancellation remain
   unimplemented.
-- Linux timeout and industrial TLS behavior are not qualified while CRI-15 and
-  CRI-16 remain open.
+- Current upstream Linux sanitizer and cross-platform HTTP/TLS evidence is
+  green. The exact downstream CRI-15 reproducer and provider package remain to
+  be replayed on supported Linux.
 - The capability catalogue must be reviewed and versioned as providers change.
 - A real local `llama-server` deployment was unavailable during Phase 1B.
 - Independent package metadata, installed-consumer qualification, and donation

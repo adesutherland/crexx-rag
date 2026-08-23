@@ -1,6 +1,6 @@
 # cREXX-Only Programme Status
 
-Status date: 2026-08-22.
+Status date: 2026-08-23.
 
 This is the only living implementation-status page. The previous native-v1
 pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.md).
@@ -16,11 +16,11 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Phase 0 | Complete | P0-01 through P0-07 including P0-04A are accepted in the dated evidence bundle |
 | Gate 0 | Passed | Full configure/build/CTest passed 17/17 with 19 frozen hashes and raw measurements |
 | Phase 1A | Complete diagnostic unit | P1A-SDK-01 through P1A-SUR-01 all have focused retained correctness/failure/profile evidence |
-| Gate 1A | Accepted 2026-08-03 | D1-D8 boundaries and the bounded D9 worklist are recorded; CRI-15 remains an open Linux dependency |
-| Phase 1B / Gate 1B | Accepted 2026-08-04 | Every bounded item is accepted; Gate validation is 55/56 with sole expected CRI-15; recorded production limitations remain in force |
+| Gate 1A | Accepted 2026-08-03 | D1-D8 boundaries and the bounded D9 worklist are recorded; its historical Linux replay retained the original CRI-15 failure |
+| Phase 1B / Gate 1B | Accepted 2026-08-04 | Every bounded item is accepted; the historical Gate validation was 55/56 with sole expected CRI-15; current disposition is tracked separately |
 | Language strategy | Level G first, accepted 2026-08-04 | Advanced libraries and application code use Level G; Level B is limited to justified CREXX bootstrap/foundation work |
 | Phase 2 / Gate 2 | Active; `P2-04` pending | `P2-01` contracts, `P2-02` registered typed configuration/profiles, and the `P2-03` schema-v2 storage foundation are accepted; version-1 compatibility is next |
-| Parallel CREXX capability sync | macOS complete; Linux pending | Current installed-only macOS replay, HTTP/toolchain repair, `rxhash.sha256` adoption, and accepted exact `rxvector` integration are complete. CRI-15/16 plus supported Linux sanitizer/cross-platform publication remain open. |
+| Parallel CREXX capability sync | Current-head macOS replay complete; follow-up deferred | Current installed-only macOS replay, public Level-G HTTP/toolchain adoption, `rxhash.sha256`, and exact `rxvector` integration pass 62/62 against CREXX `e3d6b7b90158`. Remaining provider-lifecycle work is separately approval-gated, and exact downstream Linux confirmation is deferred to later QA after material local progress; neither blocks Phase 2. |
 | Phase 3 and later | Not authorized | No production ingestion, additional hosted qualification, cutover, or retirement |
 
 ## Current Product Reality
@@ -107,8 +107,10 @@ available local OpenAI-compatible case in `P1-LLM-02` are accepted; a real
 `llama-server` executable was unavailable and is not claimed. `P1-LLM-03`
 accepts ordered batch embedding, bounded structured validation, retry/backoff,
 usage, pre-transport privacy denial, and truthful unsupported capabilities.
-CRI-15 still blocks Linux timeout qualification; CRI-16 records that installed
-`rxhttp` is a one-connection-per-request synchronous transport. `P1-LLM-04`
+CRI-15 historically blocked Linux timeout qualification; CRI-16 recorded that
+the then-installed `rxhttp` path was a one-connection-per-request synchronous
+transport. The current disposition is the public Level-G `rxfnsg` path described
+below. `P1-LLM-04`
 passes all local/OpenAI/Anthropic/Gemini shapes and five low-cost hosted calls,
 including two 128-dimensional batch-embedding results. `P1-LLM-05` proves zero
 outbound connections for denied routes and zero retained matches for all three
@@ -157,6 +159,18 @@ the focused replay corrected one frozen-artifact preservation mistake. Exact
 status and evidence are in the
 [capability-sync worklist](evidence/2026-08-22-crexx-capability-sync/WORKLIST.md).
 
+On 2026-08-23 the pulled CREXX head
+`e3d6b7b9015847d247ab2b90e83c843881db9b2f` added no replacement public API,
+but records completed supported Linux sanitizer qualification in its pulled
+lineage, retained all four CREXX-owned cREXX-RAG HTTP cells, qualified
+`rxvector`, and repaired a process cancellation/replacement ownership race. A
+fresh scratch install selected that
+exact package with both fallbacks off; the downstream build passed 27/27 and
+the complete CTest inventory passed 62/62 in 97.99 seconds. No downstream
+compatibility code change was needed because current `main` already consumes
+the public Level-G HTTP, `rxhash` and `rxvector` facilities. Evidence is retained
+in the [current integration replay](evidence/2026-08-23-crexx-current-integration/README.md).
+
 The algorithm profile crossed its retained 10,000-us trigger in all four cells while
 remaining below 64 MiB. Full validation passed 55/56 tests; the sole failure is
 unchanged CRI-15. See the
@@ -188,7 +202,11 @@ Separately bounded CREXX
 capability work may proceed in parallel only after each stream records an
 equivalent boundary.
 
-Native-v1 remains the executable oracle. CRI-15, CRI-16, supported Linux
-sanitizer qualification, and final cross-platform publication remain open;
-additional hosted calls, Phase 3, donation submission, dual-write, cutover,
-and native-core retirement remain unauthorized.
+Native-v1 remains the executable oracle. The pulled upstream lineage's
+supported Linux sanitizer and HTTP substrate qualification is now green.
+CRI-15 remains open for the exact
+downstream Linux reproducer/current-package replay; CRI-16 remains open for the
+approved provider-lifecycle scope and downstream Linux/package evidence. These
+are deferred parallel qualification items, not Phase-2 prerequisites.
+Additional hosted calls, Phase 3, donation submission, dual-write, cutover and
+native-core retirement remain unauthorized.

@@ -184,9 +184,13 @@ documented JSON Schema subset, and proves route denial before client
 construction. P1-LLM-04 keeps recurring CTest deterministic and places the
 authorized five-call hosted canary behind a separate target. P1-LLM-05 observes
 zero denied connections and scans real credential values without retaining
-them. The provider section does not accept the CRI-15-affected Linux timeout path or
-claim connection reuse, streaming, cancellation, compression, or bounded
-response buffering from installed `rxhttp`; CRI-16 tracks that ceiling.
+them. The historical provider acceptance did not accept the CRI-15-affected
+Linux timeout path or the then-installed `rxhttp` ceiling. Current `main` now
+uses installed Level-G `rxfnsg` typed responses, bounded buffering, compression
+and one pool per operation; the current-head macOS inventory passes 62/62.
+Exact downstream Linux confirmation remains open, and the provider contract
+truthfully continues to report cross-operation reuse, streaming and
+cancellation as unsupported pending separate lifecycle/capability decisions.
 `P1-VEC-01` accepts canonical headerless `f32le-v1` bytes, application-owned
 codec/count/meaning, and an exact 768-dimensional typed SQLite round trip in
 all four compiler/runtime cells. `P1-VEC-02` accepts exact bounded-page
@@ -214,6 +218,13 @@ The final 2026-08-03 Gate-1B run passed 55/56 tests in 490.18 seconds. The only
 failure was the separately retained CRI-15 `rxvme` receive-timeout defect. All
 28 Phase-1B-labelled tests passed, Release built, the diff check was empty, and
 the three-value credential scan found zero publication-file matches.
+
+The 2026-08-23 current-head integration replay is the current compatibility
+result: a fresh installed CREXX package from
+`e3d6b7b9015847d247ab2b90e83c843881db9b2f`, with both fallbacks disabled,
+passed the 27-step downstream build and 62/62 CTests in 97.99 seconds on macOS.
+It does not replace the required exact downstream Linux CRI-15 replay or
+authorize provider-interface changes.
 
 Use small target-only loops between those broad gates. Record an explicit reason
 for any unavailable CREXX VM or local-provider mode. Finish with a worktree audit

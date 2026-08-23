@@ -1,6 +1,6 @@
 # Gate 1B Decision Ledger
 
-Status date: 2026-08-22. Gate 1B remains accepted. Phase 2 is the active product
+Status date: 2026-08-23. Gate 1B remains accepted. Phase 2 is the active product
 phase alongside separately bounded CREXX capability work.
 
 This ledger records the user's decision on the completed
@@ -55,12 +55,19 @@ dual-write, production cutover, or native removal.
 
 ## Parallel Capability Work
 
-The intended parallel capability queue remains:
+The deferred parallel capability queue is:
 
-1. CRI-15 socket receive-timeout correctness;
-2. CRI-16 industrial HTTP/TLS qualification;
-3. matched generic vector-acceleration qualification; and
-4. incremental binary SHA-256 and durable identity.
+1. exact downstream Linux confirmation of CRI-15 against the current installed
+   package;
+2. an approval-gated CRI-16 provider-owned pool lifecycle plus the selected
+   downstream Linux/package qualification scope;
+3. a separate decision on provider streaming and cancellation; and
+4. incremental binary SHA-256 only when ingestion/stream ownership requires it.
+
+Matched generic vector acceleration is complete through installed `rxvector`
+and is no longer an open queue item. None of the remaining entries is a
+prerequisite for `P2-04` through `P2-10`; the downstream Linux replay is a later
+QA step after material progress on this host.
 
 This ledger authorizes the parallel delivery model, not unbounded or implicit
 changes to the installed CREXX prefix or a sibling CREXX checkout. Before any
@@ -77,9 +84,28 @@ does not claim an incremental/file-hash surface. CRI-15, CRI-16, supported
 Linux sanitizer and final cross-platform publication remain explicit open
 gates. No Phase-2 item was activated or reordered by this work.
 
+### 2026-08-23 current-head disposition
+
+CREXX was pulled through
+`e3d6b7b9015847d247ab2b90e83c843881db9b2f`. The reviewed upstream lineage has
+green 2,363-test Linux ASan/LSan evidence at `e3de72939`, all four CREXX-owned
+cREXX-RAG HTTP cells, qualified `rxvector`, and focused Linux sanitizer plus
+full ordinary Debug evidence for the later process cancellation/replacement
+repair. A fresh installed-only macOS downstream replay
+then passed its 27-step build and 62/62 CTests. Current `crexx-rag` already
+consumes the public Level-G HTTP, `rxhash` and `rxvector` facilities, so no
+compatibility code edit was required.
+
+CRI-15 remains open for its exact downstream Linux reproducer/current-package
+confirmation. CRI-16 now distinguishes a qualified upstream substrate from
+downstream adapter features: provider-lifetime reuse, streaming and
+cancellation still report unsupported. Changing that lifecycle or interface
+requires explicit approval. No Phase-2 item was activated or reordered.
+
 ## Start State
 
-At this decision point no Phase-2 implementation item or parallel capability
-item has started. The next documentation action is to establish the Phase-2
-worklist and handoff; the next implementation action is its first explicitly
-active item.
+`P2-01` through `P2-03` are accepted. `P2-04` is the next product item and is
+pending with no item active. The capability-sync compatibility replay is
+complete. Provider-lifecycle work remains separately approval-gated, and the
+exact downstream Linux replay is deferred to later QA after material progress
+on this host; neither reorders or blocks Phase 2.

@@ -1,7 +1,7 @@
 # Documentation Map
 
 Status: canonical navigation for the approved cREXX-only programme,
-2026-08-06. Phase 1B is complete, Gate 1B is accepted, and Phase 2 has started
+2026-08-23. Phase 1B is complete, Gate 1B is accepted, and Phase 2 has started
 from its pushed entry baseline. `P2-01` through `P2-03` are accepted; `P2-04`
 is next and pending.
 
@@ -18,6 +18,8 @@ is next and pending.
 | [Programme status](pipeline-status.md) | Living implemented-versus-specified status |
 | [Semantic vocabulary](architecture-vocabulary.md) | Initial domain-neutral typed-graph vocabulary |
 | [CREXX integration issues](crexx-integration-issues.md) | Dated installed-toolchain and capability-gap ledger |
+| [Current CREXX integration replay](evidence/2026-08-23-crexx-current-integration/README.md) | Pulled-head review, fresh installed-only 62/62 downstream replay, exact current boundaries, and deferred follow-up |
+| [CREXX capability-sync worklist](evidence/2026-08-22-crexx-capability-sync/WORKLIST.md) | Completed macOS/current-head items and later parallel qualification backlog |
 | [Generic capability incubation audit](../incubator/README.md) | Donation-candidate inventory, implementation boundaries, colocated use/system docs, and readiness status |
 | [Gate 1A decision ledger](gate1a-decision-ledger.md) | Historical approval for D1-D9, the now-completed Phase-1B worklist, exclusions, and Gate-1B stop |
 | [Gate 1B decision ledger](gate1b-decision-ledger.md) | Current acceptance decision, Level-G-first amendment, Phase-2 authority, parallel-work model, exclusions, and start state |

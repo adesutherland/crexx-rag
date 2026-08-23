@@ -1,6 +1,6 @@
 # CREXX Capability Sync Worklist
 
-Status date: 2026-08-22. This is a bounded parallel capability stream under
+Status date: 2026-08-23. This is a bounded parallel capability stream under
 the Gate-1B rules. It does not activate or reorder a Phase-2 product item.
 `[ ]` is pending, `[~]` is active, `[x]` is accepted, and `[!]` is deferred to
 the named platform gate.
@@ -49,16 +49,38 @@ the named platform gate.
 
 ## Linux Completion
 
-- [!] **LINUX-01 CRI-15 and CRI-16.** Repeat installed-only downstream replay
-  on supported Linux, close the invalid-UTF-8/timeout transport defect, and
-  qualify the HTTP transport, pooling, TLS, cancellation, and sanitizer scope.
-- [!] **LINUX-02 Publication evidence.** Run the supported Linux sanitizer and
-  release gates, refresh the dependency ledger and Gate evidence, and publish
-  the final cross-platform disposition only after `LINUX-01` is closed.
+- [x] **CURRENT-01 Pulled-head installed replay.** Review CREXX
+  `e3d6b7b9015847d247ab2b90e83c843881db9b2f`, scratch-install it, and replay
+  the full no-fallback downstream inventory. The fresh build passed 27/27 and
+  CTest passed 62/62 on macOS. Retained result:
+  [2026-08-23 current integration](../2026-08-23-crexx-current-integration/README.md).
+- [!] **LINUX-01 CRI-15 downstream confirmation.** Repeat the exact
+  installed-only downstream replay on supported Linux, including the retained
+  socket-timeout reproducer and both VMs. The pulled upstream lineage now has a
+  green 2,363-test Linux ASan/LSan gate and cREXX-RAG HTTP cells; CRI-15 closes
+  only when the current downstream reproducer confirms the old
+  invalid-UTF-8/two-byte result is gone.
+- [!] **LINUX-02 CRI-16 downstream closure.** Replay provider pooling,
+  concurrency, TLS, cancellation and sanitizer scope from the current installed
+  package. Distinguish the now-qualified upstream substrate from the still
+  unsupported provider-lifetime reuse, streaming and cancellation claims.
+- [!] **LINUX-03 Publication evidence.** Refresh the dependency ledger and Gate
+  evidence, then publish the final downstream cross-platform disposition only
+  after `LINUX-01` and the approved portion of `LINUX-02` are closed.
+
+## Deferred Follow-Up
+
+Phase 2 product delivery now has priority. The Linux replay is a later QA step
+after material progress on this host, not the next action or a Phase-2
+precondition. A future provider-lifecycle decision may consider one persistent
+origin pool per adapter, explicit close, timeout-policy ownership, and measured
+keep-alive reuse. Streaming and cancellation adoption remain a separate scope
+decision. None of this work is active.
 
 ## Current Ordering
 
 This capability stream may advance independently of the sole Phase-2 successor
-`P2-04`, but it must not mutate Phase-2 product state. Within this stream,
-the macOS work is complete. Linux items remain explicitly open and own the
-supported sanitizer and transport completion.
+`P2-04`, but it must not mutate Phase-2 product state. Within this stream, the
+available macOS work and current-head compatibility replay are complete. The
+next product action is `P2-04`; provider-lifecycle work requires separate
+approval, while Linux downstream confirmation is deferred to later QA.

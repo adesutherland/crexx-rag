@@ -185,10 +185,13 @@ distinct OpenAI Responses, Anthropic Messages, and Gemini generation/embedding
 payloads. It covers structured output, ordered batch embedding, bounded retry,
 usage/cost records, URL media modalities, pre-transport privacy denial, and
 secret-free evidence. This remains an incubation rather than the shipped
-`rxllm` package. CRI-15 withholds Linux timeout qualification and CRI-16 blocks
-an industrial high-throughput transport claim until the generic HTTP surface
-has connection reuse and bounded response handling; streaming, cancellation,
-compression, and multiplexing remain explicit capabilities.
+`rxllm` package. The current installed generic HTTP surface now supplies typed
+bounded responses, connection-owner pooling, compression, streaming and
+cancellation primitives with upstream Linux sanitizer/cross-platform evidence,
+and the downstream macOS inventory passes against it. CRI-15 remains an exact
+downstream Linux confirmation gate. CRI-16 now withholds a provider-lifetime
+reuse claim until the adapter lifecycle is approved and proved; provider
+streaming and cancellation remain explicit separate capabilities.
 
 ### Hash and binary data
 

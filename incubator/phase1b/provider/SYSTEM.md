@@ -106,13 +106,15 @@ secret- and budget-gated.
 
 ## Known System Limits
 
-- CRI-15: the historical installed Linux `rxvme` socket path loses the intended
-  receive-timeout status; the current Level-G HTTP path needs supported-Linux
-  replay before this is closed.
-- CRI-16: the generic `rxfnsg` transport now implements pooling, keep-alive,
-  bounded response buffering, compression, streaming, and cancellation, but
-  supported-Linux TLS, cancellation, concurrency, and sanitizer qualification
-  remain open.
+- CRI-15: the historical installed Linux `rxvme` socket path lost the intended
+  receive-timeout status. Current upstream Linux sanitizer and cREXX-RAG HTTP
+  evidence is green, but the retained downstream reproducer must pass against
+  the current installed package on both VMs before closure.
+- CRI-16: generic `rxfnsg` pooling, keep-alive, bounded response buffering,
+  compression, streaming and cancellation primitives now have upstream Linux
+  sanitizer/cross-platform evidence. The downstream adapter still needs an
+  approved provider-owned pool lifecycle and selected Linux/package replay;
+  streaming and cancellation remain separate adapter-scope decisions.
 - Adapter instances retain credentials in process memory for their lifetime.
 - The adapters expose no concurrent request scheduler, persistent
   cross-operation pool, circuit breaker, jittered retry, or external capability
@@ -132,5 +134,5 @@ Before a donation proposal, this incubation still needs:
 - a versioned, replaceable catalogue format rather than only compiled entries;
 - independent package builds, installed-consumer tests, examples, and release
   metadata; and
-- minimized non-RAG reproducers for CRI-15 and CRI-16 alongside the package
-  proposal.
+- the retained non-RAG CRI-15 reproducer plus focused provider-lifecycle and
+  capability proofs alongside the package proposal.

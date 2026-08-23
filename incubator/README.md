@@ -31,15 +31,15 @@ their historical language levels.
 
 ## Candidate Audit
 
-Status date: 2026-08-22.
+Status date: 2026-08-23.
 
 | Capability | Implementation boundary | Colocated documentation | Disposition |
 | --- | --- | --- | --- |
 | SQLite (`rxsqlite` candidate) | [`p1a/sqlite_boundary/`](p1a/sqlite_boundary/) | [use](p1a/sqlite_boundary/README.md), [system](p1a/sqlite_boundary/SYSTEM.md), [retained contract](phase1b/rxsqlite/CONTRACT.md) | Implemented generic candidate; correct on the Phase-1B matrix, not independently packaged or approved for donation |
-| Provider-neutral LLM/embedding (`rxllm` candidate) | [`phase1b/provider/`](phase1b/provider/) | [use](phase1b/provider/README.md), [system](phase1b/provider/SYSTEM.md) | Implemented cREXX incubation; protocol contract accepted, industrial HTTP/TLS approval withheld by CRI-15/CRI-16 |
+| Provider-neutral LLM/embedding (`rxllm` candidate) | [`phase1b/provider/`](phase1b/provider/) | [use](phase1b/provider/README.md), [system](phase1b/provider/SYSTEM.md) | Implemented cREXX incubation; protocol contract and current public HTTP integration pass, while provider-lifetime pooling/capability scope, exact downstream Linux replay and independent packaging remain approval/qualification work |
 | Float32 codec and exact vector primitives | [`phase1b/vector/`](phase1b/vector/) | [use](phase1b/vector/README.md), [system](phase1b/vector/SYSTEM.md) | Portable codec plus pure exact oracle/fallback remain local; the accepted installed CREXX `rxvector` provider supplies bounded-page acceleration without changing SQLite persistence |
 | Parse-once JSON (`rxjson`) | Installed CREXX package; local consumers in [`phase1b/structured_data/`](phase1b/structured_data/) | [use](phase1b/structured_data/README.md), [system](phase1b/structured_data/SYSTEM.md) | Consumed upstream capability, not a locally implemented donation package |
-| Industrial HTTP/TLS | Installed Level-G `rxfnsg`; local consumer in [`phase1b/provider/provider_http.crexx`](phase1b/provider/provider_http.crexx) | Provider [system documentation](phase1b/provider/SYSTEM.md) records the dependency and remaining CRI-15/CRI-16 Linux gate | Upstream implementation is present and the macOS consumer passes; industrial Linux qualification remains open |
+| Industrial HTTP/TLS | Installed Level-G `rxfnsg`; local consumer in [`phase1b/provider/provider_http.crexx`](phase1b/provider/provider_http.crexx) | Provider [system documentation](phase1b/provider/SYSTEM.md) records the dependency and remaining downstream gates | Upstream public substrate has cross-platform build and supported Linux sanitizer evidence; the current macOS consumer passes 62/62. Exact downstream Linux confirmation and provider-lifetime reuse/stream/cancel decisions remain open |
 | Binary SHA-256 | Installed native `rxhash.sha256`; local proof in [`phase1b/hash/`](phase1b/hash/) and application use in [`phase1b/algorithm/`](phase1b/algorithm/) | [qualification notes](phase1b/hash/README.md) | One-shot binary capability consumed directly with provider autoload; incremental state and file/path convenience remain unimplemented |
 | Typed configuration/command helpers | None | None required until an implementation boundary is created | Future candidate; not implemented |
 | MCP transport helpers | None | None required until an implementation boundary is created | Future candidate; not implemented |
