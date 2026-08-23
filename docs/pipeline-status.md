@@ -19,7 +19,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Gate 1A | Accepted 2026-08-03 | D1-D8 boundaries and the bounded D9 worklist are recorded; its historical Linux replay retained the original CRI-15 failure |
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | Every bounded item is accepted; the historical Gate validation was 55/56 with sole expected CRI-15; current disposition is tracked separately |
 | Language strategy | Level G first, accepted 2026-08-04 | Advanced libraries and application code use Level G; Level B is limited to justified CREXX bootstrap/foundation work |
-| Phase 2 / Gate 2 | Active; `P2-04` pending | `P2-01` contracts, `P2-02` registered typed configuration/profiles, and the `P2-03` schema-v2 storage foundation are accepted; version-1 compatibility is next |
+| Phase 2 / Gate 2 | Active; `P2-05` pending | `P2-01` through `P2-04` are accepted, including the schema-v2 storage foundation and read-only version-1 dry-run/import boundary; pinned backup/restore and immutable sidecars are next |
 | Parallel CREXX capability sync | Current-head macOS replay complete; follow-up deferred | Current installed-only macOS replay, public Level-G HTTP/toolchain adoption, `rxhash.sha256`, and exact `rxvector` integration pass 62/62 against CREXX `e3d6b7b90158`. Remaining provider-lifecycle work is separately approval-gated, and exact downstream Linux confirmation is deferred to later QA after material local progress; neither blocks Phase 2. |
 | Phase 3 and later | Not authorized | No production ingestion, additional hosted qualification, cutover, or retirement |
 

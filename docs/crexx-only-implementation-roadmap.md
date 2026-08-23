@@ -381,8 +381,11 @@ mutation.
   four-cell lifecycle, real `SIGKILL`, zero-write read-only, recovery,
   verification, rollback, and full-suite evidence in
   [`P2-03.md`](evidence/2026-08-04-phase2/P2-03.md).
-- [ ] **P2-04** Implement version-1 read/import compatibility and a dry-run
-  conversion report. Do not write version 1 in both implementations.
+- [x] **P2-04** Implement version-1 read/import compatibility and a dry-run
+  conversion report. Do not write version 1 in both implementations. Accepted
+  with four-cell read-only source fingerprinting, deterministic schema-v2
+  import, quarantine policy, invalid-input denial, and full-suite evidence in
+  [`P2-04.md`](evidence/2026-08-04-phase2/P2-04.md).
 - [ ] **P2-05** Implement generation-pinned online backup with matching immutable
   sidecars/snapshot manifest and fresh-folder restore; crash-test each ordering
   boundary.

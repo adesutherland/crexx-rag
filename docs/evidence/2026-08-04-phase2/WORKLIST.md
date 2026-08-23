@@ -1,6 +1,6 @@
 # Phase 2 Resumable Worklist
 
-Status date: 2026-08-06. Authority is limited to `P2-01` through `P2-10` in
+Status date: 2026-08-23. Authority is limited to `P2-01` through `P2-10` in
 the [Gate-1B decision ledger](../../gate1b-decision-ledger.md) and
 [implementation roadmap](../../crexx-only-implementation-roadmap.md). `[ ]` is
 pending, `[~]` is active, `[x]` is accepted, and `[!]` is incomplete with
@@ -36,8 +36,9 @@ retained blocker evidence. At most one roadmap item may be active.
   generations, visibility and snapshot rules, manifest recovery, strict
   read-only opens, crash ordering, library lifecycle operations, and rollback.
   Accepted evidence: [P2-03.md](P2-03.md).
-- [ ] **P2-04** Implement version-1 read/import compatibility and a dry-run
-  conversion report without dual-writing either format.
+- [x] **P2-04** Implement version-1 read/import compatibility and a dry-run
+  conversion report without dual-writing either format. Accepted evidence:
+  [P2-04.md](P2-04.md).
 - [ ] **P2-05** Implement generation-pinned online backup, immutable matching
   sidecars, snapshot manifests, fresh-folder restore, and crash-order tests.
 - [ ] **P2-06** Implement paged repositories for sources, revisions, chunks,

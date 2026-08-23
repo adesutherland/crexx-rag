@@ -1,0 +1,311 @@
+options levelg
+
+namespace ragcompat expose ragv1conversionreport inspectv1library planv1conversion importv1library
+
+import rxfnsb
+import rxjson
+import system
+import sqlite_boundary
+import ragstore
+
+ragv1conversionreport: class
+  _dry_run = .int
+  _document_count = .int
+  _chunk_count = .int
+  _entity_count = .int
+  _edge_count = .int
+  _embedding_count = .int
+  _imported_embedding_count = .int
+  _candidate_count = .int
+  _work_count = .int
+  _attempt_count = .int
+  _quarantined_count = .int
+  _source_writes = .int
+  _target_created = .int
+  _target_generation = .int
+  _warnings = .string
+
+  *: factory
+    arg dry_run = .int, document_count = .int, chunk_count = .int, entity_count = .int, edge_count = .int, embedding_count = .int, imported_embedding_count = .int, candidate_count = .int, work_count = .int, attempt_count = .int, quarantined_count = .int, source_writes = .int, target_created = .int, target_generation = .int, warnings = .string
+    _dry_run = dry_run
+    _document_count = document_count
+    _chunk_count = chunk_count
+    _entity_count = entity_count
+    _edge_count = edge_count
+    _embedding_count = embedding_count
+    _imported_embedding_count = imported_embedding_count
+    _candidate_count = candidate_count
+    _work_count = work_count
+    _attempt_count = attempt_count
+    _quarantined_count = quarantined_count
+    _source_writes = source_writes
+    _target_created = target_created
+    _target_generation = target_generation
+    _warnings = warnings
+    return
+
+  dry_run: method = .int
+    return _dry_run
+  document_count: method = .int
+    return _document_count
+  chunk_count: method = .int
+    return _chunk_count
+  entity_count: method = .int
+    return _entity_count
+  edge_count: method = .int
+    return _edge_count
+  embedding_count: method = .int
+    return _embedding_count
+  imported_embedding_count: method = .int
+    return _imported_embedding_count
+  candidate_count: method = .int
+    return _candidate_count
+  work_count: method = .int
+    return _work_count
+  attempt_count: method = .int
+    return _attempt_count
+  quarantined_count: method = .int
+    return _quarantined_count
+  source_writes: method = .int
+    return _source_writes
+  target_created: method = .int
+    return _target_created
+  target_generation: method = .int
+    return _target_generation
+  warnings: method = .string
+    return _warnings
+
+inspectv1library: procedure = .int
+  arg source_path = .string, dry_run = .int, expose report = .ragv1conversionreport, expose error = .string
+  error = ""
+  if dry_run \= 0 & dry_run \= 1 then do
+    error = "dry-run flag must be zero or one"
+    return -1
+  end
+  database_path = ""
+  if _validatemanifest(source_path, database_path, error) \= 0 then return -2
+  database = .binary
+  if sqliteopenmode(database_path, "readonly", database) \= 0 then return _sqlitefailure("open version-1 database readonly", error)
+  if sqliteexec(database, "PRAGMA foreign_keys=ON") \= 0 | sqliteexec(database, "BEGIN") \= 0 then do
+    ignored = _sqlitefailure("begin version-1 inspection", error)
+    call sqliteclose database
+    return -3
+  end
+  if _validateschema(database, error) \= 0 then do
+    call sqliteexec database, "ROLLBACK"
+    call sqliteclose database
+    return -4
+  end
+  documents = _scalarint(database, "SELECT count(*) FROM documents", error)
+  chunks = _scalarint(database, "SELECT count(*) FROM chunks", error)
+  entities = _scalarint(database, "SELECT count(*) FROM entities", error)
+  edges = _scalarint(database, "SELECT count(*) FROM edges", error)
+  embeddings = _scalarint(database, "SELECT count(*) FROM chunk_embeddings", error)
+  imported_embeddings = _scalarint(database, "SELECT count(*) FROM chunk_embeddings WHERE dimension>0 AND length(vector)=dimension*4", error)
+  candidates = _scalarint(database, "SELECT (SELECT count(*) FROM candidate_mentions)+(SELECT count(*) FROM candidate_adjudications)", error)
+  work = _scalarint(database, "SELECT count(*) FROM work_queue", error)
+  attempts = _scalarint(database, "SELECT count(*) FROM work_attempts", error)
+  if documents < 0 | chunks < 0 | entities < 0 | edges < 0 | embeddings < 0 | imported_embeddings < 0 | candidates < 0 | work < 0 | attempts < 0 then do
+    call sqliteexec database, "ROLLBACK"
+    call sqliteclose database
+    if error = "" then error = "version-1 row counts are invalid"
+    return -4
+  end
+  call sqliteexec database, "ROLLBACK"
+  if sqliteclose(database) \= 0 then return _sqlitefailure("close version-1 database", error)
+  quarantined = documents + entities + edges + candidates + work + attempts + embeddings - imported_embeddings
+  warnings = "legacy digests are retained as provenance rather than upgraded to SHA-256; entity, document, edge, candidate, and work metadata is quarantined as review data; legacy work is not resumed; invalid embeddings are quarantined"
+  report = .ragv1conversionreport(dry_run, documents, chunks, entities, edges, embeddings, imported_embeddings, candidates, work, attempts, quarantined, 0, 0, 0, warnings)
+  return 0
+
+planv1conversion: procedure = .int
+  arg source_path = .string, target_path = .string, expose report = .ragv1conversionreport, expose error = .string
+  error = ""
+  if source_path = "" | target_path = "" | source_path = target_path then do
+    error = "distinct source and target paths are required"
+    return -1
+  end
+  if testdir(target_path) = 0 | testfile(target_path) = 0 then do
+    error = "conversion target already exists"
+    return -2
+  end
+  return inspectv1library(source_path, 1, report, error)
+
+importv1library: procedure = .int
+  arg source_path = .string, target_path = .string, library_id = .string, expose report = .ragv1conversionreport, expose error = .string
+  error = ""
+  if library_id = "" then do
+    error = "target library identity is required"
+    return -1
+  end
+  planned = .ragv1conversionreport
+  if planv1conversion(source_path, target_path, planned, error) \= 0 then return -2
+  store = .ragstorehandle
+  status = initragstore(target_path, library_id, "v1-import-config", "legacy-v1-import", "1", "generic", "legacy-v1-profile", "legacy-v1-config", '{"source_format":"crexx-rag-library/1"}', store, error)
+  if status \= 0 then return -3
+  if _attachlegacy(store.database(), source_path || "/library.sqlite", error) \= 0 then return _importfailure(store, target_path, error)
+  generation = 0
+  if begingeneration(store, 1, "v1-import-config", "import version-1 library", generation, error) \= 0 then do
+    call _detachlegacy store.database()
+    return _importfailure(store, target_path, error)
+  end
+  if _importrows(store.database(), generation, error) \= 0 then do
+    call abortgeneration store, error
+    call _detachlegacy store.database()
+    return _importfailure(store, target_path, error)
+  end
+  if commitgeneration(store, generation, error) \= 0 then do
+    call _detachlegacy store.database()
+    return _importfailure(store, target_path, error)
+  end
+  if _detachlegacy(store.database()) \= 0 then do
+    error = "could not detach version-1 database"
+    return _importfailure(store, target_path, error)
+  end
+  if publishmanifest(store, error) \= 0 then return _importfailure(store, target_path, error)
+  verification = .ragverifyresult
+  if verifyragstore(store, 1, verification, error) \= 0 | verification.ok() \= 1 then do
+    if error = "" then error = "imported target verification failed: " || verification.summary()
+    return _importfailure(store, target_path, error)
+  end
+  if closeragstore(store, error) \= 0 then return -3
+  report = .ragv1conversionreport(0, planned.document_count(), planned.chunk_count(), planned.entity_count(), planned.edge_count(), planned.embedding_count(), planned.imported_embedding_count(), planned.candidate_count(), planned.work_count(), planned.attempt_count(), planned.quarantined_count(), 0, 1, generation, planned.warnings())
+  return 0
+
+_validatemanifest: procedure = .int
+  arg source_path = .string, expose database_path = .string, expose error = .string
+  database_path = ""
+  if source_path = "" | testdir(source_path) \= 0 | testfile(source_path || "/manifest.json") \= 0 | testfile(source_path || "/library.sqlite") \= 0 then do
+    error = "version-1 bundle is incomplete"
+    return -2
+  end
+  document = .jsondocument(loadtext(source_path || "/manifest.json"))
+  if document.valid() \= 1 | document.node_type(document.root()) \= "object" then do
+    error = "version-1 manifest JSON is invalid"
+    return -2
+  end
+  format = ""; version = 0; database_name = ""
+  root = document.root()
+  if document.node_string(document.member(root, "format"), format) \= 0 | document.node_int(document.member(root, "version"), version) \= 0 | document.node_string(document.member(root, "database"), database_name) \= 0 then do
+    error = "version-1 manifest fields are invalid"
+    return -2
+  end
+  if format \= "crexx-rag-library" | version \= 1 | database_name \= "library.sqlite" then do
+    error = "unsupported version-1 manifest identity"
+    return -2
+  end
+  database_path = source_path || "/library.sqlite"
+  return 0
+
+_validateschema: procedure = .int
+  arg database = .binary, expose error = .string
+  queries = .string[]
+  queries[queries.0 + 1] = "SELECT id,node_type,label,description,metadata_json FROM entities WHERE 0"
+  queries[queries.0 + 1] = "SELECT id,source_id,target_id,relationship_type,label,weight,metadata_json FROM edges WHERE 0"
+  queries[queries.0 + 1] = "SELECT id,source_uri,title,content_hash,file_type,source_type,confidence,captured_at,event_start_at,event_end_at,metadata_json,created_at,updated_at FROM documents WHERE 0"
+  queries[queries.0 + 1] = "SELECT id,document_id,chunk_index,text,length,start_offset,end_offset,source_type,confidence,captured_at,event_start_at,event_end_at,metadata_json FROM chunks WHERE 0"
+  queries[queries.0 + 1] = "SELECT chunk_id,embedding_model,embedding_profile,dimension,vector,created_at,updated_at FROM chunk_embeddings WHERE 0"
+  queries[queries.0 + 1] = "SELECT id,profile_id,source_uri,chunk_id,stage,extractor,candidate,normalized_candidate,priority,proper_count,known_count,cue_count,metadata_json,created_at,updated_at FROM candidate_mentions WHERE 0"
+  queries[queries.0 + 1] = "SELECT profile_id,normalized_candidate,status,candidate_type,canonical_label,aliases,disambiguation,confidence,adjudicator,metadata_json,created_at,updated_at FROM candidate_adjudications WHERE 0"
+  queries[queries.0 + 1] = "SELECT profile_id,queue_name,item_type,item_id,subject_id,source_uri,title,item_index,score,status,reason,metadata_json,created_at,updated_at FROM work_queue WHERE 0"
+  queries[queries.0 + 1] = "SELECT id,profile_id,queue_name,item_type,item_id,subject_id,worker,model,status,accepted_nodes,accepted_relationships,raw_output,metadata_json,created_at FROM work_attempts WHERE 0"
+  do i = 1 to queries.0
+    prepared = .binary
+    if sqliteprepare(database, queries[i], prepared) \= 0 then do
+      ignored = _sqlitefailure("validate version-1 schema query " || i, error)
+      return -4
+    end
+    call sqlitefinalize prepared
+  end
+  return 0
+
+_attachlegacy: procedure = .int
+  arg database = .binary, legacy_path = .string, expose error = .string
+  if pos("?", legacy_path) > 0 | pos("#", legacy_path) > 0 then do
+    error = "version-1 path contains unsupported SQLite URI characters"
+    return -1
+  end
+  prepared = .binary
+  if sqliteprepare(database, "ATTACH DATABASE ?1 AS legacy_v1", prepared) \= 0 then return _sqlitefailure("prepare version-1 attachment", error)
+  bind_status = sqlitebindtext(prepared, 1, "file:" || legacy_path || "?mode=ro&immutable=1")
+  step_status = sqlitestep(prepared)
+  call sqlitefinalize prepared
+  if bind_status \= 0 | step_status \= 101 then return _sqlitefailure("attach version-1 database readonly", error)
+  return 0
+
+_detachlegacy: procedure = .int
+  arg database = .binary
+  return sqliteexec(database, "DETACH DATABASE legacy_v1")
+
+_importrows: procedure = .int
+  arg database = .binary, generation = .int, expose error = .string
+  statements = .string[]
+  statements[statements.0 + 1] = "INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) SELECT 'v1-source-'||id,'legacy-v1',source_uri,'v1-revision-'||id,'active',source_uri,title," || generation || " FROM legacy_v1.documents"
+  statements[statements.0 + 1] = "INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,external_reference,created_at) SELECT 'v1-artifact-'||id,'legacy-v1-document-'||id||':'||content_hash,'text/plain','utf-8',source_uri,coalesce(nullif(created_at,''),strftime('%Y-%m-%dT%H:%M:%fZ','now')) FROM legacy_v1.documents"
+  statements[statements.0 + 1] = "INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) SELECT 'v1-text-'||d.id,'legacy-v1-text-'||d.id||':'||d.content_hash,coalesce((SELECT group_concat(c.text,char(10)) FROM legacy_v1.chunks c WHERE c.document_id=d.id),''),'legacy-v1','legacy-v1',coalesce(nullif(d.created_at,''),strftime('%Y-%m-%dT%H:%M:%fZ','now')) FROM legacy_v1.documents d"
+  statements[statements.0 + 1] = "INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,event_start_at,event_end_at,visible_from_generation) SELECT 'v1-revision-'||id,'v1-source-'||id,'legacy-v1-revision-'||id||':'||content_hash,'v1-artifact-'||id,'v1-text-'||id,'legacy-v1-metadata-'||id,coalesce(nullif(captured_at,''),nullif(created_at,''),strftime('%Y-%m-%dT%H:%M:%fZ','now')),nullif(event_start_at,''),nullif(event_end_at,'')," || generation || " FROM legacy_v1.documents"
+  statements[statements.0 + 1] = "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) SELECT 'v1-content-'||id,'legacy-v1-chunk-'||id||':'||length(CAST(text AS BLOB)),text,'legacy-v1-input-'||id FROM legacy_v1.chunks"
+  statements[statements.0 + 1] = "INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) SELECT 'v1-chunk-'||id,'v1-revision-'||document_id,chunk_index,CASE WHEN start_offset>=0 THEN start_offset ELSE 0 END,CASE WHEN end_offset>CASE WHEN start_offset>=0 THEN start_offset ELSE 0 END THEN end_offset ELSE CASE WHEN start_offset>=0 THEN start_offset ELSE 0 END+max(length(CAST(text AS BLOB)),1) END,'v1-content-'||id,'legacy-v1-ordinal-'||chunk_index,'legacy-v1','legacy-import'," || generation || " FROM legacy_v1.chunks"
+  statements[statements.0 + 1] = "INSERT INTO normalization_maps(map_id,revision_id,raw_start,raw_end,normalized_start,normalized_end,line,unicode_column) SELECT 'v1-map-'||id,'v1-revision-'||document_id,CASE WHEN start_offset>=0 THEN start_offset ELSE 0 END,CASE WHEN end_offset>CASE WHEN start_offset>=0 THEN start_offset ELSE 0 END THEN end_offset ELSE CASE WHEN start_offset>=0 THEN start_offset ELSE 0 END+max(length(CAST(text AS BLOB)),1) END,CASE WHEN start_offset>=0 THEN start_offset ELSE 0 END,CASE WHEN end_offset>CASE WHEN start_offset>=0 THEN start_offset ELSE 0 END THEN end_offset ELSE CASE WHEN start_offset>=0 THEN start_offset ELSE 0 END+max(length(CAST(text AS BLOB)),1) END,1,1 FROM legacy_v1.chunks"
+  statements[statements.0 + 1] = "INSERT INTO chunks_fts(revision_chunk_id,content_id,body) SELECT 'v1-chunk-'||id,'v1-content-'||id,text FROM legacy_v1.chunks"
+  statements[statements.0 + 1] = "INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) SELECT 'v1-concept-'||hex(CAST(id AS BLOB)),label,node_type,'active'," || generation || " FROM legacy_v1.entities"
+  profile_expression = "'v1-profile-'||hex(CAST(embedding_model||char(0)||embedding_profile||char(0)||dimension AS BLOB))"
+  statements[statements.0 + 1] = "INSERT INTO embedding_profiles(embedding_profile_id,provider_id,model,dimension,input_envelope_fingerprint,created_at) SELECT " || profile_expression || ",'legacy-v1',embedding_model,dimension,'legacy-v1:'||embedding_profile,strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM legacy_v1.chunk_embeddings WHERE dimension>0 AND length(vector)=dimension*4 GROUP BY embedding_model,embedding_profile,dimension"
+  statements[statements.0 + 1] = "INSERT INTO embeddings(embedding_id,input_digest,embedding_profile_id,vector,dimension,created_at) SELECT 'v1-embedding-'||chunk_id||'-'||hex(CAST(embedding_model AS BLOB)),'legacy-v1-input-'||chunk_id," || profile_expression || ",vector,dimension,coalesce(nullif(created_at,''),strftime('%Y-%m-%dT%H:%M:%fZ','now')) FROM legacy_v1.chunk_embeddings WHERE dimension>0 AND length(vector)=dimension*4"
+  statements[statements.0 + 1] = "INSERT INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) SELECT 'v1-chunk-'||chunk_id,'v1-embedding-'||chunk_id||'-'||hex(CAST(embedding_model AS BLOB))," || generation || " FROM legacy_v1.chunk_embeddings WHERE dimension>0 AND length(vector)=dimension*4"
+  statements[statements.0 + 1] = "INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) SELECT 'v1-document-'||id,'legacy-document-metadata','v1-source-'||id,'pending',json_object('source_uri',source_uri,'file_type',file_type,'source_type',source_type,'confidence',confidence,'metadata_json',metadata_json),coalesce(nullif(created_at,''),strftime('%Y-%m-%dT%H:%M:%fZ','now')) FROM legacy_v1.documents"
+  statements[statements.0 + 1] = "INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) SELECT 'v1-entity-'||hex(CAST(id AS BLOB)),'legacy-entity-metadata','v1-concept-'||hex(CAST(id AS BLOB)),'pending',json_object('legacy_id',id,'description',description,'metadata_json',metadata_json),strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM legacy_v1.entities"
+  statements[statements.0 + 1] = "INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) SELECT 'v1-edge-'||id,'legacy-unverified-claim',CAST(id AS TEXT),'pending',json_object('source_id',source_id,'target_id',target_id,'relationship_type',relationship_type,'label',label,'weight',weight,'metadata_json',metadata_json),strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM legacy_v1.edges"
+  statements[statements.0 + 1] = "INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) SELECT 'v1-mention-'||id,'legacy-candidate-mention',CAST(id AS TEXT),'pending',json_object('profile_id',profile_id,'source_uri',source_uri,'chunk_id',chunk_id,'stage',stage,'extractor',extractor,'candidate',candidate,'normalized_candidate',normalized_candidate,'metadata_json',metadata_json),coalesce(nullif(created_at,''),strftime('%Y-%m-%dT%H:%M:%fZ','now')) FROM legacy_v1.candidate_mentions"
+  statements[statements.0 + 1] = "INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) SELECT 'v1-adjudication-'||hex(CAST(profile_id||char(0)||normalized_candidate AS BLOB)),'legacy-candidate-decision',normalized_candidate,'pending',json_object('profile_id',profile_id,'status',status,'candidate_type',candidate_type,'canonical_label',canonical_label,'aliases',aliases,'disambiguation',disambiguation,'confidence',confidence,'adjudicator',adjudicator,'metadata_json',metadata_json),coalesce(nullif(created_at,''),strftime('%Y-%m-%dT%H:%M:%fZ','now')) FROM legacy_v1.candidate_adjudications"
+  statements[statements.0 + 1] = "INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) SELECT 'v1-work-'||hex(CAST(profile_id||char(0)||queue_name||char(0)||item_id AS BLOB)),'legacy-work-not-resumed',item_id,'pending',json_object('profile_id',profile_id,'queue_name',queue_name,'item_type',item_type,'subject_id',subject_id,'source_uri',source_uri,'title',title,'item_index',item_index,'score',score,'status',status,'reason',reason,'metadata_json',metadata_json),coalesce(nullif(created_at,''),strftime('%Y-%m-%dT%H:%M:%fZ','now')) FROM legacy_v1.work_queue"
+  statements[statements.0 + 1] = "INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) SELECT 'v1-attempt-'||id,'legacy-attempt-not-resumed',item_id,'pending',json_object('profile_id',profile_id,'queue_name',queue_name,'item_type',item_type,'worker',worker,'model',model,'status',status,'accepted_nodes',accepted_nodes,'accepted_relationships',accepted_relationships,'raw_output',raw_output,'metadata_json',metadata_json),coalesce(nullif(created_at,''),strftime('%Y-%m-%dT%H:%M:%fZ','now')) FROM legacy_v1.work_attempts"
+  statements[statements.0 + 1] = "INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) SELECT 'v1-invalid-embedding-'||chunk_id||'-'||hex(CAST(embedding_model AS BLOB)),'legacy-invalid-embedding',CAST(chunk_id AS TEXT),'pending',json_object('embedding_model',embedding_model,'embedding_profile',embedding_profile,'dimension',dimension,'byte_length',length(vector)),strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM legacy_v1.chunk_embeddings WHERE dimension<=0 OR length(vector)<>dimension*4"
+  do i = 1 to statements.0
+    if sqliteexec(database, statements[i]) \= 0 then return _sqlitefailure("import version-1 rows at step " || i, error)
+  end
+  return 0
+
+_importfailure: procedure = .int
+  arg store = .ragstorehandle, target_path = .string, expose error = .string
+  preserved_error = error
+  if store.open() = 1 then do
+    ignored = ""
+    call closeragstore store, ignored
+  end
+  call deletefile target_path || "/manifest.json.new"
+  call deletefile target_path || "/manifest.json"
+  call deletefile target_path || "/library.sqlite-wal"
+  call deletefile target_path || "/library.sqlite-shm"
+  call deletefile target_path || "/library.sqlite"
+  call removedir target_path
+  error = preserved_error
+  return -3
+
+_scalarint: procedure = .int
+  arg database = .binary, sql = .string, expose error = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 then do
+    ignored = _sqlitefailure("prepare version-1 count", error)
+    return -1
+  end
+  if sqlitestep(prepared) \= 100 then do
+    call sqlitefinalize prepared
+    ignored = _sqlitefailure("step version-1 count", error)
+    return -1
+  end
+  value = 0
+  status = sqlitecolumnint(prepared, 0, value)
+  call sqlitefinalize prepared
+  if status \= 0 then do
+    ignored = _sqlitefailure("read version-1 count", error)
+    return -1
+  end
+  return value
+
+_sqlitefailure: procedure = .int
+  arg prefix = .string, expose error = .string
+  boundary_code = 0; sqlite_code = 0; sqlite_extended = 0; operation = ""; message = ""
+  call sqliteerrorextended boundary_code, sqlite_code, sqlite_extended, operation, message
+  error = prefix || ": " || message || " [boundary=" || boundary_code || ",sqlite=" || sqlite_code || ",extended=" || sqlite_extended || ",operation=" || operation || "]"
+  return -3
