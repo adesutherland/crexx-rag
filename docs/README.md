@@ -2,7 +2,7 @@
 
 Status: canonical navigation for the approved cREXX-only programme,
 2026-08-23. Phase 1B is complete, Gate 1B is accepted, and Phase 2 has started
-from its pushed entry baseline. `P2-01` through `P2-06` are accepted; `P2-07`
+from its pushed entry baseline. `P2-01` through `P2-07` are accepted; `P2-08`
 is next and pending.
 
 ## Current Programme Documents
@@ -12,7 +12,7 @@ is next and pending.
 | [Vision and product specification](crexx-only-vision-and-specification.md) | Approved product purpose, requirements, ownership, and cutover rules |
 | [Review findings](crexx-only-review-findings.md) | Point-in-time rationale behind the decision; reproducible Phase-0 evidence is now retained separately |
 | [Architecture](crexx-only-architecture.md) | Approved target boundaries, data model, lifecycle, jobs, retrieval, and surfaces |
-| [Implementation roadmap](crexx-only-implementation-roadmap.md) | Completed work, future phases, and gates; Phase 2 is active through accepted `P2-06` |
+| [Implementation roadmap](crexx-only-implementation-roadmap.md) | Completed work, future phases, and gates; Phase 2 is active through accepted `P2-07` |
 | [User guide](crexx-only-user-guide.md) | Target interface contract; clearly marks unimplemented commands |
 | [Test strategy](test-strategy.md) | Living validation and acceptance policy |
 | [Programme status](pipeline-status.md) | Living implemented-versus-specified status |
@@ -29,6 +29,7 @@ is next and pending.
 | [P2-02 configuration/profile evidence](evidence/2026-08-04-phase2/P2-02.md) | Registered typed configuration and profiles, four-cell security/privacy proof, resource result, full validation, and explicit limits |
 | [P2-03 storage-foundation evidence](evidence/2026-08-04-phase2/P2-03.md) | Ordered schema-v2 migrations, generations/snapshots, manifest recovery, strict read-only behavior, real crash ordering, verification, rollback, and explicit limits |
 | [P2-06 repository evidence](evidence/2026-08-04-phase2/P2-06.md) | Sixteen bounded repositories, keyset cursors, typed binary payloads, pinned generation/operational snapshot isolation, and lifecycle/orphan verification |
+| [P2-07 command-contract evidence](evidence/2026-08-04-phase2/P2-07.md) | Closed argv grammar, stable exit taxonomy, bounded typed result records, and versioned human/JSON/NDJSON renderers |
 | [Level-G migration evidence](evidence/2026-08-04-levelg-migration/LEVEL-G-MIGRATION.md) | Installed-toolchain requalification, 46-source migration, language audit, and post-migration CTest result |
 | [Approved CREXX candidate closeout](evidence/2026-07-31-gate1a-crexx-candidate/CANDIDATE-INTEGRATION-CLOSEOUT.md) | Exact downstream CRI-01 through CRI-14 replay, provenance, results and Gate-1A stop |
 | [Linux build review](evidence/2026-08-03-linux-build/LINUX-BUILD-REVIEW.md) | Debug/Release portability result and open CRI-15 reproducer |

@@ -1,0 +1,431 @@
+options levelg
+
+namespace ragcommand expose ragcommandoption ragcommandrequest ragresultfield ragresultrecord ragcommandresult parsecommand commandexitname rendercommandresult validcommandresult
+
+import rxfnsb
+import rxjson
+import ragmodel
+
+ragcommandoption: class
+  _name = .string
+  _value = .string
+  _flag = .int
+
+  *: factory
+    arg name = .string, value = .string, flag = .int
+    _name = name
+    _value = value
+    _flag = flag
+    return
+
+  name: method = .string
+    return _name
+  value: method = .string
+    return _value
+  flag: method = .int
+    return _flag
+
+ragcommandrequest: class
+  _library = .string
+  _config_id = .string
+  _profile_id = .string
+  _format = .string
+  _access = .string[]
+  _noun = .string
+  _verb = .string
+  _operation = .string
+  _command_options = .ragcommandoption[]
+  _positionals = .string[]
+
+  *: factory
+    arg library = .string, config_id = .string, profile_id = .string, format = .string, access = .string[], noun = .string, verb = .string, operation = .string, command_options = .ragcommandoption[], positionals = .string[]
+    _library = library
+    _config_id = config_id
+    _profile_id = profile_id
+    _format = format
+    _access = access
+    _noun = noun
+    _verb = verb
+    _operation = operation
+    _command_options = command_options
+    _positionals = positionals
+    return
+
+  library: method = .string
+    return _library
+  config_id: method = .string
+    return _config_id
+  profile_id: method = .string
+    return _profile_id
+  format: method = .string
+    return _format
+  access: method = .string[]
+    return _access
+  noun: method = .string
+    return _noun
+  verb: method = .string
+    return _verb
+  operation: method = .string
+    return _operation
+  command_options: method = .ragcommandoption[]
+    return _command_options
+  positionals: method = .string[]
+    return _positionals
+
+ragresultfield: class
+  _name = .string
+  _value_type = .string
+  _value = .string
+
+  *: factory
+    arg name = .string, value_type = .string, value = .string
+    _name = name
+    _value_type = value_type
+    _value = value
+    return
+
+  name: method = .string
+    return _name
+  value_type: method = .string
+    return _value_type
+  value: method = .string
+    return _value
+
+ragresultrecord: class
+  _kind = .string
+  _fields = .ragresultfield[]
+
+  *: factory
+    arg kind = .string, fields = .ragresultfield[]
+    _kind = kind
+    _fields = fields
+    return
+
+  kind: method = .string
+    return _kind
+  fields: method = .ragresultfield[]
+    return _fields
+
+ragcommandresult: class
+  _operation = .string
+  _status = .string
+  _exit_code = .int
+  _message = .string
+  _records = .ragresultrecord[]
+
+  *: factory
+    arg operation = .string, status = .string, exit_code = .int, message = .string, records = .ragresultrecord[]
+    _operation = operation
+    _status = status
+    _exit_code = exit_code
+    _message = message
+    _records = records
+    return
+
+  schema: method = .string
+    return "crexx-rag.command-result/1"
+  operation: method = .string
+    return _operation
+  status: method = .string
+    return _status
+  exit_code: method = .int
+    return _exit_code
+  message: method = .string
+    return _message
+  records: method = .ragresultrecord[]
+    return _records
+
+parsecommand: procedure = .int
+  arg args = .string[], expose request = .ragcommandrequest, expose error = .string
+  access = .string[]; command_options = .ragcommandoption[]; positionals = .string[]
+  request = .ragcommandrequest("", "", "", "human", access, "", "", "", command_options, positionals)
+  error = ""
+  if args.0 < 1 | args.0 > 128 then return _usage("command requires 1 through 128 arguments", error)
+  library = ""; config_id = ""; profile_id = ""; format = "human"
+  seen_library = 0; seen_config = 0; seen_profile = 0; seen_format = 0
+  index = 1
+  do while index <= args.0 & left(args[index], 2) = "--"
+    token = args[index]
+    if token = "--" then return _usage("noun must follow global options", error)
+    name = ""; value = ""; inline_value = 0
+    if _splitoption(token, name, value, inline_value) \= 0 then return _usage("invalid global option syntax", error)
+    if name \= "library" & name \= "config" & name \= "profile" & name \= "format" & name \= "access" then return _usage("unknown global option --" || name, error)
+    if inline_value = 0 then do
+      if index = args.0 | left(args[index + 1], 2) = "--" then return _usage("global option --" || name || " requires a value", error)
+      index = index + 1
+      value = args[index]
+    end
+    if value = "" | length(value) > 4096 then return _usage("global option --" || name || " has an invalid value", error)
+    if name = "library" then do
+      if seen_library = 1 then return _usage("--library may be supplied once", error)
+      seen_library = 1; library = value
+    end
+    if name = "config" then do
+      if seen_config = 1 | validregistryid(value) \= 1 then return _usage("--config requires one registered-id-shaped value", error)
+      seen_config = 1; config_id = value
+    end
+    if name = "profile" then do
+      if seen_profile = 1 | validregistryid(value) \= 1 then return _usage("--profile requires one registered-id-shaped value", error)
+      seen_profile = 1; profile_id = value
+    end
+    if name = "format" then do
+      if seen_format = 1 | (value \= "human" & value \= "json" & value \= "ndjson") then return _usage("--format must be human, json, or ndjson", error)
+      seen_format = 1; format = value
+    end
+    if name = "access" then do
+      if _addaccess(value, access, error) \= 0 then return 2
+    end
+    index = index + 1
+  end
+  if access.0 = 0 then access[1] = "read"
+  if index > args.0 then return _usage("command noun is required", error)
+  noun = args[index]; index = index + 1; verb = ""; operation = ""
+  if noun = "doctor" then do
+    operation = "doctor"
+  end
+  else do
+    if index > args.0 then return _usage("command verb is required", error)
+    verb = args[index]; index = index + 1
+    if _validoperation(noun, verb) \= 1 then return _usage("unknown operation " || noun || " " || verb, error)
+    operation = noun || "." || verb
+  end
+  if noun \= "doctor" & _validoperation(noun, verb) \= 1 then return _usage("unknown operation " || noun || " " || verb, error)
+  if _requireslibrary(noun, verb) = 1 & library = "" then return _usage("operation " || operation || " requires --library", error)
+
+  positional_only = 0
+  do while index <= args.0
+    token = args[index]
+    if positional_only = 0 & token = "--" then do
+      positional_only = 1
+      index = index + 1
+      iterate
+    end
+    if positional_only = 0 & left(token, 2) = "--" then do
+      name = ""; value = ""; inline_value = 0
+      if _splitoption(token, name, value, inline_value) \= 0 then return _usage("invalid command option syntax", error)
+      if name = "library" | name = "config" | name = "profile" | name = "format" | name = "access" then return _usage("global options must precede the noun", error)
+      if inline_value = 0 then do
+        if index < args.0 & left(args[index + 1], 2) \= "--" then do
+          index = index + 1
+          value = args[index]
+        end
+        else value = "true"
+      end
+      if length(value) > 65535 then return _usage("command option value is too long", error)
+      command_options[command_options.0 + 1] = .ragcommandoption(name, value, inline_value = 0 & value = "true")
+    end
+    else do
+      if length(token) > 65535 then return _usage("positional argument is too long", error)
+      positionals[positionals.0 + 1] = token
+    end
+    index = index + 1
+  end
+  request = .ragcommandrequest(library, config_id, profile_id, format, access, noun, verb, operation, command_options, positionals)
+  return 0
+
+commandexitname: procedure = .string
+  arg code = .int
+  if code = 0 then return "success"
+  if code = 1 then return "operation-failed"
+  if code = 2 then return "usage"
+  if code = 3 then return "configuration"
+  if code = 4 then return "access-denied"
+  if code = 5 then return "not-found"
+  if code = 6 then return "conflict"
+  if code = 7 then return "integrity"
+  if code = 8 then return "unavailable"
+  if code = 9 then return "cancelled"
+  if code = 10 then return "internal"
+  return "unknown"
+
+validcommandresult: procedure = .int
+  arg result = .ragcommandresult, expose error = .string
+  error = ""
+  if result.operation() = "" | length(result.operation()) > 128 then return _invalidresult("operation identity is invalid", error)
+  if result.status() \= "ok" & result.status() \= "error" then return _invalidresult("status must be ok or error", error)
+  if result.exit_code() < 0 | result.exit_code() > 10 | commandexitname(result.exit_code()) = "unknown" then return _invalidresult("exit code is outside the stable taxonomy", error)
+  if (result.status() = "ok") \= (result.exit_code() = 0) then return _invalidresult("status and exit code disagree", error)
+  if length(result.message()) > 65535 then return _invalidresult("message is too long", error)
+  records = result.records()
+  if records.0 > 100 then return _invalidresult("result exceeds the 100-record rendering bound", error)
+  do i = 1 to records.0
+    if _validkey(records[i].kind(), 64, "-") \= 1 then return _invalidresult("record kind is invalid", error)
+    fields = records[i].fields()
+    if fields.0 > 100 then return _invalidresult("record exceeds the 100-field rendering bound", error)
+    do j = 1 to fields.0
+      if _validkey(fields[j].name(), 64, "_") \= 1 then return _invalidresult("field name is invalid", error)
+      do k = 1 to j - 1
+        if fields[k].name() = fields[j].name() then return _invalidresult("record field names must be unique", error)
+      end
+      value_type = fields[j].value_type(); value = fields[j].value()
+      if value_type = "string" then do
+        if length(value) > 65535 then return _invalidresult("string field is too long", error)
+      end
+      else if value_type = "integer" then do
+        if _canonicalinteger(value) \= 1 then return _invalidresult("integer field is not canonical", error)
+      end
+      else if value_type = "boolean" then do
+        if value \= "true" & value \= "false" then return _invalidresult("boolean field is invalid", error)
+      end
+      else if value_type = "null" then do
+        if value \= "" then return _invalidresult("null field must have an empty value", error)
+      end
+      else return _invalidresult("field type is unsupported", error)
+    end
+  end
+  return 0
+
+rendercommandresult: procedure = .int
+  arg result = .ragcommandresult, format = .string, expose output = .string, expose error = .string
+  output = ""; error = ""
+  if validcommandresult(result, error) \= 0 then return -1
+  if format = "json" then do
+    output = _resultjson(result)
+    return 0
+  end
+  if format = "ndjson" then do
+    records = result.records()
+    output = '{"schema":"crexx-rag.command-result/1","type":"result","operation":' || jsonquote(result.operation()) || ',"status":' || jsonquote(result.status()) || ',"exit_code":' || result.exit_code() || ',"exit_name":' || jsonquote(commandexitname(result.exit_code())) || ',"message":' || jsonquote(result.message()) || ',"record_count":' || records.0 || '}'
+    do i = 1 to records.0
+      output = output || "0A"x || '{"schema":"crexx-rag.command-result/1","type":"record","operation":' || jsonquote(result.operation()) || ',"index":' || i || ',"record":' || _recordjson(records[i]) || '}'
+    end
+    return 0
+  end
+  if format = "human" then do
+    prefix = "ERROR"
+    if result.exit_code() = 0 then prefix = "OK"
+    output = prefix || " " || result.operation() || " [" || commandexitname(result.exit_code()) || "]: " || _human(result.message())
+    records = result.records()
+    do i = 1 to records.0
+      output = output || "0A"x || records[i].kind()
+      fields = records[i].fields()
+      do j = 1 to fields.0
+        output = output || " " || fields[j].name() || "=" || _human(fields[j].value())
+      end
+    end
+    return 0
+  end
+  error = "format must be human, json, or ndjson"
+  return -1
+
+_resultjson: procedure = .string
+  arg result = .ragcommandresult
+  records = result.records(); encoded = ""
+  do i = 1 to records.0
+    if i > 1 then encoded = encoded || ","
+    encoded = encoded || _recordjson(records[i])
+  end
+  return '{"schema":"crexx-rag.command-result/1","operation":' || jsonquote(result.operation()) || ',"status":' || jsonquote(result.status()) || ',"exit_code":' || result.exit_code() || ',"exit_name":' || jsonquote(commandexitname(result.exit_code())) || ',"message":' || jsonquote(result.message()) || ',"records":[' || encoded || ']}'
+
+_recordjson: procedure = .string
+  arg record = .ragresultrecord
+  fields = record.fields(); encoded = ""
+  do i = 1 to fields.0
+    if i > 1 then encoded = encoded || ","
+    encoded = encoded || jsonquote(fields[i].name()) || ":" || _fieldjson(fields[i])
+  end
+  return '{"kind":' || jsonquote(record.kind()) || ',"fields":{' || encoded || '}}'
+
+_fieldjson: procedure = .string
+  arg field = .ragresultfield
+  if field.value_type() = "string" then return jsonquote(field.value())
+  if field.value_type() = "null" then return "null"
+  return field.value()
+
+_human: procedure = .string
+  arg value = .string
+  value = changestr("0D0A"x, value, " ")
+  value = changestr("0A"x, value, " ")
+  value = changestr("0D"x, value, " ")
+  value = changestr("09"x, value, " ")
+  return value
+
+_splitoption: procedure = .int
+  arg token = .string, expose name = .string, expose value = .string, expose inline_value = .int
+  name = ""; value = ""; inline_value = 0
+  if length(token) < 3 | left(token, 2) \= "--" then return -1
+  body = substr(token, 3); marker = pos("=", body)
+  if marker = 0 then name = body
+  else do
+    name = substr(body, 1, marker - 1)
+    value = substr(body, marker + 1)
+    inline_value = 1
+  end
+  if _validkey(name, 64, "-") \= 1 then return -1
+  return 0
+
+_addaccess: procedure = .int
+  arg value = .string, expose access = .string[], expose error = .string
+  start = 1
+  do forever
+    marker = pos(",", value, start)
+    if marker = 0 then capability = substr(value, start)
+    else capability = substr(value, start, marker - start)
+    if capability \= "read" & capability \= "plan" & capability \= "control" & capability \= "ingest" & capability \= "curate" & capability \= "diagnose" & capability \= "admin" then return _usage("unknown access capability " || capability, error)
+    duplicate = 0
+    do i = 1 to access.0
+      if access[i] = capability then duplicate = 1
+    end
+    if duplicate = 0 then access[access.0 + 1] = capability
+    if marker = 0 then leave
+    start = marker + 1
+    if start > length(value) then return _usage("access capability list contains an empty value", error)
+  end
+  return 0
+
+_validoperation: procedure = .int
+  arg noun = .string, verb = .string
+  if noun = "library" then return pos(" " || verb || " ", " init status verify backup restore migrate ") > 0
+  if noun = "provider" then return pos(" " || verb || " ", " list status test ") > 0
+  if noun = "profile" then return pos(" " || verb || " ", " list show validate ") > 0
+  if noun = "source" then return pos(" " || verb || " ", " list show ") > 0
+  if noun = "ingest" then return pos(" " || verb || " ", " plan apply ") > 0
+  if noun = "job" then return pos(" " || verb || " ", " list status events pause resume cancel ") > 0
+  if noun = "worker" then return pos(" " || verb || " ", " run status drain ") > 0
+  if noun = "query" then return pos(" " || verb || " ", " search evidence answer trace timeline path ") > 0
+  if noun = "improve" then return pos(" " || verb || " ", " plan apply ") > 0
+  if noun = "proposal" then return pos(" " || verb || " ", " plan apply ") > 0
+  if noun = "review" then return pos(" " || verb || " ", " list show decide ") > 0
+  if noun = "serve" then return verb = "mcp"
+  return 0
+
+_requireslibrary: procedure = .int
+  arg noun = .string, verb = .string
+  if noun = "doctor" | noun = "provider" | noun = "profile" then return 0
+  if noun = "library" & verb = "restore" then return 0
+  return 1
+
+_validkey: procedure = .int
+  arg value = .string, maximum = .int, separator = .string
+  if length(value) < 1 | length(value) > maximum then return 0
+  first_allowed = "abcdefghijklmnopqrstuvwxyz"
+  rest_allowed = first_allowed || "0123456789" || separator
+  if pos(substr(value, 1, 1), first_allowed) = 0 then return 0
+  do i = 2 to length(value)
+    if pos(substr(value, i, 1), rest_allowed) = 0 then return 0
+  end
+  return 1
+
+_canonicalinteger: procedure = .int
+  arg value = .string
+  if value = "0" then return 1
+  start = 1
+  if left(value, 1) = "-" then do
+    if length(value) < 2 then return 0
+    start = 2
+  end
+  if substr(value, start, 1) = "0" then return 0
+  do i = start to length(value)
+    if pos(substr(value, i, 1), "0123456789") = 0 then return 0
+  end
+  return 1
+
+_usage: procedure = .int
+  arg message = .string, expose error = .string
+  error = message
+  return 2
+
+_invalidresult: procedure = .int
+  arg message = .string, expose error = .string
+  error = message
+  return -1

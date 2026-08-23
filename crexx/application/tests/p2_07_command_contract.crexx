@@ -1,0 +1,148 @@
+options levelg
+
+import rxfnsb
+import rxjson
+import ragcommand
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P2_07_FAIL=" || label
+    return 1
+  end
+  return 0
+
+vocabularyproof: procedure = .int
+  vocabulary = "doctor library.init library.status library.verify library.backup library.restore library.migrate provider.list provider.status provider.test profile.list profile.show profile.validate source.list source.show ingest.plan ingest.apply job.list job.status job.events job.pause job.resume job.cancel worker.run worker.status worker.drain query.search query.evidence query.answer query.trace query.timeline query.path improve.plan improve.apply proposal.plan proposal.apply review.list review.show review.decide serve.mcp"
+  errors = 0
+  do i = 1 to words(vocabulary)
+    operation = word(vocabulary, i)
+    args = .string[]
+    args[1] = "--library"; args[2] = "/tmp/fixture.cprag"
+    marker = pos(".", operation)
+    if marker = 0 then args[3] = operation
+    else do
+      args[3] = substr(operation, 1, marker - 1)
+      args[4] = substr(operation, marker + 1)
+    end
+    request = .ragcommandrequest; error = ""
+    errors = errors + check(parsecommand(args, request, error) = 0 & request.operation() = operation, "vocabulary " || operation || " " || error)
+  end
+  errors = errors + check(words(vocabulary) = 40, "frozen operation count")
+  return errors
+
+parserproof: procedure = .int
+  errors = 0; error = ""; request = .ragcommandrequest
+  args = .string[]
+  args[1] = "--library"; args[2] = "/tmp/library path.cprag"
+  args[3] = "--config"; args[4] = "architecture-local"
+  args[5] = "--profile"; args[6] = "generic-profile"
+  args[7] = "--format=ndjson"
+  args[8] = "--access"; args[9] = "read,plan"
+  args[10] = "--access=diagnose,read"
+  args[11] = "query"; args[12] = "evidence"
+  args[13] = "--limit=2"; args[14] = "--include-trace"; args[15] = "--"
+  args[16] = "--literal-question"; args[17] = "Which café changed?"
+  errors = errors + check(parsecommand(args, request, error) = 0, "representative parse " || error)
+  access = request.access(); command_options = request.command_options(); positionals = request.positionals()
+  errors = errors + check(request.library() = "/tmp/library path.cprag" & request.config_id() = "architecture-local" & request.profile_id() = "generic-profile" & request.format() = "ndjson" & request.operation() = "query.evidence", "global and operation fields")
+  errors = errors + check(access.0 = 3 & access[1] = "read" & access[2] = "plan" & access[3] = "diagnose", "ordered deduplicated access")
+  errors = errors + check(command_options.0 = 2 & command_options[1].name() = "limit" & command_options[1].value() = "2" & command_options[1].flag() = 0 & command_options[2].name() = "include-trace" & command_options[2].flag() = 1, "command options")
+  errors = errors + check(positionals.0 = 2 & positionals[1] = "--literal-question" & positionals[2] = "Which café changed?", "argv-safe positional separator")
+
+  defaults = .string[]; defaults[1] = "doctor"
+  default_status = parsecommand(defaults, request, error); access = request.access()
+  errors = errors + check(default_status = 0 & request.format() = "human" & access[1] = "read" & request.library() = "", "safe defaults")
+  return errors
+
+rejectparse: procedure = .int
+  arg args = .string[], expected = .string
+  request = .ragcommandrequest; error = ""
+  status = parsecommand(args, request, error)
+  return check(status = 2 & pos(expected, error) > 0, "reject parse expected=" || expected || " actual=" || error)
+
+negativeparserproof: procedure = .int
+  errors = 0
+  args = .string[]; errors = errors + rejectparse(args, "requires 1 through 128")
+  args = .string[]; args[1] = "--unknown"; args[2] = "x"; args[3] = "doctor"; errors = errors + rejectparse(args, "unknown global")
+  args = .string[]; args[1] = "--format"; args[2] = "xml"; args[3] = "doctor"; errors = errors + rejectparse(args, "human, json, or ndjson")
+  args = .string[]; args[1] = "--access"; args[2] = "read,root"; args[3] = "doctor"; errors = errors + rejectparse(args, "unknown access")
+  args = .string[]; args[1] = "--config"; args[2] = "../module"; args[3] = "doctor"; errors = errors + rejectparse(args, "registered-id-shaped")
+  args = .string[]; args[1] = "--library"; args[2] = "a"; args[3] = "--library"; args[4] = "b"; args[5] = "doctor"; errors = errors + rejectparse(args, "supplied once")
+  args = .string[]; args[1] = "unknown"; args[2] = "verb"; errors = errors + rejectparse(args, "unknown operation")
+  args = .string[]; args[1] = "query"; args[2] = "search"; errors = errors + rejectparse(args, "requires --library")
+  args = .string[]; args[1] = "--library"; args[2] = "fixture"; args[3] = "query"; args[4] = "search"; args[5] = "--format"; args[6] = "json"; errors = errors + rejectparse(args, "global options must precede")
+  args = .string[]; args[1] = "--"; args[2] = "doctor"; errors = errors + rejectparse(args, "noun must follow")
+  return errors
+
+rendererproof: procedure = .int
+  fields1 = .ragresultfield[]
+  fields1[1] = .ragresultfield("library_id", "string", "library-α" || "0A"x || "line")
+  fields1[2] = .ragresultfield("generation", "integer", "3")
+  fields1[3] = .ragresultfield("read_only", "boolean", "true")
+  fields1[4] = .ragresultfield("optional", "null", "")
+  fields2 = .ragresultfield[]
+  fields2[1] = .ragresultfield("source_id", "string", "source-2")
+  fields2[2] = .ragresultfield("visible", "boolean", "true")
+  records = .ragresultrecord[]
+  records[1] = .ragresultrecord("library-status", fields1)
+  records[2] = .ragresultrecord("source-status", fields2)
+  result = .ragcommandresult("library.status", "ok", 0, "Ready" || "0A"x || "now", records)
+  errors = 0; output = ""; error = ""
+  errors = errors + check(validcommandresult(result, error) = 0, "valid result " || error)
+
+  errors = errors + check(rendercommandresult(result, "json", output, error) = 0, "JSON render " || error)
+  document = .jsondocument(output)
+  errors = errors + check(document.valid() = 1 & document.get("schema") = "crexx-rag.command-result/1" & document.get("operation") = "library.status" & document.get("exit_name") = "success" & document.get("records.1.kind") = "library-status" & document.get("records.1.fields.generation") = "3" & document.type("records.1.fields.read_only") = "boolean" & document.type("records.1.fields.optional") = "null" & document.get("records.2.fields.source_id") = "source-2", "versioned JSON semantics")
+
+  errors = errors + check(rendercommandresult(result, "ndjson", output, error) = 0, "NDJSON render " || error)
+  first_end = pos("0A"x, output); second_end = pos("0A"x, output, first_end + 1)
+  header = .jsondocument(substr(output, 1, first_end - 1))
+  record1 = .jsondocument(substr(output, first_end + 1, second_end - first_end - 1))
+  record2 = .jsondocument(substr(output, second_end + 1))
+  errors = errors + check(header.valid() = 1 & record1.valid() = 1 & record2.valid() = 1 & header.get("schema") = "crexx-rag.command-result/1" & header.get("type") = "result" & header.get("record_count") = "2" & record1.get("type") = "record" & record1.get("record.fields.generation") = "3" & record2.get("record.fields.source_id") = "source-2", "NDJSON reconstructable semantics")
+
+  errors = errors + check(rendercommandresult(result, "human", output, error) = 0, "human render " || error)
+  errors = errors + check(left(output, 29) = "OK library.status [success]:" & pos("Ready now", output) > 0 & pos("library_id=library-α line", output) > 0 & pos("generation=3", output) > 0, "human stable status and sanitized lines")
+  return errors
+
+invalidrendererproof: procedure = .int
+  errors = 0; error = ""; output = ""; empty_records = .ragresultrecord[]
+  invalid = .ragcommandresult("query.search", "ok", 1, "mismatch", empty_records)
+  errors = errors + check(validcommandresult(invalid, error) = -1 & pos("disagree", error) > 0, "status/exit mismatch")
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("count", "integer", "03")
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("bad-record", fields)
+  invalid = .ragcommandresult("query.search", "ok", 0, "", records)
+  errors = errors + check(rendercommandresult(invalid, "json", output, error) = -1 & pos("canonical", error) > 0, "invalid integer denied")
+  fields[1] = .ragresultfield("same", "string", "a"); fields[2] = .ragresultfield("same", "string", "b")
+  records[1] = .ragresultrecord("bad-record", fields)
+  invalid = .ragcommandresult("query.search", "ok", 0, "", records)
+  errors = errors + check(validcommandresult(invalid, error) = -1 & pos("unique", error) > 0, "duplicate fields denied")
+  many = .ragresultrecord[]; safe_fields = .ragresultfield[]
+  do i = 1 to 101
+    many[i] = .ragresultrecord("bounded", safe_fields)
+  end
+  invalid = .ragcommandresult("query.search", "ok", 0, "", many)
+  errors = errors + check(validcommandresult(invalid, error) = -1 & pos("100-record", error) > 0, "unbounded rendering denied")
+  valid = .ragcommandresult("query.search", "error", 5, "missing", empty_records)
+  errors = errors + check(rendercommandresult(valid, "xml", output, error) = -1 & pos("human, json, or ndjson", error) > 0, "unknown format denied")
+  return errors
+
+exitproof: procedure = .int
+  expected = "success operation-failed usage configuration access-denied not-found conflict integrity unavailable cancelled internal"
+  errors = 0
+  do code = 0 to 10
+    errors = errors + check(commandexitname(code) = word(expected, code + 1), "exit taxonomy code=" || code)
+  end
+  errors = errors + check(commandexitname(11) = "unknown", "unknown exit code")
+  return errors
+
+main: procedure = .int
+arg args = .string[]
+if args.0 < 1 then return 2
+cell = args[1]
+errors = vocabularyproof() + parserproof() + negativeparserproof() + rendererproof() + invalidrendererproof() + exitproof()
+if errors \= 0 then return 1
+say "P2_07_COMMAND_OK cell=" || cell || " operations=40 exit_codes=11 formats=human,json,ndjson json_schema=crexx-rag.command-result/1 parser_writes=0 provider_calls=0"
+return 0

@@ -22,6 +22,7 @@ import ragstore
 import ragcompat
 import ragbackup
 import ragrepository
+import ragcommand
 ```
 
 `raglibrary` defines the library and factory interfaces. `ragjob` defines the
@@ -42,6 +43,13 @@ maps, chunk contents and occurrences, published generations, concepts, claims,
 support and lineage, embedding occurrences, jobs and items, attempts, and
 reviews. Repository names select fixed SQL; cursors are always bound values and
 cannot select arbitrary tables or query text.
+`ragcommand` owns the target argv grammar and transport-neutral result
+rendering. Global options must precede the noun, the 40 approved operations are
+closed, registered ids and access names are validated, and command positionals
+remain argv values rather than shell text. The stable exit range is 0 through
+10. Machine output uses `crexx-rag.command-result/1`; JSON is one result object,
+NDJSON is one bounded header plus one line per record, and human output is a
+sanitized rendering of the same typed result.
 
 `ragrepositoryrecord` is the shared typed page envelope. `identity`,
 `parent_identity`, and `related_identity` retain graph/storage identity;
@@ -72,6 +80,8 @@ conversion is covered by `p2_04_v1_compatibility.crexx`; backup/restore,
 sidecars, binary hashing, and crash ordering are covered by
 `p2_05_backup_scenario.crexx`; pinned pagination and repository invariants are
 covered by `p2_06_repository_scenario.crexx`.
+Command parsing and result rendering are covered by
+`p2_07_command_contract.crexx`.
 
 `ragstore` uses a directory bundle containing `library.sqlite` and the
 recoverable `manifest.json` projection. SQLite is authoritative. A publication
@@ -86,8 +96,10 @@ returns the stable bundle to rollback-journal mode.
 is side-effect free with symbolic `env:NAME` references only. `P2-03` implements
 the storage foundation, `P2-04` adds version-1 conversion, and `P2-05` adds
 sidecar publication plus backup/restore. `P2-06` adds the internal paged
-repository API; it is not yet a CLI or other public command surface. Command
-adapters, provider execution, plan validation, and job workers remain later
-items. Sidecar verification currently reads at most 2,147,483,647 bytes into
+repository API, and `P2-07` freezes command/result contracts. `P2-07` does not
+dispatch lifecycle behavior or replace the native executable; the first
+implemented cREXX commands arrive in P2-08. Provider execution, plan validation,
+and job workers remain later items. Sidecar verification currently reads at
+most 2,147,483,647 bytes into
 memory because installed `rxhash.sha256` is one-shot; incremental/file hashing
 remains a separately scoped CREXX capability backlog item.

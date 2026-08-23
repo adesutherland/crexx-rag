@@ -48,8 +48,9 @@ retained blocker evidence. At most one roadmap item may be active.
 
 ## Product Surfaces
 
-- [ ] **P2-07** Establish command parsing, stable exit codes, and semantic
-  `human`, `json`, and `ndjson` result contracts.
+- [x] **P2-07** Establish command parsing, stable exit codes, and semantic
+  `human`, `json`, and `ndjson` result contracts. Accepted evidence:
+  [P2-07.md](P2-07.md).
 - [ ] **P2-08** Add `doctor`, library lifecycle, provider status/test, and
   profile validation commands.
 - [ ] **P2-09** Publish the first cREXX-rag workload/capability report and

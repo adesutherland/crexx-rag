@@ -1306,6 +1306,26 @@ if(CPRAG_BUILD_TESTS)
         add_test(NAME p2_06_repositories COMMAND ${P2_06_COMMAND})
         set_tests_properties(p2_06_repositories PROPERTIES
             LABELS "P2-06;phase2;crexx;levelg;application;sqlite;repository;pagination;cursor;snapshot;generation;binary;lifecycle;orphan;verify")
+        set(P2_07_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_MODEL=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragmodel.crexx"
+            "-DCPRAG_COMMAND=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragcommand.crexx"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p2_07_command_contract.crexx"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p2-07-command-contract"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P207.cmake")
+        add_custom_target(p2_07_command_contract
+            COMMAND ${P2_07_COMMAND}
+            COMMENT "Running P2-07 Level-G command and result contract proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p2_07_command_contract COMMAND ${P2_07_COMMAND})
+        set_tests_properties(p2_07_command_contract PROPERTIES
+            LABELS "P2-07;phase2;crexx;levelg;application;command;parser;argv;exit-code;human;json;ndjson;schema;bounded;zero-write")
         add_test(
             NAME crexx_profile_smoke
             COMMAND "${CMAKE_COMMAND}"

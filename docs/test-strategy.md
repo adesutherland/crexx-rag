@@ -194,6 +194,18 @@ embedding membership, generation publication, FTS equality, job/item/attempt
 lifecycle, review decisions, and a deliberately injected cross-source current
 revision plus invalid job state.
 
+`P2-07` adds `p2_07_command_contract`: all four compiler/runtime cells parse the
+closed 40-operation vocabulary and representative global/access/command option
+forms without executing an operation. Negative cases cover unknown operations
+and globals, invalid format/access/registered ids, duplicate globals, missing
+explicit library targets, late globals, and the positional `--` boundary. The
+11 exit identities and `crexx-rag.command-result/1` schema are exact. JSON and
+NDJSON are parsed back and compared for typed semantic values; human lines
+retain status/exit identity while removing embedded control-line breaks.
+Invalid typed values, duplicate fields, status/exit disagreement, more than 100
+records, and unknown formats are rejected. CMake fingerprints every source
+input before and after the four cells.
+
 Current Phase-1B progress: the installed-SDK section is accepted under
 `P1-RXPA-01` and `P1-RXPA-02`. `P1-SQL-01` through `P1-SQL-07` pass their
 dedicated targets and exact CTest labels for optimized/non-optimized programs

@@ -160,6 +160,34 @@ access capability:
 bounded roles described in the architecture; they are process safety gates, not
 authentication or a substitute for filesystem permissions.
 
+P2-07 freezes the target parser contract: global `--library`, `--config`,
+`--profile`, `--format`, and repeated `--access` options precede the noun;
+operation options and positionals follow the noun/verb; and `--` makes all
+remaining argv values positional. This is an argv grammar, never a shell-text
+grammar. The parser contract is implemented in cREXX, but the target lifecycle
+commands themselves remain unavailable until their owning roadmap items.
+
+Stable target exit meanings are:
+
+| Code | Meaning |
+| ---: | --- |
+| 0 | success |
+| 1 | operation failed |
+| 2 | usage or command syntax |
+| 3 | configuration invalid |
+| 4 | requested access denied |
+| 5 | requested object not found |
+| 6 | stale state or conflict |
+| 7 | storage/integrity failure |
+| 8 | required capability/provider unavailable |
+| 9 | cancelled |
+| 10 | internal invariant failure |
+
+Machine results use `crexx-rag.command-result/1`. `json` returns one bounded
+result object; `ndjson` returns one result header followed by one line per typed
+record. Human output is a rendering of that same result and is not a separate
+semantic operation.
+
 ```bash
 crexx-rag \
   --library ./architecture.cprag \

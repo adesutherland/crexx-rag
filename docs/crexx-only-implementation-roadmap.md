@@ -2,8 +2,8 @@
 
 Status: Gate 1B reached on 2026-08-03 and accepted on 2026-08-04. All bounded
 Phase-1B items are complete. Phase 2 started on 2026-08-04 from the pushed
-entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` through `P2-06`
-are accepted, and `P2-07` is next and pending. The decision is recorded in the
+entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` through `P2-07`
+are accepted, and `P2-08` is next and pending. The decision is recorded in the
 [Gate-1B ledger](gate1b-decision-ledger.md).
 
 This is the execution plan for the target in
@@ -398,8 +398,11 @@ mutation.
   old/new snapshot isolation, cursor denial, lifecycle/orphan verification,
   and four-cell evidence in
   [`P2-06.md`](evidence/2026-08-04-phase2/P2-06.md).
-- [ ] **P2-07** Establish command parsing, stable exit codes, `human`, `json`,
-  and `ndjson` result contracts.
+- [x] **P2-07** Establish command parsing, stable exit codes, `human`, `json`,
+  and `ndjson` result contracts. Accepted with the 40-operation closed argv
+  grammar, 11 stable exits, bounded typed records, versioned JSON/reconstructable
+  NDJSON/human renderings, parser/result denial cases, and four-cell evidence in
+  [`P2-07.md`](evidence/2026-08-04-phase2/P2-07.md).
 - [ ] **P2-08** Add `doctor`,
   `library init/status/verify/backup/restore/migrate`, provider status/test, and
   profile validate commands.
@@ -664,8 +667,8 @@ opportunities remain in an explicit ledger.
 ## Post-Gate-1B Direction
 
 Gate 1B is accepted and Phase 2 is the active product workstream. Continue from
-the dated Phase-2 worklist, where `P2-01` through `P2-06` are accepted and
-`P2-07` is pending; activate one item at a time and stop at Gate 2.
+the dated Phase-2 worklist, where `P2-01` through `P2-07` are accepted and
+`P2-08` is pending; activate one item at a time and stop at Gate 2.
 
 Phase 2 may proceed in parallel with separately bounded CREXX capability work
 for exact downstream CRI-15/CRI-16 Linux closure and any approved provider
