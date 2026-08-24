@@ -21,7 +21,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Language strategy | Level G first, accepted 2026-08-04 | Advanced libraries and application code use Level G; Level B is limited to justified CREXX bootstrap/foundation work |
 | Phase 2 / Gate 2 | Accepted on macOS 2026-08-23 | `P2-01` through `P2-10`, public installed-capability adoption, canonical zero-write plans, and hostile apply-time revalidation are accepted. Exact downstream Linux replay remains open. |
 | Parallel CREXX capability sync | Current installed package adopted on macOS | Public Level-G HTTP/JSON, complete `rxhash` SHA-256, and exact packed `rxvector` are consumed directly with source fallback disabled. Provider-lifecycle expansion remains separately approval-gated, and exact downstream Linux confirmation is the only deferred Phase-2 platform replay. |
-| Phase 3 / Gate 3 | Accepted on macOS 2026-08-23 | Level-G folder ingestion, immutable plans, incremental reuse/invalidation, candidates, FTS, jobs, tutorial, oracle delta and crash resume pass; exact downstream Linux remains open. |
+| Phase 3 / Gate 3R | Reopened for product acceptance 2026-08-24; reconciler component accepted on macOS 2026-08-23 | Level-G folder ingestion, immutable plans, incremental reuse/invalidation, candidates, FTS and crash resume remain accepted component evidence. The installed application and its schema-v3 OS-process controller/worker registry now pass focused dual-VM QA; workers are still `framework-idle`. Gate 3R still requires real Gemini generation, owned extraction/embedding work, validated claim promotion and public evidence retrieval. |
 | Phase 4 / Gate 4 | Accepted on macOS 2026-08-24 | Claims/extraction/review/improvement, durable multi-process workers and the literal eight-hour supervised soak pass; exact downstream Linux remains open. |
 | Phase 5 / Gate 5 | Accepted on macOS 2026-08-24 | Deterministic focused query planning, hybrid retrieval, exact vector generations, stable typed evidence, nine frozen judgements, native/full-context comparison and bounded Gemini qualification pass; exact Linux and cREXX hosted-transport closure remain open. |
 | Phase 6 / Gate 6 | Accepted on macOS 2026-08-24 | Installed Level-G CLI, ADDRESS RAG, MCP, exact reviewed ingest, zero-write plans, backup/restore and capability-scoped skills pass in four compiler/VM cells. Public worker-provider lifetime remains a cutover limit. |
@@ -75,9 +75,11 @@ in 110.30 seconds. Exact evidence is under
 One staged cREXX-only public product path now exists through the Phase-6 CLI,
 `ADDRESS RAG`, MCP and skills, but it is not yet the selected production
 default. The Phase-4 multi-process improvement queue and literal
-eight-hour soak are accepted on macOS. The Level-G schema-v2 storage,
-Phase-3 ingestion/repository and Phase-5 retrieval/evidence paths are accepted
-over the selected generic facilities. The provider contract remains qualified
+eight-hour soak are accepted on macOS. The Level-G semantic schema-v2 storage
+plus schema-v3 runtime-process registry,
+Phase-3 reconciler/repository components and Phase-5 retrieval/evidence paths
+are accepted over the selected generic facilities. End-to-end product
+ingestion is reopened at Gate 3R. The provider contract remains qualified
 in local incubation; hosted answer quality and external generation/embedding
 are separately retained. Phase 7 confirms that cREXX hosted response
 completion remains unreliable. It, the provider-backed public worker, and
@@ -151,9 +153,12 @@ sole failure still CRI-15. The ordered worklist and entry record are under
 The new Level-G application contracts and the registered typed
 configuration/profile boundary pass optimized/non-optimized on both VMs.
 `P2-02` rejects arbitrary paths, duplicates, invalid references, literal
-secrets, and unsupported worker scope while proving zero loading side effects.
+secrets, unsupported per-process in-flight scope, and unbounded process counts
+while proving zero loading side effects; 1–32 processes with one item each are
+now accepted configuration.
 Its acceptance suite passed 59/60 in 607.33 seconds with only CRI-15. `P2-03`
-now supplies two checksum-verified schema-v2 migrations, 32 logical tables,
+retains two checksum-verified schema-v2 migrations and 32 semantic tables; the
+maintained schema now adds checksum-verified migration 3 and one runtime table,
 SQLite-authoritative immutable publications, generation-pinned snapshots,
 recoverable non-secret manifests, strict stable-bundle read-only opens, full
 verification, and ordered ancestor rollback. `P2-04` adds read-only version-1
@@ -278,7 +283,8 @@ release remain unauthorized.
 
 ## Phase 3 Execution
 
-`P3-01` through `P3-09` and Gate 3 are accepted for the recorded macOS scope.
+`P3-01` through `P3-09` and Gate 3's reconciler/component scope are accepted
+for the recorded macOS scope. Gate 3R product acceptance remains open.
 The Level-G `ragingest` reconciler and `ragfolder` connector use installed
 SHA-256 and the accepted SQLite boundary; no RAG-specific native mechanism was
 added. Four optimized/non-optimized dual-VM cells cover initial and incremental
@@ -293,6 +299,30 @@ consumed by the Phase-4 worker path; the Phase-3 path itself makes no outbound
 call and resolves no credential.
 Exact evidence and limitations are in
 [`docs/evidence/2026-08-23-phase3/`](evidence/2026-08-23-phase3/README.md).
+
+This result is now classified as the accepted ingestion reconciler component,
+not the complete product ingestion gate. The user-approved
+[`Phase-3 product re-baseline`](evidence/2026-08-24-phase3-product-rebaseline/WORKLIST.md)
+retains all of that work and reopens Gate 3R until a fresh installed cREXX
+application performs source-to-provider-to-validated-claim-to-evidence
+ingestion through a real Gemini route, drains every owned ingestion item, and
+proves zero-call unchanged replay. No cutover or native-v1 rename is implied.
+The enduring linked application and its bounded `crexx-rag.config/1` projection
+are accepted implementation slices. The example uses symbolic
+`env:GEMINI_API_KEY`; its model placeholders remain unresolved and no hosted
+call has been made during this re-baseline.
+
+The next accepted implementation slice adds `ragprocess` and migration 3.
+`worker start` uses the public cREXX child-process channel to supervise 1–32
+instances of the same linked application. Each process opens its own SQLite
+connection and records controller/worker parentage, host, PID, start token,
+state, request, and database-clock heartbeat. A separate application process
+can list/status the registry, request drain, classify stale heartbeats with a
+same-host PID diagnostic, and explicitly prune terminal/stale rows. The
+permanent `p3r_01b_process_framework` test passes on `rxvme` and `rxbvm` with
+two simultaneous workers, forced termination, and zero provider calls. The
+worker body remains `framework-idle`; it does not yet dispatch a configured
+provider or complete ingestion items.
 
 ## Phase 4 Execution
 

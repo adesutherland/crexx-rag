@@ -1,16 +1,23 @@
 options levelg
 
-namespace ragmcp expose mcpdispatch
+namespace ragmcp expose mcpdispatch mcpdispatchwithregistry
 
 import rxfnsb
 import rxjson
 import ragcommand
+import ragconfig
+import ragconfigfile
+import ragregistry
 import ragproduct
 import operator_registry
 
 /* Thin stdio MCP adapter. Product policy and operations remain in ragproduct. */
 mcpdispatch: procedure = .string
   arg request_json = .string, library = .string, config = .string, profile = .string, access = "read"
+  return mcpdispatchwithregistry(request_json, library, config, profile, access, operatorregistry())
+
+mcpdispatchwithregistry: procedure = .string
+  arg request_json = .string, library = .string, config = .string, profile = .string, access = .string, registry = .ragregistry
   document = .jsondocument(request_json)
   if document.valid() \= 1 then return _error("null", -32700, "request is not strict JSON")
   root = document.root()
@@ -35,7 +42,7 @@ mcpdispatch: procedure = .string
   if _toolcommand(tool, document, arguments, library, config, profile, access, command_args, error) \= 0 then return _error(id_json, -32602, error)
   request = .ragcommandrequest
   if parsecommand(command_args, request, error) \= 0 then return _error(id_json, -32602, error)
-  result = dispatchproduct(request, operatorregistry())
+  result = dispatchproduct(request, registry)
   result_json = ""
   if rendercommandresult(result, "json", result_json, error) \= 0 then return _error(id_json, -32603, error)
   is_error = "false"
@@ -226,20 +233,29 @@ _error: procedure = .string
 
 main: procedure = .int
   arg args = .string[]
-  library = ""; config = ""; profile = ""; access = "read"; index = 1
+  library = ""; config = ""; config_file = ""; profile = ""; access = "read"; index = 1
   do while index <= args.0
     if index = args.0 then do; say "crexx-rag-mcp: option requires a value"; return 2; end
     name = args[index]; value = args[index + 1]
     if name = "--library" then library = value
     else if name = "--config" then config = value
+    else if name = "--config-file" then config_file = value
     else if name = "--profile" then profile = value
     else if name = "--access" then access = value
     else do; say "crexx-rag-mcp: unknown option " || name; return 2; end
     index = index + 2
   end
-  if library = "" | config = "" | profile = "" then do; say "crexx-rag-mcp: --library, --config, and --profile are required"; return 2; end
+  registry = operatorregistry()
+  if config_file \= "" then do
+    loaded_config = .ragconfig; error = ""
+    if loadconfigfile(config_file, loaded_config, error) \= 0 then do; say "crexx-rag-mcp: " || error; return 3; end
+    if config \= "" & config \= loaded_config.config_id() then do; say "crexx-rag-mcp: --config does not match config.id in --config-file"; return 3; end
+    config = loaded_config.config_id(); registry = operatorregistryforconfig(loaded_config)
+    if registry.valid() \= 1 then do; say "crexx-rag-mcp: loaded configuration references an unregistered profile"; return 3; end
+  end
+  if library = "" | config = "" | profile = "" then do; say "crexx-rag-mcp: --library, --config or --config-file, and --profile are required"; return 2; end
   do while lines("stdin") > 0
-    response = mcpdispatch(linein("stdin"), library, config, profile, access)
+    response = mcpdispatchwithregistry(linein("stdin"), library, config, profile, access, registry)
     if response \= "" then say response
   end
   return 0

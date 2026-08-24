@@ -1,0 +1,508 @@
+options levelg
+
+namespace ragprocess expose ragprocessrecord ragprocessstartresult newprocessidentity reserveprocess activateprocess heartbeatprocess finishprocess requestprocess processrequest listprocesses pruneprocesses runidleworker startworkerprocesses currentprocessid currenthostid processalive
+
+import rxfnsb
+import concurrency
+import rxplatform
+import sqlite_boundary
+import ragstore
+
+/* Durable process coordination for the enduring application.  Runtime rows are
+ * coordination state, not work-item ownership: ragwork leases and fences remain
+ * authoritative once ingestion processors are attached in the next step. */
+ragprocessrecord: class
+  _instance_id = .string
+  _kind = .string
+  _parent_instance_id = .string
+  _host_id = .string
+  _pid = .int
+  _process_start_token = .string
+  _executable_identity = .string
+  _mode = .string
+  _job_filter = .string
+  _state = .string
+  _requested_state = .string
+  _current_item_id = .string
+  _started_at = .int
+  _heartbeat_at = .int
+  _heartbeat_age = .int
+  _classification = .string
+  _detail = .string
+
+  *: factory
+    arg instance_id = .string, kind = .string, parent_instance_id = .string, host_id = .string, pid = .int, process_start_token = .string, executable_identity = .string, mode = .string, job_filter = .string, state = .string, requested_state = .string, current_item_id = .string, started_at = .int, heartbeat_at = .int, heartbeat_age = .int, classification = .string, detail = .string
+    _instance_id = instance_id
+    _kind = kind
+    _parent_instance_id = parent_instance_id
+    _host_id = host_id
+    _pid = pid
+    _process_start_token = process_start_token
+    _executable_identity = executable_identity
+    _mode = mode
+    _job_filter = job_filter
+    _state = state
+    _requested_state = requested_state
+    _current_item_id = current_item_id
+    _started_at = started_at
+    _heartbeat_at = heartbeat_at
+    _heartbeat_age = heartbeat_age
+    _classification = classification
+    _detail = detail
+    return
+
+  instance_id: method = .string
+    return _instance_id
+  kind: method = .string
+    return _kind
+  parent_instance_id: method = .string
+    return _parent_instance_id
+  host_id: method = .string
+    return _host_id
+  pid: method = .int
+    return _pid
+  process_start_token: method = .string
+    return _process_start_token
+  executable_identity: method = .string
+    return _executable_identity
+  mode: method = .string
+    return _mode
+  job_filter: method = .string
+    return _job_filter
+  state: method = .string
+    return _state
+  requested_state: method = .string
+    return _requested_state
+  current_item_id: method = .string
+    return _current_item_id
+  started_at: method = .int
+    return _started_at
+  heartbeat_at: method = .int
+    return _heartbeat_at
+  heartbeat_age: method = .int
+    return _heartbeat_age
+  classification: method = .string
+    return _classification
+  detail: method = .string
+    return _detail
+
+ragprocessstartresult: class
+  _controller_id = .string
+  _requested = .int
+  _completed = .int
+  _failed = .int
+
+  *: factory
+    arg controller_id = .string, requested = .int, completed = .int, failed = .int
+    _controller_id = controller_id
+    _requested = requested
+    _completed = completed
+    _failed = failed
+    return
+
+  controller_id: method = .string
+    return _controller_id
+  requested: method = .int
+    return _requested
+  completed: method = .int
+    return _completed
+  failed: method = .int
+    return _failed
+
+newprocessidentity: procedure = .string
+  arg store = .ragstorehandle, kind = .string, expose error = .string
+  error = ""
+  if store.open() \= 1 | store.writable() \= 1 then do; error = "writable store is required"; return ""; end
+  if kind \= "controller" & kind \= "worker" then do; error = "process kind is invalid"; return ""; end
+  suffix = _scalartext(store.database(), "SELECT lower(hex(randomblob(16)))", error)
+  if suffix = "" then return ""
+  return kind || "-" || suffix
+
+reserveprocess: procedure = .int
+  arg store = .ragstorehandle, instance_id = .string, kind = .string, parent_instance_id = .string, host_id = .string, mode = .string, job_filter = .string, executable_identity = .string, expose error = .string
+  error = ""
+  if store.open() \= 1 | store.writable() \= 1 then do; error = "writable store is required"; return -1; end
+  if _validtext(instance_id, 128, 0) \= 1 | _validtext(parent_instance_id, 128, 1) \= 1 | _validtext(host_id, 255, 0) \= 1 | _validtext(executable_identity, 4096, 0) \= 1 | _validtext(job_filter, 256, 1) \= 1 | (kind \= "controller" & kind \= "worker") | (mode \= "wait" & mode \= "once" & mode \= "follow") then do; error = "reserved process identity is invalid"; return -1; end
+  prepared = .binary
+  sql = "INSERT INTO runtime_instances(instance_id,kind,parent_instance_id,host_id,pid,process_start_token,executable_identity,mode,job_filter,state,requested_state,current_item_id,started_at,heartbeat_at,detail) VALUES(?1,?2,NULLIF(?3,''),?4,0,'',?5,?6,?7,'starting','none','',CAST(strftime('%s','now') AS INTEGER),CAST(strftime('%s','now') AS INTEGER),'reserved by controller')"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 then return _sqlitefailure("prepare process reservation", error)
+  binds = sqlitebindtext(prepared, 1, instance_id)
+  binds = binds | sqlitebindtext(prepared, 2, kind)
+  binds = binds | sqlitebindtext(prepared, 3, parent_instance_id)
+  binds = binds | sqlitebindtext(prepared, 4, host_id)
+  binds = binds | sqlitebindtext(prepared, 5, executable_identity)
+  binds = binds | sqlitebindtext(prepared, 6, mode)
+  binds = binds | sqlitebindtext(prepared, 7, job_filter)
+  step = sqlitestep(prepared)
+  call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then return _sqlitefailure("reserve process", error)
+  return 0
+
+activateprocess: procedure = .int
+  arg store = .ragstorehandle, instance_id = .string, kind = .string, parent_instance_id = .string, host_id = .string, pid = .int, process_start_token = .string, executable_identity = .string, mode = .string, job_filter = .string, expose error = .string
+  error = ""
+  if _validtext(instance_id, 128, 0) \= 1 | _validtext(parent_instance_id, 128, 1) \= 1 | _validtext(host_id, 255, 0) \= 1 | pid <= 0 | _validtext(process_start_token, 128, 0) \= 1 | _validtext(executable_identity, 4096, 0) \= 1 | _validtext(job_filter, 256, 1) \= 1 | (kind \= "controller" & kind \= "worker") | (mode \= "wait" & mode \= "once" & mode \= "follow") then do; error = "active process identity is invalid"; return -1; end
+  database = store.database(); prepared = .binary
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then return _sqlitefailure("begin process activation", error)
+  sql = "UPDATE runtime_instances SET parent_instance_id=NULLIF(?2,''),host_id=?3,pid=?4,process_start_token=?5,executable_identity=?6,mode=?7,job_filter=?8,state='idle',requested_state='none',current_item_id='',started_at=CAST(strftime('%s','now') AS INTEGER),heartbeat_at=CAST(strftime('%s','now') AS INTEGER),stopped_at=NULL,exit_code=NULL,detail='active' WHERE instance_id=?1 AND kind=?9 AND state='starting'"
+  if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "prepare reserved process activation", error)
+  binds = sqlitebindtext(prepared, 1, instance_id)
+  binds = binds | sqlitebindtext(prepared, 2, parent_instance_id)
+  binds = binds | sqlitebindtext(prepared, 3, host_id)
+  binds = binds | sqlitebindint(prepared, 4, pid)
+  binds = binds | sqlitebindtext(prepared, 5, process_start_token)
+  binds = binds | sqlitebindtext(prepared, 6, executable_identity)
+  binds = binds | sqlitebindtext(prepared, 7, mode)
+  binds = binds | sqlitebindtext(prepared, 8, job_filter)
+  binds = binds | sqlitebindtext(prepared, 9, kind)
+  step = sqlitestep(prepared)
+  call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then return _rollback(database, "activate reserved process", error)
+  changed = _scalarint(database, "SELECT changes()", error)
+  if error \= "" then return _rollback(database, "read process activation", error)
+  if changed = 0 then do
+    sql = "INSERT INTO runtime_instances(instance_id,kind,parent_instance_id,host_id,pid,process_start_token,executable_identity,mode,job_filter,state,requested_state,current_item_id,started_at,heartbeat_at,detail) VALUES(?1,?2,NULLIF(?3,''),?4,?5,?6,?7,?8,?9,'idle','none','',CAST(strftime('%s','now') AS INTEGER),CAST(strftime('%s','now') AS INTEGER),'active')"
+    if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "prepare independent process activation", error)
+    binds = sqlitebindtext(prepared, 1, instance_id)
+    binds = binds | sqlitebindtext(prepared, 2, kind)
+    binds = binds | sqlitebindtext(prepared, 3, parent_instance_id)
+    binds = binds | sqlitebindtext(prepared, 4, host_id)
+    binds = binds | sqlitebindint(prepared, 5, pid)
+    binds = binds | sqlitebindtext(prepared, 6, process_start_token)
+    binds = binds | sqlitebindtext(prepared, 7, executable_identity)
+    binds = binds | sqlitebindtext(prepared, 8, mode)
+    binds = binds | sqlitebindtext(prepared, 9, job_filter)
+    step = sqlitestep(prepared)
+    call sqlitefinalize prepared
+    if binds \= 0 | step \= 101 then return _rollback(database, "activate independent process", error)
+  end
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "commit process activation", error)
+  return 0
+
+heartbeatprocess: procedure = .int
+  arg store = .ragstorehandle, instance_id = .string, state = .string, current_item_id = .string, detail = .string, expose error = .string
+  error = ""
+  if (state \= "idle" & state \= "running" & state \= "draining") | _validtext(current_item_id, 256, 1) \= 1 | _validtext(detail, 1024, 1) \= 1 then do; error = "heartbeat state is invalid"; return -1; end
+  prepared = .binary
+  sql = "UPDATE runtime_instances SET state=?2,current_item_id=?3,heartbeat_at=CAST(strftime('%s','now') AS INTEGER),detail=?4 WHERE instance_id=?1 AND state NOT IN('stopped','failed')"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 then return _sqlitefailure("prepare process heartbeat", error)
+  binds = sqlitebindtext(prepared, 1, instance_id)
+  binds = binds | sqlitebindtext(prepared, 2, state)
+  binds = binds | sqlitebindtext(prepared, 3, current_item_id)
+  binds = binds | sqlitebindtext(prepared, 4, detail)
+  step = sqlitestep(prepared)
+  call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then return _sqlitefailure("write process heartbeat", error)
+  if _scalarint(store.database(), "SELECT changes()", error) \= 1 then do; if error = "" then error = "process heartbeat lost its active row"; return -2; end
+  return 0
+
+finishprocess: procedure = .int
+  arg store = .ragstorehandle, instance_id = .string, state = .string, exit_code = .int, detail = .string, expose error = .string
+  error = ""
+  if (state \= "stopped" & state \= "failed") | _validtext(detail, 1024, 1) \= 1 then do; error = "terminal process state is invalid"; return -1; end
+  prepared = .binary
+  sql = "UPDATE runtime_instances SET state=?2,current_item_id='',heartbeat_at=CAST(strftime('%s','now') AS INTEGER),stopped_at=CAST(strftime('%s','now') AS INTEGER),exit_code=?3,detail=?4 WHERE instance_id=?1"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 then return _sqlitefailure("prepare process finish", error)
+  binds = sqlitebindtext(prepared, 1, instance_id)
+  binds = binds | sqlitebindtext(prepared, 2, state)
+  binds = binds | sqlitebindint(prepared, 3, exit_code)
+  binds = binds | sqlitebindtext(prepared, 4, detail)
+  step = sqlitestep(prepared)
+  call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then return _sqlitefailure("finish process", error)
+  return 0
+
+requestprocess: procedure = .int
+  arg store = .ragstorehandle, instance_id = .string, requested_state = .string, expose error = .string
+  error = ""
+  if (requested_state \= "drain" & requested_state \= "stop") | _validtext(instance_id, 128, 0) \= 1 then do; error = "process request must be drain or stop"; return -1; end
+  prepared = .binary
+  sql = "UPDATE runtime_instances SET requested_state=?2,detail='operator requested '||?2 WHERE instance_id=?1 AND kind='worker' AND state NOT IN('stopped','failed')"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 then return _sqlitefailure("prepare process request", error)
+  binds = sqlitebindtext(prepared, 1, instance_id)
+  binds = binds | sqlitebindtext(prepared, 2, requested_state)
+  step = sqlitestep(prepared)
+  call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then return _sqlitefailure("request process state", error)
+  if _scalarint(store.database(), "SELECT changes()", error) \= 1 then do; if error = "" then error = "active worker was not found"; return -2; end
+  return 0
+
+processrequest: procedure = .string
+  arg store = .ragstorehandle, instance_id = .string, expose error = .string
+  error = ""
+  value = _scalartext(store.database(), "SELECT coalesce(requested_state,'') FROM runtime_instances WHERE instance_id=" || _sqlquote(instance_id), error)
+  if value = "" & error = "" then error = "process row was not found"
+  return value
+
+listprocesses: procedure = .int
+  arg store = .ragstorehandle, kind_filter = .string, state_filter = .string, host_filter = .string, stale_seconds = .int, limit = .int, expose records = .ragprocessrecord[], expose error = .string
+  records = .ragprocessrecord[]; error = ""
+  if stale_seconds < 1 | stale_seconds > 86400 | limit < 1 | limit > 100 then do; error = "process list bounds are invalid"; return -1; end
+  if kind_filter \= "all" & kind_filter \= "controller" & kind_filter \= "worker" then do; error = "process kind filter is invalid"; return -1; end
+  if state_filter \= "" & state_filter \= "starting" & state_filter \= "idle" & state_filter \= "running" & state_filter \= "draining" & state_filter \= "stopped" & state_filter \= "failed" then do; error = "process state filter is invalid"; return -1; end
+  if _validtext(host_filter, 255, 1) \= 1 then do; error = "process host filter is invalid"; return -1; end
+  database = store.database(); prepared = .binary
+  sql = "SELECT instance_id,kind,coalesce(parent_instance_id,''),host_id,pid,process_start_token,executable_identity,mode,job_filter,state,requested_state,current_item_id,started_at,heartbeat_at,max(0,CAST(strftime('%s','now') AS INTEGER)-heartbeat_at),CASE WHEN state IN('stopped','failed') THEN state WHEN heartbeat_at < CAST(strftime('%s','now') AS INTEGER)-?1 THEN 'stale' ELSE state END,detail FROM runtime_instances WHERE (?2='all' OR kind=?2) AND (?3='' OR state=?3) AND (?4='' OR host_id=?4) ORDER BY kind,instance_id LIMIT ?5"
+  if sqliteprepare(database, sql, prepared) \= 0 then return _sqlitefailure("prepare process list", error)
+  binds = sqlitebindint(prepared, 1, stale_seconds)
+  binds = binds | sqlitebindtext(prepared, 2, kind_filter)
+  binds = binds | sqlitebindtext(prepared, 3, state_filter)
+  binds = binds | sqlitebindtext(prepared, 4, host_filter)
+  binds = binds | sqlitebindint(prepared, 5, limit)
+  if binds \= 0 then do; call sqlitefinalize prepared; return _sqlitefailure("bind process list", error); end
+  do forever
+    step = sqlitestep(prepared)
+    if step = 101 then leave
+    if step \= 100 then do; call sqlitefinalize prepared; return _sqlitefailure("step process list", error); end
+    texts = .string[13]; integers = .int[4]
+    column_status = sqlitecolumntext(prepared, 0, texts[1])
+    column_status = column_status | sqlitecolumntext(prepared, 1, texts[2])
+    column_status = column_status | sqlitecolumntext(prepared, 2, texts[3])
+    column_status = column_status | sqlitecolumntext(prepared, 3, texts[4])
+    column_status = column_status | sqlitecolumnint(prepared, 4, integers[1])
+    column_status = column_status | sqlitecolumntext(prepared, 5, texts[5])
+    column_status = column_status | sqlitecolumntext(prepared, 6, texts[6])
+    column_status = column_status | sqlitecolumntext(prepared, 7, texts[7])
+    column_status = column_status | sqlitecolumntext(prepared, 8, texts[8])
+    column_status = column_status | sqlitecolumntext(prepared, 9, texts[9])
+    column_status = column_status | sqlitecolumntext(prepared, 10, texts[10])
+    column_status = column_status | sqlitecolumntext(prepared, 11, texts[11])
+    column_status = column_status | sqlitecolumnint(prepared, 12, integers[2])
+    column_status = column_status | sqlitecolumnint(prepared, 13, integers[3])
+    column_status = column_status | sqlitecolumnint(prepared, 14, integers[4])
+    column_status = column_status | sqlitecolumntext(prepared, 15, texts[12])
+    column_status = column_status | sqlitecolumntext(prepared, 16, texts[13])
+    if column_status \= 0 then do; call sqlitefinalize prepared; return _sqlitefailure("read process list", error); end
+    records[records.0 + 1] = .ragprocessrecord(texts[1], texts[2], texts[3], texts[4], integers[1], texts[5], texts[6], texts[7], texts[8], texts[9], texts[10], texts[11], integers[2], integers[3], integers[4], texts[12], texts[13])
+  end
+  call sqlitefinalize prepared
+  return records.0
+
+pruneprocesses: procedure = .int
+  arg store = .ragstorehandle, stale_seconds = .int, expose deleted = .int, expose error = .string
+  deleted = 0; error = ""
+  if stale_seconds < 1 | stale_seconds > 86400 then do; error = "stale threshold must be 1 through 86400 seconds"; return -1; end
+  prepared = .binary
+  sql = "DELETE FROM runtime_instances WHERE state IN('stopped','failed') OR heartbeat_at < CAST(strftime('%s','now') AS INTEGER)-?1"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 then return _sqlitefailure("prepare process prune", error)
+  binds = sqlitebindint(prepared, 1, stale_seconds); step = sqlitestep(prepared)
+  call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then return _sqlitefailure("prune process rows", error)
+  deleted = _scalarint(store.database(), "SELECT changes()", error)
+  if error \= "" then return -2
+  return 0
+
+currentprocessid: procedure = .int
+  captured = .string[]; errors = .string[]
+  address crexx "pid" output captured error errors
+  if rc \= 0 | captured.0 \= 1 then return 0
+  return captured[1] as .int
+
+currenthostid: procedure = .string
+  return rxplatform..host()
+
+processalive: procedure = .int
+  arg pid = .int
+  if pid <= 0 then return 0
+  pid_text = pid || ""
+  captured = .string[]; errors = .string[]
+  address crexx "ps :pid_text" output captured error errors
+  return rc = 0
+
+runidleworker: procedure = .int
+  arg library = .string, instance_id = .string, parent_instance_id = .string, host_id = .string, mode = .string, job_filter = .string, poll_milliseconds = .int, maximum_polls = .int, expose final_id = .string, expose error = .string
+  final_id = instance_id; error = ""
+  if poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | (mode \= "once" & mode \= "follow") | _validtext(instance_id, 128, 1) \= 1 | _validtext(parent_instance_id, 128, 1) \= 1 | _validtext(host_id, 255, 1) \= 1 | _validtext(job_filter, 256, 1) \= 1 then do; error = "worker poll bounds are invalid"; return -1; end
+  store = .ragstorehandle
+  if openragstore(library, "readwrite", store, error) \= 0 then return -2
+  if host_id = "" then host_id = currenthostid()
+  if final_id = "" then final_id = newprocessidentity(store, "worker", error)
+  pid = currentprocessid()
+  start_token = _scalartext(store.database(), "SELECT lower(hex(randomblob(16)))", error)
+  executable = _executableidentity()
+  if error \= "" | final_id = "" | pid <= 0 | start_token = "" then do; ignored = ""; call closeragstore store, ignored; if error = "" then error = "worker process identity is unavailable"; return -2; end
+  if activateprocess(store, final_id, "worker", parent_instance_id, host_id, pid, start_token, executable, mode, job_filter, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return -2; end
+  polls = 0; status = 0
+  do forever
+    polls = polls + 1
+    if heartbeatprocess(store, final_id, "idle", "", "waiting for durable work", error) \= 0 then do; status = -2; leave; end
+    requested = processrequest(store, final_id, error)
+    if error \= "" then do; status = -2; leave; end
+    if requested = "stop" | requested = "drain" then leave
+    if mode = "once" then leave
+    if maximum_polls > 0 & polls >= maximum_polls then leave
+    call rxplatform..sleep poll_milliseconds
+  end
+  terminal = "stopped"; exit_code = 0; detail = "worker stopped cleanly"
+  if status \= 0 then do; terminal = "failed"; exit_code = 1; detail = error; end
+  finish_error = ""
+  if finishprocess(store, final_id, terminal, exit_code, detail, finish_error) \= 0 & error = "" then error = finish_error
+  close_error = ""; close_status = closeragstore(store, close_error)
+  if close_status \= 0 & error = "" then error = close_error
+  if status \= 0 | close_status \= 0 then return -2
+  return 0
+
+startworkerprocesses: procedure = .int
+  arg library = .string, count = .int, poll_milliseconds = .int, maximum_polls = .int, job_filter = .string, expose result = .ragprocessstartresult, expose error = .string
+  result = .ragprocessstartresult("", count, 0, count); error = ""
+  if count < 1 | count > 32 | poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | _validtext(job_filter, 256, 1) \= 1 then do; error = "controller bounds are invalid"; return -1; end
+  runtime = getenv("CREXX_RAG_RUNTIME"); image = getenv("CREXX_RAG_IMAGE"); load_path = getenv("CREXX_RAG_LOAD_PATH"); self_executable = getenv("CREXX_RAG_SELF")
+  if runtime = "" & self_executable = "" then self_executable = "crexx-rag"
+  if runtime \= "" & (image = "" | load_path = "") then do; error = "linked application runtime metadata is incomplete"; return -2; end
+  store = .ragstorehandle
+  if openragstore(library, "readwrite", store, error) \= 0 then return -2
+  host_id = currenthostid(); pid = currentprocessid()
+  controller_id = newprocessidentity(store, "controller", error)
+  start_token = _scalartext(store.database(), "SELECT lower(hex(randomblob(16)))", error)
+  executable = _executableidentity()
+  if error \= "" | controller_id = "" | pid <= 0 | start_token = "" then do; ignored = ""; call closeragstore store, ignored; if error = "" then error = "controller process identity is unavailable"; return -2; end
+  if activateprocess(store, controller_id, "controller", "", host_id, pid, start_token, executable, "wait", job_filter, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return -2; end
+
+  config_names = .string[]; config_values = .channelvalue[]
+  config_names[1] = "capacity"; config_values[1] = .channelvalue.integer_value(count)
+  channel_config = .channelvalue.record_value("crexx.channel.child-process-provider", 1, config_names, config_values)
+  children = .channel.open(5, 255, channel_config)
+  null_input = .byteendpoint.null_endpoint(1)
+  null_output = .byteendpoint.null_endpoint(2)
+  worker_ids = .string[]; request_ids = .int[]
+  do i = 1 to count
+    worker_id = newprocessidentity(store, "worker", error)
+    if worker_id = "" | reserveprocess(store, worker_id, "worker", controller_id, host_id, "follow", job_filter, executable, error) \= 0 then do
+      call children.close(2)
+      call null_input.close()
+      call null_output.close()
+      ignored = ""; call finishprocess store, controller_id, "failed", 1, error, ignored; call closeragstore store, ignored
+      return -2
+    end
+    arguments = _childarguments(runtime, image, load_path, library, worker_id, controller_id, host_id, poll_milliseconds, maximum_polls, job_filter)
+    envelope = _childenvelope(runtime, self_executable, arguments, null_input.provider_reference(), null_output.provider_reference())
+    request = children.start(envelope, -1)
+    worker_ids[i] = worker_id
+    request_ids[i] = request.identity()
+  end
+
+  completed = 0; failed = 0
+  do while completed < count
+    completion = children.wait(1000)
+    heartbeat_error = ""
+    if heartbeatprocess(store, controller_id, "running", "", "supervising " || count || " worker processes", heartbeat_error) \= 0 then do; error = heartbeat_error; leave; end
+    if completion.available() = 0 then iterate
+    completed = completed + 1; exit_code = 1
+    if completion.succeeded() = 1 & completion.has_value() = 1 then exit_code = completion.value().as_integer()
+    if exit_code \= 0 then failed = failed + 1
+    worker_index = 0
+    do i = 1 to request_ids.0
+      if request_ids[i] = completion.request_identity() then worker_index = i
+    end
+    if worker_index > 0 then do
+      state = _scalartext(store.database(), "SELECT state FROM runtime_instances WHERE instance_id=" || _sqlquote(worker_ids[worker_index]), heartbeat_error)
+      if state = "starting" then do
+        terminal = "failed"; detail = "child process exited before worker registration"
+        if exit_code = 0 then do; terminal = "stopped"; detail = "child process completed before worker registration"; end
+        ignored = ""; call finishprocess store, worker_ids[worker_index], terminal, exit_code, detail, ignored
+      end
+    end
+  end
+  call children.close(1)
+  call null_input.close()
+  call null_output.close()
+  controller_state = "stopped"; controller_exit = 0; controller_detail = "all worker processes completed"
+  if error \= "" | failed > 0 then do; controller_state = "failed"; controller_exit = 1; controller_detail = "one or more worker processes failed"; end
+  finish_error = ""; call finishprocess store, controller_id, controller_state, controller_exit, controller_detail, finish_error
+  close_error = ""; close_status = closeragstore(store, close_error)
+  result = .ragprocessstartresult(controller_id, count, completed, failed)
+  if error = "" then error = finish_error
+  if error = "" then error = close_error
+  if error \= "" | failed > 0 | close_status \= 0 then return -2
+  return 0
+
+_childarguments: procedure = .channelvalue
+  arg runtime = .string, image = .string, load_path = .string, library = .string, worker_id = .string, controller_id = .string, host_id = .string, poll_milliseconds = .int, maximum_polls = .int, job_filter = .string
+  args = .string[]
+  if runtime \= "" then do
+    args[args.0 + 1] = "-l"; args[args.0 + 1] = load_path
+    args[args.0 + 1] = image; args[args.0 + 1] = "-a"
+  end
+  args[args.0 + 1] = "--library"; args[args.0 + 1] = library
+  args[args.0 + 1] = "--access"; args[args.0 + 1] = "control"
+  args[args.0 + 1] = "--format"; args[args.0 + 1] = "json"
+  args[args.0 + 1] = "worker"; args[args.0 + 1] = "run"
+  args[args.0 + 1] = "--id"; args[args.0 + 1] = worker_id
+  args[args.0 + 1] = "--parent"; args[args.0 + 1] = controller_id
+  args[args.0 + 1] = "--host-id"; args[args.0 + 1] = host_id
+  args[args.0 + 1] = "--follow"
+  args[args.0 + 1] = "--poll-ms"; args[args.0 + 1] = poll_milliseconds
+  args[args.0 + 1] = "--max-polls"; args[args.0 + 1] = maximum_polls
+  if job_filter \= "" then do; args[args.0 + 1] = "--job"; args[args.0 + 1] = job_filter; end
+  values = .channelvalue[]
+  do i = 1 to args.0
+    values[i] = .channelvalue.string_value(args[i])
+  end
+  return .channelvalue.array_value(values)
+
+_childenvelope: procedure = .channelvalue
+  arg runtime = .string, self_executable = .string, arguments = .channelvalue, stdin_reference = .channelvalue, output_reference = .channelvalue
+  executable = self_executable
+  if runtime \= "" then executable = runtime
+  names = .string[]; values = .channelvalue[]; empty = .channelvalue[]
+  names[1] = "arguments"; values[1] = arguments
+  names[2] = "bindings"; values[2] = .channelvalue.array_value(empty)
+  names[3] = "environment"; values[3] = .channelvalue.null_value()
+  names[4] = "executable"; values[4] = .channelvalue.string_value(executable)
+  names[5] = "mode"; values[5] = .channelvalue.integer_value(0)
+  names[6] = "stderr"; values[6] = output_reference
+  names[7] = "stdin"; values[7] = stdin_reference
+  names[8] = "stdout"; values[8] = output_reference
+  names[9] = "workingDirectory"; values[9] = .channelvalue.null_value()
+  return .channelvalue.record_value("crexx.channel.child-process-start", 1, names, values)
+
+_executableidentity: procedure = .string
+  runtime = getenv("CREXX_RAG_RUNTIME"); image = getenv("CREXX_RAG_IMAGE"); self_executable = getenv("CREXX_RAG_SELF")
+  if runtime \= "" then return runtime || " " || image
+  if self_executable \= "" then return self_executable
+  return "crexx-rag"
+
+_scalartext: procedure = .string
+  arg database = .binary, sql = .string, expose error = .string
+  prepared = .binary; value = ""
+  if sqliteprepare(database, sql, prepared) \= 0 then do; ignored = _sqlitefailure("prepare text query", error); return ""; end
+  step = sqlitestep(prepared)
+  if step = 100 then status = sqlitecolumntext(prepared, 0, value)
+  else status = -1
+  call sqlitefinalize prepared
+  if step \= 100 | status \= 0 then do; ignored = _sqlitefailure("read text query", error); return ""; end
+  return value
+
+_scalarint: procedure = .int
+  arg database = .binary, sql = .string, expose error = .string
+  prepared = .binary; value = -1
+  if sqliteprepare(database, sql, prepared) \= 0 then do; ignored = _sqlitefailure("prepare integer query", error); return -1; end
+  step = sqlitestep(prepared)
+  if step = 100 then status = sqlitecolumnint(prepared, 0, value)
+  else status = -1
+  call sqlitefinalize prepared
+  if step \= 100 | status \= 0 then do; ignored = _sqlitefailure("read integer query", error); return -1; end
+  return value
+
+_sqlquote: procedure = .string
+  arg value = .string
+  return "'" || changestr("'", value, "''") || "'"
+
+_validtext: procedure = .int
+  arg value = .string, maximum = .int, allow_empty = .int
+  if length(value) > maximum | pos("00"x, value) > 0 then return 0
+  if allow_empty = 0 & value = "" then return 0
+  return 1
+
+_sqlitefailure: procedure = .int
+  arg prefix = .string, expose error = .string
+  boundary_code = 0; sqlite_code = 0; sqlite_extended = 0; operation = ""; message = ""
+  call sqliteerrorextended boundary_code, sqlite_code, sqlite_extended, operation, message
+  error = prefix || ": " || message || " [boundary=" || boundary_code || ",sqlite=" || sqlite_code || ",extended=" || sqlite_extended || ",operation=" || operation || "]"
+  return -2
+
+_rollback: procedure = .int
+  arg database = .binary, prefix = .string, expose error = .string
+  if error = "" then ignored = _sqlitefailure(prefix, error)
+  call sqliteexec database, "ROLLBACK"
+  return -2

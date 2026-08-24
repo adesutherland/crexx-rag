@@ -14,7 +14,7 @@ file(SHA256 "${CPRAG_MODEL}" model_before)
 file(SHA256 "${CPRAG_COMMAND}" command_before)
 file(SHA256 "${CPRAG_SOURCE}" source_before)
 file(WRITE "${report}"
-    "item=P2-07\nlevel=G\noperations=40\nexit_codes=11\n"
+    "item=P2-07-maintained\nlevel=G\noperations=43\nexit_codes=11\n"
     "formats=human,json,ndjson\njson_schema=crexx-rag.command-result/1\n"
     "library_writes=0\nprovider_calls=0\n")
 
@@ -62,7 +62,7 @@ foreach(mode IN ITEMS noopt opt)
             OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err
             RESULT_VARIABLE vm_result TIMEOUT 30)
         if(NOT vm_result EQUAL 0 OR NOT vm_out MATCHES
-                "P2_07_COMMAND_OK cell=${cell} operations=40 exit_codes=11 formats=human,json,ndjson json_schema=crexx-rag.command-result/1 parser_writes=0 provider_calls=0")
+                "P2_07_COMMAND_OK cell=${cell} operations=43 exit_codes=11 formats=human,json,ndjson json_schema=crexx-rag.command-result/1 parser_writes=0 provider_calls=0")
             message(FATAL_ERROR "${cell} command contract failed (${vm_result}):\n${vm_out}\n${vm_err}")
         endif()
         file(APPEND "${report}" "${cell}:\n${vm_out}${vm_err}\n")
@@ -79,4 +79,4 @@ if(NOT model_before STREQUAL model_after OR
 endif()
 
 message(STATUS
-    "P2-07 passed: 40-operation argv parser, 11 stable exits, bounded versioned human/JSON/NDJSON rendering, negative syntax/result cases, and zero-write source fingerprints across noopt/opt x rxvme/rxbvm")
+    "P2-07 maintained contract passed: 43-operation argv parser, 11 stable exits, bounded versioned human/JSON/NDJSON rendering, negative syntax/result cases, and zero-write source fingerprints across noopt/opt x rxvme/rxbvm")

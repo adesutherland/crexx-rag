@@ -20,6 +20,7 @@ import ragplanning
 import ragimprove
 import ragjob
 import ragwork
+import ragprocess
 
 /* The Phase-6 dispatcher is the single transport-neutral product surface.
  * CLI, ADDRESS RAG and MCP translate into one .ragcommandrequest and preserve
@@ -32,8 +33,13 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "job.events" then return _repository(request, operation, "job-items")
   if operation = "review.list" | operation = "review.show" then return _repository(request, operation, "reviews")
   if operation = "query.search" | operation = "query.evidence" | operation = "query.answer" | operation = "query.trace" | operation = "query.path" | operation = "query.timeline" then return _query(request, registry)
-  if operation = "job.status" | operation = "worker.status" then return _jobstatus(request)
-  if operation = "job.pause" | operation = "job.resume" | operation = "job.cancel" | operation = "worker.drain" then return _jobcontrol(request)
+  if operation = "job.status" then return _jobstatus(request)
+  if operation = "job.pause" | operation = "job.resume" | operation = "job.cancel" then return _jobcontrol(request)
+  if operation = "worker.start" then return _workerstart(request, registry)
+  if operation = "worker.run" then return _workerrun(request)
+  if operation = "worker.list" | operation = "worker.status" then return _workerread(request)
+  if operation = "worker.drain" then return _workerdrain(request)
+  if operation = "worker.prune" then return _workerprune(request)
   if operation = "review.decide" then return _reviewdecision(request, 0)
   if operation = "ingest.apply" then return _ingestapply(request, registry)
   if operation = "improve.apply" then return _improveapply(request, registry)
@@ -196,6 +202,185 @@ _jobcontrol: procedure = .ragcommandresult
   records = .ragresultrecord[]; records[1] = .ragresultrecord("job-control", fields)
   return .ragcommandresult(operation, "ok", 0, "job control applied through the durable fenced store", records)
 
+_workerstart: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = request.operation(); error = ""
+  if _hasaccess(request, "control") \= 1 then return _failure(operation, 4, "worker start requires control access")
+  if _workeroptions(request, "count poll-ms max-polls job", "", error) \= 0 then return _failure(operation, 2, error)
+  positionals = request.positionals()
+  if positionals.0 \= 0 then return _failure(operation, 2, "worker start accepts no positional arguments")
+  count = 1
+  if request.config_id() \= "" then do
+    config_lookup = registry.config(request.config_id())
+    if config_lookup.found() \= 1 then return _failure(operation, 5, "configuration is not registered")
+    count = config_lookup.config().workers().processes()
+  end
+  count_text = _option(request, "count", error); poll_text = _option(request, "poll-ms", error); maximum_text = _option(request, "max-polls", error); job_filter = _option(request, "job", error)
+  if count_text \= "" then do
+    if _unsigned(count_text) \= 1 then return _failure(operation, 2, "--count must be an integer")
+    count = count_text as .int
+  end
+  poll_milliseconds = 1000
+  if poll_text \= "" then do
+    if _unsigned(poll_text) \= 1 then return _failure(operation, 2, "--poll-ms must be an integer")
+    poll_milliseconds = poll_text as .int
+  end
+  maximum_polls = 0
+  if maximum_text \= "" then do
+    if _unsigned(maximum_text) \= 1 then return _failure(operation, 2, "--max-polls must be an integer")
+    maximum_polls = maximum_text as .int
+  end
+  if count < 1 | count > 32 | poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 then return _failure(operation, 2, "worker start requires count 1..32, poll-ms 10..60000, and max-polls 0..1000000")
+  started = .ragprocessstartresult
+  status = startworkerprocesses(request.library(), count, poll_milliseconds, maximum_polls, job_filter, started, error)
+  if status \= 0 then return _failure(operation, 8, error)
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("controller_id", "string", started.controller_id())
+  fields[2] = .ragresultfield("workers_requested", "integer", started.requested())
+  fields[3] = .ragresultfield("workers_completed", "integer", started.completed())
+  fields[4] = .ragresultfield("workers_failed", "integer", started.failed())
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("worker-controller", fields)
+  return .ragcommandresult(operation, "ok", 0, "controller supervised the requested OS-process workers to completion", records)
+
+_workerrun: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation = request.operation(); error = ""
+  if _hasaccess(request, "control") \= 1 then return _failure(operation, 4, "worker run requires control access")
+  if _workeroptions(request, "id parent host-id once follow poll-ms max-polls job", "once follow", error) \= 0 then return _failure(operation, 2, error)
+  positionals = request.positionals()
+  if positionals.0 \= 0 then return _failure(operation, 2, "worker run accepts no positional arguments")
+  once = _option(request, "once", error); follow = _option(request, "follow", error)
+  if (once = "") = (follow = "") then return _failure(operation, 2, "worker run requires exactly one of --once or --follow")
+  mode = "once"; if follow \= "" then mode = "follow"
+  instance_id = _option(request, "id", error); parent_id = _option(request, "parent", error); host_id = _option(request, "host-id", error); job_filter = _option(request, "job", error)
+  poll_text = _option(request, "poll-ms", error); maximum_text = _option(request, "max-polls", error)
+  poll_milliseconds = 1000; maximum_polls = 0
+  if poll_text \= "" then do
+    if _unsigned(poll_text) \= 1 then return _failure(operation, 2, "--poll-ms must be an integer")
+    poll_milliseconds = poll_text as .int
+  end
+  if maximum_text \= "" then do
+    if _unsigned(maximum_text) \= 1 then return _failure(operation, 2, "--max-polls must be an integer")
+    maximum_polls = maximum_text as .int
+  end
+  if poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 then return _failure(operation, 2, "worker run requires poll-ms 10..60000 and max-polls 0..1000000")
+  final_id = ""
+  if runidleworker(request.library(), instance_id, parent_id, host_id, mode, job_filter, poll_milliseconds, maximum_polls, final_id, error) \= 0 then return _failure(operation, 1, error)
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("worker_id", "string", final_id)
+  fields[2] = .ragresultfield("mode", "string", mode)
+  fields[3] = .ragresultfield("job_filter", "string", job_filter)
+  fields[4] = .ragresultfield("processor", "string", "framework-idle")
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("worker-run", fields)
+  return .ragcommandresult(operation, "ok", 0, "worker process lifecycle completed; ingestion processor attachment is the next step", records)
+
+_workerread: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation = request.operation(); error = ""
+  if _hasaccess(request, "read") \= 1 then return _failure(operation, 4, "worker inspection requires read access")
+  if _workeroptions(request, "id kind state local host-id stale-seconds limit", "local", error) \= 0 then return _failure(operation, 2, error)
+  id = _id(request, error)
+  if error \= "" then return _failure(operation, 2, error)
+  if operation = "worker.status" & id = "" then return _failure(operation, 2, "worker status requires one process id")
+  kind_filter = _option(request, "kind", error); if kind_filter = "" then kind_filter = "all"
+  if kind_filter \= "all" & kind_filter \= "controller" & kind_filter \= "worker" then return _failure(operation, 2, "--kind must be all, controller, or worker")
+  requested_state_filter = _option(request, "state", error)
+  state_filter = requested_state_filter
+  if requested_state_filter = "stale" then state_filter = ""
+  host_filter = _option(request, "host-id", error)
+  local = _option(request, "local", error)
+  if local \= "" then do
+    if host_filter \= "" then return _failure(operation, 2, "--local and --host-id are mutually exclusive")
+    host_filter = currenthostid()
+  end
+  stale_seconds = 15; limit = 100
+  stale_text = _option(request, "stale-seconds", error); limit_text = _option(request, "limit", error)
+  if stale_text \= "" then do
+    if _unsigned(stale_text) \= 1 then return _failure(operation, 2, "--stale-seconds must be an integer")
+    stale_seconds = stale_text as .int
+  end
+  if limit_text \= "" then do
+    if _unsigned(limit_text) \= 1 then return _failure(operation, 2, "--limit must be an integer")
+    limit = limit_text as .int
+  end
+  if stale_seconds < 1 | stale_seconds > 86400 | limit < 1 | limit > 100 then return _failure(operation, 2, "worker list requires stale-seconds 1..86400 and limit 1..100")
+  store = .ragstorehandle
+  if openragstore(request.library(), "readonly", store, error) \= 0 then return _openfailure(operation, error)
+  processes = .ragprocessrecord[]; read_status = listprocesses(store, kind_filter, state_filter, host_filter, stale_seconds, limit, processes, error)
+  close_error = ""; close_status = closeragstore(store, close_error)
+  if read_status < 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 7, error); end
+  records = .ragresultrecord[]; local_host = currenthostid()
+  do i = 1 to processes.0
+    process = processes[i]
+    if id \= "" & process.instance_id() \= id then iterate
+    if requested_state_filter = "stale" & process.classification() \= "stale" then iterate
+    pid_check = "remote"
+    if process.host_id() = local_host then do
+      pid_check = "not-running"
+      if process.state() \= "stopped" & process.state() \= "failed" then do
+        pid_check = "missing"
+        if processalive(process.pid()) = 1 then pid_check = "alive"
+      end
+    end
+    fields = .ragresultfield[]
+    fields[1] = .ragresultfield("instance_id", "string", process.instance_id())
+    fields[2] = .ragresultfield("kind", "string", process.kind())
+    fields[3] = .ragresultfield("parent_instance_id", "string", process.parent_instance_id())
+    fields[4] = .ragresultfield("host_id", "string", process.host_id())
+    fields[5] = .ragresultfield("pid", "integer", process.pid())
+    fields[6] = .ragresultfield("process_start_token", "string", process.process_start_token())
+    fields[7] = .ragresultfield("mode", "string", process.mode())
+    fields[8] = .ragresultfield("job_filter", "string", process.job_filter())
+    fields[9] = .ragresultfield("state", "string", process.state())
+    fields[10] = .ragresultfield("classification", "string", process.classification())
+    fields[11] = .ragresultfield("requested_state", "string", process.requested_state())
+    fields[12] = .ragresultfield("current_item_id", "string", process.current_item_id())
+    fields[13] = .ragresultfield("heartbeat_age_seconds", "integer", process.heartbeat_age())
+    fields[14] = .ragresultfield("pid_check", "string", pid_check)
+    fields[15] = .ragresultfield("detail", "string", process.detail())
+    records[records.0 + 1] = .ragresultrecord("runtime-process", fields)
+  end
+  if id \= "" & records.0 = 0 then return _failure(operation, 5, "runtime process was not found")
+  return .ragcommandresult(operation, "ok", 0, "bounded runtime registry read; heartbeat classification is authoritative and PID state is diagnostic", records)
+
+_workerdrain: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation = request.operation(); error = ""
+  if _hasaccess(request, "control") \= 1 then return _failure(operation, 4, "worker drain requires control access")
+  if _workeroptions(request, "id", "", error) \= 0 then return _failure(operation, 2, error)
+  instance_id = _id(request, error)
+  if error \= "" | instance_id = "" then return _failure(operation, 2, "worker drain requires one worker id")
+  store = .ragstorehandle
+  if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
+  status = requestprocess(store, instance_id, "drain", error)
+  close_error = ""; close_status = closeragstore(store, close_error)
+  if status = -2 then return _failure(operation, 5, error)
+  if status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 1, error); end
+  fields = .ragresultfield[]; fields[1] = .ragresultfield("worker_id", "string", instance_id); fields[2] = .ragresultfield("requested_state", "string", "drain")
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("worker-control", fields)
+  return .ragcommandresult(operation, "ok", 0, "durable drain request recorded", records)
+
+_workerprune: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation = request.operation(); error = ""
+  if _hasaccess(request, "control") \= 1 then return _failure(operation, 4, "worker prune requires control access")
+  positionals = request.positionals()
+  if _workeroptions(request, "stale-seconds", "", error) \= 0 | positionals.0 \= 0 then return _failure(operation, 2, "worker prune accepts only --stale-seconds")
+  stale_seconds = 300; stale_text = _option(request, "stale-seconds", error)
+  if stale_text \= "" then do
+    if _unsigned(stale_text) \= 1 then return _failure(operation, 2, "--stale-seconds must be an integer")
+    stale_seconds = stale_text as .int
+  end
+  if stale_seconds < 1 | stale_seconds > 86400 then return _failure(operation, 2, "worker prune requires stale-seconds 1..86400")
+  store = .ragstorehandle
+  if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
+  deleted = 0; status = pruneprocesses(store, stale_seconds, deleted, error)
+  close_error = ""; close_status = closeragstore(store, close_error)
+  if status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 1, error); end
+  fields = .ragresultfield[]; fields[1] = .ragresultfield("rows_deleted", "integer", deleted); fields[2] = .ragresultfield("stale_seconds", "integer", stale_seconds)
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("worker-prune", fields)
+  return .ragcommandresult(operation, "ok", 0, "terminal and explicitly stale runtime rows removed", records)
+
 _ingestapply: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
   operation = request.operation(); error = ""
@@ -354,6 +539,21 @@ _options: procedure = .int
     if request_options[i].flag() = 1 | request_options[i].value() = "" then do; error = "option --" || request_options[i].name() || " requires a value"; return -1; end
     do j = 1 to i - 1
       if request_options[j].name() = request_options[i].name() then do; error = "option --" || request_options[i].name() || " may be supplied once"; return -1; end
+    end
+  end
+  return 0
+
+_workeroptions: procedure = .int
+  arg request = .ragcommandrequest, allowed = .string, allowed_flags = .string, expose error = .string
+  error = ""; request_options = request.command_options()
+  do i = 1 to request_options.0
+    name = request_options[i].name()
+    if wordpos(name, allowed) = 0 then do; error = "unknown option --" || name; return -1; end
+    if request_options[i].flag() = 1 & wordpos(name, allowed_flags) = 0 then do; error = "option --" || name || " requires a value"; return -1; end
+    if request_options[i].value() = "" then do; error = "option --" || name || " requires a value"; return -1; end
+    if request_options[i].flag() = 1 & request_options[i].value() \= "true" then do; error = "flag --" || name || " is invalid"; return -1; end
+    do j = 1 to i - 1
+      if request_options[j].name() = name then do; error = "option --" || name || " may be supplied once"; return -1; end
     end
   end
   return 0

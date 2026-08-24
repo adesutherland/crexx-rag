@@ -2,7 +2,7 @@ foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_RXBVM
         CPRAG_CREXX_BIN_DIR CPRAG_PLUGIN_DIR CPRAG_APP_DIR CPRAG_CONFIG_DIR
         CPRAG_PROFILE_DIR CPRAG_SURFACE_DIR CPRAG_CLI CPRAG_ADDRESS
         CPRAG_MCP CPRAG_PROVIDER_CONTRACT CPRAG_ADDRESS_SCENARIO CPRAG_MCP_SCENARIO
-        CPRAG_TUTORIAL_FIXTURE CPRAG_SKILLS_DIR CPRAG_WORK_DIR)
+        CPRAG_CONFIG_FIXTURE CPRAG_TUTORIAL_FIXTURE CPRAG_SKILLS_DIR CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
     endif()
@@ -37,13 +37,13 @@ function(compile_crexx source output imports mode_flag label)
 endfunction()
 
 set(app_modules ragmodel ragevidence ragjob ragconfig ragprofile ragregistry
-    ragschema ragfile ragstore ragbackup ragrepository ragcanonical ragplanning
+    ragschema ragfile ragconfigfile ragstore ragbackup ragrepository ragcanonical ragplanning
     ragcommand ragingest ragfolder ragclaims ragimprove ragwork ragquery
-    ragembedding ragretrieval ragevidencejson ragfoundation ragproduct)
+    ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragproduct)
 set(config_modules architecture_local_config generic_profile it_architecture_profile
     operator_registry)
 set(runtime_modules ragmcp rag_address_environment provider_contract ${app_modules} ${config_modules}
-    rx_sqlite_boundary rx_hash rx_system rxfs rxvector rxfnsg library)
+    rx_sqlite_boundary rx_hash rx_system rxfs rxvector rxfnsg classlib library)
 
 foreach(mode IN ITEMS noopt opt)
     set(mode_flag)
@@ -171,6 +171,28 @@ foreach(mode IN ITEMS noopt opt)
             message(FATAL_ERROR "${cell} surface equality failed:\n${address_out}${address_err}${mcp_out}${mcp_err}")
         endif()
 
+        set(mcp_config_input "${CPRAG_WORK_DIR}/mcp-config-${cell}.jsonl")
+        file(WRITE "${mcp_config_input}"
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}\n"
+            "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_provider_diagnostics\",\"arguments\":{}}}\n")
+        execute_process(COMMAND "${CMAKE_COMMAND}" -E env
+            "GEMINI_API_KEY=P6_SECRET_MUST_NOT_APPEAR_70B3"
+            "${runtime}" -l "${program_import}"
+            "${CPRAG_WORK_DIR}/ragmcp" ${runtime_modules}
+            -a --library "${library}" --config-file "${CPRAG_CONFIG_FIXTURE}"
+            --profile generic-profile --access diagnose
+            INPUT_FILE "${mcp_config_input}"
+            OUTPUT_VARIABLE mcp_config_out ERROR_VARIABLE mcp_config_err
+            RESULT_VARIABLE mcp_config_result TIMEOUT 60)
+        if(NOT mcp_config_result EQUAL 0 OR
+           NOT mcp_config_out MATCHES "\"provider_id\":\"gemini-generate\"" OR
+           NOT mcp_config_out MATCHES "\"credential_resolved\":false" OR
+           mcp_config_out MATCHES "P6_SECRET_MUST_NOT_APPEAR_70B3" OR
+           mcp_config_err MATCHES "P6_SECRET_MUST_NOT_APPEAR_70B3")
+            message(FATAL_ERROR
+                "${cell} fixed MCP config-file startup failed:\n${mcp_config_out}${mcp_config_err}")
+        endif()
+
         set(backup "${CPRAG_WORK_DIR}/backup-${cell}")
         set(restored "${CPRAG_WORK_DIR}/restored-${cell}")
         execute_process(COMMAND ${cli_base} -a --library "${library}"
@@ -186,7 +208,7 @@ foreach(mode IN ITEMS noopt opt)
         if(NOT backup_result EQUAL 0 OR NOT restore_result EQUAL 0)
             message(FATAL_ERROR "${cell} documented backup/restore failed:\n${backup_out}${backup_err}${restore_out}${restore_err}")
         endif()
-        file(APPEND "${report}" "${cell}:\n${init_out}${ingest_plan_out}${apply_out}${query_out}${alias_out}${address_out}${mcp_out}${backup_out}${restore_out}\n")
+        file(APPEND "${report}" "${cell}:\n${init_out}${ingest_plan_out}${apply_out}${query_out}${alias_out}${address_out}${mcp_out}${mcp_config_out}${backup_out}${restore_out}\n")
     endforeach()
 endforeach()
 

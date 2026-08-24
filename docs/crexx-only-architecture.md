@@ -392,6 +392,7 @@ to lexical/graph retrieval.
 | `attempts` | worker, input/output hashes, provider run, validation and outcome |
 | `job_events` | append-only progress/error/state history |
 | `reviews` | ambiguity/conflict/type/endpoint/external proposal and decision |
+| `runtime_instances` | controller/worker parentage, host/PID/start token, state/control request and database-clock heartbeat; operational only |
 
 Large model outputs may be stored as bounded artifacts or blobs with hashes,
 rather than copied into every event. Public status reads aggregates and paged
@@ -482,6 +483,14 @@ workers through database-clock leases, SQLite writer serialization, monotonic
 fences, forced termination, expiry, and late-worker rejection. In-process cREXX
 thread safety is not assumed; concurrency is process-based.
 
+Gate 3R adds a separate runtime coordination plane. `runtime_instances` stores
+controller/worker parentage, host, PID, random process-start token, executable
+identity, mode/job filter, state/control request, current item and database-
+clock heartbeat. Every process owns its SQLite connection. Heartbeat expiry is
+the liveness authority; same-host PID checks are diagnostic and remote PID
+checks are not attempted. This registry never replaces the item lease/fence
+state below. Multiple controllers may supervise independent worker groups.
+
 ```mermaid
 stateDiagram-v2
     [*] --> queued
@@ -534,13 +543,17 @@ reserved and actual usage.
 Applying a plan only enqueues a durable job. Workers are explicit processes:
 
 ```text
-crexx-rag worker run --once [--job ID]
-crexx-rag worker run --follow --worker-id ID
-crexx-rag worker status
-crexx-rag worker drain
+crexx-rag worker start [--count N] [--job ID]
+crexx-rag worker run --once|--follow [--id ID] [--job ID]
+crexx-rag worker list [--local] [--state STATE]
+crexx-rag worker status ID
+crexx-rag worker drain ID
+crexx-rag worker prune --stale-seconds N
 ```
 
-`--follow` is run under an operator-selected supervisor such as launchd,
+`worker start` uses the public cREXX child-process channel and waits while its
+children run; another application instance reads status through SQLite.
+Independently started `--follow` workers may instead run under launchd,
 systemd, or a container service. Graceful stop ceases new claims, marks
 `cancel_requested` when asked, and finishes or checkpoints the current item;
 forced termination recovers through lease expiry and fencing. Recurrence belongs
@@ -890,9 +903,10 @@ Migration is side-by-side:
 
 The 2026-08-24 Gate-7 result is reject/defer cutover. The corpus, lifecycle,
 surface, installed-package, and external hosted generation/embedding evidence
-passes in the recorded macOS scope. However, cREXX hosted completion remains
-unreliable, `worker.run` has no installed production
-provider binding, queued embedding items have no public worker processor, the
+passes in the recorded macOS scope. The later Gate-3R process slice adds public
+worker lifecycle but leaves its body `framework-idle`. cREXX hosted completion
+remains unreliable, `worker.run` has no installed production provider binding,
+queued extraction/embedding items have no public worker processor, the
 production-shaped same-session comparison is incomplete, and exact downstream
 Linux remains open. Native-v1 therefore stays the default oracle; no
 compatibility window has started.

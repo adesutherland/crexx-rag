@@ -17,46 +17,54 @@ oracle while the failed production-selection criteria are addressed.
   batch embedding; and
 - symbolic-key handling with credential values logged: zero.
 
-## Why cutover is rejected
+## Resolved after the decision
 
-1. The current cREXX hosted provider path still loses response completion even
-   though the bounded external generation/embedding harness succeeds with the
-   same symbolic credential. The unproven timeout adjustment was not retained.
-2. `worker.run` is in the public vocabulary but `ragproduct` does not dispatch
+- [x] cREXX hosted response completion is repaired in CREXX commit
+  `cd9fadc4ba99675aca58c8387d3927dfdd1794fc` and qualified from a scratch
+  installation in optimized/non-optimized execution on `rxvme` and `rxbvm`.
+  All four hosted provider cells completed structured generation and batch
+  embedding within the declared eight-call ceiling. This blocker is resolved.
+
+The repair is committed locally but is not yet published or installed into the
+normal prefix. That publication boundary does not reopen the repaired defect.
+
+## Why cutover remains rejected
+
+1. `worker.run` is in the public vocabulary but `ragproduct` does not dispatch
    it to `runworkeronce`/`runworkerfollow`. The only `.ragworkprovider`
    implementation is a deterministic test fixture; no installed adapter maps a
    configured local/hosted provider result into the validated claim proposal.
-3. Initial ingestion queues both `embedding` and `claim-extraction` items, but
+2. Initial ingestion queues both `embedding` and `claim-extraction` items, but
    the Phase-4 worker claims only `claim-extraction` and `improve-extraction`.
    The public application therefore cannot drain a complete ingestion job.
-4. The available native/cREXX comparisons do not yet form one exact
+3. The available native/cREXX comparisons do not yet form one exact
    production-shaped same-session measurement of graph promotion, evidence
    latency/RSS, model-bound overhead, and final library counts.
-5. Exact downstream Linux: open. The macOS result must not be relabelled as
+4. Exact downstream Linux: open. The macOS result must not be relabelled as
    cross-platform completion.
 
-The findings are transport, application integration, and evidence gaps, not
-permission to bypass capability, schema, or worker ownership rules.
+The remaining findings are application integration, evidence, and platform
+gaps, not permission to bypass capability, schema, or worker ownership rules.
 
 ## Required evidence before a new cutover request
 
-- repair and qualify cREXX hosted response completion in optimized and
-  non-optimized execution on both concrete VMs;
-- install a production `.ragworkprovider` adapter selected only through the
+- [x] Repair and qualify cREXX hosted response completion in optimized and
+  non-optimized execution on both concrete VMs for the recorded macOS scope.
+- [ ] Install a production `.ragworkprovider` adapter selected only through the
   registered config/role route, with typed schema validation, symbolic secrets,
   reservation settlement, cancellation boundaries, and local plus hosted
   qualification;
-- add bounded embedding-item execution or change publication so every queued
+- [ ] Add bounded embedding-item execution or change publication so every queued
   item has one owned processor, then prove a public supervised worker drains a
   job after restart;
-- add one production-shaped same-session native/cREXX comparison covering all
+- [ ] Add one production-shaped same-session native/cREXX comparison covering all
   missing P7-05 measures with exact final-count invariants; and
-- run the exact installed downstream Linux matrix and relevant sanitizer gate.
+- [ ] Run the exact installed downstream Linux matrix and relevant sanitizer gate.
 
 ## Approval boundary
 
 This decision asks only that the deferral and closure evidence be accepted as
 the Phase-7 outcome. It does not request cREXX-default cutover, dual-write,
 native retirement, live-library migration, release publication, or donation
-submission. Any later cutover requires a new explicit approval after the five
-items above pass.
+submission. Any later cutover requires a new explicit approval after the four
+remaining open items above pass.

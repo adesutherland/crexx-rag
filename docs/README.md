@@ -1,9 +1,9 @@
 # Documentation Map
 
 Status: canonical navigation for the approved cREXX-only programme,
-2026-08-24. Phase 1B through Gate 6 are accepted for their recorded scope;
-Phases 2 through 6 are accepted on macOS while exact downstream Linux replay
-remains open. Phase 7 qualification is complete and selects reject/defer
+2026-08-24. Phase 1B through Gate 6 retain their recorded component evidence;
+Phase 3 product ingestion acceptance is reopened as Gate 3R, while exact
+downstream Linux replay remains open. Phase 7 qualification is complete and selects reject/defer
 cutover: external hosted generation/embedding passes while cREXX hosted
 response completion, public
 worker/provider integration, embedding-item execution, production-shaped
@@ -43,6 +43,8 @@ production default.
 | [Phase 2 and Gate 2 closeout](evidence/2026-08-23-phase2-gate2-closeout/README.md) | Current installed-package capability adoption, macOS validation, Gate-2 acceptance, and the exact Linux-only residual |
 | [Phase 3 executable tutorial](tutorials/phase-3-ingestion.md) | Development tutorial over the real folder connector, immutable plan, reconciler, and zero-write replay |
 | [Phase 3 and Gate 3 evidence](evidence/2026-08-23-phase3/README.md) | P3-01 through P3-09, dual-VM/mode, crash resume, tutorial, oracle delta, QA, and current limits |
+| [Phase 3 product re-baseline](evidence/2026-08-24-phase3-product-rebaseline/WORKLIST.md) | Approved worklist and acceptance contract that retain the reconciler evidence while reopening end-to-end installed cREXX ingestion with a real Gemini provider |
+| [P3R-01B process-framework evidence](evidence/2026-08-24-phase3-product-rebaseline/P3R-01B.md) | Linked Level-G controller/worker processes, schema-v3 SQLite registry, separate-process observation, drain, stale/PID diagnostics and explicit pruning on both VMs; processor remains deliberately idle |
 | [Phase 4 executable tutorial](tutorials/phase-4-improvement.md) | Development tutorial over canonical claims, deterministic review, improvement plans, and durable workers |
 | [Phase 4 implementation evidence](evidence/2026-08-23-phase4/README.md) | P4-01 through P4-09, dual VM/mode, crash/two-process worker QA, literal eight-hour soak, Debug/Release and Apple ASan |
 | [Phase 5 executable tutorial](tutorials/phase-5-retrieval.md) | Development tutorial over focused planning, incremental embeddings, exact vectors, hybrid retrieval, bounded evidence and historical citation resolution |

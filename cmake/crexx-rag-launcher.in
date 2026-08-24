@@ -1,0 +1,19 @@
+#!/bin/sh
+set -eu
+
+launcher_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+image="${launcher_dir}/crexx-rag.rxbin"
+provider_dir="${launcher_dir}/providers"
+
+if ! runtime=$(command -v rxvme); then
+    echo "crexx-rag: rxvme is required on PATH" >&2
+    exit 127
+fi
+runtime_dir=$(CDPATH= cd -- "$(dirname -- "${runtime}")" && pwd)
+load_path="${provider_dir};${runtime_dir}/providers;${runtime_dir}"
+
+export CREXX_RAG_SELF="$0"
+export CREXX_RAG_RUNTIME="${runtime}"
+export CREXX_RAG_IMAGE="${image}"
+export CREXX_RAG_LOAD_PATH="${load_path}"
+exec "${runtime}" -l "${load_path}" "${image}" -a "$@"

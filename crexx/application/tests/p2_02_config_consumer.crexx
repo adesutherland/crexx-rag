@@ -53,6 +53,10 @@ unsupportedworkerconfig: procedure = .ragconfig
   schedules = base.schedules()
   return .ragconfig("unsupported-workers", "1", source_sets, providers, roles, profile_ids, base.budget(), .ragworkerpolicy(2, 2, 120), schedules)
 
+multiprocessconfig: procedure = .ragconfig
+  base = architecturelocalconfig()
+  return .ragconfig("multi-process", "1", base.source_sets(), base.providers(), base.roles(), base.profile_ids(), base.budget(), .ragworkerpolicy(4, 1, 120), base.schedules())
+
 unknownprofileconfig: procedure = .ragconfig
   base = architecturelocalconfig()
   source_sets = base.source_sets()
@@ -132,7 +136,9 @@ main: procedure = .int
   errors = errors + check(messagescontain(secret_validation, secret_marker) = 0, "secret-free diagnostics")
 
   worker_validation = validateconfig(unsupportedworkerconfig())
-  errors = errors + check(worker_validation.ok() = 0 & containsissue(worker_validation, "worker_scope") = 1, "unsupported worker scope")
+  errors = errors + check(worker_validation.ok() = 0 & containsissue(worker_validation, "worker_in_flight") = 1, "unsupported per-process in-flight scope")
+  multi_worker_validation = validateconfig(multiprocessconfig())
+  errors = errors + check(multi_worker_validation.ok() = 1, "bounded multi-process configuration")
   provider_validation = validateconfig(unknownproviderconfig())
   errors = errors + check(provider_validation.ok() = 0 & containsissue(provider_validation, "unknown_provider") = 1, "unknown provider reference")
   inverse_validation = validateprofile(invalidinverseprofile())

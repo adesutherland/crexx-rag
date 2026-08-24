@@ -3,8 +3,9 @@
 Status: Gate 1B reached on 2026-08-03 and accepted on 2026-08-04. All bounded
 Phase-1B items are complete. Phase 2 started on 2026-08-04 from the pushed
 entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` through `P2-10`
-and Gate 2 are accepted for the current macOS scope. Phases 3, 4 and 5 and
-their gates are accepted for the recorded macOS scope; exact downstream Linux
+and Gate 2 are accepted for the current macOS scope. Phase 3's reconciler
+component plus Phases 4 and 5 retain their recorded macOS evidence; Phase 3
+product ingestion acceptance is reopened as Gate 3R. Exact downstream Linux
 replay remains open. Phase 5 also retains an explicit hosted answer-quality
 qualification while its cREXX hosted transport finding remains Phase-7 work.
 The authority is recorded in
@@ -496,11 +497,30 @@ Required headline tests:
 - interrupted work resumes without duplicate mentions or decisions; and
 - initial and incremental paths are the same reconciler.
 
-Gate 3 was accepted for the current macOS scope on 2026-08-23. The permanent
-four-cell and real-process evidence, executable tutorial, native semantic delta,
-and exact limitations are retained in the
-[`Phase-3 evidence`](evidence/2026-08-23-phase3/README.md). Exact downstream
-Linux qualification remains open and native-v1 remains the oracle.
+Gate 3's reconciler/component scope was accepted on macOS on 2026-08-23. The
+permanent four-cell and real-process evidence, executable tutorial, native
+semantic delta, and exact limitations remain retained in the
+[`Phase-3 evidence`](evidence/2026-08-23-phase3/README.md).
+
+On 2026-08-24 the user approved a
+[`Phase-3 product re-baseline`](evidence/2026-08-24-phase3-product-rebaseline/WORKLIST.md).
+It reopens product ingestion acceptance because the original gate deliberately
+made zero provider calls, deferred provider-backed claim/embedding execution,
+and did not ship one ordinary installed cREXX application command. Gate 3R now
+requires the enduring installed application to complete fresh-library
+ingestion through real Google Gemini generation, owned embedding work,
+deterministic claim validation/promotion, job reconciliation, public evidence
+retrieval, zero-call unchanged replay, and restart-safe changed replay. The
+accepted component work is reused and its dated evidence is not rewritten.
+The linked application, bounded `crexx-rag.config/1` projection, and durable
+OS-process framework are accepted first slices. The latter adds schema-v3
+controller/worker rows, configurable child processes, separate SQLite
+connections, list/status/drain, heartbeat/PID diagnostics, and explicit
+pruning on both VMs. Its worker is deliberately `framework-idle`; the
+application-owned provider binding is the current item. No live model call is
+implied.
+Exact downstream Linux qualification remains open and native-v1 remains the
+oracle until a separate cutover decision.
 
 ## Phase 4 — Claims, Extraction, Review, And Improvement
 
@@ -674,15 +694,19 @@ No code deletion is authorized merely by completing Phase 7.
 Gate 7 decision: reject/defer cutover and keep the native-v1 oracle default.
 The macOS corpus/lifecycle/surface matrices and bounded external hosted
 generation plus embedding qualification pass. The cREXX hosted provider still
-loses response completion. Qualification also found two product-path gaps: the
-public dispatcher has no installed production `.ragworkprovider` for
-`worker.run`, and ingestion's queued embedding items have no public worker processor. The
+loses response completion. Qualification also found two product-path gaps at
+that decision head: the public dispatcher had no installed production
+`.ragworkprovider` for `worker.run`, and ingestion's queued embedding items had
+no public worker processor. The
 requested production-shaped same-session graph/latency/RSS/model-overhead
 comparison and exact downstream Linux replay are also incomplete. These are
 failed selection criteria, so the decision does not rename, remove, or cut over
 the oracle. See the
 [`Phase-7 evidence`](evidence/2026-08-24-phase7/README.md) and separate
 [`cutover decision`](evidence/2026-08-24-phase7/cutover-decision.md).
+Subsequent Gate-3R work adds the public process lifecycle but deliberately
+leaves its processor `framework-idle`, so the provider and item-processing
+selection criteria remain open and the decision is unchanged.
 
 ## Phase 8 — Donation, Compatibility Release, And Native Retirement
 

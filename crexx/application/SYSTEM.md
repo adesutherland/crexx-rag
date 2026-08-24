@@ -15,6 +15,7 @@ ragmodel <- ragevidence
 ragmodel <- ragjob
 ragmodel + ragevidence + ragjob <- raglibrary
 ragmodel <- ragconfig + ragprofile <- ragregistry
+ragconfig + ragfile <- ragconfigfile
 ragconfig + ragprofile + ragregistry <- operator registry
 ragconfig + ragprofile <- ragcanonical -> installed rxhash
 ragschema <- ragstore -> installed SQLite boundary + rxjson + system
@@ -35,18 +36,27 @@ handle. `ragevidence` is the stable evidence packet object; passages, accepted
 claims, support, ambiguity, leads, and gaps remain distinct.
 
 `ragconfig` validates source sets, provider routes, symbolic secret references,
-budgets, and the currently qualified single-worker scope. `ragprofile` validates
+budgets, one in-flight item per process, and 1 through 32 worker processes.
+`ragprofile` validates
 domain types, relationships, aliases, chunk policy, ranking weights, prompt
 identities, and validator identities. `ragregistry` receives already
 constructed operator modules and exposes typed id lookup only. Dynamic module
 loading is intentionally absent from the agent-facing boundary.
 
-`ragschema` owns two ordered migrations. Migration 1 establishes library,
+`ragconfigfile` projects bounded `crexx-rag.config/1` text into `ragconfig`; it
+does not introduce a second configuration model. It rejects unknown or
+duplicate keys, literal secrets, executable module paths, unsafe routes,
+traversal, and non-canonical or out-of-range values. CLI selection occurs
+before command parsing. MCP fixes the selected projection at startup.
+
+`ragschema` owns three ordered migrations. Migration 1 establishes library,
 configuration, immutable published-generation, and publication-event state.
 Migration 2 establishes the complete schema-v2 source, evidence, graph,
 embedding, job, attempt, event, and review table set. Checksums are SHA-256 over
 the exact ordered SQL statements with an LF after each statement; the CMake
 proof recomputes them from the source before compiling consumers.
+Migration 3 adds `runtime_instances` and its bounded state/parent indexes; it
+does not change semantic generations or job-item lease ownership.
 
 `ragstore` consumes only the generic SQLite mechanism. It keeps one monotonic
 generation allocator, stages semantic rows inside the same transaction as a
@@ -91,6 +101,15 @@ event, reserves maximum provider usage, settles actual usage, and commits
 proposal promotion only while the same lease/fence/attempt remains active.
 Multiple processes share no mutable cREXX context.
 
+`ragprocess` is the distinct runtime coordination plane. A controller uses the
+public child-process channel to start the same linked application as workers;
+each process opens an independent WAL-enabled SQLite connection. Runtime rows
+carry controller/worker kind, parent id, host, PID, random process-start token,
+mode, optional job filter, state, control request, current item, and database-
+clock heartbeat. Heartbeat expiry is authoritative. `ADDRESS CREXX ps` is used
+only for a same-host diagnostic, never for lease recovery or remote liveness.
+Terminal/stale rows remain until the operator explicitly runs `worker prune`.
+
 Phase 5 keeps query planning deterministic and provider-free. `ragquery` binds
 the active generation, policy, normalized variants, aliases, intent, ambiguity
 and term-statistics fingerprints into a canonical SHA-256 plan. `ragembedding`
@@ -111,10 +130,11 @@ ADDRESS redirection, and `ragmcp` owns strict JSON-RPC/tool translation plus
 the operation. Read and plan open SQLite read-only, and MCP never exposes raw
 SQL or raw entity/edge mutation.
 
-Phase 7 qualifies the corpus and public surfaces but does not add an imaginary
-worker binding. `worker.run` remains undispatched because there is no installed
-production `.ragworkprovider`, and ingestion's `embedding` items have no
-public worker processor. These are recorded cutover blockers. The cREXX hosted
+The Gate-3R process slice dispatches worker lifecycle and supervision but does
+not invent a provider binding. `worker.run` identifies its processor as
+`framework-idle` because there is no installed production `.ragworkprovider`,
+and ingestion's extraction/embedding items have no public processor. These are
+the remaining product-processing blockers. The cREXX hosted
 provider also still loses response completion even though the secret-safe
 external structured-generation and batch-embedding qualification passes.
 
@@ -152,6 +172,11 @@ config/profile validation, registry security, symbolic secrets, zero retained
 secret values, and structural zero-side-effect checks. The language-level
 housekeeping audit also covers this directory.
 
+CTest `p3r_01a_config_file` runs the text projection in all four compiler/VM
+cells and exercises the linked application with zero credential resolution and
+zero outbound calls. `phase6_surfaces` also proves fixed MCP startup from the
+same maintained Google example.
+
 CTest `p2_03_storage_foundation` recomputes migration checksums, compiles the
 schema, store, and scenario in both modes, and runs both VMs. It covers all 32
 logical tables, migration-record 1-to-2 upgrade, idempotence,
@@ -174,6 +199,12 @@ without optimization, then runs `rxvme` and `rxbvm`. It covers all P3-01 through
 P3-09 lifecycle cases, exact tutorial NDJSON, matched generic/Scotland native
 oracle semantics, pinned-reader visibility, and real dual-VM `SIGKILL` rollback
 and resume without duplicate semantic or job rows.
+
+CTest `p3r_01b_process_framework` runs the linked application on `rxvme` and
+`rxbvm`. Each cell starts two real child workers, observes their live
+host/PID/heartbeat rows from a separate process, applies a durable drain,
+forces one worker to terminate, proves stale plus missing-PID diagnostics, and
+then explicitly prunes terminal/stale runtime rows. It makes no provider call.
 
 CTest `phase4_improvement` compiles claims, improvement planning, worker
 orchestration, scenarios, and tutorial in both compiler modes and both concrete

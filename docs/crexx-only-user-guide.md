@@ -2,9 +2,10 @@
 
 Status: current-to-target operator guide, 2026-08-24. The Phase-6 Level-G CLI,
 `ADDRESS RAG`, MCP, installed package, and scoped skills are implemented and
-staged. Gate 7 rejected/deferred cutover, so native-v1 remains the default and
-the production worker/provider plus embedding-item operations called out below
-are not yet operator-ready. Use the [Phase-6 tutorial](tutorials/phase-6-surfaces.md)
+staged. Gate 7 rejected/deferred cutover, so native-v1 remains the default.
+The Gate-3R controller/worker registry is operator-visible, but its worker is
+still `framework-idle`; production provider plus extraction/embedding-item
+processing called out below is not yet ready. Use the [Phase-6 tutorial](tutorials/phase-6-surfaces.md)
 for the installed staged path and the
 [archived native-v1 tutorial](archive/native-v1/tutorial-import-improve-query.md)
 only for the current comparison oracle.
@@ -272,40 +273,60 @@ ingest apply returns the durable job id immediately and refuses a stale plan if
 the library, sources, configuration, profile, provider route, or reservations
 changed.
 
-Applying enqueues work; it does not hide a daemon inside the command. For a
-manual run, process one job explicitly:
+Applying enqueues work; it does not hide a daemon inside the command. The
+installed application now has a process-supervision framework. Start a bounded
+worker group from one terminal:
 
 ```bash
-crexx-rag --library ./architecture.cprag --access ingest \
-  worker run --once --job <job-id>
+crexx-rag --library ./architecture.cprag --access control \
+  worker start --count 4 --poll-ms 1000
 ```
 
-The intended unattended form is `worker run --follow` under launchd, systemd,
-or another operator-owned supervisor. A queued job outlives the terminal;
-progress requires a live or later worker.
+The controller starts four instances of the same `crexx-rag` application as OS
+processes and waits for them. Each process opens its own SQLite connection; no
+cREXX child thread shares a SQLite session. Configuration can supply the count
+with `workers.processes`, and `--count` is an explicit bounded override.
+
+From another terminal—or another host using the same library—inspect the
+database-backed registry:
 
 ```bash
-crexx-rag \
-  --library ./architecture.cprag \
-  --config architecture_local_config \
-  --profile it_architecture_profile \
-  --access ingest,curate \
-  worker run --follow --worker-id architecture-worker-1
+crexx-rag --library ./architecture.cprag --access read worker list
+crexx-rag --library ./architecture.cprag --access read worker list --local
+crexx-rag --library ./architecture.cprag --access read \
+  worker status <worker-or-controller-id>
 ```
 
-The supervisor owns restart and scheduling. An LLM may monitor the job but does
-not gain process-supervision authority through the knowledge tools.
+Each row reports kind, parent controller, host, PID, process-start token, mode,
+state, requested state, heartbeat age, classification, and current item.
+Heartbeat age is the authority for `stale`; same-host `pid_check` is only an
+extra diagnostic because PIDs can be reused and remote PIDs cannot be checked.
+Multiple controllers and independently started workers may coexist.
+
+Drain a live worker cooperatively, or explicitly remove terminal/stale registry
+rows after inspection:
+
+```bash
+crexx-rag --library ./architecture.cprag --access control \
+  worker drain <worker-id>
+crexx-rag --library ./architecture.cprag --access control \
+  worker prune --stale-seconds 300
+```
+
+Pruning does not recover work leases. `ragwork` database-clock leases and
+fences remain the separate authority for queued items. A supervisor owns
+restart and scheduling. An LLM may monitor the registry but does not gain
+process-supervision authority through the knowledge tools.
 
 The underlying Phase-4 worker implementation is database-clock leased
 and fenced, supports bounded once/follow loops, pause/resume/drain, heartbeat,
 retry/dead-letter, cooperative cancellation, exact reservation settlement, and
-multi-process recovery. Phase-7 qualification found that the staged public
-dispatcher does not yet bind `worker.run` to an installed production
-`.ragworkprovider`, and its worker does not process ingestion's queued
-`embedding` items. Therefore this exact start command remains a target
-interface and is not a cutover-ready operator instruction. Status/control
-operations are implemented; use the Phase-4 bounded worker harness only for
-development qualification until the recorded blockers close.
+multi-process recovery. The new public process framework deliberately reports
+`processor=framework-idle`: it proves supervision, communication, status,
+drain, crash/stale detection, and cleanup, but does not yet bind `worker.run`
+to an installed production `.ragworkprovider` or process queued extraction and
+embedding items. Do not expect `worker start` to drain an ingestion job until
+the next Gate-3R processing slice closes that explicit boundary.
 
 Monitor it without reading SQLite directly:
 

@@ -102,7 +102,7 @@ accepted fact.
 
 The retained native-v1 implementation first established the algorithm and is
 still the executable comparison oracle. The cREXX path now implements the
-schema-v2 store, incremental ingestion, claim/review/improvement policy, durable
+schema-v3 store, incremental ingestion, claim/review/improvement policy, durable
 multi-process work, focused hybrid retrieval, typed evidence, and staged public
 surfaces. Phase 7 deliberately deferred production cutover until the remaining
 provider/worker integration and portability gates close.
@@ -113,8 +113,11 @@ mention-evidence rows, 9,080 ranked chunks, and 11,684 embeddings at dimension
 768. These are capacity anchors and migration fixtures, not throughput promises
 for a different corpus, model, or implementation.
 
-> **Programme status, 2026-08-24:** Phases 2 through 6 are implemented and
-> accepted for their recorded macOS scope. Phase 4 includes a literal
+> **Programme status, 2026-08-24:** Phase 2 and the Phase-3 reconciler through
+> Phase 6 are implemented and accepted for their recorded macOS component
+> scopes. Product ingestion acceptance has been reopened as Gate 3R so one
+> installed cREXX application must prove real Gemini ingestion end to end.
+> Phase 4 includes a literal
 > supervised eight-hour soak, and Phase 5 includes bounded hosted answer-quality
 > evidence. Phase 7 qualifies the corpora and external hosted generation and
 > embedding paths but rejects/defers cutover because cREXX hosted response
@@ -132,12 +135,25 @@ for a different corpus, model, or implementation.
 | Phase 1A / Gate 1A | Complete | cREXX application and generic-plugin boundaries selected; CRI-01 through CRI-14 closed downstream |
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | 28 bounded items accepted; Debug/Release build; 55 of 56 tests pass with sole known CRI-15 failure |
 | Phase 2 / Gate 2 | Accepted on macOS 2026-08-23 | P2-01 through P2-10, installed-capability adoption, canonical zero-write planning, and hostile apply-time revalidation are accepted; exact downstream Linux replay remains open |
-| Phase 3 / Gate 3 | Accepted on macOS 2026-08-23 | Level-G initial/incremental ingestion, exact reuse/invalidation, executable tutorial, native semantic delta, and crash resume pass; Linux remains open |
+| Phase 3 / Gate 3R | Product acceptance reopened 2026-08-24; reconciler accepted on macOS 2026-08-23 | Reuse the Level-G incremental reconciler, then prove one installed cREXX application performs real Gemini generation, embedding work, validated claim promotion and public evidence retrieval; Linux remains open |
 | Phase 4 / Gate 4 | Accepted on macOS 2026-08-24 | Claim/support/review, budgeted improvement, crash recovery, two-process fencing, exact reservations, tutorial, literal eight-hour soak, Debug/Release and Apple-ASan pass; Linux remains open |
 | Phase 5 / Gate 5 | Accepted on macOS 2026-08-24 | Focused planning, FTS/exact-vector/directed-graph retrieval, stable evidence/citations, 9/9 deterministic judgements and bounded hosted quality qualification pass; Linux and hosted cREXX transport closure remain open |
 | Phase 6 / Gate 6 | Accepted on macOS 2026-08-24 | Fresh installed Level-G CLI, ADDRESS RAG, MCP structured content, exact plan/apply, zero-write planning, backup/restore and four capability-scoped skills pass in four compiler/VM cells; no cutover is implied |
 | Phase 7 / Gate 7 | Qualification complete; cutover deferred 2026-08-24 | Corpus/lifecycle/surface gates and bounded external OpenAI generation/embedding pass; cREXX hosted completion, public worker/provider and embedding-item integration, full same-session production comparison, and Linux remain open, so native-v1 stays default |
 | Phase 8 | Opportunity report complete; Gate 8 not satisfied 2026-08-24 | Candidates, adopted CREXX capabilities, compatibility, and retirement readiness are assessed without submitting donations, cutting over, or deleting the oracle |
+
+The Gate-3R worktree now builds one linked cREXX application and a native
+package of the same Level-G command main. Its maintained human configuration
+example is `crexx/application/config/google-gemini.conf`; building or running
+`doctor` makes no hosted call. Native-v1 remains the default command until a
+later cutover decision.
+
+The linked application also has the first enduring controller/worker slice:
+`worker start` supervises a bounded number of OS-process workers; list/status,
+drain, stale-heartbeat plus local-PID diagnostics, and explicit pruning
+communicate through schema-v3 SQLite runtime rows. The focused dual-VM test is
+zero-outbound. Workers currently report `processor=framework-idle`; extraction,
+embedding, and provider-backed job completion remain the next Gate-3R slice.
 
 Gate 1B established:
 
@@ -188,10 +204,10 @@ production claim:
   hosted response completion and therefore remains a cutover blocker.
 - The local OpenAI-compatible protocol is qualified against deterministic
   fixtures, but a real `llama-server` deployment was unavailable.
-- The installed Level-G CLI/ADDRESS/MCP surfaces exist, but `worker.run` has no
-  production `.ragworkprovider` dispatch and ingestion embedding items have no
-  public worker processor. There is no dual-write, cutover, or native-core
-  removal.
+- The installed Level-G CLI/ADDRESS/MCP surfaces and public process lifecycle
+  exist, but `worker.run` is still `framework-idle`: it has no production
+  `.ragworkprovider` dispatch and ingestion extraction/embedding items have no
+  public processor. There is no dual-write, cutover, or native-core removal.
 
 ## Roadmap
 

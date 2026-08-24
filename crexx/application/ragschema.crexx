@@ -3,12 +3,13 @@ options levelg
 namespace ragschema expose ragschemaversion migrationname migrationchecksum migrationstatements
 
 ragschemaversion: procedure = .int
-  return 2
+  return 3
 
 migrationname: procedure = .string
   arg version = .int
   if version = 1 then return "library-and-publication"
   if version = 2 then return "product-storage"
+  if version = 3 then return "runtime-process-registry"
   return ""
 
 migrationchecksum: procedure = .string
@@ -16,6 +17,7 @@ migrationchecksum: procedure = .string
   /* SHA-256 of the ordered migration statements, each followed by LF. */
   if version = 1 then return "363ee648abb5332a9085fa9afa94dc4a1c13835945fcd1dc60616d5332e41206"
   if version = 2 then return "54ad8ef343027f977cd64c7b6ebd9c5bde0ad808448006ba4e891ec80478fd0d"
+  if version = 3 then return "df138562a0f8535fb1351b45c0cf4a00525297fc21f22a92f39181603eb81998"
   return ""
 
 migrationstatements: procedure = .int
@@ -67,6 +69,12 @@ migrationstatements: procedure = .int
     statements[statements.0 + 1] = "CREATE INDEX claim_support_visibility ON claim_support(claim_id,visible_from_generation,visible_to_generation)"
     statements[statements.0 + 1] = "CREATE INDEX job_items_claim ON job_items(job_id,state,priority,retry_at,item_id)"
     statements[statements.0 + 1] = "CREATE INDEX job_events_page ON job_events(job_id,event_id)"
+    return statements.0
+  end
+  if version = 3 then do
+    statements[statements.0 + 1] = "CREATE TABLE runtime_instances(instance_id TEXT PRIMARY KEY,kind TEXT NOT NULL CHECK(kind IN('controller','worker')),parent_instance_id TEXT REFERENCES runtime_instances(instance_id) ON DELETE SET NULL,host_id TEXT NOT NULL,pid INTEGER NOT NULL CHECK(pid>=0),process_start_token TEXT NOT NULL,executable_identity TEXT NOT NULL,mode TEXT NOT NULL,job_filter TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN('starting','idle','running','draining','stopped','failed')),requested_state TEXT NOT NULL DEFAULT 'none' CHECK(requested_state IN('none','drain','stop')),current_item_id TEXT NOT NULL DEFAULT '',started_at INTEGER NOT NULL,heartbeat_at INTEGER NOT NULL,stopped_at INTEGER,exit_code INTEGER,detail TEXT NOT NULL DEFAULT '') STRICT"
+    statements[statements.0 + 1] = "CREATE INDEX runtime_instances_state ON runtime_instances(kind,state,heartbeat_at,instance_id)"
+    statements[statements.0 + 1] = "CREATE INDEX runtime_instances_parent ON runtime_instances(parent_instance_id,kind,instance_id)"
     return statements.0
   end
   return -1

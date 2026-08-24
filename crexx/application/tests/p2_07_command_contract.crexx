@@ -13,7 +13,7 @@ check: procedure = .int
   return 0
 
 vocabularyproof: procedure = .int
-  vocabulary = "doctor library.init library.status library.verify library.backup library.restore library.migrate provider.list provider.status provider.test profile.list profile.show profile.validate source.list source.show ingest.plan ingest.apply job.list job.status job.events job.pause job.resume job.cancel worker.run worker.status worker.drain query.search query.evidence query.answer query.trace query.timeline query.path improve.plan improve.apply proposal.plan proposal.apply review.list review.show review.decide serve.mcp"
+  vocabulary = "doctor library.init library.status library.verify library.backup library.restore library.migrate provider.list provider.status provider.test profile.list profile.show profile.validate source.list source.show ingest.plan ingest.apply job.list job.status job.events job.pause job.resume job.cancel worker.start worker.run worker.list worker.status worker.drain worker.prune query.search query.evidence query.answer query.trace query.timeline query.path improve.plan improve.apply proposal.plan proposal.apply review.list review.show review.decide serve.mcp"
   errors = 0
   do i = 1 to words(vocabulary)
     operation = word(vocabulary, i)
@@ -28,7 +28,7 @@ vocabularyproof: procedure = .int
     request = .ragcommandrequest; error = ""
     errors = errors + check(parsecommand(args, request, error) = 0 & request.operation() = operation, "vocabulary " || operation || " " || error)
   end
-  errors = errors + check(words(vocabulary) = 40, "frozen operation count")
+  errors = errors + check(words(vocabulary) = 43, "frozen operation count")
   return errors
 
 parserproof: procedure = .int
@@ -144,5 +144,5 @@ if args.0 < 1 then return 2
 cell = args[1]
 errors = vocabularyproof() + parserproof() + negativeparserproof() + rendererproof() + invalidrendererproof() + exitproof()
 if errors \= 0 then return 1
-say "P2_07_COMMAND_OK cell=" || cell || " operations=40 exit_codes=11 formats=human,json,ndjson json_schema=crexx-rag.command-result/1 parser_writes=0 provider_calls=0"
+say "P2_07_COMMAND_OK cell=" || cell || " operations=43 exit_codes=11 formats=human,json,ndjson json_schema=crexx-rag.command-result/1 parser_writes=0 provider_calls=0"
 return 0

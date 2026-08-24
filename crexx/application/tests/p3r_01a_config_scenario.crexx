@@ -1,0 +1,53 @@
+options levelg
+
+import rxfnsb
+import ragconfig
+import ragconfigfile
+import ragfile
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P3R_01A_FAIL=" || label
+    return 1
+  end
+  return 0
+
+rejected: procedure = .int
+  arg text = .string, marker = .string
+  candidate = .ragconfig; error = ""
+  status = parseconfigtext(text, candidate, error)
+  return status \= 0 & pos(marker, error) > 0
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 \= 2 then do; say "P3R_01A_FAIL=arguments"; return 1; end
+  cell = args[1]; path = args[2]; errors = 0; error = ""
+
+  config = .ragconfig
+  errors = errors + check(loadconfigfile(path, config, error) = 0, "bounded file load " || error)
+  providers = config.providers(); roles = config.roles(); sources = config.source_sets()
+  config_snapshot = config.snapshot(); budget = config.budget(); workers = config.workers()
+  errors = errors + check(config.config_id() = "google-gemini" & config.version() = "1", "identity")
+  errors = errors + check(providers.0 = 2 & providers[1].kind() = "gemini" & providers[2].kind() = "gemini", "Google providers")
+  errors = errors + check(providers[1].credential().ref_string() = "env:GEMINI_API_KEY" & config_snapshot.secret_reference_count() = 2, "symbolic secrets")
+  errors = errors + check(roles.0 = 3 & sources.0 = 1 & sources[1].root() = "./source-docs", "roles and source")
+  errors = errors + check(budget.model_calls() = 50 & budget.input_tokens() = 100000 & workers.processes() = 1 & workers.max_in_flight() = 1, "bounded policy")
+
+  raw = .binary; bytes = 0
+  errors = errors + check(ragfile..readbinaryfilebounded(path, 65536, raw, bytes, error) = 0, "fixture reread")
+  text = raw as .string
+  errors = errors + check(rejected(text || "0A"x || "config.id = duplicate", "duplicated") = 1, "duplicate rejection")
+  errors = errors + check(rejected(text || "0A"x || "module.loader = arbitrary.crexx", "unknown or invalid key") = 1, "module key rejection")
+  errors = errors + check(rejected(changestr("env:GEMINI_API_KEY", text, "literal-secret"), "literal secrets are forbidden") = 1, "literal secret rejection")
+  errors = errors + check(rejected(changestr("./source-docs", text, "../source-docs"), "traversal") = 1, "path traversal rejection")
+  errors = errors + check(rejected(changestr("kind = gemini", text, "kind = unsupported"), "provider kind is not supported") = 1, "provider kind rejection")
+  errors = errors + check(rejected(changestr("https://", text, "http://"), "hosted provider URL must use HTTPS") = 1, "hosted route rejection")
+  errors = errors + check(rejected(changestr("crexx-rag.config/1", text, "crexx-rag.config/2"), "unsupported configuration format") = 1, "format version rejection")
+  errors = errors + check(rejected(changestr("budget.model_calls = 50", text, "budget.model_calls = 050"), "canonical integer syntax") = 1, "integer syntax rejection")
+  errors = errors + check(rejected(copies("x", 65537), "65536") = 1, "file-size bound")
+  errors = errors + check(rejected(copies("# bounded" || "0A"x, 513), "512-line") = 1, "line-count bound")
+
+  if errors > 0 then return 1
+  say "P3R_01A_CONFIG_OK cell=" || cell || " format=1 settings=bounded providers=2 gemini=2 env_refs=2 literal_secrets=0 executable_modules=0 provider_calls=0"
+  return 0

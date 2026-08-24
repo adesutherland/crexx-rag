@@ -1,19 +1,46 @@
 options levelg
 
+import rxfnsb
 import ragcommand
+import ragconfig
+import ragconfigfile
 import ragproduct
 import operator_registry
 
 main: procedure = .int
 arg args = .string[]
-alias = ""; command_args = _aliases(args, alias)
-request = .ragcommandrequest; error = ""
+alias = ""; error = ""; config_path = ""
+command_args = _configfileargs(args, config_path, error)
+if error \= "" then do
+  say "ERROR config [configuration]: " || error
+  return 3
+end
+registry = operatorregistry()
+if config_path \= "" then do
+  loaded_config = .ragconfig
+  if loadconfigfile(config_path, loaded_config, error) \= 0 then do
+    say "ERROR config [configuration]: " || error
+    return 3
+  end
+  command_args = _bindloadedconfig(command_args, loaded_config.config_id(), error)
+  if error \= "" then do
+    say "ERROR config [configuration]: " || error
+    return 3
+  end
+  registry = operatorregistryforconfig(loaded_config)
+  if registry.valid() \= 1 then do
+    say "ERROR config [configuration]: loaded configuration references an unregistered profile"
+    return 3
+  end
+end
+command_args = _aliases(command_args, alias)
+request = .ragcommandrequest
 parse_status = parsecommand(command_args, request, error)
 if parse_status \= 0 then do
   say "ERROR parse [usage]: " || error
   return 2
 end
-result = dispatchproduct(request, operatorregistry())
+result = dispatchproduct(request, registry)
 if alias \= "" then result = _deprecated(result, alias)
 output = ""
 if rendercommandresult(result, request.format(), output, error) \= 0 then do
@@ -22,6 +49,50 @@ if rendercommandresult(result, request.format(), output, error) \= 0 then do
 end
 say output
 return result.exit_code()
+
+_configfileargs: procedure = .string[]
+  arg args = .string[], expose config_path = .string, expose error = .string
+  config_path = ""; error = ""; output = .string[]; global_options = 1; i = 1
+  do while i <= args.0
+    token = args[i]
+    if global_options = 1 & left(token, 2) \= "--" then global_options = 0
+    if global_options = 1 & (token = "--config-file" | left(token, 14) = "--config-file=") then do
+      if config_path \= "" then do; error = "--config-file may be supplied once"; return output; end
+      if token = "--config-file" then do
+        if i = args.0 | left(args[i + 1], 2) = "--" then do; error = "--config-file requires a path"; return output; end
+        i = i + 1; config_path = args[i]
+      end
+      else config_path = substr(token, 15)
+      if config_path = "" | length(config_path) > 4096 | pos("00"x, config_path) > 0 then do; error = "--config-file path is invalid"; return output; end
+    end
+    else output[output.0 + 1] = token
+    i = i + 1
+  end
+  return output
+
+_bindloadedconfig: procedure = .string[]
+  arg args = .string[], config_id = .string, expose error = .string
+  selected = ""; index = 1
+  do while index <= args.0 & left(args[index], 2) = "--"
+    token = args[index]
+    if token = "--config" then do
+      if index = args.0 then do; error = "--config requires a value"; return args; end
+      selected = args[index + 1]; index = index + 1
+    end
+    else if left(token, 9) = "--config=" then selected = substr(token, 10)
+    else if pos("=", token) = 0 then index = index + 1
+    index = index + 1
+  end
+  if selected \= "" & selected \= config_id then do
+    error = "--config does not match config.id in --config-file"
+    return args
+  end
+  if selected \= "" then return args
+  output = .string[]; output[1] = "--config"; output[2] = config_id
+  do i = 1 to args.0
+    output[output.0 + 1] = args[i]
+  end
+  return output
 
 _aliases: procedure = .string[]
   arg args = .string[], expose alias = .string

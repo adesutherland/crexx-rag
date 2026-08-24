@@ -46,9 +46,9 @@ endfunction()
 
 compile_module("${provider}/provider_contract.crexx" provider_contract)
 foreach(module IN ITEMS ragmodel ragevidence ragjob ragconfig ragprofile ragregistry
-        ragschema ragfile ragstore ragbackup ragrepository ragcanonical ragplanning
+        ragschema ragfile ragconfigfile ragstore ragbackup ragrepository ragcanonical ragplanning
         ragcommand ragingest ragfolder ragclaims ragimprove ragwork ragquery
-        ragembedding ragretrieval ragevidencejson ragfoundation ragproduct)
+        ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragproduct)
     compile_module("${application}/${module}.crexx" "${module}")
 endforeach()
 compile_module("${application}/config/architecture_local_config.crexx" architecture_local_config)
@@ -59,5 +59,5 @@ compile_module("${application}/surfaces/crexx_rag_cli.crexx" crexx_rag_cli)
 compile_module("${application}/surfaces/rag_address_environment.crexx" rag_address_environment)
 compile_module("${application}/surfaces/ragmcp.crexx" ragmcp)
 file(WRITE "${CPRAG_OUTPUT_DIR}/runtime-modules.txt"
-    "provider_contract ragmodel ragevidence ragjob ragconfig ragprofile ragregistry ragschema ragfile ragstore ragbackup ragrepository ragcanonical ragplanning ragcommand ragingest ragfolder ragclaims ragimprove ragwork ragquery ragembedding ragretrieval ragevidencejson ragfoundation ragproduct architecture_local_config generic_profile it_architecture_profile operator_registry rx_sqlite_boundary rx_hash rx_system rxfs rxvector rxfnsg library\n")
+    "provider_contract ragmodel ragevidence ragjob ragconfig ragprofile ragregistry ragschema ragfile ragconfigfile ragstore ragbackup ragrepository ragcanonical ragplanning ragcommand ragingest ragfolder ragclaims ragimprove ragwork ragquery ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragproduct architecture_local_config generic_profile it_architecture_profile operator_registry rx_sqlite_boundary rx_hash rx_system rxfs rxvector rxfnsg classlib library\n")
 message(STATUS "Installed cREXX-RAG application compiled ${mode_name} without source-tree fallback: ${CPRAG_OUTPUT_DIR}")

@@ -4,7 +4,7 @@ namespace ragstore expose ragstorehandle ragreadsnapshot ragstorestatus ragverif
 
 import rxfnsb
 import rxjson
-import system
+import rxfs
 import sqlite_boundary
 import ragschema
 import ragfile
@@ -239,18 +239,18 @@ initragstore: procedure = .int
     error = "initial library identity and snapshot fields are required"
     return -1
   end
-  if testdir(path) = 0 then do
+  if rxfs..isdir(path) = 1 then do
     error = "library path already exists"
     return -2
   end
-  if createdir(path) \= 0 then do
+  if rxfs..mkdir(path) \= 0 then do
     error = "could not create library path"
     return -2
   end
   database = .binary
   if sqliteopenmode(path || "/library.sqlite", "create", database) \= 0 then do
     ignored = _sqlitefailure("create library database", error)
-    call removedir path
+    call rxfs..rmdir path
     return -3
   end
   if _configurereadwrite(database, error) \= 0 | applymigrations(database, "crexx-rag-p2-03", ragschemaversion(), error) \= 0 then do
@@ -300,7 +300,7 @@ openragstore: procedure = .int
     error = "access must be readonly or readwrite"
     return -1
   end
-  if testfile(path || "/library.sqlite") \= 0 then do
+  if rxfs..isfile(path || "/library.sqlite") \= 1 then do
     error = "library database does not exist"
     return -2
   end
@@ -552,7 +552,7 @@ writemanifesttemporary: procedure = .int
 _writemanifestcontent: procedure = .int
   arg store = .ragstorehandle, manifest = .string, expose error = .string
   temporary = store.path() || "/manifest.json.new"
-  if testfile(temporary) = 0 & deletefile(temporary) \= 0 then do
+  if rxfs..isfile(temporary) = 1 & rxfs..delete(temporary) \= 0 then do
     error = "could not replace temporary manifest"
     return -2
   end
@@ -573,7 +573,7 @@ _renamemanifest: procedure = .int
   arg store = .ragstorehandle, expose error = .string
   temporary = store.path() || "/manifest.json.new"
   final = store.path() || "/manifest.json"
-  if renamefile(temporary, final) \= 0 then do
+  if rxfs..rename(temporary, final) \= 0 then do
     error = "could not atomically publish manifest"
     return -2
   end
@@ -586,8 +586,8 @@ manifeststate: procedure = .int
     error = "store is closed"
     return -5
   end
-  temporary_present = testfile(store.path() || "/manifest.json.new") = 0
-  if testfile(store.path() || "/manifest.json") \= 0 then do
+  temporary_present = rxfs..isfile(store.path() || "/manifest.json.new") = 1
+  if rxfs..isfile(store.path() || "/manifest.json") \= 1 then do
     state = "missing"
     if temporary_present then state = "missing-temp"
     return 0
@@ -808,7 +808,7 @@ _manifestsidecarstate: procedure = .int
     item = document.element(sidecars, i)
     vector_generation_id = ""; semantic_generation = 0; embedding_profile_id = ""; sidecar_name = ""; sidecar_checksum = ""; dimension = 0
     if document.node_type(item) \= "object" | document.node_string(document.member(item, "vector_generation_id"), vector_generation_id) \= 0 | document.node_int(document.member(item, "semantic_generation"), semantic_generation) \= 0 | document.node_string(document.member(item, "embedding_profile_id"), embedding_profile_id) \= 0 | document.node_string(document.member(item, "name"), sidecar_name) \= 0 | document.node_string(document.member(item, "sha256"), sidecar_checksum) \= 0 | document.node_int(document.member(item, "dimension"), dimension) \= 0 then return -1
-    if semantic_generation \= generation | dimension < 1 | _safesidecarname(sidecar_name) \= 1 | _validsha256(sidecar_checksum) \= 1 | testfile(path || "/" || sidecar_name) \= 0 then return -1
+    if semantic_generation \= generation | dimension < 1 | _safesidecarname(sidecar_name) \= 1 | _validsha256(sidecar_checksum) \= 1 | rxfs..isfile(path || "/" || sidecar_name) \= 1 then return -1
     sql = "SELECT count(*) FROM vector_generations WHERE state='published' AND vector_generation_id=" || _sqlquote(vector_generation_id) || " AND semantic_generation=" || semantic_generation || " AND embedding_profile_id=" || _sqlquote(embedding_profile_id) || " AND sidecar_name=" || _sqlquote(sidecar_name) || " AND sidecar_checksum=" || _sqlquote(sidecar_checksum) || " AND dimension=" || dimension
     if _scalarint(database, sql, error) \= 1 then return -1
   end
@@ -832,7 +832,7 @@ _activesidecarfilesvalid: procedure = .int
     column_status = sqlitecolumntext(prepared, 0, sidecar_name)
     column_status = column_status | sqlitecolumntext(prepared, 1, expected_checksum)
     actual_checksum = ""; byte_count = 0; detail = ""
-    if column_status \= 0 | _safesidecarname(sidecar_name) \= 1 | testfile(path || "/" || sidecar_name) \= 0 | ragfile..sha256filebounded(path || "/" || sidecar_name, 2147483647, actual_checksum, byte_count, detail) \= 0 | actual_checksum \= expected_checksum then do
+    if column_status \= 0 | _safesidecarname(sidecar_name) \= 1 | rxfs..isfile(path || "/" || sidecar_name) \= 1 | ragfile..sha256filebounded(path || "/" || sidecar_name, 2147483647, actual_checksum, byte_count, detail) \= 0 | actual_checksum \= expected_checksum then do
       call sqlitefinalize prepared
       if detail \= "" then error = detail
       return 0
@@ -994,12 +994,12 @@ _initfailure: procedure = .int
 
 _removefailedlibrary: procedure
   arg path = .string
-  call deletefile path || "/manifest.json.new"
-  call deletefile path || "/manifest.json"
-  call deletefile path || "/library.sqlite-wal"
-  call deletefile path || "/library.sqlite-shm"
-  call deletefile path || "/library.sqlite"
-  call removedir path
+  call rxfs..delete path || "/manifest.json.new"
+  call rxfs..delete path || "/manifest.json"
+  call rxfs..delete path || "/library.sqlite-wal"
+  call rxfs..delete path || "/library.sqlite-shm"
+  call rxfs..delete path || "/library.sqlite"
+  call rxfs..rmdir path
   return
 
 _addissue: procedure = .string

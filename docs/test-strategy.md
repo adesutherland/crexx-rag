@@ -150,7 +150,8 @@ snapshots, persistence, command parsing, or provider execution.
 `P2-03` accepts the Level-G storage foundation through
 `p2_03_storage_foundation`. Before compilation, CMake recomputes the SHA-256 of
 each ordered migration's exact DDL. Optimized/non-optimized consumers on both
-VMs cover all 32 schema-v2 logical tables, migration-record 1-to-2 upgrade,
+VMs cover the 32 accepted schema-v2 semantic tables plus the schema-v3 runtime
+registry, migration-record 1-to-2 upgrade and current migration-3 checksum,
 idempotent reapply with no row changes, downgrade/checksum denial,
 transactional failed DDL, generation immutability, old/new reader snapshots,
 visibility, manifest lag/recovery, full verification, ancestor rollback,
@@ -267,7 +268,7 @@ fallback and recommends separately authorized generic `rxvector`
 qualification; no accelerator is implemented or selected without a matched
 benchmark.
 
-## Phase 3 Acceptance
+## Phase 3 Reconciler Component Acceptance
 
 CTest `phase3_ingestion` is the permanent Gate-3 proof. It compiles the schema,
 Level-B bounded file boundary, Level-G store/repositories/reconciler/folder
@@ -295,6 +296,44 @@ All recurring Phase-3 QA is credential-free and asserts zero provider calls.
 Hosted extraction, generation and embedding qualifications begin only in their
 later phase-specific, secret-gated targets with explicit call/token/cost/privacy
 budgets. Credential values must never enter CTest output or retained evidence.
+
+The 2026-08-24 product re-baseline keeps this complete matrix as permanent
+component regression evidence but no longer treats it as the end-to-end product
+gate.
+
+`p3r_01a_config_file` is the permanent four-cell contract for the bounded
+human text projection and linked application. `phase6_surfaces` proves that MCP
+fixes the selected file at startup. Both are zero-outbound and reject literal
+credentials.
+
+`p3r_01b_process_framework` runs the linked application on both concrete VMs.
+Each cell creates a fresh schema-v3 library, starts one controller plus two
+actual worker processes through the public child-process channel, and observes
+the live rows from a separate application process. It then proves durable
+drain, clean terminal state, forced-process termination, database-clock stale
+classification, same-host missing-PID diagnostics, and explicit terminal/stale
+pruning. The test is bounded, zero-outbound, and does not substitute its
+`framework-idle` worker for the pending provider/ingestion processor tests.
+
+## Gate 3R Product Ingestion Acceptance
+
+The authoritative sequence and assertions are in the
+[`Gate-3R acceptance contract`](evidence/2026-08-24-phase3-product-rebaseline/ACCEPTANCE-CONTRACT.md).
+Recurring CTest must build the linked installed cREXX application without a
+source fallback and exercise the public CLI over deterministic provider shapes
+for local OpenAI-compatible, OpenAI, Anthropic, and Gemini adapters. It must
+cover exact work-input binding, both claim-extraction and embedding item
+ownership, candidate-to-concept promotion, proposal validation, worker
+dispatch, job/reservation reconciliation, query-visible support, no-op replay,
+changed-source invalidation, restart idempotency, privacy denial, and secret
+absence.
+
+The final gate also requires a separate non-recurring, explicitly budgeted real
+Google Gemini run over public synthetic material. A direct provider probe,
+source-level scenario, phase tutorial, pre-seeded graph, deterministic fixture,
+or native-v1 command cannot satisfy that gate. The live result records only
+symbolic credential reference, hashes, provider/model/request identity, usage,
+cost, latency, normalized result, final counts, and stable citation.
 
 ## Phase 4 Acceptance
 
@@ -415,8 +454,9 @@ reproduces the current cREXX response-completion failure and is expected to
 exit nonzero until that blocker is repaired.
 
 Gate 7 selects reject/defer cutover. This is a completed negative production-
-selection result: cREXX hosted completion is unreliable, the public dispatcher
-lacks a production worker provider, embedding work is not publicly drained,
+selection result: cREXX hosted completion is unreliable, the public process
+lifecycle now exists but lacks a production worker provider, embedding work is
+not publicly drained,
 several production-shaped same-session measurements are absent, and exact Linux
 remains open. Native-v1 therefore remains the default oracle.
 

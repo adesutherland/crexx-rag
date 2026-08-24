@@ -375,7 +375,8 @@ validateconfig: procedure = .ragvalidationresult
   budget = config.budget()
   if budget.minutes() < 0 | budget.item_limit() < 0 | budget.model_calls() < 0 | budget.input_tokens() < 0 | budget.output_tokens() < 0 | budget.cost_microunits() < 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_budget", "budget", "budget ceilings cannot be negative")
   workers = config.workers()
-  if workers.processes() \= 1 | workers.max_in_flight() \= 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "worker_scope", "workers", "current qualification permits one process and one in-flight item")
+  if workers.processes() < 1 | workers.processes() > 32 then issues[issues.0 + 1] = .ragvalidationissue("config", "worker_processes", "workers.processes", "worker processes must be from 1 through 32")
+  if workers.max_in_flight() \= 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "worker_in_flight", "workers.max_in_flight", "each worker process currently owns one in-flight item")
   if workers.lease_seconds() <= 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_lease", "workers.lease_seconds", "worker lease must be positive")
 
   schedules = config.schedules()

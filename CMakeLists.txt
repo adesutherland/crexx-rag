@@ -16,6 +16,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(CPRAG_BUILD_CLI "Build the crexx-rag command line tool" ON)
 option(CPRAG_BUILD_MCP "Build the crexx-rag-mcp stdio server" ON)
 option(CPRAG_BUILD_CREXX_PLUGIN "Build the CREXX rxpa plugin when CREXX_ROOT is available" ON)
+option(CPRAG_BUILD_CREXX_APPLICATION "Build the linked cREXX product application" ON)
 option(CPRAG_BUILD_TESTS "Build unit tests" ON)
 option(CPRAG_ENABLE_FAISS "Enable optional FAISS-backed vector index support" OFF)
 option(CPRAG_ALLOW_VENDORED_CREXXPA "Retired compatibility option; ignored" OFF)
@@ -30,6 +31,7 @@ if(CPRAG_ALLOW_VENDORED_CREXXPA OR CPRAG_ALLOW_CREXX_SOURCE_FALLBACK)
     set(CPRAG_ALLOW_CREXX_SOURCE_FALLBACK OFF CACHE BOOL
         "Retired compatibility option; ignored" FORCE)
 endif()
+
 mark_as_advanced(
     CPRAG_ALLOW_VENDORED_CREXXPA
     CPRAG_ALLOW_CREXX_SOURCE_FALLBACK)
@@ -151,6 +153,167 @@ if(CPRAG_BUILD_CREXX_PLUGIN)
     endif()
 endif()
 
+if(CPRAG_BUILD_CREXX_APPLICATION AND CREXX_FOUND AND
+        TARGET _sqlite_boundary AND TARGET _sqlite_boundary_static)
+    set(CPRAG_CREXX_APPLICATION_DIR "${CMAKE_BINARY_DIR}/crexx-application")
+    set(CPRAG_CREXX_APPLICATION_RXBIN
+        "${CPRAG_CREXX_APPLICATION_DIR}/crexx-rag.rxbin")
+    set(CPRAG_CREXX_APPLICATION_SOURCES
+        "${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_contract.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragmodel.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragevidence.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragjob.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragconfig.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragconfigfile.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragprofile.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragregistry.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragschema.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragfile.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragstore.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragbackup.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragrepository.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragcanonical.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragplanning.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragcommand.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragingest.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragfolder.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragclaims.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragimprove.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragwork.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragquery.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragembedding.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragretrieval.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragevidencejson.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragfoundation.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragprocess.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragproduct.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/architecture_local_config.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/profiles/generic_profile.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/profiles/it_architecture_profile.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/operator_registry.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/surfaces/crexx_rag_cli.crexx")
+    add_custom_command(
+        OUTPUT "${CPRAG_CREXX_APPLICATION_RXBIN}"
+        BYPRODUCTS
+            "${CPRAG_CREXX_APPLICATION_DIR}/crexx-rag.map"
+            "${CPRAG_CREXX_APPLICATION_DIR}/crexx-rag.rxproviders"
+            "${CPRAG_CREXX_APPLICATION_DIR}/artifact.txt"
+            "${CPRAG_CREXX_APPLICATION_DIR}/providers/rx_sqlite_boundary.rxplugin"
+        COMMAND "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXLINK=${CREXX_RXLINK_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_PROVIDER_DIR=${CMAKE_BINARY_DIR}/bin/providers"
+            "-DCPRAG_APP_DIR=${CMAKE_CURRENT_LIST_DIR}/crexx/application"
+            "-DCPRAG_PROVIDER_DIR=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider"
+            "-DCPRAG_OUTPUT_DIR=${CPRAG_CREXX_APPLICATION_DIR}"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/BuildCrexxRagApplication.cmake"
+        DEPENDS
+            ${CPRAG_CREXX_APPLICATION_SOURCES}
+            _sqlite_boundary
+            _sqlite_boundary_static
+            "${CMAKE_CURRENT_LIST_DIR}/cmake/BuildCrexxRagApplication.cmake"
+        COMMENT "Building the linked Level-G crexx-rag application"
+        VERBATIM)
+    add_custom_target(crexx_rag_application ALL
+        DEPENDS "${CPRAG_CREXX_APPLICATION_RXBIN}")
+
+    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/crexx-product")
+    configure_file(
+        "${CMAKE_CURRENT_LIST_DIR}/cmake/crexx-rag-launcher.in"
+        "${CMAKE_BINARY_DIR}/crexx-product/crexx-rag"
+        @ONLY)
+    file(CHMOD "${CMAKE_BINARY_DIR}/crexx-product/crexx-rag"
+        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+            GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+    add_custom_command(
+        OUTPUT "${CMAKE_BINARY_DIR}/crexx-product/crexx-rag.rxbin"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CPRAG_CREXX_APPLICATION_RXBIN}"
+            "${CMAKE_BINARY_DIR}/crexx-product/crexx-rag.rxbin"
+        COMMAND "${CMAKE_COMMAND}" -E copy_directory
+            "${CPRAG_CREXX_APPLICATION_DIR}/providers"
+            "${CMAKE_BINARY_DIR}/crexx-product/providers"
+        DEPENDS "${CPRAG_CREXX_APPLICATION_RXBIN}"
+        COMMENT "Staging the runnable crexx-rag product directory"
+        VERBATIM)
+    add_custom_target(crexx_rag_product ALL
+        DEPENDS "${CMAKE_BINARY_DIR}/crexx-product/crexx-rag.rxbin")
+
+    add_custom_target(crexx_rag_native_attempt
+        COMMAND "${CMAKE_COMMAND}"
+            "-DCPRAG_CREXX_PACKAGE_PREFIX=${CREXX_PACKAGE_PREFIX}"
+            "-DCPRAG_APPLICATION_DIR=${CPRAG_CREXX_APPLICATION_DIR}"
+            "-DCPRAG_SQLITE_PROVIDER_ARCHIVE=${CMAKE_BINARY_DIR}/bin/providers/rx_sqlite_boundary${CMAKE_STATIC_LIBRARY_SUFFIX}"
+            "-DCPRAG_MAIN_SOURCE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/surfaces/crexx_rag_cli.crexx"
+            "-DCPRAG_OUTPUT_DIR=${CMAKE_BINARY_DIR}/crexx-native-attempt"
+            "-DCMAKE_EXECUTABLE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/AttemptNativeCrexxRag.cmake"
+        DEPENDS
+            crexx_rag_application
+            _sqlite_boundary_static
+            "${CMAKE_CURRENT_LIST_DIR}/cmake/AttemptNativeCrexxRag.cmake"
+        COMMENT "Attempting a native package of the Level-G crexx-rag application"
+        USES_TERMINAL
+        VERBATIM)
+
+    if(CPRAG_BUILD_TESTS)
+        add_test(
+            NAME crexx_rag_application_smoke
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+                "-DCPRAG_APPLICATION=${CPRAG_CREXX_APPLICATION_RXBIN}"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/crexx-application-smoke"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/CrexxRagApplicationSmoke.cmake")
+        set_tests_properties(crexx_rag_application_smoke PROPERTIES
+            LABELS "crexx;levelg;application;linked;installed-shape;sqlite;provider;autoload;zero-outbound")
+
+        add_test(
+            NAME p3r_01a_config_file
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+                "-DCPRAG_MODEL=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragmodel.crexx"
+                "-DCPRAG_CONFIG=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragconfig.crexx"
+                "-DCPRAG_FILE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragfile.crexx"
+                "-DCPRAG_CONFIG_FILE_MODULE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragconfigfile.crexx"
+                "-DCPRAG_SCENARIO=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p3r_01a_config_scenario.crexx"
+                "-DCPRAG_FIXTURE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/google-gemini.conf"
+                "-DCPRAG_APPLICATION=${CPRAG_CREXX_APPLICATION_RXBIN}"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p3r-01a-config"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P3R01AConfig.cmake")
+        set_tests_properties(p3r_01a_config_file PROPERTIES
+            LABELS "P3R-01A;phase3r;crexx;levelg;application;config;gemini;privacy;installed-shape;zero-outbound")
+
+        add_test(
+            NAME p3r_01b_process_framework
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_APPLICATION=${CPRAG_CREXX_APPLICATION_RXBIN}"
+                "-DCPRAG_LAUNCHER=${CMAKE_BINARY_DIR}/crexx-product/crexx-rag"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p3r-01b-process-framework"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P3R01BProcessFramework.cmake")
+        set_tests_properties(p3r_01b_process_framework PROPERTIES
+            LABELS "P3R-01B;phase3r;crexx;levelg;application;process;sqlite;multi-process;worker;zero-outbound")
+    endif()
+
+    install(FILES "${CPRAG_CREXX_APPLICATION_RXBIN}"
+        DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/crexx-rag")
+    install(PROGRAMS "${CMAKE_BINARY_DIR}/crexx-product/crexx-rag"
+        DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/crexx-rag")
+    install(FILES
+        "${CPRAG_CREXX_APPLICATION_DIR}/providers/rx_sqlite_boundary.rxplugin"
+        DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/crexx-rag/providers")
+endif()
+
 install(TARGETS cprag_core
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
@@ -173,7 +336,7 @@ if(TARGET _sqlite_boundary_static)
 endif()
 install(DIRECTORY crexx/application/
     DESTINATION "${CMAKE_INSTALL_DATADIR}/crexx-rag/application"
-    FILES_MATCHING PATTERN "*.crexx" PATTERN "README.md" PATTERN "SYSTEM.md")
+    FILES_MATCHING PATTERN "*.crexx" PATTERN "*.conf" PATTERN "README.md" PATTERN "SYSTEM.md")
 install(DIRECTORY incubator/phase1b/provider/
     DESTINATION "${CMAKE_INSTALL_DATADIR}/crexx-rag/provider"
     FILES_MATCHING PATTERN "*.crexx" PATTERN "README.md" PATTERN "SYSTEM.md")
@@ -531,6 +694,7 @@ if(CPRAG_BUILD_TESTS)
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P1ASqliteBoundary.cmake")
         set_tests_properties(p1a_sqlite_boundary PROPERTIES
             LABELS "p1a;sqlite;typed;incubator")
+
         set(P1_SQL_01_COMMAND
             "${CMAKE_COMMAND}"
             "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
@@ -1574,6 +1738,7 @@ if(CPRAG_BUILD_TESTS)
             "-DCPRAG_PROVIDER_CONTRACT=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_contract.crexx"
             "-DCPRAG_ADDRESS_SCENARIO=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p6_02_address_scenario.crexx"
             "-DCPRAG_MCP_SCENARIO=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p6_03_mcp_scenario.crexx"
+            "-DCPRAG_CONFIG_FIXTURE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/google-gemini.conf"
             "-DCPRAG_TUTORIAL_FIXTURE=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/tutorial/architecture-mini"
             "-DCPRAG_SKILLS_DIR=${CMAKE_CURRENT_LIST_DIR}/skills"
             "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/phase6-surfaces"

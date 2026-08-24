@@ -1,0 +1,283 @@
+options levelg
+
+namespace ragconfigfile expose loadconfigfile parseconfigtext
+
+import rxfnsb
+import ragmodel
+import ragconfig
+import ragfile
+
+/* Human configuration is data, never executable module selection. The parser
+ * is intentionally small, bounded, strict, and projects only into ragconfig. */
+loadconfigfile: procedure = .int
+  arg path = .string, expose config = .ragconfig, expose error = .string
+  config = invalidconfig(); error = ""
+  if path = "" | length(path) > 4096 | pos("00"x, path) > 0 then return _fail("configuration file path is invalid", error)
+  raw = .binary; bytes = 0
+  if ragfile..readbinaryfilebounded(path, 65536, raw, bytes, error) \= 0 then do
+    error = "configuration file could not be read within the 65536-byte ceiling: " || error
+    return -1
+  end
+  return parseconfigtext(raw as .string, config, error)
+
+parseconfigtext: procedure = .int
+  arg text = .string, expose config = .ragconfig, expose error = .string
+  config = invalidconfig(); error = ""
+  if length(text) < 1 | length(text) > 65536 then return _fail("configuration text must contain 1 through 65536 bytes", error)
+  if pos("00"x, text) > 0 then return _fail("configuration text contains a NUL byte", error)
+  keys = .string[]; values = .string[]; start = 1; line_number = 0
+  do forever
+    marker = pos("0A"x, text, start)
+    if marker = 0 then line = substr(text, start)
+    else line = substr(text, start, marker - start)
+    line_number = line_number + 1
+    if line_number > 512 then return _fail("configuration exceeds the 512-line ceiling", error)
+    if right(line, 1) = "0D"x then line = left(line, length(line) - 1)
+    if length(line) > 4096 then return _fail("configuration line " || line_number || " exceeds 4096 bytes", error)
+    if _hascontrol(line) = 1 then return _fail("configuration line " || line_number || " contains a control character", error)
+    line = strip(line)
+    if line \= "" & left(line, 1) \= "#" then do
+      equals = pos("=", line)
+      if equals < 2 then return _fail("configuration line " || line_number || " must be key = value", error)
+      key = strip(substr(line, 1, equals - 1)); value = strip(substr(line, equals + 1))
+      if key = "" | value = "" | length(key) > 256 | length(value) > 4096 then return _fail("configuration line " || line_number || " has an invalid key or value", error)
+      if key \= lower(key) | _validconfigkey(key) \= 1 then return _fail("configuration line " || line_number || " has unknown or invalid key " || key, error)
+      if _contains(keys, key) = 1 then return _fail("configuration key is duplicated: " || key, error)
+      keys[keys.0 + 1] = key; values[values.0 + 1] = value
+      if keys.0 > 256 then return _fail("configuration exceeds the 256-setting ceiling", error)
+    end
+    if marker = 0 then leave
+    start = marker + 1
+  end
+
+  format = _required(keys, values, "format", error)
+  if error \= "" then return -1
+  if format \= "crexx-rag.config/1" then return _fail("unsupported configuration format " || format, error)
+  config_id = _required(keys, values, "config.id", error)
+  version = _required(keys, values, "config.version", error)
+  if error \= "" then return -1
+
+  source_ids = .string[]
+  if _entityids(keys, "source.", 32, source_ids, error) \= 0 then return -1
+  if source_ids.0 = 0 then return _fail("configuration requires at least one source", error)
+  source_sets = .ragsourceset[]
+  do i = 1 to source_ids.0
+    prefix = "source." || source_ids[i] || "."
+    connector = _required(keys, values, prefix || "connector", error)
+    root = _required(keys, values, prefix || "root", error)
+    include_text = _required(keys, values, prefix || "include", error)
+    stable_key = _required(keys, values, prefix || "stable_key", error)
+    privacy = _required(keys, values, prefix || "privacy", error)
+    retain_text = _required(keys, values, prefix || "retain_raw_artifact", error)
+    if error \= "" then return -1
+    if _safesourcepath(root) \= 1 then return _fail(prefix || "root contains traversal or a control character", error)
+    patterns = .string[]
+    if _csv(include_text, 32, 256, patterns, error) \= 0 then return -1
+    do j = 1 to patterns.0
+      if _safepattern(patterns[j]) \= 1 then return _fail(prefix || "include contains an unsafe pattern", error)
+    end
+    retain = 0
+    if _boolean(retain_text, prefix || "retain_raw_artifact", retain, error) \= 0 then return -1
+    source_sets[i] = .ragsourceset(source_ids[i], connector, root, patterns, stable_key, privacy, retain)
+  end
+
+  provider_ids = .string[]
+  if _entityids(keys, "provider.", 16, provider_ids, error) \= 0 then return -1
+  if provider_ids.0 = 0 then return _fail("configuration requires at least one provider", error)
+  providers = .ragproviderconfig[]
+  do i = 1 to provider_ids.0
+    prefix = "provider." || provider_ids[i] || "."
+    kind = _required(keys, values, prefix || "kind", error)
+    base_url = _required(keys, values, prefix || "base_url", error)
+    model = _required(keys, values, prefix || "model", error)
+    route_class = _required(keys, values, prefix || "route_class", error)
+    privacy_policy = _required(keys, values, prefix || "privacy_policy", error)
+    credential_text = _required(keys, values, prefix || "credential", error)
+    timeout_text = _required(keys, values, prefix || "timeout_ms", error)
+    attempts_text = _required(keys, values, prefix || "max_attempts", error)
+    if error \= "" then return -1
+    if pos(" ", base_url) > 0 | pos("09"x, base_url) > 0 then return _fail(prefix || "base_url contains whitespace", error)
+    credential = .ragsecretref
+    if _secret(credential_text, prefix || "credential", credential, error) \= 0 then return -1
+    timeout_ms = 0; max_attempts = 0
+    if _uint(timeout_text, 1, 600000, prefix || "timeout_ms", timeout_ms, error) \= 0 then return -1
+    if _uint(attempts_text, 1, 10, prefix || "max_attempts", max_attempts, error) \= 0 then return -1
+    providers[i] = .ragproviderconfig(provider_ids[i], kind, base_url, model, route_class, privacy_policy, credential, timeout_ms, max_attempts)
+  end
+
+  roles = .ragrolebinding[]
+  role_names = "advisory extractor embedding answerer"
+  do i = 1 to words(role_names)
+    role_name = word(role_names, i)
+    provider_id = _optional(keys, values, "role." || role_name)
+    if provider_id \= "" then roles[roles.0 + 1] = .ragrolebinding(role_name, provider_id)
+  end
+
+  profile_text = _required(keys, values, "profiles", error)
+  if error \= "" then return -1
+  profile_ids = .string[]
+  if _csv(profile_text, 32, 64, profile_ids, error) \= 0 then return -1
+  do i = 1 to profile_ids.0
+    if validregistryid(profile_ids[i]) \= 1 then return _fail("profiles contains an invalid registered id", error)
+  end
+
+  minutes = 0; item_limit = 0; model_calls = 0; input_tokens = 0; output_tokens = 0; cost = 0
+  if _uint(_required(keys, values, "budget.minutes", error), 0, 10080, "budget.minutes", minutes, error) \= 0 then return -1
+  if _uint(_required(keys, values, "budget.item_limit", error), 0, 1000000, "budget.item_limit", item_limit, error) \= 0 then return -1
+  if _uint(_required(keys, values, "budget.model_calls", error), 0, 1000000, "budget.model_calls", model_calls, error) \= 0 then return -1
+  if _uint(_required(keys, values, "budget.input_tokens", error), 0, 2000000000, "budget.input_tokens", input_tokens, error) \= 0 then return -1
+  if _uint(_required(keys, values, "budget.output_tokens", error), 0, 2000000000, "budget.output_tokens", output_tokens, error) \= 0 then return -1
+  if _uint(_required(keys, values, "budget.cost_microunits", error), 0, 2000000000, "budget.cost_microunits", cost, error) \= 0 then return -1
+  if error \= "" then return -1
+
+  processes = 0; max_in_flight = 0; lease_seconds = 0
+  if _uint(_required(keys, values, "worker.processes", error), 1, 32, "worker.processes", processes, error) \= 0 then return -1
+  if _uint(_required(keys, values, "worker.max_in_flight", error), 1, 1, "worker.max_in_flight", max_in_flight, error) \= 0 then return -1
+  if _uint(_required(keys, values, "worker.lease_seconds", error), 1, 86400, "worker.lease_seconds", lease_seconds, error) \= 0 then return -1
+  if error \= "" then return -1
+
+  schedule_ids = .string[]
+  if _entityids(keys, "schedule.", 32, schedule_ids, error) \= 0 then return -1
+  schedules = .ragschedule[]
+  do i = 1 to schedule_ids.0
+    prefix = "schedule." || schedule_ids[i] || "."
+    trigger = _required(keys, values, prefix || "trigger", error)
+    enabled_text = _required(keys, values, prefix || "enabled", error)
+    if error \= "" then return -1
+    enabled = 0
+    if _boolean(enabled_text, prefix || "enabled", enabled, error) \= 0 then return -1
+    schedules[i] = .ragschedule(schedule_ids[i], trigger, enabled)
+  end
+
+  candidate = .ragconfig(config_id, version, source_sets, providers, roles, profile_ids, .ragbudget(minutes, item_limit, model_calls, input_tokens, output_tokens, cost), .ragworkerpolicy(processes, max_in_flight, lease_seconds), schedules)
+  validation = validateconfig(candidate)
+  if validation.ok() \= 1 then do
+    issues = validation.issues()
+    return _fail("configuration validation failed at " || issues[1].path() || ": " || issues[1].message(), error)
+  end
+  config = candidate
+  return 0
+
+_validconfigkey: procedure = .int
+  arg key = .string
+  if wordpos(key, "format config.id config.version profiles budget.minutes budget.item_limit budget.model_calls budget.input_tokens budget.output_tokens budget.cost_microunits worker.processes worker.max_in_flight worker.lease_seconds") > 0 then return 1
+  if _entitykey(key, "source.", "connector root include stable_key privacy retain_raw_artifact") = 1 then return 1
+  if _entitykey(key, "provider.", "kind base_url model route_class privacy_policy credential timeout_ms max_attempts") = 1 then return 1
+  if _entitykey(key, "schedule.", "trigger enabled") = 1 then return 1
+  if left(key, 5) = "role." then do
+    role = substr(key, 6)
+    return wordpos(role, "advisory extractor embedding answerer") > 0
+  end
+  return 0
+
+_entitykey: procedure = .int
+  arg key = .string, prefix = .string, allowed_fields = .string
+  if left(key, length(prefix)) \= prefix then return 0
+  rest = substr(key, length(prefix) + 1); marker = pos(".", rest)
+  if marker < 2 | marker = length(rest) then return 0
+  identifier = substr(rest, 1, marker - 1); field = substr(rest, marker + 1)
+  if pos(".", field) > 0 | validregistryid(identifier) \= 1 then return 0
+  return wordpos(field, allowed_fields) > 0
+
+_entityids: procedure = .int
+  arg keys = .string[], prefix = .string, maximum = .int, expose ids = .string[], expose error = .string
+  clear ids
+  do i = 1 to keys.0
+    if left(keys[i], length(prefix)) \= prefix then iterate
+    rest = substr(keys[i], length(prefix) + 1); marker = pos(".", rest)
+    identifier = substr(rest, 1, marker - 1)
+    if _contains(ids, identifier) = 0 then ids[ids.0 + 1] = identifier
+    if ids.0 > maximum then return _fail("configuration exceeds the " || maximum || "-entry ceiling for " || prefix, error)
+  end
+  return 0
+
+_required: procedure = .string
+  arg keys = .string[], values = .string[], key = .string, expose error = .string
+  value = _optional(keys, values, key)
+  if value = "" & error = "" then error = "configuration requires " || key
+  return value
+
+_optional: procedure = .string
+  arg keys = .string[], values = .string[], key = .string
+  do i = 1 to keys.0
+    if keys[i] = key then return values[i]
+  end
+  return ""
+
+_csv: procedure = .int
+  arg text = .string, maximum_items = .int, maximum_item_bytes = .int, expose output = .string[], expose error = .string
+  clear output; start = 1
+  do forever
+    marker = pos(",", text, start)
+    if marker = 0 then value = strip(substr(text, start))
+    else value = strip(substr(text, start, marker - start))
+    if value = "" | length(value) > maximum_item_bytes then return _fail("configuration list contains an empty or oversized item", error)
+    if _contains(output, value) = 1 then return _fail("configuration list contains duplicate item " || value, error)
+    output[output.0 + 1] = value
+    if output.0 > maximum_items then return _fail("configuration list exceeds the " || maximum_items || "-item ceiling", error)
+    if marker = 0 then leave
+    start = marker + 1
+  end
+  return 0
+
+_uint: procedure = .int
+  arg text = .string, minimum = .int, maximum = .int, name = .string, expose value = .int, expose error = .string
+  value = 0
+  if error \= "" then return -1
+  if text = "" | length(text) > 10 then return _fail(name || " must be a bounded unsigned integer", error)
+  if length(text) > 1 & left(text, 1) = "0" then return _fail(name || " must use canonical integer syntax", error)
+  do i = 1 to length(text)
+    if pos(substr(text, i, 1), "0123456789") = 0 then return _fail(name || " must be an unsigned integer", error)
+  end
+  value = text as .int
+  if value < minimum | value > maximum then return _fail(name || " is outside its supported range", error)
+  return 0
+
+_boolean: procedure = .int
+  arg text = .string, name = .string, expose value = .int, expose error = .string
+  value = 0
+  if text = "true" then do; value = 1; return 0; end
+  if text = "false" then return 0
+  return _fail(name || " must be true or false", error)
+
+_secret: procedure = .int
+  arg text = .string, name = .string, expose secret = .ragsecretref, expose error = .string
+  secret = .ragsecretref()
+  if text = "none" then return 0
+  if left(text, 4) \= "env:" then return _fail(name || " must be none or an env:NAME reference; literal secrets are forbidden", error)
+  env_name = substr(text, 5)
+  if validenvname(env_name) \= 1 then return _fail(name || " has an invalid environment-variable name", error)
+  secret = .ragsecretref("env", env_name)
+  return 0
+
+_safesourcepath: procedure = .int
+  arg path = .string
+  if path = "" | length(path) > 4096 | _hascontrol(path) = 1 then return 0
+  normalized = changestr("\", path, "/")
+  if normalized = ".." | left(normalized, 3) = "../" | right(normalized, 3) = "/.." | pos("/../", normalized) > 0 then return 0
+  return 1
+
+_safepattern: procedure = .int
+  arg pattern = .string
+  if pattern = "" | length(pattern) > 256 | left(pattern, 1) = "/" | left(pattern, 1) = "\" then return 0
+  return _safesourcepath(pattern)
+
+_hascontrol: procedure = .int
+  arg value = .string
+  do i = 1 to length(value)
+    code = c2d(substr(value, i, 1))
+    if code < 32 | code = 127 then return 1
+  end
+  return 0
+
+_contains: procedure = .int
+  arg values = .string[], expected = .string
+  do i = 1 to values.0
+    if values[i] = expected then return 1
+  end
+  return 0
+
+_fail: procedure = .int
+  arg message = .string, expose error = .string
+  if error = "" then error = message
+  return -1
