@@ -1,13 +1,22 @@
 # cREXX-Only Architecture
 
-Status: approved target, 2026-07-26. The current C++ core remains the executable
-reference implementation during migration.
+Status: approved architecture with Phases 2 through 6 implemented and staged,
+2026-08-24. Gate 7 rejected/deferred cutover, so the current C++ core remains
+the default executable reference while the named provider, worker, comparison,
+and Linux gates remain open.
 
 ## Architectural Shape
 
-The target is one cREXX application with several thin entrypoints. It is not a
-native database engine wrapped in Rexx, and it is not a collection of shell
-pipelines.
+In plain English, one cREXX application owns the knowledge decisions. It reads
+and reconciles sources, records evidence, schedules bounded improvement, plans
+questions, combines several search methods, and builds the final evidence
+packet. SQLite is the durable source of truth. Hashing, HTTP, JSON, and vector
+operations are general CREXX facilities underneath it, not a second hidden RAG
+implementation.
+
+The application has several thin entrypoints so a human CLI, a cREXX program,
+and an LLM agent all invoke the same operations and receive the same typed
+results. Shell scripts may start tools, but they do not own the algorithm.
 
 ```mermaid
 flowchart TB

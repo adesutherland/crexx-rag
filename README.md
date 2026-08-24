@@ -1,116 +1,128 @@
 # crexx-rag
 
-`crexx-rag` is an LLM-first local RAG and typed-graph knowledge store. It turns
-a source corpus into reusable, provenance-backed evidence so that people and
-agents can ask focused questions without sending the whole corpus to a model on
-every session.
+`crexx-rag` turns a collection of documents into a durable evidence library for
+people and large language models. Instead of copying every document into every
+prompt, it finds the small set of passages, supported relationships, conflicts,
+and gaps that matter to a question and returns them with stable citations.
 
-The approved target is a cREXX application backed by SQLite. The project is
-also a deliberately demanding cREXX reference workload: it exercises the
-language, runtimes, libraries, plugin model, packaging, diagnostics, and
-performance with retained correctness and workload evidence.
+The aim is scalable, open, efficient, and comprehensive information for LLMs:
+scalable because unchanged material is not reprocessed and every large result
+or job is bounded; open because SQLite, canonical data formats, provider-neutral
+contracts, and several public interfaces avoid a closed data or model silo;
+efficient because cheap deterministic work narrows the expensive work; and
+comprehensive because exact wording, semantic similarity, typed relationships,
+history, ambiguity, and missing evidence are considered together.
 
-> **Programme status, 2026-08-24:** Gate 1B is accepted, including all 28
-> bounded Phase-1B results and their recorded limitations. `P2-01` through
-> `P2-10` and Gate 2 are accepted for the current macOS scope. Exact downstream
-> Linux replay remains open and is not represented by the macOS result. Phases
-> 3 through 6 are implemented and accepted for the recorded macOS scope:
-> incremental ingestion; claims, improvement and durable workers; and focused
-> hybrid retrieval with typed evidence. Phase 4 includes its literal eight-hour
-> supervised soak. Phase 5 includes bounded hosted answer-quality evidence.
-> Phase 6 adds the staged Level-G CLI,
-> `ADDRESS RAG`, MCP `structuredContent`, installed package and four narrowly
-> permissioned skills. Phase 7 qualifies the corpora and external hosted
-> generation/embedding, but rejects/defers cutover because the cREXX hosted
-> response path is still unreliable and the installed
-> public worker/provider and embedding-item path plus production-shaped
-> same-session evidence are incomplete. Native-v1 remains the default oracle.
-> Phase 8 reports donation/adoption/compatibility opportunities and records
-> Gate 8 as unsatisfied; it performs no action. Level G is now the required
-> default for advanced libraries and application code; Level B
-> is reserved for CREXX bootstrap and justified low-level foundations.
+The approved implementation is a cREXX Level-G application backed by SQLite.
+It is also a demanding reference application for the cREXX language, VMs,
+libraries, plugin system, packaging, diagnostics, and performance.
 
-## What The Product Is For
+## In Plain English
 
-Large language models are useful reasoners but poor durable knowledge stores.
-Reading a corpus serially can lose remote connections, blur source statements
-with model knowledge, and repeat expensive analysis in every conversation.
+Think of `crexx-rag` as a careful research librarian for an LLM. It remembers
+where every statement came from, notices when a document changes, keeps old
+revisions so citations remain meaningful, and builds several different routes
+to the same information. When a user asks a question, it prepares an evidence
+pack rather than pretending that a generated answer is itself a fact.
 
-`crexx-rag` instead builds a reusable evidence map:
+The system is intended to make a large, changing corpus useful over time:
 
-- source passages remain authoritative and independently citable;
-- lexical search provides exact, explainable precision;
-- embeddings provide semantic recall and candidate bridges;
-- a directional typed graph records only evidence-backed relationships;
-- ambiguity, contradiction, attribution, and time remain explicit;
-- model effort is allocated to the most informative work; and
-- queries return compact evidence packets, with prose answers as an optional
-  consumer rather than the source of truth.
+- **Comprehensive:** preserve exact passages, accepted relationships, aliases,
+  ambiguity, disagreement, attribution, time, and known gaps. Comprehensive
+  does not mean inventing an answer when the corpus is silent.
+- **Efficient:** hash and compare before doing deeper work, reuse unchanged
+  chunks and embeddings, rank the most informative material, and call an LLM
+  only when rules and indexes cannot finish the job cheaply.
+- **Scalable:** page corpus-sized data, stream and bound file work, publish
+  immutable generations, run resumable jobs, and enforce item, call, token,
+  cost, time, retry, and in-flight limits. These are architectural properties,
+  not a claim of unlimited throughput.
+- **Open and portable:** keep SQLite as the source of truth, use documented
+  canonical records and sidecars, support local and hosted providers through
+  one contract, and expose the same operations to humans, cREXX programs, and
+  agents. “Open” here describes the integration and data architecture; no
+  repository licence is implied where one has not been published.
 
-SQLite is the authoritative store. Vector indexes are rebuildable sidecars, and
-neither vector similarity nor an LLM response can create an accepted fact by
-itself.
+The first proving domain is IT architecture, using ArchiMate-inspired concepts
+and relationships. Domain rules live in replaceable cREXX profiles, so the same
+store and algorithms can be used for other bodies of knowledge.
 
-The primary proving domain is IT architecture with ArchiMate-inspired concepts
-and relationships. The store and algorithms are domain-neutral so that other
-typed knowledge domains can supply their own cREXX profiles.
+## The Tools It Provides
 
-## Algorithm Developed So Far
+| Tool or layer | What it does in ordinary language |
+| --- | --- |
+| Library and folder ingestion | Scans selected files, preserves exact source revisions, plans additions/changes/removals without writing, then applies only the reviewed delta. |
+| Knowledge builder | Splits sources on format-aware boundaries, inventories names and cues, proposes concepts and directed claims, and keeps uncertain or conflicting material for review. |
+| Hybrid retrieval | Searches exact words with SQLite FTS5, related meaning with embeddings, and supported relationships with a typed graph, then fuses the ranked results deterministically. |
+| Evidence builder | Produces bounded packets containing cited passages, supported claims, leads, conflicts, ambiguity, time, provenance, gaps, and optional answer guidance. |
+| Improvement worker | Processes durable queues under leases and monotonic fences, recovers after interruption, and cannot exceed reviewed work, provider, time, or cost budgets. |
+| Provider layer | Gives local OpenAI-compatible services and hosted providers one normalized generation/embedding contract while enforcing privacy routes and symbolic secret references. |
+| Public interfaces | Exposes one operation vocabulary through a command application, `ADDRESS RAG` for cREXX programs, MCP `structuredContent` for agents, and four narrowly permissioned skills. |
+| Operator and QA tools | Verify, back up, restore, diagnose, trace, and replay the library; executable tutorials and CTest fixtures prove the same behavior across compiler modes and both available VMs. |
 
-The existing native-v1 system established a useful algorithm rather than only
-a technology demonstration:
+Under the application, installed CREXX facilities provide binary-safe SHA-256,
+parse-once JSON, bounded HTTP/TLS, exact packed vectors, and the SQLite plugin.
+Those are general mechanisms: all source, chunk, claim, graph, ranking, policy,
+job, and evidence decisions remain in cREXX application code.
 
-1. preserve source provenance and split plain text, Markdown, and Rexx on
-   format-aware boundaries;
-2. run a cheap corpus-wide census of names, known concepts, and relationship
-   cues before deep extraction;
-3. collate and adjudicate candidates as accepted, junk, ambiguous, typed, or
-   aliases instead of treating every mention as truth;
-4. distinguish weak mentions from strong typed claims and keep ambiguity as a
-   first-class result;
-5. rank chunks by expected information value, including concept density, type
-   diversity, relation cues, rarity, ambiguity, support, and evidence quality;
-6. use stronger models only on that ranked queue, treating their output as
-   proposals which deterministic policy must accept, reject, or send to review;
-7. retrieve through focused lexical, semantic, and directed graph channels that
-   resolve back to source support; and
-8. assemble evidence that distinguishes passages, accepted claims, ambiguity,
-   conflicts, graph leads, and gaps.
+## How The Algorithm Works
+
+1. **Observe the sources.** Read the permitted files as exact bytes, hash them,
+   normalize supported text formats, and create stable source and revision
+   identities.
+2. **Plan before changing anything.** Compare the observation with the current
+   published generation and produce a canonical, content-addressed plan. An
+   identical corpus means zero database writes and zero provider calls.
+3. **Apply the reviewed delta.** Revalidate the plan, split new or changed text
+   into stable chunks, reuse unaffected content, retract dependencies of removed
+   evidence, and publish the next coherent generation.
+4. **Build cheap indexes first.** Update exact full-text search and run a
+   corpus-wide census of names, known concepts, aliases, and relationship cues.
+   Queue only missing or potentially valuable deeper work.
+5. **Improve under policy.** Rank chunks by expected information value. Local
+   rules or configured models may propose types and relationships, but
+   deterministic validation either accepts them with independently addressable
+   support, rejects them, or creates a review item.
+6. **Plan the question.** Normalize the question into exact phrase/prefix,
+   alias, bounded spelling, relationship, comparison, and time variants without
+   contacting a model.
+7. **Retrieve through independent channels.** Run bounded lexical, semantic,
+   and directed-graph searches, resolve every accepted relationship back to
+   source support, and combine ranks with inspectable reciprocal-rank fusion.
+8. **Assemble evidence, then optionally answer.** Select a diverse packet within
+   the context budget and label passages, accepted claims, non-factual leads,
+   conflicts, and gaps. A calling LLM may write prose from that packet; its prose
+   never silently becomes stored truth.
+
+SQLite is authoritative throughout. Vector indexes are checksum-bound,
+rebuildable sidecars, and neither similarity nor model confidence can create an
+accepted fact.
+
+## Implementation And Evidence
+
+The retained native-v1 implementation first established the algorithm and is
+still the executable comparison oracle. The cREXX path now implements the
+schema-v2 store, incremental ingestion, claim/review/improvement policy, durable
+multi-process work, focused hybrid retrieval, typed evidence, and staged public
+surfaces. Phase 7 deliberately deferred production cutover until the remaining
+provider/worker integration and portability gates close.
 
 The representative Scotland workload is not a toy fixture. It produced 5,977
 Stage-1 chunks, 6,358 distinct candidates, 20,697 mentions, more than 23,000
-mention-evidence rows, 9,080 ranked chunks, and 11,684 embeddings at dimension 768. These are capacity anchors and migration fixtures, not throughput promises
-for a different model or implementation.
+mention-evidence rows, 9,080 ranked chunks, and 11,684 embeddings at dimension
+768. These are capacity anchors and migration fixtures, not throughput promises
+for a different corpus, model, or implementation.
 
-Phase 1B then implemented bounded cREXX vertical slices that strengthen the
-target semantics:
-
-- immutable source revisions and zero-write identical re-ingest;
-- stable reuse of unaffected chunks after a local edit;
-- normalized directional claims with independently addressable support and
-  explicit retraction;
-- typed evidence packets combining lexical passages, accepted claim support,
-  ambiguity, and non-factual vector leads;
-- deterministic exact vector ordering over the representative workload;
-- provider-neutral generation, structured output, multimodal input, and batch
-  embedding contracts; and
-- durable leased jobs with fencing, crash recovery, idempotent promotion,
-  cancellation, and hard token/call/cost/time budgets.
-
-These slices prove boundaries and behavior. Phase 2 also has an accepted
-schema-v2 storage foundation with ordered migrations, published generations,
-pinned snapshots, recoverable manifests, strict read-only opens, verification,
-and rollback. Phase 3 now adds the production Level-G folder connector,
-canonical ingest plan, shared initial/incremental reconciler, deterministic
-chunking/candidate census, FTS/dependency invalidation, reuse, and resumable
-jobs. Phase 4 adds claim/review/improvement and durable multi-process workers;
-Phase 5 adds the production Level-G query planner, incremental embedding and
-exact-vector publication, hybrid retrieval and bounded typed evidence. It is
-now available through the Phase-6 CLI, `ADDRESS RAG`, MCP and narrow skills.
-Phase 7 has now completed the corpus/provider qualification and selected
-reject/defer: a provider-backed public worker adapter, embedding-item execution,
-and the missing production-shaped same-session comparison must pass before a
-new cutover request.
+> **Programme status, 2026-08-24:** Phases 2 through 6 are implemented and
+> accepted for their recorded macOS scope. Phase 4 includes a literal
+> supervised eight-hour soak, and Phase 5 includes bounded hosted answer-quality
+> evidence. Phase 7 qualifies the corpora and external hosted generation and
+> embedding paths but rejects/defers cutover because cREXX hosted response
+> completion, the public worker/provider and embedding-item path,
+> production-shaped same-session evidence, and exact downstream Linux remain
+> open. Native-v1 remains the default oracle. Phase 8 is an opportunity and
+> readiness report, not a tutorial or authorization to donate, cut over, or
+> remove the oracle.
 
 ## Current Status
 

@@ -11,6 +11,21 @@ same-session evidence, and Linux remain open.
 The Phase-8 opportunity report is complete, intentionally has no tutorial, and
 records that Gate 8 programme closeout is not satisfied.
 
+## Start Here
+
+| If you want to understand... | Start with... |
+| --- | --- |
+| The product in plain English, its tools, algorithm, and scaling model | [Project README](../README.md) |
+| How an operator creates, updates, queries, improves, and protects a library | [User guide](crexx-only-user-guide.md) |
+| The staged installed CLI, `ADDRESS RAG`, MCP, and skills | [Phase-6 executable tutorial](tutorials/phase-6-surfaces.md) |
+| What is implemented, accepted, staged, or still blocked | [Programme status](pipeline-status.md) |
+| Why components and responsibilities are divided as they are | [Architecture](crexx-only-architecture.md) |
+
+The README is the public introduction. This page is the complete maintained
+document index. Dated evidence records what a particular gate proved; it does
+not override the living status page or turn a staged surface into the selected
+production default.
+
 ## Current Programme Documents
 
 | Document | Authority |
@@ -19,7 +34,7 @@ records that Gate 8 programme closeout is not satisfied.
 | [Review findings](crexx-only-review-findings.md) | Point-in-time rationale behind the decision; reproducible Phase-0 evidence is now retained separately |
 | [Architecture](crexx-only-architecture.md) | Approved target boundaries, data model, lifecycle, jobs, retrieval, and surfaces |
 | [Implementation roadmap](crexx-only-implementation-roadmap.md) | Completed work, future phases, and gates; Phase 2 and Gate 2 are accepted on macOS with exact downstream Linux replay open |
-| [User guide](crexx-only-user-guide.md) | Target interface contract; clearly marks unimplemented commands |
+| [User guide](crexx-only-user-guide.md) | Current-to-target operator guide; distinguishes implemented staged surfaces, the native default, and unresolved worker/provider operations |
 | [Test strategy](test-strategy.md) | Living validation and acceptance policy |
 | [Programme status](pipeline-status.md) | Living implemented-versus-specified status |
 | [Semantic vocabulary](architecture-vocabulary.md) | Initial domain-neutral typed-graph vocabulary |

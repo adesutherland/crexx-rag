@@ -1,9 +1,13 @@
 # cREXX-Only User Guide
 
-Status: target user experience, 2026-07-26. The commands on this page define the
-interface the migration should deliver; they are not all implemented today. For
-the current native proof of concept, use
-the [archived native-v1 tutorial](archive/native-v1/tutorial-import-improve-query.md).
+Status: current-to-target operator guide, 2026-08-24. The Phase-6 Level-G CLI,
+`ADDRESS RAG`, MCP, installed package, and scoped skills are implemented and
+staged. Gate 7 rejected/deferred cutover, so native-v1 remains the default and
+the production worker/provider plus embedding-item operations called out below
+are not yet operator-ready. Use the [Phase-6 tutorial](tutorials/phase-6-surfaces.md)
+for the installed staged path and the
+[archived native-v1 tutorial](archive/native-v1/tutorial-import-improve-query.md)
+only for the current comparison oracle.
 
 ## What The Tool Does
 
@@ -51,21 +55,26 @@ having to ingest the entire corpus into one context window.
 - A **review** is a decision about ambiguity, conflict, type, endpoint, or a
   proposed external extraction.
 
-## Target Installation Shape
+## Installation Shape
 
-The installed product should provide:
+The install now carries the cREXX application sources and a no-source-fallback
+compile helper. The Phase-6 proof compiles this staged shape in a scratch
+consumer alongside the installed native-v1 comparison executables:
 
 ```text
-crexx-rag                 cREXX command application
-rag*.rxbin                cREXX application modules
+crexx-rag                 native-v1 command, still the default oracle
+crexx_rag_cli             staged compiled Level-G command application
+rag*.rxbin                compiled cREXX application modules
 rxsqlite.rxplugin         generic SQLite facility
 CREXX provider libraries  local and hosted LLM/embedding support
 ```
 
-Ordinary use must not require the CREXX or `crexx-rag` source checkout, CMake
-build paths, Python, or a product-specific C++ library.
+The proved scratch consumer needs neither the CREXX nor `crexx-rag` source
+checkout. Removing the compile step and native-v1 command from ordinary use is
+part of the later cutover/package decision; Python is not a repeatable pipeline
+dependency.
 
-Until the target is delivered, the current project still builds with:
+Build and validate the combined staged product and retained oracle with:
 
 ```bash
 cmake --preset debug
@@ -82,8 +91,9 @@ Each library uses two cREXX modules:
 - a profile module defines domain vocabulary, aliases, chunk policy, ranking,
   extraction/validation, and evidence policy.
 
-The final source syntax will be shipped as compiled examples after the
-configuration PoC. The contract is equivalent to this illustrative data:
+Installed compiled example modules now exercise the configuration contract.
+The following readable projection explains the equivalent choices; it is not
+a second configuration syntax:
 
 ```text
 configuration id: architecture-local
@@ -160,16 +170,15 @@ access capability:
 bounded roles described in the architecture; they are process safety gates, not
 authentication or a substitute for filesystem permissions.
 
-P2-07 freezes the target parser contract: global `--library`, `--config`,
+P2-07 freezes the parser contract: global `--library`, `--config`,
 `--profile`, `--format`, and repeated `--access` options precede the noun;
 operation options and positionals follow the noun/verb; and `--` makes all
 remaining argv values positional. This is an argv grammar, never a shell-text
 grammar. The parser contract and the P2-08 shared lifecycle/diagnostic
-dispatcher are implemented in cREXX. The examples below describe that shared
-operation contract; the replacement CLI adapter itself remains a later product
-surface.
+dispatcher are implemented in cREXX. The Phase-6 Level-G CLI adapter now uses
+that shared operation contract; it is staged rather than the production default.
 
-Stable target exit meanings are:
+Stable exit meanings are:
 
 | Code | Meaning |
 | ---: | --- |
@@ -359,12 +368,13 @@ necessary for an ordinary answer.
 
 ## Get Evidence For An LLM
 
-Phase 5 implements the retrieval/evidence algorithms behind this target
-experience. Before the Phase-6 CLI and MCP adapters exist, Level-G callers use
-`planquery`, `embedmissing`, `buildexactvectorgeneration`, `retrieveevidence`,
-`encodeevidence`, `encodeanswercontext`, and `resolvecitation` directly. The
-[Phase-5 tutorial](tutorials/phase-5-retrieval.md) is the executable current
-workflow; the commands below remain the approved Phase-6 surface.
+Phase 5 implements the retrieval/evidence algorithms and Phase 6 exposes them
+through the staged CLI, `ADDRESS RAG`, and MCP adapters. Level-G callers may
+also use `planquery`, `embedmissing`, `buildexactvectorgeneration`,
+`retrieveevidence`, `encodeevidence`, `encodeanswercontext`, and
+`resolvecitation` directly. The [Phase-5 tutorial](tutorials/phase-5-retrieval.md)
+explains the algorithm; the [Phase-6 tutorial](tutorials/phase-6-surfaces.md)
+executes the installed public surfaces.
 
 The primary agent-facing command is:
 
