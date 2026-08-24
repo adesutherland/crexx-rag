@@ -1602,6 +1602,18 @@ if(CPRAG_BUILD_TESTS)
         add_test(NAME phase7_qualification COMMAND ${PHASE7_QUALIFICATION_COMMAND})
         set_tests_properties(phase7_qualification PROPERTIES
             LABELS "phase7;P7-01;P7-02;P7-03;P7-04;P7-05;P7-06;P7-07;P7-08;qualification;cutover-decision;hosted;embedding;secrets;portability;docs")
+        set(PHASE8_OPPORTUNITY_REPORT_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_SOURCE_ROOT=${CMAKE_CURRENT_LIST_DIR}"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase8OpportunityReport.cmake")
+        add_custom_target(phase8_opportunity_report
+            COMMAND ${PHASE8_OPPORTUNITY_REPORT_COMMAND}
+            COMMENT "Auditing the Phase-8 donation/adoption/retirement opportunity report"
+            VERBATIM)
+        add_test(NAME phase8_opportunity_report
+            COMMAND ${PHASE8_OPPORTUNITY_REPORT_COMMAND})
+        set_tests_properties(phase8_opportunity_report PROPERTIES
+            LABELS "phase8;report;donation;adoption;compatibility;retirement;docs")
         add_test(
             NAME crexx_profile_smoke
             COMMAND "${CMAKE_COMMAND}"

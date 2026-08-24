@@ -25,8 +25,9 @@ performance with retained correctness and workload evidence.
 > response path is still unreliable and the installed
 > public worker/provider and embedding-item path plus production-shaped
 > same-session evidence are incomplete. Native-v1 remains the default oracle.
-> Level G is now the required default for advanced libraries and application
-> code; Level B
+> Phase 8 reports donation/adoption/compatibility opportunities and records
+> Gate 8 as unsatisfied; it performs no action. Level G is now the required
+> default for advanced libraries and application code; Level B
 > is reserved for CREXX bootstrap and justified low-level foundations.
 
 ## What The Product Is For
@@ -124,7 +125,7 @@ new cutover request.
 | Phase 5 / Gate 5 | Accepted on macOS 2026-08-24 | Focused planning, FTS/exact-vector/directed-graph retrieval, stable evidence/citations, 9/9 deterministic judgements and bounded hosted quality qualification pass; Linux and hosted cREXX transport closure remain open |
 | Phase 6 / Gate 6 | Accepted on macOS 2026-08-24 | Fresh installed Level-G CLI, ADDRESS RAG, MCP structured content, exact plan/apply, zero-write planning, backup/restore and four capability-scoped skills pass in four compiler/VM cells; no cutover is implied |
 | Phase 7 / Gate 7 | Qualification complete; cutover deferred 2026-08-24 | Corpus/lifecycle/surface gates and bounded external OpenAI generation/embedding pass; cREXX hosted completion, public worker/provider and embedding-item integration, full same-session production comparison, and Linux remain open, so native-v1 stays default |
-| Phase 8 | Report authorized | Donation/adoption/compatibility/retirement opportunities are assessed without submitting donations, cutting over, or deleting the oracle |
+| Phase 8 | Opportunity report complete; Gate 8 not satisfied 2026-08-24 | Candidates, adopted CREXX capabilities, compatibility, and retirement readiness are assessed without submitting donations, cutting over, or deleting the oracle |
 
 Gate 1B established:
 
@@ -203,8 +204,10 @@ The ordered roadmap is:
    CLI, `ADDRESS RAG`, MCP, and separately permissioned agent skills.
 6. **Phase 7: qualification and cutover decision.** Corpus, provider, recovery,
    concurrency, portability, security, quality, and performance evidence.
-7. **Phase 8: donation and retirement.** Package mature generic facilities for
-   CREXX and remove native product code only after an explicit later approval.
+7. **Phase 8: opportunity report.** Assess donation candidates, already adopted
+   CREXX capabilities, compatibility, and native retirement readiness. The
+   report is complete; submission, cutover, compatibility release, and removal
+   remain separately approval-gated.
 
 See the [implementation roadmap](docs/crexx-only-implementation-roadmap.md) for
 the itemized worklist and acceptance gates.

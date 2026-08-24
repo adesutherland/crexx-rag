@@ -705,6 +705,15 @@ not depend on either source checkout, all accepted donations have an ownership
 status, current docs describe the shipped cREXX product, and future capability
 opportunities remain in an explicit ledger.
 
+Phase-8 report result, 2026-08-24: the maintained
+[donation/adoption/compatibility/retirement report](reports/phase-8-donation-opportunities.md)
+is complete and intentionally is not a tutorial. It finds the SQLite boundary
+the nearest donation opportunity, records `rxjson`, `rxfnsg`, `rxhash`, and
+`rxvector` as installed adoptions, and keeps every donation, compatibility, and
+retirement action above unchecked. Gate 8 is not satisfied because Gate 7
+deferred cutover, no candidate has accepted upstream ownership, no compatibility
+release/window exists, and RAG-specific native product code remains authoritative.
+
 ## Acceptance Matrix
 
 | Area | Required cases |

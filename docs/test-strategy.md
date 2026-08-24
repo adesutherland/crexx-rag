@@ -418,6 +418,20 @@ lacks a production worker provider, embedding work is not publicly drained,
 several production-shaped same-session measurements are absent, and exact Linux
 remains open. Native-v1 therefore remains the default oracle.
 
+## Phase 8 Opportunity-Report Acceptance
+
+CTest `phase8_opportunity_report` is a permanent documentation and metadata
+audit, not a product execution gate and not a tutorial. It requires the
+maintained opportunity report and evidence record, checks all three existing
+candidate bundles retain `review-bundle-not-approved` plus
+`donation_submission_authorized = false`, distinguishes locally owned
+candidates from installed CREXX adoptions, and rejects any Phase-8 tutorial.
+
+The test also requires the exact Gate-7/default-oracle and Gate-8-negative
+boundaries. Passing it proves the opportunity ledger is coherent; it does not
+submit a donation, coordinate upstream, approve cutover, start a compatibility
+window, retire native code, publish a release, or close exact Linux QA.
+
 ## Required Commands
 
 At Phase-1B entry and Gate 1B:

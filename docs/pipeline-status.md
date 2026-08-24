@@ -26,7 +26,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Phase 5 / Gate 5 | Accepted on macOS 2026-08-24 | Deterministic focused query planning, hybrid retrieval, exact vector generations, stable typed evidence, nine frozen judgements, native/full-context comparison and bounded Gemini qualification pass; exact Linux and cREXX hosted-transport closure remain open. |
 | Phase 6 / Gate 6 | Accepted on macOS 2026-08-24 | Installed Level-G CLI, ADDRESS RAG, MCP, exact reviewed ingest, zero-write plans, backup/restore and capability-scoped skills pass in four compiler/VM cells. Public worker-provider lifetime remains a cutover limit. |
 | Phase 7 / Gate 7 | Qualification complete; reject/defer cutover 2026-08-24 | Corpus/lifecycle/surface and bounded external hosted generation/embedding pass; cREXX hosted completion, installed worker/provider plus embedding-item integration, production-shaped same-session evidence, and Linux remain open, so native-v1 stays default. |
-| Phase 8 | Report authorized | Assess donation/adoption/compatibility/retirement opportunities; no submission, cutover, deletion, release, or push is implied. |
+| Phase 8 | Opportunity report complete; Gate 8 not satisfied 2026-08-24 | Candidate, installed-adoption, compatibility, and retirement states are recorded. No submission, cutover, deletion, release, or push occurred or is implied. |
 
 ## Current Product Reality
 

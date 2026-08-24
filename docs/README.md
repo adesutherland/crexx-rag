@@ -8,6 +8,8 @@ cutover: external hosted generation/embedding passes while cREXX hosted
 response completion, public
 worker/provider integration, embedding-item execution, production-shaped
 same-session evidence, and Linux remain open.
+The Phase-8 opportunity report is complete, intentionally has no tutorial, and
+records that Gate 8 programme closeout is not satisfied.
 
 ## Current Programme Documents
 
@@ -35,6 +37,8 @@ same-session evidence, and Linux remain open.
 | [Phase 7 qualification tutorial](tutorials/phase-7-qualification.md) | Reproducible corpus/lifecycle/surface, hosted generation/embedding, safety audit, and decision walkthrough |
 | [Phase 7 qualification evidence](evidence/2026-08-24-phase7/README.md) | P7-01 through P7-08 results, external hosted pass, retained cREXX completion failure, comparison boundary, and QA |
 | [Gate 7 cutover decision](evidence/2026-08-24-phase7/cutover-decision.md) | Exact reject/defer decision, blockers, closure evidence, and approval boundary |
+| [Phase 8 opportunity report](reports/phase-8-donation-opportunities.md) | Maintained donation/adoption ledger, installed-capability preference, compatibility state, and retirement readiness; no tutorial or action authority |
+| [Phase 8 report evidence](evidence/2026-08-24-phase8/README.md) | Permanent report audit, exact Gate-8 negative assessment, and submission/cutover/deletion boundaries |
 | [CREXX capability-sync worklist](evidence/2026-08-22-crexx-capability-sync/WORKLIST.md) | Completed macOS/current-head items and later parallel qualification backlog |
 | [Generic capability incubation audit](../incubator/README.md) | Donation-candidate inventory, implementation boundaries, colocated use/system docs, and readiness status |
 | [Gate 1A decision ledger](gate1a-decision-ledger.md) | Historical approval for D1-D9, the now-completed Phase-1B worklist, exclusions, and Gate-1B stop |

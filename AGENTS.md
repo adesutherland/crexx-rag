@@ -45,8 +45,10 @@ integration, production-shaped same-session evidence, and exact Linux remain
 open. Native-v1 stays the default oracle; Phase 7 authorizes no cutover.
 
 Phase 8 is a donation-opportunities, ownership, compatibility, and retirement-
-readiness report, not a tutorial. Do not invent a Phase-8 tutorial; retain
-separate approval gates for donation submission, cutover, and native removal.
+readiness report, not a tutorial. Its report deliverable is complete on
+2026-08-24, while Gate 8 programme closeout is explicitly not satisfied. Do
+not invent a Phase-8 tutorial; retain separate approval gates for donation
+submission, cutover, and native removal.
 
 Preserve the ordered Phase-2 evidence and Gate-2 closeout. Advance phases in
 roadmap order and do not combine their commits. Hosted-provider qualifications
