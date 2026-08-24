@@ -14,12 +14,14 @@ performance with retained correctness and workload evidence.
 > bounded Phase-1B results and their recorded limitations. `P2-01` through
 > `P2-10` and Gate 2 are accepted for the current macOS scope. Exact downstream
 > Linux replay remains open and is not represented by the macOS result. Phases
-> 3 through 5 are implemented and accepted for the recorded macOS scope:
+> 3 through 6 are implemented and accepted for the recorded macOS scope:
 > incremental ingestion; claims, improvement and durable workers; and focused
 > hybrid retrieval with typed evidence. Phase 4 includes its literal eight-hour
 > supervised soak. Phase 5 includes bounded hosted answer-quality evidence but
-> leaves the cREXX hosted POST-completion finding to Phase 7. The native-v1 C++
-> path remains the executable oracle. Level G is
+> leaves the cREXX hosted POST-completion finding to Phase 7. The native-v1
+> C++ path remains the executable oracle. Phase 6 adds the staged Level-G CLI,
+> `ADDRESS RAG`, MCP `structuredContent`, installed package and four narrowly
+> permissioned skills; Gate 6 acceptance does not authorize cutover. Level G is
 > now the required default for advanced libraries and application code; Level B
 > is reserved for CREXX bootstrap and justified low-level foundations.
 
@@ -99,7 +101,9 @@ chunking/candidate census, FTS/dependency invalidation, reuse, and resumable
 jobs. Phase 4 adds claim/review/improvement and durable multi-process workers;
 Phase 5 adds the production Level-G query planner, incremental embedding and
 exact-vector publication, hybrid retrieval and bounded typed evidence. It is
-not yet a complete public command set or cutover candidate.
+now available through the Phase-6 CLI, `ADDRESS RAG`, MCP and narrow skills.
+Corpus-wide selection, a provider-backed long-running public worker adapter,
+and cutover remain Phase-7 decisions.
 
 ## Current Status
 
@@ -112,7 +116,8 @@ not yet a complete public command set or cutover candidate.
 | Phase 3 / Gate 3 | Accepted on macOS 2026-08-23 | Level-G initial/incremental ingestion, exact reuse/invalidation, executable tutorial, native semantic delta, and crash resume pass; Linux remains open |
 | Phase 4 / Gate 4 | Accepted on macOS 2026-08-24 | Claim/support/review, budgeted improvement, crash recovery, two-process fencing, exact reservations, tutorial, literal eight-hour soak, Debug/Release and Apple-ASan pass; Linux remains open |
 | Phase 5 / Gate 5 | Accepted on macOS 2026-08-24 | Focused planning, FTS/exact-vector/directed-graph retrieval, stable evidence/citations, 9/9 deterministic judgements and bounded hosted quality qualification pass; Linux and hosted cREXX transport closure remain open |
-| Phase 6 and later | Authorized sequentially | Public adapters follow Gate 5; no cutover or native retirement has started |
+| Phase 6 / Gate 6 | Accepted on macOS 2026-08-24 | Fresh installed Level-G CLI, ADDRESS RAG, MCP structured content, exact plan/apply, zero-write planning, backup/restore and four capability-scoped skills pass in four compiler/VM cells; no cutover is implied |
+| Phase 7 and later | Authorized sequentially | Corpus qualification and a separate cutover decision follow; native retirement is not authorized |
 
 Gate 1B established:
 
@@ -150,9 +155,9 @@ production claim:
   their own byte ceiling while hashing fixed chunks.
 - Phase-4 worker evidence includes database-clock leases, monotonic fences,
   forced termination, cancellation, retry/dead-letter, exact reservations,
-  bounded in-flight denial, two competing OS processes, and the literal
-  supervised eight-hour soak. In-process cREXX thread safety is neither assumed
-  nor claimed.
+  bounded in-flight denial, and two competing OS processes. The literal
+  supervised eight-hour soak passed; in-process cREXX thread safety is neither
+  assumed nor claimed.
 - Phase-5 evidence qualifies deterministic hybrid retrieval and a bounded
   hosted answer comparison. The incubated cREXX hosted adapter's observed POST
   completion timeout remains explicit Phase-7 work; the external hosted

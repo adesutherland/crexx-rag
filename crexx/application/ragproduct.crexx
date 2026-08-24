@@ -1,0 +1,427 @@
+options levelg
+
+namespace ragproduct expose dispatchproduct
+
+import rxfnsb
+import rxjson
+import sqlite_boundary
+import ragcommand
+import ragconfig
+import ragregistry
+import ragfoundation
+import ragstore
+import ragrepository
+import ragquery
+import ragretrieval
+import ragevidencejson
+import ragfolder
+import ragingest
+import ragplanning
+import ragimprove
+import ragjob
+import ragwork
+
+/* The Phase-6 dispatcher is the single transport-neutral product surface.
+ * CLI, ADDRESS RAG and MCP translate into one .ragcommandrequest and preserve
+ * the same .ragcommandresult. No adapter owns product SQL or policy. */
+dispatchproduct: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = request.operation()
+  if operation = "source.list" | operation = "source.show" then return _repository(request, operation, "sources")
+  if operation = "job.list" then return _repository(request, operation, "jobs")
+  if operation = "job.events" then return _repository(request, operation, "job-items")
+  if operation = "review.list" | operation = "review.show" then return _repository(request, operation, "reviews")
+  if operation = "query.search" | operation = "query.evidence" | operation = "query.answer" | operation = "query.trace" | operation = "query.path" | operation = "query.timeline" then return _query(request, registry)
+  if operation = "job.status" | operation = "worker.status" then return _jobstatus(request)
+  if operation = "job.pause" | operation = "job.resume" | operation = "job.cancel" | operation = "worker.drain" then return _jobcontrol(request)
+  if operation = "review.decide" then return _reviewdecision(request, 0)
+  if operation = "ingest.apply" then return _ingestapply(request, registry)
+  if operation = "improve.apply" then return _improveapply(request, registry)
+  result = dispatchfoundation(request, registry)
+  return _deprecated(request, result)
+
+_repository: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, operation = .string, repository = .string
+  if _hasaccess(request, "read") \= 1 then return _failure(operation, 4, "operation requires read access")
+  allowed = "cursor limit"; error = ""
+  if operation = "source.show" | operation = "review.show" | operation = "job.events" then allowed = allowed || " id"
+  if _options(request, allowed, error) \= 0 then return _failure(operation, 2, error)
+  cursor = _option(request, "cursor", error); limit_text = _option(request, "limit", error)
+  if error \= "" then return _failure(operation, 2, error)
+  limit = 20
+  if limit_text \= "" then do
+    if _unsigned(limit_text) \= 1 then return _failure(operation, 2, "--limit must be a positive integer")
+    limit = limit_text as .int
+  end
+  if limit < 1 | limit > 100 then return _failure(operation, 2, "--limit must be from 1 through 100")
+  id = _option(request, "id", error)
+  option_id = id
+  if error \= "" then return _failure(operation, 2, error)
+  positionals = request.positionals()
+  if id = "" & positionals.0 = 1 then id = positionals[1]
+  if positionals.0 > 1 | (positionals.0 = 1 & option_id \= "") then return _failure(operation, 2, "operation accepts at most one id")
+  read_snapshot = .ragreadsnapshot
+  if beginreadsnapshot(request.library(), read_snapshot, error) \= 0 then return _openfailure(operation, error)
+  page = .ragrepositorypage
+  page_status = pagerepository(read_snapshot, repository, cursor, limit, page, error)
+  close_error = ""; close_status = closereadsnapshot(read_snapshot, close_error)
+  if page_status \= 0 | close_status \= 0 then do
+    if error = "" then error = close_error
+    return _failure(operation, 7, error)
+  end
+  source_records = page.records(); records = .ragresultrecord[]
+  do i = 1 to source_records.0
+    source = source_records[i]
+    if id \= "" & source.identity() \= id & source.parent_identity() \= id then iterate
+    fields = .ragresultfield[]
+    fields[1] = .ragresultfield("identity", "string", source.identity())
+    fields[2] = .ragresultfield("parent_identity", "string", source.parent_identity())
+    fields[3] = .ragresultfield("related_identity", "string", source.related_identity())
+    fields[4] = .ragresultfield("name", "string", source.name())
+    fields[5] = .ragresultfield("category", "string", source.category())
+    fields[6] = .ragresultfield("state", "string", source.state())
+    fields[7] = .ragresultfield("value", "string", source.value())
+    fields[8] = .ragresultfield("detail", "string", source.detail())
+    fields[9] = .ragresultfield("generation", "integer", page.snapshot_generation())
+    records[records.0 + 1] = .ragresultrecord(repository, fields)
+  end
+  if id \= "" & records.0 = 0 then return _failure(operation, 5, "requested record was not found")
+  if page.next_cursor() \= "" then do
+    fields = .ragresultfield[]
+    fields[1] = .ragresultfield("next_cursor", "string", page.next_cursor())
+    fields[2] = .ragresultfield("limit", "integer", limit)
+    records[records.0 + 1] = .ragresultrecord("page", fields)
+  end
+  result = .ragcommandresult(operation, "ok", 0, "bounded repository page read without mutation", records)
+  return _deprecated(request, result)
+
+_query: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = request.operation(); error = ""
+  if _hasaccess(request, "read") \= 1 then return _failure(operation, 4, "query requires read access")
+  if _options(request, "limit hops mode", error) \= 0 then return _failure(operation, 2, error)
+  positionals = request.positionals()
+  if positionals.0 \= 1 | positionals[1] = "" then return _failure(operation, 2, "query requires exactly one question")
+  if request.profile_id() = "" then return _failure(operation, 2, "query requires --profile")
+  profile_lookup = registry.profile(request.profile_id())
+  if profile_lookup.found() \= 1 then return _failure(operation, 5, "profile is not registered")
+  limit = 12; hops = 3
+  limit_text = _option(request, "limit", error); hops_text = _option(request, "hops", error); mode = _option(request, "mode", error)
+  if error \= "" then return _failure(operation, 2, error)
+  if limit_text \= "" then do
+    if _unsigned(limit_text) \= 1 then return _failure(operation, 2, "query limit must be an integer")
+    limit = limit_text as .int
+  end
+  if hops_text \= "" then do
+    if _unsigned(hops_text) \= 1 then return _failure(operation, 2, "query hops must be an integer")
+    hops = hops_text as .int
+  end
+  if limit < 1 | limit > 12 | hops < 0 | hops > 4 then return _failure(operation, 2, "query limit must be 1 through 12 and hops 0 through 4")
+  if mode = "" then mode = "auto"
+  if mode \= "auto" & mode \= "lexical" & mode \= "hybrid" then return _failure(operation, 2, "query mode must be auto, lexical, or hybrid")
+  store = .ragstorehandle
+  if openragstore(request.library(), "readonly", store, error) \= 0 then return _openfailure(operation, error)
+  plan = .ragqueryplan
+  if planquery(store, profile_lookup.profile(), positionals[1], "surface-retrieval-v1", plan, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 1, error); end
+  empty_vector = ''x as .binary; profile_id = ""
+  retrieval_options = .ragretrievaloptions("surface-retrieval-v1", profile_id, empty_vector, 48, 12, 100000, hops, limit, 8, 8, 60)
+  retrieval = .ragretrievalresult
+  if retrieveevidence(store, profile_lookup.profile(), positionals[1], retrieval_options, retrieval, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 1, error); end
+  evidence_json = ""
+  if encodeevidence(retrieval.evidence(), 65536, evidence_json, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 1, error); end
+  close_error = ""
+  if closeragstore(store, close_error) \= 0 then return _failure(operation, 7, close_error)
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("evidence_schema", "string", "crexx-rag.evidence/1")
+  fields[2] = .ragresultfield("query_plan_fingerprint", "string", plan.fingerprint())
+  fields[3] = .ragresultfield("vector_state", "string", retrieval.vector_state())
+  fields[4] = .ragresultfield("candidate_count", "integer", retrieval.candidate_count())
+  fields[5] = .ragresultfield("evidence_json", "string", evidence_json)
+  fields[6] = .ragresultfield("generated_answer", "null", "")
+  if operation = "query.answer" then fields[6] = .ragresultfield("generated_answer", "null", "")
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("query-evidence", fields)
+  return .ragcommandresult(operation, "ok", 0, "typed evidence retrieved; optional answer generation was not requested from a provider", records)
+
+_jobstatus: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation = request.operation(); error = ""
+  if _hasaccess(request, "read") \= 1 then return _failure(operation, 4, "job status requires read access")
+  if _options(request, "id", error) \= 0 then return _failure(operation, 2, error)
+  job_id = _id(request, error)
+  if error \= "" | job_id = "" then return _failure(operation, 2, "job status requires one job id")
+  store = .ragstorehandle
+  if openragstore(request.library(), "readonly", store, error) \= 0 then return _openfailure(operation, error)
+  status = .ragjobstatus; read_status = readjobstatus(store, job_id, status, error)
+  ignored = ""; close_status = closeragstore(store, ignored)
+  if read_status = -2 then return _failure(operation, 5, "job was not found")
+  if read_status \= 0 | close_status \= 0 then return _failure(operation, 7, error)
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("job_id", "string", status.job_id())
+  fields[2] = .ragresultfield("state", "string", status.state())
+  fields[3] = .ragresultfield("planned_total", "integer", status.planned_total())
+  fields[4] = .ragresultfield("queued", "integer", status.queued())
+  fields[5] = .ragresultfield("running", "integer", status.running())
+  fields[6] = .ragresultfield("processed", "integer", status.processed())
+  fields[7] = .ragresultfield("skipped", "integer", status.skipped())
+  fields[8] = .ragresultfield("dead_letter", "integer", status.dead_letter())
+  fields[9] = .ragresultfield("cancelled", "integer", status.cancelled())
+  fields[10] = .ragresultfield("failed_attempts", "integer", status.failed_attempts())
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("job-status", fields)
+  return .ragcommandresult(operation, "ok", 0, "bounded durable job status", records)
+
+_jobcontrol: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation = request.operation(); error = ""
+  if _hasaccess(request, "control") \= 1 then return _failure(operation, 4, "job control requires control access")
+  if _options(request, "id reason", error) \= 0 then return _failure(operation, 2, error)
+  job_id = _id(request, error)
+  if error \= "" | job_id = "" then return _failure(operation, 2, "job control requires one job id")
+  store = .ragstorehandle
+  if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
+  status = 0
+  if operation = "job.pause" then status = pausejob(store, job_id, error)
+  if operation = "job.resume" then status = resumejob(store, job_id, error)
+  if operation = "job.cancel" then do
+    reason = _option(request, "reason", error); if reason = "" then reason = "operator-request"
+    status = requestcancel(store, job_id, reason, error)
+  end
+  running = 0
+  if operation = "worker.drain" then status = drainjob(store, job_id, running, error)
+  close_error = ""; close_status = closeragstore(store, close_error)
+  if status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 1, error); end
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("job_id", "string", job_id)
+  fields[2] = .ragresultfield("operation", "string", operation)
+  if operation = "worker.drain" then fields[3] = .ragresultfield("running", "integer", running)
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("job-control", fields)
+  return .ragcommandresult(operation, "ok", 0, "job control applied through the durable fenced store", records)
+
+_ingestapply: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = request.operation(); error = ""
+  if _hasaccess(request, "ingest") \= 1 then return _failure(operation, 4, "ingest apply requires ingest access")
+  if _options(request, "plan-json expect-digest", error) \= 0 then return _failure(operation, 2, error)
+  plan_json = _option(request, "plan-json", error); digest = _option(request, "expect-digest", error)
+  if error \= "" | plan_json = "" | digest = "" then return _failure(operation, 2, "apply requires plan JSON and reviewed digest")
+  reviewed = .ragplan
+  validation = validatefoundationplan(request.library(), request.config_id(), request.profile_id(), operation, plan_json, digest, registry, reviewed, error)
+  if validation = -2 then return _failure(operation, 6, error)
+  if validation \= 0 then return _failure(operation, 3, error)
+  source_set_id = _actionstring(plan_json, "source_set", error)
+  if error \= "" then return _failure(operation, 3, error)
+  config_lookup = registry.config(request.config_id()); profile_lookup = registry.profile(request.profile_id())
+  if config_lookup.found() \= 1 | profile_lookup.found() \= 1 then return _failure(operation, 5, "configuration or profile is not registered")
+  source_sets = config_lookup.config().source_sets(); source_index = 0
+  do i = 1 to source_sets.0
+    if source_sets[i].source_set_id() = source_set_id then source_index = i
+  end
+  if source_index = 0 then return _failure(operation, 5, "source set is not registered")
+  observations = .ragsourceobservation[]
+  if collectfolderobservations(source_sets[source_index].root(), source_set_id, source_sets[source_index].retain_raw_artifact(), 2147483647, "surface-apply", observations, error) < 0 then return _failure(operation, 1, error)
+  store = .ragstorehandle
+  if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
+  snapshot_id = _scalartext(store.database(), "SELECT config_snapshot_id FROM published_generations WHERE generation=(SELECT published_generation FROM library_meta WHERE singleton=1)")
+  domain_plan = .ragingestplan
+  chunks = profile_lookup.profile().chunk_policy().max_characters()
+  if createingestplan(store, "folder:" || source_set_id, snapshot_id, "surface-ingest-v1", "surface-parser-v1", chunks, observations, domain_plan, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 1, error); end
+  result = applyingestplan(store, domain_plan, observations)
+  close_error = ""; close_status = closeragstore(store, close_error)
+  if result.ok() \= 1 | close_status \= 0 then do; if error = "" then error = result.error(); if error = "" then error = close_error; return _failure(operation, 1, error); end
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("disposition", "string", result.disposition())
+  fields[2] = .ragresultfield("generation", "integer", result.generation())
+  fields[3] = .ragresultfield("sources_observed", "integer", result.sources_observed())
+  fields[4] = .ragresultfield("sources_added", "integer", result.sources_added())
+  fields[5] = .ragresultfield("sources_changed", "integer", result.sources_changed())
+  fields[6] = .ragresultfield("sources_unchanged", "integer", result.sources_unchanged())
+  fields[7] = .ragresultfield("items_queued", "integer", result.items_queued())
+  fields[8] = .ragresultfield("provider_calls", "integer", result.provider_calls())
+  fields[9] = .ragresultfield("job_id", "string", "job-sha256:" || domain_plan.digest())
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("ingest-apply", fields)
+  return .ragcommandresult(operation, "ok", 0, "reviewed ingest plan applied and durable work queued", records)
+
+_improveapply: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = request.operation(); error = ""
+  if _hasaccess(request, "curate") \= 1 then return _failure(operation, 4, "improve apply requires curate access")
+  if _options(request, "plan-json expect-digest", error) \= 0 then return _failure(operation, 2, error)
+  plan_json = _option(request, "plan-json", error); digest = _option(request, "expect-digest", error)
+  reviewed = .ragplan
+  validation = validatefoundationplan(request.library(), request.config_id(), request.profile_id(), operation, plan_json, digest, registry, reviewed, error)
+  if validation = -2 then return _failure(operation, 6, error)
+  if validation \= 0 then return _failure(operation, 3, error)
+  config_lookup = registry.config(request.config_id())
+  if config_lookup.found() \= 1 then return _failure(operation, 5, "configuration is not registered")
+  config = config_lookup.config(); budget = config.budget(); workers = config.workers(); providers = config.providers()
+  route_id = ""; secret_reference = ""; privacy = "local"; attempts = 1
+  if providers.0 > 0 then do
+    route_id = providers[1].provider_id(); secret_reference = providers[1].credential().ref_string(); attempts = providers[1].max_attempts()
+    if providers[1].route_class() = "hosted" then privacy = "public"
+  end
+  store = .ragstorehandle
+  if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
+  snapshot_id = _scalartext(store.database(), "SELECT config_snapshot_id FROM published_generations WHERE generation=(SELECT published_generation FROM library_meta WHERE singleton=1)")
+  triggers = .string[]; triggers[1] = "bridge"; triggers[2] = "conflict"; triggers[3] = "operator-review"; triggers[4] = "unprocessed-extraction"; triggers[5] = "unresolved"; triggers[6] = "weak-support"
+  plan = .ragimproveplan
+  plan_status = createimproveplan(store, snapshot_id, "surface-claim-v1", "surface-prompt-v1", triggers, budget.item_limit(), budget.model_calls(), budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), budget.minutes() * 60000, budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), budget.minutes() * 60000, workers.max_in_flight(), attempts, privacy, route_id, secret_reference, plan, error)
+  apply_result = .ragimproveapplyresult
+  if plan_status = 0 then plan_status = applyimproveplan(store, plan, apply_result, error)
+  close_error = ""; close_status = closeragstore(store, close_error)
+  if plan_status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 1, error); end
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("job_id", "string", apply_result.job_id())
+  fields[2] = .ragresultfield("disposition", "string", apply_result.disposition())
+  fields[3] = .ragresultfield("items", "integer", apply_result.items())
+  fields[4] = .ragresultfield("provider_calls", "integer", apply_result.provider_calls())
+  fields[5] = .ragresultfield("secret_reference", "string", secret_reference)
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("improve-apply", fields)
+  return .ragcommandresult(operation, "ok", 0, "reviewed improvement plan applied with immutable budgets", records)
+
+_reviewdecision: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, apply = .int
+  operation = request.operation(); error = ""
+  if _hasaccess(request, "plan") \= 1 then return _failure(operation, 4, "review decision preview requires plan access")
+  if _options(request, "id decision apply", error) \= 0 then return _failure(operation, 2, error)
+  id = _id(request, error); decision = _option(request, "decision", error); apply_value = _option(request, "apply", error)
+  if id = "" | (decision \= "accept" & decision \= "reject" & decision \= "dismiss") then return _failure(operation, 2, "review decide requires an id and accept, reject, or dismiss")
+  if apply_value = "true" then apply = 1
+  if apply = 1 & _hasaccess(request, "curate") \= 1 then return _failure(operation, 4, "review decision apply requires curate access")
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("review_id", "string", id)
+  fields[2] = .ragresultfield("decision", "string", decision)
+  fields[3] = .ragresultfield("would_write", "boolean", _boolean(apply))
+  fields[4] = .ragresultfield("applied", "boolean", "false")
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("review-decision-preview", fields)
+  if apply = 1 then do
+    store = .ragstorehandle
+    if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
+    database = store.database(); state = decision || "ed"
+    if decision = "accept" then state = "accepted"
+    if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "cannot begin review decision"); end
+    prepared = .binary
+    sql = "UPDATE reviews SET state=?2,decision_json=?3,decided_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE review_id=?1 AND state='pending'"
+    decision_json = '{"schema":"crexx-rag.review-decision/1","decision":' || jsonquote(decision) || '}'
+    bind_status = -1; step_status = -1
+    if sqliteprepare(database, sql, prepared) = 0 then do
+      bind_status = sqlitebindtext(prepared, 1, id) | sqlitebindtext(prepared, 2, state) | sqlitebindtext(prepared, 3, decision_json)
+      step_status = sqlitestep(prepared)
+    end
+    call sqlitefinalize prepared
+    changed = _scalarint(database, "SELECT changes()")
+    if bind_status \= 0 | step_status \= 101 | changed \= 1 then do
+      call sqliteexec database, "ROLLBACK"
+      ignored = ""; call closeragstore store, ignored
+      return _failure(operation, 5, "pending review was not found or was already decided")
+    end
+    if sqliteexec(database, "COMMIT") \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "cannot commit review decision"); end
+    close_error = ""
+    if closeragstore(store, close_error) \= 0 then return _failure(operation, 7, close_error)
+    fields[4] = .ragresultfield("applied", "boolean", "true")
+    fields[5] = .ragresultfield("state", "string", state)
+    records[1] = .ragresultrecord("review-decision", fields)
+    return .ragcommandresult(operation, "ok", 0, "authorized review decision persisted; accepted proposals remain subject to exact proposal replay", records)
+  end
+  return .ragcommandresult(operation, "ok", 0, "review decision preview produced without mutation", records)
+
+_deprecated: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, result = .ragcommandresult
+  if request.noun() \= "queue-status" then return result
+  records = result.records(); fields = .ragresultfield[]
+  fields[1] = .ragresultfield("alias", "string", "queue-status")
+  fields[2] = .ragresultfield("replacement", "string", "job list")
+  fields[3] = .ragresultfield("removal_after", "string", "one compatibility release")
+  records[records.0 + 1] = .ragresultrecord("deprecation", fields)
+  return .ragcommandresult(result.operation(), result.status(), result.exit_code(), result.message(), records)
+
+_hasaccess: procedure = .int
+  arg request = .ragcommandrequest, required = .string
+  access = request.access()
+  do i = 1 to access.0
+    granted = access[i]
+    if granted = required then return 1
+    if required = "read" then return 1
+    if required = "plan" & (granted = "ingest" | granted = "curate") then return 1
+    if required = "control" & (granted = "curate" | granted = "admin") then return 1
+    if required = "diagnose" & granted = "admin" then return 1
+  end
+  return 0
+
+_options: procedure = .int
+  arg request = .ragcommandrequest, allowed = .string, expose error = .string
+  error = ""; request_options = request.command_options()
+  do i = 1 to request_options.0
+    if wordpos(request_options[i].name(), allowed) = 0 then do; error = "unknown option --" || request_options[i].name(); return -1; end
+    if request_options[i].flag() = 1 | request_options[i].value() = "" then do; error = "option --" || request_options[i].name() || " requires a value"; return -1; end
+    do j = 1 to i - 1
+      if request_options[j].name() = request_options[i].name() then do; error = "option --" || request_options[i].name() || " may be supplied once"; return -1; end
+    end
+  end
+  return 0
+
+_option: procedure = .string
+  arg request = .ragcommandrequest, name = .string, expose error = .string
+  error = ""; value = ""; request_options = request.command_options()
+  do i = 1 to request_options.0
+    if request_options[i].name() = name then do
+      if value \= "" then do; error = "option --" || name || " may be supplied once"; return ""; end
+      value = request_options[i].value()
+    end
+  end
+  return value
+
+_id: procedure = .string
+  arg request = .ragcommandrequest, expose error = .string
+  id = _option(request, "id", error); positionals = request.positionals()
+  if positionals.0 > 1 then do; error = "operation accepts one id"; return ""; end
+  if positionals.0 = 1 then do
+    if id \= "" & id \= positionals[1] then do; error = "id was supplied twice"; return ""; end
+    id = positionals[1]
+  end
+  return id
+
+_actionstring: procedure = .string
+  arg plan_json = .string, name = .string, expose error = .string
+  document = .jsondocument(plan_json); output = ""
+  if document.valid() \= 1 then do; error = "reviewed plan JSON is invalid"; return ""; end
+  action = document.member(document.root(), "action")
+  if document.node_string(document.member(action, name), output) \= 0 then do; error = "reviewed plan action is invalid"; return ""; end
+  return output
+
+_scalartext: procedure = .string
+  arg database = .binary, sql = .string
+  prepared = .binary; output = ""
+  if sqliteprepare(database, sql, prepared) \= 0 then return ""
+  if sqlitestep(prepared) = 100 then call sqlitecolumntext prepared, 0, output
+  call sqlitefinalize prepared
+  return output
+
+_scalarint: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary; output = -1
+  if sqliteprepare(database, sql, prepared) \= 0 then return -1
+  if sqlitestep(prepared) = 100 then call sqlitecolumnint prepared, 0, output
+  call sqlitefinalize prepared
+  return output
+
+_unsigned: procedure = .int
+  arg value = .string
+  if value = "" then return 0
+  do i = 1 to length(value)
+    if pos(substr(value, i, 1), "0123456789") = 0 then return 0
+  end
+  return 1
+
+_boolean: procedure = .string
+  arg value = .int
+  if value \= 0 then return "true"
+  return "false"
+
+_failure: procedure = .ragcommandresult
+  arg operation = .string, code = .int, message = .string
+  records = .ragresultrecord[]
+  return .ragcommandresult(operation, "error", code, message, records)
+
+_openfailure: procedure = .ragcommandresult
+  arg operation = .string, message = .string
+  if pos("does not exist", message) > 0 then return _failure(operation, 5, message)
+  return _failure(operation, 7, message)

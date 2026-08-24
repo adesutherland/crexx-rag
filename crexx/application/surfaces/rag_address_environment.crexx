@@ -1,0 +1,172 @@
+options levelg
+
+namespace _rxsysb expose ragaddressenvironment
+
+import _rxsysb
+import rxfnsb
+import ragcommand
+import ragproduct
+import operator_registry
+
+ragaddressenvironment: class implements .addressenvironment .addressinstance .addressfunctionenvironment
+  _environment_name = .string
+  _environment_id = .string
+  _library = .string
+  _config = .string
+  _profile = .string
+  _access = .string
+  _format = .string
+
+  *: match
+    arg env_name = .string
+    if _address_normalize_environment_name(env_name) = "RAG" then return 95
+    return 0
+
+  *: factory
+    arg env_name = .string
+    _environment_name = "RAG"; _environment_id = "rexx:RAG"
+    _library = ""; _config = ""; _profile = ""; _access = "read"; _format = "json"
+    return
+
+  bind_environment: method = .void
+    arg env_name = .string, instance_id = .string
+    _environment_name = _address_normalize_environment_name(env_name)
+    _environment_id = instance_id
+    if _environment_id = "" then _environment_id = "rexx:RAG"
+    return
+
+  environment_name: method = .string
+    return _environment_name
+
+  environment_id: method = .string
+    return _environment_id
+
+  execute: method = .addressresponse
+    arg request = .addressrequest
+    command = request.get_command(); target = ""; args = .string[]; error = ""
+    if _addressargs(command, args, target, error) \= 0 then return _addressfailure(error)
+    if args.0 >= 2 & upper(args[1]) = "LIBRARY" & upper(args[2]) = "OPEN" then do
+      if _openargs(args, error) \= 0 then return _addressfailure(error)
+      fields = .ragresultfield[]
+      fields[1] = .ragresultfield("library", "string", _library)
+      fields[2] = .ragresultfield("config_id", "string", _config)
+      fields[3] = .ragresultfield("profile_id", "string", _profile)
+      fields[4] = .ragresultfield("access", "string", _access)
+      records = .ragresultrecord[]; records[1] = .ragresultrecord("address-session", fields)
+      return _addresscomplete(request, .ragcommandresult("library.open", "ok", 0, "ADDRESS RAG session bound", records), target)
+    end
+    if args.0 = 2 & upper(args[1]) = "LIBRARY" & upper(args[2]) = "CLOSE" then do
+      _library = ""; _config = ""; _profile = ""; _access = "read"; _format = "json"
+      records = .ragresultrecord[]
+      return _addresscomplete(request, .ragcommandresult("library.close", "ok", 0, "ADDRESS RAG session released", records), target)
+    end
+    if _library = "" then return _addressfailure("LIBRARY OPEN must bind the ADDRESS RAG session first")
+    cli_args = _sessionargs(args)
+    parsed = .ragcommandrequest
+    if parsecommand(cli_args, parsed, error) \= 0 then return _addressfailure(error)
+    return _addresscomplete(request, dispatchproduct(parsed, operatorregistry()), target)
+
+  invoke: method = .addressfunctionresponse
+    arg request = .addressfunctionrequest
+    name = _address_normalize_environment_name(request.get_function_name())
+    if name = "ID" then return .addressfunctionresponse(0, _environment_id)
+    if name = "NAME" then return .addressfunctionresponse(0, _environment_name)
+    if name \= "COMMAND" then return .addressfunctionresponse(2, "", "FAILURE")
+    args = .string[]
+    do i = 1 to request.get_argument_count()
+      args[i] = request.get_argument(i)
+    end
+    parsed = .ragcommandrequest; error = ""
+    if parsecommand(args, parsed, error) \= 0 then return .addressfunctionresponse(2, error, "FAILURE")
+    result = dispatchproduct(parsed, operatorregistry()); output = ""
+    if rendercommandresult(result, "json", output, error) \= 0 then return .addressfunctionresponse(10, error, "FAILURE")
+    condition = ""
+    if result.exit_code() \= 0 then condition = "FAILURE"
+    return .addressfunctionresponse(result.exit_code(), output, condition)
+
+  _openargs: method = .int
+    arg args = .string[], expose error = .string
+    if args.0 < 3 then do; error = "LIBRARY OPEN requires a path"; return -1; end
+    library = args[3]; config = ""; profile = ""; access = "read"; format = "json"; index = 4
+    do while index <= args.0
+      if index = args.0 then do; error = "LIBRARY OPEN option requires a value"; return -1; end
+      name = lower(args[index]); value = args[index + 1]
+      if name = "--config" then config = value
+      else if name = "--profile" then profile = value
+      else if name = "--access" then access = value
+      else if name = "--format" then format = value
+      else do; error = "unknown LIBRARY OPEN option " || args[index]; return -1; end
+      index = index + 2
+    end
+    if library = "" | config = "" | profile = "" then do; error = "LIBRARY OPEN requires a path, --config, and --profile"; return -1; end
+    if wordpos(access, "read plan ingest control curate diagnose admin") = 0 then do; error = "LIBRARY OPEN access is invalid"; return -1; end
+    if format \= "json" & format \= "ndjson" & format \= "human" then do; error = "LIBRARY OPEN format is invalid"; return -1; end
+    _library = library; _config = config; _profile = profile; _access = access; _format = format
+    return 0
+
+  _sessionargs: method = .string[]
+    arg args = .string[]
+    output = .string[]
+    output[1] = "--library"; output[2] = _library
+    output[3] = "--config"; output[4] = _config
+    output[5] = "--profile"; output[6] = _profile
+    output[7] = "--format"; output[8] = _format
+    output[9] = "--access"; output[10] = _access
+    do i = 1 to args.0
+      value = args[i]
+      if i <= 2 then value = lower(value)
+      output[output.0 + 1] = value
+    end
+    return output
+
+_addresscomplete: procedure = .addressresponse
+  arg request = .addressrequest, result = .ragcommandresult, target = .string
+  output = ""; error = ""
+  if rendercommandresult(result, "json", output, error) \= 0 then return _addressfailure(error)
+  response = .addressresponse(result.exit_code())
+  if result.exit_code() \= 0 then call response.set_condition_name("FAILURE")
+  if target \= "" then do
+    call response.add_updated_binding("var", target, target, output, "")
+    return response
+  end
+  redirect = request.get_stdout_endpoint()
+  emitted = redirect.native_emit(output || "0A"x)
+  if emitted = 1 then call redirect.finish()
+  else say output
+  return response
+
+_addressfailure: procedure = .addressresponse
+  arg message = .string
+  response = .addressresponse(2, "FAILURE")
+  call response.add_diagnostic(message)
+  return response
+
+_addressargs: procedure = .int
+  arg command = .string, expose args = .string[], expose target = .string, expose error = .string
+  clear args; target = ""; error = ""; token = ""; quoted = 0; escaped = 0
+  do i = 1 to length(command)
+    char = substr(command, i, 1)
+    if escaped = 1 then do
+      if char \= '"' & char \= "\\" then do; error = "unsupported command escape"; return -1; end
+      token = token || char; escaped = 0; iterate
+    end
+    if char = "\\" & quoted = 1 then do; escaped = 1; iterate; end
+    if char = '"' then do; quoted = 1 - quoted; iterate; end
+    if (char = " " | char = "09"x) & quoted = 0 then do
+      if token \= "" then do; args[args.0 + 1] = token; token = ""; end
+      iterate
+    end
+    token = token || char
+  end
+  if quoted = 1 | escaped = 1 then do; error = "unterminated quoted command argument"; return -1; end
+  if token \= "" then args[args.0 + 1] = token
+  if args.0 >= 2 & upper(args[args.0 - 1]) = "INTO" & left(args[args.0], 1) = ":" then do
+    target = substr(args[args.0], 2)
+    trimmed = .string[]
+    do i = 1 to args.0 - 2
+      trimmed[i] = args[i]
+    end
+    args = trimmed
+  end
+  if args.0 = 0 then do; error = "ADDRESS RAG command is empty"; return -1; end
+  return 0

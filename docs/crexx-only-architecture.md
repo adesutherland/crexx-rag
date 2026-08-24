@@ -660,8 +660,10 @@ against the immutable cited revision. Incompatible vector generation,
 dimension, manifest, or scan ceiling produces a declared lexical fallback.
 The nine frozen IT/Scotland judgements pass the permanent four-cell matrix;
 the exact retained evidence and hosted-quality boundary are in the
-[Phase-5 record](evidence/2026-08-23-phase5/README.md). The Level-G API below
-remains illustrative until Phase 6 freezes the public facade and adapters.
+[Phase-5 record](evidence/2026-08-23-phase5/README.md). Phase 6 freezes the
+transport-neutral `ragproduct` request/result facade and the CLI, ADDRESS RAG
+and MCP adapters described below; its retained proof is the
+[Phase-6 record](evidence/2026-08-24-phase6/README.md).
 
 The Phase-1B scratch algorithm profile preserves semantic parity but crosses
 the provisional 10,000-us trigger for 2,000 fixture fingerprint/chunk

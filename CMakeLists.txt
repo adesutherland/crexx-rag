@@ -5,6 +5,8 @@ project(crexx-rag
     DESCRIPTION "Lightweight local GraphRAG core with CREXX and MCP frontends"
     LANGUAGES C CXX)
 
+include(GNUInstallDirs)
+
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
@@ -138,6 +140,41 @@ if(CPRAG_BUILD_CREXX_PLUGIN)
         endif()
     endif()
 endif()
+
+install(TARGETS cprag_core
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+install(DIRECTORY include/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+if(TARGET crexx-rag)
+    install(TARGETS crexx-rag RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+endif()
+if(TARGET crexx-rag-mcp)
+    install(TARGETS crexx-rag-mcp RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+endif()
+if(TARGET _sqlite_boundary)
+    install(TARGETS _sqlite_boundary
+        RUNTIME DESTINATION "${CMAKE_INSTALL_LIBDIR}/crexx-rag/providers"
+        LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}/crexx-rag/providers")
+endif()
+install(DIRECTORY crexx/application/
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/crexx-rag/application"
+    FILES_MATCHING PATTERN "*.crexx" PATTERN "README.md" PATTERN "SYSTEM.md")
+install(DIRECTORY incubator/phase1b/provider/
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/crexx-rag/provider"
+    FILES_MATCHING PATTERN "*.crexx" PATTERN "README.md" PATTERN "SYSTEM.md")
+install(DIRECTORY skills/
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/crexx-rag/skills"
+    FILES_MATCHING PATTERN "SKILL.md" PATTERN "manifest.json" PATTERN "README.md")
+install(DIRECTORY tests/fixtures/tutorial/architecture-mini/
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/crexx-rag/tutorial/architecture-mini")
+install(FILES
+    cmake/CompileInstalledCrexxRag.cmake
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/crexx-rag/cmake")
+install(FILES
+    docs/tutorials/phase-4-improvement.md
+    docs/tutorials/phase-5-retrieval.md
+    docs/tutorials/phase-6-surfaces.md
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/crexx-rag/tutorials")
 
 if(CREXX_FOUND AND CPRAG_BUILD_TESTS)
     set(CPRAG_SURFACE_OPERATION_BASE
@@ -1485,6 +1522,38 @@ if(CPRAG_BUILD_TESTS)
                 TIMEOUT 900
                 LABELS "phase5;P5-01;P5-01A;P5-02;P5-03;P5-04;P5-05;P5-06;P5-07;P5-08;crexx;levelg;query-plan;fts5;rxvector;embedding;hybrid;rrf;graph;evidence;citation;provenance;stance;time;gap;judgement;baseline;tutorial;dual-vm;zero-outbound")
         endif()
+        set(PHASE6_SURFACES_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+            "-DCPRAG_APP_DIR=${CMAKE_CURRENT_LIST_DIR}/crexx/application"
+            "-DCPRAG_CONFIG_DIR=${CMAKE_CURRENT_LIST_DIR}/crexx/application/config"
+            "-DCPRAG_PROFILE_DIR=${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/profiles"
+            "-DCPRAG_SURFACE_DIR=${CMAKE_CURRENT_LIST_DIR}/crexx/application/surfaces"
+            "-DCPRAG_CLI=${CMAKE_CURRENT_LIST_DIR}/crexx/application/surfaces/crexx_rag_cli.crexx"
+            "-DCPRAG_ADDRESS=${CMAKE_CURRENT_LIST_DIR}/crexx/application/surfaces/rag_address_environment.crexx"
+            "-DCPRAG_MCP=${CMAKE_CURRENT_LIST_DIR}/crexx/application/surfaces/ragmcp.crexx"
+            "-DCPRAG_PROVIDER_CONTRACT=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_contract.crexx"
+            "-DCPRAG_ADDRESS_SCENARIO=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p6_02_address_scenario.crexx"
+            "-DCPRAG_MCP_SCENARIO=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p6_03_mcp_scenario.crexx"
+            "-DCPRAG_TUTORIAL_FIXTURE=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/tutorial/architecture-mini"
+            "-DCPRAG_SKILLS_DIR=${CMAKE_CURRENT_LIST_DIR}/skills"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/phase6-surfaces"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase6Surfaces.cmake")
+        add_custom_target(phase6_surfaces
+            COMMAND ${PHASE6_SURFACES_COMMAND}
+            DEPENDS _sqlite_boundary
+            COMMENT "Running Phase-6 Level-G CLI, ADDRESS RAG, MCP, and skill proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME phase6_surfaces COMMAND ${PHASE6_SURFACES_COMMAND})
+        set_tests_properties(phase6_surfaces PROPERTIES
+            TIMEOUT 900
+            LABELS "phase6;P6-01;P6-02;P6-03;P6-04;P6-05;P6-06;P6-07;crexx;levelg;cli;address;mcp;structured-content;capability;plan;apply;skills;tutorial;deprecation;backup;restore;dual-vm;zero-write")
         add_test(
             NAME crexx_profile_smoke
             COMMAND "${CMAKE_COMMAND}"

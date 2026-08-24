@@ -588,24 +588,24 @@ comparison, transport limitation and secret-free evidence are retained in the
 Goal: make one coherent application usable without internal implementation
 knowledge.
 
-- [ ] **P6-01** Finish the noun/verb CLI and cursor-paged machine formats.
-- [ ] **P6-02** Implement `ADDRESS RAG` over the same facade and typed results.
-- [ ] **P6-03** Implement typed MCP `structuredContent` by capability: `read`
+- [x] **P6-01** Finish the noun/verb CLI and cursor-paged machine formats.
+- [x] **P6-02** Implement `ADDRESS RAG` over the same facade and typed results.
+- [x] **P6-03** Implement typed MCP `structuredContent` by capability: `read`
   exposes status, sources, search, evidence/optional answer,
   trace/path/timeline, and job status/events; `diagnose` adds verify/provider
   diagnostics.
-- [ ] **P6-04** Add zero-library-write ingest/improve/proposal plan, review list,
+- [x] **P6-04** Add zero-library-write ingest/improve/proposal plan, review list,
   and review-decision preview under `plan`; gate job control, ingest apply,
   improve/proposal apply, and review decisions under their explicit `control`,
   `ingest`, or `curate` capabilities. Do not expose raw SQL/entity/edge mutation.
-- [ ] **P6-05** Ship the generic agent instructions and separately permissioned
+- [x] **P6-05** Ship the generic agent instructions and separately permissioned
   `crexx-rag-qa`, `crexx-rag-ingest`, `crexx-rag-improve`, and
   `crexx-rag-diagnose` skills as installable `SKILL.md` packages with manifests,
   tool/schema prerequisites, write-capability declarations, examples, and
   adversarial tests proving that knowledge of apply does not grant authority.
-- [ ] **P6-06** Replace the target-interface examples in the user guide with
+- [x] **P6-06** Replace the target-interface examples in the user guide with
   executable tested commands and publish a fresh-install tutorial.
-- [ ] **P6-07** Keep deprecated aliases for selected current commands for one
+- [x] **P6-07** Keep deprecated aliases for selected current commands for one
   compatibility release, with machine-readable deprecation output.
 
 ### Gate 6 — Usability and safety acceptance
@@ -617,6 +617,16 @@ plans authorized work, queries evidence, and monitors the operator-owned worker/
 job without acquiring process-supervision authority. Read and plan sessions
 cause zero library writes. Privacy/cost plans are visible before authorization,
 and every skill passes capability-denial tests.
+
+Gate 6 is accepted for the recorded macOS public-surface and safety scope. The
+four compiler/VM cells prove fresh initialization, exact reviewed ingest,
+zero-write plans, evidence query, CLI/ADDRESS/MCP equality, skill denial,
+deprecation, backup and restore. The Phase-4 worker engine and literal
+supervisor soak remain the worker authority. A provider-backed long-running
+public worker adapter and the hosted cREXX POST-completion finding remain
+explicit Phase-7 cutover limitations, so this acceptance does not select or
+rename the production default. See the
+[`Phase-6 record`](evidence/2026-08-24-phase6/README.md).
 
 ## Phase 7 — Corpus Qualification And Cutover Decision
 

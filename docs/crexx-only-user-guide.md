@@ -256,17 +256,12 @@ crexx-rag \
 ```
 
 The accepted P2-10 shared facade implements the underlying canonical bytes,
-digest, expiry, and hostile apply-time revalidation. Its transport-neutral
-apply option is `--plan-json`; a later thin CLI adapter will read `--plan FILE`
-and pass those exact bytes to the facade. The currently shipped native-v1 CLI
-has not been replaced. The Phase-3 ingest and Phase-4 improvement development
-APIs now create and execute durable jobs, but the shared public facade still
-reports `enqueued=false` until Phase 6 wires the command vocabulary to those
-accepted algorithms.
-
-After the Phase-6 adapter is implemented, public apply will return a job id
-immediately. It will continue to refuse a stale plan if the library, sources,
-configuration, profile, provider route, or reservations changed.
+digest, expiry, and hostile apply-time revalidation. The Phase-6 Level-G CLI
+passes its transport-neutral `--plan-json` bytes and exact digest to
+`ragproduct`; native-v1 remains installed as the comparison oracle. Successful
+ingest apply returns the durable job id immediately and refuses a stale plan if
+the library, sources, configuration, profile, provider route, or reservations
+changed.
 
 Applying enqueues work; it does not hide a daemon inside the command. For a
 manual run, process one job explicitly:
@@ -292,11 +287,11 @@ crexx-rag \
 The supervisor owns restart and scheduling. An LLM may monitor the job but does
 not gain process-supervision authority through the knowledge tools.
 
-The underlying Phase-4 worker implementation is already database-clock leased
+The underlying Phase-4 worker implementation is database-clock leased
 and fenced, supports bounded once/follow loops, pause/resume/drain, heartbeat,
 retry/dead-letter, cooperative cancellation, exact reservation settlement, and
-multi-process recovery. The command spellings in this guide remain target
-interface until Phase 6.
+multi-process recovery. These command spellings are the staged Phase-6 public
+interface; Phase 7 owns the cutover decision.
 
 Monitor it without reading SQLite directly:
 
@@ -534,22 +529,24 @@ JOB STATUS / JOB EVENTS / JOB PAUSE / JOB RESUME / JOB CANCEL
 REVIEW LIST / REVIEW SHOW / REVIEW DECIDE
 ```
 
-The final examples will use typed host-variable anchors and the CREXX-safe
-argv/stem command form. Arbitrary source text and prompts must never be
-interpolated into a shell command. `ADDRESS RAG` must return the same typed
-records and errors as the Level G `raglibrary` API.
+The executable installed examples and quoting rules are in the
+[Phase-6 tutorial](tutorials/phase-6-surfaces.md). Arbitrary source text and
+prompts must never be interpolated into a shell command. `ADDRESS RAG` returns
+the same `crexx-rag.command-result/1` records and errors as the Level-G
+dispatcher and CLI.
 
 ## Use From An LLM Agent
 
-Start MCP read-only for question answering:
+Start the installed compiled cREXX MCP adapter read-only for question answering
+as shown in the [Phase-6 tutorial](tutorials/phase-6-surfaces.md). Its logical
+arguments are:
 
 ```bash
-crexx-rag \
+ragmcp \
   --library ./architecture.cprag \
-  --config architecture_local_config \
-  --profile it_architecture_profile \
-  --access read \
-  serve mcp
+  --config architecture-local \
+  --profile it-architecture-profile \
+  --access read
 ```
 
 Read-only mode exposes status, sources, search, evidence/optional answer,

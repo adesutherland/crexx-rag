@@ -1,0 +1,46 @@
+options levelg
+
+import ragcommand
+import ragproduct
+import operator_registry
+
+main: procedure = .int
+arg args = .string[]
+alias = ""; command_args = _aliases(args, alias)
+request = .ragcommandrequest; error = ""
+parse_status = parsecommand(command_args, request, error)
+if parse_status \= 0 then do
+  say "ERROR parse [usage]: " || error
+  return 2
+end
+result = dispatchproduct(request, operatorregistry())
+if alias \= "" then result = _deprecated(result, alias)
+output = ""
+if rendercommandresult(result, request.format(), output, error) \= 0 then do
+  say "ERROR render [internal]: " || error
+  return 10
+end
+say output
+return result.exit_code()
+
+_aliases: procedure = .string[]
+  arg args = .string[], expose alias = .string
+  alias = ""; output = .string[]
+  do i = 1 to args.0
+    if alias = "" & args[i] = "queue-status" then do
+      alias = "queue-status"
+      output[output.0 + 1] = "job"
+      output[output.0 + 1] = "list"
+    end
+    else output[output.0 + 1] = args[i]
+  end
+  return output
+
+_deprecated: procedure = .ragcommandresult
+  arg result = .ragcommandresult, alias = .string
+  records = result.records(); fields = .ragresultfield[]
+  fields[1] = .ragresultfield("alias", "string", alias)
+  fields[2] = .ragresultfield("replacement", "string", "job list")
+  fields[3] = .ragresultfield("removal_after", "string", "one compatibility release")
+  records[records.0 + 1] = .ragresultrecord("deprecation", fields)
+  return .ragcommandresult(result.operation(), result.status(), result.exit_code(), result.message(), records)

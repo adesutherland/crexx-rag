@@ -1,0 +1,46 @@
+options levelg
+
+import rxfnsb
+import rxjson
+import rxhash
+import ragmcp
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 \= 1 then return 2
+  library = args[1]
+  database = library || "/library.sqlite"; manifest = library || "/manifest.json"
+  db_before = rxhash..sha256filehex(database); manifest_before = rxhash..sha256filehex(manifest)
+
+  initialize = mcpdispatch('{"jsonrpc":"2.0","id":"init","method":"initialize","params":{}}', library, "architecture-local", "generic-profile", "read")
+  if jsonvalid(initialize) \= 1 | pos('"protocolVersion":"2025-06-18"', initialize) = 0 then return 10
+
+  read_tools = mcpdispatch('{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}', library, "architecture-local", "generic-profile", "read")
+  if pos('"rag_query_evidence"', read_tools) = 0 | pos('"rag_ingest_apply"', read_tools) > 0 | pos('"rag_library_verify"', read_tools) > 0 then return 11
+  plan_tools = mcpdispatch('{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}', library, "architecture-local", "generic-profile", "plan")
+  if pos('"rag_ingest_plan"', plan_tools) = 0 | pos('"rag_ingest_apply"', plan_tools) > 0 then return 12
+  diagnose_tools = mcpdispatch('{"jsonrpc":"2.0","id":3,"method":"tools/list","params":{}}', library, "architecture-local", "generic-profile", "diagnose")
+  if pos('"rag_library_verify"', diagnose_tools) = 0 | pos('"rag_job_cancel"', diagnose_tools) > 0 then return 13
+  admin_tools = mcpdispatch('{"jsonrpc":"2.0","id":4,"method":"tools/list","params":{}}', library, "architecture-local", "generic-profile", "admin")
+  if pos('"rag_library_verify"', admin_tools) = 0 | pos('"rag_job_cancel"', admin_tools) = 0 | pos('"rag_ingest_apply"', admin_tools) > 0 then return 14
+
+  status = mcpdispatch('{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"rag_library_status","arguments":{}}}', library, "architecture-local", "generic-profile", "read")
+  if jsonvalid(status) \= 1 | pos('"structuredContent":{"schema":"crexx-rag.command-result/1","operation":"library.status","status":"ok"', status) = 0 then return 15
+  status_document = .jsondocument(status); library_id = ""
+  result_node = status_document.member(status_document.root(), "result")
+  content_node = status_document.member(result_node, "structuredContent")
+  records_node = status_document.member(content_node, "records")
+  record_node = status_document.element(records_node, 1)
+  fields_node = status_document.member(record_node, "fields")
+  if status_document.node_string(status_document.member(fields_node, "library_id"), library_id) \= 0 then return 20
+  plan = mcpdispatch('{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"rag_ingest_plan","arguments":{"source_set":"architecture-docs"}}}', library, "architecture-local", "generic-profile", "plan")
+  if pos('"operation":"ingest.plan","status":"ok"', plan) = 0 then return 16
+  denied = mcpdispatch('{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"rag_ingest_apply","arguments":{"plan_json":"{}","expect_digest":"00"}}}', library, "architecture-local", "generic-profile", "plan")
+  if pos('"code":-32602', denied) = 0 | pos("not advertised", denied) = 0 then return 17
+  malformed = mcpdispatch('{not-json', library, "architecture-local", "generic-profile", "read")
+  if pos('"code":-32700', malformed) = 0 then return 18
+
+  db_after = rxhash..sha256filehex(database); manifest_after = rxhash..sha256filehex(manifest)
+  if db_before \= db_after | manifest_before \= manifest_after then return 19
+  say "P6_MCP_OK library_id=" || library_id || " read_plan_zero_write=1 structured_content=1 capability_denial=1 strict_json=1"
+  return 0

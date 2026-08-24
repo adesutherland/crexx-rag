@@ -2,8 +2,9 @@
 
 Status: executable development tutorial for the implemented Phase-4 algorithm.
 The Level-G modules and durable schema-v2 behavior are implemented and tested.
-The public CLI, ADDRESS RAG, MCP, installed application package, and agent
-skills remain Phase 6 work. This is not a release or cutover claim.
+The later Phase-6 tutorial now carries the public CLI, ADDRESS RAG, MCP,
+installed-package, and narrow-skill walkthrough. This is not a release or
+cutover claim.
 
 CTest executes crexx/tutorials/phase4_improvement_scenario.crexx and compares
 every line with tests/expected/tutorial-phase4.jsonl. The tutorial uses a

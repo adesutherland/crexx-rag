@@ -1,6 +1,6 @@
 # cREXX Application Modules
 
-Status: Phase 5 product implementation. These modules are application code,
+Status: Phase 6 staged public product implementation. These modules are application code,
 not generic CREXX donation candidates.
 
 ## Use
@@ -66,13 +66,13 @@ sanitized rendering of the same typed result.
 `ragcanonical` owns byte-stable non-secret configuration, profile, and provider
 route/privacy projections plus installed SHA-256 use. `ragplanning` creates and
 revalidates `crexx-rag.plan/1` envelopes over a pinned read snapshot.
-`ragfoundation` is the shared command dispatcher. Its Phase-2 generic ingest,
-improve, and proposal command plans remain read-only previews until Phase 6
-wires the public surface. `ragingest` now owns the Phase-3 domain plan and
+`ragfoundation` supplies generic lifecycle and canonical planning operations;
+`ragproduct` is the shared Phase-6 product dispatcher used by the CLI, ADDRESS
+RAG and MCP adapters. `ragingest` owns the Phase-3 domain plan and
 shared initial/incremental reconciler. `ragfolder` discovers bounded folder
-observations with sorted relative-path stable keys. The public facade does not
-yet expose apply, so the Phase-3/4 implementation is exercised through typed
-Level-G callers and executable development tutorials.
+observations with sorted relative-path stable keys. The public facade exposes
+exact reviewed ingest/improve/proposal apply and capability-gated job/review
+operations without exposing raw SQL or graph edits.
 
 `ragingest` uses `crexx-rag.ingest-plan/1`. Apply recomputes its source,
 generation, parser, policy, raw/text/metadata and revision-envelope bindings
@@ -165,6 +165,9 @@ and worker coverage is `p4_01_claims_scenario.crexx` and
 Phase-5 focused planning, embeddings, hybrid retrieval, evidence, baselines and
 judgements are covered by `p5_01_retrieval_scenario.crexx`; its executable
 tutorial is `crexx/tutorials/phase5_retrieval_scenario.crexx`.
+Phase-6 public binding coverage is `p6_02_address_scenario.crexx` and
+`p6_03_mcp_scenario.crexx`; the installed human/agent walkthrough is
+`docs/tutorials/phase-6-surfaces.md`.
 
 `ragstore` uses a directory bundle containing `library.sqlite` and the
 recoverable `manifest.json` projection. SQLite is authoritative. A publication
@@ -175,13 +178,14 @@ returns the stable bundle to rollback-journal mode.
 
 ## Current Limits
 
-Phase 2 through Gate 5 are accepted for their recorded macOS scope. Phase 3
-implements ingestion, Phase 4 claim/review/improvement/workers and Phase 5
-retrieval/evidence; the Phase-2 public facade still does not expose apply. The
-native executable remains the oracle. CLI, ADDRESS, MCP and skill adapters
-remain Phase 6. Recurring QA uses deterministic providers and symbolic hosted
+Phase 2 through Gate 6 are accepted for their recorded macOS scope. Phase 3
+implements ingestion, Phase 4 claim/review/improvement/workers, Phase 5
+retrieval/evidence, and Phase 6 the staged public CLI, ADDRESS, MCP, packaging
+and skills. The native executable remains the oracle pending Phase-7 selection.
+Recurring QA uses deterministic providers and symbolic hosted
 secret references. The bounded Phase-5 hosted quality harness is retained, but
-the cREXX hosted adapter's POST-completion finding remains Phase-7 work. Sidecar
+the cREXX hosted adapter's POST-completion finding and provider-backed public
+worker lifetime remain Phase-7 cutover work. Sidecar
 verification retains the
 2,147,483,647-byte application ceiling but hashes in fixed memory. Callers that
 do not need an interposed ceiling or returned byte count can use the installed

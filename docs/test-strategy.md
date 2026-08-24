@@ -375,6 +375,29 @@ must never be retained. A hosted quality pass does not substitute for the
 cREXX provider/transport path; its observed POST-completion timeout is a
 separate Phase-7 closure item.
 
+## Phase 6 Acceptance
+
+CTest `phase6_surfaces` is the permanent Gate-6 proof. It compiles the shared
+Level-G `ragproduct` dispatcher, CLI, ADDRESS RAG environment, MCP server, and
+surface scenarios with and without optimization, then runs the behavioral
+matrix on both `rxvme` and `rxbvm`.
+
+Each fresh product cell proves exact reviewed ingest, stable evidence queries,
+zero-write ingest/improve/proposal planning, denied mutation without the named
+capability, a machine-readable one-release deprecation alias, pinned backup and
+fresh-target restore, and semantic equality across CLI, ADDRESS RAG, and MCP
+`structuredContent`. The MCP server advertises only capability-authorized
+tools, never raw SQL or graph mutation. Four narrow skill manifests are parsed
+and checked against the versioned skill-manifest schema.
+
+The install proof stages application/provider sources, the downstream SQLite
+boundary, tutorial fixtures, skills, and compile helper under a scratch prefix.
+That helper compiles optimized and non-optimized external consumers from the
+installed package with no source-tree fallback. Native-v1 remains installed as
+an oracle; Gate 6 does not authorize cutover. Public worker-provider lifetime
+reuse and the observed cREXX hosted POST-completion timeout are explicit Gate-7
+limits.
+
 ## Required Commands
 
 At Phase-1B entry and Gate 1B:

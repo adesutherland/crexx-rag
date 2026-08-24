@@ -35,12 +35,13 @@ language levels.
 
 Phase 0 through Gate 2 are complete and accepted for their recorded scope.
 Phase 3-plus sequential implementation was authorized on 2026-08-23, with QA
-and one focused commit after each phase. Phases 3 through 5 are accepted for
+and one focused commit after each phase. Phases 3 through 6 are accepted for
 their recorded macOS scopes. Phase 4's literal supervised overnight soak
 completed on 2026-08-24 with one clean launchd run, 28,800 one-second polls,
 and balanced durable work/reservations. Phase 5 includes bounded hosted answer-
-quality evidence while cREXX hosted completion remains Phase-7 qualification
-work. Exact downstream Linux replay remains an explicit platform item.
+quality evidence while cREXX hosted completion and the public worker/provider
+lifetime remain Phase-7 qualification work. Phase 6 does not authorize product
+cutover. Exact downstream Linux replay remains an explicit platform item.
 
 Phase 8 is a donation-opportunities, ownership, compatibility, and retirement-
 readiness report, not a tutorial. Do not invent a Phase-8 tutorial; retain

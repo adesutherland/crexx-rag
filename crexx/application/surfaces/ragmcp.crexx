@@ -1,0 +1,245 @@
+options levelg
+
+namespace ragmcp expose mcpdispatch
+
+import rxfnsb
+import rxjson
+import ragcommand
+import ragproduct
+import operator_registry
+
+/* Thin stdio MCP adapter. Product policy and operations remain in ragproduct. */
+mcpdispatch: procedure = .string
+  arg request_json = .string, library = .string, config = .string, profile = .string, access = "read"
+  document = .jsondocument(request_json)
+  if document.valid() \= 1 then return _error("null", -32700, "request is not strict JSON")
+  root = document.root()
+  if document.node_type(root) \= "object" then return _error("null", -32600, "request must be an object")
+  version = ""; method_name = ""; id_json = "null"
+  if document.node_string(document.member(root, "jsonrpc"), version) \= 0 | version \= "2.0" then return _error("null", -32600, "jsonrpc must be 2.0")
+  id_node = document.member(root, "id")
+  if id_node \= 0 then id_json = _idjson(document, id_node)
+  if document.node_string(document.member(root, "method"), method_name) \= 0 then return _error(id_json, -32600, "method must be a string")
+  if method_name = "notifications/initialized" then return ""
+  if method_name = "initialize" then return _response(id_json, '{"protocolVersion":"2025-06-18","serverInfo":{"name":"crexx-rag-mcp","version":"0.1.0"},"capabilities":{"tools":{}}}')
+  if method_name = "tools/list" then return _response(id_json, '{"tools":[' || _toollist(access) || ']}')
+  if method_name \= "tools/call" then return _error(id_json, -32601, "method not found")
+  params = document.member(root, "params")
+  if document.node_type(params) \= "object" then return _error(id_json, -32602, "params must be an object")
+  tool = ""
+  if document.node_string(document.member(params, "name"), tool) \= 0 then return _error(id_json, -32602, "tool name must be a string")
+  arguments = document.member(params, "arguments")
+  if arguments = 0 then arguments = document.root()
+  else if document.node_type(arguments) \= "object" then return _error(id_json, -32602, "tool arguments must be an object")
+  command_args = .string[]; error = ""
+  if _toolcommand(tool, document, arguments, library, config, profile, access, command_args, error) \= 0 then return _error(id_json, -32602, error)
+  request = .ragcommandrequest
+  if parsecommand(command_args, request, error) \= 0 then return _error(id_json, -32602, error)
+  result = dispatchproduct(request, operatorregistry())
+  result_json = ""
+  if rendercommandresult(result, "json", result_json, error) \= 0 then return _error(id_json, -32603, error)
+  is_error = "false"
+  if result.exit_code() \= 0 then is_error = "true"
+  payload = '{"content":[{"type":"text","text":' || jsonquote(result.message()) || '}],"structuredContent":' || result_json || ',"isError":' || is_error || '}'
+  return _response(id_json, payload)
+
+_toolcommand: procedure = .int
+  arg tool = .string, document = .jsondocument, arguments = .int, library = .string, config = .string, profile = .string, access = .string, expose output = .string[], expose error = .string
+  clear output; error = ""
+  output[1] = "--library"; output[2] = library
+  output[3] = "--config"; output[4] = config
+  output[5] = "--profile"; output[6] = profile
+  output[7] = "--format"; output[8] = "json"
+  output[9] = "--access"; output[10] = access
+  noun = ""; verb = ""
+  if tool = "rag_library_status" then do; noun = "library"; verb = "status"; end
+  else if tool = "rag_library_verify" then do; noun = "library"; verb = "verify"; end
+  else if tool = "rag_provider_diagnostics" then do; noun = "provider"; verb = "status"; end
+  else if tool = "rag_source_list" then do; noun = "source"; verb = "list"; end
+  else if tool = "rag_query_search" then do; noun = "query"; verb = "search"; end
+  else if tool = "rag_query_evidence" then do; noun = "query"; verb = "evidence"; end
+  else if tool = "rag_query_answer" then do; noun = "query"; verb = "answer"; end
+  else if tool = "rag_query_trace" then do; noun = "query"; verb = "trace"; end
+  else if tool = "rag_query_path" then do; noun = "query"; verb = "path"; end
+  else if tool = "rag_query_timeline" then do; noun = "query"; verb = "timeline"; end
+  else if tool = "rag_job_status" then do; noun = "job"; verb = "status"; end
+  else if tool = "rag_job_events" then do; noun = "job"; verb = "events"; end
+  else if tool = "rag_ingest_plan" then do; noun = "ingest"; verb = "plan"; end
+  else if tool = "rag_improve_plan" then do; noun = "improve"; verb = "plan"; end
+  else if tool = "rag_proposal_plan" then do; noun = "proposal"; verb = "plan"; end
+  else if tool = "rag_review_list" then do; noun = "review"; verb = "list"; end
+  else if tool = "rag_review_decide_preview" then do; noun = "review"; verb = "decide"; end
+  else if tool = "rag_job_pause" then do; noun = "job"; verb = "pause"; end
+  else if tool = "rag_job_resume" then do; noun = "job"; verb = "resume"; end
+  else if tool = "rag_job_cancel" then do; noun = "job"; verb = "cancel"; end
+  else if tool = "rag_worker_drain" then do; noun = "worker"; verb = "drain"; end
+  else if tool = "rag_ingest_apply" then do; noun = "ingest"; verb = "apply"; end
+  else if tool = "rag_improve_apply" then do; noun = "improve"; verb = "apply"; end
+  else if tool = "rag_proposal_apply" then do; noun = "proposal"; verb = "apply"; end
+  else if tool = "rag_review_decide" then do; noun = "review"; verb = "decide"; end
+  else do; error = "unknown or unavailable tool"; return -1; end
+  required = _toolcapability(tool)
+  if _has(access, required) \= 1 then do; error = "tool is not advertised for the granted capability"; return -1; end
+  output[output.0 + 1] = noun; output[output.0 + 1] = verb
+  if left(tool, 10) = "rag_query_" then do
+    if _positional(document, arguments, "question", output, error) \= 0 then return -1
+    call _option document, arguments, "limit", "limit", output
+    call _option document, arguments, "hops", "hops", output
+    call _option document, arguments, "mode", "mode", output
+  end
+  if tool = "rag_source_list" | tool = "rag_review_list" then do
+    call _option document, arguments, "cursor", "cursor", output
+    call _option document, arguments, "limit", "limit", output
+  end
+  if tool = "rag_job_status" | tool = "rag_job_events" | tool = "rag_job_pause" | tool = "rag_job_resume" | tool = "rag_job_cancel" | tool = "rag_worker_drain" then do
+    if _positional(document, arguments, "id", output, error) \= 0 then return -1
+    if tool = "rag_job_cancel" then call _option document, arguments, "reason", "reason", output
+  end
+  if tool = "rag_ingest_plan" then call _option document, arguments, "source_set", "source-set", output
+  if tool = "rag_proposal_plan" then call _option document, arguments, "input_digest", "input-digest", output
+  if tool = "rag_review_decide_preview" | tool = "rag_review_decide" then do
+    if _positional(document, arguments, "id", output, error) \= 0 then return -1
+    call _option document, arguments, "decision", "decision", output
+    if tool = "rag_review_decide_preview" then do; output[output.0 + 1] = "--apply"; output[output.0 + 1] = "false"; end
+    else do; output[output.0 + 1] = "--apply"; output[output.0 + 1] = "true"; end
+  end
+  if tool = "rag_ingest_apply" | tool = "rag_improve_apply" | tool = "rag_proposal_apply" then do
+    call _option document, arguments, "plan_json", "plan-json", output
+    call _option document, arguments, "expect_digest", "expect-digest", output
+  end
+  return 0
+
+_positional: procedure = .int
+  arg document = .jsondocument, arguments = .int, name = .string, expose output = .string[], expose error = .string
+  value = _value(document, arguments, name)
+  if value = "" then do; error = "tool requires argument " || name; return -1; end
+  output[output.0 + 1] = value
+  return 0
+
+_option: procedure = .void
+  arg document = .jsondocument, arguments = .int, member_name = .string, option_name = .string, expose output = .string[]
+  value = _value(document, arguments, member_name)
+  if value = "" then return
+  output[output.0 + 1] = "--" || option_name
+  output[output.0 + 1] = value
+  return
+
+_value: procedure = .string
+  arg document = .jsondocument, arguments = .int, name = .string
+  node = document.member(arguments, name)
+  if node = 0 then return ""
+  kind = document.node_type(node)
+  if kind = "string" then do; value = ""; if document.node_string(node, value) = 0 then return value; return ""; end
+  if kind = "number" | kind = "boolean" then return document.node_get(node)
+  return ""
+
+_toolcapability: procedure = .string
+  arg tool = .string
+  if tool = "rag_library_verify" | tool = "rag_provider_diagnostics" then return "diagnose"
+  if tool = "rag_ingest_plan" | tool = "rag_improve_plan" | tool = "rag_proposal_plan" | tool = "rag_review_list" | tool = "rag_review_decide_preview" then return "plan"
+  if tool = "rag_job_pause" | tool = "rag_job_resume" | tool = "rag_job_cancel" | tool = "rag_worker_drain" then return "control"
+  if tool = "rag_ingest_apply" then return "ingest"
+  if tool = "rag_improve_apply" | tool = "rag_proposal_apply" | tool = "rag_review_decide" then return "curate"
+  return "read"
+
+_toollist: procedure = .string
+  arg access = .string
+  tools = ""
+  tools = _addtool(tools, "rag_library_status", "Read bounded library status", '{}', "true")
+  tools = _addtool(tools, "rag_source_list", "List sources with cursor-bounded records", '{"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100}}', "true")
+  tools = _addtool(tools, "rag_query_search", "Search and return typed evidence", _queryproperties(), "true")
+  tools = _addtool(tools, "rag_query_evidence", "Return an LLM-ready typed evidence packet", _queryproperties(), "true")
+  tools = _addtool(tools, "rag_query_answer", "Return evidence and an optional generated answer", _queryproperties(), "true")
+  tools = _addtool(tools, "rag_query_trace", "Return the bounded query trace", _queryproperties(), "true")
+  tools = _addtool(tools, "rag_query_path", "Return bounded typed paths for a question", _queryproperties(), "true")
+  tools = _addtool(tools, "rag_query_timeline", "Return bounded evidence timeline for a question", _queryproperties(), "true")
+  tools = _addtool(tools, "rag_job_status", "Read one durable job status", '{"id":{"type":"string"}}', "true")
+  tools = _addtool(tools, "rag_job_events", "Read bounded durable job events", '{"id":{"type":"string"}}', "true")
+  if _has(access, "diagnose") then do
+    tools = _addtool(tools, "rag_library_verify", "Verify bundle and generation invariants", '{}', "true")
+    tools = _addtool(tools, "rag_provider_diagnostics", "Read redacted provider route diagnostics", '{}', "true")
+  end
+  if _has(access, "plan") then do
+    tools = _addtool(tools, "rag_ingest_plan", "Plan ingestion without writing the library", '{"source_set":{"type":"string"}}', "true")
+    tools = _addtool(tools, "rag_improve_plan", "Plan bounded improvement without writing", '{}', "true")
+    tools = _addtool(tools, "rag_proposal_plan", "Plan a proposal without writing", '{"input_digest":{"type":"string"}}', "true")
+    tools = _addtool(tools, "rag_review_list", "List review proposals", '{}', "true")
+    tools = _addtool(tools, "rag_review_decide_preview", "Preview a review decision without writing", '{"id":{"type":"string"},"decision":{"type":"string","enum":["accept","reject","dismiss"]}}', "true")
+  end
+  if _has(access, "control") then do
+    tools = _addtool(tools, "rag_job_pause", "Pause one durable job", '{"id":{"type":"string"}}', "false")
+    tools = _addtool(tools, "rag_job_resume", "Resume one durable job", '{"id":{"type":"string"}}', "false")
+    tools = _addtool(tools, "rag_job_cancel", "Request cancellation for one job", '{"id":{"type":"string"},"reason":{"type":"string"}}', "false")
+    tools = _addtool(tools, "rag_worker_drain", "Drain one job without taking supervision authority", '{"id":{"type":"string"}}', "false")
+  end
+  if _has(access, "ingest") then tools = _addtool(tools, "rag_ingest_apply", "Apply an exact reviewed ingestion plan", _applyproperties(), "false")
+  if _has(access, "curate") then do
+    tools = _addtool(tools, "rag_improve_apply", "Apply an exact reviewed improvement plan", _applyproperties(), "false")
+    tools = _addtool(tools, "rag_proposal_apply", "Apply an exact reviewed proposal plan", _applyproperties(), "false")
+    tools = _addtool(tools, "rag_review_decide", "Persist an authorized review decision", '{"id":{"type":"string"},"decision":{"type":"string","enum":["accept","reject","dismiss"]}}', "false")
+  end
+  return tools
+
+_addtool: procedure = .string
+  arg tools = .string, name = .string, description = .string, properties = .string, readonly = .string
+  if tools \= "" then tools = tools || ","
+  required = "[]"
+  if pos('"question"', properties) > 0 then required = '["question"]'
+  if pos('"id"', properties) > 0 then required = '["id"]'
+  if pos('"plan_json"', properties) > 0 then required = '["plan_json","expect_digest"]'
+  destructive = "true"; idempotent = "false"
+  if readonly = "true" then do; destructive = "false"; idempotent = "true"; end
+  return tools || '{"name":' || jsonquote(name) || ',"description":' || jsonquote(description) || ',"inputSchema":{"type":"object","properties":' || properties || ',"required":' || required || ',"additionalProperties":false},"outputSchema":{"type":"object","required":["schema","operation","status","exit_code","records"]},"annotations":{"readOnlyHint":' || readonly || ',"destructiveHint":' || destructive || ',"idempotentHint":' || idempotent || ',"openWorldHint":false}}'
+
+_queryproperties: procedure = .string
+  return '{"question":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":12},"hops":{"type":"integer","minimum":0,"maximum":4},"mode":{"type":"string","enum":["auto","lexical","hybrid"]}}'
+
+_applyproperties: procedure = .string
+  return '{"plan_json":{"type":"string"},"expect_digest":{"type":"string"}}'
+
+_has: procedure = .int
+  arg access = .string, required = .string
+  do i = 1 to words(changestr(",", access, " "))
+    granted = word(changestr(",", access, " "), i)
+    if granted = required then return 1
+    if required = "read" then return 1
+    if required = "plan" & (granted = "ingest" | granted = "curate") then return 1
+    if required = "control" & (granted = "curate" | granted = "admin") then return 1
+    if required = "diagnose" & granted = "admin" then return 1
+  end
+  return 0
+
+_idjson: procedure = .string
+  arg document = .jsondocument, node = .int
+  kind = document.node_type(node)
+  if kind = "string" then do; value = ""; if document.node_string(node, value) = 0 then return jsonquote(value); end
+  if kind = "number" | kind = "null" then return document.node_get(node)
+  return "null"
+
+_response: procedure = .string
+  arg id_json = .string, result_json = .string
+  return '{"jsonrpc":"2.0","id":' || id_json || ',"result":' || result_json || '}'
+
+_error: procedure = .string
+  arg id_json = .string, code = .int, message = .string
+  return '{"jsonrpc":"2.0","id":' || id_json || ',"error":{"code":' || code || ',"message":' || jsonquote(message) || '}}'
+
+main: procedure = .int
+  arg args = .string[]
+  library = ""; config = ""; profile = ""; access = "read"; index = 1
+  do while index <= args.0
+    if index = args.0 then do; say "crexx-rag-mcp: option requires a value"; return 2; end
+    name = args[index]; value = args[index + 1]
+    if name = "--library" then library = value
+    else if name = "--config" then config = value
+    else if name = "--profile" then profile = value
+    else if name = "--access" then access = value
+    else do; say "crexx-rag-mcp: unknown option " || name; return 2; end
+    index = index + 2
+  end
+  if library = "" | config = "" | profile = "" then do; say "crexx-rag-mcp: --library, --config, and --profile are required"; return 2; end
+  do while lines("stdin") > 0
+    response = mcpdispatch(linein("stdin"), library, config, profile, access)
+    if response \= "" then say response
+  end
+  return 0

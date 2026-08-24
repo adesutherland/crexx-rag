@@ -1,8 +1,9 @@
 # Phase 3 Tutorial: Initial And Incremental Ingestion
 
 Status: executable development tutorial for the accepted Phase-3 implementation.
-The module contracts below are implemented and tested, but the public CLI and
-installed application package are Phase 6 work. This is not a release claim.
+The module contracts below are implemented and tested. The later Phase-6
+tutorial now carries the installed public CLI/ADDRESS/MCP walkthrough. This is
+not a release claim.
 
 This tutorial uses the real Level-G folder connector, ingestion planner,
 generation reconciler, schema-v2 repositories, FTS projection, and job queue.

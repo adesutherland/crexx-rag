@@ -6,6 +6,7 @@ import rxfnsb
 import rxhash
 import sqlite_boundary
 import ragstore
+import ragmodel
 import ragprofile
 import ragingest
 

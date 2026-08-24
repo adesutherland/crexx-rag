@@ -2,7 +2,7 @@
 
 ## Boundary
 
-The directory owns product-facing Level G contracts and, through Phase 5,
+The directory owns product-facing Level G contracts and, through Phase 6,
 the cREXX implementations behind them. It may consume installed CREXX
 foundation modules and separately qualified generic plugins. It must not call
 the native-v1 RAG bridge, shell through the CLI, or import product behavior from
@@ -26,6 +26,8 @@ ragstore + ragprofile + ragingest <- ragquery
 ragstore + provider contract + installed rxvector <- ragembedding
 ragquery + ragembedding + ragclaims <- ragretrieval <- ragevidencejson
 ragcommand + lifecycle modules + ragplanning <- ragfoundation
+ragfoundation + ingestion/improvement/retrieval <- ragproduct
+ragproduct <- CLI + ADDRESS RAG + MCP
 ```
 
 `raglibrary` coordinates public operations. `ragjob` is a returned durable-work
@@ -101,6 +103,14 @@ trace. Incompatible vector state falls back lexically with an explicit reason.
 `ragevidencejson` applies a caller byte ceiling and never collapses accepted
 support, contradiction, stance, time, ambiguity, leads or gaps into prose.
 
+Phase 6 keeps every transport thin. `ragproduct` accepts one typed
+`.ragcommandrequest` and returns one `.ragcommandresult`; the CLI only parses
+argv/renders, `rag_address_environment` owns validated session state and
+ADDRESS redirection, and `ragmcp` owns strict JSON-RPC/tool translation plus
+`structuredContent`. Capability advertisement is narrower than knowledge of
+the operation. Read and plan open SQLite read-only, and MCP never exposes raw
+SQL or raw entity/edge mutation.
+
 Rollback targets a published ancestor. While holding the SQLite writer lock it
 first publishes a projection of that already-committed older generation, then
 rebuilds FTS for the target visibility snapshot, moves the authoritative
@@ -175,3 +185,9 @@ fallback, atomic vector generation, privacy denial, the six-record tutorial,
 the preserved native-v1 MCP oracle and a controlled full-source baseline. The
 ordinary test is deterministic and zero-outbound; the explicit hosted harness
 and its cREXX transport limitation are documented separately.
+
+CTest `phase6_surfaces` compiles every application/public adapter optimized and
+non-optimized, runs both concrete VMs, and creates a fresh bundle per cell. It
+proves exact reviewed ingest, read/plan database+manifest hash stability,
+evidence query, CLI/ADDRESS/MCP library-identity equality, strict MCP requests,
+capability denial, deprecation, backup/restore, and all four skill manifests.

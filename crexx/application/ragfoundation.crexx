@@ -411,7 +411,12 @@ _hasaccess: procedure = .int
   arg request = .ragcommandrequest, required = .string
   access = request.access()
   do i = 1 to access.0
-    if access[i] = "admin" | access[i] = required then return 1
+    granted = access[i]
+    if granted = required then return 1
+    if required = "read" then return 1
+    if required = "plan" & (granted = "ingest" | granted = "curate") then return 1
+    if required = "control" & (granted = "curate" | granted = "admin") then return 1
+    if required = "diagnose" & granted = "admin" then return 1
   end
   return 0
 
