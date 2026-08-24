@@ -1,0 +1,396 @@
+options levelg
+
+namespace ragimprove expose ragimproveplan ragimproveapplyresult ragexternalproposalplan createimproveplan applyimproveplan createexternalproposalplan applyexternalproposalplan
+
+import rxfnsb
+import rxjson
+import rxhash
+import sqlite_boundary
+import ragstore
+import ragclaims
+
+ragimproveplan: class
+  _schema = .string
+  _expected_generation = .int
+  _config_snapshot_id = .string
+  _policy_version = .string
+  _prompt_version = .string
+  _triggers = .string[]
+  _maximum_items = .int
+  _model_call_budget = .int
+  _input_token_budget = .int
+  _output_token_budget = .int
+  _cost_budget = .int
+  _time_budget_ms = .int
+  _maximum_call_input_tokens = .int
+  _maximum_call_output_tokens = .int
+  _maximum_call_cost = .int
+  _maximum_call_time_ms = .int
+  _maximum_inflight_calls = .int
+  _maximum_attempts = .int
+  _privacy_class = .string
+  _route_id = .string
+  _secret_reference = .string
+  _chunk_ids = .string[]
+  _content_ids = .string[]
+  _input_hashes = .string[]
+  _scores = .int[]
+  _canonical = .string
+  _digest = .string
+
+  *: factory
+    arg schema = .string, expected_generation = .int, config_snapshot_id = .string, policy_version = .string, prompt_version = .string, triggers = .string[], maximum_items = .int, model_call_budget = .int, input_token_budget = .int, output_token_budget = .int, cost_budget = .int, time_budget_ms = .int, maximum_call_input_tokens = .int, maximum_call_output_tokens = .int, maximum_call_cost = .int, maximum_call_time_ms = .int, maximum_inflight_calls = .int, maximum_attempts = .int, privacy_class = .string, route_id = .string, secret_reference = .string, chunk_ids = .string[], content_ids = .string[], input_hashes = .string[], scores = .int[], canonical = .string, digest = .string
+    _schema = schema; _expected_generation = expected_generation
+    _config_snapshot_id = config_snapshot_id; _policy_version = policy_version; _prompt_version = prompt_version
+    _triggers = triggers; _maximum_items = maximum_items
+    _model_call_budget = model_call_budget; _input_token_budget = input_token_budget
+    _output_token_budget = output_token_budget; _cost_budget = cost_budget; _time_budget_ms = time_budget_ms
+    _maximum_call_input_tokens = maximum_call_input_tokens; _maximum_call_output_tokens = maximum_call_output_tokens
+    _maximum_call_cost = maximum_call_cost; _maximum_call_time_ms = maximum_call_time_ms
+    _maximum_inflight_calls = maximum_inflight_calls; _maximum_attempts = maximum_attempts
+    _privacy_class = privacy_class; _route_id = route_id; _secret_reference = secret_reference
+    _chunk_ids = chunk_ids; _content_ids = content_ids; _input_hashes = input_hashes; _scores = scores
+    _canonical = canonical; _digest = digest
+    return
+  schema: method = .string
+    return _schema
+  expected_generation: method = .int
+    return _expected_generation
+  config_snapshot_id: method = .string
+    return _config_snapshot_id
+  policy_version: method = .string
+    return _policy_version
+  prompt_version: method = .string
+    return _prompt_version
+  triggers: method = .string[]
+    return _triggers
+  maximum_items: method = .int
+    return _maximum_items
+  model_call_budget: method = .int
+    return _model_call_budget
+  input_token_budget: method = .int
+    return _input_token_budget
+  output_token_budget: method = .int
+    return _output_token_budget
+  cost_budget: method = .int
+    return _cost_budget
+  time_budget_ms: method = .int
+    return _time_budget_ms
+  maximum_call_input_tokens: method = .int
+    return _maximum_call_input_tokens
+  maximum_call_output_tokens: method = .int
+    return _maximum_call_output_tokens
+  maximum_call_cost: method = .int
+    return _maximum_call_cost
+  maximum_call_time_ms: method = .int
+    return _maximum_call_time_ms
+  maximum_inflight_calls: method = .int
+    return _maximum_inflight_calls
+  maximum_attempts: method = .int
+    return _maximum_attempts
+  privacy_class: method = .string
+    return _privacy_class
+  route_id: method = .string
+    return _route_id
+  secret_reference: method = .string
+    return _secret_reference
+  chunk_ids: method = .string[]
+    return _chunk_ids
+  content_ids: method = .string[]
+    return _content_ids
+  input_hashes: method = .string[]
+    return _input_hashes
+  scores: method = .int[]
+    return _scores
+  item_count: method = .int
+    return _chunk_ids.0
+  canonical: method = .string
+    return _canonical
+  digest: method = .string
+    return _digest
+
+ragimproveapplyresult: class
+  _status = .int
+  _disposition = .string
+  _job_id = .string
+  _items = .int
+  _library_writes = .int
+  _provider_calls = .int
+  _error = .string
+
+  *: factory
+    arg status = .int, disposition = .string, job_id = .string, items = .int, library_writes = .int, provider_calls = .int, error = .string
+    _status = status; _disposition = disposition; _job_id = job_id; _items = items
+    _library_writes = library_writes; _provider_calls = provider_calls; _error = error
+    return
+  status: method = .int
+    return _status
+  ok: method = .int
+    return _status = 0
+  disposition: method = .string
+    return _disposition
+  job_id: method = .string
+    return _job_id
+  items: method = .int
+    return _items
+  library_writes: method = .int
+    return _library_writes
+  provider_calls: method = .int
+    return _provider_calls
+  error: method = .string
+    return _error
+
+ragexternalproposalplan: class
+  _schema = .string
+  _expected_generation = .int
+  _config_snapshot_id = .string
+  _policy_version = .string
+  _proposal_hashes = .string[]
+  _canonical = .string
+  _digest = .string
+
+  *: factory
+    arg schema = .string, expected_generation = .int, config_snapshot_id = .string, policy_version = .string, proposal_hashes = .string[], canonical = .string, digest = .string
+    _schema = schema; _expected_generation = expected_generation; _config_snapshot_id = config_snapshot_id
+    _policy_version = policy_version; _proposal_hashes = proposal_hashes; _canonical = canonical; _digest = digest
+    return
+  schema: method = .string
+    return _schema
+  expected_generation: method = .int
+    return _expected_generation
+  config_snapshot_id: method = .string
+    return _config_snapshot_id
+  policy_version: method = .string
+    return _policy_version
+  proposal_hashes: method = .string[]
+    return _proposal_hashes
+  canonical: method = .string
+    return _canonical
+  digest: method = .string
+    return _digest
+
+createimproveplan: procedure = .int
+  arg store = .ragstorehandle, config_snapshot_id = .string, policy_version = .string, prompt_version = .string, triggers = .string[], maximum_items = .int, model_call_budget = .int, input_token_budget = .int, output_token_budget = .int, cost_budget = .int, time_budget_ms = .int, maximum_call_input_tokens = .int, maximum_call_output_tokens = .int, maximum_call_cost = .int, maximum_call_time_ms = .int, maximum_inflight_calls = .int, maximum_attempts = .int, privacy_class = .string, route_id = .string, secret_reference = .string, expose plan = .ragimproveplan, expose error = .string
+  error = ""; empty_strings = .string[]; empty_ints = .int[]
+  plan = .ragimproveplan("", 0, "", "", "", empty_strings, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", empty_strings, empty_strings, empty_strings, empty_ints, "", "")
+  if store.open() \= 1 | config_snapshot_id = "" | policy_version = "" | prompt_version = "" | maximum_items < 1 | maximum_items > 100000 | model_call_budget < 0 | model_call_budget > maximum_items * maximum_attempts | input_token_budget < 0 | output_token_budget < 0 | cost_budget < 0 | time_budget_ms < 1 | maximum_call_input_tokens < 0 | maximum_call_output_tokens < 0 | maximum_call_cost < 0 | maximum_call_time_ms < 1 | maximum_call_time_ms > time_budget_ms | maximum_inflight_calls < 1 | maximum_inflight_calls > 64 | maximum_attempts < 1 | maximum_attempts > 100 | route_id = "" then do
+    error = "improvement plan header or budget is invalid"
+    return -1
+  end
+  if privacy_class \= "local" & privacy_class \= "restricted" & privacy_class \= "public" then do; error = "improvement privacy class is invalid"; return -1; end
+  if secret_reference \= "" & left(secret_reference, 4) \= "env:" then do; error = "provider credential must be an empty or symbolic environment reference"; return -1; end
+  if _validtriggers(triggers, error) \= 1 then return -1
+  generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if generation < 1 then do; error = "published generation is unavailable"; return -3; end
+  chunk_ids = .string[]; content_ids = .string[]; input_hashes = .string[]; scores = .int[]
+  prepared = .binary
+  sql = "SELECT c.revision_chunk_id,c.content_id FROM revision_chunks c WHERE c.visible_from_generation<=?1 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?1) ORDER BY c.revision_chunk_id"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare improvement census"; return -3; end
+  do forever
+    step = sqlitestep(prepared)
+    if step = 101 then leave
+    if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read improvement census"; return -3; end
+    chunk_id = ""; content_id = ""
+    if sqlitecolumntext(prepared, 0, chunk_id) \= 0 | sqlitecolumntext(prepared, 1, content_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode improvement census"; return -3; end
+    if _contains(content_ids, content_id) = 1 then iterate
+    rank = .ragextractionrank
+    if rankchunk(store, chunk_id, policy_version, rank, error) \= 0 then do; call sqlitefinalize prepared; return -3; end
+    if _selectedbytriggers(store.database(), chunk_id, triggers, rank) \= 1 then iterate
+    input_hash = rxhash..sha256hex(("crexx-rag.improve-input/1" || "00"x || content_id || "00"x || policy_version || "00"x || prompt_version || "00"x || rank.input_fingerprint()) as .binary)
+    call _insertordered chunk_ids, content_ids, input_hashes, scores, chunk_id, content_id, input_hash, rank.total(), maximum_items
+  end
+  call sqlitefinalize prepared
+  canonical = _canonicalimprove(generation, config_snapshot_id, policy_version, prompt_version, triggers, maximum_items, model_call_budget, input_token_budget, output_token_budget, cost_budget, time_budget_ms, maximum_call_input_tokens, maximum_call_output_tokens, maximum_call_cost, maximum_call_time_ms, maximum_inflight_calls, maximum_attempts, privacy_class, route_id, secret_reference, chunk_ids, content_ids, input_hashes, scores)
+  digest = rxhash..sha256hex(canonical as .binary)
+  plan = .ragimproveplan("crexx-rag.improve-plan/1", generation, config_snapshot_id, policy_version, prompt_version, triggers, maximum_items, model_call_budget, input_token_budget, output_token_budget, cost_budget, time_budget_ms, maximum_call_input_tokens, maximum_call_output_tokens, maximum_call_cost, maximum_call_time_ms, maximum_inflight_calls, maximum_attempts, privacy_class, route_id, secret_reference, chunk_ids, content_ids, input_hashes, scores, canonical, digest)
+  return 0
+
+applyimproveplan: procedure = .int
+  arg store = .ragstorehandle, plan = .ragimproveplan, expose result = .ragimproveapplyresult, expose error = .string
+  error = ""; result = .ragimproveapplyresult(-1, "error", "", 0, 0, 0, "not applied")
+  if store.writable() \= 1 | plan.schema() \= "crexx-rag.improve-plan/1" | length(plan.digest()) \= 64 | rxhash..sha256hex(plan.canonical() as .binary) \= plan.digest() then do; error = "improvement plan shape or digest is invalid"; return -1; end
+  current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if current \= plan.expected_generation() then do; error = "published generation changed; re-plan"; result = .ragimproveapplyresult(-2, "stale", "", 0, 0, 0, error); return -2; end
+  fresh = .ragimproveplan
+  triggers = plan.triggers()
+  if createimproveplan(store, plan.config_snapshot_id(), plan.policy_version(), plan.prompt_version(), triggers, plan.maximum_items(), plan.model_call_budget(), plan.input_token_budget(), plan.output_token_budget(), plan.cost_budget(), plan.time_budget_ms(), plan.maximum_call_input_tokens(), plan.maximum_call_output_tokens(), plan.maximum_call_cost(), plan.maximum_call_time_ms(), plan.maximum_inflight_calls(), plan.maximum_attempts(), plan.privacy_class(), plan.route_id(), plan.secret_reference(), fresh, error) \= 0 then return -3
+  if fresh.canonical() \= plan.canonical() | fresh.digest() \= plan.digest() then do; error = "improvement inputs no longer match the reviewed plan"; return -2; end
+  job_id = "job-sha256:" || plan.digest()
+  existing = _boundcount(store.database(), "SELECT count(*) FROM jobs WHERE job_id=?1 AND plan_digest=?2", job_id, plan.digest())
+  if existing = 1 then do; result = .ragimproveapplyresult(0, "identical-no-op", job_id, 0, 0, 0, ""); return 0; end
+  if existing < 0 then do; error = "cannot inspect improvement job identity"; return -3; end
+  before = _scalarint(store.database(), "SELECT total_changes()")
+  database = store.database()
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin improvement apply"; return -3; end
+  state = "queued"
+  if plan.item_count() = 0 then state = "completed"
+  prepared = .binary
+  sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,reserved_calls,reserved_tokens,reserved_cost,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,0,0,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare improvement job", error)
+  binds = sqlitebindtext(prepared, 1, job_id) | sqlitebindtext(prepared, 2, plan.digest()) | sqlitebindtext(prepared, 3, plan.canonical()) | sqlitebindtext(prepared, 4, plan.config_snapshot_id()) | sqlitebindtext(prepared, 5, state) | sqlitebindint(prepared, 6, plan.item_count()) | sqlitebindint(prepared, 7, plan.model_call_budget()) | sqlitebindint(prepared, 8, plan.input_token_budget()) | sqlitebindint(prepared, 9, plan.output_token_budget()) | sqlitebindint(prepared, 10, plan.cost_budget())
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then return _rollback(database, "cannot insert improvement job", error)
+  chunk_ids = plan.chunk_ids(); content_ids = plan.content_ids(); input_hashes = plan.input_hashes(); scores = plan.scores()
+  do i = 1 to chunk_ids.0
+    idempotency = rxhash..sha256hex(("crexx-rag.work/1" || "00"x || "improve-extraction" || "00"x || content_ids[i] || "00"x || plan.policy_version() || "00"x || plan.prompt_version()) as .binary)
+    item_id = "item-sha256:" || idempotency
+    item_statement = .binary
+    sql = "INSERT OR IGNORE INTO job_items(item_id,job_id,item_type,state,priority,worker_id,lease_until,fence,retry_at,idempotency_key,input_hash,created_at,updated_at) VALUES(?1,?2,'improve-extraction','queued',?3,NULL,NULL,0,0,?4,?5,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+    if sqliteprepare(database, sql, item_statement) \= 0 then return _rollback(database, "cannot prepare improvement item", error)
+    binds = sqlitebindtext(item_statement, 1, item_id) | sqlitebindtext(item_statement, 2, job_id) | sqlitebindint(item_statement, 3, scores[i]) | sqlitebindtext(item_statement, 4, idempotency) | sqlitebindtext(item_statement, 5, input_hashes[i])
+    step = sqlitestep(item_statement); call sqlitefinalize item_statement
+    if binds \= 0 | step \= 101 then return _rollback(database, "cannot insert improvement item", error)
+  end
+  budget_message = "{" || jsonquote("time_budget_ms") || ":" || plan.time_budget_ms() || "," || jsonquote("maximum_call_input_tokens") || ":" || plan.maximum_call_input_tokens() || "," || jsonquote("maximum_call_output_tokens") || ":" || plan.maximum_call_output_tokens() || "," || jsonquote("maximum_call_cost") || ":" || plan.maximum_call_cost() || "," || jsonquote("maximum_call_time_ms") || ":" || plan.maximum_call_time_ms() || "," || jsonquote("maximum_inflight_calls") || ":" || plan.maximum_inflight_calls() || "," || jsonquote("maximum_attempts") || ":" || plan.maximum_attempts() || "," || jsonquote("privacy_class") || ":" || jsonquote(plan.privacy_class()) || "," || jsonquote("route_id") || ":" || jsonquote(plan.route_id()) || "," || jsonquote("secret_reference") || ":" || jsonquote(plan.secret_reference()) || "}"
+  if _event(database, job_id, "budget-policy", budget_message) \= 0 then return _rollback(database, "cannot record improvement budget policy", error)
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit improvement apply", error)
+  after = _scalarint(database, "SELECT total_changes()")
+  result = .ragimproveapplyresult(0, "queued", job_id, plan.item_count(), after - before, 0, "")
+  return 0
+
+createexternalproposalplan: procedure = .int
+  arg store = .ragstorehandle, config_snapshot_id = .string, policy = .ragclaimpolicy, proposals = .ragextractionproposal[], expose plan = .ragexternalproposalplan, expose error = .string
+  error = ""; hashes = .string[]; plan = .ragexternalproposalplan("", 0, "", "", hashes, "", "")
+  if store.open() \= 1 | config_snapshot_id = "" | proposals.0 < 1 | proposals.0 > 1000 then do; error = "external proposal plan inputs are invalid"; return -1; end
+  generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  canonical = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.external-proposal-plan/1") || "," || jsonquote("expected_generation") || ":" || generation || "," || jsonquote("config_snapshot_id") || ":" || jsonquote(config_snapshot_id) || "," || jsonquote("policy_version") || ":" || jsonquote(policy.policy_version()) || "," || jsonquote("proposals") || ":["
+  previous = ""
+  do i = 1 to proposals.0
+    if proposals[i].external() \= 1 then do; error = "external proposal plan contains an internal proposal"; return -1; end
+    validation = .ragproposalvalidation
+    if validateproposal(store, proposals[i], policy, validation, error) \= 0 | validation.disposition() \= "review" | validation.review_type() \= "external-proposal" then do; if error = "" then error = "external proposal did not reach its mandatory review gate"; return -1; end
+    hash = rxhash..sha256hex(proposals[i].canonical() as .binary)
+    if previous \= "" & hash <= previous then do; error = "external proposals must be in unique canonical hash order"; return -1; end
+    previous = hash; hashes[hashes.0 + 1] = hash
+    if i > 1 then canonical = canonical || ","
+    canonical = canonical || "{" || jsonquote("proposal_hash") || ":" || jsonquote(hash) || "," || jsonquote("proposal") || ":" || proposals[i].canonical() || "}"
+  end
+  canonical = canonical || "]}"
+  digest = rxhash..sha256hex(canonical as .binary)
+  plan = .ragexternalproposalplan("crexx-rag.external-proposal-plan/1", generation, config_snapshot_id, policy.policy_version(), hashes, canonical, digest)
+  return 0
+
+applyexternalproposalplan: procedure = .int
+  arg store = .ragstorehandle, plan = .ragexternalproposalplan, policy = .ragclaimpolicy, proposals = .ragextractionproposal[], expose reviews_created = .int, expose error = .string
+  reviews_created = 0; error = ""
+  if store.writable() \= 1 | plan.schema() \= "crexx-rag.external-proposal-plan/1" | rxhash..sha256hex(plan.canonical() as .binary) \= plan.digest() then do; error = "external proposal plan is invalid"; return -1; end
+  current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if current \= plan.expected_generation() then do; error = "published generation changed; re-plan"; return -2; end
+  fresh = .ragexternalproposalplan
+  if createexternalproposalplan(store, plan.config_snapshot_id(), policy, proposals, fresh, error) \= 0 | fresh.canonical() \= plan.canonical() then do; if error = "" then error = "external proposals changed after review"; return -2; end
+  do i = 1 to proposals.0
+    result = .ragproposalresult
+    if applyproposal(store, proposals[i], policy, current, plan.config_snapshot_id(), result, error) \= 0 | result.disposition() \= "review" then return -3
+    reviews_created = reviews_created + 1
+  end
+  return 0
+
+_canonicalimprove: procedure = .string
+  arg generation = .int, config_snapshot_id = .string, policy_version = .string, prompt_version = .string, triggers = .string[], maximum_items = .int, model_call_budget = .int, input_token_budget = .int, output_token_budget = .int, cost_budget = .int, time_budget_ms = .int, maximum_call_input_tokens = .int, maximum_call_output_tokens = .int, maximum_call_cost = .int, maximum_call_time_ms = .int, maximum_inflight_calls = .int, maximum_attempts = .int, privacy_class = .string, route_id = .string, secret_reference = .string, chunk_ids = .string[], content_ids = .string[], input_hashes = .string[], scores = .int[]
+  output = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.improve-plan/1") || "," || jsonquote("expected_generation") || ":" || generation || "," || jsonquote("config_snapshot_id") || ":" || jsonquote(config_snapshot_id) || "," || jsonquote("policy_version") || ":" || jsonquote(policy_version) || "," || jsonquote("prompt_version") || ":" || jsonquote(prompt_version) || "," || jsonquote("triggers") || ":["
+  do i = 1 to triggers.0
+    if i > 1 then output = output || ","
+    output = output || jsonquote(triggers[i])
+  end
+  output = output || "]," || jsonquote("budgets") || ":{" || jsonquote("maximum_items") || ":" || maximum_items || "," || jsonquote("model_calls") || ":" || model_call_budget || "," || jsonquote("input_tokens") || ":" || input_token_budget || "," || jsonquote("output_tokens") || ":" || output_token_budget || "," || jsonquote("cost") || ":" || cost_budget || "," || jsonquote("time_ms") || ":" || time_budget_ms || "," || jsonquote("maximum_call_input_tokens") || ":" || maximum_call_input_tokens || "," || jsonquote("maximum_call_output_tokens") || ":" || maximum_call_output_tokens || "," || jsonquote("maximum_call_cost") || ":" || maximum_call_cost || "," || jsonquote("maximum_call_time_ms") || ":" || maximum_call_time_ms || "," || jsonquote("maximum_inflight_calls") || ":" || maximum_inflight_calls || "," || jsonquote("maximum_attempts") || ":" || maximum_attempts || "}," || jsonquote("route") || ":{" || jsonquote("privacy_class") || ":" || jsonquote(privacy_class) || "," || jsonquote("route_id") || ":" || jsonquote(route_id) || "," || jsonquote("secret_reference") || ":" || jsonquote(secret_reference) || "}," || jsonquote("items") || ":["
+  do i = 1 to chunk_ids.0
+    if i > 1 then output = output || ","
+    output = output || "{" || jsonquote("revision_chunk_id") || ":" || jsonquote(chunk_ids[i]) || "," || jsonquote("content_id") || ":" || jsonquote(content_ids[i]) || "," || jsonquote("input_hash") || ":" || jsonquote(input_hashes[i]) || "," || jsonquote("score") || ":" || scores[i] || "}"
+  end
+  return output || "]}"
+
+_insertordered: procedure
+  arg expose chunk_ids = .string[], expose content_ids = .string[], expose input_hashes = .string[], expose scores = .int[], chunk_id = .string, content_id = .string, input_hash = .string, score = .int, maximum_items = .int
+  position = scores.0 + 1
+  do i = 1 to scores.0
+    if score > scores[i] | (score = scores[i] & chunk_id < chunk_ids[i]) then do; position = i; leave; end
+  end
+  if position > maximum_items then return
+  limit = scores.0 + 1
+  if limit > maximum_items then limit = maximum_items
+  do i = limit to position + 1 by -1
+    chunk_ids[i] = chunk_ids[i - 1]; content_ids[i] = content_ids[i - 1]
+    input_hashes[i] = input_hashes[i - 1]; scores[i] = scores[i - 1]
+  end
+  chunk_ids[position] = chunk_id; content_ids[position] = content_id
+  input_hashes[position] = input_hash; scores[position] = score
+  return
+
+_validtriggers: procedure = .int
+  arg triggers = .string[], expose error = .string
+  if triggers.0 < 1 | triggers.0 > 16 then do; error = "one to sixteen explicit improvement triggers are required"; return 0; end
+  previous = ""
+  do i = 1 to triggers.0
+    trigger = triggers[i]
+    if trigger \= "bridge" & trigger \= "conflict" & trigger \= "operator-review" & trigger \= "profile-change" & trigger \= "unprocessed-extraction" & trigger \= "unresolved" & trigger \= "weak-support" then do; error = "improvement trigger is unsupported"; return 0; end
+    if previous \= "" & trigger <= previous then do; error = "improvement triggers must be unique and sorted"; return 0; end
+    previous = trigger
+  end
+  return 1
+
+_selectedbytriggers: procedure = .int
+  arg database = .binary, revision_chunk_id = .string, triggers = .string[], rank = .ragextractionrank
+  do i = 1 to triggers.0
+    trigger = triggers[i]
+    if trigger = "profile-change" then return 1
+    if trigger = "bridge" & rank.bridge() > 0 then return 1
+    if trigger = "unprocessed-extraction" & rank.novelty() > 0 then return 1
+    if trigger = "unresolved" & rank.unresolved_risk() > 0 then return 1
+    if trigger = "weak-support" then do
+      count = _boundcount1(database, "SELECT count(*) FROM claim_support WHERE revision_chunk_id=?1 AND stance IN('negation','speculation') AND visible_to_generation IS NULL", revision_chunk_id)
+      if count > 0 then return 1
+    end
+    if trigger = "conflict" | trigger = "operator-review" then do
+      review_type = "conflict"
+      if trigger = "operator-review" then review_type = ""
+      count = _boundcount(database, "SELECT count(*) FROM reviews WHERE state='pending' AND json_extract(proposal_json,'$.revision_chunk_id')=?1 AND (?2='' OR review_type=?2)", revision_chunk_id, review_type)
+      if count > 0 then return 1
+    end
+  end
+  return 0
+
+_contains: procedure = .int
+  arg values = .string[], expected = .string
+  do i = 1 to values.0
+    if values[i] = expected then return 1
+  end
+  return 0
+
+_event: procedure = .int
+  arg database = .binary, job_id = .string, event_type = .string, message = .string
+  prepared = .binary
+  sql = "INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) VALUES(?1,NULL,NULL,?2,?3,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(database, sql, prepared) \= 0 then return -1
+  binds = sqlitebindtext(prepared, 1, job_id) | sqlitebindtext(prepared, 2, event_type) | sqlitebindtext(prepared, 3, message)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then return -1
+  return 0
+
+_rollback: procedure = .int
+  arg database = .binary, message = .string, expose error = .string
+  call sqliteexec database, "ROLLBACK"; error = message
+  return -3
+
+_scalarint: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  value = -1; status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value
+
+_boundcount: procedure = .int
+  arg database = .binary, sql = .string, first = .string, second = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, first) \= 0 | sqlitebindtext(prepared, 2, second) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  count = -1; status = sqlitecolumnint(prepared, 0, count); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return count
+
+_boundcount1: procedure = .int
+  arg database = .binary, sql = .string, value = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, value) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  count = -1; status = sqlitecolumnint(prepared, 0, count); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return count

@@ -1,0 +1,614 @@
+options levelg
+
+namespace ragwork expose ragworkclaim ragcallreservation ragworkproviderresult ragworkprovider claimnext heartbeat configurejobbudget reservecall settlecall failattempt skipitem requestcancel acknowledgecancel pausejob resumejob drainjob readjobstatus runworkeronce runworkerfollow
+
+import rxfnsb
+import rxjson
+import rxhash
+import rxplatform
+import sqlite_boundary
+import ragstore
+import ragjob
+import ragclaims
+
+/* Durable improvement work uses database-clock leases and per-item monotonic
+ * fencing. Provider work happens after claim commit and before a short fenced
+ * promotion transaction. */
+ragworkclaim: class
+  _status = .int
+  _job_id = .string
+  _item_id = .string
+  _item_type = .string
+  _input_hash = .string
+  _worker_id = .string
+  _fence = .int
+  _attempt_id = .string
+  _lease_until = .int
+  _config_snapshot_id = .string
+
+  *: factory
+    arg status = .int, job_id = .string, item_id = .string, item_type = .string, input_hash = .string, worker_id = .string, fence = .int, attempt_id = .string, lease_until = .int, config_snapshot_id = .string
+    _status = status; _job_id = job_id; _item_id = item_id; _item_type = item_type
+    _input_hash = input_hash; _worker_id = worker_id; _fence = fence
+    _attempt_id = attempt_id; _lease_until = lease_until
+    _config_snapshot_id = config_snapshot_id
+    return
+  status: method = .int
+    return _status
+  claimed: method = .int
+    return _status = 0 & _item_id \= ""
+  job_id: method = .string
+    return _job_id
+  item_id: method = .string
+    return _item_id
+  item_type: method = .string
+    return _item_type
+  input_hash: method = .string
+    return _input_hash
+  worker_id: method = .string
+    return _worker_id
+  fence: method = .int
+    return _fence
+  attempt_id: method = .string
+    return _attempt_id
+  lease_until: method = .int
+    return _lease_until
+  config_snapshot_id: method = .string
+    return _config_snapshot_id
+
+ragcallreservation: class
+  _status = .int
+  _reservation_id = .string
+  _job_id = .string
+  _item_id = .string
+  _attempt_id = .string
+  _worker_id = .string
+  _fence = .int
+  _maximum_input_tokens = .int
+  _maximum_output_tokens = .int
+  _maximum_cost = .int
+  _maximum_time_ms = .int
+
+  *: factory
+    arg status = .int, reservation_id = .string, job_id = .string, item_id = .string, attempt_id = .string, worker_id = .string, fence = .int, maximum_input_tokens = .int, maximum_output_tokens = .int, maximum_cost = .int, maximum_time_ms = .int
+    _status = status; _reservation_id = reservation_id; _job_id = job_id
+    _item_id = item_id; _attempt_id = attempt_id; _worker_id = worker_id
+    _fence = fence; _maximum_input_tokens = maximum_input_tokens
+    _maximum_output_tokens = maximum_output_tokens; _maximum_cost = maximum_cost
+    _maximum_time_ms = maximum_time_ms
+    return
+  status: method = .int
+    return _status
+  reservation_id: method = .string
+    return _reservation_id
+  job_id: method = .string
+    return _job_id
+  item_id: method = .string
+    return _item_id
+  attempt_id: method = .string
+    return _attempt_id
+  worker_id: method = .string
+    return _worker_id
+  fence: method = .int
+    return _fence
+  maximum_input_tokens: method = .int
+    return _maximum_input_tokens
+  maximum_output_tokens: method = .int
+    return _maximum_output_tokens
+  maximum_cost: method = .int
+    return _maximum_cost
+  maximum_time_ms: method = .int
+    return _maximum_time_ms
+
+ragworkproviderresult: class
+  _status = .int
+  _provider_id = .string
+  _model = .string
+  _request_id = .string
+  _input_tokens = .int
+  _output_tokens = .int
+  _cost = .int
+  _duration_ms = .int
+  _retryable = .int
+  _proposal = .ragextractionproposal
+  _error = .string
+
+  *: factory
+    arg status = .int, provider_id = .string, model = .string, request_id = .string, input_tokens = .int, output_tokens = .int, cost = .int, duration_ms = .int, retryable = .int, proposal = .ragextractionproposal, error = .string
+    _status = status; _provider_id = provider_id; _model = model; _request_id = request_id
+    _input_tokens = input_tokens; _output_tokens = output_tokens; _cost = cost
+    _duration_ms = duration_ms; _retryable = retryable; _proposal = proposal; _error = error
+    return
+  status: method = .int
+    return _status
+  ok: method = .int
+    return _status = 0
+  provider_id: method = .string
+    return _provider_id
+  model: method = .string
+    return _model
+  request_id: method = .string
+    return _request_id
+  input_tokens: method = .int
+    return _input_tokens
+  output_tokens: method = .int
+    return _output_tokens
+  cost: method = .int
+    return _cost
+  duration_ms: method = .int
+    return _duration_ms
+  retryable: method = .int
+    return _retryable
+  proposal: method = .ragextractionproposal
+    return _proposal
+  error: method = .string
+    return _error
+
+ragworkprovider: interface
+  extract: method = .ragworkproviderresult
+    arg claim = .ragworkclaim
+
+claimnext: procedure = .int
+  arg store = .ragstorehandle, job_filter = .string, worker_id = .string, lease_seconds = .int, maximum_attempts = .int, expose claim = .ragworkclaim, expose error = .string
+  error = ""; claim = .ragworkclaim(1, "", "", "", "", worker_id, 0, "", 0, "")
+  if store.writable() \= 1 | worker_id = "" | lease_seconds < 1 | lease_seconds > 3600 | maximum_attempts < 1 | maximum_attempts > 100 then do; error = "worker claim policy is invalid"; return -1; end
+  database = store.database()
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin worker claim"; return -3; end
+  /* Expired attempts are closed before their items become eligible again. */
+  sql = "UPDATE attempts SET outcome='expired',validation_state='lease-expired',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE outcome='running' AND EXISTS(SELECT 1 FROM job_items i WHERE i.item_id=attempts.item_id AND i.fence=attempts.fence AND i.lease_until<=CAST(strftime('%s','now') AS INTEGER))"
+  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot expire stale attempts", error)
+  sql = "UPDATE job_items SET state=CASE WHEN (SELECT count(*) FROM attempts a WHERE a.item_id=job_items.item_id)>=" || maximum_attempts || " THEN 'dead_letter' ELSE 'queued' END,worker_id=NULL,lease_until=NULL,retry_at=CAST(strftime('%s','now') AS INTEGER),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='running' AND lease_until<=CAST(strftime('%s','now') AS INTEGER)"
+  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot recover expired items", error)
+  sql = "UPDATE job_items SET state='cancelled',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='cancel_requested' AND lease_until<=CAST(strftime('%s','now') AS INTEGER)"
+  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot recover cancelled items", error)
+  prepared = .binary
+  sql = "SELECT i.item_id,i.job_id,i.item_type,i.input_hash,i.fence,j.config_snapshot_id FROM job_items i JOIN jobs j ON j.job_id=i.job_id WHERE i.state='queued' AND i.retry_at<=CAST(strftime('%s','now') AS INTEGER) AND j.state IN('queued','running') AND i.item_type IN('claim-extraction','improve-extraction')"
+  if job_filter \= "" then sql = sql || " AND i.job_id=?1"
+  sql = sql || " ORDER BY i.priority DESC,i.item_id LIMIT 1"
+  if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare next work claim", error)
+  if job_filter \= "" then do
+    if sqlitebindtext(prepared, 1, job_filter) \= 0 then do; call sqlitefinalize prepared; return _rollback(database, "cannot bind worker job filter", error); end
+  end
+  step = sqlitestep(prepared)
+  if step = 101 then do
+    call sqlitefinalize prepared
+    if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit empty worker claim", error)
+    return 1
+  end
+  item_id = ""; job_id = ""; item_type = ""; input_hash = ""; old_fence = 0; config_snapshot = ""
+  columns = sqlitecolumntext(prepared, 0, item_id) | sqlitecolumntext(prepared, 1, job_id) | sqlitecolumntext(prepared, 2, item_type) | sqlitecolumntext(prepared, 3, input_hash) | sqlitecolumnint(prepared, 4, old_fence) | sqlitecolumntext(prepared, 5, config_snapshot)
+  call sqlitefinalize prepared
+  if step \= 100 | columns \= 0 then return _rollback(database, "cannot decode next work claim", error)
+  fence = old_fence + 1
+  attempt_id = item_id || "#attempt-" || fence
+  prepared = .binary
+  sql = "UPDATE job_items SET state='running',worker_id=?1,lease_until=CAST(strftime('%s','now') AS INTEGER)+?2,fence=?3,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=?4 AND state='queued' AND fence=?5"
+  if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare atomic work claim", error)
+  binds = sqlitebindtext(prepared, 1, worker_id) | sqlitebindint(prepared, 2, lease_seconds) | sqlitebindint(prepared, 3, fence) | sqlitebindtext(prepared, 4, item_id) | sqlitebindint(prepared, 5, old_fence)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "atomic work claim lost its predicate", error)
+  prepared = .binary
+  sql = "INSERT INTO attempts(attempt_id,item_id,worker_id,fence,input_hash,output_hash,provider_run_id,validation_state,outcome,started_at,completed_at) VALUES(?1,?2,?3,?4,?5,NULL,NULL,'pending','running',strftime('%Y-%m-%dT%H:%M:%fZ','now'),NULL)"
+  if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare work attempt", error)
+  binds = sqlitebindtext(prepared, 1, attempt_id) | sqlitebindtext(prepared, 2, item_id) | sqlitebindtext(prepared, 3, worker_id) | sqlitebindint(prepared, 4, fence) | sqlitebindtext(prepared, 5, input_hash)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then return _rollback(database, "cannot insert work attempt", error)
+  if sqliteexec(database, "UPDATE jobs SET state='running',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id) || " AND state='queued'") \= 0 then return _rollback(database, "cannot start job", error)
+  if _event(database, job_id, item_id, attempt_id, "claimed", "worker=" || worker_id || ";fence=" || fence) \= 0 then return _rollback(database, "cannot append claim event", error)
+  lease_until = _boundscalarint(database, "SELECT lease_until FROM job_items WHERE item_id=?1", item_id)
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit worker claim", error)
+  claim = .ragworkclaim(0, job_id, item_id, item_type, input_hash, worker_id, fence, attempt_id, lease_until, config_snapshot)
+  return 0
+
+heartbeat: procedure = .int
+  arg store = .ragstorehandle, claim = .ragworkclaim, lease_seconds = .int, expose lease_until = .int, expose error = .string
+  lease_until = 0; error = ""
+  if store.writable() \= 1 | claim.claimed() \= 1 | lease_seconds < 1 | lease_seconds > 3600 then do; error = "heartbeat inputs are invalid"; return -1; end
+  database = store.database()
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin heartbeat"; return -3; end
+  if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)
+  prepared = .binary
+  sql = "UPDATE job_items SET lease_until=CAST(strftime('%s','now') AS INTEGER)+?1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=?2 AND worker_id=?3 AND fence=?4 AND state='running'"
+  if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare heartbeat", error)
+  binds = sqlitebindint(prepared, 1, lease_seconds) | sqlitebindtext(prepared, 2, claim.item_id()) | sqlitebindtext(prepared, 3, claim.worker_id()) | sqlitebindint(prepared, 4, claim.fence())
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "heartbeat lost its fence", error)
+  if _event(database, claim.job_id(), claim.item_id(), claim.attempt_id(), "heartbeat", "lease_seconds=" || lease_seconds) \= 0 then return _rollback(database, "cannot append heartbeat event", error)
+  lease_until = _boundscalarint(database, "SELECT lease_until FROM job_items WHERE item_id=?1", claim.item_id())
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit heartbeat", error)
+  return 0
+
+configurejobbudget: procedure = .int
+  arg store = .ragstorehandle, job_id = .string, time_budget_ms = .int, maximum_call_input_tokens = .int, maximum_call_output_tokens = .int, maximum_call_cost = .int, maximum_call_time_ms = .int, maximum_inflight_calls = .int, maximum_attempts = .int, expose error = .string
+  error = ""
+  if store.writable() \= 1 | job_id = "" | time_budget_ms < 1 | maximum_call_input_tokens < 0 | maximum_call_output_tokens < 0 | maximum_call_cost < 0 | maximum_call_time_ms < 1 | maximum_call_time_ms > time_budget_ms | maximum_inflight_calls < 1 | maximum_inflight_calls > 64 | maximum_attempts < 1 | maximum_attempts > 100 then do; error = "job budget policy is invalid"; return -1; end
+  database = store.database()
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin budget configuration"; return -3; end
+  if _boundcount(database, "SELECT count(*) FROM jobs WHERE job_id=?1", job_id) \= 1 then return _rollback(database, "job is unavailable", error)
+  if _boundeventcount(database, job_id, "budget-policy") > 0 then do
+    if sqliteexec(database, "ROLLBACK") \= 0 then nop
+    error = "job budget policy is immutable"
+    return -2
+  end
+  message = "{" || jsonquote("time_budget_ms") || ":" || time_budget_ms || "," || jsonquote("maximum_call_input_tokens") || ":" || maximum_call_input_tokens || "," || jsonquote("maximum_call_output_tokens") || ":" || maximum_call_output_tokens || "," || jsonquote("maximum_call_cost") || ":" || maximum_call_cost || "," || jsonquote("maximum_call_time_ms") || ":" || maximum_call_time_ms || "," || jsonquote("maximum_inflight_calls") || ":" || maximum_inflight_calls || "," || jsonquote("maximum_attempts") || ":" || maximum_attempts || "}"
+  if _event(database, job_id, "", "", "budget-policy", message) \= 0 then return _rollback(database, "cannot record budget policy", error)
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit budget policy", error)
+  return 0
+
+reservecall: procedure = .int
+  arg store = .ragstorehandle, claim = .ragworkclaim, maximum_input_tokens = .int, maximum_output_tokens = .int, maximum_cost = .int, maximum_time_ms = .int, expose reservation = .ragcallreservation, expose error = .string
+  error = ""; reservation = .ragcallreservation(-1, "", claim.job_id(), claim.item_id(), claim.attempt_id(), claim.worker_id(), claim.fence(), maximum_input_tokens, maximum_output_tokens, maximum_cost, maximum_time_ms)
+  if store.writable() \= 1 | claim.claimed() \= 1 | maximum_input_tokens < 0 | maximum_output_tokens < 0 | maximum_cost < 0 | maximum_time_ms < 1 then do; error = "provider reservation inputs are invalid"; return -1; end
+  database = store.database()
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider reservation"; return -3; end
+  if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)
+  policy_json = _boundevent(database, claim.job_id(), "budget-policy")
+  if policy_json = "" then return _rollback(database, "job has no immutable provider budget policy", error)
+  policy = .jsondocument(policy_json)
+  if policy.valid() \= 1 | policy.node_type(policy.root()) \= "object" then return _rollback(database, "job budget policy is malformed", error)
+  root = policy.root()
+  max_call_input = -1; max_call_output = -1; max_call_cost = -1; max_call_time = -1; inflight_ceiling = -1; time_budget = -1
+  if policy.node_int(policy.member(root, "maximum_call_input_tokens"), max_call_input) \= 0 | policy.node_int(policy.member(root, "maximum_call_output_tokens"), max_call_output) \= 0 | policy.node_int(policy.member(root, "maximum_call_cost"), max_call_cost) \= 0 | policy.node_int(policy.member(root, "maximum_call_time_ms"), max_call_time) \= 0 | policy.node_int(policy.member(root, "maximum_inflight_calls"), inflight_ceiling) \= 0 | policy.node_int(policy.member(root, "time_budget_ms"), time_budget) \= 0 then return _rollback(database, "job budget policy fields are malformed", error)
+  if maximum_input_tokens > max_call_input | maximum_output_tokens > max_call_output | maximum_cost > max_call_cost | maximum_time_ms > max_call_time then return _rollback(database, "provider call exceeds the per-call cap", error)
+  values = .int[]
+  if _jobbudgets(database, claim.job_id(), values) \= 8 then return _rollback(database, "job budgets are unavailable or invalid", error)
+  actual_input = _actualusage(database, claim.job_id(), "input")
+  actual_output = _actualusage(database, claim.job_id(), "output")
+  actual_cost = _actualusage(database, claim.job_id(), "cost")
+  actual_time = _actualusage(database, claim.job_id(), "time")
+  reserved_input = _reservationdelta(database, claim.job_id(), "input")
+  reserved_output = _reservationdelta(database, claim.job_id(), "output")
+  reserved_cost = _reservationdelta(database, claim.job_id(), "cost")
+  reserved_time = _reservationdelta(database, claim.job_id(), "time")
+  if values[6] >= inflight_ceiling then return _rollback(database, "provider in-flight ceiling reached", error)
+  if values[5] + 1 > values[1] then return _rollback(database, "provider call budget exhausted", error)
+  if actual_input + reserved_input + maximum_input_tokens > values[2] then return _rollback(database, "provider input-token budget exhausted", error)
+  if actual_output + reserved_output + maximum_output_tokens > values[3] then return _rollback(database, "provider output-token budget exhausted", error)
+  if actual_cost + reserved_cost + maximum_cost > values[4] then return _rollback(database, "provider cost budget exhausted", error)
+  if actual_time + reserved_time + maximum_time_ms > time_budget then return _rollback(database, "provider time budget exhausted", error)
+  reservation_id = claim.attempt_id() || "#call-1"
+  if _boundeventcount(database, claim.job_id(), "reservation-open:" || reservation_id) > 0 then return _rollback(database, "provider call is already reserved", error)
+  message = "{" || jsonquote("reservation_id") || ":" || jsonquote(reservation_id) || "," || jsonquote("input") || ":" || maximum_input_tokens || "," || jsonquote("output") || ":" || maximum_output_tokens || "," || jsonquote("cost") || ":" || maximum_cost || "," || jsonquote("time") || ":" || maximum_time_ms || "}"
+  if _event(database, claim.job_id(), claim.item_id(), claim.attempt_id(), "reservation-open:" || reservation_id, message) \= 0 then return _rollback(database, "cannot record provider reservation", error)
+  sql = "UPDATE jobs SET reserved_calls=reserved_calls+1,reserved_tokens=reserved_tokens+" || (maximum_input_tokens + maximum_output_tokens) || ",reserved_cost=reserved_cost+" || maximum_cost || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(claim.job_id())
+  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot apply provider reservation", error)
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit provider reservation", error)
+  reservation = .ragcallreservation(0, reservation_id, claim.job_id(), claim.item_id(), claim.attempt_id(), claim.worker_id(), claim.fence(), maximum_input_tokens, maximum_output_tokens, maximum_cost, maximum_time_ms)
+  return 0
+
+settlecall: procedure = .int
+  arg store = .ragstorehandle, reservation = .ragcallreservation, provider_id = .string, model = .string, request_id = .string, outcome = .string, actual_input_tokens = .int, actual_output_tokens = .int, actual_cost = .int, actual_time_ms = .int, expose provider_run_id = .string, expose error = .string
+  error = ""; provider_run_id = ""
+  if store.writable() \= 1 | reservation.status() \= 0 | provider_id = "" | model = "" | request_id = "" | (outcome \= "succeeded" & outcome \= "failed" & outcome \= "cancelled") | actual_input_tokens < 0 | actual_output_tokens < 0 | actual_cost < 0 | actual_time_ms < 0 then do; error = "provider settlement inputs are invalid"; return -1; end
+  if actual_input_tokens > reservation.maximum_input_tokens() | actual_output_tokens > reservation.maximum_output_tokens() | actual_cost > reservation.maximum_cost() | actual_time_ms > reservation.maximum_time_ms() then do; error = "provider usage exceeds the admitted per-call maximum"; return -2; end
+  database = store.database()
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider settlement"; return -3; end
+  claim = .ragworkclaim(0, reservation.job_id(), reservation.item_id(), "", "", reservation.worker_id(), reservation.fence(), reservation.attempt_id(), 0, "")
+  if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)
+  if _boundeventcount(database, reservation.job_id(), "reservation-open:" || reservation.reservation_id()) \= 1 | _boundeventcount(database, reservation.job_id(), "reservation-close:" || reservation.reservation_id()) \= 0 then return _rollback(database, "provider reservation is missing or already settled", error)
+  provider_run_id = "provider-run-sha256:" || rxhash..sha256hex((reservation.reservation_id() || "00"x || provider_id || "00"x || model || "00"x || request_id) as .binary)
+  config_snapshot = _boundscalartext(database, "SELECT config_snapshot_id FROM jobs WHERE job_id=?1", reservation.job_id())
+  prepared = .binary
+  sql = "INSERT INTO provider_runs(provider_run_id,config_snapshot_id,provider_id,model,request_hash,outcome,input_tokens,output_tokens,duration_ms,started_at,completed_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare provider run", error)
+  request_hash = rxhash..sha256hex((provider_id || "00"x || model || "00"x || request_id || "00"x || reservation.attempt_id()) as .binary)
+  binds = sqlitebindtext(prepared, 1, provider_run_id) | sqlitebindtext(prepared, 2, config_snapshot) | sqlitebindtext(prepared, 3, provider_id) | sqlitebindtext(prepared, 4, model) | sqlitebindtext(prepared, 5, request_hash) | sqlitebindtext(prepared, 6, outcome) | sqlitebindint(prepared, 7, actual_input_tokens) | sqlitebindint(prepared, 8, actual_output_tokens) | sqlitebindint(prepared, 9, actual_time_ms)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then return _rollback(database, "cannot insert provider run", error)
+  prepared = .binary
+  sql = "UPDATE attempts SET provider_run_id=?1 WHERE attempt_id=?2 AND item_id=?3 AND worker_id=?4 AND fence=?5 AND outcome='running'"
+  if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare attempt provider link", error)
+  binds = sqlitebindtext(prepared, 1, provider_run_id) | sqlitebindtext(prepared, 2, reservation.attempt_id()) | sqlitebindtext(prepared, 3, reservation.item_id()) | sqlitebindtext(prepared, 4, reservation.worker_id()) | sqlitebindint(prepared, 5, reservation.fence())
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "cannot link provider run to current attempt", error)
+  message = "{" || jsonquote("reservation_id") || ":" || jsonquote(reservation.reservation_id()) || "," || jsonquote("input") || ":" || (-reservation.maximum_input_tokens()) || "," || jsonquote("output") || ":" || (-reservation.maximum_output_tokens()) || "," || jsonquote("cost") || ":" || (-reservation.maximum_cost()) || "," || jsonquote("time") || ":" || (-reservation.maximum_time_ms()) || "," || jsonquote("actual_cost") || ":" || actual_cost || "}"
+  if _event(database, reservation.job_id(), reservation.item_id(), reservation.attempt_id(), "reservation-close:" || reservation.reservation_id(), message) \= 0 then return _rollback(database, "cannot close provider reservation", error)
+  sql = "UPDATE jobs SET reserved_calls=reserved_calls-1,reserved_tokens=reserved_tokens-" || (reservation.maximum_input_tokens() + reservation.maximum_output_tokens()) || ",reserved_cost=reserved_cost-" || reservation.maximum_cost() || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(reservation.job_id()) || " AND reserved_calls>0 AND reserved_tokens>=" || (reservation.maximum_input_tokens() + reservation.maximum_output_tokens()) || " AND reserved_cost>=" || reservation.maximum_cost()
+  if sqliteexec(database, sql) \= 0 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "cannot settle provider reservation counters", error)
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit provider settlement", error)
+  return 0
+
+failattempt: procedure = .int
+  arg store = .ragstorehandle, claim = .ragworkclaim, retryable = .int, backoff_seconds = .int, maximum_attempts = .int, reason = .string, expose error = .string
+  error = ""
+  if store.writable() \= 1 | claim.claimed() \= 1 | (retryable \= 0 & retryable \= 1) | backoff_seconds < 0 | maximum_attempts < 1 | reason = "" then do; error = "failed-attempt inputs are invalid"; return -1; end
+  database = store.database()
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin failed attempt"; return -3; end
+  if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)
+  attempts = _boundcount(database, "SELECT count(*) FROM attempts WHERE item_id=?1", claim.item_id())
+  if retryable = 1 & attempts < maximum_attempts then next_state = "queued"
+  else next_state = "dead_letter"
+  attempt_outcome = "failed"
+  if next_state = "dead_letter" then attempt_outcome = "dead_letter"
+  sql = "UPDATE attempts SET validation_state=" || _q(reason) || ",outcome=" || _q(attempt_outcome) || ",completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE attempt_id=" || _q(claim.attempt_id()) || " AND outcome='running'"
+  if sqliteexec(database, sql) \= 0 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "cannot close failed attempt", error)
+  sql = "UPDATE job_items SET state=" || _q(next_state) || ",worker_id=NULL,lease_until=NULL,retry_at=CAST(strftime('%s','now') AS INTEGER)+" || backoff_seconds || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=" || _q(claim.item_id()) || " AND worker_id=" || _q(claim.worker_id()) || " AND fence=" || claim.fence() || " AND state='running'"
+  if sqliteexec(database, sql) \= 0 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "cannot schedule failed item", error)
+  if _event(database, claim.job_id(), claim.item_id(), claim.attempt_id(), next_state, reason) \= 0 then return _rollback(database, "cannot append failed-attempt event", error)
+  if _refreshjob(database, claim.job_id()) \= 0 then return _rollback(database, "cannot refresh failed job", error)
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit failed attempt", error)
+  return 0
+
+skipitem: procedure = .int
+  arg store = .ragstorehandle, claim = .ragworkclaim, reason = .string, expose error = .string
+  error = ""
+  if store.writable() \= 1 | claim.claimed() \= 1 | reason = "" then do; error = "skip inputs are invalid"; return -1; end
+  database = store.database()
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin skip"; return -3; end
+  if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)
+  if sqliteexec(database, "UPDATE attempts SET validation_state=" || _q(reason) || ",outcome='skipped',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE attempt_id=" || _q(claim.attempt_id()) || " AND outcome='running'") \= 0 then return _rollback(database, "cannot skip attempt", error)
+  if sqliteexec(database, "UPDATE job_items SET state='skipped',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=" || _q(claim.item_id()) || " AND fence=" || claim.fence() || " AND state='running'") \= 0 then return _rollback(database, "cannot skip item", error)
+  if _event(database, claim.job_id(), claim.item_id(), claim.attempt_id(), "skipped", reason) \= 0 | _refreshjob(database, claim.job_id()) \= 0 then return _rollback(database, "cannot finish skipped item", error)
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit skipped item", error)
+  return 0
+
+requestcancel: procedure = .int
+  arg store = .ragstorehandle, job_id = .string, reason = .string, expose error = .string
+  error = ""
+  if store.writable() \= 1 | job_id = "" | reason = "" then do; error = "cancellation inputs are invalid"; return -1; end
+  database = store.database()
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin cancellation"; return -3; end
+  if sqliteexec(database, "UPDATE jobs SET state='cancel_requested',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id) || " AND state IN('queued','running','paused')") \= 0 then return _rollback(database, "cannot request job cancellation", error)
+  if sqliteexec(database, "UPDATE job_items SET state='cancelled',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id) || " AND state='queued'") \= 0 then return _rollback(database, "cannot cancel queued items", error)
+  if sqliteexec(database, "UPDATE job_items SET state='cancel_requested',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id) || " AND state='running'") \= 0 then return _rollback(database, "cannot request running-item cancellation", error)
+  if _event(database, job_id, "", "", "cancel-requested", reason) \= 0 then return _rollback(database, "cannot append cancellation event", error)
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit cancellation", error)
+  return 0
+
+acknowledgecancel: procedure = .int
+  arg store = .ragstorehandle, claim = .ragworkclaim, expose error = .string
+  error = ""; database = store.database()
+  if store.writable() \= 1 | claim.claimed() \= 1 then do; error = "cancel acknowledgement is invalid"; return -1; end
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin cancel acknowledgement"; return -3; end
+  prepared = .binary
+  sql = "UPDATE attempts SET validation_state='cancelled',outcome='cancelled',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE attempt_id=?1 AND item_id=?2 AND worker_id=?3 AND fence=?4 AND outcome='running' AND EXISTS(SELECT 1 FROM job_items i WHERE i.item_id=?2 AND i.state='cancel_requested' AND i.worker_id=?3 AND i.fence=?4)"
+  if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare cancel acknowledgement", error)
+  binds = sqlitebindtext(prepared, 1, claim.attempt_id()) | sqlitebindtext(prepared, 2, claim.item_id()) | sqlitebindtext(prepared, 3, claim.worker_id()) | sqlitebindint(prepared, 4, claim.fence())
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "cancel acknowledgement lost its fence", error)
+  if sqliteexec(database, "UPDATE job_items SET state='cancelled',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=" || _q(claim.item_id()) || " AND fence=" || claim.fence() || " AND state='cancel_requested'") \= 0 then return _rollback(database, "cannot cancel running item", error)
+  if _event(database, claim.job_id(), claim.item_id(), claim.attempt_id(), "cancelled", "worker acknowledged cancellation") \= 0 | _refreshjob(database, claim.job_id()) \= 0 then return _rollback(database, "cannot finish cancellation", error)
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit cancellation", error)
+  return 0
+
+pausejob: procedure = .int
+  arg store = .ragstorehandle, job_id = .string, expose error = .string
+  return _jobstate(store, job_id, "paused", "pause", error)
+
+resumejob: procedure = .int
+  arg store = .ragstorehandle, job_id = .string, expose error = .string
+  return _jobstate(store, job_id, "queued", "resume", error)
+
+drainjob: procedure = .int
+  arg store = .ragstorehandle, job_id = .string, expose running = .int, expose error = .string
+  running = 0
+  status = _jobstate(store, job_id, "paused", "drain", error)
+  if status \= 0 then return status
+  running = _boundcount(store.database(), "SELECT count(*) FROM job_items WHERE job_id=?1 AND state IN('running','cancel_requested')", job_id)
+  return 0
+
+readjobstatus: procedure = .int
+  arg store = .ragstorehandle, job_id = .string, expose status = .ragjobstatus, expose error = .string
+  error = ""; status = .ragjobstatus("", "failed", 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 0.0, "", "", "", "", "", "")
+  if store.open() \= 1 | job_id = "" then do; error = "job status inputs are invalid"; return -1; end
+  database = store.database(); prepared = .binary
+  sql = "SELECT state,item_budget,created_at,updated_at FROM jobs WHERE job_id=?1"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, job_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "job is unavailable"; return -2; end
+  state = ""; planned = 0; created = ""; updated = ""
+  columns = sqlitecolumntext(prepared, 0, state) | sqlitecolumnint(prepared, 1, planned) | sqlitecolumntext(prepared, 2, created) | sqlitecolumntext(prepared, 3, updated)
+  call sqlitefinalize prepared
+  if columns \= 0 then do; error = "job status is malformed"; return -3; end
+  queued = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='queued'", job_id)
+  running = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state IN('running','cancel_requested')", job_id)
+  processed = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='processed'", job_id)
+  skipped = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='skipped'", job_id)
+  dead = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='dead_letter'", job_id)
+  cancelled = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='cancelled'", job_id)
+  failures = _boundcount(database, "SELECT count(*) FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1 AND a.outcome IN('failed','expired','dead_letter')", job_id)
+  current = _boundscalartext(database, "SELECT coalesce(min(item_id),'') FROM job_items WHERE job_id=?1 AND state IN('running','cancel_requested')", job_id)
+  provider = _boundscalartext(database, "SELECT coalesce(max(p.provider_id),'') FROM provider_runs p JOIN attempts a ON a.provider_run_id=p.provider_run_id JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1", job_id)
+  model = _boundscalartext(database, "SELECT coalesce(max(p.model),'') FROM provider_runs p JOIN attempts a ON a.provider_run_id=p.provider_run_id JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1", job_id)
+  completed = ""
+  if state = "completed" | state = "completed_with_errors" | state = "cancelled" | state = "failed" then completed = updated
+  status = .ragjobstatus(job_id, state, planned, queued, running, processed, skipped, dead, cancelled, failures, current, provider, model, 0.0, created, created, updated, completed, "", "durable")
+  return 0
+
+runworkeronce: procedure = .int
+  arg store = .ragstorehandle, job_filter = .string, worker_id = .string, lease_seconds = .int, maximum_attempts = .int, policy = .ragclaimpolicy, provider = .ragworkprovider, expose disposition = .string, expose error = .string
+  disposition = "idle"; error = ""; claim = .ragworkclaim
+  claim_status = claimnext(store, job_filter, worker_id, lease_seconds, maximum_attempts, claim, error)
+  if claim_status = 1 then return 1
+  if claim_status \= 0 then return claim_status
+  reservation = .ragcallreservation
+  if reservecall(store, claim, 256, 512, 100000, 120000, reservation, error) \= 0 then do
+    failure_error = ""; call failattempt store, claim, 1, 1, maximum_attempts, error, failure_error
+    disposition = "budget-denied"
+    return -2
+  end
+  provider_result = provider.extract(claim)
+  provider_run_id = ""
+  provider_outcome = "failed"
+  if provider_result.ok() = 1 then provider_outcome = "succeeded"
+  settlement = settlecall(store, reservation, provider_result.provider_id(), provider_result.model(), provider_result.request_id(), provider_outcome, provider_result.input_tokens(), provider_result.output_tokens(), provider_result.cost(), provider_result.duration_ms(), provider_run_id, error)
+  if settlement \= 0 then do; disposition = "settlement-failed"; return settlement; end
+  if provider_result.ok() \= 1 then do
+    if failattempt(store, claim, provider_result.retryable(), 1, maximum_attempts, provider_result.error(), error) \= 0 then do; disposition = "failure-recording-failed"; return -3; end
+    disposition = "retry-or-dead-letter"
+    return 0
+  end
+  generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  proposal_result = .ragproposalresult
+  if applyclaimedproposal(store, provider_result.proposal(), policy, generation, claim.config_snapshot_id(), claim.item_id(), claim.worker_id(), claim.fence(), claim.attempt_id(), proposal_result, error) \= 0 then do
+    proposal_error = error; failure_error = ""
+    if failattempt(store, claim, 1, 1, maximum_attempts, proposal_error, failure_error) \= 0 then do
+      error = failure_error; disposition = "failure-recording-failed"; return -3
+    end
+    error = ""; disposition = "retry-after-validation-or-promotion-race"
+    return 0
+  end
+  disposition = proposal_result.disposition()
+  return 0
+
+runworkerfollow: procedure = .int
+  arg store = .ragstorehandle, job_filter = .string, worker_id = .string, lease_seconds = .int, maximum_attempts = .int, maximum_items = .int, idle_polls = .int, poll_seconds = .int, policy = .ragclaimpolicy, provider = .ragworkprovider, expose processed = .int, expose error = .string
+  processed = 0; error = ""; idle = 0
+  if maximum_items < 1 | idle_polls < 1 | poll_seconds < 0 | poll_seconds > 60 then do; error = "worker follow bounds are invalid"; return -1; end
+  do while processed < maximum_items & idle < idle_polls
+    disposition = ""
+    status = runworkeronce(store, job_filter, worker_id, lease_seconds, maximum_attempts, policy, provider, disposition, error)
+    if status = 1 then do
+      idle = idle + 1
+      /* rxplatform.sleep is explicitly millisecond-based; this public worker
+       * bound is seconds so operator polling is not accidentally a busy loop. */
+      if poll_seconds > 0 then call rxplatform..sleep poll_seconds * 1000
+    end
+    else if status \= 0 then return status
+    else do; processed = processed + 1; idle = 0; end
+  end
+  return 0
+
+_jobstate: procedure = .int
+  arg store = .ragstorehandle, job_id = .string, target = .string, event_type = .string, expose error = .string
+  error = ""
+  if store.writable() \= 1 | job_id = "" then do; error = "job control inputs are invalid"; return -1; end
+  database = store.database()
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin job control"; return -3; end
+  if target = "paused" then predicate = "state IN('queued','running')"
+  else predicate = "state='paused'"
+  if sqliteexec(database, "UPDATE jobs SET state=" || _q(target) || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id) || " AND " || predicate) \= 0 then return _rollback(database, "cannot update job state", error)
+  if _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "job state transition is unavailable", error)
+  if _event(database, job_id, "", "", event_type, target) \= 0 then return _rollback(database, "cannot append job state event", error)
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit job state", error)
+  return 0
+
+_activefence: procedure = .int
+  arg database = .binary, claim = .ragworkclaim
+  prepared = .binary
+  sql = "SELECT count(*) FROM job_items i JOIN attempts a ON a.attempt_id=?1 AND a.item_id=i.item_id WHERE i.item_id=?2 AND i.job_id=?3 AND i.worker_id=?4 AND i.fence=?5 AND i.state='running' AND i.lease_until>CAST(strftime('%s','now') AS INTEGER) AND a.worker_id=i.worker_id AND a.fence=i.fence AND a.outcome='running'"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, claim.attempt_id()) \= 0 | sqlitebindtext(prepared, 2, claim.item_id()) \= 0 | sqlitebindtext(prepared, 3, claim.job_id()) \= 0 | sqlitebindtext(prepared, 4, claim.worker_id()) \= 0 | sqlitebindint(prepared, 5, claim.fence()) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  count = 0; status = sqlitecolumnint(prepared, 0, count); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return count
+
+_event: procedure = .int
+  arg database = .binary, job_id = .string, item_id = .string, attempt_id = .string, event_type = .string, message = .string
+  prepared = .binary
+  sql = "INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) VALUES(?1,NULLIF(?2,''),NULLIF(?3,''),?4,?5,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(database, sql, prepared) \= 0 then return -1
+  binds = sqlitebindtext(prepared, 1, job_id) | sqlitebindtext(prepared, 2, item_id) | sqlitebindtext(prepared, 3, attempt_id) | sqlitebindtext(prepared, 4, event_type) | sqlitebindtext(prepared, 5, message)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then return -1
+  return 0
+
+_jobbudgets: procedure = .int
+  arg database = .binary, job_id = .string, expose values = .int[]
+  clear values
+  prepared = .binary
+  sql = "SELECT model_call_budget,input_token_budget,output_token_budget,cost_budget,(SELECT count(*) FROM provider_runs p JOIN attempts a ON a.provider_run_id=p.provider_run_id JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=j.job_id),reserved_calls,item_budget,(SELECT count(*) FROM job_items i WHERE i.job_id=j.job_id) FROM jobs j WHERE job_id=?1"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, job_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  status = 0
+  do i = 0 to 7
+    value = 0; status = status | sqlitecolumnint(prepared, i, value); values[i + 1] = value
+  end
+  call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return values.0
+
+_actualusage: procedure = .int
+  arg database = .binary, job_id = .string, kind = .string
+  if kind = "input" then expression = "coalesce(sum(p.input_tokens),0)"
+  else if kind = "output" then expression = "coalesce(sum(p.output_tokens),0)"
+  else if kind = "time" then expression = "coalesce(sum(p.duration_ms),0)"
+  else do
+    expression = "coalesce((SELECT sum(CAST(json_extract(e.message,'$.actual_cost') AS INTEGER)) FROM job_events e WHERE e.job_id=?1 AND e.event_type LIKE 'reservation-close:%'),0)"
+    prepared = .binary
+    if sqliteprepare(database, "SELECT " || expression, prepared) \= 0 | sqlitebindtext(prepared, 1, job_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+    value = 0; status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+    if status \= 0 then return -1
+    return value
+  end
+  prepared = .binary
+  sql = "SELECT " || expression || " FROM provider_runs p JOIN attempts a ON a.provider_run_id=p.provider_run_id JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, job_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  value = 0; status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value
+
+_reservationdelta: procedure = .int
+  arg database = .binary, job_id = .string, field = .string
+  prepared = .binary
+  sql = "SELECT coalesce(sum(CAST(json_extract(message,'$." || field || "') AS INTEGER)),0) FROM job_events WHERE job_id=?1 AND (event_type LIKE 'reservation-open:%' OR event_type LIKE 'reservation-close:%')"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, job_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  value = 0; status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value
+
+_boundevent: procedure = .string
+  arg database = .binary, job_id = .string, event_type = .string
+  prepared = .binary
+  sql = "SELECT message FROM job_events WHERE job_id=?1 AND event_type=?2 ORDER BY event_id DESC LIMIT 1"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, job_id) \= 0 | sqlitebindtext(prepared, 2, event_type) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  value = ""; status = sqlitecolumntext(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return ""
+  return value
+
+_boundeventcount: procedure = .int
+  arg database = .binary, job_id = .string, event_type = .string
+  prepared = .binary
+  if sqliteprepare(database, "SELECT count(*) FROM job_events WHERE job_id=?1 AND event_type=?2", prepared) \= 0 | sqlitebindtext(prepared, 1, job_id) \= 0 | sqlitebindtext(prepared, 2, event_type) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  value = 0; status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value
+
+_refreshjob: procedure = .int
+  arg database = .binary, job_id = .string
+  active = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state IN('queued','running','cancel_requested')", job_id)
+  dead = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='dead_letter'", job_id)
+  cancelled = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='cancelled'", job_id)
+  if active < 0 | dead < 0 | cancelled < 0 then return -1
+  if active > 0 then state = "running"
+  else if dead > 0 then state = "completed_with_errors"
+  else if cancelled > 0 then state = "cancelled"
+  else state = "completed"
+  return sqliteexec(database, "UPDATE jobs SET state=" || _q(state) || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id))
+
+_rollback: procedure = .int
+  arg database = .binary, message = .string, expose error = .string
+  call sqliteexec database, "ROLLBACK"; error = message
+  return -3
+
+_scalarint: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  value = -1; status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value
+
+_boundcount: procedure = .int
+  arg database = .binary, sql = .string, value = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, value) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  count = -1; status = sqlitecolumnint(prepared, 0, count); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return count
+
+_boundscalartext: procedure = .string
+  arg database = .binary, sql = .string, value = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, value) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  output = ""; status = sqlitecolumntext(prepared, 0, output); call sqlitefinalize prepared
+  if status \= 0 then return ""
+  return output
+
+_boundscalarint: procedure = .int
+  arg database = .binary, sql = .string, value = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, value) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  output = -1; status = sqlitecolumnint(prepared, 0, output); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return output
+
+_q: procedure = .string
+  arg value = .string
+  return "'" || changestr("'", value, "''") || "'"

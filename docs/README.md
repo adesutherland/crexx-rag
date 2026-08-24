@@ -3,7 +3,8 @@
 Status: canonical navigation for the approved cREXX-only programme,
 2026-08-23. Phase 1B through Gate 2 are accepted, and Phase 3 plus Gate 3 are
 accepted for the current macOS scope. Exact downstream Linux replay remains
-open; Phase 4 is next in the authorized sequential programme.
+open. Phase 4 and Gate 4 are accepted for the recorded macOS scope, including
+the roadmap's literal 28,800-poll supervised overnight soak.
 
 ## Current Programme Documents
 
@@ -22,6 +23,8 @@ open; Phase 4 is next in the authorized sequential programme.
 | [Phase 2 and Gate 2 closeout](evidence/2026-08-23-phase2-gate2-closeout/README.md) | Current installed-package capability adoption, macOS validation, Gate-2 acceptance, and the exact Linux-only residual |
 | [Phase 3 executable tutorial](tutorials/phase-3-ingestion.md) | Development tutorial over the real folder connector, immutable plan, reconciler, and zero-write replay |
 | [Phase 3 and Gate 3 evidence](evidence/2026-08-23-phase3/README.md) | P3-01 through P3-09, dual-VM/mode, crash resume, tutorial, oracle delta, QA, and current limits |
+| [Phase 4 executable tutorial](tutorials/phase-4-improvement.md) | Development tutorial over canonical claims, deterministic review, improvement plans, and durable workers |
+| [Phase 4 and Gate 4 evidence](evidence/2026-08-23-phase4/README.md) | P4-01 through P4-09, dual VM/mode, crash/two-process worker QA, Apple ASan, and the accepted literal overnight soak |
 | [CREXX capability-sync worklist](evidence/2026-08-22-crexx-capability-sync/WORKLIST.md) | Completed macOS/current-head items and later parallel qualification backlog |
 | [Generic capability incubation audit](../incubator/README.md) | Donation-candidate inventory, implementation boundaries, colocated use/system docs, and readiness status |
 | [Gate 1A decision ledger](gate1a-decision-ledger.md) | Historical approval for D1-D9, the now-completed Phase-1B worklist, exclusions, and Gate-1B stop |

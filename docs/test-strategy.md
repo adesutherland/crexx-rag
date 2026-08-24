@@ -294,6 +294,50 @@ Hosted extraction, generation and embedding qualifications begin only in their
 later phase-specific, secret-gated targets with explicit call/token/cost/privacy
 budgets. Credential values must never enter CTest output or retained evidence.
 
+## Phase 4 Acceptance
+
+CTest `phase4_improvement` is the permanent bounded Gate-4 regression. It compiles the
+Level-G claim, improvement, and worker modules plus two scenarios and the
+executable tutorial with and without optimization. Claim and tutorial shapes
+run on both `rxvme` and `rxbvm`.
+
+The claim matrix covers canonical concepts and aliases, explicit ambiguity,
+direction, qualification and effective time, support/contradiction,
+assertion/quotation/report/negation/speculation, attribution, independent
+lineage, support strengthening/retraction, no-op replay, bounded traversal,
+every extraction-rank component, provider-neutral proposals, confidence,
+endpoint/type/evidence validation, canonical overwrite, conflict, unresolved,
+ambiguity and external review routes, explicit improvement triggers, exact
+resource ceilings, symbolic secrets, stale plans, and zero-write reapply.
+
+The optimized worker cases use real forced process termination after a
+database-clock claim, lease expiry, two simultaneous OS-process workers,
+recovery, and a fabricated late heartbeat at the old fence. They also cover
+pause/resume/drain, bounded status, cooperative cancellation, retry/backoff,
+dead letter, immutable budget policy, per-call and aggregate reservation
+accounting, exact settlement, and denial of a third call at a two-call
+in-flight ceiling. The final assertion requires one active graph support
+despite at-least-once provider attempts.
+
+Both VMs also run a two-poll `runworkerfollow` soak smoke. The literal
+overnight record uses the same compiled mode under a temporary operator-owned
+macOS supervisor with 28,800 one-second idle polls; the short permanent cell
+proves invocation and clean completion without making ordinary CTest take
+eight hours.
+
+The target also runs the unchanged native-v1 work-queue consumer oracle and
+compares the seven tutorial NDJSON records exactly in all four compiler/VM
+cells. Recurring QA uses a deterministic provider and no hosted connection.
+Plans contain only symbolic references such as `env:OPENAI_API_KEY`. Hosted
+Phase-7 qualifications are secret-gated and must declare provider, model,
+calls, tokens, cost, privacy and retained evidence before resolving a value.
+The separate roadmap requirement for a literal supervised overnight worker is
+a time-based acceptance record and cannot be replaced by this bounded target.
+The retained macOS run completed one launchd attempt, 28,800 one-second polls,
+all four items in its improvement job, balanced reservations, and exit 0. Its
+separate ingestion job remained queued and outside the soak. Together with the
+bounded target, this accepts Gate 4 for the recorded macOS scope.
+
 ## Required Commands
 
 At Phase-1B entry and Gate 1B:

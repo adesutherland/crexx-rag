@@ -462,9 +462,10 @@ becomes graph state directly.
 
 ## Durable Work And Overnight Improvement
 
-The first production worker is deliberately single-process. Multiple OS
-processes become safe only after leases and SQLite concurrency tests pass;
-in-process cREXX thread safety is not assumed.
+Phase 4 first proved one process, then qualified multiple competing OS-process
+workers through database-clock leases, SQLite writer serialization, monotonic
+fences, forced termination, expiry, and late-worker rejection. In-process cREXX
+thread safety is not assumed; concurrency is process-based.
 
 ```mermaid
 stateDiagram-v2

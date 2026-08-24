@@ -14,9 +14,10 @@ performance with retained correctness and workload evidence.
 > bounded Phase-1B results and their recorded limitations. `P2-01` through
 > `P2-10` and Gate 2 are accepted for the current macOS scope. Exact downstream
 > Linux replay remains open and is not represented by the macOS result. Phase
-> 3 true initial/incremental ingestion is implemented and accepted for the
-> recorded macOS scope; Phase 4 is next. The native-v1
-> C++ path remains the executable oracle. Level G is
+> 3 true initial/incremental ingestion and Phase 4 claim, review, improvement,
+> and multi-process worker algorithms are accepted for their recorded macOS
+> scopes. Phase 4 includes one clean 28,800-poll supervised overnight run. The
+> native-v1 C++ path remains the executable oracle. Level G is
 > now the required default for advanced libraries and application code; Level B
 > is reserved for CREXX bootstrap and justified low-level foundations.
 
@@ -104,7 +105,8 @@ jobs. It is not yet a complete public command set or cutover candidate.
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | 28 bounded items accepted; Debug/Release build; 55 of 56 tests pass with sole known CRI-15 failure |
 | Phase 2 / Gate 2 | Accepted on macOS 2026-08-23 | P2-01 through P2-10, installed-capability adoption, canonical zero-write planning, and hostile apply-time revalidation are accepted; exact downstream Linux replay remains open |
 | Phase 3 / Gate 3 | Accepted on macOS 2026-08-23 | Level-G initial/incremental ingestion, exact reuse/invalidation, executable tutorial, native semantic delta, and crash resume pass; Linux remains open |
-| Phase 4 and later | Authorized sequentially | Claims/improvement is next; no cutover or native retirement has started |
+| Phase 4 / Gate 4 | Accepted on macOS 2026-08-24 | Claim/support/review, budgeted improvement, crash recovery, two-process fencing, exact reservations, tutorial, literal 28,800-poll supervised soak, Debug/Release and Apple-ASan pass; Linux remains open |
+| Phase 5 and later | Authorized sequentially | Retrieval/evidence follows Gate 4; no cutover or native retirement has started |
 
 Gate 1B established:
 
@@ -118,7 +120,7 @@ Gate 1B established:
   OpenAI, Anthropic, and Gemini, including five low-cost hosted qualification
   calls and zero-outbound privacy-denial tests;
 - a versioned `f32le-v1` vector representation and exact-search oracle; and
-- bounded source, claim, evidence, and single-process worker semantics with
+- bounded source, claim, evidence, and durable-worker semantics with
   native-golden parity.
 
 ## Known Production Gaps
@@ -140,9 +142,11 @@ production claim:
 - Installed `rxhash` now owns durable one-shot, hexadecimal, immutable
   incremental, and bounded-memory file SHA-256. Application sidecars preserve
   their own byte ceiling while hashing fixed chunks.
-- Worker evidence is single-process. Supervision, multi-process claiming,
-  cancellation races, overnight operation, and bounded in-flight overrun still
-  require production qualification.
+- Phase-4 worker evidence includes database-clock leases, monotonic fences,
+  forced termination, cancellation, retry/dead-letter, exact reservations,
+  bounded in-flight denial, two competing OS processes, and one clean
+  28,800-poll supervised overnight run. In-process cREXX thread safety is
+  neither assumed nor claimed.
 - The local OpenAI-compatible protocol is qualified against deterministic
   fixtures, but a real `llama-server` deployment was unavailable.
 - There is no production ingestion pipeline, installed target CLI/MCP adapter,

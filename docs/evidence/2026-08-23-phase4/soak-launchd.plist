@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.crexxrag.phase4-soak-1787519531</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/tmp/crexx-phase3-install.xqEdYn/bin/rxvme</string>
+    <string>-l</string>
+    <string>/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/phase4-improvement;/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/bin;/tmp/crexx-phase3-install.xqEdYn/bin</string>
+    <string>/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/phase4-improvement/work-opt</string>
+    <string>ragschema</string>
+    <string>ragfile</string>
+    <string>ragstore</string>
+    <string>ragrepository</string>
+    <string>ragingest</string>
+    <string>ragclaims</string>
+    <string>ragimprove</string>
+    <string>ragjob</string>
+    <string>ragwork</string>
+    <string>rx_sqlite_boundary</string>
+    <string>rx_hash</string>
+    <string>rx_system</string>
+    <string>rxplatform</string>
+    <string>library</string>
+    <string>-a</string>
+    <string>soak</string>
+    <string>/tmp/crexx-rag-phase4-soak-final.G87fdG/library</string>
+    <string>supervised-soak-rxvme</string>
+    <string>28800</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/adrian/CLionProjects/crexx-rag</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>/tmp/crexx-rag-phase4-soak-final.G87fdG/worker.out</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/crexx-rag-phase4-soak-final.G87fdG/worker.err</string>
+</dict>
+</plist>

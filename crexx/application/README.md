@@ -1,6 +1,6 @@
 # cREXX Application Modules
 
-Status: Phase 3 product implementation. These modules are application code,
+Status: Phase 4 product implementation. These modules are application code,
 not generic CREXX donation candidates.
 
 ## Use
@@ -28,6 +28,9 @@ import ragplanning
 import ragfoundation
 import ragingest
 import ragfolder
+import ragclaims
+import ragimprove
+import ragwork
 ```
 
 `raglibrary` defines the library and factory interfaces. `ragjob` defines the
@@ -64,8 +67,8 @@ improve, and proposal command plans remain read-only previews until Phase 6
 wires the public surface. `ragingest` now owns the Phase-3 domain plan and
 shared initial/incremental reconciler. `ragfolder` discovers bounded folder
 observations with sorted relative-path stable keys. The public facade does not
-yet expose apply, so the Phase-3 implementation is exercised through typed
-Level-G callers and the executable development tutorial.
+yet expose apply, so the Phase-3/4 implementation is exercised through typed
+Level-G callers and executable development tutorials.
 
 `ragingest` uses `crexx-rag.ingest-plan/1`. Apply recomputes its source,
 generation, parser, policy, raw/text/metadata and revision-envelope bindings
@@ -75,6 +78,26 @@ support and embeddings, retracts removed dependencies, performs versioned
 candidate census/decisions, and queues missing embedding/claim-extraction work.
 An identical desired source set returns exact unchanged counters with zero
 SQLite writes and zero provider calls.
+
+`ragclaims` owns Phase-4 concept/alias/ambiguity promotion, directional and
+time-scoped claims, independent support, retraction, bounded traversal,
+provider-neutral proposals, deterministic validation/review routing, and the
+versioned explainable extraction rank. Provider output is immutable input to
+this policy; it never writes canonical graph rows directly.
+
+`ragimprove` owns canonical `crexx-rag.improve-plan/1` and
+`crexx-rag.external-proposal-plan/1` values. Improvement triggers select and
+rank deduplicated content, bind exact item/call/token/cost/time/in-flight/retry
+budgets, privacy, route, prompt/policy/config versions, and an empty or `env:`
+secret reference. Apply re-plans before one transaction creates the job, items,
+and immutable budget policy. External proposals always enter typed review.
+
+`ragwork` owns database-clock claims, leases, monotonic fences, attempts,
+heartbeats, retry/backoff/dead-letter, cooperative cancellation, pause/resume/
+drain/status, and admission reservations. `.ragworkprovider` is the
+provider-neutral Level-G interface. A worker reserves worst-case usage before
+calling it, settles actual usage, then applies the returned proposal through
+the same deterministic fenced claim path.
 
 `ragrepositoryrecord` is the shared typed page envelope. `identity`,
 `parent_identity`, and `related_identity` retain graph/storage identity;
@@ -113,7 +136,10 @@ Command parsing and result rendering are covered by
 by `p2_10_plan_revalidation.crexx`. Phase-3 ingestion, oracle delta, and real
 resume coverage are `p3_01_ingest_scenario.crexx`,
 `p3_02_oracle_delta.crexx`, and `p3_03_resume_scenario.crexx`; the executable
-tutorial is `crexx/tutorials/phase3_ingestion_scenario.crexx`.
+tutorial is `crexx/tutorials/phase3_ingestion_scenario.crexx`. Phase-4 claim
+and worker coverage is `p4_01_claims_scenario.crexx` and
+`p4_02_worker_scenario.crexx`; its executable tutorial is
+`crexx/tutorials/phase4_improvement_scenario.crexx`.
 
 `ragstore` uses a directory bundle containing `library.sqlite` and the
 recoverable `manifest.json` projection. SQLite is authoritative. A publication
@@ -124,11 +150,14 @@ returns the stable bundle to rollback-journal mode.
 
 ## Current Limits
 
-Phase 2 and Gate 2 remain accepted. Phase 3 implements the Level-G ingestion
-algorithm and queues missing downstream work; the Phase-2 public facade still
-does not expose apply. The native executable remains the oracle. Provider
-execution, graph promotion, improvement/proposal workers, retrieval, and
-transport adapters remain later items. Sidecar verification retains the
+Phase 2 through Gate 3 are accepted for their recorded macOS scope. Phase 3
+implements ingestion and Phase 4 implements claim/review/improvement/worker
+algorithms; the Phase-2 public facade still does not expose apply. The native
+executable remains the oracle. Retrieval and transport adapters remain later
+items. Recurring Phase-4 QA uses a deterministic provider and symbolic hosted
+secret references; hosted provider qualification is Phase 7. Gate 4 remains
+open for the literal supervised overnight soak. Sidecar
+verification retains the
 2,147,483,647-byte application ceiling but hashes in fixed memory. Callers that
 do not need an interposed ceiling or returned byte count can use the installed
 synchronous bounded-memory `rxhash.sha256file` or `sha256filehex` directly.

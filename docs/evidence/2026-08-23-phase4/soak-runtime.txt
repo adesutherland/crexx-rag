@@ -1,0 +1,55 @@
+Phase 4 supervised worker soak final runtime evidence
+
+label=com.crexxrag.phase4-soak-1787519531
+start_utc=2026-08-23T21:12:11Z
+start_epoch=1787519531
+minimum_elapsed_seconds=28800
+minimum_completion_epoch=1787548331
+completion_observed_utc=2026-08-24T05:58:30Z
+completion_observed_epoch=1787551110
+observed_elapsed_seconds=31579
+launchd_state=not-running
+launchd_runs=1
+launchd_last_exit_code=0
+runtime=rxvme
+compiler_mode=optimized
+idle_polls=28800
+processed=4
+job_state=completed
+stderr_bytes=0
+network_file_descriptors=0
+secret_environment_entries=0
+credential_reference=env:OPENAI_API_KEY
+credential_value_resolved=no
+outbound_network_provider_call=no
+
+stdout:
+P4_SOAK_OK worker=supervised-soak-rxvme idle_polls=28800 processed=4 job_state=completed
+
+jobs:
+job-sha256:347ffc41e67a7094c46cb4e6fb54dd5db190cbfb06475563827dee1482861a2b queued item_budget=16 model_call_budget=16 reserved_calls=0 reserved_tokens=0 reserved_cost=0
+job-sha256:646f9cd5047dc4083467fcdb2440c48a06809c688420dc403d98d6fb54b652be completed item_budget=4 model_call_budget=12 reserved_calls=0 reserved_tokens=0 reserved_cost=0
+
+job_items:
+job-sha256:347ffc41e67a7094c46cb4e6fb54dd5db190cbfb06475563827dee1482861a2b claim-extraction queued=4
+job-sha256:347ffc41e67a7094c46cb4e6fb54dd5db190cbfb06475563827dee1482861a2b embedding queued=4
+job-sha256:646f9cd5047dc4083467fcdb2440c48a06809c688420dc403d98d6fb54b652be improve-extraction processed=4
+
+attempts_succeeded=4
+reservation_open_events=4
+reservation_close_events=4
+provider_runs=4
+claim_support=1
+sqlite_integrity_check=ok
+
+The queued ingestion job is a separate Phase-7 application-integration item.
+It was intentionally outside the supervised improvement-job soak and is not
+represented as leaked or incomplete soak work.
+
+sha256:
+f874f229627a4827d9f15b7f9e3f7d4d4890f438a6ba597d6f18287569004ecc  soak-library.sqlite
+d4a8d6ee74616e3af6405b84b06e2159e3e965f17b97d228702a5cc798a51934  soak-manifest.json
+c77563fb9bbd8af3a5dcfb110156ee2c7fceb4aee41eb97027f0fc854e04e496  soak-launchd.plist
+74b12d0e8e5bff6ea355ebf886fb4dd940aa337b976f15b07730017af630326c  soak-config.txt
+56d6237ff363cc5a6d3b526f322874c8ad5542e59ed4d2bf9d063bc83b4f3e2e  soak-worker.out
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  worker.err (empty, summarized here; not retained as an empty Git object)

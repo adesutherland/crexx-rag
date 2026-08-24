@@ -22,7 +22,8 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Phase 2 / Gate 2 | Accepted on macOS 2026-08-23 | `P2-01` through `P2-10`, public installed-capability adoption, canonical zero-write plans, and hostile apply-time revalidation are accepted. Exact downstream Linux replay remains open. |
 | Parallel CREXX capability sync | Current installed package adopted on macOS | Public Level-G HTTP/JSON, complete `rxhash` SHA-256, and exact packed `rxvector` are consumed directly with source fallback disabled. Provider-lifecycle expansion remains separately approval-gated, and exact downstream Linux confirmation is the only deferred Phase-2 platform replay. |
 | Phase 3 / Gate 3 | Accepted on macOS 2026-08-23 | Level-G folder ingestion, immutable plans, incremental reuse/invalidation, candidates, FTS, jobs, tutorial, oracle delta and crash resume pass; exact downstream Linux remains open. |
-| Phase 4 and later | Authorized sequentially | Claims/extraction/improvement is next; cutover and retirement remain later approval gates. |
+| Phase 4 / Gate 4 | Accepted on macOS 2026-08-24 | Claims/extraction/review/improvement, durable multi-process workers, and the literal 28,800-poll supervised overnight soak pass; exact downstream Linux remains open. |
+| Phase 5 and later | Authorized sequentially | Retrieval/evidence follows Gate 4; cutover and retirement remain later approval gates. |
 
 ## Current Product Reality
 
@@ -68,8 +69,9 @@ fresh deterministic/loopback closeout suite passed 28/28, 0 failed, 0 skipped
 in 110.30 seconds. Exact evidence is under
 `docs/evidence/2026-07-31-gate1a-crexx-candidate/`.
 
-No complete cREXX-only public product path, safe multi-worker improvement
-queue, retrieval product, or target command set is claimed implemented yet.
+No complete cREXX-only public product path, retrieval product, or target command
+set is claimed implemented yet. The Phase-4 multi-process improvement queue and
+its literal overnight soak are accepted for the recorded macOS scope.
 The Level-G schema-v2 storage and Phase-3 ingestion/repository path are accepted
 over the local generic SQLite incubation. The provider contract remains
 qualified in local incubation, subject to the Gate-1B transport limitations.
@@ -272,7 +274,31 @@ a staging transaction and resume without duplicate sources, revisions or jobs.
 The native oracle and cREXX scratch libraries agree on the Scotland-shaped
 two-source/five-chunk projection at the matched 512-character/no-overlap policy.
 The executable tutorial is checked against exact NDJSON and repeats unchanged
-input with zero writes/provider calls. Provider-dependent queued work remains
-Phase 4; the Phase-3 path makes no outbound call and resolves no credential.
+input with zero writes/provider calls. Provider-dependent queued work is
+consumed by the Phase-4 worker path; the Phase-3 path itself makes no outbound
+call and resolves no credential.
 Exact evidence and limitations are in
 [`docs/evidence/2026-08-23-phase3/`](evidence/2026-08-23-phase3/README.md).
+
+## Phase 4 Execution
+
+`P4-01` through `P4-09` are implemented in Level G. `ragclaims` owns canonical
+concepts, aliases, explicit ambiguity, directional/time-scoped claims,
+independent support, retraction, bounded traversal, immutable provider-neutral
+proposals, deterministic validation/review routing, and explainable extraction
+ranking. `ragimprove` creates content-addressed trigger plans with exact
+item/call/token/cost/time/in-flight/retry ceilings and symbolic secret
+references. `ragwork` uses database-clock leases, monotonic fences, attempts,
+heartbeats, retry/backoff/dead-letter, cooperative cancellation, pause/resume/
+drain, and exact reservation settlement across independent OS processes.
+
+The permanent target passes optimized/non-optimized `rxvme`/`rxbvm` claim and
+tutorial cells, real forced termination and lease recovery on both VMs, two
+competing worker processes, stale-fence denial, the native-v1 queue oracle, and
+exact tutorial NDJSON. Full Debug and fresh Release are 71/71; focused Apple
+ASan is clean with unsupported LeakSanitizer explicitly off. Recurring QA uses
+a deterministic provider and resolves no credential. The literal supervised
+run completed in one launchd attempt with 28,800 one-second polls, four
+processed improvement items, balanced reservations, exact success output, and
+exit 0. A separate queued ingestion job was intentionally outside the soak.
+Gate 4 is accepted for the recorded macOS scope; exact Linux remains open.

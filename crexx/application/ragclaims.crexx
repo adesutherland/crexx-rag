@@ -1,0 +1,826 @@
+options levelg
+
+namespace ragclaims expose ragclaimpolicy ragextractionproposal ragproposalvalidation ragproposalresult ragtraversalstep ragextractionrank promotemention rankchunk validateproposal applyproposal applyclaimedproposal retractsupport traverseclaims
+
+import rxfnsb
+import rxjson
+import rxhash
+import sqlite_boundary
+import ragstore
+
+/* Phase-4 graph policy stays in Level G. Provider output is represented by an
+ * immutable typed proposal and cannot write graph state directly. */
+ragclaimpolicy: class
+  _policy_version = .string
+  _concept_types = .string
+  _relationships = .string
+  _assertion_weight = .int
+  _quotation_weight = .int
+  _report_weight = .int
+  _negation_weight = .int
+  _speculation_weight = .int
+
+  *: factory
+    arg policy_version = .string, concept_types = .string, relationships = .string, assertion_weight = .int, quotation_weight = .int, report_weight = .int, negation_weight = .int, speculation_weight = .int
+    _policy_version = policy_version
+    _concept_types = concept_types
+    _relationships = relationships
+    _assertion_weight = assertion_weight
+    _quotation_weight = quotation_weight
+    _report_weight = report_weight
+    _negation_weight = negation_weight
+    _speculation_weight = speculation_weight
+    return
+
+  policy_version: method = .string
+    return _policy_version
+  permits_type: method = .int
+    arg concept_type = .string
+    return _tokencontains(_concept_types, concept_type)
+  permits_relationship: method = .int
+    arg relationship = .string
+    return _tokencontains(_relationships, relationship)
+  stance_weight: method = .int
+    arg stance = .string
+    if stance = "assertion" then return _assertion_weight
+    if stance = "quotation" then return _quotation_weight
+    if stance = "report" then return _report_weight
+    if stance = "negation" then return _negation_weight
+    if stance = "speculation" then return _speculation_weight
+    return 0
+
+ragextractionproposal: class
+  _schema = .string
+  _proposal_id = .string
+  _kind = .string
+  _source_concept_id = .string
+  _source_label = .string
+  _source_type = .string
+  _relationship_type = .string
+  _target_concept_id = .string
+  _target_label = .string
+  _target_type = .string
+  _direction = .string
+  _qualifiers_json = .string
+  _effective_from = .string
+  _effective_to = .string
+  _revision_chunk_id = .string
+  _span_start = .int
+  _span_end = .int
+  _polarity = .string
+  _stance = .string
+  _directness = .string
+  _attribution = .string
+  _lineage_group = .string
+  _confidence_millionths = .int
+  _provider_id = .string
+  _model = .string
+  _request_id = .string
+  _prompt_version = .string
+  _extractor_identity = .string
+  _source_scope = .string
+  _profile_id = .string
+  _external = .int
+
+  *: factory
+    arg schema = .string, proposal_id = .string, kind = .string, source_concept_id = .string, source_label = .string, source_type = .string, relationship_type = .string, target_concept_id = .string, target_label = .string, target_type = .string, direction = .string, qualifiers_json = .string, effective_from = .string, effective_to = .string, revision_chunk_id = .string, span_start = .int, span_end = .int, polarity = .string, stance = .string, directness = .string, attribution = .string, lineage_group = .string, confidence_millionths = .int, provider_id = .string, model = .string, request_id = .string, prompt_version = .string, extractor_identity = .string, source_scope = .string, profile_id = .string, external = .int
+    _schema = schema; _proposal_id = proposal_id; _kind = kind
+    _source_concept_id = source_concept_id; _source_label = source_label; _source_type = source_type
+    _relationship_type = relationship_type
+    _target_concept_id = target_concept_id; _target_label = target_label; _target_type = target_type
+    _direction = direction; _qualifiers_json = qualifiers_json
+    _effective_from = effective_from; _effective_to = effective_to
+    _revision_chunk_id = revision_chunk_id; _span_start = span_start; _span_end = span_end
+    _polarity = polarity; _stance = stance; _directness = directness
+    _attribution = attribution; _lineage_group = lineage_group
+    _confidence_millionths = confidence_millionths
+    _provider_id = provider_id; _model = model; _request_id = request_id
+    _prompt_version = prompt_version; _extractor_identity = extractor_identity
+    _source_scope = source_scope; _profile_id = profile_id; _external = external
+    return
+
+  schema: method = .string
+    return _schema
+  proposal_id: method = .string
+    return _proposal_id
+  kind: method = .string
+    return _kind
+  source_concept_id: method = .string
+    return _source_concept_id
+  source_label: method = .string
+    return _source_label
+  source_type: method = .string
+    return _source_type
+  relationship_type: method = .string
+    return _relationship_type
+  target_concept_id: method = .string
+    return _target_concept_id
+  target_label: method = .string
+    return _target_label
+  target_type: method = .string
+    return _target_type
+  direction: method = .string
+    return _direction
+  qualifiers_json: method = .string
+    return _qualifiers_json
+  effective_from: method = .string
+    return _effective_from
+  effective_to: method = .string
+    return _effective_to
+  revision_chunk_id: method = .string
+    return _revision_chunk_id
+  span_start: method = .int
+    return _span_start
+  span_end: method = .int
+    return _span_end
+  polarity: method = .string
+    return _polarity
+  stance: method = .string
+    return _stance
+  directness: method = .string
+    return _directness
+  attribution: method = .string
+    return _attribution
+  lineage_group: method = .string
+    return _lineage_group
+  confidence_millionths: method = .int
+    return _confidence_millionths
+  provider_id: method = .string
+    return _provider_id
+  model: method = .string
+    return _model
+  request_id: method = .string
+    return _request_id
+  prompt_version: method = .string
+    return _prompt_version
+  extractor_identity: method = .string
+    return _extractor_identity
+  source_scope: method = .string
+    return _source_scope
+  profile_id: method = .string
+    return _profile_id
+  external: method = .int
+    return _external
+  canonical: method = .string
+    return "{" || jsonquote("schema") || ":" || jsonquote(_schema) || "," || jsonquote("proposal_id") || ":" || jsonquote(_proposal_id) || "," || jsonquote("kind") || ":" || jsonquote(_kind) || "," || jsonquote("source_concept_id") || ":" || jsonquote(_source_concept_id) || "," || jsonquote("source_label") || ":" || jsonquote(_source_label) || "," || jsonquote("source_type") || ":" || jsonquote(_source_type) || "," || jsonquote("relationship_type") || ":" || jsonquote(_relationship_type) || "," || jsonquote("target_concept_id") || ":" || jsonquote(_target_concept_id) || "," || jsonquote("target_label") || ":" || jsonquote(_target_label) || "," || jsonquote("target_type") || ":" || jsonquote(_target_type) || "," || jsonquote("direction") || ":" || jsonquote(_direction) || "," || jsonquote("qualifiers") || ":" || _qualifiers_json || "," || jsonquote("effective_from") || ":" || jsonquote(_effective_from) || "," || jsonquote("effective_to") || ":" || jsonquote(_effective_to) || "," || jsonquote("revision_chunk_id") || ":" || jsonquote(_revision_chunk_id) || "," || jsonquote("span_start") || ":" || _span_start || "," || jsonquote("span_end") || ":" || _span_end || "," || jsonquote("polarity") || ":" || jsonquote(_polarity) || "," || jsonquote("stance") || ":" || jsonquote(_stance) || "," || jsonquote("directness") || ":" || jsonquote(_directness) || "," || jsonquote("attribution") || ":" || jsonquote(_attribution) || "," || jsonquote("lineage_group") || ":" || jsonquote(_lineage_group) || "," || jsonquote("confidence_millionths") || ":" || _confidence_millionths || "," || jsonquote("provider_id") || ":" || jsonquote(_provider_id) || "," || jsonquote("model") || ":" || jsonquote(_model) || "," || jsonquote("request_id") || ":" || jsonquote(_request_id) || "," || jsonquote("prompt_version") || ":" || jsonquote(_prompt_version) || "," || jsonquote("extractor_identity") || ":" || jsonquote(_extractor_identity) || "," || jsonquote("source_scope") || ":" || jsonquote(_source_scope) || "," || jsonquote("profile_id") || ":" || jsonquote(_profile_id) || "," || jsonquote("external") || ":" || _external || "}"
+
+ragproposalvalidation: class
+  _status = .int
+  _disposition = .string
+  _review_type = .string
+  _reason = .string
+
+  *: factory
+    arg status = .int, disposition = .string, review_type = .string, reason = .string
+    _status = status; _disposition = disposition; _review_type = review_type; _reason = reason
+    return
+  status: method = .int
+    return _status
+  ok: method = .int
+    return _status = 0
+  disposition: method = .string
+    return _disposition
+  review_type: method = .string
+    return _review_type
+  reason: method = .string
+    return _reason
+
+ragproposalresult: class
+  _status = .int
+  _disposition = .string
+  _generation = .int
+  _claim_id = .string
+  _support_id = .string
+  _review_id = .string
+  _writes = .int
+  _error = .string
+
+  *: factory
+    arg status = .int, disposition = .string, generation = .int, claim_id = .string, support_id = .string, review_id = .string, writes = .int, error = .string
+    _status = status; _disposition = disposition; _generation = generation
+    _claim_id = claim_id; _support_id = support_id; _review_id = review_id
+    _writes = writes; _error = error
+    return
+  status: method = .int
+    return _status
+  ok: method = .int
+    return _status = 0
+  disposition: method = .string
+    return _disposition
+  generation: method = .int
+    return _generation
+  claim_id: method = .string
+    return _claim_id
+  support_id: method = .string
+    return _support_id
+  review_id: method = .string
+    return _review_id
+  writes: method = .int
+    return _writes
+  error: method = .string
+    return _error
+
+ragtraversalstep: class
+  _hop = .int
+  _claim_id = .string
+  _from_concept_id = .string
+  _relationship_type = .string
+  _to_concept_id = .string
+  _direction = .string
+
+  *: factory
+    arg hop = .int, claim_id = .string, from_concept_id = .string, relationship_type = .string, to_concept_id = .string, direction = .string
+    _hop = hop; _claim_id = claim_id; _from_concept_id = from_concept_id
+    _relationship_type = relationship_type; _to_concept_id = to_concept_id; _direction = direction
+    return
+  hop: method = .int
+    return _hop
+  claim_id: method = .string
+    return _claim_id
+  from_concept_id: method = .string
+    return _from_concept_id
+  relationship_type: method = .string
+    return _relationship_type
+  to_concept_id: method = .string
+    return _to_concept_id
+  direction: method = .string
+    return _direction
+
+ragextractionrank: class
+  _revision_chunk_id = .string
+  _policy_version = .string
+  _concept_density = .int
+  _relationship_cues = .int
+  _novelty = .int
+  _redundancy = .int
+  _bridge = .int
+  _source_quality = .int
+  _unresolved_risk = .int
+  _total = .int
+  _input_fingerprint = .string
+
+  *: factory
+    arg revision_chunk_id = .string, policy_version = .string, concept_density = .int, relationship_cues = .int, novelty = .int, redundancy = .int, bridge = .int, source_quality = .int, unresolved_risk = .int, total = .int, input_fingerprint = .string
+    _revision_chunk_id = revision_chunk_id; _policy_version = policy_version
+    _concept_density = concept_density; _relationship_cues = relationship_cues
+    _novelty = novelty; _redundancy = redundancy; _bridge = bridge
+    _source_quality = source_quality; _unresolved_risk = unresolved_risk
+    _total = total; _input_fingerprint = input_fingerprint
+    return
+  revision_chunk_id: method = .string
+    return _revision_chunk_id
+  policy_version: method = .string
+    return _policy_version
+  concept_density: method = .int
+    return _concept_density
+  relationship_cues: method = .int
+    return _relationship_cues
+  novelty: method = .int
+    return _novelty
+  redundancy: method = .int
+    return _redundancy
+  bridge: method = .int
+    return _bridge
+  source_quality: method = .int
+    return _source_quality
+  unresolved_risk: method = .int
+    return _unresolved_risk
+  total: method = .int
+    return _total
+  input_fingerprint: method = .string
+    return _input_fingerprint
+
+promotemention: procedure = .int
+  arg store = .ragstorehandle, candidate_id = .string, canonical_label = .string, concept_type = .string, aliases = .string[], ambiguity_concept_ids = .string[], policy = .ragclaimpolicy, config_snapshot_id = .string, expose concept_or_ambiguity_id = .string, expose error = .string
+  error = ""; concept_or_ambiguity_id = ""
+  if store.writable() \= 1 | candidate_id = "" | canonical_label = "" | policy.permits_type(concept_type) \= 1 | config_snapshot_id = "" then do
+    error = "mention promotion inputs are invalid"
+    return -1
+  end
+  current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  candidate_chunk = ""; candidate_start = 0; candidate_end = 0; candidate_decision = ""
+  if current < 1 | _candidate(store.database(), candidate_id, candidate_chunk, candidate_start, candidate_end, candidate_decision) \= 1 then do; error = "active accepted candidate is unavailable"; return -2; end
+  generation = 0
+  if begingeneration(store, current, config_snapshot_id, "mention promotion " || candidate_id, generation, error) \= 0 then return -3
+  database = store.database()
+  if ambiguity_concept_ids.0 > 1 then do
+    ambiguity_id = "ambiguity-sha256:" || rxhash..sha256hex((lower(canonical_label) || "00"x || policy.policy_version()) as .binary)
+    do i = 1 to ambiguity_concept_ids.0
+      if _activeconcept(database, ambiguity_concept_ids[i], current, "", "") \= 1 then return _abort(store, "ambiguity target is not active", error)
+      sql = "INSERT OR IGNORE INTO ambiguity_candidates(ambiguity_id,concept_id,revision_chunk_id,decision_id,visible_from_generation) VALUES(" || _q(ambiguity_id) || "," || _q(ambiguity_concept_ids[i]) || "," || _q(candidate_chunk) || "," || _q(candidate_decision) || "," || generation || ")"
+      if sqliteexec(database, sql) \= 0 then return _abort(store, "cannot insert ambiguity candidate", error)
+    end
+    alias_id = "alias-sha256:" || rxhash..sha256hex((lower(canonical_label) || "00"x || ambiguity_id || "00"x || policy.policy_version()) as .binary)
+    sql = "INSERT OR IGNORE INTO aliases(alias_id,normalized_alias,target_concept_id,ambiguity_id,decision_id,visible_from_generation) VALUES(" || _q(alias_id) || "," || _q(lower(canonical_label)) || ",NULL," || _q(ambiguity_id) || "," || _q(candidate_decision) || "," || generation || ")"
+    if sqliteexec(database, sql) \= 0 then return _abort(store, "cannot insert ambiguity alias", error)
+    mention_id = "mention-sha256:" || rxhash..sha256hex((ambiguity_id || "00"x || candidate_chunk || "00"x || candidate_start || "00"x || candidate_end) as .binary)
+    sql = "INSERT OR IGNORE INTO mentions(mention_id,concept_id,ambiguity_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES(" || _q(mention_id) || ",NULL," || _q(ambiguity_id) || "," || _q(candidate_chunk) || "," || candidate_start || "," || candidate_end || "," || generation || ")"
+    if sqliteexec(database, sql) \= 0 then return _abort(store, "cannot insert ambiguity mention", error)
+    concept_or_ambiguity_id = ambiguity_id
+  end
+  else do
+    concept_id = "concept-sha256:" || rxhash..sha256hex((lower(canonical_label) || "00"x || concept_type) as .binary)
+    if _insertconcept(database, concept_id, canonical_label, concept_type, generation, error) \= 0 then do
+      preserved_error = error
+      return _abort(store, preserved_error, error)
+    end
+    all_aliases = .string[]; all_aliases[1] = canonical_label
+    do i = 1 to aliases.0
+      all_aliases[all_aliases.0 + 1] = aliases[i]
+    end
+    do i = 1 to all_aliases.0
+      if strip(all_aliases[i]) = "" then return _abort(store, "alias cannot be empty", error)
+      conflict = _aliasconflict(database, lower(strip(all_aliases[i])), concept_id, current)
+      if conflict \= "" then return _abort(store, "canonical alias conflict requires review", error)
+      alias_id = "alias-sha256:" || rxhash..sha256hex((lower(strip(all_aliases[i])) || "00"x || concept_id || "00"x || policy.policy_version()) as .binary)
+      sql = "INSERT OR IGNORE INTO aliases(alias_id,normalized_alias,target_concept_id,ambiguity_id,decision_id,visible_from_generation) VALUES(" || _q(alias_id) || "," || _q(lower(strip(all_aliases[i]))) || "," || _q(concept_id) || ",NULL," || _q(candidate_decision) || "," || generation || ")"
+      if sqliteexec(database, sql) \= 0 then return _abort(store, "cannot insert canonical alias", error)
+    end
+    mention_id = "mention-sha256:" || rxhash..sha256hex((concept_id || "00"x || candidate_chunk || "00"x || candidate_start || "00"x || candidate_end) as .binary)
+    sql = "INSERT OR IGNORE INTO mentions(mention_id,concept_id,ambiguity_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES(" || _q(mention_id) || "," || _q(concept_id) || ",NULL," || _q(candidate_chunk) || "," || candidate_start || "," || candidate_end || "," || generation || ")"
+    if sqliteexec(database, sql) \= 0 then return _abort(store, "cannot insert canonical mention", error)
+    concept_or_ambiguity_id = concept_id
+  end
+  if commitgeneration(store, generation, error) \= 0 then return -3
+  if publishmanifest(store, error) \= 0 then return -4
+  return 0
+
+rankchunk: procedure = .int
+  arg store = .ragstorehandle, revision_chunk_id = .string, policy_version = .string, expose rank = .ragextractionrank, expose error = .string
+  error = ""; rank = .ragextractionrank(revision_chunk_id, policy_version, 0, 0, 0, 0, 0, 0, 0, 0, "")
+  if store.open() \= 1 | revision_chunk_id = "" | policy_version = "" then do; error = "ranking inputs are invalid"; return -1; end
+  current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  body = _activechunktext(store.database(), revision_chunk_id, current)
+  if body = "" then do; error = "active chunk is unavailable"; return -2; end
+  concepts = _boundcount2(store.database(), "SELECT count(*) FROM candidate_mentions WHERE revision_chunk_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)", revision_chunk_id, current)
+  mentions = _boundcount2(store.database(), "SELECT count(*) FROM mentions WHERE revision_chunk_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)", revision_chunk_id, current)
+  extracted = _boundcount2(store.database(), "SELECT count(*) FROM claim_support WHERE revision_chunk_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)", revision_chunk_id, current)
+  if concepts < 0 | mentions < 0 | extracted < 0 then do; error = "ranking census failed"; return -3; end
+  lower_body = lower(body)
+  cues = _occurs(lower_body, " depends on ") + _occurs(lower_body, " uses ") + _occurs(lower_body, " calls ") + _occurs(lower_body, " owns ") + _occurs(lower_body, " reports ")
+  novelty = 1000
+  if extracted > 0 then novelty = 0
+  redundancy = _contentreuse(store.database(), revision_chunk_id, current) * 100
+  bridge = 0
+  if concepts >= 2 then bridge = (concepts - 1) * 200
+  source_quality = 500
+  if _evidenceclass(store.database(), revision_chunk_id) = "code" then source_quality = 300
+  unresolved = _boundcount2(store.database(), "SELECT count(*) FROM candidate_mentions c WHERE c.revision_chunk_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) AND NOT EXISTS(SELECT 1 FROM candidate_decisions d WHERE d.candidate_id=c.candidate_id AND d.state='accepted')", revision_chunk_id, current)
+  if unresolved < 0 then do; error = "unresolved-risk census failed"; return -3; end
+  total = concepts * 100 + cues * 350 + novelty - redundancy + bridge + source_quality + unresolved * 50
+  fingerprint = rxhash..sha256hex(("crexx-rag.extraction-rank/1" || "00"x || policy_version || "00"x || revision_chunk_id || "00"x || current || "00"x || concepts || "00"x || cues || "00"x || novelty || "00"x || redundancy || "00"x || bridge || "00"x || source_quality || "00"x || unresolved) as .binary)
+  rank = .ragextractionrank(revision_chunk_id, policy_version, concepts, cues, novelty, redundancy, bridge, source_quality, unresolved, total, fingerprint)
+  return 0
+
+validateproposal: procedure = .int
+  arg store = .ragstorehandle, proposal = .ragextractionproposal, policy = .ragclaimpolicy, expose validation = .ragproposalvalidation, expose error = .string
+  error = ""; validation = .ragproposalvalidation(-1, "rejected", "invalid", "proposal has not been validated")
+  if store.open() \= 1 | proposal.schema() \= "crexx-rag.extraction-proposal/1" | proposal.proposal_id() = "" | proposal.kind() \= "claim" then do
+    validation = .ragproposalvalidation(-1, "rejected", "shape", "proposal schema, identity, or kind is invalid")
+    return 0
+  end
+  canonical = proposal.canonical()
+  if length(canonical) > 131072 | proposal.qualifiers_json() = "" | proposal.provider_id() = "" | proposal.model() = "" | proposal.request_id() = "" | proposal.prompt_version() = "" | proposal.extractor_identity() = "" | proposal.source_scope() = "" | proposal.profile_id() = "" then do
+    validation = .ragproposalvalidation(-1, "rejected", "shape", "proposal provenance or bounded shape is incomplete")
+    return 0
+  end
+  if proposal.confidence_millionths() < 0 | proposal.confidence_millionths() > 1000000 | (proposal.external() \= 0 & proposal.external() \= 1) then do
+    validation = .ragproposalvalidation(-1, "rejected", "confidence", "proposal confidence or origin flag is invalid")
+    return 0
+  end
+  if proposal.confidence_millionths() < 500000 then do
+    validation = .ragproposalvalidation(0, "review", "confidence", "proposal confidence is below the deterministic promotion threshold")
+    return 0
+  end
+  if policy.permits_type(proposal.source_type()) \= 1 | policy.permits_type(proposal.target_type()) \= 1 | policy.permits_relationship(proposal.relationship_type()) \= 1 then do
+    validation = .ragproposalvalidation(0, "review", "type", "proposal type or relationship requires review")
+    return 0
+  end
+  if proposal.direction() \= "outbound" & proposal.direction() \= "inbound" then do
+    validation = .ragproposalvalidation(-1, "rejected", "direction", "proposal direction is invalid")
+    return 0
+  end
+  if proposal.polarity() \= "support" & proposal.polarity() \= "contradiction" then do
+    validation = .ragproposalvalidation(-1, "rejected", "polarity", "proposal support polarity is invalid")
+    return 0
+  end
+  if policy.stance_weight(proposal.stance()) = 0 | (proposal.directness() \= "direct" & proposal.directness() \= "indirect") | proposal.lineage_group() = "" then do
+    validation = .ragproposalvalidation(-1, "rejected", "stance", "proposal stance, directness, or lineage is invalid")
+    return 0
+  end
+  if proposal.stance() = "quotation" | proposal.stance() = "report" then do
+    if proposal.attribution() = "" then do
+      validation = .ragproposalvalidation(-1, "rejected", "attribution", "quoted or reported support requires attribution")
+      return 0
+    end
+  end
+  if proposal.effective_from() \= "" & proposal.effective_to() \= "" & proposal.effective_to() < proposal.effective_from() then do
+    validation = .ragproposalvalidation(-1, "rejected", "time", "effective interval is reversed")
+    return 0
+  end
+  current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if _activechunkspan(store.database(), proposal.revision_chunk_id(), current, proposal.span_start(), proposal.span_end()) \= 1 then do
+    validation = .ragproposalvalidation(0, "review", "evidence-span", "evidence chunk or UTF-8 byte span is unavailable")
+    return 0
+  end
+  source_label = ""; source_type = ""
+  target_label = ""; target_type = ""
+  source_exists = _activeconcept(store.database(), proposal.source_concept_id(), current, source_label, source_type)
+  target_exists = _activeconcept(store.database(), proposal.target_concept_id(), current, target_label, target_type)
+  if source_exists \= 1 | target_exists \= 1 then do
+    validation = .ragproposalvalidation(0, "review", "endpoint", "canonical endpoint is unresolved")
+    return 0
+  end
+  if source_label \= proposal.source_label() | target_label \= proposal.target_label() then do
+    validation = .ragproposalvalidation(0, "review", "canonical-overwrite", "proposal cannot overwrite canonical labels")
+    return 0
+  end
+  if source_type \= proposal.source_type() | target_type \= proposal.target_type() then do
+    validation = .ragproposalvalidation(0, "review", "type", "proposal endpoint type differs from canonical type")
+    return 0
+  end
+  if proposal.source_concept_id() = proposal.target_concept_id() then do
+    validation = .ragproposalvalidation(0, "review", "endpoint", "self relationship requires review")
+    return 0
+  end
+  source_ambiguity = _aliasambiguous(store.database(), proposal.source_label(), current)
+  target_ambiguity = _aliasambiguous(store.database(), proposal.target_label(), current)
+  if source_ambiguity < 0 | target_ambiguity < 0 then do; error = "cannot validate endpoint ambiguity"; return -3; end
+  if source_ambiguity = 1 | target_ambiguity = 1 then do
+    validation = .ragproposalvalidation(0, "review", "ambiguity", "ambiguous endpoint requires review")
+    return 0
+  end
+  conflict = _conflictingclaim(store.database(), proposal, current)
+  if conflict < 0 then do; error = "cannot validate competing claims"; return -3; end
+  if conflict = 1 then do
+    validation = .ragproposalvalidation(0, "review", "conflict", "competing canonical claim requires review")
+    return 0
+  end
+  if proposal.external() = 1 then do
+    validation = .ragproposalvalidation(0, "review", "external-proposal", "external proposals require an explicit review decision")
+    return 0
+  end
+  validation = .ragproposalvalidation(0, "accepted", "", "validated")
+  return 0
+
+applyproposal: procedure = .int
+  arg store = .ragstorehandle, proposal = .ragextractionproposal, policy = .ragclaimpolicy, expected_generation = .int, config_snapshot_id = .string, expose result = .ragproposalresult, expose error = .string
+  return _applyproposal(store, proposal, policy, expected_generation, config_snapshot_id, "", "", 0, "", result, error)
+
+applyclaimedproposal: procedure = .int
+  arg store = .ragstorehandle, proposal = .ragextractionproposal, policy = .ragclaimpolicy, expected_generation = .int, config_snapshot_id = .string, item_id = .string, worker_id = .string, fence = .int, attempt_id = .string, expose result = .ragproposalresult, expose error = .string
+  return _applyproposal(store, proposal, policy, expected_generation, config_snapshot_id, item_id, worker_id, fence, attempt_id, result, error)
+
+retractsupport: procedure = .int
+  arg store = .ragstorehandle, support_id = .string, expected_generation = .int, config_snapshot_id = .string, expose error = .string
+  error = ""
+  if store.writable() \= 1 | support_id = "" | expected_generation < 1 | config_snapshot_id = "" then do; error = "support retraction inputs are invalid"; return -1; end
+  if _boundcount2(store.database(), "SELECT count(*) FROM claim_support WHERE support_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)", support_id, expected_generation) \= 1 then do; error = "active support is unavailable"; return -2; end
+  generation = 0
+  if begingeneration(store, expected_generation, config_snapshot_id, "retract support " || support_id, generation, error) \= 0 then return -3
+  if sqliteexec(store.database(), "UPDATE claim_support SET visible_to_generation=" || generation || " WHERE support_id=" || _q(support_id) || " AND visible_to_generation IS NULL") \= 0 then return _abort(store, "cannot retract support", error)
+  if commitgeneration(store, generation, error) \= 0 then return -3
+  if publishmanifest(store, error) \= 0 then return -4
+  return 0
+
+traverseclaims: procedure = .int
+  arg store = .ragstorehandle, start_concept_id = .string, relationship_filter = .string, direction = .string, maximum_hops = .int, expose steps = .ragtraversalstep[], expose error = .string
+  clear steps; error = ""
+  if store.open() \= 1 | start_concept_id = "" | maximum_hops < 1 | maximum_hops > 8 | (direction \= "outbound" & direction \= "inbound") then do; error = "traversal inputs are invalid"; return -1; end
+  current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  frontier = .string[]; frontier[1] = start_concept_id
+  visited = .string[]; visited[1] = start_concept_id
+  do hop = 1 to maximum_hops
+    next_frontier = .string[]
+    do f = 1 to frontier.0
+      prepared = .binary
+      if direction = "outbound" then sql = "SELECT claim_id,source_concept_id,relationship_type,target_concept_id FROM claims WHERE source_concept_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)"
+      else sql = "SELECT claim_id,target_concept_id,relationship_type,source_concept_id FROM claims WHERE target_concept_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)"
+      if relationship_filter \= "" then sql = sql || " AND relationship_type=?3"
+      sql = sql || " ORDER BY claim_id"
+      if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindtext(prepared, 1, frontier[f]) \= 0 | sqlitebindint(prepared, 2, current) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare directed traversal"; return -3; end
+      if relationship_filter \= "" then do
+        if sqlitebindtext(prepared, 3, relationship_filter) \= 0 then do; call sqlitefinalize prepared; error = "cannot bind traversal relationship"; return -3; end
+      end
+      do forever
+        status = sqlitestep(prepared)
+        if status = 101 then leave
+        if status \= 100 then do; call sqlitefinalize prepared; error = "cannot read directed traversal"; return -3; end
+        claim_id = ""; from_id = ""; relationship = ""; to_id = ""
+        column_status = sqlitecolumntext(prepared, 0, claim_id) | sqlitecolumntext(prepared, 1, from_id) | sqlitecolumntext(prepared, 2, relationship) | sqlitecolumntext(prepared, 3, to_id)
+        if column_status \= 0 then do; call sqlitefinalize prepared; error = "cannot decode directed traversal"; return -3; end
+        steps[steps.0 + 1] = .ragtraversalstep(hop, claim_id, from_id, relationship, to_id, direction)
+        if _contains(visited, to_id) = 0 then do; visited[visited.0 + 1] = to_id; next_frontier[next_frontier.0 + 1] = to_id; end
+      end
+      call sqlitefinalize prepared
+    end
+    frontier = next_frontier
+    if frontier.0 = 0 then leave
+  end
+  return steps.0
+
+_applyproposal: procedure = .int
+  arg store = .ragstorehandle, proposal = .ragextractionproposal, policy = .ragclaimpolicy, expected_generation = .int, config_snapshot_id = .string, item_id = .string, worker_id = .string, fence = .int, attempt_id = .string, expose result = .ragproposalresult, expose error = .string
+  error = ""; result = .ragproposalresult(-1, "error", 0, "", "", "", 0, "not applied")
+  if store.writable() \= 1 | expected_generation < 1 | config_snapshot_id = "" | ((item_id = "") \= (attempt_id = "")) then do; error = "proposal apply inputs are invalid"; return -1; end
+  if item_id \= "" & (worker_id = "" | fence < 1) then do; error = "claimed proposal requires a complete fence"; return -1; end
+  validation = .ragproposalvalidation
+  if validateproposal(store, proposal, policy, validation, error) \= 0 then return -3
+  if validation.status() \= 0 then do; error = validation.reason(); result = .ragproposalresult(-1, "rejected", expected_generation, "", "", "", 0, error); return -1; end
+  current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if current \= expected_generation then do; error = "published generation changed; re-plan"; result = .ragproposalresult(-2, "stale", current, "", "", "", 0, error); return -2; end
+  claim_id = "claim-sha256:" || rxhash..sha256hex((proposal.source_concept_id() || "00"x || proposal.relationship_type() || "00"x || proposal.target_concept_id() || "00"x || proposal.direction() || "00"x || proposal.qualifiers_json() || "00"x || proposal.effective_from() || "00"x || proposal.effective_to() || "00"x || policy.policy_version()) as .binary)
+  support_id = "support-sha256:" || rxhash..sha256hex((claim_id || "00"x || proposal.revision_chunk_id() || "00"x || proposal.span_start() || "00"x || proposal.span_end() || "00"x || proposal.polarity() || "00"x || proposal.extractor_identity()) as .binary)
+  if validation.disposition() = "accepted" then do
+    existing_support = _boundcount(store.database(), "SELECT count(*) FROM claim_support WHERE support_id=?1", support_id)
+    if existing_support < 0 then do; error = "cannot inspect proposal identity"; return -3; end
+    if existing_support = 1 then do
+      if item_id = "" then do
+        result = .ragproposalresult(0, "identical-no-op", current, claim_id, support_id, "", 0, "")
+        return 0
+      end
+      before = _scalarint(store.database(), "SELECT total_changes()")
+      if sqliteexec(store.database(), "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin proposal replay"; return -3; end
+      if _activefence(store.database(), item_id, worker_id, fence, attempt_id) \= 1 then return _rollbackresult(store.database(), "worker fence is stale", result, error)
+      if _finishitem(store.database(), item_id, worker_id, fence, attempt_id, "accepted-no-op", proposal.canonical()) \= 0 then return _rollbackresult(store.database(), "cannot finish replayed work item", result, error)
+      if sqliteexec(store.database(), "COMMIT") \= 0 then return _rollbackresult(store.database(), "cannot commit proposal replay", result, error)
+      after = _scalarint(store.database(), "SELECT total_changes()")
+      result = .ragproposalresult(0, "processed-no-op", current, claim_id, support_id, "", after - before, "")
+      return 0
+    end
+  end
+  before = _scalarint(store.database(), "SELECT total_changes()")
+  if validation.disposition() = "review" then do
+    if sqliteexec(store.database(), "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin proposal review"; return -3; end
+    if item_id \= "" & _activefence(store.database(), item_id, worker_id, fence, attempt_id) \= 1 then return _rollbackresult(store.database(), "worker fence is stale", result, error)
+    review_id = "review-sha256:" || rxhash..sha256hex((proposal.proposal_id() || "00"x || validation.review_type() || "00"x || policy.policy_version()) as .binary)
+    prepared = .binary
+    sql = "INSERT OR IGNORE INTO reviews(review_id,review_type,subject_id,state,proposal_json,decision_json,created_at,decided_at) VALUES(?1,?2,?3,'pending',?4,NULL,strftime('%Y-%m-%dT%H:%M:%fZ','now'),NULL)"
+    if sqliteprepare(store.database(), sql, prepared) \= 0 then return _rollbackresult(store.database(), "cannot prepare proposal review", result, error)
+    bind_status = sqlitebindtext(prepared, 1, review_id) | sqlitebindtext(prepared, 2, validation.review_type()) | sqlitebindtext(prepared, 3, proposal.proposal_id()) | sqlitebindtext(prepared, 4, proposal.canonical())
+    step_status = sqlitestep(prepared); call sqlitefinalize prepared
+    if bind_status \= 0 | step_status \= 101 then return _rollbackresult(store.database(), "cannot insert proposal review", result, error)
+    if item_id \= "" then do
+      if _finishitem(store.database(), item_id, worker_id, fence, attempt_id, "review", proposal.canonical()) \= 0 then return _rollbackresult(store.database(), "cannot finish reviewed work item", result, error)
+    end
+    if sqliteexec(store.database(), "COMMIT") \= 0 then return _rollbackresult(store.database(), "cannot commit proposal review", result, error)
+    after = _scalarint(store.database(), "SELECT total_changes()")
+    result = .ragproposalresult(0, "review", current, "", "", review_id, after - before, "")
+    return 0
+  end
+  generation = 0
+  if begingeneration(store, expected_generation, config_snapshot_id, "claim proposal " || proposal.proposal_id(), generation, error) \= 0 then return -3
+  database = store.database()
+  if item_id \= "" & _activefence(database, item_id, worker_id, fence, attempt_id) \= 1 then return _abortproposal(store, "worker fence is stale", result, error)
+  if _insertclaim(database, claim_id, proposal, policy.policy_version(), generation, error) \= 0 then do
+    preserved_error = error
+    return _abortproposal(store, preserved_error, result, error)
+  end
+  if _insertsupport(database, support_id, claim_id, proposal, generation, error) \= 0 then do
+    preserved_error = error
+    return _abortproposal(store, preserved_error, result, error)
+  end
+  if item_id \= "" then do
+    if _finishitem(database, item_id, worker_id, fence, attempt_id, "accepted", proposal.canonical()) \= 0 then return _abortproposal(store, "cannot finish promoted work item", result, error)
+  end
+  if commitgeneration(store, generation, error) \= 0 then return -3
+  after = _scalarint(store.database(), "SELECT total_changes()")
+  if publishmanifest(store, error) \= 0 then do; result = .ragproposalresult(-4, "published-manifest-stale", generation, claim_id, support_id, "", after - before, error); return -4; end
+  result = .ragproposalresult(0, "accepted", generation, claim_id, support_id, "", after - before, "")
+  return 0
+
+_insertconcept: procedure = .int
+  arg database = .binary, concept_id = .string, label = .string, concept_type = .string, generation = .int, expose error = .string
+  existing_label = ""; existing_type = ""
+  exists = _activeconcept(database, concept_id, generation - 1, existing_label, existing_type)
+  if exists = 1 then do
+    if existing_label \= label | existing_type \= concept_type then do; error = "canonical concept identity collision"; return -1; end
+    return 0
+  end
+  prepared = .binary
+  sql = "INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES(?1,?2,?3,'active',?4)"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare concept insert"; return -1; end
+  bind_status = sqlitebindtext(prepared, 1, concept_id) | sqlitebindtext(prepared, 2, label) | sqlitebindtext(prepared, 3, concept_type) | sqlitebindint(prepared, 4, generation)
+  step_status = sqlitestep(prepared); call sqlitefinalize prepared
+  if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert canonical concept"; return -1; end
+  return 0
+
+_insertclaim: procedure = .int
+  arg database = .binary, claim_id = .string, proposal = .ragextractionproposal, policy_version = .string, generation = .int, expose error = .string
+  existing = _boundcount(database, "SELECT count(*) FROM claims WHERE claim_id=?1", claim_id)
+  if existing < 0 then do; error = "cannot inspect claim identity"; return -1; end
+  if existing = 1 then return 0
+  prepared = .binary
+  sql = "INSERT INTO claims(claim_id,source_concept_id,relationship_type,target_concept_id,direction,qualifiers_json,effective_from,effective_to,policy_version,visible_from_generation) VALUES(?1,?2,?3,?4,?5,?6,NULLIF(?7,''),NULLIF(?8,''),?9,?10)"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare claim insert"; return -1; end
+  bind_status = sqlitebindtext(prepared, 1, claim_id) | sqlitebindtext(prepared, 2, proposal.source_concept_id()) | sqlitebindtext(prepared, 3, proposal.relationship_type()) | sqlitebindtext(prepared, 4, proposal.target_concept_id()) | sqlitebindtext(prepared, 5, proposal.direction()) | sqlitebindtext(prepared, 6, proposal.qualifiers_json()) | sqlitebindtext(prepared, 7, proposal.effective_from()) | sqlitebindtext(prepared, 8, proposal.effective_to()) | sqlitebindtext(prepared, 9, policy_version) | sqlitebindint(prepared, 10, generation)
+  step_status = sqlitestep(prepared); call sqlitefinalize prepared
+  if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert canonical claim"; return -1; end
+  return 0
+
+_insertsupport: procedure = .int
+  arg database = .binary, support_id = .string, claim_id = .string, proposal = .ragextractionproposal, generation = .int, expose error = .string
+  existing = _boundcount(database, "SELECT count(*) FROM claim_support WHERE support_id=?1", support_id)
+  if existing < 0 then do; error = "cannot inspect support identity"; return -1; end
+  if existing = 1 then return 0
+  prepared = .binary
+  sql = "INSERT INTO claim_support(support_id,claim_id,revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity,decision_id,visible_from_generation) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,NULL,?12)"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare claim support insert"; return -1; end
+  bind_status = sqlitebindtext(prepared, 1, support_id) | sqlitebindtext(prepared, 2, claim_id) | sqlitebindtext(prepared, 3, proposal.revision_chunk_id()) | sqlitebindint(prepared, 4, proposal.span_start()) | sqlitebindint(prepared, 5, proposal.span_end()) | sqlitebindtext(prepared, 6, proposal.polarity()) | sqlitebindtext(prepared, 7, proposal.stance()) | sqlitebindtext(prepared, 8, proposal.directness()) | sqlitebindtext(prepared, 9, proposal.attribution()) | sqlitebindtext(prepared, 10, proposal.lineage_group()) | sqlitebindtext(prepared, 11, proposal.extractor_identity()) | sqlitebindint(prepared, 12, generation)
+  step_status = sqlitestep(prepared); call sqlitefinalize prepared
+  if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert claim support"; return -1; end
+  return 0
+
+_finishitem: procedure = .int
+  arg database = .binary, item_id = .string, worker_id = .string, fence = .int, attempt_id = .string, validation_state = .string, output = .string
+  output_hash = rxhash..sha256hex(output as .binary)
+  prepared = .binary
+  sql = "UPDATE attempts SET output_hash=?1,validation_state=?2,outcome='succeeded',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE attempt_id=?3 AND item_id=?4 AND worker_id=?5 AND fence=?6 AND outcome='running'"
+  if sqliteprepare(database, sql, prepared) \= 0 then return -1
+  bind_status = sqlitebindtext(prepared, 1, output_hash) | sqlitebindtext(prepared, 2, validation_state) | sqlitebindtext(prepared, 3, attempt_id) | sqlitebindtext(prepared, 4, item_id) | sqlitebindtext(prepared, 5, worker_id) | sqlitebindint(prepared, 6, fence)
+  step_status = sqlitestep(prepared); call sqlitefinalize prepared
+  if bind_status \= 0 | step_status \= 101 | _scalarint(database, "SELECT changes()") \= 1 then return -1
+  prepared = .binary
+  sql = "UPDATE job_items SET state='processed',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=?1 AND worker_id=?2 AND fence=?3 AND state='running'"
+  if sqliteprepare(database, sql, prepared) \= 0 then return -1
+  bind_status = sqlitebindtext(prepared, 1, item_id) | sqlitebindtext(prepared, 2, worker_id) | sqlitebindint(prepared, 3, fence)
+  step_status = sqlitestep(prepared); call sqlitefinalize prepared
+  if bind_status \= 0 | step_status \= 101 | _scalarint(database, "SELECT changes()") \= 1 then return -1
+  job_id = _boundscalartext(database, "SELECT job_id FROM job_items WHERE item_id=?1", item_id)
+  return _refreshjob(database, job_id)
+
+_refreshjob: procedure = .int
+  arg database = .binary, job_id = .string
+  if job_id = "" then return -1
+  queued = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state IN('queued','running','cancel_requested')", job_id)
+  dead = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='dead_letter'", job_id)
+  cancelled = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='cancelled'", job_id)
+  if queued < 0 | dead < 0 | cancelled < 0 then return -1
+  if queued > 0 then state = "running"
+  else if dead > 0 then state = "completed_with_errors"
+  else if cancelled > 0 then state = "cancelled"
+  else state = "completed"
+  return sqliteexec(database, "UPDATE jobs SET state=" || _q(state) || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id))
+
+_candidate: procedure = .int
+  arg database = .binary, candidate_id = .string, expose chunk = .string, expose start = .int, expose finish = .int, expose decision = .string
+  chunk = ""; start = 0; finish = 0; decision = ""
+  prepared = .binary
+  sql = "SELECT c.revision_chunk_id,c.span_start,c.span_end,d.decision_id FROM candidate_mentions c JOIN candidate_decisions d ON d.candidate_id=c.candidate_id AND d.state='accepted' WHERE c.candidate_id=?1 AND c.visible_to_generation IS NULL ORDER BY d.decision_version DESC LIMIT 1"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, candidate_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return 0; end
+  status = sqlitecolumntext(prepared, 0, chunk) | sqlitecolumnint(prepared, 1, start) | sqlitecolumnint(prepared, 2, finish) | sqlitecolumntext(prepared, 3, decision)
+  call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return 1
+
+_activeconcept: procedure = .int
+  arg database = .binary, concept_id = .string, generation = .int, expose label = .string, expose concept_type = .string
+  label = ""; concept_type = ""; prepared = .binary; status = 0
+  sql = "SELECT canonical_label,concept_type FROM concepts WHERE concept_id=?1 AND lifecycle_state='active' AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, concept_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 then do; call sqlitefinalize prepared; return -1; end
+  step = sqlitestep(prepared)
+  if step = 100 then status = sqlitecolumntext(prepared, 0, label) | sqlitecolumntext(prepared, 1, concept_type)
+  call sqlitefinalize prepared
+  if step = 101 then return 0
+  if step \= 100 | status \= 0 then return -1
+  return 1
+
+_activechunkspan: procedure = .int
+  arg database = .binary, chunk_id = .string, generation = .int, start = .int, finish = .int
+  if start < 0 | finish <= start then return 0
+  prepared = .binary
+  sql = "SELECT length(CAST(t.text AS BLOB)) FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c.revision_chunk_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2)"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, chunk_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return 0; end
+  bytes = 0; status = sqlitecolumnint(prepared, 0, bytes); call sqlitefinalize prepared
+  return status = 0 & finish <= bytes
+
+_activechunktext: procedure = .string
+  arg database = .binary, chunk_id = .string, generation = .int
+  prepared = .binary
+  sql = "SELECT t.text FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c.revision_chunk_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2)"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, chunk_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  body = ""; status = sqlitecolumntext(prepared, 0, body); call sqlitefinalize prepared
+  if status \= 0 then return ""
+  return body
+
+_aliasconflict: procedure = .string
+  arg database = .binary, normalized_alias = .string, concept_id = .string, generation = .int
+  prepared = .binary
+  sql = "SELECT coalesce(target_concept_id,ambiguity_id,'') FROM aliases WHERE normalized_alias=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2) AND coalesce(target_concept_id,'')<>?3 LIMIT 1"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, normalized_alias) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 | sqlitebindtext(prepared, 3, concept_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  value = ""; call sqlitecolumntext prepared, 0, value; call sqlitefinalize prepared
+  return value
+
+_aliasambiguous: procedure = .int
+  arg database = .binary, label = .string, generation = .int
+  prepared = .binary
+  sql = "SELECT count(*) FROM aliases WHERE normalized_alias=?1 AND ambiguity_id IS NOT NULL AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, lower(label)) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  count = 0; status = sqlitecolumnint(prepared, 0, count); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return count > 0
+
+_conflictingclaim: procedure = .int
+  arg database = .binary, proposal = .ragextractionproposal, generation = .int
+  prepared = .binary
+  sql = "SELECT count(*) FROM claims WHERE source_concept_id=?1 AND relationship_type=?2 AND direction=?3 AND target_concept_id<>?4 AND visible_from_generation<=?5 AND (visible_to_generation IS NULL OR visible_to_generation>?5)"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, proposal.source_concept_id()) \= 0 | sqlitebindtext(prepared, 2, proposal.relationship_type()) \= 0 | sqlitebindtext(prepared, 3, proposal.direction()) \= 0 | sqlitebindtext(prepared, 4, proposal.target_concept_id()) \= 0 | sqlitebindint(prepared, 5, generation) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  count = 0; status = sqlitecolumnint(prepared, 0, count); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return count > 0
+
+_activefence: procedure = .int
+  arg database = .binary, item_id = .string, worker_id = .string, fence = .int, attempt_id = .string
+  prepared = .binary
+  sql = "SELECT count(*) FROM job_items i JOIN attempts a ON a.item_id=i.item_id AND a.attempt_id=?1 WHERE i.item_id=?2 AND i.worker_id=?3 AND i.fence=?4 AND i.state='running' AND i.lease_until>CAST(strftime('%s','now') AS INTEGER) AND a.worker_id=i.worker_id AND a.fence=i.fence AND a.outcome='running'"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, attempt_id) \= 0 | sqlitebindtext(prepared, 2, item_id) \= 0 | sqlitebindtext(prepared, 3, worker_id) \= 0 | sqlitebindint(prepared, 4, fence) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  count = 0; status = sqlitecolumnint(prepared, 0, count); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return count
+
+_contentreuse: procedure = .int
+  arg database = .binary, chunk_id = .string, generation = .int
+  prepared = .binary
+  sql = "SELECT count(*)-1 FROM revision_chunks c JOIN revision_chunks target ON target.content_id=c.content_id WHERE target.revision_chunk_id=?1 AND c.visible_from_generation<=?2"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, chunk_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return 0; end
+  count = 0; call sqlitecolumnint prepared, 0, count; call sqlitefinalize prepared
+  if count < 0 then return 0
+  return count
+
+_evidenceclass: procedure = .string
+  arg database = .binary, chunk_id = .string
+  return _boundscalartext(database, "SELECT evidence_class FROM revision_chunks WHERE revision_chunk_id=?1", chunk_id)
+
+_occurs: procedure = .int
+  arg text = .string, needle = .string
+  count = 0; position = pos(needle, text)
+  do while position > 0
+    count = count + 1
+    position = pos(needle, text, position + length(needle))
+  end
+  return count
+
+_tokencontains: procedure = .int
+  arg values = .string, expected = .string
+  if expected = "" then return 0
+  return pos("|" || expected || "|", "|" || values || "|") > 0
+
+_contains: procedure = .int
+  arg values = .string[], expected = .string
+  do i = 1 to values.0
+    if values[i] = expected then return 1
+  end
+  return 0
+
+_abort: procedure = .int
+  arg store = .ragstorehandle, message = .string, expose error = .string
+  ignored = ""; call abortgeneration store, ignored; error = message
+  return -3
+
+_abortproposal: procedure = .int
+  arg store = .ragstorehandle, message = .string, expose result = .ragproposalresult, expose error = .string
+  ignored = ""; call abortgeneration store, ignored; error = message
+  result = .ragproposalresult(-3, "error", 0, "", "", "", 0, error)
+  return -3
+
+_rollbackresult: procedure = .int
+  arg database = .binary, message = .string, expose result = .ragproposalresult, expose error = .string
+  call sqliteexec database, "ROLLBACK"; error = message
+  result = .ragproposalresult(-3, "error", 0, "", "", "", 0, error)
+  return -3
+
+_scalarint: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  value = -1; status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value
+
+_boundcount: procedure = .int
+  arg database = .binary, sql = .string, value = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, value) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  count = -1; status = sqlitecolumnint(prepared, 0, count); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return count
+
+_boundcount2: procedure = .int
+  arg database = .binary, sql = .string, text_value = .string, int_value = .int
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, text_value) \= 0 | sqlitebindint(prepared, 2, int_value) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  count = -1; status = sqlitecolumnint(prepared, 0, count); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return count
+
+_boundscalartext: procedure = .string
+  arg database = .binary, sql = .string, value = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, value) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  output = ""; status = sqlitecolumntext(prepared, 0, output); call sqlitefinalize prepared
+  if status \= 0 then return ""
+  return output
+
+_q: procedure = .string
+  arg value = .string
+  return "'" || changestr("'", value, "''") || "'"

@@ -1421,6 +1421,33 @@ if(CPRAG_BUILD_TESTS)
         set_tests_properties(phase3_ingestion PROPERTIES
             TIMEOUT 300
             LABELS "phase3;P3-01;P3-02;P3-03;P3-04;P3-05;P3-06;P3-07;P3-08;P3-09;crexx;levelg;ingest;incremental;generation;sha256;normalization;chunking;fts;candidate;resume;crash;oracle;tutorial;dual-vm;zero-write;zero-outbound")
+        set(PHASE4_IMPROVEMENT_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+            "-DCPRAG_APP_DIR=${CMAKE_CURRENT_LIST_DIR}/crexx/application"
+            "-DCPRAG_CLAIMS_SCENARIO=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p4_01_claims_scenario.crexx"
+            "-DCPRAG_WORK_SCENARIO=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p4_02_worker_scenario.crexx"
+            "-DCPRAG_TUTORIAL=${CMAKE_CURRENT_LIST_DIR}/crexx/tutorials/phase4_improvement_scenario.crexx"
+            "-DCPRAG_TUTORIAL_FIXTURE=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/tutorial/architecture-mini"
+            "-DCPRAG_TUTORIAL_EXPECTED=${CMAKE_CURRENT_LIST_DIR}/tests/expected/tutorial-phase4.jsonl"
+            "-DCPRAG_NATIVE_WORK_ORACLE=$<TARGET_FILE:ragcore_work_queue_consumers>"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/phase4-improvement"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase4Improvement.cmake")
+        add_custom_target(phase4_improvement
+            COMMAND ${PHASE4_IMPROVEMENT_COMMAND}
+            DEPENDS _sqlite_boundary ragcore_work_queue_consumers
+            COMMENT "Running Phase-4 Level-G claim, review, improvement, and worker proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME phase4_improvement COMMAND ${PHASE4_IMPROVEMENT_COMMAND})
+        set_tests_properties(phase4_improvement PROPERTIES
+            TIMEOUT 600
+            LABELS "phase4;P4-01;P4-02;P4-03;P4-04;P4-05;P4-06;P4-07;P4-08;P4-09;crexx;levelg;claim;support;review;improve;worker;lease;fence;retry;dead-letter;budget;cancellation;two-process;crash;oracle;tutorial;dual-vm;provider-neutral;secret-reference")
         add_test(
             NAME crexx_profile_smoke
             COMMAND "${CMAKE_COMMAND}"

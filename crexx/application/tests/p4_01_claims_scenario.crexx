@@ -1,0 +1,162 @@
+options levelg
+
+import rxfnsb
+import sqlite_boundary
+import ragstore
+import ragrepository
+import ragingest
+import ragclaims
+import ragimprove
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P4_CLAIMS_FAIL=" || label
+    return 1
+  end
+  return 0
+
+scalarint: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  value = -1; status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value
+
+scalartext: procedure = .string
+  arg database = .binary, sql = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  value = ""; status = sqlitecolumntext(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return ""
+  return value
+
+generation: procedure = .int
+  arg store = .ragstorehandle
+  return scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+
+observation: procedure = .ragsourceobservation
+  arg stable_key = .string, body = .string
+  return .ragsourceobservation("folder:phase4", stable_key, "", "fixture://phase4/" || stable_key, stable_key, "text/plain", "utf-8", "plain", body as .binary, 1, "", "", '{}', "2026-08-23T13:00:00Z")
+
+proposal: procedure = .ragextractionproposal
+  arg proposal_id = .string, source_id = .string, source_label = .string, source_type = .string, relationship = .string, target_id = .string, target_label = .string, target_type = .string, chunk_id = .string, span_start = .int, span_end = .int, stance = .string, attribution = .string, lineage = .string, extractor = .string, external = .int
+  return .ragextractionproposal("crexx-rag.extraction-proposal/1", proposal_id, "claim", source_id, source_label, source_type, relationship, target_id, target_label, target_type, "outbound", '{}', "2026-08-23T00:00:00Z", "", chunk_id, span_start, span_end, "support", stance, "direct", attribution, lineage, 910000, "fixture-provider", "fixture-model", "request-" || proposal_id, "prompt-v1", extractor, "fixture://phase4", "balanced", external)
+
+promote: procedure = .string
+  arg store = .ragstorehandle, normalized_candidate = .string, label = .string, concept_type = .string, policy = .ragclaimpolicy, expose error = .string
+  candidate = scalartext(store.database(), "SELECT c.candidate_id FROM candidate_mentions c JOIN candidate_decisions d ON d.candidate_id=c.candidate_id AND d.state='accepted' WHERE c.normalized_candidate='" || normalized_candidate || "' AND c.visible_to_generation IS NULL ORDER BY c.candidate_id LIMIT 1")
+  aliases = .string[]; aliases[1] = normalized_candidate
+  ambiguity = .string[]; identity = ""
+  if promotemention(store, candidate, label, concept_type, aliases, ambiguity, policy, "config-p4", identity, error) \= 0 then return ""
+  return identity
+
+runscenario: procedure = .int
+  arg cell = .string, path = .string
+  errors = 0; error = ""; store = .ragstorehandle
+  errors = errors + check(initragstore(path, "library-p4-" || cell, "config-p4", "architecture-local", "1", "balanced", "profile-hash-p4", "config-hash-p4", '{}', store, error) = 0, "initialize " || error)
+  if errors \= 0 then return 1
+
+  body = "Auth Service depends on Identity Store. Platform Team reports Auth Service."
+  observations = .ragsourceobservation[]
+  observations[1] = observation("a.txt", body)
+  observations[2] = observation("b.txt", body)
+  plan = .ragingestplan
+  errors = errors + check(createingestplan(store, "folder:phase4", "config-p4", "claim-policy-v1", "parser-v1", 512, observations, plan, error) = 0, "create ingest plan " || error)
+  ingest = applyingestplan(store, plan, observations)
+  errors = errors + check(ingest.ok() = 1 & ingest.generation() = 2 & ingest.provider_calls() = 0, "ingest deterministic corpus " || ingest.error())
+
+  policy = .ragclaimpolicy("claim-policy-v1", "database|service|team", "depends-on|reports-to", 1000, 700, 600, 500, 300)
+  auth = promote(store, "auth", "Auth Service", "service", policy, error)
+  identity = promote(store, "identity", "Identity Store", "database", policy, error)
+  platform = promote(store, "platform", "Platform Team", "team", policy, error)
+  errors = errors + check(auth \= "" & identity \= "" & platform \= "", "promote canonical concepts " || error)
+  chunk = scalartext(store.database(), "SELECT c.revision_chunk_id FROM revision_chunks c JOIN source_revisions r ON r.revision_id=c.revision_id JOIN sources s ON s.source_id=r.source_id WHERE s.stable_key='a.txt' AND c.visible_to_generation IS NULL")
+
+  accepted = proposal("proposal-accepted", auth, "Auth Service", "service", "depends-on", identity, "Identity Store", "database", chunk, 0, 40, "assertion", "", "lineage-primary", "fixture-extractor-v1", 0)
+  result = .ragproposalresult; expected = generation(store)
+  errors = errors + check(applyproposal(store, accepted, policy, expected, "config-p4", result, error) = 0 & result.disposition() = "accepted" & result.generation() = expected + 1 & length(result.claim_id()) > 64 & length(result.support_id()) > 64, "accept typed claim " || error)
+  claim_id = result.claim_id(); first_support = result.support_id(); replay_generation = result.generation()
+  replay = .ragproposalresult; changes_before = scalarint(store.database(), "SELECT total_changes()")
+  errors = errors + check(applyproposal(store, accepted, policy, replay_generation, "config-p4", replay, error) = 0 & replay.disposition() = "identical-no-op" & replay.generation() = replay_generation & replay.writes() = 0 & scalarint(store.database(), "SELECT total_changes()") = changes_before, "identical proposal is a semantic and physical no-op " || error)
+
+  strengthening = proposal("proposal-strengthening", auth, "Auth Service", "service", "depends-on", identity, "Identity Store", "database", chunk, 41, 72, "report", "Platform Team", "lineage-reported", "fixture-extractor-v2", 0)
+  strengthened = .ragproposalresult; expected = generation(store)
+  errors = errors + check(applyproposal(store, strengthening, policy, expected, "config-p4", strengthened, error) = 0 & strengthened.claim_id() = claim_id & strengthened.support_id() \= first_support & scalarint(store.database(), "SELECT count(*) FROM claim_support WHERE claim_id='" || claim_id || "' AND visible_to_generation IS NULL") = 2, "independent support strengthens one claim " || error)
+  second_support = strengthened.support_id()
+
+  stances = .string[]; stances[1] = "assertion"; stances[2] = "quotation"; stances[3] = "report"; stances[4] = "negation"; stances[5] = "speculation"
+  do stance_index = 1 to stances.0
+    attribution = ""
+    if stances[stance_index] = "quotation" | stances[stance_index] = "report" then attribution = "Platform Team"
+    polarity = "support"
+    if stances[stance_index] = "negation" then polarity = "contradiction"
+    stance_proposal = .ragextractionproposal("crexx-rag.extraction-proposal/1", "proposal-stance-" || stance_index, "claim", auth, "Auth Service", "service", "depends-on", identity, "Identity Store", "database", "outbound", '{}', "2026-08-01T00:00:00Z", "2026-08-31T00:00:00Z", chunk, 0, 20, polarity, stances[stance_index], "direct", attribution, "lineage-stance-" || stance_index, 900000, "fixture-provider", "fixture-model", "request-stance-" || stance_index, "prompt-v1", "fixture-extractor-stance-" || stance_index, "fixture://phase4", "balanced", 0)
+    stance_validation = .ragproposalvalidation
+    errors = errors + check(validateproposal(store, stance_proposal, policy, stance_validation, error) = 0 & stance_validation.disposition() = "accepted", "validate stance " || stances[stance_index] || " " || error)
+  end
+  low_confidence = .ragextractionproposal("crexx-rag.extraction-proposal/1", "proposal-low-confidence", "claim", auth, "Auth Service", "service", "depends-on", identity, "Identity Store", "database", "outbound", '{}', "", "", chunk, 0, 20, "support", "assertion", "direct", "", "lineage-low", 499999, "fixture-provider", "fixture-model", "request-low", "prompt-v1", "fixture-extractor-low", "fixture://phase4", "balanced", 0)
+  low_validation = .ragproposalvalidation
+  errors = errors + check(validateproposal(store, low_confidence, policy, low_validation, error) = 0 & low_validation.disposition() = "review" & low_validation.review_type() = "confidence", "low confidence routes to review " || error)
+  reversed_time = .ragextractionproposal("crexx-rag.extraction-proposal/1", "proposal-reversed-time", "claim", auth, "Auth Service", "service", "depends-on", identity, "Identity Store", "database", "outbound", '{}', "2026-08-31T00:00:00Z", "2026-08-01T00:00:00Z", chunk, 0, 20, "support", "assertion", "direct", "", "lineage-time", 900000, "fixture-provider", "fixture-model", "request-time", "prompt-v1", "fixture-extractor-time", "fixture://phase4", "balanced", 0)
+  time_validation = .ragproposalvalidation
+  errors = errors + check(validateproposal(store, reversed_time, policy, time_validation, error) = 0 & time_validation.disposition() = "rejected" & time_validation.review_type() = "time", "reversed effective time rejects deterministically " || error)
+
+  rank = .ragextractionrank
+  errors = errors + check(rankchunk(store, chunk, "claim-policy-v1", rank, error) = 0 & rank.concept_density() >= 3 & rank.relationship_cues() >= 2 & rank.novelty() = 0 & length(rank.input_fingerprint()) = 64, "versioned explainable ranking " || error)
+  outbound = .ragtraversalstep[]; inbound = .ragtraversalstep[]
+  outbound_status = traverseclaims(store, auth, "depends-on", "outbound", 2, outbound, error)
+  inbound_status = traverseclaims(store, identity, "depends-on", "inbound", 2, inbound, error)
+  outbound_target = ""; inbound_target = ""
+  if outbound.0 = 1 then outbound_target = outbound[1].to_concept_id()
+  if inbound.0 = 1 then inbound_target = inbound[1].to_concept_id()
+  errors = errors + check(outbound_status = 1 & outbound.0 = 1 & outbound_target == identity, "directed outbound traversal count=" || outbound.0 || " " || error)
+  errors = errors + check(inbound_status = 1 & inbound.0 = 1 & inbound_target == auth, "directed inbound traversal count=" || inbound.0 || " " || error)
+
+  external = proposal("proposal-external", auth, "Auth Service", "service", "depends-on", identity, "Identity Store", "database", chunk, 0, 40, "assertion", "", "lineage-external", "external-extractor-v1", 1)
+  external_proposals = .ragextractionproposal[]; external_proposals[1] = external
+  external_plan = .ragexternalproposalplan; reviews_created = 0
+  errors = errors + check(createexternalproposalplan(store, "config-p4", policy, external_proposals, external_plan, error) = 0 & length(external_plan.digest()) = 64, "plan external proposal through review gate " || error)
+  errors = errors + check(applyexternalproposalplan(store, external_plan, policy, external_proposals, reviews_created, error) = 0 & reviews_created = 1 & scalarint(store.database(), "SELECT count(*) FROM reviews WHERE review_type='external-proposal' AND state='pending'") = 1, "apply external proposal only as pending review " || error)
+
+  conflict = proposal("proposal-conflict", auth, "Auth Service", "service", "depends-on", platform, "Platform Team", "team", chunk, 0, 40, "assertion", "", "lineage-conflict", "fixture-extractor-v1", 0)
+  conflict_result = .ragproposalresult; expected = generation(store)
+  errors = errors + check(applyproposal(store, conflict, policy, expected, "config-p4", conflict_result, error) = 0 & conflict_result.disposition() = "review" & scalarint(store.database(), "SELECT count(*) FROM reviews WHERE review_type='conflict'") = 1, "conflicting target routes to review " || error)
+  overwrite = proposal("proposal-overwrite", auth, "Renamed Auth", "service", "reports-to", platform, "Platform Team", "team", chunk, 0, 20, "assertion", "", "lineage-overwrite", "fixture-extractor-v1", 0)
+  overwrite_result = .ragproposalresult
+  errors = errors + check(applyproposal(store, overwrite, policy, expected, "config-p4", overwrite_result, error) = 0 & overwrite_result.disposition() = "review" & scalarint(store.database(), "SELECT count(*) FROM reviews WHERE review_type='canonical-overwrite'") = 1, "provider cannot overwrite canonical labels " || error)
+  unresolved = proposal("proposal-unresolved", auth, "Auth Service", "service", "reports-to", "concept-missing", "Missing Team", "team", chunk, 0, 20, "assertion", "", "lineage-unresolved", "fixture-extractor-v1", 0)
+  unresolved_result = .ragproposalresult
+  errors = errors + check(applyproposal(store, unresolved, policy, expected, "config-p4", unresolved_result, error) = 0 & unresolved_result.disposition() = "review" & scalarint(store.database(), "SELECT count(*) FROM reviews WHERE review_type='endpoint'") = 1, "unresolved endpoint routes to review " || error)
+
+  candidate = scalartext(store.database(), "SELECT c.candidate_id FROM candidate_mentions c JOIN candidate_decisions d ON d.candidate_id=c.candidate_id AND d.state='accepted' WHERE c.normalized_candidate='service' AND c.visible_to_generation IS NULL ORDER BY c.candidate_id LIMIT 1")
+  aliases = .string[]; ambiguity_targets = .string[]; ambiguity_targets[1] = auth; ambiguity_targets[2] = platform; ambiguity_id = ""
+  errors = errors + check(promotemention(store, candidate, "Auth Service", "service", aliases, ambiguity_targets, policy, "config-p4", ambiguity_id, error) = 0 & left(ambiguity_id, 17) = "ambiguity-sha256:", "record explicit ambiguity " || error)
+  ambiguous = proposal("proposal-ambiguous", auth, "Auth Service", "service", "reports-to", platform, "Platform Team", "team", chunk, 0, 20, "assertion", "", "lineage-ambiguous", "fixture-extractor-v1", 0)
+  ambiguous_result = .ragproposalresult; expected = generation(store)
+  errors = errors + check(applyproposal(store, ambiguous, policy, expected, "config-p4", ambiguous_result, error) = 0 & ambiguous_result.disposition() = "review" & scalarint(store.database(), "SELECT count(*) FROM reviews WHERE review_type='ambiguity'") = 1, "ambiguous endpoint cannot promote automatically " || error)
+
+  expected = generation(store)
+  errors = errors + check(retractsupport(store, second_support, expected, "config-p4", error) = 0 & scalarint(store.database(), "SELECT count(*) FROM claim_support WHERE claim_id='" || claim_id || "' AND visible_to_generation IS NULL") = 1, "support retracts independently " || error)
+
+  triggers = .string[]; triggers[1] = "unprocessed-extraction"
+  improve_plan = .ragimproveplan
+  errors = errors + check(createimproveplan(store, "config-p4", "claim-policy-v1", "prompt-v1", triggers, 2, 2, 1024, 1024, 200000, 240000, 256, 512, 100000, 120000, 2, 3, "public", "openai-primary", "env:OPENAI_API_KEY", improve_plan, error) = 0 & improve_plan.item_count() = 1 & length(improve_plan.digest()) = 64 & pos("env:OPENAI_API_KEY", improve_plan.canonical()) > 0, "budgeted trigger plan with symbolic provider secret " || error)
+  improve_result = .ragimproveapplyresult
+  errors = errors + check(applyimproveplan(store, improve_plan, improve_result, error) = 0 & improve_result.disposition() = "queued" & improve_result.provider_calls() = 0 & improve_result.items() = 1, "apply bounded improvement plan without provider call " || error)
+  repeat_result = .ragimproveapplyresult; changes_before = scalarint(store.database(), "SELECT total_changes()")
+  errors = errors + check(applyimproveplan(store, improve_plan, repeat_result, error) = 0 & repeat_result.disposition() = "identical-no-op" & repeat_result.library_writes() = 0 & scalarint(store.database(), "SELECT total_changes()") = changes_before, "reapply reviewed improvement plan is zero-write no-op " || error)
+
+  final_snapshot = .ragreadsnapshot; verification = .ragrepositoryverifyresult
+  errors = errors + check(beginreadsnapshot(path, final_snapshot, error) = 0 & verifyrepositories(final_snapshot, verification, error) = 0 & verification.ok() = 1, "repository invariants " || verification.summary() || " " || error)
+  call closereadsnapshot final_snapshot, error
+  errors = errors + check(closeragstore(store, error) = 0, "close store " || error)
+  if errors \= 0 then do; say "P4_CLAIMS_ERRORS=" || errors; return 1; end
+  say "P4_CLAIMS_OK cell=" || cell || " concepts=3 ambiguity=explicit claims=directional support=lineage_and_time replay_writes=0 traversal=directed reviews=external_conflict_overwrite_endpoint_ambiguity improve=budgeted secret_reference=symbolic provider_calls=0"
+  return 0
+
+main: procedure = .int
+arg args = .string[]
+if args.0 < 2 then return 2
+return runscenario(args[1], args[2])

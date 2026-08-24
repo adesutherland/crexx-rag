@@ -1,0 +1,7 @@
+{"step":"ingest","generation":2,"sources":3,"chunks":5,"provider_calls":0}
+{"step":"concepts","generation":4,"canonical":2,"ambiguities":0}
+{"step":"validate","disposition":"accepted","direction":"outbound","stance":"assertion","lineage":"explicit","rank_fingerprint":"sha256"}
+{"step":"improve-plan","schema":"crexx-rag.improve-plan/1","items":5,"model_call_budget":15,"trigger":"profile-change","secret_reference":"env:OPENAI_API_KEY"}
+{"step":"improve-apply","state":"queued","items":5,"provider_calls":0}
+{"step":"worker","processed":5,"job_state":"completed","claims":1,"supports":1,"provider_calls":5}
+{"step":"replay","disposition":"identical-no-op","generation":5,"library_writes":0}

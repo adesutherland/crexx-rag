@@ -3,9 +3,10 @@
 Status: Gate 1B reached on 2026-08-03 and accepted on 2026-08-04. All bounded
 Phase-1B items are complete. Phase 2 started on 2026-08-04 from the pushed
 entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` through `P2-10`
-and Gate 2 are accepted for the current macOS scope. Phase 3 and Gate 3 are
-accepted for the recorded macOS scope; exact downstream Linux replay remains
-open and Phase 4 is next. The authority is recorded in
+and Gate 2 are accepted for the current macOS scope. Phases 3 and 4 and their
+gates are accepted for the recorded macOS scope; exact downstream Linux replay
+remains open. Phase 4 includes its literal 28,800-poll supervised overnight
+soak. The authority is recorded in
 the [Gate-1B ledger](gate1b-decision-ledger.md) and
 [Gate-2 closeout](evidence/2026-08-23-phase2-gate2-closeout/README.md).
 
@@ -497,27 +498,27 @@ Linux qualification remains open and native-v1 remains the oracle.
 Goal: replace native graph/work business logic with cREXX algorithms over typed
 repositories.
 
-- [ ] **P4-01** Implement canonical concepts, aliases, explicit ambiguity,
+- [x] **P4-01** Implement canonical concepts, aliases, explicit ambiguity,
   directed/qualified/time-scoped claims, support polarity and
   assertion/quotation/report/negation/speculation stance, attribution,
   provenance lineage/independence, conflict state, and directed traversal.
-- [ ] **P4-02** Implement idempotent mention promotion and support
+- [x] **P4-02** Implement idempotent mention promotion and support
   strengthening/retraction in transactions.
-- [ ] **P4-03** Port extraction ranking into versioned profile policy; add
+- [x] **P4-03** Port extraction ranking into versioned profile policy; add
   novelty, redundancy, bridge, source-quality, and unresolved-risk terms.
-- [ ] **P4-04** Implement provider-neutral extraction proposal records and
+- [x] **P4-04** Implement provider-neutral extraction proposal records and
   deterministic endpoint/type/evidence-span/confidence validation.
-- [ ] **P4-05** Prevent canonical overwrite and route conflicts, unresolved
+- [x] **P4-05** Prevent canonical overwrite and route conflicts, unresolved
   endpoints, type issues, ambiguity, and external proposals to typed reviews.
-- [ ] **P4-06** Complete database-clock leased/fenced job consumers, heartbeat,
+- [x] **P4-06** Complete database-clock leased/fenced job consumers, heartbeat,
   retry/backoff, cancellation request, dead-letter item state, job-versus-item
   counters, admission reservations, pause/resume/cancel, and non-blocking status.
-- [ ] **P4-07** Implement budgeted `improve plan/apply` from explicit triggers.
-- [ ] **P4-08** Implement `worker run --once|--follow`, status/drain, graceful
+- [x] **P4-07** Implement budgeted `improve plan/apply` from explicit triggers.
+- [x] **P4-08** Implement `worker run --once|--follow`, status/drain, graceful
   supervisor shutdown, and forced-termination recovery. Prove one supervised
   worker overnight; then test two OS-process workers, expiry, late-worker
   fencing, cancel races, and bounded in-flight budget overrun.
-- [ ] **P4-09** Implement external normalized proposal plan/apply through the
+- [x] **P4-09** Implement external normalized proposal plan/apply through the
   same evidence/profile/idempotency/conflict/review gates as internal extraction.
 
 ### Gate 4 — Improvement acceptance
@@ -526,6 +527,14 @@ Every accepted claim must resolve to active support with explicit stance,
 lineage and effective time. Crash injection, late workers, cancellation races,
 and two workers must not duplicate or stale-promote. Review and background
 operations must be bounded, observable, supervised, and resumable.
+
+P4-01 through P4-09 are complete. P4-08's bounded worker mechanics, real
+crash/two-process/fencing/cancellation/budget tests, dual VMs, compiler modes,
+Debug/Release and Apple-ASan proof pass. Its literal supervised macOS run also
+completed one launchd attempt, 28,800 one-second polls, four processed items,
+balanced reservations and exit 0. Gate 4 is accepted for the recorded macOS
+scope. Exact evidence is retained in the
+[`Phase-4 record`](evidence/2026-08-23-phase4/README.md).
 
 ## Phase 5 — Retrieval And Evidence Product
 
@@ -637,7 +646,9 @@ No code deletion is authorized merely by completing Phase 7.
 ## Phase 8 — Donation, Compatibility Release, And Native Retirement
 
 Goal: finish the language contribution loop and remove obsolete product-native
-code only after explicit approval.
+code only after explicit approval. Phase 8 produces a maintained report of
+donation opportunities, ownership/adoption state, compatibility evidence,
+residual gaps, and retirement readiness. It is intentionally not a tutorial.
 
 - [ ] **P8-01** Prepare each mature generic facility as a donation bundle:
   contract, source, dual-VM tests, installed-consumer test, docs/example,

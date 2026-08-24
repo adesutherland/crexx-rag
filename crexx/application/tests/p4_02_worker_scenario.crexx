@@ -1,0 +1,254 @@
+options levelg
+
+import rxplatform
+import sqlite_boundary
+import ragstore
+import ragingest
+import ragclaims
+import ragimprove
+import ragjob
+import ragwork
+
+fixtureprovider: class implements .ragworkprovider
+  _proposal = .ragextractionproposal
+  _delay_seconds = .int
+
+  *: factory
+    arg proposal = .ragextractionproposal, delay_seconds = .int
+    _proposal = proposal; _delay_seconds = delay_seconds
+    return
+
+  extract: method = .ragworkproviderresult
+    arg claim = .ragworkclaim
+    if _delay_seconds > 0 then call rxplatform..sleep _delay_seconds * 1000
+    return .ragworkproviderresult(0, "fixture-provider", "fixture-model", "request-" || claim.attempt_id(), 128, 64, 50000, 10, 0, _proposal, "")
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do
+    say "P4_WORK_FAIL=" || label
+    return 1
+  end
+  return 0
+
+scalarint: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  value = -1; status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value
+
+scalartext: procedure = .string
+  arg database = .binary, sql = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  value = ""; status = sqlitecolumntext(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return ""
+  return value
+
+observation: procedure = .ragsourceobservation
+  arg stable_key = .string, body = .string
+  return .ragsourceobservation("folder:phase4-worker", stable_key, "", "fixture://phase4-worker/" || stable_key, stable_key, "text/plain", "utf-8", "plain", body as .binary, 1, "", "", '{}', "2026-08-23T14:00:00Z")
+
+policy: procedure = .ragclaimpolicy
+  return .ragclaimpolicy("claim-policy-v1", "database|service|team", "depends-on|reports-to|uses|calls", 1000, 700, 600, 500, 300)
+
+promote: procedure = .string
+  arg store = .ragstorehandle, normalized_candidate = .string, label = .string, concept_type = .string, claim_policy = .ragclaimpolicy, expose error = .string
+  candidate = scalartext(store.database(), "SELECT c.candidate_id FROM candidate_mentions c JOIN candidate_decisions d ON d.candidate_id=c.candidate_id AND d.state='accepted' WHERE c.normalized_candidate='" || normalized_candidate || "' AND c.visible_to_generation IS NULL ORDER BY c.candidate_id LIMIT 1")
+  aliases = .string[]; aliases[1] = normalized_candidate; ambiguity = .string[]; identity = ""
+  if promotemention(store, candidate, label, concept_type, aliases, ambiguity, claim_policy, "config-p4-worker", identity, error) \= 0 then return ""
+  return identity
+
+createjob: procedure = .string
+  arg store = .ragstorehandle, prompt_version = .string, expose error = .string
+  triggers = .string[]; triggers[1] = "profile-change"
+  plan = .ragimproveplan
+  if createimproveplan(store, "config-p4-worker", "claim-policy-v1", prompt_version, triggers, 4, 12, 10000, 20000, 2000000, 2000000, 256, 512, 100000, 120000, 2, 3, "public", "fixture-route", "env:OPENAI_API_KEY", plan, error) \= 0 then return ""
+  result = .ragimproveapplyresult
+  if applyimproveplan(store, plan, result, error) \= 0 | result.items() \= 4 then return ""
+  return result.job_id()
+
+providerproposal: procedure = .ragextractionproposal
+  arg store = .ragstorehandle
+  auth = scalartext(store.database(), "SELECT concept_id FROM concepts WHERE canonical_label='Auth Service' AND visible_to_generation IS NULL")
+  identity = scalartext(store.database(), "SELECT concept_id FROM concepts WHERE canonical_label='Identity Store' AND visible_to_generation IS NULL")
+  chunk = scalartext(store.database(), "SELECT c.revision_chunk_id FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE t.text LIKE 'Auth Service depends%' AND c.visible_to_generation IS NULL ORDER BY c.revision_chunk_id LIMIT 1")
+  return .ragextractionproposal("crexx-rag.extraction-proposal/1", "worker-proposal", "claim", auth, "Auth Service", "service", "depends-on", identity, "Identity Store", "database", "outbound", '{}', "2026-08-23T00:00:00Z", "", chunk, 0, 39, "support", "assertion", "direct", "", "lineage-worker", 900000, "fixture-provider", "fixture-model", "fixture-request", "prompt-worker", "fixture-extractor", "fixture://phase4-worker", "balanced", 0)
+
+setup: procedure = .int
+  arg path = .string, cell = .string
+  errors = 0; error = ""; store = .ragstorehandle
+  errors = errors + check(initragstore(path, "library-p4-worker-" || cell, "config-p4-worker", "architecture-local", "1", "balanced", "profile-hash-p4", "config-hash-p4", '{}', store, error) = 0, "initialize worker library " || error)
+  if errors \= 0 then return 1
+  body = "Auth Service depends on Identity Store." || "0A0A"x || "Platform Team reports Auth Service." || "0A0A"x || "Audit Service uses Event Store." || "0A0A"x || "Search Service calls Index Store."
+  observations = .ragsourceobservation[]; observations[1] = observation("a.txt", body); observations[2] = observation("b.txt", body)
+  ingest_plan = .ragingestplan
+  errors = errors + check(createingestplan(store, "folder:phase4-worker", "config-p4-worker", "claim-policy-v1", "parser-v1", 256, observations, ingest_plan, error) = 0, "plan worker corpus " || error)
+  ingest = applyingestplan(store, ingest_plan, observations)
+  errors = errors + check(ingest.ok() = 1 & ingest.chunks_created() = 4 & ingest.chunks_reused() = 4, "ingest four unique work inputs " || ingest.error())
+  claim_policy = policy()
+  auth = promote(store, "auth", "Auth Service", "service", claim_policy, error)
+  identity = promote(store, "identity", "Identity Store", "database", claim_policy, error)
+  errors = errors + check(auth \= "" & identity \= "", "promote worker endpoints " || error)
+  job_id = createjob(store, "prompt-main", error)
+  errors = errors + check(job_id \= "" & scalarint(store.database(), "SELECT count(*) FROM job_items WHERE job_id='" || job_id || "'") = 4, "create durable four-item job " || error)
+  call closeragstore store, error
+  if errors \= 0 then return 1
+  say "P4_WORK_SETUP_OK cell=" || cell || " job=" || job_id || " items=4 secret_reference=symbolic"
+  return 0
+
+work: procedure = .int
+  arg path = .string, worker_id = .string
+  error = ""; store = .ragstorehandle
+  if openragstore(path, "readwrite", store, error) \= 0 then do; say "P4_WORK_FAIL=open " || error; return 1; end
+  job_id = scalartext(store.database(), "SELECT job_id FROM jobs WHERE canonical_plan LIKE '%prompt-main%' ORDER BY created_at DESC LIMIT 1")
+  provider = .fixtureprovider(providerproposal(store), 0); claim_policy = policy(); processed = 0
+  status = runworkerfollow(store, job_id, worker_id, 5, 3, 16, 3, 1, claim_policy, provider, processed, error)
+  worker_error = error
+  call closeragstore store, error
+  if status \= 0 then do; say "P4_WORK_FAIL=worker " || worker_id || " status=" || status || " " || worker_error; return 1; end
+  say "P4_WORKER_OK worker=" || worker_id || " processed=" || processed
+  return 0
+
+soak: procedure = .int
+  arg path = .string, worker_id = .string, idle_polls = .int
+  error = ""; store = .ragstorehandle
+  if idle_polls < 1 then do; say "P4_WORK_FAIL=soak idle bound"; return 1; end
+  if openragstore(path, "readwrite", store, error) \= 0 then do; say "P4_WORK_FAIL=soak open " || error; return 1; end
+  job_id = scalartext(store.database(), "SELECT job_id FROM jobs WHERE canonical_plan LIKE '%prompt-main%' ORDER BY created_at DESC LIMIT 1")
+  provider = .fixtureprovider(providerproposal(store), 0); claim_policy = policy(); processed = 0
+  status = runworkerfollow(store, job_id, worker_id, 30, 3, 100000, idle_polls, 1, claim_policy, provider, processed, error)
+  worker_error = error
+  job_status = .ragjobstatus; status_error = ""
+  status_read = readjobstatus(store, job_id, job_status, status_error)
+  call closeragstore store, error
+  if status \= 0 | status_read \= 0 then do; say "P4_WORK_FAIL=soak worker status=" || status || " " || worker_error || " " || status_error; return 1; end
+  say "P4_SOAK_OK worker=" || worker_id || " idle_polls=" || idle_polls || " processed=" || processed || " job_state=" || job_status.state()
+  return 0
+
+crashclaim: procedure = .int
+  arg path = .string
+  error = ""; store = .ragstorehandle
+  if openragstore(path, "readwrite", store, error) \= 0 then return 1
+  job_id = scalartext(store.database(), "SELECT job_id FROM jobs WHERE canonical_plan LIKE '%prompt-main%' ORDER BY created_at DESC LIMIT 1")
+  claim = .ragworkclaim
+  if claimnext(store, job_id, "crash-worker", 1, 3, claim, error) \= 0 then do; say "P4_WORK_FAIL=crash claim " || error; return 1; end
+  say "P4_CRASH_CLAIMED item=" || claim.item_id() || " fence=" || claim.fence()
+  call rxplatform..sleep 30000
+  return 99
+
+stalefence: procedure = .int
+  arg path = .string
+  error = ""; store = .ragstorehandle
+  if openragstore(path, "readwrite", store, error) \= 0 then return 1
+  item_id = scalartext(store.database(), "SELECT item_id FROM attempts WHERE worker_id='crash-worker' ORDER BY started_at LIMIT 1")
+  attempt_id = scalartext(store.database(), "SELECT attempt_id FROM attempts WHERE worker_id='crash-worker' ORDER BY started_at LIMIT 1")
+  job_id = scalartext(store.database(), "SELECT job_id FROM job_items WHERE item_id='" || item_id || "'")
+  input_hash = scalartext(store.database(), "SELECT input_hash FROM attempts WHERE attempt_id='" || attempt_id || "'")
+  stale = .ragworkclaim(0, job_id, item_id, "improve-extraction", input_hash, "crash-worker", 1, attempt_id, 0, "config-p4-worker")
+  lease_until = 0; status = heartbeat(store, stale, 5, lease_until, error)
+  call closeragstore store, error
+  if status = 0 then do; say "P4_WORK_FAIL=stale fence heartbeat accepted"; return 1; end
+  say "P4_STALE_FENCE_OK attempt=" || attempt_id || " rejected=1"
+  return 0
+
+verifywork: procedure = .int
+  arg path = .string, cell = .string
+  errors = 0; error = ""; store = .ragstorehandle
+  errors = errors + check(openragstore(path, "readwrite", store, error) = 0, "open verify " || error)
+  job_id = scalartext(store.database(), "SELECT job_id FROM jobs WHERE canonical_plan LIKE '%prompt-main%' ORDER BY created_at DESC LIMIT 1")
+  status = .ragjobstatus
+  errors = errors + check(readjobstatus(store, job_id, status, error) = 0 & status.state() = "completed" & status.processed() = 4 & status.queued() = 0 & status.running() = 0, "completed durable status " || error)
+  errors = errors + check(scalarint(store.database(), "SELECT count(*) FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id='" || job_id || "' AND a.outcome='expired'") = 1, "crashed lease recorded as expired")
+  errors = errors + check(scalarint(store.database(), "SELECT count(DISTINCT a.item_id) FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id='" || job_id || "' AND a.outcome='succeeded'") = 4, "every work item reaches one successful fenced attempt")
+  errors = errors + check(scalarint(store.database(), "SELECT count(*) FROM provider_runs p JOIN attempts a ON a.provider_run_id=p.provider_run_id JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id='" || job_id || "'") >= 4, "provider runs are durably recorded")
+  errors = errors + check(scalarint(store.database(), "SELECT reserved_calls+reserved_tokens+reserved_cost FROM jobs WHERE job_id='" || job_id || "'") = 0, "provider reservations fully settled")
+  errors = errors + check(scalarint(store.database(), "SELECT count(*) FROM claim_support WHERE extractor_identity='fixture-extractor' AND visible_to_generation IS NULL") = 1, "at-least-once workers produce exactly-once graph effect")
+  call closeragstore store, error
+  if errors \= 0 then do; say "P4_WORK_ERRORS=" || errors; return 1; end
+  say "P4_WORK_VERIFY_OK cell=" || cell || " crash=expired recovery=fenced workers=two_process items=4 effect=exactly_once reservations=zero"
+  return 0
+
+control: procedure = .int
+  arg path = .string, cell = .string
+  errors = 0; error = ""; store = .ragstorehandle
+  errors = errors + check(initragstore(path, "library-p4-control-" || cell, "config-p4-worker", "architecture-local", "1", "balanced", "profile-hash-p4", "config-hash-p4", '{}', store, error) = 0, "initialize control library " || error)
+  if errors \= 0 then return 1
+  body = "Auth Service depends on Identity Store." || "0A0A"x || "Platform Team reports Auth Service." || "0A0A"x || "Audit Service uses Event Store." || "0A0A"x || "Search Service calls Index Store."
+  observations = .ragsourceobservation[]; observations[1] = observation("a.txt", body); observations[2] = observation("b.txt", body)
+  ingest_plan = .ragingestplan; call createingestplan store, "folder:phase4-worker", "config-p4-worker", "claim-policy-v1", "parser-v1", 256, observations, ingest_plan, error
+  ingest = applyingestplan(store, ingest_plan, observations); claim_policy = policy()
+  auth = promote(store, "auth", "Auth Service", "service", claim_policy, error); identity = promote(store, "identity", "Identity Store", "database", claim_policy, error)
+  errors = errors + check(ingest.ok() = 1 & auth \= "" & identity \= "", "prepare control corpus " || error)
+
+  control_job = createjob(store, "prompt-control", error)
+  errors = errors + check(pausejob(store, control_job, error) = 0, "pause job " || error)
+  idle_claim = .ragworkclaim
+  errors = errors + check(claimnext(store, control_job, "control-worker", 5, 3, idle_claim, error) = 1, "paused job admits no work")
+  errors = errors + check(resumejob(store, control_job, error) = 0, "resume job " || error)
+  claim = .ragworkclaim
+  errors = errors + check(claimnext(store, control_job, "control-worker", 5, 3, claim, error) = 0 & claim.claimed() = 1, "claim resumed work " || error)
+  lease_until = 0
+  errors = errors + check(heartbeat(store, claim, 5, lease_until, error) = 0 & lease_until > 0, "heartbeat extends current lease " || error)
+  errors = errors + check(configurejobbudget(store, control_job, 2000000, 256, 512, 100000, 120000, 2, 3, error) = -2, "applied plan budget policy is immutable")
+  denied = .ragcallreservation
+  errors = errors + check(reservecall(store, claim, 257, 512, 100000, 120000, denied, error) \= 0, "per-call cap rejects oversized reservation")
+  reservation = .ragcallreservation
+  errors = errors + check(reservecall(store, claim, 256, 512, 100000, 120000, reservation, error) = 0, "admit bounded provider reservation " || error)
+  duplicate_reservation = .ragcallreservation
+  errors = errors + check(reservecall(store, claim, 256, 512, 100000, 120000, duplicate_reservation, error) \= 0, "one attempt cannot double reserve")
+  provider_run = ""
+  errors = errors + check(settlecall(store, reservation, "fixture-provider", "fixture-model", "control-request", "succeeded", 128, 64, 50000, 10, provider_run, error) = 0 & provider_run \= "", "settle exact provider usage " || error)
+  errors = errors + check(skipitem(store, claim, "control-skip", error) = 0, "finish control item after settlement " || error)
+  running = 0
+  errors = errors + check(drainjob(store, control_job, running, error) = 0 & running = 0, "drain pauses new work and reports active count " || error)
+  errors = errors + check(resumejob(store, control_job, error) = 0, "resume drained job " || error)
+  cancel_claim = .ragworkclaim
+  errors = errors + check(claimnext(store, control_job, "cancel-worker", 5, 3, cancel_claim, error) = 0, "claim item for cooperative cancellation " || error)
+  errors = errors + check(requestcancel(store, control_job, "operator requested", error) = 0, "request job cancellation " || error)
+  errors = errors + check(acknowledgecancel(store, cancel_claim, error) = 0, "worker acknowledges cancellation " || error)
+  control_status = .ragjobstatus
+  errors = errors + check(readjobstatus(store, control_job, control_status, error) = 0 & control_status.state() = "cancelled" & control_status.cancelled() = 3, "queued and running work converge to cancelled " || error)
+
+  failure_job = createjob(store, "prompt-failure", error); first = .ragworkclaim
+  errors = errors + check(claimnext(store, failure_job, "failure-worker", 5, 2, first, error) = 0, "claim retry fixture " || error)
+  errors = errors + check(failattempt(store, first, 1, 0, 2, "transient", error) = 0, "retryable failure returns item to queue " || error)
+  second = .ragworkclaim
+  errors = errors + check(claimnext(store, failure_job, "failure-worker", 5, 2, second, error) = 0 & second.fence() = first.fence() + 1, "retry increments monotonic fence " || error)
+  errors = errors + check(failattempt(store, second, 0, 0, 2, "permanent", error) = 0, "non-retryable failure dead-letters item " || error)
+  errors = errors + check(scalarint(store.database(), "SELECT count(*) FROM job_items WHERE job_id='" || failure_job || "' AND state='dead_letter'") = 1 & scalarint(store.database(), "SELECT count(*) FROM attempts WHERE item_id='" || second.item_id() || "'") = 2, "dead letter retains both attempts")
+
+  budget_job = createjob(store, "prompt-inflight", error)
+  budget_claim_a = .ragworkclaim; budget_claim_b = .ragworkclaim; budget_claim_c = .ragworkclaim; budget_claim_d = .ragworkclaim
+  errors = errors + check(claimnext(store, budget_job, "budget-a", 5, 3, budget_claim_a, error) = 0 & claimnext(store, budget_job, "budget-b", 5, 3, budget_claim_b, error) = 0 & claimnext(store, budget_job, "budget-c", 5, 3, budget_claim_c, error) = 0, "claim three independent in-flight candidates " || error)
+  budget_reservation_a = .ragcallreservation; budget_reservation_b = .ragcallreservation; budget_reservation_c = .ragcallreservation
+  errors = errors + check(reservecall(store, budget_claim_a, 256, 512, 100000, 120000, budget_reservation_a, error) = 0 & reservecall(store, budget_claim_b, 256, 512, 100000, 120000, budget_reservation_b, error) = 0, "admit exactly the two-call in-flight ceiling " || error)
+  errors = errors + check(reservecall(store, budget_claim_c, 256, 512, 100000, 120000, budget_reservation_c, error) \= 0, "third concurrent reservation is denied before provider work")
+  run_a = ""; run_b = ""
+  errors = errors + check(settlecall(store, budget_reservation_a, "fixture-provider", "fixture-model", "inflight-a", "succeeded", 128, 64, 50000, 10, run_a, error) = 0 & settlecall(store, budget_reservation_b, "fixture-provider", "fixture-model", "inflight-b", "succeeded", 128, 64, 50000, 10, run_b, error) = 0, "settle both admitted in-flight calls " || error)
+  errors = errors + check(skipitem(store, budget_claim_a, "inflight-proof", error) = 0 & skipitem(store, budget_claim_b, "inflight-proof", error) = 0 & skipitem(store, budget_claim_c, "inflight-denied", error) = 0, "finish admitted and denied in-flight work " || error)
+  errors = errors + check(claimnext(store, budget_job, "budget-d", 5, 3, budget_claim_d, error) = 0 & skipitem(store, budget_claim_d, "inflight-proof", error) = 0, "finish final budget item " || error)
+  errors = errors + check(scalarint(store.database(), "SELECT reserved_calls+reserved_tokens+reserved_cost FROM jobs WHERE job_id='" || budget_job || "'") = 0 & scalarint(store.database(), "SELECT count(*) FROM provider_runs p JOIN attempts a ON a.provider_run_id=p.provider_run_id JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id='" || budget_job || "'") = 2, "in-flight overrun leaves exact counters and calls")
+  call closeragstore store, error
+  if errors \= 0 then do; say "P4_CONTROL_ERRORS=" || errors; return 1; end
+  say "P4_CONTROL_OK cell=" || cell || " pause_resume=1 drain=1 cancellation=cooperative heartbeat=1 retry=bounded dead_letter=1 budgets=reserved_and_settled inflight_overrun=denied"
+  return 0
+
+main: procedure = .int
+arg args = .string[]
+if args.0 < 2 then return 2
+mode = args[1]; path = args[2]; cell = "cell"
+if args.0 >= 3 then cell = args[3]
+if mode = "setup" then return setup(path, cell)
+if mode = "worker" then return work(path, cell)
+if mode = "soak" then do
+  if args.0 < 4 then return 2
+  return soak(path, cell, args[4] as .int)
+end
+if mode = "crash" then return crashclaim(path)
+if mode = "stale" then return stalefence(path)
+if mode = "verify" then return verifywork(path, cell)
+if mode = "control" then return control(path, cell)
+return 2

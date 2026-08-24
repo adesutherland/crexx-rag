@@ -2,7 +2,7 @@
 
 ## Boundary
 
-The directory owns product-facing Level G contracts and, as Phase 3 proceeds,
+The directory owns product-facing Level G contracts and, through Phase 4,
 the cREXX implementations behind them. It may consume installed CREXX
 foundation modules and separately qualified generic plugins. It must not call
 the native-v1 RAG bridge, shell through the CLI, or import product behavior from
@@ -20,6 +20,8 @@ ragconfig + ragprofile <- ragcanonical -> installed rxhash
 ragschema <- ragstore -> installed SQLite boundary + rxjson + system
 ragstore + ragregistry + ragcanonical <- ragplanning
 ragstore + installed rxhash <- ragingest <- ragfolder + ragfile + rxfs
+ragstore + ragingest <- ragclaims <- ragimprove
+ragstore + ragjob + ragclaims <- ragwork <- ragimprove jobs
 ragcommand + lifecycle modules + ragplanning <- ragfoundation
 ```
 
@@ -67,6 +69,22 @@ transaction; re-anchors only exact continuity/content matches; and queues new
 content inputs through schema-v2 jobs/items. Candidate census/representative
 decisions are deterministic and provider-free. Any failure rolls back the
 generation, so replaying a freshly revalidated plan is the resume mechanism.
+
+Phase 4 consumes only typed repositories. `ragclaims` promotes accepted
+candidates into canonical concepts or explicit ambiguity, validates immutable
+provider-neutral proposals, routes non-promotable proposals to typed review,
+and publishes claim/support changes as semantic generations. A support identity
+binds the claim, evidence occurrence/span, polarity, and extractor. Replays are
+detected before generation allocation.
+
+`ragimprove` selects explicit triggers through a versioned extraction rank and
+creates canonical plans that bind semantic generation, configuration, policy,
+prompt, item identities, all resource ceilings, route/privacy, and only a
+symbolic secret reference. `ragwork` claims items inside `BEGIN IMMEDIATE`
+using the SQLite clock, increments a per-item fence, records every attempt and
+event, reserves maximum provider usage, settles actual usage, and commits
+proposal promotion only while the same lease/fence/attempt remains active.
+Multiple processes share no mutable cREXX context.
 
 Rollback targets a published ancestor. While holding the SQLite writer lock it
 first publishes a projection of that already-committed older generation, then
@@ -124,3 +142,12 @@ without optimization, then runs `rxvme` and `rxbvm`. It covers all P3-01 through
 P3-09 lifecycle cases, exact tutorial NDJSON, matched generic/Scotland native
 oracle semantics, pinned-reader visibility, and real dual-VM `SIGKILL` rollback
 and resume without duplicate semantic or job rows.
+
+CTest `phase4_improvement` compiles claims, improvement planning, worker
+orchestration, scenarios, and tutorial in both compiler modes and both concrete
+VMs. It covers every stance, polarity/time/confidence validation, canonical
+overwrite and review routing, external plans, no-op replay, directed traversal,
+trigger ranking, crash expiry, late-fence rejection, two OS-process workers,
+retry/dead-letter, heartbeat, pause/resume/drain, cancellation, exact
+reservations, in-flight denial, native-v1 queue-oracle compatibility, and exact
+tutorial NDJSON.

@@ -112,17 +112,19 @@ embedding reuse, stale plans, and interrupted resume.
 
 ## 5. Provider Credentials
 
-Phase 3 deliberately makes no provider call; ingestion queues later embedding
-and extraction work. Provider credentials are nevertheless part of the product
+Phase 3 deliberately makes no provider call; ingestion queues embedding and
+extraction work consumed by the Phase-4 worker path. Provider credentials are
+nevertheless part of the product
 configuration model. Hosted qualifications in later phases use symbolic
 references such as `env:OPENAI_API_KEY`. Put the key in the process environment
 or CI secret store only. Never put a credential in a cREXX module, plan,
 fixture, evidence file, command transcript, or Git history.
 
 The Phase-3 result reports `provider_calls=0`, which proves that unchanged
-ingestion cannot accidentally spend a hosted-model budget. Phase 4 consumes the
-queued work through the provider-neutral contract and adds explicit call,
-token, cost, privacy, and outbound-route evidence.
+ingestion cannot accidentally spend a hosted-model budget. Phase 4 now consumes
+queued work through the provider-neutral contract with explicit call, token,
+cost, privacy, route, and reservation policy; its recurring tutorial remains
+deterministic and zero-outbound.
 
 ## Current Limits
 
@@ -131,7 +133,8 @@ token, cost, privacy, and outbound-route evidence.
 - The folder connector supports Markdown, text, Rexx, and cREXX files. Path
   selection, symlink policy, and application size ceilings remain caller policy.
 - Candidate adjudication is deterministic Phase-3 census policy. Provider
-  proposals, canonical graph promotion, review, and workers arrive in Phase 4.
+  proposals, canonical graph promotion, review, and workers are implemented by
+  Phase 4 and remain separate from ingestion's zero-provider replay invariant.
 - The native-v1 implementation remains the executable oracle. Phase 3 neither
   cuts over the product nor removes native code.
 - Current acceptance is macOS. Exact downstream Linux qualification remains

@@ -259,12 +259,12 @@ The accepted P2-10 shared facade implements the underlying canonical bytes,
 digest, expiry, and hostile apply-time revalidation. Its transport-neutral
 apply option is `--plan-json`; a later thin CLI adapter will read `--plan FILE`
 and pass those exact bytes to the facade. The currently shipped native-v1 CLI
-has not been replaced. After macOS Gate-2 acceptance, a fully valid plan is
-still reported as revalidated with `enqueued=false` and stable unavailable
-status because actual job creation and ingestion begin only after Phase 3 is
-approved.
+has not been replaced. The Phase-3 ingest and Phase-4 improvement development
+APIs now create and execute durable jobs, but the shared public facade still
+reports `enqueued=false` until Phase 6 wires the command vocabulary to those
+accepted algorithms.
 
-After the later execution phase is implemented, apply will return a job id
+After the Phase-6 adapter is implemented, public apply will return a job id
 immediately. It will continue to refuse a stale plan if the library, sources,
 configuration, profile, provider route, or reservations changed.
 
@@ -291,6 +291,12 @@ crexx-rag \
 
 The supervisor owns restart and scheduling. An LLM may monitor the job but does
 not gain process-supervision authority through the knowledge tools.
+
+The underlying Phase-4 worker implementation is already database-clock leased
+and fenced, supports bounded once/follow loops, pause/resume/drain, heartbeat,
+retry/dead-letter, cooperative cancellation, exact reservation settlement, and
+multi-process recovery. The command spellings in this guide remain target
+interface until Phase 6.
 
 Monitor it without reading SQLite directly:
 

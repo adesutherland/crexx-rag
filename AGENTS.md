@@ -35,9 +35,15 @@ language levels.
 
 Phase 0 through Gate 2 are complete and accepted for their recorded scope.
 Phase 3-plus sequential implementation was authorized on 2026-08-23, with QA
-and one focused commit after each phase. Phase 3 is the current workstream; its
-evidence is under `docs/evidence/2026-08-23-phase3/`. Exact downstream Linux
-replay remains an explicit platform qualification item.
+and one focused commit after each phase. Phases 3 and 4 are accepted for their
+recorded macOS scopes. Phase 4's literal supervised overnight soak completed on
+2026-08-24 with one clean launchd run, 28,800 one-second polls, and balanced
+durable work/reservations. Exact downstream Linux replay remains an explicit
+platform qualification item.
+
+Phase 8 is a donation-opportunities, ownership, compatibility, and retirement-
+readiness report, not a tutorial. Do not invent a Phase-8 tutorial; retain
+separate approval gates for donation submission, cutover, and native removal.
 
 Preserve the ordered Phase-2 evidence and Gate-2 closeout. Advance phases in
 roadmap order and do not combine their commits. Hosted-provider qualifications
