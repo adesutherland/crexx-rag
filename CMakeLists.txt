@@ -1448,6 +1448,43 @@ if(CPRAG_BUILD_TESTS)
         set_tests_properties(phase4_improvement PROPERTIES
             TIMEOUT 600
             LABELS "phase4;P4-01;P4-02;P4-03;P4-04;P4-05;P4-06;P4-07;P4-08;P4-09;crexx;levelg;claim;support;review;improve;worker;lease;fence;retry;dead-letter;budget;cancellation;two-process;crash;oracle;tutorial;dual-vm;provider-neutral;secret-reference")
+        if(TARGET crexx-rag-mcp)
+            set(PHASE5_RETRIEVAL_COMMAND
+                "${CMAKE_COMMAND}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+                "-DCPRAG_APP_DIR=${CMAKE_CURRENT_LIST_DIR}/crexx/application"
+                "-DCPRAG_PROVIDER_CONTRACT=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_contract.crexx"
+                "-DCPRAG_PROFILE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/profiles/it_architecture_profile.crexx"
+                "-DCPRAG_SCENARIO=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p5_01_retrieval_scenario.crexx"
+                "-DCPRAG_TUTORIAL=${CMAKE_CURRENT_LIST_DIR}/crexx/tutorials/phase5_retrieval_scenario.crexx"
+                "-DCPRAG_TUTORIAL_FIXTURE=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/tutorial/architecture-mini"
+                "-DCPRAG_TUTORIAL_EXPECTED=${CMAKE_CURRENT_LIST_DIR}/tests/expected/tutorial-phase5.jsonl"
+                "-DCPRAG_IT_V1=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/phase0/it-auth-decision-v1.md"
+                "-DCPRAG_IT_V2=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/phase0/it-auth-decision-v2.md"
+                "-DCPRAG_IT_HELD_OUT=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/phase0/it-held-out.md"
+                "-DCPRAG_IT_OPERATIONS=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/phase0/it-operations-note.md"
+                "-DCPRAG_SCOTLAND_CHRONICLE=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/phase0/scotland-shaped-chronicle.md"
+                "-DCPRAG_SCOTLAND_LEDGER=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/phase0/scotland-shaped-ledger.md"
+                "-DCPRAG_NATIVE_CLI=$<TARGET_FILE:crexx-rag>"
+                "-DCPRAG_NATIVE_MCP=$<TARGET_FILE:crexx-rag-mcp>"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/phase5-retrieval"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase5Retrieval.cmake")
+            add_custom_target(phase5_retrieval
+                COMMAND ${PHASE5_RETRIEVAL_COMMAND}
+                DEPENDS _sqlite_boundary crexx-rag crexx-rag-mcp
+                COMMENT "Running Phase-5 Level-G hybrid retrieval and executable tutorial proof"
+                USES_TERMINAL
+                VERBATIM)
+            add_test(NAME phase5_retrieval COMMAND ${PHASE5_RETRIEVAL_COMMAND})
+            set_tests_properties(phase5_retrieval PROPERTIES
+                TIMEOUT 900
+                LABELS "phase5;P5-01;P5-01A;P5-02;P5-03;P5-04;P5-05;P5-06;P5-07;P5-08;crexx;levelg;query-plan;fts5;rxvector;embedding;hybrid;rrf;graph;evidence;citation;provenance;stance;time;gap;judgement;baseline;tutorial;dual-vm;zero-outbound")
+        endif()
         add_test(
             NAME crexx_profile_smoke
             COMMAND "${CMAKE_COMMAND}"

@@ -1,6 +1,6 @@
 # cREXX Application Modules
 
-Status: Phase 4 product implementation. These modules are application code,
+Status: Phase 5 product implementation. These modules are application code,
 not generic CREXX donation candidates.
 
 ## Use
@@ -31,6 +31,10 @@ import ragfolder
 import ragclaims
 import ragimprove
 import ragwork
+import ragquery
+import ragembedding
+import ragretrieval
+import ragevidencejson
 ```
 
 `raglibrary` defines the library and factory interfaces. `ragjob` defines the
@@ -99,6 +103,24 @@ provider-neutral Level-G interface. A worker reserves worst-case usage before
 calling it, settles actual usage, then applies the returned proposal through
 the same deterministic fenced claim path.
 
+`ragquery` owns deterministic `crexx-rag.query-plan/1` values: normalized
+questions, exact phrase/prefix variants, profile/database aliases, bounded
+spelling candidates, comparison/time/relationship intent, ambiguity, term
+statistics and canonical SHA-256 identity. It does not call a provider.
+
+`ragembedding` registers immutable provider/model/dimension/envelope profiles,
+checks privacy and route before every call, attaches compatible reusable
+embeddings, batches and resumes missing work, and publishes checksum-bound
+`crexx-rag.rxvector-generation/1` `.rxvec` sidecars atomically. `ragretrieval`
+combines bounded FTS/context, installed exact packed `rxvector`, directed graph
+paths resolved to support, and inspectable reciprocal-rank fusion. Vector and
+graph proximity remain leads rather than accepted claims.
+
+`ragevidencejson` serializes the typed records as bounded
+`crexx-rag.evidence/1`, `crexx-rag.retrieval-result/1` and
+`crexx-rag.answer-context/1` JSON. Stable citations bind library, source,
+immutable revision and UTF-8 byte span and can be resolved historically.
+
 `ragrepositoryrecord` is the shared typed page envelope. `identity`,
 `parent_identity`, and `related_identity` retain graph/storage identity;
 `name`, `category`, `state`, `value`, and `detail` project each table's scalar
@@ -140,6 +162,9 @@ tutorial is `crexx/tutorials/phase3_ingestion_scenario.crexx`. Phase-4 claim
 and worker coverage is `p4_01_claims_scenario.crexx` and
 `p4_02_worker_scenario.crexx`; its executable tutorial is
 `crexx/tutorials/phase4_improvement_scenario.crexx`.
+Phase-5 focused planning, embeddings, hybrid retrieval, evidence, baselines and
+judgements are covered by `p5_01_retrieval_scenario.crexx`; its executable
+tutorial is `crexx/tutorials/phase5_retrieval_scenario.crexx`.
 
 `ragstore` uses a directory bundle containing `library.sqlite` and the
 recoverable `manifest.json` projection. SQLite is authoritative. A publication
@@ -150,13 +175,13 @@ returns the stable bundle to rollback-journal mode.
 
 ## Current Limits
 
-Phase 2 through Gate 3 are accepted for their recorded macOS scope. Phase 3
-implements ingestion and Phase 4 implements claim/review/improvement/worker
-algorithms; the Phase-2 public facade still does not expose apply. The native
-executable remains the oracle. Retrieval and transport adapters remain later
-items. Recurring Phase-4 QA uses a deterministic provider and symbolic hosted
-secret references; hosted provider qualification is Phase 7. Gate 4 remains
-open for the literal supervised overnight soak. Sidecar
+Phase 2 through Gate 5 are accepted for their recorded macOS scope. Phase 3
+implements ingestion, Phase 4 claim/review/improvement/workers and Phase 5
+retrieval/evidence; the Phase-2 public facade still does not expose apply. The
+native executable remains the oracle. CLI, ADDRESS, MCP and skill adapters
+remain Phase 6. Recurring QA uses deterministic providers and symbolic hosted
+secret references. The bounded Phase-5 hosted quality harness is retained, but
+the cREXX hosted adapter's POST-completion finding remains Phase-7 work. Sidecar
 verification retains the
 2,147,483,647-byte application ceiling but hashes in fixed memory. Callers that
 do not need an interposed ceiling or returned byte count can use the installed

@@ -1,0 +1,125 @@
+{
+  "schema": "crexx-rag.hosted-judgement/1",
+  "case_id": "scot-04-direct-versus-adjacent",
+  "question": "Were the Houses of Brannoch and Rannoch allied, and which northern claims are direct rather than graph-adjacent?",
+  "provider": "gemini",
+  "model": "gemini-3.5-flash",
+  "credential_reference": "env:GEMINI_API_KEY",
+  "temperature_millionths": 0,
+  "thinking_level": "minimal",
+  "max_attempts": 1,
+  "blind_order": [
+    "full",
+    "typed"
+  ],
+  "typed_context_sha256": "7b182e8d753230f8de93a7a4c480b912f7a1e954747922244c5ccf4d6d750618",
+  "full_context_sha256": "32244b6f0037ce9da663fb2ec8ffad985e6cfde1fea9e8aa6671131a990ec45d",
+  "typed_answer": {
+    "answer": "There is no evidence that the Houses of Brannoch and Rannoch were allied. Their co-mention in the northern-district collection is merely a collection adjacency, which does not establish an alliance, conflict, kinship, or participation in the same event. Regarding the northern claims, the direct claims (rather than graph-adjacent leads) are: 1) Factor Iven directed removals on the Rannoch Estate in Glen Mora in 1841; 2) the House of Brannoch supported the Northwatch companies in 1718; 3) Mara Quill reported hardship regarding the 1841 Glen Mora removals; and 4) Elian Voss judged those removals as lawful.",
+    "citations": [
+      "crexx-rag:library-p5-opt-rxvme:source-sha256:8d48fe3caeedd8a987703a6ba70a42b8d3d559182728b498f15d726262bc0172:revision-sha256:f1ad1ff3001b664fdced3257fbe0d00215b0489f064eeea58bc43a2fedde353e:utf8-0-510",
+      "crexx-rag:library-p5-opt-rxvme:source-sha256:8d48fe3caeedd8a987703a6ba70a42b8d3d559182728b498f15d726262bc0172:revision-sha256:f1ad1ff3001b664fdced3257fbe0d00215b0489f064eeea58bc43a2fedde353e:utf8-511-925",
+      "crexx-rag:library-p5-opt-rxvme:source-sha256:d02ac6fa24826fe814452fe08f07feaa1c3a27192198d49fb8d3a06f688a596e:revision-sha256:5abba230f830545760af8accf23a0bd912be2a9f525917fd1b32ed68f6c96e44:utf8-505-1011"
+    ],
+    "gaps": [
+      "One or more query names remain ambiguous; do not transfer facts between senses.",
+      "A returned source explicitly says the observed adjacency does not establish the requested relationship.",
+      "The returned evidence does not attribute the act to every member of the named house."
+    ]
+  },
+  "control_answer": {
+    "answer": "The provided sources do not state that the House of Brannoch and the House of Rannoch were allied. In fact, the ledger explicitly notes that their collection adjacency in the records is not evidence of an alliance, conflict, kinship, or participation in the same event. Regarding northern claims, the ledger establishes direct claims that the House of Brannoch crossed the North Ford in 1694, later settled near Loch Vey, and that Captain Sera Brannoch supported the Northwatch companies in 1718. It also directly claims that Factor Iven directed removals on the Rannoch Estate in Glen Mora in 1841.",
+    "citations": [
+      "source:scotland-shaped-ledger.md"
+    ],
+    "gaps": []
+  },
+  "scorers": [
+    {
+      "answer_1_score": 14,
+      "answer_2_score": 16,
+      "answer_1_critical_failure": 0,
+      "answer_2_critical_failure": 0,
+      "preference": "answer_2",
+      "rationale": "Answer 2 is exceptionally strong. It uses the precise citation keys from the typed passage map, lists the direct claims accurately, and includes the exact expected gaps from the metadata. Answer 1 is also very good and uses the simplified source labels, but does not include the expected gaps."
+    },
+    {
+      "answer_1_score": 14,
+      "answer_2_score": 16,
+      "answer_1_critical_failure": 0,
+      "answer_2_critical_failure": 0,
+      "preference": "answer_2",
+      "rationale": "Answer 2 is exceptionally strong. It uses the precise citation keys from the typed passage map, lists the direct claims accurately, and includes the exact expected gaps from the metadata. Answer 1 is also very good and uses the simplified source labels, but does not include the expected gaps."
+    }
+  ],
+  "typed_score": 16,
+  "control_score": 14,
+  "typed_critical_failure": 0,
+  "control_critical_failure": 0,
+  "calls": [
+    {
+      "call_id": "p5-answer-scot-04-direct-versus-adjacent-typed",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "6fa2aa86553d5a51af22f8643446dd625e7ef1cc309d6758cc897e84486275ac",
+      "response_id": "1HmLasONNOmxnsEP69mVkQg",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 2915,
+      "output_tokens": 697,
+      "total_tokens": 3612,
+      "latency_us": 2991628
+    },
+    {
+      "call_id": "p5-answer-scot-04-direct-versus-adjacent-full",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "6ccaffefca1c318c311c234c26b078dc852a79e7615ecd92678b27d0833f125d",
+      "response_id": "13mLat7qMsuznsEPx-uXuQQ",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 1349,
+      "output_tokens": 173,
+      "total_tokens": 1522,
+      "latency_us": 1606962
+    },
+    {
+      "call_id": "p5-score-scot-04-direct-versus-adjacent-reset-1",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "aa9fed261452932695425692881091bda2bc89dbaff9ae744f2d100ff48e7aef",
+      "response_id": "2XmLapniHJ2vnsEPu4m3kAk",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 8118,
+      "output_tokens": 131,
+      "total_tokens": 8249,
+      "latency_us": 7676893
+    },
+    {
+      "call_id": "p5-score-scot-04-direct-versus-adjacent-reset-2",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "aa9fed261452932695425692881091bda2bc89dbaff9ae744f2d100ff48e7aef",
+      "response_id": "4XmLatvhCOHe7M8PjOO3-AQ",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 8118,
+      "output_tokens": 131,
+      "total_tokens": 8249,
+      "latency_us": 4047226
+    }
+  ]
+}

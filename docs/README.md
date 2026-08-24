@@ -1,10 +1,10 @@
 # Documentation Map
 
 Status: canonical navigation for the approved cREXX-only programme,
-2026-08-23. Phase 1B through Gate 2 are accepted, and Phase 3 plus Gate 3 are
-accepted for the current macOS scope. Exact downstream Linux replay remains
-open. Phase 4 and Gate 4 are accepted for the recorded macOS scope, including
-the roadmap's literal 28,800-poll supervised overnight soak.
+2026-08-24. Phase 1B through Gate 5 are accepted for their recorded scope;
+Phases 2 through 5 are accepted on macOS while exact downstream Linux replay
+remains open. Phase 5's bounded hosted answer-quality result does not close its
+separately recorded cREXX hosted transport finding.
 
 ## Current Programme Documents
 
@@ -24,7 +24,9 @@ the roadmap's literal 28,800-poll supervised overnight soak.
 | [Phase 3 executable tutorial](tutorials/phase-3-ingestion.md) | Development tutorial over the real folder connector, immutable plan, reconciler, and zero-write replay |
 | [Phase 3 and Gate 3 evidence](evidence/2026-08-23-phase3/README.md) | P3-01 through P3-09, dual-VM/mode, crash resume, tutorial, oracle delta, QA, and current limits |
 | [Phase 4 executable tutorial](tutorials/phase-4-improvement.md) | Development tutorial over canonical claims, deterministic review, improvement plans, and durable workers |
-| [Phase 4 and Gate 4 evidence](evidence/2026-08-23-phase4/README.md) | P4-01 through P4-09, dual VM/mode, crash/two-process worker QA, Apple ASan, and the accepted literal overnight soak |
+| [Phase 4 implementation evidence](evidence/2026-08-23-phase4/README.md) | P4-01 through P4-09, dual VM/mode, crash/two-process worker QA, literal eight-hour soak, Debug/Release and Apple ASan |
+| [Phase 5 executable tutorial](tutorials/phase-5-retrieval.md) | Development tutorial over focused planning, incremental embeddings, exact vectors, hybrid retrieval, bounded evidence and historical citation resolution |
+| [Phase 5 retrieval evidence](evidence/2026-08-23-phase5/README.md) | P5-01 through P5-08, four-cell deterministic judgement, native/full-context baselines, hosted answer-quality result and exact transport limit |
 | [CREXX capability-sync worklist](evidence/2026-08-22-crexx-capability-sync/WORKLIST.md) | Completed macOS/current-head items and later parallel qualification backlog |
 | [Generic capability incubation audit](../incubator/README.md) | Donation-candidate inventory, implementation boundaries, colocated use/system docs, and readiness status |
 | [Gate 1A decision ledger](gate1a-decision-ledger.md) | Historical approval for D1-D9, the now-completed Phase-1B worklist, exclusions, and Gate-1B stop |

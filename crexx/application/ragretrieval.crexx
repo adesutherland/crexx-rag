@@ -1,0 +1,636 @@
+options levelg
+
+namespace ragretrieval expose ragretrievaloptions ragretrievalresult retrieveevidence resolvecitation
+
+import rxfnsb
+import rxfnsg
+import rxhash
+import rxvector
+import sqlite_boundary
+import ragstore
+import ragprofile
+import ragmodel
+import ragevidence
+import ragquery
+
+ragretrievaloptions: class
+  _policy_version = .string
+  _embedding_profile_id = .string
+  _query_vector = .binary
+  _lexical_limit = .int
+  _vector_limit = .int
+  _vector_scan_limit = .int
+  _graph_hops = .int
+  _passage_limit = .int
+  _claim_limit = .int
+  _lead_limit = .int
+  _rrf_k = .int
+
+  *: factory
+    arg policy_version = "retrieval-v1", embedding_profile_id = "", query_vector = .binary, lexical_limit = 24, vector_limit = 12, vector_scan_limit = 100000, graph_hops = 2, passage_limit = 12, claim_limit = 8, lead_limit = 8, rrf_k = 60
+    _policy_version = policy_version
+    _embedding_profile_id = embedding_profile_id
+    _query_vector = query_vector
+    _lexical_limit = lexical_limit
+    _vector_limit = vector_limit
+    _vector_scan_limit = vector_scan_limit
+    _graph_hops = graph_hops
+    _passage_limit = passage_limit
+    _claim_limit = claim_limit
+    _lead_limit = lead_limit
+    _rrf_k = rrf_k
+    return
+
+  policy_version: method = .string
+    return _policy_version
+  embedding_profile_id: method = .string
+    return _embedding_profile_id
+  query_vector: method = .binary
+    return _query_vector
+  lexical_limit: method = .int
+    return _lexical_limit
+  vector_limit: method = .int
+    return _vector_limit
+  vector_scan_limit: method = .int
+    return _vector_scan_limit
+  graph_hops: method = .int
+    return _graph_hops
+  passage_limit: method = .int
+    return _passage_limit
+  claim_limit: method = .int
+    return _claim_limit
+  lead_limit: method = .int
+    return _lead_limit
+  rrf_k: method = .int
+    return _rrf_k
+
+ragretrievalresult: class
+  _status = .int
+  _state = .string
+  _evidence = .ragevidence
+  _candidate_count = .int
+  _vector_state = .string
+  _error = .string
+
+  *: factory
+    arg status = .int, state = .string, evidence = .ragevidence, candidate_count = .int, vector_state = .string, error = .string
+    _status = status
+    _state = state
+    _evidence = evidence
+    _candidate_count = candidate_count
+    _vector_state = vector_state
+    _error = error
+    return
+
+  status: method = .int
+    return _status
+  state: method = .string
+    return _state
+  evidence: method = .ragevidence
+    return _evidence
+  candidate_count: method = .int
+    return _candidate_count
+  vector_state: method = .string
+    return _vector_state
+  error: method = .string
+    return _error
+
+retrieveevidence: procedure = .int
+  arg store = .ragstorehandle, profile = .ragprofile, question = .string, retrieval_options = .ragretrievaloptions, expose result = .ragretrievalresult, expose error = .string
+  empty_evidence = _emptyevidence(question)
+  result = .ragretrievalresult(-1, "error", empty_evidence, 0, "not-attempted", "retrieval input is invalid")
+  error = ""
+  if store.open() \= 1 | _validoptions(retrieval_options) \= 1 then do; error = "retrieval input is invalid"; return -1; end
+  query_plan = .ragqueryplan
+  if planquery(store, profile, question, retrieval_options.policy_version(), query_plan, error) \= 0 then return -2
+  generation = query_plan.generation()
+  library_id = _scalartext(store.database(), "SELECT library_id FROM library_meta WHERE singleton=1")
+  if library_id = "" then do; error = "library identity is unavailable"; return -3; end
+
+  candidate_ids = .string[]
+  lexical_ranks = .int[]; vector_ranks = .int[]; graph_ranks = .int[]
+  vector_scores = .float[]; graph_hops = .int[]; directness_values = .float[]
+  claim_ids = .string[]; claim_hops = .int[]; trace_notes = .string[]
+  lexical_status = _lexical(store.database(), query_plan, retrieval_options.lexical_limit(), candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values, trace_notes, error)
+  if lexical_status \= 0 then return -3
+
+  vector_state = "disabled"
+  if retrieval_options.embedding_profile_id() \= "" | binlength(retrieval_options.query_vector()) > 0 then do
+    vector_status = _vector(store, generation, retrieval_options, candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values, vector_state, trace_notes, error)
+    if vector_status < 0 then return -3
+  end
+  if _graph(store.database(), generation, query_plan, retrieval_options.graph_hops(), candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values, claim_ids, claim_hops, trace_notes, error) \= 0 then return -3
+
+  passages = .ragpassage[]; selected_ids = .string[]; selected_sources = .string[]; selected_contents = .string[]
+  scores = .float[]
+  if _rankandpassages(store.database(), library_id, generation, profile, query_plan, retrieval_options, candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values, scores, passages, selected_ids, selected_sources, selected_contents, trace_notes, error) \= 0 then return -3
+  claims = .ragacceptedclaim[]
+  if _claims(store.database(), library_id, generation, retrieval_options.claim_limit(), claim_ids, claim_hops, selected_ids, claims, trace_notes, error) \= 0 then return -3
+  ambiguities = query_plan.ambiguities()
+  if _retrievedambiguities(store.database(), generation, selected_ids, ambiguities, error) \= 0 then return -3
+  leads = .raggraphlead[]
+  if _leads(store.database(), generation, selected_ids, claim_ids, retrieval_options.lead_limit(), leads, error) \= 0 then return -3
+  gaps = .string[]
+  call _gaps(query_plan, passages, claims, ambiguities, vector_state, gaps)
+  plan_strings = .string[]; variants = query_plan.variants()
+  do i = 1 to variants.0
+    plan_strings[i] = variants[i].kind() || ":" || variants[i].query()
+  end
+  trace_identity = rxhash..sha256hex(("crexx-rag.retrieval-trace/1" || "00"x || library_id || "00"x || generation || "00"x || query_plan.fingerprint() || "00"x || _join(selected_ids)) as .binary)
+  trace_notes[trace_notes.0 + 1] = "policy=" || retrieval_options.policy_version()
+  trace_notes[trace_notes.0 + 1] = "vector=" || vector_state
+  trace_notes[trace_notes.0 + 1] = "candidates=" || candidate_ids.0 || ";selected=" || passages.0 || ";claims=" || claims.0 || ";leads=" || leads.0
+  trace_record = .ragtrace("trace-" || substr(trace_identity, 1, 24), plan_strings, trace_notes)
+  guidance = "Answer only from passages and accepted claim support; preserve attribution, stance, time, ambiguity, conflict, leads, and explicit gaps."
+  evidence = .ragevidence("crexx-rag.evidence/1", library_id, generation, question, plan_strings, passages, claims, ambiguities, leads, gaps, trace_record, guidance, "")
+  result = .ragretrievalresult(0, "complete", evidence, candidate_ids.0, vector_state, "")
+  return 0
+
+resolvecitation: procedure = .int
+  arg store = .ragstorehandle, citation = .ragcitation, expose passage = .ragpassage, expose error = .string
+  empty_channels = .string[]; empty_scores = .ragscore[]
+  passage = .ragpassage(citation, "", "", "", 0.0, "", "", "", "", "", empty_channels, empty_scores)
+  error = ""
+  if store.open() \= 1 | citation.source() = "" | citation.revision() = "" | citation.span_start() < 0 | citation.span_end() <= citation.span_start() then do; error = "citation input is invalid"; return -1; end
+  prepared = .binary
+  sql = "SELECT s.observed_title,t.normalized_utf8,s.connector_type,r.captured_at,COALESCE(r.event_start_at,''),COALESCE(r.event_end_at,'') FROM source_revisions r JOIN sources s ON s.source_id=r.source_id JOIN source_revision_texts t ON t.text_id=r.text_id WHERE s.source_id=?1 AND r.revision_id=?2"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindtext(prepared, 1, citation.source()) \= 0 | sqlitebindtext(prepared, 2, citation.revision()) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "citation source or revision does not exist"; return -2; end
+  title = ""; revision_text = ""; source_type = ""; captured_at = ""; event_start = ""; event_end = ""
+  column_status = sqlitecolumntext(prepared, 0, title) | sqlitecolumntext(prepared, 1, revision_text) | sqlitecolumntext(prepared, 2, source_type) | sqlitecolumntext(prepared, 3, captured_at) | sqlitecolumntext(prepared, 4, event_start) | sqlitecolumntext(prepared, 5, event_end)
+  call sqlitefinalize prepared
+  revision_bytes = revision_text as .binary
+  if column_status \= 0 | citation.span_end() > binlength(revision_bytes) then do; error = "citation UTF-8 span is outside the immutable revision"; return -2; end
+  body = binsubstr(revision_bytes, citation.span_start() + 1, citation.span_end() - citation.span_start()) as .string
+  channels = .string[]; channels[1] = "historical-resolution"
+  passage = .ragpassage(citation, title, body, source_type, 1.0, captured_at, event_start, event_end, "historical", "direct", channels, empty_scores)
+  return 0
+
+_lexical: procedure = .int
+  arg database = .binary, plan = .ragqueryplan, maximum = .int, expose candidate_ids = .string[], expose lexical_ranks = .int[], expose vector_ranks = .int[], expose graph_ranks = .int[], expose vector_scores = .float[], expose graph_hops = .int[], expose directness_values = .float[], expose trace_notes = .string[], expose error = .string
+  variants = plan.variants(); next_rank = 1
+  do v = 1 to variants.0
+    fts_query = variants[v].query()
+    if fts_query = "" then iterate
+    prepared = .binary
+    sql = "SELECT revision_chunk_id,bm25(chunks_fts) FROM chunks_fts WHERE chunks_fts MATCH ?1 ORDER BY bm25(chunks_fts),revision_chunk_id LIMIT ?2"
+    if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, fts_query) \= 0 | sqlitebindint(prepared, 2, maximum) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare lexical retrieval"; return -1; end
+    hits = 0
+    do forever
+      step_status = sqlitestep(prepared)
+      if step_status = 101 then leave
+      if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot execute lexical retrieval"; return -1; end
+      chunk_id = ""; raw_score = 0.0
+      if sqlitecolumntext(prepared, 0, chunk_id) \= 0 | sqlitecolumnreal(prepared, 1, raw_score) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode lexical retrieval"; return -1; end
+      existing_index = _candidateindex(candidate_ids, chunk_id)
+      if existing_index = 0 & candidate_ids.0 >= maximum then iterate
+      index = _candidate(chunk_id, candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values)
+      if lexical_ranks[index] = 0 then do; lexical_ranks[index] = next_rank; next_rank = next_rank + 1; end
+      hits = hits + 1
+    end
+    call sqlitefinalize prepared
+    trace_notes[trace_notes.0 + 1] = "lexical[" || variants[v].kind() || "]=" || hits
+  end
+  neighbor_count = _lexicalneighbors(database, plan.generation(), maximum, next_rank, candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values, error)
+  if neighbor_count < 0 then return -1
+  trace_notes[trace_notes.0 + 1] = "lexical-context-neighbors=" || neighbor_count || ";candidate-ceiling=" || maximum
+  return 0
+
+_lexicalneighbors: procedure = .int
+  arg database = .binary, generation = .int, maximum = .int, expose next_rank = .int, expose candidate_ids = .string[], expose lexical_ranks = .int[], expose vector_ranks = .int[], expose graph_ranks = .int[], expose vector_scores = .float[], expose graph_hops = .int[], expose directness_values = .float[], expose error = .string
+  direct_count = candidate_ids.0; added = 0
+  do i = 1 to direct_count
+    if candidate_ids.0 >= maximum then leave
+    prepared = .binary
+    sql = "SELECT n.revision_chunk_id FROM revision_chunks rc JOIN revision_chunks n ON n.revision_id=rc.revision_id AND (n.ordinal=rc.ordinal-1 OR n.ordinal=rc.ordinal+1) WHERE rc.revision_chunk_id=?1 AND n.visible_from_generation<=?2 AND (n.visible_to_generation IS NULL OR n.visible_to_generation>?2) ORDER BY abs(n.ordinal-rc.ordinal),n.ordinal"
+    if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, candidate_ids[i]) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare lexical context expansion"; return -1; end
+    do forever
+      step_status = sqlitestep(prepared)
+      if step_status = 101 then leave
+      if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read lexical context expansion"; return -1; end
+      neighbor_id = ""
+      if sqlitecolumntext(prepared, 0, neighbor_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode lexical context expansion"; return -1; end
+      if _candidateindex(candidate_ids, neighbor_id) = 0 & candidate_ids.0 < maximum then do
+        index = _candidate(neighbor_id, candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values)
+        lexical_ranks[index] = next_rank; next_rank = next_rank + 1; added = added + 1
+      end
+    end
+    call sqlitefinalize prepared
+  end
+  return added
+
+_vector: procedure = .int
+  arg store = .ragstorehandle, generation = .int, retrieval_options = .ragretrievaloptions, expose candidate_ids = .string[], expose lexical_ranks = .int[], expose vector_ranks = .int[], expose graph_ranks = .int[], expose vector_scores = .float[], expose graph_hops = .int[], expose directness_values = .float[], expose vector_state = .string, expose trace_notes = .string[], expose error = .string
+  profile_id = retrieval_options.embedding_profile_id(); query_wire = retrieval_options.query_vector()
+  if profile_id = "" | binlength(query_wire) = 0 then do; vector_state = "disabled-incomplete-options"; return 0; end
+  dimension = _scalarint(store.database(), "SELECT dimension FROM embedding_profiles WHERE embedding_profile_id=" || _q(profile_id))
+  if dimension < 1 | binlength(query_wire) \= dimension * 4 then do; vector_state = "fallback-query-dimension"; trace_notes[trace_notes.0 + 1] = "vector-fallback=query-dimension"; return 0; end
+  store_status = .ragstorestatus; status_error = ""
+  if storagestatus(store, store_status, status_error) \= 0 | store_status.manifest_state() \= "aligned" then do; vector_state = "fallback-manifest"; trace_notes[trace_notes.0 + 1] = "vector-fallback=manifest"; return 0; end
+  sidecar_count = _scalarint(store.database(), "SELECT count(*) FROM vector_generations WHERE state='published' AND semantic_generation=" || generation || " AND embedding_profile_id=" || _q(profile_id) || " AND dimension=" || dimension || " AND sidecar_name LIKE '%.rxvec'")
+  if sidecar_count \= 1 then do; vector_state = "fallback-stale-or-missing-generation"; trace_notes[trace_notes.0 + 1] = "vector-fallback=stale-or-missing-generation"; return 0; end
+  total_rows = _scalarint(store.database(), "SELECT count(*) FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE e.embedding_profile_id=" || _q(profile_id) || " AND e.dimension=" || dimension || " AND rce.visible_from_generation<=" || generation || " AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>" || generation || ") AND rc.visible_from_generation<=" || generation || " AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>" || generation || ")")
+  if total_rows < 1 | total_rows > retrieval_options.vector_scan_limit() then do; vector_state = "fallback-scan-ceiling"; trace_notes[trace_notes.0 + 1] = "vector-fallback=scan-ceiling"; return 0; end
+  query_vector = rxvector..decodef32le(query_wire)
+  offset = 0; page_size = 128; searched = 0
+  do while offset < total_rows
+    prepared = .binary
+    sql = "SELECT rc.revision_chunk_id,e.vector FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE e.embedding_profile_id=?1 AND e.dimension=?2 AND rce.visible_from_generation<=?3 AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>?3) AND rc.visible_from_generation<=?3 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?3) ORDER BY rc.revision_chunk_id LIMIT ?4 OFFSET ?5"
+    if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindtext(prepared, 1, profile_id) \= 0 | sqlitebindint(prepared, 2, dimension) \= 0 | sqlitebindint(prepared, 3, generation) \= 0 | sqlitebindint(prepared, 4, page_size) \= 0 | sqlitebindint(prepared, 5, offset) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare vector page"; return -1; end
+    page_wire = .binary; page_ids = .string[]; page_owners = .packedint(page_size); page_rows = 0
+    do forever
+      step_status = sqlitestep(prepared)
+      if step_status = 101 then leave
+      if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read vector page"; return -1; end
+      chunk_id = ""; vector_wire = .binary
+      if sqlitecolumntext(prepared, 0, chunk_id) \= 0 | sqlitecolumnblob(prepared, 1, vector_wire) \= 0 | binlength(vector_wire) \= dimension * 4 then do; call sqlitefinalize prepared; error = "cannot decode compatible vector page"; return -1; end
+      page_ids[page_ids.0 + 1] = chunk_id
+      call page_owners.set(page_rows, page_ids.0)
+      call binappend page_wire, vector_wire
+      page_rows = page_rows + 1
+    end
+    call sqlitefinalize prepared
+    if page_ids.0 = 0 then leave
+    call page_owners.resize(page_rows)
+    page_vectors = rxvector..decodef32le(page_wire)
+    requested = retrieval_options.vector_limit()
+    if requested > page_ids.0 then requested = page_ids.0
+    result_ids = .packedint(0); result_scores = .packedfloat(0)
+    call rxvector..topkcosine(page_vectors, page_owners, dimension, query_vector, requested, result_ids, result_scores)
+    do i = 0 to result_ids.size() - 1
+      owner = result_ids.get(i); similarity = result_scores.get(i)
+      index = _candidate(page_ids[owner], candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values)
+      if similarity > vector_scores[index] | vector_ranks[index] = 0 then vector_scores[index] = similarity
+    end
+    searched = searched + page_ids.0; offset = offset + page_ids.0
+  end
+  call _rankvectors(candidate_ids, vector_ranks, vector_scores, retrieval_options.vector_limit())
+  vector_state = "active-exact-rxvector"
+  trace_notes[trace_notes.0 + 1] = "vector-rows=" || searched || ";dimension=" || dimension || ";backend=rxvector-exact"
+  return 0
+
+_graph: procedure = .int
+  arg database = .binary, generation = .int, plan = .ragqueryplan, maximum_hops = .int, expose candidate_ids = .string[], expose lexical_ranks = .int[], expose vector_ranks = .int[], expose graph_ranks = .int[], expose vector_scores = .float[], expose graph_hops = .int[], expose directness_values = .float[], expose claim_ids = .string[], expose claim_hops = .int[], expose trace_notes = .string[], expose error = .string
+  anchors = .string[]
+  if _anchors(database, generation, plan.normalized_question(), candidate_ids, anchors, error) \= 0 then return -1
+  frontier = anchors; visited = .string[]; next_rank = 1
+  do hop = 1 to maximum_hops
+    next_frontier = .string[]
+    do f = 1 to frontier.0
+      concept_id = frontier[f]
+      if _contains(visited, concept_id) = 1 then iterate
+      visited[visited.0 + 1] = concept_id
+      prepared = .binary
+      sql = "SELECT c.claim_id,c.target_concept_id,s.revision_chunk_id,s.directness FROM claims c JOIN claim_support s ON s.claim_id=c.claim_id WHERE c.source_concept_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) AND s.visible_from_generation<=?2 AND (s.visible_to_generation IS NULL OR s.visible_to_generation>?2) ORDER BY c.claim_id,s.support_id"
+      if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, concept_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare directed graph retrieval"; return -1; end
+      do forever
+        step_status = sqlitestep(prepared)
+        if step_status = 101 then leave
+        if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read directed graph retrieval"; return -1; end
+        claim_id = ""; target = ""; chunk_id = ""; directness = ""
+        if sqlitecolumntext(prepared, 0, claim_id) \= 0 | sqlitecolumntext(prepared, 1, target) \= 0 | sqlitecolumntext(prepared, 2, chunk_id) \= 0 | sqlitecolumntext(prepared, 3, directness) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode directed graph retrieval"; return -1; end
+        index = _candidate(chunk_id, candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values)
+        if graph_ranks[index] = 0 then do; graph_ranks[index] = next_rank; next_rank = next_rank + 1; graph_hops[index] = hop; end
+        if directness = "direct" then directness_values[index] = 1.0
+        if _contains(claim_ids, claim_id) = 0 then do; claim_ids[claim_ids.0 + 1] = claim_id; claim_hops[claim_hops.0 + 1] = hop; end
+        if _contains(visited, target) = 0 & _contains(next_frontier, target) = 0 then next_frontier[next_frontier.0 + 1] = target
+      end
+      call sqlitefinalize prepared
+    end
+    frontier = next_frontier
+    if frontier.0 = 0 then leave
+  end
+  trace_notes[trace_notes.0 + 1] = "graph-anchors=" || anchors.0 || ";supported-claims=" || claim_ids.0 || ";directed=1"
+  return 0
+
+_rankandpassages: procedure = .int
+  arg database = .binary, library_id = .string, generation = .int, profile = .ragprofile, plan = .ragqueryplan, retrieval_options = .ragretrievaloptions, candidate_ids = .string[], lexical_ranks = .int[], vector_ranks = .int[], graph_ranks = .int[], vector_scores = .float[], graph_hops = .int[], directness_values = .float[], expose final_scores = .float[], expose passages = .ragpassage[], expose selected_ids = .string[], expose selected_sources = .string[], expose selected_contents = .string[], expose trace_notes = .string[], expose error = .string
+  lexical_weight = _weight(profile, "lexical", 1.0); vector_weight = _weight(profile, "semantic", 1.0); graph_weight = _weight(profile, "graph", 1.0)
+  base_scores = .float[]; citations = .ragcitation[]; titles = .string[]; bodies = .string[]; source_types = .string[]
+  captured_values = .string[]; event_starts = .string[]; event_ends = .string[]; evidence_classes = .string[]; source_ids = .string[]; content_ids = .string[]
+  selected_flags = .int[]; excluded_flags = .int[]
+  do i = 1 to candidate_ids.0
+    rrf = 0.0
+    if lexical_ranks[i] > 0 then rrf = rrf + lexical_weight / (retrieval_options.rrf_k() + lexical_ranks[i])
+    if vector_ranks[i] > 0 then rrf = rrf + vector_weight / (retrieval_options.rrf_k() + vector_ranks[i])
+    if graph_ranks[i] > 0 then rrf = rrf + graph_weight / (retrieval_options.rrf_k() + graph_ranks[i])
+    graph_boost = 0.0
+    if graph_hops[i] > 0 then graph_boost = 0.04 * (0.75 ** (graph_hops[i] - 1))
+    directness_bonus = directness_values[i] * 0.02
+    base_scores[i] = rrf + graph_boost + directness_bonus
+    citation = .ragcitation; title = ""; body = ""; source_type = ""; captured = ""; event_start = ""; event_end = ""; evidence_class = ""; source_id = ""; content_id = ""
+    if _chunk(database, library_id, generation, candidate_ids[i], citation, title, body, source_type, captured, event_start, event_end, evidence_class, source_id, content_id, error) \= 0 then return -1
+    citations[i] = citation; titles[i] = title; bodies[i] = body; source_types[i] = source_type
+    captured_values[i] = captured; event_starts[i] = event_start; event_ends[i] = event_end; evidence_classes[i] = evidence_class; source_ids[i] = source_id; content_ids[i] = content_id
+    selected_flags[i] = 0; excluded_flags[i] = 0
+  end
+  do while passages.0 < retrieval_options.passage_limit()
+    best_index = 0; best_score = -1000000.0; best_duplicate_penalty = 0.0; best_source_quality = 0.0; best_temporal = 0.0
+    do i = 1 to candidate_ids.0
+      if selected_flags[i] = 1 | excluded_flags[i] = 1 then iterate
+      if _sourcecount(selected_sources, source_ids[i]) >= 3 then do
+        excluded_flags[i] = 1
+        trace_notes[trace_notes.0 + 1] = "diversity-skip=" || candidate_ids[i] || ";reason=source-cap"
+        iterate
+      end
+      duplicate_penalty = 0.0
+      if _contains(selected_contents, content_ids[i]) = 1 then duplicate_penalty = 0.05
+      source_quality = 0.0
+      if evidence_classes[i] = "narrative" then source_quality = 0.02
+      if evidence_classes[i] = "index" | evidence_classes[i] = "caption" then source_quality = -0.02
+      temporal = 0.0
+      if _hasintent(plan.intents(), "time") = 1 & (event_starts[i] \= "" | event_ends[i] \= "") then temporal = 0.01
+      adjusted = base_scores[i] + source_quality + temporal - duplicate_penalty
+      if best_index = 0 | adjusted > best_score | (adjusted = best_score & candidate_ids[i] < candidate_ids[best_index]) then do
+        best_index = i; best_score = adjusted; best_duplicate_penalty = duplicate_penalty; best_source_quality = source_quality; best_temporal = temporal
+      end
+    end
+    if best_index = 0 then leave
+    index = best_index; selected_flags[index] = 1; final_scores[index] = best_score
+    channels = .string[]
+    if lexical_ranks[index] > 0 then channels[channels.0 + 1] = "lexical"
+    if vector_ranks[index] > 0 then channels[channels.0 + 1] = "vector"
+    if graph_ranks[index] > 0 then channels[channels.0 + 1] = "graph"
+    score_parts = .ragscore[]
+    score_parts[score_parts.0 + 1] = .ragscore("rrf-final", best_score)
+    if lexical_ranks[index] > 0 then score_parts[score_parts.0 + 1] = .ragscore("lexical-rank", lexical_ranks[index])
+    if vector_ranks[index] > 0 then score_parts[score_parts.0 + 1] = .ragscore("vector-similarity", vector_scores[index])
+    if graph_hops[index] > 0 then score_parts[score_parts.0 + 1] = .ragscore("graph-hop-decay", 0.75 ** (graph_hops[index] - 1))
+    score_parts[score_parts.0 + 1] = .ragscore("directness-bonus", directness_values[index] * 0.02)
+    score_parts[score_parts.0 + 1] = .ragscore("temporal-relevance", best_temporal)
+    score_parts[score_parts.0 + 1] = .ragscore("source-quality", best_source_quality)
+    score_parts[score_parts.0 + 1] = .ragscore("duplication-penalty", best_duplicate_penalty)
+    directness = "lead"
+    if directness_values[index] > 0.0 then directness = "direct"
+    passages[passages.0 + 1] = .ragpassage(citations[index], titles[index], bodies[index], source_types[index], 1.0, captured_values[index], event_starts[index], event_ends[index], evidence_classes[index], directness, channels, score_parts)
+    selected_ids[selected_ids.0 + 1] = candidate_ids[index]; selected_sources[selected_sources.0 + 1] = source_ids[index]; selected_contents[selected_contents.0 + 1] = content_ids[index]
+  end
+  return 0
+
+_claims: procedure = .int
+  arg database = .binary, library_id = .string, generation = .int, maximum = .int, claim_ids = .string[], claim_hops = .int[], selected_chunks = .string[], expose claims = .ragacceptedclaim[], expose trace_notes = .string[], expose error = .string
+  do c = 1 to claim_ids.0
+    if claims.0 >= maximum then leave
+    prepared = .binary
+    sql = "SELECT c.source_concept_id,sc.canonical_label,c.relationship_type,c.target_concept_id,tc.canonical_label,c.direction,COALESCE(c.effective_from,''),COALESCE(c.effective_to,''),c.qualifiers_json FROM claims c JOIN concepts sc ON sc.concept_id=c.source_concept_id JOIN concepts tc ON tc.concept_id=c.target_concept_id WHERE c.claim_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2)"
+    if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, claim_ids[c]) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare accepted claim"; return -1; end
+    if sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; iterate; end
+    source_id = ""; subject = ""; relationship = ""; target_id = ""; object = ""; direction = ""; effective_start = ""; effective_end = ""; qualifiers = ""
+    column_status = sqlitecolumntext(prepared, 0, source_id) | sqlitecolumntext(prepared, 1, subject) | sqlitecolumntext(prepared, 2, relationship) | sqlitecolumntext(prepared, 3, target_id) | sqlitecolumntext(prepared, 4, object) | sqlitecolumntext(prepared, 5, direction) | sqlitecolumntext(prepared, 6, effective_start) | sqlitecolumntext(prepared, 7, effective_end) | sqlitecolumntext(prepared, 8, qualifiers)
+    call sqlitefinalize prepared
+    if column_status \= 0 then do; error = "cannot decode accepted claim"; return -1; end
+    supports = .ragsupportcitation[]; support_selected = 0; asserted_at = ""
+    support_statement = .binary
+    sql = "SELECT s.revision_chunk_id,s.span_start,s.span_end,s.polarity,s.stance,s.attribution,s.lineage_group,rc.normalized_start,r.revision_id,r.source_id,r.captured_at FROM claim_support s JOIN revision_chunks rc ON rc.revision_chunk_id=s.revision_chunk_id JOIN source_revisions r ON r.revision_id=rc.revision_id WHERE s.claim_id=?1 AND s.visible_from_generation<=?2 AND (s.visible_to_generation IS NULL OR s.visible_to_generation>?2) ORDER BY s.support_id"
+    if sqliteprepare(database, sql, support_statement) \= 0 | sqlitebindtext(support_statement, 1, claim_ids[c]) \= 0 | sqlitebindint(support_statement, 2, generation) \= 0 then do; call sqlitefinalize support_statement; error = "cannot prepare claim support"; return -1; end
+    do forever
+      step_status = sqlitestep(support_statement)
+      if step_status = 101 then leave
+      if step_status \= 100 then do; call sqlitefinalize support_statement; error = "cannot read claim support"; return -1; end
+      chunk_id = ""; span_start = 0; span_end = 0; polarity = ""; stance = ""; attribution = ""; lineage = ""; chunk_start = 0; revision_id = ""; support_source = ""; captured_at = ""
+      column_status = sqlitecolumntext(support_statement, 0, chunk_id) | sqlitecolumnint(support_statement, 1, span_start) | sqlitecolumnint(support_statement, 2, span_end) | sqlitecolumntext(support_statement, 3, polarity) | sqlitecolumntext(support_statement, 4, stance) | sqlitecolumntext(support_statement, 5, attribution) | sqlitecolumntext(support_statement, 6, lineage) | sqlitecolumnint(support_statement, 7, chunk_start) | sqlitecolumntext(support_statement, 8, revision_id) | sqlitecolumntext(support_statement, 9, support_source) | sqlitecolumntext(support_statement, 10, captured_at)
+      if column_status \= 0 then do; call sqlitefinalize support_statement; error = "cannot decode claim support"; return -1; end
+      stable = _stablecitation(library_id, support_source, revision_id, chunk_start + span_start, chunk_start + span_end)
+      citation = .ragcitation(stable, support_source, revision_id, chunk_start + span_start, chunk_start + span_end)
+      supports[supports.0 + 1] = .ragsupportcitation(citation, polarity, stance, attribution, lineage)
+      if _contains(selected_chunks, chunk_id) = 1 then support_selected = 1
+      if asserted_at = "" | captured_at < asserted_at then asserted_at = captured_at
+    end
+    call sqlitefinalize support_statement
+    if supports.0 = 0 | support_selected = 0 then iterate
+    conflicts = .string[]
+    conflict_statement = .binary
+    sql = "SELECT competing_claim_id||':'||review_state FROM claim_conflicts WHERE claim_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2) ORDER BY conflict_id"
+    if sqliteprepare(database, sql, conflict_statement) \= 0 | sqlitebindtext(conflict_statement, 1, claim_ids[c]) \= 0 | sqlitebindint(conflict_statement, 2, generation) \= 0 then do; call sqlitefinalize conflict_statement; error = "cannot prepare claim conflict"; return -1; end
+    do forever
+      step_status = sqlitestep(conflict_statement)
+      if step_status = 101 then leave
+      if step_status \= 100 then do; call sqlitefinalize conflict_statement; error = "cannot read claim conflict"; return -1; end
+      conflict = ""; if sqlitecolumntext(conflict_statement, 0, conflict) \= 0 then do; call sqlitefinalize conflict_statement; error = "cannot decode claim conflict"; return -1; end
+      conflicts[conflicts.0 + 1] = conflict
+    end
+    call sqlitefinalize conflict_statement
+    confidence = 1.0
+    breakdown = .ragscore[]; breakdown[1] = .ragscore("support-count", supports.0); breakdown[2] = .ragscore("hop-decay", 0.75 ** (claim_hops[c] - 1))
+    claims[claims.0 + 1] = .ragacceptedclaim(claim_ids[c], subject, relationship, object, direction, confidence, effective_start, effective_end, asserted_at, supports, breakdown, conflicts)
+  end
+  trace_notes[trace_notes.0 + 1] = "accepted-claims=" || claims.0 || ";support-required=1"
+  return 0
+
+_retrievedambiguities: procedure = .int
+  arg database = .binary, generation = .int, selected_ids = .string[], expose ambiguities = .string[], expose error = .string
+  do i = 1 to selected_ids.0
+    prepared = .binary
+    sql = "SELECT DISTINCT ambiguity_id FROM ambiguity_candidates WHERE revision_chunk_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2) ORDER BY ambiguity_id"
+    if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, selected_ids[i]) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare ambiguity retrieval"; return -1; end
+    do forever
+      step_status = sqlitestep(prepared)
+      if step_status = 101 then leave
+      if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read ambiguity retrieval"; return -1; end
+      ambiguity = ""; if sqlitecolumntext(prepared, 0, ambiguity) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode ambiguity retrieval"; return -1; end
+      if _contains(ambiguities, ambiguity) = 0 then ambiguities[ambiguities.0 + 1] = ambiguity
+    end
+    call sqlitefinalize prepared
+  end
+  return 0
+
+_leads: procedure = .int
+  arg database = .binary, generation = .int, selected_ids = .string[], accepted_claim_ids = .string[], maximum = .int, expose leads = .raggraphlead[], expose error = .string
+  do i = 1 to selected_ids.0
+    if leads.0 >= maximum then leave
+    labels = .string[]; mentions = .string[]
+    prepared = .binary
+    sql = "SELECT m.mention_id,c.canonical_label FROM mentions m JOIN concepts c ON c.concept_id=m.concept_id WHERE m.revision_chunk_id=?1 AND m.visible_from_generation<=?2 AND (m.visible_to_generation IS NULL OR m.visible_to_generation>?2) ORDER BY m.mention_id LIMIT 3"
+    if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, selected_ids[i]) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare graph leads"; return -1; end
+    do forever
+      step_status = sqlitestep(prepared)
+      if step_status = 101 then leave
+      if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read graph leads"; return -1; end
+      mention = ""; label = ""
+      if sqlitecolumntext(prepared, 0, mention) \= 0 | sqlitecolumntext(prepared, 1, label) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode graph leads"; return -1; end
+      mentions[mentions.0 + 1] = mention; labels[labels.0 + 1] = label
+    end
+    call sqlitefinalize prepared
+    if labels.0 >= 2 then leads[leads.0 + 1] = .raggraphlead(labels, "co-mention passage worth inspecting", mentions, "co-mention and adjacency do not establish a typed relationship")
+  end
+  return 0
+
+_gaps: procedure
+  arg plan = .ragqueryplan, passages = .ragpassage[], claims = .ragacceptedclaim[], ambiguities = .string[], vector_state = .string, expose gaps = .string[]
+  normalized_question = plan.normalized_question()
+  if passages.0 = 0 then gaps[gaps.0 + 1] = "No active passage matched the deterministic query plan."
+  if _hasintent(plan.intents(), "relationship") = 1 & claims.0 = 0 then gaps[gaps.0 + 1] = "No supported directed claim answered the requested relationship; graph or vector results remain leads."
+  if ambiguities.0 > 0 then gaps[gaps.0 + 1] = "One or more query names remain ambiguous; do not transfer facts between senses."
+  if left(vector_state, 8) = "fallback" then gaps[gaps.0 + 1] = "Semantic retrieval was unavailable or incompatible; lexical and graph retrieval remained active."
+  variants = plan.variants(); phrase_requested = 0
+  do i = 1 to variants.0
+    if variants[i].kind() = "exact-phrase" then phrase_requested = 1
+  end
+  explicit_phrase_gap = 0; explicit_relationship_gap = 0; explicit_datastore_gap = 0; explicit_freshness_gap = 0; explicit_collective_gap = 0; explicit_verdict_gap = 0
+  do i = 1 to passages.0
+    body = lower(passages[i].text())
+    if phrase_requested = 1 & (pos("does not occur", body) > 0 | pos("exact phrase is absent", body) > 0) then explicit_phrase_gap = 1
+    if _hasintent(plan.intents(), "relationship") = 1 & ((pos("not evidence of", body) > 0 & pos("alliance", body) > 0) | pos("does not establish", body) > 0) then explicit_relationship_gap = 1
+    if pos("datastore", normalized_question) > 0 & pos("evidence about the datastore", body) > 0 & pos("no", body) > 0 then explicit_datastore_gap = 1
+    if (pos("replica", normalized_question) > 0 | pos("risk", normalized_question) > 0 | pos("failover", normalized_question) > 0) & pos("every replica is current", body) > 0 & pos("does not claim", body) > 0 then explicit_freshness_gap = 1
+    if (pos("role", normalized_question) > 0 | pos("rannoch", normalized_question) > 0) & pos("lawful", normalized_question) = 0 & pos("unlawful", normalized_question) = 0 & pos("does not attribute the act", body) > 0 & pos("every member", body) > 0 then explicit_collective_gap = 1
+    if (pos("lawful", normalized_question) > 0 | pos("unlawful", normalized_question) > 0) & pos("resolved fact about blame", body) > 0 then explicit_verdict_gap = 1
+  end
+  if explicit_phrase_gap = 1 then gaps[gaps.0 + 1] = "A returned source explicitly says the requested exact phrase does not occur in that source; do not generalize beyond the active fixture."
+  else if phrase_requested = 1 & passages.0 = 0 then gaps[gaps.0 + 1] = "The requested exact phrase was not found in the active fixture; this is not a corpus-wide absence claim."
+  if explicit_relationship_gap = 1 then gaps[gaps.0 + 1] = "A returned source explicitly says the observed adjacency does not establish the requested relationship."
+  if explicit_datastore_gap = 1 then gaps[gaps.0 + 1] = "The returned fixture explicitly provides no evidence about the datastore used by the named service; do not transfer another sense's path."
+  if explicit_freshness_gap = 1 then gaps[gaps.0 + 1] = "The returned fixture explicitly does not claim that every replica is current during failover."
+  if explicit_collective_gap = 1 then gaps[gaps.0 + 1] = "The returned evidence does not attribute the act to every member of the named house."
+  if explicit_verdict_gap = 1 then gaps[gaps.0 + 1] = "The returned source positions do not independently resolve a neutral legal verdict."
+  return
+
+_anchors: procedure = .int
+  arg database = .binary, generation = .int, normalized_question = .string, candidate_ids = .string[], expose anchors = .string[], expose error = .string
+  prepared = .binary
+  sql = "SELECT concept_id,lower(canonical_label) FROM concepts WHERE visible_from_generation<=?1 AND (visible_to_generation IS NULL OR visible_to_generation>?1) ORDER BY concept_id"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare concept anchors"; return -1; end
+  do forever
+    step_status = sqlitestep(prepared)
+    if step_status = 101 then leave
+    if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read concept anchors"; return -1; end
+    concept_id = ""; label = ""
+    if sqlitecolumntext(prepared, 0, concept_id) \= 0 | sqlitecolumntext(prepared, 1, label) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode concept anchors"; return -1; end
+    if label \= "" & pos(" " || label || " ", " " || normalized_question || " ") > 0 & _contains(anchors, concept_id) = 0 then anchors[anchors.0 + 1] = concept_id
+  end
+  call sqlitefinalize prepared
+  do i = 1 to candidate_ids.0
+    mention_statement = .binary
+    sql = "SELECT DISTINCT concept_id FROM mentions WHERE revision_chunk_id=?1 AND concept_id IS NOT NULL AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2) ORDER BY concept_id"
+    if sqliteprepare(database, sql, mention_statement) \= 0 | sqlitebindtext(mention_statement, 1, candidate_ids[i]) \= 0 | sqlitebindint(mention_statement, 2, generation) \= 0 then do; call sqlitefinalize mention_statement; error = "cannot prepare mention anchors"; return -1; end
+    do forever
+      step_status = sqlitestep(mention_statement)
+      if step_status = 101 then leave
+      if step_status \= 100 then do; call sqlitefinalize mention_statement; error = "cannot read mention anchors"; return -1; end
+      concept_id = ""; if sqlitecolumntext(mention_statement, 0, concept_id) \= 0 then do; call sqlitefinalize mention_statement; error = "cannot decode mention anchors"; return -1; end
+      if _contains(anchors, concept_id) = 0 then anchors[anchors.0 + 1] = concept_id
+    end
+    call sqlitefinalize mention_statement
+  end
+  return 0
+
+_chunk: procedure = .int
+  arg database = .binary, library_id = .string, generation = .int, chunk_id = .string, expose citation = .ragcitation, expose title = .string, expose body = .string, expose source_type = .string, expose captured = .string, expose event_start = .string, expose event_end = .string, expose evidence_class = .string, expose source_id = .string, expose content_id = .string, expose error = .string
+  prepared = .binary
+  sql = "SELECT s.source_id,s.observed_title,s.connector_type,r.revision_id,r.captured_at,COALESCE(r.event_start_at,''),COALESCE(r.event_end_at,''),rc.normalized_start,rc.normalized_end,rc.evidence_class,cc.content_id,cc.text FROM revision_chunks rc JOIN chunk_contents cc ON cc.content_id=rc.content_id JOIN source_revisions r ON r.revision_id=rc.revision_id JOIN sources s ON s.source_id=r.source_id WHERE rc.revision_chunk_id=?1 AND rc.visible_from_generation<=?2 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?2)"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, chunk_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "retrieved chunk is not active"; return -1; end
+  revision_id = ""; start = 0; finish = 0
+  column_status = sqlitecolumntext(prepared, 0, source_id) | sqlitecolumntext(prepared, 1, title) | sqlitecolumntext(prepared, 2, source_type) | sqlitecolumntext(prepared, 3, revision_id) | sqlitecolumntext(prepared, 4, captured) | sqlitecolumntext(prepared, 5, event_start) | sqlitecolumntext(prepared, 6, event_end) | sqlitecolumnint(prepared, 7, start) | sqlitecolumnint(prepared, 8, finish) | sqlitecolumntext(prepared, 9, evidence_class) | sqlitecolumntext(prepared, 10, content_id) | sqlitecolumntext(prepared, 11, body)
+  call sqlitefinalize prepared
+  if column_status \= 0 | start < 0 | finish <= start then do; error = "retrieved chunk citation is invalid"; return -1; end
+  citation = .ragcitation(_stablecitation(library_id, source_id, revision_id, start, finish), source_id, revision_id, start, finish)
+  return 0
+
+_candidate: procedure = .int
+  arg chunk_id = .string, expose candidate_ids = .string[], expose lexical_ranks = .int[], expose vector_ranks = .int[], expose graph_ranks = .int[], expose vector_scores = .float[], expose graph_hops = .int[], expose directness_values = .float[]
+  do i = 1 to candidate_ids.0
+    if candidate_ids[i] = chunk_id then return i
+  end
+  index = candidate_ids.0 + 1; candidate_ids[index] = chunk_id
+  lexical_ranks[index] = 0; vector_ranks[index] = 0; graph_ranks[index] = 0; vector_scores[index] = 0.0; graph_hops[index] = 0; directness_values[index] = 0.0
+  return index
+
+_candidateindex: procedure = .int
+  arg candidate_ids = .string[], chunk_id = .string
+  do i = 1 to candidate_ids.0; if candidate_ids[i] = chunk_id then return i; end
+  return 0
+
+_rankvectors: procedure
+  arg candidate_ids = .string[], expose ranks = .int[], scores = .float[], maximum = .int
+  order = .int[]
+  do i = 1 to candidate_ids.0
+    if scores[i] \= 0.0 then order[order.0 + 1] = i
+  end
+  call _sortorder order, scores
+  limit = maximum
+  if order.0 < limit then limit = order.0
+  do i = 1 to limit; ranks[order[i]] = i; end
+  return
+
+_sortorder: procedure
+  arg expose order = .int[], scores = .float[]
+  do i = 2 to order.0
+    key = order[i]; j = i - 1
+    do while j >= 1 & (scores[order[j]] < scores[key] | (scores[order[j]] = scores[key] & order[j] > key))
+      order[j + 1] = order[j]; j = j - 1
+    end
+    order[j + 1] = key
+  end
+  return
+
+_weight: procedure = .float
+  arg profile = .ragprofile, name = .string, fallback = .float
+  weights = profile.ranking_weights()
+  do i = 1 to weights.0
+    if weights[i].name() = name then return weights[i].value()
+  end
+  return fallback
+
+_sourcecount: procedure = .int
+  arg sources = .string[], source = .string
+  count = 0
+  do i = 1 to sources.0
+    if sources[i] = source then count = count + 1
+  end
+  return count
+
+_hasintent: procedure = .int
+  arg intents = .string[], expected = .string
+  do i = 1 to intents.0
+    if intents[i] = expected then return 1
+  end
+  return 0
+
+_contains: procedure = .int
+  arg values = .string[], value = .string
+  do i = 1 to values.0
+    if values[i] = value then return 1
+  end
+  return 0
+
+_join: procedure = .string
+  arg values = .string[]
+  output = ""
+  do i = 1 to values.0
+    if output \= "" then output = output || "00"x
+    output = output || values[i]
+  end
+  return output
+
+_stablecitation: procedure = .string
+  arg library_id = .string, source_id = .string, revision_id = .string, start = .int, finish = .int
+  return "crexx-rag:" || library_id || ":" || source_id || ":" || revision_id || ":utf8-" || start || "-" || finish
+
+_validoptions: procedure = .int
+  arg retrieval_options = .ragretrievaloptions
+  return retrieval_options.policy_version() \= "" & retrieval_options.lexical_limit() >= 1 & retrieval_options.lexical_limit() <= 100 & retrieval_options.vector_limit() >= 1 & retrieval_options.vector_limit() <= 100 & retrieval_options.vector_scan_limit() >= retrieval_options.vector_limit() & retrieval_options.vector_scan_limit() <= 1000000 & retrieval_options.graph_hops() >= 0 & retrieval_options.graph_hops() <= 4 & retrieval_options.passage_limit() >= 1 & retrieval_options.passage_limit() <= 12 & retrieval_options.claim_limit() >= 0 & retrieval_options.claim_limit() <= 8 & retrieval_options.lead_limit() >= 0 & retrieval_options.lead_limit() <= 8 & retrieval_options.rrf_k() >= 1 & retrieval_options.rrf_k() <= 1000
+
+_scalarint: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  value = -1; status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value
+
+_scalartext: procedure = .string
+  arg database = .binary, sql = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  value = ""; status = sqlitecolumntext(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return ""
+  return value
+
+_q: procedure = .string
+  arg value = .string
+  return "'" || changestr("'", value, "''") || "'"
+
+_emptyevidence: procedure = .ragevidence
+  arg question = .string
+  query_plan = .string[]; passages = .ragpassage[]; claims = .ragacceptedclaim[]; ambiguities = .string[]; leads = .raggraphlead[]; gaps = .string[]; notes = .string[]
+  trace_record = .ragtrace("", query_plan, notes)
+  return .ragevidence("", "", 0, question, query_plan, passages, claims, ambiguities, leads, gaps, trace_record, "", "")

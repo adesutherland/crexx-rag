@@ -2,7 +2,7 @@
 
 ## Boundary
 
-The directory owns product-facing Level G contracts and, through Phase 4,
+The directory owns product-facing Level G contracts and, through Phase 5,
 the cREXX implementations behind them. It may consume installed CREXX
 foundation modules and separately qualified generic plugins. It must not call
 the native-v1 RAG bridge, shell through the CLI, or import product behavior from
@@ -22,6 +22,9 @@ ragstore + ragregistry + ragcanonical <- ragplanning
 ragstore + installed rxhash <- ragingest <- ragfolder + ragfile + rxfs
 ragstore + ragingest <- ragclaims <- ragimprove
 ragstore + ragjob + ragclaims <- ragwork <- ragimprove jobs
+ragstore + ragprofile + ragingest <- ragquery
+ragstore + provider contract + installed rxvector <- ragembedding
+ragquery + ragembedding + ragclaims <- ragretrieval <- ragevidencejson
 ragcommand + lifecycle modules + ragplanning <- ragfoundation
 ```
 
@@ -85,6 +88,18 @@ using the SQLite clock, increments a per-item fence, records every attempt and
 event, reserves maximum provider usage, settles actual usage, and commits
 proposal promotion only while the same lease/fence/attempt remains active.
 Multiple processes share no mutable cREXX context.
+
+Phase 5 keeps query planning deterministic and provider-free. `ragquery` binds
+the active generation, policy, normalized variants, aliases, intent, ambiguity
+and term-statistics fingerprints into a canonical SHA-256 plan. `ragembedding`
+checks route/privacy before calling a provider, stores immutable embedding
+identity and resumes missing batches, then publishes an exact `.rxvec` sidecar
+only after dimension/row/checksum validation. `ragretrieval` bounds every
+channel, pages packed vectors through installed `rxvector`, resolves directed
+graph paths to support passages, and preserves each fusion component in the
+trace. Incompatible vector state falls back lexically with an explicit reason.
+`ragevidencejson` applies a caller byte ceiling and never collapses accepted
+support, contradiction, stance, time, ambiguity, leads or gaps into prose.
 
 Rollback targets a published ancestor. While holding the SQLite writer lock it
 first publishes a projection of that already-committed older generation, then
@@ -151,3 +166,12 @@ trigger ranking, crash expiry, late-fence rejection, two OS-process workers,
 retry/dead-letter, heartbeat, pause/resume/drain, cancellation, exact
 reservations, in-flight denial, native-v1 queue-oracle compatibility, and exact
 tutorial NDJSON.
+
+CTest `phase5_retrieval` compiles query planning, embedding/index publication,
+hybrid retrieval and evidence encoding in both compiler modes, then runs both
+concrete VMs. It checks nine frozen IT/Scotland questions with two reset
+scorers, exact recall/quality ceilings, stable historical citations, lexical
+fallback, atomic vector generation, privacy denial, the six-record tutorial,
+the preserved native-v1 MCP oracle and a controlled full-source baseline. The
+ordinary test is deterministic and zero-outbound; the explicit hosted harness
+and its cREXX transport limitation are documented separately.

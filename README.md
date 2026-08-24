@@ -10,14 +10,16 @@ also a deliberately demanding cREXX reference workload: it exercises the
 language, runtimes, libraries, plugin model, packaging, diagnostics, and
 performance with retained correctness and workload evidence.
 
-> **Programme status, 2026-08-23:** Gate 1B is accepted, including all 28
+> **Programme status, 2026-08-24:** Gate 1B is accepted, including all 28
 > bounded Phase-1B results and their recorded limitations. `P2-01` through
 > `P2-10` and Gate 2 are accepted for the current macOS scope. Exact downstream
-> Linux replay remains open and is not represented by the macOS result. Phase
-> 3 true initial/incremental ingestion and Phase 4 claim, review, improvement,
-> and multi-process worker algorithms are accepted for their recorded macOS
-> scopes. Phase 4 includes one clean 28,800-poll supervised overnight run. The
-> native-v1 C++ path remains the executable oracle. Level G is
+> Linux replay remains open and is not represented by the macOS result. Phases
+> 3 through 5 are implemented and accepted for the recorded macOS scope:
+> incremental ingestion; claims, improvement and durable workers; and focused
+> hybrid retrieval with typed evidence. Phase 4 includes its literal eight-hour
+> supervised soak. Phase 5 includes bounded hosted answer-quality evidence but
+> leaves the cREXX hosted POST-completion finding to Phase 7. The native-v1 C++
+> path remains the executable oracle. Level G is
 > now the required default for advanced libraries and application code; Level B
 > is reserved for CREXX bootstrap and justified low-level foundations.
 
@@ -94,7 +96,10 @@ pinned snapshots, recoverable manifests, strict read-only opens, verification,
 and rollback. Phase 3 now adds the production Level-G folder connector,
 canonical ingest plan, shared initial/incremental reconciler, deterministic
 chunking/candidate census, FTS/dependency invalidation, reuse, and resumable
-jobs. It is not yet a complete public command set or cutover candidate.
+jobs. Phase 4 adds claim/review/improvement and durable multi-process workers;
+Phase 5 adds the production Level-G query planner, incremental embedding and
+exact-vector publication, hybrid retrieval and bounded typed evidence. It is
+not yet a complete public command set or cutover candidate.
 
 ## Current Status
 
@@ -105,8 +110,9 @@ jobs. It is not yet a complete public command set or cutover candidate.
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | 28 bounded items accepted; Debug/Release build; 55 of 56 tests pass with sole known CRI-15 failure |
 | Phase 2 / Gate 2 | Accepted on macOS 2026-08-23 | P2-01 through P2-10, installed-capability adoption, canonical zero-write planning, and hostile apply-time revalidation are accepted; exact downstream Linux replay remains open |
 | Phase 3 / Gate 3 | Accepted on macOS 2026-08-23 | Level-G initial/incremental ingestion, exact reuse/invalidation, executable tutorial, native semantic delta, and crash resume pass; Linux remains open |
-| Phase 4 / Gate 4 | Accepted on macOS 2026-08-24 | Claim/support/review, budgeted improvement, crash recovery, two-process fencing, exact reservations, tutorial, literal 28,800-poll supervised soak, Debug/Release and Apple-ASan pass; Linux remains open |
-| Phase 5 and later | Authorized sequentially | Retrieval/evidence follows Gate 4; no cutover or native retirement has started |
+| Phase 4 / Gate 4 | Accepted on macOS 2026-08-24 | Claim/support/review, budgeted improvement, crash recovery, two-process fencing, exact reservations, tutorial, literal eight-hour soak, Debug/Release and Apple-ASan pass; Linux remains open |
+| Phase 5 / Gate 5 | Accepted on macOS 2026-08-24 | Focused planning, FTS/exact-vector/directed-graph retrieval, stable evidence/citations, 9/9 deterministic judgements and bounded hosted quality qualification pass; Linux and hosted cREXX transport closure remain open |
+| Phase 6 and later | Authorized sequentially | Public adapters follow Gate 5; no cutover or native retirement has started |
 
 Gate 1B established:
 
@@ -144,12 +150,16 @@ production claim:
   their own byte ceiling while hashing fixed chunks.
 - Phase-4 worker evidence includes database-clock leases, monotonic fences,
   forced termination, cancellation, retry/dead-letter, exact reservations,
-  bounded in-flight denial, two competing OS processes, and one clean
-  28,800-poll supervised overnight run. In-process cREXX thread safety is
-  neither assumed nor claimed.
+  bounded in-flight denial, two competing OS processes, and the literal
+  supervised eight-hour soak. In-process cREXX thread safety is neither assumed
+  nor claimed.
+- Phase-5 evidence qualifies deterministic hybrid retrieval and a bounded
+  hosted answer comparison. The incubated cREXX hosted adapter's observed POST
+  completion timeout remains explicit Phase-7 work; the external hosted
+  quality harness does not qualify that transport path.
 - The local OpenAI-compatible protocol is qualified against deterministic
   fixtures, but a real `llama-server` deployment was unavailable.
-- There is no production ingestion pipeline, installed target CLI/MCP adapter,
+- There is no installed target CLI/MCP adapter,
   dual-write, cutover, or native-core removal. Phase 2 provides version-1
   import, paged repositories, and the shared command/foundation contracts only.
 
@@ -160,7 +170,7 @@ worklist, entry baseline, item evidence, and closeout are recorded. Exact
 downstream Linux replay remains open; provider-lifecycle expansion remains a
 separate capability decision. Neither authorizes Phase 3.
 
-Subject to those decisions, the remaining roadmap is:
+The ordered roadmap is:
 
 1. **Phase 2: product foundations.** Level-G application modules and public
    contracts, declarative configuration, schema v2 and migrations, published

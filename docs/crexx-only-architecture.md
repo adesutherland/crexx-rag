@@ -643,6 +643,26 @@ configured optional `answerer`, and return both the unchanged packet and prose.
 When no answerer is configured, callers use `query evidence` or their own LLM;
 answer generation never changes retrieval or claim state.
 
+### Implemented Phase-5 shape
+
+The Level-G development implementation now follows this design through
+`ragquery`, `ragembedding`, `ragretrieval`, and `ragevidencejson`.
+`ragquery` emits `crexx-rag.query-plan/1`; `ragembedding` publishes immutable
+`crexx-rag.rxvector-generation/1` `.rxvec` sidecars over installed packed
+`rxvector`; `ragretrieval` combines bounded FTS5, exact vectors and directed
+graph-to-support expansion; and `ragevidencejson` emits bounded
+`crexx-rag.evidence/1`, `crexx-rag.retrieval-result/1` and
+`crexx-rag.answer-context/1` projections.
+
+Stable citations are canonical strings of the form
+`crexx-rag:<library-id>:<source-id>:<revision-id>:utf8-<start>-<end>` and resolve
+against the immutable cited revision. Incompatible vector generation,
+dimension, manifest, or scan ceiling produces a declared lexical fallback.
+The nine frozen IT/Scotland judgements pass the permanent four-cell matrix;
+the exact retained evidence and hosted-quality boundary are in the
+[Phase-5 record](evidence/2026-08-23-phase5/README.md). The Level-G API below
+remains illustrative until Phase 6 freezes the public facade and adapters.
+
 The Phase-1B scratch algorithm profile preserves semantic parity but crosses
 the provisional 10,000-us trigger for 2,000 fixture fingerprint/chunk
 operations on both VMs. This is a recorded production-boundary limitation, not

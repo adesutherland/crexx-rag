@@ -1,0 +1,123 @@
+{
+  "schema": "crexx-rag.hosted-judgement/1",
+  "case_id": "scot-02-direct-phrase",
+  "question": "Why were the Brannochs called the Children of the Rain?",
+  "provider": "gemini",
+  "model": "gemini-3.5-flash",
+  "credential_reference": "env:GEMINI_API_KEY",
+  "temperature_millionths": 0,
+  "thinking_level": "minimal",
+  "max_attempts": 1,
+  "blind_order": [
+    "full",
+    "typed"
+  ],
+  "typed_context_sha256": "dca8a8280623ff838c4cabc27d01d3b19d857ba77b7d247757137dd5e89af74b",
+  "full_context_sha256": "32244b6f0037ce9da663fb2ec8ffad985e6cfde1fea9e8aa6671131a990ec45d",
+  "typed_answer": {
+    "answer": "The exact phrase \"Children of the Rain\" does not occur in the provided chronicle. However, a later summary describes the displaced House of Brannoch as \"landless hill fugitives,\" which is suggested as a possible reason why such a nickname might have arisen, though it does not directly prove the use of that exact phrase.",
+    "citations": [
+      "crexx-rag:library-p5-opt-rxvme:source-sha256:d02ac6fa24826fe814452fe08f07feaa1c3a27192198d49fb8d3a06f688a596e:revision-sha256:5abba230f830545760af8accf23a0bd912be2a9f525917fd1b32ed68f6c96e44:utf8-1012-1275"
+    ],
+    "gaps": [
+      "A returned source explicitly says the requested exact phrase does not occur in that source; do not generalize beyond the active fixture."
+    ]
+  },
+  "control_answer": {
+    "answer": "The provided context does not explain why the Brannochs were called the \"Children of the Rain.\" The chronicle mentions that a later summary called the displaced House of Brannoch \"landless hill fugitives,\" which may suggest why a nickname arose, but it does not directly evidence or explain that exact phrase.",
+    "citations": [
+      "source:scotland-shaped-chronicle.md"
+    ],
+    "gaps": [
+      "The context explicitly states that the phrase 'Children of the Rain' does not occur in the chronicle, leaving the origin and reason for the name completely unexplained."
+    ]
+  },
+  "scorers": [
+    {
+      "answer_1_score": 15,
+      "answer_2_score": 16,
+      "answer_1_critical_failure": 0,
+      "answer_2_critical_failure": 0,
+      "preference": "answer_2",
+      "rationale": "Both answers correctly identify the expected evidence gap: that the exact phrase \"Children of the Rain\" does not occur in the chronicle, and that the description of the House of Brannoch as \"landless hill fugitives\" is only a limited inference for why the nickname might have arisen. Answer 2 is slightly better as it uses the exact citation key provided in the typed passage map, whereas Answer 1 maps it back to the raw source file name."
+    },
+    {
+      "answer_1_score": 15,
+      "answer_2_score": 16,
+      "answer_1_critical_failure": 0,
+      "answer_2_critical_failure": 0,
+      "preference": "answer_2",
+      "rationale": "Both answers correctly identify the expected evidence gap: that the exact phrase \"Children of the Rain\" does not occur in the chronicle, and that the description of the House of Brannoch as \"landless hill fugitives\" is only a limited inference for why the nickname might have arisen. Answer 2 is slightly better as it uses the exact citation key provided in the typed passage map, whereas Answer 1 maps it back to the raw source file name."
+    }
+  ],
+  "typed_score": 16,
+  "control_score": 15,
+  "typed_critical_failure": 0,
+  "control_critical_failure": 0,
+  "calls": [
+    {
+      "call_id": "p5-answer-scot-02-direct-phrase-typed",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "5e6f0b332bca3b2a0336ebd7b02042bf83cd4ee0a092fedaa2c7f1715148a5e2",
+      "response_id": "x3mLar6sDcaDxs0P7cXSsAs",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 2902,
+      "output_tokens": 280,
+      "total_tokens": 3182,
+      "latency_us": 1805643
+    },
+    {
+      "call_id": "p5-answer-scot-02-direct-phrase-full",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "a03bc277c7c68f31fa145eaa0c478ca5d7751df9f5c1f30db2c10daddb185840",
+      "response_id": "yHmLasjLOpqgnsEPrJz92AQ",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 1338,
+      "output_tokens": 140,
+      "total_tokens": 1478,
+      "latency_us": 1454475
+    },
+    {
+      "call_id": "p5-score-scot-02-direct-phrase-reset-1",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "4a9789188461057b81ecea9bb5f6820bbe01f30b9aa4fe2e3f209bb8375a496a",
+      "response_id": "ynmLaoupGsXlnsEPmOny4QU",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 7657,
+      "output_tokens": 166,
+      "total_tokens": 7823,
+      "latency_us": 1639514
+    },
+    {
+      "call_id": "p5-score-scot-02-direct-phrase-reset-2",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "4a9789188461057b81ecea9bb5f6820bbe01f30b9aa4fe2e3f209bb8375a496a",
+      "response_id": "zHmLaq_dBIvmvdIP9fOdqAo",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 7657,
+      "output_tokens": 166,
+      "total_tokens": 7823,
+      "latency_us": 1610703
+    }
+  ]
+}

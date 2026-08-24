@@ -132,6 +132,7 @@ int main(int argc, char** argv)
             const bool valid_shape = request.find("\"model\":\"gpt-5.6-luna\"") != std::string::npos
                 && request.find("\"type\":\"input_image\"") != std::string::npos
                 && request.find("\"image_url\":\"https://fixture.invalid/image.png\"") != std::string::npos
+                && request.find("\"temperature\":0") != std::string::npos
                 && request.find("\"format\":{\"type\":\"json_schema\"") != std::string::npos;
             if (!valid_auth || !valid_shape) {
                 http_status = 400;
@@ -156,6 +157,7 @@ int main(int argc, char** argv)
             const bool valid_shape = request.find("\"model\":\"claude-haiku-4-5\"") != std::string::npos
                 && request.find("\"type\":\"document\"") != std::string::npos
                 && request.find("\"url\":\"https://fixture.invalid/source.pdf\"") != std::string::npos
+                && request.find("\"temperature\":0") != std::string::npos
                 && request.find("\"output_config\":{\"format\":{\"type\":\"json_schema\"") != std::string::npos;
             if (!valid_auth || !valid_shape) {
                 http_status = 400;
@@ -166,6 +168,7 @@ int main(int argc, char** argv)
         } else if (path.find("/gemini/v1beta/models/gemini-2.5-flash-lite:generateContent") != std::string::npos) {
             const bool valid_auth = request.find("x-goog-api-key: synthetic-gemini-key") != std::string::npos;
             const bool valid_shape = request.find("\"fileData\":{\"mimeType\":\"audio/wav\",\"fileUri\":\"https://fixture.invalid/audio.wav\"") != std::string::npos
+                && request.find("\"temperature\":0") != std::string::npos
                 && request.find("\"responseMimeType\":\"application/json\"") != std::string::npos
                 && request.find("\"responseJsonSchema\"") != std::string::npos;
             if (!valid_auth || !valid_shape) {
@@ -216,8 +219,10 @@ int main(int argc, char** argv)
             } else {
                 const bool valid_model = request.find("\"model\":\"local-chat\"") != std::string::npos;
                 const bool valid_stream = request.find("\"stream\":false") != std::string::npos;
+                const bool valid_temperature = scenario == "hardening"
+                    || request.find("\"temperature\":0") != std::string::npos;
                 const bool valid_unicode = request.find("Generate Gr\xc3\xa0" "dh \xe4\xb8\xad") != std::string::npos;
-                if (!valid_model || !valid_stream || !valid_unicode) {
+                if (!valid_model || !valid_stream || !valid_temperature || !valid_unicode) {
                     body = R"({"error":{"message":"OpenAI-compatible generation request shape mismatch"}})";
                 } else {
                     body = R"({"id":"chatcmpl-local-001","model":"local-chat","choices":[{"index":0,"message":{"role":"assistant","content":"loopback OpenAI generation Gr\u00e0dh \u4e2d"},"finish_reason":"stop"}],"usage":{"prompt_tokens":9,"completion_tokens":4,"total_tokens":13}})";

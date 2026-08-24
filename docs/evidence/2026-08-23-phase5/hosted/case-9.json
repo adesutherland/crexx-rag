@@ -1,0 +1,123 @@
+{
+  "schema": "crexx-rag.hosted-judgement/1",
+  "case_id": "scot-05-nuanced-conflict",
+  "question": "Can the Glen Mora removals be described simply as lawful or unlawful from this source set?",
+  "provider": "gemini",
+  "model": "gemini-3.5-flash",
+  "credential_reference": "env:GEMINI_API_KEY",
+  "temperature_millionths": 0,
+  "thinking_level": "minimal",
+  "max_attempts": 1,
+  "blind_order": [
+    "typed",
+    "full"
+  ],
+  "typed_context_sha256": "608badcfee38965f6d8c66f768fdc8151b67b9efb4aab5fb6bfef452b11fcfb3",
+  "full_context_sha256": "32244b6f0037ce9da663fb2ec8ffad985e6cfde1fea9e8aa6671131a990ec45d",
+  "typed_answer": {
+    "answer": "No, the Glen Mora removals cannot be described simply as lawful or unlawful from this source set. The sources present opposed stances regarding the 1841 removals. Elian Voss argues that the estate acted lawfully, stating that Factor Iven warned the tenants beforehand. Conversely, Mara Quill's quoted diary describes families reaching the coast without shelter. The source set notes that these are opposed source stances about the same removals, rather than a resolved fact about blame.",
+    "citations": [
+      "crexx-rag:library-p5-opt-rxvme:source-sha256:d02ac6fa24826fe814452fe08f07feaa1c3a27192198d49fb8d3a06f688a596e:revision-sha256:5abba230f830545760af8accf23a0bd912be2a9f525917fd1b32ed68f6c96e44:utf8-505-1011",
+      "crexx-rag:library-p5-opt-rxvme:source-sha256:d02ac6fa24826fe814452fe08f07feaa1c3a27192198d49fb8d3a06f688a596e:revision-sha256:5abba230f830545760af8accf23a0bd912be2a9f525917fd1b32ed68f6c96e44:utf8-1012-1275"
+    ],
+    "gaps": [
+      "One or more query names remain ambiguous; do not transfer facts between senses.",
+      "The returned source positions do not independently resolve a neutral legal verdict."
+    ]
+  },
+  "control_answer": {
+    "answer": "No, the Glen Mora removals cannot be described simply as lawful or unlawful from this source set. The sources present opposed stances on the matter: Factor Iven's warning to the tenants before the 1841 removals is cited by compiler Elian Voss to argue that the estate acted lawfully, whereas Mara Quill's quoted diary describes families reaching the coast without shelter. The source explicitly notes that these are opposed source stances about the same removals, rather than a resolved fact.",
+    "citations": [
+      "source:scotland-shaped-chronicle.md"
+    ],
+    "gaps": []
+  },
+  "scorers": [
+    {
+      "answer_1_score": 15,
+      "answer_2_score": 16,
+      "answer_1_critical_failure": 0,
+      "answer_2_critical_failure": 0,
+      "preference": "answer_2",
+      "rationale": "Both answers correctly identify the conflicting stances of Voss and Quill and state that the sources do not resolve the legality of the removals. Answer 2 is preferred because it uses the clean, human-readable source labels provided in the FULL SOURCE CONTROL section for its citations, whereas Answer 1 uses the long, raw system hashes from the TYPED PASSAGE MAP."
+    },
+    {
+      "answer_1_score": 15,
+      "answer_2_score": 16,
+      "answer_1_critical_failure": 0,
+      "answer_2_critical_failure": 0,
+      "preference": "answer_2",
+      "rationale": "Both answers correctly identify the conflicting stances of Voss and Quill and state that the sources do not resolve the legality of the removals. Answer 2 is preferred because it uses the clean, human-readable source labels provided in the FULL SOURCE CONTROL section for its citations, whereas Answer 1 uses the long, raw system hashes from the TYPED PASSAGE MAP."
+    }
+  ],
+  "typed_score": 15,
+  "control_score": 16,
+  "typed_critical_failure": 0,
+  "control_critical_failure": 0,
+  "calls": [
+    {
+      "call_id": "p5-answer-scot-05-nuanced-conflict-typed",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "feaa75ce92c0b036426d4b4bba3ecc9dc2da94b86ffbac200c12d4447f208874",
+      "response_id": "5XmLavbCCq-8vdIP9tuy6Ag",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 2880,
+      "output_tokens": 471,
+      "total_tokens": 3351,
+      "latency_us": 2362805
+    },
+    {
+      "call_id": "p5-answer-scot-05-nuanced-conflict-full",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "3559aab16412662c74f30806e3b300e1b8283737efabf1fa832fdfd54d1de8e2",
+      "response_id": "53mLau3XIMmHnsEPvJ6Z8QQ",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 1341,
+      "output_tokens": 136,
+      "total_tokens": 1477,
+      "latency_us": 1511913
+    },
+    {
+      "call_id": "p5-score-scot-05-nuanced-conflict-reset-1",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "2c666efd462cc7b1906b590e12bdc19819db1846faf746ed949a672ef526d788",
+      "response_id": "6XmLaricA4irnsEP8tDG0AY",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 7824,
+      "output_tokens": 145,
+      "total_tokens": 7969,
+      "latency_us": 1581060
+    },
+    {
+      "call_id": "p5-score-scot-05-nuanced-conflict-reset-2",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "2c666efd462cc7b1906b590e12bdc19819db1846faf746ed949a672ef526d788",
+      "response_id": "6nmLasHtJ_WunsEPiq3f4Qc",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 7824,
+      "output_tokens": 145,
+      "total_tokens": 7969,
+      "latency_us": 1483892
+    }
+  ]
+}

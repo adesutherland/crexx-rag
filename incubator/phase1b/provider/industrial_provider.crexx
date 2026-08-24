@@ -161,6 +161,11 @@ industrialprovider: class implements .provider
       values[next] = request.max_output_tokens()
       next = next + 1
     end
+    if request.temperature_millionths() >= 0 then do
+      keys[next] = "temperature"
+      values[next] = request.temperature_millionths() / 1000000.0
+      next = next + 1
+    end
     if structured \= 0 then do
       format_keys = .string[]
       format_values = .string[]
@@ -240,6 +245,11 @@ industrialprovider: class implements .provider
       values[next] = jsonquote(system_text)
       next = next + 1
     end
+    if request.temperature_millionths() >= 0 then do
+      keys[next] = "temperature"
+      values[next] = request.temperature_millionths() / 1000000.0
+      next = next + 1
+    end
     if structured \= 0 then do
       format_keys = .string[]
       format_values = .string[]
@@ -303,6 +313,11 @@ industrialprovider: class implements .provider
       generation_count = generation_count + 1
       generation_keys[generation_count] = "maxOutputTokens"
       generation_values[generation_count] = request.max_output_tokens()
+    end
+    if request.temperature_millionths() >= 0 then do
+      generation_count = generation_count + 1
+      generation_keys[generation_count] = "temperature"
+      generation_values[generation_count] = request.temperature_millionths() / 1000000.0
     end
     if structured \= 0 then do
       generation_count = generation_count + 1

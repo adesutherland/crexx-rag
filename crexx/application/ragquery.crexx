@@ -1,0 +1,424 @@
+options levelg
+
+namespace ragquery expose ragqueryvariant ragqueryterm ragqueryplan planquery
+
+import rxfnsb
+import rxhash
+import sqlite_boundary
+import ragstore
+import ragprofile
+import ragingest
+
+ragqueryvariant: class
+  _kind = .string
+  _query = .string
+  _reason = .string
+
+  *: factory
+    arg kind = .string, query = .string, reason = .string
+    _kind = kind
+    _query = query
+    _reason = reason
+    return
+
+  kind: method = .string
+    return _kind
+  query: method = .string
+    return _query
+  reason: method = .string
+    return _reason
+
+ragqueryterm: class
+  _term = .string
+  _source = .string
+  _phrase = .int
+  _prefix = .int
+  _expansion = .string
+  _occurrences = .int
+  _chunks = .int
+  _source_diversity = .int
+  _statistics_fingerprint = .string
+
+  *: factory
+    arg term = .string, source = .string, phrase = .int, prefix = .int, expansion = .string, occurrences = .int, chunks = .int, source_diversity = .int, statistics_fingerprint = .string
+    _term = term
+    _source = source
+    _phrase = phrase
+    _prefix = prefix
+    _expansion = expansion
+    _occurrences = occurrences
+    _chunks = chunks
+    _source_diversity = source_diversity
+    _statistics_fingerprint = statistics_fingerprint
+    return
+
+  term: method = .string
+    return _term
+  source: method = .string
+    return _source
+  phrase: method = .int
+    return _phrase
+  prefix: method = .int
+    return _prefix
+  expansion: method = .string
+    return _expansion
+  occurrences: method = .int
+    return _occurrences
+  chunks: method = .int
+    return _chunks
+  source_diversity: method = .int
+    return _source_diversity
+  statistics_fingerprint: method = .string
+    return _statistics_fingerprint
+
+ragqueryplan: class
+  _schema = .string
+  _question = .string
+  _normalized_question = .string
+  _policy_version = .string
+  _generation = .int
+  _variants = .ragqueryvariant[]
+  _terms = .ragqueryterm[]
+  _intents = .string[]
+  _ambiguities = .string[]
+  _fingerprint = .string
+
+  *: factory
+    arg schema = .string, question = .string, normalized_question = .string, policy_version = .string, generation = .int, variants = .ragqueryvariant[], terms = .ragqueryterm[], intents = .string[], ambiguities = .string[], fingerprint = .string
+    _schema = schema
+    _question = question
+    _normalized_question = normalized_question
+    _policy_version = policy_version
+    _generation = generation
+    _variants = variants
+    _terms = terms
+    _intents = intents
+    _ambiguities = ambiguities
+    _fingerprint = fingerprint
+    return
+
+  schema: method = .string
+    return _schema
+  question: method = .string
+    return _question
+  normalized_question: method = .string
+    return _normalized_question
+  policy_version: method = .string
+    return _policy_version
+  generation: method = .int
+    return _generation
+  variants: method = .ragqueryvariant[]
+    return _variants
+  terms: method = .ragqueryterm[]
+    return _terms
+  intents: method = .string[]
+    return _intents
+  ambiguities: method = .string[]
+    return _ambiguities
+  fingerprint: method = .string
+    return _fingerprint
+
+planquery: procedure = .int
+  arg store = .ragstorehandle, profile = .ragprofile, question = .string, policy_version = .string, expose plan = .ragqueryplan, expose error = .string
+  variants = .ragqueryvariant[]; terms = .ragqueryterm[]; intents = .string[]; ambiguities = .string[]
+  plan = .ragqueryplan("", question, "", policy_version, 0, variants, terms, intents, ambiguities, "")
+  error = ""
+  normalized = _normalize(question)
+  if store.open() \= 1 | normalized = "" | length(question) > 4096 | policy_version = "" then do
+    error = "query plan input is invalid"
+    return -1
+  end
+  if profile.validation().ok() \= 1 then do
+    error = "query profile is invalid"
+    return -1
+  end
+  generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if generation < 1 then do
+    error = "published generation is unavailable"
+    return -3
+  end
+
+  variants[1] = .ragqueryvariant("original", _ftswords(normalized, 0), "normalized original question")
+  call _addintents normalized, intents
+  phrases = .string[]
+  if _quotedphrases(question, phrases, error) \= 0 then return -1
+  implied_phrase = _impliedphrase(normalized)
+  if implied_phrase \= "" & _contains(phrases, implied_phrase) = 0 then phrases[phrases.0 + 1] = implied_phrase
+  do i = 1 to phrases.0
+    phrase = _normalize(phrases[i])
+    if phrase \= "" & _containsvariant(variants, phrase) = 0 then variants[variants.0 + 1] = .ragqueryvariant("exact-phrase", '"' || _ftswords(phrase, 0) || '"', "question quotation preserved exactly")
+  end
+
+  words = .string[]
+  call _words normalized, words
+  aliases = profile.aliases()
+  do i = 1 to aliases.0
+    surface = _normalize(aliases[i].surface())
+    canonical = _normalize(aliases[i].canonical())
+    if surface \= "" & canonical \= "" & _containsbounded(normalized, surface) = 1 then do
+      call _addterm store, surface, "profile-alias", _contains(phrases, surface), 0, canonical, policy_version, terms, error
+      if error \= "" then return -3
+      if _containsvariant(variants, canonical) = 0 then variants[variants.0 + 1] = .ragqueryvariant("profile-alias", _ftswords(canonical, 0), surface || " resolves to " || canonical)
+    end
+  end
+
+  do i = 1 to words.0
+    word = words[i]
+    if length(word) < 2 | _stopword(word) = 1 then iterate
+    phrase_flag = _phrasecontains(phrases, word)
+    prefix_flag = i = words.0 & length(word) >= 3
+    expansion = ""
+    if _databasealias(store.database(), generation, word, expansion, ambiguities, error) \= 0 then return -3
+    if expansion = "" then do
+      spelling = ""
+      if _spelling(store.database(), generation, word, spelling, error) \= 0 then return -3
+      if spelling \= word then expansion = spelling
+    end
+    call _addterm store, word, "question", phrase_flag, prefix_flag, expansion, policy_version, terms, error
+    if error \= "" then return -3
+    if _containsvariant(variants, word) = 0 then variants[variants.0 + 1] = .ragqueryvariant("focused-term", word, "non-stopword retained as an independent lexical focus")
+    if expansion \= "" & _containsvariant(variants, expansion) = 0 then variants[variants.0 + 1] = .ragqueryvariant("alias-or-spelling", _ftswords(expansion, 0), word || " expands to " || expansion)
+  end
+
+  if words.0 > 0 then do
+    last = words[words.0]
+    if length(last) >= 3 & _stopword(last) = 0 & _containsvariant(variants, last || "*") = 0 then variants[variants.0 + 1] = .ragqueryvariant("prefix", _ftswords(last, 1), "final focused term prefix")
+  end
+  canonical = _canonical(normalized, policy_version, generation, variants, terms, intents, ambiguities)
+  fingerprint = rxhash..sha256hex(canonical as .binary)
+  plan = .ragqueryplan("crexx-rag.query-plan/1", question, normalized, policy_version, generation, variants, terms, intents, ambiguities, fingerprint)
+  return 0
+
+_addterm: procedure
+  arg store = .ragstorehandle, value = .string, source = .string, phrase = .int, prefix = .int, expansion = .string, policy_version = .string, expose terms = .ragqueryterm[], expose error = .string
+  do i = 1 to terms.0
+    if terms[i].term() = value & terms[i].source() = source & terms[i].expansion() = expansion then return
+  end
+  statistics = .ragtermstatistics
+  if termstatistics(store, value, policy_version, statistics, error) \= 0 then return
+  terms[terms.0 + 1] = .ragqueryterm(value, source, phrase, prefix, expansion, statistics.occurrences(), statistics.chunks(), statistics.source_diversity(), statistics.input_fingerprint())
+  return
+
+_databasealias: procedure = .int
+  arg database = .binary, generation = .int, value = .string, expose expansion = .string, expose ambiguities = .string[], expose error = .string
+  expansion = ""
+  prepared = .binary
+  sql = "SELECT COALESCE(c.canonical_label,''),COALESCE(a.ambiguity_id,'') FROM aliases a LEFT JOIN concepts c ON c.concept_id=a.target_concept_id WHERE lower(a.normalized_alias)=?1 AND a.visible_from_generation<=?2 AND (a.visible_to_generation IS NULL OR a.visible_to_generation>?2) ORDER BY a.alias_id LIMIT 2"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, value) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 then do
+    call sqlitefinalize prepared
+    error = "cannot prepare alias expansion"
+    return -1
+  end
+  count = 0
+  do forever
+    step_status = sqlitestep(prepared)
+    if step_status = 101 then leave
+    if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read alias expansion"; return -1; end
+    label = ""; ambiguity = ""
+    if sqlitecolumntext(prepared, 0, label) \= 0 | sqlitecolumntext(prepared, 1, ambiguity) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode alias expansion"; return -1; end
+    count = count + 1
+    if ambiguity \= "" then do
+      if _contains(ambiguities, ambiguity) = 0 then ambiguities[ambiguities.0 + 1] = ambiguity
+    end
+    else if label \= "" then expansion = _normalize(label)
+  end
+  call sqlitefinalize prepared
+  if count > 1 then do
+    if _contains(ambiguities, "alias:" || value) = 0 then ambiguities[ambiguities.0 + 1] = "alias:" || value
+    expansion = ""
+  end
+  return 0
+
+_spelling: procedure = .int
+  arg database = .binary, generation = .int, value = .string, expose spelling = .string, expose error = .string
+  spelling = value
+  if length(value) < 4 then return 0
+  prepared = .binary
+  sql = "SELECT candidate FROM (SELECT lower(normalized_alias) candidate FROM aliases WHERE visible_from_generation<=?1 AND (visible_to_generation IS NULL OR visible_to_generation>?1) UNION SELECT lower(canonical_label) FROM concepts WHERE visible_from_generation<=?1 AND (visible_to_generation IS NULL OR visible_to_generation>?1)) ORDER BY candidate LIMIT 512"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare spelling expansion"; return -1; end
+  best_distance = 3
+  do forever
+    step_status = sqlitestep(prepared)
+    if step_status = 101 then leave
+    if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read spelling expansion"; return -1; end
+    candidate = ""
+    if sqlitecolumntext(prepared, 0, candidate) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode spelling expansion"; return -1; end
+    if pos(" ", candidate) = 0 & abs(length(candidate) - length(value)) <= 2 then do
+      distance = _editdistance(value, candidate, 2)
+      if distance < best_distance then do; best_distance = distance; spelling = candidate; end
+    end
+  end
+  call sqlitefinalize prepared
+  if best_distance > 2 then spelling = value
+  return 0
+
+_editdistance: procedure = .int
+  arg left_value = .string, right_value = .string, ceiling = .int
+  width = length(right_value) + 1; matrix = .int[]
+  do i = 0 to length(left_value); matrix[i * width + 1] = i; end
+  do j = 0 to length(right_value); matrix[j + 1] = j; end
+  do i = 1 to length(left_value)
+    row_minimum = i
+    do j = 1 to length(right_value)
+      cost = substr(left_value, i, 1) \= substr(right_value, j, 1)
+      deletion = matrix[(i - 1) * width + j + 1] + 1
+      insertion = matrix[i * width + j] + 1
+      substitution = matrix[(i - 1) * width + j] + cost
+      distance_value = deletion
+      if insertion < distance_value then distance_value = insertion
+      if substitution < distance_value then distance_value = substitution
+      matrix[i * width + j + 1] = distance_value
+      if distance_value < row_minimum then row_minimum = distance_value
+    end
+    if row_minimum > ceiling then return ceiling + 1
+  end
+  return matrix[length(left_value) * width + length(right_value) + 1]
+
+_addintents: procedure
+  arg normalized = .string, expose intents = .string[]
+  if _containsany(normalized, " when | timeline | origin | between | changed | change | current | now ") = 1 | _hasyear(normalized) = 1 then intents[intents.0 + 1] = "time"
+  if _containsany(normalized, " compare | comparison | versus | vs | difference | between ") = 1 then intents[intents.0 + 1] = "comparison"
+  if _containsany(normalized, " depend | dependency | path | trace | reads | read | accesses | supports | allied | alliance | relationship | related ") = 1 then intents[intents.0 + 1] = "relationship"
+  if _containsany(normalized, " why | how | explain | what | which | where | who ") = 1 then intents[intents.0 + 1] = "focused-question"
+  if intents.0 = 0 then intents[1] = "focused-search"
+  return
+
+_hasyear: procedure = .int
+  arg value = .string
+  do i = 1 to length(value) - 3
+    candidate = substr(value, i, 4)
+    all_digits = 1
+    do j = 1 to 4
+      if pos(substr(candidate, j, 1), "0123456789") = 0 then all_digits = 0
+    end
+    if all_digits = 1 then return 1
+  end
+  return 0
+
+_quotedphrases: procedure = .int
+  arg question = .string, expose phrases = .string[], expose error = .string
+  phrases = .string[]; open_at = 0
+  do i = 1 to length(question)
+    if substr(question, i, 1) = '"' then do
+      if open_at = 0 then open_at = i + 1
+      else do
+        if i > open_at then phrases[phrases.0 + 1] = substr(question, open_at, i - open_at)
+        open_at = 0
+      end
+    end
+  end
+  if open_at \= 0 then do; error = "query contains an unterminated exact phrase"; return -1; end
+  return 0
+
+_impliedphrase: procedure = .string
+  arg normalized = .string
+  markers = .string[]; markers[1] = "called "; markers[2] = "exact phrase "; markers[3] = "phrase "
+  do i = 1 to markers.0
+    marker = pos(markers[i], normalized)
+    if marker > 0 then do
+      candidate = substr(normalized, marker + length(markers[i]))
+      question_mark = pos("?", candidate)
+      if question_mark > 0 then candidate = substr(candidate, 1, question_mark - 1)
+      do while candidate \= "" & pos(right(candidate, 1), ".,;:!?") > 0
+        candidate = left(candidate, length(candidate) - 1)
+      end
+      words = .string[]; call _words candidate, words
+      if words.0 >= 2 then return candidate
+    end
+  end
+  return ""
+
+_words: procedure
+  arg value = .string, expose words = .string[]
+  words = .string[]; current = ""
+  do i = 1 to length(value)
+    character = substr(value, i, 1)
+    if pos(character, "abcdefghijklmnopqrstuvwxyz0123456789") > 0 then current = current || character
+    else if current \= "" then do; words[words.0 + 1] = current; current = ""; end
+  end
+  if current \= "" then words[words.0 + 1] = current
+  return
+
+_normalize: procedure = .string
+  arg value = .string
+  value = lower(strip(value)); output = ""; spacing = 0
+  do i = 1 to length(value)
+    character = substr(value, i, 1)
+    if character = " " | character = "09"x | character = "0A"x | character = "0D"x then spacing = 1
+    else do
+      if spacing = 1 & output \= "" then output = output || " "
+      output = output || character
+      spacing = 0
+    end
+  end
+  return output
+
+_ftswords: procedure = .string
+  arg value = .string, prefix = .int
+  words = .string[]; call _words value, words
+  output = ""
+  do i = 1 to words.0
+    if output \= "" then output = output || " "
+    output = output || words[i]
+  end
+  if prefix = 1 & output \= "" then output = output || "*"
+  return output
+
+_canonical: procedure = .string
+  arg normalized = .string, policy = .string, generation = .int, variants = .ragqueryvariant[], terms = .ragqueryterm[], intents = .string[], ambiguities = .string[]
+  value = "crexx-rag.query-plan/1" || "00"x || policy || "00"x || generation || "00"x || normalized
+  do i = 1 to variants.0; value = value || "00"x || variants[i].kind() || "00"x || variants[i].query() || "00"x || variants[i].reason(); end
+  do i = 1 to terms.0; value = value || "00"x || terms[i].term() || "00"x || terms[i].source() || "00"x || terms[i].phrase() || "00"x || terms[i].prefix() || "00"x || terms[i].expansion() || "00"x || terms[i].statistics_fingerprint(); end
+  do i = 1 to intents.0; value = value || "00"x || intents[i]; end
+  do i = 1 to ambiguities.0; value = value || "00"x || ambiguities[i]; end
+  return value
+
+_phrasecontains: procedure = .int
+  arg phrases = .string[], word = .string
+  do i = 1 to phrases.0
+    if _containsbounded(_normalize(phrases[i]), word) = 1 then return 1
+  end
+  return 0
+
+_containsbounded: procedure = .int
+  arg haystack = .string, needle = .string
+  return pos(" " || needle || " ", " " || haystack || " ") > 0
+
+_containsany: procedure = .int
+  arg haystack = .string, needles = .string
+  start = 2
+  do forever
+    marker = pos(" | ", needles, start)
+    if marker = 0 then needle = strip(substr(needles, start))
+    else needle = strip(substr(needles, start, marker - start))
+    if needle \= "" & pos(needle, " " || haystack || " ") > 0 then return 1
+    if marker = 0 then leave
+    start = marker + 3
+  end
+  return 0
+
+_containsvariant: procedure = .int
+  arg variants = .ragqueryvariant[], value = .string
+  do i = 1 to variants.0
+    if variants[i].query() = value then return 1
+  end
+  return 0
+
+_contains: procedure = .int
+  arg values = .string[], value = .string
+  do i = 1 to values.0
+    if _normalize(values[i]) = _normalize(value) then return 1
+  end
+  return 0
+
+_stopword: procedure = .int
+  arg value = .string
+  return pos(" " || value || " ", " a an and are as at be by can described did do does every for from how in is it of on or set simply source the this to was were what when where which who why with ") > 0
+
+_scalarint: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  value = -1; status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value

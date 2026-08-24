@@ -332,11 +332,48 @@ Plans contain only symbolic references such as `env:OPENAI_API_KEY`. Hosted
 Phase-7 qualifications are secret-gated and must declare provider, model,
 calls, tokens, cost, privacy and retained evidence before resolving a value.
 The separate roadmap requirement for a literal supervised overnight worker is
-a time-based acceptance record and cannot be replaced by this bounded target.
-The retained macOS run completed one launchd attempt, 28,800 one-second polls,
-all four items in its improvement job, balanced reservations, and exit 0. Its
-separate ingestion job remained queued and outside the soak. Together with the
-bounded target, this accepts Gate 4 for the recorded macOS scope.
+a time-based acceptance record and cannot be replaced by this bounded target;
+that record was therefore required in addition to the permanent test.
+
+The literal macOS worker run subsequently completed 28,800 one-second polls,
+processed all four items in its supervised improvement job, left that job with
+no queued/running work or reservation, and exited zero. A separate ingestion
+job remained queued and outside this soak's scope. Together with the retained
+focused, full Debug/Release and
+Apple-ASan results, this accepts Gate 4 for the recorded macOS scope. Exact
+downstream Linux remains open.
+
+## Phase 5 Acceptance
+
+CTest `phase5_retrieval` is the permanent deterministic Gate-5 proof. It
+compiles query planning, embedding/index publication, hybrid retrieval,
+evidence encoding, the scenario and executable tutorial with and without
+optimization, then runs them on `rxvme` and `rxbvm`.
+
+The matrix covers exact phrase and prefix behavior, profile/database aliases,
+bounded edit-distance spelling, comparison/time/relationship intent, versioned
+term statistics, FTS5 and adjacent context, privacy denial before a provider
+call, incremental/reused/resumed embeddings, immutable profile and dimension
+identity, atomic `.rxvec` generations, installed packed `rxvector`, explicit
+lexical fallback, directed graph-to-support traversal, inspectable reciprocal-
+rank fusion/diversity, stable historical citations, accepted support and
+contradiction, stance/attribution/time, ambiguity/conflict, graph leads, gaps,
+byte ceilings and exact tutorial NDJSON.
+
+Nine frozen IT/Scotland questions are judged after two independent scorer
+resets. Acceptance requires 9/9 cases, 144/144 deterministic points, 17/17
+required-recall checks and zero critical failures in all four cells. The same
+run captures current native-v1 MCP output and controlled full-source byte
+counts without treating a tiny untyped corpus as a universal baseline win.
+
+Hosted answer quality is an explicit non-recurring qualification. The harness
+requires confirmation that all fixtures may leave the host, accepts only an
+environment credential, records the symbolic reference, uses fixed schemas,
+temperature/model/attempt/token limits, blind ordering and the declared
+two-scorer/adjudication rule. Credential values, headers and environment dumps
+must never be retained. A hosted quality pass does not substitute for the
+cREXX provider/transport path; its observed POST-completion timeout is a
+separate Phase-7 closure item.
 
 ## Required Commands
 

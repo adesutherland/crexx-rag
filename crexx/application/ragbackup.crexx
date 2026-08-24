@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragbackup expose ragsidecarpublication ragbackupsession ragbackupreport preparesidecar installsidecar commitsidecar publishsidecar beginragbackup copyragbackupsidecars writeragbackupmanifest publishragbackup abortragbackup backupragstore restoreragstore
+namespace ragbackup expose ragsidecarpublication ragbackupsession ragbackupreport preparesidecar prepareexactvectorsidecar installsidecar commitsidecar publishsidecar publishexactvectorsidecar beginragbackup copyragbackupsidecars writeragbackupmanifest publishragbackup abortragbackup backupragstore restoreragstore
 
 import rxfnsb
 import system
@@ -132,12 +132,20 @@ ragbackupreport: class
 
 preparesidecar: procedure = .int
   arg store = .ragstorehandle, source_path = .string, vector_generation_id = .string, embedding_profile_id = .string, dimension = .int, expected_size = .int, checksum = .string, expose publication = .ragsidecarpublication, expose error = .string
+  return _preparesidecar(store, source_path, vector_generation_id, embedding_profile_id, dimension, expected_size, checksum, "faiss", publication, error)
+
+prepareexactvectorsidecar: procedure = .int
+  arg store = .ragstorehandle, source_path = .string, vector_generation_id = .string, embedding_profile_id = .string, dimension = .int, expected_size = .int, checksum = .string, expose publication = .ragsidecarpublication, expose error = .string
+  return _preparesidecar(store, source_path, vector_generation_id, embedding_profile_id, dimension, expected_size, checksum, "rxvec", publication, error)
+
+_preparesidecar: procedure = .int
+  arg store = .ragstorehandle, source_path = .string, vector_generation_id = .string, embedding_profile_id = .string, dimension = .int, expected_size = .int, checksum = .string, sidecar_format = .string, expose publication = .ragsidecarpublication, expose error = .string
   error = ""
   if store.writable() \= 1 then do
     error = "sidecar publication requires readwrite access"
     return -5
   end
-  if _safecomponent(vector_generation_id) \= 1 | _safecomponent(embedding_profile_id) \= 1 | dimension < 1 | expected_size < 1 | _validsha256(checksum) \= 1 then do
+  if _safecomponent(vector_generation_id) \= 1 | _safecomponent(embedding_profile_id) \= 1 | dimension < 1 | expected_size < 1 | _validsha256(checksum) \= 1 | (sidecar_format \= "faiss" & sidecar_format \= "rxvec") then do
     error = "sidecar identity, dimension, size, or SHA-256 is invalid"
     return -1
   end
@@ -156,7 +164,7 @@ preparesidecar: procedure = .int
     if error = "" then error = "embedding profile and dimension do not exist"
     return -4
   end
-  sidecar_name = "vectors." || generation || "." || vector_generation_id || "." || substr(checksum, 1, 16) || ".faiss"
+  sidecar_name = "vectors." || generation || "." || vector_generation_id || "." || substr(checksum, 1, 16) || "." || sidecar_format
   final_path = store.path() || "/" || sidecar_name
   temporary_path = final_path || ".new"
   if source_path = final_path | source_path = temporary_path | rxfs..isfile(final_path) = 1 | rxfs..isfile(temporary_path) = 1 then do
@@ -221,6 +229,21 @@ commitsidecar: procedure = .int
 publishsidecar: procedure = .int
   arg store = .ragstorehandle, source_path = .string, vector_generation_id = .string, embedding_profile_id = .string, dimension = .int, expected_size = .int, checksum = .string, expose publication = .ragsidecarpublication, expose error = .string
   if preparesidecar(store, source_path, vector_generation_id, embedding_profile_id, dimension, expected_size, checksum, publication, error) \= 0 then return -3
+  if installsidecar(publication, error) \= 0 then do
+    call rxfs..delete publication.temporary_path()
+    return -3
+  end
+  if commitsidecar(store, publication, error) \= 0 then do
+    call rxfs..delete publication.final_path()
+    return -3
+  end
+  if publishmanifest(store, error) \= 0 then return -7
+  call publication.markstate("published")
+  return 0
+
+publishexactvectorsidecar: procedure = .int
+  arg store = .ragstorehandle, source_path = .string, vector_generation_id = .string, embedding_profile_id = .string, dimension = .int, expected_size = .int, checksum = .string, expose publication = .ragsidecarpublication, expose error = .string
+  if prepareexactvectorsidecar(store, source_path, vector_generation_id, embedding_profile_id, dimension, expected_size, checksum, publication, error) \= 0 then return -3
   if installsidecar(publication, error) \= 0 then do
     call rxfs..delete publication.temporary_path()
     return -3

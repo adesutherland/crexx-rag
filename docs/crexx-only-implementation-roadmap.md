@@ -3,10 +3,11 @@
 Status: Gate 1B reached on 2026-08-03 and accepted on 2026-08-04. All bounded
 Phase-1B items are complete. Phase 2 started on 2026-08-04 from the pushed
 entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` through `P2-10`
-and Gate 2 are accepted for the current macOS scope. Phases 3 and 4 and their
-gates are accepted for the recorded macOS scope; exact downstream Linux replay
-remains open. Phase 4 includes its literal 28,800-poll supervised overnight
-soak. The authority is recorded in
+and Gate 2 are accepted for the current macOS scope. Phases 3, 4 and 5 and
+their gates are accepted for the recorded macOS scope; exact downstream Linux
+replay remains open. Phase 5 also retains an explicit hosted answer-quality
+qualification while its cREXX hosted transport finding remains Phase-7 work.
+The authority is recorded in
 the [Gate-1B ledger](gate1b-decision-ledger.md) and
 [Gate-2 closeout](evidence/2026-08-23-phase2-gate2-closeout/README.md).
 
@@ -530,10 +531,10 @@ operations must be bounded, observable, supervised, and resumable.
 
 P4-01 through P4-09 are complete. P4-08's bounded worker mechanics, real
 crash/two-process/fencing/cancellation/budget tests, dual VMs, compiler modes,
-Debug/Release and Apple-ASan proof pass. Its literal supervised macOS run also
-completed one launchd attempt, 28,800 one-second polls, four processed items,
-balanced reservations and exit 0. Gate 4 is accepted for the recorded macOS
-scope. Exact evidence is retained in the
+Debug/Release and Apple-ASan proof pass. Its literal supervised eight-hour
+macOS worker soak completed 28,800 one-second polls with exit 0 and no leaked
+work or reservation, so Gate 4 is accepted for the recorded macOS scope. Exact
+evidence is retained in the
 [`Phase-4 record`](evidence/2026-08-23-phase4/README.md).
 
 ## Phase 5 — Retrieval And Evidence Product
@@ -541,25 +542,25 @@ scope. Exact evidence is retained in the
 Goal: make the knowledge store measurably more useful to an LLM than corpus
 dumping or the current single-search wrapper.
 
-- [ ] **P5-01** Implement deterministic focused query planning, exact phrases,
+- [x] **P5-01** Implement deterministic focused query planning, exact phrases,
   spelling/alias resolution, time, comparison, and relationship intent.
-- [ ] **P5-01A** Implement the explicit keyword layer: FTS phrase/prefix search,
+- [x] **P5-01A** Implement the explicit keyword layer: FTS phrase/prefix search,
   profile keyphrases/aliases, versioned corpus term statistics, inspectable query
   expansion, and the Phase-0 keyword goldens.
-- [ ] **P5-02** Implement lexical passage retrieval and directed typed graph
+- [x] **P5-02** Implement lexical passage retrieval and directed typed graph
   expansion that resolves paths back to support passages.
-- [ ] **P5-03** Add the selected vector backend with profile/dimension/input
+- [x] **P5-03** Add the selected vector backend with profile/dimension/input
   fingerprints, incremental embedding, atomic index generations, and lexical
   fallback.
-- [ ] **P5-04** Implement reciprocal-rank fusion with inspectable profile terms,
+- [x] **P5-04** Implement reciprocal-rank fusion with inspectable profile terms,
   directness/source quality, hop decay, temporal relevance, and diversity.
-- [ ] **P5-05** Implement versioned evidence packets and stable
+- [x] **P5-05** Implement versioned evidence packets and stable
   library/source-id/revision-id/UTF-8-span citations with historical resolution.
-- [ ] **P5-06** Separate accepted claims, support/contradiction polarity,
+- [x] **P5-06** Separate accepted claims, support/contradiction polarity,
   quoted/reported/source stance and attribution, effective time, ambiguities,
   conflicts, graph leads, and gaps.
-- [ ] **P5-07** Add query traces and judgement tests for all golden QA cases.
-- [ ] **P5-08** Compare answer evidence against current MCP and controlled
+- [x] **P5-07** Add query traces and judgement tests for all golden QA cases.
+- [x] **P5-08** Compare answer evidence against current MCP and controlled
   full-context baselines for recall, citation correctness, unsupported claims,
   latency, and context size.
 
@@ -572,6 +573,15 @@ unsupported-claim rate, ambiguity/conflict classification, context cost, and
 latency. It must beat the declared single-query/list-interleaving and controlled
 full-context baselines on the preselected measures, retain all provenance/stance/
 time fields, and link every accepted claim to support.
+
+Gate 5 is accepted for the recorded macOS scope. The permanent deterministic
+matrix passes all nine frozen questions at 144/144 with required recall 17/17
+and zero critical failures in both compiler modes and both VMs. A bounded
+Gemini 3.5 Flash run over the declared public fixtures scored the typed packets
+143/144 against 130/144 for the full-source control, with 9/9 passing and zero
+critical failures. Exact provenance, context-size measurements, native-v1 MCP
+comparison, transport limitation and secret-free evidence are retained in the
+[`Phase-5 record`](evidence/2026-08-23-phase5/README.md).
 
 ## Phase 6 — Human, Line-Command, MCP, And Skill Experience
 

@@ -45,7 +45,7 @@ inputs = .string[]
 inputs[1] = "unused"
 
 backend = .openaicompatibleprovider("127.0.0.1", 8080, 0, "/v1", "", "local-model", "local")
-request = .providerrequest("generate", "answer", "local-chat", messages, inputs, "", 30000, 2, "local", "answer-001", "request-001")
+request = .providerrequest("generate", "answer", "local-chat", messages, inputs, "", 30000, 2, "local", "answer-001", "request-001", 0, 0, 0, 0)
 
 capabilities = backend.capabilities()
 if capabilities.chat() = 0 then return 1
@@ -69,7 +69,7 @@ The complete compiled examples in `p1_llm_01.crexx`, `p1_llm_02.crexx`, and
 | Record | Purpose |
 | --- | --- |
 | `.providermessage` | Role plus text, image URL, document URL, or audio URL input |
-| `.providerrequest` | Operation, application role, model, content, schema, timeout, attempts, privacy, identities, token/dimension limits, and streaming request |
+| `.providerrequest` | Operation, application role, model, content, schema, timeout, attempts, privacy, identities, token/dimension limits, streaming request, and optional temperature millionths |
 | `.providercapabilities` | Truthful supported operations, modalities, limits, formats, streaming, cancellation, and connection reuse |
 | `.providerresult` | Normalized generation or embeddings plus provider/model/request identity, usage, latency, finish reason, and typed error |
 | `.embeddingrecord` | `f32le-v1` binary payload and element count |
@@ -83,6 +83,13 @@ Each request needs positive `timeout_ms`, one through ten attempts, and nonempty
 idempotency and request identifiers. Generation needs at least one message;
 embedding needs at least one input. Structured generation also needs a JSON
 schema.
+
+`temperature_millionths` defaults to `-1`, meaning omitted/provider default.
+Generation callers may request zero through 2,000,000 millionths; embedding
+requests cannot set it. OpenAI-compatible, OpenAI, Anthropic and Gemini
+generation adapters map an explicit value to their protocol's `temperature`
+field. Phase-5 hosted qualification uses zero for fixed repeatability while
+retaining the model and all other decoding controls in its evidence.
 
 ## Adapters
 

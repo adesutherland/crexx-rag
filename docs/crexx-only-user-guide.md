@@ -359,6 +359,13 @@ necessary for an ordinary answer.
 
 ## Get Evidence For An LLM
 
+Phase 5 implements the retrieval/evidence algorithms behind this target
+experience. Before the Phase-6 CLI and MCP adapters exist, Level-G callers use
+`planquery`, `embedmissing`, `buildexactvectorgeneration`, `retrieveevidence`,
+`encodeevidence`, `encodeanswercontext`, and `resolvecitation` directly. The
+[Phase-5 tutorial](tutorials/phase-5-retrieval.md) is the executable current
+workflow; the commands below remain the approved Phase-6 surface.
+
 The primary agent-facing command is:
 
 ```bash
@@ -391,6 +398,13 @@ crexx-rag --library ./architecture.cprag --access read --format json \
 
 The result contains both the evidence and generated prose. The prose never
 changes the library.
+
+Phase-5 evidence generation is provider-independent and does not require an
+answer model. When an answer model is used, pass `crexx-rag.answer-context/1`
+rather than untyped graph/vector lists. Stable citations bind the library,
+source, immutable revision and UTF-8 byte span; a later source update does not
+retarget an old citation. Hosted credentials remain symbolic `env:` references
+and are resolved only inside an explicitly authorized call boundary.
 
 ## Run Bounded Background Improvement
 

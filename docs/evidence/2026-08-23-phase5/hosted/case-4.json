@@ -1,0 +1,121 @@
+{
+  "schema": "crexx-rag.hosted-judgement/1",
+  "case_id": "it-ho-04-stance",
+  "question": "Does the design claim every destination replica is current during regional failover?",
+  "provider": "gemini",
+  "model": "gemini-3.5-flash",
+  "credential_reference": "env:GEMINI_API_KEY",
+  "temperature_millionths": 0,
+  "thinking_level": "minimal",
+  "max_attempts": 1,
+  "blind_order": [
+    "full",
+    "typed"
+  ],
+  "typed_context_sha256": "f0aafdb848d7ca345a93c51c3cabed54e4cae1b4692e29564b3241e4f066bdac",
+  "full_context_sha256": "32244b6f0037ce9da663fb2ec8ffad985e6cfde1fea9e8aa6671131a990ec45d",
+  "typed_answer": {
+    "answer": "No, the design does not claim that every destination replica is current. The fulfilment architecture note warns that the Mirror Agent can lag during regional failover, so it explicitly does not claim that every replica is current.",
+    "citations": [
+      "crexx-rag:library-p5-opt-rxvme:source-sha256:2d1a09b2254b2d12f7ef0124e7645fe8a2531256482b242b2f931decb4844494:revision-sha256:5d1a484e4313720d382f803ac6bccdc7902a22407d568bbe3f89ec72ae98c5b8:utf8-505-780"
+    ],
+    "gaps": [
+      "The returned fixture explicitly does not claim that every replica is current during failover."
+    ]
+  },
+  "control_answer": {
+    "answer": "No, the design does not claim that every destination replica is current during regional failover. Specifically, the approved design note warns that Mirror Agent (which replicates the Atlas Directory) can lag during regional failover, and therefore it explicitly does not claim that every replica is current.",
+    "citations": [
+      "source:it-held-out.md"
+    ],
+    "gaps": []
+  },
+  "scorers": [
+    {
+      "answer_1_score": 14,
+      "answer_2_score": 16,
+      "answer_1_critical_failure": 0,
+      "answer_2_critical_failure": 0,
+      "preference": "answer_2",
+      "rationale": "Both answers correctly identify that the design does not claim every replica is current due to Mirror Agent lag during regional failover. Answer 2 is preferred because it uses the exact citation keys from the provided TYPED PASSAGE MAP and correctly populates the expected evidence gap as specified in the case judgements."
+    },
+    {
+      "answer_1_score": 14,
+      "answer_2_score": 16,
+      "answer_1_critical_failure": 0,
+      "answer_2_critical_failure": 0,
+      "preference": "answer_2",
+      "rationale": "Both answers correctly identify that the design does not claim every replica is current due to Mirror Agent lag during regional failover. Answer 2 is preferred because it uses the exact citation keys from the provided TYPED PASSAGE MAP and correctly populates the expected evidence gap as specified in the case judgements."
+    }
+  ],
+  "typed_score": 16,
+  "control_score": 14,
+  "typed_critical_failure": 0,
+  "control_critical_failure": 0,
+  "calls": [
+    {
+      "call_id": "p5-answer-it-ho-04-stance-typed",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "ec1714904d8af4128c8c10a38ea9c5f8ed6cbab1d57161836ee3582ac7e7bd3a",
+      "response_id": "uXmLaqS5Lf7cnsEPj6fI8Ag",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 2378,
+      "output_tokens": 252,
+      "total_tokens": 2630,
+      "latency_us": 1727225
+    },
+    {
+      "call_id": "p5-answer-it-ho-04-stance-full",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "a7c6d847a7a6517df5aebf3136d51b62900c47ac0e05c3fff8d7354249492ff6",
+      "response_id": "u3mLau3FHIPwnsEPkqetmQg",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 1338,
+      "output_tokens": 93,
+      "total_tokens": 1431,
+      "latency_us": 1247568
+    },
+    {
+      "call_id": "p5-score-it-ho-04-stance-reset-1",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "375f763dd7fc99b43ff0f544cbca80c8e71c77ec086fd59a42175a4f6c7bc37e",
+      "response_id": "vHmLavKgLI6fnsEP_OKooQY",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 7063,
+      "output_tokens": 133,
+      "total_tokens": 7196,
+      "latency_us": 1471982
+    },
+    {
+      "call_id": "p5-score-it-ho-04-stance-reset-2",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "375f763dd7fc99b43ff0f544cbca80c8e71c77ec086fd59a42175a4f6c7bc37e",
+      "response_id": "vnmLapjBDYCNkdUPsNXU6A0",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 7063,
+      "output_tokens": 133,
+      "total_tokens": 7196,
+      "latency_us": 1530992
+    }
+  ]
+}

@@ -1,0 +1,136 @@
+options levelg
+
+namespace ragevidencejson expose encodeevidence encodeanswercontext encoderetrieval
+
+import rxfnsb
+import rxjson
+import ragevidence
+import ragretrieval
+
+encodeevidence: procedure = .int
+  arg evidence = .ragevidence, maximum_bytes = 65536, expose output = .string, expose error = .string
+  error = ""; output = ""
+  if maximum_bytes < 1 | evidence.schema_version() = "" then do; error = "evidence encoding input is invalid"; return -1; end
+  query_plan = evidence.query_plan(); passages = evidence.passages(); claims = evidence.claims()
+  ambiguities = evidence.ambiguities(); leads = evidence.leads(); gaps = evidence.gaps()
+  encoded_plan = _strings(query_plan)
+  encoded_passages = ""
+  do i = 1 to passages.0
+    if i > 1 then encoded_passages = encoded_passages || ","
+    encoded_passages = encoded_passages || _passage(passages[i])
+  end
+  encoded_claims = ""
+  do i = 1 to claims.0
+    if i > 1 then encoded_claims = encoded_claims || ","
+    encoded_claims = encoded_claims || _claim(claims[i])
+  end
+  encoded_leads = ""
+  do i = 1 to leads.0
+    if i > 1 then encoded_leads = encoded_leads || ","
+    encoded_leads = encoded_leads || _lead(leads[i])
+  end
+  trace_record = evidence.trace()
+  encoded_trace = '{"trace_id":' || jsonquote(trace_record.trace_id()) || ',"query_plan":' || _strings(trace_record.query_plan()) || ',"notes":' || _strings(trace_record.notes()) || '}'
+  output = '{"schema":' || jsonquote(evidence.schema_version()) || ',"library_id":' || jsonquote(evidence.library_id()) || ',"active_generation":' || evidence.active_generation() || ',"original_question":' || jsonquote(evidence.original_question()) || ',"query_plan":' || encoded_plan || ',"passages":[' || encoded_passages || '],"claims":[' || encoded_claims || '],"ambiguities":' || _strings(ambiguities) || ',"leads":[' || encoded_leads || '],"gaps":' || _strings(gaps) || ',"trace":' || encoded_trace || ',"answer_guidance":' || jsonquote(evidence.answer_guidance()) || ',"generated_answer":' || jsonquote(evidence.generated_answer()) || '}'
+  if binlength(output as .binary) > maximum_bytes then do; error = "serialized evidence exceeds the configured byte ceiling"; output = ""; return -2; end
+  return 0
+
+encoderetrieval: procedure = .int
+  arg retrieval = .ragretrievalresult, maximum_bytes = 65536, expose output = .string, expose error = .string
+  evidence_output = ""
+  if encodeevidence(retrieval.evidence(), maximum_bytes, evidence_output, error) \= 0 then do; output = ""; return -1; end
+  output = '{"schema":"crexx-rag.retrieval-result/1","status":' || retrieval.status() || ',"state":' || jsonquote(retrieval.state()) || ',"candidate_count":' || retrieval.candidate_count() || ',"vector_state":' || jsonquote(retrieval.vector_state()) || ',"error":' || jsonquote(retrieval.error()) || ',"evidence":' || evidence_output || '}'
+  if binlength(output as .binary) > maximum_bytes then do; error = "serialized retrieval result exceeds the configured byte ceiling"; output = ""; return -2; end
+  return 0
+
+encodeanswercontext: procedure = .int
+  arg evidence = .ragevidence, maximum_bytes = 65536, expose output = .string, expose error = .string
+  error = ""; output = ""
+  if maximum_bytes < 1 | evidence.schema_version() = "" then do; error = "answer-context encoding input is invalid"; return -1; end
+  passages = evidence.passages(); claims = evidence.claims(); leads = evidence.leads()
+  ambiguities = evidence.ambiguities(); gaps = evidence.gaps()
+  encoded_passages = ""; encoded_claims = ""; encoded_leads = ""
+  do i = 1 to passages.0
+    if i > 1 then encoded_passages = encoded_passages || ","
+    encoded_passages = encoded_passages || _answerpassage(passages[i])
+  end
+  do i = 1 to claims.0
+    if i > 1 then encoded_claims = encoded_claims || ","
+    encoded_claims = encoded_claims || _answerclaim(claims[i])
+  end
+  do i = 1 to leads.0
+    if i > 1 then encoded_leads = encoded_leads || ","
+    encoded_leads = encoded_leads || _answerlead(leads[i])
+  end
+  output = '{"schema":"crexx-rag.answer-context/1","question":' || jsonquote(evidence.original_question()) || ',"passages":[' || encoded_passages || '],"accepted_claims":[' || encoded_claims || '],"ambiguities":' || _strings(ambiguities) || ',"graph_leads":[' || encoded_leads || '],"gaps":' || _strings(gaps) || ',"answer_guidance":' || jsonquote(evidence.answer_guidance()) || '}'
+  if binlength(output as .binary) > maximum_bytes then do; error = "serialized answer context exceeds the configured byte ceiling"; output = ""; return -2; end
+  return 0
+
+_citation: procedure = .string
+  arg citation = .ragcitation
+  return '{"id":' || jsonquote(citation.citation()) || ',"source_id":' || jsonquote(citation.source()) || ',"revision_id":' || jsonquote(citation.revision()) || ',"span":{"unit":"utf8","start":' || citation.span_start() || ',"end":' || citation.span_end() || '}}'
+
+_score: procedure = .string
+  arg score = .ragscore
+  return '{"name":' || jsonquote(score.name()) || ',"value":' || score.value() || '}'
+
+_passage: procedure = .string
+  arg passage = .ragpassage
+  channels = passage.retrieval_channels(); scores = passage.scores(); encoded_scores = ""
+  do i = 1 to scores.0
+    if i > 1 then encoded_scores = encoded_scores || ","
+    encoded_scores = encoded_scores || _score(scores[i])
+  end
+  return '{"citation":' || _citation(passage.citation()) || ',"title":' || jsonquote(passage.title()) || ',"text":' || jsonquote(passage.text()) || ',"source_type":' || jsonquote(passage.source_type()) || ',"confidence":' || passage.confidence() || ',"captured_at":' || jsonquote(passage.captured_at()) || ',"event_start_at":' || jsonquote(passage.event_start_at()) || ',"event_end_at":' || jsonquote(passage.event_end_at()) || ',"evidence_class":' || jsonquote(passage.evidence_class()) || ',"directness":' || jsonquote(passage.directness()) || ',"retrieval_channels":' || _strings(channels) || ',"scores":[' || encoded_scores || ']}'
+
+_support: procedure = .string
+  arg support = .ragsupportcitation
+  return '{"citation":' || _citation(support.citation()) || ',"polarity":' || jsonquote(support.polarity()) || ',"stance":' || jsonquote(support.stance()) || ',"attribution":' || jsonquote(support.attribution()) || ',"lineage":' || jsonquote(support.lineage()) || '}'
+
+_claim: procedure = .string
+  arg claim = .ragacceptedclaim
+  supports = claim.supports(); breakdown = claim.confidence_breakdown(); conflicts = claim.conflicts()
+  encoded_supports = ""; encoded_breakdown = ""
+  do i = 1 to supports.0
+    if i > 1 then encoded_supports = encoded_supports || ","
+    encoded_supports = encoded_supports || _support(supports[i])
+  end
+  do i = 1 to breakdown.0
+    if i > 1 then encoded_breakdown = encoded_breakdown || ","
+    encoded_breakdown = encoded_breakdown || _score(breakdown[i])
+  end
+  return '{"claim_id":' || jsonquote(claim.claim_id()) || ',"subject":' || jsonquote(claim.subject()) || ',"relationship_type":' || jsonquote(claim.relationship_type()) || ',"object":' || jsonquote(claim.object()) || ',"direction":' || jsonquote(claim.direction()) || ',"confidence":' || claim.confidence() || ',"effective_start_at":' || jsonquote(claim.effective_start_at()) || ',"effective_end_at":' || jsonquote(claim.effective_end_at()) || ',"asserted_at":' || jsonquote(claim.asserted_at()) || ',"supports":[' || encoded_supports || '],"confidence_breakdown":[' || encoded_breakdown || '],"conflicts":' || _strings(conflicts) || '}'
+
+_lead: procedure = .string
+  arg lead = .raggraphlead
+  return '{"path":' || _strings(lead.path()) || ',"reason":' || jsonquote(lead.reason()) || ',"supporting_mentions":' || _strings(lead.supporting_mentions()) || ',"limitation":' || jsonquote(lead.limitation()) || '}'
+
+_answerpassage: procedure = .string
+  arg passage = .ragpassage
+  return '{"citation":' || jsonquote(passage.citation().citation()) || ',"text":' || jsonquote(passage.text()) || ',"captured_at":' || jsonquote(passage.captured_at()) || ',"event_start_at":' || jsonquote(passage.event_start_at()) || ',"event_end_at":' || jsonquote(passage.event_end_at()) || ',"evidence_class":' || jsonquote(passage.evidence_class()) || ',"directness":' || jsonquote(passage.directness()) || '}'
+
+_answersupport: procedure = .string
+  arg support = .ragsupportcitation
+  return '{"citation":' || jsonquote(support.citation().citation()) || ',"polarity":' || jsonquote(support.polarity()) || ',"stance":' || jsonquote(support.stance()) || ',"attribution":' || jsonquote(support.attribution()) || ',"lineage":' || jsonquote(support.lineage()) || '}'
+
+_answerclaim: procedure = .string
+  arg claim = .ragacceptedclaim
+  supports = claim.supports(); encoded_supports = ""
+  do i = 1 to supports.0
+    if i > 1 then encoded_supports = encoded_supports || ","
+    encoded_supports = encoded_supports || _answersupport(supports[i])
+  end
+  return '{"claim_id":' || jsonquote(claim.claim_id()) || ',"subject":' || jsonquote(claim.subject()) || ',"relationship_type":' || jsonquote(claim.relationship_type()) || ',"object":' || jsonquote(claim.object()) || ',"direction":' || jsonquote(claim.direction()) || ',"effective_start_at":' || jsonquote(claim.effective_start_at()) || ',"effective_end_at":' || jsonquote(claim.effective_end_at()) || ',"supports":[' || encoded_supports || ']}'
+
+_answerlead: procedure = .string
+  arg lead = .raggraphlead
+  return '{"path":' || _strings(lead.path()) || ',"reason":' || jsonquote(lead.reason()) || ',"limitation":' || jsonquote(lead.limitation()) || '}'
+
+_strings: procedure = .string
+  arg values = .string[]
+  encoded = "["
+  do i = 1 to values.0
+    if i > 1 then encoded = encoded || ","
+    encoded = encoded || jsonquote(values[i])
+  end
+  return encoded || "]"

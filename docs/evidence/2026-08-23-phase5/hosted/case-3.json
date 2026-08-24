@@ -1,0 +1,124 @@
+{
+  "schema": "crexx-rag.hosted-judgement/1",
+  "case_id": "it-ho-03-ambiguity",
+  "question": "What datastore does Orion use?",
+  "provider": "gemini",
+  "model": "gemini-3.5-flash",
+  "credential_reference": "env:GEMINI_API_KEY",
+  "temperature_millionths": 0,
+  "thinking_level": "minimal",
+  "max_attempts": 1,
+  "blind_order": [
+    "typed",
+    "full"
+  ],
+  "typed_context_sha256": "2fecc2263385f25e12a08aaed95d1d5fec4348c38271694944b5bd62b9a32f22",
+  "full_context_sha256": "32244b6f0037ce9da663fb2ec8ffad985e6cfde1fea9e8aa6671131a990ec45d",
+  "typed_answer": {
+    "answer": "Based on the provided context, the term \"Orion\" is ambiguous. The Orion Team operates the Parcel API, while the Orion Service is an unrelated notification component. The available documentation explicitly states that there is no evidence regarding the datastore used by the Orion Service.",
+    "citations": [
+      "crexx-rag:library-p5-opt-rxvme:source-sha256:2d1a09b2254b2d12f7ef0124e7645fe8a2531256482b242b2f931decb4844494:revision-sha256:5d1a484e4313720d382f803ac6bccdc7902a22407d568bbe3f89ec72ae98c5b8:utf8-505-780"
+    ],
+    "gaps": [
+      "One or more query names remain ambiguous; do not transfer facts between senses.",
+      "The returned fixture explicitly provides no evidence about the datastore used by the named service; do not transfer another sense's path."
+    ]
+  },
+  "control_answer": {
+    "answer": "The provided context does not contain information about what datastore Orion uses. It only notes that \"Orion\" is ambiguous, referring either to the Orion Team (which operates the Parcel API) or the Orion Service (an unrelated notification component), but there is no evidence regarding the datastore used by Orion Service.",
+    "citations": [
+      "source:it-held-out.md"
+    ],
+    "gaps": [
+      "The context explicitly states that the note contains no evidence about the datastore used by Orion Service."
+    ]
+  },
+  "scorers": [
+    {
+      "answer_1_score": 16,
+      "answer_2_score": 16,
+      "answer_1_critical_failure": 0,
+      "answer_2_critical_failure": 0,
+      "preference": "tie",
+      "rationale": "Both answers are excellent. They both correctly identify the ambiguity of the term \"Orion\" (Orion Team vs. Orion Service) and state that there is no evidence in the provided context regarding the datastore used by the Orion Service. Both answers cite the correct source material and identify the expected gap."
+    },
+    {
+      "answer_1_score": 16,
+      "answer_2_score": 16,
+      "answer_1_critical_failure": 0,
+      "answer_2_critical_failure": 0,
+      "preference": "tie",
+      "rationale": "Both answers correctly identify the ambiguity of the term 'Orion' and state that there is no evidence regarding the datastore used by the Orion Service. Both answers use valid citations from the provided context and accurately represent the expected gaps."
+    }
+  ],
+  "typed_score": 16,
+  "control_score": 16,
+  "typed_critical_failure": 0,
+  "control_critical_failure": 0,
+  "calls": [
+    {
+      "call_id": "p5-answer-it-ho-03-ambiguity-typed",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "00bda89df962ee1bcdb87884e701cf8ab11968b31ebff7ec7c20d21c921a0520",
+      "response_id": "s3mLapH5C-qhnsEP2tjesQg",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 2991,
+      "output_tokens": 290,
+      "total_tokens": 3281,
+      "latency_us": 1740581
+    },
+    {
+      "call_id": "p5-answer-it-ho-03-ambiguity-full",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "c28ee3d84ceaac9ea1280e797ab8f9e0518c39136e46184f0fd645e8142f566f",
+      "response_id": "tHmLauHdOcankdUPo4vvqQY",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 1331,
+      "output_tokens": 125,
+      "total_tokens": 1456,
+      "latency_us": 1373403
+    },
+    {
+      "call_id": "p5-score-it-ho-03-ambiguity-reset-1",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "a28b871f3a92b6efacb09f25d87ff3d20101f533b33d8e888ebb3278631f9ab3",
+      "response_id": "tnmLaqv8FKqovdIPoIygkQo",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 7739,
+      "output_tokens": 133,
+      "total_tokens": 7872,
+      "latency_us": 1628093
+    },
+    {
+      "call_id": "p5-score-it-ho-03-ambiguity-reset-2",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "a28b871f3a92b6efacb09f25d87ff3d20101f533b33d8e888ebb3278631f9ab3",
+      "response_id": "t3mLauT5OsrzxN8PsZf06Qo",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 7739,
+      "output_tokens": 118,
+      "total_tokens": 7857,
+      "latency_us": 1784530
+    }
+  ]
+}

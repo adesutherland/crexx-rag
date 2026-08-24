@@ -1,7 +1,7 @@
 # cREXX-RAG Workload And Capability Report
 
-Report version: 2. Status date: 2026-08-23. Evidence cutoff: the Phase-2
-closeout commit plus the retained P2-09 qualification.
+Report version: 3. Status date: 2026-08-24. Evidence cutoff: the Phase-5
+closeout worktree plus the retained P2-09 and Phase-5 qualifications.
 
 This is the consolidated workload report for the cREXX-only programme.
 It distinguishes application capability, local generic incubation, consumed
@@ -40,6 +40,8 @@ production-readiness statement, Linux qualification, or donation approval.
 | Worker slice | One process, DB-clock lease, heartbeat/fence, four crash boundaries, hard admission and usage settlement | No duplicate promotion; seven budget denial paths are zero-write; maximum unreported exposure is one call/100 tokens/20 cost microunits/500 ms | Application queue semantics are accepted but multi-process scheduling remains later qualification |
 | Phase-2 foundation | Schema v2, version-1 import, pinned backup/restore, 16 repositories, closed results, ten-command foundation facade | P2-01 through P2-08 pass current installed-only macOS QA | Product foundation is implemented behind cREXX contracts; Phase-6 public adapters remain open |
 | Phase-3 ingestion | Three format-aware chunkers, immutable plans, generation reconciliation, candidate census, FTS, jobs, native generic/Scotland semantic comparisons | Four compile/runtime cells, two concrete-VM crash/resume cells, and exact executable tutorial pass on macOS | Product ingestion is implemented behind Level-G development contracts; public Phase-6 adapters and Linux qualification remain open |
+| Phase-4 improvement | Canonical claims/support, deterministic proposal/review policy, exact budgets, independent OS-process workers and literal 28,800-poll soak | Four claim/tutorial cells, dual-VM forced termination, two-process fencing, full Debug/Release, Apple-ASan and eight-hour supervised exit 0 | Product improvement/work semantics are accepted on macOS; public Phase-6 adapter and exact Linux replay remain open |
+| Phase-5 retrieval | Nine frozen IT/Scotland questions; FTS5, exact vectors, directed graph, typed evidence and stable historical citations | Four cells pass 144/144 and 17/17 recall; typed contexts 69,295 bytes versus native MCP 92,385; bounded Gemini run 143/144 versus control 130/144 | Product retrieval/evidence is accepted on macOS; tiny full-context fixture and cREXX hosted transport limitation are retained without overclaiming |
 
 Timing values are observations of the named retained synthetic workloads. They
 are not universal performance claims, service-level objectives, or estimates
@@ -56,7 +58,7 @@ for a different corpus, provider, host, VM, or concurrency level.
 | HTTP/TLS and packed exact vector provider | Installed CREXX | Consumed directly within recorded limits | None; not locally owned |
 | Complete binary SHA-256 family | Installed CREXX | One-shot raw/hex, canonical immutable incremental state, and synchronous bounded-memory file hashing consumed directly | None; not locally owned |
 | Schema, repositories, commands, algorithms and jobs | cREXX-RAG application | Product-owned | None; explicitly excluded |
-| Provider-lifetime reuse, streaming/cancellation, multi-process workers | Deferred decision/qualification | Not implemented or not qualified | None |
+| Provider-lifetime reuse and adapter streaming/cancellation | Deferred decision/qualification | Not implemented or not qualified | None |
 
 ## Prepared Review Bundles
 
@@ -81,14 +83,14 @@ to run.
 
 ## Decisions Supported
 
-The evidence supports continued cREXX product work using installed SQLite,
-JSON, HTTP, SHA-256 and exact-vector boundaries, and it supports review of the
-three local generic candidates as bounded bundles. It does not support:
+The evidence supports continued cREXX product work through Phase 6 using
+installed SQLite, JSON, HTTP, SHA-256 and exact-vector boundaries, and it
+supports review of the three local generic candidates as bounded bundles. It
+does not support:
 
 - calling the current native executable replaced;
-- beginning Phase 3 ingestion;
-- claiming Linux, high-throughput hosted, streaming/cancellation, or
-  multi-process qualification;
+- claiming Linux, high-throughput hosted, cREXX hosted POST completion, or
+  provider streaming/cancellation qualification;
 - submitting any bundle to CREXX or changing the CREXX checkout; or
 - deleting or weakening the native-v1 oracle.
 

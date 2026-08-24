@@ -1,0 +1,421 @@
+options levelg
+
+namespace ragembedding expose ragembeddingresult ragvectorgenerationresult registerembeddingprofile embedmissing buildexactvectorgeneration
+
+import rxfnsb
+import rxhash
+import rxfs
+import rxjson
+import sqlite_boundary
+import provider_contract
+import ragstore
+import ragbackup
+import ragfile
+
+ragembeddingresult: class
+  _status = .int
+  _state = .string
+  _profile_id = .string
+  _generation = .int
+  _missing = .int
+  _embedded = .int
+  _reused = .int
+  _provider_calls = .int
+  _input_tokens = .int
+  _error = .string
+
+  *: factory
+    arg status = .int, state = .string, profile_id = .string, generation = .int, missing = .int, embedded = .int, reused = .int, provider_calls = .int, input_tokens = .int, error = .string
+    _status = status
+    _state = state
+    _profile_id = profile_id
+    _generation = generation
+    _missing = missing
+    _embedded = embedded
+    _reused = reused
+    _provider_calls = provider_calls
+    _input_tokens = input_tokens
+    _error = error
+    return
+
+  status: method = .int
+    return _status
+  state: method = .string
+    return _state
+  profile_id: method = .string
+    return _profile_id
+  generation: method = .int
+    return _generation
+  missing: method = .int
+    return _missing
+  embedded: method = .int
+    return _embedded
+  reused: method = .int
+    return _reused
+  provider_calls: method = .int
+    return _provider_calls
+  input_tokens: method = .int
+    return _input_tokens
+  error: method = .string
+    return _error
+
+ragvectorgenerationresult: class
+  _status = .int
+  _state = .string
+  _vector_generation_id = .string
+  _semantic_generation = .int
+  _embedding_profile_id = .string
+  _dimension = .int
+  _rows = .int
+  _sidecar_name = .string
+  _checksum = .string
+  _error = .string
+
+  *: factory
+    arg status = .int, state = .string, vector_generation_id = .string, semantic_generation = .int, embedding_profile_id = .string, dimension = .int, rows = .int, sidecar_name = .string, checksum = .string, error = .string
+    _status = status
+    _state = state
+    _vector_generation_id = vector_generation_id
+    _semantic_generation = semantic_generation
+    _embedding_profile_id = embedding_profile_id
+    _dimension = dimension
+    _rows = rows
+    _sidecar_name = sidecar_name
+    _checksum = checksum
+    _error = error
+    return
+
+  status: method = .int
+    return _status
+  state: method = .string
+    return _state
+  vector_generation_id: method = .string
+    return _vector_generation_id
+  semantic_generation: method = .int
+    return _semantic_generation
+  embedding_profile_id: method = .string
+    return _embedding_profile_id
+  dimension: method = .int
+    return _dimension
+  rows: method = .int
+    return _rows
+  sidecar_name: method = .string
+    return _sidecar_name
+  checksum: method = .string
+    return _checksum
+  error: method = .string
+    return _error
+
+registerembeddingprofile: procedure = .int
+  arg store = .ragstorehandle, embedding_profile_id = .string, provider_id = .string, model = .string, dimension = .int, input_envelope_fingerprint = .string, expose error = .string
+  error = ""
+  if store.writable() \= 1 | _safeid(embedding_profile_id) \= 1 | _safeid(provider_id) \= 1 | model = "" | length(model) > 256 | dimension < 1 | dimension > 65536 | length(input_envelope_fingerprint) \= 64 | _hex(input_envelope_fingerprint) \= 1 then do
+    error = "embedding profile input is invalid"
+    return -1
+  end
+  prepared = .binary
+  sql = "SELECT provider_id,model,dimension,input_envelope_fingerprint FROM embedding_profiles WHERE embedding_profile_id=?1"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindtext(prepared, 1, embedding_profile_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare embedding profile lookup"; return -3; end
+  step_status = sqlitestep(prepared)
+  if step_status = 100 then do
+    existing_provider = ""; existing_model = ""; existing_dimension = 0; existing_envelope = ""
+    column_status = sqlitecolumntext(prepared, 0, existing_provider) | sqlitecolumntext(prepared, 1, existing_model) | sqlitecolumnint(prepared, 2, existing_dimension) | sqlitecolumntext(prepared, 3, existing_envelope)
+    call sqlitefinalize prepared
+    if column_status \= 0 then do; error = "cannot decode embedding profile"; return -3; end
+    if existing_provider = provider_id & existing_model = model & existing_dimension = dimension & existing_envelope = input_envelope_fingerprint then return 0
+    error = "embedding profile identity already exists with different immutable fields"
+    return -2
+  end
+  call sqlitefinalize prepared
+  if step_status \= 101 then do; error = "cannot read embedding profile"; return -3; end
+  prepared = .binary
+  sql = "INSERT INTO embedding_profiles(embedding_profile_id,provider_id,model,dimension,input_envelope_fingerprint,created_at) VALUES(?1,?2,?3,?4,?5,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 then do; error = "cannot prepare embedding profile insert"; return -3; end
+  bind_status = sqlitebindtext(prepared, 1, embedding_profile_id) | sqlitebindtext(prepared, 2, provider_id) | sqlitebindtext(prepared, 3, model) | sqlitebindint(prepared, 4, dimension) | sqlitebindtext(prepared, 5, input_envelope_fingerprint)
+  step_status = sqlitestep(prepared); call sqlitefinalize prepared
+  if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert embedding profile"; return -3; end
+  return 0
+
+embedmissing: procedure = .int
+  arg store = .ragstorehandle, embedding_profile_id = .string, backend = .provider, route_class = .string, privacy_class = .string, maximum_items = .int, requested_batch_size = .int, timeout_ms = .int, expose result = .ragembeddingresult, expose error = .string
+  result = .ragembeddingresult(-1, "error", embedding_profile_id, 0, 0, 0, 0, 0, 0, "embedding input is invalid")
+  error = ""
+  if store.writable() \= 1 | _safeid(embedding_profile_id) \= 1 | maximum_items < 1 | maximum_items > 100000 | requested_batch_size < 1 | requested_batch_size > 1024 | timeout_ms < 1 | timeout_ms > 600000 then do; error = "embedding input is invalid"; return -1; end
+  generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  config_snapshot_id = _scalartext(store.database(), "SELECT config_snapshot_id FROM published_generations WHERE generation=" || generation)
+  if generation < 1 | config_snapshot_id = "" then do; error = "active generation configuration is unavailable"; return -3; end
+  profile_provider = ""; model = ""; dimension = 0; envelope = ""
+  if _profile(store.database(), embedding_profile_id, profile_provider, model, dimension, envelope, error) \= 0 then return -3
+  capabilities = backend.capabilities()
+  if capabilities.provider() \= profile_provider | capabilities.embeddings() \= 1 | capabilities.batch_embeddings() \= 1 then do; error = "embedding provider capabilities do not match the selected profile"; return -2; end
+  batch_size = requested_batch_size
+  if capabilities.batch_size() > 0 & capabilities.batch_size() < batch_size then batch_size = capabilities.batch_size()
+  missing = _scalarint(store.database(), "SELECT count(*) FROM revision_chunks rc WHERE rc.visible_from_generation<=" || generation || " AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>" || generation || ") AND NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id WHERE rce.revision_chunk_id=rc.revision_chunk_id AND e.embedding_profile_id=" || _q(embedding_profile_id) || " AND rce.visible_from_generation<=" || generation || " AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>" || generation || "))")
+  if missing < 0 then do; error = "cannot count missing embeddings"; return -3; end
+  reused = 0; embedded = 0; provider_calls = 0; input_tokens = 0
+  if _attachreusable(store.database(), generation, embedding_profile_id, envelope, reused, error) \= 0 then return -3
+
+  do while embedded < maximum_items
+    chunk_ids = .string[]; input_digests = .string[]; inputs = .string[]
+    remaining = maximum_items - embedded
+    limit = batch_size
+    if remaining < limit then limit = remaining
+    if _missingbatch(store.database(), generation, embedding_profile_id, envelope, limit, chunk_ids, input_digests, inputs, error) \= 0 then return -3
+    if inputs.0 = 0 then leave
+    request_identity = rxhash..sha256hex(("crexx-rag.embedding-request/1" || "00"x || embedding_profile_id || "00"x || _join(input_digests)) as .binary)
+    messages = .providermessage[]
+    request = .providerrequest("embed_batch", "embedding", model, messages, inputs, "", timeout_ms, 1, privacy_class, "embed-" || request_identity, "embed-" || substr(request_identity, 1, 32), 0, dimension, 0)
+    validation = validateproviderrequest(request)
+    if validation.code() = 0 then validation = validateproviderroute(request, route_class)
+    if validation.code() \= 0 then do
+      error = validation.message()
+      result = .ragembeddingresult(validation.code(), "denied", embedding_profile_id, generation, missing, embedded, reused, provider_calls, input_tokens, error)
+      return -2
+    end
+    provider_output = backend.embed_batch(request)
+    provider_calls = provider_calls + 1
+    usage = provider_output.usage(); input_tokens = input_tokens + usage.input_tokens()
+    if provider_output.status() \= 0 then do
+      provider_error = provider_output.error(); error = provider_error.message()
+      if error = "" then error = "embedding provider failed"
+      result = .ragembeddingresult(provider_output.status(), "partial", embedding_profile_id, generation, missing, embedded, reused, provider_calls, input_tokens, error)
+      return -4
+    end
+    if provider_output.provider() \= profile_provider | provider_output.model() \= model | provider_output.request_id() \= request.request_id() then do; error = "embedding provider returned mismatched identity"; result = .ragembeddingresult(-5, "partial", embedding_profile_id, generation, missing, embedded, reused, provider_calls, input_tokens, error); return -5; end
+    vectors = provider_output.embeddings()
+    if vectors.0 \= inputs.0 then do; error = "embedding provider returned a different item count"; result = .ragembeddingresult(-5, "partial", embedding_profile_id, generation, missing, embedded, reused, provider_calls, input_tokens, error); return -5; end
+    do i = 1 to vectors.0
+      if vectors[i].valid() \= 1 | vectors[i].codec() \= "f32le-v1" | vectors[i].count() \= dimension then do; error = "embedding provider returned an invalid codec or dimension"; result = .ragembeddingresult(-5, "partial", embedding_profile_id, generation, missing, embedded, reused, provider_calls, input_tokens, error); return -5; end
+    end
+    if _storebatch(store.database(), generation, config_snapshot_id, embedding_profile_id, profile_provider, model, request_identity, provider_output, chunk_ids, input_digests, vectors, error) \= 0 then return -3
+    embedded = embedded + vectors.0
+    additional_reuse = 0
+    if _attachreusable(store.database(), generation, embedding_profile_id, envelope, additional_reuse, error) \= 0 then return -3
+    reused = reused + additional_reuse
+  end
+  remaining_count = _scalarint(store.database(), "SELECT count(*) FROM revision_chunks rc WHERE rc.visible_from_generation<=" || generation || " AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>" || generation || ") AND NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id WHERE rce.revision_chunk_id=rc.revision_chunk_id AND e.embedding_profile_id=" || _q(embedding_profile_id) || " AND rce.visible_from_generation<=" || generation || " AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>" || generation || "))")
+  state = "complete"
+  if remaining_count > 0 then state = "bounded-partial"
+  result = .ragembeddingresult(0, state, embedding_profile_id, generation, missing, embedded, reused, provider_calls, input_tokens, "")
+  return 0
+
+buildexactvectorgeneration: procedure = .int
+  arg store = .ragstorehandle, embedding_profile_id = .string, maximum_rows = .int, expose result = .ragvectorgenerationresult, expose error = .string
+  result = .ragvectorgenerationresult(-1, "error", "", 0, embedding_profile_id, 0, 0, "", "", "vector generation input is invalid")
+  error = ""
+  if store.writable() \= 1 | _safeid(embedding_profile_id) \= 1 | maximum_rows < 1 | maximum_rows > 1000000 then do; error = "vector generation input is invalid"; return -1; end
+  generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  provider_id = ""; model = ""; dimension = 0; envelope = ""
+  if generation < 1 | _profile(store.database(), embedding_profile_id, provider_id, model, dimension, envelope, error) \= 0 then return -3
+  invalid = _scalarint(store.database(), "SELECT count(*) FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE e.embedding_profile_id=" || _q(embedding_profile_id) || " AND rce.visible_from_generation<=" || generation || " AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>" || generation || ") AND rc.visible_from_generation<=" || generation || " AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>" || generation || ") AND (e.dimension<>" || dimension || " OR length(e.vector)<>" || dimension * 4 || ")")
+  if invalid \= 0 then do; error = "active embeddings contain an incompatible dimension or byte count"; return -2; end
+  rows = _scalarint(store.database(), "SELECT count(*) FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE e.embedding_profile_id=" || _q(embedding_profile_id) || " AND rce.visible_from_generation<=" || generation || " AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>" || generation || ") AND rc.visible_from_generation<=" || generation || " AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>" || generation || ")")
+  if rows < 1 | rows > maximum_rows then do; error = "active embedding count is empty or exceeds the vector generation ceiling"; return -2; end
+  membership = ""
+  if _membership(store.database(), generation, embedding_profile_id, rows, membership, error) \= 0 then return -3
+  payload_text = '{"schema":"crexx-rag.rxvector-generation/1","codec":"f32le-v1","storage":"sqlite-embedding-blobs","semantic_generation":' || generation || ',"embedding_profile_id":' || _json(embedding_profile_id) || ',"dimension":' || dimension || ',"rows":[' || membership || ']}'
+  if length(payload_text) > 67108864 then do; error = "vector generation manifest exceeds the fixed 64 MiB build ceiling"; return -2; end
+  checksum = rxhash..sha256hex(payload_text as .binary)
+  vector_generation_id = "vg-" || substr(checksum, 1, 24)
+  prepared = .binary
+  sql = "SELECT sidecar_name FROM vector_generations WHERE state='published' AND semantic_generation=?1 AND embedding_profile_id=?2 AND sidecar_checksum=?3 AND dimension=?4 ORDER BY vector_generation_id LIMIT 1"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 | sqlitebindtext(prepared, 2, embedding_profile_id) \= 0 | sqlitebindtext(prepared, 3, checksum) \= 0 | sqlitebindint(prepared, 4, dimension) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare vector generation replay"; return -3; end
+  if sqlitestep(prepared) = 100 then do
+    sidecar_name = ""; column_status = sqlitecolumntext(prepared, 0, sidecar_name); call sqlitefinalize prepared
+    if column_status \= 0 then do; error = "cannot decode vector generation replay"; return -3; end
+    result = .ragvectorgenerationresult(0, "identical-no-op", vector_generation_id, generation, embedding_profile_id, dimension, rows, sidecar_name, checksum, "")
+    return 0
+  end
+  call sqlitefinalize prepared
+  source_path = store.path() || "/." || vector_generation_id || ".rxvec.build"
+  if rxfs..isfile(source_path) = 1 then call rxfs..delete source_path
+  if writebinaryfile(source_path, payload_text as .binary, error) \= 0 then return -3
+  publication = .ragsidecarpublication
+  publish_status = publishexactvectorsidecar(store, source_path, vector_generation_id, embedding_profile_id, dimension, length(payload_text), checksum, publication, error)
+  delete_status = rxfs..delete(source_path)
+  if publish_status \= 0 then return -3
+  if delete_status \= 0 then do; error = "published vector generation but could not remove its build input"; return -3; end
+  result = .ragvectorgenerationresult(0, "published", vector_generation_id, generation, embedding_profile_id, dimension, rows, publication.sidecar_name(), checksum, "")
+  return 0
+
+_attachreusable: procedure = .int
+  arg database = .binary, generation = .int, profile_id = .string, envelope = .string, expose reused = .int, expose error = .string
+  before = _scalarint(database, "SELECT total_changes()")
+  prepared = .binary
+  scan_sql = "SELECT rc.revision_chunk_id,c.content_digest FROM revision_chunks rc JOIN chunk_contents c ON c.content_id=rc.content_id WHERE rc.visible_from_generation<=?1 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?1) AND NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id WHERE rce.revision_chunk_id=rc.revision_chunk_id AND e.embedding_profile_id=?2 AND rce.visible_from_generation<=?1 AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>?1)) ORDER BY rc.revision_chunk_id"
+  if sqliteprepare(database, scan_sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 | sqlitebindtext(prepared, 2, profile_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare reusable embedding scan"; return -1; end
+  chunk_ids = .string[]; digests = .string[]
+  do forever
+    step_status = sqlitestep(prepared)
+    if step_status = 101 then leave
+    if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read reusable embedding scan"; return -1; end
+    chunk_id = ""; content_digest = ""
+    if sqlitecolumntext(prepared, 0, chunk_id) \= 0 | sqlitecolumntext(prepared, 1, content_digest) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode reusable embedding scan"; return -1; end
+    input_digest = rxhash..sha256hex((content_digest || "00"x || envelope) as .binary)
+    embedding_id = _scalartextbind(database, "SELECT embedding_id FROM embeddings WHERE input_digest=?1 AND embedding_profile_id=?2", input_digest, profile_id)
+    if embedding_id \= "" then do; chunk_ids[chunk_ids.0 + 1] = chunk_id; digests[digests.0 + 1] = embedding_id; end
+  end
+  call sqlitefinalize prepared
+  reused = 0
+  do i = 1 to chunk_ids.0
+    insert = .binary
+    sql = "INSERT OR IGNORE INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) VALUES(?1,?2,?3)"
+    if sqliteprepare(database, sql, insert) \= 0 then do; error = "cannot prepare reusable embedding attachment"; return -1; end
+    bind_status = sqlitebindtext(insert, 1, chunk_ids[i]) | sqlitebindtext(insert, 2, digests[i]) | sqlitebindint(insert, 3, generation)
+    step_status = sqlitestep(insert); call sqlitefinalize insert
+    if bind_status \= 0 | step_status \= 101 then do; error = "cannot attach reusable embedding"; return -1; end
+    after = _scalarint(database, "SELECT total_changes()")
+    if after > before then do; reused = reused + 1; before = after; end
+  end
+  return 0
+
+_missingbatch: procedure = .int
+  arg database = .binary, generation = .int, profile_id = .string, envelope = .string, limit = .int, expose chunk_ids = .string[], expose input_digests = .string[], expose inputs = .string[], expose error = .string
+  prepared = .binary
+  sql = "SELECT rc.revision_chunk_id,c.content_digest,c.text FROM revision_chunks rc JOIN chunk_contents c ON c.content_id=rc.content_id WHERE rc.visible_from_generation<=?1 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?1) AND NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id WHERE rce.revision_chunk_id=rc.revision_chunk_id AND e.embedding_profile_id=?2 AND rce.visible_from_generation<=?1 AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>?1)) ORDER BY rc.revision_chunk_id"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 | sqlitebindtext(prepared, 2, profile_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare missing embedding batch"; return -1; end
+  do while inputs.0 < limit
+    step_status = sqlitestep(prepared)
+    if step_status = 101 then leave
+    if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read missing embedding batch"; return -1; end
+    chunk_id = ""; content_digest = ""; body = ""
+    if sqlitecolumntext(prepared, 0, chunk_id) \= 0 | sqlitecolumntext(prepared, 1, content_digest) \= 0 | sqlitecolumntext(prepared, 2, body) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode missing embedding batch"; return -1; end
+    input_digest = rxhash..sha256hex((content_digest || "00"x || envelope) as .binary)
+    if _contains(input_digests, input_digest) = 0 then do
+      chunk_ids[chunk_ids.0 + 1] = chunk_id
+      input_digests[input_digests.0 + 1] = input_digest
+      inputs[inputs.0 + 1] = body
+    end
+  end
+  call sqlitefinalize prepared
+  return 0
+
+_storebatch: procedure = .int
+  arg database = .binary, generation = .int, config_snapshot_id = .string, profile_id = .string, provider_id = .string, model = .string, request_hash = .string, provider_output = .providerresult, chunk_ids = .string[], input_digests = .string[], vectors = .embeddingrecord[], expose error = .string
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin embedding batch"; return -1; end
+  provider_run_id = "provider-run-" || substr(request_hash, 1, 24)
+  usage = provider_output.usage()
+  provider_statement = .binary
+  sql = "INSERT OR IGNORE INTO provider_runs(provider_run_id,config_snapshot_id,provider_id,model,request_hash,outcome,input_tokens,output_tokens,duration_ms,started_at,completed_at) VALUES(?1,?2,?3,?4,?5,'completed',?6,?7,?8,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(database, sql, provider_statement) \= 0 then return _rollback(database, "cannot prepare provider run", error)
+  duration_ms = (provider_output.latency_us() / 1000) as .int
+  bind_status = sqlitebindtext(provider_statement, 1, provider_run_id) | sqlitebindtext(provider_statement, 2, config_snapshot_id) | sqlitebindtext(provider_statement, 3, provider_id) | sqlitebindtext(provider_statement, 4, model) | sqlitebindtext(provider_statement, 5, request_hash) | sqlitebindint(provider_statement, 6, usage.input_tokens()) | sqlitebindint(provider_statement, 7, usage.output_tokens()) | sqlitebindint(provider_statement, 8, duration_ms)
+  step_status = sqlitestep(provider_statement); call sqlitefinalize provider_statement
+  if bind_status \= 0 | step_status \= 101 then return _rollback(database, "cannot insert provider run", error)
+  do i = 1 to vectors.0
+    embedding_id = "embedding-" || substr(rxhash..sha256hex((profile_id || "00"x || input_digests[i]) as .binary), 1, 32)
+    embedding_statement = .binary
+    sql = "INSERT OR IGNORE INTO embeddings(embedding_id,input_digest,embedding_profile_id,vector,dimension,provider_run_id,created_at) VALUES(?1,?2,?3,?4,?5,?6,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+    if sqliteprepare(database, sql, embedding_statement) \= 0 then return _rollback(database, "cannot prepare embedding insert", error)
+    bind_status = sqlitebindtext(embedding_statement, 1, embedding_id) | sqlitebindtext(embedding_statement, 2, input_digests[i]) | sqlitebindtext(embedding_statement, 3, profile_id) | sqlitebindblob(embedding_statement, 4, vectors[i].payload()) | sqlitebindint(embedding_statement, 5, vectors[i].count()) | sqlitebindtext(embedding_statement, 6, provider_run_id)
+    step_status = sqlitestep(embedding_statement); call sqlitefinalize embedding_statement
+    if bind_status \= 0 | step_status \= 101 then return _rollback(database, "cannot insert embedding", error)
+    occurrence_statement = .binary
+    sql = "INSERT OR IGNORE INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) VALUES(?1,?2,?3)"
+    if sqliteprepare(database, sql, occurrence_statement) \= 0 then return _rollback(database, "cannot prepare embedding occurrence", error)
+    bind_status = sqlitebindtext(occurrence_statement, 1, chunk_ids[i]) | sqlitebindtext(occurrence_statement, 2, embedding_id) | sqlitebindint(occurrence_statement, 3, generation)
+    step_status = sqlitestep(occurrence_statement); call sqlitefinalize occurrence_statement
+    if bind_status \= 0 | step_status \= 101 then return _rollback(database, "cannot insert embedding occurrence", error)
+  end
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit embedding batch", error)
+  return 0
+
+_membership: procedure = .int
+  arg database = .binary, generation = .int, profile_id = .string, expected_rows = .int, expose membership = .string, expose error = .string
+  prepared = .binary
+  sql = "SELECT rc.revision_chunk_id,e.embedding_id,e.input_digest FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE e.embedding_profile_id=?1 AND rce.visible_from_generation<=?2 AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>?2) AND rc.visible_from_generation<=?2 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?2) ORDER BY rc.revision_chunk_id,e.embedding_id"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, profile_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare vector membership"; return -1; end
+  count = 0; membership = ""
+  do forever
+    step_status = sqlitestep(prepared)
+    if step_status = 101 then leave
+    if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read vector membership"; return -1; end
+    chunk_id = ""; embedding_id = ""; input_digest = ""
+    if sqlitecolumntext(prepared, 0, chunk_id) \= 0 | sqlitecolumntext(prepared, 1, embedding_id) \= 0 | sqlitecolumntext(prepared, 2, input_digest) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode vector membership"; return -1; end
+    if count > 0 then membership = membership || ","
+    membership = membership || '{"revision_chunk_id":' || _json(chunk_id) || ',"embedding_id":' || _json(embedding_id) || ',"input_digest":' || _json(input_digest) || '}'
+    count = count + 1
+  end
+  call sqlitefinalize prepared
+  if count \= expected_rows then do; error = "vector membership changed while building its immutable generation"; return -1; end
+  return 0
+
+_profile: procedure = .int
+  arg database = .binary, profile_id = .string, expose provider_id = .string, expose model = .string, expose dimension = .int, expose envelope = .string, expose error = .string
+  prepared = .binary
+  sql = "SELECT provider_id,model,dimension,input_envelope_fingerprint FROM embedding_profiles WHERE embedding_profile_id=?1"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, profile_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "embedding profile does not exist"; return -1; end
+  column_status = sqlitecolumntext(prepared, 0, provider_id) | sqlitecolumntext(prepared, 1, model) | sqlitecolumnint(prepared, 2, dimension) | sqlitecolumntext(prepared, 3, envelope)
+  call sqlitefinalize prepared
+  if column_status \= 0 | dimension < 1 | length(envelope) \= 64 then do; error = "embedding profile is invalid"; return -1; end
+  return 0
+
+_scalarint: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  value = -1; status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value
+
+_scalartext: procedure = .string
+  arg database = .binary, sql = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  value = ""; status = sqlitecolumntext(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return ""
+  return value
+
+_scalartextbind: procedure = .string
+  arg database = .binary, sql = .string, first = .string, second = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, first) \= 0 | sqlitebindtext(prepared, 2, second) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  value = ""; status = sqlitecolumntext(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return ""
+  return value
+
+_rollback: procedure = .int
+  arg database = .binary, message = .string, expose error = .string
+  call sqliteexec database, "ROLLBACK"
+  error = message
+  return -1
+
+_join: procedure = .string
+  arg values = .string[]
+  output = ""
+  do i = 1 to values.0
+    if output \= "" then output = output || "00"x
+    output = output || values[i]
+  end
+  return output
+
+_contains: procedure = .int
+  arg values = .string[], value = .string
+  do i = 1 to values.0
+    if values[i] = value then return 1
+  end
+  return 0
+
+_safeid: procedure = .int
+  arg value = .string
+  if length(value) < 1 | length(value) > 128 then return 0
+  allowed = "abcdefghijklmnopqrstuvwxyz0123456789_-"
+  do i = 1 to length(value)
+    if pos(substr(value, i, 1), allowed) = 0 then return 0
+  end
+  return 1
+
+_hex: procedure = .int
+  arg value = .string
+  do i = 1 to length(value)
+    if pos(substr(value, i, 1), "0123456789abcdef") = 0 then return 0
+  end
+  return 1
+
+_q: procedure = .string
+  arg value = .string
+  return "'" || changestr("'", value, "''") || "'"
+
+_json: procedure = .string
+  arg value = .string
+  return jsonquote(value)

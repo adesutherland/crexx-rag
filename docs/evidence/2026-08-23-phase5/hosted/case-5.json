@@ -1,0 +1,124 @@
+{
+  "schema": "crexx-rag.hosted-judgement/1",
+  "case_id": "scot-01-agency-stance",
+  "question": "What role did Rannoch play in the Glen Mora removals, and how do the sources judge it?",
+  "provider": "gemini",
+  "model": "gemini-3.5-flash",
+  "credential_reference": "env:GEMINI_API_KEY",
+  "temperature_millionths": 0,
+  "thinking_level": "minimal",
+  "max_attempts": 1,
+  "blind_order": [
+    "typed",
+    "full"
+  ],
+  "typed_context_sha256": "3f762f9299eafb79b5b3dbe7cc9afc9e37cfd6a0b91f6f5de4366b2b020d5133",
+  "full_context_sha256": "32244b6f0037ce9da663fb2ec8ffad985e6cfde1fea9e8aa6671131a990ec45d",
+  "typed_answer": {
+    "answer": "In 1841, Factor Iven directed removals on the Rannoch Estate in Glen Mora, which held farms in the area. Sources offer opposing stances on these removals. Elian Voss states that Factor Iven warned the tenants beforehand and argues that the estate acted lawfully. Conversely, Mara Quill's quoted diary describes families reaching the coast without shelter, highlighting their hardship.",
+    "citations": [
+      "crexx-rag:library-p5-opt-rxvme:source-sha256:d02ac6fa24826fe814452fe08f07feaa1c3a27192198d49fb8d3a06f688a596e:revision-sha256:5abba230f830545760af8accf23a0bd912be2a9f525917fd1b32ed68f6c96e44:utf8-505-1011",
+      "crexx-rag:library-p5-opt-rxvme:source-sha256:8d48fe3caeedd8a987703a6ba70a42b8d3d559182728b498f15d726262bc0172:revision-sha256:f1ad1ff3001b664fdced3257fbe0d00215b0489f064eeea58bc43a2fedde353e:utf8-0-510"
+    ],
+    "gaps": [
+      "One or more query names remain ambiguous; do not transfer facts between senses.",
+      "The returned evidence does not attribute the act to every member of the named house."
+    ]
+  },
+  "control_answer": {
+    "answer": "In 1841, Factor Iven directed removals on the Rannoch Estate in Glen Mora. The sources present conflicting judgments regarding these removals. The compiler Elian Voss favors the estate officers, stating that Factor Iven warned the tenants beforehand and arguing that the estate acted lawfully. Conversely, the quoted diary of traveler Mara Quill describes the displaced families reaching the coast without shelter. The sources present these as opposed stances rather than a resolved fact about blame.",
+    "citations": [
+      "source:scotland-shaped-chronicle.md",
+      "source:scotland-shaped-ledger.md"
+    ],
+    "gaps": []
+  },
+  "scorers": [
+    {
+      "answer_1_score": 16,
+      "answer_2_score": 12,
+      "answer_1_critical_failure": 0,
+      "answer_2_critical_failure": 0,
+      "preference": "answer_1",
+      "rationale": "Answer 1 is excellent. It uses the exact stable URIs from the typed passage map for its citations, and it correctly identifies the expected gaps as specified in the Scotland Judgements (scot-01-agency-stance). Answer 2 uses the raw source labels instead of the typed passage map citations, and it fails to report the required gaps."
+    },
+    {
+      "answer_1_score": 16,
+      "answer_2_score": 12,
+      "answer_1_critical_failure": 0,
+      "answer_2_critical_failure": 0,
+      "preference": "answer_1",
+      "rationale": "Answer 1 is excellent. It uses the exact stable URIs from the typed passage map for its citations, and it correctly identifies the expected gaps as specified in the Scotland Judgements (scot-01-agency-stance). Answer 2 uses the raw source labels instead of the typed passage map citations, and it fails to report the required gaps."
+    }
+  ],
+  "typed_score": 16,
+  "control_score": 12,
+  "typed_critical_failure": 0,
+  "control_critical_failure": 0,
+  "calls": [
+    {
+      "call_id": "p5-answer-scot-01-agency-stance-typed",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "b24d47bd70b5e8ac7830d72b959131d25452db3fd613b96ee5862fda827b928e",
+      "response_id": "v3mLavOVK_XtnsEPx7-02Ak",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 2891,
+      "output_tokens": 454,
+      "total_tokens": 3345,
+      "latency_us": 2247602
+    },
+    {
+      "call_id": "p5-answer-scot-01-agency-stance-full",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "bbac832a22d5fe9db3d46cbe8add465df3a298a8130b635089fb101d434f1c93",
+      "response_id": "wXmLau6YOuSgkdUPxf3FoAw",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 1345,
+      "output_tokens": 146,
+      "total_tokens": 1491,
+      "latency_us": 1656588
+    },
+    {
+      "call_id": "p5-score-scot-01-agency-stance-reset-1",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "421b00d3f047e9542368b01960fcb04ba883c3a7e8157d0ef0ffe2ca6162a6d1",
+      "response_id": "w3mLavyfJt6D7M8P0u7z8AQ",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 7826,
+      "output_tokens": 147,
+      "total_tokens": 7973,
+      "latency_us": 1683692
+    },
+    {
+      "call_id": "p5-score-scot-01-agency-stance-reset-2",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash",
+      "credential_reference": "env:GEMINI_API_KEY",
+      "temperature_millionths": 0,
+      "thinking_level": "minimal",
+      "max_attempts": 1,
+      "request_sha256": "421b00d3f047e9542368b01960fcb04ba883c3a7e8157d0ef0ffe2ca6162a6d1",
+      "response_id": "xXmLarXPEve8nsEPo4GKkQs",
+      "model_version": "gemini-3.5-flash",
+      "input_tokens": 7826,
+      "output_tokens": 147,
+      "total_tokens": 7973,
+      "latency_us": 1856924
+    }
+  ]
+}

@@ -119,6 +119,11 @@ openaicompatibleprovider: class implements .provider
       values[next] = request.max_output_tokens()
       next = next + 1
     end
+    if request.temperature_millionths() >= 0 then do
+      keys[next] = "temperature"
+      values[next] = request.temperature_millionths() / 1000000.0
+      next = next + 1
+    end
     if structured \= 0 then do
       schema_keys = .string[]
       schema_values = .string[]

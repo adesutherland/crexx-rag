@@ -41,7 +41,7 @@ errors = errors + check(openai_capabilities.request_format() = "openai-responses
 openai_messages = .providermessage[]
 openai_messages[1] = .providermessage("system", "Inspect the supplied image")
 openai_messages[2] = .providermessage("user", "", "image_url", "image/png", "https://fixture.invalid/image.png")
-openai_request = .providerrequest("generate_structured", "vision", "gpt-5.6-luna", openai_messages, unused_inputs, schema, 2000, 1, "public", "openai-generate-" || cell, "openai-generate-" || cell, 16, 0, 0)
+openai_request = .providerrequest("generate_structured", "vision", "gpt-5.6-luna", openai_messages, unused_inputs, schema, 2000, 1, "public", "openai-generate-" || cell, "openai-generate-" || cell, 16, 0, 0, 0)
 openai_result = openai_facade.generate_structured(openai_request)
 openai_usage = openai_result.usage()
 errors = errors + check(openai_result.status() = 0 & openai_result.content() = '{"answer":"openai"}' & pos("loopback-request-", openai_result.request_id()) = 1, "OpenAI Responses shape")
@@ -62,7 +62,7 @@ errors = errors + check(anthropic_capabilities.request_format() = "anthropic-mes
 anthropic_messages = .providermessage[]
 anthropic_messages[1] = .providermessage("system", "Extract from the supplied document")
 anthropic_messages[2] = .providermessage("user", "", "document_url", "application/pdf", "https://fixture.invalid/source.pdf")
-anthropic_request = .providerrequest("generate_structured", "document", "claude-haiku-4-5", anthropic_messages, unused_inputs, schema, 2000, 1, "public", "anthropic-generate-" || cell, "anthropic-generate-" || cell, 16, 0, 0)
+anthropic_request = .providerrequest("generate_structured", "document", "claude-haiku-4-5", anthropic_messages, unused_inputs, schema, 2000, 1, "public", "anthropic-generate-" || cell, "anthropic-generate-" || cell, 16, 0, 0, 0)
 anthropic_result = anthropic.generate_structured(anthropic_request)
 anthropic_usage = anthropic_result.usage()
 errors = errors + check(anthropic_result.status() = 0 & anthropic_result.content() = '{"answer":"anthropic"}' & anthropic_result.finish_reason() = "end_turn", "Anthropic Messages shape")
@@ -78,7 +78,7 @@ errors = errors + check(gemini_capabilities.request_format() = "gemini-generateC
 gemini_messages = .providermessage[]
 gemini_messages[1] = .providermessage("system", "Classify the supplied audio")
 gemini_messages[2] = .providermessage("user", "", "audio_url", "audio/wav", "https://fixture.invalid/audio.wav")
-gemini_request = .providerrequest("generate_structured", "audio", "gemini-2.5-flash-lite", gemini_messages, unused_inputs, schema, 2000, 1, "public", "gemini-generate-" || cell, "gemini-generate-" || cell, 16, 0, 0)
+gemini_request = .providerrequest("generate_structured", "audio", "gemini-2.5-flash-lite", gemini_messages, unused_inputs, schema, 2000, 1, "public", "gemini-generate-" || cell, "gemini-generate-" || cell, 16, 0, 0, 0)
 gemini_result = gemini.generate_structured(gemini_request)
 gemini_usage = gemini_result.usage()
 errors = errors + check(gemini_result.status() = 0 & gemini_result.content() = '{"answer":"gemini"}' & gemini_result.finish_reason() = "STOP", "Gemini generateContent shape")
@@ -97,7 +97,7 @@ local_messages = .providermessage[]
 local_messages[1] = .providermessage("system", "Answer from the local fixture")
 local_messages[2] = .providermessage("user", "Generate Gràdh 中")
 local_provider = .openaicompatibleprovider(host, port, 0, "/v1", "", "local-openai-compatible", "local")
-local_request = .providerrequest("generate", "answerer", "local-chat", local_messages, unused_inputs, "", 2000, 1, "local", "local-" || cell, "local-" || cell, 0, 0, 0)
+local_request = .providerrequest("generate", "answerer", "local-chat", local_messages, unused_inputs, "", 2000, 1, "local", "local-" || cell, "local-" || cell, 0, 0, 0, 0)
 local_result = local_provider.generate(local_request)
 errors = errors + check(local_result.status() = 0 & local_result.content() = "loopback OpenAI generation Gràdh 中", "local provider shape")
 

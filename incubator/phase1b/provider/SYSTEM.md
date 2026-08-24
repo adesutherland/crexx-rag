@@ -104,6 +104,13 @@ is retained under
 The hosted program is not registered as an ordinary CTest and must remain
 secret- and budget-gated.
 
+Phase 5 adds an optional normalized `temperature_millionths` generation field
+and loopback assertions for all four generation protocol shapes. It also
+retains an external, public-fixture-only Gemini answer-quality qualification.
+Hosted probes through this cREXX adapter timed out before response completion
+while direct HTTP/1.1 calls succeeded; that finding remains Phase-7 transport
+qualification and is not converted into an accepted adapter claim.
+
 ## Known System Limits
 
 - CRI-15: the historical installed Linux `rxvme` socket path lost the intended
@@ -116,6 +123,8 @@ secret- and budget-gated.
   approved provider-owned pool lifecycle and selected Linux/package replay;
   streaming and cancellation remain separate adapter-scope decisions.
 - Adapter instances retain credentials in process memory for their lifetime.
+- Current hosted POST-completion behavior must be minimized and repaired or
+  otherwise resolved before the adapter can be called hosted-qualified.
 - The adapters expose no concurrent request scheduler, persistent
   cross-operation pool, circuit breaker, jittered retry, or external capability
   discovery.

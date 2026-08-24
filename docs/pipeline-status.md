@@ -22,8 +22,9 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Phase 2 / Gate 2 | Accepted on macOS 2026-08-23 | `P2-01` through `P2-10`, public installed-capability adoption, canonical zero-write plans, and hostile apply-time revalidation are accepted. Exact downstream Linux replay remains open. |
 | Parallel CREXX capability sync | Current installed package adopted on macOS | Public Level-G HTTP/JSON, complete `rxhash` SHA-256, and exact packed `rxvector` are consumed directly with source fallback disabled. Provider-lifecycle expansion remains separately approval-gated, and exact downstream Linux confirmation is the only deferred Phase-2 platform replay. |
 | Phase 3 / Gate 3 | Accepted on macOS 2026-08-23 | Level-G folder ingestion, immutable plans, incremental reuse/invalidation, candidates, FTS, jobs, tutorial, oracle delta and crash resume pass; exact downstream Linux remains open. |
-| Phase 4 / Gate 4 | Accepted on macOS 2026-08-24 | Claims/extraction/review/improvement, durable multi-process workers, and the literal 28,800-poll supervised overnight soak pass; exact downstream Linux remains open. |
-| Phase 5 and later | Authorized sequentially | Retrieval/evidence follows Gate 4; cutover and retirement remain later approval gates. |
+| Phase 4 / Gate 4 | Accepted on macOS 2026-08-24 | Claims/extraction/review/improvement, durable multi-process workers and the literal eight-hour supervised soak pass; exact downstream Linux remains open. |
+| Phase 5 / Gate 5 | Accepted on macOS 2026-08-24 | Deterministic focused query planning, hybrid retrieval, exact vector generations, stable typed evidence, nine frozen judgements, native/full-context comparison and bounded Gemini qualification pass; exact Linux and cREXX hosted-transport closure remain open. |
+| Phase 6 and later | Authorized sequentially | Public surfaces follow Gate 5; cutover and retirement remain later approval gates. |
 
 ## Current Product Reality
 
@@ -69,12 +70,13 @@ fresh deterministic/loopback closeout suite passed 28/28, 0 failed, 0 skipped
 in 110.30 seconds. Exact evidence is under
 `docs/evidence/2026-07-31-gate1a-crexx-candidate/`.
 
-No complete cREXX-only public product path, retrieval product, or target command
-set is claimed implemented yet. The Phase-4 multi-process improvement queue and
-its literal overnight soak are accepted for the recorded macOS scope.
-The Level-G schema-v2 storage and Phase-3 ingestion/repository path are accepted
-over the local generic SQLite incubation. The provider contract remains
-qualified in local incubation, subject to the Gate-1B transport limitations.
+No complete cREXX-only public product path or target command set is claimed
+implemented yet. The Phase-4 multi-process improvement queue and literal
+eight-hour soak are accepted on macOS. The Level-G schema-v2 storage,
+Phase-3 ingestion/repository and Phase-5 retrieval/evidence paths are accepted
+over the selected generic facilities. The provider contract remains qualified
+in local incubation; hosted answer quality is separately retained, while the
+cREXX hosted POST-completion finding is explicitly assigned to Phase 7.
 
 Fresh Linux validation on 2026-08-03 repaired the native build's missing direct
 `<algorithm>` dependency, PIC requirement for the RXPA plugin, and macOS-only
@@ -298,7 +300,32 @@ competing worker processes, stale-fence denial, the native-v1 queue oracle, and
 exact tutorial NDJSON. Full Debug and fresh Release are 71/71; focused Apple
 ASan is clean with unsupported LeakSanitizer explicitly off. Recurring QA uses
 a deterministic provider and resolves no credential. The literal supervised
-run completed in one launchd attempt with 28,800 one-second polls, four
-processed improvement items, balanced reservations, exact success output, and
-exit 0. A separate queued ingestion job was intentionally outside the soak.
-Gate 4 is accepted for the recorded macOS scope; exact Linux remains open.
+eight-hour run completed 28,800 one-second polls and all four items in its
+supervised improvement job, with balanced reservations and exit 0, accepting
+Gate 4 for the recorded macOS scope. A separate ingestion job remained queued
+and was intentionally outside the soak.
+
+## Phase 5 Execution
+
+`P5-01` through `P5-08` are implemented in Level G. `ragquery` creates
+canonical `crexx-rag.query-plan/1` values with exact phrase/prefix, registered
+alias and bounded spelling expansion, time/comparison/relationship intent,
+ambiguity and versioned term statistics. `ragembedding` stores only compatible
+missing embeddings, resumes partial batches and atomically publishes
+checksum-bound exact `.rxvec` generations. `ragretrieval` combines bounded
+FTS5, installed packed `rxvector`, directed graph-to-support expansion,
+reciprocal-rank fusion and deterministic diversity. `ragevidencejson` emits
+bounded `crexx-rag.evidence/1` and `crexx-rag.answer-context/1` projections with
+historically resolvable library/source/revision/UTF-8-span citations.
+
+All four optimized/non-optimized `rxvme`/`rxbvm` cells pass the nine frozen
+IT/Scotland judgements at 144/144, required recall 17/17 and zero critical
+failures. The tutorial output is byte-stable. The typed answer contexts total
+69,295 bytes versus 92,385 for current native-v1 MCP responses; the tiny
+full-source control is 45,891 bytes and is explicitly not represented as a
+context-size win. A separately authorized public-fixture Gemini 3.5 Flash run
+used 36 calls and scored typed evidence 143/144 versus control 130/144, with
+9/9 passing and zero critical failures. The incubated cREXX hosted adapter's
+POST completion timeout remains Phase-7 work and is not hidden by that external
+quality result. Exact evidence is in
+[`docs/evidence/2026-08-23-phase5/`](evidence/2026-08-23-phase5/README.md).
