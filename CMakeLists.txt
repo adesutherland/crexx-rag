@@ -139,6 +139,15 @@ if(CPRAG_BUILD_CREXX_PLUGIN)
         if(CPRAG_SQLITE_INCLUDE_DIRS)
             target_include_directories(_sqlite_boundary PRIVATE ${CPRAG_SQLITE_INCLUDE_DIRS})
         endif()
+
+        add_static_plugin_target(_sqlite_boundary
+            incubator/p1a/sqlite_boundary/sqlite_boundary.c)
+        target_link_libraries(_sqlite_boundary_static PRIVATE ${CPRAG_SQLITE_LINK})
+        if(CPRAG_SQLITE_INCLUDE_DIRS)
+            target_include_directories(_sqlite_boundary_static PRIVATE ${CPRAG_SQLITE_INCLUDE_DIRS})
+        endif()
+        add_rxpa_provider_package(_sqlite_boundary
+            OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/providers")
     endif()
 endif()
 
@@ -156,6 +165,11 @@ if(TARGET _sqlite_boundary)
     install(TARGETS _sqlite_boundary
         RUNTIME DESTINATION "${CMAKE_INSTALL_LIBDIR}/crexx-rag/providers"
         LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}/crexx-rag/providers")
+endif()
+if(TARGET _sqlite_boundary_static)
+    install(FILES
+        "${CMAKE_BINARY_DIR}/bin/providers/rx_sqlite_boundary${CMAKE_STATIC_LIBRARY_SUFFIX}"
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/crexx-rag/providers")
 endif()
 install(DIRECTORY crexx/application/
     DESTINATION "${CMAKE_INSTALL_DATADIR}/crexx-rag/application"
@@ -226,6 +240,24 @@ if(CPRAG_BUILD_TESTS)
     target_link_libraries(ragcore_smoke PRIVATE cprag_core)
     add_test(NAME ragcore_smoke COMMAND ragcore_smoke)
     set_tests_properties(ragcore_smoke PROPERTIES LABELS "core;smoke")
+
+    if(CREXX_FOUND AND TARGET CREXX::RXPA)
+        find_package(Threads REQUIRED)
+        add_executable(sqlite_boundary_thread_test
+            incubator/p1a/sqlite_boundary/sqlite_boundary_thread_test.c)
+        target_link_libraries(sqlite_boundary_thread_test PRIVATE
+            CREXX::RXPA ${CPRAG_SQLITE_LINK} Threads::Threads)
+        if(CPRAG_SQLITE_INCLUDE_DIRS)
+            target_include_directories(sqlite_boundary_thread_test PRIVATE
+                ${CPRAG_SQLITE_INCLUDE_DIRS})
+        endif()
+        add_test(
+            NAME p1_sql_thread_sessions
+            COMMAND sqlite_boundary_thread_test
+                "${CMAKE_BINARY_DIR}/p1-sql-thread-sessions.sqlite")
+        set_tests_properties(p1_sql_thread_sessions PROPERTIES
+            LABELS "sqlite;rxpa;session-affine;thread-safe;fullmutex;incubator")
+    endif()
 
     add_executable(ragcore_work_queue_consumers tests/ragcore_work_queue_consumers.cpp)
     target_link_libraries(ragcore_work_queue_consumers PRIVATE cprag_core)

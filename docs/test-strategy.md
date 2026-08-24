@@ -1,6 +1,6 @@
 # cREXX-Only Test Strategy
 
-Status: living acceptance policy for the approved programme, 2026-08-06.
+Status: living acceptance policy for the approved programme, 2026-08-24.
 
 The detailed item matrix and decision gates are in the
 [implementation roadmap](crexx-only-implementation-roadmap.md). The former
@@ -70,7 +70,7 @@ Each bounded slice needs target-only CTest coverage and retained raw evidence:
 | Slice | Minimum proof |
 | --- | --- |
 | SDK | Scratch-installed package supplies headers, imported targets and helper; independent plugin builds with both fallbacks off; valid and structured-invalid signatures run in both modes/VMs |
-| SQLite | Typed null/integer/real/Unicode text/blob, values beyond old buffers, cursor paging, rollback, FTS5, stale handles, and forced cleanup |
+| SQLite | Typed null/integer/real/Unicode text/blob, values beyond old buffers, cursor paging, rollback, FTS5, stale handles, forced cleanup, RXPA V2 session isolation, serialized connections, and concurrent diagnostics |
 | Data | Production parse-once Unicode/missing/null/empty/array/object behavior and paged typed records; explicit owning headerless `f32le`/`i64le` projections; application-owned type/count; optimized/`-n` correctness and same-session benchmarks on both VMs |
 | Provider | Credential-free deterministic loopback generation, structured validation, ordered batch embedding, retry/error/usage, route denial, capability reporting, and provider-specific shapes on both VMs; separately authorized hosted canaries remain non-repeatable evidence |
 | Vector | Raw float32 round-trip with schema-owned count/meaning, deterministic cosine/top-k ordering/ties, and separate transfer/decode/compute/selection/memory results on both supported VMs |
@@ -101,8 +101,8 @@ retained entry/exit evidence, and a target-only development loop. The complete
 slice must retain:
 
 - installed-SDK external-consumer and compatibility diagnostics;
-- generic SQLite correctness, read-only, concurrency, backup, and forced-error
-  cleanup matrices;
+- generic SQLite correctness, read-only, concurrency, backup, forced-error
+  cleanup, and maintained four-session thread qualification;
 - JSON/typed-record correctness and representative same-session comparisons;
 - deterministic synthetic and available local-provider contract results with
   zero denied outbound requests and secret-free evidence;
@@ -217,9 +217,11 @@ They prove access-before-mutation, read-only status/verification fingerprints,
 idempotent current-schema migration, registered non-secret config snapshots,
 pinned backup/fresh restore, and zero provider calls or credential resolution.
 
-`P2-09` adds `p2_09_donation_bundles`: three explicitly non-released review
-bundles stage 52 role-labelled, hash-identical files outside the source tree.
-Twelve optimized/non-optimized and dual-VM probe cells cover typed SQLite,
+`P2-09` originally added three explicitly non-released review bundles with 52
+role-labelled, hash-identical files. The maintained SQLite bundle now adds its
+session/thread test, so current staging contains 53 files while the dated
+P2-09 evidence remains an exact 52-file record. Twelve optimized/non-optimized
+and dual-VM probe cells cover typed SQLite,
 provider route denial without transport, and portable vector codec/search.
 
 `P2-10` adds `p2_10_plan_revalidation`: all four compiler/runtime cells create

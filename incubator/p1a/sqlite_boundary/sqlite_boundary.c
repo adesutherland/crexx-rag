@@ -15,6 +15,29 @@
 
 #include <sqlite3.h>
 
+static void *sqlite_boundary_session_create(void);
+static void sqlite_boundary_session_destroy(void *opaque_session);
+static int sqlite_boundary_session_enter(void *opaque_session,
+                                         uint32_t capabilities,
+                                         void **previous);
+static void sqlite_boundary_session_leave(void *previous);
+
+static uint32_t sqlite_boundary_procedure_capabilities(
+        const char *procedure_name) {
+    if (!procedure_name || sqlite3_threadsafe() == 0) return 0u;
+    return RXPA_PROCEDURE_CAP_SESSION_AFFINE;
+}
+
+/* Publish provider identity for VM autoload and native archive selection.
+ * A current host gives each VM its own registry and diagnostic session.  A
+ * SQLite build without mutex support fails closed to the legacy serialized
+ * lane; older hosts ignore this optional V2 declaration and do the same. */
+RXPA_PLUGIN_SESSION_AWARE(sqlite_boundary_session_create,
+                          sqlite_boundary_session_destroy,
+                          sqlite_boundary_session_enter,
+                          sqlite_boundary_session_leave,
+                          sqlite_boundary_procedure_capabilities)
+
 enum {
     SQL_BOUNDARY_OK = 0,
     SQL_BOUNDARY_ROW = 100,
@@ -34,23 +57,7 @@ enum handle_kind {
 };
 
 typedef struct boundary_handle boundary_handle;
-
-struct boundary_handle {
-    enum handle_kind kind;
-    int closed;
-    size_t references;
-    union {
-        sqlite3 *database;
-        sqlite3_stmt *statement;
-    } resource;
-    boundary_handle *parent;
-    boundary_handle *next;
-};
-
-typedef struct handle_payload {
-    uint64_t magic;
-    boundary_handle *handle;
-} handle_payload;
+typedef struct sqlite_boundary_session sqlite_boundary_session;
 
 typedef struct error_state {
     int code;
@@ -60,10 +67,41 @@ typedef struct error_state {
     char message[768];
 } error_state;
 
+struct boundary_handle {
+    enum handle_kind kind;
+    int closed;
+    size_t references;
+    union {
+        sqlite3 *database;
+        sqlite3_stmt *statement;
+    } resource;
+    sqlite_boundary_session *owner;
+    boundary_handle *parent;
+    boundary_handle *next;
+};
+
+typedef struct handle_payload {
+    uint64_t magic;
+    sqlite_boundary_session *owner;
+    boundary_handle *handle;
+} handle_payload;
+
+struct sqlite_boundary_session {
+    boundary_handle *live_handles;
+    error_state last_error;
+};
+
 #define HANDLE_MAGIC UINT64_C(0x53514c3141484e44)
 
-static boundary_handle *live_handles;
-static error_state last_error;
+#if defined(_MSC_VER)
+#define SQLITE_BOUNDARY_THREAD_LOCAL __declspec(thread)
+#else
+#define SQLITE_BOUNDARY_THREAD_LOCAL __thread
+#endif
+
+static SQLITE_BOUNDARY_THREAD_LOCAL sqlite_boundary_session
+        *sqlite_boundary_current_session;
+static sqlite_boundary_session sqlite_boundary_default_session;
 
 static void handle_payload_copy(void *destination, void *source);
 static void handle_payload_finalize(void *value);
@@ -74,18 +112,26 @@ static const rxpa_native_payload_ops handle_payload_ops = {
     handle_payload_finalize
 };
 
+static sqlite_boundary_session *current_session(void) {
+    return sqlite_boundary_current_session
+            ? sqlite_boundary_current_session
+            : &sqlite_boundary_default_session;
+}
+
 static void clear_error(void) {
-    memset(&last_error, 0, sizeof(last_error));
+    sqlite_boundary_session *session = current_session();
+    memset(&session->last_error, 0, sizeof(session->last_error));
 }
 
 static int fail_with(int code, int sqlite_code, const char *operation,
                      const char *message) {
-    last_error.code = code;
-    last_error.sqlite_code = sqlite_code;
-    last_error.sqlite_extended_code = sqlite_code;
-    snprintf(last_error.operation, sizeof(last_error.operation), "%s",
+    error_state *last_error = &current_session()->last_error;
+    last_error->code = code;
+    last_error->sqlite_code = sqlite_code;
+    last_error->sqlite_extended_code = sqlite_code;
+    snprintf(last_error->operation, sizeof(last_error->operation), "%s",
              operation ? operation : "unknown");
-    snprintf(last_error.message, sizeof(last_error.message), "%s",
+    snprintf(last_error->message, sizeof(last_error->message), "%s",
              message ? message : "unspecified error");
     return code;
 }
@@ -97,26 +143,34 @@ static int fail_sqlite(sqlite3 *database, int sqlite_code,
     int status = fail_with(SQL_BOUNDARY_SQLITE_ERROR, sqlite_code, operation,
                            message);
     if (database) {
-        last_error.sqlite_extended_code = sqlite3_extended_errcode(database);
+        current_session()->last_error.sqlite_extended_code =
+            sqlite3_extended_errcode(database);
     }
     return status;
 }
 
-static int handle_is_registered(const boundary_handle *candidate) {
+static int handle_is_registered(const sqlite_boundary_session *session,
+                                const boundary_handle *candidate) {
     const boundary_handle *cursor;
-    for (cursor = live_handles; cursor; cursor = cursor->next) {
+    if (!session) return 0;
+    for (cursor = session->live_handles; cursor; cursor = cursor->next) {
         if (cursor == candidate) return 1;
     }
     return 0;
 }
 
 static void register_handle(boundary_handle *handle) {
-    handle->next = live_handles;
-    live_handles = handle;
+    sqlite_boundary_session *session = handle ? handle->owner : NULL;
+    if (!session) return;
+    handle->next = session->live_handles;
+    session->live_handles = handle;
 }
 
 static void unregister_handle(boundary_handle *handle) {
-    boundary_handle **cursor = &live_handles;
+    sqlite_boundary_session *session = handle ? handle->owner : NULL;
+    boundary_handle **cursor;
+    if (!session) return;
+    cursor = &session->live_handles;
     while (*cursor) {
         if (*cursor == handle) {
             *cursor = handle->next;
@@ -141,7 +195,7 @@ static void close_database_resource(boundary_handle *handle) {
     boundary_handle *cursor;
     if (!handle || handle->kind != HANDLE_DATABASE || handle->closed) return;
 
-    for (cursor = live_handles; cursor; cursor = cursor->next) {
+    for (cursor = handle->owner->live_handles; cursor; cursor = cursor->next) {
         if (cursor->kind == HANDLE_STATEMENT && cursor->parent == handle) {
             close_statement_resource(cursor);
         }
@@ -153,7 +207,8 @@ static void close_database_resource(boundary_handle *handle) {
 
 static void release_handle(boundary_handle *handle) {
     boundary_handle *parent;
-    if (!handle || !handle_is_registered(handle) || handle->references == 0) return;
+    if (!handle || !handle_is_registered(handle->owner, handle) ||
+        handle->references == 0) return;
     handle->references--;
     if (handle->references != 0) return;
 
@@ -175,7 +230,10 @@ static void handle_payload_copy(void *destination, void *source) {
         source, &length, &ops, NULL);
     if (!source_payload || length != sizeof(*source_payload) ||
         ops != &handle_payload_ops || source_payload->magic != HANDLE_MAGIC ||
-        !handle_is_registered(source_payload->handle)) {
+        !source_payload->owner || !source_payload->handle ||
+        !handle_is_registered(source_payload->owner,
+                              source_payload->handle) ||
+        source_payload->handle->owner != source_payload->owner) {
         return;
     }
 
@@ -194,7 +252,9 @@ static void handle_payload_finalize(void *value) {
 
     payload = (handle_payload *)GETNATIVEPAYLOAD(value, &length, &ops, NULL);
     if (payload && length == sizeof(*payload) && ops == &handle_payload_ops &&
-        payload->magic == HANDLE_MAGIC) {
+        payload->magic == HANDLE_MAGIC && payload->owner && payload->handle &&
+        handle_is_registered(payload->owner, payload->handle) &&
+        payload->handle->owner == payload->owner) {
         release_handle(payload->handle);
     }
 }
@@ -204,6 +264,7 @@ static boundary_handle *new_handle(enum handle_kind kind) {
     if (!handle) return NULL;
     handle->kind = kind;
     handle->references = 1;
+    handle->owner = current_session();
     register_handle(handle);
     return handle;
 }
@@ -212,6 +273,7 @@ static int publish_handle(rxpa_attribute_value destination,
                           boundary_handle *handle) {
     handle_payload payload;
     payload.magic = HANDLE_MAGIC;
+    payload.owner = handle->owner;
     payload.handle = handle;
     if (SETNATIVEPAYLOAD(destination, &payload, sizeof(payload),
                          &handle_payload_ops, 0) != 0) {
@@ -231,7 +293,9 @@ static int get_handle(rxpa_attribute_value value, enum handle_kind expected,
     payload = (handle_payload *)GETNATIVEPAYLOAD(value, &length, &ops, NULL);
     if (!payload || length != sizeof(*payload) || ops != &handle_payload_ops ||
         payload->magic != HANDLE_MAGIC ||
-        !handle_is_registered(payload->handle)) {
+        payload->owner != current_session() || !payload->handle ||
+        !handle_is_registered(current_session(), payload->handle) ||
+        payload->handle->owner != current_session()) {
         return fail_with(SQL_BOUNDARY_INVALID_HANDLE, 0, operation,
                          "invalid or stale opaque handle");
     }
@@ -277,7 +341,8 @@ PROCEDURE(sqlite_open_boundary) {
     clear_error();
     SETNATIVEPAYLOAD(ARG(1), NULL, 0, NULL, 0);
     result = sqlite3_open_v2(GETSTRING(ARG(0)), &database,
-                             SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
+                             SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE |
+                             SQLITE_OPEN_FULLMUTEX, NULL);
     if (result != SQLITE_OK) {
         result = fail_sqlite(database, result, "open");
         if (database) sqlite3_close_v2(database);
@@ -311,11 +376,12 @@ PROCEDURE(sqlite_open_mode_boundary) {
     SETNATIVEPAYLOAD(ARG(2), NULL, 0, NULL, 0);
     mode = GETSTRING(ARG(1));
     if (strcmp(mode, "readonly") == 0) {
-        flags = SQLITE_OPEN_READONLY;
+        flags = SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX;
     } else if (strcmp(mode, "readwrite") == 0) {
-        flags = SQLITE_OPEN_READWRITE;
+        flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX;
     } else if (strcmp(mode, "create") == 0) {
-        flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
+        flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE |
+                SQLITE_OPEN_FULLMUTEX;
     } else {
         SETINT(RETURN,
                fail_with(SQL_BOUNDARY_INVALID_ARGUMENT, 0, "open_mode",
@@ -372,7 +438,7 @@ PROCEDURE(sqlite_exec_boundary) {
             int status = fail_with(SQL_BOUNDARY_SQLITE_ERROR, result, "exec",
                                    error_message ? error_message :
                                    sqlite3_errmsg(handle->resource.database));
-            last_error.sqlite_extended_code =
+            current_session()->last_error.sqlite_extended_code =
                 sqlite3_extended_errcode(handle->resource.database);
             sqlite3_free(error_message);
             result = status;
@@ -397,6 +463,10 @@ PROCEDURE(sqlite_capability_boundary) {
         name = GETSTRING(ARG(1));
         if (strcmp(name, "fts5") == 0) {
             available = sqlite3_compileoption_used("ENABLE_FTS5") != 0;
+        } else if (strcmp(name, "threadsafe") == 0) {
+            available = sqlite3_threadsafe() != 0;
+        } else if (strcmp(name, "session_affinity") == 0) {
+            available = sqlite_boundary_current_session != NULL;
         } else if (strcmp(name, "json1") == 0) {
             result = sqlite3_prepare_v2(handle->resource.database,
                                         "SELECT json_valid('null')", -1,
@@ -950,23 +1020,25 @@ PROCEDURE(sqlite_column_blob_boundary) {
 }
 
 PROCEDURE(sqlite_error_boundary) {
+    error_state *last_error = &current_session()->last_error;
     if (NUM_ARGS != 4) RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "4 arguments expected")
-    SETINT(ARG(0), last_error.code);
-    SETINT(ARG(1), last_error.sqlite_code);
-    SETSTRING(ARG(2), last_error.operation);
-    SETSTRING(ARG(3), last_error.message);
-    SETINT(RETURN, last_error.code);
+    SETINT(ARG(0), last_error->code);
+    SETINT(ARG(1), last_error->sqlite_code);
+    SETSTRING(ARG(2), last_error->operation);
+    SETSTRING(ARG(3), last_error->message);
+    SETINT(RETURN, last_error->code);
     RESETSIGNAL
 }
 
 PROCEDURE(sqlite_error_extended_boundary) {
+    error_state *last_error = &current_session()->last_error;
     if (NUM_ARGS != 5) RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "5 arguments expected")
-    SETINT(ARG(0), last_error.code);
-    SETINT(ARG(1), last_error.sqlite_code);
-    SETINT(ARG(2), last_error.sqlite_extended_code);
-    SETSTRING(ARG(3), last_error.operation);
-    SETSTRING(ARG(4), last_error.message);
-    SETINT(RETURN, last_error.code);
+    SETINT(ARG(0), last_error->code);
+    SETINT(ARG(1), last_error->sqlite_code);
+    SETINT(ARG(2), last_error->sqlite_extended_code);
+    SETSTRING(ARG(3), last_error->operation);
+    SETSTRING(ARG(4), last_error->message);
+    SETINT(RETURN, last_error->code);
     RESETSIGNAL
 }
 
@@ -1000,6 +1072,7 @@ static void append_json_string(char *output, size_t capacity, size_t *used,
 }
 
 PROCEDURE(sqlite_error_json_boundary) {
+    error_state *last_error = &current_session()->last_error;
     char json[1280];
     size_t used = 0;
     char number[64];
@@ -1007,18 +1080,18 @@ PROCEDURE(sqlite_error_json_boundary) {
     append_json_char(json, sizeof(json), &used, '{');
     snprintf(number, sizeof(number),
              "\"code\":%d,\"sqlite_code\":%d,\"sqlite_extended_code\":%d,\"operation\":",
-             last_error.code, last_error.sqlite_code,
-             last_error.sqlite_extended_code);
+             last_error->code, last_error->sqlite_code,
+             last_error->sqlite_extended_code);
     if (used + strlen(number) < sizeof(json)) {
         memcpy(json + used, number, strlen(number));
         used += strlen(number);
     }
-    append_json_string(json, sizeof(json), &used, last_error.operation);
+    append_json_string(json, sizeof(json), &used, last_error->operation);
     if (used + 11 < sizeof(json)) {
         memcpy(json + used, ",\"message\":", 11);
         used += 11;
     }
-    append_json_string(json, sizeof(json), &used, last_error.message);
+    append_json_string(json, sizeof(json), &used, last_error->message);
     append_json_char(json, sizeof(json), &used, '}');
     json[used] = '\0';
     SETSTRING(RETURN, json);
@@ -1026,17 +1099,18 @@ PROCEDURE(sqlite_error_json_boundary) {
 }
 
 PROCEDURE(sqlite_cleanup_boundary) {
+    sqlite_boundary_session *session = current_session();
     boundary_handle *cursor;
     int closed = 0;
     if (NUM_ARGS != 0) RETURNSIGNAL(SIGNAL_INVALID_ARGUMENTS, "no arguments expected")
     clear_error();
-    for (cursor = live_handles; cursor; cursor = cursor->next) {
+    for (cursor = session->live_handles; cursor; cursor = cursor->next) {
         if (cursor->kind == HANDLE_STATEMENT && !cursor->closed) {
             close_statement_resource(cursor);
             closed++;
         }
     }
-    for (cursor = live_handles; cursor; cursor = cursor->next) {
+    for (cursor = session->live_handles; cursor; cursor = cursor->next) {
         if (cursor->kind == HANDLE_DATABASE && !cursor->closed) {
             close_database_resource(cursor);
             closed++;
@@ -1046,22 +1120,56 @@ PROCEDURE(sqlite_cleanup_boundary) {
     RESETSIGNAL
 }
 
-FINALIZER(sqlite_boundary_shutdown)
+static void close_session_resources(sqlite_boundary_session *session) {
     boundary_handle *cursor;
     boundary_handle *next;
-    for (cursor = live_handles; cursor; cursor = cursor->next) {
+    if (!session) return;
+    for (cursor = session->live_handles; cursor; cursor = cursor->next) {
         if (cursor->kind == HANDLE_STATEMENT) close_statement_resource(cursor);
     }
-    for (cursor = live_handles; cursor; cursor = cursor->next) {
+    for (cursor = session->live_handles; cursor; cursor = cursor->next) {
         if (cursor->kind == HANDLE_DATABASE) close_database_resource(cursor);
     }
-    cursor = live_handles;
+    cursor = session->live_handles;
     while (cursor) {
         next = cursor->next;
         free(cursor);
         cursor = next;
     }
-    live_handles = NULL;
+    session->live_handles = NULL;
+    memset(&session->last_error, 0, sizeof(session->last_error));
+}
+
+static void *sqlite_boundary_session_create(void) {
+    return calloc(1, sizeof(sqlite_boundary_session));
+}
+
+static void sqlite_boundary_session_destroy(void *opaque_session) {
+    sqlite_boundary_session *session =
+        (sqlite_boundary_session *)opaque_session;
+    if (!session) return;
+    close_session_resources(session);
+    free(session);
+}
+
+static int sqlite_boundary_session_enter(void *opaque_session,
+                                         uint32_t capabilities,
+                                         void **previous) {
+    if (!opaque_session || !previous ||
+        capabilities != RXPA_PROCEDURE_CAP_SESSION_AFFINE) return -1;
+    *previous = sqlite_boundary_current_session;
+    sqlite_boundary_current_session =
+        (sqlite_boundary_session *)opaque_session;
+    return 0;
+}
+
+static void sqlite_boundary_session_leave(void *previous) {
+    sqlite_boundary_current_session =
+        (sqlite_boundary_session *)previous;
+}
+
+FINALIZER(sqlite_boundary_shutdown)
+    close_session_resources(&sqlite_boundary_default_session);
 }
 
 LOADFUNCS

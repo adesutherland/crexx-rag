@@ -177,8 +177,11 @@ production claim:
 - Phase-4 worker evidence includes database-clock leases, monotonic fences,
   forced termination, cancellation, retry/dead-letter, exact reservations,
   bounded in-flight denial, and two competing OS processes. The literal
-  supervised eight-hour soak passed; in-process cREXX thread safety is neither
-  assumed nor claimed.
+  supervised eight-hour soak passed. The generic SQLite RXPA provider now
+  qualifies its per-VM session implementation under a concurrent lifecycle
+  harness and uses serialized SQLite connections, but attached cREXX tasks
+  still cannot discover that native provider (CRI-17), so the product retains
+  controller-owned SQLite and process-based workers.
 - Phase-5 evidence qualifies deterministic hybrid retrieval and a bounded
   hosted answer comparison. Phase 7 externally qualifies OpenAI structured
   generation plus batch embedding, but the incubated cREXX adapter still loses

@@ -257,6 +257,14 @@ unconditionally at Gate 1B.
   demonstration syntax. The four-cell output-asserting result is
   [retained here](evidence/2026-08-03-phase1b/P1-SQL-07.md).
 
+Maintained 2026-08-24 hardening keeps that dated sequence intact and adds RXPA
+V2 per-VM sessions, session-owned handles/diagnostics,
+`SQLITE_OPEN_FULLMUTEX`, and a four-thread/400-row qualification. The wrapper
+is now safe for concurrent independent VM sessions. CRI-17 separately tracks
+that the installed task runtime cannot yet make a native RXPA provider
+available inside an attached cREXX task; product task bodies therefore do not
+own SQLite handles.
+
 ### A3. Structured data and records
 
 - [x] **P1-JSON-01** Prove a parse-once JSON document/value handle with typed

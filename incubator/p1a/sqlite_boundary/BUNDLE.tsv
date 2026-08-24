@@ -6,6 +6,7 @@ incubator/p1a/sqlite_boundary/BUNDLE.tsv	BUNDLE.tsv	package
 incubator/p1a/sqlite_boundary/sqlite_boundary.c	src/sqlite_boundary.c	source
 incubator/p1a/sqlite_boundary/candidate_probe.crexx	examples/candidate_probe.crexx	example,reproducer,test
 incubator/p1a/sqlite_boundary/sqlite_boundary_test.crexx	tests/sqlite_boundary_test.crexx	test
+incubator/p1a/sqlite_boundary/sqlite_boundary_thread_test.c	tests/sqlite_boundary_thread_test.c	test
 incubator/phase1b/rxsqlite/CONTRACT.md	CONTRACT.md	contract
 incubator/phase1b/rxsqlite/rxsqlite_address.crexx	src/rxsqlite_address.crexx	source
 incubator/phase1b/rxsqlite/p1_sql_01.crexx	tests/p1_sql_01.crexx	test

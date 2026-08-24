@@ -16,7 +16,9 @@ in [`SYSTEM.md`](SYSTEM.md).
 
 - an installed CREXX development package and runtime;
 - SQLite development headers and library; and
-- the `rx_sqlite_boundary` module built by this repository's CMake project.
+- the `rx_sqlite_boundary` provider package built by this repository's CMake
+  project. It publishes both the dynamic VM plugin and the canonical static
+  archive used by CREXX native packaging.
 
 cREXX code imports the namespace as `sqlite_boundary`.
 
@@ -79,8 +81,40 @@ the wrong SQLite type instead of coercing it silently.
 Boundary failures are stable negative statuses. After a failure,
 `sqliteerrorextended()` returns the boundary status, SQLite primary and extended
 codes, operation name, and safe message. A successful operation clears the
-process-local diagnostic state. See the [contract](../../phase1b/rxsqlite/CONTRACT.md)
+current VM/session diagnostic state. See the [contract](../../phase1b/rxsqlite/CONTRACT.md)
 for the complete status table and ownership rules.
+
+## Concurrency
+
+On a current RXPA V2 host the provider advertises every procedure as
+`SESSION_AFFINE`. CREXX creates one plugin session per VM, and that session owns
+its handle registry and diagnostic state. Database handles therefore never
+cross VM or task boundaries. Every connection is opened with
+`SQLITE_OPEN_FULLMUTEX`, so SQLite supplies serialized connection semantics on
+a mutex-enabled build. If `sqlite3_threadsafe()` reports zero, the capability
+query fails closed to CREXX's legacy serialized lane.
+
+`sqlitecapability(handle, "threadsafe", available)` reports SQLite's compile-
+time mutex support. `sqlitecapability(handle, "session_affinity", available)`
+reports whether the current host entered an RXPA V2 session.
+
+Concurrent workers must each open their own connection. SQLite WAL,
+busy-timeout and caller-owned transactions coordinate those connections; an
+opaque database or statement value remains VM-local and is not a transferable
+task value.
+
+### Worker topology
+
+| Worker form | Direct SQLite use | Reason |
+| --- | --- | --- |
+| Separate `crexx-rag` OS process | Supported | The process starts a fresh CREXX VM, loads the provider normally, and opens its own connection. |
+| Attached cREXX task running on a child thread | Not currently supported | The installed CREXX attached-task path does not propagate/discover the native RXPA provider in the task VM. This is CRI-17, a CREXX infrastructure limitation, not a SQLite limitation. |
+| Attached cREXX task with controller-owned SQLite | Supported design | The task exchanges ordinary transferable inputs/results; the controller performs SQLite operations. |
+
+SQLite is therefore suitable for coordinating separate worker processes now.
+CRI-17 matters only if an attached in-process task must call the native provider
+directly. It does not prevent one-shot or looping worker processes from opening
+independent connections to the same WAL database.
 
 ## Optional ADDRESS Facade
 
@@ -94,7 +128,7 @@ the handle/cursor API directly.
 After configuring the Debug preset, run the focused qualification with:
 
 ```bash
-ctest --preset debug -R '^(p1a_sqlite_boundary|p1_sql_0[1-7])$' --output-on-failure
+ctest --preset debug -R '^(p1a_sqlite_boundary|p1_sql_thread_sessions|p1_sql_0[1-7])$' --output-on-failure
 ```
 
 The tests cover both CREXX VMs and optimized/non-optimized compilation where
@@ -103,11 +137,30 @@ runtime-relevant. The Phase-1B tests and immutable contract live in
 P2-09 additionally stages the review bundle and runs the candidate probe in all
 four compiler/VM cells through `p2_09_donation_bundles`.
 
+The root build emits `rx_sqlite_boundary.rxplugin` for VM use and
+`rx_sqlite_boundary.a` (or the platform-equivalent archive suffix) for CREXX
+native packages. This is application-local incubation packaging, not an
+independently released `rxsqlite` SDK.
+
+The plugin advertises its complete typed REXX API through the standard
+`LOADFUNCS`/`ADDPROC` mechanism. The compiler records each used declaration and
+its stable provider ID in the linked provider requirements. The same source is
+built as the native static provider, so `crexx -native` can select and retain
+the canonical archive. Its RXPA V2 manifest publishes the session lifecycle
+and marks the procedures session-affine when SQLite has mutex support.
+
 ## Current Limits
 
-- The CMake target and module still use the incubation name
+- The CMake targets and module still use the incubation name
   `_sqlite_boundary`/`rx_sqlite_boundary`, not a released `rxsqlite` identity.
-- Handles are process-local and no in-process thread-safety claim is made.
+- Handles are VM/session-local and must not be transferred to another task or
+  process; the focused RXPA lifecycle test verifies cross-session use is
+  rejected.
+  Concurrent independently hosted VM/process connections are supported by the
+  provider. The currently installed CREXX task-generation path excludes
+  already loaded native modules and does not propagate a late provider search
+  path to attached task VMs; this CREXX infrastructure gap is CRI-17. Product
+  task threads must keep SQLite access in their controller until it is closed.
 - The plugin is not an ORM and does not own application SQL or migrations.
 - The P2-09 review recipe is not independent release packaging or an installed
   consumer qualification; final naming, package/release metadata and donation

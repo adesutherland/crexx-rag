@@ -31,7 +31,7 @@ No compatibility window has started.
 
 | Facility | Ownership/adoption state | Evidence now available | Donation opportunity | Blocking work and decision |
 | --- | --- | --- | --- | --- |
-| SQLite typed boundary (`rxsqlite` candidate) | Locally owned native generic mechanism under `incubator/p1a/sqlite_boundary`; product SQL/repositories remain Level G | 19-file role-labelled bundle; typed/binary values, statements, transactions, read-only, WAL processes, backup/integrity/cleanup, ADDRESS facade, optimized/non-optimized dual-VM probe, application use | **High / nearest ready.** A small installed SQLite mechanism would remove the downstream dynamic-boundary dependency without donating product policy | Final public name/version, upstream-owned package layout, installed external-consumer proof for the candidate itself, exact Linux/platform QA, API review, and explicit donation approval |
+| SQLite typed boundary (`rxsqlite` candidate) | Locally owned native generic mechanism under `incubator/p1a/sqlite_boundary`; product SQL/repositories remain Level G | 20-file role-labelled maintained bundle; typed/binary values, statements, transactions, read-only, WAL processes, RXPA V2 session isolation, four-thread/400-row qualification, backup/integrity/cleanup, ADDRESS facade, optimized/non-optimized dual-VM probe, application use | **High / nearest ready.** A small installed SQLite mechanism would remove the downstream dynamic-boundary dependency without donating product policy | Final public name/version, upstream-owned package layout, installed external-consumer proof, CREXX task/native-provider integration, exact Linux/platform QA, API review, and explicit donation approval |
 | Provider-neutral LLM/embedding (`rxllm` candidate) | Locally owned Level-G incubation over installed `rxfnsg`; product role/routing policy remains application-owned | 19-file bundle; normalized generation/structured/embedding records, OpenAI-compatible/OpenAI/Anthropic/Gemini mappings, deterministic shapes, privacy denial, usage/errors, external hosted quality and generation/embedding evidence | **Medium / valuable but not ready.** The contract and mappings could become a reusable advanced library | cREXX hosted response completion fails; provider-lifetime reuse, streaming/cancellation, catalogue/version policy, installed package proof, exact Linux, second consumer, API review, and explicit approval |
 | Portable float32 codec and exact-vector fallback | Locally owned Level-G codec/oracle; accelerated `rxvector` is already installed upstream | 14-file bundle; canonical `f32le-v1`, pure exact ordering, benchmark, four-cell probe, matched 11,684 × 768 evidence, application fallback | **Medium.** Donate only the portable representation/reference layer if CREXX wants it beside native `rxvector` | Decide package split and ownership versus installed `rxvector`, establish second consumer, finalize version/policy, installed proof, Linux, API review, explicit approval |
 | Parse-once JSON (`rxjson`) | Already installed and consumed upstream | P1-JSON/P1-REC tests and Phase 3–7 application use | **No local donation.** Continue adoption and regression reporting | Upstream maintenance only; do not fork or rebundle |
@@ -43,11 +43,14 @@ No compatibility window has started.
 
 ## Existing bundle status
 
-P2-09 prepares three canonical review bundles totalling 52 hash-verified files:
+P2-09 originally prepared three canonical review bundles totalling 52
+hash-verified files. The maintained SQLite bundle now contains its session/
+thread qualification, bringing a current staging run to 53 files without
+rewriting the dated P2-09 evidence:
 
 | Candidate | Files | Required roles | Submission state |
 | --- | ---: | --- | --- |
-| `rxsqlite-candidate` | 19 | docs, package, contract, source, tests, example, benchmark, reproducer, evidence | `review-bundle-not-approved`; `donation_submission_authorized=false` |
+| `rxsqlite-candidate` | 20 | docs, package, contract, source, tests, example, benchmark, reproducer, evidence | `review-bundle-not-approved`; `donation_submission_authorized=false` |
 | `rxllm-candidate` | 19 | docs, package, contract, source, tests, example, benchmark, reproducer, evidence | `review-bundle-not-approved`; `donation_submission_authorized=false` |
 | `rxvector-portable-candidate` | 14 | docs, package, contract, source, tests, example, benchmark, reproducer, evidence | `review-bundle-not-approved`; `donation_submission_authorized=false` |
 

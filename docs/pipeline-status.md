@@ -108,7 +108,13 @@ qualification. The SDK section is complete. `P1-SQL-01` through `P1-SQL-07`
 are accepted with four-cell ownership, typed-value, SQLite behavior,
 read-only, separate-process concurrency, online-backup, integrity, forced
 cleanup, and optional address-facade evidence. The generic SQLite section is
-complete. `P1-JSON-01` and `P1-JSON-02` are accepted against installed
+complete for its retained phase scope. Maintained 2026-08-24 hardening now uses
+RXPA V2 per-VM sessions, session-local handles/diagnostics and
+`SQLITE_OPEN_FULLMUTEX`; `p1_sql_thread_sessions` passes four concurrent
+sessions, 400 WAL writes, isolated diagnostics, and cross-session handle
+rejection on macOS. Direct SQLite calls from a cREXX task
+remain blocked by the separate native-module/provider-discovery seam recorded
+as CRI-17. `P1-JSON-01` and `P1-JSON-02` are accepted against installed
 `rxjson`; `P1-REC-01` originally qualified nominal Level-B records crossing
 Level G over generic plugin columns. That cross-level result remains retained
 compatibility evidence, while the maintained record and consumer sources now
@@ -176,9 +182,10 @@ Phase-6 adapters have not been installed.
 
 `P2-09` publishes workload/capability report version 1 and prepares the
 `rxsqlite-candidate`, `rxllm-candidate`, and
-`rxvector-portable-candidate` review bundles. Their 52 files are selected by
-role-labelled manifests, staged outside the source tree with exact SHA-256
-identity, and covered by 12 minimized compiler/VM probe cells. Each bundle
+`rxvector-portable-candidate` review bundles. The dated evidence retains its 52
+files; the maintained SQLite manifest adds the session/thread qualification,
+so a current rerun stages 53 role-labelled files outside the source tree with
+exact SHA-256 identity. Twelve minimized compiler/VM probe cells remain. Each bundle
 retains adjacent use/system docs and metadata that explicitly denies release or
 donation-submission status. No hosted call, installed-capability copy, upstream
 submission, or CREXX edit occurred.

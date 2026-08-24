@@ -17,6 +17,10 @@ db = .binary
 statement = .binary
 status = sqliteopen(":memory:", db)
 errors = errors + check(status = 0, "open")
+threadsafe = 0
+session_affinity = 0
+errors = errors + check(sqlitecapability(db, "threadsafe", threadsafe) = 0 & threadsafe = 1, "SQLite mutex capability")
+errors = errors + check(sqlitecapability(db, "session_affinity", session_affinity) = 0 & session_affinity = 1, "RXPA session entered")
 
 /* A copied native handle retains ownership; destroying the copy leaves the
  * original usable. */
@@ -146,5 +150,5 @@ if errors <> 0 then do
   return 1
 end
 
-say "P1A_SQLITE_OK typed=null,int64,real,text,blob cursor_rows=3 rollback_rows=0 fts5=1 large_text_bytes=1100005 stale_rejected=1 cleanup_closed=" || closed_count
+say "P1A_SQLITE_OK typed=null,int64,real,text,blob cursor_rows=3 rollback_rows=0 fts5=1 threadsafe=1 session_affinity=1 large_text_bytes=1100005 stale_rejected=1 cleanup_closed=" || closed_count
 return 0
