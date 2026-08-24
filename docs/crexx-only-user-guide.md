@@ -271,9 +271,9 @@ crexx-rag --library ./architecture.cprag --access ingest \
   worker run --once --job <job-id>
 ```
 
-For unattended work, run `worker run --follow` under launchd, systemd, or
-another operator-owned supervisor. A queued job outlives the terminal; progress
-requires a live or later worker.
+The intended unattended form is `worker run --follow` under launchd, systemd,
+or another operator-owned supervisor. A queued job outlives the terminal;
+progress requires a live or later worker.
 
 ```bash
 crexx-rag \
@@ -290,8 +290,13 @@ not gain process-supervision authority through the knowledge tools.
 The underlying Phase-4 worker implementation is database-clock leased
 and fenced, supports bounded once/follow loops, pause/resume/drain, heartbeat,
 retry/dead-letter, cooperative cancellation, exact reservation settlement, and
-multi-process recovery. These command spellings are the staged Phase-6 public
-interface; Phase 7 owns the cutover decision.
+multi-process recovery. Phase-7 qualification found that the staged public
+dispatcher does not yet bind `worker.run` to an installed production
+`.ragworkprovider`, and its worker does not process ingestion's queued
+`embedding` items. Therefore this exact start command remains a target
+interface and is not a cutover-ready operator instruction. Status/control
+operations are implemented; use the Phase-4 bounded worker harness only for
+development qualification until the recorded blockers close.
 
 Monitor it without reading SQLite directly:
 
@@ -629,13 +634,14 @@ its historical revision rather than silently pointing somewhere else.
 | `add-documents` wrapper | same incremental `ingest plan/apply` |
 | `run_background_improvement.sh` | durable `improve plan/apply` job |
 | flat `queue-status` and work commands | `job status/events` and `review` |
-| shell-held background process | supervised `worker run --once|--follow` with leases/fencing |
+| shell-held background process | target: supervised `worker run --once|--follow`; Phase-7 provider/embedding binding blocker remains |
 | `library_search` | `knowledge_search` / `query search` |
 | `library_answer_evidence` | versioned `knowledge_evidence` / `query evidence` |
 | `external-extraction-review` low-level queue | normalized `proposal plan/apply` then review |
 | raw MCP write tools | capability-gated workflow plan/apply only |
 | RAG-specific `rx_rag` plugin | cREXX application over generic `rxsqlite` and provider facilities |
 
-The current commands remain authoritative until their replacement phase is
-accepted. Migration documentation must always state which surface is shipped
-and which is proposed.
+The installed Phase-6 read/plan/query/apply/status/control surfaces are staged,
+but native-v1 remains the default after Gate 7 rejected/deferred cutover.
+Migration documentation must always state which surface is shipped, staged, or
+still proposed.

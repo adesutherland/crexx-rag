@@ -24,8 +24,9 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Phase 3 / Gate 3 | Accepted on macOS 2026-08-23 | Level-G folder ingestion, immutable plans, incremental reuse/invalidation, candidates, FTS, jobs, tutorial, oracle delta and crash resume pass; exact downstream Linux remains open. |
 | Phase 4 / Gate 4 | Accepted on macOS 2026-08-24 | Claims/extraction/review/improvement, durable multi-process workers and the literal eight-hour supervised soak pass; exact downstream Linux remains open. |
 | Phase 5 / Gate 5 | Accepted on macOS 2026-08-24 | Deterministic focused query planning, hybrid retrieval, exact vector generations, stable typed evidence, nine frozen judgements, native/full-context comparison and bounded Gemini qualification pass; exact Linux and cREXX hosted-transport closure remain open. |
-| Phase 6 / Gate 6 | Accepted on macOS 2026-08-24 | Installed Level-G CLI, ADDRESS RAG, MCP, exact reviewed ingest, zero-write plans, backup/restore and capability-scoped skills pass in four compiler/VM cells. Public worker-provider lifetime and hosted cREXX completion remain Phase-7 cutover limits. |
-| Phase 7 and later | Authorized sequentially | Corpus qualification and a separate production-selection request follow; cutover and retirement remain approval gates. |
+| Phase 6 / Gate 6 | Accepted on macOS 2026-08-24 | Installed Level-G CLI, ADDRESS RAG, MCP, exact reviewed ingest, zero-write plans, backup/restore and capability-scoped skills pass in four compiler/VM cells. Public worker-provider lifetime remains a cutover limit. |
+| Phase 7 / Gate 7 | Qualification complete; reject/defer cutover 2026-08-24 | Corpus/lifecycle/surface and bounded external hosted generation/embedding pass; cREXX hosted completion, installed worker/provider plus embedding-item integration, production-shaped same-session evidence, and Linux remain open, so native-v1 stays default. |
+| Phase 8 | Report authorized | Assess donation/adoption/compatibility/retirement opportunities; no submission, cutover, deletion, release, or push is implied. |
 
 ## Current Product Reality
 
@@ -77,9 +78,10 @@ default. The Phase-4 multi-process improvement queue and literal
 eight-hour soak are accepted on macOS. The Level-G schema-v2 storage,
 Phase-3 ingestion/repository and Phase-5 retrieval/evidence paths are accepted
 over the selected generic facilities. The provider contract remains qualified
-in local incubation; hosted answer quality is separately retained, while the
-cREXX hosted POST-completion finding and the provider-backed long-running
-public worker adapter are explicitly assigned to the Phase-7 cutover decision.
+in local incubation; hosted answer quality and external generation/embedding
+are separately retained. Phase 7 confirms that cREXX hosted response
+completion remains unreliable. It, the provider-backed public worker, and
+embedding-item execution are explicit failed cutover criteria.
 
 Fresh Linux validation on 2026-08-03 repaired the native build's missing direct
 `<algorithm>` dependency, PIC requirement for the RXPA plugin, and macOS-only

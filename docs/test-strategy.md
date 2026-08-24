@@ -372,8 +372,9 @@ environment credential, records the symbolic reference, uses fixed schemas,
 temperature/model/attempt/token limits, blind ordering and the declared
 two-scorer/adjudication rule. Credential values, headers and environment dumps
 must never be retained. A hosted quality pass does not substitute for the
-cREXX provider/transport path; its observed POST-completion timeout is a
-separate Phase-7 closure item.
+cREXX provider/transport path. Phase 7 externally qualifies structured
+generation plus batch embedding and retains the cREXX completion failure as a
+cutover blocker.
 
 ## Phase 6 Acceptance
 
@@ -395,8 +396,27 @@ boundary, tutorial fixtures, skills, and compile helper under a scratch prefix.
 That helper compiles optimized and non-optimized external consumers from the
 installed package with no source-tree fallback. Native-v1 remains installed as
 an oracle; Gate 6 does not authorize cutover. Public worker-provider lifetime
-reuse and the observed cREXX hosted POST-completion timeout are explicit Gate-7
-limits.
+and embedding-item execution are explicit Gate-7 limits.
+
+## Phase 7 Acceptance
+
+The `phase7_qualification` target depends on the permanent Phase 3–6 targets,
+then audits the versioned P7-01 through P7-08 evidence and exact cutover
+decision. It is credential-free and therefore repeatable in ordinary CTest.
+
+The explicit non-CTest `phase7_hosted` target requires only
+`env:OPENAI_API_KEY`. Its external harness performs one structured generation
+and one two-input 128-dimensional batch embedding, for a two-call ceiling and
+one attempt per call. It retains usage/status metadata but no request/response
+bodies, headers, or credential values. `phase7_crexx_hosted_probe` separately
+reproduces the current cREXX response-completion failure and is expected to
+exit nonzero until that blocker is repaired.
+
+Gate 7 selects reject/defer cutover. This is a completed negative production-
+selection result: cREXX hosted completion is unreliable, the public dispatcher
+lacks a production worker provider, embedding work is not publicly drained,
+several production-shaped same-session measurements are absent, and exact Linux
+remains open. Native-v1 therefore remains the default oracle.
 
 ## Required Commands
 

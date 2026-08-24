@@ -59,6 +59,7 @@ if(NOT SQLite3_FOUND)
         "For a non-system installation, set SQLite3_INCLUDE_DIR and SQLite3_LIBRARY.")
 endif()
 find_package(CURL QUIET)
+find_package(Python3 COMPONENTS Interpreter QUIET)
 
 if(TARGET SQLite3::SQLite3)
     set(CPRAG_SQLITE_LINK SQLite3::SQLite3)
@@ -174,6 +175,7 @@ install(FILES
     docs/tutorials/phase-4-improvement.md
     docs/tutorials/phase-5-retrieval.md
     docs/tutorials/phase-6-surfaces.md
+    docs/tutorials/phase-7-qualification.md
     DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/crexx-rag/tutorials")
 
 if(CREXX_FOUND AND CPRAG_BUILD_TESTS)
@@ -1554,6 +1556,52 @@ if(CPRAG_BUILD_TESTS)
         set_tests_properties(phase6_surfaces PROPERTIES
             TIMEOUT 900
             LABELS "phase6;P6-01;P6-02;P6-03;P6-04;P6-05;P6-06;P6-07;crexx;levelg;cli;address;mcp;structured-content;capability;plan;apply;skills;tutorial;deprecation;backup;restore;dual-vm;zero-write")
+        set(PHASE7_HOSTED_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+            "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+            "-DCPRAG_RXLINK=${CREXX_RXLINK_EXECUTABLE}"
+            "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+            "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+            "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+            "-DCPRAG_CONTRACT=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_contract.crexx"
+            "-DCPRAG_CATALOG=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_catalog.crexx"
+            "-DCPRAG_HTTP=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_http.crexx"
+            "-DCPRAG_ADAPTER=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/industrial_provider.crexx"
+            "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/p7_hosted_provider_probe.crexx"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/phase7-hosted"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase7Hosted.cmake")
+        add_custom_target(phase7_crexx_hosted_probe
+            COMMAND ${PHASE7_HOSTED_COMMAND}
+            COMMENT "Reproducing the Phase-7 cREXX hosted provider completion blocker"
+            USES_TERMINAL
+            VERBATIM)
+        if(Python3_Interpreter_FOUND)
+            add_custom_target(phase7_hosted
+                COMMAND "${Python3_EXECUTABLE}"
+                    "${CMAKE_CURRENT_LIST_DIR}/tools/qualify_phase7_hosted.py"
+                    --output-dir "${CMAKE_BINARY_DIR}/phase7-hosted-external"
+                    --confirm-hosted-public-fixtures
+                COMMENT "Running explicit bounded Phase-7 hosted generation/embedding qualification"
+                USES_TERMINAL
+                VERBATIM)
+        endif()
+        set(PHASE7_QUALIFICATION_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_SOURCE_ROOT=${CMAKE_CURRENT_LIST_DIR}"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/phase7-qualification"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase7Qualification.cmake")
+        if(TARGET phase5_retrieval)
+            add_custom_target(phase7_qualification
+                COMMAND ${PHASE7_QUALIFICATION_COMMAND}
+                DEPENDS phase3_ingestion phase4_improvement phase5_retrieval phase6_surfaces
+                COMMENT "Running recurring Phase-7 corpus, lifecycle, surface, and decision proof"
+                USES_TERMINAL
+                VERBATIM)
+        endif()
+        add_test(NAME phase7_qualification COMMAND ${PHASE7_QUALIFICATION_COMMAND})
+        set_tests_properties(phase7_qualification PROPERTIES
+            LABELS "phase7;P7-01;P7-02;P7-03;P7-04;P7-05;P7-06;P7-07;P7-08;qualification;cutover-decision;hosted;embedding;secrets;portability;docs")
         add_test(
             NAME crexx_profile_smoke
             COMMAND "${CMAKE_COMMAND}"

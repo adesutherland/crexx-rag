@@ -2,7 +2,7 @@
 
 ## Boundary
 
-The directory owns product-facing Level G contracts and, through Phase 6,
+The directory owns product-facing Level G contracts and, through Phase 7,
 the cREXX implementations behind them. It may consume installed CREXX
 foundation modules and separately qualified generic plugins. It must not call
 the native-v1 RAG bridge, shell through the CLI, or import product behavior from
@@ -110,6 +110,13 @@ ADDRESS redirection, and `ragmcp` owns strict JSON-RPC/tool translation plus
 `structuredContent`. Capability advertisement is narrower than knowledge of
 the operation. Read and plan open SQLite read-only, and MCP never exposes raw
 SQL or raw entity/edge mutation.
+
+Phase 7 qualifies the corpus and public surfaces but does not add an imaginary
+worker binding. `worker.run` remains undispatched because there is no installed
+production `.ragworkprovider`, and ingestion's `embedding` items have no
+public worker processor. These are recorded cutover blockers. The cREXX hosted
+provider also still loses response completion even though the secret-safe
+external structured-generation and batch-embedding qualification passes.
 
 Rollback targets a published ancestor. While holding the SQLite writer lock it
 first publishes a projection of that already-committed older generation, then

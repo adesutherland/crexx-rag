@@ -3,9 +3,11 @@
 Status: canonical navigation for the approved cREXX-only programme,
 2026-08-24. Phase 1B through Gate 6 are accepted for their recorded scope;
 Phases 2 through 6 are accepted on macOS while exact downstream Linux replay
-remains open. Phase 6 stages the installed public cREXX surfaces without
-selecting them as the default; Phase 7 owns the retained hosted/provider-worker
-limits and cutover decision.
+remains open. Phase 7 qualification is complete and selects reject/defer
+cutover: external hosted generation/embedding passes while cREXX hosted
+response completion, public
+worker/provider integration, embedding-item execution, production-shaped
+same-session evidence, and Linux remain open.
 
 ## Current Programme Documents
 
@@ -30,6 +32,9 @@ limits and cutover decision.
 | [Phase 5 retrieval evidence](evidence/2026-08-23-phase5/README.md) | P5-01 through P5-08, four-cell deterministic judgement, native/full-context baselines, hosted answer-quality result and exact transport limit |
 | [Phase 6 installed surface tutorial](tutorials/phase-6-surfaces.md) | Fresh install, exact plan/apply, CLI, ADDRESS RAG, MCP, skills, backup and restore walkthrough |
 | [Phase 6 public-surface evidence](evidence/2026-08-24-phase6/README.md) | P6-01 through P6-07, four-cell equality/safety matrix, packaging and exact cutover limits |
+| [Phase 7 qualification tutorial](tutorials/phase-7-qualification.md) | Reproducible corpus/lifecycle/surface, hosted generation/embedding, safety audit, and decision walkthrough |
+| [Phase 7 qualification evidence](evidence/2026-08-24-phase7/README.md) | P7-01 through P7-08 results, external hosted pass, retained cREXX completion failure, comparison boundary, and QA |
+| [Gate 7 cutover decision](evidence/2026-08-24-phase7/cutover-decision.md) | Exact reject/defer decision, blockers, closure evidence, and approval boundary |
 | [CREXX capability-sync worklist](evidence/2026-08-22-crexx-capability-sync/WORKLIST.md) | Completed macOS/current-head items and later parallel qualification backlog |
 | [Generic capability incubation audit](../incubator/README.md) | Donation-candidate inventory, implementation boundaries, colocated use/system docs, and readiness status |
 | [Gate 1A decision ledger](gate1a-decision-ledger.md) | Historical approval for D1-D9, the now-completed Phase-1B worklist, exclusions, and Gate-1B stop |

@@ -1,6 +1,6 @@
 # cREXX Application Modules
 
-Status: Phase 6 staged public product implementation. These modules are application code,
+Status: Phase 7 qualified staged public product implementation; cutover deferred. These modules are application code,
 not generic CREXX donation candidates.
 
 ## Use
@@ -181,11 +181,13 @@ returns the stable bundle to rollback-journal mode.
 Phase 2 through Gate 6 are accepted for their recorded macOS scope. Phase 3
 implements ingestion, Phase 4 claim/review/improvement/workers, Phase 5
 retrieval/evidence, and Phase 6 the staged public CLI, ADDRESS, MCP, packaging
-and skills. The native executable remains the oracle pending Phase-7 selection.
+and skills. Phase 7 selected reject/defer, so the native executable remains the
+default oracle.
 Recurring QA uses deterministic providers and symbolic hosted
-secret references. The bounded Phase-5 hosted quality harness is retained, but
-the cREXX hosted adapter's POST-completion finding and provider-backed public
-worker lifetime remain Phase-7 cutover work. Sidecar
+secret references. The bounded Phase-5 hosted quality and Phase-7 external
+generation/embedding harnesses pass, but cREXX hosted response completion
+remains unreliable. `worker.run` still lacks an installed production `.ragworkprovider`, and queued embedding
+items lack a public worker processor; both block cutover. Sidecar
 verification retains the
 2,147,483,647-byte application ceiling but hashes in fixed memory. Callers that
 do not need an interposed ceiling or returned byte count can use the installed

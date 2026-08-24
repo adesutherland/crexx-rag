@@ -195,6 +195,12 @@ downstream Linux confirmation gate. CRI-16 now withholds a provider-lifetime
 reuse claim until the adapter lifecycle is approved and proved; provider
 streaming and cancellation remain explicit separate capabilities.
 
+Phase 7's bounded external OpenAI run passes structured generation plus a
+two-input 128-dimensional batch embedding. The equivalent cREXX provider probe
+still loses response completion, so the run qualifies hosted availability and
+request shapes, not the cREXX adapter, cross-operation pool reuse, or a product
+`.ragworkprovider`.
+
 ### Hash and binary data
 
 Stable source identity requires SHA-256 or an equivalent collision-resistant
@@ -872,6 +878,15 @@ Migration is side-by-side:
    ids or exact JSON formatting;
 6. rehearse conversion, validation, backup, and rollback on corpus copies; and
 7. make cREXX the default only after the roadmap's qualification gate.
+
+The 2026-08-24 Gate-7 result is reject/defer cutover. The corpus, lifecycle,
+surface, installed-package, and external hosted generation/embedding evidence
+passes in the recorded macOS scope. However, cREXX hosted completion remains
+unreliable, `worker.run` has no installed production
+provider binding, queued embedding items have no public worker processor, the
+production-shaped same-session comparison is incomplete, and exact downstream
+Linux remains open. Native-v1 therefore stays the default oracle; no
+compatibility window has started.
 
 The native executable remains available as a read-only diagnostic/migration
 tool for one compatibility release. Removing it and the product-specific

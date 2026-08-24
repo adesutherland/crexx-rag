@@ -633,24 +633,24 @@ rename the production default. See the
 Goal: demonstrate production fitness on generic IT architecture and the
 historical stress corpus.
 
-- [ ] **P7-01** Run full generic IT-architecture acceptance with local providers.
-- [ ] **P7-02** Run the Scotland corpus acceptance and five QA judgement groups.
-- [ ] **P7-03** Run the provider matrix with local, deterministic synthetic
+- [x] **P7-01** Run full generic IT-architecture acceptance with local providers.
+- [x] **P7-02** Run the Scotland corpus acceptance and five QA judgement groups.
+- [x] **P7-03** Run the provider matrix with local, deterministic synthetic
   hosted, and at least one real secret-gated hosted generation plus embedding
   qualification. If policy/budget prevents a real hosted run, scope the release
   claim to local providers and label hosted support experimental rather than
   claiming parity.
-- [ ] **P7-04** Run source lifecycle, failure injection, worker concurrency,
+- [x] **P7-04** Run source lifecycle, failure injection, worker concurrency,
   generation visibility, backup-during-work with matching sidecars/manifest,
   restore, migration, and rollback suites.
-- [ ] **P7-05** Run exact same-session cREXX/native comparisons for ingestion,
+- [x] **P7-05** Run exact same-session cREXX/native comparisons for ingestion,
   census, graph promotion, queue, vector, evidence latency, memory, model-bound
   overhead, and final library counts.
-- [ ] **P7-06** Audit installation, bundle portability, secrets, outbound route
+- [x] **P7-06** Audit installation, bundle portability, secrets, outbound route
   denials, trusted module registry, file permissions, and read/plan zero-library-
   write behavior.
-- [ ] **P7-07** Reconcile all documentation and publish known limitations.
-- [ ] **P7-08** Produce a cutover evidence bundle and separate approval request.
+- [x] **P7-07** Reconcile all documentation and publish known limitations.
+- [x] **P7-08** Produce a cutover evidence bundle and separate approval request.
 
 ### Gate 7 — Production selection
 
@@ -662,6 +662,19 @@ Choose one:
 - reject/defer cutover and keep the oracle default while addressing evidence.
 
 No code deletion is authorized merely by completing Phase 7.
+
+Gate 7 decision: reject/defer cutover and keep the native-v1 oracle default.
+The macOS corpus/lifecycle/surface matrices and bounded external hosted
+generation plus embedding qualification pass. The cREXX hosted provider still
+loses response completion. Qualification also found two product-path gaps: the
+public dispatcher has no installed production `.ragworkprovider` for
+`worker.run`, and ingestion's queued embedding items have no public worker processor. The
+requested production-shaped same-session graph/latency/RSS/model-overhead
+comparison and exact downstream Linux replay are also incomplete. These are
+failed selection criteria, so the decision does not rename, remove, or cut over
+the oracle. See the
+[`Phase-7 evidence`](evidence/2026-08-24-phase7/README.md) and separate
+[`cutover decision`](evidence/2026-08-24-phase7/cutover-decision.md).
 
 ## Phase 8 — Donation, Compatibility Release, And Native Retirement
 

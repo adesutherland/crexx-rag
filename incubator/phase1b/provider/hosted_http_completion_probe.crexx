@@ -1,0 +1,29 @@
+options levelg
+
+namespace hosted_http_completion_probe
+
+import rxfnsb
+import rxfnsg
+
+main: procedure = .int
+  key = strip(changestr("0A"x, changestr("0D"x, getenv("OPENAI_API_KEY"), ""), ""))
+  if key = "" then do
+    say "P7_HTTP_PROBE status=unavailable credential_reference=env:OPENAI_API_KEY"
+    return 2
+  end
+  policy = .httppolicy.safe()
+  call policy.set_timeouts(30000, 30000, 30000, 30000, 30000, 120000)
+  headers = .httpheaders.json()
+  call headers.add("Authorization", "Bearer " || key)
+  call headers.add("Idempotency-Key", "p7-http-completion-probe")
+  call headers.add("X-Client-Request-Id", "p7-http-completion-probe")
+  body = '{"model":"gpt-5.6-luna","input":[{"role":"system","content":[{"type":"input_text","text":"Return only the requested JSON object."}]},{"role":"user","content":[{"type":"input_text","text":"Set answer to ok."}]}],"max_output_tokens":32,"text":{"format":{"type":"json_schema","name":"cprag_response","strict":true,"schema":{"type":"object","required":["answer"],"properties":{"answer":{"type":"string"}},"additionalProperties":false}}}}'
+  client = .httpclient.pooled("https://api.openai.com", 1, 2, 8388608, policy)
+  response = client.post("/v1/responses", body, headers)
+  call client.close()
+  if response.succeeded() = 0 then do
+    say "P7_HTTP_PROBE status=failed credential_reference=env:OPENAI_API_KEY transport_status=" || response.transport_status() || " http_status=" || response.status() || " message=" || response.error()
+    return 1
+  end
+  say "P7_HTTP_PROBE status=ok credential_reference=env:OPENAI_API_KEY http_status=" || response.status() || " response_bytes=" || binlength(response.body() as .binary)
+  return 0

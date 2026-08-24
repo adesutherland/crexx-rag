@@ -17,12 +17,16 @@ performance with retained correctness and workload evidence.
 > 3 through 6 are implemented and accepted for the recorded macOS scope:
 > incremental ingestion; claims, improvement and durable workers; and focused
 > hybrid retrieval with typed evidence. Phase 4 includes its literal eight-hour
-> supervised soak. Phase 5 includes bounded hosted answer-quality evidence but
-> leaves the cREXX hosted POST-completion finding to Phase 7. The native-v1
-> C++ path remains the executable oracle. Phase 6 adds the staged Level-G CLI,
+> supervised soak. Phase 5 includes bounded hosted answer-quality evidence.
+> Phase 6 adds the staged Level-G CLI,
 > `ADDRESS RAG`, MCP `structuredContent`, installed package and four narrowly
-> permissioned skills; Gate 6 acceptance does not authorize cutover. Level G is
-> now the required default for advanced libraries and application code; Level B
+> permissioned skills. Phase 7 qualifies the corpora and external hosted
+> generation/embedding, but rejects/defers cutover because the cREXX hosted
+> response path is still unreliable and the installed
+> public worker/provider and embedding-item path plus production-shaped
+> same-session evidence are incomplete. Native-v1 remains the default oracle.
+> Level G is now the required default for advanced libraries and application
+> code; Level B
 > is reserved for CREXX bootstrap and justified low-level foundations.
 
 ## What The Product Is For
@@ -102,8 +106,10 @@ jobs. Phase 4 adds claim/review/improvement and durable multi-process workers;
 Phase 5 adds the production Level-G query planner, incremental embedding and
 exact-vector publication, hybrid retrieval and bounded typed evidence. It is
 now available through the Phase-6 CLI, `ADDRESS RAG`, MCP and narrow skills.
-Corpus-wide selection, a provider-backed long-running public worker adapter,
-and cutover remain Phase-7 decisions.
+Phase 7 has now completed the corpus/provider qualification and selected
+reject/defer: a provider-backed public worker adapter, embedding-item execution,
+and the missing production-shaped same-session comparison must pass before a
+new cutover request.
 
 ## Current Status
 
@@ -117,7 +123,8 @@ and cutover remain Phase-7 decisions.
 | Phase 4 / Gate 4 | Accepted on macOS 2026-08-24 | Claim/support/review, budgeted improvement, crash recovery, two-process fencing, exact reservations, tutorial, literal eight-hour soak, Debug/Release and Apple-ASan pass; Linux remains open |
 | Phase 5 / Gate 5 | Accepted on macOS 2026-08-24 | Focused planning, FTS/exact-vector/directed-graph retrieval, stable evidence/citations, 9/9 deterministic judgements and bounded hosted quality qualification pass; Linux and hosted cREXX transport closure remain open |
 | Phase 6 / Gate 6 | Accepted on macOS 2026-08-24 | Fresh installed Level-G CLI, ADDRESS RAG, MCP structured content, exact plan/apply, zero-write planning, backup/restore and four capability-scoped skills pass in four compiler/VM cells; no cutover is implied |
-| Phase 7 and later | Authorized sequentially | Corpus qualification and a separate cutover decision follow; native retirement is not authorized |
+| Phase 7 / Gate 7 | Qualification complete; cutover deferred 2026-08-24 | Corpus/lifecycle/surface gates and bounded external OpenAI generation/embedding pass; cREXX hosted completion, public worker/provider and embedding-item integration, full same-session production comparison, and Linux remain open, so native-v1 stays default |
+| Phase 8 | Report authorized | Donation/adoption/compatibility/retirement opportunities are assessed without submitting donations, cutting over, or deleting the oracle |
 
 Gate 1B established:
 
@@ -139,9 +146,10 @@ Gate 1B established:
 The accepted Phase-3 ingestion path is substantial, but it is not an industrial
 production claim:
 
-- **CRI-15:** the upstream HTTP/timeout path is repaired and qualified, but the
+- **CRI-15:** the upstream HTTP/TLS substrate repairs are qualified, but the
+  incubated cREXX provider still loses hosted POST response completion and the
   exact installed-package downstream Linux reproducer still needs both-VM
-  replay. macOS results are not substituted for it.
+  replay. macOS results are not substituted for either open result.
 - **CRI-16:** installed Level-G HTTP/TLS supplies typed bounded responses,
   pooling, compression, streaming, and cancellation primitives. The current
   adapters deliberately own one pool per operation, so cross-operation reuse,
@@ -159,14 +167,15 @@ production claim:
   supervised eight-hour soak passed; in-process cREXX thread safety is neither
   assumed nor claimed.
 - Phase-5 evidence qualifies deterministic hybrid retrieval and a bounded
-  hosted answer comparison. The incubated cREXX hosted adapter's observed POST
-  completion timeout remains explicit Phase-7 work; the external hosted
-  quality harness does not qualify that transport path.
+  hosted answer comparison. Phase 7 externally qualifies OpenAI structured
+  generation plus batch embedding, but the incubated cREXX adapter still loses
+  hosted response completion and therefore remains a cutover blocker.
 - The local OpenAI-compatible protocol is qualified against deterministic
   fixtures, but a real `llama-server` deployment was unavailable.
-- There is no installed target CLI/MCP adapter,
-  dual-write, cutover, or native-core removal. Phase 2 provides version-1
-  import, paged repositories, and the shared command/foundation contracts only.
+- The installed Level-G CLI/ADDRESS/MCP surfaces exist, but `worker.run` has no
+  production `.ragworkprovider` dispatch and ingestion embedding items have no
+  public worker processor. There is no dual-write, cutover, or native-core
+  removal.
 
 ## Roadmap
 
