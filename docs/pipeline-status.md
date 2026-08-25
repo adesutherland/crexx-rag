@@ -1,6 +1,6 @@
 # cREXX-Only Programme Status
 
-Status date: 2026-08-24.
+Status date: 2026-08-25.
 
 This is the only living implementation-status page. The previous native-v1
 pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.md).
@@ -21,7 +21,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Language strategy | Level G first, accepted 2026-08-04 | Advanced libraries and application code use Level G; Level B is limited to justified CREXX bootstrap/foundation work |
 | Phase 2 / Gate 2 | Accepted on macOS 2026-08-23 | `P2-01` through `P2-10`, public installed-capability adoption, canonical zero-write plans, and hostile apply-time revalidation are accepted. Exact downstream Linux replay remains open. |
 | Parallel CREXX capability sync | Current installed package adopted on macOS | Public Level-G HTTP/JSON, complete `rxhash` SHA-256, and exact packed `rxvector` are consumed directly with source fallback disabled. Provider-lifecycle expansion remains separately approval-gated, and exact downstream Linux confirmation is the only deferred Phase-2 platform replay. |
-| Phase 3 / Gate 3R | Accepted for the recorded macOS/Gemini scope 2026-08-25 | The native Level-G application owns schema-v4 extraction/embedding work, configured Gemini mapping, validated claim promotion, automatic exact vector publication, evidence, process workers, and human-default tracing. Permanent Phase-3/3R and reusable provider QA is green. A pristine fresh tutorial run completed exactly two first-attempt Google calls, verified cleanly, and repeated unchanged with no job, workers, or calls. The known CREXX prompt double-Enter remains accepted; Linux, release and cutover are separate. |
+| Phase 3 / Gate 3R | Accepted on macOS, including provider addendum, 2026-08-25 | The native Level-G `crexxrag` application owns schema-v5 extraction/embedding work, provider-kind dispatch, validated claim promotion, exact vector publication, durable OS-process workers and human-default progress. Permanent Gemini, Codex JSONL/durability and process QA is green. [Clean bounded walkthroughs](evidence/2026-08-25-phase3-provider-addendum/README.md) passed with Codex plus local llama.cpp and with Google Gemini; each unchanged replay made no new job, worker or provider call. Codex App Server remains an experimental local-personal hosted route. The known CREXX prompt double-Enter remains accepted; Linux, release and cutover are separate. |
 | Phase 4 / Gate 4 | Accepted on macOS 2026-08-24 | Claims/extraction/review/improvement, durable multi-process workers and the literal eight-hour supervised soak pass; exact downstream Linux remains open. |
 | Phase 5 / Gate 5 | Accepted on macOS 2026-08-24 | Deterministic focused query planning, hybrid retrieval, exact vector generations, stable typed evidence, nine frozen judgements, native/full-context comparison and bounded Gemini qualification pass; exact Linux and cREXX hosted-transport closure remain open. |
 | Phase 6 / Gate 6 | Accepted on macOS 2026-08-24 | Installed Level-G CLI, ADDRESS RAG, MCP, exact reviewed ingest, zero-write plans, backup/restore and capability-scoped skills pass in four compiler/VM cells. Public worker-provider lifetime remains a cutover limit. |
@@ -77,15 +77,17 @@ One staged cREXX-only public product path now exists through the Phase-6 CLI,
 default. The Phase-4 multi-process improvement queue and literal
 eight-hour soak are accepted on macOS. The Level-G semantic schema-v2 storage,
 schema-v3 runtime-process registry, and schema-v4 durable work envelopes,
-Phase-3 reconciler/repository components and Phase-5 retrieval/evidence paths
+schema-v5 external-provider recovery/subscription budgets, Phase-3
+reconciler/repository components and Phase-5 retrieval/evidence paths
 are accepted over the selected generic facilities. End-to-end product
-ingestion is accepted at Gate 3R for macOS/Gemini. The provider contract remains qualified in
-local incubation; hosted answer quality and external generation/embedding are
-separately retained. The subsequent synchronous provider path and public
-worker completed a pristine bounded real Gemini generation plus embedding run.
-That closes the Phase-7 processor and hosted-replay findings at current head but
-does not change the original cutover decision or remaining comparison,
-platform/release criteria.
+ingestion is accepted at Gate 3R on macOS for Gemini and for the Phase-3
+subscription/local addendum. The provider factory routes Gemini and
+OpenAI-compatible generation/embedding plus contained Codex structured
+generation. One App Server child and isolated empty directory belong to each
+worker; thread/turn ids and completed output are durable before settlement.
+Local Nomic embedding generation uses llama.cpp's OpenAI-compatible endpoint.
+These results close the Phase-3 provider blockers locally but do not change the
+original cutover decision or remaining comparison, platform/release criteria.
 
 Fresh Linux validation on 2026-08-03 repaired the native build's missing direct
 `<algorithm>` dependency, PIC requirement for the RXPA plugin, and macOS-only

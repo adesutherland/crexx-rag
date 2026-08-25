@@ -1,0 +1,85 @@
+options levelg
+
+namespace ragproviderdiagnostics expose ragproviderdiagnostic codexdiagnostic codexlogin codexexecutable llamacppinstalled
+
+import rxfnsb
+import rxfs
+import codex_provider
+
+ragproviderdiagnostic: class
+  _ok = .int
+  _account_type = .string
+  _plan_type = .string
+  _allowance_available = .int
+  _detail = .string
+
+  *: factory
+    arg ok = 0, account_type = "", plan_type = "", allowance_available = -1, detail = ""
+    _ok = ok; _account_type = account_type; _plan_type = plan_type
+    _allowance_available = allowance_available; _detail = detail
+    return
+  ok: method = .int
+    return _ok
+  account_type: method = .string
+    return _account_type
+  plan_type: method = .string
+    return _plan_type
+  allowance_available: method = .int
+    return _allowance_available
+  detail: method = .string
+    return _detail
+
+codexexecutable: procedure = .string
+  executable = getenv("CREXX_RAG_CODEX")
+  if executable \= "" then return executable
+  if rxfs..isfile("/Applications/ChatGPT.app/Contents/Resources/codex") = 1 then return "/Applications/ChatGPT.app/Contents/Resources/codex"
+  return ""
+
+llamacppinstalled: procedure = .int
+  configured = getenv("CREXX_RAG_LLAMA_SERVER")
+  if configured \= "" then return rxfs..isfile(configured)
+  if rxfs..isfile("/opt/homebrew/bin/llama-server") = 1 then return 1
+  return rxfs..isfile("/usr/local/bin/llama-server")
+
+codexdiagnostic: procedure = .int
+  arg timeout_ms = .int, expose result = .ragproviderdiagnostic, expose error = .string
+  result = .ragproviderdiagnostic(); error = ""
+  executable = codexexecutable()
+  if executable = "" then do; error = "Codex executable is unavailable"; return -1; end
+  working_directory = _temporarydirectory(error)
+  if working_directory = "" then return -1
+  observer = .codexnoopobserver(); provider = .codexprovider(executable, working_directory, observer)
+  account_type = ""; plan_type = ""; used_percent = -1
+  status = provider.account_status(timeout_ms, account_type, plan_type, used_percent, error)
+  call provider.close()
+  call rxfs..rmdir working_directory
+  if status \= 0 then return -1
+  available = -1; if used_percent >= 0 then available = 100 - used_percent
+  detail = "authenticated through managed App Server OAuth"
+  result = .ragproviderdiagnostic(1, account_type, plan_type, available, detail)
+  return 0
+
+codexlogin: procedure = .int
+  arg expose error = .string
+  error = ""; executable = codexexecutable()
+  if executable = "" then do; error = "Codex executable is unavailable"; return -1; end
+  captured = .string[]; errors = .string[]
+  address crexx "run :executable login" output captured error errors
+  if rc \= 0 then do
+    error = "Codex managed login failed"
+    if errors.0 > 0 & errors[1] \= "" then error = error || ": " || errors[1]
+    return -1
+  end
+  return 0
+
+_temporarydirectory: procedure = .string
+  arg expose error = .string
+  error = ""; root = getenv("TMPDIR"); if root = "" then root = "/tmp/"
+  if right(root, 1) \= "/" then root = root || "/"
+  seed = time("us")
+  do attempt = 1 to 32
+    path = root || "crexxrag-codex-status-" || seed || "-" || attempt
+    if rxfs..mkdir(path) = 0 then return path
+  end
+  error = "cannot create an isolated Codex diagnostic directory"
+  return ""

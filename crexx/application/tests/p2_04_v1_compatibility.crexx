@@ -85,7 +85,7 @@ importscenario: procedure = .int
   store = .ragstorehandle; status = .ragstorestatus; verification = .ragverifyresult
   errors = errors + check(openragstore(target_path, "readonly", store, error) = 0, "open imported target " || error)
   if errors \= 0 then return 1
-  errors = errors + check(storagestatus(store, status, error) = 0 & status.schema_version() = 2 & status.published_generation() = 2 & status.manifest_state() = "aligned", "imported schema and publication state")
+  errors = errors + check(storagestatus(store, status, error) = 0 & status.schema_version() = 5 & status.published_generation() = 2 & status.manifest_state() = "aligned", "imported schema and publication state")
   database = store.database()
   errors = errors + check(scalarint(database, "SELECT count(*) FROM sources") = 2 & scalarint(database, "SELECT count(*) FROM source_artifacts") = 2 & scalarint(database, "SELECT count(*) FROM source_revision_texts") = 2 & scalarint(database, "SELECT count(*) FROM source_revisions") = 2, "document and revision mappings")
   errors = errors + check(scalarint(database, "SELECT count(*) FROM chunk_contents") = 3 & scalarint(database, "SELECT count(*) FROM revision_chunks") = 3 & scalarint(database, "SELECT count(*) FROM normalization_maps") = 3 & scalarint(database, "SELECT count(*) FROM chunks_fts") = 3, "chunk and search mappings")

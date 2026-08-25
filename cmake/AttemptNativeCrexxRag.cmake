@@ -9,9 +9,9 @@ set(app_modules
     ragmodel ragevidence ragjob ragconfig ragprofile ragregistry ragschema
     ragfile ragconfigfile ragstore ragbackup ragrepository ragcanonical ragplanning
     ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragwork ragquery
-    ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragapplicationprovider ragproduct)
+    ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragproviderdiagnostics ragapplicationprovider ragproduct)
 set(provider_modules
-    provider_contract provider_catalog provider_http industrial_provider)
+    provider_contract provider_catalog provider_http industrial_provider codex_provider)
 set(config_modules
     architecture_local_config generic_profile it_architecture_profile
     operator_registry)
@@ -62,8 +62,15 @@ if(NOT EXISTS "${package_dir}/crexx-rag${CMAKE_EXECUTABLE_SUFFIX}")
     message(FATAL_ERROR "CREXX native packager returned success without an executable")
 endif()
 
+# `crexxrag` is the enduring human product name.  Keep the historical
+# `crexx-rag` spelling beside it while native-v1 remains the executable oracle.
+file(COPY_FILE
+    "${package_dir}/crexx-rag${CMAKE_EXECUTABLE_SUFFIX}"
+    "${package_dir}/crexxrag${CMAKE_EXECUTABLE_SUFFIX}"
+    ONLY_IF_DIFFERENT)
+
 execute_process(
-    COMMAND "${package_dir}/crexx-rag${CMAKE_EXECUTABLE_SUFFIX}"
+    COMMAND "${package_dir}/crexxrag${CMAKE_EXECUTABLE_SUFFIX}"
         --library "${package_dir}/library"
         --config architecture-local
         --profile generic-profile
@@ -84,8 +91,8 @@ endif()
 
 execute_process(
     COMMAND "${CMAKE_COMMAND}" -E env
-        "CREXX_RAG_SELF=${package_dir}/crexx-rag${CMAKE_EXECUTABLE_SUFFIX}"
-        "${package_dir}/crexx-rag${CMAKE_EXECUTABLE_SUFFIX}"
+        "CREXX_RAG_SELF=${package_dir}/crexxrag${CMAKE_EXECUTABLE_SUFFIX}"
+        "${package_dir}/crexxrag${CMAKE_EXECUTABLE_SUFFIX}"
         --library "${package_dir}/library"
         --config architecture-local --profile generic-profile
         --access control --format json worker start
@@ -95,7 +102,7 @@ execute_process(
     OUTPUT_VARIABLE worker_out
     ERROR_VARIABLE worker_err)
 execute_process(
-    COMMAND "${package_dir}/crexx-rag${CMAKE_EXECUTABLE_SUFFIX}"
+    COMMAND "${package_dir}/crexxrag${CMAKE_EXECUTABLE_SUFFIX}"
         --library "${package_dir}/library"
         --access read --format json worker list --stale-seconds 15
     WORKING_DIRECTORY "${package_dir}"
@@ -114,6 +121,6 @@ if(NOT worker_result EQUAL 0 OR NOT list_result EQUAL 0 OR
         "CREXX native application did not supervise two worker processes; inspect ${package_dir}/native-build.txt")
 endif()
 
-file(SHA256 "${package_dir}/crexx-rag${CMAKE_EXECUTABLE_SUFFIX}" native_sha256)
+file(SHA256 "${package_dir}/crexxrag${CMAKE_EXECUTABLE_SUFFIX}" native_sha256)
 message(STATUS
     "CREXX native application passed library init and two-worker supervision (${native_sha256})")

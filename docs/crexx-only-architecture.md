@@ -183,7 +183,9 @@ Support these provider shapes without spreading vendor logic into the pipeline:
 - local Ollama;
 - hosted OpenAI-compatible endpoints;
 - hosted OpenAI, Anthropic, and Gemini adapters where their protocols differ;
-  and
+- contained Codex App Server structured generation through managed ChatGPT
+  authentication, classified as hosted even though the local child owns the
+  stdio connection; and
 - a deterministic fake provider for tests.
 
 Connection reuse, streaming, cancellation, structured output, compression,
@@ -204,11 +206,22 @@ downstream Linux confirmation gate. CRI-16 now withholds a provider-lifetime
 reuse claim until the adapter lifecycle is approved and proved; provider
 streaming and cancellation remain explicit separate capabilities.
 
+The Phase-3 provider addendum adds a provider-kind factory to the application,
+uses the same OpenAI-compatible embedding contract for local llama.cpp, and
+adds a generic Level-G Codex App Server JSONL adapter. Each application worker
+owns its App Server child, empty working directory and connection. Turns use no
+approvals, a read-only/no-network sandbox and the exact requested output schema;
+normal cREXX proposal validation still controls graph promotion. Codex does not
+provide embeddings. App Server remains experimental, so this route is a
+local-personal option and not the default or an installed `rxllm` claim.
+
 Phase 7's bounded external OpenAI run passes structured generation plus a
-two-input 128-dimensional batch embedding. The equivalent cREXX provider probe
-still loses response completion, so the run qualifies hosted availability and
-request shapes, not the cREXX adapter, cross-operation pool reuse, or a product
-`.ragworkprovider`.
+two-input 128-dimensional batch embedding. At the original Gate-7 decision the
+equivalent cREXX provider probe still lost response completion. The subsequent
+installed-CREXX wait repair and Phase-3 addendum now qualify bounded product
+Gemini and contained Codex calls on macOS. They still do not prove
+cross-operation pool reuse, an installed `rxllm` package, exact Linux or
+cutover.
 
 ### Hash and binary data
 
@@ -518,8 +531,12 @@ the worker, attempt, and token. Each work item has a semantic idempotency key.
 Provider calls occur outside the claim transaction. Promotion requires the
 still-current fencing token and writes accepted support plus final attempt state
 atomically. A late worker after lease expiry or cancellation cannot promote.
-A crash after the provider call may repeat the call unless a provider
-idempotency key is supported, but it may not duplicate graph facts.
+A crash after an ordinary HTTP provider call may repeat the call unless a
+provider idempotency key is supported, but it may not duplicate graph facts.
+For Codex, the application persists the external thread and turn ids, usage and
+completed structured output before settlement. A fenced recovery reuses that
+completed output without reserving or spending another subscription turn;
+incomplete or abandoned turns are interrupted/deleted before a budgeted retry.
 
 Improvement planners create work only for explicit conditions:
 
@@ -535,20 +552,23 @@ Improvement planners create work only for explicit conditions:
 Item and request-count budgets are hard ceilings. Before a provider call, the
 worker reserves the configured maximum tokens/cost and a worker slot; admission
 fails when the reservation would exceed the budget. Actual provider usage
-releases the difference. Time, token, and cost budgets may exceed the threshold
-only by the documented bounded maximum of already admitted in-flight calls,
-whose output/token limit and timeout are themselves capped. Status reports both
-reserved and actual usage.
+releases the difference. Subscription-backed Codex work instead has an explicit
+`subscription-allowance` charging basis, maximum turns/input/output tokens,
+minimum remaining allowance, timeout and retry ceiling; it is never reported as
+zero-cost monetary API use. Time, token, cost and turn budgets may exceed the
+threshold only by the documented bounded maximum of already admitted in-flight
+calls, whose output/token limit and timeout are themselves capped. Status
+reports both reserved and actual usage.
 
 Applying a plan only enqueues a durable job. Workers are explicit processes:
 
 ```text
-crexx-rag worker start [--count N] [--job ID]
-crexx-rag worker run --once|--follow [--id ID] [--job ID]
-crexx-rag worker list [--local] [--state STATE]
-crexx-rag worker status ID
-crexx-rag worker drain ID
-crexx-rag worker prune --stale-seconds N
+crexxrag worker start [--count N] [--job ID]
+crexxrag worker run --once|--follow [--id ID] [--job ID]
+crexxrag worker list [--local] [--state STATE]
+crexxrag worker status ID
+crexxrag worker drain ID
+crexxrag worker prune --stale-seconds N
 ```
 
 `worker start` uses the public cREXX child-process channel and waits while its

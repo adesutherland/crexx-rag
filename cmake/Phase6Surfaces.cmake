@@ -39,8 +39,8 @@ endfunction()
 set(app_modules ragmodel ragevidence ragjob ragconfig ragprofile ragregistry
     ragschema ragfile ragconfigfile ragstore ragbackup ragrepository ragcanonical ragplanning
     ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragwork ragquery
-    ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragapplicationprovider ragproduct)
-set(provider_modules provider_contract provider_catalog provider_http industrial_provider)
+    ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragproviderdiagnostics ragapplicationprovider ragproduct)
+set(provider_modules provider_contract provider_catalog provider_http industrial_provider codex_provider)
 set(config_modules architecture_local_config generic_profile it_architecture_profile
     operator_registry)
 set(runtime_modules ragmcp rag_address_environment ${provider_modules} ${app_modules} ${config_modules}

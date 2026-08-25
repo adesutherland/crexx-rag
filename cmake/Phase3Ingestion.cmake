@@ -48,13 +48,13 @@ function(run_program runtime program modules cell library_path expected_pattern)
 endfunction()
 
 set(application_modules
-    ragschema ragfile ragstore ragrepository ragingest
+    ragschema ragfile ragstore ragmodel ragconfig ragprofile ragrepository ragingest
     rx_sqlite_boundary rx_hash rx_system library)
 set(tutorial_modules
-    ragschema ragfile ragstore ragingest ragfolder
+    ragschema ragfile ragstore ragmodel ragconfig ragprofile ragingest ragfolder
     rx_sqlite_boundary rx_hash rx_system rxfs library)
 set(delta_modules
-    ragschema ragfile ragstore ragingest
+    ragschema ragfile ragstore ragmodel ragconfig ragprofile ragingest
     rx_sqlite_boundary rx_hash rx_system library)
 
 foreach(mode IN ITEMS noopt opt)
@@ -68,6 +68,12 @@ foreach(mode IN ITEMS noopt opt)
         "${base_import}" "${mode_flag}" "${mode} ragfile")
     compile_crexx("${CPRAG_APP_DIR}/ragstore.crexx" "${CPRAG_WORK_DIR}/ragstore"
         "${program_import}" "${mode_flag}" "${mode} ragstore")
+    compile_crexx("${CPRAG_APP_DIR}/ragmodel.crexx" "${CPRAG_WORK_DIR}/ragmodel"
+        "${program_import}" "${mode_flag}" "${mode} ragmodel")
+    compile_crexx("${CPRAG_APP_DIR}/ragconfig.crexx" "${CPRAG_WORK_DIR}/ragconfig"
+        "${program_import}" "${mode_flag}" "${mode} ragconfig")
+    compile_crexx("${CPRAG_APP_DIR}/ragprofile.crexx" "${CPRAG_WORK_DIR}/ragprofile"
+        "${program_import}" "${mode_flag}" "${mode} ragprofile")
     compile_crexx("${CPRAG_APP_DIR}/ragrepository.crexx" "${CPRAG_WORK_DIR}/ragrepository"
         "${program_import}" "${mode_flag}" "${mode} ragrepository")
     compile_crexx("${CPRAG_APP_DIR}/ragingest.crexx" "${CPRAG_WORK_DIR}/ragingest"

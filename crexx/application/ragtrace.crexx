@@ -30,7 +30,7 @@ ragtracer: class
     safe_state = _safe(state, 48)
     safe_subject = _safe(subject, 128)
     safe_detail = _safe(detail, 256)
-    line = "crexx-rag " || safe_stage || " " || safe_state
+    line = "crexxrag " || safe_stage || " " || safe_state
     if safe_subject \= "" then line = line || " [" || safe_subject || "]"
     if safe_detail \= "" then line = line || " " || safe_detail
     if _mode = "ansi" & _format = "human" then do

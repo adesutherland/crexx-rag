@@ -105,6 +105,10 @@ ragproviderconfig: class
     return _timeout_ms
   max_attempts: method = .int
     return _max_attempts
+  charging_basis: method = .string
+    if _kind = "codex" then return "subscription-allowance"
+    if _route_class = "local" then return "local-compute"
+    return "monetary-api"
 
 ragrolebinding: class
   _role = .string
@@ -128,15 +132,19 @@ ragbudget: class
   _input_tokens = .int
   _output_tokens = .int
   _cost_microunits = .int
+  _codex_turns = .int
+  _minimum_codex_allowance_percent = .int
 
   *: factory
-    arg minutes = .int, item_limit = .int, model_calls = .int, input_tokens = .int, output_tokens = .int, cost_microunits = .int
+    arg minutes = .int, item_limit = .int, model_calls = .int, input_tokens = .int, output_tokens = .int, cost_microunits = .int, codex_turns = 0, minimum_codex_allowance_percent = 0
     _minutes = minutes
     _item_limit = item_limit
     _model_calls = model_calls
     _input_tokens = input_tokens
     _output_tokens = output_tokens
     _cost_microunits = cost_microunits
+    _codex_turns = codex_turns
+    _minimum_codex_allowance_percent = minimum_codex_allowance_percent
     return
 
   minutes: method = .int
@@ -151,6 +159,10 @@ ragbudget: class
     return _output_tokens
   cost_microunits: method = .int
     return _cost_microunits
+  codex_turns: method = .int
+    return _codex_turns
+  minimum_codex_allowance_percent: method = .int
+    return _minimum_codex_allowance_percent
 
 ragworkerpolicy: class
   _processes = .int
@@ -334,17 +346,24 @@ validateconfig: procedure = .ragvalidationresult
     if _contains(seen, provider.provider_id()) = 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "duplicate_id", path || ".id", "provider id is duplicated")
     seen[seen.0 + 1] = provider.provider_id()
     kind = provider.kind()
-    if kind \= "openai-compatible" & kind \= "openai" & kind \= "anthropic" & kind \= "gemini" then issues[issues.0 + 1] = .ragvalidationissue("config", "unsupported_provider", path || ".kind", "provider kind is not supported")
+    if kind \= "openai-compatible" & kind \= "openai" & kind \= "anthropic" & kind \= "gemini" & kind \= "codex" then issues[issues.0 + 1] = .ragvalidationissue("config", "unsupported_provider", path || ".kind", "provider kind is not supported")
     route_class = provider.route_class()
     if route_class \= "local" & route_class \= "hosted" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_route", path || ".route_class", "provider route must be local or hosted")
     if provider.base_url() = "" | provider.model() = "" then issues[issues.0 + 1] = .ragvalidationissue("config", "incomplete_provider", path, "provider base URL and model are required")
-    if left(provider.base_url(), 7) \= "http://" & left(provider.base_url(), 8) \= "https://" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_url", path || ".base_url", "provider URL must use HTTP or HTTPS")
-    if route_class = "hosted" & left(provider.base_url(), 8) \= "https://" then issues[issues.0 + 1] = .ragvalidationissue("config", "insecure_hosted_url", path || ".base_url", "hosted provider URL must use HTTPS")
+    if kind = "codex" then do
+      if provider.base_url() \= "app-server://local" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_url", path || ".base_url", "Codex must use app-server://local")
+      if route_class \= "hosted" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_route", path || ".route_class", "Codex is a hosted privacy route")
+    end
+    else do
+      if left(provider.base_url(), 7) \= "http://" & left(provider.base_url(), 8) \= "https://" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_url", path || ".base_url", "provider URL must use HTTP or HTTPS")
+      if route_class = "hosted" & left(provider.base_url(), 8) \= "https://" then issues[issues.0 + 1] = .ragvalidationissue("config", "insecure_hosted_url", path || ".base_url", "hosted provider URL must use HTTPS")
+    end
     privacy_policy = provider.privacy_policy()
     if privacy_policy \= "local-only" & privacy_policy \= "restricted-ok" & privacy_policy \= "public-only" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_privacy_policy", path || ".privacy_policy", "provider privacy policy is invalid")
     credential = provider.credential()
     if credential.valid() = 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "secret_reference", path || ".credential", "credential must be an env reference")
-    if route_class = "hosted" & credential.empty() = 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "missing_credential", path || ".credential", "hosted provider credential reference is required")
+    if kind = "codex" & credential.empty() \= 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "unexpected_credential", path || ".credential", "Codex App Server owns authentication and must not receive a credential reference")
+    if route_class = "hosted" & kind \= "codex" & credential.empty() = 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "missing_credential", path || ".credential", "hosted provider credential reference is required")
     if provider.timeout_ms() <= 0 | provider.max_attempts() < 1 | provider.max_attempts() > 10 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_limits", path, "provider timeout and attempt limits are invalid")
   end
 
@@ -373,7 +392,7 @@ validateconfig: procedure = .ragvalidationresult
   end
 
   budget = config.budget()
-  if budget.minutes() < 0 | budget.item_limit() < 0 | budget.model_calls() < 0 | budget.input_tokens() < 0 | budget.output_tokens() < 0 | budget.cost_microunits() < 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_budget", "budget", "budget ceilings cannot be negative")
+  if budget.minutes() < 0 | budget.item_limit() < 0 | budget.model_calls() < 0 | budget.input_tokens() < 0 | budget.output_tokens() < 0 | budget.cost_microunits() < 0 | budget.codex_turns() < 0 | budget.minimum_codex_allowance_percent() < 0 | budget.minimum_codex_allowance_percent() > 100 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_budget", "budget", "budget ceilings and Codex allowance threshold are invalid")
   workers = config.workers()
   if workers.processes() < 1 | workers.processes() > 32 then issues[issues.0 + 1] = .ragvalidationissue("config", "worker_processes", "workers.processes", "worker processes must be from 1 through 32")
   if workers.max_in_flight() \= 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "worker_in_flight", "workers.max_in_flight", "each worker process currently owns one in-flight item")

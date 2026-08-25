@@ -3,6 +3,7 @@ options levelg
 namespace ragapplicationprovider expose ragapplicationprovider
 
 import rxfnsb
+import rxfs
 import rxjson
 import rxhash
 import sqlite_boundary
@@ -15,6 +16,7 @@ import ragwork
 import ragtrace
 import provider_contract
 import industrial_provider
+import codex_provider
 
 /* Product binding for the generic provider contract.  It owns RAG-shaped
  * prompting and validation, while industrial_provider remains reusable and
@@ -24,10 +26,22 @@ ragapplicationprovider: class implements .ragworkprovider
   _config = .ragconfig
   _profile = .ragprofile
   _tracer = .ragtracer
+  _codex_backend = .codexprovider
+  _codex_ready = .int
+  _codex_directory = .string
 
   *: factory
     arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile, tracer = .ragtracer
     _store = store; _config = config; _profile = profile; _tracer = tracer
+    _codex_ready = 0; _codex_directory = ""
+    return
+
+  close: method = .void
+    if _codex_ready = 1 then do
+      call _codex_backend.close()
+      if _codex_directory \= "" then call rxfs..rmdir _codex_directory
+    end
+    _codex_ready = 0
     return
 
   process: method = .ragworkproviderresult
@@ -38,19 +52,31 @@ ragapplicationprovider: class implements .ragworkprovider
     if input_json = "" | rxhash..sha256hex(input_json as .binary) \= claim.input_hash() then return _failedwork("configuration", "input-mismatch", claim, empty_proposal, "durable work input is missing or does not match its digest", 0)
     document = .jsondocument(input_json)
     if document.valid() \= 1 | document.node_type(document.root()) \= "object" then return _failedwork("configuration", "input-invalid", claim, empty_proposal, "durable work input is not valid JSON", 0)
-    root = document.root(); schema = _jsonstring(document, root, "schema"); operation = _jsonstring(document, root, "operation"); role = _jsonstring(document, root, "role"); provider_id = _jsonstring(document, root, "provider_id"); model = _jsonstring(document, root, "model"); privacy = _jsonstring(document, root, "privacy"); snapshot_id = _jsonstring(document, root, "config_snapshot_id")
+    root = document.root(); schema = _jsonstring(document, root, "schema"); operation = _jsonstring(document, root, "operation"); role = _jsonstring(document, root, "role"); provider_id = _jsonstring(document, root, "provider_id"); model = _jsonstring(document, root, "model"); privacy = _jsonstring(document, root, "privacy"); charging_basis = _jsonstring(document, root, "charging_basis"); snapshot_id = _jsonstring(document, root, "config_snapshot_id")
     if schema \= "crexx-rag.work-input/1" | operation \= claim.item_type() | role = "" | provider_id = "" | model = "" | privacy = "" | snapshot_id \= claim.config_snapshot_id() then return _failedwork("configuration", "input-shape", claim, empty_proposal, "durable work input fields do not match the claimed item", 0)
     if _roleprovider(_config, role) \= provider_id then return _failedwork(provider_id, model, claim, empty_proposal, "durable provider route does not match current role binding", 0)
     provider_config = _providerconfig(_config, provider_id)
-    if provider_config.provider_id() \= provider_id | provider_config.model() \= model | provider_config.kind() \= "gemini" then return _failedwork(provider_id, model, claim, empty_proposal, "Gemini provider configuration does not match durable work", 0)
+    if provider_config.provider_id() \= provider_id | provider_config.model() \= model | provider_config.charging_basis() \= charging_basis then return _failedwork(provider_id, model, claim, empty_proposal, "provider configuration does not match durable work", 0)
+    kind = provider_config.kind()
+    if kind \= "gemini" & kind \= "openai" & kind \= "openai-compatible" & kind \= "anthropic" & kind \= "codex" then return _failedwork(provider_id, model, claim, empty_proposal, "provider kind is unsupported", 0)
     secret = ""; credential = provider_config.credential()
     if credential.empty() = 0 then secret = getenv(credential.name())
-    if (provider_config.route_class() = "hosted" & secret = "") | pos("0A"x, secret) > 0 | pos("0D"x, secret) > 0 then return _failedwork(provider_id, model, claim, empty_proposal, "provider credential reference is unavailable or invalid", 0)
-    host = ""; base_path = ""; port = 0; tls = 0
-    if _parseurl(provider_config.base_url(), host, port, tls, base_path) \= 0 then return _failedwork(provider_id, model, claim, empty_proposal, "provider base URL is invalid", 0)
-    backend = .industrialprovider("gemini", host, port, tls, base_path, secret, provider_config.route_class())
+    if (provider_config.route_class() = "hosted" & kind \= "codex" & secret = "") | pos("0A"x, secret) > 0 | pos("0D"x, secret) > 0 then return _failedwork(provider_id, model, claim, empty_proposal, "provider credential reference is unavailable or invalid", 0)
+    backend = .provider
+    if kind = "codex" then do
+      codex_error = ""
+      if _ensurecodex(codex_error) \= 0 then return _failedwork(provider_id, model, claim, empty_proposal, codex_error, 0)
+      backend = _codex_backend
+    end
+    else do
+      host = ""; base_path = ""; port = 0; tls = 0
+      if _parseurl(provider_config.base_url(), host, port, tls, base_path) \= 0 then return _failedwork(provider_id, model, claim, empty_proposal, "provider base URL is invalid", 0)
+      protocol = kind; if kind = "openai-compatible" then protocol = "openai"
+      backend = .industrialprovider(protocol, host, port, tls, base_path, secret, provider_config.route_class())
+    end
     call _tracer.emit("provider", "start", claim.item_id(), provider_id || " " || model)
-    if operation = "embedding" then result = _embedding(document, root, claim, provider_config, backend)
+    if operation = "embedding" & kind = "codex" then result = _failedwork(provider_id, model, claim, empty_proposal, "Codex does not provide embedding generation", 0)
+    else if operation = "embedding" then result = _embedding(document, root, claim, provider_config, backend)
     else if operation = "claim-extraction" | operation = "improve-extraction" then result = _extraction(document, root, input_json, claim, provider_config, backend)
     else result = _failedwork(provider_id, model, claim, empty_proposal, "durable work operation is unsupported", 0)
     if result.ok() = 1 then call _tracer.emit("provider", "complete", claim.item_id(), provider_id || " " || model)
@@ -67,24 +93,103 @@ ragapplicationprovider: class implements .ragworkprovider
     schema = '{"type":"object","additionalProperties":false,"required":["has_claim","source_candidate_id","source_label","source_type","relationship_type","target_candidate_id","target_label","target_type","confidence_millionths"],"properties":{"has_claim":{"type":"boolean"},"source_candidate_id":{"type":"string"},"source_label":{"type":"string"},"source_type":{"type":"string"},"relationship_type":{"type":"string"},"target_candidate_id":{"type":"string"},"target_label":{"type":"string"},"target_type":{"type":"string"},"confidence_millionths":{"type":"integer"}}}'
     request_id = "extract-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 32)
     request = .providerrequest("generate_structured", "extractor", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), provider_config.max_attempts(), _jsonstring(document, root, "privacy"), claim.item_id(), request_id, 512, 0, 0, 0)
-    provider_output = backend.generate_structured(request)
-    if provider_output.status() \= 0 then return _providerfailure(provider_config, request_id, claim, empty_proposal, provider_output)
-    if provider_output.provider() \= "gemini" | provider_output.model() \= provider_config.model() | provider_output.request_id() = "" then return _failedwork(provider_config.provider_id(), provider_config.model(), claim, empty_proposal, "provider returned incomplete provider/model identity", 0)
+    durable_run_id = ""; provider_charging_basis = provider_config.charging_basis()
+    if provider_config.kind() = "codex" then provider_output = _codexstructured(request, claim, provider_config, durable_run_id, provider_charging_basis, request_id)
+    else provider_output = backend.generate_structured(request)
+    if provider_output.status() \= 0 then return _providerfailure(provider_config, request_id, claim, empty_proposal, provider_output, durable_run_id, provider_charging_basis)
+    if provider_output.provider() \= _backendidentity(provider_config.kind()) | provider_output.model() \= provider_config.model() | provider_output.request_id() = "" then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider returned incomplete provider/model identity", durable_run_id)
     response = .jsondocument(provider_output.content())
-    if response.valid() \= 1 | response.node_type(response.root()) \= "object" then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider claim proposal is not an object")
+    if response.valid() \= 1 | response.node_type(response.root()) \= "object" then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider claim proposal is not an object", durable_run_id)
     response_root = response.root(); has_claim = 0
-    if response.node_boolean(response.member(response_root, "has_claim"), has_claim) \= 0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider claim disposition is invalid")
-    if has_claim = 0 then return _success(provider_config.provider_id(), provider_config.model(), request_id, provider_output, empty_proposal, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary))
+    if response.node_boolean(response.member(response_root, "has_claim"), has_claim) \= 0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider claim disposition is invalid", durable_run_id)
+    if has_claim = 0 then return _success(provider_config.provider_id(), provider_config.model(), request_id, provider_output, empty_proposal, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), durable_run_id, provider_config.charging_basis())
     source_candidate = _jsonstring(response, response_root, "source_candidate_id"); source_label = _jsonstring(response, response_root, "source_label"); source_type = _jsonstring(response, response_root, "source_type")
     relationship = _jsonstring(response, response_root, "relationship_type"); target_candidate = _jsonstring(response, response_root, "target_candidate_id"); target_label = _jsonstring(response, response_root, "target_label"); target_type = _jsonstring(response, response_root, "target_type")
     confidence = -1; ignored = response.node_int(response.member(response_root, "confidence_millionths"), confidence)
-    if source_candidate = "" | target_candidate = "" | source_candidate = target_candidate | source_label = "" | target_label = "" | _candidateexists(document, root, source_candidate) \= 1 | _candidateexists(document, root, target_candidate) \= 1 | _permittedtype(_profile, source_type) \= 1 | _permittedtype(_profile, target_type) \= 1 | _permittedrelationship(_profile, relationship) \= 1 | confidence < 0 | confidence > 1000000 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider claim proposal failed application validation")
+    if source_candidate = "" | target_candidate = "" | source_candidate = target_candidate | source_label = "" | target_label = "" | _candidateexists(document, root, source_candidate) \= 1 | _candidateexists(document, root, target_candidate) \= 1 | _permittedtype(_profile, source_type) \= 1 | _permittedtype(_profile, target_type) \= 1 | _permittedrelationship(_profile, relationship) \= 1 | confidence < 0 | confidence > 1000000 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider claim proposal failed application validation", durable_run_id)
     revision_chunk_id = _jsonstring(document, root, "revision_chunk_id"); body = _jsonstring(document, root, "text"); prompt_version = _jsonstring(document, root, "prompt_version"); profile_id = _jsonstring(document, root, "profile_id"); source_scope = _jsonstring(document, root, "source_scope")
     source_concept = "concept-sha256:" || rxhash..sha256hex((lower(source_label) || "00"x || source_type) as .binary)
     target_concept = "concept-sha256:" || rxhash..sha256hex((lower(target_label) || "00"x || target_type) as .binary)
     proposal_id = "proposal-sha256:" || rxhash..sha256hex((claim.input_hash() || "00"x || source_candidate || "00"x || relationship || "00"x || target_candidate || "00"x || request_id) as .binary)
-    proposal = .ragextractionproposal("crexx-rag.extraction-proposal/1", proposal_id, "claim", source_concept, source_label, source_type, relationship, target_concept, target_label, target_type, "outbound", '{}', "", "", revision_chunk_id, 0, binlength(body as .binary), "support", "assertion", "direct", "", "lineage:" || revision_chunk_id, confidence, provider_config.provider_id(), provider_config.model(), request_id, prompt_version, "crexx-rag-gemini-adapter/1", source_scope, profile_id, 0)
-    return _success(provider_config.provider_id(), provider_config.model(), request_id, provider_output, proposal, 1, source_candidate, target_candidate, .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary))
+    proposal = .ragextractionproposal("crexx-rag.extraction-proposal/1", proposal_id, "claim", source_concept, source_label, source_type, relationship, target_concept, target_label, target_type, "outbound", '{}', "", "", revision_chunk_id, 0, binlength(body as .binary), "support", "assertion", "direct", "", "lineage:" || revision_chunk_id, confidence, provider_config.provider_id(), provider_config.model(), request_id, prompt_version, "crexx-rag-" || provider_config.kind() || "-adapter/1", source_scope, profile_id, 0)
+    return _success(provider_config.provider_id(), provider_config.model(), request_id, provider_output, proposal, 1, source_candidate, target_candidate, .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), durable_run_id, provider_config.charging_basis())
+
+  _codexstructured: method = .providerresult
+    arg request = .providerrequest, claim = .ragworkclaim, provider_config = .ragproviderconfig, expose durable_run_id = .string, expose charging_basis = .string, expose effective_request_id = .string
+    durable_run_id = ""; charging_basis = "local-compute"; effective_request_id = request.request_id()
+    recovery = .ragexternalrecovery; error = ""
+    if recoverexternalrun(_store, claim.item_id(), provider_config.provider_id(), provider_config.model(), recovery, error) \= 0 then return _codexfailure(request, error, 0, "durability")
+    active_request = request
+    if recovery.found() = 1 then do
+      durable_run_id = recovery.provider_run_id(); charging_basis = provider_config.charging_basis(); effective_request_id = recovery.request_id()
+      active_request = .providerrequest(request.operation(), request.role(), request.model(), request.messages(), request.inputs(), request.schema(), request.timeout_ms(), request.max_attempts(), request.privacy_class(), request.idempotency_key(), effective_request_id, request.max_output_tokens(), request.embedding_dimensions(), request.stream_requested(), request.temperature_millionths())
+      if recovery.state() = "completed" then do
+        output = .providerresult()
+        call output.set_generation("codex", provider_config.model(), effective_request_id, recovery.content(), "recovered", .providerusage(recovery.input_tokens(), recovery.output_tokens(), 1, -1, 1, 0), 0)
+        call _tracer.emit("codex", "recovered", claim.item_id(), "reusing persisted completed output")
+        call _codex_backend.delete_thread(recovery.thread_id(), provider_config.timeout_ms())
+        return output
+      end
+      if recovery.turn_id() = "" then do
+        call _codex_backend.abandon_thread(recovery.thread_id(), recovery.turn_id(), provider_config.timeout_ms())
+        return _codexfailure(active_request, "persisted Codex thread had no started turn and requires a fenced retry", 1, "interrupted")
+      end
+      output = _codex_backend.recover_structured(active_request, recovery.thread_id(), recovery.turn_id(), recovery.input_tokens(), recovery.output_tokens())
+      if output.status() = 0 then do
+        if completeexternalrun(_store, durable_run_id, recovery.thread_id(), recovery.turn_id(), effective_request_id, output.content(), recovery.input_tokens(), recovery.output_tokens(), error) \= 0 then return _codexfailure(active_request, "Codex recovered output durability failed: " || error, 0, "durability")
+        call _codex_backend.delete_thread(recovery.thread_id(), provider_config.timeout_ms())
+      end
+      return output
+    end
+
+    account_type = ""; plan_type = ""; allowance_used = -1
+    call _tracer.emit("codex", "preflight", claim.item_id(), "checking managed account allowance")
+    if _codex_backend.account_status(provider_config.timeout_ms(), account_type, plan_type, allowance_used, error) \= 0 then return _codexfailure(request, "Codex allowance preflight failed: " || error, 1, "transport")
+    if 100 - allowance_used < _config.budget().minimum_codex_allowance_percent() then return _codexfailure(request, "Codex remaining allowance is below the reviewed minimum", 0, "budget")
+    call _tracer.emit("codex", "durable", claim.item_id(), "preparing persisted thread and turn identities")
+    thread_id = ""; turn_id = ""
+    if _codex_backend.start_thread(request, thread_id, error) \= 0 then return _codexfailure(request, "Codex thread start failed: " || error, 1, "transport")
+    if beginexternalrun(_store, claim, provider_config.provider_id(), provider_config.model(), effective_request_id, provider_config.charging_basis(), thread_id, allowance_used, durable_run_id, error) \= 0 then do
+      call _codex_backend.delete_thread(thread_id, provider_config.timeout_ms())
+      return _codexfailure(request, "Codex thread durability failed: " || error, 0, "durability")
+    end
+    charging_basis = provider_config.charging_basis()
+    if _codex_backend.start_structured_turn(request, thread_id, turn_id, error) \= 0 then do
+      call _codex_backend.abandon_thread(thread_id, turn_id, provider_config.timeout_ms())
+      return _codexfailure(request, "Codex turn start failed: " || error, 1, "transport")
+    end
+    if updateexternalrunturn(_store, durable_run_id, thread_id, turn_id, error) \= 0 then do
+      call _codex_backend.abandon_thread(thread_id, turn_id, provider_config.timeout_ms())
+      return _codexfailure(request, "Codex turn durability failed: " || error, 0, "durability")
+    end
+    call _tracer.emit("codex", "running", claim.item_id(), "contained structured extraction started")
+    output = _codex_backend.wait_structured(request, thread_id, turn_id)
+    if output.status() \= 0 then do; call _codex_backend.abandon_thread(thread_id, turn_id, provider_config.timeout_ms()); return output; end
+    usage = output.usage()
+    if completeexternalrun(_store, durable_run_id, thread_id, turn_id, effective_request_id, output.content(), usage.input_tokens(), usage.output_tokens(), error) \= 0 then return _codexfailure(request, "Codex output durability failed: " || error, 0, "durability")
+    call _tracer.emit("codex", "persisted", claim.item_id(), "validated output and usage committed")
+    after_account = ""; after_plan = ""; allowance_after = -1; allowance_error = ""
+    if _codex_backend.account_status(provider_config.timeout_ms(), after_account, after_plan, allowance_after, allowance_error) = 0 & allowance_after >= 0 then ignored = updateexternalrunallowance(_store, durable_run_id, allowance_after, allowance_error)
+    call _codex_backend.delete_thread(thread_id, provider_config.timeout_ms())
+    return output
+
+  _ensurecodex: method = .int
+    arg expose error = .string
+    error = ""
+    if _codex_ready = 1 then return 0
+    executable = getenv("CREXX_RAG_CODEX")
+    if executable = "" & rxfs..isfile("/Applications/ChatGPT.app/Contents/Resources/codex") = 1 then executable = "/Applications/ChatGPT.app/Contents/Resources/codex"
+    if executable = "" then do; error = "Codex executable is unavailable; set CREXX_RAG_CODEX or install the Codex app"; return -1; end
+    suffix = _randomhex(_store.database())
+    if suffix = "" then do; error = "cannot allocate an isolated Codex working directory"; return -1; end
+    temporary_root = getenv("TMPDIR"); if temporary_root = "" then temporary_root = "/tmp/"
+    if right(temporary_root, 1) \= "/" then temporary_root = temporary_root || "/"
+    _codex_directory = temporary_root || "crexxrag-codex-" || suffix
+    if rxfs..mkdir(_codex_directory) \= 0 then do; error = "cannot create the isolated Codex working directory"; return -1; end
+    observer = .codexnoopobserver()
+    _codex_backend = .codexprovider(executable, _codex_directory, observer)
+    _codex_ready = 1
+    return 0
 
   _embedding: method = .ragworkproviderresult
     arg document = .jsondocument, root = .int, claim = .ragworkclaim, provider_config = .ragproviderconfig, backend = .provider
@@ -97,34 +202,42 @@ ragapplicationprovider: class implements .ragworkprovider
     provider_output = backend.embed(request)
     if provider_output.status() \= 0 then return _providerfailure(provider_config, request_id, claim, empty_proposal, provider_output)
     vectors = provider_output.embeddings()
-    if provider_output.provider() \= "gemini" | provider_output.model() \= provider_config.model() | provider_output.request_id() \= request_id | vectors.0 \= 1 | vectors[1].valid() \= 1 | vectors[1].count() \= dimension then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider embedding failed application validation")
-    envelope = "crexx-rag.embedding-input/1|" || provider_config.model() || "|" || dimension
+    if provider_output.provider() \= _backendidentity(provider_config.kind()) | provider_output.model() \= provider_config.model() | provider_output.request_id() \= request_id | vectors.0 \= 1 | vectors[1].valid() \= 1 | vectors[1].count() \= dimension then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider embedding failed application validation")
+    envelope = "crexx-rag.embedding-input/1|" || provider_config.provider_id() || "|" || provider_config.kind() || "|" || provider_config.model() || "|" || dimension
     input_digest = rxhash..sha256hex((content_digest || "00"x || envelope) as .binary)
-    profile_id = "gemini-embedding-" || dimension || "-" || substr(rxhash..sha256hex(envelope as .binary), 1, 12)
+    profile_id = "embedding-" || dimension || "-" || substr(rxhash..sha256hex(envelope as .binary), 1, 12)
     embedding = .ragworkembedding(revision_chunk_id, profile_id, input_digest, provider_config.provider_id(), provider_config.model(), dimension, rxhash..sha256hex(envelope as .binary), vectors[1].payload())
-    return _success(provider_config.provider_id(), provider_config.model(), request_id, provider_output, empty_proposal, 0, "", "", embedding)
+    return _success(provider_config.provider_id(), provider_config.model(), request_id, provider_output, empty_proposal, 0, "", "", embedding, "", provider_config.charging_basis())
 
 _success: procedure = .ragworkproviderresult
-  arg provider_id = .string, model = .string, request_id = .string, provider_output = .providerresult, proposal = .ragextractionproposal, has_proposal = .int, source_candidate = .string, target_candidate = .string, embedding = .ragworkembedding
-  usage = provider_output.usage(); cost = usage.cost_microunits(); if cost < 0 then cost = 0
-  return .ragworkproviderresult(0, provider_id, model, request_id, usage.input_tokens(), usage.output_tokens(), cost, (provider_output.latency_us() / 1000) as .int, 0, proposal, "", has_proposal, source_candidate, target_candidate, embedding)
+  arg provider_id = .string, model = .string, request_id = .string, provider_output = .providerresult, proposal = .ragextractionproposal, has_proposal = .int, source_candidate = .string, target_candidate = .string, embedding = .ragworkembedding, provider_run_id = "", charging_basis = "monetary-api"
+  usage = provider_output.usage(); cost = usage.cost_microunits(); if cost < 0 | charging_basis \= "monetary-api" then cost = 0
+  return .ragworkproviderresult(0, provider_id, model, request_id, usage.input_tokens(), usage.output_tokens(), cost, (provider_output.latency_us() / 1000) as .int, 0, proposal, "", has_proposal, source_candidate, target_candidate, embedding, provider_run_id, charging_basis)
+
+_codexfailure: procedure = .providerresult
+  arg request = .providerrequest, message = .string, retryable = .int, category = .string
+  output = .providerresult()
+  call output.set_failure("codex", request.model(), request.request_id(), .providererror(category, -105, 0, retryable, 1, message))
+  return output
 
 _providerfailure: procedure = .ragworkproviderresult
-  arg config = .ragproviderconfig, request_id = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, output = .providerresult
+  arg config = .ragproviderconfig, request_id = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, output = .providerresult, provider_run_id = "", charging_basis = ""
   failure = output.error(); usage = output.usage(); cost = usage.cost_microunits(); if cost < 0 then cost = 0
   message = failure.message(); if message = "" then message = "provider request failed"
-  return .ragworkproviderresult(output.status(), config.provider_id(), config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, (output.latency_us() / 1000) as .int, failure.retryable(), proposal, message, 0)
+  if charging_basis = "" then charging_basis = config.charging_basis()
+  if charging_basis \= "monetary-api" then cost = 0
+  return .ragworkproviderresult(output.status(), config.provider_id(), config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, (output.latency_us() / 1000) as .int, failure.retryable(), proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, charging_basis)
 
 _failedoutput: procedure = .ragworkproviderresult
-  arg config = .ragproviderconfig, request_id = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, output = .providerresult, message = .string
-  usage = output.usage(); cost = usage.cost_microunits(); if cost < 0 then cost = 0
-  return .ragworkproviderresult(-123, config.provider_id(), config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, (output.latency_us() / 1000) as .int, 0, proposal, message, 0)
+  arg config = .ragproviderconfig, request_id = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, output = .providerresult, message = .string, provider_run_id = ""
+  usage = output.usage(); cost = usage.cost_microunits(); if cost < 0 | config.charging_basis() \= "monetary-api" then cost = 0
+  return .ragworkproviderresult(-123, config.provider_id(), config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, (output.latency_us() / 1000) as .int, 0, proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, config.charging_basis())
 
 _failedwork: procedure = .ragworkproviderresult
-  arg provider_id = .string, model = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, message = .string, retryable = .int
+  arg provider_id = .string, model = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, message = .string, retryable = .int, provider_run_id = "", charging_basis = "monetary-api"
   if provider_id = "" then provider_id = "unresolved-provider"
   if model = "" then model = "unresolved-model"
-  return .ragworkproviderresult(-101, provider_id, model, "failed-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 24), 0, 0, 0, 0, retryable, proposal, message, 0)
+  return .ragworkproviderresult(-101, provider_id, model, "failed-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 24), 0, 0, 0, 0, retryable, proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, charging_basis)
 
 _snapshotmatches: procedure = .int
   arg store = .ragstorehandle, snapshot_id = .string, config = .ragconfig, profile = .ragprofile
@@ -160,6 +273,19 @@ _providerconfig: procedure = .ragproviderconfig
     if providers[i].provider_id() = provider_id then return providers[i]
   end
   return .ragproviderconfig("", "", "", "", "", "", .ragsecretref(), 0, 0)
+
+_backendidentity: procedure = .string
+  arg kind = .string
+  if kind = "openai-compatible" then return "openai"
+  return kind
+
+_randomhex: procedure = .string
+  arg database = .binary
+  prepared = .binary; value = ""
+  if sqliteprepare(database, "SELECT lower(hex(randomblob(16)))", prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  status = sqlitecolumntext(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return ""
+  return value
 
 _jsonstring: procedure = .string
   arg document = .jsondocument, root = .int, name = .string

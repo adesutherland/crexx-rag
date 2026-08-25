@@ -23,6 +23,7 @@ import ragwork
 import ragprocess
 import ragtrace
 import ragembedding
+import ragproviderdiagnostics
 
 /* The Phase-6 dispatcher is the single transport-neutral product surface.
  * CLI, ADDRESS RAG and MCP translate into one .ragcommandrequest and preserve
@@ -43,11 +44,58 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "worker.list" | operation = "worker.status" then return _workerread(request)
   if operation = "worker.drain" then return _workerdrain(request)
   if operation = "worker.prune" then return _workerprune(request)
+  if operation = "provider.status" then return _providerstatus(request, registry)
   if operation = "review.decide" then return _reviewdecision(request, 0)
   if operation = "ingest.apply" then return _ingestapply(request, registry)
   if operation = "improve.apply" then return _improveapply(request, registry)
   result = dispatchfoundation(request, registry)
   return _deprecated(request, result)
+
+_providerstatus: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = "provider.status"; error = ""
+  if _hasaccess(request, "read") \= 1 then return _failure(operation, 4, "provider status requires read access")
+  if _options(request, "provider", error) \= 0 then return _failure(operation, 2, error)
+  lookup = registry.config(request.config_id())
+  if lookup.found() \= 1 then return _failure(operation, 5, "configuration is not registered")
+  has_extended_route = 0; configured_providers = lookup.config().providers()
+  do i = 1 to configured_providers.0
+    if configured_providers[i].kind() = "codex" | (configured_providers[i].kind() = "openai-compatible" & configured_providers[i].route_class() = "local") then has_extended_route = 1
+  end
+  if has_extended_route = 0 then return dispatchfoundation(request, registry)
+  requested = _option(request, "provider", error); providers = lookup.config().providers(); records = .ragresultrecord[]; unavailable = 0
+  do i = 1 to providers.0
+    provider = providers[i]
+    if requested \= "" & requested \= provider.provider_id() then iterate
+    state = "configured-not-probed"; account_type = ""; plan_type = ""; allowance = -1; detail = "configuration is valid"
+    if provider.kind() = "codex" then do
+      diagnostic = .ragproviderdiagnostic; diagnostic_error = ""
+      if codexdiagnostic(provider.timeout_ms(), diagnostic, diagnostic_error) = 0 then do
+        state = "ready"; account_type = diagnostic.account_type(); plan_type = diagnostic.plan_type(); allowance = diagnostic.allowance_available(); detail = diagnostic.detail()
+      end
+      else do; state = "unavailable"; detail = diagnostic_error; unavailable = 1; end
+    end
+    else if provider.kind() = "openai-compatible" & provider.route_class() = "local" then do
+      if llamacppinstalled() = 1 then do; state = "llama.cpp-installed-server-not-probed"; detail = "llama-server is installed; setup and ingestion perform the endpoint smoke tests"; end
+      else do; state = "local-runtime-unavailable"; detail = "llama-server is not installed at the configured local runtime path"; unavailable = 1; end
+    end
+    fields = .ragresultfield[]
+    fields[1] = .ragresultfield("provider_id", "string", provider.provider_id())
+    fields[2] = .ragresultfield("kind", "string", provider.kind())
+    fields[3] = .ragresultfield("model", "string", provider.model())
+    fields[4] = .ragresultfield("route_class", "string", provider.route_class())
+    fields[5] = .ragresultfield("privacy_policy", "string", provider.privacy_policy())
+    fields[6] = .ragresultfield("charging_basis", "string", provider.charging_basis())
+    fields[7] = .ragresultfield("state", "string", state)
+    fields[8] = .ragresultfield("account_type", "string", account_type)
+    fields[9] = .ragresultfield("plan_type", "string", plan_type)
+    fields[10] = .ragresultfield("allowance_available_percent", "integer", allowance)
+    fields[11] = .ragresultfield("detail", "string", detail)
+    records[records.0 + 1] = .ragresultrecord("provider-status", fields)
+  end
+  if records.0 = 0 then return _failure(operation, 5, "provider is not registered in the selected configuration")
+  if unavailable = 1 then return .ragcommandresult(operation, "error", 8, "one or more selected providers are unavailable", records)
+  return .ragcommandresult(operation, "ok", 0, "provider status inspected without a model request or credential disclosure", records)
 
 _repository: procedure = .ragcommandresult
   arg request = .ragcommandrequest, operation = .string, repository = .string

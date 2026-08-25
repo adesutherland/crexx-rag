@@ -151,7 +151,8 @@ snapshots, persistence, command parsing, or provider execution.
 `p2_03_storage_foundation`. Before compilation, CMake recomputes the SHA-256 of
 each ordered migration's exact DDL. Optimized/non-optimized consumers on both
 VMs cover the 32 accepted schema-v2 semantic tables, the schema-v3 runtime
-registry, and the schema-v4 work-input column; migration-record upgrade and
+registry, schema-v4 work-input column and schema-v5 provider recovery/budget
+columns; migration-record upgrade and
 all current checksums,
 idempotent reapply with no row changes, downgrade/checksum denial,
 transactional failed DDL, generation immutability, old/new reader snapshots,
@@ -293,10 +294,12 @@ matched Scotland-shaped 512-character/no-overlap policy, native-v1 and cREXX
 must both project two sources and five chunks; candidate row ids are not
 compared. The exact tutorial NDJSON is checked independently.
 
-All recurring Phase-3 QA is credential-free and asserts zero provider calls.
-Hosted extraction, generation and embedding qualifications begin only in their
-later phase-specific, secret-gated targets with explicit call/token/cost/privacy
-budgets. Credential values must never enter CTest output or retained evidence.
+All recurring Phase-3 QA is credential-free and zero-outbound. Component tests
+assert zero provider calls; product tests use only deterministic local protocol
+fixtures. Hosted extraction/generation and local-model qualifications remain
+separate, bounded runs with explicit call/token/cost/privacy or subscription-
+allowance budgets. Credential values must never enter CTest output or retained
+evidence.
 
 The 2026-08-24 product re-baseline keeps this complete matrix as permanent
 component regression evidence but no longer treats it as the end-to-end product
@@ -308,7 +311,7 @@ fixes the selected file at startup. Both are zero-outbound and reject literal
 credentials.
 
 `p3r_01b_process_framework` runs the linked application on both concrete VMs.
-Each cell creates a fresh schema-v4 library, starts one controller plus two
+Each cell creates a fresh schema-v5 library, starts one controller plus two
 actual worker processes through the public child-process channel, and observes
 the live rows from a separate application process. It then proves durable
 drain, clean terminal state, forced-process termination, database-clock stale
@@ -320,7 +323,8 @@ proof independent of provider/ingestion processor behavior.
 
 The authoritative sequence and assertions are in the
 [`Gate-3R acceptance contract`](evidence/2026-08-24-phase3-product-rebaseline/ACCEPTANCE-CONTRACT.md).
-Gate 3R is accepted for the recorded macOS/Gemini scope. Recurring CTest must
+Gate 3R and its provider portability addendum are accepted for the recorded
+macOS scope. Recurring CTest must
 build the linked installed cREXX application without a source fallback and
 exercise the product CLI through the configured Gemini path. The reusable
 provider matrix separately covers deterministic local OpenAI-compatible,
@@ -342,11 +346,12 @@ cost, latency, normalized result, final counts, and stable citation.
 `p3r_02_gemini_ingestion` is the permanent native-product processor and human
 surface slice. A deterministic Gemini loopback accepts two equivalent fresh
 ingestions: four requests in total, one structured generation and one embedding
-per library. The test proves schema-v4 work-input binding, public `worker.run`
+per library. The test proves schema-v5 work-input binding, public `worker.run`
 dispatch, safe concurrent reservations, configured two-process supervision,
 candidate promotion, proposal validation, stored 768-dimensional embeddings,
 automatic exact vector publication, completed jobs, truthful zero-job replay,
-meaningful child-process errors, sanitized stderr progress, stable JSON stdout,
+meaningful pre- and post-registration child-process errors, sanitized stderr
+progress, stable JSON stdout,
 automatic local config/library/profile defaults, guided human plan/apply,
 concise evidence and credential-value absence without hosted traffic. The
 canonical library also requires clean verification.
@@ -357,6 +362,24 @@ accepted the source-supported claim, stored the embedding, published the vector
 generation, reconciled reservations, verified with zero issues, and repeated
 unchanged without a job or calls. The earlier recovered run remains defect
 history; the 2026-08-25 replay is the pristine gate evidence.
+
+`p3r_03_provider_durability` runs optimized and non-optimized on both VMs. It
+proves that a persisted completed Codex output is reused, exactly one
+subscription turn is charged, stale reservations are released, and the worker
+fence advances. `p3r_04_codex_protocol` drives initialize, managed-account and
+rate-limit reads, schema-constrained turn events, token usage and thread cleanup
+through a deterministic App Server JSONL fixture in the same four cells.
+
+The addendum's bounded live qualification used public synthetic material only.
+One clean `crexxrag` walkthrough completed one Codex structured extraction
+through the user's managed ChatGPT account and one 768-dimensional local Nomic
+embedding through llama.cpp. A separate clean walkthrough completed one real
+Gemini structured extraction and one `gemini-embedding-2` request. Both
+published one vector generation, returned the cited typed claim, verified
+cleanly and repeated unchanged without further provider calls. The exact
+[closure record](evidence/2026-08-25-phase3-provider-addendum/README.md) also
+records the successful full 82-test wall. These hosted runs are evidence, never
+ordinary CTest.
 
 ## Phase 4 Acceptance
 

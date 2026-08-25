@@ -15,7 +15,8 @@ only for the current comparison oracle.
 
 ## What The Tool Does
 
-`crexx-rag` turns a folder of source material into a local, shareable knowledge
+`crexxrag` is the enduring cREXX application that turns a folder of source
+material into a local, shareable knowledge
 library for people and LLM agents. It keeps the original passages, builds
 lexical and optional semantic indexes, identifies useful concepts, and records
 typed relationships only when they have source evidence.
@@ -67,7 +68,8 @@ consumer alongside the installed native-v1 comparison executables:
 
 ```text
 crexx-rag                 native-v1 command, still the default oracle
-crexx_rag_cli             staged compiled Level-G command application
+crexxrag                  native Level-G human/application command (unpublished)
+crexx_rag_cli             linked Level-G image used by qualification
 rag*.rxbin                compiled cREXX application modules
 rxsqlite.rxplugin         generic SQLite facility
 CREXX provider libraries  local and hosted LLM/embedding support
@@ -122,6 +124,13 @@ providers:
     base-url: http://127.0.0.1:8081/v1
     model: nomic-embed-text-v1.5
     privacy: local
+    charging-basis: local-compute
+  subscription-extract:
+    kind: codex
+    base-url: app-server://local
+    model: default
+    privacy: hosted-public-only
+    charging-basis: subscription-allowance
   hosted-strong:
     kind: openai
     credential: env:OPENAI_API_KEY
@@ -130,7 +139,7 @@ providers:
 
 roles:
   advisory: local-chat
-  extractor: local-chat
+  extractor: subscription-extract
   embedding: local-embed
   answerer: none
 
@@ -140,6 +149,8 @@ policy:
   default-improvement-budget:
     minutes: 120
     model-calls: 200
+    codex-turns: 10
+    minimum-codex-allowance-percent: 10
 ```
 
 The configuration module exports this as typed cREXX data. Loading it may not
@@ -204,7 +215,7 @@ record. Human output is a rendering of that same result and is not a separate
 semantic operation.
 
 ```bash
-crexx-rag \
+crexxrag \
   --library ./architecture.cprag \
   --config architecture_local_config \
   --profile it_architecture_profile \
@@ -216,9 +227,9 @@ Check the installed runtime, generic plugins, provider configuration, schema,
 and sidecars:
 
 ```bash
-crexx-rag --config architecture_local_config doctor
+crexxrag --config architecture_local_config doctor
 
-crexx-rag \
+crexxrag \
   --library ./architecture.cprag \
   --config architecture_local_config \
   --access diagnose \
@@ -227,6 +238,23 @@ crexx-rag \
 
 `doctor` must distinguish missing installation capabilities from a broken
 library or an unavailable optional model.
+
+The native human command also discovers `./crexx-rag.conf`, `./library` and a
+sole configured profile, so the Phase-3 workflow is simply:
+
+```bash
+crexxrag provider status
+crexxrag provider login codex   # only when managed ChatGPT login is absent
+crexxrag init
+crexxrag ingest
+crexxrag query 'What does BillingService depend on?'
+```
+
+`provider status` may inspect managed Codex account type and allowance without
+a model turn or credential disclosure. Codex App Server owns OAuth and refresh;
+do not put a bearer token in the config. Codex is a hosted route because source
+text leaves the machine. Local llama.cpp embedding remains local and uses the
+ordinary OpenAI-compatible `/embeddings` contract.
 
 The P2-08 provider test is deliberately configuration-only: local declarations
 can be validated without a request, while hosted tests report that a separately
@@ -246,7 +274,7 @@ Planning is read-only. It inventories the configured source set and reports:
 - the library/config/profile generations the plan is bound to.
 
 ```bash
-crexx-rag \
+crexxrag \
   --library ./architecture.cprag \
   --config architecture_local_config \
   --profile it_architecture_profile \
@@ -260,7 +288,7 @@ output file. It prints the canonical plan's SHA-256 digest. Review that content
 and digest, then apply the exact file with ingestion capability:
 
 ```bash
-crexx-rag \
+crexxrag \
   --library ./architecture.cprag \
   --config architecture_local_config \
   --profile it_architecture_profile \
@@ -282,11 +310,11 @@ installed application now has a process-supervision framework. Start a bounded
 worker group from one terminal:
 
 ```bash
-crexx-rag --library ./architecture.cprag --access control \
+crexxrag --library ./architecture.cprag --access control \
   worker start --job <job-id> --count 4 --poll-ms 1000
 ```
 
-The controller starts four instances of the same `crexx-rag` application as OS
+The controller starts four instances of the same `crexxrag` application as OS
 processes and waits for them. Each process opens its own SQLite connection; no
 cREXX child thread shares a SQLite session. Configuration can supply the count
 with `workers.processes`, and `--count` is an explicit bounded override.
@@ -295,9 +323,9 @@ From another terminal—or another host using the same library—inspect the
 database-backed registry:
 
 ```bash
-crexx-rag --library ./architecture.cprag --access read worker list
-crexx-rag --library ./architecture.cprag --access read worker list --local
-crexx-rag --library ./architecture.cprag --access read \
+crexxrag --library ./architecture.cprag --access read worker list
+crexxrag --library ./architecture.cprag --access read worker list --local
+crexxrag --library ./architecture.cprag --access read \
   worker status <worker-or-controller-id>
 ```
 
@@ -315,9 +343,9 @@ Drain a live worker cooperatively, or explicitly remove terminal/stale registry
 rows after inspection:
 
 ```bash
-crexx-rag --library ./architecture.cprag --access control \
+crexxrag --library ./architecture.cprag --access control \
   worker drain <worker-id>
-crexx-rag --library ./architecture.cprag --access control \
+crexxrag --library ./architecture.cprag --access control \
   worker prune --stale-seconds 300
 ```
 
@@ -339,8 +367,8 @@ database-backed process contract.
 Monitor it without reading SQLite directly:
 
 ```bash
-crexx-rag --library ./architecture.cprag job status <job-id>
-crexx-rag --library ./architecture.cprag job events <job-id> --follow
+crexxrag --library ./architecture.cprag job status <job-id>
+crexxrag --library ./architecture.cprag job events <job-id> --follow
 ```
 
 Status reports the job state separately from failed attempts, then exact
@@ -353,7 +381,7 @@ budget use, throughput, timestamps, last error, and artifact publication state.
 Run `ingest plan` again. There is no separate algorithm for incremental load:
 
 ```bash
-crexx-rag \
+crexxrag \
   --library ./architecture.cprag \
   --config architecture_local_config \
   --profile it_architecture_profile \
@@ -374,7 +402,7 @@ Apply and monitor the delta exactly like initial load.
 Human-oriented search returns compact passages and why they ranked:
 
 ```bash
-crexx-rag \
+crexxrag \
   --library ./architecture.cprag \
   --access read \
   query search "Which components access customer profile data?"
@@ -387,7 +415,7 @@ compatible active index and permitted embedding route are available.
 For diagnostics, request the trace:
 
 ```bash
-crexx-rag --library ./architecture.cprag \
+crexxrag --library ./architecture.cprag \
   query trace "Which components access customer profile data?"
 ```
 
@@ -408,7 +436,7 @@ executes the installed public surfaces.
 The primary agent-facing command is:
 
 ```bash
-crexx-rag \
+crexxrag \
   --library ./architecture.cprag \
   --format json \
   --access read \
@@ -431,7 +459,7 @@ configured answer model consume the same packet.
 To use the configured optional answerer while retaining the identical packet:
 
 ```bash
-crexx-rag --library ./architecture.cprag --access read --format json \
+crexxrag --library ./architecture.cprag --access read --format json \
   query answer "Which components access customer profile data, and why?"
 ```
 
@@ -450,7 +478,7 @@ and are resolved only inside an explicitly authorized call boundary.
 First inspect what the library can improve:
 
 ```bash
-crexx-rag \
+crexxrag \
   --library ./architecture.cprag \
   --config architecture_local_config \
   --profile it_architecture_profile \
@@ -466,7 +494,7 @@ routes and hard budgets.
 Apply only after review:
 
 ```bash
-crexx-rag \
+crexxrag \
   --library ./architecture.cprag \
   --config architecture_local_config \
   --profile it_architecture_profile \
@@ -478,9 +506,9 @@ With a supervised `worker run --follow`, the job can continue after the client
 terminal exits. Job control requires the separate control capability:
 
 ```bash
-crexx-rag --library ./architecture.cprag --access control job pause <job-id>
-crexx-rag --library ./architecture.cprag --access control job resume <job-id>
-crexx-rag --library ./architecture.cprag --access control job cancel <job-id>
+crexxrag --library ./architecture.cprag --access control job pause <job-id>
+crexxrag --library ./architecture.cprag --access control job resume <job-id>
+crexxrag --library ./architecture.cprag --access control job cancel <job-id>
 ```
 
 Cancellation is cooperative and preserves completed work and audit history.
@@ -491,10 +519,10 @@ Expired worker leases are recoverable.
 List review work with cursor pagination:
 
 ```bash
-crexx-rag --library ./architecture.cprag --access plan \
+crexxrag --library ./architecture.cprag --access plan \
   review list --state pending --limit 20
 
-crexx-rag --library ./architecture.cprag --access plan \
+crexxrag --library ./architecture.cprag --access plan \
   review show <review-id>
 ```
 
@@ -503,10 +531,10 @@ conflicts, the proposal, validator findings, model/profile provenance, and the
 effect of each decision. Preview a decision before applying it:
 
 ```bash
-crexx-rag --library ./architecture.cprag --access plan \
+crexxrag --library ./architecture.cprag --access plan \
   review decide <review-id> --decision accept --dry-run
 
-crexx-rag --library ./architecture.cprag --access curate \
+crexxrag --library ./architecture.cprag --access curate \
   review decide <review-id> --decision accept
 ```
 
@@ -521,7 +549,7 @@ stable evidence citations, provider/model provenance, and input hashes, then
 plan validation:
 
 ```bash
-crexx-rag --library ./architecture.cprag --access plan \
+crexxrag --library ./architecture.cprag --access plan \
   proposal plan --input ./external-proposals.ndjson \
   --output ./proposals.plan.json
 ```
@@ -532,7 +560,7 @@ review items it would create. Apply the immutable plan only with curation
 authority:
 
 ```bash
-crexx-rag --library ./architecture.cprag --access curate \
+crexxrag --library ./architecture.cprag --access curate \
   proposal apply --plan ./proposals.plan.json --expect-digest <sha256>
 ```
 
@@ -608,7 +636,7 @@ explicit ingestion/curation task, and still require plan before apply.
 Create a consistent snapshot while the library is live:
 
 ```bash
-crexx-rag --library ./architecture.cprag --access admin \
+crexxrag --library ./architecture.cprag --access admin \
   library backup --output ./architecture-backup.cprag
 ```
 
@@ -620,11 +648,11 @@ consistent; they can always be rebuilt.
 Restore into a fresh target by default:
 
 ```bash
-crexx-rag --access admin library restore \
+crexxrag --access admin library restore \
   --input ./architecture-backup.cprag \
   --output ./architecture-restored.cprag
 
-crexx-rag --library ./architecture-restored.cprag --access diagnose \
+crexxrag --library ./architecture-restored.cprag --access diagnose \
   library verify
 ```
 

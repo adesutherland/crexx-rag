@@ -6,6 +6,7 @@ import ragcommand
 import ragconfig
 import ragconfigfile
 import ragproduct
+import ragproviderdiagnostics
 import operator_registry
 
 /* Human-first native CLI.  The short commands below only compose the shared
@@ -53,6 +54,10 @@ if config_loaded = 1 then do
 end
 
 if alias = "guided-ingest" then return _guidedingest(request, registry, source_set, worker_count, auto_confirm)
+if alias = "provider-login" then do
+  login_status = _ensurecodexlogin(registry, request.config_id())
+  if login_status \= 0 then return login_status
+end
 result = dispatchproduct(request, registry)
 if alias = "queue-status" then result = _deprecated(result, alias)
 return _showresult(result, request.format())
@@ -64,12 +69,15 @@ _wantshelp: procedure = .int
   return 0
 
 _showhelp: procedure = .int
-  say "crexx-rag - local evidence library"
+  say "crexxrag - local evidence library"
   say ""
   say "Human workflow"
-  say "  crexx-rag init"
-  say "  crexx-rag ingest [SOURCE_SET] [--workers N] [--yes]"
-  say "  crexx-rag query QUESTION"
+  say "  crexxrag init"
+  say "  crexxrag ingest [SOURCE_SET] [--workers N] [--yes]"
+  say "  crexxrag query QUESTION"
+  say "  crexxrag provider status"
+  say "  crexxrag provider login codex"
+  say "  crexxrag doctor"
   say ""
   say "The current directory defaults are ./crexx-rag.conf and ./library."
   say "Ingest reviews privacy, providers and budget before it starts workers."
@@ -149,18 +157,51 @@ _plansummary: procedure = .string
   end
   budget = config.budget(); providers = config.providers()
   cost = _money(budget.cost_microunits())
+  extractor = _roleprovider(config, "extractor"); embeddings = _roleprovider(config, "embedding")
   output = "Ingestion plan"
   output = output || "0A0A"x || "  Source set:       " || source_set_id
   if source_root \= "" then output = output || "0A"x || "  Source folder:    " || source_root
   if privacy \= "" then output = output || "0A"x || "  Data policy:      " || privacy
   output = output || "0A"x || "  Maximum calls:    " || budget.model_calls()
-  output = output || "0A"x || "  Maximum cost:     $" || cost
+  output = output || "0A"x || "  Input token limit: " || budget.input_tokens()
+  output = output || "0A"x || "  Output token limit: " || budget.output_tokens()
   output = output || "0A"x || "  Worker processes: " || workers
-  do i = 1 to providers.0
-    output = output || "0A"x || "  Provider:         " || providers[i].kind() || " / " || providers[i].model()
+  if extractor.provider_id() \= "" then do
+    if extractor.kind() = "codex" then output = output || "0A"x || "  Extraction:       Codex using your ChatGPT subscription"
+    else output = output || "0A"x || "  Extraction:       " || extractor.kind() || " / " || extractor.model()
   end
+  if embeddings.provider_id() \= "" then do
+    if embeddings.kind() = "openai-compatible" & embeddings.route_class() = "local" then output = output || "0A"x || "  Embeddings:       Local llama.cpp / " || embeddings.model()
+    else output = output || "0A"x || "  Embeddings:       " || embeddings.kind() || " / " || embeddings.model()
+  end
+  if extractor.route_class() = "hosted" then output = output || "0A"x || "  Hosted data:      Public content only"
+  if extractor.kind() = "codex" then do
+    diagnostic = .ragproviderdiagnostic; diagnostic_error = ""
+    if codexdiagnostic(extractor.timeout_ms(), diagnostic, diagnostic_error) = 0 then output = output || "0A"x || "  Codex allowance:  " || diagnostic.allowance_available() || "% available"
+    else output = output || "0A"x || "  Codex allowance:  unavailable (" || diagnostic_error || ")"
+    output = output || "0A"x || "  Codex turn limit: " || budget.codex_turns()
+    output = output || "0A"x || "  Charging basis:   Subscription allowance"
+  end
+  monetary = 0
+  do i = 1 to providers.0
+    if providers[i].charging_basis() = "monetary-api" then monetary = 1
+  end
+  if monetary = 1 then output = output || "0A"x || "  Maximum API cost: $" || cost
+  else output = output || "0A"x || "  Monetary API cost: Not applicable"
   output = output || "0A"x || "  Plan digest:      " || digest
   return output
+
+_roleprovider: procedure = .ragproviderconfig
+  arg config = .ragconfig, role_name = .string
+  provider_id = ""; roles = config.roles()
+  do i = 1 to roles.0
+    if roles[i].role() = role_name then provider_id = roles[i].provider_id()
+  end
+  providers = config.providers()
+  do i = 1 to providers.0
+    if providers[i].provider_id() = provider_id then return providers[i]
+  end
+  return .ragproviderconfig("", "", "", "", "", "", .ragsecretref(), 0, 0)
 
 _money: procedure = .string
   arg microunits = .int
@@ -239,6 +280,13 @@ _aliases: procedure = .string[]
     end
     return args
   end
+  if noun = "provider" & noun_index < args.0 & args[noun_index + 1] = "login" then do
+    if noun_index + 2 \= args.0 | args[noun_index + 2] \= "codex" then do; error = "provider login requires codex"; return args; end
+    output = _prefix(args, noun_index)
+    output[output.0 + 1] = "provider"; output[output.0 + 1] = "status"
+    alias = "provider-login"
+    return output
+  end
   if noun \= "ingest" then return _compatibilityalias(args, alias)
   if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply") > 0 then return args
 
@@ -283,6 +331,21 @@ _compatibilityalias: procedure = .string[]
     else output[output.0 + 1] = args[i]
   end
   return output
+
+_ensurecodexlogin: procedure = .int
+  arg registry = .ragregistry, config_id = .string
+  lookup = registry.config(config_id)
+  if lookup.found() \= 1 then return _clierror("provider.login", "configuration", "configuration is not registered", 3)
+  configured = 0; providers = lookup.config().providers(); timeout_ms = 30000
+  do i = 1 to providers.0
+    if providers[i].kind() = "codex" then do; configured = 1; timeout_ms = providers[i].timeout_ms(); end
+  end
+  if configured \= 1 then return _clierror("provider.login", "not-found", "Codex is not configured", 5)
+  diagnostic = .ragproviderdiagnostic; error = ""
+  if codexdiagnostic(timeout_ms, diagnostic, error) = 0 then return 0
+  if codexlogin(error) \= 0 then return _clierror("provider.login", "unavailable", error, 8)
+  if codexdiagnostic(timeout_ms, diagnostic, error) \= 0 then return _clierror("provider.login", "unavailable", "Codex login completed but account status is unavailable: " || error, 8)
+  return 0
 
 _prefix: procedure = .string[]
   arg args = .string[], noun_index = .int

@@ -32,7 +32,7 @@ canonicalconfig: procedure = .string
   do i = 1 to providers.0
     if i > 1 then output = output || ","
     provider = providers[i]
-    output = output || "{" || jsonquote("id") || ":" || jsonquote(provider.provider_id()) || "," || jsonquote("kind") || ":" || jsonquote(provider.kind()) || "," || jsonquote("base_url") || ":" || jsonquote(provider.base_url()) || "," || jsonquote("model") || ":" || jsonquote(provider.model()) || "," || jsonquote("route_class") || ":" || jsonquote(provider.route_class()) || "," || jsonquote("privacy_policy") || ":" || jsonquote(provider.privacy_policy()) || "," || jsonquote("credential_ref") || ":" || jsonquote(provider.credential().ref_string()) || "," || jsonquote("timeout_ms") || ":" || provider.timeout_ms() || "," || jsonquote("max_attempts") || ":" || provider.max_attempts() || "}"
+    output = output || "{" || jsonquote("id") || ":" || jsonquote(provider.provider_id()) || "," || jsonquote("kind") || ":" || jsonquote(provider.kind()) || "," || jsonquote("base_url") || ":" || jsonquote(provider.base_url()) || "," || jsonquote("model") || ":" || jsonquote(provider.model()) || "," || jsonquote("route_class") || ":" || jsonquote(provider.route_class()) || "," || jsonquote("privacy_policy") || ":" || jsonquote(provider.privacy_policy()) || "," || jsonquote("charging_basis") || ":" || jsonquote(provider.charging_basis()) || "," || jsonquote("credential_ref") || ":" || jsonquote(provider.credential().ref_string()) || "," || jsonquote("timeout_ms") || ":" || provider.timeout_ms() || "," || jsonquote("max_attempts") || ":" || provider.max_attempts() || "}"
   end
   output = output || "]," || jsonquote("roles") || ":["
   roles = config.roles()
@@ -47,7 +47,7 @@ canonicalconfig: procedure = .string
     output = output || jsonquote(ids[i])
   end
   budget = config.budget(); workers = config.workers()
-  output = output || "]," || jsonquote("budget") || ":{" || jsonquote("minutes") || ":" || budget.minutes() || "," || jsonquote("item_limit") || ":" || budget.item_limit() || "," || jsonquote("model_calls") || ":" || budget.model_calls() || "," || jsonquote("input_tokens") || ":" || budget.input_tokens() || "," || jsonquote("output_tokens") || ":" || budget.output_tokens() || "," || jsonquote("cost_microunits") || ":" || budget.cost_microunits() || "}"
+  output = output || "]," || jsonquote("budget") || ":{" || jsonquote("minutes") || ":" || budget.minutes() || "," || jsonquote("item_limit") || ":" || budget.item_limit() || "," || jsonquote("model_calls") || ":" || budget.model_calls() || "," || jsonquote("input_tokens") || ":" || budget.input_tokens() || "," || jsonquote("output_tokens") || ":" || budget.output_tokens() || "," || jsonquote("cost_microunits") || ":" || budget.cost_microunits() || "," || jsonquote("codex_turns") || ":" || budget.codex_turns() || "," || jsonquote("minimum_codex_allowance_percent") || ":" || budget.minimum_codex_allowance_percent() || "}"
   output = output || "," || jsonquote("workers") || ":{" || jsonquote("processes") || ":" || workers.processes() || "," || jsonquote("max_in_flight") || ":" || workers.max_in_flight() || "," || jsonquote("lease_seconds") || ":" || workers.lease_seconds() || "}"
   output = output || "," || jsonquote("schedules") || ":["
   schedules = config.schedules()
@@ -114,7 +114,7 @@ canonicalproviderroute: procedure = .string
   do i = 1 to providers.0
     if i > 1 then output = output || ","
     provider = providers[i]
-    output = output || "{" || jsonquote("id") || ":" || jsonquote(provider.provider_id()) || "," || jsonquote("route_class") || ":" || jsonquote(provider.route_class()) || "," || jsonquote("privacy_policy") || ":" || jsonquote(provider.privacy_policy()) || "}"
+    output = output || "{" || jsonquote("id") || ":" || jsonquote(provider.provider_id()) || "," || jsonquote("route_class") || ":" || jsonquote(provider.route_class()) || "," || jsonquote("privacy_policy") || ":" || jsonquote(provider.privacy_policy()) || "," || jsonquote("charging_basis") || ":" || jsonquote(provider.charging_basis()) || "}"
   end
   output = output || "]," || jsonquote("roles") || ":["
   roles = config.roles()

@@ -3,8 +3,9 @@
 Status: Gate 1B reached on 2026-08-03 and accepted on 2026-08-04. All bounded
 Phase-1B items are complete. Phase 2 started on 2026-08-04 from the pushed
 entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` through `P2-10`
-and Gate 2 are accepted for the current macOS scope. Phase 3's reconciler and
-Gate 3R product ingestion are accepted for the recorded macOS/Gemini scope;
+and Gate 2 are accepted for the current macOS scope. Phase 3's reconciler,
+Gate 3R product ingestion and provider portability addendum are accepted for
+the recorded macOS scope;
 Phases 4 and 5 retain their recorded macOS evidence. Exact downstream Linux
 replay remains open. Phase 5 also retains an explicit hosted answer-quality
 qualification while its cREXX hosted transport finding remains Phase-7 work.
@@ -532,6 +533,42 @@ for the recorded macOS/Gemini scope. The known CREXX prompt double-Enter remains
 accepted for now.
 Exact downstream Linux qualification remains open and native-v1 remains the
 oracle until a separate cutover decision.
+
+### Phase 3 provider portability addendum
+
+The approved addendum is complete on macOS at 2026-08-25:
+
+- [x] **P3A-01 Provider factory.** Application dispatch selects configured
+  Gemini, OpenAI, OpenAI-compatible, Anthropic or Codex adapters by provider
+  kind; no worker constructs Gemini unconditionally.
+- [x] **P3A-02 Codex structured generation.** Each extraction worker owns a
+  contained `codex app-server` child and JSONL connection, managed ChatGPT
+  authentication, an empty working directory, read-only/no-network sandbox,
+  no approvals and the exact extraction output schema. Codex is still a hosted
+  public-only privacy route and is not an embedding provider.
+- [x] **P3A-03 Local embedding generation.** The existing OpenAI-compatible
+  embedding contract drives llama.cpp with the cached
+  `nomic-embed-text-v1.5` profile (768 dimensions); normal application code has
+  no model-specific transport branch.
+- [x] **P3A-04 Human provider surface.** The enduring native command is
+  `crexxrag`; `provider status`, `provider login codex`, `doctor`, default local
+  config discovery, reviewed provider/privacy/allowance plans and human
+  progress are available without shell-owned orchestration.
+- [x] **P3A-05 Subscription budgets and recovery.** Migration 5 records charging
+  basis, allowance-used observations, Codex turn ceilings and durable external
+  thread/turn/output recovery. A completed turn is reused after a crash without
+  reserving or spending a second subscription turn; successful and abandoned
+  threads are cleaned up after durable handling.
+- [x] **P3A-06 Qualification and tutorial.** Permanent Gemini product loopback,
+  Codex JSONL protocol fixture and provider-run recovery tests pass. Clean
+  bounded walkthroughs completed Codex extraction plus local llama.cpp
+  embedding and Google Gemini extraction plus embedding, then proved cited
+  query output, one vector generation and zero-call unchanged replay. The exact
+  build, full 82-test wall and bounded live results are retained in the
+  [provider-addendum closure evidence](evidence/2026-08-25-phase3-provider-addendum/README.md).
+
+Codex App Server is experimental, so this is an explicit local-personal option,
+not a new default, shared credential service, release or cutover decision.
 
 ## Phase 4 — Claims, Extraction, Review, And Improvement
 

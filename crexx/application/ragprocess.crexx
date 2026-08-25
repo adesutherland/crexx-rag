@@ -395,6 +395,7 @@ runapplicationworker: procedure = .int
   terminal = "stopped"; exit_code = 0; detail = "application worker stopped cleanly;processed=" || processed
   if status \= 0 then do; terminal = "failed"; exit_code = 1; detail = error; end
   finish_error = ""; if finishprocess(store, final_id, terminal, exit_code, detail, finish_error) \= 0 & error = "" then error = finish_error
+  call provider.close()
   close_error = ""; close_status = closeragstore(store, close_error); if close_status \= 0 & error = "" then error = close_error
   if status \= 0 | close_status \= 0 then return -2
   call tracer.emit("worker", "complete", final_id, "processed=" || processed)
@@ -405,7 +406,7 @@ startworkerprocesses: procedure = .int
   result = .ragprocessstartresult("", count, 0, count); error = ""
   if count < 1 | count > 32 | poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | _validtext(job_filter, 256, 1) \= 1 then do; error = "controller bounds are invalid"; return -1; end
   runtime = getenv("CREXX_RAG_RUNTIME"); image = getenv("CREXX_RAG_IMAGE"); load_path = getenv("CREXX_RAG_LOAD_PATH"); self_executable = getenv("CREXX_RAG_SELF")
-  if runtime = "" & self_executable = "" then self_executable = rxfs..loadpath() || "/crexx-rag"
+  if runtime = "" & self_executable = "" then self_executable = rxfs..loadpath() || "/crexxrag"
   if runtime \= "" & (image = "" | load_path = "") then do; error = "linked application runtime metadata is incomplete"; return -2; end
   store = .ragstorehandle
   if openragstore(library, "readwrite", store, error) \= 0 then return -2
@@ -460,6 +461,11 @@ startworkerprocesses: procedure = .int
       if state = "starting" then do
         terminal = "failed"; detail = "child process exited before worker registration"
         if exit_code = 0 then do; terminal = "stopped"; detail = "child process completed before worker registration"; end
+        ignored = ""; call finishprocess store, worker_ids[worker_index], terminal, exit_code, detail, ignored
+      end
+      else if state \= "stopped" & state \= "failed" then do
+        terminal = "failed"; detail = "child process exited with code " || exit_code || " after worker registration"
+        if exit_code = 0 then do; terminal = "stopped"; detail = "child process completed after worker registration"; end
         ignored = ""; call finishprocess store, worker_ids[worker_index], terminal, exit_code, detail, ignored
       end
       if exit_code \= 0 & first_failure_detail = "" then do
@@ -556,7 +562,7 @@ _executableidentity: procedure = .string
   runtime = getenv("CREXX_RAG_RUNTIME"); image = getenv("CREXX_RAG_IMAGE"); self_executable = getenv("CREXX_RAG_SELF")
   if runtime \= "" then return runtime || " " || image
   if self_executable \= "" then return self_executable
-  return rxfs..loadpath() || "/crexx-rag"
+  return rxfs..loadpath() || "/crexxrag"
 
 _scalartext: procedure = .string
   arg database = .binary, sql = .string, expose error = .string

@@ -60,7 +60,7 @@ set(cli "${CMAKE_COMMAND}" -E env
 execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
     --profile it-architecture-profile --access admin --format json library init
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "\"schema_version\":4")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "\"schema_version\":5")
     message(FATAL_ERROR "Gemini product library init failed:\n${init_out}${init_err}")
 endif()
 
@@ -82,8 +82,8 @@ execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
     ingest apply --plan-json "${plan_json}" --expect-digest "${plan_digest}"
     OUTPUT_VARIABLE apply_out ERROR_VARIABLE apply_err RESULT_VARIABLE apply_result TIMEOUT 30)
 if(NOT apply_result EQUAL 0 OR NOT apply_out MATCHES "\"items_queued\":2" OR
-   NOT apply_err MATCHES "crexx-rag ingest start" OR
-   NOT apply_err MATCHES "crexx-rag ingest complete")
+   NOT apply_err MATCHES "crexxrag ingest start" OR
+   NOT apply_err MATCHES "crexxrag ingest complete")
     message(FATAL_ERROR "Gemini product ingest apply/trace failed:\n${apply_out}${apply_err}")
 endif()
 string(JSON job_id ERROR_VARIABLE job_error GET "${apply_out}" records 0 fields job_id)
@@ -98,9 +98,9 @@ execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
 if(NOT worker_result EQUAL 0 OR
    NOT worker_out MATCHES "\"processor\":\"application-ingestion-v1\"" OR
    NOT worker_out MATCHES "\"items_processed\":1" OR
-   NOT worker_err MATCHES "crexx-rag provider start" OR
-   NOT worker_err MATCHES "crexx-rag provider complete" OR
-   NOT worker_err MATCHES "crexx-rag work processed" OR
+   NOT worker_err MATCHES "crexxrag provider start" OR
+   NOT worker_err MATCHES "crexxrag provider complete" OR
+   NOT worker_err MATCHES "crexxrag work processed" OR
    worker_out MATCHES "synthetic-product-gemini-key" OR
    worker_err MATCHES "synthetic-product-gemini-key")
     message(FATAL_ERROR "Gemini product worker/trace failed:\n${worker_out}${worker_err}")
@@ -116,8 +116,8 @@ if(NOT controller_result EQUAL 0 OR
    NOT controller_out MATCHES "\"workers_failed\":0" OR
    NOT controller_out MATCHES "\"vector_generations\":1" OR
    NOT controller_out MATCHES "\"vector_state\":\"published\"" OR
-   NOT controller_err MATCHES "crexx-rag controller start" OR
-   NOT controller_err MATCHES "crexx-rag controller complete" OR
+   NOT controller_err MATCHES "crexxrag controller start" OR
+   NOT controller_err MATCHES "crexxrag controller complete" OR
    controller_out MATCHES "synthetic-product-gemini-key" OR
    controller_err MATCHES "synthetic-product-gemini-key")
     message(FATAL_ERROR "Gemini product process group failed:\n${controller_out}${controller_err}")
@@ -147,6 +147,46 @@ if(failed_child_result EQUAL 0 OR
    failed_child_out MATCHES "synthetic-product-gemini-key" OR
    failed_child_err MATCHES "synthetic-product-gemini-key")
     message(FATAL_ERROR "failed child did not expose a meaningful controller error:\n${failed_child_out}${failed_child_err}")
+endif()
+
+# A child that dies after registering must be made terminal by the controller;
+# otherwise it remains an apparently live idle/running row until stale pruning.
+set(abrupt_child "${CPRAG_WORK_DIR}/abrupt-crexxrag-child.sh")
+file(WRITE "${abrupt_child}" [=[#!/bin/sh
+"$CPRAG_REAL_NATIVE" "$@" &
+child=$!
+sleep 0.2
+kill -KILL "$child" 2>/dev/null || true
+wait "$child" 2>/dev/null || true
+exit 99
+]=])
+file(CHMOD "${abrupt_child}"
+    PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+set(abrupt_cli "${CMAKE_COMMAND}" -E env
+    "CPRAG_FIXTURE_GEMINI_KEY=synthetic-product-gemini-key"
+    "CPRAG_REAL_NATIVE=${CPRAG_NATIVE_APPLICATION}"
+    "CREXX_RAG_SELF=${abrupt_child}"
+    "NO_COLOR=1"
+    "${CPRAG_NATIVE_APPLICATION}")
+execute_process(COMMAND ${abrupt_cli} --library "${library}" --config-file "${config}"
+    --profile it-architecture-profile --access control --progress off
+    worker start --count 1 --poll-ms 20 --max-polls 200
+    OUTPUT_VARIABLE abrupt_child_out ERROR_VARIABLE abrupt_child_err
+    RESULT_VARIABLE abrupt_child_result TIMEOUT 30)
+if(abrupt_child_result EQUAL 0 OR
+   NOT abrupt_child_out MATCHES "ERROR: one or more worker processes failed: child process exited with code 99 after worker registration" OR
+   abrupt_child_out MATCHES "synthetic-product-gemini-key" OR
+   abrupt_child_err MATCHES "synthetic-product-gemini-key")
+    message(FATAL_ERROR "abrupt registered child did not become a useful terminal failure:\n${abrupt_child_out}${abrupt_child_err}")
+endif()
+execute_process(COMMAND ${cli} --library "${library}" --access read --format json
+    worker list --state failed --stale-seconds 5
+    OUTPUT_VARIABLE abrupt_list_out ERROR_VARIABLE abrupt_list_err
+    RESULT_VARIABLE abrupt_list_result TIMEOUT 30)
+if(NOT abrupt_list_result EQUAL 0 OR
+   NOT abrupt_list_out MATCHES "\"state\":\"failed\"" OR
+   NOT abrupt_list_out MATCHES "child process exited with code 99 after worker registration")
+    message(FATAL_ERROR "abrupt registered child row was not terminal:\n${abrupt_list_out}${abrupt_list_err}")
 endif()
 
 execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
@@ -183,7 +223,7 @@ endif()
 file(COPY "${CPRAG_NATIVE_APPLICATION}" DESTINATION "${CPRAG_WORK_DIR}"
     FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
     GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
-set(human_application "${CPRAG_WORK_DIR}/crexx-rag")
+set(human_application "${CPRAG_WORK_DIR}/crexxrag")
 set(human_cli "${CMAKE_COMMAND}" -E env
     "CPRAG_FIXTURE_GEMINI_KEY=synthetic-product-gemini-key"
     "NO_COLOR=1"
@@ -193,9 +233,9 @@ execute_process(COMMAND ${human_cli} --help
     OUTPUT_VARIABLE human_help_out ERROR_VARIABLE human_help_err
     RESULT_VARIABLE human_help_result TIMEOUT 30)
 if(NOT human_help_result EQUAL 0 OR
-   NOT human_help_out MATCHES "crexx-rag init" OR
-   NOT human_help_out MATCHES "crexx-rag ingest" OR
-   NOT human_help_out MATCHES "crexx-rag query" OR
+   NOT human_help_out MATCHES "crexxrag init" OR
+   NOT human_help_out MATCHES "crexxrag ingest" OR
+   NOT human_help_out MATCHES "crexxrag query" OR
    human_help_out MATCHES "\\{\"schema\"")
     message(FATAL_ERROR "Human help failed:\n${human_help_out}${human_help_err}")
 endif()
@@ -216,15 +256,15 @@ execute_process(COMMAND ${human_cli} ingest --yes --workers 2
     RESULT_VARIABLE human_ingest_result TIMEOUT 120)
 if(NOT human_ingest_result EQUAL 0 OR
    NOT human_ingest_out MATCHES "Ingestion plan" OR
-   NOT human_ingest_out MATCHES "Maximum cost:     \\$1" OR
+   NOT human_ingest_out MATCHES "Monetary API cost: Not applicable" OR
    NOT human_ingest_out MATCHES "Worker processes: 2" OR
    NOT human_ingest_out MATCHES "state: completed" OR
    NOT human_ingest_out MATCHES "processed: 2" OR
    NOT human_ingest_out MATCHES "vector generations: 1" OR
    NOT human_ingest_out MATCHES "vector state: published" OR
    human_ingest_out MATCHES "canonical_plan|\\{\"schema\"" OR
-   NOT human_ingest_err MATCHES "crexx-rag controller start" OR
-   NOT human_ingest_err MATCHES "crexx-rag worker complete" OR
+   NOT human_ingest_err MATCHES "crexxrag controller start" OR
+   NOT human_ingest_err MATCHES "crexxrag worker complete" OR
    human_ingest_out MATCHES "synthetic-product-gemini-key" OR
    human_ingest_err MATCHES "synthetic-product-gemini-key")
     message(FATAL_ERROR "Human guided ingest failed:\n${human_ingest_out}${human_ingest_err}")
@@ -246,7 +286,7 @@ if(NOT human_noop_result EQUAL 0 OR
    NOT human_noop_out MATCHES "disposition: identical-no-op" OR
    NOT human_noop_out MATCHES "items queued: 0" OR
    human_noop_out MATCHES "job id:" OR
-   human_noop_err MATCHES "crexx-rag (controller|worker|provider)" OR
+   human_noop_err MATCHES "crexxrag (controller|worker|provider)" OR
    human_noop_out MATCHES "canonical_plan|\\{\"schema\"" OR
    human_noop_out MATCHES "synthetic-product-gemini-key" OR
    human_noop_err MATCHES "synthetic-product-gemini-key")
@@ -289,6 +329,6 @@ file(WRITE "${CPRAG_WORK_DIR}/result.txt"
     "item=P3R-02\nprovider=gemini\nrequests=4\nitems=4\n"
     "trace=stderr-plain\nstdout=json-stable\ncredentials=not-retained\n"
     "human_ui=help+local-defaults+guided-ingest+zero-work-replay+query-summary\n"
-    "vector_publication=machine+human\ncontroller_error=nonempty\n"
-    "${apply_out}${apply_err}${worker_out}${worker_err}${controller_out}${controller_err}${failed_child_out}${failed_child_err}${status_out}${query_out}${verify_out}${human_init_out}${human_ingest_out}${human_ingest_err}${human_noop_out}${human_noop_err}${human_query_out}")
-message(STATUS "P3R-02 passed canonical JSON and human-default Gemini ingestion through native workers, truthful replay, vector publication, meaningful child failure, evidence retrieval, integrity verification, and sanitized progress")
+    "vector_publication=machine+human\ncontroller_error=pre-registration+post-registration\n"
+    "${apply_out}${apply_err}${worker_out}${worker_err}${controller_out}${controller_err}${failed_child_out}${failed_child_err}${abrupt_child_out}${abrupt_child_err}${abrupt_list_out}${status_out}${query_out}${verify_out}${human_init_out}${human_ingest_out}${human_ingest_err}${human_noop_out}${human_noop_err}${human_query_out}")
+message(STATUS "P3R-02 passed canonical JSON and human-default Gemini ingestion through native workers, truthful replay, vector publication, meaningful pre/post-registration child failure, evidence retrieval, integrity verification, and sanitized progress")

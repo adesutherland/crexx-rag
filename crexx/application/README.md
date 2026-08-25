@@ -34,6 +34,7 @@ import ragclaims
 import ragimprove
 import ragwork
 import ragapplicationprovider
+import ragproviderdiagnostics
 import ragquery
 import ragembedding
 import ragretrieval
@@ -45,10 +46,11 @@ durable-job handle contract. `ragevidence` defines immutable evidence records.
 `ragmodel` contains records shared by those contracts. `ragconfig` and
 `ragprofile` define typed operational configuration and domain profiles;
 `ragregistry` exposes only operator-registered ids.
-`ragschema` owns the ordered schema-v4 DDL and canonical migration checksums.
+`ragschema` owns the ordered schema-v5 DDL and canonical migration checksums.
 Migrations 1 and 2 retain the accepted semantic store; migration 3 adds the
 controller/worker runtime registry; migration 4 adds the canonical durable
-work-input envelope to job items.
+work-input envelope to job items; migration 5 adds provider charging basis,
+durable external thread/turn/output recovery and Codex turn reservations.
 `ragstore` owns SQLite-backed library initialization/open/close, migrations,
 published generations, read snapshots, manifest publication/recovery,
 verification, and rollback ordering.
@@ -112,7 +114,7 @@ can requeue one exact closed dead letter after an operator correction; it
 preserves prior attempts and requires a terminal job with zero reservations.
 
 `ragprocess` owns the application process framework. One controller starts a
-bounded number of `crexx-rag` OS processes through the public cREXX child-
+bounded number of `crexxrag` OS processes through the public cREXX child-
 process channel. Every controller and worker opens its own SQLite connection,
 registers host/PID/start-token identity, heartbeats through
 `runtime_instances`, and records terminal state. Heartbeats determine
@@ -173,16 +175,19 @@ runtime module-path argument.
 
 `ragconfigfile` reads bounded `crexx-rag.config/1` text into the existing typed
 `ragconfig` contract. The maintained installed example is
-`config/google-gemini.conf`; it uses only `env:GEMINI_API_KEY` and registers
-`gemini-3.5-flash-lite` plus `gemini-embedding-2`. Unknown or duplicate
-keys, literal secrets, executable module paths, unsafe routes, traversal, and
-out-of-range values fail before any provider call.
+`config/google-gemini.conf`; the Phase-3 tutorial additionally supplies Codex
+plus local llama.cpp and Google qualification files. Configuration selects a
+provider by kind and an explicit charging basis. Gemini uses only
+`env:GEMINI_API_KEY`; Codex delegates managed authentication to App Server and
+must not contain a credential reference. Unknown or duplicate keys, literal
+secrets, executable module paths, unsafe routes, traversal, and out-of-range
+values fail before any provider call.
 
 The human CLI selects an explicit `--config-file` first, then
 `CREXX_RAG_CONFIG`, then `./crexx-rag.conf`. Stateful commands default to
 `./library`; a sole configured profile is selected automatically. The enduring
-short flow is therefore `crexx-rag init`, `crexx-rag ingest`, and
-`crexx-rag query '<question>'`. Canonical nouns/verbs and JSON/NDJSON remain
+short flow is therefore `crexxrag init`, `crexxrag ingest`, and
+`crexxrag query '<question>'`. Canonical nouns/verbs and JSON/NDJSON remain
 available for scripts and agents. MCP loads one operator-selected file at
 startup and tools cannot replace it.
 
@@ -210,6 +215,10 @@ human three-command flow, exercises concurrent two-process workers, and
 returns concise human output and stable JSON without retaining its synthetic
 credential. It also proves an identical replay starts no job or workers and
 that a failed child produces an actionable controller error.
+`p3r_03_provider_durability` proves completed Codex output reuse and
+subscription reservations in four compiler/VM cells. `p3r_04_codex_protocol`
+uses a deterministic App Server JSONL fixture in the same four cells to cover
+managed-account status, schema-constrained turns, usage events and cleanup.
 Phase-3 ingestion, oracle delta, and real
 resume coverage are `p3_01_ingest_scenario.crexx`,
 `p3_02_oracle_delta.crexx`, and `p3_03_resume_scenario.crexx`; the executable
@@ -240,12 +249,16 @@ and skills. Phase 7 selected reject/defer, so the native executable remains the
 default oracle.
 Recurring QA uses deterministic providers and symbolic hosted secret
 references. The Gate-3R product path now binds Gemini generation/embedding,
+contained Codex structured generation and OpenAI-compatible local embeddings,
 owns both queued item types, publishes the exact embedding profile after a
 successful filtered job, and treats an unchanged plan as a successful no-op
 without manufacturing a job or starting workers. Worker/controller failures
 retain actionable child-process diagnostics. A pristine bounded live replay
 completed at first attempt with exactly one Gemini generation call and one
-Gemini embedding call; the repeated unchanged ingestion made no provider call.
+Gemini embedding call. The Phase-3 addendum separately completed one Codex
+turn through managed ChatGPT authentication and one local 768-dimensional
+Nomic embedding through llama.cpp; both unchanged replays made no provider
+call.
 Exact Linux, clean Release, sanitizer, and cutover qualification remain open.
 Sidecar verification retains the
 2,147,483,647-byte application ceiling but hashes in fixed memory. Callers that

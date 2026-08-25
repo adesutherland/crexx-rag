@@ -27,6 +27,7 @@ set(module_sources
     "${CPRAG_APP_DIR}/ragrepository.crexx"
     "${CPRAG_APP_DIR}/ragcanonical.crexx"
     "${CPRAG_APP_DIR}/ragplanning.crexx"
+    "${CPRAG_APP_DIR}/ragtrace.crexx"
     "${CPRAG_APP_DIR}/ragcommand.crexx"
     "${CPRAG_APP_DIR}/ragfoundation.crexx"
     "${CPRAG_SOURCE}")
@@ -95,6 +96,8 @@ foreach(mode IN ITEMS noopt opt)
         "${program_import}" "${mode_flag}" "${mode} ragcanonical")
     compile_crexx("${CPRAG_APP_DIR}/ragplanning.crexx" "${CPRAG_WORK_DIR}/ragplanning"
         "${program_import}" "${mode_flag}" "${mode} ragplanning")
+    compile_crexx("${CPRAG_APP_DIR}/ragtrace.crexx" "${CPRAG_WORK_DIR}/ragtrace"
+        "${program_import}" "${mode_flag}" "${mode} ragtrace")
     compile_crexx("${CPRAG_APP_DIR}/ragcommand.crexx" "${CPRAG_WORK_DIR}/ragcommand"
         "${program_import}" "${mode_flag}" "${mode} ragcommand")
     compile_crexx("${CPRAG_APP_DIR}/ragfoundation.crexx" "${CPRAG_WORK_DIR}/ragfoundation"
@@ -116,7 +119,7 @@ foreach(mode IN ITEMS noopt opt)
             ragmodel ragconfig ragprofile ragregistry
             architecture_local_config generic_profile it_architecture_profile
             operator_registry ragschema ragfile ragstore ragbackup ragrepository
-            ragcanonical ragplanning ragcommand ragfoundation
+            ragcanonical ragplanning ragtrace ragcommand ragfoundation
             rx_sqlite_boundary rx_hash rx_system library
             -a "${cell}" "${cell_root}"
             OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err

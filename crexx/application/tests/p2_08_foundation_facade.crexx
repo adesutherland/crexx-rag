@@ -74,7 +74,7 @@ errors = errors + check(database_before \= "" & manifest_before \= "", "initial 
 status_args = .string[]
 status_args[1] = "--library"; status_args[2] = library; status_args[3] = "library"; status_args[4] = "status"
 result = runcommand(status_args, registry, parse_error)
-errors = errors + check(result.exit_code() = 0 & fieldvalue(result, 1, "schema_version") = "2" & fieldvalue(result, 1, "manifest_state") = "aligned", "readonly status code=" || result.exit_code() || " message=" || result.message())
+errors = errors + check(result.exit_code() = 0 & fieldvalue(result, 1, "schema_version") = "5" & fieldvalue(result, 1, "manifest_state") = "aligned", "readonly status code=" || result.exit_code() || " message=" || result.message())
 
 verify_denied_args = .string[]
 verify_denied_args[1] = "--library"; verify_denied_args[2] = library; verify_denied_args[3] = "library"; verify_denied_args[4] = "verify"
@@ -92,7 +92,7 @@ errors = errors + check(database_before = database_after_read & manifest_before 
 migrate_args = .string[]
 migrate_args[1] = "--library"; migrate_args[2] = library; migrate_args[3] = "--access"; migrate_args[4] = "admin"; migrate_args[5] = "library"; migrate_args[6] = "migrate"
 result = runcommand(migrate_args, registry, parse_error)
-errors = errors + check(result.exit_code() = 0 & fieldvalue(result, 1, "schema_version") = "2", "migrate current schema code=" || result.exit_code() || " message=" || result.message())
+errors = errors + check(result.exit_code() = 0 & fieldvalue(result, 1, "schema_version") = "5", "migrate current schema code=" || result.exit_code() || " message=" || result.message())
 result = runcommand(migrate_args, registry, parse_error)
 errors = errors + check(result.exit_code() = 0, "idempotent migrate")
 

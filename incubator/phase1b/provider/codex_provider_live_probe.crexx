@@ -1,0 +1,37 @@
+options levelg
+
+import rxfs
+import provider_contract
+import codex_provider
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 \= 2 then do
+    say "usage: codex_provider_live_probe CODEX_EXECUTABLE EMPTY_WORK_DIR"
+    return 2
+  end
+  if rxfs..isfile(args[1]) \= 1 | rxfs..isdir(args[2]) \= 1 then do
+    say "FAIL: probe paths are unavailable"
+    return 2
+  end
+  observer = .codexnoopobserver()
+  provider = .codexprovider(args[1], args[2], observer)
+  account_type = ""; plan_type = ""; used_percent = -1; error = ""
+  if provider.account_status(120000, account_type, plan_type, used_percent, error) \= 0 | account_type = "" | used_percent < 0 | used_percent > 100 then do
+    call provider.close()
+    say "FAIL: managed account status " || error
+    return 1
+  end
+  messages = .providermessage[]; inputs = .string[]
+  messages[1] = .providermessage("user", "Return an object whose ok field is true.")
+  schema = '{"type":"object","additionalProperties":false,"required":["ok"],"properties":{"ok":{"type":"boolean"}}}'
+  request = .providerrequest("generate_structured", "probe", "default", messages, inputs, schema, 120000, 1, "public", "codex-live-probe", "codex-live-probe", 32, 0, 0, 0)
+  result = provider.generate_structured(request)
+  call provider.close()
+  if result.status() \= 0 then do
+    failure = result.error()
+    say "FAIL: " || failure.category() || " " || failure.message()
+    return 1
+  end
+  say "PASS: Codex App Server returned managed account status and schema-validated structured output"
+  return 0

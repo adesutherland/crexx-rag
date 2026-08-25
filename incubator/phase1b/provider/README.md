@@ -12,6 +12,8 @@ explicitly non-released [`PACKAGE.toml`](PACKAGE.toml) metadata, and a zero-call
 compiled [`candidate_probe.crexx`](candidate_probe.crexx).
 
 See [SYSTEM.md](SYSTEM.md) for module ownership and known transport constraints.
+The experimental ChatGPT-subscription route is documented separately in
+[README-CODEX.md](README-CODEX.md).
 
 ## Supported Operations
 
@@ -99,6 +101,7 @@ retaining the model and all other decoding controls in its evidence.
 | `.industrialprovider("openai", ...)` | OpenAI Responses and embeddings | Text/media generation, structured generation, single/batch embeddings |
 | `.industrialprovider("anthropic", ...)` | Anthropic Messages | Text/image/document generation and structured generation; no embeddings |
 | `.industrialprovider("gemini", ...)` | Gemini generateContent and embedContent/batchEmbedContents | Text/media generation, structured generation, single/batch embeddings |
+| `.codexprovider` | Codex App Server JSONL over a caller-owned child process | Text generation and schema-constrained structured generation; no embeddings |
 
 Call `capabilities()` instead of assuming an operation or modality exists.
 Streaming, cancellation, and cross-request connection reuse currently report
@@ -158,11 +161,13 @@ Run deterministic contract and loopback qualification with:
 
 ```bash
 ctest --preset debug -R '^p1_llm_0[1-5]$' --output-on-failure
+ctest --preset debug -R '^p3r_04_codex_protocol$' --output-on-failure
 ```
 
-The regular CTest selection makes no hosted calls. The tests compile, assemble,
-and link final images before both VM runs. The focused installed-only macOS
-provider replay passes. CRI-15 remains an exact downstream Linux
+The regular CTest selection makes no hosted calls. The Codex protocol fixture
+covers managed-account status, one schema-constrained turn, usage and cleanup
+on both VMs. The tests compile, assemble, and link final images before both VM
+runs. The focused installed-only macOS provider replay passes. CRI-15 remains an exact downstream Linux
 confirmation; CRI-16 remains a provider-lifecycle and selected downstream
 Linux/package qualification decision.
 
@@ -179,6 +184,11 @@ Linux/package qualification decision.
   green. The exact downstream CRI-15 reproducer and provider package remain to
   be replayed on supported Linux.
 - The capability catalogue must be reviewed and versioned as providers change.
-- A real local `llama-server` deployment was unavailable during Phase 1B.
+- Local OpenAI-compatible embedding generation is now exercised against
+  `llama.cpp` with `nomic-embed-text-v1.5`; this does not make the model or
+  server part of the candidate package.
+- Codex App Server is experimental. Each application worker owns one contained
+  process, and subscription allowance is an application budget rather than a
+  monetary cost estimate.
 - Independent release packaging, installed-consumer qualification, and
   donation approval remain outstanding beyond the P2-09 review recipe.

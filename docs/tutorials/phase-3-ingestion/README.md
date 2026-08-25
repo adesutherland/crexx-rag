@@ -1,32 +1,36 @@
-# Phase 3 Gemini ingestion
+# Phase 3 ingestion tutorial bundle
 
-This is the complete input bundle for the maintained human walkthrough:
+This folder contains everything needed for the maintained human walkthrough:
 
-- `setup.sh` builds and copies the native `crexx-rag` application;
-- `crexx-rag.conf` selects bounded Google Gemini generation and embedding;
+- `setup.sh` builds and copies the native `crexxrag` application;
+- `crexx-rag.conf` selects Codex extraction through the user's ChatGPT
+  subscription and local Nomic embedding generation through `llama.cpp`;
+- `google-gemini.conf` is the separately bounded Google qualification route;
 - `source-docs/architecture.txt` is the public synthetic source.
 
-From the repository root:
+The default walkthrough is four commands from the repository root:
 
 ```sh
 work_dir=$(./docs/tutorials/phase-3-ingestion/setup.sh)
 cd "$work_dir"
-export GEMINI_API_KEY='<Google AI Studio key>'
-
-./crexx-rag init
-./crexx-rag ingest
-./crexx-rag query 'What does BillingService depend on?'
+./crexxrag provider status
+./crexxrag init
+./crexxrag ingest
+./crexxrag query 'What does BillingService depend on?'
 ```
 
-`crexx-rag` discovers `./crexx-rag.conf`, uses `./library`, selects the sole
-profile and runs the configured two worker processes. `ingest` shows the data
-route, providers, maximum calls/cost and reviewed digest before asking for
-confirmation. In a colour terminal, progress is ANSI by default; set
-`NO_COLOR=1` or use `--progress plain` for plain text.
+Setup starts only the local `llama.cpp` embedding server and proves its
+OpenAI-compatible `/embeddings` endpoint before returning. `crexxrag` discovers
+`./crexx-rag.conf`, uses `./library`, selects the sole profile and supervises
+the configured worker processes. `ingest` reviews privacy, provider roles,
+Codex allowance and budgets before asking for confirmation.
 
-The current CREXX runtime can require a second Enter at the confirmation prompt
-because of a known `LINEIN()` defect. This is accepted for now; use
-`./crexx-rag ingest --yes` to skip the prompt without skipping plan/apply review.
+The installed CREXX runtime can require a second Enter at that prompt. This is
+the accepted upstream `LINEIN()` defect; `./crexxrag ingest --yes` skips the
+prompt without skipping plan/apply review.
+
+For the Google route, use `setup.sh --google`, export `GEMINI_API_KEY`, and run
+the same four `crexxrag` commands in that separate workspace.
 
 See [`../phase-3-ingestion.md`](../phase-3-ingestion.md) for expected output,
-privacy and cost boundaries, automation mode, monitoring and recovery.
+privacy, subscription and monetary budgets, recovery, cleanup and automation.

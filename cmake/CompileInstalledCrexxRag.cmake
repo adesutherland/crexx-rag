@@ -16,7 +16,8 @@ foreach(required IN ITEMS
         "${provider}/provider_contract.crexx"
         "${provider}/provider_catalog.crexx"
         "${provider}/provider_http.crexx"
-        "${provider}/industrial_provider.crexx")
+        "${provider}/industrial_provider.crexx"
+        "${provider}/codex_provider.crexx")
     if(NOT EXISTS "${required}")
         message(FATAL_ERROR "installed cREXX-RAG source is incomplete: ${required}")
     endif()
@@ -47,13 +48,13 @@ function(compile_module source name)
     endif()
 endfunction()
 
-foreach(module IN ITEMS provider_contract provider_catalog provider_http industrial_provider)
+foreach(module IN ITEMS provider_contract provider_catalog provider_http industrial_provider codex_provider)
     compile_module("${provider}/${module}.crexx" "${module}")
 endforeach()
 foreach(module IN ITEMS ragmodel ragevidence ragjob ragconfig ragprofile ragregistry
         ragschema ragfile ragconfigfile ragstore ragbackup ragrepository ragcanonical ragplanning
         ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragwork ragquery
-        ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragapplicationprovider ragproduct)
+        ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragproviderdiagnostics ragapplicationprovider ragproduct)
     compile_module("${application}/${module}.crexx" "${module}")
 endforeach()
 compile_module("${application}/config/architecture_local_config.crexx" architecture_local_config)
@@ -64,5 +65,5 @@ compile_module("${application}/surfaces/crexx_rag_cli.crexx" crexx_rag_cli)
 compile_module("${application}/surfaces/rag_address_environment.crexx" rag_address_environment)
 compile_module("${application}/surfaces/ragmcp.crexx" ragmcp)
 file(WRITE "${CPRAG_OUTPUT_DIR}/runtime-modules.txt"
-    "provider_contract provider_catalog provider_http industrial_provider ragmodel ragevidence ragjob ragconfig ragprofile ragregistry ragschema ragfile ragconfigfile ragstore ragbackup ragrepository ragcanonical ragplanning ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragwork ragquery ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragapplicationprovider ragproduct architecture_local_config generic_profile it_architecture_profile operator_registry rx_sqlite_boundary rx_hash rx_system rxfs rxvector rxfnsg classlib library\n")
+    "provider_contract provider_catalog provider_http industrial_provider codex_provider ragmodel ragevidence ragjob ragconfig ragprofile ragregistry ragschema ragfile ragconfigfile ragstore ragbackup ragrepository ragcanonical ragplanning ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragwork ragquery ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragproviderdiagnostics ragapplicationprovider ragproduct architecture_local_config generic_profile it_architecture_profile operator_registry rx_sqlite_boundary rx_hash rx_system rxfs rxvector rxfnsg classlib library\n")
 message(STATUS "Installed cREXX-RAG application compiled ${mode_name} without source-tree fallback: ${CPRAG_OUTPUT_DIR}")

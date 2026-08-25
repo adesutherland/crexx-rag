@@ -24,6 +24,7 @@ ragstore + installed rxhash <- ragingest <- ragfolder + ragfile + rxfs
 ragstore + ragingest <- ragclaims <- ragimprove
 ragstore + ragjob + ragclaims <- ragwork <- ragimprove jobs
 provider contract + generic adapters + ragwork <- ragapplicationprovider
+Codex provider + installed runtime diagnostics <- ragproviderdiagnostics
 ragstore + ragprofile + ragingest <- ragquery
 ragstore + provider contract + installed rxvector <- ragembedding
 ragquery + ragembedding + ragclaims <- ragretrieval <- ragevidencejson
@@ -52,7 +53,7 @@ duplicate keys, literal secrets, executable module paths, unsafe routes,
 traversal, and non-canonical or out-of-range values. CLI selection occurs
 before command parsing. MCP fixes the selected projection at startup.
 
-`ragschema` owns four ordered migrations. Migration 1 establishes library,
+`ragschema` owns five ordered migrations. Migration 1 establishes library,
 configuration, immutable published-generation, and publication-event state.
 Migration 2 establishes the complete schema-v2 source, evidence, graph,
 embedding, job, attempt, event, and review table set. Checksums are SHA-256 over
@@ -62,7 +63,9 @@ Migration 3 adds `runtime_instances` and its bounded state/parent indexes; it
 does not change semantic generations or job-item lease ownership. Migration 4
 adds `job_items.input_json`, the exact canonical work envelope used by product
 workers; existing Phase-4 improvement rows retain their job-level budget
-contract.
+contract. Migration 5 adds provider charging basis, external thread/turn ids,
+allowance-used observations, completed-output recovery and Codex turn budget
+reservations.
 
 `ragstore` consumes only the generic SQLite mechanism. It keeps one monotonic
 generation allocator, stages semantic rows inside the same transaction as a
@@ -88,7 +91,7 @@ raw, normalized text, metadata, parser and policy fingerprints; uses occurrence
 rows for citations and immutable content rows for reuse; closes dependent
 visibility at the new generation; rebuilds the live FTS projection in the same
 transaction; re-anchors only exact continuity/content matches; and queues new
-content inputs through schema-v4 jobs/items. Each queued extraction or
+content inputs through schema-v5 jobs/items. Each queued extraction or
 embedding item persists source/revision/chunk/span/text identity, config,
 profile, prompt, policy, provider route/model/privacy, candidate binding,
 embedding shape, and item-specific reservation ceilings. Candidate census and
@@ -145,10 +148,13 @@ the operation. Read and plan open SQLite read-only, and MCP never exposes raw
 SQL or raw entity/edge mutation.
 
 The Gate-3R product slice now dispatches `worker.run` to
-`application-ingestion-v1`. `ragapplicationprovider` maps the exact work
-envelope into the existing generic Gemini/OpenAI/Anthropic protocol contract,
-then maps only validated structured output or a dimension-checked embedding
-back to `ragwork`. Model output cannot write graph state directly.
+`application-ingestion-v1`. `ragapplicationprovider` selects the configured
+Gemini, OpenAI, OpenAI-compatible, Anthropic or Codex provider kind, then maps
+only validated structured output or a dimension-checked embedding back to
+`ragwork`. Each Codex worker owns one App Server child and isolated empty
+directory; external thread/turn/output state crosses an explicit SQLite
+durability boundary before settlement. Model output cannot write graph state
+directly.
 
 The generic hosted transport performs one bounded synchronous HTTP/TLS
 exchange per attempt with `Connection: close`. This avoids attached bytecode
@@ -194,6 +200,12 @@ CTest `p3r_01a_config_file` runs the text projection in all four compiler/VM
 cells and exercises the linked application with zero credential resolution and
 zero outbound calls. `phase6_surfaces` also proves fixed MCP startup from the
 same maintained Google example.
+
+CTest `p3r_03_provider_durability` proves completed Codex output reuse, one-turn
+subscription accounting, stale-reservation release and fencing in all four
+compiler/VM cells. `p3r_04_codex_protocol` drives managed-account status,
+schema-constrained turns, usage and cleanup through a deterministic App Server
+JSONL fixture in the same cells.
 
 CTest `p2_03_storage_foundation` recomputes migration checksums, compiles the
 schema, store, and scenario in both modes, and runs both VMs. It covers all 32

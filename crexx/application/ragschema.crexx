@@ -3,7 +3,7 @@ options levelg
 namespace ragschema expose ragschemaversion migrationname migrationchecksum migrationstatements
 
 ragschemaversion: procedure = .int
-  return 4
+  return 5
 
 migrationname: procedure = .string
   arg version = .int
@@ -11,6 +11,7 @@ migrationname: procedure = .string
   if version = 2 then return "product-storage"
   if version = 3 then return "runtime-process-registry"
   if version = 4 then return "durable-work-input"
+  if version = 5 then return "provider-route-durability"
   return ""
 
 migrationchecksum: procedure = .string
@@ -20,6 +21,7 @@ migrationchecksum: procedure = .string
   if version = 2 then return "54ad8ef343027f977cd64c7b6ebd9c5bde0ad808448006ba4e891ec80478fd0d"
   if version = 3 then return "df138562a0f8535fb1351b45c0cf4a00525297fc21f22a92f39181603eb81998"
   if version = 4 then return "017d41ed28b6bde32fb666daed2a1c7db709d9ac4d99330c4d2836e8c85497ae"
+  if version = 5 then return "fd5bc5f2fa594063980d01eb5532cc6727f8bf25442fb2d5c35dc0f58ecd5094"
   return ""
 
 migrationstatements: procedure = .int
@@ -81,6 +83,17 @@ migrationstatements: procedure = .int
   end
   if version = 4 then do
     statements[statements.0 + 1] = "ALTER TABLE job_items ADD COLUMN input_json TEXT NOT NULL DEFAULT ''"
+    return statements.0
+  end
+  if version = 5 then do
+    statements[statements.0 + 1] = "ALTER TABLE provider_runs ADD COLUMN charging_basis TEXT NOT NULL DEFAULT 'monetary-api'"
+    statements[statements.0 + 1] = "ALTER TABLE provider_runs ADD COLUMN external_thread_id TEXT NOT NULL DEFAULT ''"
+    statements[statements.0 + 1] = "ALTER TABLE provider_runs ADD COLUMN external_turn_id TEXT NOT NULL DEFAULT ''"
+    statements[statements.0 + 1] = "ALTER TABLE provider_runs ADD COLUMN allowance_used_before_percent INTEGER NOT NULL DEFAULT -1"
+    statements[statements.0 + 1] = "ALTER TABLE provider_runs ADD COLUMN allowance_used_after_percent INTEGER NOT NULL DEFAULT -1"
+    statements[statements.0 + 1] = "ALTER TABLE provider_runs ADD COLUMN recovery_json TEXT NOT NULL DEFAULT ''"
+    statements[statements.0 + 1] = "ALTER TABLE jobs ADD COLUMN codex_turn_budget INTEGER NOT NULL DEFAULT 0"
+    statements[statements.0 + 1] = "ALTER TABLE jobs ADD COLUMN reserved_codex_turns INTEGER NOT NULL DEFAULT 0"
     return statements.0
   end
   return -1

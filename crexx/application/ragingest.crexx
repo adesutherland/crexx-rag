@@ -1209,6 +1209,7 @@ _queuework: procedure = .int
   item_budget = chunk_ids.0 * 2
   privacy = "local"; extractor_id = ""; embedding_id = ""; extractor_model = ""; embedding_model = ""; prompt_version = plan.policy_version(); profile_id = ""
   model_call_budget = item_budget; input_budget = 0; output_budget = 0; cost_budget = 0
+  codex_turn_budget = 0
   time_budget_ms = 0; maximum_call_input = 0; maximum_call_output = 0; maximum_call_cost = 0; maximum_call_time = 0; maximum_inflight = 1; maximum_attempts = 1
   embedding_input_caps = .int[]; embedding_cost_cap = 0; embedding_time_cap = 0
   extraction_input_cap = 0; extraction_output_cap = 0; extraction_cost_cap = 0; extraction_time_cap = 0
@@ -1222,19 +1223,23 @@ _queuework: procedure = .int
     if prompt_version = "" then do; error = "configured extraction prompt is unavailable"; return -1; end
     profile_id = profile.profile_id()
     budget = config.budget(); workers = config.workers()
-    model_call_budget = budget.model_calls(); input_budget = budget.input_tokens(); output_budget = budget.output_tokens(); cost_budget = budget.cost_microunits()
+    model_call_budget = budget.model_calls(); input_budget = budget.input_tokens(); output_budget = budget.output_tokens(); cost_budget = budget.cost_microunits(); codex_turn_budget = budget.codex_turns()
     time_budget_ms = budget.minutes() * 60000; maximum_inflight = workers.processes() * workers.max_in_flight(); maximum_attempts = _maximumproviderattempts(config)
     maximum_call_input = _minimum(input_budget, 8192); maximum_call_output = _minimum(output_budget, 1024); maximum_call_cost = _minimum(cost_budget, 100000)
     maximum_call_time = _minimum(_maximumprovidertimeout(config), time_budget_ms)
     if item_budget > budget.item_limit() then do; error = "planned ingestion work exceeds budget.item_limit"; return -1; end
     if item_budget > model_call_budget then do; error = "planned ingestion work exceeds budget.model_calls"; return -1; end
+    if _providerkind(config, extractor_id) = "codex" & chunk_ids.0 > codex_turn_budget then do; error = "planned extraction work exceeds budget.codex_turns"; return -1; end
     if chunk_ids.0 > 0 then do
       if maximum_inflight > item_budget then maximum_inflight = item_budget
-      extraction_input_cap = _minimum(8192, input_budget / maximum_inflight)
+      extraction_input_ceiling = 8192
+      if _providerkind(config, extractor_id) = "codex" then extraction_input_ceiling = 32768
+      extraction_input_cap = _minimum(extraction_input_ceiling, input_budget / maximum_inflight)
       extraction_output_cap = _minimum(1024, output_budget / maximum_inflight)
       extraction_cost_cap = _minimum(100000, cost_budget / maximum_inflight)
       extraction_time_cap = _minimum(_maximumprovidertimeout(config), time_budget_ms / maximum_inflight)
-      if extraction_input_cap < 1 | extraction_output_cap < 1 | extraction_cost_cap < 1 | extraction_time_cap < _maximumprovidertimeout(config) then do
+      monetary_route = _providerchargingbasis(config, extractor_id) = "monetary-api" | _providerchargingbasis(config, embedding_id) = "monetary-api"
+      if extraction_input_cap < 1 | extraction_output_cap < 1 | (monetary_route = 1 & extraction_cost_cap < 1) | extraction_time_cap < _maximumprovidertimeout(config) then do
         error = "configured budget cannot safely admit the configured in-flight workers"
         return -1
       end
@@ -1253,7 +1258,7 @@ _queuework: procedure = .int
   state = "queued"
   if item_budget = 0 then state = "completed"
   insert = .binary
-  sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,reserved_calls,reserved_tokens,reserved_cost,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,0,0,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,reserved_calls,reserved_tokens,reserved_cost,created_at,updated_at,codex_turn_budget) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,0,0,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'),?11)"
   if sqliteprepare(database, sql, insert) \= 0 then do; error = "cannot prepare ingest job"; return -1; end
   bind_status = sqlitebindtext(insert, 1, job_id)
   bind_status = bind_status | sqlitebindtext(insert, 2, plan.digest())
@@ -1265,11 +1270,12 @@ _queuework: procedure = .int
   bind_status = bind_status | sqlitebindint(insert, 8, input_budget)
   bind_status = bind_status | sqlitebindint(insert, 9, output_budget)
   bind_status = bind_status | sqlitebindint(insert, 10, cost_budget)
+  bind_status = bind_status | sqlitebindint(insert, 11, codex_turn_budget)
   step_status = sqlitestep(insert); call sqlitefinalize insert
   if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert ingest job"; return -1; end
 
   if configured = 1 then do
-    budget_message = "{" || jsonquote("time_budget_ms") || ":" || time_budget_ms || "," || jsonquote("maximum_call_input_tokens") || ":" || maximum_call_input || "," || jsonquote("maximum_call_output_tokens") || ":" || maximum_call_output || "," || jsonquote("maximum_call_cost") || ":" || maximum_call_cost || "," || jsonquote("maximum_call_time_ms") || ":" || maximum_call_time || "," || jsonquote("maximum_inflight_calls") || ":" || maximum_inflight || "," || jsonquote("maximum_attempts") || ":" || maximum_attempts || "}"
+    budget_message = "{" || jsonquote("time_budget_ms") || ":" || time_budget_ms || "," || jsonquote("maximum_call_input_tokens") || ":" || maximum_call_input || "," || jsonquote("maximum_call_output_tokens") || ":" || maximum_call_output || "," || jsonquote("maximum_call_cost") || ":" || maximum_call_cost || "," || jsonquote("maximum_call_time_ms") || ":" || maximum_call_time || "," || jsonquote("maximum_inflight_calls") || ":" || maximum_inflight || "," || jsonquote("maximum_attempts") || ":" || maximum_attempts || "," || jsonquote("codex_turns") || ":" || codex_turn_budget || "}"
     budget_event = .binary
     sql = "INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) VALUES(?1,NULL,NULL,'budget-policy',?2,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
     if sqliteprepare(database, sql, budget_event) \= 0 then do; error = "cannot prepare configured job budget"; return -1; end
@@ -1284,6 +1290,8 @@ _queuework: procedure = .int
       provider_id = ""; model = ""; role = ""
       if kinds[j] = "embedding" then do; provider_id = embedding_id; model = embedding_model; role = "embedding"; end
       else do; provider_id = extractor_id; model = extractor_model; role = "extractor"; end
+      charging_basis = "monetary-api"
+      if configured = 1 then charging_basis = _providerchargingbasis(config, provider_id)
       candidates_json = _candidatecatalog(database, chunk_ids[i], generation, error)
       if error \= "" then return -1
       item_input_cap = maximum_call_input; item_output_cap = maximum_call_output; item_cost_cap = maximum_call_cost; item_time_cap = maximum_call_time
@@ -1297,8 +1305,9 @@ _queuework: procedure = .int
         if configured = 1 then do; item_cost_cap = embedding_cost_cap; item_time_cap = embedding_time_cap; end
         else item_cost_cap = _minimum(maximum_call_cost, 1000)
       end
+      if charging_basis \= "monetary-api" then item_cost_cap = 0
       reservation_json = "{" || jsonquote("input_tokens") || ":" || item_input_cap || "," || jsonquote("output_tokens") || ":" || item_output_cap || "," || jsonquote("cost_microunits") || ":" || item_cost_cap || "," || jsonquote("time_ms") || ":" || item_time_cap || "}"
-      input_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.work-input/1") || "," || jsonquote("operation") || ":" || jsonquote(kinds[j]) || "," || jsonquote("revision_chunk_id") || ":" || jsonquote(chunk_ids[i]) || "," || jsonquote("content_id") || ":" || jsonquote(content_ids[i]) || "," || jsonquote("content_digest") || ":" || jsonquote(content_digests[i]) || "," || jsonquote("text_digest") || ":" || jsonquote(rxhash..sha256hex(texts[i] as .binary)) || "," || jsonquote("text") || ":" || jsonquote(texts[i]) || "," || jsonquote("normalized_start") || ":" || starts[i] || "," || jsonquote("normalized_end") || ":" || ends[i] || "," || jsonquote("privacy") || ":" || jsonquote(privacy) || "," || jsonquote("source_scope") || ":" || jsonquote(plan.source_scope()) || "," || jsonquote("config_snapshot_id") || ":" || jsonquote(plan.config_snapshot_id()) || "," || jsonquote("profile_id") || ":" || jsonquote(profile_id) || "," || jsonquote("policy_version") || ":" || jsonquote(plan.policy_version()) || "," || jsonquote("prompt_version") || ":" || jsonquote(prompt_version) || "," || jsonquote("role") || ":" || jsonquote(role) || "," || jsonquote("provider_id") || ":" || jsonquote(provider_id) || "," || jsonquote("model") || ":" || jsonquote(model) || "," || jsonquote("embedding_dimension") || ":768," || jsonquote("reservation") || ":" || reservation_json || "," || jsonquote("candidates") || ":[" || candidates_json || "]}"
+      input_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.work-input/1") || "," || jsonquote("operation") || ":" || jsonquote(kinds[j]) || "," || jsonquote("revision_chunk_id") || ":" || jsonquote(chunk_ids[i]) || "," || jsonquote("content_id") || ":" || jsonquote(content_ids[i]) || "," || jsonquote("content_digest") || ":" || jsonquote(content_digests[i]) || "," || jsonquote("text_digest") || ":" || jsonquote(rxhash..sha256hex(texts[i] as .binary)) || "," || jsonquote("text") || ":" || jsonquote(texts[i]) || "," || jsonquote("normalized_start") || ":" || starts[i] || "," || jsonquote("normalized_end") || ":" || ends[i] || "," || jsonquote("privacy") || ":" || jsonquote(privacy) || "," || jsonquote("source_scope") || ":" || jsonquote(plan.source_scope()) || "," || jsonquote("config_snapshot_id") || ":" || jsonquote(plan.config_snapshot_id()) || "," || jsonquote("profile_id") || ":" || jsonquote(profile_id) || "," || jsonquote("policy_version") || ":" || jsonquote(plan.policy_version()) || "," || jsonquote("prompt_version") || ":" || jsonquote(prompt_version) || "," || jsonquote("role") || ":" || jsonquote(role) || "," || jsonquote("provider_id") || ":" || jsonquote(provider_id) || "," || jsonquote("model") || ":" || jsonquote(model) || "," || jsonquote("charging_basis") || ":" || jsonquote(charging_basis) || "," || jsonquote("embedding_dimension") || ":768," || jsonquote("reservation") || ":" || reservation_json || "," || jsonquote("candidates") || ":[" || candidates_json || "]}"
       input_hash = rxhash..sha256hex(input_json as .binary)
       idempotency = rxhash..sha256hex(("crexx-rag.work/2" || "00"x || input_hash) as .binary)
       item_id = "item-sha256:" || idempotency
@@ -1366,6 +1375,22 @@ _providermodel: procedure = .string
     if providers[i].provider_id() = provider_id then return providers[i].model()
   end
   return ""
+
+_providerkind: procedure = .string
+  arg config = .ragconfig, provider_id = .string
+  providers = config.providers()
+  do i = 1 to providers.0
+    if providers[i].provider_id() = provider_id then return providers[i].kind()
+  end
+  return ""
+
+_providerchargingbasis: procedure = .string
+  arg config = .ragconfig, provider_id = .string
+  providers = config.providers()
+  do i = 1 to providers.0
+    if providers[i].provider_id() = provider_id then return providers[i].charging_basis()
+  end
+  return "monetary-api"
 
 _promptversion: procedure = .string
   arg profile = .ragprofile, role = .string

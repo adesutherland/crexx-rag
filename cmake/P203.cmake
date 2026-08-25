@@ -12,14 +12,16 @@ set(migration_1_payload "")
 set(migration_2_payload "")
 set(migration_3_payload "")
 set(migration_4_payload "")
+set(migration_5_payload "")
 set(migration_1_expected "")
 set(migration_2_expected "")
 set(migration_3_expected "")
 set(migration_4_expected "")
+set(migration_5_expected "")
 foreach(schema_line IN LISTS schema_lines)
-    if(schema_line MATCHES "if version = ([1234]) then do")
+    if(schema_line MATCHES "if version = ([12345]) then do")
         set(active_migration "${CMAKE_MATCH_1}")
-    elseif(schema_line MATCHES "if version = ([1234]) then return \"([0-9a-f]+)\"")
+    elseif(schema_line MATCHES "if version = ([12345]) then return \"([0-9a-f]+)\"")
         string(LENGTH "${CMAKE_MATCH_2}" checksum_length)
         if(checksum_length EQUAL 64)
             set("migration_${CMAKE_MATCH_1}_expected" "${CMAKE_MATCH_2}")
@@ -28,7 +30,7 @@ foreach(schema_line IN LISTS schema_lines)
         string(APPEND "migration_${active_migration}_payload" "${CMAKE_MATCH_1}\n")
     endif()
 endforeach()
-foreach(version RANGE 1 4)
+foreach(version RANGE 1 5)
     string(SHA256 actual_checksum "${migration_${version}_payload}")
     if(NOT actual_checksum STREQUAL migration_${version}_expected)
         message(FATAL_ERROR
@@ -42,7 +44,7 @@ set(base_import "${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}")
 set(program_import "${CPRAG_WORK_DIR};${base_import}")
 set(report "${CPRAG_WORK_DIR}/commands-and-output.txt")
 file(WRITE "${report}"
-    "item=P2-03-maintained\nlevel=G\nschema_version=4\nmigrations=4\n"
+    "item=P2-03-maintained\nlevel=G\nschema_version=5\nmigrations=5\n"
     "sqlite_authority=1\nmanifest_projection=recoverable\n"
     "provider_calls=0\nsource_reads=0\n")
 
@@ -181,7 +183,7 @@ foreach(mode IN ITEMS noopt opt)
         set(library_path "${CPRAG_WORK_DIR}/library-${cell}")
         run_scenario("${runtime}" "${program}" "${cell}" full
             "${library_path}" 0
-            "P2_03_FULL_OK cell=${cell} levelg=1 schema=4 migrations=4 tables=33 generations=2 snapshots=2 manifest_recovery=1 rollback=1")
+            "P2_03_FULL_OK cell=${cell} levelg=1 schema=5 migrations=5 tables=33 generations=2 snapshots=2 manifest_recovery=1 rollback=1")
         run_scenario("${runtime}" "${program}" "${cell}" migration
             "${CPRAG_WORK_DIR}/migration-${cell}" 0
             "P2_03_MIGRATION_OK cell=${cell} ordered=2 checksums=verified upgrade=1 idempotent=1 downgrade=denied failed_upgrade=rolled_back")

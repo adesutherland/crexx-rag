@@ -22,6 +22,7 @@ promise.
 | [`provider_http.crexx`](provider_http.crexx) | G | Shared hosted HTTP request, authentication headers, policy gate, retry classification, and timing |
 | [`openai_compatible_provider.crexx`](openai_compatible_provider.crexx) | G | Configurable Chat Completions/embedding adapter, primarily for local endpoints |
 | [`industrial_provider.crexx`](industrial_provider.crexx) | G | OpenAI Responses, Anthropic Messages, and Gemini generation/embedding payloads and response projections |
+| [`codex_provider.crexx`](codex_provider.crexx) | G | Contained Codex App Server process, JSONL request/event handling, managed-account status, structured turns, recovery reads and thread cleanup |
 | `p1_llm_*.crexx` | G | Independent contract, loopback, hosted, privacy, and failure qualification programs |
 
 ## Dependencies
@@ -56,6 +57,12 @@ index identity, or vector storage policy.
 
 There is no silent provider fallback. A failure remains attached to the
 provider/model/request identity selected by the caller.
+
+Codex is a separate transport branch: the caller owns one App Server child,
+performs the initialize handshake, starts a read-only/no-approval thread and
+turn, validates the output schema, and deletes the thread. Durable thread/turn
+identity and subscription budgets remain application responsibilities. See
+[SYSTEM-CODEX.md](SYSTEM-CODEX.md).
 
 ## Privacy And Secrets
 

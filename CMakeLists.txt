@@ -163,6 +163,7 @@ if(CPRAG_BUILD_CREXX_APPLICATION AND CREXX_FOUND AND
         "${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_catalog.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_http.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/industrial_provider.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/codex_provider.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragmodel.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragevidence.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragjob.crexx"
@@ -190,6 +191,7 @@ if(CPRAG_BUILD_CREXX_APPLICATION AND CREXX_FOUND AND
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragevidencejson.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragfoundation.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragprocess.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragproviderdiagnostics.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragapplicationprovider.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragproduct.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/architecture_local_config.crexx"
@@ -229,7 +231,14 @@ if(CPRAG_BUILD_CREXX_APPLICATION AND CREXX_FOUND AND
         "${CMAKE_CURRENT_LIST_DIR}/cmake/crexx-rag-launcher.in"
         "${CMAKE_BINARY_DIR}/crexx-product/crexx-rag"
         @ONLY)
+    configure_file(
+        "${CMAKE_CURRENT_LIST_DIR}/cmake/crexx-rag-launcher.in"
+        "${CMAKE_BINARY_DIR}/crexx-product/crexxrag"
+        @ONLY)
     file(CHMOD "${CMAKE_BINARY_DIR}/crexx-product/crexx-rag"
+        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+            GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+    file(CHMOD "${CMAKE_BINARY_DIR}/crexx-product/crexxrag"
         PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
             GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
     add_custom_command(
@@ -315,18 +324,52 @@ if(CPRAG_BUILD_CREXX_APPLICATION AND CREXX_FOUND AND
                 "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
                 "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
                 "-DCPRAG_APPLICATION=${CPRAG_CREXX_APPLICATION_RXBIN}"
-                "-DCPRAG_NATIVE_APPLICATION=${CMAKE_BINARY_DIR}/crexx-native-attempt/package/crexx-rag${CMAKE_EXECUTABLE_SUFFIX}"
+                "-DCPRAG_NATIVE_APPLICATION=${CMAKE_BINARY_DIR}/crexx-native-attempt/package/crexxrag${CMAKE_EXECUTABLE_SUFFIX}"
                 "-DCPRAG_LOOPBACK=$<TARGET_FILE:p1a_provider_loopback>"
                 "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/phase3/gemini-loopback.conf.in"
                 "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p3r-02-gemini-ingestion"
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P3R02GeminiIngestion.cmake")
         set_tests_properties(p3r_02_gemini_ingestion PROPERTIES
             LABELS "P3R-02;phase3r;crexx;levelg;application;gemini;ingestion;embedding;claim;trace;loopback")
+
+        add_test(
+            NAME p3r_03_provider_durability
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+                "-DCPRAG_APPLICATION_DIR=${CPRAG_CREXX_APPLICATION_DIR}"
+                "-DCPRAG_SCENARIO=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p3r_03_provider_durability.crexx"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p3r-03-provider-durability"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P3R03ProviderDurability.cmake")
+        set_tests_properties(p3r_03_provider_durability PROPERTIES
+            LABELS "P3R-03;phase3r;crexx;levelg;application;codex;subscription-budget;durability;recovery;sqlite;zero-outbound")
+
+        add_test(
+            NAME p3r_04_codex_protocol
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_APPLICATION_DIR=${CPRAG_CREXX_APPLICATION_DIR}"
+                "-DCPRAG_PROBE=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/codex_provider_live_probe.crexx"
+                "-DCPRAG_FIXTURE=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/phase3/codex-app-server-fixture.sh"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p3r-04-codex-protocol"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P3R04CodexProtocol.cmake")
+        set_tests_properties(p3r_04_codex_protocol PROPERTIES
+            LABELS "P3R-04;phase3r;crexx;levelg;provider;codex;jsonl;schema;dual-vm;zero-outbound")
     endif()
 
     install(FILES "${CPRAG_CREXX_APPLICATION_RXBIN}"
         DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/crexx-rag")
-    install(PROGRAMS "${CMAKE_BINARY_DIR}/crexx-product/crexx-rag"
+    install(PROGRAMS
+        "${CMAKE_BINARY_DIR}/crexx-product/crexxrag"
+        "${CMAKE_BINARY_DIR}/crexx-product/crexx-rag"
         DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/crexx-rag")
     install(FILES
         "${CPRAG_CREXX_APPLICATION_DIR}/providers/rx_sqlite_boundary.rxplugin"
@@ -358,7 +401,8 @@ install(DIRECTORY crexx/application/
     FILES_MATCHING PATTERN "*.crexx" PATTERN "*.conf" PATTERN "README.md" PATTERN "SYSTEM.md")
 install(DIRECTORY incubator/phase1b/provider/
     DESTINATION "${CMAKE_INSTALL_DATADIR}/crexx-rag/provider"
-    FILES_MATCHING PATTERN "*.crexx" PATTERN "README.md" PATTERN "SYSTEM.md")
+    FILES_MATCHING PATTERN "*.crexx" PATTERN "*.md"
+        PATTERN "PACKAGE.toml" PATTERN "BUNDLE.tsv")
 install(DIRECTORY skills/
     DESTINATION "${CMAKE_INSTALL_DATADIR}/crexx-rag/skills"
     FILES_MATCHING PATTERN "SKILL.md" PATTERN "manifest.json" PATTERN "README.md")
@@ -368,11 +412,14 @@ install(FILES
     cmake/CompileInstalledCrexxRag.cmake
     DESTINATION "${CMAKE_INSTALL_DATADIR}/crexx-rag/cmake")
 install(FILES
+    docs/tutorials/phase-3-ingestion.md
     docs/tutorials/phase-4-improvement.md
     docs/tutorials/phase-5-retrieval.md
     docs/tutorials/phase-6-surfaces.md
     docs/tutorials/phase-7-qualification.md
     DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/crexx-rag/tutorials")
+install(DIRECTORY docs/tutorials/phase-3-ingestion/
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/crexx-rag/tutorials/phase-3-ingestion")
 
 if(CREXX_FOUND AND CPRAG_BUILD_TESTS)
     set(CPRAG_SURFACE_OPERATION_BASE
