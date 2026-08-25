@@ -1,7 +1,0 @@
-runtime,component,elapsed_us,operations,bytes,checksum,status
-rxvme,crexx_algorithm,1152,2000,0,78000,ok
-rxvme,json_parse,31019,1000,142,26000,ok
-rxvme,record_materialize,85,512,0,24288.8,ok
-rxvme,json_encode,3857,1000,0,53786,ok
-rxvme,provider_wait,35504,1,48,48,ok
-rxvme,process_peak_memory,0,1,33882112,33882112,ok

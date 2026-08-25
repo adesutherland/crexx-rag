@@ -1,0 +1,64 @@
+options levelg
+
+import rxfnsb
+import rxhash
+import rxplatform
+import sqlite_boundary
+import ragstore
+import ragwork
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do; say "PROVIDER_DURABILITY_FAIL=" || label; return 1; end
+  return 0
+
+scalarint: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  value = -1; status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 \= 1 then return 2
+  path = args[1]; errors = 0; error = ""; store = .ragstorehandle
+  errors = errors + check(initragstore(path, "library-p3r-03", "snapshot-p3r-03", "provider-addendum", "1", "generic-profile", "profile-hash", "config-hash", '{}', store, error) = 0, "initialize " || error)
+  if errors \= 0 then return 1
+  database = store.database(); digest = copies("a", 64)
+  sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,codex_turn_budget,created_at,updated_at) VALUES('job-p3r-03','" || digest || "','{}','snapshot-p3r-03','queued',1,1,128,64,0,1,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  errors = errors + check(sqliteexec(database, sql) = 0, "insert durable job")
+  input = '{"schema":"crexx-rag.work-input/1","charging_basis":"subscription-allowance"}'
+  input_hash = rxhash..sha256hex(input as .binary)
+  sql = "INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES('item-p3r-03','job-p3r-03','claim-extraction','queued',1,'idem-p3r-03','" || input_hash || "','" || input || "',strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  errors = errors + check(sqliteexec(database, sql) = 0, "insert durable item")
+  errors = errors + check(configurejobbudget(store, "job-p3r-03", 10000, 128, 64, 0, 5000, 1, 3, error) = 0, "configure budget " || error)
+
+  first = .ragworkclaim
+  errors = errors + check(claimnext(store, "job-p3r-03", "worker-first", 1, 3, first, error) = 0, "first claim " || error)
+  first_reservation = .ragcallreservation
+  errors = errors + check(reservecall(store, first, 128, 64, 0, 5000, first_reservation, error) = 0 & first_reservation.codex_turn() = 1, "reserve first subscription turn " || error)
+  provider_run = ""
+  errors = errors + check(beginexternalrun(store, first, "codex", "default", "request-p3r-03", "subscription-allowance", "thread-p3r-03", 13, provider_run, error) = 0, "persist external thread " || error)
+  errors = errors + check(updateexternalrunturn(store, provider_run, "thread-p3r-03", "turn-p3r-03", error) = 0, "persist external turn " || error)
+  content = '{"has_claim":false,"source_candidate_id":"","source_label":"","source_type":"","relationship_type":"","target_candidate_id":"","target_label":"","target_type":"","confidence_millionths":0}'
+  errors = errors + check(completeexternalrun(store, provider_run, "thread-p3r-03", "turn-p3r-03", "request-p3r-03", content, 32, 16, error) = 0, "persist completed output " || error)
+  call rxplatform..sleep 1200
+
+  second = .ragworkclaim
+  errors = errors + check(claimnext(store, "job-p3r-03", "worker-second", 5, 3, second, error) = 0 & second.fence() = first.fence() + 1, "recover expired fence " || error)
+  errors = errors + check(scalarint(database, "SELECT reserved_calls+reserved_tokens+reserved_cost+reserved_codex_turns FROM jobs WHERE job_id='job-p3r-03'") = 0, "stale reservation released")
+  second_reservation = .ragcallreservation
+  errors = errors + check(reservecall(store, second, 128, 64, 0, 5000, second_reservation, error) = 0 & second_reservation.codex_turn() = 0, "recovery does not reserve a second Codex turn " || error)
+  recovery = .ragexternalrecovery
+  errors = errors + check(recoverexternalrun(store, second.item_id(), "codex", "default", recovery, error) = 0 & recovery.found() = 1 & recovery.state() = "completed" & recovery.thread_id() = "thread-p3r-03" & recovery.turn_id() = "turn-p3r-03" & recovery.content() = content, "recover completed output " || error)
+  settled_run = ""
+  errors = errors + check(settlecall(store, second_reservation, "codex", "default", recovery.request_id(), "succeeded", recovery.input_tokens(), recovery.output_tokens(), 0, 0, settled_run, error, recovery.provider_run_id(), "subscription-allowance") = 0 & settled_run = provider_run, "settle recovered run " || error)
+  errors = errors + check(skipitem(store, second, "recovered no-claim output", error) = 0, "complete recovered item " || error)
+  errors = errors + check(scalarint(database, "SELECT count(*) FROM provider_runs WHERE charging_basis='subscription-allowance' AND outcome='succeeded'") = 1, "one subscription provider run")
+  errors = errors + check(scalarint(database, "SELECT reserved_calls+reserved_tokens+reserved_cost+reserved_codex_turns FROM jobs WHERE job_id='job-p3r-03'") = 0, "all reservation counters settled")
+  errors = errors + check(closeragstore(store, error) = 0, "close " || error)
+  if errors \= 0 then do; say "PROVIDER_DURABILITY_ERRORS=" || errors; return 1; end
+  say "PROVIDER_DURABILITY_OK completed_turn_reused=1 codex_turns=1 stale_reservations=0 fence=2"
+  return 0

@@ -6,7 +6,7 @@ foreach(required_var CPRAG_RXVME CPRAG_RXBVM CPRAG_APPLICATION
 endforeach()
 
 get_filename_component(application_dir "${CPRAG_APPLICATION}" DIRECTORY)
-set(requirements "${application_dir}/crexx-rag.rxproviders")
+set(requirements "${application_dir}/crexxrag.rxproviders")
 if(NOT EXISTS "${requirements}")
     message(FATAL_ERROR "linked application provider requirements are missing")
 endif()

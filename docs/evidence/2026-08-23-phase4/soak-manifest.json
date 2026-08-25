@@ -1,1 +1,0 @@
-{"bundle_format_version":2,"schema_version":2,"library_id":"library-p4-worker-soak-final-rxvme","created_at":"2026-08-23T21:12:11.765Z","published_generation":5,"profile_id":"balanced","profile_hash":"profile-hash-p4","required_capabilities":["sqlite-boundary-v1"],"sidecars":[],"migration_pending":false,"recovery_pending":false,"updated_at":"2026-08-23T21:12:36.320Z"}

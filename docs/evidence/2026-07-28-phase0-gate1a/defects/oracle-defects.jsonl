@@ -1,4 +1,0 @@
-{"defect":"same-uri-chunk-id-churn","desired_parity":false,"same_uri":true,"content_changed":true,"old_chunk_addressable":false,"new_chunk_id_differs":true}
-{"defect":"stale-graph-support","desired_parity":false,"stale_after_revision_change":true,"stale_after_source_deletion":true,"deleted_chunk_addressable":false,"mention_edge_survives":true}
-{"defect":"unsafe-queue-crash-boundary","desired_parity":false,"two_consumers_observe_same_pending_item":true,"atomic_claim":false,"lease":false,"fence_token":false,"provider_work_replay_possible":true}
-{"defect":"whole-result-fixed-buffer-json","desired_parity":false,"buffer_bytes":1048576,"rows":1200,"description_bytes_per_row":960,"result":"buffer-too-small","paged_or_streamed":false}

@@ -1,2 +1,0 @@
-[0/1] Running P1-VEC-01 versioned float32 codec proof
--- P1-VEC-01 passed versioned 768-dimensional SQLite round trip on rxvme/rxbvm

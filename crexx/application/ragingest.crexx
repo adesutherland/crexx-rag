@@ -10,7 +10,7 @@ import ragstore
 import ragconfig
 import ragprofile
 
-/* Phase-3 ingestion is deliberately expressed in Level G. Native facilities
+/* Ingestion is deliberately expressed in Level G. Native facilities
  * provide only generic SHA-256 and SQLite boundaries. Observations and plans
  * expose no setters: the caller may transfer them, but apply always recomputes
  * their canonical identities before any write transaction begins. */

@@ -1,9 +1,0 @@
-a001cf6faa289a21bb08361f3fdae060e76613246ccb11152579d558f1b63244  docs/evidence/2026-08-03-phase1b/CAPABILITY-LEDGER.md
-91979f8d4353ecc987fbd43647b35da227ca2d5884fd29fc27f628f3622a0a45  docs/evidence/2026-08-03-phase1b/GATE-1B-DECISION-PACKET.md
-c7337104e310255c195d4108dd1e149016498d4cbb4af4009c8a01b94134b19e  docs/evidence/2026-08-03-phase1b/INDEX.md
-cadc3ebe8f0d4c88b01bb88ad05cd308a146fca28362203c30f9becf603ed1e8  docs/evidence/2026-08-03-phase1b/WORKLIST.md
-74c6dc11496fde8b9b929d4cc83fc497f40c8ca64d26bd1af7bbbc855dd8f152  docs/evidence/2026-08-03-phase1b/raw/gate1b-final-debug-ctest.txt
-8b5bef80be9b094066d9ef958f8bac3f3d029e596dba75e818ac3bea4430441c  docs/evidence/2026-08-03-phase1b/raw/gate1b-final-debug-ctest.time
-54ea3fdd450ccf4e0b0e24a4b0de66baa51826c120c80186bcc35d6b780926f5  docs/evidence/2026-08-03-phase1b/raw/gate1b-final-release-configure.txt
-8c35b1682f73592d30612d7b0fabdb384fcfff35cb5a076cb48b85b1368aa794  docs/evidence/2026-08-03-phase1b/raw/gate1b-final-release-build.txt
-4ed7e69ab1e5bc51c38a11516ac0033bd479bb76c8afd7db67a1f51207a5d220  docs/evidence/2026-08-03-phase1b/raw/gate1b-final-release-build.time

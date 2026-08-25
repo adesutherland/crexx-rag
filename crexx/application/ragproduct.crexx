@@ -8,7 +8,9 @@ import rxhash
 import provider_contract
 import sqlite_boundary
 import ragcommand
+import ragmodel
 import ragconfig
+import ragprofile
 import ragregistry
 import ragcanonical
 import ragfoundation
@@ -21,6 +23,8 @@ import ragfolder
 import ragingest
 import ragplanning
 import ragimprove
+import ragclaims
+import ragproposalio
 import ragjob
 import ragwork
 import ragprocess
@@ -30,7 +34,7 @@ import ragproviderdiagnostics
 import ragqueryprovider
 import ragquerypolicy
 
-/* The Phase-6 dispatcher is the single transport-neutral product surface.
+/* This dispatcher is the single transport-neutral product surface.
  * CLI, ADDRESS RAG and MCP translate into one .ragcommandrequest and preserve
  * the same .ragcommandresult. No adapter owns product SQL or policy. */
 dispatchproduct: procedure = .ragcommandresult
@@ -49,14 +53,172 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "worker.list" | operation = "worker.status" then return _workerread(request)
   if operation = "worker.drain" then return _workerdrain(request)
   if operation = "worker.prune" then return _workerprune(request)
+  if operation = "provider.list" then return _providerlist(request, registry)
   if operation = "provider.status" then return _providerstatus(request, registry)
   if operation = "provider.test" then return _providertest(request, registry)
-  if operation = "review.decide" then return _reviewdecision(request, 0)
+  if operation = "profile.list" then return _profilelist(request, registry)
+  if operation = "profile.show" then return _profileshow(request, registry)
+  if operation = "proposal.plan" then return _proposalplan(request, registry)
+  if operation = "proposal.apply" then return _proposalapply(request, registry)
+  if operation = "review.decide" then return _reviewdecision(request, 0, registry)
   if operation = "ingest.apply" then return _ingestapply(request, registry)
   if operation = "improve.plan" then return _improveplan(request, registry)
   if operation = "improve.apply" then return _improveapply(request, registry)
-  result = dispatchfoundation(request, registry)
-  return _deprecated(request, result)
+  return dispatchfoundation(request, registry)
+
+_providerlist: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = "provider.list"; error = ""
+  if _hasaccess(request, "read") \= 1 then return _failure(operation, 4, "provider list requires read access")
+  if _options(request, "", error) \= 0 then return _failure(operation, 2, error)
+  positionals = request.positionals()
+  if positionals.0 \= 0 then return _failure(operation, 2, "provider list accepts no positional arguments")
+  lookup = registry.config(request.config_id())
+  if lookup.found() \= 1 then return _failure(operation, 5, "configuration is not registered")
+  providers = lookup.config().providers(); records = .ragresultrecord[]
+  do i = 1 to providers.0
+    provider = providers[i]; fields = .ragresultfield[]
+    fields[1] = .ragresultfield("provider_id", "string", provider.provider_id())
+    fields[2] = .ragresultfield("kind", "string", provider.kind())
+    fields[3] = .ragresultfield("model", "string", provider.model())
+    fields[4] = .ragresultfield("route_class", "string", provider.route_class())
+    fields[5] = .ragresultfield("privacy_policy", "string", provider.privacy_policy())
+    fields[6] = .ragresultfield("charging_basis", "string", provider.charging_basis())
+    fields[7] = .ragresultfield("credential_reference", "string", provider.credential().ref_string())
+    fields[8] = .ragresultfield("timeout_ms", "integer", provider.timeout_ms())
+    fields[9] = .ragresultfield("maximum_attempts", "integer", provider.max_attempts())
+    records[records.0 + 1] = .ragresultrecord("provider", fields)
+  end
+  return .ragcommandresult(operation, "ok", 0, "configured providers listed without resolving credentials or making outbound requests", records)
+
+_profilelist: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = "profile.list"; error = ""
+  if _hasaccess(request, "read") \= 1 then return _failure(operation, 4, "profile list requires read access")
+  if _options(request, "", error) \= 0 then return _failure(operation, 2, error)
+  positionals = request.positionals()
+  if positionals.0 \= 0 then return _failure(operation, 2, "profile list accepts no positional arguments")
+  ids = registry.profile_ids(); records = .ragresultrecord[]
+  do i = 1 to ids.0
+    lookup = registry.profile(ids[i])
+    if lookup.found() \= 1 then return _failure(operation, 3, "registered profile could not be loaded")
+    profile = lookup.profile(); fields = .ragresultfield[]
+    fields[1] = .ragresultfield("profile_id", "string", profile.profile_id())
+    fields[2] = .ragresultfield("version", "string", profile.version())
+    concept_types = .string[]; relationship_types = .ragrelationshiptype[]; validation = .ragvalidationresult
+    concept_types = profile.concept_types(); relationship_types = profile.relationship_types(); validation = profile.validation()
+    fields[3] = .ragresultfield("concept_type_count", "integer", concept_types.0)
+    fields[4] = .ragresultfield("relationship_type_count", "integer", relationship_types.0)
+    fields[5] = .ragresultfield("valid", "boolean", _boolean(validation.ok()))
+    records[records.0 + 1] = .ragresultrecord("profile", fields)
+  end
+  return .ragcommandresult(operation, "ok", 0, "registered profiles listed", records)
+
+_profileshow: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = "profile.show"; error = ""
+  if _hasaccess(request, "read") \= 1 then return _failure(operation, 4, "profile show requires read access")
+  if _options(request, "", error) \= 0 then return _failure(operation, 2, error)
+  positionals = request.positionals()
+  if positionals.0 > 1 then return _failure(operation, 2, "profile show accepts one profile id")
+  profile_id = request.profile_id()
+  if positionals.0 = 1 then do
+    if profile_id \= "" & profile_id \= positionals[1] then return _failure(operation, 2, "profile id conflicts with global --profile")
+    profile_id = positionals[1]
+  end
+  if profile_id = "" then return _failure(operation, 2, "profile show requires a profile id")
+  lookup = registry.profile(profile_id)
+  if lookup.found() \= 1 then return _failure(operation, 5, "profile is not registered")
+  profile = lookup.profile(); records = .ragresultrecord[]; fields = .ragresultfield[]; validation = .ragvalidationresult
+  fields[1] = .ragresultfield("profile_id", "string", profile.profile_id())
+  fields[2] = .ragresultfield("version", "string", profile.version())
+  validation = profile.validation()
+  fields[3] = .ragresultfield("valid", "boolean", _boolean(validation.ok()))
+  fields[4] = .ragresultfield("maximum_chunk_characters", "integer", profile.chunk_policy().max_characters())
+  fields[5] = .ragresultfield("overlap_characters", "integer", profile.chunk_policy().overlap_characters())
+  records[records.0 + 1] = .ragresultrecord("profile", fields)
+  values = .string[]; values = profile.concept_types()
+  do i = 1 to values.0
+    concept_fields = .ragresultfield[]; concept_fields[1] = .ragresultfield("concept_type", "string", values[i])
+    records[records.0 + 1] = .ragresultrecord("profile-concept-type", concept_fields)
+  end
+  relationships = .ragrelationshiptype[]; relationships = profile.relationship_types()
+  do i = 1 to relationships.0
+    relationship_fields = .ragresultfield[]
+    relationship_fields[1] = .ragresultfield("relationship_type", "string", relationships[i].relationship_id())
+    relationship_fields[2] = .ragresultfield("inverse", "string", relationships[i].inverse_id())
+    relationship_fields[3] = .ragresultfield("directional", "boolean", _boolean(relationships[i].directional()))
+    records[records.0 + 1] = .ragresultrecord("profile-relationship-type", relationship_fields)
+  end
+  aliases = .ragalias[]; aliases = profile.aliases()
+  do i = 1 to aliases.0
+    alias_fields = .ragresultfield[]
+    alias_fields[1] = .ragresultfield("surface", "string", aliases[i].surface())
+    alias_fields[2] = .ragresultfield("canonical", "string", aliases[i].canonical())
+    records[records.0 + 1] = .ragresultrecord("profile-alias", alias_fields)
+  end
+  return .ragcommandresult(operation, "ok", 0, "registered profile vocabulary and policy shown", records)
+
+_proposalplan: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = "proposal.plan"; error = ""
+  if _hasaccess(request, "plan") \= 1 then return _failure(operation, 4, "proposal planning requires plan access")
+  if _options(request, "input", error) \= 0 then return _failure(operation, 2, error)
+  positionals = request.positionals()
+  if positionals.0 \= 0 then return _failure(operation, 2, "proposal plan accepts no positional arguments")
+  input = _option(request, "input", error)
+  if error \= "" | input = "" then return _failure(operation, 2, "proposal plan requires one --input NDJSON file")
+  lookup = registry.profile(request.profile_id())
+  if lookup.found() \= 1 then return _failure(operation, 5, "profile is not registered")
+  proposals = .ragextractionproposal[]
+  if loadexternalproposals(input, proposals, error) \= 0 then return _failure(operation, 2, error)
+  store = .ragstorehandle
+  if openragstore(request.library(), "readonly", store, error) \= 0 then return _openfailure(operation, error)
+  snapshot_id = _scalartext(store.database(), "SELECT config_snapshot_id FROM published_generations WHERE generation=(SELECT published_generation FROM library_meta WHERE singleton=1)")
+  policy = profileclaimpolicy(lookup.profile()); plan = .ragexternalproposalplan
+  status = createexternalproposalplan(store, snapshot_id, policy, proposals, plan, error)
+  close_error = ""; close_status = closeragstore(store, close_error)
+  if status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 7, error); end
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("canonical_plan", "string", plan.canonical())
+  fields[2] = .ragresultfield("digest", "string", plan.digest())
+  fields[3] = .ragresultfield("proposal_count", "integer", proposals.0)
+  fields[4] = .ragresultfield("expected_generation", "integer", plan.expected_generation())
+  fields[5] = .ragresultfield("library_writes", "integer", 0)
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("proposal-plan", fields)
+  return .ragcommandresult(operation, "ok", 0, "external proposals validated and planned without library writes", records)
+
+_proposalapply: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = "proposal.apply"; error = ""
+  if _hasaccess(request, "curate") \= 1 then return _failure(operation, 4, "proposal apply requires curate access")
+  if _options(request, "plan-json expect-digest", error) \= 0 then return _failure(operation, 2, error)
+  positionals = request.positionals()
+  if positionals.0 \= 0 then return _failure(operation, 2, "proposal apply accepts no positional arguments")
+  plan_json = _option(request, "plan-json", error); digest = _option(request, "expect-digest", error)
+  if error \= "" | plan_json = "" | digest = "" then return _failure(operation, 2, "proposal apply requires --plan-json and --expect-digest")
+  if rxhash..sha256hex(plan_json as .binary) \= digest then return _failure(operation, 6, "reviewed proposal plan digest does not match")
+  proposals = .ragextractionproposal[]
+  if decodeexternalplan(plan_json, proposals, error) \= 0 then return _failure(operation, 2, error)
+  lookup = registry.profile(request.profile_id())
+  if lookup.found() \= 1 then return _failure(operation, 5, "profile is not registered")
+  store = .ragstorehandle
+  if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
+  snapshot_id = _scalartext(store.database(), "SELECT config_snapshot_id FROM published_generations WHERE generation=(SELECT published_generation FROM library_meta WHERE singleton=1)")
+  policy = profileclaimpolicy(lookup.profile()); plan = .ragexternalproposalplan
+  plan_status = createexternalproposalplan(store, snapshot_id, policy, proposals, plan, error)
+  if plan_status = 0 & (plan.canonical() \= plan_json | plan.digest() \= digest) then do; plan_status = -2; error = "external proposals or library generation changed after review"; end
+  reviews_created = 0; apply_status = -1
+  if plan_status = 0 then apply_status = applyexternalproposalplan(store, plan, policy, proposals, reviews_created, error)
+  close_error = ""; close_status = closeragstore(store, close_error)
+  if plan_status \= 0 | apply_status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 6, error); end
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("digest", "string", digest)
+  fields[2] = .ragresultfield("proposal_count", "integer", proposals.0)
+  fields[3] = .ragresultfield("reviews_created", "integer", reviews_created)
+  fields[4] = .ragresultfield("provider_calls", "integer", 0)
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("proposal-apply", fields)
+  return .ragcommandresult(operation, "ok", 0, "reviewed external proposals applied through the mandatory review gate", records)
 
 _providerstatus: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
@@ -257,8 +419,7 @@ _repository: procedure = .ragcommandresult
     fields[2] = .ragresultfield("limit", "integer", limit)
     records[records.0 + 1] = .ragresultrecord("page", fields)
   end
-  result = .ragcommandresult(operation, "ok", 0, "bounded repository page read without mutation", records)
-  return _deprecated(request, result)
+  return .ragcommandresult(operation, "ok", 0, "bounded repository page read without mutation", records)
 
 _query: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
@@ -923,10 +1084,10 @@ _roleproviderconfig: procedure = .ragproviderconfig
   return .ragproviderconfig("", "", "", "", "", "", .ragsecretref(), 0, 0)
 
 _reviewdecision: procedure = .ragcommandresult
-  arg request = .ragcommandrequest, apply = .int
+  arg request = .ragcommandrequest, apply = .int, registry = .ragregistry
   operation = request.operation(); error = ""
   if _hasaccess(request, "plan") \= 1 then return _failure(operation, 4, "review decision preview requires plan access")
-  if _options(request, "id decision apply", error) \= 0 then return _failure(operation, 2, error)
+  if _workeroptions(request, "id decision apply", "apply", error) \= 0 then return _failure(operation, 2, error)
   id = _id(request, error); decision = _option(request, "decision", error); apply_value = _option(request, "apply", error)
   if id = "" | (decision \= "accept" & decision \= "reject" & decision \= "dismiss") then return _failure(operation, 2, "review decide requires an id and accept, reject, or dismiss")
   if apply_value = "true" then apply = 1
@@ -940,7 +1101,35 @@ _reviewdecision: procedure = .ragcommandresult
   if apply = 1 then do
     store = .ragstorehandle
     if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
-    database = store.database(); state = decision || "ed"
+    database = store.database(); review_type = ""; proposal_json = ""; current_state = ""
+    prepared = .binary
+    if sqliteprepare(database, "SELECT review_type,proposal_json,state FROM reviews WHERE review_id=?1", prepared) \= 0 | sqlitebindtext(prepared, 1, id) \= 0 | sqlitestep(prepared) \= 100 then do
+      call sqlitefinalize prepared; ignored = ""; call closeragstore store, ignored
+      return _failure(operation, 5, "review was not found")
+    end
+    columns = sqlitecolumntext(prepared, 0, review_type) | sqlitecolumntext(prepared, 1, proposal_json) | sqlitecolumntext(prepared, 2, current_state)
+    call sqlitefinalize prepared
+    if columns \= 0 | current_state \= "pending" then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 5, "pending review was not found or was already decided"); end
+    promotion_disposition = "not-applicable"; promoted_claim = ""; promoted_support = ""
+    if decision = "accept" & review_type = "external-proposal" then do
+      profile_lookup = registry.profile(request.profile_id())
+      if profile_lookup.found() \= 1 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 5, "profile is not registered"); end
+      external = .ragextractionproposal
+      if decodeproposaljson(proposal_json, 1, external, error) \= 0 | external.profile_id() \= request.profile_id() then do
+        if error = "" then error = "external proposal profile does not match the selected profile"
+        ignored = ""; call closeragstore store, ignored; return _failure(operation, 3, error)
+      end
+      proposal = internalizeproposal(external); policy = profileclaimpolicy(profile_lookup.profile())
+      generation = _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1")
+      snapshot_id = _scalartext(database, "SELECT config_snapshot_id FROM published_generations WHERE generation=(SELECT published_generation FROM library_meta WHERE singleton=1)")
+      promotion = .ragproposalresult
+      if applyproposal(store, proposal, policy, generation, snapshot_id, promotion, error) \= 0 | (promotion.disposition() \= "accepted" & promotion.disposition() \= "identical-no-op") then do
+        if error = "" then error = "accepted external proposal did not pass deterministic promotion"
+        ignored = ""; call closeragstore store, ignored; return _failure(operation, 3, error)
+      end
+      promotion_disposition = promotion.disposition(); promoted_claim = promotion.claim_id(); promoted_support = promotion.support_id()
+    end
+    state = decision || "ed"
     if decision = "accept" then state = "accepted"
     if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "cannot begin review decision"); end
     prepared = .binary
@@ -963,20 +1152,13 @@ _reviewdecision: procedure = .ragcommandresult
     if closeragstore(store, close_error) \= 0 then return _failure(operation, 7, close_error)
     fields[4] = .ragresultfield("applied", "boolean", "true")
     fields[5] = .ragresultfield("state", "string", state)
+    fields[6] = .ragresultfield("promotion_disposition", "string", promotion_disposition)
+    if promoted_claim \= "" then fields[7] = .ragresultfield("claim_id", "string", promoted_claim)
+    if promoted_support \= "" then fields[8] = .ragresultfield("support_id", "string", promoted_support)
     records[1] = .ragresultrecord("review-decision", fields)
-    return .ragcommandresult(operation, "ok", 0, "authorized review decision persisted; accepted proposals remain subject to exact proposal replay", records)
+    return .ragcommandresult(operation, "ok", 0, "authorized review decision persisted through deterministic proposal validation", records)
   end
   return .ragcommandresult(operation, "ok", 0, "review decision preview produced without mutation", records)
-
-_deprecated: procedure = .ragcommandresult
-  arg request = .ragcommandrequest, result = .ragcommandresult
-  if request.noun() \= "queue-status" then return result
-  records = result.records(); fields = .ragresultfield[]
-  fields[1] = .ragresultfield("alias", "string", "queue-status")
-  fields[2] = .ragresultfield("replacement", "string", "job list")
-  fields[3] = .ragresultfield("removal_after", "string", "one compatibility release")
-  records[records.0 + 1] = .ragresultrecord("deprecation", fields)
-  return .ragcommandresult(result.operation(), result.status(), result.exit_code(), result.message(), records)
 
 _hasaccess: procedure = .int
   arg request = .ragcommandrequest, required = .string

@@ -1,8 +1,0 @@
-[1/8] Linking CXX static library libcprag_core.a
-[2/8] Linking CXX shared module bin/rx_rag.rxplugin
-[3/8] Linking CXX executable phase0_oracle_defects
-[4/8] Linking CXX executable phase0_oracle_semantics
-[5/8] Linking CXX executable ragcore_work_queue_consumers
-[6/8] Linking CXX executable crexx-rag
-[7/8] Linking CXX executable crexx-rag-mcp
-[8/8] Linking CXX executable ragcore_smoke

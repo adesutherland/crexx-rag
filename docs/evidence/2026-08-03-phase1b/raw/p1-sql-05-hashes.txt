@@ -1,6 +1,0 @@
-77c7b4befd7bb9e3ed50ef65981e5e3836f6c04c46c9982d9739361aa6c15725  docs/evidence/2026-08-03-phase1b/raw/p1-sql-05-commands-and-output.txt
-2976577bff57cc5410f15da0917b27f3bd663108cad753495a6982549cdaa329  docs/evidence/2026-08-03-phase1b/raw/p1-sql-05-target-rerun-3.txt
-7021df4fa6299f65c98b668724babe8cd48b33509b839d4195c5b3ad5822f96b  docs/evidence/2026-08-03-phase1b/raw/p1-sql-05-ctest.txt
-15a8fdaf55dc8beeb1b6078154025f15578f0c2ccc92321e91f5be55257eba67  docs/evidence/2026-08-03-phase1b/raw/p1-sql-05-target.txt
-5b52cf2d5c9fcdc5217bfd67c36af952aed91cc62b27d9055d3ea0f680423282  docs/evidence/2026-08-03-phase1b/raw/p1-sql-05-target-rerun.txt
-b623673fb47edd26bf2d8834c60a10ef07a6da491f4ba8608976a6ad26039279  docs/evidence/2026-08-03-phase1b/raw/p1-sql-05-target-rerun-2.txt

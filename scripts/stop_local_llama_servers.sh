@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-state_dir="${CPRAG_LLAMA_STATE_DIR:-.local/llama-servers}"
+state_dir="${CREXXRAG_LLAMA_STATE_DIR:-.local/llama-servers}"
 if [[ -d "${state_dir}" ]]; then
   state_dir="$(cd "${state_dir}" && pwd)"
 fi

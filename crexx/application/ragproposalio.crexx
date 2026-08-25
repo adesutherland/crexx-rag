@@ -1,0 +1,179 @@
+options levelg
+
+namespace ragproposalio expose loadexternalproposals decodeexternalplan decodeproposaljson internalizeproposal profileclaimpolicy
+
+import rxfnsb
+import rxjson
+import rxhash
+import ragfile
+import ragprofile
+import ragclaims
+
+/* Bounded public codec for normalized external extraction proposals. The
+ * application accepts NDJSON so each proposal is independently inspectable;
+ * provider output never bypasses the normal claim validator. */
+loadexternalproposals: procedure = .int
+  arg path = .string, expose proposals = .ragextractionproposal[], expose error = .string
+  proposals = .ragextractionproposal[]; error = ""
+  if path = "" | length(path) > 4096 | pos("00"x, path) > 0 then return _fail("proposal input path is invalid", error)
+  raw = .binary; bytes = 0
+  if ragfile..readbinaryfilebounded(path, 8388608, raw, bytes, error) \= 0 then do
+    error = "proposal input could not be read within the 8 MiB ceiling: " || error
+    return -1
+  end
+  text = raw as .string
+  if text = "" | pos("00"x, text) > 0 then return _fail("proposal input is empty or contains a NUL byte", error)
+  start = 1; line_number = 0
+  do forever
+    marker = pos("0A"x, text, start)
+    if marker = 0 then line = substr(text, start)
+    else line = substr(text, start, marker - start)
+    line_number = line_number + 1
+    if right(line, 1) = "0D"x then line = left(line, length(line) - 1)
+    line = strip(line)
+    if line \= "" then do
+      if length(line) > 131072 then return _fail("proposal line " || line_number || " exceeds 131072 bytes", error)
+      proposal = .ragextractionproposal; detail = ""
+      if decodeproposaljson(line, 1, proposal, detail) \= 0 then return _fail("proposal line " || line_number || ": " || detail, error)
+      proposals[proposals.0 + 1] = proposal
+      if proposals.0 > 1000 then return _fail("proposal input exceeds the 1000-proposal ceiling", error)
+    end
+    if marker = 0 then leave
+    start = marker + 1
+  end
+  if proposals.0 = 0 then return _fail("proposal input contains no proposals", error)
+  if _sortproposals(proposals, error) \= 0 then return -1
+  return 0
+
+decodeexternalplan: procedure = .int
+  arg text = .string, expose proposals = .ragextractionproposal[], expose error = .string
+  proposals = .ragextractionproposal[]; error = ""
+  if text = "" | length(text) > 8388608 then return _fail("external proposal plan is empty or exceeds 8 MiB", error)
+  document = .jsondocument(text)
+  if document.valid() \= 1 | document.node_type(document.root()) \= "object" then return _fail("external proposal plan is not a JSON object", error)
+  root = document.root(); schema = ""
+  if document.node_count(root) \= 5 | document.node_string(document.member(root, "schema"), schema) \= 0 | schema \= "crexx-rag.external-proposal-plan/1" then return _fail("external proposal plan schema is invalid", error)
+  proposal_nodes = document.member(root, "proposals")
+  if document.node_type(proposal_nodes) \= "array" | document.node_count(proposal_nodes) < 1 | document.node_count(proposal_nodes) > 1000 then return _fail("external proposal plan has an invalid proposal array", error)
+  do i = 1 to document.node_count(proposal_nodes)
+    entry = document.element(proposal_nodes, i)
+    if document.node_type(entry) \= "object" | document.node_count(entry) \= 2 then return _fail("external proposal plan entry " || i || " is invalid", error)
+    proposal_node = document.member(entry, "proposal"); proposal_text = document.node_get(proposal_node)
+    proposal = .ragextractionproposal; detail = ""
+    if decodeproposaljson(proposal_text, 1, proposal, detail) \= 0 then return _fail("external proposal plan entry " || i || ": " || detail, error)
+    proposals[proposals.0 + 1] = proposal
+  end
+  return 0
+
+decodeproposaljson: procedure = .int
+  arg text = .string, require_external = .int, expose proposal = .ragextractionproposal, expose error = .string
+  proposal = _emptyproposal(); error = ""
+  document = .jsondocument(text)
+  if document.valid() \= 1 | document.node_type(document.root()) \= "object" then return _fail("proposal is not a JSON object", error)
+  root = document.root()
+  allowed = "schema proposal_id kind source_concept_id source_label source_type relationship_type target_concept_id target_label target_type direction qualifiers effective_from effective_to revision_chunk_id span_start span_end polarity stance directness attribution lineage_group confidence_millionths provider_id model request_id prompt_version extractor_identity source_scope profile_id external"
+  if document.node_count(root) \= 31 | _objectmembers(document, root, allowed, error) \= 0 then do
+    if error = "" then error = "proposal must contain exactly the 31 public schema members"
+    return -1
+  end
+  schema = ""; proposal_id = ""; kind = ""; source_concept_id = ""; source_label = ""; source_type = ""; relationship_type = ""
+  target_concept_id = ""; target_label = ""; target_type = ""; direction = ""; effective_from = ""; effective_to = ""; revision_chunk_id = ""
+  polarity = ""; stance = ""; directness = ""; attribution = ""; lineage_group = ""; provider_id = ""; model = ""; request_id = ""; prompt_version = ""; extractor_identity = ""; source_scope = ""; profile_id = ""
+  string_names = "schema proposal_id kind source_concept_id source_label source_type relationship_type target_concept_id target_label target_type direction effective_from effective_to revision_chunk_id polarity stance directness attribution lineage_group provider_id model request_id prompt_version extractor_identity source_scope profile_id"
+  do i = 1 to words(string_names)
+    name = word(string_names, i); value = ""
+    if document.node_string(document.member(root, name), value) \= 0 then return _fail("proposal member " || name || " must be a string", error)
+    select
+      when name = "schema" then schema = value
+      when name = "proposal_id" then proposal_id = value
+      when name = "kind" then kind = value
+      when name = "source_concept_id" then source_concept_id = value
+      when name = "source_label" then source_label = value
+      when name = "source_type" then source_type = value
+      when name = "relationship_type" then relationship_type = value
+      when name = "target_concept_id" then target_concept_id = value
+      when name = "target_label" then target_label = value
+      when name = "target_type" then target_type = value
+      when name = "direction" then direction = value
+      when name = "effective_from" then effective_from = value
+      when name = "effective_to" then effective_to = value
+      when name = "revision_chunk_id" then revision_chunk_id = value
+      when name = "polarity" then polarity = value
+      when name = "stance" then stance = value
+      when name = "directness" then directness = value
+      when name = "attribution" then attribution = value
+      when name = "lineage_group" then lineage_group = value
+      when name = "provider_id" then provider_id = value
+      when name = "model" then model = value
+      when name = "request_id" then request_id = value
+      when name = "prompt_version" then prompt_version = value
+      when name = "extractor_identity" then extractor_identity = value
+      when name = "source_scope" then source_scope = value
+      when name = "profile_id" then profile_id = value
+      otherwise nop
+    end
+  end
+  qualifiers_node = document.member(root, "qualifiers")
+  if document.node_type(qualifiers_node) \= "object" then return _fail("proposal qualifiers must be an object", error)
+  qualifiers = document.node_get(qualifiers_node)
+  span_start = 0; span_end = 0; confidence = 0; external = 0
+  if document.node_int(document.member(root, "span_start"), span_start) \= 0 | document.node_int(document.member(root, "span_end"), span_end) \= 0 | document.node_int(document.member(root, "confidence_millionths"), confidence) \= 0 | document.node_int(document.member(root, "external"), external) \= 0 then return _fail("proposal numeric members must be exact integers", error)
+  if require_external = 1 & external \= 1 then return _fail("public proposal input must declare external=1", error)
+  proposal = .ragextractionproposal(schema, proposal_id, kind, source_concept_id, source_label, source_type, relationship_type, target_concept_id, target_label, target_type, direction, qualifiers, effective_from, effective_to, revision_chunk_id, span_start, span_end, polarity, stance, directness, attribution, lineage_group, confidence, provider_id, model, request_id, prompt_version, extractor_identity, source_scope, profile_id, external)
+  return 0
+
+internalizeproposal: procedure = .ragextractionproposal
+  arg proposal = .ragextractionproposal
+  return .ragextractionproposal(proposal.schema(), proposal.proposal_id(), proposal.kind(), proposal.source_concept_id(), proposal.source_label(), proposal.source_type(), proposal.relationship_type(), proposal.target_concept_id(), proposal.target_label(), proposal.target_type(), proposal.direction(), proposal.qualifiers_json(), proposal.effective_from(), proposal.effective_to(), proposal.revision_chunk_id(), proposal.span_start(), proposal.span_end(), proposal.polarity(), proposal.stance(), proposal.directness(), proposal.attribution(), proposal.lineage_group(), proposal.confidence_millionths(), proposal.provider_id(), proposal.model(), proposal.request_id(), proposal.prompt_version(), proposal.extractor_identity(), proposal.source_scope(), proposal.profile_id(), 0)
+
+profileclaimpolicy: procedure = .ragclaimpolicy
+  arg profile = .ragprofile
+  types = ""; values = profile.concept_types()
+  do i = 1 to values.0
+    if types \= "" then types = types || "|"
+    types = types || values[i]
+  end
+  relationships = ""; relationship_values = .ragrelationshiptype[]; relationship_values = profile.relationship_types()
+  do i = 1 to relationship_values.0
+    if relationships \= "" then relationships = relationships || "|"
+    relationships = relationships || relationship_values[i].relationship_id()
+  end
+  return .ragclaimpolicy("surface-claim-v2:" || profile.version(), types, relationships, 1000, 700, 600, 500, 300)
+
+_objectmembers: procedure = .int
+  arg document = .jsondocument, node = .int, allowed = .string, expose error = .string
+  children = .int[]; ignored = document.children(node, children); seen = ""
+  do i = 1 to children.0
+    name = document.node_name(children[i])
+    if wordpos(name, allowed) = 0 then return _fail("unknown proposal member " || name, error)
+    if wordpos(name, seen) > 0 then return _fail("duplicate proposal member " || name, error)
+    seen = seen || " " || name
+  end
+  return 0
+
+_sortproposals: procedure = .int
+  arg expose proposals = .ragextractionproposal[], expose error = .string
+  hashes = .string[]
+  do i = 1 to proposals.0
+    hashes[i] = rxhash..sha256hex(proposals[i].canonical() as .binary)
+  end
+  do i = 2 to proposals.0
+    proposal = proposals[i]; hash = hashes[i]; j = i - 1
+    do while j >= 1
+      if hashes[j] <= hash then leave
+      proposals[j + 1] = proposals[j]; hashes[j + 1] = hashes[j]; j = j - 1
+    end
+    proposals[j + 1] = proposal; hashes[j + 1] = hash
+  end
+  do i = 2 to hashes.0
+    if hashes[i] = hashes[i - 1] then return _fail("proposal input contains a duplicate canonical proposal", error)
+  end
+  return 0
+
+_emptyproposal: procedure = .ragextractionproposal
+  return .ragextractionproposal("", "", "", "", "", "", "", "", "", "", "", "{}", "", "", "", 0, 0, "", "", "", "", "", 0, "", "", "", "", "", "", "", 0)
+
+_fail: procedure = .int
+  arg message = .string, expose error = .string
+  error = message
+  return -1

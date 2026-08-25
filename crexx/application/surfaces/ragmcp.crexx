@@ -28,7 +28,7 @@ mcpdispatchwithregistry: procedure = .string
   if id_node \= 0 then id_json = _idjson(document, id_node)
   if document.node_string(document.member(root, "method"), method_name) \= 0 then return _error(id_json, -32600, "method must be a string")
   if method_name = "notifications/initialized" then return ""
-  if method_name = "initialize" then return _response(id_json, '{"protocolVersion":"2025-06-18","serverInfo":{"name":"crexx-rag-mcp","version":"0.1.0"},"capabilities":{"tools":{}}}')
+  if method_name = "initialize" then return _response(id_json, '{"protocolVersion":"2025-06-18","serverInfo":{"name":"crexxrag-mcp","version":"0.1.0"},"capabilities":{"tools":{}}}')
   if method_name = "tools/list" then return _response(id_json, '{"tools":[' || _toollist(access) || ']}')
   if method_name \= "tools/call" then return _error(id_json, -32601, "method not found")
   params = document.member(root, "params")
@@ -107,7 +107,7 @@ _toolcommand: procedure = .int
   end
   if tool = "rag_ingest_plan" then call _option document, arguments, "source_set", "source-set", output
   if tool = "rag_provider_test" then call _option document, arguments, "provider", "provider", output
-  if tool = "rag_proposal_plan" then call _option document, arguments, "input_digest", "input-digest", output
+  if tool = "rag_proposal_plan" then call _option document, arguments, "input", "input", output
   if tool = "rag_review_decide_preview" | tool = "rag_review_decide" then do
     if _positional(document, arguments, "id", output, error) \= 0 then return -1
     call _option document, arguments, "decision", "decision", output
@@ -175,7 +175,7 @@ _toollist: procedure = .string
   if _has(access, "plan") then do
     tools = _addtool(tools, "rag_ingest_plan", "Plan ingestion without writing the library", '{"source_set":{"type":"string"}}', "true")
     tools = _addtool(tools, "rag_improve_plan", "Plan bounded improvement without writing", '{}', "true")
-    tools = _addtool(tools, "rag_proposal_plan", "Plan a proposal without writing", '{"input_digest":{"type":"string"}}', "true")
+    tools = _addtool(tools, "rag_proposal_plan", "Plan validated proposal NDJSON without writing", '{"input":{"type":"string"}}', "true")
     tools = _addtool(tools, "rag_review_list", "List review proposals", '{}', "true")
     tools = _addtool(tools, "rag_review_decide_preview", "Preview a review decision without writing", '{"id":{"type":"string"},"decision":{"type":"string","enum":["accept","reject","dismiss"]}}', "true")
   end
@@ -237,7 +237,7 @@ _toolargumentnames: procedure = .string
   if tool = "rag_job_cancel" then return "id reason"
   if tool = "rag_ingest_plan" then return "source_set"
   if tool = "rag_provider_test" then return "provider"
-  if tool = "rag_proposal_plan" then return "input_digest"
+  if tool = "rag_proposal_plan" then return "input"
   if tool = "rag_review_decide_preview" | tool = "rag_review_decide" then return "id decision"
   if tool = "rag_ingest_apply" | tool = "rag_improve_apply" | tool = "rag_proposal_apply" then return "plan_json expect_digest"
   return ""
@@ -299,25 +299,25 @@ main: procedure = .int
   arg args = .string[]
   library = ""; config = ""; config_file = ""; profile = ""; access = "read"; index = 1
   do while index <= args.0
-    if index = args.0 then do; say "crexx-rag-mcp: option requires a value"; return 2; end
+    if index = args.0 then do; say "crexxrag-mcp: option requires a value"; return 2; end
     name = args[index]; value = args[index + 1]
     if name = "--library" then library = value
     else if name = "--config" then config = value
     else if name = "--config-file" then config_file = value
     else if name = "--profile" then profile = value
     else if name = "--access" then access = value
-    else do; say "crexx-rag-mcp: unknown option " || name; return 2; end
+    else do; say "crexxrag-mcp: unknown option " || name; return 2; end
     index = index + 2
   end
   registry = operatorregistry()
   if config_file \= "" then do
     loaded_config = .ragconfig; error = ""
-    if loadconfigfile(config_file, loaded_config, error) \= 0 then do; say "crexx-rag-mcp: " || error; return 3; end
-    if config \= "" & config \= loaded_config.config_id() then do; say "crexx-rag-mcp: --config does not match config.id in --config-file"; return 3; end
+    if loadconfigfile(config_file, loaded_config, error) \= 0 then do; say "crexxrag-mcp: " || error; return 3; end
+    if config \= "" & config \= loaded_config.config_id() then do; say "crexxrag-mcp: --config does not match config.id in --config-file"; return 3; end
     config = loaded_config.config_id(); registry = operatorregistryforconfig(loaded_config)
-    if registry.valid() \= 1 then do; say "crexx-rag-mcp: loaded configuration references an unregistered profile"; return 3; end
+    if registry.valid() \= 1 then do; say "crexxrag-mcp: loaded configuration references an unregistered profile"; return 3; end
   end
-  if library = "" | config = "" | profile = "" then do; say "crexx-rag-mcp: --library, --config or --config-file, and --profile are required"; return 2; end
+  if library = "" | config = "" | profile = "" then do; say "crexxrag-mcp: --library, --config or --config-file, and --profile are required"; return 2; end
   do while lines("stdin") > 0
     response = mcpdispatchwithregistry(linein("stdin"), library, config, profile, access, registry)
     if response \= "" then say response

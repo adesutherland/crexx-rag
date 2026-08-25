@@ -177,9 +177,9 @@ ragapplicationprovider: class implements .ragworkprovider
     arg expose error = .string
     error = ""
     if _codex_ready = 1 then return 0
-    executable = getenv("CREXX_RAG_CODEX")
+    executable = getenv("CREXXRAG_CODEX")
     if executable = "" & rxfs..isfile("/Applications/ChatGPT.app/Contents/Resources/codex") = 1 then executable = "/Applications/ChatGPT.app/Contents/Resources/codex"
-    if executable = "" then do; error = "Codex executable is unavailable; set CREXX_RAG_CODEX or install the Codex app"; return -1; end
+    if executable = "" then do; error = "Codex executable is unavailable; set CREXXRAG_CODEX or install the Codex app"; return -1; end
     suffix = _randomhex(_store.database())
     if suffix = "" then do; error = "cannot allocate an isolated Codex working directory"; return -1; end
     temporary_root = getenv("TMPDIR"); if temporary_root = "" then temporary_root = "/tmp/"

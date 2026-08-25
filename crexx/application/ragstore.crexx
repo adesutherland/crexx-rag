@@ -253,7 +253,7 @@ initragstore: procedure = .int
     call rxfs..rmdir path
     return -3
   end
-  if _configurereadwrite(database, error) \= 0 | applymigrations(database, "crexx-rag-p2-03", ragschemaversion(), error) \= 0 then do
+  if _configurereadwrite(database, error) \= 0 | applymigrations(database, "crexxrag", ragschemaversion(), error) \= 0 then do
     call sqliteclose database
     call _removefailedlibrary path
     return -3
@@ -314,7 +314,7 @@ openragstore: procedure = .int
   end
   else do
     if sqliteopenmode(path || "/library.sqlite", access, database) \= 0 then return _sqlitefailure("open library database", error)
-    if _configurereadwrite(database, error) \= 0 | applymigrations(database, "crexx-rag-p2-03", ragschemaversion(), error) \= 0 then do
+    if _configurereadwrite(database, error) \= 0 | applymigrations(database, "crexxrag", ragschemaversion(), error) \= 0 then do
       call sqliteclose database
       return -4
     end
@@ -609,7 +609,7 @@ manifeststate: procedure = .int
     error = "manifest projection fields are invalid"
     return -7
   end
-  if manifest_format \= 2 | created_at = "" | updated_at = "" | document.node_type(required_capabilities) \= "array" | document.node_count(required_capabilities) \= 1 | document.node_string(document.element(required_capabilities, 1), required_capability) \= 0 | required_capability \= "sqlite-boundary-v1" | document.node_type(sidecars) \= "array" | document.node_boolean(migration_pending, migration_value) \= 0 | migration_value \= 0 | document.node_boolean(recovery_pending, recovery_value) \= 0 | recovery_value \= 0 then do
+  if manifest_format \= 1 | created_at = "" | updated_at = "" | document.node_type(required_capabilities) \= "array" | document.node_count(required_capabilities) \= 1 | document.node_string(document.element(required_capabilities, 1), required_capability) \= 0 | required_capability \= "sqlite-provider-v1" | document.node_type(sidecars) \= "array" | document.node_boolean(migration_pending, migration_value) \= 0 | migration_value \= 0 | document.node_boolean(recovery_pending, recovery_value) \= 0 | recovery_value \= 0 then do
     error = "manifest capability or recovery fields are invalid"
     return -7
   end
@@ -736,7 +736,7 @@ _insertinitialrecords: procedure = .int
   call sqlitefinalize prepared
   if bind_status \= 0 | step_status \= 101 then return _sqlitefailure("insert initial generation", error)
   prepared = .binary
-  sql = "INSERT INTO library_meta(singleton,library_id,bundle_format_version,schema_version,published_generation,next_generation,active_profile_id,active_profile_hash,required_capabilities,created_at,updated_at) VALUES(1,?1,2,?2,1,2,?3,?4,'sqlite-boundary-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  sql = "INSERT INTO library_meta(singleton,library_id,bundle_format_version,schema_version,published_generation,next_generation,active_profile_id,active_profile_hash,required_capabilities,created_at,updated_at) VALUES(1,?1,1,?2,1,2,?3,?4,'sqlite-provider-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
   if sqliteprepare(database, sql, prepared) \= 0 then return _sqlitefailure("prepare library metadata", error)
   bind_status = sqlitebindtext(prepared, 1, library_id)
   bind_status = bind_status | sqlitebindint(prepared, 2, ragschemaversion())
@@ -765,7 +765,7 @@ _manifestprojectiongeneration: procedure = .int
   sidecars = ""
   if _sidecarprojection(database, generation, sidecars, error) \= 0 then return -4
   if library_id = "" | schema_version < 1 | created_at = "" | profile_id = "" | profile_hash = "" | updated_at = "" then return -4
-  manifest = "{" || jsonquote("bundle_format_version") || ":2," || jsonquote("schema_version") || ":" || schema_version || "," || jsonquote("library_id") || ":" || jsonquote(library_id) || "," || jsonquote("created_at") || ":" || jsonquote(created_at) || "," || jsonquote("published_generation") || ":" || generation || "," || jsonquote("profile_id") || ":" || jsonquote(profile_id) || "," || jsonquote("profile_hash") || ":" || jsonquote(profile_hash) || "," || jsonquote("required_capabilities") || ":[" || jsonquote("sqlite-boundary-v1") || "]," || jsonquote("sidecars") || ":[" || sidecars || "]," || jsonquote("migration_pending") || ":false," || jsonquote("recovery_pending") || ":false," || jsonquote("updated_at") || ":" || jsonquote(updated_at) || "}"
+  manifest = "{" || jsonquote("bundle_format_version") || ":1," || jsonquote("schema_version") || ":" || schema_version || "," || jsonquote("library_id") || ":" || jsonquote(library_id) || "," || jsonquote("created_at") || ":" || jsonquote(created_at) || "," || jsonquote("published_generation") || ":" || generation || "," || jsonquote("profile_id") || ":" || jsonquote(profile_id) || "," || jsonquote("profile_hash") || ":" || jsonquote(profile_hash) || "," || jsonquote("required_capabilities") || ":[" || jsonquote("sqlite-provider-v1") || "]," || jsonquote("sidecars") || ":[" || sidecars || "]," || jsonquote("migration_pending") || ":false," || jsonquote("recovery_pending") || ":false," || jsonquote("updated_at") || ":" || jsonquote(updated_at) || "}"
   return 0
 
 _sidecarprojection: procedure = .int

@@ -1,9 +1,0 @@
-{"record":"chunking","file_type":"markdown","chunk_size":30,"overlap":5,"chunks":[{"index":0,"length":25,"text":"# One\n\nAlpha paragraph.\n\n"},{"index":1,"length":22,"text":"# Two\n\nBeta paragraph."}]}
-{"record":"candidate-census-adjudication","normalized":"CEDAR STORE","mention_count":2,"max_priority":18,"status":"keep","type":"data-object","canonical_label":"Cedar Store","aliases":["CSDB"]}
-{"record":"mention-graph-seeding","concept_id":"phase0:data-object:cedar-store","concept_upserts":2,"evidence_upserts":2,"mentioned_in_edges":2,"replay_skips":0}
-{"record":"extraction-ranking","queue":"phase0-extract","order":["fixture://it/auth/current#0","fixture://it/operations/corroboration#0"],"status":"pending"}
-{"record":"queue-status","queue":"phase0-extract","pending":2,"attempts":0,"accepted_nodes":0,"accepted_relationships":0}
-{"record":"lexical-retrieval","query":"Cedar Store","requested_mode":"auto","effective_mode":"lexical","source_uris":["fixture://it/auth/current","fixture://it/operations/corroboration"],"vector_used":false}
-{"record":"vector-retrieval","build":"faiss-disabled","result":"unsupported","fallback":"auto-uses-lexical"}
-{"record":"graph-retrieval","direction":"forward","path":["entity:identity-gateway","entity:cedar-store","entity:vault-service"],"relationships":["depends-on","protected-by"],"found":true}
-{"record":"source-deletion","source_uri":"fixture://it/operations/corroboration","document_present":false,"chunks_present":false,"fts_hits_present":false}

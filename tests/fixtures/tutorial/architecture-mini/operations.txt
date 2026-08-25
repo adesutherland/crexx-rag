@@ -1,3 +1,0 @@
-Vault Service supplies short-lived credentials.
-
-Cedar Store retains the authorization policy.

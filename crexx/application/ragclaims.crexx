@@ -8,7 +8,7 @@ import rxhash
 import sqlite_boundary
 import ragstore
 
-/* Phase-4 graph policy stays in Level G. Provider output is represented by an
+/* Graph policy stays in Level G. Provider output is represented by an
  * immutable typed proposal and cannot write graph state directly. */
 ragclaimpolicy: class
   _policy_version = .string

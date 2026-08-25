@@ -1,9 +1,0 @@
-options levelg
-
-import surface_facade
-import surface_contract
-
-facade = .statusfacade()
-record = facade.statusEvidence()
-say statusrecordjson(record)
-return 0

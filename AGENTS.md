@@ -1,184 +1,75 @@
-# AGENTS.md
+# Repository guidance for crexxrag
 
-Repository guidance for `crexx-rag`.
+## Product boundary
 
-## Intent
+`crexxrag` is one cREXX application. Product algorithms, SQL repositories and
+migrations, orchestration, policy, configuration, commands, jobs, retrieval,
+evidence, and provider selection belong in Level-G cREXX.
 
-Build an LLM-first local RAG and typed-graph knowledge store as a cREXX
-application. Product/domain algorithms, SQL repositories and migrations,
-orchestration, policy, configuration, commands, jobs, retrieval, and evidence
-assembly belong in cREXX.
+Native code is limited to the generic SQLite RXPA provider in `native/sqlite`.
+Do not add product vocabulary or RAG policy to C/C++. Do not recreate the
+removed native prototype, compatibility bridge, or old schema importer.
 
-Native code is allowed only for small, general-purpose mechanisms that
-reasonably require host APIs, initially SQLite and only measurement-justified
-hashing, binary, HTTP/TLS, or vector primitives. Any such capability may be
-incubated here, but it must have an independent API, tests, examples, packaging,
-and benchmarks with no RAG vocabulary before it is a CREXX donation candidate.
-Every locally implemented donation candidate must also keep user-facing
-`README.md` and maintainer-facing `SYSTEM.md` documentation beside its
-implementation and have a current entry in `incubator/README.md`.
+SQLite is authoritative. Vector sidecars are rebuildable. Every typed claim is
+directional and backed by an independently addressable source span. Provider
+output is untrusted until normal cREXX validation succeeds.
 
-This project is deliberately a non-trivial cREXX reference application. Do not
-hide a cREXX surface weakness in product-specific native code; preserve a
-minimized reproducer, workload measurement, and capability-ledger entry.
+## Required reading
 
-Level G is the default language level for advanced user-facing libraries and
-all application code, including algorithms, repositories, orchestration,
-providers, jobs, fixtures, benchmarks, and tests. Level B is reserved for
-CREXX bootstrap/foundation facilities or a minimized low-level capability that
-cannot reasonably be expressed at Level G. Every local Level-B exception must
-state that reason beside the implementation and have focused evidence. A
-facade must provide a real public contract; do not add one only to bridge
-language levels.
+Before product work, read:
 
-## Approved Scope And Stop Point
-
-Phase 0 through Gate 2 are complete and accepted for their recorded scope.
-Phase 3-plus sequential implementation was authorized on 2026-08-23, with QA
-and one focused commit after each phase. Phases 3 through 6 are accepted for
-their recorded macOS scopes. Phase 4's literal supervised overnight soak
-completed on 2026-08-24 with one clean launchd run, 28,800 one-second polls,
-and balanced durable work/reservations. Phase 5 includes bounded hosted answer-
-quality evidence. Phase 7 qualification is complete with a reject/defer cutover
-decision: cREXX hosted completion, public worker/provider and embedding-item
-integration, production-shaped same-session evidence, and exact Linux remain
-open. Native-v1 stays the default oracle; Phase 7 authorizes no cutover.
-
-Phase 8 is a donation-opportunities, ownership, compatibility, and retirement-
-readiness report, not a tutorial. Its report deliverable is complete on
-2026-08-24, while Gate 8 programme closeout is explicitly not satisfied. Do
-not invent a Phase-8 tutorial; retain separate approval gates for donation
-submission, cutover, and native removal.
-
-Preserve the ordered Phase-2 evidence and Gate-2 closeout. Advance phases in
-roadmap order and do not combine their commits. Hosted-provider qualifications
-may use the phase's explicit bounded call/token/cost/privacy budget and symbolic
-secret references; never retain or print credentials. The sequential authority
-does not authorize normal-prefix or sibling-CREXX changes, donation submission,
-dual-write, cutover, native-core removal, push, pull request, or release. Phase
-commits are authorized; push remains separate.
-
-CRI-15 remains an open exact downstream installed-CREXX Linux replay. Do not
-hide it in a product workaround or claim Linux provider timeout qualification
-until it passes or is separately dispositioned. CRI-16 separately withholds
-provider-lifetime reuse, streaming, and cancellation claims from the current
-one-operation/one-pool application adapters; the installed HTTP substrate is
-already qualified within its own upstream scope.
-
-## Required Reading
-
-Before programme implementation, read these files completely:
-
-- `docs/README.md`
-- `docs/crexx-only-vision-and-specification.md`
-- `docs/crexx-only-review-findings.md`
-- `docs/crexx-only-architecture.md`
-- `docs/crexx-only-implementation-roadmap.md`
-- `docs/crexx-only-user-guide.md`
+- `README.md`
+- `docs/architecture.md`
+- `docs/user-guide.md`
 - `docs/test-strategy.md`
-- `docs/pipeline-status.md`
-- `docs/gate1a-decision-ledger.md`
-- `docs/gate1b-decision-ledger.md`
-- `incubator/README.md`
-- `docs/evidence/2026-07-28-phase0-gate1a/GATE-1A-DECISION-PACKET.md`
-- `docs/evidence/2026-07-31-gate1a-crexx-candidate/CANDIDATE-INTEGRATION-CLOSEOUT.md`
-- `docs/evidence/2026-08-03-linux-build/LINUX-BUILD-REVIEW.md`
-- `docs/evidence/2026-08-03-phase1b/GATE-1B-DECISION-PACKET.md`
-- `docs/evidence/2026-08-03-phase1b/CAPABILITY-LEDGER.md`
-- `docs/evidence/2026-08-04-phase2/WORKLIST.md`
-- `docs/evidence/2026-08-04-phase2/ENTRY-BASELINE.md`
-- `docs/evidence/2026-08-04-phase2/P2-01.md`
-- `docs/evidence/2026-08-04-phase2/P2-02.md`
-- `docs/evidence/2026-08-04-phase2/P2-03.md`
-- `docs/evidence/2026-08-23-phase2-gate2-closeout/README.md`
-- `prompts/phase1b-implementation-handoff.md`
-- `prompts/crexx-rag-agent-AGENTS.md`
+- `docs/integration-issues.md`
 
-Files below `docs/archive/` and `prompts/archive/` are frozen native-v1 oracle
-evidence. Use them to reproduce behavior and derive fixtures; do not treat them
-as current architecture, user guidance, or agent instructions.
+Read `native/sqlite/README.md` and `native/sqlite/SYSTEM.md` before SQLite
+provider changes.
 
-## Programme Boundaries
+## Public surface
 
-- Preserve the current C++ core, C ABI, `rx_rag` bridge, version-1 bundle,
-  CLI/MCP behavior, and tests as the executable oracle until an explicit later
-  cutover decision.
-- Do not dual-write a live library. Compare scratch libraries, copies, and
-  sanitized fixtures semantically rather than by incidental row ids or JSON
-  formatting.
-- Keep SQLite as the source of truth. Vector stores are rebuildable sidecars and
-  vector similarity never creates a typed claim.
-- Every typed claim must be directional and backed by independently addressable
-  source support. Ambiguity and contradiction stay explicit.
-- Implement maintained application, reusable advanced-library, fixture,
-  benchmark, test, and analysis logic in cREXX Level G. Level G may consume
-  installed Level-B foundation libraries normally. C/C++ is for generic
-  plugins; CMake/CTest is for integration. Shell may bootstrap but must not own
-  product algorithms. Do not make Python part of the repeatable pipeline.
-- Keep CLI, `ADDRESS RAG`, Level G, and MCP as thin bindings over one cREXX
-  operation vocabulary.
-- Keep MCP read-only by default. Mutations require explicit capability gating,
-  plan/apply revalidation, and negative tests.
-- Provider calls belong behind one cREXX local/hosted contract. Do not shell
-  through `curl` or the native-v1 RAG CLI in the new path.
+The enduring executable name is `crexxrag`. Keep human commands concise and
+terminal-friendly. The local defaults are `./crexxrag.conf` and `./library`.
+Machine callers use the same operation vocabulary with JSON/NDJSON or MCP.
+Do not add shell scripts that own product workflows.
 
-## Completed Phase 1B Evidence
+Gemini remains the hosted regression route. Codex uses managed App Server
+authentication; never extract tokens. Local embeddings use the
+OpenAI-compatible llama.cpp endpoint. Preserve privacy route classification and
+charging basis in reviewed plans and completed usage.
 
-- Preserve the dated worklist, item evidence, raw results, and handoff as the
-  exact record of the completed bounded sequence.
-- Keep generic mechanisms separated from application code. SQL repositories,
-  schema, and graph/source/claim/job algorithms and policy remain cREXX
-  application responsibilities.
-- Do not reinterpret the five secret-gated `P1-LLM-04` calls as authorization
-  for more hosted traffic. Never retain credentials or unredacted authorization
-  material.
-- Follow the Phase-2 worklist in order with at most one item active. Give every
-  parallel generic capability stream its own equivalent boundary. Continue to
-  use scratch libraries/copies and never dual-write a live library.
+## CREXX boundary
 
-## CREXX Compatibility Boundary
+Use the installed CREXX package. A sibling CREXX checkout is read-only unless
+the user separately authorizes changes there. CREXX infrastructure gaps belong
+in `docs/integration-issues.md`; do not hide them in product-specific native
+code.
 
-Use the installed CREXX toolchain first. Any sibling CREXX checkout is read-only
-reference material and may be changing underneath this project.
+Worker processes each open their own SQLite connection. In-process attached
+tasks must not call the native provider until CREXX supports provider discovery
+for child task VMs.
 
-For planning, assume the sister PERF2 programme completes successfully. Do not
-edit, build in, reconfigure, commit, stash, clean, sequence, or otherwise
-interfere with that work. An approved SDK qualification may copy exact required
-artifacts into a temporary scratch prefix; it must write nothing back and must
-not install into the user's normal prefix.
+## Build and QA
 
-Installed-package and plugin gaps belong in
-`docs/crexx-integration-issues.md`. The native-v1 RXPA workaround is historical
-evidence, not the target data boundary.
-
-## Current Oracle Build
-
-```bash
+```sh
 cmake --preset debug
 cmake --build --preset debug
 ctest --preset debug --output-on-failure
+git diff --check
 ```
 
-The debug preset uses Ninja and `cmake-build-debug`. Preserve the defensive
-SQLite CMake link order: `SQLite3::SQLite3`, then `SQLite::SQLite3`, then legacy
-variables. Keep build artifacts, `.cprag` libraries, `.local/`, and `.idea/`
-untracked.
+Run focused tests while iterating, then the full suite after changes affecting
+schema, providers, workers, public commands, or retrieval. Provider changes
+must retain the Gemini smoke test and the malformed-output/secret-redaction
+negative cases. Hosted live calls require explicit bounded authority.
 
-For current-oracle maintenance details only, consult
-`docs/archive/native-v1/AGENTS-native-v1.md`. Its old native-core intent and
-milestone are superseded by this file.
+## Worktree and publication
 
-## Worktree And Publication
+Inspect branch, HEAD, status, and relevant diffs before editing. Preserve
+unrelated user changes. Never stash, reset, clean, push, release, or modify the
+sibling CREXX checkout without explicit authority. Use scratch libraries for
+tests and never operate on an unrequested user library.
 
-- Inspect branch, HEAD, status, and relevant diffs before editing.
-- Treat pre-existing tracked and untracked changes as user-owned. Never stash,
-  reset, clean, overwrite, or reformat unrelated work.
-- Update the roadmap, `docs/pipeline-status.md`, `docs/test-strategy.md`, and
-  evidence links whenever a programme gate or implemented behavior changes.
-- Keep target documents explicit about implemented versus specified behavior.
-- Do not edit archived evidence except to repair an archive label or broken
-  link; record new findings in current documents or dated evidence.
-- Do not stage, commit, push, or open a pull request unless the user separately
-  requests it.
-- Before publication, run the full configure/build/CTest commands above and
-  `git diff --check`.
+Local commits are made only when requested. Push and release are separate
+authorities.

@@ -1,2 +1,0 @@
-The Reporting Component reads User Profile Data from PostgreSQL.
-The Authentication Service sends account changes to the Reporting Component.

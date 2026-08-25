@@ -30,14 +30,14 @@ dispatchfoundation: procedure = .ragcommandresult
   if operation = "profile.validate" then return _profilevalidate(request, registry)
   if operation = "ingest.plan" | operation = "improve.plan" | operation = "proposal.plan" then return _plancreate(request, registry)
   if operation = "ingest.apply" | operation = "improve.apply" | operation = "proposal.apply" then return _planapply(request, registry)
-  return _failure(operation, 8, "operation is not implemented by the Phase-2 foundation facade")
+  return _failure(operation, 8, "operation is not implemented by the product dispatcher")
 
 _doctor: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
   error = ""
   if _validateoptions(request, "", error) \= 0 then return _failure("doctor", 2, error)
   records = .ragresultrecord[]
-  records[records.0 + 1] = _capabilityrecord("sqlite-boundary-v1", "required", "loaded")
+  records[records.0 + 1] = _capabilityrecord("sqlite-provider-v1", "required", "loaded")
   records[records.0 + 1] = _capabilityrecord("rxjson-document-v1", "required", "loaded")
   records[records.0 + 1] = _capabilityrecord("rxhash-sha256-v1", "required", "loaded")
   records[records.0 + 1] = _capabilityrecord("binary-file-v1", "required", "loaded")
@@ -254,7 +254,7 @@ _providertest: procedure = .ragcommandresult
     return .ragcommandresult("provider.test", "error", 8, "hosted provider probe requires separately authorized canary qualification", records)
   end
   records[1] = _providerrecord(provider, "configuration-valid", 0, 0)
-  return .ragcommandresult("provider.test", "ok", 0, "local provider configuration is valid; Phase-2 test made no reachability request", records)
+  return .ragcommandresult("provider.test", "ok", 0, "local provider configuration is valid; no reachability request was made", records)
 
 _profilevalidate: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry

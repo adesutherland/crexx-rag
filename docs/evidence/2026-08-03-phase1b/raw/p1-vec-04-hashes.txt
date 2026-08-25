@@ -1,8 +1,0 @@
-e99f52b0cc556c78ca89f8a8827197fed588ea3f53edcb8420835665576371a8  docs/evidence/2026-08-03-phase1b/P1-VEC-01.md
-ecc0256e4b8846cc45242db61ddf615cbb77745859a21b8e904463d8a254cd1b  docs/evidence/2026-08-03-phase1b/P1-VEC-02.md
-818ab8a644066537f140e96fc9a54d0923922e2cc8358f033c870dd804ffe070  docs/evidence/2026-08-03-phase1b/P1-VEC-03.md
-e04587f41cd1147b4e92aee78df9ba6c806d6f11c187e8da9a3635ddc607c5f8  docs/evidence/2026-08-03-phase1b/P1-VEC-04.md
-f2f656203665b1a5283abaacc4c6524a62bf281757307b4b787e683fa303ae26  docs/evidence/2026-08-03-phase1b/raw/vector-closeout-ctest.txt
-303f1f70dcb1201728f770a755c101fa96fa2748a6647a64b4fd61c10a54da0a  docs/gate1a-decision-ledger.md
-aa28281fc3492d13682c05f98a1d0ef95cdd9acb7bf73ccf93b5ba12302e8692  docs/crexx-only-architecture.md
-637341bbbf70d3f16a88f00120fca44c4f13f934ef60fc247cadc79e5a9456ba  docs/crexx-only-implementation-roadmap.md

@@ -1,5 +1,0 @@
-b27446868d0de2c069574cdae57914b50b640dd5
-# branch.oid b27446868d0de2c069574cdae57914b50b640dd5
-# branch.head develop
-# branch.upstream origin/develop
-# branch.ab +0 -0

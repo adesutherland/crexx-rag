@@ -1,1 +1,0 @@
-P4_SOAK_OK worker=supervised-soak-rxvme idle_polls=28800 processed=4 job_state=completed

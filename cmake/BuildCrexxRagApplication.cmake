@@ -9,7 +9,7 @@ endforeach()
 set(app_modules
     ragmodel ragevidence ragjob ragconfig ragprofile ragregistry ragschema
     ragfile ragconfigfile ragstore ragbackup ragrepository ragcanonical ragplanning
-    ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragwork ragquery
+    ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragproposalio ragwork ragquery
     ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragproviderdiagnostics ragapplicationprovider ragqueryprovider ragquerypolicy ragproduct)
 set(provider_modules
     provider_contract provider_catalog provider_http industrial_provider codex_provider)
@@ -62,11 +62,14 @@ compile_module("${CPRAG_APP_DIR}/config/profiles/it_architecture_profile.crexx"
 compile_module("${CPRAG_APP_DIR}/config/operator_registry.crexx"
     operator_registry)
 compile_module("${CPRAG_APP_DIR}/surfaces/ragmcp.crexx" ragmcp)
-compile_module("${CPRAG_APP_DIR}/surfaces/crexx_rag_cli.crexx" crexx_rag_cli)
+compile_module("${CPRAG_APP_DIR}/surfaces/rag_address_environment.crexx"
+    rag_address_environment)
+compile_module("${CPRAG_APP_DIR}/surfaces/crexxrag_cli.crexx" crexxrag_cli)
 
 set(link_inputs
-    "${CPRAG_OUTPUT_DIR}/crexx_rag_cli.rxbin"
-    "${CPRAG_OUTPUT_DIR}/ragmcp.rxbin")
+    "${CPRAG_OUTPUT_DIR}/crexxrag_cli.rxbin"
+    "${CPRAG_OUTPUT_DIR}/ragmcp.rxbin"
+    "${CPRAG_OUTPUT_DIR}/rag_address_environment.rxbin")
 foreach(module IN LISTS provider_modules)
     list(APPEND link_inputs "${CPRAG_OUTPUT_DIR}/${module}.rxbin")
 endforeach()
@@ -79,10 +82,10 @@ list(APPEND link_inputs
     "${CPRAG_CREXX_BIN_DIR}/library.rxbin")
 
 execute_process(
-    COMMAND "${CPRAG_RXLINK}" -s -r crexx_rag_cli
-        -m "${CPRAG_OUTPUT_DIR}/crexx-rag.map"
-        -p "${CPRAG_OUTPUT_DIR}/crexx-rag.rxproviders"
-        -o "${CPRAG_OUTPUT_DIR}/crexx-rag"
+    COMMAND "${CPRAG_RXLINK}" -s -r crexxrag_cli
+        -m "${CPRAG_OUTPUT_DIR}/crexxrag.map"
+        -p "${CPRAG_OUTPUT_DIR}/crexxrag.rxproviders"
+        -o "${CPRAG_OUTPUT_DIR}/crexxrag"
         ${link_inputs}
     WORKING_DIRECTORY "${CPRAG_OUTPUT_DIR}"
     RESULT_VARIABLE link_result
@@ -93,7 +96,7 @@ if(NOT link_result EQUAL 0)
         "cREXX application link failed:\n${link_out}${link_err}")
 endif()
 
-file(READ "${CPRAG_OUTPUT_DIR}/crexx-rag.rxproviders" provider_requirements)
+file(READ "${CPRAG_OUTPUT_DIR}/crexxrag.rxproviders" provider_requirements)
 if(NOT provider_requirements MATCHES "required[\t ]+rx_sqlite_boundary[\t ]")
     message(FATAL_ERROR
         "linked application did not declare the static SQLite provider")
@@ -111,12 +114,12 @@ file(COPY
     "${CPRAG_PLUGIN_PROVIDER_DIR}/rx_sqlite_boundary.rxplugin"
     DESTINATION "${CPRAG_OUTPUT_DIR}/providers")
 
-file(SHA256 "${CPRAG_OUTPUT_DIR}/crexx-rag.rxbin" application_sha256)
+file(SHA256 "${CPRAG_OUTPUT_DIR}/crexxrag.rxbin" application_sha256)
 file(WRITE "${CPRAG_OUTPUT_DIR}/artifact.txt"
-    "artifact=crexx-rag.rxbin\n"
+    "artifact=crexxrag.rxbin\n"
     "sha256=${application_sha256}\n"
-    "root=crexx_rag_cli\n"
+    "root=crexxrag_cli\n"
     "level=G\n"
     "hosted_calls=0\n")
 message(STATUS
-    "Built linked cREXX application ${CPRAG_OUTPUT_DIR}/crexx-rag.rxbin (${application_sha256})")
+    "Built linked cREXX application ${CPRAG_OUTPUT_DIR}/crexxrag.rxbin (${application_sha256})")

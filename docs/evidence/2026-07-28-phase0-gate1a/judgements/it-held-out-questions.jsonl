@@ -1,4 +1,0 @@
-{"case_id":"it-ho-01-path","question":"Trace the approved dependency path from Parcel API to destination records and identify the replica risk."}
-{"case_id":"it-ho-02-alias","question":"What is ADX, and which component reads it?"}
-{"case_id":"it-ho-03-ambiguity","question":"What datastore does Orion use?"}
-{"case_id":"it-ho-04-stance","question":"Does the design claim every destination replica is current during regional failover?"}

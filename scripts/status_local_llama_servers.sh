@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-state_dir="${CPRAG_LLAMA_STATE_DIR:-.local/llama-servers}"
+state_dir="${CREXXRAG_LLAMA_STATE_DIR:-.local/llama-servers}"
 if [[ -d "${state_dir}" ]]; then
   state_dir="$(cd "${state_dir}" && pwd)"
 fi
 
-embedding_host="${CPRAG_EMBEDDING_HOST:-127.0.0.1}"
-embedding_port="${CPRAG_EMBEDDING_PORT:-8081}"
-embedding_base_url="${CPRAG_LLAMA_SERVER_BASE_URL:-http://${embedding_host}:${embedding_port}/v1}"
-embedding_model="${CPRAG_EMBEDDING_MODEL:-nomic-embed-text-v1.5}"
+embedding_host="${CREXXRAG_EMBEDDING_HOST:-127.0.0.1}"
+embedding_port="${CREXXRAG_EMBEDDING_PORT:-8081}"
+embedding_base_url="${CREXXRAG_LLAMA_SERVER_BASE_URL:-http://${embedding_host}:${embedding_port}/v1}"
+embedding_model="${CREXXRAG_EMBEDDING_MODEL:-nomic-embed-text-v1.5}"
 
-chat_host="${CPRAG_CHAT_HOST:-127.0.0.1}"
-chat_port="${CPRAG_CHAT_PORT:-8080}"
-chat_base_url="${CPRAG_CHAT_BASE_URL:-http://${chat_host}:${chat_port}/v1}"
-chat_model="${CPRAG_CHAT_MODEL_REF:-ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M}"
+chat_host="${CREXXRAG_CHAT_HOST:-127.0.0.1}"
+chat_port="${CREXXRAG_CHAT_PORT:-8080}"
+chat_base_url="${CREXXRAG_CHAT_BASE_URL:-http://${chat_host}:${chat_port}/v1}"
+chat_model="${CREXXRAG_CHAT_MODEL_REF:-ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M}"
 
-advisor_host="${CPRAG_ADVISOR_HOST:-127.0.0.1}"
-advisor_port="${CPRAG_ADVISOR_PORT:-8084}"
-advisor_base_url="${CPRAG_LLAMA_SERVER_ADVICE_BASE_URL:-http://${advisor_host}:${advisor_port}/v1}"
-advisor_model="${CPRAG_LLM_ADVICE_MODEL:-${CPRAG_ADVISOR_MODEL_REF:-Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M}}"
+advisor_host="${CREXXRAG_ADVISOR_HOST:-127.0.0.1}"
+advisor_port="${CREXXRAG_ADVISOR_PORT:-8084}"
+advisor_base_url="${CREXXRAG_LLAMA_SERVER_ADVICE_BASE_URL:-http://${advisor_host}:${advisor_port}/v1}"
+advisor_model="${CREXXRAG_LLM_ADVICE_MODEL:-${CREXXRAG_ADVISOR_MODEL_REF:-Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M}}"
 
 smoke=0
 required=""
@@ -28,7 +28,7 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/status_local_llama_servers.sh [--smoke] [--require NAME]
 
-Checks local llama.cpp servers used by crexx-rag.
+Checks local llama.cpp servers used by crexxrag.
 
 Names for --require:
   embedding

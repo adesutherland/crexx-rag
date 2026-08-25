@@ -1,6 +1,0 @@
-{"step":"plan","schema":"crexx-rag.query-plan/1","fingerprint":"sha256","provider_calls":0}
-{"step":"embed","state":"complete","embedded":5,"provider_calls":3,"credentials_used":0}
-{"step":"publish-vector","state":"published","dimension":4,"rows":5,"format":"rxvec"}
-{"step":"retrieve","state":"complete","vector_state":"active-exact-rxvector","passages":5,"candidate_ceiling":24}
-{"step":"answer-context","schema":"crexx-rag.answer-context/1","bounded_bytes":65536,"stable_citations":true}
-{"step":"resolve","immutable_revision":true,"utf8_byte_span":true,"same_library":true}

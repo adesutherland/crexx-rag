@@ -1,5 +1,0 @@
-{"step":"discover","sources":3,"stable_keys":"README.md,operations.txt,services/auth.crexx"}
-{"step":"plan","schema":"crexx-rag.ingest-plan/1","expected_generation":1,"provider_calls":0}
-{"step":"apply","generation":2,"sources_added":3,"sources_changed":0,"sources_deleted":0,"chunks_created":5,"chunks_reused":0,"provider_calls":0}
-{"step":"repeat","disposition":"identical-no-op","library_writes":0,"provider_calls":0}
-{"step":"inspect","term":"identity","occurrences":2,"source_diversity":2}

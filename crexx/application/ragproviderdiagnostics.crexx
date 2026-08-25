@@ -30,13 +30,13 @@ ragproviderdiagnostic: class
     return _detail
 
 codexexecutable: procedure = .string
-  executable = getenv("CREXX_RAG_CODEX")
+  executable = getenv("CREXXRAG_CODEX")
   if executable \= "" then return executable
   if rxfs..isfile("/Applications/ChatGPT.app/Contents/Resources/codex") = 1 then return "/Applications/ChatGPT.app/Contents/Resources/codex"
   return ""
 
 llamacppinstalled: procedure = .int
-  configured = getenv("CREXX_RAG_LLAMA_SERVER")
+  configured = getenv("CREXXRAG_LLAMA_SERVER")
   if configured \= "" then return rxfs..isfile(configured)
   if rxfs..isfile("/opt/homebrew/bin/llama-server") = 1 then return 1
   return rxfs..isfile("/usr/local/bin/llama-server")

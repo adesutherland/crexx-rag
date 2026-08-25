@@ -748,7 +748,7 @@ _reservationcaps: procedure = .int
   root = document.root()
   if document.node_int(document.member(root, "maximum_call_input_tokens"), maximum_input) \= 0 | document.node_int(document.member(root, "maximum_call_output_tokens"), maximum_output) \= 0 | document.node_int(document.member(root, "maximum_call_cost"), maximum_cost) \= 0 | document.node_int(document.member(root, "maximum_call_time_ms"), maximum_time) \= 0 then return -1
   input_json = _boundscalartext(database, "SELECT input_json FROM job_items WHERE item_id=?1", item_id)
-  /* Phase-4 improvement items predate the exact Phase-3 work envelope and
+  /* Improvement items can use a distinct work envelope and
    * intentionally retain their validated job-level per-call ceilings. */
   if input_json = "" then return 0
   input_document = .jsondocument(input_json)

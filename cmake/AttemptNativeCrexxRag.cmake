@@ -8,14 +8,14 @@ endforeach()
 set(app_modules
     ragmodel ragevidence ragjob ragconfig ragprofile ragregistry ragschema
     ragfile ragconfigfile ragstore ragbackup ragrepository ragcanonical ragplanning
-    ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragwork ragquery
+    ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragproposalio ragwork ragquery
     ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragproviderdiagnostics ragapplicationprovider ragqueryprovider ragquerypolicy ragproduct)
 set(provider_modules
     provider_contract provider_catalog provider_http industrial_provider codex_provider)
 set(config_modules
     architecture_local_config generic_profile it_architecture_profile
     operator_registry)
-set(surface_modules ragmcp)
+set(surface_modules ragmcp rag_address_environment)
 
 set(sdk_prefix "${CPRAG_OUTPUT_DIR}/sdk")
 set(package_dir "${CPRAG_OUTPUT_DIR}/package")
@@ -31,9 +31,9 @@ file(COPY "${CPRAG_SQLITE_PROVIDER_ARCHIVE}"
 # link configuration; the user's installed CREXX prefix remains untouched.
 file(APPEND "${sdk_prefix}/bin/crexx_native_libs_argv" "-lsqlite3\n")
 
-configure_file("${CPRAG_MAIN_SOURCE}" "${package_dir}/crexx-rag.crexx" COPYONLY)
-configure_file("${CPRAG_APPLICATION_DIR}/crexx_rag_cli.rxbin"
-    "${package_dir}/crexx-rag.rxbin" COPYONLY)
+configure_file("${CPRAG_MAIN_SOURCE}" "${package_dir}/crexxrag.crexx" COPYONLY)
+configure_file("${CPRAG_APPLICATION_DIR}/crexxrag_cli.rxbin"
+    "${package_dir}/crexxrag.rxbin" COPYONLY)
 
 set(native_libraries)
 foreach(module IN LISTS provider_modules app_modules config_modules surface_modules)
@@ -45,9 +45,9 @@ list(APPEND native_libraries -l "${sdk_prefix}/bin/rxfnsg.rxbin")
 execute_process(
     COMMAND "${sdk_prefix}/bin/crexx"
         -native -nocompile -noexec -nocolor -verbose2
-        --linkmap "${package_dir}/crexx-rag-native.map"
+        --linkmap "${package_dir}/crexxrag-native.map"
         ${native_libraries}
-        crexx-rag.crexx
+        crexxrag.crexx
     WORKING_DIRECTORY "${package_dir}"
     RESULT_VARIABLE native_result
     OUTPUT_VARIABLE native_out
@@ -59,16 +59,9 @@ if(NOT native_result EQUAL 0)
         "CREXX native application packaging failed; inspect ${package_dir}/native-build.txt")
 endif()
 
-if(NOT EXISTS "${package_dir}/crexx-rag${CMAKE_EXECUTABLE_SUFFIX}")
+if(NOT EXISTS "${package_dir}/crexxrag${CMAKE_EXECUTABLE_SUFFIX}")
     message(FATAL_ERROR "CREXX native packager returned success without an executable")
 endif()
-
-# `crexxrag` is the enduring human product name.  Keep the historical
-# `crexx-rag` spelling beside it while native-v1 remains the executable oracle.
-file(COPY_FILE
-    "${package_dir}/crexx-rag${CMAKE_EXECUTABLE_SUFFIX}"
-    "${package_dir}/crexxrag${CMAKE_EXECUTABLE_SUFFIX}"
-    ONLY_IF_DIFFERENT)
 
 execute_process(
     COMMAND "${package_dir}/crexxrag${CMAKE_EXECUTABLE_SUFFIX}"
@@ -92,7 +85,7 @@ endif()
 
 execute_process(
     COMMAND "${CMAKE_COMMAND}" -E env
-        "CREXX_RAG_SELF=${package_dir}/crexxrag${CMAKE_EXECUTABLE_SUFFIX}"
+        "CREXXRAG_SELF=${package_dir}/crexxrag${CMAKE_EXECUTABLE_SUFFIX}"
         "${package_dir}/crexxrag${CMAKE_EXECUTABLE_SUFFIX}"
         --library "${package_dir}/library"
         --config architecture-local --profile generic-profile

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-state_dir="${CPRAG_LLAMA_STATE_DIR:-.local/llama-servers}"
+state_dir="${CREXXRAG_LLAMA_STATE_DIR:-.local/llama-servers}"
 mkdir -p "${state_dir}"
 state_dir="$(cd "${state_dir}" && pwd)"
 
-start_mode="${CPRAG_LLAMA_START_MODE:-}"
+start_mode="${CREXXRAG_LLAMA_START_MODE:-}"
 if [[ -z "${start_mode}" ]]; then
   if [[ "$(uname -s)" == "Darwin" ]] && command -v launchctl >/dev/null 2>&1; then
     start_mode="launchctl"
@@ -14,28 +14,28 @@ if [[ -z "${start_mode}" ]]; then
   fi
 fi
 
-embedding_model="${CPRAG_EMBEDDING_MODEL_REF:-nomic-ai/nomic-embed-text-v1.5-GGUF:Q4_K_M}"
-embedding_host="${CPRAG_EMBEDDING_HOST:-127.0.0.1}"
-embedding_port="${CPRAG_EMBEDDING_PORT:-8081}"
-embedding_ctx="${CPRAG_EMBEDDING_CTX_SIZE:-2048}"
-embedding_batch="${CPRAG_EMBEDDING_BATCH_SIZE:-2048}"
-embedding_ubatch="${CPRAG_EMBEDDING_UBATCH_SIZE:-1024}"
-embedding_parallel="${CPRAG_EMBEDDING_PARALLEL:-1}"
-embedding_cache_ram="${CPRAG_EMBEDDING_CACHE_RAM:-0}"
+embedding_model="${CREXXRAG_EMBEDDING_MODEL_REF:-nomic-ai/nomic-embed-text-v1.5-GGUF:Q4_K_M}"
+embedding_host="${CREXXRAG_EMBEDDING_HOST:-127.0.0.1}"
+embedding_port="${CREXXRAG_EMBEDDING_PORT:-8081}"
+embedding_ctx="${CREXXRAG_EMBEDDING_CTX_SIZE:-2048}"
+embedding_batch="${CREXXRAG_EMBEDDING_BATCH_SIZE:-2048}"
+embedding_ubatch="${CREXXRAG_EMBEDDING_UBATCH_SIZE:-1024}"
+embedding_parallel="${CREXXRAG_EMBEDDING_PARALLEL:-1}"
+embedding_cache_ram="${CREXXRAG_EMBEDDING_CACHE_RAM:-0}"
 
-chat_model="${CPRAG_CHAT_MODEL_REF:-ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M}"
-chat_host="${CPRAG_CHAT_HOST:-127.0.0.1}"
-chat_port="${CPRAG_CHAT_PORT:-8080}"
-chat_ctx="${CPRAG_CHAT_CTX_SIZE:-2048}"
-chat_parallel="${CPRAG_CHAT_PARALLEL:-1}"
-chat_cache_ram="${CPRAG_CHAT_CACHE_RAM:-0}"
+chat_model="${CREXXRAG_CHAT_MODEL_REF:-ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M}"
+chat_host="${CREXXRAG_CHAT_HOST:-127.0.0.1}"
+chat_port="${CREXXRAG_CHAT_PORT:-8080}"
+chat_ctx="${CREXXRAG_CHAT_CTX_SIZE:-2048}"
+chat_parallel="${CREXXRAG_CHAT_PARALLEL:-1}"
+chat_cache_ram="${CREXXRAG_CHAT_CACHE_RAM:-0}"
 
-advisor_model="${CPRAG_ADVISOR_MODEL_REF:-Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M}"
-advisor_host="${CPRAG_ADVISOR_HOST:-127.0.0.1}"
-advisor_port="${CPRAG_ADVISOR_PORT:-8084}"
-advisor_ctx="${CPRAG_ADVISOR_CTX_SIZE:-2048}"
-advisor_parallel="${CPRAG_ADVISOR_PARALLEL:-1}"
-advisor_cache_ram="${CPRAG_ADVISOR_CACHE_RAM:-0}"
+advisor_model="${CREXXRAG_ADVISOR_MODEL_REF:-Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M}"
+advisor_host="${CREXXRAG_ADVISOR_HOST:-127.0.0.1}"
+advisor_port="${CREXXRAG_ADVISOR_PORT:-8084}"
+advisor_ctx="${CREXXRAG_ADVISOR_CTX_SIZE:-2048}"
+advisor_parallel="${CREXXRAG_ADVISOR_PARALLEL:-1}"
+advisor_cache_ram="${CREXXRAG_ADVISOR_CACHE_RAM:-0}"
 
 start_embedding=1
 start_chat=1
@@ -51,28 +51,28 @@ Starts local llama.cpp servers in the background:
   - advisor: Qwen on 127.0.0.1:8084
 
 Environment overrides:
-  CPRAG_LLAMA_STATE_DIR       PID/log directory, default .local/llama-servers
-  CPRAG_LLAMA_START_MODE      launchctl or fork; default launchctl on macOS
-  CPRAG_EMBEDDING_MODEL_REF   default nomic-ai/nomic-embed-text-v1.5-GGUF:Q4_K_M
-  CPRAG_EMBEDDING_HOST        default 127.0.0.1
-  CPRAG_EMBEDDING_PORT        default 8081
-  CPRAG_EMBEDDING_CTX_SIZE    default 2048
-  CPRAG_EMBEDDING_BATCH_SIZE  default 2048
-  CPRAG_EMBEDDING_UBATCH_SIZE default 1024
-  CPRAG_EMBEDDING_PARALLEL    default 1
-  CPRAG_EMBEDDING_CACHE_RAM   default 0
-  CPRAG_CHAT_MODEL_REF        default ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M
-  CPRAG_CHAT_HOST             default 127.0.0.1
-  CPRAG_CHAT_PORT             default 8080
-  CPRAG_CHAT_CTX_SIZE         default 2048
-  CPRAG_CHAT_PARALLEL         default 1
-  CPRAG_CHAT_CACHE_RAM        default 0
-  CPRAG_ADVISOR_MODEL_REF     default Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M
-  CPRAG_ADVISOR_HOST          default 127.0.0.1
-  CPRAG_ADVISOR_PORT          default 8084
-  CPRAG_ADVISOR_CTX_SIZE      default 2048
-  CPRAG_ADVISOR_PARALLEL      default 1
-  CPRAG_ADVISOR_CACHE_RAM     default 0
+  CREXXRAG_LLAMA_STATE_DIR       PID/log directory, default .local/llama-servers
+  CREXXRAG_LLAMA_START_MODE      launchctl or fork; default launchctl on macOS
+  CREXXRAG_EMBEDDING_MODEL_REF   default nomic-ai/nomic-embed-text-v1.5-GGUF:Q4_K_M
+  CREXXRAG_EMBEDDING_HOST        default 127.0.0.1
+  CREXXRAG_EMBEDDING_PORT        default 8081
+  CREXXRAG_EMBEDDING_CTX_SIZE    default 2048
+  CREXXRAG_EMBEDDING_BATCH_SIZE  default 2048
+  CREXXRAG_EMBEDDING_UBATCH_SIZE default 1024
+  CREXXRAG_EMBEDDING_PARALLEL    default 1
+  CREXXRAG_EMBEDDING_CACHE_RAM   default 0
+  CREXXRAG_CHAT_MODEL_REF        default ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M
+  CREXXRAG_CHAT_HOST             default 127.0.0.1
+  CREXXRAG_CHAT_PORT             default 8080
+  CREXXRAG_CHAT_CTX_SIZE         default 2048
+  CREXXRAG_CHAT_PARALLEL         default 1
+  CREXXRAG_CHAT_CACHE_RAM        default 0
+  CREXXRAG_ADVISOR_MODEL_REF     default Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M
+  CREXXRAG_ADVISOR_HOST          default 127.0.0.1
+  CREXXRAG_ADVISOR_PORT          default 8084
+  CREXXRAG_ADVISOR_CTX_SIZE      default 2048
+  CREXXRAG_ADVISOR_PARALLEL      default 1
+  CREXXRAG_ADVISOR_CACHE_RAM     default 0
 USAGE
 }
 
@@ -124,7 +124,7 @@ start_server() {
   local label_file="${pid_file%.pid}.label"
   local label_suffix
   label_suffix="$(basename "${pid_file}" .pid)"
-  local label="local.crexx-rag.${label_suffix}"
+  local label="local.crexxrag.${label_suffix}"
   shift 3
 
   if [[ -f "${pid_file}" ]] && kill -0 "$(cat "${pid_file}")" >/dev/null 2>&1; then
