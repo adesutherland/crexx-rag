@@ -3,9 +3,9 @@
 Status: Gate 1B reached on 2026-08-03 and accepted on 2026-08-04. All bounded
 Phase-1B items are complete. Phase 2 started on 2026-08-04 from the pushed
 entry baseline in `docs/evidence/2026-08-04-phase2/`; `P2-01` through `P2-10`
-and Gate 2 are accepted for the current macOS scope. Phase 3's reconciler
-component plus Phases 4 and 5 retain their recorded macOS evidence; Phase 3
-product ingestion acceptance is reopened as Gate 3R. Exact downstream Linux
+and Gate 2 are accepted for the current macOS scope. Phase 3's reconciler and
+Gate 3R product ingestion are accepted for the recorded macOS/Gemini scope;
+Phases 4 and 5 retain their recorded macOS evidence. Exact downstream Linux
 replay remains open. Phase 5 also retains an explicit hosted answer-quality
 qualification while its cREXX hosted transport finding remains Phase-7 work.
 The authority is recorded in
@@ -504,21 +504,32 @@ semantic delta, and exact limitations remain retained in the
 
 On 2026-08-24 the user approved a
 [`Phase-3 product re-baseline`](evidence/2026-08-24-phase3-product-rebaseline/WORKLIST.md).
-It reopens product ingestion acceptance because the original gate deliberately
+It reopened product ingestion acceptance because the original gate deliberately
 made zero provider calls, deferred provider-backed claim/embedding execution,
-and did not ship one ordinary installed cREXX application command. Gate 3R now
-requires the enduring installed application to complete fresh-library
+and did not ship one ordinary installed cREXX application command. Gate 3R
+required the enduring installed application to complete fresh-library
 ingestion through real Google Gemini generation, owned embedding work,
 deterministic claim validation/promotion, job reconciliation, public evidence
 retrieval, zero-call unchanged replay, and restart-safe changed replay. The
 accepted component work is reused and its dated evidence is not rewritten.
-The linked application, bounded `crexx-rag.config/1` projection, and durable
-OS-process framework are accepted first slices. The latter adds schema-v3
+The linked/native application, bounded `crexx-rag.config/1` projection, and durable
+OS-process framework are accepted. The latter adds schema-v3
 controller/worker rows, configurable child processes, separate SQLite
 connections, list/status/drain, heartbeat/PID diagnostics, and explicit
-pruning on both VMs. Its worker is deliberately `framework-idle`; the
-application-owned provider binding is the current item. No live model call is
-implied.
+pruning on both VMs. Migration 4 and the product processor add exact durable
+work envelopes, configured Gemini generation/embedding, validated claim
+promotion, public worker dispatch, and sanitized progress. The permanent
+native-product loopback now covers canonical machine operations and the
+human-first `init`/guided `ingest`/short `query` flow with automatic local
+configuration, library and sole-profile selection plus concurrent worker-safe
+budget reservations, truthful unchanged replay, useful controller failures and
+automatic exact vector publication. A pristine fresh native tutorial replay on
+2026-08-25 completed exactly two first-attempt Google calls, finished both job
+items, accepted one cited typed claim, published one 768-dimensional vector
+generation, verified cleanly and repeated unchanged with no job or calls. The
+complete Phase-3/3R and provider dependency tests pass, so Gate 3R is accepted
+for the recorded macOS/Gemini scope. The known CREXX prompt double-Enter remains
+accepted for now.
 Exact downstream Linux qualification remains open and native-v1 remains the
 oracle until a separate cutover decision.
 
@@ -704,9 +715,11 @@ failed selection criteria, so the decision does not rename, remove, or cut over
 the oracle. See the
 [`Phase-7 evidence`](evidence/2026-08-24-phase7/README.md) and separate
 [`cutover decision`](evidence/2026-08-24-phase7/cutover-decision.md).
-Subsequent Gate-3R work adds the public process lifecycle but deliberately
-leaves its processor `framework-idle`, so the provider and item-processing
-selection criteria remain open and the decision is unchanged.
+Subsequent Gate-3R work closed the public provider and item-processing gaps in
+the native Level-G product and completed a pristine bounded Gemini vertical
+slice. The cutover decision is still unchanged because the requested production
+comparison, exact Linux and a new explicit cutover decision remain incomplete;
+Gate 3R acceptance is not cutover authority.
 
 ## Phase 8 — Donation, Compatibility Release, And Native Retirement
 

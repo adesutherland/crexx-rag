@@ -160,6 +160,9 @@ if(CPRAG_BUILD_CREXX_APPLICATION AND CREXX_FOUND AND
         "${CPRAG_CREXX_APPLICATION_DIR}/crexx-rag.rxbin")
     set(CPRAG_CREXX_APPLICATION_SOURCES
         "${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_contract.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_catalog.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_http.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/industrial_provider.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragmodel.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragevidence.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragjob.crexx"
@@ -174,6 +177,7 @@ if(CPRAG_BUILD_CREXX_APPLICATION AND CREXX_FOUND AND
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragrepository.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragcanonical.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragplanning.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragtrace.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragcommand.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragingest.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragfolder.crexx"
@@ -186,6 +190,7 @@ if(CPRAG_BUILD_CREXX_APPLICATION AND CREXX_FOUND AND
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragevidencejson.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragfoundation.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragprocess.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragapplicationprovider.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragproduct.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/architecture_local_config.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/profiles/generic_profile.crexx"
@@ -241,7 +246,7 @@ if(CPRAG_BUILD_CREXX_APPLICATION AND CREXX_FOUND AND
     add_custom_target(crexx_rag_product ALL
         DEPENDS "${CMAKE_BINARY_DIR}/crexx-product/crexx-rag.rxbin")
 
-    add_custom_target(crexx_rag_native_attempt
+    add_custom_target(crexx_rag_native_attempt ALL
         COMMAND "${CMAKE_COMMAND}"
             "-DCPRAG_CREXX_PACKAGE_PREFIX=${CREXX_PACKAGE_PREFIX}"
             "-DCPRAG_APPLICATION_DIR=${CPRAG_CREXX_APPLICATION_DIR}"
@@ -303,6 +308,20 @@ if(CPRAG_BUILD_CREXX_APPLICATION AND CREXX_FOUND AND
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P3R01BProcessFramework.cmake")
         set_tests_properties(p3r_01b_process_framework PROPERTIES
             LABELS "P3R-01B;phase3r;crexx;levelg;application;process;sqlite;multi-process;worker;zero-outbound")
+
+        add_test(
+            NAME p3r_02_gemini_ingestion
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_APPLICATION=${CPRAG_CREXX_APPLICATION_RXBIN}"
+                "-DCPRAG_NATIVE_APPLICATION=${CMAKE_BINARY_DIR}/crexx-native-attempt/package/crexx-rag${CMAKE_EXECUTABLE_SUFFIX}"
+                "-DCPRAG_LOOPBACK=$<TARGET_FILE:p1a_provider_loopback>"
+                "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/phase3/gemini-loopback.conf.in"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p3r-02-gemini-ingestion"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P3R02GeminiIngestion.cmake")
+        set_tests_properties(p3r_02_gemini_ingestion PROPERTIES
+            LABELS "P3R-02;phase3r;crexx;levelg;application;gemini;ingestion;embedding;claim;trace;loopback")
     endif()
 
     install(FILES "${CPRAG_CREXX_APPLICATION_RXBIN}"
@@ -1551,6 +1570,7 @@ if(CPRAG_BUILD_TESTS)
             "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
             "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
             "-DCPRAG_MODEL=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragmodel.crexx"
+            "-DCPRAG_TRACE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragtrace.crexx"
             "-DCPRAG_COMMAND=${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragcommand.crexx"
             "-DCPRAG_SOURCE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p2_07_command_contract.crexx"
             "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p2-07-command-contract"
@@ -1736,6 +1756,7 @@ if(CPRAG_BUILD_TESTS)
             "-DCPRAG_ADDRESS=${CMAKE_CURRENT_LIST_DIR}/crexx/application/surfaces/rag_address_environment.crexx"
             "-DCPRAG_MCP=${CMAKE_CURRENT_LIST_DIR}/crexx/application/surfaces/ragmcp.crexx"
             "-DCPRAG_PROVIDER_CONTRACT=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider/provider_contract.crexx"
+            "-DCPRAG_PROVIDER_DIR=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider"
             "-DCPRAG_ADDRESS_SCENARIO=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p6_02_address_scenario.crexx"
             "-DCPRAG_MCP_SCENARIO=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p6_03_mcp_scenario.crexx"
             "-DCPRAG_CONFIG_FIXTURE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/google-gemini.conf"

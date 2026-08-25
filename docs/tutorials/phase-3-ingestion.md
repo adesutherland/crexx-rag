@@ -1,142 +1,223 @@
-# Phase 3 Tutorial: Initial And Incremental Ingestion
+# Phase 3 Tutorial: Ingest With `crexx-rag`
 
-Status: executable development tutorial for the accepted Phase-3 implementation.
-The module contracts below are implemented and tested. The later Phase-6
-tutorial now carries the installed public CLI/ADDRESS/MCP walkthrough. This is
-not a release claim.
+Status: maintained human walkthrough for the Gate-3R-accepted, unpublished
+macOS application. It uses the enduring native Level-G `crexx-rag` product.
+Exact Linux, release and cutover qualification remain open.
 
-This tutorial uses the real Level-G folder connector, ingestion planner,
-generation reconciler, schema-v2 repositories, FTS projection, and job queue.
-CTest compares its output with
-`tests/expected/tutorial-phase3.jsonl`; the prose is not scraped as a substitute
-for executing the product path.
+This walkthrough makes two real Google Gemini calls against one public,
+synthetic document. The application—not a shell script—reviews the plan, starts
+the workers, reports progress and presents the result.
 
-## 1. Run The Shipped Scenario
+## Set up once
 
-Use a CREXX installation containing the complete public SHA-256 surface. The
-configured build consumes that installation without a sister-source fallback.
+From the repository root:
 
-```bash
-cmake --build cmake-build-debug --target phase3_ingestion --parallel 10
-ctest --test-dir cmake-build-debug -R '^phase3_ingestion$' --output-on-failure
+```sh
+work_dir=$(./docs/tutorials/phase-3-ingestion/setup.sh)
+cd "$work_dir"
+export GEMINI_API_KEY='<Google AI Studio key>'
 ```
 
-The target compiles optimized and non-optimized cREXX and runs both `rxvme` and
-`rxbvm`. It also runs the tutorial, native-oracle comparisons, and real
-`SIGKILL`/resume cases.
-
-The tutorial corpus is deliberately small:
+The setup script builds the native application and creates a fresh isolated
+folder containing:
 
 ```text
-tests/fixtures/tutorial/architecture-mini/
-├── README.md
-├── operations.txt
-└── services/auth.crexx
+<work-dir>/
+├── crexx-rag
+├── crexx-rag.conf
+└── source-docs/
+    └── architecture.txt
 ```
 
-The folder connector sorts the relative paths and uses them as stable keys. It
-reads each selected file through a caller-supplied byte ceiling, retains exact
-raw bytes or a verified SHA-256 reference, records MIME and UTF-8 encoding, and
-hands immutable observations to the planner.
+The API key stays in the process environment. Do not put it in the config,
+source, command line or captured output.
 
-## 2. Understand The Plan
+## 1. Create the library
 
-The development API is:
+```sh
+./crexx-rag init
+```
+
+The command automatically finds `./crexx-rag.conf`, selects its only profile
+and creates `./library`. Human output is concise:
 
 ```text
-ragfolder.collectfolderobservations(root, source_set_id, retain_raw,
-                                    maximum_file_bytes, captured_at,
-                                    expose observations, expose error) = .int
+OK: library initialized
 
-ragingest.createingestplan(store, source_scope, config_snapshot_id,
-                           policy_version, parser_version,
-                           maximum_chunk_characters, observations,
-                           expose plan, expose error) = .int
+library status
+  schema version: 4
+  state: initialized
 
-ragingest.applyingestplan(store, plan, observations) = .ragingestresult
+config snapshot
+  config id: phase3-gemini-tutorial
 ```
 
-`createingestplan` performs no library writes. The canonical
-`crexx-rag.ingest-plan/1` value binds the published generation, configuration
-snapshot, source scope, parser/policy versions, stable keys, raw/text/metadata
-digests, and revision envelopes. `applyingestplan` recomputes all those values
-before starting `BEGIN IMMEDIATE`; a stale generation or changed observation is
-rejected before writes.
+An existing library is never silently replaced.
 
-The plan is immutable but is not a capability token. A future public apply
-surface must still require the explicit ingest capability described in the
-architecture.
+## 2. Ingest the source
 
-## 3. Apply And Inspect
-
-The first tutorial run prints five NDJSON records. The important properties are:
-
-- three stable sources become one atomic generation;
-- five immutable chunk contents are projected into occurrence rows and FTS;
-- missing embedding and claim-extraction work is queued with versioned,
-  idempotent input hashes;
-- candidate census and representative-evidence decisions are recorded without
-  a model call; and
-- a second plan/apply over the same bytes is an exact zero-write,
-  zero-provider-call no-op.
-
-Raw artifact, revision, chunk-content, occurrence, continuity, plan, work-item,
-and candidate identities use canonical lowercase SHA-256. Occurrence ids bind a
-revision and UTF-8 byte span for citations. Content ids bind text plus the
-parser/policy input fingerprint, so unchanged text can be reused safely across
-revisions while parser changes invalidate only dependent work.
-
-## 4. Try An Incremental Edit
-
-Copy the fixture and use a scratch library so the repository files remain
-unchanged:
-
-```bash
-scratch=$(mktemp -d /tmp/crexx-rag-phase3-tutorial.XXXXXX)
-cp -R tests/fixtures/tutorial/architecture-mini "$scratch/source"
+```sh
+./crexx-rag ingest
 ```
 
-Run the compiled tutorial program shown in
-`cmake-build-debug/phase3-ingestion/commands-and-output.txt`, substituting
-`$scratch/library` and `$scratch/source`. Edit one paragraph in the copied
-`operations.txt`, then run the same command again. The second run opens the
-existing library, plans against its current generation, publishes one new
-generation, reuses unchanged content, and queues only new content inputs. Run
-it once more without editing: the apply result is `identical-no-op` with
-`library_writes=0` and `provider_calls=0`.
+Before changing the library or contacting Google, the command shows the
+reviewed route and ceilings:
 
-The permanent scenario additionally covers append, middle edit, reorder,
-mapped and unmapped rename, duplicates, deletion, metadata-only changes,
-CRLF/Unicode span mapping, invalid UTF-8 rejection, verified external
-references, parser-version invalidation, support re-anchoring/retraction,
-embedding reuse, stale plans, and interrupted resume.
+```text
+Ingestion plan
 
-## 5. Provider Credentials
+  Source set:       architecture-docs
+  Source folder:    ./source-docs
+  Data policy:      public
+  Maximum calls:    2
+  Maximum cost:     $0.05
+  Worker processes: 2
+  Provider:         gemini / gemini-3.5-flash-lite
+  Provider:         gemini / gemini-embedding-2
+  Plan digest:      <sha256>
+Continue? [y/N]
+```
 
-Phase 3 deliberately makes no provider call; ingestion queues embedding and
-extraction work consumed by the Phase-4 worker path. Provider credentials are
-nevertheless part of the product
-configuration model. Hosted qualifications in later phases use symbolic
-references such as `env:OPENAI_API_KEY`. Put the key in the process environment
-or CI secret store only. Never put a credential in a cREXX module, plan,
-fixture, evidence file, command transcript, or Git history.
+The current installed CREXX runtime has a known interactive `LINEIN()` defect:
+after entering `y`, this prompt can require one additional Enter. That upstream
+limitation is accepted for now. `./crexx-rag ingest --yes` skips only the prompt
+while retaining the same reviewed plan/apply boundary.
 
-The Phase-3 result reports `provider_calls=0`, which proves that unchanged
-ingestion cannot accidentally spend a hosted-model budget. Phase 4 now consumes
-queued work through the provider-neutral contract with explicit call, token,
-cost, privacy, route, and reservation policy; its recurring tutorial remains
-deterministic and zero-outbound.
+Answer `y` to apply that exact plan. The native application queues one embedding
+and one claim-extraction item, starts two independent worker processes and waits
+for the durable job to complete. Each process opens its own SQLite connection;
+SQLite WAL, leases and fences coordinate them.
 
-## Current Limits
+An interactive colour terminal gets ANSI progress by default. The progress
+stream contains operation, worker, provider and disposition identities, but
+never credentials, source bodies, prompts, provider responses or authorization
+headers. At the end, the human result includes:
 
-- Normalized source text is UTF-8. Invalid UTF-8 and undeclared encodings are
-  rejected before binary-to-string conversion; raw SHA-256 remains binary-safe.
-- The folder connector supports Markdown, text, Rexx, and cREXX files. Path
-  selection, symlink policy, and application size ceilings remain caller policy.
-- Candidate adjudication is deterministic Phase-3 census policy. Provider
-  proposals, canonical graph promotion, review, and workers are implemented by
-  Phase 4 and remain separate from ingestion's zero-provider replay invariant.
-- The native-v1 implementation remains the executable oracle. Phase 3 neither
-  cuts over the product nor removes native code.
-- Current acceptance is macOS. Exact downstream Linux qualification remains
-  open and is not implied by the dual-VM result.
+```text
+worker controller
+  workers failed: 0
+  vector generations: 1
+  vector state: published
+
+job status
+  state: completed
+  processed: 2
+  dead letter: 0
+```
+
+Useful variations are:
+
+```sh
+./crexx-rag --progress plain ingest   # stable plain-text progress
+./crexx-rag --progress off ingest     # no progress stream
+./crexx-rag ingest --workers 1        # one process, within the configured ceiling
+./crexx-rag ingest --yes              # retain plan/apply, skip the y/N prompt
+```
+
+## 3. Ask for evidence
+
+```sh
+./crexx-rag query 'What does BillingService depend on?'
+```
+
+The short command uses the canonical `query evidence` operation. It reports the
+supported directional claim and its exact source span without dumping the JSON
+evidence envelope:
+
+```text
+OK: typed evidence retrieved; optional answer generation was not requested from a provider
+
+query evidence
+  candidate count: 1
+  summary: BillingService --depends-on--> CustomerDatabase
+  citation: crexx-rag:<library>:<source>:<revision>:utf8-0-87
+```
+
+The Gemini response does not write graph state directly. cREXX validates the
+typed proposal and only promotes it when the endpoints, relationship and
+independently addressable source support match the claimed work item.
+
+The concise query can currently report `vector state: disabled` even though
+ingestion published the `.rxvec` generation. This command has no provider-
+generated query vector, so it correctly falls back to lexical and typed-graph
+retrieval. Query-vector generation is a retrieval-phase concern, not missing
+Phase 3 ingestion work.
+
+## Configuration, calls and privacy
+
+[`crexx-rag.conf`](phase-3-ingestion/crexx-rag.conf) is deliberately small and
+human-editable. A fresh tutorial run permits exactly:
+
+- one `gemini-embedding-2` request;
+- one `gemini-3.5-flash-lite` structured-extraction request;
+- 16,384 input tokens and 1,024 output tokens;
+- 50,000 USD microunits ($0.05); and
+- two minutes, one attempt per item.
+
+The source is declared `public`, and both hosted routes are `public-only`.
+The config stores only `env:GEMINI_API_KEY`. Missing credentials or a
+non-public source fail before a provider socket is opened.
+
+## Repeat and monitor
+
+Running `./crexx-rag ingest` again reviews the source state and converges an
+unchanged library without creating a job, starting workers, or making provider
+calls. Its result says `identical-no-op`, `items queued: 0`, and omits a job id.
+To exercise changed-source
+ingestion, edit `source-docs/architecture.txt` and run the same command again;
+the durable plan contains only the new delta.
+
+While ingestion is active, a second terminal in the same work directory can
+inspect the database-backed worker registry:
+
+```sh
+./crexx-rag worker list --local --stale-seconds 15
+./crexx-rag job list
+./crexx-rag --access diagnose library verify
+```
+
+The database heartbeat is authoritative. A same-host PID check is an additional
+diagnostic. Terminal or stale rows are retained for inspection until an
+operator explicitly prunes them.
+
+## Machine and LLM use
+
+Humans get the guided command by default. Scripts and agents retain the closed,
+stable operation vocabulary and JSON/NDJSON renderers. They explicitly perform
+reviewed plan/apply and worker supervision; guided `ingest` is intentionally
+human-only:
+
+```sh
+./crexx-rag --format json --access plan \
+  ingest plan --source-set architecture-docs
+
+./crexx-rag --format json --access ingest \
+  ingest apply --plan-json '<canonical-plan>' --expect-digest '<sha256>'
+
+./crexx-rag --format ndjson --access control \
+  worker start --count 2 --job '<job-id>'
+```
+
+JSON/NDJSON stdout remains byte-stable; opt-in progress is written to stderr.
+
+## Recovery and credential-free QA
+
+Work is durable. A failed item keeps its attempts and becomes a dead letter; it
+is not silently retried. After correcting the cause, an operator can inspect
+the job and explicitly requeue the exact item with canonical `job retry`.
+Starting `crexx-rag` again against the same folder sees the same SQLite state.
+
+The permanent product test covers both the canonical machine surface and the
+three-command human surface without spending credits:
+
+```sh
+ctest --preset debug -R '^p3r_02_gemini_ingestion$' --output-on-failure
+```
+
+It runs two fresh libraries through a deterministic four-request Gemini
+loopback and proves native execution, automatic defaults, confirmation-safe
+plan/apply, two concurrent worker processes, extraction, 768-dimensional
+embedding, automatic immutable vector publication, validated claim promotion,
+exact citation, truthful zero-work replay, non-empty controller failures,
+concise human output, stable machine JSON, sanitized progress and credential-
+value absence.

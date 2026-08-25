@@ -1,0 +1,47 @@
+format = crexx-rag.config/1
+config.id = gemini-loopback
+config.version = 1
+profiles = it-architecture-profile
+
+source.architecture-docs.connector = folder
+source.architecture-docs.root = @CPRAG_FIXTURE_SOURCE@
+source.architecture-docs.include = **/*.txt
+source.architecture-docs.stable_key = relative-path
+source.architecture-docs.privacy = public
+source.architecture-docs.retain_raw_artifact = true
+
+provider.gemini-generate.kind = gemini
+provider.gemini-generate.base_url = http://127.0.0.1:@CPRAG_FIXTURE_PORT@/gemini/v1beta
+provider.gemini-generate.model = gemini-3.5-flash-lite
+provider.gemini-generate.route_class = local
+provider.gemini-generate.privacy_policy = public-only
+provider.gemini-generate.credential = env:CPRAG_FIXTURE_GEMINI_KEY
+provider.gemini-generate.timeout_ms = 10000
+provider.gemini-generate.max_attempts = 1
+
+provider.gemini-embed.kind = gemini
+provider.gemini-embed.base_url = http://127.0.0.1:@CPRAG_FIXTURE_PORT@/gemini/v1beta
+provider.gemini-embed.model = gemini-embedding-2
+provider.gemini-embed.route_class = local
+provider.gemini-embed.privacy_policy = public-only
+provider.gemini-embed.credential = env:CPRAG_FIXTURE_GEMINI_KEY
+provider.gemini-embed.timeout_ms = 10000
+provider.gemini-embed.max_attempts = 1
+
+role.advisory = gemini-generate
+role.extractor = gemini-generate
+role.embedding = gemini-embed
+
+budget.minutes = 2
+budget.item_limit = 2
+budget.model_calls = 2
+budget.input_tokens = 8192
+budget.output_tokens = 1024
+budget.cost_microunits = 1000000
+
+worker.processes = 2
+worker.max_in_flight = 1
+worker.lease_seconds = 30
+
+schedule.manual-improvement.trigger = manual
+schedule.manual-improvement.enabled = true

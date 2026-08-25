@@ -26,12 +26,14 @@ import ragrepository
 import ragcommand
 import ragcanonical
 import ragplanning
+import ragtrace
 import ragfoundation
 import ragingest
 import ragfolder
 import ragclaims
 import ragimprove
 import ragwork
+import ragapplicationprovider
 import ragquery
 import ragembedding
 import ragretrieval
@@ -43,9 +45,10 @@ durable-job handle contract. `ragevidence` defines immutable evidence records.
 `ragmodel` contains records shared by those contracts. `ragconfig` and
 `ragprofile` define typed operational configuration and domain profiles;
 `ragregistry` exposes only operator-registered ids.
-`ragschema` owns the ordered schema-v3 DDL and canonical migration checksums.
-Migrations 1 and 2 retain the accepted semantic store; migration 3 adds only
-the controller/worker runtime registry.
+`ragschema` owns the ordered schema-v4 DDL and canonical migration checksums.
+Migrations 1 and 2 retain the accepted semantic store; migration 3 adds the
+controller/worker runtime registry; migration 4 adds the canonical durable
+work-input envelope to job items.
 `ragstore` owns SQLite-backed library initialization/open/close, migrations,
 published generations, read snapshots, manifest publication/recovery,
 verification, and rollback ordering.
@@ -59,7 +62,7 @@ support and lineage, embedding occurrences, jobs and items, attempts, and
 reviews. Repository names select fixed SQL; cursors are always bound values and
 cannot select arbitrary tables or query text.
 `ragcommand` owns the target argv grammar and transport-neutral result
-rendering. Global options must precede the noun, the 43 approved operations are
+rendering. Global options must precede the noun, the 44 approved operations are
 closed, registered ids and access names are validated, and command positionals
 remain argv values rather than shell text. The stable exit range is 0 through
 10. Machine output uses `crexx-rag.command-result/1`; JSON is one result object,
@@ -102,9 +105,11 @@ and immutable budget policy. External proposals always enter typed review.
 `ragwork` owns database-clock claims, leases, monotonic fences, attempts,
 heartbeats, retry/backoff/dead-letter, cooperative cancellation, pause/resume/
 drain/status, and admission reservations. `.ragworkprovider` is the
-provider-neutral Level-G interface. A worker reserves worst-case usage before
-calling it, settles actual usage, then applies the returned proposal through
-the same deterministic fenced claim path.
+provider-neutral Level-G interface. A worker reserves the item's persisted
+ceiling before calling it, settles actual usage, then applies the returned
+proposal or embedding through the same deterministic fenced path. `job retry`
+can requeue one exact closed dead letter after an operator correction; it
+preserves prior attempts and requires a terminal job with zero reservations.
 
 `ragprocess` owns the application process framework. One controller starts a
 bounded number of `crexx-rag` OS processes through the public cREXX child-
@@ -113,8 +118,15 @@ registers host/PID/start-token identity, heartbeats through
 `runtime_instances`, and records terminal state. Heartbeats determine
 active/stale classification; a local PID probe is diagnostic only. Independent
 application instances can list, inspect, drain, and explicitly prune runtime
-rows. The current worker body is deliberately `framework-idle`; provider and
-ingestion-item processing are attached in the next Gate-3R slice.
+rows. `worker.run` now builds `ragapplicationprovider` from the immutable job
+snapshot and dispatches extraction/embedding claims through `ragwork`; its
+processor identity is `application-ingestion-v1`.
+
+`ragtrace` owns sanitized progress events. The native CLI defaults human output
+to ANSI progress on a colour terminal and plain progress otherwise;
+`--progress off|plain|ansi` remains explicit control. Progress writes only
+stderr, while JSON/NDJSON stdout remains the stable command result. ANSI is
+accepted only for human output.
 
 `ragquery` owns deterministic `crexx-rag.query-plan/1` values: normalized
 questions, exact phrase/prefix variants, profile/database aliases, bounded
@@ -161,19 +173,18 @@ runtime module-path argument.
 
 `ragconfigfile` reads bounded `crexx-rag.config/1` text into the existing typed
 `ragconfig` contract. The maintained installed example is
-`config/google-gemini.conf`; it uses only `env:GEMINI_API_KEY` and deliberately
-leaves current Google model selection to the operator. Unknown or duplicate
+`config/google-gemini.conf`; it uses only `env:GEMINI_API_KEY` and registers
+`gemini-3.5-flash-lite` plus `gemini-embedding-2`. Unknown or duplicate
 keys, literal secrets, executable module paths, unsafe routes, traversal, and
 out-of-range values fail before any provider call.
 
-```sh
-<prefix>/libexec/crexx-rag/crexx-rag \
-  --config-file <prefix>/share/crexx-rag/application/config/google-gemini.conf \
-  --profile generic-profile --format json doctor
-```
-
-The human CLI may select a file explicitly. MCP loads one operator-selected
-file at startup and tools cannot replace it.
+The human CLI selects an explicit `--config-file` first, then
+`CREXX_RAG_CONFIG`, then `./crexx-rag.conf`. Stateful commands default to
+`./library`; a sole configured profile is selected automatically. The enduring
+short flow is therefore `crexx-rag init`, `crexx-rag ingest`, and
+`crexx-rag query '<question>'`. Canonical nouns/verbs and JSON/NDJSON remain
+available for scripts and agents. MCP loads one operator-selected file at
+startup and tools cannot replace it.
 
 The compiled consumers are
 `crexx/application/tests/p2_01_contract_consumer.crexx` and
@@ -190,8 +201,16 @@ by `p2_10_plan_revalidation.crexx`. Human text configuration is covered by
 `p3r_01a_config_file`, including the linked CLI and fixed MCP startup.
 `p3r_01b_process_framework` runs the linked application on both VMs and covers
 two live child workers, separate-process observation, durable drain, forced
-termination, stale/PID classification, and explicit pruning. Phase-3
-ingestion, oracle delta, and real
+termination, stale/PID classification, and explicit pruning. Phase-3 product
+ingestion is covered by `p3r_02_gemini_ingestion`: two fresh libraries use a
+deterministic four-request Gemini loopback for extraction plus 768-dimensional
+embeddings. The test validates/promotes each claim, publishes the exact vector
+generation, reconciles each job, covers canonical machine commands plus the
+human three-command flow, exercises concurrent two-process workers, and
+returns concise human output and stable JSON without retaining its synthetic
+credential. It also proves an identical replay starts no job or workers and
+that a failed child produces an actionable controller error.
+Phase-3 ingestion, oracle delta, and real
 resume coverage are `p3_01_ingest_scenario.crexx`,
 `p3_02_oracle_delta.crexx`, and `p3_03_resume_scenario.crexx`; the executable
 tutorial is `crexx/tutorials/phase3_ingestion_scenario.crexx`. Phase-4 claim
@@ -219,15 +238,16 @@ implements ingestion, Phase 4 claim/review/improvement/workers, Phase 5
 retrieval/evidence, and Phase 6 the staged public CLI, ADDRESS, MCP, packaging
 and skills. Phase 7 selected reject/defer, so the native executable remains the
 default oracle.
-Recurring QA uses deterministic providers and symbolic hosted
-secret references. The bounded Phase-5 hosted quality and Phase-7 external
-generation/embedding harnesses pass, but cREXX hosted response completion
-remains unreliable. `worker.start`, `worker.run`, list, status, drain, and prune
-now dispatch through the installed application framework, but `worker.run` is
-still `framework-idle`: it does not yet bind an installed production
-`.ragworkprovider`, and queued extraction/embedding items lack their public
-processors. Those processing gaps keep Gate 3R open. Sidecar
-verification retains the
+Recurring QA uses deterministic providers and symbolic hosted secret
+references. The Gate-3R product path now binds Gemini generation/embedding,
+owns both queued item types, publishes the exact embedding profile after a
+successful filtered job, and treats an unchanged plan as a successful no-op
+without manufacturing a job or starting workers. Worker/controller failures
+retain actionable child-process diagnostics. A pristine bounded live replay
+completed at first attempt with exactly one Gemini generation call and one
+Gemini embedding call; the repeated unchanged ingestion made no provider call.
+Exact Linux, clean Release, sanitizer, and cutover qualification remain open.
+Sidecar verification retains the
 2,147,483,647-byte application ceiling but hashes in fixed memory. Callers that
 do not need an interposed ceiling or returned byte count can use the installed
 synchronous bounded-memory `rxhash.sha256file` or `sha256filehex` directly.

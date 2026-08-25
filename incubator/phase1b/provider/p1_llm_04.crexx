@@ -26,7 +26,7 @@ schema = '{"type":"object","required":["answer"],"properties":{"answer":{"type":
 unused_inputs = .string[]
 unused_inputs[1] = "unused"
 
-errors = errors + check(knownmodelcount() = 7, "model catalog count")
+errors = errors + check(knownmodelcount() = 8, "model catalog count")
 openai_model = lookupmodelcapability("openai", "gpt-5.6-luna")
 anthropic_model = lookupmodelcapability("anthropic", "claude-haiku-4-5")
 gemini_embedding_model = lookupmodelcapability("gemini", "gemini-embedding-2")
@@ -105,5 +105,5 @@ if errors \= 0 then do
   say "P1_LLM_04_ERRORS=" || errors
   return 1
 end
-say "P1_LLM_04_OK cell=" || cell || " providers=local,openai,anthropic,gemini facade=openai-level-g generation=structured modalities=image,document,audio embeddings=openai-batch,gemini-batch model_catalog=7"
+say "P1_LLM_04_OK cell=" || cell || " providers=local,openai,anthropic,gemini facade=openai-level-g generation=structured modalities=image,document,audio embeddings=openai-batch,gemini-batch model_catalog=8"
 return 0

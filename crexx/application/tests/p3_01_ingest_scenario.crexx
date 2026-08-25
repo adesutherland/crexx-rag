@@ -87,7 +87,7 @@ runscenario: procedure = .int
   plan = .ragingestplan
   errors = errors + check(makeplan(store, observations, "parser-v1", plan, error) = 0 & plan.schema() = "crexx-rag.ingest-plan/1" & length(plan.digest()) = 64, "create immutable initial plan " || error)
   initial = applyingestplan(store, plan, observations)
-  errors = errors + check(initial.ok() = 1 & initial.generation() = 2 & initial.sources_added() = 2 & initial.chunks_created() = 2 & initial.chunks_reused() = 2 & initial.occurrences_created() = 4 & initial.provider_calls() = 0 & initial.items_queued() = 4, "initial reconciliation " || initial.error())
+  errors = errors + check(initial.ok() = 1 & initial.generation() = 2 & initial.sources_added() = 2 & initial.chunks_created() = 2 & initial.chunks_reused() = 2 & initial.occurrences_created() = 4 & initial.provider_calls() = 0 & initial.items_queued() = 8, "initial reconciliation " || initial.error())
   errors = errors + check(scalarint(store.database(), "SELECT count(*) FROM source_artifacts") = 1 & scalarint(store.database(), "SELECT count(*) FROM source_revision_texts") = 1 & scalarint(store.database(), "SELECT count(*) FROM chunks_fts") = 4, "deduplicated artifact/text and occurrence FTS")
 
   changes_before = scalarint(store.database(), "SELECT total_changes()")
@@ -163,7 +163,7 @@ runscenario: procedure = .int
   parser_plan = .ragingestplan
   errors = errors + check(makeplan(store, metadata, "parser-v2", parser_plan, error) = 0, "plan parser version change")
   parser_result = applyingestplan(store, parser_plan, metadata)
-  errors = errors + check(parser_result.ok() = 1 & parser_result.sources_changed() = 2 & parser_result.chunks_created() = 3 & parser_result.chunks_reused() = 1 & parser_result.items_queued() = 6, "parser change invalidates bounded chunk inputs changed=" || parser_result.sources_changed() || " created=" || parser_result.chunks_created() || " items=" || parser_result.items_queued() || " " || parser_result.error())
+  errors = errors + check(parser_result.ok() = 1 & parser_result.sources_changed() = 2 & parser_result.chunks_created() = 3 & parser_result.chunks_reused() = 1 & parser_result.items_queued() = 8, "parser change invalidates bounded chunk inputs changed=" || parser_result.sources_changed() || " created=" || parser_result.chunks_created() || " items=" || parser_result.items_queued() || " " || parser_result.error())
 
   statistics = .ragtermstatistics
   errors = errors + check(termstatistics(store, "identity", "phase3-policy-v1", statistics, error) = 0 & statistics.occurrences() = 2 & statistics.chunks() = 2 & statistics.source_diversity() = 2 & length(statistics.input_fingerprint()) = 64, "versioned rarity and source-diversity input " || error)

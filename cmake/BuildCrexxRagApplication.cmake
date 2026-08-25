@@ -9,8 +9,10 @@ endforeach()
 set(app_modules
     ragmodel ragevidence ragjob ragconfig ragprofile ragregistry ragschema
     ragfile ragconfigfile ragstore ragbackup ragrepository ragcanonical ragplanning
-    ragcommand ragingest ragfolder ragclaims ragimprove ragwork ragquery
-    ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragproduct)
+    ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragwork ragquery
+    ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragapplicationprovider ragproduct)
+set(provider_modules
+    provider_contract provider_catalog provider_http industrial_provider)
 set(config_modules
     architecture_local_config generic_profile it_architecture_profile
     operator_registry)
@@ -45,7 +47,9 @@ function(compile_module source name)
     endif()
 endfunction()
 
-compile_module("${CPRAG_PROVIDER_DIR}/provider_contract.crexx" provider_contract)
+foreach(module IN LISTS provider_modules)
+    compile_module("${CPRAG_PROVIDER_DIR}/${module}.crexx" "${module}")
+endforeach()
 foreach(module IN LISTS app_modules)
     compile_module("${CPRAG_APP_DIR}/${module}.crexx" "${module}")
 endforeach()
@@ -60,8 +64,10 @@ compile_module("${CPRAG_APP_DIR}/config/operator_registry.crexx"
 compile_module("${CPRAG_APP_DIR}/surfaces/crexx_rag_cli.crexx" crexx_rag_cli)
 
 set(link_inputs
-    "${CPRAG_OUTPUT_DIR}/crexx_rag_cli.rxbin"
-    "${CPRAG_OUTPUT_DIR}/provider_contract.rxbin")
+    "${CPRAG_OUTPUT_DIR}/crexx_rag_cli.rxbin")
+foreach(module IN LISTS provider_modules)
+    list(APPEND link_inputs "${CPRAG_OUTPUT_DIR}/${module}.rxbin")
+endforeach()
 foreach(module IN LISTS app_modules config_modules)
     list(APPEND link_inputs "${CPRAG_OUTPUT_DIR}/${module}.rxbin")
 endforeach()

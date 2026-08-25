@@ -45,6 +45,31 @@ std::string header_value(const std::string& request, const std::string& name)
     return request.substr(value_start, end == std::string::npos ? end : end - value_start);
 }
 
+std::string escaped_candidate_for_label(const std::string& request, const std::string& label)
+{
+    const std::string label_marker = "\\\"label\\\":\\\"" + label + "\\\"";
+    const std::size_t label_pos = request.find(label_marker);
+    if (label_pos == std::string::npos) return {};
+    const std::string id_marker = "\\\"candidate_id\\\":\\\"";
+    const std::size_t id_pos = request.rfind(id_marker, label_pos);
+    if (id_pos == std::string::npos) return {};
+    const std::size_t value_start = id_pos + id_marker.size();
+    const std::size_t value_end = request.find("\\\"", value_start);
+    if (value_end == std::string::npos) return {};
+    return request.substr(value_start, value_end - value_start);
+}
+
+std::string json_string(const std::string& value)
+{
+    std::string output = "\"";
+    for (const char ch : value) {
+        if (ch == '\\' || ch == '"') output.push_back('\\');
+        output.push_back(ch);
+    }
+    output.push_back('"');
+    return output;
+}
+
 const char* reason_phrase(int status)
 {
     if (status == 200) return "OK";
@@ -164,6 +189,41 @@ int main(int argc, char** argv)
                 body = R"({"error":{"message":"Anthropic Messages request shape mismatch"}})";
             } else {
                 body = R"({"id":"msg-anthropic-001","model":"claude-haiku-4-5","content":[{"type":"text","text":"{\"answer\":\"anthropic\"}"}],"stop_reason":"end_turn","usage":{"input_tokens":12,"output_tokens":5}})";
+            }
+        } else if (path.find("/gemini/v1beta/models/gemini-3.5-flash-lite:generateContent") != std::string::npos) {
+            const bool valid_auth = request.find("x-goog-api-key: synthetic-product-gemini-key") != std::string::npos;
+            const bool valid_shape = request.find("\"responseMimeType\":\"application/json\"") != std::string::npos
+                && request.find("\"responseJsonSchema\"") != std::string::npos
+                && request.find("crexx-rag.work-input/1") != std::string::npos;
+            const std::string source_id = escaped_candidate_for_label(request, "billingservice");
+            const std::string target_id = escaped_candidate_for_label(request, "customerdatabase");
+            if (!valid_auth || !valid_shape || source_id.empty() || target_id.empty()) {
+                http_status = 400;
+                body = R"({"error":{"message":"product Gemini extraction request shape mismatch"}})";
+            } else {
+                const std::string proposal = "{\"has_claim\":true,\"source_candidate_id\":\"" + source_id
+                    + "\",\"source_label\":\"BillingService\",\"source_type\":\"application-component\","
+                      "\"relationship_type\":\"depends-on\",\"target_candidate_id\":\"" + target_id
+                    + "\",\"target_label\":\"CustomerDatabase\",\"target_type\":\"data-store\","
+                      "\"confidence_millionths\":940000}";
+                body = "{\"responseId\":\"product-gemini-extract-001\",\"candidates\":[{\"content\":{\"parts\":[{\"text\":"
+                    + json_string(proposal)
+                    + "}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":180,\"candidatesTokenCount\":60}}";
+            }
+        } else if (path.find("/gemini/v1beta/models/gemini-embedding-2:embedContent") != std::string::npos) {
+            const bool valid_auth = request.find("x-goog-api-key: synthetic-product-gemini-key") != std::string::npos;
+            const bool valid_shape = request.find("\"outputDimensionality\":768") != std::string::npos
+                && request.find("BillingService depends on CustomerDatabase") != std::string::npos;
+            if (!valid_auth || !valid_shape) {
+                http_status = 400;
+                body = R"({"error":{"message":"product Gemini embedding request shape mismatch"}})";
+            } else {
+                body = "{\"embedding\":{\"values\":[";
+                for (int dimension = 0; dimension < 768; ++dimension) {
+                    if (dimension != 0) body += ',';
+                    body += dimension % 2 == 0 ? "0.03125" : "-0.03125";
+                }
+                body += "]},\"usageMetadata\":{\"promptTokenCount\":24}}";
             }
         } else if (path.find("/gemini/v1beta/models/gemini-2.5-flash-lite:generateContent") != std::string::npos) {
             const bool valid_auth = request.find("x-goog-api-key: synthetic-gemini-key") != std::string::npos;

@@ -18,7 +18,7 @@ tutorialprovider: class implements .ragworkprovider
     _proposal = proposal
     return
 
-  extract: method = .ragworkproviderresult
+  process: method = .ragworkproviderresult
     arg claim = .ragworkclaim
     return .ragworkproviderresult(0, "tutorial-fixture", "deterministic-v1", "request-" || claim.attempt_id(), 96, 48, 0, 5, 0, _proposal, "")
 

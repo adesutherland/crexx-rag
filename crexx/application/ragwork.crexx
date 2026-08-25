@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragwork expose ragworkclaim ragcallreservation ragworkproviderresult ragworkprovider claimnext heartbeat configurejobbudget reservecall settlecall failattempt skipitem requestcancel acknowledgecancel pausejob resumejob drainjob readjobstatus runworkeronce runworkerfollow
+namespace ragwork expose ragworkclaim ragcallreservation ragworkembedding ragworkproviderresult ragworkprovider claimnext heartbeat configurejobbudget reservecall settlecall failattempt skipitem requestcancel acknowledgecancel pausejob resumejob drainjob retrydeadletter readjobstatus runworkeronce runworkerfollow
 
 import rxfnsb
 import rxjson
@@ -100,6 +100,41 @@ ragcallreservation: class
   maximum_time_ms: method = .int
     return _maximum_time_ms
 
+ragworkembedding: class
+  _revision_chunk_id = .string
+  _embedding_profile_id = .string
+  _input_digest = .string
+  _provider_id = .string
+  _model = .string
+  _dimension = .int
+  _envelope_fingerprint = .string
+  _vector = .binary
+
+  *: factory
+    arg revision_chunk_id = .string, embedding_profile_id = .string, input_digest = .string, provider_id = .string, model = .string, dimension = .int, envelope_fingerprint = .string, vector = .binary
+    _revision_chunk_id = revision_chunk_id; _embedding_profile_id = embedding_profile_id
+    _input_digest = input_digest; _provider_id = provider_id; _model = model
+    _dimension = dimension; _envelope_fingerprint = envelope_fingerprint; _vector = vector
+    return
+  revision_chunk_id: method = .string
+    return _revision_chunk_id
+  embedding_profile_id: method = .string
+    return _embedding_profile_id
+  input_digest: method = .string
+    return _input_digest
+  provider_id: method = .string
+    return _provider_id
+  model: method = .string
+    return _model
+  dimension: method = .int
+    return _dimension
+  envelope_fingerprint: method = .string
+    return _envelope_fingerprint
+  vector: method = .binary
+    return _vector
+  valid: method = .int
+    return _revision_chunk_id \= "" & _embedding_profile_id \= "" & length(_input_digest) = 64 & _provider_id \= "" & _model \= "" & _dimension > 0 & _envelope_fingerprint \= "" & binlength(_vector) = _dimension * 4
+
 ragworkproviderresult: class
   _status = .int
   _provider_id = .string
@@ -112,12 +147,18 @@ ragworkproviderresult: class
   _retryable = .int
   _proposal = .ragextractionproposal
   _error = .string
+  _has_proposal = .int
+  _source_candidate_id = .string
+  _target_candidate_id = .string
+  _embedding = .ragworkembedding
 
   *: factory
-    arg status = .int, provider_id = .string, model = .string, request_id = .string, input_tokens = .int, output_tokens = .int, cost = .int, duration_ms = .int, retryable = .int, proposal = .ragextractionproposal, error = .string
+    arg status = .int, provider_id = .string, model = .string, request_id = .string, input_tokens = .int, output_tokens = .int, cost = .int, duration_ms = .int, retryable = .int, proposal = .ragextractionproposal, error = .string, has_proposal = 1, source_candidate_id = "", target_candidate_id = "", embedding = .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary)
     _status = status; _provider_id = provider_id; _model = model; _request_id = request_id
     _input_tokens = input_tokens; _output_tokens = output_tokens; _cost = cost
     _duration_ms = duration_ms; _retryable = retryable; _proposal = proposal; _error = error
+    _has_proposal = has_proposal; _source_candidate_id = source_candidate_id
+    _target_candidate_id = target_candidate_id; _embedding = embedding
     return
   status: method = .int
     return _status
@@ -143,9 +184,17 @@ ragworkproviderresult: class
     return _proposal
   error: method = .string
     return _error
+  has_proposal: method = .int
+    return _has_proposal
+  source_candidate_id: method = .string
+    return _source_candidate_id
+  target_candidate_id: method = .string
+    return _target_candidate_id
+  embedding: method = .ragworkembedding
+    return _embedding
 
 ragworkprovider: interface
-  extract: method = .ragworkproviderresult
+  process: method = .ragworkproviderresult
     arg claim = .ragworkclaim
 
 claimnext: procedure = .int
@@ -162,7 +211,7 @@ claimnext: procedure = .int
   sql = "UPDATE job_items SET state='cancelled',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='cancel_requested' AND lease_until<=CAST(strftime('%s','now') AS INTEGER)"
   if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot recover cancelled items", error)
   prepared = .binary
-  sql = "SELECT i.item_id,i.job_id,i.item_type,i.input_hash,i.fence,j.config_snapshot_id FROM job_items i JOIN jobs j ON j.job_id=i.job_id WHERE i.state='queued' AND i.retry_at<=CAST(strftime('%s','now') AS INTEGER) AND j.state IN('queued','running') AND i.item_type IN('claim-extraction','improve-extraction')"
+  sql = "SELECT i.item_id,i.job_id,i.item_type,i.input_hash,i.fence,j.config_snapshot_id FROM job_items i JOIN jobs j ON j.job_id=i.job_id WHERE i.state='queued' AND i.retry_at<=CAST(strftime('%s','now') AS INTEGER) AND j.state IN('queued','running') AND i.item_type IN('embedding','claim-extraction','improve-extraction')"
   if job_filter \= "" then sql = sql || " AND i.job_id=?1"
   sql = sql || " ORDER BY i.priority DESC,i.item_id LIMIT 1"
   if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare next work claim", error)
@@ -387,6 +436,23 @@ drainjob: procedure = .int
   running = _boundcount(store.database(), "SELECT count(*) FROM job_items WHERE job_id=?1 AND state IN('running','cancel_requested')", job_id)
   return 0
 
+retrydeadletter: procedure = .int
+  arg store = .ragstorehandle, job_id = .string, item_id = .string, reason = .string, expose retried = .int, expose error = .string
+  retried = 0; error = ""
+  if store.writable() \= 1 | job_id = "" | item_id = "" | reason = "" | length(reason) > 256 then do; error = "dead-letter retry inputs are invalid"; return -1; end
+  database = store.database()
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin dead-letter retry"; return -3; end
+  if _boundcount(database, "SELECT count(*) FROM jobs WHERE job_id=?1 AND state='completed_with_errors'", job_id) \= 1 then return _rollback(database, "job is not eligible for dead-letter retry", error)
+  if _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND item_id=" || _q(item_id) || " AND state='dead_letter'", job_id) \= 1 then return _rollback(database, "dead-letter item is unavailable", error)
+  if _boundscalarint(database, "SELECT reserved_calls+reserved_tokens+reserved_cost FROM jobs WHERE job_id=?1", job_id) \= 0 | _reservationdelta(database, job_id, "input") \= 0 | _reservationdelta(database, job_id, "output") \= 0 | _reservationdelta(database, job_id, "cost") \= 0 | _reservationdelta(database, job_id, "time") \= 0 then return _rollback(database, "job has outstanding provider reservations", error)
+  sql = "UPDATE job_items SET state='queued',worker_id=NULL,lease_until=NULL,retry_at=CAST(strftime('%s','now') AS INTEGER),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id) || " AND item_id=" || _q(item_id) || " AND state='dead_letter'"
+  if sqliteexec(database, sql) \= 0 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "dead-letter retry lost its predicate", error)
+  if _event(database, job_id, item_id, "", "operator-retry", reason) \= 0 then return _rollback(database, "cannot append dead-letter retry event", error)
+  if sqliteexec(database, "UPDATE jobs SET state='queued',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id)) \= 0 then return _rollback(database, "cannot reopen retried job", error)
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit dead-letter retry", error)
+  retried = 1
+  return 0
+
 readjobstatus: procedure = .int
   arg store = .ragstorehandle, job_id = .string, expose status = .ragjobstatus, expose error = .string
   error = ""; status = .ragjobstatus("", "failed", 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 0.0, "", "", "", "", "", "")
@@ -420,12 +486,17 @@ runworkeronce: procedure = .int
   if claim_status = 1 then return 1
   if claim_status \= 0 then return claim_status
   reservation = .ragcallreservation
-  if reservecall(store, claim, 256, 512, 100000, 120000, reservation, error) \= 0 then do
+  maximum_input = 0; maximum_output = 0; maximum_cost = 0; maximum_time = 0
+  if _reservationcaps(store.database(), claim.job_id(), claim.item_id(), claim.item_type(), maximum_input, maximum_output, maximum_cost, maximum_time) \= 0 then do
+    failure_error = ""; call failattempt store, claim, 0, 1, maximum_attempts, "job budget policy is unavailable", failure_error
+    error = "job budget policy is unavailable"; disposition = "budget-denied"; return -2
+  end
+  if reservecall(store, claim, maximum_input, maximum_output, maximum_cost, maximum_time, reservation, error) \= 0 then do
     failure_error = ""; call failattempt store, claim, 1, 1, maximum_attempts, error, failure_error
     disposition = "budget-denied"
     return -2
   end
-  provider_result = provider.extract(claim)
+  provider_result = provider.process(claim)
   provider_run_id = ""
   provider_outcome = "failed"
   if provider_result.ok() = 1 then provider_outcome = "succeeded"
@@ -435,6 +506,35 @@ runworkeronce: procedure = .int
     if failattempt(store, claim, provider_result.retryable(), 1, maximum_attempts, provider_result.error(), error) \= 0 then do; disposition = "failure-recording-failed"; return -3; end
     disposition = "retry-or-dead-letter"
     return 0
+  end
+  if claim.item_type() = "embedding" then do
+    if provider_result.embedding().valid() \= 1 then do
+      failure_error = ""; call failattempt store, claim, 0, 1, maximum_attempts, "provider embedding is invalid", failure_error
+      error = ""; disposition = "invalid-embedding"; return 0
+    end
+    if _completeembedding(store, claim, provider_result.embedding(), provider_run_id, error) \= 0 then do; disposition = "embedding-promotion-failed"; return -3; end
+    disposition = "embedded"
+    return 0
+  end
+  if provider_result.has_proposal() = 0 then do
+    if skipitem(store, claim, "provider found no supported claim", error) \= 0 then do; disposition = "skip-failed"; return -3; end
+    disposition = "no-claim"
+    return 0
+  end
+  if provider_result.source_candidate_id() \= "" | provider_result.target_candidate_id() \= "" then do
+    proposal = provider_result.proposal(); aliases = .string[]; ambiguity = .string[]; promoted = ""
+    aliases[1] = lower(proposal.source_label())
+    if promotemention(store, provider_result.source_candidate_id(), proposal.source_label(), proposal.source_type(), aliases, ambiguity, policy, claim.config_snapshot_id(), promoted, error) \= 0 | promoted \= proposal.source_concept_id() then do
+      promotion_error = error; if promotion_error = "" then promotion_error = "source candidate promoted to unexpected concept"
+      failure_error = ""; call failattempt store, claim, 1, 1, maximum_attempts, promotion_error, failure_error
+      error = ""; disposition = "retry-after-source-promotion"; return 0
+    end
+    aliases = .string[]; aliases[1] = lower(proposal.target_label()); promoted = ""
+    if promotemention(store, provider_result.target_candidate_id(), proposal.target_label(), proposal.target_type(), aliases, ambiguity, policy, claim.config_snapshot_id(), promoted, error) \= 0 | promoted \= proposal.target_concept_id() then do
+      promotion_error = error; if promotion_error = "" then promotion_error = "target candidate promoted to unexpected concept"
+      failure_error = ""; call failattempt store, claim, 1, 1, maximum_attempts, promotion_error, failure_error
+      error = ""; disposition = "retry-after-target-promotion"; return 0
+    end
   end
   generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
   proposal_result = .ragproposalresult
@@ -447,6 +547,63 @@ runworkeronce: procedure = .int
     return 0
   end
   disposition = proposal_result.disposition()
+  return 0
+
+_reservationcaps: procedure = .int
+  arg database = .binary, job_id = .string, item_id = .string, item_type = .string, expose maximum_input = .int, expose maximum_output = .int, expose maximum_cost = .int, expose maximum_time = .int
+  policy_json = _boundevent(database, job_id, "budget-policy")
+  if policy_json = "" then return -1
+  document = .jsondocument(policy_json)
+  if document.valid() \= 1 | document.node_type(document.root()) \= "object" then return -1
+  root = document.root()
+  if document.node_int(document.member(root, "maximum_call_input_tokens"), maximum_input) \= 0 | document.node_int(document.member(root, "maximum_call_output_tokens"), maximum_output) \= 0 | document.node_int(document.member(root, "maximum_call_cost"), maximum_cost) \= 0 | document.node_int(document.member(root, "maximum_call_time_ms"), maximum_time) \= 0 then return -1
+  input_json = _boundscalartext(database, "SELECT input_json FROM job_items WHERE item_id=?1", item_id)
+  /* Phase-4 improvement items predate the exact Phase-3 work envelope and
+   * intentionally retain their validated job-level per-call ceilings. */
+  if input_json = "" then return 0
+  input_document = .jsondocument(input_json)
+  if input_document.valid() \= 1 | input_document.node_type(input_document.root()) \= "object" then return -1
+  input_root = input_document.root(); reservation_node = input_document.member(input_root, "reservation")
+  if input_document.node_type(reservation_node) = "object" then do
+    item_input = -1; item_output = -1; item_cost = -1; item_time = -1
+    if input_document.node_int(input_document.member(reservation_node, "input_tokens"), item_input) \= 0 | input_document.node_int(input_document.member(reservation_node, "output_tokens"), item_output) \= 0 | input_document.node_int(input_document.member(reservation_node, "cost_microunits"), item_cost) \= 0 | input_document.node_int(input_document.member(reservation_node, "time_ms"), item_time) \= 0 then return -1
+    if item_input < 0 | item_input > maximum_input | item_output < 0 | item_output > maximum_output | item_cost < 0 | item_cost > maximum_cost | item_time < 1 | item_time > maximum_time then return -1
+    maximum_input = item_input; maximum_output = item_output; maximum_cost = item_cost; maximum_time = item_time
+  end
+  else if item_type = "embedding" then do
+    body = ""
+    if input_document.node_string(input_document.member(input_root, "text"), body) \= 0 then return -1
+    input_cap = binlength(body as .binary) + 32
+    if input_cap < maximum_input then maximum_input = input_cap
+    maximum_output = 0
+    if maximum_cost > 1000 then maximum_cost = 1000
+  end
+  return 0
+
+_completeembedding: procedure = .int
+  arg store = .ragstorehandle, claim = .ragworkclaim, embedding = .ragworkembedding, provider_run_id = .string, expose error = .string
+  error = ""; database = store.database()
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin embedding completion"; return -3; end
+  if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)
+  sql = "INSERT OR IGNORE INTO embedding_profiles(embedding_profile_id,provider_id,model,dimension,input_envelope_fingerprint,created_at) VALUES(" || _q(embedding.embedding_profile_id()) || "," || _q(embedding.provider_id()) || "," || _q(embedding.model()) || "," || embedding.dimension() || "," || _q(embedding.envelope_fingerprint()) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot register worker embedding profile", error)
+  embedding_id = "embedding-sha256:" || rxhash..sha256hex((embedding.embedding_profile_id() || "00"x || embedding.input_digest()) as .binary)
+  prepared = .binary
+  sql = "INSERT OR IGNORE INTO embeddings(embedding_id,input_digest,embedding_profile_id,vector,dimension,provider_run_id,created_at) VALUES(?1,?2,?3,?4,?5,?6,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare worker embedding", error)
+  binds = sqlitebindtext(prepared, 1, embedding_id) | sqlitebindtext(prepared, 2, embedding.input_digest()) | sqlitebindtext(prepared, 3, embedding.embedding_profile_id()) | sqlitebindblob(prepared, 4, embedding.vector()) | sqlitebindint(prepared, 5, embedding.dimension()) | sqlitebindtext(prepared, 6, provider_run_id)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then return _rollback(database, "cannot store worker embedding", error)
+  generation = _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1")
+  sql = "INSERT OR IGNORE INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) VALUES(" || _q(embedding.revision_chunk_id()) || "," || _q(embedding_id) || "," || generation || ")"
+  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot attach worker embedding", error)
+  output_hash = rxhash..sha256hex(embedding.vector())
+  sql = "UPDATE attempts SET output_hash=" || _q(output_hash) || ",validation_state='validated-embedding',outcome='succeeded',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE attempt_id=" || _q(claim.attempt_id()) || " AND outcome='running'"
+  if sqliteexec(database, sql) \= 0 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "cannot complete embedding attempt", error)
+  sql = "UPDATE job_items SET state='processed',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=" || _q(claim.item_id()) || " AND worker_id=" || _q(claim.worker_id()) || " AND fence=" || claim.fence() || " AND state='running'"
+  if sqliteexec(database, sql) \= 0 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "cannot complete embedding item", error)
+  if _event(database, claim.job_id(), claim.item_id(), claim.attempt_id(), "processed", "validated embedding stored") \= 0 | _refreshjob(database, claim.job_id()) \= 0 then return _rollback(database, "cannot finish embedding item", error)
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit embedding completion", error)
   return 0
 
 runworkerfollow: procedure = .int

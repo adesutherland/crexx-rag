@@ -134,7 +134,7 @@ file(APPEND "${report}"
 if(NOT server_result STREQUAL "0")
     message(FATAL_ERROR "Multi-provider loopback failed: ${server_result}")
 endif()
-if(NOT final_server_out MATCHES "connections=24 request_connection_close=0")
+if(NOT final_server_out MATCHES "connections=24 request_connection_close=20")
     message(FATAL_ERROR "Multi-provider request accounting mismatch")
 endif()
 

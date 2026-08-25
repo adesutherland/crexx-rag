@@ -1,0 +1,231 @@
+options levelg
+
+namespace ragapplicationprovider expose ragapplicationprovider
+
+import rxfnsb
+import rxjson
+import rxhash
+import sqlite_boundary
+import ragconfig
+import ragprofile
+import ragcanonical
+import ragstore
+import ragclaims
+import ragwork
+import ragtrace
+import provider_contract
+import industrial_provider
+
+/* Product binding for the generic provider contract.  It owns RAG-shaped
+ * prompting and validation, while industrial_provider remains reusable and
+ * free of product vocabulary. */
+ragapplicationprovider: class implements .ragworkprovider
+  _store = .ragstorehandle
+  _config = .ragconfig
+  _profile = .ragprofile
+  _tracer = .ragtracer
+
+  *: factory
+    arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile, tracer = .ragtracer
+    _store = store; _config = config; _profile = profile; _tracer = tracer
+    return
+
+  process: method = .ragworkproviderresult
+    arg claim = .ragworkclaim
+    empty_proposal = .ragextractionproposal
+    if _snapshotmatches(_store, claim.config_snapshot_id(), _config, _profile) \= 1 then return _failedwork("configuration", "snapshot-mismatch", claim, empty_proposal, "worker configuration does not match the durable job snapshot", 0)
+    input_json = _iteminput(_store.database(), claim.item_id())
+    if input_json = "" | rxhash..sha256hex(input_json as .binary) \= claim.input_hash() then return _failedwork("configuration", "input-mismatch", claim, empty_proposal, "durable work input is missing or does not match its digest", 0)
+    document = .jsondocument(input_json)
+    if document.valid() \= 1 | document.node_type(document.root()) \= "object" then return _failedwork("configuration", "input-invalid", claim, empty_proposal, "durable work input is not valid JSON", 0)
+    root = document.root(); schema = _jsonstring(document, root, "schema"); operation = _jsonstring(document, root, "operation"); role = _jsonstring(document, root, "role"); provider_id = _jsonstring(document, root, "provider_id"); model = _jsonstring(document, root, "model"); privacy = _jsonstring(document, root, "privacy"); snapshot_id = _jsonstring(document, root, "config_snapshot_id")
+    if schema \= "crexx-rag.work-input/1" | operation \= claim.item_type() | role = "" | provider_id = "" | model = "" | privacy = "" | snapshot_id \= claim.config_snapshot_id() then return _failedwork("configuration", "input-shape", claim, empty_proposal, "durable work input fields do not match the claimed item", 0)
+    if _roleprovider(_config, role) \= provider_id then return _failedwork(provider_id, model, claim, empty_proposal, "durable provider route does not match current role binding", 0)
+    provider_config = _providerconfig(_config, provider_id)
+    if provider_config.provider_id() \= provider_id | provider_config.model() \= model | provider_config.kind() \= "gemini" then return _failedwork(provider_id, model, claim, empty_proposal, "Gemini provider configuration does not match durable work", 0)
+    secret = ""; credential = provider_config.credential()
+    if credential.empty() = 0 then secret = getenv(credential.name())
+    if (provider_config.route_class() = "hosted" & secret = "") | pos("0A"x, secret) > 0 | pos("0D"x, secret) > 0 then return _failedwork(provider_id, model, claim, empty_proposal, "provider credential reference is unavailable or invalid", 0)
+    host = ""; base_path = ""; port = 0; tls = 0
+    if _parseurl(provider_config.base_url(), host, port, tls, base_path) \= 0 then return _failedwork(provider_id, model, claim, empty_proposal, "provider base URL is invalid", 0)
+    backend = .industrialprovider("gemini", host, port, tls, base_path, secret, provider_config.route_class())
+    call _tracer.emit("provider", "start", claim.item_id(), provider_id || " " || model)
+    if operation = "embedding" then result = _embedding(document, root, claim, provider_config, backend)
+    else if operation = "claim-extraction" | operation = "improve-extraction" then result = _extraction(document, root, input_json, claim, provider_config, backend)
+    else result = _failedwork(provider_id, model, claim, empty_proposal, "durable work operation is unsupported", 0)
+    if result.ok() = 1 then call _tracer.emit("provider", "complete", claim.item_id(), provider_id || " " || model)
+    else call _tracer.emit("provider", "failed", claim.item_id(), provider_id || " " || model)
+    return result
+
+  _extraction: method = .ragworkproviderresult
+    arg document = .jsondocument, root = .int, input_json = .string, claim = .ragworkclaim, provider_config = .ragproviderconfig, backend = .provider
+    empty_proposal = .ragextractionproposal
+    messages = .providermessage[]; inputs = .string[]
+    messages[1] = .providermessage("system", "You extract one directional typed relationship from supplied public evidence. Use only candidate IDs, concept types, and relationship types shown in the input. If no directly supported relationship exists, set has_claim false. Never invent endpoints.")
+    types = _types(_profile); relationships = _relationships(_profile)
+    messages[2] = .providermessage("user", "Allowed concept types: " || types || "0A"x || "Allowed relationship types: " || relationships || "0A"x || "Durable input: " || input_json)
+    schema = '{"type":"object","additionalProperties":false,"required":["has_claim","source_candidate_id","source_label","source_type","relationship_type","target_candidate_id","target_label","target_type","confidence_millionths"],"properties":{"has_claim":{"type":"boolean"},"source_candidate_id":{"type":"string"},"source_label":{"type":"string"},"source_type":{"type":"string"},"relationship_type":{"type":"string"},"target_candidate_id":{"type":"string"},"target_label":{"type":"string"},"target_type":{"type":"string"},"confidence_millionths":{"type":"integer"}}}'
+    request_id = "extract-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 32)
+    request = .providerrequest("generate_structured", "extractor", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), provider_config.max_attempts(), _jsonstring(document, root, "privacy"), claim.item_id(), request_id, 512, 0, 0, 0)
+    provider_output = backend.generate_structured(request)
+    if provider_output.status() \= 0 then return _providerfailure(provider_config, request_id, claim, empty_proposal, provider_output)
+    if provider_output.provider() \= "gemini" | provider_output.model() \= provider_config.model() | provider_output.request_id() = "" then return _failedwork(provider_config.provider_id(), provider_config.model(), claim, empty_proposal, "provider returned incomplete provider/model identity", 0)
+    response = .jsondocument(provider_output.content())
+    if response.valid() \= 1 | response.node_type(response.root()) \= "object" then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider claim proposal is not an object")
+    response_root = response.root(); has_claim = 0
+    if response.node_boolean(response.member(response_root, "has_claim"), has_claim) \= 0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider claim disposition is invalid")
+    if has_claim = 0 then return _success(provider_config.provider_id(), provider_config.model(), request_id, provider_output, empty_proposal, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary))
+    source_candidate = _jsonstring(response, response_root, "source_candidate_id"); source_label = _jsonstring(response, response_root, "source_label"); source_type = _jsonstring(response, response_root, "source_type")
+    relationship = _jsonstring(response, response_root, "relationship_type"); target_candidate = _jsonstring(response, response_root, "target_candidate_id"); target_label = _jsonstring(response, response_root, "target_label"); target_type = _jsonstring(response, response_root, "target_type")
+    confidence = -1; ignored = response.node_int(response.member(response_root, "confidence_millionths"), confidence)
+    if source_candidate = "" | target_candidate = "" | source_candidate = target_candidate | source_label = "" | target_label = "" | _candidateexists(document, root, source_candidate) \= 1 | _candidateexists(document, root, target_candidate) \= 1 | _permittedtype(_profile, source_type) \= 1 | _permittedtype(_profile, target_type) \= 1 | _permittedrelationship(_profile, relationship) \= 1 | confidence < 0 | confidence > 1000000 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider claim proposal failed application validation")
+    revision_chunk_id = _jsonstring(document, root, "revision_chunk_id"); body = _jsonstring(document, root, "text"); prompt_version = _jsonstring(document, root, "prompt_version"); profile_id = _jsonstring(document, root, "profile_id"); source_scope = _jsonstring(document, root, "source_scope")
+    source_concept = "concept-sha256:" || rxhash..sha256hex((lower(source_label) || "00"x || source_type) as .binary)
+    target_concept = "concept-sha256:" || rxhash..sha256hex((lower(target_label) || "00"x || target_type) as .binary)
+    proposal_id = "proposal-sha256:" || rxhash..sha256hex((claim.input_hash() || "00"x || source_candidate || "00"x || relationship || "00"x || target_candidate || "00"x || request_id) as .binary)
+    proposal = .ragextractionproposal("crexx-rag.extraction-proposal/1", proposal_id, "claim", source_concept, source_label, source_type, relationship, target_concept, target_label, target_type, "outbound", '{}', "", "", revision_chunk_id, 0, binlength(body as .binary), "support", "assertion", "direct", "", "lineage:" || revision_chunk_id, confidence, provider_config.provider_id(), provider_config.model(), request_id, prompt_version, "crexx-rag-gemini-adapter/1", source_scope, profile_id, 0)
+    return _success(provider_config.provider_id(), provider_config.model(), request_id, provider_output, proposal, 1, source_candidate, target_candidate, .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary))
+
+  _embedding: method = .ragworkproviderresult
+    arg document = .jsondocument, root = .int, claim = .ragworkclaim, provider_config = .ragproviderconfig, backend = .provider
+    empty_proposal = .ragextractionproposal; messages = .providermessage[]; inputs = .string[]
+    body = _jsonstring(document, root, "text"); revision_chunk_id = _jsonstring(document, root, "revision_chunk_id"); content_digest = _jsonstring(document, root, "content_digest")
+    dimension = 0; ignored = document.node_int(document.member(root, "embedding_dimension"), dimension)
+    if body = "" | revision_chunk_id = "" | length(content_digest) \= 64 | dimension < 128 | dimension > 3072 then return _failedwork(provider_config.provider_id(), provider_config.model(), claim, empty_proposal, "durable embedding input is invalid", 0)
+    inputs[1] = body; request_id = "embed-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 32)
+    request = .providerrequest("embed", "embedding", provider_config.model(), messages, inputs, "", provider_config.timeout_ms(), provider_config.max_attempts(), _jsonstring(document, root, "privacy"), claim.item_id(), request_id, 0, dimension, 0)
+    provider_output = backend.embed(request)
+    if provider_output.status() \= 0 then return _providerfailure(provider_config, request_id, claim, empty_proposal, provider_output)
+    vectors = provider_output.embeddings()
+    if provider_output.provider() \= "gemini" | provider_output.model() \= provider_config.model() | provider_output.request_id() \= request_id | vectors.0 \= 1 | vectors[1].valid() \= 1 | vectors[1].count() \= dimension then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider embedding failed application validation")
+    envelope = "crexx-rag.embedding-input/1|" || provider_config.model() || "|" || dimension
+    input_digest = rxhash..sha256hex((content_digest || "00"x || envelope) as .binary)
+    profile_id = "gemini-embedding-" || dimension || "-" || substr(rxhash..sha256hex(envelope as .binary), 1, 12)
+    embedding = .ragworkembedding(revision_chunk_id, profile_id, input_digest, provider_config.provider_id(), provider_config.model(), dimension, rxhash..sha256hex(envelope as .binary), vectors[1].payload())
+    return _success(provider_config.provider_id(), provider_config.model(), request_id, provider_output, empty_proposal, 0, "", "", embedding)
+
+_success: procedure = .ragworkproviderresult
+  arg provider_id = .string, model = .string, request_id = .string, provider_output = .providerresult, proposal = .ragextractionproposal, has_proposal = .int, source_candidate = .string, target_candidate = .string, embedding = .ragworkembedding
+  usage = provider_output.usage(); cost = usage.cost_microunits(); if cost < 0 then cost = 0
+  return .ragworkproviderresult(0, provider_id, model, request_id, usage.input_tokens(), usage.output_tokens(), cost, (provider_output.latency_us() / 1000) as .int, 0, proposal, "", has_proposal, source_candidate, target_candidate, embedding)
+
+_providerfailure: procedure = .ragworkproviderresult
+  arg config = .ragproviderconfig, request_id = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, output = .providerresult
+  failure = output.error(); usage = output.usage(); cost = usage.cost_microunits(); if cost < 0 then cost = 0
+  message = failure.message(); if message = "" then message = "provider request failed"
+  return .ragworkproviderresult(output.status(), config.provider_id(), config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, (output.latency_us() / 1000) as .int, failure.retryable(), proposal, message, 0)
+
+_failedoutput: procedure = .ragworkproviderresult
+  arg config = .ragproviderconfig, request_id = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, output = .providerresult, message = .string
+  usage = output.usage(); cost = usage.cost_microunits(); if cost < 0 then cost = 0
+  return .ragworkproviderresult(-123, config.provider_id(), config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, (output.latency_us() / 1000) as .int, 0, proposal, message, 0)
+
+_failedwork: procedure = .ragworkproviderresult
+  arg provider_id = .string, model = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, message = .string, retryable = .int
+  if provider_id = "" then provider_id = "unresolved-provider"
+  if model = "" then model = "unresolved-model"
+  return .ragworkproviderresult(-101, provider_id, model, "failed-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 24), 0, 0, 0, 0, retryable, proposal, message, 0)
+
+_snapshotmatches: procedure = .int
+  arg store = .ragstorehandle, snapshot_id = .string, config = .ragconfig, profile = .ragprofile
+  prepared = .binary
+  sql = "SELECT config_hash,profile_hash FROM config_snapshots WHERE config_snapshot_id=?1"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindtext(prepared, 1, snapshot_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return 0; end
+  config_hash = ""; profile_hash = ""; columns = sqlitecolumntext(prepared, 0, config_hash) | sqlitecolumntext(prepared, 1, profile_hash); call sqlitefinalize prepared
+  if columns \= 0 then return 0
+  profile_json = canonicalprofile(profile)
+  effective_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.effective-config/1") || "," || jsonquote("config") || ":" || canonicalconfig(config) || "," || jsonquote("profile") || ":" || profile_json || "}"
+  return config_hash = ragsha256(effective_json) & profile_hash = ragsha256(profile_json)
+
+_iteminput: procedure = .string
+  arg database = .binary, item_id = .string
+  prepared = .binary; value = ""
+  if sqliteprepare(database, "SELECT input_json FROM job_items WHERE item_id=?1", prepared) \= 0 | sqlitebindtext(prepared, 1, item_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  status = sqlitecolumntext(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return ""
+  return value
+
+_roleprovider: procedure = .string
+  arg config = .ragconfig, role = .string
+  roles = config.roles()
+  do i = 1 to roles.0
+    if roles[i].role() = role then return roles[i].provider_id()
+  end
+  return ""
+
+_providerconfig: procedure = .ragproviderconfig
+  arg config = .ragconfig, provider_id = .string
+  providers = config.providers()
+  do i = 1 to providers.0
+    if providers[i].provider_id() = provider_id then return providers[i]
+  end
+  return .ragproviderconfig("", "", "", "", "", "", .ragsecretref(), 0, 0)
+
+_jsonstring: procedure = .string
+  arg document = .jsondocument, root = .int, name = .string
+  value = ""
+  if document.node_string(document.member(root, name), value) \= 0 then return ""
+  return value
+
+_candidateexists: procedure = .int
+  arg document = .jsondocument, root = .int, candidate_id = .string
+  candidates = document.member(root, "candidates")
+  if document.node_type(candidates) \= "array" then return 0
+  do i = 1 to document.node_count(candidates)
+    candidate = document.element(candidates, i); value = ""
+    if document.node_string(document.member(candidate, "candidate_id"), value) = 0 & value = candidate_id then return 1
+  end
+  return 0
+
+_types: procedure = .string
+  arg profile = .ragprofile
+  values = profile.concept_types(); output = ""
+  do i = 1 to values.0
+    if output \= "" then output = output || ","
+    output = output || values[i]
+  end
+  return output
+
+_relationships: procedure = .string
+  arg profile = .ragprofile
+  values = profile.relationship_types(); output = ""
+  do i = 1 to values.0
+    if output \= "" then output = output || ","
+    output = output || values[i].relationship_id()
+  end
+  return output
+
+_permittedtype: procedure = .int
+  arg profile = .ragprofile, expected = .string
+  values = profile.concept_types()
+  do i = 1 to values.0
+    if values[i] = expected then return 1
+  end
+  return 0
+
+_permittedrelationship: procedure = .int
+  arg profile = .ragprofile, expected = .string
+  values = profile.relationship_types()
+  do i = 1 to values.0
+    if values[i].relationship_id() = expected then return 1
+  end
+  return 0
+
+_parseurl: procedure = .int
+  arg url = .string, expose host = .string, expose port = .int, expose tls = .int, expose base_path = .string
+  host = ""; base_path = ""; port = 0; tls = 0; rest = ""
+  if left(url, 8) = "https://" then do; tls = 1; port = 443; rest = substr(url, 9); end
+  else if left(url, 7) = "http://" then do; tls = 0; port = 80; rest = substr(url, 8); end
+  else return -1
+  slash = pos("/", rest)
+  if slash = 0 then authority = rest
+  else do; authority = left(rest, slash - 1); base_path = substr(rest, slash); end
+  colon = lastpos(":", authority)
+  if colon > 0 then do
+    port_text = substr(authority, colon + 1); host = left(authority, colon - 1)
+    if datatype(port_text, "W") \= 1 then return -1
+    port = port_text as .int
+  end
+  else host = authority
+  if host = "" | port < 1 | port > 65535 | pos("00"x, base_path) > 0 then return -1
+  return 0

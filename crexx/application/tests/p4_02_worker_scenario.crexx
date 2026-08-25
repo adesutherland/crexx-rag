@@ -18,7 +18,7 @@ fixtureprovider: class implements .ragworkprovider
     _proposal = proposal; _delay_seconds = delay_seconds
     return
 
-  extract: method = .ragworkproviderresult
+  process: method = .ragworkproviderresult
     arg claim = .ragworkclaim
     if _delay_seconds > 0 then call rxplatform..sleep _delay_seconds * 1000
     return .ragworkproviderresult(0, "fixture-provider", "fixture-model", "request-" || claim.attempt_id(), 128, 64, 50000, 10, 0, _proposal, "")
@@ -219,6 +219,22 @@ control: procedure = .int
   errors = errors + check(claimnext(store, failure_job, "failure-worker", 5, 2, second, error) = 0 & second.fence() = first.fence() + 1, "retry increments monotonic fence " || error)
   errors = errors + check(failattempt(store, second, 0, 0, 2, "permanent", error) = 0, "non-retryable failure dead-letters item " || error)
   errors = errors + check(scalarint(store.database(), "SELECT count(*) FROM job_items WHERE job_id='" || failure_job || "' AND state='dead_letter'") = 1 & scalarint(store.database(), "SELECT count(*) FROM attempts WHERE item_id='" || second.item_id() || "'") = 2, "dead letter retains both attempts")
+  /* Close the other items so operator retry is proven against a stable,
+   * completed-with-errors job rather than a still-moving work queue. */
+  do fill = 1 to 8
+    remaining = .ragworkclaim
+    remaining_status = claimnext(store, failure_job, "failure-finisher", 5, 2, remaining, error)
+    if remaining_status = 1 then leave
+    errors = errors + check(remaining_status = 0, "claim remaining failure-job item " || error)
+    if remaining_status \= 0 then leave
+    errors = errors + check(skipitem(store, remaining, "failure-fixture-complete", error) = 0, "finish remaining failure-job item " || error)
+  end
+  errors = errors + check(scalartext(store.database(), "SELECT state FROM jobs WHERE job_id='" || failure_job || "'") = "completed_with_errors", "dead-letter retry waits for a closed job")
+  retried = 0
+  errors = errors + check(retrydeadletter(store, failure_job, second.item_id(), "operator-corrected", retried, error) = 0 & retried = 1, "operator explicitly requeues one closed dead-letter item " || error)
+  third = .ragworkclaim
+  errors = errors + check(claimnext(store, failure_job, "failure-worker", 5, 2, third, error) = 0 & third.fence() = second.fence() + 1, "operator retry preserves attempts and increments fence " || error)
+  errors = errors + check(skipitem(store, third, "operator-retry-proof", error) = 0 & scalarint(store.database(), "SELECT count(*) FROM attempts WHERE item_id='" || third.item_id() || "'") = 3 & scalarint(store.database(), "SELECT count(*) FROM job_events WHERE job_id='" || failure_job || "' AND event_type='operator-retry'") = 1, "retried item finishes without erasing failed attempts " || error)
 
   budget_job = createjob(store, "prompt-inflight", error)
   budget_claim_a = .ragworkclaim; budget_claim_b = .ragworkclaim; budget_claim_c = .ragworkclaim; budget_claim_d = .ragworkclaim
@@ -233,7 +249,7 @@ control: procedure = .int
   errors = errors + check(scalarint(store.database(), "SELECT reserved_calls+reserved_tokens+reserved_cost FROM jobs WHERE job_id='" || budget_job || "'") = 0 & scalarint(store.database(), "SELECT count(*) FROM provider_runs p JOIN attempts a ON a.provider_run_id=p.provider_run_id JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id='" || budget_job || "'") = 2, "in-flight overrun leaves exact counters and calls")
   call closeragstore store, error
   if errors \= 0 then do; say "P4_CONTROL_ERRORS=" || errors; return 1; end
-  say "P4_CONTROL_OK cell=" || cell || " pause_resume=1 drain=1 cancellation=cooperative heartbeat=1 retry=bounded dead_letter=1 budgets=reserved_and_settled inflight_overrun=denied"
+  say "P4_CONTROL_OK cell=" || cell || " pause_resume=1 drain=1 cancellation=cooperative heartbeat=1 retry=bounded operator_retry=1 dead_letter=1 budgets=reserved_and_settled inflight_overrun=denied"
   return 0
 
 main: procedure = .int

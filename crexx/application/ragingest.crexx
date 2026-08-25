@@ -1,12 +1,14 @@
 options levelg
 
-namespace ragingest expose ragsourceobservation ragnormalizedsource ragchunk ragingestplan ragingestresult ragtermstatistics normalizebytes chunktext createingestplan applyingestplan termstatistics
+namespace ragingest expose ragsourceobservation ragnormalizedsource ragchunk ragingestplan ragingestresult ragtermstatistics normalizebytes chunktext createingestplan applyingestplan applyingestplanconfigured termstatistics
 
 import rxfnsb
 import rxjson
 import rxhash
 import sqlite_boundary
 import ragstore
+import ragconfig
+import ragprofile
 
 /* Phase-3 ingestion is deliberately expressed in Level G. Native facilities
  * provide only generic SHA-256 and SQLite boundaries. Observations and plans
@@ -441,6 +443,16 @@ createingestplan: procedure = .int
 
 applyingestplan: procedure = .ragingestresult
   arg store = .ragstorehandle, plan = .ragingestplan, observations = .ragsourceobservation[]
+  config = .ragconfig
+  profile = .ragprofile
+  return _applyingestplan(store, plan, observations, config, profile, 0)
+
+applyingestplanconfigured: procedure = .ragingestresult
+  arg store = .ragstorehandle, plan = .ragingestplan, observations = .ragsourceobservation[], config = .ragconfig, profile = .ragprofile
+  return _applyingestplan(store, plan, observations, config, profile, 1)
+
+_applyingestplan: procedure = .ragingestresult
+  arg store = .ragstorehandle, plan = .ragingestplan, observations = .ragsourceobservation[], config = .ragconfig, profile = .ragprofile, configured = .int
   if store.writable() \= 1 then return _failure(-5, "ingest apply requires readwrite access")
   if plan.schema() \= "crexx-rag.ingest-plan/1" | plan.observation_count() \= observations.0 | length(plan.digest()) \= 64 then return _failure(-1, "ingest plan shape is invalid")
   current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
@@ -468,7 +480,7 @@ applyingestplan: procedure = .ragingestresult
   end
   if _stagedeletions(store.database(), generation, plan.source_scope(), observations, deleted, support_retracted, error) \= 0 then return _abortresult(store, error)
   if _finalizecandidates(store.database(), generation, plan.policy_version(), error) \= 0 then return _abortresult(store, error)
-  if _queuework(store.database(), generation, plan, items, error) \= 0 then return _abortresult(store, error)
+  if _queuework(store.database(), generation, plan, config, profile, configured, items, error) \= 0 then return _abortresult(store, error)
   if commitgeneration(store, generation, error) \= 0 then return _failure(-3, error)
   after_changes = _scalarint(store.database(), "SELECT total_changes()")
   unchanged = observations.0 - added - changed
@@ -1176,28 +1188,72 @@ _candidatecount: procedure = .int
   return _boundcount2(database, sql, label, generation)
 
 _queuework: procedure = .int
-  arg database = .binary, generation = .int, plan = .ragingestplan, expose items = .int, expose error = .string
+  arg database = .binary, generation = .int, plan = .ragingestplan, config = .ragconfig, profile = .ragprofile, configured = .int, expose items = .int, expose error = .string
   items = 0
   prepared = .binary
-  sql = "SELECT c.revision_chunk_id,c.content_id FROM revision_chunks c WHERE c.visible_from_generation=?1 AND NOT EXISTS(SELECT 1 FROM revision_chunks p WHERE p.content_id=c.content_id AND p.visible_to_generation=?1) ORDER BY c.content_id,c.revision_chunk_id"
+  sql = "SELECT c.revision_chunk_id,c.content_id,t.content_digest,t.text,c.normalized_start,c.normalized_end FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c.visible_from_generation=?1 AND NOT EXISTS(SELECT 1 FROM revision_chunks p WHERE p.content_id=c.content_id AND p.visible_to_generation=?1) ORDER BY c.content_id,c.revision_chunk_id"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare missing-work census"; return -1; end
-  chunk_ids = .string[]; content_ids = .string[]
+  chunk_ids = .string[]; content_ids = .string[]; content_digests = .string[]; texts = .string[]; starts = .int[]; ends = .int[]
   do forever
     status = sqlitestep(prepared)
     if status = 101 then leave
     if status \= 100 then do; call sqlitefinalize prepared; error = "cannot read missing-work census"; return -1; end
-    chunk_id = ""; content_id = ""
-    column_status = sqlitecolumntext(prepared, 0, chunk_id) | sqlitecolumntext(prepared, 1, content_id)
+    chunk_id = ""; content_id = ""; content_digest = ""; body = ""; normalized_start = 0; normalized_end = 0
+    column_status = sqlitecolumntext(prepared, 0, chunk_id) | sqlitecolumntext(prepared, 1, content_id) | sqlitecolumntext(prepared, 2, content_digest) | sqlitecolumntext(prepared, 3, body) | sqlitecolumnint(prepared, 4, normalized_start) | sqlitecolumnint(prepared, 5, normalized_end)
     if column_status \= 0 then do; call sqlitefinalize prepared; error = "cannot decode missing-work census"; return -1; end
     chunk_ids[chunk_ids.0 + 1] = chunk_id; content_ids[content_ids.0 + 1] = content_id
+    content_digests[content_digests.0 + 1] = content_digest; texts[texts.0 + 1] = body
+    starts[starts.0 + 1] = normalized_start; ends[ends.0 + 1] = normalized_end
   end
   call sqlitefinalize prepared
-  job_id = "job-sha256:" || plan.digest()
   item_budget = chunk_ids.0 * 2
+  privacy = "local"; extractor_id = ""; embedding_id = ""; extractor_model = ""; embedding_model = ""; prompt_version = plan.policy_version(); profile_id = ""
+  model_call_budget = item_budget; input_budget = 0; output_budget = 0; cost_budget = 0
+  time_budget_ms = 0; maximum_call_input = 0; maximum_call_output = 0; maximum_call_cost = 0; maximum_call_time = 0; maximum_inflight = 1; maximum_attempts = 1
+  embedding_input_caps = .int[]; embedding_cost_cap = 0; embedding_time_cap = 0
+  extraction_input_cap = 0; extraction_output_cap = 0; extraction_cost_cap = 0; extraction_time_cap = 0
+  if configured = 1 then do
+    privacy = _sourceprivacy(config, plan.source_scope())
+    extractor_id = _roleproviderid(config, "extractor"); embedding_id = _roleproviderid(config, "embedding")
+    if privacy = "" | extractor_id = "" | embedding_id = "" then do; error = "configured ingestion roles or privacy are unavailable"; return -1; end
+    extractor_model = _providermodel(config, extractor_id); embedding_model = _providermodel(config, embedding_id)
+    if extractor_model = "" | embedding_model = "" then do; error = "configured ingestion provider model is unavailable"; return -1; end
+    prompt_version = _promptversion(profile, "extractor")
+    if prompt_version = "" then do; error = "configured extraction prompt is unavailable"; return -1; end
+    profile_id = profile.profile_id()
+    budget = config.budget(); workers = config.workers()
+    model_call_budget = budget.model_calls(); input_budget = budget.input_tokens(); output_budget = budget.output_tokens(); cost_budget = budget.cost_microunits()
+    time_budget_ms = budget.minutes() * 60000; maximum_inflight = workers.processes() * workers.max_in_flight(); maximum_attempts = _maximumproviderattempts(config)
+    maximum_call_input = _minimum(input_budget, 8192); maximum_call_output = _minimum(output_budget, 1024); maximum_call_cost = _minimum(cost_budget, 100000)
+    maximum_call_time = _minimum(_maximumprovidertimeout(config), time_budget_ms)
+    if item_budget > budget.item_limit() then do; error = "planned ingestion work exceeds budget.item_limit"; return -1; end
+    if item_budget > model_call_budget then do; error = "planned ingestion work exceeds budget.model_calls"; return -1; end
+    if chunk_ids.0 > 0 then do
+      if maximum_inflight > item_budget then maximum_inflight = item_budget
+      extraction_input_cap = _minimum(8192, input_budget / maximum_inflight)
+      extraction_output_cap = _minimum(1024, output_budget / maximum_inflight)
+      extraction_cost_cap = _minimum(100000, cost_budget / maximum_inflight)
+      extraction_time_cap = _minimum(_maximumprovidertimeout(config), time_budget_ms / maximum_inflight)
+      if extraction_input_cap < 1 | extraction_output_cap < 1 | extraction_cost_cap < 1 | extraction_time_cap < _maximumprovidertimeout(config) then do
+        error = "configured budget cannot safely admit the configured in-flight workers"
+        return -1
+      end
+      embedding_cost_cap = _minimum(extraction_cost_cap, 1000)
+      embedding_time_cap = extraction_time_cap
+      do i = 1 to chunk_ids.0
+        embedding_input_caps[i] = _minimum(extraction_input_cap, binlength(texts[i] as .binary) + 32)
+      end
+      maximum_call_input = extraction_input_cap
+      maximum_call_output = extraction_output_cap
+      maximum_call_cost = extraction_cost_cap
+      maximum_call_time = extraction_time_cap
+    end
+  end
+  job_id = "job-sha256:" || plan.digest()
   state = "queued"
   if item_budget = 0 then state = "completed"
   insert = .binary
-  sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,reserved_calls,reserved_tokens,reserved_cost,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,0,0,0,0,0,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,reserved_calls,reserved_tokens,reserved_cost,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,0,0,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
   if sqliteprepare(database, sql, insert) \= 0 then do; error = "cannot prepare ingest job"; return -1; end
   bind_status = sqlitebindtext(insert, 1, job_id)
   bind_status = bind_status | sqlitebindtext(insert, 2, plan.digest())
@@ -1205,25 +1261,57 @@ _queuework: procedure = .int
   bind_status = bind_status | sqlitebindtext(insert, 4, plan.config_snapshot_id())
   bind_status = bind_status | sqlitebindtext(insert, 5, state)
   bind_status = bind_status | sqlitebindint(insert, 6, item_budget)
-  bind_status = bind_status | sqlitebindint(insert, 7, item_budget)
+  bind_status = bind_status | sqlitebindint(insert, 7, model_call_budget)
+  bind_status = bind_status | sqlitebindint(insert, 8, input_budget)
+  bind_status = bind_status | sqlitebindint(insert, 9, output_budget)
+  bind_status = bind_status | sqlitebindint(insert, 10, cost_budget)
   step_status = sqlitestep(insert); call sqlitefinalize insert
   if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert ingest job"; return -1; end
+
+  if configured = 1 then do
+    budget_message = "{" || jsonquote("time_budget_ms") || ":" || time_budget_ms || "," || jsonquote("maximum_call_input_tokens") || ":" || maximum_call_input || "," || jsonquote("maximum_call_output_tokens") || ":" || maximum_call_output || "," || jsonquote("maximum_call_cost") || ":" || maximum_call_cost || "," || jsonquote("maximum_call_time_ms") || ":" || maximum_call_time || "," || jsonquote("maximum_inflight_calls") || ":" || maximum_inflight || "," || jsonquote("maximum_attempts") || ":" || maximum_attempts || "}"
+    budget_event = .binary
+    sql = "INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) VALUES(?1,NULL,NULL,'budget-policy',?2,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+    if sqliteprepare(database, sql, budget_event) \= 0 then do; error = "cannot prepare configured job budget"; return -1; end
+    bind_status = sqlitebindtext(budget_event, 1, job_id) | sqlitebindtext(budget_event, 2, budget_message)
+    step_status = sqlitestep(budget_event); call sqlitefinalize budget_event
+    if bind_status \= 0 | step_status \= 101 then do; error = "cannot record configured job budget"; return -1; end
+  end
 
   do i = 1 to chunk_ids.0
     kinds = .string[]; kinds[1] = "embedding"; kinds[2] = "claim-extraction"
     do j = 1 to kinds.0
-      idempotency = rxhash..sha256hex(("crexx-rag.work/1" || "00"x || kinds[j] || "00"x || content_ids[i] || "00"x || plan.policy_version()) as .binary)
+      provider_id = ""; model = ""; role = ""
+      if kinds[j] = "embedding" then do; provider_id = embedding_id; model = embedding_model; role = "embedding"; end
+      else do; provider_id = extractor_id; model = extractor_model; role = "extractor"; end
+      candidates_json = _candidatecatalog(database, chunk_ids[i], generation, error)
+      if error \= "" then return -1
+      item_input_cap = maximum_call_input; item_output_cap = maximum_call_output; item_cost_cap = maximum_call_cost; item_time_cap = maximum_call_time
+      if configured = 1 then do
+        item_input_cap = extraction_input_cap; item_output_cap = extraction_output_cap; item_cost_cap = extraction_cost_cap; item_time_cap = extraction_time_cap
+      end
+      if kinds[j] = "embedding" then do
+        if configured = 1 then item_input_cap = embedding_input_caps[i]
+        else item_input_cap = _minimum(maximum_call_input, binlength(texts[i] as .binary) + 32)
+        item_output_cap = 0
+        if configured = 1 then do; item_cost_cap = embedding_cost_cap; item_time_cap = embedding_time_cap; end
+        else item_cost_cap = _minimum(maximum_call_cost, 1000)
+      end
+      reservation_json = "{" || jsonquote("input_tokens") || ":" || item_input_cap || "," || jsonquote("output_tokens") || ":" || item_output_cap || "," || jsonquote("cost_microunits") || ":" || item_cost_cap || "," || jsonquote("time_ms") || ":" || item_time_cap || "}"
+      input_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.work-input/1") || "," || jsonquote("operation") || ":" || jsonquote(kinds[j]) || "," || jsonquote("revision_chunk_id") || ":" || jsonquote(chunk_ids[i]) || "," || jsonquote("content_id") || ":" || jsonquote(content_ids[i]) || "," || jsonquote("content_digest") || ":" || jsonquote(content_digests[i]) || "," || jsonquote("text_digest") || ":" || jsonquote(rxhash..sha256hex(texts[i] as .binary)) || "," || jsonquote("text") || ":" || jsonquote(texts[i]) || "," || jsonquote("normalized_start") || ":" || starts[i] || "," || jsonquote("normalized_end") || ":" || ends[i] || "," || jsonquote("privacy") || ":" || jsonquote(privacy) || "," || jsonquote("source_scope") || ":" || jsonquote(plan.source_scope()) || "," || jsonquote("config_snapshot_id") || ":" || jsonquote(plan.config_snapshot_id()) || "," || jsonquote("profile_id") || ":" || jsonquote(profile_id) || "," || jsonquote("policy_version") || ":" || jsonquote(plan.policy_version()) || "," || jsonquote("prompt_version") || ":" || jsonquote(prompt_version) || "," || jsonquote("role") || ":" || jsonquote(role) || "," || jsonquote("provider_id") || ":" || jsonquote(provider_id) || "," || jsonquote("model") || ":" || jsonquote(model) || "," || jsonquote("embedding_dimension") || ":768," || jsonquote("reservation") || ":" || reservation_json || "," || jsonquote("candidates") || ":[" || candidates_json || "]}"
+      input_hash = rxhash..sha256hex(input_json as .binary)
+      idempotency = rxhash..sha256hex(("crexx-rag.work/2" || "00"x || input_hash) as .binary)
       item_id = "item-sha256:" || idempotency
-      input_hash = rxhash..sha256hex((chunk_ids[i] || "00"x || content_ids[i] || "00"x || plan.policy_version() || "00"x || plan.parser_version()) as .binary)
       before = _scalarint(database, "SELECT total_changes()")
       item = .binary
-      sql = "INSERT OR IGNORE INTO job_items(item_id,job_id,item_type,state,priority,worker_id,lease_until,fence,retry_at,idempotency_key,input_hash,created_at,updated_at) VALUES(?1,?2,?3,'queued',100,NULL,NULL,0,0,?4,?5,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+      sql = "INSERT OR IGNORE INTO job_items(item_id,job_id,item_type,state,priority,worker_id,lease_until,fence,retry_at,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES(?1,?2,?3,'queued',100,NULL,NULL,0,0,?4,?5,?6,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
       if sqliteprepare(database, sql, item) \= 0 then do; error = "cannot prepare ingest work item"; return -1; end
       bind_status = sqlitebindtext(item, 1, item_id)
       bind_status = bind_status | sqlitebindtext(item, 2, job_id)
       bind_status = bind_status | sqlitebindtext(item, 3, kinds[j])
       bind_status = bind_status | sqlitebindtext(item, 4, idempotency)
       bind_status = bind_status | sqlitebindtext(item, 5, input_hash)
+      bind_status = bind_status | sqlitebindtext(item, 6, input_json)
       step_status = sqlitestep(item); call sqlitefinalize item
       if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert ingest work item"; return -1; end
       after = _scalarint(database, "SELECT total_changes()")
@@ -1234,6 +1322,79 @@ _queuework: procedure = .int
     if sqliteexec(database, "UPDATE jobs SET state='completed',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _sqlquote(job_id)) \= 0 then do; error = "cannot converge empty ingest job"; return -1; end
   end
   return 0
+
+_candidatecatalog: procedure = .string
+  arg database = .binary, chunk_id = .string, generation = .int, expose error = .string
+  prepared = .binary; output = ""; error = ""
+  sql = "SELECT c.candidate_id,c.normalized_candidate,c.span_start,c.span_end FROM candidate_mentions c JOIN candidate_decisions d ON d.candidate_id=c.candidate_id AND d.state='accepted' WHERE c.revision_chunk_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) ORDER BY c.candidate_id"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, chunk_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare work candidate catalog"; return ""; end
+  do forever
+    step = sqlitestep(prepared)
+    if step = 101 then leave
+    if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read work candidate catalog"; return ""; end
+    candidate_id = ""; label = ""; span_start = 0; span_end = 0
+    columns = sqlitecolumntext(prepared, 0, candidate_id) | sqlitecolumntext(prepared, 1, label) | sqlitecolumnint(prepared, 2, span_start) | sqlitecolumnint(prepared, 3, span_end)
+    if columns \= 0 then do; call sqlitefinalize prepared; error = "cannot decode work candidate catalog"; return ""; end
+    if output \= "" then output = output || ","
+    output = output || "{" || jsonquote("candidate_id") || ":" || jsonquote(candidate_id) || "," || jsonquote("label") || ":" || jsonquote(label) || "," || jsonquote("span_start") || ":" || span_start || "," || jsonquote("span_end") || ":" || span_end || "}"
+  end
+  call sqlitefinalize prepared
+  return output
+
+_sourceprivacy: procedure = .string
+  arg config = .ragconfig, source_scope = .string
+  source_id = source_scope
+  if left(source_scope, 7) = "folder:" then source_id = substr(source_scope, 8)
+  sources = config.source_sets()
+  do i = 1 to sources.0
+    if sources[i].source_set_id() = source_id then return sources[i].privacy()
+  end
+  return ""
+
+_roleproviderid: procedure = .string
+  arg config = .ragconfig, role = .string
+  roles = config.roles()
+  do i = 1 to roles.0
+    if roles[i].role() = role then return roles[i].provider_id()
+  end
+  return ""
+
+_providermodel: procedure = .string
+  arg config = .ragconfig, provider_id = .string
+  providers = config.providers()
+  do i = 1 to providers.0
+    if providers[i].provider_id() = provider_id then return providers[i].model()
+  end
+  return ""
+
+_promptversion: procedure = .string
+  arg profile = .ragprofile, role = .string
+  prompts = profile.prompts()
+  do i = 1 to prompts.0
+    if prompts[i].role() = role then return prompts[i].template_id() || ":" || prompts[i].version()
+  end
+  return ""
+
+_maximumprovidertimeout: procedure = .int
+  arg config = .ragconfig
+  maximum = 1; providers = config.providers()
+  do i = 1 to providers.0
+    if providers[i].timeout_ms() > maximum then maximum = providers[i].timeout_ms()
+  end
+  return maximum
+
+_maximumproviderattempts: procedure = .int
+  arg config = .ragconfig
+  maximum = 1; providers = config.providers()
+  do i = 1 to providers.0
+    if providers[i].max_attempts() > maximum then maximum = providers[i].max_attempts()
+  end
+  return maximum
+
+_minimum: procedure = .int
+  arg left_value = .int, right_value = .int
+  if left_value < right_value then return left_value
+  return right_value
 
 _findsource: procedure = .int
   arg database = .binary, connector_type = .string, stable_key = .string, expose source_id = .string, expose current_revision = .string, expose current_stable = .string

@@ -1,109 +1,365 @@
 options levelg
 
 import rxfnsb
+import rxfs
 import ragcommand
 import ragconfig
 import ragconfigfile
 import ragproduct
 import operator_registry
 
+/* Human-first native CLI.  The short commands below only compose the shared
+ * product vocabulary; machine callers retain the exact canonical operations. */
 main: procedure = .int
 arg args = .string[]
-alias = ""; error = ""; config_path = ""
+if _wantshelp(args) = 1 then return _showhelp()
+alias = ""; source_set = ""; worker_count = ""; auto_confirm = 0
+error = ""; config_path = ""; config_origin = ""
 command_args = _configfileargs(args, config_path, error)
-if error \= "" then do
-  say "ERROR config [configuration]: " || error
-  return 3
+if error \= "" then return _clierror("config", "configuration", error, 3)
+
+loaded_config = .ragconfig; config_loaded = 0
+if config_path \= "" then config_origin = "--config-file"
+else do
+  environment_path = getenv("CREXX_RAG_CONFIG")
+  if environment_path \= "" then do
+    config_path = environment_path
+    config_origin = "CREXX_RAG_CONFIG"
+  end
+  else if rxfs..isfile("crexx-rag.conf") = 1 then do
+    config_path = "crexx-rag.conf"
+    config_origin = "local default"
+  end
 end
+
 registry = operatorregistry()
 if config_path \= "" then do
-  loaded_config = .ragconfig
-  if loadconfigfile(config_path, loaded_config, error) \= 0 then do
-    say "ERROR config [configuration]: " || error
-    return 3
-  end
-  command_args = _bindloadedconfig(command_args, loaded_config.config_id(), error)
-  if error \= "" then do
-    say "ERROR config [configuration]: " || error
-    return 3
-  end
+  if loadconfigfile(config_path, loaded_config, error) \= 0 then return _clierror("config", "configuration", config_origin || " " || config_path || ": " || error, 3)
   registry = operatorregistryforconfig(loaded_config)
-  if registry.valid() \= 1 then do
-    say "ERROR config [configuration]: loaded configuration references an unregistered profile"
-    return 3
-  end
+  if registry.valid() \= 1 then return _clierror("config", "configuration", "loaded configuration references an unregistered profile", 3)
+  config_loaded = 1
 end
-command_args = _aliases(command_args, alias)
+
+command_args = _aliases(command_args, loaded_config, config_loaded, alias, source_set, worker_count, auto_confirm, error)
+if error \= "" then return _clierror("parse", "usage", error, 2)
+if (alias = "init" | alias = "guided-ingest") & config_loaded = 0 & _hasglobal(command_args, "config") = 0 then return _clierror("config", "configuration", "no configuration selected; checked --config-file, CREXX_RAG_CONFIG, and ./crexx-rag.conf", 3)
+
+command_args = _defaults(command_args, loaded_config, config_loaded, alias)
 request = .ragcommandrequest
-parse_status = parsecommand(command_args, request, error)
-if parse_status \= 0 then do
-  say "ERROR parse [usage]: " || error
-  return 2
+if parsecommand(command_args, request, error) \= 0 then return _clierror("parse", "usage", error, 2)
+if config_loaded = 1 then do
+  if request.config_id() \= "" & request.config_id() \= loaded_config.config_id() then return _clierror("config", "configuration", "--config does not match " || config_origin || " " || config_path, 3)
+  request = _bindrequestconfig(request, loaded_config.config_id(), config_path)
 end
+
+if alias = "guided-ingest" then return _guidedingest(request, registry, source_set, worker_count, auto_confirm)
 result = dispatchproduct(request, registry)
-if alias \= "" then result = _deprecated(result, alias)
-output = ""
-if rendercommandresult(result, request.format(), output, error) \= 0 then do
-  say "ERROR render [internal]: " || error
-  return 10
-end
-say output
-return result.exit_code()
+if alias = "queue-status" then result = _deprecated(result, alias)
+return _showresult(result, request.format())
+
+_wantshelp: procedure = .int
+  arg args = .string[]
+  if args.0 = 0 then return 1
+  if args.0 = 1 & wordpos(args[1], "--help -h help") > 0 then return 1
+  return 0
+
+_showhelp: procedure = .int
+  say "crexx-rag - local evidence library"
+  say ""
+  say "Human workflow"
+  say "  crexx-rag init"
+  say "  crexx-rag ingest [SOURCE_SET] [--workers N] [--yes]"
+  say "  crexx-rag query QUESTION"
+  say ""
+  say "The current directory defaults are ./crexx-rag.conf and ./library."
+  say "Ingest reviews privacy, providers and budget before it starts workers."
+  say ""
+  say "Global options"
+  say "  --config-file PATH        configuration file"
+  say "  --library PATH            library folder"
+  say "  --format human|json|ndjson"
+  say "  --progress off|plain|ansi"
+  say "  --access CAPABILITY       repeat or comma-separate for canonical commands"
+  say ""
+  say "Automation uses canonical commands such as ingest plan, ingest apply,"
+  say "worker start, job status, query evidence and library verify."
+  return 0
+
+_guidedingest: procedure = .int
+  arg plan_request = .ragcommandrequest, registry = .ragregistry, source_set = .string, worker_override = .string, auto_confirm = .int
+  if plan_request.format() \= "human" then return _clierror("parse", "usage", "guided ingest is human-only; machine callers use ingest plan, ingest apply, and worker start with --format json or ndjson", 2)
+  config_lookup = registry.config(plan_request.config_id())
+  if config_lookup.found() \= 1 then return _clierror("config", "configuration", "guided ingest configuration is not registered", 3)
+  config = config_lookup.config(); workers = config.workers().processes()
+  if worker_override \= "" then workers = worker_override as .int
+  if workers < 1 | workers > config.workers().processes() then return _clierror("parse", "usage", "--workers must be within the configured process ceiling", 2)
+
+  plan_result = dispatchproduct(plan_request, registry)
+  if plan_result.exit_code() \= 0 then return _showresult(plan_result, "human")
+  plan_json = _fieldvalue(plan_result, 1, "canonical_plan")
+  digest = _fieldvalue(plan_result, 1, "digest")
+  if plan_json = "" | digest = "" then return _clierror("render", "internal", "guided ingest plan did not expose its canonical bytes and digest", 10)
+  say _plansummary(config, source_set, digest, workers)
+
+  if auto_confirm = 0 then do
+    call charout "stderr", "Continue? [y/N] "
+    answer = lower(strip(linein("stdin")))
+    if answer \= "y" & answer \= "yes" then do
+      say "Cancelled: no library changes or provider calls were made."
+      return 9
+    end
+  end
+
+  access = plan_request.access(); empty_positionals = .string[]
+  apply_options = .ragcommandoption[]
+  apply_options[1] = .ragcommandoption("plan-json", plan_json, 0)
+  apply_options[2] = .ragcommandoption("expect-digest", digest, 0)
+  apply_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", plan_request.progress(), access, "ingest", "apply", "ingest.apply", apply_options, empty_positionals)
+  apply_result = dispatchproduct(apply_request, registry)
+  ignored = _showresult(apply_result, "human")
+  if apply_result.exit_code() \= 0 then return apply_result.exit_code()
+  items_queued = _fieldvalue(apply_result, 1, "items_queued")
+  if items_queued = "" then return _clierror("render", "internal", "ingest apply did not expose its queued item count", 10)
+  if items_queued = "0" then return 0
+  job_id = _fieldvalue(apply_result, 1, "job_id")
+  if job_id = "" then return _clierror("render", "internal", "ingest apply did not expose its durable job id", 10)
+
+  worker_options = .ragcommandoption[]
+  worker_options[1] = .ragcommandoption("count", workers || "", 0)
+  worker_options[2] = .ragcommandoption("poll-ms", "100", 0)
+  worker_options[3] = .ragcommandoption("max-polls", "100", 0)
+  worker_options[4] = .ragcommandoption("job", job_id, 0)
+  worker_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", plan_request.progress(), access, "worker", "start", "worker.start", worker_options, empty_positionals)
+  worker_result = dispatchproduct(worker_request, registry)
+  ignored = _showresult(worker_result, "human")
+  if worker_result.exit_code() \= 0 then return worker_result.exit_code()
+
+  status_options = .ragcommandoption[]; status_positionals = .string[]; status_positionals[1] = job_id
+  status_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", "off", access, "job", "status", "job.status", status_options, status_positionals)
+  status_result = dispatchproduct(status_request, registry)
+  return _showresult(status_result, "human")
+
+_plansummary: procedure = .string
+  arg config = .ragconfig, source_set_id = .string, digest = .string, workers = .int
+  source_root = ""; privacy = ""; source_sets = config.source_sets()
+  do i = 1 to source_sets.0
+    if source_sets[i].source_set_id() = source_set_id then do
+      source_root = source_sets[i].root(); privacy = source_sets[i].privacy()
+    end
+  end
+  budget = config.budget(); providers = config.providers()
+  cost = _money(budget.cost_microunits())
+  output = "Ingestion plan"
+  output = output || "0A0A"x || "  Source set:       " || source_set_id
+  if source_root \= "" then output = output || "0A"x || "  Source folder:    " || source_root
+  if privacy \= "" then output = output || "0A"x || "  Data policy:      " || privacy
+  output = output || "0A"x || "  Maximum calls:    " || budget.model_calls()
+  output = output || "0A"x || "  Maximum cost:     $" || cost
+  output = output || "0A"x || "  Worker processes: " || workers
+  do i = 1 to providers.0
+    output = output || "0A"x || "  Provider:         " || providers[i].kind() || " / " || providers[i].model()
+  end
+  output = output || "0A"x || "  Plan digest:      " || digest
+  return output
+
+_money: procedure = .string
+  arg microunits = .int
+  value = strip(format(microunits / 1000000.0, , 6))
+  do while pos(".", value) > 0 & right(value, 1) = "0"
+    value = left(value, length(value) - 1)
+  end
+  if right(value, 1) = "." then value = left(value, length(value) - 1)
+  return value
+
+_showresult: procedure = .int
+  arg result = .ragcommandresult, format = .string
+  output = ""; error = ""
+  if rendercommandresult(result, format, output, error) \= 0 then return _clierror("render", "internal", error, 10)
+  say output
+  return result.exit_code()
+
+_fieldvalue: procedure = .string
+  arg result = .ragcommandresult, record_index = .int, field_name = .string
+  records = result.records()
+  if record_index < 1 | record_index > records.0 then return ""
+  fields = records[record_index].fields()
+  do i = 1 to fields.0
+    if fields[i].name() = field_name then return fields[i].value()
+  end
+  return ""
+
+_defaults: procedure = .string[]
+  arg args = .string[], config = .ragconfig, config_loaded = .int, alias = .string
+  output = .string[]; noun_index = _nounindex(args); noun = ""; verb = ""
+  if noun_index > 0 then do
+    noun = args[noun_index]
+    if noun_index < args.0 then verb = args[noun_index + 1]
+  end
+  if _requiresdefaultlibrary(noun, verb) = 1 & _hasglobal(args, "library") = 0 then do; output[output.0 + 1] = "--library"; output[output.0 + 1] = "./library"; end
+  if config_loaded = 1 & _hasglobal(args, "config") = 0 then do; output[output.0 + 1] = "--config"; output[output.0 + 1] = config.config_id(); end
+  if config_loaded = 1 & _hasglobal(args, "profile") = 0 then do
+    profile_ids = config.profile_ids()
+    if profile_ids.0 = 1 then do; output[output.0 + 1] = "--profile"; output[output.0 + 1] = profile_ids[1]; end
+  end
+  selected_format = _globalvalue(args, "format")
+  if selected_format = "" then selected_format = "human"
+  if selected_format = "human" & _hasglobal(args, "progress") = 0 then do; output[output.0 + 1] = "--progress"; output[output.0 + 1] = _defaultprogress(); end
+  if _hasglobal(args, "access") = 0 then do
+    if alias = "init" then do; output[output.0 + 1] = "--access"; output[output.0 + 1] = "admin"; end
+    if alias = "guided-ingest" then do; output[output.0 + 1] = "--access"; output[output.0 + 1] = "ingest,control"; end
+  end
+  do i = 1 to args.0
+    output[output.0 + 1] = args[i]
+  end
+  return output
+
+_defaultprogress: procedure = .string
+  if getenv("NO_COLOR") \= "" | lower(getenv("TERM")) = "dumb" | getenv("TERM") = "" then return "plain"
+  return "ansi"
+
+_aliases: procedure = .string[]
+  arg args = .string[], config = .ragconfig, config_loaded = .int, expose alias = .string, expose source_set = .string, expose worker_count = .string, expose auto_confirm = .int, expose error = .string
+  alias = ""; source_set = ""; worker_count = ""; auto_confirm = 0; error = ""
+  noun_index = _nounindex(args)
+  if noun_index = 0 then return args
+  noun = args[noun_index]
+  if noun = "init" then do
+    if noun_index \= args.0 then do; error = "init accepts no arguments"; return args; end
+    output = _prefix(args, noun_index)
+    output[output.0 + 1] = "library"; output[output.0 + 1] = "init"; alias = "init"
+    return output
+  end
+  if noun = "query" then do
+    if noun_index < args.0 & wordpos(args[noun_index + 1], "search evidence answer trace timeline path") = 0 then do
+      output = _prefix(args, noun_index)
+      output[output.0 + 1] = "query"; output[output.0 + 1] = "evidence"
+      do i = noun_index + 1 to args.0; output[output.0 + 1] = args[i]; end
+      alias = "query"
+      return output
+    end
+    return args
+  end
+  if noun \= "ingest" then return _compatibilityalias(args, alias)
+  if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply") > 0 then return args
+
+  i = noun_index + 1
+  do while i <= args.0
+    token = args[i]
+    if token = "--yes" then auto_confirm = 1
+    else if token = "--source-set" then do
+      if i = args.0 then do; error = "--source-set requires a value"; return args; end
+      i = i + 1; source_set = args[i]
+    end
+    else if left(token, 13) = "--source-set=" then source_set = substr(token, 14)
+    else if token = "--workers" then do
+      if i = args.0 then do; error = "--workers requires a value"; return args; end
+      i = i + 1; worker_count = args[i]
+    end
+    else if left(token, 10) = "--workers=" then worker_count = substr(token, 11)
+    else if left(token, 2) = "--" then do; error = "unknown guided ingest option " || token; return args; end
+    else if source_set = "" then source_set = token
+    else do; error = "guided ingest accepts at most one source set"; return args; end
+    i = i + 1
+  end
+  if worker_count \= "" & _unsignedtext(worker_count) \= 1 then do; error = "--workers requires a positive integer"; return args; end
+  if source_set = "" & config_loaded = 1 then do
+    source_sets = config.source_sets()
+    if source_sets.0 = 1 then source_set = source_sets[1].source_set_id()
+  end
+  if source_set = "" then do; error = "guided ingest requires a source set when configuration does not contain exactly one"; return args; end
+  output = _prefix(args, noun_index)
+  output[output.0 + 1] = "ingest"; output[output.0 + 1] = "plan"
+  output[output.0 + 1] = "--source-set"; output[output.0 + 1] = source_set
+  alias = "guided-ingest"
+  return output
+
+_compatibilityalias: procedure = .string[]
+  arg args = .string[], expose alias = .string
+  output = .string[]
+  do i = 1 to args.0
+    if alias = "" & args[i] = "queue-status" then do
+      alias = "queue-status"; output[output.0 + 1] = "job"; output[output.0 + 1] = "list"
+    end
+    else output[output.0 + 1] = args[i]
+  end
+  return output
+
+_prefix: procedure = .string[]
+  arg args = .string[], noun_index = .int
+  output = .string[]
+  do i = 1 to noun_index - 1; output[output.0 + 1] = args[i]; end
+  return output
+
+_nounindex: procedure = .int
+  arg args = .string[]
+  i = 1
+  do while i <= args.0 & left(args[i], 2) = "--"
+    if pos("=", args[i]) = 0 then i = i + 1
+    i = i + 1
+  end
+  if i > args.0 then return 0
+  return i
+
+_hasglobal: procedure = .int
+  arg args = .string[], name = .string
+  return _globalvalue(args, name) \= ""
+
+_globalvalue: procedure = .string
+  arg args = .string[], name = .string
+  i = 1
+  do while i <= args.0 & left(args[i], 2) = "--"
+    token = args[i]
+    if token = "--" || name then do
+      if i < args.0 then return args[i + 1]
+      return ""
+    end
+    if left(token, length(name) + 3) = "--" || name || "=" then return substr(token, length(name) + 4)
+    if pos("=", token) = 0 then i = i + 1
+    i = i + 1
+  end
+  return ""
+
+_requiresdefaultlibrary: procedure = .int
+  arg noun = .string, verb = .string
+  if noun = "" | noun = "doctor" | noun = "provider" | noun = "profile" then return 0
+  if noun = "library" & verb = "restore" then return 0
+  return 1
+
+_unsignedtext: procedure = .int
+  arg value = .string
+  if value = "" | value = "0" then return 0
+  do i = 1 to length(value)
+    if pos(substr(value, i, 1), "0123456789") = 0 then return 0
+  end
+  return 1
+
+_bindrequestconfig: procedure = .ragcommandrequest
+  arg request = .ragcommandrequest, config_id = .string, config_path = .string
+  selected_config = request.config_id(); if selected_config = "" then selected_config = config_id
+  return .ragcommandrequest(request.library(), selected_config, request.profile_id(), config_path, request.format(), request.progress(), request.access(), request.noun(), request.verb(), request.operation(), request.command_options(), request.positionals())
 
 _configfileargs: procedure = .string[]
   arg args = .string[], expose config_path = .string, expose error = .string
   config_path = ""; error = ""; output = .string[]; global_options = 1; i = 1
   do while i <= args.0
     token = args[i]
-    if global_options = 1 & left(token, 2) \= "--" then global_options = 0
-    if global_options = 1 & (token = "--config-file" | left(token, 14) = "--config-file=") then do
-      if config_path \= "" then do; error = "--config-file may be supplied once"; return output; end
-      if token = "--config-file" then do
-        if i = args.0 | left(args[i + 1], 2) = "--" then do; error = "--config-file requires a path"; return output; end
-        i = i + 1; config_path = args[i]
+    if global_options = 1 & left(token, 2) = "--" then do
+      if token = "--config-file" | left(token, 14) = "--config-file=" then do
+        if config_path \= "" then do; error = "--config-file may be supplied once"; return output; end
+        if token = "--config-file" then do
+          if i = args.0 | left(args[i + 1], 2) = "--" then do; error = "--config-file requires a path"; return output; end
+          i = i + 1; config_path = args[i]
+        end
+        else config_path = substr(token, 15)
+        if config_path = "" | length(config_path) > 4096 | pos("00"x, config_path) > 0 then do; error = "--config-file path is invalid"; return output; end
       end
-      else config_path = substr(token, 15)
-      if config_path = "" | length(config_path) > 4096 | pos("00"x, config_path) > 0 then do; error = "--config-file path is invalid"; return output; end
+      else do
+        output[output.0 + 1] = token
+        if pos("=", token) = 0 & i < args.0 then do; i = i + 1; output[output.0 + 1] = args[i]; end
+      end
     end
-    else output[output.0 + 1] = token
+    else do; global_options = 0; output[output.0 + 1] = token; end
     i = i + 1
-  end
-  return output
-
-_bindloadedconfig: procedure = .string[]
-  arg args = .string[], config_id = .string, expose error = .string
-  selected = ""; index = 1
-  do while index <= args.0 & left(args[index], 2) = "--"
-    token = args[index]
-    if token = "--config" then do
-      if index = args.0 then do; error = "--config requires a value"; return args; end
-      selected = args[index + 1]; index = index + 1
-    end
-    else if left(token, 9) = "--config=" then selected = substr(token, 10)
-    else if pos("=", token) = 0 then index = index + 1
-    index = index + 1
-  end
-  if selected \= "" & selected \= config_id then do
-    error = "--config does not match config.id in --config-file"
-    return args
-  end
-  if selected \= "" then return args
-  output = .string[]; output[1] = "--config"; output[2] = config_id
-  do i = 1 to args.0
-    output[output.0 + 1] = args[i]
-  end
-  return output
-
-_aliases: procedure = .string[]
-  arg args = .string[], expose alias = .string
-  alias = ""; output = .string[]
-  do i = 1 to args.0
-    if alias = "" & args[i] = "queue-status" then do
-      alias = "queue-status"
-      output[output.0 + 1] = "job"
-      output[output.0 + 1] = "list"
-    end
-    else output[output.0 + 1] = args[i]
   end
   return output
 
@@ -115,3 +371,8 @@ _deprecated: procedure = .ragcommandresult
   fields[3] = .ragresultfield("removal_after", "string", "one compatibility release")
   records[records.0 + 1] = .ragresultrecord("deprecation", fields)
   return .ragcommandresult(result.operation(), result.status(), result.exit_code(), result.message(), records)
+
+_clierror: procedure = .int
+  arg stage = .string, exit_name = .string, message = .string, code = .int
+  say "ERROR " || stage || " [" || exit_name || "]: " || message
+  return code

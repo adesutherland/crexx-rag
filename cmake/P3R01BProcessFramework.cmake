@@ -33,7 +33,7 @@ run_app --library "$library" --config architecture-local \
   >"$output_dir/init.out" 2>"$output_dir/init.err"
 
 set +e
-run_app --library "$library" --access control --format json worker start \
+run_app --library "$library" --config architecture-local --profile generic-profile --access control --format json worker start \
   --count 33 >"$output_dir/bounds.out" 2>"$output_dir/bounds.err"
 bounds_status=$?
 set -e
@@ -41,7 +41,7 @@ if [ "$bounds_status" -ne 2 ]; then
   exit 20
 fi
 
-run_app --library "$library" --access control --format json worker start \
+run_app --library "$library" --config architecture-local --profile generic-profile --access control --format json worker start \
   --count 2 --poll-ms 50 --max-polls 40 \
   >"$output_dir/controller.out" 2>"$output_dir/controller.err" &
 controller=$!
@@ -67,7 +67,7 @@ fi
 wait "$controller"
 
 worker_id=worker-drain-qa
-run_app --library "$library" --access control --format json worker run \
+run_app --library "$library" --config architecture-local --profile generic-profile --access control --format json worker run \
   --id "$worker_id" --follow --poll-ms 50 --max-polls 200 \
   >"$output_dir/drain-worker.out" 2>"$output_dir/drain-worker.err" &
 worker=$!
@@ -87,7 +87,7 @@ wait "$worker"
 
 stale_id=worker-stale-qa
 "$runtime" -l "$load_path" "$application" -a \
-  --library "$library" --access control --format json worker run \
+  --library "$library" --config architecture-local --profile generic-profile --access control --format json worker run \
   --id "$stale_id" --follow --poll-ms 50 \
   >"$output_dir/stale-worker.out" 2>"$output_dir/stale-worker.err" &
 stale_worker=$!
@@ -150,7 +150,7 @@ foreach(runtime IN ITEMS "${CPRAG_RXVME}" "${CPRAG_RXBVM}")
     file(READ "${cell_dir}/final-list.out" final_list_out)
     file(READ "${cell_dir}/final-list.err" final_list_err)
     string(FIND "${final_list_out}" "\"records\":[]" empty_records_position)
-    if(NOT init_out MATCHES "\"schema_version\":3" OR
+    if(NOT init_out MATCHES "\"schema_version\":4" OR
        NOT controller_out MATCHES "\"workers_requested\":2" OR
        NOT controller_out MATCHES "\"workers_completed\":2" OR
        NOT controller_out MATCHES "\"workers_failed\":0" OR

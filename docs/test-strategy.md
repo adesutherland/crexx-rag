@@ -150,8 +150,9 @@ snapshots, persistence, command parsing, or provider execution.
 `P2-03` accepts the Level-G storage foundation through
 `p2_03_storage_foundation`. Before compilation, CMake recomputes the SHA-256 of
 each ordered migration's exact DDL. Optimized/non-optimized consumers on both
-VMs cover the 32 accepted schema-v2 semantic tables plus the schema-v3 runtime
-registry, migration-record 1-to-2 upgrade and current migration-3 checksum,
+VMs cover the 32 accepted schema-v2 semantic tables, the schema-v3 runtime
+registry, and the schema-v4 work-input column; migration-record upgrade and
+all current checksums,
 idempotent reapply with no row changes, downgrade/checksum denial,
 transactional failed DDL, generation immutability, old/new reader snapshots,
 visibility, manifest lag/recovery, full verification, ancestor rollback,
@@ -253,8 +254,8 @@ authorized five-call hosted canary behind a separate target. P1-LLM-05 observes
 zero denied connections and scans real credential values without retaining
 them. The historical provider acceptance did not accept the CRI-15-affected
 Linux timeout path or the then-installed `rxhttp` ceiling. Current `main` now
-uses installed Level-G `rxfnsg` typed responses, bounded buffering, compression
-and one pool per operation; the current macOS inventory passes 69/69.
+uses installed Level-G HTTP/socket foundations with one bounded synchronous
+connection per attempt; the focused macOS provider matrix passes.
 Exact downstream Linux confirmation remains open, and the provider contract
 truthfully continues to report cross-operation reuse, streaming and
 cancellation as unsupported pending separate lifecycle/capability decisions.
@@ -307,21 +308,24 @@ fixes the selected file at startup. Both are zero-outbound and reject literal
 credentials.
 
 `p3r_01b_process_framework` runs the linked application on both concrete VMs.
-Each cell creates a fresh schema-v3 library, starts one controller plus two
+Each cell creates a fresh schema-v4 library, starts one controller plus two
 actual worker processes through the public child-process channel, and observes
 the live rows from a separate application process. It then proves durable
 drain, clean terminal state, forced-process termination, database-clock stale
 classification, same-host missing-PID diagnostics, and explicit terminal/stale
-pruning. The test is bounded, zero-outbound, and does not substitute its
-`framework-idle` worker for the pending provider/ingestion processor tests.
+pruning. The test is bounded and zero-outbound; it remains the process-control
+proof independent of provider/ingestion processor behavior.
 
 ## Gate 3R Product Ingestion Acceptance
 
 The authoritative sequence and assertions are in the
 [`Gate-3R acceptance contract`](evidence/2026-08-24-phase3-product-rebaseline/ACCEPTANCE-CONTRACT.md).
-Recurring CTest must build the linked installed cREXX application without a
-source fallback and exercise the public CLI over deterministic provider shapes
-for local OpenAI-compatible, OpenAI, Anthropic, and Gemini adapters. It must
+Gate 3R is accepted for the recorded macOS/Gemini scope. Recurring CTest must
+build the linked installed cREXX application without a source fallback and
+exercise the product CLI through the configured Gemini path. The reusable
+provider matrix separately covers deterministic local OpenAI-compatible,
+OpenAI, Anthropic, and Gemini protocol shapes; repeating every generic adapter
+as a product ingestion route is not a Phase 3 requirement. Together they must
 cover exact work-input binding, both claim-extraction and embedding item
 ownership, candidate-to-concept promotion, proposal validation, worker
 dispatch, job/reservation reconciliation, query-visible support, no-op replay,
@@ -334,6 +338,25 @@ source-level scenario, phase tutorial, pre-seeded graph, deterministic fixture,
 or native-v1 command cannot satisfy that gate. The live result records only
 symbolic credential reference, hashes, provider/model/request identity, usage,
 cost, latency, normalized result, final counts, and stable citation.
+
+`p3r_02_gemini_ingestion` is the permanent native-product processor and human
+surface slice. A deterministic Gemini loopback accepts two equivalent fresh
+ingestions: four requests in total, one structured generation and one embedding
+per library. The test proves schema-v4 work-input binding, public `worker.run`
+dispatch, safe concurrent reservations, configured two-process supervision,
+candidate promotion, proposal validation, stored 768-dimensional embeddings,
+automatic exact vector publication, completed jobs, truthful zero-job replay,
+meaningful child-process errors, sanitized stderr progress, stable JSON stdout,
+automatic local config/library/profile defaults, guided human plan/apply,
+concise evidence and credential-value absence without hosted traffic. The
+canonical library also requires clean verification.
+
+P3R-07 completed the same public vertical path on a fresh tutorial library with
+exactly two approved first-attempt real Gemini calls. It completed both items,
+accepted the source-supported claim, stored the embedding, published the vector
+generation, reconciled reservations, verified with zero issues, and repeated
+unchanged without a job or calls. The earlier recovered run remains defect
+history; the 2026-08-25 replay is the pristine gate evidence.
 
 ## Phase 4 Acceptance
 

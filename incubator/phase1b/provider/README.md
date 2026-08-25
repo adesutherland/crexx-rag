@@ -2,8 +2,8 @@
 
 Status: implemented generic cREXX incubation for a possible future `rxllm`
 package. The normalized contract and protocol mappings are accepted on
-Phase-1B evidence and now compile against installed `rxfnsg` typed HTTP. The
-current-head installed-only macOS inventory passes 69/69, and upstream has
+Phase-1B evidence and now compile against installed HTTP/socket foundations.
+The focused installed-only macOS provider matrix passes, and upstream has
 supported Linux sanitizer/cross-platform HTTP evidence. The package is not
 installed, donation-ready, or approved for provider-lifetime high-throughput
 reuse until the downstream lifecycle and Linux/package gates are complete.
@@ -102,9 +102,10 @@ retaining the model and all other decoding controls in its evidence.
 
 Call `capabilities()` instead of assuming an operation or modality exists.
 Streaming, cancellation, and cross-request connection reuse currently report
-unsupported at the provider contract. The installed transport is pooled and
-reuses a client within one request's bounded retry sequence, but adapter
-instances do not yet retain a pool across separate provider method calls.
+unsupported at the provider contract. The current product-safe transport opens
+one bounded synchronous HTTP/TLS connection per attempt and requests
+`Connection: close`; adapter instances do not retain a connection across
+attempts or provider method calls.
 
 ## Structured Output
 
@@ -160,19 +161,20 @@ ctest --preset debug -R '^p1_llm_0[1-5]$' --output-on-failure
 ```
 
 The regular CTest selection makes no hosted calls. The tests compile, assemble,
-and link final images before both VM runs because the installed HTTP task
-bindings must be resealed by `rxlink`. The current-head installed-only macOS
-replay passes all 62 repository tests. CRI-15 remains an exact downstream Linux
+and link final images before both VM runs. The focused installed-only macOS
+provider replay passes. CRI-15 remains an exact downstream Linux
 confirmation; CRI-16 remains a provider-lifecycle and selected downstream
 Linux/package qualification decision.
 
 ## Current Limits
 
-- Installed `rxfnsg` provides typed responses, bounded buffering, compression,
-  a connection-owner pool, streaming, and cancellation primitives.
-- Provider adapters currently use one pool per provider operation, so
-  cross-operation reuse, provider streaming, and provider cancellation remain
+- Installed `rxfnsg`, `rxsocket`, and `_rxhttpcore` provide typed policy,
+  bounded socket/TLS I/O, and HTTP parsing/building primitives.
+- Provider adapters currently open one synchronous connection per attempt, so
+  connection reuse, provider streaming, and provider cancellation remain
   unimplemented.
+- The synchronous path avoids attached-task provider discovery in a native
+  application (CRI-17); OS-process workers are unaffected.
 - Current upstream Linux sanitizer and cross-platform HTTP/TLS evidence is
   green. The exact downstream CRI-15 reproducer and provider package remain to
   be replayed on supported Linux.

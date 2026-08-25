@@ -5,6 +5,7 @@ namespace ragcommand expose ragcommandoption ragcommandrequest ragresultfield ra
 import rxfnsb
 import rxjson
 import ragmodel
+import ragtrace
 
 ragcommandoption: class
   _name = .string
@@ -29,7 +30,9 @@ ragcommandrequest: class
   _library = .string
   _config_id = .string
   _profile_id = .string
+  _config_file = .string
   _format = .string
+  _progress = .string
   _access = .string[]
   _noun = .string
   _verb = .string
@@ -38,11 +41,13 @@ ragcommandrequest: class
   _positionals = .string[]
 
   *: factory
-    arg library = .string, config_id = .string, profile_id = .string, format = .string, access = .string[], noun = .string, verb = .string, operation = .string, command_options = .ragcommandoption[], positionals = .string[]
+    arg library = .string, config_id = .string, profile_id = .string, config_file = .string, format = .string, progress = .string, access = .string[], noun = .string, verb = .string, operation = .string, command_options = .ragcommandoption[], positionals = .string[]
     _library = library
     _config_id = config_id
     _profile_id = profile_id
+    _config_file = config_file
     _format = format
+    _progress = progress
     _access = access
     _noun = noun
     _verb = verb
@@ -57,8 +62,12 @@ ragcommandrequest: class
     return _config_id
   profile_id: method = .string
     return _profile_id
+  config_file: method = .string
+    return _config_file
   format: method = .string
     return _format
+  progress: method = .string
+    return _progress
   access: method = .string[]
     return _access
   noun: method = .string
@@ -138,18 +147,18 @@ ragcommandresult: class
 parsecommand: procedure = .int
   arg args = .string[], expose request = .ragcommandrequest, expose error = .string
   access = .string[]; command_options = .ragcommandoption[]; positionals = .string[]
-  request = .ragcommandrequest("", "", "", "human", access, "", "", "", command_options, positionals)
+  request = .ragcommandrequest("", "", "", "", "human", "off", access, "", "", "", command_options, positionals)
   error = ""
   if args.0 < 1 | args.0 > 128 then return _usage("command requires 1 through 128 arguments", error)
-  library = ""; config_id = ""; profile_id = ""; format = "human"
-  seen_library = 0; seen_config = 0; seen_profile = 0; seen_format = 0
+  library = ""; config_id = ""; profile_id = ""; config_file = ""; format = "human"; progress = "off"
+  seen_library = 0; seen_config = 0; seen_profile = 0; seen_config_file = 0; seen_format = 0; seen_progress = 0
   index = 1
   do while index <= args.0 & left(args[index], 2) = "--"
     token = args[index]
     if token = "--" then return _usage("noun must follow global options", error)
     name = ""; value = ""; inline_value = 0
     if _splitoption(token, name, value, inline_value) \= 0 then return _usage("invalid global option syntax", error)
-    if name \= "library" & name \= "config" & name \= "profile" & name \= "format" & name \= "access" then return _usage("unknown global option --" || name, error)
+    if name \= "library" & name \= "config" & name \= "profile" & name \= "config-file" & name \= "format" & name \= "progress" & name \= "access" then return _usage("unknown global option --" || name, error)
     if inline_value = 0 then do
       if index = args.0 | left(args[index + 1], 2) = "--" then return _usage("global option --" || name || " requires a value", error)
       index = index + 1
@@ -168,15 +177,24 @@ parsecommand: procedure = .int
       if seen_profile = 1 | validregistryid(value) \= 1 then return _usage("--profile requires one registered-id-shaped value", error)
       seen_profile = 1; profile_id = value
     end
+    if name = "config-file" then do
+      if seen_config_file = 1 | pos("00"x, value) > 0 then return _usage("--config-file requires one valid path", error)
+      seen_config_file = 1; config_file = value
+    end
     if name = "format" then do
       if seen_format = 1 | (value \= "human" & value \= "json" & value \= "ndjson") then return _usage("--format must be human, json, or ndjson", error)
       seen_format = 1; format = value
+    end
+    if name = "progress" then do
+      if seen_progress = 1 | (value \= "off" & value \= "plain" & value \= "ansi") then return _usage("--progress must be off, plain, or ansi", error)
+      seen_progress = 1; progress = value
     end
     if name = "access" then do
       if _addaccess(value, access, error) \= 0 then return 2
     end
     index = index + 1
   end
+  if validtracemode(progress, format) \= 1 then return _usage("--progress ansi requires --format human", error)
   if access.0 = 0 then access[1] = "read"
   if index > args.0 then return _usage("command noun is required", error)
   noun = args[index]; index = index + 1; verb = ""; operation = ""
@@ -203,7 +221,7 @@ parsecommand: procedure = .int
     if positional_only = 0 & left(token, 2) = "--" then do
       name = ""; value = ""; inline_value = 0
       if _splitoption(token, name, value, inline_value) \= 0 then return _usage("invalid command option syntax", error)
-      if name = "library" | name = "config" | name = "profile" | name = "format" | name = "access" then return _usage("global options must precede the noun", error)
+      if name = "library" | name = "config" | name = "profile" | name = "config-file" | name = "format" | name = "progress" | name = "access" then return _usage("global options must precede the noun", error)
       if inline_value = 0 then do
         if index < args.0 & left(args[index + 1], 2) \= "--" then do
           index = index + 1
@@ -220,7 +238,7 @@ parsecommand: procedure = .int
     end
     index = index + 1
   end
-  request = .ragcommandrequest(library, config_id, profile_id, format, access, noun, verb, operation, command_options, positionals)
+  request = .ragcommandrequest(library, config_id, profile_id, config_file, format, progress, access, noun, verb, operation, command_options, positionals)
   return 0
 
 commandexitname: procedure = .string
@@ -292,16 +310,23 @@ rendercommandresult: procedure = .int
     return 0
   end
   if format = "human" then do
-    prefix = "ERROR"
-    if result.exit_code() = 0 then prefix = "OK"
-    output = prefix || " " || result.operation() || " [" || commandexitname(result.exit_code()) || "]: " || _human(result.message())
+    state = "ERROR"
+    if result.exit_code() = 0 then state = "OK"
+    output = state || ": " || _human(result.message())
     records = result.records()
     do i = 1 to records.0
-      output = output || "0A"x || records[i].kind()
-      fields = records[i].fields()
+      fields = records[i].fields(); section = ""
       do j = 1 to fields.0
-        output = output || " " || fields[j].name() || "=" || _human(fields[j].value())
+        name = fields[j].name(); value = fields[j].value()
+        if wordpos(name, "canonical_plan evidence_json config_hash profile_hash query_plan_fingerprint process_start_token secret_reference secret_values") > 0 then iterate
+        if fields[j].value_type() = "null" | value = "" then iterate
+        if name = "detail" & (left(strip(value), 1) = "{" | left(strip(value), 1) = "[") then iterate
+        value = _human(value)
+        if length(value) > 240 then value = left(value, 237) || "..."
+        if section = "" then section = changestr("-", records[i].kind(), " ")
+        section = section || "0A"x || "  " || changestr("_", name, " ") || ": " || value
       end
+      if section \= "" then output = output || "0A"x || section
     end
     return 0
   end
@@ -380,7 +405,7 @@ _validoperation: procedure = .int
   if noun = "profile" then return pos(" " || verb || " ", " list show validate ") > 0
   if noun = "source" then return pos(" " || verb || " ", " list show ") > 0
   if noun = "ingest" then return pos(" " || verb || " ", " plan apply ") > 0
-  if noun = "job" then return pos(" " || verb || " ", " list status events pause resume cancel ") > 0
+  if noun = "job" then return pos(" " || verb || " ", " list status events pause resume cancel retry ") > 0
   if noun = "worker" then return pos(" " || verb || " ", " start run list status drain prune ") > 0
   if noun = "query" then return pos(" " || verb || " ", " search evidence answer trace timeline path ") > 0
   if noun = "improve" then return pos(" " || verb || " ", " plan apply ") > 0

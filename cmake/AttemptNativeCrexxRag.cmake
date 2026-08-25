@@ -8,8 +8,10 @@ endforeach()
 set(app_modules
     ragmodel ragevidence ragjob ragconfig ragprofile ragregistry ragschema
     ragfile ragconfigfile ragstore ragbackup ragrepository ragcanonical ragplanning
-    ragcommand ragingest ragfolder ragclaims ragimprove ragwork ragquery
-    ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragproduct)
+    ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragwork ragquery
+    ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragapplicationprovider ragproduct)
+set(provider_modules
+    provider_contract provider_catalog provider_http industrial_provider)
 set(config_modules
     architecture_local_config generic_profile it_architecture_profile
     operator_registry)
@@ -33,7 +35,7 @@ configure_file("${CPRAG_APPLICATION_DIR}/crexx_rag_cli.rxbin"
     "${package_dir}/crexx-rag.rxbin" COPYONLY)
 
 set(native_libraries)
-foreach(module IN ITEMS provider_contract ${app_modules} ${config_modules})
+foreach(module IN LISTS provider_modules app_modules config_modules)
     list(APPEND native_libraries
         -l "${CPRAG_APPLICATION_DIR}/${module}.rxbin")
 endforeach()
@@ -85,6 +87,7 @@ execute_process(
         "CREXX_RAG_SELF=${package_dir}/crexx-rag${CMAKE_EXECUTABLE_SUFFIX}"
         "${package_dir}/crexx-rag${CMAKE_EXECUTABLE_SUFFIX}"
         --library "${package_dir}/library"
+        --config architecture-local --profile generic-profile
         --access control --format json worker start
         --count 2 --poll-ms 50 --max-polls 4
     WORKING_DIRECTORY "${package_dir}"

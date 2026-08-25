@@ -21,6 +21,8 @@ import ragimprove
 import ragjob
 import ragwork
 import ragprocess
+import ragtrace
+import ragembedding
 
 /* The Phase-6 dispatcher is the single transport-neutral product surface.
  * CLI, ADDRESS RAG and MCP translate into one .ragcommandrequest and preserve
@@ -35,8 +37,9 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "query.search" | operation = "query.evidence" | operation = "query.answer" | operation = "query.trace" | operation = "query.path" | operation = "query.timeline" then return _query(request, registry)
   if operation = "job.status" then return _jobstatus(request)
   if operation = "job.pause" | operation = "job.resume" | operation = "job.cancel" then return _jobcontrol(request)
+  if operation = "job.retry" then return _jobretry(request)
   if operation = "worker.start" then return _workerstart(request, registry)
-  if operation = "worker.run" then return _workerrun(request)
+  if operation = "worker.run" then return _workerrun(request, registry)
   if operation = "worker.list" | operation = "worker.status" then return _workerread(request)
   if operation = "worker.drain" then return _workerdrain(request)
   if operation = "worker.prune" then return _workerprune(request)
@@ -144,6 +147,14 @@ _query: procedure = .ragcommandresult
   fields[4] = .ragresultfield("candidate_count", "integer", retrieval.candidate_count())
   fields[5] = .ragresultfield("evidence_json", "string", evidence_json)
   fields[6] = .ragresultfield("generated_answer", "null", "")
+  summary = ""; citation = ""; accepted_claims = retrieval.evidence().claims()
+  if accepted_claims.0 > 0 then do
+    summary = accepted_claims[1].subject() || " --" || accepted_claims[1].relationship_type() || "--> " || accepted_claims[1].object()
+    supports = accepted_claims[1].supports()
+    if supports.0 > 0 then citation = supports[1].citation().citation()
+  end
+  fields[7] = .ragresultfield("summary", "string", summary)
+  fields[8] = .ragresultfield("citation", "string", citation)
   if operation = "query.answer" then fields[6] = .ragresultfield("generated_answer", "null", "")
   records = .ragresultrecord[]; records[1] = .ragresultrecord("query-evidence", fields)
   return .ragcommandresult(operation, "ok", 0, "typed evidence retrieved; optional answer generation was not requested from a provider", records)
@@ -202,6 +213,26 @@ _jobcontrol: procedure = .ragcommandresult
   records = .ragresultrecord[]; records[1] = .ragresultrecord("job-control", fields)
   return .ragcommandresult(operation, "ok", 0, "job control applied through the durable fenced store", records)
 
+_jobretry: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation = request.operation(); error = ""
+  if _hasaccess(request, "control") \= 1 then return _failure(operation, 4, "job retry requires control access")
+  if _options(request, "id item reason", error) \= 0 then return _failure(operation, 2, error)
+  job_id = _id(request, error); item_id = _option(request, "item", error); reason = _option(request, "reason", error)
+  if reason = "" then reason = "operator-corrected"
+  if error \= "" | job_id = "" | item_id = "" then return _failure(operation, 2, "job retry requires one job id and --item")
+  store = .ragstorehandle
+  if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
+  retried = 0; status = retrydeadletter(store, job_id, item_id, reason, retried, error)
+  close_error = ""; close_status = closeragstore(store, close_error)
+  if status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 1, error); end
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("job_id", "string", job_id)
+  fields[2] = .ragresultfield("item_id", "string", item_id)
+  fields[3] = .ragresultfield("items_retried", "integer", retried)
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("job-retry", fields)
+  return .ragcommandresult(operation, "ok", 0, "one dead-letter item was explicitly requeued", records)
+
 _workerstart: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
   operation = request.operation(); error = ""
@@ -209,12 +240,10 @@ _workerstart: procedure = .ragcommandresult
   if _workeroptions(request, "count poll-ms max-polls job", "", error) \= 0 then return _failure(operation, 2, error)
   positionals = request.positionals()
   if positionals.0 \= 0 then return _failure(operation, 2, "worker start accepts no positional arguments")
-  count = 1
-  if request.config_id() \= "" then do
-    config_lookup = registry.config(request.config_id())
-    if config_lookup.found() \= 1 then return _failure(operation, 5, "configuration is not registered")
-    count = config_lookup.config().workers().processes()
-  end
+  if request.config_id() = "" | request.profile_id() = "" then return _failure(operation, 2, "worker start requires --config and --profile")
+  config_lookup = registry.config(request.config_id()); profile_lookup = registry.profile(request.profile_id())
+  if config_lookup.found() \= 1 | profile_lookup.found() \= 1 then return _failure(operation, 5, "configuration or profile is not registered")
+  configured_count = config_lookup.config().workers().processes(); count = configured_count
   count_text = _option(request, "count", error); poll_text = _option(request, "poll-ms", error); maximum_text = _option(request, "max-polls", error); job_filter = _option(request, "job", error)
   if count_text \= "" then do
     if _unsigned(count_text) \= 1 then return _failure(operation, 2, "--count must be an integer")
@@ -230,25 +259,38 @@ _workerstart: procedure = .ragcommandresult
     if _unsigned(maximum_text) \= 1 then return _failure(operation, 2, "--max-polls must be an integer")
     maximum_polls = maximum_text as .int
   end
-  if count < 1 | count > 32 | poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 then return _failure(operation, 2, "worker start requires count 1..32, poll-ms 10..60000, and max-polls 0..1000000")
+  if count < 1 | count > configured_count | poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 then return _failure(operation, 2, "worker start count must be within the configured process ceiling; poll-ms must be 10..60000 and max-polls 0..1000000")
   started = .ragprocessstartresult
-  status = startworkerprocesses(request.library(), count, poll_milliseconds, maximum_polls, job_filter, started, error)
+  tracer = .ragtracer(request.progress(), request.format()); call tracer.emit("controller", "start", "", "workers=" || count)
+  status = startworkerprocesses(request.library(), count, poll_milliseconds, maximum_polls, job_filter, request.config_id(), request.profile_id(), request.config_file(), request.progress(), request.format(), started, error)
   if status \= 0 then return _failure(operation, 8, error)
+  vector_generations = 0; vector_state = "not-requested"
+  if job_filter \= "" then do
+    call tracer.emit("vector", "start", job_filter, "publishing completed embeddings")
+    if _publishjobvectors(request.library(), job_filter, vector_generations, vector_state, error) \= 0 then return _failure(operation, 8, error)
+    call tracer.emit("vector", vector_state, job_filter, "generations=" || vector_generations)
+  end
+  call tracer.emit("controller", "complete", started.controller_id(), "workers=" || started.completed())
   fields = .ragresultfield[]
   fields[1] = .ragresultfield("controller_id", "string", started.controller_id())
   fields[2] = .ragresultfield("workers_requested", "integer", started.requested())
   fields[3] = .ragresultfield("workers_completed", "integer", started.completed())
   fields[4] = .ragresultfield("workers_failed", "integer", started.failed())
+  fields[5] = .ragresultfield("vector_generations", "integer", vector_generations)
+  fields[6] = .ragresultfield("vector_state", "string", vector_state)
   records = .ragresultrecord[]; records[1] = .ragresultrecord("worker-controller", fields)
   return .ragcommandresult(operation, "ok", 0, "controller supervised the requested OS-process workers to completion", records)
 
 _workerrun: procedure = .ragcommandresult
-  arg request = .ragcommandrequest
+  arg request = .ragcommandrequest, registry = .ragregistry
   operation = request.operation(); error = ""
   if _hasaccess(request, "control") \= 1 then return _failure(operation, 4, "worker run requires control access")
   if _workeroptions(request, "id parent host-id once follow poll-ms max-polls job", "once follow", error) \= 0 then return _failure(operation, 2, error)
   positionals = request.positionals()
   if positionals.0 \= 0 then return _failure(operation, 2, "worker run accepts no positional arguments")
+  if request.config_id() = "" | request.profile_id() = "" then return _failure(operation, 2, "worker run requires --config and --profile")
+  config_lookup = registry.config(request.config_id()); profile_lookup = registry.profile(request.profile_id())
+  if config_lookup.found() \= 1 | profile_lookup.found() \= 1 then return _failure(operation, 5, "configuration or profile is not registered")
   once = _option(request, "once", error); follow = _option(request, "follow", error)
   if (once = "") = (follow = "") then return _failure(operation, 2, "worker run requires exactly one of --once or --follow")
   mode = "once"; if follow \= "" then mode = "follow"
@@ -264,15 +306,16 @@ _workerrun: procedure = .ragcommandresult
     maximum_polls = maximum_text as .int
   end
   if poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 then return _failure(operation, 2, "worker run requires poll-ms 10..60000 and max-polls 0..1000000")
-  final_id = ""
-  if runidleworker(request.library(), instance_id, parent_id, host_id, mode, job_filter, poll_milliseconds, maximum_polls, final_id, error) \= 0 then return _failure(operation, 1, error)
+  final_id = ""; processed = 0
+  if runapplicationworker(request.library(), instance_id, parent_id, host_id, mode, job_filter, poll_milliseconds, maximum_polls, config_lookup.config(), profile_lookup.profile(), request.progress(), request.format(), final_id, processed, error) \= 0 then return _failure(operation, 1, error)
   fields = .ragresultfield[]
   fields[1] = .ragresultfield("worker_id", "string", final_id)
   fields[2] = .ragresultfield("mode", "string", mode)
   fields[3] = .ragresultfield("job_filter", "string", job_filter)
-  fields[4] = .ragresultfield("processor", "string", "framework-idle")
+  fields[4] = .ragresultfield("processor", "string", "application-ingestion-v1")
+  fields[5] = .ragresultfield("items_processed", "integer", processed)
   records = .ragresultrecord[]; records[1] = .ragresultrecord("worker-run", fields)
-  return .ragcommandresult(operation, "ok", 0, "worker process lifecycle completed; ingestion processor attachment is the next step", records)
+  return .ragcommandresult(operation, "ok", 0, "worker process lifecycle completed through the configured ingestion processor", records)
 
 _workerread: procedure = .ragcommandresult
   arg request = .ragcommandrequest
@@ -401,6 +444,7 @@ _ingestapply: procedure = .ragcommandresult
     if source_sets[i].source_set_id() = source_set_id then source_index = i
   end
   if source_index = 0 then return _failure(operation, 5, "source set is not registered")
+  tracer = .ragtracer(request.progress(), request.format()); call tracer.emit("ingest", "start", source_set_id, "discovering sources")
   observations = .ragsourceobservation[]
   if collectfolderobservations(source_sets[source_index].root(), source_set_id, source_sets[source_index].retain_raw_artifact(), 2147483647, "surface-apply", observations, error) < 0 then return _failure(operation, 1, error)
   store = .ragstorehandle
@@ -409,9 +453,11 @@ _ingestapply: procedure = .ragcommandresult
   domain_plan = .ragingestplan
   chunks = profile_lookup.profile().chunk_policy().max_characters()
   if createingestplan(store, "folder:" || source_set_id, snapshot_id, "surface-ingest-v1", "surface-parser-v1", chunks, observations, domain_plan, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 1, error); end
-  result = applyingestplan(store, domain_plan, observations)
+  call tracer.emit("ingest", "waiting", source_set_id, "queueing durable work")
+  result = applyingestplanconfigured(store, domain_plan, observations, config_lookup.config(), profile_lookup.profile())
   close_error = ""; close_status = closeragstore(store, close_error)
   if result.ok() \= 1 | close_status \= 0 then do; if error = "" then error = result.error(); if error = "" then error = close_error; return _failure(operation, 1, error); end
+  call tracer.emit("ingest", "complete", source_set_id, "items=" || result.items_queued())
   fields = .ragresultfield[]
   fields[1] = .ragresultfield("disposition", "string", result.disposition())
   fields[2] = .ragresultfield("generation", "integer", result.generation())
@@ -421,9 +467,55 @@ _ingestapply: procedure = .ragcommandresult
   fields[6] = .ragresultfield("sources_unchanged", "integer", result.sources_unchanged())
   fields[7] = .ragresultfield("items_queued", "integer", result.items_queued())
   fields[8] = .ragresultfield("provider_calls", "integer", result.provider_calls())
-  fields[9] = .ragresultfield("job_id", "string", "job-sha256:" || domain_plan.digest())
+  if result.items_queued() = 0 then fields[9] = .ragresultfield("job_id", "null", "")
+  else fields[9] = .ragresultfield("job_id", "string", "job-sha256:" || domain_plan.digest())
   records = .ragresultrecord[]; records[1] = .ragresultrecord("ingest-apply", fields)
+  if result.items_queued() = 0 then return .ragcommandresult(operation, "ok", 0, "source set is already current; no work or provider calls were queued", records)
   return .ragcommandresult(operation, "ok", 0, "reviewed ingest plan applied and durable work queued", records)
+
+_publishjobvectors: procedure = .int
+  arg library = .string, job_id = .string, expose generation_count = .int, expose state = .string, expose error = .string
+  generation_count = 0; state = "not-applicable"; error = ""
+  store = .ragstorehandle
+  if openragstore(library, "readwrite", store, error) \= 0 then return -1
+  profiles = .string[]
+  if _jobvectorprofiles(store.database(), job_id, profiles, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return -1; end
+  published = 0
+  do i = 1 to profiles.0
+    generation = .ragvectorgenerationresult
+    if buildexactvectorgeneration(store, profiles[i], 1000000, generation, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return -1; end
+    generation_count = generation_count + 1
+    if generation.state() = "published" then published = published + 1
+  end
+  close_error = ""
+  if closeragstore(store, close_error) \= 0 then do; error = close_error; return -1; end
+  if generation_count = 0 then state = "not-applicable"
+  else if published > 0 then state = "published"
+  else state = "identical-no-op"
+  return 0
+
+_jobvectorprofiles: procedure = .int
+  arg database = .binary, job_id = .string, expose profiles = .string[], expose error = .string
+  clear profiles; error = ""; prepared = .binary
+  if sqliteprepare(database, "SELECT state FROM jobs WHERE job_id=?1", prepared) \= 0 | sqlitebindtext(prepared, 1, job_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare completed job lookup for vector publication"; return -1; end
+  step = sqlitestep(prepared)
+  if step \= 100 then do; call sqlitefinalize prepared; error = "worker job does not exist for vector publication"; return -1; end
+  job_state = ""; column_status = sqlitecolumntext(prepared, 0, job_state); call sqlitefinalize prepared
+  if column_status \= 0 then do; error = "cannot decode completed job state for vector publication"; return -1; end
+  if job_state \= "completed" then do; error = "worker group ended before vector publication because job state is " || job_state; return -1; end
+  prepared = .binary
+  sql = "SELECT DISTINCT e.embedding_profile_id FROM job_items i JOIN attempts a ON a.item_id=i.item_id JOIN embeddings e ON e.provider_run_id=a.provider_run_id WHERE i.job_id=?1 AND i.item_type='embedding' AND i.state='processed' AND a.outcome='succeeded' ORDER BY e.embedding_profile_id"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, job_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare completed embedding profile scan"; return -1; end
+  do forever
+    step = sqlitestep(prepared)
+    if step = 101 then leave
+    if step \= 100 then do; call sqlitefinalize prepared; error = "cannot scan completed embedding profiles"; return -1; end
+    profile_id = ""
+    if sqlitecolumntext(prepared, 0, profile_id) \= 0 | profile_id = "" then do; call sqlitefinalize prepared; error = "cannot decode completed embedding profile"; return -1; end
+    profiles[profiles.0 + 1] = profile_id
+  end
+  call sqlitefinalize prepared
+  return 0
 
 _improveapply: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry

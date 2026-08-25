@@ -438,6 +438,11 @@ validatestructuredresponse: procedure = .providererror
     property_type_node = schema_document.member(property_node, "type")
     property_type = ""
     if schema_document.node_type(property_type_node) = "string" then ignored = schema_document.node_string(property_type_node, property_type)
-    if property_type \= "" & response_document.node_type(response_member) \= property_type then return .providererror("structured_validation", -123, 0, 0, 0, "structured response member type does not match schema: " || required_name)
+    type_matches = response_document.node_type(response_member) = property_type
+    if property_type = "integer" then do
+      integer_value = .int
+      type_matches = response_document.node_int(response_member, integer_value) = 0
+    end
+    if property_type \= "" & type_matches = 0 then return .providererror("structured_validation", -123, 0, 0, 0, "structured response member type does not match schema: " || required_name)
   end
   return .providererror()

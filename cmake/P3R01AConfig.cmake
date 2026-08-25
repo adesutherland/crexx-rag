@@ -95,7 +95,7 @@ execute_process(COMMAND "${CPRAG_RXVME}" "${CPRAG_APPLICATION}" -a
     RESULT_VARIABLE mismatch_result OUTPUT_VARIABLE mismatch_out ERROR_VARIABLE mismatch_err
     TIMEOUT 30)
 if(NOT mismatch_result EQUAL 3 OR NOT mismatch_out MATCHES
-        "--config does not match config.id in --config-file")
+        "--config does not match --config-file")
     message(FATAL_ERROR
         "linked CLI did not reject a mismatched config id:\n${mismatch_out}${mismatch_err}")
 endif()

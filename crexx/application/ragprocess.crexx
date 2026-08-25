@@ -1,12 +1,19 @@
 options levelg
 
-namespace ragprocess expose ragprocessrecord ragprocessstartresult newprocessidentity reserveprocess activateprocess heartbeatprocess finishprocess requestprocess processrequest listprocesses pruneprocesses runidleworker startworkerprocesses currentprocessid currenthostid processalive
+namespace ragprocess expose ragprocessrecord ragprocessstartresult newprocessidentity reserveprocess activateprocess heartbeatprocess finishprocess requestprocess processrequest listprocesses pruneprocesses runidleworker runapplicationworker startworkerprocesses currentprocessid currenthostid processalive
 
 import rxfnsb
 import concurrency
 import rxplatform
+import rxfs
 import sqlite_boundary
 import ragstore
+import ragconfig
+import ragprofile
+import ragclaims
+import ragwork
+import ragtrace
+import ragapplicationprovider
 
 /* Durable process coordination for the enduring application.  Runtime rows are
  * coordination state, not work-item ownership: ragwork leases and fences remain
@@ -342,12 +349,63 @@ runidleworker: procedure = .int
   if status \= 0 | close_status \= 0 then return -2
   return 0
 
+runapplicationworker: procedure = .int
+  arg library = .string, instance_id = .string, parent_instance_id = .string, host_id = .string, mode = .string, job_filter = .string, poll_milliseconds = .int, maximum_polls = .int, config = .ragconfig, profile = .ragprofile, progress = .string, format = .string, expose final_id = .string, expose processed = .int, expose error = .string
+  final_id = instance_id; processed = 0; error = ""
+  if poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | (mode \= "once" & mode \= "follow") | _validtext(instance_id, 128, 1) \= 1 | _validtext(parent_instance_id, 128, 1) \= 1 | _validtext(host_id, 255, 1) \= 1 | _validtext(job_filter, 256, 1) \= 1 then do; error = "worker poll bounds are invalid"; return -1; end
+  store = .ragstorehandle
+  if openragstore(library, "readwrite", store, error) \= 0 then return -2
+  if host_id = "" then host_id = currenthostid()
+  if final_id = "" then final_id = newprocessidentity(store, "worker", error)
+  pid = currentprocessid(); start_token = _scalartext(store.database(), "SELECT lower(hex(randomblob(16)))", error); executable = _executableidentity()
+  if error \= "" | final_id = "" | pid <= 0 | start_token = "" then do; ignored = ""; call closeragstore store, ignored; if error = "" then error = "worker process identity is unavailable"; return -2; end
+  if activateprocess(store, final_id, "worker", parent_instance_id, host_id, pid, start_token, executable, mode, job_filter, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return -2; end
+  tracer = .ragtracer(progress, format); provider = .ragapplicationprovider(store, config, profile, tracer); policy = _profilepolicy(profile)
+  workers = config.workers(); lease_seconds = workers.lease_seconds(); maximum_attempts = _providerattempts(config)
+  polls = 0; status = 0; call tracer.emit("worker", "start", final_id, mode)
+  do forever
+    polls = polls + 1
+    if heartbeatprocess(store, final_id, "idle", "", "waiting for durable work", error) \= 0 then do; status = -2; leave; end
+    requested = processrequest(store, final_id, error)
+    if error \= "" then do; status = -2; leave; end
+    if requested = "stop" | requested = "drain" then do; call tracer.emit("worker", "draining", final_id, requested); leave; end
+    disposition = ""
+    work_status = runworkeronce(store, job_filter, final_id, lease_seconds, maximum_attempts, policy, provider, disposition, error)
+    if work_status = 1 then do
+      call tracer.emit("work", "idle", final_id, "no eligible item")
+      if job_filter \= "" then do
+        job_state = _scalartext(store.database(), "SELECT state FROM jobs WHERE job_id=" || _sqlquote(job_filter), error)
+        if error \= "" then do; status = -2; leave; end
+        if job_state = "completed" | job_state = "failed" | job_state = "cancelled" then do
+          call tracer.emit("job", "complete", job_filter, job_state)
+          leave
+        end
+      end
+      if mode = "follow" & (maximum_polls = 0 | polls < maximum_polls) then call rxplatform..sleep poll_milliseconds
+    end
+    else if work_status \= 0 then do; status = work_status; call tracer.emit("work", "failed", final_id, disposition); leave; end
+    else do
+      processed = processed + 1
+      call tracer.emit("work", "processed", final_id, disposition)
+      if heartbeatprocess(store, final_id, "running", "", disposition, error) \= 0 then do; status = -2; leave; end
+    end
+    if mode = "once" then leave
+    if maximum_polls > 0 & polls >= maximum_polls then leave
+  end
+  terminal = "stopped"; exit_code = 0; detail = "application worker stopped cleanly;processed=" || processed
+  if status \= 0 then do; terminal = "failed"; exit_code = 1; detail = error; end
+  finish_error = ""; if finishprocess(store, final_id, terminal, exit_code, detail, finish_error) \= 0 & error = "" then error = finish_error
+  close_error = ""; close_status = closeragstore(store, close_error); if close_status \= 0 & error = "" then error = close_error
+  if status \= 0 | close_status \= 0 then return -2
+  call tracer.emit("worker", "complete", final_id, "processed=" || processed)
+  return 0
+
 startworkerprocesses: procedure = .int
-  arg library = .string, count = .int, poll_milliseconds = .int, maximum_polls = .int, job_filter = .string, expose result = .ragprocessstartresult, expose error = .string
+  arg library = .string, count = .int, poll_milliseconds = .int, maximum_polls = .int, job_filter = .string, config_id = .string, profile_id = .string, config_file = .string, progress = .string, format = .string, expose result = .ragprocessstartresult, expose error = .string
   result = .ragprocessstartresult("", count, 0, count); error = ""
   if count < 1 | count > 32 | poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | _validtext(job_filter, 256, 1) \= 1 then do; error = "controller bounds are invalid"; return -1; end
   runtime = getenv("CREXX_RAG_RUNTIME"); image = getenv("CREXX_RAG_IMAGE"); load_path = getenv("CREXX_RAG_LOAD_PATH"); self_executable = getenv("CREXX_RAG_SELF")
-  if runtime = "" & self_executable = "" then self_executable = "crexx-rag"
+  if runtime = "" & self_executable = "" then self_executable = rxfs..loadpath() || "/crexx-rag"
   if runtime \= "" & (image = "" | load_path = "") then do; error = "linked application runtime metadata is incomplete"; return -2; end
   store = .ragstorehandle
   if openragstore(library, "readwrite", store, error) \= 0 then return -2
@@ -374,14 +432,15 @@ startworkerprocesses: procedure = .int
       ignored = ""; call finishprocess store, controller_id, "failed", 1, error, ignored; call closeragstore store, ignored
       return -2
     end
-    arguments = _childarguments(runtime, image, load_path, library, worker_id, controller_id, host_id, poll_milliseconds, maximum_polls, job_filter)
+    arguments = _childarguments(runtime, image, load_path, library, worker_id, controller_id, host_id, poll_milliseconds, maximum_polls, job_filter, config_id, profile_id, config_file)
     envelope = _childenvelope(runtime, self_executable, arguments, null_input.provider_reference(), null_output.provider_reference())
     request = children.start(envelope, -1)
     worker_ids[i] = worker_id
     request_ids[i] = request.identity()
   end
 
-  completed = 0; failed = 0
+  tracer = .ragtracer(progress, format)
+  completed = 0; failed = 0; first_failure_detail = ""
   do while completed < count
     completion = children.wait(1000)
     heartbeat_error = ""
@@ -395,11 +454,18 @@ startworkerprocesses: procedure = .int
       if request_ids[i] = completion.request_identity() then worker_index = i
     end
     if worker_index > 0 then do
+      worker_state = "complete"; if exit_code \= 0 then worker_state = "failed"
+      call tracer.emit("worker", worker_state, worker_ids[worker_index], "completed=" || completed || "/" || count)
       state = _scalartext(store.database(), "SELECT state FROM runtime_instances WHERE instance_id=" || _sqlquote(worker_ids[worker_index]), heartbeat_error)
       if state = "starting" then do
         terminal = "failed"; detail = "child process exited before worker registration"
         if exit_code = 0 then do; terminal = "stopped"; detail = "child process completed before worker registration"; end
         ignored = ""; call finishprocess store, worker_ids[worker_index], terminal, exit_code, detail, ignored
+      end
+      if exit_code \= 0 & first_failure_detail = "" then do
+        detail_error = ""
+        first_failure_detail = _scalartext(store.database(), "SELECT coalesce((SELECT detail FROM runtime_instances WHERE instance_id=" || _sqlquote(worker_ids[worker_index]) || "),'child process failed without a runtime detail')", detail_error)
+        if detail_error \= "" then first_failure_detail = "child process failed without a readable runtime detail"
       end
     end
   end
@@ -413,19 +479,27 @@ startworkerprocesses: procedure = .int
   result = .ragprocessstartresult(controller_id, count, completed, failed)
   if error = "" then error = finish_error
   if error = "" then error = close_error
+  if error = "" & failed > 0 then do
+    error = "one or more worker processes failed"
+    if first_failure_detail \= "" then error = error || ": " || first_failure_detail
+  end
   if error \= "" | failed > 0 | close_status \= 0 then return -2
   return 0
 
 _childarguments: procedure = .channelvalue
-  arg runtime = .string, image = .string, load_path = .string, library = .string, worker_id = .string, controller_id = .string, host_id = .string, poll_milliseconds = .int, maximum_polls = .int, job_filter = .string
+  arg runtime = .string, image = .string, load_path = .string, library = .string, worker_id = .string, controller_id = .string, host_id = .string, poll_milliseconds = .int, maximum_polls = .int, job_filter = .string, config_id = .string, profile_id = .string, config_file = .string
   args = .string[]
   if runtime \= "" then do
     args[args.0 + 1] = "-l"; args[args.0 + 1] = load_path
     args[args.0 + 1] = image; args[args.0 + 1] = "-a"
   end
   args[args.0 + 1] = "--library"; args[args.0 + 1] = library
+  args[args.0 + 1] = "--config"; args[args.0 + 1] = config_id
+  args[args.0 + 1] = "--profile"; args[args.0 + 1] = profile_id
+  if config_file \= "" then do; args[args.0 + 1] = "--config-file"; args[args.0 + 1] = config_file; end
   args[args.0 + 1] = "--access"; args[args.0 + 1] = "control"
   args[args.0 + 1] = "--format"; args[args.0 + 1] = "json"
+  args[args.0 + 1] = "--progress"; args[args.0 + 1] = "off"
   args[args.0 + 1] = "worker"; args[args.0 + 1] = "run"
   args[args.0 + 1] = "--id"; args[args.0 + 1] = worker_id
   args[args.0 + 1] = "--parent"; args[args.0 + 1] = controller_id
@@ -439,6 +513,28 @@ _childarguments: procedure = .channelvalue
     values[i] = .channelvalue.string_value(args[i])
   end
   return .channelvalue.array_value(values)
+
+_profilepolicy: procedure = .ragclaimpolicy
+  arg profile = .ragprofile
+  types = ""; concept_types = profile.concept_types()
+  do i = 1 to concept_types.0
+    if types \= "" then types = types || "|"
+    types = types || concept_types[i]
+  end
+  relationships = ""; relationship_types = profile.relationship_types()
+  do i = 1 to relationship_types.0
+    if relationships \= "" then relationships = relationships || "|"
+    relationships = relationships || relationship_types[i].relationship_id()
+  end
+  return .ragclaimpolicy("surface-claim-v2:" || profile.version(), types, relationships, 1000, 700, 600, 500, 300)
+
+_providerattempts: procedure = .int
+  arg config = .ragconfig
+  maximum = 1; providers = config.providers()
+  do i = 1 to providers.0
+    if providers[i].max_attempts() > maximum then maximum = providers[i].max_attempts()
+  end
+  return maximum
 
 _childenvelope: procedure = .channelvalue
   arg runtime = .string, self_executable = .string, arguments = .channelvalue, stdin_reference = .channelvalue, output_reference = .channelvalue
@@ -460,7 +556,7 @@ _executableidentity: procedure = .string
   runtime = getenv("CREXX_RAG_RUNTIME"); image = getenv("CREXX_RAG_IMAGE"); self_executable = getenv("CREXX_RAG_SELF")
   if runtime \= "" then return runtime || " " || image
   if self_executable \= "" then return self_executable
-  return "crexx-rag"
+  return rxfs..loadpath() || "/crexx-rag"
 
 _scalartext: procedure = .string
   arg database = .binary, sql = .string, expose error = .string

@@ -1,7 +1,7 @@
 foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_RXBVM
         CPRAG_CREXX_BIN_DIR CPRAG_PLUGIN_DIR CPRAG_APP_DIR CPRAG_CONFIG_DIR
         CPRAG_PROFILE_DIR CPRAG_SURFACE_DIR CPRAG_CLI CPRAG_ADDRESS
-        CPRAG_MCP CPRAG_PROVIDER_CONTRACT CPRAG_ADDRESS_SCENARIO CPRAG_MCP_SCENARIO
+        CPRAG_MCP CPRAG_PROVIDER_CONTRACT CPRAG_PROVIDER_DIR CPRAG_ADDRESS_SCENARIO CPRAG_MCP_SCENARIO
         CPRAG_CONFIG_FIXTURE CPRAG_TUTORIAL_FIXTURE CPRAG_SKILLS_DIR CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
@@ -38,11 +38,12 @@ endfunction()
 
 set(app_modules ragmodel ragevidence ragjob ragconfig ragprofile ragregistry
     ragschema ragfile ragconfigfile ragstore ragbackup ragrepository ragcanonical ragplanning
-    ragcommand ragingest ragfolder ragclaims ragimprove ragwork ragquery
-    ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragproduct)
+    ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragwork ragquery
+    ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragapplicationprovider ragproduct)
+set(provider_modules provider_contract provider_catalog provider_http industrial_provider)
 set(config_modules architecture_local_config generic_profile it_architecture_profile
     operator_registry)
-set(runtime_modules ragmcp rag_address_environment provider_contract ${app_modules} ${config_modules}
+set(runtime_modules ragmcp rag_address_environment ${provider_modules} ${app_modules} ${config_modules}
     rx_sqlite_boundary rx_hash rx_system rxfs rxvector rxfnsg classlib library)
 
 foreach(mode IN ITEMS noopt opt)
@@ -53,12 +54,15 @@ foreach(mode IN ITEMS noopt opt)
         foreach(generated IN LISTS app_modules config_modules)
             file(REMOVE "${CPRAG_WORK_DIR}/${generated}.rxas" "${CPRAG_WORK_DIR}/${generated}.rxbin")
         endforeach()
-        foreach(generated IN ITEMS provider_contract crexx_rag_cli rag_address_environment ragmcp address-noopt mcp-noopt)
+        foreach(generated IN ITEMS ${provider_modules} crexx_rag_cli rag_address_environment ragmcp address-noopt mcp-noopt)
             file(REMOVE "${CPRAG_WORK_DIR}/${generated}.rxas" "${CPRAG_WORK_DIR}/${generated}.rxbin")
         endforeach()
     endif()
-    compile_crexx("${CPRAG_PROVIDER_CONTRACT}" "${CPRAG_WORK_DIR}/provider_contract"
-        "${program_import}" "${mode_flag}" "${mode} provider contract")
+    foreach(module IN LISTS provider_modules)
+        compile_crexx("${CPRAG_PROVIDER_DIR}/${module}.crexx"
+            "${CPRAG_WORK_DIR}/${module}" "${program_import}" "${mode_flag}"
+            "${mode} ${module}")
+    endforeach()
     foreach(module IN LISTS app_modules)
         compile_crexx("${CPRAG_APP_DIR}/${module}.crexx"
             "${CPRAG_WORK_DIR}/${module}" "${program_import}" "${mode_flag}"
@@ -92,7 +96,7 @@ foreach(mode IN ITEMS noopt opt)
         set(cell "${mode}-${runtime_name}")
         set(library "${CPRAG_WORK_DIR}/library-${cell}")
         set(cli_base "${runtime}" -l "${program_import_arg}"
-            "${CPRAG_WORK_DIR}/crexx_rag_cli" provider_contract ${app_modules} ${config_modules}
+            "${CPRAG_WORK_DIR}/crexx_rag_cli" ${provider_modules} ${app_modules} ${config_modules}
             rx_sqlite_boundary rx_hash rx_system rxfs rxvector rxfnsg library)
         execute_process(COMMAND ${cli_base} -a --library "${library}"
             --config architecture-local --profile generic-profile --access admin

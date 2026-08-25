@@ -1,6 +1,7 @@
 # Gate 3R End-to-End Ingestion Acceptance Contract
 
-Status date: 2026-08-24. Approved product target; not yet satisfied.
+Status: satisfied for the recorded macOS/Gemini scope on 2026-08-25. Exact
+Linux, release and cutover remain separate decisions.
 
 ## Boundary under test
 
@@ -71,8 +72,9 @@ gate is blocked by design and no credential may be resolved.
 - text configuration is size-bounded, deterministic, duplicate/unknown-key
   rejecting, literal-secret rejecting, and semantically equal to its typed
   configuration projection; and
-- `--progress off|plain|ansi` is opt-in, writes only to stderr, never alters
-  machine stdout, and contains no secret or source/provider body.
+- `--progress off|plain|ansi` writes only to stderr, never alters machine
+  stdout, and contains no secret or source/provider body. Human terminal
+  commands select ANSI/plain by default; machine callers remain explicit.
 
 ### Initial ingestion
 
@@ -140,3 +142,11 @@ provider harness directly fails the human-experience requirement.
 Passing Gate 3R proves a usable cREXX ingestion vertical slice for the recorded
 provider/platform scope. It does not by itself authorize default-command
 cutover, native removal, release, donation, or exact Linux qualification.
+
+Gate 3R was accepted on 2026-08-25 from the permanent credential-free matrix
+plus a fresh native tutorial replay with exactly one Gemini generation and one
+Google embedding call. The job completed without recovery, its vector
+generation was published, unchanged replay created no job or calls, and library
+verification reported zero issues. Deterministic retained Phase-3 scenarios
+cover changed-source and restart semantics without spending additional hosted
+calls. See [`P3R-08.md`](P3R-08.md).

@@ -70,7 +70,7 @@ providermodelcapability: class
     return _output_usd_micros_per_million
 
 knownmodelcount: procedure = .int
-  return 7
+  return 8
 
 knownmodel: procedure = .providermodelcapability
   arg index = .int
@@ -80,7 +80,8 @@ knownmodel: procedure = .providermodelcapability
   if index = 4 then return .providermodelcapability("anthropic", "claude-haiku-4-5", "claude-4.5", "generate|generate_structured", "text|image_url|document_url", "text", 1, 1, 200000, 64000, "", "2026-08-03", "low", 1000000, 5000000)
   if index = 5 then return .providermodelcapability("anthropic", "claude-sonnet-5", "claude-5", "generate|generate_structured", "text|image_url|document_url", "text", 1, 1, 0, 0, "", "2026-08-03", "balanced")
   if index = 6 then return .providermodelcapability("gemini", "gemini-2.5-flash-lite", "gemini-2.5", "generate|generate_structured", "text|image_url|document_url|audio_url", "text", 1, 1, 1048576, 65536, "", "2026-08-03", "low")
-  if index = 7 then return .providermodelcapability("gemini", "gemini-embedding-2", "gemini-embedding", "embed|embed_batch", "text|image_url|document_url|audio_url", "f32le", 0, 0, 8192, 0, "128..3072", "2026-08-03", "low")
+  if index = 7 then return .providermodelcapability("gemini", "gemini-3.5-flash-lite", "gemini-3.5", "generate|generate_structured", "text|image_url|document_url|audio_url", "text", 1, 1, 1048576, 65536, "", "2026-08-24", "low", 300000, 2500000)
+  if index = 8 then return .providermodelcapability("gemini", "gemini-embedding-2", "gemini-embedding", "embed|embed_batch", "text|image_url|document_url|audio_url", "f32le", 0, 0, 8192, 0, "128..3072", "2026-08-24", "low", 200000, 0)
   return .providermodelcapability("", "", "", "", "", "", 0, 0, 0, 0, "", "2026-08-03")
 
 lookupmodelcapability: procedure = .providermodelcapability
@@ -95,7 +96,7 @@ defaultgenerationmodel: procedure = .string
   arg provider = .string
   if provider = "openai" then return "gpt-5.6-luna"
   if provider = "anthropic" then return "claude-haiku-4-5"
-  if provider = "gemini" then return "gemini-2.5-flash-lite"
+  if provider = "gemini" then return "gemini-3.5-flash-lite"
   return ""
 
 defaultembeddingmodel: procedure = .string
@@ -108,12 +109,16 @@ modelinputprice: procedure = .int
   arg provider = .string, model = .string
   if provider = "openai" & model = "gpt-5.6-luna" then return 200000
   if provider = "anthropic" & model = "claude-haiku-4-5" then return 1000000
+  if provider = "gemini" & model = "gemini-3.5-flash-lite" then return 300000
+  if provider = "gemini" & model = "gemini-embedding-2" then return 200000
   return -1
 
 modeloutputprice: procedure = .int
   arg provider = .string, model = .string
   if provider = "openai" & model = "gpt-5.6-luna" then return 1200000
   if provider = "anthropic" & model = "claude-haiku-4-5" then return 5000000
+  if provider = "gemini" & model = "gemini-3.5-flash-lite" then return 2500000
+  if provider = "gemini" & model = "gemini-embedding-2" then return 0
   return -1
 
 estimatecostmicrounits: procedure = .int

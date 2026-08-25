@@ -903,13 +903,16 @@ Migration is side-by-side:
 
 The 2026-08-24 Gate-7 result is reject/defer cutover. The corpus, lifecycle,
 surface, installed-package, and external hosted generation/embedding evidence
-passes in the recorded macOS scope. The later Gate-3R process slice adds public
-worker lifecycle but leaves its body `framework-idle`. cREXX hosted completion
-remains unreliable, `worker.run` has no installed production provider binding,
-queued extraction/embedding items have no public worker processor, the
-production-shaped same-session comparison is incomplete, and exact downstream
-Linux remains open. Native-v1 therefore stays the default oracle; no
-compatibility window has started.
+passes in the recorded macOS scope. At that decision point, the later Gate-3R
+process slice had public worker lifecycle but still used `framework-idle`.
+The Gate-3R-accepted Phase-3 implementation now binds `worker.run` to the
+application
+provider and processes configured extraction and embedding items through the
+native cREXX application. That closes those implementation findings locally;
+it does not retroactively approve cutover. The pristine hosted replay is now
+complete; production-shaped same-session comparison, exact downstream Linux
+and a new explicit cutover decision remain open. Native-v1 therefore stays the
+default oracle; no compatibility window has started.
 
 The native executable remains available as a read-only diagnostic/migration
 tool for one compatibility release. Removing it and the product-specific

@@ -1,6 +1,7 @@
 # Phase 3 Product Re-baseline Worklist
 
-Status date: 2026-08-24. Approved by Adrian on 2026-08-24.
+Status: Gate 3R accepted for the recorded macOS/Gemini scope on 2026-08-25.
+Approved by Adrian on 2026-08-24; final defect closure approved 2026-08-25.
 
 This worklist reopens **product ingestion acceptance** without discarding or
 rewriting the accepted Phase-3 reconciler evidence. The original `P3-01`
@@ -92,15 +93,17 @@ phase-numbered source becomes a production entry point.
   diagnostics and explicit terminal/stale pruning. Do not attach ingestion or
   provider work in this slice: `worker.run` must report `framework-idle`.
   Accepted evidence: [`P3R-01B.md`](P3R-01B.md).
-- [~] **P3R-02 — Configured application provider binding.** Implement one
+- [x] **P3R-02 — Configured application provider binding.** Implement one
   application-owned Level-G extraction component behind `.ragworkprovider`.
   It must resolve the registered job-snapshot role, construct the versioned
   request, call the existing generic provider, decode structured output into a
   typed proposal, and inject authoritative provider/model/request/prompt/
   profile/chunk provenance. Add an operator-registered Google Gemini
   configuration using only `env:GEMINI_API_KEY`; vendor choice must not branch
-  ingestion algorithms.
-- [ ] **P3R-03 — Durable work input and budget binding.** Extend schema and
+  ingestion algorithms. Accepted with P3R-03 through P3R-05A by the permanent
+  native-product `p3r_02_gemini_ingestion` test and
+  [`P3R-02.md`](P3R-02.md).
+- [x] **P3R-03 — Durable work input and budget binding.** Extend schema and
   ingestion work so every item persists an exact canonical input envelope:
   source/revision/chunk/content identity, span/text digest, item type,
   config/profile/policy/prompt/schema versions, provider role/route/privacy,
@@ -109,13 +112,13 @@ phase-numbered source becomes a production entry point.
   item. Ingestion must create an immutable non-zero budget policy suitable for
   the reviewed plan. Existing unprovable queued items fail closed and are
   replanned rather than guessed or heuristically backfilled.
-- [ ] **P3R-04 — Complete ingestion processors.** Reuse accepted candidate
+- [x] **P3R-04 — Complete ingestion processors.** Reuse accepted candidate
   decisions to promote canonical concepts/mentions through `ragclaims`, then
   process `claim-extraction` through the configured extractor and `embedding`
   through `ragembedding`. Each queued item has exactly one owning processor.
   Job completion requires no queued/running/dead-letter item and no outstanding
   reservation. Model output never writes graph state directly.
-- [ ] **P3R-05 — Public ingestion-worker dispatch.** Replace the accepted
+- [x] **P3R-05 — Public ingestion-worker dispatch.** Replace the accepted
   `framework-idle` worker body with `ragwork.runworkeronce`/
   `runworkerfollow` using the configured application provider, with exact
   access, worker/job, provider-role, lease/fence, cancellation, and result
@@ -123,44 +126,60 @@ phase-numbered source becomes a production entry point.
   positional provider order or mutable current configuration. Keep process
   supervision operator-owned and keep long-running worker control out of
   read-only MCP.
-- [ ] **P3R-05A — Human progress surface.** Add typed, bounded progress events
-  at the application boundary and an opt-in CLI renderer:
-  `--progress off|plain|ansi`. Default is `off`; ANSI is permitted only with
-  human output and writes to stderr, leaving JSON/NDJSON stdout byte-stable.
+- [x] **P3R-05A — Human progress surface.** Add typed, bounded progress events
+  at the application boundary and a CLI renderer:
+  `--progress off|plain|ansi`. Human commands default to ANSI on a colour
+  terminal and plain otherwise; machine output remains off unless explicitly
+  requested. Progress writes to stderr, leaving JSON/NDJSON stdout byte-stable.
   Progress covers discovery, plan/apply, item counts, provider admission and
   completion, validation/promotion, job reconciliation, and query readiness.
   It must redact secrets and source/provider bodies and must not become a
   second orchestration path. An optional interactive controller mode may query
   the same typed worker/job status while it supervises children; the existing
   separate `worker list/status` process remains the non-interactive authority.
-- [ ] **P3R-06 — Credential-free product and provider matrix.** Add a permanent
+- [x] **P3R-06 — Credential-free product and provider matrix.** Add a permanent
   installed-product target covering optimized/non-optimized compilation and
   both VMs. Run protocol/shape smokes for local OpenAI-compatible, OpenAI,
   Anthropic, and Gemini adapters; malformed schema, wrong input/chunk,
   privacy denial, missing secret, retry/dead-letter, stale fence, cancellation,
   restart, and no-op replay must fail or converge exactly as declared. These
-  tests make zero hosted calls.
-- [ ] **P3R-07 — Real Gemini vertical slice.** After a separately recorded
+  tests make zero hosted calls. Accepted proportionally: Phase 3's installed
+  product path is the configured Gemini path in `p3r_02_gemini_ingestion`; the
+  reusable `p1_llm_01` through `p1_llm_05` matrix covers local OpenAI-compatible,
+  OpenAI, Anthropic, Gemini, malformed/retry/privacy and secret boundaries.
+  Repeating every generic adapter as a product ingestion path is not a Phase 3
+  requirement.
+- [x] **P3R-07 — Real Gemini vertical slice.** After a separately recorded
   exact call/token/cost/privacy approval, run the installed public sequence on
   one public synthetic fixture. Google Gemini generation is mandatory; use a
   configured Google embedding model when embedding is enabled. Retain only
   symbolic secret reference, request/input hashes, provider/model/request
   identity, normalized result, usage/cost/latency, job reconciliation, final
   counts, and stable citation. Never retain the key, authorization material,
-  or unredacted private source content.
-- [ ] **P3R-08 — Gate 3R closeout and later-phase re-baseline.** Run full Debug,
-  fresh Release, focused sanitizer, installed-package/no-source-fallback,
-  `git diff --check`, and preservation audits. Publish a dated Gate-3R packet.
-  Reframe Phase 4 as advanced claim/review/improvement policy, Phase 5 as
-  retrieval-quality expansion, and Phase 6 as additional transports/skills.
-  Stop for an explicit default-command/cutover decision.
-- [ ] **P3R-09 — Human-first Phase-3 tutorial.** Replace the current development
+  or unredacted private source content. The approved two calls completed the
+  real generation/embedding/claim/evidence path. A pre-call item-reservation
+  defect required explicit dead-letter recovery. The separately approved fresh
+  tutorial replay on 2026-08-25 completed both calls on their first attempts,
+  published its vector generation, verified cleanly, and repeated unchanged
+  with zero work; see [`P3R-07.md`](P3R-07.md).
+- [x] **P3R-08 — Gate 3R closeout and later-phase boundary.** Accept proportional
+  Phase-3 QA: native application build/smoke, the complete Phase-3/3R label,
+  provider/renderer dependency tests, a pristine real Gemini walkthrough,
+  unchanged replay, integrity verification, preservation review and
+  `git diff --check`. Performance, soak, later-phase, full Release/sanitizer and
+  exact Linux work are not Phase-3 defect tests and were not rerun. The closeout
+  packet is [`P3R-08.md`](P3R-08.md). This acceptance does not authorize
+  default-command cutover, native-v1 removal, push, release or publication.
+- [x] **P3R-09 — Human-first Phase-3 tutorial.** Replace the current development
   tutorial with an installed-product walkthrough. It must show configuration
   file creation, `doctor`, library initialization, plan review, exact apply,
   ANSI/plain progress, worker execution, job status, evidence query, unchanged
   zero-call replay, changed-source replay, restart recovery, expected output,
   costs/privacy, and troubleshooting. Phase-numbered source scenarios may be
-  linked as engineering evidence but are not tutorial commands.
+  linked as engineering evidence but are not tutorial commands. Maintained at
+  [`docs/tutorials/phase-3-ingestion.md`](../../tutorials/phase-3-ingestion.md)
+  with a runnable setup/config/source bundle in
+  [`docs/tutorials/phase-3-ingestion/`](../../tutorials/phase-3-ingestion/).
 
 ## Provider smoke policy
 

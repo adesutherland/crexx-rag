@@ -27,7 +27,8 @@ promise.
 ## Dependencies
 
 - installed `rxjson` for parse-once response traversal and JSON encoding;
-- installed Level-G `rxfnsg` for typed, bounded, pooled HTTP/TLS;
+- installed Level-G `rxfnsg`, `rxsocket`, and `_rxhttpcore` for policy,
+  bounded socket/TLS I/O, and HTTP wire parsing/building;
 - `rxfnsb` for binary arrays and runtime functions; and
 - no RAG application module.
 
@@ -48,8 +49,8 @@ index identity, or vector storage policy.
 4. `validateproviderroute` rejects non-public data on hosted routes before
    constructing an HTTP client.
 5. The adapter renders one provider-specific payload.
-6. `providerhttptransport` creates one bounded pool for the operation and sends
-   typed HTTP requests with bounded attempts and backoff.
+6. `providerhttptransport` performs one bounded synchronous HTTP/TLS exchange
+   per attempt with `Connection: close` and bounded backoff.
 7. The adapter parses the response once and returns one `.providerresult`.
 8. Structured output and embedding shape are validated before success returns.
 
@@ -85,10 +86,10 @@ Adapter capability records are authoritative for implemented behavior. The
 catalog adds model-specific, date-stamped information but cannot upgrade an
 adapter capability. Unknown model facts and prices remain unknown.
 
-Streaming, cancellation, and cross-request connection reuse remain zero at the
-provider contract. Installed `rxfnsg` supplies the underlying primitives, and
-retry attempts within one operation share a client pool, but adapter instances
-do not yet retain that pool across separate method calls. The structured
+Streaming, cancellation, and connection reuse remain zero at the provider
+contract. Each retry attempt has its own socket. This makes the transport usable
+inside the native-bearing product without creating an attached cREXX task that
+would encounter CRI-17 provider discovery. The structured
 validator implements a small deterministic subset, not full JSON Schema.
 
 ## Evidence
@@ -107,9 +108,10 @@ secret- and budget-gated.
 Phase 5 adds an optional normalized `temperature_millionths` generation field
 and loopback assertions for all four generation protocol shapes. It also
 retains an external, public-fixture-only Gemini answer-quality qualification.
-Hosted probes through this cREXX adapter timed out before response completion
-while direct HTTP/1.1 calls succeeded; that finding remains Phase-7 transport
-qualification and is not converted into an accepted adapter claim.
+The subsequent bounded P3R-07 product slice completed real Gemini structured
+generation and embedding through this synchronous path. That does not qualify
+connection reuse, streaming, cancellation, exact Linux, or an independent
+donation package.
 
 ## Known System Limits
 
@@ -122,9 +124,10 @@ qualification and is not converted into an accepted adapter claim.
   sanitizer/cross-platform evidence. The downstream adapter still needs an
   approved provider-owned pool lifecycle and selected Linux/package replay;
   streaming and cancellation remain separate adapter-scope decisions.
+- CRI-17: attached cREXX tasks in a native-bearing image cannot discover native
+  RXPA providers. The adapter therefore uses a synchronous controller-thread
+  exchange; separate OS-process application workers load providers normally.
 - Adapter instances retain credentials in process memory for their lifetime.
-- Current hosted POST-completion behavior must be minimized and repaired or
-  otherwise resolved before the adapter can be called hosted-qualified.
 - The adapters expose no concurrent request scheduler, persistent
   cross-operation pool, circuit breaker, jittered retry, or external capability
   discovery.

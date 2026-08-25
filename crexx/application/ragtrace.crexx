@@ -1,0 +1,59 @@
+options levelg
+
+namespace ragtrace expose ragtracer validtracemode
+
+import rxfnsb
+
+/* Human progress is an explicitly selected stderr side channel.  Product
+ * result JSON/NDJSON remains byte-stable on stdout and no prompt, document
+ * body, provider response, or credential is accepted by this API. */
+ragtracer: class
+  _mode = .string
+  _format = .string
+
+  *: factory
+    arg mode = "off", format = "human"
+    _mode = mode
+    _format = format
+    return
+
+  enabled: method = .int
+    return _mode \= "off"
+
+  mode: method = .string
+    return _mode
+
+  emit: method = .void
+    arg stage = .string, state = .string, subject = "", detail = ""
+    if enabled() = 0 then return
+    safe_stage = _safe(stage, 48)
+    safe_state = _safe(state, 48)
+    safe_subject = _safe(subject, 128)
+    safe_detail = _safe(detail, 256)
+    line = "crexx-rag " || safe_stage || " " || safe_state
+    if safe_subject \= "" then line = line || " [" || safe_subject || "]"
+    if safe_detail \= "" then line = line || " " || safe_detail
+    if _mode = "ansi" & _format = "human" then do
+      colour = "36"
+      if safe_state = "ok" | safe_state = "complete" | safe_state = "processed" then colour = "32"
+      if safe_state = "failed" | safe_state = "denied" then colour = "31"
+      if safe_state = "waiting" | safe_state = "idle" then colour = "33"
+      line = "1B"x || "[" || colour || "m" || line || "1B"x || "[0m"
+    end
+    call lineout "stderr", line
+    return
+
+validtracemode: procedure = .int
+  arg mode = .string, format = .string
+  if mode \= "off" & mode \= "plain" & mode \= "ansi" then return 0
+  if mode = "ansi" & format \= "human" then return 0
+  return 1
+
+_safe: procedure = .string
+  arg value = .string, maximum = .int
+  value = changestr("1B"x, value, "?")
+  value = changestr("0D"x, value, " ")
+  value = changestr("0A"x, value, " ")
+  value = changestr("09"x, value, " ")
+  if length(value) > maximum then value = left(value, maximum)
+  return value

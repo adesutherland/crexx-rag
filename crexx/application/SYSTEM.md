@@ -23,11 +23,12 @@ ragstore + ragregistry + ragcanonical <- ragplanning
 ragstore + installed rxhash <- ragingest <- ragfolder + ragfile + rxfs
 ragstore + ragingest <- ragclaims <- ragimprove
 ragstore + ragjob + ragclaims <- ragwork <- ragimprove jobs
+provider contract + generic adapters + ragwork <- ragapplicationprovider
 ragstore + ragprofile + ragingest <- ragquery
 ragstore + provider contract + installed rxvector <- ragembedding
 ragquery + ragembedding + ragclaims <- ragretrieval <- ragevidencejson
 ragcommand + lifecycle modules + ragplanning <- ragfoundation
-ragfoundation + ingestion/improvement/retrieval <- ragproduct
+ragfoundation + ingestion/improvement/retrieval + ragapplicationprovider + ragtrace <- ragproduct
 ragproduct <- CLI + ADDRESS RAG + MCP
 ```
 
@@ -36,7 +37,9 @@ handle. `ragevidence` is the stable evidence packet object; passages, accepted
 claims, support, ambiguity, leads, and gaps remain distinct.
 
 `ragconfig` validates source sets, provider routes, symbolic secret references,
-budgets, one in-flight item per process, and 1 through 32 worker processes.
+budgets, one in-flight item per process, and 1 through 32 worker processes. The
+immutable job admission ceiling is the configured process count times that
+per-process ceiling; `worker start --count` cannot exceed the reviewed count.
 `ragprofile` validates
 domain types, relationships, aliases, chunk policy, ranking weights, prompt
 identities, and validator identities. `ragregistry` receives already
@@ -49,14 +52,17 @@ duplicate keys, literal secrets, executable module paths, unsafe routes,
 traversal, and non-canonical or out-of-range values. CLI selection occurs
 before command parsing. MCP fixes the selected projection at startup.
 
-`ragschema` owns three ordered migrations. Migration 1 establishes library,
+`ragschema` owns four ordered migrations. Migration 1 establishes library,
 configuration, immutable published-generation, and publication-event state.
 Migration 2 establishes the complete schema-v2 source, evidence, graph,
 embedding, job, attempt, event, and review table set. Checksums are SHA-256 over
 the exact ordered SQL statements with an LF after each statement; the CMake
 proof recomputes them from the source before compiling consumers.
 Migration 3 adds `runtime_instances` and its bounded state/parent indexes; it
-does not change semantic generations or job-item lease ownership.
+does not change semantic generations or job-item lease ownership. Migration 4
+adds `job_items.input_json`, the exact canonical work envelope used by product
+workers; existing Phase-4 improvement rows retain their job-level budget
+contract.
 
 `ragstore` consumes only the generic SQLite mechanism. It keeps one monotonic
 generation allocator, stages semantic rows inside the same transaction as a
@@ -75,14 +81,18 @@ strictly reconstructs the canonical object before comparing a fresh context.
 The plan/apply foundation path never inserts a job; later phases own enqueue and
 execution after Gate approval.
 
-The Phase-3 domain plan is distinct from that not-yet-wired command envelope.
+The Phase-3 domain plan is distinct from the generic canonical command-plan
+envelope.
 `ragingest` owns one reconciler for first and incremental ingestion. It binds
 raw, normalized text, metadata, parser and policy fingerprints; uses occurrence
 rows for citations and immutable content rows for reuse; closes dependent
 visibility at the new generation; rebuilds the live FTS projection in the same
 transaction; re-anchors only exact continuity/content matches; and queues new
-content inputs through schema-v2 jobs/items. Candidate census/representative
-decisions are deterministic and provider-free. Any failure rolls back the
+content inputs through schema-v4 jobs/items. Each queued extraction or
+embedding item persists source/revision/chunk/span/text identity, config,
+profile, prompt, policy, provider route/model/privacy, candidate binding,
+embedding shape, and item-specific reservation ceilings. Candidate census and
+representative decisions are deterministic and provider-free. Any failure rolls back the
 generation, so replaying a freshly revalidated plan is the resume mechanism.
 
 Phase 4 consumes only typed repositories. `ragclaims` promotes accepted
@@ -97,8 +107,9 @@ creates canonical plans that bind semantic generation, configuration, policy,
 prompt, item identities, all resource ceilings, route/privacy, and only a
 symbolic secret reference. `ragwork` claims items inside `BEGIN IMMEDIATE`
 using the SQLite clock, increments a per-item fence, records every attempt and
-event, reserves maximum provider usage, settles actual usage, and commits
-proposal promotion only while the same lease/fence/attempt remains active.
+event, reserves the claimed item's immutable provider ceiling, settles actual
+usage, and commits proposal promotion only while the same lease/fence/attempt
+remains active.
 Multiple processes share no mutable cREXX context.
 
 `ragprocess` is the distinct runtime coordination plane. A controller uses the
@@ -109,6 +120,9 @@ mode, optional job filter, state, control request, current item, and database-
 clock heartbeat. Heartbeat expiry is authoritative. `ADDRESS CREXX ps` is used
 only for a same-host diagnostic, never for lease recovery or remote liveness.
 Terminal/stale rows remain until the operator explicitly runs `worker prune`.
+The application worker opens its own store connection, resolves the immutable
+job snapshot through `ragapplicationprovider`, and runs `ragwork` once or in a
+bounded follow loop. SQLite connections are not shared across cREXX threads.
 
 Phase 5 keeps query planning deterministic and provider-free. `ragquery` binds
 the active generation, policy, normalized variants, aliases, intent, ambiguity
@@ -130,13 +144,17 @@ ADDRESS redirection, and `ragmcp` owns strict JSON-RPC/tool translation plus
 the operation. Read and plan open SQLite read-only, and MCP never exposes raw
 SQL or raw entity/edge mutation.
 
-The Gate-3R process slice dispatches worker lifecycle and supervision but does
-not invent a provider binding. `worker.run` identifies its processor as
-`framework-idle` because there is no installed production `.ragworkprovider`,
-and ingestion's extraction/embedding items have no public processor. These are
-the remaining product-processing blockers. The cREXX hosted
-provider also still loses response completion even though the secret-safe
-external structured-generation and batch-embedding qualification passes.
+The Gate-3R product slice now dispatches `worker.run` to
+`application-ingestion-v1`. `ragapplicationprovider` maps the exact work
+envelope into the existing generic Gemini/OpenAI/Anthropic protocol contract,
+then maps only validated structured output or a dimension-checked embedding
+back to `ragwork`. Model output cannot write graph state directly.
+
+The generic hosted transport performs one bounded synchronous HTTP/TLS
+exchange per attempt with `Connection: close`. This avoids attached bytecode
+tasks inside a native-bearing product image: CRI-17 means such tasks cannot
+currently discover native RXPA providers. It does not affect OS-process
+workers, and it does not claim connection reuse, streaming, or cancellation.
 
 Rollback targets a published ancestor. While holding the SQLite writer lock it
 first publishes a projection of that already-committed older generation, then
@@ -205,6 +223,20 @@ CTest `p3r_01b_process_framework` runs the linked application on `rxvme` and
 host/PID/heartbeat rows from a separate process, applies a durable drain,
 forces one worker to terminate, proves stale plus missing-PID diagnostics, and
 then explicitly prunes terminal/stale runtime rows. It makes no provider call.
+
+CTest `p3r_02_gemini_ingestion` runs two fresh native-product libraries against
+a deterministic four-request Gemini loopback. It proves extraction and
+embedding ownership, typed proposal validation/promotion, 768-dimensional
+stored embeddings, automatic exact-profile vector publication, canonical
+machine commands, automatic human defaults, guided plan/apply, configured
+two-process execution, safe concurrent budget reservations, balanced
+reconciliation, truthful unchanged no-op handling, actionable failed-child
+diagnostics, sanitized progress on stderr, stable JSON stdout, concise human
+output and credential-value absence. Both paths require public evidence
+retrieval; the canonical path also requires zero library-verification issues.
+The separately retained P3R-07 live evidence now includes a pristine
+first-attempt public replay with exactly two real Gemini calls and a zero-call
+unchanged replay. Its older recovered run is retained only as defect history.
 
 CTest `phase4_improvement` compiles claims, improvement planning, worker
 orchestration, scenarios, and tutorial in both compiler modes and both concrete

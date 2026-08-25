@@ -1,12 +1,15 @@
 # cREXX-Only User Guide
 
-Status: current-to-target operator guide, 2026-08-24. The Phase-6 Level-G CLI,
+Status: current-to-target operator guide, 2026-08-25. The Phase-6 Level-G CLI,
 `ADDRESS RAG`, MCP, installed package, and scoped skills are implemented and
 staged. Gate 7 rejected/deferred cutover, so native-v1 remains the default.
-The Gate-3R controller/worker registry is operator-visible, but its worker is
-still `framework-idle`; production provider plus extraction/embedding-item
-processing called out below is not yet ready. Use the [Phase-6 tutorial](tutorials/phase-6-surfaces.md)
-for the installed staged path and the
+The Gate-3R-accepted macOS implementation binds the native cREXX application
+worker to configured extraction and embedding providers, validates proposals,
+drains ingestion jobs through separate OS processes, and publishes completed
+embedding generations. Use the human-first
+[Phase-3 ingestion tutorial](tutorials/phase-3-ingestion.md) for that current
+unpublished macOS path, the [Phase-6 tutorial](tutorials/phase-6-surfaces.md)
+for the broader installed staged surfaces, and the
 [archived native-v1 tutorial](archive/native-v1/tutorial-import-improve-query.md)
 only for the current comparison oracle.
 
@@ -268,10 +271,11 @@ crexx-rag \
 The accepted P2-10 shared facade implements the underlying canonical bytes,
 digest, expiry, and hostile apply-time revalidation. The Phase-6 Level-G CLI
 passes its transport-neutral `--plan-json` bytes and exact digest to
-`ragproduct`; native-v1 remains installed as the comparison oracle. Successful
-ingest apply returns the durable job id immediately and refuses a stale plan if
-the library, sources, configuration, profile, provider route, or reservations
-changed.
+`ragproduct`; native-v1 remains installed as the comparison oracle. A changed
+ingest apply returns the durable job id immediately. An identical plan returns
+a successful no-op with no job, worker processes, or provider calls. Apply
+refuses a stale plan if the library, sources, configuration, profile, provider
+route, or reservations changed.
 
 Applying enqueues work; it does not hide a daemon inside the command. The
 installed application now has a process-supervision framework. Start a bounded
@@ -279,7 +283,7 @@ worker group from one terminal:
 
 ```bash
 crexx-rag --library ./architecture.cprag --access control \
-  worker start --count 4 --poll-ms 1000
+  worker start --job <job-id> --count 4 --poll-ms 1000
 ```
 
 The controller starts four instances of the same `crexx-rag` application as OS
@@ -302,6 +306,10 @@ state, requested state, heartbeat age, classification, and current item.
 Heartbeat age is the authority for `stale`; same-host `pid_check` is only an
 extra diagnostic because PIDs can be reused and remote PIDs cannot be checked.
 Multiple controllers and independently started workers may coexist.
+When a filtered ingestion job completes successfully, its controller publishes
+the exact configured embedding profile as the current vector generation. This
+publication is reported in the controller result and does not turn vector
+similarity into a claim-authoring mechanism.
 
 Drain a live worker cooperatively, or explicitly remove terminal/stale registry
 rows after inspection:
@@ -321,12 +329,12 @@ process-supervision authority through the knowledge tools.
 The underlying Phase-4 worker implementation is database-clock leased
 and fenced, supports bounded once/follow loops, pause/resume/drain, heartbeat,
 retry/dead-letter, cooperative cancellation, exact reservation settlement, and
-multi-process recovery. The new public process framework deliberately reports
-`processor=framework-idle`: it proves supervision, communication, status,
-drain, crash/stale detection, and cleanup, but does not yet bind `worker.run`
-to an installed production `.ragworkprovider` or process queued extraction and
-embedding items. Do not expect `worker start` to drain an ingestion job until
-the next Gate-3R processing slice closes that explicit boundary.
+multi-process recovery. The public process framework now reports
+`processor=application-ingestion-v1`: it builds the configured application
+provider from the immutable job snapshot and dispatches each claimed embedding
+or extraction item through the shared `ragwork` engine. Supervision,
+communication, status, drain, crash/stale detection and cleanup remain the same
+database-backed process contract.
 
 Monitor it without reading SQLite directly:
 

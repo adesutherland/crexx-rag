@@ -5,6 +5,8 @@ namespace provider_http expose providerhttpresponse providerhttptransport
 import rxfnsb
 import rxjson
 import rxfnsg
+import rxsocket
+import _rxhttpcore
 import provider_contract
 
 providerhttpresponse: class
@@ -81,6 +83,33 @@ providerhttpresponse: class
   provider_request_id: method = .string
     return _provider_request_id
 
+providerdirectresponse: class
+  _transport_status = .int
+  _http_status = .int
+  _headers = .string
+  _body = .string
+  _error = .string
+
+  new: factory
+    arg transport_status = .int, http_status = .int, headers = .string, body = .string, error = .string
+    _transport_status = transport_status
+    _http_status = http_status
+    _headers = headers
+    _body = body
+    _error = error
+    return
+
+  transport_status: method = .int
+    return _transport_status
+  http_status: method = .int
+    return _http_status
+  headers: method = .string
+    return _headers
+  body: method = .string
+    return _body
+  error: method = .string
+    return _error
+
 providerhttptransport: class
   _host = .string
   _port = .int
@@ -108,15 +137,10 @@ providerhttptransport: class
     timeout_ms = request.timeout_ms()
     if timeout_ms > 600000 then timeout_ms = 600000
     call policy.set_timeouts(timeout_ms, timeout_ms, timeout_ms, timeout_ms, timeout_ms, timeout_ms)
-    scheme = "http://"
-    if _tls \= 0 then scheme = "https://"
-    client = .httpclient.pooled(scheme || _host || ":" || _port, 1, 2, 8388608, policy)
-    result = _post_with_client(request, path, body, client)
-    call client.close()
-    return result
+    return _post_direct(request, path, body, policy)
 
-  _post_with_client: method = .providerhttpresponse
-    arg request = .providerrequest, path = .string, body = .string, client = .httpclient
+  _post_direct: method = .providerhttpresponse
+    arg request = .providerrequest, path = .string, body = .string, policy = .httppolicy
     started = time("us")
     retry_delay_ms = 0
     do attempt = 1 to request.max_attempts()
@@ -129,17 +153,17 @@ providerhttptransport: class
         call headers.add("anthropic-version", "2023-06-01")
       end
       else if _protocol = "gemini" then call headers.add("x-goog-api-key", _api_key)
-      response = client.post(path, body, headers)
+      response = _exchange(path, body, headers, policy)
       response_body = response.body()
-      if response.succeeded() \= 0 then do
-        provider_request_id = response.header("x-request-id")
-        if provider_request_id = "" then provider_request_id = response.header("request-id")
+      transport_status = response.transport_status()
+      http_status = response.http_status()
+      if transport_status = 0 & http_status >= 200 & http_status < 300 then do
+        provider_request_id = http_header_value(response.headers(), "x-request-id")
+        if provider_request_id = "" then provider_request_id = http_header_value(response.headers(), "request-id")
         result = .providerhttpresponse()
-        call result.set_success(response_body, response.status(), attempt, retry_delay_ms, _elapsed_us(started), provider_request_id)
+        call result.set_success(response_body, http_status, attempt, retry_delay_ms, _elapsed_us(started), provider_request_id)
         return result
       end
-      transport_status = response.transport_status()
-      http_status = response.status()
       status = transport_status
       if status = 0 then status = http_status
       retryable = _retryable(transport_status, http_status)
@@ -159,6 +183,83 @@ providerhttptransport: class
       return result
     end
     return _configuration_failure("retry loop exhausted")
+
+  _exchange: method = .providerdirectresponse
+    arg path = .string, body = .string, headers = .httpheaders, policy = .httppolicy
+    socket = socketcreate()
+    if socket <= 0 then return .providerdirectresponse.new(-1, 0, "", "", "HTTP socketcreate failed")
+    connection_budget = policy.dns_timeout() + policy.connect_timeout()
+    if _tls \= 0 then connection_budget = connection_budget + policy.tls_timeout()
+    if sockettimeout(socket, connection_budget) \= 0 then do
+      message = "HTTP connection timeout setup failed: " || socketerror(socket)
+      ignored = socketclose(socket)
+      return .providerdirectresponse.new(-2, 0, "", "", message)
+    end
+    if _tls \= 0 then connect_status = socketconnecttls(socket, _host, _port)
+    else connect_status = socketconnect(socket, _host, _port)
+    if connect_status \= 0 then do
+      message = "HTTP DNS/connect/TLS failed or exceeded its combined budget: " || socketerror(socket)
+      ignored = socketclose(socket)
+      return .providerdirectresponse.new(-3, 0, "", "", message)
+    end
+    if sockettimeout(socket, policy.request_timeout()) \= 0 then do
+      message = "HTTP request timeout setup failed: " || socketerror(socket)
+      ignored = socketclose(socket)
+      return .providerdirectresponse.new(-2, 0, "", "", message)
+    end
+    request_wire = http_build_request("POST", _host, _port, path, body as .binary, headers.content_type(), headers.wire(), "close", "identity")
+    offset = 0
+    total = binlength(request_wire)
+    do while offset < total
+      piece = binsubstr(request_wire, offset + 1, total - offset)
+      sent = socketsendb(socket, piece)
+      if sent <= 0 | sent > total - offset then do
+        message = "HTTP socket send failed or timed out: " || socketerror(socket)
+        ignored = socketclose(socket)
+        return .providerdirectresponse.new(-4, 0, "", "", message)
+      end
+      offset = offset + sent
+    end
+    if sockettimeout(socket, policy.response_timeout()) \= 0 then do
+      message = "HTTP response timeout setup failed: " || socketerror(socket)
+      ignored = socketclose(socket)
+      return .providerdirectresponse.new(-2, 0, "", "", message)
+    end
+    response_wire = ''x as .binary
+    ended = 0
+    do forever
+      chunk = socketrecvb(socket, 8192)
+      socket_state = socketstatus(socket)
+      if binlength(chunk) > 0 then call binappend response_wire, chunk
+      if binlength(response_wire) > 8650752 then do
+        ignored = socketclose(socket)
+        return .providerdirectresponse.new(-22, 0, "", "", "HTTP response exceeds the configured safety ceiling")
+      end
+      if http_response_complete(response_wire) then leave
+      if socket_state = 1 then do
+        ended = 1
+        leave
+      end
+      if socket_state = 2 then do
+        ignored = socketclose(socket)
+        return .providerdirectresponse.new(-6, 0, "", "", "HTTP response timed out")
+      end
+      if socket_state = 3 then do
+        ignored = socketclose(socket)
+        return .providerdirectresponse.new(-7, 0, "", "", "HTTP response would block")
+      end
+      if socket_state < 0 | binlength(chunk) = 0 then do
+        message = "HTTP socket receive failed: " || socketerror(socket)
+        ignored = socketclose(socket)
+        return .providerdirectresponse.new(-8, 0, "", "", message)
+      end
+    end
+    ignored = socketclose(socket)
+    parsed = http_parse_response(response_wire)
+    if parsed.error_code() < 0 then return .providerdirectresponse.new(parsed.error_code(), parsed.status(), parsed.headers(), parsed.body() as .string, parsed.error())
+    encoding = translate(strip(http_header_value(parsed.headers(), "Content-Encoding")))
+    if encoding \= "" & encoding \= "IDENTITY" then return .providerdirectresponse.new(-24, parsed.status(), parsed.headers(), "", "HTTP direct response requires identity Content-Encoding")
+    return .providerdirectresponse.new(0, parsed.status(), parsed.headers(), parsed.body() as .string, parsed.error())
 
   _policy_failure: method = .providerhttpresponse
     arg failure = .providererror
