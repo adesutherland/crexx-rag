@@ -247,6 +247,7 @@ crexxrag provider status
 crexxrag provider login codex   # only when managed ChatGPT login is absent
 crexxrag init
 crexxrag ingest
+crexxrag improve
 crexxrag query 'What does BillingService depend on?'
 ```
 
@@ -475,35 +476,36 @@ and are resolved only inside an explicitly authorized call boundary.
 
 ## Run Bounded Background Improvement
 
-First inspect what the library can improve:
+For a human using the default local files, one command reviews, applies and
+supervises bounded improvement:
 
 ```bash
-crexxrag \
-  --library ./architecture.cprag \
-  --config architecture_local_config \
-  --profile it_architecture_profile \
-  --access plan \
-  improve plan --budget overnight-small --output ./improve.plan.json
+crexxrag improve
 ```
 
 The plan might include missing embeddings, candidate deltas, high-value
 unprocessed passages, unresolved endpoints, ambiguous aliases, weak claims,
 changed prompt/profile versions, or coverage gaps. It reports provider/privacy
-routes and hard budgets.
+routes, hard budgets, selected item count, worker count and Codex allowance when
+applicable. The application asks for confirmation, persists immutable provider
+inputs, starts the configured OS-process workers and prints final job status.
+`crexxrag improve --yes --workers 1` is the non-interactive human variant; it
+does not bypass plan revalidation or budget/privacy gates.
 
-Apply only after review:
+Machine callers use the exact canonical plan bytes and digest returned by the
+first command:
 
 ```bash
-crexxrag \
-  --library ./architecture.cprag \
-  --config architecture_local_config \
-  --profile it_architecture_profile \
-  --access curate \
-  improve apply --plan ./improve.plan.json --expect-digest <sha256>
+crexxrag --format json --access plan improve plan
+crexxrag --format json --access curate \
+  improve apply --plan-json '<canonical-plan>' --expect-digest '<sha256>'
 ```
 
-With a supervised `worker run --follow`, the job can continue after the client
-terminal exits. Job control requires the separate control capability:
+An already processed immutable input returns `identical-no-op`, creates no job
+or workers, and makes no provider call even if a changing rank still selects
+the chunk. Independently supervised `worker run --follow` remains available
+for long-running deployments. Job control requires the separate control
+capability:
 
 ```bash
 crexxrag --library ./architecture.cprag --access control job pause <job-id>

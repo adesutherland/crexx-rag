@@ -46,8 +46,9 @@ production default.
 | [Phase 3 product closeout](evidence/2026-08-24-phase3-product-rebaseline/P3R-08.md) | Accepted macOS/Gemini end-to-end installed cREXX ingestion, QA, pristine live walkthrough, unchanged replay and exact residual boundaries |
 | [Phase 3 product worklist](evidence/2026-08-24-phase3-product-rebaseline/WORKLIST.md) | Completed worklist and acceptance contract retaining the reconciler evidence and closing Gate 3R without authorizing cutover |
 | [P3R-01B process-framework evidence](evidence/2026-08-24-phase3-product-rebaseline/P3R-01B.md) | Linked Level-G controller/worker processes, schema-v3 SQLite registry, separate-process observation, drain, stale/PID diagnostics and explicit pruning on both VMs; processor remains deliberately idle |
-| [Phase 4 executable tutorial](tutorials/phase-4-improvement.md) | Development tutorial over canonical claims, deterministic review, improvement plans, and durable workers |
+| [Phase 4 executable tutorial](tutorials/phase-4-improvement.md) | Human `crexxrag improve` walkthrough over reviewed provider budgets, durable workers, reviews and zero-call replay |
 | [Phase 4 implementation evidence](evidence/2026-08-23-phase4/README.md) | P4-01 through P4-09, dual VM/mode, crash/two-process worker QA, literal eight-hour soak, Debug/Release and Apple ASan |
+| [Phase 4 application-extension evidence](evidence/2026-08-25-phase4-application/README.md) | Immutable configured improvement inputs, human command, permanent Gemini QA and bounded real Codex/Google results |
 | [Phase 5 executable tutorial](tutorials/phase-5-retrieval.md) | Development tutorial over focused planning, incremental embeddings, exact vectors, hybrid retrieval, bounded evidence and historical citation resolution |
 | [Phase 5 retrieval evidence](evidence/2026-08-23-phase5/README.md) | P5-01 through P5-08, four-cell deterministic judgement, native/full-context baselines, hosted answer-quality result and exact transport limit |
 | [Phase 6 installed surface tutorial](tutorials/phase-6-surfaces.md) | Fresh install, exact plan/apply, CLI, ADDRESS RAG, MCP, skills, backup and restore walkthrough |

@@ -108,7 +108,12 @@ detected before generation allocation.
 `ragimprove` selects explicit triggers through a versioned extraction rank and
 creates canonical plans that bind semantic generation, configuration, policy,
 prompt, item identities, all resource ceilings, route/privacy, and only a
-symbolic secret reference. `ragwork` claims items inside `BEGIN IMMEDIATE`
+symbolic secret reference. The configured application apply resolves
+`role.extractor`, materializes each selected chunk as a validated immutable
+`crexx-rag.work-input/1` envelope, and uses its digest as the work identity.
+That makes replay suppression independent of a newly computed ranking position
+and prevents a duplicate provider turn before a second job is inserted.
+`ragwork` claims items inside `BEGIN IMMEDIATE`
 using the SQLite clock, increments a per-item fence, records every attempt and
 event, reserves the claimed item's immutable provider ceiling, settles actual
 usage, and commits proposal promotion only while the same lease/fence/attempt
@@ -257,7 +262,15 @@ overwrite and review routing, external plans, no-op replay, directed traversal,
 trigger ranking, crash expiry, late-fence rejection, two OS-process workers,
 retry/dead-letter, heartbeat, pause/resume/drain, cancellation, exact
 reservations, in-flight denial, native-v1 queue-oracle compatibility, and exact
-tutorial NDJSON.
+tutorial NDJSON. Its worker scenario also proves that every configured
+improvement item carries the complete application-provider work-input envelope.
+
+CTest `p4r_01_gemini_improvement` starts the linked native application against
+a deterministic Gemini loopback and drives the human surface. It initializes
+and ingests a fresh library, reviews and executes one configured improvement,
+observes a completed one-worker job without irrelevant vector-publication
+output, repeats the command as an exact zero-call no-op, and verifies the
+library. The fixture sees exactly two ingestion calls plus one improvement call.
 
 CTest `phase5_retrieval` compiles query planning, embedding/index publication,
 hybrid retrieval and evidence encoding in both compiler modes, then runs both

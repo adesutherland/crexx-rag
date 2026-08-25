@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragimprove expose ragimproveplan ragimproveapplyresult ragexternalproposalplan createimproveplan applyimproveplan createexternalproposalplan applyexternalproposalplan
+namespace ragimprove expose ragimproveplan ragimproveapplyresult ragexternalproposalplan createimproveplan applyimproveplan applyconfiguredimproveplan createexternalproposalplan applyexternalproposalplan
 
 import rxfnsb
 import rxjson
@@ -207,8 +207,27 @@ createimproveplan: procedure = .int
 
 applyimproveplan: procedure = .int
   arg store = .ragstorehandle, plan = .ragimproveplan, expose result = .ragimproveapplyresult, expose error = .string
+  return _applyimproveplan(store, plan, "", "", "", 0, result, error)
+
+/* Application workers require the same immutable provider envelope as ingest
+ * workers.  The provider route itself remains reviewed in the improvement
+ * plan; these fields are the exact registered route binding used to make each
+ * selected chunk independently executable after the planning process exits. */
+applyconfiguredimproveplan: procedure = .int
+  arg store = .ragstorehandle, plan = .ragimproveplan, profile_id = .string, provider_model = .string, charging_basis = .string, codex_turn_budget = .int, expose result = .ragimproveapplyresult, expose error = .string
+  return _applyimproveplan(store, plan, profile_id, provider_model, charging_basis, codex_turn_budget, result, error)
+
+_applyimproveplan: procedure = .int
+  arg store = .ragstorehandle, plan = .ragimproveplan, profile_id = .string, provider_model = .string, charging_basis = .string, codex_turn_budget = .int, expose result = .ragimproveapplyresult, expose error = .string
   error = ""; result = .ragimproveapplyresult(-1, "error", "", 0, 0, 0, "not applied")
   if store.writable() \= 1 | plan.schema() \= "crexx-rag.improve-plan/1" | length(plan.digest()) \= 64 | rxhash..sha256hex(plan.canonical() as .binary) \= plan.digest() then do; error = "improvement plan shape or digest is invalid"; return -1; end
+  configured = profile_id \= "" | provider_model \= "" | charging_basis \= "" | codex_turn_budget \= 0
+  if configured = 1 then do
+    if profile_id = "" | provider_model = "" | (charging_basis \= "monetary-api" & charging_basis \= "local-compute" & charging_basis \= "subscription-allowance") | codex_turn_budget < 0 | (charging_basis = "subscription-allowance" & codex_turn_budget < 1) then do
+      error = "configured improvement provider binding is invalid"
+      return -1
+    end
+  end
   current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
   if current \= plan.expected_generation() then do; error = "published generation changed; re-plan"; result = .ragimproveapplyresult(-2, "stale", "", 0, 0, 0, error); return -2; end
   fresh = .ragimproveplan
@@ -219,25 +238,47 @@ applyimproveplan: procedure = .int
   existing = _boundcount(store.database(), "SELECT count(*) FROM jobs WHERE job_id=?1 AND plan_digest=?2", job_id, plan.digest())
   if existing = 1 then do; result = .ragimproveapplyresult(0, "identical-no-op", job_id, 0, 0, 0, ""); return 0; end
   if existing < 0 then do; error = "cannot inspect improvement job identity"; return -3; end
+  chunk_ids = plan.chunk_ids(); content_ids = plan.content_ids(); input_hashes = plan.input_hashes(); scores = plan.scores()
+  work_inputs = .string[]; work_hashes = .string[]; work_keys = .string[]; insert_work = .int[]
+  new_items = 0; existing_job_id = ""
+  do i = 1 to chunk_ids.0
+    input_json = ""; input_hash = input_hashes[i]
+    idempotency = rxhash..sha256hex(("crexx-rag.work/1" || "00"x || "improve-extraction" || "00"x || content_ids[i] || "00"x || plan.policy_version() || "00"x || plan.prompt_version()) as .binary)
+    if configured = 1 then do
+      input_json = _configuredinput(store.database(), plan, chunk_ids[i], content_ids[i], profile_id, provider_model, charging_basis, error)
+      if error \= "" then return -3
+      input_hash = rxhash..sha256hex(input_json as .binary)
+      idempotency = rxhash..sha256hex(("crexx-rag.work/2" || "00"x || input_hash) as .binary)
+    end
+    work_inputs[i] = input_json; work_hashes[i] = input_hash; work_keys[i] = idempotency
+    prior_items = _boundcount1(store.database(), "SELECT count(*) FROM job_items WHERE idempotency_key=?1", idempotency)
+    if prior_items < 0 then do; error = "cannot inspect improvement work identity"; return -3; end
+    insert_work[i] = prior_items = 0
+    if insert_work[i] = 1 then new_items = new_items + 1
+    else if existing_job_id = "" then existing_job_id = _boundtext(store.database(), "SELECT job_id FROM job_items WHERE idempotency_key=?1", idempotency)
+  end
+  if new_items = 0 then do
+    result = .ragimproveapplyresult(0, "identical-no-op", existing_job_id, 0, 0, 0, "")
+    return 0
+  end
   before = _scalarint(store.database(), "SELECT total_changes()")
   database = store.database()
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin improvement apply"; return -3; end
   state = "queued"
-  if plan.item_count() = 0 then state = "completed"
   prepared = .binary
-  sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,reserved_calls,reserved_tokens,reserved_cost,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,0,0,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,reserved_calls,reserved_tokens,reserved_cost,created_at,updated_at,codex_turn_budget) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,0,0,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'),?11)"
   if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare improvement job", error)
-  binds = sqlitebindtext(prepared, 1, job_id) | sqlitebindtext(prepared, 2, plan.digest()) | sqlitebindtext(prepared, 3, plan.canonical()) | sqlitebindtext(prepared, 4, plan.config_snapshot_id()) | sqlitebindtext(prepared, 5, state) | sqlitebindint(prepared, 6, plan.item_count()) | sqlitebindint(prepared, 7, plan.model_call_budget()) | sqlitebindint(prepared, 8, plan.input_token_budget()) | sqlitebindint(prepared, 9, plan.output_token_budget()) | sqlitebindint(prepared, 10, plan.cost_budget())
+  binds = sqlitebindtext(prepared, 1, job_id) | sqlitebindtext(prepared, 2, plan.digest()) | sqlitebindtext(prepared, 3, plan.canonical()) | sqlitebindtext(prepared, 4, plan.config_snapshot_id()) | sqlitebindtext(prepared, 5, state) | sqlitebindint(prepared, 6, new_items) | sqlitebindint(prepared, 7, plan.model_call_budget()) | sqlitebindint(prepared, 8, plan.input_token_budget()) | sqlitebindint(prepared, 9, plan.output_token_budget()) | sqlitebindint(prepared, 10, plan.cost_budget()) | sqlitebindint(prepared, 11, codex_turn_budget)
   step = sqlitestep(prepared); call sqlitefinalize prepared
   if binds \= 0 | step \= 101 then return _rollback(database, "cannot insert improvement job", error)
-  chunk_ids = plan.chunk_ids(); content_ids = plan.content_ids(); input_hashes = plan.input_hashes(); scores = plan.scores()
   do i = 1 to chunk_ids.0
-    idempotency = rxhash..sha256hex(("crexx-rag.work/1" || "00"x || "improve-extraction" || "00"x || content_ids[i] || "00"x || plan.policy_version() || "00"x || plan.prompt_version()) as .binary)
+    if insert_work[i] \= 1 then iterate
+    input_json = work_inputs[i]; input_hash = work_hashes[i]; idempotency = work_keys[i]
     item_id = "item-sha256:" || idempotency
     item_statement = .binary
-    sql = "INSERT OR IGNORE INTO job_items(item_id,job_id,item_type,state,priority,worker_id,lease_until,fence,retry_at,idempotency_key,input_hash,created_at,updated_at) VALUES(?1,?2,'improve-extraction','queued',?3,NULL,NULL,0,0,?4,?5,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+    sql = "INSERT OR IGNORE INTO job_items(item_id,job_id,item_type,state,priority,worker_id,lease_until,fence,retry_at,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES(?1,?2,'improve-extraction','queued',?3,NULL,NULL,0,0,?4,?5,?6,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
     if sqliteprepare(database, sql, item_statement) \= 0 then return _rollback(database, "cannot prepare improvement item", error)
-    binds = sqlitebindtext(item_statement, 1, item_id) | sqlitebindtext(item_statement, 2, job_id) | sqlitebindint(item_statement, 3, scores[i]) | sqlitebindtext(item_statement, 4, idempotency) | sqlitebindtext(item_statement, 5, input_hashes[i])
+    binds = sqlitebindtext(item_statement, 1, item_id) | sqlitebindtext(item_statement, 2, job_id) | sqlitebindint(item_statement, 3, scores[i]) | sqlitebindtext(item_statement, 4, idempotency) | sqlitebindtext(item_statement, 5, input_hash) | sqlitebindtext(item_statement, 6, input_json)
     step = sqlitestep(item_statement); call sqlitefinalize item_statement
     if binds \= 0 | step \= 101 then return _rollback(database, "cannot insert improvement item", error)
   end
@@ -245,8 +286,42 @@ applyimproveplan: procedure = .int
   if _event(database, job_id, "budget-policy", budget_message) \= 0 then return _rollback(database, "cannot record improvement budget policy", error)
   if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit improvement apply", error)
   after = _scalarint(database, "SELECT total_changes()")
-  result = .ragimproveapplyresult(0, "queued", job_id, plan.item_count(), after - before, 0, "")
+  result = .ragimproveapplyresult(0, "queued", job_id, new_items, after - before, 0, "")
   return 0
+
+_configuredinput: procedure = .string
+  arg database = .binary, plan = .ragimproveplan, chunk_id = .string, content_id = .string, profile_id = .string, provider_model = .string, charging_basis = .string, expose error = .string
+  error = ""; prepared = .binary
+  sql = "SELECT t.content_digest,t.text,c.normalized_start,c.normalized_end,s.observed_uri FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id JOIN source_revisions r ON r.revision_id=c.revision_id JOIN sources s ON s.source_id=r.source_id WHERE c.revision_chunk_id=?1 AND c.content_id=?2"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, chunk_id) \= 0 | sqlitebindtext(prepared, 2, content_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "cannot read configured improvement input"; return ""; end
+  content_digest = ""; body = ""; start = 0; finish = 0; source_scope = ""
+  columns = sqlitecolumntext(prepared, 0, content_digest) | sqlitecolumntext(prepared, 1, body) | sqlitecolumnint(prepared, 2, start) | sqlitecolumnint(prepared, 3, finish) | sqlitecolumntext(prepared, 4, source_scope)
+  call sqlitefinalize prepared
+  if columns \= 0 | content_digest = "" | body = "" | finish <= start | source_scope = "" then do; error = "configured improvement input is incomplete"; return ""; end
+  candidates = _candidatecatalog(database, chunk_id, plan.expected_generation(), error)
+  if error \= "" then return ""
+  item_cost = plan.maximum_call_cost()
+  if charging_basis \= "monetary-api" then item_cost = 0
+  reservation = "{" || jsonquote("input_tokens") || ":" || plan.maximum_call_input_tokens() || "," || jsonquote("output_tokens") || ":" || plan.maximum_call_output_tokens() || "," || jsonquote("cost_microunits") || ":" || item_cost || "," || jsonquote("time_ms") || ":" || plan.maximum_call_time_ms() || "}"
+  return "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.work-input/1") || "," || jsonquote("operation") || ":" || jsonquote("improve-extraction") || "," || jsonquote("revision_chunk_id") || ":" || jsonquote(chunk_id) || "," || jsonquote("content_id") || ":" || jsonquote(content_id) || "," || jsonquote("content_digest") || ":" || jsonquote(content_digest) || "," || jsonquote("text_digest") || ":" || jsonquote(rxhash..sha256hex(body as .binary)) || "," || jsonquote("text") || ":" || jsonquote(body) || "," || jsonquote("normalized_start") || ":" || start || "," || jsonquote("normalized_end") || ":" || finish || "," || jsonquote("privacy") || ":" || jsonquote(plan.privacy_class()) || "," || jsonquote("source_scope") || ":" || jsonquote(source_scope) || "," || jsonquote("config_snapshot_id") || ":" || jsonquote(plan.config_snapshot_id()) || "," || jsonquote("profile_id") || ":" || jsonquote(profile_id) || "," || jsonquote("policy_version") || ":" || jsonquote(plan.policy_version()) || "," || jsonquote("prompt_version") || ":" || jsonquote(plan.prompt_version()) || "," || jsonquote("role") || ":" || jsonquote("extractor") || "," || jsonquote("provider_id") || ":" || jsonquote(plan.route_id()) || "," || jsonquote("model") || ":" || jsonquote(provider_model) || "," || jsonquote("charging_basis") || ":" || jsonquote(charging_basis) || "," || jsonquote("embedding_dimension") || ":768," || jsonquote("reservation") || ":" || reservation || "," || jsonquote("candidates") || ":[" || candidates || "]}"
+
+_candidatecatalog: procedure = .string
+  arg database = .binary, chunk_id = .string, generation = .int, expose error = .string
+  prepared = .binary; output = ""; error = ""
+  sql = "SELECT c.candidate_id,c.normalized_candidate,c.span_start,c.span_end FROM candidate_mentions c JOIN candidate_decisions d ON d.candidate_id=c.candidate_id AND d.state='accepted' WHERE c.revision_chunk_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) ORDER BY c.candidate_id"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, chunk_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare improvement candidate catalog"; return ""; end
+  do forever
+    step = sqlitestep(prepared)
+    if step = 101 then leave
+    if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read improvement candidate catalog"; return ""; end
+    candidate_id = ""; label = ""; span_start = 0; span_end = 0
+    columns = sqlitecolumntext(prepared, 0, candidate_id) | sqlitecolumntext(prepared, 1, label) | sqlitecolumnint(prepared, 2, span_start) | sqlitecolumnint(prepared, 3, span_end)
+    if columns \= 0 then do; call sqlitefinalize prepared; error = "cannot decode improvement candidate catalog"; return ""; end
+    if output \= "" then output = output || ","
+    output = output || "{" || jsonquote("candidate_id") || ":" || jsonquote(candidate_id) || "," || jsonquote("label") || ":" || jsonquote(label) || "," || jsonquote("span_start") || ":" || span_start || "," || jsonquote("span_end") || ":" || span_end || "}"
+  end
+  call sqlitefinalize prepared
+  return output
 
 createexternalproposalplan: procedure = .int
   arg store = .ragstorehandle, config_snapshot_id = .string, policy = .ragclaimpolicy, proposals = .ragextractionproposal[], expose plan = .ragexternalproposalplan, expose error = .string
@@ -394,3 +469,11 @@ _boundcount1: procedure = .int
   count = -1; status = sqlitecolumnint(prepared, 0, count); call sqlitefinalize prepared
   if status \= 0 then return -1
   return count
+
+_boundtext: procedure = .string
+  arg database = .binary, sql = .string, value = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, value) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  output = ""; status = sqlitecolumntext(prepared, 0, output); call sqlitefinalize prepared
+  if status \= 0 then return ""
+  return output

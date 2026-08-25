@@ -101,8 +101,13 @@ this policy; it never writes canonical graph rows directly.
 `crexx-rag.external-proposal-plan/1` values. Improvement triggers select and
 rank deduplicated content, bind exact item/call/token/cost/time/in-flight/retry
 budgets, privacy, route, prompt/policy/config versions, and an empty or `env:`
-secret reference. Apply re-plans before one transaction creates the job, items,
-and immutable budget policy. External proposals always enter typed review.
+secret reference. Configured apply resolves `role.extractor` and persists each
+selected chunk as an immutable `crexx-rag.work-input/1` envelope before a
+worker can claim it. The configured-input digest is also the durable work
+identity, so an already queued or completed selection is a zero-write,
+zero-provider-call replay. Apply re-plans before one transaction creates the
+job, items, and immutable budget policy. External proposals always enter typed
+review.
 
 `ragwork` owns database-clock claims, leases, monotonic fences, attempts,
 heartbeats, retry/backoff/dead-letter, cooperative cancellation, pause/resume/
@@ -186,8 +191,8 @@ values fail before any provider call.
 The human CLI selects an explicit `--config-file` first, then
 `CREXX_RAG_CONFIG`, then `./crexx-rag.conf`. Stateful commands default to
 `./library`; a sole configured profile is selected automatically. The enduring
-short flow is therefore `crexxrag init`, `crexxrag ingest`, and
-`crexxrag query '<question>'`. Canonical nouns/verbs and JSON/NDJSON remain
+short flow is therefore `crexxrag init`, `crexxrag ingest`, `crexxrag improve`,
+and `crexxrag query '<question>'`. Canonical nouns/verbs and JSON/NDJSON remain
 available for scripts and agents. MCP loads one operator-selected file at
 startup and tools cannot replace it.
 
@@ -224,8 +229,12 @@ resume coverage are `p3_01_ingest_scenario.crexx`,
 `p3_02_oracle_delta.crexx`, and `p3_03_resume_scenario.crexx`; the executable
 tutorial is `crexx/tutorials/phase3_ingestion_scenario.crexx`. Phase-4 claim
 and worker coverage is `p4_01_claims_scenario.crexx` and
-`p4_02_worker_scenario.crexx`; its executable tutorial is
-`crexx/tutorials/phase4_improvement_scenario.crexx`.
+`p4_02_worker_scenario.crexx`; the latter verifies the configured immutable
+work-input envelope in both VM families. `p4r_01_gemini_improvement` exercises
+the linked application and human `crexxrag improve` command against a
+deterministic Gemini service, including a zero-call replay. The maintained
+human tutorial is `docs/tutorials/phase-4-improvement.md`; the frozen scenario
+fixture remains `crexx/tutorials/phase4_improvement_scenario.crexx`.
 Phase-5 focused planning, embeddings, hybrid retrieval, evidence, baselines and
 judgements are covered by `p5_01_retrieval_scenario.crexx`; its executable
 tutorial is `crexx/tutorials/phase5_retrieval_scenario.crexx`.
@@ -259,6 +268,12 @@ Gemini embedding call. The Phase-3 addendum separately completed one Codex
 turn through managed ChatGPT authentication and one local 768-dimensional
 Nomic embedding through llama.cpp; both unchanged replays made no provider
 call.
+The Phase-4 application extension carries the configured provider contract
+into improvement: the human command plans, reviews, queues, runs the configured
+OS workers, and reports the completed job. Both Gemini and Codex extraction
+have completed the bounded macOS path. Local embeddings remain a separate
+Phase-3 ingestion concern, and improvement-only work makes no vector-
+publication claim.
 Exact Linux, clean Release, sanitizer, and cutover qualification remain open.
 Sidecar verification retains the
 2,147,483,647-byte application ceiling but hashes in fixed memory. Callers that

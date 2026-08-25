@@ -613,6 +613,33 @@ work or reservation, so Gate 4 is accepted for the recorded macOS scope. Exact
 evidence is retained in the
 [`Phase-4 record`](evidence/2026-08-23-phase4/README.md).
 
+### Phase 4 application extension
+
+The Phase-3 provider/controller application is now carried through the Phase-4
+improvement capability rather than leaving that capability on development-only
+procedures:
+
+- [x] **P4A-01 Configured improvement work.** Selected chunks persist the same
+  immutable provider/model/privacy/reservation/candidate envelope used by
+  ingestion. The configured extractor role is authoritative; provider array
+  order is not routing policy.
+- [x] **P4A-02 Human improvement.** `crexxrag improve` presents the selection,
+  hosted-data route, Gemini monetary budget or Codex allowance budget and
+  worker count, then confirms, applies, supervises and reports the final job.
+  JSON/NDJSON plan/apply remains available for automation.
+- [x] **P4A-03 Durable replay.** Work identity is derived from the immutable
+  configured input. Already processed input is rejected before job insertion,
+  worker startup or provider admission even when the ranking score changes.
+- [x] **P4A-04 Provider and UX qualification.** Permanent Gemini loopback QA
+  proves one configured improvement call and zero-call replay. Bounded real
+  Codex and Google improvement turns completed through the same workers, and
+  the human output omits irrelevant vector-publication state. See the
+  [Phase-4 application-extension record](evidence/2026-08-25-phase4-application/README.md).
+
+This extension does not repeat the literal overnight soak or performance wall;
+the unchanged lease/fence engine retains that accepted evidence. Exact Linux,
+release and cutover remain separate.
+
 ## Phase 5 — Retrieval And Evidence Product
 
 Goal: make the knowledge store measurably more useful to an LLM than corpus

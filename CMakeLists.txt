@@ -363,6 +363,17 @@ if(CPRAG_BUILD_CREXX_APPLICATION AND CREXX_FOUND AND
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P3R04CodexProtocol.cmake")
         set_tests_properties(p3r_04_codex_protocol PROPERTIES
             LABELS "P3R-04;phase3r;crexx;levelg;provider;codex;jsonl;schema;dual-vm;zero-outbound")
+
+        add_test(
+            NAME p4r_01_gemini_improvement
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_NATIVE_APPLICATION=${CMAKE_BINARY_DIR}/crexx-native-attempt/package/crexxrag${CMAKE_EXECUTABLE_SUFFIX}"
+                "-DCPRAG_LOOPBACK=$<TARGET_FILE:p1a_provider_loopback>"
+                "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/phase3/gemini-loopback.conf.in"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p4r-01-gemini-improvement"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P4R01GeminiImprovement.cmake")
+        set_tests_properties(p4r_01_gemini_improvement PROPERTIES
+            LABELS "P4R-01;phase4r;crexx;levelg;application;gemini;improvement;claim;worker;human;reviewed-plan;durable-input;zero-call-replay")
     endif()
 
     install(FILES "${CPRAG_CREXX_APPLICATION_RXBIN}"

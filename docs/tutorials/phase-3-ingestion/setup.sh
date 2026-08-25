@@ -25,6 +25,7 @@ done
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../../.." && pwd)
+tutorial_build_dir=${CPRAG_TUTORIAL_BUILD_DIR:-"$repo_root/cmake-build-tutorial"}
 
 if [ -n "$work_arg" ]; then
   work_dir=$work_arg
@@ -39,13 +40,13 @@ else
 fi
 
 if [ "$build" -eq 1 ]; then
-  printf '%s\n' '+ cmake --preset debug' >&2
-  (cd "$repo_root" && cmake --preset debug) 1>&2
-  printf '%s\n' '+ cmake --build --preset debug --target crexx_rag_native_attempt' >&2
-  (cd "$repo_root" && cmake --build --preset debug --target crexx_rag_native_attempt) 1>&2
+  printf '+ cmake -S %s -B %s\n' "$repo_root" "$tutorial_build_dir" >&2
+  cmake -S "$repo_root" -B "$tutorial_build_dir" 1>&2
+  printf '+ cmake --build %s --target crexx_rag_native_attempt\n' "$tutorial_build_dir" >&2
+  cmake --build "$tutorial_build_dir" --target crexx_rag_native_attempt 1>&2
 fi
 
-crexxrag=${CPRAG_CREXXRAG:-"$repo_root/cmake-build-debug/crexx-native-attempt/package/crexxrag"}
+crexxrag=${CPRAG_CREXXRAG:-"$tutorial_build_dir/crexx-native-attempt/package/crexxrag"}
 if [ ! -x "$crexxrag" ]; then
   printf 'setup failed: native crexxrag is unavailable: %s\n' "$crexxrag" >&2
   exit 3
@@ -67,7 +68,7 @@ if [ "$provider" = codex ]; then
     exit 3
   fi
   printf '%s\n' '+ starting the local Nomic llama.cpp embedding server' >&2
-  CPRAG_LLAMA_STATE_DIR="$work_dir/.llama-servers" CPRAG_LLAMA_START_MODE=fork \
+  CPRAG_LLAMA_STATE_DIR="$work_dir/.llama-servers" \
     "$repo_root/scripts/start_local_llama_servers.sh" --embedding-only 1>&2
   ready=0
   attempt=0
@@ -96,6 +97,7 @@ fi
 printf '  ./crexxrag provider status\n' >&2
 printf '  ./crexxrag init\n' >&2
 printf '  ./crexxrag ingest\n' >&2
+printf '  ./crexxrag improve\n' >&2
 printf '  ./crexxrag query "What does BillingService depend on?"\n' >&2
 if [ "$provider" = codex ]; then
   printf '  CPRAG_LLAMA_STATE_DIR=.llama-servers ./stop-local-embedding.sh\n' >&2

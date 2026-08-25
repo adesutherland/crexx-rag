@@ -581,6 +581,15 @@ to the supervisor or an explicit cREXX scheduler module that invokes a
 pre-authorized named plan/budget. Scheduling never grants broader library,
 source, or provider capability.
 
+The enduring human surface composes those same operations as `crexxrag
+improve`: it previews selected work, provider/privacy and budget bindings,
+confirms, applies, starts a bounded foreground worker group and reports final
+job state. Configured improvement items use the same immutable
+`crexx-rag.work-input/1` envelope as ingestion. Their semantic work identity
+binds the exact provider input, so a later rank-score change cannot manufacture
+a duplicate provider call. Canonical plan/apply and independent worker commands
+remain the automation and service-supervision surface.
+
 ## Retrieval And Evidence Assembly
 
 Search is a graph-to-evidence process, not three unrelated result lists.

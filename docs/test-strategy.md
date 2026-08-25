@@ -430,6 +430,16 @@ focused, full Debug/Release and
 Apple-ASan results, this accepts Gate 4 for the recorded macOS scope. Exact
 downstream Linux remains open.
 
+The Phase-4 application extension adds `p4r_01_gemini_improvement`. A native
+human workflow first ingests through the deterministic Gemini protocol fixture,
+then previews and runs `crexxrag improve` through the configured extractor
+role. The fixture requires exactly one improvement request, a completed
+one-item durable job, concise non-JSON human output, no irrelevant vector state,
+clean library verification and a zero-write/zero-worker/zero-call replay.
+`phase4_improvement` now also persists configured work envelopes in its
+dual-compiler/dual-VM process cases. Bounded real Codex and Google checks remain
+explicit qualification evidence rather than credential-dependent CTest.
+
 ## Phase 5 Acceptance
 
 CTest `phase5_retrieval` is the permanent deterministic Gate-5 proof. It

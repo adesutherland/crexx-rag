@@ -67,7 +67,7 @@ createjob: procedure = .string
   plan = .ragimproveplan
   if createimproveplan(store, "config-p4-worker", "claim-policy-v1", prompt_version, triggers, 4, 12, 10000, 20000, 2000000, 2000000, 256, 512, 100000, 120000, 2, 3, "public", "fixture-route", "env:OPENAI_API_KEY", plan, error) \= 0 then return ""
   result = .ragimproveapplyresult
-  if applyimproveplan(store, plan, result, error) \= 0 | result.items() \= 4 then return ""
+  if applyconfiguredimproveplan(store, plan, "balanced", "fixture-model", "monetary-api", 0, result, error) \= 0 | result.items() \= 4 then return ""
   return result.job_id()
 
 providerproposal: procedure = .ragextractionproposal
@@ -94,6 +94,7 @@ setup: procedure = .int
   errors = errors + check(auth \= "" & identity \= "", "promote worker endpoints " || error)
   job_id = createjob(store, "prompt-main", error)
   errors = errors + check(job_id \= "" & scalarint(store.database(), "SELECT count(*) FROM job_items WHERE job_id='" || job_id || "'") = 4, "create durable four-item job " || error)
+  errors = errors + check(scalarint(store.database(), "SELECT count(*) FROM job_items WHERE job_id='" || job_id || "' AND input_json LIKE '%crexx-rag.work-input/1%' AND length(input_json)>length(input_hash)") = 4, "persist four configured provider inputs")
   call closeragstore store, error
   if errors \= 0 then return 1
   say "P4_WORK_SETUP_OK cell=" || cell || " job=" || job_id || " items=4 secret_reference=symbolic"

@@ -47,6 +47,7 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "provider.status" then return _providerstatus(request, registry)
   if operation = "review.decide" then return _reviewdecision(request, 0)
   if operation = "ingest.apply" then return _ingestapply(request, registry)
+  if operation = "improve.plan" then return _improveplan(request, registry)
   if operation = "improve.apply" then return _improveapply(request, registry)
   result = dispatchfoundation(request, registry)
   return _deprecated(request, result)
@@ -314,9 +315,8 @@ _workerstart: procedure = .ragcommandresult
   if status \= 0 then return _failure(operation, 8, error)
   vector_generations = 0; vector_state = "not-requested"
   if job_filter \= "" then do
-    call tracer.emit("vector", "start", job_filter, "publishing completed embeddings")
     if _publishjobvectors(request.library(), job_filter, vector_generations, vector_state, error) \= 0 then return _failure(operation, 8, error)
-    call tracer.emit("vector", vector_state, job_filter, "generations=" || vector_generations)
+    if vector_state \= "not-applicable" then call tracer.emit("vector", vector_state, job_filter, "generations=" || vector_generations)
   end
   call tracer.emit("controller", "complete", started.controller_id(), "workers=" || started.completed())
   fields = .ragresultfield[]
@@ -324,8 +324,10 @@ _workerstart: procedure = .ragcommandresult
   fields[2] = .ragresultfield("workers_requested", "integer", started.requested())
   fields[3] = .ragresultfield("workers_completed", "integer", started.completed())
   fields[4] = .ragresultfield("workers_failed", "integer", started.failed())
-  fields[5] = .ragresultfield("vector_generations", "integer", vector_generations)
-  fields[6] = .ragresultfield("vector_state", "string", vector_state)
+  if vector_state \= "not-applicable" then do
+    fields[5] = .ragresultfield("vector_generations", "integer", vector_generations)
+    fields[6] = .ragresultfield("vector_state", "string", vector_state)
+  end
   records = .ragresultrecord[]; records[1] = .ragresultrecord("worker-controller", fields)
   return .ragcommandresult(operation, "ok", 0, "controller supervised the requested OS-process workers to completion", records)
 
@@ -577,12 +579,11 @@ _improveapply: procedure = .ragcommandresult
   if validation \= 0 then return _failure(operation, 3, error)
   config_lookup = registry.config(request.config_id())
   if config_lookup.found() \= 1 then return _failure(operation, 5, "configuration is not registered")
-  config = config_lookup.config(); budget = config.budget(); workers = config.workers(); providers = config.providers()
-  route_id = ""; secret_reference = ""; privacy = "local"; attempts = 1
-  if providers.0 > 0 then do
-    route_id = providers[1].provider_id(); secret_reference = providers[1].credential().ref_string(); attempts = providers[1].max_attempts()
-    if providers[1].route_class() = "hosted" then privacy = "public"
-  end
+  config = config_lookup.config(); budget = config.budget(); workers = config.workers()
+  provider = _roleproviderconfig(config, "extractor")
+  if provider.provider_id() = "" then return _failure(operation, 3, "configuration has no extractor provider")
+  route_id = provider.provider_id(); secret_reference = provider.credential().ref_string(); attempts = provider.max_attempts(); privacy = "local"
+  if provider.route_class() = "hosted" then privacy = "public"
   store = .ragstorehandle
   if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
   snapshot_id = _scalartext(store.database(), "SELECT config_snapshot_id FROM published_generations WHERE generation=(SELECT published_generation FROM library_meta WHERE singleton=1)")
@@ -590,7 +591,7 @@ _improveapply: procedure = .ragcommandresult
   plan = .ragimproveplan
   plan_status = createimproveplan(store, snapshot_id, "surface-claim-v1", "surface-prompt-v1", triggers, budget.item_limit(), budget.model_calls(), budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), budget.minutes() * 60000, budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), budget.minutes() * 60000, workers.max_in_flight(), attempts, privacy, route_id, secret_reference, plan, error)
   apply_result = .ragimproveapplyresult
-  if plan_status = 0 then plan_status = applyimproveplan(store, plan, apply_result, error)
+  if plan_status = 0 then plan_status = applyconfiguredimproveplan(store, plan, request.profile_id(), provider.model(), provider.charging_basis(), budget.codex_turns(), apply_result, error)
   close_error = ""; close_status = closeragstore(store, close_error)
   if plan_status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 1, error); end
   fields = .ragresultfield[]
@@ -601,6 +602,56 @@ _improveapply: procedure = .ragcommandresult
   fields[5] = .ragresultfield("secret_reference", "string", secret_reference)
   records = .ragresultrecord[]; records[1] = .ragresultrecord("improve-apply", fields)
   return .ragcommandresult(operation, "ok", 0, "reviewed improvement plan applied with immutable budgets", records)
+
+_improveplan: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = request.operation(); error = ""
+  foundation = dispatchfoundation(request, registry)
+  if foundation.exit_code() \= 0 then return foundation
+  config_lookup = registry.config(request.config_id())
+  if config_lookup.found() \= 1 then return _failure(operation, 5, "configuration is not registered")
+  config = config_lookup.config(); budget = config.budget(); workers = config.workers()
+  provider = _roleproviderconfig(config, "extractor")
+  if provider.provider_id() = "" then return _failure(operation, 3, "configuration has no extractor provider")
+  privacy = "local"; if provider.route_class() = "hosted" then privacy = "public"
+  store = .ragstorehandle
+  if openragstore(request.library(), "readonly", store, error) \= 0 then return _openfailure(operation, error)
+  snapshot_id = _scalartext(store.database(), "SELECT config_snapshot_id FROM published_generations WHERE generation=(SELECT published_generation FROM library_meta WHERE singleton=1)")
+  triggers = .string[]; triggers[1] = "bridge"; triggers[2] = "conflict"; triggers[3] = "operator-review"; triggers[4] = "unprocessed-extraction"; triggers[5] = "unresolved"; triggers[6] = "weak-support"
+  plan = .ragimproveplan
+  plan_status = createimproveplan(store, snapshot_id, "surface-claim-v1", "surface-prompt-v1", triggers, budget.item_limit(), budget.model_calls(), budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), budget.minutes() * 60000, budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), budget.minutes() * 60000, workers.max_in_flight(), provider.max_attempts(), privacy, provider.provider_id(), provider.credential().ref_string(), plan, error)
+  close_error = ""; close_status = closeragstore(store, close_error)
+  if plan_status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 1, error); end
+  records = foundation.records(); fields = .ragresultfield[]
+  fields[1] = .ragresultfield("items_planned", "integer", plan.item_count())
+  fields[2] = .ragresultfield("trigger_count", "integer", triggers.0)
+  fields[3] = .ragresultfield("provider_id", "string", provider.provider_id())
+  fields[4] = .ragresultfield("provider_kind", "string", provider.kind())
+  fields[5] = .ragresultfield("model", "string", provider.model())
+  fields[6] = .ragresultfield("route_class", "string", provider.route_class())
+  fields[7] = .ragresultfield("privacy", "string", privacy)
+  fields[8] = .ragresultfield("charging_basis", "string", provider.charging_basis())
+  fields[9] = .ragresultfield("maximum_calls", "integer", budget.model_calls())
+  fields[10] = .ragresultfield("maximum_input_tokens", "integer", budget.input_tokens())
+  fields[11] = .ragresultfield("maximum_output_tokens", "integer", budget.output_tokens())
+  fields[12] = .ragresultfield("maximum_cost_microunits", "integer", budget.cost_microunits())
+  fields[13] = .ragresultfield("maximum_codex_turns", "integer", budget.codex_turns())
+  fields[14] = .ragresultfield("worker_processes", "integer", workers.processes())
+  fields[15] = .ragresultfield("improvement_digest", "string", plan.digest())
+  records[records.0 + 1] = .ragresultrecord("improvement-preview", fields)
+  return .ragcommandresult(operation, "ok", 0, "bounded improvement plan created without library writes", records)
+
+_roleproviderconfig: procedure = .ragproviderconfig
+  arg config = .ragconfig, role = .string
+  provider_id = ""; roles = config.roles()
+  do i = 1 to roles.0
+    if roles[i].role() = role then provider_id = roles[i].provider_id()
+  end
+  providers = config.providers()
+  do i = 1 to providers.0
+    if providers[i].provider_id() = provider_id then return providers[i]
+  end
+  return .ragproviderconfig("", "", "", "", "", "", .ragsecretref(), 0, 0)
 
 _reviewdecision: procedure = .ragcommandresult
   arg request = .ragcommandrequest, apply = .int

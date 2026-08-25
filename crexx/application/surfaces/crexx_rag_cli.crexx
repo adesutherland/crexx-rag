@@ -43,7 +43,7 @@ end
 
 command_args = _aliases(command_args, loaded_config, config_loaded, alias, source_set, worker_count, auto_confirm, error)
 if error \= "" then return _clierror("parse", "usage", error, 2)
-if (alias = "init" | alias = "guided-ingest") & config_loaded = 0 & _hasglobal(command_args, "config") = 0 then return _clierror("config", "configuration", "no configuration selected; checked --config-file, CREXX_RAG_CONFIG, and ./crexx-rag.conf", 3)
+if (alias = "init" | alias = "guided-ingest" | alias = "guided-improve") & config_loaded = 0 & _hasglobal(command_args, "config") = 0 then return _clierror("config", "configuration", "no configuration selected; checked --config-file, CREXX_RAG_CONFIG, and ./crexx-rag.conf", 3)
 
 command_args = _defaults(command_args, loaded_config, config_loaded, alias)
 request = .ragcommandrequest
@@ -54,6 +54,7 @@ if config_loaded = 1 then do
 end
 
 if alias = "guided-ingest" then return _guidedingest(request, registry, source_set, worker_count, auto_confirm)
+if alias = "guided-improve" then return _guidedimprove(request, registry, worker_count, auto_confirm)
 if alias = "provider-login" then do
   login_status = _ensurecodexlogin(registry, request.config_id())
   if login_status \= 0 then return login_status
@@ -74,13 +75,15 @@ _showhelp: procedure = .int
   say "Human workflow"
   say "  crexxrag init"
   say "  crexxrag ingest [SOURCE_SET] [--workers N] [--yes]"
+  say "  crexxrag improve [--workers N] [--yes]"
+  say "  crexxrag review list"
   say "  crexxrag query QUESTION"
   say "  crexxrag provider status"
   say "  crexxrag provider login codex"
   say "  crexxrag doctor"
   say ""
   say "The current directory defaults are ./crexx-rag.conf and ./library."
-  say "Ingest reviews privacy, providers and budget before it starts workers."
+  say "Ingest and improve review privacy, providers and budget before starting workers."
   say ""
   say "Global options"
   say "  --config-file PATH        configuration file"
@@ -147,6 +150,60 @@ _guidedingest: procedure = .int
   status_result = dispatchproduct(status_request, registry)
   return _showresult(status_result, "human")
 
+_guidedimprove: procedure = .int
+  arg plan_request = .ragcommandrequest, registry = .ragregistry, worker_override = .string, auto_confirm = .int
+  if plan_request.format() \= "human" then return _clierror("parse", "usage", "guided improvement is human-only; machine callers use improve plan, improve apply, and worker start with --format json or ndjson", 2)
+  config_lookup = registry.config(plan_request.config_id())
+  if config_lookup.found() \= 1 then return _clierror("config", "configuration", "guided improvement configuration is not registered", 3)
+  config = config_lookup.config(); workers = config.workers().processes()
+  if worker_override \= "" then workers = worker_override as .int
+  if workers < 1 | workers > config.workers().processes() then return _clierror("parse", "usage", "--workers must be within the configured process ceiling", 2)
+
+  plan_result = dispatchproduct(plan_request, registry)
+  if plan_result.exit_code() \= 0 then return _showresult(plan_result, "human")
+  plan_json = _fieldvalue(plan_result, 1, "canonical_plan")
+  digest = _fieldvalue(plan_result, 1, "digest")
+  if plan_json = "" | digest = "" then return _clierror("render", "internal", "guided improvement plan did not expose its canonical bytes and digest", 10)
+  say _improveplansummary(config, plan_result, digest, workers)
+
+  if auto_confirm = 0 then do
+    call charout "stderr", "Continue? [y/N] "
+    answer = lower(strip(linein("stdin")))
+    if answer \= "y" & answer \= "yes" then do
+      say "Cancelled: no library changes or provider calls were made."
+      return 9
+    end
+  end
+
+  access = plan_request.access(); empty_positionals = .string[]
+  apply_options = .ragcommandoption[]
+  apply_options[1] = .ragcommandoption("plan-json", plan_json, 0)
+  apply_options[2] = .ragcommandoption("expect-digest", digest, 0)
+  apply_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", plan_request.progress(), access, "improve", "apply", "improve.apply", apply_options, empty_positionals)
+  apply_result = dispatchproduct(apply_request, registry)
+  ignored = _showresult(apply_result, "human")
+  if apply_result.exit_code() \= 0 then return apply_result.exit_code()
+  items = _fieldvalue(apply_result, 1, "items")
+  if items = "" then return _clierror("render", "internal", "improvement apply did not expose its queued item count", 10)
+  if items = "0" then return 0
+  job_id = _fieldvalue(apply_result, 1, "job_id")
+  if job_id = "" then return _clierror("render", "internal", "improvement apply did not expose its durable job id", 10)
+
+  worker_options = .ragcommandoption[]
+  worker_options[1] = .ragcommandoption("count", workers || "", 0)
+  worker_options[2] = .ragcommandoption("poll-ms", "100", 0)
+  worker_options[3] = .ragcommandoption("max-polls", "100", 0)
+  worker_options[4] = .ragcommandoption("job", job_id, 0)
+  worker_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", plan_request.progress(), access, "worker", "start", "worker.start", worker_options, empty_positionals)
+  worker_result = dispatchproduct(worker_request, registry)
+  ignored = _showresult(worker_result, "human")
+  if worker_result.exit_code() \= 0 then return worker_result.exit_code()
+
+  status_options = .ragcommandoption[]; status_positionals = .string[]; status_positionals[1] = job_id
+  status_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", "off", access, "job", "status", "job.status", status_options, status_positionals)
+  status_result = dispatchproduct(status_request, registry)
+  return _showresult(status_result, "human")
+
 _plansummary: procedure = .string
   arg config = .ragconfig, source_set_id = .string, digest = .string, workers = .int
   source_root = ""; privacy = ""; source_sets = config.source_sets()
@@ -187,6 +244,32 @@ _plansummary: procedure = .string
     if providers[i].charging_basis() = "monetary-api" then monetary = 1
   end
   if monetary = 1 then output = output || "0A"x || "  Maximum API cost: $" || cost
+  else output = output || "0A"x || "  Monetary API cost: Not applicable"
+  output = output || "0A"x || "  Plan digest:      " || digest
+  return output
+
+_improveplansummary: procedure = .string
+  arg config = .ragconfig, plan_result = .ragcommandresult, digest = .string, workers = .int
+  provider = _roleprovider(config, "extractor"); budget = config.budget()
+  items = _fieldvalue(plan_result, 2, "items_planned")
+  triggers = _fieldvalue(plan_result, 2, "trigger_count")
+  output = "Improvement plan"
+  output = output || "0A0A"x || "  Items selected:   " || items
+  output = output || "0A"x || "  Triggers checked: " || triggers
+  output = output || "0A"x || "  Worker processes: " || workers
+  if provider.kind() = "codex" then output = output || "0A"x || "  Extraction:       Codex using your ChatGPT subscription"
+  else output = output || "0A"x || "  Extraction:       " || provider.kind() || " / " || provider.model()
+  if provider.route_class() = "hosted" then output = output || "0A"x || "  Hosted data:      Public content only"
+  output = output || "0A"x || "  Maximum calls:    " || budget.model_calls()
+  output = output || "0A"x || "  Input token limit: " || budget.input_tokens()
+  output = output || "0A"x || "  Output token limit: " || budget.output_tokens()
+  if provider.kind() = "codex" then do
+    diagnostic = .ragproviderdiagnostic; diagnostic_error = ""
+    if codexdiagnostic(provider.timeout_ms(), diagnostic, diagnostic_error) = 0 then output = output || "0A"x || "  Codex allowance:  " || diagnostic.allowance_available() || "% available"
+    else output = output || "0A"x || "  Codex allowance:  unavailable (" || diagnostic_error || ")"
+    output = output || "0A"x || "  Codex turn limit: " || budget.codex_turns()
+  end
+  if provider.charging_basis() = "monetary-api" then output = output || "0A"x || "  Maximum API cost: $" || _money(budget.cost_microunits())
   else output = output || "0A"x || "  Monetary API cost: Not applicable"
   output = output || "0A"x || "  Plan digest:      " || digest
   return output
@@ -248,6 +331,7 @@ _defaults: procedure = .string[]
   if _hasglobal(args, "access") = 0 then do
     if alias = "init" then do; output[output.0 + 1] = "--access"; output[output.0 + 1] = "admin"; end
     if alias = "guided-ingest" then do; output[output.0 + 1] = "--access"; output[output.0 + 1] = "ingest,control"; end
+    if alias = "guided-improve" then do; output[output.0 + 1] = "--access"; output[output.0 + 1] = "curate"; end
   end
   do i = 1 to args.0
     output[output.0 + 1] = args[i]
@@ -285,6 +369,26 @@ _aliases: procedure = .string[]
     output = _prefix(args, noun_index)
     output[output.0 + 1] = "provider"; output[output.0 + 1] = "status"
     alias = "provider-login"
+    return output
+  end
+  if noun = "improve" then do
+    if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply") > 0 then return args
+    i = noun_index + 1
+    do while i <= args.0
+      token = args[i]
+      if token = "--yes" then auto_confirm = 1
+      else if token = "--workers" then do
+        if i = args.0 then do; error = "--workers requires a value"; return args; end
+        i = i + 1; worker_count = args[i]
+      end
+      else if left(token, 10) = "--workers=" then worker_count = substr(token, 11)
+      else do; error = "unknown guided improvement option " || token; return args; end
+      i = i + 1
+    end
+    if worker_count \= "" & _unsignedtext(worker_count) \= 1 then do; error = "--workers requires a positive integer"; return args; end
+    output = _prefix(args, noun_index)
+    output[output.0 + 1] = "improve"; output[output.0 + 1] = "plan"
+    alias = "guided-improve"
     return output
   end
   if noun \= "ingest" then return _compatibilityalias(args, alias)

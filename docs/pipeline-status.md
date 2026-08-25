@@ -22,7 +22,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Phase 2 / Gate 2 | Accepted on macOS 2026-08-23 | `P2-01` through `P2-10`, public installed-capability adoption, canonical zero-write plans, and hostile apply-time revalidation are accepted. Exact downstream Linux replay remains open. |
 | Parallel CREXX capability sync | Current installed package adopted on macOS | Public Level-G HTTP/JSON, complete `rxhash` SHA-256, and exact packed `rxvector` are consumed directly with source fallback disabled. Provider-lifecycle expansion remains separately approval-gated, and exact downstream Linux confirmation is the only deferred Phase-2 platform replay. |
 | Phase 3 / Gate 3R | Accepted on macOS, including provider addendum, 2026-08-25 | The native Level-G `crexxrag` application owns schema-v5 extraction/embedding work, provider-kind dispatch, validated claim promotion, exact vector publication, durable OS-process workers and human-default progress. Permanent Gemini, Codex JSONL/durability and process QA is green. [Clean bounded walkthroughs](evidence/2026-08-25-phase3-provider-addendum/README.md) passed with Codex plus local llama.cpp and with Google Gemini; each unchanged replay made no new job, worker or provider call. Codex App Server remains an experimental local-personal hosted route. The known CREXX prompt double-Enter remains accepted; Linux, release and cutover are separate. |
-| Phase 4 / Gate 4 | Accepted on macOS 2026-08-24 | Claims/extraction/review/improvement, durable multi-process workers and the literal eight-hour supervised soak pass; exact downstream Linux remains open. |
+| Phase 4 / Gate 4 | Accepted on macOS; application extension accepted 2026-08-25 | Claims/extraction/review/improvement, durable multi-process workers and the literal eight-hour supervised soak pass. `crexxrag improve` now reviews and executes immutable configured-provider work; permanent Gemini plus bounded real Codex/Google paths and zero-call replay pass. Exact downstream Linux remains open. |
 | Phase 5 / Gate 5 | Accepted on macOS 2026-08-24 | Deterministic focused query planning, hybrid retrieval, exact vector generations, stable typed evidence, nine frozen judgements, native/full-context comparison and bounded Gemini qualification pass; exact Linux and cREXX hosted-transport closure remain open. |
 | Phase 6 / Gate 6 | Accepted on macOS 2026-08-24 | Installed Level-G CLI, ADDRESS RAG, MCP, exact reviewed ingest, zero-write plans, backup/restore and capability-scoped skills pass in four compiler/VM cells. Public worker-provider lifetime remains a cutover limit. |
 | Phase 7 / Gate 7 | Qualification complete; reject/defer cutover 2026-08-24 | The recorded decision preceded the Phase-3 worker/provider integration and pristine hosted replay now accepted locally. Production-shaped same-session comparison, exact Linux and a new explicit cutover decision remain open, so native-v1 stays default. |
@@ -362,6 +362,17 @@ eight-hour run completed 28,800 one-second polls and all four items in its
 supervised improvement job, with balanced reservations and exit 0, accepting
 Gate 4 for the recorded macOS scope. A separate ingestion job remained queued
 and was intentionally outside the soak.
+
+The 2026-08-25 application extension carries that engine onto the enduring
+human surface. `crexxrag improve` now shows selected work, provider/privacy and
+budget bindings, confirms, queues immutable `crexx-rag.work-input/1` rows,
+supervises the configured process count and returns final job status. Routing
+uses `role.extractor`, not provider declaration order. Semantic configured-work
+identity makes a repeated selected input a pre-job `identical-no-op`. Permanent
+Gemini QA and bounded real Codex/Google improvement turns pass; the setup path
+uses the installed toolchain and persistent macOS launchd ownership for the
+local embedding server. Exact details are in the
+[application-extension record](evidence/2026-08-25-phase4-application/README.md).
 
 ## Phase 5 Execution
 
