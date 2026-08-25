@@ -223,6 +223,15 @@ Gemini and contained Codex calls on macOS. They still do not prove
 cross-operation pool reuse, an installed `rxllm` package, exact Linux or
 cutover.
 
+The Phase-7 application extension routes `provider.test` through that same
+configured provider boundary. The human command first shows the fixed public-
+synthetic data, selected route and budget; canonical JSON and diagnose-gated
+MCP call the identical operation. Generation must satisfy the exact
+answer/citations schema and supplied citation, while embeddings must contain
+one exact 768-dimensional vector. This path reads and writes no library data.
+It is a reachability and response-contract check, not a performance, streaming,
+cancellation, connection-reuse or cutover qualification.
+
 ### Hash and binary data
 
 Stable source identity requires SHA-256 or an equivalent collision-resistant

@@ -10,6 +10,7 @@ set(required_files
     "docs/tutorials/phase-7-qualification.md"
     "docs/evidence/2026-08-24-phase7/README.md"
     "docs/evidence/2026-08-24-phase7/cutover-decision.md"
+    "docs/evidence/2026-08-25-phase7-application/README.md"
     "tools/qualify_phase7_hosted.py"
     "incubator/phase1b/provider/hosted_http_completion_probe.crexx"
     "incubator/phase1b/provider/p7_hosted_provider_probe.crexx")
@@ -21,6 +22,7 @@ endforeach()
 
 file(READ "${CPRAG_SOURCE_ROOT}/docs/evidence/2026-08-24-phase7/README.md" evidence)
 file(READ "${CPRAG_SOURCE_ROOT}/docs/evidence/2026-08-24-phase7/cutover-decision.md" decision)
+file(READ "${CPRAG_SOURCE_ROOT}/docs/evidence/2026-08-25-phase7-application/README.md" application_evidence)
 file(READ "${CPRAG_SOURCE_ROOT}/docs/tutorials/phase-7-qualification.md" tutorial)
 file(READ "${CPRAG_SOURCE_ROOT}/docs/crexx-only-implementation-roadmap.md" roadmap)
 foreach(required IN ITEMS
@@ -33,11 +35,20 @@ foreach(required IN ITEMS
     endif()
 endforeach()
 foreach(required IN ITEMS
-        "phase3_ingestion" "phase4_improvement" "phase5_retrieval"
-        "phase6_surfaces" "phase7_hosted" "cutover decision")
+        "crexxrag provider test" "phase7_provider_smoke"
+        "ctest --preset debug" "cutover decision")
     string(FIND "${tutorial}" "${required}" position)
     if(position EQUAL -1)
         message(FATAL_ERROR "Phase-7 tutorial lacks ${required}")
+    endif()
+endforeach()
+foreach(required IN ITEMS
+        "public synthetic" "exact answer/citations schema" "768-dimensional"
+        "Human:" "Machine:" "Agent:" "p7r_01_provider_smoke"
+        "zero-call budget denial" "2026-08-24 reject/defer" "cutover decision")
+    string(FIND "${application_evidence}" "${required}" position)
+    if(position EQUAL -1)
+        message(FATAL_ERROR "Phase-7 application evidence lacks ${required}")
     endif()
 endforeach()
 string(FIND "${roadmap}" "Gate 7 decision: reject/defer cutover" gate_position)
@@ -46,6 +57,7 @@ if(gate_position EQUAL -1)
 endif()
 file(WRITE "${CPRAG_WORK_DIR}/qualification-audit.txt"
     "phase=7\nchecklist=8/8\ndecision=reject/defer-cutover\n"
+    "provider_smoke=human,json,mcp\nexact_output_validation=1\n"
     "hosted_credentials=symbolic-only\nlinux=open\n")
 message(STATUS
-    "Phase 7 qualification record passed: P7-01 through P7-08 are evidenced and cutover is explicitly deferred")
+    "Phase 7 qualification record passed: P7-01 through P7-08 and the native provider-smoke extension are evidenced; cutover is explicitly deferred")

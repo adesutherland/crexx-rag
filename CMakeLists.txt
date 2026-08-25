@@ -417,6 +417,24 @@ if(CPRAG_BUILD_CREXX_APPLICATION AND CREXX_FOUND AND
         set_tests_properties(p6r_01_native_surfaces PROPERTIES
             TIMEOUT 300
             LABELS "P6R-01;phase6r;crexx;levelg;application;native;human;mcp;structured-content;gemini;query;answer;citation;annotations;strict-json;config;zero-outbound")
+
+        set(P7R_01_PROVIDER_SMOKE_COMMAND
+            "${CMAKE_COMMAND}"
+            "-DCPRAG_NATIVE_APPLICATION=${CMAKE_BINARY_DIR}/crexx-native-attempt/package/crexxrag${CMAKE_EXECUTABLE_SUFFIX}"
+            "-DCPRAG_LOOPBACK=$<TARGET_FILE:p1a_provider_loopback>"
+            "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/phase5/gemini-query-loopback.conf.in"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p7r-01-provider-smoke"
+            -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P7R01ProviderSmoke.cmake")
+        add_custom_target(phase7_provider_smoke
+            COMMAND ${P7R_01_PROVIDER_SMOKE_COMMAND}
+            DEPENDS crexx_rag_native_attempt p1a_provider_loopback
+            COMMENT "Running Phase-7 native human, machine, and MCP provider smoke proof"
+            USES_TERMINAL
+            VERBATIM)
+        add_test(NAME p7r_01_provider_smoke COMMAND ${P7R_01_PROVIDER_SMOKE_COMMAND})
+        set_tests_properties(p7r_01_provider_smoke PROPERTIES
+            TIMEOUT 300
+            LABELS "P7R-01;phase7r;crexx;levelg;application;native;human;mcp;provider;gemini;generation;embedding;citation;budget;secret-free;loopback")
     endif()
 
     install(FILES "${CPRAG_CREXX_APPLICATION_RXBIN}"
@@ -1915,7 +1933,7 @@ if(CPRAG_BUILD_TESTS)
         if(TARGET phase5_retrieval)
             add_custom_target(phase7_qualification
                 COMMAND ${PHASE7_QUALIFICATION_COMMAND}
-                DEPENDS phase3_ingestion phase4_improvement phase5_retrieval phase6_surfaces
+                DEPENDS phase3_ingestion phase4_improvement phase5_retrieval phase6_surfaces phase7_provider_smoke
                 COMMENT "Running recurring Phase-7 corpus, lifecycle, surface, and decision proof"
                 USES_TERMINAL
                 VERBATIM)

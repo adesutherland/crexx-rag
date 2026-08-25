@@ -22,6 +22,10 @@ Common rules:
 - Provider-backed query tools are read-only library operations but can consume
   local compute, monetary API budget, or subscription allowance. Use explicit
   lexical mode when zero outbound calls are required.
+- `rag_provider_test` is likewise library-read-only but makes a real outbound
+  or local-model call. Use it only with explicit operator authorization for one
+  provider and the selected configuration's bounded budget; it sends fixed
+  public synthetic text rather than library content.
 
 Each `manifest.json` declares its required tools, schemas and write
 capabilities. The package tests deliberately ask the read/plan skills to apply

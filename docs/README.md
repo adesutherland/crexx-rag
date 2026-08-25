@@ -57,6 +57,7 @@ production default.
 | [Phase 6 application evidence](evidence/2026-08-25-phase6-application/README.md) | Unified native MCP command, atomic ADDRESS config binding, strict schemas, truthful annotations and provider-backed QA |
 | [Phase 7 qualification tutorial](tutorials/phase-7-qualification.md) | Reproducible corpus/lifecycle/surface, hosted generation/embedding, safety audit, and decision walkthrough |
 | [Phase 7 qualification evidence](evidence/2026-08-24-phase7/README.md) | P7-01 through P7-08 results, external hosted pass, retained cREXX completion failure, comparison boundary, and QA |
+| [Phase 7 application evidence](evidence/2026-08-25-phase7-application/README.md) | Human, JSON and MCP provider smoke surface, exact output validation, budgets, deterministic QA and current cutover boundary |
 | [Gate 7 cutover decision](evidence/2026-08-24-phase7/cutover-decision.md) | Exact reject/defer decision, blockers, closure evidence, and approval boundary |
 | [Phase 8 opportunity report](reports/phase-8-donation-opportunities.md) | Maintained donation/adoption ledger, installed-capability preference, compatibility state, and retirement readiness; no tutorial or action authority |
 | [Phase 8 report evidence](evidence/2026-08-24-phase8/README.md) | Permanent report audit, exact Gate-8 negative assessment, and submission/cutover/deletion boundaries |

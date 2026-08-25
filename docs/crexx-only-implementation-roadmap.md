@@ -814,6 +814,18 @@ slice. The cutover decision is still unchanged because the requested production
 comparison, exact Linux and a new explicit cutover decision remain incomplete;
 Gate 3R acceptance is not cutover authority.
 
+On 2026-08-25 the Phase-7 application extension made provider qualification
+usable through the enduring product surface. `crexxrag provider test
+[PROVIDER]` reviews a fixed public-synthetic plan, applies configured privacy
+and call/token/cost/subscription ceilings, then validates exact structured
+citations and/or a 768-dimensional embedding. The same operation is available
+as canonical JSON and to explicitly `diagnose`-authorized MCP clients with
+truthful open-world, non-idempotent annotations. Permanent native loopback
+coverage proves all three surfaces and zero-call budget denial. This closes a
+reachability-testing gap, not the comparison, Linux or decision criteria, so
+cutover remains deferred. See the [application
+evidence](evidence/2026-08-25-phase7-application/README.md).
+
 ## Phase 8 — Donation, Compatibility Release, And Native Retirement
 
 Goal: finish the language contribution loop and remove obsolete product-native

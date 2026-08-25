@@ -24,7 +24,9 @@ main: procedure = .int
   plan_tools = mcpdispatch('{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}', library, "architecture-local", "generic-profile", "plan")
   if pos('"rag_ingest_plan"', plan_tools) = 0 | pos('"rag_ingest_apply"', plan_tools) > 0 then return 12
   diagnose_tools = mcpdispatch('{"jsonrpc":"2.0","id":3,"method":"tools/list","params":{}}', library, "architecture-local", "generic-profile", "diagnose")
-  if pos('"rag_library_verify"', diagnose_tools) = 0 | pos('"rag_job_cancel"', diagnose_tools) > 0 then return 13
+  if pos('"rag_library_verify"', diagnose_tools) = 0 | pos('"rag_provider_test"', diagnose_tools) = 0 | pos('"rag_job_cancel"', diagnose_tools) > 0 then return 13
+  provider_tool = _tooljson(diagnose_tools, "rag_provider_test")
+  if pos('"readOnlyHint":true', provider_tool) = 0 | pos('"destructiveHint":false', provider_tool) = 0 | pos('"idempotentHint":false', provider_tool) = 0 | pos('"openWorldHint":true', provider_tool) = 0 then return 26
   admin_tools = mcpdispatch('{"jsonrpc":"2.0","id":4,"method":"tools/list","params":{}}', library, "architecture-local", "generic-profile", "admin")
   if pos('"rag_library_verify"', admin_tools) = 0 | pos('"rag_job_cancel"', admin_tools) = 0 | pos('"rag_ingest_apply"', admin_tools) > 0 then return 14
 

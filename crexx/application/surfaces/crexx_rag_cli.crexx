@@ -15,7 +15,7 @@ import operator_registry
 main: procedure = .int
 arg args = .string[]
 if _wantshelp(args) = 1 then return _showhelp()
-alias = ""; source_set = ""; worker_count = ""; auto_confirm = 0
+alias = ""; source_set = ""; worker_count = ""; provider_filter = ""; auto_confirm = 0
 error = ""; config_path = ""; config_origin = ""
 command_args = _configfileargs(args, config_path, error)
 if error \= "" then return _clierror("config", "configuration", error, 3)
@@ -42,9 +42,9 @@ if config_path \= "" then do
   config_loaded = 1
 end
 
-command_args = _aliases(command_args, loaded_config, config_loaded, alias, source_set, worker_count, auto_confirm, error)
+command_args = _aliases(command_args, loaded_config, config_loaded, alias, source_set, worker_count, provider_filter, auto_confirm, error)
 if error \= "" then return _clierror("parse", "usage", error, 2)
-if (alias = "init" | alias = "guided-ingest" | alias = "guided-improve" | alias = "serve-mcp") & config_loaded = 0 & _hasglobal(command_args, "config") = 0 then return _clierror("config", "configuration", "no configuration selected; checked --config-file, CREXX_RAG_CONFIG, and ./crexx-rag.conf", 3)
+if (alias = "init" | alias = "guided-ingest" | alias = "guided-improve" | alias = "guided-provider-test" | alias = "serve-mcp") & config_loaded = 0 & _hasglobal(command_args, "config") = 0 then return _clierror("config", "configuration", "no configuration selected; checked --config-file, CREXX_RAG_CONFIG, and ./crexx-rag.conf", 3)
 
 command_args = _defaults(command_args, loaded_config, config_loaded, alias)
 request = .ragcommandrequest
@@ -56,6 +56,7 @@ end
 
 if alias = "guided-ingest" then return _guidedingest(request, registry, source_set, worker_count, auto_confirm)
 if alias = "guided-improve" then return _guidedimprove(request, registry, worker_count, auto_confirm)
+if alias = "guided-provider-test" then return _guidedprovidertest(request, registry, provider_filter, auto_confirm)
 if alias = "serve-mcp" then return _servemcp(request, registry)
 if alias = "provider-login" then do
   login_status = _ensurecodexlogin(registry, request.config_id())
@@ -81,6 +82,7 @@ _showhelp: procedure = .int
   say "  crexxrag review list"
   say "  crexxrag query QUESTION"
   say "  crexxrag provider status"
+  say "  crexxrag provider test [PROVIDER] [--yes]"
   say "  crexxrag provider login codex"
   say "  crexxrag doctor"
   say "  crexxrag serve mcp"
@@ -224,6 +226,117 @@ _guidedimprove: procedure = .int
   status_result = dispatchproduct(status_request, registry)
   return _showresult(status_result, "human")
 
+_guidedprovidertest: procedure = .int
+  arg placeholder_request = .ragcommandrequest, registry = .ragregistry, provider_filter = .string, auto_confirm = .int
+  if placeholder_request.format() \= "human" then return _clierror("provider.test", "usage", "guided provider testing is human-only; machine callers use provider test --provider ID with --format json or ndjson", 2)
+  lookup = registry.config(placeholder_request.config_id())
+  if lookup.found() \= 1 then return _clierror("provider.test", "configuration", "provider-test configuration is not registered", 3)
+  config = lookup.config(); providers = config.providers(); selected = .int[]; planned_calls = 0
+  do i = 1 to providers.0
+    if provider_filter \= "" & providers[i].provider_id() \= provider_filter then iterate
+    operations = _provideroperations(config, providers[i].provider_id())
+    if operations = 0 then iterate
+    selected[selected.0 + 1] = i; planned_calls = planned_calls + operations
+  end
+  if selected.0 = 0 then do
+    if provider_filter \= "" then return _clierror("provider.test", "not-found", "selected provider is not registered and assigned to an application role", 5)
+    return _clierror("provider.test", "configuration", "configuration has no role-bound providers to test", 3)
+  end
+  budget = config.budget()
+  monetary = 0
+  do i = 1 to selected.0
+    if providers[selected[i]].charging_basis() = "monetary-api" then monetary = 1
+  end
+  say "Provider smoke plan"
+  say ""
+  say "  Data:              Public synthetic text only"
+  say "  Provider calls:    " || planned_calls || " (configured ceiling " || budget.model_calls() || ")"
+  say "  Input token limit: " || budget.input_tokens()
+  say "  Output token limit: " || budget.output_tokens()
+  if monetary = 1 then say "  Maximum API cost:  $" || _money(budget.cost_microunits())
+  else say "  Monetary API cost: Not applicable"
+  if budget.codex_turns() > 0 then do
+    say "  Codex turn limit:  " || budget.codex_turns()
+    say "  Minimum allowance: " || budget.minimum_codex_allowance_percent() || "%"
+  end
+  do i = 1 to selected.0
+    provider = providers[selected[i]]; operation_text = _provideroperationtext(config, provider.provider_id())
+    say "  Provider:          " || provider.provider_id() || " / " || provider.kind() || " / " || provider.model()
+    say "    Route:           " || provider.route_class() || " (" || provider.charging_basis() || ")"
+    say "    Validates:       " || operation_text
+    if provider.kind() = "codex" then do
+      diagnostic = .ragproviderdiagnostic; diagnostic_error = ""
+      if codexdiagnostic(provider.timeout_ms(), diagnostic, diagnostic_error) = 0 then say "    Allowance:       " || diagnostic.allowance_available() || "% available"
+      else say "    Allowance:       unavailable (" || diagnostic_error || ")"
+    end
+  end
+  say ""
+  say "No library content is read or changed. Hosted providers receive only the text shown by this smoke test."
+  if planned_calls > budget.model_calls() then return _clierror("provider.test", "budget", "planned provider smoke calls exceed the configured per-command ceiling", 6)
+  if auto_confirm = 0 then do
+    call charout "stderr", "Continue? [y/N] "
+    answer = lower(strip(linein("stdin")))
+    if answer \= "y" & answer \= "yes" then do
+      say "Cancelled: no provider calls were made."
+      return 9
+    end
+  end
+  access = placeholder_request.access(); empty_positionals = .string[]
+  actual_calls = 0; actual_input = 0; actual_output = 0; actual_cost = 0
+  do i = 1 to selected.0
+    test_options = .ragcommandoption[]
+    test_options[1] = .ragcommandoption("provider", providers[selected[i]].provider_id(), 0)
+    test_request = .ragcommandrequest(placeholder_request.library(), placeholder_request.config_id(), placeholder_request.profile_id(), placeholder_request.config_file(), "human", placeholder_request.progress(), access, "provider", "test", "provider.test", test_options, empty_positionals)
+    test_result = dispatchproduct(test_request, registry)
+    ignored = _showresult(test_result, "human")
+    if test_result.exit_code() \= 0 then return test_result.exit_code()
+    completed_records = test_result.records()
+    actual_calls = actual_calls + completed_records.0
+    actual_input = actual_input + _resultsum(test_result, "input_tokens")
+    actual_output = actual_output + _resultsum(test_result, "output_tokens")
+    actual_cost = actual_cost + _resultsum(test_result, "estimated_cost_microunits")
+    if actual_calls > budget.model_calls() | actual_input > budget.input_tokens() | actual_output > budget.output_tokens() | actual_cost > budget.cost_microunits() then return _clierror("provider.test", "budget", "combined provider smoke usage exceeded the reviewed configuration ceiling", 6)
+  end
+  say "Provider smoke complete"
+  say "  Calls:              " || actual_calls
+  say "  Input tokens:       " || actual_input
+  say "  Output tokens:      " || actual_output
+  if actual_cost > 0 then say "  Estimated API cost: $" || _money(actual_cost)
+  return 0
+
+_resultsum: procedure = .int
+  arg result = .ragcommandresult, field_name = .string
+  total = 0; records = result.records()
+  do i = 1 to records.0
+    fields = records[i].fields()
+    do j = 1 to fields.0
+      if fields[j].name() = field_name & datatype(fields[j].value(), "W") = 1 then total = total + (fields[j].value() as .int)
+    end
+  end
+  return total
+
+_provideroperations: procedure = .int
+  arg config = .ragconfig, provider_id = .string
+  embedding = 0; generation = 0; roles = config.roles()
+  do i = 1 to roles.0
+    if roles[i].provider_id() \= provider_id then iterate
+    if roles[i].role() = "embedding" then embedding = 1
+    else generation = 1
+  end
+  return embedding + generation
+
+_provideroperationtext: procedure = .string
+  arg config = .ragconfig, provider_id = .string
+  embedding = 0; generation = 0; roles = config.roles()
+  do i = 1 to roles.0
+    if roles[i].provider_id() \= provider_id then iterate
+    if roles[i].role() = "embedding" then embedding = 1
+    else generation = 1
+  end
+  if embedding = 1 & generation = 1 then return "structured generation and 768-dimensional embeddings"
+  if embedding = 1 then return "768-dimensional embedding generation"
+  return "structured generation and exact citations"
+
 _plansummary: procedure = .string
   arg config = .ragconfig, source_set_id = .string, digest = .string, workers = .int
   source_root = ""; privacy = ""; source_sets = config.source_sets()
@@ -352,6 +465,7 @@ _defaults: procedure = .string[]
     if alias = "init" then do; output[output.0 + 1] = "--access"; output[output.0 + 1] = "admin"; end
     if alias = "guided-ingest" then do; output[output.0 + 1] = "--access"; output[output.0 + 1] = "ingest,control"; end
     if alias = "guided-improve" then do; output[output.0 + 1] = "--access"; output[output.0 + 1] = "curate"; end
+    if alias = "guided-provider-test" then do; output[output.0 + 1] = "--access"; output[output.0 + 1] = "diagnose"; end
   end
   do i = 1 to args.0
     output[output.0 + 1] = args[i]
@@ -363,8 +477,8 @@ _defaultprogress: procedure = .string
   return "ansi"
 
 _aliases: procedure = .string[]
-  arg args = .string[], config = .ragconfig, config_loaded = .int, expose alias = .string, expose source_set = .string, expose worker_count = .string, expose auto_confirm = .int, expose error = .string
-  alias = ""; source_set = ""; worker_count = ""; auto_confirm = 0; error = ""
+  arg args = .string[], config = .ragconfig, config_loaded = .int, expose alias = .string, expose source_set = .string, expose worker_count = .string, expose provider_filter = .string, expose auto_confirm = .int, expose error = .string
+  alias = ""; source_set = ""; worker_count = ""; provider_filter = ""; auto_confirm = 0; error = ""
   noun_index = _nounindex(args)
   if noun_index = 0 then return args
   noun = args[noun_index]
@@ -394,6 +508,21 @@ _aliases: procedure = .string[]
     output = _prefix(args, noun_index)
     output[output.0 + 1] = "provider"; output[output.0 + 1] = "status"
     alias = "provider-login"
+    return output
+  end
+  if noun = "provider" & noun_index < args.0 & args[noun_index + 1] = "test" & _globalvalue(args, "format") \= "json" & _globalvalue(args, "format") \= "ndjson" then do
+    i = noun_index + 2
+    do while i <= args.0
+      token = args[i]
+      if token = "--yes" then auto_confirm = 1
+      else if left(token, 2) = "--" then do; error = "unknown guided provider-test option " || token; return args; end
+      else if provider_filter = "" then provider_filter = token
+      else do; error = "guided provider test accepts at most one provider id"; return args; end
+      i = i + 1
+    end
+    output = _prefix(args, noun_index)
+    output[output.0 + 1] = "provider"; output[output.0 + 1] = "status"
+    alias = "guided-provider-test"
     return output
   end
   if noun = "serve" & noun_index < args.0 & args[noun_index + 1] = "mcp" then do

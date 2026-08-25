@@ -25,7 +25,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Phase 4 / Gate 4 | Accepted on macOS; application extension accepted 2026-08-25 | Claims/extraction/review/improvement, durable multi-process workers and the literal eight-hour supervised soak pass. `crexxrag improve` now reviews and executes immutable configured-provider work; permanent Gemini plus bounded real Codex/Google paths and zero-call replay pass. Exact downstream Linux remains open. |
 | Phase 5 / Gate 5 | Accepted on macOS; human application extension completed 2026-08-25 | Native `crexxrag query` now uses the accepted planning/evidence algorithms with compatible query embeddings and optional citation-validated Codex/Gemini answers. Permanent negative QA and clean real Codex/local plus Google walkthroughs pass. Exact Linux, release and cutover remain open. |
 | Phase 6 / Gate 6 | Accepted on macOS 2026-08-24 | Installed Level-G CLI, ADDRESS RAG, MCP, exact reviewed ingest, zero-write plans, backup/restore and capability-scoped skills pass in four compiler/VM cells. Public worker-provider lifetime remains a cutover limit. |
-| Phase 7 / Gate 7 | Qualification complete; reject/defer cutover 2026-08-24 | The recorded decision preceded the Phase-3 worker/provider integration and pristine hosted replay now accepted locally. Production-shaped same-session comparison, exact Linux and a new explicit cutover decision remain open, so native-v1 stays default. |
+| Phase 7 / Gate 7 | Qualification complete; application extension 2026-08-25; reject/defer cutover unchanged | Native human, canonical JSON and MCP provider smoke now make real budgeted calls using fixed public synthetic text and validate exact citations or embedding dimensions. The recorded decision preceded the now-accepted Phase-3 worker/provider integration and hosted replay. Production-shaped same-session comparison, exact Linux and a new explicit cutover decision remain open, so native-v1 stays default. |
 | Phase 8 | Opportunity report complete; Gate 8 not satisfied 2026-08-24 | Candidate, installed-adoption, compatibility, and retirement states are recorded. No submission, cutover, deletion, release, or push occurred or is implied. |
 
 ## Current Product Reality
@@ -173,8 +173,9 @@ generation-pinned online backup during a concurrent writer generation, atomic
 snapshot-folder publication, and fresh-folder restore. `P2-06` adds 16 bounded
 keyset repositories over pinned old/new semantic and operational snapshots,
 typed artifact/vector payloads, and lifecycle/orphan verification. Command
-contracts and the foundation facade are described below; live provider
-execution remains unimplemented.
+contracts and the foundation facade are described below. At the Phase-2 head,
+live provider execution was unimplemented; the current Phase-3 through Phase-7
+application path now owns it.
 
 `P2-07` freezes the closed 40-operation argv grammar, 11 stable exit identities,
 bounded typed result records, and `crexx-rag.command-result/1` human, JSON, and
@@ -186,8 +187,10 @@ init/status/verify/backup/restore/migrate, provider status/configuration-only
 test, and profile validation. Its access gates precede mutation, read paths
 retain identical database/manifest hashes, backup/restore reuse the pinned
 P2-05 path, and all provider diagnostics retain zero outbound calls and zero
-credential resolution. The current executable remains the native-v1 oracle;
-Phase-6 adapters have not been installed.
+credential resolution. That remains the exact Phase-2 evidence boundary. The
+current application overrides `provider.test` with an explicitly authorized,
+budgeted public-synthetic call and has installed Phase-6 adapters, while
+native-v1 remains the default oracle pending a new cutover decision.
 
 `P2-09` publishes workload/capability report version 1 and prepares the
 `rxsqlite-candidate`, `rxllm-candidate`, and

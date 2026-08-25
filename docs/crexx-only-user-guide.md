@@ -244,6 +244,7 @@ sole configured profile, so the Phase-3 workflow is simply:
 
 ```bash
 crexxrag provider status
+crexxrag provider test           # reviewed public-synthetic reachability check
 crexxrag provider login codex   # only when managed ChatGPT login is absent
 crexxrag init
 crexxrag ingest
@@ -257,10 +258,14 @@ do not put a bearer token in the config. Codex is a hosted route because source
 text leaves the machine. Local llama.cpp embedding remains local and uses the
 ordinary OpenAI-compatible `/embeddings` contract.
 
-The P2-08 provider test is deliberately configuration-only: local declarations
-can be validated without a request, while hosted tests report that a separately
-authorized canary is required. Neither path resolves a credential or claims
-provider reachability.
+The retained P2-08 foundation test is deliberately configuration-only. The
+current application dispatcher overrides that historical behavior for
+`provider test`: it shows a human plan, requires confirmation unless `--yes`
+is supplied, sends only fixed public synthetic text, and validates either the
+exact structured answer/citation or a 768-dimensional embedding. Configured
+call, token, cost, Codex-turn, allowance, timeout and retry ceilings apply.
+Successful smoke output proves bounded reachability at that moment, not
+performance, streaming, cancellation, connection reuse or cutover readiness.
 
 ## Plan And Run Initial Ingestion
 
@@ -725,7 +730,7 @@ its historical revision rather than silently pointing somewhere else.
 | `add-documents` wrapper | same incremental `ingest plan/apply` |
 | `run_background_improvement.sh` | durable `improve plan/apply` job |
 | flat `queue-status` and work commands | `job status/events` and `review` |
-| shell-held background process | target: supervised `worker run --once|--follow`; Phase-7 provider/embedding binding blocker remains |
+| shell-held background process | native `crexxrag` supervised OS-process workers with durable SQLite coordination and configured extraction/embedding dispatch; thread-attached native-provider discovery remains a CREXX infrastructure limit |
 | `library_search` | `knowledge_search` / `query search` |
 | `library_answer_evidence` | versioned `knowledge_evidence` / `query evidence` |
 | `external-extraction-review` low-level queue | normalized `proposal plan/apply` then review |

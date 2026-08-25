@@ -104,8 +104,10 @@ The retained native-v1 implementation first established the algorithm and is
 still the executable comparison oracle. The cREXX path now implements the
 schema-v3 store, incremental ingestion, claim/review/improvement policy, durable
 multi-process work, focused hybrid retrieval, typed evidence, and staged public
-surfaces. Phase 7 deliberately deferred production cutover until the remaining
-provider/worker integration and portability gates close.
+surfaces. Phase 7 deliberately deferred production cutover. Later application
+work closes provider/worker dispatch and gives ordinary users a real budgeted
+provider smoke command; production-shaped comparison, exact downstream Linux
+and a new explicit cutover decision remain open.
 
 The representative Scotland workload is not a toy fixture. It produced 5,977
 Stage-1 chunks, 6,358 distinct candidates, 20,697 mentions, more than 23,000
@@ -113,17 +115,17 @@ mention-evidence rows, 9,080 ranked chunks, and 11,684 embeddings at dimension
 768. These are capacity anchors and migration fixtures, not throughput promises
 for a different corpus, model, or implementation.
 
-> **Programme status, 2026-08-24:** Phase 2 and the Phase-3 reconciler through
-> Phase 6 are implemented and accepted for their recorded macOS component
-> scopes. Product ingestion acceptance has been reopened as Gate 3R so one
-> installed cREXX application must prove real Gemini ingestion end to end.
+> **Programme status, 2026-08-25:** Phase 2 through Phase 6 and Gate 3R are
+> implemented and accepted for their recorded macOS scopes. The native cREXX
+> application has proven real Gemini and Codex/local ingestion and query paths.
 > Phase 4 includes a literal
 > supervised eight-hour soak, and Phase 5 includes bounded hosted answer-quality
-> evidence. Phase 7 qualifies the corpora and external hosted generation and
-> embedding paths but rejects/defers cutover because cREXX hosted response
-> completion, the public worker/provider and embedding-item path,
-> production-shaped same-session evidence, and exact downstream Linux remain
-> open. Native-v1 remains the default oracle. Phase 8 is an opportunity and
+> evidence. Phase 7 qualifies the corpora and hosted generation/embedding paths
+> and now exposes a budgeted, exact-output provider smoke through human, JSON
+> and MCP surfaces. Its cutover remains rejected/deferred because
+> production-shaped same-session evidence, exact downstream Linux and a new
+> explicit cutover decision remain open. Native-v1 remains the default oracle.
+> Phase 8 is an opportunity and
 > readiness report, not a tutorial or authorization to donate, cut over, or
 > remove the oracle.
 
@@ -135,11 +137,11 @@ for a different corpus, model, or implementation.
 | Phase 1A / Gate 1A | Complete | cREXX application and generic-plugin boundaries selected; CRI-01 through CRI-14 closed downstream |
 | Phase 1B / Gate 1B | Accepted 2026-08-04 | 28 bounded items accepted; Debug/Release build; 55 of 56 tests pass with sole known CRI-15 failure |
 | Phase 2 / Gate 2 | Accepted on macOS 2026-08-23 | P2-01 through P2-10, installed-capability adoption, canonical zero-write planning, and hostile apply-time revalidation are accepted; exact downstream Linux replay remains open |
-| Phase 3 / Gate 3R | Product acceptance reopened 2026-08-24; reconciler accepted on macOS 2026-08-23 | Reuse the Level-G incremental reconciler, then prove one installed cREXX application performs real Gemini generation, embedding work, validated claim promotion and public evidence retrieval; Linux remains open |
+| Phase 3 / Gate 3R | Accepted on macOS, including provider addendum, 2026-08-25 | Native `crexxrag` performs provider-backed generation, embedding work, validated claim promotion, vector publication and public evidence retrieval with durable process workers; exact Linux remains open |
 | Phase 4 / Gate 4 | Accepted on macOS; application extension 2026-08-25 | Claim/support/review, budgeted improvement, crash recovery, two-process fencing and literal soak remain accepted; enduring `crexxrag improve`, immutable configured-provider inputs, permanent Gemini and bounded real Codex/Google improvement now pass; Linux remains open |
 | Phase 5 / Gate 5 | Accepted on macOS; application extension completed 2026-08-25 | Native `crexxrag query` performs compatible hybrid retrieval and optional citation-validated Codex/Gemini answers over the accepted planning/evidence algorithms; permanent negative QA, 9/9 judgements and both real provider routes pass. Linux, release and cutover remain open |
 | Phase 6 / Gate 6 | Accepted on macOS 2026-08-24 | Fresh installed Level-G CLI, ADDRESS RAG, MCP structured content, exact plan/apply, zero-write planning, backup/restore and four capability-scoped skills pass in four compiler/VM cells; no cutover is implied |
-| Phase 7 / Gate 7 | Qualification complete; cutover deferred 2026-08-24 | Corpus/lifecycle/surface gates and bounded external OpenAI generation/embedding pass; cREXX hosted completion, public worker/provider and embedding-item integration, full same-session production comparison, and Linux remain open, so native-v1 stays default |
+| Phase 7 / Gate 7 | Qualification complete; application extension 2026-08-25; cutover still deferred | Native human, JSON and MCP provider smoke validate configured generation/citations and embeddings under privacy/usage budgets; corpus/lifecycle/surface and real hosted routes pass on macOS. Production-shaped same-session comparison, exact Linux and a new cutover decision remain open, so native-v1 stays default |
 | Phase 8 | Opportunity report complete; Gate 8 not satisfied 2026-08-24 | Candidates, adopted CREXX capabilities, compatibility, and retirement readiness are assessed without submitting donations, cutting over, or deleting the oracle |
 
 The Gate-3R worktree now builds one linked cREXX application and a native
@@ -198,16 +200,15 @@ production claim:
   harness and uses serialized SQLite connections, but attached cREXX tasks
   still cannot discover that native provider (CRI-17), so the product retains
   controller-owned SQLite and process-based workers.
-- Phase-5 evidence qualifies deterministic hybrid retrieval and a bounded
-  hosted answer comparison. Phase 7 externally qualifies OpenAI structured
-  generation plus batch embedding, but the incubated cREXX adapter still loses
-  hosted response completion and therefore remains a cutover blocker.
-- The local OpenAI-compatible protocol is qualified against deterministic
-  fixtures, but a real `llama-server` deployment was unavailable.
+- Phase-5 evidence qualifies deterministic hybrid retrieval and bounded real
+  Codex/local plus Google answer routes. Phase 7 adds direct application smoke
+  calls with exact structured/citation and embedding validation; it does not
+  claim provider lifetime reuse, streaming or cancellation.
+- The local OpenAI-compatible protocol and a real llama.cpp embedding server
+  are qualified for the recorded macOS walkthrough.
 - The installed Level-G CLI/ADDRESS/MCP surfaces and public process lifecycle
-  exist, but `worker.run` is still `framework-idle`: it has no production
-  `.ragworkprovider` dispatch and ingestion extraction/embedding items have no
-  public processor. There is no dual-write, cutover, or native-core removal.
+  dispatch configured extraction and embedding work. There is no dual-write,
+  cutover, or native-core removal.
 
 ## Roadmap
 

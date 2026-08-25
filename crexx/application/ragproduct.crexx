@@ -50,6 +50,7 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "worker.drain" then return _workerdrain(request)
   if operation = "worker.prune" then return _workerprune(request)
   if operation = "provider.status" then return _providerstatus(request, registry)
+  if operation = "provider.test" then return _providertest(request, registry)
   if operation = "review.decide" then return _reviewdecision(request, 0)
   if operation = "ingest.apply" then return _ingestapply(request, registry)
   if operation = "improve.plan" then return _improveplan(request, registry)
@@ -102,6 +103,107 @@ _providerstatus: procedure = .ragcommandresult
   if records.0 = 0 then return _failure(operation, 5, "provider is not registered in the selected configuration")
   if unavailable = 1 then return .ragcommandresult(operation, "error", 8, "one or more selected providers are unavailable", records)
   return .ragcommandresult(operation, "ok", 0, "provider status inspected without a model request or credential disclosure", records)
+
+_providertest: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = "provider.test"; error = ""
+  if _options(request, "provider", error) \= 0 then return _failure(operation, 2, error)
+  if _hasaccess(request, "diagnose") \= 1 then return _failure(operation, 4, "provider test requires diagnose access")
+  lookup = registry.config(request.config_id())
+  if lookup.found() \= 1 then return _failure(operation, 5, "configuration is not registered")
+  requested = _option(request, "provider", error)
+  if error \= "" | requested = "" then return _failure(operation, 2, "provider test requires one --provider value")
+  config = lookup.config(); providers = config.providers(); provider_index = 0
+  do i = 1 to providers.0
+    if providers[i].provider_id() = requested then provider_index = i
+  end
+  if provider_index = 0 then return _failure(operation, 5, "provider is not registered in the selected configuration")
+  provider = providers[provider_index]
+  if queryrouteallowed(provider, "public") \= 1 then return _failure(operation, 4, "provider route does not permit the public synthetic smoke input")
+
+  embedding_planned = 0; answer_planned = 0; roles = config.roles()
+  do i = 1 to roles.0
+    if roles[i].provider_id() \= requested then iterate
+    if roles[i].role() = "embedding" then embedding_planned = 1
+    else answer_planned = 1
+  end
+  if embedding_planned + answer_planned = 0 then return _failure(operation, 5, "provider is not assigned to an application role")
+  if provider.kind() = "codex" & embedding_planned = 1 then return _failure(operation, 3, "Codex cannot be assigned to embedding generation")
+  missing = .ragproviderconfig("", "", "", "", "", "", .ragsecretref(), 0, 0)
+  embedding_provider = missing; answer_provider = missing
+  if embedding_planned = 1 then embedding_provider = provider
+  if answer_planned = 1 then answer_provider = provider
+  budget = config.budget()
+  if querypreflight(budget, embedding_provider, embedding_planned, answer_provider, answer_planned, error) \= 0 then return _failure(operation, 6, error)
+
+  tracer = .ragtracer(request.progress(), request.format()); records = .ragresultrecord[]
+  embedding_result = .providerresult(); answer_result = .providerresult()
+  embedding_called = 0; answer_called = 0; allowance_before = -1; allowance_after = -1
+  identity_seed = requested || "00"x || provider.kind() || "00"x || provider.model() || "00"x || time("us")
+  identity = "provider-smoke-" || substr(rxhash..sha256hex(identity_seed as .binary), 1, 32)
+  if embedding_planned = 1 then do
+    call tracer.emit("provider-test", "start", requested, "embedding generation with public synthetic input")
+    if generatequeryembedding(provider, "What does BillingService depend on?", "public", 768, identity || "-embed", embedding_result, error) \= 0 then do
+      call tracer.emit("provider-test", "failed", requested, "embedding output rejected")
+      return _failure(operation, 8, error)
+    end
+    embedding_called = 1
+    records[records.0 + 1] = _providersmokerecord(provider, "embedding-generation", embedding_result, 768, -1, -1)
+    call tracer.emit("provider-test", "complete", requested, "embedding dimension=768 validated")
+  end
+  if answer_planned = 1 then do
+    citation = "crexx-rag:provider-smoke:public-synthetic:revision-1:utf8-0-37"
+    context = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.answer-context/1") || "," || jsonquote("question") || ":" || jsonquote("What status does the provider smoke passage report?") || "," || jsonquote("evidence") || ":{" || jsonquote("passages") || ":[{" || jsonquote("citation") || ":{" || jsonquote("id") || ":" || jsonquote(citation) || "}," || jsonquote("text") || ":" || jsonquote("The provider smoke test is ready.") || "}]," || jsonquote("claims") || ":[]," || jsonquote("gaps") || ":[]}}"
+    maximum_output = budget.output_tokens(); if maximum_output > 128 then maximum_output = 128
+    call tracer.emit("provider-test", "start", requested, "structured generation with public synthetic input")
+    if generatequeryanswer(provider, context, "public", maximum_output, budget.minimum_codex_allowance_percent(), identity || "-answer", answer_result, allowance_before, allowance_after, error) \= 0 then do
+      call tracer.emit("provider-test", "failed", requested, "structured generation failed")
+      return _failure(operation, 8, error)
+    end
+    if _validsmokeanswer(answer_result.content(), citation, error) \= 0 then do
+      call tracer.emit("provider-test", "failed", requested, "structured output rejected")
+      return _failure(operation, 1, error)
+    end
+    answer_called = 1
+    records[records.0 + 1] = _providersmokerecord(provider, "structured-generation", answer_result, 0, allowance_before, allowance_after)
+    call tracer.emit("provider-test", "complete", requested, "answer schema and citation validated")
+  end
+  embedding_usage = embedding_result.usage(); answer_usage = answer_result.usage()
+  if queryusagewithin(budget, embedding_provider, embedding_usage, embedding_called, answer_provider, answer_usage, answer_called) \= 1 then return _failure(operation, 6, "provider smoke usage exceeded the configured token or cost ceiling, or monetary usage was unavailable")
+  return .ragcommandresult(operation, "ok", 0, "provider smoke test completed with validated public-synthetic output", records)
+
+_validsmokeanswer: procedure = .int
+  arg content = .string, expected_citation = .string, expose error = .string
+  error = ""; answer = ""; citation = ""; document = .jsondocument(content)
+  if document.valid() \= 1 | document.node_type(document.root()) \= "object" then do; error = "provider smoke answer is not a JSON object"; return -1; end
+  root = document.root()
+  if document.node_count(root) \= 2 then do; error = "provider smoke answer contains fields outside the exact schema"; return -1; end
+  if document.node_string(document.member(root, "answer"), answer) \= 0 | answer = "" | length(answer) > 8192 then do; error = "provider smoke answer text is invalid"; return -1; end
+  citations = document.member(root, "citations")
+  if document.node_type(citations) \= "array" | document.node_count(citations) \= 1 then do; error = "provider smoke answer must contain exactly one citation"; return -1; end
+  if document.node_string(document.element(citations, 1), citation) \= 0 | citation \= expected_citation then do; error = "provider smoke answer citation is not the supplied public synthetic citation"; return -1; end
+  return 0
+
+_providersmokerecord: procedure = .ragresultrecord
+  arg provider = .ragproviderconfig, operation = .string, result = .providerresult, dimension = .int, allowance_before = .int, allowance_after = .int
+  usage = result.usage(); fields = .ragresultfield[]
+  fields[1] = .ragresultfield("provider_id", "string", provider.provider_id())
+  fields[2] = .ragresultfield("kind", "string", provider.kind())
+  fields[3] = .ragresultfield("model", "string", provider.model())
+  fields[4] = .ragresultfield("operation", "string", operation)
+  fields[5] = .ragresultfield("route_class", "string", provider.route_class())
+  fields[6] = .ragresultfield("privacy", "string", "public-synthetic")
+  fields[7] = .ragresultfield("charging_basis", "string", provider.charging_basis())
+  fields[8] = .ragresultfield("state", "string", "validated")
+  fields[9] = .ragresultfield("input_tokens", "integer", usage.input_tokens())
+  fields[10] = .ragresultfield("output_tokens", "integer", usage.output_tokens())
+  fields[11] = .ragresultfield("attempts", "integer", usage.attempts())
+  fields[12] = .ragresultfield("latency_us", "integer", result.latency_us())
+  if dimension > 0 then fields[fields.0 + 1] = .ragresultfield("dimension", "integer", dimension)
+  if provider.charging_basis() = "monetary-api" & usage.cost_microunits() >= 0 then fields[fields.0 + 1] = .ragresultfield("estimated_cost_microunits", "integer", usage.cost_microunits())
+  if allowance_before >= 0 then fields[fields.0 + 1] = .ragresultfield("allowance_before_percent", "integer", allowance_before)
+  if allowance_after >= 0 then fields[fields.0 + 1] = .ragresultfield("allowance_after_percent", "integer", allowance_after)
+  return .ragresultrecord("provider-smoke", fields)
 
 _repository: procedure = .ragcommandresult
   arg request = .ragcommandrequest, operation = .string, repository = .string

@@ -520,24 +520,37 @@ and embedding-item execution are explicit Gate-7 limits.
 
 ## Phase 7 Acceptance
 
-The `phase7_qualification` target depends on the permanent Phase 3–6 targets,
+The `phase7_qualification` target depends on the permanent Phase 3–6 targets
+and `phase7_provider_smoke`,
 then audits the versioned P7-01 through P7-08 evidence and exact cutover
 decision. It is credential-free and therefore repeatable in ordinary CTest.
 
-The explicit non-CTest `phase7_hosted` target requires only
-`env:OPENAI_API_KEY`. Its external harness performs one structured generation
+CTest `p7r_01_provider_smoke` exercises the native application rather than an
+external provider harness. Deterministic Gemini loopbacks cover the guided
+human command (generation plus embedding), canonical JSON (one selected
+embedding provider), and MCP (advertisement, required argument, annotations
+and generation). The test requires exact answer/citation and 768-dimensional
+vector validation, proves configured zero-call denial occurs before outbound
+work, rejects aggregate guided-command usage above the reviewed ceiling, and
+rejects synthetic credential disclosure. Phase-6 four-cell MCP coverage also
+checks the new diagnose tool and annotations.
+
+The historical explicit non-CTest `phase7_hosted` target requires only
+`env:OPENAI_API_KEY`. Its external harness performed one structured generation
 and one two-input 128-dimensional batch embedding, for a two-call ceiling and
 one attempt per call. It retains usage/status metadata but no request/response
-bodies, headers, or credential values. `phase7_crexx_hosted_probe` separately
-reproduces the current cREXX response-completion failure and is expected to
-exit nonzero until that blocker is repaired.
+bodies, headers, or credential values. The retained
+`phase7_crexx_hosted_probe` records the decision-head response-completion
+failure; subsequent installed-CREXX and product-path evidence closes that
+macOS implementation finding. Current real hosted acceptance uses native
+`crexxrag provider test` and the Phase-3 through Phase-5 end-to-end walks, with
+Google always included when a hosted credential is available.
 
-Gate 7 selects reject/defer cutover. This is a completed negative production-
-selection result: cREXX hosted completion is unreliable, the public process
-lifecycle now exists but lacks a production worker provider, embedding work is
-not publicly drained,
-several production-shaped same-session measurements are absent, and exact Linux
-remains open. Native-v1 therefore remains the default oracle.
+Gate 7 selects reject/defer cutover. Later application evidence closes hosted
+completion, public provider dispatch, embedding drain and direct reachability
+testing for the recorded macOS scope. Several production-shaped same-session
+measurements, exact downstream Linux and a new explicit cutover decision remain
+absent. Native-v1 therefore remains the default oracle.
 
 ## Phase 8 Opportunity-Report Acceptance
 

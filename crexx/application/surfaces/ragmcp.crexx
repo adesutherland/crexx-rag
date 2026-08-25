@@ -64,6 +64,7 @@ _toolcommand: procedure = .int
   if tool = "rag_library_status" then do; noun = "library"; verb = "status"; end
   else if tool = "rag_library_verify" then do; noun = "library"; verb = "verify"; end
   else if tool = "rag_provider_diagnostics" then do; noun = "provider"; verb = "status"; end
+  else if tool = "rag_provider_test" then do; noun = "provider"; verb = "test"; end
   else if tool = "rag_source_list" then do; noun = "source"; verb = "list"; end
   else if tool = "rag_query_search" then do; noun = "query"; verb = "search"; end
   else if tool = "rag_query_evidence" then do; noun = "query"; verb = "evidence"; end
@@ -105,6 +106,7 @@ _toolcommand: procedure = .int
     if tool = "rag_job_cancel" then call _option document, arguments, "reason", "reason", output
   end
   if tool = "rag_ingest_plan" then call _option document, arguments, "source_set", "source-set", output
+  if tool = "rag_provider_test" then call _option document, arguments, "provider", "provider", output
   if tool = "rag_proposal_plan" then call _option document, arguments, "input_digest", "input-digest", output
   if tool = "rag_review_decide_preview" | tool = "rag_review_decide" then do
     if _positional(document, arguments, "id", output, error) \= 0 then return -1
@@ -145,7 +147,7 @@ _value: procedure = .string
 
 _toolcapability: procedure = .string
   arg tool = .string
-  if tool = "rag_library_verify" | tool = "rag_provider_diagnostics" then return "diagnose"
+  if tool = "rag_library_verify" | tool = "rag_provider_diagnostics" | tool = "rag_provider_test" then return "diagnose"
   if tool = "rag_ingest_plan" | tool = "rag_improve_plan" | tool = "rag_proposal_plan" | tool = "rag_review_list" | tool = "rag_review_decide_preview" then return "plan"
   if tool = "rag_job_pause" | tool = "rag_job_resume" | tool = "rag_job_cancel" | tool = "rag_worker_drain" then return "control"
   if tool = "rag_ingest_apply" then return "ingest"
@@ -168,6 +170,7 @@ _toollist: procedure = .string
   if _has(access, "diagnose") then do
     tools = _addtool(tools, "rag_library_verify", "Verify bundle and generation invariants", '{}', "true")
     tools = _addtool(tools, "rag_provider_diagnostics", "Read redacted provider route diagnostics; Codex allowance inspection may contact its hosted account service", '{}', "true", "true", "true")
+    tools = _addtool(tools, "rag_provider_test", "Make a budgeted provider call using only public synthetic text and validate the returned structure or embedding", '{"provider":{"type":"string"}}', "true", "true", "false")
   end
   if _has(access, "plan") then do
     tools = _addtool(tools, "rag_ingest_plan", "Plan ingestion without writing the library", '{"source_set":{"type":"string"}}', "true")
@@ -196,6 +199,7 @@ _addtool: procedure = .string
   required = "[]"
   if pos('"question"', properties) > 0 then required = '["question"]'
   if pos('"id"', properties) > 0 then required = '["id"]'
+  if pos('"provider"', properties) > 0 then required = '["provider"]'
   if pos('"plan_json"', properties) > 0 then required = '["plan_json","expect_digest"]'
   destructive = "true"
   if readonly = "true" then destructive = "false"
@@ -232,6 +236,7 @@ _toolargumentnames: procedure = .string
   if tool = "rag_job_status" | tool = "rag_job_events" | tool = "rag_job_pause" | tool = "rag_job_resume" | tool = "rag_worker_drain" then return "id"
   if tool = "rag_job_cancel" then return "id reason"
   if tool = "rag_ingest_plan" then return "source_set"
+  if tool = "rag_provider_test" then return "provider"
   if tool = "rag_proposal_plan" then return "input_digest"
   if tool = "rag_review_decide_preview" | tool = "rag_review_decide" then return "id decision"
   if tool = "rag_ingest_apply" | tool = "rag_improve_apply" | tool = "rag_proposal_apply" then return "plan_json expect_digest"
@@ -242,6 +247,7 @@ _toolrequiredarguments: procedure = .string
   if left(tool, 10) = "rag_query_" then return "question"
   if tool = "rag_job_status" | tool = "rag_job_events" | tool = "rag_job_pause" | tool = "rag_job_resume" | tool = "rag_job_cancel" | tool = "rag_worker_drain" then return "id"
   if tool = "rag_review_decide_preview" | tool = "rag_review_decide" then return "id"
+  if tool = "rag_provider_test" then return "provider"
   if tool = "rag_ingest_apply" | tool = "rag_improve_apply" | tool = "rag_proposal_apply" then return "plan_json expect_digest"
   return ""
 
