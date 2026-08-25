@@ -7,6 +7,7 @@ import ragconfig
 import ragconfigfile
 import ragproduct
 import ragproviderdiagnostics
+import ragmcp
 import operator_registry
 
 /* Human-first native CLI.  The short commands below only compose the shared
@@ -43,7 +44,7 @@ end
 
 command_args = _aliases(command_args, loaded_config, config_loaded, alias, source_set, worker_count, auto_confirm, error)
 if error \= "" then return _clierror("parse", "usage", error, 2)
-if (alias = "init" | alias = "guided-ingest" | alias = "guided-improve") & config_loaded = 0 & _hasglobal(command_args, "config") = 0 then return _clierror("config", "configuration", "no configuration selected; checked --config-file, CREXX_RAG_CONFIG, and ./crexx-rag.conf", 3)
+if (alias = "init" | alias = "guided-ingest" | alias = "guided-improve" | alias = "serve-mcp") & config_loaded = 0 & _hasglobal(command_args, "config") = 0 then return _clierror("config", "configuration", "no configuration selected; checked --config-file, CREXX_RAG_CONFIG, and ./crexx-rag.conf", 3)
 
 command_args = _defaults(command_args, loaded_config, config_loaded, alias)
 request = .ragcommandrequest
@@ -55,6 +56,7 @@ end
 
 if alias = "guided-ingest" then return _guidedingest(request, registry, source_set, worker_count, auto_confirm)
 if alias = "guided-improve" then return _guidedimprove(request, registry, worker_count, auto_confirm)
+if alias = "serve-mcp" then return _servemcp(request, registry)
 if alias = "provider-login" then do
   login_status = _ensurecodexlogin(registry, request.config_id())
   if login_status \= 0 then return login_status
@@ -81,6 +83,7 @@ _showhelp: procedure = .int
   say "  crexxrag provider status"
   say "  crexxrag provider login codex"
   say "  crexxrag doctor"
+  say "  crexxrag serve mcp"
   say ""
   say "The current directory defaults are ./crexx-rag.conf and ./library."
   say "Ingest and improve review privacy, providers and budget before starting workers."
@@ -94,6 +97,23 @@ _showhelp: procedure = .int
   say ""
   say "Automation uses canonical commands such as ingest plan, ingest apply,"
   say "worker start, job status, query evidence, query answer and library verify."
+  say "Agents can use the same local defaults through crexxrag serve mcp."
+  return 0
+
+_servemcp: procedure = .int
+  arg request = .ragcommandrequest, registry = .ragregistry
+  positionals = request.positionals(); command_options = request.command_options()
+  if positionals.0 > 0 | command_options.0 > 0 then return _clierror("serve.mcp", "usage", "serve mcp accepts only global options", 2)
+  if request.config_id() = "" | request.profile_id() = "" then return _clierror("serve.mcp", "configuration", "serve mcp requires a selected configuration and profile", 3)
+  access = request.access(); access_text = ""
+  do i = 1 to access.0
+    if access_text \= "" then access_text = access_text || ","
+    access_text = access_text || access[i]
+  end
+  do while lines("stdin") > 0
+    response = mcpdispatchwithregistry(linein("stdin"), request.library(), request.config_id(), request.profile_id(), access_text, registry)
+    if response \= "" then say response
+  end
   return 0
 
 _guidedingest: procedure = .int
@@ -375,6 +395,11 @@ _aliases: procedure = .string[]
     output[output.0 + 1] = "provider"; output[output.0 + 1] = "status"
     alias = "provider-login"
     return output
+  end
+  if noun = "serve" & noun_index < args.0 & args[noun_index + 1] = "mcp" then do
+    if noun_index + 1 \= args.0 then do; error = "serve mcp accepts only global options"; return args; end
+    alias = "serve-mcp"
+    return args
   end
   if noun = "improve" then do
     if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply") > 0 then return args

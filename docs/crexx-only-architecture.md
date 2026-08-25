@@ -727,6 +727,14 @@ transport-neutral `ragproduct` request/result facade and the CLI, ADDRESS RAG
 and MCP adapters described below; its retained proof is the
 [Phase-6 record](evidence/2026-08-24-phase6/README.md).
 
+The 2026-08-25 application extension links the MCP adapter into the enduring
+native executable as `crexxrag serve mcp`, carries local config discovery into
+that surface, and lets `ADDRESS RAG` bind the same file atomically. MCP runtime
+validation now enforces its closed argument schemas. Provider-capable query
+tools advertise library-read-only but open-world/non-idempotent behavior;
+explicit lexical mode remains zero-outbound. The retained proof is the
+[Phase-6 application record](evidence/2026-08-25-phase6-application/README.md).
+
 The Phase-1B scratch algorithm profile preserves semantic parity but crosses
 the provisional 10,000-us trigger for 2,000 fixture fingerprint/chunk
 operations on both VMs. This is a recorded production-boundary limitation, not
@@ -819,6 +827,11 @@ be used for external processes when a provider helper genuinely requires one;
 source or prompt text must not be interpolated into shell commands.
 
 ### MCP and skills
+
+The human application starts the adapter with `crexxrag serve mcp`; the
+standalone compiled `ragmcp` module remains an automation/package entry point.
+Both fix the selected library/config/profile/access projection for the server
+session and call the same dispatcher.
 
 Read-only startup advertises status, source, search, evidence/optional answer,
 path/trace/timeline, and job-status/events tools. A separate non-mutating `plan`

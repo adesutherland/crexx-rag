@@ -159,6 +159,14 @@ ADDRESS redirection, and `ragmcp` owns strict JSON-RPC/tool translation plus
 the operation. Read and plan open SQLite read-only, and MCP never exposes raw
 SQL or raw entity/edge mutation.
 
+The native CLI links `ragmcp` and handles `crexxrag serve mcp` as a transport
+loop, so local config discovery and the enduring executable name also apply to
+agents. `ADDRESS RAG` can bind the same text config atomically; a failed open
+does not replace its previous session. MCP validates actual argument members
+and types, not only its advertised schema. Query tools are read-only but
+open-world/non-idempotent when an embedding or answer provider may be called;
+explicit lexical mode is the zero-outbound route.
+
 The Gate-3R product slice now dispatches `worker.run` to
 `application-ingestion-v1`. `ragapplicationprovider` selects the configured
 Gemini, OpenAI, OpenAI-compatible, Anthropic or Codex provider kind, then maps
@@ -300,4 +308,8 @@ CTest `phase6_surfaces` compiles every application/public adapter optimized and
 non-optimized, runs both concrete VMs, and creates a fresh bundle per cell. It
 proves exact reviewed ingest, read/plan database+manifest hash stability,
 evidence query, CLI/ADDRESS/MCP library-identity equality, strict MCP requests,
+truthful provider-call annotations, atomic ADDRESS config-file binding,
 capability denial, deprecation, backup/restore, and all four skill manifests.
+`p6r_01_native_surfaces` additionally drives two-worker Gemini ingestion and a
+cited answer through the native `crexxrag serve mcp` command, then proves an
+explicit lexical call is zero-outbound and verifies the library.

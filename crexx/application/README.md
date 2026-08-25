@@ -202,9 +202,12 @@ The human CLI selects an explicit `--config-file` first, then
 `CREXX_RAG_CONFIG`, then `./crexx-rag.conf`. Stateful commands default to
 `./library`; a sole configured profile is selected automatically. The enduring
 short flow is therefore `crexxrag init`, `crexxrag ingest`, `crexxrag improve`,
-and `crexxrag query '<question>'`. Canonical nouns/verbs and JSON/NDJSON remain
-available for scripts and agents. MCP loads one operator-selected file at
-startup and tools cannot replace it.
+and `crexxrag query '<question>'`. `crexxrag serve mcp` carries those same local
+defaults into the agent surface; canonical nouns/verbs and JSON/NDJSON remain
+available for scripts. MCP fixes one operator-selected configuration at startup
+and tools cannot replace it. Provider-capable query tools remain read-only for
+the library but advertise open-world, non-idempotent use because they can
+consume compute, API budget, or subscription allowance.
 
 The compiled consumers are
 `crexx/application/tests/p2_01_contract_consumer.crexx` and
@@ -252,7 +255,9 @@ tutorial is `crexx/tutorials/phase5_retrieval_scenario.crexx`.
 negative provider cases; `p5r_02_query_policy` covers every query privacy and
 budget ceiling in four compiler/runtime cells.
 Phase-6 public binding coverage is `p6_02_address_scenario.crexx` and
-`p6_03_mcp_scenario.crexx`; the installed human/agent walkthrough is
+`p6_03_mcp_scenario.crexx`; `p6r_01_native_surfaces` proves the unified native
+MCP command with provider-backed query, lexical zero-call mode, strict argument
+schemas and post-query integrity. The installed human/agent walkthrough is
 `docs/tutorials/phase-6-surfaces.md`.
 
 `ragstore` uses a directory bundle containing `library.sqlite` and the

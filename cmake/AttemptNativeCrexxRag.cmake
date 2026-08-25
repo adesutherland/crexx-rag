@@ -15,6 +15,7 @@ set(provider_modules
 set(config_modules
     architecture_local_config generic_profile it_architecture_profile
     operator_registry)
+set(surface_modules ragmcp)
 
 set(sdk_prefix "${CPRAG_OUTPUT_DIR}/sdk")
 set(package_dir "${CPRAG_OUTPUT_DIR}/package")
@@ -35,7 +36,7 @@ configure_file("${CPRAG_APPLICATION_DIR}/crexx_rag_cli.rxbin"
     "${package_dir}/crexx-rag.rxbin" COPYONLY)
 
 set(native_libraries)
-foreach(module IN LISTS provider_modules app_modules config_modules)
+foreach(module IN LISTS provider_modules app_modules config_modules surface_modules)
     list(APPEND native_libraries
         -l "${CPRAG_APPLICATION_DIR}/${module}.rxbin")
 endforeach()

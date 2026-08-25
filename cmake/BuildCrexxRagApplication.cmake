@@ -61,10 +61,12 @@ compile_module("${CPRAG_APP_DIR}/config/profiles/it_architecture_profile.crexx"
     it_architecture_profile)
 compile_module("${CPRAG_APP_DIR}/config/operator_registry.crexx"
     operator_registry)
+compile_module("${CPRAG_APP_DIR}/surfaces/ragmcp.crexx" ragmcp)
 compile_module("${CPRAG_APP_DIR}/surfaces/crexx_rag_cli.crexx" crexx_rag_cli)
 
 set(link_inputs
-    "${CPRAG_OUTPUT_DIR}/crexx_rag_cli.rxbin")
+    "${CPRAG_OUTPUT_DIR}/crexx_rag_cli.rxbin"
+    "${CPRAG_OUTPUT_DIR}/ragmcp.rxbin")
 foreach(module IN LISTS provider_modules)
     list(APPEND link_inputs "${CPRAG_OUTPUT_DIR}/${module}.rxbin")
 endforeach()

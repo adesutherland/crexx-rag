@@ -200,6 +200,7 @@ if(CPRAG_BUILD_CREXX_APPLICATION AND CREXX_FOUND AND
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/profiles/generic_profile.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/profiles/it_architecture_profile.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/operator_registry.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/surfaces/ragmcp.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/surfaces/crexx_rag_cli.crexx")
     add_custom_command(
         OUTPUT "${CPRAG_CREXX_APPLICATION_RXBIN}"
@@ -404,6 +405,18 @@ if(CPRAG_BUILD_CREXX_APPLICATION AND CREXX_FOUND AND
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P5R02QueryPolicy.cmake")
         set_tests_properties(p5r_02_query_policy PROPERTIES
             LABELS "P5R-02;phase5r;crexx;levelg;query;privacy;budget;codex;dual-vm;zero-outbound")
+
+        add_test(
+            NAME p6r_01_native_surfaces
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_NATIVE_APPLICATION=${CMAKE_BINARY_DIR}/crexx-native-attempt/package/crexxrag${CMAKE_EXECUTABLE_SUFFIX}"
+                "-DCPRAG_LOOPBACK=$<TARGET_FILE:p1a_provider_loopback>"
+                "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/phase5/gemini-query-loopback.conf.in"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p6r-01-native-surfaces"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P6R01NativeSurfaces.cmake")
+        set_tests_properties(p6r_01_native_surfaces PROPERTIES
+            TIMEOUT 300
+            LABELS "P6R-01;phase6r;crexx;levelg;application;native;human;mcp;structured-content;gemini;query;answer;citation;annotations;strict-json;config;zero-outbound")
     endif()
 
     install(FILES "${CPRAG_CREXX_APPLICATION_RXBIN}"
@@ -1849,6 +1862,8 @@ if(CPRAG_BUILD_TESTS)
             "-DCPRAG_MCP_SCENARIO=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p6_03_mcp_scenario.crexx"
             "-DCPRAG_CONFIG_FIXTURE=${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/google-gemini.conf"
             "-DCPRAG_TUTORIAL_FIXTURE=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/tutorial/architecture-mini"
+            "-DCPRAG_HUMAN_TUTORIAL=${CMAKE_CURRENT_LIST_DIR}/docs/tutorials/phase-6-surfaces.md"
+            "-DCPRAG_HUMAN_TUTORIAL_DIR=${CMAKE_CURRENT_LIST_DIR}/docs/tutorials/phase-6-surfaces"
             "-DCPRAG_SKILLS_DIR=${CMAKE_CURRENT_LIST_DIR}/skills"
             "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/phase6-surfaces"
             -P "${CMAKE_CURRENT_LIST_DIR}/cmake/Phase6Surfaces.cmake")

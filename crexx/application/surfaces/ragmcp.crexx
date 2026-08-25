@@ -33,12 +33,14 @@ mcpdispatchwithregistry: procedure = .string
   if method_name \= "tools/call" then return _error(id_json, -32601, "method not found")
   params = document.member(root, "params")
   if document.node_type(params) \= "object" then return _error(id_json, -32602, "params must be an object")
+  error = ""
+  if _objectmembers(document, params, "name arguments _meta", error) \= 0 then return _error(id_json, -32602, error)
   tool = ""
   if document.node_string(document.member(params, "name"), tool) \= 0 then return _error(id_json, -32602, "tool name must be a string")
   arguments = document.member(params, "arguments")
-  if arguments = 0 then arguments = document.root()
-  else if document.node_type(arguments) \= "object" then return _error(id_json, -32602, "tool arguments must be an object")
-  command_args = .string[]; error = ""
+  if arguments \= 0 & document.node_type(arguments) \= "object" then return _error(id_json, -32602, "tool arguments must be an object")
+  if _toolargumentsvalid(tool, document, arguments, error) \= 0 then return _error(id_json, -32602, error)
+  command_args = .string[]
   if _toolcommand(tool, document, arguments, library, config, profile, access, command_args, error) \= 0 then return _error(id_json, -32602, error)
   request = .ragcommandrequest
   if parsecommand(command_args, request, error) \= 0 then return _error(id_json, -32602, error)
@@ -133,6 +135,7 @@ _option: procedure = .void
 
 _value: procedure = .string
   arg document = .jsondocument, arguments = .int, name = .string
+  if arguments = 0 then return ""
   node = document.member(arguments, name)
   if node = 0 then return ""
   kind = document.node_type(node)
@@ -154,17 +157,17 @@ _toollist: procedure = .string
   tools = ""
   tools = _addtool(tools, "rag_library_status", "Read bounded library status", '{}', "true")
   tools = _addtool(tools, "rag_source_list", "List sources with cursor-bounded records", '{"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100}}', "true")
-  tools = _addtool(tools, "rag_query_search", "Search and return typed evidence", _queryproperties(), "true")
-  tools = _addtool(tools, "rag_query_evidence", "Return an LLM-ready typed evidence packet", _queryproperties(), "true")
-  tools = _addtool(tools, "rag_query_answer", "Return evidence and an optional generated answer", _queryproperties(), "true")
-  tools = _addtool(tools, "rag_query_trace", "Return the bounded query trace", _queryproperties(), "true")
-  tools = _addtool(tools, "rag_query_path", "Return bounded typed paths for a question", _queryproperties(), "true")
-  tools = _addtool(tools, "rag_query_timeline", "Return bounded evidence timeline for a question", _queryproperties(), "true")
+  tools = _addtool(tools, "rag_query_search", "Search and return typed evidence; configured auto or hybrid mode may call an embedding provider", _queryproperties(), "true", "true", "false")
+  tools = _addtool(tools, "rag_query_evidence", "Return an LLM-ready typed evidence packet; configured auto or hybrid mode may call an embedding provider", _queryproperties(), "true", "true", "false")
+  tools = _addtool(tools, "rag_query_answer", "Return evidence and an optional provider-generated, citation-validated answer", _queryproperties(), "true", "true", "false")
+  tools = _addtool(tools, "rag_query_trace", "Return the bounded query trace; configured auto or hybrid mode may call an embedding provider", _queryproperties(), "true", "true", "false")
+  tools = _addtool(tools, "rag_query_path", "Return bounded typed paths; configured auto or hybrid mode may call an embedding provider", _queryproperties(), "true", "true", "false")
+  tools = _addtool(tools, "rag_query_timeline", "Return a bounded evidence timeline; configured auto or hybrid mode may call an embedding provider", _queryproperties(), "true", "true", "false")
   tools = _addtool(tools, "rag_job_status", "Read one durable job status", '{"id":{"type":"string"}}', "true")
   tools = _addtool(tools, "rag_job_events", "Read bounded durable job events", '{"id":{"type":"string"}}', "true")
   if _has(access, "diagnose") then do
     tools = _addtool(tools, "rag_library_verify", "Verify bundle and generation invariants", '{}', "true")
-    tools = _addtool(tools, "rag_provider_diagnostics", "Read redacted provider route diagnostics", '{}', "true")
+    tools = _addtool(tools, "rag_provider_diagnostics", "Read redacted provider route diagnostics; Codex allowance inspection may contact its hosted account service", '{}', "true", "true", "true")
   end
   if _has(access, "plan") then do
     tools = _addtool(tools, "rag_ingest_plan", "Plan ingestion without writing the library", '{"source_set":{"type":"string"}}', "true")
@@ -188,15 +191,70 @@ _toollist: procedure = .string
   return tools
 
 _addtool: procedure = .string
-  arg tools = .string, name = .string, description = .string, properties = .string, readonly = .string
+  arg tools = .string, name = .string, description = .string, properties = .string, readonly = .string, openworld = "false", idempotent = ""
   if tools \= "" then tools = tools || ","
   required = "[]"
   if pos('"question"', properties) > 0 then required = '["question"]'
   if pos('"id"', properties) > 0 then required = '["id"]'
   if pos('"plan_json"', properties) > 0 then required = '["plan_json","expect_digest"]'
-  destructive = "true"; idempotent = "false"
-  if readonly = "true" then do; destructive = "false"; idempotent = "true"; end
-  return tools || '{"name":' || jsonquote(name) || ',"description":' || jsonquote(description) || ',"inputSchema":{"type":"object","properties":' || properties || ',"required":' || required || ',"additionalProperties":false},"outputSchema":{"type":"object","required":["schema","operation","status","exit_code","records"]},"annotations":{"readOnlyHint":' || readonly || ',"destructiveHint":' || destructive || ',"idempotentHint":' || idempotent || ',"openWorldHint":false}}'
+  destructive = "true"
+  if readonly = "true" then destructive = "false"
+  if idempotent = "" then do; idempotent = "false"; if readonly = "true" then idempotent = "true"; end
+  return tools || '{"name":' || jsonquote(name) || ',"description":' || jsonquote(description) || ',"inputSchema":{"type":"object","properties":' || properties || ',"required":' || required || ',"additionalProperties":false},"outputSchema":{"type":"object","required":["schema","operation","status","exit_code","records"]},"annotations":{"readOnlyHint":' || readonly || ',"destructiveHint":' || destructive || ',"idempotentHint":' || idempotent || ',"openWorldHint":' || openworld || '}}'
+
+_toolargumentsvalid: procedure = .int
+  arg tool = .string, document = .jsondocument, arguments = .int, expose error = .string
+  error = ""; allowed = _toolargumentnames(tool); required = _toolrequiredarguments(tool)
+  if arguments = 0 then do
+    if required \= "" then do; error = "tool requires argument " || word(required, 1); return -1; end
+    return 0
+  end
+  if _objectmembers(document, arguments, allowed, error) \= 0 then return -1
+  children = .int[]; ignored = document.children(arguments, children)
+  do i = 1 to children.0
+    name = document.node_name(children[i]); kind = document.node_type(children[i])
+    if wordpos(name, "limit hops") > 0 then do
+      integer_value = 0
+      if kind \= "number" | document.node_int(children[i], integer_value) \= 0 then do; error = "tool argument " || name || " must be an integer"; return -1; end
+    end
+    else if kind \= "string" then do; error = "tool argument " || name || " must be a string"; return -1; end
+  end
+  do i = 1 to words(required)
+    name = word(required, i); value = ""
+    if document.node_string(document.member(arguments, name), value) \= 0 | value = "" then do; error = "tool requires argument " || name; return -1; end
+  end
+  return 0
+
+_toolargumentnames: procedure = .string
+  arg tool = .string
+  if left(tool, 10) = "rag_query_" then return "question limit hops mode"
+  if tool = "rag_source_list" | tool = "rag_review_list" then return "cursor limit"
+  if tool = "rag_job_status" | tool = "rag_job_events" | tool = "rag_job_pause" | tool = "rag_job_resume" | tool = "rag_worker_drain" then return "id"
+  if tool = "rag_job_cancel" then return "id reason"
+  if tool = "rag_ingest_plan" then return "source_set"
+  if tool = "rag_proposal_plan" then return "input_digest"
+  if tool = "rag_review_decide_preview" | tool = "rag_review_decide" then return "id decision"
+  if tool = "rag_ingest_apply" | tool = "rag_improve_apply" | tool = "rag_proposal_apply" then return "plan_json expect_digest"
+  return ""
+
+_toolrequiredarguments: procedure = .string
+  arg tool = .string
+  if left(tool, 10) = "rag_query_" then return "question"
+  if tool = "rag_job_status" | tool = "rag_job_events" | tool = "rag_job_pause" | tool = "rag_job_resume" | tool = "rag_job_cancel" | tool = "rag_worker_drain" then return "id"
+  if tool = "rag_review_decide_preview" | tool = "rag_review_decide" then return "id"
+  if tool = "rag_ingest_apply" | tool = "rag_improve_apply" | tool = "rag_proposal_apply" then return "plan_json expect_digest"
+  return ""
+
+_objectmembers: procedure = .int
+  arg document = .jsondocument, node = .int, allowed = .string, expose error = .string
+  children = .int[]; ignored = document.children(node, children); seen = ""
+  do i = 1 to children.0
+    name = document.node_name(children[i])
+    if wordpos(name, allowed) = 0 then do; error = "unknown object member " || name; return -1; end
+    if wordpos(name, seen) > 0 then do; error = "duplicate object member " || name; return -1; end
+    seen = seen || " " || name
+  end
+  return 0
 
 _queryproperties: procedure = .string
   return '{"question":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":12},"hops":{"type":"integer","minimum":0,"maximum":4},"mode":{"type":"string","enum":["auto","lexical","hybrid"]}}'

@@ -5,6 +5,9 @@ namespace _rxsysb expose ragaddressenvironment
 import _rxsysb
 import rxfnsb
 import ragcommand
+import ragconfig
+import ragconfigfile
+import ragregistry
 import ragproduct
 import operator_registry
 
@@ -16,6 +19,8 @@ ragaddressenvironment: class implements .addressenvironment .addressinstance .ad
   _profile = .string
   _access = .string
   _format = .string
+  _config_file = .string
+  _registry = .ragregistry
 
   *: match
     arg env_name = .string
@@ -26,6 +31,7 @@ ragaddressenvironment: class implements .addressenvironment .addressinstance .ad
     arg env_name = .string
     _environment_name = "RAG"; _environment_id = "rexx:RAG"
     _library = ""; _config = ""; _profile = ""; _access = "read"; _format = "json"
+    _config_file = ""; _registry = operatorregistry()
     return
 
   bind_environment: method = .void
@@ -52,11 +58,12 @@ ragaddressenvironment: class implements .addressenvironment .addressinstance .ad
       fields[2] = .ragresultfield("config_id", "string", _config)
       fields[3] = .ragresultfield("profile_id", "string", _profile)
       fields[4] = .ragresultfield("access", "string", _access)
+      fields[5] = .ragresultfield("config_file", "string", _config_file)
       records = .ragresultrecord[]; records[1] = .ragresultrecord("address-session", fields)
       return _addresscomplete(request, .ragcommandresult("library.open", "ok", 0, "ADDRESS RAG session bound", records), target)
     end
     if args.0 = 2 & upper(args[1]) = "LIBRARY" & upper(args[2]) = "CLOSE" then do
-      _library = ""; _config = ""; _profile = ""; _access = "read"; _format = "json"
+      _library = ""; _config = ""; _profile = ""; _access = "read"; _format = "json"; _config_file = ""; _registry = operatorregistry()
       records = .ragresultrecord[]
       return _addresscomplete(request, .ragcommandresult("library.close", "ok", 0, "ADDRESS RAG session released", records), target)
     end
@@ -64,7 +71,7 @@ ragaddressenvironment: class implements .addressenvironment .addressinstance .ad
     cli_args = _sessionargs(args)
     parsed = .ragcommandrequest
     if parsecommand(cli_args, parsed, error) \= 0 then return _addressfailure(error)
-    return _addresscomplete(request, dispatchproduct(parsed, operatorregistry()), target)
+    return _addresscomplete(request, dispatchproduct(parsed, _registry), target)
 
   invoke: method = .addressfunctionresponse
     arg request = .addressfunctionrequest
@@ -78,7 +85,7 @@ ragaddressenvironment: class implements .addressenvironment .addressinstance .ad
     end
     parsed = .ragcommandrequest; error = ""
     if parsecommand(args, parsed, error) \= 0 then return .addressfunctionresponse(2, error, "FAILURE")
-    result = dispatchproduct(parsed, operatorregistry()); output = ""
+    result = dispatchproduct(parsed, _registry); output = ""
     if rendercommandresult(result, "json", output, error) \= 0 then return .addressfunctionresponse(10, error, "FAILURE")
     condition = ""
     if result.exit_code() \= 0 then condition = "FAILURE"
@@ -87,31 +94,49 @@ ragaddressenvironment: class implements .addressenvironment .addressinstance .ad
   _openargs: method = .int
     arg args = .string[], expose error = .string
     if args.0 < 3 then do; error = "LIBRARY OPEN requires a path"; return -1; end
-    library = args[3]; config = ""; profile = ""; access = "read"; format = "json"; index = 4
+    library = args[3]; config = ""; profile = ""; config_file = ""; access = "read"; format = "json"; index = 4
     do while index <= args.0
       if index = args.0 then do; error = "LIBRARY OPEN option requires a value"; return -1; end
       name = lower(args[index]); value = args[index + 1]
       if name = "--config" then config = value
+      else if name = "--config-file" then config_file = value
       else if name = "--profile" then profile = value
       else if name = "--access" then access = value
       else if name = "--format" then format = value
       else do; error = "unknown LIBRARY OPEN option " || args[index]; return -1; end
       index = index + 2
     end
-    if library = "" | config = "" | profile = "" then do; error = "LIBRARY OPEN requires a path, --config, and --profile"; return -1; end
+    selected_registry = operatorregistry()
+    if config_file \= "" then do
+      loaded_config = .ragconfig
+      if loadconfigfile(config_file, loaded_config, error) \= 0 then return -1
+      if config \= "" & config \= loaded_config.config_id() then do; error = "--config does not match config.id in --config-file"; return -1; end
+      config = loaded_config.config_id(); selected_registry = operatorregistryforconfig(loaded_config)
+      if selected_registry.valid() \= 1 then do; error = "loaded configuration references an unregistered profile"; return -1; end
+      if profile = "" then do
+        profile_ids = loaded_config.profile_ids()
+        if profile_ids.0 = 1 then profile = profile_ids[1]
+      end
+    end
+    if library = "" | config = "" | profile = "" then do; error = "LIBRARY OPEN requires a path, a configuration, and a profile"; return -1; end
+    config_lookup = selected_registry.config(config)
+    if config_lookup.found() \= 1 then do; error = "LIBRARY OPEN configuration is not registered"; return -1; end
+    profile_lookup = selected_registry.profile(profile)
+    if profile_lookup.found() \= 1 then do; error = "LIBRARY OPEN profile is not registered"; return -1; end
     if wordpos(access, "read plan ingest control curate diagnose admin") = 0 then do; error = "LIBRARY OPEN access is invalid"; return -1; end
     if format \= "json" & format \= "ndjson" & format \= "human" then do; error = "LIBRARY OPEN format is invalid"; return -1; end
-    _library = library; _config = config; _profile = profile; _access = access; _format = format
+    _library = library; _config = config; _profile = profile; _config_file = config_file; _access = access; _format = format; _registry = selected_registry
     return 0
 
   _sessionargs: method = .string[]
     arg args = .string[]
     output = .string[]
-    output[1] = "--library"; output[2] = _library
-    output[3] = "--config"; output[4] = _config
-    output[5] = "--profile"; output[6] = _profile
-    output[7] = "--format"; output[8] = _format
-    output[9] = "--access"; output[10] = _access
+    output[output.0 + 1] = "--library"; output[output.0 + 1] = _library
+    output[output.0 + 1] = "--config"; output[output.0 + 1] = _config
+    if _config_file \= "" then do; output[output.0 + 1] = "--config-file"; output[output.0 + 1] = _config_file; end
+    output[output.0 + 1] = "--profile"; output[output.0 + 1] = _profile
+    output[output.0 + 1] = "--format"; output[output.0 + 1] = _format
+    output[output.0 + 1] = "--access"; output[output.0 + 1] = _access
     do i = 1 to args.0
       value = args[i]
       if i <= 2 then value = lower(value)

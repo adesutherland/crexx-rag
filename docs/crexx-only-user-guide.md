@@ -628,23 +628,28 @@ dispatcher and CLI.
 
 ## Use From An LLM Agent
 
-Start the installed compiled cREXX MCP adapter read-only for question answering
-as shown in the [Phase-6 tutorial](tutorials/phase-6-surfaces.md). Its logical
-arguments are:
+Start the same native product read-only for question answering as shown in the
+[Phase-6 tutorial](tutorials/phase-6-surfaces.md):
 
 ```bash
-ragmcp \
-  --library ./architecture.cprag \
-  --config architecture-local \
-  --profile it-architecture-profile \
-  --access read
+crexxrag serve mcp
 ```
+
+It discovers `./crexx-rag.conf`, uses `./library`, and selects a sole profile
+just like the human commands. Global `--config-file`, `--library`, `--profile`,
+and `--access` remain available when an operator needs explicit selection.
 
 Read-only mode exposes status, sources, search, evidence/optional answer,
 trace/path/timeline, and job status/events. A separately enabled non-mutating plan
 capability may expose ingestion, improvement, and proposal plans plus review
 listing. It does not advertise apply/decision/job-control mutations, raw SQL, or
 raw graph edits.
+
+Provider-capable query tools are correctly annotated read-only, open-world and
+non-idempotent: they never write the library, but may consume configured local
+compute, monetary API budget, or subscription allowance. Use explicit lexical
+mode for a zero-outbound agent query. Runtime validation rejects unknown,
+duplicate and incorrectly typed tool arguments.
 
 Use [`../prompts/crexx-rag-agent-AGENTS.md`](../prompts/crexx-rag-agent-AGENTS.md)
 as the generic agent instruction file. Grant write capability only for an

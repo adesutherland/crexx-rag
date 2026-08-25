@@ -499,8 +499,17 @@ zero-write ingest/improve/proposal planning, denied mutation without the named
 capability, a machine-readable one-release deprecation alias, pinned backup and
 fresh-target restore, and semantic equality across CLI, ADDRESS RAG, and MCP
 `structuredContent`. The MCP server advertises only capability-authorized
-tools, never raw SQL or graph mutation. Four narrow skill manifests are parsed
-and checked against the versioned skill-manifest schema.
+tools, never raw SQL or graph mutation. It also rejects unknown, duplicate and
+wrongly typed arguments, checks provider-call annotations, and proves failed
+ADDRESS config opens are atomic. Four narrow skill manifests are parsed and
+checked against the versioned skill-manifest schema.
+
+CTest `p6r_01_native_surfaces` is the focused application proof. A native
+`crexxrag` instance initializes and ingests with two Gemini loopback workers,
+then its built-in `serve mcp` route returns a citation-validated structured
+answer, an explicit lexical zero-call packet, truthful annotations, and a
+strict unknown-argument error. It checks the synthetic credential is absent
+from output and verifies the final library.
 
 The install proof stages application/provider sources, the downstream SQLite
 boundary, tutorial fixtures, skills, and compile helper under a scratch prefix.

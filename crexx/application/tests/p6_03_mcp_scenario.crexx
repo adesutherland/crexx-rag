@@ -17,6 +17,10 @@ main: procedure = .int
 
   read_tools = mcpdispatch('{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}', library, "architecture-local", "generic-profile", "read")
   if pos('"rag_query_evidence"', read_tools) = 0 | pos('"rag_ingest_apply"', read_tools) > 0 | pos('"rag_library_verify"', read_tools) > 0 then return 11
+  query_tool = _tooljson(read_tools, "rag_query_answer")
+  if pos('"readOnlyHint":true', query_tool) = 0 | pos('"destructiveHint":false', query_tool) = 0 | pos('"idempotentHint":false', query_tool) = 0 | pos('"openWorldHint":true', query_tool) = 0 then return 21
+  status_tool = _tooljson(read_tools, "rag_library_status")
+  if pos('"readOnlyHint":true', status_tool) = 0 | pos('"idempotentHint":true', status_tool) = 0 | pos('"openWorldHint":false', status_tool) = 0 then return 22
   plan_tools = mcpdispatch('{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}', library, "architecture-local", "generic-profile", "plan")
   if pos('"rag_ingest_plan"', plan_tools) = 0 | pos('"rag_ingest_apply"', plan_tools) > 0 then return 12
   diagnose_tools = mcpdispatch('{"jsonrpc":"2.0","id":3,"method":"tools/list","params":{}}', library, "architecture-local", "generic-profile", "diagnose")
@@ -39,8 +43,22 @@ main: procedure = .int
   if pos('"code":-32602', denied) = 0 | pos("not advertised", denied) = 0 then return 17
   malformed = mcpdispatch('{not-json', library, "architecture-local", "generic-profile", "read")
   if pos('"code":-32700', malformed) = 0 then return 18
+  unknown_argument = mcpdispatch('{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"rag_library_status","arguments":{"surprise":1}}}', library, "architecture-local", "generic-profile", "read")
+  if pos('"code":-32602', unknown_argument) = 0 | pos("unknown object member surprise", unknown_argument) = 0 then return 23
+  wrong_type = mcpdispatch('{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"rag_query_evidence","arguments":{"question":"Which component reads ADX?","limit":"5"}}}', library, "architecture-local", "generic-profile", "read")
+  if pos('"code":-32602', wrong_type) = 0 | pos("limit must be an integer", wrong_type) = 0 then return 24
+  duplicate_argument = mcpdispatch('{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"rag_query_evidence","arguments":{"question":"one","question":"two"}}}', library, "architecture-local", "generic-profile", "read")
+  if pos('"code":-32602', duplicate_argument) = 0 | pos("duplicate object member question", duplicate_argument) = 0 then return 25
 
   db_after = rxhash..sha256filehex(database); manifest_after = rxhash..sha256filehex(manifest)
   if db_before \= db_after | manifest_before \= manifest_after then return 19
-  say "P6_MCP_OK library_id=" || library_id || " read_plan_zero_write=1 structured_content=1 capability_denial=1 strict_json=1"
+  say "P6_MCP_OK library_id=" || library_id || " read_plan_zero_write=1 structured_content=1 capability_denial=1 strict_json=1 strict_arguments=1 truthful_annotations=1"
   return 0
+
+_tooljson: procedure = .string
+  arg payload = .string, name = .string
+  marker = pos('"name":"' || name || '"', payload)
+  if marker = 0 then return ""
+  next_marker = pos('},{"name":', payload, marker)
+  if next_marker = 0 then return substr(payload, marker)
+  return substr(payload, marker, next_marker - marker)

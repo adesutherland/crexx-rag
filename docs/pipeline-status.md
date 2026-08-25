@@ -406,3 +406,11 @@ output must match the exact two-field schema and every citation must already
 exist in the supplied typed context. Permanent native/dual-VM evidence plus
 bounded clean Codex/local and Google runs are recorded in
 [`docs/evidence/2026-08-25-phase5-application/`](evidence/2026-08-25-phase5-application/README.md).
+
+The Phase-6 application extension carries the same durable `crexxrag` name and
+local defaults into `crexxrag serve mcp`, adds atomic text-config binding to
+`ADDRESS RAG`, enforces MCP argument schemas at runtime, and corrects
+provider-capable query annotations. A native deterministic Gemini vertical
+slice and the optimized/non-optimized dual-VM surface matrix cover the change;
+the retained evidence is
+[`docs/evidence/2026-08-25-phase6-application/`](evidence/2026-08-25-phase6-application/README.md).

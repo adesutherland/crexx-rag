@@ -57,7 +57,7 @@ store and algorithms can be used for other bodies of knowledge.
 | Evidence builder | Produces bounded packets containing cited passages, supported claims, leads, conflicts, ambiguity, time, provenance, gaps, and optional answer guidance. |
 | Improvement worker | Processes durable queues under leases and monotonic fences, recovers after interruption, and cannot exceed reviewed work, provider, time, or cost budgets. |
 | Provider layer | Gives local OpenAI-compatible services and hosted providers one normalized generation/embedding contract while enforcing privacy routes and symbolic secret references. |
-| Public interfaces | Exposes one operation vocabulary through a command application, `ADDRESS RAG` for cREXX programs, MCP `structuredContent` for agents, and four narrowly permissioned skills. |
+| Public interfaces | Exposes one operation vocabulary through the native `crexxrag` application, `ADDRESS RAG` for cREXX programs, `crexxrag serve mcp` with typed `structuredContent` for agents, and four narrowly permissioned skills. |
 | Operator and QA tools | Verify, back up, restore, diagnose, trace, and replay the library; executable tutorials and CTest fixtures prove the same behavior across compiler modes and both available VMs. |
 
 Under the application, installed CREXX facilities provide binary-safe SHA-256,

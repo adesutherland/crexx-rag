@@ -52,8 +52,9 @@ production default.
 | [Phase 5 human query tutorial](tutorials/phase-5-retrieval.md) | Three-command native walkthrough over compatible query embeddings, hybrid typed evidence, configured cited answers, explicit lexical/hybrid modes and provider usage |
 | [Phase 5 retrieval evidence](evidence/2026-08-23-phase5/README.md) | P5-01 through P5-08, four-cell deterministic judgement, native/full-context baselines, hosted answer-quality result and exact transport limit |
 | [Phase 5 application evidence](evidence/2026-08-25-phase5-application/README.md) | Native human query extension, permanent Gemini and policy QA, real Codex/local and Google walkthroughs, and retained boundaries |
-| [Phase 6 installed surface tutorial](tutorials/phase-6-surfaces.md) | Fresh install, exact plan/apply, CLI, ADDRESS RAG, MCP, skills, backup and restore walkthrough |
+| [Phase 6 installed surface tutorial](tutorials/phase-6-surfaces.md) | Human-first native `crexxrag`, built-in MCP serving, ADDRESS RAG, skills, backup and restore walkthrough |
 | [Phase 6 public-surface evidence](evidence/2026-08-24-phase6/README.md) | P6-01 through P6-07, four-cell equality/safety matrix, packaging and exact cutover limits |
+| [Phase 6 application evidence](evidence/2026-08-25-phase6-application/README.md) | Unified native MCP command, atomic ADDRESS config binding, strict schemas, truthful annotations and provider-backed QA |
 | [Phase 7 qualification tutorial](tutorials/phase-7-qualification.md) | Reproducible corpus/lifecycle/surface, hosted generation/embedding, safety audit, and decision walkthrough |
 | [Phase 7 qualification evidence](evidence/2026-08-24-phase7/README.md) | P7-01 through P7-08 results, external hosted pass, retained cREXX completion failure, comparison boundary, and QA |
 | [Gate 7 cutover decision](evidence/2026-08-24-phase7/cutover-decision.md) | Exact reject/defer decision, blockers, closure evidence, and approval boundary |

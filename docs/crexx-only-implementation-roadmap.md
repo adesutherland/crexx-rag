@@ -727,6 +727,14 @@ knowledge.
   executable tested commands and publish a fresh-install tutorial.
 - [x] **P6-07** Keep deprecated aliases for selected current commands for one
   compatibility release, with machine-readable deprecation output.
+- [x] **P6A-01** Carry the enduring human executable into the agent surface as
+  `crexxrag serve mcp`, reusing local config, sole-profile and library defaults.
+- [x] **P6A-02** Bind text configuration atomically in `ADDRESS RAG` and reject
+  unknown, duplicate or incorrectly typed MCP arguments at runtime.
+- [x] **P6A-03** Advertise provider-capable query tools truthfully as library-
+  read-only but open-world/non-idempotent, retain explicit lexical zero-
+  outbound mode, and prove the native provider-backed path plus four-cell
+  surface regression.
 
 ### Gate 6 — Usability and safety acceptance
 
@@ -747,6 +755,10 @@ public worker adapter and the hosted cREXX POST-completion finding remain
 explicit Phase-7 cutover limitations, so this acceptance does not select or
 rename the production default. See the
 [`Phase-6 record`](evidence/2026-08-24-phase6/README.md).
+
+The 2026-08-25 application extension closes P6A-01 through P6A-03 without
+changing the Gate-7 cutover decision. See the
+[`Phase-6 application record`](evidence/2026-08-25-phase6-application/README.md).
 
 ## Phase 7 — Corpus Qualification And Cutover Decision
 

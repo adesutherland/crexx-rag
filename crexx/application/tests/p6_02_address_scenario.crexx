@@ -6,8 +6,8 @@ import rag_address_environment
 
 main: procedure = .int
   arg args = .string[]
-  if args.0 \= 1 then return 2
-  library = args[1]
+  if args.0 \= 2 then return 2
+  library = args[1]; config_file = args[2]
   environment = addressenv("rag")
   if environment.environment_name() \= "RAG" | environment.environment_id() \= "rexx:RAG" then return 4
   lines = .string[]
@@ -30,10 +30,24 @@ main: procedure = .int
   fields_node = status_document.member(record_node, "fields")
   if status_document.node_string(status_document.member(fields_node, "library_id"), library_id) \= 0 then return 17
   clear lines
+  failed_open = "LIBRARY OPEN " || library || " --config does-not-match --config-file " || "22"x || config_file || "22"x || " --profile generic-profile --access read --format json"
+  address RAG (failed_open) output lines
+  if rc \= 2 then return 18
+  clear lines
+  address RAG "LIBRARY STATUS" output lines
+  if rc \= 0 | pos(library_id, lines[1]) = 0 then return 19
+  clear lines
+  config_open = "LIBRARY OPEN " || library || " --config-file " || "22"x || config_file || "22"x || " --profile generic-profile --access read --format json"
+  address RAG (config_open) output lines
+  if rc \= 0 | pos('"config_id":"google-gemini"', lines[1]) = 0 | pos('"profile_id":"generic-profile"', lines[1]) = 0 then return 20
+  clear lines
+  address RAG "PROVIDER STATUS" output lines
+  if rc \= 0 | pos('"provider_id":"gemini-generate"', lines[1]) = 0 then return 21
+  clear lines
   address RAG "INGEST APPLY --plan-json {} --expect-digest 00" output lines
   if rc \= 4 then return 15
   clear lines
   address RAG "LIBRARY CLOSE" output lines
   if rc \= 0 | lines.0 \= 1 then return 16
-  say "P6_ADDRESS_OK library_id=" || library_id || " capability_denial=ingest"
+  say "P6_ADDRESS_OK library_id=" || library_id || " capability_denial=ingest config_file=bound failed_open=atomic"
   return 0

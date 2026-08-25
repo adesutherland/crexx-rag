@@ -2,7 +2,8 @@ foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_RXBVM
         CPRAG_CREXX_BIN_DIR CPRAG_PLUGIN_DIR CPRAG_APP_DIR CPRAG_CONFIG_DIR
         CPRAG_PROFILE_DIR CPRAG_SURFACE_DIR CPRAG_CLI CPRAG_ADDRESS
         CPRAG_MCP CPRAG_PROVIDER_CONTRACT CPRAG_PROVIDER_DIR CPRAG_ADDRESS_SCENARIO CPRAG_MCP_SCENARIO
-        CPRAG_CONFIG_FIXTURE CPRAG_TUTORIAL_FIXTURE CPRAG_SKILLS_DIR CPRAG_WORK_DIR)
+        CPRAG_CONFIG_FIXTURE CPRAG_TUTORIAL_FIXTURE CPRAG_HUMAN_TUTORIAL
+        CPRAG_HUMAN_TUTORIAL_DIR CPRAG_SKILLS_DIR CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
     endif()
@@ -86,6 +87,9 @@ foreach(mode IN ITEMS noopt opt)
         "${program_import}" "${mode_flag}" "${mode} ADDRESS scenario")
     compile_crexx("${CPRAG_MCP_SCENARIO}" "${CPRAG_WORK_DIR}/mcp-${mode}"
         "${program_import}" "${mode_flag}" "${mode} MCP scenario")
+    compile_crexx("${CPRAG_HUMAN_TUTORIAL_DIR}/address-query.crexx"
+        "${CPRAG_WORK_DIR}/tutorial-address-${mode}"
+        "${program_import}" "${mode_flag}" "${mode} human tutorial ADDRESS example")
 
     foreach(runtime_name IN ITEMS rxvme rxbvm)
         if(runtime_name STREQUAL "rxvme")
@@ -96,7 +100,7 @@ foreach(mode IN ITEMS noopt opt)
         set(cell "${mode}-${runtime_name}")
         set(library "${CPRAG_WORK_DIR}/library-${cell}")
         set(cli_base "${runtime}" -l "${program_import_arg}"
-            "${CPRAG_WORK_DIR}/crexx_rag_cli" ${provider_modules} ${app_modules} ${config_modules}
+            "${CPRAG_WORK_DIR}/crexx_rag_cli" ragmcp ${provider_modules} ${app_modules} ${config_modules}
             rx_sqlite_boundary rx_hash rx_system rxfs rxvector rxfnsg library)
         execute_process(COMMAND ${cli_base} -a --library "${library}"
             --config architecture-local --profile generic-profile --access admin
@@ -164,7 +168,7 @@ foreach(mode IN ITEMS noopt opt)
 
         execute_process(COMMAND "${runtime}" -l "${program_import}"
             "${CPRAG_WORK_DIR}/address-${mode}" ${runtime_modules}
-            -a "${library}" OUTPUT_VARIABLE address_out ERROR_VARIABLE address_err
+            -a "${library}" "${CPRAG_CONFIG_FIXTURE}" OUTPUT_VARIABLE address_out ERROR_VARIABLE address_err
             RESULT_VARIABLE address_result TIMEOUT 60)
         execute_process(COMMAND "${runtime}" -l "${program_import}"
             "${CPRAG_WORK_DIR}/mcp-${mode}" ${runtime_modules}
@@ -214,6 +218,34 @@ foreach(mode IN ITEMS noopt opt)
         endif()
         file(APPEND "${report}" "${cell}:\n${init_out}${ingest_plan_out}${apply_out}${query_out}${alias_out}${address_out}${mcp_out}${mcp_config_out}${backup_out}${restore_out}\n")
     endforeach()
+endforeach()
+
+foreach(required_file IN ITEMS
+        "${CPRAG_HUMAN_TUTORIAL}"
+        "${CPRAG_HUMAN_TUTORIAL_DIR}/setup.sh"
+        "${CPRAG_HUMAN_TUTORIAL_DIR}/mcp-requests.jsonl"
+        "${CPRAG_HUMAN_TUTORIAL_DIR}/address-query.crexx")
+    if(NOT EXISTS "${required_file}")
+        message(FATAL_ERROR "Phase-6 human tutorial artifact is missing: ${required_file}")
+    endif()
+endforeach()
+file(READ "${CPRAG_HUMAN_TUTORIAL}" human_tutorial)
+if(NOT human_tutorial MATCHES "crexxrag serve mcp" OR
+   human_tutorial MATCHES "RAG_MODULES" OR
+   human_tutorial MATCHES "crexx_rag_cli.*runtime-modules")
+    message(FATAL_ERROR "Phase-6 tutorial does not use the enduring human/agent surface")
+endif()
+execute_process(COMMAND /bin/sh -n "${CPRAG_HUMAN_TUTORIAL_DIR}/setup.sh"
+    RESULT_VARIABLE setup_syntax_result ERROR_VARIABLE setup_syntax_error)
+if(NOT setup_syntax_result EQUAL 0)
+    message(FATAL_ERROR "Phase-6 setup script syntax failed: ${setup_syntax_error}")
+endif()
+file(STRINGS "${CPRAG_HUMAN_TUTORIAL_DIR}/mcp-requests.jsonl" tutorial_requests)
+foreach(request_line IN LISTS tutorial_requests)
+    string(JSON request_method ERROR_VARIABLE request_error GET "${request_line}" method)
+    if(request_error OR request_method STREQUAL "")
+        message(FATAL_ERROR "Phase-6 MCP tutorial request is invalid JSON-RPC: ${request_line}")
+    endif()
 endforeach()
 
 foreach(skill IN ITEMS crexx-rag-qa crexx-rag-ingest crexx-rag-improve crexx-rag-diagnose)
