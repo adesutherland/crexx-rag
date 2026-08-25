@@ -556,10 +556,18 @@ absent. Native-v1 therefore remains the default oracle.
 
 CTest `phase8_opportunity_report` is a permanent documentation and metadata
 audit, not a product execution gate and not a tutorial. It requires the
-maintained opportunity report and evidence record, checks all three existing
+maintained opportunity report, historical evidence and current reconciliation,
+checks all three existing
 candidate bundles retain `review-bundle-not-approved` plus
 `donation_submission_authorized = false`, distinguishes locally owned
 candidates from installed CREXX adoptions, and rejects any Phase-8 tutorial.
+
+The current audit also rejects superseded hosted-completion and public-worker
+blocker text, requires the macOS provider/worker closures and remaining
+lifetime/consumer/Linux boundaries, and proves that no `report` noun was added
+to the application command vocabulary. That negative runtime check is
+intentional: repository ownership and release authority must not be compiled
+into an evidence-library operation.
 
 The test also requires the exact Gate-7/default-oracle and Gate-8-negative
 boundaries. Passing it proves the opportunity ledger is coherent; it does not

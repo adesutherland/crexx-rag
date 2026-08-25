@@ -970,6 +970,13 @@ complete; production-shaped same-session comparison, exact downstream Linux
 and a new explicit cutover decision remain open. Native-v1 therefore stays the
 default oracle; no compatibility window has started.
 
+Phase-8 governance is intentionally outside the runtime vocabulary. Donation
+candidate ownership, upstream adoption, compatibility-release approval and
+retirement readiness are repository/programme facts, not library facts. The
+maintained opportunity report and its metadata audit are the human surface;
+adding a `crexxrag report` operation would duplicate mutable governance state
+and risk implying authority the application does not possess.
+
 The native executable remains available as a read-only diagnostic/migration
 tool for one compatibility release. Removing it and the product-specific
 `rx_rag` plugin is a separately approved final step.

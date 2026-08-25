@@ -864,6 +864,14 @@ retirement action above unchecked. Gate 8 is not satisfied because Gate 7
 deferred cutover, no candidate has accepted upstream ownership, no compatibility
 release/window exists, and RAG-specific native product code remains authoritative.
 
+The 2026-08-25 report reconciliation removes superseded hosted-completion and
+public worker/embedding blockers after the Phase-3 through Phase-7 application
+extensions. It strengthens the permanent audit and explicitly keeps Phase 8
+out of the runtime command vocabulary: ownership, donation, release, cutover
+and retirement state comes from repository evidence and approvals, not an
+evidence-library operation. The remaining Gate-8 blockers are unchanged. See
+the [current-report evidence](evidence/2026-08-25-phase8-current-report/README.md).
+
 ## Acceptance Matrix
 
 | Area | Required cases |

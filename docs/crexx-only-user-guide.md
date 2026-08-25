@@ -741,3 +741,10 @@ The installed Phase-6 read/plan/query/apply/status/control surfaces are staged,
 but native-v1 remains the default after Gate 7 rejected/deferred cutover.
 Migration documentation must always state which surface is shipped, staged, or
 still proposed.
+
+Phase 8 deliberately adds no `crexxrag report` command. Donation ownership,
+compatibility-release state and native-retirement authority are maintained in
+the repository's [Phase-8 opportunity
+report](reports/phase-8-donation-opportunities.md), not in one library or
+provider configuration. This keeps the operational command surface clean and
+prevents a compiled status message from becoming stale or implying approval.

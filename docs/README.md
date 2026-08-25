@@ -61,6 +61,7 @@ production default.
 | [Gate 7 cutover decision](evidence/2026-08-24-phase7/cutover-decision.md) | Exact reject/defer decision, blockers, closure evidence, and approval boundary |
 | [Phase 8 opportunity report](reports/phase-8-donation-opportunities.md) | Maintained donation/adoption ledger, installed-capability preference, compatibility state, and retirement readiness; no tutorial or action authority |
 | [Phase 8 report evidence](evidence/2026-08-24-phase8/README.md) | Permanent report audit, exact Gate-8 negative assessment, and submission/cutover/deletion boundaries |
+| [Phase 8 current-report evidence](evidence/2026-08-25-phase8-current-report/README.md) | Reconciled provider/worker closure facts, deliberate no-runtime-command decision, strengthened audit and unchanged Gate-8 boundary |
 | [CREXX capability-sync worklist](evidence/2026-08-22-crexx-capability-sync/WORKLIST.md) | Completed macOS/current-head items and later parallel qualification backlog |
 | [Generic capability incubation audit](../incubator/README.md) | Donation-candidate inventory, implementation boundaries, colocated use/system docs, and readiness status |
 | [Gate 1A decision ledger](gate1a-decision-ledger.md) | Historical approval for D1-D9, the now-completed Phase-1B worklist, exclusions, and Gate-1B stop |
