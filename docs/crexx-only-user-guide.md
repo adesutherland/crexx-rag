@@ -426,9 +426,10 @@ necessary for an ordinary answer.
 
 ## Get Evidence For An LLM
 
-Phase 5 implements the retrieval/evidence algorithms and Phase 6 exposes them
-through the staged CLI, `ADDRESS RAG`, and MCP adapters. Level-G callers may
-also use `planquery`, `embedmissing`, `buildexactvectorgeneration`,
+Phase 5 implements the retrieval/evidence algorithms and the maintained native
+`crexxrag` query experience. Phase 6 extends the same operation vocabulary
+through `ADDRESS RAG`, MCP and skill adapters. Level-G callers may also use
+`planquery`, `embedmissing`, `buildexactvectorgeneration`,
 `retrieveevidence`, `encodeevidence`, `encodeanswercontext`, and
 `resolvecitation` directly. The [Phase-5 tutorial](tutorials/phase-5-retrieval.md)
 explains the algorithm; the [Phase-6 tutorial](tutorials/phase-6-surfaces.md)
@@ -454,8 +455,11 @@ It returns:
 - evidence gaps; and
 - answer guidance.
 
-The command does not need to generate prose. An external agent and an optional
-configured answer model consume the same packet.
+The command does not generate prose. In `auto` mode it makes one query-
+embedding call only when the published vector profile exactly matches the
+configured provider, model, dimension and input envelope. Explicit `lexical`
+mode makes no provider call; explicit `hybrid` fails rather than silently
+falling back.
 
 To use the configured optional answerer while retaining the identical packet:
 
@@ -464,8 +468,21 @@ crexxrag --library ./architecture.cprag --access read --format json \
   query answer "Which components access customer profile data, and why?"
 ```
 
-The result contains both the evidence and generated prose. The prose never
-changes the library.
+The result contains both the evidence and generated prose. The provider sees
+only the bounded `crexx-rag.answer-context/1`. The application rejects output
+outside the exact answer schema and rejects unknown, duplicate or omitted
+citations before displaying the prose. The prose never changes the library.
+
+When a local config declares `role.answerer`, the human shorthand selects this
+operation:
+
+```bash
+crexxrag query "Which components access customer profile data, and why?"
+```
+
+Its provider records distinguish local compute, monetary API usage and Codex
+subscription allowance. Calls and aggregate tokens are bounded per command;
+monetary routes also require known usage within the reviewed cost ceiling.
 
 Phase-5 evidence generation is provider-independent and does not require an
 answer model. When an answer model is used, pass `crexx-rag.answer-context/1`

@@ -162,31 +162,39 @@ Useful variants are:
 ./crexxrag ingest --yes
 ```
 
-## 4. Ask for evidence
+## 4. Ask the ingested library
 
 ```sh
 ./crexxrag query 'What does BillingService depend on?'
 ```
 
-The short command uses the canonical `query evidence` operation:
+The current human surface sees the configured answerer and uses the canonical
+`query answer` operation:
 
 ```text
-OK: typed evidence retrieved; optional answer generation was not requested from a provider
+OK: evidence-backed answer generated with validated citations
 
 query evidence
+  vector state: active-exact-rxvector
   candidate count: 1
+  generated answer: BillingService depends on CustomerDatabase.
   summary: billingservice --depends-on--> customerdatabase
   citation: crexx-rag:<library>:<source>:<revision>:utf8-0-87
+  retrieval mode: hybrid
+  query embedding state: generated
+  provider calls: 2
 ```
 
 The model response never writes graph state directly. cREXX validates the
 candidate identities, types, directional relationship, confidence and exact
 source support before promoting the proposal.
 
-`vector state: disabled` on this Phase-3 evidence query is truthful: ingestion
-has generated and published the chunk vector, but this command has not generated
-a query vector. It therefore uses lexical and typed-graph retrieval. Query-side
-embedding generation belongs to the later retrieval phase.
+The later Phase-5 application extension supplies the two read-only query calls:
+one compatible query embedding and one structured answer. It sends only the
+bounded typed evidence context and rejects unknown, duplicate, omitted or
+extra-schema citations. To inspect evidence without answer generation, run
+`./crexxrag query evidence 'What does BillingService depend on?'`; add
+`--mode lexical` for a deliberate zero-outbound query.
 
 ## Budgets, recovery and cleanup
 

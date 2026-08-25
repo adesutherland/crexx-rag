@@ -90,7 +90,8 @@ gemini_inputs[2] = "vector two"
 gemini_embedding_request = .providerrequest("embed_batch", "indexing", "gemini-embedding-2", gemini_messages, gemini_inputs, "", 2000, 1, "public", "gemini-embed-" || cell, "gemini-embed-" || cell, 0, 3, 0)
 gemini_embedding_result = gemini.embed_batch(gemini_embedding_request)
 gemini_vectors = gemini_embedding_result.embeddings()
-errors = errors + check(gemini_embedding_result.status() = 0 & gemini_vectors.0 = 2, "Gemini batch embedding shape")
+gemini_embedding_usage = gemini_embedding_result.usage()
+errors = errors + check(gemini_embedding_result.status() = 0 & gemini_vectors.0 = 2 & gemini_embedding_usage.input_tokens() = 4, "Gemini batch embedding shape and usage")
 if gemini_vectors.0 = 2 then errors = errors + check(gemini_vectors[1].valid() = 1 & gemini_vectors[2].count() = 3, "Gemini embedding projection")
 
 local_messages = .providermessage[]

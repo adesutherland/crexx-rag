@@ -666,6 +666,14 @@ dumping or the current single-search wrapper.
 - [x] **P5-08** Compare answer evidence against current MCP and controlled
   full-context baselines for recall, citation correctness, unsupported claims,
   latency, and context size.
+- [x] **P5A-01** Extend the enduring native `crexxrag query` surface over the
+  accepted algorithms: generate an exactly compatible query embedding, run
+  hybrid retrieval, pass only bounded typed context to the configured
+  answerer, validate every returned citation, and never mutate the library.
+- [x] **P5A-02** Qualify zero-outbound lexical mode, visible automatic
+  fallback, required-hybrid failure, local/hosted privacy, every configured
+  query budget ceiling, exact answer schemas, and real Codex/local plus Google
+  routes through permanent and bounded tests.
 
 ### Gate 5 — Retrieval acceptance
 
@@ -685,6 +693,15 @@ Gemini 3.5 Flash run over the declared public fixtures scored the typed packets
 critical failures. Exact provenance, context-size measurements, native-v1 MCP
 comparison, transport limitation and secret-free evidence are retained in the
 [`Phase-5 record`](evidence/2026-08-23-phase5/README.md).
+
+The 2026-08-25 application extension reuses this accepted work in the native
+human executable. `crexxrag query QUESTION` selects the configured answerer,
+creates one provider/model/dimension/envelope-compatible query embedding,
+retrieves typed evidence, sends only `crexx-rag.answer-context/1`, rejects
+unknown, duplicate, omitted or extra-schema citations, and reports calls,
+tokens, charging basis, estimated monetary usage or Codex allowance. The
+permanent and bounded evidence is retained in the
+[`Phase-5 application record`](evidence/2026-08-25-phase5-application/README.md).
 
 ## Phase 6 — Human, Line-Command, MCP, And Skill Experience
 

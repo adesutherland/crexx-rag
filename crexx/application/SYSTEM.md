@@ -143,6 +143,13 @@ graph paths to support passages, and preserves each fusion component in the
 trace. Incompatible vector state falls back lexically with an explicit reason.
 `ragevidencejson` applies a caller byte ceiling and never collapses accepted
 support, contradiction, stance, time, ambiguity, leads or gaps into prose.
+`ragqueryprovider` supplies the optional application boundary: it creates a
+configured query embedding through the generic provider protocol and sends
+only the bounded answer context to a configured industrial or contained Codex
+answerer. `ragquerypolicy` checks route privacy and all call, Codex-turn, token
+and cost ceilings independently. `ragproduct` accepts prose only after exact-
+schema and evidence-citation validation, reports every attempted query
+provider call, and never opens the library writable for query.
 
 Phase 6 keeps every transport thin. `ragproduct` accepts one typed
 `.ragcommandrequest` and returns one `.ragcommandresult`; the CLI only parses
@@ -242,7 +249,7 @@ forces one worker to terminate, proves stale plus missing-PID diagnostics, and
 then explicitly prunes terminal/stale runtime rows. It makes no provider call.
 
 CTest `p3r_02_gemini_ingestion` runs two fresh native-product libraries against
-a deterministic four-request Gemini loopback. It proves extraction and
+a deterministic six-request Gemini loopback. It proves extraction and
 embedding ownership, typed proposal validation/promotion, 768-dimensional
 stored embeddings, automatic exact-profile vector publication, canonical
 machine commands, automatic human defaults, guided plan/apply, configured
@@ -279,7 +286,15 @@ scorers, exact recall/quality ceilings, stable historical citations, lexical
 fallback, atomic vector generation, privacy denial, the six-record tutorial,
 the preserved native-v1 MCP oracle and a controlled full-source baseline. The
 ordinary test is deterministic and zero-outbound; the explicit hosted harness
-and its cREXX transport limitation are documented separately.
+is documented separately.
+
+CTest `p5r_01_gemini_query` drives the native application through a strict
+Gemini fixture. It proves compatible hybrid retrieval, exact-context answer
+generation, validated citations, concise human output, stable JSON, explicit
+zero-outbound lexical mode, visible automatic fallback, required-hybrid
+failure, unknown/duplicate/omitted/extra-field answer rejection and post-query
+integrity. CTest `p5r_02_query_policy` covers local/hosted privacy and every
+call, Codex-turn, token and cost ceiling in both compiler modes and VMs.
 
 CTest `phase6_surfaces` compiles every application/public adapter optimized and
 non-optimized, runs both concrete VMs, and creates a fresh bundle per cell. It

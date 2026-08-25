@@ -193,6 +193,8 @@ if(CPRAG_BUILD_CREXX_APPLICATION AND CREXX_FOUND AND
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragprocess.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragproviderdiagnostics.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragapplicationprovider.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragqueryprovider.crexx"
+        "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragquerypolicy.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/ragproduct.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/architecture_local_config.crexx"
         "${CMAKE_CURRENT_LIST_DIR}/crexx/application/config/profiles/generic_profile.crexx"
@@ -374,6 +376,34 @@ if(CPRAG_BUILD_CREXX_APPLICATION AND CREXX_FOUND AND
                 -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P4R01GeminiImprovement.cmake")
         set_tests_properties(p4r_01_gemini_improvement PROPERTIES
             LABELS "P4R-01;phase4r;crexx;levelg;application;gemini;improvement;claim;worker;human;reviewed-plan;durable-input;zero-call-replay")
+
+        add_test(
+            NAME p5r_01_gemini_query
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_NATIVE_APPLICATION=${CMAKE_BINARY_DIR}/crexx-native-attempt/package/crexxrag${CMAKE_EXECUTABLE_SUFFIX}"
+                "-DCPRAG_LOOPBACK=$<TARGET_FILE:p1a_provider_loopback>"
+                "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_LIST_DIR}/tests/fixtures/phase5/gemini-query-loopback.conf.in"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p5r-01-gemini-query"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P5R01GeminiQuery.cmake")
+        set_tests_properties(p5r_01_gemini_query PROPERTIES
+            TIMEOUT 300
+            LABELS "P5R-01;phase5r;crexx;levelg;application;gemini;query;embedding;hybrid;answer;citation;privacy;budget;human;zero-outbound;negative")
+
+        add_test(
+            NAME p5r_02_query_policy
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+                "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+                "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+                "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+                "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+                "-DCPRAG_APPLICATION_DIR=${CMAKE_CURRENT_LIST_DIR}/crexx/application"
+                "-DCPRAG_PROVIDER_DIR=${CMAKE_CURRENT_LIST_DIR}/incubator/phase1b/provider"
+                "-DCPRAG_SCENARIO=${CMAKE_CURRENT_LIST_DIR}/crexx/application/tests/p5r_02_query_policy.crexx"
+                "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/p5r-02-query-policy"
+                -P "${CMAKE_CURRENT_LIST_DIR}/cmake/P5R02QueryPolicy.cmake")
+        set_tests_properties(p5r_02_query_policy PROPERTIES
+            LABELS "P5R-02;phase5r;crexx;levelg;query;privacy;budget;codex;dual-vm;zero-outbound")
     endif()
 
     install(FILES "${CPRAG_CREXX_APPLICATION_RXBIN}"

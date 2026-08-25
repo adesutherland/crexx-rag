@@ -23,7 +23,7 @@ set(server_out "${CPRAG_WORK_DIR}/loopback.out")
 set(server_err "${CPRAG_WORK_DIR}/loopback.err")
 set(server_status "${CPRAG_WORK_DIR}/loopback.status")
 execute_process(COMMAND /bin/sh -c
-    "( \"$1\" \"$2\" 4 product-ingestion; printf '%s' $? >\"$5\" ) >\"$3\" 2>\"$4\" &"
+    "( \"$1\" \"$2\" 6 product-ingestion; printf '%s' $? >\"$5\" ) >\"$3\" 2>\"$4\" &"
     p3r-02 "${CPRAG_LOOPBACK}" "${CPRAG_FIXTURE_PORT}" "${server_out}"
     "${server_err}" "${server_status}"
     RESULT_VARIABLE launch_result)
@@ -155,7 +155,9 @@ set(abrupt_child "${CPRAG_WORK_DIR}/abrupt-crexxrag-child.sh")
 file(WRITE "${abrupt_child}" [=[#!/bin/sh
 "$CPRAG_REAL_NATIVE" "$@" &
 child=$!
-sleep 0.2
+# Allow the child to publish its runtime row even when compiler/VM matrices are
+# running concurrently; the assertion is specifically post-registration.
+sleep 1
 kill -KILL "$child" 2>/dev/null || true
 wait "$child" 2>/dev/null || true
 exit 99
@@ -205,7 +207,11 @@ execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
     OUTPUT_VARIABLE query_out ERROR_VARIABLE query_err RESULT_VARIABLE query_result TIMEOUT 30)
 if(NOT query_result EQUAL 0 OR NOT query_out MATCHES "\"candidate_count\":1" OR
    NOT query_out MATCHES "depends-on" OR NOT query_out MATCHES "claim-sha256:" OR
-   NOT query_out MATCHES "utf8-0-87")
+   NOT query_out MATCHES "utf8-0-87" OR
+   NOT query_out MATCHES "\"vector_state\":\"active-exact-rxvector\"" OR
+   NOT query_out MATCHES "\"retrieval_mode\":\"hybrid\"" OR
+   NOT query_out MATCHES "\"query_embedding_state\":\"generated\"" OR
+   NOT query_out MATCHES "\"provider_calls\":1")
     message(FATAL_ERROR "Gemini product evidence query failed:\n${query_out}${query_err}")
 endif()
 
@@ -300,9 +306,14 @@ execute_process(COMMAND ${human_cli} query
     RESULT_VARIABLE human_query_result TIMEOUT 30)
 if(NOT human_query_result EQUAL 0 OR
    NOT human_query_out MATCHES "candidate count: 1" OR
+   NOT human_query_out MATCHES "vector state: active-exact-rxvector" OR
+   NOT human_query_out MATCHES "retrieval mode: hybrid" OR
+   NOT human_query_out MATCHES "query embedding state: generated" OR
+   NOT human_query_out MATCHES "provider calls: 1" OR
    NOT human_query_out MATCHES "BillingService --depends-on--> CustomerDatabase" OR
    NOT human_query_out MATCHES "citation: .*utf8-0-87" OR
-   human_query_out MATCHES "evidence_json|\\{\"schema\"")
+   human_query_out MATCHES "evidence_json|\\{\"schema\"" OR
+   NOT human_query_err MATCHES "crexxrag query-embedding complete")
     message(FATAL_ERROR "Human query shorthand failed:\n${human_query_out}${human_query_err}")
 endif()
 
@@ -321,12 +332,12 @@ file(READ "${server_status}" server_result)
 file(READ "${server_out}" final_server_out)
 file(READ "${server_err}" final_server_err)
 if(NOT server_result STREQUAL "0" OR
-   NOT final_server_out MATCHES "SUMMARY scenario=product-ingestion connections=4")
+   NOT final_server_out MATCHES "SUMMARY scenario=product-ingestion connections=6")
     message(FATAL_ERROR "product Gemini loopback failed:\n${final_server_out}${final_server_err}")
 endif()
 
 file(WRITE "${CPRAG_WORK_DIR}/result.txt"
-    "item=P3R-02\nprovider=gemini\nrequests=4\nitems=4\n"
+    "item=P3R-02\nprovider=gemini\nrequests=6\nitems=4\nquery_embeddings=2\n"
     "trace=stderr-plain\nstdout=json-stable\ncredentials=not-retained\n"
     "human_ui=help+local-defaults+guided-ingest+zero-work-replay+query-summary\n"
     "vector_publication=machine+human\ncontroller_error=pre-registration+post-registration\n"

@@ -23,7 +23,7 @@ pipeline status is [archived oracle evidence](archive/native-v1/pipeline-status.
 | Parallel CREXX capability sync | Current installed package adopted on macOS | Public Level-G HTTP/JSON, complete `rxhash` SHA-256, and exact packed `rxvector` are consumed directly with source fallback disabled. Provider-lifecycle expansion remains separately approval-gated, and exact downstream Linux confirmation is the only deferred Phase-2 platform replay. |
 | Phase 3 / Gate 3R | Accepted on macOS, including provider addendum, 2026-08-25 | The native Level-G `crexxrag` application owns schema-v5 extraction/embedding work, provider-kind dispatch, validated claim promotion, exact vector publication, durable OS-process workers and human-default progress. Permanent Gemini, Codex JSONL/durability and process QA is green. [Clean bounded walkthroughs](evidence/2026-08-25-phase3-provider-addendum/README.md) passed with Codex plus local llama.cpp and with Google Gemini; each unchanged replay made no new job, worker or provider call. Codex App Server remains an experimental local-personal hosted route. The known CREXX prompt double-Enter remains accepted; Linux, release and cutover are separate. |
 | Phase 4 / Gate 4 | Accepted on macOS; application extension accepted 2026-08-25 | Claims/extraction/review/improvement, durable multi-process workers and the literal eight-hour supervised soak pass. `crexxrag improve` now reviews and executes immutable configured-provider work; permanent Gemini plus bounded real Codex/Google paths and zero-call replay pass. Exact downstream Linux remains open. |
-| Phase 5 / Gate 5 | Accepted on macOS 2026-08-24 | Deterministic focused query planning, hybrid retrieval, exact vector generations, stable typed evidence, nine frozen judgements, native/full-context comparison and bounded Gemini qualification pass; exact Linux and cREXX hosted-transport closure remain open. |
+| Phase 5 / Gate 5 | Accepted on macOS; human application extension completed 2026-08-25 | Native `crexxrag query` now uses the accepted planning/evidence algorithms with compatible query embeddings and optional citation-validated Codex/Gemini answers. Permanent negative QA and clean real Codex/local plus Google walkthroughs pass. Exact Linux, release and cutover remain open. |
 | Phase 6 / Gate 6 | Accepted on macOS 2026-08-24 | Installed Level-G CLI, ADDRESS RAG, MCP, exact reviewed ingest, zero-write plans, backup/restore and capability-scoped skills pass in four compiler/VM cells. Public worker-provider lifetime remains a cutover limit. |
 | Phase 7 / Gate 7 | Qualification complete; reject/defer cutover 2026-08-24 | The recorded decision preceded the Phase-3 worker/provider integration and pristine hosted replay now accepted locally. Production-shaped same-session comparison, exact Linux and a new explicit cutover decision remain open, so native-v1 stays default. |
 | Phase 8 | Opportunity report complete; Gate 8 not satisfied 2026-08-24 | Candidate, installed-adoption, compatibility, and retirement states are recorded. No submission, cutover, deletion, release, or push occurred or is implied. |
@@ -394,7 +394,15 @@ failures. The tutorial output is byte-stable. The typed answer contexts total
 full-source control is 45,891 bytes and is explicitly not represented as a
 context-size win. A separately authorized public-fixture Gemini 3.5 Flash run
 used 36 calls and scored typed evidence 143/144 versus control 130/144, with
-9/9 passing and zero critical failures. The incubated cREXX hosted adapter's
-POST completion timeout remains Phase-7 work and is not hidden by that external
-quality result. Exact evidence is in
+9/9 passing and zero critical failures. Exact algorithmic evidence is in
 [`docs/evidence/2026-08-23-phase5/`](evidence/2026-08-23-phase5/README.md).
+
+The 2026-08-25 application extension connects those algorithms to the
+maintained native human surface. `ragqueryprovider` performs configured query
+embeddings and Gemini or contained Codex structured answers;
+`ragquerypolicy` owns separately tested privacy and budget checks. The active
+index must match provider, model, dimension and exact input envelope. Answer
+output must match the exact two-field schema and every citation must already
+exist in the supplied typed context. Permanent native/dual-VM evidence plus
+bounded clean Codex/local and Google runs are recorded in
+[`docs/evidence/2026-08-25-phase5-application/`](evidence/2026-08-25-phase5-application/README.md).

@@ -469,9 +469,23 @@ environment credential, records the symbolic reference, uses fixed schemas,
 temperature/model/attempt/token limits, blind ordering and the declared
 two-scorer/adjudication rule. Credential values, headers and environment dumps
 must never be retained. A hosted quality pass does not substitute for the
-cREXX provider/transport path. Phase 7 externally qualifies structured
-generation plus batch embedding and retains the cREXX completion failure as a
-cutover blocker.
+cREXX provider/application path. Phase 7 owns the broader hosted transport and
+cutover comparison boundary; the application extension therefore keeps its
+own bounded real-provider walkthroughs.
+
+The Phase-5 application extension adds two recurring layers. CTest
+`p5r_01_gemini_query` runs native `crexxrag` over a strict Gemini protocol
+fixture and proves ingestion, compatible query embedding, hybrid retrieval, a
+concise cited answer, clean human/JSON separation and library integrity. It
+also proves a zero-request lexical query, visible auto fallback, no silent
+fallback for required hybrid, and rejection of unknown, duplicate, omitted and
+extra-schema citations. CTest `p5r_02_query_policy` runs optimized and
+non-optimized on `rxvme` and `rxbvm`; it independently covers local/hosted
+privacy, maximum calls, Codex turns, input tokens, output tokens, monetary
+cost, unavailable monetary usage and aggregate post-call ceilings. Existing
+`p3r_02_gemini_ingestion`, `p1_llm_04` and `phase5_retrieval` remain focused
+regressions. Real Codex/local and Google checks are bounded qualification
+evidence, never credential-dependent CTest.
 
 ## Phase 6 Acceptance
 

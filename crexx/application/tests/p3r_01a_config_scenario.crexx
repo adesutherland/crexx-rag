@@ -31,7 +31,7 @@ main: procedure = .int
   errors = errors + check(config.config_id() = "google-gemini" & config.version() = "1", "identity")
   errors = errors + check(providers.0 = 2 & providers[1].kind() = "gemini" & providers[2].kind() = "gemini", "Google providers")
   errors = errors + check(providers[1].credential().ref_string() = "env:GEMINI_API_KEY" & config_snapshot.secret_reference_count() = 2, "symbolic secrets")
-  errors = errors + check(roles.0 = 3 & sources.0 = 1 & sources[1].root() = "./source-docs", "roles and source")
+  errors = errors + check(roles.0 = 4 & sources.0 = 1 & sources[1].root() = "./source-docs", "roles and source")
   errors = errors + check(budget.model_calls() = 50 & budget.input_tokens() = 100000 & workers.processes() = 1 & workers.max_in_flight() = 1, "bounded policy")
 
   raw = .binary; bytes = 0

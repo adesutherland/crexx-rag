@@ -264,3 +264,6 @@ ragevidence: class
     return _answer_guidance
   generated_answer: method = .string
     return _generated_answer
+  with_generated_answer: method = .ragevidence
+    arg generated_answer = .string
+    return .ragevidence(_schema_version, _library_id, _active_generation, _original_question, _query_plan, _passages, _claims, _ambiguities, _leads, _gaps, _trace, _answer_guidance, generated_answer)

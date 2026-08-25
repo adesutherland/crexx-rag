@@ -59,6 +59,15 @@ std::string escaped_candidate_for_label(const std::string& request, const std::s
     return request.substr(value_start, value_end - value_start);
 }
 
+std::string escaped_citation(const std::string& request)
+{
+    const std::size_t value_start = request.find("crexx-rag:");
+    if (value_start == std::string::npos) return {};
+    const std::size_t value_end = request.find("\\\"", value_start);
+    if (value_end == std::string::npos) return {};
+    return request.substr(value_start, value_end - value_start);
+}
+
 std::string json_string(const std::string& value)
 {
     std::string output = "\"";
@@ -192,28 +201,52 @@ int main(int argc, char** argv)
             }
         } else if (path.find("/gemini/v1beta/models/gemini-3.5-flash-lite:generateContent") != std::string::npos) {
             const bool valid_auth = request.find("x-goog-api-key: synthetic-product-gemini-key") != std::string::npos;
-            const bool valid_shape = request.find("\"responseMimeType\":\"application/json\"") != std::string::npos
+            const bool valid_structured = request.find("\"responseMimeType\":\"application/json\"") != std::string::npos
                 && request.find("\"responseJsonSchema\"") != std::string::npos
-                && request.find("crexx-rag.work-input/1") != std::string::npos;
-            const std::string source_id = escaped_candidate_for_label(request, "billingservice");
-            const std::string target_id = escaped_candidate_for_label(request, "customerdatabase");
-            if (!valid_auth || !valid_shape || source_id.empty() || target_id.empty()) {
-                http_status = 400;
-                body = R"({"error":{"message":"product Gemini extraction request shape mismatch"}})";
+                && request.find("\"additionalProperties\":false") != std::string::npos;
+            if (request.find("crexx-rag.answer-context/1") != std::string::npos) {
+                const std::string citation = escaped_citation(request);
+                const bool valid_answer = valid_auth && valid_structured && !citation.empty()
+                    && request.find("only citation IDs present") != std::string::npos;
+                if (!valid_answer) {
+                    http_status = 400;
+                    body = R"({"error":{"message":"product Gemini answer request shape mismatch"}})";
+                } else {
+                    std::string citations = "[\"" + citation + "\"]";
+                    if (scenario == "product-query-invalid") {
+                        if (index == 0) citations = "[\"crexx-rag:unknown-citation\"]";
+                        if (index == 1) citations = "[\"" + citation + "\",\"" + citation + "\"]";
+                        if (index == 2) citations = "[]";
+                    }
+                    const std::string answer = "{\"answer\":\"BillingService depends on CustomerDatabase.\",\"citations\":"
+                        + citations + (scenario == "product-query-invalid" && index == 3 ? ",\"extra\":true}" : "}");
+                    body = "{\"responseId\":\"product-gemini-answer-001\",\"candidates\":[{\"content\":{\"parts\":[{\"text\":"
+                        + json_string(answer)
+                        + "}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":210,\"candidatesTokenCount\":32}}";
+                }
             } else {
-                const std::string proposal = "{\"has_claim\":true,\"source_candidate_id\":\"" + source_id
-                    + "\",\"source_label\":\"BillingService\",\"source_type\":\"application-component\","
-                      "\"relationship_type\":\"depends-on\",\"target_candidate_id\":\"" + target_id
-                    + "\",\"target_label\":\"CustomerDatabase\",\"target_type\":\"data-store\","
-                      "\"confidence_millionths\":940000}";
-                body = "{\"responseId\":\"product-gemini-extract-001\",\"candidates\":[{\"content\":{\"parts\":[{\"text\":"
-                    + json_string(proposal)
-                    + "}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":180,\"candidatesTokenCount\":60}}";
+                const std::string source_id = escaped_candidate_for_label(request, "billingservice");
+                const std::string target_id = escaped_candidate_for_label(request, "customerdatabase");
+                if (!valid_auth || !valid_structured || request.find("crexx-rag.work-input/1") == std::string::npos
+                    || source_id.empty() || target_id.empty()) {
+                    http_status = 400;
+                    body = R"({"error":{"message":"product Gemini extraction request shape mismatch"}})";
+                } else {
+                    const std::string proposal = "{\"has_claim\":true,\"source_candidate_id\":\"" + source_id
+                        + "\",\"source_label\":\"BillingService\",\"source_type\":\"application-component\","
+                          "\"relationship_type\":\"depends-on\",\"target_candidate_id\":\"" + target_id
+                        + "\",\"target_label\":\"CustomerDatabase\",\"target_type\":\"data-store\","
+                          "\"confidence_millionths\":940000}";
+                    body = "{\"responseId\":\"product-gemini-extract-001\",\"candidates\":[{\"content\":{\"parts\":[{\"text\":"
+                        + json_string(proposal)
+                        + "}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":180,\"candidatesTokenCount\":60}}";
+                }
             }
         } else if (path.find("/gemini/v1beta/models/gemini-embedding-2:embedContent") != std::string::npos) {
             const bool valid_auth = request.find("x-goog-api-key: synthetic-product-gemini-key") != std::string::npos;
             const bool valid_shape = request.find("\"outputDimensionality\":768") != std::string::npos
-                && request.find("BillingService depends on CustomerDatabase") != std::string::npos;
+                && (request.find("BillingService depends on CustomerDatabase") != std::string::npos
+                    || request.find("What does BillingService depend on?") != std::string::npos);
             if (!valid_auth || !valid_shape) {
                 http_status = 400;
                 body = R"({"error":{"message":"product Gemini embedding request shape mismatch"}})";
@@ -247,7 +280,7 @@ int main(int argc, char** argv)
                 http_status = 400;
                 body = R"({"error":{"message":"Gemini embedding request shape mismatch"}})";
             } else {
-                body = R"({"embeddings":[{"values":[0.3,0.4,0.5]},{"values":[-0.3,-0.4,-0.5]}]})";
+                body = R"({"embeddings":[{"values":[0.3,0.4,0.5]},{"values":[-0.3,-0.4,-0.5]}],"usageMetadata":{"promptTokenCount":4}})";
             }
         } else if (path == "/v1/chat/completions") {
             if (request.find("\"model\":\"structured-valid\"") != std::string::npos) {

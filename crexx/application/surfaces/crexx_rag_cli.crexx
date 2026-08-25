@@ -93,7 +93,7 @@ _showhelp: procedure = .int
   say "  --access CAPABILITY       repeat or comma-separate for canonical commands"
   say ""
   say "Automation uses canonical commands such as ingest plan, ingest apply,"
-  say "worker start, job status, query evidence and library verify."
+  say "worker start, job status, query evidence, query answer and library verify."
   return 0
 
 _guidedingest: procedure = .int
@@ -357,7 +357,12 @@ _aliases: procedure = .string[]
   if noun = "query" then do
     if noun_index < args.0 & wordpos(args[noun_index + 1], "search evidence answer trace timeline path") = 0 then do
       output = _prefix(args, noun_index)
-      output[output.0 + 1] = "query"; output[output.0 + 1] = "evidence"
+      query_verb = "evidence"
+      if config_loaded = 1 then do
+        answerer = _roleprovider(config, "answerer")
+        if answerer.provider_id() \= "" then query_verb = "answer"
+      end
+      output[output.0 + 1] = "query"; output[output.0 + 1] = query_verb
       do i = noun_index + 1 to args.0; output[output.0 + 1] = args[i]; end
       alias = "query"
       return output

@@ -538,7 +538,13 @@ industrialprovider: class implements .provider
     end
     usage_node = document.member(document.root(), "usage")
     input_tokens = _optional_int(document, usage_node, "prompt_tokens")
-    usage = .providerusage(input_tokens, 0, inputs.0, -1, response.attempts(), response.retry_delay_ms())
+    if _protocol = "gemini" then do
+      usage_node = document.member(document.root(), "usageMetadata")
+      input_tokens = _optional_int(document, usage_node, "promptTokenCount")
+    end
+    cost = -1
+    if input_tokens > 0 then cost = estimatecostmicrounits(_provider_name, request.model(), input_tokens, 0)
+    usage = .providerusage(input_tokens, 0, inputs.0, cost, response.attempts(), response.retry_delay_ms())
     result = .providerresult()
     call result.set_embeddings(_provider_name, request.model(), request.request_id(), vectors, usage, response.latency_us())
     return result
@@ -554,8 +560,12 @@ industrialprovider: class implements .provider
     if request.embedding_dimensions() > 0 & dimensions \= request.embedding_dimensions() then return _malformed(request, response, "embedding dimensions do not match request")
     vectors = .embeddingrecord[]
     vectors[1] = .embeddingrecord("f32le-v1", dimensions, packed)
+    usage_node = document.member(document.root(), "usageMetadata")
+    input_tokens = _optional_int(document, usage_node, "promptTokenCount")
+    cost = -1
+    if input_tokens > 0 then cost = estimatecostmicrounits(_provider_name, request.model(), input_tokens, 0)
     result = .providerresult()
-    call result.set_embeddings(_provider_name, request.model(), request.request_id(), vectors, .providerusage(0, 0, 1, -1, response.attempts(), response.retry_delay_ms()), response.latency_us())
+    call result.set_embeddings(_provider_name, request.model(), request.request_id(), vectors, .providerusage(input_tokens, 0, 1, cost, response.attempts(), response.retry_delay_ms()), response.latency_us())
     return result
 
   _validate_modalities: method = .providererror

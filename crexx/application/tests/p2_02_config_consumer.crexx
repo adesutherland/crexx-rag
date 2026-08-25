@@ -119,7 +119,7 @@ main: procedure = .int
   providers = config.providers()
   roles = config.roles()
   credential = providers[3].credential()
-  errors = errors + check(providers.0 = 3 & roles.0 = 3 & credential.valid() = 1 & credential.ref_string() = "env:OPENAI_API_KEY", "provider roles and env reference")
+  errors = errors + check(providers.0 = 3 & roles.0 = 4 & credential.valid() = 1 & credential.ref_string() = "env:OPENAI_API_KEY", "provider roles and env reference")
 
   config_snapshot = config.snapshot()
   errors = errors + check(config_snapshot.config_id() = "architecture-local" & config_snapshot.secret_reference_count() = 1 & config_snapshot.secret_reference(1) = "env:OPENAI_API_KEY", "non-secret snapshot")

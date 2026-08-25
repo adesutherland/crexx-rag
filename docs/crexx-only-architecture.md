@@ -702,14 +702,19 @@ answer generation never changes retrieval or claim state.
 
 ### Implemented Phase-5 shape
 
-The Level-G development implementation now follows this design through
-`ragquery`, `ragembedding`, `ragretrieval`, and `ragevidencejson`.
+The Level-G implementation follows this design through `ragquery`,
+`ragembedding`, `ragretrieval`, `ragevidencejson`, `ragqueryprovider` and
+`ragquerypolicy`.
 `ragquery` emits `crexx-rag.query-plan/1`; `ragembedding` publishes immutable
 `crexx-rag.rxvector-generation/1` `.rxvec` sidecars over installed packed
 `rxvector`; `ragretrieval` combines bounded FTS5, exact vectors and directed
 graph-to-support expansion; and `ragevidencejson` emits bounded
 `crexx-rag.evidence/1`, `crexx-rag.retrieval-result/1` and
-`crexx-rag.answer-context/1` projections.
+`crexx-rag.answer-context/1` projections. The application query provider
+creates only an exactly compatible query embedding, then gives the bounded
+context to the configured answerer. Query policy gates privacy and call,
+Codex-turn, token and cost ceilings; exact-schema and citation validation occur
+before prose is returned. Query opens SQLite read-only.
 
 Stable citations are canonical strings of the form
 `crexx-rag:<library-id>:<source-id>:<revision-id>:utf8-<start>-<end>` and resolve

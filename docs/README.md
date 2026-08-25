@@ -49,8 +49,9 @@ production default.
 | [Phase 4 executable tutorial](tutorials/phase-4-improvement.md) | Human `crexxrag improve` walkthrough over reviewed provider budgets, durable workers, reviews and zero-call replay |
 | [Phase 4 implementation evidence](evidence/2026-08-23-phase4/README.md) | P4-01 through P4-09, dual VM/mode, crash/two-process worker QA, literal eight-hour soak, Debug/Release and Apple ASan |
 | [Phase 4 application-extension evidence](evidence/2026-08-25-phase4-application/README.md) | Immutable configured improvement inputs, human command, permanent Gemini QA and bounded real Codex/Google results |
-| [Phase 5 executable tutorial](tutorials/phase-5-retrieval.md) | Development tutorial over focused planning, incremental embeddings, exact vectors, hybrid retrieval, bounded evidence and historical citation resolution |
+| [Phase 5 human query tutorial](tutorials/phase-5-retrieval.md) | Three-command native walkthrough over compatible query embeddings, hybrid typed evidence, configured cited answers, explicit lexical/hybrid modes and provider usage |
 | [Phase 5 retrieval evidence](evidence/2026-08-23-phase5/README.md) | P5-01 through P5-08, four-cell deterministic judgement, native/full-context baselines, hosted answer-quality result and exact transport limit |
+| [Phase 5 application evidence](evidence/2026-08-25-phase5-application/README.md) | Native human query extension, permanent Gemini and policy QA, real Codex/local and Google walkthroughs, and retained boundaries |
 | [Phase 6 installed surface tutorial](tutorials/phase-6-surfaces.md) | Fresh install, exact plan/apply, CLI, ADDRESS RAG, MCP, skills, backup and restore walkthrough |
 | [Phase 6 public-surface evidence](evidence/2026-08-24-phase6/README.md) | P6-01 through P6-07, four-cell equality/safety matrix, packaging and exact cutover limits |
 | [Phase 7 qualification tutorial](tutorials/phase-7-qualification.md) | Reproducible corpus/lifecycle/surface, hosted generation/embedding, safety audit, and decision walkthrough |

@@ -22,6 +22,7 @@ architecturelocalconfig: procedure = .ragconfig
   roles[1] = .ragrolebinding("advisory", "local-chat")
   roles[2] = .ragrolebinding("extractor", "local-chat")
   roles[3] = .ragrolebinding("embedding", "local-embed")
+  roles[4] = .ragrolebinding("answerer", "local-chat")
 
   profile_ids = .string[]
   profile_ids[1] = "generic-profile"

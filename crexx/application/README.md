@@ -153,6 +153,16 @@ graph proximity remain leads rather than accepted claims.
 `crexx-rag.answer-context/1` JSON. Stable citations bind library, source,
 immutable revision and UTF-8 byte span and can be resolved historically.
 
+The native application uses those records directly. `ragqueryprovider`
+generates a compatible query vector and an optional schema-constrained answer
+through the configured provider kind; `ragquerypolicy` enforces hosted/local
+privacy and per-command call, Codex-turn, token and cost ceilings. The short
+human `crexxrag query QUESTION` selects the answerer when configured.
+Automatic fallback is explicit, `--mode lexical` is zero-outbound, and
+`--mode hybrid` is required-or-fail. Unknown, duplicate, omitted or extra-
+schema citations are rejected before prose is returned, and query never writes
+the library.
+
 `ragrepositoryrecord` is the shared typed page envelope. `identity`,
 `parent_identity`, and `related_identity` retain graph/storage identity;
 `name`, `category`, `state`, `value`, and `detail` project each table's scalar
@@ -238,6 +248,9 @@ fixture remains `crexx/tutorials/phase4_improvement_scenario.crexx`.
 Phase-5 focused planning, embeddings, hybrid retrieval, evidence, baselines and
 judgements are covered by `p5_01_retrieval_scenario.crexx`; its executable
 tutorial is `crexx/tutorials/phase5_retrieval_scenario.crexx`.
+`p5r_01_gemini_query` covers the enduring native query/answer surface and its
+negative provider cases; `p5r_02_query_policy` covers every query privacy and
+budget ceiling in four compiler/runtime cells.
 Phase-6 public binding coverage is `p6_02_address_scenario.crexx` and
 `p6_03_mcp_scenario.crexx`; the installed human/agent walkthrough is
 `docs/tutorials/phase-6-surfaces.md`.
@@ -253,9 +266,9 @@ returns the stable bundle to rollback-journal mode.
 
 Phase 2 through Gate 6 are accepted for their recorded macOS scope. Phase 3
 implements ingestion, Phase 4 claim/review/improvement/workers, Phase 5
-retrieval/evidence, and Phase 6 the staged public CLI, ADDRESS, MCP, packaging
-and skills. Phase 7 selected reject/defer, so the native executable remains the
-default oracle.
+retrieval/evidence plus the native human query experience, and Phase 6 the
+staged public CLI, ADDRESS, MCP, packaging and skills. Phase 7 selected
+reject/defer, so the native-v1 executable remains the default oracle.
 Recurring QA uses deterministic providers and symbolic hosted secret
 references. The Gate-3R product path now binds Gemini generation/embedding,
 contained Codex structured generation and OpenAI-compatible local embeddings,
