@@ -24,6 +24,7 @@ add_test(NAME configuration_contract
         "-DCPRAG_CONFIG=${CREXXRAG_APP_DIR}/ragconfig.crexx"
         "-DCPRAG_FILE=${CREXXRAG_APP_DIR}/ragfile.crexx"
         "-DCPRAG_CONFIG_FILE_MODULE=${CREXXRAG_APP_DIR}/ragconfigfile.crexx"
+        "-DCPRAG_GLOSSARY_MODULE=${CREXXRAG_APP_DIR}/ragglossary.crexx"
         "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/config_scenario.crexx"
         "-DCPRAG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
         "-DCPRAG_SUBSCRIPTION_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/docs/tutorial/crexxrag-codex-local.conf"
@@ -58,6 +59,16 @@ add_test(NAME gemini_ingestion
 set_tests_properties(gemini_ingestion PROPERTIES
     TIMEOUT 180 LABELS "gemini;ingestion;embedding;claim;trace;loopback")
 
+add_test(NAME gemini_extraction_validation
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-gemini-extraction-validation"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GeminiExtractionValidation.cmake")
+set_tests_properties(gemini_extraction_validation PROPERTIES
+    TIMEOUT 300 LABELS "gemini;extraction;validation;span;registry;dead-letter;secret-free")
+
 add_test(NAME provider_durability
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
@@ -81,6 +92,7 @@ add_test(NAME codex_protocol
         "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
         "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
         "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
         "-DCPRAG_PROBE=${CREXXRAG_PROVIDER_DIR}/tests/codex_protocol_scenario.crexx"
         "-DCPRAG_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-app-server-fixture.sh"
         "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-codex-protocol"
@@ -88,7 +100,7 @@ add_test(NAME codex_protocol
 set_tests_properties(codex_protocol PROPERTIES
     LABELS "provider;codex;jsonl;schema;zero-outbound")
 
-add_test(NAME gemini_improvement
+add_test(NAME gemini_maintenance
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -96,8 +108,8 @@ add_test(NAME gemini_improvement
         "-DCPRAG_PROPOSAL_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/proposals/external-architecture.ndjson.in"
         "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-gemini-improvement"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GeminiImprovement.cmake")
-set_tests_properties(gemini_improvement PROPERTIES
-    TIMEOUT 180 LABELS "gemini;improvement;claim;worker;reviewed-plan")
+set_tests_properties(gemini_maintenance PROPERTIES
+    TIMEOUT 180 LABELS "gemini;maintenance;claim;worker;reviewed-plan;ann")
 
 add_test(NAME gemini_query
     COMMAND "${CMAKE_COMMAND}"
@@ -123,6 +135,66 @@ add_test(NAME query_policy
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/QueryPolicy.cmake")
 set_tests_properties(query_policy PROPERTIES
     LABELS "query;privacy;budget;codex;zero-outbound")
+
+add_test(NAME ann_methodology
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/ann_methodology_scenario.crexx"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-ann-methodology"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/AnnMethodology.cmake")
+set_tests_properties(ann_methodology PROPERTIES
+    TIMEOUT 240 LABELS "ann;retrieval;recall;tamper;rxvector;sqlite")
+
+add_test(NAME lifecycle_methodology
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/lifecycle_methodology_scenario.crexx"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-lifecycle-methodology"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/LifecycleMethodology.cmake")
+set_tests_properties(lifecycle_methodology PROPERTIES
+    TIMEOUT 300 LABELS "maintenance;lifecycle;split;merge;retirement;atomic;sqlite")
+
+add_test(NAME evidence_methodology
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/evidence_methodology_scenario.crexx"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-evidence-methodology"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/EvidenceMethodology.cmake")
+set_tests_properties(evidence_methodology PROPERTIES
+    TIMEOUT 300 LABELS "retrieval;graph;direction;lead;note;gap;sqlite")
+
+add_test(NAME maintenance_methodology
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_PLUGIN_DIR=$<TARGET_FILE_DIR:_sqlite_boundary>"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/maintenance_methodology_scenario.crexx"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-maintenance-methodology"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/MaintenanceMethodology.cmake")
+set_tests_properties(maintenance_methodology PROPERTIES
+    TIMEOUT 300 LABELS "maintenance;census;worklist;ranking;replay;sqlite")
 
 add_test(NAME native_surfaces
     COMMAND "${CMAKE_COMMAND}"
@@ -160,3 +232,40 @@ add_test(NAME gemini_provider_smoke
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GeminiProviderSmoke.cmake")
 set_tests_properties(gemini_provider_smoke PROPERTIES
     TIMEOUT 300 LABELS "provider;gemini;generation;embedding;citation;budget;secret-free")
+
+add_test(NAME installed_product
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_BUILD_DIR=${CMAKE_BINARY_DIR}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_PROVIDER_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-query.conf.in"
+        "-DCPRAG_MAINTENANCE_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_PROPOSAL_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/proposals/external-architecture.ndjson.in"
+        "-DCPRAG_PROVIDER_SMOKE_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/cmake/GeminiProviderSmoke.cmake"
+        "-DCPRAG_MAINTENANCE_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/cmake/GeminiImprovement.cmake"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-installed-product"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/InstalledProduct.cmake")
+set_tests_properties(installed_product PROPERTIES
+    TIMEOUT 720 LABELS "installed;native;gemini;ingestion;maintenance;query;skills")
+
+add_test(NAME documentation_contract
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-documentation-contract"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/DocumentationContract.cmake")
+set_tests_properties(documentation_contract PROPERTIES
+    LABELS "documentation;methodology;skills;zero-outbound")
+
+add_test(NAME local_embedding_protocol
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_PROBE=${CREXXRAG_PROVIDER_DIR}/tests/local_embedding_protocol_scenario.crexx"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-local-embedding-protocol"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/LocalEmbeddingProtocol.cmake")
+set_tests_properties(local_embedding_protocol PROPERTIES
+    TIMEOUT 180 LABELS "provider;local;openai-compatible;llama.cpp;embedding;privacy")

@@ -42,7 +42,7 @@ main: procedure = .int
   provider_run = ""
   errors = errors + check(beginexternalrun(store, first, "codex", "default", "request-p3r-03", "subscription-allowance", "thread-p3r-03", 13, provider_run, error) = 0, "persist external thread " || error)
   errors = errors + check(updateexternalrunturn(store, provider_run, "thread-p3r-03", "turn-p3r-03", error) = 0, "persist external turn " || error)
-  content = '{"has_claim":false,"source_candidate_id":"","source_label":"","source_type":"","relationship_type":"","target_candidate_id":"","target_label":"","target_type":"","confidence_millionths":0}'
+  content = '{"mentions":[],"relationships":[],"notes":[]}'
   errors = errors + check(completeexternalrun(store, provider_run, "thread-p3r-03", "turn-p3r-03", "request-p3r-03", content, 32, 16, error) = 0, "persist completed output " || error)
   call rxplatform..sleep 1200
 

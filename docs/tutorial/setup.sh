@@ -57,6 +57,7 @@ fi
 mkdir -p "$work_dir/source-docs"
 cp "$binary" "$work_dir/crexxrag"
 cp "$script_dir/$config_name" "$work_dir/crexxrag.conf"
+cp "$script_dir/architecture.glossary.tsv" "$work_dir/architecture.glossary.tsv"
 cp "$script_dir/source-docs/architecture.txt" "$work_dir/source-docs/architecture.txt"
 
 echo "Tutorial workspace: $work_dir" >&2

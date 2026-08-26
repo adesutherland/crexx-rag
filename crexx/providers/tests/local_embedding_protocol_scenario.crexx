@@ -1,0 +1,31 @@
+options levelg
+
+import provider_contract
+import industrial_provider
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if condition then return 0
+  say "LOCAL_EMBEDDING_PROTOCOL_FAIL=" || label
+  return 1
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 \= 1 then return 2
+  errors = 0
+  provider = .industrialprovider("openai", "127.0.0.1", 19020, 0, "/v1", "", "local")
+  capabilities = provider.capabilities()
+  errors = errors + check(capabilities.embeddings() = 1 & capabilities.batch_embeddings() = 1, "local embedding capabilities")
+
+  messages = .providermessage[]; inputs = .string[]
+  inputs[1] = "Embed this locally"
+  request = .providerrequest("embed", "embedding", "local-embed", messages, inputs, "", 10000, 1, "restricted", "local-embedding-protocol", "local-embedding-" || args[1], 0, 0, 0, -1)
+  result = provider.embed(request)
+  vectors = result.embeddings(); usage = result.usage(); failure = result.error()
+  errors = errors + check(result.status() = 0, "local embedding result " || failure.category() || " " || failure.message())
+  errors = errors + check(result.provider() = "openai" & result.model() = "local-embed" & result.request_id() \= "", "local embedding identity")
+  errors = errors + check(vectors.0 = 1 & vectors[1].valid() = 1 & vectors[1].count() = 3 & vectors[1].codec() = "f32le-v1", "local embedding vector shape")
+  errors = errors + check(usage.input_tokens() = 4 & usage.input_count() = 1 & usage.cost_microunits() = -1 & usage.attempts() = 1, "local protocol usage without a monetary price")
+  if errors > 0 then return 1
+  say "LOCAL_EMBEDDING_PROTOCOL_OK cell=" || args[1] || " protocol=openai-compatible endpoint=/v1/embeddings dimensions=3 charging=local-compute privacy=restricted"
+  return 0

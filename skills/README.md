@@ -4,7 +4,8 @@ The four packages provide narrow MCP operating instructions:
 
 - `crexxrag-ingest` plans and, with explicit ingest authority, applies source
   ingestion;
-- `crexxrag-improve` plans improvement and supports explicit human review;
+- `crexxrag-maintain` inventories and ranks maintenance, applies only an exact
+  authorized worklist, and supports explicit human review;
 - `crexxrag-qa` performs cited read-only query work;
 - `crexxrag-diagnose` inspects libraries, jobs, and explicitly authorized
   provider smoke tests.

@@ -14,7 +14,8 @@ cd "$work_dir"
 export GEMINI_API_KEY='<Google AI Studio key>'
 ```
 
-The folder now contains only `crexxrag`, `crexxrag.conf`, and `source-docs/`.
+The folder now contains `crexxrag`, `crexxrag.conf`, the optional reviewed
+`architecture.glossary.tsv`, and `source-docs/`.
 
 Optional preflight using public synthetic text:
 
@@ -38,7 +39,17 @@ vector publication.
 Running `./crexxrag ingest` again should report an identical no-op and make no
 provider calls.
 
-## 3. Query
+## 3. Run a maintenance census
+
+```sh
+./crexxrag maintain
+```
+
+The preview ranks concept, graph, analysis-note, query-gap, embedding and vector
+work. After approval it performs only the bounded worklist and republishes or
+reuses the generation-bound ANN index. A settled replay makes no provider call.
+
+## 4. Query
 
 ```sh
 ./crexxrag query 'What does BillingService depend on?'
@@ -63,16 +74,19 @@ Codex can provide structured generation through your own ChatGPT login while a
 local llama.cpp server generates embeddings:
 
 ```sh
-scripts/start_local_llama_servers.sh --embedding-only
+llama-server \
+  -hf nomic-ai/nomic-embed-text-v1.5-GGUF:Q4_K_M \
+  --embedding --pooling mean -c 2048 -np 1 \
+  --host 127.0.0.1 --port 8081
 work_dir=$(docs/tutorial/setup.sh --no-build --provider codex-local)
 cd "$work_dir"
 ./crexxrag provider login codex
 ./crexxrag provider test --yes
 ./crexxrag init
 ./crexxrag ingest
+./crexxrag maintain
 ```
 
 The plan identifies Codex as a hosted public-only route, reports subscription
 allowance rather than zero API cost, and identifies embeddings as local. Stop
-the server with `scripts/stop_local_llama_servers.sh` when it
-is no longer needed.
+the llama.cpp server with Ctrl-C when it is no longer needed.

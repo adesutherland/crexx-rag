@@ -12,7 +12,7 @@ encodeevidence: procedure = .int
   error = ""; output = ""
   if maximum_bytes < 1 | evidence.schema_version() = "" then do; error = "evidence encoding input is invalid"; return -1; end
   query_plan = evidence.query_plan(); passages = evidence.passages(); claims = evidence.claims()
-  ambiguities = evidence.ambiguities(); leads = evidence.leads(); gaps = evidence.gaps()
+  ambiguities = evidence.ambiguities(); leads = evidence.leads(); notes = evidence.analysis_notes(); gaps = evidence.gaps()
   encoded_plan = _strings(query_plan)
   encoded_passages = ""
   do i = 1 to passages.0
@@ -29,9 +29,14 @@ encodeevidence: procedure = .int
     if i > 1 then encoded_leads = encoded_leads || ","
     encoded_leads = encoded_leads || _lead(leads[i])
   end
+  encoded_notes = ""
+  do i = 1 to notes.0
+    if i > 1 then encoded_notes = encoded_notes || ","
+    encoded_notes = encoded_notes || _analysisnote(notes[i])
+  end
   trace_record = evidence.trace()
   encoded_trace = '{"trace_id":' || jsonquote(trace_record.trace_id()) || ',"query_plan":' || _strings(trace_record.query_plan()) || ',"notes":' || _strings(trace_record.notes()) || '}'
-  output = '{"schema":' || jsonquote(evidence.schema_version()) || ',"library_id":' || jsonquote(evidence.library_id()) || ',"active_generation":' || evidence.active_generation() || ',"original_question":' || jsonquote(evidence.original_question()) || ',"query_plan":' || encoded_plan || ',"passages":[' || encoded_passages || '],"claims":[' || encoded_claims || '],"ambiguities":' || _strings(ambiguities) || ',"leads":[' || encoded_leads || '],"gaps":' || _strings(gaps) || ',"trace":' || encoded_trace || ',"answer_guidance":' || jsonquote(evidence.answer_guidance()) || ',"generated_answer":' || jsonquote(evidence.generated_answer()) || '}'
+  output = '{"schema":' || jsonquote(evidence.schema_version()) || ',"library_id":' || jsonquote(evidence.library_id()) || ',"active_generation":' || evidence.active_generation() || ',"original_question":' || jsonquote(evidence.original_question()) || ',"query_plan":' || encoded_plan || ',"passages":[' || encoded_passages || '],"claims":[' || encoded_claims || '],"ambiguities":' || _strings(ambiguities) || ',"leads":[' || encoded_leads || '],"analysis_notes":[' || encoded_notes || '],"gaps":' || _strings(gaps) || ',"trace":' || encoded_trace || ',"answer_guidance":' || jsonquote(evidence.answer_guidance()) || ',"generated_answer":' || jsonquote(evidence.generated_answer()) || '}'
   if binlength(output as .binary) > maximum_bytes then do; error = "serialized evidence exceeds the configured byte ceiling"; output = ""; return -2; end
   return 0
 
@@ -47,9 +52,9 @@ encodeanswercontext: procedure = .int
   arg evidence = .ragevidence, maximum_bytes = 65536, expose output = .string, expose error = .string
   error = ""; output = ""
   if maximum_bytes < 1 | evidence.schema_version() = "" then do; error = "answer-context encoding input is invalid"; return -1; end
-  passages = evidence.passages(); claims = evidence.claims(); leads = evidence.leads()
+  passages = evidence.passages(); claims = evidence.claims(); leads = evidence.leads(); notes = evidence.analysis_notes()
   ambiguities = evidence.ambiguities(); gaps = evidence.gaps()
-  encoded_passages = ""; encoded_claims = ""; encoded_leads = ""
+  encoded_passages = ""; encoded_claims = ""; encoded_leads = ""; encoded_notes = ""
   do i = 1 to passages.0
     if i > 1 then encoded_passages = encoded_passages || ","
     encoded_passages = encoded_passages || _answerpassage(passages[i])
@@ -62,7 +67,11 @@ encodeanswercontext: procedure = .int
     if i > 1 then encoded_leads = encoded_leads || ","
     encoded_leads = encoded_leads || _answerlead(leads[i])
   end
-  output = '{"schema":"crexx-rag.answer-context/1","question":' || jsonquote(evidence.original_question()) || ',"passages":[' || encoded_passages || '],"accepted_claims":[' || encoded_claims || '],"ambiguities":' || _strings(ambiguities) || ',"graph_leads":[' || encoded_leads || '],"gaps":' || _strings(gaps) || ',"answer_guidance":' || jsonquote(evidence.answer_guidance()) || '}'
+  do i = 1 to notes.0
+    if i > 1 then encoded_notes = encoded_notes || ","
+    encoded_notes = encoded_notes || _answernote(notes[i])
+  end
+  output = '{"schema":"crexx-rag.answer-context/1","question":' || jsonquote(evidence.original_question()) || ',"passages":[' || encoded_passages || '],"accepted_claims":[' || encoded_claims || '],"ambiguities":' || _strings(ambiguities) || ',"graph_leads":[' || encoded_leads || '],"analysis_notes":[' || encoded_notes || '],"gaps":' || _strings(gaps) || ',"answer_guidance":' || jsonquote(evidence.answer_guidance()) || '}'
   if binlength(output as .binary) > maximum_bytes then do; error = "serialized answer context exceeds the configured byte ceiling"; output = ""; return -2; end
   return 0
 
@@ -105,6 +114,15 @@ _lead: procedure = .string
   arg lead = .raggraphlead
   return '{"path":' || _strings(lead.path()) || ',"reason":' || jsonquote(lead.reason()) || ',"supporting_mentions":' || _strings(lead.supporting_mentions()) || ',"limitation":' || jsonquote(lead.limitation()) || '}'
 
+_analysisnote: procedure = .string
+  arg note = .raganalysisnote
+  citations = note.citations(); encoded_citations = ""
+  do i = 1 to citations.0
+    if i > 1 then encoded_citations = encoded_citations || ","
+    encoded_citations = encoded_citations || _citation(citations[i])
+  end
+  return '{"note_id":' || jsonquote(note.note_id()) || ',"kind":' || jsonquote(note.kind()) || ',"text":' || jsonquote(note.text()) || ',"importance":' || note.importance() || ',"uncertainty":' || note.uncertainty() || ',"next_action":' || jsonquote(note.next_action()) || ',"state":' || jsonquote(note.state()) || ',"author":' || jsonquote(note.author()) || ',"object_links":' || _strings(note.object_links()) || ',"citations":[' || encoded_citations || ']}'
+
 _answerpassage: procedure = .string
   arg passage = .ragpassage
   return '{"citation":' || jsonquote(passage.citation().citation()) || ',"text":' || jsonquote(passage.text()) || ',"captured_at":' || jsonquote(passage.captured_at()) || ',"event_start_at":' || jsonquote(passage.event_start_at()) || ',"event_end_at":' || jsonquote(passage.event_end_at()) || ',"evidence_class":' || jsonquote(passage.evidence_class()) || ',"directness":' || jsonquote(passage.directness()) || '}'
@@ -125,6 +143,14 @@ _answerclaim: procedure = .string
 _answerlead: procedure = .string
   arg lead = .raggraphlead
   return '{"path":' || _strings(lead.path()) || ',"reason":' || jsonquote(lead.reason()) || ',"limitation":' || jsonquote(lead.limitation()) || '}'
+
+_answernote: procedure = .string
+  arg note = .raganalysisnote
+  citations = note.citations(); citation_ids = .string[]
+  do i = 1 to citations.0
+    citation_ids[i] = citations[i].citation()
+  end
+  return '{"note_id":' || jsonquote(note.note_id()) || ',"kind":' || jsonquote(note.kind()) || ',"text":' || jsonquote(note.text()) || ',"uncertainty":' || note.uncertainty() || ',"next_action":' || jsonquote(note.next_action()) || ',"citations":' || _strings(citation_ids) || ',"factual_status":"analysis-only"}'
 
 _strings: procedure = .string
   arg values = .string[]

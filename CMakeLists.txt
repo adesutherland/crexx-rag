@@ -74,6 +74,7 @@ set(CREXXRAG_APPLICATION_SOURCES
     "${CREXXRAG_APP_DIR}/ragjob.crexx"
     "${CREXXRAG_APP_DIR}/ragconfig.crexx"
     "${CREXXRAG_APP_DIR}/ragconfigfile.crexx"
+    "${CREXXRAG_APP_DIR}/ragglossary.crexx"
     "${CREXXRAG_APP_DIR}/ragprofile.crexx"
     "${CREXXRAG_APP_DIR}/ragregistry.crexx"
     "${CREXXRAG_APP_DIR}/ragschema.crexx"
@@ -89,6 +90,7 @@ set(CREXXRAG_APPLICATION_SOURCES
     "${CREXXRAG_APP_DIR}/ragfolder.crexx"
     "${CREXXRAG_APP_DIR}/ragclaims.crexx"
     "${CREXXRAG_APP_DIR}/ragimprove.crexx"
+    "${CREXXRAG_APP_DIR}/ragmaintain.crexx"
     "${CREXXRAG_APP_DIR}/ragproposalio.crexx"
     "${CREXXRAG_APP_DIR}/ragwork.crexx"
     "${CREXXRAG_APP_DIR}/ragquery.crexx"
@@ -190,6 +192,7 @@ install(DIRECTORY docs/tutorial/
     FILES_MATCHING
     PATTERN "README.md"
     PATTERN "*.conf"
+    PATTERN "*.tsv"
     PATTERN "*.txt")
 install(FILES README.md
     DESTINATION "${CMAKE_INSTALL_DOCDIR}"

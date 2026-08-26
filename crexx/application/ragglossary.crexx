@@ -1,0 +1,266 @@
+options levelg
+
+namespace ragglossary expose ragglossaryentry ragglossarydata ragglossaryloadresult ragglossaryloader creatediscoverycontext validateglossarymention
+
+import rxfnsb
+import rxjson
+import rxhash
+import ragmodel
+import ragfile
+
+/* A glossary is bounded operator data, not executable configuration and not
+ * evidence.  The exact content digest is frozen into every reviewed plan that
+ * uses it. */
+ragglossaryentry: class
+  _canonical_label = .string
+  _concept_type = .string
+  _aliases = .string[]
+
+  *: factory
+    arg canonical_label = "", concept_type = "", aliases = .string[]
+    _canonical_label = canonical_label
+    _concept_type = concept_type
+    _aliases = aliases
+    return
+
+  canonical_label: method = .string
+    return _canonical_label
+  concept_type: method = .string
+    return _concept_type
+  aliases: method = .string[]
+    return _aliases
+
+ragglossarydata: class
+  _path = .string
+  _digest = .string
+  _entries = .ragglossaryentry[]
+  _excluded = .string[]
+  _canonical = .string
+
+  *: factory
+    arg path = "", digest = "", entries = .ragglossaryentry[], excluded = .string[], canonical = ""
+    _path = path
+    _digest = digest
+    _entries = entries
+    _excluded = excluded
+    _canonical = canonical
+    return
+
+  path: method = .string
+    return _path
+  digest: method = .string
+    return _digest
+  entries: method = .ragglossaryentry[]
+    return _entries
+  excluded: method = .string[]
+    return _excluded
+  canonical: method = .string
+    return _canonical
+  empty: method = .int
+    return _entries.0 = 0 & _excluded.0 = 0
+
+ragglossaryloader: class
+  *: factory
+    return
+  empty: method = .ragglossarydata
+    return _emptyglossary()
+  load: method = .ragglossaryloadresult
+    arg path = .string
+    glossary = _emptyglossary(); error = ""; status = _loadglossary(path, glossary, error)
+    return .ragglossaryloadresult(status, glossary, error)
+
+ragglossaryloadresult: class
+  _status = .int
+  _glossary = .ragglossarydata
+  _error = .string
+  *: factory
+    arg status = -1, glossary = .ragglossarydata, error = ""
+    _status = status; _glossary = glossary; _error = error
+    return
+  status: method = .int
+    return _status
+  glossary: method = .ragglossarydata
+    return _glossary
+  error: method = .string
+    return _error
+
+_emptyglossary: procedure = .ragglossarydata
+  entries = .ragglossaryentry[]; excluded = .string[]
+  canonical = '{"schema":"crexx-rag.glossary/1","entries":[],"excluded":[]}'
+  return .ragglossarydata("", rxhash..sha256hex(canonical as .binary), entries, excluded, canonical)
+
+_loadglossary: procedure = .int
+  arg path = .string, expose glossary = .ragglossarydata, expose error = .string
+  glossary = _emptyglossary(); error = ""
+  if path = "" | length(path) > 4096 | pos("00"x, path) > 0 then return _fail("glossary path is invalid", error)
+  raw = .binary; bytes = 0
+  if ragfile..readbinaryfilebounded(path, 1048576, raw, bytes, error) \= 0 then do
+    error = "glossary could not be read within the 1 MiB ceiling: " || error
+    return -1
+  end
+  text = raw as .string
+  if pos("00"x, text) > 0 then return _fail("glossary contains a NUL byte", error)
+  entries = .ragglossaryentry[]; excluded = .string[]
+  seen_labels = .string[]; seen_aliases = .string[]; seen_excluded = .string[]
+  format_seen = 0; line_number = 0; start = 1
+  do forever
+    marker = pos("0A"x, text, start)
+    if marker = 0 then line = substr(text, start)
+    else line = substr(text, start, marker - start)
+    line_number = line_number + 1
+    if line_number > 4096 then return _fail("glossary exceeds 4096 lines", error)
+    if right(line, 1) = "0D"x then line = left(line, length(line) - 1)
+    if length(line) > 8192 then return _fail("glossary line " || line_number || " exceeds 8192 bytes", error)
+    stripped = strip(line)
+    if stripped \= "" & left(stripped, 1) \= "#" then do
+      fields = .string[]
+      call _split line, "09"x, 4, fields
+      if format_seen = 0 then do
+        if fields.0 \= 2 | strip(fields[1]) \= "format" | strip(fields[2]) \= "crexx-rag.glossary/1" then return _fail("first glossary data line must be format<TAB>crexx-rag.glossary/1", error)
+        format_seen = 1
+      end
+      else if strip(fields[1]) = "exclude" then do
+        if fields.0 \= 2 then return _fail("glossary exclude line " || line_number || " requires exclude<TAB>term", error)
+        term = lower(strip(fields[2]))
+        if term = "" | length(term) > 512 then return _fail("glossary exclusion on line " || line_number || " is invalid", error)
+        if _contains(seen_excluded, term) = 1 then return _fail("glossary exclusion is duplicated: " || term, error)
+        if _contains(seen_labels, term) = 1 | _contains(seen_aliases, term) = 1 then return _fail("glossary exclusion collides with a concept or alias: " || term, error)
+        seen_excluded[seen_excluded.0 + 1] = term; excluded[excluded.0 + 1] = term
+      end
+      else if strip(fields[1]) = "concept" then do
+        if fields.0 < 3 | fields.0 > 4 then return _fail("glossary concept line " || line_number || " requires concept<TAB>label<TAB>type<TAB>aliases", error)
+        label = strip(fields[2]); concept_type = strip(fields[3])
+        if label = "" | length(label) > 512 | validregistryid(concept_type) \= 1 then return _fail("glossary concept identity on line " || line_number || " is invalid", error)
+        normalized = lower(label)
+        if _contains(seen_labels, normalized) = 1 | _contains(seen_excluded, normalized) = 1 then return _fail("glossary canonical label is duplicated or excluded: " || label, error)
+        aliases = .string[]; aliases[1] = label
+        if fields.0 = 4 & strip(fields[4]) \= "" then do
+          supplied = .string[]; call _split fields[4], "|", 32, supplied
+          if supplied.0 > 32 then return _fail("glossary concept line " || line_number || " exceeds 32 aliases", error)
+          do i = 1 to supplied.0
+            alias = strip(supplied[i])
+            if alias = "" | length(alias) > 512 then return _fail("glossary alias on line " || line_number || " is invalid", error)
+            if _containslower(aliases, alias) = 0 then aliases[aliases.0 + 1] = alias
+          end
+        end
+        do i = 1 to aliases.0
+          alias_key = lower(aliases[i])
+          if _contains(seen_aliases, alias_key) = 1 | _contains(seen_excluded, alias_key) = 1 then return _fail("glossary alias is duplicated or excluded: " || aliases[i], error)
+          seen_aliases[seen_aliases.0 + 1] = alias_key
+        end
+        seen_labels[seen_labels.0 + 1] = normalized
+        entries[entries.0 + 1] = .ragglossaryentry(label, concept_type, aliases)
+        if entries.0 > 2048 then return _fail("glossary exceeds 2048 concepts", error)
+      end
+      else return _fail("glossary line " || line_number || " has unknown record type", error)
+    end
+    if marker = 0 then leave
+    start = marker + 1
+  end
+  if format_seen = 0 then return _fail("glossary format declaration is missing", error)
+  canonical = _canonical(entries, excluded)
+  glossary = .ragglossarydata(path, rxhash..sha256hex(raw), entries, excluded, canonical)
+  return 0
+
+/* The complete interpreted glossary, not only its digest, is carried in the
+ * durable provider input.  That lets normal cREXX validation enforce the same
+ * canonical labels, types, aliases and exclusions that the operator reviewed. */
+creatediscoverycontext: procedure = .int
+  arg glossary = .ragglossarydata, mode = .string, ranked_limit = .int, max_mentions = .int, max_relationships = .int, max_notes = .int, expose context = .string, expose error = .string
+  context = ""; error = ""
+  if wordpos(mode, "all ranked maintenance off") = 0 | ranked_limit < 1 | ranked_limit > 100000 | max_mentions < 1 | max_mentions > 1000 | max_relationships < 1 | max_relationships > 1000 | max_notes < 1 | max_notes > 1000 | glossary.digest() = "" | glossary.canonical() = "" then return _fail("discovery context input is invalid", error)
+  context = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.discovery-context/1") || "," || jsonquote("mode") || ":" || jsonquote(mode) || "," || jsonquote("glossary_digest") || ":" || jsonquote(glossary.digest()) || "," || jsonquote("ranked_limit") || ":" || ranked_limit || "," || jsonquote("max_mentions") || ":" || max_mentions || "," || jsonquote("max_relationships") || ":" || max_relationships || "," || jsonquote("max_notes") || ":" || max_notes || "," || jsonquote("glossary") || ":" || glossary.canonical() || "}"
+  return 0
+
+validateglossarymention: procedure = .int
+  arg context = .string, label = .string, canonical_label = .string, concept_type = .string, provider_aliases = .string[], expose error = .string
+  error = ""; document = .jsondocument(context)
+  if document.valid() \= 1 | document.node_type(document.root()) \= "object" then return _fail("durable discovery context is invalid", error)
+  root = document.root(); schema = ""; digest = ""; mode = ""; ranked = 0; max_mentions = 0; max_relationships = 0; max_notes = 0
+  glossary_node = document.member(root, "glossary")
+  if document.node_count(root) \= 8 | document.node_string(document.member(root, "schema"), schema) \= 0 | schema \= "crexx-rag.discovery-context/1" | document.node_string(document.member(root, "mode"), mode) \= 0 | wordpos(mode, "all ranked maintenance off") = 0 | document.node_string(document.member(root, "glossary_digest"), digest) \= 0 | length(digest) \= 64 | document.node_int(document.member(root, "ranked_limit"), ranked) \= 0 | document.node_int(document.member(root, "max_mentions"), max_mentions) \= 0 | document.node_int(document.member(root, "max_relationships"), max_relationships) \= 0 | document.node_int(document.member(root, "max_notes"), max_notes) \= 0 | ranked < 1 | ranked > 100000 | max_mentions < 1 | max_mentions > 1000 | max_relationships < 1 | max_relationships > 1000 | max_notes < 1 | max_notes > 1000 | document.node_type(glossary_node) \= "object" then return _fail("durable discovery context contract is invalid", error)
+  glossary_schema = ""; entries_node = document.member(glossary_node, "entries"); excluded_node = document.member(glossary_node, "excluded")
+  if document.node_count(glossary_node) \= 3 | document.node_string(document.member(glossary_node, "schema"), glossary_schema) \= 0 | glossary_schema \= "crexx-rag.glossary/1" | document.node_type(entries_node) \= "array" | document.node_type(excluded_node) \= "array" then return _fail("durable glossary contract is invalid", error)
+  surfaces = .string[]; surfaces[1] = label; surfaces[2] = canonical_label
+  do i = 1 to provider_aliases.0
+    surfaces[surfaces.0 + 1] = provider_aliases[i]
+  end
+  do i = 1 to document.node_count(excluded_node)
+    excluded = ""
+    if document.node_string(document.element(excluded_node, i), excluded) \= 0 then return _fail("durable glossary exclusion is invalid", error)
+    do s = 1 to surfaces.0
+      if lower(surfaces[s]) = lower(excluded) then return _fail("provider mention uses a glossary-excluded term", error)
+    end
+  end
+  expected_label = ""; expected_type = ""
+  do i = 1 to document.node_count(entries_node)
+    entry = document.element(entries_node, i); entry_label = ""; entry_type = ""; aliases_node = document.member(entry, "aliases")
+    if document.node_type(entry) \= "object" | document.node_count(entry) \= 3 | document.node_string(document.member(entry, "canonical_label"), entry_label) \= 0 | document.node_string(document.member(entry, "concept_type"), entry_type) \= 0 | document.node_type(aliases_node) \= "array" then return _fail("durable glossary entry is invalid", error)
+    matched = 0
+    do a = 1 to document.node_count(aliases_node)
+      entry_alias = ""
+      if document.node_string(document.element(aliases_node, a), entry_alias) \= 0 then return _fail("durable glossary alias is invalid", error)
+      do s = 1 to surfaces.0
+        if lower(surfaces[s]) = lower(entry_alias) then matched = 1
+      end
+    end
+    if matched = 1 then do
+      if expected_label \= "" & (expected_label \= entry_label | expected_type \= entry_type) then return _fail("provider mention spans conflicting glossary concepts", error)
+      expected_label = entry_label; expected_type = entry_type
+    end
+  end
+  if expected_label \= "" & (canonical_label \= expected_label | concept_type \= expected_type) then return _fail("provider mention contradicts the reviewed glossary identity", error)
+  return 1
+
+_canonical: procedure = .string
+  arg entries = .ragglossaryentry[], excluded = .string[]
+  output = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.glossary/1") || "," || jsonquote("entries") || ":["
+  do i = 1 to entries.0
+    if i > 1 then output = output || ","
+    output = output || "{" || jsonquote("canonical_label") || ":" || jsonquote(entries[i].canonical_label()) || "," || jsonquote("concept_type") || ":" || jsonquote(entries[i].concept_type()) || "," || jsonquote("aliases") || ":["
+    aliases = entries[i].aliases()
+    do j = 1 to aliases.0
+      if j > 1 then output = output || ","
+      output = output || jsonquote(aliases[j])
+    end
+    output = output || "]}"
+  end
+  output = output || "]," || jsonquote("excluded") || ":["
+  do i = 1 to excluded.0
+    if i > 1 then output = output || ","
+    output = output || jsonquote(excluded[i])
+  end
+  return output || "]}"
+
+_split: procedure
+  arg text = .string, separator = .string, maximum = .int, expose values = .string[]
+  clear values; start = 1
+  do forever
+    marker = pos(separator, text, start)
+    if marker = 0 then value = substr(text, start)
+    else value = substr(text, start, marker - start)
+    values[values.0 + 1] = value
+    if values.0 > maximum | marker = 0 then leave
+    start = marker + length(separator)
+  end
+  return
+
+_contains: procedure = .int
+  arg values = .string[], expected = .string
+  do i = 1 to values.0
+    if values[i] = expected then return 1
+  end
+  return 0
+
+_containslower: procedure = .int
+  arg values = .string[], expected = .string
+  expected = lower(expected)
+  do i = 1 to values.0
+    if lower(values[i]) = expected then return 1
+  end
+  return 0
+
+_fail: procedure = .int
+  arg message = .string, expose error = .string
+  error = message
+  return -1

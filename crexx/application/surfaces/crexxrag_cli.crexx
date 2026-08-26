@@ -44,7 +44,7 @@ end
 
 command_args = _aliases(command_args, loaded_config, config_loaded, alias, source_set, worker_count, provider_filter, auto_confirm, error)
 if error \= "" then return _clierror("parse", "usage", error, 2)
-if (alias = "init" | alias = "guided-ingest" | alias = "guided-improve" | alias = "guided-provider-test" | alias = "serve-mcp") & config_loaded = 0 & _hasglobal(command_args, "config") = 0 then return _clierror("config", "configuration", "no configuration selected; checked --config-file, CREXXRAG_CONFIG, and ./crexxrag.conf", 3)
+if (alias = "init" | alias = "guided-ingest" | alias = "guided-maintain" | alias = "guided-provider-test" | alias = "serve-mcp") & config_loaded = 0 & _hasglobal(command_args, "config") = 0 then return _clierror("config", "configuration", "no configuration selected; checked --config-file, CREXXRAG_CONFIG, and ./crexxrag.conf", 3)
 
 command_args = _defaults(command_args, loaded_config, config_loaded, alias)
 request = .ragcommandrequest
@@ -55,7 +55,7 @@ if config_loaded = 1 then do
 end
 
 if alias = "guided-ingest" then return _guidedingest(request, registry, source_set, worker_count, auto_confirm)
-if alias = "guided-improve" then return _guidedimprove(request, registry, worker_count, auto_confirm)
+if alias = "guided-maintain" then return _guidedmaintain(request, registry, worker_count, auto_confirm)
 if alias = "guided-provider-test" then return _guidedprovidertest(request, registry, provider_filter, auto_confirm)
 if alias = "serve-mcp" then return _servemcp(request, registry)
 if alias = "provider-login" then do
@@ -77,7 +77,9 @@ _showhelp: procedure = .int
   say "Human workflow"
   say "  crexxrag init"
   say "  crexxrag ingest [SOURCE_SET] [--workers N] [--yes]"
-  say "  crexxrag improve [--workers N] [--yes]"
+  say "  crexxrag maintain [--workers N] [--yes]"
+  say "  crexxrag maintain status [RUN_ID]"
+  say "  crexxrag maintain inspect ITEM_OR_NOTE_ID"
   say "  crexxrag review list"
   say "  crexxrag query QUESTION"
   say "  crexxrag provider status"
@@ -87,7 +89,7 @@ _showhelp: procedure = .int
   say "  crexxrag serve mcp"
   say ""
   say "The current directory defaults are ./crexxrag.conf and ./library."
-  say "Ingest and improve review privacy, providers and budget before starting workers."
+  say "Ingest and maintain review privacy, providers, worklists and budgets before starting workers."
   say ""
   say "Global options"
   say "  --config-file PATH        configuration file"
@@ -171,11 +173,11 @@ _guidedingest: procedure = .int
   status_result = dispatchproduct(status_request, registry)
   return _showresult(status_result, "human")
 
-_guidedimprove: procedure = .int
+_guidedmaintain: procedure = .int
   arg plan_request = .ragcommandrequest, registry = .ragregistry, worker_override = .string, auto_confirm = .int
-  if plan_request.format() \= "human" then return _clierror("parse", "usage", "guided improvement is human-only; machine callers use improve plan, improve apply, and worker start with --format json or ndjson", 2)
+  if plan_request.format() \= "human" then return _clierror("parse", "usage", "guided maintenance is human-only; machine callers use maintain plan, maintain apply, and worker start with --format json or ndjson", 2)
   config_lookup = registry.config(plan_request.config_id())
-  if config_lookup.found() \= 1 then return _clierror("config", "configuration", "guided improvement configuration is not registered", 3)
+  if config_lookup.found() \= 1 then return _clierror("config", "configuration", "guided maintenance configuration is not registered", 3)
   config = config_lookup.config(); workers = config.workers().processes()
   if worker_override \= "" then workers = worker_override as .int
   if workers < 1 | workers > config.workers().processes() then return _clierror("parse", "usage", "--workers must be within the configured process ceiling", 2)
@@ -184,8 +186,8 @@ _guidedimprove: procedure = .int
   if plan_result.exit_code() \= 0 then return _showresult(plan_result, "human")
   plan_json = _fieldvalue(plan_result, 1, "canonical_plan")
   digest = _fieldvalue(plan_result, 1, "digest")
-  if plan_json = "" | digest = "" then return _clierror("render", "internal", "guided improvement plan did not expose its canonical bytes and digest", 10)
-  say _improveplansummary(config, plan_result, digest, workers)
+  if plan_json = "" | digest = "" then return _clierror("render", "internal", "guided maintenance plan did not expose its canonical bytes and digest", 10)
+  say _maintainplansummary(config, plan_result, digest, workers)
 
   if auto_confirm = 0 then do
     call charout "stderr", "Continue? [y/N] "
@@ -200,15 +202,21 @@ _guidedimprove: procedure = .int
   apply_options = .ragcommandoption[]
   apply_options[1] = .ragcommandoption("plan-json", plan_json, 0)
   apply_options[2] = .ragcommandoption("expect-digest", digest, 0)
-  apply_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", plan_request.progress(), access, "improve", "apply", "improve.apply", apply_options, empty_positionals)
+  apply_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", plan_request.progress(), access, "maintain", "apply", "maintain.apply", apply_options, empty_positionals)
   apply_result = dispatchproduct(apply_request, registry)
   ignored = _showresult(apply_result, "human")
   if apply_result.exit_code() \= 0 then return apply_result.exit_code()
-  items = _fieldvalue(apply_result, 1, "items")
-  if items = "" then return _clierror("render", "internal", "improvement apply did not expose its queued item count", 10)
-  if items = "0" then return 0
+  items = _fieldvalue(apply_result, 1, "work_items")
+  if items = "" then return _clierror("render", "internal", "maintenance apply did not expose its durable work count", 10)
+  run_id = _fieldvalue(apply_result, 1, "run_id")
+  if run_id = "" then return _clierror("render", "internal", "maintenance apply did not expose its durable run id", 10)
+  if items = "0" then do
+    status_options = .ragcommandoption[]; status_positionals = .string[]; status_positionals[1] = run_id
+    status_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", "off", access, "maintain", "status", "maintain.status", status_options, status_positionals)
+    return _showresult(dispatchproduct(status_request, registry), "human")
+  end
   job_id = _fieldvalue(apply_result, 1, "job_id")
-  if job_id = "" then return _clierror("render", "internal", "improvement apply did not expose its durable job id", 10)
+  if job_id = "" then return _clierror("render", "internal", "maintenance apply did not expose its durable worker job id", 10)
 
   worker_options = .ragcommandoption[]
   worker_options[1] = .ragcommandoption("count", workers || "", 0)
@@ -220,8 +228,8 @@ _guidedimprove: procedure = .int
   ignored = _showresult(worker_result, "human")
   if worker_result.exit_code() \= 0 then return worker_result.exit_code()
 
-  status_options = .ragcommandoption[]; status_positionals = .string[]; status_positionals[1] = job_id
-  status_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", "off", access, "job", "status", "job.status", status_options, status_positionals)
+  status_options = .ragcommandoption[]; status_positionals = .string[]; status_positionals[1] = run_id
+  status_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", "off", access, "maintain", "status", "maintain.status", status_options, status_positionals)
   status_result = dispatchproduct(status_request, registry)
   return _showresult(status_result, "human")
 
@@ -380,12 +388,12 @@ _plansummary: procedure = .string
   output = output || "0A"x || "  Plan digest:      " || digest
   return output
 
-_improveplansummary: procedure = .string
+_maintainplansummary: procedure = .string
   arg config = .ragconfig, plan_result = .ragcommandresult, digest = .string, workers = .int
   provider = _roleprovider(config, "extractor"); budget = config.budget()
   items = _fieldvalue(plan_result, 2, "items_planned")
   triggers = _fieldvalue(plan_result, 2, "trigger_count")
-  output = "Improvement plan"
+  output = "Maintenance plan"
   output = output || "0A0A"x || "  Items selected:   " || items
   output = output || "0A"x || "  Triggers checked: " || triggers
   output = output || "0A"x || "  Worker processes: " || workers
@@ -463,7 +471,7 @@ _defaults: procedure = .string[]
   if _hasglobal(args, "access") = 0 then do
     if alias = "init" then do; output[output.0 + 1] = "--access"; output[output.0 + 1] = "admin"; end
     if alias = "guided-ingest" then do; output[output.0 + 1] = "--access"; output[output.0 + 1] = "ingest,control"; end
-    if alias = "guided-improve" then do; output[output.0 + 1] = "--access"; output[output.0 + 1] = "curate"; end
+    if alias = "guided-maintain" then do; output[output.0 + 1] = "--access"; output[output.0 + 1] = "curate"; end
     if alias = "guided-provider-test" then do; output[output.0 + 1] = "--access"; output[output.0 + 1] = "diagnose"; end
   end
   do i = 1 to args.0
@@ -529,8 +537,8 @@ _aliases: procedure = .string[]
     alias = "serve-mcp"
     return args
   end
-  if noun = "improve" then do
-    if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply") > 0 then return args
+  if noun = "maintain" then do
+    if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply status inspect") > 0 then return args
     i = noun_index + 1
     do while i <= args.0
       token = args[i]
@@ -540,13 +548,13 @@ _aliases: procedure = .string[]
         i = i + 1; worker_count = args[i]
       end
       else if left(token, 10) = "--workers=" then worker_count = substr(token, 11)
-      else do; error = "unknown guided improvement option " || token; return args; end
+      else do; error = "unknown guided maintenance option " || token; return args; end
       i = i + 1
     end
     if worker_count \= "" & _unsignedtext(worker_count) \= 1 then do; error = "--workers requires a positive integer"; return args; end
     output = _prefix(args, noun_index)
-    output[output.0 + 1] = "improve"; output[output.0 + 1] = "plan"
-    alias = "guided-improve"
+    output[output.0 + 1] = "maintain"; output[output.0 + 1] = "plan"
+    alias = "guided-maintain"
     return output
   end
   if noun \= "ingest" then return args

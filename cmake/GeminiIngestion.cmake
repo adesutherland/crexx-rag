@@ -10,6 +10,10 @@ file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}/source")
 file(WRITE "${CPRAG_WORK_DIR}/source/architecture.txt"
     "BillingService depends on CustomerDatabase.\n"
     "BillingService depends on CustomerDatabase.\n")
+set(CPRAG_FIXTURE_GLOSSARY "${CPRAG_WORK_DIR}/architecture.glossary.tsv")
+set(glossary_text
+    "format\tcrexx-rag.glossary/1\nconcept\tBillingService\tapplication-component\tBilling Service\nconcept\tCustomerDatabase\tdata-store\tCustomer DB\nexclude\tDeprecatedSystem\n")
+file(WRITE "${CPRAG_FIXTURE_GLOSSARY}" "${glossary_text}")
 set(CPRAG_FIXTURE_PORT 18997)
 set(CPRAG_FIXTURE_SOURCE "${CPRAG_WORK_DIR}/source")
 configure_file("${CPRAG_CONFIG_TEMPLATE}"
@@ -77,6 +81,21 @@ if(plan_json_error OR plan_digest_error)
     message(FATAL_ERROR "Gemini product plan was not reviewable: ${plan_out}")
 endif()
 
+# The reviewed plan freezes the exact glossary bytes. A changed operator
+# glossary must be rejected before any library mutation or provider call.
+file(APPEND "${CPRAG_FIXTURE_GLOSSARY}" "concept\tUnreviewedConcept\tapplication-component\n")
+execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
+    --profile it-architecture-profile --access ingest --format json --progress off
+    ingest apply --plan-json "${plan_json}" --expect-digest "${plan_digest}"
+    OUTPUT_VARIABLE glossary_drift_out ERROR_VARIABLE glossary_drift_err
+    RESULT_VARIABLE glossary_drift_result TIMEOUT 30)
+if(glossary_drift_result EQUAL 0 OR
+   NOT glossary_drift_out MATCHES "glossary content no longer match" OR
+   glossary_drift_err MATCHES "crexxrag provider")
+    message(FATAL_ERROR "changed glossary did not invalidate the reviewed plan before provider work:\n${glossary_drift_out}${glossary_drift_err}")
+endif()
+file(WRITE "${CPRAG_FIXTURE_GLOSSARY}" "${glossary_text}")
+
 execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
     --profile it-architecture-profile --access ingest --format json --progress plain
     ingest apply --plan-json "${plan_json}" --expect-digest "${plan_digest}"
@@ -126,6 +145,15 @@ file(GLOB machine_vectors "${library}/vectors.*.rxvec")
 list(LENGTH machine_vectors machine_vector_count)
 if(NOT machine_vector_count EQUAL 1)
     message(FATAL_ERROR "completed machine ingestion did not publish exactly one immutable vector sidecar")
+endif()
+find_program(CREXXRAG_SQLITE3 sqlite3 REQUIRED)
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
+        "SELECT (SELECT count(*) FROM candidate_mentions WHERE extractor_version='provider-discovery-v1') || ':' || (SELECT count(*) FROM claims WHERE visible_to_generation IS NULL) || ':' || (SELECT count(*) FROM claim_support WHERE visible_to_generation IS NULL)"
+    OUTPUT_VARIABLE discovery_batch_state OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE discovery_batch_err RESULT_VARIABLE discovery_batch_result)
+if(NOT discovery_batch_result EQUAL 0 OR
+   NOT discovery_batch_state STREQUAL "4:1:2")
+    message(FATAL_ERROR "Gemini did not persist the reviewed four-mention/two-relationship batch as one claim with two exact supports: ${discovery_batch_state} ${discovery_batch_err}")
 endif()
 
 # A failing child process must survive supervision as a useful product error,
@@ -208,7 +236,7 @@ execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
 if(NOT query_result EQUAL 0 OR NOT query_out MATCHES "\"candidate_count\":1" OR
    NOT query_out MATCHES "depends-on" OR NOT query_out MATCHES "claim-sha256:" OR
    NOT query_out MATCHES "utf8-0-87" OR
-   NOT query_out MATCHES "\"vector_state\":\"active-exact-rxvector\"" OR
+   NOT query_out MATCHES "\"vector_state\":\"active-ann-ivf-rxvector\"" OR
    NOT query_out MATCHES "\"retrieval_mode\":\"hybrid\"" OR
    NOT query_out MATCHES "\"query_embedding_state\":\"generated\"" OR
    NOT query_out MATCHES "\"provider_calls\":1")
@@ -306,12 +334,12 @@ execute_process(COMMAND ${human_cli} query
     RESULT_VARIABLE human_query_result TIMEOUT 30)
 if(NOT human_query_result EQUAL 0 OR
    NOT human_query_out MATCHES "candidate count: 1" OR
-   NOT human_query_out MATCHES "vector state: active-exact-rxvector" OR
+   NOT human_query_out MATCHES "vector state: active-ann-ivf-rxvector" OR
    NOT human_query_out MATCHES "retrieval mode: hybrid" OR
    NOT human_query_out MATCHES "query embedding state: generated" OR
    NOT human_query_out MATCHES "provider calls: 1" OR
    NOT human_query_out MATCHES "BillingService --depends-on--> CustomerDatabase" OR
-   NOT human_query_out MATCHES "citation: .*utf8-0-87" OR
+   NOT human_query_out MATCHES "citation: .*utf8-0-43" OR
    human_query_out MATCHES "evidence_json|\\{\"schema\"" OR
    NOT human_query_err MATCHES "crexxrag query-embedding complete")
     message(FATAL_ERROR "Human query shorthand failed:\n${human_query_out}${human_query_err}")
@@ -340,6 +368,6 @@ file(WRITE "${CPRAG_WORK_DIR}/result.txt"
     "test=gemini-ingestion\nprovider=gemini\nrequests=6\nitems=4\nquery_embeddings=2\n"
     "trace=stderr-plain\nstdout=json-stable\ncredentials=not-retained\n"
     "human_ui=help+local-defaults+guided-ingest+zero-work-replay+query-summary\n"
-    "vector_publication=machine+human\ncontroller_error=pre-registration+post-registration\n"
+    "vector_publication=machine+human\nprovider_batch=4-mentions+2-relationships+2-supports\ncontroller_error=pre-registration+post-registration\n"
     "${apply_out}${apply_err}${worker_out}${worker_err}${controller_out}${controller_err}${failed_child_out}${failed_child_err}${abrupt_child_out}${abrupt_child_err}${abrupt_list_out}${status_out}${query_out}${verify_out}${human_init_out}${human_ingest_out}${human_ingest_err}${human_noop_out}${human_noop_err}${human_query_out}")
 message(STATUS "Gemini ingestion passed canonical JSON and human-default execution through native workers, truthful replay, vector publication, meaningful pre/post-registration child failure, evidence retrieval, integrity verification, and sanitized progress")

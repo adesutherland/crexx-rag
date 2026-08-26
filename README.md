@@ -58,6 +58,7 @@ cd "$work_dir"
 export GEMINI_API_KEY='<Google AI Studio key>'
 ./crexxrag init
 ./crexxrag ingest
+./crexxrag maintain
 ./crexxrag query 'What does BillingService depend on?'
 ```
 
@@ -79,7 +80,7 @@ work_dir=$(docs/tutorial/setup.sh --no-build --provider codex-local)
 ```text
 crexxrag init
 crexxrag ingest [SOURCE_SET] [--workers N] [--yes]
-crexxrag improve [--workers N] [--yes]
+crexxrag maintain [--workers N] [--yes]
 crexxrag review list
 crexxrag query QUESTION
 crexxrag provider list|status|test
@@ -94,7 +95,8 @@ Canonical plan/apply, job, worker, review, proposal, and query operations remain
 available for scripts and agents. Start with the
 [standalone setup](docs/standalone-setup.md), then see the
 [user guide](docs/user-guide.md), [agent integration](docs/agent-integration.md),
-and [algorithm description](docs/algorithm.md).
+the [methodology and algorithm description](docs/algorithm.md), and the
+[methodology closure checklist](docs/methodology-closure.md).
 
 ## Providers and privacy
 
@@ -131,7 +133,7 @@ ctest --preset debug --output-on-failure
 
 The default suite covers native and linked applications, both CREXX VMs,
 SQLite thread/session isolation, multi-process workers, Gemini ingestion,
-embeddings, improvement, external proposal review/promotion, hybrid retrieval,
+embeddings, maintenance, external proposal review/promotion, hybrid retrieval,
 cited answers, provider budgets, Codex App Server protocol, MCP, and negative
 provider-output cases. See [the test strategy](docs/test-strategy.md).
 

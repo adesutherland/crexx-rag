@@ -75,8 +75,8 @@ real retry.
 
 Because no earlier product was released, the active database begins with one
 initial schema migration and bundle format 1. The ordered migration/checksum
-mechanism remains in place for future released evolution. There is no old
-schema importer.
+mechanism is part of the format so every schema evolution remains ordered and
+checksum-verified. There is no old schema importer.
 
 Semantic generations are immutable once published. Vector generations are
 separate rebuildable publications. Backup pins SQLite and sidecar identities;

@@ -83,10 +83,12 @@ stale rows are not silently deleted.
 Workers are operating-system processes, not attached cREXX threads. Each owns a
 VM, provider process/session, and SQLite connection.
 
-## Improvement and external proposals
+## Maintenance and external proposals
 
 ```sh
-crexxrag improve
+crexxrag maintain
+crexxrag maintain status
+crexxrag maintain inspect ITEM_OR_NOTE_ID
 crexxrag review list
 crexxrag review show REVIEW_ID
 crexxrag review decide REVIEW_ID --decision accept --apply
@@ -103,6 +105,115 @@ Automation then submits the exact returned `canonical_plan` and `digest` to
 `proposal apply`. Apply only creates mandatory pending reviews. Accepting an
 external review internalizes the proposal and runs the normal deterministic
 claim validator before publication.
+
+## Catalogue and graph maintenance cycle
+
+Maintenance is the workflow for both **finding** useful work and executing an
+authorized worklist. It inspects chunks, concept nodes, claim edges, pending
+reviews, query gaps, failed work and embedding/vector coverage; ranks what is
+worth further analysis; and optionally uses the configured LLM to diagnose and
+propose actions.
+
+An optional UTF-8 glossary supplies canonical labels, types, aliases and
+excluded terms. The reviewed plan identifies its content digest and the
+configured discovery mode: LLM review of all changed chunks, ranked chunks, or
+maintenance-selected chunks. Disabling LLM discovery is reported as a degraded
+deterministic fallback.
+
+Configure it with `discovery.glossary_file`. The file is tab-separated and
+bounded; aliases on a concept row are separated by `|`:
+
+```text
+format	crexx-rag.glossary/1
+concept	BillingService	application-component	Billing Service|Billing
+concept	CustomerDatabase	data-store	Customer DB
+exclude	DeprecatedSystem
+```
+
+The exact file bytes and interpreted glossary are frozen into every ingestion
+and maintenance plan. Editing the file after planning makes apply fail before
+any library mutation or provider call; plan again to review the new glossary.
+
+The human command is:
+
+```sh
+crexxrag maintain
+```
+
+It guides one bounded cycle:
+
+1. inspect library readiness and the current semantic generation;
+2. census and rank candidate work across chunks, nodes, edges, reviews, leads
+   and derived indexes;
+3. show why each selected item matters and the score/trigger that selected it;
+4. run bounded LLM diagnosis for the selected items when authorized;
+5. create a typed worklist containing proposed concept discovery, reanalysis,
+   synonym/ambiguity review, split/merge work, retirement inspection, edge
+   review, lead investigation or vector repair;
+6. deterministically enumerate every alias, mention and graph edge affected by
+   a structural proposal;
+7. present the canonical plan, unresolved reviews, provider usage, migration
+   impact and execution mode;
+8. apply and run durable workers only with the required authority; and
+9. re-census and verify graph integrity, lifecycle state, manifest and vector
+   readiness.
+
+The cycle stops when its worklist is complete, its configured budget or item
+ceiling is reached, or no eligible work remains. It does not run indefinitely
+because a provider can continue suggesting changes.
+
+### Gradual concept migration
+
+An LLM may suggest new concepts, synonyms, ambiguities, merges, splits, type
+changes, retirement, restoration and dispositions for affected claims. It only
+creates proposals. cREXX owns the impact census, canonical plan, validation and
+apply.
+
+The old concept is always retained as the active migration parent when a split
+introduces successors. Supported aliases, mentions and claims can migrate
+gradually. Uncertain connections stay on the old concept or enter explicit
+ambiguity/review; they are not copied to every successor as accepted facts.
+
+A merge follows the same gradual principle: select a survivor, introduce the
+migration, and move only validated connections. Retirement is a later command
+cycle with a separate plan and confirmation. It closes the active lifecycle
+state only after every current alias, mention and incident edge has an explicit
+disposition. It does not delete historical concepts, claims, citations or
+maintenance provenance.
+
+Concept nodes and claim edges are maintained in the same atomic graph plan.
+Administrative lineage such as `split-from` or `merged-into` is retained as
+maintenance provenance, not presented as a source-supported domain claim.
+
+### Human and automatic operation
+
+The operating patterns are:
+
+- plan-only discovery with no provider calls or writes;
+- supervised analysis followed by human approval of canonical changes; and
+- automation that invokes the same explicit plan/apply/worker/status sequence
+  within reviewed action, impact, privacy and provider-budget limits.
+
+Automation still uses exact plan/apply digests, durable workers, deterministic
+validation and final verification. Structural split, merge, type change,
+retirement, restoration and claim retraction actions enter mandatory review;
+analysis, embedding repair and vector publication can complete through the
+reviewed maintenance worklist without a second graph-mutation path.
+
+The canonical automation/MCP vocabulary is:
+
+```text
+maintenance plan
+maintenance apply
+maintenance status
+maintenance inspect
+```
+
+The `$crexxrag-maintain` skill defaults to inspection and planning. Apply
+requires `curate` capability and explicit authority. See
+[Methodology and algorithms](algorithm.md#catalogue-and-graph-maintenance-methodology)
+for ranking, the worklist, automation modes, split connection review and the
+retirement gate.
 
 ## Query
 
@@ -123,7 +234,7 @@ Canonical commands separate planning, applying, and supervision:
 
 ```text
 ingest plan / ingest apply
-improve plan / improve apply
+maintain plan / maintain apply / maintain status / maintain inspect
 proposal plan / proposal apply
 worker start / worker run
 job list / job status / job events
@@ -140,6 +251,6 @@ crexxrag --access read serve mcp
 Mutation tools are only advertised/accepted when the corresponding capability
 is supplied. MCP is read-only by default.
 
-The evidence and improvement fields exposed to agents are described in
-[Algorithm](algorithm.md), including the boundary between accepted claims,
-passage-level leads, and explicit gaps.
+The evidence and maintenance fields exposed to agents are described in
+[Methodology and algorithms](algorithm.md), including the boundary between
+accepted claims, passage-level leads, explicit gaps and catalogue maintenance.

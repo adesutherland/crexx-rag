@@ -1,6 +1,6 @@
 foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_RXBVM
         CPRAG_CREXX_BIN_DIR CPRAG_PLUGIN_DIR CPRAG_MODEL CPRAG_CONFIG
-        CPRAG_FILE CPRAG_CONFIG_FILE_MODULE CPRAG_SCENARIO CPRAG_FIXTURE
+        CPRAG_FILE CPRAG_CONFIG_FILE_MODULE CPRAG_GLOSSARY_MODULE CPRAG_SCENARIO CPRAG_FIXTURE
         CPRAG_SUBSCRIPTION_FIXTURE CPRAG_APPLICATION CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
@@ -14,6 +14,15 @@ set(program_import "${CPRAG_WORK_DIR};${base_import}")
 set(report "${CPRAG_WORK_DIR}/result.txt")
 file(WRITE "${report}"
     "test=configuration-contract\nformat=crexx-rag.config/1\nprovider_calls=0\ncredential_reads=0\n")
+file(WRITE "${CPRAG_WORK_DIR}/glossary-valid.tsv"
+    "format\tcrexx-rag.glossary/1\nconcept\tBillingService\tapplication-component\tBilling Service\nconcept\tCustomerDatabase\tdata-store\tCustomer DB\nexclude\tDeprecatedSystem\n")
+file(WRITE "${CPRAG_WORK_DIR}/glossary-duplicate.tsv"
+    "format\tcrexx-rag.glossary/1\nconcept\tBillingService\tapplication-component\nconcept\tBillingService\tapplication-component\n")
+file(WRITE "${CPRAG_WORK_DIR}/glossary-alias.tsv"
+    "format\tcrexx-rag.glossary/1\nconcept\tBillingService\tapplication-component\tShared Alias\nconcept\tCustomerDatabase\tdata-store\tShared Alias\n")
+file(WRITE "${CPRAG_WORK_DIR}/glossary-exclusion.tsv"
+    "format\tcrexx-rag.glossary/1\nconcept\tBillingService\tapplication-component\tBilling Service\nexclude\tBilling Service\n")
+file(WRITE "${CPRAG_WORK_DIR}/glossary-missing-format.tsv" "# no data records\n")
 
 function(compile_crexx source output imports mode_flag label)
     execute_process(COMMAND "${CPRAG_RXC}" ${mode_flag} -i "${imports}"
@@ -43,6 +52,8 @@ foreach(mode IN ITEMS noopt opt)
         "${program_import}" "${mode_flag}" "${mode} ragfile")
     compile_crexx("${CPRAG_CONFIG_FILE_MODULE}" "${CPRAG_WORK_DIR}/ragconfigfile"
         "${program_import}" "${mode_flag}" "${mode} ragconfigfile")
+    compile_crexx("${CPRAG_GLOSSARY_MODULE}" "${CPRAG_WORK_DIR}/ragglossary"
+        "${program_import}" "${mode_flag}" "${mode} ragglossary")
     compile_crexx("${CPRAG_SCENARIO}" "${CPRAG_WORK_DIR}/scenario-${mode}"
         "${program_import}" "${mode_flag}" "${mode} config scenario")
 
@@ -57,12 +68,17 @@ foreach(mode IN ITEMS noopt opt)
             "GEMINI_API_KEY=${secret_marker}"
             "${runtime}" -l "${program_import}"
             "${CPRAG_WORK_DIR}/scenario-${mode}"
-            ragconfigfile ragconfig ragmodel ragfile rx_hash rx_system library
+            ragconfigfile ragconfig ragmodel ragfile ragglossary rx_hash rx_system library
             -a "${cell}" "${CPRAG_FIXTURE}"
+                "${CPRAG_WORK_DIR}/glossary-valid.tsv"
+                "${CPRAG_WORK_DIR}/glossary-duplicate.tsv"
+                "${CPRAG_WORK_DIR}/glossary-alias.tsv"
+                "${CPRAG_WORK_DIR}/glossary-exclusion.tsv"
+                "${CPRAG_WORK_DIR}/glossary-missing-format.tsv"
             RESULT_VARIABLE vm_result OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err
             TIMEOUT 30)
         if(NOT vm_result EQUAL 0 OR NOT vm_out MATCHES
-                "CONFIG_CONTRACT_OK cell=${cell} format=1 settings=bounded providers=2 gemini=2 env_refs=2 literal_secrets=0 executable_modules=0 provider_calls=0")
+                "CONFIG_CONTRACT_OK cell=${cell} format=1 settings=bounded providers=2 gemini=2 env_refs=2 literal_secrets=0 executable_modules=0 glossary=validated provider_calls=0")
             message(FATAL_ERROR "${cell} config scenario failed:\n${vm_out}${vm_err}")
         endif()
         if(vm_out MATCHES "${secret_marker}" OR vm_err MATCHES "${secret_marker}")

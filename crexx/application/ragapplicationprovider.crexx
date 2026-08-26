@@ -9,6 +9,7 @@ import rxhash
 import sqlite_boundary
 import ragconfig
 import ragprofile
+import ragglossary
 import ragcanonical
 import ragstore
 import ragclaims
@@ -87,12 +88,14 @@ ragapplicationprovider: class implements .ragworkprovider
     arg document = .jsondocument, root = .int, input_json = .string, claim = .ragworkclaim, provider_config = .ragproviderconfig, backend = .provider
     empty_proposal = .ragextractionproposal
     messages = .providermessage[]; inputs = .string[]
-    messages[1] = .providermessage("system", "You extract one directional typed relationship from supplied public evidence. Use only candidate IDs, concept types, and relationship types shown in the input. If no directly supported relationship exists, set has_claim false. Never invent endpoints.")
+    messages[1] = .providermessage("system", "Discover zero or more concepts, directional typed relationships, and important grounded analysis notes in the supplied evidence. Return every directly supported relationship up to the stated bounds, not just one. Mention and support offsets are zero-based UTF-8 byte offsets into text. Mention text must exactly match its evidence span. Use only allowed concept and relationship types. Do not invent evidence. During maintenance, use the durable query-gap and prior-note context to investigate omissions and important follow-up work, but ground every returned note in an exact span of the supplied text. For synonym, split, merge, type-correction, retire or restore notes, next_action must be canonical compact JSON with schema crexx-rag.lifecycle-action/1 and exactly operation, concept_id, target_concept_id, alias, concept_type, successors, dispositions and reason. Use exact catalogue concept ids from the durable input. Initial split/merge suggestions use an empty dispositions array; maintenance later enumerates every affected object before any connection can move.")
     types = _types(_profile); relationships = _relationships(_profile)
-    messages[2] = .providermessage("user", "Allowed concept types: " || types || "0A"x || "Allowed relationship types: " || relationships || "0A"x || "Durable input: " || input_json)
-    schema = '{"type":"object","additionalProperties":false,"required":["has_claim","source_candidate_id","source_label","source_type","relationship_type","target_candidate_id","target_label","target_type","confidence_millionths"],"properties":{"has_claim":{"type":"boolean"},"source_candidate_id":{"type":"string"},"source_label":{"type":"string"},"source_type":{"type":"string"},"relationship_type":{"type":"string"},"target_candidate_id":{"type":"string"},"target_label":{"type":"string"},"target_type":{"type":"string"},"confidence_millionths":{"type":"integer"}}}'
+    discovery = _config.discovery()
+    messages[2] = .providermessage("user", "Allowed concept types: " || types || "0A"x || "Allowed relationship types: " || relationships || "0A"x || "Maximum mentions: " || discovery.max_mentions() || "; relationships: " || discovery.max_relationships() || "; notes: " || discovery.max_notes() || "0A"x || "Durable input: " || input_json)
+    schema = '{"type":"object","additionalProperties":false,"required":["mentions","relationships","notes"],"properties":{"mentions":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["label","canonical_label","concept_type","span_start","span_end","aliases"],"properties":{"label":{"type":"string"},"canonical_label":{"type":"string"},"concept_type":{"type":"string"},"span_start":{"type":"integer"},"span_end":{"type":"integer"},"aliases":{"type":"array","items":{"type":"string"}}}}},"relationships":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["source_mention","relationship_type","target_mention","span_start","span_end","confidence_millionths"],"properties":{"source_mention":{"type":"integer"},"relationship_type":{"type":"string"},"target_mention":{"type":"integer"},"span_start":{"type":"integer"},"span_end":{"type":"integer"},"confidence_millionths":{"type":"integer"}}}},"notes":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["kind","text","importance_millionths","uncertainty_millionths","next_action","span_start","span_end"],"properties":{"kind":{"type":"string"},"text":{"type":"string"},"importance_millionths":{"type":"integer"},"uncertainty_millionths":{"type":"integer"},"next_action":{"type":"string"},"span_start":{"type":"integer"},"span_end":{"type":"integer"}}}}}}'
     request_id = "extract-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 32)
-    request = .providerrequest("generate_structured", "extractor", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), provider_config.max_attempts(), _jsonstring(document, root, "privacy"), claim.item_id(), request_id, 512, 0, 0, 0)
+    maximum_output = _config.budget().output_tokens(); if maximum_output > 4096 then maximum_output = 4096
+    request = .providerrequest("generate_structured", "extractor", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), provider_config.max_attempts(), _jsonstring(document, root, "privacy"), claim.item_id(), request_id, maximum_output, 0, 0, 0)
     durable_run_id = ""; provider_charging_basis = provider_config.charging_basis()
     if provider_config.kind() = "codex" then provider_output = _codexstructured(request, claim, provider_config, durable_run_id, provider_charging_basis, request_id)
     else provider_output = backend.generate_structured(request)
@@ -100,19 +103,51 @@ ragapplicationprovider: class implements .ragworkprovider
     if provider_output.provider() \= _backendidentity(provider_config.kind()) | provider_output.model() \= provider_config.model() | provider_output.request_id() = "" then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider returned incomplete provider/model identity", durable_run_id)
     response = .jsondocument(provider_output.content())
     if response.valid() \= 1 | response.node_type(response.root()) \= "object" then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider claim proposal is not an object", durable_run_id)
-    response_root = response.root(); has_claim = 0
-    if response.node_boolean(response.member(response_root, "has_claim"), has_claim) \= 0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider claim disposition is invalid", durable_run_id)
-    if has_claim = 0 then return _success(provider_config.provider_id(), provider_config.model(), request_id, provider_output, empty_proposal, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), durable_run_id, provider_config.charging_basis())
-    source_candidate = _jsonstring(response, response_root, "source_candidate_id"); source_label = _jsonstring(response, response_root, "source_label"); source_type = _jsonstring(response, response_root, "source_type")
-    relationship = _jsonstring(response, response_root, "relationship_type"); target_candidate = _jsonstring(response, response_root, "target_candidate_id"); target_label = _jsonstring(response, response_root, "target_label"); target_type = _jsonstring(response, response_root, "target_type")
-    confidence = -1; ignored = response.node_int(response.member(response_root, "confidence_millionths"), confidence)
-    if source_candidate = "" | target_candidate = "" | source_candidate = target_candidate | source_label = "" | target_label = "" | _candidateexists(document, root, source_candidate) \= 1 | _candidateexists(document, root, target_candidate) \= 1 | _permittedtype(_profile, source_type) \= 1 | _permittedtype(_profile, target_type) \= 1 | _permittedrelationship(_profile, relationship) \= 1 | confidence < 0 | confidence > 1000000 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider claim proposal failed application validation", durable_run_id)
-    revision_chunk_id = _jsonstring(document, root, "revision_chunk_id"); body = _jsonstring(document, root, "text"); prompt_version = _jsonstring(document, root, "prompt_version"); profile_id = _jsonstring(document, root, "profile_id"); source_scope = _jsonstring(document, root, "source_scope")
-    source_concept = "concept-sha256:" || rxhash..sha256hex((lower(source_label) || "00"x || source_type) as .binary)
-    target_concept = "concept-sha256:" || rxhash..sha256hex((lower(target_label) || "00"x || target_type) as .binary)
-    proposal_id = "proposal-sha256:" || rxhash..sha256hex((claim.input_hash() || "00"x || source_candidate || "00"x || relationship || "00"x || target_candidate || "00"x || request_id) as .binary)
-    proposal = .ragextractionproposal("crexx-rag.extraction-proposal/1", proposal_id, "claim", source_concept, source_label, source_type, relationship, target_concept, target_label, target_type, "outbound", '{}', "", "", revision_chunk_id, 0, binlength(body as .binary), "support", "assertion", "direct", "", "lineage:" || revision_chunk_id, confidence, provider_config.provider_id(), provider_config.model(), request_id, prompt_version, "crexx-rag-" || provider_config.kind() || "-adapter/1", source_scope, profile_id, 0)
-    return _success(provider_config.provider_id(), provider_config.model(), request_id, provider_output, proposal, 1, source_candidate, target_candidate, .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), durable_run_id, provider_config.charging_basis())
+    response_root = response.root()
+    mentions_node = response.member(response_root, "mentions"); relationships_node = response.member(response_root, "relationships"); notes_node = response.member(response_root, "notes")
+    if response.node_count(response_root) \= 3 | response.node_type(mentions_node) \= "array" | response.node_type(relationships_node) \= "array" | response.node_type(notes_node) \= "array" | response.node_count(mentions_node) > discovery.max_mentions() | response.node_count(relationships_node) > discovery.max_relationships() | response.node_count(notes_node) > discovery.max_notes() then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider discovery arrays violate the reviewed bounds", durable_run_id)
+    revision_chunk_id = _jsonstring(document, root, "revision_chunk_id"); body = _jsonstring(document, root, "text"); prompt_version = _jsonstring(document, root, "prompt_version"); profile_id = _jsonstring(document, root, "profile_id"); source_scope = _jsonstring(document, root, "source_scope"); discovery_context = _jsonstring(document, root, "discovery_context")
+    body_binary = body as .binary; body_bytes = binlength(body_binary); work_mentions = .ragworkmention[]
+    do i = 1 to response.node_count(mentions_node)
+      node = response.element(mentions_node, i); label = ""; canonical_label = ""; concept_type = ""; span_start = -1; span_end = -1
+      aliases_node = response.member(node, "aliases")
+      if response.node_type(node) \= "object" | response.node_count(node) \= 6 | response.node_string(response.member(node, "label"), label) \= 0 | response.node_string(response.member(node, "canonical_label"), canonical_label) \= 0 | response.node_string(response.member(node, "concept_type"), concept_type) \= 0 | response.node_int(response.member(node, "span_start"), span_start) \= 0 | response.node_int(response.member(node, "span_end"), span_end) \= 0 | response.node_type(aliases_node) \= "array" | response.node_count(aliases_node) > 16 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider mention shape is invalid", durable_run_id)
+      if label = "" | canonical_label = "" | length(label) > 512 | length(canonical_label) > 512 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider mention label is invalid", durable_run_id)
+      if _permittedtype(_profile, concept_type) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider mention concept type is not in the selected profile", durable_run_id)
+      if span_start < 0 | span_end <= span_start | span_end > body_bytes | binsubstr(body_binary, span_start + 1, span_end - span_start) \= (label as .binary) then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider mention does not match its exact evidence span", durable_run_id)
+      aliases = .string[]; aliases[1] = canonical_label
+      do a = 1 to response.node_count(aliases_node)
+        alias = ""
+        if response.node_string(response.element(aliases_node, a), alias) \= 0 | alias = "" | length(alias) > 512 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider alias is invalid", durable_run_id)
+        if _containslower(aliases, alias) = 0 then aliases[aliases.0 + 1] = alias
+      end
+      glossary_error = ""
+      if validateglossarymention(discovery_context, label, canonical_label, concept_type, aliases, glossary_error) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, glossary_error, durable_run_id)
+      candidate_id = "candidate-sha256:" || rxhash..sha256hex((revision_chunk_id || "00"x || span_start || "00"x || span_end || "00"x || "provider-discovery-v1") as .binary)
+      work_mentions[i] = .ragworkmention(candidate_id, canonical_label, concept_type, span_start, span_end, aliases)
+    end
+    work_proposals = .ragworkproposal[]
+    do i = 1 to response.node_count(relationships_node)
+      node = response.element(relationships_node, i); source_index = -1; target_index = -1; relationship = ""; span_start = -1; span_end = -1; confidence = -1
+      if response.node_type(node) \= "object" | response.node_count(node) \= 6 | response.node_int(response.member(node, "source_mention"), source_index) \= 0 | response.node_string(response.member(node, "relationship_type"), relationship) \= 0 | response.node_int(response.member(node, "target_mention"), target_index) \= 0 | response.node_int(response.member(node, "span_start"), span_start) \= 0 | response.node_int(response.member(node, "span_end"), span_end) \= 0 | response.node_int(response.member(node, "confidence_millionths"), confidence) \= 0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship shape is invalid", durable_run_id)
+      if source_index < 0 | target_index < 0 | source_index = target_index | source_index >= work_mentions.0 | target_index >= work_mentions.0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship endpoints are invalid", durable_run_id)
+      if _permittedrelationship(_profile, relationship) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship type is not in the selected profile", durable_run_id)
+      if span_start < 0 | span_end <= span_start | span_end > body_bytes | span_start > work_mentions[source_index + 1].span_start() | span_start > work_mentions[target_index + 1].span_start() | span_end < work_mentions[source_index + 1].span_end() | span_end < work_mentions[target_index + 1].span_end() | confidence < 0 | confidence > 1000000 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship failed exact-span or confidence validation", durable_run_id)
+      source_mention = work_mentions[source_index + 1]; target_mention = work_mentions[target_index + 1]
+      source_concept = "concept-sha256:" || rxhash..sha256hex((lower(source_mention.label()) || "00"x || source_mention.concept_type()) as .binary)
+      target_concept = "concept-sha256:" || rxhash..sha256hex((lower(target_mention.label()) || "00"x || target_mention.concept_type()) as .binary)
+      proposal_id = "proposal-sha256:" || rxhash..sha256hex((claim.input_hash() || "00"x || source_mention.candidate_id() || "00"x || relationship || "00"x || target_mention.candidate_id() || "00"x || span_start || "00"x || span_end || "00"x || request_id) as .binary)
+      proposal = .ragextractionproposal("crexx-rag.extraction-proposal/1", proposal_id, "claim", source_concept, source_mention.label(), source_mention.concept_type(), relationship, target_concept, target_mention.label(), target_mention.concept_type(), "outbound", '{}', "", "", revision_chunk_id, span_start, span_end, "support", "assertion", "direct", "", "lineage:" || revision_chunk_id, confidence, provider_config.provider_id(), provider_config.model(), request_id, prompt_version, "crexx-rag-" || provider_config.kind() || "-adapter/2", source_scope, profile_id, 0)
+      work_proposals[work_proposals.0 + 1] = .ragworkproposal(proposal, source_mention.candidate_id(), target_mention.candidate_id())
+    end
+    work_notes = .ragworknote[]
+    do i = 1 to response.node_count(notes_node)
+      node = response.element(notes_node, i); kind = ""; note_text = ""; next_action = ""; importance = -1; uncertainty = -1; span_start = -1; span_end = -1
+      if response.node_type(node) \= "object" | response.node_count(node) \= 7 | response.node_string(response.member(node, "kind"), kind) \= 0 | response.node_string(response.member(node, "text"), note_text) \= 0 | response.node_int(response.member(node, "importance_millionths"), importance) \= 0 | response.node_int(response.member(node, "uncertainty_millionths"), uncertainty) \= 0 | response.node_string(response.member(node, "next_action"), next_action) \= 0 | response.node_int(response.member(node, "span_start"), span_start) \= 0 | response.node_int(response.member(node, "span_end"), span_end) \= 0 | wordpos(kind, "observation insight hypothesis question gap conflict lead follow-up recommendation synonym split merge type-correction retire restore") = 0 | note_text = "" | length(note_text) > 4096 | length(next_action) > 16384 | importance < 0 | importance > 1000000 | uncertainty < 0 | uncertainty > 1000000 | span_start < 0 | span_end <= span_start | span_end > body_bytes then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider analysis note is invalid or ungrounded", durable_run_id)
+      if wordpos(kind, "synonym split merge type-correction retire restore") > 0 & _validlifecycleaction(next_action, kind) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider lifecycle note does not contain an exact executable maintenance action", durable_run_id)
+      work_notes[work_notes.0 + 1] = .ragworknote(kind, note_text, importance, uncertainty, next_action, span_start, span_end)
+    end
+    return _successbatch(provider_config.provider_id(), provider_config.model(), request_id, provider_output, work_mentions, work_proposals, work_notes, durable_run_id, provider_config.charging_basis())
 
   _codexstructured: method = .providerresult
     arg request = .providerrequest, claim = .ragworkclaim, provider_config = .ragproviderconfig, expose durable_run_id = .string, expose charging_basis = .string, expose effective_request_id = .string
@@ -212,7 +247,14 @@ ragapplicationprovider: class implements .ragworkprovider
 _success: procedure = .ragworkproviderresult
   arg provider_id = .string, model = .string, request_id = .string, provider_output = .providerresult, proposal = .ragextractionproposal, has_proposal = .int, source_candidate = .string, target_candidate = .string, embedding = .ragworkembedding, provider_run_id = "", charging_basis = "monetary-api"
   usage = provider_output.usage(); cost = usage.cost_microunits(); if cost < 0 | charging_basis \= "monetary-api" then cost = 0
-  return .ragworkproviderresult(0, provider_id, model, request_id, usage.input_tokens(), usage.output_tokens(), cost, (provider_output.latency_us() / 1000) as .int, 0, proposal, "", has_proposal, source_candidate, target_candidate, embedding, provider_run_id, charging_basis)
+  mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
+  return .ragworkproviderresult(0, provider_id, model, request_id, usage.input_tokens(), usage.output_tokens(), cost, (provider_output.latency_us() / 1000) as .int, 0, proposal, "", has_proposal, source_candidate, target_candidate, embedding, provider_run_id, charging_basis, mentions, proposals, notes)
+
+_successbatch: procedure = .ragworkproviderresult
+  arg provider_id = .string, model = .string, request_id = .string, provider_output = .providerresult, mentions = .ragworkmention[], proposals = .ragworkproposal[], notes = .ragworknote[], provider_run_id = "", charging_basis = "monetary-api"
+  usage = provider_output.usage(); cost = usage.cost_microunits(); if cost < 0 | charging_basis \= "monetary-api" then cost = 0
+  empty = .ragextractionproposal
+  return .ragworkproviderresult(0, provider_id, model, request_id, usage.input_tokens(), usage.output_tokens(), cost, (provider_output.latency_us() / 1000) as .int, 0, empty, "", proposals.0 > 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, charging_basis, mentions, proposals, notes)
 
 _codexfailure: procedure = .providerresult
   arg request = .providerrequest, message = .string, retryable = .int, category = .string
@@ -226,18 +268,21 @@ _providerfailure: procedure = .ragworkproviderresult
   message = failure.message(); if message = "" then message = "provider request failed"
   if charging_basis = "" then charging_basis = config.charging_basis()
   if charging_basis \= "monetary-api" then cost = 0
-  return .ragworkproviderresult(output.status(), config.provider_id(), config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, (output.latency_us() / 1000) as .int, failure.retryable(), proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, charging_basis)
+  mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
+  return .ragworkproviderresult(output.status(), config.provider_id(), config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, (output.latency_us() / 1000) as .int, failure.retryable(), proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, charging_basis, mentions, proposals, notes)
 
 _failedoutput: procedure = .ragworkproviderresult
   arg config = .ragproviderconfig, request_id = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, output = .providerresult, message = .string, provider_run_id = ""
   usage = output.usage(); cost = usage.cost_microunits(); if cost < 0 | config.charging_basis() \= "monetary-api" then cost = 0
-  return .ragworkproviderresult(-123, config.provider_id(), config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, (output.latency_us() / 1000) as .int, 0, proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, config.charging_basis())
+  mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
+  return .ragworkproviderresult(-123, config.provider_id(), config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, (output.latency_us() / 1000) as .int, 0, proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, config.charging_basis(), mentions, proposals, notes)
 
 _failedwork: procedure = .ragworkproviderresult
   arg provider_id = .string, model = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, message = .string, retryable = .int, provider_run_id = "", charging_basis = "monetary-api"
   if provider_id = "" then provider_id = "unresolved-provider"
   if model = "" then model = "unresolved-model"
-  return .ragworkproviderresult(-101, provider_id, model, "failed-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 24), 0, 0, 0, 0, retryable, proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, charging_basis)
+  mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
+  return .ragworkproviderresult(-101, provider_id, model, "failed-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 24), 0, 0, 0, 0, retryable, proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, charging_basis, mentions, proposals, notes)
 
 _snapshotmatches: procedure = .int
   arg store = .ragstorehandle, snapshot_id = .string, config = .ragconfig, profile = .ragprofile
@@ -292,6 +337,35 @@ _jsonstring: procedure = .string
   value = ""
   if document.node_string(document.member(root, name), value) \= 0 then return ""
   return value
+
+_containslower: procedure = .int
+  arg values = .string[], expected = .string
+  expected = lower(expected)
+  do i = 1 to values.0
+    if lower(values[i]) = expected then return 1
+  end
+  return 0
+
+_validlifecycleaction: procedure = .int
+  arg content = .string, expected_operation = .string
+  document = .jsondocument(content)
+  if document.valid() \= 1 | document.node_type(document.root()) \= "object" | document.node_count(document.root()) \= 9 then return 0
+  root = document.root(); schema = ""; operation = ""; concept_id = ""; target = ""; alias = ""; concept_type = ""; reason = ""
+  successors = document.member(root, "successors"); dispositions = document.member(root, "dispositions")
+  status = document.node_string(document.member(root, "schema"), schema) | document.node_string(document.member(root, "operation"), operation) | document.node_string(document.member(root, "concept_id"), concept_id) | document.node_string(document.member(root, "target_concept_id"), target) | document.node_string(document.member(root, "alias"), alias) | document.node_string(document.member(root, "concept_type"), concept_type) | document.node_string(document.member(root, "reason"), reason)
+  if status \= 0 | schema \= "crexx-rag.lifecycle-action/1" | operation \= expected_operation | concept_id = "" | reason = "" | document.node_type(successors) \= "array" | document.node_type(dispositions) \= "array" | document.node_count(dispositions) \= 0 then return 0
+  if operation = "synonym" then return alias \= "" & target = "" & concept_type = "" & document.node_count(successors) = 0
+  if operation = "split" then do
+    if alias \= "" | target \= "" | concept_type \= "" | document.node_count(successors) < 2 | document.node_count(successors) > 8 then return 0
+    do i = 1 to document.node_count(successors)
+      node = document.element(successors, i); label = ""; child_type = ""
+      if document.node_type(node) \= "object" | document.node_count(node) \= 2 | document.node_string(document.member(node, "canonical_label"), label) \= 0 | document.node_string(document.member(node, "concept_type"), child_type) \= 0 | label = "" | child_type = "" then return 0
+    end
+    return 1
+  end
+  if operation = "merge" then return target \= "" & target \= concept_id & alias = "" & concept_type = "" & document.node_count(successors) = 0
+  if operation = "type-correction" then return concept_type \= "" & alias = "" & target = "" & document.node_count(successors) = 0
+  return alias = "" & target = "" & concept_type = "" & document.node_count(successors) = 0
 
 _candidateexists: procedure = .int
   arg document = .jsondocument, root = .int, candidate_id = .string

@@ -1,9 +1,14 @@
-# Algorithm
+# Methodology and algorithms
 
-This document describes the maintained implementation, not an aspirational RAG
-design. The central rule is that retrieval can discover passages and leads, but
-only a validated, directional, source-supported proposal can become a graph
-claim.
+This document defines the required completed methodology for `crexxrag`. It is
+the acceptance contract for the implementation work. Temporary implementation
+gaps belong in the approved work plan and test evidence, not as permanent
+exceptions in this methodology.
+
+The central rule applies to both: retrieval and an LLM may discover passages,
+concepts and leads, but only a validated, directional, source-supported
+proposal can become a graph claim. SQLite owns the canonical state; provider
+output never owns it.
 
 ## End-to-end shape
 
@@ -12,16 +17,20 @@ source bytes
     |
     v
 normalize -> immutable revisions -> deterministic chunks
+                 |                    |
+                 |       glossary + lexical seeds + LLM discovery
+                 |                    |
+                 v                    v
+       embedding generation    bounded semantic extraction
+                 |                    |
+                 |          normal cREXX validation/review
+                 |                    |
+                 |                    v
+                 |      concepts + aliases + typed claims + support
+                 |                    |
+                 +--------------------+
                                       |
-                         capitalized candidate census
-                                      |
-                                      v
-                       bounded structured extraction
-                                      |
-                       normal cREXX validation/review
-                                      |
-                                      v
-                 concepts + aliases + typed claims + support
+                         publish vector generation
                                       |
             +-------------------------+-------------------------+
             |                         |                         |
@@ -38,6 +47,54 @@ normalize -> immutable revisions -> deterministic chunks
 
 SQLite is authoritative at every stage. The `.rxvec` generation is a
 rebuildable vector publication, never an independent source of claims.
+
+The deterministic ingest apply transaction queues work but makes no provider
+call itself. The guided human command then supervises the embedding and
+extraction workers and publishes the compatible vector generation. A displayed
+apply-stage count of zero provider calls must not be interpreted as a
+deterministic-only completed ingestion.
+
+## Enrichment and readiness methodology
+
+The product lifecycle makes the transition from captured text to a query-ready
+library explicit:
+
+```text
+capture -> enrich -> validate -> consolidate -> publish ready
+              |          |            |
+              |          |            +-> catalogue/graph proposals
+              |          +-> deterministic checks and bounded LLM critique
+              +-> embeddings plus concept/claim extraction
+
+query gaps, reviews and profile changes -> targeted maintenance -> validate
+```
+
+The stages are:
+
+1. **Capture:** deterministically observe, normalize, identify, chunk and build
+   lexical projections.
+2. **Enrich:** generate embeddings and ask a bounded extractor for zero or more
+   exact-span concept mentions and directional claim proposals. Deterministic
+   candidates are seeds, not the provider's complete vocabulary.
+3. **Validate:** check schemas, exact UTF-8 spans, permitted types and
+   relationships, provenance, privacy, budgets, canonical conflicts and
+   generation identity. A separately prompted cognitive critic may recommend
+   accept, reject or review for ambiguous or high-value material, but cannot
+   write canonical state.
+4. **Consolidate:** review cross-chunk aliases, duplicate concepts, possible
+   splits, conflicts, omissions and important evidence-backed leads.
+5. **Publish ready:** require completed extraction and compatible embedding
+   coverage plus a published vector generation when the profile configures
+   embeddings. An explicit `ready-degraded` state may retain lexical and graph
+   access, but must not be described as hybrid-ready.
+6. **Maintain:** use current claims, previous attempts, pending reviews,
+   retrieval gaps, neighbouring evidence and model/profile changes to select a
+   genuinely new review task rather than repeat the initial prompt blindly.
+
+Embedding generation is therefore part of initial enrichment, not a later
+maintenance repair. It is operationally essential for broad semantic recall, while
+lexical retrieval remains necessary for exact names and graph retrieval remains
+necessary for validated direction. Similarity never validates truth.
 
 ## Ingestion and concept discovery
 
@@ -66,43 +123,65 @@ identifies reusable content; `revision_chunk_id` identifies its position in one
 immutable revision. Citations always use the revision occurrence and absolute
 UTF-8 byte span.
 
-### 3. Find candidate mentions without an LLM
+### 3. Discover candidate mentions and concepts
 
-The first concept-discovery pass is deterministic. It records word-like tokens
-of at least three characters whose first character is uppercase. Letters,
-digits, hyphens, and underscores can remain within the token. Each occurrence
-gets a stable candidate id and exact span.
+Concept discovery combines three inputs:
 
-A candidate is admitted to the extraction catalog when its normalized label
-appears at least twice in the active generation or in at least two distinct
-sources. Otherwise it is retained in `review` state. This census is deliberately
-conservative: a one-off proper name is not silently presented to the extractor
-as a canonical endpoint.
+1. An optional operator-supplied UTF-8 glossary provides canonical labels,
+   permitted types, aliases and deliberately excluded terms. Its path is
+   selected by configuration; its content digest and interpretation policy are
+   frozen into the reviewed ingest or maintenance plan. Glossary entries seed
+   catalogue identity but do not constitute evidence for a graph claim.
+2. A deterministic scanner records exact-span lexical candidates. Capitalized
+   tokens, repetition, source diversity and similar bounded rules are useful
+   cheap signals, but this scanner is a weak fallback and ranking aid rather
+   than the complete concept-discovery method.
+3. A structured LLM review can propose additional exact-span mentions,
+   multiword concepts, lowercase concepts, canonical labels, aliases and types
+   even when the deterministic scanner did not seed them.
 
-### 4. Ask for one bounded relationship
+The selected profile/configuration controls whether ingestion reviews all
+changed chunks, only deterministically ranked chunks, or explicitly assigns
+cognitive review to the maintenance census. It may disable LLM review only as a
+reported degraded fallback. The reviewed plan must display and bind the
+discovery mode, glossary identity, selected chunks, privacy route and provider
+budgets. Maintenance always includes unresolved and previously unreviewed
+concept work in its census and performs bounded LLM discovery for the selected
+work when apply is authorized.
+
+Every proposed mention must identify an exact UTF-8 source span. cREXX verifies
+the span, source generation, glossary constraints, profile type and alias
+conflicts before the proposal can affect canonical catalogue state.
+
+### 4. Ask for bounded concepts and relationships
 
 For each new chunk, ingestion queues two independent durable items:
 
 - embedding generation for the chunk; and
 - claim extraction from the chunk.
 
-The extraction request contains the chunk, accepted candidate ids and spans,
-profile-permitted concept types, and profile-permitted relationship types. The
-provider must return a strict structured object containing either no supported
-claim or one directional relationship between two supplied candidates.
+The extraction request contains the chunk, glossary and deterministic seeds,
+existing relevant catalogue state, profile-permitted concept types, and
+profile-permitted relationship types. The provider returns a bounded structured
+object containing zero or more exact-span concept/alias proposals and zero or
+more directional relationship proposals. Per-chunk mention, relationship,
+response-byte and token ceilings are fixed in the reviewed plan; one provider
+turn is not restricted to one relationship.
 
-The application rejects malformed JSON, unknown candidate ids, invented types
-or relationships, self-pairs, invalid confidence, mismatched provider/model
-identity, and incomplete provenance before normal claim validation runs. The
-current adapter binds the proposed support span to the full supplied chunk;
-normal validation still verifies that exact UTF-8 span against the active
-revision.
+The application rejects malformed JSON, nonexistent spans or object identities,
+invented types or relationships, self-pairs, invalid confidence, mismatched
+provider/model identity, and incomplete provenance before normal claim
+validation runs. Each relationship identifies the smallest exact source span
+that supports it. cREXX verifies that span against the immutable revision. A
+full-chunk span is valid only when the whole chunk is genuinely required as
+support; it is never substituted merely because an adapter omitted a precise
+span.
 
 ### 5. Promote mentions to concepts
 
-Only candidate ids selected by a validated provider result are promoted.
-A canonical concept id is derived from the lower-cased canonical label plus its
-profile type. Promotion creates or verifies:
+Only exact-span glossary, deterministic or LLM proposals that pass validation
+are promoted. A canonical concept id is derived from the lower-cased canonical
+label plus its profile type. Promotion creates or verifies:
 
 - the canonical concept and type;
 - normalized aliases;
@@ -111,9 +190,9 @@ profile type. Promotion creates or verifies:
   active concepts are supplied as possible targets.
 
 An alias collision cannot overwrite an existing canonical mapping. It requires
-review. Concepts therefore emerge from the combination of deterministic
-candidate evidence, bounded provider classification, and deterministic cREXX
-promotion—not from embeddings or free-form model memory.
+review. Concepts therefore emerge from the combination of glossary and source
+evidence, bounded provider classification, and deterministic cREXX
+promotion—not from embeddings or ungrounded model memory.
 
 ### 6. Validate and publish the claim
 
@@ -169,18 +248,25 @@ call. `mode: lexical` is therefore the deterministic zero-outbound-call route.
 
 ### Vector route
 
-The vector route is optional. A query embedding must match the configured
-embedding profile and dimension. Retrieval also requires an aligned manifest
-and exactly one published `.rxvec` generation for the current semantic
-generation, model profile, and dimension.
+The vector route is required for a profile to report hybrid-ready semantic
+retrieval. A query embedding must match the configured embedding profile and
+dimension. Retrieval also requires an aligned manifest and exactly one
+published `.rxvec` generation for the current semantic generation, model
+profile, and dimension.
 
-The present implementation is exact, not approximate. It pages active
-embedding blobs from SQLite, computes cosine similarity with `rxvector`, and
-ranks the global top results. The published `.rxvec` sidecar is the compatible
-generation/publication gate; the exact search currently reads the authoritative
-SQLite embedding rows rather than an ANN structure in the sidecar.
+Production vector execution uses the published IVF-flat approximate
+nearest-neighbour index for every library size. The reviewed profile binds the
+centroid count, probes, training iterations and minimum recall. Index identity,
+embedding profile, dimension, semantic generation, membership and checksum are
+verified before use. An exact cosine scan exists only in QA as the frozen
+correctness oracle; it is not a production retrieval route.
 
-If the query dimension, manifest, vector generation, or configured scan ceiling
+Approximate search must meet a documented recall target against the exact oracle
+on the same frozen inputs. Backend selection, rows searched, candidate count,
+latency and any fallback are exposed in the query trace; the product must not
+call an exact bounded scan a scalable index.
+
+If the query dimension, manifest, vector generation, or ANN policy
 is incompatible, automatic retrieval reports an explicit vector fallback and
 continues with lexical and graph routes. Explicit hybrid mode requires its
 configured embedding call to succeed. The returned `vector_state` records what
@@ -193,12 +279,17 @@ anchor directly when it occurs as a bounded phrase in the normalized question.
 Concept mentions found in lexical or vector candidate chunks add further
 anchors.
 
-From those anchors the current evidence retriever follows supported outbound
-claims for up to the configured hop limit, currently zero to four. Every graph
-hit comes from an active claim with active support. Its supporting chunk is
-added as a passage candidate, the hop is recorded, and direct support receives
-a directness signal. Direction is preserved; a reverse relationship is not
-inferred.
+From those anchors the evidence retriever may traverse supported outbound
+edges, inbound edges, or both according to explicit query intent/profile
+policy, for up to the configured hop limit. Every graph hit comes from an active
+claim with active support. Its supporting chunk is added as a passage candidate,
+the hop is recorded, and direct support receives a directness signal.
+
+Traversal direction and claim direction are separate. Following an incoming
+edge is permitted, but the returned claim always retains its stored subject,
+relationship and object. The retriever never manufactures an inverse claim
+unless the profile contains a separately defined, evidence-valid inverse
+relationship rule.
 
 Graph traversal discovers typed paths and support that ordinary text matching
 may miss. It does not turn co-occurrence, vector similarity, or adjacency into
@@ -223,51 +314,60 @@ graph routes. The fused score then receives:
 - `-0.05` for repeated content already selected.
 
 Selection is deterministic, with chunk id as the final tie-break. At most three
-passages from one source are selected, and the current passage ceiling is 12.
+passages from one source are selected, and the baseline passage ceiling is 12.
 The evidence packet retains route channels and score components so an agent can
 inspect why a passage appeared.
 
 Accepted claims are returned only when they have active support and at least
 one supporting chunk survived passage selection. Their support citations retain
 polarity, stance, attribution, lineage, and time. Claim conflicts remain
-visible. The evidence confidence field for an accepted claim is currently a
-validation marker of `1.0`, not a calibrated probability; provider confidence
+visible. The evidence confidence field for an accepted claim is a validation
+marker of `1.0`, not a calibrated probability; provider confidence
 was already used at the promotion gate.
 
 ## Leads, gaps, and important notes
 
-The evidence packet intentionally separates three levels of material:
+The evidence packet intentionally separates four levels of material:
 
 | Output | Meaning | May an agent state it as fact? |
 | --- | --- | --- |
 | Accepted claim plus support | Directional graph assertion that passed validation | Yes, with its support citation and qualifications |
 | Ranked passage | Relevant source text selected by one or more routes | Only what the cited passage itself supports |
 | Ambiguity, graph lead, or gap | A warning or a promising next question | No; it requires further evidence or review |
+| Analysis note | Durable observation, hypothesis, question or follow-up | No, unless separately promoted through the claim path |
 
-A graph lead is currently created when a selected passage contains at least two
-promoted concept mentions. It records up to three concept labels and mention
+A graph lead is created when a selected passage contains at least two promoted
+concept mentions. It records up to three concept labels and mention
 ids and says explicitly that co-mention and adjacency do not establish a typed
 relationship.
 
 General gaps are emitted when no passage matched, a relationship question has
 no supported directed claim, a name remains ambiguous, or vector retrieval
-fell back. The current policy also has a small set of deterministic
-explicit-negative recognizers for exact phrases, relationships, datastore
+fell back. The policy also has a small set of deterministic explicit-negative
+recognizers for exact phrases, relationships, datastore
 evidence, replica freshness, collective attribution, and unresolved verdicts.
 These prevent a returned denial or limitation from being turned into a broader
 positive claim.
 
-These fields are the current form of “important notes” for a high-capability
-agent. There is no durable free-form autonomous notebook and no model-generated
-hypothesis is promoted merely because it sounds important. The evidence packet
-provides cited passages, typed facts, unresolved leads, and explicit gaps as
-separate inputs for deeper analysis.
+Important notes are stored durably in SQLite as bounded analysis objects. A note
+records its kind (`observation`, `hypothesis`, `question`, `lead` or
+`follow-up`), text, importance rationale, uncertainty, suggested next action,
+status, author/provider provenance, creation generation, and links to relevant
+chunks, concepts, claims or reviews. Evidence-grounded notes retain exact source
+citations. An uncited note is permitted only with an explicit `ungrounded`
+state and can never be presented as evidence.
 
-## Improvement selection
+Suitable lead categories include ambiguity, possible missing relationship,
+cross-source pattern, surprising evidence, conflict and repeated query gap.
+Notes can be ranked and retrieved for human or high-capability-agent analysis,
+but they occupy a separate evidence channel and are never graph claims. A note
+becomes a claim only by generating a normal exact-span proposal that passes the
+same deterministic validation and review path as every other claim.
 
-`crexxrag improve` is bounded re-extraction, not model self-training. It scans
-one active occurrence of each distinct chunk content and computes a stable
-priority score:
+## Chunk maintenance-priority signal
+
+Maintenance scans one active occurrence of each distinct chunk content and
+computes a stable initial priority score:
 
 ```text
 100  * candidate-mention count
@@ -279,8 +379,9 @@ priority score:
 + 50   * unresolved-candidate count
 ```
 
-Relationship cues currently include “depends on”, “uses”, “calls”, “owns”, and
-“reports”. Selection is controlled by explicit sorted triggers:
+The relationship-cue vocabulary is profile-configurable; its baseline includes
+“depends on”, “uses”, “calls”, “owns”, and “reports”. Selection is controlled by
+explicit sorted triggers:
 
 - `bridge`: at least two candidate mentions could connect concepts;
 - `conflict`: a pending conflict review points to the chunk;
@@ -292,13 +393,178 @@ Relationship cues currently include “depends on”, “uses”, “calls”, �
 
 The highest-scoring items are selected within item, call, token, cost or
 allowance, time, concurrency, and attempt ceilings. Ties are resolved by stable
-chunk id. Apply revalidates the exact plan, generation, config, route, privacy,
-and budgets before it queues durable `improve-extraction` work.
+chunk id. The score is one transparent maintenance signal, not the only source
+of work.
 
-The extractor receives the same bounded chunk and accepted candidate catalog
-as ingestion. It may find one new supported relationship, return no claim, or
-create a review. Improvement does not ask a model to rewrite source material,
-invent concepts, or create unconstrained research notes.
+A selected chunk review receives the selection reason, glossary, lexical seeds,
+existing concepts and claims, prior provider outcome, pending reviews, relevant
+neighbouring evidence and query-gap signals. The provider can propose zero or
+more new exact-span concepts, aliases, relationships and analysis notes. Apply
+revalidates the exact plan, generation, config, route, privacy and budgets
+before it queues or promotes any result.
+
+## Catalogue and graph maintenance methodology
+
+Concepts are graph nodes and claims are directional graph edges. Catalogue
+maintenance and graph maintenance must therefore be one canonical plan and one
+atomic generation, not two maintenance systems. The same plan covers concepts,
+aliases, mentions, claims, support, conflicts and reviews. FTS and vector
+artifacts remain derived projections.
+
+Maintenance is also the mechanism for finding work. It does not begin with an
+operator already knowing which concept to edit. A maintenance cycle inventories
+chunks, nodes, edges, reviews, query gaps, failed work and embedding/vector
+coverage; ranks the most useful next analysis; optionally asks an LLM to
+diagnose the selected items; and produces an executable, bounded worklist.
+
+### Discovery, ranking and the worklist
+
+The deterministic chunk-priority score is one input to maintenance. It is
+extended into typed inventories rather than used as one
+undifferentiated score:
+
+| Inventory | Examples of prioritisation signals |
+| --- | --- |
+| Chunks | current concept/cue/novelty/bridge/quality/unresolved score, no-claim outcome, repeated query gap, previous failed or no-claim extraction |
+| Concept nodes | unresolved or ambiguous mentions, alias collision, possible synonym, inconsistent proposed type, high graph degree, bridge position, migration-parent backlog |
+| Claim edges | conflict, weak or single-source support, ambiguous endpoint, affected migration parent, repeated query demand without a decisive answer |
+| Reviews and leads | impact, age, source diversity, uncertainty, repeated appearance in evidence packets |
+| Embeddings and derived indexes | missing compatible embedding, incomplete active-chunk coverage, stale/missing vector generation, failed publication |
+
+Every selected item records its component scores, trigger, evidence identities,
+expected generation and selection policy. A bounded LLM triage may add a
+diagnosis, importance rationale and suggested action, but it cannot hide the
+deterministic selection evidence or write canonical state.
+
+The resulting worklist is typed. An entry may request chunk reanalysis,
+concept discovery, connection review, synonym review, split/merge analysis,
+retirement-gate inspection, conflict review, lead investigation, missing
+embedding generation or vector republication. Dependencies are explicit: for
+example a split connection review depends on the split proposal and its frozen
+incident-edge inventory.
+
+A maintenance run follows a convergence loop:
+
+```text
+census -> rank -> diagnose -> canonical worklist -> authorize -> execute
+   ^                                                         |
+   +---------------- re-census and verify -------------------+
+```
+
+The loop stops when the reviewed worklist is complete, its budgets or item
+ceiling are reached, or the re-census finds no eligible work. It must never
+continue merely because an LLM can generate another suggestion.
+
+### Human and automated operation
+
+The same public operations support human, scheduled and agent operation:
+
+- **plan-only:** discover, rank and explain work without provider calls or
+  library mutation;
+- **supervised:** execute bounded analysis/provider tasks, then require a human
+  to approve the canonical graph/catalogue apply;
+- **automated caller:** an explicitly authorized automation identity invokes
+  the same plan/apply/workers/status/verify sequence within configured impact,
+  privacy, call/token/cost or allowance, time and retry limits.
+
+Automation never means direct LLM writes. Every caller uses an immutable
+plan and digest, deterministic validation, durable worker attempts and a final
+verification. Structural actions such as split, merge, type change, retirement,
+restoration and claim retraction enter mandatory review; lower-impact analysis
+and index repair complete within the reviewed worklist. There is no separate
+automatic graph-write path.
+
+### LLM proposals and deterministic authority
+
+A bounded catalogue review may propose:
+
+- a new concept and its exact-span mentions;
+- a synonym or other alias;
+- a possible ambiguity;
+- a type correction;
+- a merge of duplicate concepts;
+- a split of an overloaded concept;
+- retirement or later restoration;
+- dispositions for affected claims; and
+- evidence-backed analysis leads.
+
+Every proposal records evidence, rationale, confidence, provider/model/prompt
+provenance and its expected generation. The LLM cannot apply a proposal.
+cREXX expands the proposal into its complete impact set, validates that every
+affected active object has a disposition, creates the canonical plan and
+requires the applicable review authority before apply.
+
+### The old concept is a mandatory migration parent
+
+A split never replaces or retires the old concept in the same operation. The
+old concept remains active as the stable migration parent and the new concepts
+are introduced as more specific successors. This is a required part of the
+process, not an optional fallback.
+
+The first split generation:
+
+1. preserves the old concept id and its historical citations;
+2. creates the proposed successor concepts;
+3. records administrative `split-from` lineage;
+4. moves only aliases, mentions and edges whose evidence supports an exact
+   successor;
+5. leaves uncertain connections on the migration parent or records an explicit
+   ambiguity/review; and
+6. reports the remaining migration inventory.
+
+Keeping both when uncertain means retaining the accepted connection on the old
+migration parent while the possible successor disposition remains under
+review. It does **not** mean cloning an accepted edge onto every successor,
+because that would create unsupported facts. A new child edge is accepted only
+when its own cited evidence supports that child.
+
+Retiring the migration parent is always a later, separately planned and
+approved operation. Its deterministic retirement gate requires:
+
+- every active alias and mention to be retained intentionally, migrated to one
+  successor, or represented as an ambiguity;
+- every incident active claim and support row to have an explicit retain,
+  redirect, retract or review disposition;
+- no unresolved mandatory maintenance review;
+- no active canonical object that would be left dangling; and
+- a successful graph, manifest and derived-index verification of the proposed
+  generation.
+
+If the gate is not satisfied, the old concept remains active. Retirement closes
+its current visibility/lifecycle state; it does not physically delete the
+concept, its history, its citations or its maintenance provenance. Restoration
+requires a new reviewed lifecycle version rather than erasing the retirement.
+
+### Other maintenance operations
+
+| Proposal | Canonical treatment |
+| --- | --- |
+| Synonym | Add an alias to the existing concept; do not create a duplicate node |
+| Merge | Choose a survivor, mark the other concept as a migration source, gradually redirect evidence-backed aliases, mentions and edges, then retire it in a later plan |
+| Type change | Create a reviewed concept-state version and revalidate every incident claim whose policy depends on the type |
+| Retirement | Preserve history and close only the active state after the retirement gate passes |
+| Restoration | Publish a new active lifecycle version and restore claims only where current evidence still supports them |
+
+Administrative lineage such as `split-from`, `merged-into`, `supersedes` and
+retirement reason belongs in a versioned maintenance-lineage repository. It is
+not a source-supported domain edge and must not be mixed into ordinary graph
+answers.
+
+### Split connection review
+
+For a split, cREXX first enumerates every incident edge, alias, mention, support
+row, ambiguity and conflict. A durable bounded LLM task may then propose a
+disposition for each enumerated object. Apply is rejected unless the returned
+identities exactly match that impact set and every proposal passes normal span,
+type, relationship, provenance and generation checks. Uncertain dispositions
+become reviews; absence from the provider response never means deletion.
+
+Graph traversal immediately consumes the newly published canonical node and
+edge state. Source text embeddings usually remain reusable because catalogue
+maintenance does not alter chunk text, but the current vector publication is
+generation-bound. Finalisation must therefore publish or reuse a compatible
+vector generation for the new semantic generation so catalogue maintenance
+does not silently disable hybrid retrieval.
 
 ## Workflow for deeper agent analysis
 
@@ -321,21 +587,27 @@ A high-capability agent should use the library as an evidence substrate:
 This handoff lets a stronger agent reason across evidence without confusing its
 analysis with the library's accepted graph state.
 
-## Current deliberate limits
+## Non-negotiable invariants
 
-- Candidate census is a conservative capitalized-token heuristic, not general
-  named-entity recognition.
-- One extraction turn proposes at most one relationship for a chunk.
-- The current application adapter cites the full chunk for extracted support.
-- Vector retrieval is an exact bounded scan, not an approximate nearest-neighbor
-  index.
-- The evidence graph route follows outbound supported claims; it does not infer
-  inverse edges.
-- Co-mentions and gaps are analysis leads, not claims.
-- Free-form agent notes are not a durable product object today; important
-  analysis must remain in evidence packets or enter through reviewed external
-  proposals.
-
-These limits are useful when judging future changes: improving recall or agent
-analysis must not weaken citation identity, directional claims, deterministic
-review, privacy classification, or plan-bound authority.
+- SQLite is the authoritative catalogue, graph, worklist and analysis-note
+  store. Sidecars are rebuildable derived indexes.
+- Glossary, deterministic and LLM discovery routes may propose catalogue work;
+  no provider writes canonical state directly. Deterministic-only discovery is
+  an explicit degraded fallback, not the normal completeness claim.
+- Every promoted concept mention and claim support has an independently
+  verifiable exact source span. A provider cannot replace missing precision
+  with a whole-chunk citation.
+- Claims retain their stored direction. Graph retrieval can traverse outbound,
+  inbound or both directions without manufacturing inverse facts.
+- Co-mentions, similarity, gaps, analysis leads and free-form notes remain
+  distinct from accepted claims. Their persistence and usefulness do not grant
+  them factual status.
+- A split retains the old concept as its migration parent. Retirement and
+  restoration are separately planned lifecycle operations; neither deletes
+  historical evidence or provenance.
+- A hybrid-ready library has complete compatible embedding coverage and a
+  verified IVF-flat ANN vector generation. Any degraded route is reported
+  explicitly.
+- Every provider call and mutation remains generation-bound, privacy-classified,
+  budgeted, durably recoverable, idempotent and subject to normal cREXX
+  validation and review policy.

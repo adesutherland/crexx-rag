@@ -15,17 +15,24 @@ ctest --preset debug --output-on-failure
 | --- | --- |
 | `sqlite_provider_thread_sessions` | RXPA session isolation, four concurrent SQLite sessions, FULLMUTEX behavior |
 | `linked_application` | linked-image provider mapping and both CREXX VMs |
-| `configuration_contract` | bounded text parsing, privacy, secret references, optimized/non-optimized and both VMs |
+| `configuration_contract` | bounded text parsing, privacy, secret references, glossary load/identity/exclusion rules, optimized/non-optimized and both VMs |
 | `process_workers` | two-worker launch, observation, drain, stale PID detection, explicit pruning |
 | `gemini_ingestion` | Gemini request/response mapping, durable work, claims, embeddings, vector publication, replay and failure paths |
+| `gemini_extraction_validation` | invalid UTF-8 spans, unknown concept/relationship types and malformed extraction output dead-letter without product mutation or secret disclosure |
 | `provider_durability` | reservation recovery, Codex turns, fencing, completed-turn reuse |
 | `codex_protocol` | App Server initialize/account/turn/schema/usage/cleanup over JSONL |
-| `gemini_improvement` | hosted-style improvement plus provider/profile discovery and external proposal review/promotion |
+| `gemini_maintenance` | hosted-style maintenance, glossary-drift rejection, durable cognitive notes, ANN publication/reuse, provider/profile discovery and external proposal review/promotion |
 | `gemini_query` | query embeddings, hybrid retrieval, cited answers, lexical zero-call and invalid citation rejection |
 | `query_policy` | local/hosted privacy and every call/token/cost/allowance ceiling |
+| `ann_methodology` | IVF-flat ANN publication/search, deterministic replay, bounded candidate work, recall against a frozen exact oracle and tamper fallback on both VMs |
+| `lifecycle_methodology` | synonym, split, merge, type correction, retire/restore, exact impact census, migration-parent and atomic support/conflict handling on both VMs |
+| `evidence_methodology` | outbound/inbound/both graph traversal without invented inverse claims, durable notes, leads and repeated query gaps on both VMs |
+| `maintenance_methodology` | complete typed census, bounded deterministic ranking, stable worklist digest, generation binding and replay on both VMs |
 | `native_surfaces` | human defaults and MCP structured-content/strict-argument behavior |
 | `address_surface` | linked `ADDRESS RAG` session/config/access behavior on both VMs |
 | `gemini_provider_smoke` | generation and embedding smoke, human/JSON/MCP, cancellation, aggregate budget, malformed output, secret redaction |
+| `installed_product` | scratch-prefix installation, installed skills/tutorial, doctor/init/provider smoke/ingest/maintain/query using only installed product artifacts |
+| `local_embedding_protocol` | llama.cpp-compatible `/v1/embeddings` request/response, restricted local privacy and local-compute charging on both VMs and compiler modes |
 
 The Gemini tests always exercise the Gemini adapter and Google request/response
 shapes through a deterministic local fixture. They do not silently substitute a
@@ -51,10 +58,11 @@ credential value.
 ## Change expectations
 
 - Schema changes: fresh native build and all tests.
-- Provider changes: Gemini ingestion/query/smoke, Codex protocol/durability,
-  policy tests, malformed output, and secret audit.
-- Worker changes: process, ingestion, improvement, replay, stale/prune tests.
+- Provider changes: Gemini ingestion/extraction-validation/query/smoke, Codex
+  protocol/durability, local embedding protocol, policy tests, malformed output,
+  and secret audit.
+- Worker changes: process, ingestion, maintenance, replay, stale/prune tests.
 - Public command changes: native surfaces plus the public discovery/proposal
-  path inside `gemini_improvement`.
+  path inside `gemini_maintenance`.
 - Documentation/config changes: tutorial setup and `crexxrag doctor` from the
   resulting folder.

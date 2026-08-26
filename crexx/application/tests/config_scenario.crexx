@@ -4,6 +4,7 @@ import rxfnsb
 import ragconfig
 import ragconfigfile
 import ragfile
+import ragglossary
 
 check: procedure = .int
   arg condition = .boolean, label = .string
@@ -21,7 +22,7 @@ rejected: procedure = .int
 
 main: procedure = .int
   arg args = .string[]
-  if args.0 \= 2 then do; say "CONFIG_CONTRACT_FAIL=arguments"; return 1; end
+  if args.0 \= 7 then do; say "CONFIG_CONTRACT_FAIL=arguments"; return 1; end
   cell = args[1]; path = args[2]; errors = 0; error = ""
 
   config = .ragconfig
@@ -48,6 +49,32 @@ main: procedure = .int
   errors = errors + check(rejected(copies("x", 65537), "65536") = 1, "file-size bound")
   errors = errors + check(rejected(copies("# bounded" || "0A"x, 513), "512-line") = 1, "line-count bound")
 
+  loader = .ragglossaryloader(); loaded = loader.load(args[3]); glossary = loaded.glossary()
+  glossary_entries = .ragglossaryentry[]; glossary_entries = glossary.entries()
+  glossary_excluded = .string[]; glossary_excluded = glossary.excluded()
+  errors = errors + check(loaded.status() = 0 & glossary_entries.0 = 2 & glossary_excluded.0 = 1 & length(glossary.digest()) = 64 & pos("crexx-rag.glossary/1", glossary.canonical()) > 0, "bounded glossary load " || loaded.error())
+  rejected_glossary = loader.load(args[4])
+  errors = errors + check(rejected_glossary.status() \= 0 & pos("duplicated", rejected_glossary.error()) > 0, "duplicate glossary canonical rejection")
+  rejected_glossary = loader.load(args[5])
+  errors = errors + check(rejected_glossary.status() \= 0 & pos("alias is duplicated", rejected_glossary.error()) > 0, "cross-concept alias rejection")
+  rejected_glossary = loader.load(args[6])
+  errors = errors + check(rejected_glossary.status() \= 0 & pos("collides", rejected_glossary.error()) > 0, "late exclusion collision rejection")
+  rejected_glossary = loader.load(args[7])
+  errors = errors + check(rejected_glossary.status() \= 0 & pos("format declaration is missing", rejected_glossary.error()) > 0, "missing glossary format rejection")
+  rejected_glossary = loader.load(args[3] || ".missing")
+  errors = errors + check(rejected_glossary.status() \= 0 & pos("could not be read", rejected_glossary.error()) > 0, "missing glossary path rejection")
+
+  context = ""; error = ""
+  errors = errors + check(creatediscoverycontext(glossary, "all", 16, 16, 16, 8, context, error) = 0 & pos(glossary.canonical(), context) > 0, "durable glossary context " || error)
+  aliases = .string[]; aliases[1] = "Billing Service"
+  errors = errors + check(validateglossarymention(context, "BillingService", "BillingService", "application-component", aliases, error) = 1, "glossary provider identity " || error)
+  clear aliases; error = ""
+  errors = errors + check(validateglossarymention(context, "DeprecatedSystem", "DeprecatedSystem", "application-component", aliases, error) \= 1 & pos("excluded", error) > 0, "provider exclusion rejection")
+  aliases[1] = "Billing Service"; error = ""
+  errors = errors + check(validateglossarymention(context, "BillingService", "WrongCanonical", "application-component", aliases, error) \= 1 & pos("contradicts", error) > 0, "provider glossary identity rejection")
+  aliases[2] = "Customer DB"; error = ""
+  errors = errors + check(validateglossarymention(context, "BillingService", "BillingService", "application-component", aliases, error) \= 1 & pos("conflicting", error) > 0, "provider cross-concept glossary rejection")
+
   if errors > 0 then return 1
-  say "CONFIG_CONTRACT_OK cell=" || cell || " format=1 settings=bounded providers=2 gemini=2 env_refs=2 literal_secrets=0 executable_modules=0 provider_calls=0"
+  say "CONFIG_CONTRACT_OK cell=" || cell || " format=1 settings=bounded providers=2 gemini=2 env_refs=2 literal_secrets=0 executable_modules=0 glossary=validated provider_calls=0"
   return 0

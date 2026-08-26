@@ -1,11 +1,13 @@
 options levelg
 
-namespace ragembedding expose ragembeddingresult ragvectorgenerationresult registerembeddingprofile embedmissing buildexactvectorgeneration
+namespace ragembedding expose ragembeddingresult ragvectorgenerationresult registerembeddingprofile embedmissing buildannvectorgeneration
 
 import rxfnsb
+import rxfnsg
 import rxhash
 import rxfs
 import rxjson
+import rxvector
 import sqlite_boundary
 import provider_contract
 import ragstore
@@ -199,27 +201,36 @@ embedmissing: procedure = .int
   result = .ragembeddingresult(0, state, embedding_profile_id, generation, missing, embedded, reused, provider_calls, input_tokens, "")
   return 0
 
-buildexactvectorgeneration: procedure = .int
-  arg store = .ragstorehandle, embedding_profile_id = .string, maximum_rows = .int, expose result = .ragvectorgenerationresult, expose error = .string
+buildannvectorgeneration: procedure = .int
+  arg store = .ragstorehandle, embedding_profile_id = .string, maximum_rows = .int, requested_centroids = .int, requested_probes = .int, iterations = .int, expose result = .ragvectorgenerationresult, expose error = .string
   result = .ragvectorgenerationresult(-1, "error", "", 0, embedding_profile_id, 0, 0, "", "", "vector generation input is invalid")
   error = ""
-  if store.writable() \= 1 | _safeid(embedding_profile_id) \= 1 | maximum_rows < 1 | maximum_rows > 1000000 then do; error = "vector generation input is invalid"; return -1; end
+  if store.writable() \= 1 | _safeid(embedding_profile_id) \= 1 | maximum_rows < 1 | maximum_rows > 1000000 | requested_centroids < 1 | requested_centroids > 4096 | requested_probes < 1 | requested_probes > requested_centroids | iterations < 1 | iterations > 16 then do; error = "vector generation input is invalid"; return -1; end
   generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
   provider_id = ""; model = ""; dimension = 0; envelope = ""
   if generation < 1 | _profile(store.database(), embedding_profile_id, provider_id, model, dimension, envelope, error) \= 0 then return -3
   invalid = _scalarint(store.database(), "SELECT count(*) FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE e.embedding_profile_id=" || _q(embedding_profile_id) || " AND rce.visible_from_generation<=" || generation || " AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>" || generation || ") AND rc.visible_from_generation<=" || generation || " AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>" || generation || ") AND (e.dimension<>" || dimension || " OR length(e.vector)<>" || dimension * 4 || ")")
   if invalid \= 0 then do; error = "active embeddings contain an incompatible dimension or byte count"; return -2; end
   rows = _scalarint(store.database(), "SELECT count(*) FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE e.embedding_profile_id=" || _q(embedding_profile_id) || " AND rce.visible_from_generation<=" || generation || " AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>" || generation || ") AND rc.visible_from_generation<=" || generation || " AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>" || generation || ")")
-  if rows < 1 | rows > maximum_rows then do; error = "active embedding count is empty or exceeds the vector generation ceiling"; return -2; end
-  membership = ""
-  if _membership(store.database(), generation, embedding_profile_id, rows, membership, error) \= 0 then return -3
-  payload_text = '{"schema":"crexx-rag.rxvector-generation/1","codec":"f32le-v1","storage":"sqlite-embedding-blobs","semantic_generation":' || generation || ',"embedding_profile_id":' || _json(embedding_profile_id) || ',"dimension":' || dimension || ',"rows":[' || membership || ']}'
+  active_chunks = _scalarint(store.database(), "SELECT count(*) FROM revision_chunks WHERE visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ")")
+  if rows < 1 | rows > maximum_rows | rows \= active_chunks then do; error = "compatible embedding coverage must include every active chunk before ANN publication"; return -2; end
+  centroid_count = requested_centroids
+  if centroid_count > rows then centroid_count = rows
+  probe_count = requested_probes
+  if probe_count > centroid_count then probe_count = centroid_count
+  chunk_ids = .string[]; input_digests = .string[]; matrix = .packedfloat(0)
+  if _loadmatrix(store.database(), generation, embedding_profile_id, rows, dimension, chunk_ids, input_digests, matrix, error) \= 0 then return -3
+  centroids = .packedfloat(centroid_count * dimension); assignments = .int[]
+  if _trainivf(matrix, rows, dimension, centroid_count, iterations, centroids, assignments, error) \= 0 then return -3
+  centroid_wire = rxvector..encodef32le(centroids)
+  clusters = _clusters(chunk_ids, input_digests, assignments, centroid_count)
+  payload_text = '{"schema":"crexx-rag.rxvector-ann/1","algorithm":"ivf-flat-v1","codec":"f32le-v1","storage":"sqlite-embedding-blobs","semantic_generation":' || generation || ',"embedding_profile_id":' || _json(embedding_profile_id) || ',"dimension":' || dimension || ',"row_count":' || rows || ',"centroid_count":' || centroid_count || ',"probe_count":' || probe_count || ',"centroids_f32le":' || _json(lower(bin2x(centroid_wire))) || ',"clusters":[' || clusters || ']}'
   if length(payload_text) > 67108864 then do; error = "vector generation manifest exceeds the fixed 64 MiB build ceiling"; return -2; end
   checksum = rxhash..sha256hex(payload_text as .binary)
   vector_generation_id = "vg-" || substr(checksum, 1, 24)
   prepared = .binary
-  sql = "SELECT sidecar_name FROM vector_generations WHERE state='published' AND semantic_generation=?1 AND embedding_profile_id=?2 AND sidecar_checksum=?3 AND dimension=?4 ORDER BY vector_generation_id LIMIT 1"
-  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 | sqlitebindtext(prepared, 2, embedding_profile_id) \= 0 | sqlitebindtext(prepared, 3, checksum) \= 0 | sqlitebindint(prepared, 4, dimension) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare vector generation replay"; return -3; end
+  sql = "SELECT sidecar_name FROM vector_generations WHERE state='published' AND algorithm='ivf-flat-v1' AND semantic_generation=?1 AND embedding_profile_id=?2 AND sidecar_checksum=?3 AND dimension=?4 AND row_count=?5 AND centroid_count=?6 AND probe_count=?7 ORDER BY vector_generation_id LIMIT 1"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 | sqlitebindtext(prepared, 2, embedding_profile_id) \= 0 | sqlitebindtext(prepared, 3, checksum) \= 0 | sqlitebindint(prepared, 4, dimension) \= 0 | sqlitebindint(prepared, 5, rows) \= 0 | sqlitebindint(prepared, 6, centroid_count) \= 0 | sqlitebindint(prepared, 7, probe_count) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare vector generation replay"; return -3; end
   if sqlitestep(prepared) = 100 then do
     sidecar_name = ""; column_status = sqlitecolumntext(prepared, 0, sidecar_name); call sqlitefinalize prepared
     if column_status \= 0 then do; error = "cannot decode vector generation replay"; return -3; end
@@ -231,12 +242,105 @@ buildexactvectorgeneration: procedure = .int
   if rxfs..isfile(source_path) = 1 then call rxfs..delete source_path
   if writebinaryfile(source_path, payload_text as .binary, error) \= 0 then return -3
   publication = .ragsidecarpublication
-  publish_status = publishexactvectorsidecar(store, source_path, vector_generation_id, embedding_profile_id, dimension, length(payload_text), checksum, publication, error)
+  publish_status = publishannvectorsidecar(store, source_path, vector_generation_id, embedding_profile_id, dimension, rows, centroid_count, probe_count, length(payload_text), checksum, publication, error)
   delete_status = rxfs..delete(source_path)
   if publish_status \= 0 then return -3
   if delete_status \= 0 then do; error = "published vector generation but could not remove its build input"; return -3; end
   result = .ragvectorgenerationresult(0, "published", vector_generation_id, generation, embedding_profile_id, dimension, rows, publication.sidecar_name(), checksum, "")
   return 0
+
+_loadmatrix: procedure = .int
+  arg database = .binary, generation = .int, profile_id = .string, expected_rows = .int, dimension = .int, expose chunk_ids = .string[], expose input_digests = .string[], expose matrix = .packedfloat, expose error = .string
+  matrix = .packedfloat(0); matrix_wire = .binary; prepared = .binary
+  sql = "SELECT rc.revision_chunk_id,e.input_digest,e.vector FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE e.embedding_profile_id=?1 AND rce.visible_from_generation<=?2 AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>?2) AND rc.visible_from_generation<=?2 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?2) ORDER BY rc.revision_chunk_id,e.embedding_id"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, profile_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare ANN training matrix"; return -1; end
+  row = 0
+  do forever
+    step_status = sqlitestep(prepared)
+    if step_status = 101 then leave
+    if step_status \= 100 | row >= expected_rows then do; call sqlitefinalize prepared; error = "cannot read bounded ANN training matrix"; return -1; end
+    chunk_id = ""; input_digest = ""; wire = .binary
+    if sqlitecolumntext(prepared, 0, chunk_id) \= 0 | sqlitecolumntext(prepared, 1, input_digest) \= 0 | sqlitecolumnblob(prepared, 2, wire) \= 0 | binlength(wire) \= dimension * 4 then do; call sqlitefinalize prepared; error = "cannot decode ANN training vector"; return -1; end
+    vector = rxvector..decodef32le(wire)
+    chunk_ids[row + 1] = chunk_id; input_digests[row + 1] = input_digest
+    norm_squared = 0.0
+    do d = 0 to dimension - 1
+      component = vector.get(d)
+      norm_squared = norm_squared + component * component
+    end
+    if norm_squared <= 0.0 then do; call sqlitefinalize prepared; error = "zero-norm embeddings cannot be published to a cosine ANN index"; return -1; end
+    call binappend matrix_wire, wire
+    row = row + 1
+  end
+  call sqlitefinalize prepared
+  if row \= expected_rows then do; error = "embedding membership changed during ANN training"; return -1; end
+  matrix = rxvector..decodef32le(matrix_wire)
+  if matrix.size() \= expected_rows * dimension then do; error = "ANN training matrix shape is invalid"; return -1; end
+  return 0
+
+_trainivf: procedure = .int
+  arg matrix = .packedfloat, rows = .int, dimension = .int, centroid_count = .int, iterations = .int, expose centroids = .packedfloat, expose assignments = .int[], expose error = .string
+  working_centroids = .packedfloat(centroid_count * dimension); assignments = .int[]
+  identities = .packedint(centroid_count)
+  do c = 0 to centroid_count - 1
+    sample = ((c * rows) / centroid_count) as .int
+    if sample >= rows then sample = rows - 1
+    call identities.set(c, c + 1)
+    do d = 0 to dimension - 1
+      call working_centroids.set(c * dimension + d, matrix.get(sample * dimension + d))
+    end
+  end
+  do iteration = 1 to iterations
+    sums = .packedfloat(centroid_count * dimension); counts = .int[]
+    do c = 1 to centroid_count; counts[c] = 0; end
+    do r = 0 to rows - 1
+      row_vector = .packedfloat(dimension)
+      do d = 0 to dimension - 1; call row_vector.set(d, matrix.get(r * dimension + d)); end
+      cluster = 1
+      if centroid_count > 1 then do
+        nearest = .packedint(0); scores = .packedfloat(0)
+        call rxvector..topkcosine(working_centroids, identities, dimension, row_vector, 1, nearest, scores)
+        cluster = nearest.get(0)
+      end
+      assignments[r + 1] = cluster; counts[cluster] = counts[cluster] + 1
+      do d = 0 to dimension - 1
+        position = (cluster - 1) * dimension + d
+        call sums.set(position, sums.get(position) + row_vector.get(d))
+      end
+    end
+    do c = 1 to centroid_count
+      if counts[c] = 0 then iterate
+      norm_squared = 0.0
+      do d = 0 to dimension - 1
+        position = (c - 1) * dimension + d
+        norm_squared = norm_squared + sums.get(position) * sums.get(position)
+      end
+      if norm_squared <= 0.0 then iterate
+      do d = 0 to dimension - 1
+        position = (c - 1) * dimension + d
+        call working_centroids.set(position, sums.get(position) / counts[c])
+      end
+    end
+  end
+  centroids = working_centroids
+  return 0
+
+_clusters: procedure = .string
+  arg chunk_ids = .string[], input_digests = .string[], assignments = .int[], centroid_count = .int
+  output = ""
+  do c = 1 to centroid_count
+    if c > 1 then output = output || ","
+    output = output || '{"cluster":' || c || ',"members":['
+    count = 0
+    do r = 1 to chunk_ids.0
+      if assignments[r] \= c then iterate
+      if count > 0 then output = output || ","
+      output = output || '{"revision_chunk_id":' || _json(chunk_ids[r]) || ',"input_digest":' || _json(input_digests[r]) || '}'
+      count = count + 1
+    end
+    output = output || "]}"
+  end
+  return output
 
 _attachreusable: procedure = .int
   arg database = .binary, generation = .int, profile_id = .string, envelope = .string, expose reused = .int, expose error = .string

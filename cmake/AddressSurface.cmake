@@ -39,8 +39,8 @@ set(application_modules
     rag_address_environment ragmcp
     provider_contract provider_catalog provider_http industrial_provider codex_provider
     ragmodel ragevidence ragjob ragconfig ragprofile ragregistry ragschema
-    ragfile ragconfigfile ragstore ragbackup ragrepository ragcanonical ragplanning
-    ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragproposalio ragwork
+    ragfile ragconfigfile ragglossary ragstore ragbackup ragrepository ragcanonical ragplanning
+    ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragmaintain ragproposalio ragwork
     ragquery ragembedding ragretrieval ragevidencejson ragfoundation ragprocess
     ragproviderdiagnostics ragapplicationprovider ragqueryprovider ragquerypolicy ragproduct
     architecture_local_config generic_profile it_architecture_profile operator_registry)
@@ -78,4 +78,4 @@ foreach(runtime IN ITEMS "${CPRAG_RXVME}" "${CPRAG_RXBVM}")
     endif()
 endforeach()
 
-message(STATUS "ADDRESS RAG passed session binding, config loading, access control, and atomic failed-open checks on both VMs")
+message(STATUS "ADDRESS RAG passed maintenance planning/denial, session binding, config loading, access control, and atomic failed-open checks on both VMs")

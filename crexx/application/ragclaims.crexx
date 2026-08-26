@@ -300,9 +300,35 @@ promotemention: procedure = .int
   current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
   candidate_chunk = ""; candidate_start = 0; candidate_end = 0; candidate_decision = ""
   if current < 1 | _candidate(store.database(), candidate_id, candidate_chunk, candidate_start, candidate_end, candidate_decision) \= 1 then do; error = "active accepted candidate is unavailable"; return -2; end
+  database = store.database(); promotion_complete = 1
+  if ambiguity_concept_ids.0 > 1 then do
+    ambiguity_id = "ambiguity-sha256:" || rxhash..sha256hex((lower(canonical_label) || "00"x || policy.policy_version()) as .binary)
+    alias_id = "alias-sha256:" || rxhash..sha256hex((lower(canonical_label) || "00"x || ambiguity_id || "00"x || policy.policy_version()) as .binary)
+    mention_id = "mention-sha256:" || rxhash..sha256hex((ambiguity_id || "00"x || candidate_chunk || "00"x || candidate_start || "00"x || candidate_end) as .binary)
+    if _scalarint(database, "SELECT count(*) FROM aliases WHERE alias_id=" || _q(alias_id) || " AND ambiguity_id=" || _q(ambiguity_id) || " AND visible_from_generation<=" || current || " AND (visible_to_generation IS NULL OR visible_to_generation>" || current || ")") \= 1 then promotion_complete = 0
+    if _scalarint(database, "SELECT count(*) FROM mentions WHERE mention_id=" || _q(mention_id) || " AND ambiguity_id=" || _q(ambiguity_id) || " AND visible_from_generation<=" || current || " AND (visible_to_generation IS NULL OR visible_to_generation>" || current || ")") \= 1 then promotion_complete = 0
+    do i = 1 to ambiguity_concept_ids.0
+      if _activeconcept(database, ambiguity_concept_ids[i], current, "", "") \= 1 then promotion_complete = 0
+      if _scalarint(database, "SELECT count(*) FROM ambiguity_candidates WHERE ambiguity_id=" || _q(ambiguity_id) || " AND concept_id=" || _q(ambiguity_concept_ids[i]) || " AND revision_chunk_id=" || _q(candidate_chunk) || " AND visible_from_generation<=" || current || " AND (visible_to_generation IS NULL OR visible_to_generation>" || current || ")") \= 1 then promotion_complete = 0
+    end
+    if promotion_complete = 1 then do; concept_or_ambiguity_id = ambiguity_id; return 0; end
+  end
+  else do
+    concept_id = "concept-sha256:" || rxhash..sha256hex((lower(canonical_label) || "00"x || concept_type) as .binary)
+    existing_label = ""; existing_type = ""
+    if _activeconcept(database, concept_id, current, existing_label, existing_type) \= 1 | existing_type \= concept_type then promotion_complete = 0
+    all_aliases = .string[]; all_aliases[1] = canonical_label
+    do i = 1 to aliases.0; all_aliases[all_aliases.0 + 1] = aliases[i]; end
+    do i = 1 to all_aliases.0
+      alias_id = "alias-sha256:" || rxhash..sha256hex((lower(strip(all_aliases[i])) || "00"x || concept_id || "00"x || policy.policy_version()) as .binary)
+      if _scalarint(database, "SELECT count(*) FROM aliases WHERE alias_id=" || _q(alias_id) || " AND target_concept_id=" || _q(concept_id) || " AND visible_from_generation<=" || current || " AND (visible_to_generation IS NULL OR visible_to_generation>" || current || ")") \= 1 then promotion_complete = 0
+    end
+    mention_id = "mention-sha256:" || rxhash..sha256hex((concept_id || "00"x || candidate_chunk || "00"x || candidate_start || "00"x || candidate_end) as .binary)
+    if _scalarint(database, "SELECT count(*) FROM mentions WHERE mention_id=" || _q(mention_id) || " AND concept_id=" || _q(concept_id) || " AND visible_from_generation<=" || current || " AND (visible_to_generation IS NULL OR visible_to_generation>" || current || ")") \= 1 then promotion_complete = 0
+    if promotion_complete = 1 then do; concept_or_ambiguity_id = concept_id; return 0; end
+  end
   generation = 0
   if begingeneration(store, current, config_snapshot_id, "mention promotion " || candidate_id, generation, error) \= 0 then return -3
-  database = store.database()
   if ambiguity_concept_ids.0 > 1 then do
     ambiguity_id = "ambiguity-sha256:" || rxhash..sha256hex((lower(canonical_label) || "00"x || policy.policy_version()) as .binary)
     do i = 1 to ambiguity_concept_ids.0
@@ -603,6 +629,12 @@ _insertconcept: procedure = .int
   bind_status = sqlitebindtext(prepared, 1, concept_id) | sqlitebindtext(prepared, 2, label) | sqlitebindtext(prepared, 3, concept_type) | sqlitebindint(prepared, 4, generation)
   step_status = sqlitestep(prepared); call sqlitefinalize prepared
   if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert canonical concept"; return -1; end
+  prepared = .binary
+  sql = "INSERT INTO concept_versions(concept_id,version,canonical_label,concept_type,lifecycle_state,generation,reason,created_at) VALUES(?1,1,?2,?3,'active',?4,'initial validated promotion',strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare initial concept version"; return -1; end
+  bind_status = sqlitebindtext(prepared, 1, concept_id) | sqlitebindtext(prepared, 2, label) | sqlitebindtext(prepared, 3, concept_type) | sqlitebindint(prepared, 4, generation)
+  step_status = sqlitestep(prepared); call sqlitefinalize prepared
+  if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert initial concept version"; return -1; end
   return 0
 
 _insertclaim: procedure = .int

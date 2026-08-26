@@ -157,7 +157,35 @@ parseconfigtext: procedure = .int
     schedules[i] = .ragschedule(schedule_ids[i], trigger, enabled)
   end
 
-  candidate = .ragconfig(config_id, version, source_sets, providers, roles, profile_ids, .ragbudget(minutes, item_limit, model_calls, input_tokens, output_tokens, cost, codex_turns, minimum_codex_allowance), .ragworkerpolicy(processes, max_in_flight, lease_seconds), schedules)
+  discovery_mode = _optional(keys, values, "discovery.mode")
+  if discovery_mode = "" then discovery_mode = "all"
+  glossary_path = _optional(keys, values, "discovery.glossary_file")
+  if glossary_path \= "" & _safesourcepath(glossary_path) \= 1 then return _fail("discovery.glossary_file contains traversal or a control character", error)
+  ranked_limit = 64; max_mentions = 16; max_relationships = 16; max_notes = 16
+  setting = _optional(keys, values, "discovery.ranked_limit")
+  if setting \= "" then if _uint(setting, 1, 1000000, "discovery.ranked_limit", ranked_limit, error) \= 0 then return -1
+  setting = _optional(keys, values, "discovery.max_mentions")
+  if setting \= "" then if _uint(setting, 1, 64, "discovery.max_mentions", max_mentions, error) \= 0 then return -1
+  setting = _optional(keys, values, "discovery.max_relationships")
+  if setting \= "" then if _uint(setting, 1, 64, "discovery.max_relationships", max_relationships, error) \= 0 then return -1
+  setting = _optional(keys, values, "discovery.max_notes")
+  if setting \= "" then if _uint(setting, 1, 64, "discovery.max_notes", max_notes, error) \= 0 then return -1
+  discovery = .ragdiscoverypolicy(discovery_mode, glossary_path, ranked_limit, max_mentions, max_relationships, max_notes)
+
+  vector_algorithm = _optional(keys, values, "vector.algorithm")
+  if vector_algorithm = "" then vector_algorithm = "ivf-flat-v1"
+  centroids = 16; probes = 4; iterations = 2; recall_minimum = 900000
+  setting = _optional(keys, values, "vector.centroids")
+  if setting \= "" then if _uint(setting, 1, 4096, "vector.centroids", centroids, error) \= 0 then return -1
+  setting = _optional(keys, values, "vector.probes")
+  if setting \= "" then if _uint(setting, 1, 4096, "vector.probes", probes, error) \= 0 then return -1
+  setting = _optional(keys, values, "vector.iterations")
+  if setting \= "" then if _uint(setting, 1, 16, "vector.iterations", iterations, error) \= 0 then return -1
+  setting = _optional(keys, values, "vector.recall_minimum_millionths")
+  if setting \= "" then if _uint(setting, 1, 1000000, "vector.recall_minimum_millionths", recall_minimum, error) \= 0 then return -1
+  vector = .ragvectorpolicy(vector_algorithm, centroids, probes, iterations, recall_minimum)
+
+  candidate = .ragconfig(config_id, version, source_sets, providers, roles, profile_ids, .ragbudget(minutes, item_limit, model_calls, input_tokens, output_tokens, cost, codex_turns, minimum_codex_allowance), .ragworkerpolicy(processes, max_in_flight, lease_seconds), schedules, discovery, vector)
   validation = validateconfig(candidate)
   if validation.ok() \= 1 then do
     issues = validation.issues()
@@ -168,7 +196,7 @@ parseconfigtext: procedure = .int
 
 _validconfigkey: procedure = .int
   arg key = .string
-  if wordpos(key, "format config.id config.version profiles budget.minutes budget.item_limit budget.model_calls budget.input_tokens budget.output_tokens budget.cost_microunits budget.codex_turns budget.minimum_codex_allowance_percent worker.processes worker.max_in_flight worker.lease_seconds") > 0 then return 1
+  if wordpos(key, "format config.id config.version profiles budget.minutes budget.item_limit budget.model_calls budget.input_tokens budget.output_tokens budget.cost_microunits budget.codex_turns budget.minimum_codex_allowance_percent worker.processes worker.max_in_flight worker.lease_seconds discovery.mode discovery.glossary_file discovery.ranked_limit discovery.max_mentions discovery.max_relationships discovery.max_notes vector.algorithm vector.centroids vector.probes vector.iterations vector.recall_minimum_millionths") > 0 then return 1
   if _entitykey(key, "source.", "connector root include stable_key privacy retain_raw_artifact") = 1 then return 1
   if _entitykey(key, "provider.", "kind base_url model route_class privacy_policy credential timeout_ms max_attempts") = 1 then return 1
   if _entitykey(key, "schedule.", "trigger enabled") = 1 then return 1

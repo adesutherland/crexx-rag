@@ -1,0 +1,733 @@
+options levelg
+
+namespace ragmaintain expose ragmaintenancecensus ragmaintenanceapplyresult buildmaintenancecensus persistmaintenance refreshmaintenance applylifecycleaction ensuremaintenancejob recordmaintenanceembeddingitems
+
+import rxfnsb
+import rxjson
+import rxhash
+import sqlite_boundary
+import ragstore
+import ragimprove
+import ragprofile
+
+ragmaintenancecensus: class
+  _generation = .int
+  _embedding_profile_id = .string
+  _item_types = .string[]
+  _subject_types = .string[]
+  _subject_ids = .string[]
+  _scores = .int[]
+  _triggers = .string[]
+  _diagnoses = .string[]
+  _actions = .string[]
+  _canonical = .string
+  _digest = .string
+
+  *: factory
+    arg generation = 0, embedding_profile_id = "", item_types = .string[], subject_types = .string[], subject_ids = .string[], scores = .int[], triggers = .string[], diagnoses = .string[], actions = .string[], canonical = "", digest = ""
+    _generation = generation; _embedding_profile_id = embedding_profile_id; _item_types = item_types; _subject_types = subject_types
+    _subject_ids = subject_ids; _scores = scores; _triggers = triggers
+    _diagnoses = diagnoses; _actions = actions; _canonical = canonical; _digest = digest
+    return
+  generation: method = .int
+    return _generation
+  embedding_profile_id: method = .string
+    return _embedding_profile_id
+  item_types: method = .string[]
+    return _item_types
+  subject_types: method = .string[]
+    return _subject_types
+  subject_ids: method = .string[]
+    return _subject_ids
+  scores: method = .int[]
+    return _scores
+  triggers: method = .string[]
+    return _triggers
+  diagnoses: method = .string[]
+    return _diagnoses
+  actions: method = .string[]
+    return _actions
+  item_count: method = .int
+    return _item_types.0
+  canonical: method = .string
+    return _canonical
+  digest: method = .string
+    return _digest
+
+ragmaintenanceapplyresult: class
+  _status = .int
+  _disposition = .string
+  _run_id = .string
+  _job_id = .string
+  _items = .int
+  _reviews = .int
+  _error = .string
+
+  *: factory
+    arg status = -1, disposition = "error", run_id = "", job_id = "", items = 0, reviews = 0, error = ""
+    _status = status; _disposition = disposition; _run_id = run_id; _job_id = job_id
+    _items = items; _reviews = reviews; _error = error
+    return
+  status: method = .int
+    return _status
+  disposition: method = .string
+    return _disposition
+  run_id: method = .string
+    return _run_id
+  job_id: method = .string
+    return _job_id
+  items: method = .int
+    return _items
+  reviews: method = .int
+    return _reviews
+  error: method = .string
+    return _error
+
+buildmaintenancecensus: procedure = .int
+  arg store = .ragstorehandle, analysis_plan = .ragimproveplan, embedding_profile_id = .string, maximum_items = .int, expose census = .ragmaintenancecensus, expose error = .string
+  item_types = .string[]; subject_types = .string[]; subject_ids = .string[]; scores = .int[]
+  triggers = .string[]; diagnoses = .string[]; actions = .string[]
+  census = .ragmaintenancecensus(0, "", item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "", "")
+  error = ""
+  if store.open() \= 1 | analysis_plan.schema() \= "crexx-rag.improve-plan/1" | embedding_profile_id = "" | maximum_items < 1 | maximum_items > 100000 then do; error = "maintenance census input is invalid"; return -1; end
+  generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if generation \= analysis_plan.expected_generation() then do; error = "maintenance census generation changed"; return -2; end
+  chunk_ids = analysis_plan.chunk_ids(); chunk_scores = analysis_plan.scores()
+  do i = 1 to chunk_ids.0
+    score = 600000 + chunk_scores[i] * 100
+    if score < 500000 then score = 500000
+    if score > 900000 then score = 900000
+    trigger = '{"signals":["chunk-priority","cognitive-review"],"analysis_plan":' || jsonquote(analysis_plan.digest()) || '}'
+    diagnosis = '{"state":"selected","reason":"ranked chunk requires bounded concept, relationship and note review"}'
+    action = '{"operation":"cognitive-review","revision_chunk_id":' || jsonquote(chunk_ids[i]) || '}'
+    call _additem item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "concept-review", "chunk", chunk_ids[i], score, trigger, diagnosis, action, maximum_items
+  end
+
+  prepared = .binary
+  sql = "SELECT conflict_id,claim_id,competing_claim_id FROM claim_conflicts WHERE review_state='pending' AND visible_from_generation<=?1 AND (visible_to_generation IS NULL OR visible_to_generation>?1) ORDER BY conflict_id"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare maintenance conflict census"; return -3; end
+  do forever
+    step = sqlitestep(prepared); if step = 101 then leave
+    if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read maintenance conflicts"; return -3; end
+    conflict_id = ""; claim_id = ""; competing = ""
+    if sqlitecolumntext(prepared, 0, conflict_id) \= 0 | sqlitecolumntext(prepared, 1, claim_id) \= 0 | sqlitecolumntext(prepared, 2, competing) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode maintenance conflict"; return -3; end
+    trigger = '{"signals":["pending-conflict"],"claim_id":' || jsonquote(claim_id) || ',"competing_claim_id":' || jsonquote(competing) || '}'
+    call _additem item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "claim-conflict", "conflict", conflict_id, 950000, trigger, '{"state":"review-required"}', '{}', maximum_items
+  end
+  call sqlitefinalize prepared
+
+  prepared = .binary
+  sql = "SELECT c.concept_id,c.canonical_label,(SELECT count(*) FROM claims q WHERE (q.source_concept_id=c.concept_id OR q.target_concept_id=c.concept_id) AND q.visible_from_generation<=?1 AND (q.visible_to_generation IS NULL OR q.visible_to_generation>?1)) AS degree FROM concepts c WHERE c.visible_from_generation<=?1 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?1) AND c.lifecycle_state IN('active','migration-parent') ORDER BY degree,c.concept_id"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare sparse-node census"; return -3; end
+  do forever
+    step = sqlitestep(prepared); if step = 101 then leave
+    if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read sparse-node census"; return -3; end
+    concept_id = ""; label = ""; degree = 0
+    if sqlitecolumntext(prepared, 0, concept_id) \= 0 | sqlitecolumntext(prepared, 1, label) \= 0 | sqlitecolumnint(prepared, 2, degree) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode sparse node"; return -3; end
+    if degree > 1 then iterate
+    score = 500000 - degree * 100000
+    trigger = '{"signals":["sparse-node"],"degree":' || degree || ',"label":' || jsonquote(label) || '}'
+    call _additem item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "sparse-node", "concept", concept_id, score, trigger, '{"state":"analysis-lead"}', '{}', maximum_items
+  end
+  call sqlitefinalize prepared
+
+  prepared = .binary
+  sql = "SELECT n.note_id,n.note_kind,n.importance,n.uncertainty,n.next_action FROM analysis_notes n WHERE n.state='active' ORDER BY n.importance DESC,n.note_id"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 then do; error = "cannot prepare analysis-note census"; return -3; end
+  do forever
+    step = sqlitestep(prepared); if step = 101 then leave
+    if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read analysis-note census"; return -3; end
+    note_id = ""; kind = ""; next_action = ""; importance = 0; uncertainty = 0
+    columns = sqlitecolumntext(prepared, 0, note_id) | sqlitecolumntext(prepared, 1, kind) | sqlitecolumnint(prepared, 2, importance) | sqlitecolumnint(prepared, 3, uncertainty) | sqlitecolumntext(prepared, 4, next_action)
+    if columns \= 0 then do; call sqlitefinalize prepared; error = "cannot decode analysis note"; return -3; end
+    item_type = "analysis-lead"; if kind = "gap" | kind = "question" then item_type = "query-gap"
+    if wordpos(kind, "synonym split merge type-correction retire restore") > 0 then item_type = kind
+    score = importance + (1000000 - uncertainty) / 4; if score > 1000000 then score = 1000000
+    trigger = '{"signals":["durable-analysis-note"],"kind":' || jsonquote(kind) || ',"importance":' || importance || ',"uncertainty":' || uncertainty || '}'
+    action = '{}'; if next_action \= "" then action = next_action
+    call _additem item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, item_type, "note", note_id, score, trigger, '{"state":"provider-diagnosed"}', action, maximum_items
+  end
+  call sqlitefinalize prepared
+
+  prepared = .binary
+  sql = "SELECT gap_id,occurrence_count,gap_text FROM query_gaps WHERE state='open' ORDER BY occurrence_count DESC,gap_id"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 then do; error = "cannot prepare query-gap census"; return -3; end
+  do forever
+    step = sqlitestep(prepared); if step = 101 then leave
+    if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read query-gap census"; return -3; end
+    gap_id = ""; gap_text = ""; occurrences = 0
+    if sqlitecolumntext(prepared, 0, gap_id) \= 0 | sqlitecolumnint(prepared, 1, occurrences) \= 0 | sqlitecolumntext(prepared, 2, gap_text) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode query gap"; return -3; end
+    score = 400000 + occurrences * 50000; if score > 900000 then score = 900000
+    trigger = '{"signals":["repeated-query-gap"],"occurrences":' || occurrences || ',"gap":' || jsonquote(gap_text) || '}'
+    call _additem item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "query-gap", "query-gap", gap_id, score, trigger, '{"state":"analysis-lead"}', '{}', maximum_items
+  end
+  call sqlitefinalize prepared
+
+  prepared = .binary
+  sql = "SELECT rc.revision_chunk_id FROM revision_chunks rc WHERE rc.visible_from_generation<=?1 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?1) AND NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id WHERE rce.revision_chunk_id=rc.revision_chunk_id AND e.embedding_profile_id=?2 AND rce.visible_from_generation<=?1 AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>?1)) ORDER BY rc.revision_chunk_id"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 | sqlitebindtext(prepared, 2, embedding_profile_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare embedding coverage census"; return -3; end
+  do forever
+    step = sqlitestep(prepared); if step = 101 then leave
+    if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read embedding coverage census"; return -3; end
+    chunk_id = ""; if sqlitecolumntext(prepared, 0, chunk_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode stale embedding"; return -3; end
+    call _additem item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "stale-embedding", "chunk", chunk_id, 980000, '{"signals":["missing-active-embedding"]}', '{"state":"repair-required"}', '{"operation":"embedding-repair"}', maximum_items
+  end
+  call sqlitefinalize prepared
+
+  active_chunks = _scalarint(store.database(), "SELECT count(*) FROM revision_chunks WHERE visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ")")
+  active_vectors = _scalarint(store.database(), "SELECT count(*) FROM vector_generations WHERE semantic_generation=" || generation || " AND embedding_profile_id=" || _q(embedding_profile_id) || " AND state='published' AND algorithm='ivf-flat-v1'")
+  if active_chunks > 0 & active_vectors \= 1 then call _additem item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "vector-publication", "embedding-profile", embedding_profile_id, 990000, '{"signals":["missing-ann-publication"],"published":' || active_vectors || '}', '{"state":"repair-required"}', '{"operation":"ann-publication"}', maximum_items
+
+  canonical = _canonicalcensus(generation, analysis_plan.digest(), embedding_profile_id, item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions)
+  digest = rxhash..sha256hex(canonical as .binary)
+  census = .ragmaintenancecensus(generation, embedding_profile_id, item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, canonical, digest)
+  return 0
+
+persistmaintenance: procedure = .int
+  arg store = .ragstorehandle, census = .ragmaintenancecensus, analysis_plan = .ragimproveplan, analysis_result = .ragimproveapplyresult, mode = .string, expose result = .ragmaintenanceapplyresult, expose error = .string
+  result = .ragmaintenanceapplyresult(); error = ""
+  if store.writable() \= 1 | census.digest() = "" | rxhash..sha256hex(census.canonical() as .binary) \= census.digest() | census.generation() \= analysis_plan.expected_generation() | wordpos(mode, "automatic reviewed manual") = 0 then do; error = "maintenance apply input is invalid"; return -1; end
+  current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if current \= census.generation() then do; error = "published generation changed; re-plan maintenance"; return -2; end
+  run_id = "maintenance-sha256:" || census.digest()
+  if _boundcount(store.database(), "SELECT count(*) FROM maintenance_runs WHERE run_id=?1", run_id) = 1 then do
+    result = .ragmaintenanceapplyresult(0, "identical-no-op", run_id, analysis_result.job_id(), 0, 0, "")
+    return 0
+  end
+  database = store.database(); reviews = 0
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin maintenance apply"; return -3; end
+  prepared = .binary
+  sql = "INSERT INTO maintenance_runs(run_id,expected_generation,config_snapshot_id,mode,state,plan_digest,canonical_plan,created_at) VALUES(?1,?2,?3,?4,'running',?5,?6,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare maintenance run", error)
+  binds = sqlitebindtext(prepared, 1, run_id) | sqlitebindint(prepared, 2, census.generation()) | sqlitebindtext(prepared, 3, analysis_plan.config_snapshot_id()) | sqlitebindtext(prepared, 4, mode) | sqlitebindtext(prepared, 5, census.digest()) | sqlitebindtext(prepared, 6, census.canonical())
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then return _rollback(database, "cannot insert maintenance run", error)
+  types = census.item_types(); subject_types = census.subject_types(); subjects = census.subject_ids(); scores = census.scores(); triggers = census.triggers(); diagnoses = census.diagnoses(); actions = census.actions()
+  do i = 1 to types.0
+    item_id = "maintenance-item-sha256:" || rxhash..sha256hex((run_id || "00"x || types[i] || "00"x || subject_types[i] || "00"x || subjects[i]) as .binary)
+    state = "diagnosed"
+    if types[i] = "concept-review" | types[i] = "stale-embedding" | types[i] = "vector-publication" then state = "pending"
+    if types[i] = "claim-conflict" | wordpos(types[i], "synonym split merge type-correction retire restore") > 0 then state = "review-required"
+    action = actions[i]
+    if types[i] = "concept-review" then action = '{"operation":"cognitive-review","job_id":' || jsonquote(analysis_result.job_id()) || ',"revision_chunk_id":' || jsonquote(subjects[i]) || '}'
+    prepared = .binary
+    sql = "INSERT INTO maintenance_items(item_id,run_id,item_type,subject_type,subject_id,score,trigger_json,diagnosis_json,action_json,state,expected_generation,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+    if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare maintenance item", error)
+    binds = sqlitebindtext(prepared, 1, item_id) | sqlitebindtext(prepared, 2, run_id) | sqlitebindtext(prepared, 3, types[i]) | sqlitebindtext(prepared, 4, subject_types[i]) | sqlitebindtext(prepared, 5, subjects[i]) | sqlitebindint(prepared, 6, scores[i]) | sqlitebindtext(prepared, 7, triggers[i]) | sqlitebindtext(prepared, 8, diagnoses[i]) | sqlitebindtext(prepared, 9, action) | sqlitebindtext(prepared, 10, state) | sqlitebindint(prepared, 11, census.generation())
+    step = sqlitestep(prepared); call sqlitefinalize prepared
+    if binds \= 0 | step \= 101 then return _rollback(database, "cannot insert maintenance item", error)
+    if state = "review-required" then do
+      review_id = "review-sha256:" || rxhash..sha256hex((item_id || "00"x || action) as .binary)
+      proposal = '{"schema":"crexx-rag.maintenance-review/1","maintenance_item_id":' || jsonquote(item_id) || ',"expected_generation":' || census.generation() || ',"action":' || action || '}'
+      prepared = .binary
+      sql = "INSERT OR IGNORE INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) VALUES(?1,?2,?3,'pending',?4,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+      if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare maintenance review", error)
+      binds = sqlitebindtext(prepared, 1, review_id) | sqlitebindtext(prepared, 2, "maintenance-" || types[i]) | sqlitebindtext(prepared, 3, item_id) | sqlitebindtext(prepared, 4, proposal)
+      step = sqlitestep(prepared); call sqlitefinalize prepared
+      if binds \= 0 | step \= 101 then return _rollback(database, "cannot insert maintenance review", error)
+      if subject_types[i] = "note" then do
+        prepared = .binary
+        sql = "UPDATE analysis_notes SET review_id=?2,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE note_id=?1 AND review_id IS NULL"
+        if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare analysis-note review link", error)
+        binds = sqlitebindtext(prepared, 1, subjects[i]) | sqlitebindtext(prepared, 2, review_id); step = sqlitestep(prepared); call sqlitefinalize prepared
+        if binds \= 0 | step \= 101 then return _rollback(database, "cannot link analysis-note review", error)
+      end
+      reviews = reviews + 1
+    end
+  end
+  if types.0 = 0 then do
+    if sqliteexec(database, "UPDATE maintenance_runs SET state='complete',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=" || _q(run_id)) \= 0 then return _rollback(database, "cannot complete empty maintenance run", error)
+  end
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit maintenance apply", error)
+  result = .ragmaintenanceapplyresult(0, "applied", run_id, analysis_result.job_id(), types.0, reviews, "")
+  return 0
+
+refreshmaintenance: procedure = .int
+  arg store = .ragstorehandle, run_id = .string, expose state = .string, expose pending = .int, expose reviews = .int, expose error = .string
+  state = ""; pending = 0; reviews = 0; error = ""
+  if store.writable() \= 1 | run_id = "" then do; error = "maintenance refresh input is invalid"; return -1; end
+  database = store.database()
+  if _boundcount(database, "SELECT count(*) FROM maintenance_runs WHERE run_id=?1", run_id) \= 1 then do; error = "maintenance run was not found"; return -2; end
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin maintenance refresh"; return -3; end
+  sql = "UPDATE maintenance_items SET state='applied',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=" || _q(run_id) || " AND item_type='concept-review' AND state='pending' AND json_extract(action_json,'$.job_id')<>'' AND (SELECT state FROM jobs WHERE job_id=json_extract(action_json,'$.job_id'))='completed'"
+  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot refresh cognitive maintenance items", error)
+  generation = _boundint(database, "SELECT expected_generation FROM maintenance_runs WHERE run_id=?1", run_id)
+  sql = "UPDATE maintenance_items SET state='applied',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=" || _q(run_id) || " AND item_type='stale-embedding' AND state='pending' AND EXISTS(SELECT 1 FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id WHERE rce.revision_chunk_id=maintenance_items.subject_id AND e.embedding_profile_id=json_extract((SELECT canonical_plan FROM maintenance_runs WHERE run_id=" || _q(run_id) || "),'$.embedding_profile_id') AND rce.visible_from_generation<=" || generation || " AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>" || generation || "))"
+  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot refresh embedding maintenance items", error)
+  sql = "UPDATE maintenance_items SET state='applied',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=" || _q(run_id) || " AND item_type='vector-publication' AND state='pending' AND (SELECT count(*) FROM vector_generations WHERE semantic_generation=(SELECT published_generation FROM library_meta WHERE singleton=1) AND embedding_profile_id=maintenance_items.subject_id AND state='published' AND algorithm='ivf-flat-v1')=1"
+  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot refresh vector maintenance items", error)
+  pending = _boundcount(database, "SELECT count(*) FROM maintenance_items WHERE run_id=?1 AND state IN('pending','leased','approved','failed','blocked')", run_id)
+  reviews = _boundcount(database, "SELECT count(*) FROM maintenance_items WHERE run_id=?1 AND state='review-required'", run_id)
+  state = "complete"; if pending > 0 | reviews > 0 then state = "incomplete"
+  sql = "UPDATE maintenance_runs SET state=" || _q(state) || ",completed_at=CASE WHEN " || _q(state) || "='complete' THEN strftime('%Y-%m-%dT%H:%M:%fZ','now') ELSE NULL END WHERE run_id=" || _q(run_id)
+  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot refresh maintenance run", error)
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit maintenance refresh", error)
+  return 0
+
+ensuremaintenancejob: procedure = .int
+  arg store = .ragstorehandle, run_id = .string, config_snapshot_id = .string, maximum_calls = .int, maximum_input = .int, maximum_output = .int, maximum_cost = .int, expose job_id = .string, expose error = .string
+  job_id = ""; error = ""
+  if store.writable() \= 1 | run_id = "" | config_snapshot_id = "" | maximum_calls < 1 | maximum_input < 0 | maximum_output < 0 | maximum_cost < 0 then do; error = "maintenance job budget is invalid"; return -1; end
+  repairs = _boundcount(store.database(), "SELECT count(*) FROM maintenance_items WHERE run_id=?1 AND item_type='stale-embedding' AND state='pending'", run_id)
+  if repairs < 0 then do; error = "cannot count maintenance repair work"; return -3; end
+  if repairs = 0 then return 0
+  if repairs > maximum_calls then do; error = "maintenance embedding repairs exceed the reviewed provider-call budget"; return -2; end
+  digest = rxhash..sha256hex(("crexx-rag.maintenance-job/1" || "00"x || run_id) as .binary)
+  job_id = "job-sha256:" || digest
+  if _boundcount(store.database(), "SELECT count(*) FROM jobs WHERE job_id=?1", job_id) = 1 then return 0
+  canonical = '{"schema":"crexx-rag.maintenance-job/1","run_id":' || jsonquote(run_id) || ',"maximum_calls":' || maximum_calls || ',"maximum_input_tokens":' || maximum_input || ',"maximum_output_tokens":' || maximum_output || ',"maximum_cost_microunits":' || maximum_cost || '}'
+  prepared = .binary
+  sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,reserved_calls,reserved_tokens,reserved_cost,codex_turn_budget,reserved_codex_turns,created_at,updated_at) VALUES(?1,?2,?3,?4,'queued',0,?5,?6,?7,?8,0,0,0,0,0,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 then do; error = "cannot prepare maintenance repair job"; return -3; end
+  binds = sqlitebindtext(prepared, 1, job_id) | sqlitebindtext(prepared, 2, digest) | sqlitebindtext(prepared, 3, canonical) | sqlitebindtext(prepared, 4, config_snapshot_id) | sqlitebindint(prepared, 5, maximum_calls) | sqlitebindint(prepared, 6, maximum_input) | sqlitebindint(prepared, 7, maximum_output) | sqlitebindint(prepared, 8, maximum_cost)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then do; error = "cannot create maintenance repair job"; return -3; end
+  return 0
+
+/* Embedding repair items are inserted into the same durable job used for
+ * cognitive maintenance. This keeps process supervision and budget admission
+ * on the normal worker path. */
+recordmaintenanceembeddingitems: procedure = .int
+  arg store = .ragstorehandle, run_id = .string, job_id = .string, profile_id = .string, provider_id = .string, provider_model = .string, charging_basis = .string, privacy = .string, maximum_calls = .int, maximum_input = .int, maximum_cost = .int, maximum_time = .int, expose queued = .int, expose error = .string
+  queued = 0; error = ""
+  if store.writable() \= 1 | run_id = "" | job_id = "" | profile_id = "" | provider_id = "" | provider_model = "" | maximum_calls < 1 | maximum_input < 1 | maximum_time < 1 then do; error = "embedding repair binding is invalid"; return -1; end
+  database = store.database(); generation = _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1")
+  prepared = .binary
+  sql = "SELECT m.subject_id,c.content_id,c.content_digest,c.text,r.normalized_start,r.normalized_end,s.observed_uri FROM maintenance_items m JOIN revision_chunks r ON r.revision_chunk_id=m.subject_id JOIN chunk_contents c ON c.content_id=r.content_id JOIN source_revisions v ON v.revision_id=r.revision_id JOIN sources s ON s.source_id=v.source_id WHERE m.run_id=?1 AND m.item_type='stale-embedding' AND m.state='pending' ORDER BY m.item_id"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, run_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare embedding repair work"; return -3; end
+  chunk_ids = .string[]; content_ids = .string[]; digests = .string[]; bodies = .string[]; starts = .int[]; finishes = .int[]; source_scopes = .string[]
+  do forever
+    step = sqlitestep(prepared); if step = 101 then leave
+    if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read embedding repair work"; return -3; end
+    chunk_id = ""; content_id = ""; digest = ""; body = ""; source_scope = ""; start = 0; finish = 0
+    columns = sqlitecolumntext(prepared, 0, chunk_id) | sqlitecolumntext(prepared, 1, content_id) | sqlitecolumntext(prepared, 2, digest) | sqlitecolumntext(prepared, 3, body) | sqlitecolumnint(prepared, 4, start) | sqlitecolumnint(prepared, 5, finish) | sqlitecolumntext(prepared, 6, source_scope)
+    if columns \= 0 then do; call sqlitefinalize prepared; error = "cannot decode embedding repair work"; return -3; end
+    row = chunk_ids.0 + 1; chunk_ids[row] = chunk_id; content_ids[row] = content_id; digests[row] = digest; bodies[row] = body; starts[row] = start; finishes[row] = finish; source_scopes[row] = source_scope
+  end
+  call sqlitefinalize prepared
+  if chunk_ids.0 = 0 then return 0
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin embedding repair queue"; return -3; end
+  do i = 1 to chunk_ids.0
+    chunk_id = chunk_ids[i]; content_id = content_ids[i]; digest = digests[i]; body = bodies[i]; start_text = starts[i]; finish_text = finishes[i]; source_scope = source_scopes[i]
+    item_input = maximum_input; body_cap = binlength(body as .binary) + 32; if body_cap < item_input then item_input = body_cap
+    item_cost = maximum_cost; if charging_basis \= "monetary-api" then item_cost = 0
+    reservation = '{"input_tokens":' || item_input || ',"output_tokens":0,"cost_microunits":' || item_cost || ',"time_ms":' || maximum_time || '}'
+    input_json = '{"schema":"crexx-rag.work-input/1","operation":"embedding","revision_chunk_id":' || jsonquote(chunk_id) || ',"content_id":' || jsonquote(content_id) || ',"content_digest":' || jsonquote(digest) || ',"text_digest":' || jsonquote(rxhash..sha256hex(body as .binary)) || ',"text":' || jsonquote(body) || ',"normalized_start":' || start_text || ',"normalized_end":' || finish_text || ',"privacy":' || jsonquote(privacy) || ',"source_scope":' || jsonquote(source_scope) || ',"config_snapshot_id":' || jsonquote(_boundtext(database, "SELECT config_snapshot_id FROM jobs WHERE job_id=?1", job_id)) || ',"profile_id":' || jsonquote(profile_id) || ',"policy_version":"surface-claim-v1","prompt_version":"surface-prompt-v1","role":"embedding","provider_id":' || jsonquote(provider_id) || ',"model":' || jsonquote(provider_model) || ',"charging_basis":' || jsonquote(charging_basis) || ',"embedding_dimension":768,"reservation":' || reservation || ',"candidates":[]}'
+    input_hash = rxhash..sha256hex(input_json as .binary); idempotency = rxhash..sha256hex(("crexx-rag.work/2" || "00"x || input_hash) as .binary); item_id = "item-sha256:" || idempotency
+    before = _scalarint(database, "SELECT total_changes()")
+    statement = .binary
+    sql = "INSERT OR IGNORE INTO job_items(item_id,job_id,item_type,state,priority,worker_id,lease_until,fence,retry_at,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES(?1,?2,'embedding','queued',100,NULL,NULL,0,0,?3,?4,?5,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+    if sqliteprepare(database, sql, statement) \= 0 then return _rollback(database, "cannot prepare embedding repair item", error)
+    binds = sqlitebindtext(statement, 1, item_id) | sqlitebindtext(statement, 2, job_id) | sqlitebindtext(statement, 3, idempotency) | sqlitebindtext(statement, 4, input_hash) | sqlitebindtext(statement, 5, input_json)
+    step = sqlitestep(statement); call sqlitefinalize statement
+    if binds \= 0 | step \= 101 then return _rollback(database, "cannot insert embedding repair item", error)
+    after = _scalarint(database, "SELECT total_changes()")
+    if after > before then queued = queued + 1
+  end
+  if queued > 0 then do
+    sql = "UPDATE jobs SET state='queued',model_call_budget=" || maximum_calls || ",item_budget=item_budget+" || queued || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id) || " AND item_budget+" || queued || "<=" || maximum_calls
+    if sqliteexec(database, sql) \= 0 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "embedding repairs exceed the reviewed job budget", error)
+  end
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit embedding repair queue", error)
+  return 0
+
+_canonicalcensus: procedure = .string
+  arg generation = .int, analysis_digest = .string, embedding_profile_id = .string, types = .string[], subject_types = .string[], subjects = .string[], scores = .int[], triggers = .string[], diagnoses = .string[], actions = .string[]
+  output = '{"schema":"crexx-rag.maintenance-plan/1","expected_generation":' || generation || ',"analysis_plan_digest":' || jsonquote(analysis_digest) || ',"embedding_profile_id":' || jsonquote(embedding_profile_id) || ',"items":['
+  do i = 1 to types.0
+    if i > 1 then output = output || ','
+    output = output || '{"item_type":' || jsonquote(types[i]) || ',"subject_type":' || jsonquote(subject_types[i]) || ',"subject_id":' || jsonquote(subjects[i]) || ',"score":' || scores[i] || ',"triggers":' || triggers[i] || ',"diagnosis":' || diagnoses[i] || ',"action":' || actions[i] || '}'
+  end
+  return output || ']}'
+
+_additem: procedure
+  arg expose types = .string[], expose subject_types = .string[], expose subjects = .string[], expose scores = .int[], expose triggers = .string[], expose diagnoses = .string[], expose actions = .string[], item_type = .string, subject_type = .string, subject = .string, score = .int, trigger = .string, diagnosis = .string, action = .string, maximum = .int
+  do i = 1 to types.0
+    if types[i] = item_type & subject_types[i] = subject_type & subjects[i] = subject then return
+  end
+  position = scores.0 + 1
+  do i = 1 to scores.0
+    if score > scores[i] | (score = scores[i] & (item_type || ":" || subject) < (types[i] || ":" || subjects[i])) then do; position = i; leave; end
+  end
+  if position > maximum then return
+  limit = scores.0 + 1; if limit > maximum then limit = maximum
+  do i = limit to position + 1 by -1
+    types[i] = types[i - 1]; subject_types[i] = subject_types[i - 1]; subjects[i] = subjects[i - 1]
+    scores[i] = scores[i - 1]; triggers[i] = triggers[i - 1]; diagnoses[i] = diagnoses[i - 1]; actions[i] = actions[i - 1]
+  end
+  types[position] = item_type; subject_types[position] = subject_type; subjects[position] = subject
+  scores[position] = score; triggers[position] = trigger; diagnoses[position] = diagnosis; actions[position] = action
+  return
+
+_scalarint: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary; value = -1
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value
+
+_boundcount: procedure = .int
+  arg database = .binary, sql = .string, value = .string
+  prepared = .binary; output = -1
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, value) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  status = sqlitecolumnint(prepared, 0, output); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return output
+
+_boundint: procedure = .int
+  arg database = .binary, sql = .string, value = .string
+  return _boundcount(database, sql, value)
+
+_boundtext: procedure = .string
+  arg database = .binary, sql = .string, value = .string
+  prepared = .binary; output = ""
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, value) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  status = sqlitecolumntext(prepared, 0, output); call sqlitefinalize prepared
+  if status \= 0 then return ""
+  return output
+
+_rollback: procedure = .int
+  arg database = .binary, message = .string, expose error = .string
+  call sqliteexec database, "ROLLBACK"
+  error = message
+  return -3
+
+_q: procedure = .string
+  arg value = .string
+  return "'" || changestr("'", value, "''") || "'"
+
+/* Implemented below: reviewed concept lifecycle changes share the same
+ * canonical concept/claim tables and publish one atomic semantic generation. */
+applylifecycleaction: procedure = .int
+  arg store = .ragstorehandle, profile = .ragprofile, maintenance_item_id = .string, action_json = .string, expected_generation = .int, expose published_generation = .int, expose disposition = .string, expose error = .string
+  published_generation = 0; disposition = ""; error = ""
+  return _applylifecycle(store, profile, maintenance_item_id, action_json, expected_generation, published_generation, disposition, error)
+
+_applylifecycle: procedure = .int
+  arg store = .ragstorehandle, profile = .ragprofile, maintenance_item_id = .string, action_json = .string, expected_generation = .int, expose published_generation = .int, expose disposition = .string, expose error = .string
+  error = ""; published_generation = 0; disposition = ""
+  document = .jsondocument(action_json)
+  if store.writable() \= 1 | maintenance_item_id = "" | expected_generation < 1 | document.valid() \= 1 | document.node_type(document.root()) \= "object" | document.node_count(document.root()) \= 9 then do; error = "lifecycle action shape is invalid"; return -1; end
+  root = document.root(); schema = ""; operation = ""; concept_id = ""; target_id = ""; alias = ""; concept_type = ""; reason = ""
+  successors_node = document.member(root, "successors"); dispositions_node = document.member(root, "dispositions")
+  columns = document.node_string(document.member(root, "schema"), schema) | document.node_string(document.member(root, "operation"), operation) | document.node_string(document.member(root, "concept_id"), concept_id) | document.node_string(document.member(root, "target_concept_id"), target_id) | document.node_string(document.member(root, "alias"), alias) | document.node_string(document.member(root, "concept_type"), concept_type) | document.node_string(document.member(root, "reason"), reason)
+  if columns \= 0 | schema \= "crexx-rag.lifecycle-action/1" | wordpos(operation, "synonym split merge type-correction retire restore") = 0 | concept_id = "" | reason = "" | length(reason) > 2048 | document.node_type(successors_node) \= "array" | document.node_type(dispositions_node) \= "array" | document.node_count(dispositions_node) > 10000 then do; error = "lifecycle action contract is invalid"; return -1; end
+  current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if current \= expected_generation then do; error = "published generation changed; re-plan lifecycle action"; return -2; end
+  item_state = _boundtext(store.database(), "SELECT state FROM maintenance_items WHERE item_id=?1", maintenance_item_id)
+  if item_state \= "review-required" & item_state \= "approved" then do; error = "lifecycle action is not an approved maintenance item"; return -2; end
+  reviewed_action = _boundtext(store.database(), "SELECT action_json FROM maintenance_items WHERE item_id=?1", maintenance_item_id)
+  if reviewed_action \= action_json then do; error = "lifecycle action changed after review"; return -2; end
+  label = ""; old_type = ""; lifecycle = ""
+  if _concept(store.database(), concept_id, current, label, old_type, lifecycle) \= 1 then do; error = "lifecycle source concept is not active"; return -2; end
+  successor_ids = .string[]; successor_labels = .string[]; successor_types = .string[]
+  if operation = "split" then do
+    if document.node_count(successors_node) < 2 | document.node_count(successors_node) > 8 then do; error = "split requires two through eight successors"; return -1; end
+    do i = 1 to document.node_count(successors_node)
+      successor = document.element(successors_node, i); successor_label = ""; successor_type = ""
+      if document.node_type(successor) \= "object" | document.node_count(successor) \= 2 | document.node_string(document.member(successor, "canonical_label"), successor_label) \= 0 | document.node_string(document.member(successor, "concept_type"), successor_type) \= 0 | successor_label = "" | _profiletype(profile, successor_type) \= 1 then do; error = "split successor is invalid"; return -1; end
+      successor_id = "concept-sha256:" || rxhash..sha256hex((lower(successor_label) || "00"x || successor_type) as .binary)
+      if successor_id = concept_id | _contains(successor_ids, successor_id) = 1 then do; error = "split successors must be distinct from the migration parent"; return -1; end
+      successor_ids[i] = successor_id; successor_labels[i] = successor_label; successor_types[i] = successor_type
+    end
+  end
+  else if document.node_count(successors_node) \= 0 then do; error = "successors are only valid for split"; return -1; end
+  if operation = "synonym" then do
+    if alias = "" | target_id \= "" | concept_type \= "" then do; error = "synonym requires one alias and no target or type"; return -1; end
+  end
+  else if alias \= "" then do; error = "alias is only valid for synonym"; return -1; end
+  if operation = "merge" then do
+    target_label = ""; target_type = ""; target_lifecycle = ""
+    if target_id = "" | target_id = concept_id | _concept(store.database(), target_id, current, target_label, target_type, target_lifecycle) \= 1 then do; error = "merge requires a distinct active survivor"; return -1; end
+    successor_ids[1] = target_id
+  end
+  else if target_id \= "" then do; error = "target concept is only valid for merge"; return -1; end
+  if operation = "type-correction" then do
+    if concept_type = "" | concept_type = old_type | _profiletype(profile, concept_type) \= 1 then do; error = "type correction requires a different permitted type"; return -1; end
+  end
+  else if concept_type \= "" then do; error = "concept type is only valid for type correction"; return -1; end
+  if operation = "restore" & lifecycle \= "retired" then do; error = "restore requires a retired concept"; return -2; end
+  if operation \= "restore" & lifecycle = "retired" then do; error = "retired concept must be restored before other maintenance"; return -2; end
+
+  impact_types = .string[]; impact_ids = .string[]
+  if operation = "split" | operation = "merge" | operation = "retire" then do
+    if _impact(store.database(), concept_id, current, impact_types, impact_ids, error) \= 0 then return -3
+  end
+  disposition_types = .string[]; disposition_ids = .string[]; disposition_actions = .string[]; disposition_targets = .string[]; disposition_confidence = .int[]; disposition_reasons = .string[]
+  if document.node_count(dispositions_node) = 0 then do
+    do i = 1 to impact_ids.0
+      disposition_types[i] = impact_types[i]; disposition_ids[i] = impact_ids[i]; disposition_actions[i] = "keep-parent"; disposition_targets[i] = ""; disposition_confidence[i] = 0; disposition_reasons[i] = "uncertain connection retained on migration parent"
+    end
+  end
+  else do
+    if document.node_count(dispositions_node) \= impact_ids.0 then do; error = "lifecycle dispositions must cover the exact impact census"; return -1; end
+    do i = 1 to document.node_count(dispositions_node)
+      node = document.element(dispositions_node, i); object_type = ""; object_id = ""; action = ""; target = ""; confidence = -1; disposition_reason = ""
+      if document.node_type(node) \= "object" | document.node_count(node) \= 6 | document.node_string(document.member(node, "object_type"), object_type) \= 0 | document.node_string(document.member(node, "object_id"), object_id) \= 0 | document.node_string(document.member(node, "action"), action) \= 0 | document.node_string(document.member(node, "target_concept_id"), target) \= 0 | document.node_int(document.member(node, "confidence_millionths"), confidence) \= 0 | document.node_string(document.member(node, "reason"), disposition_reason) \= 0 | wordpos(object_type, "claim mention alias note") = 0 | wordpos(action, "keep-parent move-child copy-child retract review unchanged") = 0 | object_id = "" | confidence < 0 | confidence > 1000000 | disposition_reason = "" then do; error = "lifecycle disposition is invalid"; return -1; end
+      impact_index = _pairindex(impact_types, impact_ids, object_type, object_id)
+      if impact_index = 0 | _pairindex(disposition_types, disposition_ids, object_type, object_id) > 0 then do; error = "lifecycle disposition identity does not match the impact census"; return -1; end
+      if action = "move-child" | action = "copy-child" then do
+        if _contains(successor_ids, target) \= 1 then do; error = "lifecycle disposition target is not a reviewed successor"; return -1; end
+      end
+      else if target \= "" then do; error = "non-move disposition cannot name a target"; return -1; end
+      disposition_types[i] = object_type; disposition_ids[i] = object_id; disposition_actions[i] = action; disposition_targets[i] = target; disposition_confidence[i] = confidence; disposition_reasons[i] = disposition_reason
+    end
+  end
+
+  config_snapshot_id = _boundtext(store.database(), "SELECT config_snapshot_id FROM published_generations WHERE generation=?1", current || "")
+  if config_snapshot_id = "" then do; error = "active configuration snapshot is unavailable"; return -3; end
+  generation = 0
+  if begingeneration(store, current, config_snapshot_id, "maintenance " || operation || " " || concept_id, generation, error) \= 0 then return -3
+  database = store.database()
+  if operation = "synonym" then do
+    normalized = lower(strip(alias))
+    conflict = _scalarint(database, "SELECT count(*) FROM aliases WHERE normalized_alias=" || _q(normalized) || " AND target_concept_id<>" || _q(concept_id) || " AND visible_from_generation<=" || current || " AND (visible_to_generation IS NULL OR visible_to_generation>" || current || ")")
+    if normalized = "" | conflict \= 0 then return _lifecycleabort(store, "synonym collides with another active concept", error)
+    alias_id = "alias-sha256:" || rxhash..sha256hex((normalized || "00"x || concept_id || "00"x || "maintenance-synonym-v1") as .binary)
+    sql = "INSERT OR IGNORE INTO aliases(alias_id,normalized_alias,target_concept_id,ambiguity_id,decision_id,visible_from_generation) VALUES(" || _q(alias_id) || "," || _q(normalized) || "," || _q(concept_id) || ",NULL,NULL," || generation || ")"
+    if sqliteexec(database, sql) \= 0 then return _lifecycleabort(store, "cannot add reviewed synonym", error)
+    if _version(database, concept_id, label, old_type, lifecycle, generation, reason, error) \= 0 then return _lifecycleabort(store, error, error)
+  end
+  else if operation = "split" then do
+    do i = 1 to successor_ids.0
+      existing_label = ""; existing_type = ""; existing_lifecycle = ""; exists = _concept(database, successor_ids[i], current, existing_label, existing_type, existing_lifecycle)
+      if exists = 0 then do
+        sql = "INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES(" || _q(successor_ids[i]) || "," || _q(successor_labels[i]) || "," || _q(successor_types[i]) || ",'active'," || generation || ")"
+        if sqliteexec(database, sql) \= 0 | _version(database, successor_ids[i], successor_labels[i], successor_types[i], "active", generation, reason, error) \= 0 then return _lifecycleabort(store, "cannot create split successor", error)
+      end
+      else if existing_label \= successor_labels[i] | existing_type \= successor_types[i] | existing_lifecycle = "retired" then return _lifecycleabort(store, "split successor identity conflicts with the catalogue", error)
+      lineage_id = "lineage-sha256:" || rxhash..sha256hex(("split" || "00"x || concept_id || "00"x || successor_ids[i] || "00"x || generation) as .binary)
+      sql = "INSERT OR IGNORE INTO concept_lineage(lineage_id,operation,parent_concept_id,child_concept_id,generation,reason,created_at) VALUES(" || _q(lineage_id) || ",'split'," || _q(concept_id) || "," || _q(successor_ids[i]) || "," || generation || "," || _q(reason) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+      if sqliteexec(database, sql) \= 0 then return _lifecycleabort(store, "cannot record split lineage", error)
+    end
+    if sqliteexec(database, "UPDATE concepts SET lifecycle_state='migration-parent' WHERE concept_id=" || _q(concept_id)) \= 0 | _version(database, concept_id, label, old_type, "migration-parent", generation, reason, error) \= 0 then return _lifecycleabort(store, "cannot establish split migration parent", error)
+  end
+  else if operation = "merge" then do
+    if sqliteexec(database, "UPDATE concepts SET lifecycle_state='migration-parent' WHERE concept_id=" || _q(concept_id)) \= 0 | _version(database, concept_id, label, old_type, "migration-parent", generation, reason, error) \= 0 then return _lifecycleabort(store, "cannot establish merge migration source", error)
+    lineage_id = "lineage-sha256:" || rxhash..sha256hex(("merge" || "00"x || concept_id || "00"x || target_id || "00"x || generation) as .binary)
+    sql = "INSERT INTO concept_lineage(lineage_id,operation,parent_concept_id,child_concept_id,generation,reason,created_at) VALUES(" || _q(lineage_id) || ",'merge'," || _q(concept_id) || "," || _q(target_id) || "," || generation || "," || _q(reason) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+    if sqliteexec(database, sql) \= 0 then return _lifecycleabort(store, "cannot record merge lineage", error)
+  end
+  else if operation = "type-correction" then do
+    if sqliteexec(database, "UPDATE concepts SET concept_type=" || _q(concept_type) || " WHERE concept_id=" || _q(concept_id)) \= 0 | _version(database, concept_id, label, concept_type, lifecycle, generation, reason, error) \= 0 then return _lifecycleabort(store, "cannot publish type correction", error)
+  end
+  else if operation = "restore" then do
+    if sqliteexec(database, "UPDATE concepts SET lifecycle_state='active',visible_to_generation=NULL WHERE concept_id=" || _q(concept_id)) \= 0 | _version(database, concept_id, label, old_type, "active", generation, reason, error) \= 0 then return _lifecycleabort(store, "cannot restore concept", error)
+  end
+
+  do i = 1 to disposition_ids.0
+    action = disposition_actions[i]; object_type = disposition_types[i]; object_id = disposition_ids[i]; target = disposition_targets[i]
+    if action = "move-child" | action = "copy-child" | action = "retract" then do
+      if _applyobjectdisposition(database, concept_id, object_type, object_id, action, target, current, generation, error) \= 0 then return _lifecycleabort(store, error, error)
+    end
+    disposition_id = "disposition-sha256:" || rxhash..sha256hex((maintenance_item_id || "00"x || object_type || "00"x || object_id) as .binary)
+    prepared = .binary
+    sql = "INSERT INTO maintenance_dispositions(disposition_id,maintenance_item_id,object_type,object_id,action,target_concept_id,confidence,reason,applied_generation) VALUES(?1,?2,?3,?4,?5,NULLIF(?6,''),?7,?8,?9)"
+    if sqliteprepare(database, sql, prepared) \= 0 then return _lifecycleabort(store, "cannot prepare maintenance disposition", error)
+    binds = sqlitebindtext(prepared, 1, disposition_id) | sqlitebindtext(prepared, 2, maintenance_item_id) | sqlitebindtext(prepared, 3, object_type) | sqlitebindtext(prepared, 4, object_id) | sqlitebindtext(prepared, 5, action) | sqlitebindtext(prepared, 6, target) | sqlitebindint(prepared, 7, disposition_confidence[i]) | sqlitebindtext(prepared, 8, disposition_reasons[i]) | sqlitebindint(prepared, 9, generation)
+    step = sqlitestep(prepared); call sqlitefinalize prepared
+    if binds \= 0 | step \= 101 then return _lifecycleabort(store, "cannot record maintenance disposition", error)
+  end
+
+  if operation = "retire" then do
+    remaining = _activeimpactcount(database, concept_id, current, generation)
+    pending_reviews = _scalarint(database, "SELECT count(*) FROM maintenance_items WHERE subject_id=" || _q(concept_id) || " AND state IN('pending','review-required','approved') AND item_id<>" || _q(maintenance_item_id))
+    if remaining \= 0 | pending_reviews \= 0 then return _lifecycleabort(store, "retirement gate requires every active alias, mention, incident claim, linked note, ambiguity and claim conflict to be migrated, resolved, retracted or reviewed", error)
+    if sqliteexec(database, "UPDATE concepts SET lifecycle_state='retired' WHERE concept_id=" || _q(concept_id)) \= 0 | _version(database, concept_id, label, old_type, "retired", generation, reason, error) \= 0 then return _lifecycleabort(store, "cannot retire concept", error)
+  end
+  sql = "UPDATE maintenance_items SET state='applied',applied_generation=" || generation || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=" || _q(maintenance_item_id) || " AND state IN('review-required','approved')"
+  if sqliteexec(database, sql) \= 0 | _scalarint(database, "SELECT changes()") \= 1 then return _lifecycleabort(store, "cannot complete maintenance item", error)
+  if commitgeneration(store, generation, error) \= 0 then return -3
+  if publishmanifest(store, error) \= 0 then return -4
+  published_generation = generation; disposition = operation || "-applied"
+  return 0
+
+_impact: procedure = .int
+  arg database = .binary, concept_id = .string, generation = .int, expose types = .string[], expose ids = .string[], expose error = .string
+  queries = .string[]; object_types = .string[]
+  queries[1] = "SELECT alias_id FROM aliases WHERE target_concept_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2) ORDER BY alias_id"; object_types[1] = "alias"
+  queries[2] = "SELECT mention_id FROM mentions WHERE concept_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2) ORDER BY mention_id"; object_types[2] = "mention"
+  queries[3] = "SELECT claim_id FROM claims WHERE (source_concept_id=?1 OR target_concept_id=?1) AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2) ORDER BY claim_id"; object_types[3] = "claim"
+  queries[4] = "SELECT l.note_id FROM analysis_note_links l JOIN analysis_notes n ON n.note_id=l.note_id WHERE l.object_type='concept' AND l.object_id=?1 AND n.state='active' ORDER BY l.note_id"; object_types[4] = "note"
+  do q = 1 to queries.0
+    prepared = .binary
+    prepare_status = sqliteprepare(database, queries[q], prepared)
+    bind_status = 0
+    if prepare_status = 0 then bind_status = sqlitebindtext(prepared, 1, concept_id)
+    if prepare_status = 0 & bind_status = 0 & q < 4 then bind_status = sqlitebindint(prepared, 2, generation)
+    if prepare_status \= 0 | bind_status \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare lifecycle impact census"; return -1; end
+    do forever
+      step = sqlitestep(prepared); if step = 101 then leave
+      if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read lifecycle impact census"; return -1; end
+      object_id = ""; if sqlitecolumntext(prepared, 0, object_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode lifecycle impact object"; return -1; end
+      types[types.0 + 1] = object_types[q]; ids[ids.0 + 1] = object_id
+    end
+    call sqlitefinalize prepared
+  end
+  return 0
+
+_applyobjectdisposition: procedure = .int
+  arg database = .binary, parent_id = .string, object_type = .string, object_id = .string, action = .string, target = .string, current = .int, generation = .int, expose error = .string
+  if object_type = "alias" then do
+    if action = "retract" then return _closevisible(database, "aliases", "alias_id", object_id, generation, error)
+    normalized = _boundtext(database, "SELECT normalized_alias FROM aliases WHERE alias_id=?1", object_id)
+    if normalized = "" then do; error = "alias disposition source is unavailable"; return -1; end
+    conflict = _scalarint(database, "SELECT count(*) FROM aliases WHERE normalized_alias=" || _q(normalized) || " AND target_concept_id<>" || _q(parent_id) || " AND target_concept_id<>" || _q(target) || " AND visible_to_generation IS NULL")
+    if conflict \= 0 then do; error = "alias move conflicts with an active mapping"; return -1; end
+    alias_id = "alias-sha256:" || rxhash..sha256hex((normalized || "00"x || target || "00"x || generation) as .binary)
+    sql = "INSERT INTO aliases(alias_id,normalized_alias,target_concept_id,ambiguity_id,decision_id,visible_from_generation) VALUES(" || _q(alias_id) || "," || _q(normalized) || "," || _q(target) || ",NULL,NULL," || generation || ")"
+    if sqliteexec(database, sql) \= 0 then do; error = "cannot create migrated alias"; return -1; end
+    if action = "move-child" then return _closevisible(database, "aliases", "alias_id", object_id, generation, error)
+    return 0
+  end
+  if object_type = "mention" then do
+    if action = "retract" then return _closevisible(database, "mentions", "mention_id", object_id, generation, error)
+    prepared = .binary
+    if sqliteprepare(database, "SELECT revision_chunk_id,span_start,span_end FROM mentions WHERE mention_id=?1 AND concept_id=?2 AND visible_to_generation IS NULL", prepared) \= 0 | sqlitebindtext(prepared, 1, object_id) \= 0 | sqlitebindtext(prepared, 2, parent_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "mention disposition source is unavailable"; return -1; end
+    chunk_id = ""; span_start = 0; span_end = 0; columns = sqlitecolumntext(prepared, 0, chunk_id) | sqlitecolumnint(prepared, 1, span_start) | sqlitecolumnint(prepared, 2, span_end); call sqlitefinalize prepared
+    if columns \= 0 then do; error = "cannot decode mention disposition"; return -1; end
+    mention_id = "mention-sha256:" || rxhash..sha256hex((target || "00"x || chunk_id || "00"x || span_start || "00"x || span_end) as .binary)
+    sql = "INSERT OR IGNORE INTO mentions(mention_id,concept_id,ambiguity_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES(" || _q(mention_id) || "," || _q(target) || ",NULL," || _q(chunk_id) || "," || span_start || "," || span_end || "," || generation || ")"
+    if sqliteexec(database, sql) \= 0 then do; error = "cannot create migrated mention"; return -1; end
+    if action = "move-child" then return _closevisible(database, "mentions", "mention_id", object_id, generation, error)
+    return 0
+  end
+  if object_type = "claim" then do
+    if action = "retract" then do
+      if _closeclaimconflicts(database, object_id, generation, error) \= 0 then return -1
+      if _closevisible(database, "claim_support", "claim_id", object_id, generation, error) \= 0 then return -1
+      return _closevisible(database, "claims", "claim_id", object_id, generation, error)
+    end
+    return _moveclaim(database, parent_id, object_id, action, target, current, generation, error)
+  end
+  if object_type = "note" then do
+    if action = "retract" then do
+      if sqliteexec(database, "UPDATE analysis_notes SET state='resolved',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE note_id=" || _q(object_id) || " AND state='active'") \= 0 then do; error = "cannot resolve migrated note"; return -1; end
+      return 0
+    end
+    link_id = "note-link-sha256:" || rxhash..sha256hex((object_id || "00"x || "concept" || "00"x || target) as .binary)
+    if sqliteexec(database, "INSERT OR IGNORE INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES(" || _q(link_id) || "," || _q(object_id) || ",'concept'," || _q(target) || ",NULL,NULL,NULL)") \= 0 then do; error = "cannot link note to successor"; return -1; end
+    return 0
+  end
+  error = "unsupported disposition object"
+  return -1
+
+_moveclaim: procedure = .int
+  arg database = .binary, parent_id = .string, claim_id = .string, action = .string, target = .string, current = .int, generation = .int, expose error = .string
+  prepared = .binary
+  sql = "SELECT source_concept_id,relationship_type,target_concept_id,direction,qualifiers_json,COALESCE(effective_from,''),COALESCE(effective_to,''),policy_version FROM claims WHERE claim_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, claim_id) \= 0 | sqlitebindint(prepared, 2, current) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "claim disposition source is unavailable"; return -1; end
+  source = ""; relationship = ""; object = ""; direction = ""; qualifiers = ""; effective_from = ""; effective_to = ""; policy = ""
+  columns = sqlitecolumntext(prepared, 0, source) | sqlitecolumntext(prepared, 1, relationship) | sqlitecolumntext(prepared, 2, object) | sqlitecolumntext(prepared, 3, direction) | sqlitecolumntext(prepared, 4, qualifiers) | sqlitecolumntext(prepared, 5, effective_from) | sqlitecolumntext(prepared, 6, effective_to) | sqlitecolumntext(prepared, 7, policy); call sqlitefinalize prepared
+  if columns \= 0 then do; error = "cannot decode claim disposition"; return -1; end
+  new_source = source; new_object = object
+  if source = parent_id then new_source = target
+  if object = parent_id then new_object = target
+  if new_source = new_object then do; error = "claim migration would create a self relationship"; return -1; end
+  grounding = _scalarint(database, "SELECT count(*) FROM claim_support s JOIN mentions m ON m.revision_chunk_id=s.revision_chunk_id AND m.concept_id=" || _q(target) || " AND m.span_start>=s.span_start AND m.span_end<=s.span_end AND m.visible_to_generation IS NULL WHERE s.claim_id=" || _q(claim_id) || " AND s.visible_to_generation IS NULL")
+  if grounding < 1 then do; error = "claim migration requires a successor mention inside its exact support span"; return -1; end
+  new_claim = "claim-sha256:" || rxhash..sha256hex((new_source || "00"x || relationship || "00"x || new_object || "00"x || direction || "00"x || qualifiers || "00"x || effective_from || "00"x || effective_to || "00"x || policy) as .binary)
+  prepared = .binary
+  sql = "INSERT OR IGNORE INTO claims(claim_id,source_concept_id,relationship_type,target_concept_id,direction,qualifiers_json,effective_from,effective_to,policy_version,visible_from_generation) VALUES(?1,?2,?3,?4,?5,?6,NULLIF(?7,''),NULLIF(?8,''),?9,?10)"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare migrated claim"; return -1; end
+  binds = sqlitebindtext(prepared, 1, new_claim) | sqlitebindtext(prepared, 2, new_source) | sqlitebindtext(prepared, 3, relationship) | sqlitebindtext(prepared, 4, new_object) | sqlitebindtext(prepared, 5, direction) | sqlitebindtext(prepared, 6, qualifiers) | sqlitebindtext(prepared, 7, effective_from) | sqlitebindtext(prepared, 8, effective_to) | sqlitebindtext(prepared, 9, policy) | sqlitebindint(prepared, 10, generation)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then do; error = "cannot insert migrated claim"; return -1; end
+  prepared = .binary
+  sql = "SELECT support_id,revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity,decision_id FROM claim_support WHERE claim_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2) ORDER BY support_id"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, claim_id) \= 0 | sqlitebindint(prepared, 2, current) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare migrated claim support"; return -1; end
+  support_rows = .string[]
+  do forever
+    step = sqlitestep(prepared); if step = 101 then leave
+    if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read migrated claim support"; return -1; end
+    old_support = ""; chunk = ""; polarity = ""; stance = ""; directness = ""; attribution = ""; lineage = ""; extractor = ""; decision = ""; span_start = 0; span_end = 0
+    columns = sqlitecolumntext(prepared, 0, old_support) | sqlitecolumntext(prepared, 1, chunk) | sqlitecolumnint(prepared, 2, span_start) | sqlitecolumnint(prepared, 3, span_end) | sqlitecolumntext(prepared, 4, polarity) | sqlitecolumntext(prepared, 5, stance) | sqlitecolumntext(prepared, 6, directness) | sqlitecolumntext(prepared, 7, attribution) | sqlitecolumntext(prepared, 8, lineage) | sqlitecolumntext(prepared, 9, extractor)
+    /* decision_id may be NULL and is intentionally not copied into a
+     * maintenance-generated support row. */
+    if columns \= 0 then do; call sqlitefinalize prepared; error = "cannot decode migrated claim support"; return -1; end
+    support_id = "support-sha256:" || rxhash..sha256hex((new_claim || "00"x || chunk || "00"x || span_start || "00"x || span_end || "00"x || polarity || "00"x || extractor) as .binary)
+    insert_sql = "INSERT OR IGNORE INTO claim_support(support_id,claim_id,revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity,decision_id,visible_from_generation) VALUES(" || _q(support_id) || "," || _q(new_claim) || "," || _q(chunk) || "," || span_start || "," || span_end || "," || _q(polarity) || "," || _q(stance) || "," || _q(directness) || "," || _q(attribution) || "," || _q(lineage) || "," || _q("maintenance-lifecycle-v1") || ",NULL," || generation || ")"
+    if sqliteexec(database, insert_sql) \= 0 then do; call sqlitefinalize prepared; error = "cannot insert migrated claim support"; return -1; end
+  end
+  call sqlitefinalize prepared
+  if action = "move-child" then do
+    if _closeclaimconflicts(database, claim_id, generation, error) \= 0 then return -1
+    if _closevisible(database, "claim_support", "claim_id", claim_id, generation, error) \= 0 then return -1
+    if _closevisible(database, "claims", "claim_id", claim_id, generation, error) \= 0 then return -1
+  end
+  return 0
+
+_closevisible: procedure = .int
+  arg database = .binary, table = .string, key = .string, value = .string, generation = .int, expose error = .string
+  sql = "UPDATE " || table || " SET visible_to_generation=" || generation || " WHERE " || key || "=" || _q(value) || " AND visible_to_generation IS NULL"
+  if sqliteexec(database, sql) \= 0 then do; error = "cannot close active " || table || " object"; return -1; end
+  return 0
+
+_closeclaimconflicts: procedure = .int
+  arg database = .binary, claim_id = .string, generation = .int, expose error = .string
+  sql = "UPDATE claim_conflicts SET visible_to_generation=" || generation || ",review_state=CASE WHEN review_state='pending' THEN 'resolved-by-claim-lifecycle' ELSE review_state END WHERE (claim_id=" || _q(claim_id) || " OR competing_claim_id=" || _q(claim_id) || ") AND visible_to_generation IS NULL"
+  if sqliteexec(database, sql) \= 0 then do; error = "cannot close claim conflicts for a migrated claim"; return -1; end
+  return 0
+
+_activeimpactcount: procedure = .int
+  arg database = .binary, concept_id = .string, current = .int, generation = .int
+  aliases = _scalarint(database, "SELECT count(*) FROM aliases WHERE target_concept_id=" || _q(concept_id) || " AND visible_to_generation IS NULL")
+  mentions = _scalarint(database, "SELECT count(*) FROM mentions WHERE concept_id=" || _q(concept_id) || " AND visible_to_generation IS NULL")
+  claims = _scalarint(database, "SELECT count(*) FROM claims WHERE (source_concept_id=" || _q(concept_id) || " OR target_concept_id=" || _q(concept_id) || ") AND visible_to_generation IS NULL")
+  notes = _scalarint(database, "SELECT count(*) FROM analysis_note_links l JOIN analysis_notes n ON n.note_id=l.note_id WHERE l.object_type='concept' AND l.object_id=" || _q(concept_id) || " AND n.state='active'")
+  ambiguities = _scalarint(database, "SELECT count(*) FROM ambiguity_candidates a WHERE a.concept_id=" || _q(concept_id) || " AND a.visible_to_generation IS NULL")
+  conflicts = _scalarint(database, "SELECT count(*) FROM claim_conflicts f JOIN claims c ON (c.claim_id=f.claim_id OR c.claim_id=f.competing_claim_id) WHERE (c.source_concept_id=" || _q(concept_id) || " OR c.target_concept_id=" || _q(concept_id) || ") AND f.visible_to_generation IS NULL")
+  return aliases + mentions + claims + notes + ambiguities + conflicts
+
+_version: procedure = .int
+  arg database = .binary, concept_id = .string, label = .string, concept_type = .string, lifecycle = .string, generation = .int, reason = .string, expose error = .string
+  version = _scalarint(database, "SELECT COALESCE(max(version),0)+1 FROM concept_versions WHERE concept_id=" || _q(concept_id))
+  if version < 1 then do; error = "cannot allocate concept version"; return -1; end
+  prepared = .binary
+  sql = "INSERT INTO concept_versions(concept_id,version,canonical_label,concept_type,lifecycle_state,generation,reason,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare concept version"; return -1; end
+  binds = sqlitebindtext(prepared, 1, concept_id) | sqlitebindint(prepared, 2, version) | sqlitebindtext(prepared, 3, label) | sqlitebindtext(prepared, 4, concept_type) | sqlitebindtext(prepared, 5, lifecycle) | sqlitebindint(prepared, 6, generation) | sqlitebindtext(prepared, 7, reason)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then do; error = "cannot insert concept version"; return -1; end
+  return 0
+
+_concept: procedure = .int
+  arg database = .binary, concept_id = .string, generation = .int, expose label = .string, expose concept_type = .string, expose lifecycle = .string
+  label = ""; concept_type = ""; lifecycle = ""; prepared = .binary
+  sql = "SELECT canonical_label,concept_type,lifecycle_state FROM concepts WHERE concept_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, concept_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 then do; call sqlitefinalize prepared; return -1; end
+  step = sqlitestep(prepared)
+  if step = 101 then do; call sqlitefinalize prepared; return 0; end
+  if step \= 100 then do; call sqlitefinalize prepared; return -1; end
+  columns = sqlitecolumntext(prepared, 0, label) | sqlitecolumntext(prepared, 1, concept_type) | sqlitecolumntext(prepared, 2, lifecycle); call sqlitefinalize prepared
+  if columns \= 0 then return -1
+  return 1
+
+_profiletype: procedure = .int
+  arg profile = .ragprofile, expected = .string
+  values = profile.concept_types()
+  do i = 1 to values.0
+    if values[i] = expected then return 1
+  end
+  return 0
+
+_contains: procedure = .int
+  arg values = .string[], expected = .string
+  do i = 1 to values.0
+    if values[i] = expected then return 1
+  end
+  return 0
+
+_pairindex: procedure = .int
+  arg types = .string[], ids = .string[], expected_type = .string, expected_id = .string
+  do i = 1 to ids.0
+    if types[i] = expected_type & ids[i] = expected_id then return i
+  end
+  return 0
+
+_lifecycleabort: procedure = .int
+  arg store = .ragstorehandle, message = .string, expose error = .string
+  ignored = ""; call abortgeneration store, ignored
+  error = message
+  return -3

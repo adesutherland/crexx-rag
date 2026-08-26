@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragingest expose ragsourceobservation ragnormalizedsource ragchunk ragingestplan ragingestresult ragtermstatistics normalizebytes chunktext createingestplan applyingestplan applyingestplanconfigured termstatistics
+namespace ragingest expose ragsourceobservation ragnormalizedsource ragchunk ragingestplan ragingestresult ragtermstatistics normalizebytes chunktext createingestplan createingestplanconfigured applyingestplan applyingestplanconfigured termstatistics
 
 import rxfnsb
 import rxjson
@@ -8,6 +8,7 @@ import rxhash
 import sqlite_boundary
 import ragstore
 import ragconfig
+import ragglossary
 import ragprofile
 
 /* Ingestion is deliberately expressed in Level G. Native facilities
@@ -437,6 +438,19 @@ createingestplan: procedure = .int
     return -3
   end
   if _canonicalplan(source_scope, generation, config_snapshot_id, policy_version, parser_version, maximum_chunk_characters, observations, canonical, error) \= 0 then return -1
+  canonical = _bindpolicycontext(canonical, "")
+  digest = rxhash..sha256hex(canonical as .binary)
+  plan = .ragingestplan("crexx-rag.ingest-plan/1", source_scope, generation, config_snapshot_id, policy_version, parser_version, maximum_chunk_characters, canonical, digest, observations.0)
+  return 0
+
+createingestplanconfigured: procedure = .int
+  arg store = .ragstorehandle, source_scope = .string, config_snapshot_id = .string, policy_version = .string, parser_version = .string, maximum_chunk_characters = .int, observations = .ragsourceobservation[], config = .ragconfig, expose plan = .ragingestplan, expose error = .string
+  glossary = .ragglossarydata; context = ""
+  if _configuredcontext(config, glossary, context, error) \= 0 then return -1
+  generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1"); canonical = ""
+  if store.open() \= 1 | generation < 1 then do; error = "published generation is unavailable"; return -3; end
+  if _canonicalplan(source_scope, generation, config_snapshot_id, policy_version, parser_version, maximum_chunk_characters, observations, canonical, error) \= 0 then return -1
+  canonical = _bindpolicycontext(canonical, context)
   digest = rxhash..sha256hex(canonical as .binary)
   plan = .ragingestplan("crexx-rag.ingest-plan/1", source_scope, generation, config_snapshot_id, policy_version, parser_version, maximum_chunk_characters, canonical, digest, observations.0)
   return 0
@@ -458,8 +472,14 @@ _applyingestplan: procedure = .ragingestresult
   current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
   if current < 1 | current \= plan.expected_generation() then return _failure(-2, "published generation changed; re-plan")
   canonical = ""; validation_error = ""
+  context = ""; glossary_loader = .ragglossaryloader(); glossary = glossary_loader.empty()
+  if configured = 1 then do
+    if _configuredcontext(config, glossary, context, validation_error) \= 0 then return _failure(-1, validation_error)
+  end
   if _canonicalplan(plan.source_scope(), current, plan.config_snapshot_id(), plan.policy_version(), plan.parser_version(), plan.maximum_chunk_characters(), observations, canonical, validation_error) \= 0 then return _failure(-1, validation_error)
-  if canonical \= plan.canonical() | rxhash..sha256hex(canonical as .binary) \= plan.digest() then return _failure(-1, "observations no longer match the reviewed canonical plan")
+  canonical = _bindpolicycontext(canonical, context)
+  if canonical \= plan.canonical() then return _failure(-1, "observations, discovery policy or glossary content no longer match the reviewed canonical plan")
+  if rxhash..sha256hex(canonical as .binary) \= plan.digest() then return _failure(-1, "reviewed ingest plan digest is invalid")
   match_error = ""
   match_status = _desiredmatches(store.database(), plan, observations, match_error)
   if match_status < 0 then return _failure(-3, match_error)
@@ -479,8 +499,11 @@ _applyingestplan: procedure = .ragingestresult
     if stage_status \= 0 then return _abortresult(store, error)
   end
   if _stagedeletions(store.database(), generation, plan.source_scope(), observations, deleted, support_retracted, error) \= 0 then return _abortresult(store, error)
+  glossary_candidates = 0
+  if configured = 1 then if _insertglossarycandidates(store.database(), generation, glossary, glossary_candidates, error) \= 0 then return _abortresult(store, error)
+  candidates = candidates + glossary_candidates
   if _finalizecandidates(store.database(), generation, plan.policy_version(), error) \= 0 then return _abortresult(store, error)
-  if _queuework(store.database(), generation, plan, config, profile, configured, items, error) \= 0 then return _abortresult(store, error)
+  if _queuework(store.database(), generation, plan, context, config, profile, configured, items, error) \= 0 then return _abortresult(store, error)
   if commitgeneration(store, generation, error) \= 0 then return _failure(-3, error)
   after_changes = _scalarint(store.database(), "SELECT total_changes()")
   unchanged = observations.0 - added - changed
@@ -583,6 +606,79 @@ _canonicalplan: procedure = .int
     output = output || "{" || jsonquote("connector_type") || ":" || jsonquote(observation.connector_type()) || "," || jsonquote("stable_key") || ":" || jsonquote(observation.stable_key()) || "," || jsonquote("previous_stable_key") || ":" || jsonquote(observation.previous_stable_key()) || "," || jsonquote("observed_uri") || ":" || jsonquote(observation.observed_uri()) || "," || jsonquote("observed_title") || ":" || jsonquote(observation.observed_title()) || "," || jsonquote("mime_type") || ":" || jsonquote(observation.mime_type()) || "," || jsonquote("encoding") || ":" || jsonquote(lower(observation.encoding())) || "," || jsonquote("format") || ":" || jsonquote(observation.format()) || "," || jsonquote("retain_raw") || ":" || observation.retain_raw() || "," || jsonquote("external_reference") || ":" || jsonquote(observation.external_reference()) || "," || jsonquote("raw_digest") || ":" || jsonquote(raw_digest) || "," || jsonquote("text_digest") || ":" || jsonquote(text_digest) || "," || jsonquote("metadata_fingerprint") || ":" || jsonquote(metadata_fingerprint) || "," || jsonquote("revision_envelope_digest") || ":" || jsonquote(envelope) || "}"
   end
   canonical = output || "]}"
+  return 0
+
+_bindpolicycontext: procedure = .string
+  arg canonical = .string, policy_context = .string
+  marker = "," || jsonquote("observations") || ":["
+  offset = pos(marker, canonical)
+  if offset = 0 then return canonical
+  return left(canonical, offset - 1) || "," || jsonquote("policy_context") || ":" || jsonquote(policy_context) || substr(canonical, offset)
+
+_configuredcontext: procedure = .int
+  arg config = .ragconfig, expose glossary = .ragglossarydata, expose context = .string, expose error = .string
+  error = ""; discovery = config.discovery(); glossary_loader = .ragglossaryloader(); glossary = glossary_loader.empty()
+  if discovery.glossary_path() \= "" then do
+    glossary_result = glossary_loader.load(discovery.glossary_path()); glossary = glossary_result.glossary(); error = glossary_result.error()
+    if glossary_result.status() \= 0 then return -1
+  end
+  return creatediscoverycontext(glossary, discovery.mode(), discovery.ranked_limit(), discovery.max_mentions(), discovery.max_relationships(), discovery.max_notes(), context, error)
+
+_insertglossarycandidates: procedure = .int
+  arg database = .binary, generation = .int, glossary = .ragglossarydata, expose count = .int, expose error = .string
+  count = 0; excluded = glossary.excluded()
+  do i = 1 to excluded.0
+    prepared = .binary
+    sql = "DELETE FROM candidate_mentions WHERE visible_from_generation=?1 AND normalized_candidate=?2 AND NOT EXISTS(SELECT 1 FROM candidate_decisions d WHERE d.candidate_id=candidate_mentions.candidate_id)"
+    if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 | sqlitebindtext(prepared, 2, excluded[i]) \= 0 | sqlitestep(prepared) \= 101 then do; call sqlitefinalize prepared; error = "cannot apply glossary exclusion"; return -1; end
+    call sqlitefinalize prepared
+  end
+  entries = glossary.entries()
+  if entries.0 = 0 then return 0
+  chunks = .string[]; bodies = .string[]; prepared = .binary
+  sql = "SELECT rc.revision_chunk_id,c.text FROM revision_chunks rc JOIN chunk_contents c ON c.content_id=rc.content_id WHERE rc.visible_from_generation=?1 ORDER BY rc.revision_chunk_id"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare glossary chunk census"; return -1; end
+  do forever
+    step = sqlitestep(prepared)
+    if step = 101 then leave
+    if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read glossary chunk census"; return -1; end
+    chunk_id = ""; body = ""
+    if sqlitecolumntext(prepared, 0, chunk_id) \= 0 | sqlitecolumntext(prepared, 1, body) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode glossary chunk census"; return -1; end
+    chunks[chunks.0 + 1] = chunk_id; bodies[bodies.0 + 1] = body
+  end
+  call sqlitefinalize prepared
+  do c = 1 to chunks.0
+    folded = lower(bodies[c])
+    do e = 1 to entries.0
+      aliases = entries[e].aliases()
+      do a = 1 to aliases.0
+        needle = lower(aliases[a]); start = 1
+        do forever
+          found = pos(needle, folded, start)
+          if found = 0 then leave
+          finish = found - 1 + length(aliases[a])
+          candidate_id = "candidate-sha256:" || rxhash..sha256hex((chunks[c] || "00"x || (found - 1) || "00"x || finish || "00"x || "glossary-v1") as .binary)
+          prepared = .binary
+          sql = "INSERT OR IGNORE INTO candidate_mentions(candidate_id,revision_chunk_id,normalized_candidate,span_start,span_end,extractor_version,visible_from_generation) VALUES(?1,?2,?3,?4,?5,'glossary-v1',?6)"
+          if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare glossary candidate"; return -1; end
+          binds = sqlitebindtext(prepared, 1, candidate_id) | sqlitebindtext(prepared, 2, chunks[c]) | sqlitebindtext(prepared, 3, lower(entries[e].canonical_label())) | sqlitebindint(prepared, 4, found - 1) | sqlitebindint(prepared, 5, finish) | sqlitebindint(prepared, 6, generation)
+          step = sqlitestep(prepared); call sqlitefinalize prepared
+          if binds \= 0 | step \= 101 then do; error = "cannot insert glossary candidate"; return -1; end
+          decision_id = "decision-sha256:" || rxhash..sha256hex((candidate_id || "00"x || glossary.digest()) as .binary)
+          evidence = "{" || jsonquote("source") || ":" || jsonquote("glossary") || "," || jsonquote("canonical_label") || ":" || jsonquote(entries[e].canonical_label()) || "," || jsonquote("concept_type") || ":" || jsonquote(entries[e].concept_type()) || "," || jsonquote("glossary_digest") || ":" || jsonquote(glossary.digest()) || "}"
+          prepared = .binary
+          sql = "INSERT OR IGNORE INTO candidate_decisions(decision_id,candidate_id,decision_version,state,evidence_json,provider_run_id,policy_version,created_at) VALUES(?1,?2,1,'accepted',?3,NULL,'glossary-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+          if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare glossary decision"; return -1; end
+          binds = sqlitebindtext(prepared, 1, decision_id) | sqlitebindtext(prepared, 2, candidate_id) | sqlitebindtext(prepared, 3, evidence)
+          step = sqlitestep(prepared); call sqlitefinalize prepared
+          if binds \= 0 | step \= 101 then do; error = "cannot insert glossary decision"; return -1; end
+          count = count + 1
+          if count > 100000 then do; error = "glossary candidate census exceeds 100000 occurrences"; return -1; end
+          start = found + length(needle)
+        end
+      end
+    end
+  end
   return 0
 
 _validobservation: procedure = .int
@@ -1188,7 +1284,7 @@ _candidatecount: procedure = .int
   return _boundcount2(database, sql, label, generation)
 
 _queuework: procedure = .int
-  arg database = .binary, generation = .int, plan = .ragingestplan, config = .ragconfig, profile = .ragprofile, configured = .int, expose items = .int, expose error = .string
+  arg database = .binary, generation = .int, plan = .ragingestplan, discovery_context = .string, config = .ragconfig, profile = .ragprofile, configured = .int, expose items = .int, expose error = .string
   items = 0
   prepared = .binary
   sql = "SELECT c.revision_chunk_id,c.content_id,t.content_digest,t.text,c.normalized_start,c.normalized_end FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c.visible_from_generation=?1 AND NOT EXISTS(SELECT 1 FROM revision_chunks p WHERE p.content_id=c.content_id AND p.visible_to_generation=?1) ORDER BY c.content_id,c.revision_chunk_id"
@@ -1206,7 +1302,13 @@ _queuework: procedure = .int
     starts[starts.0 + 1] = normalized_start; ends[ends.0 + 1] = normalized_end
   end
   call sqlitefinalize prepared
-  item_budget = chunk_ids.0 * 2
+  extraction_items = chunk_ids.0; discovery_mode = "all"; ranked_limit = chunk_ids.0
+  if configured = 1 then do
+    discovery_mode = config.discovery().mode(); ranked_limit = config.discovery().ranked_limit()
+    if discovery_mode = "off" | discovery_mode = "maintenance" then extraction_items = 0
+    else if discovery_mode = "ranked" & extraction_items > ranked_limit then extraction_items = ranked_limit
+  end
+  item_budget = chunk_ids.0 + extraction_items
   privacy = "local"; extractor_id = ""; embedding_id = ""; extractor_model = ""; embedding_model = ""; prompt_version = plan.policy_version(); profile_id = ""
   model_call_budget = item_budget; input_budget = 0; output_budget = 0; cost_budget = 0
   codex_turn_budget = 0
@@ -1229,7 +1331,7 @@ _queuework: procedure = .int
     maximum_call_time = _minimum(_maximumprovidertimeout(config), time_budget_ms)
     if item_budget > budget.item_limit() then do; error = "planned ingestion work exceeds budget.item_limit"; return -1; end
     if item_budget > model_call_budget then do; error = "planned ingestion work exceeds budget.model_calls"; return -1; end
-    if _providerkind(config, extractor_id) = "codex" & chunk_ids.0 > codex_turn_budget then do; error = "planned extraction work exceeds budget.codex_turns"; return -1; end
+    if _providerkind(config, extractor_id) = "codex" & extraction_items > codex_turn_budget then do; error = "planned extraction work exceeds budget.codex_turns"; return -1; end
     if chunk_ids.0 > 0 then do
       if maximum_inflight > item_budget then maximum_inflight = item_budget
       extraction_input_ceiling = 8192
@@ -1285,7 +1387,8 @@ _queuework: procedure = .int
   end
 
   do i = 1 to chunk_ids.0
-    kinds = .string[]; kinds[1] = "embedding"; kinds[2] = "claim-extraction"
+    kinds = .string[]; kinds[1] = "embedding"
+    if i <= extraction_items then kinds[2] = "claim-extraction"
     do j = 1 to kinds.0
       provider_id = ""; model = ""; role = ""
       if kinds[j] = "embedding" then do; provider_id = embedding_id; model = embedding_model; role = "embedding"; end
@@ -1307,7 +1410,7 @@ _queuework: procedure = .int
       end
       if charging_basis \= "monetary-api" then item_cost_cap = 0
       reservation_json = "{" || jsonquote("input_tokens") || ":" || item_input_cap || "," || jsonquote("output_tokens") || ":" || item_output_cap || "," || jsonquote("cost_microunits") || ":" || item_cost_cap || "," || jsonquote("time_ms") || ":" || item_time_cap || "}"
-      input_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.work-input/1") || "," || jsonquote("operation") || ":" || jsonquote(kinds[j]) || "," || jsonquote("revision_chunk_id") || ":" || jsonquote(chunk_ids[i]) || "," || jsonquote("content_id") || ":" || jsonquote(content_ids[i]) || "," || jsonquote("content_digest") || ":" || jsonquote(content_digests[i]) || "," || jsonquote("text_digest") || ":" || jsonquote(rxhash..sha256hex(texts[i] as .binary)) || "," || jsonquote("text") || ":" || jsonquote(texts[i]) || "," || jsonquote("normalized_start") || ":" || starts[i] || "," || jsonquote("normalized_end") || ":" || ends[i] || "," || jsonquote("privacy") || ":" || jsonquote(privacy) || "," || jsonquote("source_scope") || ":" || jsonquote(plan.source_scope()) || "," || jsonquote("config_snapshot_id") || ":" || jsonquote(plan.config_snapshot_id()) || "," || jsonquote("profile_id") || ":" || jsonquote(profile_id) || "," || jsonquote("policy_version") || ":" || jsonquote(plan.policy_version()) || "," || jsonquote("prompt_version") || ":" || jsonquote(prompt_version) || "," || jsonquote("role") || ":" || jsonquote(role) || "," || jsonquote("provider_id") || ":" || jsonquote(provider_id) || "," || jsonquote("model") || ":" || jsonquote(model) || "," || jsonquote("charging_basis") || ":" || jsonquote(charging_basis) || "," || jsonquote("embedding_dimension") || ":768," || jsonquote("reservation") || ":" || reservation_json || "," || jsonquote("candidates") || ":[" || candidates_json || "]}"
+      input_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.work-input/1") || "," || jsonquote("operation") || ":" || jsonquote(kinds[j]) || "," || jsonquote("revision_chunk_id") || ":" || jsonquote(chunk_ids[i]) || "," || jsonquote("content_id") || ":" || jsonquote(content_ids[i]) || "," || jsonquote("content_digest") || ":" || jsonquote(content_digests[i]) || "," || jsonquote("text_digest") || ":" || jsonquote(rxhash..sha256hex(texts[i] as .binary)) || "," || jsonquote("text") || ":" || jsonquote(texts[i]) || "," || jsonquote("normalized_start") || ":" || starts[i] || "," || jsonquote("normalized_end") || ":" || ends[i] || "," || jsonquote("privacy") || ":" || jsonquote(privacy) || "," || jsonquote("source_scope") || ":" || jsonquote(plan.source_scope()) || "," || jsonquote("config_snapshot_id") || ":" || jsonquote(plan.config_snapshot_id()) || "," || jsonquote("profile_id") || ":" || jsonquote(profile_id) || "," || jsonquote("policy_version") || ":" || jsonquote(plan.policy_version()) || "," || jsonquote("prompt_version") || ":" || jsonquote(prompt_version) || "," || jsonquote("role") || ":" || jsonquote(role) || "," || jsonquote("provider_id") || ":" || jsonquote(provider_id) || "," || jsonquote("model") || ":" || jsonquote(model) || "," || jsonquote("charging_basis") || ":" || jsonquote(charging_basis) || "," || jsonquote("discovery_context") || ":" || jsonquote(discovery_context) || "," || jsonquote("embedding_dimension") || ":768," || jsonquote("reservation") || ":" || reservation_json || "," || jsonquote("candidates") || ":[" || candidates_json || "]}"
       input_hash = rxhash..sha256hex(input_json as .binary)
       idempotency = rxhash..sha256hex(("crexx-rag.work/2" || "00"x || input_hash) as .binary)
       item_id = "item-sha256:" || idempotency
@@ -1335,17 +1438,17 @@ _queuework: procedure = .int
 _candidatecatalog: procedure = .string
   arg database = .binary, chunk_id = .string, generation = .int, expose error = .string
   prepared = .binary; output = ""; error = ""
-  sql = "SELECT c.candidate_id,c.normalized_candidate,c.span_start,c.span_end FROM candidate_mentions c JOIN candidate_decisions d ON d.candidate_id=c.candidate_id AND d.state='accepted' WHERE c.revision_chunk_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) ORDER BY c.candidate_id"
+  sql = "SELECT c.candidate_id,c.normalized_candidate,c.span_start,c.span_end,d.evidence_json FROM candidate_mentions c JOIN candidate_decisions d ON d.candidate_id=c.candidate_id AND d.state='accepted' WHERE c.revision_chunk_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) ORDER BY c.candidate_id"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, chunk_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare work candidate catalog"; return ""; end
   do forever
     step = sqlitestep(prepared)
     if step = 101 then leave
     if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read work candidate catalog"; return ""; end
-    candidate_id = ""; label = ""; span_start = 0; span_end = 0
-    columns = sqlitecolumntext(prepared, 0, candidate_id) | sqlitecolumntext(prepared, 1, label) | sqlitecolumnint(prepared, 2, span_start) | sqlitecolumnint(prepared, 3, span_end)
+    candidate_id = ""; label = ""; span_start = 0; span_end = 0; evidence = ""
+    columns = sqlitecolumntext(prepared, 0, candidate_id) | sqlitecolumntext(prepared, 1, label) | sqlitecolumnint(prepared, 2, span_start) | sqlitecolumnint(prepared, 3, span_end) | sqlitecolumntext(prepared, 4, evidence)
     if columns \= 0 then do; call sqlitefinalize prepared; error = "cannot decode work candidate catalog"; return ""; end
     if output \= "" then output = output || ","
-    output = output || "{" || jsonquote("candidate_id") || ":" || jsonquote(candidate_id) || "," || jsonquote("label") || ":" || jsonquote(label) || "," || jsonquote("span_start") || ":" || span_start || "," || jsonquote("span_end") || ":" || span_end || "}"
+    output = output || "{" || jsonquote("candidate_id") || ":" || jsonquote(candidate_id) || "," || jsonquote("label") || ":" || jsonquote(label) || "," || jsonquote("span_start") || ":" || span_start || "," || jsonquote("span_end") || ":" || span_end || "," || jsonquote("evidence") || ":" || evidence || "}"
   end
   call sqlitefinalize prepared
   return output

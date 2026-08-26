@@ -228,15 +228,50 @@ int main(int argc, char** argv)
                 const std::string source_id = escaped_candidate_for_label(request, "billingservice");
                 const std::string target_id = escaped_candidate_for_label(request, "customerdatabase");
                 if (!valid_auth || !valid_structured || request.find("crexx-rag.work-input/1") == std::string::npos
+                    || request.find("crexx-rag.discovery-context/1") == std::string::npos
+                    || request.find("crexx-rag.glossary/1") == std::string::npos
+                    || request.find("Maximum mentions: 16; relationships: 16; notes:") == std::string::npos
                     || source_id.empty() || target_id.empty()) {
                     http_status = 400;
                     body = R"({"error":{"message":"product Gemini extraction request shape mismatch"}})";
                 } else {
-                    const std::string proposal = "{\"has_claim\":true,\"source_candidate_id\":\"" + source_id
-                        + "\",\"source_label\":\"BillingService\",\"source_type\":\"application-component\","
-                          "\"relationship_type\":\"depends-on\",\"target_candidate_id\":\"" + target_id
-                        + "\",\"target_label\":\"CustomerDatabase\",\"target_type\":\"data-store\","
-                          "\"confidence_millionths\":940000}";
+                    std::string proposal;
+                    if (request.find("improve-extraction") != std::string::npos) {
+                        proposal =
+                            "{\"mentions\":[],\"relationships\":[],\"notes\":["
+                            "{\"kind\":\"insight\",\"text\":\"The repeated dependency deserves explicit validation.\",\"importance_millionths\":820000,\"uncertainty_millionths\":280000,\"next_action\":\"Compare the two independently cited dependency statements.\",\"span_start\":0,\"span_end\":43}]}";
+                    } else if (scenario == "product-extraction-malformed") {
+                        proposal = "{\"mentions\":[";
+                    } else if (scenario == "product-extraction-invalid-span") {
+                        proposal =
+                            "{\"mentions\":["
+                            "{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"span_start\":1,\"span_end\":14,\"aliases\":[]},"
+                            "{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"span_start\":26,\"span_end\":42,\"aliases\":[]}"
+                            "],\"relationships\":[],\"notes\":[]}";
+                    } else if (scenario == "product-extraction-unknown-type") {
+                        proposal =
+                            "{\"mentions\":["
+                            "{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"unknown-component\",\"span_start\":0,\"span_end\":14,\"aliases\":[]},"
+                            "{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"span_start\":26,\"span_end\":42,\"aliases\":[]}"
+                            "],\"relationships\":[],\"notes\":[]}";
+                    } else if (scenario == "product-extraction-unknown-relationship") {
+                        proposal =
+                            "{\"mentions\":["
+                            "{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"span_start\":0,\"span_end\":14,\"aliases\":[]},"
+                            "{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"span_start\":26,\"span_end\":42,\"aliases\":[]}"
+                            "],\"relationships\":["
+                            "{\"source_mention\":0,\"relationship_type\":\"unknown-relationship\",\"target_mention\":1,\"span_start\":0,\"span_end\":43,\"confidence_millionths\":940000}],\"notes\":[]}";
+                    } else {
+                        proposal =
+                            "{\"mentions\":["
+                            "{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"span_start\":0,\"span_end\":14,\"aliases\":[]},"
+                            "{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"span_start\":26,\"span_end\":42,\"aliases\":[]},"
+                            "{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"span_start\":44,\"span_end\":58,\"aliases\":[]},"
+                            "{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"span_start\":70,\"span_end\":86,\"aliases\":[]}"
+                            "],\"relationships\":["
+                            "{\"source_mention\":0,\"relationship_type\":\"depends-on\",\"target_mention\":1,\"span_start\":0,\"span_end\":43,\"confidence_millionths\":940000},"
+                            "{\"source_mention\":2,\"relationship_type\":\"depends-on\",\"target_mention\":3,\"span_start\":44,\"span_end\":87,\"confidence_millionths\":930000}],\"notes\":[]}";
+                    }
                     body = "{\"responseId\":\"product-gemini-extract-001\",\"candidates\":[{\"content\":{\"parts\":[{\"text\":"
                         + json_string(proposal)
                         + "}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":180,\"candidatesTokenCount\":60}}";

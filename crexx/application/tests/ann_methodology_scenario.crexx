@@ -1,0 +1,127 @@
+options levelg
+
+import rxfnsb
+import rxfnsg
+import rxhash
+import rxvector
+import sqlite_boundary
+import ragfile
+import ragstore
+import ragembedding
+import ragretrieval
+import generic_profile
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if condition then return 0
+  say "ANN_METHODOLOGY_FAIL=" || label
+  return 1
+
+scalartext: procedure = .string
+  arg database = .binary, sql = .string
+  prepared = .binary; value = ""
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  status = sqlitecolumntext(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return ""
+  return value
+
+insertchunk: procedure = .int
+  arg database = .binary, ordinal = .int, text = .string, x = .float, y = .float, expose error = .string
+  suffix = right("0" || ordinal, 2); content_id = "content-" || suffix; chunk_id = "chunk-" || suffix
+  content_digest = rxhash..sha256hex(text as .binary); input_fingerprint = rxhash..sha256hex(("ann-input" || "00"x || suffix) as .binary)
+  prepared = .binary
+  sql = "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES(?1,?2,?3,?4)"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "prepare chunk content"; return -1; end
+  binds = sqlitebindtext(prepared, 1, content_id) | sqlitebindtext(prepared, 2, content_digest) | sqlitebindtext(prepared, 3, text) | sqlitebindtext(prepared, 4, input_fingerprint)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then do; error = "insert chunk content"; return -1; end
+  start = (ordinal - 1) * 32; finish = start + binlength(text as .binary)
+  prepared = .binary
+  sql = "INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES(?1,'revision-ann',?2,?3,?4,?5,?6,'ann-fixture-v1','direct',1)"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "prepare revision chunk"; return -1; end
+  binds = sqlitebindtext(prepared, 1, chunk_id) | sqlitebindint(prepared, 2, ordinal) | sqlitebindint(prepared, 3, start) | sqlitebindint(prepared, 4, finish) | sqlitebindtext(prepared, 5, content_id) | sqlitebindtext(prepared, 6, "continuity-" || suffix)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then do; error = "insert revision chunk"; return -1; end
+  prepared = .binary
+  if sqliteprepare(database, "INSERT INTO chunks_fts(revision_chunk_id,content_id,body) VALUES(?1,?2,?3)", prepared) \= 0 then do; error = "prepare FTS row"; return -1; end
+  binds = sqlitebindtext(prepared, 1, chunk_id) | sqlitebindtext(prepared, 2, content_id) | sqlitebindtext(prepared, 3, text)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then do; error = "insert FTS row"; return -1; end
+  vector = .packedfloat(2); call vector.set(0, x); call vector.set(1, y); wire = rxvector..encodef32le(vector)
+  input_digest = rxhash..sha256hex((content_digest || "00"x || "ann-envelope") as .binary); embedding_id = "embedding-" || suffix
+  prepared = .binary
+  sql = "INSERT INTO embeddings(embedding_id,input_digest,embedding_profile_id,vector,dimension,provider_run_id,created_at) VALUES(?1,?2,'ann-profile',?3,2,NULL,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "prepare embedding"; return -1; end
+  binds = sqlitebindtext(prepared, 1, embedding_id) | sqlitebindtext(prepared, 2, input_digest) | sqlitebindblob(prepared, 3, wire)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then do; error = "insert embedding"; return -1; end
+  prepared = .binary
+  if sqliteprepare(database, "INSERT INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) VALUES(?1,?2,1)", prepared) \= 0 then do; error = "prepare embedding attachment"; return -1; end
+  binds = sqlitebindtext(prepared, 1, chunk_id) | sqlitebindtext(prepared, 2, embedding_id)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then do; error = "insert embedding attachment"; return -1; end
+  return 0
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 \= 1 then return 2
+  path = args[1]; errors = 0; error = ""; store = .ragstorehandle
+  errors = errors + check(initragstore(path, "library-ann-methodology", "snapshot-ann", "ann-methodology", "1", "generic-profile", "profile-hash", "config-hash", '{}', store, error) = 0, "initialize " || error)
+  if errors > 0 then return 1
+  database = store.database()
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES('artifact-ann','raw-ann','text/plain','utf-8',NULL,'fixture://ann',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "artifact")
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('text-ann','text-digest-ann','ANN corpus','fixture-v1','utf8-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "revision text")
+  errors = errors + check(sqliteexec(database, "INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('source-ann','fixture','ann','revision-ann','active','fixture://ann','ANN corpus',1)") = 0, "source")
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES('revision-ann','source-ann','revision-envelope-ann','artifact-ann','text-ann','metadata-ann','fixture-time',1)") = 0, "revision")
+  errors = errors + check(registerembeddingprofile(store, "ann-profile", "fixture-provider", "fixture-model", 2, copies("a", 64), error) = 0, "profile " || error)
+  errors = errors + check(insertchunk(database, 1, "ann-row-01", 1.0, 0.0, error) = 0, error)
+  errors = errors + check(insertchunk(database, 2, "ann-row-02", 1.0, 0.1, error) = 0, error)
+  errors = errors + check(insertchunk(database, 3, "ann-row-03", 1.0, -0.1, error) = 0, error)
+  errors = errors + check(insertchunk(database, 4, "ann-row-04", 0.1, 1.0, error) = 0, error)
+  errors = errors + check(insertchunk(database, 5, "ann-row-05", 0.0, 1.0, error) = 0, error)
+  errors = errors + check(insertchunk(database, 6, "ann-row-06", -0.1, 1.0, error) = 0, error)
+  errors = errors + check(insertchunk(database, 7, "ann-row-07", -1.0, 0.1, error) = 0, error)
+  errors = errors + check(insertchunk(database, 8, "ann-row-08", -1.0, 0.0, error) = 0, error)
+  errors = errors + check(insertchunk(database, 9, "ann-row-09", -1.0, -0.1, error) = 0, error)
+  errors = errors + check(insertchunk(database, 10, "ann-row-10", 0.1, -1.0, error) = 0, error)
+  errors = errors + check(insertchunk(database, 11, "ann-row-11", 0.0, -1.0, error) = 0, error)
+  errors = errors + check(insertchunk(database, 12, "ann-row-12", -0.1, -1.0, error) = 0, error)
+  errors = errors + check(publishmanifest(store, error) = 0, "pre-ANN manifest " || error)
+  if errors > 0 then return 1
+
+  generation = .ragvectorgenerationresult
+  errors = errors + check(buildannvectorgeneration(store, "ann-profile", 12, 4, 1, 3, generation, error) = 0 & generation.state() = "published" & generation.rows() = 12, "IVF-flat publication " || error)
+  replay = .ragvectorgenerationresult
+  errors = errors + check(buildannvectorgeneration(store, "ann-profile", 12, 4, 1, 3, replay, error) = 0 & replay.state() = "identical-no-op" & replay.checksum() = generation.checksum(), "deterministic ANN replay " || error)
+
+  matrix = .packedfloat(24)
+  call matrix.set(0,1.0); call matrix.set(1,0.0); call matrix.set(2,1.0); call matrix.set(3,0.1); call matrix.set(4,1.0); call matrix.set(5,-0.1)
+  call matrix.set(6,0.1); call matrix.set(7,1.0); call matrix.set(8,0.0); call matrix.set(9,1.0); call matrix.set(10,-0.1); call matrix.set(11,1.0)
+  call matrix.set(12,-1.0); call matrix.set(13,0.1); call matrix.set(14,-1.0); call matrix.set(15,0.0); call matrix.set(16,-1.0); call matrix.set(17,-0.1)
+  call matrix.set(18,0.1); call matrix.set(19,-1.0); call matrix.set(20,0.0); call matrix.set(21,-1.0); call matrix.set(22,-0.1); call matrix.set(23,-1.0)
+  query_vector = .packedfloat(2); call query_vector.set(0, 1.0); call query_vector.set(1, 0.0); query_wire = rxvector..encodef32le(query_vector)
+  owners = .packedint(12); do i = 0 to 11; call owners.set(i, i + 1); end
+  exact_ids = .packedint(0); exact_scores = .packedfloat(0); call rxvector..topkcosine(matrix, owners, 2, query_vector, 1, exact_ids, exact_scores)
+  expected = "ann-row-" || right("0" || exact_ids.get(0), 2)
+  retrieval_policy = .ragretrievaloptions("ann-methodology-v1", "ann-profile", query_wire, 1, 1, 4, 0, 1, 1, 1, 60, "both")
+  result = .ragretrievalresult
+  errors = errors + check(retrieveevidence(store, genericprofile(), "zzzznotlexical", retrieval_policy, result, error) = 0, "ANN retrieval " || error)
+  passages = result.evidence().passages(); recall = 0
+  if passages.0 = 1 & passages[1].text() = expected then recall = 1000000
+  trace_found = 0; notes = .string[]; notes = result.evidence().trace().notes()
+  do i = 1 to notes.0
+    if pos("vector-candidates=3;total-rows=12;centroids=4;probes=1", notes[i]) > 0 then trace_found = 1
+  end
+  errors = errors + check(result.vector_state() = "active-ann-ivf-rxvector" & trace_found = 1, "production path must probe bounded IVF clusters")
+  errors = errors + check(recall >= 900000, "ANN recall threshold against exact QA oracle")
+
+  raw = .binary; byte_count = 0
+  errors = errors + check(ragfile..readbinaryfilebounded(path || "/" || generation.sidecar_name(), 67108864, raw, byte_count, error) = 0, "read ANN sidecar " || error)
+  errors = errors + check(ragfile..writebinaryfile(path || "/" || generation.sidecar_name(), "tampered" as .binary, error) = 0, "tamper ANN sidecar " || error)
+  fallback = .ragretrievalresult
+  errors = errors + check(retrieveevidence(store, genericprofile(), "zzzznotlexical", retrieval_policy, fallback, error) = 0 & fallback.vector_state() = "fallback-invalid-ann-sidecar", "tampered ANN fail-safe fallback " || error)
+  errors = errors + check(ragfile..writebinaryfile(path || "/" || generation.sidecar_name(), raw, error) = 0, "restore ANN sidecar " || error)
+  errors = errors + check(closeragstore(store, error) = 0, "close " || error)
+  if errors > 0 then return 1
+  say "ANN_METHODOLOGY_OK algorithm=ivf-flat-v1 rows=12 centroids=4 probes=1 candidates=3 exact_oracle=qa-only recall_millionths=" || recall || " tamper=fallback"
+  return 0

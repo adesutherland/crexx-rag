@@ -70,20 +70,27 @@ file(WRITE "${requests}"
     "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}\n"
     "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_query_answer\",\"arguments\":{\"question\":\"What does BillingService depend on?\"}}}\n"
     "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_query_evidence\",\"arguments\":{\"question\":\"What does BillingService depend on?\",\"mode\":\"lexical\"}}}\n"
-    "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_library_status\",\"arguments\":{\"surprise\":1}}}\n")
-execute_process(COMMAND ${cli} serve mcp
+    "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_library_status\",\"arguments\":{\"surprise\":1}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_maintain_plan\",\"arguments\":{}}}\n")
+execute_process(COMMAND ${cli} --access read,plan,curate serve mcp
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}" INPUT_FILE "${requests}"
     OUTPUT_VARIABLE mcp_out ERROR_VARIABLE mcp_err
     RESULT_VARIABLE mcp_result TIMEOUT 90)
 if(NOT mcp_result EQUAL 0 OR
    NOT mcp_out MATCHES "\"serverInfo\":{\"name\":\"crexxrag-mcp\"" OR
-   NOT mcp_out MATCHES "\"name\":\"rag_query_answer\".*\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":true" OR
+   NOT mcp_out MATCHES "\"name\":\"rag_query_answer\".*\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":false,\"openWorldHint\":true" OR
    NOT mcp_out MATCHES "\"operation\":\"query.answer\",\"status\":\"ok\"" OR
    NOT mcp_out MATCHES "\"generated_answer\":\"BillingService depends on CustomerDatabase\\.\"" OR
    NOT mcp_out MATCHES "\"citation\":\"crexx-rag:.*utf8-0-87\"" OR
    NOT mcp_out MATCHES "\"operation\":\"query.evidence\",\"status\":\"ok\"" OR
    NOT mcp_out MATCHES "\"retrieval_mode\":\"lexical\"" OR
    NOT mcp_out MATCHES "\"provider_calls\":0" OR
+   NOT mcp_out MATCHES "\"name\":\"rag_maintain_plan\"" OR
+   NOT mcp_out MATCHES "\"name\":\"rag_maintain_apply\"" OR
+   NOT mcp_out MATCHES "\"name\":\"rag_maintain_status\"" OR
+   NOT mcp_out MATCHES "\"name\":\"rag_maintain_inspect\"" OR
+   NOT mcp_out MATCHES "\"operation\":\"maintain.plan\",\"status\":\"ok\"" OR
+   NOT mcp_out MATCHES "\"maintenance_digest\":\"[0-9a-f]+\"" OR
    NOT mcp_out MATCHES "\"code\":-32602,\"message\":\"unknown object member surprise\"" OR
    mcp_out MATCHES "synthetic-product-gemini-key" OR
    mcp_err MATCHES "synthetic-product-gemini-key")
@@ -120,6 +127,6 @@ endif()
 file(WRITE "${CPRAG_WORK_DIR}/result.txt"
     "test=native-surfaces\nsurface=crexxrag-serve-mcp\nconfig=local-default\n"
     "structured_answer=validated\nlexical_provider_calls=0\n"
-    "annotations=truthful\nunknown_arguments=rejected\nsecret_values_logged=0\n"
+    "annotations=truthful\nmaintenance=plan+apply+status+inspect-advertised\nmaintenance_plan=called\nunknown_arguments=rejected\nsecret_values_logged=0\n"
     "${init_out}${ingest_out}${ingest_err}${mcp_out}${mcp_err}${verify_out}${verify_err}")
-message(STATUS "Native surfaces passed unified crexxrag MCP serving, discovered config, provider-backed structured answer, lexical zero-call route, truthful annotations, strict arguments, and clean integrity")
+message(STATUS "Native surfaces passed unified crexxrag MCP serving, maintenance vocabulary, discovered config, provider-backed structured answer, lexical zero-call route, truthful annotations, strict arguments, and clean integrity")

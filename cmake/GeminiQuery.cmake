@@ -77,7 +77,7 @@ execute_process(COMMAND ${cli} query "What does BillingService depend on?"
     RESULT_VARIABLE query_result TIMEOUT 60)
 if(NOT query_result EQUAL 0 OR
    NOT query_out MATCHES "OK: evidence-backed answer generated with validated citations" OR
-   NOT query_out MATCHES "vector state: active-exact-rxvector" OR
+   NOT query_out MATCHES "vector state: active-ann-ivf-rxvector" OR
    NOT query_out MATCHES "generated answer: BillingService depends on CustomerDatabase" OR
    NOT query_out MATCHES "retrieval mode: hybrid" OR
    NOT query_out MATCHES "query embedding state: generated" OR

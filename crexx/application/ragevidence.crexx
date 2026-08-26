@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragevidence expose ragscore ragcitation ragpassage ragsupportcitation ragacceptedclaim raggraphlead ragevidence
+namespace ragevidence expose ragscore ragcitation ragpassage ragsupportcitation ragacceptedclaim raggraphlead raganalysisnote ragevidence
 
 import ragmodel
 
@@ -206,6 +206,53 @@ raggraphlead: class
   limitation: method = .string
     return _limitation
 
+raganalysisnote: class
+  _note_id = .string
+  _kind = .string
+  _text = .string
+  _importance = .float
+  _uncertainty = .float
+  _next_action = .string
+  _state = .string
+  _author = .string
+  _object_links = .string[]
+  _citations = .ragcitation[]
+
+  *: factory
+    arg note_id = .string, kind = .string, text = .string, importance = .float, uncertainty = .float, next_action = .string, state = .string, author = .string, object_links = .string[], citations = .ragcitation[]
+    _note_id = note_id
+    _kind = kind
+    _text = text
+    _importance = importance
+    _uncertainty = uncertainty
+    _next_action = next_action
+    _state = state
+    _author = author
+    _object_links = object_links
+    _citations = citations
+    return
+
+  note_id: method = .string
+    return _note_id
+  kind: method = .string
+    return _kind
+  text: method = .string
+    return _text
+  importance: method = .float
+    return _importance
+  uncertainty: method = .float
+    return _uncertainty
+  next_action: method = .string
+    return _next_action
+  state: method = .string
+    return _state
+  author: method = .string
+    return _author
+  object_links: method = .string[]
+    return _object_links
+  citations: method = .ragcitation[]
+    return _citations
+
 ragevidence: class
   _schema_version = .string
   _library_id = .string
@@ -216,13 +263,14 @@ ragevidence: class
   _claims = .ragacceptedclaim[]
   _ambiguities = .string[]
   _leads = .raggraphlead[]
+  _analysis_notes = .raganalysisnote[]
   _gaps = .string[]
   _trace = .ragtrace
   _answer_guidance = .string
   _generated_answer = .string
 
   *: factory
-    arg schema_version = .string, library_id = .string, active_generation = .int, original_question = .string, query_plan = .string[], passages = .ragpassage[], claims = .ragacceptedclaim[], ambiguities = .string[], leads = .raggraphlead[], gaps = .string[], trace = .ragtrace, answer_guidance = .string, generated_answer = ""
+    arg schema_version = .string, library_id = .string, active_generation = .int, original_question = .string, query_plan = .string[], passages = .ragpassage[], claims = .ragacceptedclaim[], ambiguities = .string[], leads = .raggraphlead[], analysis_notes = .raganalysisnote[], gaps = .string[], trace = .ragtrace, answer_guidance = .string, generated_answer = ""
     _schema_version = schema_version
     _library_id = library_id
     _active_generation = active_generation
@@ -232,6 +280,7 @@ ragevidence: class
     _claims = claims
     _ambiguities = ambiguities
     _leads = leads
+    _analysis_notes = analysis_notes
     _gaps = gaps
     _trace = trace
     _answer_guidance = answer_guidance
@@ -256,6 +305,8 @@ ragevidence: class
     return _ambiguities
   leads: method = .raggraphlead[]
     return _leads
+  analysis_notes: method = .raganalysisnote[]
+    return _analysis_notes
   gaps: method = .string[]
     return _gaps
   trace: method = .ragtrace
@@ -266,4 +317,4 @@ ragevidence: class
     return _generated_answer
   with_generated_answer: method = .ragevidence
     arg generated_answer = .string
-    return .ragevidence(_schema_version, _library_id, _active_generation, _original_question, _query_plan, _passages, _claims, _ambiguities, _leads, _gaps, _trace, _answer_guidance, generated_answer)
+    return .ragevidence(_schema_version, _library_id, _active_generation, _original_question, _query_plan, _passages, _claims, _ambiguities, _leads, _analysis_notes, _gaps, _trace, _answer_guidance, generated_answer)

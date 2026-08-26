@@ -1,0 +1,4 @@
+format	crexx-rag.glossary/1
+concept	BillingService	application-component	Billing Service
+concept	CustomerDatabase	data-store	Customer DB
+exclude	DeprecatedSystem

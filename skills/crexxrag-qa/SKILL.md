@@ -22,6 +22,6 @@ the `crexx-rag.command-result/1` / `crexx-rag.evidence/1` schemas.
 
 Example: `rag_query_evidence({"question":"Which component reads ADX?","mode":"lexical"})`.
 
-This skill declares no write capability. If asked to ingest, improve, decide a
+This skill declares no write capability. If asked to ingest, maintain, decide a
 review, control a job, run SQL, or mutate entities/edges, refuse and ask the
 operator to select a separately permissioned workflow.

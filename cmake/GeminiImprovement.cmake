@@ -10,6 +10,10 @@ file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}/source")
 file(WRITE "${CPRAG_WORK_DIR}/source/architecture.txt"
     "BillingService depends on CustomerDatabase.\n"
     "BillingService depends on CustomerDatabase.\n")
+set(CPRAG_FIXTURE_GLOSSARY "${CPRAG_WORK_DIR}/architecture.glossary.tsv")
+set(glossary_text
+    "format\tcrexx-rag.glossary/1\nconcept\tBillingService\tapplication-component\tBilling Service\nconcept\tCustomerDatabase\tdata-store\tCustomer DB\nexclude\tDeprecatedSystem\n")
+file(WRITE "${CPRAG_FIXTURE_GLOSSARY}" "${glossary_text}")
 set(CPRAG_FIXTURE_PORT 18998)
 set(CPRAG_FIXTURE_SOURCE "${CPRAG_WORK_DIR}/source")
 configure_file("${CPRAG_CONFIG_TEMPLATE}"
@@ -19,7 +23,7 @@ set(server_out "${CPRAG_WORK_DIR}/loopback.out")
 set(server_err "${CPRAG_WORK_DIR}/loopback.err")
 set(server_status "${CPRAG_WORK_DIR}/loopback.status")
 execute_process(COMMAND /bin/sh -c
-    "( \"$1\" \"$2\" 3 product-ingestion; printf '%s' $? >\"$5\" ) >\"$3\" 2>\"$4\" &"
+    "( \"$1\" \"$2\" 4 product-ingestion; printf '%s' $? >\"$5\" ) >\"$3\" 2>\"$4\" &"
     p4r-01 "${CPRAG_LOOPBACK}" "${CPRAG_FIXTURE_PORT}" "${server_out}"
     "${server_err}" "${server_status}"
     RESULT_VARIABLE launch_result)
@@ -68,51 +72,164 @@ if(NOT ingest_result EQUAL 0 OR
     message(FATAL_ERROR "Improvement prerequisite ingestion failed:\n${ingest_out}${ingest_err}")
 endif()
 
-execute_process(COMMAND ${cli} --format json --access plan improve plan
+execute_process(COMMAND ${cli} --format json --access plan maintain plan
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE plan_out ERROR_VARIABLE plan_err
     RESULT_VARIABLE plan_result TIMEOUT 30)
 if(NOT plan_result EQUAL 0 OR
-   NOT plan_out MATCHES "\"items_planned\":1" OR
+   NOT plan_out MATCHES "\"maintenance_digest\":\"[0-9a-f]+\"" OR
+   NOT plan_out MATCHES "\"work_provider_calls\":1" OR
    NOT plan_out MATCHES "\"provider_id\":\"gemini-generate\"" OR
    NOT plan_out MATCHES "\"charging_basis\":\"local-compute\"" OR
    NOT plan_out MATCHES "\"worker_processes\":2")
     message(FATAL_ERROR "Machine improvement preview failed:\n${plan_out}${plan_err}")
 endif()
+string(JSON reviewed_plan ERROR_VARIABLE reviewed_plan_error GET
+    "${plan_out}" records 0 fields canonical_plan)
+string(JSON reviewed_digest ERROR_VARIABLE reviewed_digest_error GET
+    "${plan_out}" records 0 fields digest)
+if(reviewed_plan_error OR reviewed_digest_error)
+    message(FATAL_ERROR "Machine maintenance preview did not expose its reviewed plan: ${plan_out}")
+endif()
 
-execute_process(COMMAND ${cli} improve --yes --workers 2
+# Maintenance review binds the complete discovery context and the exact
+# glossary bytes just as ingestion does. Drift is rejected before a run, job,
+# provider call, or any other library mutation is created.
+find_program(CREXXRAG_SQLITE3 sqlite3 REQUIRED)
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+        "SELECT published_generation || ':' || (SELECT count(*) FROM maintenance_runs) || ':' || (SELECT count(*) FROM jobs) FROM library_meta WHERE singleton=1"
+    OUTPUT_VARIABLE drift_state_before OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE drift_state_before_err RESULT_VARIABLE drift_state_before_result)
+file(APPEND "${CPRAG_FIXTURE_GLOSSARY}" "concept\tUnreviewedConcept\tapplication-component\n")
+execute_process(COMMAND ${cli} --format json --access curate maintain apply
+        --plan-json "${reviewed_plan}" --expect-digest "${reviewed_digest}"
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE drift_out ERROR_VARIABLE drift_err
+    RESULT_VARIABLE drift_result TIMEOUT 30)
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+        "SELECT published_generation || ':' || (SELECT count(*) FROM maintenance_runs) || ':' || (SELECT count(*) FROM jobs) FROM library_meta WHERE singleton=1"
+    OUTPUT_VARIABLE drift_state_after OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE drift_state_after_err RESULT_VARIABLE drift_state_after_result)
+if(drift_result EQUAL 0 OR
+   NOT drift_out MATCHES "reviewed maintenance digest does not match" OR
+   drift_err MATCHES "crexxrag provider" OR
+   NOT drift_state_before_result EQUAL 0 OR NOT drift_state_after_result EQUAL 0 OR
+   NOT drift_state_before STREQUAL drift_state_after)
+    message(FATAL_ERROR "Glossary drift was not a zero-mutation, zero-provider maintenance rejection:\n${drift_out}${drift_err}\nbefore=${drift_state_before} ${drift_state_before_err}\nafter=${drift_state_after} ${drift_state_after_err}")
+endif()
+file(WRITE "${CPRAG_FIXTURE_GLOSSARY}" "${glossary_text}")
+
+execute_process(COMMAND ${cli} maintain --yes --workers 2
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE improve_out ERROR_VARIABLE improve_err
     RESULT_VARIABLE improve_result TIMEOUT 60)
 if(NOT improve_result EQUAL 0 OR
-   NOT improve_out MATCHES "Improvement plan" OR
-   NOT improve_out MATCHES "Items selected:   1" OR
+   NOT improve_out MATCHES "Maintenance plan" OR
    NOT improve_out MATCHES "Extraction:       gemini / gemini-3.5-flash-lite" OR
    NOT improve_out MATCHES "Monetary API cost: Not applicable" OR
-   NOT improve_out MATCHES "disposition: queued" OR
-   NOT improve_out MATCHES "items: 1" OR
-   NOT improve_out MATCHES "state: completed" OR
-   NOT improve_out MATCHES "planned total: 1" OR
-   improve_out MATCHES "canonical_plan|\{\"schema\"|vector state" OR
+   NOT improve_out MATCHES "disposition: applied" OR
+   NOT improve_out MATCHES "work items: 1" OR
+   NOT improve_out MATCHES "state: complete" OR
+   NOT improve_out MATCHES "item type: concept-review" OR
+   NOT improve_out MATCHES "vector state: identical-no-op" OR
+   improve_out MATCHES "canonical_plan|\{\"schema\"" OR
    NOT improve_err MATCHES "crexxrag controller complete")
     message(FATAL_ERROR "Guided improvement failed:\n${improve_out}${improve_err}")
 endif()
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+        "SELECT count(*) FROM analysis_notes n JOIN analysis_note_links l ON l.note_id=n.note_id WHERE n.state='active' AND n.note_kind='insight' AND n.text='The repeated dependency deserves explicit validation.' AND n.importance=820000 AND n.uncertainty=280000 AND n.provider_run_id IS NOT NULL AND l.object_type='chunk' AND l.span_start=0 AND l.span_end=43"
+    OUTPUT_VARIABLE durable_note_count OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE durable_note_err RESULT_VARIABLE durable_note_result)
+if(NOT durable_note_result EQUAL 0 OR NOT durable_note_count STREQUAL "1")
+    message(FATAL_ERROR "Gemini maintenance note was not durably stored with provider provenance and its exact citation: ${durable_note_count} ${durable_note_err}")
+endif()
 
-execute_process(COMMAND ${cli} improve --yes --workers 2
+execute_process(COMMAND ${cli} query "What does BillingService depend on?"
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE query_out ERROR_VARIABLE query_err
+    RESULT_VARIABLE query_result TIMEOUT 30)
+if(NOT query_result EQUAL 0 OR
+   NOT query_out MATCHES "vector state: active-ann-ivf-rxvector" OR
+   NOT query_out MATCHES "retrieval mode: hybrid" OR
+   NOT query_out MATCHES "BillingService --depends-on--> CustomerDatabase" OR
+   NOT query_out MATCHES "citation: .*utf8-(0-43|44-87)" OR
+   NOT query_err MATCHES "crexxrag query-embedding complete")
+    message(FATAL_ERROR "Maintained installed-style library query failed:\n${query_out}${query_err}")
+endif()
+
+execute_process(COMMAND ${cli} maintain --yes --workers 2
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE settle_out ERROR_VARIABLE settle_err
+    RESULT_VARIABLE settle_result TIMEOUT 30)
+if(NOT settle_result EQUAL 0 OR
+   NOT settle_out MATCHES "disposition: applied" OR
+   NOT settle_out MATCHES "work items: 0" OR
+   NOT settle_out MATCHES "item type: analysis-lead" OR
+   settle_err MATCHES "crexxrag (controller|worker|provider)")
+    message(FATAL_ERROR "New provider diagnosis did not settle into a zero-call durable analysis worklist:\n${settle_out}${settle_err}")
+endif()
+
+execute_process(COMMAND ${cli} maintain --yes --workers 2
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE replay_out ERROR_VARIABLE replay_err
     RESULT_VARIABLE replay_result TIMEOUT 30)
 if(NOT replay_result EQUAL 0 OR
-   NOT replay_out MATCHES "Items selected:   1" OR
    NOT replay_out MATCHES "disposition: identical-no-op" OR
    NOT replay_out MATCHES "items: 0" OR
    replay_err MATCHES "crexxrag (controller|worker|provider)")
-    message(FATAL_ERROR "Improvement replay was not a zero-call no-op:\n${replay_out}${replay_err}")
+    message(FATAL_ERROR "Settled maintenance replay was not a zero-call no-op:\n${replay_out}${replay_err}")
+endif()
+
+# Exercise lifecycle finalisation through the public review surface, rather
+# than treating the lifecycle repository test as sufficient orchestration
+# proof. The reviewed synonym publishes a new semantic generation and the
+# dispatcher must immediately publish its compatible ANN generation.
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+        "SELECT concept_id FROM concepts WHERE canonical_label='BillingService' AND visible_to_generation IS NULL LIMIT 1"
+    OUTPUT_VARIABLE lifecycle_concept OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE lifecycle_concept_err RESULT_VARIABLE lifecycle_concept_result)
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+        "SELECT published_generation FROM library_meta WHERE singleton=1"
+    OUTPUT_VARIABLE lifecycle_generation OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE lifecycle_generation_err RESULT_VARIABLE lifecycle_generation_result)
+if(NOT lifecycle_concept_result EQUAL 0 OR lifecycle_concept STREQUAL "" OR
+   NOT lifecycle_generation_result EQUAL 0 OR lifecycle_generation STREQUAL "")
+    message(FATAL_ERROR "could not bind the public lifecycle review fixture: ${lifecycle_concept_err}${lifecycle_generation_err}")
+endif()
+set(lifecycle_action "{\"schema\":\"crexx-rag.lifecycle-action/1\",\"operation\":\"synonym\",\"concept_id\":\"${lifecycle_concept}\",\"target_concept_id\":\"\",\"alias\":\"Billing Platform\",\"concept_type\":\"\",\"successors\":[],\"dispositions\":[],\"reason\":\"reviewed public lifecycle finalisation test\"}")
+set(lifecycle_proposal "{\"schema\":\"crexx-rag.maintenance-review/1\",\"maintenance_item_id\":\"item-public-lifecycle\",\"expected_generation\":${lifecycle_generation},\"action\":${lifecycle_action}}")
+set(lifecycle_sql_file "${CPRAG_WORK_DIR}/public-lifecycle-review.sql")
+file(WRITE "${lifecycle_sql_file}"
+    "INSERT INTO maintenance_runs(run_id,expected_generation,config_snapshot_id,mode,state,plan_digest,canonical_plan,created_at) SELECT 'run-public-lifecycle',${lifecycle_generation},config_snapshot_id,'reviewed','running','digest-public-lifecycle','{}',strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM published_generations WHERE generation=${lifecycle_generation};\n"
+    "INSERT INTO maintenance_items(item_id,run_id,item_type,subject_type,subject_id,score,trigger_json,diagnosis_json,action_json,state,expected_generation,created_at,updated_at) VALUES('item-public-lifecycle','run-public-lifecycle','synonym','concept','${lifecycle_concept}',900000,'{}','{}','${lifecycle_action}','review-required',${lifecycle_generation},strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n"
+    "INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) VALUES('review-public-lifecycle','maintenance-synonym','item-public-lifecycle','pending','${lifecycle_proposal}',strftime('%Y-%m-%dT%H:%M:%fZ','now'));\n")
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+    INPUT_FILE "${lifecycle_sql_file}"
+    OUTPUT_VARIABLE lifecycle_seed_out ERROR_VARIABLE lifecycle_seed_err
+    RESULT_VARIABLE lifecycle_seed_result)
+if(NOT lifecycle_seed_result EQUAL 0)
+    message(FATAL_ERROR "could not seed the public lifecycle review fixture: ${lifecycle_seed_out}${lifecycle_seed_err}")
+endif()
+execute_process(COMMAND ${cli} --profile it-architecture-profile --access curate
+        --format json review decide review-public-lifecycle
+        --decision accept --apply
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE lifecycle_decide_out ERROR_VARIABLE lifecycle_decide_err
+    RESULT_VARIABLE lifecycle_decide_result TIMEOUT 30)
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+        "SELECT (SELECT count(*) FROM aliases WHERE normalized_alias='billing platform' AND target_concept_id='${lifecycle_concept}' AND visible_to_generation IS NULL) || ':' || (SELECT count(*) FROM vector_generations WHERE semantic_generation=(SELECT published_generation FROM library_meta WHERE singleton=1) AND algorithm='ivf-flat-v1' AND state='published')"
+    OUTPUT_VARIABLE lifecycle_state OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE lifecycle_state_err RESULT_VARIABLE lifecycle_state_result)
+if(NOT lifecycle_decide_result EQUAL 0 OR
+   NOT lifecycle_decide_out MATCHES "\"promotion_disposition\":\"synonym-applied\"" OR
+   NOT lifecycle_decide_out MATCHES "\"vector_state\":\"published\"" OR
+   NOT lifecycle_decide_out MATCHES "\"vector_generations\":1" OR
+   NOT lifecycle_state_result EQUAL 0 OR NOT lifecycle_state STREQUAL "1:1")
+    message(FATAL_ERROR "public lifecycle review did not atomically publish its synonym and ANN generation:\n${lifecycle_decide_out}${lifecycle_decide_err}\nstate=${lifecycle_state} ${lifecycle_state_err}")
 endif()
 
 # Exercise the enduring discovery and external-proposal surfaces against the
 # same real, Gemini-ingested library. These operations make no provider calls.
-find_program(CREXXRAG_SQLITE3 sqlite3 REQUIRED)
 execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
         "SELECT revision_chunk_id FROM revision_chunks WHERE visible_to_generation IS NULL ORDER BY revision_chunk_id LIMIT 1"
     OUTPUT_VARIABLE CREXXRAG_PROPOSAL_CHUNK
@@ -198,7 +315,9 @@ execute_process(COMMAND ${cli} --profile it-architecture-profile --access curate
     RESULT_VARIABLE review_decide_result TIMEOUT 30)
 if(NOT review_decide_result EQUAL 0 OR
    NOT review_decide_out MATCHES "\"state\":\"accepted\"" OR
-   NOT review_decide_out MATCHES "\"promotion_disposition\":\"accepted\"")
+   NOT review_decide_out MATCHES "\"promotion_disposition\":\"accepted\"" OR
+   NOT review_decide_out MATCHES "\"vector_state\":\"published\"" OR
+   NOT review_decide_out MATCHES "\"vector_generations\":1")
     message(FATAL_ERROR "external proposal review promotion failed:\n${review_decide_out}${review_decide_err}")
 endif()
 
@@ -226,13 +345,13 @@ file(READ "${server_status}" server_result)
 file(READ "${server_out}" final_server_out)
 file(READ "${server_err}" final_server_err)
 if(NOT server_result STREQUAL "0" OR
-   NOT final_server_out MATCHES "SUMMARY scenario=product-ingestion connections=3")
+   NOT final_server_out MATCHES "SUMMARY scenario=product-ingestion connections=4")
     message(FATAL_ERROR "Gemini improvement loopback failed:\n${final_server_out}${final_server_err}")
 endif()
 
 file(WRITE "${CPRAG_WORK_DIR}/result.txt"
-    "test=gemini-improvement\nprovider=gemini\nrequests=3\n"
+    "test=gemini-maintenance\nprovider=gemini\nrequests=4\n"
     "ingest_calls=2\nimprovement_calls=1\nreplay_calls=0\n"
-    "surface=crexxrag-improve\nprovider_input=durable\nvector_output=not-applicable-hidden\n"
-    "${init_out}${ingest_out}${ingest_err}${plan_out}${plan_err}${improve_out}${improve_err}${replay_out}${replay_err}${provider_list_out}${profile_list_out}${profile_show_out}${proposal_plan_out}${proposal_apply_out}${review_list_out}${review_decide_out}${verify_out}${verify_err}")
-message(STATUS "Gemini improvement and the public provider, profile, proposal, and review surfaces passed with integrity verification and zero-call replay")
+    "surface=crexxrag-maintain\nprovider_input=durable\nglossary_drift=zero-mutation-rejected\nvector_output=ann-published\n"
+    "${init_out}${ingest_out}${ingest_err}${plan_out}${plan_err}${drift_out}${drift_err}${improve_out}${improve_err}${query_out}${query_err}${settle_out}${settle_err}${replay_out}${replay_err}${lifecycle_decide_out}${lifecycle_decide_err}${provider_list_out}${profile_list_out}${profile_show_out}${proposal_plan_out}${proposal_apply_out}${review_list_out}${review_decide_out}${verify_out}${verify_err}")
+message(STATUS "Gemini maintenance and the public provider, profile, lifecycle, proposal, and review surfaces passed with glossary-drift rejection, durable-note output, ANN finalisation, integrity verification, and zero-call replay")

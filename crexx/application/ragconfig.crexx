@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragconfig expose ragsecretref ragsourceset ragproviderconfig ragrolebinding ragbudget ragworkerpolicy ragschedule ragconfig ragconfigsnapshot validateconfig snapshotconfig invalidconfig
+namespace ragconfig expose ragsecretref ragsourceset ragproviderconfig ragrolebinding ragbudget ragworkerpolicy ragschedule ragdiscoverypolicy ragvectorpolicy ragconfig ragconfigsnapshot validateconfig snapshotconfig invalidconfig
 
 import ragmodel
 import rxfnsb
@@ -202,6 +202,70 @@ ragschedule: class
   enabled: method = .int
     return _enabled
 
+/* Discovery is an explicit product policy.  "off" is supported only as an
+ * operator-selected deterministic fallback; the normal modes all schedule
+ * cognitive review. */
+ragdiscoverypolicy: class
+  _mode = .string
+  _glossary_path = .string
+  _ranked_limit = .int
+  _max_mentions = .int
+  _max_relationships = .int
+  _max_notes = .int
+
+  *: factory
+    arg mode = "all", glossary_path = "", ranked_limit = 64, max_mentions = 16, max_relationships = 16, max_notes = 16
+    _mode = mode
+    _glossary_path = glossary_path
+    _ranked_limit = ranked_limit
+    _max_mentions = max_mentions
+    _max_relationships = max_relationships
+    _max_notes = max_notes
+    return
+
+  mode: method = .string
+    return _mode
+  glossary_path: method = .string
+    return _glossary_path
+  ranked_limit: method = .int
+    return _ranked_limit
+  max_mentions: method = .int
+    return _max_mentions
+  max_relationships: method = .int
+    return _max_relationships
+  max_notes: method = .int
+    return _max_notes
+
+/* IVF-flat is the durable vector-index publication algorithm.  The exact
+ * bounded scan is deliberately absent from this production policy and exists
+ * only in qualification code as a recall oracle. */
+ragvectorpolicy: class
+  _algorithm = .string
+  _centroids = .int
+  _probes = .int
+  _iterations = .int
+  _recall_minimum_millionths = .int
+
+  *: factory
+    arg algorithm = "ivf-flat-v1", centroids = 16, probes = 4, iterations = 2, recall_minimum_millionths = 900000
+    _algorithm = algorithm
+    _centroids = centroids
+    _probes = probes
+    _iterations = iterations
+    _recall_minimum_millionths = recall_minimum_millionths
+    return
+
+  algorithm: method = .string
+    return _algorithm
+  centroids: method = .int
+    return _centroids
+  probes: method = .int
+    return _probes
+  iterations: method = .int
+    return _iterations
+  recall_minimum_millionths: method = .int
+    return _recall_minimum_millionths
+
 ragconfig: class
   _config_id = .string
   _version = .string
@@ -212,9 +276,11 @@ ragconfig: class
   _budget = .ragbudget
   _workers = .ragworkerpolicy
   _schedules = .ragschedule[]
+  _discovery = .ragdiscoverypolicy
+  _vector = .ragvectorpolicy
 
   *: factory
-    arg config_id = .string, version = .string, source_sets = .ragsourceset[], providers = .ragproviderconfig[], roles = .ragrolebinding[], profile_ids = .string[], budget = .ragbudget, workers = .ragworkerpolicy, schedules = .ragschedule[]
+    arg config_id = .string, version = .string, source_sets = .ragsourceset[], providers = .ragproviderconfig[], roles = .ragrolebinding[], profile_ids = .string[], budget = .ragbudget, workers = .ragworkerpolicy, schedules = .ragschedule[], discovery = .ragdiscoverypolicy, vector = .ragvectorpolicy
     _config_id = config_id
     _version = version
     _source_sets = source_sets
@@ -224,6 +290,8 @@ ragconfig: class
     _budget = budget
     _workers = workers
     _schedules = schedules
+    _discovery = discovery
+    _vector = vector
     return
 
   config_id: method = .string
@@ -244,6 +312,10 @@ ragconfig: class
     return _workers
   schedules: method = .ragschedule[]
     return _schedules
+  discovery: method = .ragdiscoverypolicy
+    return _discovery
+  vector: method = .ragvectorpolicy
+    return _vector
   valid_identity: method = .int
     return validregistryid(_config_id) = 1 & _version \= ""
   snapshot: method = .ragconfigsnapshot
@@ -398,6 +470,20 @@ validateconfig: procedure = .ragvalidationresult
   if workers.max_in_flight() \= 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "worker_in_flight", "workers.max_in_flight", "each worker process currently owns one in-flight item")
   if workers.lease_seconds() <= 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_lease", "workers.lease_seconds", "worker lease must be positive")
 
+  discovery = config.discovery()
+  if wordpos(discovery.mode(), "all ranked maintenance off") = 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_discovery_mode", "discovery.mode", "discovery mode must be all, ranked, maintenance, or off")
+  if discovery.ranked_limit() < 1 | discovery.ranked_limit() > 1000000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_discovery_limit", "discovery.ranked_limit", "ranked discovery limit is outside its supported range")
+  if discovery.max_mentions() < 1 | discovery.max_mentions() > 64 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_discovery_limit", "discovery.max_mentions", "maximum discovered mentions must be from 1 through 64")
+  if discovery.max_relationships() < 1 | discovery.max_relationships() > 64 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_discovery_limit", "discovery.max_relationships", "maximum discovered relationships must be from 1 through 64")
+  if discovery.max_notes() < 1 | discovery.max_notes() > 64 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_discovery_limit", "discovery.max_notes", "maximum discovered notes must be from 1 through 64")
+
+  vector = config.vector()
+  if vector.algorithm() \= "ivf-flat-v1" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_vector_algorithm", "vector.algorithm", "production vector search must use ivf-flat-v1")
+  if vector.centroids() < 1 | vector.centroids() > 4096 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_vector_limit", "vector.centroids", "vector centroid count is outside its supported range")
+  if vector.probes() < 1 | vector.probes() > vector.centroids() then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_vector_limit", "vector.probes", "vector probes must be positive and no greater than centroids")
+  if vector.iterations() < 1 | vector.iterations() > 16 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_vector_limit", "vector.iterations", "vector training iterations must be from 1 through 16")
+  if vector.recall_minimum_millionths() < 1 | vector.recall_minimum_millionths() > 1000000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_vector_recall", "vector.recall_minimum_millionths", "vector recall threshold must be from 1 through 1000000")
+
   schedules = config.schedules()
   seen = .string[]
   do i = 1 to schedules.0
@@ -421,7 +507,7 @@ invalidconfig: procedure = .ragconfig
   roles = .ragrolebinding[]
   profile_ids = .string[]
   schedules = .ragschedule[]
-  return .ragconfig("", "", source_sets, providers, roles, profile_ids, .ragbudget(0, 0, 0, 0, 0, 0), .ragworkerpolicy(0, 0, 0), schedules)
+  return .ragconfig("", "", source_sets, providers, roles, profile_ids, .ragbudget(0, 0, 0, 0, 0, 0), .ragworkerpolicy(0, 0, 0), schedules, .ragdiscoverypolicy(), .ragvectorpolicy())
 
 _contains: procedure = .int
   arg values = .string[], expected = .string

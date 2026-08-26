@@ -11,6 +11,7 @@ Choose the prefix used when the package was installed. The relevant files are:
 <prefix>/bin/crexxrag
 <prefix>/share/crexxrag/tutorial/crexxrag.conf
 <prefix>/share/crexxrag/tutorial/crexxrag-codex-local.conf
+<prefix>/share/crexxrag/tutorial/architecture.glossary.tsv
 <prefix>/share/crexxrag/tutorial/source-docs/architecture.txt
 <prefix>/share/crexxrag/skills/
 <prefix>/share/doc/crexxrag/
@@ -31,6 +32,8 @@ Prepare a normal working folder:
 mkdir -p "$HOME/crexxrag-demo/source-docs"
 cp /opt/crexxrag/share/crexxrag/tutorial/crexxrag.conf \
   "$HOME/crexxrag-demo/crexxrag.conf"
+cp /opt/crexxrag/share/crexxrag/tutorial/architecture.glossary.tsv \
+  "$HOME/crexxrag-demo/architecture.glossary.tsv"
 cp /opt/crexxrag/share/crexxrag/tutorial/source-docs/architecture.txt \
   "$HOME/crexxrag-demo/source-docs/architecture.txt"
 cd "$HOME/crexxrag-demo"
@@ -50,19 +53,22 @@ corpus:
 the configured small provider budget and validates both structured generation
 and embedding shape.
 
-The normal human workflow is then only three commands:
+The normal human workflow is four commands:
 
 ```sh
 /opt/crexxrag/bin/crexxrag init
 /opt/crexxrag/bin/crexxrag ingest
+/opt/crexxrag/bin/crexxrag maintain
 /opt/crexxrag/bin/crexxrag query 'What does BillingService depend on?'
 ```
 
 `crexxrag` finds `./crexxrag.conf` and uses `./library` automatically. `ingest`
 shows the source, hosted-data classification, models, workers, budgets, and
 plan digest before it asks for confirmation. It then supervises the configured
-worker processes and publishes the vector generation. A second unchanged run
-is an `identical-no-op` and makes no provider calls.
+worker processes and publishes the vector generation. `maintain` inventories
+and ranks concept, claim, note, gap, embedding and vector work before asking for
+approval; it then supervises only the selected bounded work. A repeated settled
+cycle is an `identical-no-op` and makes no provider calls.
 
 The answer should identify `CustomerDatabase` and carry a stable citation. To
 inspect evidence without an answer-generation call:
@@ -101,6 +107,8 @@ Prepare a separate workspace:
 mkdir -p "$HOME/crexxrag-codex-demo/source-docs"
 cp /opt/crexxrag/share/crexxrag/tutorial/crexxrag-codex-local.conf \
   "$HOME/crexxrag-codex-demo/crexxrag.conf"
+cp /opt/crexxrag/share/crexxrag/tutorial/architecture.glossary.tsv \
+  "$HOME/crexxrag-codex-demo/architecture.glossary.tsv"
 cp /opt/crexxrag/share/crexxrag/tutorial/source-docs/architecture.txt \
   "$HOME/crexxrag-codex-demo/source-docs/architecture.txt"
 cd "$HOME/crexxrag-codex-demo"
@@ -124,6 +132,7 @@ Run the same human workflow:
 ```sh
 /opt/crexxrag/bin/crexxrag init
 /opt/crexxrag/bin/crexxrag ingest
+/opt/crexxrag/bin/crexxrag maintain
 /opt/crexxrag/bin/crexxrag query 'What does BillingService depend on?'
 ```
 
@@ -140,6 +149,7 @@ for the operating system or shell. After that, the commands above reduce to:
 crexxrag doctor
 crexxrag init
 crexxrag ingest
+crexxrag maintain
 crexxrag query 'What does BillingService depend on?'
 ```
 

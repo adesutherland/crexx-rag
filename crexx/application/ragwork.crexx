@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragwork expose ragworkclaim ragcallreservation ragworkembedding ragworkproviderresult ragexternalrecovery ragworkprovider claimnext heartbeat configurejobbudget reservecall beginexternalrun updateexternalrunusage updateexternalrunturn updateexternalrunallowance completeexternalrun recoverexternalrun settlecall failattempt skipitem requestcancel acknowledgecancel pausejob resumejob drainjob retrydeadletter readjobstatus runworkeronce runworkerfollow
+namespace ragwork expose ragworkclaim ragcallreservation ragworkembedding ragworkmention ragworkproposal ragworknote ragworkproviderresult ragexternalrecovery ragworkprovider claimnext heartbeat configurejobbudget reservecall beginexternalrun updateexternalrunusage updateexternalrunturn updateexternalrunallowance completeexternalrun recoverexternalrun settlecall failattempt skipitem requestcancel acknowledgecancel pausejob resumejob drainjob retrydeadletter readjobstatus runworkeronce runworkerfollow
 
 import rxfnsb
 import rxjson
@@ -159,6 +159,74 @@ ragworkembedding: class
   valid: method = .int
     return _revision_chunk_id \= "" & _embedding_profile_id \= "" & length(_input_digest) = 64 & _provider_id \= "" & _model \= "" & _dimension > 0 & _envelope_fingerprint \= "" & binlength(_vector) = _dimension * 4
 
+ragworkmention: class
+  _candidate_id = .string
+  _label = .string
+  _concept_type = .string
+  _span_start = .int
+  _span_end = .int
+  _aliases = .string[]
+  *: factory
+    arg candidate_id = "", label = "", concept_type = "", span_start = 0, span_end = 0, aliases = .string[]
+    _candidate_id = candidate_id; _label = label; _concept_type = concept_type
+    _span_start = span_start; _span_end = span_end; _aliases = aliases
+    return
+  candidate_id: method = .string
+    return _candidate_id
+  label: method = .string
+    return _label
+  concept_type: method = .string
+    return _concept_type
+  span_start: method = .int
+    return _span_start
+  span_end: method = .int
+    return _span_end
+  aliases: method = .string[]
+    return _aliases
+
+ragworkproposal: class
+  _proposal = .ragextractionproposal
+  _source_candidate_id = .string
+  _target_candidate_id = .string
+  *: factory
+    arg proposal = .ragextractionproposal, source_candidate_id = "", target_candidate_id = ""
+    _proposal = proposal; _source_candidate_id = source_candidate_id; _target_candidate_id = target_candidate_id
+    return
+  proposal: method = .ragextractionproposal
+    return _proposal
+  source_candidate_id: method = .string
+    return _source_candidate_id
+  target_candidate_id: method = .string
+    return _target_candidate_id
+
+ragworknote: class
+  _kind = .string
+  _text = .string
+  _importance = .int
+  _uncertainty = .int
+  _next_action = .string
+  _span_start = .int
+  _span_end = .int
+  *: factory
+    arg kind = "", text = "", importance = 0, uncertainty = 0, next_action = "", span_start = 0, span_end = 0
+    _kind = kind; _text = text; _importance = importance; _uncertainty = uncertainty
+    _next_action = next_action; _span_start = span_start; _span_end = span_end
+    return
+  kind: method = .string
+    return _kind
+  text: method = .string
+    return _text
+  importance: method = .int
+    return _importance
+  uncertainty: method = .int
+    return _uncertainty
+  next_action: method = .string
+    return _next_action
+  span_start: method = .int
+    return _span_start
+  span_end: method = .int
+    return _span_end
+
 ragworkproviderresult: class
   _status = .int
   _provider_id = .string
@@ -177,15 +245,20 @@ ragworkproviderresult: class
   _embedding = .ragworkembedding
   _provider_run_id = .string
   _charging_basis = .string
+  _mentions = .ragworkmention[]
+  _proposals = .ragworkproposal[]
+  _notes = .ragworknote[]
 
   *: factory
-    arg status = .int, provider_id = .string, model = .string, request_id = .string, input_tokens = .int, output_tokens = .int, cost = .int, duration_ms = .int, retryable = .int, proposal = .ragextractionproposal, error = .string, has_proposal = 1, source_candidate_id = "", target_candidate_id = "", embedding = .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id = "", charging_basis = "monetary-api"
+    arg status = .int, provider_id = .string, model = .string, request_id = .string, input_tokens = .int, output_tokens = .int, cost = .int, duration_ms = .int, retryable = .int, proposal = .ragextractionproposal, error = .string, has_proposal = 1, source_candidate_id = "", target_candidate_id = "", embedding = .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id = "", charging_basis = "monetary-api", mentions = .ragworkmention[], proposals = .ragworkproposal[], notes = .ragworknote[]
     _status = status; _provider_id = provider_id; _model = model; _request_id = request_id
     _input_tokens = input_tokens; _output_tokens = output_tokens; _cost = cost
     _duration_ms = duration_ms; _retryable = retryable; _proposal = proposal; _error = error
     _has_proposal = has_proposal; _source_candidate_id = source_candidate_id
     _target_candidate_id = target_candidate_id; _embedding = embedding
     _provider_run_id = provider_run_id; _charging_basis = charging_basis
+    _mentions = mentions; _proposals = proposals; _notes = notes
+    if _proposals.0 = 0 & has_proposal = 1 then _proposals[1] = .ragworkproposal(proposal, source_candidate_id, target_candidate_id)
     return
   status: method = .int
     return _status
@@ -223,6 +296,12 @@ ragworkproviderresult: class
     return _provider_run_id
   charging_basis: method = .string
     return _charging_basis
+  mentions: method = .ragworkmention[]
+    return _mentions
+  proposals: method = .ragworkproposal[]
+    return _proposals
+  notes: method = .ragworknote[]
+    return _notes
 
 ragexternalrecovery: class
   _found = .int
@@ -706,6 +785,17 @@ runworkeronce: procedure = .int
     disposition = "embedded"
     return 0
   end
+  batch_mentions = provider_result.mentions(); batch_proposals = provider_result.proposals(); batch_notes = provider_result.notes()
+  if batch_mentions.0 > 0 | batch_proposals.0 > 1 | batch_notes.0 > 0 then do
+    if _completeproviderbatch(store, claim, provider_result, provider_run_id, policy, error) \= 0 then do
+      batch_error = error; failure_error = ""
+      if failattempt(store, claim, 1, 1, maximum_attempts, batch_error, failure_error) \= 0 then do; error = failure_error; disposition = "failure-recording-failed"; return -3; end
+      error = ""; disposition = "retry-after-batch-validation-or-promotion-race"; return 0
+    end
+    if batch_proposals.0 = 0 then disposition = "concepts-and-notes"
+    else disposition = "batch-applied"
+    return 0
+  end
   if provider_result.has_proposal() = 0 then do
     if skipitem(store, claim, "provider found no supported claim", error) \= 0 then do; disposition = "skip-failed"; return -3; end
     disposition = "no-claim"
@@ -737,6 +827,99 @@ runworkeronce: procedure = .int
     return 0
   end
   disposition = proposal_result.disposition()
+  return 0
+
+_completeproviderbatch: procedure = .int
+  arg store = .ragstorehandle, claim = .ragworkclaim, provider_result = .ragworkproviderresult, provider_run_id = .string, policy = .ragclaimpolicy, expose error = .string
+  error = ""; mentions = provider_result.mentions(); proposals = provider_result.proposals(); notes = provider_result.notes()
+  input_json = _boundscalartext(store.database(), "SELECT input_json FROM job_items WHERE item_id=?1", claim.item_id())
+  input = .jsondocument(input_json); revision_chunk_id = ""
+  if input.valid() \= 1 | input.node_string(input.member(input.root(), "revision_chunk_id"), revision_chunk_id) \= 0 | revision_chunk_id = "" then do; error = "durable batch input has no revision chunk"; return -1; end
+  if _ensureprovidermentions(store, claim, mentions, revision_chunk_id, provider_run_id, error) \= 0 then return -1
+  ambiguity = .string[]
+  do i = 1 to mentions.0
+    promoted = ""; aliases = mentions[i].aliases()
+    if promotemention(store, mentions[i].candidate_id(), mentions[i].label(), mentions[i].concept_type(), aliases, ambiguity, policy, claim.config_snapshot_id(), promoted, error) \= 0 then return -1
+    expected = "concept-sha256:" || rxhash..sha256hex((lower(mentions[i].label()) || "00"x || mentions[i].concept_type()) as .binary)
+    if promoted \= expected then do; error = "provider mention promoted to an unexpected concept"; return -1; end
+  end
+  dispositions = ""
+  do i = 1 to proposals.0
+    generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+    proposal_result = .ragproposalresult
+    if applyproposal(store, proposals[i].proposal(), policy, generation, claim.config_snapshot_id(), proposal_result, error) \= 0 then return -1
+    if dispositions \= "" then dispositions = dispositions || ","
+    dispositions = dispositions || proposal_result.disposition()
+  end
+  return _completebatchattempt(store, claim, notes, revision_chunk_id, provider_run_id, mentions.0, proposals.0, dispositions, error)
+
+_ensureprovidermentions: procedure = .int
+  arg store = .ragstorehandle, claim = .ragworkclaim, mentions = .ragworkmention[], revision_chunk_id = .string, provider_run_id = .string, expose error = .string
+  database = store.database()
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider mention census"; return -1; end
+  if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale during mention census", error)
+  generation = _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1")
+  do i = 1 to mentions.0
+    mention = mentions[i]
+    prepared = .binary
+    sql = "SELECT revision_chunk_id,normalized_candidate,span_start,span_end FROM candidate_mentions WHERE candidate_id=?1 AND visible_to_generation IS NULL"
+    if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, mention.candidate_id()) \= 0 then return _rollback(database, "prepare provider mention replay", error)
+    step = sqlitestep(prepared)
+    if step = 100 then do
+      existing_chunk = ""; existing_label = ""; existing_start = 0; existing_end = 0
+      columns = sqlitecolumntext(prepared, 0, existing_chunk) | sqlitecolumntext(prepared, 1, existing_label) | sqlitecolumnint(prepared, 2, existing_start) | sqlitecolumnint(prepared, 3, existing_end); call sqlitefinalize prepared
+      if columns \= 0 | existing_chunk \= revision_chunk_id | existing_label \= lower(mention.label()) | existing_start \= mention.span_start() | existing_end \= mention.span_end() then return _rollback(database, "provider mention identity conflicts with existing data", error)
+    end
+    else do
+      call sqlitefinalize prepared
+      if step \= 101 then return _rollback(database, "read provider mention replay", error)
+      prepared = .binary
+      sql = "INSERT INTO candidate_mentions(candidate_id,revision_chunk_id,normalized_candidate,span_start,span_end,extractor_version,visible_from_generation) VALUES(?1,?2,?3,?4,?5,'provider-discovery-v1',?6)"
+      if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "prepare provider mention insert", error)
+      binds = sqlitebindtext(prepared, 1, mention.candidate_id()) | sqlitebindtext(prepared, 2, revision_chunk_id) | sqlitebindtext(prepared, 3, lower(mention.label())) | sqlitebindint(prepared, 4, mention.span_start()) | sqlitebindint(prepared, 5, mention.span_end()) | sqlitebindint(prepared, 6, generation)
+      step = sqlitestep(prepared); call sqlitefinalize prepared
+      if binds \= 0 | step \= 101 then return _rollback(database, "insert provider mention", error)
+    end
+    decision_id = "decision-sha256:" || rxhash..sha256hex((mention.candidate_id() || "00"x || "provider-discovery-v1") as .binary)
+    prepared = .binary
+    sql = "INSERT OR IGNORE INTO candidate_decisions(decision_id,candidate_id,decision_version,state,evidence_json,provider_run_id,policy_version,created_at) VALUES(?1,?2,1,'accepted',?3,?4,'provider-discovery-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+    if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "prepare provider mention decision", error)
+    evidence = '{"source":"validated-provider","concept_type":' || jsonquote(mention.concept_type()) || '}'
+    binds = sqlitebindtext(prepared, 1, decision_id) | sqlitebindtext(prepared, 2, mention.candidate_id()) | sqlitebindtext(prepared, 3, evidence) | sqlitebindtext(prepared, 4, provider_run_id)
+    step = sqlitestep(prepared); call sqlitefinalize prepared
+    if binds \= 0 | step \= 101 then return _rollback(database, "insert provider mention decision", error)
+  end
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "commit provider mention census", error)
+  return 0
+
+_completebatchattempt: procedure = .int
+  arg store = .ragstorehandle, claim = .ragworkclaim, notes = .ragworknote[], revision_chunk_id = .string, provider_run_id = .string, mention_count = .int, proposal_count = .int, dispositions = .string, expose error = .string
+  database = store.database()
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider batch completion"; return -1; end
+  if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale during batch completion", error)
+  generation = _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1")
+  do i = 1 to notes.0
+    note = notes[i]
+    note_id = "note-sha256:" || rxhash..sha256hex((claim.input_hash() || "00"x || note.kind() || "00"x || note.text() || "00"x || note.span_start() || "00"x || note.span_end()) as .binary)
+    prepared = .binary
+    sql = "INSERT OR IGNORE INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,provider_run_id,author,created_generation,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,'active',?7,?8,'cognitive-provider',?9,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+    if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "prepare analysis note", error)
+    grounding = '{"revision_chunk_id":' || jsonquote(revision_chunk_id) || ',"span_start":' || note.span_start() || ',"span_end":' || note.span_end() || '}'
+    binds = sqlitebindtext(prepared, 1, note_id) | sqlitebindtext(prepared, 2, note.kind()) | sqlitebindtext(prepared, 3, note.text()) | sqlitebindint(prepared, 4, note.importance()) | sqlitebindint(prepared, 5, note.uncertainty()) | sqlitebindtext(prepared, 6, note.next_action()) | sqlitebindtext(prepared, 7, grounding) | sqlitebindtext(prepared, 8, provider_run_id) | sqlitebindint(prepared, 9, generation)
+    step = sqlitestep(prepared); call sqlitefinalize prepared
+    if binds \= 0 | step \= 101 then return _rollback(database, "insert analysis note", error)
+    link_id = "note-link-sha256:" || rxhash..sha256hex((note_id || "00"x || "chunk" || "00"x || revision_chunk_id || "00"x || note.span_start() || "00"x || note.span_end()) as .binary)
+    sql = "INSERT OR IGNORE INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES(" || _q(link_id) || "," || _q(note_id) || ",'chunk'," || _q(revision_chunk_id) || "," || _q(revision_chunk_id) || "," || note.span_start() || "," || note.span_end() || ")"
+    if sqliteexec(database, sql) \= 0 then return _rollback(database, "link analysis note", error)
+  end
+  output = '{"mentions":' || mention_count || ',"relationships":' || proposal_count || ',"notes":' || notes.0 || ',"dispositions":' || jsonquote(dispositions) || '}'
+  output_hash = rxhash..sha256hex(output as .binary)
+  sql = "UPDATE attempts SET output_hash=" || _q(output_hash) || ",provider_run_id=" || _q(provider_run_id) || ",validation_state='validated-discovery-batch',outcome='succeeded',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE attempt_id=" || _q(claim.attempt_id()) || " AND outcome='running'"
+  if sqliteexec(database, sql) \= 0 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "complete provider batch attempt", error)
+  sql = "UPDATE job_items SET state='processed',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=" || _q(claim.item_id()) || " AND worker_id=" || _q(claim.worker_id()) || " AND fence=" || claim.fence() || " AND state='running'"
+  if sqliteexec(database, sql) \= 0 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "complete provider batch item", error)
+  if _event(database, claim.job_id(), claim.item_id(), claim.attempt_id(), "processed", output) \= 0 | _refreshjob(database, claim.job_id()) \= 0 then return _rollback(database, "finish provider batch", error)
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "commit provider batch", error)
   return 0
 
 _reservationcaps: procedure = .int

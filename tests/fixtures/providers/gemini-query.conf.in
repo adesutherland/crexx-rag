@@ -44,5 +44,5 @@ worker.processes = 2
 worker.max_in_flight = 1
 worker.lease_seconds = 30
 
-schedule.manual-improvement.trigger = manual
-schedule.manual-improvement.enabled = true
+schedule.manual-maintenance.trigger = manual
+schedule.manual-maintenance.enabled = true

@@ -690,7 +690,7 @@ verifyragstore: procedure = .int
     issues = issues + 1
     summary = _addissue(summary, "embedding-dimensions")
   end
-  sidecar_sql = "SELECT count(*) FROM vector_generations v LEFT JOIN published_generations g ON g.generation=v.semantic_generation LEFT JOIN embedding_profiles p ON p.embedding_profile_id=v.embedding_profile_id WHERE v.state NOT IN('published','superseded') OR g.generation IS NULL OR p.embedding_profile_id IS NULL OR length(v.sidecar_checksum)<>64 OR v.sidecar_checksum GLOB '*[^0-9a-f]*' OR v.sidecar_name='' OR instr(v.sidecar_name,'/')>0 OR instr(v.sidecar_name,char(92))>0 OR (v.state='published' AND v.published_at IS NULL)"
+  sidecar_sql = "SELECT count(*) FROM vector_generations v LEFT JOIN published_generations g ON g.generation=v.semantic_generation LEFT JOIN embedding_profiles p ON p.embedding_profile_id=v.embedding_profile_id WHERE v.state NOT IN('published','superseded') OR v.algorithm<>'ivf-flat-v1' OR v.row_count<1 OR v.centroid_count<1 OR v.centroid_count>v.row_count OR v.probe_count<1 OR v.probe_count>v.centroid_count OR g.generation IS NULL OR p.embedding_profile_id IS NULL OR length(v.sidecar_checksum)<>64 OR v.sidecar_checksum GLOB '*[^0-9a-f]*' OR v.sidecar_name='' OR instr(v.sidecar_name,'/')>0 OR instr(v.sidecar_name,char(92))>0 OR (v.state='published' AND v.published_at IS NULL)"
   if _scalarint(store.database(), sidecar_sql, error) \= 0 | _activesidecarfilesvalid(store.database(), generation, store.path(), error) \= 1 then do
     issues = issues + 1
     summary = _addissue(summary, "sidecars")
@@ -772,7 +772,7 @@ _sidecarprojection: procedure = .int
   arg database = .binary, generation = .int, expose projection = .string, expose error = .string
   projection = ""
   prepared = .binary
-  sql = "SELECT vector_generation_id,semantic_generation,embedding_profile_id,sidecar_name,sidecar_checksum,dimension FROM vector_generations WHERE state='published' AND semantic_generation=?1 ORDER BY embedding_profile_id,vector_generation_id"
+  sql = "SELECT vector_generation_id,semantic_generation,embedding_profile_id,sidecar_name,sidecar_checksum,dimension,algorithm,row_count,centroid_count,probe_count FROM vector_generations WHERE state='published' AND semantic_generation=?1 ORDER BY embedding_profile_id,vector_generation_id"
   if sqliteprepare(database, sql, prepared) \= 0 then return _sqlitefailure("prepare sidecar projection", error)
   call sqlitebindint prepared, 1, generation
   do forever
@@ -782,19 +782,23 @@ _sidecarprojection: procedure = .int
       call sqlitefinalize prepared
       return _sqlitefailure("step sidecar projection", error)
     end
-    vector_generation_id = ""; semantic_generation = 0; embedding_profile_id = ""; sidecar_name = ""; sidecar_checksum = ""; dimension = 0
+    vector_generation_id = ""; semantic_generation = 0; embedding_profile_id = ""; sidecar_name = ""; sidecar_checksum = ""; dimension = 0; algorithm = ""; row_count = 0; centroid_count = 0; probe_count = 0
     column_status = sqlitecolumntext(prepared, 0, vector_generation_id)
     column_status = column_status | sqlitecolumnint(prepared, 1, semantic_generation)
     column_status = column_status | sqlitecolumntext(prepared, 2, embedding_profile_id)
     column_status = column_status | sqlitecolumntext(prepared, 3, sidecar_name)
     column_status = column_status | sqlitecolumntext(prepared, 4, sidecar_checksum)
     column_status = column_status | sqlitecolumnint(prepared, 5, dimension)
+    column_status = column_status | sqlitecolumntext(prepared, 6, algorithm)
+    column_status = column_status | sqlitecolumnint(prepared, 7, row_count)
+    column_status = column_status | sqlitecolumnint(prepared, 8, centroid_count)
+    column_status = column_status | sqlitecolumnint(prepared, 9, probe_count)
     if column_status \= 0 then do
       call sqlitefinalize prepared
       return _sqlitefailure("read sidecar projection", error)
     end
     if projection \= "" then projection = projection || ","
-    projection = projection || "{" || jsonquote("vector_generation_id") || ":" || jsonquote(vector_generation_id) || "," || jsonquote("semantic_generation") || ":" || semantic_generation || "," || jsonquote("embedding_profile_id") || ":" || jsonquote(embedding_profile_id) || "," || jsonquote("name") || ":" || jsonquote(sidecar_name) || "," || jsonquote("sha256") || ":" || jsonquote(sidecar_checksum) || "," || jsonquote("dimension") || ":" || dimension || "}"
+    projection = projection || "{" || jsonquote("vector_generation_id") || ":" || jsonquote(vector_generation_id) || "," || jsonquote("semantic_generation") || ":" || semantic_generation || "," || jsonquote("embedding_profile_id") || ":" || jsonquote(embedding_profile_id) || "," || jsonquote("name") || ":" || jsonquote(sidecar_name) || "," || jsonquote("sha256") || ":" || jsonquote(sidecar_checksum) || "," || jsonquote("dimension") || ":" || dimension || "," || jsonquote("algorithm") || ":" || jsonquote(algorithm) || "," || jsonquote("row_count") || ":" || row_count || "," || jsonquote("centroid_count") || ":" || centroid_count || "," || jsonquote("probe_count") || ":" || probe_count || "}"
   end
   call sqlitefinalize prepared
   return 0
@@ -806,10 +810,10 @@ _manifestsidecarstate: procedure = .int
   if database_count < 0 then return -1
   do i = 1 to manifest_count
     item = document.element(sidecars, i)
-    vector_generation_id = ""; semantic_generation = 0; embedding_profile_id = ""; sidecar_name = ""; sidecar_checksum = ""; dimension = 0
-    if document.node_type(item) \= "object" | document.node_string(document.member(item, "vector_generation_id"), vector_generation_id) \= 0 | document.node_int(document.member(item, "semantic_generation"), semantic_generation) \= 0 | document.node_string(document.member(item, "embedding_profile_id"), embedding_profile_id) \= 0 | document.node_string(document.member(item, "name"), sidecar_name) \= 0 | document.node_string(document.member(item, "sha256"), sidecar_checksum) \= 0 | document.node_int(document.member(item, "dimension"), dimension) \= 0 then return -1
-    if semantic_generation \= generation | dimension < 1 | _safesidecarname(sidecar_name) \= 1 | _validsha256(sidecar_checksum) \= 1 | rxfs..isfile(path || "/" || sidecar_name) \= 1 then return -1
-    sql = "SELECT count(*) FROM vector_generations WHERE state='published' AND vector_generation_id=" || _sqlquote(vector_generation_id) || " AND semantic_generation=" || semantic_generation || " AND embedding_profile_id=" || _sqlquote(embedding_profile_id) || " AND sidecar_name=" || _sqlquote(sidecar_name) || " AND sidecar_checksum=" || _sqlquote(sidecar_checksum) || " AND dimension=" || dimension
+    vector_generation_id = ""; semantic_generation = 0; embedding_profile_id = ""; sidecar_name = ""; sidecar_checksum = ""; dimension = 0; algorithm = ""; row_count = 0; centroid_count = 0; probe_count = 0
+    if document.node_type(item) \= "object" | document.node_string(document.member(item, "vector_generation_id"), vector_generation_id) \= 0 | document.node_int(document.member(item, "semantic_generation"), semantic_generation) \= 0 | document.node_string(document.member(item, "embedding_profile_id"), embedding_profile_id) \= 0 | document.node_string(document.member(item, "name"), sidecar_name) \= 0 | document.node_string(document.member(item, "sha256"), sidecar_checksum) \= 0 | document.node_int(document.member(item, "dimension"), dimension) \= 0 | document.node_string(document.member(item, "algorithm"), algorithm) \= 0 | document.node_int(document.member(item, "row_count"), row_count) \= 0 | document.node_int(document.member(item, "centroid_count"), centroid_count) \= 0 | document.node_int(document.member(item, "probe_count"), probe_count) \= 0 then return -1
+    if semantic_generation \= generation | dimension < 1 | algorithm \= "ivf-flat-v1" | row_count < 1 | centroid_count < 1 | centroid_count > row_count | probe_count < 1 | probe_count > centroid_count | _safesidecarname(sidecar_name) \= 1 | _validsha256(sidecar_checksum) \= 1 | rxfs..isfile(path || "/" || sidecar_name) \= 1 then return -1
+    sql = "SELECT count(*) FROM vector_generations WHERE state='published' AND vector_generation_id=" || _sqlquote(vector_generation_id) || " AND semantic_generation=" || semantic_generation || " AND embedding_profile_id=" || _sqlquote(embedding_profile_id) || " AND sidecar_name=" || _sqlquote(sidecar_name) || " AND sidecar_checksum=" || _sqlquote(sidecar_checksum) || " AND dimension=" || dimension || " AND algorithm=" || _sqlquote(algorithm) || " AND row_count=" || row_count || " AND centroid_count=" || centroid_count || " AND probe_count=" || probe_count
     if _scalarint(database, sql, error) \= 1 then return -1
   end
   if manifest_count = database_count then return 1

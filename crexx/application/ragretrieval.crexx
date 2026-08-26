@@ -1,17 +1,19 @@
 options levelg
 
-namespace ragretrieval expose ragretrievaloptions ragretrievalresult retrieveevidence resolvecitation
+namespace ragretrieval expose ragretrievaloptions ragretrievalresult retrieveevidence resolvecitation recordquerygaps
 
 import rxfnsb
 import rxfnsg
 import rxhash
 import rxvector
+import rxjson
 import sqlite_boundary
 import ragstore
 import ragprofile
 import ragmodel
 import ragevidence
 import ragquery
+import ragfile
 
 ragretrievaloptions: class
   _policy_version = .string
@@ -25,9 +27,10 @@ ragretrievaloptions: class
   _claim_limit = .int
   _lead_limit = .int
   _rrf_k = .int
+  _graph_direction = .string
 
   *: factory
-    arg policy_version = "retrieval-v1", embedding_profile_id = "", query_vector = .binary, lexical_limit = 24, vector_limit = 12, vector_scan_limit = 100000, graph_hops = 2, passage_limit = 12, claim_limit = 8, lead_limit = 8, rrf_k = 60
+    arg policy_version = "retrieval-v1", embedding_profile_id = "", query_vector = .binary, lexical_limit = 24, vector_limit = 12, vector_scan_limit = 100000, graph_hops = 2, passage_limit = 12, claim_limit = 8, lead_limit = 8, rrf_k = 60, graph_direction = "both"
     _policy_version = policy_version
     _embedding_profile_id = embedding_profile_id
     _query_vector = query_vector
@@ -39,6 +42,7 @@ ragretrievaloptions: class
     _claim_limit = claim_limit
     _lead_limit = lead_limit
     _rrf_k = rrf_k
+    _graph_direction = graph_direction
     return
 
   policy_version: method = .string
@@ -63,6 +67,8 @@ ragretrievaloptions: class
     return _lead_limit
   rrf_k: method = .int
     return _rrf_k
+  graph_direction: method = .string
+    return _graph_direction
 
 ragretrievalresult: class
   _status = .int
@@ -119,7 +125,7 @@ retrieveevidence: procedure = .int
     vector_status = _vector(store, generation, retrieval_options, candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values, vector_state, trace_notes, error)
     if vector_status < 0 then return -3
   end
-  if _graph(store.database(), generation, query_plan, retrieval_options.graph_hops(), candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values, claim_ids, claim_hops, trace_notes, error) \= 0 then return -3
+  if _graph(store.database(), generation, query_plan, retrieval_options.graph_hops(), retrieval_options.graph_direction(), candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values, claim_ids, claim_hops, trace_notes, error) \= 0 then return -3
 
   passages = .ragpassage[]; selected_ids = .string[]; selected_sources = .string[]; selected_contents = .string[]
   scores = .float[]
@@ -130,6 +136,8 @@ retrieveevidence: procedure = .int
   if _retrievedambiguities(store.database(), generation, selected_ids, ambiguities, error) \= 0 then return -3
   leads = .raggraphlead[]
   if _leads(store.database(), generation, selected_ids, claim_ids, retrieval_options.lead_limit(), leads, error) \= 0 then return -3
+  analysis_notes = .raganalysisnote[]
+  if _analysisnotes(store.database(), library_id, generation, selected_ids, 8, analysis_notes, error) \= 0 then return -3
   gaps = .string[]
   call _gaps(query_plan, passages, claims, ambiguities, vector_state, gaps)
   plan_strings = .string[]; variants = query_plan.variants()
@@ -139,12 +147,41 @@ retrieveevidence: procedure = .int
   trace_identity = rxhash..sha256hex(("crexx-rag.retrieval-trace/1" || "00"x || library_id || "00"x || generation || "00"x || query_plan.fingerprint() || "00"x || _join(selected_ids)) as .binary)
   trace_notes[trace_notes.0 + 1] = "policy=" || retrieval_options.policy_version()
   trace_notes[trace_notes.0 + 1] = "vector=" || vector_state
-  trace_notes[trace_notes.0 + 1] = "candidates=" || candidate_ids.0 || ";selected=" || passages.0 || ";claims=" || claims.0 || ";leads=" || leads.0
+  trace_notes[trace_notes.0 + 1] = "candidates=" || candidate_ids.0 || ";selected=" || passages.0 || ";claims=" || claims.0 || ";leads=" || leads.0 || ";analysis-notes=" || analysis_notes.0
   trace_record = .ragtrace("trace-" || substr(trace_identity, 1, 24), plan_strings, trace_notes)
   guidance = "Answer only from passages and accepted claim support; preserve attribution, stance, time, ambiguity, conflict, leads, and explicit gaps."
-  evidence = .ragevidence("crexx-rag.evidence/1", library_id, generation, question, plan_strings, passages, claims, ambiguities, leads, gaps, trace_record, guidance, "")
+  evidence = .ragevidence("crexx-rag.evidence/1", library_id, generation, question, plan_strings, passages, claims, ambiguities, leads, analysis_notes, gaps, trace_record, guidance, "")
   result = .ragretrievalresult(0, "complete", evidence, candidate_ids.0, vector_state, "")
   return 0
+
+recordquerygaps: procedure = .int
+  arg store = .ragstorehandle, evidence = .ragevidence, expose recorded = .int, expose error = .string
+  recorded = 0; error = ""
+  if store.writable() \= 1 | evidence.schema_version() \= "crexx-rag.evidence/1" | evidence.active_generation() < 1 then do; error = "query-gap recording input is invalid"; return -1; end
+  gaps = evidence.gaps()
+  if gaps.0 = 0 then return 0
+  normalized_question = lower(strip(evidence.original_question()))
+  question_hash = rxhash..sha256hex(normalized_question as .binary)
+  trace_id = evidence.trace().trace_id(); database = store.database()
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin query-gap recording"; return -3; end
+  do i = 1 to gaps.0
+    gap_id = "gap-sha256:" || rxhash..sha256hex((question_hash || "00"x || gaps[i] || "00"x || evidence.active_generation()) as .binary)
+    prepared = .binary
+    sql = "INSERT INTO query_gaps(gap_id,question_hash,normalized_question,gap_text,trace_id,observed_generation,occurrence_count,state,first_observed_at,last_observed_at) VALUES(?1,?2,?3,?4,?5,?6,1,'open',strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')) ON CONFLICT(question_hash,gap_text,observed_generation) DO UPDATE SET occurrence_count=occurrence_count+1,trace_id=excluded.trace_id,last_observed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='open'"
+    if sqliteprepare(database, sql, prepared) \= 0 then return _querygaprollback(database, "cannot prepare query-gap recording", error)
+    binds = sqlitebindtext(prepared, 1, gap_id) | sqlitebindtext(prepared, 2, question_hash) | sqlitebindtext(prepared, 3, normalized_question) | sqlitebindtext(prepared, 4, gaps[i]) | sqlitebindtext(prepared, 5, trace_id) | sqlitebindint(prepared, 6, evidence.active_generation())
+    step_status = sqlitestep(prepared); call sqlitefinalize prepared
+    if binds \= 0 | step_status \= 101 then return _querygaprollback(database, "cannot persist query gap", error)
+    recorded = recorded + 1
+  end
+  if sqliteexec(database, "COMMIT") \= 0 then return _querygaprollback(database, "cannot commit query-gap recording", error)
+  return 0
+
+_querygaprollback: procedure = .int
+  arg database = .binary, message = .string, expose error = .string
+  call sqliteexec database, "ROLLBACK"
+  error = message
+  return -3
 
 resolvecitation: procedure = .int
   arg store = .ragstorehandle, citation = .ragcitation, expose passage = .ragpassage, expose error = .string
@@ -226,34 +263,69 @@ _vector: procedure = .int
   if dimension < 1 | binlength(query_wire) \= dimension * 4 then do; vector_state = "fallback-query-dimension"; trace_notes[trace_notes.0 + 1] = "vector-fallback=query-dimension"; return 0; end
   store_status = .ragstorestatus; status_error = ""
   if storagestatus(store, store_status, status_error) \= 0 | store_status.manifest_state() \= "aligned" then do; vector_state = "fallback-manifest"; trace_notes[trace_notes.0 + 1] = "vector-fallback=manifest"; return 0; end
-  sidecar_count = _scalarint(store.database(), "SELECT count(*) FROM vector_generations WHERE state='published' AND semantic_generation=" || generation || " AND embedding_profile_id=" || _q(profile_id) || " AND dimension=" || dimension || " AND sidecar_name LIKE '%.rxvec'")
-  if sidecar_count \= 1 then do; vector_state = "fallback-stale-or-missing-generation"; trace_notes[trace_notes.0 + 1] = "vector-fallback=stale-or-missing-generation"; return 0; end
-  total_rows = _scalarint(store.database(), "SELECT count(*) FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE e.embedding_profile_id=" || _q(profile_id) || " AND e.dimension=" || dimension || " AND rce.visible_from_generation<=" || generation || " AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>" || generation || ") AND rc.visible_from_generation<=" || generation || " AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>" || generation || ")")
-  if total_rows < 1 | total_rows > retrieval_options.vector_scan_limit() then do; vector_state = "fallback-scan-ceiling"; trace_notes[trace_notes.0 + 1] = "vector-fallback=scan-ceiling"; return 0; end
+  prepared = .binary
+  sql = "SELECT sidecar_name,sidecar_checksum,row_count,centroid_count,probe_count FROM vector_generations WHERE state='published' AND algorithm='ivf-flat-v1' AND semantic_generation=?1 AND embedding_profile_id=?2 AND dimension=?3"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 | sqlitebindtext(prepared, 2, profile_id) \= 0 | sqlitebindint(prepared, 3, dimension) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare ANN generation lookup"; return -1; end
+  if sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; vector_state = "fallback-stale-or-missing-generation"; trace_notes[trace_notes.0 + 1] = "vector-fallback=stale-or-missing-generation"; return 0; end
+  sidecar_name = ""; sidecar_checksum = ""; total_rows = 0; centroid_count = 0; probe_count = 0
+  column_status = sqlitecolumntext(prepared, 0, sidecar_name) | sqlitecolumntext(prepared, 1, sidecar_checksum) | sqlitecolumnint(prepared, 2, total_rows) | sqlitecolumnint(prepared, 3, centroid_count) | sqlitecolumnint(prepared, 4, probe_count)
+  if column_status \= 0 | sqlitestep(prepared) \= 101 then do; call sqlitefinalize prepared; error = "ANN generation identity is ambiguous or invalid"; return -1; end
+  call sqlitefinalize prepared
+  raw = .binary; byte_count = 0
+  if ragfile..readbinaryfilebounded(store.path() || "/" || sidecar_name, 67108864, raw, byte_count, error) \= 0 | rxhash..sha256hex(raw) \= sidecar_checksum then do; vector_state = "fallback-invalid-ann-sidecar"; trace_notes[trace_notes.0 + 1] = "vector-fallback=invalid-ann-sidecar"; error = ""; return 0; end
+  document = .jsondocument(raw as .string)
+  if document.valid() \= 1 | document.node_type(document.root()) \= "object" | document.node_count(document.root()) \= 12 then do; error = "ANN sidecar schema is invalid"; return -1; end
+  root = document.root(); schema = ""; algorithm = ""; codec = ""; storage = ""; side_profile = ""; centroid_hex = ""
+  side_generation = 0; side_dimension = 0; side_rows = 0; side_centroids = 0; side_probes = 0
+  if document.node_string(document.member(root, "schema"), schema) \= 0 | document.node_string(document.member(root, "algorithm"), algorithm) \= 0 | document.node_string(document.member(root, "codec"), codec) \= 0 | document.node_string(document.member(root, "storage"), storage) \= 0 | document.node_int(document.member(root, "semantic_generation"), side_generation) \= 0 | document.node_string(document.member(root, "embedding_profile_id"), side_profile) \= 0 | document.node_int(document.member(root, "dimension"), side_dimension) \= 0 | document.node_int(document.member(root, "row_count"), side_rows) \= 0 | document.node_int(document.member(root, "centroid_count"), side_centroids) \= 0 | document.node_int(document.member(root, "probe_count"), side_probes) \= 0 | document.node_string(document.member(root, "centroids_f32le"), centroid_hex) \= 0 then do; error = "ANN sidecar fields are invalid"; return -1; end
+  clusters_node = document.member(root, "clusters")
+  if schema \= "crexx-rag.rxvector-ann/1" | algorithm \= "ivf-flat-v1" | codec \= "f32le-v1" | storage \= "sqlite-embedding-blobs" | side_generation \= generation | side_profile \= profile_id | side_dimension \= dimension | side_rows \= total_rows | side_centroids \= centroid_count | side_probes \= probe_count | length(centroid_hex) \= centroid_count * dimension * 8 | document.node_type(clusters_node) \= "array" | document.node_count(clusters_node) \= centroid_count then do; error = "ANN sidecar does not match the active generation"; return -1; end
   query_vector = rxvector..decodef32le(query_wire)
-  offset = 0; page_size = 128; searched = 0
-  do while offset < total_rows
+  centroid_wire = .binary
+  if _hexwire(centroid_hex, centroid_wire) \= 0 then do; error = "ANN centroid encoding is invalid"; return -1; end
+  centroid_vectors = rxvector..decodef32le(centroid_wire); centroid_ids = .packedint(centroid_count)
+  do c = 0 to centroid_count - 1; call centroid_ids.set(c, c + 1); end
+  if query_vector.size() \= dimension | centroid_vectors.size() \= centroid_count * dimension | centroid_ids.size() \= centroid_count then do; error = "ANN centroid probe owner shapes are invalid: query=" || query_vector.size() || ", matrix=" || centroid_vectors.size() || ", identities=" || centroid_ids.size(); return -1; end
+  if _positivepackednorm(query_vector) \= 1 | _allrowspositive(centroid_vectors, centroid_count, dimension) \= 1 then do; error = "ANN centroid probe contains a zero-norm vector"; return -1; end
+  probed_ids = .packedint(0); probe_scores = .packedfloat(0)
+  call rxvector..topkcosine(centroid_vectors, centroid_ids, dimension, query_vector, probe_count, probed_ids, probe_scores)
+  member_ids = .string[]
+  do p = 0 to probed_ids.size() - 1
+    cluster_number = probed_ids.get(p); cluster_node = document.element(clusters_node, cluster_number); encoded_cluster = 0
+    members_node = document.member(cluster_node, "members")
+    if document.node_type(cluster_node) \= "object" | document.node_count(cluster_node) \= 2 | document.node_int(document.member(cluster_node, "cluster"), encoded_cluster) \= 0 | encoded_cluster \= cluster_number | document.node_type(members_node) \= "array" then do; error = "ANN cluster is invalid"; return -1; end
+    do m = 1 to document.node_count(members_node)
+      member = document.element(members_node, m); chunk_id = ""; input_digest = ""
+      if document.node_type(member) \= "object" | document.node_count(member) \= 2 | document.node_string(document.member(member, "revision_chunk_id"), chunk_id) \= 0 | document.node_string(document.member(member, "input_digest"), input_digest) \= 0 | chunk_id = "" | length(input_digest) \= 64 then do; error = "ANN cluster member is invalid"; return -1; end
+      if _contains(member_ids, chunk_id) = 0 then member_ids[member_ids.0 + 1] = chunk_id
+      if member_ids.0 > retrieval_options.vector_scan_limit() then do; vector_state = "fallback-ann-candidate-ceiling"; trace_notes[trace_notes.0 + 1] = "vector-fallback=ann-candidate-ceiling"; return 0; end
+    end
+  end
+  if member_ids.0 < 1 then do; error = "ANN probes selected no members"; return -1; end
+  page_size = 128; offset = 1; searched = 0
+  do while offset <= member_ids.0
     prepared = .binary
-    sql = "SELECT rc.revision_chunk_id,e.vector FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE e.embedding_profile_id=?1 AND e.dimension=?2 AND rce.visible_from_generation<=?3 AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>?3) AND rc.visible_from_generation<=?3 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?3) ORDER BY rc.revision_chunk_id LIMIT ?4 OFFSET ?5"
-    if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindtext(prepared, 1, profile_id) \= 0 | sqlitebindint(prepared, 2, dimension) \= 0 | sqlitebindint(prepared, 3, generation) \= 0 | sqlitebindint(prepared, 4, page_size) \= 0 | sqlitebindint(prepared, 5, offset) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare vector page"; return -1; end
     page_wire = .binary; page_ids = .string[]; page_owners = .packedint(page_size); page_rows = 0
-    do forever
-      step_status = sqlitestep(prepared)
-      if step_status = 101 then leave
-      if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read vector page"; return -1; end
-      chunk_id = ""; vector_wire = .binary
-      if sqlitecolumntext(prepared, 0, chunk_id) \= 0 | sqlitecolumnblob(prepared, 1, vector_wire) \= 0 | binlength(vector_wire) \= dimension * 4 then do; call sqlitefinalize prepared; error = "cannot decode compatible vector page"; return -1; end
+    do m = offset to member_ids.0
+      if page_rows >= page_size then leave
+      sql = "SELECT e.vector FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE rc.revision_chunk_id=?1 AND e.embedding_profile_id=?2 AND e.dimension=?3 AND rce.visible_from_generation<=?4 AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>?4) AND rc.visible_from_generation<=?4 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?4)"
+      if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindtext(prepared, 1, member_ids[m]) \= 0 | sqlitebindtext(prepared, 2, profile_id) \= 0 | sqlitebindint(prepared, 3, dimension) \= 0 | sqlitebindint(prepared, 4, generation) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "cannot resolve ANN member vector"; return -1; end
+      vector_wire = .binary
+      if sqlitecolumnblob(prepared, 0, vector_wire) \= 0 | binlength(vector_wire) \= dimension * 4 | sqlitestep(prepared) \= 101 then do; call sqlitefinalize prepared; error = "cannot decode unique ANN member vector"; return -1; end
+      call sqlitefinalize prepared
+      chunk_id = member_ids[m]
       page_ids[page_ids.0 + 1] = chunk_id
       call page_owners.set(page_rows, page_ids.0)
       call binappend page_wire, vector_wire
       page_rows = page_rows + 1
     end
-    call sqlitefinalize prepared
     if page_ids.0 = 0 then leave
     call page_owners.resize(page_rows)
     page_vectors = rxvector..decodef32le(page_wire)
     requested = retrieval_options.vector_limit()
     if requested > page_ids.0 then requested = page_ids.0
+    if page_vectors.size() \= page_rows * dimension | page_owners.size() \= page_rows then do; error = "ANN member page owner shapes are invalid: matrix=" || page_vectors.size() || ", identities=" || page_owners.size() || ", rows=" || page_rows; return -1; end
+    if _allrowspositive(page_vectors, page_rows, dimension) \= 1 then do; error = "ANN member page contains a zero-norm vector"; return -1; end
     result_ids = .packedint(0); result_scores = .packedfloat(0)
     call rxvector..topkcosine(page_vectors, page_owners, dimension, query_vector, requested, result_ids, result_scores)
     do i = 0 to result_ids.size() - 1
@@ -264,12 +336,44 @@ _vector: procedure = .int
     searched = searched + page_ids.0; offset = offset + page_ids.0
   end
   call _rankvectors(candidate_ids, vector_ranks, vector_scores, retrieval_options.vector_limit())
-  vector_state = "active-exact-rxvector"
-  trace_notes[trace_notes.0 + 1] = "vector-rows=" || searched || ";dimension=" || dimension || ";backend=rxvector-exact"
+  vector_state = "active-ann-ivf-rxvector"
+  trace_notes[trace_notes.0 + 1] = "vector-candidates=" || searched || ";total-rows=" || total_rows || ";centroids=" || centroid_count || ";probes=" || probe_count || ";dimension=" || dimension || ";backend=rxvector-ivf-flat"
   return 0
 
+_hexwire: procedure = .int
+  arg hexadecimal = .string, expose wire = .binary
+  hexadecimal_length = length(hexadecimal)
+  if hexadecimal_length % 2 <> 0 then return -1
+  byte_count = hexadecimal_length / 2
+  call binresize wire, byte_count
+  do offset = 0 to byte_count - 1
+    byte_text = substr(hexadecimal, offset * 2 + 1, 2)
+    if verify(byte_text, "0123456789abcdef") \= 0 then return -1
+    <at..u8>(offset) wire = x2d(byte_text)
+  end
+  return 0
+
+_positivepackednorm: procedure = .int
+  arg vector = .packedfloat
+  norm_squared = 0.0
+  do i = 0 to vector.size() - 1
+    value = vector.get(i); norm_squared = norm_squared + value * value
+  end
+  return norm_squared > 0.0
+
+_allrowspositive: procedure = .int
+  arg vectors = .packedfloat, rows = .int, dimension = .int
+  do row = 0 to rows - 1
+    norm_squared = 0.0
+    do d = 0 to dimension - 1
+      value = vectors.get(row * dimension + d); norm_squared = norm_squared + value * value
+    end
+    if norm_squared <= 0.0 then return 0
+  end
+  return 1
+
 _graph: procedure = .int
-  arg database = .binary, generation = .int, plan = .ragqueryplan, maximum_hops = .int, expose candidate_ids = .string[], expose lexical_ranks = .int[], expose vector_ranks = .int[], expose graph_ranks = .int[], expose vector_scores = .float[], expose graph_hops = .int[], expose directness_values = .float[], expose claim_ids = .string[], expose claim_hops = .int[], expose trace_notes = .string[], expose error = .string
+  arg database = .binary, generation = .int, plan = .ragqueryplan, maximum_hops = .int, graph_direction = .string, expose candidate_ids = .string[], expose lexical_ranks = .int[], expose vector_ranks = .int[], expose graph_ranks = .int[], expose vector_scores = .float[], expose graph_hops = .int[], expose directness_values = .float[], expose claim_ids = .string[], expose claim_hops = .int[], expose trace_notes = .string[], expose error = .string
   anchors = .string[]
   if _anchors(database, generation, plan.normalized_question(), candidate_ids, anchors, error) \= 0 then return -1
   frontier = anchors; visited = .string[]; next_rank = 1
@@ -280,26 +384,28 @@ _graph: procedure = .int
       if _contains(visited, concept_id) = 1 then iterate
       visited[visited.0 + 1] = concept_id
       prepared = .binary
-      sql = "SELECT c.claim_id,c.target_concept_id,s.revision_chunk_id,s.directness FROM claims c JOIN claim_support s ON s.claim_id=c.claim_id WHERE c.source_concept_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) AND s.visible_from_generation<=?2 AND (s.visible_to_generation IS NULL OR s.visible_to_generation>?2) ORDER BY c.claim_id,s.support_id"
+      if graph_direction = "outbound" then sql = "SELECT c.claim_id,c.target_concept_id,s.revision_chunk_id,s.directness FROM claims c JOIN claim_support s ON s.claim_id=c.claim_id WHERE c.source_concept_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) AND s.visible_from_generation<=?2 AND (s.visible_to_generation IS NULL OR s.visible_to_generation>?2) ORDER BY c.claim_id,s.support_id"
+      else if graph_direction = "inbound" then sql = "SELECT c.claim_id,c.source_concept_id,s.revision_chunk_id,s.directness FROM claims c JOIN claim_support s ON s.claim_id=c.claim_id WHERE c.target_concept_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) AND s.visible_from_generation<=?2 AND (s.visible_to_generation IS NULL OR s.visible_to_generation>?2) ORDER BY c.claim_id,s.support_id"
+      else sql = "SELECT c.claim_id,CASE WHEN c.source_concept_id=?1 THEN c.target_concept_id ELSE c.source_concept_id END,s.revision_chunk_id,s.directness FROM claims c JOIN claim_support s ON s.claim_id=c.claim_id WHERE (c.source_concept_id=?1 OR c.target_concept_id=?1) AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) AND s.visible_from_generation<=?2 AND (s.visible_to_generation IS NULL OR s.visible_to_generation>?2) ORDER BY c.claim_id,s.support_id"
       if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, concept_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare directed graph retrieval"; return -1; end
       do forever
         step_status = sqlitestep(prepared)
         if step_status = 101 then leave
         if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read directed graph retrieval"; return -1; end
-        claim_id = ""; target = ""; chunk_id = ""; directness = ""
-        if sqlitecolumntext(prepared, 0, claim_id) \= 0 | sqlitecolumntext(prepared, 1, target) \= 0 | sqlitecolumntext(prepared, 2, chunk_id) \= 0 | sqlitecolumntext(prepared, 3, directness) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode directed graph retrieval"; return -1; end
+        claim_id = ""; adjacent = ""; chunk_id = ""; directness = ""
+        if sqlitecolumntext(prepared, 0, claim_id) \= 0 | sqlitecolumntext(prepared, 1, adjacent) \= 0 | sqlitecolumntext(prepared, 2, chunk_id) \= 0 | sqlitecolumntext(prepared, 3, directness) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode directed graph retrieval"; return -1; end
         index = _candidate(chunk_id, candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values)
         if graph_ranks[index] = 0 then do; graph_ranks[index] = next_rank; next_rank = next_rank + 1; graph_hops[index] = hop; end
         if directness = "direct" then directness_values[index] = 1.0
         if _contains(claim_ids, claim_id) = 0 then do; claim_ids[claim_ids.0 + 1] = claim_id; claim_hops[claim_hops.0 + 1] = hop; end
-        if _contains(visited, target) = 0 & _contains(next_frontier, target) = 0 then next_frontier[next_frontier.0 + 1] = target
+        if _contains(visited, adjacent) = 0 & _contains(next_frontier, adjacent) = 0 then next_frontier[next_frontier.0 + 1] = adjacent
       end
       call sqlitefinalize prepared
     end
     frontier = next_frontier
     if frontier.0 = 0 then leave
   end
-  trace_notes[trace_notes.0 + 1] = "graph-anchors=" || anchors.0 || ";supported-claims=" || claim_ids.0 || ";directed=1"
+  trace_notes[trace_notes.0 + 1] = "graph-anchors=" || anchors.0 || ";supported-claims=" || claim_ids.0 || ";traversal=" || graph_direction || ";claims-preserve-stored-direction=1"
   return 0
 
 _rankandpassages: procedure = .int
@@ -451,6 +557,37 @@ _leads: procedure = .int
     end
     call sqlitefinalize prepared
     if labels.0 >= 2 then leads[leads.0 + 1] = .raggraphlead(labels, "co-mention passage worth inspecting", mentions, "co-mention and adjacency do not establish a typed relationship")
+  end
+  return 0
+
+_analysisnotes: procedure = .int
+  arg database = .binary, library_id = .string, generation = .int, selected_ids = .string[], maximum = .int, expose notes = .raganalysisnote[], expose error = .string
+  do i = 1 to selected_ids.0
+    if notes.0 >= maximum then leave
+    prepared = .binary
+    sql = "SELECT DISTINCT n.note_id,n.note_kind,n.text,n.importance,n.uncertainty,n.next_action,n.state,n.author,l.object_type,l.object_id,s.source_id,r.revision_id,rc.normalized_start,l.span_start,l.span_end FROM analysis_notes n JOIN analysis_note_links l ON l.note_id=n.note_id JOIN revision_chunks rc ON rc.revision_chunk_id=l.revision_chunk_id JOIN source_revisions r ON r.revision_id=rc.revision_id JOIN sources s ON s.source_id=r.source_id WHERE n.state='active' AND l.revision_chunk_id=?1 AND rc.visible_from_generation<=?2 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?2) ORDER BY n.importance DESC,n.note_id LIMIT ?3"
+    if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, selected_ids[i]) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 | sqlitebindint(prepared, 3, maximum) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare analysis-note retrieval"; return -1; end
+    do forever
+      step_status = sqlitestep(prepared)
+      if step_status = 101 then leave
+      if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read analysis notes"; return -1; end
+      note_id = ""; kind = ""; note_text = ""; next_action = ""; state = ""; author = ""; object_type = ""; object_id = ""; source_id = ""; revision_id = ""
+      importance = 0; uncertainty = 0; chunk_start = 0; span_start = 0; span_end = 0
+      columns = sqlitecolumntext(prepared, 0, note_id) | sqlitecolumntext(prepared, 1, kind) | sqlitecolumntext(prepared, 2, note_text) | sqlitecolumnint(prepared, 3, importance) | sqlitecolumnint(prepared, 4, uncertainty) | sqlitecolumntext(prepared, 5, next_action) | sqlitecolumntext(prepared, 6, state) | sqlitecolumntext(prepared, 7, author) | sqlitecolumntext(prepared, 8, object_type) | sqlitecolumntext(prepared, 9, object_id) | sqlitecolumntext(prepared, 10, source_id) | sqlitecolumntext(prepared, 11, revision_id) | sqlitecolumnint(prepared, 12, chunk_start) | sqlitecolumnint(prepared, 13, span_start) | sqlitecolumnint(prepared, 14, span_end)
+      if columns \= 0 | note_id = "" | span_end <= span_start then do; call sqlitefinalize prepared; error = "cannot decode grounded analysis note"; return -1; end
+      duplicate = 0
+      do n = 1 to notes.0
+        if notes[n].note_id() = note_id then duplicate = 1
+      end
+      if duplicate = 1 then iterate
+      links = .string[]; links[1] = object_type || ":" || object_id
+      citations = .ragcitation[]
+      absolute_start = chunk_start + span_start; absolute_end = chunk_start + span_end
+      citations[1] = .ragcitation(_stablecitation(library_id, source_id, revision_id, absolute_start, absolute_end), source_id, revision_id, absolute_start, absolute_end)
+      notes[notes.0 + 1] = .raganalysisnote(note_id, kind, note_text, importance / 1000000.0, uncertainty / 1000000.0, next_action, state, author, links, citations)
+      if notes.0 >= maximum then leave
+    end
+    call sqlitefinalize prepared
   end
   return 0
 
@@ -607,7 +744,7 @@ _stablecitation: procedure = .string
 
 _validoptions: procedure = .int
   arg retrieval_options = .ragretrievaloptions
-  return retrieval_options.policy_version() \= "" & retrieval_options.lexical_limit() >= 1 & retrieval_options.lexical_limit() <= 100 & retrieval_options.vector_limit() >= 1 & retrieval_options.vector_limit() <= 100 & retrieval_options.vector_scan_limit() >= retrieval_options.vector_limit() & retrieval_options.vector_scan_limit() <= 1000000 & retrieval_options.graph_hops() >= 0 & retrieval_options.graph_hops() <= 4 & retrieval_options.passage_limit() >= 1 & retrieval_options.passage_limit() <= 12 & retrieval_options.claim_limit() >= 0 & retrieval_options.claim_limit() <= 8 & retrieval_options.lead_limit() >= 0 & retrieval_options.lead_limit() <= 8 & retrieval_options.rrf_k() >= 1 & retrieval_options.rrf_k() <= 1000
+  return retrieval_options.policy_version() \= "" & retrieval_options.lexical_limit() >= 1 & retrieval_options.lexical_limit() <= 100 & retrieval_options.vector_limit() >= 1 & retrieval_options.vector_limit() <= 100 & retrieval_options.vector_scan_limit() >= retrieval_options.vector_limit() & retrieval_options.vector_scan_limit() <= 1000000 & retrieval_options.graph_hops() >= 0 & retrieval_options.graph_hops() <= 4 & retrieval_options.passage_limit() >= 1 & retrieval_options.passage_limit() <= 12 & retrieval_options.claim_limit() >= 0 & retrieval_options.claim_limit() <= 8 & retrieval_options.lead_limit() >= 0 & retrieval_options.lead_limit() <= 8 & retrieval_options.rrf_k() >= 1 & retrieval_options.rrf_k() <= 1000 & wordpos(retrieval_options.graph_direction(), "outbound inbound both") > 0
 
 _scalarint: procedure = .int
   arg database = .binary, sql = .string
@@ -631,6 +768,6 @@ _q: procedure = .string
 
 _emptyevidence: procedure = .ragevidence
   arg question = .string
-  query_plan = .string[]; passages = .ragpassage[]; claims = .ragacceptedclaim[]; ambiguities = .string[]; leads = .raggraphlead[]; gaps = .string[]; notes = .string[]
-  trace_record = .ragtrace("", query_plan, notes)
-  return .ragevidence("", "", 0, question, query_plan, passages, claims, ambiguities, leads, gaps, trace_record, "", "")
+  query_plan = .string[]; passages = .ragpassage[]; claims = .ragacceptedclaim[]; ambiguities = .string[]; leads = .raggraphlead[]; analysis_notes = .raganalysisnote[]; gaps = .string[]; trace_notes = .string[]
+  trace_record = .ragtrace("", query_plan, trace_notes)
+  return .ragevidence("", "", 0, question, query_plan, passages, claims, ambiguities, leads, analysis_notes, gaps, trace_record, "", "")

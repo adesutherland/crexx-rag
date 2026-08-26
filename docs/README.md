@@ -7,8 +7,10 @@
   proposals, and recovery.
 - [Agent and LLM integration](agent-integration.md): Codex provider use, MCP
   setup, skill discovery, permissions, and other agent hosts.
-- [Algorithm](algorithm.md): concept discovery, the three retrieval routes,
-  evidence fusion, improvement ranking, and agent-analysis handoff.
+- [Methodology and algorithms](algorithm.md): concept discovery, retrieval,
+  cognitive enrichment, maintenance worklists and gradual graph migration.
+- [Methodology closure checklist](methodology-closure.md): the definitive,
+  requirement-by-requirement implementation and executable-QA proof table.
 - [Test strategy](test-strategy.md): maintained regression matrix and live-call
   boundary.
 - [Integration issues](integration-issues.md): current CREXX/platform limits.

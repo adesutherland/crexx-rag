@@ -31,5 +31,5 @@ architecturelocalconfig: procedure = .ragconfig
   budget = .ragbudget(120, 1000, 200, 200000, 100000, 5000000)
   workers = .ragworkerpolicy(2, 1, 120)
   schedules = .ragschedule[]
-  schedules[1] = .ragschedule("manual-improvement", "manual", 1)
-  return .ragconfig("architecture-local", "1", source_sets, providers, roles, profile_ids, budget, workers, schedules)
+  schedules[1] = .ragschedule("manual-maintenance", "manual", 1)
+  return .ragconfig("architecture-local", "1", source_sets, providers, roles, profile_ids, budget, workers, schedules, .ragdiscoverypolicy(), .ragvectorpolicy())

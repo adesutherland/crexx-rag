@@ -4,6 +4,7 @@ namespace ragplanning expose ragplancontext createfoundationplan validatefoundat
 
 import rxfnsb
 import rxjson
+import rxhash
 import sqlite_boundary
 import ragmodel
 import ragconfig
@@ -325,20 +326,21 @@ _canonicalactionnode: procedure = .int
   arg document = .jsondocument, action_node = .int, operation = .string, config = .ragconfig, expose output = .string, expose error = .string
   output = ""; error = ""
   if operation = "ingest.apply" then do
-    source_set = ""
-    if document.node_count(action_node) \= 1 | document.node_string(document.member(action_node, "source_set"), source_set) \= 0 | validregistryid(source_set) \= 1 | _sourcesetexists(config, source_set) \= 1 then do
-      error = "ingest plan requires exactly one registered source_set"
+    source_set = ""; ingest_plan = ""; ingest_digest = ""
+    if document.node_count(action_node) \= 3 | document.node_string(document.member(action_node, "source_set"), source_set) \= 0 | document.node_string(document.member(action_node, "ingest_plan"), ingest_plan) \= 0 | document.node_string(document.member(action_node, "ingest_digest"), ingest_digest) \= 0 | validregistryid(source_set) \= 1 | _sourcesetexists(config, source_set) \= 1 | ingest_plan = "" | _validsha256(ingest_digest) \= 1 | rxhash..sha256hex(ingest_plan as .binary) \= ingest_digest then do
+      error = "ingest plan requires one registered source_set and one digest-bound domain plan"
       return -1
     end
-    output = "{" || jsonquote("source_set") || ":" || jsonquote(source_set) || "}"
+    output = "{" || jsonquote("source_set") || ":" || jsonquote(source_set) || "," || jsonquote("ingest_plan") || ":" || jsonquote(ingest_plan) || "," || jsonquote("ingest_digest") || ":" || jsonquote(ingest_digest) || "}"
     return 0
   end
-  if operation = "improve.apply" then do
-    if document.node_count(action_node) \= 0 then do
-      error = "improvement foundation plan action must be empty"
+  if operation = "maintain.apply" then do
+    maintenance_digest = ""
+    if document.node_count(action_node) \= 1 | document.node_string(document.member(action_node, "maintenance_digest"), maintenance_digest) \= 0 | _validsha256(maintenance_digest) \= 1 then do
+      error = "maintenance plan requires exactly one lowercase SHA-256 maintenance_digest"
       return -1
     end
-    output = "{}"
+    output = "{" || jsonquote("maintenance_digest") || ":" || jsonquote(maintenance_digest) || "}"
     return 0
   end
   if operation = "proposal.apply" then do
@@ -356,7 +358,7 @@ _canonicalactionnode: procedure = .int
 _validoperation: procedure = .int
   arg operation = .string, required_capability = .string
   if operation = "ingest.apply" then return required_capability = "ingest"
-  if operation = "improve.apply" | operation = "proposal.apply" then return required_capability = "curate"
+  if operation = "maintain.apply" | operation = "proposal.apply" then return required_capability = "curate"
   return 0
 
 _samecontext: procedure = .int

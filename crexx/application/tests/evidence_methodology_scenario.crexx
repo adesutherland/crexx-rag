@@ -1,0 +1,90 @@
+options levelg
+
+import rxfnsb
+import sqlite_boundary
+import ragstore
+import ragretrieval
+import ragevidencejson
+import generic_profile
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if condition then return 0
+  say "EVIDENCE_METHODOLOGY_FAIL=" || label
+  return 1
+
+scalarint: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary; value = -1
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value
+
+claimpresent: procedure = .int
+  arg claims = .ragacceptedclaim[], claim_id = .string
+  do i = 1 to claims.0
+    if claims[i].claim_id() = claim_id then return 1
+  end
+  return 0
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 \= 1 then return 2
+  path = args[1]; errors = 0; error = ""; store = .ragstorehandle
+  errors = errors + check(initragstore(path, "library-evidence-methodology", "snapshot-evidence", "evidence-methodology", "1", "generic-profile", "profile-hash", "config-hash", '{}', store, error) = 0, "initialize " || error)
+  if errors > 0 then return 1
+  database = store.database()
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES('artifact-evidence','raw-evidence','text/plain','utf-8',NULL,'fixture://evidence',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "artifact")
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('text-evidence','text-digest-evidence','Alpha links Beta.\nGamma links Alpha.','fixture-v1','utf8-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "revision text")
+  errors = errors + check(sqliteexec(database, "INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('source-evidence','fixture','evidence','revision-evidence','active','fixture://evidence','Evidence corpus',1)") = 0, "source")
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES('revision-evidence','source-evidence','revision-envelope-evidence','artifact-evidence','text-evidence','metadata-evidence','2026-01-01T00:00:00Z',1)") = 0, "revision")
+  errors = errors + check(sqliteexec(database, "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('content-out','digest-out','Alpha links Beta.','input-out'),('content-in','digest-in','Gamma links Alpha.','input-in')") = 0, "contents")
+  errors = errors + check(sqliteexec(database, "INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('chunk-out','revision-evidence',1,0,17,'content-out','continuity-out','fixture-v1','direct',1),('chunk-in','revision-evidence',2,18,36,'content-in','continuity-in','fixture-v1','direct',1)") = 0, "chunks")
+  /* FTS is deliberately empty: Alpha is a catalogue anchor, so the passages
+   * and claims below can only enter through the selected directed graph route. */
+  errors = errors + check(sqliteexec(database, "INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('concept-alpha','Alpha','concept','active',1),('concept-beta','Beta','concept','active',1),('concept-gamma','Gamma','concept','active',1)") = 0, "concepts")
+  errors = errors + check(sqliteexec(database, "INSERT INTO mentions(mention_id,concept_id,ambiguity_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('mention-alpha-out','concept-alpha',NULL,'chunk-out',0,5,1),('mention-beta','concept-beta',NULL,'chunk-out',12,16,1),('mention-gamma','concept-gamma',NULL,'chunk-in',0,5,1),('mention-alpha-in','concept-alpha',NULL,'chunk-in',12,17,1)") = 0, "mentions")
+  errors = errors + check(sqliteexec(database, "INSERT INTO claims(claim_id,source_concept_id,relationship_type,target_concept_id,direction,qualifiers_json,policy_version,visible_from_generation) VALUES('claim-alpha-beta','concept-alpha','related-to','concept-beta','outbound','{}','fixture-v1',1),('claim-gamma-alpha','concept-gamma','related-to','concept-alpha','outbound','{}','fixture-v1',1)") = 0, "claims")
+  errors = errors + check(sqliteexec(database, "INSERT INTO claim_support(support_id,claim_id,revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity,decision_id,visible_from_generation) VALUES('support-alpha-beta','claim-alpha-beta','chunk-out',0,17,'support','assertion','direct','','lineage-out','fixture',NULL,1),('support-gamma-alpha','claim-gamma-alpha','chunk-in',0,18,'support','assertion','direct','','lineage-in','fixture',NULL,1)") = 0, "supports")
+  errors = errors + check(sqliteexec(database, "INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) VALUES('note-alpha','insight','Alpha deserves further analysis',850000,250000,'Inspect corroborating passages','active','{}','fixture',1,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "analysis note")
+  errors = errors + check(sqliteexec(database, "INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES('link-alpha','note-alpha','chunk','chunk-out','chunk-out',0,5)") = 0, "analysis note link")
+  errors = errors + check(publishmanifest(store, error) = 0, "manifest " || error)
+  if errors > 0 then return 1
+
+  empty_wire = .binary
+  outbound_options = .ragretrievaloptions("evidence-methodology-v1", "", empty_wire, 8, 1, 1, 1, 8, 8, 8, 60, "outbound")
+  inbound_options = .ragretrievaloptions("evidence-methodology-v1", "", empty_wire, 8, 1, 1, 1, 8, 8, 8, 60, "inbound")
+  both_options = .ragretrievaloptions("evidence-methodology-v1", "", empty_wire, 8, 1, 1, 1, 8, 8, 8, 60, "both")
+  outbound = .ragretrievalresult; inbound = .ragretrievalresult; both = .ragretrievalresult
+  errors = errors + check(retrieveevidence(store, genericprofile(), "Alpha", outbound_options, outbound, error) = 0, "outbound retrieval " || error)
+  errors = errors + check(retrieveevidence(store, genericprofile(), "Alpha", inbound_options, inbound, error) = 0, "inbound retrieval " || error)
+  errors = errors + check(retrieveevidence(store, genericprofile(), "Alpha", both_options, both, error) = 0, "both retrieval " || error)
+  outbound_claims = .ragacceptedclaim[]; inbound_claims = .ragacceptedclaim[]; both_claims = .ragacceptedclaim[]
+  outbound_claims = outbound.evidence().claims(); inbound_claims = inbound.evidence().claims(); both_claims = both.evidence().claims()
+  errors = errors + check(outbound_claims.0 = 1 & claimpresent(outbound_claims, "claim-alpha-beta") = 1 & outbound_claims[1].subject() = "Alpha" & outbound_claims[1].object() = "Beta" & outbound_claims[1].direction() = "outbound", "outbound preserves stored Alpha-to-Beta direction")
+  errors = errors + check(inbound_claims.0 = 1 & claimpresent(inbound_claims, "claim-gamma-alpha") = 1 & inbound_claims[1].subject() = "Gamma" & inbound_claims[1].object() = "Alpha" & inbound_claims[1].direction() = "outbound", "inbound traversal returns stored Gamma-to-Alpha without inventing an inverse")
+  errors = errors + check(both_claims.0 = 2 & claimpresent(both_claims, "claim-alpha-beta") = 1 & claimpresent(both_claims, "claim-gamma-alpha") = 1, "both traversal returns exactly both stored claims")
+  leads = .raggraphlead[]; notes = .raganalysisnote[]
+  leads = outbound.evidence().leads(); notes = outbound.evidence().analysis_notes()
+  errors = errors + check(leads.0 >= 1 & leads[1].reason() = "co-mention passage worth inspecting" & pos("do not establish", leads[1].limitation()) > 0, "co-mention remains an explicit non-claim analysis lead")
+  note_citations = .ragcitation[]
+  if notes.0 = 1 then note_citations = notes[1].citations()
+  errors = errors + check(notes.0 = 1 & notes[1].note_id() = "note-alpha" & notes[1].kind() = "insight" & note_citations.0 = 1 & note_citations[1].span_start() = 0 & note_citations[1].span_end() = 5, "durable analysis note and exact citation retrieval")
+  encoded = ""; answer_context = ""
+  errors = errors + check(encodeevidence(outbound.evidence(), 65536, encoded, error) = 0 & pos('"analysis_notes":[{"note_id":"note-alpha"', encoded) > 0, "evidence serialization " || error)
+  errors = errors + check(encodeanswercontext(outbound.evidence(), 65536, answer_context, error) = 0 & pos('"factual_status":"analysis-only"', answer_context) > 0, "analysis-only answer context " || error)
+
+  missing = .ragretrievalresult
+  missing_status = retrieveevidence(store, genericprofile(), "What does Missing depend on?", both_options, missing, error)
+  missing_gaps = .string[]
+  if missing_status = 0 then missing_gaps = missing.evidence().gaps()
+  errors = errors + check(missing_status = 0 & missing_gaps.0 > 0, "gap-producing retrieval " || error)
+  recorded = 0
+  errors = errors + check(recordquerygaps(store, missing.evidence(), recorded, error) = 0 & recorded > 0, "first durable query gap " || error)
+  errors = errors + check(recordquerygaps(store, missing.evidence(), recorded, error) = 0 & recorded > 0, "repeated durable query gap " || error)
+  errors = errors + check(scalarint(database, "SELECT min(occurrence_count) FROM query_gaps WHERE normalized_question='what does missing depend on?'") = 2, "repeated gaps increment their deterministic occurrence census")
+  errors = errors + check(closeragstore(store, error) = 0, "close " || error)
+  if errors > 0 then return 1
+  say "EVIDENCE_METHODOLOGY_OK graph=outbound+inbound+both stored_direction=preserved inverse_claims=0 co_mentions=analysis-leads notes=durable+cited+analysis-only query_gaps=repeated"
+  return 0

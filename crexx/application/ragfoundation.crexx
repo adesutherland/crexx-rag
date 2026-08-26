@@ -28,8 +28,8 @@ dispatchfoundation: procedure = .ragcommandresult
   if operation = "provider.status" then return _providerstatus(request, registry)
   if operation = "provider.test" then return _providertest(request, registry)
   if operation = "profile.validate" then return _profilevalidate(request, registry)
-  if operation = "ingest.plan" | operation = "improve.plan" | operation = "proposal.plan" then return _plancreate(request, registry)
-  if operation = "ingest.apply" | operation = "improve.apply" | operation = "proposal.apply" then return _planapply(request, registry)
+  if operation = "ingest.plan" | operation = "proposal.plan" then return _plancreate(request, registry)
+  if operation = "ingest.apply" | operation = "proposal.apply" then return _planapply(request, registry)
   return _failure(operation, 8, "operation is not implemented by the product dispatcher")
 
 _doctor: procedure = .ragcommandresult
@@ -281,9 +281,6 @@ _plancreate: procedure = .ragcommandresult
   operation = request.operation(); error = ""; allowed = ""; apply_operation = ""; capability = ""; action = "{}"
   if operation = "ingest.plan" then do
     allowed = "source-set"; apply_operation = "ingest.apply"; capability = "ingest"
-  end
-  if operation = "improve.plan" then do
-    apply_operation = "improve.apply"; capability = "curate"
   end
   if operation = "proposal.plan" then do
     allowed = "input-digest"; apply_operation = "proposal.apply"; capability = "curate"

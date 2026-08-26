@@ -1,0 +1,76 @@
+options levelg
+
+import rxfnsb
+import sqlite_boundary
+import ragstore
+import ragimprove
+import ragmaintain
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if condition then return 0
+  say "MAINTENANCE_METHODOLOGY_FAIL=" || label
+  return 1
+
+contains: procedure = .int
+  arg values = .string[], expected = .string
+  do i = 1 to values.0
+    if values[i] = expected then return 1
+  end
+  return 0
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 \= 1 then return 2
+  path = args[1]; errors = 0; error = ""; store = .ragstorehandle
+  errors = errors + check(initragstore(path, "library-maintenance-methodology", "snapshot-maintenance", "maintenance-methodology", "1", "generic-profile", "profile-hash", "config-hash", '{}', store, error) = 0, "initialize " || error)
+  if errors > 0 then return 1
+  database = store.database()
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES('artifact-maintenance','raw-maintenance','text/plain','utf-8',NULL,'fixture://maintenance',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "artifact")
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('text-maintenance','text-digest-maintenance','Alpha links Beta. Sparse concept.','fixture-v1','utf8-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "revision text")
+  errors = errors + check(sqliteexec(database, "INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('source-maintenance','fixture','maintenance','revision-maintenance','active','fixture://maintenance','Maintenance corpus',1)") = 0, "source")
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES('revision-maintenance','source-maintenance','revision-envelope-maintenance','artifact-maintenance','text-maintenance','metadata-maintenance','2026-01-01T00:00:00Z',1)") = 0, "revision")
+  errors = errors + check(sqliteexec(database, "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('content-main','digest-main','Alpha links Beta.','input-main'),('content-sparse','digest-sparse','Sparse concept.','input-sparse')") = 0, "contents")
+  errors = errors + check(sqliteexec(database, "INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('chunk-main','revision-maintenance',1,0,17,'content-main','continuity-main','fixture-v1','direct',1),('chunk-sparse','revision-maintenance',2,18,33,'content-sparse','continuity-sparse','fixture-v1','direct',1)") = 0, "chunks")
+  errors = errors + check(sqliteexec(database, "INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('concept-alpha','Alpha','concept','active',1),('concept-beta','Beta','concept','active',1),('concept-gamma','Gamma','concept','active',1),('concept-sparse','Sparse','concept','active',1)") = 0, "concepts")
+  errors = errors + check(sqliteexec(database, "INSERT INTO claims(claim_id,source_concept_id,relationship_type,target_concept_id,direction,qualifiers_json,policy_version,visible_from_generation) VALUES('claim-alpha-beta','concept-alpha','related-to','concept-beta','outbound','{}','fixture-v1',1),('claim-alpha-gamma','concept-alpha','related-to','concept-gamma','outbound','{}','fixture-v1',1)") = 0, "claims")
+  errors = errors + check(sqliteexec(database, "INSERT INTO claim_support(support_id,claim_id,revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity,decision_id,visible_from_generation) VALUES('support-alpha-beta','claim-alpha-beta','chunk-main',0,17,'support','assertion','direct','','lineage-one','fixture',NULL,1),('support-alpha-gamma','claim-alpha-gamma','chunk-main',0,17,'support','assertion','direct','','lineage-two','fixture',NULL,1)") = 0, "supports")
+  errors = errors + check(sqliteexec(database, "INSERT INTO claim_conflicts(conflict_id,claim_id,competing_claim_id,review_state,visible_from_generation) VALUES('conflict-alpha','claim-alpha-beta','claim-alpha-gamma','pending',1)") = 0, "conflict")
+  errors = errors + check(sqliteexec(database, "INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) VALUES('note-lead','insight','Inspect Alpha linkage',820000,240000,'Inspect corroborating spans','active','{}','fixture',1,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),('note-question','question','Which Gamma sense applies?',740000,400000,'Collect disambiguating evidence','active','{}','fixture',1,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "notes")
+  errors = errors + check(sqliteexec(database, "INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES('link-lead','note-lead','chunk','chunk-main','chunk-main',0,5),('link-question','note-question','chunk','chunk-main','chunk-main',12,16)") = 0, "note links")
+  errors = errors + check(sqliteexec(database, "INSERT INTO query_gaps(gap_id,question_hash,normalized_question,gap_text,trace_id,observed_generation,occurrence_count,state,first_observed_at,last_observed_at) VALUES('gap-repeat','question-hash','what links gamma?','No supported directed claim answered the requested relationship.','trace-gap',1,3,'open',strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "query gap")
+  errors = errors + check(sqliteexec(database, "INSERT INTO embedding_profiles(embedding_profile_id,provider_id,model,dimension,input_envelope_fingerprint,created_at) VALUES('maintenance-profile','fixture-provider','fixture-model',2,'fixture-envelope',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "embedding profile")
+  errors = errors + check(publishmanifest(store, error) = 0, "manifest " || error)
+  if errors > 0 then return 1
+
+  triggers = .string[]; triggers[1] = "maintenance-priority"
+  chunks = .string[]; chunks[1] = "chunk-main"
+  contents = .string[]; contents[1] = "content-main"
+  hashes = .string[]; hashes[1] = "input-hash-main"
+  scores = .int[]; scores[1] = 2000
+  analysis = .ragimproveplan("crexx-rag.improve-plan/1", 1, "snapshot-maintenance", "fixture-policy", "fixture-prompt", triggers, 32, 1, 4096, 1024, 1000000, 60000, 4096, 1024, 1000000, 60000, 1, 1, "public", "fixture-provider", "", '{}', chunks, contents, hashes, scores, '{}', copies("a", 64))
+  census = .ragmaintenancecensus; replay = .ragmaintenancecensus
+  errors = errors + check(buildmaintenancecensus(store, analysis, "maintenance-profile", 32, census, error) = 0, "build census " || error)
+  errors = errors + check(buildmaintenancecensus(store, analysis, "maintenance-profile", 32, replay, error) = 0 & replay.canonical() = census.canonical() & replay.digest() = census.digest(), "deterministic census replay " || error)
+  types = census.item_types()
+  errors = errors + check(contains(types, "concept-review") = 1 & contains(types, "claim-conflict") = 1 & contains(types, "sparse-node") = 1 & contains(types, "analysis-lead") = 1 & contains(types, "query-gap") = 1 & contains(types, "stale-embedding") = 1 & contains(types, "vector-publication") = 1, "complete automatic maintenance inventory")
+  scores_out = census.scores(); ordered = 1
+  do i = 2 to scores_out.0
+    if scores_out[i] > scores_out[i - 1] then ordered = 0
+  end
+  errors = errors + check(census.item_count() <= 32 & ordered = 1 & length(census.digest()) = 64, "bounded deterministic rank order and digest")
+
+  no_job = .ragimproveapplyresult(0, "identical-no-op", "", 0, 0, 0, "")
+  first_apply = .ragmaintenanceapplyresult; replay_apply = .ragmaintenanceapplyresult
+  errors = errors + check(persistmaintenance(store, census, analysis, no_job, "reviewed", first_apply, error) = 0 & first_apply.disposition() = "applied", "persist reviewed worklist " || error)
+  errors = errors + check(persistmaintenance(store, census, analysis, no_job, "reviewed", replay_apply, error) = 0 & replay_apply.disposition() = "identical-no-op" & replay_apply.items() = 0, "worklist idempotent replay " || error)
+
+  generation = 0
+  errors = errors + check(begingeneration(store, 1, "snapshot-maintenance", "generation drift fixture", generation, error) = 0 & generation = 2, "begin drift generation " || error)
+  errors = errors + check(commitgeneration(store, generation, error) = 0, "commit drift generation " || error)
+  stale = .ragmaintenancecensus; error = ""
+  errors = errors + check(buildmaintenancecensus(store, analysis, "maintenance-profile", 32, stale, error) \= 0 & pos("generation changed", error) > 0, "maintenance worklist is bound to the reviewed semantic generation")
+  errors = errors + check(closeragstore(store, error) = 0, "close " || error)
+  if errors > 0 then return 1
+  say "MAINTENANCE_METHODOLOGY_OK inventory=concept-review+claim-conflict+sparse-node+analysis-lead+query-gap+stale-embedding+vector-publication ordering=deterministic bounded=1 digest=stable replay=idempotent generation=binding"
+  return 0

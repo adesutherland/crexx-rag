@@ -100,8 +100,13 @@ The installation provides four skill sources:
 | --- | --- | --- |
 | `crexxrag-qa` | Cited evidence questions, traces, paths, and timelines | `read` |
 | `crexxrag-ingest` | Zero-write ingestion plan, followed by separately authorized apply | `read,plan`; `ingest` for apply |
-| `crexxrag-improve` | Improvement planning and explicit review/curation | `read,plan`; `curate` for writes |
+| `crexxrag-maintain` | Ranked maintenance census, exact apply, inspection and explicit review/curation | `read,plan`; `curate` for writes |
 | `crexxrag-diagnose` | Library verification, redacted diagnostics, bounded provider smoke tests | `read,diagnose` |
+
+`$crexxrag-maintain` defaults to inspection and zero-write planning. Apply
+requires a separately enabled `curate` capability, the exact reviewed plan and
+explicit operator authority. See [Methodology and
+algorithms](algorithm.md#catalogue-and-graph-maintenance-methodology).
 
 Codex discovers repository skills under `.agents/skills` between the current
 directory and repository root. It discovers personal skills under
@@ -116,16 +121,18 @@ ln -s /opt/crexxrag/share/crexxrag/skills/crexxrag-qa \
   .agents/skills/crexxrag-qa
 ln -s /opt/crexxrag/share/crexxrag/skills/crexxrag-diagnose \
   .agents/skills/crexxrag-diagnose
+ln -s /opt/crexxrag/share/crexxrag/skills/crexxrag-maintain \
+  .agents/skills/crexxrag-maintain
 ```
 
-Add ingestion or improvement only where the agent is expected to perform that
+Add ingestion or maintenance only where the agent is expected to perform that
 workflow. To make a skill available to all local projects, place the same link
 under `$HOME/.agents/skills` instead. Restart Codex after adding or changing a
 skill.
 
 Each skill directory contains the required `SKILL.md`. Its `description`
 supports implicit selection, and a user can explicitly select a skill as
-`$crexxrag-qa`, `$crexxrag-ingest`, `$crexxrag-improve`, or
+`$crexxrag-qa`, `$crexxrag-ingest`, `$crexxrag-maintain`, or
 `$crexxrag-diagnose`. Current skill discovery and invocation are documented in
 the official [Codex skills guide](https://learn.chatgpt.com/docs/build-skills).
 The adjacent `manifest.json` is `crexxrag` audit metadata describing expected
@@ -163,7 +170,7 @@ default_tools_approval_mode = "writes"
 
 It can create a canonical zero-write plan but cannot apply it. If an agent is
 explicitly authorized to apply ingestion, configure a separate server with
-`--access read,ingest`. For improvement and review decisions, use a separately
+`--access read,ingest`. For maintenance and review decisions, use a separately
 enabled `--access read,curate` server. Leave mutation servers disabled or absent
 unless the workflow genuinely needs them.
 
@@ -205,4 +212,5 @@ graph leads, gaps, a trace identity, and answer guidance. An agent can then:
 5. return any proposed new claim through the external-proposal and mandatory
    human-review path.
 
-The detailed data and ranking behavior is in [Algorithm](algorithm.md).
+The detailed data, ranking and maintenance methodology is in
+[Methodology and algorithms](algorithm.md).

@@ -10,6 +10,13 @@ source.architecture-docs.stable_key = relative-path
 source.architecture-docs.privacy = public
 source.architecture-docs.retain_raw_artifact = true
 
+discovery.mode = all
+discovery.glossary_file = @CPRAG_FIXTURE_GLOSSARY@
+discovery.ranked_limit = 16
+discovery.max_mentions = 16
+discovery.max_relationships = 16
+discovery.max_notes = 8
+
 provider.gemini-generate.kind = gemini
 provider.gemini-generate.base_url = http://127.0.0.1:@CPRAG_FIXTURE_PORT@/gemini/v1beta
 provider.gemini-generate.model = gemini-3.5-flash-lite
@@ -43,5 +50,5 @@ worker.processes = 2
 worker.max_in_flight = 1
 worker.lease_seconds = 30
 
-schedule.manual-improvement.trigger = manual
-schedule.manual-improvement.enabled = true
+schedule.manual-maintenance.trigger = manual
+schedule.manual-maintenance.enabled = true
