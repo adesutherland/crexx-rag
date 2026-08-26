@@ -185,6 +185,18 @@ install(DIRECTORY crexx/providers/
     FILES_MATCHING PATTERN "*.crexx"
     PATTERN "tests" EXCLUDE)
 install(DIRECTORY skills/ DESTINATION "${CMAKE_INSTALL_DATADIR}/crexxrag/skills")
+install(DIRECTORY docs/tutorial/
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/crexxrag/tutorial"
+    FILES_MATCHING
+    PATTERN "README.md"
+    PATTERN "*.conf"
+    PATTERN "*.txt")
+install(FILES README.md
+    DESTINATION "${CMAKE_INSTALL_DOCDIR}"
+    RENAME PRODUCT-README.md)
+install(DIRECTORY docs/
+    DESTINATION "${CMAKE_INSTALL_DOCDIR}"
+    FILES_MATCHING PATTERN "*.md")
 
 if(CREXXRAG_BUILD_TESTS)
     enable_testing()

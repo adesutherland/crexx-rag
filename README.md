@@ -91,7 +91,10 @@ crexxrag serve mcp
 ```
 
 Canonical plan/apply, job, worker, review, proposal, and query operations remain
-available for scripts and agents. See [the user guide](docs/user-guide.md).
+available for scripts and agents. Start with the
+[standalone setup](docs/standalone-setup.md), then see the
+[user guide](docs/user-guide.md), [agent integration](docs/agent-integration.md),
+and [algorithm description](docs/algorithm.md).
 
 ## Providers and privacy
 
@@ -115,6 +118,10 @@ cmake/               build and regression orchestration
 docs/                current architecture, use, testing, and tutorial
 skills/              narrow MCP operating skills
 ```
+
+An installed prefix also contains the tutorial configurations and corpus under
+`share/crexxrag/tutorial`, the agent skills under `share/crexxrag/skills`, and
+the user documentation under `share/doc/crexxrag`.
 
 ## Test
 

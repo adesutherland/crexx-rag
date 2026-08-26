@@ -1,5 +1,9 @@
 # User guide
 
+For a first installation that does not depend on a source checkout or project
+scripts, follow [Standalone setup](standalone-setup.md). For Codex, MCP, and
+skill configuration, follow [Agent and LLM integration](agent-integration.md).
+
 ## Local defaults
 
 Run `crexxrag` in a folder containing:
@@ -135,3 +139,7 @@ crexxrag --access read serve mcp
 
 Mutation tools are only advertised/accepted when the corresponding capability
 is supplied. MCP is read-only by default.
+
+The evidence and improvement fields exposed to agents are described in
+[Algorithm](algorithm.md), including the boundary between accepted claims,
+passage-level leads, and explicit gaps.
