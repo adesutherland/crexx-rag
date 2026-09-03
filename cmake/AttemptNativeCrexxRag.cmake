@@ -1,52 +1,20 @@
-foreach(required_var CPRAG_CREXX_PACKAGE_PREFIX CPRAG_APPLICATION_DIR
-        CPRAG_SQLITE_PROVIDER_ARCHIVE CPRAG_MAIN_SOURCE CPRAG_OUTPUT_DIR)
+foreach(required_var CPRAG_CREXX_EXECUTABLE CPRAG_APPLICATION_PROJECT_RXBIN
+        CPRAG_OUTPUT_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
     endif()
 endforeach()
 
-set(app_modules
-    ragmodel ragevidence ragjob ragconfig ragprofile ragregistry ragschema
-    ragfile ragconfigfile ragglossary ragstore ragbackup ragrepository ragcanonical ragplanning
-    ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragmaintain ragproposalio ragwork ragquery
-    ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragproviderdiagnostics ragapplicationprovider ragqueryprovider ragquerypolicy ragproduct)
-set(provider_modules
-    provider_contract provider_catalog provider_http industrial_provider codex_provider)
-set(config_modules
-    architecture_local_config generic_profile it_architecture_profile
-    operator_registry)
-set(surface_modules ragmcp rag_address_environment)
-
-set(sdk_prefix "${CPRAG_OUTPUT_DIR}/sdk")
 set(package_dir "${CPRAG_OUTPUT_DIR}/package")
 file(REMOVE_RECURSE "${CPRAG_OUTPUT_DIR}")
-file(MAKE_DIRECTORY "${sdk_prefix}" "${package_dir}")
-file(COPY "${CPRAG_CREXX_PACKAGE_PREFIX}/" DESTINATION "${sdk_prefix}")
-file(MAKE_DIRECTORY "${sdk_prefix}/bin/providers")
-file(COPY "${CPRAG_SQLITE_PROVIDER_ARCHIVE}"
-    DESTINATION "${sdk_prefix}/bin/providers")
-
-# The application-local static RXPA archive deliberately leaves SQLite as an
-# external generic system dependency. Add it only to this copied SDK's native
-# link configuration; the user's installed CREXX prefix remains untouched.
-file(APPEND "${sdk_prefix}/bin/crexx_native_libs_argv" "-lsqlite3\n")
-
-configure_file("${CPRAG_MAIN_SOURCE}" "${package_dir}/crexxrag.crexx" COPYONLY)
-configure_file("${CPRAG_APPLICATION_DIR}/crexxrag_cli.rxbin"
+file(MAKE_DIRECTORY "${package_dir}")
+configure_file("${CPRAG_APPLICATION_PROJECT_RXBIN}"
     "${package_dir}/crexxrag.rxbin" COPYONLY)
 
-set(native_libraries)
-foreach(module IN LISTS provider_modules app_modules config_modules surface_modules)
-    list(APPEND native_libraries
-        -l "${CPRAG_APPLICATION_DIR}/${module}.rxbin")
-endforeach()
-list(APPEND native_libraries -l "${sdk_prefix}/bin/rxfnsg.rxbin")
-
 execute_process(
-    COMMAND "${sdk_prefix}/bin/crexx"
+    COMMAND "${CPRAG_CREXX_EXECUTABLE}"
         -native -nocompile -noexec -nocolor -verbose2
         --linkmap "${package_dir}/crexxrag-native.map"
-        ${native_libraries}
         crexxrag.crexx
     WORKING_DIRECTORY "${package_dir}"
     RESULT_VARIABLE native_result

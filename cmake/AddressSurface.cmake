@@ -1,5 +1,5 @@
 foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXLINK CPRAG_RXVME CPRAG_RXBVM
-        CPRAG_CREXX_BIN_DIR CPRAG_APPLICATION_DIR CPRAG_SCENARIO
+        CPRAG_CREXX_BIN_DIR CPRAG_APPLICATION_DIR CPRAG_ADDRESS_RXBIN CPRAG_SCENARIO
         CPRAG_CONFIG_FIXTURE CPRAG_NATIVE_APPLICATION CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
@@ -8,7 +8,8 @@ endforeach()
 
 file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
-set(imports "${CPRAG_APPLICATION_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
+get_filename_component(address_dir "${CPRAG_ADDRESS_RXBIN}" DIRECTORY)
+set(imports "${address_dir};${CPRAG_APPLICATION_DIR}/project;${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
 
 execute_process(
     COMMAND "${CPRAG_RXC}" -i "${imports}" -o "${CPRAG_WORK_DIR}/address_surface"
@@ -35,20 +36,10 @@ if(NOT init_result EQUAL 0)
     message(FATAL_ERROR "ADDRESS RAG test library init failed:\n${init_out}${init_err}")
 endif()
 
-set(application_modules
-    rag_address_environment ragmcp
-    provider_contract provider_catalog provider_http industrial_provider codex_provider
-    ragmodel ragevidence ragjob ragconfig ragprofile ragregistry ragschema
-    ragfile ragconfigfile ragglossary ragstore ragbackup ragrepository ragcanonical ragplanning
-    ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragmaintain ragproposalio ragwork
-    ragquery ragembedding ragretrieval ragevidencejson ragfoundation ragprocess
-    ragproviderdiagnostics ragapplicationprovider ragqueryprovider ragquerypolicy ragproduct
-    architecture_local_config generic_profile it_architecture_profile operator_registry)
-set(link_inputs "${CPRAG_WORK_DIR}/address_surface.rxbin")
-foreach(module IN LISTS application_modules)
-    list(APPEND link_inputs "${CPRAG_APPLICATION_DIR}/${module}.rxbin")
-endforeach()
-list(APPEND link_inputs
+set(link_inputs
+    "${CPRAG_WORK_DIR}/address_surface.rxbin"
+    "${CPRAG_ADDRESS_RXBIN}"
+    "${CPRAG_APPLICATION_DIR}/project/crexxrag-project.rxbin"
     "${CPRAG_CREXX_BIN_DIR}/rxfnsg.rxbin"
     "${CPRAG_CREXX_BIN_DIR}/classlib.rxbin"
     "${CPRAG_CREXX_BIN_DIR}/library.rxbin")

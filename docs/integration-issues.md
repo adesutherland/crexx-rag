@@ -1,6 +1,7 @@
 # CREXX and platform integration issues
 
-These are current boundaries, not product workarounds.
+These are current boundaries. Any source-level containment used by the product
+is stated explicitly.
 
 ## Attached task provider discovery
 
@@ -26,11 +27,18 @@ The exact installed-package Linux replay of the hosted-provider path remains a
 separate platform qualification. macOS evidence must not be represented as
 Linux qualification.
 
-## cREXX VM register range
+## cREXX branch-local value merge
 
-Large Level-G compilation can encounter the VM's current 8-bit register range.
-The CREXX roadmap records the infrastructure defect. `crexxrag` does not hide it
-with product-specific native code.
+When a typed object receives its first assignment independently in both arms of
+an `if`/`else`, the installed compiler can allocate distinct branch-local
+registers and use only the `else` register after the control-flow join. On the
+true branch the generated program ends the other register's lifetime and then
+accesses the wrong object. Both CREXX VMs report `SIGNAL OUT_OF_RANGE`; optimized
+and non-optimized compilation are affected.
+
+This is not an 8-bit register-count limit. `crexxrag` contains the issue by
+initializing the provider-result object in the enclosing scope before either
+branch, and an application regression exercises that exact path.
 
 ## Interactive input
 

@@ -96,8 +96,74 @@ ragapplicationprovider: class implements .ragworkprovider
     request_id = "extract-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 32)
     maximum_output = _config.budget().output_tokens(); if maximum_output > 4096 then maximum_output = 4096
     request = .providerrequest("generate_structured", "extractor", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), provider_config.max_attempts(), _jsonstring(document, root, "privacy"), claim.item_id(), request_id, maximum_output, 0, 0, 0)
-    durable_run_id = ""; provider_charging_basis = provider_config.charging_basis()
-    if provider_config.kind() = "codex" then provider_output = _codexstructured(request, claim, provider_config, durable_run_id, provider_charging_basis, request_id)
+    durable_run_id = ""; provider_charging_basis = provider_config.charging_basis(); provider_output = .providerresult()
+    if provider_config.kind() = "codex" then do
+      provider_charging_basis = "local-compute"
+      recovery = .ragexternalrecovery; codex_error = ""; active_request = request
+      if recoverexternalrun(_store, claim.item_id(), provider_config.provider_id(), provider_config.model(), recovery, codex_error) \= 0 then provider_output = _codexfailure(request, codex_error, 0, "durability")
+      else if recovery.found() = 1 then do
+        durable_run_id = recovery.provider_run_id(); provider_charging_basis = provider_config.charging_basis(); request_id = recovery.request_id()
+        active_request = .providerrequest(request.operation(), request.role(), request.model(), request.messages(), request.inputs(), request.schema(), request.timeout_ms(), request.max_attempts(), request.privacy_class(), request.idempotency_key(), request_id, request.max_output_tokens(), request.embedding_dimensions(), request.stream_requested(), request.temperature_millionths())
+        if recovery.state() = "completed" then do
+          provider_output = .providerresult()
+          call provider_output.set_generation("codex", provider_config.model(), request_id, recovery.content(), "recovered", .providerusage(recovery.input_tokens(), recovery.output_tokens(), 1, -1, 1, 0), 0)
+          call _tracer.emit("codex", "recovered", claim.item_id(), "reusing persisted completed output")
+          call _codex_backend.delete_thread(recovery.thread_id(), provider_config.timeout_ms())
+        end
+        else if recovery.turn_id() = "" then do
+          call _codex_backend.abandon_thread(recovery.thread_id(), recovery.turn_id(), provider_config.timeout_ms())
+          provider_output = _codexfailure(active_request, "persisted Codex thread had no started turn and requires a fenced retry", 1, "interrupted")
+        end
+        else do
+          provider_output = _codex_backend.recover_structured(active_request, recovery.thread_id(), recovery.turn_id(), recovery.input_tokens(), recovery.output_tokens())
+          if provider_output.status() = 0 then do
+            if completeexternalrun(_store, durable_run_id, recovery.thread_id(), recovery.turn_id(), request_id, provider_output.content(), recovery.input_tokens(), recovery.output_tokens(), codex_error) \= 0 then provider_output = _codexfailure(active_request, "Codex recovered output durability failed: " || codex_error, 0, "durability")
+            else call _codex_backend.delete_thread(recovery.thread_id(), provider_config.timeout_ms())
+          end
+        end
+      end
+      else do
+        account_type = ""; plan_type = ""; allowance_used = -1
+        call _tracer.emit("codex", "preflight", claim.item_id(), "checking managed account allowance")
+        if _codex_backend.account_status(provider_config.timeout_ms(), account_type, plan_type, allowance_used, codex_error) \= 0 then provider_output = _codexfailure(request, "Codex allowance preflight failed: " || codex_error, 1, "transport")
+        else if 100 - allowance_used < _config.budget().minimum_codex_allowance_percent() then provider_output = _codexfailure(request, "Codex remaining allowance is below the reviewed minimum", 0, "budget")
+        else do
+          call _tracer.emit("codex", "durable", claim.item_id(), "preparing persisted thread and turn identities")
+          thread_id = ""; turn_id = ""
+          if _codex_backend.start_thread(request, thread_id, codex_error) \= 0 then provider_output = _codexfailure(request, "Codex thread start failed: " || codex_error, 1, "transport")
+          else if beginexternalrun(_store, claim, provider_config.provider_id(), provider_config.model(), request_id, provider_config.charging_basis(), thread_id, allowance_used, durable_run_id, codex_error) \= 0 then do
+            call _codex_backend.delete_thread(thread_id, provider_config.timeout_ms())
+            provider_output = _codexfailure(request, "Codex thread durability failed: " || codex_error, 0, "durability")
+          end
+          else do
+            provider_charging_basis = provider_config.charging_basis()
+            if _codex_backend.start_structured_turn(request, thread_id, turn_id, codex_error) \= 0 then do
+              call _codex_backend.abandon_thread(thread_id, turn_id, provider_config.timeout_ms())
+              provider_output = _codexfailure(request, "Codex turn start failed: " || codex_error, 1, "transport")
+            end
+            else if updateexternalrunturn(_store, durable_run_id, thread_id, turn_id, codex_error) \= 0 then do
+              call _codex_backend.abandon_thread(thread_id, turn_id, provider_config.timeout_ms())
+              provider_output = _codexfailure(request, "Codex turn durability failed: " || codex_error, 0, "durability")
+            end
+            else do
+              call _tracer.emit("codex", "running", claim.item_id(), "contained structured extraction started")
+              provider_output = _codex_backend.wait_structured(request, thread_id, turn_id)
+              if provider_output.status() \= 0 then call _codex_backend.abandon_thread(thread_id, turn_id, provider_config.timeout_ms())
+              else do
+                usage = provider_output.usage()
+                if completeexternalrun(_store, durable_run_id, thread_id, turn_id, request_id, provider_output.content(), usage.input_tokens(), usage.output_tokens(), codex_error) \= 0 then provider_output = _codexfailure(request, "Codex output durability failed: " || codex_error, 0, "durability")
+                else do
+                  call _tracer.emit("codex", "persisted", claim.item_id(), "validated output and usage committed")
+                  after_account = ""; after_plan = ""; allowance_after = -1; allowance_error = ""
+                  if _codex_backend.account_status(provider_config.timeout_ms(), after_account, after_plan, allowance_after, allowance_error) = 0 & allowance_after >= 0 then ignored = updateexternalrunallowance(_store, durable_run_id, allowance_after, allowance_error)
+                  call _codex_backend.delete_thread(thread_id, provider_config.timeout_ms())
+                end
+              end
+            end
+          end
+        end
+      end
+    end
     else provider_output = backend.generate_structured(request)
     if provider_output.status() \= 0 then return _providerfailure(provider_config, request_id, claim, empty_proposal, provider_output, durable_run_id, provider_charging_basis)
     if provider_output.provider() \= _backendidentity(provider_config.kind()) | provider_output.model() \= provider_config.model() | provider_output.request_id() = "" then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider returned incomplete provider/model identity", durable_run_id)
@@ -148,65 +214,6 @@ ragapplicationprovider: class implements .ragworkprovider
       work_notes[work_notes.0 + 1] = .ragworknote(kind, note_text, importance, uncertainty, next_action, span_start, span_end)
     end
     return _successbatch(provider_config.provider_id(), provider_config.model(), request_id, provider_output, work_mentions, work_proposals, work_notes, durable_run_id, provider_config.charging_basis())
-
-  _codexstructured: method = .providerresult
-    arg request = .providerrequest, claim = .ragworkclaim, provider_config = .ragproviderconfig, expose durable_run_id = .string, expose charging_basis = .string, expose effective_request_id = .string
-    durable_run_id = ""; charging_basis = "local-compute"; effective_request_id = request.request_id()
-    recovery = .ragexternalrecovery; error = ""
-    if recoverexternalrun(_store, claim.item_id(), provider_config.provider_id(), provider_config.model(), recovery, error) \= 0 then return _codexfailure(request, error, 0, "durability")
-    active_request = request
-    if recovery.found() = 1 then do
-      durable_run_id = recovery.provider_run_id(); charging_basis = provider_config.charging_basis(); effective_request_id = recovery.request_id()
-      active_request = .providerrequest(request.operation(), request.role(), request.model(), request.messages(), request.inputs(), request.schema(), request.timeout_ms(), request.max_attempts(), request.privacy_class(), request.idempotency_key(), effective_request_id, request.max_output_tokens(), request.embedding_dimensions(), request.stream_requested(), request.temperature_millionths())
-      if recovery.state() = "completed" then do
-        output = .providerresult()
-        call output.set_generation("codex", provider_config.model(), effective_request_id, recovery.content(), "recovered", .providerusage(recovery.input_tokens(), recovery.output_tokens(), 1, -1, 1, 0), 0)
-        call _tracer.emit("codex", "recovered", claim.item_id(), "reusing persisted completed output")
-        call _codex_backend.delete_thread(recovery.thread_id(), provider_config.timeout_ms())
-        return output
-      end
-      if recovery.turn_id() = "" then do
-        call _codex_backend.abandon_thread(recovery.thread_id(), recovery.turn_id(), provider_config.timeout_ms())
-        return _codexfailure(active_request, "persisted Codex thread had no started turn and requires a fenced retry", 1, "interrupted")
-      end
-      output = _codex_backend.recover_structured(active_request, recovery.thread_id(), recovery.turn_id(), recovery.input_tokens(), recovery.output_tokens())
-      if output.status() = 0 then do
-        if completeexternalrun(_store, durable_run_id, recovery.thread_id(), recovery.turn_id(), effective_request_id, output.content(), recovery.input_tokens(), recovery.output_tokens(), error) \= 0 then return _codexfailure(active_request, "Codex recovered output durability failed: " || error, 0, "durability")
-        call _codex_backend.delete_thread(recovery.thread_id(), provider_config.timeout_ms())
-      end
-      return output
-    end
-
-    account_type = ""; plan_type = ""; allowance_used = -1
-    call _tracer.emit("codex", "preflight", claim.item_id(), "checking managed account allowance")
-    if _codex_backend.account_status(provider_config.timeout_ms(), account_type, plan_type, allowance_used, error) \= 0 then return _codexfailure(request, "Codex allowance preflight failed: " || error, 1, "transport")
-    if 100 - allowance_used < _config.budget().minimum_codex_allowance_percent() then return _codexfailure(request, "Codex remaining allowance is below the reviewed minimum", 0, "budget")
-    call _tracer.emit("codex", "durable", claim.item_id(), "preparing persisted thread and turn identities")
-    thread_id = ""; turn_id = ""
-    if _codex_backend.start_thread(request, thread_id, error) \= 0 then return _codexfailure(request, "Codex thread start failed: " || error, 1, "transport")
-    if beginexternalrun(_store, claim, provider_config.provider_id(), provider_config.model(), effective_request_id, provider_config.charging_basis(), thread_id, allowance_used, durable_run_id, error) \= 0 then do
-      call _codex_backend.delete_thread(thread_id, provider_config.timeout_ms())
-      return _codexfailure(request, "Codex thread durability failed: " || error, 0, "durability")
-    end
-    charging_basis = provider_config.charging_basis()
-    if _codex_backend.start_structured_turn(request, thread_id, turn_id, error) \= 0 then do
-      call _codex_backend.abandon_thread(thread_id, turn_id, provider_config.timeout_ms())
-      return _codexfailure(request, "Codex turn start failed: " || error, 1, "transport")
-    end
-    if updateexternalrunturn(_store, durable_run_id, thread_id, turn_id, error) \= 0 then do
-      call _codex_backend.abandon_thread(thread_id, turn_id, provider_config.timeout_ms())
-      return _codexfailure(request, "Codex turn durability failed: " || error, 0, "durability")
-    end
-    call _tracer.emit("codex", "running", claim.item_id(), "contained structured extraction started")
-    output = _codex_backend.wait_structured(request, thread_id, turn_id)
-    if output.status() \= 0 then do; call _codex_backend.abandon_thread(thread_id, turn_id, provider_config.timeout_ms()); return output; end
-    usage = output.usage()
-    if completeexternalrun(_store, durable_run_id, thread_id, turn_id, effective_request_id, output.content(), usage.input_tokens(), usage.output_tokens(), error) \= 0 then return _codexfailure(request, "Codex output durability failed: " || error, 0, "durability")
-    call _tracer.emit("codex", "persisted", claim.item_id(), "validated output and usage committed")
-    after_account = ""; after_plan = ""; allowance_after = -1; allowance_error = ""
-    if _codex_backend.account_status(provider_config.timeout_ms(), after_account, after_plan, allowance_after, allowance_error) = 0 & allowance_after >= 0 then ignored = updateexternalrunallowance(_store, durable_run_id, allowance_after, allowance_error)
-    call _codex_backend.delete_thread(thread_id, provider_config.timeout_ms())
-    return output
 
   _ensurecodex: method = .int
     arg expose error = .string

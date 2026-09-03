@@ -303,32 +303,3 @@ _response: procedure = .string
 _error: procedure = .string
   arg id_json = .string, code = .int, message = .string
   return '{"jsonrpc":"2.0","id":' || id_json || ',"error":{"code":' || code || ',"message":' || jsonquote(message) || '}}'
-
-main: procedure = .int
-  arg args = .string[]
-  library = ""; config = ""; config_file = ""; profile = ""; access = "read"; index = 1
-  do while index <= args.0
-    if index = args.0 then do; say "crexxrag-mcp: option requires a value"; return 2; end
-    name = args[index]; value = args[index + 1]
-    if name = "--library" then library = value
-    else if name = "--config" then config = value
-    else if name = "--config-file" then config_file = value
-    else if name = "--profile" then profile = value
-    else if name = "--access" then access = value
-    else do; say "crexxrag-mcp: unknown option " || name; return 2; end
-    index = index + 2
-  end
-  registry = operatorregistry()
-  if config_file \= "" then do
-    loaded_config = .ragconfig; error = ""
-    if loadconfigfile(config_file, loaded_config, error) \= 0 then do; say "crexxrag-mcp: " || error; return 3; end
-    if config \= "" & config \= loaded_config.config_id() then do; say "crexxrag-mcp: --config does not match config.id in --config-file"; return 3; end
-    config = loaded_config.config_id(); registry = operatorregistryforconfig(loaded_config)
-    if registry.valid() \= 1 then do; say "crexxrag-mcp: loaded configuration references an unregistered profile"; return 3; end
-  end
-  if library = "" | config = "" | profile = "" then do; say "crexxrag-mcp: --library, --config or --config-file, and --profile are required"; return 2; end
-  do while lines("stdin") > 0
-    response = mcpdispatchwithregistry(linein("stdin"), library, config, profile, access, registry)
-    if response \= "" then say response
-  end
-  return 0

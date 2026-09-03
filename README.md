@@ -31,6 +31,13 @@ cmake --preset debug
 cmake --build --preset debug
 ```
 
+CMake invokes the installed CREXX wrapper once for the executable application
+source cohort. The wrapper resolves sibling source imports, compiles the members
+in a bounded parallel wave, links after that wave succeeds, and reuses the
+published project when its content key is unchanged. The separate `ADDRESS RAG`
+environment is built with the wrapper's incremental library mode. CMake remains
+the thin outer build for SQLite, native packaging, installation, and QA.
+
 The native application is produced at:
 
 ```text
@@ -44,6 +51,17 @@ cmake --install cmake-build-debug --prefix /path/to/prefix
 ```
 
 The command is then `/path/to/prefix/bin/crexxrag`.
+
+For the normal per-user installation, build the convenience target:
+
+```sh
+cmake --build --preset debug --target install-local
+```
+
+It installs to `$HOME/.local` by default, including the native executable at
+`$HOME/.local/bin/crexxrag` and the separate ADDRESS environment module under
+`$HOME/.local/libexec/crexxrag`. Set `CREXXRAG_LOCAL_INSTALL_PREFIX` at
+configure time to give that target another prefix.
 
 `crexxrag` is the only executable product name. The linked VM image and launcher
 remain build/test artifacts for CREXX qualification.

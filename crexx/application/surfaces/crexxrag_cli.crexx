@@ -5,6 +5,7 @@ import rxfs
 import ragcommand
 import ragconfig
 import ragconfigfile
+import ragregistry
 import ragproduct
 import ragproviderdiagnostics
 import ragmcp

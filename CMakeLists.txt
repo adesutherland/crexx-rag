@@ -59,83 +59,7 @@ endif()
 add_rxpa_provider_package(_sqlite_boundary
     OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/providers")
 
-set(CREXXRAG_APPLICATION_DIR "${CMAKE_BINARY_DIR}/crexx-application")
-set(CREXXRAG_APPLICATION_RXBIN "${CREXXRAG_APPLICATION_DIR}/crexxrag.rxbin")
-set(CREXXRAG_PROVIDER_DIR "${CMAKE_CURRENT_LIST_DIR}/crexx/providers")
-set(CREXXRAG_APP_DIR "${CMAKE_CURRENT_LIST_DIR}/crexx/application")
-set(CREXXRAG_APPLICATION_SOURCES
-    "${CREXXRAG_PROVIDER_DIR}/provider_contract.crexx"
-    "${CREXXRAG_PROVIDER_DIR}/provider_catalog.crexx"
-    "${CREXXRAG_PROVIDER_DIR}/provider_http.crexx"
-    "${CREXXRAG_PROVIDER_DIR}/industrial_provider.crexx"
-    "${CREXXRAG_PROVIDER_DIR}/codex_provider.crexx"
-    "${CREXXRAG_APP_DIR}/ragmodel.crexx"
-    "${CREXXRAG_APP_DIR}/ragevidence.crexx"
-    "${CREXXRAG_APP_DIR}/ragjob.crexx"
-    "${CREXXRAG_APP_DIR}/ragconfig.crexx"
-    "${CREXXRAG_APP_DIR}/ragconfigfile.crexx"
-    "${CREXXRAG_APP_DIR}/ragglossary.crexx"
-    "${CREXXRAG_APP_DIR}/ragprofile.crexx"
-    "${CREXXRAG_APP_DIR}/ragregistry.crexx"
-    "${CREXXRAG_APP_DIR}/ragschema.crexx"
-    "${CREXXRAG_APP_DIR}/ragfile.crexx"
-    "${CREXXRAG_APP_DIR}/ragstore.crexx"
-    "${CREXXRAG_APP_DIR}/ragbackup.crexx"
-    "${CREXXRAG_APP_DIR}/ragrepository.crexx"
-    "${CREXXRAG_APP_DIR}/ragcanonical.crexx"
-    "${CREXXRAG_APP_DIR}/ragplanning.crexx"
-    "${CREXXRAG_APP_DIR}/ragtrace.crexx"
-    "${CREXXRAG_APP_DIR}/ragcommand.crexx"
-    "${CREXXRAG_APP_DIR}/ragingest.crexx"
-    "${CREXXRAG_APP_DIR}/ragfolder.crexx"
-    "${CREXXRAG_APP_DIR}/ragclaims.crexx"
-    "${CREXXRAG_APP_DIR}/ragimprove.crexx"
-    "${CREXXRAG_APP_DIR}/ragmaintain.crexx"
-    "${CREXXRAG_APP_DIR}/ragproposalio.crexx"
-    "${CREXXRAG_APP_DIR}/ragwork.crexx"
-    "${CREXXRAG_APP_DIR}/ragquery.crexx"
-    "${CREXXRAG_APP_DIR}/ragembedding.crexx"
-    "${CREXXRAG_APP_DIR}/ragretrieval.crexx"
-    "${CREXXRAG_APP_DIR}/ragevidencejson.crexx"
-    "${CREXXRAG_APP_DIR}/ragfoundation.crexx"
-    "${CREXXRAG_APP_DIR}/ragprocess.crexx"
-    "${CREXXRAG_APP_DIR}/ragproviderdiagnostics.crexx"
-    "${CREXXRAG_APP_DIR}/ragapplicationprovider.crexx"
-    "${CREXXRAG_APP_DIR}/ragqueryprovider.crexx"
-    "${CREXXRAG_APP_DIR}/ragquerypolicy.crexx"
-    "${CREXXRAG_APP_DIR}/ragproduct.crexx"
-    "${CREXXRAG_APP_DIR}/config/architecture_local_config.crexx"
-    "${CREXXRAG_APP_DIR}/config/profiles/generic_profile.crexx"
-    "${CREXXRAG_APP_DIR}/config/profiles/it_architecture_profile.crexx"
-    "${CREXXRAG_APP_DIR}/config/operator_registry.crexx"
-    "${CREXXRAG_APP_DIR}/surfaces/ragmcp.crexx"
-    "${CREXXRAG_APP_DIR}/surfaces/rag_address_environment.crexx"
-    "${CREXXRAG_APP_DIR}/surfaces/crexxrag_cli.crexx")
-
-add_custom_command(
-    OUTPUT "${CREXXRAG_APPLICATION_RXBIN}"
-    BYPRODUCTS
-        "${CREXXRAG_APPLICATION_DIR}/crexxrag.map"
-        "${CREXXRAG_APPLICATION_DIR}/crexxrag.rxproviders"
-        "${CREXXRAG_APPLICATION_DIR}/artifact.txt"
-        "${CREXXRAG_APPLICATION_DIR}/providers/rx_sqlite_boundary.rxplugin"
-    COMMAND "${CMAKE_COMMAND}"
-        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
-        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
-        "-DCPRAG_RXLINK=${CREXX_RXLINK_EXECUTABLE}"
-        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
-        "-DCPRAG_PLUGIN_PROVIDER_DIR=${CMAKE_BINARY_DIR}/bin/providers"
-        "-DCPRAG_APP_DIR=${CREXXRAG_APP_DIR}"
-        "-DCPRAG_PROVIDER_DIR=${CREXXRAG_PROVIDER_DIR}"
-        "-DCPRAG_OUTPUT_DIR=${CREXXRAG_APPLICATION_DIR}"
-        -P "${CMAKE_CURRENT_LIST_DIR}/cmake/BuildCrexxRagApplication.cmake"
-    DEPENDS
-        ${CREXXRAG_APPLICATION_SOURCES}
-        _sqlite_boundary _sqlite_boundary_static
-        "${CMAKE_CURRENT_LIST_DIR}/cmake/BuildCrexxRagApplication.cmake"
-    COMMENT "Building the linked Level-G crexxrag application"
-    VERBATIM)
-add_custom_target(crexxrag_application ALL DEPENDS "${CREXXRAG_APPLICATION_RXBIN}")
+include(cmake/CrexxRagApplication.cmake)
 
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/crexxrag-product")
 configure_file("${CMAKE_CURRENT_LIST_DIR}/cmake/crexxrag-launcher.in"
@@ -157,21 +81,54 @@ add_custom_command(
 add_custom_target(crexxrag_product ALL
     DEPENDS "${CMAKE_BINARY_DIR}/crexxrag-product/crexxrag.rxbin")
 
-add_custom_target(crexxrag_native ALL
+set(CREXXRAG_NATIVE_SDK_DIR "${CMAKE_BINARY_DIR}/crexxrag-native-sdk")
+set(CREXXRAG_NATIVE_SDK_STAMP
+    "${CREXXRAG_NATIVE_SDK_DIR}/crexxrag-sdk.txt")
+add_custom_command(
+    OUTPUT "${CREXXRAG_NATIVE_SDK_STAMP}"
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_CREXX_PACKAGE_PREFIX=${CREXX_PACKAGE_PREFIX}"
-        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
-        "-DCPRAG_SQLITE_PROVIDER_ARCHIVE=${CMAKE_BINARY_DIR}/bin/providers/rx_sqlite_boundary${CMAKE_STATIC_LIBRARY_SUFFIX}"
-        "-DCPRAG_MAIN_SOURCE=${CREXXRAG_APP_DIR}/surfaces/crexxrag_cli.crexx"
+        "-DCPRAG_SQLITE_PROVIDER_ARCHIVE=$<TARGET_FILE:_sqlite_boundary_static>"
+        "-DCPRAG_SQLITE_PROVIDER_NAME=rx_sqlite_boundary${CMAKE_STATIC_LIBRARY_SUFFIX}"
+        "-DCPRAG_OUTPUT_DIR=${CREXXRAG_NATIVE_SDK_DIR}"
+        "-DCPRAG_STAMP=${CREXXRAG_NATIVE_SDK_STAMP}"
+        -P "${CMAKE_CURRENT_LIST_DIR}/cmake/PrepareNativeSdk.cmake"
+    DEPENDS
+        "$<TARGET_FILE:_sqlite_boundary_static>"
+        "${CREXX_EXECUTABLE}"
+        "${CREXX_BUILDINFO_FILE}"
+        "${CMAKE_CURRENT_LIST_DIR}/cmake/PrepareNativeSdk.cmake"
+    COMMENT "Staging the CREXX native SDK and SQLite provider"
+    VERBATIM)
+
+set(CREXXRAG_NATIVE_APPLICATION
+    "${CMAKE_BINARY_DIR}/crexxrag-native/package/crexxrag${CMAKE_EXECUTABLE_SUFFIX}")
+add_custom_command(
+    OUTPUT "${CREXXRAG_NATIVE_APPLICATION}"
+    BYPRODUCTS
+        "${CMAKE_BINARY_DIR}/crexxrag-native/package/crexxrag.rxbin"
+        "${CMAKE_BINARY_DIR}/crexxrag-native/package/crexxrag-native.map"
+        "${CMAKE_BINARY_DIR}/crexxrag-native/package/native-build.txt"
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_CREXX_EXECUTABLE=${CREXXRAG_NATIVE_SDK_DIR}/bin/crexx"
+        "-DCPRAG_APPLICATION_PROJECT_RXBIN=${CREXXRAG_APPLICATION_PROJECT_RXBIN}"
         "-DCPRAG_OUTPUT_DIR=${CMAKE_BINARY_DIR}/crexxrag-native"
         "-DCMAKE_EXECUTABLE_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
         -P "${CMAKE_CURRENT_LIST_DIR}/cmake/AttemptNativeCrexxRag.cmake"
-    DEPENDS crexxrag_application _sqlite_boundary_static
+    DEPENDS
+        "${CREXXRAG_APPLICATION_RXBIN}"
+        "${CREXXRAG_APPLICATION_PROJECT_RXBIN}"
+        "${CREXXRAG_NATIVE_SDK_STAMP}"
         "${CMAKE_CURRENT_LIST_DIR}/cmake/AttemptNativeCrexxRag.cmake"
     COMMENT "Packaging the native crexxrag executable"
-    USES_TERMINAL VERBATIM)
+    USES_TERMINAL
+    VERBATIM)
+add_custom_target(crexxrag_native ALL
+    DEPENDS "${CREXXRAG_NATIVE_APPLICATION}")
 
 install(FILES "${CREXXRAG_APPLICATION_RXBIN}"
+    DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/crexxrag")
+install(FILES "${CREXXRAG_ADDRESS_RXBIN}"
     DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/crexxrag")
 install(PROGRAMS
     "${CMAKE_BINARY_DIR}/crexxrag-native/package/crexxrag${CMAKE_EXECUTABLE_SUFFIX}"
@@ -200,6 +157,21 @@ install(FILES README.md
 install(DIRECTORY docs/
     DESTINATION "${CMAKE_INSTALL_DOCDIR}"
     FILES_MATCHING PATTERN "*.md")
+
+if(DEFINED ENV{HOME} AND NOT "$ENV{HOME}" STREQUAL "")
+    set(crexxrag_default_local_prefix "$ENV{HOME}/.local")
+else()
+    set(crexxrag_default_local_prefix "${CMAKE_INSTALL_PREFIX}")
+endif()
+set(CREXXRAG_LOCAL_INSTALL_PREFIX "${crexxrag_default_local_prefix}"
+    CACHE PATH "Prefix used by the install-local target")
+add_custom_target(install-local
+    COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}"
+        --prefix "${CREXXRAG_LOCAL_INSTALL_PREFIX}"
+    DEPENDS crexxrag_native crexxrag_address
+    COMMENT "Installing crexxrag to ${CREXXRAG_LOCAL_INSTALL_PREFIX}"
+    USES_TERMINAL
+    VERBATIM)
 
 if(CREXXRAG_BUILD_TESTS)
     enable_testing()

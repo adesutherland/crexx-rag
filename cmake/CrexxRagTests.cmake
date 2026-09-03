@@ -100,6 +100,17 @@ add_test(NAME codex_protocol
 set_tests_properties(codex_protocol PROPERTIES
     LABELS "provider;codex;jsonl;schema;zero-outbound")
 
+add_test(NAME codex_application
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CODEX_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-app-server-fixture.sh"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-application.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-codex-application"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CodexApplication.cmake")
+set_tests_properties(codex_application PROPERTIES
+    TIMEOUT 180 LABELS "provider;codex;application;worker;durability;recovery;zero-outbound")
+
 add_test(NAME gemini_maintenance
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
@@ -215,6 +226,7 @@ add_test(NAME address_surface
         "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
         "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
         "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_ADDRESS_RXBIN=${CREXXRAG_ADDRESS_RXBIN}"
         "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/address_surface_scenario.crexx"
         "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"

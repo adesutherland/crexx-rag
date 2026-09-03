@@ -9,6 +9,13 @@ cmake --build --preset debug
 ctest --preset debug --output-on-failure
 ```
 
+The build declares the Level-G executable source cohort to CMake and invokes the
+CREXX wrapper's incremental program mode once. CREXX supplies the sibling source
+roots, bounded parallel compile wave, link barrier, content key, and atomic
+publication. The independent `ADDRESS RAG` environment uses incremental library
+mode. A repeated unchanged CMake build must report no work. Native packaging
+reuses its staged CREXX SDK until CREXX itself or SQLite changes.
+
 ## Default matrix
 
 | Test | Main assurance |
@@ -21,6 +28,7 @@ ctest --preset debug --output-on-failure
 | `gemini_extraction_validation` | invalid UTF-8 spans, unknown concept/relationship types and malformed extraction output dead-letter without product mutation or secret disclosure |
 | `provider_durability` | reservation recovery, Codex turns, fencing, completed-turn reuse |
 | `codex_protocol` | App Server initialize/account/turn/schema/usage/cleanup over JSONL |
+| `codex_application` | public Codex extraction, worker-crash recovery from a persisted completed turn, duplicate-turn prevention, validation, allowance settlement and library verification |
 | `gemini_maintenance` | hosted-style maintenance, glossary-drift rejection, durable cognitive notes, ANN publication/reuse, provider/profile discovery and external proposal review/promotion |
 | `gemini_query` | query embeddings, hybrid retrieval, cited answers, lexical zero-call and invalid citation rejection |
 | `query_policy` | local/hosted privacy and every call/token/cost/allowance ceiling |
@@ -59,8 +67,8 @@ credential value.
 
 - Schema changes: fresh native build and all tests.
 - Provider changes: Gemini ingestion/extraction-validation/query/smoke, Codex
-  protocol/durability, local embedding protocol, policy tests, malformed output,
-  and secret audit.
+  protocol/application/durability, local embedding protocol, policy tests,
+  malformed output, and secret audit.
 - Worker changes: process, ingestion, maintenance, replay, stale/prune tests.
 - Public command changes: native surfaces plus the public discovery/proposal
   path inside `gemini_maintenance`.

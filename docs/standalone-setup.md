@@ -9,6 +9,7 @@ Choose the prefix used when the package was installed. The relevant files are:
 
 ```text
 <prefix>/bin/crexxrag
+<prefix>/libexec/crexxrag/rag_address_environment.rxbin
 <prefix>/share/crexxrag/tutorial/crexxrag.conf
 <prefix>/share/crexxrag/tutorial/crexxrag-codex-local.conf
 <prefix>/share/crexxrag/tutorial/architecture.glossary.tsv
@@ -19,6 +20,18 @@ Choose the prefix used when the package was installed. The relevant files are:
 
 The examples use `/opt/crexxrag` below. Replace it with the actual prefix. A
 user-writable prefix such as `$HOME/.local` is equally valid.
+
+From a source checkout, the supported per-user installation is:
+
+```sh
+cmake --preset debug
+cmake --build --preset debug --target install-local
+```
+
+That target builds and validates the native artifact and the separate ADDRESS
+environment module before installing them to `$HOME/.local` by default. Ensure
+`$HOME/.local/bin` is on `PATH` if you want to run the executable simply as
+`crexxrag`.
 
 ## Gemini: the shortest complete route
 
