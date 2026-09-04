@@ -5,7 +5,7 @@ namespace ragstore expose ragstorehandle ragreadsnapshot ragstorestatus ragverif
 import rxfnsb
 import rxjson
 import rxfs
-import sqlite_boundary
+import rxsqlite
 import ragschema
 import ragfile
 

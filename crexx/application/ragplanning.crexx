@@ -5,7 +5,7 @@ namespace ragplanning expose ragplancontext createfoundationplan validatefoundat
 import rxfnsb
 import rxjson
 import rxhash
-import sqlite_boundary
+import rxsqlite
 import ragmodel
 import ragconfig
 import ragprofile

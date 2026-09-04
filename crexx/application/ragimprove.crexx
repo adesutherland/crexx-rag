@@ -5,7 +5,7 @@ namespace ragimprove expose ragimproveplan ragimproveapplyresult ragexternalprop
 import rxfnsb
 import rxjson
 import rxhash
-import sqlite_boundary
+import rxsqlite
 import ragstore
 import ragclaims
 

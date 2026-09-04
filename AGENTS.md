@@ -6,7 +6,8 @@
 migrations, orchestration, policy, configuration, commands, jobs, retrieval,
 evidence, and provider selection belong in Level-G cREXX.
 
-Native code is limited to the generic SQLite RXPA provider in `native/sqlite`.
+The generic SQLite provider is owned and installed by CREXX as `rxsqlite`.
+This repository must not carry a second SQLite implementation or provider.
 Do not add product vocabulary or RAG policy to C/C++. Do not recreate the
 removed native prototype, compatibility bridge, or old schema importer.
 
@@ -24,8 +25,9 @@ Before product work, read:
 - `docs/test-strategy.md`
 - `docs/integration-issues.md`
 
-Read `native/sqlite/README.md` and `native/sqlite/SYSTEM.md` before SQLite
-provider changes.
+Consult the installed CREXX `rxsqlite` reference before changing the provider
+integration contract. SQLite implementation changes belong in CREXX under its
+separate repository authority.
 
 ## Public surface
 
@@ -46,9 +48,9 @@ the user separately authorizes changes there. CREXX infrastructure gaps belong
 in `docs/integration-issues.md`; do not hide them in product-specific native
 code.
 
-Worker processes each open their own SQLite connection. In-process attached
-tasks must not call the native provider until CREXX supports provider discovery
-for child task VMs.
+Worker processes each open their own SQLite connection. CREXX supports
+provider discovery for child task VMs, but changing this product to attached
+workers is a separate architecture decision; native handles remain VM-local.
 
 ## Build and QA
 

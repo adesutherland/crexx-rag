@@ -4,7 +4,7 @@ namespace ragbackup expose ragsidecarpublication ragbackupsession ragbackuprepor
 
 import rxfnsb
 import rxfs
-import sqlite_boundary
+import rxsqlite
 import ragstore
 
 ragsidecarpublication: class

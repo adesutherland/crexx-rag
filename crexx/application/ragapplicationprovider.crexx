@@ -6,7 +6,7 @@ import rxfnsb
 import rxfs
 import rxjson
 import rxhash
-import sqlite_boundary
+import rxsqlite
 import ragconfig
 import ragprofile
 import ragglossary

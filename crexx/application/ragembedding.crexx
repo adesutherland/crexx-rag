@@ -8,7 +8,7 @@ import rxhash
 import rxfs
 import rxjson
 import rxvector
-import sqlite_boundary
+import rxsqlite
 import provider_contract
 import ragstore
 import ragbackup

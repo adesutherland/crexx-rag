@@ -14,7 +14,7 @@ list(JOIN project_member_dirs ";" project_imports)
 set(imports "${project_imports};${CPRAG_APPLICATION_DIR};${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
 set(modules
     ragschema ragfile ragstore ragmodel ragjob ragclaims ragwork
-    rx_sqlite_boundary rx_hash rx_system rxfs rxplatform library)
+    rxsqlite rx_hash rx_system rxfs rxplatform library)
 
 foreach(mode IN ITEMS noopt opt)
     set(mode_flag)

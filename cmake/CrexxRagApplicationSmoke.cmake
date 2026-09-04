@@ -14,9 +14,9 @@ file(READ "${requirements}" provider_requirements)
 foreach(operation IN ITEMS sqliteopenmode sqliteprepare sqlitebindtext
         sqlitestep sqlitecolumntext sqlitefinalize sqliteclose)
     if(NOT provider_requirements MATCHES
-            "required[\t ]+rx_sqlite_boundary[\t ]+sqlite_boundary\\.${operation}[\t ]")
+            "required[\t ]+rxsqlite[\t ]+rxsqlite\\.${operation}[\t ]")
         message(FATAL_ERROR
-            "SQLite cREXX operation ${operation} is not mapped to rx_sqlite_boundary")
+            "SQLite cREXX operation ${operation} is not mapped to CREXX rxsqlite")
     endif()
 endforeach()
 

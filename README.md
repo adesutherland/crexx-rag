@@ -31,7 +31,9 @@ history remains the recovery mechanism.
 
 ## Build
 
-An installed CREXX package and SQLite development library are required.
+An installed CREXX package containing the supported `rxsqlite` component is
+required. CREXX supplies the SQLite implementation, dynamic provider, native
+archive, and packaging metadata; no separate SQLite SDK is needed here.
 
 ```sh
 cmake --preset debug
@@ -43,7 +45,7 @@ source cohort. The wrapper resolves sibling source imports, compiles the members
 in a bounded parallel wave, links after that wave succeeds, and reuses the
 published project when its content key is unchanged. The separate `ADDRESS RAG`
 environment is built with the wrapper's incremental library mode. CMake remains
-the thin outer build for SQLite, native packaging, installation, and QA.
+the thin outer build for native packaging, installation, and QA.
 
 The native application is produced at:
 
@@ -155,7 +157,6 @@ semantic changes require a new ingestion generation.
 ```text
 crexx/application/   product policy, storage, jobs, retrieval, and surfaces
 crexx/providers/     provider contract and provider adapters
-native/sqlite/       generic RXPA SQLite provider
 tests/               provider fixtures and public-surface inputs
 cmake/               build and regression orchestration
 docs/                current architecture, use, testing, and tutorial
@@ -173,7 +174,7 @@ ctest --preset debug --output-on-failure
 ```
 
 The default suite covers native and linked applications, both CREXX VMs,
-SQLite thread/session isolation, multi-process workers, Gemini ingestion,
+installed `rxsqlite` integration, multi-process workers, Gemini ingestion,
 embeddings, maintenance, external proposal review/promotion, hybrid retrieval,
 cited answers, deterministic and advisory library reports, provider budgets,
 Codex App Server protocol, MCP, and negative provider-output cases. See [the

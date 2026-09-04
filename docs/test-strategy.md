@@ -14,14 +14,14 @@ CREXX wrapper's incremental program mode once. CREXX supplies the sibling source
 roots, bounded parallel compile wave, link barrier, content key, and atomic
 publication. The independent `ADDRESS RAG` environment uses incremental library
 mode. A repeated unchanged CMake build must report no work. Native packaging
-reuses its staged CREXX SDK until CREXX itself or SQLite changes.
+uses the installed CREXX package's `rxsqlite` archive and native dependency
+metadata directly.
 
 ## Default matrix
 
 | Test | Main assurance |
 | --- | --- |
-| `sqlite_provider_thread_sessions` | RXPA session isolation, four concurrent SQLite sessions, FULLMUTEX behavior |
-| `linked_application` | linked-image provider mapping and both CREXX VMs |
+| `linked_application` | installed `rxsqlite` provider mapping and both CREXX VMs |
 | `configuration_contract` | format-1 compatibility, format-2 pacing/retry/retrieval/maintenance/observation fields, split identities, credential-free check/explain, identical/operational diff, tamper-resistant plan/apply, glossary and bounded data-profile rules, optimized/non-optimized and both VMs |
 | `process_workers` | two-worker launch, observation, drain, stale PID detection, explicit pruning |
 | `gemini_ingestion` | Gemini request/response mapping, compact gap-free LF/CR/CRLF normalization maps, durable work, claims, embeddings, vector publication, replay and failure paths |
@@ -51,6 +51,13 @@ suppressed/coalesced, a cached narrative is associated by report digests, and a
 one-point trend refuses to infer direction. The suite does
 not silently substitute a different provider. This makes the default suite
 repeatable and zero-cost.
+
+The CREXX repository owns the generic `rxsqlite` contract suite: typed values,
+file databases, FTS, backup and integrity behavior, concurrent session
+isolation, FULLMUTEX configuration, attached-task discovery, native packaging,
+and installed external-consumer coverage. This suite does not duplicate those
+driver tests. It proves that the linked, process-worker, backup, ingestion, and
+installed native product paths consume the supported provider correctly.
 
 ## Live providers
 

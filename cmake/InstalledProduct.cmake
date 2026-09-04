@@ -10,12 +10,20 @@ endforeach()
 file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
 set(prefix "${CPRAG_WORK_DIR}/prefix")
+set(legacy_sqlite_provider
+    "${prefix}/libexec/crexxrag/providers/rx_sqlite_boundary.rxplugin")
+file(MAKE_DIRECTORY "${prefix}/libexec/crexxrag/providers")
+file(WRITE "${legacy_sqlite_provider}" "obsolete downstream provider fixture\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" --install "${CPRAG_BUILD_DIR}"
         --prefix "${prefix}"
     RESULT_VARIABLE install_result OUTPUT_VARIABLE install_out
     ERROR_VARIABLE install_err TIMEOUT 120)
 if(NOT install_result EQUAL 0)
     message(FATAL_ERROR "scratch-prefix install failed:\n${install_out}${install_err}")
+endif()
+if(EXISTS "${legacy_sqlite_provider}")
+    message(FATAL_ERROR
+        "scratch-prefix upgrade retained the obsolete downstream SQLite provider")
 endif()
 
 set(application "${prefix}/bin/crexxrag")
@@ -87,5 +95,6 @@ file(WRITE "${CPRAG_WORK_DIR}/result.txt"
     "test=installed-product\nprefix=${prefix}\n"
     "doctor=passed\nprovider_smoke=passed\ningest=passed\nmaintenance=passed\nquery=passed\n"
     "skill=crexxrag-maintain\nobsolete_skill=absent\n"
+    "obsolete_sqlite_provider=removed\n"
     "${doctor_out}${doctor_err}${smoke_out}${smoke_err}${maintenance_out}${maintenance_err}")
 message(STATUS "Scratch-prefix installed crexxrag passed doctor, Gemini provider smoke, init, ingest, maintain, hybrid query, tutorial and skill audit")

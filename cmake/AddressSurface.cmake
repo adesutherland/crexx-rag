@@ -53,13 +53,9 @@ execute_process(
 if(NOT link_result EQUAL 0)
     message(FATAL_ERROR "ADDRESS RAG scenario link failed:\n${link_out}${link_err}")
 endif()
-file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}/providers")
-file(COPY "${CPRAG_APPLICATION_DIR}/providers/rx_sqlite_boundary.rxplugin"
-    DESTINATION "${CPRAG_WORK_DIR}/providers")
-
 foreach(runtime IN ITEMS "${CPRAG_RXVME}" "${CPRAG_RXBVM}")
     execute_process(
-        COMMAND "${runtime}" --provider-path "${CPRAG_APPLICATION_DIR}/providers;${CPRAG_CREXX_BIN_DIR}/providers"
+        COMMAND "${runtime}" --provider-path "${CPRAG_CREXX_BIN_DIR}/providers"
             -l "${CPRAG_WORK_DIR}" "${CPRAG_WORK_DIR}/address_surface_linked"
             -a "${library}" "${CPRAG_CONFIG_FIXTURE}"
         RESULT_VARIABLE run_result OUTPUT_VARIABLE run_out ERROR_VARIABLE run_err

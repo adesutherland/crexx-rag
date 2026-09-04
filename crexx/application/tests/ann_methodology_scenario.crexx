@@ -4,7 +4,7 @@ import rxfnsb
 import rxfnsg
 import rxhash
 import rxvector
-import sqlite_boundary
+import rxsqlite
 import ragfile
 import ragstore
 import ragembedding

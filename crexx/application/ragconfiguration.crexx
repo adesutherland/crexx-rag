@@ -4,7 +4,7 @@ namespace ragconfiguration expose ragconfigidentity ragconfigdiff identifyconfig
 
 import rxfnsb
 import rxjson
-import sqlite_boundary
+import rxsqlite
 import ragmodel
 import ragconfig
 import ragprofile

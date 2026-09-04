@@ -15,7 +15,7 @@ human CLI / JSON / MCP / ADDRESS RAG
                  |
        cREXX SQL repositories and orchestration
                  |
-        generic SQLite RXPA provider
+       installed CREXX rxsqlite provider
                  |
      library.sqlite + immutable .rxvec sidecars
 ```
@@ -29,8 +29,8 @@ There is no second product implementation or compatibility bridge.
 2. Apply revalidates the source set, configuration snapshot, profile, provider
    route, and budget before publishing source/chunk state and durable work.
 3. `worker start` launches independent `crexxrag worker run` processes. Every
-   process starts its own CREXX VM, loads the SQLite provider, and opens its own
-   WAL connection.
+   process starts its own CREXX VM, loads CREXX's installed `rxsqlite` provider,
+   and opens its own WAL connection.
 4. A worker reserves provider usage, validates the provider result, promotes a
    supported claim or creates a review, and settles the reservation.
 5. Embeddings are recorded with provider/model/dimension/envelope identity and
@@ -39,6 +39,13 @@ There is no second product implementation or compatibility bridge.
 SQLite rows are the process communication mechanism. Leases, fencing,
 idempotency keys, attempts, provider runs, events, heartbeats, and requested
 worker state make recovery explicit.
+
+CREXX owns the generic SQLite implementation, bundled SQLite build, dynamic
+provider, native archive, session isolation, and typed API. This repository
+imports `rxsqlite` and owns only the schema, repositories, orchestration, and
+product policy. Linked execution discovers the provider from the installed
+CREXX runtime; native packaging consumes CREXX's canonical provider archive
+and metadata without a downstream SDK copy or system SQLite link.
 
 Dead-letter replay does not reopen or rewrite its source job. It copies one or
 all selected terminal dead letters into a new job, binds that job to the

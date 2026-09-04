@@ -19,7 +19,7 @@ set(modules
     ragapplicationprovider ragqueryprovider ragquerypolicy ragproduct
     provider_contract provider_catalog provider_http industrial_provider codex_provider
     architecture_local_config generic_profile it_architecture_profile operator_registry
-    rx_sqlite_boundary rx_hash rx_system rxfs rxplatform rxvector rxfnsg library)
+    rxsqlite rx_hash rx_system rxfs rxplatform rxvector rxfnsg library)
 
 execute_process(COMMAND "${CPRAG_RXC}" -i "${imports}"
     -o "${CPRAG_WORK_DIR}/lifecycle_methodology" "${CPRAG_SCENARIO}"
@@ -42,7 +42,7 @@ foreach(runtime_name IN ITEMS rxvme rxbvm)
     endif()
     set(library "${CPRAG_WORK_DIR}/library-${runtime_name}")
     execute_process(COMMAND "${runtime}"
-        --provider-path "${CPRAG_APPLICATION_DIR}/providers;${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers"
+        --provider-path "${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers"
         -l "${imports}" "${CPRAG_WORK_DIR}/lifecycle_methodology" ${modules}
         -a "${library}"
         RESULT_VARIABLE run_result OUTPUT_VARIABLE run_out ERROR_VARIABLE run_err TIMEOUT 120)

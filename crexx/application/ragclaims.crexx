@@ -5,7 +5,7 @@ namespace ragclaims expose ragclaimpolicy ragextractionproposal ragproposalvalid
 import rxfnsb
 import rxjson
 import rxhash
-import sqlite_boundary
+import rxsqlite
 import ragstore
 
 /* Graph policy stays in Level G. Provider output is represented by an

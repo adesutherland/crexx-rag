@@ -1,5 +1,4 @@
-foreach(required_var CPRAG_RXLINK CPRAG_LINK_INPUTS CPRAG_DYNAMIC_PROVIDER
-        CPRAG_OUTPUT_DIR)
+foreach(required_var CPRAG_RXLINK CPRAG_LINK_INPUTS CPRAG_OUTPUT_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
     endif()
@@ -22,19 +21,18 @@ if(NOT link_result EQUAL 0)
 endif()
 
 file(READ "${CPRAG_OUTPUT_DIR}/crexxrag.rxproviders" provider_requirements)
-if(NOT provider_requirements MATCHES "required[\t ]+rx_sqlite_boundary[\t ]")
+if(NOT provider_requirements MATCHES "required[\t ]+rxsqlite[\t ]")
     message(FATAL_ERROR
-        "linked application did not declare the static SQLite provider")
+        "linked application did not declare the CREXX rxsqlite provider")
 endif()
 if(provider_requirements MATCHES "[\t ]system\\.")
     message(FATAL_ERROR
         "linked application retained an unpackaged legacy system dependency")
 endif()
 
-file(MAKE_DIRECTORY "${CPRAG_OUTPUT_DIR}/providers")
-file(COPY_FILE "${CPRAG_DYNAMIC_PROVIDER}"
-    "${CPRAG_OUTPUT_DIR}/providers/rx_sqlite_boundary.rxplugin"
-    ONLY_IF_DIFFERENT)
+# Do not retain a stale application-owned provider from an earlier build.  The
+# linked image declares rxsqlite and the installed CREXX runtime owns discovery.
+file(REMOVE_RECURSE "${CPRAG_OUTPUT_DIR}/providers")
 
 file(SHA256 "${CPRAG_OUTPUT_DIR}/crexxrag.rxbin" application_sha256)
 file(WRITE "${CPRAG_OUTPUT_DIR}/artifact.txt"

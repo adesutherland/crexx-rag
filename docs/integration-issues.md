@@ -3,17 +3,17 @@
 These are current boundaries. Any source-level containment used by the product
 is stated explicitly.
 
-## Attached task provider discovery
+## Worker execution architecture
 
-An attached cREXX task running in a child thread cannot currently discover/load
-the native SQLite RXPA provider in its task VM. The SQLite library and provider
-are thread-safe when built with mutex support; the missing capability is CREXX
-provider lifecycle/discovery for attached task VMs.
+CREXX now supports declared native-provider discovery and isolated RXPA
+sessions in attached task VMs, including the installed `rxsqlite` provider.
+The former discovery integration gap is closed upstream.
 
-`crexxrag` therefore uses operating-system worker processes. Every process
-starts a fresh VM and opens its own connection, which is supported and covered
-by regression tests. A controller-owned SQLite design remains valid for future
-in-process tasks that exchange ordinary transferable values.
+`crexxrag` continues to use operating-system worker processes by product
+design. Every process starts a fresh VM and opens its own SQLite connection,
+which is supported and covered by regression tests. Moving work into attached
+tasks would be a separate architecture and recovery-policy decision; native
+SQLite handles would remain VM-local and must never be transferred.
 
 ## Provider lifetime
 
@@ -27,18 +27,18 @@ The exact installed-package Linux replay of the hosted-provider path remains a
 separate platform qualification. macOS evidence must not be represented as
 Linux qualification.
 
-## cREXX branch-local value merge
+## cREXX lexical scope at mixed branches
 
-When a typed object receives its first assignment independently in both arms of
-an `if`/`else`, the installed compiler can allocate distinct branch-local
-registers and use only the `else` register after the control-flow join. On the
-true branch the generated program ends the other register's lifetime and then
-accesses the wrong object. Both CREXX VMs report `SIGNAL OUT_OF_RANGE`; optimized
-and non-optimized compilation are affected.
+The earlier branch-local value-merge diagnosis was incorrect. A grouped `DO`
+arm creates a local scope while a single-statement arm executes in the
+enclosing scope, so implicit first assignments with the same spelling can
+legally create different variables. CREXX now reports `#NOT_IN_SAME_SCOPE` for
+that ambiguous implicit-binding shape; this is source scoping plus diagnostic
+coverage, not a register-allocation defect.
 
-This is not an 8-bit register-count limit. `crexxrag` contains the issue by
-initializing the provider-result object in the enclosing scope before either
-branch, and an application regression exercises that exact path.
+`crexxrag` explicitly declares the provider-result object in the enclosing
+scope when both branches are intended to assign one joined value. The existing
+application regression retains that source-level contract.
 
 ## Interactive input
 

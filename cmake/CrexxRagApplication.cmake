@@ -70,7 +70,7 @@ if(NOT CREXXRAG_REXX_BUILD_JOBS STREQUAL "auto" AND
 endif()
 
 set(crexxrag_binary_imports
-    "${CMAKE_BINARY_DIR}/bin/providers;${CREXX_INSTALL_BIN_DIR}/providers;${CREXX_INSTALL_BIN_DIR}")
+    "${CREXXRAG_SQLITE_PROVIDER_DIR};${CREXX_INSTALL_BIN_DIR}")
 add_custom_command(
     OUTPUT "${CREXXRAG_APPLICATION_PROJECT_RXBIN}"
     COMMAND "${CMAKE_COMMAND}" -E make_directory
@@ -83,7 +83,7 @@ add_custom_command(
         -i "${crexxrag_binary_imports}"
     DEPENDS
         ${CREXXRAG_APPLICATION_SOURCES}
-        _sqlite_boundary
+        "${CREXXRAG_SQLITE_DYNAMIC_PROVIDER}"
         "${CREXX_EXECUTABLE}"
         "${CREXX_BUILDINFO_FILE}"
         "${CMAKE_CURRENT_LIST_FILE}"
@@ -102,16 +102,14 @@ add_custom_command(
         "${CREXXRAG_APPLICATION_DIR}/crexxrag.map"
         "${CREXXRAG_APPLICATION_DIR}/crexxrag.rxproviders"
         "${CREXXRAG_APPLICATION_DIR}/artifact.txt"
-        "${CREXXRAG_APPLICATION_DIR}/providers/rx_sqlite_boundary.rxplugin"
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXLINK=${CREXX_RXLINK_EXECUTABLE}"
         "-DCPRAG_LINK_INPUTS=${crexxrag_link_inputs}"
-        "-DCPRAG_DYNAMIC_PROVIDER=$<TARGET_FILE:_sqlite_boundary>"
         "-DCPRAG_OUTPUT_DIR=${CREXXRAG_APPLICATION_DIR}"
         -P "${CMAKE_CURRENT_LIST_DIR}/LinkCrexxRagApplication.cmake"
     DEPENDS
         "${CREXXRAG_APPLICATION_PROJECT_RXBIN}"
-        _sqlite_boundary
+        "${CREXXRAG_SQLITE_DYNAMIC_PROVIDER}"
         "${CREXX_RXLINK_EXECUTABLE}"
         "${CMAKE_CURRENT_LIST_DIR}/LinkCrexxRagApplication.cmake"
     COMMENT "Publishing the linked Level-G crexxrag application"
@@ -138,7 +136,7 @@ add_custom_command(
     DEPENDS
         "${CREXXRAG_ADDRESS_SOURCE}"
         ${CREXXRAG_APPLICATION_SOURCES}
-        _sqlite_boundary
+        "${CREXXRAG_SQLITE_DYNAMIC_PROVIDER}"
         "${CREXX_EXECUTABLE}"
         "${CREXX_BUILDINFO_FILE}"
         "${CMAKE_CURRENT_LIST_FILE}"

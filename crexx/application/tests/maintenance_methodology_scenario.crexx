@@ -1,7 +1,7 @@
 options levelg
 
 import rxfnsb
-import sqlite_boundary
+import rxsqlite
 import ragstore
 import ragimprove
 import ragmaintain

@@ -6,7 +6,7 @@ import rxfnsb
 import concurrency
 import rxplatform
 import rxfs
-import sqlite_boundary
+import rxsqlite
 import ragstore
 import ragconfig
 import ragprofile

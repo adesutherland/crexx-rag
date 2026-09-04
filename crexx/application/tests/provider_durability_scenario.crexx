@@ -3,7 +3,7 @@ options levelg
 import rxfnsb
 import rxhash
 import rxplatform
-import sqlite_boundary
+import rxsqlite
 import ragstore
 import ragwork
 import ragcommand

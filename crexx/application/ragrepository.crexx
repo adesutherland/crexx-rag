@@ -3,7 +3,7 @@ options levelg
 namespace ragrepository expose ragrepositoryrecord ragrepositorypage ragrepositoryverifyresult repositorynames pagerepository verifyrepositories
 
 import rxfnsb
-import sqlite_boundary
+import rxsqlite
 import ragstore
 
 /* A repository record is a bounded typed envelope shared by the product
