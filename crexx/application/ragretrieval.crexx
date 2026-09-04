@@ -28,9 +28,12 @@ ragretrievaloptions: class
   _lead_limit = .int
   _rrf_k = .int
   _graph_direction = .string
+  _graph_boost_millionths = .int
+  _graph_decay_millionths = .int
+  _directness_bonus_millionths = .int
 
   *: factory
-    arg policy_version = "retrieval-v1", embedding_profile_id = "", query_vector = .binary, lexical_limit = 24, vector_limit = 12, vector_scan_limit = 100000, graph_hops = 2, passage_limit = 12, claim_limit = 8, lead_limit = 8, rrf_k = 60, graph_direction = "both"
+    arg policy_version = "retrieval-v1", embedding_profile_id = "", query_vector = .binary, lexical_limit = 24, vector_limit = 12, vector_scan_limit = 100000, graph_hops = 2, passage_limit = 12, claim_limit = 8, lead_limit = 8, rrf_k = 60, graph_direction = "both", graph_boost_millionths = 2000, graph_decay_millionths = 750000, directness_bonus_millionths = 1000
     _policy_version = policy_version
     _embedding_profile_id = embedding_profile_id
     _query_vector = query_vector
@@ -43,6 +46,9 @@ ragretrievaloptions: class
     _lead_limit = lead_limit
     _rrf_k = rrf_k
     _graph_direction = graph_direction
+    _graph_boost_millionths = graph_boost_millionths
+    _graph_decay_millionths = graph_decay_millionths
+    _directness_bonus_millionths = directness_bonus_millionths
     return
 
   policy_version: method = .string
@@ -69,21 +75,39 @@ ragretrievaloptions: class
     return _rrf_k
   graph_direction: method = .string
     return _graph_direction
+  graph_boost_millionths: method = .int
+    return _graph_boost_millionths
+  graph_decay_millionths: method = .int
+    return _graph_decay_millionths
+  directness_bonus_millionths: method = .int
+    return _directness_bonus_millionths
 
 ragretrievalresult: class
   _status = .int
   _state = .string
   _evidence = .ragevidence
   _candidate_count = .int
+  _lexical_candidates = .int
+  _vector_candidates = .int
+  _graph_candidates = .int
+  _lexical_passages = .int
+  _vector_passages = .int
+  _graph_passages = .int
   _vector_state = .string
   _error = .string
 
   *: factory
-    arg status = .int, state = .string, evidence = .ragevidence, candidate_count = .int, vector_state = .string, error = .string
+    arg status = .int, state = .string, evidence = .ragevidence, candidate_count = .int, lexical_candidates = .int, vector_candidates = .int, graph_candidates = .int, lexical_passages = .int, vector_passages = .int, graph_passages = .int, vector_state = .string, error = .string
     _status = status
     _state = state
     _evidence = evidence
     _candidate_count = candidate_count
+    _lexical_candidates = lexical_candidates
+    _vector_candidates = vector_candidates
+    _graph_candidates = graph_candidates
+    _lexical_passages = lexical_passages
+    _vector_passages = vector_passages
+    _graph_passages = graph_passages
     _vector_state = vector_state
     _error = error
     return
@@ -96,6 +120,18 @@ ragretrievalresult: class
     return _evidence
   candidate_count: method = .int
     return _candidate_count
+  lexical_candidates: method = .int
+    return _lexical_candidates
+  vector_candidates: method = .int
+    return _vector_candidates
+  graph_candidates: method = .int
+    return _graph_candidates
+  lexical_passages: method = .int
+    return _lexical_passages
+  vector_passages: method = .int
+    return _vector_passages
+  graph_passages: method = .int
+    return _graph_passages
   vector_state: method = .string
     return _vector_state
   error: method = .string
@@ -104,7 +140,7 @@ ragretrievalresult: class
 retrieveevidence: procedure = .int
   arg store = .ragstorehandle, profile = .ragprofile, question = .string, retrieval_options = .ragretrievaloptions, expose result = .ragretrievalresult, expose error = .string
   empty_evidence = _emptyevidence(question)
-  result = .ragretrievalresult(-1, "error", empty_evidence, 0, "not-attempted", "retrieval input is invalid")
+  result = .ragretrievalresult(-1, "error", empty_evidence, 0, 0, 0, 0, 0, 0, 0, "not-attempted", "retrieval input is invalid")
   error = ""
   if store.open() \= 1 | _validoptions(retrieval_options) \= 1 then do; error = "retrieval input is invalid"; return -1; end
   query_plan = .ragqueryplan
@@ -151,7 +187,9 @@ retrieveevidence: procedure = .int
   trace_record = .ragtrace("trace-" || substr(trace_identity, 1, 24), plan_strings, trace_notes)
   guidance = "Answer only from passages and accepted claim support; preserve attribution, stance, time, ambiguity, conflict, leads, and explicit gaps."
   evidence = .ragevidence("crexx-rag.evidence/1", library_id, generation, question, plan_strings, passages, claims, ambiguities, leads, analysis_notes, gaps, trace_record, guidance, "")
-  result = .ragretrievalresult(0, "complete", evidence, candidate_ids.0, vector_state, "")
+  lexical_candidates = _nonzero(lexical_ranks); vector_candidates = _nonzero(vector_ranks); graph_candidates = _nonzero(graph_ranks)
+  lexical_passages = _selectedchannels(selected_ids, candidate_ids, lexical_ranks); vector_passages = _selectedchannels(selected_ids, candidate_ids, vector_ranks); graph_passages = _selectedchannels(selected_ids, candidate_ids, graph_ranks)
+  result = .ragretrievalresult(0, "complete", evidence, candidate_ids.0, lexical_candidates, vector_candidates, graph_candidates, lexical_passages, vector_passages, graph_passages, vector_state, "")
   return 0
 
 recordquerygaps: procedure = .int
@@ -427,15 +465,12 @@ _rankandpassages: procedure = .int
     if vector_ranks[i] > 0 then rrf = rrf + vector_weight / (retrieval_options.rrf_k() + vector_ranks[i])
     if graph_ranks[i] > 0 then rrf = rrf + graph_weight / (retrieval_options.rrf_k() + graph_ranks[i])
     graph_boost = 0.0
-    if graph_hops[i] > 0 then graph_boost = 0.002 * (0.75 ** (graph_hops[i] - 1))
-    directness_bonus = directness_values[i] * 0.001
+    if graph_hops[i] > 0 then graph_boost = (retrieval_options.graph_boost_millionths() / 1000000.0) * ((retrieval_options.graph_decay_millionths() / 1000000.0) ** (graph_hops[i] - 1))
+    directness_bonus = directness_values[i] * (retrieval_options.directness_bonus_millionths() / 1000000.0)
     base_scores[i] = rrf + graph_boost + directness_bonus
-    citation = .ragcitation; title = ""; body = ""; source_type = ""; captured = ""; event_start = ""; event_end = ""; evidence_class = ""; source_id = ""; content_id = ""
-    if _chunk(database, library_id, generation, candidate_ids[i], citation, title, body, source_type, captured, event_start, event_end, evidence_class, source_id, content_id, error) \= 0 then return -1
-    citations[i] = citation; titles[i] = title; bodies[i] = body; source_types[i] = source_type
-    captured_values[i] = captured; event_starts[i] = event_start; event_ends[i] = event_end; evidence_classes[i] = evidence_class; source_ids[i] = source_id; content_ids[i] = content_id
     selected_flags[i] = 0; excluded_flags[i] = 0
   end
+  if _chunks(database, library_id, generation, candidate_ids, citations, titles, bodies, source_types, captured_values, event_starts, event_ends, evidence_classes, source_ids, content_ids, error) \= 0 then return -1
   distinct_sources = _distinctcount(source_ids)
   source_cap = retrieval_options.passage_limit()
   if distinct_sources > 1 then do
@@ -474,8 +509,8 @@ _rankandpassages: procedure = .int
     score_parts[score_parts.0 + 1] = .ragscore("rrf-final", best_score)
     if lexical_ranks[index] > 0 then score_parts[score_parts.0 + 1] = .ragscore("lexical-rank", lexical_ranks[index])
     if vector_ranks[index] > 0 then score_parts[score_parts.0 + 1] = .ragscore("vector-similarity", vector_scores[index])
-    if graph_hops[index] > 0 then score_parts[score_parts.0 + 1] = .ragscore("graph-hop-decay", 0.75 ** (graph_hops[index] - 1))
-    score_parts[score_parts.0 + 1] = .ragscore("directness-bonus", directness_values[index] * 0.001)
+    if graph_hops[index] > 0 then score_parts[score_parts.0 + 1] = .ragscore("graph-hop-decay", (retrieval_options.graph_decay_millionths() / 1000000.0) ** (graph_hops[index] - 1))
+    score_parts[score_parts.0 + 1] = .ragscore("directness-bonus", directness_values[index] * (retrieval_options.directness_bonus_millionths() / 1000000.0))
     score_parts[score_parts.0 + 1] = .ragscore("temporal-relevance", best_temporal)
     score_parts[score_parts.0 + 1] = .ragscore("source-quality", best_source_quality)
     score_parts[score_parts.0 + 1] = .ragscore("duplication-penalty", best_duplicate_penalty)
@@ -649,32 +684,66 @@ _anchors: procedure = .int
     if label \= "" & pos(" " || label || " ", " " || normalized_question || " ") > 0 & _contains(anchors, concept_id) = 0 then anchors[anchors.0 + 1] = concept_id
   end
   call sqlitefinalize prepared
-  do i = 1 to candidate_ids.0
+  if candidate_ids.0 > 0 then do
     mention_statement = .binary
-    sql = "SELECT DISTINCT concept_id FROM mentions WHERE revision_chunk_id=?1 AND concept_id IS NOT NULL AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2) ORDER BY concept_id"
-    if sqliteprepare(database, sql, mention_statement) \= 0 | sqlitebindtext(mention_statement, 1, candidate_ids[i]) \= 0 | sqlitebindint(mention_statement, 2, generation) \= 0 then do; call sqlitefinalize mention_statement; error = "cannot prepare mention anchors"; return -1; end
+    sql = "WITH wanted(revision_chunk_id,ordinal) AS (VALUES" || _wanted(candidate_ids) || ") SELECT m.concept_id FROM wanted w JOIN mentions m ON m.revision_chunk_id=w.revision_chunk_id WHERE m.concept_id IS NOT NULL AND m.visible_from_generation<=?1 AND (m.visible_to_generation IS NULL OR m.visible_to_generation>?1) GROUP BY m.concept_id ORDER BY min(w.ordinal),m.concept_id"
+    if sqliteprepare(database, sql, mention_statement) \= 0 | sqlitebindint(mention_statement, 1, generation) \= 0 then do; call sqlitefinalize mention_statement; error = "cannot prepare batched mention anchors"; return -1; end
     do forever
       step_status = sqlitestep(mention_statement)
       if step_status = 101 then leave
-      if step_status \= 100 then do; call sqlitefinalize mention_statement; error = "cannot read mention anchors"; return -1; end
-      concept_id = ""; if sqlitecolumntext(mention_statement, 0, concept_id) \= 0 then do; call sqlitefinalize mention_statement; error = "cannot decode mention anchors"; return -1; end
+      if step_status \= 100 then do; call sqlitefinalize mention_statement; error = "cannot read batched mention anchors"; return -1; end
+      concept_id = ""; if sqlitecolumntext(mention_statement, 0, concept_id) \= 0 then do; call sqlitefinalize mention_statement; error = "cannot decode batched mention anchors"; return -1; end
       if _contains(anchors, concept_id) = 0 then anchors[anchors.0 + 1] = concept_id
     end
     call sqlitefinalize mention_statement
   end
   return 0
 
-_chunk: procedure = .int
-  arg database = .binary, library_id = .string, generation = .int, chunk_id = .string, expose citation = .ragcitation, expose title = .string, expose body = .string, expose source_type = .string, expose captured = .string, expose event_start = .string, expose event_end = .string, expose evidence_class = .string, expose source_id = .string, expose content_id = .string, expose error = .string
+_chunks: procedure = .int
+  arg database = .binary, library_id = .string, generation = .int, chunk_ids = .string[], expose citations = .ragcitation[], expose titles = .string[], expose bodies = .string[], expose source_types = .string[], expose captured_values = .string[], expose event_starts = .string[], expose event_ends = .string[], expose evidence_classes = .string[], expose source_ids = .string[], expose content_ids = .string[], expose error = .string
+  if chunk_ids.0 = 0 then return 0
   prepared = .binary
-  sql = "SELECT s.source_id,s.observed_title,s.connector_type,r.revision_id,r.captured_at,COALESCE(r.event_start_at,''),COALESCE(r.event_end_at,''),rc.normalized_start,rc.normalized_end,rc.evidence_class,cc.content_id,cc.text FROM revision_chunks rc JOIN chunk_contents cc ON cc.content_id=rc.content_id JOIN source_revisions r ON r.revision_id=rc.revision_id JOIN sources s ON s.source_id=r.source_id WHERE rc.revision_chunk_id=?1 AND rc.visible_from_generation<=?2 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?2)"
-  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, chunk_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "retrieved chunk is not active"; return -1; end
-  revision_id = ""; start = 0; finish = 0
-  column_status = sqlitecolumntext(prepared, 0, source_id) | sqlitecolumntext(prepared, 1, title) | sqlitecolumntext(prepared, 2, source_type) | sqlitecolumntext(prepared, 3, revision_id) | sqlitecolumntext(prepared, 4, captured) | sqlitecolumntext(prepared, 5, event_start) | sqlitecolumntext(prepared, 6, event_end) | sqlitecolumnint(prepared, 7, start) | sqlitecolumnint(prepared, 8, finish) | sqlitecolumntext(prepared, 9, evidence_class) | sqlitecolumntext(prepared, 10, content_id) | sqlitecolumntext(prepared, 11, body)
+  sql = "WITH wanted(revision_chunk_id,ordinal) AS (VALUES" || _wanted(chunk_ids) || ") SELECT w.ordinal,rc.revision_chunk_id,s.source_id,s.observed_title,s.connector_type,r.revision_id,r.captured_at,COALESCE(r.event_start_at,''),COALESCE(r.event_end_at,''),rc.normalized_start,rc.normalized_end,rc.evidence_class,cc.content_id,cc.text FROM wanted w JOIN revision_chunks rc ON rc.revision_chunk_id=w.revision_chunk_id JOIN chunk_contents cc ON cc.content_id=rc.content_id JOIN source_revisions r ON r.revision_id=rc.revision_id JOIN sources s ON s.source_id=r.source_id WHERE rc.visible_from_generation<=?1 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?1) ORDER BY w.ordinal"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare batched retrieved chunks"; return -1; end
+  rows = 0
+  do forever
+    step_status = sqlitestep(prepared)
+    if step_status = 101 then leave
+    if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read batched retrieved chunks"; return -1; end
+    ordinal = 0; returned_id = ""; source_id = ""; title = ""; source_type = ""; revision_id = ""; captured = ""; event_start = ""; event_end = ""; start = 0; finish = 0; evidence_class = ""; content_id = ""; body = ""
+    column_status = sqlitecolumnint(prepared, 0, ordinal) | sqlitecolumntext(prepared, 1, returned_id) | sqlitecolumntext(prepared, 2, source_id) | sqlitecolumntext(prepared, 3, title) | sqlitecolumntext(prepared, 4, source_type) | sqlitecolumntext(prepared, 5, revision_id) | sqlitecolumntext(prepared, 6, captured) | sqlitecolumntext(prepared, 7, event_start) | sqlitecolumntext(prepared, 8, event_end) | sqlitecolumnint(prepared, 9, start) | sqlitecolumnint(prepared, 10, finish) | sqlitecolumntext(prepared, 11, evidence_class) | sqlitecolumntext(prepared, 12, content_id) | sqlitecolumntext(prepared, 13, body)
+    if column_status \= 0 | ordinal < 1 | ordinal > chunk_ids.0 | returned_id \= chunk_ids[ordinal] | start < 0 | finish <= start then do; call sqlitefinalize prepared; error = "retrieved chunk batch is invalid"; return -1; end
+    citations[ordinal] = .ragcitation(_stablecitation(library_id, source_id, revision_id, start, finish), source_id, revision_id, start, finish)
+    titles[ordinal] = title; bodies[ordinal] = body; source_types[ordinal] = source_type; captured_values[ordinal] = captured; event_starts[ordinal] = event_start; event_ends[ordinal] = event_end; evidence_classes[ordinal] = evidence_class; source_ids[ordinal] = source_id; content_ids[ordinal] = content_id
+    rows = rows + 1
+  end
   call sqlitefinalize prepared
-  if column_status \= 0 | start < 0 | finish <= start then do; error = "retrieved chunk citation is invalid"; return -1; end
-  citation = .ragcitation(_stablecitation(library_id, source_id, revision_id, start, finish), source_id, revision_id, start, finish)
+  if rows \= chunk_ids.0 then do; error = "one or more retrieved chunks are not active"; return -1; end
   return 0
+
+_wanted: procedure = .string
+  arg ids = .string[]
+  output = ""
+  do i = 1 to ids.0
+    if i > 1 then output = output || ","
+    output = output || "(" || _q(ids[i]) || "," || i || ")"
+  end
+  return output
+
+_nonzero: procedure = .int
+  arg values = .int[]
+  count = 0
+  do i = 1 to values.0; if values[i] > 0 then count = count + 1; end
+  return count
+
+_selectedchannels: procedure = .int
+  arg selected_ids = .string[], candidate_ids = .string[], ranks = .int[]
+  count = 0
+  do i = 1 to selected_ids.0
+    candidate = _candidateindex(candidate_ids, selected_ids[i])
+    if candidate > 0 & ranks[candidate] > 0 then count = count + 1
+  end
+  return count
 
 _candidate: procedure = .int
   arg chunk_id = .string, expose candidate_ids = .string[], expose lexical_ranks = .int[], expose vector_ranks = .int[], expose graph_ranks = .int[], expose vector_scores = .float[], expose graph_hops = .int[], expose directness_values = .float[]
@@ -766,7 +835,7 @@ _stablecitation: procedure = .string
 
 _validoptions: procedure = .int
   arg retrieval_options = .ragretrievaloptions
-  return retrieval_options.policy_version() \= "" & retrieval_options.lexical_limit() >= 1 & retrieval_options.lexical_limit() <= 100 & retrieval_options.vector_limit() >= 1 & retrieval_options.vector_limit() <= 100 & retrieval_options.vector_scan_limit() >= retrieval_options.vector_limit() & retrieval_options.vector_scan_limit() <= 1000000 & retrieval_options.graph_hops() >= 0 & retrieval_options.graph_hops() <= 4 & retrieval_options.passage_limit() >= 1 & retrieval_options.passage_limit() <= 12 & retrieval_options.claim_limit() >= 0 & retrieval_options.claim_limit() <= 8 & retrieval_options.lead_limit() >= 0 & retrieval_options.lead_limit() <= 8 & retrieval_options.rrf_k() >= 1 & retrieval_options.rrf_k() <= 1000 & wordpos(retrieval_options.graph_direction(), "outbound inbound both") > 0
+  return retrieval_options.policy_version() \= "" & retrieval_options.lexical_limit() >= 1 & retrieval_options.lexical_limit() <= 1000 & retrieval_options.vector_limit() >= 1 & retrieval_options.vector_limit() <= 1000 & retrieval_options.vector_scan_limit() >= retrieval_options.vector_limit() & retrieval_options.vector_scan_limit() <= 1000000 & retrieval_options.graph_hops() >= 0 & retrieval_options.graph_hops() <= 4 & retrieval_options.passage_limit() >= 1 & retrieval_options.passage_limit() <= 12 & retrieval_options.claim_limit() >= 0 & retrieval_options.claim_limit() <= 8 & retrieval_options.lead_limit() >= 0 & retrieval_options.lead_limit() <= 8 & retrieval_options.rrf_k() >= 1 & retrieval_options.rrf_k() <= 10000 & retrieval_options.graph_boost_millionths() >= 0 & retrieval_options.graph_boost_millionths() <= 1000000 & retrieval_options.graph_decay_millionths() >= 1 & retrieval_options.graph_decay_millionths() <= 1000000 & retrieval_options.directness_bonus_millionths() >= 0 & retrieval_options.directness_bonus_millionths() <= 1000000 & wordpos(retrieval_options.graph_direction(), "outbound inbound both") > 0
 
 _scalarint: procedure = .int
   arg database = .binary, sql = .string

@@ -23,6 +23,7 @@ set(CREXXRAG_APPLICATION_SOURCES
     "${CREXXRAG_APP_DIR}/ragconfigfile.crexx"
     "${CREXXRAG_APP_DIR}/ragglossary.crexx"
     "${CREXXRAG_APP_DIR}/ragprofile.crexx"
+    "${CREXXRAG_APP_DIR}/ragprofilefile.crexx"
     "${CREXXRAG_APP_DIR}/ragregistry.crexx"
     "${CREXXRAG_APP_DIR}/ragschema.crexx"
     "${CREXXRAG_APP_DIR}/ragfile.crexx"

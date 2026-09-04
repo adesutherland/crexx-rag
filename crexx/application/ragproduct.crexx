@@ -46,7 +46,7 @@ dispatchproduct: procedure = .ragcommandresult
   if left(operation, 7) = "config." then return _configcommand(request, registry)
   if operation = "library.report" then return _libraryreport(request, registry)
   if operation = "library.snapshot" then return _librarysnapshot(request, registry)
-  if operation = "library.trend" then return _librarytrend(request)
+  if operation = "library.trend" then return _librarytrend(request, registry)
   if operation = "source.list" | operation = "source.show" then return _repository(request, operation, "sources")
   if operation = "job.list" then return _repository(request, operation, "jobs")
   if operation = "job.events" then return _repository(request, operation, "job-items")
@@ -66,6 +66,7 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "provider.test" then return _providertest(request, registry)
   if operation = "profile.list" then return _profilelist(request, registry)
   if operation = "profile.show" then return _profileshow(request, registry)
+  if operation = "schedule.list" | operation = "schedule.show" then return _schedulecommand(request, registry)
   if operation = "proposal.plan" then return _proposalplan(request, registry)
   if operation = "proposal.apply" then return _proposalapply(request, registry)
   if operation = "review.decide" then return _reviewdecision(request, 0, registry)
@@ -100,6 +101,12 @@ _configcommand: procedure = .ragcommandresult
       workers = config.workers(); budget = config.budget(); fields = .ragresultfield[]
       fields[1] = .ragresultfield("worker_processes", "integer", workers.processes()); fields[2] = .ragresultfield("worker_max_in_flight", "integer", workers.max_in_flight()); fields[3] = .ragresultfield("lease_seconds", "integer", workers.lease_seconds()); fields[4] = .ragresultfield("budget_minutes", "integer", budget.minutes()); fields[5] = .ragresultfield("budget_items", "integer", budget.item_limit()); fields[6] = .ragresultfield("budget_calls", "integer", budget.model_calls()); fields[7] = .ragresultfield("budget_input_tokens", "integer", budget.input_tokens()); fields[8] = .ragresultfield("budget_output_tokens", "integer", budget.output_tokens()); fields[9] = .ragresultfield("budget_cost_microunits", "integer", budget.cost_microunits())
       records[records.0 + 1] = .ragresultrecord("operational-policy", fields)
+      retrieval = config.retrieval(); fields = .ragresultfield[]
+      fields[1] = .ragresultfield("lexical_candidates", "integer", retrieval.lexical_candidates()); fields[2] = .ragresultfield("vector_candidates", "integer", retrieval.vector_candidates()); fields[3] = .ragresultfield("vector_scan_limit", "integer", retrieval.vector_scan_limit()); fields[4] = .ragresultfield("graph_hops", "integer", retrieval.graph_hops()); fields[5] = .ragresultfield("passage_limit", "integer", retrieval.passage_limit()); fields[6] = .ragresultfield("claim_limit", "integer", retrieval.claim_limit()); fields[7] = .ragresultfield("lead_limit", "integer", retrieval.lead_limit()); fields[8] = .ragresultfield("rrf_k", "integer", retrieval.rrf_k()); fields[9] = .ragresultfield("graph_boost_millionths", "integer", retrieval.graph_boost_millionths()); fields[10] = .ragresultfield("graph_decay_millionths", "integer", retrieval.graph_decay_millionths()); fields[11] = .ragresultfield("directness_bonus_millionths", "integer", retrieval.directness_bonus_millionths()); fields[12] = .ragresultfield("graph_direction", "string", retrieval.graph_direction())
+      records[records.0 + 1] = .ragresultrecord("retrieval-policy", fields)
+      maintenance = config.maintenance(); observation = config.observation(); fields = .ragresultfield[]
+      fields[1] = .ragresultfield("sparse_max_degree", "integer", maintenance.sparse_max_degree()); fields[2] = .ragresultfield("query_gap_min_occurrences", "integer", maintenance.query_gap_min_occurrences()); fields[3] = .ragresultfield("snapshot_capture_threshold", "integer", observation.capture_threshold()); fields[4] = .ragresultfield("snapshot_cooldown_seconds", "integer", observation.cooldown_seconds()); fields[5] = .ragresultfield("snapshot_maximum_staleness_seconds", "integer", observation.maximum_staleness_seconds()); fields[6] = .ragresultfield("snapshot_work_minimum_change", "integer", observation.work_minimum_change()); fields[7] = .ragresultfield("snapshot_work_relative_millionths", "integer", observation.work_relative_millionths()); fields[8] = .ragresultfield("snapshot_dead_letter_minimum_change", "integer", observation.dead_letter_minimum_change()); fields[9] = .ragresultfield("snapshot_review_minimum_change", "integer", observation.review_minimum_change())
+      records[records.0 + 1] = .ragresultrecord("maintenance-observation-policy", fields)
     end
     message = "configuration is valid and its split identities were computed without resolving credentials"
     if operation = "config.explain" then message = "effective configuration and bounded provider policy explained without resolving credentials"
@@ -236,14 +243,17 @@ _libraryreport: procedure = .ragcommandresult
   dead_improvement = _scalarint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='improve-extraction'")
   dead_embeddings = _scalarint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='embedding'")
   dead_other = dead_letters - dead_extraction - dead_improvement - dead_embeddings; if dead_other < 0 then dead_other = 0
-  reconciliation_warning = incomplete_runs > 0 & active_jobs = 0
+  actionable_dead_letters = _scalarint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='actionable'")
+  replaying_dead_letters = _scalarint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='in-progress'")
+  resolved_dead_letters = _scalarint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='resolved'")
+  reconciliation_warning = actionable_dead_letters > 0 & active_jobs = 0
 
   required_metrics = .int[]
   required_metrics[1] = sources; required_metrics[2] = revisions; required_metrics[3] = chunks; required_metrics[4] = chunk_bytes
   required_metrics[5] = concepts; required_metrics[6] = aliases; required_metrics[7] = mentions; required_metrics[8] = claims; required_metrics[9] = supports
   required_metrics[10] = connected; required_metrics[11] = maximum_degree; required_metrics[12] = unsupported; required_metrics[13] = conflicts
   required_metrics[14] = embedding_links; required_metrics[15] = vector_rows; required_metrics[16] = fts_rows
-  required_metrics[17] = incomplete_runs; required_metrics[18] = pending_items; required_metrics[19] = dead_letters; required_metrics[20] = error_jobs
+  required_metrics[17] = incomplete_runs; required_metrics[18] = pending_items; required_metrics[19] = dead_letters; required_metrics[20] = error_jobs; required_metrics[21] = actionable_dead_letters; required_metrics[22] = replaying_dead_letters; required_metrics[23] = resolved_dead_letters
   do i = 1 to required_metrics.0
     if required_metrics[i] < 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "library report could not read a required metric"); end
   end
@@ -292,7 +302,7 @@ _libraryreport: procedure = .ragcommandresult
   call sqlitefinalize prepared
   semantic = semantic || ']}'
   semantic_digest = rxhash..sha256hex(semantic as .binary)
-  operational = '{"schema":"crexx-rag.library-report-operational/1","generation":' || generation || ',"vector":[' || embedding_links || ',' || vector_rows || ',' || vector_dimension || ',' || vector_centroids || ',' || vector_probes || ',' || vector_coverage || '],"maintenance":[' || incomplete_runs || ',' || pending_items || ',' || diagnosed_items || ',' || review_items || ',' || blocked_items || ',' || applied_items || ',' || active_jobs || ',' || error_jobs || ',' || dead_letters || ',' || dead_extraction || ',' || dead_improvement || ',' || dead_embeddings || ',' || dead_other || '],"review":[' || reviews || ',' || gaps || '],"verification":[' || verification.issue_count() || ',' || repository_verification.issue_count() || ',' || fts_rows || '],"reconciliation_warning":' || _boolean(reconciliation_warning) || '}'
+  operational = '{"schema":"crexx-rag.library-report-operational/1","generation":' || generation || ',"vector":[' || embedding_links || ',' || vector_rows || ',' || vector_dimension || ',' || vector_centroids || ',' || vector_probes || ',' || vector_coverage || '],"maintenance":[' || incomplete_runs || ',' || pending_items || ',' || diagnosed_items || ',' || review_items || ',' || blocked_items || ',' || applied_items || ',' || active_jobs || ',' || error_jobs || ',' || dead_letters || ',' || dead_extraction || ',' || dead_improvement || ',' || dead_embeddings || ',' || dead_other || ',' || actionable_dead_letters || ',' || replaying_dead_letters || ',' || resolved_dead_letters || '],"review":[' || reviews || ',' || gaps || '],"verification":[' || verification.issue_count() || ',' || repository_verification.issue_count() || ',' || fts_rows || '],"reconciliation_warning":' || _boolean(reconciliation_warning) || '}'
   operational_digest = rxhash..sha256hex(operational as .binary)
   report_id = "report-sha256:" || semantic_digest
   provider_context = '{"schema":"crexx-rag.library-report-context/1","semantic":' || semantic || ',"operational":' || operational || ',"passages":[' || passages || ']}'
@@ -321,7 +331,7 @@ _libraryreport: procedure = .ragcommandresult
   vector_fields[1] = .ragresultfield("state", "string", vector_state); vector_fields[2] = .ragresultfield("active_embeddings", "integer", embedding_links); vector_fields[3] = .ragresultfield("published_rows", "integer", vector_rows); vector_fields[4] = .ragresultfield("dimension", "integer", vector_dimension); vector_fields[5] = .ragresultfield("model", "string", vector_model); vector_fields[6] = .ragresultfield("centroids", "integer", vector_centroids); vector_fields[7] = .ragresultfield("probes", "integer", vector_probes); vector_fields[8] = .ragresultfield("coverage_millionths", "integer", vector_coverage)
   records[records.0 + 1] = .ragresultrecord("vector-stat", vector_fields)
   backlog_fields = .ragresultfield[]
-  backlog_fields[1] = .ragresultfield("incomplete_runs", "integer", incomplete_runs); backlog_fields[2] = .ragresultfield("pending_items", "integer", pending_items); backlog_fields[3] = .ragresultfield("diagnosed_items", "integer", diagnosed_items); backlog_fields[4] = .ragresultfield("review_items", "integer", review_items); backlog_fields[5] = .ragresultfield("blocked_or_failed_items", "integer", blocked_items); backlog_fields[6] = .ragresultfield("applied_items", "integer", applied_items); backlog_fields[7] = .ragresultfield("active_jobs", "integer", active_jobs); backlog_fields[8] = .ragresultfield("jobs_with_errors", "integer", error_jobs); backlog_fields[9] = .ragresultfield("dead_letters", "integer", dead_letters); backlog_fields[10] = .ragresultfield("extraction_dead_letters", "integer", dead_extraction); backlog_fields[11] = .ragresultfield("improvement_dead_letters", "integer", dead_improvement); backlog_fields[12] = .ragresultfield("embedding_dead_letters", "integer", dead_embeddings); backlog_fields[13] = .ragresultfield("other_dead_letters", "integer", dead_other); backlog_fields[14] = .ragresultfield("reconciliation_warning", "boolean", _boolean(reconciliation_warning))
+  backlog_fields[1] = .ragresultfield("incomplete_runs", "integer", incomplete_runs); backlog_fields[2] = .ragresultfield("pending_items", "integer", pending_items); backlog_fields[3] = .ragresultfield("diagnosed_items", "integer", diagnosed_items); backlog_fields[4] = .ragresultfield("review_items", "integer", review_items); backlog_fields[5] = .ragresultfield("blocked_or_failed_items", "integer", blocked_items); backlog_fields[6] = .ragresultfield("applied_items", "integer", applied_items); backlog_fields[7] = .ragresultfield("active_jobs", "integer", active_jobs); backlog_fields[8] = .ragresultfield("jobs_with_errors", "integer", error_jobs); backlog_fields[9] = .ragresultfield("dead_letters", "integer", dead_letters); backlog_fields[10] = .ragresultfield("extraction_dead_letters", "integer", dead_extraction); backlog_fields[11] = .ragresultfield("improvement_dead_letters", "integer", dead_improvement); backlog_fields[12] = .ragresultfield("embedding_dead_letters", "integer", dead_embeddings); backlog_fields[13] = .ragresultfield("other_dead_letters", "integer", dead_other); backlog_fields[14] = .ragresultfield("actionable_dead_letters", "integer", actionable_dead_letters); backlog_fields[15] = .ragresultfield("replaying_dead_letters", "integer", replaying_dead_letters); backlog_fields[16] = .ragresultfield("resolved_dead_letters", "integer", resolved_dead_letters); backlog_fields[17] = .ragresultfield("reconciliation_warning", "boolean", _boolean(reconciliation_warning))
   records[records.0 + 1] = .ragresultrecord("maintenance-backlog", backlog_fields)
 
   storage_issues = verification.issue_count() + repository_verification.issue_count()
@@ -470,7 +480,10 @@ _librarysnapshot: procedure = .ragcommandresult
     elapsed = _scalarint(database, "SELECT max(0,CAST(strftime('%s','now') AS INTEGER)-CAST(strftime('%s',captured_at) AS INTEGER)) FROM observation_snapshots WHERE snapshot_id=" || _sqlquote(previous_id))
   end
 
-  policy = "churn-matrix/1"; threshold = 50; cooldown = 900; maximum_staleness = 86400
+  config_lookup = registry.config(request.config_id())
+  if config_lookup.found() \= 1 then do; call sqliteexec database, "ROLLBACK"; ignored = ""; call closeragstore store, ignored; return _failure(operation, 5, "snapshot observation policy requires a registered configuration"); end
+  observation = config_lookup.config().observation()
+  policy = "churn-matrix/2"; threshold = observation.capture_threshold(); cooldown = observation.cooldown_seconds(); maximum_staleness = observation.maximum_staleness_seconds()
   semantic_score = 0; vector_score = 0; health_score = 0; settlement_score = 0; work_score = 0; dead_score = 0; review_score = 0; age_score = 0
   semantic_changed = previous_id \= "" & semantic_digest \= previous_semantic
   vector_changed = previous_id \= "" & (vector_generation_id \= previous_vector | vector_coverage \= _scalarint(database, "SELECT vector_coverage_millionths FROM observation_snapshots WHERE snapshot_id=" || _sqlquote(previous_id)))
@@ -480,13 +493,13 @@ _librarysnapshot: procedure = .ragcommandresult
   if vector_changed then vector_score = 70
   if health_changed then health_score = 100
   if settled then settlement_score = 60
-  work_delta = _absolute(work_backlog - previous_work); work_material = 25; percentage = (previous_work / 20) as .int; if percentage > work_material then work_material = percentage
+  work_delta = _absolute(work_backlog - previous_work); work_material = observation.work_minimum_change(); percentage = (previous_work * observation.work_relative_millionths() / 1000000) as .int; if percentage > work_material then work_material = percentage
   if previous_id \= "" & work_delta >= work_material then work_score = 50
   else if previous_id \= "" & work_delta > 0 then work_score = 10
-  dead_delta = _absolute(dead - previous_dead); dead_material = 25; percentage = (previous_dead / 20) as .int; if percentage > dead_material then dead_material = percentage
+  dead_delta = _absolute(dead - previous_dead); dead_material = observation.dead_letter_minimum_change(); percentage = (previous_dead * observation.work_relative_millionths() / 1000000) as .int; if percentage > dead_material then dead_material = percentage
   if previous_id \= "" & dead_delta >= dead_material then dead_score = 40
   else if previous_id \= "" & dead_delta > 0 then dead_score = 5
-  review_total = reviews + gaps; review_delta = _absolute(review_total - previous_review_total); review_material = 10; percentage = (previous_review_total / 20) as .int; if percentage > review_material then review_material = percentage
+  review_total = reviews + gaps; review_delta = _absolute(review_total - previous_review_total); review_material = observation.review_minimum_change(); percentage = (previous_review_total * observation.work_relative_millionths() / 1000000) as .int; if percentage > review_material then review_material = percentage
   if previous_id \= "" & review_delta >= review_material then review_score = 30
   else if previous_id \= "" & review_delta > 0 then review_score = 5
   if previous_id \= "" & operational_digest \= previous_operational & elapsed >= maximum_staleness then age_score = 50
@@ -496,17 +509,23 @@ _librarysnapshot: procedure = .ragcommandresult
   else if semantic_digest = previous_semantic & operational_digest = previous_operational then do; outcome = "skipped-identical"; score = 0; end
   else if elapsed < cooldown & semantic_score = 0 & vector_score = 0 & health_score = 0 & settlement_score = 0 then outcome = "skipped-cooldown"
   else if score < threshold then outcome = "skipped-threshold"
-  churn = '{"schema":"crexx-rag.churn-matrix/1","semantic":{"changed":' || _boolean(semantic_changed) || ',"score":' || semantic_score || '},"vector":{"changed":' || _boolean(vector_changed) || ',"score":' || vector_score || '},"health":{"changed":' || _boolean(health_changed) || ',"score":' || health_score || '},"job_settlement":{"changed":' || _boolean(settled) || ',"score":' || settlement_score || '},"work_backlog":{"current":' || work_backlog || ',"previous":' || previous_work || ',"delta":' || work_delta || ',"material":' || work_material || ',"score":' || work_score || '},"historical_dead_letters":{"current":' || dead || ',"previous":' || previous_dead || ',"delta":' || dead_delta || ',"material":' || dead_material || ',"score":' || dead_score || '},"reviews":{"current":' || review_total || ',"previous":' || previous_review_total || ',"delta":' || review_delta || ',"material":' || review_material || ',"score":' || review_score || '},"age":{"elapsed_seconds":' || elapsed || ',"maximum_staleness_seconds":' || maximum_staleness || ',"score":' || age_score || '},"total_score":' || score || ',"threshold":' || threshold || ',"cooldown_seconds":' || cooldown || '}'
+  churn = '{"schema":"crexx-rag.churn-matrix/2","semantic":{"changed":' || _boolean(semantic_changed) || ',"score":' || semantic_score || '},"vector":{"changed":' || _boolean(vector_changed) || ',"score":' || vector_score || '},"health":{"changed":' || _boolean(health_changed) || ',"score":' || health_score || '},"job_settlement":{"changed":' || _boolean(settled) || ',"score":' || settlement_score || '},"work_backlog":{"current":' || work_backlog || ',"previous":' || previous_work || ',"delta":' || work_delta || ',"material":' || work_material || ',"score":' || work_score || '},"historical_dead_letters":{"current":' || dead || ',"previous":' || previous_dead || ',"delta":' || dead_delta || ',"material":' || dead_material || ',"score":' || dead_score || '},"reviews":{"current":' || review_total || ',"previous":' || previous_review_total || ',"delta":' || review_delta || ',"material":' || review_material || ',"score":' || review_score || '},"age":{"elapsed_seconds":' || elapsed || ',"maximum_staleness_seconds":' || maximum_staleness || ',"score":' || age_score || '},"total_score":' || score || ',"threshold":' || threshold || ',"cooldown_seconds":' || cooldown || '}'
   decision_id = "observation-decision-sha256:" || rxhash..sha256hex((previous_id || "00"x || semantic_digest || "00"x || operational_digest || "00"x || trigger || "00"x || reason || "00"x || outcome || "00"x || score) as .binary)
-  sql = "INSERT INTO observation_decisions(decision_id,policy_version,trigger,reason,previous_snapshot_id,outcome,score,threshold,cooldown_seconds,elapsed_seconds,semantic_digest,operational_digest,churn_json,evaluation_count,first_evaluated_at,last_evaluated_at) VALUES(" || _sqlquote(decision_id) || "," || _sqlquote(policy) || "," || _sqlquote(trigger) || "," || _sqlquote(reason) || "," || _sqlquote(previous_id) || "," || _sqlquote(outcome) || "," || score || "," || threshold || "," || cooldown || "," || elapsed || "," || _sqlquote(semantic_digest) || "," || _sqlquote(operational_digest) || "," || _sqlquote(churn) || ",1,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')) ON CONFLICT(decision_id) DO UPDATE SET evaluation_count=observation_decisions.evaluation_count+1,last_evaluated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')"
-  if sqliteexec(database, sql) \= 0 then do; call sqliteexec database, "ROLLBACK"; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "cannot persist the snapshot decision"); end
+  sql = "INSERT INTO observation_decisions(decision_id,policy_version,trigger,reason,previous_snapshot_id,outcome,score,threshold,cooldown_seconds,elapsed_seconds,semantic_digest,operational_digest,churn_json,evaluation_count,first_evaluated_at,last_evaluated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,1,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')) ON CONFLICT(decision_id) DO UPDATE SET evaluation_count=observation_decisions.evaluation_count+1,last_evaluated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')"
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 then do; detail = _sqliteerrordetail(); call sqliteexec database, "ROLLBACK"; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "cannot prepare the snapshot decision: " || detail); end
+  binds = sqlitebindtext(prepared, 1, decision_id) | sqlitebindtext(prepared, 2, policy) | sqlitebindtext(prepared, 3, trigger) | sqlitebindtext(prepared, 4, reason) | sqlitebindtext(prepared, 5, previous_id) | sqlitebindtext(prepared, 6, outcome) | sqlitebindint(prepared, 7, score) | sqlitebindint(prepared, 8, threshold) | sqlitebindint(prepared, 9, cooldown) | sqlitebindint(prepared, 10, elapsed) | sqlitebindtext(prepared, 11, semantic_digest) | sqlitebindtext(prepared, 12, operational_digest) | sqlitebindtext(prepared, 13, churn)
+  if binds \= 0 then do; detail = _sqliteerrordetail(); call sqlitefinalize prepared; call sqliteexec database, "ROLLBACK"; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "cannot bind the snapshot decision: " || detail); end
+  step = sqlitestep(prepared)
+  if step \= 101 then do; detail = _sqliteerrordetail(); call sqlitefinalize prepared; call sqliteexec database, "ROLLBACK"; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "cannot persist the snapshot decision: " || detail); end
+  call sqlitefinalize prepared
 
   snapshot_id = ""; sequence = 0; captured_at = ""
   if outcome = "captured" then do
     sequence = _scalarint(database, "SELECT coalesce(max(sequence_number),0)+1 FROM observation_snapshots")
     snapshot_id = "observation-sha256:" || rxhash..sha256hex((decision_id || "00"x || sequence || "00"x || time("us")) as .binary)
     sql = "INSERT INTO observation_snapshots(snapshot_id,sequence_number,decision_id,trigger,reason,semantic_generation,profile_hash,config_snapshot_id,vector_generation_id,report_id,narrative_id,semantic_digest,operational_digest,sources,revisions,chunks,bytes,concepts,claims,supports,connected_concepts,isolated_concepts,vector_rows,vector_coverage_millionths,incomplete_runs,work_backlog,active_jobs,jobs_with_errors,historical_dead_letters,pending_reviews,open_query_gaps,health_attention_dimensions,report_json,captured_at) VALUES(" || _sqlquote(snapshot_id) || "," || sequence || "," || _sqlquote(decision_id) || "," || _sqlquote(trigger) || "," || _sqlquote(reason) || "," || generation || "," || _sqlquote(profile_hash) || "," || _sqlquote(config_snapshot_id) || "," || _sqlquote(vector_generation_id) || "," || _sqlquote(report_id) || "," || _sqlquote(narrative_id) || "," || _sqlquote(semantic_digest) || "," || _sqlquote(operational_digest) || "," || sources || "," || revisions || "," || chunks || "," || bytes || "," || concepts || "," || claims || "," || supports || "," || connected || "," || isolated || "," || vector_rows || "," || vector_coverage || "," || incomplete || "," || work_backlog || "," || active_jobs || "," || error_jobs || "," || dead || "," || reviews || "," || gaps || "," || attention || "," || _sqlquote(report_json) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
-    if sqliteexec(database, sql) \= 0 then do; call sqliteexec database, "ROLLBACK"; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "cannot persist the observation snapshot"); end
+    if sqliteexec(database, sql) \= 0 then do; detail = _sqliteerrordetail(); call sqliteexec database, "ROLLBACK"; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "cannot persist the observation snapshot: " || detail); end
     captured_at = _scalartext(database, "SELECT captured_at FROM observation_snapshots WHERE snapshot_id=" || _sqlquote(snapshot_id))
   end
   if sqliteexec(database, "COMMIT") \= 0 then do; call sqliteexec database, "ROLLBACK"; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "cannot commit the snapshot decision"); end
@@ -526,7 +545,7 @@ _librarysnapshot: procedure = .ragcommandresult
   return .ragcommandresult(operation, "ok", 0, "snapshot evaluation recorded without creating a redundant observation", records)
 
 _librarytrend: procedure = .ragcommandresult
-  arg request = .ragcommandrequest
+  arg request = .ragcommandrequest, registry = .ragregistry
   operation = "library.trend"; error = ""
   if _hasaccess(request, "read") \= 1 then return _failure(operation, 4, "library trend requires read access")
   if _options(request, "limit", error) \= 0 then return _failure(operation, 2, error)
@@ -566,7 +585,9 @@ _librarytrend: procedure = .ragcommandresult
   records = .ragresultrecord[]
   summary_fields = .ragresultfield[]; summary_fields[1] = .ragresultfield("schema", "string", "crexx-rag.historic-trend/1"); summary_fields[2] = .ragresultfield("state", "string", state); summary_fields[3] = .ragresultfield("point_count", "integer", point_records.0); summary_fields[4] = .ragresultfield("total_snapshot_count", "integer", total_points); summary_fields[5] = .ragresultfield("total_evaluations", "integer", total_evaluations); summary_fields[6] = .ragresultfield("suppressed_evaluations", "integer", suppressed); summary_fields[7] = .ragresultfield("direction_available", "boolean", _boolean(direction)); summary_fields[8] = .ragresultfield("earliest_at", "string", earliest); summary_fields[9] = .ragresultfield("latest_at", "string", latest)
   records[1] = .ragresultrecord("trend-summary", summary_fields)
-  policy_fields = .ragresultfield[]; policy_fields[1] = .ragresultfield("policy_version", "string", "churn-matrix/1"); policy_fields[2] = .ragresultfield("capture_threshold", "integer", 50); policy_fields[3] = .ragresultfield("cooldown_seconds", "integer", 900); policy_fields[4] = .ragresultfield("maximum_staleness_seconds", "integer", 86400); policy_fields[5] = .ragresultfield("work_minimum_change", "integer", 25); policy_fields[6] = .ragresultfield("work_relative_millionths", "integer", 50000); policy_fields[7] = .ragresultfield("review_minimum_change", "integer", 10); policy_fields[8] = .ragresultfield("critical_changes_bypass_cooldown", "boolean", "true")
+  config_lookup = registry.config(request.config_id()); observation = .ragobservationpolicy()
+  if config_lookup.found() = 1 then observation = config_lookup.config().observation()
+  policy_fields = .ragresultfield[]; policy_fields[1] = .ragresultfield("policy_version", "string", "churn-matrix/2"); policy_fields[2] = .ragresultfield("capture_threshold", "integer", observation.capture_threshold()); policy_fields[3] = .ragresultfield("cooldown_seconds", "integer", observation.cooldown_seconds()); policy_fields[4] = .ragresultfield("maximum_staleness_seconds", "integer", observation.maximum_staleness_seconds()); policy_fields[5] = .ragresultfield("work_minimum_change", "integer", observation.work_minimum_change()); policy_fields[6] = .ragresultfield("work_relative_millionths", "integer", observation.work_relative_millionths()); policy_fields[7] = .ragresultfield("dead_letter_minimum_change", "integer", observation.dead_letter_minimum_change()); policy_fields[8] = .ragresultfield("review_minimum_change", "integer", observation.review_minimum_change()); policy_fields[9] = .ragresultfield("critical_changes_bypass_cooldown", "boolean", "true")
   records[2] = .ragresultrecord("churn-policy", policy_fields)
   do i = 1 to point_records.0; records[records.0 + 1] = point_records[i]; end
   if latest_narrative \= "" then do
@@ -732,8 +753,9 @@ _currentoperationaldigest: procedure = .string
   chunks = _scalarint(database, "SELECT count(*) FROM revision_chunks WHERE " || visible); vector_coverage = 0; if chunks > 0 then vector_coverage = ((vector_rows * 1000000) / chunks) as .int
   incomplete_runs = _scalarint(database, "SELECT count(*) FROM maintenance_runs WHERE state<>'complete'"); pending_items = _scalarint(database, "SELECT count(*) FROM maintenance_items WHERE state='pending'"); diagnosed_items = _scalarint(database, "SELECT count(*) FROM maintenance_items WHERE state='diagnosed'"); review_items = _scalarint(database, "SELECT count(*) FROM maintenance_items WHERE state IN('review-required','approved')"); blocked_items = _scalarint(database, "SELECT count(*) FROM maintenance_items WHERE state IN('blocked','failed')"); applied_items = _scalarint(database, "SELECT count(*) FROM maintenance_items WHERE state='applied'")
   active_jobs = _scalarint(database, "SELECT count(*) FROM jobs WHERE state IN('queued','running','paused','cancel_requested')"); error_jobs = _scalarint(database, "SELECT count(*) FROM jobs WHERE state IN('completed_with_errors','failed')"); dead_letters = _scalarint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter'"); dead_extraction = _scalarint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='claim-extraction'"); dead_improvement = _scalarint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='improve-extraction'"); dead_embeddings = _scalarint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='embedding'"); dead_other = dead_letters - dead_extraction - dead_improvement - dead_embeddings
-  reviews = _scalarint(database, "SELECT count(*) FROM reviews WHERE state='pending'"); gaps = _scalarint(database, "SELECT count(*) FROM query_gaps WHERE state='open' AND observed_generation<=" || generation); fts_rows = _scalarint(database, "SELECT count(*) FROM chunks_fts"); reconciliation_warning = incomplete_runs > 0 & active_jobs = 0
-  operational = '{"schema":"crexx-rag.library-report-operational/1","generation":' || generation || ',"vector":[' || embedding_links || ',' || vector_rows || ',' || vector_dimension || ',' || vector_centroids || ',' || vector_probes || ',' || vector_coverage || '],"maintenance":[' || incomplete_runs || ',' || pending_items || ',' || diagnosed_items || ',' || review_items || ',' || blocked_items || ',' || applied_items || ',' || active_jobs || ',' || error_jobs || ',' || dead_letters || ',' || dead_extraction || ',' || dead_improvement || ',' || dead_embeddings || ',' || dead_other || '],"review":[' || reviews || ',' || gaps || '],"verification":[' || verification_issues || ',' || repository_issues || ',' || fts_rows || '],"reconciliation_warning":' || _boolean(reconciliation_warning) || '}'
+  actionable_dead_letters = _scalarint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='actionable'"); replaying_dead_letters = _scalarint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='in-progress'"); resolved_dead_letters = _scalarint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='resolved'")
+  reviews = _scalarint(database, "SELECT count(*) FROM reviews WHERE state='pending'"); gaps = _scalarint(database, "SELECT count(*) FROM query_gaps WHERE state='open' AND observed_generation<=" || generation); fts_rows = _scalarint(database, "SELECT count(*) FROM chunks_fts"); reconciliation_warning = actionable_dead_letters > 0 & active_jobs = 0
+  operational = '{"schema":"crexx-rag.library-report-operational/1","generation":' || generation || ',"vector":[' || embedding_links || ',' || vector_rows || ',' || vector_dimension || ',' || vector_centroids || ',' || vector_probes || ',' || vector_coverage || '],"maintenance":[' || incomplete_runs || ',' || pending_items || ',' || diagnosed_items || ',' || review_items || ',' || blocked_items || ',' || applied_items || ',' || active_jobs || ',' || error_jobs || ',' || dead_letters || ',' || dead_extraction || ',' || dead_improvement || ',' || dead_embeddings || ',' || dead_other || ',' || actionable_dead_letters || ',' || replaying_dead_letters || ',' || resolved_dead_letters || '],"review":[' || reviews || ',' || gaps || '],"verification":[' || verification_issues || ',' || repository_issues || ',' || fts_rows || '],"reconciliation_warning":' || _boolean(reconciliation_warning) || '}'
   return rxhash..sha256hex(operational as .binary)
 
 _healthrecord: procedure = .ragresultrecord
@@ -839,6 +861,32 @@ _profileshow: procedure = .ragcommandresult
     records[records.0 + 1] = .ragresultrecord("profile-alias", alias_fields)
   end
   return .ragcommandresult(operation, "ok", 0, "registered profile vocabulary and policy shown", records)
+
+_schedulecommand: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = request.operation(); error = ""
+  if _hasaccess(request, "read") \= 1 then return _failure(operation, 4, "schedule inspection requires read access")
+  if _options(request, "", error) \= 0 then return _failure(operation, 2, error)
+  lookup = registry.config(request.config_id())
+  if lookup.found() \= 1 then return _failure(operation, 5, "schedule inspection requires a registered configuration")
+  positionals = request.positionals(); requested = ""
+  if operation = "schedule.list" then do
+    if positionals.0 \= 0 then return _failure(operation, 2, "schedule list accepts no positional arguments")
+  end
+  else do
+    if positionals.0 \= 1 then return _failure(operation, 2, "schedule show requires one schedule id")
+    requested = positionals[1]
+  end
+  schedules = lookup.config().schedules(); records = .ragresultrecord[]
+  do i = 1 to schedules.0
+    schedule = schedules[i]
+    if requested \= "" & schedule.schedule_id() \= requested then iterate
+    fields = .ragresultfield[]
+    fields[1] = .ragresultfield("schedule_id", "string", schedule.schedule_id()); fields[2] = .ragresultfield("operation", "string", schedule.operation()); fields[3] = .ragresultfield("trigger", "string", schedule.trigger()); fields[4] = .ragresultfield("enabled", "boolean", _boolean(schedule.enabled())); fields[5] = .ragresultfield("recurrence_owner", "string", "external"); fields[6] = .ragresultfield("provider_calls", "integer", 0)
+    records[records.0 + 1] = .ragresultrecord("schedule", fields)
+  end
+  if requested \= "" & records.0 = 0 then return _failure(operation, 5, "schedule is not configured")
+  return .ragcommandresult(operation, "ok", 0, "configured schedules exposed for an external recurrence runner without executing them", records)
 
 _proposalplan: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
@@ -1117,7 +1165,7 @@ _query: procedure = .ragcommandresult
   config_lookup = registry.config(request.config_id())
   if config_lookup.found() \= 1 then return _failure(operation, 5, "configuration is not registered")
   config = config_lookup.config(); profile = profile_lookup.profile(); budget = config.budget()
-  limit = 12; hops = 3
+  retrieval_policy = config.retrieval(); limit = retrieval_policy.passage_limit(); hops = retrieval_policy.graph_hops()
   limit_text = _option(request, "limit", error); hops_text = _option(request, "hops", error); mode = _option(request, "mode", error); graph_direction = _option(request, "direction", error)
   if error \= "" then return _failure(operation, 2, error)
   if limit_text \= "" then do
@@ -1131,13 +1179,13 @@ _query: procedure = .ragcommandresult
   if limit < 1 | limit > 12 | hops < 0 | hops > 4 then return _failure(operation, 2, "query limit must be 1 through 12 and hops 0 through 4")
   if mode = "" then mode = "auto"
   if mode \= "auto" & mode \= "lexical" & mode \= "hybrid" then return _failure(operation, 2, "query mode must be auto, lexical, or hybrid")
-  if graph_direction = "" then graph_direction = "both"
+  if graph_direction = "" then graph_direction = retrieval_policy.graph_direction()
   if wordpos(graph_direction, "outbound inbound both") = 0 then return _failure(operation, 2, "query direction must be outbound, inbound, or both")
   store = .ragstorehandle
   if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
   if _querysnapshotmatches(store, config, profile) \= 1 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 6, "query configuration and profile do not match the published generation"); end
   plan = .ragqueryplan
-  if planquery(store, profile, positionals[1], "surface-retrieval-v1", plan, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 1, error); end
+  if planquery(store, profile, positionals[1], "surface-retrieval-v2", plan, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 1, error); end
   privacy = _queryprivacy(config); embedding_provider = _roleproviderconfig(config, "embedding"); answer_provider = _roleproviderconfig(config, "answerer")
   active_profile = ""; dimension = 0; query_vector = ''x as .binary
   if _activequeryembedding(store.database(), embedding_provider, active_profile, dimension, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, error); end
@@ -1170,7 +1218,7 @@ _query: procedure = .ragcommandresult
     end
   end
   retrieval_profile = ""; if embedding_called = 1 then retrieval_profile = active_profile
-  retrieval_options = .ragretrievaloptions("surface-retrieval-v1", retrieval_profile, query_vector, 48, 12, 100000, hops, limit, 8, 8, 60, graph_direction)
+  retrieval_options = .ragretrievaloptions("surface-retrieval-v2", retrieval_profile, query_vector, retrieval_policy.lexical_candidates(), retrieval_policy.vector_candidates(), retrieval_policy.vector_scan_limit(), hops, limit, retrieval_policy.claim_limit(), retrieval_policy.lead_limit(), retrieval_policy.rrf_k(), graph_direction, retrieval_policy.graph_boost_millionths(), retrieval_policy.graph_decay_millionths(), retrieval_policy.directness_bonus_millionths())
   retrieval = .ragretrievalresult
   if retrieveevidence(store, profile, positionals[1], retrieval_options, retrieval, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 1, error); end
   evidence = retrieval.evidence(); answer_context = ""
@@ -1217,6 +1265,23 @@ _query: procedure = .ragcommandresult
   fields[11] = .ragresultfield("provider_calls", "integer", embedding_attempted + answer_called)
   fields[12] = .ragresultfield("graph_direction", "string", graph_direction)
   fields[13] = .ragresultfield("query_gaps_recorded", "integer", query_gaps_recorded)
+  fields[14] = .ragresultfield("lexical_candidates", "integer", retrieval.lexical_candidates())
+  fields[15] = .ragresultfield("vector_candidates", "integer", retrieval.vector_candidates())
+  fields[16] = .ragresultfield("graph_candidates", "integer", retrieval.graph_candidates())
+  fields[17] = .ragresultfield("lexical_passages", "integer", retrieval.lexical_passages())
+  fields[18] = .ragresultfield("vector_passages", "integer", retrieval.vector_passages())
+  fields[19] = .ragresultfield("graph_passages", "integer", retrieval.graph_passages())
+  fields[20] = .ragresultfield("effective_lexical_limit", "integer", retrieval_policy.lexical_candidates())
+  fields[21] = .ragresultfield("effective_vector_limit", "integer", retrieval_policy.vector_candidates())
+  fields[22] = .ragresultfield("effective_vector_scan_limit", "integer", retrieval_policy.vector_scan_limit())
+  fields[23] = .ragresultfield("effective_graph_hops", "integer", hops)
+  fields[24] = .ragresultfield("effective_passage_limit", "integer", limit)
+  fields[25] = .ragresultfield("effective_claim_limit", "integer", retrieval_policy.claim_limit())
+  fields[26] = .ragresultfield("effective_lead_limit", "integer", retrieval_policy.lead_limit())
+  fields[27] = .ragresultfield("effective_rrf_k", "integer", retrieval_policy.rrf_k())
+  fields[28] = .ragresultfield("effective_graph_boost_millionths", "integer", retrieval_policy.graph_boost_millionths())
+  fields[29] = .ragresultfield("effective_graph_decay_millionths", "integer", retrieval_policy.graph_decay_millionths())
+  fields[30] = .ragresultfield("effective_directness_bonus_millionths", "integer", retrieval_policy.directness_bonus_millionths())
   records = .ragresultrecord[]; records[1] = .ragresultrecord("query-evidence", fields)
   if embedding_attempted = 1 then records[records.0 + 1] = _queryproviderrecord("embedding", embedding_provider, embedding_output, -1, -1)
   if answer_called = 1 then records[records.0 + 1] = _queryproviderrecord("answerer", answer_provider, answer_output, allowance_before, allowance_after)
@@ -1889,7 +1954,8 @@ _preparemaintenance: procedure = .int
   if createimproveplan(store, snapshot_id, "surface-claim-v1", "surface-prompt-v1", triggers, cognitive_limit, cognitive_limit, budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), total_time, maximum_call_input, maximum_call_output, maximum_call_cost, maximum_call_time, maximum_inflight, extractor.max_attempts(), privacy, extractor.provider_id(), extractor.credential().ref_string(), discovery_context, plan, error) \= 0 then return -3
   maximum_passes = plan.item_count() + 2
   do pass = 1 to maximum_passes
-    if buildmaintenancecensus(store, plan, embedding_profile_id, budget.item_limit(), census, error) \= 0 then return -3
+    maintenance_policy = config.maintenance()
+    if buildmaintenancecensus(store, plan, embedding_profile_id, budget.item_limit(), census, error, maintenance_policy.sparse_max_degree(), maintenance_policy.query_gap_min_occurrences()) \= 0 then return -3
     selected = _censuscognitivechunks(census)
     plan_chunks = plan.chunk_ids()
     if _samechunkset(plan_chunks, selected) = 1 then leave
@@ -2251,6 +2317,11 @@ _boolean: procedure = .string
 _sqlquote: procedure = .string
   arg value = .string
   return "'" || changestr("'", value, "''") || "'"
+
+_sqliteerrordetail: procedure = .string
+  boundary_code = 0; sqlite_code = 0; sqlite_extended = 0; operation = ""; message = ""
+  call sqliteerrorextended boundary_code, sqlite_code, sqlite_extended, operation, message
+  return message || " [boundary=" || boundary_code || ",sqlite=" || sqlite_code || ",extended=" || sqlite_extended || ",operation=" || operation || "]"
 
 _failure: procedure = .ragcommandresult
   arg operation = .string, code = .int, message = .string

@@ -45,4 +45,5 @@ worker.max_in_flight = 1
 worker.lease_seconds = 30
 
 schedule.manual-maintenance.trigger = manual
+schedule.manual-maintenance.operation = maintain.plan
 schedule.manual-maintenance.enabled = true

@@ -137,7 +137,7 @@ install(FILES "${CREXXRAG_APPLICATION_DIR}/providers/rx_sqlite_boundary.rxplugin
     DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/crexxrag/providers")
 install(DIRECTORY crexx/application/
     DESTINATION "${CMAKE_INSTALL_DATADIR}/crexxrag/application"
-    FILES_MATCHING PATTERN "*.crexx" PATTERN "*.conf"
+    FILES_MATCHING PATTERN "*.crexx" PATTERN "*.conf" PATTERN "*.tsv"
     PATTERN "tests" EXCLUDE)
 install(DIRECTORY crexx/providers/
     DESTINATION "${CMAKE_INSTALL_DATADIR}/crexxrag/providers"

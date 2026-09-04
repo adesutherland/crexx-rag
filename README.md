@@ -119,6 +119,8 @@ crexxrag --access plan config plan --reason TEXT
 crexxrag --access admin config apply --plan-json JSON --expect-digest SHA256
 crexxrag profile list
 crexxrag profile show PROFILE_ID
+crexxrag schedule list
+crexxrag schedule show SCHEDULE_ID
 crexxrag doctor
 crexxrag serve mcp
 ```

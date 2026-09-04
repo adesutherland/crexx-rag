@@ -5,6 +5,7 @@ import ragconfig
 import ragconfigfile
 import ragfile
 import ragglossary
+import ragprofilefile
 
 check: procedure = .int
   arg condition = .boolean, label = .string
@@ -22,18 +23,22 @@ rejected: procedure = .int
 
 main: procedure = .int
   arg args = .string[]
-  if args.0 \= 7 then do; say "CONFIG_CONTRACT_FAIL=arguments"; return 1; end
+  if args.0 \= 9 then do; say "CONFIG_CONTRACT_FAIL=arguments"; return 1; end
   cell = args[1]; path = args[2]; errors = 0; error = ""
 
   config = .ragconfig
   errors = errors + check(loadconfigfile(path, config, error) = 0, "bounded file load " || error)
   providers = config.providers(); roles = config.roles(); sources = config.source_sets()
   config_snapshot = config.snapshot(); budget = config.budget(); workers = config.workers()
+  retrieval = config.retrieval(); maintenance = config.maintenance(); observation = config.observation(); schedules = config.schedules()
   errors = errors + check(config.config_id() = "google-gemini" & config.version() = "1", "identity")
   errors = errors + check(providers.0 = 2 & providers[1].kind() = "gemini" & providers[2].kind() = "gemini", "Google providers")
   errors = errors + check(providers[1].credential().ref_string() = "env:GEMINI_API_KEY" & config_snapshot.secret_reference_count() = 2, "symbolic secrets")
   errors = errors + check(roles.0 = 4 & sources.0 = 1 & sources[1].root() = "./source-docs", "roles and source")
   errors = errors + check(budget.model_calls() = 50 & budget.input_tokens() = 100000 & workers.processes() = 1 & workers.max_in_flight() = 1, "bounded policy")
+  errors = errors + check(retrieval.lexical_candidates() = 48 & retrieval.vector_candidates() = 12 & retrieval.vector_scan_limit() = 100000 & retrieval.graph_hops() = 3 & retrieval.rrf_k() = 60 & retrieval.graph_direction() = "both", "retrieval policy")
+  errors = errors + check(maintenance.sparse_max_degree() = 1 & maintenance.query_gap_min_occurrences() = 1 & observation.capture_threshold() = 50 & observation.cooldown_seconds() = 900, "maintenance and observation policy")
+  errors = errors + check(schedules.0 = 1 & schedules[1].operation() = "maintain.plan" & schedules[1].trigger() = "manual", "schedule operation")
 
   raw = .binary; bytes = 0
   errors = errors + check(ragfile..readbinaryfilebounded(path, 65536, raw, bytes, error) = 0, "fixture reread")
@@ -54,6 +59,7 @@ main: procedure = .int
   invalid_backoff = changestr("provider.gemini-generate.initial_backoff_ms = 1000", v2_text, "provider.gemini-generate.initial_backoff_ms = 60001")
   errors = errors + check(rejected(invalid_backoff, "outside its supported range") = 1, "backoff bound rejection")
   errors = errors + check(rejected(changestr("budget.model_calls = 50", text, "budget.model_calls = 050"), "canonical integer syntax") = 1, "integer syntax rejection")
+  errors = errors + check(rejected(changestr("retrieval.claim_limit = 8", text, "retrieval.claim_limit = 9"), "outside its supported range") = 1, "claim result bound rejection")
   errors = errors + check(rejected(copies("x", 65537), "65536") = 1, "file-size bound")
   errors = errors + check(rejected(copies("# bounded" || "0A"x, 513), "512-line") = 1, "line-count bound")
 
@@ -83,6 +89,17 @@ main: procedure = .int
   aliases[2] = "Customer DB"; error = ""
   errors = errors + check(validateglossarymention(context, "BillingService", "BillingService", "application-component", aliases, error) \= 1 & pos("conflicting", error) > 0, "provider cross-concept glossary rejection")
 
+  profile_loader = .ragprofileloader(); loaded_profile = profile_loader.load(args[8], "scottish-history-profile")
+  profile = loaded_profile.profile()
+  errors = errors + check(loaded_profile.status() = 0 & profile.profile_id() = "scottish-history-profile" & profile.version() = "1" & profile.validation().ok() = 1, "bounded profile load " || loaded_profile.error())
+  data_config_text = changestr("profiles = generic-profile,it-architecture-profile", text, "profiles = scottish-history-profile") || "0A"x || "profile.scottish-history-profile.file = " || args[8]
+  data_config = .ragconfig; data_error = ""
+  data_status = parseconfigtext(data_config_text, data_config, data_error); data_files = .ragprofilefilebinding[]
+  if data_status = 0 then data_files = data_config.profile_files()
+  errors = errors + check(data_status = 0 & data_files.0 = 1, "profile file config binding " || data_error)
+  rejected_profile = profile_loader.load(args[9], "scottish-history-profile")
+  errors = errors + check(rejected_profile.status() \= 0 & pos("does not match", rejected_profile.error()) > 0, "profile identity binding rejection")
+
   if errors > 0 then return 1
-  say "CONFIG_CONTRACT_OK cell=" || cell || " formats=1,2 identities=split settings=bounded providers=2 gemini=2 env_refs=2 literal_secrets=0 executable_modules=0 glossary=validated provider_calls=0"
+  say "CONFIG_CONTRACT_OK cell=" || cell || " formats=1,2 identities=split settings=bounded providers=2 gemini=2 env_refs=2 literal_secrets=0 executable_modules=0 glossary=validated profile=validated provider_calls=0"
   return 0

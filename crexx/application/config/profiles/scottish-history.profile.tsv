@@ -1,0 +1,39 @@
+# Bounded data-defined profile for Scottish history corpora.
+format	crexx-rag.profile/1
+profile	scottish-history-profile	1
+concept	person
+concept	place
+concept	organisation
+concept	event
+concept	artefact
+concept	evidence-span
+relationship	related-to	related-to	false
+relationship	mentioned-in	mentions	true
+relationship	mentions	mentioned-in	true
+relationship	born-in	birthplace-of	true
+relationship	birthplace-of	born-in	true
+relationship	died-in	deathplace-of	true
+relationship	deathplace-of	died-in	true
+relationship	served-in	had-member	true
+relationship	had-member	served-in	true
+relationship	located-in	contains-place	true
+relationship	contains-place	located-in	true
+relationship	participated-in	had-participant	true
+relationship	had-participant	participated-in	true
+relationship	commemorates	commemorated-by	true
+relationship	commemorated-by	commemorates	true
+alias	Highlands	Scottish Highlands
+alias	Jacobites	Jacobite movement
+alias	Black Watch	The Black Watch
+chunk	1400	180	plain,markdown
+weight	lexical	1000000
+weight	semantic	1000000
+weight	graph	1200000
+weight	relationship-cue	1400000
+prompt	advisory	1	scottish-history-advisory
+prompt	extractor	1	scottish-history-extractor
+prompt	answerer	1	scottish-history-answerer
+validator	direction-required
+validator	support-required
+validator	known-type-required
+validator	canonical-conflict-review

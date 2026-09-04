@@ -4,6 +4,7 @@ namespace operator_registry expose operatorregistry operatorregistryforconfig
 
 import ragconfig
 import ragprofile
+import ragprofilefile
 import ragregistry
 import architecture_local_config
 import generic_profile
@@ -24,4 +25,9 @@ operatorregistryforconfig: procedure = .ragregistry
   profiles = .ragprofile[]
   profiles[1] = genericprofile()
   profiles[2] = itarchitectureprofile()
+  profile_files = config.profile_files(); loader = .ragprofileloader()
+  do i = 1 to profile_files.0
+    loaded = loader.load(profile_files[i].path(), profile_files[i].profile_id())
+    profiles[profiles.0 + 1] = loaded.profile()
+  end
   return .ragregistry(configs, profiles)

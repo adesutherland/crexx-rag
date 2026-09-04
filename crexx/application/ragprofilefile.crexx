@@ -1,0 +1,172 @@
+options levelg
+
+namespace ragprofilefile expose ragprofileloadresult ragprofileloader
+
+import rxfnsb
+import ragmodel
+import ragfile
+import ragprofile
+
+/* Data-defined profiles are bounded operator data.  The grammar contains no
+ * executable names or expressions; normal ragprofile validation remains the
+ * authority after parsing. */
+ragprofileloadresult: class
+  _status = .int
+  _profile = .ragprofile
+  _error = .string
+
+  *: factory
+    arg status = -1, profile = .ragprofile, error = ""
+    _status = status; _profile = profile; _error = error
+    return
+
+  status: method = .int
+    return _status
+  profile: method = .ragprofile
+    return _profile
+  error: method = .string
+    return _error
+
+ragprofileloader: class
+  *: factory
+    return
+  load: method = .ragprofileloadresult
+    arg path = .string, expected_profile_id = ""
+    profile = invalidprofile(); error = ""
+    status = _loadprofile(path, expected_profile_id, profile, error)
+    return .ragprofileloadresult(status, profile, error)
+
+_loadprofile: procedure = .int
+  arg path = .string, expected_profile_id = .string, expose profile = .ragprofile, expose error = .string
+  profile = invalidprofile(); error = ""
+  if path = "" | length(path) > 4096 | pos("00"x, path) > 0 then return _fail("profile path is invalid", error)
+  raw = .binary; bytes = 0
+  if ragfile..readbinaryfilebounded(path, 1048576, raw, bytes, error) \= 0 then do
+    error = "profile could not be read within the 1 MiB ceiling: " || error
+    return -1
+  end
+  text = raw as .string
+  if pos("00"x, text) > 0 then return _fail("profile contains a NUL byte", error)
+
+  profile_id = ""; version = ""; format_seen = 0; identity_seen = 0; chunk_seen = 0
+  concept_types = .string[]; relationship_types = .ragrelationshiptype[]; aliases = .ragalias[]
+  formats = .string[]; max_characters = 0; overlap_characters = 0
+  ranking_weights = .ragrankingweight[]; prompts = .ragprompttemplate[]; validators = .string[]
+  line_number = 0; start = 1
+  do forever
+    marker = pos("0A"x, text, start)
+    if marker = 0 then line = substr(text, start)
+    else line = substr(text, start, marker - start)
+    line_number = line_number + 1
+    if line_number > 4096 then return _fail("profile exceeds 4096 lines", error)
+    if right(line, 1) = "0D"x then line = left(line, length(line) - 1)
+    if length(line) > 8192 then return _fail("profile line " || line_number || " exceeds 8192 bytes", error)
+    stripped = strip(line)
+    if stripped \= "" & left(stripped, 1) \= "#" then do
+      fields = .string[]; call _split line, "09"x, 8, fields
+      record = strip(fields[1])
+      if format_seen = 0 then do
+        if fields.0 \= 2 | record \= "format" | strip(fields[2]) \= "crexx-rag.profile/1" then return _fail("first profile data line must be format<TAB>crexx-rag.profile/1", error)
+        format_seen = 1
+      end
+      else if record = "profile" then do
+        if fields.0 \= 3 | identity_seen = 1 then return _fail("profile identity must occur once as profile<TAB>id<TAB>version", error)
+        profile_id = strip(fields[2]); version = strip(fields[3])
+        if validregistryid(profile_id) \= 1 | version = "" | length(version) > 64 then return _fail("profile identity on line " || line_number || " is invalid", error)
+        if expected_profile_id \= "" & profile_id \= expected_profile_id then return _fail("profile identity does not match configured id " || expected_profile_id, error)
+        identity_seen = 1
+      end
+      else if record = "concept" then do
+        if fields.0 \= 2 | validregistryid(strip(fields[2])) \= 1 then return _fail("profile concept line " || line_number || " is invalid", error)
+        concept_types[concept_types.0 + 1] = strip(fields[2])
+        if concept_types.0 > 128 then return _fail("profile exceeds 128 concept types", error)
+      end
+      else if record = "relationship" then do
+        if fields.0 \= 4 then return _fail("profile relationship line " || line_number || " requires relationship<TAB>id<TAB>inverse-or-none<TAB>boolean", error)
+        relationship_id = strip(fields[2]); inverse_id = strip(fields[3]); directional = 0
+        if inverse_id = "none" then inverse_id = ""
+        if validregistryid(relationship_id) \= 1 | (inverse_id \= "" & validregistryid(inverse_id) \= 1) | _boolean(strip(fields[4]), directional) \= 1 then return _fail("profile relationship line " || line_number || " is invalid", error)
+        relationship_types[relationship_types.0 + 1] = .ragrelationshiptype(relationship_id, inverse_id, directional)
+        if relationship_types.0 > 256 then return _fail("profile exceeds 256 relationship types", error)
+      end
+      else if record = "alias" then do
+        if fields.0 \= 3 | strip(fields[2]) = "" | strip(fields[3]) = "" | length(fields[2]) > 512 | length(fields[3]) > 512 then return _fail("profile alias line " || line_number || " is invalid", error)
+        aliases[aliases.0 + 1] = .ragalias(strip(fields[2]), strip(fields[3]))
+        if aliases.0 > 2048 then return _fail("profile exceeds 2048 aliases", error)
+      end
+      else if record = "chunk" then do
+        if fields.0 \= 4 | chunk_seen = 1 then return _fail("profile chunk policy must occur once as chunk<TAB>maximum<TAB>overlap<TAB>formats", error)
+        if _uint(strip(fields[2]), 1, 1048576, max_characters) \= 1 | _uint(strip(fields[3]), 0, 1048575, overlap_characters) \= 1 then return _fail("profile chunk policy on line " || line_number || " is invalid", error)
+        call _split fields[4], ",", 32, formats
+        do i = 1 to formats.0
+          formats[i] = strip(formats[i])
+          if validregistryid(formats[i]) \= 1 then return _fail("profile chunk format on line " || line_number || " is invalid", error)
+        end
+        chunk_seen = 1
+      end
+      else if record = "weight" then do
+        millionths = 0
+        if fields.0 \= 3 | validregistryid(strip(fields[2])) \= 1 | _uint(strip(fields[3]), 0, 1000000000, millionths) \= 1 then return _fail("profile weight line " || line_number || " is invalid", error)
+        ranking_weights[ranking_weights.0 + 1] = .ragrankingweight(strip(fields[2]), (millionths as .float) / 1000000.0)
+        if ranking_weights.0 > 64 then return _fail("profile exceeds 64 ranking weights", error)
+      end
+      else if record = "prompt" then do
+        if fields.0 \= 4 | strip(fields[3]) = "" | length(fields[3]) > 64 | validregistryid(strip(fields[4])) \= 1 then return _fail("profile prompt line " || line_number || " is invalid", error)
+        prompts[prompts.0 + 1] = .ragprompttemplate(strip(fields[2]), strip(fields[3]), strip(fields[4]))
+        if prompts.0 > 3 then return _fail("profile exceeds three prompt roles", error)
+      end
+      else if record = "validator" then do
+        if fields.0 \= 2 | validregistryid(strip(fields[2])) \= 1 then return _fail("profile validator line " || line_number || " is invalid", error)
+        validators[validators.0 + 1] = strip(fields[2])
+        if validators.0 > 64 then return _fail("profile exceeds 64 validators", error)
+      end
+      else return _fail("profile line " || line_number || " has unknown record type", error)
+    end
+    if marker = 0 then leave
+    start = marker + 1
+  end
+  if format_seen = 0 | identity_seen = 0 | chunk_seen = 0 then return _fail("profile format, identity, or chunk policy is missing", error)
+  candidate = .ragprofile(profile_id, version, concept_types, relationship_types, aliases, .ragchunkpolicy(max_characters, overlap_characters, formats), ranking_weights, prompts, validators)
+  validation = .ragvalidationresult; validation = candidate.validation()
+  if validation.ok() \= 1 then do
+    issues = .ragvalidationissue[]; issues = validation.issues()
+    return _fail("profile validation failed at " || issues[1].path() || ": " || issues[1].message(), error)
+  end
+  profile = candidate
+  return 0
+
+_split: procedure
+  arg text = .string, separator = .string, maximum = .int, expose values = .string[]
+  clear values; start = 1
+  do forever
+    marker = pos(separator, text, start)
+    if marker = 0 then value = substr(text, start)
+    else value = substr(text, start, marker - start)
+    values[values.0 + 1] = value
+    if values.0 > maximum | marker = 0 then leave
+    start = marker + length(separator)
+  end
+  return
+
+_uint: procedure = .int
+  arg text = .string, minimum = .int, maximum = .int, expose value = .int
+  value = 0
+  if text = "" | length(text) > 10 then return 0
+  if length(text) > 1 & left(text, 1) = "0" then return 0
+  do i = 1 to length(text)
+    if pos(substr(text, i, 1), "0123456789") = 0 then return 0
+  end
+  value = text as .int
+  return value >= minimum & value <= maximum
+
+_boolean: procedure = .int
+  arg text = .string, expose value = .int
+  value = 0
+  if text = "true" then do; value = 1; return 1; end
+  if text = "false" then return 1
+  return 0
+
+_fail: procedure = .int
+  arg message = .string, expose error = .string
+  error = message
+  return -1

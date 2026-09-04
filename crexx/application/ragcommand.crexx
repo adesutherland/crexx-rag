@@ -406,6 +406,7 @@ _validoperation: procedure = .int
   if noun = "config" then return pos(" " || verb || " ", " check explain diff plan apply ") > 0
   if noun = "provider" then return pos(" " || verb || " ", " list status test ") > 0
   if noun = "profile" then return pos(" " || verb || " ", " list show validate ") > 0
+  if noun = "schedule" then return pos(" " || verb || " ", " list show ") > 0
   if noun = "source" then return pos(" " || verb || " ", " list show ") > 0
   if noun = "ingest" then return pos(" " || verb || " ", " plan apply ") > 0
   if noun = "job" then return pos(" " || verb || " ", " list status events pause resume cancel retry replay ") > 0
@@ -419,7 +420,7 @@ _validoperation: procedure = .int
 
 _requireslibrary: procedure = .int
   arg noun = .string, verb = .string
-  if noun = "doctor" | noun = "provider" | noun = "profile" then return 0
+  if noun = "doctor" | noun = "provider" | noun = "profile" | noun = "schedule" then return 0
   if noun = "config" & (verb = "check" | verb = "explain") then return 0
   if noun = "library" & verb = "restore" then return 0
   return 1

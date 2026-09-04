@@ -210,11 +210,16 @@ validatemigrations: procedure = .int
     if error = "" then error = "schema_migrations is missing"
     return -4
   end
-  if _scalarint(database, "SELECT count(*) FROM schema_migrations", error) \= ragschemaversion() then do
+  declared_version = _scalarint(database, "SELECT schema_version FROM library_meta WHERE singleton=1", error)
+  if declared_version < 1 | declared_version > ragschemaversion() then do
+    if error = "" then error = "library metadata schema version is invalid"
+    return -4
+  end
+  if _scalarint(database, "SELECT count(*) FROM schema_migrations", error) \= declared_version then do
     if error = "" then error = "migration count does not match schema version"
     return -4
   end
-  do version = 1 to ragschemaversion()
+  do version = 1 to declared_version
     recorded_name = ""; recorded_checksum = ""
     present = _migrationrecord(database, version, recorded_name, recorded_checksum, error)
     if present \= 1 then do
@@ -226,7 +231,7 @@ validatemigrations: procedure = .int
       return -4
     end
   end
-  if _scalarint(database, "SELECT count(*) FROM library_meta WHERE singleton=1 AND schema_version=" || ragschemaversion(), error) \= 1 then do
+  if _scalarint(database, "SELECT count(*) FROM library_meta WHERE singleton=1 AND schema_version=" || declared_version, error) \= 1 then do
     if error = "" then error = "library metadata schema version is invalid"
     return -4
   end

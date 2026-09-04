@@ -84,12 +84,12 @@ ragmaintenanceapplyresult: class
     return _error
 
 buildmaintenancecensus: procedure = .int
-  arg store = .ragstorehandle, analysis_plan = .ragimproveplan, embedding_profile_id = .string, maximum_items = .int, expose census = .ragmaintenancecensus, expose error = .string
+  arg store = .ragstorehandle, analysis_plan = .ragimproveplan, embedding_profile_id = .string, maximum_items = .int, expose census = .ragmaintenancecensus, expose error = .string, sparse_max_degree = 1, query_gap_min_occurrences = 1
   item_types = .string[]; subject_types = .string[]; subject_ids = .string[]; scores = .int[]
   triggers = .string[]; diagnoses = .string[]; actions = .string[]
   census = .ragmaintenancecensus(0, "", item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "", "")
   error = ""
-  if store.open() \= 1 | analysis_plan.schema() \= "crexx-rag.improve-plan/1" | embedding_profile_id = "" | maximum_items < 1 | maximum_items > 100000 then do; error = "maintenance census input is invalid"; return -1; end
+  if store.open() \= 1 | analysis_plan.schema() \= "crexx-rag.improve-plan/1" | embedding_profile_id = "" | maximum_items < 1 | maximum_items > 100000 | sparse_max_degree < 0 | sparse_max_degree > 1000 | query_gap_min_occurrences < 1 | query_gap_min_occurrences > 1000000 then do; error = "maintenance census input is invalid"; return -1; end
   generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
   if generation \= analysis_plan.expected_generation() then do; error = "maintenance census generation changed"; return -2; end
   chunk_ids = analysis_plan.chunk_ids(); chunk_scores = analysis_plan.scores()
@@ -124,7 +124,7 @@ buildmaintenancecensus: procedure = .int
     if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read sparse-node census"; return -3; end
     concept_id = ""; label = ""; degree = 0
     if sqlitecolumntext(prepared, 0, concept_id) \= 0 | sqlitecolumntext(prepared, 1, label) \= 0 | sqlitecolumnint(prepared, 2, degree) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode sparse node"; return -3; end
-    if degree > 1 then iterate
+    if degree > sparse_max_degree then iterate
     score = 500000 - degree * 100000
     trigger = '{"signals":["sparse-node"],"degree":' || degree || ',"label":' || jsonquote(label) || '}'
     call _additem item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "sparse-node", "concept", concept_id, score, trigger, '{"state":"analysis-lead"}', '{}', maximum_items
@@ -157,6 +157,7 @@ buildmaintenancecensus: procedure = .int
     if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read query-gap census"; return -3; end
     gap_id = ""; gap_text = ""; occurrences = 0
     if sqlitecolumntext(prepared, 0, gap_id) \= 0 | sqlitecolumnint(prepared, 1, occurrences) \= 0 | sqlitecolumntext(prepared, 2, gap_text) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode query gap"; return -3; end
+    if occurrences < query_gap_min_occurrences then iterate
     score = 400000 + occurrences * 50000; if score > 900000 then score = 900000
     trigger = '{"signals":["repeated-query-gap"],"occurrences":' || occurrences || ',"gap":' || jsonquote(gap_text) || '}'
     call _additem item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "query-gap", "query-gap", gap_id, score, trigger, '{"state":"analysis-lead"}', '{}', maximum_items
@@ -178,7 +179,7 @@ buildmaintenancecensus: procedure = .int
   active_vectors = _scalarint(store.database(), "SELECT count(*) FROM vector_generations WHERE semantic_generation=" || generation || " AND embedding_profile_id=" || _q(embedding_profile_id) || " AND state='published' AND algorithm='ivf-flat-v1'")
   if active_chunks > 0 & active_vectors \= 1 then call _additem item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "vector-publication", "embedding-profile", embedding_profile_id, 990000, '{"signals":["missing-ann-publication"],"published":' || active_vectors || '}', '{"state":"repair-required"}', '{"operation":"ann-publication"}', maximum_items
 
-  canonical = _canonicalcensus(generation, analysis_plan.digest(), embedding_profile_id, item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions)
+  canonical = _canonicalcensus(generation, analysis_plan.digest(), embedding_profile_id, sparse_max_degree, query_gap_min_occurrences, item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions)
   digest = rxhash..sha256hex(canonical as .binary)
   census = .ragmaintenancecensus(generation, embedding_profile_id, item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, canonical, digest)
   return 0
@@ -332,8 +333,8 @@ recordmaintenanceembeddingitems: procedure = .int
   return 0
 
 _canonicalcensus: procedure = .string
-  arg generation = .int, analysis_digest = .string, embedding_profile_id = .string, types = .string[], subject_types = .string[], subjects = .string[], scores = .int[], triggers = .string[], diagnoses = .string[], actions = .string[]
-  output = '{"schema":"crexx-rag.maintenance-plan/1","expected_generation":' || generation || ',"analysis_plan_digest":' || jsonquote(analysis_digest) || ',"embedding_profile_id":' || jsonquote(embedding_profile_id) || ',"items":['
+  arg generation = .int, analysis_digest = .string, embedding_profile_id = .string, sparse_max_degree = .int, query_gap_min_occurrences = .int, types = .string[], subject_types = .string[], subjects = .string[], scores = .int[], triggers = .string[], diagnoses = .string[], actions = .string[]
+  output = '{"schema":"crexx-rag.maintenance-plan/1","expected_generation":' || generation || ',"analysis_plan_digest":' || jsonquote(analysis_digest) || ',"embedding_profile_id":' || jsonquote(embedding_profile_id) || ',"policy":{"sparse_max_degree":' || sparse_max_degree || ',"query_gap_min_occurrences":' || query_gap_min_occurrences || '},"items":['
   do i = 1 to types.0
     if i > 1 then output = output || ','
     output = output || '{"item_type":' || jsonquote(types[i]) || ',"subject_type":' || jsonquote(subject_types[i]) || ',"subject_id":' || jsonquote(subjects[i]) || ',"score":' || scores[i] || ',"triggers":' || triggers[i] || ',"diagnosis":' || diagnoses[i] || ',"action":' || actions[i] || '}'

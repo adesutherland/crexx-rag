@@ -53,6 +53,9 @@ main: procedure = .int
   errors = errors + check(publishmanifest(store, error) = 0, "manifest " || error)
   if errors > 0 then return 1
 
+  /* Give the indexed frequency test one searchable Alpha document. The row is
+   * removed before the graph tests so those remain graph-only by construction. */
+  errors = errors + check(sqliteexec(database, "INSERT INTO chunks_fts(revision_chunk_id,content_id,body) VALUES('chunk-out','content-out','Alpha links Beta.')") = 0, "indexed frequency fixture")
   quoted_plan = .ragqueryplan
   errors = errors + check(planquery(store, genericprofile(), "What is 'Alpha links'?", "evidence-methodology-v1", quoted_plan, error) = 0, "single-quoted query plan " || error)
   quoted_variants = .ragqueryvariant[]; quoted_variants = quoted_plan.variants()
@@ -61,6 +64,7 @@ main: procedure = .int
   errors = errors + check(planquery(store, genericprofile(), "Alpha Missing", "evidence-methodology-v1", frequency_plan, error) = 0, "frequency-ordered query plan " || error)
   frequency_variants = .ragqueryvariant[]; frequency_variants = frequency_plan.variants()
   errors = errors + check(frequency_variants.0 >= 3 & frequency_variants[2].query() = "missing" & frequency_variants[3].query() = "alpha", "focused terms are ordered rarest first")
+  errors = errors + check(sqliteexec(database, "DELETE FROM chunks_fts") = 0, "restore graph-only fixture")
 
   empty_wire = .binary
   outbound_options = .ragretrievaloptions("evidence-methodology-v1", "", empty_wire, 8, 1, 1, 1, 8, 8, 8, 60, "outbound")

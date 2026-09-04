@@ -44,4 +44,17 @@ branch, and an application regression exercises that exact path.
 
 The current CREXX line-input behavior can require an additional Enter after a
 confirmation prompt on affected builds. This is a known CREXX issue; the
-product does not carry a duplicate roadmap entry.
+product does not carry a duplicate roadmap entry. Interactive use remains safe
+because no apply begins before an affirmative answer is read. After reviewing
+the displayed plan, use `--yes` for automation and repeatable smoke tests; that
+path does not read stdin and is not affected by the extra-Enter behavior.
+
+## RexxScript configuration boundary
+
+RexxScript can be called as a function and is relevant to future configuration
+or rule authoring. The current product does not need it: strict declarative
+configuration and bounded TSV glossary/profile data cover all present operator
+controls without executable selection. Introducing RexxScript solely because
+it may become more powerful would add a second authoring path without a current
+requirement, so integration is intentionally deferred rather than treated as a
+missing capability.

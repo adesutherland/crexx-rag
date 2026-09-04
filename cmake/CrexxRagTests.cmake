@@ -25,6 +25,8 @@ add_test(NAME configuration_contract
         "-DCPRAG_FILE=${CREXXRAG_APP_DIR}/ragfile.crexx"
         "-DCPRAG_CONFIG_FILE_MODULE=${CREXXRAG_APP_DIR}/ragconfigfile.crexx"
         "-DCPRAG_GLOSSARY_MODULE=${CREXXRAG_APP_DIR}/ragglossary.crexx"
+        "-DCPRAG_PROFILE_MODULE=${CREXXRAG_APP_DIR}/ragprofile.crexx"
+        "-DCPRAG_PROFILE_FILE_MODULE=${CREXXRAG_APP_DIR}/ragprofilefile.crexx"
         "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/config_scenario.crexx"
         "-DCPRAG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
         "-DCPRAG_SUBSCRIPTION_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/docs/tutorial/crexxrag-codex-local.conf"

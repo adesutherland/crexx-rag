@@ -79,7 +79,9 @@ file(WRITE "${requests}"
     "{\"jsonrpc\":\"2.0\",\"id\":11,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_config_explain\",\"arguments\":{}}}\n"
     "{\"jsonrpc\":\"2.0\",\"id\":12,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_config_diff\",\"arguments\":{}}}\n"
     "{\"jsonrpc\":\"2.0\",\"id\":13,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_config_plan\",\"arguments\":{\"reason\":\"MCP configuration surface regression\"}}}\n"
-    "{\"jsonrpc\":\"2.0\",\"id\":14,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_job_replay\",\"arguments\":{\"id\":\"job-not-present\",\"reason\":\"MCP replay mapping regression\"}}}\n")
+    "{\"jsonrpc\":\"2.0\",\"id\":14,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_job_replay\",\"arguments\":{\"id\":\"job-not-present\",\"reason\":\"MCP replay mapping regression\"}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":15,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_schedule_list\",\"arguments\":{}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":16,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_schedule_show\",\"arguments\":{\"id\":\"manual-maintenance\"}}}\n")
 execute_process(COMMAND ${cli} --access read,plan,curate,control,admin serve mcp
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}" INPUT_FILE "${requests}"
     OUTPUT_VARIABLE mcp_out ERROR_VARIABLE mcp_err
@@ -96,11 +98,17 @@ if(NOT mcp_result EQUAL 0 OR
    NOT mcp_out MATCHES "\"name\":\"rag_config_plan\".*\"readOnlyHint\":true" OR
    NOT mcp_out MATCHES "\"name\":\"rag_config_apply\".*\"readOnlyHint\":false" OR
    NOT mcp_out MATCHES "\"name\":\"rag_job_replay\".*\"readOnlyHint\":false" OR
+   NOT mcp_out MATCHES "\"name\":\"rag_schedule_list\".*\"readOnlyHint\":true" OR
+   NOT mcp_out MATCHES "\"name\":\"rag_schedule_show\".*\"readOnlyHint\":true" OR
    NOT mcp_out MATCHES "\"operation\":\"query.answer\",\"status\":\"ok\"" OR
    NOT mcp_out MATCHES "\"generated_answer\":\"BillingService depends on CustomerDatabase\\.\"" OR
    NOT mcp_out MATCHES "\"citation\":\"crexx-rag:.*utf8-0-87\"" OR
    NOT mcp_out MATCHES "\"operation\":\"query.evidence\",\"status\":\"ok\"" OR
    NOT mcp_out MATCHES "\"retrieval_mode\":\"lexical\"" OR
+   NOT mcp_out MATCHES "\"lexical_candidates\":[1-9][0-9]*" OR
+   NOT mcp_out MATCHES "\"lexical_passages\":[1-9][0-9]*" OR
+   NOT mcp_out MATCHES "\"effective_lexical_limit\":48" OR
+   NOT mcp_out MATCHES "\"effective_graph_hops\":3" OR
    NOT mcp_out MATCHES "\"provider_calls\":0" OR
    NOT mcp_out MATCHES "\"name\":\"rag_maintain_plan\"" OR
    NOT mcp_out MATCHES "\"name\":\"rag_maintain_apply\"" OR
@@ -113,6 +121,9 @@ if(NOT mcp_result EQUAL 0 OR
    NOT mcp_out MATCHES "\"operation\":\"library.trend\",\"status\":\"ok\"" OR
    NOT mcp_out MATCHES "\"state\":\"baseline-only\"" OR
    NOT mcp_out MATCHES "\"schema\":\"crexx-rag.library-report/1\"" OR
+   NOT mcp_out MATCHES "\"actionable_dead_letters\":[0-9]+" OR
+   NOT mcp_out MATCHES "\"replaying_dead_letters\":[0-9]+" OR
+   NOT mcp_out MATCHES "\"resolved_dead_letters\":[0-9]+" OR
    NOT mcp_out MATCHES "\"coverage_millionths\":1000000" OR
    NOT mcp_out MATCHES "\"maintenance_digest\":\"[0-9a-f]+\"" OR
    NOT mcp_out MATCHES "\"operation\":\"config.check\",\"status\":\"ok\"" OR
@@ -124,6 +135,10 @@ if(NOT mcp_result EQUAL 0 OR
    NOT mcp_out MATCHES "crexx-rag.reconfigure-plan/1" OR
    NOT mcp_out MATCHES "\"operation\":\"job.replay\",\"status\":\"error\"" OR
    NOT mcp_out MATCHES "source job must be terminal with explicit dead letters" OR
+   NOT mcp_out MATCHES "\"operation\":\"schedule.list\",\"status\":\"ok\"" OR
+   NOT mcp_out MATCHES "\"operation\":\"schedule.show\",\"status\":\"ok\"" OR
+   NOT mcp_out MATCHES "\"operation\":\"maintain.plan\"" OR
+   NOT mcp_out MATCHES "\"recurrence_owner\":\"external\"" OR
    NOT mcp_out MATCHES "\"code\":-32602,\"message\":\"unknown object member surprise\"" OR
    mcp_out MATCHES "synthetic-product-gemini-key" OR
    mcp_err MATCHES "synthetic-product-gemini-key")

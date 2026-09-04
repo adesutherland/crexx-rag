@@ -9,7 +9,14 @@ file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}/source")
 set(source_text "")
 foreach(repetition RANGE 1 10)
-    string(APPEND source_text "BillingService depends on CustomerDatabase.\n")
+    math(EXPR line_ending "${repetition} % 3")
+    if(line_ending EQUAL 1)
+        string(APPEND source_text "BillingService depends on CustomerDatabase.\r\n")
+    elseif(line_ending EQUAL 2)
+        string(APPEND source_text "BillingService depends on CustomerDatabase.\r")
+    else()
+        string(APPEND source_text "BillingService depends on CustomerDatabase.\n")
+    endif()
 endforeach()
 file(WRITE "${CPRAG_WORK_DIR}/source/architecture.txt" "${source_text}")
 set(CPRAG_FIXTURE_GLOSSARY "${CPRAG_WORK_DIR}/architecture.glossary.tsv")
@@ -66,9 +73,25 @@ set(cli "${CMAKE_COMMAND}" -E env
 execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
     --profile it-architecture-profile --access admin --format json library init
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "\"schema_version\":6")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "\"schema_version\":7")
     message(FATAL_ERROR "Gemini product library init failed:\n${init_out}${init_err}")
 endif()
+
+# Native binary-to-string conversion is the bounded UTF-8 validator used by
+# ingestion. Keep its structured product error under regression coverage.
+string(ASCII 255 invalid_utf8)
+file(WRITE "${CPRAG_WORK_DIR}/source/invalid.txt" "${invalid_utf8}")
+execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
+    --profile it-architecture-profile --access plan --format json
+    ingest plan --source-set architecture-docs
+    OUTPUT_VARIABLE invalid_utf8_out ERROR_VARIABLE invalid_utf8_err
+    RESULT_VARIABLE invalid_utf8_result TIMEOUT 30)
+if(invalid_utf8_result EQUAL 0 OR
+   NOT invalid_utf8_out MATCHES "source bytes are not valid UTF-8" OR
+   invalid_utf8_err MATCHES "synthetic-product-gemini-key")
+    message(FATAL_ERROR "invalid source UTF-8 did not produce a structured, secret-free ingestion error:\n${invalid_utf8_out}${invalid_utf8_err}")
+endif()
+file(REMOVE "${CPRAG_WORK_DIR}/source/invalid.txt")
 
 execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
     --profile it-architecture-profile --access plan --format json
@@ -119,6 +142,16 @@ execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
     ERROR_VARIABLE candidate_bound_err RESULT_VARIABLE candidate_bound_result)
 if(NOT candidate_bound_result EQUAL 0 OR NOT candidate_bound STREQUAL "16")
     message(FATAL_ERROR "configured discovery bound did not cap the durable extraction candidate catalogue: ${candidate_bound} ${candidate_bound_err}")
+endif()
+
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
+        "SELECT count(*)||':'||min(raw_start)||':'||max(raw_end)||':'||min(normalized_start)||':'||max(normalized_end)||':'||sum(CASE WHEN raw_end-raw_start<>normalized_end-normalized_start THEN 1 ELSE 0 END)||':'||count(DISTINCT line)||':'||min(line)||':'||max(line)||':'||sum(CASE WHEN raw_end-raw_start<>normalized_end-normalized_start AND unicode_column=43 THEN 1 ELSE 0 END) FROM normalization_maps; SELECT length(normalized_utf8)||':'||instr(normalized_utf8,char(13))||':'||(length(normalized_utf8)-length(replace(normalized_utf8,char(10),''))) FROM source_revision_texts; SELECT count(*) FROM (SELECT raw_start,normalized_start,lag(raw_end) OVER (ORDER BY raw_start) AS previous_raw_end,lag(normalized_end) OVER (ORDER BY raw_start) AS previous_normalized_end FROM normalization_maps) WHERE previous_raw_end IS NOT NULL AND (raw_start<>previous_raw_end OR normalized_start<>previous_normalized_end);"
+    OUTPUT_VARIABLE normalization_state OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE normalization_state_err RESULT_VARIABLE normalization_state_result)
+string(REPLACE "\r\n" "\n" normalization_state "${normalization_state}")
+if(NOT normalization_state_result EQUAL 0 OR
+   NOT normalization_state STREQUAL "14:0:444:0:440:4:10:1:10:4\n440:0:10\n0")
+    message(FATAL_ERROR "streamed normalization map did not preserve the compact offset contract: ${normalization_state} ${normalization_state_err}")
 endif()
 
 execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"

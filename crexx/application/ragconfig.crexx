@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragconfig expose ragsecretref ragsourceset ragproviderconfig ragrolebinding ragbudget ragworkerpolicy ragschedule ragdiscoverypolicy ragvectorpolicy ragconfig ragconfigsnapshot validateconfig snapshotconfig invalidconfig
+namespace ragconfig expose ragsecretref ragsourceset ragproviderconfig ragrolebinding ragprofilefilebinding ragbudget ragworkerpolicy ragschedule ragdiscoverypolicy ragvectorpolicy ragretrievalpolicy ragmaintenancepolicy ragobservationpolicy ragconfig ragconfigsnapshot validateconfig snapshotconfig invalidconfig
 
 import ragmodel
 import rxfnsb
@@ -149,6 +149,24 @@ ragrolebinding: class
   provider_id: method = .string
     return _provider_id
 
+/* Profile definitions may remain compiled defaults or be supplied as bounded
+ * operator data.  A binding names the expected profile identity and its data
+ * file; it never selects executable code. */
+ragprofilefilebinding: class
+  _profile_id = .string
+  _path = .string
+
+  *: factory
+    arg profile_id = "", path = ""
+    _profile_id = profile_id
+    _path = path
+    return
+
+  profile_id: method = .string
+    return _profile_id
+  path: method = .string
+    return _path
+
 ragbudget: class
   _minutes = .int
   _item_limit = .int
@@ -209,18 +227,22 @@ ragworkerpolicy: class
 
 ragschedule: class
   _schedule_id = .string
+  _operation = .string
   _trigger = .string
   _enabled = .int
 
   *: factory
-    arg schedule_id = .string, trigger = .string, enabled = .int
+    arg schedule_id = .string, trigger = .string, enabled = .int, operation = ""
     _schedule_id = schedule_id
+    _operation = operation
     _trigger = trigger
     _enabled = enabled
     return
 
   schedule_id: method = .string
     return _schedule_id
+  operation: method = .string
+    return _operation
   trigger: method = .string
     return _trigger
   enabled: method = .int
@@ -290,6 +312,96 @@ ragvectorpolicy: class
   recall_minimum_millionths: method = .int
     return _recall_minimum_millionths
 
+ragretrievalpolicy: class
+  _lexical_candidates = .int
+  _vector_candidates = .int
+  _vector_scan_limit = .int
+  _graph_hops = .int
+  _passage_limit = .int
+  _claim_limit = .int
+  _lead_limit = .int
+  _rrf_k = .int
+  _graph_boost_millionths = .int
+  _graph_decay_millionths = .int
+  _directness_bonus_millionths = .int
+  _graph_direction = .string
+
+  *: factory
+    arg lexical_candidates = 48, vector_candidates = 12, vector_scan_limit = 100000, graph_hops = 3, passage_limit = 12, claim_limit = 8, lead_limit = 8, rrf_k = 60, graph_boost_millionths = 2000, graph_decay_millionths = 750000, directness_bonus_millionths = 1000, graph_direction = "both"
+    _lexical_candidates = lexical_candidates; _vector_candidates = vector_candidates; _vector_scan_limit = vector_scan_limit
+    _graph_hops = graph_hops; _passage_limit = passage_limit; _claim_limit = claim_limit; _lead_limit = lead_limit; _rrf_k = rrf_k
+    _graph_boost_millionths = graph_boost_millionths; _graph_decay_millionths = graph_decay_millionths; _directness_bonus_millionths = directness_bonus_millionths; _graph_direction = graph_direction
+    return
+
+  lexical_candidates: method = .int
+    return _lexical_candidates
+  vector_candidates: method = .int
+    return _vector_candidates
+  vector_scan_limit: method = .int
+    return _vector_scan_limit
+  graph_hops: method = .int
+    return _graph_hops
+  passage_limit: method = .int
+    return _passage_limit
+  claim_limit: method = .int
+    return _claim_limit
+  lead_limit: method = .int
+    return _lead_limit
+  rrf_k: method = .int
+    return _rrf_k
+  graph_boost_millionths: method = .int
+    return _graph_boost_millionths
+  graph_decay_millionths: method = .int
+    return _graph_decay_millionths
+  directness_bonus_millionths: method = .int
+    return _directness_bonus_millionths
+  graph_direction: method = .string
+    return _graph_direction
+
+ragmaintenancepolicy: class
+  _sparse_max_degree = .int
+  _query_gap_min_occurrences = .int
+
+  *: factory
+    arg sparse_max_degree = 1, query_gap_min_occurrences = 1
+    _sparse_max_degree = sparse_max_degree; _query_gap_min_occurrences = query_gap_min_occurrences
+    return
+
+  sparse_max_degree: method = .int
+    return _sparse_max_degree
+  query_gap_min_occurrences: method = .int
+    return _query_gap_min_occurrences
+
+ragobservationpolicy: class
+  _capture_threshold = .int
+  _cooldown_seconds = .int
+  _maximum_staleness_seconds = .int
+  _work_minimum_change = .int
+  _work_relative_millionths = .int
+  _dead_letter_minimum_change = .int
+  _review_minimum_change = .int
+
+  *: factory
+    arg capture_threshold = 50, cooldown_seconds = 900, maximum_staleness_seconds = 86400, work_minimum_change = 25, work_relative_millionths = 50000, dead_letter_minimum_change = 25, review_minimum_change = 10
+    _capture_threshold = capture_threshold; _cooldown_seconds = cooldown_seconds; _maximum_staleness_seconds = maximum_staleness_seconds
+    _work_minimum_change = work_minimum_change; _work_relative_millionths = work_relative_millionths; _dead_letter_minimum_change = dead_letter_minimum_change; _review_minimum_change = review_minimum_change
+    return
+
+  capture_threshold: method = .int
+    return _capture_threshold
+  cooldown_seconds: method = .int
+    return _cooldown_seconds
+  maximum_staleness_seconds: method = .int
+    return _maximum_staleness_seconds
+  work_minimum_change: method = .int
+    return _work_minimum_change
+  work_relative_millionths: method = .int
+    return _work_relative_millionths
+  dead_letter_minimum_change: method = .int
+    return _dead_letter_minimum_change
+  review_minimum_change: method = .int
+    return _review_minimum_change
+
 ragconfig: class
   _config_id = .string
   _version = .string
@@ -297,25 +409,33 @@ ragconfig: class
   _providers = .ragproviderconfig[]
   _roles = .ragrolebinding[]
   _profile_ids = .string[]
+  _profile_files = .ragprofilefilebinding[]
   _budget = .ragbudget
   _workers = .ragworkerpolicy
   _schedules = .ragschedule[]
   _discovery = .ragdiscoverypolicy
   _vector = .ragvectorpolicy
+  _retrieval = .ragretrievalpolicy
+  _maintenance = .ragmaintenancepolicy
+  _observation = .ragobservationpolicy
 
   *: factory
-    arg config_id = .string, version = .string, source_sets = .ragsourceset[], providers = .ragproviderconfig[], roles = .ragrolebinding[], profile_ids = .string[], budget = .ragbudget, workers = .ragworkerpolicy, schedules = .ragschedule[], discovery = .ragdiscoverypolicy, vector = .ragvectorpolicy
+    arg config_id = .string, version = .string, source_sets = .ragsourceset[], providers = .ragproviderconfig[], roles = .ragrolebinding[], profile_ids = .string[], budget = .ragbudget, workers = .ragworkerpolicy, schedules = .ragschedule[], discovery = .ragdiscoverypolicy, vector = .ragvectorpolicy, retrieval = .ragretrievalpolicy(), maintenance = .ragmaintenancepolicy(), observation = .ragobservationpolicy(), profile_files = .ragprofilefilebinding[]
     _config_id = config_id
     _version = version
     _source_sets = source_sets
     _providers = providers
     _roles = roles
     _profile_ids = profile_ids
+    _profile_files = profile_files
     _budget = budget
     _workers = workers
     _schedules = schedules
     _discovery = discovery
     _vector = vector
+    _retrieval = retrieval
+    _maintenance = maintenance
+    _observation = observation
     return
 
   config_id: method = .string
@@ -330,6 +450,8 @@ ragconfig: class
     return _roles
   profile_ids: method = .string[]
     return _profile_ids
+  profile_files: method = .ragprofilefilebinding[]
+    return _profile_files
   budget: method = .ragbudget
     return _budget
   workers: method = .ragworkerpolicy
@@ -340,6 +462,12 @@ ragconfig: class
     return _discovery
   vector: method = .ragvectorpolicy
     return _vector
+  retrieval: method = .ragretrievalpolicy
+    return _retrieval
+  maintenance: method = .ragmaintenancepolicy
+    return _maintenance
+  observation: method = .ragobservationpolicy
+    return _observation
   valid_identity: method = .int
     return validregistryid(_config_id) = 1 & _version \= ""
   snapshot: method = .ragconfigsnapshot
@@ -488,6 +616,16 @@ validateconfig: procedure = .ragvalidationresult
     if _contains(seen, profile_ids[i]) = 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "duplicate_id", "profiles[" || i || "]", "profile id is duplicated")
     seen[seen.0 + 1] = profile_ids[i]
   end
+  profile_files = config.profile_files()
+  clear seen
+  do i = 1 to profile_files.0
+    binding = profile_files[i]
+    if validregistryid(binding.profile_id()) = 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_id", "profile_files[" || i || "].id", "profile-file id is invalid")
+    if _contains(seen, binding.profile_id()) = 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "duplicate_id", "profile_files[" || i || "].id", "profile-file id is duplicated")
+    if _contains(profile_ids, binding.profile_id()) = 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "unused_profile_file", "profile_files[" || i || "].id", "profile-file id must also appear in profiles")
+    if binding.path() = "" | length(binding.path()) > 4096 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_profile_file", "profile_files[" || i || "].path", "profile-file path is invalid")
+    seen[seen.0 + 1] = binding.profile_id()
+  end
 
   budget = config.budget()
   if budget.minutes() < 0 | budget.item_limit() < 0 | budget.model_calls() < 0 | budget.input_tokens() < 0 | budget.output_tokens() < 0 | budget.cost_microunits() < 0 | budget.codex_turns() < 0 | budget.minimum_codex_allowance_percent() < 0 | budget.minimum_codex_allowance_percent() > 100 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_budget", "budget", "budget ceilings and Codex allowance threshold are invalid")
@@ -510,6 +648,19 @@ validateconfig: procedure = .ragvalidationresult
   if vector.iterations() < 1 | vector.iterations() > 16 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_vector_limit", "vector.iterations", "vector training iterations must be from 1 through 16")
   if vector.recall_minimum_millionths() < 1 | vector.recall_minimum_millionths() > 1000000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_vector_recall", "vector.recall_minimum_millionths", "vector recall threshold must be from 1 through 1000000")
 
+  retrieval = config.retrieval()
+  if retrieval.lexical_candidates() < 1 | retrieval.lexical_candidates() > 1000 | retrieval.vector_candidates() < 1 | retrieval.vector_candidates() > 1000 | retrieval.vector_scan_limit() < retrieval.vector_candidates() | retrieval.vector_scan_limit() > 1000000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_retrieval_limit", "retrieval", "retrieval candidate and vector scan limits are invalid")
+  if retrieval.graph_hops() < 0 | retrieval.graph_hops() > 4 | retrieval.passage_limit() < 1 | retrieval.passage_limit() > 12 | retrieval.claim_limit() < 0 | retrieval.claim_limit() > 8 | retrieval.lead_limit() < 0 | retrieval.lead_limit() > 8 | retrieval.rrf_k() < 1 | retrieval.rrf_k() > 10000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_retrieval_policy", "retrieval", "retrieval graph, passage, claim, lead, or RRF limits are invalid")
+  if retrieval.graph_boost_millionths() < 0 | retrieval.graph_boost_millionths() > 1000000 | retrieval.graph_decay_millionths() < 1 | retrieval.graph_decay_millionths() > 1000000 | retrieval.directness_bonus_millionths() < 0 | retrieval.directness_bonus_millionths() > 1000000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_retrieval_ranking", "retrieval", "retrieval graph ranking values are invalid")
+  if wordpos(retrieval.graph_direction(), "outbound inbound both") = 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_graph_direction", "retrieval.graph_direction", "graph direction must be outbound, inbound, or both")
+
+  maintenance = config.maintenance()
+  if maintenance.sparse_max_degree() < 0 | maintenance.sparse_max_degree() > 1000 | maintenance.query_gap_min_occurrences() < 1 | maintenance.query_gap_min_occurrences() > 1000000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_maintenance_policy", "maintenance", "maintenance sparse-node or query-gap thresholds are invalid")
+
+  observation = config.observation()
+  if observation.capture_threshold() < 1 | observation.capture_threshold() > 1000000 | observation.cooldown_seconds() < 0 | observation.cooldown_seconds() > 604800 | observation.maximum_staleness_seconds() < 1 | observation.maximum_staleness_seconds() > 31536000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_observation_timing", "observation", "observation capture, cooldown, or staleness values are invalid")
+  if observation.work_minimum_change() < 1 | observation.work_relative_millionths() < 1 | observation.work_relative_millionths() > 1000000 | observation.dead_letter_minimum_change() < 1 | observation.review_minimum_change() < 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_observation_churn", "observation", "observation churn thresholds must be positive and bounded")
+
   schedules = config.schedules()
   seen = .string[]
   do i = 1 to schedules.0
@@ -519,6 +670,7 @@ validateconfig: procedure = .ragvalidationresult
     if _contains(seen, schedule.schedule_id()) = 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "duplicate_id", path || ".id", "schedule id is duplicated")
     seen[seen.0 + 1] = schedule.schedule_id()
     if schedule.trigger() = "" then issues[issues.0 + 1] = .ragvalidationissue("config", "missing_trigger", path || ".trigger", "schedule trigger is required")
+    if schedule.enabled() = 1 & wordpos(schedule.operation(), "maintain.plan library.snapshot library.backup library.report") = 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_schedule_operation", path || ".operation", "enabled schedule operation must be maintain.plan, library.snapshot, library.backup, or library.report")
     if schedule.enabled() \= 0 & schedule.enabled() \= 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_boolean", path || ".enabled", "schedule enabled must be boolean")
   end
   return .ragvalidationresult(issues)
@@ -533,7 +685,8 @@ invalidconfig: procedure = .ragconfig
   roles = .ragrolebinding[]
   profile_ids = .string[]
   schedules = .ragschedule[]
-  return .ragconfig("", "", source_sets, providers, roles, profile_ids, .ragbudget(0, 0, 0, 0, 0, 0), .ragworkerpolicy(0, 0, 0), schedules, .ragdiscoverypolicy(), .ragvectorpolicy())
+  profile_files = .ragprofilefilebinding[]
+  return .ragconfig("", "", source_sets, providers, roles, profile_ids, .ragbudget(0, 0, 0, 0, 0, 0), .ragworkerpolicy(0, 0, 0), schedules, .ragdiscoverypolicy(), .ragvectorpolicy(), .ragretrievalpolicy(), .ragmaintenancepolicy(), .ragobservationpolicy(), profile_files)
 
 _contains: procedure = .int
   arg values = .string[], expected = .string

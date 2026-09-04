@@ -43,8 +43,10 @@ worker state make recovery explicit.
 Dead-letter replay does not reopen or rewrite its source job. It copies one or
 all selected terminal dead letters into a new job, binds that job to the
 current semantically compatible configuration snapshot and current budgets,
-and retains job/item lineage. The earlier single-item same-job retry remains a
-compatibility operation for an operator who deliberately wants that behavior.
+and retains job/item lineage. A recursive reconciliation view classifies each
+immutable source root as actionable, replaying, or resolved from the state of
+its descendants. The earlier single-item same-job retry remains a compatibility
+operation for an operator who deliberately wants that behavior.
 
 ## Evidence and claims
 
@@ -77,7 +79,7 @@ observability adds bounded, immutable derived checkpoints; it does not replace
 or compact those source facts.
 
 A `library snapshot` request first generates the fixed-top-10 deterministic
-report and evaluates `churn-matrix/1` against the newest retained point. The
+report and evaluates `churn-matrix/2` against the newest retained point. The
 matrix captures the first point, a semantic-generation change, a vector
 publication/coverage change, a health-state transition, a job transition from
 active to settled, a material work/review/dead-letter delta, or a changed
@@ -149,8 +151,11 @@ accounted.
 An effective configuration has a full hash plus separate semantic and
 operational hashes. Source selection, provider/model/privacy routes, role
 bindings, discovery rules and the selected profile are semantic. Budgets,
-worker ceilings, provider timeouts/pacing/retry policy, vector-build policy and
-schedules are operational. The library retains the current configuration
+worker ceilings, provider timeouts/pacing/retry policy, vector-build policy,
+retrieval/ranking ceilings, maintenance thresholds, observation thresholds and
+schedules are operational. Profiles may be compiled defaults or strict bounded
+data files; the interpreted canonical profile, not executable configuration,
+defines its semantic identity. The library retains the current configuration
 snapshot independently of the configuration that originally published each
 semantic generation, so provenance is not rewritten when operating policy
 changes.
@@ -171,8 +176,10 @@ initial schema migration and bundle format 1. Schema migration 4 adds the
 deterministic report snapshot and validated narrative caches. Migration 5 adds
 churn decisions and immutable historic observation points. Migration 6 adds
 split configuration identity/current state, immutable configuration change
-events, cross-process provider admissions and immutable replay lineage;
-canonical source, concept and claim ownership remains unchanged. The ordered
+events, cross-process provider admissions and immutable replay lineage.
+Migration 7 adds indexed FTS vocabulary term statistics and the read-only
+dead-letter reconciliation view; canonical source, concept and claim ownership
+remains unchanged. The ordered
 migration/checksum mechanism is part of the format so every schema evolution
 remains ordered and checksum-verified. There is no old schema importer.
 

@@ -80,40 +80,14 @@ ragsourceobservation: class
 
 ragnormalizedsource: class
   _text = .string
-  _raw_starts = .int[]
-  _raw_ends = .int[]
-  _normalized_starts = .int[]
-  _normalized_ends = .int[]
-  _lines = .int[]
-  _unicode_columns = .int[]
 
   *: factory
-    arg text = .string, raw_starts = .int[], raw_ends = .int[], normalized_starts = .int[], normalized_ends = .int[], lines = .int[], unicode_columns = .int[]
+    arg text = .string
     _text = text
-    _raw_starts = raw_starts
-    _raw_ends = raw_ends
-    _normalized_starts = normalized_starts
-    _normalized_ends = normalized_ends
-    _lines = lines
-    _unicode_columns = unicode_columns
     return
 
   text: method = .string
     return _text
-  raw_starts: method = .int[]
-    return _raw_starts
-  raw_ends: method = .int[]
-    return _raw_ends
-  normalized_starts: method = .int[]
-    return _normalized_starts
-  normalized_ends: method = .int[]
-    return _normalized_ends
-  lines: method = .int[]
-    return _lines
-  unicode_columns: method = .int[]
-    return _unicode_columns
-  map_count: method = .int
-    return _raw_starts.0
 
 ragchunk: class
   _ordinal = .int
@@ -331,47 +305,31 @@ ragtermstatistics: class
 
 normalizebytes: procedure = .int
   arg raw = .binary, encoding = .string, expose normalized = .ragnormalizedsource, expose error = .string
-  error = ""
-  starts = .int[]; ends = .int[]; nstarts = .int[]; nends = .int[]; lines = .int[]; columns = .int[]
-  normalized = .ragnormalizedsource("", starts, ends, nstarts, nends, lines, columns)
+  text = ""
+  normalized = .ragnormalizedsource("")
+  if _normalizetext(raw, encoding, text, error) \= 0 then return -1
+  normalized = .ragnormalizedsource(text)
+  return 0
+
+_normalizetext: procedure = .int
+  arg raw = .binary, encoding = .string, expose text = .string, expose error = .string
+  error = ""; text = ""
   if lower(encoding) \= "utf-8" & lower(encoding) \= "utf8" then do
     error = "unsupported source encoding"
     return -1
   end
-  if _validutf8(raw) \= 1 then do
+  input = ""; valid = 1
+  do
+    input = raw as .string
+  on signal unicode_error as problem
+    valid = 0
+  end
+  if valid \= 1 then do
     error = "source bytes are not valid UTF-8"
     return -1
   end
-  input = raw as .string
-  output = ""; line = 1; column = 0; i = 1; raw_offset = 0; normalized_offset = 0
-  do while i <= length(input)
-    character = substr(input, i, 1)
-    raw_width = binlength(character as .binary)
-    if c2x(character) = "0D" then do
-      character = "0A"x
-      if i < length(input) & c2x(substr(input, i + 1, 1)) = "0A" then do
-        i = i + 1
-        raw_width = raw_width + 1
-      end
-    end
-    normalized_width = binlength(character as .binary)
-    output = output || character
-    starts[starts.0 + 1] = raw_offset
-    ends[ends.0 + 1] = raw_offset + raw_width
-    nstarts[nstarts.0 + 1] = normalized_offset
-    nends[nends.0 + 1] = normalized_offset + normalized_width
-    lines[lines.0 + 1] = line
-    columns[columns.0 + 1] = column
-    if c2x(character) = "0A" then do
-      line = line + 1
-      column = 0
-    end
-    else column = column + 1
-    raw_offset = raw_offset + raw_width
-    normalized_offset = normalized_offset + normalized_width
-    i = i + 1
-  end
-  normalized = .ragnormalizedsource(output, starts, ends, nstarts, nends, lines, columns)
+  text = changestr("0D0A"x, input, "0A"x)
+  text = changestr("0D"x, text, "0A"x)
   return 0
 
 chunktext: procedure = .int
@@ -523,6 +481,22 @@ termstatistics: procedure = .int
     error = "published generation is unavailable"
     return -3
   end
+  if pos(" ", normalized_term) = 0 then do
+    prepared = .binary
+    sql = "SELECT count(*),count(DISTINCT v.doc),count(DISTINCT s.source_id) FROM chunks_fts_vocab v JOIN chunks_fts f ON f.rowid=v.doc JOIN revision_chunks c ON c.revision_chunk_id=f.revision_chunk_id JOIN source_revisions r ON r.revision_id=c.revision_id JOIN sources s ON s.source_id=r.source_id WHERE v.term=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2)"
+    if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindtext(prepared, 1, normalized_term) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 | sqlitestep(prepared) \= 100 then do
+      call sqlitefinalize prepared
+      error = "cannot prepare indexed term census"
+      return -3
+    end
+    occurrences = 0; chunks = 0; source_diversity = 0
+    column_status = sqlitecolumnint(prepared, 0, occurrences) | sqlitecolumnint(prepared, 1, chunks) | sqlitecolumnint(prepared, 2, source_diversity)
+    call sqlitefinalize prepared
+    if column_status \= 0 then do; error = "cannot decode indexed term census"; return -3; end
+    fingerprint = rxhash..sha256hex(("crexx-rag.ranking-input/1" || "00"x || policy_version || "00"x || generation || "00"x || normalized_term || "00"x || occurrences || "00"x || chunks || "00"x || source_diversity) as .binary)
+    statistics = .ragtermstatistics(normalized_term, occurrences, chunks, source_diversity, policy_version, fingerprint)
+    return 0
+  end
   prepared = .binary
   sql = "SELECT c.revision_chunk_id,s.source_id,t.text FROM revision_chunks c JOIN source_revisions r ON r.revision_id=c.revision_id JOIN sources s ON s.source_id=r.source_id JOIN chunk_contents t ON t.content_id=c.content_id WHERE c.visible_from_generation<=?1 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?1) ORDER BY c.revision_chunk_id"
   if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do
@@ -600,8 +574,8 @@ _canonicalplan: procedure = .int
       end
       mapping_keys[mapping_keys.0 + 1] = mapping_key
     end
-    normalized = .ragnormalizedsource; raw_digest = ""; text_digest = ""; metadata_fingerprint = ""; envelope = ""
-    if _observationidentity(observation, parser_version, policy_version, normalized, raw_digest, text_digest, metadata_fingerprint, envelope, error) \= 0 then return -1
+    normalized_text = ""; raw_digest = ""; text_digest = ""; metadata_fingerprint = ""; envelope = ""
+    if _observationidentity(observation, parser_version, policy_version, normalized_text, raw_digest, text_digest, metadata_fingerprint, envelope, error) \= 0 then return -1
     if i > 1 then output = output || ","
     output = output || "{" || jsonquote("connector_type") || ":" || jsonquote(observation.connector_type()) || "," || jsonquote("stable_key") || ":" || jsonquote(observation.stable_key()) || "," || jsonquote("previous_stable_key") || ":" || jsonquote(observation.previous_stable_key()) || "," || jsonquote("observed_uri") || ":" || jsonquote(observation.observed_uri()) || "," || jsonquote("observed_title") || ":" || jsonquote(observation.observed_title()) || "," || jsonquote("mime_type") || ":" || jsonquote(observation.mime_type()) || "," || jsonquote("encoding") || ":" || jsonquote(lower(observation.encoding())) || "," || jsonquote("format") || ":" || jsonquote(observation.format()) || "," || jsonquote("retain_raw") || ":" || observation.retain_raw() || "," || jsonquote("external_reference") || ":" || jsonquote(observation.external_reference()) || "," || jsonquote("raw_digest") || ":" || jsonquote(raw_digest) || "," || jsonquote("text_digest") || ":" || jsonquote(text_digest) || "," || jsonquote("metadata_fingerprint") || ":" || jsonquote(metadata_fingerprint) || "," || jsonquote("revision_envelope_digest") || ":" || jsonquote(envelope) || "}"
   end
@@ -710,7 +684,7 @@ _validobservation: procedure = .int
   return 1
 
 _observationidentity: procedure = .int
-  arg observation = .ragsourceobservation, parser_version = .string, policy_version = .string, expose normalized = .ragnormalizedsource, expose raw_digest = .string, expose text_digest = .string, expose metadata_fingerprint = .string, expose envelope = .string, expose error = .string
+  arg observation = .ragsourceobservation, parser_version = .string, policy_version = .string, expose normalized_text = .string, expose raw_digest = .string, expose text_digest = .string, expose metadata_fingerprint = .string, expose envelope = .string, expose error = .string
   error = ""
   if observation.retain_raw() = 1 then raw_digest = rxhash..sha256hex(observation.raw())
   else raw_digest = observation.expected_raw_digest()
@@ -718,8 +692,8 @@ _observationidentity: procedure = .int
     error = "raw bytes do not match the expected SHA-256 digest"
     return -1
   end
-  if normalizebytes(observation.raw(), observation.encoding(), normalized, error) \= 0 then return -1
-  text_digest = rxhash..sha256hex(normalized.text() as .binary)
+  if _normalizetext(observation.raw(), observation.encoding(), normalized_text, error) \= 0 then return -1
+  text_digest = rxhash..sha256hex(normalized_text as .binary)
   metadata_canonical = "{" || jsonquote("uri") || ":" || jsonquote(observation.observed_uri()) || "," || jsonquote("title") || ":" || jsonquote(observation.observed_title()) || "," || jsonquote("mime_type") || ":" || jsonquote(observation.mime_type()) || "," || jsonquote("encoding") || ":" || jsonquote(lower(observation.encoding())) || "," || jsonquote("metadata") || ":" || jsonquote(observation.metadata()) || "}"
   metadata_fingerprint = rxhash..sha256hex(metadata_canonical as .binary)
   envelope_canonical = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.revision-envelope/1") || "," || jsonquote("stable_key") || ":" || jsonquote(observation.stable_key()) || "," || jsonquote("raw_digest") || ":" || jsonquote(raw_digest) || "," || jsonquote("text_digest") || ":" || jsonquote(text_digest) || "," || jsonquote("metadata_fingerprint") || ":" || jsonquote(metadata_fingerprint) || "," || jsonquote("extractor_version") || ":" || jsonquote("crexx-rag.extract-text/1") || "," || jsonquote("normalization_version") || ":" || jsonquote("crexx-rag.line-endings-utf8/1") || "," || jsonquote("parser_version") || ":" || jsonquote(parser_version) || "," || jsonquote("policy_version") || ":" || jsonquote(policy_version) || "}"
@@ -820,37 +794,6 @@ _validsha256: procedure = .int
   arg value = .string
   return length(value) = 64 & verify(value, "0123456789abcdef") = 0
 
-_validutf8: procedure = .int
-  arg raw = .binary
-  hexadecimal = bin2x(raw); position = 1
-  do while position <= length(hexadecimal)
-    first = x2d(substr(hexadecimal, position, 2))
-    if first <= 127 then width = 1
-    else if first >= 194 & first <= 223 then width = 2
-    else if first >= 224 & first <= 239 then width = 3
-    else if first >= 240 & first <= 244 then width = 4
-    else return 0
-    if position + width * 2 - 1 > length(hexadecimal) then return 0
-    if width >= 2 then do
-      second = x2d(substr(hexadecimal, position + 2, 2))
-      if second < 128 | second > 191 then return 0
-      if first = 224 & second < 160 then return 0
-      if first = 237 & second > 159 then return 0
-      if first = 240 & second < 144 then return 0
-      if first = 244 & second > 143 then return 0
-    end
-    if width >= 3 then do
-      third = x2d(substr(hexadecimal, position + 4, 2))
-      if third < 128 | third > 191 then return 0
-    end
-    if width = 4 then do
-      fourth = x2d(substr(hexadecimal, position + 6, 2))
-      if fourth < 128 | fourth > 191 then return 0
-    end
-    position = position + width * 2
-  end
-  return 1
-
 _desiredmatches: procedure = .int
   arg database = .binary, plan = .ragingestplan, observations = .ragsourceobservation[], expose error = .string
   error = ""
@@ -868,8 +811,8 @@ _desiredmatches: procedure = .int
       return -1
     end
     if found = 0 | current_revision = "" then return 0
-    normalized = .ragnormalizedsource; raw_digest = ""; text_digest = ""; metadata_fingerprint = ""; envelope = ""
-    if _observationidentity(observations[i], plan.parser_version(), plan.policy_version(), normalized, raw_digest, text_digest, metadata_fingerprint, envelope, error) \= 0 then return -1
+    normalized_text = ""; raw_digest = ""; text_digest = ""; metadata_fingerprint = ""; envelope = ""
+    if _observationidentity(observations[i], plan.parser_version(), plan.policy_version(), normalized_text, raw_digest, text_digest, metadata_fingerprint, envelope, error) \= 0 then return -1
     current_envelope = _boundscalartext(database, "SELECT revision_envelope_digest FROM source_revisions WHERE revision_id=?1", current_revision)
     if current_envelope = "" | current_envelope \= envelope then return 0
   end
@@ -877,10 +820,10 @@ _desiredmatches: procedure = .int
 
 _stageobservation: procedure = .int
   arg database = .binary, generation = .int, plan = .ragingestplan, observation = .ragsourceobservation, expose added = .int, expose changed = .int, expose renamed = .int, expose chunks_created = .int, expose chunks_reused = .int, expose occurrences = .int, expose embeddings_reused = .int, expose support_reanchored = .int, expose support_retracted = .int, expose candidates = .int, expose error = .string
-  normalized = .ragnormalizedsource; raw_digest = ""; text_digest = ""; metadata_fingerprint = ""; envelope = ""
-  if _observationidentity(observation, plan.parser_version(), plan.policy_version(), normalized, raw_digest, text_digest, metadata_fingerprint, envelope, error) \= 0 then return -1
+  normalized_text = ""; raw_digest = ""; text_digest = ""; metadata_fingerprint = ""; envelope = ""
+  if _observationidentity(observation, plan.parser_version(), plan.policy_version(), normalized_text, raw_digest, text_digest, metadata_fingerprint, envelope, error) \= 0 then return -1
   chunks = .ragchunk[]
-  if chunktext(normalized.text(), observation.format(), plan.maximum_chunk_characters(), plan.parser_version(), plan.policy_version(), chunks, error) \= 0 then return -1
+  if chunktext(normalized_text, observation.format(), plan.maximum_chunk_characters(), plan.parser_version(), plan.policy_version(), chunks, error) \= 0 then return -1
 
   source_id = ""; old_revision = ""; current_stable = ""
   found = _findsource(database, observation.connector_type(), observation.stable_key(), source_id, old_revision, current_stable)
@@ -928,10 +871,10 @@ _stageobservation: procedure = .int
   artifact_created = 0
   if _insertartifact(database, artifact_id, raw_digest, observation, artifact_created, error) \= 0 then return -1
   text_id = "text-sha256:" || rxhash..sha256hex((text_digest || "00"x || "crexx-rag.extract-text/1" || "00"x || "crexx-rag.line-endings-utf8/1") as .binary)
-  if _inserttext(database, text_id, text_digest, normalized.text(), error) \= 0 then return -1
+  if _inserttext(database, text_id, text_digest, normalized_text, error) \= 0 then return -1
   revision_id = "revision-sha256:" || rxhash..sha256hex((source_id || "00"x || envelope) as .binary)
   if _insertrevision(database, revision_id, source_id, envelope, artifact_id, text_id, metadata_fingerprint, observation.captured_at(), generation, error) \= 0 then return -1
-  if _insertmaps(database, revision_id, normalized, error) \= 0 then return -1
+  if _insertmaps(database, revision_id, observation.raw(), error) \= 0 then return -1
   if _insertchunks(database, revision_id, generation, plan.policy_version(), chunks, chunks_created, chunks_reused, occurrences, candidates, error) \= 0 then return -1
   if old_revision \= "" then do
     old_support = _boundcount2(database, "SELECT count(*) FROM claim_support s JOIN revision_chunks c ON c.revision_chunk_id=s.revision_chunk_id WHERE c.revision_id=?1 AND s.visible_to_generation=?2", old_revision, generation)
@@ -1000,34 +943,73 @@ _insertrevision: procedure = .int
   return 0
 
 _insertmaps: procedure = .int
-  arg database = .binary, revision_id = .string, normalized = .ragnormalizedsource, expose error = .string
-  raw_starts = normalized.raw_starts(); raw_ends = normalized.raw_ends(); normalized_starts = normalized.normalized_starts(); normalized_ends = normalized.normalized_ends(); lines = normalized.lines(); columns = normalized.unicode_columns()
-  i = 1
-  do while i <= raw_starts.0
-    first = i; last = i
-    regular = raw_ends[i] - raw_starts[i] = normalized_ends[i] - normalized_starts[i]
-    if regular then do while last < raw_starts.0
-      next = last + 1
-      next_regular = raw_ends[next] - raw_starts[next] = normalized_ends[next] - normalized_starts[next]
-      if \next_regular | lines[next] \= lines[first] | raw_starts[next] \= raw_ends[last] | normalized_starts[next] \= normalized_ends[last] then leave
-      last = next
+  arg database = .binary, revision_id = .string, raw = .binary, expose error = .string
+  error = ""
+  input = raw as .string
+  input_length = length(input)
+  if input_length = 0 then return 0
+  prepared = .binary
+  sql = "INSERT INTO normalization_maps(map_id,revision_id,raw_start,raw_end,normalized_start,normalized_end,line,unicode_column) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare normalization span map"; return -1; end
+  character_start = 1; raw_start = 0; normalized_start = 0; line = 1
+  do while character_start <= input_length
+    cr_position = pos("0D"x, input, character_start)
+    lf_position = pos("0A"x, input, character_start)
+    if cr_position = 0 then newline_position = lf_position
+    else if lf_position = 0 | cr_position < lf_position then newline_position = cr_position
+    else newline_position = lf_position
+    if newline_position = 0 then do
+      segment = substr(input, character_start)
+      segment_bytes = binlength(segment as .binary)
+      if _insertmaprow(prepared, revision_id, raw_start, raw_start + segment_bytes, normalized_start, normalized_start + segment_bytes, line, 0) \= 0 then do; call sqlitefinalize prepared; error = "cannot insert normalization span map"; return -1; end
+      raw_start = raw_start + segment_bytes; normalized_start = normalized_start + segment_bytes
+      character_start = input_length + 1
     end
-    map_id = "map-sha256:" || rxhash..sha256hex((revision_id || "00"x || raw_starts[first] || "00"x || raw_ends[last] || "00"x || normalized_starts[first] || "00"x || normalized_ends[last]) as .binary)
-    prepared = .binary
-    sql = "INSERT INTO normalization_maps(map_id,revision_id,raw_start,raw_end,normalized_start,normalized_end,line,unicode_column) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)"
-    if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare normalization span map"; return -1; end
-    bind_status = sqlitebindtext(prepared, 1, map_id)
-    bind_status = bind_status | sqlitebindtext(prepared, 2, revision_id)
-    bind_status = bind_status | sqlitebindint(prepared, 3, raw_starts[first])
-    bind_status = bind_status | sqlitebindint(prepared, 4, raw_ends[last])
-    bind_status = bind_status | sqlitebindint(prepared, 5, normalized_starts[first])
-    bind_status = bind_status | sqlitebindint(prepared, 6, normalized_ends[last])
-    bind_status = bind_status | sqlitebindint(prepared, 7, lines[first])
-    bind_status = bind_status | sqlitebindint(prepared, 8, columns[first])
-    step_status = sqlitestep(prepared); call sqlitefinalize prepared
-    if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert normalization span map"; return -1; end
-    i = last + 1
+    else do
+      segment_characters = newline_position - character_start
+      segment = ""
+      if segment_characters > 0 then segment = substr(input, character_start, segment_characters)
+      segment_bytes = binlength(segment as .binary)
+      crlf = 0
+      if substr(input, newline_position, 1) = "0D"x & newline_position < input_length then do
+        if substr(input, newline_position + 1, 1) = "0A"x then crlf = 1
+      end
+      if crlf then do
+        if segment_bytes > 0 then do
+          if _insertmaprow(prepared, revision_id, raw_start, raw_start + segment_bytes, normalized_start, normalized_start + segment_bytes, line, 0) \= 0 then do; call sqlitefinalize prepared; error = "cannot insert normalization span map"; return -1; end
+        end
+        if _insertmaprow(prepared, revision_id, raw_start + segment_bytes, raw_start + segment_bytes + 2, normalized_start + segment_bytes, normalized_start + segment_bytes + 1, line, segment_characters) \= 0 then do; call sqlitefinalize prepared; error = "cannot insert normalization span map"; return -1; end
+        raw_start = raw_start + segment_bytes + 2
+        normalized_start = normalized_start + segment_bytes + 1
+        character_start = newline_position + 2
+      end
+      else do
+        if _insertmaprow(prepared, revision_id, raw_start, raw_start + segment_bytes + 1, normalized_start, normalized_start + segment_bytes + 1, line, 0) \= 0 then do; call sqlitefinalize prepared; error = "cannot insert normalization span map"; return -1; end
+        raw_start = raw_start + segment_bytes + 1
+        normalized_start = normalized_start + segment_bytes + 1
+        character_start = newline_position + 1
+      end
+      line = line + 1
+    end
   end
+  if sqlitefinalize(prepared) \= 0 then do; error = "cannot finalize normalization span map"; return -1; end
+  return 0
+
+_insertmaprow: procedure = .int
+  arg prepared = .binary, revision_id = .string, raw_start = .int, raw_end = .int, normalized_start = .int, normalized_end = .int, line = .int, column = .int
+  map_id = "map-sha256:" || rxhash..sha256hex((revision_id || "00"x || raw_start || "00"x || raw_end || "00"x || normalized_start || "00"x || normalized_end) as .binary)
+  bind_status = sqlitebindtext(prepared, 1, map_id)
+  bind_status = bind_status | sqlitebindtext(prepared, 2, revision_id)
+  bind_status = bind_status | sqlitebindint(prepared, 3, raw_start)
+  bind_status = bind_status | sqlitebindint(prepared, 4, raw_end)
+  bind_status = bind_status | sqlitebindint(prepared, 5, normalized_start)
+  bind_status = bind_status | sqlitebindint(prepared, 6, normalized_end)
+  bind_status = bind_status | sqlitebindint(prepared, 7, line)
+  bind_status = bind_status | sqlitebindint(prepared, 8, column)
+  step_status = sqlitestep(prepared)
+  reset_status = sqlitereset(prepared)
+  clear_status = sqliteclearbindings(prepared)
+  if bind_status \= 0 | step_status \= 101 | reset_status \= 0 | clear_status \= 0 then return -1
   return 0
 
 _insertchunks: procedure = .int

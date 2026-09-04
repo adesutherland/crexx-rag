@@ -106,7 +106,7 @@ facts or makes an LLM summary authoritative.
 
 Snapshot requests use a fixed top-10 deterministic census and compare its
 semantic and operational digests with the newest retained point. The
-`churn-matrix/1` decision is:
+`churn-matrix/2` decision is:
 
 1. capture the first point;
 2. suppress an exact digest duplicate;
@@ -138,7 +138,13 @@ than two points the trend state is `baseline-only` and no direction is claimed.
 A source connector supplies a stable key, URI, title, media/encoding data,
 captured bytes, privacy class, and retention policy. The current folder route
 accepts UTF-8. Normalization validates UTF-8, converts CRLF/CR to LF, and keeps
-a byte-offset map from normalized text back to the original artifact.
+a byte-offset map from normalized text back to the original artifact. Planning
+keeps only the normalized text needed for identity; it does not materialize a
+per-character coordinate matrix. When a changed revision is applied, the map
+is streamed directly into SQLite as coalesced line spans plus explicit
+line-ending contractions. The version-1 contract does not perform NFC, NFD, or
+other Unicode normalization, because that would change digests, offsets, and
+content identities.
 
 Source, revision, text, chunk-content, and chunk-occurrence identities are
 content derived. A changed source creates a new immutable revision and a new

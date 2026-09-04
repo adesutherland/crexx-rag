@@ -1,6 +1,7 @@
 foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_RXBVM
         CPRAG_CREXX_BIN_DIR CPRAG_PLUGIN_DIR CPRAG_MODEL CPRAG_CONFIG
-        CPRAG_FILE CPRAG_CONFIG_FILE_MODULE CPRAG_GLOSSARY_MODULE CPRAG_SCENARIO CPRAG_FIXTURE
+        CPRAG_FILE CPRAG_CONFIG_FILE_MODULE CPRAG_GLOSSARY_MODULE CPRAG_PROFILE_MODULE
+        CPRAG_PROFILE_FILE_MODULE CPRAG_SCENARIO CPRAG_FIXTURE
         CPRAG_SUBSCRIPTION_FIXTURE CPRAG_APPLICATION CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
@@ -23,6 +24,10 @@ file(WRITE "${CPRAG_WORK_DIR}/glossary-alias.tsv"
 file(WRITE "${CPRAG_WORK_DIR}/glossary-exclusion.tsv"
     "format\tcrexx-rag.glossary/1\nconcept\tBillingService\tapplication-component\tBilling Service\nexclude\tBilling Service\n")
 file(WRITE "${CPRAG_WORK_DIR}/glossary-missing-format.tsv" "# no data records\n")
+file(WRITE "${CPRAG_WORK_DIR}/profile-valid.tsv"
+    "format\tcrexx-rag.profile/1\nprofile\tscottish-history-profile\t1\nconcept\tperson\nconcept\tplace\nrelationship\trelated-to\trelated-to\tfalse\nchunk\t1400\t180\tplain,markdown\nweight\tlexical\t1000000\nprompt\tadvisory\t1\tscottish-history-advisory\nprompt\textractor\t1\tscottish-history-extractor\nvalidator\tdirection-required\n")
+file(WRITE "${CPRAG_WORK_DIR}/profile-mismatch.tsv"
+    "format\tcrexx-rag.profile/1\nprofile\twrong-profile\t1\nconcept\tperson\nrelationship\trelated-to\trelated-to\tfalse\nchunk\t1400\t180\tplain\nweight\tlexical\t1000000\nprompt\tadvisory\t1\twrong-advisory\nprompt\textractor\t1\twrong-extractor\nvalidator\tdirection-required\n")
 
 function(compile_crexx source output imports mode_flag label)
     execute_process(COMMAND "${CPRAG_RXC}" ${mode_flag} -i "${imports}"
@@ -54,6 +59,10 @@ foreach(mode IN ITEMS noopt opt)
         "${program_import}" "${mode_flag}" "${mode} ragconfigfile")
     compile_crexx("${CPRAG_GLOSSARY_MODULE}" "${CPRAG_WORK_DIR}/ragglossary"
         "${program_import}" "${mode_flag}" "${mode} ragglossary")
+    compile_crexx("${CPRAG_PROFILE_MODULE}" "${CPRAG_WORK_DIR}/ragprofile"
+        "${program_import}" "${mode_flag}" "${mode} ragprofile")
+    compile_crexx("${CPRAG_PROFILE_FILE_MODULE}" "${CPRAG_WORK_DIR}/ragprofilefile"
+        "${program_import}" "${mode_flag}" "${mode} ragprofilefile")
     compile_crexx("${CPRAG_SCENARIO}" "${CPRAG_WORK_DIR}/scenario-${mode}"
         "${program_import}" "${mode_flag}" "${mode} config scenario")
 
@@ -68,17 +77,19 @@ foreach(mode IN ITEMS noopt opt)
             "GEMINI_API_KEY=${secret_marker}"
             "${runtime}" -l "${program_import}"
             "${CPRAG_WORK_DIR}/scenario-${mode}"
-            ragconfigfile ragconfig ragmodel ragfile ragglossary rx_hash rx_system library
+            ragconfigfile ragconfig ragmodel ragfile ragglossary ragprofilefile ragprofile rx_hash rx_system library
             -a "${cell}" "${CPRAG_FIXTURE}"
                 "${CPRAG_WORK_DIR}/glossary-valid.tsv"
                 "${CPRAG_WORK_DIR}/glossary-duplicate.tsv"
                 "${CPRAG_WORK_DIR}/glossary-alias.tsv"
                 "${CPRAG_WORK_DIR}/glossary-exclusion.tsv"
                 "${CPRAG_WORK_DIR}/glossary-missing-format.tsv"
+                "${CPRAG_WORK_DIR}/profile-valid.tsv"
+                "${CPRAG_WORK_DIR}/profile-mismatch.tsv"
             RESULT_VARIABLE vm_result OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err
             TIMEOUT 30)
         if(NOT vm_result EQUAL 0 OR NOT vm_out MATCHES
-                "CONFIG_CONTRACT_OK cell=${cell} formats=1,2 identities=split settings=bounded providers=2 gemini=2 env_refs=2 literal_secrets=0 executable_modules=0 glossary=validated provider_calls=0")
+                "CONFIG_CONTRACT_OK cell=${cell} formats=1,2 identities=split settings=bounded providers=2 gemini=2 env_refs=2 literal_secrets=0 executable_modules=0 glossary=validated profile=validated provider_calls=0")
             message(FATAL_ERROR "${cell} config scenario failed:\n${vm_out}${vm_err}")
         endif()
         if(vm_out MATCHES "${secret_marker}" OR vm_err MATCHES "${secret_marker}")
@@ -105,6 +116,32 @@ if(cli_out MATCHES "${secret_marker}" OR cli_err MATCHES "${secret_marker}")
     message(FATAL_ERROR "linked CLI exposed a resolved credential")
 endif()
 
+# A data profile is selected by id in ordinary configuration and loaded only
+# from the corresponding bounded data file.  No executable module name is
+# accepted from operator configuration.
+file(READ "${CPRAG_FIXTURE}" profile_config_text)
+string(REPLACE "profiles = generic-profile,it-architecture-profile"
+    "profiles = scottish-history-profile"
+    profile_config_text "${profile_config_text}")
+string(APPEND profile_config_text
+    "\nprofile.scottish-history-profile.file = ${CPRAG_WORK_DIR}/profile-valid.tsv\n")
+set(profile_config "${CPRAG_WORK_DIR}/profile-config.conf")
+file(WRITE "${profile_config}" "${profile_config_text}")
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env
+    "GEMINI_API_KEY=${secret_marker}"
+    "${CPRAG_RXVME}" "${CPRAG_APPLICATION}" -a
+    --config-file "${profile_config}"
+    --profile scottish-history-profile --format json profile show
+    RESULT_VARIABLE profile_cli_result
+    OUTPUT_VARIABLE profile_cli_out ERROR_VARIABLE profile_cli_err
+    TIMEOUT 30)
+if(NOT profile_cli_result EQUAL 0 OR
+   NOT profile_cli_out MATCHES "\"profile_id\":\"scottish-history-profile\"" OR
+   NOT profile_cli_out MATCHES "\"valid\":true")
+    message(FATAL_ERROR
+        "linked data-defined profile smoke failed:\n${profile_cli_out}${profile_cli_err}")
+endif()
+
 # Configuration lifecycle is a public, zero-provider contract: operators can
 # inspect split identities, review an operational-only plan, reject tampering,
 # apply the exact plan, and retain the resulting state without editing cREXX.
@@ -125,7 +162,7 @@ execute_process(COMMAND ${lifecycle_cli}
     OUTPUT_VARIABLE lifecycle_init_out ERROR_VARIABLE lifecycle_init_err
     TIMEOUT 30)
 if(NOT lifecycle_init_result EQUAL 0 OR
-   NOT lifecycle_init_out MATCHES "\"schema_version\":6")
+   NOT lifecycle_init_out MATCHES "\"schema_version\":7")
     message(FATAL_ERROR
         "configuration lifecycle init failed:\n${lifecycle_init_out}${lifecycle_init_err}")
 endif()

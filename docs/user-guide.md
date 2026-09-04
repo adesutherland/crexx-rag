@@ -83,6 +83,23 @@ provider.gemini-generate.jitter_ms = 250
 worker.processes = 2
 worker.max_in_flight = 1
 worker.lease_seconds = 120
+
+retrieval.lexical_candidates = 48
+retrieval.vector_candidates = 12
+retrieval.vector_scan_limit = 100000
+retrieval.graph_hops = 3
+retrieval.passage_limit = 12
+retrieval.claim_limit = 8
+retrieval.lead_limit = 8
+retrieval.rrf_k = 60
+retrieval.graph_direction = both
+
+maintenance.sparse_max_degree = 1
+maintenance.query_gap_min_occurrences = 1
+
+observation.capture_threshold = 50
+observation.cooldown_seconds = 900
+observation.maximum_staleness_seconds = 86400
 ```
 
 The provider limits are shared across OS workers for each provider/model, not
@@ -123,9 +140,27 @@ semantic classification cannot be applied as operating policy; ingest a new
 generation using the changed configuration. Existing generations retain their
 original configuration provenance while new jobs use the current snapshot.
 
-All runtime tuning needed here is plain configuration. RexxScript may later
-offer a friendlier way to author the same contract, but it is not required and
-an operator or agent does not need to edit cREXX source.
+All runtime tuning needed here is plain configuration. RexxScript is callable
+as a function and may later help author configuration or rules, but it adds no
+present capability to this bounded declarative contract. It is therefore not
+used here, and an operator or agent does not need to edit cREXX source.
+
+Compiled profiles remain available, while domain profiles can also be supplied
+as bounded tab-separated data. The configured id must match the identity in the
+file:
+
+```text
+profiles = scottish-history-profile
+profile.scottish-history-profile.file = ./scottish-history.profile.tsv
+```
+
+Profile data declares `format`, one `profile` identity, `concept`,
+`relationship`, `alias`, one `chunk` policy, `weight` values in millionths,
+`prompt`, and `validator` records. The loader has fixed file, line, type and
+cardinality ceilings; it cannot name or execute a cREXX or RexxScript module.
+Normal profile validation and content-derived profile hashing apply after it is
+parsed. Changing the interpreted profile is a semantic change and therefore
+requires a new ingestion generation.
 
 ## Workers
 
@@ -176,6 +211,12 @@ The command itself makes no provider call. Start workers for the returned
 `job retry JOB_ID --item ITEM_ID` remains available for compatibility but
 requeues the item inside the original job; prefer `job replay` when preserving
 the failed baseline matters.
+
+`library report` reconciles those immutable source dead letters with all replay
+descendants. It reports `actionable` roots when no replay is active or has
+succeeded, `replaying` roots while a descendant is queued/running/paused, and
+`resolved` roots after a replay descendant completes. Replay never deletes or
+rewrites the historical source record.
 
 ## Maintenance and external proposals
 
@@ -374,7 +415,7 @@ triggers are `manual`, `ingestion`, `maintenance`, `vector-publication`,
 `replay`, `reconciliation`, `migration`, `backup`, and `scheduled`. They label
 the lifecycle boundary; they do not override the churn decision.
 
-`churn-matrix/1` always retains the first point. It then scores semantic,
+`churn-matrix/2` always retains the first point. It then scores semantic,
 vector, health, job-settlement, work-backlog, historical-dead-letter,
 review/gap and maximum-age changes. The capture threshold is 50 and ordinary
 changes have a 900-second cooldown. Semantic, vector, health and settlement
@@ -393,9 +434,10 @@ publication, maintenance, replay, reconciliation, migration and backup events.
 
 Snapshots use a fixed top-10 semantic census so changing a display option
 cannot manufacture churn. They retain the current maintenance work-state
-backlog separately from the historical dead-letter count; neither is labelled
-uniquely actionable until replay/reconciliation semantics establish that. A cached validated report narrative is
-attached when available; a later narrative with identical report digests is
+backlog separately from the immutable historical dead-letter count. Current
+actionable/replaying/resolved status is derived by the reconciliation view and
+reported without rewriting old snapshots. A cached validated report narrative
+is attached when available; a later narrative with identical report digests is
 discoverable without modifying the immutable snapshot.
 
 `library trend` is read-only and zero-provider. It reports the retained and
@@ -434,7 +476,16 @@ job replay
 query search / evidence / answer / trace / path / timeline
 library status / report / snapshot / trend / verify / backup / restore
 config check / config explain / config diff / config plan / config apply
+schedule list / schedule show
 ```
+
+Schedules are data definitions, not an in-process clock. Each enabled schedule
+names one allowlisted operation (`maintain.plan`, `library.snapshot`,
+`library.backup`, or `library.report`) and a trigger label. Use `schedule list`
+or `schedule show ID` to consume the definition from CLI/JSON/MCP. Cron, Codex
+automation, systemd, launchd, or another external runner owns recurrence and
+invokes the ordinary public command with its normal access and confirmation
+rules; listing a schedule never runs it or calls a provider.
 
 Start the same vocabulary over stdio MCP with:
 
