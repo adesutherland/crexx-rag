@@ -7,9 +7,11 @@ endforeach()
 
 file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}/source")
-file(WRITE "${CPRAG_WORK_DIR}/source/architecture.txt"
-    "BillingService depends on CustomerDatabase.\n"
-    "BillingService depends on CustomerDatabase.\n")
+set(source_text "")
+foreach(repetition RANGE 1 10)
+    string(APPEND source_text "BillingService depends on CustomerDatabase.\n")
+endforeach()
+file(WRITE "${CPRAG_WORK_DIR}/source/architecture.txt" "${source_text}")
 set(CPRAG_FIXTURE_GLOSSARY "${CPRAG_WORK_DIR}/architecture.glossary.tsv")
 set(glossary_text
     "format\tcrexx-rag.glossary/1\nconcept\tBillingService\tapplication-component\tBilling Service\nconcept\tCustomerDatabase\tdata-store\tCustomer DB\nexclude\tDeprecatedSystem\n")
@@ -64,7 +66,7 @@ set(cli "${CMAKE_COMMAND}" -E env
 execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
     --profile it-architecture-profile --access admin --format json library init
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "\"schema_version\":1")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "\"schema_version\":6")
     message(FATAL_ERROR "Gemini product library init failed:\n${init_out}${init_err}")
 endif()
 
@@ -110,6 +112,15 @@ if(job_error OR job_id STREQUAL "")
     message(FATAL_ERROR "Gemini product apply did not expose a job id")
 endif()
 
+find_program(CREXXRAG_SQLITE3 sqlite3 REQUIRED)
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
+        "SELECT max(json_array_length(json_extract(input_json,'$.candidates'))) FROM job_items WHERE item_type='claim-extraction';"
+    OUTPUT_VARIABLE candidate_bound OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_VARIABLE candidate_bound_err RESULT_VARIABLE candidate_bound_result)
+if(NOT candidate_bound_result EQUAL 0 OR NOT candidate_bound STREQUAL "16")
+    message(FATAL_ERROR "configured discovery bound did not cap the durable extraction candidate catalogue: ${candidate_bound} ${candidate_bound_err}")
+endif()
+
 execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
     --profile it-architecture-profile --access control --format json --progress plain
     worker run --once --poll-ms 20 --max-polls 4 --job "${job_id}"
@@ -146,7 +157,6 @@ list(LENGTH machine_vectors machine_vector_count)
 if(NOT machine_vector_count EQUAL 1)
     message(FATAL_ERROR "completed machine ingestion did not publish exactly one immutable vector sidecar")
 endif()
-find_program(CREXXRAG_SQLITE3 sqlite3 REQUIRED)
 execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
         "SELECT (SELECT count(*) FROM candidate_mentions WHERE extractor_version='provider-discovery-v1') || ':' || (SELECT count(*) FROM claims WHERE visible_to_generation IS NULL) || ':' || (SELECT count(*) FROM claim_support WHERE visible_to_generation IS NULL)"
     OUTPUT_VARIABLE discovery_batch_state OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -229,13 +239,35 @@ if(NOT status_result EQUAL 0 OR NOT status_out MATCHES "\"state\":\"completed\""
     message(FATAL_ERROR "Gemini product job did not complete:\n${status_out}${status_err}")
 endif()
 
+# Cognitive dead letters must not suppress a complete compatible vector
+# generation. Coverage remains the authoritative publication gate.
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
+        "UPDATE jobs SET state='completed_with_errors' WHERE job_id='${job_id}';"
+    RESULT_VARIABLE vector_error_seed_result ERROR_VARIABLE vector_error_seed_err)
+execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
+    --profile it-architecture-profile --access control --format json --progress off
+    worker start --count 1 --poll-ms 20 --max-polls 2 --job "${job_id}"
+    OUTPUT_VARIABLE vector_error_out ERROR_VARIABLE vector_error_err
+    RESULT_VARIABLE vector_error_result TIMEOUT 30)
+if(NOT vector_error_seed_result EQUAL 0 OR NOT vector_error_result EQUAL 0 OR
+   NOT vector_error_out MATCHES "\"vector_state\":\"identical-no-op\"" OR
+   NOT vector_error_out MATCHES "\"vector_generations\":1")
+    message(FATAL_ERROR "complete embedding coverage was blocked by unrelated job errors:\n${vector_error_seed_err}${vector_error_out}${vector_error_err}")
+endif()
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
+        "UPDATE jobs SET state='completed' WHERE job_id='${job_id}';"
+    RESULT_VARIABLE vector_error_reset_result ERROR_VARIABLE vector_error_reset_err)
+if(NOT vector_error_reset_result EQUAL 0)
+    message(FATAL_ERROR "could not restore the completed ingestion fixture: ${vector_error_reset_err}")
+endif()
+
 execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
     --profile it-architecture-profile --access read --format json
     query evidence "What does BillingService depend on?" --limit 5
     OUTPUT_VARIABLE query_out ERROR_VARIABLE query_err RESULT_VARIABLE query_result TIMEOUT 30)
 if(NOT query_result EQUAL 0 OR NOT query_out MATCHES "\"candidate_count\":1" OR
    NOT query_out MATCHES "depends-on" OR NOT query_out MATCHES "claim-sha256:" OR
-   NOT query_out MATCHES "utf8-0-87" OR
+   NOT query_out MATCHES "utf8-0-439" OR
    NOT query_out MATCHES "\"vector_state\":\"active-ann-ivf-rxvector\"" OR
    NOT query_out MATCHES "\"retrieval_mode\":\"hybrid\"" OR
    NOT query_out MATCHES "\"query_embedding_state\":\"generated\"" OR
@@ -249,6 +281,27 @@ execute_process(COMMAND ${cli} --library "${library}" --access diagnose
 if(NOT verify_result EQUAL 0 OR NOT verify_out MATCHES "\"state\":\"verified\"" OR
    verify_out MATCHES "\"issue_count\":[1-9]")
     message(FATAL_ERROR "Gemini product library verification failed:\n${verify_out}${verify_err}")
+endif()
+
+set(backup_library "${CPRAG_WORK_DIR}/machine-backup")
+set(restored_library "${CPRAG_WORK_DIR}/machine-restored")
+execute_process(COMMAND ${cli} --library "${library}" --access admin --format json
+    library backup --output "${backup_library}"
+    OUTPUT_VARIABLE backup_out ERROR_VARIABLE backup_err RESULT_VARIABLE backup_result TIMEOUT 30)
+execute_process(COMMAND ${cli} --library "${library}" --access admin --format json
+    library restore --input "${backup_library}" --output "${restored_library}"
+    OUTPUT_VARIABLE restore_out ERROR_VARIABLE restore_err RESULT_VARIABLE restore_result TIMEOUT 30)
+execute_process(COMMAND ${cli} --library "${restored_library}" --access diagnose --format json
+    library verify
+    OUTPUT_VARIABLE restored_verify_out ERROR_VARIABLE restored_verify_err
+    RESULT_VARIABLE restored_verify_result TIMEOUT 30)
+if(NOT backup_result EQUAL 0 OR NOT backup_out MATCHES "\"published\":true" OR
+   NOT backup_out MATCHES "\"sidecar_count\":1" OR
+   NOT restore_result EQUAL 0 OR NOT restore_out MATCHES "\"published\":true" OR
+   NOT restored_verify_result EQUAL 0 OR
+   NOT restored_verify_out MATCHES "\"state\":\"verified\"" OR
+   restored_verify_out MATCHES "\"issue_count\":[1-9]")
+    message(FATAL_ERROR "public backup/restore verification failed:\n${backup_out}${backup_err}${restore_out}${restore_err}${restored_verify_out}${restored_verify_err}")
 endif()
 
 # The enduring human surface discovers ./crexxrag.conf and ./library, binds
@@ -339,7 +392,7 @@ if(NOT human_query_result EQUAL 0 OR
    NOT human_query_out MATCHES "query embedding state: generated" OR
    NOT human_query_out MATCHES "provider calls: 1" OR
    NOT human_query_out MATCHES "BillingService --depends-on--> CustomerDatabase" OR
-   NOT human_query_out MATCHES "citation: .*utf8-0-43" OR
+   NOT human_query_out MATCHES "citation: .*utf8-(0-43|44-87)" OR
    human_query_out MATCHES "evidence_json|\\{\"schema\"" OR
    NOT human_query_err MATCHES "crexxrag query-embedding complete")
     message(FATAL_ERROR "Human query shorthand failed:\n${human_query_out}${human_query_err}")

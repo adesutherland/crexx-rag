@@ -233,7 +233,7 @@ validatemigrations: procedure = .int
   return 0
 
 initragstore: procedure = .int
-  arg path = .string, library_id = .string, config_snapshot_id = .string, config_id = .string, config_version = .string, profile_id = .string, profile_hash = .string, config_hash = .string, effective_json = .string, expose store = .ragstorehandle, expose error = .string
+  arg path = .string, library_id = .string, config_snapshot_id = .string, config_id = .string, config_version = .string, profile_id = .string, profile_hash = .string, config_hash = .string, effective_json = .string, expose store = .ragstorehandle, expose error = .string, semantic_hash = "", operational_hash = ""
   error = ""
   if path = "" | library_id = "" | config_snapshot_id = "" | config_id = "" | config_version = "" | profile_id = "" | profile_hash = "" | config_hash = "" | effective_json = "" then do
     error = "initial library identity and snapshot fields are required"
@@ -264,8 +264,10 @@ initragstore: procedure = .int
     call _removefailedlibrary path
     return -3
   end
+  if semantic_hash = "" then semantic_hash = config_hash
+  if operational_hash = "" then operational_hash = config_hash
   prepared = .binary
-  sql = "INSERT INTO config_snapshots(config_snapshot_id,config_id,config_version,profile_id,profile_hash,config_hash,effective_json,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  sql = "INSERT INTO config_snapshots(config_snapshot_id,config_id,config_version,profile_id,profile_hash,config_hash,effective_json,created_at,semantic_hash,operational_hash) VALUES(?1,?2,?3,?4,?5,?6,?7,strftime('%Y-%m-%dT%H:%M:%fZ','now'),?8,?9)"
   if sqliteprepare(database, sql, prepared) \= 0 then return _initfailure(database, path, "prepare initial config snapshot", error)
   bind_status = sqlitebindtext(prepared, 1, config_snapshot_id)
   bind_status = bind_status | sqlitebindtext(prepared, 2, config_id)
@@ -274,6 +276,8 @@ initragstore: procedure = .int
   bind_status = bind_status | sqlitebindtext(prepared, 5, profile_hash)
   bind_status = bind_status | sqlitebindtext(prepared, 6, config_hash)
   bind_status = bind_status | sqlitebindtext(prepared, 7, effective_json)
+  bind_status = bind_status | sqlitebindtext(prepared, 8, semantic_hash)
+  bind_status = bind_status | sqlitebindtext(prepared, 9, operational_hash)
   step_status = sqlitestep(prepared)
   call sqlitefinalize prepared
   if bind_status \= 0 | step_status \= 101 then return _initfailure(database, path, "insert initial config snapshot", error)
@@ -283,6 +287,12 @@ initragstore: procedure = .int
     call _removefailedlibrary path
     return -3
   end
+  prepared = .binary
+  if sqliteprepare(database, "INSERT INTO library_config_state(singleton,current_config_snapshot_id,updated_at) VALUES(1,?1,strftime('%Y-%m-%dT%H:%M:%fZ','now'))", prepared) \= 0 | sqlitebindtext(prepared, 1, config_snapshot_id) \= 0 | sqlitestep(prepared) \= 101 then do
+    call sqlitefinalize prepared
+    return _initfailure(database, path, "insert initial configuration state", error)
+  end
+  call sqlitefinalize prepared
   if sqliteexec(database, "COMMIT") \= 0 then do
     ignored = _sqlitefailure("commit library initialization", error)
     call sqliteclose database
@@ -689,6 +699,11 @@ verifyragstore: procedure = .int
   if _scalarint(store.database(), "SELECT count(*) FROM embeddings WHERE length(vector)<>dimension*4", error) \= 0 then do
     issues = issues + 1
     summary = _addissue(summary, "embedding-dimensions")
+  end
+  config_state_sql = "SELECT abs((SELECT count(*) FROM library_config_state)-1)+(SELECT count(*) FROM library_config_state s LEFT JOIN config_snapshots c ON c.config_snapshot_id=s.current_config_snapshot_id WHERE s.singleton<>1 OR c.config_snapshot_id IS NULL)"
+  if _scalarint(store.database(), config_state_sql, error) \= 0 then do
+    issues = issues + 1
+    summary = _addissue(summary, "configuration-state")
   end
   sidecar_sql = "SELECT count(*) FROM vector_generations v LEFT JOIN published_generations g ON g.generation=v.semantic_generation LEFT JOIN embedding_profiles p ON p.embedding_profile_id=v.embedding_profile_id WHERE v.state NOT IN('published','superseded') OR v.algorithm<>'ivf-flat-v1' OR v.row_count<1 OR v.centroid_count<1 OR v.centroid_count>v.row_count OR v.probe_count<1 OR v.probe_count>v.centroid_count OR g.generation IS NULL OR p.embedding_profile_id IS NULL OR length(v.sidecar_checksum)<>64 OR v.sidecar_checksum GLOB '*[^0-9a-f]*' OR v.sidecar_name='' OR instr(v.sidecar_name,'/')>0 OR instr(v.sidecar_name,char(92))>0 OR (v.state='published' AND v.published_at IS NULL)"
   if _scalarint(store.database(), sidecar_sql, error) \= 0 | _activesidecarfilesvalid(store.database(), generation, store.path(), error) \= 1 then do

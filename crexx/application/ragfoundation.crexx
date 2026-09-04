@@ -13,6 +13,7 @@ import ragstore
 import ragbackup
 import ragrepository
 import ragcanonical
+import ragconfiguration
 import ragplanning
 
 dispatchfoundation: procedure = .ragcommandresult
@@ -86,15 +87,12 @@ _libraryinit: procedure = .ragcommandresult
   if profile_lookup.found() \= 1 then return _failure("library.init", 5, "profile is not registered")
   config = config_lookup.config(); profile = profile_lookup.profile()
   if _contains(config.profile_ids(), profile.profile_id()) \= 1 then return _failure("library.init", 3, "profile is not permitted by the selected configuration")
-  config_json = _configcanonical(config)
-  profile_json = _profilecanonical(profile)
-  effective_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.effective-config/1") || "," || jsonquote("config") || ":" || config_json || "," || jsonquote("profile") || ":" || profile_json || "}"
-  profile_hash = _sha256(profile_json)
-  config_hash = _sha256(effective_json)
-  snapshot_id = "config-" || left(config_hash, 24)
+  identity = .ragconfigidentity
+  if identifyconfig(config, profile, identity, error) \= 0 then return _failure("library.init", 3, error)
+  effective_json = identity.effective_json(); profile_hash = identity.profile_hash(); config_hash = identity.config_hash(); snapshot_id = identity.snapshot_id()
   library_id = "library-" || left(_sha256(request.library() || "0A"x || config_hash), 24)
   store = .ragstorehandle
-  init_result = initragstore(request.library(), library_id, snapshot_id, config.config_id(), config.version(), profile.profile_id(), profile_hash, config_hash, effective_json, store, error)
+  init_result = initragstore(request.library(), library_id, snapshot_id, config.config_id(), config.version(), profile.profile_id(), profile_hash, config_hash, effective_json, store, error, identity.semantic_hash(), identity.operational_hash())
   if init_result \= 0 then do
     if init_result = -2 then return _failure("library.init", 6, error)
     return _failure("library.init", 7, error)
@@ -114,6 +112,8 @@ _libraryinit: procedure = .ragcommandresult
   fields[4] = .ragresultfield("profile_id", "string", profile.profile_id())
   fields[5] = .ragresultfield("profile_hash", "string", profile_hash)
   fields[6] = .ragresultfield("secret_values", "integer", "0")
+  fields[7] = .ragresultfield("semantic_hash", "string", identity.semantic_hash())
+  fields[8] = .ragresultfield("operational_hash", "string", identity.operational_hash())
   records[2] = .ragresultrecord("config-snapshot", fields)
   return .ragcommandresult("library.init", "ok", 0, "library initialized", records)
 
@@ -207,7 +207,8 @@ _librarymigrate: procedure = .ragcommandresult
   if _hasaccess(request, "admin") \= 1 then return _failure("library.migrate", 4, "library migration requires admin access")
   store = .ragstorehandle; status = .ragstorestatus
   if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure("library.migrate", error)
-  status_result = storagestatus(store, status, error)
+  status_result = publishmanifest(store, error)
+  if status_result = 0 then status_result = storagestatus(store, status, error)
   close_error = ""; close_result = closeragstore(store, close_error)
   if status_result \= 0 | close_result \= 0 then do
     if error = "" then error = close_error

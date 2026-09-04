@@ -14,8 +14,15 @@ history remains the recovery mechanism.
 - uses validated LLM output to propose directional, source-supported claims;
 - runs a configurable group of independent worker processes coordinated through
   SQLite;
+- applies one durable cross-process provider admission policy for request,
+  token, concurrency and retry pacing;
 - publishes embedding generations and supports lexical, vector, and graph
   retrieval;
+- reports generation-bound corpus, graph, provenance, vector, review and
+  maintenance health, with an optional cached citation-validated advisory
+  summary;
+- retains churn-governed historic observation points and deterministic trends
+  without duplicating unchanged or transient current-state reports;
 - produces cited evidence and optional provider-generated answers;
 - exposes the same operation vocabulary through the human CLI, JSON/NDJSON,
   `ADDRESS RAG`, and MCP;
@@ -100,9 +107,16 @@ crexxrag init
 crexxrag ingest [SOURCE_SET] [--workers N] [--yes]
 crexxrag maintain [--workers N] [--yes]
 crexxrag review list
+crexxrag --access control job replay JOB_ID [--item ITEM_ID] [--reason TEXT]
+crexxrag library report [--top N] [--narrative off|cached|refresh] [--yes]
+crexxrag --access control library snapshot [--trigger TYPE] [--reason TEXT]
+crexxrag library trend [--limit N]
 crexxrag query QUESTION
 crexxrag provider list|status|test
 crexxrag provider login codex
+crexxrag config check|explain|diff
+crexxrag --access plan config plan --reason TEXT
+crexxrag --access admin config apply --plan-json JSON --expect-digest SHA256
 crexxrag profile list
 crexxrag profile show PROFILE_ID
 crexxrag doctor
@@ -126,6 +140,13 @@ embedding generation uses the OpenAI-compatible `/v1/embeddings` protocol.
 Credentials are symbolic `env:NAME` references in configuration and are never
 stored in the library. Subscription allowance, local compute, and monetary API
 charging are distinct budget bases.
+
+Configuration format 2 adds explicit per-provider request/minute,
+token/minute, concurrent-request, initial/maximum-backoff and jitter controls.
+`config check` and `config explain` compute split semantic/operational
+identities without resolving credentials or making provider calls. A changed
+configuration is classified and applied only through an exact reviewed plan;
+semantic changes require a new ingestion generation.
 
 ## Source layout
 
@@ -152,8 +173,9 @@ ctest --preset debug --output-on-failure
 The default suite covers native and linked applications, both CREXX VMs,
 SQLite thread/session isolation, multi-process workers, Gemini ingestion,
 embeddings, maintenance, external proposal review/promotion, hybrid retrieval,
-cited answers, provider budgets, Codex App Server protocol, MCP, and negative
-provider-output cases. See [the test strategy](docs/test-strategy.md).
+cited answers, deterministic and advisory library reports, provider budgets,
+Codex App Server protocol, MCP, and negative provider-output cases. See [the
+test strategy](docs/test-strategy.md).
 
 The project is not yet released. Current platform and CREXX integration limits
 are listed in [integration issues](docs/integration-issues.md).

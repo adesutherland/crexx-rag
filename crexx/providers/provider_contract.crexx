@@ -130,9 +130,12 @@ providerrequest: class
   _embedding_dimensions = .int
   _stream_requested = .int
   _temperature_millionths = .int
+  _initial_backoff_ms = .int
+  _maximum_backoff_ms = .int
+  _jitter_ms = .int
 
   *: factory
-    arg operation = .string, role = .string, model = .string, messages = .providermessage[], inputs = .string[], schema = .string, timeout_ms = .int, max_attempts = .int, privacy_class = .string, idempotency_key = .string, request_id = .string, max_output_tokens = 0, embedding_dimensions = 0, stream_requested = 0, temperature_millionths = -1
+    arg operation = .string, role = .string, model = .string, messages = .providermessage[], inputs = .string[], schema = .string, timeout_ms = .int, max_attempts = .int, privacy_class = .string, idempotency_key = .string, request_id = .string, max_output_tokens = 0, embedding_dimensions = 0, stream_requested = 0, temperature_millionths = -1, initial_backoff_ms = 1000, maximum_backoff_ms = 60000, jitter_ms = 250
     _operation = operation
     _role = role
     _model = model
@@ -148,6 +151,9 @@ providerrequest: class
     _embedding_dimensions = embedding_dimensions
     _stream_requested = stream_requested
     _temperature_millionths = temperature_millionths
+    _initial_backoff_ms = initial_backoff_ms
+    _maximum_backoff_ms = maximum_backoff_ms
+    _jitter_ms = jitter_ms
     return
 
   operation: method = .string
@@ -180,6 +186,12 @@ providerrequest: class
     return _stream_requested
   temperature_millionths: method = .int
     return _temperature_millionths
+  initial_backoff_ms: method = .int
+    return _initial_backoff_ms
+  maximum_backoff_ms: method = .int
+    return _maximum_backoff_ms
+  jitter_ms: method = .int
+    return _jitter_ms
 
 providerusage: class
   _input_tokens = .int
@@ -379,6 +391,7 @@ validateproviderrequest: procedure = .providererror
   if request.max_output_tokens() < 0 then return .providererror("invalid_request", -101, 0, 0, 0, "maximum output tokens cannot be negative")
   if request.embedding_dimensions() < 0 then return .providererror("invalid_request", -101, 0, 0, 0, "embedding dimensions cannot be negative")
   if request.temperature_millionths() < -1 | request.temperature_millionths() > 2000000 then return .providererror("invalid_request", -101, 0, 0, 0, "temperature millionths must be unspecified or from zero through two million")
+  if request.initial_backoff_ms() < 1 | request.maximum_backoff_ms() < request.initial_backoff_ms() | request.maximum_backoff_ms() > 3600000 | request.jitter_ms() < 0 | request.jitter_ms() > request.maximum_backoff_ms() then return .providererror("invalid_request", -101, 0, 0, 0, "retry backoff policy is invalid")
   if request.temperature_millionths() >= 0 & operation \= "generate" & operation \= "generate_structured" then return .providererror("invalid_request", -101, 0, 0, 0, "temperature is only valid for generation")
   if request.stream_requested() \= 0 & operation \= "generate" & operation \= "generate_structured" then return .providererror("invalid_request", -101, 0, 0, 0, "streaming is only valid for generation")
   privacy = request.privacy_class()

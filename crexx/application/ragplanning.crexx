@@ -12,6 +12,7 @@ import ragprofile
 import ragregistry
 import ragstore
 import ragcanonical
+import ragconfiguration
 
 ragplancontext: class
   _library_id = .string
@@ -185,7 +186,7 @@ _capturecontext: procedure = .int
   if beginreadsnapshot(library_path, read_snapshot, error) \= 0 then return -3
   database = read_snapshot.database(); generation = read_snapshot.generation()
   prepared = .binary
-  sql = "SELECT m.library_id,g.config_snapshot_id,c.config_id,c.config_hash,c.profile_id,c.profile_hash,CAST(strftime('%s','now') AS INTEGER) FROM library_meta m JOIN published_generations g ON g.generation=m.published_generation JOIN config_snapshots c ON c.config_snapshot_id=g.config_snapshot_id WHERE m.singleton=1 AND g.state='published'"
+  sql = "SELECT m.library_id,s.current_config_snapshot_id,c.config_id,c.config_hash,c.profile_id,c.profile_hash,CAST(strftime('%s','now') AS INTEGER) FROM library_meta m JOIN library_config_state s ON s.singleton=1 JOIN config_snapshots c ON c.config_snapshot_id=s.current_config_snapshot_id WHERE m.singleton=1"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do
     call sqlitefinalize prepared
     ignored = ""; call closereadsnapshot read_snapshot, ignored
@@ -206,12 +207,17 @@ _capturecontext: procedure = .int
     error = "cannot decode current plan bindings"
     return -3
   end
-  effective_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.effective-config/1") || "," || jsonquote("config") || ":" || canonicalconfig(config) || "," || jsonquote("profile") || ":" || canonicalprofile(profile) || "}"
-  expected_config_hash = ragsha256(effective_json)
-  expected_profile_hash = ragsha256(canonicalprofile(profile))
+  identity = .ragconfigidentity(); identity_error = ""
+  if identifyconfig(config, profile, identity, identity_error) \= 0 then do
+    ignored = ""; call closereadsnapshot read_snapshot, ignored
+    error = identity_error
+    return -2
+  end
+  expected_config_hash = identity.config_hash()
+  expected_profile_hash = identity.profile_hash()
   if config_id \= requested_config_id | profile_id \= requested_profile_id | config_hash \= expected_config_hash | profile_hash \= expected_profile_hash then do
     ignored = ""; call closereadsnapshot read_snapshot, ignored
-    error = "registered configuration/profile no longer matches the published library snapshot"
+    error = "registered configuration/profile no longer matches the current library configuration snapshot"
     return -2
   end
   source_canonical = ""

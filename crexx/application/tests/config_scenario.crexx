@@ -44,7 +44,15 @@ main: procedure = .int
   errors = errors + check(rejected(changestr("./source-docs", text, "../source-docs"), "traversal") = 1, "path traversal rejection")
   errors = errors + check(rejected(changestr("kind = gemini", text, "kind = unsupported"), "provider kind is not supported") = 1, "provider kind rejection")
   errors = errors + check(rejected(changestr("https://", text, "http://"), "hosted provider URL must use HTTPS") = 1, "hosted route rejection")
-  errors = errors + check(rejected(changestr("crexx-rag.config/1", text, "crexx-rag.config/2"), "unsupported configuration format") = 1, "format version rejection")
+  v1_config = .ragconfig; v1_error = ""
+  errors = errors + check(parseconfigtext(changestr("crexx-rag.config/2", text, "crexx-rag.config/1"), v1_config, v1_error) = 0, "format one compatibility parse " || v1_error)
+  v2_text = text
+  v2_config = .ragconfig; v2_error = ""
+  errors = errors + check(parseconfigtext(v2_text, v2_config, v2_error) = 0, "format two parse " || v2_error)
+  v2_providers = v2_config.providers()
+  errors = errors + check(v2_providers[1].requests_per_minute() = 60 & v2_providers[1].tokens_per_minute() = 1000000 & v2_providers[1].concurrent_requests() = 2 & v2_providers[1].initial_backoff_ms() = 1000 & v2_providers[1].maximum_backoff_ms() = 60000 & v2_providers[1].jitter_ms() = 250, "format two provider policy")
+  invalid_backoff = changestr("provider.gemini-generate.initial_backoff_ms = 1000", v2_text, "provider.gemini-generate.initial_backoff_ms = 60001")
+  errors = errors + check(rejected(invalid_backoff, "outside its supported range") = 1, "backoff bound rejection")
   errors = errors + check(rejected(changestr("budget.model_calls = 50", text, "budget.model_calls = 050"), "canonical integer syntax") = 1, "integer syntax rejection")
   errors = errors + check(rejected(copies("x", 65537), "65536") = 1, "file-size bound")
   errors = errors + check(rejected(copies("# bounded" || "0A"x, 513), "512-line") = 1, "line-count bound")
@@ -76,5 +84,5 @@ main: procedure = .int
   errors = errors + check(validateglossarymention(context, "BillingService", "BillingService", "application-component", aliases, error) \= 1 & pos("conflicting", error) > 0, "provider cross-concept glossary rejection")
 
   if errors > 0 then return 1
-  say "CONFIG_CONTRACT_OK cell=" || cell || " format=1 settings=bounded providers=2 gemini=2 env_refs=2 literal_secrets=0 executable_modules=0 glossary=validated provider_calls=0"
+  say "CONFIG_CONTRACT_OK cell=" || cell || " formats=1,2 identities=split settings=bounded providers=2 gemini=2 env_refs=2 literal_secrets=0 executable_modules=0 glossary=validated provider_calls=0"
   return 0

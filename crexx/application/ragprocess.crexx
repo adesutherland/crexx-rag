@@ -376,7 +376,7 @@ runapplicationworker: procedure = .int
       if job_filter \= "" then do
         job_state = _scalartext(store.database(), "SELECT state FROM jobs WHERE job_id=" || _sqlquote(job_filter), error)
         if error \= "" then do; status = -2; leave; end
-        if job_state = "completed" | job_state = "failed" | job_state = "cancelled" then do
+        if job_state = "completed" | job_state = "completed_with_errors" | job_state = "failed" | job_state = "cancelled" then do
           call tracer.emit("job", "complete", job_filter, job_state)
           leave
         end

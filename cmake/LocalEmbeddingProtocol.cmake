@@ -12,7 +12,7 @@ set(server_out "${CPRAG_WORK_DIR}/loopback.out")
 set(server_err "${CPRAG_WORK_DIR}/loopback.err")
 set(server_status "${CPRAG_WORK_DIR}/loopback.status")
 execute_process(COMMAND /bin/sh -c
-    "( \"$1\" 19020 4 local-embedding; printf '%s' $? >\"$4\" ) >\"$2\" 2>\"$3\" &"
+    "( \"$1\" 19020 16 local-embedding; printf '%s' $? >\"$4\" ) >\"$2\" 2>\"$3\" &"
     local-embedding-protocol "${CPRAG_LOOPBACK}" "${server_out}"
     "${server_err}" "${server_status}"
     RESULT_VARIABLE launch_result)
@@ -34,7 +34,10 @@ if(NOT ready)
     message(FATAL_ERROR "local embedding loopback did not become ready")
 endif()
 
-set(imports "${CPRAG_WORK_DIR};${CPRAG_APPLICATION_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
+file(GLOB project_member_dirs LIST_DIRECTORIES true
+    "${CPRAG_APPLICATION_DIR}/project/crexxrag-project.crexx-build/members/*")
+list(JOIN project_member_dirs ";" project_imports)
+set(imports "${CPRAG_WORK_DIR};${project_imports};${CPRAG_APPLICATION_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
 set(modules provider_contract provider_catalog provider_http industrial_provider
     rx_hash rx_system rxfs rxplatform rxvector rxfnsg library)
 foreach(mode IN ITEMS noopt opt)
@@ -69,7 +72,7 @@ foreach(mode IN ITEMS noopt opt)
             RESULT_VARIABLE run_result OUTPUT_VARIABLE run_out
             ERROR_VARIABLE run_err TIMEOUT 30)
         if(NOT run_result EQUAL 0 OR NOT run_out MATCHES
-                "LOCAL_EMBEDDING_PROTOCOL_OK cell=${cell} protocol=openai-compatible endpoint=/v1/embeddings dimensions=3 charging=local-compute privacy=restricted")
+                "LOCAL_EMBEDDING_PROTOCOL_OK cell=${cell} protocol=openai-compatible endpoint=/v1/embeddings dimensions=3 charging=local-compute privacy=restricted retries=3 retry_delay_ms=1020")
             message(FATAL_ERROR "${cell} local embedding protocol failed:\n${run_out}${run_err}")
         endif()
         file(APPEND "${CPRAG_WORK_DIR}/result.txt" "${run_out}${run_err}")
@@ -91,7 +94,7 @@ file(READ "${server_status}" server_result)
 file(READ "${server_out}" final_server_out)
 file(READ "${server_err}" final_server_err)
 if(NOT server_result STREQUAL "0" OR
-   NOT final_server_out MATCHES "SUMMARY scenario=local-embedding connections=4 request_connection_close=4")
+   NOT final_server_out MATCHES "SUMMARY scenario=local-embedding connections=16 request_connection_close=16")
     message(FATAL_ERROR "local embedding loopback failed:\n${final_server_out}${final_server_err}")
 endif()
-message(STATUS "Local OpenAI-compatible embedding protocol passed request mapping, restricted local privacy, vector decoding and zero monetary cost on both VMs and compiler modes")
+message(STATUS "Local OpenAI-compatible embedding protocol passed request mapping, restricted local privacy, vector decoding, zero monetary cost, and Retry-After plus exponential retry on both VMs and compiler modes")

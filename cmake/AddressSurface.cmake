@@ -69,4 +69,4 @@ foreach(runtime IN ITEMS "${CPRAG_RXVME}" "${CPRAG_RXBVM}")
     endif()
 endforeach()
 
-message(STATUS "ADDRESS RAG passed maintenance planning/denial, session binding, config loading, access control, and atomic failed-open checks on both VMs")
+message(STATUS "ADDRESS RAG passed deterministic reporting, empty historic trends, snapshot access denial, maintenance planning/denial, session binding, config loading, access control, and atomic failed-open checks on both VMs")

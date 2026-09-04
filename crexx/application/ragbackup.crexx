@@ -3,7 +3,6 @@ options levelg
 namespace ragbackup expose ragsidecarpublication ragbackupsession ragbackupreport prepareannvectorsidecar installsidecar commitsidecar publishannvectorsidecar beginragbackup copyragbackupsidecars writeragbackupmanifest publishragbackup abortragbackup backupragstore restoreragstore
 
 import rxfnsb
-import system
 import rxfs
 import sqlite_boundary
 import ragstore
@@ -260,17 +259,17 @@ beginragbackup: procedure = .int
     error = "distinct source and target paths are required"
     return -1
   end
-  if testdir(target_path) = 0 | testfile(target_path) = 0 | testdir(staging_path) = 0 | testfile(staging_path) = 0 then do
+  if rxfs..isdir(target_path) = 1 | rxfs..isfile(target_path) = 1 | rxfs..isdir(staging_path) = 1 | rxfs..isfile(staging_path) = 1 then do
     error = "backup target or staging path already exists"
     return -2
   end
-  if createdir(staging_path) \= 0 then do
+  if rxfs..mkdir(staging_path) \= 0 then do
     error = "could not create backup staging folder"
     return -2
   end
   read_view = .ragreadsnapshot
   if beginreadsnapshot(source_path, read_view, error) \= 0 then do
-    call removedir staging_path
+    call rxfs..rmdir staging_path
     return -3
   end
   destination = .binary
@@ -404,7 +403,7 @@ backupragstore: procedure = .int
 restoreragstore: procedure = .int
   arg backup_path = .string, target_path = .string, expose report = .ragbackupreport, expose error = .string
   error = ""
-  if testdir(target_path) = 0 | testfile(target_path) = 0 | testdir(target_path || ".new") = 0 | testfile(target_path || ".new") = 0 then do
+  if rxfs..isdir(target_path) = 1 | rxfs..isfile(target_path) = 1 | rxfs..isdir(target_path || ".new") = 1 | rxfs..isfile(target_path || ".new") = 1 then do
     error = "restore requires a fresh target and staging path"
     return -2
   end

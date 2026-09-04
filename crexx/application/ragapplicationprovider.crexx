@@ -11,6 +11,7 @@ import ragconfig
 import ragprofile
 import ragglossary
 import ragcanonical
+import ragconfiguration
 import ragstore
 import ragclaims
 import ragwork
@@ -75,11 +76,20 @@ ragapplicationprovider: class implements .ragworkprovider
       protocol = kind; if kind = "openai-compatible" then protocol = "openai"
       backend = .industrialprovider(protocol, host, port, tls, base_path, secret, provider_config.route_class())
     end
+    if operation = "embedding" & kind = "codex" then return _failedwork(provider_id, model, claim, empty_proposal, "Codex does not provide embedding generation", 0)
+    if operation \= "embedding" & operation \= "claim-extraction" & operation \= "improve-extraction" then return _failedwork(provider_id, model, claim, empty_proposal, "durable work operation is unsupported", 0)
+    reserved_tokens = _reservationtokens(document, root)
+    if reserved_tokens < 0 then return _failedwork(provider_id, model, claim, empty_proposal, "durable provider token reservation is invalid", 0)
+    admission_id = ""; admission_wait = 0; admission_error = ""
+    admission_status = admitprovidercall(_store, claim, provider_id, model, reserved_tokens, provider_config.requests_per_minute(), provider_config.tokens_per_minute(), provider_config.concurrent_requests(), provider_config.timeout_ms(), admission_id, admission_wait, admission_error)
+    if admission_status \= 0 then return _failedwork(provider_id, model, claim, empty_proposal, admission_error, 1, "", provider_config.charging_basis(), provider_config.initial_backoff_ms())
     call _tracer.emit("provider", "start", claim.item_id(), provider_id || " " || model)
-    if operation = "embedding" & kind = "codex" then result = _failedwork(provider_id, model, claim, empty_proposal, "Codex does not provide embedding generation", 0)
-    else if operation = "embedding" then result = _embedding(document, root, claim, provider_config, backend)
+    if operation = "embedding" then result = _embedding(document, root, claim, provider_config, backend)
     else if operation = "claim-extraction" | operation = "improve-extraction" then result = _extraction(document, root, input_json, claim, provider_config, backend)
-    else result = _failedwork(provider_id, model, claim, empty_proposal, "durable work operation is unsupported", 0)
+    call result.add_wait_ms(admission_wait)
+    release_outcome = "failed"; if result.ok() = 1 then release_outcome = "succeeded"
+    release_error = ""
+    if releaseprovidercall(_store, admission_id, result.input_tokens() + result.output_tokens(), release_outcome, release_error) \= 0 then result = _admissionfailure(result, release_error)
     if result.ok() = 1 then call _tracer.emit("provider", "complete", claim.item_id(), provider_id || " " || model)
     else call _tracer.emit("provider", "failed", claim.item_id(), provider_id || " " || model)
     return result
@@ -94,8 +104,10 @@ ragapplicationprovider: class implements .ragworkprovider
     messages[2] = .providermessage("user", "Allowed concept types: " || types || "0A"x || "Allowed relationship types: " || relationships || "0A"x || "Maximum mentions: " || discovery.max_mentions() || "; relationships: " || discovery.max_relationships() || "; notes: " || discovery.max_notes() || "0A"x || "Durable input: " || input_json)
     schema = '{"type":"object","additionalProperties":false,"required":["mentions","relationships","notes"],"properties":{"mentions":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["label","canonical_label","concept_type","span_start","span_end","aliases"],"properties":{"label":{"type":"string"},"canonical_label":{"type":"string"},"concept_type":{"type":"string"},"span_start":{"type":"integer"},"span_end":{"type":"integer"},"aliases":{"type":"array","items":{"type":"string"}}}}},"relationships":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["source_mention","relationship_type","target_mention","span_start","span_end","confidence_millionths"],"properties":{"source_mention":{"type":"integer"},"relationship_type":{"type":"string"},"target_mention":{"type":"integer"},"span_start":{"type":"integer"},"span_end":{"type":"integer"},"confidence_millionths":{"type":"integer"}}}},"notes":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["kind","text","importance_millionths","uncertainty_millionths","next_action","span_start","span_end"],"properties":{"kind":{"type":"string"},"text":{"type":"string"},"importance_millionths":{"type":"integer"},"uncertainty_millionths":{"type":"integer"},"next_action":{"type":"string"},"span_start":{"type":"integer"},"span_end":{"type":"integer"}}}}}}'
     request_id = "extract-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 32)
-    maximum_output = _config.budget().output_tokens(); if maximum_output > 4096 then maximum_output = 4096
-    request = .providerrequest("generate_structured", "extractor", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), provider_config.max_attempts(), _jsonstring(document, root, "privacy"), claim.item_id(), request_id, maximum_output, 0, 0, 0)
+    reservation = document.member(root, "reservation"); maximum_output = -1
+    if document.node_type(reservation) \= "object" | document.node_int(document.member(reservation, "output_tokens"), maximum_output) \= 0 | maximum_output < 1 then return _failedwork(provider_config.provider_id(), provider_config.model(), claim, empty_proposal, "durable extraction output reservation is invalid", 0)
+    if maximum_output > 4096 then maximum_output = 4096
+    request = .providerrequest("generate_structured", "extractor", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), 1, _jsonstring(document, root, "privacy"), claim.item_id(), request_id, maximum_output, 0, 0, 0, provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms())
     durable_run_id = ""; provider_charging_basis = provider_config.charging_basis(); provider_output = .providerresult()
     if provider_config.kind() = "codex" then do
       provider_charging_basis = "local-compute"
@@ -103,7 +115,7 @@ ragapplicationprovider: class implements .ragworkprovider
       if recoverexternalrun(_store, claim.item_id(), provider_config.provider_id(), provider_config.model(), recovery, codex_error) \= 0 then provider_output = _codexfailure(request, codex_error, 0, "durability")
       else if recovery.found() = 1 then do
         durable_run_id = recovery.provider_run_id(); provider_charging_basis = provider_config.charging_basis(); request_id = recovery.request_id()
-        active_request = .providerrequest(request.operation(), request.role(), request.model(), request.messages(), request.inputs(), request.schema(), request.timeout_ms(), request.max_attempts(), request.privacy_class(), request.idempotency_key(), request_id, request.max_output_tokens(), request.embedding_dimensions(), request.stream_requested(), request.temperature_millionths())
+        active_request = .providerrequest(request.operation(), request.role(), request.model(), request.messages(), request.inputs(), request.schema(), request.timeout_ms(), request.max_attempts(), request.privacy_class(), request.idempotency_key(), request_id, request.max_output_tokens(), request.embedding_dimensions(), request.stream_requested(), request.temperature_millionths(), request.initial_backoff_ms(), request.maximum_backoff_ms(), request.jitter_ms())
         if recovery.state() = "completed" then do
           provider_output = .providerresult()
           call provider_output.set_generation("codex", provider_config.model(), request_id, recovery.content(), "recovered", .providerusage(recovery.input_tokens(), recovery.output_tokens(), 1, -1, 1, 0), 0)
@@ -240,7 +252,7 @@ ragapplicationprovider: class implements .ragworkprovider
     dimension = 0; ignored = document.node_int(document.member(root, "embedding_dimension"), dimension)
     if body = "" | revision_chunk_id = "" | length(content_digest) \= 64 | dimension < 128 | dimension > 3072 then return _failedwork(provider_config.provider_id(), provider_config.model(), claim, empty_proposal, "durable embedding input is invalid", 0)
     inputs[1] = body; request_id = "embed-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 32)
-    request = .providerrequest("embed", "embedding", provider_config.model(), messages, inputs, "", provider_config.timeout_ms(), provider_config.max_attempts(), _jsonstring(document, root, "privacy"), claim.item_id(), request_id, 0, dimension, 0)
+    request = .providerrequest("embed", "embedding", provider_config.model(), messages, inputs, "", provider_config.timeout_ms(), 1, _jsonstring(document, root, "privacy"), claim.item_id(), request_id, 0, dimension, 0, -1, provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms())
     provider_output = backend.embed(request)
     if provider_output.status() \= 0 then return _providerfailure(provider_config, request_id, claim, empty_proposal, provider_output)
     vectors = provider_output.embeddings()
@@ -255,13 +267,13 @@ _success: procedure = .ragworkproviderresult
   arg provider_id = .string, model = .string, request_id = .string, provider_output = .providerresult, proposal = .ragextractionproposal, has_proposal = .int, source_candidate = .string, target_candidate = .string, embedding = .ragworkembedding, provider_run_id = "", charging_basis = "monetary-api"
   usage = provider_output.usage(); cost = usage.cost_microunits(); if cost < 0 | charging_basis \= "monetary-api" then cost = 0
   mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
-  return .ragworkproviderresult(0, provider_id, model, request_id, usage.input_tokens(), usage.output_tokens(), cost, (provider_output.latency_us() / 1000) as .int, 0, proposal, "", has_proposal, source_candidate, target_candidate, embedding, provider_run_id, charging_basis, mentions, proposals, notes)
+  return .ragworkproviderresult(0, provider_id, model, request_id, usage.input_tokens(), usage.output_tokens(), cost, provider_output.latency_us() % 1000, 0, proposal, "", has_proposal, source_candidate, target_candidate, embedding, provider_run_id, charging_basis, mentions, proposals, notes, usage.retry_delay_ms())
 
 _successbatch: procedure = .ragworkproviderresult
   arg provider_id = .string, model = .string, request_id = .string, provider_output = .providerresult, mentions = .ragworkmention[], proposals = .ragworkproposal[], notes = .ragworknote[], provider_run_id = "", charging_basis = "monetary-api"
   usage = provider_output.usage(); cost = usage.cost_microunits(); if cost < 0 | charging_basis \= "monetary-api" then cost = 0
   empty = .ragextractionproposal
-  return .ragworkproviderresult(0, provider_id, model, request_id, usage.input_tokens(), usage.output_tokens(), cost, (provider_output.latency_us() / 1000) as .int, 0, empty, "", proposals.0 > 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, charging_basis, mentions, proposals, notes)
+  return .ragworkproviderresult(0, provider_id, model, request_id, usage.input_tokens(), usage.output_tokens(), cost, provider_output.latency_us() % 1000, 0, empty, "", proposals.0 > 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, charging_basis, mentions, proposals, notes, usage.retry_delay_ms())
 
 _codexfailure: procedure = .providerresult
   arg request = .providerrequest, message = .string, retryable = .int, category = .string
@@ -276,20 +288,25 @@ _providerfailure: procedure = .ragworkproviderresult
   if charging_basis = "" then charging_basis = config.charging_basis()
   if charging_basis \= "monetary-api" then cost = 0
   mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
-  return .ragworkproviderresult(output.status(), config.provider_id(), config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, (output.latency_us() / 1000) as .int, failure.retryable(), proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, charging_basis, mentions, proposals, notes)
+  return .ragworkproviderresult(output.status(), config.provider_id(), config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, output.latency_us() % 1000, failure.retryable(), proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, charging_basis, mentions, proposals, notes, usage.retry_delay_ms())
 
 _failedoutput: procedure = .ragworkproviderresult
   arg config = .ragproviderconfig, request_id = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, output = .providerresult, message = .string, provider_run_id = ""
   usage = output.usage(); cost = usage.cost_microunits(); if cost < 0 | config.charging_basis() \= "monetary-api" then cost = 0
   mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
-  return .ragworkproviderresult(-123, config.provider_id(), config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, (output.latency_us() / 1000) as .int, 0, proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, config.charging_basis(), mentions, proposals, notes)
+  return .ragworkproviderresult(-123, config.provider_id(), config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, output.latency_us() % 1000, 0, proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, config.charging_basis(), mentions, proposals, notes, usage.retry_delay_ms())
 
 _failedwork: procedure = .ragworkproviderresult
-  arg provider_id = .string, model = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, message = .string, retryable = .int, provider_run_id = "", charging_basis = "monetary-api"
+  arg provider_id = .string, model = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, message = .string, retryable = .int, provider_run_id = "", charging_basis = "monetary-api", retry_delay_ms = 0
   if provider_id = "" then provider_id = "unresolved-provider"
   if model = "" then model = "unresolved-model"
   mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
-  return .ragworkproviderresult(-101, provider_id, model, "failed-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 24), 0, 0, 0, 0, retryable, proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, charging_basis, mentions, proposals, notes)
+  return .ragworkproviderresult(-101, provider_id, model, "failed-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 24), 0, 0, 0, 0, retryable, proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, charging_basis, mentions, proposals, notes, retry_delay_ms, 0)
+
+_admissionfailure: procedure = .ragworkproviderresult
+  arg result = .ragworkproviderresult, message = .string
+  empty = .ragextractionproposal; mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
+  return .ragworkproviderresult(-124, result.provider_id(), result.model(), result.request_id(), result.input_tokens(), result.output_tokens(), result.cost(), result.duration_ms(), 1, empty, "provider admission release failed: " || message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), result.provider_run_id(), result.charging_basis(), mentions, proposals, notes, result.retry_delay_ms(), result.provider_called())
 
 _snapshotmatches: procedure = .int
   arg store = .ragstorehandle, snapshot_id = .string, config = .ragconfig, profile = .ragprofile
@@ -298,9 +315,9 @@ _snapshotmatches: procedure = .int
   if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindtext(prepared, 1, snapshot_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return 0; end
   config_hash = ""; profile_hash = ""; columns = sqlitecolumntext(prepared, 0, config_hash) | sqlitecolumntext(prepared, 1, profile_hash); call sqlitefinalize prepared
   if columns \= 0 then return 0
-  profile_json = canonicalprofile(profile)
-  effective_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.effective-config/1") || "," || jsonquote("config") || ":" || canonicalconfig(config) || "," || jsonquote("profile") || ":" || profile_json || "}"
-  return config_hash = ragsha256(effective_json) & profile_hash = ragsha256(profile_json)
+  identity = .ragconfigidentity(); identity_error = ""
+  if identifyconfig(config, profile, identity, identity_error) \= 0 then return 0
+  return config_hash = identity.config_hash() & profile_hash = identity.profile_hash()
 
 _iteminput: procedure = .string
   arg database = .binary, item_id = .string
@@ -309,6 +326,13 @@ _iteminput: procedure = .string
   status = sqlitecolumntext(prepared, 0, value); call sqlitefinalize prepared
   if status \= 0 then return ""
   return value
+
+_reservationtokens: procedure = .int
+  arg document = .jsondocument, root = .int
+  reservation = document.member(root, "reservation")
+  input_tokens = -1; output_tokens = -1
+  if document.node_type(reservation) \= "object" | document.node_int(document.member(reservation, "input_tokens"), input_tokens) \= 0 | document.node_int(document.member(reservation, "output_tokens"), output_tokens) \= 0 | input_tokens < 0 | output_tokens < 0 then return -1
+  return input_tokens + output_tokens
 
 _roleprovider: procedure = .string
   arg config = .ragconfig, role = .string

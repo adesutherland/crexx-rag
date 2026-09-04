@@ -86,11 +86,12 @@ main: procedure = .int
   errors = errors + check(insertchunk(database, 10, "ann-row-10", 0.1, -1.0, error) = 0, error)
   errors = errors + check(insertchunk(database, 11, "ann-row-11", 0.0, -1.0, error) = 0, error)
   errors = errors + check(insertchunk(database, 12, "ann-row-12", -0.1, -1.0, error) = 0, error)
+  errors = errors + check(sqliteexec(database, "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('content-13','digest-13','ann-missing-13','fingerprint-13');INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('chunk-13','revision-ann',13,384,398,'content-13','continuity-13','ann-fixture-v1','direct',1);INSERT INTO chunks_fts(revision_chunk_id,content_id,body) VALUES('chunk-13','content-13','ann-missing-13')") = 0, "partial coverage chunk")
   errors = errors + check(publishmanifest(store, error) = 0, "pre-ANN manifest " || error)
   if errors > 0 then return 1
 
   generation = .ragvectorgenerationresult
-  errors = errors + check(buildannvectorgeneration(store, "ann-profile", 12, 4, 1, 3, generation, error) = 0 & generation.state() = "published" & generation.rows() = 12, "IVF-flat publication " || error)
+  errors = errors + check(buildannvectorgeneration(store, "ann-profile", 12, 4, 1, 3, generation, error) = 0 & generation.state() = "published" & generation.rows() = 12, "partial-coverage IVF-flat publication " || error)
   replay = .ragvectorgenerationresult
   errors = errors + check(buildannvectorgeneration(store, "ann-profile", 12, 4, 1, 3, replay, error) = 0 & replay.state() = "identical-no-op" & replay.checksum() = generation.checksum(), "deterministic ANN replay " || error)
 
@@ -114,6 +115,17 @@ main: procedure = .int
   end
   errors = errors + check(result.vector_state() = "active-ann-ivf-rxvector" & trace_found = 1, "production path must probe bounded IVF clusters")
   errors = errors + check(recall >= 900000, "ANN recall threshold against exact QA oracle")
+
+  single_source_policy = .ragretrievaloptions("ann-methodology-v1", "ann-profile", query_wire, 8, 4, 12, 0, 4, 0, 0, 60, "both")
+  single_source_result = .ragretrievalresult
+  errors = errors + check(retrieveevidence(store, genericprofile(), "ann", single_source_policy, single_source_result, error) = 0, "single-source retrieval " || error)
+  single_source_passages = .ragpassage[]; single_source_passages = single_source_result.evidence().passages()
+  source_cap_found = 0; single_source_notes = .string[]; single_source_notes = single_source_result.evidence().trace().notes()
+  do i = 1 to single_source_notes.0
+    if pos("diversity-source-count=1;per-source-cap=4", single_source_notes[i]) > 0 then source_cap_found = 1
+  end
+  errors = errors + check(single_source_passages.0 = 4, "one source passage count=" || single_source_passages.0)
+  errors = errors + check(source_cap_found = 1, "one source dynamic cap trace")
 
   raw = .binary; byte_count = 0
   errors = errors + check(ragfile..readbinaryfilebounded(path || "/" || generation.sidecar_name(), 67108864, raw, byte_count, error) = 0, "read ANN sidecar " || error)

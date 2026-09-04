@@ -8,7 +8,10 @@ endforeach()
 
 file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
-set(imports "${CPRAG_WORK_DIR};${CPRAG_APPLICATION_DIR};${CPRAG_PROVIDER_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
+file(GLOB project_member_dirs LIST_DIRECTORIES true
+    "${CPRAG_APPLICATION_DIR}/project/crexxrag-project.crexx-build/members/*")
+list(JOIN project_member_dirs ";" project_imports)
+set(imports "${CPRAG_WORK_DIR};${project_imports};${CPRAG_APPLICATION_DIR};${CPRAG_PROVIDER_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
 
 foreach(mode IN ITEMS noopt opt)
     set(mode_flag)

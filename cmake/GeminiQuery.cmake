@@ -54,7 +54,7 @@ execute_process(COMMAND ${cli} init
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err
     RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 1")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 6")
     message(FATAL_ERROR "Query test human init failed:\n${init_out}${init_err}")
 endif()
 
@@ -110,6 +110,197 @@ file(READ "${server_err}" final_server_err)
 if(NOT server_result STREQUAL "0" OR
    NOT final_server_out MATCHES "SUMMARY scenario=product-query connections=4")
     message(FATAL_ERROR "Positive Gemini query loopback failed:\n${final_server_out}${final_server_err}")
+endif()
+
+# The deterministic report is a zero-provider, generation-bound view of corpus,
+# graph, vector, provenance and maintenance state. The optional advisory layer
+# makes exactly one separately visible call and caches only validated citations.
+execute_process(COMMAND ${cli} --format json library report --top 10
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE report_out ERROR_VARIABLE report_err
+    RESULT_VARIABLE report_result TIMEOUT 30)
+if(NOT report_result EQUAL 0 OR
+   NOT report_out MATCHES "\"schema\":\"crexx-rag.library-report/1\"" OR
+   NOT report_out MATCHES "\"chunks\":1" OR
+   NOT report_out MATCHES "\"concepts\":2" OR
+   NOT report_out MATCHES "\"claims\":1" OR
+   NOT report_out MATCHES "\"state\":\"ready\"" OR
+   NOT report_out MATCHES "\"coverage_millionths\":1000000" OR
+   NOT report_out MATCHES "\"narrative_state\":\"off\"" OR
+   NOT report_out MATCHES "\"provider_calls\":0" OR
+   NOT report_out MATCHES "crexx-rag:.*utf8-0-87")
+    message(FATAL_ERROR "Deterministic library report failed:\n${report_out}${report_err}")
+endif()
+
+execute_process(COMMAND ${cli} library report --top 10 --narrative refresh
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE unconfirmed_report_out ERROR_VARIABLE unconfirmed_report_err
+    RESULT_VARIABLE unconfirmed_report_result TIMEOUT 30)
+if(unconfirmed_report_result EQUAL 0 OR
+   NOT "${unconfirmed_report_out}${unconfirmed_report_err}" MATCHES "human narrative refresh requires --yes")
+    message(FATAL_ERROR "Human report refresh did not require confirmation:\n${unconfirmed_report_out}${unconfirmed_report_err}")
+endif()
+
+set(report_server_out "${CPRAG_WORK_DIR}/report-loopback.out")
+set(report_server_err "${CPRAG_WORK_DIR}/report-loopback.err")
+set(report_server_status "${CPRAG_WORK_DIR}/report-loopback.status")
+execute_process(COMMAND /bin/sh -c
+    "( \"$1\" \"$2\" 1 product-report; printf '%s' $? >\"$5\" ) >\"$3\" 2>\"$4\" &"
+    p5r-report "${CPRAG_LOOPBACK}" "${CPRAG_FIXTURE_PORT}" "${report_server_out}"
+    "${report_server_err}" "${report_server_status}"
+    RESULT_VARIABLE report_launch_result)
+if(NOT report_launch_result EQUAL 0)
+    message(FATAL_ERROR "could not start report narrative loopback")
+endif()
+set(report_ready FALSE)
+foreach(poll RANGE 1 200)
+    if(EXISTS "${report_server_out}")
+        file(READ "${report_server_out}" current_report_server_out)
+        if(current_report_server_out MATCHES "READY ${CPRAG_FIXTURE_PORT}")
+            set(report_ready TRUE)
+            break()
+        endif()
+    endif()
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.02)
+endforeach()
+if(NOT report_ready)
+    message(FATAL_ERROR "Report narrative loopback did not become ready")
+endif()
+execute_process(COMMAND ${cli} --format json library report --top 10 --narrative refresh
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE report_refresh_out ERROR_VARIABLE report_refresh_err
+    RESULT_VARIABLE report_refresh_result TIMEOUT 60)
+if(NOT report_refresh_result EQUAL 0 OR
+   NOT report_refresh_out MATCHES "\"narrative_state\":\"generated\"" OR
+   NOT report_refresh_out MATCHES "\"provider_calls\":1" OR
+   NOT report_refresh_out MATCHES "\"overview\":\"The library covers a documented service dependency\.\"" OR
+   NOT report_refresh_out MATCHES "\"kind\":\"report-subject\"" OR
+   NOT report_refresh_out MATCHES "\"provider_id\":\"gemini-generate\"" OR
+   NOT report_refresh_out MATCHES "\"model\":\"gemini-3.5-flash-lite\"")
+    message(FATAL_ERROR "Validated report narrative refresh failed:\n${report_refresh_out}${report_refresh_err}")
+endif()
+foreach(poll RANGE 1 200)
+    if(EXISTS "${report_server_status}")
+        break()
+    endif()
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.02)
+endforeach()
+if(NOT EXISTS "${report_server_status}")
+    message(FATAL_ERROR "Report narrative loopback did not exit")
+endif()
+file(READ "${report_server_status}" report_server_result)
+file(READ "${report_server_out}" final_report_server_out)
+if(NOT report_server_result STREQUAL "0" OR
+   NOT final_report_server_out MATCHES "SUMMARY scenario=product-report connections=1")
+    message(FATAL_ERROR "Report narrative loopback failed:\n${final_report_server_out}")
+endif()
+
+execute_process(COMMAND ${cli} --format json library report --top 10 --narrative cached
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE report_cached_out ERROR_VARIABLE report_cached_err
+    RESULT_VARIABLE report_cached_result TIMEOUT 30)
+if(NOT report_cached_result EQUAL 0 OR
+   NOT report_cached_out MATCHES "\"narrative_state\":\"cached\"" OR
+   NOT report_cached_out MATCHES "\"provider_calls\":0" OR
+   NOT report_cached_out MATCHES "\"overview\":\"The library covers a documented service dependency\.\"")
+    message(FATAL_ERROR "Cached report narrative failed:\n${report_cached_out}${report_cached_err}")
+endif()
+
+# Guided ingestion has already captured the first fixed-top-10 observation.
+# After narrative generation, an identical evaluation is audited but suppressed;
+# the immutable point discovers the matching narrative by its report digests.
+execute_process(COMMAND ${cli} --access control --format json library snapshot
+    --trigger scheduled --reason "fixture repeated observation"
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE snapshot_out ERROR_VARIABLE snapshot_err
+    RESULT_VARIABLE snapshot_result TIMEOUT 30)
+if(NOT snapshot_result EQUAL 0 OR
+   NOT snapshot_out MATCHES "\"outcome\":\"skipped-identical\"" OR
+   NOT snapshot_out MATCHES "\"snapshot_count\":1" OR
+   NOT snapshot_out MATCHES "\"narrative_attached\":true" OR
+   NOT snapshot_out MATCHES "\"provider_calls\":0")
+    message(FATAL_ERROR "Identical post-narrative observation was not suppressed:\n${snapshot_out}${snapshot_err}")
+endif()
+execute_process(COMMAND ${cli} --access control --format json library snapshot
+    --trigger scheduled --reason "fixture repeated observation"
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE duplicate_snapshot_out ERROR_VARIABLE duplicate_snapshot_err
+    RESULT_VARIABLE duplicate_snapshot_result TIMEOUT 30)
+if(NOT duplicate_snapshot_result EQUAL 0 OR
+   NOT duplicate_snapshot_out MATCHES "\"outcome\":\"skipped-identical\"" OR
+   NOT duplicate_snapshot_out MATCHES "\"snapshot_count\":1" OR
+   NOT duplicate_snapshot_out MATCHES "\"evaluation_count\":2" OR
+   NOT duplicate_snapshot_out MATCHES "\"provider_calls\":0")
+    message(FATAL_ERROR "Identical historic observation was not suppressed:\n${duplicate_snapshot_out}${duplicate_snapshot_err}")
+endif()
+execute_process(COMMAND ${cli} --format json library trend --limit 20
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE trend_out ERROR_VARIABLE trend_err
+    RESULT_VARIABLE trend_result TIMEOUT 30)
+if(NOT trend_result EQUAL 0 OR
+   NOT trend_out MATCHES "\"schema\":\"crexx-rag.historic-trend/1\"" OR
+   NOT trend_out MATCHES "\"state\":\"baseline-only\"" OR
+   NOT trend_out MATCHES "\"point_count\":1" OR
+   NOT trend_out MATCHES "\"suppressed_evaluations\":2" OR
+   NOT trend_out MATCHES "\"direction_available\":false" OR
+   NOT trend_out MATCHES "\"baseline\":true" OR
+   NOT trend_out MATCHES "\"kind\":\"trend-narrative\"" OR
+   NOT trend_out MATCHES "The library covers a documented service dependency")
+    message(FATAL_ERROR "One-point historic trend report failed:\n${trend_out}${trend_err}")
+endif()
+
+set(invalid_report_out "${CPRAG_WORK_DIR}/invalid-report-loopback.out")
+set(invalid_report_err "${CPRAG_WORK_DIR}/invalid-report-loopback.err")
+set(invalid_report_status "${CPRAG_WORK_DIR}/invalid-report-loopback.status")
+execute_process(COMMAND /bin/sh -c
+    "( \"$1\" \"$2\" 1 product-report-invalid; printf '%s' $? >\"$5\" ) >\"$3\" 2>\"$4\" &"
+    p5r-report-invalid "${CPRAG_LOOPBACK}" "${CPRAG_FIXTURE_PORT}" "${invalid_report_out}"
+    "${invalid_report_err}" "${invalid_report_status}"
+    RESULT_VARIABLE invalid_report_launch_result)
+if(NOT invalid_report_launch_result EQUAL 0)
+    message(FATAL_ERROR "could not start invalid report narrative loopback")
+endif()
+set(invalid_report_ready FALSE)
+foreach(poll RANGE 1 200)
+    if(EXISTS "${invalid_report_out}")
+        file(READ "${invalid_report_out}" current_invalid_report_out)
+        if(current_invalid_report_out MATCHES "READY ${CPRAG_FIXTURE_PORT}")
+            set(invalid_report_ready TRUE)
+            break()
+        endif()
+    endif()
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.02)
+endforeach()
+if(NOT invalid_report_ready)
+    message(FATAL_ERROR "Invalid report narrative loopback did not become ready")
+endif()
+execute_process(COMMAND ${cli} --format json library report --top 10 --narrative refresh
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE invalid_report_refresh_out ERROR_VARIABLE invalid_report_refresh_err
+    RESULT_VARIABLE invalid_report_refresh_result TIMEOUT 60)
+if(invalid_report_refresh_result EQUAL 0 OR
+   NOT invalid_report_refresh_out MATCHES "unknown or duplicate citation" OR
+   invalid_report_refresh_out MATCHES "\"status\":\"ok\"")
+    message(FATAL_ERROR "Invalid report narrative was accepted:\n${invalid_report_refresh_out}${invalid_report_refresh_err}")
+endif()
+foreach(poll RANGE 1 200)
+    if(EXISTS "${invalid_report_status}")
+        break()
+    endif()
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.02)
+endforeach()
+if(NOT EXISTS "${invalid_report_status}")
+    message(FATAL_ERROR "Invalid report narrative loopback did not exit")
+endif()
+
+execute_process(COMMAND ${cli} --format json library report --top 10 --narrative cached
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE report_cached_after_invalid_out ERROR_VARIABLE report_cached_after_invalid_err
+    RESULT_VARIABLE report_cached_after_invalid_result TIMEOUT 30)
+if(NOT report_cached_after_invalid_result EQUAL 0 OR
+   NOT report_cached_after_invalid_out MATCHES "\"narrative_state\":\"cached\"" OR
+   NOT report_cached_after_invalid_out MATCHES "The library covers a documented service dependency")
+    message(FATAL_ERROR "Invalid refresh damaged the prior report cache:\n${report_cached_after_invalid_out}${report_cached_after_invalid_err}")
 endif()
 
 # Lexical evidence is an explicit zero-outbound route even when embedding and
@@ -195,8 +386,8 @@ if(hybrid_fail_result EQUAL 0 OR
     message(FATAL_ERROR "Required hybrid query silently fell back:\n${hybrid_fail_out}${hybrid_fail_err}")
 endif()
 
-# Provider JSON is untrusted. Unknown, duplicate and omitted citations are all
-# rejected after structured-schema validation and before any answer is shown.
+# Provider JSON is untrusted. Unknown and duplicate citations, a supported
+# answer without citations, and extra fields are rejected before display.
 set(invalid_out "${CPRAG_WORK_DIR}/invalid-loopback.out")
 set(invalid_err "${CPRAG_WORK_DIR}/invalid-loopback.err")
 set(invalid_status "${CPRAG_WORK_DIR}/invalid-loopback.status")
@@ -225,7 +416,7 @@ endif()
 foreach(expected_error IN ITEMS
         "unknown or duplicate citation"
         "unknown or duplicate citation"
-        "omitted citations for available evidence"
+        "supported query answer omitted citations"
         "fields outside the exact schema")
     execute_process(COMMAND ${cli} --format json query answer
         "What does BillingService depend on?" --mode lexical
@@ -255,6 +446,62 @@ if(NOT invalid_result STREQUAL "0" OR
     message(FATAL_ERROR "Invalid-answer loopback failed:\n${final_invalid_out}${final_invalid_err}")
 endif()
 
+# Irrelevant retrieved material is not a command failure. The provider declares
+# insufficient grounding without citations and the product emits a stable,
+# non-hallucinatory answer instead of exposing arbitrary provider wording.
+set(insufficient_out "${CPRAG_WORK_DIR}/insufficient-loopback.out")
+set(insufficient_err "${CPRAG_WORK_DIR}/insufficient-loopback.err")
+set(insufficient_status "${CPRAG_WORK_DIR}/insufficient-loopback.status")
+execute_process(COMMAND /bin/sh -c
+    "( \"$1\" \"$2\" 1 product-query-insufficient; printf '%s' $? >\"$5\" ) >\"$3\" 2>\"$4\" &"
+    p5r-01-insufficient "${CPRAG_LOOPBACK}" "${CPRAG_FIXTURE_PORT}"
+    "${insufficient_out}" "${insufficient_err}" "${insufficient_status}"
+    RESULT_VARIABLE insufficient_launch_result)
+if(NOT insufficient_launch_result EQUAL 0)
+    message(FATAL_ERROR "could not start insufficient-answer loopback")
+endif()
+set(insufficient_ready FALSE)
+foreach(poll RANGE 1 200)
+    if(EXISTS "${insufficient_out}")
+        file(READ "${insufficient_out}" current_insufficient_out)
+        if(current_insufficient_out MATCHES "READY ${CPRAG_FIXTURE_PORT}")
+            set(insufficient_ready TRUE)
+            break()
+        endif()
+    endif()
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.02)
+endforeach()
+if(NOT insufficient_ready)
+    message(FATAL_ERROR "Insufficient-answer loopback did not become ready")
+endif()
+execute_process(COMMAND ${cli} --format json query answer
+    "What does BillingService depend on?" --mode lexical
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE insufficient_query_out ERROR_VARIABLE insufficient_query_err
+    RESULT_VARIABLE insufficient_query_result TIMEOUT 30)
+if(NOT insufficient_query_result EQUAL 0 OR
+   NOT insufficient_query_out MATCHES "\"status\":\"ok\"" OR
+   NOT insufficient_query_out MATCHES "\"generated_answer\":\"The available evidence is insufficient to answer this question\.\"" OR
+   NOT insufficient_query_out MATCHES "\"provider_calls\":1")
+    message(FATAL_ERROR "Insufficient evidence was not returned as a valid answer:\n${insufficient_query_out}${insufficient_query_err}")
+endif()
+foreach(poll RANGE 1 200)
+    if(EXISTS "${insufficient_status}")
+        break()
+    endif()
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.02)
+endforeach()
+if(NOT EXISTS "${insufficient_status}")
+    message(FATAL_ERROR "Insufficient-answer loopback did not exit")
+endif()
+file(READ "${insufficient_status}" insufficient_result)
+file(READ "${insufficient_out}" final_insufficient_out)
+file(READ "${insufficient_err}" final_insufficient_err)
+if(NOT insufficient_result STREQUAL "0" OR
+   NOT final_insufficient_out MATCHES "SUMMARY scenario=product-query-insufficient connections=1")
+    message(FATAL_ERROR "Insufficient-answer loopback failed:\n${final_insufficient_out}${final_insufficient_err}")
+endif()
+
 execute_process(COMMAND ${cli} --access diagnose library verify
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE verify_out ERROR_VARIABLE verify_err
@@ -267,7 +514,7 @@ endif()
 file(WRITE "${CPRAG_WORK_DIR}/result.txt"
     "test=gemini-query\nprovider=gemini\ningest_requests=2\nquery_requests=2\n"
     "retrieval=hybrid\nanswer=structured-and-cited\nlexical_outbound=0\n"
-    "invalid_answers=unknown+duplicate+omitted+extra-field\nauto_fallback=attempt-reported\nhybrid_required=no-silent-fallback\n"
+    "invalid_answers=unknown+duplicate+supported-omitted+extra-field\ninsufficient_answer=accepted-without-citations\nauto_fallback=attempt-reported\nhybrid_required=no-silent-fallback\n"
     "surface=crexxrag-query\n${init_out}${ingest_out}${ingest_err}${query_out}${query_err}"
     "${lexical_out}${lexical_err}${hybrid_fail_out}${hybrid_fail_err}${verify_out}${verify_err}")
-message(STATUS "Gemini query passed human hybrid retrieval and cited answer generation, explicit zero-outbound lexical mode, required-hybrid failure, three citation rejection cases, and post-query integrity")
+message(STATUS "Gemini query passed human hybrid retrieval and cited answer generation, explicit zero-outbound lexical mode, required-hybrid failure, citation rejection, valid insufficient-evidence handling, and post-query integrity")

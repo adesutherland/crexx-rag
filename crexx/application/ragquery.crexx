@@ -139,16 +139,18 @@ planquery: procedure = .int
     return -3
   end
 
-  variants[1] = .ragqueryvariant("original", _ftswords(normalized, 0), "normalized original question")
   call _addintents normalized, intents
   phrases = .string[]
   if _quotedphrases(question, phrases, error) \= 0 then return -1
+  call _singlequotedphrases question, phrases
   implied_phrase = _impliedphrase(normalized)
   if implied_phrase \= "" & _contains(phrases, implied_phrase) = 0 then phrases[phrases.0 + 1] = implied_phrase
   do i = 1 to phrases.0
     phrase = _normalize(phrases[i])
     if phrase \= "" & _containsvariant(variants, phrase) = 0 then variants[variants.0 + 1] = .ragqueryvariant("exact-phrase", '"' || _ftswords(phrase, 0) || '"', "question quotation preserved exactly")
   end
+  original_query = _ftswords(normalized, 0)
+  if original_query \= "" & _containsvariant(variants, original_query) = 0 then variants[variants.0 + 1] = .ragqueryvariant("original", original_query, "normalized original question")
 
   words = .string[]
   call _words normalized, words
@@ -177,9 +179,9 @@ planquery: procedure = .int
     end
     call _addterm store, word, "question", phrase_flag, prefix_flag, expansion, policy_version, terms, error
     if error \= "" then return -3
-    if _containsvariant(variants, word) = 0 then variants[variants.0 + 1] = .ragqueryvariant("focused-term", word, "non-stopword retained as an independent lexical focus")
-    if expansion \= "" & _containsvariant(variants, expansion) = 0 then variants[variants.0 + 1] = .ragqueryvariant("alias-or-spelling", _ftswords(expansion, 0), word || " expands to " || expansion)
   end
+
+  call _addfocusedvariants terms, variants
 
   if words.0 > 0 then do
     last = words[words.0]
@@ -189,6 +191,31 @@ planquery: procedure = .int
   fingerprint = rxhash..sha256hex(canonical as .binary)
   plan = .ragqueryplan("crexx-rag.query-plan/1", question, normalized, policy_version, generation, variants, terms, intents, ambiguities, fingerprint)
   return 0
+
+_addfocusedvariants: procedure
+  arg terms = .ragqueryterm[], expose variants = .ragqueryvariant[]
+  order = .int[]
+  do i = 1 to terms.0
+    if terms[i].source() \= "question" then iterate
+    position = order.0 + 1
+    do while position > 1 & _termearlier(terms[i], terms[order[position - 1]]) = 1
+      order[position] = order[position - 1]
+      position = position - 1
+    end
+    order[position] = i
+  end
+  do i = 1 to order.0
+    term = terms[order[i]]
+    if _containsvariant(variants, term.term()) = 0 then variants[variants.0 + 1] = .ragqueryvariant("focused-term", term.term(), "non-stopword retained in ascending corpus-frequency order")
+    if term.occurrences() = 0 & term.expansion() \= "" & _containsvariant(variants, term.expansion()) = 0 then variants[variants.0 + 1] = .ragqueryvariant("alias-or-spelling", _ftswords(term.expansion(), 0), term.term() || " expands to " || term.expansion())
+  end
+  return
+
+_termearlier: procedure = .int
+  arg left_term = .ragqueryterm, right_term = .ragqueryterm
+  if left_term.chunks() \= right_term.chunks() then return left_term.chunks() < right_term.chunks()
+  if left_term.occurrences() \= right_term.occurrences() then return left_term.occurrences() < right_term.occurrences()
+  return left_term.term() < right_term.term()
 
 _addterm: procedure
   arg store = .ragstorehandle, value = .string, source = .string, phrase = .int, prefix = .int, expansion = .string, policy_version = .string, expose terms = .ragqueryterm[], expose error = .string
@@ -310,6 +337,29 @@ _quotedphrases: procedure = .int
   end
   if open_at \= 0 then do; error = "query contains an unterminated exact phrase"; return -1; end
   return 0
+
+_singlequotedphrases: procedure
+  arg question = .string, expose phrases = .string[]
+  open_at = 0
+  do i = 1 to length(question)
+    if substr(question, i, 1) \= "'" then iterate
+    previous = ""; following = ""
+    if i > 1 then previous = substr(question, i - 1, 1)
+    if i < length(question) then following = substr(question, i + 1, 1)
+    if open_at = 0 then do
+      if _wordcharacter(previous) = 0 then open_at = i + 1
+    end
+    else if _wordcharacter(following) = 0 then do
+      if i > open_at then phrases[phrases.0 + 1] = substr(question, open_at, i - open_at)
+      open_at = 0
+    end
+  end
+  return
+
+_wordcharacter: procedure = .int
+  arg value = .string
+  if value = "" then return 0
+  return pos(lower(value), "abcdefghijklmnopqrstuvwxyz0123456789") > 0
 
 _impliedphrase: procedure = .string
   arg normalized = .string

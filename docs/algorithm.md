@@ -83,10 +83,10 @@ The stages are:
    write canonical state.
 4. **Consolidate:** review cross-chunk aliases, duplicate concepts, possible
    splits, conflicts, omissions and important evidence-backed leads.
-5. **Publish ready:** require completed extraction and compatible embedding
-   coverage plus a published vector generation when the profile configures
-   embeddings. An explicit `ready-degraded` state may retain lexical and graph
-   access, but must not be described as hybrid-ready.
+5. **Publish usable:** publish independently valid extraction and embedding
+   results even when other work is in dead letter. A vector generation may
+   cover the compatible embeddings already available; its row count and the
+   active-chunk census expose the remaining gap for maintenance.
 6. **Maintain:** use current claims, previous attempts, pending reviews,
    retrieval gaps, neighbouring evidence and model/profile changes to select a
    genuinely new review task rather than repeat the initial prompt blindly.
@@ -95,6 +95,41 @@ Embedding generation is therefore part of initial enrichment, not a later
 maintenance repair. It is operationally essential for broad semantic recall, while
 lexical retrieval remains necessary for exact names and graph retrieval remains
 necessary for validated direction. Similarity never validates truth.
+
+## Historic observation methodology
+
+Raw history and summary history have different jobs. Publication events, jobs,
+items, attempts, provider runs, reviews and maintenance records remain the
+addressable source history. An observation snapshot is a derived, immutable
+checkpoint used to compare corpus condition over time; it never replaces those
+facts or makes an LLM summary authoritative.
+
+Snapshot requests use a fixed top-10 deterministic census and compare its
+semantic and operational digests with the newest retained point. The
+`churn-matrix/1` decision is:
+
+1. capture the first point;
+2. suppress an exact digest duplicate;
+3. score semantic change (100), vector publication/coverage change (70), health
+   transition (100), active-to-settled jobs (60), material work backlog (50),
+   material historical dead-letter change (40), material review/gap change
+   (30), and maximum staleness (50);
+4. allow semantic, vector, health and settlement changes through the 900-second
+   cooldown; and
+5. otherwise capture at score 50 or suppress with the exact reason.
+
+Work and dead-letter materiality is the larger of 25 items or five percent of
+the prior value. Review/gap materiality is the larger of 10 or five percent.
+A non-identical point reaches maximum staleness after 86,400 seconds. Repeated
+equivalent suppression decisions increment a count on one content-addressed
+row. This makes frequent evaluation cheap without erasing evidence that the
+policy was applied.
+
+Each captured point binds generation, profile/configuration, vector
+publication, deterministic report, work backlog, historical dead letters,
+reviews/gaps, health attention and a matching validated narrative if present.
+Trend deltas are deterministic signed arithmetic over those points. With fewer
+than two points the trend state is `baseline-only` and no direction is claimed.
 
 ## Ingestion and concept discovery
 
@@ -221,11 +256,13 @@ the current generation and retrieval policy, and creates a fingerprinted set
 of variants:
 
 - normalized original words;
-- quoted or explicitly requested exact phrases;
+- double- or natural single-quoted phrases, plus explicitly requested exact
+  phrases;
 - profile aliases;
 - active library aliases;
 - focused non-stopwords;
-- a spelling candidate with edit distance at most two; and
+- a spelling candidate with edit distance at most two when the original term is
+  absent from the active corpus; and
 - a prefix variant for the final focused term.
 
 It also records per-term occurrence/chunk/source-diversity statistics,
@@ -237,11 +274,17 @@ query plan.
 
 ### Lexical route
 
-Each query variant runs against SQLite FTS using BM25 order. Results are
-converted to stable ranks; raw BM25 values are not compared across variants.
-The route keeps candidates within the lexical ceiling, then adds immediately
-adjacent chunks from the same revision while capacity remains. Adjacency adds
-reading context but is not evidence of a graph relationship.
+Each query variant runs against SQLite FTS using BM25 order. Exact phrases are
+attempted first, and independent terms are attempted in ascending corpus
+frequency so a broad early word cannot exhaust the lexical ceiling before a
+rare discriminating word is considered. Results are converted to stable ranks;
+raw BM25 values are not compared across variants. Multi-variant plans reserve
+an equal bounded first-pass allowance for every variant. The route keeps
+candidates within the lexical ceiling, then adds immediately adjacent chunks
+from the same revision while capacity remains. An adjacent context chunk
+inherits the direct hit's lexical rank so it is not stranded behind every
+unrelated direct hit. Adjacency adds reading context but is not evidence of a
+graph relationship.
 
 Lexical search is always available for a valid library and makes no provider
 call. `mode: lexical` is therefore the deterministic zero-outbound-call route.
@@ -306,15 +349,17 @@ route contribution = profile route weight / (rrf_k + route rank)
 The default `rrf_k` is 60. Profile weights are used for lexical, semantic, and
 graph routes. The fused score then receives:
 
-- a graph-hop boost of `0.04 * 0.75^(hop - 1)`;
-- `0.02` for direct support;
-- `0.01` temporal relevance when a time question meets dated evidence;
-- `0.02` for narrative source quality or `-0.02` for index/caption material;
+- a graph-hop boost of `0.002 * 0.75^(hop - 1)`;
+- `0.001` for direct support;
+- `0.001` temporal relevance when a time question meets dated evidence;
+- `0.002` for narrative source quality or `-0.002` for index/caption material;
   and
 - `-0.05` for repeated content already selected.
 
-Selection is deterministic, with chunk id as the final tie-break. At most three
-passages from one source are selected, and the baseline passage ceiling is 12.
+Selection is deterministic, with chunk id as the final tie-break. The baseline
+passage ceiling is 12. The per-source diversity cap is at least three and is
+raised when fewer sources are available, so a one-source library can fill the
+requested passage limit rather than being made artificially unanswerable.
 The evidence packet retains route channels and score components so an agent can
 inspect why a passage appeared.
 
@@ -454,6 +499,30 @@ census -> rank -> diagnose -> canonical worklist -> authorize -> execute
 The loop stops when the reviewed worklist is complete, its budgets or item
 ceiling are reached, or the re-census finds no eligible work. It must never
 continue merely because an LLM can generate another suggestion.
+
+### Reporting and measurement
+
+`library report` makes the maintenance census usable as a repeatable baseline
+without starting another maintenance run. Generation-bound measures cover
+source/revision/chunk volume, concepts, aliases, mentions, claims, support,
+connected and isolated concepts, degree, relationship-type concentration and
+support-span lengths. A live operational overlay covers FTS parity, embedding
+and published-vector coverage, maintenance item states, terminal jobs, dead
+letters, reviews and query gaps.
+
+The semantic packet and operational overlay have separate SHA-256 digests.
+This permits like-for-like comparison while avoiding a false claim that job
+or sidecar state is an immutable semantic fact. Top-N output is stably ordered
+and bounded. Exact all-pairs path distributions, graph communities, trends and
+cross-generation deltas remain a later analytical layer rather than hidden
+work in the basic report.
+
+An optional advisory narrative is an interpretation of the report, not a
+replacement for its measures. The configured advisory model sees the bounded
+packet and representative passages, returns an exact overview/subjects schema,
+and must use only supplied citations. Cache identity includes both report
+digests plus provider, model and prompt version. Invalid output is discarded
+and cannot alter the catalogue or graph.
 
 ### Human and automated operation
 
@@ -605,9 +674,10 @@ analysis with the library's accepted graph state.
 - A split retains the old concept as its migration parent. Retirement and
   restoration are separately planned lifecycle operations; neither deletes
   historical evidence or provenance.
-- A hybrid-ready library has complete compatible embedding coverage and a
-  verified IVF-flat ANN vector generation. Any degraded route is reported
-  explicitly.
+- Hybrid retrieval requires a verified IVF-flat ANN vector generation with at
+  least one compatible embedding. Coverage may be partial; the vector row
+  count and active-chunk census remain explicit so maintenance can close the
+  gap without suppressing usable search.
 - Every provider call and mutation remains generation-bound, privacy-classified,
   budgeted, durably recoverable, idempotent and subject to normal cREXX
   validation and review policy.

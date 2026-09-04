@@ -160,6 +160,7 @@ int main(int argc, char** argv)
         std::cout << "REQUEST " << path << std::endl;
         if (request.find("Connection: close") != std::string::npos) ++close_requests;
         std::string body;
+        std::string extra_headers;
         int http_status = 200;
         if (path == "/openai/v1/responses") {
             const bool valid_auth = request.find("Authorization: Bearer synthetic-openai-key") != std::string::npos;
@@ -204,22 +205,52 @@ int main(int argc, char** argv)
             const bool valid_structured = request.find("\"responseMimeType\":\"application/json\"") != std::string::npos
                 && request.find("\"responseJsonSchema\"") != std::string::npos
                 && request.find("\"additionalProperties\":false") != std::string::npos;
-            if (request.find("crexx-rag.answer-context/1") != std::string::npos) {
+            if (request.find("crexx-rag.library-report-context/1") != std::string::npos) {
+                const std::string citation = escaped_citation(request);
+                const bool valid_report = valid_auth && valid_structured && !citation.empty()
+                    && request.find("Summarize only the supplied cREXX-RAG library report context") != std::string::npos
+                    && request.find("\"overview\"") != std::string::npos
+                    && request.find("\"subjects\"") != std::string::npos;
+                if (!valid_report) {
+                    http_status = 400;
+                    body = R"({"error":{"message":"product Gemini report request shape mismatch"}})";
+                } else {
+                    const std::string returned_citation = scenario == "product-report-invalid"
+                        ? "crexx-rag:unknown-report-citation"
+                        : citation;
+                    const std::string narrative = "{\"overview\":\"The library covers a documented service dependency.\",\"citations\":[\""
+                        + returned_citation
+                        + "\"],\"subjects\":[{\"label\":\"Service dependency\",\"description\":\"BillingService is linked to CustomerDatabase in the supplied passage.\",\"citations\":[\""
+                        + returned_citation + "\"]}]}";
+                    body = "{\"responseId\":\"product-gemini-report-001\",\"candidates\":[{\"content\":{\"parts\":[{\"text\":"
+                        + json_string(narrative)
+                        + "}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":240,\"candidatesTokenCount\":48}}";
+                }
+            } else if (request.find("crexx-rag.answer-context/1") != std::string::npos) {
                 const std::string citation = escaped_citation(request);
                 const bool valid_answer = valid_auth && valid_structured && !citation.empty()
-                    && request.find("only citation IDs present") != std::string::npos;
+                    && request.find("only citation IDs present") != std::string::npos
+                    && request.find("grounding") != std::string::npos;
                 if (!valid_answer) {
                     http_status = 400;
                     body = R"({"error":{"message":"product Gemini answer request shape mismatch"}})";
                 } else {
                     std::string citations = "[\"" + citation + "\"]";
+                    std::string grounding = "supported";
+                    std::string answer_text = "BillingService depends on CustomerDatabase.";
+                    if (scenario == "product-query-insufficient") {
+                        citations = "[]";
+                        grounding = "insufficient";
+                        answer_text = "The supplied evidence does not answer the question.";
+                    }
                     if (scenario == "product-query-invalid") {
                         if (index == 0) citations = "[\"crexx-rag:unknown-citation\"]";
                         if (index == 1) citations = "[\"" + citation + "\",\"" + citation + "\"]";
                         if (index == 2) citations = "[]";
                     }
-                    const std::string answer = "{\"answer\":\"BillingService depends on CustomerDatabase.\",\"citations\":"
-                        + citations + (scenario == "product-query-invalid" && index == 3 ? ",\"extra\":true}" : "}");
+                    const std::string answer = "{\"grounding\":\"" + grounding + "\",\"answer\":"
+                        + json_string(answer_text) + ",\"citations\":" + citations
+                        + (scenario == "product-query-invalid" && index == 3 ? ",\"extra\":true}" : "}");
                     body = "{\"responseId\":\"product-gemini-answer-001\",\"candidates\":[{\"content\":{\"parts\":[{\"text\":"
                         + json_string(answer)
                         + "}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":210,\"candidatesTokenCount\":32}}";
@@ -227,16 +258,22 @@ int main(int argc, char** argv)
             } else {
                 const std::string source_id = escaped_candidate_for_label(request, "billingservice");
                 const std::string target_id = escaped_candidate_for_label(request, "customerdatabase");
+                const bool improvement = request.find("improve-extraction") != std::string::npos;
+                const bool valid_output_reservation = improvement
+                    ? request.find("\"maxOutputTokens\":1024") != std::string::npos
+                    : (request.find("\"maxOutputTokens\":512") != std::string::npos
+                       || request.find("\"maxOutputTokens\":1024") != std::string::npos);
                 if (!valid_auth || !valid_structured || request.find("crexx-rag.work-input/1") == std::string::npos
                     || request.find("crexx-rag.discovery-context/1") == std::string::npos
                     || request.find("crexx-rag.glossary/1") == std::string::npos
                     || request.find("Maximum mentions: 16; relationships: 16; notes:") == std::string::npos
+                    || !valid_output_reservation
                     || source_id.empty() || target_id.empty()) {
                     http_status = 400;
                     body = R"({"error":{"message":"product Gemini extraction request shape mismatch"}})";
                 } else {
                     std::string proposal;
-                    if (request.find("improve-extraction") != std::string::npos) {
+                    if (improvement) {
                         proposal =
                             "{\"mentions\":[],\"relationships\":[],\"notes\":["
                             "{\"kind\":\"insight\",\"text\":\"The repeated dependency deserves explicit validation.\",\"importance_millionths\":820000,\"uncertainty_millionths\":280000,\"next_action\":\"Compare the two independently cited dependency statements.\",\"span_start\":0,\"span_end\":43}]}";
@@ -334,6 +371,7 @@ int main(int argc, char** argv)
                 const int attempt = ++retry_attempts[request_id];
                 if (attempt == 1) {
                     http_status = 429;
+                    extra_headers = "Retry-After: 1\r\n";
                     body = R"({"error":{"message":"synthetic rate limit"}})";
                 } else if (attempt == 2) {
                     http_status = 503;
@@ -398,7 +436,7 @@ int main(int argc, char** argv)
         const std::string response = "HTTP/1.1 " + std::to_string(http_status) + " " + reason_phrase(http_status)
             + "\r\nContent-Type: application/json\r\nContent-Length: "
             + std::to_string(body.size()) + "\r\nX-Request-Id: loopback-request-" + std::to_string(index + 1)
-            + "\r\nConnection: close\r\n\r\n" + body;
+            + "\r\n" + extra_headers + "Connection: close\r\n\r\n" + body;
         send_all(client, response);
         ::close(client);
     }

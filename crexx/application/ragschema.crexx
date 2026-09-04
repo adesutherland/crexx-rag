@@ -3,17 +3,27 @@ options levelg
 namespace ragschema expose ragschemaversion migrationname migrationchecksum migrationstatements
 
 ragschemaversion: procedure = .int
-  return 1
+  return 6
 
 migrationname: procedure = .string
   arg version = .int
   if version = 1 then return "initial-library"
+  if version = 2 then return "worker-hot-path-indexes"
+  if version = 3 then return "provider-run-accounting-index"
+  if version = 4 then return "library-report-cache"
+  if version = 5 then return "historic-observability"
+  if version = 6 then return "configuration-lifecycle-and-provider-resilience"
   return ""
 
 migrationchecksum: procedure = .string
   arg version = .int
   /* SHA-256 of the ordered migration statements, each followed by LF. */
   if version = 1 then return "ce67d40ab29bd35585af51b2011a6350f2b8305e7969d066a2ef1d9a7a703ca0"
+  if version = 2 then return "de4592a26543a0c6d8d3a1ef9c6fd4922f17123548e2930366cb8638be9503c4"
+  if version = 3 then return "28cc9a080e1a5adcd1c16114cd21a0d0edee0432740d6a26c2b39925013e0370"
+  if version = 4 then return "f0669147b3b07b1b1a8754937821de63b94e0e40cce69daa9d2ab7a4b0877699"
+  if version = 5 then return "9177f2f3130c175008a6514f072bfa413cca0f327fe4619930d9c77d44f11bd3"
+  if version = 6 then return "529919045d2777013a0cdf4dcdec8d31fa103d069122677b55f4fd6c38aa7583"
   return ""
 
 migrationstatements: procedure = .int
@@ -78,6 +88,50 @@ migrationstatements: procedure = .int
     statements[statements.0 + 1] = "CREATE TABLE runtime_instances(instance_id TEXT PRIMARY KEY,kind TEXT NOT NULL CHECK(kind IN('controller','worker')),parent_instance_id TEXT REFERENCES runtime_instances(instance_id) ON DELETE SET NULL,host_id TEXT NOT NULL,pid INTEGER NOT NULL CHECK(pid>=0),process_start_token TEXT NOT NULL,executable_identity TEXT NOT NULL,mode TEXT NOT NULL,job_filter TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN('starting','idle','running','draining','stopped','failed')),requested_state TEXT NOT NULL DEFAULT 'none' CHECK(requested_state IN('none','drain','stop')),current_item_id TEXT NOT NULL DEFAULT '',started_at INTEGER NOT NULL,heartbeat_at INTEGER NOT NULL,stopped_at INTEGER,exit_code INTEGER,detail TEXT NOT NULL DEFAULT '') STRICT"
     statements[statements.0 + 1] = "CREATE INDEX runtime_instances_state ON runtime_instances(kind,state,heartbeat_at,instance_id)"
     statements[statements.0 + 1] = "CREATE INDEX runtime_instances_parent ON runtime_instances(parent_instance_id,kind,instance_id)"
+    return statements.0
+  end
+  if version = 2 then do
+    statements[statements.0 + 1] = "CREATE INDEX attempts_item ON attempts(item_id,outcome,fence)"
+    statements[statements.0 + 1] = "CREATE INDEX job_events_attempt_type ON job_events(attempt_id,event_type)"
+    statements[statements.0 + 1] = "CREATE INDEX job_events_type ON job_events(job_id,event_type,event_id)"
+    statements[statements.0 + 1] = "CREATE INDEX job_items_lease ON job_items(state,lease_until,item_id)"
+    statements[statements.0 + 1] = "CREATE INDEX candidate_mentions_chunk_visibility ON candidate_mentions(revision_chunk_id,visible_from_generation,visible_to_generation,span_start,candidate_id)"
+    statements[statements.0 + 1] = "CREATE INDEX mentions_chunk_visibility ON mentions(revision_chunk_id,visible_from_generation,visible_to_generation,span_start,mention_id)"
+    statements[statements.0 + 1] = "CREATE INDEX aliases_lookup ON aliases(normalized_alias,visible_from_generation,visible_to_generation,alias_id)"
+    statements[statements.0 + 1] = "CREATE INDEX claims_source_visibility ON claims(source_concept_id,visible_from_generation,visible_to_generation,claim_id)"
+    statements[statements.0 + 1] = "CREATE INDEX claims_target_visibility ON claims(target_concept_id,visible_from_generation,visible_to_generation,claim_id)"
+    return statements.0
+  end
+  if version = 3 then do
+    statements[statements.0 + 1] = "CREATE INDEX attempts_provider_run ON attempts(provider_run_id,item_id)"
+    return statements.0
+  end
+  if version = 4 then do
+    statements[statements.0 + 1] = "CREATE TABLE report_snapshots(report_id TEXT PRIMARY KEY,semantic_generation INTEGER NOT NULL REFERENCES published_generations(generation),profile_hash TEXT NOT NULL,report_schema TEXT NOT NULL,top_limit INTEGER NOT NULL CHECK(top_limit BETWEEN 1 AND 20),semantic_digest TEXT NOT NULL CHECK(length(semantic_digest)=64),semantic_json TEXT NOT NULL,created_at TEXT NOT NULL,UNIQUE(semantic_generation,profile_hash,report_schema,top_limit)) STRICT"
+    statements[statements.0 + 1] = "CREATE TABLE report_narratives(narrative_id TEXT PRIMARY KEY,report_id TEXT NOT NULL REFERENCES report_snapshots(report_id),operational_digest TEXT NOT NULL CHECK(length(operational_digest)=64),provider_run_id TEXT NOT NULL UNIQUE REFERENCES provider_runs(provider_run_id),provider_id TEXT NOT NULL,model TEXT NOT NULL,prompt_version TEXT NOT NULL,narrative_json TEXT NOT NULL,input_tokens INTEGER NOT NULL CHECK(input_tokens>=0),output_tokens INTEGER NOT NULL CHECK(output_tokens>=0),cost_microunits INTEGER NOT NULL,allowance_before_percent INTEGER NOT NULL,allowance_after_percent INTEGER NOT NULL,created_at TEXT NOT NULL) STRICT"
+    statements[statements.0 + 1] = "CREATE INDEX report_narratives_cache ON report_narratives(report_id,operational_digest,provider_id,model,prompt_version,created_at DESC)"
+    return statements.0
+  end
+  if version = 5 then do
+    statements[statements.0 + 1] = "CREATE TABLE observation_decisions(decision_id TEXT PRIMARY KEY,policy_version TEXT NOT NULL,trigger TEXT NOT NULL CHECK(trigger IN('manual','ingestion','maintenance','vector-publication','replay','reconciliation','migration','backup','scheduled')),reason TEXT NOT NULL CHECK(length(reason) BETWEEN 1 AND 256),previous_snapshot_id TEXT NOT NULL DEFAULT '',outcome TEXT NOT NULL CHECK(outcome IN('captured','skipped-identical','skipped-cooldown','skipped-threshold')),score INTEGER NOT NULL CHECK(score>=0),threshold INTEGER NOT NULL CHECK(threshold>0),cooldown_seconds INTEGER NOT NULL CHECK(cooldown_seconds>=0),elapsed_seconds INTEGER NOT NULL CHECK(elapsed_seconds>=-1),semantic_digest TEXT NOT NULL CHECK(length(semantic_digest)=64),operational_digest TEXT NOT NULL CHECK(length(operational_digest)=64),churn_json TEXT NOT NULL,evaluation_count INTEGER NOT NULL DEFAULT 1 CHECK(evaluation_count>0),first_evaluated_at TEXT NOT NULL,last_evaluated_at TEXT NOT NULL) STRICT"
+    statements[statements.0 + 1] = "CREATE TABLE observation_snapshots(snapshot_id TEXT PRIMARY KEY,sequence_number INTEGER NOT NULL UNIQUE CHECK(sequence_number>0),decision_id TEXT NOT NULL UNIQUE REFERENCES observation_decisions(decision_id),trigger TEXT NOT NULL,reason TEXT NOT NULL,semantic_generation INTEGER NOT NULL REFERENCES published_generations(generation),profile_hash TEXT NOT NULL,config_snapshot_id TEXT NOT NULL REFERENCES config_snapshots(config_snapshot_id),vector_generation_id TEXT NOT NULL DEFAULT '',report_id TEXT NOT NULL,narrative_id TEXT NOT NULL DEFAULT '',semantic_digest TEXT NOT NULL CHECK(length(semantic_digest)=64),operational_digest TEXT NOT NULL CHECK(length(operational_digest)=64),sources INTEGER NOT NULL CHECK(sources>=0),revisions INTEGER NOT NULL CHECK(revisions>=0),chunks INTEGER NOT NULL CHECK(chunks>=0),bytes INTEGER NOT NULL CHECK(bytes>=0),concepts INTEGER NOT NULL CHECK(concepts>=0),claims INTEGER NOT NULL CHECK(claims>=0),supports INTEGER NOT NULL CHECK(supports>=0),connected_concepts INTEGER NOT NULL CHECK(connected_concepts>=0),isolated_concepts INTEGER NOT NULL CHECK(isolated_concepts>=0),vector_rows INTEGER NOT NULL CHECK(vector_rows>=0),vector_coverage_millionths INTEGER NOT NULL CHECK(vector_coverage_millionths>=0),incomplete_runs INTEGER NOT NULL CHECK(incomplete_runs>=0),work_backlog INTEGER NOT NULL CHECK(work_backlog>=0),active_jobs INTEGER NOT NULL CHECK(active_jobs>=0),jobs_with_errors INTEGER NOT NULL CHECK(jobs_with_errors>=0),historical_dead_letters INTEGER NOT NULL CHECK(historical_dead_letters>=0),pending_reviews INTEGER NOT NULL CHECK(pending_reviews>=0),open_query_gaps INTEGER NOT NULL CHECK(open_query_gaps>=0),health_attention_dimensions INTEGER NOT NULL CHECK(health_attention_dimensions>=0),report_json TEXT NOT NULL,captured_at TEXT NOT NULL,UNIQUE(semantic_digest,operational_digest)) STRICT"
+    statements[statements.0 + 1] = "CREATE INDEX observation_decisions_outcome ON observation_decisions(outcome,last_evaluated_at,decision_id)"
+    statements[statements.0 + 1] = "CREATE INDEX observation_snapshots_history ON observation_snapshots(sequence_number,captured_at,semantic_generation)"
+    return statements.0
+  end
+  if version = 6 then do
+    statements[statements.0 + 1] = "ALTER TABLE config_snapshots ADD COLUMN semantic_hash TEXT NOT NULL DEFAULT ''"
+    statements[statements.0 + 1] = "ALTER TABLE config_snapshots ADD COLUMN operational_hash TEXT NOT NULL DEFAULT ''"
+    statements[statements.0 + 1] = "CREATE TABLE library_config_state(singleton INTEGER PRIMARY KEY CHECK(singleton=1),current_config_snapshot_id TEXT NOT NULL REFERENCES config_snapshots(config_snapshot_id),updated_at TEXT NOT NULL) STRICT"
+    statements[statements.0 + 1] = "INSERT INTO library_config_state(singleton,current_config_snapshot_id,updated_at) SELECT 1,g.config_snapshot_id,strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM library_meta m JOIN published_generations g ON g.generation=m.published_generation WHERE m.singleton=1"
+    statements[statements.0 + 1] = "CREATE TABLE config_change_events(change_id TEXT PRIMARY KEY,plan_digest TEXT NOT NULL UNIQUE,source_config_snapshot_id TEXT NOT NULL REFERENCES config_snapshots(config_snapshot_id),target_config_snapshot_id TEXT NOT NULL REFERENCES config_snapshots(config_snapshot_id),classification TEXT NOT NULL CHECK(classification IN('identity-upgrade','operational')),reason TEXT NOT NULL CHECK(length(reason) BETWEEN 1 AND 256),canonical_plan TEXT NOT NULL,created_at TEXT NOT NULL,applied_at TEXT NOT NULL) STRICT"
+    statements[statements.0 + 1] = "CREATE INDEX config_snapshots_split_identity ON config_snapshots(semantic_hash,operational_hash,config_snapshot_id)"
+    statements[statements.0 + 1] = "CREATE TABLE provider_admissions(admission_id TEXT PRIMARY KEY,provider_id TEXT NOT NULL,model TEXT NOT NULL,job_id TEXT NOT NULL REFERENCES jobs(job_id),item_id TEXT NOT NULL REFERENCES job_items(item_id),attempt_id TEXT NOT NULL REFERENCES attempts(attempt_id),reserved_tokens INTEGER NOT NULL CHECK(reserved_tokens>=0),admitted_epoch INTEGER NOT NULL,lease_until_epoch INTEGER NOT NULL,released_epoch INTEGER,outcome TEXT NOT NULL CHECK(outcome IN('active','succeeded','failed','expired')),actual_tokens INTEGER NOT NULL DEFAULT 0 CHECK(actual_tokens>=0),wait_ms INTEGER NOT NULL DEFAULT 0 CHECK(wait_ms>=0),UNIQUE(attempt_id)) STRICT"
+    statements[statements.0 + 1] = "CREATE INDEX provider_admissions_window ON provider_admissions(provider_id,model,admitted_epoch,admission_id)"
+    statements[statements.0 + 1] = "CREATE INDEX provider_admissions_active ON provider_admissions(provider_id,model,outcome,lease_until_epoch,admission_id)"
+    statements[statements.0 + 1] = "CREATE TABLE job_replays(replay_job_id TEXT PRIMARY KEY REFERENCES jobs(job_id),source_job_id TEXT NOT NULL REFERENCES jobs(job_id),source_config_snapshot_id TEXT NOT NULL REFERENCES config_snapshots(config_snapshot_id),target_config_snapshot_id TEXT NOT NULL REFERENCES config_snapshots(config_snapshot_id),reason TEXT NOT NULL CHECK(length(reason) BETWEEN 1 AND 256),created_at TEXT NOT NULL) STRICT"
+    statements[statements.0 + 1] = "CREATE TABLE job_replay_items(replay_job_id TEXT NOT NULL REFERENCES job_replays(replay_job_id),source_item_id TEXT NOT NULL REFERENCES job_items(item_id),replay_item_id TEXT NOT NULL UNIQUE REFERENCES job_items(item_id),PRIMARY KEY(replay_job_id,source_item_id)) WITHOUT ROWID, STRICT"
+    statements[statements.0 + 1] = "CREATE INDEX job_replays_source ON job_replays(source_job_id,created_at,replay_job_id)"
     return statements.0
   end
   return -1

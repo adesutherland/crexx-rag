@@ -52,7 +52,7 @@ parseconfigtext: procedure = .int
 
   format = _required(keys, values, "format", error)
   if error \= "" then return -1
-  if format \= "crexx-rag.config/1" then return _fail("unsupported configuration format " || format, error)
+  if format \= "crexx-rag.config/1" & format \= "crexx-rag.config/2" then return _fail("unsupported configuration format " || format, error)
   config_id = _required(keys, values, "config.id", error)
   version = _required(keys, values, "config.version", error)
   if error \= "" then return -1
@@ -102,7 +102,21 @@ parseconfigtext: procedure = .int
     timeout_ms = 0; max_attempts = 0
     if _uint(timeout_text, 1, 600000, prefix || "timeout_ms", timeout_ms, error) \= 0 then return -1
     if _uint(attempts_text, 1, 10, prefix || "max_attempts", max_attempts, error) \= 0 then return -1
-    providers[i] = .ragproviderconfig(provider_ids[i], kind, base_url, model, route_class, privacy_policy, credential, timeout_ms, max_attempts)
+    requests_per_minute = 60000; tokens_per_minute = 2000000000; concurrent_requests = 64
+    initial_backoff_ms = 1000; maximum_backoff_ms = 60000; jitter_ms = 250
+    setting = _optional(keys, values, prefix || "requests_per_minute")
+    if setting \= "" then if _uint(setting, 1, 60000, prefix || "requests_per_minute", requests_per_minute, error) \= 0 then return -1
+    setting = _optional(keys, values, prefix || "tokens_per_minute")
+    if setting \= "" then if _uint(setting, 1, 2000000000, prefix || "tokens_per_minute", tokens_per_minute, error) \= 0 then return -1
+    setting = _optional(keys, values, prefix || "concurrent_requests")
+    if setting \= "" then if _uint(setting, 1, 64, prefix || "concurrent_requests", concurrent_requests, error) \= 0 then return -1
+    setting = _optional(keys, values, prefix || "initial_backoff_ms")
+    if setting \= "" then if _uint(setting, 1, 60000, prefix || "initial_backoff_ms", initial_backoff_ms, error) \= 0 then return -1
+    setting = _optional(keys, values, prefix || "maximum_backoff_ms")
+    if setting \= "" then if _uint(setting, 1, 600000, prefix || "maximum_backoff_ms", maximum_backoff_ms, error) \= 0 then return -1
+    setting = _optional(keys, values, prefix || "jitter_ms")
+    if setting \= "" then if _uint(setting, 0, 60000, prefix || "jitter_ms", jitter_ms, error) \= 0 then return -1
+    providers[i] = .ragproviderconfig(provider_ids[i], kind, base_url, model, route_class, privacy_policy, credential, timeout_ms, max_attempts, requests_per_minute, tokens_per_minute, concurrent_requests, initial_backoff_ms, maximum_backoff_ms, jitter_ms)
   end
 
   roles = .ragrolebinding[]
@@ -198,7 +212,7 @@ _validconfigkey: procedure = .int
   arg key = .string
   if wordpos(key, "format config.id config.version profiles budget.minutes budget.item_limit budget.model_calls budget.input_tokens budget.output_tokens budget.cost_microunits budget.codex_turns budget.minimum_codex_allowance_percent worker.processes worker.max_in_flight worker.lease_seconds discovery.mode discovery.glossary_file discovery.ranked_limit discovery.max_mentions discovery.max_relationships discovery.max_notes vector.algorithm vector.centroids vector.probes vector.iterations vector.recall_minimum_millionths") > 0 then return 1
   if _entitykey(key, "source.", "connector root include stable_key privacy retain_raw_artifact") = 1 then return 1
-  if _entitykey(key, "provider.", "kind base_url model route_class privacy_policy credential timeout_ms max_attempts") = 1 then return 1
+  if _entitykey(key, "provider.", "kind base_url model route_class privacy_policy credential timeout_ms max_attempts requests_per_minute tokens_per_minute concurrent_requests initial_backoff_ms maximum_backoff_ms jitter_ms") = 1 then return 1
   if _entitykey(key, "schedule.", "trigger enabled") = 1 then return 1
   if left(key, 5) = "role." then do
     role = substr(key, 6)

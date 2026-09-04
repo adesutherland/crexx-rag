@@ -168,7 +168,7 @@ providerhttptransport: class
       if status = 0 then status = http_status
       retryable = _retryable(transport_status, http_status)
       if retryable \= 0 & attempt < request.max_attempts() then do
-        delay_ms = _retry_delay_ms(attempt)
+        delay_ms = _retry_delay_ms(request, attempt, response.headers())
         call _wait_ms delay_ms
         retry_delay_ms = retry_delay_ms + delay_ms
         iterate
@@ -179,6 +179,7 @@ providerhttptransport: class
       if transport_status = -6 | transport_status = -10 | transport_status = -11 | transport_status = -12 then do; category = "timeout"; status = -5; end
       else if transport_status = -1 | transport_status = -2 | transport_status = -3 | transport_status = -7 | transport_status = -8 then do; category = "connection"; status = -3; end
       result = .providerhttpresponse()
+      if retryable \= 0 then retry_delay_ms = retry_delay_ms + _retry_delay_ms(request, attempt, response.headers())
       call result.set_failure(status, http_status, category, message, retryable, attempt, retry_delay_ms, _elapsed_us(started))
       return result
     end
@@ -296,13 +297,28 @@ _elapsed_us: procedure = .int
   return elapsed
 
 _retry_delay_ms: procedure = .int
-  arg failed_attempt = .int
-  delay_ms = 1
+  arg request = .providerrequest, failed_attempt = .int, headers = .string
+  delay_ms = request.initial_backoff_ms()
   do i = 2 to failed_attempt
     delay_ms = delay_ms * 2
   end
-  if delay_ms > 1000 then delay_ms = 1000
+  retry_after = strip(http_header_value(headers, "Retry-After"))
+  if _digits(retry_after) = 1 then do
+    server_delay = (retry_after as .int) * 1000
+    if server_delay > delay_ms then delay_ms = server_delay
+  end
+  jitter = request.jitter_ms()
+  if jitter > 0 then delay_ms = delay_ms + ((length(request.request_id()) * 37 + failed_attempt * 53) % (jitter + 1))
+  if delay_ms > request.maximum_backoff_ms() then delay_ms = request.maximum_backoff_ms()
   return delay_ms
+
+_digits: procedure = .int
+  arg value = .string
+  if value = "" then return 0
+  do i = 1 to length(value)
+    if pos(substr(value, i, 1), "0123456789") = 0 then return 0
+  end
+  return 1
 
 _wait_ms: procedure = .void
   arg milliseconds = .int

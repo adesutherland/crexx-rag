@@ -205,12 +205,17 @@ resolvecitation: procedure = .int
 _lexical: procedure = .int
   arg database = .binary, plan = .ragqueryplan, maximum = .int, expose candidate_ids = .string[], expose lexical_ranks = .int[], expose vector_ranks = .int[], expose graph_ranks = .int[], expose vector_scores = .float[], expose graph_hops = .int[], expose directness_values = .float[], expose trace_notes = .string[], expose error = .string
   variants = plan.variants(); next_rank = 1
+  variant_limit = maximum
+  if variants.0 > 1 then do
+    variant_limit = (maximum / variants.0) as .int
+    if variant_limit < 1 then variant_limit = 1
+  end
   do v = 1 to variants.0
     fts_query = variants[v].query()
     if fts_query = "" then iterate
     prepared = .binary
     sql = "SELECT revision_chunk_id,bm25(chunks_fts) FROM chunks_fts WHERE chunks_fts MATCH ?1 ORDER BY bm25(chunks_fts),revision_chunk_id LIMIT ?2"
-    if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, fts_query) \= 0 | sqlitebindint(prepared, 2, maximum) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare lexical retrieval"; return -1; end
+    if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, fts_query) \= 0 | sqlitebindint(prepared, 2, variant_limit) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare lexical retrieval"; return -1; end
     hits = 0
     do forever
       step_status = sqlitestep(prepared)
@@ -225,7 +230,7 @@ _lexical: procedure = .int
       hits = hits + 1
     end
     call sqlitefinalize prepared
-    trace_notes[trace_notes.0 + 1] = "lexical[" || variants[v].kind() || "]=" || hits
+    trace_notes[trace_notes.0 + 1] = "lexical[" || variants[v].kind() || "]=" || hits || ";per-variant-limit=" || variant_limit
   end
   neighbor_count = _lexicalneighbors(database, plan.generation(), maximum, next_rank, candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values, error)
   if neighbor_count < 0 then return -1
@@ -248,7 +253,9 @@ _lexicalneighbors: procedure = .int
       if sqlitecolumntext(prepared, 0, neighbor_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode lexical context expansion"; return -1; end
       if _candidateindex(candidate_ids, neighbor_id) = 0 & candidate_ids.0 < maximum then do
         index = _candidate(neighbor_id, candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values)
-        lexical_ranks[index] = next_rank; next_rank = next_rank + 1; added = added + 1
+        if lexical_ranks[i] > 0 then lexical_ranks[index] = lexical_ranks[i]
+        else do; lexical_ranks[index] = next_rank; next_rank = next_rank + 1; end
+        added = added + 1
       end
     end
     call sqlitefinalize prepared
@@ -420,8 +427,8 @@ _rankandpassages: procedure = .int
     if vector_ranks[i] > 0 then rrf = rrf + vector_weight / (retrieval_options.rrf_k() + vector_ranks[i])
     if graph_ranks[i] > 0 then rrf = rrf + graph_weight / (retrieval_options.rrf_k() + graph_ranks[i])
     graph_boost = 0.0
-    if graph_hops[i] > 0 then graph_boost = 0.04 * (0.75 ** (graph_hops[i] - 1))
-    directness_bonus = directness_values[i] * 0.02
+    if graph_hops[i] > 0 then graph_boost = 0.002 * (0.75 ** (graph_hops[i] - 1))
+    directness_bonus = directness_values[i] * 0.001
     base_scores[i] = rrf + graph_boost + directness_bonus
     citation = .ragcitation; title = ""; body = ""; source_type = ""; captured = ""; event_start = ""; event_end = ""; evidence_class = ""; source_id = ""; content_id = ""
     if _chunk(database, library_id, generation, candidate_ids[i], citation, title, body, source_type, captured, event_start, event_end, evidence_class, source_id, content_id, error) \= 0 then return -1
@@ -429,11 +436,18 @@ _rankandpassages: procedure = .int
     captured_values[i] = captured; event_starts[i] = event_start; event_ends[i] = event_end; evidence_classes[i] = evidence_class; source_ids[i] = source_id; content_ids[i] = content_id
     selected_flags[i] = 0; excluded_flags[i] = 0
   end
+  distinct_sources = _distinctcount(source_ids)
+  source_cap = retrieval_options.passage_limit()
+  if distinct_sources > 1 then do
+    source_cap = ((retrieval_options.passage_limit() + distinct_sources - 1) / distinct_sources) as .int
+    if source_cap < 3 then source_cap = 3
+  end
+  trace_notes[trace_notes.0 + 1] = "diversity-source-count=" || distinct_sources || ";per-source-cap=" || source_cap
   do while passages.0 < retrieval_options.passage_limit()
     best_index = 0; best_score = -1000000.0; best_duplicate_penalty = 0.0; best_source_quality = 0.0; best_temporal = 0.0
     do i = 1 to candidate_ids.0
       if selected_flags[i] = 1 | excluded_flags[i] = 1 then iterate
-      if _sourcecount(selected_sources, source_ids[i]) >= 3 then do
+      if _sourcecount(selected_sources, source_ids[i]) >= source_cap then do
         excluded_flags[i] = 1
         trace_notes[trace_notes.0 + 1] = "diversity-skip=" || candidate_ids[i] || ";reason=source-cap"
         iterate
@@ -441,10 +455,10 @@ _rankandpassages: procedure = .int
       duplicate_penalty = 0.0
       if _contains(selected_contents, content_ids[i]) = 1 then duplicate_penalty = 0.05
       source_quality = 0.0
-      if evidence_classes[i] = "narrative" then source_quality = 0.02
-      if evidence_classes[i] = "index" | evidence_classes[i] = "caption" then source_quality = -0.02
+      if evidence_classes[i] = "narrative" then source_quality = 0.002
+      if evidence_classes[i] = "index" | evidence_classes[i] = "caption" then source_quality = -0.002
       temporal = 0.0
-      if _hasintent(plan.intents(), "time") = 1 & (event_starts[i] \= "" | event_ends[i] \= "") then temporal = 0.01
+      if _hasintent(plan.intents(), "time") = 1 & (event_starts[i] \= "" | event_ends[i] \= "") then temporal = 0.001
       adjusted = base_scores[i] + source_quality + temporal - duplicate_penalty
       if best_index = 0 | adjusted > best_score | (adjusted = best_score & candidate_ids[i] < candidate_ids[best_index]) then do
         best_index = i; best_score = adjusted; best_duplicate_penalty = duplicate_penalty; best_source_quality = source_quality; best_temporal = temporal
@@ -461,7 +475,7 @@ _rankandpassages: procedure = .int
     if lexical_ranks[index] > 0 then score_parts[score_parts.0 + 1] = .ragscore("lexical-rank", lexical_ranks[index])
     if vector_ranks[index] > 0 then score_parts[score_parts.0 + 1] = .ragscore("vector-similarity", vector_scores[index])
     if graph_hops[index] > 0 then score_parts[score_parts.0 + 1] = .ragscore("graph-hop-decay", 0.75 ** (graph_hops[index] - 1))
-    score_parts[score_parts.0 + 1] = .ragscore("directness-bonus", directness_values[index] * 0.02)
+    score_parts[score_parts.0 + 1] = .ragscore("directness-bonus", directness_values[index] * 0.001)
     score_parts[score_parts.0 + 1] = .ragscore("temporal-relevance", best_temporal)
     score_parts[score_parts.0 + 1] = .ragscore("source-quality", best_source_quality)
     score_parts[score_parts.0 + 1] = .ragscore("duplication-penalty", best_duplicate_penalty)
@@ -714,6 +728,14 @@ _sourcecount: procedure = .int
     if sources[i] = source then count = count + 1
   end
   return count
+
+_distinctcount: procedure = .int
+  arg values = .string[]
+  distinct = .string[]
+  do i = 1 to values.0
+    if _contains(distinct, values[i]) = 0 then distinct[distinct.0 + 1] = values[i]
+  end
+  return distinct.0
 
 _hasintent: procedure = .int
   arg intents = .string[], expected = .string

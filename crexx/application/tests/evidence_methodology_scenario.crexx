@@ -4,6 +4,7 @@ import rxfnsb
 import sqlite_boundary
 import ragstore
 import ragretrieval
+import ragquery
 import ragevidencejson
 import generic_profile
 
@@ -52,6 +53,15 @@ main: procedure = .int
   errors = errors + check(publishmanifest(store, error) = 0, "manifest " || error)
   if errors > 0 then return 1
 
+  quoted_plan = .ragqueryplan
+  errors = errors + check(planquery(store, genericprofile(), "What is 'Alpha links'?", "evidence-methodology-v1", quoted_plan, error) = 0, "single-quoted query plan " || error)
+  quoted_variants = .ragqueryvariant[]; quoted_variants = quoted_plan.variants()
+  errors = errors + check(quoted_variants.0 > 0 & quoted_variants[1].kind() = "exact-phrase" & quoted_variants[1].query() = '"alpha links"', "natural single quotes become the first exact phrase")
+  frequency_plan = .ragqueryplan
+  errors = errors + check(planquery(store, genericprofile(), "Alpha Missing", "evidence-methodology-v1", frequency_plan, error) = 0, "frequency-ordered query plan " || error)
+  frequency_variants = .ragqueryvariant[]; frequency_variants = frequency_plan.variants()
+  errors = errors + check(frequency_variants.0 >= 3 & frequency_variants[2].query() = "missing" & frequency_variants[3].query() = "alpha", "focused terms are ordered rarest first")
+
   empty_wire = .binary
   outbound_options = .ragretrievaloptions("evidence-methodology-v1", "", empty_wire, 8, 1, 1, 1, 8, 8, 8, 60, "outbound")
   inbound_options = .ragretrievaloptions("evidence-methodology-v1", "", empty_wire, 8, 1, 1, 1, 8, 8, 8, 60, "inbound")
@@ -80,11 +90,16 @@ main: procedure = .int
   missing_gaps = .string[]
   if missing_status = 0 then missing_gaps = missing.evidence().gaps()
   errors = errors + check(missing_status = 0 & missing_gaps.0 > 0, "gap-producing retrieval " || error)
+  fair_limit_found = 0; missing_notes = .string[]; missing_notes = missing.evidence().trace().notes()
+  do i = 1 to missing_notes.0
+    if pos("per-variant-limit=", missing_notes[i]) > 0 & pos("per-variant-limit=8", missing_notes[i]) = 0 then fair_limit_found = 1
+  end
+  errors = errors + check(fair_limit_found = 1, "multi-variant lexical plans reserve a fair candidate allowance")
   recorded = 0
   errors = errors + check(recordquerygaps(store, missing.evidence(), recorded, error) = 0 & recorded > 0, "first durable query gap " || error)
   errors = errors + check(recordquerygaps(store, missing.evidence(), recorded, error) = 0 & recorded > 0, "repeated durable query gap " || error)
   errors = errors + check(scalarint(database, "SELECT min(occurrence_count) FROM query_gaps WHERE normalized_question='what does missing depend on?'") = 2, "repeated gaps increment their deterministic occurrence census")
   errors = errors + check(closeragstore(store, error) = 0, "close " || error)
   if errors > 0 then return 1
-  say "EVIDENCE_METHODOLOGY_OK graph=outbound+inbound+both stored_direction=preserved inverse_claims=0 co_mentions=analysis-leads notes=durable+cited+analysis-only query_gaps=repeated"
+  say "EVIDENCE_METHODOLOGY_OK graph=outbound+inbound+both stored_direction=preserved inverse_claims=0 co_mentions=analysis-leads notes=durable+cited+analysis-only query_plans=quoted+frequency+fair query_gaps=repeated"
   return 0

@@ -13,7 +13,7 @@ set(base_import "${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}")
 set(program_import "${CPRAG_WORK_DIR};${base_import}")
 set(report "${CPRAG_WORK_DIR}/result.txt")
 file(WRITE "${report}"
-    "test=configuration-contract\nformat=crexx-rag.config/1\nprovider_calls=0\ncredential_reads=0\n")
+    "test=configuration-contract\nformat=crexx-rag.config/2\nformat_1_compatibility=verified\nprovider_calls=0\ncredential_reads=0\n")
 file(WRITE "${CPRAG_WORK_DIR}/glossary-valid.tsv"
     "format\tcrexx-rag.glossary/1\nconcept\tBillingService\tapplication-component\tBilling Service\nconcept\tCustomerDatabase\tdata-store\tCustomer DB\nexclude\tDeprecatedSystem\n")
 file(WRITE "${CPRAG_WORK_DIR}/glossary-duplicate.tsv"
@@ -78,7 +78,7 @@ foreach(mode IN ITEMS noopt opt)
             RESULT_VARIABLE vm_result OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err
             TIMEOUT 30)
         if(NOT vm_result EQUAL 0 OR NOT vm_out MATCHES
-                "CONFIG_CONTRACT_OK cell=${cell} format=1 settings=bounded providers=2 gemini=2 env_refs=2 literal_secrets=0 executable_modules=0 glossary=validated provider_calls=0")
+                "CONFIG_CONTRACT_OK cell=${cell} formats=1,2 identities=split settings=bounded providers=2 gemini=2 env_refs=2 literal_secrets=0 executable_modules=0 glossary=validated provider_calls=0")
             message(FATAL_ERROR "${cell} config scenario failed:\n${vm_out}${vm_err}")
         endif()
         if(vm_out MATCHES "${secret_marker}" OR vm_err MATCHES "${secret_marker}")
@@ -103,6 +103,173 @@ if(NOT cli_result EQUAL 0 OR NOT cli_out MATCHES
 endif()
 if(cli_out MATCHES "${secret_marker}" OR cli_err MATCHES "${secret_marker}")
     message(FATAL_ERROR "linked CLI exposed a resolved credential")
+endif()
+
+# Configuration lifecycle is a public, zero-provider contract: operators can
+# inspect split identities, review an operational-only plan, reject tampering,
+# apply the exact plan, and retain the resulting state without editing cREXX.
+set(lifecycle_library "${CPRAG_WORK_DIR}/lifecycle-library")
+file(READ "${CPRAG_FIXTURE}" lifecycle_config_text)
+string(REPLACE "worker.processes = 1" "worker.processes = 2"
+    lifecycle_config_text "${lifecycle_config_text}")
+set(lifecycle_config "${CPRAG_WORK_DIR}/operational-change.conf")
+file(WRITE "${lifecycle_config}" "${lifecycle_config_text}")
+set(lifecycle_cli "${CMAKE_COMMAND}" -E env
+    "GEMINI_API_KEY=${secret_marker}"
+    "${CPRAG_RXVME}" "${CPRAG_APPLICATION}" -a)
+
+execute_process(COMMAND ${lifecycle_cli}
+    --config-file "${CPRAG_FIXTURE}" --profile generic-profile
+    --library "${lifecycle_library}" --format json init
+    RESULT_VARIABLE lifecycle_init_result
+    OUTPUT_VARIABLE lifecycle_init_out ERROR_VARIABLE lifecycle_init_err
+    TIMEOUT 30)
+if(NOT lifecycle_init_result EQUAL 0 OR
+   NOT lifecycle_init_out MATCHES "\"schema_version\":6")
+    message(FATAL_ERROR
+        "configuration lifecycle init failed:\n${lifecycle_init_out}${lifecycle_init_err}")
+endif()
+
+execute_process(COMMAND ${lifecycle_cli}
+    --config-file "${CPRAG_FIXTURE}" --profile generic-profile
+    --library "${lifecycle_library}" --format json config diff
+    RESULT_VARIABLE identical_result
+    OUTPUT_VARIABLE identical_out ERROR_VARIABLE identical_err
+    TIMEOUT 30)
+if(NOT identical_result EQUAL 0 OR
+   NOT identical_out MATCHES "\"classification\":\"identical\"" OR
+   NOT identical_out MATCHES "\"provider_calls\":0")
+    message(FATAL_ERROR
+        "identical configuration classification failed:\n${identical_out}${identical_err}")
+endif()
+
+execute_process(COMMAND ${lifecycle_cli}
+    --config-file "${lifecycle_config}" --profile generic-profile
+    --library "${lifecycle_library}" --format json config diff
+    RESULT_VARIABLE operational_result
+    OUTPUT_VARIABLE operational_out ERROR_VARIABLE operational_err
+    TIMEOUT 30)
+if(NOT operational_result EQUAL 0 OR
+   NOT operational_out MATCHES "\"classification\":\"operational\"" OR
+   NOT operational_out MATCHES "\"active_jobs\":0")
+    message(FATAL_ERROR
+        "operational configuration classification failed:\n${operational_out}${operational_err}")
+endif()
+
+execute_process(COMMAND ${lifecycle_cli}
+    --config-file "${lifecycle_config}" --profile generic-profile
+    --library "${lifecycle_library}" --format json --access plan
+    config plan --reason "configuration lifecycle regression"
+    RESULT_VARIABLE config_plan_result
+    OUTPUT_VARIABLE config_plan_out ERROR_VARIABLE config_plan_err
+    TIMEOUT 30)
+string(JSON config_plan ERROR_VARIABLE config_plan_json_error GET
+    "${config_plan_out}" records 0 fields canonical_plan)
+string(JSON config_digest ERROR_VARIABLE config_digest_json_error GET
+    "${config_plan_out}" records 0 fields digest)
+if(NOT config_plan_result EQUAL 0 OR config_plan_json_error OR
+   config_digest_json_error OR NOT config_plan_out MATCHES
+    "\"schema_version\":\"crexx-rag.reconfigure-plan/1\"")
+    message(FATAL_ERROR
+        "configuration plan failed:\n${config_plan_out}${config_plan_err}")
+endif()
+
+set(tampered_config_plan "${config_plan} ")
+execute_process(COMMAND ${lifecycle_cli}
+    --config-file "${lifecycle_config}" --profile generic-profile
+    --library "${lifecycle_library}" --format json --access admin
+    config apply --plan-json "${tampered_config_plan}"
+    --expect-digest "${config_digest}"
+    RESULT_VARIABLE tampered_result
+    OUTPUT_VARIABLE tampered_out ERROR_VARIABLE tampered_err
+    TIMEOUT 30)
+if(NOT tampered_result EQUAL 6 OR NOT tampered_out MATCHES
+    "reviewed configuration plan or digest is invalid")
+    message(FATAL_ERROR
+        "tampered configuration plan was not rejected:\n${tampered_out}${tampered_err}")
+endif()
+
+execute_process(COMMAND ${lifecycle_cli}
+    --config-file "${lifecycle_config}" --profile generic-profile
+    --library "${lifecycle_library}" --format json --access admin
+    config apply --plan-json "${config_plan}"
+    --expect-digest "${config_digest}"
+    RESULT_VARIABLE config_apply_result
+    OUTPUT_VARIABLE config_apply_out ERROR_VARIABLE config_apply_err
+    TIMEOUT 30)
+if(NOT config_apply_result EQUAL 0 OR
+   NOT config_apply_out MATCHES "\"operation\":\"config.apply\",\"status\":\"ok\"" OR
+   NOT config_apply_out MATCHES "\"classification\":\"operational\"")
+    message(FATAL_ERROR
+        "reviewed configuration apply failed:\n${config_apply_out}${config_apply_err}")
+endif()
+
+execute_process(COMMAND ${lifecycle_cli}
+    --config-file "${lifecycle_config}" --profile generic-profile
+    --library "${lifecycle_library}" --format json config diff
+    RESULT_VARIABLE applied_diff_result
+    OUTPUT_VARIABLE applied_diff_out ERROR_VARIABLE applied_diff_err
+    TIMEOUT 30)
+if(NOT applied_diff_result EQUAL 0 OR
+   NOT applied_diff_out MATCHES "\"classification\":\"identical\"")
+    message(FATAL_ERROR
+        "applied configuration did not become current:\n${applied_diff_out}${applied_diff_err}")
+endif()
+
+string(REPLACE "gemini-3.5-flash-lite" "gemini-semantic-change"
+    semantic_config_text "${lifecycle_config_text}")
+set(semantic_config "${CPRAG_WORK_DIR}/semantic-change.conf")
+file(WRITE "${semantic_config}" "${semantic_config_text}")
+execute_process(COMMAND ${lifecycle_cli}
+    --config-file "${semantic_config}" --profile generic-profile
+    --library "${lifecycle_library}" --format json config diff
+    RESULT_VARIABLE semantic_diff_result
+    OUTPUT_VARIABLE semantic_diff_out ERROR_VARIABLE semantic_diff_err
+    TIMEOUT 30)
+if(NOT semantic_diff_result EQUAL 0 OR
+   NOT semantic_diff_out MATCHES "\"classification\":\"semantic\"")
+    message(FATAL_ERROR
+        "semantic configuration classification failed:\n${semantic_diff_out}${semantic_diff_err}")
+endif()
+execute_process(COMMAND ${lifecycle_cli}
+    --config-file "${semantic_config}" --profile generic-profile
+    --library "${lifecycle_library}" --format json --access plan
+    config plan --reason "semantic change rejection regression"
+    RESULT_VARIABLE semantic_plan_result
+    OUTPUT_VARIABLE semantic_plan_out ERROR_VARIABLE semantic_plan_err
+    TIMEOUT 30)
+string(JSON semantic_plan ERROR_VARIABLE semantic_plan_json_error GET
+    "${semantic_plan_out}" records 0 fields canonical_plan)
+string(JSON semantic_digest ERROR_VARIABLE semantic_digest_json_error GET
+    "${semantic_plan_out}" records 0 fields digest)
+if(NOT semantic_plan_result EQUAL 0 OR semantic_plan_json_error OR
+   semantic_digest_json_error)
+    message(FATAL_ERROR
+        "semantic configuration plan failed:\n${semantic_plan_out}${semantic_plan_err}")
+endif()
+execute_process(COMMAND ${lifecycle_cli}
+    --config-file "${semantic_config}" --profile generic-profile
+    --library "${lifecycle_library}" --format json --access admin
+    config apply --plan-json "${semantic_plan}"
+    --expect-digest "${semantic_digest}"
+    RESULT_VARIABLE semantic_apply_result
+    OUTPUT_VARIABLE semantic_apply_out ERROR_VARIABLE semantic_apply_err
+    TIMEOUT 30)
+if(NOT semantic_apply_result EQUAL 6 OR NOT semantic_apply_out MATCHES
+    "semantic configuration changes require a new ingestion generation")
+    message(FATAL_ERROR
+        "semantic configuration apply was not rejected:\n${semantic_apply_out}${semantic_apply_err}")
+endif()
+if(lifecycle_init_out MATCHES "${secret_marker}" OR
+   identical_out MATCHES "${secret_marker}" OR
+   operational_out MATCHES "${secret_marker}" OR
+   config_plan_out MATCHES "${secret_marker}" OR
+   config_apply_out MATCHES "${secret_marker}" OR
+   applied_diff_out MATCHES "${secret_marker}" OR
+   semantic_diff_out MATCHES "${secret_marker}" OR
+   semantic_plan_out MATCHES "${secret_marker}" OR
+   semantic_apply_out MATCHES "${secret_marker}")
+    message(FATAL_ERROR "configuration lifecycle output exposed a resolved credential")
 endif()
 
 execute_process(COMMAND "${CPRAG_RXVME}" "${CPRAG_APPLICATION}" -a
@@ -133,10 +300,12 @@ if(NOT mismatch_result EQUAL 3 OR NOT mismatch_out MATCHES
         "linked CLI did not reject a mismatched config id:\n${mismatch_out}${mismatch_err}")
 endif()
 
-file(APPEND "${report}" "linked-cli:\n${cli_out}${cli_err}${subscription_out}${subscription_err}")
+file(APPEND "${report}"
+    "linked-cli:\n${cli_out}${cli_err}${subscription_out}${subscription_err}"
+    "configuration-lifecycle:\n${lifecycle_init_out}${identical_out}${operational_out}${config_plan_out}${tampered_out}${config_apply_out}${applied_diff_out}${semantic_diff_out}${semantic_plan_out}${semantic_apply_out}")
 file(READ "${report}" retained)
 if(retained MATCHES "${secret_marker}")
     message(FATAL_ERROR "retained config evidence contains a resolved credential")
 endif()
 message(STATUS
-    "Configuration contract passed bounded text projection in four compiler/VM cells and the linked CLI")
+    "Configuration contract passed four compiler/VM cells, linked CLI discovery, and reviewed split-identity lifecycle")

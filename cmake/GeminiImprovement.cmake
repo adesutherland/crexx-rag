@@ -18,6 +18,14 @@ set(CPRAG_FIXTURE_PORT 18998)
 set(CPRAG_FIXTURE_SOURCE "${CPRAG_WORK_DIR}/source")
 configure_file("${CPRAG_CONFIG_TEMPLATE}"
     "${CPRAG_WORK_DIR}/crexxrag.conf" @ONLY)
+file(READ "${CPRAG_WORK_DIR}/crexxrag.conf" large_budget_config)
+string(REPLACE "budget.input_tokens = 8192" "budget.input_tokens = 31000000"
+    large_budget_config "${large_budget_config}")
+string(REPLACE "budget.output_tokens = 1024" "budget.output_tokens = 3600000"
+    large_budget_config "${large_budget_config}")
+string(REPLACE "budget.cost_microunits = 1000000" "budget.cost_microunits = 18000000"
+    large_budget_config "${large_budget_config}")
+file(WRITE "${CPRAG_WORK_DIR}/crexxrag.conf" "${large_budget_config}")
 
 set(server_out "${CPRAG_WORK_DIR}/loopback.out")
 set(server_err "${CPRAG_WORK_DIR}/loopback.err")
@@ -57,7 +65,7 @@ execute_process(COMMAND ${cli} init
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err
     RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 1")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 6")
     message(FATAL_ERROR "Improvement test human init failed:\n${init_out}${init_err}")
 endif()
 

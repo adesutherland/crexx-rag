@@ -1,6 +1,7 @@
 options levelg
 
 import provider_contract
+import provider_http
 import industrial_provider
 
 check: procedure = .int
@@ -26,6 +27,13 @@ main: procedure = .int
   errors = errors + check(result.provider() = "openai" & result.model() = "local-embed" & result.request_id() \= "", "local embedding identity")
   errors = errors + check(vectors.0 = 1 & vectors[1].valid() = 1 & vectors[1].count() = 3 & vectors[1].codec() = "f32le-v1", "local embedding vector shape")
   errors = errors + check(usage.input_tokens() = 4 & usage.input_count() = 1 & usage.cost_microunits() = -1 & usage.attempts() = 1, "local protocol usage without a monetary price")
+
+  retry_transport = .providerhttptransport("127.0.0.1", 19020, 0, "openai", "", "local")
+  retry_messages = .providermessage[]; retry_inputs = .string[]
+  retry_request = .providerrequest("generate", "answerer", "retry-local-" || args[1], retry_messages, retry_inputs, "", 10000, 3, "restricted", "retry-idempotency-" || args[1], "retry-request-" || args[1], 32, 0, 0, 0, 10, 1000, 0)
+  retry_response = retry_transport.post(retry_request, "/v1/chat/completions", '{"model":"retry-local-' || args[1] || '"}')
+  errors = errors + check(retry_response.status() = 0 & retry_response.http_status() = 200 & retry_response.attempts() = 3, "retryable provider response succeeds on its third attempt")
+  errors = errors + check(retry_response.retry_delay_ms() = 1020 & retry_response.latency_us() >= 1020000, "Retry-After and exponential backoff are respected")
   if errors > 0 then return 1
-  say "LOCAL_EMBEDDING_PROTOCOL_OK cell=" || args[1] || " protocol=openai-compatible endpoint=/v1/embeddings dimensions=3 charging=local-compute privacy=restricted"
+  say "LOCAL_EMBEDDING_PROTOCOL_OK cell=" || args[1] || " protocol=openai-compatible endpoint=/v1/embeddings dimensions=3 charging=local-compute privacy=restricted retries=3 retry_delay_ms=1020"
   return 0

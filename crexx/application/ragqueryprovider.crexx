@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragqueryprovider expose generatequeryembedding generatequeryanswer
+namespace ragqueryprovider expose generatequeryembedding generatequeryanswer generatereportnarrative
 
 import rxfnsb
 import rxfs
@@ -25,7 +25,7 @@ generatequeryembedding: procedure = .int
   protocol = provider_config.kind(); if protocol = "openai-compatible" then protocol = "openai"
   backend = .industrialprovider(protocol, host, port, tls, base_path, secret, provider_config.route_class())
   messages = .providermessage[]; inputs = .string[]; inputs[1] = question
-  request = .providerrequest("embed", "embedding", provider_config.model(), messages, inputs, "", provider_config.timeout_ms(), provider_config.max_attempts(), privacy, request_identity, request_identity, 0, dimension, 0)
+  request = .providerrequest("embed", "embedding", provider_config.model(), messages, inputs, "", provider_config.timeout_ms(), provider_config.max_attempts(), privacy, request_identity, request_identity, 0, dimension, 0, -1, provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms())
   result = backend.embed(request)
   if result.status() \= 0 then do; error = _providererror(result, "query embedding provider failed"); return -2; end
   if result.provider() \= _backendidentity(provider_config.kind()) | result.model() \= provider_config.model() | result.request_id() \= request_identity then do; error = "query embedding provider identity is invalid"; return -2; end
@@ -38,10 +38,10 @@ generatequeryanswer: procedure = .int
   result = .providerresult(); allowance_before = -1; allowance_after = -1; error = ""
   if answer_context = "" | request_identity = "" | maximum_output_tokens < 1 then do; error = "query answer input is invalid"; return -1; end
   messages = .providermessage[]; inputs = .string[]
-  messages[1] = .providermessage("system", "Answer only from the supplied cREXX-RAG answer context. Preserve direction, ambiguity, conflict, time and gaps. Return a concise answer and only citation IDs present in the context. If evidence is insufficient, say so and return no citations.")
+  messages[1] = .providermessage("system", "Answer only from the supplied cREXX-RAG answer context. Preserve direction, ambiguity, conflict, time and gaps. Return grounding=supported with a concise answer and only citation IDs present in the context when the evidence answers the question. If the evidence is insufficient, return grounding=insufficient, say so, and return no citations.")
   messages[2] = .providermessage("user", answer_context)
-  schema = '{"type":"object","additionalProperties":false,"required":["answer","citations"],"properties":{"answer":{"type":"string"},"citations":{"type":"array","items":{"type":"string"}}}}'
-  request = .providerrequest("generate_structured", "answerer", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), provider_config.max_attempts(), privacy, request_identity, request_identity, maximum_output_tokens, 0, 0, 0)
+  schema = '{"type":"object","additionalProperties":false,"required":["grounding","answer","citations"],"properties":{"grounding":{"type":"string","enum":["supported","insufficient"]},"answer":{"type":"string"},"citations":{"type":"array","items":{"type":"string"}}}}'
+  request = .providerrequest("generate_structured", "answerer", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), provider_config.max_attempts(), privacy, request_identity, request_identity, maximum_output_tokens, 0, 0, 0, provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms())
   if provider_config.kind() = "codex" then return _codexanswer(provider_config, request, minimum_allowance, result, allowance_before, allowance_after, error)
   host = ""; base_path = ""; port = 0; tls = 0
   if _parseurl(provider_config.base_url(), host, port, tls, base_path) \= 0 then do; error = "query answer provider URL is invalid"; return -1; end
@@ -52,6 +52,27 @@ generatequeryanswer: procedure = .int
   result = backend.generate_structured(request)
   if result.status() \= 0 then do; error = _providererror(result, "query answer provider failed"); return -2; end
   if result.provider() \= _backendidentity(provider_config.kind()) | result.model() \= provider_config.model() | result.request_id() = "" then do; error = "query answer provider identity is invalid"; return -2; end
+  return 0
+
+generatereportnarrative: procedure = .int
+  arg provider_config = .ragproviderconfig, report_context = .string, privacy = .string, maximum_output_tokens = .int, minimum_allowance = .int, request_identity = .string, expose result = .providerresult, expose allowance_before = .int, expose allowance_after = .int, expose error = .string
+  result = .providerresult(); allowance_before = -1; allowance_after = -1; error = ""
+  if report_context = "" | request_identity = "" | maximum_output_tokens < 1 then do; error = "library report narrative input is invalid"; return -1; end
+  messages = .providermessage[]; inputs = .string[]
+  messages[1] = .providermessage("system", "Summarize only the supplied cREXX-RAG library report context. Describe major subjects cautiously; do not claim completeness or turn health metrics into professional judgement. Every overview and subject must cite only citation IDs present in the supplied passages. Return the exact requested structure.")
+  messages[2] = .providermessage("user", report_context)
+  schema = '{"type":"object","additionalProperties":false,"required":["overview","citations","subjects"],"properties":{"overview":{"type":"string"},"citations":{"type":"array","minItems":1,"maxItems":4,"items":{"type":"string"}},"subjects":{"type":"array","minItems":1,"maxItems":10,"items":{"type":"object","additionalProperties":false,"required":["label","description","citations"],"properties":{"label":{"type":"string"},"description":{"type":"string"},"citations":{"type":"array","minItems":1,"maxItems":4,"items":{"type":"string"}}}}}}}'
+  request = .providerrequest("generate_structured", "advisory", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), provider_config.max_attempts(), privacy, request_identity, request_identity, maximum_output_tokens, 0, 0, 0, provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms())
+  if provider_config.kind() = "codex" then return _codexanswer(provider_config, request, minimum_allowance, result, allowance_before, allowance_after, error)
+  host = ""; base_path = ""; port = 0; tls = 0
+  if _parseurl(provider_config.base_url(), host, port, tls, base_path) \= 0 then do; error = "library report narrative provider URL is invalid"; return -1; end
+  secret = _secret(provider_config, error)
+  if error \= "" then return -1
+  protocol = provider_config.kind(); if protocol = "openai-compatible" then protocol = "openai"
+  backend = .industrialprovider(protocol, host, port, tls, base_path, secret, provider_config.route_class())
+  result = backend.generate_structured(request)
+  if result.status() \= 0 then do; error = _providererror(result, "library report narrative provider failed"); return -2; end
+  if result.provider() \= _backendidentity(provider_config.kind()) | result.model() \= provider_config.model() | result.request_id() = "" then do; error = "library report narrative provider identity is invalid"; return -2; end
   return 0
 
 _codexanswer: procedure = .int

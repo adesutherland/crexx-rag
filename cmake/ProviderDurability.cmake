@@ -8,7 +8,10 @@ endforeach()
 
 file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
-set(imports "${CPRAG_APPLICATION_DIR};${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
+file(GLOB project_member_dirs LIST_DIRECTORIES true
+    "${CPRAG_APPLICATION_DIR}/project/crexxrag-project.crexx-build/members/*")
+list(JOIN project_member_dirs ";" project_imports)
+set(imports "${project_imports};${CPRAG_APPLICATION_DIR};${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
 set(modules
     ragschema ragfile ragstore ragmodel ragjob ragclaims ragwork
     rx_sqlite_boundary rx_hash rx_system rxfs rxplatform library)
@@ -49,7 +52,7 @@ foreach(mode IN ITEMS noopt opt)
             OUTPUT_VARIABLE run_out ERROR_VARIABLE run_err
             TIMEOUT 30)
         if(NOT run_result EQUAL 0 OR NOT run_out MATCHES
-                "PROVIDER_DURABILITY_OK completed_turn_reused=1 codex_turns=1 stale_reservations=0 fence=2")
+            "PROVIDER_DURABILITY_OK completed_turn_reused=1 codex_turns=1 stale_reservations=0 fence=2 admissions=durable uncalled_provider_runs=0 paused_completion=sticky batch_retry=2 replay=immutable indexes=10 migration=1to6 large_plan=renderable")
             message(FATAL_ERROR
                 "${mode}-${runtime_name} provider durability failed (${run_result}):\n${run_out}\n${run_err}")
         endif()
@@ -57,4 +60,4 @@ foreach(mode IN ITEMS noopt opt)
 endforeach()
 
 file(WRITE "${CPRAG_WORK_DIR}/summary.txt"
-    "Provider durability passed in noopt/opt on rxvme/rxbvm: completed Codex output reused, one subscription turn charged, stale reservations released, fencing advanced.\n")
+    "Provider durability passed in noopt/opt on rxvme/rxbvm: completed Codex output reused, one subscription turn charged, stale reservations released, fencing advanced, provider concurrency admission was durable, an uncalled preflight created no provider run, paused jobs remained paused, legacy retry remained compatible, immutable replay retained source dead letters and lineage, worker indexes were present, and schema version one upgraded to version six.\n")

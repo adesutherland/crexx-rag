@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragwork expose ragworkclaim ragcallreservation ragworkembedding ragworkmention ragworkproposal ragworknote ragworkproviderresult ragexternalrecovery ragworkprovider claimnext heartbeat configurejobbudget reservecall beginexternalrun updateexternalrunusage updateexternalrunturn updateexternalrunallowance completeexternalrun recoverexternalrun settlecall failattempt skipitem requestcancel acknowledgecancel pausejob resumejob drainjob retrydeadletter readjobstatus runworkeronce runworkerfollow
+namespace ragwork expose ragworkclaim ragcallreservation ragworkembedding ragworkmention ragworkproposal ragworknote ragworkproviderresult ragexternalrecovery ragworkprovider claimnext heartbeat configurejobbudget reservecall admitprovidercall releaseprovidercall beginexternalrun updateexternalrunusage updateexternalrunturn updateexternalrunallowance completeexternalrun recoverexternalrun settlecall failattempt skipitem requestcancel acknowledgecancel pausejob resumejob drainjob retrydeadletter replaydeadletters readjobstatus runworkeronce runworkerfollow
 
 import rxfnsb
 import rxjson
@@ -237,6 +237,8 @@ ragworkproviderresult: class
   _cost = .int
   _duration_ms = .int
   _retryable = .int
+  _retry_delay_ms = .int
+  _provider_called = .int
   _proposal = .ragextractionproposal
   _error = .string
   _has_proposal = .int
@@ -250,10 +252,10 @@ ragworkproviderresult: class
   _notes = .ragworknote[]
 
   *: factory
-    arg status = .int, provider_id = .string, model = .string, request_id = .string, input_tokens = .int, output_tokens = .int, cost = .int, duration_ms = .int, retryable = .int, proposal = .ragextractionproposal, error = .string, has_proposal = 1, source_candidate_id = "", target_candidate_id = "", embedding = .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id = "", charging_basis = "monetary-api", mentions = .ragworkmention[], proposals = .ragworkproposal[], notes = .ragworknote[]
+    arg status = .int, provider_id = .string, model = .string, request_id = .string, input_tokens = .int, output_tokens = .int, cost = .int, duration_ms = .int, retryable = .int, proposal = .ragextractionproposal, error = .string, has_proposal = 1, source_candidate_id = "", target_candidate_id = "", embedding = .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id = "", charging_basis = "monetary-api", mentions = .ragworkmention[], proposals = .ragworkproposal[], notes = .ragworknote[], retry_delay_ms = 0, provider_called = 1
     _status = status; _provider_id = provider_id; _model = model; _request_id = request_id
     _input_tokens = input_tokens; _output_tokens = output_tokens; _cost = cost
-    _duration_ms = duration_ms; _retryable = retryable; _proposal = proposal; _error = error
+    _duration_ms = duration_ms; _retryable = retryable; _retry_delay_ms = retry_delay_ms; _provider_called = provider_called; _proposal = proposal; _error = error
     _has_proposal = has_proposal; _source_candidate_id = source_candidate_id
     _target_candidate_id = target_candidate_id; _embedding = embedding
     _provider_run_id = provider_run_id; _charging_basis = charging_basis
@@ -280,6 +282,14 @@ ragworkproviderresult: class
     return _duration_ms
   retryable: method = .int
     return _retryable
+  retry_delay_ms: method = .int
+    return _retry_delay_ms
+  add_wait_ms: method = .void
+    arg wait_ms = .int
+    if wait_ms > 0 then _duration_ms = _duration_ms + wait_ms
+    return
+  provider_called: method = .int
+    return _provider_called
   proposal: method = .ragextractionproposal
     return _proposal
   error: method = .string
@@ -349,21 +359,26 @@ claimnext: procedure = .int
   if store.writable() \= 1 | worker_id = "" | lease_seconds < 1 | lease_seconds > 3600 | maximum_attempts < 1 | maximum_attempts > 100 then do; error = "worker claim policy is invalid"; return -1; end
   database = store.database()
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin worker claim"; return -3; end
-  /* Close reservations whose owning fenced lease has expired.  Rebuilding the
-   * counters from the immutable open/close event pairs also repairs a process
-   * that died after appending the close event but before returning to its
-   * controller. */
-  sql = "INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) SELECT e.job_id,e.item_id,e.attempt_id,'reservation-close:'||substr(e.event_type,length('reservation-open:')+1),json_object('reservation_id',json_extract(e.message,'$.reservation_id'),'input',-CAST(json_extract(e.message,'$.input') AS INTEGER),'output',-CAST(json_extract(e.message,'$.output') AS INTEGER),'cost',-CAST(json_extract(e.message,'$.cost') AS INTEGER),'time',-CAST(json_extract(e.message,'$.time') AS INTEGER),'actual_cost',0,'codex_turn',-coalesce(CAST(json_extract(e.message,'$.codex_turn') AS INTEGER),0),'reason','lease-expired'),strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id JOIN job_items i ON i.item_id=a.item_id AND i.fence=a.fence WHERE e.event_type LIKE 'reservation-open:%' AND a.outcome='running' AND i.lease_until<=CAST(strftime('%s','now') AS INTEGER) AND NOT EXISTS(SELECT 1 FROM job_events c WHERE c.job_id=e.job_id AND c.event_type='reservation-close:'||substr(e.event_type,length('reservation-open:')+1))"
-  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot close stale provider reservations", error)
-  sql = "UPDATE jobs SET reserved_calls=coalesce((SELECT sum(CASE WHEN e.event_type LIKE 'reservation-open:%' THEN 1 ELSE -1 END) FROM job_events e WHERE e.job_id=jobs.job_id AND (e.event_type LIKE 'reservation-open:%' OR e.event_type LIKE 'reservation-close:%')),0),reserved_tokens=coalesce((SELECT sum(CAST(json_extract(e.message,'$.input') AS INTEGER)+CAST(json_extract(e.message,'$.output') AS INTEGER)) FROM job_events e WHERE e.job_id=jobs.job_id AND (e.event_type LIKE 'reservation-open:%' OR e.event_type LIKE 'reservation-close:%')),0),reserved_cost=coalesce((SELECT sum(CAST(json_extract(e.message,'$.cost') AS INTEGER)) FROM job_events e WHERE e.job_id=jobs.job_id AND (e.event_type LIKE 'reservation-open:%' OR e.event_type LIKE 'reservation-close:%')),0),reserved_codex_turns=coalesce((SELECT sum(coalesce(CAST(json_extract(e.message,'$.codex_turn') AS INTEGER),0)) FROM job_events e WHERE e.job_id=jobs.job_id AND (e.event_type LIKE 'reservation-open:%' OR e.event_type LIKE 'reservation-close:%')),0)"
-  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot reconcile provider reservation counters", error)
-  /* Expired attempts are closed before their items become eligible again. */
-  sql = "UPDATE attempts SET outcome='expired',validation_state='lease-expired',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE outcome='running' AND EXISTS(SELECT 1 FROM job_items i WHERE i.item_id=attempts.item_id AND i.fence=attempts.fence AND i.lease_until<=CAST(strftime('%s','now') AS INTEGER))"
-  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot expire stale attempts", error)
-  sql = "UPDATE job_items SET state=CASE WHEN (SELECT count(*) FROM attempts a WHERE a.item_id=job_items.item_id)>=" || maximum_attempts || " THEN 'dead_letter' ELSE 'queued' END,worker_id=NULL,lease_until=NULL,retry_at=CAST(strftime('%s','now') AS INTEGER),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='running' AND lease_until<=CAST(strftime('%s','now') AS INTEGER)"
-  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot recover expired items", error)
-  sql = "UPDATE job_items SET state='cancelled',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='cancel_requested' AND lease_until<=CAST(strftime('%s','now') AS INTEGER)"
-  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot recover cancelled items", error)
+  /* Lease recovery is exceptional.  The indexed existence check keeps the
+   * normal claim path independent of the growing reservation-event ledger. */
+  expired = _scalarint(database, "SELECT EXISTS(SELECT 1 FROM job_items WHERE state IN('running','cancel_requested') AND lease_until<=CAST(strftime('%s','now') AS INTEGER) LIMIT 1)")
+  if expired < 0 then return _rollback(database, "cannot inspect expired worker leases", error)
+  if expired = 1 then do
+    /* Close reservations whose owning fenced lease has expired.  Rebuilding
+     * counters from immutable event pairs repairs a process that died after
+     * appending the close event but before returning to its controller. */
+    sql = "INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) SELECT e.job_id,e.item_id,e.attempt_id,'reservation-close:'||substr(e.event_type,length('reservation-open:')+1),json_object('reservation_id',json_extract(e.message,'$.reservation_id'),'input',-CAST(json_extract(e.message,'$.input') AS INTEGER),'output',-CAST(json_extract(e.message,'$.output') AS INTEGER),'cost',-CAST(json_extract(e.message,'$.cost') AS INTEGER),'time',-CAST(json_extract(e.message,'$.time') AS INTEGER),'actual_cost',0,'codex_turn',-coalesce(CAST(json_extract(e.message,'$.codex_turn') AS INTEGER),0),'reason','lease-expired'),strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id JOIN job_items i ON i.item_id=a.item_id AND i.fence=a.fence WHERE e.event_type LIKE 'reservation-open:%' AND a.outcome='running' AND i.lease_until<=CAST(strftime('%s','now') AS INTEGER) AND NOT EXISTS(SELECT 1 FROM job_events c WHERE c.job_id=e.job_id AND c.event_type='reservation-close:'||substr(e.event_type,length('reservation-open:')+1))"
+    if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot close stale provider reservations", error)
+    sql = "UPDATE jobs SET reserved_calls=coalesce((SELECT sum(CASE WHEN e.event_type LIKE 'reservation-open:%' THEN 1 ELSE -1 END) FROM job_events e WHERE e.job_id=jobs.job_id AND (e.event_type LIKE 'reservation-open:%' OR e.event_type LIKE 'reservation-close:%')),0),reserved_tokens=coalesce((SELECT sum(CAST(json_extract(e.message,'$.input') AS INTEGER)+CAST(json_extract(e.message,'$.output') AS INTEGER)) FROM job_events e WHERE e.job_id=jobs.job_id AND (e.event_type LIKE 'reservation-open:%' OR e.event_type LIKE 'reservation-close:%')),0),reserved_cost=coalesce((SELECT sum(CAST(json_extract(e.message,'$.cost') AS INTEGER)) FROM job_events e WHERE e.job_id=jobs.job_id AND (e.event_type LIKE 'reservation-open:%' OR e.event_type LIKE 'reservation-close:%')),0),reserved_codex_turns=coalesce((SELECT sum(coalesce(CAST(json_extract(e.message,'$.codex_turn') AS INTEGER),0)) FROM job_events e WHERE e.job_id=jobs.job_id AND (e.event_type LIKE 'reservation-open:%' OR e.event_type LIKE 'reservation-close:%')),0)"
+    if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot reconcile provider reservation counters", error)
+    /* Expired attempts are closed before their items become eligible again. */
+    sql = "UPDATE attempts SET outcome='expired',validation_state='lease-expired',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE outcome='running' AND EXISTS(SELECT 1 FROM job_items i WHERE i.item_id=attempts.item_id AND i.fence=attempts.fence AND i.lease_until<=CAST(strftime('%s','now') AS INTEGER))"
+    if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot expire stale attempts", error)
+    sql = "UPDATE job_items SET state=CASE WHEN (SELECT count(*) FROM attempts a WHERE a.item_id=job_items.item_id)>=" || maximum_attempts || " THEN 'dead_letter' ELSE 'queued' END,worker_id=NULL,lease_until=NULL,retry_at=CAST(strftime('%s','now') AS INTEGER),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='running' AND lease_until<=CAST(strftime('%s','now') AS INTEGER)"
+    if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot recover expired items", error)
+    sql = "UPDATE job_items SET state='cancelled',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='cancel_requested' AND lease_until<=CAST(strftime('%s','now') AS INTEGER)"
+    if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot recover cancelled items", error)
+  end
   prepared = .binary
   sql = "SELECT i.item_id,i.job_id,i.item_type,i.input_hash,i.fence,j.config_snapshot_id FROM job_items i JOIN jobs j ON j.job_id=i.job_id WHERE i.state='queued' AND i.retry_at<=CAST(strftime('%s','now') AS INTEGER) AND j.state IN('queued','running') AND i.item_type IN('embedding','claim-extraction','improve-extraction')"
   if job_filter \= "" then sql = sql || " AND i.job_id=?1"
@@ -586,39 +601,91 @@ recoverexternalrun: procedure = .int
   recovery = .ragexternalrecovery(1, provider_run_id, request_id, content, input_tokens, output_tokens, state, thread_id, turn_id)
   return 0
 
+admitprovidercall: procedure = .int
+  arg store = .ragstorehandle, claim = .ragworkclaim, provider_id = .string, model = .string, reserved_tokens = .int, requests_per_minute = .int, tokens_per_minute = .int, concurrent_requests = .int, timeout_ms = .int, expose admission_id = .string, expose wait_ms = .int, expose error = .string
+  admission_id = ""; wait_ms = 0; error = ""
+  if store.writable() \= 1 | claim.claimed() \= 1 | provider_id = "" | model = "" | reserved_tokens < 0 | requests_per_minute < 1 | tokens_per_minute < 1 | concurrent_requests < 1 | timeout_ms < 1 then do; error = "provider admission inputs are invalid"; return -1; end
+  if reserved_tokens > tokens_per_minute then do; error = "provider token reservation exceeds its configured per-minute capacity"; return -2; end
+  database = store.database(); started = time("us")
+  admission_id = "admission-sha256:" || rxhash..sha256hex((claim.attempt_id() || "00"x || provider_id || "00"x || model) as .binary)
+  do forever
+    if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider admission"; return -3; end
+    now_epoch = _scalarint(database, "SELECT CAST(strftime('%s','now') AS INTEGER)")
+    if now_epoch < 0 then return _rollback(database, "cannot read the provider admission clock", error)
+    if sqliteexec(database, "UPDATE provider_admissions SET outcome='expired',released_epoch=" || now_epoch || " WHERE outcome='active' AND lease_until_epoch<=" || now_epoch) \= 0 then return _rollback(database, "cannot expire stale provider admissions", error)
+    scope = "provider_id=" || _q(provider_id) || " AND model=" || _q(model)
+    recent_requests = _scalarint(database, "SELECT count(*) FROM provider_admissions WHERE " || scope || " AND admitted_epoch>" || (now_epoch - 60))
+    recent_tokens = _scalarint(database, "SELECT coalesce(sum(reserved_tokens),0) FROM provider_admissions WHERE " || scope || " AND admitted_epoch>" || (now_epoch - 60))
+    active_requests = _scalarint(database, "SELECT count(*) FROM provider_admissions WHERE " || scope || " AND outcome='active' AND lease_until_epoch>" || now_epoch)
+    if recent_requests < 0 | recent_tokens < 0 | active_requests < 0 then return _rollback(database, "cannot inspect provider admission capacity", error)
+    if recent_requests < requests_per_minute & recent_tokens + reserved_tokens <= tokens_per_minute & active_requests < concurrent_requests then do
+      lease_seconds = ((timeout_ms + 999) % 1000) + 30
+      wait_ms = _elapsedms(started)
+      prepared = .binary
+      sql = "INSERT INTO provider_admissions(admission_id,provider_id,model,job_id,item_id,attempt_id,reserved_tokens,admitted_epoch,lease_until_epoch,outcome,wait_ms) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,'active',?10)"
+      if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare provider admission", error)
+      binds = sqlitebindtext(prepared, 1, admission_id) | sqlitebindtext(prepared, 2, provider_id) | sqlitebindtext(prepared, 3, model) | sqlitebindtext(prepared, 4, claim.job_id()) | sqlitebindtext(prepared, 5, claim.item_id()) | sqlitebindtext(prepared, 6, claim.attempt_id()) | sqlitebindint(prepared, 7, reserved_tokens) | sqlitebindint(prepared, 8, now_epoch) | sqlitebindint(prepared, 9, now_epoch + lease_seconds) | sqlitebindint(prepared, 10, wait_ms)
+      step = sqlitestep(prepared); call sqlitefinalize prepared
+      if binds \= 0 | step \= 101 then return _rollback(database, "cannot persist provider admission", error)
+      if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit provider admission", error)
+      return 0
+    end
+    if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot finish provider capacity inspection", error)
+    wait_ms = _elapsedms(started)
+    if wait_ms >= timeout_ms then do; admission_id = ""; error = "provider admission timed out while respecting configured request, token, or concurrency limits"; return -2; end
+    delay_ms = 50
+    if timeout_ms - wait_ms < delay_ms then delay_ms = timeout_ms - wait_ms
+    if delay_ms > 0 then call rxplatform..sleep delay_ms
+  end
+
+releaseprovidercall: procedure = .int
+  arg store = .ragstorehandle, admission_id = .string, actual_tokens = .int, outcome = .string, expose error = .string
+  error = ""
+  if store.writable() \= 1 | admission_id = "" | actual_tokens < 0 | (outcome \= "succeeded" & outcome \= "failed") then do; error = "provider admission release inputs are invalid"; return -1; end
+  database = store.database(); prepared = .binary
+  sql = "UPDATE provider_admissions SET actual_tokens=?2,outcome=?3,released_epoch=CAST(strftime('%s','now') AS INTEGER) WHERE admission_id=?1 AND outcome='active'"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare provider admission release"; return -3; end
+  binds = sqlitebindtext(prepared, 1, admission_id) | sqlitebindint(prepared, 2, actual_tokens) | sqlitebindtext(prepared, 3, outcome)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 | _scalarint(database, "SELECT changes()") \= 1 then do; error = "provider admission release lost its active lease"; return -3; end
+  return 0
+
 settlecall: procedure = .int
-  arg store = .ragstorehandle, reservation = .ragcallreservation, provider_id = .string, model = .string, request_id = .string, outcome = .string, actual_input_tokens = .int, actual_output_tokens = .int, actual_cost = .int, actual_time_ms = .int, expose provider_run_id = .string, expose error = .string, existing_provider_run_id = "", charging_basis = "monetary-api"
+  arg store = .ragstorehandle, reservation = .ragcallreservation, provider_id = .string, model = .string, request_id = .string, outcome = .string, actual_input_tokens = .int, actual_output_tokens = .int, actual_cost = .int, actual_time_ms = .int, expose provider_run_id = .string, expose error = .string, existing_provider_run_id = "", charging_basis = "monetary-api", record_provider_run = 1
   error = ""; provider_run_id = ""
-  if store.writable() \= 1 | reservation.status() \= 0 | provider_id = "" | model = "" | request_id = "" | (outcome \= "succeeded" & outcome \= "failed" & outcome \= "cancelled") | actual_input_tokens < 0 | actual_output_tokens < 0 | actual_cost < 0 | actual_time_ms < 0 then do; error = "provider settlement inputs are invalid"; return -1; end
+  if store.writable() \= 1 | reservation.status() \= 0 | provider_id = "" | model = "" | request_id = "" | (outcome \= "succeeded" & outcome \= "failed" & outcome \= "cancelled") | actual_input_tokens < 0 | actual_output_tokens < 0 | actual_cost < 0 | actual_time_ms < 0 | (record_provider_run \= 0 & record_provider_run \= 1) then do; error = "provider settlement inputs are invalid"; return -1; end
+  if record_provider_run = 0 & (actual_input_tokens \= 0 | actual_output_tokens \= 0 | actual_cost \= 0 | existing_provider_run_id \= "") then do; error = "uncalled provider settlement cannot contain provider usage"; return -1; end
   if actual_input_tokens > reservation.maximum_input_tokens() | actual_output_tokens > reservation.maximum_output_tokens() | actual_cost > reservation.maximum_cost() | actual_time_ms > reservation.maximum_time_ms() then do; error = "provider usage exceeds the admitted per-call maximum"; return -2; end
   database = store.database()
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider settlement"; return -3; end
   claim = .ragworkclaim(0, reservation.job_id(), reservation.item_id(), "", "", reservation.worker_id(), reservation.fence(), reservation.attempt_id(), 0, "")
   if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)
   if _boundeventcount(database, reservation.job_id(), "reservation-open:" || reservation.reservation_id()) \= 1 | _boundeventcount(database, reservation.job_id(), "reservation-close:" || reservation.reservation_id()) \= 0 then return _rollback(database, "provider reservation is missing or already settled", error)
-  provider_run_id = existing_provider_run_id
-  if provider_run_id = "" then provider_run_id = "provider-run-sha256:" || rxhash..sha256hex((reservation.reservation_id() || "00"x || provider_id || "00"x || model || "00"x || request_id) as .binary)
-  config_snapshot = _boundscalartext(database, "SELECT config_snapshot_id FROM jobs WHERE job_id=?1", reservation.job_id())
-  prepared = .binary; binds = 0
-  if existing_provider_run_id = "" then do
+  if record_provider_run = 1 then do
+    provider_run_id = existing_provider_run_id
+    if provider_run_id = "" then provider_run_id = "provider-run-sha256:" || rxhash..sha256hex((reservation.reservation_id() || "00"x || provider_id || "00"x || model || "00"x || request_id) as .binary)
+    config_snapshot = _boundscalartext(database, "SELECT config_snapshot_id FROM jobs WHERE job_id=?1", reservation.job_id())
+    prepared = .binary; binds = 0
+    if existing_provider_run_id = "" then do
     sql = "INSERT INTO provider_runs(provider_run_id,config_snapshot_id,provider_id,model,request_hash,outcome,input_tokens,output_tokens,duration_ms,started_at,completed_at,charging_basis) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'),?10)"
     if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare provider run", error)
     request_hash = rxhash..sha256hex((provider_id || "00"x || model || "00"x || request_id || "00"x || reservation.attempt_id()) as .binary)
     binds = sqlitebindtext(prepared, 1, provider_run_id) | sqlitebindtext(prepared, 2, config_snapshot) | sqlitebindtext(prepared, 3, provider_id) | sqlitebindtext(prepared, 4, model) | sqlitebindtext(prepared, 5, request_hash) | sqlitebindtext(prepared, 6, outcome) | sqlitebindint(prepared, 7, actual_input_tokens) | sqlitebindint(prepared, 8, actual_output_tokens) | sqlitebindint(prepared, 9, actual_time_ms) | sqlitebindtext(prepared, 10, charging_basis)
+    end
+    else do
+      sql = "UPDATE provider_runs SET outcome=?4,input_tokens=?5,output_tokens=?6,duration_ms=?7,recovery_json='',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE provider_run_id=?1 AND provider_id=?2 AND model=?3 AND outcome IN('starting','running','completed-unsettled')"
+      if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare durable provider run settlement", error)
+      binds = sqlitebindtext(prepared, 1, provider_run_id) | sqlitebindtext(prepared, 2, provider_id) | sqlitebindtext(prepared, 3, model) | sqlitebindtext(prepared, 4, outcome) | sqlitebindint(prepared, 5, actual_input_tokens) | sqlitebindint(prepared, 6, actual_output_tokens) | sqlitebindint(prepared, 7, actual_time_ms)
+    end
+    step = sqlitestep(prepared); call sqlitefinalize prepared
+    if binds \= 0 | step \= 101 | (existing_provider_run_id \= "" & _scalarint(database, "SELECT changes()") \= 1) then return _rollback(database, "cannot persist provider run settlement", error)
+    prepared = .binary
+    sql = "UPDATE attempts SET provider_run_id=?1 WHERE attempt_id=?2 AND item_id=?3 AND worker_id=?4 AND fence=?5 AND outcome='running'"
+    if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare attempt provider link", error)
+    binds = sqlitebindtext(prepared, 1, provider_run_id) | sqlitebindtext(prepared, 2, reservation.attempt_id()) | sqlitebindtext(prepared, 3, reservation.item_id()) | sqlitebindtext(prepared, 4, reservation.worker_id()) | sqlitebindint(prepared, 5, reservation.fence())
+    step = sqlitestep(prepared); call sqlitefinalize prepared
+    if binds \= 0 | step \= 101 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "cannot link provider run to current attempt", error)
   end
-  else do
-    sql = "UPDATE provider_runs SET outcome=?4,input_tokens=?5,output_tokens=?6,duration_ms=?7,recovery_json='',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE provider_run_id=?1 AND provider_id=?2 AND model=?3 AND outcome IN('starting','running','completed-unsettled')"
-    if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare durable provider run settlement", error)
-    binds = sqlitebindtext(prepared, 1, provider_run_id) | sqlitebindtext(prepared, 2, provider_id) | sqlitebindtext(prepared, 3, model) | sqlitebindtext(prepared, 4, outcome) | sqlitebindint(prepared, 5, actual_input_tokens) | sqlitebindint(prepared, 6, actual_output_tokens) | sqlitebindint(prepared, 7, actual_time_ms)
-  end
-  step = sqlitestep(prepared); call sqlitefinalize prepared
-  if binds \= 0 | step \= 101 | (existing_provider_run_id \= "" & _scalarint(database, "SELECT changes()") \= 1) then return _rollback(database, "cannot persist provider run settlement", error)
-  prepared = .binary
-  sql = "UPDATE attempts SET provider_run_id=?1 WHERE attempt_id=?2 AND item_id=?3 AND worker_id=?4 AND fence=?5 AND outcome='running'"
-  if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare attempt provider link", error)
-  binds = sqlitebindtext(prepared, 1, provider_run_id) | sqlitebindtext(prepared, 2, reservation.attempt_id()) | sqlitebindtext(prepared, 3, reservation.item_id()) | sqlitebindtext(prepared, 4, reservation.worker_id()) | sqlitebindint(prepared, 5, reservation.fence())
-  step = sqlitestep(prepared); call sqlitefinalize prepared
-  if binds \= 0 | step \= 101 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "cannot link provider run to current attempt", error)
   message = "{" || jsonquote("reservation_id") || ":" || jsonquote(reservation.reservation_id()) || "," || jsonquote("input") || ":" || (-reservation.reserved_input_tokens()) || "," || jsonquote("output") || ":" || (-reservation.reserved_output_tokens()) || "," || jsonquote("cost") || ":" || (-reservation.reserved_cost()) || "," || jsonquote("time") || ":" || (-reservation.reserved_time_ms()) || "," || jsonquote("actual_cost") || ":" || actual_cost || "," || jsonquote("codex_turn") || ":" || (-reservation.codex_turn()) || "}"
   if _event(database, reservation.job_id(), reservation.item_id(), reservation.attempt_id(), "reservation-close:" || reservation.reservation_id(), message) \= 0 then return _rollback(database, "cannot close provider reservation", error)
   sql = "UPDATE jobs SET reserved_calls=reserved_calls-1,reserved_tokens=reserved_tokens-" || (reservation.reserved_input_tokens() + reservation.reserved_output_tokens()) || ",reserved_cost=reserved_cost-" || reservation.reserved_cost() || ",reserved_codex_turns=reserved_codex_turns-" || reservation.codex_turn() || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(reservation.job_id()) || " AND reserved_calls>0 AND reserved_tokens>=" || (reservation.reserved_input_tokens() + reservation.reserved_output_tokens()) || " AND reserved_cost>=" || reservation.reserved_cost() || " AND reserved_codex_turns>=" || reservation.codex_turn()
@@ -711,7 +778,7 @@ retrydeadletter: procedure = .int
   if store.writable() \= 1 | job_id = "" | item_id = "" | reason = "" | length(reason) > 256 then do; error = "dead-letter retry inputs are invalid"; return -1; end
   database = store.database()
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin dead-letter retry"; return -3; end
-  if _boundcount(database, "SELECT count(*) FROM jobs WHERE job_id=?1 AND state='completed_with_errors'", job_id) \= 1 then return _rollback(database, "job is not eligible for dead-letter retry", error)
+  if _boundcount(database, "SELECT count(*) FROM jobs WHERE job_id=?1 AND state IN('completed_with_errors','queued')", job_id) \= 1 then return _rollback(database, "job is not eligible for dead-letter retry", error)
   if _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND item_id=" || _q(item_id) || " AND state='dead_letter'", job_id) \= 1 then return _rollback(database, "dead-letter item is unavailable", error)
   if _boundscalarint(database, "SELECT reserved_calls+reserved_tokens+reserved_cost FROM jobs WHERE job_id=?1", job_id) \= 0 | _reservationdelta(database, job_id, "input") \= 0 | _reservationdelta(database, job_id, "output") \= 0 | _reservationdelta(database, job_id, "cost") \= 0 | _reservationdelta(database, job_id, "time") \= 0 then return _rollback(database, "job has outstanding provider reservations", error)
   sql = "UPDATE job_items SET state='queued',worker_id=NULL,lease_until=NULL,retry_at=CAST(strftime('%s','now') AS INTEGER),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id) || " AND item_id=" || _q(item_id) || " AND state='dead_letter'"
@@ -720,6 +787,62 @@ retrydeadletter: procedure = .int
   if sqliteexec(database, "UPDATE jobs SET state='queued',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id)) \= 0 then return _rollback(database, "cannot reopen retried job", error)
   if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit dead-letter retry", error)
   retried = 1
+  return 0
+
+replaydeadletters: procedure = .int
+  arg store = .ragstorehandle, source_job_id = .string, source_item_id = .string, target_config_snapshot_id = .string, reason = .string, item_budget = .int, model_call_budget = .int, input_token_budget = .int, output_token_budget = .int, cost_budget = .int, codex_turn_budget = .int, expose replay_job_id = .string, expose replayed = .int, expose error = .string
+  replay_job_id = ""; replayed = 0; error = ""
+  if store.writable() \= 1 | source_job_id = "" | target_config_snapshot_id = "" | reason = "" | length(reason) > 256 | item_budget < 1 | model_call_budget < 1 | input_token_budget < 0 | output_token_budget < 0 | cost_budget < 0 | codex_turn_budget < 0 then do; error = "dead-letter replay inputs are invalid"; return -1; end
+  database = store.database()
+  if _boundcount(database, "SELECT count(*) FROM jobs WHERE job_id=?1 AND state='completed_with_errors'", source_job_id) \= 1 then do; error = "source job must be terminal with explicit dead letters"; return -2; end
+  source_snapshot = _boundscalartext(database, "SELECT config_snapshot_id FROM jobs WHERE job_id=?1", source_job_id)
+  if source_snapshot = "" then do; error = "source job configuration snapshot is unavailable"; return -2; end
+  compatibility = _scalarint(database, "SELECT count(*) FROM config_snapshots s JOIN config_snapshots t ON t.config_snapshot_id=" || _q(target_config_snapshot_id) || " WHERE s.config_snapshot_id=" || _q(source_snapshot) || " AND (s.semantic_hash=t.semantic_hash OR (s.semantic_hash='' AND EXISTS(SELECT 1 FROM config_change_events e WHERE e.source_config_snapshot_id=s.config_snapshot_id AND e.target_config_snapshot_id=t.config_snapshot_id AND e.classification='identity-upgrade')))")
+  if compatibility \= 1 then do; error = "replay target is not semantically compatible with the source job"; return -2; end
+  selector = ""
+  if source_item_id \= "" then selector = " AND item_id=" || _q(source_item_id)
+  selected = _scalarint(database, "SELECT count(*) FROM job_items WHERE job_id=" || _q(source_job_id) || " AND state='dead_letter'" || selector)
+  if selected < 1 then do; error = "no matching dead-letter items are available"; return -2; end
+  if selected > item_budget | selected > model_call_budget then do; error = "replay selection exceeds the current reviewed item or model-call budget"; return -2; end
+  created_identity = time("us")
+  canonical = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.job-replay/1") || "," || jsonquote("source_job_id") || ":" || jsonquote(source_job_id) || "," || jsonquote("source_item_id") || ":" || jsonquote(source_item_id) || "," || jsonquote("source_config_snapshot_id") || ":" || jsonquote(source_snapshot) || "," || jsonquote("target_config_snapshot_id") || ":" || jsonquote(target_config_snapshot_id) || "," || jsonquote("reason") || ":" || jsonquote(reason) || "," || jsonquote("item_count") || ":" || selected || "," || jsonquote("created_identity") || ":" || created_identity || "}"
+  digest = rxhash..sha256hex(canonical as .binary); replay_job_id = "job-replay-sha256:" || digest
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin dead-letter replay"; return -3; end
+  if _scalarint(database, "SELECT count(*) FROM library_config_state WHERE singleton=1 AND current_config_snapshot_id=" || _q(target_config_snapshot_id)) \= 1 then return _rollback(database, "replay target configuration is no longer current", error)
+  if _boundcount(database, "SELECT count(*) FROM jobs WHERE job_id=?1 AND state='completed_with_errors'", source_job_id) \= 1 then return _rollback(database, "source job changed before replay", error)
+  current_selected = _scalarint(database, "SELECT count(*) FROM job_items WHERE job_id=" || _q(source_job_id) || " AND state='dead_letter'" || selector)
+  if current_selected \= selected then return _rollback(database, "dead-letter selection changed before replay", error)
+  sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,codex_turn_budget,created_at,updated_at) VALUES(" || _q(replay_job_id) || "," || _q(digest) || "," || _q(canonical) || "," || _q(target_config_snapshot_id) || ",'queued'," || selected || "," || model_call_budget || "," || input_token_budget || "," || output_token_budget || "," || cost_budget || "," || codex_turn_budget || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot create replay job", error)
+  sql = "INSERT INTO job_replays(replay_job_id,source_job_id,source_config_snapshot_id,target_config_snapshot_id,reason,created_at) VALUES(" || _q(replay_job_id) || "," || _q(source_job_id) || "," || _q(source_snapshot) || "," || _q(target_config_snapshot_id) || "," || _q(reason) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot persist replay lineage", error)
+  prepared = .binary
+  sql = "SELECT item_id,item_type,priority,json_set(input_json,'$.config_snapshot_id',?2) FROM job_items WHERE job_id=?1 AND state='dead_letter'"
+  if source_item_id \= "" then sql = sql || " AND item_id=?3"
+  sql = sql || " ORDER BY priority DESC,item_id"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, source_job_id) \= 0 | sqlitebindtext(prepared, 2, target_config_snapshot_id) \= 0 then do; call sqlitefinalize prepared; return _rollback(database, "cannot prepare replay items", error); end
+  if source_item_id \= "" then do
+    if sqlitebindtext(prepared, 3, source_item_id) \= 0 then do; call sqlitefinalize prepared; return _rollback(database, "cannot bind replay item", error); end
+  end
+  do forever
+    step = sqlitestep(prepared)
+    if step = 101 then leave
+    if step \= 100 then do; call sqlitefinalize prepared; return _rollback(database, "cannot read replay items", error); end
+    item_id = ""; item_type = ""; priority = 0; input_json = ""
+    columns = sqlitecolumntext(prepared, 0, item_id) | sqlitecolumntext(prepared, 1, item_type) | sqlitecolumnint(prepared, 2, priority) | sqlitecolumntext(prepared, 3, input_json)
+    input_document = .jsondocument(input_json)
+    if columns \= 0 | input_document.valid() \= 1 | input_document.node_type(input_document.root()) \= "object" then do; call sqlitefinalize prepared; return _rollback(database, "source replay input is invalid", error); end
+    replay_input = input_json
+    replay_item_id = "item-replay-sha256:" || rxhash..sha256hex((replay_job_id || "00"x || item_id) as .binary)
+    idempotency = "replay-sha256:" || rxhash..sha256hex((replay_item_id || "00"x || target_config_snapshot_id) as .binary)
+    input_hash = rxhash..sha256hex(replay_input as .binary)
+    insert_sql = "INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES(" || _q(replay_item_id) || "," || _q(replay_job_id) || "," || _q(item_type) || ",'queued'," || priority || "," || _q(idempotency) || "," || _q(input_hash) || "," || _q(replay_input) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+    if sqliteexec(database, insert_sql) \= 0 | sqliteexec(database, "INSERT INTO job_replay_items(replay_job_id,source_item_id,replay_item_id) VALUES(" || _q(replay_job_id) || "," || _q(item_id) || "," || _q(replay_item_id) || ")") \= 0 then do; call sqlitefinalize prepared; return _rollback(database, "cannot persist replay item and lineage", error); end
+    replayed = replayed + 1
+  end
+  call sqlitefinalize prepared
+  if replayed \= selected | _event(database, replay_job_id, "", "", "replay-created", "source_job=" || source_job_id || "; reason=" || reason) \= 0 then return _rollback(database, "replay item count or audit event is inconsistent", error)
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit dead-letter replay", error)
   return 0
 
 readjobstatus: procedure = .int
@@ -769,10 +892,12 @@ runworkeronce: procedure = .int
   provider_run_id = ""
   provider_outcome = "failed"
   if provider_result.ok() = 1 then provider_outcome = "succeeded"
-  settlement = settlecall(store, reservation, provider_result.provider_id(), provider_result.model(), provider_result.request_id(), provider_outcome, provider_result.input_tokens(), provider_result.output_tokens(), provider_result.cost(), provider_result.duration_ms(), provider_run_id, error, provider_result.provider_run_id(), provider_result.charging_basis())
+  settlement = settlecall(store, reservation, provider_result.provider_id(), provider_result.model(), provider_result.request_id(), provider_outcome, provider_result.input_tokens(), provider_result.output_tokens(), provider_result.cost(), provider_result.duration_ms(), provider_run_id, error, provider_result.provider_run_id(), provider_result.charging_basis(), provider_result.provider_called())
   if settlement \= 0 then do; disposition = "settlement-failed"; return settlement; end
   if provider_result.ok() \= 1 then do
-    if failattempt(store, claim, provider_result.retryable(), 1, maximum_attempts, provider_result.error(), error) \= 0 then do; disposition = "failure-recording-failed"; return -3; end
+    retry_seconds = (provider_result.retry_delay_ms() + 999) % 1000
+    if retry_seconds < 1 then retry_seconds = 1
+    if failattempt(store, claim, provider_result.retryable(), retry_seconds, maximum_attempts, provider_result.error(), error) \= 0 then do; disposition = "failure-recording-failed"; return -3; end
     disposition = "retry-or-dead-letter"
     return 0
   end
@@ -1073,6 +1198,12 @@ _reservationdelta: procedure = .int
   if status \= 0 then return -1
   return value
 
+_elapsedms: procedure = .int
+  arg started = .int
+  elapsed = time("us") - started
+  if elapsed < 0 then elapsed = elapsed + 86400000000
+  return elapsed % 1000
+
 _boundevent: procedure = .string
   arg database = .binary, job_id = .string, event_type = .string
   prepared = .binary
@@ -1092,11 +1223,13 @@ _boundeventcount: procedure = .int
 
 _refreshjob: procedure = .int
   arg database = .binary, job_id = .string
-  active = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state IN('queued','running','cancel_requested')", job_id)
-  dead = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='dead_letter'", job_id)
-  cancelled = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='cancelled'", job_id)
-  if active < 0 | dead < 0 | cancelled < 0 then return -1
-  if active > 0 then state = "running"
+  current = _boundscalartext(database, "SELECT state FROM jobs WHERE job_id=?1", job_id)
+  active = _boundcount(database, "SELECT EXISTS(SELECT 1 FROM job_items WHERE job_id=?1 AND state IN('queued','running','cancel_requested') LIMIT 1)", job_id)
+  dead = _boundcount(database, "SELECT EXISTS(SELECT 1 FROM job_items WHERE job_id=?1 AND state='dead_letter' LIMIT 1)", job_id)
+  cancelled = _boundcount(database, "SELECT EXISTS(SELECT 1 FROM job_items WHERE job_id=?1 AND state='cancelled' LIMIT 1)", job_id)
+  if current = "" | active < 0 | dead < 0 | cancelled < 0 then return -1
+  if active > 0 & (current = "paused" | current = "cancel_requested") then state = current
+  else if active > 0 then state = "running"
   else if dead > 0 then state = "completed_with_errors"
   else if cancelled > 0 then state = "cancelled"
   else state = "completed"

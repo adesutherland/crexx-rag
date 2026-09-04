@@ -277,7 +277,9 @@ validcommandresult: procedure = .int
       end
       value_type = fields[j].value_type(); value = fields[j].value()
       if value_type = "string" then do
-        if length(value) > 65535 then return _invalidresult("string field is too long", error)
+        maximum_length = 65535
+        if fields[j].name() = "canonical_plan" | fields[j].name() = "maintenance_plan" then maximum_length = 16777216
+        if length(value) > maximum_length then return _invalidresult("string field is too long", error)
       end
       else if value_type = "integer" then do
         if _canonicalinteger(value) \= 1 then return _invalidresult("integer field is not canonical", error)
@@ -400,12 +402,13 @@ _addaccess: procedure = .int
 
 _validoperation: procedure = .int
   arg noun = .string, verb = .string
-  if noun = "library" then return pos(" " || verb || " ", " init status verify backup restore migrate ") > 0
+  if noun = "library" then return pos(" " || verb || " ", " init status report snapshot trend verify backup restore migrate ") > 0
+  if noun = "config" then return pos(" " || verb || " ", " check explain diff plan apply ") > 0
   if noun = "provider" then return pos(" " || verb || " ", " list status test ") > 0
   if noun = "profile" then return pos(" " || verb || " ", " list show validate ") > 0
   if noun = "source" then return pos(" " || verb || " ", " list show ") > 0
   if noun = "ingest" then return pos(" " || verb || " ", " plan apply ") > 0
-  if noun = "job" then return pos(" " || verb || " ", " list status events pause resume cancel retry ") > 0
+  if noun = "job" then return pos(" " || verb || " ", " list status events pause resume cancel retry replay ") > 0
   if noun = "worker" then return pos(" " || verb || " ", " start run list status drain prune ") > 0
   if noun = "query" then return pos(" " || verb || " ", " search evidence answer trace timeline path ") > 0
   if noun = "maintain" then return pos(" " || verb || " ", " plan apply status inspect ") > 0
@@ -417,6 +420,7 @@ _validoperation: procedure = .int
 _requireslibrary: procedure = .int
   arg noun = .string, verb = .string
   if noun = "doctor" | noun = "provider" | noun = "profile" then return 0
+  if noun = "config" & (verb = "check" | verb = "explain") then return 0
   if noun = "library" & verb = "restore" then return 0
   return 1
 

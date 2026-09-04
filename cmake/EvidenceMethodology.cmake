@@ -7,7 +7,10 @@ endforeach()
 
 file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
-set(imports "${CPRAG_WORK_DIR};${CPRAG_APPLICATION_DIR};${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
+file(GLOB project_member_dirs LIST_DIRECTORIES true
+    "${CPRAG_APPLICATION_DIR}/project/crexxrag-project.crexx-build/members/*")
+list(JOIN project_member_dirs ";" project_imports)
+set(imports "${CPRAG_WORK_DIR};${project_imports};${CPRAG_APPLICATION_DIR};${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
 set(modules
     ragmodel ragevidence ragjob ragconfig ragprofile ragregistry ragschema
     ragfile ragconfigfile ragglossary ragstore ragbackup ragrepository ragcanonical ragplanning
@@ -44,11 +47,11 @@ foreach(runtime_name IN ITEMS rxvme rxbvm)
         -a "${library}"
         RESULT_VARIABLE run_result OUTPUT_VARIABLE run_out ERROR_VARIABLE run_err TIMEOUT 120)
     if(NOT run_result EQUAL 0 OR NOT run_out MATCHES
-            "EVIDENCE_METHODOLOGY_OK graph=outbound\\+inbound\\+both stored_direction=preserved inverse_claims=0 co_mentions=analysis-leads notes=durable\\+cited\\+analysis-only query_gaps=repeated")
+            "EVIDENCE_METHODOLOGY_OK graph=outbound\\+inbound\\+both stored_direction=preserved inverse_claims=0 co_mentions=analysis-leads notes=durable\\+cited\\+analysis-only query_plans=quoted\\+frequency\\+fair query_gaps=repeated")
         message(FATAL_ERROR "${runtime_name} evidence methodology scenario failed:\n${run_out}${run_err}")
     endif()
 endforeach()
 
 file(WRITE "${CPRAG_WORK_DIR}/result.txt"
-    "Directed outbound/inbound/both graph retrieval, stored direction, non-claim co-mention leads, durable cited notes, analysis-only serialization, and repeated query gaps passed on rxvme and rxbvm.\n")
-message(STATUS "Evidence methodology passed all graph, lead, note, citation, and gap assertions on both VMs")
+    "Directed graph retrieval, stored direction, query-plan ordering, source diversity, durable cited notes, analysis-only serialization, and repeated query gaps passed on rxvme and rxbvm.\n")
+message(STATUS "Evidence methodology passed graph, query-plan, lead, note, citation, and gap assertions on both VMs")

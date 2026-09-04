@@ -1314,7 +1314,7 @@ _queuework: procedure = .int
   codex_turn_budget = 0
   time_budget_ms = 0; maximum_call_input = 0; maximum_call_output = 0; maximum_call_cost = 0; maximum_call_time = 0; maximum_inflight = 1; maximum_attempts = 1
   embedding_input_caps = .int[]; embedding_cost_cap = 0; embedding_time_cap = 0
-  extraction_input_cap = 0; extraction_output_cap = 0; extraction_cost_cap = 0; extraction_time_cap = 0
+  extraction_input_cap = 0; extraction_output_cap = 0; extraction_cost_cap = 0; extraction_time_cap = 0; candidate_limit = 100000
   if configured = 1 then do
     privacy = _sourceprivacy(config, plan.source_scope())
     extractor_id = _roleproviderid(config, "extractor"); embedding_id = _roleproviderid(config, "embedding")
@@ -1324,6 +1324,7 @@ _queuework: procedure = .int
     prompt_version = _promptversion(profile, "extractor")
     if prompt_version = "" then do; error = "configured extraction prompt is unavailable"; return -1; end
     profile_id = profile.profile_id()
+    candidate_limit = config.discovery().max_mentions()
     budget = config.budget(); workers = config.workers()
     model_call_budget = budget.model_calls(); input_budget = budget.input_tokens(); output_budget = budget.output_tokens(); cost_budget = budget.cost_microunits(); codex_turn_budget = budget.codex_turns()
     time_budget_ms = budget.minutes() * 60000; maximum_inflight = workers.processes() * workers.max_in_flight(); maximum_attempts = _maximumproviderattempts(config)
@@ -1395,7 +1396,7 @@ _queuework: procedure = .int
       else do; provider_id = extractor_id; model = extractor_model; role = "extractor"; end
       charging_basis = "monetary-api"
       if configured = 1 then charging_basis = _providerchargingbasis(config, provider_id)
-      candidates_json = _candidatecatalog(database, chunk_ids[i], generation, error)
+      candidates_json = _candidatecatalog(database, chunk_ids[i], generation, candidate_limit, error)
       if error \= "" then return -1
       item_input_cap = maximum_call_input; item_output_cap = maximum_call_output; item_cost_cap = maximum_call_cost; item_time_cap = maximum_call_time
       if configured = 1 then do
@@ -1436,10 +1437,10 @@ _queuework: procedure = .int
   return 0
 
 _candidatecatalog: procedure = .string
-  arg database = .binary, chunk_id = .string, generation = .int, expose error = .string
+  arg database = .binary, chunk_id = .string, generation = .int, maximum_candidates = .int, expose error = .string
   prepared = .binary; output = ""; error = ""
-  sql = "SELECT c.candidate_id,c.normalized_candidate,c.span_start,c.span_end,d.evidence_json FROM candidate_mentions c JOIN candidate_decisions d ON d.candidate_id=c.candidate_id AND d.state='accepted' WHERE c.revision_chunk_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) ORDER BY c.candidate_id"
-  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, chunk_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare work candidate catalog"; return ""; end
+  sql = "SELECT c.candidate_id,c.normalized_candidate,c.span_start,c.span_end,d.evidence_json FROM candidate_mentions c JOIN candidate_decisions d ON d.candidate_id=c.candidate_id AND d.state='accepted' WHERE c.revision_chunk_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) ORDER BY c.span_start,c.span_end,c.candidate_id LIMIT ?3"
+  if maximum_candidates < 1 | sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, chunk_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 | sqlitebindint(prepared, 3, maximum_candidates) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare work candidate catalog"; return ""; end
   do forever
     step = sqlitestep(prepared)
     if step = 101 then leave

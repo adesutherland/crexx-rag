@@ -26,6 +26,15 @@ main: procedure = .int
   fields_node = status_document.member(record_node, "fields")
   if status_document.node_string(status_document.member(fields_node, "library_id"), library_id) \= 0 then return 13
   clear lines
+  address RAG "LIBRARY REPORT --top 3" output lines
+  if rc \= 0 | lines.0 \= 1 | pos('"operation":"library.report"', lines[1]) = 0 | pos('"schema":"crexx-rag.library-report/1"', lines[1]) = 0 | pos('"provider_calls":0', lines[1]) = 0 then return 22
+  clear lines
+  address RAG "LIBRARY TREND --limit 5" output lines
+  if rc \= 0 | lines.0 \= 1 | pos('"operation":"library.trend"', lines[1]) = 0 | pos('"state":"no-observations"', lines[1]) = 0 then return 23
+  clear lines
+  address RAG "LIBRARY SNAPSHOT --trigger manual --reason denied" output lines
+  if rc \= 4 then return 24
+  clear lines
   address RAG "MAINTAIN PLAN" output lines
   if rc \= 0 | lines.0 \= 1 | pos('"operation":"maintain.plan"', lines[1]) = 0 | pos('"maintenance_digest":', lines[1]) = 0 then return 20
   clear lines
@@ -51,5 +60,5 @@ main: procedure = .int
   clear lines
   address RAG "LIBRARY CLOSE" output lines
   if rc \= 0 | lines.0 \= 1 then return 19
-  say "ADDRESS_SURFACE_OK library_id=" || library_id || " maintenance=plan maintenance_apply=denied access_denial=ingest config_file=bound failed_open=atomic"
+  say "ADDRESS_SURFACE_OK library_id=" || library_id || " report=deterministic trend=empty snapshot=denied maintenance=plan maintenance_apply=denied access_denial=ingest config_file=bound failed_open=atomic"
   return 0

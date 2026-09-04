@@ -92,6 +92,16 @@ call the configured embedding provider, and `rag_query_answer` may call the
 answerer. Use `rag_query_evidence` with `mode: lexical` when the task must make
 no outbound provider call.
 
+Read access also advertises `rag_config_check`, `rag_config_explain`, and
+`rag_config_diff`; all three make zero provider calls and never resolve a
+credential value. Plan access adds `rag_config_plan`, admin access adds
+`rag_config_apply`, and control access adds `rag_job_replay`. Configuration
+apply accepts only the exact canonical JSON and digest returned by planning.
+Replay creates new current-config work and preserves its terminal source job
+and item lineage. These are ordinary MCP/CLI operations over the format-2 text
+configuration; an agent does not need permission to edit cREXX or use
+RexxScript.
+
 ## Configure the Codex skills
 
 The installation provides four skill sources:
@@ -171,7 +181,9 @@ default_tools_approval_mode = "writes"
 It can create a canonical zero-write plan but cannot apply it. If an agent is
 explicitly authorized to apply ingestion, configure a separate server with
 `--access read,ingest`. For maintenance and review decisions, use a separately
-enabled `--access read,curate` server. Leave mutation servers disabled or absent
+enabled `--access read,curate` server. Configuration transitions require a
+separate `--access read,plan,admin` server, and immutable dead-letter replay
+requires `--access read,control`. Leave mutation servers disabled or absent
 unless the workflow genuinely needs them.
 
 Apply always requires the exact `canonical_plan` bytes and digest returned by

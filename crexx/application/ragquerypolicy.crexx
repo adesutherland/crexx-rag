@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragquerypolicy expose queryrouteallowed querypreflight queryusagewithin
+namespace ragquerypolicy expose queryrouteallowed querypreflight queryansweroutputlimit queryusagewithin
 
 import ragconfig
 import provider_contract
@@ -27,19 +27,29 @@ querypreflight: procedure = .int
   if monetary_routes > 0 & budget.cost_microunits() < 1 then do; error = "monetary query providers require a positive configured cost ceiling"; return -1; end
   if planned_calls > 0 & budget.input_tokens() < 1 then do; error = "query providers require a positive configured input-token ceiling"; return -1; end
   if answer_planned = 1 & budget.output_tokens() < 1 then do; error = "query answer requires a positive configured output-token ceiling"; return -1; end
+  maximum_input = 0
+  if planned_calls > 0 then maximum_input = budget.input_tokens() / planned_calls
+  if maximum_input > 65536 then maximum_input = 65536
+  maximum_output = queryansweroutputlimit(budget)
   maximum_cost = 0
   if embedding_planned = 1 & embedding_provider.charging_basis() = "monetary-api" then do
-    route_cost = estimatecostmicrounits(_backend(embedding_provider.kind()), embedding_provider.model(), budget.input_tokens(), 0)
+    route_cost = estimatecostmicrounits(_backend(embedding_provider.kind()), embedding_provider.model(), maximum_input, 0)
     if route_cost < 0 then do; error = "query embedding monetary pricing is unavailable"; return -1; end
     maximum_cost = maximum_cost + route_cost * embedding_provider.max_attempts()
   end
   if answer_planned = 1 & answer_provider.charging_basis() = "monetary-api" then do
-    route_cost = estimatecostmicrounits(_backend(answer_provider.kind()), answer_provider.model(), budget.input_tokens(), budget.output_tokens())
+    route_cost = estimatecostmicrounits(_backend(answer_provider.kind()), answer_provider.model(), maximum_input, maximum_output)
     if route_cost < 0 then do; error = "query answer monetary pricing is unavailable"; return -1; end
     maximum_cost = maximum_cost + route_cost * answer_provider.max_attempts()
   end
   if maximum_cost > budget.cost_microunits() then do; error = "worst-case query monetary usage exceeds the configured cost ceiling"; return -1; end
   return 0
+
+queryansweroutputlimit: procedure = .int
+  arg budget = .ragbudget
+  maximum = budget.output_tokens()
+  if maximum > 1024 then maximum = 1024
+  return maximum
 
 queryusagewithin: procedure = .int
   arg budget = .ragbudget, embedding_provider = .ragproviderconfig, embedding_usage = .providerusage, embedding_called = .int, answer_provider = .ragproviderconfig, answer_usage = .providerusage, answer_called = .int

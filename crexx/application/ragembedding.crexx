@@ -213,7 +213,7 @@ buildannvectorgeneration: procedure = .int
   if invalid \= 0 then do; error = "active embeddings contain an incompatible dimension or byte count"; return -2; end
   rows = _scalarint(store.database(), "SELECT count(*) FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE e.embedding_profile_id=" || _q(embedding_profile_id) || " AND rce.visible_from_generation<=" || generation || " AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>" || generation || ") AND rc.visible_from_generation<=" || generation || " AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>" || generation || ")")
   active_chunks = _scalarint(store.database(), "SELECT count(*) FROM revision_chunks WHERE visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ")")
-  if rows < 1 | rows > maximum_rows | rows \= active_chunks then do; error = "compatible embedding coverage must include every active chunk before ANN publication"; return -2; end
+  if rows < 1 | rows > maximum_rows then do; error = "compatible embedding coverage is unavailable or exceeds the vector publication ceiling"; return -2; end
   centroid_count = requested_centroids
   if centroid_count > rows then centroid_count = rows
   probe_count = requested_probes
@@ -402,7 +402,7 @@ _storebatch: procedure = .int
   provider_statement = .binary
   sql = "INSERT OR IGNORE INTO provider_runs(provider_run_id,config_snapshot_id,provider_id,model,request_hash,outcome,input_tokens,output_tokens,duration_ms,started_at,completed_at) VALUES(?1,?2,?3,?4,?5,'completed',?6,?7,?8,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
   if sqliteprepare(database, sql, provider_statement) \= 0 then return _rollback(database, "cannot prepare provider run", error)
-  duration_ms = (provider_output.latency_us() / 1000) as .int
+  duration_ms = provider_output.latency_us() % 1000
   bind_status = sqlitebindtext(provider_statement, 1, provider_run_id) | sqlitebindtext(provider_statement, 2, config_snapshot_id) | sqlitebindtext(provider_statement, 3, provider_id) | sqlitebindtext(provider_statement, 4, model) | sqlitebindtext(provider_statement, 5, request_hash) | sqlitebindint(provider_statement, 6, usage.input_tokens()) | sqlitebindint(provider_statement, 7, usage.output_tokens()) | sqlitebindint(provider_statement, 8, duration_ms)
   step_status = sqlitestep(provider_statement); call sqlitefinalize provider_statement
   if bind_status \= 0 | step_status \= 101 then return _rollback(database, "cannot insert provider run", error)

@@ -73,9 +73,15 @@ ragproviderconfig: class
   _credential = .ragsecretref
   _timeout_ms = .int
   _max_attempts = .int
+  _requests_per_minute = .int
+  _tokens_per_minute = .int
+  _concurrent_requests = .int
+  _initial_backoff_ms = .int
+  _maximum_backoff_ms = .int
+  _jitter_ms = .int
 
   *: factory
-    arg provider_id = .string, kind = .string, base_url = .string, model = .string, route_class = .string, privacy_policy = .string, credential = .ragsecretref, timeout_ms = .int, max_attempts = .int
+    arg provider_id = .string, kind = .string, base_url = .string, model = .string, route_class = .string, privacy_policy = .string, credential = .ragsecretref, timeout_ms = .int, max_attempts = .int, requests_per_minute = 60000, tokens_per_minute = 2000000000, concurrent_requests = 64, initial_backoff_ms = 1000, maximum_backoff_ms = 60000, jitter_ms = 250
     _provider_id = provider_id
     _kind = kind
     _base_url = base_url
@@ -85,6 +91,12 @@ ragproviderconfig: class
     _credential = credential
     _timeout_ms = timeout_ms
     _max_attempts = max_attempts
+    _requests_per_minute = requests_per_minute
+    _tokens_per_minute = tokens_per_minute
+    _concurrent_requests = concurrent_requests
+    _initial_backoff_ms = initial_backoff_ms
+    _maximum_backoff_ms = maximum_backoff_ms
+    _jitter_ms = jitter_ms
     return
 
   provider_id: method = .string
@@ -105,6 +117,18 @@ ragproviderconfig: class
     return _timeout_ms
   max_attempts: method = .int
     return _max_attempts
+  requests_per_minute: method = .int
+    return _requests_per_minute
+  tokens_per_minute: method = .int
+    return _tokens_per_minute
+  concurrent_requests: method = .int
+    return _concurrent_requests
+  initial_backoff_ms: method = .int
+    return _initial_backoff_ms
+  maximum_backoff_ms: method = .int
+    return _maximum_backoff_ms
+  jitter_ms: method = .int
+    return _jitter_ms
   charging_basis: method = .string
     if _kind = "codex" then return "subscription-allowance"
     if _route_class = "local" then return "local-compute"
@@ -437,6 +461,8 @@ validateconfig: procedure = .ragvalidationresult
     if kind = "codex" & credential.empty() \= 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "unexpected_credential", path || ".credential", "Codex App Server owns authentication and must not receive a credential reference")
     if route_class = "hosted" & kind \= "codex" & credential.empty() = 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "missing_credential", path || ".credential", "hosted provider credential reference is required")
     if provider.timeout_ms() <= 0 | provider.max_attempts() < 1 | provider.max_attempts() > 10 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_limits", path, "provider timeout and attempt limits are invalid")
+    if provider.requests_per_minute() < 1 | provider.requests_per_minute() > 60000 | provider.tokens_per_minute() < 1 | provider.tokens_per_minute() > 2000000000 | provider.concurrent_requests() < 1 | provider.concurrent_requests() > 64 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_rate", path, "provider request, token, or concurrency limits are invalid")
+    if provider.initial_backoff_ms() < 1 | provider.initial_backoff_ms() > 60000 | provider.maximum_backoff_ms() < provider.initial_backoff_ms() | provider.maximum_backoff_ms() > 600000 | provider.jitter_ms() < 0 | provider.jitter_ms() > 60000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_backoff", path, "provider retry backoff or jitter limits are invalid")
   end
 
   roles = config.roles()

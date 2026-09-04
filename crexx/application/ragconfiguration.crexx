@@ -1,0 +1,270 @@
+options levelg
+
+namespace ragconfiguration expose ragconfigidentity ragconfigdiff identifyconfig inspectconfigchange createreconfigureplan applyreconfigureplan currentconfigsnapshotid
+
+import rxfnsb
+import rxjson
+import sqlite_boundary
+import ragmodel
+import ragconfig
+import ragprofile
+import ragcanonical
+import ragstore
+
+ragconfigidentity: class
+  _snapshot_id = .string
+  _config_hash = .string
+  _semantic_hash = .string
+  _operational_hash = .string
+  _profile_hash = .string
+  _effective_json = .string
+  _legacy_hash = .string
+
+  *: factory
+    arg snapshot_id = "", config_hash = "", semantic_hash = "", operational_hash = "", profile_hash = "", effective_json = "", legacy_hash = ""
+    _snapshot_id = snapshot_id; _config_hash = config_hash; _semantic_hash = semantic_hash
+    _operational_hash = operational_hash; _profile_hash = profile_hash
+    _effective_json = effective_json; _legacy_hash = legacy_hash
+    return
+  snapshot_id: method = .string
+    return _snapshot_id
+  config_hash: method = .string
+    return _config_hash
+  semantic_hash: method = .string
+    return _semantic_hash
+  operational_hash: method = .string
+    return _operational_hash
+  profile_hash: method = .string
+    return _profile_hash
+  effective_json: method = .string
+    return _effective_json
+  legacy_hash: method = .string
+    return _legacy_hash
+
+ragconfigdiff: class
+  _classification = .string
+  _source_snapshot_id = .string
+  _target_snapshot_id = .string
+  _source_config_hash = .string
+  _target_config_hash = .string
+  _source_semantic_hash = .string
+  _target_semantic_hash = .string
+  _source_operational_hash = .string
+  _target_operational_hash = .string
+  _active_jobs = .int
+
+  *: factory
+    arg classification = "invalid", source_snapshot_id = "", target_snapshot_id = "", source_config_hash = "", target_config_hash = "", source_semantic_hash = "", target_semantic_hash = "", source_operational_hash = "", target_operational_hash = "", active_jobs = 0
+    _classification = classification; _source_snapshot_id = source_snapshot_id; _target_snapshot_id = target_snapshot_id
+    _source_config_hash = source_config_hash; _target_config_hash = target_config_hash
+    _source_semantic_hash = source_semantic_hash; _target_semantic_hash = target_semantic_hash
+    _source_operational_hash = source_operational_hash; _target_operational_hash = target_operational_hash
+    _active_jobs = active_jobs
+    return
+  classification: method = .string
+    return _classification
+  source_snapshot_id: method = .string
+    return _source_snapshot_id
+  target_snapshot_id: method = .string
+    return _target_snapshot_id
+  source_config_hash: method = .string
+    return _source_config_hash
+  target_config_hash: method = .string
+    return _target_config_hash
+  source_semantic_hash: method = .string
+    return _source_semantic_hash
+  target_semantic_hash: method = .string
+    return _target_semantic_hash
+  source_operational_hash: method = .string
+    return _source_operational_hash
+  target_operational_hash: method = .string
+    return _target_operational_hash
+  active_jobs: method = .int
+    return _active_jobs
+
+identifyconfig: procedure = .int
+  arg config = .ragconfig, profile = .ragprofile, expose identity = .ragconfigidentity, expose error = .string
+  identity = .ragconfigidentity(); error = ""
+  validation = validateconfig(config)
+  if validation.ok() \= 1 | profile.valid_identity() \= 1 then do; error = "configuration or profile identity is invalid"; return -1; end
+  config_json = canonicalconfig(config); profile_json = canonicalprofile(profile)
+  effective_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.effective-config/2") || "," || jsonquote("config") || ":" || config_json || "," || jsonquote("profile") || ":" || profile_json || "}"
+  semantic_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.semantic-binding/1") || "," || jsonquote("config") || ":" || canonicalsemanticconfig(config) || "," || jsonquote("profile") || ":" || profile_json || "}"
+  operational_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.operational-binding/1") || "," || jsonquote("config") || ":" || canonicaloperationalconfig(config) || "}"
+  config_hash = ragsha256(effective_json); semantic_hash = ragsha256(semantic_json); operational_hash = ragsha256(operational_json); profile_hash = ragsha256(profile_json)
+  legacy_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.effective-config/1") || "," || jsonquote("config") || ":" || _legacycanonicalconfig(config) || "," || jsonquote("profile") || ":" || profile_json || "}"
+  identity = .ragconfigidentity("config-" || left(config_hash, 24), config_hash, semantic_hash, operational_hash, profile_hash, effective_json, ragsha256(legacy_json))
+  return 0
+
+currentconfigsnapshotid: procedure = .string
+  arg database = .binary, expose error = .string
+  return _scalartext(database, "SELECT current_config_snapshot_id FROM library_config_state WHERE singleton=1", error)
+
+inspectconfigchange: procedure = .int
+  arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile, expose difference = .ragconfigdiff, expose error = .string
+  difference = .ragconfigdiff(); error = ""
+  if store.open() \= 1 then do; error = "configuration inspection requires an open library"; return -1; end
+  target = .ragconfigidentity
+  if identifyconfig(config, profile, target, error) \= 0 then return -1
+  values = .string[]
+  sql = "SELECT c.config_snapshot_id,c.config_hash,c.semantic_hash,c.operational_hash,c.profile_hash FROM library_config_state s JOIN config_snapshots c ON c.config_snapshot_id=s.current_config_snapshot_id WHERE s.singleton=1"
+  if _textrow(store.database(), sql, 5, values, error) \= 0 then return -2
+  active = _scalarint(store.database(), "SELECT count(*) FROM jobs WHERE state IN('queued','running','paused','cancel_requested')", error)
+  if active < 0 then return -2
+  classification = "semantic"
+  if values[2] = target.config_hash() then classification = "identical"
+  else if values[3] = "" | values[4] = "" then do
+    if values[2] = target.legacy_hash() & values[5] = target.profile_hash() then classification = "identity-upgrade"
+  end
+  else if values[3] = target.semantic_hash() then classification = "operational"
+  difference = .ragconfigdiff(classification, values[1], target.snapshot_id(), values[2], target.config_hash(), values[3], target.semantic_hash(), values[4], target.operational_hash(), active)
+  return 0
+
+createreconfigureplan: procedure = .int
+  arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile, reason = .string, expose plan = .ragplan, expose difference = .ragconfigdiff, expose error = .string
+  plan = .ragplan; difference = .ragconfigdiff(); error = ""
+  if reason = "" | length(reason) > 256 then do; error = "configuration change reason must contain 1 through 256 characters"; return -1; end
+  if inspectconfigchange(store, config, profile, difference, error) \= 0 then return -2
+  now = _scalarint(store.database(), "SELECT CAST(strftime('%s','now') AS INTEGER)", error)
+  if now < 1 then return -2
+  payload = _planjson(difference, reason, now, now + 3600)
+  plan = .ragplan("crexx-rag.reconfigure-plan/1", "config.apply", payload, ragsha256(payload), now + 3600)
+  return 0
+
+applyreconfigureplan: procedure = .int
+  arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile, plan_json = .string, expected_digest = .string, expose difference = .ragconfigdiff, expose error = .string
+  difference = .ragconfigdiff(); error = ""
+  if store.writable() \= 1 | length(plan_json) < 2 | length(plan_json) > 65535 | length(expected_digest) \= 64 | ragsha256(plan_json) \= expected_digest then do; error = "reviewed configuration plan or digest is invalid"; return -1; end
+  document = .jsondocument(plan_json)
+  if document.valid() \= 1 | document.node_type(document.root()) \= "object" | document.node_count(document.root()) \= 9 then do; error = "configuration plan must be one exact canonical object"; return -1; end
+  root = document.root(); schema = ""; classification = ""; source = ""; target = ""; reason = ""; created = 0; expires = 0; active = -1
+  if document.node_string(document.member(root, "schema"), schema) \= 0 | document.node_string(document.member(root, "classification"), classification) \= 0 | document.node_string(document.member(root, "source_config_snapshot_id"), source) \= 0 | document.node_string(document.member(root, "target_config_snapshot_id"), target) \= 0 | document.node_string(document.member(root, "reason"), reason) \= 0 | document.node_int(document.member(root, "active_jobs"), active) \= 0 | document.node_int(document.member(root, "created_at_epoch"), created) \= 0 | document.node_int(document.member(root, "expires_at_epoch"), expires) \= 0 then do; error = "configuration plan fields are missing or mistyped"; return -1; end
+  if schema \= "crexx-rag.reconfigure-plan/1" | expires - created \= 3600 then do; error = "configuration plan schema or expiry is invalid"; return -1; end
+  hash_node = document.member(root, "hashes")
+  if document.node_type(hash_node) \= "object" | document.node_count(hash_node) \= 4 then do; error = "configuration plan hashes are invalid"; return -1; end
+  source_semantic = ""; target_semantic = ""; source_operational = ""; target_operational = ""
+  if document.node_string(document.member(hash_node, "source_semantic"), source_semantic) \= 0 | document.node_string(document.member(hash_node, "target_semantic"), target_semantic) \= 0 | document.node_string(document.member(hash_node, "source_operational"), source_operational) \= 0 | document.node_string(document.member(hash_node, "target_operational"), target_operational) \= 0 then do; error = "configuration plan hashes are mistyped"; return -1; end
+  current = .ragconfigdiff
+  if inspectconfigchange(store, config, profile, current, error) \= 0 then return -2
+  if source \= current.source_snapshot_id() | target \= current.target_snapshot_id() | classification \= current.classification() | active \= current.active_jobs() | source_semantic \= current.source_semantic_hash() | target_semantic \= current.target_semantic_hash() | source_operational \= current.source_operational_hash() | target_operational \= current.target_operational_hash() | plan_json \= _planjson(current, reason, created, expires) then do; error = "library or effective configuration changed after review; plan again"; return -2; end
+  now = _scalarint(store.database(), "SELECT CAST(strftime('%s','now') AS INTEGER)", error)
+  if now >= expires then do; error = "configuration plan expired; plan again"; return -2; end
+  if active \= 0 then do; error = "configuration apply requires all active jobs to be drained or settled"; return -2; end
+  if classification = "semantic" then do; error = "semantic configuration changes require a new ingestion generation and cannot be applied as operational policy"; return -3; end
+  if classification = "identical" then do; error = "effective configuration is already current"; return -2; end
+  if classification \= "identity-upgrade" & classification \= "operational" then do; error = "configuration change classification is unsupported"; return -1; end
+  identity = .ragconfigidentity
+  if identifyconfig(config, profile, identity, error) \= 0 then return -1
+  database = store.database()
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin configuration apply"; return -2; end
+  if _scalarint(database, "SELECT count(*) FROM library_config_state WHERE singleton=1 AND current_config_snapshot_id=" || _q(current.source_snapshot_id()), error) \= 1 then return _rollback(database, "configuration state changed before apply", error)
+  if _scalarint(database, "SELECT count(*) FROM jobs WHERE state IN('queued','running','paused','cancel_requested')", error) \= 0 then return _rollback(database, "active work appeared before configuration apply", error)
+  prepared = .binary
+  sql = "INSERT OR IGNORE INTO config_snapshots(config_snapshot_id,config_id,config_version,profile_id,profile_hash,config_hash,effective_json,created_at,semantic_hash,operational_hash) VALUES(?1,?2,?3,?4,?5,?6,?7,strftime('%Y-%m-%dT%H:%M:%fZ','now'),?8,?9)"
+  if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare configuration snapshot", error)
+  bindings = sqlitebindtext(prepared, 1, identity.snapshot_id()) | sqlitebindtext(prepared, 2, config.config_id()) | sqlitebindtext(prepared, 3, config.version()) | sqlitebindtext(prepared, 4, profile.profile_id()) | sqlitebindtext(prepared, 5, identity.profile_hash()) | sqlitebindtext(prepared, 6, identity.config_hash()) | sqlitebindtext(prepared, 7, identity.effective_json()) | sqlitebindtext(prepared, 8, identity.semantic_hash()) | sqlitebindtext(prepared, 9, identity.operational_hash())
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if bindings \= 0 | step \= 101 then return _rollback(database, "cannot insert configuration snapshot", error)
+  if sqliteexec(database, "UPDATE library_config_state SET current_config_snapshot_id=" || _q(identity.snapshot_id()) || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE singleton=1 AND current_config_snapshot_id=" || _q(current.source_snapshot_id())) \= 0 | _scalarint(database, "SELECT changes()", error) \= 1 then return _rollback(database, "configuration state changed concurrently", error)
+  change_id = "config-change-sha256:" || ragsha256(plan_json)
+  prepared = .binary
+  sql = "INSERT INTO config_change_events(change_id,plan_digest,source_config_snapshot_id,target_config_snapshot_id,classification,reason,canonical_plan,created_at,applied_at) VALUES(?1,?2,?3,?4,?5,?6,?7,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare configuration audit event", error)
+  bindings = sqlitebindtext(prepared, 1, change_id) | sqlitebindtext(prepared, 2, expected_digest) | sqlitebindtext(prepared, 3, current.source_snapshot_id()) | sqlitebindtext(prepared, 4, identity.snapshot_id()) | sqlitebindtext(prepared, 5, classification) | sqlitebindtext(prepared, 6, reason) | sqlitebindtext(prepared, 7, plan_json)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if bindings \= 0 | step \= 101 then return _rollback(database, "cannot insert configuration audit event", error)
+  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit configuration apply", error)
+  difference = current
+  return 0
+
+_planjson: procedure = .string
+  arg difference = .ragconfigdiff, reason = .string, created = .int, expires = .int
+  return "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.reconfigure-plan/1") || "," || jsonquote("classification") || ":" || jsonquote(difference.classification()) || "," || jsonquote("source_config_snapshot_id") || ":" || jsonquote(difference.source_snapshot_id()) || "," || jsonquote("target_config_snapshot_id") || ":" || jsonquote(difference.target_snapshot_id()) || "," || jsonquote("hashes") || ":{" || jsonquote("source_semantic") || ":" || jsonquote(difference.source_semantic_hash()) || "," || jsonquote("target_semantic") || ":" || jsonquote(difference.target_semantic_hash()) || "," || jsonquote("source_operational") || ":" || jsonquote(difference.source_operational_hash()) || "," || jsonquote("target_operational") || ":" || jsonquote(difference.target_operational_hash()) || "}," || jsonquote("active_jobs") || ":" || difference.active_jobs() || "," || jsonquote("reason") || ":" || jsonquote(reason) || "," || jsonquote("created_at_epoch") || ":" || created || "," || jsonquote("expires_at_epoch") || ":" || expires || "}"
+
+_legacycanonicalconfig: procedure = .string
+  arg config = .ragconfig
+  output = "{" || jsonquote("config_id") || ":" || jsonquote(config.config_id()) || "," || jsonquote("version") || ":" || jsonquote(config.version()) || "," || jsonquote("source_sets") || ":["
+  sources = config.source_sets()
+  do i = 1 to sources.0
+    if i > 1 then output = output || ","
+    source = sources[i]; patterns = source.include_patterns()
+    output = output || "{" || jsonquote("id") || ":" || jsonquote(source.source_set_id()) || "," || jsonquote("connector") || ":" || jsonquote(source.connector()) || "," || jsonquote("root") || ":" || jsonquote(source.root()) || "," || jsonquote("stable_key") || ":" || jsonquote(source.stable_key()) || "," || jsonquote("privacy") || ":" || jsonquote(source.privacy()) || "," || jsonquote("retain_raw_artifact") || ":" || _boolean(source.retain_raw_artifact()) || "," || jsonquote("include_patterns") || ":["
+    do j = 1 to patterns.0
+      if j > 1 then output = output || ","
+      output = output || jsonquote(patterns[j])
+    end
+    output = output || "]}"
+  end
+  output = output || "]," || jsonquote("providers") || ":["
+  providers = config.providers()
+  do i = 1 to providers.0
+    if i > 1 then output = output || ","
+    provider = providers[i]
+    output = output || "{" || jsonquote("id") || ":" || jsonquote(provider.provider_id()) || "," || jsonquote("kind") || ":" || jsonquote(provider.kind()) || "," || jsonquote("base_url") || ":" || jsonquote(provider.base_url()) || "," || jsonquote("model") || ":" || jsonquote(provider.model()) || "," || jsonquote("route_class") || ":" || jsonquote(provider.route_class()) || "," || jsonquote("privacy_policy") || ":" || jsonquote(provider.privacy_policy()) || "," || jsonquote("charging_basis") || ":" || jsonquote(provider.charging_basis()) || "," || jsonquote("credential_ref") || ":" || jsonquote(provider.credential().ref_string()) || "," || jsonquote("timeout_ms") || ":" || provider.timeout_ms() || "," || jsonquote("max_attempts") || ":" || provider.max_attempts() || "}"
+  end
+  output = output || "]," || jsonquote("roles") || ":["
+  roles = config.roles()
+  do i = 1 to roles.0
+    if i > 1 then output = output || ","
+    output = output || "{" || jsonquote("role") || ":" || jsonquote(roles[i].role()) || "," || jsonquote("provider_id") || ":" || jsonquote(roles[i].provider_id()) || "}"
+  end
+  output = output || "]," || jsonquote("profile_ids") || ":["
+  profiles = config.profile_ids()
+  do i = 1 to profiles.0
+    if i > 1 then output = output || ","
+    output = output || jsonquote(profiles[i])
+  end
+  budget = config.budget(); workers = config.workers(); discovery = config.discovery(); vector = config.vector()
+  output = output || "]," || jsonquote("budget") || ":{" || jsonquote("minutes") || ":" || budget.minutes() || "," || jsonquote("item_limit") || ":" || budget.item_limit() || "," || jsonquote("model_calls") || ":" || budget.model_calls() || "," || jsonquote("input_tokens") || ":" || budget.input_tokens() || "," || jsonquote("output_tokens") || ":" || budget.output_tokens() || "," || jsonquote("cost_microunits") || ":" || budget.cost_microunits() || "," || jsonquote("codex_turns") || ":" || budget.codex_turns() || "," || jsonquote("minimum_codex_allowance_percent") || ":" || budget.minimum_codex_allowance_percent() || "}"
+  output = output || "," || jsonquote("workers") || ":{" || jsonquote("processes") || ":" || workers.processes() || "," || jsonquote("max_in_flight") || ":" || workers.max_in_flight() || "," || jsonquote("lease_seconds") || ":" || workers.lease_seconds() || "}"
+  output = output || "," || jsonquote("discovery") || ":{" || jsonquote("mode") || ":" || jsonquote(discovery.mode()) || "," || jsonquote("glossary_file") || ":" || jsonquote(discovery.glossary_path()) || "," || jsonquote("ranked_limit") || ":" || discovery.ranked_limit() || "," || jsonquote("max_mentions") || ":" || discovery.max_mentions() || "," || jsonquote("max_relationships") || ":" || discovery.max_relationships() || "," || jsonquote("max_notes") || ":" || discovery.max_notes() || "}"
+  output = output || "," || jsonquote("vector") || ":{" || jsonquote("algorithm") || ":" || jsonquote(vector.algorithm()) || "," || jsonquote("centroids") || ":" || vector.centroids() || "," || jsonquote("probes") || ":" || vector.probes() || "," || jsonquote("iterations") || ":" || vector.iterations() || "," || jsonquote("recall_minimum_millionths") || ":" || vector.recall_minimum_millionths() || "}," || jsonquote("schedules") || ":["
+  schedules = config.schedules()
+  do i = 1 to schedules.0
+    if i > 1 then output = output || ","
+    output = output || "{" || jsonquote("id") || ":" || jsonquote(schedules[i].schedule_id()) || "," || jsonquote("trigger") || ":" || jsonquote(schedules[i].trigger()) || "," || jsonquote("enabled") || ":" || _boolean(schedules[i].enabled()) || "}"
+  end
+  return output || "]}"
+
+_textrow: procedure = .int
+  arg database = .binary, sql = .string, count = .int, expose values = .string[], expose error = .string
+  values = .string[]; prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "cannot read current configuration state"; return -1; end
+  status = 0
+  do i = 1 to count
+    values[i] = ""; status = status | sqlitecolumntext(prepared, i - 1, values[i])
+  end
+  call sqlitefinalize prepared
+  if status \= 0 then do; error = "cannot decode current configuration state"; return -1; end
+  return 0
+
+_scalartext: procedure = .string
+  arg database = .binary, sql = .string, expose error = .string
+  prepared = .binary; value = ""
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "cannot read configuration text state"; return ""; end
+  status = sqlitecolumntext(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then do; error = "cannot decode configuration text state"; return ""; end
+  return value
+
+_scalarint: procedure = .int
+  arg database = .binary, sql = .string, expose error = .string
+  prepared = .binary; value = -1
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "cannot read configuration integer state"; return -1; end
+  status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then do; error = "cannot decode configuration integer state"; return -1; end
+  return value
+
+_rollback: procedure = .int
+  arg database = .binary, message = .string, expose error = .string
+  call sqliteexec database, "ROLLBACK"
+  if error = "" then error = message
+  return -1
+
+_q: procedure = .string
+  arg value = .string
+  return "'" || changestr("'", value, "''") || "'"
+
+_boolean: procedure = .string
+  arg value = .int
+  if value = 1 then return "true"
+  return "false"

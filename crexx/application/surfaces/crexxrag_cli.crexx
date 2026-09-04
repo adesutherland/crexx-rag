@@ -82,7 +82,15 @@ _showhelp: procedure = .int
   say "  crexxrag maintain status [RUN_ID]"
   say "  crexxrag maintain inspect ITEM_OR_NOTE_ID"
   say "  crexxrag review list"
+  say "  crexxrag --access control job replay JOB_ID [--item ITEM_ID] [--reason TEXT]"
   say "  crexxrag query QUESTION"
+  say "  crexxrag library report [--top N] [--narrative off|cached|refresh] [--yes]"
+  say "  crexxrag library snapshot [--trigger TYPE] [--reason TEXT]"
+  say "  crexxrag library trend [--limit N]"
+  say "  crexxrag config check|explain"
+  say "  crexxrag config diff"
+  say "  crexxrag --access plan config plan --reason TEXT"
+  say "  crexxrag --access admin config apply --plan-json JSON --expect-digest SHA256"
   say "  crexxrag provider status"
   say "  crexxrag provider test [PROVIDER] [--yes]"
   say "  crexxrag provider login codex"
@@ -100,7 +108,7 @@ _showhelp: procedure = .int
   say "  --access CAPABILITY       repeat or comma-separate for canonical commands"
   say ""
   say "Automation uses canonical commands such as ingest plan, ingest apply,"
-  say "worker start, job status, query evidence, query answer and library verify."
+  say "worker start, job status, library report/snapshot/trend, query evidence, query answer and library verify."
   say "Agents can use the same local defaults through crexxrag serve mcp."
   return 0
 
@@ -155,7 +163,7 @@ _guidedingest: procedure = .int
   if apply_result.exit_code() \= 0 then return apply_result.exit_code()
   items_queued = _fieldvalue(apply_result, 1, "items_queued")
   if items_queued = "" then return _clierror("render", "internal", "ingest apply did not expose its queued item count", 10)
-  if items_queued = "0" then return 0
+  if items_queued = "0" then return _guidedobservation(plan_request, registry, "ingestion", "guided ingestion completed as an identical no-op")
   job_id = _fieldvalue(apply_result, 1, "job_id")
   if job_id = "" then return _clierror("render", "internal", "ingest apply did not expose its durable job id", 10)
 
@@ -172,7 +180,9 @@ _guidedingest: procedure = .int
   status_options = .ragcommandoption[]; status_positionals = .string[]; status_positionals[1] = job_id
   status_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", "off", access, "job", "status", "job.status", status_options, status_positionals)
   status_result = dispatchproduct(status_request, registry)
-  return _showresult(status_result, "human")
+  status_code = _showresult(status_result, "human")
+  if status_code \= 0 then return status_code
+  return _guidedobservation(plan_request, registry, "ingestion", "guided ingestion workers reached their reported terminal state")
 
 _guidedmaintain: procedure = .int
   arg plan_request = .ragcommandrequest, registry = .ragregistry, worker_override = .string, auto_confirm = .int
@@ -214,7 +224,9 @@ _guidedmaintain: procedure = .int
   if items = "0" then do
     status_options = .ragcommandoption[]; status_positionals = .string[]; status_positionals[1] = run_id
     status_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", "off", access, "maintain", "status", "maintain.status", status_options, status_positionals)
-    return _showresult(dispatchproduct(status_request, registry), "human")
+    status_code = _showresult(dispatchproduct(status_request, registry), "human")
+    if status_code \= 0 then return status_code
+    return _guidedobservation(plan_request, registry, "maintenance", "guided maintenance completed without queued work")
   end
   job_id = _fieldvalue(apply_result, 1, "job_id")
   if job_id = "" then return _clierror("render", "internal", "maintenance apply did not expose its durable worker job id", 10)
@@ -232,7 +244,15 @@ _guidedmaintain: procedure = .int
   status_options = .ragcommandoption[]; status_positionals = .string[]; status_positionals[1] = run_id
   status_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", "off", access, "maintain", "status", "maintain.status", status_options, status_positionals)
   status_result = dispatchproduct(status_request, registry)
-  return _showresult(status_result, "human")
+  status_code = _showresult(status_result, "human")
+  if status_code \= 0 then return status_code
+  return _guidedobservation(plan_request, registry, "maintenance", "guided maintenance workers reached their reported terminal state")
+
+_guidedobservation: procedure = .int
+  arg request = .ragcommandrequest, registry = .ragregistry, trigger = .string, reason = .string
+  snapshot_options = .ragcommandoption[]; snapshot_options[1] = .ragcommandoption("trigger", trigger, 0); snapshot_options[2] = .ragcommandoption("reason", reason, 0); positionals = .string[]
+  snapshot_request = .ragcommandrequest(request.library(), request.config_id(), request.profile_id(), request.config_file(), "human", "off", request.access(), "library", "snapshot", "library.snapshot", snapshot_options, positionals)
+  return _showresult(dispatchproduct(snapshot_request, registry), "human")
 
 _guidedprovidertest: procedure = .int
   arg placeholder_request = .ragcommandrequest, registry = .ragregistry, provider_filter = .string, auto_confirm = .int
@@ -394,8 +414,12 @@ _maintainplansummary: procedure = .string
   provider = _roleprovider(config, "extractor"); budget = config.budget()
   items = _fieldvalue(plan_result, 2, "items_planned")
   triggers = _fieldvalue(plan_result, 2, "trigger_count")
+  cognitive = _fieldvalue(plan_result, 2, "cognitive_items")
+  calls = _fieldvalue(plan_result, 2, "work_provider_calls")
   output = "Maintenance plan"
   output = output || "0A0A"x || "  Items selected:   " || items
+  output = output || "0A"x || "  Cognitive items:  " || cognitive
+  output = output || "0A"x || "  Provider work:    " || calls || " calls"
   output = output || "0A"x || "  Triggers checked: " || triggers
   output = output || "0A"x || "  Worker processes: " || workers
   if provider.kind() = "codex" then output = output || "0A"x || "  Extraction:       Codex using your ChatGPT subscription"
@@ -645,6 +669,7 @@ _globalvalue: procedure = .string
 _requiresdefaultlibrary: procedure = .int
   arg noun = .string, verb = .string
   if noun = "" | noun = "doctor" | noun = "provider" | noun = "profile" then return 0
+  if noun = "config" & (verb = "check" | verb = "explain") then return 0
   if noun = "library" & verb = "restore" then return 0
   return 1
 

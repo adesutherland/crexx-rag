@@ -40,6 +40,12 @@ SQLite rows are the process communication mechanism. Leases, fencing,
 idempotency keys, attempts, provider runs, events, heartbeats, and requested
 worker state make recovery explicit.
 
+Dead-letter replay does not reopen or rewrite its source job. It copies one or
+all selected terminal dead letters into a new job, binds that job to the
+current semantically compatible configuration snapshot and current budgets,
+and retains job/item lineage. The earlier single-item same-job retry remains a
+compatibility operation for an operator who deliberately wants that behavior.
+
 ## Evidence and claims
 
 Sources, revisions, chunks, concepts, claims, and support use stable
@@ -49,7 +55,59 @@ explicit records rather than being flattened into an answer.
 
 Lexical, vector, and graph retrieval produce an evidence packet with stable
 citations. Optional answer generation receives only the bounded evidence
-context and must return schema-valid citations already present in that context.
+context. A supported answer must return schema-valid citations already present
+in that context. An explicitly insufficient answer returns no citations and is
+rendered as a deterministic refusal, so irrelevant retrieval cannot become an
+uncited generated claim or a false command failure.
+
+The library report uses the same trust boundary. Its deterministic core reads
+one published semantic generation and computes bounded corpus, catalogue,
+graph, support-span and top-concept data in Level-G cREXX. Current vector,
+maintenance, job and review state forms a separately digested operational
+overlay. Optional advisory generation receives only that bounded packet and
+representative source-span passages. Exact-schema and known-citation
+validation occurs before a narrative is cached or displayed; advisory output
+has no graph-mutation path.
+
+## Historic observability
+
+The detailed history remains in the existing append-only publication, job,
+item, attempt, provider-run, review and maintenance records. Historic
+observability adds bounded, immutable derived checkpoints; it does not replace
+or compact those source facts.
+
+A `library snapshot` request first generates the fixed-top-10 deterministic
+report and evaluates `churn-matrix/1` against the newest retained point. The
+matrix captures the first point, a semantic-generation change, a vector
+publication/coverage change, a health-state transition, a job transition from
+active to settled, a material work/review/dead-letter delta, or a changed
+point that has reached maximum staleness. Critical semantic, vector, health and
+settlement transitions bypass the 15-minute cooldown. Ordinary backlog churn
+must reach the larger of 25 items or five percent; review/gap churn must reach
+the larger of 10 items or five percent. The aggregate capture threshold is 50.
+
+An exact semantic-and-operational duplicate is always suppressed. A
+non-critical candidate inside the cooldown is suppressed, as is a candidate
+below the threshold. Decisions are content-addressed and repeated equivalent
+suppression checks update one decision's evaluation count instead of appending
+unbounded rows. Snapshot rows themselves are immutable in use and unique by
+the semantic/operational digest pair.
+
+The snapshot stores the generation, active vector publication, configuration
+and profile identities, deterministic report, current work backlog, historical
+dead-letter total, review/gap counts, health-attention dimensions and any
+matching validated narrative identity. A narrative created after an immutable
+snapshot is associated by the same report and operational digests rather than
+rewriting the point. `library trend` reads a bounded chronological window and
+computes signed deltas without a provider call. One point is explicitly
+`baseline-only`; direction becomes available only from the second point.
+
+Guided ingestion and maintenance request a snapshot after their reported
+terminal boundary. Their request may be captured or audited as suppressed by
+the same matrix. Canonical machine workflows call `library snapshot` explicitly
+after ingestion publication, maintenance, vector publication, replay,
+reconciliation, migration or backup. Provider calls and individual work items
+do not each create a snapshot.
 
 ## Providers
 
@@ -71,12 +129,52 @@ restricted settings and an exact output schema. External thread/turn identity
 is stored with `provider_runs` so a crash can distinguish completed work from a
 real retry.
 
+Before an HTTP provider call, workers acquire a SQLite-backed admission scoped
+by provider and model. The admission transaction accounts for requests in the
+last 60 seconds, reserved tokens in that window and currently leased calls, so
+independent worker processes share one limit. Active leases expire after the
+call timeout plus a recovery margin. A denial or timeout happens before the
+adapter is invoked and therefore creates no `provider_runs` row.
+
+Direct provider operations retry retryable connection, timeout, 408, 429 and
+5xx outcomes up to the configured attempt ceiling. Delay is exponential from
+the configured initial value, incorporates integer-second `Retry-After`, adds
+deterministic bounded jitter and never exceeds the configured maximum. Durable
+worker items use one network attempt per fenced attempt and carry the advised
+delay into the durable queue, ensuring every actual call remains separately
+accounted.
+
+## Configuration identity and change control
+
+An effective configuration has a full hash plus separate semantic and
+operational hashes. Source selection, provider/model/privacy routes, role
+bindings, discovery rules and the selected profile are semantic. Budgets,
+worker ceilings, provider timeouts/pacing/retry policy, vector-build policy and
+schedules are operational. The library retains the current configuration
+snapshot independently of the configuration that originally published each
+semantic generation, so provenance is not rewritten when operating policy
+changes.
+
+`config check` and `config explain` validate and project the effective policy
+without reading credential values. `config diff` classifies it as identical,
+legacy identity upgrade, operational or semantic. Plan freezes the source and
+target identities, classification, active-job count, reason and one-hour
+expiry into canonical JSON. Apply verifies the exact digest and current state,
+requires active work to be drained, and appends an immutable change event.
+Only identity upgrades and operational changes can use this apply path;
+semantic changes require a new ingestion generation.
+
 ## Schema and publication
 
 Because no earlier product was released, the active database begins with one
-initial schema migration and bundle format 1. The ordered migration/checksum
-mechanism is part of the format so every schema evolution remains ordered and
-checksum-verified. There is no old schema importer.
+initial schema migration and bundle format 1. Schema migration 4 adds the
+deterministic report snapshot and validated narrative caches. Migration 5 adds
+churn decisions and immutable historic observation points. Migration 6 adds
+split configuration identity/current state, immutable configuration change
+events, cross-process provider admissions and immutable replay lineage;
+canonical source, concept and claim ownership remains unchanged. The ordered
+migration/checksum mechanism is part of the format so every schema evolution
+remains ordered and checksum-verified. There is no old schema importer.
 
 Semantic generations are immutable once published. Vector generations are
 separate rebuildable publications. Backup pins SQLite and sidecar identities;

@@ -71,14 +71,31 @@ file(WRITE "${requests}"
     "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_query_answer\",\"arguments\":{\"question\":\"What does BillingService depend on?\"}}}\n"
     "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_query_evidence\",\"arguments\":{\"question\":\"What does BillingService depend on?\",\"mode\":\"lexical\"}}}\n"
     "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_library_status\",\"arguments\":{\"surprise\":1}}}\n"
-    "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_maintain_plan\",\"arguments\":{}}}\n")
-execute_process(COMMAND ${cli} --access read,plan,curate serve mcp
+    "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_maintain_plan\",\"arguments\":{}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_library_report\",\"arguments\":{\"top\":2,\"narrative\":\"off\"}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_library_snapshot\",\"arguments\":{\"trigger\":\"scheduled\",\"reason\":\"MCP surface observation\"}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_library_trend\",\"arguments\":{\"limit\":10}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_config_check\",\"arguments\":{}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":11,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_config_explain\",\"arguments\":{}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":12,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_config_diff\",\"arguments\":{}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":13,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_config_plan\",\"arguments\":{\"reason\":\"MCP configuration surface regression\"}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":14,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_job_replay\",\"arguments\":{\"id\":\"job-not-present\",\"reason\":\"MCP replay mapping regression\"}}}\n")
+execute_process(COMMAND ${cli} --access read,plan,curate,control,admin serve mcp
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}" INPUT_FILE "${requests}"
     OUTPUT_VARIABLE mcp_out ERROR_VARIABLE mcp_err
     RESULT_VARIABLE mcp_result TIMEOUT 90)
 if(NOT mcp_result EQUAL 0 OR
    NOT mcp_out MATCHES "\"serverInfo\":{\"name\":\"crexxrag-mcp\"" OR
    NOT mcp_out MATCHES "\"name\":\"rag_query_answer\".*\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":false,\"openWorldHint\":true" OR
+   NOT mcp_out MATCHES "\"name\":\"rag_library_report\".*\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":false,\"openWorldHint\":true" OR
+   NOT mcp_out MATCHES "\"name\":\"rag_library_snapshot\".*\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":false,\"openWorldHint\":false" OR
+   NOT mcp_out MATCHES "\"name\":\"rag_library_trend\".*\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false" OR
+   NOT mcp_out MATCHES "\"name\":\"rag_config_check\".*\"readOnlyHint\":true" OR
+   NOT mcp_out MATCHES "\"name\":\"rag_config_explain\".*\"readOnlyHint\":true" OR
+   NOT mcp_out MATCHES "\"name\":\"rag_config_diff\".*\"readOnlyHint\":true" OR
+   NOT mcp_out MATCHES "\"name\":\"rag_config_plan\".*\"readOnlyHint\":true" OR
+   NOT mcp_out MATCHES "\"name\":\"rag_config_apply\".*\"readOnlyHint\":false" OR
+   NOT mcp_out MATCHES "\"name\":\"rag_job_replay\".*\"readOnlyHint\":false" OR
    NOT mcp_out MATCHES "\"operation\":\"query.answer\",\"status\":\"ok\"" OR
    NOT mcp_out MATCHES "\"generated_answer\":\"BillingService depends on CustomerDatabase\\.\"" OR
    NOT mcp_out MATCHES "\"citation\":\"crexx-rag:.*utf8-0-87\"" OR
@@ -90,7 +107,23 @@ if(NOT mcp_result EQUAL 0 OR
    NOT mcp_out MATCHES "\"name\":\"rag_maintain_status\"" OR
    NOT mcp_out MATCHES "\"name\":\"rag_maintain_inspect\"" OR
    NOT mcp_out MATCHES "\"operation\":\"maintain.plan\",\"status\":\"ok\"" OR
+   NOT mcp_out MATCHES "\"operation\":\"library.report\",\"status\":\"ok\"" OR
+   NOT mcp_out MATCHES "\"operation\":\"library.snapshot\",\"status\":\"ok\"" OR
+   NOT mcp_out MATCHES "\"outcome\":\"skipped-identical\"" OR
+   NOT mcp_out MATCHES "\"operation\":\"library.trend\",\"status\":\"ok\"" OR
+   NOT mcp_out MATCHES "\"state\":\"baseline-only\"" OR
+   NOT mcp_out MATCHES "\"schema\":\"crexx-rag.library-report/1\"" OR
+   NOT mcp_out MATCHES "\"coverage_millionths\":1000000" OR
    NOT mcp_out MATCHES "\"maintenance_digest\":\"[0-9a-f]+\"" OR
+   NOT mcp_out MATCHES "\"operation\":\"config.check\",\"status\":\"ok\"" OR
+   NOT mcp_out MATCHES "\"operation\":\"config.explain\",\"status\":\"ok\"" OR
+   NOT mcp_out MATCHES "\"requests_per_minute\":[1-9][0-9]*" OR
+   NOT mcp_out MATCHES "\"operation\":\"config.diff\",\"status\":\"ok\"" OR
+   NOT mcp_out MATCHES "\"classification\":\"identical\"" OR
+   NOT mcp_out MATCHES "\"operation\":\"config.plan\",\"status\":\"ok\"" OR
+   NOT mcp_out MATCHES "crexx-rag.reconfigure-plan/1" OR
+   NOT mcp_out MATCHES "\"operation\":\"job.replay\",\"status\":\"error\"" OR
+   NOT mcp_out MATCHES "source job must be terminal with explicit dead letters" OR
    NOT mcp_out MATCHES "\"code\":-32602,\"message\":\"unknown object member surprise\"" OR
    mcp_out MATCHES "synthetic-product-gemini-key" OR
    mcp_err MATCHES "synthetic-product-gemini-key")
@@ -127,6 +160,6 @@ endif()
 file(WRITE "${CPRAG_WORK_DIR}/result.txt"
     "test=native-surfaces\nsurface=crexxrag-serve-mcp\nconfig=local-default\n"
     "structured_answer=validated\nlexical_provider_calls=0\n"
-    "annotations=truthful\nmaintenance=plan+apply+status+inspect-advertised\nmaintenance_plan=called\nunknown_arguments=rejected\nsecret_values_logged=0\n"
+    "annotations=truthful\nreport=deterministic-mcp\nmaintenance=plan+apply+status+inspect-advertised\nmaintenance_plan=called\nunknown_arguments=rejected\nsecret_values_logged=0\n"
     "${init_out}${ingest_out}${ingest_err}${mcp_out}${mcp_err}${verify_out}${verify_err}")
-message(STATUS "Native surfaces passed unified crexxrag MCP serving, maintenance vocabulary, discovered config, provider-backed structured answer, lexical zero-call route, truthful annotations, strict arguments, and clean integrity")
+message(STATUS "Native surfaces passed unified crexxrag MCP serving, deterministic reporting, churn-governed snapshots, historic trends, maintenance vocabulary, discovered config, provider-backed structured answer, lexical zero-call route, truthful annotations, strict arguments, and clean integrity")
