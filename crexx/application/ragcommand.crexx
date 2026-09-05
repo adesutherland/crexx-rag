@@ -279,6 +279,7 @@ validcommandresult: procedure = .int
       if value_type = "string" then do
         maximum_length = 65535
         if fields[j].name() = "canonical_plan" | fields[j].name() = "maintenance_plan" then maximum_length = 16777216
+        if fields[j].name() = "evidence_json" then maximum_length = 1048576
         if length(value) > maximum_length then return _invalidresult("string field is too long", error)
       end
       else if value_type = "integer" then do

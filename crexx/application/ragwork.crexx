@@ -667,15 +667,15 @@ settlecall: procedure = .int
     config_snapshot = _boundscalartext(database, "SELECT config_snapshot_id FROM jobs WHERE job_id=?1", reservation.job_id())
     prepared = .binary; binds = 0
     if existing_provider_run_id = "" then do
-    sql = "INSERT INTO provider_runs(provider_run_id,config_snapshot_id,provider_id,model,request_hash,outcome,input_tokens,output_tokens,duration_ms,started_at,completed_at,charging_basis) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'),?10)"
+    sql = "INSERT INTO provider_runs(provider_run_id,config_snapshot_id,provider_id,model,request_hash,outcome,input_tokens,output_tokens,duration_ms,started_at,completed_at,charging_basis,cost_microunits,purpose) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'),?10,?11,'work-item')"
     if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare provider run", error)
     request_hash = rxhash..sha256hex((provider_id || "00"x || model || "00"x || request_id || "00"x || reservation.attempt_id()) as .binary)
-    binds = sqlitebindtext(prepared, 1, provider_run_id) | sqlitebindtext(prepared, 2, config_snapshot) | sqlitebindtext(prepared, 3, provider_id) | sqlitebindtext(prepared, 4, model) | sqlitebindtext(prepared, 5, request_hash) | sqlitebindtext(prepared, 6, outcome) | sqlitebindint(prepared, 7, actual_input_tokens) | sqlitebindint(prepared, 8, actual_output_tokens) | sqlitebindint(prepared, 9, actual_time_ms) | sqlitebindtext(prepared, 10, charging_basis)
+    binds = sqlitebindtext(prepared, 1, provider_run_id) | sqlitebindtext(prepared, 2, config_snapshot) | sqlitebindtext(prepared, 3, provider_id) | sqlitebindtext(prepared, 4, model) | sqlitebindtext(prepared, 5, request_hash) | sqlitebindtext(prepared, 6, outcome) | sqlitebindint(prepared, 7, actual_input_tokens) | sqlitebindint(prepared, 8, actual_output_tokens) | sqlitebindint(prepared, 9, actual_time_ms) | sqlitebindtext(prepared, 10, charging_basis) | sqlitebindint(prepared, 11, actual_cost)
     end
     else do
-      sql = "UPDATE provider_runs SET outcome=?4,input_tokens=?5,output_tokens=?6,duration_ms=?7,recovery_json='',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE provider_run_id=?1 AND provider_id=?2 AND model=?3 AND outcome IN('starting','running','completed-unsettled')"
+      sql = "UPDATE provider_runs SET outcome=?4,input_tokens=?5,output_tokens=?6,duration_ms=?7,cost_microunits=?8,recovery_json='',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE provider_run_id=?1 AND provider_id=?2 AND model=?3 AND outcome IN('starting','running','completed-unsettled')"
       if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare durable provider run settlement", error)
-      binds = sqlitebindtext(prepared, 1, provider_run_id) | sqlitebindtext(prepared, 2, provider_id) | sqlitebindtext(prepared, 3, model) | sqlitebindtext(prepared, 4, outcome) | sqlitebindint(prepared, 5, actual_input_tokens) | sqlitebindint(prepared, 6, actual_output_tokens) | sqlitebindint(prepared, 7, actual_time_ms)
+      binds = sqlitebindtext(prepared, 1, provider_run_id) | sqlitebindtext(prepared, 2, provider_id) | sqlitebindtext(prepared, 3, model) | sqlitebindtext(prepared, 4, outcome) | sqlitebindint(prepared, 5, actual_input_tokens) | sqlitebindint(prepared, 6, actual_output_tokens) | sqlitebindint(prepared, 7, actual_time_ms) | sqlitebindint(prepared, 8, actual_cost)
     end
     step = sqlitestep(prepared); call sqlitefinalize prepared
     if binds \= 0 | step \= 101 | (existing_provider_run_id \= "" & _scalarint(database, "SELECT changes()") \= 1) then return _rollback(database, "cannot persist provider run settlement", error)

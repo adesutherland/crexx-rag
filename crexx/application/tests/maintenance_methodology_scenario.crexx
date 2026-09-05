@@ -1,6 +1,7 @@
 options levelg
 
 import rxfnsb
+import rxjson
 import rxsqlite
 import ragstore
 import ragimprove
@@ -58,7 +59,27 @@ main: procedure = .int
   do i = 2 to scores_out.0
     if scores_out[i] > scores_out[i - 1] then ordered = 0
   end
-  errors = errors + check(census.item_count() <= 32 & ordered = 1 & length(census.digest()) = 64, "bounded deterministic rank order and digest")
+  census_document = .jsondocument(census.canonical())
+  errors = errors + check(census.item_count() <= 32 & ordered = 1 & length(census.digest()) = 64 & census_document.valid() = 1, "bounded deterministic rank order, JSON, and digest")
+  critical = .ragmaintenancecensus
+  errors = errors + check(buildmaintenancecensus(store, analysis, "maintenance-profile", 4, critical, error) = 0, "build critical-first batch " || error)
+  critical_types = critical.item_types()
+  errors = errors + check(critical.item_count() = 4 & critical_types[1] = "vector-publication" & critical_types[2] = "stale-embedding" & critical_types[3] = "stale-embedding" & critical_types[4] = "claim-conflict" & pos('"batch_items":4', critical.canonical()) > 0, "critical work precedes bounded enrichment")
+
+  /* A bounded maintenance census can displace a higher-ranked cognitive
+   * candidate with critical non-cognitive work. Applying that reviewed subset
+   * must validate it inside the original candidate window rather than assume
+   * it is the first item of a newly truncated cognitive plan. */
+  filter_triggers = .string[]; filter_triggers[1] = "profile-change"
+  filter_source = .ragimproveplan
+  errors = errors + check(createimproveplan(store, "snapshot-maintenance", "fixture-filter-policy", "fixture-filter-prompt", filter_triggers, 2, 2, 4096, 1024, 1000000, 60000, 4096, 1024, 1000000, 60000, 1, 1, "public", "fixture-provider", "", '{}', filter_source, error) = 0 & filter_source.item_count() = 2, "create non-prefix source plan " || error)
+  selected_chunks = .string[]; selected_chunks[1] = "chunk-main"
+  filter_plan = .ragimproveplan
+  errors = errors + check(filterimproveplan(filter_source, selected_chunks, filter_plan, error) = 0 & filter_plan.item_count() = 1 & filter_plan.maximum_items() = 2, "preserve candidate window for exact subset " || error)
+  filter_apply = .ragimproveapplyresult
+  errors = errors + check(applyimproveplan(store, filter_plan, filter_apply, error) = 0 & filter_apply.disposition() = "queued" & filter_apply.items() = 1, "apply reviewed non-prefix subset " || error)
+  filter_replay = .ragimproveapplyresult
+  errors = errors + check(applyimproveplan(store, filter_plan, filter_replay, error) = 0 & filter_replay.disposition() = "identical-no-op", "replay reviewed subset after ownership exclusion " || error)
 
   no_job = .ragimproveapplyresult(0, "identical-no-op", "", 0, 0, 0, "")
   first_apply = .ragmaintenanceapplyresult; replay_apply = .ragmaintenanceapplyresult

@@ -36,8 +36,8 @@ main: procedure = .int
   errors = errors + check(providers[1].credential().ref_string() = "env:GEMINI_API_KEY" & config_snapshot.secret_reference_count() = 2, "symbolic secrets")
   errors = errors + check(roles.0 = 4 & sources.0 = 1 & sources[1].root() = "./source-docs", "roles and source")
   errors = errors + check(budget.model_calls() = 50 & budget.input_tokens() = 100000 & workers.processes() = 1 & workers.max_in_flight() = 1, "bounded policy")
-  errors = errors + check(retrieval.lexical_candidates() = 48 & retrieval.vector_candidates() = 12 & retrieval.vector_scan_limit() = 100000 & retrieval.graph_hops() = 3 & retrieval.rrf_k() = 60 & retrieval.graph_direction() = "both", "retrieval policy")
-  errors = errors + check(maintenance.sparse_max_degree() = 1 & maintenance.query_gap_min_occurrences() = 1 & observation.capture_threshold() = 50 & observation.cooldown_seconds() = 900, "maintenance and observation policy")
+  errors = errors + check(retrieval.lexical_candidates() = 48 & retrieval.vector_candidates() = 12 & retrieval.vector_scan_limit() = 100000 & retrieval.graph_hops() = 3 & retrieval.rrf_k() = 60 & retrieval.graph_direction() = "both" & retrieval.maximum_evidence_bytes() = 262144, "retrieval policy")
+  errors = errors + check(maintenance.sparse_max_degree() = 1 & maintenance.query_gap_min_occurrences() = 1 & maintenance.batch_items() = 1000 & observation.capture_threshold() = 50 & observation.cooldown_seconds() = 900 & observation.narrative_output_tokens() = 4096, "maintenance and observation policy")
   errors = errors + check(schedules.0 = 1 & schedules[1].operation() = "maintain.plan" & schedules[1].trigger() = "manual", "schedule operation")
 
   raw = .binary; bytes = 0
@@ -60,6 +60,9 @@ main: procedure = .int
   errors = errors + check(rejected(invalid_backoff, "outside its supported range") = 1, "backoff bound rejection")
   errors = errors + check(rejected(changestr("budget.model_calls = 50", text, "budget.model_calls = 050"), "canonical integer syntax") = 1, "integer syntax rejection")
   errors = errors + check(rejected(changestr("retrieval.claim_limit = 8", text, "retrieval.claim_limit = 9"), "outside its supported range") = 1, "claim result bound rejection")
+  errors = errors + check(rejected(changestr("retrieval.maximum_evidence_bytes = 262144", text, "retrieval.maximum_evidence_bytes = 1048577"), "outside its supported range") = 1, "evidence byte ceiling bound rejection")
+  errors = errors + check(rejected(changestr("maintenance.batch_items = 1000", text, "maintenance.batch_items = 100001"), "outside its supported range") = 1, "maintenance batch bound rejection")
+  errors = errors + check(rejected(changestr("observation.narrative_output_tokens = 4096", text, "observation.narrative_output_tokens = 8193"), "outside its supported range") = 1, "narrative output bound rejection")
   errors = errors + check(rejected(copies("x", 65537), "65536") = 1, "file-size bound")
   errors = errors + check(rejected(copies("# bounded" || "0A"x, 513), "512-line") = 1, "line-count bound")
 

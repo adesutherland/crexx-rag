@@ -22,15 +22,15 @@ metadata directly.
 | Test | Main assurance |
 | --- | --- |
 | `linked_application` | installed `rxsqlite` provider mapping and both CREXX VMs |
-| `configuration_contract` | format-1 compatibility, format-2 pacing/retry/retrieval/maintenance/observation fields, split identities, credential-free check/explain, identical/operational diff, tamper-resistant plan/apply, glossary and bounded data-profile rules, optimized/non-optimized and both VMs |
+| `configuration_contract` | format-1 compatibility, format-2 pacing/retry/retrieval/result-size/maintenance/observation fields, split identities, credential-free check/explain, identical/operational diff, tamper-resistant plan/apply, glossary and bounded data-profile rules, optimized/non-optimized and both VMs |
 | `process_workers` | two-worker launch, observation, drain, stale PID detection, explicit pruning |
 | `gemini_ingestion` | Gemini request/response mapping, compact gap-free LF/CR/CRLF normalization maps, durable work, claims, embeddings, vector publication, replay and failure paths |
 | `gemini_extraction_validation` | invalid UTF-8 spans, unknown concept/relationship types and malformed extraction output dead-letter without product mutation or secret disclosure |
-| `provider_durability` | reservation recovery, Codex turns, fencing, completed-turn reuse, durable cross-process admission, no false call record on preflight failure, immutable replay lineage, backlog reconciliation, and schema 1-to-7 migration |
+| `provider_durability` | reservation recovery, Codex turns, fencing, completed-turn reuse, durable cross-process admission, no false call record on preflight failure, immutable replay lineage, backlog reconciliation, and schema 1-to-8 migration with historic-cost backfill |
 | `codex_protocol` | App Server initialize/account/turn/schema/usage/cleanup over JSONL |
 | `codex_application` | public Codex extraction, worker-crash recovery from a persisted completed turn, duplicate-turn prevention, validation, allowance settlement and library verification |
 | `gemini_maintenance` | hosted-style maintenance, glossary-drift rejection, durable cognitive notes, ANN publication/reuse, provider/profile discovery and external proposal review/promotion |
-| `gemini_query` | query embeddings, hybrid retrieval, cited answers, deterministic library reporting, one-call cached advisory reporting, churn-governed historic snapshots, duplicate coalescing, one-point trends, lexical zero-call and invalid citation rejection |
+| `gemini_query` | query embeddings, hybrid retrieval, cited answers, deterministic library reporting, one-call cached advisory reporting with rejected-call history, churn-governed historic snapshots, duplicate coalescing, one-point trends, lexical zero-call and invalid citation rejection |
 | `query_policy` | local/hosted privacy and every call/token/cost/allowance ceiling |
 | `ann_methodology` | IVF-flat ANN publication/search, deterministic replay, bounded candidate work, recall against a frozen exact oracle and tamper fallback on both VMs |
 | `lifecycle_methodology` | synonym, split, merge, type correction, retire/restore, exact impact census, migration-parent and atomic support/conflict handling on both VMs |

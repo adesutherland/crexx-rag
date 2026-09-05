@@ -81,7 +81,9 @@ has no graph-mutation path.
 ## Historic observability
 
 The detailed history remains in the existing append-only publication, job,
-item, attempt, provider-run, review and maintenance records. Historic
+item, attempt, provider-run, review and maintenance records. Provider runs
+retain their purpose, provider/model, charging basis, token counts, duration,
+and the cost estimate made when the call completed. Historic
 observability adds bounded, immutable derived checkpoints; it does not replace
 or compact those source facts.
 
@@ -153,14 +155,25 @@ worker items use one network attempt per fenced attempt and carry the advised
 delay into the durable queue, ensuring every actual call remains separately
 accounted.
 
+Direct query embedding and answer calls are also inserted into
+`provider_runs`, including transport failures and product-rejected outputs.
+Preflight failures that never invoke an adapter remain uncounted. Query rows
+carry `query-embedding` or `query-answer` purpose and the command returns their
+durable run identities; provider content and questions are represented only by
+a request hash, never copied into provider history.
+
+Report-narrative calls follow the same accounting rule. Invalid structured or
+product-rejected output is retained as failed/rejected provider history even
+though it is never cached as a narrative.
+
 ## Configuration identity and change control
 
 An effective configuration has a full hash plus separate semantic and
 operational hashes. Source selection, provider/model/privacy routes, role
 bindings, discovery rules and the selected profile are semantic. Budgets,
 worker ceilings, provider timeouts/pacing/retry policy, vector-build policy,
-retrieval/ranking ceilings, maintenance thresholds, observation thresholds and
-schedules are operational. Profiles may be compiled defaults or strict bounded
+retrieval/ranking and serialized-evidence ceilings, maintenance thresholds,
+observation thresholds and schedules are operational. Profiles may be compiled defaults or strict bounded
 data files; the interpreted canonical profile, not executable configuration,
 defines its semantic identity. The library retains the current configuration
 snapshot independently of the configuration that originally published each

@@ -400,10 +400,10 @@ _storebatch: procedure = .int
   provider_run_id = "provider-run-" || substr(request_hash, 1, 24)
   usage = provider_output.usage()
   provider_statement = .binary
-  sql = "INSERT OR IGNORE INTO provider_runs(provider_run_id,config_snapshot_id,provider_id,model,request_hash,outcome,input_tokens,output_tokens,duration_ms,started_at,completed_at) VALUES(?1,?2,?3,?4,?5,'completed',?6,?7,?8,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  sql = "INSERT OR IGNORE INTO provider_runs(provider_run_id,config_snapshot_id,provider_id,model,request_hash,outcome,input_tokens,output_tokens,duration_ms,started_at,completed_at,cost_microunits,purpose) VALUES(?1,?2,?3,?4,?5,'completed',?6,?7,?8,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'),?9,'embedding-batch')"
   if sqliteprepare(database, sql, provider_statement) \= 0 then return _rollback(database, "cannot prepare provider run", error)
   duration_ms = provider_output.latency_us() % 1000
-  bind_status = sqlitebindtext(provider_statement, 1, provider_run_id) | sqlitebindtext(provider_statement, 2, config_snapshot_id) | sqlitebindtext(provider_statement, 3, provider_id) | sqlitebindtext(provider_statement, 4, model) | sqlitebindtext(provider_statement, 5, request_hash) | sqlitebindint(provider_statement, 6, usage.input_tokens()) | sqlitebindint(provider_statement, 7, usage.output_tokens()) | sqlitebindint(provider_statement, 8, duration_ms)
+  bind_status = sqlitebindtext(provider_statement, 1, provider_run_id) | sqlitebindtext(provider_statement, 2, config_snapshot_id) | sqlitebindtext(provider_statement, 3, provider_id) | sqlitebindtext(provider_statement, 4, model) | sqlitebindtext(provider_statement, 5, request_hash) | sqlitebindint(provider_statement, 6, usage.input_tokens()) | sqlitebindint(provider_statement, 7, usage.output_tokens()) | sqlitebindint(provider_statement, 8, duration_ms) | sqlitebindint(provider_statement, 9, usage.cost_microunits())
   step_status = sqlitestep(provider_statement); call sqlitefinalize provider_statement
   if bind_status \= 0 | step_status \= 101 then return _rollback(database, "cannot insert provider run", error)
   do i = 1 to vectors.0

@@ -14,6 +14,9 @@
 - [Test strategy](test-strategy.md): maintained regression matrix and live-call
   boundary.
 - [Integration issues](integration-issues.md): current CREXX/platform limits.
+- [Hard-coded configuration audit](configuration-audit.md): complete runtime,
+  policy, provider and defensive-limit inventory plus the consolidated repair
+  proposal.
 - [Tutorial](tutorial/README.md): a small Gemini ingestion and query walkthrough.
 
 These are the current documents. Historical phase packets and the unreleased

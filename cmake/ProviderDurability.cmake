@@ -52,7 +52,7 @@ foreach(mode IN ITEMS noopt opt)
             OUTPUT_VARIABLE run_out ERROR_VARIABLE run_err
             TIMEOUT 30)
         if(NOT run_result EQUAL 0 OR NOT run_out MATCHES
-            "PROVIDER_DURABILITY_OK completed_turn_reused=1 codex_turns=1 stale_reservations=0 fence=2 admissions=durable uncalled_provider_runs=0 paused_completion=sticky batch_retry=2 replay=immutable reconciliation=in-progress indexes=10 migration=1to6-validated-to7 large_plan=renderable")
+            "PROVIDER_DURABILITY_OK completed_turn_reused=1 codex_turns=1 stale_reservations=0 fence=2 admissions=durable uncalled_provider_runs=0 paused_completion=sticky batch_retry=2 replay=immutable reconciliation=in-progress indexes=11 migration=1to6-validated-to8 provider_history=costed large_plan=renderable")
             message(FATAL_ERROR
                 "${mode}-${runtime_name} provider durability failed (${run_result}):\n${run_out}\n${run_err}")
         endif()
@@ -60,4 +60,4 @@ foreach(mode IN ITEMS noopt opt)
 endforeach()
 
 file(WRITE "${CPRAG_WORK_DIR}/summary.txt"
-    "Provider durability passed in noopt/opt on rxvme/rxbvm: completed Codex output reused, one subscription turn charged, stale reservations released, fencing advanced, provider concurrency admission was durable, an uncalled preflight created no provider run, paused jobs remained paused, legacy retry remained compatible, immutable replay retained source dead letters and lineage, reconciliation classified the active replay, worker indexes were present, and schema version one upgraded to six, validated as an older supported schema, then upgraded to version seven.\n")
+    "Provider durability passed in noopt/opt on rxvme/rxbvm: completed Codex output reused, one subscription turn charged, stale reservations released, fencing advanced, provider concurrency admission was durable, an uncalled preflight created no provider run, paused jobs remained paused, legacy retry remained compatible, immutable replay retained source dead letters and lineage, reconciliation classified the active replay, worker indexes were present, and schema version one upgraded to six, validated as an older supported schema, then upgraded to version eight with costed provider history.\n")

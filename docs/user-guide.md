@@ -93,11 +93,14 @@ retrieval.claim_limit = 8
 retrieval.lead_limit = 8
 retrieval.rrf_k = 60
 retrieval.graph_direction = both
+retrieval.maximum_evidence_bytes = 262144
 
 maintenance.sparse_max_degree = 1
 maintenance.query_gap_min_occurrences = 1
+maintenance.batch_items = 1000
 
 observation.capture_threshold = 50
+observation.narrative_output_tokens = 4096
 observation.cooldown_seconds = 900
 observation.maximum_staleness_seconds = 86400
 ```
@@ -120,7 +123,8 @@ crexxrag --library ./library config diff
 These commands do not resolve credential values or make provider calls.
 `config diff` reports `identical`, `identity-upgrade`, `operational`, or
 `semantic`. Operational changes include budgets, worker settings, provider
-timeouts/pacing/retry policy, vector-build policy and schedules. Source,
+timeouts/pacing/retry policy, retrieval result ceilings, vector-build policy
+and schedules. Source,
 profile, provider/model/privacy route, role or discovery changes are semantic.
 
 Apply an operational or legacy-identity upgrade only from the exact reviewed
@@ -335,6 +339,22 @@ retirement, restoration and claim retraction actions enter mandatory review;
 analysis, embedding repair and vector publication can complete through the
 reviewed maintenance worklist without a second graph-mutation path.
 
+Each maintenance plan is an incremental batch bounded by
+`maintenance.batch_items` as well as the global item, provider-call, token,
+time and cost budgets. Repair work is ranked ahead of enrichment: a missing
+vector publication, missing active embeddings and pending claim conflicts take
+capacity before the highest-ranked cognitive reviews. Rerun the same
+plan/apply/worker/status cycle to select the next eligible batch; a maintenance
+command does not imply that the entire backlog must be completed in one run.
+Content already owned by an improvement job is excluded from later batches.
+Queued and running work finishes in that job, while terminal failures remain
+durable dead letters and use `job replay`; maintenance does not create a second
+copy that would obscure the original attempt history.
+The machine plan reports `work_provider_calls` as the expected one-call-per-item
+count and `maximum_work_provider_calls` as the hard ceiling after reserving the
+configured retry attempts. Critical embedding-repair retries reserve capacity
+before cognitive enrichment and both remain inside the global provider budget.
+
 The canonical automation/MCP vocabulary is:
 
 ```text
@@ -367,6 +387,13 @@ may declare insufficient grounding with no citations; the command succeeds
 with a deterministic insufficient-evidence answer instead of treating the
 absence of relevant evidence as an infrastructure failure.
 
+Every invoked query provider is recorded in the library's provider history
+with an explicit embedding/answer purpose, completion-time cost estimate,
+tokens, duration, outcome, and the `provider_run_id` returned by the command.
+Failed transport calls and schema/citation-rejected answers remain visible;
+credential, privacy, and budget preflight failures that make no provider call
+do not create a row.
+
 ## Library report
 
 ```sh
@@ -396,9 +423,13 @@ call. `--narrative refresh` makes exactly one call through the configured
 `--yes`; an explicit JSON or MCP `refresh` request is the authority. The model
 receives the bounded report plus representative cited passages. Its exact
 JSON is rejected for extra fields, missing/duplicate/unknown citations or
-oversized content. Only validated output is cached, keyed by both report
+oversized content. `observation.narrative_output_tokens` independently bounds
+the structured response so multi-subject narratives are not constrained by
+the shorter query-answer default. Only validated output is cached, keyed by both report
 digests and the provider, model and prompt version. It cannot mutate concepts,
 claims or other canonical graph state.
+Failed or rejected narrative calls remain in provider history with their
+tokens and completion-time cost estimate even though no narrative is cached.
 
 ## Historic snapshots and trends
 

@@ -65,7 +65,7 @@ execute_process(COMMAND ${cli} init
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err
     RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 7")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 8")
     message(FATAL_ERROR "Improvement test human init failed:\n${init_out}${init_err}")
 endif()
 
@@ -87,6 +87,7 @@ execute_process(COMMAND ${cli} --format json --access plan maintain plan
 if(NOT plan_result EQUAL 0 OR
    NOT plan_out MATCHES "\"maintenance_digest\":\"[0-9a-f]+\"" OR
    NOT plan_out MATCHES "\"work_provider_calls\":1" OR
+   NOT plan_out MATCHES "\"maximum_work_provider_calls\":2" OR
    NOT plan_out MATCHES "\"provider_id\":\"gemini-generate\"" OR
    NOT plan_out MATCHES "\"charging_basis\":\"local-compute\"" OR
    NOT plan_out MATCHES "\"worker_processes\":2")
@@ -173,6 +174,7 @@ if(NOT settle_result EQUAL 0 OR
    NOT settle_out MATCHES "disposition: applied" OR
    NOT settle_out MATCHES "work items: 0" OR
    NOT settle_out MATCHES "item type: analysis-lead" OR
+   settle_out MATCHES "item type: concept-review" OR
    settle_err MATCHES "crexxrag (controller|worker|provider)")
     message(FATAL_ERROR "New provider diagnosis did not settle into a zero-call durable analysis worklist:\n${settle_out}${settle_err}")
 endif()

@@ -102,10 +102,10 @@ _configcommand: procedure = .ragcommandresult
       fields[1] = .ragresultfield("worker_processes", "integer", workers.processes()); fields[2] = .ragresultfield("worker_max_in_flight", "integer", workers.max_in_flight()); fields[3] = .ragresultfield("lease_seconds", "integer", workers.lease_seconds()); fields[4] = .ragresultfield("budget_minutes", "integer", budget.minutes()); fields[5] = .ragresultfield("budget_items", "integer", budget.item_limit()); fields[6] = .ragresultfield("budget_calls", "integer", budget.model_calls()); fields[7] = .ragresultfield("budget_input_tokens", "integer", budget.input_tokens()); fields[8] = .ragresultfield("budget_output_tokens", "integer", budget.output_tokens()); fields[9] = .ragresultfield("budget_cost_microunits", "integer", budget.cost_microunits())
       records[records.0 + 1] = .ragresultrecord("operational-policy", fields)
       retrieval = config.retrieval(); fields = .ragresultfield[]
-      fields[1] = .ragresultfield("lexical_candidates", "integer", retrieval.lexical_candidates()); fields[2] = .ragresultfield("vector_candidates", "integer", retrieval.vector_candidates()); fields[3] = .ragresultfield("vector_scan_limit", "integer", retrieval.vector_scan_limit()); fields[4] = .ragresultfield("graph_hops", "integer", retrieval.graph_hops()); fields[5] = .ragresultfield("passage_limit", "integer", retrieval.passage_limit()); fields[6] = .ragresultfield("claim_limit", "integer", retrieval.claim_limit()); fields[7] = .ragresultfield("lead_limit", "integer", retrieval.lead_limit()); fields[8] = .ragresultfield("rrf_k", "integer", retrieval.rrf_k()); fields[9] = .ragresultfield("graph_boost_millionths", "integer", retrieval.graph_boost_millionths()); fields[10] = .ragresultfield("graph_decay_millionths", "integer", retrieval.graph_decay_millionths()); fields[11] = .ragresultfield("directness_bonus_millionths", "integer", retrieval.directness_bonus_millionths()); fields[12] = .ragresultfield("graph_direction", "string", retrieval.graph_direction())
+      fields[1] = .ragresultfield("lexical_candidates", "integer", retrieval.lexical_candidates()); fields[2] = .ragresultfield("vector_candidates", "integer", retrieval.vector_candidates()); fields[3] = .ragresultfield("vector_scan_limit", "integer", retrieval.vector_scan_limit()); fields[4] = .ragresultfield("graph_hops", "integer", retrieval.graph_hops()); fields[5] = .ragresultfield("passage_limit", "integer", retrieval.passage_limit()); fields[6] = .ragresultfield("claim_limit", "integer", retrieval.claim_limit()); fields[7] = .ragresultfield("lead_limit", "integer", retrieval.lead_limit()); fields[8] = .ragresultfield("rrf_k", "integer", retrieval.rrf_k()); fields[9] = .ragresultfield("graph_boost_millionths", "integer", retrieval.graph_boost_millionths()); fields[10] = .ragresultfield("graph_decay_millionths", "integer", retrieval.graph_decay_millionths()); fields[11] = .ragresultfield("directness_bonus_millionths", "integer", retrieval.directness_bonus_millionths()); fields[12] = .ragresultfield("graph_direction", "string", retrieval.graph_direction()); fields[13] = .ragresultfield("maximum_evidence_bytes", "integer", retrieval.maximum_evidence_bytes())
       records[records.0 + 1] = .ragresultrecord("retrieval-policy", fields)
-      maintenance = config.maintenance(); observation = config.observation(); fields = .ragresultfield[]
-      fields[1] = .ragresultfield("sparse_max_degree", "integer", maintenance.sparse_max_degree()); fields[2] = .ragresultfield("query_gap_min_occurrences", "integer", maintenance.query_gap_min_occurrences()); fields[3] = .ragresultfield("snapshot_capture_threshold", "integer", observation.capture_threshold()); fields[4] = .ragresultfield("snapshot_cooldown_seconds", "integer", observation.cooldown_seconds()); fields[5] = .ragresultfield("snapshot_maximum_staleness_seconds", "integer", observation.maximum_staleness_seconds()); fields[6] = .ragresultfield("snapshot_work_minimum_change", "integer", observation.work_minimum_change()); fields[7] = .ragresultfield("snapshot_work_relative_millionths", "integer", observation.work_relative_millionths()); fields[8] = .ragresultfield("snapshot_dead_letter_minimum_change", "integer", observation.dead_letter_minimum_change()); fields[9] = .ragresultfield("snapshot_review_minimum_change", "integer", observation.review_minimum_change())
+      maintenance = config.maintenance(); observation = config.observation(); clear fields; fields = .ragresultfield[]
+      fields[1] = .ragresultfield("sparse_max_degree", "integer", maintenance.sparse_max_degree()); fields[2] = .ragresultfield("query_gap_min_occurrences", "integer", maintenance.query_gap_min_occurrences()); fields[3] = .ragresultfield("batch_items", "integer", maintenance.batch_items()); fields[4] = .ragresultfield("snapshot_capture_threshold", "integer", observation.capture_threshold()); fields[5] = .ragresultfield("snapshot_cooldown_seconds", "integer", observation.cooldown_seconds()); fields[6] = .ragresultfield("snapshot_maximum_staleness_seconds", "integer", observation.maximum_staleness_seconds()); fields[7] = .ragresultfield("snapshot_work_minimum_change", "integer", observation.work_minimum_change()); fields[8] = .ragresultfield("snapshot_work_relative_millionths", "integer", observation.work_relative_millionths()); fields[9] = .ragresultfield("snapshot_dead_letter_minimum_change", "integer", observation.dead_letter_minimum_change()); fields[10] = .ragresultfield("snapshot_review_minimum_change", "integer", observation.review_minimum_change()); fields[11] = .ragresultfield("narrative_output_tokens", "integer", observation.narrative_output_tokens())
       records[records.0 + 1] = .ragresultrecord("maintenance-observation-policy", fields)
     end
     message = "configuration is valid and its split identities were computed without resolving credentials"
@@ -384,17 +384,28 @@ _libraryreport: procedure = .ragcommandresult
     if queryrouteallowed(advisory, privacy) \= 1 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 4, "library privacy denies the configured advisory route"); end
     if known_citations.0 = 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 1, "narrative refresh requires at least one representative cited passage"); end
     missing_provider = .ragproviderconfig("", "", "", "", "", "", .ragsecretref(), 0, 0)
-    budget = config.budget()
-    if querypreflight(budget, missing_provider, 0, advisory, 1, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 6, error); end
+    budget = config.budget(); maximum_output = config.observation().narrative_output_tokens()
+    if querypreflight(budget, missing_provider, 0, advisory, 1, error, maximum_output) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 6, error); end
     config_snapshot_id = currentconfigsnapshotid(database, error)
-    narrative_prompt = _advisorypromptversion(profile); maximum_output = queryansweroutputlimit(budget)
+    narrative_prompt = _advisorypromptversion(profile)
     request_identity = "report-narrative-" || substr(rxhash..sha256hex((semantic_digest || "00"x || operational_digest || "00"x || advisory.provider_id() || "00"x || advisory.model() || "00"x || narrative_prompt || "00"x || time("us")) as .binary), 1, 32)
     close_error = ""; if closeragstore(store, close_error) \= 0 then return _failure(operation, 7, close_error)
     provider_result = .providerresult(); allowance_before = -1; allowance_after = -1
-    if generatereportnarrative(advisory, provider_context, privacy, maximum_output, budget.minimum_codex_allowance_percent(), request_identity, provider_result, allowance_before, allowance_after, error) \= 0 then return _failure(operation, 8, error)
+    provider_status = generatereportnarrative(advisory, provider_context, privacy, maximum_output, budget.minimum_codex_allowance_percent(), request_identity, provider_result, allowance_before, allowance_after, error)
+    if provider_status \= 0 then do
+      provider_error = error; audit_error = ""
+      if provider_result.request_id() \= "" then if _recorddirectproviderrun(request.library(), config_snapshot_id, operation, "report-narrative", advisory, provider_context, provider_result, "failed", allowance_before, allowance_after, audit_error) \= 0 then return _failure(operation, 7, audit_error)
+      return _failure(operation, 8, provider_error)
+    end
     usage = provider_result.usage()
-    if queryusagewithin(budget, missing_provider, .providerusage(), 0, advisory, usage, 1) \= 1 then return _failure(operation, 6, "report narrative usage exceeded the configured token or cost ceiling, or monetary usage was unavailable")
-    if _validreportnarrative(provider_result.content(), known_citations, error) \= 0 then return _failure(operation, 1, "report narrative output was rejected: " || error)
+    if queryusagewithin(budget, missing_provider, .providerusage(), 0, advisory, usage, 1) \= 1 then do
+      audit_error = ""; if _recorddirectproviderrun(request.library(), config_snapshot_id, operation, "report-narrative", advisory, provider_context, provider_result, "rejected", allowance_before, allowance_after, audit_error) \= 0 then return _failure(operation, 7, audit_error)
+      return _failure(operation, 6, "report narrative usage exceeded the configured token or cost ceiling, or monetary usage was unavailable")
+    end
+    if _validreportnarrative(provider_result.content(), known_citations, error) \= 0 then do
+      validation_error = error; audit_error = ""; if _recorddirectproviderrun(request.library(), config_snapshot_id, operation, "report-narrative", advisory, provider_context, provider_result, "rejected", allowance_before, allowance_after, audit_error) \= 0 then return _failure(operation, 7, audit_error)
+      return _failure(operation, 1, "report narrative output was rejected: " || validation_error)
+    end
     if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
     if _querysnapshotmatches(store, config, profile) \= 1 | _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1") \= generation then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 6, "library generation changed while the report narrative was generated"); end
     current_operational = _currentoperationaldigest(store.database(), generation, verification.issue_count(), repository_verification.issue_count())
@@ -731,8 +742,8 @@ _persistreportnarrative: procedure = .int
   call sqlitefinalize prepared
   if _scalartext(database, "SELECT semantic_digest FROM report_snapshots WHERE report_id=" || _sqlquote(report_id)) \= semantic_digest then do; call sqliteexec database, "ROLLBACK"; error = "cached deterministic report snapshot disagrees with the current report"; return -1; end
   prepared = .binary
-  sql = "INSERT INTO provider_runs(provider_run_id,config_snapshot_id,provider_id,model,request_hash,outcome,input_tokens,output_tokens,duration_ms,started_at,completed_at,charging_basis,allowance_used_before_percent,allowance_used_after_percent,recovery_json) VALUES(?1,?2,?3,?4,?5,'succeeded',?6,?7,?8,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'),?9,?10,?11,'')"
-  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, provider_run_id) \= 0 | sqlitebindtext(prepared, 2, config_snapshot_id) \= 0 | sqlitebindtext(prepared, 3, provider.provider_id()) \= 0 | sqlitebindtext(prepared, 4, provider.model()) \= 0 | sqlitebindtext(prepared, 5, request_hash) \= 0 | sqlitebindint(prepared, 6, usage.input_tokens()) \= 0 | sqlitebindint(prepared, 7, usage.output_tokens()) \= 0 | sqlitebindint(prepared, 8, duration_ms) \= 0 | sqlitebindtext(prepared, 9, provider.charging_basis()) \= 0 | sqlitebindint(prepared, 10, allowance_before) \= 0 | sqlitebindint(prepared, 11, allowance_after) \= 0 | sqlitestep(prepared) \= 101 then do; call sqlitefinalize prepared; call sqliteexec database, "ROLLBACK"; error = "cannot persist the report provider run"; return -1; end
+  sql = "INSERT INTO provider_runs(provider_run_id,config_snapshot_id,provider_id,model,request_hash,outcome,input_tokens,output_tokens,duration_ms,started_at,completed_at,charging_basis,allowance_used_before_percent,allowance_used_after_percent,recovery_json,cost_microunits,purpose) VALUES(?1,?2,?3,?4,?5,'succeeded',?6,?7,?8,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'),?9,?10,?11,'',?12,'report-narrative')"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, provider_run_id) \= 0 | sqlitebindtext(prepared, 2, config_snapshot_id) \= 0 | sqlitebindtext(prepared, 3, provider.provider_id()) \= 0 | sqlitebindtext(prepared, 4, provider.model()) \= 0 | sqlitebindtext(prepared, 5, request_hash) \= 0 | sqlitebindint(prepared, 6, usage.input_tokens()) \= 0 | sqlitebindint(prepared, 7, usage.output_tokens()) \= 0 | sqlitebindint(prepared, 8, duration_ms) \= 0 | sqlitebindtext(prepared, 9, provider.charging_basis()) \= 0 | sqlitebindint(prepared, 10, allowance_before) \= 0 | sqlitebindint(prepared, 11, allowance_after) \= 0 | sqlitebindint(prepared, 12, usage.cost_microunits()) \= 0 | sqlitestep(prepared) \= 101 then do; call sqlitefinalize prepared; call sqliteexec database, "ROLLBACK"; error = "cannot persist the report provider run"; return -1; end
   call sqlitefinalize prepared
   prepared = .binary
   sql = "INSERT INTO report_narratives(narrative_id,report_id,operational_digest,provider_run_id,provider_id,model,prompt_version,narrative_json,input_tokens,output_tokens,cost_microunits,allowance_before_percent,allowance_after_percent,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
@@ -832,13 +843,14 @@ _profileshow: procedure = .ragcommandresult
   if profile_id = "" then return _failure(operation, 2, "profile show requires a profile id")
   lookup = registry.profile(profile_id)
   if lookup.found() \= 1 then return _failure(operation, 5, "profile is not registered")
-  profile = lookup.profile(); records = .ragresultrecord[]; fields = .ragresultfield[]; validation = .ragvalidationresult
+  profile = lookup.profile(); records = .ragresultrecord[]; fields = .ragresultfield[]; validation = .ragvalidationresult; chunk_policy = .ragchunkpolicy
   fields[1] = .ragresultfield("profile_id", "string", profile.profile_id())
   fields[2] = .ragresultfield("version", "string", profile.version())
   validation = profile.validation()
+  chunk_policy = profile.chunk_policy()
   fields[3] = .ragresultfield("valid", "boolean", _boolean(validation.ok()))
-  fields[4] = .ragresultfield("maximum_chunk_characters", "integer", profile.chunk_policy().max_characters())
-  fields[5] = .ragresultfield("overlap_characters", "integer", profile.chunk_policy().overlap_characters())
+  fields[4] = .ragresultfield("maximum_chunk_characters", "integer", chunk_policy.max_characters())
+  fields[5] = .ragresultfield("overlap_characters", "integer", chunk_policy.overlap_characters())
   records[records.0 + 1] = .ragresultrecord("profile", fields)
   values = .string[]; values = profile.concept_types()
   do i = 1 to values.0
@@ -1200,13 +1212,22 @@ _query: procedure = .ragcommandresult
   if answer_planned = 1 & answer_provider.provider_id() = "" then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 8, "query answer requires a configured answerer role"); end
   if answer_planned = 1 & queryrouteallowed(answer_provider, privacy) \= 1 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 4, "library privacy denies the configured answerer route"); end
   if querypreflight(budget, embedding_provider, embedding_planned, answer_provider, answer_planned, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 6, error); end
+  config_snapshot_id = currentconfigsnapshotid(store.database(), error)
+  query_generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if config_snapshot_id = "" | query_generation < 1 then do; ignored = ""; call closeragstore store, ignored; if error = "" then error = "cannot identify the query configuration snapshot"; return _failure(operation, 7, error); end
 
-  tracer = .ragtracer(request.progress(), request.format()); embedding_output = .providerresult(); embedding_attempted = 0; embedding_called = 0
+  tracer = .ragtracer(request.progress(), request.format()); embedding_output = .providerresult(); embedding_attempted = 0; embedding_called = 0; embedding_provider_run = ""
   if embedding_planned = 1 then do
     embedding_identity = "query-embed-" || substr(rxhash..sha256hex((plan.fingerprint() || "00"x || active_profile) as .binary), 1, 32)
     call tracer.emit("query-embedding", "start", active_profile, embedding_provider.provider_id() || " " || embedding_provider.model())
     embedding_attempted = 1
     embedding_status = generatequeryembedding(embedding_provider, positionals[1], privacy, dimension, embedding_identity, embedding_output, error)
+    if embedding_output.request_id() \= "" then do
+      embedding_outcome = "succeeded"
+      if embedding_status \= 0 then do; embedding_outcome = "rejected"; if embedding_output.status() \= 0 then embedding_outcome = "failed"; end
+      persistence_error = ""
+      if _persistqueryproviderrun(store.database(), config_snapshot_id, operation, "query-embedding", embedding_provider, positionals[1], embedding_output, embedding_outcome, -1, -1, embedding_provider_run, persistence_error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, persistence_error); end
+    end
     if embedding_status \= 0 then do
       call tracer.emit("query-embedding", "failed", active_profile, "using lexical fallback")
       if mode = "hybrid" then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 8, error); end
@@ -1225,23 +1246,39 @@ _query: procedure = .ragcommandresult
   query_gaps_recorded = 0
   if recordquerygaps(store, evidence, query_gaps_recorded, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, error); end
   if answer_planned = 1 then do
-    if encodeanswercontext(evidence, 65536, answer_context, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 1, error); end
+    if encodeanswercontext(evidence, retrieval_policy.maximum_evidence_bytes(), answer_context, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 1, error); end
   end
   evidence_json = ""
   close_error = ""
   if closeragstore(store, close_error) \= 0 then return _failure(operation, 7, close_error)
-  answer_output = .providerresult(); allowance_before = -1; allowance_after = -1; generated_answer = ""; answer_citation = ""; answer_called = 0
+  answer_output = .providerresult(); allowance_before = -1; allowance_after = -1; generated_answer = ""; answer_citation = ""; answer_called = 0; answer_provider_run = ""
   if answer_planned = 1 then do
     answer_identity = "query-answer-" || substr(rxhash..sha256hex((answer_context || "00"x || answer_provider.provider_id() || "00"x || answer_provider.model()) as .binary), 1, 32)
     call tracer.emit("answer", "start", plan.fingerprint(), answer_provider.provider_id() || " " || answer_provider.model())
-    if generatequeryanswer(answer_provider, answer_context, privacy, queryansweroutputlimit(budget), budget.minimum_codex_allowance_percent(), answer_identity, answer_output, allowance_before, allowance_after, error) \= 0 then do; call tracer.emit("answer", "failed", plan.fingerprint(), "provider answer rejected"); return _failure(operation, 8, error); end
-    if _answeroutput(answer_output.content(), evidence, generated_answer, answer_citation, error) \= 0 then do; call tracer.emit("answer", "failed", plan.fingerprint(), "citation validation failed"); return _failure(operation, 1, error); end
+    answer_status = generatequeryanswer(answer_provider, answer_context, privacy, queryansweroutputlimit(budget), budget.minimum_codex_allowance_percent(), answer_identity, answer_output, allowance_before, allowance_after, error)
+    answer_provider_error = error; answer_validation = -1; answer_validation_error = ""
+    if answer_status = 0 then answer_validation = _answeroutput(answer_output.content(), evidence, generated_answer, answer_citation, answer_validation_error)
+    if answer_output.request_id() \= "" then do
+      answer_outcome = "succeeded"
+      if answer_status \= 0 then do; answer_outcome = "rejected"; if answer_output.status() \= 0 then answer_outcome = "failed"; end
+      else if answer_validation \= 0 then answer_outcome = "rejected"
+      answer_store = .ragstorehandle; persistence_error = ""
+      if openragstore(request.library(), "readwrite", answer_store, persistence_error) \= 0 then return _openfailure(operation, persistence_error)
+      persistence_status = _persistqueryproviderrun(answer_store.database(), config_snapshot_id, operation, "query-answer", answer_provider, answer_context, answer_output, answer_outcome, allowance_before, allowance_after, answer_provider_run, persistence_error)
+      state_changed = currentconfigsnapshotid(answer_store.database(), persistence_error) \= config_snapshot_id | _scalarint(answer_store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1") \= query_generation
+      ignored = ""; close_status = closeragstore(answer_store, ignored)
+      if persistence_status \= 0 then return _failure(operation, 7, persistence_error)
+      if close_status \= 0 then return _failure(operation, 7, ignored)
+      if state_changed then return _failure(operation, 6, "library generation or configuration changed while the query answer was generated; retry")
+    end
+    if answer_status \= 0 then do; call tracer.emit("answer", "failed", plan.fingerprint(), "provider answer rejected"); return _failure(operation, 8, answer_provider_error); end
+    if answer_validation \= 0 then do; call tracer.emit("answer", "failed", plan.fingerprint(), "citation validation failed"); return _failure(operation, 1, answer_validation_error); end
     answer_called = 1; evidence = evidence.with_generated_answer(generated_answer)
     call tracer.emit("answer", "complete", plan.fingerprint(), "citations validated")
   end
   embedding_usage = embedding_output.usage(); answer_usage = answer_output.usage()
   if queryusagewithin(budget, embedding_provider, embedding_usage, embedding_attempted, answer_provider, answer_usage, answer_called) \= 1 then return _failure(operation, 6, "query provider usage exceeded the configured token or cost ceiling, or monetary usage was unavailable")
-  if encodeevidence(evidence, 65536, evidence_json, error) \= 0 then return _failure(operation, 1, error)
+  if encodeevidence(evidence, retrieval_policy.maximum_evidence_bytes(), evidence_json, error) \= 0 then return _failure(operation, 1, error)
   fields = .ragresultfield[]
   fields[1] = .ragresultfield("evidence_schema", "string", "crexx-rag.evidence/1")
   fields[2] = .ragresultfield("query_plan_fingerprint", "string", plan.fingerprint())
@@ -1283,8 +1320,8 @@ _query: procedure = .ragcommandresult
   fields[29] = .ragresultfield("effective_graph_decay_millionths", "integer", retrieval_policy.graph_decay_millionths())
   fields[30] = .ragresultfield("effective_directness_bonus_millionths", "integer", retrieval_policy.directness_bonus_millionths())
   records = .ragresultrecord[]; records[1] = .ragresultrecord("query-evidence", fields)
-  if embedding_attempted = 1 then records[records.0 + 1] = _queryproviderrecord("embedding", embedding_provider, embedding_output, -1, -1)
-  if answer_called = 1 then records[records.0 + 1] = _queryproviderrecord("answerer", answer_provider, answer_output, allowance_before, allowance_after)
+  if embedding_attempted = 1 then records[records.0 + 1] = _queryproviderrecord("embedding", embedding_provider, embedding_output, embedding_provider_run, -1, -1)
+  if answer_called = 1 then records[records.0 + 1] = _queryproviderrecord("answerer", answer_provider, answer_output, answer_provider_run, allowance_before, allowance_after)
   message = "typed evidence retrieved"
   if answer_called = 1 then message = "evidence-backed answer generated with validated citations"
   else if embedding_called = 1 then message = "typed evidence retrieved with compatible hybrid search"
@@ -1378,8 +1415,33 @@ _containsstring: procedure = .int
   end
   return 0
 
+_persistqueryproviderrun: procedure = .int
+  arg database = .binary, config_snapshot_id = .string, operation = .string, purpose = .string, provider = .ragproviderconfig, request_input = .string, result = .providerresult, outcome = .string, allowance_before = .int, allowance_after = .int, expose provider_run_id = .string, expose error = .string
+  provider_run_id = ""; error = ""
+  if config_snapshot_id = "" | operation = "" | purpose = "" | provider.provider_id() = "" | provider.model() = "" | request_input = "" | result.request_id() = "" | wordpos(outcome, "succeeded failed rejected") = 0 then do; error = "query provider history input is invalid"; return -1; end
+  usage = result.usage(); duration_ms = result.latency_us() % 1000
+  request_hash = rxhash..sha256hex((operation || "00"x || purpose || "00"x || provider.provider_id() || "00"x || provider.model() || "00"x || request_input) as .binary)
+  provider_run_id = "provider-run-sha256:" || rxhash..sha256hex((result.request_id() || "00"x || purpose || "00"x || time("us")) as .binary)
+  prepared = .binary
+  sql = "INSERT INTO provider_runs(provider_run_id,config_snapshot_id,provider_id,model,request_hash,outcome,input_tokens,output_tokens,duration_ms,started_at,completed_at,charging_basis,allowance_used_before_percent,allowance_used_after_percent,recovery_json,cost_microunits,purpose) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'),?10,?11,?12,'',?13,?14)"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare query provider history"; return -1; end
+  binds = sqlitebindtext(prepared, 1, provider_run_id) | sqlitebindtext(prepared, 2, config_snapshot_id) | sqlitebindtext(prepared, 3, provider.provider_id()) | sqlitebindtext(prepared, 4, provider.model()) | sqlitebindtext(prepared, 5, request_hash) | sqlitebindtext(prepared, 6, outcome) | sqlitebindint(prepared, 7, usage.input_tokens()) | sqlitebindint(prepared, 8, usage.output_tokens()) | sqlitebindint(prepared, 9, duration_ms) | sqlitebindtext(prepared, 10, provider.charging_basis()) | sqlitebindint(prepared, 11, allowance_before) | sqlitebindint(prepared, 12, allowance_after) | sqlitebindint(prepared, 13, usage.cost_microunits()) | sqlitebindtext(prepared, 14, purpose)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then do; provider_run_id = ""; error = "cannot persist query provider history"; return -1; end
+  return 0
+
+_recorddirectproviderrun: procedure = .int
+  arg library = .string, config_snapshot_id = .string, operation = .string, purpose = .string, provider = .ragproviderconfig, request_input = .string, result = .providerresult, outcome = .string, allowance_before = .int, allowance_after = .int, expose error = .string
+  error = ""; provider_run_id = ""; store = .ragstorehandle
+  if openragstore(library, "readwrite", store, error) \= 0 then return -1
+  status = _persistqueryproviderrun(store.database(), config_snapshot_id, operation, purpose, provider, request_input, result, outcome, allowance_before, allowance_after, provider_run_id, error)
+  close_error = ""; close_status = closeragstore(store, close_error)
+  if status \= 0 then return -1
+  if close_status \= 0 then do; error = close_error; return -1; end
+  return 0
+
 _queryproviderrecord: procedure = .ragresultrecord
-  arg role = .string, provider = .ragproviderconfig, result = .providerresult, allowance_before = .int, allowance_after = .int
+  arg role = .string, provider = .ragproviderconfig, result = .providerresult, provider_run_id = .string, allowance_before = .int, allowance_after = .int
   usage = result.usage(); fields = .ragresultfield[]
   fields[1] = .ragresultfield("role", "string", role)
   fields[2] = .ragresultfield("provider_id", "string", provider.provider_id())
@@ -1390,6 +1452,7 @@ _queryproviderrecord: procedure = .ragresultrecord
   fields[7] = .ragresultfield("output_tokens", "integer", usage.output_tokens())
   outcome = "failed"; if result.status() = 0 then outcome = "succeeded"
   fields[8] = .ragresultfield("outcome", "string", outcome)
+  fields[9] = .ragresultfield("provider_run_id", "string", provider_run_id)
   if provider.charging_basis() = "monetary-api" & usage.cost_microunits() >= 0 then fields[fields.0 + 1] = .ragresultfield("estimated_cost_microunits", "integer", usage.cost_microunits())
   if allowance_before >= 0 then fields[fields.0 + 1] = .ragresultfield("allowance_before_percent", "integer", allowance_before)
   if allowance_after >= 0 then fields[fields.0 + 1] = .ragresultfield("allowance_after_percent", "integer", allowance_after)
@@ -1830,6 +1893,7 @@ _maintainapply: procedure = .ragcommandresult
   if config_lookup.found() \= 1 then return _failure(operation, 5, "configuration is not registered")
   config = config_lookup.config(); budget = config.budget(); workers = config.workers()
   provider = _roleproviderconfig(config, "extractor")
+  embedding_provider = _roleproviderconfig(config, "embedding")
   if provider.provider_id() = "" then return _failure(operation, 3, "configuration has no extractor provider")
   route_id = provider.provider_id(); secret_reference = provider.credential().ref_string(); privacy = _queryprivacy(config)
   store = .ragstorehandle
@@ -1844,13 +1908,15 @@ _maintainapply: procedure = .ragcommandresult
   if plan_status = 0 then plan_status = applyconfiguredimproveplan(store, plan, request.profile_id(), provider.model(), provider.charging_basis(), budget.codex_turns(), apply_result, error)
   maintenance_result = .ragmaintenanceapplyresult
   if plan_status = 0 then plan_status = persistmaintenance(store, census, plan, apply_result, "reviewed", maintenance_result, error)
-  embedding_provider = _roleproviderconfig(config, "embedding"); repair_items = 0
+  repair_items = 0
+  repair_planned = _maintenanceitemcount(census, "stale-embedding")
+  work_call_ceiling = plan.model_call_budget() + repair_planned * embedding_provider.max_attempts(); if work_call_ceiling > budget.model_calls() then work_call_ceiling = budget.model_calls()
   job_id = ""; if plan_status = 0 then job_id = apply_result.job_id()
-  if plan_status = 0 & job_id = "" then plan_status = ensuremaintenancejob(store, maintenance_result.run_id(), snapshot_id, budget.model_calls(), budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), job_id, error)
+  if plan_status = 0 & job_id = "" & repair_planned > 0 then plan_status = ensuremaintenancejob(store, maintenance_result.run_id(), snapshot_id, work_call_ceiling, budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), job_id, error)
   embedding_inflight = workers.processes() * workers.max_in_flight(); if embedding_inflight < 1 then embedding_inflight = 1
   embedding_input = budget.input_tokens() / embedding_inflight; if embedding_input > 8192 then embedding_input = 8192
   embedding_cost = budget.cost_microunits() / embedding_inflight; if embedding_cost > 1000 then embedding_cost = 1000
-  if plan_status = 0 & job_id \= "" then plan_status = recordmaintenanceembeddingitems(store, maintenance_result.run_id(), job_id, request.profile_id(), embedding_provider.provider_id(), embedding_provider.model(), embedding_provider.charging_basis(), privacy, budget.model_calls(), embedding_input, embedding_cost, embedding_provider.timeout_ms(), repair_items, error)
+  if plan_status = 0 & job_id \= "" then plan_status = recordmaintenanceembeddingitems(store, maintenance_result.run_id(), job_id, request.profile_id(), embedding_provider.provider_id(), embedding_provider.model(), embedding_provider.charging_basis(), privacy, work_call_ceiling, embedding_input, embedding_cost, embedding_provider.timeout_ms(), repair_items, error)
   vector_generations = 0; vector_state = "not-applicable"
   if plan_status = 0 & job_id = "" then plan_status = _publishconfiguredvector(store, config, vector_generations, vector_state, error)
   close_error = ""; close_status = closeragstore(store, close_error)
@@ -1883,6 +1949,7 @@ _maintainplan: procedure = .ragcommandresult
   if config_lookup.found() \= 1 | profile_lookup.found() \= 1 then return _failure(operation, 5, "configuration or profile is not registered")
   config = config_lookup.config(); budget = config.budget(); workers = config.workers()
   provider = _roleproviderconfig(config, "extractor")
+  embedding_provider = _roleproviderconfig(config, "embedding")
   if provider.provider_id() = "" then return _failure(operation, 3, "configuration has no extractor provider")
   privacy = _queryprivacy(config)
   store = .ragstorehandle
@@ -1920,20 +1987,31 @@ _maintainplan: procedure = .ragcommandresult
   fields[17] = .ragresultfield("maintenance_plan", "string", census.canonical())
   fields[18] = .ragresultfield("embedding_profile_id", "string", census.embedding_profile_id())
   fields[19] = .ragresultfield("work_provider_calls", "integer", _maintenancecallcount(census))
+  repair_count = _maintenanceitemcount(census, "stale-embedding")
+  maximum_work_calls = plan.model_call_budget() + repair_count * embedding_provider.max_attempts(); if maximum_work_calls > budget.model_calls() then maximum_work_calls = budget.model_calls()
+  fields[20] = .ragresultfield("maximum_work_provider_calls", "integer", maximum_work_calls)
   records[records.0 + 1] = .ragresultrecord("maintenance-preview", fields)
   return .ragcommandresult(operation, "ok", 0, "bounded maintenance census and worklist created without library writes", records)
 
 _preparemaintenance: procedure = .int
   arg store = .ragstorehandle, config = .ragconfig, snapshot_id = .string, expose plan = .ragimproveplan, expose census = .ragmaintenancecensus, expose error = .string
-  error = ""; budget = config.budget(); workers = config.workers()
+  error = ""; budget = config.budget(); workers = config.workers(); maintenance_policy = config.maintenance()
   extractor = _roleproviderconfig(config, "extractor"); embedder = _roleproviderconfig(config, "embedding")
   if snapshot_id = "" | budget.item_limit() < 1 | budget.item_limit() > 100000 | budget.model_calls() < 1 | budget.minutes() < 1 | extractor.provider_id() = "" | embedder.provider_id() = "" | embedder.kind() = "codex" then do; error = "maintenance requires positive item, provider-call and time budgets plus extractor and embedding providers"; return -1; end
   embedding_profile_id = _embeddingprofileid(embedder)
   missing = _missingembeddingcount(store.database(), embedding_profile_id)
   if missing < 0 then do; error = "cannot calculate configured embedding coverage"; return -3; end
-  repair_reservation = missing; if repair_reservation > budget.item_limit() then repair_reservation = budget.item_limit(); if repair_reservation > budget.model_calls() then repair_reservation = budget.model_calls()
-  cognitive_limit = budget.model_calls() - repair_reservation
-  remaining_items = budget.item_limit() - repair_reservation; if cognitive_limit > remaining_items then cognitive_limit = remaining_items
+  batch_items = maintenance_policy.batch_items(); if batch_items > budget.item_limit() then batch_items = budget.item_limit()
+  repair_reservation = missing; if repair_reservation > batch_items then repair_reservation = batch_items
+  repair_call_budget = repair_reservation * embedder.max_attempts()
+  if repair_call_budget > budget.model_calls() then do
+    repair_reservation = budget.model_calls() % embedder.max_attempts(); if repair_reservation < 1 & missing > 0 then repair_reservation = 1
+    repair_call_budget = repair_reservation * embedder.max_attempts(); if repair_call_budget > budget.model_calls() then repair_call_budget = budget.model_calls()
+  end
+  available_cognitive_calls = budget.model_calls() - repair_call_budget
+  cognitive_limit = available_cognitive_calls
+  remaining_items = batch_items - repair_reservation; if cognitive_limit > remaining_items then cognitive_limit = remaining_items
+  cognitive_call_budget = cognitive_limit * extractor.max_attempts(); if cognitive_call_budget > available_cognitive_calls then cognitive_call_budget = available_cognitive_calls
   maximum_inflight = workers.processes() * workers.max_in_flight(); if maximum_inflight < 1 then maximum_inflight = 1
   maximum_call_input = budget.input_tokens() / maximum_inflight
   input_ceiling = 8192; if extractor.kind() = "codex" then input_ceiling = 32768
@@ -1951,11 +2029,10 @@ _preparemaintenance: procedure = .int
   discovery_context = ""
   if creatediscoverycontext(glossary, "maintenance", discovery.ranked_limit(), discovery.max_mentions(), discovery.max_relationships(), discovery.max_notes(), discovery_context, error) \= 0 then return -1
   triggers = .string[]; triggers[1] = "bridge"; triggers[2] = "conflict"; triggers[3] = "maintenance-priority"; triggers[4] = "operator-review"; triggers[5] = "unprocessed-extraction"; triggers[6] = "unresolved"; triggers[7] = "weak-support"
-  if createimproveplan(store, snapshot_id, "surface-claim-v1", "surface-prompt-v1", triggers, cognitive_limit, cognitive_limit, budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), total_time, maximum_call_input, maximum_call_output, maximum_call_cost, maximum_call_time, maximum_inflight, extractor.max_attempts(), privacy, extractor.provider_id(), extractor.credential().ref_string(), discovery_context, plan, error) \= 0 then return -3
+  if createimproveplan(store, snapshot_id, "surface-claim-v1", "surface-prompt-v1", triggers, cognitive_limit, cognitive_call_budget, budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), total_time, maximum_call_input, maximum_call_output, maximum_call_cost, maximum_call_time, maximum_inflight, extractor.max_attempts(), privacy, extractor.provider_id(), extractor.credential().ref_string(), discovery_context, plan, error) \= 0 then return -3
   maximum_passes = plan.item_count() + 2
   do pass = 1 to maximum_passes
-    maintenance_policy = config.maintenance()
-    if buildmaintenancecensus(store, plan, embedding_profile_id, budget.item_limit(), census, error, maintenance_policy.sparse_max_degree(), maintenance_policy.query_gap_min_occurrences()) \= 0 then return -3
+    if buildmaintenancecensus(store, plan, embedding_profile_id, batch_items, census, error, maintenance_policy.sparse_max_degree(), maintenance_policy.query_gap_min_occurrences()) \= 0 then return -3
     selected = _censuscognitivechunks(census)
     plan_chunks = plan.chunk_ids()
     if _samechunkset(plan_chunks, selected) = 1 then leave
@@ -1984,6 +2061,14 @@ _maintenancecallcount: procedure = .int
   count = 0; types = census.item_types()
   do i = 1 to types.0
     if types[i] = "concept-review" | types[i] = "stale-embedding" then count = count + 1
+  end
+  return count
+
+_maintenanceitemcount: procedure = .int
+  arg census = .ragmaintenancecensus, expected_type = .string
+  count = 0; types = census.item_types()
+  do i = 1 to types.0
+    if types[i] = expected_type then count = count + 1
   end
   return count
 

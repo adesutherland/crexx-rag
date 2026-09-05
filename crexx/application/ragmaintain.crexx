@@ -49,6 +49,30 @@ ragmaintenancecensus: class
     return _actions
   item_count: method = .int
     return _item_types.0
+  add: method
+    arg item_type = .string, subject_type = .string, subject = .string, score = .int, trigger = .string, diagnosis = .string, action = .string, maximum = .int
+    /* Authoritative census queries emit unique primary ids and use disjoint
+     * item/subject types. Keep the growing arrays inside this object so a call
+     * does not expose and revalidate seven complete value trees per item. */
+    key = item_type || ":" || subject
+    low = 1; high = _scores.0; position = _scores.0 + 1
+    do while low <= high
+      middle = (low + high) / 2
+      middle_key = _item_types[middle] || ":" || _subject_ids[middle]
+      if score > _scores[middle] | (score = _scores[middle] & key < middle_key) then do
+        position = middle; high = middle - 1
+      end
+      else low = middle + 1
+    end
+    if position > maximum then return
+    limit = _scores.0 + 1; if limit > maximum then limit = maximum
+    do i = limit to position + 1 by -1
+      _item_types[i] = _item_types[i - 1]; _subject_types[i] = _subject_types[i - 1]; _subject_ids[i] = _subject_ids[i - 1]
+      _scores[i] = _scores[i - 1]; _triggers[i] = _triggers[i - 1]; _diagnoses[i] = _diagnoses[i - 1]; _actions[i] = _actions[i - 1]
+    end
+    _item_types[position] = item_type; _subject_types[position] = subject_type; _subject_ids[position] = subject
+    _scores[position] = score; _triggers[position] = trigger; _diagnoses[position] = diagnosis; _actions[position] = action
+    return
   canonical: method = .string
     return _canonical
   digest: method = .string
@@ -100,7 +124,7 @@ buildmaintenancecensus: procedure = .int
     trigger = '{"signals":["chunk-priority","cognitive-review"],"analysis_plan":' || jsonquote(analysis_plan.digest()) || '}'
     diagnosis = '{"state":"selected","reason":"ranked chunk requires bounded concept, relationship and note review"}'
     action = '{"operation":"cognitive-review","revision_chunk_id":' || jsonquote(chunk_ids[i]) || '}'
-    call _additem item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "concept-review", "chunk", chunk_ids[i], score, trigger, diagnosis, action, maximum_items
+    call census.add("concept-review", "chunk", chunk_ids[i], score, trigger, diagnosis, action, maximum_items)
   end
 
   prepared = .binary
@@ -112,7 +136,7 @@ buildmaintenancecensus: procedure = .int
     conflict_id = ""; claim_id = ""; competing = ""
     if sqlitecolumntext(prepared, 0, conflict_id) \= 0 | sqlitecolumntext(prepared, 1, claim_id) \= 0 | sqlitecolumntext(prepared, 2, competing) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode maintenance conflict"; return -3; end
     trigger = '{"signals":["pending-conflict"],"claim_id":' || jsonquote(claim_id) || ',"competing_claim_id":' || jsonquote(competing) || '}'
-    call _additem item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "claim-conflict", "conflict", conflict_id, 950000, trigger, '{"state":"review-required"}', '{}', maximum_items
+    call census.add("claim-conflict", "conflict", conflict_id, 950000, trigger, '{"state":"review-required"}', '{}', maximum_items)
   end
   call sqlitefinalize prepared
 
@@ -127,7 +151,7 @@ buildmaintenancecensus: procedure = .int
     if degree > sparse_max_degree then iterate
     score = 500000 - degree * 100000
     trigger = '{"signals":["sparse-node"],"degree":' || degree || ',"label":' || jsonquote(label) || '}'
-    call _additem item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "sparse-node", "concept", concept_id, score, trigger, '{"state":"analysis-lead"}', '{}', maximum_items
+    call census.add("sparse-node", "concept", concept_id, score, trigger, '{"state":"analysis-lead"}', '{}', maximum_items)
   end
   call sqlitefinalize prepared
 
@@ -142,10 +166,18 @@ buildmaintenancecensus: procedure = .int
     if columns \= 0 then do; call sqlitefinalize prepared; error = "cannot decode analysis note"; return -3; end
     item_type = "analysis-lead"; if kind = "gap" | kind = "question" then item_type = "query-gap"
     if wordpos(kind, "synonym split merge type-correction retire restore") > 0 then item_type = kind
-    score = importance + (1000000 - uncertainty) / 4; if score > 1000000 then score = 1000000
+    score = importance + (1000000 - uncertainty) / 4
+    /* Provider-authored leads and lifecycle suggestions remain advisory. Keep
+     * them below deterministic conflict and projection-repair bands so a
+     * bounded batch cannot hide a broken searchable/vector state. */
+    if score > 940000 then score = 940000
     trigger = '{"signals":["durable-analysis-note"],"kind":' || jsonquote(kind) || ',"importance":' || importance || ',"uncertainty":' || uncertainty || '}'
-    action = '{}'; if next_action \= "" then action = next_action
-    call _additem item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, item_type, "note", note_id, score, trigger, '{"state":"provider-diagnosed"}', action, maximum_items
+    action = jsonquote(next_action)
+    /* Only lifecycle note kinds carry an executable canonical JSON object;
+     * all other next actions are untrusted advisory text and must remain a
+     * JSON string inside the maintenance plan. */
+    if wordpos(item_type, "synonym split merge type-correction retire restore") > 0 then action = next_action
+    call census.add(item_type, "note", note_id, score, trigger, '{"state":"provider-diagnosed"}', action, maximum_items)
   end
   call sqlitefinalize prepared
 
@@ -160,7 +192,7 @@ buildmaintenancecensus: procedure = .int
     if occurrences < query_gap_min_occurrences then iterate
     score = 400000 + occurrences * 50000; if score > 900000 then score = 900000
     trigger = '{"signals":["repeated-query-gap"],"occurrences":' || occurrences || ',"gap":' || jsonquote(gap_text) || '}'
-    call _additem item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "query-gap", "query-gap", gap_id, score, trigger, '{"state":"analysis-lead"}', '{}', maximum_items
+    call census.add("query-gap", "query-gap", gap_id, score, trigger, '{"state":"analysis-lead"}', '{}', maximum_items)
   end
   call sqlitefinalize prepared
 
@@ -171,15 +203,17 @@ buildmaintenancecensus: procedure = .int
     step = sqlitestep(prepared); if step = 101 then leave
     if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read embedding coverage census"; return -3; end
     chunk_id = ""; if sqlitecolumntext(prepared, 0, chunk_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode stale embedding"; return -3; end
-    call _additem item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "stale-embedding", "chunk", chunk_id, 980000, '{"signals":["missing-active-embedding"]}', '{"state":"repair-required"}', '{"operation":"embedding-repair"}', maximum_items
+    call census.add("stale-embedding", "chunk", chunk_id, 980000, '{"signals":["missing-active-embedding"]}', '{"state":"repair-required"}', '{"operation":"embedding-repair"}', maximum_items)
   end
   call sqlitefinalize prepared
 
   active_chunks = _scalarint(store.database(), "SELECT count(*) FROM revision_chunks WHERE visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ")")
   active_vectors = _scalarint(store.database(), "SELECT count(*) FROM vector_generations WHERE semantic_generation=" || generation || " AND embedding_profile_id=" || _q(embedding_profile_id) || " AND state='published' AND algorithm='ivf-flat-v1'")
-  if active_chunks > 0 & active_vectors \= 1 then call _additem item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "vector-publication", "embedding-profile", embedding_profile_id, 990000, '{"signals":["missing-ann-publication"],"published":' || active_vectors || '}', '{"state":"repair-required"}', '{"operation":"ann-publication"}', maximum_items
+  if active_chunks > 0 & active_vectors \= 1 then call census.add("vector-publication", "embedding-profile", embedding_profile_id, 990000, '{"signals":["missing-ann-publication"],"published":' || active_vectors || '}', '{"state":"repair-required"}', '{"operation":"ann-publication"}', maximum_items)
 
-  canonical = _canonicalcensus(generation, analysis_plan.digest(), embedding_profile_id, sparse_max_degree, query_gap_min_occurrences, item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions)
+  item_types = census.item_types(); subject_types = census.subject_types(); subject_ids = census.subject_ids(); scores = census.scores()
+  triggers = census.triggers(); diagnoses = census.diagnoses(); actions = census.actions()
+  canonical = _canonicalcensus(generation, analysis_plan.digest(), embedding_profile_id, maximum_items, sparse_max_degree, query_gap_min_occurrences, item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions)
   digest = rxhash..sha256hex(canonical as .binary)
   census = .ragmaintenancecensus(generation, embedding_profile_id, item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, canonical, digest)
   return 0
@@ -235,6 +269,14 @@ persistmaintenance: procedure = .int
       end
       reviews = reviews + 1
     end
+  end
+  /* Generic improvement ranks may exceed the maintenance score scale. Once
+   * the reviewed maintenance census exists, make its bounded rank authoritative
+   * for the cognitive items too. This guarantees that repair work at 950000+
+   * is claimed before enrichment capped at 900000. */
+  if analysis_result.job_id() \= "" then do
+    sql = "UPDATE job_items SET priority=coalesce((SELECT m.score FROM maintenance_items m WHERE m.run_id=" || _q(run_id) || " AND m.item_type='concept-review' AND m.subject_id=json_extract(job_items.input_json,'$.revision_chunk_id')),priority) WHERE job_id=" || _q(analysis_result.job_id()) || " AND item_type='improve-extraction'"
+    if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot apply reviewed maintenance priorities", error)
   end
   if types.0 = 0 then do
     if sqliteexec(database, "UPDATE maintenance_runs SET state='complete',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=" || _q(run_id)) \= 0 then return _rollback(database, "cannot complete empty maintenance run", error)
@@ -294,22 +336,22 @@ recordmaintenanceembeddingitems: procedure = .int
   if store.writable() \= 1 | run_id = "" | job_id = "" | profile_id = "" | provider_id = "" | provider_model = "" | maximum_calls < 1 | maximum_input < 1 | maximum_time < 1 then do; error = "embedding repair binding is invalid"; return -1; end
   database = store.database(); generation = _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1")
   prepared = .binary
-  sql = "SELECT m.subject_id,c.content_id,c.content_digest,c.text,r.normalized_start,r.normalized_end,s.observed_uri FROM maintenance_items m JOIN revision_chunks r ON r.revision_chunk_id=m.subject_id JOIN chunk_contents c ON c.content_id=r.content_id JOIN source_revisions v ON v.revision_id=r.revision_id JOIN sources s ON s.source_id=v.source_id WHERE m.run_id=?1 AND m.item_type='stale-embedding' AND m.state='pending' ORDER BY m.item_id"
+  sql = "SELECT m.subject_id,c.content_id,c.content_digest,c.text,r.normalized_start,r.normalized_end,s.observed_uri,m.score FROM maintenance_items m JOIN revision_chunks r ON r.revision_chunk_id=m.subject_id JOIN chunk_contents c ON c.content_id=r.content_id JOIN source_revisions v ON v.revision_id=r.revision_id JOIN sources s ON s.source_id=v.source_id WHERE m.run_id=?1 AND m.item_type='stale-embedding' AND m.state='pending' ORDER BY m.score DESC,m.item_id"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, run_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare embedding repair work"; return -3; end
-  chunk_ids = .string[]; content_ids = .string[]; digests = .string[]; bodies = .string[]; starts = .int[]; finishes = .int[]; source_scopes = .string[]
+  chunk_ids = .string[]; content_ids = .string[]; digests = .string[]; bodies = .string[]; starts = .int[]; finishes = .int[]; source_scopes = .string[]; priorities = .int[]
   do forever
     step = sqlitestep(prepared); if step = 101 then leave
     if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read embedding repair work"; return -3; end
-    chunk_id = ""; content_id = ""; digest = ""; body = ""; source_scope = ""; start = 0; finish = 0
-    columns = sqlitecolumntext(prepared, 0, chunk_id) | sqlitecolumntext(prepared, 1, content_id) | sqlitecolumntext(prepared, 2, digest) | sqlitecolumntext(prepared, 3, body) | sqlitecolumnint(prepared, 4, start) | sqlitecolumnint(prepared, 5, finish) | sqlitecolumntext(prepared, 6, source_scope)
+    chunk_id = ""; content_id = ""; digest = ""; body = ""; source_scope = ""; start = 0; finish = 0; priority = 0
+    columns = sqlitecolumntext(prepared, 0, chunk_id) | sqlitecolumntext(prepared, 1, content_id) | sqlitecolumntext(prepared, 2, digest) | sqlitecolumntext(prepared, 3, body) | sqlitecolumnint(prepared, 4, start) | sqlitecolumnint(prepared, 5, finish) | sqlitecolumntext(prepared, 6, source_scope) | sqlitecolumnint(prepared, 7, priority)
     if columns \= 0 then do; call sqlitefinalize prepared; error = "cannot decode embedding repair work"; return -3; end
-    row = chunk_ids.0 + 1; chunk_ids[row] = chunk_id; content_ids[row] = content_id; digests[row] = digest; bodies[row] = body; starts[row] = start; finishes[row] = finish; source_scopes[row] = source_scope
+    row = chunk_ids.0 + 1; chunk_ids[row] = chunk_id; content_ids[row] = content_id; digests[row] = digest; bodies[row] = body; starts[row] = start; finishes[row] = finish; source_scopes[row] = source_scope; priorities[row] = priority
   end
   call sqlitefinalize prepared
   if chunk_ids.0 = 0 then return 0
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin embedding repair queue"; return -3; end
   do i = 1 to chunk_ids.0
-    chunk_id = chunk_ids[i]; content_id = content_ids[i]; digest = digests[i]; body = bodies[i]; start_text = starts[i]; finish_text = finishes[i]; source_scope = source_scopes[i]
+    chunk_id = chunk_ids[i]; content_id = content_ids[i]; digest = digests[i]; body = bodies[i]; start_text = starts[i]; finish_text = finishes[i]; source_scope = source_scopes[i]; priority = priorities[i]
     item_input = maximum_input; body_cap = binlength(body as .binary) + 32; if body_cap < item_input then item_input = body_cap
     item_cost = maximum_cost; if charging_basis \= "monetary-api" then item_cost = 0
     reservation = '{"input_tokens":' || item_input || ',"output_tokens":0,"cost_microunits":' || item_cost || ',"time_ms":' || maximum_time || '}'
@@ -317,9 +359,9 @@ recordmaintenanceembeddingitems: procedure = .int
     input_hash = rxhash..sha256hex(input_json as .binary); idempotency = rxhash..sha256hex(("crexx-rag.work/2" || "00"x || input_hash) as .binary); item_id = "item-sha256:" || idempotency
     before = _scalarint(database, "SELECT total_changes()")
     statement = .binary
-    sql = "INSERT OR IGNORE INTO job_items(item_id,job_id,item_type,state,priority,worker_id,lease_until,fence,retry_at,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES(?1,?2,'embedding','queued',100,NULL,NULL,0,0,?3,?4,?5,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+    sql = "INSERT OR IGNORE INTO job_items(item_id,job_id,item_type,state,priority,worker_id,lease_until,fence,retry_at,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES(?1,?2,'embedding','queued',?6,NULL,NULL,0,0,?3,?4,?5,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
     if sqliteprepare(database, sql, statement) \= 0 then return _rollback(database, "cannot prepare embedding repair item", error)
-    binds = sqlitebindtext(statement, 1, item_id) | sqlitebindtext(statement, 2, job_id) | sqlitebindtext(statement, 3, idempotency) | sqlitebindtext(statement, 4, input_hash) | sqlitebindtext(statement, 5, input_json)
+    binds = sqlitebindtext(statement, 1, item_id) | sqlitebindtext(statement, 2, job_id) | sqlitebindtext(statement, 3, idempotency) | sqlitebindtext(statement, 4, input_hash) | sqlitebindtext(statement, 5, input_json) | sqlitebindint(statement, 6, priority)
     step = sqlitestep(statement); call sqlitefinalize statement
     if binds \= 0 | step \= 101 then return _rollback(database, "cannot insert embedding repair item", error)
     after = _scalarint(database, "SELECT total_changes()")
@@ -333,32 +375,13 @@ recordmaintenanceembeddingitems: procedure = .int
   return 0
 
 _canonicalcensus: procedure = .string
-  arg generation = .int, analysis_digest = .string, embedding_profile_id = .string, sparse_max_degree = .int, query_gap_min_occurrences = .int, types = .string[], subject_types = .string[], subjects = .string[], scores = .int[], triggers = .string[], diagnoses = .string[], actions = .string[]
-  output = '{"schema":"crexx-rag.maintenance-plan/1","expected_generation":' || generation || ',"analysis_plan_digest":' || jsonquote(analysis_digest) || ',"embedding_profile_id":' || jsonquote(embedding_profile_id) || ',"policy":{"sparse_max_degree":' || sparse_max_degree || ',"query_gap_min_occurrences":' || query_gap_min_occurrences || '},"items":['
+  arg generation = .int, analysis_digest = .string, embedding_profile_id = .string, batch_items = .int, sparse_max_degree = .int, query_gap_min_occurrences = .int, types = .string[], subject_types = .string[], subjects = .string[], scores = .int[], triggers = .string[], diagnoses = .string[], actions = .string[]
+  output = '{"schema":"crexx-rag.maintenance-plan/1","expected_generation":' || generation || ',"analysis_plan_digest":' || jsonquote(analysis_digest) || ',"embedding_profile_id":' || jsonquote(embedding_profile_id) || ',"policy":{"batch_items":' || batch_items || ',"sparse_max_degree":' || sparse_max_degree || ',"query_gap_min_occurrences":' || query_gap_min_occurrences || '},"items":['
   do i = 1 to types.0
     if i > 1 then output = output || ','
     output = output || '{"item_type":' || jsonquote(types[i]) || ',"subject_type":' || jsonquote(subject_types[i]) || ',"subject_id":' || jsonquote(subjects[i]) || ',"score":' || scores[i] || ',"triggers":' || triggers[i] || ',"diagnosis":' || diagnoses[i] || ',"action":' || actions[i] || '}'
   end
   return output || ']}'
-
-_additem: procedure
-  arg expose types = .string[], expose subject_types = .string[], expose subjects = .string[], expose scores = .int[], expose triggers = .string[], expose diagnoses = .string[], expose actions = .string[], item_type = .string, subject_type = .string, subject = .string, score = .int, trigger = .string, diagnosis = .string, action = .string, maximum = .int
-  do i = 1 to types.0
-    if types[i] = item_type & subject_types[i] = subject_type & subjects[i] = subject then return
-  end
-  position = scores.0 + 1
-  do i = 1 to scores.0
-    if score > scores[i] | (score = scores[i] & (item_type || ":" || subject) < (types[i] || ":" || subjects[i])) then do; position = i; leave; end
-  end
-  if position > maximum then return
-  limit = scores.0 + 1; if limit > maximum then limit = maximum
-  do i = limit to position + 1 by -1
-    types[i] = types[i - 1]; subject_types[i] = subject_types[i - 1]; subjects[i] = subjects[i - 1]
-    scores[i] = scores[i - 1]; triggers[i] = triggers[i - 1]; diagnoses[i] = diagnoses[i - 1]; actions[i] = actions[i - 1]
-  end
-  types[position] = item_type; subject_types[position] = subject_type; subjects[position] = subject
-  scores[position] = score; triggers[position] = trigger; diagnoses[position] = diagnosis; actions[position] = action
-  return
 
 _scalarint: procedure = .int
   arg database = .binary, sql = .string

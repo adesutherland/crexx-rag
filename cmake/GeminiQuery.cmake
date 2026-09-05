@@ -18,6 +18,7 @@ configure_file("${CPRAG_CONFIG_TEMPLATE}"
 if(NOT EXISTS "${CPRAG_NATIVE_APPLICATION}")
     message(FATAL_ERROR "native crexxrag application is required")
 endif()
+find_program(CREXXRAG_SQLITE3 sqlite3 REQUIRED)
 set(cli "${CMAKE_COMMAND}" -E env
     "CPRAG_FIXTURE_GEMINI_KEY=synthetic-product-gemini-key"
     "CREXXRAG_SELF=${CPRAG_NATIVE_APPLICATION}"
@@ -54,7 +55,7 @@ execute_process(COMMAND ${cli} init
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err
     RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 7")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 8")
     message(FATAL_ERROR "Query test human init failed:\n${init_out}${init_err}")
 endif()
 
@@ -91,6 +92,13 @@ if(NOT query_result EQUAL 0 OR
    NOT query_err MATCHES "crexxrag answer complete" OR
    query_err MATCHES "synthetic-product-gemini-key")
     message(FATAL_ERROR "Human hybrid answer failed:\n${query_out}${query_err}")
+endif()
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+    "SELECT count(*) || ':' || count(DISTINCT purpose) || ':' || min(cost_microunits>=0) || ':' || count(DISTINCT request_hash) FROM provider_runs WHERE purpose IN('query-embedding','query-answer');"
+    OUTPUT_VARIABLE query_history_out ERROR_VARIABLE query_history_err
+    RESULT_VARIABLE query_history_result OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT query_history_result EQUAL 0 OR NOT query_history_out STREQUAL "2:2:1:2")
+    message(FATAL_ERROR "Successful direct provider history was not durable and costed:\n${query_history_out}${query_history_err}")
 endif()
 
 set(exited FALSE)
@@ -292,6 +300,13 @@ endforeach()
 if(NOT EXISTS "${invalid_report_status}")
     message(FATAL_ERROR "Invalid report narrative loopback did not exit")
 endif()
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+    "SELECT count(*) FROM provider_runs WHERE purpose='report-narrative' AND outcome='rejected' AND cost_microunits>=0;"
+    OUTPUT_VARIABLE rejected_report_history_out ERROR_VARIABLE rejected_report_history_err
+    RESULT_VARIABLE rejected_report_history_result OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT rejected_report_history_result EQUAL 0 OR NOT rejected_report_history_out STREQUAL "1")
+    message(FATAL_ERROR "Rejected report narrative history was not durable:\n${rejected_report_history_out}${rejected_report_history_err}")
+endif()
 
 execute_process(COMMAND ${cli} --format json library report --top 10 --narrative cached
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
@@ -385,6 +400,13 @@ if(hybrid_fail_result EQUAL 0 OR
    hybrid_fail_out MATCHES "\"status\":\"ok\"")
     message(FATAL_ERROR "Required hybrid query silently fell back:\n${hybrid_fail_out}${hybrid_fail_err}")
 endif()
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+    "SELECT count(*) FROM provider_runs WHERE purpose='query-embedding' AND outcome='failed' AND cost_microunits>=0;"
+    OUTPUT_VARIABLE failed_embedding_history_out ERROR_VARIABLE failed_embedding_history_err
+    RESULT_VARIABLE failed_embedding_history_result OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT failed_embedding_history_result EQUAL 0 OR NOT failed_embedding_history_out STREQUAL "2")
+    message(FATAL_ERROR "Failed direct embedding history was not durable:\n${failed_embedding_history_out}${failed_embedding_history_err}")
+endif()
 
 # Provider JSON is untrusted. Unknown and duplicate citations, a supported
 # answer without citations, and extra fields are rejected before display.
@@ -444,6 +466,13 @@ file(READ "${invalid_err}" final_invalid_err)
 if(NOT invalid_result STREQUAL "0" OR
    NOT final_invalid_out MATCHES "SUMMARY scenario=product-query-invalid connections=4")
     message(FATAL_ERROR "Invalid-answer loopback failed:\n${final_invalid_out}${final_invalid_err}")
+endif()
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+    "SELECT count(*) FROM provider_runs WHERE purpose='query-answer' AND outcome='rejected' AND cost_microunits>=0;"
+    OUTPUT_VARIABLE rejected_answer_history_out ERROR_VARIABLE rejected_answer_history_err
+    RESULT_VARIABLE rejected_answer_history_result OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT rejected_answer_history_result EQUAL 0 OR NOT rejected_answer_history_out STREQUAL "4")
+    message(FATAL_ERROR "Rejected direct answer history was not durable:\n${rejected_answer_history_out}${rejected_answer_history_err}")
 endif()
 
 # Irrelevant retrieved material is not a command failure. The provider declares

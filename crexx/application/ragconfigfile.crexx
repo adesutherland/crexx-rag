@@ -213,6 +213,7 @@ parseconfigtext: procedure = .int
 
   lexical_candidates = 48; vector_candidates = 12; vector_scan_limit = 100000; graph_hops = 3; passage_limit = 12; claim_limit = 8; lead_limit = 8; rrf_k = 60
   graph_boost = 2000; graph_decay = 750000; directness_bonus = 1000; graph_direction = _optional(keys, values, "retrieval.graph_direction"); if graph_direction = "" then graph_direction = "both"
+  maximum_evidence_bytes = 262144
   setting = _optional(keys, values, "retrieval.lexical_candidates"); if setting \= "" then if _uint(setting, 1, 1000, "retrieval.lexical_candidates", lexical_candidates, error) \= 0 then return -1
   setting = _optional(keys, values, "retrieval.vector_candidates"); if setting \= "" then if _uint(setting, 1, 1000, "retrieval.vector_candidates", vector_candidates, error) \= 0 then return -1
   setting = _optional(keys, values, "retrieval.vector_scan_limit"); if setting \= "" then if _uint(setting, 1, 1000000, "retrieval.vector_scan_limit", vector_scan_limit, error) \= 0 then return -1
@@ -224,14 +225,16 @@ parseconfigtext: procedure = .int
   setting = _optional(keys, values, "retrieval.graph_boost_millionths"); if setting \= "" then if _uint(setting, 0, 1000000, "retrieval.graph_boost_millionths", graph_boost, error) \= 0 then return -1
   setting = _optional(keys, values, "retrieval.graph_decay_millionths"); if setting \= "" then if _uint(setting, 1, 1000000, "retrieval.graph_decay_millionths", graph_decay, error) \= 0 then return -1
   setting = _optional(keys, values, "retrieval.directness_bonus_millionths"); if setting \= "" then if _uint(setting, 0, 1000000, "retrieval.directness_bonus_millionths", directness_bonus, error) \= 0 then return -1
-  retrieval = .ragretrievalpolicy(lexical_candidates, vector_candidates, vector_scan_limit, graph_hops, passage_limit, claim_limit, lead_limit, rrf_k, graph_boost, graph_decay, directness_bonus, graph_direction)
+  setting = _optional(keys, values, "retrieval.maximum_evidence_bytes"); if setting \= "" then if _uint(setting, 65536, 1048576, "retrieval.maximum_evidence_bytes", maximum_evidence_bytes, error) \= 0 then return -1
+  retrieval = .ragretrievalpolicy(lexical_candidates, vector_candidates, vector_scan_limit, graph_hops, passage_limit, claim_limit, lead_limit, rrf_k, graph_boost, graph_decay, directness_bonus, graph_direction, maximum_evidence_bytes)
 
-  sparse_max_degree = 1; query_gap_min_occurrences = 1
+  sparse_max_degree = 1; query_gap_min_occurrences = 1; maintenance_batch_items = 1000
   setting = _optional(keys, values, "maintenance.sparse_max_degree"); if setting \= "" then if _uint(setting, 0, 1000, "maintenance.sparse_max_degree", sparse_max_degree, error) \= 0 then return -1
   setting = _optional(keys, values, "maintenance.query_gap_min_occurrences"); if setting \= "" then if _uint(setting, 1, 1000000, "maintenance.query_gap_min_occurrences", query_gap_min_occurrences, error) \= 0 then return -1
-  maintenance = .ragmaintenancepolicy(sparse_max_degree, query_gap_min_occurrences)
+  setting = _optional(keys, values, "maintenance.batch_items"); if setting \= "" then if _uint(setting, 1, 100000, "maintenance.batch_items", maintenance_batch_items, error) \= 0 then return -1
+  maintenance = .ragmaintenancepolicy(sparse_max_degree, query_gap_min_occurrences, maintenance_batch_items)
 
-  capture_threshold = 50; cooldown_seconds = 900; maximum_staleness_seconds = 86400; work_minimum_change = 25; work_relative_millionths = 50000; dead_letter_minimum_change = 25; review_minimum_change = 10
+  capture_threshold = 50; cooldown_seconds = 900; maximum_staleness_seconds = 86400; work_minimum_change = 25; work_relative_millionths = 50000; dead_letter_minimum_change = 25; review_minimum_change = 10; narrative_output_tokens = 1024
   setting = _optional(keys, values, "observation.capture_threshold"); if setting \= "" then if _uint(setting, 1, 1000000, "observation.capture_threshold", capture_threshold, error) \= 0 then return -1
   setting = _optional(keys, values, "observation.cooldown_seconds"); if setting \= "" then if _uint(setting, 0, 604800, "observation.cooldown_seconds", cooldown_seconds, error) \= 0 then return -1
   setting = _optional(keys, values, "observation.maximum_staleness_seconds"); if setting \= "" then if _uint(setting, 1, 31536000, "observation.maximum_staleness_seconds", maximum_staleness_seconds, error) \= 0 then return -1
@@ -239,7 +242,8 @@ parseconfigtext: procedure = .int
   setting = _optional(keys, values, "observation.work_relative_millionths"); if setting \= "" then if _uint(setting, 1, 1000000, "observation.work_relative_millionths", work_relative_millionths, error) \= 0 then return -1
   setting = _optional(keys, values, "observation.dead_letter_minimum_change"); if setting \= "" then if _uint(setting, 1, 1000000, "observation.dead_letter_minimum_change", dead_letter_minimum_change, error) \= 0 then return -1
   setting = _optional(keys, values, "observation.review_minimum_change"); if setting \= "" then if _uint(setting, 1, 1000000, "observation.review_minimum_change", review_minimum_change, error) \= 0 then return -1
-  observation = .ragobservationpolicy(capture_threshold, cooldown_seconds, maximum_staleness_seconds, work_minimum_change, work_relative_millionths, dead_letter_minimum_change, review_minimum_change)
+  setting = _optional(keys, values, "observation.narrative_output_tokens"); if setting \= "" then if _uint(setting, 256, 8192, "observation.narrative_output_tokens", narrative_output_tokens, error) \= 0 then return -1
+  observation = .ragobservationpolicy(capture_threshold, cooldown_seconds, maximum_staleness_seconds, work_minimum_change, work_relative_millionths, dead_letter_minimum_change, review_minimum_change, narrative_output_tokens)
 
   candidate = .ragconfig(config_id, version, source_sets, providers, roles, profile_ids, .ragbudget(minutes, item_limit, model_calls, input_tokens, output_tokens, cost, codex_turns, minimum_codex_allowance), .ragworkerpolicy(processes, max_in_flight, lease_seconds), schedules, discovery, vector, retrieval, maintenance, observation, profile_files)
   validation = validateconfig(candidate)
@@ -252,7 +256,7 @@ parseconfigtext: procedure = .int
 
 _validconfigkey: procedure = .int
   arg key = .string
-  if wordpos(key, "format config.id config.version profiles budget.minutes budget.item_limit budget.model_calls budget.input_tokens budget.output_tokens budget.cost_microunits budget.codex_turns budget.minimum_codex_allowance_percent worker.processes worker.max_in_flight worker.lease_seconds discovery.mode discovery.glossary_file discovery.ranked_limit discovery.max_mentions discovery.max_relationships discovery.max_notes vector.algorithm vector.centroids vector.probes vector.iterations vector.recall_minimum_millionths retrieval.lexical_candidates retrieval.vector_candidates retrieval.vector_scan_limit retrieval.graph_hops retrieval.passage_limit retrieval.claim_limit retrieval.lead_limit retrieval.rrf_k retrieval.graph_boost_millionths retrieval.graph_decay_millionths retrieval.directness_bonus_millionths retrieval.graph_direction maintenance.sparse_max_degree maintenance.query_gap_min_occurrences observation.capture_threshold observation.cooldown_seconds observation.maximum_staleness_seconds observation.work_minimum_change observation.work_relative_millionths observation.dead_letter_minimum_change observation.review_minimum_change") > 0 then return 1
+  if wordpos(key, "format config.id config.version profiles budget.minutes budget.item_limit budget.model_calls budget.input_tokens budget.output_tokens budget.cost_microunits budget.codex_turns budget.minimum_codex_allowance_percent worker.processes worker.max_in_flight worker.lease_seconds discovery.mode discovery.glossary_file discovery.ranked_limit discovery.max_mentions discovery.max_relationships discovery.max_notes vector.algorithm vector.centroids vector.probes vector.iterations vector.recall_minimum_millionths retrieval.lexical_candidates retrieval.vector_candidates retrieval.vector_scan_limit retrieval.graph_hops retrieval.passage_limit retrieval.claim_limit retrieval.lead_limit retrieval.rrf_k retrieval.graph_boost_millionths retrieval.graph_decay_millionths retrieval.directness_bonus_millionths retrieval.graph_direction retrieval.maximum_evidence_bytes maintenance.sparse_max_degree maintenance.query_gap_min_occurrences maintenance.batch_items observation.capture_threshold observation.cooldown_seconds observation.maximum_staleness_seconds observation.work_minimum_change observation.work_relative_millionths observation.dead_letter_minimum_change observation.review_minimum_change observation.narrative_output_tokens") > 0 then return 1
   if _entitykey(key, "source.", "connector root include stable_key privacy retain_raw_artifact") = 1 then return 1
   if _entitykey(key, "provider.", "kind base_url model route_class privacy_policy credential timeout_ms max_attempts requests_per_minute tokens_per_minute concurrent_requests initial_backoff_ms maximum_backoff_ms jitter_ms") = 1 then return 1
   if _entitykey(key, "schedule.", "operation trigger enabled") = 1 then return 1

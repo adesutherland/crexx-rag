@@ -116,6 +116,31 @@ if(cli_out MATCHES "${secret_marker}" OR cli_err MATCHES "${secret_marker}")
     message(FATAL_ERROR "linked CLI exposed a resolved credential")
 endif()
 
+execute_process(COMMAND "${CMAKE_COMMAND}" -E env
+    "GEMINI_API_KEY=${secret_marker}"
+    "${CPRAG_RXVME}" "${CPRAG_APPLICATION}" -a
+    --config-file "${CPRAG_FIXTURE}"
+    --profile generic-profile --format json config explain
+    RESULT_VARIABLE explain_result OUTPUT_VARIABLE explain_out ERROR_VARIABLE explain_err
+    TIMEOUT 30)
+string(JSON explain_evidence_ceiling ERROR_VARIABLE explain_evidence_error GET
+    "${explain_out}" records 4 fields maximum_evidence_bytes)
+string(JSON explain_maintenance_length ERROR_VARIABLE explain_maintenance_error LENGTH
+    "${explain_out}" records 5 fields)
+string(JSON explain_maintenance_batch ERROR_VARIABLE explain_maintenance_batch_error GET
+    "${explain_out}" records 5 fields batch_items)
+if(NOT explain_result EQUAL 0 OR
+   NOT explain_evidence_error STREQUAL "NOTFOUND" OR
+   NOT explain_evidence_ceiling STREQUAL "262144" OR
+   NOT explain_maintenance_error STREQUAL "NOTFOUND" OR
+   NOT explain_maintenance_length EQUAL 11 OR
+   NOT explain_maintenance_batch_error STREQUAL "NOTFOUND" OR
+   NOT explain_maintenance_batch STREQUAL "1000" OR
+   NOT explain_out MATCHES "\"narrative_output_tokens\":4096")
+    message(FATAL_ERROR
+        "linked configuration explanation was not bounded and isolated:\n${explain_out}${explain_err}")
+endif()
+
 # A data profile is selected by id in ordinary configuration and loaded only
 # from the corresponding bounded data file.  No executable module name is
 # accepted from operator configuration.
@@ -135,9 +160,17 @@ execute_process(COMMAND "${CMAKE_COMMAND}" -E env
     RESULT_VARIABLE profile_cli_result
     OUTPUT_VARIABLE profile_cli_out ERROR_VARIABLE profile_cli_err
     TIMEOUT 30)
+string(JSON profile_maximum_chunk ERROR_VARIABLE profile_maximum_chunk_error
+    GET "${profile_cli_out}" records 0 fields maximum_chunk_characters)
+string(JSON profile_overlap ERROR_VARIABLE profile_overlap_error
+    GET "${profile_cli_out}" records 0 fields overlap_characters)
 if(NOT profile_cli_result EQUAL 0 OR
    NOT profile_cli_out MATCHES "\"profile_id\":\"scottish-history-profile\"" OR
-   NOT profile_cli_out MATCHES "\"valid\":true")
+   NOT profile_cli_out MATCHES "\"valid\":true" OR
+   NOT profile_maximum_chunk_error STREQUAL "NOTFOUND" OR
+   NOT profile_overlap_error STREQUAL "NOTFOUND" OR
+   NOT profile_maximum_chunk STREQUAL "1400" OR
+   NOT profile_overlap STREQUAL "180")
     message(FATAL_ERROR
         "linked data-defined profile smoke failed:\n${profile_cli_out}${profile_cli_err}")
 endif()
@@ -162,7 +195,7 @@ execute_process(COMMAND ${lifecycle_cli}
     OUTPUT_VARIABLE lifecycle_init_out ERROR_VARIABLE lifecycle_init_err
     TIMEOUT 30)
 if(NOT lifecycle_init_result EQUAL 0 OR
-   NOT lifecycle_init_out MATCHES "\"schema_version\":7")
+   NOT lifecycle_init_out MATCHES "\"schema_version\":8")
     message(FATAL_ERROR
         "configuration lifecycle init failed:\n${lifecycle_init_out}${lifecycle_init_err}")
 endif()

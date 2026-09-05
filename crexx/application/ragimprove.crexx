@@ -188,8 +188,13 @@ createimproveplan: procedure = .int
   if generation < 1 then do; error = "published generation is unavailable"; return -3; end
   chunk_ids = .string[]; content_ids = .string[]; input_hashes = .string[]; scores = .int[]
   prepared = .binary
-  sql = "SELECT c.revision_chunk_id,c.content_id FROM revision_chunks c WHERE c.visible_from_generation<=?1 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?1) ORDER BY c.revision_chunk_id"
-  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare improvement census"; return -3; end
+  /* A maintenance batch advances through unique content. Existing work of the
+   * same policy/prompt owns its retry lifecycle, including queued work and
+   * durable dead-letter replay, so a later maintenance plan must not silently
+   * enqueue it again. The subquery is evaluated as one SQLite set rather than
+   * growing a cREXX identity array or scanning prior work once per chunk. */
+  sql = "SELECT c.revision_chunk_id,c.content_id FROM revision_chunks c WHERE c.visible_from_generation<=?1 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?1) AND c.content_id NOT IN(SELECT json_extract(i.input_json,'$.content_id') FROM job_items i WHERE i.item_type='improve-extraction' AND json_valid(i.input_json) AND json_extract(i.input_json,'$.content_id') IS NOT NULL AND json_extract(i.input_json,'$.policy_version')=?2 AND json_extract(i.input_json,'$.prompt_version')=?3) ORDER BY c.revision_chunk_id"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 | sqlitebindtext(prepared, 2, policy_version) \= 0 | sqlitebindtext(prepared, 3, prompt_version) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare improvement census"; return -3; end
   do forever
     step = sqlitestep(prepared)
     if step = 101 then leave
@@ -229,8 +234,12 @@ filterimproveplan: procedure = .int
       if selected_chunk_ids[j] = selected_chunk_ids[i] then do; error = "selected cognitive work contains an unknown or duplicate chunk"; return -1; end
     end
   end
-  maximum_items = chunk_ids.0; model_call_budget = source.model_call_budget()
-  maximum_calls = maximum_items * source.maximum_attempts(); if model_call_budget > maximum_calls then model_call_budget = maximum_calls
+  /* Keep the reviewed candidate window as well as the exact selected subset.
+   * Maintenance can displace lower-ranked cognitive candidates with critical
+   * non-cognitive work, so the selected chunks are not necessarily a prefix
+   * of a newly generated item-count-sized plan. */
+  maximum_items = source.maximum_items(); model_call_budget = source.model_call_budget()
+  maximum_calls = chunk_ids.0 * source.maximum_attempts(); if model_call_budget > maximum_calls then model_call_budget = maximum_calls
   triggers = source.triggers()
   canonical = _canonicalimprove(source.expected_generation(), source.config_snapshot_id(), source.policy_version(), source.prompt_version(), triggers, maximum_items, model_call_budget, source.input_token_budget(), source.output_token_budget(), source.cost_budget(), source.time_budget_ms(), source.maximum_call_input_tokens(), source.maximum_call_output_tokens(), source.maximum_call_cost(), source.maximum_call_time_ms(), source.maximum_inflight_calls(), source.maximum_attempts(), source.privacy_class(), source.route_id(), source.secret_reference(), source.discovery_context(), chunk_ids, content_ids, input_hashes, scores)
   digest = rxhash..sha256hex(canonical as .binary)
@@ -262,16 +271,32 @@ _applyimproveplan: procedure = .int
   end
   current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
   if current \= plan.expected_generation() then do; error = "published generation changed; re-plan"; result = .ragimproveapplyresult(-2, "stale", "", 0, 0, 0, error); return -2; end
-  fresh = .ragimproveplan
-  triggers = plan.triggers()
-  if createimproveplan(store, plan.config_snapshot_id(), plan.policy_version(), plan.prompt_version(), triggers, plan.maximum_items(), plan.model_call_budget(), plan.input_token_budget(), plan.output_token_budget(), plan.cost_budget(), plan.time_budget_ms(), plan.maximum_call_input_tokens(), plan.maximum_call_output_tokens(), plan.maximum_call_cost(), plan.maximum_call_time_ms(), plan.maximum_inflight_calls(), plan.maximum_attempts(), plan.privacy_class(), plan.route_id(), plan.secret_reference(), plan.discovery_context(), fresh, error) \= 0 then return -3
-  if fresh.canonical() \= plan.canonical() | fresh.digest() \= plan.digest() then do; error = "improvement inputs no longer match the reviewed plan"; return -2; end
   job_id = "job-sha256:" || plan.digest()
   existing = _boundcount(store.database(), "SELECT count(*) FROM jobs WHERE job_id=?1 AND plan_digest=?2", job_id, plan.digest())
   if existing = 1 then do; result = .ragimproveapplyresult(0, "identical-no-op", job_id, 0, 0, 0, ""); return 0; end
   if existing < 0 then do; error = "cannot inspect improvement job identity"; return -3; end
+  fresh = .ragimproveplan
+  triggers = plan.triggers()
+  if createimproveplan(store, plan.config_snapshot_id(), plan.policy_version(), plan.prompt_version(), triggers, plan.maximum_items(), plan.model_call_budget(), plan.input_token_budget(), plan.output_token_budget(), plan.cost_budget(), plan.time_budget_ms(), plan.maximum_call_input_tokens(), plan.maximum_call_output_tokens(), plan.maximum_call_cost(), plan.maximum_call_time_ms(), plan.maximum_inflight_calls(), plan.maximum_attempts(), plan.privacy_class(), plan.route_id(), plan.secret_reference(), plan.discovery_context(), fresh, error) \= 0 then return -3
+  if fresh.canonical() \= plan.canonical() | fresh.digest() \= plan.digest() then do
+    reviewed_chunks = plan.chunk_ids(); selected_fresh = .ragimproveplan; filter_error = ""
+    if filterimproveplan(fresh, reviewed_chunks, selected_fresh, filter_error) \= 0 | selected_fresh.canonical() \= plan.canonical() | selected_fresh.digest() \= plan.digest() then do
+      error = "improvement inputs no longer match the reviewed plan"
+      return -2
+    end
+  end
+  /* Provider inputs contain source text and discovery context. Keeping one
+   * cREXX array entry per work item makes full-corpus maintenance retain the
+   * complete payload set and causes native-call validation to revisit a very
+   * large value tree. Stage those immutable inputs in SQLite instead. The
+   * temp table is connection-local, is never part of the library contract,
+   * and can spill without growing the VM value graph. */
+  database = store.database()
+  if sqliteexec(database, "DROP TABLE IF EXISTS temp.improve_apply_stage") \= 0 | sqliteexec(database, "CREATE TEMP TABLE improve_apply_stage(ordinal INTEGER PRIMARY KEY,item_id TEXT NOT NULL UNIQUE,idempotency_key TEXT NOT NULL UNIQUE,input_hash TEXT NOT NULL,input_json TEXT NOT NULL,priority INTEGER NOT NULL) STRICT") \= 0 then do; error = "cannot create compact improvement apply stage"; return -3; end
+  stage_statement = .binary
+  sql = "INSERT INTO temp.improve_apply_stage(ordinal,item_id,idempotency_key,input_hash,input_json,priority) VALUES(?1,?2,?3,?4,?5,?6)"
+  if sqliteprepare(database, sql, stage_statement) \= 0 then do; error = "cannot prepare compact improvement apply stage"; return -3; end
   chunk_ids = plan.chunk_ids(); content_ids = plan.content_ids(); input_hashes = plan.input_hashes(); scores = plan.scores()
-  work_inputs = .string[]; work_hashes = .string[]; work_keys = .string[]; insert_work = .int[]
   new_items = 0; existing_job_id = ""
   do i = 1 to chunk_ids.0
     input_json = ""; input_hash = input_hashes[i]
@@ -282,19 +307,24 @@ _applyimproveplan: procedure = .int
       input_hash = rxhash..sha256hex(input_json as .binary)
       idempotency = rxhash..sha256hex(("crexx-rag.work/2" || "00"x || input_hash) as .binary)
     end
-    work_inputs[i] = input_json; work_hashes[i] = input_hash; work_keys[i] = idempotency
     prior_items = _boundcount1(store.database(), "SELECT count(*) FROM job_items WHERE idempotency_key=?1", idempotency)
-    if prior_items < 0 then do; error = "cannot inspect improvement work identity"; return -3; end
-    insert_work[i] = prior_items = 0
-    if insert_work[i] = 1 then new_items = new_items + 1
+    if prior_items < 0 then do; call sqlitefinalize stage_statement; error = "cannot inspect improvement work identity"; return -3; end
+    if prior_items = 0 then do
+      item_id = "item-sha256:" || idempotency
+      binds = sqlitebindint(stage_statement, 1, i) | sqlitebindtext(stage_statement, 2, item_id) | sqlitebindtext(stage_statement, 3, idempotency) | sqlitebindtext(stage_statement, 4, input_hash) | sqlitebindtext(stage_statement, 5, input_json) | sqlitebindint(stage_statement, 6, scores[i])
+      step = sqlitestep(stage_statement)
+      if binds \= 0 | step \= 101 | sqlitereset(stage_statement) \= 0 | sqliteclearbindings(stage_statement) \= 0 then do; call sqlitefinalize stage_statement; error = "cannot stage compact improvement work"; return -3; end
+      new_items = new_items + 1
+    end
     else if existing_job_id = "" then existing_job_id = _boundtext(store.database(), "SELECT job_id FROM job_items WHERE idempotency_key=?1", idempotency)
   end
+  call sqlitefinalize stage_statement
   if new_items = 0 then do
+    call sqliteexec database, "DROP TABLE IF EXISTS temp.improve_apply_stage"
     result = .ragimproveapplyresult(0, "identical-no-op", existing_job_id, 0, 0, 0, "")
     return 0
   end
   before = _scalarint(store.database(), "SELECT total_changes()")
-  database = store.database()
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin improvement apply"; return -3; end
   state = "queued"
   prepared = .binary
@@ -303,21 +333,16 @@ _applyimproveplan: procedure = .int
   binds = sqlitebindtext(prepared, 1, job_id) | sqlitebindtext(prepared, 2, plan.digest()) | sqlitebindtext(prepared, 3, plan.canonical()) | sqlitebindtext(prepared, 4, plan.config_snapshot_id()) | sqlitebindtext(prepared, 5, state) | sqlitebindint(prepared, 6, new_items) | sqlitebindint(prepared, 7, plan.model_call_budget()) | sqlitebindint(prepared, 8, plan.input_token_budget()) | sqlitebindint(prepared, 9, plan.output_token_budget()) | sqlitebindint(prepared, 10, plan.cost_budget()) | sqlitebindint(prepared, 11, codex_turn_budget)
   step = sqlitestep(prepared); call sqlitefinalize prepared
   if binds \= 0 | step \= 101 then return _rollback(database, "cannot insert improvement job", error)
-  do i = 1 to chunk_ids.0
-    if insert_work[i] \= 1 then iterate
-    input_json = work_inputs[i]; input_hash = work_hashes[i]; idempotency = work_keys[i]
-    item_id = "item-sha256:" || idempotency
-    item_statement = .binary
-    sql = "INSERT OR IGNORE INTO job_items(item_id,job_id,item_type,state,priority,worker_id,lease_until,fence,retry_at,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES(?1,?2,'improve-extraction','queued',?3,NULL,NULL,0,0,?4,?5,?6,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
-    if sqliteprepare(database, sql, item_statement) \= 0 then return _rollback(database, "cannot prepare improvement item", error)
-    binds = sqlitebindtext(item_statement, 1, item_id) | sqlitebindtext(item_statement, 2, job_id) | sqlitebindint(item_statement, 3, scores[i]) | sqlitebindtext(item_statement, 4, idempotency) | sqlitebindtext(item_statement, 5, input_hash) | sqlitebindtext(item_statement, 6, input_json)
-    step = sqlitestep(item_statement); call sqlitefinalize item_statement
-    if binds \= 0 | step \= 101 then return _rollback(database, "cannot insert improvement item", error)
-  end
+  item_statement = .binary
+  sql = "INSERT OR IGNORE INTO job_items(item_id,job_id,item_type,state,priority,worker_id,lease_until,fence,retry_at,idempotency_key,input_hash,input_json,created_at,updated_at) SELECT item_id,?1,'improve-extraction','queued',priority,NULL,NULL,0,0,idempotency_key,input_hash,input_json,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM temp.improve_apply_stage ORDER BY ordinal"
+  if sqliteprepare(database, sql, item_statement) \= 0 | sqlitebindtext(item_statement, 1, job_id) \= 0 then return _rollback(database, "cannot prepare compact improvement work", error)
+  step = sqlitestep(item_statement); call sqlitefinalize item_statement
+  if step \= 101 | _scalarint(database, "SELECT changes()") \= new_items then return _rollback(database, "improvement work identity changed during compact apply", error)
   budget_message = "{" || jsonquote("time_budget_ms") || ":" || plan.time_budget_ms() || "," || jsonquote("maximum_call_input_tokens") || ":" || plan.maximum_call_input_tokens() || "," || jsonquote("maximum_call_output_tokens") || ":" || plan.maximum_call_output_tokens() || "," || jsonquote("maximum_call_cost") || ":" || plan.maximum_call_cost() || "," || jsonquote("maximum_call_time_ms") || ":" || plan.maximum_call_time_ms() || "," || jsonquote("maximum_inflight_calls") || ":" || plan.maximum_inflight_calls() || "," || jsonquote("maximum_attempts") || ":" || plan.maximum_attempts() || "," || jsonquote("privacy_class") || ":" || jsonquote(plan.privacy_class()) || "," || jsonquote("route_id") || ":" || jsonquote(plan.route_id()) || "," || jsonquote("secret_reference") || ":" || jsonquote(plan.secret_reference()) || "}"
   if _event(database, job_id, "budget-policy", budget_message) \= 0 then return _rollback(database, "cannot record improvement budget policy", error)
   if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit improvement apply", error)
   after = _scalarint(database, "SELECT total_changes()")
+  call sqliteexec database, "DROP TABLE IF EXISTS temp.improve_apply_stage"
   result = .ragimproveapplyresult(0, "queued", job_id, new_items, after - before, 0, "")
   return 0
 

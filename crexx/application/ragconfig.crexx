@@ -325,12 +325,14 @@ ragretrievalpolicy: class
   _graph_decay_millionths = .int
   _directness_bonus_millionths = .int
   _graph_direction = .string
+  _maximum_evidence_bytes = .int
 
   *: factory
-    arg lexical_candidates = 48, vector_candidates = 12, vector_scan_limit = 100000, graph_hops = 3, passage_limit = 12, claim_limit = 8, lead_limit = 8, rrf_k = 60, graph_boost_millionths = 2000, graph_decay_millionths = 750000, directness_bonus_millionths = 1000, graph_direction = "both"
+    arg lexical_candidates = 48, vector_candidates = 12, vector_scan_limit = 100000, graph_hops = 3, passage_limit = 12, claim_limit = 8, lead_limit = 8, rrf_k = 60, graph_boost_millionths = 2000, graph_decay_millionths = 750000, directness_bonus_millionths = 1000, graph_direction = "both", maximum_evidence_bytes = 262144
     _lexical_candidates = lexical_candidates; _vector_candidates = vector_candidates; _vector_scan_limit = vector_scan_limit
     _graph_hops = graph_hops; _passage_limit = passage_limit; _claim_limit = claim_limit; _lead_limit = lead_limit; _rrf_k = rrf_k
     _graph_boost_millionths = graph_boost_millionths; _graph_decay_millionths = graph_decay_millionths; _directness_bonus_millionths = directness_bonus_millionths; _graph_direction = graph_direction
+    _maximum_evidence_bytes = maximum_evidence_bytes
     return
 
   lexical_candidates: method = .int
@@ -357,20 +359,25 @@ ragretrievalpolicy: class
     return _directness_bonus_millionths
   graph_direction: method = .string
     return _graph_direction
+  maximum_evidence_bytes: method = .int
+    return _maximum_evidence_bytes
 
 ragmaintenancepolicy: class
   _sparse_max_degree = .int
   _query_gap_min_occurrences = .int
+  _batch_items = .int
 
   *: factory
-    arg sparse_max_degree = 1, query_gap_min_occurrences = 1
-    _sparse_max_degree = sparse_max_degree; _query_gap_min_occurrences = query_gap_min_occurrences
+    arg sparse_max_degree = 1, query_gap_min_occurrences = 1, batch_items = 1000
+    _sparse_max_degree = sparse_max_degree; _query_gap_min_occurrences = query_gap_min_occurrences; _batch_items = batch_items
     return
 
   sparse_max_degree: method = .int
     return _sparse_max_degree
   query_gap_min_occurrences: method = .int
     return _query_gap_min_occurrences
+  batch_items: method = .int
+    return _batch_items
 
 ragobservationpolicy: class
   _capture_threshold = .int
@@ -380,11 +387,13 @@ ragobservationpolicy: class
   _work_relative_millionths = .int
   _dead_letter_minimum_change = .int
   _review_minimum_change = .int
+  _narrative_output_tokens = .int
 
   *: factory
-    arg capture_threshold = 50, cooldown_seconds = 900, maximum_staleness_seconds = 86400, work_minimum_change = 25, work_relative_millionths = 50000, dead_letter_minimum_change = 25, review_minimum_change = 10
+    arg capture_threshold = 50, cooldown_seconds = 900, maximum_staleness_seconds = 86400, work_minimum_change = 25, work_relative_millionths = 50000, dead_letter_minimum_change = 25, review_minimum_change = 10, narrative_output_tokens = 1024
     _capture_threshold = capture_threshold; _cooldown_seconds = cooldown_seconds; _maximum_staleness_seconds = maximum_staleness_seconds
     _work_minimum_change = work_minimum_change; _work_relative_millionths = work_relative_millionths; _dead_letter_minimum_change = dead_letter_minimum_change; _review_minimum_change = review_minimum_change
+    _narrative_output_tokens = narrative_output_tokens
     return
 
   capture_threshold: method = .int
@@ -401,6 +410,8 @@ ragobservationpolicy: class
     return _dead_letter_minimum_change
   review_minimum_change: method = .int
     return _review_minimum_change
+  narrative_output_tokens: method = .int
+    return _narrative_output_tokens
 
 ragconfig: class
   _config_id = .string
@@ -653,13 +664,15 @@ validateconfig: procedure = .ragvalidationresult
   if retrieval.graph_hops() < 0 | retrieval.graph_hops() > 4 | retrieval.passage_limit() < 1 | retrieval.passage_limit() > 12 | retrieval.claim_limit() < 0 | retrieval.claim_limit() > 8 | retrieval.lead_limit() < 0 | retrieval.lead_limit() > 8 | retrieval.rrf_k() < 1 | retrieval.rrf_k() > 10000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_retrieval_policy", "retrieval", "retrieval graph, passage, claim, lead, or RRF limits are invalid")
   if retrieval.graph_boost_millionths() < 0 | retrieval.graph_boost_millionths() > 1000000 | retrieval.graph_decay_millionths() < 1 | retrieval.graph_decay_millionths() > 1000000 | retrieval.directness_bonus_millionths() < 0 | retrieval.directness_bonus_millionths() > 1000000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_retrieval_ranking", "retrieval", "retrieval graph ranking values are invalid")
   if wordpos(retrieval.graph_direction(), "outbound inbound both") = 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_graph_direction", "retrieval.graph_direction", "graph direction must be outbound, inbound, or both")
+  if retrieval.maximum_evidence_bytes() < 65536 | retrieval.maximum_evidence_bytes() > 1048576 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_retrieval_evidence_limit", "retrieval.maximum_evidence_bytes", "retrieval evidence byte ceiling must be from 65536 through 1048576")
 
   maintenance = config.maintenance()
-  if maintenance.sparse_max_degree() < 0 | maintenance.sparse_max_degree() > 1000 | maintenance.query_gap_min_occurrences() < 1 | maintenance.query_gap_min_occurrences() > 1000000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_maintenance_policy", "maintenance", "maintenance sparse-node or query-gap thresholds are invalid")
+  if maintenance.sparse_max_degree() < 0 | maintenance.sparse_max_degree() > 1000 | maintenance.query_gap_min_occurrences() < 1 | maintenance.query_gap_min_occurrences() > 1000000 | maintenance.batch_items() < 1 | maintenance.batch_items() > 100000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_maintenance_policy", "maintenance", "maintenance batch or census thresholds are invalid")
 
   observation = config.observation()
   if observation.capture_threshold() < 1 | observation.capture_threshold() > 1000000 | observation.cooldown_seconds() < 0 | observation.cooldown_seconds() > 604800 | observation.maximum_staleness_seconds() < 1 | observation.maximum_staleness_seconds() > 31536000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_observation_timing", "observation", "observation capture, cooldown, or staleness values are invalid")
   if observation.work_minimum_change() < 1 | observation.work_relative_millionths() < 1 | observation.work_relative_millionths() > 1000000 | observation.dead_letter_minimum_change() < 1 | observation.review_minimum_change() < 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_observation_churn", "observation", "observation churn thresholds must be positive and bounded")
+  if observation.narrative_output_tokens() < 256 | observation.narrative_output_tokens() > 8192 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_narrative_output_limit", "observation.narrative_output_tokens", "narrative output tokens must be from 256 through 8192")
 
   schedules = config.schedules()
   seen = .string[]

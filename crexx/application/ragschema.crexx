@@ -3,7 +3,7 @@ options levelg
 namespace ragschema expose ragschemaversion migrationname migrationchecksum migrationstatements
 
 ragschemaversion: procedure = .int
-  return 7
+  return 8
 
 migrationname: procedure = .string
   arg version = .int
@@ -14,6 +14,7 @@ migrationname: procedure = .string
   if version = 5 then return "historic-observability"
   if version = 6 then return "configuration-lifecycle-and-provider-resilience"
   if version = 7 then return "indexed-term-statistics-and-backlog-reconciliation"
+  if version = 8 then return "direct-provider-history"
   return ""
 
 migrationchecksum: procedure = .string
@@ -26,6 +27,7 @@ migrationchecksum: procedure = .string
   if version = 5 then return "9177f2f3130c175008a6514f072bfa413cca0f327fe4619930d9c77d44f11bd3"
   if version = 6 then return "529919045d2777013a0cdf4dcdec8d31fa103d069122677b55f4fd6c38aa7583"
   if version = 7 then return "9bdc5094e03f56e47f46cdc99a0a0886747f73ca11dbeb4ddaf3ecf5451d7443"
+  if version = 8 then return "add7adb59016bab71709aa6575d507ff4271d3157333216208708142473753c1"
   return ""
 
 migrationstatements: procedure = .int
@@ -139,6 +141,14 @@ migrationstatements: procedure = .int
   if version = 7 then do
     statements[statements.0 + 1] = "CREATE VIRTUAL TABLE chunks_fts_vocab USING fts5vocab(chunks_fts,'instance')"
     statements[statements.0 + 1] = "CREATE VIEW dead_letter_reconciliation AS WITH RECURSIVE roots(root_item_id,root_job_id,item_type) AS (SELECT i.item_id,i.job_id,i.item_type FROM job_items i WHERE i.state='dead_letter' AND NOT EXISTS(SELECT 1 FROM job_replay_items r WHERE r.replay_item_id=i.item_id)),lineage(root_item_id,item_id,depth) AS (SELECT root_item_id,root_item_id,0 FROM roots UNION ALL SELECT l.root_item_id,r.replay_item_id,l.depth+1 FROM lineage l JOIN job_replay_items r ON r.source_item_id=l.item_id WHERE l.depth<64) SELECT roots.root_item_id,roots.root_job_id,roots.item_type,CASE WHEN sum(CASE WHEN lineage.depth>0 AND items.state IN('processed','skipped') THEN 1 ELSE 0 END)>0 THEN 'resolved' WHEN sum(CASE WHEN lineage.depth>0 AND items.state IN('queued','running','cancel_requested') THEN 1 ELSE 0 END)>0 THEN 'in-progress' ELSE 'actionable' END AS reconciliation_state,sum(CASE WHEN lineage.depth>0 THEN 1 ELSE 0 END) AS replay_count,sum(CASE WHEN lineage.depth>0 AND items.state IN('processed','skipped') THEN 1 ELSE 0 END) AS resolved_descendants,sum(CASE WHEN lineage.depth>0 AND items.state IN('queued','running','cancel_requested') THEN 1 ELSE 0 END) AS active_descendants,sum(CASE WHEN lineage.depth>0 AND items.state='dead_letter' THEN 1 ELSE 0 END) AS dead_descendants,max(items.updated_at) AS last_updated_at FROM roots JOIN lineage ON lineage.root_item_id=roots.root_item_id JOIN job_items items ON items.item_id=lineage.item_id GROUP BY roots.root_item_id,roots.root_job_id,roots.item_type"
+    return statements.0
+  end
+  if version = 8 then do
+    statements[statements.0 + 1] = "ALTER TABLE provider_runs ADD COLUMN cost_microunits INTEGER NOT NULL DEFAULT -1"
+    statements[statements.0 + 1] = "ALTER TABLE provider_runs ADD COLUMN purpose TEXT NOT NULL DEFAULT 'work-item' CHECK(length(purpose) BETWEEN 1 AND 64)"
+    statements[statements.0 + 1] = "UPDATE provider_runs SET cost_microunits=coalesce((SELECT CAST(json_extract(e.message,'$.actual_cost') AS INTEGER) FROM attempts a JOIN job_events e ON e.attempt_id=a.attempt_id WHERE a.provider_run_id=provider_runs.provider_run_id AND e.event_type LIKE 'reservation-close:%' ORDER BY e.event_id DESC LIMIT 1),cost_microunits) WHERE cost_microunits<0"
+    statements[statements.0 + 1] = "UPDATE provider_runs SET cost_microunits=(SELECT n.cost_microunits FROM report_narratives n WHERE n.provider_run_id=provider_runs.provider_run_id),purpose='report-narrative' WHERE EXISTS(SELECT 1 FROM report_narratives n WHERE n.provider_run_id=provider_runs.provider_run_id)"
+    statements[statements.0 + 1] = "CREATE INDEX provider_runs_purpose_history ON provider_runs(purpose,started_at,provider_run_id)"
     return statements.0
   end
   return -1

@@ -17,7 +17,7 @@ queryrouteallowed: procedure = .int
   return 1
 
 querypreflight: procedure = .int
-  arg budget = .ragbudget, embedding_provider = .ragproviderconfig, embedding_planned = .int, answer_provider = .ragproviderconfig, answer_planned = .int, expose error = .string
+  arg budget = .ragbudget, embedding_provider = .ragproviderconfig, embedding_planned = .int, answer_provider = .ragproviderconfig, answer_planned = .int, expose error = .string, requested_output_tokens = 0
   error = ""; planned_calls = embedding_planned + answer_planned
   if planned_calls > budget.model_calls() then do; error = "query provider calls exceed the configured per-command ceiling"; return -1; end
   if embedding_planned = 1 & (embedding_provider.timeout_ms() < 1 | embedding_provider.max_attempts() < 1) then do; error = "query embedding timeout or retry policy is invalid"; return -1; end
@@ -31,6 +31,8 @@ querypreflight: procedure = .int
   if planned_calls > 0 then maximum_input = budget.input_tokens() / planned_calls
   if maximum_input > 65536 then maximum_input = 65536
   maximum_output = queryansweroutputlimit(budget)
+  if requested_output_tokens > 0 then maximum_output = requested_output_tokens
+  if maximum_output > budget.output_tokens() then do; error = "requested provider output exceeds the configured output-token ceiling"; return -1; end
   maximum_cost = 0
   if embedding_planned = 1 & embedding_provider.charging_basis() = "monetary-api" then do
     route_cost = estimatecostmicrounits(_backend(embedding_provider.kind()), embedding_provider.model(), maximum_input, 0)

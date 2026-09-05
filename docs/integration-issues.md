@@ -27,6 +27,26 @@ The exact installed-package Linux replay of the hosted-provider path remains a
 separate platform qualification. macOS evidence must not be represented as
 Linux qualification.
 
+## CREXX project-build scaling
+
+The installed `crexx --program` project wrapper is functionally correct for
+this application, but its incremental and optimiser scaling needs an upstream
+CREXX investigation. A one-file `ragimprove.crexx` edit caused the supported
+`crexxrag_application` target to compile many unaffected project members.
+Smaller members completed in parallel, while `crexxrag_cli`, `ragproduct`,
+`ragmcp`, and the one-member ADDRESS environment each consumed a full core for
+minutes and hundreds of MB.
+
+A macOS process sample of `rxc` compiling `crexxrag_cli` placed essentially all
+samples in `optimise`, `rxcp_inline_pass`, `rxcp_inline_prepare`, and
+`inline_analyse_callable_eligibility`, beneath repeated AST walks while an
+imported file was being loaded. The members did eventually complete, so the
+current evidence is pathological inline-eligibility scaling and timeout risk,
+not a demonstrated infinite loop. The upstream report must include the exact
+installed command, application member list, per-member elapsed/RSS evidence,
+and the captured stack sample. Disabling optimisation is not a product
+workaround; users should receive normally built installed artifacts.
+
 ## cREXX lexical scope at mixed branches
 
 The earlier branch-local value-merge diagnosis was incorrect. A grouped `DO`

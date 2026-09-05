@@ -468,6 +468,14 @@ chunks, nodes, edges, reviews, query gaps, failed work and embedding/vector
 coverage; ranks the most useful next analysis; optionally asks an LLM to
 diagnose the selected items; and produces an executable, bounded worklist.
 
+The worklist is an incremental batch, not a request to drain the complete
+backlog. Its configured item ceiling is applied after ranking, so critical
+projection repairs and conflict work displace lower-ranked enrichment. Later
+runs recalculate current state and select the next eligible batch. Content
+already assigned under the same improvement policy and prompt is excluded:
+active work completes through its owning job and failed work advances only
+through explicit dead-letter replay with preserved lineage.
+
 ### Discovery, ranking and the worklist
 
 The deterministic chunk-priority score is one input to maintenance. It is
