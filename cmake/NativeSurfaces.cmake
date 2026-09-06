@@ -96,11 +96,13 @@ file(WRITE "${requests}"
     "{\"jsonrpc\":\"2.0\",\"id\":18,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_query_trace\",\"arguments\":{\"question\":\"What does BillingService depend on?\",\"mode\":\"lexical\"}}}\n"
     "{\"jsonrpc\":\"2.0\",\"id\":19,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_query_path\",\"arguments\":{\"question\":\"What does BillingService depend on?\",\"mode\":\"lexical\"}}}\n"
     "{\"jsonrpc\":\"2.0\",\"id\":20,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_query_timeline\",\"arguments\":{\"question\":\"What does BillingService depend on?\",\"mode\":\"lexical\"}}}\n")
+file(APPEND "${requests}" "{\"jsonrpc\":\"2.0\",\"id\":21,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_vector_rebuild\",\"arguments\":{}}}\n")
 execute_process(COMMAND ${cli} --access read,plan,curate,control,admin serve mcp
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}" INPUT_FILE "${requests}"
     OUTPUT_VARIABLE mcp_out ERROR_VARIABLE mcp_err
     RESULT_VARIABLE mcp_result TIMEOUT 90)
 if(NOT mcp_result EQUAL 0 OR
+   NOT mcp_out MATCHES "\"operation\":\"vector.rebuild\",\"status\":\"ok\"" OR
    NOT mcp_out MATCHES "\"serverInfo\":{\"name\":\"crexxrag-mcp\"" OR
    NOT mcp_out MATCHES "\"name\":\"rag_query_answer\".*\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":false,\"openWorldHint\":true" OR
    NOT mcp_out MATCHES "\"name\":\"rag_library_report\".*\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":false,\"openWorldHint\":true" OR

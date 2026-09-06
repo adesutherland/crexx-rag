@@ -1,0 +1,26 @@
+format	crexx-rag.profile/1
+profile	it-architecture-profile	1
+concept	application-component
+concept	data-store
+concept	business-service
+concept	technology-service
+concept	actor
+concept	evidence-span
+relationship	depends-on	supports	true
+relationship	supports	depends-on	true
+relationship	accesses	accessed-by	true
+relationship	accessed-by	accesses	true
+alias	db	data store
+alias	service	business service
+chunk	1400	180	plain,markdown,rexx
+weight	lexical	1000000
+weight	semantic	900000
+weight	graph	1200000
+weight	relationship-cue	1400000
+prompt	advisory	1	it-architecture-advisory
+prompt	extractor	1	it-architecture-extractor
+prompt	answerer	1	it-architecture-answerer
+validator	direction-required
+validator	support-required
+validator	known-type-required
+validator	canonical-conflict-review

@@ -86,6 +86,7 @@ _toolcommand: procedure = .int
   else if tool = "rag_config_diff" then do; noun = "config"; verb = "diff"; end
   else if tool = "rag_config_plan" then do; noun = "config"; verb = "plan"; end
   else if tool = "rag_config_apply" then do; noun = "config"; verb = "apply"; end
+  else if tool = "rag_vector_rebuild" then do; noun = "vector"; verb = "rebuild"; end
   else if tool = "rag_ingest_plan" then do; noun = "ingest"; verb = "plan"; end
   else if tool = "rag_maintain_plan" then do; noun = "maintain"; verb = "plan"; end
   else if tool = "rag_maintain_status" then do; noun = "maintain"; verb = "status"; end
@@ -146,6 +147,10 @@ _toolcommand: procedure = .int
     call _option document, arguments, "expect_digest", "expect-digest", output
   end
   if tool = "rag_maintain_status" then call _option document, arguments, "id", "id", output
+  if tool = "rag_maintain_status" | tool = "rag_maintain_inspect" then do
+    call _option document, arguments, "cursor", "cursor", output
+    call _option document, arguments, "limit", "limit", output
+  end
   if tool = "rag_maintain_inspect" then do
     if _positional(document, arguments, "id", output, error) \= 0 then return -1
   end
@@ -193,7 +198,7 @@ _toolcapability: procedure = .string
   arg tool = .string
   if tool = "rag_library_verify" | tool = "rag_provider_diagnostics" | tool = "rag_provider_test" then return "diagnose"
   if tool = "rag_ingest_plan" | tool = "rag_maintain_plan" | tool = "rag_proposal_plan" | tool = "rag_review_list" | tool = "rag_review_decide_preview" | tool = "rag_config_plan" then return "plan"
-  if tool = "rag_job_pause" | tool = "rag_job_resume" | tool = "rag_job_cancel" | tool = "rag_job_replay" | tool = "rag_worker_drain" | tool = "rag_library_snapshot" then return "control"
+  if tool = "rag_job_pause" | tool = "rag_job_resume" | tool = "rag_job_cancel" | tool = "rag_job_replay" | tool = "rag_worker_drain" | tool = "rag_library_snapshot" | tool = "rag_vector_rebuild" then return "control"
   if tool = "rag_config_apply" then return "admin"
   if tool = "rag_ingest_apply" then return "ingest"
   if tool = "rag_maintain_apply" | tool = "rag_proposal_apply" | tool = "rag_review_decide" then return "curate"
@@ -220,8 +225,8 @@ _toollist: procedure = .string
   tools = _addtool(tools, "rag_config_check", "Validate effective configuration and compute split identities without resolving credentials", '{}', "true")
   tools = _addtool(tools, "rag_config_explain", "Explain effective operational provider policy with redacted credential references", '{}', "true")
   tools = _addtool(tools, "rag_config_diff", "Classify the effective configuration against the current library snapshot without writes", '{}', "true")
-  tools = _addtool(tools, "rag_maintain_status", "Read and reconcile one durable maintenance run", '{"id":{"type":"string"}}', "false")
-  tools = _addtool(tools, "rag_maintain_inspect", "Inspect one maintenance run, work item, or analysis note", '{"id":{"type":"string"}}', "true")
+  tools = _addtool(tools, "rag_maintain_status", "Read and reconcile one durable maintenance run with cursor pagination", '{"id":{"type":"string"},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":98}}', "false")
+  tools = _addtool(tools, "rag_maintain_inspect", "Inspect one maintenance run, work item, or analysis note with cursor pagination", '{"id":{"type":"string"},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":98}}', "true")
   if _has(access, "diagnose") then do
     tools = _addtool(tools, "rag_library_verify", "Verify bundle and generation invariants", '{}', "true")
     tools = _addtool(tools, "rag_provider_diagnostics", "Read redacted provider route diagnostics; Codex allowance inspection may contact its hosted account service", '{}', "true", "true", "true")
@@ -236,6 +241,7 @@ _toollist: procedure = .string
     tools = _addtool(tools, "rag_config_plan", "Freeze a digest-checked zero-write configuration transition plan", '{"reason":{"type":"string","maxLength":256}}', "true")
   end
   if _has(access, "control") then do
+    tools = _addtool(tools, "rag_vector_rebuild", "Rebuild a missing or corrupt vector index from stored SQLite embeddings without provider calls", '{}', "false", "false", "true")
     tools = _addtool(tools, "rag_library_snapshot", "Evaluate the deterministic churn matrix and capture only a materially distinct historic observation", '{"trigger":{"type":"string","enum":["manual","ingestion","maintenance","vector-publication","replay","reconciliation","migration","backup","scheduled"]},"reason":{"type":"string","maxLength":256}}', "false", "false", "false")
     tools = _addtool(tools, "rag_job_pause", "Pause one durable job", '{"id":{"type":"string"}}', "false")
     tools = _addtool(tools, "rag_job_resume", "Resume one durable job", '{"id":{"type":"string"}}', "false")
@@ -291,6 +297,7 @@ _toolargumentsvalid: procedure = .int
 
 _toolargumentnames: procedure = .string
   arg tool = .string
+  if tool = "rag_maintain_status" | tool = "rag_maintain_inspect" then return "id cursor limit"
   if left(tool, 10) = "rag_query_" then return "question limit hops mode direction"
   if tool = "rag_citation_show" then return "citation"
   if tool = "rag_library_report" then return "top narrative"

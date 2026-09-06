@@ -1,0 +1,17 @@
+format	crexx-rag.profile/1
+profile	generic-profile	1
+concept	concept
+concept	source-artifact
+concept	evidence-span
+relationship	related-to	related-to	false
+relationship	mentioned-in	mentions	true
+relationship	mentions	mentioned-in	true
+chunk	1200	160	plain,markdown,rexx
+weight	lexical	1000000
+weight	semantic	1000000
+weight	graph	800000
+prompt	advisory	1	generic-advisory
+prompt	extractor	1	generic-extractor
+prompt	answerer	1	generic-answerer
+validator	direction-required
+validator	support-required

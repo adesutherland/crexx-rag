@@ -109,7 +109,7 @@ _showhelp: procedure = .int
   say "  --access CAPABILITY       repeat or comma-separate for canonical commands"
   say ""
   say "Automation uses canonical commands such as ingest plan, ingest apply,"
-  say "worker start, job status, library report/snapshot/trend, query evidence, query answer, citation show and library verify."
+  say "worker start, job status, library report/snapshot/trend, query evidence, query answer, citation show, vector rebuild (SQLite only), and library verify."
   say "Agents can use the same local defaults through crexxrag serve mcp."
   return 0
 

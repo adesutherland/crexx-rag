@@ -16,6 +16,7 @@ import ragcanonical
 import ragconfiguration
 import ragfoundation
 import ragstore
+import ragfile
 import ragrepository
 import ragquery
 import ragretrieval
@@ -47,6 +48,7 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "library.report" then return _libraryreport(request, registry)
   if operation = "library.snapshot" then return _librarysnapshot(request, registry)
   if operation = "library.trend" then return _librarytrend(request, registry)
+  if operation = "vector.rebuild" then return _vectorrebuild(request, registry)
   if operation = "source.list" | operation = "source.show" then return _repository(request, operation, "sources")
   if operation = "citation.show" then return _citationshow(request)
   if operation = "job.list" then return _repository(request, operation, "jobs")
@@ -77,6 +79,37 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "maintain.apply" then return _maintainapply(request, registry)
   if operation = "maintain.status" | operation = "maintain.inspect" then return _maintainread(request)
   return dispatchfoundation(request, registry)
+
+_vectorrebuild: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = request.operation(); error = ""
+  if _hasaccess(request, "control") \= 1 then return _failure(operation, 4, "vector rebuild requires control access")
+  positionals = request.positionals()
+  if _options(request, "", error) \= 0 | positionals.0 \= 0 then return _failure(operation, 2, "vector rebuild accepts no arguments")
+  lookup = registry.config(request.config_id()); profile = registry.profile(request.profile_id())
+  if lookup.found() \= 1 | profile.found() \= 1 then return _failure(operation, 5, "configuration or profile is not registered")
+  config = lookup.config(); provider = _roleproviderconfig(config, "embedding"); role = _rolebinding(config, "embedding"); policy = config.vector()
+  store = .ragstorehandle
+  if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
+  if _querysnapshotmatches(store, config, profile.profile()) \= 1 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 6, "vector rebuild configuration must match the current library snapshot"); end
+  envelope = "crexx-rag.embedding-input/1|" || provider.provider_id() || "|" || provider.kind() || "|" || provider.model() || "|" || role.embedding_dimensions()
+  fingerprint = rxhash..sha256hex(envelope as .binary)
+  embedding_profile_id = _scalartext(store.database(), "SELECT embedding_profile_id FROM embedding_profiles WHERE input_envelope_fingerprint=" || _sqlquote(fingerprint) || " AND dimension=" || role.embedding_dimensions())
+  if embedding_profile_id = "" then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 6, "no compatible stored embeddings; vector rebuild never calls a provider"); end
+  if _scalarint(store.database(), "SELECT count(*) FROM jobs WHERE state IN('queued','running','paused','cancel_requested')") > 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 6, "vector rebuild requires active jobs to be settled"); end
+  rebuilt = .ragvectorgenerationresult
+  status = buildannvectorgeneration(store, embedding_profile_id, policy.maximum_rows(), policy.centroids(), policy.probes(), policy.iterations(), policy.maximum_sidecar_bytes(), rebuilt, error)
+  close_error = ""; close_status = closeragstore(store, close_error)
+  if status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 7, error); end
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("state", "string", rebuilt.state())
+  fields[2] = .ragresultfield("generation", "integer", rebuilt.semantic_generation())
+  fields[3] = .ragresultfield("rows", "integer", rebuilt.rows())
+  fields[4] = .ragresultfield("dimension", "integer", rebuilt.dimension())
+  fields[5] = .ragresultfield("sidecar", "string", rebuilt.sidecar_name())
+  fields[6] = .ragresultfield("provider_calls", "integer", 0)
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("vector-rebuild", fields)
+  return .ragcommandresult(operation, "ok", 0, "vector index verified or rebuilt from authoritative SQLite embeddings", records)
 
 _configcommand: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
@@ -117,6 +150,31 @@ _configcommand: procedure = .ragcommandresult
       vector = config.vector(); clear fields; fields = .ragresultfield[]
       fields[1] = .ragresultfield("maximum_rows", "integer", vector.maximum_rows()); fields[2] = .ragresultfield("maximum_sidecar_bytes", "integer", vector.maximum_sidecar_bytes()); fields[3] = .ragresultfield("embedding_maximum_items", "integer", vector.embedding_maximum_items())
       records[records.0 + 1] = .ragresultrecord("vector-scale-policy", fields)
+      clear fields; fields = .ragresultfield[]
+      fields[1] = .ragresultfield("ttl_seconds", "integer", config.plan_ttl_seconds()); fields[2] = .ragresultfield("maximum_plan_bytes", "integer", 16777216)
+      records[records.0 + 1] = .ragresultrecord("plan-policy", fields)
+      sources = config.source_sets()
+      do i = 1 to sources.0
+        source = sources[i]; clear fields; fields = .ragresultfield[]
+        fields[1] = .ragresultfield("source_set_id", "string", source.source_set_id()); fields[2] = .ragresultfield("root", "string", source.root()); fields[3] = .ragresultfield("maximum_file_bytes", "integer", source.maximum_file_bytes()); fields[4] = .ragresultfield("maximum_depth", "integer", source.maximum_depth())
+        records[records.0 + 1] = .ragresultrecord("source-policy", fields)
+      end
+      discovery = config.discovery(); clear fields; fields = .ragresultfield[]
+      fields[1] = .ragresultfield("mode", "string", discovery.mode()); fields[2] = .ragresultfield("glossary_file", "string", discovery.glossary_path()); fields[3] = .ragresultfield("ranked_limit", "integer", discovery.ranked_limit()); fields[4] = .ragresultfield("max_mentions", "integer", discovery.max_mentions()); fields[5] = .ragresultfield("max_relationships", "integer", discovery.max_relationships()); fields[6] = .ragresultfield("max_notes", "integer", discovery.max_notes())
+      records[records.0 + 1] = .ragresultrecord("discovery-policy", fields)
+      clear fields; fields = .ragresultfield[]
+      fields[1] = .ragresultfield("algorithm", "string", vector.algorithm()); fields[2] = .ragresultfield("centroids", "integer", vector.centroids()); fields[3] = .ragresultfield("probes", "integer", vector.probes()); fields[4] = .ragresultfield("iterations", "integer", vector.iterations()); fields[5] = .ragresultfield("recall_minimum_millionths", "integer", vector.recall_minimum_millionths())
+      records[records.0 + 1] = .ragresultrecord("vector-build-policy", fields)
+      selected = config.profile_ids(); profile_files = config.profile_files()
+      do i = 1 to selected.0
+        origin = "compiled-compatibility"; path = ""
+        do j = 1 to profile_files.0
+          if profile_files[j].profile_id() = selected[i] then do; origin = "data-file"; path = profile_files[j].path(); end
+        end
+        clear fields; fields = .ragresultfield[]
+        fields[1] = .ragresultfield("profile_id", "string", selected[i]); fields[2] = .ragresultfield("origin", "string", origin); fields[3] = .ragresultfield("file", "string", path)
+        records[records.0 + 1] = .ragresultrecord("profile-policy-source", fields)
+      end
     end
     message = "configuration is valid and its split identities were computed without resolving credentials"
     if operation = "config.explain" then message = "effective configuration and bounded provider policy explained without resolving credentials"
@@ -157,7 +215,7 @@ _configcommand: procedure = .ragcommandresult
     if status = -3 then return _failure(operation, 6, error)
     if status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 6, error); end
     records = .ragresultrecord[]; records[1] = _configdiffrecord(difference)
-    return .ragcommandresult(operation, "ok", 0, "reviewed operational configuration snapshot applied with immutable audit history", records)
+    return .ragcommandresult(operation, "ok", 0, "reviewed configuration snapshot applied with immutable audit history", records)
   end
   return _failure(operation, 8, "configuration operation is not implemented")
 
@@ -1249,12 +1307,13 @@ _query: procedure = .ragcommandresult
   if wordpos(graph_direction, "outbound inbound both") = 0 then return _failure(operation, 2, "query direction must be outbound, inbound, or both")
   store = .ragstorehandle
   if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
-  if _querysnapshotmatches(store, config, profile) \= 1 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 6, "query configuration and profile do not match the published generation"); end
+  if _querysnapshotmatches(store, config, profile) \= 1 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 6, "configuration changes have not been applied; review config diff and config plan before querying with these settings"); end
   plan = .ragqueryplan
   if planquery(store, profile, positionals[1], "surface-retrieval-v2", plan, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 1, error); end
   privacy = _queryprivacy(config); embedding_provider = _roleproviderconfig(config, "embedding"); answer_provider = _roleproviderconfig(config, "answerer"); embedding_role = _rolebinding(config, "embedding"); answer_role = _rolebinding(config, "answerer")
   active_profile = ""; dimension = 0; query_vector = ''x as .binary
   if _activequeryembedding(store.database(), embedding_provider, active_profile, dimension, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, error); end
+  if active_profile \= "" & _querysidecaravailable(store, active_profile, config.vector().maximum_sidecar_bytes()) \= 1 then do; active_profile = ""; dimension = 0; end
   if active_profile \= "" & dimension \= embedding_role.embedding_dimensions() then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "active vector dimension does not match role.embedding.dimensions"); end
   embedding_state = "not-requested"; embedding_planned = 0
   if mode \= "lexical" then do
@@ -1299,6 +1358,7 @@ _query: procedure = .ragcommandresult
   retrieval_options = .ragretrievaloptions("surface-retrieval-v2", retrieval_profile, query_vector, retrieval_policy.lexical_candidates(), retrieval_policy.vector_candidates(), retrieval_policy.vector_scan_limit(), hops, limit, retrieval_policy.claim_limit(), retrieval_policy.lead_limit(), retrieval_policy.rrf_k(), graph_direction, retrieval_policy.graph_boost_millionths(), retrieval_policy.graph_decay_millionths(), retrieval_policy.directness_bonus_millionths(), config.vector().maximum_sidecar_bytes())
   retrieval = .ragretrievalresult
   if retrieveevidence(store, profile, positionals[1], retrieval_options, retrieval, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 1, error); end
+  if mode = "hybrid" & retrieval.vector_state() \= "active-ann-ivf-rxvector" then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 6, "hybrid query requires a valid vector sidecar; run vector rebuild to recover it from SQLite"); end
   evidence = retrieval.evidence(); answer_context = ""
   query_gaps_recorded = 0
   if recordquerygaps(store, evidence, query_gaps_recorded, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, error); end
@@ -1450,6 +1510,20 @@ _activequeryembedding: procedure = .int
   envelope = "crexx-rag.embedding-input/1|" || provider.provider_id() || "|" || provider.kind() || "|" || provider.model() || "|" || dimension
   if dimension < 1 | fingerprint \= rxhash..sha256hex(envelope as .binary) then do; error = "active query embedding profile does not match the configured provider envelope"; return -1; end
   return 0
+
+/* Check the derived file before reserving or calling a query provider. */
+_querysidecaravailable: procedure = .int
+  arg store = .ragstorehandle, profile_id = .string, maximum_bytes = .int
+  prepared = .binary; error = ""; manifest_state = ""
+  if manifeststate(store, manifest_state, error) \= 0 | manifest_state \= "aligned" then return 0
+  sql = "SELECT sidecar_name,sidecar_checksum FROM vector_generations WHERE state='published' AND algorithm='ivf-flat-v1' AND semantic_generation=(SELECT published_generation FROM library_meta WHERE singleton=1) AND embedding_profile_id=?1"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindtext(prepared, 1, profile_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return 0; end
+  name = ""; checksum = ""
+  columns = sqlitecolumntext(prepared, 0, name) | sqlitecolumntext(prepared, 1, checksum); call sqlitefinalize prepared
+  if columns \= 0 | name = "" | pos("/", name) > 0 | pos("\", name) > 0 then return 0
+  actual = ""; bytes = 0
+  if ragfile..sha256filebounded(store.path() || "/" || name, maximum_bytes, actual, bytes, error) \= 0 then return 0
+  return actual = checksum
 
 _querysnapshotmatches: procedure = .int
   arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile
@@ -1681,7 +1755,7 @@ _workerstart: procedure = .ragcommandresult
     if _unsigned(count_text) \= 1 then return _failure(operation, 2, "--count must be an integer")
     count = count_text as .int
   end
-  poll_milliseconds = 1000
+  poll_milliseconds = config_lookup.config().workers().poll_ms()
   if poll_text \= "" then do
     if _unsigned(poll_text) \= 1 then return _failure(operation, 2, "--poll-ms must be an integer")
     poll_milliseconds = poll_text as .int
@@ -1729,7 +1803,7 @@ _workerrun: procedure = .ragcommandresult
   mode = "once"; if follow \= "" then mode = "follow"
   instance_id = _option(request, "id", error); parent_id = _option(request, "parent", error); host_id = _option(request, "host-id", error); job_filter = _option(request, "job", error)
   poll_text = _option(request, "poll-ms", error); maximum_text = _option(request, "max-polls", error)
-  poll_milliseconds = 1000; maximum_polls = 0
+  poll_milliseconds = config_lookup.config().workers().poll_ms(); maximum_polls = 0
   if poll_text \= "" then do
     if _unsigned(poll_text) \= 1 then return _failure(operation, 2, "--poll-ms must be an integer")
     poll_milliseconds = poll_text as .int
@@ -1872,15 +1946,12 @@ _ingestplan: procedure = .ragcommandresult
   end
   if source_index = 0 then return _failure(operation, 5, "source set is not registered")
   observations = .ragsourceobservation[]
-  if collectfolderobservations(source_sets[source_index].root(), source_set_id, source_sets[source_index].retain_raw_artifact(), 2147483647, "surface-plan", observations, error) < 0 then return _failure(operation, 1, error)
+  if collectfolderobservations(source_sets[source_index].root(), source_set_id, source_sets[source_index].retain_raw_artifact(), source_sets[source_index].maximum_file_bytes(), "surface-plan", observations, error, source_sets[source_index].maximum_depth()) < 0 then return _failure(operation, 1, error)
   store = .ragstorehandle
   if openragstore(request.library(), "readonly", store, error) \= 0 then return _openfailure(operation, error)
-  target_identity = .ragconfigidentity
-  if identifyconfig(config_lookup.config(), profile_lookup.profile(), target_identity, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 3, error); end
-  snapshot_id = target_identity.snapshot_id()
-  ingest_policy = "surface-ingest-v2-" || target_identity.semantic_hash()
+  snapshot_id = currentconfigsnapshotid(store.database(), error)
   domain_plan = .ragingestplan; chunks = profile_lookup.profile().chunk_policy().max_characters()
-  plan_status = createingestplanconfigured(store, "folder:" || source_set_id, snapshot_id, ingest_policy, "surface-parser-v1", chunks, observations, config_lookup.config(), domain_plan, error)
+  plan_status = createingestplanconfigured(store, "folder:" || source_set_id, snapshot_id, "surface-ingest-v1", "surface-parser-v1", chunks, observations, config_lookup.config(), domain_plan, error)
   close_error = ""; close_status = closeragstore(store, close_error)
   if plan_status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 1, error); end
   action = '{"source_set":' || jsonquote(source_set_id) || ',"ingest_plan":' || jsonquote(domain_plan.canonical()) || ',"ingest_digest":' || jsonquote(domain_plan.digest()) || '}'
@@ -1917,16 +1988,13 @@ _ingestapply: procedure = .ragcommandresult
   if source_index = 0 then return _failure(operation, 5, "source set is not registered")
   tracer = .ragtracer(request.progress(), request.format()); call tracer.emit("ingest", "start", source_set_id, "discovering sources")
   observations = .ragsourceobservation[]
-  if collectfolderobservations(source_sets[source_index].root(), source_set_id, source_sets[source_index].retain_raw_artifact(), 2147483647, "surface-apply", observations, error) < 0 then return _failure(operation, 1, error)
+  if collectfolderobservations(source_sets[source_index].root(), source_set_id, source_sets[source_index].retain_raw_artifact(), source_sets[source_index].maximum_file_bytes(), "surface-apply", observations, error, source_sets[source_index].maximum_depth()) < 0 then return _failure(operation, 1, error)
   store = .ragstorehandle
   if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
-  target_identity = .ragconfigidentity
-  if identifyconfig(config_lookup.config(), profile_lookup.profile(), target_identity, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 3, error); end
-  snapshot_id = target_identity.snapshot_id()
-  ingest_policy = "surface-ingest-v2-" || target_identity.semantic_hash()
+  snapshot_id = currentconfigsnapshotid(store.database(), error)
   domain_plan = .ragingestplan
   chunks = profile_lookup.profile().chunk_policy().max_characters()
-  if createingestplanconfigured(store, "folder:" || source_set_id, snapshot_id, ingest_policy, "surface-parser-v1", chunks, observations, config_lookup.config(), domain_plan, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 1, error); end
+  if createingestplanconfigured(store, "folder:" || source_set_id, snapshot_id, "surface-ingest-v1", "surface-parser-v1", chunks, observations, config_lookup.config(), domain_plan, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 1, error); end
   if domain_plan.canonical() \= reviewed_ingest_plan | domain_plan.digest() \= reviewed_ingest_digest then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 3, "source observations, discovery policy or glossary content no longer match the reviewed ingest plan"); end
   call tracer.emit("ingest", "waiting", source_set_id, "queueing durable work")
   result = applyingestplanconfigured(store, domain_plan, observations, config_lookup.config(), profile_lookup.profile())
@@ -2203,10 +2271,17 @@ _maintainread: procedure = .ragcommandresult
   arg request = .ragcommandrequest
   operation = request.operation(); error = ""
   if _hasaccess(request, "read") \= 1 then return _failure(operation, 4, "maintenance inspection requires read access")
-  if _options(request, "id", error) \= 0 then return _failure(operation, 2, error)
+  if _options(request, "id cursor limit", error) \= 0 then return _failure(operation, 2, error)
   id = _id(request, error)
   if error \= "" then return _failure(operation, 2, error)
   if operation = "maintain.inspect" & id = "" then return _failure(operation, 2, "maintain inspect requires a run, item, or note id")
+  cursor = _option(request, "cursor", error); limit_text = _option(request, "limit", error); limit = 98
+  if limit_text \= "" then do
+    if _unsigned(limit_text) \= 1 then return _failure(operation, 2, "maintenance limit must be an integer")
+    limit = limit_text as .int
+  end
+  if error \= "" | limit < 1 | limit > 98 then return _failure(operation, 2, "maintenance limit must be 1 through 98")
+  returned = 0; has_more = 0; next_cursor = ""; cursor_filter = ""
   store = .ragstorehandle
   if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
   database = store.database(); records = .ragresultrecord[]
@@ -2214,6 +2289,11 @@ _maintainread: procedure = .ragcommandresult
     run_id = id
     if run_id = "" then run_id = _scalartext(database, "SELECT run_id FROM maintenance_runs ORDER BY created_at DESC,run_id DESC LIMIT 1")
     if run_id = "" then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 5, "no maintenance run exists"); end
+    if cursor \= "" then do
+      cursor_score = _scalartext(database, "SELECT CAST(score AS TEXT) FROM maintenance_items WHERE run_id=" || _sqlquote(run_id) || " AND item_id=" || _sqlquote(cursor))
+      if cursor_score = "" then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 2, "maintenance cursor does not belong to this run"); end
+      cursor_filter = " AND (score<" || cursor_score || " OR (score=" || cursor_score || " AND item_id>" || _sqlquote(cursor) || "))"
+    end
     state = ""; pending = 0; review_count = 0
     if refreshmaintenance(store, run_id, state, pending, review_count, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, error); end
     prepared = .binary
@@ -2226,31 +2306,40 @@ _maintainread: procedure = .ragcommandresult
     fields[1] = .ragresultfield("run_id", "string", run_id); fields[2] = .ragresultfield("state", "string", stored_state); fields[3] = .ragresultfield("mode", "string", mode); fields[4] = .ragresultfield("generation", "integer", generation); fields[5] = .ragresultfield("plan_digest", "string", digest); fields[6] = .ragresultfield("pending_items", "integer", pending); fields[7] = .ragresultfield("review_items", "integer", review_count); fields[8] = .ragresultfield("created_at", "string", created); fields[9] = .ragresultfield("completed_at", "string", completed)
     records[1] = .ragresultrecord("maintenance-run", fields)
     prepared = .binary
-    sql = "SELECT item_id,item_type,subject_type,subject_id,score,state,trigger_json,diagnosis_json,action_json FROM maintenance_items WHERE run_id=?1 ORDER BY score DESC,item_id LIMIT 99"
+    sql = "SELECT item_id,item_type,subject_type,subject_id,score,state,trigger_json,diagnosis_json,action_json FROM maintenance_items WHERE run_id=?1" || cursor_filter || " ORDER BY score DESC,item_id LIMIT " || (limit + 1)
     if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, run_id) \= 0 then do; call sqlitefinalize prepared; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "cannot prepare maintenance item status"); end
     do forever
       step = sqlitestep(prepared); if step = 101 then leave
       if step \= 100 then do; call sqlitefinalize prepared; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "cannot read maintenance item status"); end
+      if returned = limit then do; has_more = 1; leave; end
       item_id = ""; item_type = ""; subject_type = ""; subject = ""; item_state = ""; trigger = ""; diagnosis = ""; action = ""; score = 0
       columns = sqlitecolumntext(prepared, 0, item_id) | sqlitecolumntext(prepared, 1, item_type) | sqlitecolumntext(prepared, 2, subject_type) | sqlitecolumntext(prepared, 3, subject) | sqlitecolumnint(prepared, 4, score) | sqlitecolumntext(prepared, 5, item_state) | sqlitecolumntext(prepared, 6, trigger) | sqlitecolumntext(prepared, 7, diagnosis) | sqlitecolumntext(prepared, 8, action)
       if columns \= 0 then do; call sqlitefinalize prepared; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "cannot decode maintenance item status"); end
       fields = .ragresultfield[]; fields[1] = .ragresultfield("item_id", "string", item_id); fields[2] = .ragresultfield("item_type", "string", item_type); fields[3] = .ragresultfield("subject_type", "string", subject_type); fields[4] = .ragresultfield("subject_id", "string", subject); fields[5] = .ragresultfield("score", "integer", score); fields[6] = .ragresultfield("state", "string", item_state); fields[7] = .ragresultfield("triggers", "string", trigger); fields[8] = .ragresultfield("diagnosis", "string", diagnosis); fields[9] = .ragresultfield("action", "string", action)
       records[records.0 + 1] = .ragresultrecord("maintenance-item", fields)
+      returned = returned + 1; next_cursor = item_id
     end
     call sqlitefinalize prepared
   end
   else do
+    if cursor \= "" then do
+      cursor_score = _scalartext(database, "SELECT CAST(score AS TEXT) FROM maintenance_items WHERE (item_id=" || _sqlquote(id) || " OR run_id=" || _sqlquote(id) || ") AND item_id=" || _sqlquote(cursor))
+      if cursor_score = "" then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 2, "maintenance cursor does not belong to this selection"); end
+      cursor_filter = " AND (score<" || cursor_score || " OR (score=" || cursor_score || " AND item_id>" || _sqlquote(cursor) || "))"
+    end
     prepared = .binary
-    sql = "SELECT item_id,run_id,item_type,subject_type,subject_id,score,state,trigger_json,diagnosis_json,action_json FROM maintenance_items WHERE item_id=?1 OR run_id=?1 ORDER BY score DESC,item_id LIMIT 100"
+    sql = "SELECT item_id,run_id,item_type,subject_type,subject_id,score,state,trigger_json,diagnosis_json,action_json FROM maintenance_items WHERE (item_id=?1 OR run_id=?1)" || cursor_filter || " ORDER BY score DESC,item_id LIMIT " || (limit + 1)
     if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, id) \= 0 then do; call sqlitefinalize prepared; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "cannot prepare maintenance inspection"); end
     do forever
       step = sqlitestep(prepared); if step = 101 then leave
       if step \= 100 then do; call sqlitefinalize prepared; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "cannot read maintenance inspection"); end
+      if returned = limit then do; has_more = 1; leave; end
       item_id = ""; run_id = ""; item_type = ""; subject_type = ""; subject = ""; item_state = ""; trigger = ""; diagnosis = ""; action = ""; score = 0
       columns = sqlitecolumntext(prepared, 0, item_id) | sqlitecolumntext(prepared, 1, run_id) | sqlitecolumntext(prepared, 2, item_type) | sqlitecolumntext(prepared, 3, subject_type) | sqlitecolumntext(prepared, 4, subject) | sqlitecolumnint(prepared, 5, score) | sqlitecolumntext(prepared, 6, item_state) | sqlitecolumntext(prepared, 7, trigger) | sqlitecolumntext(prepared, 8, diagnosis) | sqlitecolumntext(prepared, 9, action)
       if columns \= 0 then do; call sqlitefinalize prepared; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, "cannot decode maintenance inspection"); end
       fields = .ragresultfield[]; fields[1] = .ragresultfield("item_id", "string", item_id); fields[2] = .ragresultfield("run_id", "string", run_id); fields[3] = .ragresultfield("item_type", "string", item_type); fields[4] = .ragresultfield("subject_type", "string", subject_type); fields[5] = .ragresultfield("subject_id", "string", subject); fields[6] = .ragresultfield("score", "integer", score); fields[7] = .ragresultfield("state", "string", item_state); fields[8] = .ragresultfield("triggers", "string", trigger); fields[9] = .ragresultfield("diagnosis", "string", diagnosis); fields[10] = .ragresultfield("action", "string", action)
       records[records.0 + 1] = .ragresultrecord("maintenance-item", fields)
+      returned = returned + 1; next_cursor = item_id
     end
     call sqlitefinalize prepared
     if records.0 = 0 then do
@@ -2268,7 +2357,11 @@ _maintainread: procedure = .ragcommandresult
     end
   end
   close_error = ""; if closeragstore(store, close_error) \= 0 then return _failure(operation, 7, close_error)
-  if records.0 = 0 then return _failure(operation, 5, "maintenance object was not found")
+  if records.0 = 0 & cursor = "" then return _failure(operation, 5, "maintenance object was not found")
+  if has_more = 0 then next_cursor = ""
+  more_text = "false"; if has_more = 1 then more_text = "true"
+  fields = .ragresultfield[]; fields[1] = .ragresultfield("returned", "integer", returned); fields[2] = .ragresultfield("has_more", "boolean", more_text); fields[3] = .ragresultfield("next_cursor", "string", next_cursor)
+  records[records.0 + 1] = .ragresultrecord("maintenance-page", fields)
   return .ragcommandresult(operation, "ok", 0, "maintenance state and durable worklist inspected", records)
 
 _roleproviderconfig: procedure = .ragproviderconfig

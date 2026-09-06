@@ -3,6 +3,7 @@ options levelg
 import rxfnsb
 import rxhash
 import rxplatform
+import rxfs
 import rxsqlite
 import ragstore
 import ragwork
@@ -130,6 +131,9 @@ main: procedure = .int
   errors = errors + check(scalarint(database, "SELECT count(*) FROM job_items WHERE job_id='" || replay_job || "' AND state='queued' AND json_extract(input_json,'$.config_snapshot_id')='snapshot-p3r-03'") = 2, "replay items bind the reviewed target configuration")
   errors = errors + check(scalarint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE root_job_id='job-replay-source' AND reconciliation_state='in-progress' AND replay_count=1") = 2, "dead-letter reconciliation reports immutable replay work in progress")
 
+  arguments = .string[]; arguments[1] = "--library"; arguments[2] = path; arguments[3] = "config"; arguments[4] = "apply"; arguments[5] = "--plan-json"; arguments[6] = copies("p", 70000)
+  parsed_command = .ragcommandrequest; parse_error = ""
+  errors = errors + check(parsecommand(arguments, parsed_command, parse_error) = 0, "large plan input has the same bound as its renderer " || parse_error)
   plan_fields = .ragresultfield[]; plan_fields[1] = .ragresultfield("canonical_plan", "string", copies("p", 70000))
   plan_records = .ragresultrecord[]; plan_records[1] = .ragresultrecord("canonical-plan", plan_fields)
   plan_result = .ragcommandresult("maintain.plan", "ok", 0, "large reviewed plan", plan_records); render_error = ""
@@ -143,8 +147,9 @@ main: procedure = .int
   evidence_result = .ragcommandresult("query.answer", "ok", 0, "large machine evidence", evidence_records); render_error = ""; rendered = ""
   errors = errors + check(rendercommandresult(evidence_result, "human", rendered, render_error) = 0 & pos("bounded human answer", rendered) > 0 & pos(copies("e", 100), rendered) = 0, "large evidence remains machine-valid and is omitted from human rendering " || render_error)
 
-  upgrade = .binary
-  errors = errors + check(sqliteopenmode(path || "/upgrade.sqlite", "create", upgrade) = 0, "open upgrade fixture")
+  upgrade = .binary; upgrade_path = path || "/upgrade-bundle"
+  errors = errors + check(rxfs..mkdir(upgrade_path) = 0, "create upgrade bundle")
+  errors = errors + check(sqliteopenmode(upgrade_path || "/library.sqlite", "create", upgrade) = 0, "open upgrade fixture")
   errors = errors + check(applymigrations(upgrade, "crexxrag-old", 1, error) = 0, "install schema version one " || error)
   sql = "INSERT INTO config_snapshots(config_snapshot_id,config_id,config_version,profile_id,profile_hash,config_hash,effective_json,created_at) VALUES('snapshot-upgrade','upgrade','1','generic-profile','profile-hash','config-hash','{}',strftime('%Y-%m-%dT%H:%M:%fZ','now'));INSERT INTO published_generations(generation,parent_generation,state,config_snapshot_id,summary,created_at,published_at) VALUES(1,NULL,'published','snapshot-upgrade','upgrade fixture',strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'));INSERT INTO library_meta(singleton,library_id,bundle_format_version,schema_version,published_generation,next_generation,active_profile_id,active_profile_hash,required_capabilities,created_at,updated_at) VALUES(1,'library-upgrade',1,1,1,2,'generic-profile','profile-hash','sqlite-provider-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
   errors = errors + check(sqliteexec(upgrade, sql) = 0, "seed schema version one")
@@ -154,9 +159,15 @@ main: procedure = .int
   sql = "INSERT INTO provider_runs(provider_run_id,config_snapshot_id,provider_id,model,request_hash,outcome,input_tokens,output_tokens,duration_ms,started_at,completed_at) VALUES('upgrade-report-run','snapshot-upgrade','gemini-generate','gemini-test','request-hash','succeeded',10,2,3,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'));INSERT INTO report_snapshots(report_id,semantic_generation,profile_hash,report_schema,top_limit,semantic_digest,semantic_json,created_at) VALUES('upgrade-report',1,'profile-hash','crexx-rag.library-report/1',10,'" || digest || "','{}',strftime('%Y-%m-%dT%H:%M:%fZ','now'));INSERT INTO report_narratives(narrative_id,report_id,operational_digest,provider_run_id,provider_id,model,prompt_version,narrative_json,input_tokens,output_tokens,cost_microunits,allowance_before_percent,allowance_after_percent,created_at) VALUES('upgrade-narrative','upgrade-report','" || digest || "','upgrade-report-run','gemini-generate','gemini-test','prompt-v1','{}',10,2,123,-1,-1,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
   errors = errors + check(sqliteexec(upgrade, sql) = 0, "seed provider history backfill fixture")
   errors = errors + check(applymigrations(upgrade, "crexxrag", 8, error) = 0, "upgrade schema six to eight " || error)
-  errors = errors + check(scalarint(upgrade, "SELECT count(*) FROM schema_migrations WHERE version IN(2,3,4,5,6,7,8) AND name IN('worker-hot-path-indexes','provider-run-accounting-index','library-report-cache','historic-observability','configuration-lifecycle-and-provider-resilience','indexed-term-statistics-and-backlog-reconciliation','direct-provider-history')") = 7 & scalarint(upgrade, "SELECT schema_version FROM library_meta WHERE singleton=1") = 8 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE type='index' AND name IN('job_items_lease','attempts_provider_run','report_narratives_cache','observation_decisions_outcome','observation_snapshots_history','provider_admissions_window','provider_admissions_active','job_replays_source','provider_runs_purpose_history')") = 9 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE type='table' AND name IN('report_snapshots','report_narratives','observation_decisions','observation_snapshots','library_config_state','config_change_events','provider_admissions','job_replays','job_replay_items','chunks_fts_vocab')") = 10 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE type='view' AND name='dead_letter_reconciliation'") = 1 & scalarint(upgrade, "SELECT count(*) FROM provider_runs WHERE provider_run_id='upgrade-report-run' AND cost_microunits=123 AND purpose='report-narrative'") = 1, "schema version one upgrade is complete")
-  errors = errors + check(sqliteclose(upgrade) = 0, "close upgrade fixture")
+  upgrade_store = .ragstorehandle(upgrade, upgrade_path, "readwrite")
+  errors = errors + check(publishmanifest(upgrade_store, error) = 0, "publish schema eight manifest " || error)
+  errors = errors + check(closeragstore(upgrade_store, error) = 0, "close schema eight bundle " || error)
+  errors = errors + check(openragstore(upgrade_path, "readwrite", upgrade_store, error) = 0, "automatic schema eight to nine migration " || error)
+  upgrade = upgrade_store.database(); manifest_state = ""
+  errors = errors + check(manifeststate(upgrade_store, manifest_state, error) = 0 & manifest_state = "aligned", "automatic migration aligns manifest " || error)
+  errors = errors + check(scalarint(upgrade, "SELECT count(*) FROM schema_migrations WHERE version IN(2,3,4,5,6,7,8,9) AND name IN('worker-hot-path-indexes','provider-run-accounting-index','library-report-cache','historic-observability','configuration-lifecycle-and-provider-resilience','indexed-term-statistics-and-backlog-reconciliation','direct-provider-history','prospective-configuration-transitions')") = 8 & scalarint(upgrade, "SELECT schema_version FROM library_meta WHERE singleton=1") = 9 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE type='index' AND name IN('job_items_lease','attempts_provider_run','report_narratives_cache','observation_decisions_outcome','observation_snapshots_history','provider_admissions_window','provider_admissions_active','job_replays_source','provider_runs_purpose_history')") = 9 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE type='table' AND name IN('report_snapshots','report_narratives','observation_decisions','observation_snapshots','library_config_state','config_change_events','provider_admissions','job_replays','job_replay_items','chunks_fts_vocab')") = 10 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='config_change_events_v8'") = 0 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE sql LIKE '%prospective%' AND name='config_change_events'") = 1 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE type='view' AND name='dead_letter_reconciliation'") = 1 & scalarint(upgrade, "SELECT count(*) FROM provider_runs WHERE provider_run_id='upgrade-report-run' AND cost_microunits=123 AND purpose='report-narrative'") = 1, "schema version one upgrade is complete")
+  errors = errors + check(closeragstore(upgrade_store, error) = 0, "close upgrade fixture " || error)
   errors = errors + check(closeragstore(store, error) = 0, "close " || error)
   if errors \= 0 then do; say "PROVIDER_DURABILITY_ERRORS=" || errors; return 1; end
-  say "PROVIDER_DURABILITY_OK completed_turn_reused=1 codex_turns=1 stale_reservations=0 fence=2 admissions=durable uncalled_provider_runs=0 paused_completion=sticky batch_retry=2 replay=immutable reconciliation=in-progress indexes=11 migration=1to6-validated-to8 provider_history=costed large_plan=renderable"
+  say "PROVIDER_DURABILITY_OK completed_turn_reused=1 codex_turns=1 stale_reservations=0 fence=2 admissions=durable uncalled_provider_runs=0 paused_completion=sticky batch_retry=2 replay=immutable reconciliation=in-progress indexes=11 migration=1to6-validated-to9 provider_history=costed prospective_config=audited large_plan=renderable"
   return 0

@@ -8,7 +8,6 @@ import rxhash
 import rxsqlite
 import ragstore
 import ragconfig
-import ragconfiguration
 import ragglossary
 import ragprofile
 
@@ -440,19 +439,14 @@ _applyingestplan: procedure = .ragingestresult
   if canonical \= plan.canonical() then return _failure(-1, "observations, discovery policy or glossary content no longer match the reviewed canonical plan")
   if rxhash..sha256hex(canonical as .binary) \= plan.digest() then return _failure(-1, "reviewed ingest plan digest is invalid")
   match_error = ""
-  source_snapshot_id = currentconfigsnapshotid(store.database(), match_error)
-  if source_snapshot_id = "" then return _failure(-3, match_error)
-  semantic_transition = source_snapshot_id \= plan.config_snapshot_id()
   match_status = _desiredmatches(store.database(), plan, observations, match_error)
   if match_status < 0 then return _failure(-3, match_error)
-  if match_status = 1 & semantic_transition = 0 then return .ragingestresult(0, "identical-no-op", current, 0, 0, observations.0, observations.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "")
+  if match_status = 1 then return .ragingestresult(0, "identical-no-op", current, 0, 0, observations.0, observations.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "")
 
   before_changes = _scalarint(store.database(), "SELECT total_changes()")
   if before_changes < 0 then return _failure(-3, "cannot read SQLite change counter")
   generation = 0; error = ""
-  if sqliteexec(store.database(), "BEGIN IMMEDIATE") \= 0 then return _failure(-3, "cannot begin reviewed ingestion publication")
-  if configured = 1 then if ensureconfigsnapshot(store.database(), config, profile, plan.config_snapshot_id(), error) \= 0 then return _abortresult(store, error)
-  if begingeneration(store, current, plan.config_snapshot_id(), "ingest " || plan.digest(), generation, error, 1) \= 0 then return _failure(-3, error)
+  if begingeneration(store, current, plan.config_snapshot_id(), "ingest " || plan.digest(), generation, error) \= 0 then return _failure(-3, error)
 
   added = 0; changed = 0; renamed = 0; deleted = 0
   chunks_created = 0; chunks_reused = 0; occurrences = 0
@@ -464,14 +458,10 @@ _applyingestplan: procedure = .ragingestresult
   end
   if _stagedeletions(store.database(), generation, plan.source_scope(), observations, deleted, support_retracted, error) \= 0 then return _abortresult(store, error)
   glossary_candidates = 0
-  if configured = 1 then if _insertglossarycandidates(store.database(), generation, glossary, glossary_candidates, error, semantic_transition) \= 0 then return _abortresult(store, error)
+  if configured = 1 then if _insertglossarycandidates(store.database(), generation, glossary, glossary_candidates, error) \= 0 then return _abortresult(store, error)
   candidates = candidates + glossary_candidates
   if _finalizecandidates(store.database(), generation, plan.policy_version(), error) \= 0 then return _abortresult(store, error)
-  if _queuework(store.database(), generation, plan, context, config, profile, configured, items, error, semantic_transition) \= 0 then return _abortresult(store, error)
-  if semantic_transition = 1 then do
-    sql = "UPDATE library_config_state SET current_config_snapshot_id=" || _sqlquote(plan.config_snapshot_id()) || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE singleton=1 AND current_config_snapshot_id=" || _sqlquote(source_snapshot_id)
-    if sqliteexec(store.database(), sql) \= 0 | _scalarint(store.database(), "SELECT changes()") \= 1 then return _abortresult(store, "library configuration changed during semantic ingestion publication")
-  end
+  if _queuework(store.database(), generation, plan, context, config, profile, configured, items, error) \= 0 then return _abortresult(store, error)
   if commitgeneration(store, generation, error) \= 0 then return _failure(-3, error)
   after_changes = _scalarint(store.database(), "SELECT total_changes()")
   unchanged = observations.0 - added - changed
@@ -609,7 +599,7 @@ _configuredcontext: procedure = .int
   return creatediscoverycontext(glossary, discovery.mode(), discovery.ranked_limit(), discovery.max_mentions(), discovery.max_relationships(), discovery.max_notes(), context, error)
 
 _insertglossarycandidates: procedure = .int
-  arg database = .binary, generation = .int, glossary = .ragglossarydata, expose count = .int, expose error = .string, all_visible = 0
+  arg database = .binary, generation = .int, glossary = .ragglossarydata, expose count = .int, expose error = .string
   count = 0; excluded = glossary.excluded()
   do i = 1 to excluded.0
     prepared = .binary
@@ -620,8 +610,7 @@ _insertglossarycandidates: procedure = .int
   entries = glossary.entries()
   if entries.0 = 0 then return 0
   chunks = .string[]; bodies = .string[]; prepared = .binary
-  if all_visible = 1 then sql = "SELECT rc.revision_chunk_id,c.text FROM revision_chunks rc JOIN chunk_contents c ON c.content_id=rc.content_id WHERE rc.visible_from_generation<=?1 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?1) ORDER BY rc.revision_chunk_id"
-  else sql = "SELECT rc.revision_chunk_id,c.text FROM revision_chunks rc JOIN chunk_contents c ON c.content_id=rc.content_id WHERE rc.visible_from_generation=?1 ORDER BY rc.revision_chunk_id"
+  sql = "SELECT rc.revision_chunk_id,c.text FROM revision_chunks rc JOIN chunk_contents c ON c.content_id=rc.content_id WHERE rc.visible_from_generation=?1 ORDER BY rc.revision_chunk_id"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare glossary chunk census"; return -1; end
   do forever
     step = sqlitestep(prepared)
@@ -1269,11 +1258,10 @@ _finalizecandidates: procedure = .int
   return 0
 
 _queuework: procedure = .int
-  arg database = .binary, generation = .int, plan = .ragingestplan, discovery_context = .string, config = .ragconfig, profile = .ragprofile, configured = .int, expose items = .int, expose error = .string, all_visible = 0
+  arg database = .binary, generation = .int, plan = .ragingestplan, discovery_context = .string, config = .ragconfig, profile = .ragprofile, configured = .int, expose items = .int, expose error = .string
   items = 0
   prepared = .binary
-  if all_visible = 1 then sql = "SELECT c.revision_chunk_id,c.content_id,t.content_digest,t.text,c.normalized_start,c.normalized_end FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c.visible_from_generation<=?1 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?1) ORDER BY c.content_id,c.revision_chunk_id"
-  else sql = "SELECT c.revision_chunk_id,c.content_id,t.content_digest,t.text,c.normalized_start,c.normalized_end FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c.visible_from_generation=?1 AND NOT EXISTS(SELECT 1 FROM revision_chunks p WHERE p.content_id=c.content_id AND p.visible_to_generation=?1) ORDER BY c.content_id,c.revision_chunk_id"
+  sql = "SELECT c.revision_chunk_id,c.content_id,t.content_digest,t.text,c.normalized_start,c.normalized_end FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c.visible_from_generation=?1 AND NOT EXISTS(SELECT 1 FROM revision_chunks p WHERE p.content_id=c.content_id AND p.visible_to_generation=?1) ORDER BY c.content_id,c.revision_chunk_id"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare missing-work census"; return -1; end
   chunk_ids = .string[]; content_ids = .string[]; content_digests = .string[]; texts = .string[]; starts = .int[]; ends = .int[]
   do forever

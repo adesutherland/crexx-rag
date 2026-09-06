@@ -5,6 +5,7 @@ import rxfnsg
 import rxhash
 import rxvector
 import rxsqlite
+import rxfs
 import ragfile
 import ragstore
 import ragembedding
@@ -132,7 +133,12 @@ main: procedure = .int
   errors = errors + check(ragfile..writebinaryfile(path || "/" || generation.sidecar_name(), "tampered" as .binary, error) = 0, "tamper ANN sidecar " || error)
   fallback = .ragretrievalresult
   errors = errors + check(retrieveevidence(store, genericprofile(), "zzzznotlexical", retrieval_policy, fallback, error) = 0 & fallback.vector_state() = "fallback-invalid-ann-sidecar", "tampered ANN fail-safe fallback " || error)
-  errors = errors + check(ragfile..writebinaryfile(path || "/" || generation.sidecar_name(), raw, error) = 0, "restore ANN sidecar " || error)
+  errors = errors + check(buildannvectorgeneration(store, "ann-profile", 12, 4, 1, 3, 1048576, replay, error) = 0 & replay.state() = "rebuilt-from-sqlite" & replay.checksum() = generation.checksum(), "recover corrupt sidecar from SQLite " || error)
+  errors = errors + check(rxfs..delete(path || "/" || generation.sidecar_name()) = 0, "remove derived sidecar")
+  errors = errors + check(ragfile..writebinaryfile(path || "/." || generation.sidecar_name() || ".recovery", "interrupted" as .binary, error) = 0, "interrupted rebuild temporary")
+  errors = errors + check(buildannvectorgeneration(store, "ann-profile", 12, 4, 1, 3, 1048576, replay, error) = 0 & replay.state() = "rebuilt-from-sqlite" & replay.checksum() = generation.checksum(), "recover missing sidecar from SQLite " || error)
+  errors = errors + check(retrieveevidence(store, genericprofile(), "zzzznotlexical", retrieval_policy, fallback, error) = 0 & fallback.vector_state() = "active-ann-ivf-rxvector", "recovered ANN retrieval " || error)
+  errors = errors + check(scalartext(database, "SELECT CAST(count(*) AS TEXT) FROM provider_runs") = "0", "sidecar recovery must make no provider calls")
   errors = errors + check(closeragstore(store, error) = 0, "close " || error)
   if errors > 0 then return 1
   say "ANN_METHODOLOGY_OK algorithm=ivf-flat-v1 rows=12 centroids=4 probes=1 candidates=3 exact_oracle=qa-only recall_millionths=" || recall || " tamper=fallback"

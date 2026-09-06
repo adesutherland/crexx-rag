@@ -356,7 +356,7 @@ ragworkprovider: interface
 claimnext: procedure = .int
   arg store = .ragstorehandle, job_filter = .string, worker_id = .string, lease_seconds = .int, maximum_attempts = .int, expose claim = .ragworkclaim, expose error = .string
   error = ""; claim = .ragworkclaim(1, "", "", "", "", worker_id, 0, "", 0, "")
-  if store.writable() \= 1 | worker_id = "" | lease_seconds < 1 | lease_seconds > 3600 | maximum_attempts < 1 | maximum_attempts > 100 then do; error = "worker claim policy is invalid"; return -1; end
+  if store.writable() \= 1 | worker_id = "" | lease_seconds < 1 | lease_seconds > 86400 | maximum_attempts < 1 | maximum_attempts > 100 then do; error = "worker claim policy is invalid"; return -1; end
   database = store.database()
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin worker claim"; return -3; end
   /* Lease recovery is exceptional.  The indexed existence check keeps the
@@ -421,7 +421,7 @@ claimnext: procedure = .int
 heartbeat: procedure = .int
   arg store = .ragstorehandle, claim = .ragworkclaim, lease_seconds = .int, expose lease_until = .int, expose error = .string
   lease_until = 0; error = ""
-  if store.writable() \= 1 | claim.claimed() \= 1 | lease_seconds < 1 | lease_seconds > 3600 then do; error = "heartbeat inputs are invalid"; return -1; end
+  if store.writable() \= 1 | claim.claimed() \= 1 | lease_seconds < 1 | lease_seconds > 86400 then do; error = "heartbeat inputs are invalid"; return -1; end
   database = store.database()
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin heartbeat"; return -3; end
   if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)

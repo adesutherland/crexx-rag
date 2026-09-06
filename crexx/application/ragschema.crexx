@@ -3,7 +3,7 @@ options levelg
 namespace ragschema expose ragschemaversion migrationname migrationchecksum migrationstatements
 
 ragschemaversion: procedure = .int
-  return 8
+  return 9
 
 migrationname: procedure = .string
   arg version = .int
@@ -15,6 +15,7 @@ migrationname: procedure = .string
   if version = 6 then return "configuration-lifecycle-and-provider-resilience"
   if version = 7 then return "indexed-term-statistics-and-backlog-reconciliation"
   if version = 8 then return "direct-provider-history"
+  if version = 9 then return "prospective-configuration-transitions"
   return ""
 
 migrationchecksum: procedure = .string
@@ -28,6 +29,7 @@ migrationchecksum: procedure = .string
   if version = 6 then return "529919045d2777013a0cdf4dcdec8d31fa103d069122677b55f4fd6c38aa7583"
   if version = 7 then return "9bdc5094e03f56e47f46cdc99a0a0886747f73ca11dbeb4ddaf3ecf5451d7443"
   if version = 8 then return "add7adb59016bab71709aa6575d507ff4271d3157333216208708142473753c1"
+  if version = 9 then return "dcfd1a148310f1c2cddd1f0c5b0a9396a07ce496e3dd5eb5a91b2084a6793ce4"
   return ""
 
 migrationstatements: procedure = .int
@@ -149,6 +151,13 @@ migrationstatements: procedure = .int
     statements[statements.0 + 1] = "UPDATE provider_runs SET cost_microunits=coalesce((SELECT CAST(json_extract(e.message,'$.actual_cost') AS INTEGER) FROM attempts a JOIN job_events e ON e.attempt_id=a.attempt_id WHERE a.provider_run_id=provider_runs.provider_run_id AND e.event_type LIKE 'reservation-close:%' ORDER BY e.event_id DESC LIMIT 1),cost_microunits) WHERE cost_microunits<0"
     statements[statements.0 + 1] = "UPDATE provider_runs SET cost_microunits=(SELECT n.cost_microunits FROM report_narratives n WHERE n.provider_run_id=provider_runs.provider_run_id),purpose='report-narrative' WHERE EXISTS(SELECT 1 FROM report_narratives n WHERE n.provider_run_id=provider_runs.provider_run_id)"
     statements[statements.0 + 1] = "CREATE INDEX provider_runs_purpose_history ON provider_runs(purpose,started_at,provider_run_id)"
+    return statements.0
+  end
+  if version = 9 then do
+    statements[statements.0 + 1] = "ALTER TABLE config_change_events RENAME TO config_change_events_v8"
+    statements[statements.0 + 1] = "CREATE TABLE config_change_events(change_id TEXT PRIMARY KEY,plan_digest TEXT NOT NULL UNIQUE,source_config_snapshot_id TEXT NOT NULL REFERENCES config_snapshots(config_snapshot_id),target_config_snapshot_id TEXT NOT NULL REFERENCES config_snapshots(config_snapshot_id),classification TEXT NOT NULL CHECK(classification IN('identity-upgrade','operational','prospective')),reason TEXT NOT NULL CHECK(length(reason) BETWEEN 1 AND 256),canonical_plan TEXT NOT NULL,created_at TEXT NOT NULL,applied_at TEXT NOT NULL) STRICT"
+    statements[statements.0 + 1] = "INSERT INTO config_change_events(change_id,plan_digest,source_config_snapshot_id,target_config_snapshot_id,classification,reason,canonical_plan,created_at,applied_at) SELECT change_id,plan_digest,source_config_snapshot_id,target_config_snapshot_id,classification,reason,canonical_plan,created_at,applied_at FROM config_change_events_v8"
+    statements[statements.0 + 1] = "DROP TABLE config_change_events_v8"
     return statements.0
   end
   return -1

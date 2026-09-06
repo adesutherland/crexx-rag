@@ -234,7 +234,19 @@ buildannvectorgeneration: procedure = .int
   if sqlitestep(prepared) = 100 then do
     sidecar_name = ""; column_status = sqlitecolumntext(prepared, 0, sidecar_name); call sqlitefinalize prepared
     if column_status \= 0 then do; error = "cannot decode vector generation replay"; return -3; end
-    result = .ragvectorgenerationresult(0, "identical-no-op", vector_generation_id, generation, embedding_profile_id, dimension, rows, sidecar_name, checksum, "")
+    expected_name = "vectors." || generation || "." || vector_generation_id || "." || substr(checksum, 1, 16) || ".rxvec"
+    if sidecar_name \= expected_name then do; error = "stored sidecar name conflicts with its content identity"; return -3; end
+    raw = .binary; bytes = 0; read_error = ""; state = "identical-no-op"
+    if readbinaryfilebounded(store.path() || "/" || sidecar_name, maximum_sidecar_bytes, raw, bytes, read_error) \= 0 | rxhash..sha256hex(raw) \= checksum then do
+      if _restorederivedsidecar(store, generation, vector_generation_id, sidecar_name, payload_text, error) \= 0 then return -3
+      state = "rebuilt-from-sqlite"
+    end
+    manifest_status = ""
+    if manifeststate(store, manifest_status, error) \= 0 | manifest_status \= "aligned" then do
+      error = ""
+      if publishmanifest(store, error) \= 0 then return -3
+    end
+    result = .ragvectorgenerationresult(0, state, vector_generation_id, generation, embedding_profile_id, dimension, rows, sidecar_name, checksum, "")
     return 0
   end
   call sqlitefinalize prepared
@@ -247,6 +259,24 @@ buildannvectorgeneration: procedure = .int
   if publish_status \= 0 then return -3
   if delete_status \= 0 then do; error = "published vector generation but could not remove its build input"; return -3; end
   result = .ragvectorgenerationresult(0, "published", vector_generation_id, generation, embedding_profile_id, dimension, rows, publication.sidecar_name(), checksum, "")
+  return 0
+
+_restorederivedsidecar: procedure = .int
+  arg store = .ragstorehandle, generation = .int, vector_generation_id = .string, sidecar_name = .string, payload = .string, expose error = .string
+  database = store.database(); error = ""
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot lock vector recovery"; return -1; end
+  if _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1") \= generation | _scalarint(database, "SELECT count(*) FROM vector_generations WHERE vector_generation_id=" || _q(vector_generation_id) || " AND state='published' AND semantic_generation=" || generation) \= 1 then do
+    call sqliteexec database, "ROLLBACK"; error = "vector publication changed during recovery"; return -1
+  end
+  temporary = store.path() || "/." || sidecar_name || ".recovery"
+  /* The database writer lock serialises recovery. The complete replacement is
+   * written before the atomic rename; interruption leaves the old index intact.
+   * A retry can replace an unfinished derived temporary, never SQLite data. */
+  if writebinaryfile(temporary, payload as .binary, error) \= 0 then do; call sqliteexec database, "ROLLBACK"; return -1; end
+  if rxfs..rename(temporary, store.path() || "/" || sidecar_name) \= 0 then do
+    call sqliteexec database, "ROLLBACK"; error = "cannot atomically restore vector sidecar"; return -1
+  end
+  if sqliteexec(database, "COMMIT") \= 0 then do; call sqliteexec database, "ROLLBACK"; error = "cannot finish vector recovery"; return -1; end
   return 0
 
 _loadmatrix: procedure = .int

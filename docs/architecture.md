@@ -182,18 +182,30 @@ changes.
 
 `config check` and `config explain` validate and project the effective policy
 without reading credential values. `config diff` classifies it as identical,
-legacy identity upgrade, operational or semantic. Plan freezes the source and
-target identities, classification, active-job count, reason and one-hour
-expiry into canonical JSON. Apply verifies the exact digest and current state,
-requires active work to be drained, and appends an immutable change event.
-Only identity upgrades and operational changes can use this apply path;
-semantic changes use the ordinary reviewed ingestion path. That plan binds the
-desired semantic identity while independently freezing the current generation,
-source fingerprints, reservations and zero-active-job precondition. Apply
-records the target configuration and publishes it with a new generation in one
-transaction, then queues all active chunks using a policy identity derived from
-the semantic hash. This prevents a changed model, prompt, profile, source rule
-or chunk policy from being mistaken for an unchanged-source no-op.
+legacy identity upgrade, operational or prospective. Plan
+freezes the source and target identities, classification, active-job count,
+reason and the configured plan expiry into canonical JSON. Apply verifies the exact digest
+and current state, requires active work to be drained, and appends an immutable
+change event. Identity upgrades, operational changes and prospective changes
+can use this path. A prospective change affects only newly planned work; it
+does not publish a corpus generation, rewrite provenance or queue existing
+chunks. Source ingestion keeps a stable algorithm identity and compares source
+observations, so an unchanged corpus remains an exact no-op after provider,
+prompt, route or configuration-schema changes.
+
+Profile edits also apply prospectively, including chunking, vocabulary,
+ranking, and prompt identities. Historical chunks and claims retain their
+original snapshots and source spans. An unchanged observed source does not
+get rechunked merely because a profile changed. Applying new interpretation
+to old content is a separate, explicitly reviewed maintenance or migration
+operation; it is never inferred from a configuration hash.
+
+Changing ANN tuning rebuilds only the derived index from SQLite vectors.
+Changing embedding model, dimensions or input representation calls for a new
+compatible embedding set for the requested work. Old vector BLOBs, links and
+publications remain stored. Neither operation invalidates source, graph or
+citation evidence. Query compatibility checks may decline an incompatible
+vector route; they do not classify the whole database as invalid.
 
 ## Schema and publication
 

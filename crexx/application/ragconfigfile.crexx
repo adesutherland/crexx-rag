@@ -3,6 +3,7 @@ options levelg
 namespace ragconfigfile expose loadconfigfile parseconfigtext
 
 import rxfnsb
+import rxfs
 import ragmodel
 import ragconfig
 import ragfile
@@ -18,10 +19,12 @@ loadconfigfile: procedure = .int
     error = "configuration file could not be read within the 65536-byte ceiling: " || error
     return -1
   end
-  return parseconfigtext(raw as .string, config, error)
+  absolute_path = _resolvepath(path, rxfs..cwd())
+  directory = left(absolute_path, lastpos("/", absolute_path))
+  return parseconfigtext(raw as .string, config, error, directory)
 
 parseconfigtext: procedure = .int
-  arg text = .string, expose config = .ragconfig, expose error = .string
+  arg text = .string, expose config = .ragconfig, expose error = .string, base_directory = ""
   config = invalidconfig(); error = ""
   if length(text) < 1 | length(text) > 65536 then return _fail("configuration text must contain 1 through 65536 bytes", error)
   if pos("00"x, text) > 0 then return _fail("configuration text contains a NUL byte", error)
@@ -72,6 +75,7 @@ parseconfigtext: procedure = .int
     retain_text = _required(keys, values, prefix || "retain_raw_artifact", error)
     if error \= "" then return -1
     if _safesourcepath(root) \= 1 then return _fail(prefix || "root contains traversal or a control character", error)
+    root = _resolvepath(root, base_directory)
     patterns = .string[]
     if _csv(include_text, 32, 256, patterns, error) \= 0 then return -1
     do j = 1 to patterns.0
@@ -79,7 +83,12 @@ parseconfigtext: procedure = .int
     end
     retain = 0
     if _boolean(retain_text, prefix || "retain_raw_artifact", retain, error) \= 0 then return -1
-    source_sets[i] = .ragsourceset(source_ids[i], connector, root, patterns, stable_key, privacy, retain)
+    maximum_file_bytes = 2147483647; maximum_depth = 64
+    setting = _optional(keys, values, prefix || "maximum_file_bytes")
+    if setting \= "" then if _uint(setting, 1, 2147483647, prefix || "maximum_file_bytes", maximum_file_bytes, error) \= 0 then return -1
+    setting = _optional(keys, values, prefix || "maximum_depth")
+    if setting \= "" then if _uint(setting, 0, 256, prefix || "maximum_depth", maximum_depth, error) \= 0 then return -1
+    source_sets[i] = .ragsourceset(source_ids[i], connector, root, patterns, stable_key, privacy, retain, maximum_file_bytes, maximum_depth)
   end
 
   provider_ids = .string[]
@@ -155,8 +164,16 @@ parseconfigtext: procedure = .int
         if _uint(_required(keys, values, prefix || "batch_size", error), 1, 4096, prefix || "batch_size", batch_size, error) \= 0 then return -1
       end
       else do
-        system_prompt = _required(keys, values, prefix || "system_prompt", error)
-        if error \= "" then return -1
+        system_prompt = _optional(keys, values, prefix || "system_prompt")
+        prompt_path = _optional(keys, values, prefix || "system_prompt_file")
+        if (system_prompt = "" & prompt_path = "") | (system_prompt \= "" & prompt_path \= "") then return _fail(prefix || "requires exactly one of system_prompt or system_prompt_file", error)
+        if prompt_path \= "" then do
+          if _safesourcepath(prompt_path) \= 1 then return _fail(prefix || "system_prompt_file contains traversal or a control character", error)
+          prompt_raw = .binary; prompt_bytes = 0
+          if ragfile..readbinaryfilebounded(_resolvepath(prompt_path, base_directory), 16384, prompt_raw, prompt_bytes, error) \= 0 then return _fail(prefix || "system_prompt_file could not be read within 16384 bytes: " || error, error)
+          system_prompt = prompt_raw as .string
+          if strip(system_prompt) = "" | pos("00"x, system_prompt) > 0 then return _fail(prefix || "system_prompt_file is empty or contains a NUL byte", error)
+        end
       end
     end
     if provider_id \= "" then roles[roles.0 + 1] = .ragrolebinding(role_name, provider_id, maximum_input_tokens, maximum_output_tokens, maximum_call_cost, dimensions, batch_size, temperature, system_prompt)
@@ -178,6 +195,7 @@ parseconfigtext: procedure = .int
     if error \= "" then return -1
     if _contains(profile_ids, profile_file_ids[i]) \= 1 then return _fail(prefix || "file names a profile not selected by profiles", error)
     if _safesourcepath(profile_path) \= 1 then return _fail(prefix || "file contains traversal or a control character", error)
+    profile_path = _resolvepath(profile_path, base_directory)
     profile_files[i] = .ragprofilefilebinding(profile_file_ids[i], profile_path)
   end
 
@@ -228,6 +246,7 @@ parseconfigtext: procedure = .int
   if discovery_mode = "" then discovery_mode = "all"
   glossary_path = _optional(keys, values, "discovery.glossary_file")
   if glossary_path \= "" & _safesourcepath(glossary_path) \= 1 then return _fail("discovery.glossary_file contains traversal or a control character", error)
+  if glossary_path \= "" then glossary_path = _resolvepath(glossary_path, base_directory)
   ranked_limit = 64; max_mentions = 16; max_relationships = 16; max_notes = 16
   setting = _optional(keys, values, "discovery.ranked_limit")
   if setting \= "" then if _uint(setting, 1, 1000000, "discovery.ranked_limit", ranked_limit, error) \= 0 then return -1
@@ -292,7 +311,9 @@ parseconfigtext: procedure = .int
   setting = _optional(keys, values, "observation.narrative_output_tokens"); if setting \= "" then if _uint(setting, 256, 8192, "observation.narrative_output_tokens", narrative_output_tokens, error) \= 0 then return -1
   observation = .ragobservationpolicy(capture_threshold, cooldown_seconds, maximum_staleness_seconds, work_minimum_change, work_relative_millionths, dead_letter_minimum_change, review_minimum_change, narrative_output_tokens)
 
-  candidate = .ragconfig(config_id, version, source_sets, providers, roles, profile_ids, .ragbudget(minutes, item_limit, model_calls, input_tokens, output_tokens, cost, codex_turns, minimum_codex_allowance), .ragworkerpolicy(processes, max_in_flight, lease_seconds, poll_ms, guided_deadline_seconds), schedules, discovery, vector, retrieval, maintenance, observation, profile_files)
+  plan_ttl_seconds = 3600; setting = _optional(keys, values, "plan.ttl_seconds")
+  if setting \= "" then if _uint(setting, 1, 604800, "plan.ttl_seconds", plan_ttl_seconds, error) \= 0 then return -1
+  candidate = .ragconfig(config_id, version, source_sets, providers, roles, profile_ids, .ragbudget(minutes, item_limit, model_calls, input_tokens, output_tokens, cost, codex_turns, minimum_codex_allowance), .ragworkerpolicy(processes, max_in_flight, lease_seconds, poll_ms, guided_deadline_seconds), schedules, discovery, vector, retrieval, maintenance, observation, profile_files, plan_ttl_seconds)
   validation = validateconfig(candidate)
   if validation.ok() \= 1 then do
     issues = validation.issues()
@@ -303,8 +324,8 @@ parseconfigtext: procedure = .int
 
 _validconfigkey: procedure = .int
   arg key = .string
-  if wordpos(key, "format config.id config.version profiles budget.minutes budget.item_limit budget.model_calls budget.input_tokens budget.output_tokens budget.cost_microunits budget.codex_turns budget.minimum_codex_allowance_percent worker.processes worker.max_in_flight worker.lease_seconds worker.poll_ms worker.guided_deadline_seconds discovery.mode discovery.glossary_file discovery.ranked_limit discovery.max_mentions discovery.max_relationships discovery.max_notes vector.algorithm vector.centroids vector.probes vector.iterations vector.recall_minimum_millionths vector.maximum_rows vector.maximum_sidecar_bytes vector.embedding_maximum_items retrieval.lexical_candidates retrieval.vector_candidates retrieval.vector_scan_limit retrieval.graph_hops retrieval.passage_limit retrieval.claim_limit retrieval.lead_limit retrieval.rrf_k retrieval.graph_boost_millionths retrieval.graph_decay_millionths retrieval.directness_bonus_millionths retrieval.graph_direction retrieval.maximum_evidence_bytes maintenance.sparse_max_degree maintenance.query_gap_min_occurrences maintenance.batch_items observation.capture_threshold observation.cooldown_seconds observation.maximum_staleness_seconds observation.work_minimum_change observation.work_relative_millionths observation.dead_letter_minimum_change observation.review_minimum_change observation.narrative_output_tokens") > 0 then return 1
-  if _entitykey(key, "source.", "connector root include stable_key privacy retain_raw_artifact") = 1 then return 1
+  if wordpos(key, "plan.ttl_seconds format config.id config.version profiles budget.minutes budget.item_limit budget.model_calls budget.input_tokens budget.output_tokens budget.cost_microunits budget.codex_turns budget.minimum_codex_allowance_percent worker.processes worker.max_in_flight worker.lease_seconds worker.poll_ms worker.guided_deadline_seconds discovery.mode discovery.glossary_file discovery.ranked_limit discovery.max_mentions discovery.max_relationships discovery.max_notes vector.algorithm vector.centroids vector.probes vector.iterations vector.recall_minimum_millionths vector.maximum_rows vector.maximum_sidecar_bytes vector.embedding_maximum_items retrieval.lexical_candidates retrieval.vector_candidates retrieval.vector_scan_limit retrieval.graph_hops retrieval.passage_limit retrieval.claim_limit retrieval.lead_limit retrieval.rrf_k retrieval.graph_boost_millionths retrieval.graph_decay_millionths retrieval.directness_bonus_millionths retrieval.graph_direction retrieval.maximum_evidence_bytes maintenance.sparse_max_degree maintenance.query_gap_min_occurrences maintenance.batch_items observation.capture_threshold observation.cooldown_seconds observation.maximum_staleness_seconds observation.work_minimum_change observation.work_relative_millionths observation.dead_letter_minimum_change observation.review_minimum_change observation.narrative_output_tokens") > 0 then return 1
+  if _entitykey(key, "source.", "connector root include stable_key privacy retain_raw_artifact maximum_file_bytes maximum_depth") = 1 then return 1
   if _entitykey(key, "provider.", "kind base_url model route_class privacy_policy credential timeout_ms max_attempts requests_per_minute tokens_per_minute concurrent_requests initial_backoff_ms maximum_backoff_ms jitter_ms context_tokens maximum_output_tokens embedding_dimensions_minimum embedding_dimensions_maximum maximum_batch_size input_price_microunits_per_million output_price_microunits_per_million catalog_observed_date") = 1 then return 1
   if _entitykey(key, "schedule.", "operation trigger enabled") = 1 then return 1
   if _entitykey(key, "profile.", "file") = 1 then return 1
@@ -313,9 +334,38 @@ _validconfigkey: procedure = .int
     if marker = 0 then return wordpos(rest, "advisory extractor embedding answerer") > 0
     role = substr(rest, 1, marker - 1); field = substr(rest, marker + 1)
     if wordpos(role, "advisory extractor embedding answerer") = 0 then return 0
-    return wordpos(field, "provider max_input_tokens max_output_tokens max_call_cost_microunits dimensions batch_size temperature_millionths system_prompt") > 0
+    return wordpos(field, "provider max_input_tokens max_output_tokens max_call_cost_microunits dimensions batch_size temperature_millionths system_prompt system_prompt_file") > 0
   end
   return 0
+
+/* Resolve once when loading configuration, so every consumer and child worker
+ * uses the same path and canonical identity regardless of working directory.
+ * Pure parseconfigtext callers may omit the base for in-memory fixtures. */
+_resolvepath: procedure = .string
+  arg path = .string, base_directory = .string
+  if base_directory = "" then return path
+  path = changestr("\", path, "/"); base_directory = changestr("\", base_directory, "/")
+  if left(path, 1) \= "/" & substr(path, 2, 1) \= ":" then path = base_directory || "/" || path
+  prefix = "/"; start = 2
+  if substr(path, 2, 1) = ":" then do; prefix = left(path, 2) || "/"; start = 4; end
+  if left(path, 2) = "//" then prefix = "//"
+  parts = .string[]; part_count = 0
+  do forever
+    marker = pos("/", path, start)
+    part = substr(path, start); if marker > 0 then part = substr(path, start, marker - start)
+    if part = ".." then do
+      if part_count > 0 then part_count = part_count - 1
+    end
+    else if part \= "" & part \= "." then do; part_count = part_count + 1; parts[part_count] = part; end
+    if marker = 0 then leave
+    start = marker + 1
+  end
+  output = prefix
+  do i = 1 to part_count
+    if i > 1 then output = output || "/"
+    output = output || parts[i]
+  end
+  return output
 
 _entitykey: procedure = .int
   arg key = .string, prefix = .string, allowed_fields = .string

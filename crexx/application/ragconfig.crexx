@@ -36,9 +36,11 @@ ragsourceset: class
   _stable_key = .string
   _privacy = .string
   _retain_raw_artifact = .int
+  _maximum_file_bytes = .int
+  _maximum_depth = .int
 
   *: factory
-    arg source_set_id = .string, connector = .string, root = .string, include_patterns = .string[], stable_key = .string, privacy = .string, retain_raw_artifact = .int
+    arg source_set_id = .string, connector = .string, root = .string, include_patterns = .string[], stable_key = .string, privacy = .string, retain_raw_artifact = .int, maximum_file_bytes = 2147483647, maximum_depth = 64
     _source_set_id = source_set_id
     _connector = connector
     _root = root
@@ -46,6 +48,7 @@ ragsourceset: class
     _stable_key = stable_key
     _privacy = privacy
     _retain_raw_artifact = retain_raw_artifact
+    _maximum_file_bytes = maximum_file_bytes; _maximum_depth = maximum_depth
     return
 
   source_set_id: method = .string
@@ -62,6 +65,11 @@ ragsourceset: class
     return _privacy
   retain_raw_artifact: method = .int
     return _retain_raw_artifact
+
+  maximum_file_bytes: method = .int
+    return _maximum_file_bytes
+  maximum_depth: method = .int
+    return _maximum_depth
 
 ragproviderconfig: class
   _provider_id = .string
@@ -509,9 +517,10 @@ ragconfig: class
   _retrieval = .ragretrievalpolicy
   _maintenance = .ragmaintenancepolicy
   _observation = .ragobservationpolicy
+  _plan_ttl_seconds = .int
 
   *: factory
-    arg config_id = .string, version = .string, source_sets = .ragsourceset[], providers = .ragproviderconfig[], roles = .ragrolebinding[], profile_ids = .string[], budget = .ragbudget, workers = .ragworkerpolicy, schedules = .ragschedule[], discovery = .ragdiscoverypolicy, vector = .ragvectorpolicy, retrieval = .ragretrievalpolicy(), maintenance = .ragmaintenancepolicy(), observation = .ragobservationpolicy(), profile_files = .ragprofilefilebinding[]
+    arg config_id = .string, version = .string, source_sets = .ragsourceset[], providers = .ragproviderconfig[], roles = .ragrolebinding[], profile_ids = .string[], budget = .ragbudget, workers = .ragworkerpolicy, schedules = .ragschedule[], discovery = .ragdiscoverypolicy, vector = .ragvectorpolicy, retrieval = .ragretrievalpolicy(), maintenance = .ragmaintenancepolicy(), observation = .ragobservationpolicy(), profile_files = .ragprofilefilebinding[], plan_ttl_seconds = 3600
     _config_id = config_id
     _version = version
     _source_sets = source_sets
@@ -527,6 +536,7 @@ ragconfig: class
     _retrieval = retrieval
     _maintenance = maintenance
     _observation = observation
+    _plan_ttl_seconds = plan_ttl_seconds
     return
 
   config_id: method = .string
@@ -559,6 +569,8 @@ ragconfig: class
     return _maintenance
   observation: method = .ragobservationpolicy
     return _observation
+  plan_ttl_seconds: method = .int
+    return _plan_ttl_seconds
   valid_identity: method = .int
     return validregistryid(_config_id) = 1 & _version \= ""
   snapshot: method = .ragconfigsnapshot
@@ -646,11 +658,13 @@ validateconfig: procedure = .ragvalidationresult
     patterns = source_set.include_patterns()
     if source_set.connector() \= "folder" then issues[issues.0 + 1] = .ragvalidationissue("config", "unsupported_connector", path || ".connector", "only the folder connector is currently supported")
     if source_set.root() = "" | patterns.0 = 0 | source_set.stable_key() = "" then issues[issues.0 + 1] = .ragvalidationissue("config", "incomplete_source_set", path, "source root, patterns, and stable-key policy are required")
+    if source_set.maximum_file_bytes() < 1 | source_set.maximum_file_bytes() > 2147483647 | source_set.maximum_depth() < 0 | source_set.maximum_depth() > 256 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_source_guard", path, "source file byte ceiling or depth is outside its supported range")
     privacy = source_set.privacy()
     if privacy \= "local" & privacy \= "internal" & privacy \= "restricted" & privacy \= "public" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_privacy", path || ".privacy", "source privacy class is invalid")
     if source_set.retain_raw_artifact() \= 0 & source_set.retain_raw_artifact() \= 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_boolean", path || ".retain_raw_artifact", "retain-raw-artifact must be boolean")
   end
 
+  if config.plan_ttl_seconds() < 1 | config.plan_ttl_seconds() > 604800 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_plan_ttl", "plan.ttl_seconds", "plan TTL must be 1 through 604800 seconds")
   providers = config.providers()
   if providers.0 = 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "missing_provider", "providers", "at least one provider is required")
   seen = .string[]

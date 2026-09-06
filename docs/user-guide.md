@@ -68,6 +68,45 @@ work_dir=$(docs/tutorial/setup.sh --no-build --provider codex-local)
 
 ## Configuration lifecycle and throughput control
 
+Operator configuration is read on every invocation. The installed example
+`share/crexxrag/application/config/editable-gemini.conf` selects editable
+`profiles/*.profile.tsv` files and `prompts/*.txt` files. Copy that config
+folder together so its relative references remain valid. Provider URLs,
+models, capabilities, prices, role limits, worker settings and prompts can all
+be changed as data, without recompiling.
+
+All relative source roots, profile files, glossary files and prompt files are
+resolved from the configuration file's directory. The resulting paths enter
+the effective configuration identity. A copied configuration in a new
+directory therefore needs either its referenced files copied with it or
+explicit absolute paths. Credential references stay symbolic.
+
+For each generation role in config/3, choose exactly one prompt source:
+
+```ini
+role.answerer.system_prompt_file = prompts/answerer.txt
+# Alternatively: role.answerer.system_prompt = one-line prompt text
+profile.generic-profile.file = profiles/generic.profile.tsv
+source.architecture-docs.maximum_file_bytes = 16777216
+source.architecture-docs.maximum_depth = 32
+plan.ttl_seconds = 3600
+```
+
+Prompt files support multiple lines, must be nonempty, and are bounded at
+16,384 bytes with no NUL bytes. Their actual contents, rather than just their
+names, enter configuration and work identity. Explicit profile files override
+the compatibility profile of the same ID. `config explain` shows the effective
+paths, profile origin, prompt hashes, and limits. Review `config diff` and
+apply a fresh `config plan` before using changed settings with an existing
+library. A prompt or model change applies to subsequent work and never
+implicitly regenerates the unchanged corpus.
+
+`maximum_file_bytes` accepts 1–2,147,483,647 (compatibility default
+2,147,483,647), `maximum_depth` accepts 0–256 (default 64), and
+`plan.ttl_seconds` accepts 1–604,800 (default 3,600). These are operational
+bounds. Worker run/start defaults use `worker.poll_ms`, and worker leases
+accept the same 1–86,400-second range as configuration validation.
+
 New configurations should declare `format = crexx-rag.config/3`. Formats 1 and
 2 remain readable for compatibility: the loader projects their historical
 execution envelopes explicitly, and those projected values enter the same
@@ -156,14 +195,17 @@ crexxrag --library ./library config diff
 ```
 
 These commands do not resolve credential values or make provider calls.
-`config diff` reports `identical`, `identity-upgrade`, `operational`, or
-`semantic`. Operational changes include budgets, worker settings, provider
+`config diff` reports `identical`, `identity-upgrade`, `operational`,
+or `prospective`. Operational changes include budgets, worker settings, provider
 timeouts/pacing/retry policy, retrieval result ceilings, vector-build policy
-and schedules. Source,
-profile, provider/model/privacy route, role or discovery changes are semantic.
+and schedules. Provider/model/privacy route, role, source-selection or
+discovery changes are prospective: they change newly planned work without
+rewriting previously accepted evidence. Profile edits, including chunking,
+vocabulary and ranking, also apply to subsequent work. Existing source spans
+and their original profile provenance remain valid.
 
-Apply an operational or legacy-identity upgrade only from the exact reviewed
-JSON and digest:
+Apply an operational, prospective or legacy-identity upgrade only from the
+exact reviewed JSON and digest:
 
 ```sh
 crexxrag --library ./library --format json --access plan \
@@ -174,17 +216,18 @@ crexxrag --library ./library --access admin config apply \
   --plan-json "$plan" --expect-digest "$digest"
 ```
 
-Apply fails if the plan is changed, expired, stale, or active jobs remain. A
-semantic classification cannot be applied as operating policy; use the normal
-reviewed `ingest plan` / `ingest apply` path with the changed configuration.
-Semantic ingestion requires existing jobs to be settled. Its plan binds both
-the current library generation/source state and the desired configuration and
-profile identities. Apply atomically records the target snapshot, publishes a
-new semantic generation, makes that snapshot current, and queues every active
-source chunk under a semantic ingestion-policy identity. Existing generations
-retain their original configuration provenance. Until the new job settles and
-publishes its vector sidecar, lexical evidence remains usable and hybrid mode
-reports the absence of a compatible current vector generation explicitly.
+Apply fails if the plan is changed, expired, stale, or active jobs remain.
+Configuration application changes the current planning policy and appends an
+immutable audit event; it does not publish a corpus generation or queue work.
+Existing jobs, provider runs, claims, embeddings and generations retain their
+original configuration provenance. A subsequent `ingest plan` observes the
+configured source set under the stable ingestion algorithm identity and queues
+only genuinely added or changed source content. If the sources are unchanged,
+`ingest apply` returns `identical-no-op` with zero work and zero provider calls.
+
+Reinterpreting existing content requires an explicitly reviewed operation.
+Provider or prompt changes can be exercised selectively through bounded
+maintenance. A configuration or profile edit never requests a corpus rebuild.
 
 All runtime tuning needed here is plain configuration. RexxScript is callable
 as a function and may later help author configuration or rules, but it adds no
@@ -589,3 +632,32 @@ is supplied. MCP is read-only by default.
 The evidence and maintenance fields exposed to agents are described in
 [Methodology and algorithms](algorithm.md), including the boundary between
 accepted claims, passage-level leads, explicit gaps and catalogue maintenance.
+
+## Recover a vector sidecar from SQLite
+
+SQLite stores the embedding BLOBs and chunk memberships. A `.rxvec` sidecar is
+an efficiency index derived from those records. With a matching configuration
+and profile and no active job, recover a missing or corrupt file using:
+
+```sh
+crexxrag --access control vector rebuild
+crexxrag --access diagnose library verify
+```
+
+The equivalent MCP control tool is `rag_vector_rebuild`. This operation makes
+zero provider calls, retains generation and provenance, and returns
+`rebuilt-from-sqlite` for a repaired file or `identical-no-op` for an intact
+index. It uses the configured vector build and byte limits. It cannot invent
+missing embedding coverage or restore membership removed by an earlier
+operation; those require a separately reviewed corpus recovery.
+
+Explicit `query ... --mode hybrid` fails if the published sidecar is missing
+or corrupt, before calling a query provider. Automatic mode may use lexical
+retrieval and reports its effective mode.
+
+Maintenance worklists use complete cursor pagination. `maintain status` and
+`maintain inspect` accept `--limit 1..98` and `--cursor ITEM_ID`. The final
+`maintenance-page` record gives `returned`, `has_more`, and `next_cursor`;
+pass that cursor unchanged to get the next page for the same run. MCP exposes
+the same `limit` and `cursor` arguments. Successful items in a mixed-result
+job are marked applied individually; failed items remain visibly failed.

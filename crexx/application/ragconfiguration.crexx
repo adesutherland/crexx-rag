@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragconfiguration expose ragconfigidentity ragconfigdiff identifyconfig ensureconfigsnapshot inspectconfigchange createreconfigureplan applyreconfigureplan currentconfigsnapshotid
+namespace ragconfiguration expose ragconfigidentity ragconfigdiff identifyconfig inspectconfigchange createreconfigureplan applyreconfigureplan currentconfigsnapshotid
 
 import rxfnsb
 import rxjson
@@ -100,23 +100,6 @@ currentconfigsnapshotid: procedure = .string
   arg database = .binary, expose error = .string
   return _scalartext(database, "SELECT current_config_snapshot_id FROM library_config_state WHERE singleton=1", error)
 
-ensureconfigsnapshot: procedure = .int
-  arg database = .binary, config = .ragconfig, profile = .ragprofile, expected_snapshot_id = .string, expose error = .string
-  error = ""; identity = .ragconfigidentity
-  if identifyconfig(config, profile, identity, error) \= 0 | expected_snapshot_id = "" | identity.snapshot_id() \= expected_snapshot_id then do
-    if error = "" then error = "ingestion target configuration identity is invalid"
-    return -1
-  end
-  prepared = .binary
-  sql = "INSERT OR IGNORE INTO config_snapshots(config_snapshot_id,config_id,config_version,profile_id,profile_hash,config_hash,effective_json,created_at,semantic_hash,operational_hash) VALUES(?1,?2,?3,?4,?5,?6,?7,strftime('%Y-%m-%dT%H:%M:%fZ','now'),?8,?9)"
-  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare ingestion target configuration snapshot"; return -1; end
-  bindings = sqlitebindtext(prepared, 1, identity.snapshot_id()) | sqlitebindtext(prepared, 2, config.config_id()) | sqlitebindtext(prepared, 3, config.version()) | sqlitebindtext(prepared, 4, profile.profile_id()) | sqlitebindtext(prepared, 5, identity.profile_hash()) | sqlitebindtext(prepared, 6, identity.config_hash()) | sqlitebindtext(prepared, 7, identity.effective_json()) | sqlitebindtext(prepared, 8, identity.semantic_hash()) | sqlitebindtext(prepared, 9, identity.operational_hash())
-  step = sqlitestep(prepared); call sqlitefinalize prepared
-  if bindings \= 0 | step \= 101 then do; error = "cannot insert ingestion target configuration snapshot"; return -1; end
-  matching = _scalarint(database, "SELECT count(*) FROM config_snapshots WHERE config_snapshot_id=" || _q(identity.snapshot_id()) || " AND config_id=" || _q(config.config_id()) || " AND config_version=" || _q(config.version()) || " AND profile_id=" || _q(profile.profile_id()) || " AND profile_hash=" || _q(identity.profile_hash()) || " AND config_hash=" || _q(identity.config_hash()) || " AND effective_json=" || _q(identity.effective_json()) || " AND semantic_hash=" || _q(identity.semantic_hash()) || " AND operational_hash=" || _q(identity.operational_hash()), error)
-  if matching \= 1 then do; if error = "" then error = "existing ingestion target configuration snapshot conflicts with its canonical identity"; return -1; end
-  return 0
-
 inspectconfigchange: procedure = .int
   arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile, expose difference = .ragconfigdiff, expose error = .string
   difference = .ragconfigdiff(); error = ""
@@ -124,16 +107,19 @@ inspectconfigchange: procedure = .int
   target = .ragconfigidentity
   if identifyconfig(config, profile, target, error) \= 0 then return -1
   values = .string[]
-  sql = "SELECT c.config_snapshot_id,c.config_hash,c.semantic_hash,c.operational_hash,c.profile_hash FROM library_config_state s JOIN config_snapshots c ON c.config_snapshot_id=s.current_config_snapshot_id WHERE s.singleton=1"
-  if _textrow(store.database(), sql, 5, values, error) \= 0 then return -2
+  sql = "SELECT c.config_snapshot_id,c.config_hash,c.semantic_hash,c.operational_hash,c.profile_hash,c.config_version FROM library_config_state s JOIN config_snapshots c ON c.config_snapshot_id=s.current_config_snapshot_id WHERE s.singleton=1"
+  if _textrow(store.database(), sql, 6, values, error) \= 0 then return -2
   active = _scalarint(store.database(), "SELECT count(*) FROM jobs WHERE state IN('queued','running','paused','cancel_requested')", error)
   if active < 0 then return -2
-  classification = "semantic"
+  classification = "prospective"
   if values[2] = target.config_hash() then classification = "identical"
   else if values[3] = "" | values[4] = "" then do
-    if values[2] = target.legacy_hash() & values[5] = target.profile_hash() then classification = "identity-upgrade"
+    legacy_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.effective-config/1") || "," || jsonquote("config") || ":" || _legacycanonicalconfig(config, values[6]) || "," || jsonquote("profile") || ":" || canonicalprofile(profile) || "}"
+    if values[2] = ragsha256(legacy_json) & values[5] = target.profile_hash() then classification = "identity-upgrade"
   end
   else if values[3] = target.semantic_hash() then classification = "operational"
+  /* Profile vocabulary, ranking and chunk policy describe subsequent work.
+   * Existing evidence retains its original snapshot, spans and validation. */
   difference = .ragconfigdiff(classification, values[1], target.snapshot_id(), values[2], target.config_hash(), values[3], target.semantic_hash(), values[4], target.operational_hash(), active)
   return 0
 
@@ -144,19 +130,19 @@ createreconfigureplan: procedure = .int
   if inspectconfigchange(store, config, profile, difference, error) \= 0 then return -2
   now = _scalarint(store.database(), "SELECT CAST(strftime('%s','now') AS INTEGER)", error)
   if now < 1 then return -2
-  payload = _planjson(difference, reason, now, now + 3600)
-  plan = .ragplan("crexx-rag.reconfigure-plan/1", "config.apply", payload, ragsha256(payload), now + 3600)
+  payload = _planjson(difference, reason, now, now + config.plan_ttl_seconds())
+  plan = .ragplan("crexx-rag.reconfigure-plan/1", "config.apply", payload, ragsha256(payload), now + config.plan_ttl_seconds())
   return 0
 
 applyreconfigureplan: procedure = .int
   arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile, plan_json = .string, expected_digest = .string, expose difference = .ragconfigdiff, expose error = .string
   difference = .ragconfigdiff(); error = ""
-  if store.writable() \= 1 | length(plan_json) < 2 | length(plan_json) > 65535 | length(expected_digest) \= 64 | ragsha256(plan_json) \= expected_digest then do; error = "reviewed configuration plan or digest is invalid"; return -1; end
+  if store.writable() \= 1 | length(plan_json) < 2 | length(plan_json) > 16777216 | length(expected_digest) \= 64 | ragsha256(plan_json) \= expected_digest then do; error = "reviewed configuration plan or digest is invalid"; return -1; end
   document = .jsondocument(plan_json)
   if document.valid() \= 1 | document.node_type(document.root()) \= "object" | document.node_count(document.root()) \= 9 then do; error = "configuration plan must be one exact canonical object"; return -1; end
   root = document.root(); schema = ""; classification = ""; source = ""; target = ""; reason = ""; created = 0; expires = 0; active = -1
   if document.node_string(document.member(root, "schema"), schema) \= 0 | document.node_string(document.member(root, "classification"), classification) \= 0 | document.node_string(document.member(root, "source_config_snapshot_id"), source) \= 0 | document.node_string(document.member(root, "target_config_snapshot_id"), target) \= 0 | document.node_string(document.member(root, "reason"), reason) \= 0 | document.node_int(document.member(root, "active_jobs"), active) \= 0 | document.node_int(document.member(root, "created_at_epoch"), created) \= 0 | document.node_int(document.member(root, "expires_at_epoch"), expires) \= 0 then do; error = "configuration plan fields are missing or mistyped"; return -1; end
-  if schema \= "crexx-rag.reconfigure-plan/1" | expires - created \= 3600 then do; error = "configuration plan schema or expiry is invalid"; return -1; end
+  if schema \= "crexx-rag.reconfigure-plan/1" | expires - created \= config.plan_ttl_seconds() then do; error = "configuration plan schema or expiry is invalid"; return -1; end
   hash_node = document.member(root, "hashes")
   if document.node_type(hash_node) \= "object" | document.node_count(hash_node) \= 4 then do; error = "configuration plan hashes are invalid"; return -1; end
   source_semantic = ""; target_semantic = ""; source_operational = ""; target_operational = ""
@@ -167,9 +153,8 @@ applyreconfigureplan: procedure = .int
   now = _scalarint(store.database(), "SELECT CAST(strftime('%s','now') AS INTEGER)", error)
   if now >= expires then do; error = "configuration plan expired; plan again"; return -2; end
   if active \= 0 then do; error = "configuration apply requires all active jobs to be drained or settled"; return -2; end
-  if classification = "semantic" then do; error = "semantic configuration changes require a new ingestion generation and cannot be applied as operational policy"; return -3; end
   if classification = "identical" then do; error = "effective configuration is already current"; return -2; end
-  if classification \= "identity-upgrade" & classification \= "operational" then do; error = "configuration change classification is unsupported"; return -1; end
+  if classification \= "identity-upgrade" & classification \= "operational" & classification \= "prospective" then do; error = "configuration change classification is unsupported"; return -1; end
   identity = .ragconfigidentity
   if identifyconfig(config, profile, identity, error) \= 0 then return -1
   database = store.database()
@@ -199,8 +184,9 @@ _planjson: procedure = .string
   return "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.reconfigure-plan/1") || "," || jsonquote("classification") || ":" || jsonquote(difference.classification()) || "," || jsonquote("source_config_snapshot_id") || ":" || jsonquote(difference.source_snapshot_id()) || "," || jsonquote("target_config_snapshot_id") || ":" || jsonquote(difference.target_snapshot_id()) || "," || jsonquote("hashes") || ":{" || jsonquote("source_semantic") || ":" || jsonquote(difference.source_semantic_hash()) || "," || jsonquote("target_semantic") || ":" || jsonquote(difference.target_semantic_hash()) || "," || jsonquote("source_operational") || ":" || jsonquote(difference.source_operational_hash()) || "," || jsonquote("target_operational") || ":" || jsonquote(difference.target_operational_hash()) || "}," || jsonquote("active_jobs") || ":" || difference.active_jobs() || "," || jsonquote("reason") || ":" || jsonquote(reason) || "," || jsonquote("created_at_epoch") || ":" || created || "," || jsonquote("expires_at_epoch") || ":" || expires || "}"
 
 _legacycanonicalconfig: procedure = .string
-  arg config = .ragconfig
-  output = "{" || jsonquote("config_id") || ":" || jsonquote(config.config_id()) || "," || jsonquote("version") || ":" || jsonquote(config.version()) || "," || jsonquote("source_sets") || ":["
+  arg config = .ragconfig, config_version = ""
+  if config_version = "" then config_version = config.version()
+  output = "{" || jsonquote("config_id") || ":" || jsonquote(config.config_id()) || "," || jsonquote("version") || ":" || jsonquote(config_version) || "," || jsonquote("source_sets") || ":["
   sources = config.source_sets()
   do i = 1 to sources.0
     if i > 1 then output = output || ","

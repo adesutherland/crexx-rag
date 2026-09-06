@@ -29,8 +29,15 @@ endif()
 set(application "${prefix}/bin/crexxrag")
 set(tutorial "${prefix}/share/crexxrag/tutorial")
 set(skills "${prefix}/share/crexxrag/skills")
+set(operator_config "${prefix}/share/crexxrag/application/config")
 foreach(required_path
         "${application}"
+        "${operator_config}/editable-gemini.conf"
+        "${operator_config}/profiles/generic.profile.tsv"
+        "${operator_config}/profiles/it-architecture.profile.tsv"
+        "${operator_config}/prompts/advisory.txt"
+        "${operator_config}/prompts/extractor.txt"
+        "${operator_config}/prompts/answerer.txt"
         "${tutorial}/crexxrag.conf"
         "${tutorial}/crexxrag-codex-local.conf"
         "${tutorial}/architecture.glossary.tsv"
@@ -41,6 +48,13 @@ foreach(required_path
         message(FATAL_ERROR "installed product is missing ${required_path}")
     endif()
 endforeach()
+execute_process(COMMAND "${application}" --config-file "${operator_config}/editable-gemini.conf"
+    --profile it-architecture-profile --format json config explain
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    RESULT_VARIABLE operator_result OUTPUT_VARIABLE operator_out ERROR_VARIABLE operator_err TIMEOUT 30)
+if(NOT operator_result EQUAL 0 OR NOT operator_out MATCHES "\"origin\":\"data-file\"")
+    message(FATAL_ERROR "installed editable configuration failed: ${operator_out}${operator_err}")
+endif()
 if(EXISTS "${skills}/crexxrag-improve")
     message(FATAL_ERROR "obsolete crexxrag-improve skill was installed")
 endif()

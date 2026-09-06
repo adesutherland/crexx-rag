@@ -320,6 +320,7 @@ openragstore: procedure = .int
     return -2
   end
   database = .binary
+  previous_schema = 0
   if access = "readonly" then do
     if _openreadonlydatabase(path || "/library.sqlite", database, error) \= 0 then return -3
     if _configurereadonly(database, error) \= 0 | validatemigrations(database, error) \= 0 then do
@@ -329,12 +330,24 @@ openragstore: procedure = .int
   end
   else do
     if sqliteopenmode(path || "/library.sqlite", access, database) \= 0 then return _sqlitefailure("open library database", error)
-    if _configurereadwrite(database, error) \= 0 | applymigrations(database, "crexxrag", ragschemaversion(), error) \= 0 then do
+    if _configurereadwrite(database, error) \= 0 then do
+      call sqliteclose database
+      return -4
+    end
+    previous_schema = _scalarint(database, "SELECT schema_version FROM library_meta WHERE singleton=1", error)
+    if previous_schema < 1 | applymigrations(database, "crexxrag", ragschemaversion(), error) \= 0 then do
       call sqliteclose database
       return -4
     end
   end
   store = .ragstorehandle(database, path, access)
+  if access = "readwrite" & previous_schema < ragschemaversion() then do
+    if publishmanifest(store, error) \= 0 then do
+      error = "schema migration completed; manifest recovery is required: " || error
+      close_error = ""; call closeragstore store, close_error
+      return -7
+    end
+  end
   return 0
 
 closeragstore: procedure = .int
@@ -422,13 +435,13 @@ closereadsnapshot: procedure = .int
   return 0
 
 begingeneration: procedure = .int
-  arg store = .ragstorehandle, expected_parent = .int, config_snapshot_id = .string, summary = .string, expose generation = .int, expose error = .string, transaction_active = 0
+  arg store = .ragstorehandle, expected_parent = .int, config_snapshot_id = .string, summary = .string, expose generation = .int, expose error = .string
   error = ""; generation = 0
   if store.writable() \= 1 then do
     error = "generation publication requires readwrite access"
     return -5
   end
-  if transaction_active \= 1 then if sqliteexec(store.database(), "BEGIN IMMEDIATE") \= 0 then return _sqlitefailure("begin generation", error)
+  if sqliteexec(store.database(), "BEGIN IMMEDIATE") \= 0 then return _sqlitefailure("begin generation", error)
   current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1", error)
   generation = _scalarint(store.database(), "SELECT next_generation FROM library_meta WHERE singleton=1", error)
   if current < 1 | generation < 2 then do

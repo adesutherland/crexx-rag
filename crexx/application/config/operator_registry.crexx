@@ -23,11 +23,18 @@ operatorregistryforconfig: procedure = .ragregistry
   configs = .ragconfig[]
   configs[1] = config
   profiles = .ragprofile[]
-  profiles[1] = genericprofile()
-  profiles[2] = itarchitectureprofile()
+  selected = config.profile_ids()
   profile_files = config.profile_files(); loader = .ragprofileloader()
-  do i = 1 to profile_files.0
-    loaded = loader.load(profile_files[i].path(), profile_files[i].profile_id())
-    profiles[profiles.0 + 1] = loaded.profile()
+  do i = 1 to selected.0
+    path = ""
+    do j = 1 to profile_files.0
+      if profile_files[j].profile_id() = selected[i] then path = profile_files[j].path()
+    end
+    if path \= "" then do
+      loaded = loader.load(path, selected[i])
+      profiles[profiles.0 + 1] = loaded.profile()
+    end
+    else if selected[i] = "generic-profile" then profiles[profiles.0 + 1] = genericprofile()
+    else if selected[i] = "it-architecture-profile" then profiles[profiles.0 + 1] = itarchitectureprofile()
   end
   return .ragregistry(configs, profiles)

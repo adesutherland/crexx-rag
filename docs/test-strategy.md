@@ -22,11 +22,11 @@ metadata directly.
 | Test | Main assurance |
 | --- | --- |
 | `linked_application` | installed `rxsqlite` provider mapping and both CREXX VMs |
-| `configuration_contract` | format-1 compatibility, format-2 pacing/retry/retrieval/result-size/maintenance/observation fields, split identities, credential-free check/explain, identical/operational diff, tamper-resistant plan/apply, semantic changes through a fresh zero-provider ingestion generation, glossary and bounded data-profile rules, optimized/non-optimized and both VMs |
+| `configuration_contract` | format-1 compatibility, format-2/3 bounded settings, split identities, credential-free check/explain, identical/operational/prospective diff, tamper-resistant plan/apply, and a regression proving a provider-policy change leaves an existing corpus generation unchanged with zero new jobs or provider calls |
 | `process_workers` | two-worker launch, observation, drain, stale PID detection, explicit pruning |
 | `gemini_ingestion` | Gemini request/response mapping, compact gap-free LF/CR/CRLF normalization maps, durable work, claims, embeddings, vector publication, replay and failure paths |
 | `gemini_extraction_validation` | invalid UTF-8 spans, unknown concept/relationship types and malformed extraction output dead-letter without product mutation or secret disclosure |
-| `provider_durability` | reservation recovery, Codex turns, fencing, completed-turn reuse, durable cross-process admission, no false call record on preflight failure, immutable replay lineage, backlog reconciliation, and schema 1-to-8 migration with historic-cost backfill |
+| `provider_durability` | reservation recovery, Codex turns, fencing, completed-turn reuse, durable cross-process admission, no false call record on preflight failure, immutable replay lineage, backlog reconciliation, and schema 1-to-9 migration with historic-cost backfill and prospective-transition auditing |
 | `codex_protocol` | App Server initialize/account/turn/schema/usage/cleanup over JSONL |
 | `codex_application` | public Codex extraction, worker-crash recovery from a persisted completed turn, duplicate-turn prevention, validation, allowance settlement and library verification |
 | `gemini_maintenance` | hosted-style maintenance, glossary-drift rejection, durable cognitive notes, ANN publication/reuse, provider/profile discovery and external proposal review/promotion |
@@ -87,3 +87,24 @@ credential value.
   path inside `gemini_maintenance`.
 - Documentation/config changes: tutorial setup and `crexxrag doctor` from the
   resulting folder.
+
+## Configuration and derived-index preservation
+
+The operator repair adds offline regressions for configuration-relative paths,
+external prompt content identity, explicit standard-profile overrides, and
+model/profile changes followed by unchanged ingestion. The query fixture
+compares every existing SQLite table except the three configuration-history
+tables before and after a reviewed model/profile change, including exact BLOB
+encodings. It then checks old citations and database verification.
+
+ANN methodology removes and corrupts sidecars and leaves an interrupted
+recovery temporary; reconstruction and vector retrieval succeed with zero
+provider runs. The public query fixture also exercises `vector rebuild`,
+read-capability rejection, idempotent replay, and invalid-hybrid preflight
+without any provider calls. The migration fixture opens a schema-8 bundle
+through the ordinary write path and requires a schema-9 aligned manifest.
+
+Maintenance methodology distinguishes successful and failed items within a
+mixed-result job and recognizes embeddings repaired in a later generation.
+The public maintenance fixture pages through more than 100 worklist items
+with no duplicates or omissions, in both status and inspection operations.

@@ -151,7 +151,7 @@ foreach(runtime IN ITEMS "${CPRAG_RXVME}" "${CPRAG_RXBVM}")
     file(READ "${cell_dir}/final-list.out" final_list_out)
     file(READ "${cell_dir}/final-list.err" final_list_err)
     string(FIND "${final_list_out}" "\"records\":[]" empty_records_position)
-    if(NOT init_out MATCHES "\"schema_version\":8" OR
+    if(NOT init_out MATCHES "\"schema_version\":9" OR
        NOT controller_out MATCHES "\"workers_requested\":2" OR
        NOT controller_out MATCHES "\"workers_completed\":2" OR
        NOT controller_out MATCHES "\"workers_failed\":0" OR

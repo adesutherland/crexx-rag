@@ -15,6 +15,7 @@ ragsha256: procedure = .string
 canonicalconfig: procedure = .string
   arg config = .ragconfig
   output = "{" || jsonquote("config_id") || ":" || jsonquote(config.config_id()) || "," || jsonquote("version") || ":" || jsonquote(config.version())
+  output = output || "," || jsonquote("plan_ttl_seconds") || ":" || config.plan_ttl_seconds()
   output = output || "," || jsonquote("source_sets") || ":["
   source_sets = config.source_sets()
   do i = 1 to source_sets.0
@@ -25,7 +26,7 @@ canonicalconfig: procedure = .string
       if j > 1 then output = output || ","
       output = output || jsonquote(patterns[j])
     end
-    output = output || "]}"
+    output = output || "]," || jsonquote("maximum_file_bytes") || ":" || source.maximum_file_bytes() || "," || jsonquote("maximum_depth") || ":" || source.maximum_depth() || "}"
   end
   output = output || "]," || jsonquote("providers") || ":["
   providers = config.providers()
@@ -70,7 +71,8 @@ canonicalconfig: procedure = .string
   output = output || "]}"
   return output
 
-/* Semantic identity changes require a new corpus generation. Runtime ceilings,
+/* Semantic identity records the policy for subsequent work, without rewriting
+ * existing evidence or requiring corpus re-ingestion. Runtime ceilings,
  * retry timing, worker topology, schedules, and rebuildable ANN tuning are
  * deliberately excluded. */
 canonicalsemanticconfig: procedure = .string
@@ -137,6 +139,12 @@ canonicaloperationalconfig: procedure = .string
   do i = 1 to schedules.0
     if i > 1 then output = output || ","
     output = output || "{" || jsonquote("id") || ":" || jsonquote(schedules[i].schedule_id()) || "," || jsonquote("operation") || ":" || jsonquote(schedules[i].operation()) || "," || jsonquote("trigger") || ":" || jsonquote(schedules[i].trigger()) || "," || jsonquote("enabled") || ":" || _boolean(schedules[i].enabled()) || "}"
+  end
+  output = output || "]," || jsonquote("plan_ttl_seconds") || ":" || config.plan_ttl_seconds() || "," || jsonquote("source_limits") || ":["
+  sources = config.source_sets()
+  do i = 1 to sources.0
+    if i > 1 then output = output || ","
+    output = output || "{" || jsonquote("id") || ":" || jsonquote(sources[i].source_set_id()) || "," || jsonquote("maximum_file_bytes") || ":" || sources[i].maximum_file_bytes() || "," || jsonquote("maximum_depth") || ":" || sources[i].maximum_depth() || "}"
   end
   return output || "]}"
 

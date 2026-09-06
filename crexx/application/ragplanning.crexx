@@ -80,10 +80,10 @@ createfoundationplan: procedure = .int
   canonical_action = ""
   if _canonicalaction(operation, action_json, config_lookup.config(), canonical_action, error) \= 0 then return -1
   context = .ragplancontext
-  context_status = _capturecontext(library_path, config_id, profile_id, registry, context, error, operation = "ingest.apply")
+  context_status = _capturecontext(library_path, config_id, profile_id, registry, context, error)
   if context_status \= 0 then return context_status
   created_at = context.observed_epoch()
-  expires_at = created_at + 3600
+  expires_at = created_at + config_lookup.config().plan_ttl_seconds()
   payload = _encodeplan(operation, canonical_action, required_capability, context, created_at, expires_at)
   plan = .ragplan("crexx-rag.plan/1", operation, payload, ragsha256(payload), expires_at)
   return 0
@@ -91,7 +91,7 @@ createfoundationplan: procedure = .int
 validatefoundationplan: procedure = .int
   arg library_path = .string, config_id = .string, profile_id = .string, expected_operation = .string, plan_json = .string, expected_digest = .string, registry = .ragregistry, expose plan = .ragplan, expose error = .string
   error = ""
-  if length(plan_json) < 2 | length(plan_json) > 65535 | _validsha256(expected_digest) \= 1 then do
+  if length(plan_json) < 2 | length(plan_json) > 16777216 | _validsha256(expected_digest) \= 1 then do
     error = "plan JSON or expected digest is invalid"
     return -1
   end
@@ -113,7 +113,7 @@ validatefoundationplan: procedure = .int
     error = "plan has a missing or mistyped scalar binding"
     return -1
   end
-  if schema \= "crexx-rag.plan/1" | operation \= expected_operation | _validoperation(operation, required_capability) \= 1 | _validsha256(source_hash) \= 1 | _validsha256(provider_hash) \= 1 | _validsha256(reservation_hash) \= 1 | created_at < 1 | expires_at - created_at \= 3600 then do
+  if schema \= "crexx-rag.plan/1" | operation \= expected_operation | _validoperation(operation, required_capability) \= 1 | _validsha256(source_hash) \= 1 | _validsha256(provider_hash) \= 1 | _validsha256(reservation_hash) \= 1 | created_at < 1 | expires_at - created_at \= registry.config(config_id).config().plan_ttl_seconds() then do
     error = "plan schema, operation, digest binding, or expiry policy is invalid"
     return -1
   end
@@ -151,7 +151,7 @@ validatefoundationplan: procedure = .int
   end
 
   current = .ragplancontext
-  context_status = _capturecontext(library_path, config_id, profile_id, registry, current, error, expected_operation = "ingest.apply")
+  context_status = _capturecontext(library_path, config_id, profile_id, registry, current, error)
   if context_status \= 0 then return context_status
   if current.observed_epoch() >= expires_at then do
     error = "plan has expired; re-plan against current state"
@@ -165,7 +165,7 @@ validatefoundationplan: procedure = .int
   return 0
 
 _capturecontext: procedure = .int
-  arg library_path = .string, requested_config_id = .string, requested_profile_id = .string, registry = .ragregistry, expose context = .ragplancontext, expose error = .string, allow_semantic_ingest = 0
+  arg library_path = .string, requested_config_id = .string, requested_profile_id = .string, registry = .ragregistry, expose context = .ragplancontext, expose error = .string
   error = ""
   if registry.valid() \= 1 then do
     error = "operator registry is invalid"
@@ -186,23 +186,21 @@ _capturecontext: procedure = .int
   if beginreadsnapshot(library_path, read_snapshot, error) \= 0 then return -3
   database = read_snapshot.database(); generation = read_snapshot.generation()
   prepared = .binary
-  sql = "SELECT m.library_id,s.current_config_snapshot_id,c.config_id,c.config_hash,c.profile_id,c.profile_hash,c.semantic_hash,c.operational_hash,CAST(strftime('%s','now') AS INTEGER) FROM library_meta m JOIN library_config_state s ON s.singleton=1 JOIN config_snapshots c ON c.config_snapshot_id=s.current_config_snapshot_id WHERE m.singleton=1"
+  sql = "SELECT m.library_id,s.current_config_snapshot_id,c.config_id,c.config_hash,c.profile_id,c.profile_hash,CAST(strftime('%s','now') AS INTEGER) FROM library_meta m JOIN library_config_state s ON s.singleton=1 JOIN config_snapshots c ON c.config_snapshot_id=s.current_config_snapshot_id WHERE m.singleton=1"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do
     call sqlitefinalize prepared
     ignored = ""; call closereadsnapshot read_snapshot, ignored
     error = "cannot read current plan bindings"
     return -3
   end
-  library_id = ""; config_snapshot_id = ""; config_id = ""; config_hash = ""; profile_id = ""; profile_hash = ""; semantic_hash = ""; operational_hash = ""; observed_epoch = 0
+  library_id = ""; config_snapshot_id = ""; config_id = ""; config_hash = ""; profile_id = ""; profile_hash = ""; observed_epoch = 0
   column_status = sqlitecolumntext(prepared, 0, library_id)
   column_status = column_status | sqlitecolumntext(prepared, 1, config_snapshot_id)
   column_status = column_status | sqlitecolumntext(prepared, 2, config_id)
   column_status = column_status | sqlitecolumntext(prepared, 3, config_hash)
   column_status = column_status | sqlitecolumntext(prepared, 4, profile_id)
   column_status = column_status | sqlitecolumntext(prepared, 5, profile_hash)
-  column_status = column_status | sqlitecolumntext(prepared, 6, semantic_hash)
-  column_status = column_status | sqlitecolumntext(prepared, 7, operational_hash)
-  column_status = column_status | sqlitecolumnint(prepared, 8, observed_epoch)
+  column_status = column_status | sqlitecolumnint(prepared, 6, observed_epoch)
   call sqlitefinalize prepared
   if column_status \= 0 then do
     ignored = ""; call closereadsnapshot read_snapshot, ignored
@@ -215,26 +213,12 @@ _capturecontext: procedure = .int
     error = identity_error
     return -2
   end
-  expected_config_hash = identity.config_hash(); expected_profile_hash = identity.profile_hash()
-  transition = config_id \= requested_config_id | profile_id \= requested_profile_id | config_hash \= expected_config_hash | profile_hash \= expected_profile_hash
-  if transition = 1 & allow_semantic_ingest \= 1 then do
+  expected_config_hash = identity.config_hash()
+  expected_profile_hash = identity.profile_hash()
+  if config_id \= requested_config_id | profile_id \= requested_profile_id | config_hash \= expected_config_hash | profile_hash \= expected_profile_hash then do
     ignored = ""; call closereadsnapshot read_snapshot, ignored
     error = "registered configuration/profile no longer matches the current library configuration snapshot"
     return -2
-  end
-  if transition = 1 then do
-    if semantic_hash \= "" & semantic_hash = identity.semantic_hash() then do
-      ignored = ""; call closereadsnapshot read_snapshot, ignored
-      error = "operational configuration changes must use reviewed config apply before ingestion"
-      return -2
-    end
-    active_jobs = _scalarint(database, "SELECT count(*) FROM jobs WHERE state IN('queued','running','paused','cancel_requested')", error)
-    if active_jobs < 0 then do; ignored = ""; call closereadsnapshot read_snapshot, ignored; return -3; end
-    if active_jobs \= 0 then do
-      ignored = ""; call closereadsnapshot read_snapshot, ignored
-      error = "semantic ingestion requires all existing jobs to be settled"
-      return -2
-    end
   end
   source_canonical = ""
   if _sourcecanonical(database, generation, source_canonical, error) \= 0 then do
@@ -246,14 +230,10 @@ _capturecontext: procedure = .int
     ignored = ""; call closereadsnapshot read_snapshot, ignored
     return -3
   end
-  if transition = 1 then reservation_canonical = "{" || jsonquote("transition_from_snapshot") || ":" || jsonquote(config_snapshot_id) || "," || jsonquote("transition_from_hash") || ":" || jsonquote(config_hash) || "," || jsonquote("active_jobs") || ":0," || jsonquote("reservations") || ":" || reservation_canonical || "}"
   close_error = ""
   if closereadsnapshot(read_snapshot, close_error) \= 0 then do
     error = close_error
     return -3
-  end
-  if transition = 1 then do
-    config_snapshot_id = identity.snapshot_id(); config_id = requested_config_id; config_hash = identity.config_hash(); profile_id = requested_profile_id; profile_hash = identity.profile_hash()
   end
   context = .ragplancontext(library_id, generation, config_snapshot_id, config_id, config_hash, profile_id, profile_hash, ragsha256(source_canonical), ragsha256(canonicalproviderroute(config)), ragsha256(reservation_canonical), observed_epoch)
   return 0
@@ -405,14 +385,6 @@ _contains: procedure = .int
     if values[i] = expected then return 1
   end
   return 0
-
-_scalarint: procedure = .int
-  arg database = .binary, sql = .string, expose error = .string
-  prepared = .binary; value = -1
-  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "cannot read plan integer state"; return -1; end
-  status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
-  if status \= 0 then do; error = "cannot decode plan integer state"; return -1; end
-  return value
 
 _validsha256: procedure = .int
   arg value = .string

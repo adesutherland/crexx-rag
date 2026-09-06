@@ -91,7 +91,28 @@ main: procedure = .int
   errors = errors + check(commitgeneration(store, generation, error) = 0, "commit drift generation " || error)
   stale = .ragmaintenancecensus; error = ""
   errors = errors + check(buildmaintenancecensus(store, analysis, "maintenance-profile", 32, stale, error) \= 0 & pos("generation changed", error) > 0, "maintenance worklist is bound to the reviewed semantic generation")
+  error = ""; run_id = first_apply.run_id()
+  sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,created_at,updated_at) VALUES('job-mixed','mixed-digest','{}','snapshot-maintenance','completed_with_errors',2,2,0,0,0,'now','now');INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES('item-success','job-mixed','improve-extraction','processed',1,'idem-success','hash-success','" || '{"revision_chunk_id":"chunk-main"}' || "','now','now'),('item-failure','job-mixed','improve-extraction','dead_letter',1,'idem-failure','hash-failure','" || '{"revision_chunk_id":"chunk-sparse"}' || "','now','now')"
+  errors = errors + check(sqliteexec(database, sql) = 0, "mixed completion fixture")
+  sql = "UPDATE maintenance_items SET action_json=json_set(action_json,'$.job_id','job-mixed') WHERE run_id='" || run_id || "' AND item_type='concept-review';INSERT INTO maintenance_items(item_id,run_id,item_type,subject_type,subject_id,score,trigger_json,diagnosis_json,action_json,state,expected_generation,created_at,updated_at) SELECT 'maintenance-failed',run_id,item_type,subject_type,'chunk-sparse',score,trigger_json,diagnosis_json,action_json,'pending',expected_generation,created_at,updated_at FROM maintenance_items WHERE run_id='" || run_id || "' AND item_type='concept-review' LIMIT 1"
+  errors = errors + check(sqliteexec(database, sql) = 0, "bind per-item completion fixture")
+  sql = "INSERT INTO embeddings(embedding_id,embedding_profile_id,input_digest,dimension,vector,created_at) VALUES('embedding-repaired','maintenance-profile','repair-input',2,X'0000803f00000000','now');INSERT INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) VALUES('chunk-main','embedding-repaired',2)"
+  errors = errors + check(sqliteexec(database, sql) = 0, "later generation embedding repair")
+  state = ""; pending = 0; reviews = 0
+  errors = errors + check(refreshmaintenance(store, run_id, state, pending, reviews, error) = 0, "refresh partial completion " || error)
+  errors = errors + check(countrows(database, "SELECT count(*) FROM maintenance_items WHERE item_type='concept-review' AND subject_id='chunk-main' AND state='applied'") = 1, "successful item reconciles despite another failure")
+  errors = errors + check(countrows(database, "SELECT count(*) FROM maintenance_items WHERE item_id='maintenance-failed' AND state='failed'") = 1, "failed item reconciles separately")
+  errors = errors + check(countrows(database, "SELECT count(*) FROM maintenance_items WHERE item_type='stale-embedding' AND subject_id='chunk-main' AND state='applied'") = 1, "embedding repair uses current generation")
   errors = errors + check(closeragstore(store, error) = 0, "close " || error)
   if errors > 0 then return 1
   say "MAINTENANCE_METHODOLOGY_OK inventory=concept-review+claim-conflict+sparse-node+analysis-lead+query-gap+stale-embedding+vector-publication ordering=deterministic bounded=1 digest=stable replay=idempotent generation=binding"
   return 0
+
+countrows: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary; value = -1
+  if sqliteprepare(database, sql, prepared) = 0 then do
+    if sqlitestep(prepared) = 100 then call sqlitecolumnint prepared, 0, value
+  end
+  call sqlitefinalize prepared
+  return value

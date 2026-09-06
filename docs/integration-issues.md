@@ -29,32 +29,24 @@ Linux qualification.
 
 ## CREXX project-build scaling
 
-The installed `crexx --program` project wrapper is functionally correct for
-this application, but its incremental and optimiser scaling needs an upstream
-CREXX investigation. A one-file `ragimprove.crexx` edit caused the supported
-`crexxrag_application` target to compile many unaffected project members.
-Smaller members completed in parallel, while `crexxrag_cli`, `ragproduct`,
-`ragmcp`, and the one-member ADDRESS environment each consumed a full core for
-minutes and hundreds of MB.
+Closed upstream and installed locally on 2026-09-06 in CREXX
+`crexx-1.0.0-beta.3+local.g7de12145a069` (clean commit
+`7de12145a0695a81b345eeff8405203c23586e8c`). The application uses the normal
+optimised installed project build again.
 
-A macOS process sample of `rxc` compiling `crexxrag_cli` placed essentially all
-samples in `optimise`, `rxcp_inline_pass`, `rxcp_inline_prepare`, and
-`inline_analyse_callable_eligibility`, beneath repeated AST walks while an
-imported file was being loaded. The members did eventually complete, so the
-current evidence is pathological inline-eligibility scaling and timeout risk,
-not a demonstrated infinite loop. The upstream report must include the exact
-installed command, application member list, per-member elapsed/RSS evidence,
-and the captured stack sample. Disabling optimisation is not a product
-workaround; users should receive normally built installed artifacts.
+The upstream repair limits inline-contract inspection to declarations,
+registers binary forward class declarations before source fallback, and uses
+member dependency snapshots for incremental invalidation. Its 48-member RAG
+qualification measured 509.45 to 70.98 seconds for the release application and
+156.18 to 11.53 seconds for ADDRESS. An unchanged build compiled zero members;
+a private edit compiled 14 instead of 48. Strict metadata/link checks remain.
 
-The configuration repair reproduced the behavior on 2026-09-05. After one
-constructor-default correction, the wrapper again launched a 48-job project
-wave. Most members finished promptly, while `rxc` spent more than five minutes
-at approximately one full CPU core on a surface member; a later `ragproduct`
-compile similarly ran for minutes. The successful rebuild produced application
-SHA-256 `fbf9e1a0ba23f19098568af281209d2dbcfbac0c7cb83d0cfd615eb4a256f2dc`.
-This is additional reproducible scaling evidence, not proof of an infinite
-loop and not corpus-maintenance runtime.
+Evidence: the CREXX repository's
+`performance/evidence/2026-09-06-rxc-project-scaling-qualification/README.md`.
+The subsequent RAG recovery/configuration build also completed with this
+installed compiler; logs are in
+`/Users/adrian/testrag/rag-issues-20260906/`. Compiler scaling and corpus runtime
+remain separate measurements.
 
 ## cREXX lexical scope at mixed branches
 

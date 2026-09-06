@@ -1,6 +1,6 @@
 # Hard-coded configuration audit
 
-Status: review complete; next-batch blockers and semantic-ingestion transition implemented and focused-qualified
+Status: recovery and operator configuration repair qualified (21/21 tests); remaining policy backlog explicitly open
 Audit date: 2026-09-06
 Scope: production Level-G application and provider sources under
 `crexx/application` and `crexx/providers`; tests were used as evidence but are
@@ -51,16 +51,23 @@ next-batch portion of HC-48. The remaining P1/P2 rows are still the reviewed
 closure backlog; the table preserves their original evidence so they do not
 return as one-at-a-time discoveries.
 
-The deep-smoke follow-up also repaired three public lifecycle defects. Guided
-ingestion and maintenance now derive their poll horizon from `worker.poll_ms`,
-`worker.guided_deadline_seconds`, and the reviewed time budget instead of a
-hard-coded ten seconds. `profile show` emits its chunk limits as typed JSON
-integers. Finally, a semantic config/profile change can now be planned and
-applied through a fresh ingestion generation: planning remains zero-write,
-requires prior jobs to be settled, binds the old library state and desired
-semantic identity, and apply atomically publishes the target snapshot before
-queueing every active chunk for reprocessing. `config apply` continues to
-reject semantic changes, and evidence/provider validation remains unchanged.
+The original full semantic-reingestion transition was a regression and is
+superseded. Configuration changes apply prospectively through a reviewed
+`config plan`/`config apply`. Unchanged source content remains an ingest no-op;
+changing a prompt, model catalogue or operational setting does not enqueue the
+existing corpus. Profile edits also apply prospectively; reinterpreting old
+content requires a separately reviewed operation. See
+[recovery defects](recovery-defects.md).
+
+The 6 September operator repair adds prompt text files, configuration-relative
+source/profile/glossary/prompt paths, editable standard profile TSVs with
+explicit overrides, source file/depth guards and reviewed-plan TTL. Worker
+commands use the configured polling interval. `config explain` exposes these
+effective choices and labels compiled profile compatibility fallbacks. This
+is runtime data loaded per invocation; no recompilation is needed to change it.
+The complete 21-test suite passed on 6 September without paid calls. The
+current work note is `/Users/adrian/testrag/transcripts/89-rag-recovery-and-operator-configuration.md`.
+The changes remain uncommitted and are not installed in the user prefix.
 
 ## What is already correctly configurable
 
@@ -83,10 +90,10 @@ full/semantic/operational canonical forms as appropriate:
 - profile concept/relationship vocabulary, aliases, chunking, named ranking
   weights, prompt identities and validators.
 
-There are two qualifications. Most newer keys are optional and silently acquire
-compiled defaults, and several consumers then apply additional lower literals.
-Also, prompt identities are currently descriptive only because the runtime does
-not load the named prompt text.
+Compatibility defaults remain for omitted settings and legacy profiles.
+`config explain` reports effective operator values and profile origins;
+`editable-gemini.conf` uses explicit profile files and external prompt text.
+The remaining algorithm-specific policy literals are listed below.
 
 ## Runtime and semantic configuration findings
 
@@ -271,6 +278,11 @@ and rule-policy data describe the retained P1 target, not completed coverage.
 7. Prices carry a reviewed observation date. Provider usage persists the
    completion-time cost calculated from the active configuration snapshot, so
    later configuration changes do not rewrite historical usage.
+8. Full and semantic hashes are provenance and change-detection identities;
+   they are not corpus-invalidation instructions. Provider, prompt, route,
+   source-selection and configuration-schema changes apply prospectively after
+   review. Profile changes also apply prospectively. They never queue all
+   visible chunks or invalidate historical evidence.
 
 ## Consolidated implementation and qualification
 
@@ -286,27 +298,64 @@ The next-batch repair was implemented as one coherent change:
    duplicate extraction clamp and embedding cost fallback.
 4. Added cross-path format/config, ANN, query, provider and evidence tests. A
    broader invariant allowlist/static test remains with the P1 policy migration.
-5. Focused tests and the full 21-test debug suite are green; the native product
-   was installed locally. Zero-paid-call config check/explain/diff/replay
-   preflight and full repository verification also passed against an
-   independent restored generation-4799 corpus.
-6. Paid replay remains a separate explicit action after qualification; it was
-   not started by this repair.
+5. The initial qualification exposed an invalid semantic-transition design:
+   it derived ingestion identity from the full semantic hash and queued every
+   visible chunk. That path was removed. Configuration changes are now applied
+   prospectively with immutable audit history, while source ingestion retains
+   a stable algorithm identity.
+6. A zero-call regression applies a provider-policy change to an existing
+   corpus and requires the next ingest to remain on the same generation with
+   zero new jobs and zero provider calls. The same check is repeated against an
+   independent generation-4799 Scottish-corpus backup.
+7. Paid replay remains a separate explicit bounded action after qualification;
+   it is never inferred from configuration churn.
 
-## Separate defects discovered during the same run
+## Operator repair on 6 September
 
-These are not hard-coded configuration values, but must stay on the closure
-list:
+The current change completes the following bounded operator and recovery work:
 
-- relative profile/catalog/rule paths are currently resolved against the
-  process working directory rather than the configuration file directory;
-- terminal maintenance work is not projected back into `maintenance_items` and
-  `maintenance_runs`, so `maintain status` can remain `incomplete` with pending
-  items after the worker job finishes;
-- whole-sidecar vector loading and large canonical plans remain RSS work even
-  after their ceilings become explicit;
-- CREXX application recompilation shows pathological optimiser/invalidation
-  scaling and needs a separate CREXX report.
+- configuration/profile edits apply prospectively; unchanged ingestion is a
+  no-op even after model and chunk-policy changes;
+- prompt files are loaded and content-hashed, relative paths use the config
+  directory, and standard profiles have editable TSV equivalents with explicit
+  override and origin reporting (HC-06, operator portion of HC-38/39/48);
+- source byte/depth limits and plan TTL are configurable (HC-26, HC-32);
+- worker run/start uses configured polling; work leases support the same
+  1–86,400-second range as configuration (parts of HC-30/31);
+- maintenance success/failure is reconciled per work item and repaired
+  embeddings are checked at the current generation;
+- maintenance status/inspect has complete cursor pagination (maintenance part
+  of HC-33/34), and plan input/parser/renderer uses one 16 MiB format ceiling
+  (guard inconsistency in HC-45). OS argument-size limits and large-plan RSS
+  still require a compact/file-based plan design;
+- public SQLite-only vector recovery and schema/manifest migration alignment
+  are repaired; missing/corrupt sidecars never imply paid embedding work;
+- the upstream compiler scaling defect is closed by the installed CREXX repair.
+
+These are the top five remaining work groups, in order. They are **open**, not
+claims that this pass fixed every algorithm or scale-policy literal:
+
+1. A separately reviewed corpus replacement must stage its replacement until
+   complete before changing the published query baseline (RAG-REC-001's
+   remaining publication workflow). Configuration editing cannot request it.
+2. Compact or streamed vector-sidecar and canonical-plan processing, with
+   measured RSS at the full corpus scale (HC-07 architecture portion, HC-45).
+3. Typed query, claim, ranking and cognitive-maintenance policy data, including
+   evidence confidence derived from support (HC-10–23).
+4. Storage/backup, provider-admission timing and the remaining worker/reporting
+   operator settings (HC-27–31, remaining HC-33–36).
+5. Central response/format contracts and explicit replay/traversal truncation
+   handling (HC-40–44, HC-47, HC-49–53).
+
+Below-cut queue: eliminating the legacy compiled registry entirely (HC-38/39),
+complete explicit/default provenance for every optional key (HC-48), and
+platform-specific installed replay. MIME parser capability selection (HC-46)
+remains code by design; include filters select among supported formats.
+
+The original table above is historical source evidence and proposed ownership;
+this closure list states the current implementation boundary. See
+[recovery defects](recovery-defects.md) for the vector-authority findings and
+remaining publication workflow.
 
 ## Audit completeness rule
 

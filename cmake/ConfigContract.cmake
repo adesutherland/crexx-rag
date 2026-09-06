@@ -77,7 +77,7 @@ foreach(mode IN ITEMS noopt opt)
             "GEMINI_API_KEY=${secret_marker}"
             "${runtime}" -l "${program_import}"
             "${CPRAG_WORK_DIR}/scenario-${mode}"
-            ragconfigfile ragconfig ragmodel ragfile ragglossary ragprofilefile ragprofile rx_hash rx_system library
+            ragconfigfile ragconfig ragmodel ragfile ragglossary ragprofilefile ragprofile rxfs rx_hash rx_system library
             -a "${cell}" "${CPRAG_FIXTURE}"
                 "${CPRAG_WORK_DIR}/glossary-valid.tsv"
                 "${CPRAG_WORK_DIR}/glossary-duplicate.tsv"
@@ -176,10 +176,15 @@ if(NOT profile_cli_result EQUAL 0 OR
 endif()
 
 # Configuration lifecycle is a public, zero-provider contract: operators can
-# inspect split identities, review an operational-only plan, reject tampering,
-# apply the exact plan, and retain the resulting state without editing cREXX.
+# inspect split identities, review an operational or prospective plan, reject
+# tampering, and retain prior corpus evidence without automatic re-ingestion.
 set(lifecycle_library "${CPRAG_WORK_DIR}/lifecycle-library")
 file(READ "${CPRAG_FIXTURE}" lifecycle_config_text)
+file(REAL_PATH "${CPRAG_FIXTURE}" fixture_absolute)
+get_filename_component(fixture_directory "${fixture_absolute}" DIRECTORY)
+string(REPLACE "source.architecture-docs.root = ./source-docs"
+    "source.architecture-docs.root = ${fixture_directory}/source-docs"
+    lifecycle_config_text "${lifecycle_config_text}")
 string(REPLACE "worker.processes = 1" "worker.processes = 2"
     lifecycle_config_text "${lifecycle_config_text}")
 set(lifecycle_config "${CPRAG_WORK_DIR}/operational-change.conf")
@@ -195,7 +200,7 @@ execute_process(COMMAND ${lifecycle_cli}
     OUTPUT_VARIABLE lifecycle_init_out ERROR_VARIABLE lifecycle_init_err
     TIMEOUT 30)
 if(NOT lifecycle_init_result EQUAL 0 OR
-   NOT lifecycle_init_out MATCHES "\"schema_version\":8")
+   NOT lifecycle_init_out MATCHES "\"schema_version\":9")
     message(FATAL_ERROR
         "configuration lifecycle init failed:\n${lifecycle_init_out}${lifecycle_init_err}")
 endif()
@@ -286,99 +291,175 @@ if(NOT applied_diff_result EQUAL 0 OR
         "applied configuration did not become current:\n${applied_diff_out}${applied_diff_err}")
 endif()
 
-string(REPLACE "gemini-3.5-flash-lite" "gemini-semantic-change"
-    semantic_config_text "${lifecycle_config_text}")
+string(REPLACE "gemini-3.5-flash-lite" "gemini-prospective-change"
+    prospective_config_text "${lifecycle_config_text}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}/semantic-source")
 file(WRITE "${CPRAG_WORK_DIR}/semantic-source/evidence.txt"
     "BillingService depends on CustomerDatabase.\n")
-string(REPLACE "source.architecture-docs.root = ./source-docs"
+string(REPLACE "source.architecture-docs.root = ${fixture_directory}/source-docs"
     "source.architecture-docs.root = ${CPRAG_WORK_DIR}/semantic-source"
-    semantic_config_text "${semantic_config_text}")
-set(semantic_config "${CPRAG_WORK_DIR}/semantic-change.conf")
-file(WRITE "${semantic_config}" "${semantic_config_text}")
+    prospective_config_text "${prospective_config_text}")
+set(prospective_config "${CPRAG_WORK_DIR}/prospective-change.conf")
+file(WRITE "${prospective_config}" "${prospective_config_text}")
 execute_process(COMMAND ${lifecycle_cli}
-    --config-file "${semantic_config}" --profile generic-profile
+    --config-file "${prospective_config}" --profile generic-profile
     --library "${lifecycle_library}" --format json config diff
-    RESULT_VARIABLE semantic_diff_result
-    OUTPUT_VARIABLE semantic_diff_out ERROR_VARIABLE semantic_diff_err
+    RESULT_VARIABLE prospective_diff_result
+    OUTPUT_VARIABLE prospective_diff_out ERROR_VARIABLE prospective_diff_err
     TIMEOUT 30)
-if(NOT semantic_diff_result EQUAL 0 OR
-   NOT semantic_diff_out MATCHES "\"classification\":\"semantic\"")
+if(NOT prospective_diff_result EQUAL 0 OR
+   NOT prospective_diff_out MATCHES "\"classification\":\"prospective\"")
     message(FATAL_ERROR
-        "semantic configuration classification failed:\n${semantic_diff_out}${semantic_diff_err}")
+        "prospective configuration classification failed:\n${prospective_diff_out}${prospective_diff_err}")
 endif()
 execute_process(COMMAND ${lifecycle_cli}
-    --config-file "${semantic_config}" --profile generic-profile
+    --config-file "${prospective_config}" --profile generic-profile
     --library "${lifecycle_library}" --format json --access plan
-    config plan --reason "semantic change rejection regression"
-    RESULT_VARIABLE semantic_plan_result
-    OUTPUT_VARIABLE semantic_plan_out ERROR_VARIABLE semantic_plan_err
+    config plan --reason "prospective configuration regression"
+    RESULT_VARIABLE prospective_plan_result
+    OUTPUT_VARIABLE prospective_plan_out ERROR_VARIABLE prospective_plan_err
     TIMEOUT 30)
-string(JSON semantic_plan ERROR_VARIABLE semantic_plan_json_error GET
-    "${semantic_plan_out}" records 0 fields canonical_plan)
-string(JSON semantic_digest ERROR_VARIABLE semantic_digest_json_error GET
-    "${semantic_plan_out}" records 0 fields digest)
-if(NOT semantic_plan_result EQUAL 0 OR semantic_plan_json_error OR
-   semantic_digest_json_error)
+string(JSON prospective_plan ERROR_VARIABLE prospective_plan_json_error GET
+    "${prospective_plan_out}" records 0 fields canonical_plan)
+string(JSON prospective_digest ERROR_VARIABLE prospective_digest_json_error GET
+    "${prospective_plan_out}" records 0 fields digest)
+if(NOT prospective_plan_result EQUAL 0 OR prospective_plan_json_error OR
+   prospective_digest_json_error)
     message(FATAL_ERROR
-        "semantic configuration plan failed:\n${semantic_plan_out}${semantic_plan_err}")
+        "prospective configuration plan failed:\n${prospective_plan_out}${prospective_plan_err}")
 endif()
 execute_process(COMMAND ${lifecycle_cli}
-    --config-file "${semantic_config}" --profile generic-profile
+    --config-file "${prospective_config}" --profile generic-profile
     --library "${lifecycle_library}" --format json --access admin
-    config apply --plan-json "${semantic_plan}"
-    --expect-digest "${semantic_digest}"
-    RESULT_VARIABLE semantic_apply_result
-    OUTPUT_VARIABLE semantic_apply_out ERROR_VARIABLE semantic_apply_err
+    config apply --plan-json "${prospective_plan}"
+    --expect-digest "${prospective_digest}"
+    RESULT_VARIABLE prospective_apply_result
+    OUTPUT_VARIABLE prospective_apply_out ERROR_VARIABLE prospective_apply_err
     TIMEOUT 30)
-if(NOT semantic_apply_result EQUAL 6 OR NOT semantic_apply_out MATCHES
-    "semantic configuration changes require a new ingestion generation")
+if(NOT prospective_apply_result EQUAL 0 OR NOT prospective_apply_out MATCHES
+    "\"classification\":\"prospective\"")
     message(FATAL_ERROR
-        "semantic configuration apply was not rejected:\n${semantic_apply_out}${semantic_apply_err}")
+        "prospective configuration apply failed:\n${prospective_apply_out}${prospective_apply_err}")
 endif()
 execute_process(COMMAND ${lifecycle_cli}
-    --config-file "${semantic_config}" --profile generic-profile
+    --config-file "${prospective_config}" --profile generic-profile
     --library "${lifecycle_library}" --format json --access plan
     ingest plan --source-set architecture-docs
-    RESULT_VARIABLE semantic_ingest_plan_result
-    OUTPUT_VARIABLE semantic_ingest_plan_out ERROR_VARIABLE semantic_ingest_plan_err
+    RESULT_VARIABLE baseline_ingest_plan_result
+    OUTPUT_VARIABLE baseline_ingest_plan_out ERROR_VARIABLE baseline_ingest_plan_err
     TIMEOUT 30)
-string(JSON semantic_ingest_plan ERROR_VARIABLE semantic_ingest_plan_json_error
-    GET "${semantic_ingest_plan_out}" records 0 fields canonical_plan)
-string(JSON semantic_ingest_digest ERROR_VARIABLE semantic_ingest_digest_json_error
-    GET "${semantic_ingest_plan_out}" records 0 fields digest)
-if(NOT semantic_ingest_plan_result EQUAL 0 OR
-   semantic_ingest_plan_json_error OR semantic_ingest_digest_json_error OR
-   NOT semantic_ingest_plan_out MATCHES "\"observations\":1")
+string(JSON baseline_ingest_plan ERROR_VARIABLE baseline_ingest_plan_json_error
+    GET "${baseline_ingest_plan_out}" records 0 fields canonical_plan)
+string(JSON baseline_ingest_digest ERROR_VARIABLE baseline_ingest_digest_json_error
+    GET "${baseline_ingest_plan_out}" records 0 fields digest)
+if(NOT baseline_ingest_plan_result EQUAL 0 OR
+   baseline_ingest_plan_json_error OR baseline_ingest_digest_json_error OR
+   NOT baseline_ingest_plan_out MATCHES "\"observations\":1")
     message(FATAL_ERROR
-        "semantic ingestion planning failed:\n${semantic_ingest_plan_out}${semantic_ingest_plan_err}")
+        "baseline ingestion planning failed:\n${baseline_ingest_plan_out}${baseline_ingest_plan_err}")
 endif()
 execute_process(COMMAND ${lifecycle_cli}
-    --config-file "${semantic_config}" --profile generic-profile
+    --config-file "${prospective_config}" --profile generic-profile
     --library "${lifecycle_library}" --format json --access ingest
-    ingest apply --plan-json "${semantic_ingest_plan}"
-    --expect-digest "${semantic_ingest_digest}"
-    RESULT_VARIABLE semantic_ingest_apply_result
-    OUTPUT_VARIABLE semantic_ingest_apply_out ERROR_VARIABLE semantic_ingest_apply_err
+    ingest apply --plan-json "${baseline_ingest_plan}"
+    --expect-digest "${baseline_ingest_digest}"
+    RESULT_VARIABLE baseline_ingest_apply_result
+    OUTPUT_VARIABLE baseline_ingest_apply_out ERROR_VARIABLE baseline_ingest_apply_err
     TIMEOUT 30)
-if(NOT semantic_ingest_apply_result EQUAL 0 OR
-   NOT semantic_ingest_apply_out MATCHES "\"disposition\":\"published\"" OR
-   NOT semantic_ingest_apply_out MATCHES "\"generation\":2" OR
-   NOT semantic_ingest_apply_out MATCHES "\"items_queued\":2")
+if(NOT baseline_ingest_apply_result EQUAL 0 OR
+   NOT baseline_ingest_apply_out MATCHES "\"disposition\":\"published\"" OR
+   NOT baseline_ingest_apply_out MATCHES "\"generation\":2" OR
+   NOT baseline_ingest_apply_out MATCHES "\"items_queued\":2")
     message(FATAL_ERROR
-        "semantic ingestion apply failed:\n${semantic_ingest_apply_out}${semantic_ingest_apply_err}")
+        "baseline ingestion apply failed:\n${baseline_ingest_apply_out}${baseline_ingest_apply_err}")
+endif()
+
+find_program(CREXXRAG_CONFIG_SQLITE3 sqlite3 REQUIRED)
+execute_process(COMMAND "${CREXXRAG_CONFIG_SQLITE3}"
+    "${lifecycle_library}/library.sqlite"
+    "UPDATE job_items SET state='cancelled',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='queued'; UPDATE jobs SET state='cancelled',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='queued';"
+    RESULT_VARIABLE settle_result OUTPUT_VARIABLE settle_out ERROR_VARIABLE settle_err)
+if(NOT settle_result EQUAL 0)
+    message(FATAL_ERROR "could not settle zero-call baseline work:\n${settle_out}${settle_err}")
+endif()
+
+string(REPLACE "gemini-prospective-change" "gemini-prospective-followup"
+    followup_config_text "${prospective_config_text}")
+# A profile edit is prospective as well, including a new chunk policy. The
+# existing source's observed identity and all existing chunks remain intact.
+file(READ "${fixture_directory}/profiles/generic.profile.tsv" changed_profile_text)
+string(REPLACE "chunk\t1200\t160" "chunk\t2048\t192" changed_profile_text "${changed_profile_text}")
+string(APPEND changed_profile_text "weight\tduplicate-penalty\t50000\n")
+file(WRITE "${CPRAG_WORK_DIR}/changed-profile.tsv" "${changed_profile_text}")
+string(APPEND followup_config_text "\nprofile.generic-profile.file = changed-profile.tsv\nplan.ttl_seconds = 7200\n")
+set(followup_config "${CPRAG_WORK_DIR}/prospective-followup.conf")
+file(WRITE "${followup_config}" "${followup_config_text}")
+execute_process(COMMAND ${lifecycle_cli}
+    --config-file "${followup_config}" --profile generic-profile
+    --library "${lifecycle_library}" --format json --access plan
+    config plan --reason "provider policy changes apply prospectively"
+    RESULT_VARIABLE followup_plan_result
+    OUTPUT_VARIABLE followup_plan_out ERROR_VARIABLE followup_plan_err
+    TIMEOUT 30)
+string(JSON followup_plan ERROR_VARIABLE followup_plan_json_error GET
+    "${followup_plan_out}" records 0 fields canonical_plan)
+string(JSON followup_digest ERROR_VARIABLE followup_digest_json_error GET
+    "${followup_plan_out}" records 0 fields digest)
+if(NOT followup_plan_result EQUAL 0 OR followup_plan_json_error OR
+   followup_digest_json_error OR NOT followup_plan_out MATCHES
+   "\"classification\":\"prospective\"")
+    message(FATAL_ERROR
+        "follow-up prospective plan failed:\n${followup_plan_out}${followup_plan_err}")
 endif()
 execute_process(COMMAND ${lifecycle_cli}
-    --config-file "${semantic_config}" --profile generic-profile
-    --library "${lifecycle_library}" --format json config diff
-    RESULT_VARIABLE semantic_current_result
-    OUTPUT_VARIABLE semantic_current_out ERROR_VARIABLE semantic_current_err
+    --config-file "${followup_config}" --profile generic-profile
+    --library "${lifecycle_library}" --format json --access admin
+    config apply --plan-json "${followup_plan}"
+    --expect-digest "${followup_digest}"
+    RESULT_VARIABLE followup_apply_result
+    OUTPUT_VARIABLE followup_apply_out ERROR_VARIABLE followup_apply_err
     TIMEOUT 30)
-if(NOT semantic_current_result EQUAL 0 OR
-   NOT semantic_current_out MATCHES "\"classification\":\"identical\"" OR
-   NOT semantic_current_out MATCHES "\"active_jobs\":1")
+if(NOT followup_apply_result EQUAL 0 OR NOT followup_apply_out MATCHES
+   "\"classification\":\"prospective\"")
     message(FATAL_ERROR
-        "semantic ingestion did not publish the target configuration:\n${semantic_current_out}${semantic_current_err}")
+        "follow-up prospective apply failed:\n${followup_apply_out}${followup_apply_err}")
+endif()
+execute_process(COMMAND ${lifecycle_cli}
+    --config-file "${followup_config}" --profile generic-profile
+    --library "${lifecycle_library}" --format json --access plan
+    ingest plan --source-set architecture-docs
+    RESULT_VARIABLE unchanged_plan_result
+    OUTPUT_VARIABLE unchanged_plan_out ERROR_VARIABLE unchanged_plan_err
+    TIMEOUT 30)
+string(JSON unchanged_plan ERROR_VARIABLE unchanged_plan_json_error GET
+    "${unchanged_plan_out}" records 0 fields canonical_plan)
+string(JSON unchanged_digest ERROR_VARIABLE unchanged_digest_json_error GET
+    "${unchanged_plan_out}" records 0 fields digest)
+if(NOT unchanged_plan_result EQUAL 0 OR unchanged_plan_json_error OR
+   unchanged_digest_json_error)
+    message(FATAL_ERROR
+        "unchanged ingestion plan failed:\n${unchanged_plan_out}${unchanged_plan_err}")
+endif()
+execute_process(COMMAND ${lifecycle_cli}
+    --config-file "${followup_config}" --profile generic-profile
+    --library "${lifecycle_library}" --format json --access ingest
+    ingest apply --plan-json "${unchanged_plan}"
+    --expect-digest "${unchanged_digest}"
+    RESULT_VARIABLE unchanged_apply_result
+    OUTPUT_VARIABLE unchanged_apply_out ERROR_VARIABLE unchanged_apply_err
+    TIMEOUT 30)
+execute_process(COMMAND "${CREXXRAG_CONFIG_SQLITE3}"
+    "${lifecycle_library}/library.sqlite"
+    "SELECT (SELECT published_generation FROM library_meta WHERE singleton=1)||':'||(SELECT count(*) FROM jobs)||':'||(SELECT count(*) FROM provider_runs)||':'||(SELECT count(*) FROM config_change_events WHERE classification='prospective');"
+    RESULT_VARIABLE unchanged_state_result OUTPUT_VARIABLE unchanged_state
+    OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_VARIABLE unchanged_state_err)
+if(NOT unchanged_apply_result EQUAL 0 OR
+   NOT unchanged_apply_out MATCHES "\"disposition\":\"identical-no-op\"" OR
+   NOT unchanged_apply_out MATCHES "\"generation\":2" OR
+   NOT unchanged_apply_out MATCHES "\"items_queued\":0" OR
+   NOT unchanged_state_result EQUAL 0 OR NOT unchanged_state STREQUAL "2:1:0:2")
+    message(FATAL_ERROR
+        "prospective configuration triggered corpus re-ingestion:\n${unchanged_apply_out}${unchanged_apply_err}${unchanged_state}${unchanged_state_err}")
 endif()
 if(lifecycle_init_out MATCHES "${secret_marker}" OR
    identical_out MATCHES "${secret_marker}" OR
@@ -386,12 +467,15 @@ if(lifecycle_init_out MATCHES "${secret_marker}" OR
    config_plan_out MATCHES "${secret_marker}" OR
    config_apply_out MATCHES "${secret_marker}" OR
    applied_diff_out MATCHES "${secret_marker}" OR
-   semantic_diff_out MATCHES "${secret_marker}" OR
-   semantic_plan_out MATCHES "${secret_marker}" OR
-   semantic_apply_out MATCHES "${secret_marker}" OR
-   semantic_ingest_plan_out MATCHES "${secret_marker}" OR
-   semantic_ingest_apply_out MATCHES "${secret_marker}" OR
-   semantic_current_out MATCHES "${secret_marker}")
+   prospective_diff_out MATCHES "${secret_marker}" OR
+   prospective_plan_out MATCHES "${secret_marker}" OR
+   prospective_apply_out MATCHES "${secret_marker}" OR
+   baseline_ingest_plan_out MATCHES "${secret_marker}" OR
+   baseline_ingest_apply_out MATCHES "${secret_marker}" OR
+   followup_plan_out MATCHES "${secret_marker}" OR
+   followup_apply_out MATCHES "${secret_marker}" OR
+   unchanged_plan_out MATCHES "${secret_marker}" OR
+   unchanged_apply_out MATCHES "${secret_marker}")
     message(FATAL_ERROR "configuration lifecycle output exposed a resolved credential")
 endif()
 
@@ -425,10 +509,59 @@ endif()
 
 file(APPEND "${report}"
     "linked-cli:\n${cli_out}${cli_err}${subscription_out}${subscription_err}"
-    "configuration-lifecycle:\n${lifecycle_init_out}${identical_out}${operational_out}${config_plan_out}${tampered_out}${config_apply_out}${applied_diff_out}${semantic_diff_out}${semantic_plan_out}${semantic_apply_out}${semantic_ingest_plan_out}${semantic_ingest_apply_out}${semantic_current_out}")
+    "configuration-lifecycle:\n${lifecycle_init_out}${identical_out}${operational_out}${config_plan_out}${tampered_out}${config_apply_out}${applied_diff_out}${prospective_diff_out}${prospective_plan_out}${prospective_apply_out}${baseline_ingest_plan_out}${baseline_ingest_apply_out}${followup_plan_out}${followup_apply_out}${unchanged_plan_out}${unchanged_apply_out}")
 file(READ "${report}" retained)
 if(retained MATCHES "${secret_marker}")
     message(FATAL_ERROR "retained config evidence contains a resolved credential")
 endif()
 message(STATUS
     "Configuration contract passed four compiler/VM cells, linked CLI discovery, and reviewed split-identity lifecycle")
+
+# Operator files are reloadable data. Relative sources, prompts, profiles and
+# glossaries share the configuration directory, including after a cwd change.
+set(data_dir "${CPRAG_WORK_DIR}/operator-data")
+file(MAKE_DIRECTORY "${data_dir}/elsewhere" "${data_dir}/source-docs")
+file(READ "${CPRAG_FIXTURE}" data_config_text)
+string(REGEX REPLACE "role.answerer.system_prompt = [^\n]*"
+    "role.answerer.system_prompt_file = answer.txt" data_config_text "${data_config_text}")
+string(APPEND data_config_text "\nprofile.generic-profile.file = generic.tsv\ndiscovery.glossary_file = glossary.tsv\n")
+# Existing fixtures may declare an empty glossary only by omission; remove any
+# previous declaration so duplicate-key validation stays active.
+string(REGEX REPLACE "discovery.glossary_file = [^\n]*\n" "" data_config_text "${data_config_text}")
+string(APPEND data_config_text "discovery.glossary_file = glossary.tsv\n")
+file(WRITE "${data_dir}/config.conf" "${data_config_text}")
+file(WRITE "${data_dir}/answer.txt" "Answer only from supplied evidence.\nKeep citations attached.\n")
+file(COPY_FILE "${CPRAG_WORK_DIR}/glossary-valid.tsv" "${data_dir}/glossary.tsv")
+get_filename_component(config_fixture_dir "${CPRAG_FIXTURE}" DIRECTORY)
+file(COPY_FILE "${config_fixture_dir}/profiles/generic.profile.tsv" "${data_dir}/generic.tsv")
+foreach(location IN ITEMS "${data_dir}" "${data_dir}/elsewhere")
+    execute_process(COMMAND ${lifecycle_cli} --config-file "${data_dir}/config.conf"
+        --profile generic-profile --format json config explain
+        WORKING_DIRECTORY "${location}"
+        RESULT_VARIABLE data_result OUTPUT_VARIABLE data_out ERROR_VARIABLE data_err TIMEOUT 30)
+    if(NOT data_result EQUAL 0)
+        message(FATAL_ERROR "reloadable operator data failed: ${data_out}${data_err}")
+    endif()
+    string(JSON data_hash GET "${data_out}" records 0 fields config_hash)
+    if(DEFINED first_data_hash AND NOT data_hash STREQUAL first_data_hash)
+        message(FATAL_ERROR "configuration identity changed with working directory")
+    endif()
+    set(first_data_hash "${data_hash}")
+endforeach()
+file(APPEND "${data_dir}/answer.txt" "Abstain when evidence is insufficient.\n")
+execute_process(COMMAND ${lifecycle_cli} --config-file "${data_dir}/config.conf"
+    --profile generic-profile --format json config explain
+    WORKING_DIRECTORY "${data_dir}/elsewhere"
+    RESULT_VARIABLE changed_data_result OUTPUT_VARIABLE changed_data_out ERROR_VARIABLE changed_data_err TIMEOUT 30)
+string(JSON changed_data_hash ERROR_VARIABLE changed_data_error GET "${changed_data_out}" records 0 fields config_hash)
+if(NOT changed_data_result EQUAL 0 OR changed_data_error OR changed_data_hash STREQUAL first_data_hash)
+    message(FATAL_ERROR "prompt content change was not loaded into identity: ${changed_data_out}${changed_data_err}")
+endif()
+file(APPEND "${data_dir}/config.conf" "role.answerer.system_prompt = Ambiguous input\n")
+execute_process(COMMAND ${lifecycle_cli} --config-file "${data_dir}/config.conf"
+    --profile generic-profile --format json config check
+    RESULT_VARIABLE duplicate_prompt_result OUTPUT_VARIABLE duplicate_prompt_out ERROR_VARIABLE duplicate_prompt_err TIMEOUT 30)
+if(NOT duplicate_prompt_result EQUAL 3 OR NOT duplicate_prompt_out MATCHES "exactly one")
+    message(FATAL_ERROR "ambiguous prompt sources accepted: ${duplicate_prompt_out}${duplicate_prompt_err}")
+endif()
+file(APPEND "${report}" "relative_paths=cwd-independent\nprofile_override=data\nprompt_files=reloadable-content-identity\n")

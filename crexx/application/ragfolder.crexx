@@ -13,14 +13,14 @@ import ragingest
  * remains in the bounded Level-B ragfile exception; all identity and ingestion
  * policy remains in Level G. */
 collectfolderobservations: procedure = .int
-  arg root = .string, source_set_id = .string, retain_raw = .int, maximum_file_bytes = .int, captured_at = .string, expose observations = .ragsourceobservation[], expose error = .string
+  arg root = .string, source_set_id = .string, retain_raw = .int, maximum_file_bytes = .int, captured_at = .string, expose observations = .ragsourceobservation[], expose error = .string, maximum_depth = 64
   clear observations
   error = ""
-  if root = "" | source_set_id = "" | captured_at = "" | (retain_raw \= 0 & retain_raw \= 1) | maximum_file_bytes < 1 | rxfs..isdir(root) \= 1 then do
+  if root = "" | source_set_id = "" | captured_at = "" | (retain_raw \= 0 & retain_raw \= 1) | maximum_file_bytes < 1 | maximum_depth < 0 | maximum_depth > 256 | rxfs..isdir(root) \= 1 then do
     error = "folder source set, root, retention policy, or file ceiling is invalid"
     return -1
   end
-  if _walk(root, "", source_set_id, retain_raw, maximum_file_bytes, captured_at, 0, observations, error) \= 0 then do
+  if _walk(root, "", source_set_id, retain_raw, maximum_file_bytes, captured_at, 0, observations, error, maximum_depth) \= 0 then do
     clear observations
     return -2
   end
@@ -28,8 +28,8 @@ collectfolderobservations: procedure = .int
   return observations.0
 
 _walk: procedure = .int
-  arg root = .string, relative = .string, source_set_id = .string, retain_raw = .int, maximum_file_bytes = .int, captured_at = .string, depth = .int, expose observations = .ragsourceobservation[], expose error = .string
-  if depth > 64 then do; error = "folder nesting exceeds the connector ceiling"; return -1; end
+  arg root = .string, relative = .string, source_set_id = .string, retain_raw = .int, maximum_file_bytes = .int, captured_at = .string, depth = .int, expose observations = .ragsourceobservation[], expose error = .string, maximum_depth = .int
+  if depth > maximum_depth then do; error = "folder nesting exceeds the connector ceiling"; return -1; end
   path = root
   if relative \= "" then path = root || "/" || relative
   entries = .string[]
@@ -46,7 +46,7 @@ _walk: procedure = .int
     if relative \= "" then child_relative = relative || "/" || entry
     child_path = root || "/" || child_relative
     if rxfs..isdir(child_path) = 1 then do
-      if _walk(root, child_relative, source_set_id, retain_raw, maximum_file_bytes, captured_at, depth + 1, observations, error) \= 0 then return -1
+      if _walk(root, child_relative, source_set_id, retain_raw, maximum_file_bytes, captured_at, depth + 1, observations, error, maximum_depth) \= 0 then return -1
     end
     else if rxfs..isfile(child_path) = 1 & _supported(child_relative) = 1 then do
       raw = .binary; bytes = 0

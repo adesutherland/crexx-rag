@@ -55,7 +55,7 @@ execute_process(COMMAND ${cli} init
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err
     RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 8")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 9")
     message(FATAL_ERROR "Query test human init failed:\n${init_out}${init_err}")
 endif()
 
@@ -608,3 +608,126 @@ file(WRITE "${CPRAG_WORK_DIR}/result.txt"
     "surface=crexxrag-query\n${init_out}${ingest_out}${ingest_err}${query_out}${query_err}"
     "${lexical_out}${lexical_err}${hybrid_fail_out}${hybrid_fail_err}${verify_out}${verify_err}")
 message(STATUS "Gemini query passed human hybrid retrieval and cited answer generation, explicit zero-outbound lexical mode, required-hybrid failure, citation rejection, valid insufficient-evidence handling, and post-query integrity")
+
+# A derived-index failure must be recoverable using only stored SQLite data.
+# All loopback providers have stopped before this section.
+find_program(CREXXRAG_SQLITE3 sqlite3 REQUIRED)
+set(recovery_db "${CPRAG_WORK_DIR}/library/library.sqlite")
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${recovery_db}"
+    "SELECT sidecar_name FROM vector_generations WHERE state='published' AND semantic_generation=(SELECT published_generation FROM library_meta WHERE singleton=1) AND algorithm='ivf-flat-v1' LIMIT 1"
+    OUTPUT_VARIABLE recovery_sidecar OUTPUT_STRIP_TRAILING_WHITESPACE RESULT_VARIABLE recovery_sql_result)
+if(NOT recovery_sql_result EQUAL 0 OR recovery_sidecar STREQUAL "")
+    message(FATAL_ERROR "missing vector recovery fixture")
+endif()
+set(recovery_path "${CPRAG_WORK_DIR}/library/${recovery_sidecar}")
+file(SHA256 "${recovery_path}" recovery_checksum)
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${recovery_db}"
+    "SELECT published_generation||':'||(SELECT count(*) FROM embeddings)||':'||(SELECT count(*) FROM provider_runs) FROM library_meta WHERE singleton=1"
+    OUTPUT_VARIABLE recovery_before OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+foreach(damage IN ITEMS missing corrupt)
+    if(damage STREQUAL "missing")
+        file(REMOVE "${recovery_path}")
+    else()
+        file(WRITE "${recovery_path}" "corrupt derived index")
+    endif()
+    execute_process(COMMAND ${cli} --format json query evidence "BillingService" --mode hybrid
+        WORKING_DIRECTORY "${CPRAG_WORK_DIR}" RESULT_VARIABLE damaged_query_result
+        OUTPUT_VARIABLE damaged_query_out ERROR_VARIABLE damaged_query_err TIMEOUT 30)
+    if(NOT damaged_query_result EQUAL 8)
+        message(FATAL_ERROR "invalid hybrid index did not fail before provider use: ${damaged_query_out}${damaged_query_err}")
+    endif()
+    execute_process(COMMAND ${cli} --format json --access read vector rebuild
+        WORKING_DIRECTORY "${CPRAG_WORK_DIR}" RESULT_VARIABLE denied_rebuild_result
+        OUTPUT_VARIABLE denied_rebuild_out ERROR_VARIABLE denied_rebuild_err TIMEOUT 30)
+    if(NOT denied_rebuild_result EQUAL 4)
+        message(FATAL_ERROR "vector rebuild accepted read-only capability: ${denied_rebuild_out}${denied_rebuild_err}")
+    endif()
+    execute_process(COMMAND ${cli} --format json --access control vector rebuild
+        WORKING_DIRECTORY "${CPRAG_WORK_DIR}" RESULT_VARIABLE recovery_result
+        OUTPUT_VARIABLE recovery_out ERROR_VARIABLE recovery_err TIMEOUT 30)
+    if(NOT recovery_result EQUAL 0 OR NOT recovery_out MATCHES "rebuilt-from-sqlite" OR
+       NOT recovery_out MATCHES "\"provider_calls\":0")
+        message(FATAL_ERROR "${damage} sidecar recovery failed: ${recovery_out}${recovery_err}")
+    endif()
+    file(SHA256 "${recovery_path}" restored_checksum)
+    if(NOT restored_checksum STREQUAL recovery_checksum)
+        message(FATAL_ERROR "restored sidecar differs from original SQLite-derived bytes")
+    endif()
+endforeach()
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${recovery_db}"
+    "SELECT published_generation||':'||(SELECT count(*) FROM embeddings)||':'||(SELECT count(*) FROM provider_runs) FROM library_meta WHERE singleton=1"
+    OUTPUT_VARIABLE recovery_after OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+if(NOT recovery_after STREQUAL recovery_before)
+    message(FATAL_ERROR "sidecar recovery or invalid hybrid preflight changed generation, embeddings, or provider history")
+endif()
+execute_process(COMMAND ${cli} --format json --access control vector rebuild
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" RESULT_VARIABLE recovery_noop_result
+    OUTPUT_VARIABLE recovery_noop_out ERROR_VARIABLE recovery_noop_err TIMEOUT 30)
+if(NOT recovery_noop_result EQUAL 0 OR NOT recovery_noop_out MATCHES "identical-no-op")
+    message(FATAL_ERROR "intact vector rebuild was not idempotent: ${recovery_noop_out}${recovery_noop_err}")
+endif()
+execute_process(COMMAND ${cli} --access diagnose library verify WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE recovery_verify_out ERROR_VARIABLE recovery_verify_err RESULT_VARIABLE recovery_verify_result TIMEOUT 30)
+if(NOT recovery_verify_result EQUAL 0 OR NOT recovery_verify_out MATCHES "issue count: 0")
+    message(FATAL_ERROR "recovered sidecar bundle failed verification: ${recovery_verify_out}${recovery_verify_err}")
+endif()
+file(APPEND "${CPRAG_WORK_DIR}/result.txt" "vector_rebuild=missing+corrupt+idempotent\nvector_rebuild_provider_calls=0\nhybrid_invalid_sidecar_provider_calls=0\n")
+
+# Changing the interpretation policy does not invalidate or rewrite the corpus.
+# Compare every stored table except the three intended configuration-history
+# tables, including the exact SQLite BLOB encodings and original generations.
+function(corpus_state output_name)
+    execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${recovery_db}"
+        "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN('config_snapshots','config_change_events','library_config_state') ORDER BY name"
+        OUTPUT_VARIABLE table_names OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+    string(REPLACE "\n" ";" table_names "${table_names}")
+    set(state "")
+    foreach(table_name IN LISTS table_names)
+        execute_process(COMMAND "${CREXXRAG_SQLITE3}" -quote "${recovery_db}" "SELECT * FROM \"${table_name}\""
+            OUTPUT_VARIABLE table_rows COMMAND_ERROR_IS_FATAL ANY)
+        string(SHA256 table_digest "${table_rows}")
+        string(APPEND state "${table_name}=${table_digest}\n")
+    endforeach()
+    set(${output_name} "${state}" PARENT_SCOPE)
+endfunction()
+corpus_state(preserved_before)
+file(READ "${CPRAG_WORK_DIR}/crexxrag.conf" replacement_config)
+string(REPLACE "model = gemini-embedding-2" "model = prospective-embedding-model" replacement_config "${replacement_config}")
+get_filename_component(test_fixture_root "${CPRAG_CONFIG_TEMPLATE}" DIRECTORY)
+file(REAL_PATH "${test_fixture_root}/../../../crexx/application/config/profiles/it-architecture.profile.tsv" architecture_profile_path)
+file(READ "${architecture_profile_path}" replacement_profile)
+string(REPLACE "chunk\t1400\t180" "chunk\t2048\t192" replacement_profile "${replacement_profile}")
+file(WRITE "${CPRAG_WORK_DIR}/edited-profile.tsv" "${replacement_profile}")
+string(APPEND replacement_config "\nprofile.it-architecture-profile.file = edited-profile.tsv\nplan.ttl_seconds = 7200\n")
+file(WRITE "${CPRAG_WORK_DIR}/crexxrag.conf" "${replacement_config}")
+execute_process(COMMAND ${cli} --format json --access plan config plan --reason "preserve corpus across model and profile edits"
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE replacement_plan_out ERROR_VARIABLE replacement_plan_err RESULT_VARIABLE replacement_plan_result TIMEOUT 30)
+string(JSON replacement_plan ERROR_VARIABLE replacement_plan_error GET "${replacement_plan_out}" records 0 fields canonical_plan)
+string(JSON replacement_digest ERROR_VARIABLE replacement_digest_error GET "${replacement_plan_out}" records 0 fields digest)
+if(NOT replacement_plan_result EQUAL 0 OR replacement_plan_error OR replacement_digest_error)
+    message(FATAL_ERROR "prospective profile/model plan failed: ${replacement_plan_out}${replacement_plan_err}")
+endif()
+execute_process(COMMAND ${cli} --format json --access admin config apply --plan-json "${replacement_plan}" --expect-digest "${replacement_digest}"
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE replacement_out ERROR_VARIABLE replacement_err RESULT_VARIABLE replacement_result TIMEOUT 30)
+if(NOT replacement_result EQUAL 0 OR NOT replacement_out MATCHES "\"classification\":\"prospective\"")
+    message(FATAL_ERROR "prospective profile/model apply failed: ${replacement_out}${replacement_err}")
+endif()
+corpus_state(preserved_after)
+if(NOT preserved_before STREQUAL preserved_after)
+    message(FATAL_ERROR "configuration changed existing corpus rows, vectors, provenance, or generation:\nBEFORE\n${preserved_before}\nAFTER\n${preserved_after}")
+endif()
+file(SHA256 "${recovery_path}" preserved_sidecar_checksum)
+if(NOT preserved_sidecar_checksum STREQUAL recovery_checksum)
+    message(FATAL_ERROR "configuration changed the prior vector sidecar")
+endif()
+execute_process(COMMAND ${cli} --format json query evidence "What does BillingService depend on?" --mode lexical
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE preserved_query_out ERROR_VARIABLE preserved_query_err RESULT_VARIABLE preserved_query_result TIMEOUT 30)
+if(NOT preserved_query_result EQUAL 0 OR NOT preserved_query_out MATCHES "crexx-rag:" OR NOT preserved_query_out MATCHES "\"provider_calls\":0")
+    message(FATAL_ERROR "historical evidence became unavailable after config change: ${preserved_query_out}${preserved_query_err}")
+endif()
+execute_process(COMMAND ${cli} --access diagnose library verify WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE preserved_verify_out ERROR_VARIABLE preserved_verify_err RESULT_VARIABLE preserved_verify_result TIMEOUT 30)
+if(NOT preserved_verify_result EQUAL 0 OR NOT preserved_verify_out MATCHES "issue count: 0")
+    message(FATAL_ERROR "configuration invalidated corpus verification: ${preserved_verify_out}${preserved_verify_err}")
+endif()
+file(APPEND "${CPRAG_WORK_DIR}/result.txt" "config_profile_model_change=prospective\nall_existing_tables=identical\nexisting_vectors=byte-identical\nexisting_citations=valid\n")

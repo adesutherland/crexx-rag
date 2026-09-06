@@ -65,7 +65,7 @@ execute_process(COMMAND ${cli} init
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err
     RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 8")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 9")
     message(FATAL_ERROR "Improvement test human init failed:\n${init_out}${init_err}")
 endif()
 
@@ -365,3 +365,55 @@ file(WRITE "${CPRAG_WORK_DIR}/result.txt"
     "surface=crexxrag-maintain\nprovider_input=durable\nglossary_drift=zero-mutation-rejected\nvector_output=ann-published\n"
     "${init_out}${ingest_out}${ingest_err}${plan_out}${plan_err}${drift_out}${drift_err}${improve_out}${improve_err}${query_out}${query_err}${settle_out}${settle_err}${replay_out}${replay_err}${lifecycle_decide_out}${lifecycle_decide_err}${provider_list_out}${profile_list_out}${profile_show_out}${proposal_plan_out}${proposal_apply_out}${review_list_out}${review_decide_out}${verify_out}${verify_err}")
 message(STATUS "Gemini maintenance and the public provider, profile, lifecycle, proposal, and review surfaces passed with glossary-drift rejection, durable-note output, ANN finalisation, integrity verification, and zero-call replay")
+
+# Maintenance worklists must be completely inspectable beyond the old silent
+# 99/100-item rendering limit. A cursor follows stable score/ID ordering.
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+    "SELECT run_id FROM maintenance_runs ORDER BY created_at DESC,run_id DESC LIMIT 1"
+    OUTPUT_VARIABLE page_run OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+    "WITH RECURSIVE seq(n) AS (VALUES(1) UNION ALL SELECT n+1 FROM seq WHERE n<105) INSERT INTO maintenance_items(item_id,run_id,item_type,subject_type,subject_id,score,trigger_json,diagnosis_json,action_json,state,expected_generation,created_at,updated_at) SELECT 'pagination-'||printf('%03d',seq.n),m.run_id,m.item_type,m.subject_type,'pagination-subject-'||seq.n,m.score,m.trigger_json,m.diagnosis_json,m.action_json,'review-required',m.expected_generation,m.created_at,m.updated_at FROM seq CROSS JOIN (SELECT * FROM maintenance_items WHERE run_id='${page_run}' ORDER BY item_id LIMIT 1) m"
+    COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
+    "SELECT count(*) FROM maintenance_items WHERE run_id='${page_run}'"
+    OUTPUT_VARIABLE page_expected OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+foreach(operation IN ITEMS status inspect)
+    set(page_cursor "")
+    set(page_ids)
+    foreach(page RANGE 1 20)
+        set(cursor_argument)
+        if(NOT page_cursor STREQUAL "")
+            set(cursor_argument --cursor "${page_cursor}")
+        endif()
+        execute_process(COMMAND ${cli} --format json maintain ${operation} --id "${page_run}" --limit 17 ${cursor_argument}
+            WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE page_out ERROR_VARIABLE page_err RESULT_VARIABLE page_result TIMEOUT 30)
+        if(NOT page_result EQUAL 0)
+            message(FATAL_ERROR "maintenance ${operation} pagination failed: ${page_out}${page_err}")
+        endif()
+        string(JSON page_length LENGTH "${page_out}" records)
+        math(EXPR last_record "${page_length}-1")
+        string(JSON page_kind GET "${page_out}" records ${last_record} kind)
+        string(JSON page_cursor GET "${page_out}" records ${last_record} fields next_cursor)
+        if(NOT page_kind STREQUAL "maintenance-page" OR page_length GREATER 19)
+            message(FATAL_ERROR "maintenance pagination metadata is absent or oversized: ${page_out}")
+        endif()
+        foreach(row RANGE 0 ${last_record})
+            string(JSON row_kind GET "${page_out}" records ${row} kind)
+            if(row_kind STREQUAL "maintenance-item")
+                string(JSON row_id GET "${page_out}" records ${row} fields item_id)
+                if(row_id IN_LIST page_ids)
+                    message(FATAL_ERROR "maintenance pagination repeated ${row_id}")
+                endif()
+                list(APPEND page_ids "${row_id}")
+            endif()
+        endforeach()
+        if(page_cursor STREQUAL "")
+            break()
+        endif()
+    endforeach()
+    list(LENGTH page_ids page_received)
+    if(NOT page_received EQUAL page_expected OR page_received LESS 105)
+        message(FATAL_ERROR "maintenance ${operation} pagination lost rows: ${page_received}/${page_expected}")
+    endif()
+endforeach()
+file(APPEND "${CPRAG_WORK_DIR}/result.txt" "maintenance_pagination=complete-status+inspect\n")

@@ -229,7 +229,8 @@ parsecommand: procedure = .int
         end
         else value = "true"
       end
-      if length(value) > 65535 then return _usage("command option value is too long", error)
+      maximum_option_bytes = 65535; if name = "plan-json" then maximum_option_bytes = 16777216
+      if length(value) > maximum_option_bytes then return _usage("command option value is too long", error)
       command_options[command_options.0 + 1] = .ragcommandoption(name, value, inline_value = 0 & value = "true")
     end
     else do
@@ -410,6 +411,7 @@ _validoperation: procedure = .int
   if noun = "schedule" then return pos(" " || verb || " ", " list show ") > 0
   if noun = "source" then return pos(" " || verb || " ", " list show ") > 0
   if noun = "citation" then return verb = "show"
+  if noun = "vector" then return verb = "rebuild"
   if noun = "ingest" then return pos(" " || verb || " ", " plan apply ") > 0
   if noun = "job" then return pos(" " || verb || " ", " list status events pause resume cancel retry replay ") > 0
   if noun = "worker" then return pos(" " || verb || " ", " start run list status drain prune ") > 0

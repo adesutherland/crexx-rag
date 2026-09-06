@@ -116,7 +116,7 @@ endif()
 ")
 install(DIRECTORY crexx/application/
     DESTINATION "${CMAKE_INSTALL_DATADIR}/crexxrag/application"
-    FILES_MATCHING PATTERN "*.crexx" PATTERN "*.conf" PATTERN "*.tsv"
+    FILES_MATCHING PATTERN "*.crexx" PATTERN "*.conf" PATTERN "*.tsv" PATTERN "*.txt"
     PATTERN "tests" EXCLUDE)
 install(DIRECTORY crexx/providers/
     DESTINATION "${CMAKE_INSTALL_DATADIR}/crexxrag/providers"
