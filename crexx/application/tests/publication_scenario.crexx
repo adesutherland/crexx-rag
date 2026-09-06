@@ -1,0 +1,125 @@
+options levelg
+
+import rxfnsb
+import rxhash
+import rxsqlite
+import ragstore
+import ragwork
+import ragclaims
+import generic_profile
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if condition then return 0
+  say "PUBLICATION_FAIL=" || label
+  return 1
+
+scalar: procedure = .int
+  arg database = .binary, sql = .string
+  statement = .binary; value = -1
+  if sqliteprepare(database,sql,statement) \= 0 | sqlitestep(statement) \= 100 then do; call sqlitefinalize statement; return -1; end
+  status = sqlitecolumnint(statement,0,value); call sqlitefinalize statement
+  if status \= 0 then return -1
+  return value
+
+/* A producer can pass transport/shape validation and still lose a semantic
+ * precondition before publication. Its batch must never publish a prefix. */
+batchprovider: class implements .ragworkprovider
+  _identity = .string
+  *: factory
+    arg identity = .string
+    _identity = identity
+    return
+  process: method = .ragworkproviderresult
+    arg claim = .ragworkclaim
+    aliases = .string[]; aliases[1] = "Alpha"
+    mentions = .ragworkmention[]
+    mentions[1] = .ragworkmention("candidate-alpha","Alpha","concept",0,5,aliases)
+    aliases = .string[]; aliases[1] = "Beta"
+    mentions[2] = .ragworkmention("candidate-beta","Beta","concept",6,10,aliases)
+    proposals = .ragworkproposal[]; notes = .ragworknote[]
+    invalid = .ragextractionproposal("crexx-rag.extraction-proposal/1","invalid-late-proposal","claim",mentions[1].concept_id(),"Alpha","concept","related-to",mentions[2].concept_id(),"Beta","concept","invalid-direction","{}","","","chunk-publication",0,10,"support","assertion","direct","","fixture-lineage",1000000,"fixture","fixture","request","fixture","fixture","public","generic-profile",0)
+    proposals[1] = .ragworkproposal(invalid,"candidate-alpha","candidate-beta")
+    empty = .ragextractionproposal
+    return .ragworkproviderresult(0,"fixture","fixture","request-" || claim.attempt_id(),10,10,0,1,0,empty,"",1,"","",.ragworkembedding("","","","","",0,"",''x as .binary),"","local-compute",mentions,proposals,notes)
+
+/* Deterministically place an operator cancellation between provider admission
+ * and receipt. The response/usage arrives after the cancellation request. */
+cancellingprovider: class implements .ragworkprovider
+  _store = .ragstorehandle
+  *: factory
+    arg store = .ragstorehandle
+    _store = store
+    return
+  process: method = .ragworkproviderresult
+    arg claim = .ragworkclaim
+    error = ""
+    if requestcancel(_store,claim.job_id(),"cancel during fixture provider call",error) \= 0 then say "PUBLICATION_FAIL=provider cancellation setup " || error
+    provider = .batchprovider("cancelled-response")
+    return provider.process(claim)
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 \= 1 then return 2
+  errors = 0; error = ""; store = .ragstorehandle
+  errors = errors + check(initragstore(args[1],"library-publication","snapshot-publication","publication","1","generic-profile","profile-hash","config-hash","{}",store,error) = 0,"init " || error)
+  if errors > 0 then return 1
+  other = .ragstorehandle
+  errors = errors + check(openragstore(args[1],"readwrite",other,error) = 0,"independent publisher connection " || error)
+  errors = errors + check(sqliteexec(other.database(),"PRAGMA busy_timeout=0") = 0,"bounded lock contender")
+  generation = 0
+  errors = errors + check(begingeneration(store,1,"snapshot-publication","held publisher",generation,error) = 0,"hold publication ownership " || error)
+  /* No timing heuristic: SQLite's first connection definitely owns the write
+   * transaction. A second publisher must not touch its shared projection. */
+  status = publishmanifest(other,error)
+  errors = errors + check(status \= 0,"manifest publisher ignored another connection's publication ownership")
+  errors = errors + check(abortgeneration(store,error) = 0,"release publication ownership " || error)
+  errors = errors + check(publishmanifest(other,error) = 0,"publish after owner released " || error)
+  errors = errors + check(closeragstore(other,error) = 0,"close contender")
+
+  database = store.database()
+  errors = errors + check(sqliteexec(database,"INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES('artifact-publication','raw','text/plain','utf-8',NULL,'fixture://publication','fixture')") = 0,"artifact")
+  errors = errors + check(sqliteexec(database,"INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('text-publication','text','Alpha Beta','fixture','utf8','fixture')") = 0,"text")
+  errors = errors + check(sqliteexec(database,"INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('source-publication','fixture','publication','revision-publication','active','fixture://publication','Publication',1)") = 0,"source")
+  errors = errors + check(sqliteexec(database,"INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES('revision-publication','source-publication','envelope','artifact-publication','text-publication','metadata','fixture',1)") = 0,"revision")
+  errors = errors + check(sqliteexec(database,"INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('content-publication','content','Alpha Beta','input')") = 0,"content")
+  errors = errors + check(sqliteexec(database,"INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('chunk-publication','revision-publication',1,0,10,'content-publication','continuity','fixture','direct',1)") = 0,"chunk")
+  errors = errors + check(sqliteexec(database,"INSERT INTO chunks_fts(revision_chunk_id,content_id,body) VALUES('chunk-publication','content-publication','Alpha Beta')") = 0,"FTS")
+  errors = errors + check(sqliteexec(database,"INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,created_at,updated_at) VALUES('job-publication','" || copies("a",64) || "','{}','snapshot-publication','queued',1,1,128,64,0,'fixture','fixture')") = 0,"job")
+  input = '{"revision_chunk_id":"chunk-publication","charging_basis":"local-compute"}'
+  errors = errors + check(sqliteexec(database,"INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES('item-publication','job-publication','improve-extraction','queued',1,'idem','" || rxhash..sha256hex(input as .binary) || "','" || input || "','fixture','fixture')") = 0,"item")
+  errors = errors + check(configurejobbudget(store,"job-publication",10000,128,64,0,5000,1,1,error) = 0,"budget " || error)
+  provider = .batchprovider("publication"); disposition = ""
+  policy = .ragclaimpolicy("fixture","concept","related-to",1000000,750000,500000,-1000000,250000)
+  status = runworkeronce(store,"job-publication","fixture-worker",60,1,policy,provider,disposition,error,genericprofile())
+  errors = errors + check(status = 0,"settle rejected batch " || error)
+  errors = errors + check(scalar(database,"SELECT published_generation FROM library_meta") = 1,"rejected batch published a generation prefix")
+  errors = errors + check(scalar(database,"SELECT count(*) FROM concepts") = 0 & scalar(database,"SELECT count(*) FROM mentions") = 0 & scalar(database,"SELECT count(*) FROM candidate_mentions") = 0,"rejected batch left partial concepts or mentions")
+  errors = errors + check(scalar(database,"SELECT count(*) FROM provider_runs") = 1 & scalar(database,"SELECT count(*) FROM attempts") = 1,"rejected batch lost or repeated paid accounting")
+  errors = errors + check(scalar(database,"SELECT reserved_calls+reserved_tokens+reserved_cost FROM jobs") = 0,"rejected batch leaked reservations")
+
+  /* Rollback is an operator operation too. If SQLite rejects its final
+   * pointer update, the old published manifest and FTS must still be usable. */
+  generation = 0
+  errors = errors + check(begingeneration(store,1,"snapshot-publication","rollback fault source",generation,error) = 0 & commitgeneration(store,generation,error) = 0 & publishmanifest(store,error) = 0,"prepare rollback fault " || error)
+  errors = errors + check(sqliteexec(database,"CREATE TRIGGER rollback_fault BEFORE UPDATE OF published_generation ON library_meta WHEN NEW.published_generation<OLD.published_generation BEGIN SELECT RAISE(ABORT,'injected rollback pointer failure'); END") = 0,"inject rollback failure")
+  status = rollbackgeneration(store,generation,1,"fixture rejected rollback",error)
+  errors = errors + check(status \= 0 & pos("rollback pointer",error) > 0,"rollback reached the intended SQL failure " || error)
+  errors = errors + check(scalar(database,"SELECT published_generation FROM library_meta") = generation & scalar(database,"SELECT count(*) FROM chunks_fts") = 1,"rejected rollback changed SQLite publication or FTS")
+  manifest_state = ""
+  errors = errors + check(manifeststate(store,manifest_state,error) = 0 & manifest_state = "aligned","rejected rollback changed the published manifest: " || manifest_state)
+  errors = errors + check(sqliteexec(database,"DROP TRIGGER rollback_fault") = 0 & recovermanifest(store,error) = 0,"remove rollback failure and recover projection " || error)
+  errors = errors + check(rollbackgeneration(store,generation,1,"fixture successful rollback",error) = 0 & manifeststate(store,manifest_state,error) = 0 & manifest_state = "aligned","successful rollback remains aligned " || error)
+
+  errors = errors + check(sqliteexec(database,"INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,created_at,updated_at) VALUES('job-cancel','" || copies("b",64) || "','{}','snapshot-publication','queued',1,1,128,64,0,'fixture','fixture'); INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES('item-cancel','job-cancel','improve-extraction','queued',1,'idem-cancel','" || rxhash..sha256hex(input as .binary) || "','" || input || "','fixture','fixture')") = 0,"cancellation job")
+  errors = errors + check(configurejobbudget(store,"job-cancel",10000,128,64,0,5000,1,1,error) = 0,"cancellation budget " || error)
+  cancelled_provider = .cancellingprovider(store)
+  status = runworkeronce(store,"job-cancel","cancel-fixture-worker",60,1,policy,cancelled_provider,disposition,error,genericprofile())
+  errors = errors + check(status = 0 & disposition = "cancelled","cancel after admitted response " || disposition || " " || error)
+  errors = errors + check(scalar(database,"SELECT count(*) FROM provider_runs") = 2 & scalar(database,"SELECT count(*) FROM attempts WHERE item_id='item-cancel' AND outcome='cancelled' AND provider_run_id IS NOT NULL") = 1,"cancelled paid response lost its accounting")
+  errors = errors + check(scalar(database,"SELECT reserved_calls+reserved_tokens+reserved_cost FROM jobs WHERE job_id='job-cancel'") = 0 & scalar(database,"SELECT count(*) FROM job_items WHERE item_id='item-cancel' AND state='cancelled'") = 1,"cancelled response did not release reservations and finish")
+  errors = errors + check(scalar(database,"SELECT published_generation FROM library_meta") = 1 & scalar(database,"SELECT count(*) FROM concepts") = 0,"cancelled response published graph data")
+  errors = errors + check(closeragstore(store,error) = 0,"close fixture")
+  if errors > 0 then return 1
+  say "PUBLICATION_OK ownership batch_atomicity paid_accounting rollback_failure cancellation"
+  return 0

@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragclaims expose ragclaimpolicy ragextractionproposal ragproposalvalidation ragproposalresult ragtraversalstep ragextractionrank promotemention rankchunk validateproposal applyproposal applyclaimedproposal retractsupport traverseclaims
+namespace ragclaims expose ragclaimpolicy ragextractionproposal ragproposalvalidation ragproposalresult ragtraversalstep ragextractionrank promotemention rankchunk validateproposal applyproposal applyproposaltransaction applyclaimedproposal retractsupport traverseclaims
 
 import rxfnsb
 import rxjson
@@ -292,12 +292,25 @@ ragextractionrank: class
 
 promotemention: procedure = .int
   arg store = .ragstorehandle, candidate_id = .string, canonical_label = .string, concept_type = .string, aliases = .string[], ambiguity_concept_ids = .string[], policy = .ragclaimpolicy, config_snapshot_id = .string, expose concept_or_ambiguity_id = .string, expose error = .string, selected_concept_id = "", owned_generation = 0, shared_alias = 0
+  if owned_generation > 0 then do
+    if sqliteexec(store.database(),"SAVEPOINT mention_promotion") \= 0 then do; error = "cannot stage mention within batch"; return -3; end
+  end
+  status = _promotemention(store,candidate_id,canonical_label,concept_type,aliases,ambiguity_concept_ids,policy,config_snapshot_id,concept_or_ambiguity_id,error,selected_concept_id,owned_generation,shared_alias)
+  if owned_generation > 0 then do
+    if status \= 0 then call sqliteexec store.database(),"ROLLBACK TO mention_promotion"
+    if sqliteexec(store.database(),"RELEASE mention_promotion") \= 0 then do; error = "cannot finish staged mention"; return -3; end
+  end
+  return status
+
+_promotemention: procedure = .int
+  arg store = .ragstorehandle, candidate_id = .string, canonical_label = .string, concept_type = .string, aliases = .string[], ambiguity_concept_ids = .string[], policy = .ragclaimpolicy, config_snapshot_id = .string, expose concept_or_ambiguity_id = .string, expose error = .string, selected_concept_id = .string, owned_generation = .int, shared_alias = .int
   error = ""; concept_or_ambiguity_id = ""
   if store.writable() \= 1 | candidate_id = "" | canonical_label = "" | policy.permits_type(concept_type) \= 1 | config_snapshot_id = "" then do
     error = "mention promotion inputs are invalid"
     return -1
   end
   current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if owned_generation > 0 then current = owned_generation
   candidate_chunk = ""; candidate_start = 0; candidate_end = 0; candidate_decision = ""
   if current < 1 | _candidate(store.database(), candidate_id, candidate_chunk, candidate_start, candidate_end, candidate_decision) \= 1 then do; error = "active accepted candidate is unavailable"; return -2; end
   database = store.database(); promotion_complete = 1
@@ -339,16 +352,16 @@ promotemention: procedure = .int
   if ambiguity_concept_ids.0 > 1 then do
     ambiguity_id = "ambiguity-sha256:" || rxhash..sha256hex((lower(canonical_label) || "00"x || policy.policy_version()) as .binary)
     do i = 1 to ambiguity_concept_ids.0
-      if _activeconcept(database, ambiguity_concept_ids[i], current, "", "") \= 1 then return _abort(store, "ambiguity target is not active", error)
+      if _activeconcept(database, ambiguity_concept_ids[i], current, "", "") \= 1 then return _abortmention(store,owned_generation,"ambiguity target is not active", error)
       sql = "INSERT OR IGNORE INTO ambiguity_candidates(ambiguity_id,concept_id,revision_chunk_id,decision_id,visible_from_generation) VALUES(" || _q(ambiguity_id) || "," || _q(ambiguity_concept_ids[i]) || "," || _q(candidate_chunk) || "," || _q(candidate_decision) || "," || generation || ")"
-      if sqliteexec(database, sql) \= 0 then return _abort(store, "cannot insert ambiguity candidate", error)
+      if sqliteexec(database, sql) \= 0 then return _abortmention(store,owned_generation,"cannot insert ambiguity candidate", error)
     end
     alias_id = "alias-sha256:" || rxhash..sha256hex((lower(canonical_label) || "00"x || ambiguity_id || "00"x || policy.policy_version()) as .binary)
     sql = "INSERT OR IGNORE INTO aliases(alias_id,normalized_alias,target_concept_id,ambiguity_id,decision_id,visible_from_generation) VALUES(" || _q(alias_id) || "," || _q(lower(canonical_label)) || ",NULL," || _q(ambiguity_id) || "," || _q(candidate_decision) || "," || generation || ")"
-    if sqliteexec(database, sql) \= 0 then return _abort(store, "cannot insert ambiguity alias", error)
+    if sqliteexec(database, sql) \= 0 then return _abortmention(store,owned_generation,"cannot insert ambiguity alias", error)
     mention_id = "mention-sha256:" || rxhash..sha256hex((ambiguity_id || "00"x || candidate_chunk || "00"x || candidate_start || "00"x || candidate_end) as .binary)
     sql = "INSERT OR IGNORE INTO mentions(mention_id,concept_id,ambiguity_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES(" || _q(mention_id) || ",NULL," || _q(ambiguity_id) || "," || _q(candidate_chunk) || "," || candidate_start || "," || candidate_end || "," || generation || ")"
-    if sqliteexec(database, sql) \= 0 then return _abort(store, "cannot insert ambiguity mention", error)
+    if sqliteexec(database, sql) \= 0 then return _abortmention(store,owned_generation,"cannot insert ambiguity mention", error)
     concept_or_ambiguity_id = ambiguity_id
   end
   else do
@@ -356,31 +369,31 @@ promotemention: procedure = .int
     if selected_concept_id \= "" then concept_id = selected_concept_id
     if _insertconcept(database, concept_id, canonical_label, concept_type, generation, error) \= 0 then do
       preserved_error = error
-      return _abort(store, preserved_error, error)
+      return _abortmention(store,owned_generation,preserved_error, error)
     end
     all_aliases = .string[]; all_aliases[1] = canonical_label
     do i = 1 to aliases.0
       all_aliases[all_aliases.0 + 1] = aliases[i]
     end
     do i = 1 to all_aliases.0
-      if strip(all_aliases[i]) = "" then return _abort(store, "alias cannot be empty", error)
+      if strip(all_aliases[i]) = "" then return _abortmention(store,owned_generation,"alias cannot be empty", error)
       conflict = _aliasconflict(database, lower(strip(all_aliases[i])), concept_id, current)
-      if conflict \= "" & shared_alias = 0 then return _abort(store, "canonical alias conflict requires review", error)
+      if conflict \= "" & shared_alias = 0 then return _abortmention(store,owned_generation,"canonical alias conflict requires review", error)
       alias_id = "alias-sha256:" || rxhash..sha256hex((lower(strip(all_aliases[i])) || "00"x || concept_id || "00"x || policy.policy_version()) as .binary)
       sql = "INSERT OR IGNORE INTO aliases(alias_id,normalized_alias,target_concept_id,ambiguity_id,decision_id,visible_from_generation) VALUES(" || _q(alias_id) || "," || _q(lower(strip(all_aliases[i]))) || "," || _q(concept_id) || ",NULL," || _q(candidate_decision) || "," || generation || ")"
-      if sqliteexec(database, sql) \= 0 then return _abort(store, "cannot insert canonical alias", error)
+      if sqliteexec(database, sql) \= 0 then return _abortmention(store,owned_generation,"cannot insert canonical alias", error)
       if conflict \= "" & shared_alias = 1 then do
         ambiguity_id = "ambiguity-sha256:" || rxhash..sha256hex((lower(strip(all_aliases[i])) || "00"x || policy.policy_version()) as .binary)
         sql = "INSERT OR IGNORE INTO ambiguity_candidates(ambiguity_id,concept_id,revision_chunk_id,decision_id,visible_from_generation) SELECT " || _q(ambiguity_id) || ",target_concept_id," || _q(candidate_chunk) || "," || _q(candidate_decision) || "," || generation || " FROM aliases WHERE normalized_alias=" || _q(lower(strip(all_aliases[i]))) || " AND target_concept_id IS NOT NULL AND visible_to_generation IS NULL"
-        if sqliteexec(database, sql) \= 0 then return _abort(store, "cannot preserve shared alias candidates", error)
+        if sqliteexec(database, sql) \= 0 then return _abortmention(store,owned_generation,"cannot preserve shared alias candidates", error)
         ambiguity_alias = "alias-sha256:" || rxhash..sha256hex((lower(strip(all_aliases[i])) || "00"x || ambiguity_id || "00"x || policy.policy_version()) as .binary)
         sql = "INSERT OR IGNORE INTO aliases(alias_id,normalized_alias,target_concept_id,ambiguity_id,decision_id,visible_from_generation) VALUES(" || _q(ambiguity_alias) || "," || _q(lower(strip(all_aliases[i]))) || ",NULL," || _q(ambiguity_id) || "," || _q(candidate_decision) || "," || generation || ")"
-        if sqliteexec(database, sql) \= 0 then return _abort(store, "cannot preserve shared alias ambiguity", error)
+        if sqliteexec(database, sql) \= 0 then return _abortmention(store,owned_generation,"cannot preserve shared alias ambiguity", error)
       end
     end
     mention_id = "mention-sha256:" || rxhash..sha256hex((concept_id || "00"x || candidate_chunk || "00"x || candidate_start || "00"x || candidate_end) as .binary)
     sql = "INSERT OR IGNORE INTO mentions(mention_id,concept_id,ambiguity_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES(" || _q(mention_id) || "," || _q(concept_id) || ",NULL," || _q(candidate_chunk) || "," || candidate_start || "," || candidate_end || "," || generation || ")"
-    if sqliteexec(database, sql) \= 0 then return _abort(store, "cannot insert canonical mention", error)
+    if sqliteexec(database, sql) \= 0 then return _abortmention(store,owned_generation,"cannot insert canonical mention", error)
     concept_or_ambiguity_id = concept_id
   end
   if owned_generation = 0 then do
@@ -417,7 +430,7 @@ rankchunk: procedure = .int
   return 0
 
 validateproposal: procedure = .int
-  arg store = .ragstorehandle, proposal = .ragextractionproposal, policy = .ragclaimpolicy, expose validation = .ragproposalvalidation, expose error = .string
+  arg store = .ragstorehandle, proposal = .ragextractionproposal, policy = .ragclaimpolicy, expose validation = .ragproposalvalidation, expose error = .string, view_generation = 0
   error = ""; validation = .ragproposalvalidation(-1, "rejected", "invalid", "proposal has not been validated")
   if store.open() \= 1 | proposal.schema() \= "crexx-rag.extraction-proposal/1" | proposal.proposal_id() = "" | proposal.kind() \= "claim" then do
     validation = .ragproposalvalidation(-1, "rejected", "shape", "proposal schema, identity, or kind is invalid")
@@ -463,6 +476,7 @@ validateproposal: procedure = .int
     return 0
   end
   current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if view_generation > 0 then current = view_generation
   if _activechunkspan(store.database(), proposal.revision_chunk_id(), current, proposal.span_start(), proposal.span_end()) \= 1 then do
     validation = .ragproposalvalidation(0, "review", "evidence-span", "evidence chunk or UTF-8 byte span is unavailable")
     return 0
@@ -510,6 +524,13 @@ validateproposal: procedure = .int
 applyproposal: procedure = .int
   arg store = .ragstorehandle, proposal = .ragextractionproposal, policy = .ragclaimpolicy, expected_generation = .int, config_snapshot_id = .string, expose result = .ragproposalresult, expose error = .string
   return _applyproposal(store, proposal, policy, expected_generation, config_snapshot_id, "", "", 0, "", result, error)
+
+/* The caller owns the staging generation and IMMEDIATE transaction. Validate
+ * against its provisional graph, retaining the ordinary public plan checks. */
+applyproposaltransaction: procedure = .int
+  arg store = .ragstorehandle, proposal = .ragextractionproposal, policy = .ragclaimpolicy, expected_generation = .int, config_snapshot_id = .string, owned_generation = .int, expose result = .ragproposalresult, expose error = .string
+  if _scalarint(store.database(),"SELECT count(*) FROM published_generations WHERE generation=" || owned_generation || " AND parent_generation=" || expected_generation || " AND state='staging'") \= 1 then do; error = "proposal has no owned staging generation"; return -3; end
+  return _applyproposal(store,proposal,policy,expected_generation,config_snapshot_id,"","",0,"",result,error,owned_generation)
 
 applyclaimedproposal: procedure = .int
   arg store = .ragstorehandle, proposal = .ragextractionproposal, policy = .ragclaimpolicy, expected_generation = .int, config_snapshot_id = .string, item_id = .string, worker_id = .string, fence = .int, attempt_id = .string, expose result = .ragproposalresult, expose error = .string
@@ -564,12 +585,12 @@ traverseclaims: procedure = .int
   return steps.0
 
 _applyproposal: procedure = .int
-  arg store = .ragstorehandle, proposal = .ragextractionproposal, policy = .ragclaimpolicy, expected_generation = .int, config_snapshot_id = .string, item_id = .string, worker_id = .string, fence = .int, attempt_id = .string, expose result = .ragproposalresult, expose error = .string
+  arg store = .ragstorehandle, proposal = .ragextractionproposal, policy = .ragclaimpolicy, expected_generation = .int, config_snapshot_id = .string, item_id = .string, worker_id = .string, fence = .int, attempt_id = .string, expose result = .ragproposalresult, expose error = .string, owned_generation = 0
   error = ""; result = .ragproposalresult(-1, "error", 0, "", "", "", 0, "not applied")
   if store.writable() \= 1 | expected_generation < 1 | config_snapshot_id = "" | ((item_id = "") \= (attempt_id = "")) then do; error = "proposal apply inputs are invalid"; return -1; end
   if item_id \= "" & (worker_id = "" | fence < 1) then do; error = "claimed proposal requires a complete fence"; return -1; end
   validation = .ragproposalvalidation
-  if validateproposal(store, proposal, policy, validation, error) \= 0 then return -3
+  if validateproposal(store, proposal, policy, validation, error, owned_generation) \= 0 then return -3
   if validation.status() \= 0 then do; error = validation.reason(); result = .ragproposalresult(-1, "rejected", expected_generation, "", "", "", 0, error); return -1; end
   current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
   if current \= expected_generation then do; error = "published generation changed; re-plan"; result = .ragproposalresult(-2, "stale", current, "", "", "", 0, error); return -2; end
@@ -595,7 +616,9 @@ _applyproposal: procedure = .int
   end
   before = _scalarint(store.database(), "SELECT total_changes()")
   if validation.disposition() = "review" then do
-    if sqliteexec(store.database(), "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin proposal review"; return -3; end
+    if owned_generation = 0 then do
+      if sqliteexec(store.database(), "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin proposal review"; return -3; end
+    end
     if item_id \= "" & _activefence(store.database(), item_id, worker_id, fence, attempt_id) \= 1 then return _rollbackresult(store.database(), "worker fence is stale", result, error)
     review_id = "review-sha256:" || rxhash..sha256hex((proposal.proposal_id() || "00"x || validation.review_type() || "00"x || policy.policy_version()) as .binary)
     prepared = .binary
@@ -607,13 +630,17 @@ _applyproposal: procedure = .int
     if item_id \= "" then do
       if _finishitem(store.database(), item_id, worker_id, fence, attempt_id, "review", proposal.canonical()) \= 0 then return _rollbackresult(store.database(), "cannot finish reviewed work item", result, error)
     end
-    if sqliteexec(store.database(), "COMMIT") \= 0 then return _rollbackresult(store.database(), "cannot commit proposal review", result, error)
+    if owned_generation = 0 then do
+      if sqliteexec(store.database(), "COMMIT") \= 0 then return _rollbackresult(store.database(), "cannot commit proposal review", result, error)
+    end
     after = _scalarint(store.database(), "SELECT total_changes()")
     result = .ragproposalresult(0, "review", current, "", "", review_id, after - before, "")
     return 0
   end
-  generation = 0
-  if begingeneration(store, expected_generation, config_snapshot_id, "claim proposal " || proposal.proposal_id(), generation, error) \= 0 then return -3
+  generation = owned_generation
+  if generation = 0 then do
+    if begingeneration(store, expected_generation, config_snapshot_id, "claim proposal " || proposal.proposal_id(), generation, error) \= 0 then return -3
+  end
   database = store.database()
   if item_id \= "" & _activefence(database, item_id, worker_id, fence, attempt_id) \= 1 then return _abortproposal(store, "worker fence is stale", result, error)
   if _insertclaim(database, claim_id, proposal, policy.policy_version(), generation, error) \= 0 then do
@@ -627,16 +654,20 @@ _applyproposal: procedure = .int
   if item_id \= "" then do
     if _finishitem(database, item_id, worker_id, fence, attempt_id, "accepted", proposal.canonical()) \= 0 then return _abortproposal(store, "cannot finish promoted work item", result, error)
   end
-  if commitgeneration(store, generation, error) \= 0 then return -3
+  if owned_generation = 0 then do
+    if commitgeneration(store, generation, error) \= 0 then return -3
+  end
   after = _scalarint(store.database(), "SELECT total_changes()")
-  if publishmanifest(store, error) \= 0 then do; result = .ragproposalresult(-4, "published-manifest-stale", generation, claim_id, support_id, "", after - before, error); return -4; end
+  if owned_generation = 0 then do
+    if publishmanifest(store, error) \= 0 then do; result = .ragproposalresult(-4, "published-manifest-stale", generation, claim_id, support_id, "", after - before, error); return -4; end
+  end
   result = .ragproposalresult(0, "accepted", generation, claim_id, support_id, "", after - before, "")
   return 0
 
 _insertconcept: procedure = .int
   arg database = .binary, concept_id = .string, label = .string, concept_type = .string, generation = .int, expose error = .string
   existing_label = ""; existing_type = ""
-  exists = _activeconcept(database, concept_id, generation - 1, existing_label, existing_type)
+  exists = _activeconcept(database, concept_id, generation, existing_label, existing_type)
   if exists = 1 then do
     if existing_label \= label | existing_type \= concept_type then do; error = "canonical concept identity collision"; return -1; end
     return 0
@@ -821,6 +852,14 @@ _contains: procedure = .int
     if values[i] = expected then return 1
   end
   return 0
+
+_abortmention: procedure = .int
+  arg store = .ragstorehandle, owned_generation = .int, message = .string, expose error = .string
+  if owned_generation = 0 then return _abort(store,message,error)
+  /* The owning wrapper rolls back this mention's savepoint; an alias
+   * question can be retained without aborting the rest of the batch. */
+  error = message
+  return -3
 
 _abort: procedure = .int
   arg store = .ragstorehandle, message = .string, expose error = .string

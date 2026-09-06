@@ -1,0 +1,156 @@
+foreach(required_var CPRAG_NATIVE_APPLICATION CPRAG_LOOPBACK CPRAG_CONFIG_TEMPLATE CPRAG_WORK_DIR)
+    if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
+        message(FATAL_ERROR "${required_var} is required")
+    endif()
+endforeach()
+find_program(CPRAG_SQLITE sqlite3 REQUIRED)
+file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
+
+function(run_cli output)
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E env
+        "CPRAG_FIXTURE_GEMINI_KEY=synthetic-product-gemini-key"
+        "CREXXRAG_SELF=${CPRAG_NATIVE_APPLICATION}" "${CPRAG_NATIVE_APPLICATION}" ${ARGN}
+        WORKING_DIRECTORY "${work}" RESULT_VARIABLE status OUTPUT_VARIABLE result ERROR_VARIABLE detail TIMEOUT 60)
+    file(APPEND "${work}/commands.log" "${ARGN}\n${result}${detail}\n")
+    if(NOT status EQUAL 0)
+        message(FATAL_ERROR "native publication command failed: ${ARGN}\n${result}${detail}")
+    endif()
+    set(${output} "${result}" PARENT_SCOPE)
+endfunction()
+
+foreach(case IN ITEMS write_failure concurrent)
+    set(work "${CPRAG_WORK_DIR}/${case}")
+    file(MAKE_DIRECTORY "${work}/source")
+    set(CPRAG_FIXTURE_SOURCE "${work}/source")
+    set(CPRAG_FIXTURE_GLOSSARY "${work}/glossary.tsv")
+    file(WRITE "${CPRAG_FIXTURE_GLOSSARY}" "format\tcrexx-rag.glossary/1\nconcept\tBillingService\tapplication-component\nconcept\tCustomerDatabase\tdata-store\n")
+    set(source_count 1)
+    set(worker_count 1)
+    set(request_count 2)
+    set(CPRAG_FIXTURE_PORT 19018)
+    set(scenario product-ingestion)
+    if(case STREQUAL "concurrent")
+        set(source_count 4)
+        set(worker_count 2)
+        set(request_count 8)
+        set(CPRAG_FIXTURE_PORT 19019)
+        set(scenario product-concurrent-extraction)
+    endif()
+    foreach(source RANGE 1 ${source_count})
+        file(WRITE "${work}/source/architecture-${source}.txt"
+            "BillingService depends on CustomerDatabase.\nAgain, BillingService depends on CustomerDatabase.\nIndependent source ${source}.\n")
+    endforeach()
+    configure_file("${CPRAG_CONFIG_TEMPLATE}" "${work}/crexxrag.conf" @ONLY)
+    file(READ "${work}/crexxrag.conf" config)
+    string(REPLACE "budget.model_calls = 2" "budget.model_calls = ${request_count}" config "${config}")
+    string(REPLACE "budget.item_limit = 2" "budget.item_limit = ${request_count}" config "${config}")
+    string(REPLACE "budget.input_tokens = 8192" "budget.input_tokens = 65536" config "${config}")
+    string(REPLACE "budget.output_tokens = 1024" "budget.output_tokens = 65536" config "${config}")
+    string(APPEND config "\nprovider.gemini-generate.concurrent_requests = 2\n")
+    file(WRITE "${work}/crexxrag.conf" "${config}")
+    execute_process(COMMAND /bin/sh -c
+        "( \"$1\" \"$2\" \"$3\" \"$4\"; printf '%s' $? >\"$7\" ) >\"$5\" 2>\"$6\" &"
+        publication-test "${CPRAG_LOOPBACK}" "${CPRAG_FIXTURE_PORT}" "${request_count}" "${scenario}"
+        "${work}/server.out" "${work}/server.err" "${work}/server.status"
+        COMMAND_ERROR_IS_FATAL ANY)
+    set(ready FALSE)
+    foreach(poll RANGE 1 200)
+        if(EXISTS "${work}/server.out")
+            file(READ "${work}/server.out" server)
+            if(server MATCHES "READY ${CPRAG_FIXTURE_PORT}")
+                set(ready TRUE)
+                break()
+            endif()
+        endif()
+        execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.02)
+    endforeach()
+    if(NOT ready)
+        message(FATAL_ERROR "native publication fixture did not become ready")
+    endif()
+    run_cli(init init)
+    set(database "${work}/library/library.sqlite")
+    if(case STREQUAL "write_failure")
+        # A real storage failure after mention promotion, independent of model
+        # shape/semantic validation. Source capture and paid usage must survive;
+        # none of the failed extraction's graph prefix may be published.
+        execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+            "CREATE TRIGGER publication_fault BEFORE INSERT ON claims BEGIN SELECT RAISE(ABORT,'injected claim publication failure'); END;"
+            COMMAND_ERROR_IS_FATAL ANY)
+    endif()
+    run_cli(ingest ingest --yes --workers ${worker_count})
+    execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+        "SELECT (SELECT count(*) FROM sources)||':'||(SELECT count(*) FROM revision_chunks)||':'||(SELECT count(*) FROM revision_chunk_embeddings)||':'||(SELECT count(*) FROM provider_runs)||':'||(SELECT count(*) FROM attempts)||':'||(SELECT sum(reserved_calls+reserved_tokens+reserved_cost) FROM jobs)||':'||(SELECT count(*) FROM concepts)||':'||(SELECT count(*) FROM mentions)||':'||(SELECT count(*) FROM claims)||':'||(SELECT count(*) FROM claim_support)||':'||(SELECT count(*) FROM job_items WHERE state='dead_letter');"
+        OUTPUT_VARIABLE actual OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+    file(WRITE "${work}/census.txt" "${actual}\n")
+    if(case STREQUAL "write_failure")
+        if(NOT actual STREQUAL "1:1:1:2:2:0:0:0:0:0:1")
+            message(FATAL_ERROR "failed extraction retained a graph prefix or lost source/usage: ${actual}")
+        endif()
+        execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+            "SELECT message FROM job_events WHERE event_type='dead_letter';"
+            OUTPUT_VARIABLE failure OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+        if(NOT failure MATCHES "claim")
+            message(FATAL_ERROR "storage fault did not reach claim publication: ${failure}")
+        endif()
+        execute_process(COMMAND "${CPRAG_SQLITE}" "${database}" "DROP TRIGGER publication_fault;"
+            COMMAND_ERROR_IS_FATAL ANY)
+    else()
+        if(NOT actual STREQUAL "4:4:4:8:8:0:2:16:1:8:0")
+            message(FATAL_ERROR "concurrent extraction failed graph/source/usage reconciliation: ${actual}")
+        endif()
+        execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+            "SELECT (SELECT count(*) FROM job_items WHERE state NOT IN('processed','skipped'))||':'||(SELECT count(DISTINCT a.worker_id) FROM attempts a JOIN job_items i USING(item_id) WHERE i.item_type='claim-extraction');"
+            OUTPUT_VARIABLE workers OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+        file(READ "${work}/server.out" server)
+        if(NOT workers STREQUAL "0:2" OR NOT server MATCHES "barrier_pairs=2")
+            message(FATAL_ERROR "extraction did not prove overlapping work on both workers: ${workers}\n${server}")
+        endif()
+    endif()
+    run_cli(verify --access diagnose library verify)
+    execute_process(COMMAND "${CPRAG_SQLITE}" "${database}" "PRAGMA integrity_check; SELECT count(*) FROM pragma_foreign_key_check;"
+        OUTPUT_VARIABLE integrity OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+    if(NOT integrity STREQUAL "ok\n0")
+        message(FATAL_ERROR "publication integrity failure: ${integrity}")
+    endif()
+    if(NOT EXISTS "${work}/server.status")
+        message(FATAL_ERROR "native publication fixture did not finish its bounded requests")
+    endif()
+    file(READ "${work}/server.status" server_status)
+    if(NOT server_status STREQUAL "0")
+        message(FATAL_ERROR "native publication fixture failed: ${server_status}")
+    endif()
+
+    # Step through the operator's recovery process after all provider work has
+    # stopped. The fixture server has exited, so these commands cannot obtain
+    # replacement vectors or answers from it.
+    file(REMOVE "${work}/library/manifest.json")
+    execute_process(COMMAND "${CPRAG_NATIVE_APPLICATION}" --access diagnose library verify
+        WORKING_DIRECTORY "${work}" RESULT_VARIABLE missing_status
+        OUTPUT_VARIABLE missing_out ERROR_VARIABLE missing_err TIMEOUT 30)
+    if(missing_status EQUAL 0 OR NOT missing_out MATCHES "missing")
+        message(FATAL_ERROR "missing projection was not reported explicitly: ${missing_out}${missing_err}")
+    endif()
+    run_cli(recover --access control --format json vector rebuild)
+    if(NOT recover MATCHES "\"provider_calls\":0" OR NOT recover MATCHES "identical-no-op")
+        message(FATAL_ERROR "manifest recovery did not reuse the authoritative vector index: ${recover}")
+    endif()
+    run_cli(recovered_verify --access diagnose library verify)
+    run_cli(query --format json query evidence "BillingService depends on CustomerDatabase" --mode lexical)
+    if(NOT query MATCHES "BillingService" OR NOT query MATCHES "\"provider_calls\":0")
+        message(FATAL_ERROR "recovered library did not provide source evidence without a call: ${query}")
+    endif()
+    run_cli(backup --access admin library backup --output "${work}/backup")
+    run_cli(restore --access admin library restore --input "${work}/backup" --output "${work}/restored")
+    run_cli(restored_verify --library "${work}/restored" --access diagnose library verify)
+    run_cli(restored_query --library "${work}/restored" --format json query evidence "BillingService depends on CustomerDatabase" --mode lexical)
+    if(NOT restored_query MATCHES "BillingService" OR NOT restored_query MATCHES "\"provider_calls\":0")
+        message(FATAL_ERROR "restored library did not provide source evidence without a call: ${restored_query}")
+    endif()
+    execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
+        "ATTACH DATABASE '${work}/restored/library.sqlite' AS restored; SELECT (SELECT count(*) FROM provider_runs)||':'||(SELECT count(*) FROM restored.provider_runs)||':'||(SELECT count(*) FROM (SELECT * FROM embeddings EXCEPT SELECT * FROM restored.embeddings))||':'||(SELECT count(*) FROM (SELECT * FROM restored.embeddings EXCEPT SELECT * FROM embeddings))||':'||(SELECT count(*) FROM (SELECT * FROM revision_chunk_embeddings EXCEPT SELECT * FROM restored.revision_chunk_embeddings))||':'||(SELECT count(*) FROM (SELECT * FROM restored.revision_chunk_embeddings EXCEPT SELECT * FROM revision_chunk_embeddings));"
+        OUTPUT_VARIABLE recovery_state OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+    if(NOT recovery_state STREQUAL "${request_count}:${request_count}:0:0:0:0")
+        message(FATAL_ERROR "recovery/backup/restore changed vector data or duplicated provider calls: ${recovery_state}")
+    endif()
+endforeach()
+file(WRITE "${CPRAG_WORK_DIR}/result.txt" "Native extraction: injected late SQL write failure preserves source, embeddings and settled usage with no partial graph. Four independent source chunks: two workers, two forced request pairs, eight calls/attempts, exact graph contents, no failed/unfinished items, no reservations and public verification. Both cases then detect a missing manifest, recover without provider calls, query, back up, restore, verify and query the restored library, with exact vector preservation and unchanged accounted calls.\n")

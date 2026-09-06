@@ -126,6 +126,9 @@ int main(int argc, char** argv)
     }
 
     int close_requests = 0;
+    int paired_client = -1;
+    std::string paired_response;
+    int barrier_pairs = 0;
     std::unordered_map<std::string, int> retry_attempts;
     for (int index = 0; index < requests; ++index) {
         pollfd ready {server, POLLIN, 0};
@@ -233,11 +236,22 @@ int main(int argc, char** argv)
                     http_status = 400;
                     body = R"({"error":{"message":"product Gemini resolution request shape mismatch"}})";
                 } else {
-                    const std::string resolution = scenario == "product-backlog-malformed"
+                    std::string resolution = scenario == "product-backlog-malformed"
                         ? R"({"action":"synthetic-product-gemini-key"})"
                         : scenario == "product-backlog-rejected"
                         ? R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"synthetic-product-gemini-key","evidence":[{"evidence_id":"fixture-note-link","quote":"An unsupported invented quotation."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":""})"
                         : R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The independently quoted passage answers the note.","evidence":[{"evidence_id":"fixture-note-link","quote":"billingservice depends on customerdatabase."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":""})";
+                    if (scenario == "product-concurrent") {
+                        const std::string marker = "\\\"evidence_id\\\":\\\"";
+                        const auto position = request.find(marker);
+                        if (position == std::string::npos) return 6;
+                        const auto start = position + marker.size();
+                        const auto end = request.find("\\\"", start);
+                        if (end == std::string::npos) return 6;
+                        const auto evidence_id = request.substr(start, end - start);
+                        const auto response_id = resolution.find("fixture-note-link");
+                        resolution.replace(response_id, std::string("fixture-note-link").size(), evidence_id);
+                    }
                     body = "{\"responseId\":\"product-gemini-resolution-001\",\"candidates\":[{\"content\":{\"parts\":[{\"text\":"
                         + json_string(resolution)
                         + "}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":210,\"candidatesTokenCount\":64}}";
@@ -457,11 +471,32 @@ int main(int argc, char** argv)
             + "\r\nContent-Type: application/json\r\nContent-Length: "
             + std::to_string(body.size()) + "\r\nX-Request-Id: loopback-request-" + std::to_string(index + 1)
             + "\r\n" + extra_headers + "Connection: close\r\n\r\n" + body;
-        send_all(client, response);
-        ::close(client);
+        if ((scenario == "product-concurrent"
+             && request.find("Durable resolution input:") != std::string::npos)
+            || (scenario == "product-concurrent-extraction"
+                && request.find("crexx-rag.discovery-context/1") != std::string::npos)) {
+            // A rendezvous, not a sleep: neither response is released until
+            // two independent product workers have reached the provider.
+            if (paired_client < 0) {
+                paired_client = client;
+                paired_response = response;
+            } else {
+                if (!send_all(paired_client, paired_response) || !send_all(client, response)) return 7;
+                ::close(paired_client);
+                ::close(client);
+                paired_client = -1;
+                ++barrier_pairs;
+                std::cout << "BARRIER_PAIR " << barrier_pairs << std::endl;
+            }
+        } else {
+            send_all(client, response);
+            ::close(client);
+        }
     }
+    if (paired_client >= 0) { ::close(paired_client); ::close(server); return 8; }
     std::cout << "SUMMARY scenario=" << scenario << " connections=" << requests
-              << " request_connection_close=" << close_requests << std::endl;
+              << " request_connection_close=" << close_requests
+              << " barrier_pairs=" << barrier_pairs << std::endl;
     ::close(server);
     return 0;
 }

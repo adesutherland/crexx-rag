@@ -506,7 +506,25 @@ _expandworkflows: procedure = .int
   return 0
 
 backlogschema: procedure = .string
-  return '{"type":"object","additionalProperties":false,"required":["action","object_id","target_concept_id","canonical_label","concept_type","successors","reason","evidence","effective_from","effective_to","qualifiers_json","question"],"properties":{"action":{"type":"string","enum":["unresolved","reuse","distinct","split","merge","synonym","type-correction","retire","restore","move","retract","qualify","retain","investigate"]},"object_id":{"type":"string"},"target_concept_id":{"type":"string"},"canonical_label":{"type":"string"},"concept_type":{"type":"string"},"successors":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["canonical_label","concept_type"],"properties":{"canonical_label":{"type":"string"},"concept_type":{"type":"string"}}}},"reason":{"type":"string"},"evidence":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["evidence_id","quote"],"properties":{"evidence_id":{"type":"string"},"quote":{"type":"string"}}}},"effective_from":{"type":"string"},"effective_to":{"type":"string"},"qualifiers_json":{"type":"string"},"question":{"type":"string"}}}'
+  arg subject_type = "", workflow = 0
+  actions = _resolutionactions(subject_type,workflow); encoded = "["
+  do i = 1 to words(actions)
+    if i > 1 then encoded = encoded || ","
+    encoded = encoded || jsonquote(word(actions,i))
+  end
+  encoded = encoded || "]"
+  return '{"type":"object","additionalProperties":false,"required":["action","object_id","target_concept_id","canonical_label","concept_type","successors","reason","evidence","effective_from","effective_to","qualifiers_json","question"],"properties":{"action":{"type":"string","enum":' || encoded || '},"object_id":{"type":"string"},"target_concept_id":{"type":"string"},"canonical_label":{"type":"string"},"concept_type":{"type":"string"},"successors":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["canonical_label","concept_type"],"properties":{"canonical_label":{"type":"string"},"concept_type":{"type":"string"}}}},"reason":{"type":"string"},"evidence":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["evidence_id","quote"],"properties":{"evidence_id":{"type":"string"},"quote":{"type":"string"}}}},"effective_from":{"type":"string"},"effective_to":{"type":"string"},"qualifiers_json":{"type":"string"},"question":{"type":"string"}}}'
+
+_resolutionactions: procedure = .string
+  arg subject_type = .string, workflow = .int
+  if subject_type = "" then return "unresolved reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate"
+  actions = "unresolved retain investigate"
+  if subject_type = "alias-issue" then actions = actions || " reuse distinct"
+  if subject_type = "concept" | (subject_type = "note" & workflow = 0) then actions = actions || " split merge synonym type-correction retire restore"
+  if subject_type = "claim" | subject_type = "conflict" then actions = actions || " retract qualify"
+  if workflow = 1 & wordpos(subject_type,"alias mention support claim note ambiguity") > 0 then actions = actions || " move"
+  if workflow = 1 & wordpos(subject_type,"alias mention support note ambiguity") > 0 then actions = actions || " retract"
+  return actions
 
 validatebacklogresponse: procedure = .int
   arg database = .binary, task_id = .string, response = .string, expose grounding_json = .string, expose error = .string
@@ -535,6 +553,9 @@ validatebacklogresponse: procedure = .int
   task_evidence = _text(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _q(task_id))
   packet = .jsondocument(task_evidence); passages = packet.member(packet.root(),"passages")
   if packet.valid() \= 1 | packet.node_type(passages) \= "array" then do; error = "durable resolution evidence is unavailable"; return -1; end
+  subject_type = _text(database,"SELECT subject_type FROM maintenance_tasks WHERE task_id=" || _q(task_id))
+  workflow = _text(database,"SELECT workflow_id FROM maintenance_tasks WHERE task_id=" || _q(task_id)) \= ""
+  if wordpos(action,_resolutionactions(subject_type,workflow)) = 0 then do; error = "resolution action is not applicable to its subject"; return -1; end
   if action \= "unresolved" & action \= "investigate" & action \= "retire" & result.node_count(evidence_node) = 0 then do; error = "resolution decision requires source evidence"; return -1; end
   grounds = "["; seen = .string[]
   do i = 1 to result.node_count(evidence_node)

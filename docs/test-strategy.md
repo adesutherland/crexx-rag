@@ -3,6 +3,13 @@
 The maintained suite tests the single shipping architecture rather than an old
 implementation comparison.
 
+The [reliability coverage review](reliability-coverage-review.md) maps these
+tests to operator outcomes and records the unproved crash, publication and
+concurrency boundaries. A passing suite is necessary, but is not evidence that
+unattended long-running maintenance is qualified. In particular, idle worker
+launch is not concurrent work qualification, and provider success is not item
+publication success. The live 5,000-item run is held pending those gates.
+
 ```sh
 cmake --preset debug
 cmake --build --preset debug
@@ -42,7 +49,9 @@ metadata directly.
 | `installed_product` | scratch-prefix installation, installed skills/tutorial, doctor/init/provider smoke/ingest/maintain/query using only installed product artifacts |
 | `quotation_grounding` | exact-first/Unicode casefold/whitespace grounding, original byte mapping, repeated spans and scoped endpoints on both VMs and optimization modes |
 | `durable_backlog` | complete split/merge fan-out, claim conflict preservation and qualification, typed identities, manual census/resume, supervised review, stale-before/after-call rejection, settled-response crash/window recovery and zero-call SQLite embedding reuse on both VMs |
-| `durable_backlog_provider` | native guided maintenance through Gemini loopback: valid decisions, malformed responses, product-rejected quotations, redacted diagnostics, runtime configuration transitions, shared call limits and unchanged source/vector state |
+| `durable_backlog_provider` | native guided maintenance through Gemini loopback: valid decisions, malformed responses, product-rejected quotations, redacted diagnostics, runtime configuration transitions; 40 resolutions with two workers and 20 forced overlapping request pairs, exact terminal accounting and unchanged source/vector state |
+| `publication` | independent SQLite connections prove manifest ownership; late batch rejection, rejected rollback and cancellation during an admitted provider call check graph preservation, usage, reservations and manifest alignment on both VMs |
+| `native_publication` | public extraction with an injected late SQL write failure; four independent chunks, two native workers with forced overlapping requests and exact graph/source/vector/usage reconciliation; detect/recover a missing manifest, query, backup, restore, verify and query again without further calls |
 | `local_embedding_protocol` | llama.cpp-compatible `/v1/embeddings`, restricted local privacy, local-compute charging, and 429 `Retry-After` plus 503 exponential retry on both VMs and compiler modes |
 
 The Gemini tests always exercise the Gemini adapter and Google request/response

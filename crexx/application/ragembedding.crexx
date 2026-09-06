@@ -226,6 +226,27 @@ buildannvectorgeneration: procedure = .int
   clusters = _clusters(chunk_ids, input_digests, assignments, centroid_count)
   payload_text = '{"schema":"crexx-rag.rxvector-ann/1","algorithm":"ivf-flat-v1","codec":"f32le-v1","storage":"sqlite-embedding-blobs","semantic_generation":' || generation || ',"embedding_profile_id":' || _json(embedding_profile_id) || ',"dimension":' || dimension || ',"row_count":' || rows || ',"centroid_count":' || centroid_count || ',"probe_count":' || probe_count || ',"centroids_f32le":' || _json(lower(bin2x(centroid_wire))) || ',"clusters":[' || clusters || ']}'
   if length(payload_text) > maximum_sidecar_bytes then do; error = "vector generation manifest exceeds vector.maximum_sidecar_bytes"; return -2; end
+  /* Graph-only publication does not invalidate an immutable vector index.
+   * Compare the complete deterministic payload, including trained centroids,
+   * after proving identical source/embedding membership along the ancestry. */
+  target_generation = generation; compatible = .binary
+  sql = "SELECT semantic_generation,sidecar_checksum FROM vector_generations WHERE state='published' AND embedding_profile_id=" || _q(embedding_profile_id) || " AND " || compatiblevectorpredicate(generation as .string) || " ORDER BY semantic_generation DESC LIMIT 1"
+  if sqliteprepare(store.database(),sql,compatible) \= 0 then do; error = "cannot inspect compatible vector replay"; return -3; end
+  compatible_step = sqlitestep(compatible)
+  if compatible_step = 100 then do
+    old_generation = 0; old_checksum = ""
+    compatible_columns = sqlitecolumnint(compatible,0,old_generation) | sqlitecolumntext(compatible,1,old_checksum)
+    call sqlitefinalize compatible
+    if compatible_columns \= 0 then do; error = "cannot decode compatible vector replay"; return -3; end
+    old_payload = changestr('"semantic_generation":' || generation || ',',payload_text,'"semantic_generation":' || old_generation || ',')
+    if rxhash..sha256hex(old_payload as .binary) = old_checksum then do
+      generation = old_generation; payload_text = old_payload
+    end
+  end
+  else do
+    call sqlitefinalize compatible
+    if compatible_step \= 101 then do; error = "cannot read compatible vector replay"; return -3; end
+  end
   checksum = rxhash..sha256hex(payload_text as .binary)
   vector_generation_id = "vg-" || substr(checksum, 1, 24)
   prepared = .binary
@@ -238,7 +259,7 @@ buildannvectorgeneration: procedure = .int
     if sidecar_name \= expected_name then do; error = "stored sidecar name conflicts with its content identity"; return -3; end
     raw = .binary; bytes = 0; read_error = ""; state = "identical-no-op"
     if readbinaryfilebounded(store.path() || "/" || sidecar_name, maximum_sidecar_bytes, raw, bytes, read_error) \= 0 | rxhash..sha256hex(raw) \= checksum then do
-      if _restorederivedsidecar(store, generation, vector_generation_id, sidecar_name, payload_text, error) \= 0 then return -3
+      if _restorederivedsidecar(store, generation, vector_generation_id, sidecar_name, payload_text, error, target_generation) \= 0 then return -3
       state = "rebuilt-from-sqlite"
     end
     manifest_status = ""
@@ -262,10 +283,10 @@ buildannvectorgeneration: procedure = .int
   return 0
 
 _restorederivedsidecar: procedure = .int
-  arg store = .ragstorehandle, generation = .int, vector_generation_id = .string, sidecar_name = .string, payload = .string, expose error = .string
+  arg store = .ragstorehandle, generation = .int, vector_generation_id = .string, sidecar_name = .string, payload = .string, expose error = .string, target_generation = .int
   database = store.database(); error = ""
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot lock vector recovery"; return -1; end
-  if _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1") \= generation | _scalarint(database, "SELECT count(*) FROM vector_generations WHERE vector_generation_id=" || _q(vector_generation_id) || " AND state='published' AND semantic_generation=" || generation) \= 1 then do
+  if _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1") \= target_generation | _scalarint(database, "SELECT count(*) FROM vector_generations WHERE vector_generation_id=" || _q(vector_generation_id) || " AND state='published' AND semantic_generation=" || generation || " AND " || compatiblevectorpredicate(target_generation as .string)) \= 1 then do
     call sqliteexec database, "ROLLBACK"; error = "vector publication changed during recovery"; return -1
   end
   temporary = store.path() || "/." || sidecar_name || ".recovery"

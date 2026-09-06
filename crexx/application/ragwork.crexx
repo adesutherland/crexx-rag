@@ -700,7 +700,9 @@ settlecall: procedure = .int
   database = store.database()
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider settlement"; return -3; end
   claim = .ragworkclaim(0, reservation.job_id(), reservation.item_id(), "", "", reservation.worker_id(), reservation.fence(), reservation.attempt_id(), 0, "")
-  if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)
+  /* Cancellation prevents publication, not accounting for an admitted call
+   * that has returned to its still-owning worker. */
+  if _activefence(database, claim,1) \= 1 then return _rollback(database, "worker settlement fence is stale", error)
   if _boundeventcount(database, reservation.job_id(), "reservation-open:" || reservation.reservation_id()) \= 1 | _boundeventcount(database, reservation.job_id(), "reservation-close:" || reservation.reservation_id()) \= 0 then return _rollback(database, "provider reservation is missing or already settled", error)
   if record_provider_run = 1 then do
     provider_run_id = existing_provider_run_id
@@ -934,6 +936,23 @@ readjobstatus: procedure = .int
 
 runworkeronce: procedure = .int
   arg store = .ragstorehandle, job_filter = .string, worker_id = .string, lease_seconds = .int, maximum_attempts = .int, policy = .ragclaimpolicy, provider = .ragworkprovider, expose disposition = .string, expose error = .string, recovery_profile = .ragprofile
+  claim = .ragworkclaim
+  status = _runworkeronce(store,job_filter,worker_id,lease_seconds,maximum_attempts,policy,provider,disposition,error,recovery_profile,claim)
+  /* A cancellation may arrive during the provider or during final validation.
+   * All publication paths retain their ordinary fence checks. Acknowledge only
+   * after this attempt has no unsettled reservation, including uncalled work. */
+  if claim.claimed() = 1 then do
+    pending = _boundcount(store.database(),"SELECT count(*) FROM job_items WHERE item_id=?1 AND state='cancel_requested'",claim.item_id())
+    open_reservations = _boundcount(store.database(),"SELECT count(*) FROM job_events e WHERE e.attempt_id=?1 AND e.event_type LIKE 'reservation-open:%' AND NOT EXISTS(SELECT 1 FROM job_events c WHERE c.attempt_id=e.attempt_id AND c.event_type='reservation-close:'||substr(e.event_type,length('reservation-open:')+1))",claim.attempt_id())
+    if pending = 1 & open_reservations = 0 then do
+      if acknowledgecancel(store,claim,error) \= 0 then do; disposition = "cancel-acknowledgement-failed"; return -3; end
+      error = ""; disposition = "cancelled"; return 0
+    end
+  end
+  return status
+
+_runworkeronce: procedure = .int
+  arg store = .ragstorehandle, job_filter = .string, worker_id = .string, lease_seconds = .int, maximum_attempts = .int, policy = .ragclaimpolicy, provider = .ragworkprovider, expose disposition = .string, expose error = .string, recovery_profile = .ragprofile, expose claim = .ragworkclaim
   disposition = "idle"; error = ""; claim = .ragworkclaim
   if tickbacklogwindow(store, job_filter, error) < 0 then return -3
   claim_status = claimnext(store, job_filter, worker_id, lease_seconds, maximum_attempts, claim, error)
@@ -977,6 +996,7 @@ runworkeronce: procedure = .int
   if provider_result.resolution_json() \= "" then resolution_profile_hash = ragsha256(canonicalprofile(provider_result.resolution_profile()))
   settlement = settlecall(store, reservation, provider_result.provider_id(), provider_result.model(), provider_result.request_id(), provider_outcome, provider_result.input_tokens(), provider_result.output_tokens(), provider_result.cost(), provider_result.duration_ms(), provider_run_id, error, provider_result.provider_run_id(), provider_result.charging_basis(), provider_result.provider_called(), provider_result.diagnostic_json(), provider_result.resolution_json(), resolution_profile_hash)
   if settlement \= 0 then do; disposition = "settlement-failed"; return settlement; end
+  if _boundcount(store.database(),"SELECT count(*) FROM job_items WHERE item_id=?1 AND state='cancel_requested'",claim.item_id()) = 1 then return 0
   if provider_result.ok() \= 1 then do
     retry_seconds = (provider_result.retry_delay_ms() + 999) % 1000
     if retry_seconds < 1 then retry_seconds = 1
@@ -1047,17 +1067,35 @@ runworkeronce: procedure = .int
 
 _completeproviderbatch: procedure = .int
   arg store = .ragstorehandle, claim = .ragworkclaim, provider_result = .ragworkproviderresult, provider_run_id = .string, policy = .ragclaimpolicy, expose error = .string
+  database = store.database(); error = ""
+  /* Provider calls remain concurrent. Only the validated publication owns the
+   * SQLite writer: its fence, current graph, all mutations and completion are
+   * one transaction. A rejected suffix cannot leave a published prefix. */
+  if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider batch publication"; return -3; end
+  if _activefence(database,claim) \= 1 then return _rollback(database,"worker fence is stale before batch publication",error)
+  current = _scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1"); generation = 0
+  if stagegeneration(store,current,claim.config_snapshot_id(),"provider batch " || claim.item_id(),generation,error) \= 0 then return -3
+  if _stageproviderbatch(store,claim,provider_result,provider_run_id,policy,current,generation,error) \= 0 then do
+    call sqliteexec database,"ROLLBACK"
+    return -3
+  end
+  if commitgeneration(store,generation,error) \= 0 then return -3
+  return publishmanifest(store,error)
+
+_stageproviderbatch: procedure = .int
+  arg store = .ragstorehandle, claim = .ragworkclaim, provider_result = .ragworkproviderresult, provider_run_id = .string, policy = .ragclaimpolicy, current = .int, generation = .int, expose error = .string
   error = ""; mentions = provider_result.mentions(); proposals = provider_result.proposals(); notes = provider_result.notes()
   input_json = _boundscalartext(store.database(), "SELECT input_json FROM job_items WHERE item_id=?1", claim.item_id())
   input = .jsondocument(input_json); revision_chunk_id = ""
   if input.valid() \= 1 | input.node_string(input.member(input.root(), "revision_chunk_id"), revision_chunk_id) \= 0 | revision_chunk_id = "" then do; error = "durable batch input has no revision chunk"; return -1; end
-  if _ensureprovidermentions(store, claim, mentions, revision_chunk_id, provider_run_id, error) \= 0 then return -1
+  if _boundcount(store.database(),"SELECT count(*) FROM revision_chunks WHERE revision_chunk_id=?1 AND visible_to_generation IS NULL",revision_chunk_id) \= 1 then do; error = "provider batch source chunk is no longer active"; return -1; end
+  if _ensureprovidermentions(store, claim, mentions, revision_chunk_id, provider_run_id, error, generation) \= 0 then return -1
   ambiguity = .string[]
   do i = 1 to mentions.0
     promoted = ""; aliases = mentions[i].aliases()
     selected = mentions[i].concept_id()
     if _boundcount(store.database(), "SELECT count(*) FROM concepts WHERE concept_id=?1 AND visible_to_generation IS NULL", selected) = 0 then selected = ""
-    if promotemention(store, mentions[i].candidate_id(), mentions[i].label(), mentions[i].concept_type(), aliases, ambiguity, policy, claim.config_snapshot_id(), promoted, error, selected) \= 0 then do
+    if promotemention(store, mentions[i].candidate_id(), mentions[i].label(), mentions[i].concept_type(), aliases, ambiguity, policy, claim.config_snapshot_id(), promoted, error, selected, generation) \= 0 then do
       if error \= "canonical alias conflict requires review" then return -1
       if recordaliasissue(store.database(), mentions[i].candidate_id(), mentions[i].label(), mentions[i].concept_type(), aliases, error) \= 0 then return -1
       iterate
@@ -1067,20 +1105,22 @@ _completeproviderbatch: procedure = .int
   end
   dispositions = ""
   do i = 1 to proposals.0
-    generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
     proposal_result = .ragproposalresult
-    if applyproposal(store, proposals[i].proposal(), policy, generation, claim.config_snapshot_id(), proposal_result, error) \= 0 then return -1
+    if applyproposaltransaction(store,proposals[i].proposal(),policy,current,claim.config_snapshot_id(),generation,proposal_result,error) \= 0 then return -1
     if dispositions \= "" then dispositions = dispositions || ","
     dispositions = dispositions || proposal_result.disposition()
   end
-  return _completebatchattempt(store, claim, notes, revision_chunk_id, provider_run_id, mentions.0, proposals.0, dispositions, error)
+  return _completebatchattempt(store,claim,notes,revision_chunk_id,provider_run_id,mentions.0,proposals.0,dispositions,error,generation)
 
 _ensureprovidermentions: procedure = .int
-  arg store = .ragstorehandle, claim = .ragworkclaim, mentions = .ragworkmention[], revision_chunk_id = .string, provider_run_id = .string, expose error = .string
+  arg store = .ragstorehandle, claim = .ragworkclaim, mentions = .ragworkmention[], revision_chunk_id = .string, provider_run_id = .string, expose error = .string, owned_generation = 0
   database = store.database()
-  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider mention census"; return -1; end
+  if owned_generation = 0 then do
+    if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider mention census"; return -1; end
+  end
   if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale during mention census", error)
   generation = _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if owned_generation > 0 then generation = owned_generation
   do i = 1 to mentions.0
     mention = mentions[i]
     prepared = .binary
@@ -1111,15 +1151,20 @@ _ensureprovidermentions: procedure = .int
     step = sqlitestep(prepared); call sqlitefinalize prepared
     if binds \= 0 | step \= 101 then return _rollback(database, "insert provider mention decision", error)
   end
-  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "commit provider mention census", error)
+  if owned_generation = 0 then do
+    if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "commit provider mention census", error)
+  end
   return 0
 
 _completebatchattempt: procedure = .int
-  arg store = .ragstorehandle, claim = .ragworkclaim, notes = .ragworknote[], revision_chunk_id = .string, provider_run_id = .string, mention_count = .int, proposal_count = .int, dispositions = .string, expose error = .string
+  arg store = .ragstorehandle, claim = .ragworkclaim, notes = .ragworknote[], revision_chunk_id = .string, provider_run_id = .string, mention_count = .int, proposal_count = .int, dispositions = .string, expose error = .string, owned_generation = 0
   database = store.database()
-  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider batch completion"; return -1; end
+  if owned_generation = 0 then do
+    if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider batch completion"; return -1; end
+  end
   if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale during batch completion", error)
   generation = _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if owned_generation > 0 then generation = owned_generation
   do i = 1 to notes.0
     note = notes[i]
     note_id = "note-sha256:" || rxhash..sha256hex((claim.input_hash() || "00"x || note.kind() || "00"x || note.text() || "00"x || note.span_start() || "00"x || note.span_end()) as .binary)
@@ -1141,7 +1186,9 @@ _completebatchattempt: procedure = .int
   sql = "UPDATE job_items SET state='processed',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=" || _q(claim.item_id()) || " AND worker_id=" || _q(claim.worker_id()) || " AND fence=" || claim.fence() || " AND state='running'"
   if sqliteexec(database, sql) \= 0 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "complete provider batch item", error)
   if _event(database, claim.job_id(), claim.item_id(), claim.attempt_id(), "processed", output) \= 0 | _refreshjob(database, claim.job_id()) \= 0 then return _rollback(database, "finish provider batch", error)
-  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "commit provider batch", error)
+  if owned_generation = 0 then do
+    if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "commit provider batch", error)
+  end
   return 0
 
 _reservationcaps: procedure = .int
@@ -1233,9 +1280,10 @@ _jobstate: procedure = .int
   return 0
 
 _activefence: procedure = .int
-  arg database = .binary, claim = .ragworkclaim
+  arg database = .binary, claim = .ragworkclaim, allow_cancelled_settlement = 0
   prepared = .binary
   sql = "SELECT count(*) FROM job_items i JOIN attempts a ON a.attempt_id=?1 AND a.item_id=i.item_id WHERE i.item_id=?2 AND i.job_id=?3 AND i.worker_id=?4 AND i.fence=?5 AND i.state='running' AND i.lease_until>CAST(strftime('%s','now') AS INTEGER) AND a.worker_id=i.worker_id AND a.fence=i.fence AND a.outcome='running'"
+  if allow_cancelled_settlement = 1 then sql = changestr("i.state='running'",sql,"i.state IN('running','cancel_requested')")
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, claim.attempt_id()) \= 0 | sqlitebindtext(prepared, 2, claim.item_id()) \= 0 | sqlitebindtext(prepared, 3, claim.job_id()) \= 0 | sqlitebindtext(prepared, 4, claim.worker_id()) \= 0 | sqlitebindint(prepared, 5, claim.fence()) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
   count = 0; status = sqlitecolumnint(prepared, 0, count); call sqlitefinalize prepared
   if status \= 0 then return -1

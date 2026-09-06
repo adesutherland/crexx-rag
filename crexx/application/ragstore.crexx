@@ -545,19 +545,6 @@ rollbackgeneration: procedure = .int
     if error = "" then error = "rollback target is not a published ancestor"
     return -6
   end
-  rollback_manifest = ""
-  if _manifestprojectiongeneration(store.database(), target_generation, rollback_manifest, error) \= 0 then do
-    call sqliteexec store.database(), "ROLLBACK"
-    return -4
-  end
-  if _writemanifestcontent(store, rollback_manifest, error) \= 0 then do
-    call sqliteexec store.database(), "ROLLBACK"
-    return -2
-  end
-  if _renamemanifest(store, error) \= 0 then do
-    call sqliteexec store.database(), "ROLLBACK"
-    return -2
-  end
   if sqliteexec(store.database(), "DELETE FROM chunks_fts") \= 0 then return _generationfailure(store.database(), "clear rollback FTS projection", error)
   fts_sql = "INSERT INTO chunks_fts(revision_chunk_id,content_id,body) SELECT r.revision_chunk_id,r.content_id,c.text FROM revision_chunks r JOIN chunk_contents c ON c.content_id=r.content_id WHERE r.visible_from_generation<=" || target_generation || " AND (r.visible_to_generation IS NULL OR r.visible_to_generation>" || target_generation || ") ORDER BY r.revision_chunk_id"
   if sqliteexec(store.database(), fts_sql) \= 0 then return _generationfailure(store.database(), "rebuild rollback FTS projection", error)
@@ -572,7 +559,11 @@ rollbackgeneration: procedure = .int
   call sqlitefinalize prepared
   if bind_status \= 0 | step_status \= 101 then return _generationfailure(store.database(), "record rollback event", error)
   if sqliteexec(store.database(), "COMMIT") \= 0 then return _generationfailure(store.database(), "commit generation rollback", error)
-  return 0
+  /* Project only committed SQLite state. A rejected rollback must not rename
+   * the manifest to a generation that never became authoritative. A failure
+   * after this commit has the same explicit projection-recovery boundary as
+   * ordinary generation publication. */
+  return publishmanifest(store,error)
 
 writemanifesttemporary: procedure = .int
   arg store = .ragstorehandle, expose error = .string
@@ -602,8 +593,22 @@ _writemanifestcontent: procedure = .int
 publishmanifest: procedure = .int
   arg store = .ragstorehandle, expose error = .string
   error = ""
-  if writemanifesttemporary(store, error) \= 0 then return -2
-  return _renamemanifest(store, error)
+  if store.writable() \= 1 then do; error = "manifest publication requires readwrite access"; return -5; end
+  /* SQLite owns publication ordering, including the derived file projection.
+   * Read the latest committed generation only after acquiring ownership and
+   * retain it through rename. A delayed publisher cannot overwrite a newer
+   * manifest or remove another publisher's temporary file. */
+  if sqliteexec(store.database(),"BEGIN IMMEDIATE") \= 0 then return _sqlitefailure("begin manifest publication",error)
+  if writemanifesttemporary(store,error) \= 0 then do
+    call sqliteexec store.database(),"ROLLBACK"
+    return -2
+  end
+  if _renamemanifest(store,error) \= 0 then do
+    call sqliteexec store.database(),"ROLLBACK"
+    return -2
+  end
+  if sqliteexec(store.database(),"COMMIT") \= 0 then return _generationfailure(store.database(),"finish manifest publication",error)
+  return 0
 
 _renamemanifest: procedure = .int
   arg store = .ragstorehandle, expose error = .string
@@ -1058,6 +1063,9 @@ _addissue: procedure = .string
  * embedding membership are identical. Callers supply an internal SQL integer
  * expression (or a bound parameter), never operator text. */
 compatiblevectorpredicate: procedure = .string
-  arg generation_sql = .string, qualifier = ""
+  arg generation_sql = .string, qualifier = "", newest_only = 1
   sql = qualifier || "vector_generation_id IN (WITH RECURSIVE target(generation) AS (SELECT " || generation_sql || "), lineage(generation) AS (SELECT generation FROM target UNION ALL SELECT p.parent_generation FROM published_generations p JOIN lineage l ON p.generation=l.generation WHERE p.parent_generation IS NOT NULL), candidates AS (SELECT v.* FROM vector_generations v JOIN lineage l ON l.generation=v.semantic_generation WHERE v.state='published'), latest AS (SELECT a.* FROM candidates a WHERE NOT EXISTS(SELECT 1 FROM candidates b WHERE b.embedding_profile_id=a.embedding_profile_id AND b.semantic_generation>a.semantic_generation)) SELECT v.vector_generation_id FROM latest v CROSS JOIN target t WHERE v.semantic_generation=t.generation OR (NOT EXISTS(SELECT 1 FROM revision_chunks rc WHERE (rc.visible_from_generation<=v.semantic_generation AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>v.semantic_generation))<>(rc.visible_from_generation<=t.generation AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>t.generation))) AND NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id WHERE e.embedding_profile_id=v.embedding_profile_id AND (rce.visible_from_generation<=v.semantic_generation AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>v.semantic_generation))<>(rce.visible_from_generation<=t.generation AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>t.generation)))))"
+  /* Historical observations retain the index they actually used. A later
+   * compatible index must not invalidate that independently recorded view. */
+  if newest_only = 0 then sql = changestr(" WHERE NOT EXISTS(SELECT 1 FROM candidates b WHERE b.embedding_profile_id=a.embedding_profile_id AND b.semantic_generation>a.semantic_generation)",sql,"")
   return sql

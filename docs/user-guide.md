@@ -248,8 +248,11 @@ Profile data declares `format`, one `profile` identity, `concept`,
 `prompt`, and `validator` records. The loader has fixed file, line, type and
 cardinality ceilings; it cannot name or execute a cREXX or RexxScript module.
 Normal profile validation and content-derived profile hashing apply after it is
-parsed. Changing the interpreted profile is a semantic change and therefore
-requires a new ingestion generation.
+parsed. A changed profile requires a reviewed configuration transition.
+Compatible interpretation changes apply prospectively; an unchanged source
+corpus remains a no-op. A change classified `reingest-required` needs an
+explicit, separately qualified transition and must preserve the prior source,
+history and usable derived representation.
 
 ## Workers
 
@@ -291,9 +294,10 @@ crexxrag --access control job replay JOB_ID --item ITEM_ID \
 selected dead letters into a new queued job under the current configuration
 and current item/call/token/cost/allowance budgets. The source job and source
 items remain terminal and unchanged; `job_replays` and `job_replay_items`
-retain the lineage. The target must be semantically compatible, so a model,
-profile, source or discovery change requires a new ingestion generation rather
-than disguising it as a replay.
+retain the lineage. The target must be semantically compatible. If a model,
+profile, source or discovery change makes the failed input incompatible, review
+fresh work under the new interpretation. A replay rejection does not authorize
+reingesting the corpus or replacing its existing data.
 
 The command itself makes no provider call. Start workers for the returned
 `replay_job_id` using the normal supervised worker command. The command
@@ -426,8 +430,10 @@ keeps the earlier ranked batch and mandatory structural review behavior.
 
 The [durable maintenance guide](autonomous-maintenance.md) describes the full
 runtime configuration, five-hour windows, shared budgets, split/merge follow-up
-tasks, interruption recovery and task/decision inspection. No recompilation is
-needed, and changing configuration never reingests an unchanged corpus.
+tasks, the work-specific limits of interruption recovery, and task/decision
+inspection. No recompilation is needed, and changing configuration never
+automatically reingests an unchanged corpus. Unattended concurrent maintenance
+remains subject to the open [reliability gates](reliability-coverage-review.md).
 
 In the compatibility `reviewed` mode, each maintenance plan is an incremental batch bounded by
 `maintenance.batch_items` as well as the global item, provider-call, token,

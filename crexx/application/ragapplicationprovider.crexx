@@ -111,7 +111,11 @@ ragapplicationprovider: class implements .ragworkprovider
     if resolution_work then do
       messages[1] = .providermessage("system", _config.maintenance().resolution_prompt() || " Return exactly the requested fields. Cite evidence_id values and contiguous quotations from the packet. Use empty strings and arrays for unused fields; qualifiers_json is a JSON object string. For split, introduce successors; for merge, select target_concept_id from the supplied catalogue and leave successors empty. Retain connections for the follow-up workflow; do not guess their assignment. For move/retract/qualify, cite every affected support. A retirement may cite no passages only when the impact census is empty. For reuse, choose a supplied candidate; for move, choose a supplied successor. Unresolved is a valid decision, not a failure.")
       messages[2] = .providermessage("user", "Allowed concept types: " || types || "0A"x || "Allowed relationship types: " || relationships || "0A"x || "Durable resolution input: " || input_json)
-      schema = backlogschema()
+      evidence_node = document.member(root,"evidence")
+      subject_node = document.member(evidence_node,"subject")
+      subject_type = _jsonstring(document,subject_node,"type")
+      workflow = document.node_count(document.member(evidence_node,"successors")) > 0
+      schema = backlogschema(subject_type,workflow)
     end
     request_id = "extract-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 32)
     reservation = document.member(root, "reservation"); maximum_output = -1

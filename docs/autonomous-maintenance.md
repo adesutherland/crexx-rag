@@ -1,10 +1,12 @@
 # Durable autonomous maintenance
 
-Status: implemented in the local working tree; all 24 tests pass. The Scottish
-scratch proof preserves the source/vector records and verifies reconstruction
-and ANN retrieval from SQLite. See the test strategy and work notes. This
-is not an installed release or an enabled nightly schedule. A bounded live
-provider qualification remains a separate step before large-corpus maintenance.
+Status: the committed `e369449` baseline passed 24 tests, but its concurrent
+Scottish run failed and was stopped before completing 5,000 items. That pass
+did not establish unattended reliability. Publication and request-contract
+repairs are under qualification; crash recovery across all work kinds remains
+open. See the [use-case coverage review](reliability-coverage-review.md) for
+evidence and release blockers. No nightly schedule or repaired installation has
+been enabled.
 
 ## Operating cycle
 
@@ -132,10 +134,14 @@ Tasks, window policy, attempts, decisions and usage are authoritative SQLite
 records. A pause/deadline cancels unstarted job items while retaining their
 questions for a subsequent window. Paid retries have a configured cap and
 backoff. Recovered unstarted dispatches do not consume the paid-attempt cap.
-A response durably stored with settlement can be reused in another lease or
-window, even when its last permitted paid attempt was used. Usage remains owned
-by the original provider run. This guarantee does not cover a network response
-lost before it was durably recorded.
+A **resolution** response durably stored with settlement can be reused in
+another lease or window, even when its last permitted paid attempt was used.
+Usage remains owned by the original provider run. Codex extraction has a
+separate completed-turn recovery path. Gemini extraction and embedding results
+do not yet share resolution's durable result cache; a crash after usage
+settlement can require another provider call. No path guarantees recovery of a
+network response lost before durable receipt. These differences must be closed
+or explicitly handled before unattended qualification.
 
 Graph maintenance retains source records and embedding BLOBs. An eligible
 existing vector index remains usable across graph-only generations. Missing

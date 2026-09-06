@@ -97,6 +97,18 @@ main: procedure = .int
   arg args = .string[]
   if args.0 \= 1 then return 2
   path = args[1]; errors = 0; error = ""; store = .ragstorehandle
+  /* Applicability is a request contract as well as an apply-time guard. */
+  note_schema = backlogschema("note",0); alias_schema = backlogschema("alias-issue",0)
+  errors = errors + check(pos('"reuse"',note_schema) = 0 & pos('"distinct"',note_schema) = 0 & pos('"retain"',note_schema) > 0,"note schema excludes alias-only actions")
+  errors = errors + check(pos('"reuse"',alias_schema) > 0 & pos('"distinct"',alias_schema) > 0 & pos('"split"',alias_schema) = 0,"alias schema offers identity resolution")
+  kinds = "alias mention support claim note ambiguity"
+  do i = 1 to words(kinds)
+    schema = backlogschema(word(kinds,i),1)
+    errors = errors + check(pos('"move"',schema) > 0 & pos('"retract"',schema) > 0 & pos('"reuse"',schema) = 0,"workflow connection schema " || word(kinds,i))
+  end
+  conflict_schema = backlogschema("conflict",1); gap_schema = backlogschema("gap",0)
+  errors = errors + check(pos('"qualify"',conflict_schema) > 0 & pos('"move"',conflict_schema) = 0,"conflict schema retains supported claim resolution")
+  errors = errors + check(pos('"investigate"',gap_schema) > 0 & pos('"split"',gap_schema) = 0 & pos('"reuse"',gap_schema) = 0,"gap schema offers only supported decisions")
   errors = errors + check(initragstore(path, "library-lifecycle-methodology", "snapshot-lifecycle", "lifecycle-methodology", "1", "generic-profile", "profile-hash", "config-hash", '{}', store, error) = 0, "initialize " || error)
   if errors > 0 then return 1
   database = store.database()
@@ -124,6 +136,8 @@ main: procedure = .int
   policy_json = '{"mode":"automatic","window_seconds":1000,"automatic_actions":"reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate","maximum_impact":100,"maximum_attempts":3,"retry_seconds":1,"maximum_evidence_bytes":65536,"batch_items":100,"resolution_prompt":"Fixture resolution","knowledge_policy":"fixture-v1","provider_id":"fixture","model":"fixture","charging_basis":"local-compute","privacy":"public","profile_id":"generic-profile","discovery_context":"{}","input_tokens":100000,"output_tokens":10000,"cost_microunits":0,"time_ms":1000,"inflight":1,"item_limit":100,"model_calls":100,"input_budget":10000000,"output_budget":1000000,"cost_budget":0,"codex_turns":0}'
   policy = .jsondocument(policy_json); task_id = ""
   errors = errors + check(enqueuebacklogtask(database,"lifecycle","concept","concept-parent","","",999999,policy,task_id,error) = 0, "queue split decision " || error)
+  grounds = ""
+  errors = errors + check(validatebacklogresponse(database,task_id,responsejson("reuse"),grounds,error) \= 0 & error = "resolution action is not applicable to its subject","reject identity-only answer on a concept task")
   first_task = task_id
   errors = errors + check(enqueuebacklogtask(database,"lifecycle","concept","concept-parent","","",999999,policy,task_id,error) = 0 & task_id = first_task & scalarint(database,"SELECT count(*) FROM maintenance_tasks") = 1, "unchanged task is deduplicated")
   texts = .string[]; scores = .int[]

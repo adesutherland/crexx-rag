@@ -227,15 +227,22 @@ execute_process(COMMAND ${cli} --profile it-architecture-profile --access curate
     OUTPUT_VARIABLE lifecycle_decide_out ERROR_VARIABLE lifecycle_decide_err
     RESULT_VARIABLE lifecycle_decide_result TIMEOUT 30)
 execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
-        "SELECT (SELECT count(*) FROM aliases WHERE normalized_alias='billing platform' AND target_concept_id='${lifecycle_concept}' AND visible_to_generation IS NULL) || ':' || (SELECT count(*) FROM vector_generations WHERE semantic_generation=(SELECT published_generation FROM library_meta WHERE singleton=1) AND algorithm='ivf-flat-v1' AND state='published')"
+        "SELECT (SELECT count(*) FROM aliases WHERE normalized_alias='billing platform' AND target_concept_id='${lifecycle_concept}' AND visible_to_generation IS NULL) || ':' || (SELECT count(*) FROM vector_generations WHERE algorithm='ivf-flat-v1' AND state='published')"
     OUTPUT_VARIABLE lifecycle_state OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_VARIABLE lifecycle_state_err RESULT_VARIABLE lifecycle_state_result)
 if(NOT lifecycle_decide_result EQUAL 0 OR
    NOT lifecycle_decide_out MATCHES "\"promotion_disposition\":\"synonym-applied\"" OR
-   NOT lifecycle_decide_out MATCHES "\"vector_state\":\"published\"" OR
+   NOT lifecycle_decide_out MATCHES "\"vector_state\":\"identical-no-op\"" OR
    NOT lifecycle_decide_out MATCHES "\"vector_generations\":1" OR
    NOT lifecycle_state_result EQUAL 0 OR NOT lifecycle_state STREQUAL "1:1")
-    message(FATAL_ERROR "public lifecycle review did not atomically publish its synonym and ANN generation:\n${lifecycle_decide_out}${lifecycle_decide_err}\nstate=${lifecycle_state} ${lifecycle_state_err}")
+    message(FATAL_ERROR "public lifecycle review did not publish its synonym while reusing the unchanged ANN generation:\n${lifecycle_decide_out}${lifecycle_decide_err}\nstate=${lifecycle_state} ${lifecycle_state_err}")
+endif()
+execute_process(COMMAND ${cli} --access diagnose library verify
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE lifecycle_verify ERROR_VARIABLE lifecycle_verify_err
+    RESULT_VARIABLE lifecycle_verify_result TIMEOUT 30)
+if(NOT lifecycle_verify_result EQUAL 0)
+    message(FATAL_ERROR "reused lifecycle ANN generation is not a valid published view: ${lifecycle_verify}${lifecycle_verify_err}")
 endif()
 
 # Exercise the enduring discovery and external-proposal surfaces against the
@@ -326,7 +333,7 @@ execute_process(COMMAND ${cli} --profile it-architecture-profile --access curate
 if(NOT review_decide_result EQUAL 0 OR
    NOT review_decide_out MATCHES "\"state\":\"accepted\"" OR
    NOT review_decide_out MATCHES "\"promotion_disposition\":\"accepted\"" OR
-   NOT review_decide_out MATCHES "\"vector_state\":\"published\"" OR
+   NOT review_decide_out MATCHES "\"vector_state\":\"identical-no-op\"" OR
    NOT review_decide_out MATCHES "\"vector_generations\":1")
     message(FATAL_ERROR "external proposal review promotion failed:\n${review_decide_out}${review_decide_err}")
 endif()
