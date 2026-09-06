@@ -68,9 +68,12 @@ work_dir=$(docs/tutorial/setup.sh --no-build --provider codex-local)
 
 ## Configuration lifecycle and throughput control
 
-New configurations should declare `format = crexx-rag.config/2`. Format 1
-remains readable for compatibility, with bounded defaults for the added
-fields. The shipped format-2 examples state them explicitly:
+New configurations should declare `format = crexx-rag.config/3`. Formats 1 and
+2 remain readable for compatibility: the loader projects their historical
+execution envelopes explicitly, and those projected values enter the same
+canonical configuration identities as format 3. New files must state provider
+capabilities and prices, typed role execution policies, guided-worker timing,
+and vector scale guards. The shipped Google example includes:
 
 ```text
 provider.gemini-generate.requests_per_minute = 60
@@ -79,10 +82,39 @@ provider.gemini-generate.concurrent_requests = 2
 provider.gemini-generate.initial_backoff_ms = 1000
 provider.gemini-generate.maximum_backoff_ms = 60000
 provider.gemini-generate.jitter_ms = 250
+provider.gemini-generate.context_tokens = 1048576
+provider.gemini-generate.maximum_output_tokens = 65536
+provider.gemini-generate.embedding_dimensions_minimum = 0
+provider.gemini-generate.embedding_dimensions_maximum = 0
+provider.gemini-generate.maximum_batch_size = 1
+provider.gemini-generate.input_price_microunits_per_million = 300000
+provider.gemini-generate.output_price_microunits_per_million = 2500000
+provider.gemini-generate.catalog_observed_date = 2026-08-24
+
+role.extractor.provider = gemini-generate
+role.extractor.max_input_tokens = 8192
+role.extractor.max_output_tokens = 4096
+role.extractor.max_call_cost_microunits = 100000
+role.extractor.temperature_millionths = 0
+role.extractor.system_prompt = Discover only grounded concepts and relationships...
+
+role.embedding.provider = gemini-embed
+role.embedding.max_input_tokens = 8192
+role.embedding.max_output_tokens = 0
+role.embedding.max_call_cost_microunits = 1000
+role.embedding.temperature_millionths = 0
+role.embedding.dimensions = 768
+role.embedding.batch_size = 100
 
 worker.processes = 2
 worker.max_in_flight = 1
 worker.lease_seconds = 120
+worker.poll_ms = 100
+worker.guided_deadline_seconds = 0
+
+vector.maximum_rows = 1000000
+vector.maximum_sidecar_bytes = 67108864
+vector.embedding_maximum_items = 100000
 
 retrieval.lexical_candidates = 48
 retrieval.vector_candidates = 12
@@ -110,7 +142,10 @@ multiplied by `worker.processes`. Set them at or below the allowance for the
 account and model. `concurrent_requests` limits calls to that provider/model;
 `worker.max_in_flight` remains the per-job reservation ceiling. More worker
 processes can improve local parsing and SQLite work, but they do not bypass the
-provider admission limits.
+provider admission limits. `guided_deadline_seconds = 0` derives the guided
+wait from the reviewed job time budget. The vector sidecar setting is an
+explicit fail-safe, not an RSS target: the current ANN reader still loads the
+bounded sidecar as a whole, pending the compact/streamed representation work.
 
 Inspect the effective policy before changing a library:
 
@@ -140,9 +175,16 @@ crexxrag --library ./library --access admin config apply \
 ```
 
 Apply fails if the plan is changed, expired, stale, or active jobs remain. A
-semantic classification cannot be applied as operating policy; ingest a new
-generation using the changed configuration. Existing generations retain their
-original configuration provenance while new jobs use the current snapshot.
+semantic classification cannot be applied as operating policy; use the normal
+reviewed `ingest plan` / `ingest apply` path with the changed configuration.
+Semantic ingestion requires existing jobs to be settled. Its plan binds both
+the current library generation/source state and the desired configuration and
+profile identities. Apply atomically records the target snapshot, publishes a
+new semantic generation, makes that snapshot current, and queues every active
+source chunk under a semantic ingestion-policy identity. Existing generations
+retain their original configuration provenance. Until the new job settles and
+publishes its vector sidecar, lexical evidence remains usable and hybrid mode
+reports the absence of a compatible current vector generation explicitly.
 
 All runtime tuning needed here is plain configuration. RexxScript is callable
 as a function and may later help author configuration or rules, but it adds no
@@ -375,17 +417,34 @@ retirement gate.
 ```sh
 crexxrag query 'What does BillingService depend on?'
 crexxrag --format json query evidence 'question' --mode lexical
-crexxrag --format json query answer 'question'
+crexxrag --format json query answer 'question' --mode hybrid
+crexxrag --format json query trace 'question' --mode hybrid
+crexxrag --format json query path 'question' --mode hybrid
+crexxrag --format json query timeline 'question' --mode hybrid
+crexxrag citation show 'crexx-rag:...'
 ```
 
 Lexical mode makes no embedding call. Automatic mode reports provider fallback
 truthfully if query embedding is unavailable. Explicit hybrid mode fails if its
 required embedding route fails. Generated answers are rejected for unknown,
 duplicate, or missing citations when the provider declares the answer
-supported. When retrieved material does not answer the question, the provider
-may declare insufficient grounding with no citations; the command succeeds
-with a deterministic insufficient-evidence answer instead of treating the
-absence of relevant evidence as an infrastructure failure.
+supported or partial. Partial evidence is returned as useful evidence with its
+citations and explicit remaining gaps; the RAG layer does not suppress it
+merely because it cannot fully answer the question. `insufficient` is reserved
+for evidence that answers none of the question. Trace, path, and timeline are
+distinct bounded projections; path results include follow-up leads, and
+`citation show` resolves a public citation to its exact stored source span.
+
+When recording JSON command output, do not pipe the command directly through
+`jq` if the command's exit status matters: a successful `jq` can hide a failed
+`crexxrag` status. Capture output and status first, then format it, for example:
+
+```sh
+crexxrag --format json query answer 'question' --mode hybrid >answer.json
+status=$?
+jq . answer.json
+test "$status" -eq 0
+```
 
 Every invoked query provider is recorded in the library's provider history
 with an explicit embedding/answer purpose, completion-time cost estimate,

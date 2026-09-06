@@ -19,10 +19,10 @@ architecturelocalconfig: procedure = .ragconfig
   providers[3] = .ragproviderconfig("hosted-strong", "openai", "https://api.openai.com/v1", "configured-hosted-model", "hosted", "public-only", .ragsecretref("env", "OPENAI_API_KEY"), 60000, 2)
 
   roles = .ragrolebinding[]
-  roles[1] = .ragrolebinding("advisory", "local-chat")
-  roles[2] = .ragrolebinding("extractor", "local-chat")
-  roles[3] = .ragrolebinding("embedding", "local-embed")
-  roles[4] = .ragrolebinding("answerer", "local-chat")
+  roles[1] = .ragrolebinding("advisory", "local-chat", 65536, 4096, 100000, 0, 1, 0, "Summarize only the supplied deterministic corpus report. Explain major subjects, relationships, health, maintenance backlog and important limitations. Do not invent facts. Every substantive statement must cite one of the supplied report citations.")
+  roles[2] = .ragrolebinding("extractor", "local-chat", 8192, 4096, 100000, 0, 1, 0, "Discover zero or more concepts, directional typed relationships, and important grounded analysis notes in the supplied evidence. Return only grounded output with exact UTF-8 source spans.")
+  roles[3] = .ragrolebinding("embedding", "local-embed", 8192, 0, 1000, 768, 100, 0, "")
+  roles[4] = .ragrolebinding("answerer", "local-chat", 65536, 1024, 100000, 0, 1, 0, "Answer only from the supplied evidence. Return supported, partial, or insufficient grounding and exact supplied citations. Do not invent facts or citations.")
 
   profile_ids = .string[]
   profile_ids[1] = "generic-profile"

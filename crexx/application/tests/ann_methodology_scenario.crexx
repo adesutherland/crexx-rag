@@ -91,9 +91,9 @@ main: procedure = .int
   if errors > 0 then return 1
 
   generation = .ragvectorgenerationresult
-  errors = errors + check(buildannvectorgeneration(store, "ann-profile", 12, 4, 1, 3, generation, error) = 0 & generation.state() = "published" & generation.rows() = 12, "partial-coverage IVF-flat publication " || error)
+  errors = errors + check(buildannvectorgeneration(store, "ann-profile", 12, 4, 1, 3, 1048576, generation, error) = 0 & generation.state() = "published" & generation.rows() = 12, "partial-coverage IVF-flat publication " || error)
   replay = .ragvectorgenerationresult
-  errors = errors + check(buildannvectorgeneration(store, "ann-profile", 12, 4, 1, 3, replay, error) = 0 & replay.state() = "identical-no-op" & replay.checksum() = generation.checksum(), "deterministic ANN replay " || error)
+  errors = errors + check(buildannvectorgeneration(store, "ann-profile", 12, 4, 1, 3, 1048576, replay, error) = 0 & replay.state() = "identical-no-op" & replay.checksum() = generation.checksum(), "deterministic ANN replay " || error)
 
   matrix = .packedfloat(24)
   call matrix.set(0,1.0); call matrix.set(1,0.0); call matrix.set(2,1.0); call matrix.set(3,0.1); call matrix.set(4,1.0); call matrix.set(5,-0.1)

@@ -468,10 +468,10 @@ if(NOT invalid_result STREQUAL "0" OR
     message(FATAL_ERROR "Invalid-answer loopback failed:\n${final_invalid_out}${final_invalid_err}")
 endif()
 execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${CPRAG_WORK_DIR}/library/library.sqlite"
-    "SELECT count(*) FROM provider_runs WHERE purpose='query-answer' AND outcome='rejected' AND cost_microunits>=0;"
+    "SELECT count(*) || ':' || count(CASE WHEN recovery_json<>'' THEN 1 END) FROM provider_runs WHERE purpose='query-answer' AND outcome='rejected' AND cost_microunits>=0;"
     OUTPUT_VARIABLE rejected_answer_history_out ERROR_VARIABLE rejected_answer_history_err
     RESULT_VARIABLE rejected_answer_history_result OUTPUT_STRIP_TRAILING_WHITESPACE)
-if(NOT rejected_answer_history_result EQUAL 0 OR NOT rejected_answer_history_out STREQUAL "4")
+if(NOT rejected_answer_history_result EQUAL 0 OR NOT rejected_answer_history_out STREQUAL "4:4")
     message(FATAL_ERROR "Rejected direct answer history was not durable:\n${rejected_answer_history_out}${rejected_answer_history_err}")
 endif()
 
@@ -508,9 +508,14 @@ execute_process(COMMAND ${cli} --format json query answer
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE insufficient_query_out ERROR_VARIABLE insufficient_query_err
     RESULT_VARIABLE insufficient_query_result TIMEOUT 30)
+string(FIND "${insufficient_query_out}" "\"answer_citations_json\":\"[]\"" insufficient_citations_marker)
 if(NOT insufficient_query_result EQUAL 0 OR
    NOT insufficient_query_out MATCHES "\"status\":\"ok\"" OR
    NOT insufficient_query_out MATCHES "\"generated_answer\":\"The available evidence is insufficient to answer this question\.\"" OR
+   NOT insufficient_query_out MATCHES "\"answer_grounding\":\"insufficient\"" OR
+   insufficient_citations_marker EQUAL -1 OR
+   NOT insufficient_query_out MATCHES "\"citation\":\"\"" OR
+   NOT insufficient_query_out MATCHES "\"evidence_citation\":\"crexx-rag:" OR
    NOT insufficient_query_out MATCHES "\"provider_calls\":1")
     message(FATAL_ERROR "Insufficient evidence was not returned as a valid answer:\n${insufficient_query_out}${insufficient_query_err}")
 endif()
@@ -529,6 +534,62 @@ file(READ "${insufficient_err}" final_insufficient_err)
 if(NOT insufficient_result STREQUAL "0" OR
    NOT final_insufficient_out MATCHES "SUMMARY scenario=product-query-insufficient connections=1")
     message(FATAL_ERROR "Insufficient-answer loopback failed:\n${final_insufficient_out}${final_insufficient_err}")
+endif()
+
+# Useful but incomplete evidence remains visible as a cited partial answer.
+set(partial_out "${CPRAG_WORK_DIR}/partial-loopback.out")
+set(partial_err "${CPRAG_WORK_DIR}/partial-loopback.err")
+set(partial_status "${CPRAG_WORK_DIR}/partial-loopback.status")
+execute_process(COMMAND /bin/sh -c
+    "( \"$1\" \"$2\" 1 product-query-partial; printf '%s' $? >\"$5\" ) >\"$3\" 2>\"$4\" &"
+    p5r-01-partial "${CPRAG_LOOPBACK}" "${CPRAG_FIXTURE_PORT}"
+    "${partial_out}" "${partial_err}" "${partial_status}"
+    RESULT_VARIABLE partial_launch_result)
+if(NOT partial_launch_result EQUAL 0)
+    message(FATAL_ERROR "could not start partial-answer loopback")
+endif()
+set(partial_ready FALSE)
+foreach(poll RANGE 1 200)
+    if(EXISTS "${partial_out}")
+        file(READ "${partial_out}" current_partial_out)
+        if(current_partial_out MATCHES "READY ${CPRAG_FIXTURE_PORT}")
+            set(partial_ready TRUE)
+            break()
+        endif()
+    endif()
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.02)
+endforeach()
+if(NOT partial_ready)
+    message(FATAL_ERROR "Partial-answer loopback did not become ready")
+endif()
+execute_process(COMMAND ${cli} --format json query answer
+    "What does BillingService depend on, and what is its operational impact?" --mode lexical
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE partial_query_out ERROR_VARIABLE partial_query_err
+    RESULT_VARIABLE partial_query_result TIMEOUT 30)
+if(NOT partial_query_result EQUAL 0 OR
+   NOT partial_query_out MATCHES "\"status\":\"ok\"" OR
+   NOT partial_query_out MATCHES "\"answer_grounding\":\"partial\"" OR
+   NOT partial_query_out MATCHES "\"generated_answer\":\"The evidence establishes the documented dependency, but does not establish its operational impact\.\"" OR
+   NOT partial_query_out MATCHES "\"answer_citations_json\":" OR
+   NOT partial_query_out MATCHES "\"citation\":\"crexx-rag:")
+    message(FATAL_ERROR "Partial evidence was not preserved as a cited answer:\n${partial_query_out}${partial_query_err}")
+endif()
+foreach(poll RANGE 1 200)
+    if(EXISTS "${partial_status}")
+        break()
+    endif()
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.02)
+endforeach()
+if(NOT EXISTS "${partial_status}")
+    message(FATAL_ERROR "Partial-answer loopback did not exit")
+endif()
+file(READ "${partial_status}" partial_result)
+file(READ "${partial_out}" final_partial_out)
+file(READ "${partial_err}" final_partial_err)
+if(NOT partial_result STREQUAL "0" OR
+   NOT final_partial_out MATCHES "SUMMARY scenario=product-query-partial connections=1")
+    message(FATAL_ERROR "Partial-answer loopback failed:\n${final_partial_out}${final_partial_err}")
 endif()
 
 execute_process(COMMAND ${cli} --access diagnose library verify

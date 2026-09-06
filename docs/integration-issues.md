@@ -47,6 +47,15 @@ installed command, application member list, per-member elapsed/RSS evidence,
 and the captured stack sample. Disabling optimisation is not a product
 workaround; users should receive normally built installed artifacts.
 
+The configuration repair reproduced the behavior on 2026-09-05. After one
+constructor-default correction, the wrapper again launched a 48-job project
+wave. Most members finished promptly, while `rxc` spent more than five minutes
+at approximately one full CPU core on a surface member; a later `ragproduct`
+compile similarly ran for minutes. The successful rebuild produced application
+SHA-256 `fbf9e1a0ba23f19098568af281209d2dbcfbac0c7cb83d0cfd615eb4a256f2dc`.
+This is additional reproducible scaling evidence, not proof of an infinite
+loop and not corpus-maintenance runtime.
+
 ## cREXX lexical scope at mixed branches
 
 The earlier branch-local value-merge diagnosis was incorrect. A grouped `DO`

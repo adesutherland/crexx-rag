@@ -279,7 +279,7 @@ validcommandresult: procedure = .int
       if value_type = "string" then do
         maximum_length = 65535
         if fields[j].name() = "canonical_plan" | fields[j].name() = "maintenance_plan" then maximum_length = 16777216
-        if fields[j].name() = "evidence_json" then maximum_length = 1048576
+        if wordpos(fields[j].name(), "evidence_json trace_json paths_json timeline_json") > 0 then maximum_length = 1048576
         if length(value) > maximum_length then return _invalidresult("string field is too long", error)
       end
       else if value_type = "integer" then do
@@ -325,7 +325,7 @@ rendercommandresult: procedure = .int
         if fields[j].value_type() = "null" | value = "" then iterate
         if name = "detail" & (left(strip(value), 1) = "{" | left(strip(value), 1) = "[") then iterate
         value = _human(value)
-        if length(value) > 240 then value = left(value, 237) || "..."
+        if name \= "generated_answer" & length(value) > 240 then value = left(value, 237) || "..."
         if section = "" then section = changestr("-", records[i].kind(), " ")
         section = section || "0A"x || "  " || changestr("_", name, " ") || ": " || value
       end
@@ -409,6 +409,7 @@ _validoperation: procedure = .int
   if noun = "profile" then return pos(" " || verb || " ", " list show validate ") > 0
   if noun = "schedule" then return pos(" " || verb || " ", " list show ") > 0
   if noun = "source" then return pos(" " || verb || " ", " list show ") > 0
+  if noun = "citation" then return verb = "show"
   if noun = "ingest" then return pos(" " || verb || " ", " plan apply ") > 0
   if noun = "job" then return pos(" " || verb || " ", " list status events pause resume cancel retry replay ") > 0
   if noun = "worker" then return pos(" " || verb || " ", " start run list status drain prune ") > 0

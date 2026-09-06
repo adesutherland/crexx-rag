@@ -47,11 +47,11 @@ foreach(runtime_name IN ITEMS rxvme rxbvm)
         -a "${library}"
         RESULT_VARIABLE run_result OUTPUT_VARIABLE run_out ERROR_VARIABLE run_err TIMEOUT 120)
     if(NOT run_result EQUAL 0 OR NOT run_out MATCHES
-            "EVIDENCE_METHODOLOGY_OK graph=outbound\\+inbound\\+both stored_direction=preserved inverse_claims=0 co_mentions=analysis-leads notes=durable\\+cited\\+analysis-only query_plans=quoted\\+frequency\\+fair query_gaps=repeated")
+            "EVIDENCE_METHODOLOGY_OK graph=explicit-anchors\\+outbound\\+inbound\\+both lexical_feedback=0 stored_direction=preserved inverse_claims=0 co_mentions=analysis-leads notes=durable\\+cited\\+analysis-only query_plans=quoted\\+frequency\\+fair query_gaps=partial\\+repeated projections=trace\\+path\\+timeline citation=parsed")
         message(FATAL_ERROR "${runtime_name} evidence methodology scenario failed:\n${run_out}${run_err}")
     endif()
 endforeach()
 
 file(WRITE "${CPRAG_WORK_DIR}/result.txt"
-    "Directed graph retrieval, stored direction, query-plan ordering, source diversity, durable cited notes, analysis-only serialization, and repeated query gaps passed on rxvme and rxbvm.\n")
-message(STATUS "Evidence methodology passed graph, query-plan, lead, note, citation, and gap assertions on both VMs")
+    "Explicit graph anchors, stored direction, query-plan ordering, lexical feedback exclusion, partial and repeated gaps, dedicated projections, durable cited notes, and canonical citation parsing passed on rxvme and rxbvm.\n")
+message(STATUS "Evidence methodology passed explicit graph-anchor, projection, query-plan, lead, note, citation, and gap assertions on both VMs")

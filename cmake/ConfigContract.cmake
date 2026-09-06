@@ -14,7 +14,7 @@ set(base_import "${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}")
 set(program_import "${CPRAG_WORK_DIR};${base_import}")
 set(report "${CPRAG_WORK_DIR}/result.txt")
 file(WRITE "${report}"
-    "test=configuration-contract\nformat=crexx-rag.config/2\nformat_1_compatibility=verified\nprovider_calls=0\ncredential_reads=0\n")
+    "test=configuration-contract\nformat=crexx-rag.config/3\nformat_1_2_compatibility=verified\nprovider_calls=0\ncredential_reads=0\n")
 file(WRITE "${CPRAG_WORK_DIR}/glossary-valid.tsv"
     "format\tcrexx-rag.glossary/1\nconcept\tBillingService\tapplication-component\tBilling Service\nconcept\tCustomerDatabase\tdata-store\tCustomer DB\nexclude\tDeprecatedSystem\n")
 file(WRITE "${CPRAG_WORK_DIR}/glossary-duplicate.tsv"
@@ -89,7 +89,7 @@ foreach(mode IN ITEMS noopt opt)
             RESULT_VARIABLE vm_result OUTPUT_VARIABLE vm_out ERROR_VARIABLE vm_err
             TIMEOUT 30)
         if(NOT vm_result EQUAL 0 OR NOT vm_out MATCHES
-                "CONFIG_CONTRACT_OK cell=${cell} formats=1,2 identities=split settings=bounded providers=2 gemini=2 env_refs=2 literal_secrets=0 executable_modules=0 glossary=validated profile=validated provider_calls=0")
+                "CONFIG_CONTRACT_OK cell=${cell} formats=1,2,3 identities=split settings=typed-and-bounded providers=2 gemini=2 env_refs=2 literal_secrets=0 executable_modules=0 glossary=validated profile=validated provider_calls=0")
             message(FATAL_ERROR "${cell} config scenario failed:\n${vm_out}${vm_err}")
         endif()
         if(vm_out MATCHES "${secret_marker}" OR vm_err MATCHES "${secret_marker}")
@@ -288,6 +288,12 @@ endif()
 
 string(REPLACE "gemini-3.5-flash-lite" "gemini-semantic-change"
     semantic_config_text "${lifecycle_config_text}")
+file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}/semantic-source")
+file(WRITE "${CPRAG_WORK_DIR}/semantic-source/evidence.txt"
+    "BillingService depends on CustomerDatabase.\n")
+string(REPLACE "source.architecture-docs.root = ./source-docs"
+    "source.architecture-docs.root = ${CPRAG_WORK_DIR}/semantic-source"
+    semantic_config_text "${semantic_config_text}")
 set(semantic_config "${CPRAG_WORK_DIR}/semantic-change.conf")
 file(WRITE "${semantic_config}" "${semantic_config_text}")
 execute_process(COMMAND ${lifecycle_cli}
@@ -330,6 +336,50 @@ if(NOT semantic_apply_result EQUAL 6 OR NOT semantic_apply_out MATCHES
     message(FATAL_ERROR
         "semantic configuration apply was not rejected:\n${semantic_apply_out}${semantic_apply_err}")
 endif()
+execute_process(COMMAND ${lifecycle_cli}
+    --config-file "${semantic_config}" --profile generic-profile
+    --library "${lifecycle_library}" --format json --access plan
+    ingest plan --source-set architecture-docs
+    RESULT_VARIABLE semantic_ingest_plan_result
+    OUTPUT_VARIABLE semantic_ingest_plan_out ERROR_VARIABLE semantic_ingest_plan_err
+    TIMEOUT 30)
+string(JSON semantic_ingest_plan ERROR_VARIABLE semantic_ingest_plan_json_error
+    GET "${semantic_ingest_plan_out}" records 0 fields canonical_plan)
+string(JSON semantic_ingest_digest ERROR_VARIABLE semantic_ingest_digest_json_error
+    GET "${semantic_ingest_plan_out}" records 0 fields digest)
+if(NOT semantic_ingest_plan_result EQUAL 0 OR
+   semantic_ingest_plan_json_error OR semantic_ingest_digest_json_error OR
+   NOT semantic_ingest_plan_out MATCHES "\"observations\":1")
+    message(FATAL_ERROR
+        "semantic ingestion planning failed:\n${semantic_ingest_plan_out}${semantic_ingest_plan_err}")
+endif()
+execute_process(COMMAND ${lifecycle_cli}
+    --config-file "${semantic_config}" --profile generic-profile
+    --library "${lifecycle_library}" --format json --access ingest
+    ingest apply --plan-json "${semantic_ingest_plan}"
+    --expect-digest "${semantic_ingest_digest}"
+    RESULT_VARIABLE semantic_ingest_apply_result
+    OUTPUT_VARIABLE semantic_ingest_apply_out ERROR_VARIABLE semantic_ingest_apply_err
+    TIMEOUT 30)
+if(NOT semantic_ingest_apply_result EQUAL 0 OR
+   NOT semantic_ingest_apply_out MATCHES "\"disposition\":\"published\"" OR
+   NOT semantic_ingest_apply_out MATCHES "\"generation\":2" OR
+   NOT semantic_ingest_apply_out MATCHES "\"items_queued\":2")
+    message(FATAL_ERROR
+        "semantic ingestion apply failed:\n${semantic_ingest_apply_out}${semantic_ingest_apply_err}")
+endif()
+execute_process(COMMAND ${lifecycle_cli}
+    --config-file "${semantic_config}" --profile generic-profile
+    --library "${lifecycle_library}" --format json config diff
+    RESULT_VARIABLE semantic_current_result
+    OUTPUT_VARIABLE semantic_current_out ERROR_VARIABLE semantic_current_err
+    TIMEOUT 30)
+if(NOT semantic_current_result EQUAL 0 OR
+   NOT semantic_current_out MATCHES "\"classification\":\"identical\"" OR
+   NOT semantic_current_out MATCHES "\"active_jobs\":1")
+    message(FATAL_ERROR
+        "semantic ingestion did not publish the target configuration:\n${semantic_current_out}${semantic_current_err}")
+endif()
 if(lifecycle_init_out MATCHES "${secret_marker}" OR
    identical_out MATCHES "${secret_marker}" OR
    operational_out MATCHES "${secret_marker}" OR
@@ -338,7 +388,10 @@ if(lifecycle_init_out MATCHES "${secret_marker}" OR
    applied_diff_out MATCHES "${secret_marker}" OR
    semantic_diff_out MATCHES "${secret_marker}" OR
    semantic_plan_out MATCHES "${secret_marker}" OR
-   semantic_apply_out MATCHES "${secret_marker}")
+   semantic_apply_out MATCHES "${secret_marker}" OR
+   semantic_ingest_plan_out MATCHES "${secret_marker}" OR
+   semantic_ingest_apply_out MATCHES "${secret_marker}" OR
+   semantic_current_out MATCHES "${secret_marker}")
     message(FATAL_ERROR "configuration lifecycle output exposed a resolved credential")
 endif()
 
@@ -372,7 +425,7 @@ endif()
 
 file(APPEND "${report}"
     "linked-cli:\n${cli_out}${cli_err}${subscription_out}${subscription_err}"
-    "configuration-lifecycle:\n${lifecycle_init_out}${identical_out}${operational_out}${config_plan_out}${tampered_out}${config_apply_out}${applied_diff_out}${semantic_diff_out}${semantic_plan_out}${semantic_apply_out}")
+    "configuration-lifecycle:\n${lifecycle_init_out}${identical_out}${operational_out}${config_plan_out}${tampered_out}${config_apply_out}${applied_diff_out}${semantic_diff_out}${semantic_plan_out}${semantic_apply_out}${semantic_ingest_plan_out}${semantic_ingest_apply_out}${semantic_current_out}")
 file(READ "${report}" retained)
 if(retained MATCHES "${secret_marker}")
     message(FATAL_ERROR "retained config evidence contains a resolved credential")

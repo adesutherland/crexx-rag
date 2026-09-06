@@ -1074,7 +1074,6 @@ _reservationcaps: procedure = .int
     input_cap = binlength(body as .binary) + 32
     if input_cap < maximum_input then maximum_input = input_cap
     maximum_output = 0
-    if maximum_cost > 1000 then maximum_cost = 1000
   end
   return 0
 

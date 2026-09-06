@@ -37,25 +37,30 @@ main: procedure = .int
   if errors > 0 then return 1
   database = store.database()
   errors = errors + check(sqliteexec(database, "INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES('artifact-evidence','raw-evidence','text/plain','utf-8',NULL,'fixture://evidence',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "artifact")
-  errors = errors + check(sqliteexec(database, "INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('text-evidence','text-digest-evidence','Alpha links Beta.\nGamma links Alpha.','fixture-v1','utf8-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "revision text")
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('text-evidence','text-digest-evidence','Alpha links Beta in 1603.\nGamma links Alpha.','fixture-v1','utf8-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "revision text")
   errors = errors + check(sqliteexec(database, "INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('source-evidence','fixture','evidence','revision-evidence','active','fixture://evidence','Evidence corpus',1)") = 0, "source")
   errors = errors + check(sqliteexec(database, "INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES('revision-evidence','source-evidence','revision-envelope-evidence','artifact-evidence','text-evidence','metadata-evidence','2026-01-01T00:00:00Z',1)") = 0, "revision")
-  errors = errors + check(sqliteexec(database, "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('content-out','digest-out','Alpha links Beta.','input-out'),('content-in','digest-in','Gamma links Alpha.','input-in')") = 0, "contents")
-  errors = errors + check(sqliteexec(database, "INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('chunk-out','revision-evidence',1,0,17,'content-out','continuity-out','fixture-v1','direct',1),('chunk-in','revision-evidence',2,18,36,'content-in','continuity-in','fixture-v1','direct',1)") = 0, "chunks")
+  errors = errors + check(sqliteexec(database, "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('content-out','digest-out','Alpha links Beta in 1603.','input-out'),('content-in','digest-in','Gamma links Alpha.','input-in')") = 0, "contents")
+  errors = errors + check(sqliteexec(database, "INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('chunk-out','revision-evidence',1,0,25,'content-out','continuity-out','fixture-v1','direct',1),('chunk-in','revision-evidence',2,26,44,'content-in','continuity-in','fixture-v1','direct',1)") = 0, "chunks")
   /* FTS is deliberately empty: Alpha is a catalogue anchor, so the passages
    * and claims below can only enter through the selected directed graph route. */
   errors = errors + check(sqliteexec(database, "INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('concept-alpha','Alpha','concept','active',1),('concept-beta','Beta','concept','active',1),('concept-gamma','Gamma','concept','active',1)") = 0, "concepts")
   errors = errors + check(sqliteexec(database, "INSERT INTO mentions(mention_id,concept_id,ambiguity_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('mention-alpha-out','concept-alpha',NULL,'chunk-out',0,5,1),('mention-beta','concept-beta',NULL,'chunk-out',12,16,1),('mention-gamma','concept-gamma',NULL,'chunk-in',0,5,1),('mention-alpha-in','concept-alpha',NULL,'chunk-in',12,17,1)") = 0, "mentions")
   errors = errors + check(sqliteexec(database, "INSERT INTO claims(claim_id,source_concept_id,relationship_type,target_concept_id,direction,qualifiers_json,policy_version,visible_from_generation) VALUES('claim-alpha-beta','concept-alpha','related-to','concept-beta','outbound','{}','fixture-v1',1),('claim-gamma-alpha','concept-gamma','related-to','concept-alpha','outbound','{}','fixture-v1',1)") = 0, "claims")
-  errors = errors + check(sqliteexec(database, "INSERT INTO claim_support(support_id,claim_id,revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity,decision_id,visible_from_generation) VALUES('support-alpha-beta','claim-alpha-beta','chunk-out',0,17,'support','assertion','direct','','lineage-out','fixture',NULL,1),('support-gamma-alpha','claim-gamma-alpha','chunk-in',0,18,'support','assertion','direct','','lineage-in','fixture',NULL,1)") = 0, "supports")
+  errors = errors + check(sqliteexec(database, "INSERT INTO claim_support(support_id,claim_id,revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity,decision_id,visible_from_generation) VALUES('support-alpha-beta','claim-alpha-beta','chunk-out',0,25,'support','assertion','direct','','lineage-out','fixture',NULL,1),('support-gamma-alpha','claim-gamma-alpha','chunk-in',0,18,'support','assertion','direct','','lineage-in','fixture',NULL,1)") = 0, "supports")
   errors = errors + check(sqliteexec(database, "INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) VALUES('note-alpha','insight','Alpha deserves further analysis',850000,250000,'Inspect corroborating passages','active','{}','fixture',1,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "analysis note")
   errors = errors + check(sqliteexec(database, "INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES('link-alpha','note-alpha','chunk','chunk-out','chunk-out',0,5)") = 0, "analysis note link")
   errors = errors + check(publishmanifest(store, error) = 0, "manifest " || error)
   if errors > 0 then return 1
 
+  empty_wire = .binary
+  outbound_options = .ragretrievaloptions("evidence-methodology-v1", "", empty_wire, 8, 1, 1, 1, 8, 8, 8, 60, "outbound")
+  inbound_options = .ragretrievaloptions("evidence-methodology-v1", "", empty_wire, 8, 1, 1, 1, 8, 8, 8, 60, "inbound")
+  both_options = .ragretrievaloptions("evidence-methodology-v1", "", empty_wire, 8, 1, 1, 1, 8, 8, 8, 60, "both")
+
   /* Give the indexed frequency test one searchable Alpha document. The row is
    * removed before the graph tests so those remain graph-only by construction. */
-  errors = errors + check(sqliteexec(database, "INSERT INTO chunks_fts(revision_chunk_id,content_id,body) VALUES('chunk-out','content-out','Alpha links Beta.')") = 0, "indexed frequency fixture")
+  errors = errors + check(sqliteexec(database, "INSERT INTO chunks_fts(revision_chunk_id,content_id,body) VALUES('chunk-out','content-out','Alpha links Beta in 1603.')") = 0, "indexed frequency fixture")
   quoted_plan = .ragqueryplan
   errors = errors + check(planquery(store, genericprofile(), "What is 'Alpha links'?", "evidence-methodology-v1", quoted_plan, error) = 0, "single-quoted query plan " || error)
   quoted_variants = .ragqueryvariant[]; quoted_variants = quoted_plan.variants()
@@ -64,12 +69,19 @@ main: procedure = .int
   errors = errors + check(planquery(store, genericprofile(), "Alpha Missing", "evidence-methodology-v1", frequency_plan, error) = 0, "frequency-ordered query plan " || error)
   frequency_variants = .ragqueryvariant[]; frequency_variants = frequency_plan.variants()
   errors = errors + check(frequency_variants.0 >= 3 & frequency_variants[2].query() = "missing" & frequency_variants[3].query() = "alpha", "focused terms are ordered rarest first")
+  partial = .ragretrievalresult
+  partial_status = retrieveevidence(store, genericprofile(), "Alpha Quantum", both_options, partial, error)
+  partial_gaps = .string[]; partial_claims = .ragacceptedclaim[]; partial_gap_found = 0
+  if partial_status = 0 then do; partial_gaps = partial.evidence().gaps(); partial_claims = partial.evidence().claims(); end
+  do i = 1 to partial_gaps.0
+    if pos("quantum", lower(partial_gaps[i])) > 0 then partial_gap_found = 1
+  end
+  errors = errors + check(partial_status = 0 & partial_claims.0 > 0 & partial_gap_found = 1, "partial evidence records the absent query term without suppressing useful claims " || error)
+  errors = errors + check(sqliteexec(database, "DELETE FROM chunks_fts") = 0, "clear frequency fixture")
+  errors = errors + check(sqliteexec(database, "INSERT INTO chunks_fts(revision_chunk_id,content_id,body) VALUES('chunk-out','content-out','Noise')") = 0, "lexical decoy fixture")
+  decoy = .ragretrievalresult
+  errors = errors + check(retrieveevidence(store, genericprofile(), "Noise", both_options, decoy, error) = 0 & decoy.graph_candidates() = 0, "lexical candidates do not become implicit graph anchors " || error)
   errors = errors + check(sqliteexec(database, "DELETE FROM chunks_fts") = 0, "restore graph-only fixture")
-
-  empty_wire = .binary
-  outbound_options = .ragretrievaloptions("evidence-methodology-v1", "", empty_wire, 8, 1, 1, 1, 8, 8, 8, 60, "outbound")
-  inbound_options = .ragretrievaloptions("evidence-methodology-v1", "", empty_wire, 8, 1, 1, 1, 8, 8, 8, 60, "inbound")
-  both_options = .ragretrievaloptions("evidence-methodology-v1", "", empty_wire, 8, 1, 1, 1, 8, 8, 8, 60, "both")
   outbound = .ragretrievalresult; inbound = .ragretrievalresult; both = .ragretrievalresult
   errors = errors + check(retrieveevidence(store, genericprofile(), "Alpha", outbound_options, outbound, error) = 0, "outbound retrieval " || error)
   errors = errors + check(retrieveevidence(store, genericprofile(), "Alpha", inbound_options, inbound, error) = 0, "inbound retrieval " || error)
@@ -88,6 +100,13 @@ main: procedure = .int
   encoded = ""; answer_context = ""
   errors = errors + check(encodeevidence(outbound.evidence(), 65536, encoded, error) = 0 & pos('"analysis_notes":[{"note_id":"note-alpha"', encoded) > 0, "evidence serialization " || error)
   errors = errors + check(encodeanswercontext(outbound.evidence(), 65536, answer_context, error) = 0 & pos('"factual_status":"analysis-only"', answer_context) > 0, "analysis-only answer context " || error)
+  trace_json = ""; paths_json = ""; timeline_json = ""
+  errors = errors + check(encodetraceprojection(outbound.evidence(), 65536, trace_json, error) = 0 & pos('"schema":"crexx-rag.query-trace/1"', trace_json) > 0, "dedicated trace projection " || error)
+  errors = errors + check(encodepathprojection(outbound.evidence(), 65536, paths_json, error) = 0 & pos('"schema":"crexx-rag.query-paths/1"', paths_json) > 0 & pos('"follow_question":', paths_json) > 0, "dedicated path and follow-up projection " || error)
+  errors = errors + check(encodetimelineprojection(outbound.evidence(), 65536, timeline_json, error) = 0 & pos('"schema":"crexx-rag.query-timeline/1"', timeline_json) > 0 & pos('"start":"1603"', timeline_json) > 0, "dedicated cited timeline projection " || error)
+  parsed_library = ""; parsed_citation = .ragcitation
+  stable_id = "crexx-rag:library-evidence-methodology:source-sha256:" || copies("a", 64) || ":revision-sha256:" || copies("b", 64) || ":utf8-10-25"
+  errors = errors + check(parsecitation(stable_id, parsed_library, parsed_citation, error) = 0 & parsed_library = "library-evidence-methodology" & parsed_citation.span_start() = 10 & parsed_citation.span_end() = 25, "canonical public citation parsing " || error)
 
   missing = .ragretrievalresult
   missing_status = retrieveevidence(store, genericprofile(), "What does Missing depend on?", both_options, missing, error)
@@ -105,5 +124,5 @@ main: procedure = .int
   errors = errors + check(scalarint(database, "SELECT min(occurrence_count) FROM query_gaps WHERE normalized_question='what does missing depend on?'") = 2, "repeated gaps increment their deterministic occurrence census")
   errors = errors + check(closeragstore(store, error) = 0, "close " || error)
   if errors > 0 then return 1
-  say "EVIDENCE_METHODOLOGY_OK graph=outbound+inbound+both stored_direction=preserved inverse_claims=0 co_mentions=analysis-leads notes=durable+cited+analysis-only query_plans=quoted+frequency+fair query_gaps=repeated"
+  say "EVIDENCE_METHODOLOGY_OK graph=explicit-anchors+outbound+inbound+both lexical_feedback=0 stored_direction=preserved inverse_claims=0 co_mentions=analysis-leads notes=durable+cited+analysis-only query_plans=quoted+frequency+fair query_gaps=partial+repeated projections=trace+path+timeline citation=parsed"
   return 0

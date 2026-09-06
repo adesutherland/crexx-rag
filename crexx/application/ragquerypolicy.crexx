@@ -17,7 +17,7 @@ queryrouteallowed: procedure = .int
   return 1
 
 querypreflight: procedure = .int
-  arg budget = .ragbudget, embedding_provider = .ragproviderconfig, embedding_planned = .int, answer_provider = .ragproviderconfig, answer_planned = .int, expose error = .string, requested_output_tokens = 0
+  arg budget = .ragbudget, embedding_provider = .ragproviderconfig, embedding_planned = .int, answer_provider = .ragproviderconfig, answer_planned = .int, expose error = .string, requested_output_tokens = 0, embedding_maximum_input_tokens = 65536, answer_maximum_input_tokens = 65536
   error = ""; planned_calls = embedding_planned + answer_planned
   if planned_calls > budget.model_calls() then do; error = "query provider calls exceed the configured per-command ceiling"; return -1; end
   if embedding_planned = 1 & (embedding_provider.timeout_ms() < 1 | embedding_provider.max_attempts() < 1) then do; error = "query embedding timeout or retry policy is invalid"; return -1; end
@@ -29,18 +29,19 @@ querypreflight: procedure = .int
   if answer_planned = 1 & budget.output_tokens() < 1 then do; error = "query answer requires a positive configured output-token ceiling"; return -1; end
   maximum_input = 0
   if planned_calls > 0 then maximum_input = budget.input_tokens() / planned_calls
-  if maximum_input > 65536 then maximum_input = 65536
+  embedding_input = maximum_input; if embedding_input > embedding_maximum_input_tokens then embedding_input = embedding_maximum_input_tokens
+  answer_input = maximum_input; if answer_input > answer_maximum_input_tokens then answer_input = answer_maximum_input_tokens
   maximum_output = queryansweroutputlimit(budget)
   if requested_output_tokens > 0 then maximum_output = requested_output_tokens
   if maximum_output > budget.output_tokens() then do; error = "requested provider output exceeds the configured output-token ceiling"; return -1; end
   maximum_cost = 0
   if embedding_planned = 1 & embedding_provider.charging_basis() = "monetary-api" then do
-    route_cost = estimatecostmicrounits(_backend(embedding_provider.kind()), embedding_provider.model(), maximum_input, 0)
+    route_cost = _configuredcost(embedding_provider, embedding_input, 0)
     if route_cost < 0 then do; error = "query embedding monetary pricing is unavailable"; return -1; end
     maximum_cost = maximum_cost + route_cost * embedding_provider.max_attempts()
   end
   if answer_planned = 1 & answer_provider.charging_basis() = "monetary-api" then do
-    route_cost = estimatecostmicrounits(_backend(answer_provider.kind()), answer_provider.model(), maximum_input, maximum_output)
+    route_cost = _configuredcost(answer_provider, answer_input, maximum_output)
     if route_cost < 0 then do; error = "query answer monetary pricing is unavailable"; return -1; end
     maximum_cost = maximum_cost + route_cost * answer_provider.max_attempts()
   end
@@ -48,9 +49,9 @@ querypreflight: procedure = .int
   return 0
 
 queryansweroutputlimit: procedure = .int
-  arg budget = .ragbudget
+  arg budget = .ragbudget, configured_maximum = 1024
   maximum = budget.output_tokens()
-  if maximum > 1024 then maximum = 1024
+  if maximum > configured_maximum then maximum = configured_maximum
   return maximum
 
 queryusagewithin: procedure = .int
@@ -75,3 +76,11 @@ _backend: procedure = .string
   arg kind = .string
   if kind = "openai-compatible" then return "openai"
   return kind
+
+_configuredcost: procedure = .int
+  arg provider = .ragproviderconfig, input_tokens = .int, output_tokens = .int
+  input_price = provider.input_price_microunits_per_million(); output_price = provider.output_price_microunits_per_million()
+  if input_price >= 0 & output_price >= 0 then return (input_tokens * input_price + output_tokens * output_price) / 1000000
+  /* Formats 1 and 2 retain the compiled catalogue solely as an explicitly
+   * labelled compatibility projection. Config/3 supplies reviewed prices. */
+  return estimatecostmicrounits(_backend(provider.kind()), provider.model(), input_tokens, output_tokens)

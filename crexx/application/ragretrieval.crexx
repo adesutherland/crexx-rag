@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragretrieval expose ragretrievaloptions ragretrievalresult retrieveevidence resolvecitation recordquerygaps
+namespace ragretrieval expose ragretrievaloptions ragretrievalresult retrieveevidence parsecitation resolvecitation recordquerygaps
 
 import rxfnsb
 import rxfnsg
@@ -31,9 +31,10 @@ ragretrievaloptions: class
   _graph_boost_millionths = .int
   _graph_decay_millionths = .int
   _directness_bonus_millionths = .int
+  _maximum_sidecar_bytes = .int
 
   *: factory
-    arg policy_version = "retrieval-v1", embedding_profile_id = "", query_vector = .binary, lexical_limit = 24, vector_limit = 12, vector_scan_limit = 100000, graph_hops = 2, passage_limit = 12, claim_limit = 8, lead_limit = 8, rrf_k = 60, graph_direction = "both", graph_boost_millionths = 2000, graph_decay_millionths = 750000, directness_bonus_millionths = 1000
+    arg policy_version = "retrieval-v1", embedding_profile_id = "", query_vector = .binary, lexical_limit = 24, vector_limit = 12, vector_scan_limit = 100000, graph_hops = 2, passage_limit = 12, claim_limit = 8, lead_limit = 8, rrf_k = 60, graph_direction = "both", graph_boost_millionths = 2000, graph_decay_millionths = 750000, directness_bonus_millionths = 1000, maximum_sidecar_bytes = 67108864
     _policy_version = policy_version
     _embedding_profile_id = embedding_profile_id
     _query_vector = query_vector
@@ -49,6 +50,7 @@ ragretrievaloptions: class
     _graph_boost_millionths = graph_boost_millionths
     _graph_decay_millionths = graph_decay_millionths
     _directness_bonus_millionths = directness_bonus_millionths
+    _maximum_sidecar_bytes = maximum_sidecar_bytes
     return
 
   policy_version: method = .string
@@ -81,6 +83,8 @@ ragretrievaloptions: class
     return _graph_decay_millionths
   directness_bonus_millionths: method = .int
     return _directness_bonus_millionths
+  maximum_sidecar_bytes: method = .int
+    return _maximum_sidecar_bytes
 
 ragretrievalresult: class
   _status = .int
@@ -240,6 +244,26 @@ resolvecitation: procedure = .int
   passage = .ragpassage(citation, title, body, source_type, 1.0, captured_at, event_start, event_end, "historical", "direct", channels, empty_scores)
   return 0
 
+parsecitation: procedure = .int
+  arg value = .string, expose library_id = .string, expose citation = .ragcitation, expose error = .string
+  library_id = ""; error = ""; empty_citation = .ragcitation("", "", "", 0, 0); citation = empty_citation
+  source_marker = pos(":source-sha256:", value)
+  revision_marker = pos(":revision-sha256:", value)
+  span_marker = pos(":utf8-", value)
+  if left(value, 10) \= "crexx-rag:" | source_marker <= 10 | revision_marker <= source_marker | span_marker <= revision_marker then do; error = "citation identity is invalid"; return -1; end
+  library_id = substr(value, 11, source_marker - 11)
+  source_id = substr(value, source_marker + 1, revision_marker - source_marker - 1)
+  revision_id = substr(value, revision_marker + 1, span_marker - revision_marker - 1)
+  span = substr(value, span_marker + 6); separator = pos("-", span)
+  if library_id = "" | length(source_id) \= 78 | left(source_id, 14) \= "source-sha256:" | length(revision_id) \= 80 | left(revision_id, 16) \= "revision-sha256:" | separator < 2 then do; error = "citation identity is invalid"; return -1; end
+  start_text = left(span, separator - 1); end_text = substr(span, separator + 1)
+  if _digits(start_text) \= 1 | _digits(end_text) \= 1 then do; error = "citation span is invalid"; return -1; end
+  span_start = start_text as .int; span_end = end_text as .int
+  if span_start < 0 | span_end <= span_start then do; error = "citation span is invalid"; return -1; end
+  if _stablecitation(library_id, source_id, revision_id, span_start, span_end) \= value then do; error = "citation identity is not canonical"; return -1; end
+  citation = .ragcitation(value, source_id, revision_id, span_start, span_end)
+  return 0
+
 _lexical: procedure = .int
   arg database = .binary, plan = .ragqueryplan, maximum = .int, expose candidate_ids = .string[], expose lexical_ranks = .int[], expose vector_ranks = .int[], expose graph_ranks = .int[], expose vector_scores = .float[], expose graph_hops = .int[], expose directness_values = .float[], expose trace_notes = .string[], expose error = .string
   variants = plan.variants(); next_rank = 1
@@ -317,7 +341,7 @@ _vector: procedure = .int
   if column_status \= 0 | sqlitestep(prepared) \= 101 then do; call sqlitefinalize prepared; error = "ANN generation identity is ambiguous or invalid"; return -1; end
   call sqlitefinalize prepared
   raw = .binary; byte_count = 0
-  if ragfile..readbinaryfilebounded(store.path() || "/" || sidecar_name, 67108864, raw, byte_count, error) \= 0 | rxhash..sha256hex(raw) \= sidecar_checksum then do; vector_state = "fallback-invalid-ann-sidecar"; trace_notes[trace_notes.0 + 1] = "vector-fallback=invalid-ann-sidecar"; error = ""; return 0; end
+  if ragfile..readbinaryfilebounded(store.path() || "/" || sidecar_name, retrieval_options.maximum_sidecar_bytes(), raw, byte_count, error) \= 0 | rxhash..sha256hex(raw) \= sidecar_checksum then do; vector_state = "fallback-invalid-ann-sidecar"; trace_notes[trace_notes.0 + 1] = "vector-fallback=invalid-ann-sidecar"; error = ""; return 0; end
   document = .jsondocument(raw as .string)
   if document.valid() \= 1 | document.node_type(document.root()) \= "object" | document.node_count(document.root()) \= 12 then do; error = "ANN sidecar schema is invalid"; return -1; end
   root = document.root(); schema = ""; algorithm = ""; codec = ""; storage = ""; side_profile = ""; centroid_hex = ""
@@ -420,7 +444,7 @@ _allrowspositive: procedure = .int
 _graph: procedure = .int
   arg database = .binary, generation = .int, plan = .ragqueryplan, maximum_hops = .int, graph_direction = .string, expose candidate_ids = .string[], expose lexical_ranks = .int[], expose vector_ranks = .int[], expose graph_ranks = .int[], expose vector_scores = .float[], expose graph_hops = .int[], expose directness_values = .float[], expose claim_ids = .string[], expose claim_hops = .int[], expose trace_notes = .string[], expose error = .string
   anchors = .string[]
-  if _anchors(database, generation, plan.normalized_question(), candidate_ids, anchors, error) \= 0 then return -1
+  if _anchors(database, generation, plan.normalized_question(), anchors, error) \= 0 then return -1
   frontier = anchors; visited = .string[]; next_rank = 1
   do hop = 1 to maximum_hops
     next_frontier = .string[]
@@ -643,6 +667,13 @@ _analysisnotes: procedure = .int
 _gaps: procedure
   arg plan = .ragqueryplan, passages = .ragpassage[], claims = .ragacceptedclaim[], ambiguities = .string[], vector_state = .string, expose gaps = .string[]
   normalized_question = plan.normalized_question()
+  missing_terms = ""; terms = plan.terms()
+  do i = 1 to terms.0
+    if terms[i].source() \= "question" | terms[i].occurrences() > 0 | terms[i].expansion() \= "" | _termpresent(passages, terms[i].term()) = 1 then iterate
+    if missing_terms \= "" then missing_terms = missing_terms || ", "
+    missing_terms = missing_terms || terms[i].term()
+  end
+  if missing_terms \= "" then gaps[gaps.0 + 1] = "No indexed corpus occurrence was found for query terms: " || missing_terms || "."
   if passages.0 = 0 then gaps[gaps.0 + 1] = "No active passage matched the deterministic query plan."
   if _hasintent(plan.intents(), "relationship") = 1 & claims.0 = 0 then gaps[gaps.0 + 1] = "No supported directed claim answered the requested relationship; graph or vector results remain leads."
   if ambiguities.0 > 0 then gaps[gaps.0 + 1] = "One or more query names remain ambiguous; do not transfer facts between senses."
@@ -670,8 +701,40 @@ _gaps: procedure
   if explicit_verdict_gap = 1 then gaps[gaps.0 + 1] = "The returned source positions do not independently resolve a neutral legal verdict."
   return
 
+_termpresent: procedure = .int
+  arg passages = .ragpassage[], term = .string
+  if term = "" then return 0
+  suffixes = .string[]; suffixes[1] = "s"; suffixes[2] = "es"; suffixes[3] = "ed"; suffixes[4] = "ing"
+  do i = 1 to passages.0
+    text = lower(passages[i].text()); start = 1
+    do forever
+      marker = pos(term, text, start)
+      if marker = 0 then leave
+      previous = ""; if marker > 1 then previous = substr(text, marker - 1, 1)
+      if _wordcharacter(previous) = 0 then do
+        finish = marker + length(term); following = ""; if finish <= length(text) then following = substr(text, finish, 1)
+        if _wordcharacter(following) = 0 then return 1
+        do j = 1 to suffixes.0
+          suffix = suffixes[j]
+          suffix_finish = finish + length(suffix)
+          if substr(text, finish, length(suffix)) = suffix then do
+            after_suffix = ""; if suffix_finish <= length(text) then after_suffix = substr(text, suffix_finish, 1)
+            if _wordcharacter(after_suffix) = 0 then return 1
+          end
+        end
+      end
+      start = marker + 1
+    end
+  end
+  return 0
+
+_wordcharacter: procedure = .int
+  arg value = .string
+  if value = "" then return 0
+  return pos(value, "abcdefghijklmnopqrstuvwxyz0123456789_") > 0
+
 _anchors: procedure = .int
-  arg database = .binary, generation = .int, normalized_question = .string, candidate_ids = .string[], expose anchors = .string[], expose error = .string
+  arg database = .binary, generation = .int, normalized_question = .string, expose anchors = .string[], expose error = .string
   prepared = .binary
   sql = "SELECT concept_id,lower(canonical_label) FROM concepts WHERE visible_from_generation<=?1 AND (visible_to_generation IS NULL OR visible_to_generation>?1) ORDER BY concept_id"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare concept anchors"; return -1; end
@@ -684,19 +747,18 @@ _anchors: procedure = .int
     if label \= "" & pos(" " || label || " ", " " || normalized_question || " ") > 0 & _contains(anchors, concept_id) = 0 then anchors[anchors.0 + 1] = concept_id
   end
   call sqlitefinalize prepared
-  if candidate_ids.0 > 0 then do
-    mention_statement = .binary
-    sql = "WITH wanted(revision_chunk_id,ordinal) AS (VALUES" || _wanted(candidate_ids) || ") SELECT m.concept_id FROM wanted w JOIN mentions m ON m.revision_chunk_id=w.revision_chunk_id WHERE m.concept_id IS NOT NULL AND m.visible_from_generation<=?1 AND (m.visible_to_generation IS NULL OR m.visible_to_generation>?1) GROUP BY m.concept_id ORDER BY min(w.ordinal),m.concept_id"
-    if sqliteprepare(database, sql, mention_statement) \= 0 | sqlitebindint(mention_statement, 1, generation) \= 0 then do; call sqlitefinalize mention_statement; error = "cannot prepare batched mention anchors"; return -1; end
-    do forever
-      step_status = sqlitestep(mention_statement)
-      if step_status = 101 then leave
-      if step_status \= 100 then do; call sqlitefinalize mention_statement; error = "cannot read batched mention anchors"; return -1; end
-      concept_id = ""; if sqlitecolumntext(mention_statement, 0, concept_id) \= 0 then do; call sqlitefinalize mention_statement; error = "cannot decode batched mention anchors"; return -1; end
-      if _contains(anchors, concept_id) = 0 then anchors[anchors.0 + 1] = concept_id
-    end
-    call sqlitefinalize mention_statement
+  alias_statement = .binary
+  sql = "SELECT DISTINCT target_concept_id,lower(normalized_alias) FROM aliases WHERE target_concept_id IS NOT NULL AND visible_from_generation<=?1 AND (visible_to_generation IS NULL OR visible_to_generation>?1) ORDER BY target_concept_id,normalized_alias"
+  if sqliteprepare(database, sql, alias_statement) \= 0 | sqlitebindint(alias_statement, 1, generation) \= 0 then do; call sqlitefinalize alias_statement; error = "cannot prepare explicit alias anchors"; return -1; end
+  do forever
+    step_status = sqlitestep(alias_statement)
+    if step_status = 101 then leave
+    if step_status \= 100 then do; call sqlitefinalize alias_statement; error = "cannot read explicit alias anchors"; return -1; end
+    concept_id = ""; alias = ""
+    if sqlitecolumntext(alias_statement, 0, concept_id) \= 0 | sqlitecolumntext(alias_statement, 1, alias) \= 0 then do; call sqlitefinalize alias_statement; error = "cannot decode explicit alias anchors"; return -1; end
+    if alias \= "" & pos(" " || alias || " ", " " || normalized_question || " ") > 0 & _contains(anchors, concept_id) = 0 then anchors[anchors.0 + 1] = concept_id
   end
+  call sqlitefinalize alias_statement
   return 0
 
 _chunks: procedure = .int
@@ -833,9 +895,17 @@ _stablecitation: procedure = .string
   arg library_id = .string, source_id = .string, revision_id = .string, start = .int, finish = .int
   return "crexx-rag:" || library_id || ":" || source_id || ":" || revision_id || ":utf8-" || start || "-" || finish
 
+_digits: procedure = .int
+  arg value = .string
+  if value = "" then return 0
+  do i = 1 to length(value)
+    if pos(substr(value, i, 1), "0123456789") = 0 then return 0
+  end
+  return 1
+
 _validoptions: procedure = .int
   arg retrieval_options = .ragretrievaloptions
-  return retrieval_options.policy_version() \= "" & retrieval_options.lexical_limit() >= 1 & retrieval_options.lexical_limit() <= 1000 & retrieval_options.vector_limit() >= 1 & retrieval_options.vector_limit() <= 1000 & retrieval_options.vector_scan_limit() >= retrieval_options.vector_limit() & retrieval_options.vector_scan_limit() <= 1000000 & retrieval_options.graph_hops() >= 0 & retrieval_options.graph_hops() <= 4 & retrieval_options.passage_limit() >= 1 & retrieval_options.passage_limit() <= 12 & retrieval_options.claim_limit() >= 0 & retrieval_options.claim_limit() <= 8 & retrieval_options.lead_limit() >= 0 & retrieval_options.lead_limit() <= 8 & retrieval_options.rrf_k() >= 1 & retrieval_options.rrf_k() <= 10000 & retrieval_options.graph_boost_millionths() >= 0 & retrieval_options.graph_boost_millionths() <= 1000000 & retrieval_options.graph_decay_millionths() >= 1 & retrieval_options.graph_decay_millionths() <= 1000000 & retrieval_options.directness_bonus_millionths() >= 0 & retrieval_options.directness_bonus_millionths() <= 1000000 & wordpos(retrieval_options.graph_direction(), "outbound inbound both") > 0
+  return retrieval_options.policy_version() \= "" & retrieval_options.lexical_limit() >= 1 & retrieval_options.lexical_limit() <= 1000 & retrieval_options.vector_limit() >= 1 & retrieval_options.vector_limit() <= 1000 & retrieval_options.vector_scan_limit() >= retrieval_options.vector_limit() & retrieval_options.vector_scan_limit() <= 1000000 & retrieval_options.graph_hops() >= 0 & retrieval_options.graph_hops() <= 4 & retrieval_options.passage_limit() >= 1 & retrieval_options.passage_limit() <= 12 & retrieval_options.claim_limit() >= 0 & retrieval_options.claim_limit() <= 8 & retrieval_options.lead_limit() >= 0 & retrieval_options.lead_limit() <= 8 & retrieval_options.rrf_k() >= 1 & retrieval_options.rrf_k() <= 10000 & retrieval_options.graph_boost_millionths() >= 0 & retrieval_options.graph_boost_millionths() <= 1000000 & retrieval_options.graph_decay_millionths() >= 1 & retrieval_options.graph_decay_millionths() <= 1000000 & retrieval_options.directness_bonus_millionths() >= 0 & retrieval_options.directness_bonus_millionths() <= 1000000 & retrieval_options.maximum_sidecar_bytes() >= 1048576 & retrieval_options.maximum_sidecar_bytes() <= 2000000000 & wordpos(retrieval_options.graph_direction(), "outbound inbound both") > 0
 
 _scalarint: procedure = .int
   arg database = .binary, sql = .string

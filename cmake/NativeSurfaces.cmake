@@ -64,6 +64,16 @@ if(NOT init_result EQUAL 0 OR NOT ingest_result EQUAL 0 OR
     message(FATAL_ERROR "Native-surface prerequisite failed:\n${init_out}${init_err}${ingest_out}${ingest_err}")
 endif()
 
+execute_process(COMMAND ${cli} --format json query evidence
+    "What does BillingService depend on?" --mode lexical
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE citation_query_out ERROR_VARIABLE citation_query_err
+    RESULT_VARIABLE citation_query_result TIMEOUT 30)
+string(REGEX MATCH "crexx-rag:[^\"\\\\]+" stable_citation "${citation_query_out}")
+if(NOT citation_query_result EQUAL 0 OR stable_citation STREQUAL "")
+    message(FATAL_ERROR "Could not obtain a stable citation for surface resolution:\n${citation_query_out}${citation_query_err}")
+endif()
+
 set(requests "${CPRAG_WORK_DIR}/mcp-requests.jsonl")
 file(WRITE "${requests}"
     "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}\n"
@@ -81,7 +91,11 @@ file(WRITE "${requests}"
     "{\"jsonrpc\":\"2.0\",\"id\":13,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_config_plan\",\"arguments\":{\"reason\":\"MCP configuration surface regression\"}}}\n"
     "{\"jsonrpc\":\"2.0\",\"id\":14,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_job_replay\",\"arguments\":{\"id\":\"job-not-present\",\"reason\":\"MCP replay mapping regression\"}}}\n"
     "{\"jsonrpc\":\"2.0\",\"id\":15,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_schedule_list\",\"arguments\":{}}}\n"
-    "{\"jsonrpc\":\"2.0\",\"id\":16,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_schedule_show\",\"arguments\":{\"id\":\"manual-maintenance\"}}}\n")
+    "{\"jsonrpc\":\"2.0\",\"id\":16,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_schedule_show\",\"arguments\":{\"id\":\"manual-maintenance\"}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":17,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_citation_show\",\"arguments\":{\"citation\":\"${stable_citation}\"}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":18,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_query_trace\",\"arguments\":{\"question\":\"What does BillingService depend on?\",\"mode\":\"lexical\"}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":19,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_query_path\",\"arguments\":{\"question\":\"What does BillingService depend on?\",\"mode\":\"lexical\"}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":20,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_query_timeline\",\"arguments\":{\"question\":\"What does BillingService depend on?\",\"mode\":\"lexical\"}}}\n")
 execute_process(COMMAND ${cli} --access read,plan,curate,control,admin serve mcp
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}" INPUT_FILE "${requests}"
     OUTPUT_VARIABLE mcp_out ERROR_VARIABLE mcp_err
@@ -100,6 +114,7 @@ if(NOT mcp_result EQUAL 0 OR
    NOT mcp_out MATCHES "\"name\":\"rag_job_replay\".*\"readOnlyHint\":false" OR
    NOT mcp_out MATCHES "\"name\":\"rag_schedule_list\".*\"readOnlyHint\":true" OR
    NOT mcp_out MATCHES "\"name\":\"rag_schedule_show\".*\"readOnlyHint\":true" OR
+   NOT mcp_out MATCHES "\"name\":\"rag_citation_show\".*\"readOnlyHint\":true" OR
    NOT mcp_out MATCHES "\"operation\":\"query.answer\",\"status\":\"ok\"" OR
    NOT mcp_out MATCHES "\"generated_answer\":\"BillingService depends on CustomerDatabase\\.\"" OR
    NOT mcp_out MATCHES "\"citation\":\"crexx-rag:.*utf8-0-87\"" OR
@@ -137,6 +152,14 @@ if(NOT mcp_result EQUAL 0 OR
    NOT mcp_out MATCHES "source job must be terminal with explicit dead letters" OR
    NOT mcp_out MATCHES "\"operation\":\"schedule.list\",\"status\":\"ok\"" OR
    NOT mcp_out MATCHES "\"operation\":\"schedule.show\",\"status\":\"ok\"" OR
+   NOT mcp_out MATCHES "\"operation\":\"citation.show\",\"status\":\"ok\"" OR
+   NOT mcp_out MATCHES "\"kind\":\"citation-resolution\"" OR
+   NOT mcp_out MATCHES "\"operation\":\"query.trace\",\"status\":\"ok\"" OR
+   NOT mcp_out MATCHES "crexx-rag.query-trace/1" OR
+   NOT mcp_out MATCHES "\"operation\":\"query.path\",\"status\":\"ok\"" OR
+   NOT mcp_out MATCHES "crexx-rag.query-paths/1" OR
+   NOT mcp_out MATCHES "\"operation\":\"query.timeline\",\"status\":\"ok\"" OR
+   NOT mcp_out MATCHES "crexx-rag.query-timeline/1" OR
    NOT mcp_out MATCHES "\"operation\":\"maintain.plan\"" OR
    NOT mcp_out MATCHES "\"recurrence_owner\":\"external\"" OR
    NOT mcp_out MATCHES "\"code\":-32602,\"message\":\"unknown object member surprise\"" OR
@@ -174,7 +197,7 @@ endif()
 
 file(WRITE "${CPRAG_WORK_DIR}/result.txt"
     "test=native-surfaces\nsurface=crexxrag-serve-mcp\nconfig=local-default\n"
-    "structured_answer=validated\nlexical_provider_calls=0\n"
+    "structured_answer=validated\nlexical_provider_calls=0\ncitation_resolution=exact\nquery_projections=trace+path+timeline\n"
     "annotations=truthful\nreport=deterministic-mcp\nmaintenance=plan+apply+status+inspect-advertised\nmaintenance_plan=called\nunknown_arguments=rejected\nsecret_values_logged=0\n"
     "${init_out}${ingest_out}${ingest_err}${mcp_out}${mcp_err}${verify_out}${verify_err}")
-message(STATUS "Native surfaces passed unified crexxrag MCP serving, deterministic reporting, churn-governed snapshots, historic trends, maintenance vocabulary, discovered config, provider-backed structured answer, lexical zero-call route, truthful annotations, strict arguments, and clean integrity")
+message(STATUS "Native surfaces passed unified crexxrag MCP serving, stable citation resolution, dedicated trace/path/timeline projections, deterministic reporting, churn-governed snapshots, historic trends, maintenance vocabulary, discovered config, provider-backed structured answer, lexical zero-call route, truthful annotations, strict arguments, and clean integrity")

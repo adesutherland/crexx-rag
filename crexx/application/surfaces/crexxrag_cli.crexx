@@ -84,6 +84,7 @@ _showhelp: procedure = .int
   say "  crexxrag review list"
   say "  crexxrag --access control job replay JOB_ID [--item ITEM_ID] [--reason TEXT]"
   say "  crexxrag query QUESTION"
+  say "  crexxrag citation show CITATION"
   say "  crexxrag library report [--top N] [--narrative off|cached|refresh] [--yes]"
   say "  crexxrag library snapshot [--trigger TYPE] [--reason TEXT]"
   say "  crexxrag library trend [--limit N]"
@@ -108,7 +109,7 @@ _showhelp: procedure = .int
   say "  --access CAPABILITY       repeat or comma-separate for canonical commands"
   say ""
   say "Automation uses canonical commands such as ingest plan, ingest apply,"
-  say "worker start, job status, library report/snapshot/trend, query evidence, query answer and library verify."
+  say "worker start, job status, library report/snapshot/trend, query evidence, query answer, citation show and library verify."
   say "Agents can use the same local defaults through crexxrag serve mcp."
   return 0
 
@@ -169,8 +170,10 @@ _guidedingest: procedure = .int
 
   worker_options = .ragcommandoption[]
   worker_options[1] = .ragcommandoption("count", workers || "", 0)
-  worker_options[2] = .ragcommandoption("poll-ms", "100", 0)
-  worker_options[3] = .ragcommandoption("max-polls", "100", 0)
+  poll_ms = config.workers().poll_ms(); guided_seconds = config.workers().guided_deadline_seconds(); if guided_seconds = 0 then guided_seconds = config.budget().minutes() * 60
+  maximum_polls = guided_seconds * 1000 / poll_ms; if maximum_polls < 1 then maximum_polls = 1
+  worker_options[2] = .ragcommandoption("poll-ms", poll_ms || "", 0)
+  worker_options[3] = .ragcommandoption("max-polls", maximum_polls || "", 0)
   worker_options[4] = .ragcommandoption("job", job_id, 0)
   worker_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", plan_request.progress(), access, "worker", "start", "worker.start", worker_options, empty_positionals)
   worker_result = dispatchproduct(worker_request, registry)
@@ -233,8 +236,10 @@ _guidedmaintain: procedure = .int
 
   worker_options = .ragcommandoption[]
   worker_options[1] = .ragcommandoption("count", workers || "", 0)
-  worker_options[2] = .ragcommandoption("poll-ms", "100", 0)
-  worker_options[3] = .ragcommandoption("max-polls", "100", 0)
+  poll_ms = config.workers().poll_ms(); guided_seconds = config.workers().guided_deadline_seconds(); if guided_seconds = 0 then guided_seconds = config.budget().minutes() * 60
+  maximum_polls = guided_seconds * 1000 / poll_ms; if maximum_polls < 1 then maximum_polls = 1
+  worker_options[2] = .ragcommandoption("poll-ms", poll_ms || "", 0)
+  worker_options[3] = .ragcommandoption("max-polls", maximum_polls || "", 0)
   worker_options[4] = .ragcommandoption("job", job_id, 0)
   worker_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", plan_request.progress(), access, "worker", "start", "worker.start", worker_options, empty_positionals)
   worker_result = dispatchproduct(worker_request, registry)
@@ -361,8 +366,12 @@ _provideroperationtext: procedure = .string
     if roles[i].role() = "embedding" then embedding = 1
     else generation = 1
   end
-  if embedding = 1 & generation = 1 then return "structured generation and 768-dimensional embeddings"
-  if embedding = 1 then return "768-dimensional embedding generation"
+  embedding_dimension = 0
+  do i = 1 to roles.0
+    if roles[i].provider_id() = provider_id & roles[i].role() = "embedding" then embedding_dimension = roles[i].embedding_dimensions()
+  end
+  if embedding = 1 & generation = 1 then return "structured generation and " || embedding_dimension || "-dimensional embeddings"
+  if embedding = 1 then return embedding_dimension || "-dimensional embedding generation"
   return "structured generation and exact citations"
 
 _plansummary: procedure = .string

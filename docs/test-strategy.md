@@ -22,7 +22,7 @@ metadata directly.
 | Test | Main assurance |
 | --- | --- |
 | `linked_application` | installed `rxsqlite` provider mapping and both CREXX VMs |
-| `configuration_contract` | format-1 compatibility, format-2 pacing/retry/retrieval/result-size/maintenance/observation fields, split identities, credential-free check/explain, identical/operational diff, tamper-resistant plan/apply, glossary and bounded data-profile rules, optimized/non-optimized and both VMs |
+| `configuration_contract` | format-1 compatibility, format-2 pacing/retry/retrieval/result-size/maintenance/observation fields, split identities, credential-free check/explain, identical/operational diff, tamper-resistant plan/apply, semantic changes through a fresh zero-provider ingestion generation, glossary and bounded data-profile rules, optimized/non-optimized and both VMs |
 | `process_workers` | two-worker launch, observation, drain, stale PID detection, explicit pruning |
 | `gemini_ingestion` | Gemini request/response mapping, compact gap-free LF/CR/CRLF normalization maps, durable work, claims, embeddings, vector publication, replay and failure paths |
 | `gemini_extraction_validation` | invalid UTF-8 spans, unknown concept/relationship types and malformed extraction output dead-letter without product mutation or secret disclosure |

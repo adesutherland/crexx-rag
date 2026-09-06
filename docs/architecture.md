@@ -187,7 +187,13 @@ target identities, classification, active-job count, reason and one-hour
 expiry into canonical JSON. Apply verifies the exact digest and current state,
 requires active work to be drained, and appends an immutable change event.
 Only identity upgrades and operational changes can use this apply path;
-semantic changes require a new ingestion generation.
+semantic changes use the ordinary reviewed ingestion path. That plan binds the
+desired semantic identity while independently freezing the current generation,
+source fingerprints, reservations and zero-active-job precondition. Apply
+records the target configuration and publishes it with a new generation in one
+transaction, then queues all active chunks using a policy identity derived from
+the semantic hash. This prevents a changed model, prompt, profile, source rule
+or chunk policy from being mistaken for an unchanged-source no-op.
 
 ## Schema and publication
 

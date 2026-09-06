@@ -8,6 +8,7 @@ import rxhash
 import rxsqlite
 import ragstore
 import ragconfig
+import ragconfiguration
 import ragglossary
 import ragprofile
 
@@ -439,14 +440,19 @@ _applyingestplan: procedure = .ragingestresult
   if canonical \= plan.canonical() then return _failure(-1, "observations, discovery policy or glossary content no longer match the reviewed canonical plan")
   if rxhash..sha256hex(canonical as .binary) \= plan.digest() then return _failure(-1, "reviewed ingest plan digest is invalid")
   match_error = ""
+  source_snapshot_id = currentconfigsnapshotid(store.database(), match_error)
+  if source_snapshot_id = "" then return _failure(-3, match_error)
+  semantic_transition = source_snapshot_id \= plan.config_snapshot_id()
   match_status = _desiredmatches(store.database(), plan, observations, match_error)
   if match_status < 0 then return _failure(-3, match_error)
-  if match_status = 1 then return .ragingestresult(0, "identical-no-op", current, 0, 0, observations.0, observations.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "")
+  if match_status = 1 & semantic_transition = 0 then return .ragingestresult(0, "identical-no-op", current, 0, 0, observations.0, observations.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "")
 
   before_changes = _scalarint(store.database(), "SELECT total_changes()")
   if before_changes < 0 then return _failure(-3, "cannot read SQLite change counter")
   generation = 0; error = ""
-  if begingeneration(store, current, plan.config_snapshot_id(), "ingest " || plan.digest(), generation, error) \= 0 then return _failure(-3, error)
+  if sqliteexec(store.database(), "BEGIN IMMEDIATE") \= 0 then return _failure(-3, "cannot begin reviewed ingestion publication")
+  if configured = 1 then if ensureconfigsnapshot(store.database(), config, profile, plan.config_snapshot_id(), error) \= 0 then return _abortresult(store, error)
+  if begingeneration(store, current, plan.config_snapshot_id(), "ingest " || plan.digest(), generation, error, 1) \= 0 then return _failure(-3, error)
 
   added = 0; changed = 0; renamed = 0; deleted = 0
   chunks_created = 0; chunks_reused = 0; occurrences = 0
@@ -458,10 +464,14 @@ _applyingestplan: procedure = .ragingestresult
   end
   if _stagedeletions(store.database(), generation, plan.source_scope(), observations, deleted, support_retracted, error) \= 0 then return _abortresult(store, error)
   glossary_candidates = 0
-  if configured = 1 then if _insertglossarycandidates(store.database(), generation, glossary, glossary_candidates, error) \= 0 then return _abortresult(store, error)
+  if configured = 1 then if _insertglossarycandidates(store.database(), generation, glossary, glossary_candidates, error, semantic_transition) \= 0 then return _abortresult(store, error)
   candidates = candidates + glossary_candidates
   if _finalizecandidates(store.database(), generation, plan.policy_version(), error) \= 0 then return _abortresult(store, error)
-  if _queuework(store.database(), generation, plan, context, config, profile, configured, items, error) \= 0 then return _abortresult(store, error)
+  if _queuework(store.database(), generation, plan, context, config, profile, configured, items, error, semantic_transition) \= 0 then return _abortresult(store, error)
+  if semantic_transition = 1 then do
+    sql = "UPDATE library_config_state SET current_config_snapshot_id=" || _sqlquote(plan.config_snapshot_id()) || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE singleton=1 AND current_config_snapshot_id=" || _sqlquote(source_snapshot_id)
+    if sqliteexec(store.database(), sql) \= 0 | _scalarint(store.database(), "SELECT changes()") \= 1 then return _abortresult(store, "library configuration changed during semantic ingestion publication")
+  end
   if commitgeneration(store, generation, error) \= 0 then return _failure(-3, error)
   after_changes = _scalarint(store.database(), "SELECT total_changes()")
   unchanged = observations.0 - added - changed
@@ -599,7 +609,7 @@ _configuredcontext: procedure = .int
   return creatediscoverycontext(glossary, discovery.mode(), discovery.ranked_limit(), discovery.max_mentions(), discovery.max_relationships(), discovery.max_notes(), context, error)
 
 _insertglossarycandidates: procedure = .int
-  arg database = .binary, generation = .int, glossary = .ragglossarydata, expose count = .int, expose error = .string
+  arg database = .binary, generation = .int, glossary = .ragglossarydata, expose count = .int, expose error = .string, all_visible = 0
   count = 0; excluded = glossary.excluded()
   do i = 1 to excluded.0
     prepared = .binary
@@ -610,7 +620,8 @@ _insertglossarycandidates: procedure = .int
   entries = glossary.entries()
   if entries.0 = 0 then return 0
   chunks = .string[]; bodies = .string[]; prepared = .binary
-  sql = "SELECT rc.revision_chunk_id,c.text FROM revision_chunks rc JOIN chunk_contents c ON c.content_id=rc.content_id WHERE rc.visible_from_generation=?1 ORDER BY rc.revision_chunk_id"
+  if all_visible = 1 then sql = "SELECT rc.revision_chunk_id,c.text FROM revision_chunks rc JOIN chunk_contents c ON c.content_id=rc.content_id WHERE rc.visible_from_generation<=?1 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?1) ORDER BY rc.revision_chunk_id"
+  else sql = "SELECT rc.revision_chunk_id,c.text FROM revision_chunks rc JOIN chunk_contents c ON c.content_id=rc.content_id WHERE rc.visible_from_generation=?1 ORDER BY rc.revision_chunk_id"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare glossary chunk census"; return -1; end
   do forever
     step = sqlitestep(prepared)
@@ -1266,10 +1277,11 @@ _candidatecount: procedure = .int
   return _boundcount2(database, sql, label, generation)
 
 _queuework: procedure = .int
-  arg database = .binary, generation = .int, plan = .ragingestplan, discovery_context = .string, config = .ragconfig, profile = .ragprofile, configured = .int, expose items = .int, expose error = .string
+  arg database = .binary, generation = .int, plan = .ragingestplan, discovery_context = .string, config = .ragconfig, profile = .ragprofile, configured = .int, expose items = .int, expose error = .string, all_visible = 0
   items = 0
   prepared = .binary
-  sql = "SELECT c.revision_chunk_id,c.content_id,t.content_digest,t.text,c.normalized_start,c.normalized_end FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c.visible_from_generation=?1 AND NOT EXISTS(SELECT 1 FROM revision_chunks p WHERE p.content_id=c.content_id AND p.visible_to_generation=?1) ORDER BY c.content_id,c.revision_chunk_id"
+  if all_visible = 1 then sql = "SELECT c.revision_chunk_id,c.content_id,t.content_digest,t.text,c.normalized_start,c.normalized_end FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c.visible_from_generation<=?1 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?1) ORDER BY c.content_id,c.revision_chunk_id"
+  else sql = "SELECT c.revision_chunk_id,c.content_id,t.content_digest,t.text,c.normalized_start,c.normalized_end FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c.visible_from_generation=?1 AND NOT EXISTS(SELECT 1 FROM revision_chunks p WHERE p.content_id=c.content_id AND p.visible_to_generation=?1) ORDER BY c.content_id,c.revision_chunk_id"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare missing-work census"; return -1; end
   chunk_ids = .string[]; content_ids = .string[]; content_digests = .string[]; texts = .string[]; starts = .int[]; ends = .int[]
   do forever
@@ -1295,11 +1307,12 @@ _queuework: procedure = .int
   model_call_budget = item_budget; input_budget = 0; output_budget = 0; cost_budget = 0
   codex_turn_budget = 0
   time_budget_ms = 0; maximum_call_input = 0; maximum_call_output = 0; maximum_call_cost = 0; maximum_call_time = 0; maximum_inflight = 1; maximum_attempts = 1
-  embedding_input_caps = .int[]; embedding_cost_cap = 0; embedding_time_cap = 0
+  embedding_input_caps = .int[]; embedding_cost_cap = 0; embedding_time_cap = 0; embedding_dimension = 768
   extraction_input_cap = 0; extraction_output_cap = 0; extraction_cost_cap = 0; extraction_time_cap = 0; candidate_limit = 100000
   if configured = 1 then do
     privacy = _sourceprivacy(config, plan.source_scope())
     extractor_id = _roleproviderid(config, "extractor"); embedding_id = _roleproviderid(config, "embedding")
+    extractor_role = _rolebinding(config, "extractor"); embedding_role = _rolebinding(config, "embedding")
     if privacy = "" | extractor_id = "" | embedding_id = "" then do; error = "configured ingestion roles or privacy are unavailable"; return -1; end
     extractor_model = _providermodel(config, extractor_id); embedding_model = _providermodel(config, embedding_id)
     if extractor_model = "" | embedding_model = "" then do; error = "configured ingestion provider model is unavailable"; return -1; end
@@ -1310,32 +1323,34 @@ _queuework: procedure = .int
     budget = config.budget(); workers = config.workers()
     model_call_budget = budget.model_calls(); input_budget = budget.input_tokens(); output_budget = budget.output_tokens(); cost_budget = budget.cost_microunits(); codex_turn_budget = budget.codex_turns()
     time_budget_ms = budget.minutes() * 60000; maximum_inflight = workers.processes() * workers.max_in_flight(); maximum_attempts = _maximumproviderattempts(config)
-    maximum_call_input = _minimum(input_budget, 8192); maximum_call_output = _minimum(output_budget, 1024); maximum_call_cost = _minimum(cost_budget, 100000)
+    maximum_call_input = _minimum(input_budget, extractor_role.maximum_input_tokens()); maximum_call_output = _minimum(output_budget, extractor_role.maximum_output_tokens()); maximum_call_cost = _minimum(cost_budget, extractor_role.maximum_call_cost_microunits())
     maximum_call_time = _minimum(_maximumprovidertimeout(config), time_budget_ms)
     if item_budget > budget.item_limit() then do; error = "planned ingestion work exceeds budget.item_limit"; return -1; end
     if item_budget > model_call_budget then do; error = "planned ingestion work exceeds budget.model_calls"; return -1; end
     if _providerkind(config, extractor_id) = "codex" & extraction_items > codex_turn_budget then do; error = "planned extraction work exceeds budget.codex_turns"; return -1; end
     if chunk_ids.0 > 0 then do
       if maximum_inflight > item_budget then maximum_inflight = item_budget
-      extraction_input_ceiling = 8192
-      if _providerkind(config, extractor_id) = "codex" then extraction_input_ceiling = 32768
-      extraction_input_cap = _minimum(extraction_input_ceiling, input_budget / maximum_inflight)
-      extraction_output_cap = _minimum(1024, output_budget / maximum_inflight)
-      extraction_cost_cap = _minimum(100000, cost_budget / maximum_inflight)
+      extraction_input_cap = _minimum(extractor_role.maximum_input_tokens(), input_budget / maximum_inflight)
+      extraction_output_cap = _minimum(extractor_role.maximum_output_tokens(), output_budget / maximum_inflight)
+      extraction_cost_cap = _minimum(extractor_role.maximum_call_cost_microunits(), cost_budget / maximum_inflight)
       extraction_time_cap = _minimum(_maximumprovidertimeout(config), time_budget_ms / maximum_inflight)
       monetary_route = _providerchargingbasis(config, extractor_id) = "monetary-api" | _providerchargingbasis(config, embedding_id) = "monetary-api"
-      if extraction_input_cap < 1 | extraction_output_cap < 1 | (monetary_route = 1 & extraction_cost_cap < 1) | extraction_time_cap < _maximumprovidertimeout(config) then do
+      if extraction_input_cap < 1 | (extraction_items > 0 & extraction_output_cap < 1) | (monetary_route = 1 & extraction_cost_cap < 1) | extraction_time_cap < _maximumprovidertimeout(config) then do
         error = "configured budget cannot safely admit the configured in-flight workers"
         return -1
       end
-      embedding_cost_cap = _minimum(extraction_cost_cap, 1000)
+      embedding_cost_cap = _minimum(embedding_role.maximum_call_cost_microunits(), cost_budget / maximum_inflight)
       embedding_time_cap = extraction_time_cap
+      embedding_dimension = embedding_role.embedding_dimensions()
+      embedding_input_ceiling = _minimum(embedding_role.maximum_input_tokens(), input_budget / maximum_inflight)
       do i = 1 to chunk_ids.0
-        embedding_input_caps[i] = _minimum(extraction_input_cap, binlength(texts[i] as .binary) + 32)
+        embedding_input_caps[i] = _minimum(embedding_input_ceiling, binlength(texts[i] as .binary) + 32)
       end
       maximum_call_input = extraction_input_cap
+      if embedding_input_ceiling > maximum_call_input then maximum_call_input = embedding_input_ceiling
       maximum_call_output = extraction_output_cap
       maximum_call_cost = extraction_cost_cap
+      if embedding_cost_cap > maximum_call_cost then maximum_call_cost = embedding_cost_cap
       maximum_call_time = extraction_time_cap
     end
   end
@@ -1393,7 +1408,7 @@ _queuework: procedure = .int
       end
       if charging_basis \= "monetary-api" then item_cost_cap = 0
       reservation_json = "{" || jsonquote("input_tokens") || ":" || item_input_cap || "," || jsonquote("output_tokens") || ":" || item_output_cap || "," || jsonquote("cost_microunits") || ":" || item_cost_cap || "," || jsonquote("time_ms") || ":" || item_time_cap || "}"
-      input_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.work-input/1") || "," || jsonquote("operation") || ":" || jsonquote(kinds[j]) || "," || jsonquote("revision_chunk_id") || ":" || jsonquote(chunk_ids[i]) || "," || jsonquote("content_id") || ":" || jsonquote(content_ids[i]) || "," || jsonquote("content_digest") || ":" || jsonquote(content_digests[i]) || "," || jsonquote("text_digest") || ":" || jsonquote(rxhash..sha256hex(texts[i] as .binary)) || "," || jsonquote("text") || ":" || jsonquote(texts[i]) || "," || jsonquote("normalized_start") || ":" || starts[i] || "," || jsonquote("normalized_end") || ":" || ends[i] || "," || jsonquote("privacy") || ":" || jsonquote(privacy) || "," || jsonquote("source_scope") || ":" || jsonquote(plan.source_scope()) || "," || jsonquote("config_snapshot_id") || ":" || jsonquote(plan.config_snapshot_id()) || "," || jsonquote("profile_id") || ":" || jsonquote(profile_id) || "," || jsonquote("policy_version") || ":" || jsonquote(plan.policy_version()) || "," || jsonquote("prompt_version") || ":" || jsonquote(prompt_version) || "," || jsonquote("role") || ":" || jsonquote(role) || "," || jsonquote("provider_id") || ":" || jsonquote(provider_id) || "," || jsonquote("model") || ":" || jsonquote(model) || "," || jsonquote("charging_basis") || ":" || jsonquote(charging_basis) || "," || jsonquote("discovery_context") || ":" || jsonquote(discovery_context) || "," || jsonquote("embedding_dimension") || ":768," || jsonquote("reservation") || ":" || reservation_json || "," || jsonquote("candidates") || ":[" || candidates_json || "]}"
+      input_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.work-input/1") || "," || jsonquote("operation") || ":" || jsonquote(kinds[j]) || "," || jsonquote("revision_chunk_id") || ":" || jsonquote(chunk_ids[i]) || "," || jsonquote("content_id") || ":" || jsonquote(content_ids[i]) || "," || jsonquote("content_digest") || ":" || jsonquote(content_digests[i]) || "," || jsonquote("text_digest") || ":" || jsonquote(rxhash..sha256hex(texts[i] as .binary)) || "," || jsonquote("text") || ":" || jsonquote(texts[i]) || "," || jsonquote("normalized_start") || ":" || starts[i] || "," || jsonquote("normalized_end") || ":" || ends[i] || "," || jsonquote("privacy") || ":" || jsonquote(privacy) || "," || jsonquote("source_scope") || ":" || jsonquote(plan.source_scope()) || "," || jsonquote("config_snapshot_id") || ":" || jsonquote(plan.config_snapshot_id()) || "," || jsonquote("profile_id") || ":" || jsonquote(profile_id) || "," || jsonquote("policy_version") || ":" || jsonquote(plan.policy_version()) || "," || jsonquote("prompt_version") || ":" || jsonquote(prompt_version) || "," || jsonquote("role") || ":" || jsonquote(role) || "," || jsonquote("provider_id") || ":" || jsonquote(provider_id) || "," || jsonquote("model") || ":" || jsonquote(model) || "," || jsonquote("charging_basis") || ":" || jsonquote(charging_basis) || "," || jsonquote("discovery_context") || ":" || jsonquote(discovery_context) || "," || jsonquote("embedding_dimension") || ":" || embedding_dimension || "," || jsonquote("reservation") || ":" || reservation_json || "," || jsonquote("candidates") || ":[" || candidates_json || "]}"
       input_hash = rxhash..sha256hex(input_json as .binary)
       idempotency = rxhash..sha256hex(("crexx-rag.work/2" || "00"x || input_hash) as .binary)
       item_id = "item-sha256:" || idempotency
@@ -1453,6 +1468,14 @@ _roleproviderid: procedure = .string
     if roles[i].role() = role then return roles[i].provider_id()
   end
   return ""
+
+_rolebinding: procedure = .ragrolebinding
+  arg config = .ragconfig, role = .string
+  roles = config.roles()
+  do i = 1 to roles.0
+    if roles[i].role() = role then return roles[i]
+  end
+  return .ragrolebinding()
 
 _providermodel: procedure = .string
   arg config = .ragconfig, provider_id = .string

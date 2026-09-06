@@ -35,7 +35,10 @@ main: procedure = .int
   errors = errors + check(providers.0 = 2 & providers[1].kind() = "gemini" & providers[2].kind() = "gemini", "Google providers")
   errors = errors + check(providers[1].credential().ref_string() = "env:GEMINI_API_KEY" & config_snapshot.secret_reference_count() = 2, "symbolic secrets")
   errors = errors + check(roles.0 = 4 & sources.0 = 1 & sources[1].root() = "./source-docs", "roles and source")
-  errors = errors + check(budget.model_calls() = 50 & budget.input_tokens() = 100000 & workers.processes() = 1 & workers.max_in_flight() = 1, "bounded policy")
+  errors = errors + check(roles[2].role() = "extractor" & roles[2].maximum_input_tokens() = 8192 & roles[2].maximum_output_tokens() = 4096 & roles[2].system_prompt() \= "", "typed extractor envelope")
+  errors = errors + check(roles[3].role() = "embedding" & roles[3].embedding_dimensions() = 768 & roles[3].batch_size() = 100, "typed embedding envelope")
+  errors = errors + check(providers[1].context_tokens() = 1048576 & providers[1].maximum_output_tokens() = 65536 & providers[1].input_price_microunits_per_million() = 300000 & providers[2].maximum_batch_size() = 100, "configured provider catalogue")
+  errors = errors + check(budget.model_calls() = 50 & budget.input_tokens() = 100000 & workers.processes() = 1 & workers.max_in_flight() = 1 & workers.poll_ms() = 100 & workers.guided_deadline_seconds() = 0, "bounded policy")
   errors = errors + check(retrieval.lexical_candidates() = 48 & retrieval.vector_candidates() = 12 & retrieval.vector_scan_limit() = 100000 & retrieval.graph_hops() = 3 & retrieval.rrf_k() = 60 & retrieval.graph_direction() = "both" & retrieval.maximum_evidence_bytes() = 262144, "retrieval policy")
   errors = errors + check(maintenance.sparse_max_degree() = 1 & maintenance.query_gap_min_occurrences() = 1 & maintenance.batch_items() = 1000 & observation.capture_threshold() = 50 & observation.cooldown_seconds() = 900 & observation.narrative_output_tokens() = 4096, "maintenance and observation policy")
   errors = errors + check(schedules.0 = 1 & schedules[1].operation() = "maintain.plan" & schedules[1].trigger() = "manual", "schedule operation")
@@ -50,8 +53,10 @@ main: procedure = .int
   errors = errors + check(rejected(changestr("kind = gemini", text, "kind = unsupported"), "provider kind is not supported") = 1, "provider kind rejection")
   errors = errors + check(rejected(changestr("https://", text, "http://"), "hosted provider URL must use HTTPS") = 1, "hosted route rejection")
   v1_config = .ragconfig; v1_error = ""
-  errors = errors + check(parseconfigtext(changestr("crexx-rag.config/2", text, "crexx-rag.config/1"), v1_config, v1_error) = 0, "format one compatibility parse " || v1_error)
-  v2_text = text
+  errors = errors + check(parseconfigtext(changestr("crexx-rag.config/3", text, "crexx-rag.config/1"), v1_config, v1_error) = 0, "format one compatibility parse " || v1_error)
+  v1_roles = v1_config.roles()
+  errors = errors + check(v1_roles[2].maximum_output_tokens() = 4096 & pos("grounding=partial", v1_roles[4].system_prompt()) > 0 & pos("only citation IDs present", v1_roles[4].system_prompt()) > 0, "format one repaired compatibility envelope")
+  v2_text = changestr("crexx-rag.config/3", text, "crexx-rag.config/2")
   v2_config = .ragconfig; v2_error = ""
   errors = errors + check(parseconfigtext(v2_text, v2_config, v2_error) = 0, "format two parse " || v2_error)
   v2_providers = v2_config.providers()
@@ -104,5 +109,5 @@ main: procedure = .int
   errors = errors + check(rejected_profile.status() \= 0 & pos("does not match", rejected_profile.error()) > 0, "profile identity binding rejection")
 
   if errors > 0 then return 1
-  say "CONFIG_CONTRACT_OK cell=" || cell || " formats=1,2 identities=split settings=bounded providers=2 gemini=2 env_refs=2 literal_secrets=0 executable_modules=0 glossary=validated profile=validated provider_calls=0"
+  say "CONFIG_CONTRACT_OK cell=" || cell || " formats=1,2,3 identities=split settings=typed-and-bounded providers=2 gemini=2 env_refs=2 literal_secrets=0 executable_modules=0 glossary=validated profile=validated provider_calls=0"
   return 0

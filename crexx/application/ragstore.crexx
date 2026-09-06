@@ -422,13 +422,13 @@ closereadsnapshot: procedure = .int
   return 0
 
 begingeneration: procedure = .int
-  arg store = .ragstorehandle, expected_parent = .int, config_snapshot_id = .string, summary = .string, expose generation = .int, expose error = .string
+  arg store = .ragstorehandle, expected_parent = .int, config_snapshot_id = .string, summary = .string, expose generation = .int, expose error = .string, transaction_active = 0
   error = ""; generation = 0
   if store.writable() \= 1 then do
     error = "generation publication requires readwrite access"
     return -5
   end
-  if sqliteexec(store.database(), "BEGIN IMMEDIATE") \= 0 then return _sqlitefailure("begin generation", error)
+  if transaction_active \= 1 then if sqliteexec(store.database(), "BEGIN IMMEDIATE") \= 0 then return _sqlitefailure("begin generation", error)
   current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1", error)
   generation = _scalarint(store.database(), "SELECT next_generation FROM library_meta WHERE singleton=1", error)
   if current < 1 | generation < 2 then do

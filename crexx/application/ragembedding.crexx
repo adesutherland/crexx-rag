@@ -202,10 +202,10 @@ embedmissing: procedure = .int
   return 0
 
 buildannvectorgeneration: procedure = .int
-  arg store = .ragstorehandle, embedding_profile_id = .string, maximum_rows = .int, requested_centroids = .int, requested_probes = .int, iterations = .int, expose result = .ragvectorgenerationresult, expose error = .string
+  arg store = .ragstorehandle, embedding_profile_id = .string, maximum_rows = .int, requested_centroids = .int, requested_probes = .int, iterations = .int, maximum_sidecar_bytes = .int, expose result = .ragvectorgenerationresult, expose error = .string
   result = .ragvectorgenerationresult(-1, "error", "", 0, embedding_profile_id, 0, 0, "", "", "vector generation input is invalid")
   error = ""
-  if store.writable() \= 1 | _safeid(embedding_profile_id) \= 1 | maximum_rows < 1 | maximum_rows > 1000000 | requested_centroids < 1 | requested_centroids > 4096 | requested_probes < 1 | requested_probes > requested_centroids | iterations < 1 | iterations > 16 then do; error = "vector generation input is invalid"; return -1; end
+  if store.writable() \= 1 | _safeid(embedding_profile_id) \= 1 | maximum_rows < 1 | maximum_rows > 1000000 | requested_centroids < 1 | requested_centroids > 4096 | requested_probes < 1 | requested_probes > requested_centroids | iterations < 1 | iterations > 16 | maximum_sidecar_bytes < 1048576 | maximum_sidecar_bytes > 2000000000 then do; error = "vector generation input is invalid"; return -1; end
   generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
   provider_id = ""; model = ""; dimension = 0; envelope = ""
   if generation < 1 | _profile(store.database(), embedding_profile_id, provider_id, model, dimension, envelope, error) \= 0 then return -3
@@ -225,7 +225,7 @@ buildannvectorgeneration: procedure = .int
   centroid_wire = rxvector..encodef32le(centroids)
   clusters = _clusters(chunk_ids, input_digests, assignments, centroid_count)
   payload_text = '{"schema":"crexx-rag.rxvector-ann/1","algorithm":"ivf-flat-v1","codec":"f32le-v1","storage":"sqlite-embedding-blobs","semantic_generation":' || generation || ',"embedding_profile_id":' || _json(embedding_profile_id) || ',"dimension":' || dimension || ',"row_count":' || rows || ',"centroid_count":' || centroid_count || ',"probe_count":' || probe_count || ',"centroids_f32le":' || _json(lower(bin2x(centroid_wire))) || ',"clusters":[' || clusters || ']}'
-  if length(payload_text) > 67108864 then do; error = "vector generation manifest exceeds the fixed 64 MiB build ceiling"; return -2; end
+  if length(payload_text) > maximum_sidecar_bytes then do; error = "vector generation manifest exceeds vector.maximum_sidecar_bytes"; return -2; end
   checksum = rxhash..sha256hex(payload_text as .binary)
   vector_generation_id = "vg-" || substr(checksum, 1, 24)
   prepared = .binary

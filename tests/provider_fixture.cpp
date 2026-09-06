@@ -243,6 +243,10 @@ int main(int argc, char** argv)
                         grounding = "insufficient";
                         answer_text = "The supplied evidence does not answer the question.";
                     }
+                    if (scenario == "product-query-partial") {
+                        grounding = "partial";
+                        answer_text = "The evidence establishes the documented dependency, but does not establish its operational impact.";
+                    }
                     if (scenario == "product-query-invalid") {
                         if (index == 0) citations = "[\"crexx-rag:unknown-citation\"]";
                         if (index == 1) citations = "[\"" + citation + "\",\"" + citation + "\"]";
@@ -259,10 +263,10 @@ int main(int argc, char** argv)
                 const std::string source_id = escaped_candidate_for_label(request, "billingservice");
                 const std::string target_id = escaped_candidate_for_label(request, "customerdatabase");
                 const bool improvement = request.find("improve-extraction") != std::string::npos;
-                const bool valid_output_reservation = improvement
-                    ? request.find("\"maxOutputTokens\":1024") != std::string::npos
-                    : (request.find("\"maxOutputTokens\":512") != std::string::npos
-                       || request.find("\"maxOutputTokens\":1024") != std::string::npos);
+                const bool valid_output_reservation =
+                    request.find("\"maxOutputTokens\":512") != std::string::npos
+                    || request.find("\"maxOutputTokens\":1024") != std::string::npos
+                    || request.find("\"maxOutputTokens\":4096") != std::string::npos;
                 if (!valid_auth || !valid_structured || request.find("crexx-rag.work-input/1") == std::string::npos
                     || request.find("crexx-rag.discovery-context/1") == std::string::npos
                     || request.find("crexx-rag.glossary/1") == std::string::npos

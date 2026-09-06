@@ -13,12 +13,18 @@ industrialprovider: class implements .provider
   _provider_name = .string
   _base_path = .string
   _transport = .providerhttptransport
+  _input_price_microunits_per_million = .int
+  _output_price_microunits_per_million = .int
+  _maximum_batch_size = .int
 
   *: factory
-    arg protocol = .string, host = .string, port = .int, tls = .int, base_path = .string, api_key = .string, route_class = .string
+    arg protocol = .string, host = .string, port = .int, tls = .int, base_path = .string, api_key = .string, route_class = .string, input_price_microunits_per_million = -1, output_price_microunits_per_million = -1, maximum_batch_size = 1024
     _protocol = protocol
     _provider_name = protocol
     _base_path = base_path
+    _input_price_microunits_per_million = input_price_microunits_per_million
+    _output_price_microunits_per_million = output_price_microunits_per_million
+    _maximum_batch_size = maximum_batch_size
     _transport = .providerhttptransport(host, port, tls, protocol, api_key, route_class)
     return
 
@@ -82,7 +88,7 @@ industrialprovider: class implements .provider
     if _protocol \= "openai" & _protocol \= "gemini" then return _unsupported(request, "embedding protocol")
     inputs = request.inputs()
     if batch = 0 & inputs.0 \= 1 then return _failed(request, .providererror("invalid_request", -101, 0, 0, 0, "single embedding requires exactly one input"))
-    if _protocol = "gemini" & inputs.0 > 100 then return _failed(request, .providererror("invalid_request", -101, 0, 0, 0, "Gemini embedding batch exceeds 100 inputs"))
+    if inputs.0 > _maximum_batch_size then return _failed(request, .providererror("invalid_request", -101, 0, 0, 0, "embedding batch exceeds the configured provider capability"))
     path = _embedding_path(request.model(), batch)
     body = _embedding_body(request, batch)
     response = _transport.post(request, path, body)
@@ -442,7 +448,7 @@ industrialprovider: class implements .provider
     usage_node = document.member(root, "usage")
     input_tokens = _optional_int(document, usage_node, "input_tokens")
     output_tokens = _optional_int(document, usage_node, "output_tokens")
-    usage = .providerusage(input_tokens, output_tokens, 1, estimatecostmicrounits("openai", request.model(), input_tokens, output_tokens), response.attempts(), response.retry_delay_ms())
+    usage = .providerusage(input_tokens, output_tokens, 1, _estimatecost(request.model(), input_tokens, output_tokens), response.attempts(), response.retry_delay_ms())
     response_id = _response_id(document, root, request.request_id(), response.provider_request_id())
     finish_reason = "complete"
     status_node = document.member(root, "status")
@@ -464,7 +470,7 @@ industrialprovider: class implements .provider
     usage_node = document.member(root, "usage")
     input_tokens = _optional_int(document, usage_node, "input_tokens")
     output_tokens = _optional_int(document, usage_node, "output_tokens")
-    usage = .providerusage(input_tokens, output_tokens, 1, estimatecostmicrounits("anthropic", request.model(), input_tokens, output_tokens), response.attempts(), response.retry_delay_ms())
+    usage = .providerusage(input_tokens, output_tokens, 1, _estimatecost(request.model(), input_tokens, output_tokens), response.attempts(), response.retry_delay_ms())
     response_id = _response_id(document, root, request.request_id(), response.provider_request_id())
     finish_reason = "unknown"
     finish_node = document.member(root, "stop_reason")
@@ -489,7 +495,7 @@ industrialprovider: class implements .provider
     usage_node = document.member(root, "usageMetadata")
     input_tokens = _optional_int(document, usage_node, "promptTokenCount")
     output_tokens = _optional_int(document, usage_node, "candidatesTokenCount")
-    usage = .providerusage(input_tokens, output_tokens, 1, estimatecostmicrounits("gemini", request.model(), input_tokens, output_tokens), response.attempts(), response.retry_delay_ms())
+    usage = .providerusage(input_tokens, output_tokens, 1, _estimatecost(request.model(), input_tokens, output_tokens), response.attempts(), response.retry_delay_ms())
     response_id = request.request_id()
     response_id_node = document.member(root, "responseId")
     if document.node_type(response_id_node) = "string" then ignored = document.node_string(response_id_node, response_id)
@@ -543,7 +549,7 @@ industrialprovider: class implements .provider
       input_tokens = _optional_int(document, usage_node, "promptTokenCount")
     end
     cost = -1
-    if input_tokens > 0 then cost = estimatecostmicrounits(_provider_name, request.model(), input_tokens, 0)
+    if input_tokens > 0 then cost = _estimatecost(request.model(), input_tokens, 0)
     usage = .providerusage(input_tokens, 0, inputs.0, cost, response.attempts(), response.retry_delay_ms())
     result = .providerresult()
     call result.set_embeddings(_provider_name, request.model(), request.request_id(), vectors, usage, response.latency_us())
@@ -563,7 +569,7 @@ industrialprovider: class implements .provider
     usage_node = document.member(document.root(), "usageMetadata")
     input_tokens = _optional_int(document, usage_node, "promptTokenCount")
     cost = -1
-    if input_tokens > 0 then cost = estimatecostmicrounits(_provider_name, request.model(), input_tokens, 0)
+    if input_tokens > 0 then cost = _estimatecost(request.model(), input_tokens, 0)
     result = .providerresult()
     call result.set_embeddings(_provider_name, request.model(), request.request_id(), vectors, .providerusage(input_tokens, 0, 1, cost, response.attempts(), response.retry_delay_ms()), response.latency_us())
     return result
@@ -598,6 +604,11 @@ industrialprovider: class implements .provider
   _unsupported: method = .providerresult
     arg request = .providerrequest, capability = .string
     return _failed(request, .providererror("unsupported", -120, 0, 0, 0, capability || " is not supported"))
+
+  _estimatecost: method = .int
+    arg model = .string, input_tokens = .int, output_tokens = .int
+    if _input_price_microunits_per_million >= 0 & _output_price_microunits_per_million >= 0 then return (input_tokens * _input_price_microunits_per_million + output_tokens * _output_price_microunits_per_million) / 1000000
+    return estimatecostmicrounits(_provider_name, model, input_tokens, output_tokens)
 
 _optional_int: procedure = .int
   arg document = .jsondocument, parent = .int, name = .string

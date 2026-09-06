@@ -1,7 +1,7 @@
 # Hard-coded configuration audit
 
-Status: review complete; implementation not yet started  
-Audit date: 2026-09-05  
+Status: review complete; next-batch blockers and semantic-ingestion transition implemented and focused-qualified
+Audit date: 2026-09-06
 Scope: production Level-G application and provider sources under
 `crexx/application` and `crexx/providers`; tests were used as evidence but are
 not part of the runtime inventory.
@@ -38,8 +38,29 @@ The most serious findings are:
 6. Guided ingestion and maintenance force 100 ms polling for 100 polls. That
    is only ten seconds and is unrelated to the reviewed job time budget.
 
-No further paid maintenance or replay should run until items HC-01 through
-HC-08 below are resolved and qualified.
+HC-01 through HC-08 are now resolved at the configuration/runtime boundary and
+qualified without paid calls. Config/3 carries provider capabilities, effective
+prices and observed dates directly; typed role bindings carry the execution
+envelope and prompt text; guided waits and vector scale guards are explicit.
+Formats 1 and 2 remain compatibility projections. Whole-sidecar loading remains
+the separate RSS architecture item: the formerly hidden 64 MiB ceiling is now
+configurable, but compact/streamed ANN storage has not been claimed complete.
+
+The same coherent change also closes HC-09, HC-24, HC-25, HC-37 and the
+next-batch portion of HC-48. The remaining P1/P2 rows are still the reviewed
+closure backlog; the table preserves their original evidence so they do not
+return as one-at-a-time discoveries.
+
+The deep-smoke follow-up also repaired three public lifecycle defects. Guided
+ingestion and maintenance now derive their poll horizon from `worker.poll_ms`,
+`worker.guided_deadline_seconds`, and the reviewed time budget instead of a
+hard-coded ten seconds. `profile show` emits its chunk limits as typed JSON
+integers. Finally, a semantic config/profile change can now be planned and
+applied through a fresh ingestion generation: planning remains zero-write,
+requires prior jobs to be settled, binds the old library state and desired
+semantic identity, and apply atomically publishes the target snapshot before
+queueing every active chunk for reprocessing. `config apply` continues to
+reject semantic changes, and evidence/provider validation remains unchanged.
 
 ## What is already correctly configurable
 
@@ -218,14 +239,21 @@ limit; the exact value will be selected from observed response sizes, budget and
 the catalogue capability before implementation. `worker.guided_deadline_seconds
 = 0` means derive the deadline from the reviewed job budget, not wait forever.
 
-The policy TSVs contain named values, ordered bands, cue vocabularies and prompt
-text. They are bounded data, not executable module names. Their content hashes
-must be included in the effective configuration, exact plan and audit history.
+The first implementation keeps role prompts and provider catalogue records
+inline in config/3. They are bounded data, not executable module names, and
+their content enters the effective canonical configuration. Separate rule TSVs
+remain the proposed P1 consolidation when the query, claim and maintenance rule
+rows below are implemented.
 
 ## Canonical and migration rules
 
-1. `config/3` requires every user-impacting setting. There are no silent
-   execution defaults in a new config.
+The implemented next-batch subset follows these rules for provider, role,
+worker and vector settings. References below to storage, backup, presentation
+and rule-policy data describe the retained P1 target, not completed coverage.
+
+1. `config/3` requires the next-batch execution settings implemented in this
+   change. Remaining P1/P2 policy is tracked explicitly below and is not yet
+   represented as complete config/3 coverage.
 2. `config/1` and `config/2` remain readable for compatibility. Their old
    defaults are projected explicitly into the effective canonical config and
    `config explain` marks each value as `compatibility-default`.
@@ -234,36 +262,36 @@ must be included in the effective configuration, exact plan and audit history.
    semantic identity.
 4. Timeouts, rates, worker/storage/backup settings, presentation limits and
    answer/report resource ceilings enter operational identity.
-5. Every work item stores the resolved role envelope and catalogue digest.
-   Workers consume it; they do not recompute or lower it with private literals.
+5. Every provider work item stores the resolved role envelope. Workers consume
+   it; they do not recompute or lower it with private literals. Provider
+   capability and price data enter the configuration snapshot identity.
 6. The effective model capability is the intersection of configured policy and
    the selected catalogue entry. A mismatch fails during planning, before paid
    calls.
-7. Prices are effective-dated. The exact price record used for cost admission
-   is persisted with provider usage so historical cost does not change when the
-   catalogue is updated.
+7. Prices carry a reviewed observation date. Provider usage persists the
+   completion-time cost calculated from the active configuration snapshot, so
+   later configuration changes do not rewrite historical usage.
 
 ## Consolidated implementation and qualification
 
-The repair should be one coherent change and one expensive application rebuild:
+The next-batch repair was implemented as one coherent change:
 
-1. Add typed role, storage, backup, worker, output and scale policy classes;
-   add bounded loaders for catalogue, prompts and rule data; introduce required
-   `config/3` keys and compatibility projection for older files.
-2. Extend canonical full/semantic/operational forms and configuration history.
-3. Refactor ingestion, maintenance, query, workers, vector publication,
-   provider adapters, storage, backup and rendering to consume only resolved
-   policy. Delete duplicate clamps and compiled production fallbacks.
-4. Add cross-path tests that run deliberately different low/high policies and
-   prove plans, reservations, provider requests and hashes change accordingly.
-   Add a static regression test that rejects the known forbidden runtime
-   literals in the owning modules unless explicitly allowlisted as invariants.
-5. Run focused config/ingest/maintenance/query/provider/vector tests, the full
-   debug suite, `git diff --check`, install locally, then perform a zero-paid-call
-   `config explain`, plan and replay-preflight against a scratch copy.
-6. Only after those checks, replay the 326 truncation dead letters as a small
-   bounded cost baseline, verify vector/graph/search publication, snapshot and
-   back up the live library.
+1. Added typed role, provider catalogue, worker and vector scale settings;
+   introduced required `config/3` keys and compatibility projection for older
+   files. Storage, backup, output and rule-policy settings remain P1 backlog.
+2. Extended canonical full, semantic and operational forms and configuration
+   history for those implemented settings.
+3. Refactored ingestion, maintenance, query, guided workers, vector publication
+   and provider adapters to consume the resolved next-batch policy. Removed the
+   duplicate extraction clamp and embedding cost fallback.
+4. Added cross-path format/config, ANN, query, provider and evidence tests. A
+   broader invariant allowlist/static test remains with the P1 policy migration.
+5. Focused tests and the full 21-test debug suite are green; the native product
+   was installed locally. Zero-paid-call config check/explain/diff/replay
+   preflight and full repository verification also passed against an
+   independent restored generation-4799 corpus.
+6. Paid replay remains a separate explicit action after qualification; it was
+   not started by this repair.
 
 ## Separate defects discovered during the same run
 

@@ -79,9 +79,17 @@ ragproviderconfig: class
   _initial_backoff_ms = .int
   _maximum_backoff_ms = .int
   _jitter_ms = .int
+  _context_tokens = .int
+  _maximum_output_tokens = .int
+  _embedding_dimensions_minimum = .int
+  _embedding_dimensions_maximum = .int
+  _maximum_batch_size = .int
+  _input_price_microunits_per_million = .int
+  _output_price_microunits_per_million = .int
+  _catalog_observed_date = .string
 
   *: factory
-    arg provider_id = .string, kind = .string, base_url = .string, model = .string, route_class = .string, privacy_policy = .string, credential = .ragsecretref, timeout_ms = .int, max_attempts = .int, requests_per_minute = 60000, tokens_per_minute = 2000000000, concurrent_requests = 64, initial_backoff_ms = 1000, maximum_backoff_ms = 60000, jitter_ms = 250
+    arg provider_id = .string, kind = .string, base_url = .string, model = .string, route_class = .string, privacy_policy = .string, credential = .ragsecretref, timeout_ms = .int, max_attempts = .int, requests_per_minute = 60000, tokens_per_minute = 2000000000, concurrent_requests = 64, initial_backoff_ms = 1000, maximum_backoff_ms = 60000, jitter_ms = 250, context_tokens = 2000000000, maximum_output_tokens = 2000000000, embedding_dimensions_minimum = 1, embedding_dimensions_maximum = 1000000, maximum_batch_size = 1024, input_price_microunits_per_million = -1, output_price_microunits_per_million = -1, catalog_observed_date = "compatibility-default"
     _provider_id = provider_id
     _kind = kind
     _base_url = base_url
@@ -97,6 +105,14 @@ ragproviderconfig: class
     _initial_backoff_ms = initial_backoff_ms
     _maximum_backoff_ms = maximum_backoff_ms
     _jitter_ms = jitter_ms
+    _context_tokens = context_tokens
+    _maximum_output_tokens = maximum_output_tokens
+    _embedding_dimensions_minimum = embedding_dimensions_minimum
+    _embedding_dimensions_maximum = embedding_dimensions_maximum
+    _maximum_batch_size = maximum_batch_size
+    _input_price_microunits_per_million = input_price_microunits_per_million
+    _output_price_microunits_per_million = output_price_microunits_per_million
+    _catalog_observed_date = catalog_observed_date
     return
 
   provider_id: method = .string
@@ -129,6 +145,22 @@ ragproviderconfig: class
     return _maximum_backoff_ms
   jitter_ms: method = .int
     return _jitter_ms
+  context_tokens: method = .int
+    return _context_tokens
+  maximum_output_tokens: method = .int
+    return _maximum_output_tokens
+  embedding_dimensions_minimum: method = .int
+    return _embedding_dimensions_minimum
+  embedding_dimensions_maximum: method = .int
+    return _embedding_dimensions_maximum
+  maximum_batch_size: method = .int
+    return _maximum_batch_size
+  input_price_microunits_per_million: method = .int
+    return _input_price_microunits_per_million
+  output_price_microunits_per_million: method = .int
+    return _output_price_microunits_per_million
+  catalog_observed_date: method = .string
+    return _catalog_observed_date
   charging_basis: method = .string
     if _kind = "codex" then return "subscription-allowance"
     if _route_class = "local" then return "local-compute"
@@ -137,17 +169,45 @@ ragproviderconfig: class
 ragrolebinding: class
   _role = .string
   _provider_id = .string
+  _maximum_input_tokens = .int
+  _maximum_output_tokens = .int
+  _maximum_call_cost_microunits = .int
+  _embedding_dimensions = .int
+  _batch_size = .int
+  _temperature_millionths = .int
+  _system_prompt = .string
 
   *: factory
-    arg role = .string, provider_id = .string
+    arg role = "", provider_id = "", maximum_input_tokens = 0, maximum_output_tokens = 0, maximum_call_cost_microunits = 0, embedding_dimensions = 0, batch_size = 1, temperature_millionths = 0, system_prompt = ""
     _role = role
     _provider_id = provider_id
+    _maximum_input_tokens = maximum_input_tokens
+    _maximum_output_tokens = maximum_output_tokens
+    _maximum_call_cost_microunits = maximum_call_cost_microunits
+    _embedding_dimensions = embedding_dimensions
+    _batch_size = batch_size
+    _temperature_millionths = temperature_millionths
+    _system_prompt = system_prompt
     return
 
   role: method = .string
     return _role
   provider_id: method = .string
     return _provider_id
+  maximum_input_tokens: method = .int
+    return _maximum_input_tokens
+  maximum_output_tokens: method = .int
+    return _maximum_output_tokens
+  maximum_call_cost_microunits: method = .int
+    return _maximum_call_cost_microunits
+  embedding_dimensions: method = .int
+    return _embedding_dimensions
+  batch_size: method = .int
+    return _batch_size
+  temperature_millionths: method = .int
+    return _temperature_millionths
+  system_prompt: method = .string
+    return _system_prompt
 
 /* Profile definitions may remain compiled defaults or be supplied as bounded
  * operator data.  A binding names the expected profile identity and its data
@@ -210,12 +270,16 @@ ragworkerpolicy: class
   _processes = .int
   _max_in_flight = .int
   _lease_seconds = .int
+  _poll_ms = .int
+  _guided_deadline_seconds = .int
 
   *: factory
-    arg processes = .int, max_in_flight = .int, lease_seconds = .int
+    arg processes = .int, max_in_flight = .int, lease_seconds = .int, poll_ms = 100, guided_deadline_seconds = 0
     _processes = processes
     _max_in_flight = max_in_flight
     _lease_seconds = lease_seconds
+    _poll_ms = poll_ms
+    _guided_deadline_seconds = guided_deadline_seconds
     return
 
   processes: method = .int
@@ -224,6 +288,10 @@ ragworkerpolicy: class
     return _max_in_flight
   lease_seconds: method = .int
     return _lease_seconds
+  poll_ms: method = .int
+    return _poll_ms
+  guided_deadline_seconds: method = .int
+    return _guided_deadline_seconds
 
 ragschedule: class
   _schedule_id = .string
@@ -291,14 +359,20 @@ ragvectorpolicy: class
   _probes = .int
   _iterations = .int
   _recall_minimum_millionths = .int
+  _maximum_rows = .int
+  _maximum_sidecar_bytes = .int
+  _embedding_maximum_items = .int
 
   *: factory
-    arg algorithm = "ivf-flat-v1", centroids = 16, probes = 4, iterations = 2, recall_minimum_millionths = 900000
+    arg algorithm = "ivf-flat-v1", centroids = 16, probes = 4, iterations = 2, recall_minimum_millionths = 900000, maximum_rows = 1000000, maximum_sidecar_bytes = 67108864, embedding_maximum_items = 100000
     _algorithm = algorithm
     _centroids = centroids
     _probes = probes
     _iterations = iterations
     _recall_minimum_millionths = recall_minimum_millionths
+    _maximum_rows = maximum_rows
+    _maximum_sidecar_bytes = maximum_sidecar_bytes
+    _embedding_maximum_items = embedding_maximum_items
     return
 
   algorithm: method = .string
@@ -311,6 +385,12 @@ ragvectorpolicy: class
     return _iterations
   recall_minimum_millionths: method = .int
     return _recall_minimum_millionths
+  maximum_rows: method = .int
+    return _maximum_rows
+  maximum_sidecar_bytes: method = .int
+    return _maximum_sidecar_bytes
+  embedding_maximum_items: method = .int
+    return _embedding_maximum_items
 
 ragretrievalpolicy: class
   _lexical_candidates = .int
@@ -602,6 +682,9 @@ validateconfig: procedure = .ragvalidationresult
     if provider.timeout_ms() <= 0 | provider.max_attempts() < 1 | provider.max_attempts() > 10 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_limits", path, "provider timeout and attempt limits are invalid")
     if provider.requests_per_minute() < 1 | provider.requests_per_minute() > 60000 | provider.tokens_per_minute() < 1 | provider.tokens_per_minute() > 2000000000 | provider.concurrent_requests() < 1 | provider.concurrent_requests() > 64 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_rate", path, "provider request, token, or concurrency limits are invalid")
     if provider.initial_backoff_ms() < 1 | provider.initial_backoff_ms() > 60000 | provider.maximum_backoff_ms() < provider.initial_backoff_ms() | provider.maximum_backoff_ms() > 600000 | provider.jitter_ms() < 0 | provider.jitter_ms() > 60000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_backoff", path, "provider retry backoff or jitter limits are invalid")
+    if provider.context_tokens() < 1 | provider.maximum_output_tokens() < 0 | provider.maximum_batch_size() < 1 | provider.maximum_batch_size() > 4096 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_capability", path, "provider context, output, or batch capability is invalid")
+    if provider.embedding_dimensions_minimum() < 0 | provider.embedding_dimensions_maximum() < provider.embedding_dimensions_minimum() | provider.embedding_dimensions_maximum() > 1000000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_embedding_capability", path, "provider embedding dimension capability is invalid")
+    if provider.input_price_microunits_per_million() < -1 | provider.output_price_microunits_per_million() < -1 | provider.catalog_observed_date() = "" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_catalog", path, "provider catalogue price or observation identity is invalid")
   end
 
   roles = config.roles()
@@ -614,6 +697,17 @@ validateconfig: procedure = .ragvalidationresult
     if _contains(seen, role_id) = 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "duplicate_role", path || ".role", "provider role is duplicated")
     seen[seen.0 + 1] = role_id
     if _provider_exists(providers, role.provider_id()) = 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "unknown_provider", path || ".provider_id", "role references an unknown provider id")
+    if role.maximum_input_tokens() < 1 | role.maximum_output_tokens() < 0 | role.maximum_call_cost_microunits() < 0 | role.batch_size() < 1 | role.temperature_millionths() < 0 | role.temperature_millionths() > 2000000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_role_envelope", path, "role input, output, cost, batch, or temperature envelope is invalid")
+    if role_id = "embedding" then do
+      if role.maximum_output_tokens() \= 0 | role.embedding_dimensions() < 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_embedding_role", path, "embedding role requires dimensions and zero output tokens")
+    end
+    else if role.maximum_output_tokens() < 1 | role.embedding_dimensions() \= 0 | role.system_prompt() = "" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_generation_role", path, "generation role requires output tokens, no embedding dimension, and a system prompt")
+    do p = 1 to providers.0
+      if providers[p].provider_id() \= role.provider_id() then iterate
+      if role.maximum_input_tokens() > providers[p].context_tokens() then issues[issues.0 + 1] = .ragvalidationissue("config", "role_context_exceeded", path || ".maximum_input_tokens", "role input envelope exceeds the configured provider catalogue capability")
+      if role.maximum_output_tokens() > providers[p].maximum_output_tokens() then issues[issues.0 + 1] = .ragvalidationissue("config", "role_output_exceeded", path || ".maximum_output_tokens", "role output envelope exceeds the configured provider catalogue capability")
+      if role_id = "embedding" & (role.embedding_dimensions() < providers[p].embedding_dimensions_minimum() | role.embedding_dimensions() > providers[p].embedding_dimensions_maximum() | role.batch_size() > providers[p].maximum_batch_size()) then issues[issues.0 + 1] = .ragvalidationissue("config", "role_embedding_exceeded", path, "embedding role dimensions or batch size exceed the configured provider catalogue capability")
+    end
   end
   if _contains(seen, "advisory") = 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "missing_role", "roles.advisory", "required provider role is missing")
   if _contains(seen, "extractor") = 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "missing_role", "roles.extractor", "required provider role is missing")
@@ -644,6 +738,7 @@ validateconfig: procedure = .ragvalidationresult
   if workers.processes() < 1 | workers.processes() > 32 then issues[issues.0 + 1] = .ragvalidationissue("config", "worker_processes", "workers.processes", "worker processes must be from 1 through 32")
   if workers.max_in_flight() \= 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "worker_in_flight", "workers.max_in_flight", "each worker process currently owns one in-flight item")
   if workers.lease_seconds() <= 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_lease", "workers.lease_seconds", "worker lease must be positive")
+  if workers.poll_ms() < 10 | workers.poll_ms() > 60000 | workers.guided_deadline_seconds() < 0 | workers.guided_deadline_seconds() > 604800 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_worker_runtime", "workers", "worker poll and guided deadline policy is invalid")
 
   discovery = config.discovery()
   if wordpos(discovery.mode(), "all ranked maintenance off") = 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_discovery_mode", "discovery.mode", "discovery mode must be all, ranked, maintenance, or off")
@@ -658,6 +753,7 @@ validateconfig: procedure = .ragvalidationresult
   if vector.probes() < 1 | vector.probes() > vector.centroids() then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_vector_limit", "vector.probes", "vector probes must be positive and no greater than centroids")
   if vector.iterations() < 1 | vector.iterations() > 16 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_vector_limit", "vector.iterations", "vector training iterations must be from 1 through 16")
   if vector.recall_minimum_millionths() < 1 | vector.recall_minimum_millionths() > 1000000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_vector_recall", "vector.recall_minimum_millionths", "vector recall threshold must be from 1 through 1000000")
+  if vector.maximum_rows() < 1 | vector.maximum_rows() > 1000000 | vector.maximum_sidecar_bytes() < 1048576 | vector.maximum_sidecar_bytes() > 2000000000 | vector.embedding_maximum_items() < 1 | vector.embedding_maximum_items() > 1000000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_vector_scale", "vector", "vector row, sidecar, or embedding work ceiling is invalid")
 
   retrieval = config.retrieval()
   if retrieval.lexical_candidates() < 1 | retrieval.lexical_candidates() > 1000 | retrieval.vector_candidates() < 1 | retrieval.vector_candidates() > 1000 | retrieval.vector_scan_limit() < retrieval.vector_candidates() | retrieval.vector_scan_limit() > 1000000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_retrieval_limit", "retrieval", "retrieval candidate and vector scan limits are invalid")

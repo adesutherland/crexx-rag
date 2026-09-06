@@ -69,6 +69,7 @@ _toolcommand: procedure = .int
   else if tool = "rag_provider_diagnostics" then do; noun = "provider"; verb = "status"; end
   else if tool = "rag_provider_test" then do; noun = "provider"; verb = "test"; end
   else if tool = "rag_source_list" then do; noun = "source"; verb = "list"; end
+  else if tool = "rag_citation_show" then do; noun = "citation"; verb = "show"; end
   else if tool = "rag_schedule_list" then do; noun = "schedule"; verb = "list"; end
   else if tool = "rag_schedule_show" then do; noun = "schedule"; verb = "show"; end
   else if tool = "rag_query_search" then do; noun = "query"; verb = "search"; end
@@ -110,6 +111,9 @@ _toolcommand: procedure = .int
     call _option document, arguments, "hops", "hops", output
     call _option document, arguments, "mode", "mode", output
     call _option document, arguments, "direction", "direction", output
+  end
+  if tool = "rag_citation_show" then do
+    if _positional(document, arguments, "citation", output, error) \= 0 then return -1
   end
   if tool = "rag_library_report" then do
     call _option document, arguments, "top", "top", output
@@ -202,6 +206,7 @@ _toollist: procedure = .string
   tools = _addtool(tools, "rag_library_report", "Report deterministic generation-bound corpus, graph, vector, provenance and maintenance health; optional refresh makes one configured advisory-provider call and caches only citation-validated output", '{"top":{"type":"integer","minimum":1,"maximum":20},"narrative":{"type":"string","enum":["off","cached","refresh"]}}', "false", "true", "false")
   tools = _addtool(tools, "rag_library_trend", "Read immutable historic observation points and deterministic deltas without provider calls", '{"limit":{"type":"integer","minimum":1,"maximum":50}}', "true")
   tools = _addtool(tools, "rag_source_list", "List sources with cursor-bounded records", '{"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100}}', "true")
+  tools = _addtool(tools, "rag_citation_show", "Resolve one stable citation to its immutable source span and provenance", '{"citation":{"type":"string"}}', "true")
   tools = _addtool(tools, "rag_schedule_list", "List configured recurring operation definitions; recurrence and invocation remain externally owned", '{}', "true")
   tools = _addtool(tools, "rag_schedule_show", "Show one configured recurring operation definition without invoking it", '{"id":{"type":"string"}}', "true")
   tools = _addtool(tools, "rag_query_search", "Search and return typed evidence; records durable gap signals and configured auto or hybrid mode may call an embedding provider", _queryproperties(), "false", "true", "false")
@@ -252,6 +257,7 @@ _addtool: procedure = .string
   if tools \= "" then tools = tools || ","
   required = "[]"
   if pos('"question"', properties) > 0 then required = '["question"]'
+  if pos('"citation"', properties) > 0 then required = '["citation"]'
   if pos('"id"', properties) > 0 then required = '["id"]'
   if pos('"provider"', properties) > 0 then required = '["provider"]'
   if pos('"plan_json"', properties) > 0 then required = '["plan_json","expect_digest"]'
@@ -286,6 +292,7 @@ _toolargumentsvalid: procedure = .int
 _toolargumentnames: procedure = .string
   arg tool = .string
   if left(tool, 10) = "rag_query_" then return "question limit hops mode direction"
+  if tool = "rag_citation_show" then return "citation"
   if tool = "rag_library_report" then return "top narrative"
   if tool = "rag_library_snapshot" then return "trigger reason"
   if tool = "rag_library_trend" then return "limit"
@@ -306,6 +313,7 @@ _toolargumentnames: procedure = .string
 _toolrequiredarguments: procedure = .string
   arg tool = .string
   if left(tool, 10) = "rag_query_" then return "question"
+  if tool = "rag_citation_show" then return "citation"
   if tool = "rag_job_status" | tool = "rag_job_events" | tool = "rag_job_pause" | tool = "rag_job_resume" | tool = "rag_job_cancel" | tool = "rag_job_replay" | tool = "rag_worker_drain" | tool = "rag_maintain_inspect" then return "id"
   if tool = "rag_schedule_show" then return "id"
   if tool = "rag_review_decide_preview" | tool = "rag_review_decide" then return "id"

@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragconfiguration expose ragconfigidentity ragconfigdiff identifyconfig inspectconfigchange createreconfigureplan applyreconfigureplan currentconfigsnapshotid
+namespace ragconfiguration expose ragconfigidentity ragconfigdiff identifyconfig ensureconfigsnapshot inspectconfigchange createreconfigureplan applyreconfigureplan currentconfigsnapshotid
 
 import rxfnsb
 import rxjson
@@ -99,6 +99,23 @@ identifyconfig: procedure = .int
 currentconfigsnapshotid: procedure = .string
   arg database = .binary, expose error = .string
   return _scalartext(database, "SELECT current_config_snapshot_id FROM library_config_state WHERE singleton=1", error)
+
+ensureconfigsnapshot: procedure = .int
+  arg database = .binary, config = .ragconfig, profile = .ragprofile, expected_snapshot_id = .string, expose error = .string
+  error = ""; identity = .ragconfigidentity
+  if identifyconfig(config, profile, identity, error) \= 0 | expected_snapshot_id = "" | identity.snapshot_id() \= expected_snapshot_id then do
+    if error = "" then error = "ingestion target configuration identity is invalid"
+    return -1
+  end
+  prepared = .binary
+  sql = "INSERT OR IGNORE INTO config_snapshots(config_snapshot_id,config_id,config_version,profile_id,profile_hash,config_hash,effective_json,created_at,semantic_hash,operational_hash) VALUES(?1,?2,?3,?4,?5,?6,?7,strftime('%Y-%m-%dT%H:%M:%fZ','now'),?8,?9)"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare ingestion target configuration snapshot"; return -1; end
+  bindings = sqlitebindtext(prepared, 1, identity.snapshot_id()) | sqlitebindtext(prepared, 2, config.config_id()) | sqlitebindtext(prepared, 3, config.version()) | sqlitebindtext(prepared, 4, profile.profile_id()) | sqlitebindtext(prepared, 5, identity.profile_hash()) | sqlitebindtext(prepared, 6, identity.config_hash()) | sqlitebindtext(prepared, 7, identity.effective_json()) | sqlitebindtext(prepared, 8, identity.semantic_hash()) | sqlitebindtext(prepared, 9, identity.operational_hash())
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if bindings \= 0 | step \= 101 then do; error = "cannot insert ingestion target configuration snapshot"; return -1; end
+  matching = _scalarint(database, "SELECT count(*) FROM config_snapshots WHERE config_snapshot_id=" || _q(identity.snapshot_id()) || " AND config_id=" || _q(config.config_id()) || " AND config_version=" || _q(config.version()) || " AND profile_id=" || _q(profile.profile_id()) || " AND profile_hash=" || _q(identity.profile_hash()) || " AND config_hash=" || _q(identity.config_hash()) || " AND effective_json=" || _q(identity.effective_json()) || " AND semantic_hash=" || _q(identity.semantic_hash()) || " AND operational_hash=" || _q(identity.operational_hash()), error)
+  if matching \= 1 then do; if error = "" then error = "existing ingestion target configuration snapshot conflicts with its canonical identity"; return -1; end
+  return 0
 
 inspectconfigchange: procedure = .int
   arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile, expose difference = .ragconfigdiff, expose error = .string

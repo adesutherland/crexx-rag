@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragevidencejson expose encodeevidence encodeanswercontext encoderetrieval
+namespace ragevidencejson expose encodeevidence encodeanswercontext encoderetrieval encodetraceprojection encodepathprojection encodetimelineprojection
 
 import rxfnsb
 import rxjson
@@ -73,6 +73,99 @@ encodeanswercontext: procedure = .int
   end
   output = '{"schema":"crexx-rag.answer-context/1","question":' || jsonquote(evidence.original_question()) || ',"passages":[' || encoded_passages || '],"accepted_claims":[' || encoded_claims || '],"ambiguities":' || _strings(ambiguities) || ',"graph_leads":[' || encoded_leads || '],"analysis_notes":[' || encoded_notes || '],"gaps":' || _strings(gaps) || ',"answer_guidance":' || jsonquote(evidence.answer_guidance()) || '}'
   if binlength(output as .binary) > maximum_bytes then do; error = "serialized answer context exceeds the configured byte ceiling"; output = ""; return -2; end
+  return 0
+
+encodetraceprojection: procedure = .int
+  arg evidence = .ragevidence, maximum_bytes = 65536, expose output = .string, expose error = .string
+  error = ""; trace_record = evidence.trace()
+  output = '{"schema":"crexx-rag.query-trace/1","trace_id":' || jsonquote(trace_record.trace_id()) || ',"query_plan":' || _strings(trace_record.query_plan()) || ',"notes":' || _strings(trace_record.notes()) || '}'
+  if trace_record.trace_id() = "" | binlength(output as .binary) > maximum_bytes then do; error = "serialized query trace exceeds the configured byte ceiling"; output = ""; return -1; end
+  return 0
+
+encodepathprojection: procedure = .int
+  arg evidence = .ragevidence, maximum_bytes = 65536, expose output = .string, expose error = .string
+  error = ""; claims = evidence.claims(); leads = evidence.leads(); encoded = ""; count = 0
+  do i = 1 to claims.0
+    supports = claims[i].supports(); citation_ids = .string[]
+    do j = 1 to supports.0; citation_ids[j] = supports[j].citation().citation(); end
+    if encoded \= "" then encoded = encoded || ","
+    encoded = encoded || '{"kind":"accepted-claim","claim_id":' || jsonquote(claims[i].claim_id()) || ',"nodes":[' || jsonquote(claims[i].subject()) || ',' || jsonquote(claims[i].object()) || '],"relationship":' || jsonquote(claims[i].relationship_type()) || ',"direction":' || jsonquote(claims[i].direction()) || ',"citations":' || _strings(citation_ids) || '}'
+    count = count + 1
+  end
+  do i = 1 to leads.0
+    path = leads[i].path(); follow_question = ""; follow_target = ""
+    do j = 2 to path.0
+      if path[j] \= path[1] then do; follow_target = path[j]; leave; end
+    end
+    if follow_target \= "" then follow_question = "What is the relationship between " || path[1] || " and " || follow_target || "?"
+    if encoded \= "" then encoded = encoded || ","
+    encoded = encoded || '{"kind":"exploratory-lead","nodes":' || _strings(path) || ',"reason":' || jsonquote(leads[i].reason()) || ',"limitation":' || jsonquote(leads[i].limitation()) || ',"follow_question":' || jsonquote(follow_question) || '}'
+    count = count + 1
+  end
+  output = '{"schema":"crexx-rag.query-paths/1","path_count":' || count || ',"paths":[' || encoded || ']}'
+  if binlength(output as .binary) > maximum_bytes then do; error = "serialized query paths exceed the configured byte ceiling"; output = ""; return -1; end
+  return 0
+
+encodetimelineprojection: procedure = .int
+  arg evidence = .ragevidence, maximum_bytes = 65536, expose output = .string, expose error = .string
+  error = ""; passages = evidence.passages(); claims = evidence.claims(); encoded = ""; count = 0
+  do i = 1 to passages.0
+    if passages[i].event_start_at() \= "" | passages[i].event_end_at() \= "" then do
+      if encoded \= "" then encoded = encoded || ","
+      encoded = encoded || '{"kind":"source-event","start":' || jsonquote(passages[i].event_start_at()) || ',"end":' || jsonquote(passages[i].event_end_at()) || ',"citation":' || jsonquote(passages[i].citation().citation()) || ',"text":' || jsonquote(passages[i].text()) || '}'
+      count = count + 1
+    end
+    years = .string[]; call _years passages[i].text(), years
+    do j = 1 to years.0
+      if encoded \= "" then encoded = encoded || ","
+      encoded = encoded || '{"kind":"text-year","start":' || jsonquote(years[j]) || ',"end":' || jsonquote(years[j]) || ',"citation":' || jsonquote(passages[i].citation().citation()) || ',"text":' || jsonquote(passages[i].text()) || '}'
+      count = count + 1
+    end
+  end
+  do i = 1 to claims.0
+    if claims[i].effective_start_at() = "" & claims[i].effective_end_at() = "" then iterate
+    supports = claims[i].supports(); citation = ""; if supports.0 > 0 then citation = supports[1].citation().citation()
+    if encoded \= "" then encoded = encoded || ","
+    encoded = encoded || '{"kind":"claim-effective-period","start":' || jsonquote(claims[i].effective_start_at()) || ',"end":' || jsonquote(claims[i].effective_end_at()) || ',"citation":' || jsonquote(citation) || ',"claim_id":' || jsonquote(claims[i].claim_id()) || ',"text":' || jsonquote(claims[i].subject() || " --" || claims[i].relationship_type() || "--> " || claims[i].object()) || '}'
+    count = count + 1
+  end
+  output = '{"schema":"crexx-rag.query-timeline/1","entry_count":' || count || ',"entries":[' || encoded || ']}'
+  if binlength(output as .binary) > maximum_bytes then do; error = "serialized query timeline exceeds the configured byte ceiling"; output = ""; return -1; end
+  return 0
+
+_years: procedure
+  arg value = .string, expose years = .string[]
+  years = .string[]
+  do i = 1 to length(value) - 3
+    candidate = substr(value, i, 4)
+    if _digits(candidate) \= 1 then iterate
+    previous = ""; following = ""
+    if i > 1 then previous = substr(value, i - 1, 1)
+    if i + 3 < length(value) then following = substr(value, i + 4, 1)
+    if _digit(previous) = 1 | _digit(following) = 1 then iterate
+    year = candidate as .int
+    if year < 1000 | year > 2999 | _containsstring(years, candidate) = 1 then iterate
+    years[years.0 + 1] = candidate
+  end
+  return
+
+_digits: procedure = .int
+  arg value = .string
+  if value = "" then return 0
+  do i = 1 to length(value)
+    if _digit(substr(value, i, 1)) \= 1 then return 0
+  end
+  return 1
+
+_digit: procedure = .int
+  arg value = .string
+  return value \= "" & pos(value, "0123456789") > 0
+
+_containsstring: procedure = .int
+  arg values = .string[], expected = .string
+  do i = 1 to values.0
+    if values[i] = expected then return 1
+  end
   return 0
 
 _citation: procedure = .string
