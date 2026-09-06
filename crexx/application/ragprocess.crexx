@@ -370,13 +370,15 @@ runapplicationworker: procedure = .int
     if error \= "" then do; status = -2; leave; end
     if requested = "stop" | requested = "drain" then do; call tracer.emit("worker", "draining", final_id, requested); leave; end
     disposition = ""
-    work_status = runworkeronce(store, job_filter, final_id, lease_seconds, maximum_attempts, policy, provider, disposition, error)
+    work_status = runworkeronce(store, job_filter, final_id, lease_seconds, maximum_attempts, policy, provider, disposition, error, profile)
     if work_status = 1 then do
       call tracer.emit("work", "idle", final_id, "no eligible item")
       if job_filter \= "" then do
         job_state = _scalartext(store.database(), "SELECT state FROM jobs WHERE job_id=" || _sqlquote(job_filter), error)
         if error \= "" then do; status = -2; leave; end
-        if job_state = "completed" | job_state = "completed_with_errors" | job_state = "failed" | job_state = "cancelled" then do
+        closed_window = 0
+        if job_state = "paused" then closed_window = _scalarint(store.database(),"SELECT count(*) FROM maintenance_windows WHERE job_id=" || _sqlquote(job_filter) || " AND state<>'active'",error)
+        if job_state = "completed" | job_state = "completed_with_errors" | job_state = "failed" | job_state = "cancelled" | closed_window = 1 then do
           call tracer.emit("job", "complete", job_filter, job_state)
           leave
         end

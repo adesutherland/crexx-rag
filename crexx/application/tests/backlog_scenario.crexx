@@ -1,0 +1,362 @@
+options levelg
+
+import rxfnsb
+import rxsqlite
+import ragstore
+import ragmaintain
+import rxhash
+import rxjson
+import ragbacklog
+import ragwork
+import ragclaims
+import ragprofile
+import ragcanonical
+import generic_profile
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if condition then return 0
+  say "DURABLE_BACKLOG_FAIL=" || label
+  return 1
+
+scalarint: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary; value = -1
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value
+
+scalartext: procedure = .string
+  arg database = .binary, sql = .string
+  prepared = .binary; value = ""
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
+  status = sqlitecolumntext(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return ""
+  return value
+
+fixtureprovider: class implements .ragworkprovider
+  _response = .string
+  *: factory
+    arg response = .string
+    _response = response
+    return
+  process: method = .ragworkproviderresult
+    arg claim = .ragworkclaim
+    empty = .ragextractionproposal; mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
+    result = .ragworkproviderresult(0,"fixture","fixture","request-" || claim.attempt_id(),10,10,0,1,0,empty,"",0,"","",.ragworkembedding("","","","","",0,"",''x as .binary),"","local-compute",mentions,proposals,notes)
+    call result.resolution(_response,genericprofile())
+    return result
+
+staleprovider: class implements .ragworkprovider
+  _database = .binary
+  _response = .string
+  *: factory
+    arg database = .binary, response = .string
+    _database = database; _response = response
+    return
+  process: method = .ragworkproviderresult
+    arg claim = .ragworkclaim
+    ignored = sqliteexec(_database,"UPDATE concepts SET canonical_label='Survivor revised during call' WHERE concept_id='concept-survivor'")
+    provider = .fixtureprovider(_response)
+    return provider.process(claim)
+
+responsejson: procedure = .string
+  arg action = .string, target = "", successors = "[]", evidence = "[]", object_id = "", question = "", qualifiers = "{}", effective_from = "", effective_to = ""
+  return '{"action":' || jsonquote(action) || ',"object_id":' || jsonquote(object_id) || ',"target_concept_id":' || jsonquote(target) || ',"canonical_label":"","concept_type":"","successors":' || successors || ',"reason":"fixture evidence-based decision","evidence":' || evidence || ',"effective_from":' || jsonquote(effective_from) || ',"effective_to":' || jsonquote(effective_to) || ',"qualifiers_json":' || jsonquote(qualifiers) || ',"question":' || jsonquote(question) || '}'
+
+runresolution: procedure = .int
+  arg store = .ragstorehandle, job_id = .string, task_id = .string, response = .string, expose error = .string
+  database = store.database()
+  if tickbacklogwindow(store,job_id,error) < 0 then return -1
+  /* The fixture explicitly selects the question being exercised. */
+  if sqliteexec(database,"UPDATE job_items SET priority=1000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || task_id || "') AND state='queued'") \= 0 then return -1
+  provider = .fixtureprovider(response); disposition = ""
+  policy = .ragclaimpolicy("fixture-v1","concept|source-artifact|evidence-span","related-to|mentioned-in|mentions",1000000,750000,500000,-1000000,250000)
+  status = runworkeronce(store,job_id,"backlog-fixture",60,3,policy,provider,disposition,error,genericprofile())
+  if status = 0 & disposition \= "resolution-recorded" & disposition \= "resolution-stale" then do; error = disposition; return -1; end
+  return status
+
+nextwindow: procedure = .int
+  arg store = .ragstorehandle, policy_json = .string, expose job_id = .string, expose error = .string
+  if job_id \= "" & scalarint(store.database(),"SELECT count(*) FROM maintenance_windows WHERE job_id='" || job_id || "' AND state='active'") = 1 then do
+    if pausejob(store,job_id,error) \= 0 | tickbacklogwindow(store,job_id,error) < 0 then return -1
+  end
+  database = store.database(); generation = scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  texts = .string[]; scores = .int[]
+  census = .ragmaintenancecensus(generation,"",texts,texts,texts,scores,texts,texts,texts,'{}',rxhash..sha256hex('{}' as .binary))
+  digest = rxhash..sha256hex((scalarint(database,"SELECT count(*) FROM maintenance_windows") || "fixture-next-window") as .binary)
+  run_id = ""; items = 0
+  return startbacklogwindow(store,census,"snapshot-lifecycle",digest,policy_json,run_id,job_id,items,error)
+
+connectiontask: procedure = .string
+  arg database = .binary, workflow = .string, kind = .string
+  return scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE workflow_id='" || workflow || "' AND subject_type='" || kind || "' AND state='dispatched' ORDER BY updated_epoch DESC,task_id LIMIT 1")
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 \= 1 then return 2
+  path = args[1]; errors = 0; error = ""; store = .ragstorehandle
+  errors = errors + check(initragstore(path, "library-lifecycle-methodology", "snapshot-lifecycle", "lifecycle-methodology", "1", "generic-profile", "profile-hash", "config-hash", '{}', store, error) = 0, "initialize " || error)
+  if errors > 0 then return 1
+  database = store.database()
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES('artifact-lifecycle','raw-lifecycle','text/plain','utf-8',NULL,'fixture://lifecycle',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "artifact")
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('text-lifecycle','text-digest-lifecycle','Platform Peer','fixture-v1','utf8-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "revision text")
+  errors = errors + check(sqliteexec(database, "INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('source-lifecycle','fixture','lifecycle','revision-lifecycle','active','fixture://lifecycle','Lifecycle corpus',1)") = 0, "source")
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES('revision-lifecycle','source-lifecycle','revision-envelope-lifecycle','artifact-lifecycle','text-lifecycle','metadata-lifecycle','fixture-time',1)") = 0, "revision")
+  errors = errors + check(sqliteexec(database, "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('content-lifecycle','content-digest-lifecycle','Platform Peer','input-lifecycle')") = 0, "content")
+  errors = errors + check(sqliteexec(database, "INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('chunk-lifecycle','revision-lifecycle',1,0,13,'content-lifecycle','continuity-lifecycle','fixture-v1','direct',1)") = 0, "chunk")
+  errors = errors + check(sqliteexec(database, "INSERT INTO chunks_fts(revision_chunk_id,content_id,body) VALUES('chunk-lifecycle','content-lifecycle','Platform Peer')") = 0, "FTS")
+  errors = errors + check(sqliteexec(database, "INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('concept-parent','Platform','concept','active',1),('concept-peer','Peer','concept','active',1),('concept-survivor','Survivor','concept','active',1)") = 0, "concepts")
+  errors = errors + check(sqliteexec(database, "INSERT INTO concept_versions(concept_id,version,canonical_label,concept_type,lifecycle_state,generation,reason,created_at) VALUES('concept-parent',1,'Platform','concept','active',1,'fixture',strftime('%Y-%m-%dT%H:%M:%fZ','now')),('concept-peer',1,'Peer','concept','active',1,'fixture',strftime('%Y-%m-%dT%H:%M:%fZ','now')),('concept-survivor',1,'Survivor','concept','active',1,'fixture',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "concept versions")
+  errors = errors + check(sqliteexec(database, "INSERT INTO aliases(alias_id,normalized_alias,target_concept_id,ambiguity_id,decision_id,visible_from_generation) VALUES('alias-parent','platform','concept-parent',NULL,NULL,1)") = 0, "alias")
+  errors = errors + check(sqliteexec(database, "INSERT INTO mentions(mention_id,concept_id,ambiguity_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('mention-parent','concept-parent',NULL,'chunk-lifecycle',0,8,1),('mention-peer','concept-peer',NULL,'chunk-lifecycle',9,13,1)") = 0, "mentions")
+  errors = errors + check(sqliteexec(database, "INSERT INTO claims(claim_id,source_concept_id,relationship_type,target_concept_id,direction,qualifiers_json,policy_version,visible_from_generation) VALUES('claim-parent-peer','concept-parent','related-to','concept-peer','outbound','{}','fixture-v1',1),('claim-peer-survivor','concept-peer','related-to','concept-survivor','outbound','{}','fixture-v1',1)") = 0, "claims")
+  errors = errors + check(sqliteexec(database, "INSERT INTO claim_support(support_id,claim_id,revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity,decision_id,visible_from_generation) VALUES('support-parent-peer','claim-parent-peer','chunk-lifecycle',0,13,'support','assertion','direct','','lineage-fixture','fixture',NULL,1),('support-peer-survivor','claim-peer-survivor','chunk-lifecycle',0,13,'support','assertion','direct','','lineage-fixture','fixture',NULL,1)") = 0, "claim supports")
+  errors = errors + check(sqliteexec(database, "INSERT INTO claim_conflicts(conflict_id,claim_id,competing_claim_id,review_state,visible_from_generation) VALUES('conflict-parent','claim-parent-peer','claim-peer-survivor','pending',1)") = 0, "claim conflict")
+  errors = errors + check(sqliteexec(database, "INSERT INTO ambiguity_candidates(ambiguity_id,concept_id,revision_chunk_id,decision_id,visible_from_generation) VALUES('ambiguity-parent','concept-parent','chunk-lifecycle',NULL,1)") = 0, "ambiguity candidate")
+  errors = errors + check(sqliteexec(database, "INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) VALUES('note-parent','lead','Review Platform',800000,200000,'','active','{}','fixture',1,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "analysis note")
+  errors = errors + check(sqliteexec(database, "INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES('link-parent','note-parent','concept','concept-parent','chunk-lifecycle',0,8)") = 0, "analysis note link")
+  errors = errors + check(publishmanifest(store, error) = 0, "initial manifest " || error)
+  if errors > 0 then return 1
+
+
+  policy_json = '{"mode":"automatic","window_seconds":1000,"automatic_actions":"reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate","maximum_impact":100,"maximum_attempts":3,"retry_seconds":1,"maximum_evidence_bytes":65536,"batch_items":100,"resolution_prompt":"Fixture resolution","knowledge_policy":"fixture-v1","provider_id":"fixture","model":"fixture","charging_basis":"local-compute","privacy":"public","profile_id":"generic-profile","discovery_context":"{}","input_tokens":100000,"output_tokens":10000,"cost_microunits":0,"time_ms":1000,"inflight":1,"item_limit":100,"model_calls":100,"input_budget":10000000,"output_budget":1000000,"cost_budget":0,"codex_turns":0}'
+  policy = .jsondocument(policy_json); task_id = ""
+  errors = errors + check(enqueuebacklogtask(database,"lifecycle","concept","concept-parent","","",999999,policy,task_id,error) = 0, "queue split decision " || error)
+  first_task = task_id
+  errors = errors + check(enqueuebacklogtask(database,"lifecycle","concept","concept-parent","","",999999,policy,task_id,error) = 0 & task_id = first_task & scalarint(database,"SELECT count(*) FROM maintenance_tasks") = 1, "unchanged task is deduplicated")
+  texts = .string[]; scores = .int[]
+  census = .ragmaintenancecensus(1,"",texts,texts,texts,scores,texts,texts,texts,'{}',rxhash..sha256hex('{}' as .binary))
+  run_id = ""; job_id = ""; items = 0
+  errors = errors + check(startbacklogwindow(store,census,"snapshot-lifecycle",copies("d",64),policy_json,run_id,job_id,items,error) = 0 & items > 0, "start shared maintenance window " || error)
+  if errors > 0 then return 1
+  evidence = '[{"evidence_id":"mention-parent","quote":"Platform"}]'
+  successors = '[{"canonical_label":"Platform Alpha","concept_type":"concept"},{"canonical_label":"Platform Beta","concept_type":"concept"}]'
+  split = responsejson("split","",successors,evidence,"concept-parent")
+  grounds = ""
+  errors = errors + check(validatebacklogresponse(database,first_task,changestr('"quote":"Platform"',split,'"quote":"Invented"'),grounds,error) \= 0, "invented resolution evidence rejected")
+  error = ""
+  errors = errors + check(runresolution(store,job_id,first_task,split,error) = 0, "apply split through fenced worker " || error)
+  errors = errors + check(scalartext(database,"SELECT lifecycle_state FROM concepts WHERE concept_id='concept-parent'") = "migration-parent", "split retains migration parent")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_workflows") = 1 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE kind='connection'") = 6, "split atomically fans out the full support, ambiguity and conflict impact census")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_decisions WHERE disposition='split:resolved'") = 1, "split decision retained")
+  child = scalartext(database,"SELECT child_concept_id FROM concept_lineage WHERE parent_concept_id='concept-parent' ORDER BY child_concept_id LIMIT 1")
+  workflow = scalartext(database,"SELECT workflow_id FROM maintenance_workflows")
+  /* Pause the window with work remaining, then resume it as a fresh bounded
+   * window. The source job and its decisions remain historical records. */
+  errors = errors + check(pausejob(store,job_id,error) = 0 & tickbacklogwindow(store,job_id,error) >= 0, "pause durable window " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE state='dispatched'") = 0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE state='pending'") > 0, "unstarted decisions survive pause")
+  generation = scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  census = .ragmaintenancecensus(generation,"",texts,texts,texts,scores,texts,texts,texts,'{}',rxhash..sha256hex('{}' as .binary))
+  errors = errors + check(startbacklogwindow(store,census,"snapshot-lifecycle",copies("e",64),policy_json,run_id,job_id,items,error) = 0, "resume backlog in second window " || error)
+  mention_task = scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE workflow_id='" || workflow || "' AND subject_type='mention' AND subject_id='mention-parent'")
+  evidence = '[{"evidence_id":"mention-parent","quote":"Platform"}]'
+  errors = errors + check(runresolution(store,job_id,mention_task,responsejson("move",child,"[]",evidence),error) = 0, "move individual grounded mention " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM mentions WHERE concept_id='" || child || "' AND visible_to_generation IS NULL") = 1 & scalarint(database,"SELECT count(*) FROM mentions WHERE mention_id='mention-parent' AND visible_to_generation IS NOT NULL") = 1, "mention movement preserves old evidence")
+  alias_task = scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE workflow_id='" || workflow || "' AND subject_type='alias'")
+  errors = errors + check(runresolution(store,job_id,alias_task,responsejson("unresolved"),error) = 0, "uncertain alias is an unresolved decision " || error)
+  errors = errors + check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || alias_task || "'") = "superseded", "changed catalogue prevents stale answers before paid calls")
+  errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0, "refresh independent note evidence")
+  note_task = scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE kind='analysis-lead' AND subject_id='note-parent' AND state='dispatched'")
+  errors = errors + check(runresolution(store,job_id,note_task,responsejson("unresolved"),error) = 0, "uncertainty is a valid decision " || error)
+  errors = errors + check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || note_task || "'") = "unresolved", "uncertainty remains explicit")
+  previous = scalarint(database,"SELECT count(*) FROM provider_runs")
+  errors = errors + check(tickbacklogwindow(store,job_id,error) = 0 & scalarint(database,"SELECT count(*) FROM provider_runs") = previous, "checkpoint makes no provider calls")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM source_artifacts") = 1 & scalarint(database,"SELECT count(*) FROM revision_chunks") = 1 & scalartext(database,"SELECT text FROM chunk_contents WHERE content_id='content-lifecycle'") = "Platform Peer", "source records and text preserved")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0, "foreign-key integrity")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM provider_runs") = 3, "exact bounded fixture call count with zero-call stale rejection")
+  /* Complete every connection category rather than considering split creation
+   * itself a completed migration. Refresh windows through the public lifecycle. */
+  errors = errors + check(sqliteexec(database,"UPDATE aliases SET normalized_alias='platform revised' WHERE alias_id='alias-parent'") = 0, "fixture changes alias evidence after unresolved interpretation")
+  errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0, "resume remaining connection decisions " || error)
+  alias_task = connectiontask(database,workflow,"alias")
+  evidence = '[{"evidence_id":"mention-parent","quote":"Platform"}]'
+  errors = errors + check(alias_task \= "" & runresolution(store,job_id,alias_task,responsejson("move",child,"[]",evidence),error) = 0, "move alias with retained source anchor " || error)
+  support_task = connectiontask(database,workflow,"support")
+  evidence = '[{"evidence_id":"support-parent-peer","quote":"Platform Peer"}]'
+  errors = errors + check(runresolution(store,job_id,support_task,responsejson("move",child,"[]",evidence),error) = 0, "move individually grounded claim support " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM claims WHERE source_concept_id='" || child || "' AND target_concept_id='concept-peer' AND direction='outbound' AND visible_to_generation IS NULL") = 1, "support move preserves relationship direction")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM claim_support WHERE support_id='support-parent-peer' AND visible_to_generation IS NOT NULL") = 1, "support movement preserves original source history")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM claim_conflicts f JOIN claims c ON c.claim_id=f.claim_id WHERE c.source_concept_id='" || child || "' AND f.review_state='pending' AND f.visible_to_generation IS NULL") = 1, "claim movement preserves the pending conflict on its new identity")
+  note_task = connectiontask(database,workflow,"note")
+  evidence = '[{"evidence_id":"mention-parent","quote":"Platform"}]'
+  evidence = '[{"evidence_id":"link-parent","quote":"Platform"}]'
+  errors = errors + check(runresolution(store,job_id,note_task,responsejson("move",child,"[]",evidence),error) = 0, "move linked analysis note " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_link_history WHERE note_id='note-parent' AND object_id='concept-parent'") = 1 & scalarint(database,"SELECT count(*) FROM analysis_note_links WHERE note_id='note-parent' AND object_id='concept-parent'") = 0, "note link keeps historical parent and current successor")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_link_history WHERE link_id='link-parent' AND revision_chunk_id='chunk-lifecycle' AND span_start=0 AND span_end=8 AND from_generation=1") = 1 & pos('link-parent',inspectbacklog(database,workflow)) > 0, "note movement preserves addressable source span and historical link inspection")
+  ambiguity_task = connectiontask(database,workflow,"ambiguity")
+  evidence = '[{"evidence_id":"ambiguity-parent","quote":"Platform"}]'
+  errors = errors + check(runresolution(store,job_id,ambiguity_task,responsejson("move",child,"[]",evidence),error) = 0, "move explicit ambiguity candidate " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM ambiguity_candidates WHERE concept_id='concept-parent' AND visible_to_generation IS NOT NULL") = 1, "ambiguity history preserved")
+  errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0, "refresh retirement census " || error)
+  retire_task = scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE workflow_id='" || workflow || "' AND kind='retirement' AND state='dispatched'")
+  errors = errors + check(retire_task \= "" & runresolution(store,job_id,retire_task,responsejson("retire","","[]","[]","concept-parent"),error) = 0, "retire only after complete impact census " || error)
+  errors = errors + check(scalartext(database,"SELECT lifecycle_state FROM concepts WHERE concept_id='concept-parent'") = "retired" & scalartext(database,"SELECT state FROM maintenance_workflows WHERE workflow_id='" || workflow || "'") = "complete", "split workflow reaches durable completion")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM concept_versions WHERE concept_id='concept-parent'") = 3, "original, migration and retired versions retained")
+
+  /* A response settled immediately before process death is reused under the
+   * replacement lease. The fixture's next response is deliberately malformed. */
+  recovery_task = ""
+  errors = errors + check(enqueuebacklogtask(database,"recovery-test","concept","concept-survivor","","",999999,policy,recovery_task,error) = 0 & nextwindow(store,policy_json,job_id,error) = 0, "queue recovery fixture")
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=1000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || recovery_task || "') AND state='queued'") = 0, "select recovery fixture")
+  claim = .ragworkclaim; reservation = .ragcallreservation
+  errors = errors + check(claimnext(store,job_id,"crashed-fixture",60,3,claim,error) = 0 & reservecall(store,claim,100000,10000,0,1000,reservation,error) = 0, "claim and reserve before crash " || error)
+  settled_run = ""; response = responsejson("unresolved")
+  errors = errors + check(settlecall(store,reservation,"fixture","fixture","settled-before-crash","succeeded",10,10,0,1,settled_run,error,"","local-compute",1,"",response,ragsha256(canonicalprofile(genericprofile()))) = 0, "atomically retain successful answer and usage " || error)
+  previous = scalarint(database,"SELECT count(*) FROM provider_runs")
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET lease_until=0 WHERE item_id='" || claim.item_id() || "'") = 0, "simulate process death after settlement")
+  provider = .fixtureprovider("MUST NOT CALL AGAIN"); disposition = ""; claim_policy = .ragclaimpolicy("fixture-v1","concept","related-to",1000000,750000,500000,-1000000,250000)
+  errors = errors + check(runworkeronce(store,job_id,"replacement-fixture",60,3,claim_policy,provider,disposition,error,genericprofile()) = 0 & disposition = "resolution-recorded", "recover settled answer without another call " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM provider_runs") = previous & scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || recovery_task || "'") = "unresolved", "recovery keeps exact paid call count")
+  errors = errors + check(completebacklogdecision(store,job_id,claim.item_id(),claim.attempt_id(),claim.worker_id(),claim.fence(),settled_run,response,genericprofile(),error) = 0, "decision replay is idempotent")
+
+  /* Supervised policy records an actionable proposal, then the ordinary
+   * operator review path validates the same evidence before applying it. */
+  supervised = changestr('"mode":"automatic"',policy_json,'"mode":"supervised"')
+  review_task = ""
+  errors = errors + check(enqueuebacklogtask(database,"review-test","concept",child,"","",999999,policy,review_task,error) = 0 & nextwindow(store,supervised,job_id,error) = 0, "start supervised resolution window")
+  evidence_id = scalartext(database,"SELECT mention_id FROM mentions WHERE concept_id='" || child || "' AND visible_to_generation IS NULL LIMIT 1")
+  evidence = '[{"evidence_id":' || jsonquote(evidence_id) || ',"quote":"Platform"}]'
+  response = changestr('"canonical_label":""',responsejson("synonym","","[]",evidence,child),'"canonical_label":"Platform Alias"')
+  errors = errors + check(runresolution(store,job_id,review_task,response,error) = 0 & scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || review_task || "'") = "review", "supervised resolution awaits review " || error)
+  review_id = scalartext(database,"SELECT review_id FROM reviews WHERE subject_id='" || review_task || "' AND state='pending'")
+  errors = errors + check(reviewbacklogdecision(store,review_id,"accept",genericprofile(),error) = 0, "accept grounded resolution review " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM aliases WHERE target_concept_id='" || child || "' AND normalized_alias='platform alias' AND visible_to_generation IS NULL") = 1, "review publishes validated synonym")
+  errors = errors + check(inspectbacklog(database,workflow) \= "" & inspectbacklog(database,review_task) \= "", "tasks and workflow are inspectable")
+  investigation_task = ""
+  errors = errors + check(enqueuebacklogtask(database,"investigation-review","concept",child,"","",999999,policy,investigation_task,error) = 0 & nextwindow(store,supervised,job_id,error) = 0, "queue supervised investigation")
+  errors = errors + check(runresolution(store,job_id,investigation_task,responsejson("investigate","","[]","[]","","Which source distinguishes the two Platform meanings?"),error) = 0, "record supervised investigation")
+  review_id = scalartext(database,"SELECT review_id FROM reviews WHERE subject_id='" || investigation_task || "' AND state='pending'")
+  errors = errors + check(reviewbacklogdecision(store,review_id,"accept",genericprofile(),error) = 0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE parent_task_id='" || investigation_task || "' AND kind='follow-up' AND question='Which source distinguishes the two Platform meanings?'") = 1, "reviewed investigation creates its focused durable follow-up " || error)
+
+  errors = errors + check(sqliteexec(database,"UPDATE maintenance_windows SET deadline_epoch=unixepoch() WHERE job_id='" || job_id || "'") = 0 & tickbacklogwindow(store,job_id,error) = 1, "deadline closes window")
+  errors = errors + check(scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || job_id || "'") = "deadline" & scalarint(database,"SELECT count(*) FROM job_items WHERE job_id='" || job_id || "' AND state='queued'") = 0, "deadline checkpoints unstarted work")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0 & scalartext(database,"PRAGMA integrity_check") = "ok", "final SQLite integrity")
+  /* Merge uses the same durable fan-out, with one explicitly selected
+   * survivor. A resulting self-edge must be retracted, never silently copied. */
+  merge_task = ""
+  errors = errors + check(enqueuebacklogtask(database,"merge-test","concept","concept-peer","","",999999,policy,merge_task,error) = 0 & nextwindow(store,policy_json,job_id,error) = 0, "queue merge workflow " || error)
+  evidence = '[{"evidence_id":"mention-peer","quote":"Peer"}]'
+  errors = errors + check(runresolution(store,job_id,merge_task,responsejson("merge",child,"[]",evidence,"concept-peer"),error) = 0, "create grounded merge workflow " || error)
+  merge_workflow = scalartext(database,"SELECT workflow_id FROM maintenance_workflows WHERE parent_concept_id='concept-peer'")
+  errors = errors + check(merge_workflow \= "" & scalartext(database,"SELECT lifecycle_state FROM concepts WHERE concept_id='concept-peer'") = "migration-parent", "merge keeps its parent until migration completes")
+  errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0, "dispatch merge connections")
+  mention_task = connectiontask(database,merge_workflow,"mention")
+  errors = errors + check(runresolution(store,job_id,mention_task,responsejson("move",child,"[]",evidence),error) = 0, "move merge mention " || error)
+  support_task = scalartext(database,"SELECT t.task_id FROM maintenance_tasks t JOIN claim_support s ON s.support_id=t.subject_id JOIN claims c ON c.claim_id=s.claim_id WHERE t.workflow_id='" || merge_workflow || "' AND t.state='dispatched' AND c.target_concept_id='concept-peer'")
+  support_id = scalartext(database,"SELECT subject_id FROM maintenance_tasks WHERE task_id='" || support_task || "'")
+  evidence = '[{"evidence_id":' || jsonquote(support_id) || ',"quote":"Platform Peer"}]'
+  errors = errors + check(runresolution(store,job_id,support_task,responsejson("retract","","[]",evidence),error) = 0, "explicitly retract self-edge support during merge " || error)
+  support_task = connectiontask(database,merge_workflow,"support")
+  support_id = scalartext(database,"SELECT subject_id FROM maintenance_tasks WHERE task_id='" || support_task || "'")
+  evidence = '[{"evidence_id":' || jsonquote(support_id) || ',"quote":"Platform Peer"}]'
+  errors = errors + check(runresolution(store,job_id,support_task,responsejson("move",child,"[]",evidence),error) = 0, "move remaining independent merge support " || error)
+  errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0, "refresh merge retirement census")
+  retire_task = scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE workflow_id='" || merge_workflow || "' AND kind='retirement' AND state='dispatched'")
+  errors = errors + check(retire_task \= "" & runresolution(store,job_id,retire_task,responsejson("retire","","[]","[]","concept-peer"),error) = 0, "complete merge retirement " || error)
+  errors = errors + check(scalartext(database,"SELECT state FROM maintenance_workflows WHERE workflow_id='" || merge_workflow || "'") = "complete" & scalarint(database,"SELECT count(*) FROM claims WHERE source_concept_id=target_concept_id AND visible_to_generation IS NULL") = 0, "merge completes without self relationships")
+
+  /* A conflict answer must address every support and preserve the original
+   * claim, its quotations and the unaffected competing claim as history. */
+  live_claim = scalartext(database,"SELECT claim_id FROM claims WHERE source_concept_id='" || child || "' AND target_concept_id='concept-survivor' AND visible_to_generation IS NULL")
+  live_support = scalartext(database,"SELECT support_id FROM claim_support WHERE claim_id='" || live_claim || "' AND visible_to_generation IS NULL LIMIT 1")
+  generation = scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  errors = errors + check(sqliteexec(database,"INSERT INTO claims(claim_id,source_concept_id,relationship_type,target_concept_id,direction,qualifiers_json,policy_version,visible_from_generation) SELECT 'claim-context-test',source_concept_id,relationship_type,target_concept_id,direction,json_object('scope','other'),policy_version," || generation || " FROM claims WHERE claim_id='" || live_claim || "'") = 0, "seed scoped competing claim")
+  errors = errors + check(sqliteexec(database,"INSERT INTO claim_support(support_id,claim_id,revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity,visible_from_generation) SELECT 'support-context-test','claim-context-test',revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity," || generation || " FROM claim_support WHERE support_id='" || live_support || "'") = 0, "seed competing source support")
+  errors = errors + check(sqliteexec(database,"INSERT INTO claim_conflicts(conflict_id,claim_id,competing_claim_id,review_state,visible_from_generation) VALUES('conflict-context-test','" || live_claim || "','claim-context-test','pending'," || generation || ")") = 0, "seed contextual conflict")
+  conflict_task = ""
+  errors = errors + check(enqueuebacklogtask(database,"qualification-test","conflict","conflict-context-test","","",999999,policy,conflict_task,error) = 0 & nextwindow(store,policy_json,job_id,error) = 0, "queue source-scoped conflict resolution")
+  evidence = '[{"evidence_id":' || jsonquote(live_support) || ',"quote":"Platform Peer"}]'
+  errors = errors + check(validatebacklogresponse(database,conflict_task,responsejson("qualify","","[]",evidence,live_claim,"",'{"scope":"documented"}',"1689","1690"),grounds,error) \= 0, "reject conflict answer that omits competing support")
+  evidence = left(evidence,length(evidence)-1) || ',{"evidence_id":"support-context-test","quote":"Platform Peer"}]'
+  errors = errors + check(runresolution(store,job_id,conflict_task,responsejson("qualify","","[]",evidence,live_claim,"",'{"scope":"documented"}',"1689","1690"),error) = 0, "apply supported temporal and scope qualification " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM claims WHERE claim_id='" || live_claim || "' AND visible_to_generation IS NOT NULL") = 1 & scalarint(database,"SELECT count(*) FROM claims WHERE effective_from='1689' AND effective_to='1690' AND json_extract(qualifiers_json,'$.scope')='documented' AND visible_to_generation IS NULL") = 1 & scalarint(database,"SELECT count(*) FROM claims WHERE claim_id='claim-context-test' AND visible_to_generation IS NULL") = 1, "qualification preserves old claim and unaffected competing claim")
+
+  /* Missing links reuse the authoritative SQLite vector, without embedding
+   * calls or changing source/chunk identities. */
+  embedding_policy = '{"embedding_profile":"fixture-embedding","embedding_envelope":"fixture-envelope",' || substr(policy_json,2)
+  digest = rxhash..sha256hex(("content-digest-lifecycle" || "00"x || "fixture-envelope") as .binary)
+  errors = errors + check(sqliteexec(database,"INSERT INTO embedding_profiles(embedding_profile_id,provider_id,model,dimension,input_envelope_fingerprint,created_at) VALUES('fixture-embedding','fixture','fixture',1,'fixture','fixture'); INSERT INTO embeddings(embedding_id,input_digest,embedding_profile_id,vector,dimension,created_at) VALUES('fixture-vector','" || digest || "','fixture-embedding',X'0000803F',1,'fixture')") = 0, "seed authoritative vector without link")
+  previous = scalarint(database,"SELECT count(*) FROM provider_runs")
+  previous_generation = scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  errors = errors + check(nextwindow(store,embedding_policy,job_id,error) = 0, "discover missing embedding link " || error)
+  errors = errors + check(scalarint(database,"SELECT visible_from_generation FROM revision_chunk_embeddings WHERE embedding_id='fixture-vector'") > previous_generation, "cached embedding repair publishes a new membership without changing historic generations")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM revision_chunk_embeddings WHERE embedding_id='fixture-vector' AND revision_chunk_id='chunk-lifecycle' AND visible_to_generation IS NULL") = 1 & scalarint(database,"SELECT count(*) FROM provider_runs") = previous, "SQLite vector link recovery makes zero provider calls")
+  errors = errors + check(scalartext(database,"SELECT hex(vector) FROM embeddings WHERE embedding_id='fixture-vector'") = "0000803F" & scalartext(database,"SELECT text FROM chunk_contents WHERE content_id='content-lifecycle'") = "Platform Peer", "all lifecycle work preserves source text and vector bytes")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0 & scalartext(database,"PRAGMA integrity_check") = "ok", "full workflow SQLite integrity")
+  /* Explicit identity questions reuse established typed concepts and retain
+   * different senses without treating spelling equality as identity. */
+  generation = scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  errors = errors + check(sqliteexec(database,"INSERT INTO aliases(alias_id,normalized_alias,target_concept_id,visible_from_generation) VALUES('alias-peer-survivor','peer','" || child || "'," || generation || "); INSERT INTO candidate_mentions(candidate_id,revision_chunk_id,normalized_candidate,span_start,span_end,extractor_version,visible_from_generation) VALUES('candidate-reuse','chunk-lifecycle','peer',9,13,'fixture-resolution'," || generation || "),('candidate-distinct','chunk-lifecycle','peer',9,13,'fixture-resolution'," || generation || "); INSERT INTO candidate_decisions(decision_id,candidate_id,decision_version,state,evidence_json,policy_version,created_at) VALUES('candidate-reuse-decision','candidate-reuse',1,'accepted','{}','fixture','fixture'),('candidate-distinct-decision','candidate-distinct',1,'accepted','{}','fixture','fixture')") = 0, "seed identity questions")
+  aliases = .string[]; aliases[1] = "Peer"
+  errors = errors + check(recordaliasissue(database,"candidate-reuse","Peer","concept",aliases,error) = 0, "preserve unresolved reuse question")
+  label = ""; selected = ""
+  errors = errors + check(resolveknownconcept(database,"PEER","concept",label,selected,error) = 1 & selected = child, "unique typed catalogue reuse is deterministic")
+  errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0, "dispatch identity resolution")
+  alias_task = scalartext(database,"SELECT t.task_id FROM maintenance_tasks t JOIN maintenance_alias_issues i ON i.issue_id=t.subject_id WHERE i.candidate_id='candidate-reuse' AND t.state='dispatched'")
+  evidence = '[{"evidence_id":"candidate-reuse","quote":"peer"}]'
+  errors = errors + check(runresolution(store,job_id,alias_task,responsejson("reuse",child,"[]",evidence),error) = 0, "apply quoted catalogue reuse " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_alias_issues WHERE candidate_id='candidate-reuse' AND state='resolved'") = 1 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE kind LIKE 'alias-follow-up:%'") = 1, "identity answer queues a durable extraction follow-up")
+  errors = errors + check(recordaliasissue(database,"candidate-distinct","Peer","source-artifact",aliases,error) = 0 & nextwindow(store,supervised,job_id,error) = 0, "dispatch distinct sense")
+  alias_task = scalartext(database,"SELECT t.task_id FROM maintenance_tasks t JOIN maintenance_alias_issues i ON i.issue_id=t.subject_id WHERE i.candidate_id='candidate-distinct' AND t.state='dispatched'")
+  evidence = '[{"evidence_id":"candidate-distinct","quote":"Peer"}]'
+  response = changestr('"canonical_label":""',responsejson("distinct","","[]",evidence),'"canonical_label":"Peer Document"')
+  response = changestr('"concept_type":""',response,'"concept_type":"source-artifact"')
+  errors = errors + check(runresolution(store,job_id,alias_task,response,error) = 0, "retain distinct typed sense " || error)
+  review_id = scalartext(database,"SELECT review_id FROM reviews WHERE subject_id='" || alias_task || "' AND state='pending'")
+  errors = errors + check(reviewbacklogdecision(store,review_id,"accept",genericprofile(),error) = 0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE kind LIKE 'alias-follow-up:%'") = 2, "reviewed identity decision also retains its extraction follow-up " || error)
+
+  errors = errors + check(scalarint(database,"SELECT count(DISTINCT target_concept_id) FROM aliases WHERE normalized_alias='peer' AND target_concept_id IS NOT NULL AND visible_to_generation IS NULL") = 2 & scalarint(database,"SELECT count(*) FROM aliases WHERE normalized_alias='peer' AND ambiguity_id IS NOT NULL AND visible_to_generation IS NULL") > 0, "shared spelling retains both identities and explicit ambiguity")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_alias_issues WHERE state='open'") = 0, "automatic and supervised identity workflows settle their questions")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0, "identity resolution foreign keys")
+  /* A concurrent evidence edit after admission must retain the paid decision
+   * without publishing an empty or stale semantic generation. */
+  stale_task = ""
+  errors = errors + check(enqueuebacklogtask(database,"stale-after-call","concept","concept-survivor","","",999999,policy,stale_task,error) = 0 & nextwindow(store,policy_json,job_id,error) = 0, "queue post-call stale decision")
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=1000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || stale_task || "') AND state='queued'") = 0, "select post-call stale fixture")
+  previous_generation = scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  stale_provider = .staleprovider(database,responsejson("retire","","[]","[]","concept-survivor"))
+  errors = errors + check(runworkeronce(store,job_id,"stale-fixture",60,3,claim_policy,stale_provider,disposition,error,genericprofile()) = 0, "settle stale result " || error)
+  errors = errors + check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || stale_task || "'") = "superseded" & scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1") = previous_generation, "stale result creates no semantic generation")
+
+  /* A settled response remains usable in the next window even when the
+   * original task has already consumed its one permitted paid call. */
+  recovery_task = ""
+  capped_policy = changestr('"maximum_attempts":3',policy_json,'"maximum_attempts":1')
+  errors = errors + check(enqueuebacklogtask(database,"closed-window-recovery","concept","concept-survivor","","",999999,policy,recovery_task,error) = 0 & nextwindow(store,capped_policy,job_id,error) = 0, "queue capped recovery fixture")
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=1000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || recovery_task || "') AND state='queued'") = 0, "select capped recovery")
+  errors = errors + check(claimnext(store,job_id,"crashed-window-fixture",60,1,claim,error) = 0 & reservecall(store,claim,100000,10000,0,1000,reservation,error) = 0, "claim capped recovery")
+  errors = errors + check(settlecall(store,reservation,"fixture","fixture","settled-at-window-boundary","succeeded",10,10,0,1,settled_run,error,"","local-compute",1,"",responsejson("unresolved"),ragsha256(canonicalprofile(genericprofile()))) = 0, "settle at window boundary")
+  previous = scalarint(database,"SELECT count(*) FROM provider_runs")
+  errors = errors + check(sqliteexec(database,"UPDATE maintenance_windows SET deadline_epoch=unixepoch() WHERE job_id='" || job_id || "'; UPDATE job_items SET lease_until=0 WHERE item_id='" || claim.item_id() || "'") = 0 & tickbacklogwindow(store,job_id,error) >= 0, "close expired window")
+  recovery_claim = .ragworkclaim
+  errors = errors + check(claimnext(store,"","recovery-only",60,1,recovery_claim,error,0) = 1 & nextwindow(store,capped_policy,job_id,error) = 0, "recover lease before next window " || error)
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=1000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || recovery_task || "') AND state='queued'") = 0, "select cached cross-window result")
+  errors = errors + check(runworkeronce(store,job_id,"new-window-worker",60,1,claim_policy,provider,disposition,error,genericprofile()) = 0 & disposition = "resolution-recorded", "reuse settled output at paid-attempt cap " || error)
+  errors = errors + check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || recovery_task || "'") = "unresolved" & scalarint(database,"SELECT count(*) FROM provider_runs") = previous, "cross-window recovery makes zero duplicate calls")
+
+  /* An already considered prefix must not close a small-batch census before
+   * later notes are seen. Manual collection stays zero-call, then automatic
+   * mode can resume its unattempted questions. */
+  errors = errors + check(pausejob(store,job_id,error) = 0 & tickbacklogwindow(store,job_id,error) >= 0, "pause before cursor fixture")
+  errors = errors + check(sqliteexec(database,"UPDATE maintenance_tasks SET state='resolved' WHERE state IN('pending','review','dispatched')") = 0, "simulate previously considered task prefix")
+  do i = 1 to 5
+    id = "zz-cursor-note-" || i
+    errors = errors + check(sqliteexec(database,"INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) VALUES('" || id || "','lead','Platform Peer',1,1,'','active','{}','fixture',1,'fixture','fixture'); INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES('" || id || "-link','" || id || "','chunk','chunk-lifecycle','chunk-lifecycle',0,13)") = 0, "seed cursor note")
+  end
+  manual_policy = changestr('"mode":"automatic"',changestr('"batch_items":100',policy_json,'"batch_items":1'),'"mode":"manual"')
+  previous = scalarint(database,"SELECT count(*) FROM provider_runs")
+  errors = errors + check(nextwindow(store,manual_policy,job_id,error) = 0, "start manual small-batch census")
+  do tick = 1 to 100
+    if scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || job_id || "'") \= "active" then leave
+    if tickbacklogwindow(store,job_id,error) < 0 then do; errors = errors+check(0,"manual census " || error); leave; end
+  end
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE subject_id LIKE 'zz-cursor-note-%' AND state='review'") = 5 & scalarint(database,"SELECT count(*) FROM provider_runs") = previous, "complete cursor coverage and zero-call manual collection")
+  errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE subject_id LIKE 'zz-cursor-note-%' AND state='dispatched'") = 5, "automatic window resumes manually collected work")
+  errors = errors + check(pausejob(store,job_id,error) = 0 & tickbacklogwindow(store,job_id,error) >= 0, "close test window")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0 & scalartext(database,"PRAGMA integrity_check") = "ok", "final backlog integrity")
+  call closeragstore store,error
+  if errors > 0 then return 1
+  say "DURABLE_BACKLOG_OK deduplicated split_fanout fenced_decisions resume uncertainty source_preservation"
+  return 0

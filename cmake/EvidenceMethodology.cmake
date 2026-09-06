@@ -14,9 +14,9 @@ set(imports "${CPRAG_WORK_DIR};${project_imports};${CPRAG_APPLICATION_DIR};${CPR
 set(modules
     ragmodel ragevidence ragjob ragconfig ragprofile ragregistry ragschema
     ragfile ragconfigfile ragglossary ragstore ragbackup ragrepository ragcanonical ragplanning
-    ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragmaintain ragproposalio ragwork ragquery
+    ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragmaintain ragbacklog ragproposalio ragwork ragquery
     ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragproviderdiagnostics
-    ragapplicationprovider ragqueryprovider ragquerypolicy ragproduct
+    raggrounding ragapplicationprovider ragqueryprovider ragquerypolicy ragproduct
     provider_contract provider_catalog provider_http industrial_provider codex_provider
     architecture_local_config generic_profile it_architecture_profile operator_registry
     rxsqlite rx_hash rx_system rxfs rxplatform rxvector rxfnsg library)

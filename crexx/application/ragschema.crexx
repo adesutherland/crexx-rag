@@ -3,7 +3,7 @@ options levelg
 namespace ragschema expose ragschemaversion migrationname migrationchecksum migrationstatements
 
 ragschemaversion: procedure = .int
-  return 9
+  return 10
 
 migrationname: procedure = .string
   arg version = .int
@@ -15,12 +15,14 @@ migrationname: procedure = .string
   if version = 6 then return "configuration-lifecycle-and-provider-resilience"
   if version = 7 then return "indexed-term-statistics-and-backlog-reconciliation"
   if version = 8 then return "direct-provider-history"
+  if version = 10 then return "durable-maintenance-backlog"
   if version = 9 then return "prospective-configuration-transitions"
   return ""
 
 migrationchecksum: procedure = .string
   arg version = .int
   /* SHA-256 of the ordered migration statements, each followed by LF. */
+  if version = 10 then return "7bf90419a4f3e691691f4e18e86f2faa87ca59c06c1e863b6dcc4aa83e388a9c"
   if version = 1 then return "ce67d40ab29bd35585af51b2011a6350f2b8305e7969d066a2ef1d9a7a703ca0"
   if version = 2 then return "de4592a26543a0c6d8d3a1ef9c6fd4922f17123548e2930366cb8638be9503c4"
   if version = 3 then return "28cc9a080e1a5adcd1c16114cd21a0d0edee0432740d6a26c2b39925013e0370"
@@ -158,6 +160,25 @@ migrationstatements: procedure = .int
     statements[statements.0 + 1] = "CREATE TABLE config_change_events(change_id TEXT PRIMARY KEY,plan_digest TEXT NOT NULL UNIQUE,source_config_snapshot_id TEXT NOT NULL REFERENCES config_snapshots(config_snapshot_id),target_config_snapshot_id TEXT NOT NULL REFERENCES config_snapshots(config_snapshot_id),classification TEXT NOT NULL CHECK(classification IN('identity-upgrade','operational','prospective')),reason TEXT NOT NULL CHECK(length(reason) BETWEEN 1 AND 256),canonical_plan TEXT NOT NULL,created_at TEXT NOT NULL,applied_at TEXT NOT NULL) STRICT"
     statements[statements.0 + 1] = "INSERT INTO config_change_events(change_id,plan_digest,source_config_snapshot_id,target_config_snapshot_id,classification,reason,canonical_plan,created_at,applied_at) SELECT change_id,plan_digest,source_config_snapshot_id,target_config_snapshot_id,classification,reason,canonical_plan,created_at,applied_at FROM config_change_events_v8"
     statements[statements.0 + 1] = "DROP TABLE config_change_events_v8"
+    return statements.0
+  end
+  if version = 10 then do
+    statements[statements.0 + 1] = "CREATE TABLE maintenance_scan_cursors(kind TEXT PRIMARY KEY,after_id TEXT NOT NULL,scan_token TEXT NOT NULL DEFAULT '',completed INTEGER NOT NULL DEFAULT 0 CHECK(completed IN(0,1))) STRICT"
+    statements[statements.0 + 1] = "CREATE TABLE maintenance_tasks(task_id TEXT PRIMARY KEY,kind TEXT NOT NULL,subject_type TEXT NOT NULL,subject_id TEXT NOT NULL,workflow_id TEXT NOT NULL DEFAULT '',parent_task_id TEXT NOT NULL DEFAULT '',evidence_fingerprint TEXT NOT NULL,policy_fingerprint TEXT NOT NULL,evidence_json TEXT NOT NULL CHECK(json_valid(evidence_json)),question TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN('pending','dispatched','resolved','unresolved','review','superseded','failed')),priority INTEGER NOT NULL CHECK(priority BETWEEN 0 AND 1000000),attempt_count INTEGER NOT NULL DEFAULT 0,not_before_epoch INTEGER NOT NULL DEFAULT 0,created_epoch INTEGER NOT NULL,updated_epoch INTEGER NOT NULL,last_error TEXT NOT NULL DEFAULT '',UNIQUE(kind,subject_type,subject_id,workflow_id,evidence_fingerprint,policy_fingerprint)) STRICT"
+    statements[statements.0 + 1] = "CREATE TABLE maintenance_workflows(workflow_id TEXT PRIMARY KEY,origin_task_id TEXT NOT NULL UNIQUE REFERENCES maintenance_tasks(task_id),kind TEXT NOT NULL,parent_concept_id TEXT NOT NULL REFERENCES concepts(concept_id),successors_json TEXT NOT NULL CHECK(json_valid(successors_json)),state TEXT NOT NULL CHECK(state IN('migrating','waiting','complete')),created_generation INTEGER NOT NULL REFERENCES published_generations(generation),completed_generation INTEGER REFERENCES published_generations(generation),created_epoch INTEGER NOT NULL,updated_epoch INTEGER NOT NULL) STRICT"
+    statements[statements.0 + 1] = "CREATE TABLE maintenance_windows(window_id TEXT PRIMARY KEY,run_id TEXT NOT NULL UNIQUE REFERENCES maintenance_runs(run_id),job_id TEXT NOT NULL UNIQUE REFERENCES jobs(job_id),state TEXT NOT NULL CHECK(state IN('active','complete','budget-exhausted','deadline','paused','cancelled')),deadline_epoch INTEGER NOT NULL,policy_json TEXT NOT NULL CHECK(json_valid(policy_json)),policy_fingerprint TEXT NOT NULL,created_epoch INTEGER NOT NULL,closed_epoch INTEGER) STRICT"
+    statements[statements.0 + 1] = "CREATE TABLE maintenance_task_items(item_id TEXT PRIMARY KEY REFERENCES job_items(item_id),task_id TEXT NOT NULL REFERENCES maintenance_tasks(task_id),window_id TEXT NOT NULL REFERENCES maintenance_windows(window_id),attempt_number INTEGER NOT NULL,UNIQUE(task_id,attempt_number)) STRICT"
+    statements[statements.0 + 1] = "CREATE TABLE maintenance_decisions(decision_id TEXT PRIMARY KEY,task_id TEXT NOT NULL REFERENCES maintenance_tasks(task_id),item_id TEXT NOT NULL UNIQUE REFERENCES job_items(item_id),provider_run_id TEXT NOT NULL REFERENCES provider_runs(provider_run_id),response_json TEXT NOT NULL CHECK(json_valid(response_json)),grounding_json TEXT NOT NULL CHECK(json_valid(grounding_json)),disposition TEXT NOT NULL,applied_generation INTEGER REFERENCES published_generations(generation),created_epoch INTEGER NOT NULL) STRICT"
+    statements[statements.0 + 1] = "CREATE TABLE maintenance_alias_issues(issue_id TEXT PRIMARY KEY,candidate_id TEXT NOT NULL REFERENCES candidate_mentions(candidate_id),proposed_label TEXT NOT NULL,proposed_type TEXT NOT NULL,aliases_json TEXT NOT NULL CHECK(json_valid(aliases_json)),state TEXT NOT NULL DEFAULT 'open' CHECK(state IN('open','resolved')),created_epoch INTEGER NOT NULL) STRICT"
+    statements[statements.0 + 1] = "CREATE TABLE maintenance_link_history(link_id TEXT NOT NULL,object_type TEXT NOT NULL,object_id TEXT NOT NULL,note_id TEXT NOT NULL REFERENCES analysis_notes(note_id),revision_chunk_id TEXT,span_start INTEGER,span_end INTEGER,from_generation INTEGER NOT NULL,to_generation INTEGER NOT NULL REFERENCES published_generations(generation),PRIMARY KEY(link_id,to_generation)) WITHOUT ROWID, STRICT"
+    statements[statements.0 + 1] = "CREATE TABLE maintenance_note_link_generations(link_id TEXT PRIMARY KEY,from_generation INTEGER NOT NULL REFERENCES published_generations(generation)) STRICT"
+    statements[statements.0 + 1] = "INSERT INTO maintenance_note_link_generations(link_id,from_generation) SELECT l.link_id,n.created_generation FROM analysis_note_links l JOIN analysis_notes n ON n.note_id=l.note_id"
+    statements[statements.0 + 1] = "CREATE TABLE maintenance_provider_outputs(item_id TEXT PRIMARY KEY REFERENCES job_items(item_id),task_id TEXT NOT NULL REFERENCES maintenance_tasks(task_id),provider_run_id TEXT NOT NULL REFERENCES provider_runs(provider_run_id),response_json TEXT NOT NULL CHECK(json_valid(response_json)),profile_hash TEXT NOT NULL,created_epoch INTEGER NOT NULL) STRICT"
+    statements[statements.0 + 1] = "CREATE UNIQUE INDEX maintenance_one_active_window ON maintenance_windows((1)) WHERE state='active'"
+    statements[statements.0 + 1] = "CREATE INDEX maintenance_tasks_ready ON maintenance_tasks(state,not_before_epoch,priority,created_epoch,task_id)"
+    statements[statements.0 + 1] = "CREATE INDEX maintenance_tasks_workflow ON maintenance_tasks(workflow_id,state,task_id)"
+    statements[statements.0 + 1] = "CREATE INDEX maintenance_task_items_task ON maintenance_task_items(task_id,attempt_number)"
+    statements[statements.0 + 1] = "CREATE INDEX maintenance_windows_active ON maintenance_windows(state,job_id,deadline_epoch)"
     return statements.0
   end
   return -1

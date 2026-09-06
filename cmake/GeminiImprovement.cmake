@@ -9,7 +9,7 @@ file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}/source")
 file(WRITE "${CPRAG_WORK_DIR}/source/architecture.txt"
     "BillingService depends on CustomerDatabase.\n"
-    "BillingService depends on CustomerDatabase.\n")
+    "Again, BillingService depends on CustomerDatabase.\n")
 set(CPRAG_FIXTURE_GLOSSARY "${CPRAG_WORK_DIR}/architecture.glossary.tsv")
 set(glossary_text
     "format\tcrexx-rag.glossary/1\nconcept\tBillingService\tapplication-component\tBilling Service\nconcept\tCustomerDatabase\tdata-store\tCustomer DB\nexclude\tDeprecatedSystem\n")
@@ -65,7 +65,7 @@ execute_process(COMMAND ${cli} init
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err
     RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 9")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 10")
     message(FATAL_ERROR "Improvement test human init failed:\n${init_out}${init_err}")
 endif()
 
@@ -161,7 +161,7 @@ if(NOT query_result EQUAL 0 OR
    NOT query_out MATCHES "vector state: active-ann-ivf-rxvector" OR
    NOT query_out MATCHES "retrieval mode: hybrid" OR
    NOT query_out MATCHES "BillingService --depends-on--> CustomerDatabase" OR
-   NOT query_out MATCHES "citation: .*utf8-(0-43|44-87)" OR
+   NOT query_out MATCHES "citation: .*utf8-(0-43|44-94)" OR
    NOT query_err MATCHES "crexxrag query-embedding complete")
     message(FATAL_ERROR "Maintained installed-style library query failed:\n${query_out}${query_err}")
 endif()

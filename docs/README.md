@@ -9,6 +9,8 @@
   setup, skill discovery, permissions, and other agent hosts.
 - [Methodology and algorithms](algorithm.md): concept discovery, retrieval,
   cognitive enrichment, maintenance worklists and gradual graph migration.
+- [Autonomous maintenance](autonomous-maintenance.md): bounded windows, runtime policy,
+  resolution questions and resumable split/merge task workflows.
 - [Methodology closure checklist](methodology-closure.md): the definitive,
   requirement-by-requirement implementation and executable-QA proof table.
 - [Test strategy](test-strategy.md): maintained regression matrix and live-call

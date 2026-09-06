@@ -342,11 +342,19 @@ _canonicalactionnode: procedure = .int
   end
   if operation = "maintain.apply" then do
     maintenance_digest = ""
-    if document.node_count(action_node) \= 1 | document.node_string(document.member(action_node, "maintenance_digest"), maintenance_digest) \= 0 | _validsha256(maintenance_digest) \= 1 then do
+    if (document.node_count(action_node) \= 1 & document.node_count(action_node) \= 2) | document.node_string(document.member(action_node, "maintenance_digest"), maintenance_digest) \= 0 | _validsha256(maintenance_digest) \= 1 then do
       error = "maintenance plan requires exactly one lowercase SHA-256 maintenance_digest"
       return -1
     end
-    output = "{" || jsonquote("maintenance_digest") || ":" || jsonquote(maintenance_digest) || "}"
+    output = "{" || jsonquote("maintenance_digest") || ":" || jsonquote(maintenance_digest)
+    if document.node_count(action_node) = 2 then do
+      window_policy = ""
+      if document.node_string(document.member(action_node,"window_policy"),window_policy) \= 0 | length(window_policy) > 131072 then do; error = "maintenance window policy is invalid"; return -1; end
+      policy_document = .jsondocument(window_policy)
+      if policy_document.valid() \= 1 | policy_document.node_type(policy_document.root()) \= "object" then do; error = "maintenance window policy must contain a bounded JSON object"; return -1; end
+      output = output || "," || jsonquote("window_policy") || ":" || jsonquote(window_policy)
+    end
+    output = output || "}"
     return 0
   end
   if operation = "proposal.apply" then do

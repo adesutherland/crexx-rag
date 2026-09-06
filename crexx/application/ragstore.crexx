@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragstore expose ragstorehandle ragreadsnapshot ragstorestatus ragverifyresult applymigrations validatemigrations initragstore openragstore closeragstore storagestatus beginreadsnapshot closereadsnapshot begingeneration commitgeneration abortgeneration rollbackgeneration writemanifesttemporary publishmanifest manifeststate recovermanifest verifyragstore
+namespace ragstore expose compatiblevectorpredicate ragstorehandle ragreadsnapshot ragstorestatus ragverifyresult applymigrations validatemigrations initragstore openragstore closeragstore storagestatus beginreadsnapshot closereadsnapshot begingeneration stagegeneration commitgeneration abortgeneration rollbackgeneration writemanifesttemporary publishmanifest manifeststate recovermanifest verifyragstore
 
 import rxfnsb
 import rxjson
@@ -442,6 +442,14 @@ begingeneration: procedure = .int
     return -5
   end
   if sqliteexec(store.database(), "BEGIN IMMEDIATE") \= 0 then return _sqlitefailure("begin generation", error)
+  return stagegeneration(store,expected_parent,config_snapshot_id,summary,generation,error)
+
+/* Caller owns an IMMEDIATE transaction; publication remains commitgeneration's
+ * responsibility. This allows evidence checks and cached repairs to share it. */
+stagegeneration: procedure = .int
+  arg store = .ragstorehandle, expected_parent = .int, config_snapshot_id = .string, summary = .string, expose generation = .int, expose error = .string
+  error = ""; generation = 0
+  if store.writable() \= 1 then do; error = "generation staging requires readwrite access"; return -5; end
   current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1", error)
   generation = _scalarint(store.database(), "SELECT next_generation FROM library_meta WHERE singleton=1", error)
   if current < 1 | generation < 2 then do
@@ -805,7 +813,7 @@ _sidecarprojection: procedure = .int
   arg database = .binary, generation = .int, expose projection = .string, expose error = .string
   projection = ""
   prepared = .binary
-  sql = "SELECT vector_generation_id,semantic_generation,embedding_profile_id,sidecar_name,sidecar_checksum,dimension,algorithm,row_count,centroid_count,probe_count FROM vector_generations WHERE state='published' AND semantic_generation=?1 ORDER BY embedding_profile_id,vector_generation_id"
+  sql = "SELECT vector_generation_id,semantic_generation,embedding_profile_id,sidecar_name,sidecar_checksum,dimension,algorithm,row_count,centroid_count,probe_count FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate("?1") || " ORDER BY embedding_profile_id,vector_generation_id"
   if sqliteprepare(database, sql, prepared) \= 0 then return _sqlitefailure("prepare sidecar projection", error)
   call sqlitebindint prepared, 1, generation
   do forever
@@ -839,14 +847,15 @@ _sidecarprojection: procedure = .int
 _manifestsidecarstate: procedure = .int
   arg document = .jsondocument, sidecars = .int, database = .binary, generation = .int, path = .string, expose error = .string
   manifest_count = document.node_count(sidecars)
-  database_count = _scalarint(database, "SELECT count(*) FROM vector_generations WHERE state='published' AND semantic_generation=" || generation, error)
+  database_count = _scalarint(database, "SELECT count(*) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string), error)
   if database_count < 0 then return -1
   do i = 1 to manifest_count
     item = document.element(sidecars, i)
     vector_generation_id = ""; semantic_generation = 0; embedding_profile_id = ""; sidecar_name = ""; sidecar_checksum = ""; dimension = 0; algorithm = ""; row_count = 0; centroid_count = 0; probe_count = 0
     if document.node_type(item) \= "object" | document.node_string(document.member(item, "vector_generation_id"), vector_generation_id) \= 0 | document.node_int(document.member(item, "semantic_generation"), semantic_generation) \= 0 | document.node_string(document.member(item, "embedding_profile_id"), embedding_profile_id) \= 0 | document.node_string(document.member(item, "name"), sidecar_name) \= 0 | document.node_string(document.member(item, "sha256"), sidecar_checksum) \= 0 | document.node_int(document.member(item, "dimension"), dimension) \= 0 | document.node_string(document.member(item, "algorithm"), algorithm) \= 0 | document.node_int(document.member(item, "row_count"), row_count) \= 0 | document.node_int(document.member(item, "centroid_count"), centroid_count) \= 0 | document.node_int(document.member(item, "probe_count"), probe_count) \= 0 then return -1
-    if semantic_generation \= generation | dimension < 1 | algorithm \= "ivf-flat-v1" | row_count < 1 | centroid_count < 1 | centroid_count > row_count | probe_count < 1 | probe_count > centroid_count | _safesidecarname(sidecar_name) \= 1 | _validsha256(sidecar_checksum) \= 1 | rxfs..isfile(path || "/" || sidecar_name) \= 1 then return -1
+    if semantic_generation > generation | dimension < 1 | algorithm \= "ivf-flat-v1" | row_count < 1 | centroid_count < 1 | centroid_count > row_count | probe_count < 1 | probe_count > centroid_count | _safesidecarname(sidecar_name) \= 1 | _validsha256(sidecar_checksum) \= 1 | rxfs..isfile(path || "/" || sidecar_name) \= 1 then return -1
     sql = "SELECT count(*) FROM vector_generations WHERE state='published' AND vector_generation_id=" || _sqlquote(vector_generation_id) || " AND semantic_generation=" || semantic_generation || " AND embedding_profile_id=" || _sqlquote(embedding_profile_id) || " AND sidecar_name=" || _sqlquote(sidecar_name) || " AND sidecar_checksum=" || _sqlquote(sidecar_checksum) || " AND dimension=" || dimension || " AND algorithm=" || _sqlquote(algorithm) || " AND row_count=" || row_count || " AND centroid_count=" || centroid_count || " AND probe_count=" || probe_count
+    sql = sql || " AND " || compatiblevectorpredicate(generation as .string)
     if _scalarint(database, sql, error) \= 1 then return -1
   end
   if manifest_count = database_count then return 1
@@ -856,7 +865,7 @@ _manifestsidecarstate: procedure = .int
 _activesidecarfilesvalid: procedure = .int
   arg database = .binary, generation = .int, path = .string, expose error = .string
   prepared = .binary
-  if sqliteprepare(database, "SELECT sidecar_name,sidecar_checksum FROM vector_generations WHERE state='published' AND semantic_generation=?1", prepared) \= 0 then return -1
+  if sqliteprepare(database, "SELECT sidecar_name,sidecar_checksum FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate("?1"), prepared) \= 0 then return -1
   call sqlitebindint prepared, 1, generation
   do forever
     step_status = sqlitestep(prepared)
@@ -1043,3 +1052,12 @@ _addissue: procedure = .string
   arg summary = .string, issue = .string
   if summary = "" then return issue
   return summary || "," || issue
+
+/* An index belongs to the generation that built it. Graph-only generations
+ * may reuse that immutable file if the published ancestry and both source and
+ * embedding membership are identical. Callers supply an internal SQL integer
+ * expression (or a bound parameter), never operator text. */
+compatiblevectorpredicate: procedure = .string
+  arg generation_sql = .string, qualifier = ""
+  sql = qualifier || "vector_generation_id IN (WITH RECURSIVE target(generation) AS (SELECT " || generation_sql || "), lineage(generation) AS (SELECT generation FROM target UNION ALL SELECT p.parent_generation FROM published_generations p JOIN lineage l ON p.generation=l.generation WHERE p.parent_generation IS NOT NULL), candidates AS (SELECT v.* FROM vector_generations v JOIN lineage l ON l.generation=v.semantic_generation WHERE v.state='published'), latest AS (SELECT a.* FROM candidates a WHERE NOT EXISTS(SELECT 1 FROM candidates b WHERE b.embedding_profile_id=a.embedding_profile_id AND b.semantic_generation>a.semantic_generation)) SELECT v.vector_generation_id FROM latest v CROSS JOIN target t WHERE v.semantic_generation=t.generation OR (NOT EXISTS(SELECT 1 FROM revision_chunks rc WHERE (rc.visible_from_generation<=v.semantic_generation AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>v.semantic_generation))<>(rc.visible_from_generation<=t.generation AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>t.generation))) AND NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id WHERE e.embedding_profile_id=v.embedding_profile_id AND (rce.visible_from_generation<=v.semantic_generation AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>v.semantic_generation))<>(rce.visible_from_generation<=t.generation AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>t.generation)))))"
+  return sql

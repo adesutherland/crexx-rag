@@ -9,7 +9,7 @@ file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}/source")
 file(WRITE "${CPRAG_WORK_DIR}/source/architecture.txt"
     "BillingService depends on CustomerDatabase.\n"
-    "BillingService depends on CustomerDatabase.\n")
+    "Again, BillingService depends on CustomerDatabase.\n")
 set(CPRAG_FIXTURE_GLOSSARY "${CPRAG_WORK_DIR}/architecture.glossary.tsv")
 file(WRITE "${CPRAG_FIXTURE_GLOSSARY}"
     "format\tcrexx-rag.glossary/1\n"
@@ -70,7 +70,7 @@ execute_process(COMMAND ${cli} --library "${library}"
     --profile it-architecture-profile --access admin --format json library init
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err
     RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "\"schema_version\":9")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "\"schema_version\":10")
     message(FATAL_ERROR "Codex application init failed:\n${init_out}${init_err}")
 endif()
 
@@ -205,7 +205,7 @@ if(NOT turn_start_count EQUAL 1 OR NOT thread_start_count EQUAL 1)
 endif()
 
 execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
-    "SELECT (SELECT count(*) FROM provider_runs WHERE provider_id='codex-extract' AND outcome='succeeded' AND charging_basis='subscription-allowance') || ':' || (SELECT count(*) FROM candidate_mentions WHERE extractor_version='provider-discovery-v1') || ':' || (SELECT count(*) FROM claims WHERE visible_to_generation IS NULL) || ':' || (SELECT count(*) FROM claim_support WHERE visible_to_generation IS NULL) || ':' || (SELECT count(*) FROM job_items WHERE state='dead_letter');"
+    "SELECT (SELECT count(*) FROM provider_runs WHERE provider_id='codex-extract' AND outcome='succeeded' AND charging_basis='subscription-allowance') || ':' || (SELECT count(*) FROM candidate_mentions WHERE extractor_version='provider-discovery-v2') || ':' || (SELECT count(*) FROM claims WHERE visible_to_generation IS NULL) || ':' || (SELECT count(*) FROM claim_support WHERE visible_to_generation IS NULL) || ':' || (SELECT count(*) FROM job_items WHERE state='dead_letter');"
     OUTPUT_VARIABLE final_state OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_VARIABLE final_state_err RESULT_VARIABLE final_state_result)
 if(NOT final_state_result EQUAL 0 OR NOT final_state STREQUAL "1:4:1:2:0")

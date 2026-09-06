@@ -226,6 +226,22 @@ int main(int argc, char** argv)
                         + json_string(narrative)
                         + "}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":240,\"candidatesTokenCount\":48}}";
                 }
+            } else if (request.find("Durable resolution input:") != std::string::npos) {
+                if (!valid_auth || !valid_structured || request.find("maintenance-resolution") == std::string::npos
+                    || request.find("fixture-resolution-prompt") == std::string::npos
+                    || request.find("fixture-note-link") == std::string::npos) {
+                    http_status = 400;
+                    body = R"({"error":{"message":"product Gemini resolution request shape mismatch"}})";
+                } else {
+                    const std::string resolution = scenario == "product-backlog-malformed"
+                        ? R"({"action":"synthetic-product-gemini-key"})"
+                        : scenario == "product-backlog-rejected"
+                        ? R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"synthetic-product-gemini-key","evidence":[{"evidence_id":"fixture-note-link","quote":"An unsupported invented quotation."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":""})"
+                        : R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The independently quoted passage answers the note.","evidence":[{"evidence_id":"fixture-note-link","quote":"billingservice depends on customerdatabase."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":""})";
+                    body = "{\"responseId\":\"product-gemini-resolution-001\",\"candidates\":[{\"content\":{\"parts\":[{\"text\":"
+                        + json_string(resolution)
+                        + "}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":210,\"candidatesTokenCount\":64}}";
+                }
             } else if (request.find("crexx-rag.answer-context/1") != std::string::npos) {
                 const std::string citation = escaped_citation(request);
                 const bool valid_answer = valid_auth && valid_structured && !citation.empty()
@@ -280,38 +296,38 @@ int main(int argc, char** argv)
                     if (improvement) {
                         proposal =
                             "{\"mentions\":[],\"relationships\":[],\"notes\":["
-                            "{\"kind\":\"insight\",\"text\":\"The repeated dependency deserves explicit validation.\",\"importance_millionths\":820000,\"uncertainty_millionths\":280000,\"next_action\":\"Compare the two independently cited dependency statements.\",\"span_start\":0,\"span_end\":43}]}";
+                            "{\"kind\":\"insight\",\"text\":\"The repeated dependency deserves explicit validation.\",\"importance_millionths\":820000,\"uncertainty_millionths\":280000,\"next_action\":\"Compare the two independently cited dependency statements.\",\"evidence_quote\":\"BillingService depends on CustomerDatabase.\"}]}";
                     } else if (scenario == "product-extraction-malformed") {
                         proposal = "{\"mentions\":[";
                     } else if (scenario == "product-extraction-invalid-span") {
                         proposal =
                             "{\"mentions\":["
-                            "{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"span_start\":1,\"span_end\":14,\"aliases\":[]},"
-                            "{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"span_start\":26,\"span_end\":42,\"aliases\":[]}"
+                            "{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"synthetic-product-gemini-key invented quotation\",\"aliases\":[]},"
+                            "{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"CustomerDatabase\",\"aliases\":[]}"
                             "],\"relationships\":[],\"notes\":[]}";
                     } else if (scenario == "product-extraction-unknown-type") {
                         proposal =
                             "{\"mentions\":["
-                            "{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"unknown-component\",\"span_start\":0,\"span_end\":14,\"aliases\":[]},"
-                            "{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"span_start\":26,\"span_end\":42,\"aliases\":[]}"
+                            "{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"unknown-component\",\"evidence_quote\":\"BillingService\",\"aliases\":[]},"
+                            "{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"CustomerDatabase\",\"aliases\":[]}"
                             "],\"relationships\":[],\"notes\":[]}";
                     } else if (scenario == "product-extraction-unknown-relationship") {
                         proposal =
                             "{\"mentions\":["
-                            "{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"span_start\":0,\"span_end\":14,\"aliases\":[]},"
-                            "{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"span_start\":26,\"span_end\":42,\"aliases\":[]}"
+                            "{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"BillingService\",\"aliases\":[]},"
+                            "{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"CustomerDatabase\",\"aliases\":[]}"
                             "],\"relationships\":["
-                            "{\"source_mention\":0,\"relationship_type\":\"unknown-relationship\",\"target_mention\":1,\"span_start\":0,\"span_end\":43,\"confidence_millionths\":940000}],\"notes\":[]}";
+                            "{\"source_mention\":0,\"relationship_type\":\"unknown-relationship\",\"target_mention\":1,\"evidence_quote\":\"BillingService depends on CustomerDatabase.\",\"confidence_millionths\":940000}],\"notes\":[]}";
                     } else {
                         proposal =
                             "{\"mentions\":["
-                            "{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"span_start\":0,\"span_end\":14,\"aliases\":[]},"
-                            "{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"span_start\":26,\"span_end\":42,\"aliases\":[]},"
-                            "{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"span_start\":44,\"span_end\":58,\"aliases\":[]},"
-                            "{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"span_start\":70,\"span_end\":86,\"aliases\":[]}"
+                            "{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"BillingService\",\"aliases\":[]},"
+                            "{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"CustomerDatabase\",\"aliases\":[]},"
+                            "{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"Again, BillingService depends on CustomerDatabase.\",\"aliases\":[]},"
+                            "{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"Again, BillingService depends on CustomerDatabase.\",\"aliases\":[]}"
                             "],\"relationships\":["
-                            "{\"source_mention\":0,\"relationship_type\":\"depends-on\",\"target_mention\":1,\"span_start\":0,\"span_end\":43,\"confidence_millionths\":940000},"
-                            "{\"source_mention\":2,\"relationship_type\":\"depends-on\",\"target_mention\":3,\"span_start\":44,\"span_end\":87,\"confidence_millionths\":930000}],\"notes\":[]}";
+                            "{\"source_mention\":0,\"relationship_type\":\"depends-on\",\"target_mention\":1,\"evidence_quote\":\"BillingService depends on CustomerDatabase.\",\"confidence_millionths\":940000},"
+                            "{\"source_mention\":2,\"relationship_type\":\"depends-on\",\"target_mention\":3,\"evidence_quote\":\"Again, BillingService depends on CustomerDatabase.\",\"confidence_millionths\":930000}],\"notes\":[]}";
                     }
                     body = "{\"responseId\":\"product-gemini-extract-001\",\"candidates\":[{\"content\":{\"parts\":[{\"text\":"
                         + json_string(proposal)

@@ -133,10 +133,14 @@ if(NOT explain_result EQUAL 0 OR
    NOT explain_evidence_error STREQUAL "NOTFOUND" OR
    NOT explain_evidence_ceiling STREQUAL "262144" OR
    NOT explain_maintenance_error STREQUAL "NOTFOUND" OR
-   NOT explain_maintenance_length EQUAL 11 OR
+   NOT explain_maintenance_length EQUAL 19 OR
    NOT explain_maintenance_batch_error STREQUAL "NOTFOUND" OR
    NOT explain_maintenance_batch STREQUAL "1000" OR
-   NOT explain_out MATCHES "\"narrative_output_tokens\":4096")
+   NOT explain_out MATCHES "\"narrative_output_tokens\":4096" OR
+   NOT explain_out MATCHES "\"window_seconds\":18000" OR
+   NOT explain_out MATCHES "\"mode\":\"reviewed\"" OR
+   NOT explain_out MATCHES "\"maximum_attempts\":3" OR
+   NOT explain_out MATCHES "\"resolution_prompt_sha256\":\"[0-9a-f]+\"")
     message(FATAL_ERROR
         "linked configuration explanation was not bounded and isolated:\n${explain_out}${explain_err}")
 endif()
@@ -200,7 +204,7 @@ execute_process(COMMAND ${lifecycle_cli}
     OUTPUT_VARIABLE lifecycle_init_out ERROR_VARIABLE lifecycle_init_err
     TIMEOUT 30)
 if(NOT lifecycle_init_result EQUAL 0 OR
-   NOT lifecycle_init_out MATCHES "\"schema_version\":9")
+   NOT lifecycle_init_out MATCHES "\"schema_version\":10")
     message(FATAL_ERROR
         "configuration lifecycle init failed:\n${lifecycle_init_out}${lifecycle_init_err}")
 endif()

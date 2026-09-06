@@ -9,13 +9,17 @@ file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}/source")
 set(source_text "")
 foreach(repetition RANGE 1 10)
+    set(line_prefix "")
+    if(repetition EQUAL 2)
+        set(line_prefix "Again, ")
+    endif()
     math(EXPR line_ending "${repetition} % 3")
     if(line_ending EQUAL 1)
-        string(APPEND source_text "BillingService depends on CustomerDatabase.\r\n")
+        string(APPEND source_text "${line_prefix}BillingService depends on CustomerDatabase.\r\n")
     elseif(line_ending EQUAL 2)
-        string(APPEND source_text "BillingService depends on CustomerDatabase.\r")
+        string(APPEND source_text "${line_prefix}BillingService depends on CustomerDatabase.\r")
     else()
-        string(APPEND source_text "BillingService depends on CustomerDatabase.\n")
+        string(APPEND source_text "${line_prefix}BillingService depends on CustomerDatabase.\n")
     endif()
 endforeach()
 file(WRITE "${CPRAG_WORK_DIR}/source/architecture.txt" "${source_text}")
@@ -73,7 +77,7 @@ set(cli "${CMAKE_COMMAND}" -E env
 execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
     --profile it-architecture-profile --access admin --format json library init
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "\"schema_version\":9")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "\"schema_version\":10")
     message(FATAL_ERROR "Gemini product library init failed:\n${init_out}${init_err}")
 endif()
 
@@ -150,7 +154,7 @@ execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
     ERROR_VARIABLE normalization_state_err RESULT_VARIABLE normalization_state_result)
 string(REPLACE "\r\n" "\n" normalization_state "${normalization_state}")
 if(NOT normalization_state_result EQUAL 0 OR
-   NOT normalization_state STREQUAL "14:0:444:0:440:4:10:1:10:4\n440:0:10\n0")
+   NOT normalization_state STREQUAL "14:0:451:0:447:4:10:1:10:4\n447:0:10\n0")
     message(FATAL_ERROR "streamed normalization map did not preserve the compact offset contract: ${normalization_state} ${normalization_state_err}")
 endif()
 
@@ -191,7 +195,7 @@ if(NOT machine_vector_count EQUAL 1)
     message(FATAL_ERROR "completed machine ingestion did not publish exactly one immutable vector sidecar")
 endif()
 execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
-        "SELECT (SELECT count(*) FROM candidate_mentions WHERE extractor_version='provider-discovery-v1') || ':' || (SELECT count(*) FROM claims WHERE visible_to_generation IS NULL) || ':' || (SELECT count(*) FROM claim_support WHERE visible_to_generation IS NULL)"
+        "SELECT (SELECT count(*) FROM candidate_mentions WHERE extractor_version='provider-discovery-v2') || ':' || (SELECT count(*) FROM claims WHERE visible_to_generation IS NULL) || ':' || (SELECT count(*) FROM claim_support WHERE visible_to_generation IS NULL)"
     OUTPUT_VARIABLE discovery_batch_state OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_VARIABLE discovery_batch_err RESULT_VARIABLE discovery_batch_result)
 if(NOT discovery_batch_result EQUAL 0 OR
@@ -300,7 +304,7 @@ execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
     OUTPUT_VARIABLE query_out ERROR_VARIABLE query_err RESULT_VARIABLE query_result TIMEOUT 30)
 if(NOT query_result EQUAL 0 OR NOT query_out MATCHES "\"candidate_count\":1" OR
    NOT query_out MATCHES "depends-on" OR NOT query_out MATCHES "claim-sha256:" OR
-   NOT query_out MATCHES "utf8-0-439" OR
+   NOT query_out MATCHES "utf8-0-446" OR
    NOT query_out MATCHES "\"vector_state\":\"active-ann-ivf-rxvector\"" OR
    NOT query_out MATCHES "\"retrieval_mode\":\"hybrid\"" OR
    NOT query_out MATCHES "\"query_embedding_state\":\"generated\"" OR
@@ -425,7 +429,7 @@ if(NOT human_query_result EQUAL 0 OR
    NOT human_query_out MATCHES "query embedding state: generated" OR
    NOT human_query_out MATCHES "provider calls: 1" OR
    NOT human_query_out MATCHES "BillingService --depends-on--> CustomerDatabase" OR
-   NOT human_query_out MATCHES "citation: .*utf8-(0-43|44-87)" OR
+   NOT human_query_out MATCHES "citation: .*utf8-(0-43|44-94)" OR
    human_query_out MATCHES "evidence_json|\\{\"schema\"" OR
    NOT human_query_err MATCHES "crexxrag query-embedding complete")
     message(FATAL_ERROR "Human query shorthand failed:\n${human_query_out}${human_query_err}")

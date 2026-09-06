@@ -11,10 +11,12 @@ import ragconfig
 import ragprofile
 import ragglossary
 import ragcanonical
+import raggrounding
 import ragconfiguration
 import ragstore
 import ragclaims
 import ragwork
+import ragbacklog
 import ragtrace
 import provider_contract
 import industrial_provider
@@ -77,7 +79,7 @@ ragapplicationprovider: class implements .ragworkprovider
       backend = .industrialprovider(protocol, host, port, tls, base_path, secret, provider_config.route_class(), provider_config.input_price_microunits_per_million(), provider_config.output_price_microunits_per_million(), provider_config.maximum_batch_size())
     end
     if operation = "embedding" & kind = "codex" then return _failedwork(provider_id, model, claim, empty_proposal, "Codex does not provide embedding generation", 0)
-    if operation \= "embedding" & operation \= "claim-extraction" & operation \= "improve-extraction" then return _failedwork(provider_id, model, claim, empty_proposal, "durable work operation is unsupported", 0)
+    if operation \= "embedding" & operation \= "claim-extraction" & operation \= "improve-extraction" & operation \= "maintenance-resolution" then return _failedwork(provider_id, model, claim, empty_proposal, "durable work operation is unsupported", 0)
     reserved_tokens = _reservationtokens(document, root)
     if reserved_tokens < 0 then return _failedwork(provider_id, model, claim, empty_proposal, "durable provider token reservation is invalid", 0)
     admission_id = ""; admission_wait = 0; admission_error = ""
@@ -85,7 +87,7 @@ ragapplicationprovider: class implements .ragworkprovider
     if admission_status \= 0 then return _failedwork(provider_id, model, claim, empty_proposal, admission_error, 1, "", provider_config.charging_basis(), provider_config.initial_backoff_ms())
     call _tracer.emit("provider", "start", claim.item_id(), provider_id || " " || model)
     if operation = "embedding" then result = _embedding(document, root, claim, provider_config, backend)
-    else if operation = "claim-extraction" | operation = "improve-extraction" then result = _extraction(document, root, input_json, claim, provider_config, backend)
+    else if operation = "claim-extraction" | operation = "improve-extraction" | operation = "maintenance-resolution" then result = _extraction(document, root, input_json, claim, provider_config, backend)
     call result.add_wait_ms(admission_wait)
     release_outcome = "failed"; if result.ok() = 1 then release_outcome = "succeeded"
     release_error = ""
@@ -100,11 +102,17 @@ ragapplicationprovider: class implements .ragworkprovider
     messages = .providermessage[]; inputs = .string[]
     role_policy = _rolebinding(_config, "extractor")
     if role_policy.provider_id() \= provider_config.provider_id() | role_policy.system_prompt() = "" then return _failedwork(provider_config.provider_id(), provider_config.model(), claim, empty_proposal, "configured extraction role policy is unavailable", 0)
-    messages[1] = .providermessage("system", role_policy.system_prompt())
+    messages[1] = .providermessage("system", role_policy.system_prompt() || "0A"x || "Current response contract: provide evidence_quote copied from the supplied chunk for every mention, relationship and note. Do not return or calculate byte offsets, even if earlier configuration text mentions offsets. Mention labels must occur in their quotation. A relationship quotation must contain both endpoint labels and support the stated direction. Exact text is preferred; case differences and whitespace runs are accepted. Repeated quotations select their first occurrence within the chunk. Copy one contiguous substring, preferably preserving all whitespace and punctuation; never insert ellipses or join separated excerpts. source_mention and target_mention are zero-based indexes in the mentions array, and the labels at both indexes must occur in the same relationship quotation. Return a relationship only when that quotation explicitly supports its meaning and direction. Headings, lists and co-occurrence alone do not establish a relationship. Omit any relationship without qualifying evidence; empty arrays are valid. Keep canonical_label equal to label unless the supplied glossary or catalogue explicitly identifies the canonical name. Do not invent aliases. Allowed note kinds: observation, insight, hypothesis, question, gap, conflict, lead, follow-up, recommendation, synonym, split, merge, type-correction, retire, restore. Return only the requested JSON fields.")
     types = _types(_profile); relationships = _relationships(_profile)
     discovery = _config.discovery()
     messages[2] = .providermessage("user", "Allowed concept types: " || types || "0A"x || "Allowed relationship types: " || relationships || "0A"x || "Maximum mentions: " || discovery.max_mentions() || "; relationships: " || discovery.max_relationships() || "; notes: " || discovery.max_notes() || "0A"x || "Durable input: " || input_json)
-    schema = '{"type":"object","additionalProperties":false,"required":["mentions","relationships","notes"],"properties":{"mentions":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["label","canonical_label","concept_type","span_start","span_end","aliases"],"properties":{"label":{"type":"string"},"canonical_label":{"type":"string"},"concept_type":{"type":"string"},"span_start":{"type":"integer"},"span_end":{"type":"integer"},"aliases":{"type":"array","items":{"type":"string"}}}}},"relationships":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["source_mention","relationship_type","target_mention","span_start","span_end","confidence_millionths"],"properties":{"source_mention":{"type":"integer"},"relationship_type":{"type":"string"},"target_mention":{"type":"integer"},"span_start":{"type":"integer"},"span_end":{"type":"integer"},"confidence_millionths":{"type":"integer"}}}},"notes":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["kind","text","importance_millionths","uncertainty_millionths","next_action","span_start","span_end"],"properties":{"kind":{"type":"string"},"text":{"type":"string"},"importance_millionths":{"type":"integer"},"uncertainty_millionths":{"type":"integer"},"next_action":{"type":"string"},"span_start":{"type":"integer"},"span_end":{"type":"integer"}}}}}}'
+    schema = '{"type":"object","additionalProperties":false,"required":["mentions","relationships","notes"],"properties":{"mentions":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["label","canonical_label","concept_type","evidence_quote","aliases"],"properties":{"label":{"type":"string"},"canonical_label":{"type":"string"},"concept_type":{"type":"string","enum":' || _concepttypesjson(_profile) || '},"evidence_quote":{"type":"string"},"aliases":{"type":"array","items":{"type":"string"}}}}},"relationships":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["source_mention","relationship_type","target_mention","evidence_quote","confidence_millionths"],"properties":{"source_mention":{"type":"integer"},"relationship_type":{"type":"string","enum":' || _relationshiptypesjson(_profile) || '},"target_mention":{"type":"integer"},"evidence_quote":{"type":"string"},"confidence_millionths":{"type":"integer"}}}},"notes":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["kind","text","importance_millionths","uncertainty_millionths","next_action","evidence_quote"],"properties":{"kind":{"type":"string","enum":["observation","insight","hypothesis","question","gap","conflict","lead","follow-up","recommendation","synonym","split","merge","type-correction","retire","restore"]},"text":{"type":"string"},"importance_millionths":{"type":"integer"},"uncertainty_millionths":{"type":"integer"},"next_action":{"type":"string"},"evidence_quote":{"type":"string"}}}}}}'
+    resolution_work = claim.item_type() = "maintenance-resolution"
+    if resolution_work then do
+      messages[1] = .providermessage("system", _config.maintenance().resolution_prompt() || " Return exactly the requested fields. Cite evidence_id values and contiguous quotations from the packet. Use empty strings and arrays for unused fields; qualifiers_json is a JSON object string. For split, introduce successors; for merge, select target_concept_id from the supplied catalogue and leave successors empty. Retain connections for the follow-up workflow; do not guess their assignment. For move/retract/qualify, cite every affected support. A retirement may cite no passages only when the impact census is empty. For reuse, choose a supplied candidate; for move, choose a supplied successor. Unresolved is a valid decision, not a failure.")
+      messages[2] = .providermessage("user", "Allowed concept types: " || types || "0A"x || "Allowed relationship types: " || relationships || "0A"x || "Durable resolution input: " || input_json)
+      schema = backlogschema()
+    end
     request_id = "extract-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 32)
     reservation = document.member(root, "reservation"); maximum_output = -1
     if document.node_type(reservation) \= "object" | document.node_int(document.member(reservation, "output_tokens"), maximum_output) \= 0 | maximum_output < 1 then return _failedwork(provider_config.provider_id(), provider_config.model(), claim, empty_proposal, "durable extraction output reservation is invalid", 0)
@@ -181,6 +189,15 @@ ragapplicationprovider: class implements .ragworkprovider
     else provider_output = backend.generate_structured(request)
     if provider_output.status() \= 0 then return _providerfailure(provider_config, request_id, claim, empty_proposal, provider_output, durable_run_id, provider_charging_basis)
     if provider_output.provider() \= _backendidentity(provider_config.kind()) | provider_output.model() \= provider_config.model() | provider_output.request_id() = "" then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider returned incomplete provider/model identity", durable_run_id)
+    if resolution_work then do
+      grounding_json = ""; resolution_error = ""
+      if validatebacklogresponse(_store.database(), _jsonstring(document,root,"task_id"), provider_output.content(), grounding_json, resolution_error) \= 0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, resolution_error, durable_run_id)
+      usage = provider_output.usage(); cost = usage.cost_microunits(); if cost < 0 | provider_charging_basis \= "monetary-api" then cost = 0
+      mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
+      result = .ragworkproviderresult(0, provider_config.provider_id(), provider_config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, provider_output.latency_us() % 1000, 0, empty_proposal, "", 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), durable_run_id, provider_charging_basis, mentions, proposals, notes)
+      call result.resolution(provider_output.content(), _profile)
+      return result
+    end
     response = .jsondocument(provider_output.content())
     if response.valid() \= 1 | response.node_type(response.root()) \= "object" then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider claim proposal is not an object", durable_run_id)
     response_root = response.root()
@@ -188,13 +205,17 @@ ragapplicationprovider: class implements .ragworkprovider
     if response.node_count(response_root) \= 3 | response.node_type(mentions_node) \= "array" | response.node_type(relationships_node) \= "array" | response.node_type(notes_node) \= "array" | response.node_count(mentions_node) > discovery.max_mentions() | response.node_count(relationships_node) > discovery.max_relationships() | response.node_count(notes_node) > discovery.max_notes() then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider discovery arrays violate the reviewed bounds", durable_run_id)
     revision_chunk_id = _jsonstring(document, root, "revision_chunk_id"); body = _jsonstring(document, root, "text"); prompt_version = _jsonstring(document, root, "prompt_version"); profile_id = _jsonstring(document, root, "profile_id"); source_scope = _jsonstring(document, root, "source_scope"); discovery_context = _jsonstring(document, root, "discovery_context")
     body_binary = body as .binary; body_bytes = binlength(body_binary); work_mentions = .ragworkmention[]
+    grounding = .raggrounding(body); mention_labels = .string[]; mention_count = response.node_count(mentions_node)
     do i = 1 to response.node_count(mentions_node)
-      node = response.element(mentions_node, i); label = ""; canonical_label = ""; concept_type = ""; span_start = -1; span_end = -1
+      node = response.element(mentions_node, i); label = ""; canonical_label = ""; concept_type = ""; span_start = -1; span_end = -1; quotation = ""
       aliases_node = response.member(node, "aliases")
-      if response.node_type(node) \= "object" | response.node_count(node) \= 6 | response.node_string(response.member(node, "label"), label) \= 0 | response.node_string(response.member(node, "canonical_label"), canonical_label) \= 0 | response.node_string(response.member(node, "concept_type"), concept_type) \= 0 | response.node_int(response.member(node, "span_start"), span_start) \= 0 | response.node_int(response.member(node, "span_end"), span_end) \= 0 | response.node_type(aliases_node) \= "array" | response.node_count(aliases_node) > 16 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider mention shape is invalid", durable_run_id)
+      if response.node_type(node) \= "object" | response.node_count(node) \= 5 | response.node_string(response.member(node, "label"), label) \= 0 | response.node_string(response.member(node, "canonical_label"), canonical_label) \= 0 | response.node_string(response.member(node, "concept_type"), concept_type) \= 0 | response.node_string(response.member(node, "evidence_quote"), quotation) \= 0 | response.node_type(aliases_node) \= "array" | response.node_count(aliases_node) > 16 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider mention shape is invalid", durable_run_id)
       if label = "" | canonical_label = "" | length(label) > 512 | length(canonical_label) > 512 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider mention label is invalid", durable_run_id)
       if _permittedtype(_profile, concept_type) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider mention concept type is not in the selected profile", durable_run_id)
-      if span_start < 0 | span_end <= span_start | span_end > body_bytes | binsubstr(body_binary, span_start + 1, span_end - span_start) \= (label as .binary) then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider mention does not match its exact evidence span", durable_run_id)
+      quote_start = -1; quote_end = -1
+      if grounding.find(quotation, quote_start, quote_end) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider mention evidence quotation is not in the chunk", durable_run_id)
+      if grounding.find(label, span_start, span_end, quote_start, quote_end) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider mention label is not in its evidence quotation", durable_run_id)
+      mention_labels[i] = label
       aliases = .string[]; aliases[1] = canonical_label
       do a = 1 to response.node_count(aliases_node)
         alias = ""
@@ -203,27 +224,45 @@ ragapplicationprovider: class implements .ragworkprovider
       end
       glossary_error = ""
       if validateglossarymention(discovery_context, label, canonical_label, concept_type, aliases, glossary_error) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, glossary_error, durable_run_id)
-      candidate_id = "candidate-sha256:" || rxhash..sha256hex((revision_chunk_id || "00"x || span_start || "00"x || span_end || "00"x || "provider-discovery-v1") as .binary)
-      work_mentions[i] = .ragworkmention(candidate_id, canonical_label, concept_type, span_start, span_end, aliases)
+      resolved_label = canonical_label; resolved_id = ""; resolution_error = ""
+      if resolveknownconcept(_store.database(), canonical_label, concept_type, resolved_label, resolved_id, resolution_error) < 0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, resolution_error, durable_run_id)
+      if resolved_id \= "" then do
+        canonical_label = resolved_label
+        if validateglossarymention(discovery_context, label, canonical_label, concept_type, aliases, glossary_error) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, glossary_error, durable_run_id)
+      end
+      candidate_id = _mentioncandidate(revision_chunk_id, span_start, span_end, canonical_label, concept_type)
+      work_mentions[i] = .ragworkmention(candidate_id, canonical_label, concept_type, span_start, span_end, aliases, resolved_id)
     end
     work_proposals = .ragworkproposal[]
     do i = 1 to response.node_count(relationships_node)
-      node = response.element(relationships_node, i); source_index = -1; target_index = -1; relationship = ""; span_start = -1; span_end = -1; confidence = -1
-      if response.node_type(node) \= "object" | response.node_count(node) \= 6 | response.node_int(response.member(node, "source_mention"), source_index) \= 0 | response.node_string(response.member(node, "relationship_type"), relationship) \= 0 | response.node_int(response.member(node, "target_mention"), target_index) \= 0 | response.node_int(response.member(node, "span_start"), span_start) \= 0 | response.node_int(response.member(node, "span_end"), span_end) \= 0 | response.node_int(response.member(node, "confidence_millionths"), confidence) \= 0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship shape is invalid", durable_run_id)
-      if source_index < 0 | target_index < 0 | source_index = target_index | source_index >= work_mentions.0 | target_index >= work_mentions.0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship endpoints are invalid", durable_run_id)
+      node = response.element(relationships_node, i); source_index = -1; target_index = -1; relationship = ""; span_start = -1; span_end = -1; confidence = -1; quotation = ""
+      if response.node_type(node) \= "object" | response.node_count(node) \= 5 | response.node_int(response.member(node, "source_mention"), source_index) \= 0 | response.node_string(response.member(node, "relationship_type"), relationship) \= 0 | response.node_int(response.member(node, "target_mention"), target_index) \= 0 | response.node_string(response.member(node, "evidence_quote"), quotation) \= 0 | response.node_int(response.member(node, "confidence_millionths"), confidence) \= 0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship shape is invalid", durable_run_id)
+      if source_index < 0 | target_index < 0 | source_index = target_index | source_index >= mention_count | target_index >= mention_count then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship endpoints are invalid", durable_run_id)
       if _permittedrelationship(_profile, relationship) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship type is not in the selected profile", durable_run_id)
-      if span_start < 0 | span_end <= span_start | span_end > body_bytes | span_start > work_mentions[source_index + 1].span_start() | span_start > work_mentions[target_index + 1].span_start() | span_end < work_mentions[source_index + 1].span_end() | span_end < work_mentions[target_index + 1].span_end() | confidence < 0 | confidence > 1000000 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship failed exact-span or confidence validation", durable_run_id)
-      source_mention = work_mentions[source_index + 1]; target_mention = work_mentions[target_index + 1]
-      source_concept = "concept-sha256:" || rxhash..sha256hex((lower(source_mention.label()) || "00"x || source_mention.concept_type()) as .binary)
-      target_concept = "concept-sha256:" || rxhash..sha256hex((lower(target_mention.label()) || "00"x || target_mention.concept_type()) as .binary)
+      if confidence < 0 | confidence > 1000000 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship confidence is invalid", durable_run_id)
+      if grounding.find(quotation, span_start, span_end) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship evidence quotation is not in the chunk", durable_run_id)
+      source_start = -1; source_end = -1; target_start = -1; target_end = -1
+      if grounding.find(mention_labels[source_index + 1], source_start, source_end, span_start, span_end) \= 1 | grounding.find(mention_labels[target_index + 1], target_start, target_end, span_start, span_end) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship quotation does not contain both endpoints", durable_run_id)
+      /* Anchor endpoints within this relationship's supporting quotation,
+       * independent of an earlier occurrence selected for the mention. */
+      original_source = work_mentions[source_index + 1]; original_target = work_mentions[target_index + 1]
+      source_candidate = _mentioncandidate(revision_chunk_id, source_start, source_end, original_source.label(), original_source.concept_type())
+      target_candidate = _mentioncandidate(revision_chunk_id, target_start, target_end, original_target.label(), original_target.concept_type())
+      source_mention = .ragworkmention(source_candidate, original_source.label(), original_source.concept_type(), source_start, source_end, original_source.aliases(), original_source.concept_id())
+      target_mention = .ragworkmention(target_candidate, original_target.label(), original_target.concept_type(), target_start, target_end, original_target.aliases(), original_target.concept_id())
+      call _appendmention work_mentions, source_mention
+      call _appendmention work_mentions, target_mention
+      source_concept = source_mention.concept_id()
+      target_concept = target_mention.concept_id()
       proposal_id = "proposal-sha256:" || rxhash..sha256hex((claim.input_hash() || "00"x || source_mention.candidate_id() || "00"x || relationship || "00"x || target_mention.candidate_id() || "00"x || span_start || "00"x || span_end || "00"x || request_id) as .binary)
-      proposal = .ragextractionproposal("crexx-rag.extraction-proposal/1", proposal_id, "claim", source_concept, source_mention.label(), source_mention.concept_type(), relationship, target_concept, target_mention.label(), target_mention.concept_type(), "outbound", '{}', "", "", revision_chunk_id, span_start, span_end, "support", "assertion", "direct", "", "lineage:" || revision_chunk_id, confidence, provider_config.provider_id(), provider_config.model(), request_id, prompt_version, "crexx-rag-" || provider_config.kind() || "-adapter/2", source_scope, profile_id, 0)
+      proposal = .ragextractionproposal("crexx-rag.extraction-proposal/1", proposal_id, "claim", source_concept, source_mention.label(), source_mention.concept_type(), relationship, target_concept, target_mention.label(), target_mention.concept_type(), "outbound", '{}', "", "", revision_chunk_id, span_start, span_end, "support", "assertion", "direct", "", "lineage:" || revision_chunk_id, confidence, provider_config.provider_id(), provider_config.model(), request_id, prompt_version, "crexx-rag-" || provider_config.kind() || "-adapter/3-quotes", source_scope, profile_id, 0)
       work_proposals[work_proposals.0 + 1] = .ragworkproposal(proposal, source_mention.candidate_id(), target_mention.candidate_id())
     end
     work_notes = .ragworknote[]
     do i = 1 to response.node_count(notes_node)
-      node = response.element(notes_node, i); kind = ""; note_text = ""; next_action = ""; importance = -1; uncertainty = -1; span_start = -1; span_end = -1
-      if response.node_type(node) \= "object" | response.node_count(node) \= 7 | response.node_string(response.member(node, "kind"), kind) \= 0 | response.node_string(response.member(node, "text"), note_text) \= 0 | response.node_int(response.member(node, "importance_millionths"), importance) \= 0 | response.node_int(response.member(node, "uncertainty_millionths"), uncertainty) \= 0 | response.node_string(response.member(node, "next_action"), next_action) \= 0 | response.node_int(response.member(node, "span_start"), span_start) \= 0 | response.node_int(response.member(node, "span_end"), span_end) \= 0 | wordpos(kind, "observation insight hypothesis question gap conflict lead follow-up recommendation synonym split merge type-correction retire restore") = 0 | note_text = "" | length(note_text) > 4096 | length(next_action) > 16384 | importance < 0 | importance > 1000000 | uncertainty < 0 | uncertainty > 1000000 | span_start < 0 | span_end <= span_start | span_end > body_bytes then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider analysis note is invalid or ungrounded", durable_run_id)
+      node = response.element(notes_node, i); kind = ""; note_text = ""; next_action = ""; importance = -1; uncertainty = -1; span_start = -1; span_end = -1; quotation = ""
+      if response.node_type(node) \= "object" | response.node_count(node) \= 6 | response.node_string(response.member(node, "kind"), kind) \= 0 | response.node_string(response.member(node, "text"), note_text) \= 0 | response.node_int(response.member(node, "importance_millionths"), importance) \= 0 | response.node_int(response.member(node, "uncertainty_millionths"), uncertainty) \= 0 | response.node_string(response.member(node, "next_action"), next_action) \= 0 | response.node_string(response.member(node, "evidence_quote"), quotation) \= 0 | wordpos(kind, "observation insight hypothesis question gap conflict lead follow-up recommendation synonym split merge type-correction retire restore") = 0 | note_text = "" | length(note_text) > 4096 | length(next_action) > 16384 | importance < 0 | importance > 1000000 | uncertainty < 0 | uncertainty > 1000000 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider analysis note is invalid or ungrounded", durable_run_id)
+      if grounding.find(quotation, span_start, span_end) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider analysis note quotation is not in the chunk", durable_run_id)
       if wordpos(kind, "synonym split merge type-correction retire restore") > 0 & _validlifecycleaction(next_action, kind) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider lifecycle note does not contain an exact executable maintenance action", durable_run_id)
       work_notes[work_notes.0 + 1] = .ragworknote(kind, note_text, importance, uncertainty, next_action, span_start, span_end)
     end
@@ -297,7 +336,9 @@ _failedoutput: procedure = .ragworkproviderresult
   arg config = .ragproviderconfig, request_id = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, output = .providerresult, message = .string, provider_run_id = ""
   usage = output.usage(); cost = usage.cost_microunits(); if cost < 0 | config.charging_basis() \= "monetary-api" then cost = 0
   mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
-  return .ragworkproviderresult(-123, config.provider_id(), config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, output.latency_us() % 1000, 0, proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, config.charging_basis(), mentions, proposals, notes, usage.retry_delay_ms())
+  result = .ragworkproviderresult(-123, config.provider_id(), config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, output.latency_us() % 1000, 0, proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, config.charging_basis(), mentions, proposals, notes, usage.retry_delay_ms())
+  call result.set_diagnostic(_failurediagnostic(config, claim, output.content(), message))
+  return result
 
 _failedwork: procedure = .ragworkproviderresult
   arg provider_id = .string, model = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, message = .string, retryable = .int, provider_run_id = "", charging_basis = "monetary-api", retry_delay_ms = 0
@@ -471,3 +512,74 @@ _parseurl: procedure = .int
   else host = authority
   if host = "" | port < 1 | port > 65535 | pos("00"x, base_path) > 0 then return -1
   return 0
+
+/* Retain bounded rejected output beside its immutable attempt input. Decode
+ * JSON strings before redaction so escaped credential values cannot leak. */
+_failurediagnostic: procedure = .string
+  arg config = .ragproviderconfig, claim = .ragworkclaim, content = .string, message = .string
+  if content = "" then return ""
+  bytes = binlength(content as .binary); digest = rxhash..sha256hex(content as .binary)
+  captured = ""; omitted = "oversized"
+  if bytes <= 65536 then do
+    document = .jsondocument(content)
+    if document.valid() = 1 then do
+      secret = ""; credential = config.credential()
+      if credential.empty() = 0 then secret = getenv(credential.name())
+      captured = _redactedjson(document, document.root(), secret, 0); omitted = ""
+    end
+    else omitted = "malformed-json"
+  end
+  return '{"schema":"crexx-rag.rejected-output/1","input_hash":' || jsonquote(claim.input_hash()) || ',"error":' || jsonquote(message) || ',"output_sha256":' || jsonquote(digest) || ',"output_bytes":' || bytes || ',"omitted":' || jsonquote(omitted) || ',"content":' || jsonquote(captured) || '}'
+
+_redactedjson: procedure = .string
+  arg document = .jsondocument, node = .int, secret = .string, depth = .int
+  if depth > 16 then return "null"
+  kind = document.node_type(node)
+  if kind = "string" then do
+    value = document.node_get(node)
+    if secret \= "" then value = changestr(secret, value, "[REDACTED]")
+    return jsonquote(value)
+  end
+  if kind \= "array" & kind \= "object" then return document.node_get(node)
+  children = .int[]; ignored = document.children(node, children); output = "["
+  if kind = "object" then output = "{"
+  do i = 1 to children.0
+    if i > 1 then output = output || ","
+    if kind = "object" then do
+      name = document.node_name(children[i]); if secret \= "" then name = changestr(secret, name, "[REDACTED]")
+      output = output || jsonquote(name) || ":"
+    end
+    output = output || _redactedjson(document, children[i], secret, depth + 1)
+  end
+  if kind = "object" then return output || "}"
+  return output || "]"
+
+_appendmention: procedure = .void
+  arg expose mentions = .ragworkmention[], mention = .ragworkmention
+  do i = 1 to mentions.0
+    if mentions[i].candidate_id() = mention.candidate_id() then return
+  end
+  mentions[mentions.0 + 1] = mention
+  return
+
+_concepttypesjson: procedure = .string
+  arg profile = .ragprofile
+  values = profile.concept_types(); output = "["
+  do i = 1 to values.0
+    if i > 1 then output = output || ","
+    output = output || jsonquote(values[i])
+  end
+  return output || "]"
+
+_relationshiptypesjson: procedure = .string
+  arg profile = .ragprofile
+  values = profile.relationship_types(); output = "["
+  do i = 1 to values.0
+    if i > 1 then output = output || ","
+    output = output || jsonquote(values[i].relationship_id())
+  end
+  return output || "]"
+
+_mentioncandidate: procedure = .string
+  arg chunk = .string, begin = .int, finish = .int, label = .string, concept_type = .string
+  return "candidate-sha256:" || rxhash..sha256hex((chunk || "00"x || begin || "00"x || finish || "00"x || lower(label) || "00"x || concept_type || "00"x || "provider-discovery-v2") as .binary)

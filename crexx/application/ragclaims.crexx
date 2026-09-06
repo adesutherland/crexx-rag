@@ -291,7 +291,7 @@ ragextractionrank: class
     return _input_fingerprint
 
 promotemention: procedure = .int
-  arg store = .ragstorehandle, candidate_id = .string, canonical_label = .string, concept_type = .string, aliases = .string[], ambiguity_concept_ids = .string[], policy = .ragclaimpolicy, config_snapshot_id = .string, expose concept_or_ambiguity_id = .string, expose error = .string
+  arg store = .ragstorehandle, candidate_id = .string, canonical_label = .string, concept_type = .string, aliases = .string[], ambiguity_concept_ids = .string[], policy = .ragclaimpolicy, config_snapshot_id = .string, expose concept_or_ambiguity_id = .string, expose error = .string, selected_concept_id = "", owned_generation = 0, shared_alias = 0
   error = ""; concept_or_ambiguity_id = ""
   if store.writable() \= 1 | candidate_id = "" | canonical_label = "" | policy.permits_type(concept_type) \= 1 | config_snapshot_id = "" then do
     error = "mention promotion inputs are invalid"
@@ -301,6 +301,10 @@ promotemention: procedure = .int
   candidate_chunk = ""; candidate_start = 0; candidate_end = 0; candidate_decision = ""
   if current < 1 | _candidate(store.database(), candidate_id, candidate_chunk, candidate_start, candidate_end, candidate_decision) \= 1 then do; error = "active accepted candidate is unavailable"; return -2; end
   database = store.database(); promotion_complete = 1
+  if selected_concept_id \= "" then do
+    selected_label = ""; selected_type = ""
+    if _activeconcept(database, selected_concept_id, current, selected_label, selected_type) \= 1 | selected_label \= canonical_label | selected_type \= concept_type then do; error = "selected catalogue identity changed"; return -2; end
+  end
   if ambiguity_concept_ids.0 > 1 then do
     ambiguity_id = "ambiguity-sha256:" || rxhash..sha256hex((lower(canonical_label) || "00"x || policy.policy_version()) as .binary)
     alias_id = "alias-sha256:" || rxhash..sha256hex((lower(canonical_label) || "00"x || ambiguity_id || "00"x || policy.policy_version()) as .binary)
@@ -315,6 +319,7 @@ promotemention: procedure = .int
   end
   else do
     concept_id = "concept-sha256:" || rxhash..sha256hex((lower(canonical_label) || "00"x || concept_type) as .binary)
+    if selected_concept_id \= "" then concept_id = selected_concept_id
     existing_label = ""; existing_type = ""
     if _activeconcept(database, concept_id, current, existing_label, existing_type) \= 1 | existing_type \= concept_type then promotion_complete = 0
     all_aliases = .string[]; all_aliases[1] = canonical_label
@@ -327,8 +332,10 @@ promotemention: procedure = .int
     if _scalarint(database, "SELECT count(*) FROM mentions WHERE mention_id=" || _q(mention_id) || " AND concept_id=" || _q(concept_id) || " AND visible_from_generation<=" || current || " AND (visible_to_generation IS NULL OR visible_to_generation>" || current || ")") \= 1 then promotion_complete = 0
     if promotion_complete = 1 then do; concept_or_ambiguity_id = concept_id; return 0; end
   end
-  generation = 0
-  if begingeneration(store, current, config_snapshot_id, "mention promotion " || candidate_id, generation, error) \= 0 then return -3
+  generation = owned_generation
+  if generation = 0 then do
+    if begingeneration(store, current, config_snapshot_id, "mention promotion " || candidate_id, generation, error) \= 0 then return -3
+  end
   if ambiguity_concept_ids.0 > 1 then do
     ambiguity_id = "ambiguity-sha256:" || rxhash..sha256hex((lower(canonical_label) || "00"x || policy.policy_version()) as .binary)
     do i = 1 to ambiguity_concept_ids.0
@@ -346,6 +353,7 @@ promotemention: procedure = .int
   end
   else do
     concept_id = "concept-sha256:" || rxhash..sha256hex((lower(canonical_label) || "00"x || concept_type) as .binary)
+    if selected_concept_id \= "" then concept_id = selected_concept_id
     if _insertconcept(database, concept_id, canonical_label, concept_type, generation, error) \= 0 then do
       preserved_error = error
       return _abort(store, preserved_error, error)
@@ -357,18 +365,28 @@ promotemention: procedure = .int
     do i = 1 to all_aliases.0
       if strip(all_aliases[i]) = "" then return _abort(store, "alias cannot be empty", error)
       conflict = _aliasconflict(database, lower(strip(all_aliases[i])), concept_id, current)
-      if conflict \= "" then return _abort(store, "canonical alias conflict requires review", error)
+      if conflict \= "" & shared_alias = 0 then return _abort(store, "canonical alias conflict requires review", error)
       alias_id = "alias-sha256:" || rxhash..sha256hex((lower(strip(all_aliases[i])) || "00"x || concept_id || "00"x || policy.policy_version()) as .binary)
       sql = "INSERT OR IGNORE INTO aliases(alias_id,normalized_alias,target_concept_id,ambiguity_id,decision_id,visible_from_generation) VALUES(" || _q(alias_id) || "," || _q(lower(strip(all_aliases[i]))) || "," || _q(concept_id) || ",NULL," || _q(candidate_decision) || "," || generation || ")"
       if sqliteexec(database, sql) \= 0 then return _abort(store, "cannot insert canonical alias", error)
+      if conflict \= "" & shared_alias = 1 then do
+        ambiguity_id = "ambiguity-sha256:" || rxhash..sha256hex((lower(strip(all_aliases[i])) || "00"x || policy.policy_version()) as .binary)
+        sql = "INSERT OR IGNORE INTO ambiguity_candidates(ambiguity_id,concept_id,revision_chunk_id,decision_id,visible_from_generation) SELECT " || _q(ambiguity_id) || ",target_concept_id," || _q(candidate_chunk) || "," || _q(candidate_decision) || "," || generation || " FROM aliases WHERE normalized_alias=" || _q(lower(strip(all_aliases[i]))) || " AND target_concept_id IS NOT NULL AND visible_to_generation IS NULL"
+        if sqliteexec(database, sql) \= 0 then return _abort(store, "cannot preserve shared alias candidates", error)
+        ambiguity_alias = "alias-sha256:" || rxhash..sha256hex((lower(strip(all_aliases[i])) || "00"x || ambiguity_id || "00"x || policy.policy_version()) as .binary)
+        sql = "INSERT OR IGNORE INTO aliases(alias_id,normalized_alias,target_concept_id,ambiguity_id,decision_id,visible_from_generation) VALUES(" || _q(ambiguity_alias) || "," || _q(lower(strip(all_aliases[i]))) || ",NULL," || _q(ambiguity_id) || "," || _q(candidate_decision) || "," || generation || ")"
+        if sqliteexec(database, sql) \= 0 then return _abort(store, "cannot preserve shared alias ambiguity", error)
+      end
     end
     mention_id = "mention-sha256:" || rxhash..sha256hex((concept_id || "00"x || candidate_chunk || "00"x || candidate_start || "00"x || candidate_end) as .binary)
     sql = "INSERT OR IGNORE INTO mentions(mention_id,concept_id,ambiguity_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES(" || _q(mention_id) || "," || _q(concept_id) || ",NULL," || _q(candidate_chunk) || "," || candidate_start || "," || candidate_end || "," || generation || ")"
     if sqliteexec(database, sql) \= 0 then return _abort(store, "cannot insert canonical mention", error)
     concept_or_ambiguity_id = concept_id
   end
-  if commitgeneration(store, generation, error) \= 0 then return -3
-  if publishmanifest(store, error) \= 0 then return -4
+  if owned_generation = 0 then do
+    if commitgeneration(store, generation, error) \= 0 then return -3
+    if publishmanifest(store, error) \= 0 then return -4
+  end
   return 0
 
 rankchunk: procedure = .int

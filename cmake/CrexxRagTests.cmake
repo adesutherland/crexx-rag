@@ -283,3 +283,44 @@ add_test(NAME local_embedding_protocol
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/LocalEmbeddingProtocol.cmake")
 set_tests_properties(local_embedding_protocol PROPERTIES
     TIMEOUT 180 LABELS "provider;local;openai-compatible;llama.cpp;embedding;privacy")
+
+
+add_test(NAME quotation_grounding
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_PLUGIN_DIR=${CREXXRAG_SQLITE_PROVIDER_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/grounding_scenario.crexx"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-quotation-grounding"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/QuotationGrounding.cmake")
+set_tests_properties(quotation_grounding PROPERTIES
+    LABELS "extraction;quotation;unicode;provenance;zero-outbound")
+
+add_test(NAME durable_backlog
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_PLUGIN_DIR=${CREXXRAG_SQLITE_PROVIDER_DIR}"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/backlog_scenario.crexx"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-durable-backlog"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/DurableBacklog.cmake")
+set_tests_properties(durable_backlog PROPERTIES
+    TIMEOUT 300 LABELS "maintenance;lifecycle;split;merge;retirement;atomic;sqlite")
+
+add_test(NAME durable_backlog_provider
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-durable-backlog-provider"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/DurableBacklogProvider.cmake")
+set_tests_properties(durable_backlog_provider PROPERTIES
+    TIMEOUT 240 LABELS "maintenance;gemini;resolution;redaction;sqlite;zero-outbound")

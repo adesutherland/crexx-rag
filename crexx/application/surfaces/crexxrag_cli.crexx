@@ -2,6 +2,7 @@ options levelg
 
 import rxfnsb
 import rxfs
+import rxjson
 import ragcommand
 import ragconfig
 import ragconfigfile
@@ -224,7 +225,13 @@ _guidedmaintain: procedure = .int
   if items = "" then return _clierror("render", "internal", "maintenance apply did not expose its durable work count", 10)
   run_id = _fieldvalue(apply_result, 1, "run_id")
   if run_id = "" then return _clierror("render", "internal", "maintenance apply did not expose its durable run id", 10)
-  if items = "0" then do
+  window_state = ""
+  window_json = _fieldvalue(apply_result,1,"backlog")
+  if window_json \= "" then do
+    window_document = .jsondocument(window_json)
+    ignored = window_document.node_string(window_document.member(window_document.root(),"state"),window_state)
+  end
+  if items = "0" & window_state \= "active" then do
     status_options = .ragcommandoption[]; status_positionals = .string[]; status_positionals[1] = run_id
     status_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", "off", access, "maintain", "status", "maintain.status", status_options, status_positionals)
     status_code = _showresult(dispatchproduct(status_request, registry), "human")

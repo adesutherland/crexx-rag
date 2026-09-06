@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragmaintain expose ragmaintenancecensus ragmaintenanceapplyresult buildmaintenancecensus persistmaintenance refreshmaintenance applylifecycleaction ensuremaintenancejob recordmaintenanceembeddingitems
+namespace ragmaintain expose ragmaintenancecensus ragmaintenanceapplyresult buildmaintenancecensus persistmaintenance refreshmaintenance applylifecycleaction ensuremaintenancejob recordmaintenanceembeddingitems lifecycleimpact applylifecycletransaction applyconnectiontransaction applysupporttransaction
 
 import rxfnsb
 import rxjson
@@ -208,7 +208,7 @@ buildmaintenancecensus: procedure = .int
   call sqlitefinalize prepared
 
   active_chunks = _scalarint(store.database(), "SELECT count(*) FROM revision_chunks WHERE visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ")")
-  active_vectors = _scalarint(store.database(), "SELECT count(*) FROM vector_generations WHERE semantic_generation=" || generation || " AND embedding_profile_id=" || _q(embedding_profile_id) || " AND state='published' AND algorithm='ivf-flat-v1'")
+  active_vectors = _scalarint(store.database(), "SELECT count(*) FROM vector_generations WHERE " || compatiblevectorpredicate(generation as .string) || " AND embedding_profile_id=" || _q(embedding_profile_id) || " AND state='published' AND algorithm='ivf-flat-v1'")
   if active_chunks > 0 & active_vectors \= 1 then call census.add("vector-publication", "embedding-profile", embedding_profile_id, 990000, '{"signals":["missing-ann-publication"],"published":' || active_vectors || '}', '{"state":"repair-required"}', '{"operation":"ann-publication"}', maximum_items)
 
   item_types = census.item_types(); subject_types = census.subject_types(); subject_ids = census.subject_ids(); scores = census.scores()
@@ -299,7 +299,7 @@ refreshmaintenance: procedure = .int
   generation = _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1")
   sql = "UPDATE maintenance_items SET state='applied',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=" || _q(run_id) || " AND item_type='stale-embedding' AND state='pending' AND EXISTS(SELECT 1 FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id WHERE rce.revision_chunk_id=maintenance_items.subject_id AND e.embedding_profile_id=json_extract((SELECT canonical_plan FROM maintenance_runs WHERE run_id=" || _q(run_id) || "),'$.embedding_profile_id') AND rce.visible_from_generation<=" || generation || " AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>" || generation || "))"
   if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot refresh embedding maintenance items", error)
-  sql = "UPDATE maintenance_items SET state='applied',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=" || _q(run_id) || " AND item_type='vector-publication' AND state='pending' AND (SELECT count(*) FROM vector_generations WHERE semantic_generation=(SELECT published_generation FROM library_meta WHERE singleton=1) AND embedding_profile_id=maintenance_items.subject_id AND state='published' AND algorithm='ivf-flat-v1')=1"
+  sql = "UPDATE maintenance_items SET state='applied',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=" || _q(run_id) || " AND item_type='vector-publication' AND state='pending' AND (SELECT count(*) FROM vector_generations WHERE " || compatiblevectorpredicate("(SELECT published_generation FROM library_meta WHERE singleton=1)") || " AND embedding_profile_id=maintenance_items.subject_id AND state='published' AND algorithm='ivf-flat-v1')=1"
   if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot refresh vector maintenance items", error)
   pending = _boundcount(database, "SELECT count(*) FROM maintenance_items WHERE run_id=?1 AND state IN('pending','leased','approved','failed','blocked')", run_id)
   reviews = _boundcount(database, "SELECT count(*) FROM maintenance_items WHERE run_id=?1 AND state='review-required'", run_id)
@@ -430,8 +430,45 @@ applylifecycleaction: procedure = .int
   published_generation = 0; disposition = ""; error = ""
   return _applylifecycle(store, profile, maintenance_item_id, action_json, expected_generation, published_generation, disposition, error)
 
+/* The backlog owns the generation and worker fence when composing a durable
+ * decision. Reuse the same lifecycle validation and mutations within it. */
+applylifecycletransaction: procedure = .int
+  arg store = .ragstorehandle, profile = .ragprofile, maintenance_item_id = .string, action_json = .string, expected_generation = .int, generation = .int, expose error = .string
+  published = 0; disposition = ""
+  return _applylifecycle(store, profile, maintenance_item_id, action_json, expected_generation, published, disposition, error, generation)
+
+lifecycleimpact: procedure = .int
+  arg database = .binary, concept_id = .string, generation = .int, expose types = .string[], expose ids = .string[], expose error = .string
+  types = .string[]; ids = .string[]
+  return _impact(database, concept_id, generation, types, ids, error)
+
+applyconnectiontransaction: procedure = .int
+  arg database = .binary, parent_id = .string, object_type = .string, object_id = .string, action = .string, target = .string, current = .int, generation = .int, expose error = .string
+  types = .string[]; ids = .string[]
+  if _impact(database, parent_id, current, types, ids, error) \= 0 then return -1
+  if _pairindex(types, ids, object_type, object_id) = 0 then do; error = "connection no longer belongs to its migration parent"; return -2; end
+  if action = "move-child" then do
+    label = ""; concept_type = ""; lifecycle = ""
+    if _concept(database, target, current, label, concept_type, lifecycle) \= 1 | lifecycle = "retired" then do; error = "connection target is unavailable"; return -2; end
+  end
+  else if action \= "retract" then do; error = "unsupported connection action"; return -1; end
+  return _applyobjectdisposition(database, parent_id, object_type, object_id, action, target, current, generation, error)
+
+applysupporttransaction: procedure = .int
+  arg database = .binary, parent_id = .string, support_id = .string, action = .string, target = .string, current = .int, generation = .int, expose error = .string
+  claim_id = _boundtext(database,"SELECT s.claim_id FROM claim_support s JOIN claims c ON c.claim_id=s.claim_id WHERE s.support_id=?1 AND s.visible_to_generation IS NULL AND c.visible_to_generation IS NULL",support_id)
+  if claim_id = "" | _scalarint(database,"SELECT count(*) FROM claims WHERE claim_id=" || _q(claim_id) || " AND (source_concept_id=" || _q(parent_id) || " OR target_concept_id=" || _q(parent_id) || ")") \= 1 then do; error = "claim support no longer belongs to this migration"; return -2; end
+  if action = "move-child" then return _moveclaim(database,parent_id,claim_id,action,target,current,generation,error,support_id)
+  if action \= "retract" then do; error = "invalid support disposition"; return -1; end
+  if _closevisible(database,"claim_support","support_id",support_id,generation,error) \= 0 then return -1
+  if _scalarint(database,"SELECT count(*) FROM claim_support WHERE claim_id=" || _q(claim_id) || " AND visible_to_generation IS NULL") = 0 then do
+    if _closeclaimconflicts(database,claim_id,generation,error) \= 0 then return -1
+    return _closevisible(database,"claims","claim_id",claim_id,generation,error)
+  end
+  return 0
+
 _applylifecycle: procedure = .int
-  arg store = .ragstorehandle, profile = .ragprofile, maintenance_item_id = .string, action_json = .string, expected_generation = .int, expose published_generation = .int, expose disposition = .string, expose error = .string
+  arg store = .ragstorehandle, profile = .ragprofile, maintenance_item_id = .string, action_json = .string, expected_generation = .int, expose published_generation = .int, expose disposition = .string, expose error = .string, owned_generation = 0
   error = ""; published_generation = 0; disposition = ""
   document = .jsondocument(action_json)
   if store.writable() \= 1 | maintenance_item_id = "" | expected_generation < 1 | document.valid() \= 1 | document.node_type(document.root()) \= "object" | document.node_count(document.root()) \= 9 then do; error = "lifecycle action shape is invalid"; return -1; end
@@ -503,8 +540,10 @@ _applylifecycle: procedure = .int
 
   config_snapshot_id = _boundtext(store.database(), "SELECT config_snapshot_id FROM published_generations WHERE generation=?1", current || "")
   if config_snapshot_id = "" then do; error = "active configuration snapshot is unavailable"; return -3; end
-  generation = 0
-  if begingeneration(store, current, config_snapshot_id, "maintenance " || operation || " " || concept_id, generation, error) \= 0 then return -3
+  generation = owned_generation
+  if generation = 0 then do
+    if begingeneration(store, current, config_snapshot_id, "maintenance " || operation || " " || concept_id, generation, error) \= 0 then return -3
+  end
   database = store.database()
   if operation = "synonym" then do
     normalized = lower(strip(alias))
@@ -564,8 +603,10 @@ _applylifecycle: procedure = .int
   end
   sql = "UPDATE maintenance_items SET state='applied',applied_generation=" || generation || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=" || _q(maintenance_item_id) || " AND state IN('review-required','approved')"
   if sqliteexec(database, sql) \= 0 | _scalarint(database, "SELECT changes()") \= 1 then return _lifecycleabort(store, "cannot complete maintenance item", error)
-  if commitgeneration(store, generation, error) \= 0 then return -3
-  if publishmanifest(store, error) \= 0 then return -4
+  if owned_generation = 0 then do
+    if commitgeneration(store, generation, error) \= 0 then return -3
+    if publishmanifest(store, error) \= 0 then return -4
+  end
   published_generation = generation; disposition = operation || "-applied"
   return 0
 
@@ -634,13 +675,22 @@ _applyobjectdisposition: procedure = .int
     end
     link_id = "note-link-sha256:" || rxhash..sha256hex((object_id || "00"x || "concept" || "00"x || target) as .binary)
     if sqliteexec(database, "INSERT OR IGNORE INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES(" || _q(link_id) || "," || _q(object_id) || ",'concept'," || _q(target) || ",NULL,NULL,NULL)") \= 0 then do; error = "cannot link note to successor"; return -1; end
+    if _scalarint(database,"SELECT changes()") = 1 then do
+      if sqliteexec(database,"INSERT INTO maintenance_note_link_generations(link_id,from_generation) VALUES(" || _q(link_id) || "," || generation || ") ON CONFLICT(link_id) DO UPDATE SET from_generation=excluded.from_generation") \= 0 then do; error = "cannot record note link publication"; return -1; end
+    end
+    if action = "move-child" then do
+      sql = "INSERT OR IGNORE INTO maintenance_link_history(link_id,object_type,object_id,note_id,revision_chunk_id,span_start,span_end,from_generation,to_generation) SELECT l.link_id,l.object_type,l.object_id,l.note_id,l.revision_chunk_id,l.span_start,l.span_end,coalesce((SELECT from_generation FROM maintenance_note_link_generations g WHERE g.link_id=l.link_id),n.created_generation)," || generation || " FROM analysis_note_links l JOIN analysis_notes n ON n.note_id=l.note_id WHERE l.object_type='concept' AND l.object_id=" || _q(parent_id) || " AND l.note_id=" || _q(object_id)
+      if sqliteexec(database,sql) \= 0 then do; error = "cannot preserve prior note links"; return -1; end
+      sql = "DELETE FROM analysis_note_links WHERE object_type='concept' AND object_id=" || _q(parent_id) || " AND note_id=" || _q(object_id)
+      if sqliteexec(database,sql) \= 0 then do; error = "cannot move current note link"; return -1; end
+    end
     return 0
   end
   error = "unsupported disposition object"
   return -1
 
 _moveclaim: procedure = .int
-  arg database = .binary, parent_id = .string, claim_id = .string, action = .string, target = .string, current = .int, generation = .int, expose error = .string
+  arg database = .binary, parent_id = .string, claim_id = .string, action = .string, target = .string, current = .int, generation = .int, expose error = .string, only_support_id = ""
   prepared = .binary
   sql = "SELECT source_concept_id,relationship_type,target_concept_id,direction,qualifiers_json,COALESCE(effective_from,''),COALESCE(effective_to,''),policy_version FROM claims WHERE claim_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, claim_id) \= 0 | sqlitebindint(prepared, 2, current) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "claim disposition source is unavailable"; return -1; end
@@ -651,8 +701,9 @@ _moveclaim: procedure = .int
   if source = parent_id then new_source = target
   if object = parent_id then new_object = target
   if new_source = new_object then do; error = "claim migration would create a self relationship"; return -1; end
-  grounding = _scalarint(database, "SELECT count(*) FROM claim_support s JOIN mentions m ON m.revision_chunk_id=s.revision_chunk_id AND m.concept_id=" || _q(target) || " AND m.span_start>=s.span_start AND m.span_end<=s.span_end AND m.visible_to_generation IS NULL WHERE s.claim_id=" || _q(claim_id) || " AND s.visible_to_generation IS NULL")
-  if grounding < 1 then do; error = "claim migration requires a successor mention inside its exact support span"; return -1; end
+  selection = ""; if only_support_id \= "" then selection = " AND s.support_id=" || _q(only_support_id)
+  ungrounded = _scalarint(database,"SELECT count(*) FROM claim_support s WHERE s.claim_id=" || _q(claim_id) || " AND s.visible_to_generation IS NULL" || selection || " AND NOT EXISTS(SELECT 1 FROM mentions m WHERE m.revision_chunk_id=s.revision_chunk_id AND m.concept_id=" || _q(target) || " AND m.span_start>=s.span_start AND m.span_end<=s.span_end AND m.visible_to_generation IS NULL)")
+  if ungrounded \= 0 then do; error = "claim migration requires a successor mention inside every selected support span"; return -1; end
   new_claim = "claim-sha256:" || rxhash..sha256hex((new_source || "00"x || relationship || "00"x || new_object || "00"x || direction || "00"x || qualifiers || "00"x || effective_from || "00"x || effective_to || "00"x || policy) as .binary)
   prepared = .binary
   sql = "INSERT OR IGNORE INTO claims(claim_id,source_concept_id,relationship_type,target_concept_id,direction,qualifiers_json,effective_from,effective_to,policy_version,visible_from_generation) VALUES(?1,?2,?3,?4,?5,?6,NULLIF(?7,''),NULLIF(?8,''),?9,?10)"
@@ -661,7 +712,9 @@ _moveclaim: procedure = .int
   step = sqlitestep(prepared); call sqlitefinalize prepared
   if binds \= 0 | step \= 101 then do; error = "cannot insert migrated claim"; return -1; end
   prepared = .binary
-  sql = "SELECT support_id,revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity,decision_id FROM claim_support WHERE claim_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2) ORDER BY support_id"
+  sql = "SELECT support_id,revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity,decision_id FROM claim_support WHERE claim_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)"
+  if only_support_id \= "" then sql = sql || " AND support_id=" || _q(only_support_id)
+  sql = sql || " ORDER BY support_id"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, claim_id) \= 0 | sqlitebindint(prepared, 2, current) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare migrated claim support"; return -1; end
   support_rows = .string[]
   do forever
@@ -677,10 +730,38 @@ _moveclaim: procedure = .int
     if sqliteexec(database, insert_sql) \= 0 then do; call sqlitefinalize prepared; error = "cannot insert migrated claim support"; return -1; end
   end
   call sqlitefinalize prepared
+  /* Moving a supported claim does not decide its outstanding conflicts. Carry
+   * them to the new identity for a fresh evidence-bound resolution. */
+  if _carryclaimconflicts(database,claim_id,new_claim,generation,error) \= 0 then return -1
   if action = "move-child" then do
-    if _closeclaimconflicts(database, claim_id, generation, error) \= 0 then return -1
-    if _closevisible(database, "claim_support", "claim_id", claim_id, generation, error) \= 0 then return -1
-    if _closevisible(database, "claims", "claim_id", claim_id, generation, error) \= 0 then return -1
+    if only_support_id = "" then do
+      if _closevisible(database, "claim_support", "claim_id", claim_id, generation, error) \= 0 then return -1
+    end
+    else if _closevisible(database, "claim_support", "support_id", only_support_id, generation, error) \= 0 then return -1
+    if _scalarint(database,"SELECT count(*) FROM claim_support WHERE claim_id=" || _q(claim_id) || " AND visible_to_generation IS NULL") = 0 then do
+      if _closeclaimconflicts(database, claim_id, generation, error) \= 0 then return -1
+      if _closevisible(database, "claims", "claim_id", claim_id, generation, error) \= 0 then return -1
+    end
+  end
+  return 0
+
+_carryclaimconflicts: procedure = .int
+  arg database = .binary, old_claim = .string, new_claim = .string, generation = .int, expose error = .string
+  prepared = .binary; ids = .string[]; others = .string[]
+  sql = "SELECT conflict_id,CASE WHEN claim_id=" || _q(old_claim) || " THEN competing_claim_id ELSE claim_id END FROM claim_conflicts WHERE (claim_id=" || _q(old_claim) || " OR competing_claim_id=" || _q(old_claim) || ") AND review_state='pending' AND visible_to_generation IS NULL ORDER BY conflict_id"
+  if sqliteprepare(database,sql,prepared) \= 0 then do; error = "cannot inspect migrated claim conflicts"; return -1; end
+  do forever
+    step = sqlitestep(prepared); if step = 101 then leave
+    id = ""; other = ""
+    if step \= 100 | sqlitecolumntext(prepared,0,id) \= 0 | sqlitecolumntext(prepared,1,other) \= 0 then do; call sqlitefinalize prepared; error = "cannot read migrated conflict"; return -1; end
+    ids[ids.0+1] = id; others[others.0+1] = other
+  end
+  call sqlitefinalize prepared
+  do i = 1 to ids.0
+    if others[i] = new_claim then iterate
+    id = "conflict-sha256:" || rxhash..sha256hex((ids[i] || "00"x || new_claim) as .binary)
+    sql = "INSERT OR IGNORE INTO claim_conflicts(conflict_id,claim_id,competing_claim_id,review_state,visible_from_generation) SELECT " || _q(id) || "," || _q(new_claim) || "," || _q(others[i]) || ",'pending'," || generation || " WHERE EXISTS(SELECT 1 FROM claims WHERE claim_id=" || _q(others[i]) || " AND visible_to_generation IS NULL)"
+    if sqliteexec(database,sql) \= 0 then do; error = "cannot preserve pending migrated conflict"; return -1; end
   end
   return 0
 

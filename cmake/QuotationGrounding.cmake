@@ -12,31 +12,28 @@ file(GLOB project_member_dirs LIST_DIRECTORIES true
     "${CPRAG_APPLICATION_DIR}/project/crexxrag-project.crexx-build/members/*")
 list(JOIN project_member_dirs ";" project_imports)
 set(imports "${project_imports};${CPRAG_APPLICATION_DIR};${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
-set(modules
-    ragschema ragfile ragstore ragmodel ragjob ragclaims ragwork ragcommand ragtrace
-    ragbacklog ragmaintain ragimprove ragconfig ragprofile ragcanonical raggrounding rxfnsg
-    rxsqlite rx_hash rx_system rxfs rxplatform library)
+set(modules raggrounding rxfnsg library)
 
 foreach(mode IN ITEMS noopt opt)
     set(mode_flag)
     if(mode STREQUAL "noopt")
         set(mode_flag -n)
     endif()
-    set(program "${CPRAG_WORK_DIR}/provider-durability-${mode}")
+    set(program "${CPRAG_WORK_DIR}/grounding-${mode}")
     execute_process(
         COMMAND "${CPRAG_RXC}" ${mode_flag} -i "${imports}"
             -o "${program}" "${CPRAG_SCENARIO}"
         RESULT_VARIABLE compile_result
         OUTPUT_VARIABLE compile_out ERROR_VARIABLE compile_err)
     if(NOT compile_result EQUAL 0)
-        message(FATAL_ERROR "${mode} provider durability compile failed:\n${compile_out}\n${compile_err}")
+        message(FATAL_ERROR "${mode} quotation grounding compile failed:\n${compile_out}\n${compile_err}")
     endif()
     execute_process(
         COMMAND "${CPRAG_RXAS}" ${mode_flag} -o "${program}" "${program}"
         RESULT_VARIABLE assemble_result
         OUTPUT_VARIABLE assemble_out ERROR_VARIABLE assemble_err)
     if(NOT assemble_result EQUAL 0)
-        message(FATAL_ERROR "${mode} provider durability assembly failed:\n${assemble_out}\n${assemble_err}")
+        message(FATAL_ERROR "${mode} quotation grounding assembly failed:\n${assemble_out}\n${assemble_err}")
     endif()
 
     foreach(runtime_name IN ITEMS rxvme rxbvm)
@@ -53,12 +50,11 @@ foreach(mode IN ITEMS noopt opt)
             OUTPUT_VARIABLE run_out ERROR_VARIABLE run_err
             TIMEOUT 30)
         if(NOT run_result EQUAL 0 OR NOT run_out MATCHES
-            "PROVIDER_DURABILITY_OK completed_turn_reused=1 codex_turns=1 stale_reservations=0 fence=2 admissions=durable uncalled_provider_runs=0 paused_completion=sticky batch_retry=2 replay=immutable reconciliation=in-progress indexes=11 migration=1to6-validated-to10 provider_history=costed prospective_config=audited large_plan=renderable")
+            "GROUNDING_OK exact_first repeated_first unicode_casefold utf8_offsets scoped_endpoints no_fuzzy_matching")
             message(FATAL_ERROR
-                "${mode}-${runtime_name} provider durability failed (${run_result}):\n${run_out}\n${run_err}")
+                "${mode}-${runtime_name} quotation grounding failed (${run_result}):\n${run_out}\n${run_err}")
         endif()
     endforeach()
 endforeach()
 
-file(WRITE "${CPRAG_WORK_DIR}/summary.txt"
-    "Provider durability passed in noopt/opt on rxvme/rxbvm: completed Codex output reused, one subscription turn charged, stale reservations released, fencing advanced, provider concurrency admission was durable, an uncalled preflight created no provider run, paused jobs remained paused, legacy retry remained compatible, immutable replay retained source dead letters and lineage, reconciliation classified the active replay, worker indexes were present, and schema version one upgraded to six, validated as an older supported schema, then upgraded to version nine with costed provider history and prospective configuration auditing.\n")
+file(WRITE "${CPRAG_WORK_DIR}/summary.txt" "Quotation grounding passed exact-first, first-repeat, Unicode casefold, byte mapping and scoped endpoints on both VMs with and without optimization.\n")

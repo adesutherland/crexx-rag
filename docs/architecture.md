@@ -50,7 +50,8 @@ and metadata without a downstream SDK copy or system SQLite link.
 Dead-letter replay does not reopen or rewrite its source job. It copies one or
 all selected terminal dead letters into a new job, binds that job to the
 current semantically compatible configuration snapshot and current budgets,
-and retains job/item lineage. A recursive reconciliation view classifies each
+and retains job/item lineage. The new budget policy and all replay items are
+committed atomically; historical reservations must fit the reviewed envelope. A recursive reconciliation view classifies each
 immutable source root as actionable, replaying, or resolved from the state of
 its descendants. The earlier single-item same-job retry remains a compatibility
 operation for an operator who deliberately wants that behavior.
@@ -61,6 +62,18 @@ Sources, revisions, chunks, concepts, claims, and support use stable
 content-derived identities. Claims are directional. Support binds a claim to a
 specific active chunk and UTF-8 byte span. Contradiction and ambiguity remain
 explicit records rather than being flattened into an answer.
+
+Extraction providers return contiguous `evidence_quote` text, not byte counts.
+Level-G cREXX finds the first exact occurrence within the chunk, then falls back
+to full Unicode casefold matching. A boundary map converts the match back to
+original UTF-8 bytes, including expanding folds such as `ß` to `ss`. A final deterministic pass collapses ASCII whitespace runs, allowing printed
+line wraps to match spaces while mapping to the full original byte span.
+Punctuation and Unicode normalization remain exact. Repeated quotations choose
+the first occurrence; relationship endpoint labels are resolved inside that
+relationship's supporting quotation. Missing quotations, missing endpoints,
+invalid types and canonical identity conflicts remain validation failures.
+Bounded, redacted product-rejected JSON is retained with failed provider runs
+for diagnosis; oversized or malformed content is omitted with its digest.
 
 Lexical, vector, and graph retrieval produce an evidence packet with stable
 citations. Optional answer generation receives only the bounded evidence
@@ -224,3 +237,26 @@ remains ordered and checksum-verified. There is no old schema importer.
 Semantic generations are immutable once published. Vector generations are
 separate rebuildable publications. Backup pins SQLite and sidecar identities;
 verification checks schema, manifest, repositories, and published sidecars.
+A graph-only generation can advertise the newest ancestral index for each
+embedding profile when SQLite proves identical source-chunk and embedding-link
+membership. The file retains its actual build generation and checksum; readers
+validate against that identity, then resolve evidence in their current SQLite
+snapshot. Changed membership or a non-ancestor index cannot pass this check.
+Manifest projection, hybrid preflight, retrieval, reports, maintenance census
+and backup use the same eligibility predicate. No schema migration is needed.
+
+## Durable maintenance windows
+
+Schema 10 adds independent task/census cursors, windows with immutable shared
+budget policy, workflow parents, task-attempt mappings, typed decisions, alias
+questions, settled-response recovery and note-link history. `ragbacklog` owns
+these Level-G operations; `ragwork` executes them through the existing provider
+admission and fenced publication path. The native CLI and machine surfaces use
+the same operations. See [durable maintenance](autonomous-maintenance.md).
+
+Evidence validation and generation staging share an IMMEDIATE transaction.
+Stale answers retain their provenance without publishing a generation. Cached
+embedding relinking stages a new membership generation rather than rewriting
+a historical snapshot. Conflict questions remain pending when their supported
+claim moves. Source bytes, vector BLOBs and existing publication history remain
+under the original SQLite authority.

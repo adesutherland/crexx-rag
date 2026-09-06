@@ -22,16 +22,16 @@ set(modules
     rxsqlite rx_hash rx_system rxfs rxplatform rxvector rxfnsg library)
 
 execute_process(COMMAND "${CPRAG_RXC}" -i "${imports}"
-    -o "${CPRAG_WORK_DIR}/ann_methodology" "${CPRAG_SCENARIO}"
+    -o "${CPRAG_WORK_DIR}/backlog_scenario" "${CPRAG_SCENARIO}"
     RESULT_VARIABLE compile_result OUTPUT_VARIABLE compile_out ERROR_VARIABLE compile_err)
 if(NOT compile_result EQUAL 0)
-    message(FATAL_ERROR "ANN methodology scenario compile failed:\n${compile_out}${compile_err}")
+    message(FATAL_ERROR "Durable backlog scenario compile failed:\n${compile_out}${compile_err}")
 endif()
-execute_process(COMMAND "${CPRAG_RXAS}" -o "${CPRAG_WORK_DIR}/ann_methodology"
-    "${CPRAG_WORK_DIR}/ann_methodology"
+execute_process(COMMAND "${CPRAG_RXAS}" -o "${CPRAG_WORK_DIR}/backlog_scenario"
+    "${CPRAG_WORK_DIR}/backlog_scenario"
     RESULT_VARIABLE assemble_result OUTPUT_VARIABLE assemble_out ERROR_VARIABLE assemble_err)
 if(NOT assemble_result EQUAL 0)
-    message(FATAL_ERROR "ANN methodology scenario assembly failed:\n${assemble_out}${assemble_err}")
+    message(FATAL_ERROR "Durable backlog scenario assembly failed:\n${assemble_out}${assemble_err}")
 endif()
 
 foreach(runtime_name IN ITEMS rxvme rxbvm)
@@ -43,15 +43,14 @@ foreach(runtime_name IN ITEMS rxvme rxbvm)
     set(library "${CPRAG_WORK_DIR}/library-${runtime_name}")
     execute_process(COMMAND "${runtime}"
         --provider-path "${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers"
-        -l "${imports}" "${CPRAG_WORK_DIR}/ann_methodology" ${modules}
+        -l "${imports}" "${CPRAG_WORK_DIR}/backlog_scenario" ${modules}
         -a "${library}"
-        RESULT_VARIABLE run_result OUTPUT_VARIABLE run_out ERROR_VARIABLE run_err TIMEOUT 90)
-    if(NOT run_result EQUAL 0 OR NOT run_out MATCHES
-            "ANN_METHODOLOGY_OK algorithm=ivf-flat-v1 rows=12 centroids=4 probes=1 candidates=3 exact_oracle=qa-only recall_millionths=1000000 tamper=fallback")
-        message(FATAL_ERROR "${runtime_name} ANN methodology scenario failed:\n${run_out}${run_err}")
+        RESULT_VARIABLE run_result OUTPUT_VARIABLE run_out ERROR_VARIABLE run_err TIMEOUT 120)
+    if(NOT run_result EQUAL 0 OR NOT run_out MATCHES "DURABLE_BACKLOG_OK")
+        message(FATAL_ERROR "${runtime_name} durable backlog failed:\n${run_out}${run_err}")
     endif()
 endforeach()
 
 file(WRITE "${CPRAG_WORK_DIR}/result.txt"
-    "IVF-flat production retrieval passed on rxvme and rxbvm with 3/12 bounded candidates, 1000000 recall against a QA-only exact oracle, deterministic publication, and checksum-tamper fallback.\n")
-message(STATUS "ANN methodology passed bounded approximate retrieval and exact-oracle recall on both VMs")
+    "Durable backlog passed task deduplication, fenced split fan-out, window resume, mention migration, stale-answer rejection, uncertainty and source preservation on both VMs.\n")
+message(STATUS "Durable backlog assertions passed on both VMs")

@@ -27,6 +27,7 @@ import ragglossary
 import ragplanning
 import ragimprove
 import ragmaintain
+import ragbacklog
 import ragclaims
 import ragproposalio
 import ragjob
@@ -140,6 +141,7 @@ _configcommand: procedure = .ragcommandresult
       records[records.0 + 1] = .ragresultrecord("retrieval-policy", fields)
       maintenance = config.maintenance(); observation = config.observation(); clear fields; fields = .ragresultfield[]
       fields[1] = .ragresultfield("sparse_max_degree", "integer", maintenance.sparse_max_degree()); fields[2] = .ragresultfield("query_gap_min_occurrences", "integer", maintenance.query_gap_min_occurrences()); fields[3] = .ragresultfield("batch_items", "integer", maintenance.batch_items()); fields[4] = .ragresultfield("snapshot_capture_threshold", "integer", observation.capture_threshold()); fields[5] = .ragresultfield("snapshot_cooldown_seconds", "integer", observation.cooldown_seconds()); fields[6] = .ragresultfield("snapshot_maximum_staleness_seconds", "integer", observation.maximum_staleness_seconds()); fields[7] = .ragresultfield("snapshot_work_minimum_change", "integer", observation.work_minimum_change()); fields[8] = .ragresultfield("snapshot_work_relative_millionths", "integer", observation.work_relative_millionths()); fields[9] = .ragresultfield("snapshot_dead_letter_minimum_change", "integer", observation.dead_letter_minimum_change()); fields[10] = .ragresultfield("snapshot_review_minimum_change", "integer", observation.review_minimum_change()); fields[11] = .ragresultfield("narrative_output_tokens", "integer", observation.narrative_output_tokens())
+      fields[12] = .ragresultfield("mode","string",maintenance.mode()); fields[13] = .ragresultfield("window_seconds","integer",maintenance.window_seconds()); fields[14] = .ragresultfield("automatic_actions","string",maintenance.automatic_actions()); fields[15] = .ragresultfield("maximum_impact","integer",maintenance.maximum_impact()); fields[16] = .ragresultfield("maximum_attempts","integer",maintenance.maximum_attempts()); fields[17] = .ragresultfield("retry_seconds","integer",maintenance.retry_seconds()); fields[18] = .ragresultfield("maximum_evidence_bytes","integer",maintenance.maximum_evidence_bytes()); fields[19] = .ragresultfield("resolution_prompt_sha256","string",rxhash..sha256hex(maintenance.resolution_prompt() as .binary))
       records[records.0 + 1] = .ragresultrecord("maintenance-observation-policy", fields)
       roles = config.roles()
       do i = 1 to roles.0
@@ -290,11 +292,11 @@ _libraryreport: procedure = .ragcommandresult
   support_average = 0; if supports > 0 then support_average = (support_total / supports) as .int
 
   embedding_links = _scalarint(database, "SELECT count(*) FROM revision_chunk_embeddings WHERE " || visible_chunk)
-  vector_rows = _scalarint(database, "SELECT coalesce(max(row_count),0) FROM vector_generations WHERE state='published' AND semantic_generation=" || generation)
-  vector_dimension = _scalarint(database, "SELECT coalesce(max(dimension),0) FROM vector_generations WHERE state='published' AND semantic_generation=" || generation)
-  vector_centroids = _scalarint(database, "SELECT coalesce(max(centroid_count),0) FROM vector_generations WHERE state='published' AND semantic_generation=" || generation)
-  vector_probes = _scalarint(database, "SELECT coalesce(max(probe_count),0) FROM vector_generations WHERE state='published' AND semantic_generation=" || generation)
-  vector_model = _scalartext(database, "SELECT p.model FROM vector_generations v JOIN embedding_profiles p ON p.embedding_profile_id=v.embedding_profile_id WHERE v.state='published' AND v.semantic_generation=" || generation || " ORDER BY v.published_at DESC LIMIT 1")
+  vector_rows = _scalarint(database, "SELECT coalesce(max(row_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
+  vector_dimension = _scalarint(database, "SELECT coalesce(max(dimension),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
+  vector_centroids = _scalarint(database, "SELECT coalesce(max(centroid_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
+  vector_probes = _scalarint(database, "SELECT coalesce(max(probe_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
+  vector_model = _scalartext(database, "SELECT p.model FROM vector_generations v JOIN embedding_profiles p ON p.embedding_profile_id=v.embedding_profile_id WHERE v.state='published' AND " || compatiblevectorpredicate(generation as .string, "v.") || " ORDER BY v.published_at DESC LIMIT 1")
   vector_coverage = 0; if chunks > 0 then vector_coverage = ((vector_rows * 1000000) / chunks) as .int
   fts_rows = _scalarint(database, "SELECT count(*) FROM chunks_fts")
 
@@ -544,7 +546,7 @@ _librarysnapshot: procedure = .ragcommandresult
     return _failure(operation, 6, "library state changed while the snapshot census was evaluated; retry")
   end
   config_snapshot_id = currentconfigsnapshotid(database, error)
-  vector_generation_id = _scalartext(database, "SELECT vector_generation_id FROM vector_generations WHERE state='published' AND semantic_generation=" || generation || " ORDER BY published_at DESC,vector_generation_id DESC LIMIT 1")
+  vector_generation_id = _scalartext(database, "SELECT vector_generation_id FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string) || " ORDER BY published_at DESC,vector_generation_id DESC LIMIT 1")
   narrative_id = _scalartext(database, "SELECT narrative_id FROM report_narratives WHERE report_id=" || _sqlquote(report_id) || " AND operational_digest=" || _sqlquote(operational_digest) || " ORDER BY created_at DESC,narrative_id DESC LIMIT 1")
   previous_id = _scalartext(database, "SELECT snapshot_id FROM observation_snapshots ORDER BY sequence_number DESC LIMIT 1")
   elapsed = -1; previous_semantic = ""; previous_operational = ""; previous_vector = ""; previous_work = 0; previous_dead = 0; previous_review_total = 0; previous_attention = 0; previous_active_jobs = 0
@@ -826,10 +828,10 @@ _currentoperationaldigest: procedure = .string
   arg database = .binary, generation = .int, verification_issues = .int, repository_issues = .int
   visible = "visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ")"
   embedding_links = _scalarint(database, "SELECT count(*) FROM revision_chunk_embeddings WHERE " || visible)
-  vector_rows = _scalarint(database, "SELECT coalesce(max(row_count),0) FROM vector_generations WHERE state='published' AND semantic_generation=" || generation)
-  vector_dimension = _scalarint(database, "SELECT coalesce(max(dimension),0) FROM vector_generations WHERE state='published' AND semantic_generation=" || generation)
-  vector_centroids = _scalarint(database, "SELECT coalesce(max(centroid_count),0) FROM vector_generations WHERE state='published' AND semantic_generation=" || generation)
-  vector_probes = _scalarint(database, "SELECT coalesce(max(probe_count),0) FROM vector_generations WHERE state='published' AND semantic_generation=" || generation)
+  vector_rows = _scalarint(database, "SELECT coalesce(max(row_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
+  vector_dimension = _scalarint(database, "SELECT coalesce(max(dimension),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
+  vector_centroids = _scalarint(database, "SELECT coalesce(max(centroid_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
+  vector_probes = _scalarint(database, "SELECT coalesce(max(probe_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
   chunks = _scalarint(database, "SELECT count(*) FROM revision_chunks WHERE " || visible); vector_coverage = 0; if chunks > 0 then vector_coverage = ((vector_rows * 1000000) / chunks) as .int
   incomplete_runs = _scalarint(database, "SELECT count(*) FROM maintenance_runs WHERE state<>'complete'"); pending_items = _scalarint(database, "SELECT count(*) FROM maintenance_items WHERE state='pending'"); diagnosed_items = _scalarint(database, "SELECT count(*) FROM maintenance_items WHERE state='diagnosed'"); review_items = _scalarint(database, "SELECT count(*) FROM maintenance_items WHERE state IN('review-required','approved')"); blocked_items = _scalarint(database, "SELECT count(*) FROM maintenance_items WHERE state IN('blocked','failed')"); applied_items = _scalarint(database, "SELECT count(*) FROM maintenance_items WHERE state='applied'")
   active_jobs = _scalarint(database, "SELECT count(*) FROM jobs WHERE state IN('queued','running','paused','cancel_requested')"); error_jobs = _scalarint(database, "SELECT count(*) FROM jobs WHERE state IN('completed_with_errors','failed')"); dead_letters = _scalarint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter'"); dead_extraction = _scalarint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='claim-extraction'"); dead_improvement = _scalarint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='improve-extraction'"); dead_embeddings = _scalarint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='embedding'"); dead_other = dead_letters - dead_extraction - dead_improvement - dead_embeddings
@@ -1493,7 +1495,7 @@ _activequeryembedding: procedure = .int
   profile_id = ""; dimension = 0; error = ""
   if provider.provider_id() = "" | provider.kind() = "codex" then return 0
   prepared = .binary
-  sql = "SELECT p.embedding_profile_id,p.dimension,p.input_envelope_fingerprint FROM vector_generations v JOIN embedding_profiles p ON p.embedding_profile_id=v.embedding_profile_id WHERE v.state='published' AND v.semantic_generation=(SELECT published_generation FROM library_meta WHERE singleton=1) AND p.provider_id=?1 AND p.model=?2 ORDER BY p.embedding_profile_id"
+  sql = "SELECT p.embedding_profile_id,p.dimension,p.input_envelope_fingerprint FROM vector_generations v JOIN embedding_profiles p ON p.embedding_profile_id=v.embedding_profile_id WHERE v.state='published' AND " || compatiblevectorpredicate("(SELECT published_generation FROM library_meta WHERE singleton=1)", "v.") || " AND p.provider_id=?1 AND p.model=?2 ORDER BY p.embedding_profile_id"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, provider.provider_id()) \= 0 | sqlitebindtext(prepared, 2, provider.model()) \= 0 then do; call sqlitefinalize prepared; error = "cannot inspect the active query embedding profile"; return -1; end
   rows = 0; fingerprint = ""
   do forever
@@ -1516,7 +1518,7 @@ _querysidecaravailable: procedure = .int
   arg store = .ragstorehandle, profile_id = .string, maximum_bytes = .int
   prepared = .binary; error = ""; manifest_state = ""
   if manifeststate(store, manifest_state, error) \= 0 | manifest_state \= "aligned" then return 0
-  sql = "SELECT sidecar_name,sidecar_checksum FROM vector_generations WHERE state='published' AND algorithm='ivf-flat-v1' AND semantic_generation=(SELECT published_generation FROM library_meta WHERE singleton=1) AND embedding_profile_id=?1"
+  sql = "SELECT sidecar_name,sidecar_checksum FROM vector_generations WHERE state='published' AND algorithm='ivf-flat-v1' AND " || compatiblevectorpredicate("(SELECT published_generation FROM library_meta WHERE singleton=1)") || " AND embedding_profile_id=?1"
   if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindtext(prepared, 1, profile_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return 0; end
   name = ""; checksum = ""
   columns = sqlitecolumntext(prepared, 0, name) | sqlitecolumntext(prepared, 1, checksum); call sqlitefinalize prepared
@@ -1724,7 +1726,7 @@ _jobreplay: procedure = .ragcommandresult
   if _querysnapshotmatches(store, config, profile_lookup.profile()) \= 1 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 6, "replay configuration and profile do not match the current library configuration snapshot"); end
   target_snapshot_id = currentconfigsnapshotid(store.database(), error)
   replay_job_id = ""; replayed = 0
-  status = replaydeadletters(store, source_job_id, source_item_id, target_snapshot_id, reason, budget.item_limit(), budget.model_calls(), budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), budget.codex_turns(), replay_job_id, replayed, error)
+  status = replaydeadletters(store, source_job_id, source_item_id, target_snapshot_id, reason, budget.item_limit(), budget.model_calls(), budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), budget.codex_turns(), _replaybudget(config), replay_job_id, replayed, error)
   close_error = ""; close_status = closeragstore(store, close_error)
   if status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 6, error); end
   fields = .ragresultfield[]
@@ -2035,7 +2037,8 @@ _jobcomplete: procedure = .int
   if step \= 100 then do; call sqlitefinalize prepared; error = "worker job does not exist for vector publication"; return -1; end
   job_state = ""; column_status = sqlitecolumntext(prepared, 0, job_state); call sqlitefinalize prepared
   if column_status \= 0 then do; error = "cannot decode completed job state for vector publication"; return -1; end
-  if job_state \= "completed" & job_state \= "completed_with_errors" then do; error = "worker group ended before vector publication because job state is " || job_state; return -1; end
+  if _scalarint(database, "SELECT count(*) FROM job_items WHERE job_id=" || _sqlquote(job_id) || " AND state IN('running','cancel_requested')") > 0 then do; error = "vector publication is waiting for in-flight work to settle"; return -1; end
+  if job_state \= "completed" & job_state \= "completed_with_errors" & job_state \= "cancelled" & job_state \= "paused" then do; error = "worker group ended before vector publication because job state is " || job_state; return -1; end
   return 0
 
 _publishconfiguredvector: procedure = .int
@@ -2080,6 +2083,27 @@ _maintainapply: procedure = .ragcommandresult
   plan_status = _preparemaintenance(store, config, snapshot_id, plan, census, error)
   reviewed_maintenance_digest = _actionstring(plan_json, "maintenance_digest", error)
   if plan_status = 0 & (reviewed_maintenance_digest = "" | reviewed_maintenance_digest \= census.digest()) then do; error = "reviewed maintenance digest does not match the current canonical census"; plan_status = -2; end
+  if plan_status = 0 & config.maintenance().mode() \= "reviewed" then do
+    profile_lookup = registry.profile(request.profile_id())
+    if profile_lookup.found() \= 1 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation,5,"maintenance profile is unavailable"); end
+    recovery_claim = .ragworkclaim
+    recovery_status = claimnext(store,"","maintenance-recovery",config.workers().lease_seconds(),config.maintenance().maximum_attempts(),recovery_claim,error,0)
+    if recovery_status < 0 then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,7,error); end
+    old_job = _scalartext(store.database(),"SELECT job_id FROM maintenance_windows WHERE state='active' ORDER BY created_epoch LIMIT 1")
+    if old_job \= "" then if tickbacklogwindow(store,old_job,error) < 0 then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,7,error); end
+    policy_json = backlogpolicy(config,profile_lookup.profile(),plan.discovery_context())
+    reviewed_policy = _actionstring(plan_json,"window_policy",error)
+    if reviewed_policy \= policy_json then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,6,"reviewed maintenance window policy changed"); end
+    run_id = ""; job_id = ""; items = 0
+    plan_status = startbacklogwindow(store,census,snapshot_id,digest,policy_json,run_id,job_id,items,error)
+    summary = backlogsummary(store.database(),job_id)
+    close_error = ""; close_status = closeragstore(store,close_error)
+    if plan_status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation,1,error); end
+    fields = .ragresultfield[]
+    fields[1] = .ragresultfield("job_id","string",job_id); fields[2] = .ragresultfield("run_id","string",run_id); fields[3] = .ragresultfield("work_items","integer",items); fields[4] = .ragresultfield("items","integer",items); fields[5] = .ragresultfield("disposition","string","backlog-window-created"); fields[6] = .ragresultfield("backlog","string",summary); fields[7] = .ragresultfield("provider_calls","integer",0)
+    records = .ragresultrecord[]; records[1] = .ragresultrecord("maintain-apply",fields)
+    return .ragcommandresult(operation,"ok",0,"durable maintenance window created within configured budgets",records)
+  end
   apply_result = .ragimproveapplyresult(-1, "not-applied", "", 0, 0, 0, "maintenance plan was not applied")
   if plan_status = 0 then plan_status = applyconfiguredimproveplan(store, plan, request.profile_id(), provider.model(), provider.charging_basis(), budget.codex_turns(), apply_result, error)
   maintenance_result = .ragmaintenanceapplyresult
@@ -2139,6 +2163,7 @@ _maintainplan: procedure = .ragcommandresult
   if plan_status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 1, error); end
   foundation_plan = .ragplan
   action = '{"maintenance_digest":' || jsonquote(census.digest()) || '}'
+  if config.maintenance().mode() \= "reviewed" then action = '{"maintenance_digest":' || jsonquote(census.digest()) || ',"window_policy":' || jsonquote(backlogpolicy(config,profile_lookup.profile(),plan.discovery_context())) || '}'
   foundation_status = createfoundationplan(request.library(), request.config_id(), request.profile_id(), "maintain.apply", action, "curate", registry, foundation_plan, error)
   if foundation_status = -2 then return _failure(operation, 6, error)
   if foundation_status \= 0 then return _failure(operation, 7, error)
@@ -2167,6 +2192,12 @@ _maintainplan: procedure = .ragcommandresult
   repair_count = _maintenanceitemcount(census, "stale-embedding")
   maximum_work_calls = plan.model_call_budget() + repair_count * embedding_provider.max_attempts(); if maximum_work_calls > budget.model_calls() then maximum_work_calls = budget.model_calls()
   fields[20] = .ragresultfield("maximum_work_provider_calls", "integer", maximum_work_calls)
+  if config.maintenance().mode() \= "reviewed" then do
+    fields[20] = .ragresultfield("maximum_work_provider_calls","integer",budget.model_calls())
+    fields[21] = .ragresultfield("execution_mode","string",config.maintenance().mode())
+    fields[22] = .ragresultfield("window_seconds","integer",min(config.maintenance().window_seconds(),budget.minutes()*60))
+    fields[23] = .ragresultfield("scope","string","durable backlog and validated follow-up tasks within the shared window budget")
+  end
   records[records.0 + 1] = .ragresultrecord("maintenance-preview", fields)
   return .ragcommandresult(operation, "ok", 0, "bounded maintenance census and worklist created without library writes", records)
 
@@ -2285,14 +2316,45 @@ _maintainread: procedure = .ragcommandresult
   store = .ragstorehandle
   if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
   database = store.database(); records = .ragresultrecord[]
+  if operation = "maintain.inspect" then do
+    detail = inspectbacklog(database,id)
+    if detail \= "" then do
+      fields = .ragresultfield[]; fields[1] = .ragresultfield("id","string",id); fields[2] = .ragresultfield("detail","string",detail); records[1] = .ragresultrecord("maintenance-detail",fields)
+      ignored = ""; call closeragstore store,ignored
+      return .ragcommandresult(operation,"ok",0,"durable maintenance evidence and decisions",records)
+    end
+  end
   if operation = "maintain.status" then do
     run_id = id
     if run_id = "" then run_id = _scalartext(database, "SELECT run_id FROM maintenance_runs ORDER BY created_at DESC,run_id DESC LIMIT 1")
     if run_id = "" then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 5, "no maintenance run exists"); end
-    if cursor \= "" then do
+    backlog_job = _scalartext(database,"SELECT job_id FROM maintenance_windows WHERE run_id=" || _sqlquote(run_id))
+    if cursor \= "" & backlog_job = "" then do
       cursor_score = _scalartext(database, "SELECT CAST(score AS TEXT) FROM maintenance_items WHERE run_id=" || _sqlquote(run_id) || " AND item_id=" || _sqlquote(cursor))
       if cursor_score = "" then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 2, "maintenance cursor does not belong to this run"); end
       cursor_filter = " AND (score<" || cursor_score || " OR (score=" || cursor_score || " AND item_id>" || _sqlquote(cursor) || "))"
+    end
+    backlog_job = _scalartext(database,"SELECT job_id FROM maintenance_windows WHERE run_id=" || _sqlquote(run_id))
+    if backlog_job \= "" then do
+      summary = backlogsummary(database,backlog_job); fields = .ragresultfield[]; fields[1] = .ragresultfield("run_id","string",run_id); fields[2] = .ragresultfield("backlog","string",summary)
+      records[1] = .ragresultrecord("maintenance-window",fields)
+      prepared = .binary
+      sql = "SELECT t.task_id,t.kind,t.subject_type,t.subject_id,t.state,t.workflow_id,t.question,t.attempt_count,t.last_error FROM maintenance_tasks t WHERE t.task_id>" || _sqlquote(cursor) || " ORDER BY t.task_id LIMIT " || (limit+1)
+      if sqliteprepare(database,sql,prepared) \= 0 then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,7,"cannot inspect durable backlog"); end
+      do forever
+        step = sqlitestep(prepared); if step = 101 then leave
+        if returned = limit then do; has_more = 1; leave; end
+        task_id = ""; kind = ""; subject_type = ""; subject_id = ""; task_state = ""; workflow = ""; question = ""; attempts = 0; last_error = ""
+        columns = sqlitecolumntext(prepared,0,task_id) | sqlitecolumntext(prepared,1,kind) | sqlitecolumntext(prepared,2,subject_type) | sqlitecolumntext(prepared,3,subject_id) | sqlitecolumntext(prepared,4,task_state) | sqlitecolumntext(prepared,5,workflow) | sqlitecolumntext(prepared,6,question) | sqlitecolumnint(prepared,7,attempts) | sqlitecolumntext(prepared,8,last_error)
+        if step \= 100 | columns \= 0 then do; call sqlitefinalize prepared; ignored = ""; call closeragstore store,ignored; return _failure(operation,7,"cannot read durable backlog"); end
+        fields = .ragresultfield[]; fields[1] = .ragresultfield("task_id","string",task_id); fields[2] = .ragresultfield("kind","string",kind); fields[3] = .ragresultfield("subject_type","string",subject_type); fields[4] = .ragresultfield("subject_id","string",subject_id); fields[5] = .ragresultfield("state","string",task_state); fields[6] = .ragresultfield("workflow_id","string",workflow); fields[7] = .ragresultfield("question","string",question); fields[8] = .ragresultfield("attempts","integer",attempts); fields[9] = .ragresultfield("reason","string",last_error)
+        records[records.0+1] = .ragresultrecord("maintenance-task",fields)
+        returned = returned+1; next_cursor = task_id
+      end
+      call sqlitefinalize prepared
+      fields = .ragresultfield[]; fields[1] = .ragresultfield("returned","integer",returned); fields[2] = .ragresultfield("has_more","boolean",_boolean(has_more)); fields[3] = .ragresultfield("next_cursor","string",next_cursor); records[records.0+1] = .ragresultrecord("pagination",fields)
+      ignored = ""; call closeragstore store,ignored
+      return .ragcommandresult(operation,"ok",0,"durable maintenance backlog",records)
     end
     state = ""; pending = 0; review_count = 0
     if refreshmaintenance(store, run_id, state, pending, review_count, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, error); end
@@ -2412,6 +2474,15 @@ _reviewdecision: procedure = .ragcommandresult
     call sqlitefinalize prepared
     if columns \= 0 | current_state \= "pending" then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 5, "pending review was not found or was already decided"); end
     promotion_disposition = "not-applicable"; promoted_claim = ""; promoted_support = ""; maintenance_item_id = ""; maintenance_item_type = ""; maintenance_action = ""; maintenance_expected = 0; maintenance_applied = 0; vector_generations = 0; vector_state = "not-applicable"
+    if review_type = "maintenance-resolution" then do
+      profile_lookup = registry.profile(request.profile_id())
+      if profile_lookup.found() \= 1 then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,5,"resolution profile is unavailable"); end
+      review_status = reviewbacklogdecision(store,id,decision,profile_lookup.profile(),error)
+      ignored = ""; call closeragstore store,ignored
+      if review_status \= 0 then return _failure(operation,3,error)
+      fields[4] = .ragresultfield("applied","boolean","true"); records[1] = .ragresultrecord("review-decision",fields)
+      return .ragcommandresult(operation,"ok",0,"durable resolution review applied with current evidence validation",records)
+    end
     if decision = "accept" & review_type = "external-proposal" then do
       profile_lookup = registry.profile(request.profile_id()); config_lookup = registry.config(request.config_id())
       if profile_lookup.found() \= 1 | config_lookup.found() \= 1 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 5, "configuration or profile is not registered"); end
@@ -2626,3 +2697,22 @@ _openfailure: procedure = .ragcommandresult
   arg operation = .string, message = .string
   if pos("does not exist", message) > 0 then return _failure(operation, 5, message)
   return _failure(operation, 7, message)
+
+/* Replays retain immutable work reservations and must fit the current reviewed
+ * budget. The repository persists this policy atomically with the new job. */
+_replaybudget: procedure = .string
+  arg config = .ragconfig
+  budget = config.budget(); roles = config.roles(); providers = config.providers()
+  maximum_input = 0; maximum_output = 0; maximum_cost = 0; maximum_time = 0; maximum_attempts = 1
+  do i = 1 to roles.0
+    maximum_input = max(maximum_input, roles[i].maximum_input_tokens())
+    maximum_output = max(maximum_output, roles[i].maximum_output_tokens())
+    maximum_cost = max(maximum_cost, roles[i].maximum_call_cost_microunits())
+  end
+  do i = 1 to providers.0
+    maximum_time = max(maximum_time, providers[i].timeout_ms())
+    maximum_attempts = max(maximum_attempts, providers[i].max_attempts())
+  end
+  maximum_input = min(maximum_input, budget.input_tokens()); maximum_output = min(maximum_output, budget.output_tokens()); maximum_cost = min(maximum_cost, budget.cost_microunits())
+  time_budget = budget.minutes() * 60000; maximum_time = min(maximum_time, time_budget)
+  return '{"time_budget_ms":' || time_budget || ',"maximum_call_input_tokens":' || maximum_input || ',"maximum_call_output_tokens":' || maximum_output || ',"maximum_call_cost":' || maximum_cost || ',"maximum_call_time_ms":' || maximum_time || ',"maximum_inflight_calls":' || config.workers().max_in_flight() || ',"maximum_attempts":' || maximum_attempts || '}'

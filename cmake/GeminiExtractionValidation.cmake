@@ -101,12 +101,21 @@ function(run_invalid_extraction case_name port expected_error)
     endforeach()
 
     execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
-        "SELECT (SELECT count(*) FROM job_items WHERE state='dead_letter') || ':' || (SELECT count(*) FROM claims) || ':' || (SELECT count(*) FROM claim_support) || ':' || (SELECT count(*) FROM candidate_mentions WHERE extractor_version='provider-discovery-v1') || ':' || (SELECT count(*) FROM provider_runs WHERE outcome='failed') || ':' || coalesce((SELECT validation_state FROM attempts WHERE outcome='dead_letter' LIMIT 1),'');"
+        "SELECT (SELECT count(*) FROM job_items WHERE state='dead_letter') || ':' || (SELECT count(*) FROM claims) || ':' || (SELECT count(*) FROM claim_support) || ':' || (SELECT count(*) FROM candidate_mentions WHERE extractor_version='provider-discovery-v2') || ':' || (SELECT count(*) FROM provider_runs WHERE outcome='failed') || ':' || coalesce((SELECT validation_state FROM attempts WHERE outcome='dead_letter' LIMIT 1),'');"
         OUTPUT_VARIABLE state OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_VARIABLE state_err RESULT_VARIABLE state_result)
     string(FIND "${state}" "${expected_error}" error_position)
     if(NOT state_result EQUAL 0 OR NOT state MATCHES "^1:0:0:0:1:" OR error_position LESS 0)
         message(FATAL_ERROR "${case_name}: invalid extraction did not dead-letter without product mutation: ${state} ${state_err}")
+    endif()
+    if(case_name STREQUAL "product-extraction-invalid-span")
+        execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
+            "SELECT recovery_json FROM provider_runs WHERE outcome='failed';"
+            OUTPUT_VARIABLE rejected_output RESULT_VARIABLE rejected_result)
+        if(NOT rejected_result EQUAL 0 OR rejected_output MATCHES "synthetic-product-gemini-key" OR
+           NOT rejected_output MATCHES "REDACTED" OR NOT rejected_output MATCHES "crexx-rag.rejected-output/1")
+            message(FATAL_ERROR "rejected provider output was not durably redacted")
+        endif()
     endif()
     file(GLOB vectors "${library}/vectors.*.rxvec")
     if(vectors)
@@ -134,7 +143,7 @@ function(run_invalid_extraction case_name port expected_error)
 endfunction()
 
 run_invalid_extraction(product-extraction-invalid-span 19021
-    "provider mention does not match its exact evidence span")
+    "provider mention evidence quotation is not in the chunk")
 run_invalid_extraction(product-extraction-unknown-type 19022
     "provider mention concept type is not in the selected profile")
 run_invalid_extraction(product-extraction-unknown-relationship 19023

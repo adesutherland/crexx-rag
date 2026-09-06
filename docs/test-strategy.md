@@ -26,7 +26,7 @@ metadata directly.
 | `process_workers` | two-worker launch, observation, drain, stale PID detection, explicit pruning |
 | `gemini_ingestion` | Gemini request/response mapping, compact gap-free LF/CR/CRLF normalization maps, durable work, claims, embeddings, vector publication, replay and failure paths |
 | `gemini_extraction_validation` | invalid UTF-8 spans, unknown concept/relationship types and malformed extraction output dead-letter without product mutation or secret disclosure |
-| `provider_durability` | reservation recovery, Codex turns, fencing, completed-turn reuse, durable cross-process admission, no false call record on preflight failure, immutable replay lineage, backlog reconciliation, and schema 1-to-9 migration with historic-cost backfill and prospective-transition auditing |
+| `provider_durability` | reservation recovery, Codex turns, fencing, completed-turn reuse, durable cross-process admission, no false call record on preflight failure, immutable replay lineage, backlog reconciliation, and schema 1-to-10 migration with historic-cost backfill and prospective-transition auditing |
 | `codex_protocol` | App Server initialize/account/turn/schema/usage/cleanup over JSONL |
 | `codex_application` | public Codex extraction, worker-crash recovery from a persisted completed turn, duplicate-turn prevention, validation, allowance settlement and library verification |
 | `gemini_maintenance` | hosted-style maintenance, glossary-drift rejection, durable cognitive notes, ANN publication/reuse, provider/profile discovery and external proposal review/promotion |
@@ -40,6 +40,9 @@ metadata directly.
 | `address_surface` | linked `ADDRESS RAG` report/trend/session/config/access behavior and snapshot denial on both VMs |
 | `gemini_provider_smoke` | generation and embedding smoke, human/JSON/MCP, cancellation, aggregate budget, malformed output, secret redaction |
 | `installed_product` | scratch-prefix installation, installed skills/tutorial, doctor/init/provider smoke/ingest/maintain/query using only installed product artifacts |
+| `quotation_grounding` | exact-first/Unicode casefold/whitespace grounding, original byte mapping, repeated spans and scoped endpoints on both VMs and optimization modes |
+| `durable_backlog` | complete split/merge fan-out, claim conflict preservation and qualification, typed identities, manual census/resume, supervised review, stale-before/after-call rejection, settled-response crash/window recovery and zero-call SQLite embedding reuse on both VMs |
+| `durable_backlog_provider` | native guided maintenance through Gemini loopback: valid decisions, malformed responses, product-rejected quotations, redacted diagnostics, runtime configuration transitions, shared call limits and unchanged source/vector state |
 | `local_embedding_protocol` | llama.cpp-compatible `/v1/embeddings`, restricted local privacy, local-compute charging, and 429 `Retry-After` plus 503 exponential retry on both VMs and compiler modes |
 
 The Gemini tests always exercise the Gemini adapter and Google request/response
@@ -102,9 +105,23 @@ recovery temporary; reconstruction and vector retrieval succeed with zero
 provider runs. The public query fixture also exercises `vector rebuild`,
 read-capability rejection, idempotent replay, and invalid-hybrid preflight
 without any provider calls. The migration fixture opens a schema-8 bundle
-through the ordinary write path and requires a schema-9 aligned manifest.
+through the ordinary write path and requires a schema-10 aligned manifest.
 
 Maintenance methodology distinguishes successful and failed items within a
 mixed-result job and recognizes embeddings repaired in a later generation.
 The public maintenance fixture pages through more than 100 worklist items
 with no duplicates or omissions, in both status and inspection operations.
+
+Quotation grounding runs in both interpreters, with and without optimization.
+It covers exact-first and first-repeat matching, Unicode byte mapping and
+expanding casefolds, scoped relationship endpoints, non-matches, and the retained
+Scottish hosted offset failure. Provider negatives check redacted rejected-output
+durability as well as malformed output and strict product validation. Replay
+qualification exercises claim, reservation, settlement and completion against
+an atomically persisted budget policy. Cancellation covers queued, drained,
+in-flight, expired-lease and already failed jobs.
+
+ANN methodology also advances a graph-only generation without rebuilding its
+index, verifies retrieval and backup, rejects changed embedding/source membership,
+and tests rollback with an index from a non-ancestor branch. These tests make no
+provider calls and retain the existing dimension, checksum and corruption checks.

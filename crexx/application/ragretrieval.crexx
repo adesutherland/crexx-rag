@@ -333,11 +333,11 @@ _vector: procedure = .int
   store_status = .ragstorestatus; status_error = ""
   if storagestatus(store, store_status, status_error) \= 0 | store_status.manifest_state() \= "aligned" then do; vector_state = "fallback-manifest"; trace_notes[trace_notes.0 + 1] = "vector-fallback=manifest"; return 0; end
   prepared = .binary
-  sql = "SELECT sidecar_name,sidecar_checksum,row_count,centroid_count,probe_count FROM vector_generations WHERE state='published' AND algorithm='ivf-flat-v1' AND semantic_generation=?1 AND embedding_profile_id=?2 AND dimension=?3"
+  sql = "SELECT sidecar_name,sidecar_checksum,row_count,centroid_count,probe_count,semantic_generation FROM vector_generations WHERE state='published' AND algorithm='ivf-flat-v1' AND " || compatiblevectorpredicate("?1") || " AND embedding_profile_id=?2 AND dimension=?3"
   if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 | sqlitebindtext(prepared, 2, profile_id) \= 0 | sqlitebindint(prepared, 3, dimension) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare ANN generation lookup"; return -1; end
   if sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; vector_state = "fallback-stale-or-missing-generation"; trace_notes[trace_notes.0 + 1] = "vector-fallback=stale-or-missing-generation"; return 0; end
-  sidecar_name = ""; sidecar_checksum = ""; total_rows = 0; centroid_count = 0; probe_count = 0
-  column_status = sqlitecolumntext(prepared, 0, sidecar_name) | sqlitecolumntext(prepared, 1, sidecar_checksum) | sqlitecolumnint(prepared, 2, total_rows) | sqlitecolumnint(prepared, 3, centroid_count) | sqlitecolumnint(prepared, 4, probe_count)
+  sidecar_name = ""; sidecar_checksum = ""; total_rows = 0; centroid_count = 0; probe_count = 0; index_generation = 0
+  column_status = sqlitecolumntext(prepared, 0, sidecar_name) | sqlitecolumntext(prepared, 1, sidecar_checksum) | sqlitecolumnint(prepared, 2, total_rows) | sqlitecolumnint(prepared, 3, centroid_count) | sqlitecolumnint(prepared, 4, probe_count) | sqlitecolumnint(prepared, 5, index_generation)
   if column_status \= 0 | sqlitestep(prepared) \= 101 then do; call sqlitefinalize prepared; error = "ANN generation identity is ambiguous or invalid"; return -1; end
   call sqlitefinalize prepared
   raw = .binary; byte_count = 0
@@ -348,7 +348,7 @@ _vector: procedure = .int
   side_generation = 0; side_dimension = 0; side_rows = 0; side_centroids = 0; side_probes = 0
   if document.node_string(document.member(root, "schema"), schema) \= 0 | document.node_string(document.member(root, "algorithm"), algorithm) \= 0 | document.node_string(document.member(root, "codec"), codec) \= 0 | document.node_string(document.member(root, "storage"), storage) \= 0 | document.node_int(document.member(root, "semantic_generation"), side_generation) \= 0 | document.node_string(document.member(root, "embedding_profile_id"), side_profile) \= 0 | document.node_int(document.member(root, "dimension"), side_dimension) \= 0 | document.node_int(document.member(root, "row_count"), side_rows) \= 0 | document.node_int(document.member(root, "centroid_count"), side_centroids) \= 0 | document.node_int(document.member(root, "probe_count"), side_probes) \= 0 | document.node_string(document.member(root, "centroids_f32le"), centroid_hex) \= 0 then do; error = "ANN sidecar fields are invalid"; return -1; end
   clusters_node = document.member(root, "clusters")
-  if schema \= "crexx-rag.rxvector-ann/1" | algorithm \= "ivf-flat-v1" | codec \= "f32le-v1" | storage \= "sqlite-embedding-blobs" | side_generation \= generation | side_profile \= profile_id | side_dimension \= dimension | side_rows \= total_rows | side_centroids \= centroid_count | side_probes \= probe_count | length(centroid_hex) \= centroid_count * dimension * 8 | document.node_type(clusters_node) \= "array" | document.node_count(clusters_node) \= centroid_count then do; error = "ANN sidecar does not match the active generation"; return -1; end
+  if schema \= "crexx-rag.rxvector-ann/1" | algorithm \= "ivf-flat-v1" | codec \= "f32le-v1" | storage \= "sqlite-embedding-blobs" | side_generation \= index_generation | side_profile \= profile_id | side_dimension \= dimension | side_rows \= total_rows | side_centroids \= centroid_count | side_probes \= probe_count | length(centroid_hex) \= centroid_count * dimension * 8 | document.node_type(clusters_node) \= "array" | document.node_count(clusters_node) \= centroid_count then do; error = "ANN sidecar does not match the active generation"; return -1; end
   query_vector = rxvector..decodef32le(query_wire)
   centroid_wire = .binary
   if _hexwire(centroid_hex, centroid_wire) \= 0 then do; error = "ANN centroid encoding is invalid"; return -1; end

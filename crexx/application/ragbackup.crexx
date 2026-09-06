@@ -305,7 +305,7 @@ copyragbackupsidecars: procedure = .int
     return -4
   end
   prepared = .binary
-  sql = "SELECT sidecar_name FROM vector_generations WHERE state='published' AND semantic_generation=?1 ORDER BY embedding_profile_id,vector_generation_id"
+  sql = "SELECT sidecar_name FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate("?1") || " ORDER BY embedding_profile_id,vector_generation_id"
   if sqliteprepare(session.read_view().database(), sql, prepared) \= 0 then return _sqlitefailure("prepare backup sidecars", error)
   call sqlitebindint prepared, 1, session.generation()
   count = 0

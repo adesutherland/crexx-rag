@@ -9,7 +9,7 @@ file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}/source")
 file(WRITE "${CPRAG_WORK_DIR}/source/architecture.txt"
     "BillingService depends on CustomerDatabase.\n"
-    "BillingService depends on CustomerDatabase.\n")
+    "Again, BillingService depends on CustomerDatabase.\n")
 set(CPRAG_FIXTURE_PORT 18999)
 set(CPRAG_FIXTURE_SOURCE "${CPRAG_WORK_DIR}/source")
 configure_file("${CPRAG_CONFIG_TEMPLATE}"
@@ -55,7 +55,7 @@ execute_process(COMMAND ${cli} init
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err
     RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 9")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "schema version: 10")
     message(FATAL_ERROR "Query test human init failed:\n${init_out}${init_err}")
 endif()
 
@@ -83,7 +83,7 @@ if(NOT query_result EQUAL 0 OR
    NOT query_out MATCHES "retrieval mode: hybrid" OR
    NOT query_out MATCHES "query embedding state: generated" OR
    NOT query_out MATCHES "provider calls: 2" OR
-   NOT query_out MATCHES "citation: .*utf8-0-87" OR
+   NOT query_out MATCHES "citation: .*utf8-0-94" OR
    NOT query_out MATCHES "role: embedding" OR
    NOT query_out MATCHES "role: answerer" OR
    NOT query_out MATCHES "charging basis: local-compute" OR
@@ -136,7 +136,7 @@ if(NOT report_result EQUAL 0 OR
    NOT report_out MATCHES "\"coverage_millionths\":1000000" OR
    NOT report_out MATCHES "\"narrative_state\":\"off\"" OR
    NOT report_out MATCHES "\"provider_calls\":0" OR
-   NOT report_out MATCHES "crexx-rag:.*utf8-0-87")
+   NOT report_out MATCHES "crexx-rag:.*utf8-0-94")
     message(FATAL_ERROR "Deterministic library report failed:\n${report_out}${report_err}")
 endif()
 

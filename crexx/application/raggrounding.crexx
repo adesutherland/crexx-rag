@@ -1,0 +1,114 @@
+options levelg
+
+namespace raggrounding expose raggrounding
+
+import rxfnsb
+import rxunicode
+
+/* Provider quotations select source text; only the application calculates
+ * zero-based UTF-8 byte offsets. Exact matches take precedence over casefolded
+ * matches, then casefolded matching with ASCII whitespace runs collapsed.
+ * Repeats select the first occurrence within the requested scope. */
+raggrounding: class
+  _body = .string
+  _bytes = .binary
+  _folded = .binary
+  _boundaries = .int[]
+  _spaced = .binary
+  _space_boundaries = .int[]
+  _ready = .int
+
+  *: factory
+    arg body = .string
+    _body = body; _bytes = body as .binary; _ready = 0
+    return
+
+  find: method = .int
+    arg quotation = .string, expose span_start = .int, expose span_end = .int, scope_start = 0, scope_end = -1
+    span_start = -1; span_end = -1
+    if scope_end = -1 then scope_end = binlength(_bytes)
+    if quotation = "" | scope_start < 0 | scope_end <= scope_start | scope_end > binlength(_bytes) then return 0
+    needle = quotation as .binary
+    found = binpos(needle, _bytes, scope_start + 1)
+    if found > 0 & found - 1 + binlength(needle) <= scope_end then do
+      span_start = found - 1; span_end = span_start + binlength(needle)
+      return 1
+    end
+    if _ready = 0 then call _prepare()
+    needle = rxunicode..toCasefold(quotation) as .binary
+    if binlength(needle) = 0 then return 0
+    if _findmapped(needle, _folded, _boundaries, scope_start, scope_end, span_start, span_end) = 1 then return 1
+    needle = _collapsewhitespace(needle as .string) as .binary
+    return _findmapped(needle, _spaced, _space_boundaries, scope_start, scope_end, span_start, span_end)
+
+  _prepare: method = .void
+    folded_text = ""; original_byte = 0; folded_byte = 0
+    spaced_text = ""; spaced_byte = 0; previous_space = 0
+    _boundaries[1] = 1; _space_boundaries[1] = 1
+    do i = 1 to length(_body)
+      character = substr(_body, i, 1)
+      fragment = rxunicode..toCasefold(character)
+      fragment_bytes = binlength(fragment as .binary)
+      _boundaries[folded_byte + 1] = original_byte + 1
+      do j = 1 to fragment_bytes
+        _boundaries[folded_byte + j + 1] = 0
+      end
+      folded_text = folded_text || fragment
+      is_space = _isspace(character)
+      if is_space = 1 & previous_space = 1 then do
+        /* Extend the original source boundary over the complete whitespace run. */
+        _space_boundaries[spaced_byte + 1] = original_byte + binlength(character as .binary) + 1
+      end
+      else do
+        space_fragment = fragment
+        if is_space = 1 then space_fragment = " "
+        space_bytes = binlength(space_fragment as .binary)
+        _space_boundaries[spaced_byte + 1] = original_byte + 1
+        do j = 1 to space_bytes
+          _space_boundaries[spaced_byte + j + 1] = 0
+        end
+        spaced_text = spaced_text || space_fragment
+        spaced_byte = spaced_byte + space_bytes
+        _space_boundaries[spaced_byte + 1] = original_byte + binlength(character as .binary) + 1
+      end
+      previous_space = is_space
+      original_byte = original_byte + binlength(character as .binary)
+      folded_byte = folded_byte + fragment_bytes
+      _boundaries[folded_byte + 1] = original_byte + 1
+    end
+    _folded = folded_text as .binary; _spaced = spaced_text as .binary; _ready = 1
+    return
+
+_findmapped: procedure = .int
+  arg needle = .binary, haystack = .binary, boundaries = .int[], scope_start = .int, scope_end = .int, expose span_start = .int, expose span_end = .int
+  if binlength(needle) = 0 then return 0
+  cursor = 1
+  do forever
+    found = binpos(needle, haystack, cursor)
+    if found = 0 then return 0
+    after = found + binlength(needle)
+    /* Never accept a start or end inside an expanding Unicode fold. */
+    before_byte = boundaries[found]; after_byte = boundaries[after]
+    if before_byte > 0 & after_byte > 0 then do
+      if before_byte - 1 >= scope_start & after_byte - 1 <= scope_end then do
+        span_start = before_byte - 1; span_end = after_byte - 1
+        return 1
+      end
+    end
+    cursor = found + 1
+  end
+
+_isspace: procedure = .int
+  arg character = .string
+  return binlength(character as .binary) = 1 & pos(character, "20090A0B0C0D"x) > 0
+
+_collapsewhitespace: procedure = .string
+  arg value = .string
+  output = ""; previous_space = 0
+  do i = 1 to length(value)
+    character = substr(value, i, 1); is_space = _isspace(character)
+    if is_space = 0 then output = output || character
+    else if previous_space = 0 then output = output || " "
+    previous_space = is_space
+  end
+  return output

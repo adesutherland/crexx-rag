@@ -9,7 +9,7 @@ file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}/source")
 file(WRITE "${CPRAG_WORK_DIR}/source/architecture.txt"
     "BillingService depends on CustomerDatabase.\n"
-    "BillingService depends on CustomerDatabase.\n")
+    "Again, BillingService depends on CustomerDatabase.\n")
 set(CPRAG_FIXTURE_PORT 19000)
 set(CPRAG_FIXTURE_SOURCE "${CPRAG_WORK_DIR}/source")
 configure_file("${CPRAG_CONFIG_TEMPLATE}"
@@ -119,7 +119,7 @@ if(NOT mcp_result EQUAL 0 OR
    NOT mcp_out MATCHES "\"name\":\"rag_citation_show\".*\"readOnlyHint\":true" OR
    NOT mcp_out MATCHES "\"operation\":\"query.answer\",\"status\":\"ok\"" OR
    NOT mcp_out MATCHES "\"generated_answer\":\"BillingService depends on CustomerDatabase\\.\"" OR
-   NOT mcp_out MATCHES "\"citation\":\"crexx-rag:.*utf8-0-87\"" OR
+   NOT mcp_out MATCHES "\"citation\":\"crexx-rag:.*utf8-0-94\"" OR
    NOT mcp_out MATCHES "\"operation\":\"query.evidence\",\"status\":\"ok\"" OR
    NOT mcp_out MATCHES "\"retrieval_mode\":\"lexical\"" OR
    NOT mcp_out MATCHES "\"lexical_candidates\":[1-9][0-9]*" OR

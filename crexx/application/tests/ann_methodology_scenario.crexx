@@ -8,6 +8,7 @@ import rxsqlite
 import rxfs
 import ragfile
 import ragstore
+import ragbackup
 import ragembedding
 import ragretrieval
 import generic_profile
@@ -139,6 +140,28 @@ main: procedure = .int
   errors = errors + check(buildannvectorgeneration(store, "ann-profile", 12, 4, 1, 3, 1048576, replay, error) = 0 & replay.state() = "rebuilt-from-sqlite" & replay.checksum() = generation.checksum(), "recover missing sidecar from SQLite " || error)
   errors = errors + check(retrieveevidence(store, genericprofile(), "zzzznotlexical", retrieval_policy, fallback, error) = 0 & fallback.vector_state() = "active-ann-ivf-rxvector", "recovered ANN retrieval " || error)
   errors = errors + check(scalartext(database, "SELECT CAST(count(*) AS TEXT) FROM provider_runs") = "0", "sidecar recovery must make no provider calls")
+  graph_generation = 0
+  errors = errors + check(begingeneration(store, generation.semantic_generation(), "snapshot-ann", "graph-only maintenance publication", graph_generation, error) = 0, "begin graph-only generation " || error)
+  errors = errors + check(commitgeneration(store, graph_generation, error) = 0 & publishmanifest(store, error) = 0, "publish graph-only generation " || error)
+  errors = errors + check(retrieveevidence(store, genericprofile(), "zzzznotlexical", retrieval_policy, fallback, error) = 0 & fallback.vector_state() = "active-ann-ivf-rxvector", "graph-only maintenance retains ANN availability " || error)
+  errors = errors + check(scalartext(database, "SELECT CAST(count(*) AS TEXT) FROM vector_generations") = "1", "graph publication reuses the immutable index")
+  backup_report = .ragbackupreport
+  errors = errors + check(backupragstore(path, path || "-graph-backup", backup_report, error) = 0, "backup carries compatible ancestral index " || error)
+  errors = errors + check(rxfs..isfile(path || "-graph-backup/" || generation.sidecar_name()) = 1, "backup retains original index filename")
+  changed_generation = 0
+  errors = errors + check(begingeneration(store, graph_generation, "snapshot-ann", "embedding membership change", changed_generation, error) = 0, "begin changed vector generation " || error)
+  errors = errors + check(sqliteexec(database, "UPDATE revision_chunk_embeddings SET visible_to_generation=" || changed_generation || " WHERE revision_chunk_id='chunk-01' AND visible_to_generation IS NULL") = 0, "remove one vector membership")
+  errors = errors + check(commitgeneration(store, changed_generation, error) = 0 & publishmanifest(store, error) = 0, "publish changed membership " || error)
+  errors = errors + check(retrieveevidence(store, genericprofile(), "zzzznotlexical", retrieval_policy, fallback, error) = 0 & fallback.vector_state() = "fallback-stale-or-missing-generation", "changed vector membership cannot reuse the old index " || error)
+  changed_index = .ragvectorgenerationresult
+  errors = errors + check(buildannvectorgeneration(store, "ann-profile", 12, 4, 1, 3, 1048576, changed_index, error) = 0 & changed_index.rows() = 11, "publish index for changed branch " || error)
+  errors = errors + check(rollbackgeneration(store, changed_generation, graph_generation, "restore graph-only snapshot", error) = 0, "rollback membership change " || error)
+  errors = errors + check(retrieveevidence(store, genericprofile(), "zzzznotlexical", retrieval_policy, fallback, error) = 0 & fallback.vector_state() = "active-ann-ivf-rxvector", "rollback restores eligible ancestral index " || error)
+  source_generation = 0
+  errors = errors + check(begingeneration(store, graph_generation, "snapshot-ann", "source membership change", source_generation, error) = 0, "begin changed source generation " || error)
+  errors = errors + check(sqliteexec(database, "UPDATE revision_chunks SET visible_to_generation=" || source_generation || " WHERE revision_chunk_id='chunk-13'") = 0, "retire unembedded source chunk")
+  errors = errors + check(commitgeneration(store, source_generation, error) = 0 & publishmanifest(store, error) = 0, "publish changed source membership " || error)
+  errors = errors + check(retrieveevidence(store, genericprofile(), "zzzznotlexical", retrieval_policy, fallback, error) = 0 & fallback.vector_state() = "fallback-stale-or-missing-generation", "changed sources cannot reuse an index or a non-ancestor branch " || error)
   errors = errors + check(closeragstore(store, error) = 0, "close " || error)
   if errors > 0 then return 1
   say "ANN_METHODOLOGY_OK algorithm=ivf-flat-v1 rows=12 centroids=4 probes=1 candidates=3 exact_oracle=qa-only recall_millionths=" || recall || " tamper=fallback"

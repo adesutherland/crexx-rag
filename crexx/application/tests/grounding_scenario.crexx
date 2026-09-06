@@ -1,0 +1,57 @@
+options levelg
+import rxfnsb
+import raggrounding
+
+main: procedure = .int
+  errors = 0
+  errors = errors + expect("Mary met Mary.", "Mary", 0, 4)
+  errors = errors + expect("MARY met Mary.", "Mary", 9, 13)
+  errors = errors + expect("MARY met MARY.", "mary", 0, 4)
+  errors = errors + expect("Écosse: STRAßE.", "strasse", 9, 16)
+  errors = errors + expect("Straße", "SSE", 4, 7)
+  errors = errors + expect("ß", "s", -1, -1)
+  errors = errors + expect("ß s", "S", 3, 4)
+  errors = errors + expect("Mary" || "0A"x || "met James", "mary" || "0A"x || "MET JAMES", 0, 14)
+  errors = errors + expect("Mary met James", "Mary  met James", 0, 14)
+  errors = errors + expect("Lord" || "0A"x || "  Macaulay.", "Lord Macaulay", 0, 15)
+  errors = errors + expect("MARY" || "090A"x || " met  James", "mary met james", 0, 17)
+  errors = errors + expect("Mary met James", "Mary...James", -1, -1)
+  errors = errors + expect("Mary-met-James", "Mary met James", -1, -1)
+  errors = errors + expect("Mary met James", "MarymetJames", -1, -1)
+  errors = errors + expect("Mary met James", "", -1, -1)
+  errors = errors + expect("Mary met James", "Mary met John", -1, -1)
+  /* Retained hosted failure: labels were present but model offsets drifted. */
+  captured = 'Mackay, or Siol Mhorgan--Mackays of Clan-Abrach--Bighouse--Strathy' || "0A"x || '  --Melness--Kinloch--Mackays of Holland--Macnicol--Sutherland--Gunn' || "0A"x || '  --Maclaurin or Maclaren--Macrae--Buchanan--“The King of Kippen”' || "0A"x || '  --Buchanan of Auchmar--Colquhoun--Macgregors and Macfarlanes in' || "0A"x || '  Dumbartonshire--Forbes--Forbes of Tolquhoun--Craigievar--Pitsligo' || "0A"x || '  and Fettercairn--Culloden--Urquhart.'
+  errors = errors + expect(captured, "Mackay", 0, 6)
+  errors = errors + expect(captured, "Forbes", 290, 296)
+  errors = errors + expect(captured, "Culloden", 359, 367)
+  errors = errors + expect(captured, "Urquhart", 369, 377)
+  whitespace_capture = 'The quarrel between the Macleans and the Macdonalds of Isla and' || "0A"x || 'Kintyre was, at the outset, merely a dispute as to the right of' || "0A"x || 'occupancy of the crown lands called the Rhinns of Isla, but it soon' || "0A"x || 'involved these tribes in a long and bloody feud, and eventually led' || "0A"x || 'to the destruction nearly of them both. The Macleans, who were in' || "0A"x || 'possession, claimed to hold the lands in dispute as tenants of the' || "0A"x || 'crown, but the privy council decided that Macdonald of Isla was' || "0A"x || 'really the crown tenant. Lachlan Maclean of Dowart, called Lachlan' || "0A"x || 'Mor, was chief of the Macleans in 1578. Under him the feud with the' || "0A"x || 'Macdonalds assumed a most sanguinary and relentless character. Full' || "0A"x || 'details of this feud will be found in the former part of this work.'
+  errors = errors + expect(whitespace_capture, 'The quarrel between the Macleans and the Macdonalds of Isla and Kintyre was, at the outset, merely a dispute as to the right of occupancy of the crown lands called the Rhinns of Isla, but it soon involved these tribes in a long and bloody feud, and eventually led to the destruction nearly of them both.', 0, 303)
+  errors = errors + expect(whitespace_capture, 'The quarrel between the Macleans and the Macdonalds of Isla and Kintyre was, at the outset, merely a dispute as to the right of occupancy of the crown lands called the Rhinns of Isla, but it soon involved these tribes in a long and bloody feud, and eventually led to the destruction nearly of them both.', 0, 303)
+  errors = errors + expect(whitespace_capture, 'The quarrel between the Macleans and the Macdonalds of Isla and Kintyre was, at the outset, merely a dispute as to the right of occupancy of the crown lands called the Rhinns of Isla, but it soon involved these tribes in a long and bloody feud, and eventually led to the destruction nearly of them both.', 0, 303)
+  errors = errors + expect(whitespace_capture, 'The quarrel between the Macleans and the Macdonalds of Isla and Kintyre was, at the outset, merely a dispute as to the right of occupancy of the crown lands called the Rhinns of Isla, but it soon involved these tribes in a long and bloody feud, and eventually led to the destruction nearly of them both.', 0, 303)
+  errors = errors + expect(whitespace_capture, 'Lachlan Maclean of Dowart, called Lachlan Mor, was chief of the Macleans in 1578.', 486, 567)
+  whitespace_capture = 'One of Aulay MacAulay’s sons was the Rev. John Macaulay, A.M., was' || "0A"x || 'grandfather of the celebrated orator, statesman, and historian, Lord' || "0A"x || 'Macaulay. One of his sons entered the East India Company’s military' || "0A"x || 'service, and attained the rank of general.'
+  errors = errors + expect(whitespace_capture, 'Aulay MacAulay', 7, 21)
+  errors = errors + expect(whitespace_capture, 'Rev. John Macaulay', 39, 57)
+  errors = errors + expect(whitespace_capture, 'Lord Macaulay', 133, 146)
+  errors = errors + expect(whitespace_capture, 'East India Company', 176, 194)
+  grounder = .raggrounding("Mary left. James met MARY."); first = -1; last = -1
+  errors = errors + check(grounder.find("Mary", first, last, 11, 26) = 1 & first = 21 & last = 25, "relationship endpoint resolves within its supporting quote")
+  if errors > 0 then return 1
+  say "GROUNDING_OK exact_first repeated_first unicode_casefold utf8_offsets scoped_endpoints no_fuzzy_matching"
+  return 0
+
+expect: procedure = .int
+  arg body = .string, quotation = .string, expected_start = .int, expected_end = .int
+  grounder = .raggrounding(body); first = -1; last = -1
+  found = grounder.find(quotation, first, last)
+  expected_found = 1; if expected_start < 0 then expected_found = 0
+  return check(found = expected_found & first = expected_start & last = expected_end, body || " / " || quotation || " got " || first || ":" || last)
+
+check: procedure = .int
+  arg condition = .int, message = .string
+  if condition = 1 then return 0
+  say "FAIL " || message
+  return 1

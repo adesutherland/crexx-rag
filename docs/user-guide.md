@@ -418,13 +418,18 @@ The operating patterns are:
 - automation that invokes the same explicit plan/apply/worker/status sequence
   within reviewed action, impact, privacy and provider-budget limits.
 
-Automation still uses exact plan/apply digests, durable workers, deterministic
-validation and final verification. Structural split, merge, type change,
-retirement, restoration and claim retraction actions enter mandatory review;
-analysis, embedding repair and vector publication can complete through the
-reviewed maintenance worklist without a second graph-mutation path.
+Automation uses exact plan/apply digests, durable workers and deterministic
+validation. Set `maintenance.mode = automatic` for the durable resolution
+backlog, `supervised` to review model-proposed changes, or `manual` to collect
+questions without calling providers. The compatibility default `reviewed`
+keeps the earlier ranked batch and mandatory structural review behavior.
 
-Each maintenance plan is an incremental batch bounded by
+The [durable maintenance guide](autonomous-maintenance.md) describes the full
+runtime configuration, five-hour windows, shared budgets, split/merge follow-up
+tasks, interruption recovery and task/decision inspection. No recompilation is
+needed, and changing configuration never reingests an unchanged corpus.
+
+In the compatibility `reviewed` mode, each maintenance plan is an incremental batch bounded by
 `maintenance.batch_items` as well as the global item, provider-call, token,
 time and cost budgets. Repair work is ranked ahead of enrichment: a missing
 vector publication, missing active embeddings and pending claim conflicts take
@@ -650,6 +655,19 @@ zero provider calls, retains generation and provenance, and returns
 index. It uses the configured vector build and byte limits. It cannot invent
 missing embedding coverage or restore membership removed by an earlier
 operation; those require a separately reviewed corpus recovery.
+
+Concept and claim maintenance can continue using an existing vector index when
+its source chunks and embedding links are unchanged. Its manifest entry retains
+the generation that built the index. The application proves compatibility from
+SQLite; source or embedding changes require a matching index publication.
+Pausing and draining work does not by itself invalidate compatible vectors.
+
+Extraction uses source quotations. The application computes offsets, prefers
+exact matches, then accepts case differences using Unicode casefolding and ASCII whitespace
+run differences with a map back to the original bytes.
+Repeated quotations within a chunk select the first match. Invalid quotations,
+unsupported relationships and conflicting canonical identities remain rejected;
+no provider output overrides existing evidence or identity validation.
 
 Explicit `query ... --mode hybrid` fails if the published sidecar is missing
 or corrupt, before calling a query provider. Automatic mode may use lexical

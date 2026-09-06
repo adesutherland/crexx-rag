@@ -4,8 +4,8 @@ Recorded 2026-09-06 after the Scottish corpus recovery investigation.
 
 ## RAG-REC-001 — incomplete replacement hides a complete vector baseline
 
-Status: incident trigger and missing/corrupt sidecar recovery repaired in the
-uncommitted operator pass; all 21 tests pass. A separate
+Status: incident trigger and missing/corrupt sidecar recovery repaired in
+baseline commit `48e0eee`; all 21 tests pass. A separate
 explicit corpus-replacement workflow that stages a replacement until complete
 remains open. Operational restoration is not a claim of installed release.
 
@@ -67,7 +67,7 @@ The preserved database is
 
 ## RAG-REC-002 — configuration migration leaves a stale manifest
 
-Status: repaired and focused-qualified in the uncommitted operator pass.
+Status: repaired and qualified in baseline commit `48e0eee`.
 Originally observed in the existing uninstalled recovery artifact with
 SHA-256 `eafeb2f98fec8913d3abe58b78b7728e5b6a88fcc6130fbe7ad52c188c0e1339`.
 
@@ -89,6 +89,101 @@ a schema-8 bundle, opens it through the ordinary read/write path, and checks
 schema 9 plus an aligned manifest in both interpreters and optimisation modes.
 This does not change migration checksums or weaken manifest validation.
 
+## RAG-MNT-001 — hosted maintenance has an unacceptable exact-span rejection rate
+
+Status: quotation-grounding repair qualified locally; broad hosted maintenance
+requires a new bounded hosted qualification of the durable identity and
+resolution route.
+Observed on baseline `48e0eee`, 2026-09-06, with the Scottish
+library and Gemini `gemini-3.5-flash-lite`. The reviewed top-5,000 census selected
+4,969 concept reviews and 31 existing analysis leads. It required no embedding
+repair or reingestion.
+
+The test was stopped early after widespread rejection, with 76 provider calls:
+6 processed items, 7 valid no-supported-claim skips, and 63 dead letters.
+Of the failures, 60 were `provider mention does not match its exact evidence
+span`, 2 were relationship span/confidence failures, and 1 was a canonical
+alias conflict. Recorded test cost was $0.179673. The other 4,893 work items
+were cancelled without provider calls. This is an incomplete, failed test,
+not successful qualification of a 5,000-item batch.
+
+The durable output reservation was 4,096 tokens, and there were no invalid-JSON
+failures in these attempts. The earlier hidden 1,024-token cap therefore does
+not explain this result. The observed failure was at the exact byte-span check
+in `ragapplicationprovider`. A bounded diagnostic replay captured the mechanism:
+`Forbes` was assigned bytes 296–302, which contain `--Forb`, instead of 290–296;
+`Culloden` was assigned 339–347 instead of 359–367. This is not a uniform
+codepoint/byte-frame conversion error. The model returned incorrect positions.
+
+Providers now return `evidence_quote`. Level-G cREXX resolves exact text first,
+then full Unicode casefold, then casefold with ASCII whitespace runs collapsed.
+Every result maps to the original UTF-8 bytes. The whitespace pass was added
+from retained responses that replaced printed line breaks with spaces, including
+`Lord\nMacaulay`. Punctuation changes, ellipses, absent text, missing relationship
+endpoints and invalid types remain rejected. Repeats choose the first occurrence
+within the chunk; relationship endpoints resolve inside their support quotation.
+The response schema enumerates the allowed types and note kinds. Existing
+stored chunks, embeddings, configuration snapshots and source-ingest identity
+are not rewritten by this protocol repair.
+
+Rejected product JSON is bounded and credential-redacted before storage in the
+failed provider run's existing diagnostic field. Malformed or oversized content
+is omitted with a digest. Synthetic negative cases prove redaction and preserve
+strict graph/evidence rejection.
+
+This failure was already present in the initial load: 7,693 exact mention-span
+dead letters; 10,767 initial extraction dead letters overall, with 1,963 processed
+and 2,423 skipped items. Source/vector completeness was incorrectly reported as
+if it implied complete extraction. Repair/replay uses stored chunks, not document
+reingestion or embedding regeneration.
+
+Qualification: all 22 tests pass, including both interpreters and optimization
+modes for quotation grounding. One legacy diagnostic call and ten bounded
+repair calls on copies cost $0.028613 total. The ten repair calls included three
+completed items, three canonical-alias conflicts, and four rejected proposals
+while the quotation contract was being corrected. The final two calls passed
+quotation validation: one completed, one reached a canonical-alias conflict.
+This small result is not successful qualification of 5,000 items.
+
+## RAG-MNT-002 — cancellation after drain leaves a nonterminal job summary
+
+Status: repaired and locally qualified. After both workers drained and all
+reservations reached zero,
+`job cancel` cancelled the remaining 4,893 queued items but left the job at
+`cancel_requested`. `requestcancel` does not call `_refreshjob`, and an empty
+worker claim does not refresh it either. Consequently `vector rebuild`
+rejected the library as still having an active job.
+
+Operational closure used a recorded, guarded SQLite transaction to reconcile
+only this job's state, plus one audit event. It asserted zero active items,
+workers and reservations, and applied the existing `_refreshjob` precedence:
+`completed_with_errors` because dead letters exist. No item, attempt, evidence
+or embedding was changed by that reconciliation. The product now refreshes the
+job state inside the cancellation transaction and after expired-lease recovery.
+Regression coverage includes queued-only work, a drained paused job, an in-flight
+cancelled lease, and dead-letter precedence. No manual SQL reconciliation is
+needed for these cases.
+
+## RAG-REC-001 follow-up — interrupted maintenance also hides vector publication
+
+The short maintenance test published valid graph changes through generation
+4813. All 15,153 chunk links and all stored embedding BLOBs were preserved,
+but the current manifest advertised no vector sidecar until final publication.
+Draining a paused job made the controller refuse that final publication.
+Availability preservation therefore needs to cover interrupted incremental
+maintenance as well as explicit full-corpus replacement.
+
+After terminal status reconciliation, the public `vector rebuild` successfully
+published 15,153 rows at generation 4813 using SQLite only, with zero provider
+calls. `library verify` passed with zero storage and repository issues. The
+original source/revision/chunk and embedding tables are byte-identical to the
+fresh pre-test backup. The successful graph changes and complete test history
+remain in the live library; no backup rollback was performed.
+
+Evidence and complete operational record:
+`/Users/adrian/testrag/maintenance-5000-20260906/` and
+`/Users/adrian/testrag/transcripts/90-baseline-and-top-5000-maintenance.md`.
+
 ## Configuration preservation invariant
 
 User clarification, 2026-09-06: changing configuration does not invalidate the
@@ -102,3 +197,93 @@ vectors. Embedding model, dimension or input-encoding changes require a
 compatible embedding set when explicitly requested. They retain the old set
 and all other corpus data. An incompatible query embedding route is an
 unavailable retrieval channel, not an invalid database.
+
+The interrupted-maintenance follow-up is now locally repaired. All readers,
+manifest projection, reports, maintenance census and backup share an eligibility
+check for the newest ancestral index: both source-chunk and embedding-link
+membership must match the requested semantic generation exactly. The index keeps
+its original generation and checksum. Changed memberships and non-ancestor
+branches fail eligibility. This does not claim completion of the separate full
+corpus replacement workflow above. The final Scottish scratch copy verified at
+generation 4827 with zero storage or repository issues, retaining the complete
+15,153-row generation-4813 index. All ten source/embedding tables match the live
+generation-4813 library byte for byte; no schema migration was introduced.
+
+## RAG-MNT-003 — replay omitted the worker budget policy
+
+Status: repaired and locally qualified. The first scratch replay created items
+and job totals but no `budget-policy` event. Its worker rejected the item before
+any provider call. Replay now atomically records the current reviewed policy
+with the new job and rejects historical reservations that exceed that envelope.
+The durability test claims replay work, reserves a call, settles it and completes
+it, rather than checking lineage alone. The source job remains immutable.
+
+## RAG-MNT-004 — canonical identity conflicts still block some maintenance
+
+Status: repaired in the local candidate; final offline qualification is recorded
+below. Broad hosted maintenance remains unqualified. Three of ten repair-probe attempts reached
+`canonical alias conflict requires review`, including one of the final two
+calls after quotation validation succeeded. Existing canonical ownership remains
+protected. Do not merge identities or discard aliases merely to increase the
+success rate. Investigate catalogue-aware proposal production and the explicit
+review route before restarting broad maintenance. This is not evidence that
+source text or embedding storage needs rollback.
+
+Current evidence and closure note:
+`/Users/adrian/testrag/grounding-repair-20260906/` and
+`/Users/adrian/testrag/transcripts/91-quotation-grounding-and-maintenance-repair.md`.
+The live 5,000-item job remains terminal and no automation was resumed.
+
+Follow-up diagnosis on 6 September: captured candidate records include
+`Macleans` (organisation), already an alias of `Clan Maclean`, and `Macdonalds`
+(organisation), already an alias of `Clan Donald`. Other collisions cross
+types, including `Mackay` as organisation versus the existing person alias.
+The incident producer hashed the proposed canonical label without first
+resolving it through the catalogue. These cases require identity reuse or
+explicit contextual ambiguity, not indiscriminate merging. The replacement producer reuses a unique typed catalogue identity and records
+unresolved collisions as durable questions. Validated reuse/distinct answers
+retain aliases and ambiguity, then queue follow-up extraction. The local
+fixtures cover automatic and supervised resolution without weakening identity
+or quotation validation.
+
+## RAG-MNT-005 — resolution work stops at mandatory operator review
+
+Status: implemented in the local candidate; final offline qualification is
+recorded below. See [Durable autonomous maintenance](autonomous-maintenance.md).
+
+The previous route put conflicts and structural actions into `review-required`
+even when automatic operation was intended. It had no dedicated resolution
+worker or automatic split workflow for affected connections. The maintainer's intended
+operation is a bounded maintenance window (for example five hours nightly)
+that resolves routine issues and pursues opportunities automatically, resumes
+unfinished work, and escalates exceptions instead of every decision.
+
+The candidate adds typed resolution questions for the full task census,
+incremental split/merge connection work, runtime policy, deduplicated
+reconsideration, shared budgets, deadlines and settled-response recovery.
+Retirement is gated on a complete impact census; source records, vector BLOBs,
+claim/support history and moved note-link source spans are retained. The legacy
+`reviewed` mode remains the compatibility default; the new automatic and
+supervised modes are explicit runtime choices. No nightly automation was
+created or resumed. The historical 5,000-item live run remains unqualified.
+
+## Durable backlog local qualification — 6 September 2026
+
+RAG-MNT-004/005 are implemented and locally qualified in the working tree.
+All 24 tests pass, including both-VM connection workflows, cross-window settled
+response reuse at the paid-attempt cap, note-link source history, manual census,
+supervised follow-ups, and native Gemini valid/malformed/ungrounded cases.
+`git diff --check` passes. The candidate is not committed or installed.
+
+Native SHA-256:
+`39379f44ab8042699cbbf395f858bb6377000136ab6edd5140266114946bb262`.
+A fresh Scottish clone migrated to schema 10 at generation 4813. SQLite rebuilt
+its 15,153-row index with the original checksum and returned five passages in a
+stored-vector ANN query. All nine source/vector tables and sidecar identities
+match live; verification reports zero issues. No provider calls were needed.
+
+Evidence: `/Users/adrian/testrag/transcripts/94-durable-backlog-qualification.md`
+and `/Users/adrian/testrag/durable-backlog-20260906/full-test-final.log`.
+The live library and paused automation are unchanged. Broad hosted maintenance
+and the historical top-5,000 test remain unqualified; this local closure does
+not close the separate staged full-corpus replacement workflow in RAG-REC-001.

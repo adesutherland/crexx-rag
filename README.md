@@ -2,7 +2,7 @@
 
 `crexxrag` is a human-first cREXX application for building a local evidence
 library and typed knowledge graph from documents. SQLite is the durable source
-of truth. Embedding vectors are rebuildable sidecars; they never create claims.
+of truth. Embedding vectors are stored in SQLite; their rebuildable sidecar indexes never create claims.
 
 This repository now contains one product implementation. The former native
 C++ prototype and its compatibility/migration material have been removed; Git
@@ -150,7 +150,7 @@ token/minute, concurrent-request, initial/maximum-backoff and jitter controls.
 `config check` and `config explain` compute split semantic/operational
 identities without resolving credentials or making provider calls. A changed
 configuration is classified and applied only through an exact reviewed plan;
-semantic changes require a new ingestion generation.
+changes apply prospectively without reingesting unchanged source content.
 
 ## Source layout
 
