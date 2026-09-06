@@ -1236,23 +1236,21 @@ _hasobservation: procedure = .int
 _finalizecandidates: procedure = .int
   arg database = .binary, generation = .int, policy_version = .string, expose error = .string
   prepared = .binary
-  sql = "SELECT c.candidate_id,c.normalized_candidate FROM candidate_mentions c WHERE c.visible_from_generation=?1 AND NOT EXISTS(SELECT 1 FROM candidate_decisions d WHERE d.candidate_id=c.candidate_id) ORDER BY c.candidate_id"
+  sql = "WITH occurrence_stats AS (SELECT normalized_candidate,count(*) AS occurrences FROM candidate_mentions WHERE visible_from_generation<=?1 AND (visible_to_generation IS NULL OR visible_to_generation>?1) GROUP BY normalized_candidate),source_stats AS (SELECT c.normalized_candidate,count(DISTINCT r.source_id) AS source_diversity FROM candidate_mentions c JOIN revision_chunks k ON k.revision_chunk_id=c.revision_chunk_id JOIN source_revisions r ON r.revision_id=k.revision_id WHERE c.visible_from_generation<=?1 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?1) GROUP BY c.normalized_candidate) SELECT c.candidate_id,c.normalized_candidate,o.occurrences,s.source_diversity FROM candidate_mentions c JOIN occurrence_stats o ON o.normalized_candidate=c.normalized_candidate JOIN source_stats s ON s.normalized_candidate=c.normalized_candidate WHERE c.visible_from_generation=?1 AND NOT EXISTS(SELECT 1 FROM candidate_decisions d WHERE d.candidate_id=c.candidate_id) ORDER BY c.candidate_id"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare candidate adjudication"; return -1; end
-  ids = .string[]; labels = .string[]
+  ids = .string[]; labels = .string[]; occurrence_counts = .int[]; source_diversities = .int[]
   do forever
     status = sqlitestep(prepared)
     if status = 101 then leave
     if status \= 100 then do; call sqlitefinalize prepared; error = "cannot read candidate adjudication"; return -1; end
-    candidate_id = ""; label = ""
-    column_status = sqlitecolumntext(prepared, 0, candidate_id) | sqlitecolumntext(prepared, 1, label)
+    candidate_id = ""; label = ""; occurrences = 0; diversity = 0
+    column_status = sqlitecolumntext(prepared, 0, candidate_id) | sqlitecolumntext(prepared, 1, label) | sqlitecolumnint(prepared, 2, occurrences) | sqlitecolumnint(prepared, 3, diversity)
     if column_status \= 0 then do; call sqlitefinalize prepared; error = "cannot decode candidate adjudication"; return -1; end
-    ids[ids.0 + 1] = candidate_id; labels[labels.0 + 1] = label
+    ids[ids.0 + 1] = candidate_id; labels[labels.0 + 1] = label; occurrence_counts[occurrence_counts.0 + 1] = occurrences; source_diversities[source_diversities.0 + 1] = diversity
   end
   call sqlitefinalize prepared
   do i = 1 to ids.0
-    occurrences = _candidatecount(database, labels[i], generation, 0)
-    diversity = _candidatecount(database, labels[i], generation, 1)
-    if occurrences < 0 | diversity < 0 then do; error = "cannot calculate representative candidate evidence"; return -1; end
+    occurrences = occurrence_counts[i]; diversity = source_diversities[i]
     if occurrences >= 2 | diversity >= 2 then state = "accepted"
     else state = "review"
     evidence = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.candidate-evidence/1") || "," || jsonquote("normalized_candidate") || ":" || jsonquote(labels[i]) || "," || jsonquote("occurrences") || ":" || occurrences || "," || jsonquote("source_diversity") || ":" || diversity || "}"
@@ -1269,12 +1267,6 @@ _finalizecandidates: procedure = .int
     if bind_status \= 0 | step_status \= 101 then do; error = "cannot insert candidate decision"; return -1; end
   end
   return 0
-
-_candidatecount: procedure = .int
-  arg database = .binary, label = .string, generation = .int, distinct_sources = .int
-  if distinct_sources = 1 then sql = "SELECT count(DISTINCT r.source_id) FROM candidate_mentions c JOIN revision_chunks k ON k.revision_chunk_id=c.revision_chunk_id JOIN source_revisions r ON r.revision_id=k.revision_id WHERE c.normalized_candidate=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2)"
-  else sql = "SELECT count(*) FROM candidate_mentions c WHERE c.normalized_candidate=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2)"
-  return _boundcount2(database, sql, label, generation)
 
 _queuework: procedure = .int
   arg database = .binary, generation = .int, plan = .ragingestplan, discovery_context = .string, config = .ragconfig, profile = .ragprofile, configured = .int, expose items = .int, expose error = .string, all_visible = 0
