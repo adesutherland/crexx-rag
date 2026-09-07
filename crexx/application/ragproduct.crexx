@@ -1877,7 +1877,7 @@ _workerstart: procedure = .ragcommandresult
   if status \= 0 then return _failure(operation, 8, error)
   vector_generations = 0; vector_state = "not-requested"
   if job_filter \= "" then do
-    if _publishjobvectors(request.library(), job_filter, config_lookup.config(), vector_generations, vector_state, error) \= 0 then return _failure(operation, 8, error)
+    if _publishjobvectors(request.library(), job_filter, config_lookup.config(), vector_generations, vector_state, error, maximum_polls > 0) \= 0 then return _failure(operation, 8, error)
     if vector_state \= "not-applicable" then call tracer.emit("vector", vector_state, job_filter, "generations=" || vector_generations)
   end
   call tracer.emit("controller", "complete", started.controller_id(), "workers=" || started.completed())
@@ -2122,18 +2122,23 @@ _ingestapply: procedure = .ragcommandresult
   return .ragcommandresult(operation, "ok", 0, "reviewed ingest plan applied and durable work queued", records)
 
 _publishjobvectors: procedure = .int
-  arg library = .string, job_id = .string, config = .ragconfig, expose generation_count = .int, expose state = .string, expose error = .string
+  arg library = .string, job_id = .string, config = .ragconfig, expose generation_count = .int, expose state = .string, expose error = .string, bounded = 0
   generation_count = 0; state = "not-applicable"; error = ""
   store = .ragstorehandle
   if openragstore(library, "readwrite", store, error) \= 0 then return -1
-  if _jobcomplete(store.database(), job_id, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return -1; end
+  completion = _jobcomplete(store.database(), job_id, error, bounded)
+  if completion = 1 then do
+    state = "pending-work"
+    return closeragstore(store,error)
+  end
+  if completion \= 0 then do; ignored = ""; call closeragstore store, ignored; return -1; end
   if _publishconfiguredvector(store, config, generation_count, state, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return -1; end
   close_error = ""
   if closeragstore(store, close_error) \= 0 then do; error = close_error; return -1; end
   return 0
 
 _jobcomplete: procedure = .int
-  arg database = .binary, job_id = .string, expose error = .string
+  arg database = .binary, job_id = .string, expose error = .string, bounded = 0
   error = ""; prepared = .binary
   if sqliteprepare(database, "SELECT state FROM jobs WHERE job_id=?1", prepared) \= 0 | sqlitebindtext(prepared, 1, job_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare completed job lookup for vector publication"; return -1; end
   step = sqlitestep(prepared)
@@ -2141,6 +2146,7 @@ _jobcomplete: procedure = .int
   job_state = ""; column_status = sqlitecolumntext(prepared, 0, job_state); call sqlitefinalize prepared
   if column_status \= 0 then do; error = "cannot decode completed job state for vector publication"; return -1; end
   if _scalarint(database, "SELECT count(*) FROM job_items WHERE job_id=" || _sqlquote(job_id) || " AND state IN('running','cancel_requested')") > 0 then do; error = "vector publication is waiting for in-flight work to settle"; return -1; end
+  if bounded = 1 & (job_state = "queued" | job_state = "running") then return 1
   if job_state \= "completed" & job_state \= "completed_with_errors" & job_state \= "cancelled" & job_state \= "paused" then do; error = "worker group ended before vector publication because job state is " || job_state; return -1; end
   return 0
 

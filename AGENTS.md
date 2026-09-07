@@ -15,6 +15,27 @@ SQLite is authoritative. Vector sidecars are rebuildable. Every typed claim is
 directional and backed by an independently addressable source span. Provider
 output is untrusted until normal cREXX validation succeeds.
 
+## Architecture and bounded changes
+
+Prioritise architecture, small changes, common reusable components, and careful
+dependency and compatibility review. Identify the owning component and its
+existing public controls before editing. Do not bundle unrelated refactoring,
+new frameworks, schema changes or reporting systems into a small request.
+
+When asked for a standalone cREXX wrapper, deliver a standalone script that
+composes existing commands. Leave product implementation bodies, contracts,
+build files and tests unchanged. Use wrapper arguments for time, spend and batch
+size; do not repurpose global job budgets or change persisted configuration.
+If an existing command cannot support the request, explain that specific gap
+before proposing a separate product change. Do not tighten approximate limits
+into new deadline or reservation machinery: item-count batches, approximate
+five-minute checks and modest spend overshoot are acceptable for this workflow.
+
+Keep product orchestration in cREXX. Do not introduce JavaScript, Python, shell
+or complex CMake orchestration. Runtime settings belong in configuration or
+arguments, with worker counts taken from configuration. Validate the requested
+use case without expanding implementation scope to suit the tests.
+
 ## Required reading
 
 Before product work, read:

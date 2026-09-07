@@ -243,6 +243,19 @@ int main(int argc, char** argv)
                         : scenario == "product-backlog-rejected"
                         ? R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"synthetic-product-gemini-key","evidence":[{"evidence_id":"fixture-note-link","quote":"An unsupported invented quotation."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":""})"
                         : R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The independently quoted passage answers the note.","evidence":[{"evidence_id":"fixture-note-link","quote":"billingservice depends on customerdatabase."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":""})";
+                    if (scenario.rfind("product-backlog-correction", 0) == 0) {
+                        const bool correcting = request.find("Citation correction (one attempt)") != std::string::npos;
+                        if (request.find("Never insert ellipses") == std::string::npos
+                            || request.find("Selected source spans") == std::string::npos
+                            || (correcting && (request.find("selected connection") == std::string::npos
+                                || request.find("Unsupported original quotation.") == std::string::npos
+                                || request.find("\"role\":\"model\"") == std::string::npos))) return 6;
+                        if (!correcting || scenario == "product-backlog-correction-failed") {
+                            const std::string original = "billingservice depends on customerdatabase.";
+                            resolution.replace(resolution.find(original), original.size(),
+                                correcting ? "Unsupported correction quotation." : "Unsupported original quotation.");
+                        }
+                    }
                     if (scenario == "product-concurrent") {
                         const std::string marker = "\\\"evidence_id\\\":\\\"";
                         const auto position = request.find(marker);

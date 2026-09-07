@@ -1,0 +1,60 @@
+options levelg
+import rxfnsb
+import rxjson
+
+/* Run beside crexxrag.conf and library. Compile with crexx --noexec.
+   One plan; configured workers; at most batch calls between time checks.
+   The job's configured budgets cover the whole run, including corrections.
+   Change minutes or batch and recompile. The final batch may overrun. */
+main: procedure = .int
+  minutes = 30; batch = 100
+  call time "R"
+  config = run("config explain")
+  workers = field(config,"worker_processes") as .int
+  polls = (batch / workers) as .int
+  if polls < 1 then return 2
+  plan = run("--access plan maintain plan")
+  applied = run("--access curate maintain apply --plan-json " || quoted(field(plan,"canonical_plan")) || " --expect-digest " || quoted(field(plan,"digest")))
+  job = quoted(field(applied,"job_id"))
+  say "Maintenance job:" field(applied,"job_id")
+  do forever
+    result = run("--access control worker start --max-polls " || polls || " --job " || job)
+    elapsed = time("E") as .float
+    say "Maintenance elapsed seconds:" elapsed
+    if field(result,"vector_state") \= "pending-work" then leave
+    if elapsed >= minutes * 60 then do
+      result = run("--access control job pause " || job)
+      result = run("--access control worker start --max-polls 1 --job " || job)
+      leave
+    end
+  end
+  return 0
+
+run: procedure = .jsondocument
+  arg command = .string
+  lines = .string[]
+  address SYSTEM ("crexxrag --format json " || command) output lines
+  status = rc
+  if status \= 0 then do
+    do i = 1 to lines.0; say lines[i]; end
+    exit status
+  end
+  return .jsondocument(lines[1])
+
+field: procedure = .string
+  arg document = .jsondocument, name = .string
+  records = document.member(document.root(),"records"); value = ""
+  do i = 1 to document.node_count(records)
+    fields = document.member(document.element(records,i),"fields")
+    node = document.member(fields,name)
+    if document.node_type(node) = "integer" | document.node_type(node) = "number" then do
+      number = 0; ignored = document.node_int(node,number); return number || ""
+    end
+    if document.node_string(node,value) = 0 then return value
+  end
+  say "Maintenance response omitted" name
+  exit 10
+
+quoted: procedure = .string
+  arg value = .string
+  return "'" || changestr("'",value,"2722272227"x) || "'"

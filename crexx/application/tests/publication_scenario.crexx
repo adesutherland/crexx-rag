@@ -90,6 +90,39 @@ accountingcase: procedure = .int
   end
   return configurejobbudget(store,"job-" || tag,10000,128,64,100,5000,2,3,error)
 
+citationrecoverycase: procedure = .int
+  arg store = .ragstorehandle, path = .string
+  errors = 0; error = ""; database = store.database()
+  errors = errors + check(accountingcase(store,"citation",2) = 0,"citation accounting fixture")
+  first = .ragworkclaim; reservation = .ragcallreservation; run_id = ""
+  errors = errors + check(claimnext(store,"job-citation","citation-first",60,1,first,error) = 0,"claim initial citation")
+  errors = errors + check(reservecall(store,first,128,64,100,5000,reservation,error) = 0,"reserve initial citation")
+  errors = errors + check(beginproviderrequest(store,first,"citation-original",error) = 0,"persist initial citation intent")
+  errors = errors + check(recordproviderresponse(store,first,'{"status":0,"content":"unsupported original"}',error) = 0,"persist original response")
+  errors = errors + check(settlecall(store,reservation,"fixture","fixture","citation-original","failed",20,10,40,12,run_id,error) = 0,"settle initial failed citation")
+  errors = errors + check(failattempt(store,first,0,1,1,"citation invalid",error,"citation invalid") = 0,"one correction despite ordinary attempt limit one")
+  /* Reopen the store: correction context and limit must not live in a VM. */
+  reopened = .ragstorehandle
+  errors = errors + check(openragstore(path,"readwrite",reopened,error) = 0,"reopen correction store")
+  second = .ragworkclaim; previous = ""; feedback = ""; body = ""; original = ""
+  errors = errors + check(claimnext(reopened,"job-citation","citation-correction",60,1,second,error) = 0 & second.item_id() = first.item_id(),"correction has immediate priority")
+  errors = errors + check(citationcorrectioncontext(reopened,second,previous,feedback) = 1 & previous = "unsupported original" & feedback = "citation invalid","durable original response and challenge")
+  errors = errors + check(recoverproviderresponse(reopened,second,body,original,error) = 0 & body = "","original receipt is not mistaken for corrected output")
+  errors = errors + check(reservecall(reopened,second,128,64,100,5000,reservation,error) = 0,"correction owns second reservation")
+  errors = errors + check(beginproviderrequest(reopened,second,"citation-corrected",error) = 0,"persist correction intent")
+  errors = errors + check(recordproviderresponse(reopened,second,'{"status":0,"content":"still unsupported"}',error) = 0,"persist corrected response")
+  errors = errors + check(settlecall(reopened,reservation,"fixture","fixture","citation-corrected","failed",20,10,40,12,run_id,error) = 0,"settle second counted call")
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET lease_until=unixepoch()-1 WHERE item_id='" || second.item_id() || "'") = 0,"interrupt after correction receipt")
+  recovered = .ragworkclaim
+  errors = errors + check(claimnext(reopened,"job-citation","citation-recovery",60,1,recovered,error) = 0 & recovered.item_id() = first.item_id(),"recover correction after lease expiry")
+  errors = errors + check(recoverproviderresponse(reopened,recovered,body,original,error) = 1 & original = second.attempt_id() & pos("still unsupported",body) > 0,"reuse corrected receipt without third call")
+  errors = errors + check(failattempt(reopened,recovered,1,0,10,"still invalid",error,"still invalid") = 0,"failed correction is terminal even with transport retries enabled")
+  errors = errors + check(scalar(database,"SELECT count(*) FROM job_events WHERE item_id='" || first.item_id() || "' AND event_type='citation-correction-requested'") = 1,"only one durable challenge")
+  errors = errors + check(scalar(database,"SELECT count(*) FROM provider_runs WHERE request_hash IN(SELECT request_hash FROM provider_runs WHERE provider_run_id IN(SELECT provider_run_id FROM attempts WHERE item_id='" || first.item_id() || "'))") = 2,"exactly two separately counted calls")
+  errors = errors + check(scalar(database,"SELECT count(*) FROM job_items WHERE item_id='" || first.item_id() || "' AND state='dead_letter'") = 1,"no automatic third correction")
+  ignored = closeragstore(reopened,error)
+  return errors
+
 legacyfoldercase: procedure = .int
   arg path = .string
   store = .ragstorehandle; error = ""; errors = 0
@@ -238,6 +271,7 @@ main: procedure = .int
   retry_provider = .retryprovider()
   status = runworkeronce(store,"job-retry","retry-worker",60,3,policy,retry_provider,disposition,error,genericprofile())
   errors = errors + check(status = 0 & scalar(database,"SELECT count(*) FROM job_items WHERE item_id='item-retry1' AND state='queued' AND retry_at-unixepoch() BETWEEN 1 AND 2") = 1,"2000 ms retry becomes two seconds, not remainder " || error)
+  errors = errors + citationrecoverycase(store,args[1])
   errors = errors + check(closeragstore(store,error) = 0,"close fixture")
   errors = errors + legacyfoldercase(args[1] || "-legacy-folder")
   if errors > 0 then return 1

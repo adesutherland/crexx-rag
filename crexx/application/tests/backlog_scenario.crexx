@@ -48,6 +48,30 @@ fixtureprovider: class implements .ragworkprovider
     call result.resolution(_response,genericprofile())
     return result
 
+/* Invoke the second worker while the first owns the final call reservation.
+ * This forces the admission race without depending on timing or sleeps. */
+budgetpeerprovider: class implements .ragworkprovider
+  _store = .ragstorehandle
+  _peer_status = .int
+  _peer_disposition = .string
+  _peer_error = .string
+  *: factory
+    arg store = .ragstorehandle
+    _store = store; _peer_status = -99
+    return
+  peer_status: method = .int
+    return _peer_status
+  peer_disposition: method = .string
+    return _peer_disposition
+  peer_error: method = .string
+    return _peer_error
+  process: method = .ragworkproviderresult
+    arg claim = .ragworkclaim
+    peer = .fixtureprovider(responsejson("unresolved"))
+    policy = .ragclaimpolicy("fixture-v1","concept|source-artifact|evidence-span","related-to|mentioned-in|mentions",1000000,750000,500000,-1000000,250000)
+    _peer_status = runworkeronce(_store,claim.job_id(),"budget-peer",60,1,policy,peer,_peer_disposition,_peer_error,genericprofile())
+    return peer.process(claim)
+
 staleprovider: class implements .ragworkprovider
   _database = .binary
   _response = .string
@@ -421,6 +445,31 @@ main: procedure = .int
   errors = errors + check(runresolution(store,job_id,gap_task,responsejson("unresolved"),error) = 0 & scalartext(database,"SELECT state FROM query_gaps WHERE gap_id='gap-missing'") = "open" & scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || gap_task || "'") = "unresolved","missing source evidence stays explicitly unresolved " || error)
   errors = errors + check(pausejob(store,job_id,error) = 0 & tickbacklogwindow(store,job_id,error) >= 0,"close query-gap test window")
   errors = errors + check(scalartext(database,"SELECT text FROM chunk_contents WHERE content_id='content-lifecycle'") = "Platform Peer" & scalartext(database,"SELECT hex(vector) FROM embeddings WHERE embedding_id='fixture-vector'") = "0000803F" & scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"query-gap maintenance preserves source and vector state")
+  /* Budget completion is a successful boundary, with uncalled tasks retained
+   * for the next window and no failed attempt manufactured by the loser. */
+  bounded_policy = changestr('"maximum_attempts":3',changestr('"model_calls":100',changestr('"inflight":1',policy_json,'"inflight":2'),'"model_calls":1'),'"maximum_attempts":1')
+  budget_first = ""; budget_peer = ""
+  errors = errors + check(enqueuebacklogtask(database,"budget-first","concept","concept-survivor","","",1000000,policy,budget_first,error) = 0 & enqueuebacklogtask(database,"budget-peer","concept","concept-survivor","","",1000000,policy,budget_peer,error) = 0 & nextwindow(store,bounded_policy,job_id,error) = 0,"start final-call race fixture " || error)
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=1000002 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || budget_first || "'); UPDATE job_items SET priority=1000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || budget_peer || "')") = 0,"select budget race claims")
+  peer_provider = .budgetpeerprovider(store)
+  previous = scalarint(database,"SELECT count(*) FROM provider_runs")
+  errors = errors + check(runworkeronce(store,job_id,"budget-owner",60,1,claim_policy,peer_provider,disposition,error,genericprofile()) = 0,"finish admitted final call " || error)
+  errors = errors + check(peer_provider.peer_status() = 1 & peer_provider.peer_disposition() = "budget-deferred" & peer_provider.peer_error() = "","peer waits cleanly at reserved call limit " || peer_provider.peer_error())
+  errors = errors + check(runworkeronce(store,job_id,"budget-owner",60,1,claim_policy,provider,disposition,error,genericprofile()) = 1 & scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || job_id || "'") = "budget-exhausted","worker stops normally after final settlement " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM provider_runs") = previous+1 & scalarint(database,"SELECT count(*) FROM attempts a JOIN job_items i USING(item_id) WHERE i.job_id='" || job_id || "' AND a.outcome IN('failed','dead_letter')") = 0,"one paid call and no budget failure")
+  errors = errors + check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || budget_peer || "'") = "pending" & scalarint(database,"SELECT count(*) FROM attempts a JOIN maintenance_task_items m USING(item_id) WHERE m.task_id='" || budget_peer || "' AND a.provider_run_id IS NOT NULL") = 0 & scalarint(database,"SELECT reserved_calls+reserved_tokens+reserved_cost FROM jobs WHERE job_id='" || job_id || "'") = 0,"uncalled peer keeps its full retry allowance and reservations are drained")
+  errors = errors + check(nextwindow(store,bounded_policy,job_id,error) = 0 & runresolution(store,job_id,budget_peer,responsejson("unresolved"),error) = 0 & scalarint(database,"SELECT count(*) FROM provider_runs") = previous+2,"next plan resumes uncalled work " || error)
+  errors = errors + check(tickbacklogwindow(store,job_id,error) >= 0 & scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"final-call fixture integrity")
+  /* Closing the window after claims were taken must still let admitted work
+   * settle, while the uncalled claim returns to the backlog without error. */
+  errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0 & claimnext(store,job_id,"deadline-owner",60,1,claim,error) = 0 & claimnext(store,job_id,"deadline-peer",60,1,recovery_claim,error) = 0,"claim deadline race peers")
+  errors = errors + check(reservecall(store,claim,100001,10000,0,1000,reservation,error) < 0 & error = "provider call exceeds the per-call cap","invalid reservation remains an error")
+  errors = errors + check(reservecall(store,claim,100000,10000,0,1000,reservation,error) = 0,"reserve before window close")
+  duplicate = .ragcallreservation
+  errors = errors + check(reservecall(store,claim,100000,10000,0,1000,duplicate,error) < 0 & scalartext(database,"SELECT outcome FROM attempts WHERE attempt_id='" || claim.attempt_id() || "'") = "running","duplicate reservation cannot defer an admitted call")
+  errors = errors + check(sqliteexec(database,"UPDATE maintenance_windows SET deadline_epoch=unixepoch() WHERE job_id='" || job_id || "'") = 0 & tickbacklogwindow(store,job_id,error) = 1 & reservecall(store,recovery_claim,100000,10000,0,1000,duplicate,error) = 1 & error = "","closed window defers its uncalled claim cleanly")
+  errors = errors + check(settlecall(store,reservation,"fixture","fixture","deadline-final-call","succeeded",10,10,0,1,settled_run,error) = 0 & skipitem(store,claim,"fixture settled admitted call",error) = 0,"finish call admitted before deadline " || error)
+  errors = errors + check(scalartext(database,"SELECT state FROM jobs WHERE job_id='" || job_id || "'") = "completed" & scalarint(database,"SELECT count(*) FROM maintenance_tasks t JOIN maintenance_task_items m USING(task_id) WHERE m.item_id='" || recovery_claim.item_id() || "' AND t.state='pending'") = 1,"deadline completes job and preserves uncalled task")
   call closeragstore store,error
   if errors > 0 then return 1
   say "DURABLE_BACKLOG_OK deduplicated split_fanout fenced_decisions resume uncertainty source_preservation"

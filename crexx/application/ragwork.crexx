@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragwork expose beginproviderrequest recordproviderresponse recoverproviderresponse ragworkclaim ragcallreservation ragworkembedding ragworkmention ragworkproposal ragworknote ragworkproviderresult ragexternalrecovery ragworkprovider claimnext heartbeat configurejobbudget reservecall admitprovidercall releaseprovidercall beginexternalrun updateexternalrunusage updateexternalrunturn updateexternalrunallowance completeexternalrun recoverexternalrun settlecall failattempt skipitem requestcancel acknowledgecancel pausejob resumejob drainjob retrydeadletter replaydeadletters readjobstatus runworkeronce runworkerfollow
+namespace ragwork expose beginproviderrequest recordproviderresponse recoverproviderresponse citationcorrectioncontext ragworkclaim ragcallreservation ragworkembedding ragworkmention ragworkproposal ragworknote ragworkproviderresult ragexternalrecovery ragworkprovider claimnext heartbeat configurejobbudget reservecall admitprovidercall releaseprovidercall beginexternalrun updateexternalrunusage updateexternalrunturn updateexternalrunallowance completeexternalrun recoverexternalrun settlecall failattempt skipitem requestcancel acknowledgecancel pausejob resumejob drainjob retrydeadletter replaydeadletters readjobstatus runworkeronce runworkerfollow
 
 import rxfnsb
 import rxjson
@@ -248,6 +248,7 @@ ragworkproviderresult: class
   _retry_delay_ms = .int
   _provider_called = .int
   _diagnostic_json = .string
+  _citation_failure = .string
   _resolution_json = .string
   _resolution_profile = .ragprofile
   _proposal = .ragextractionproposal
@@ -306,6 +307,12 @@ ragworkproviderresult: class
   add_wait_ms: method = .void
     arg wait_ms = .int
     if wait_ms > 0 then _duration_ms = _duration_ms + wait_ms
+    return
+  citation_failure: method = .string
+    return _citation_failure
+  set_citation_failure: method = .void
+    arg value = .string
+    _citation_failure = value
     return
   diagnostic_json: method = .string
     return _diagnostic_json
@@ -403,7 +410,7 @@ claimnext: procedure = .int
     /* Expired attempts are closed before their items become eligible again. */
     sql = "UPDATE attempts SET outcome='expired',validation_state='lease-expired',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE outcome='running' AND EXISTS(SELECT 1 FROM job_items i WHERE i.item_id=attempts.item_id AND i.fence=attempts.fence AND i.lease_until<=CAST(strftime('%s','now') AS INTEGER))"
     if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot expire stale attempts", error)
-    sql = "UPDATE job_items SET state=CASE WHEN EXISTS(SELECT 1 FROM job_events e WHERE e.item_id=job_items.item_id AND e.event_type='provider-outcome-uncertain' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')) THEN 'dead_letter' WHEN (SELECT count(*) FROM attempts a WHERE a.item_id=job_items.item_id)>=" || maximum_attempts || " AND NOT EXISTS(SELECT 1 FROM job_events e WHERE e.item_id=job_items.item_id AND e.event_type='provider-response') THEN 'dead_letter' ELSE 'queued' END,worker_id=NULL,lease_until=NULL,retry_at=CAST(strftime('%s','now') AS INTEGER),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='running' AND lease_until<=CAST(strftime('%s','now') AS INTEGER)"
+    sql = "UPDATE job_items SET state=CASE WHEN EXISTS(SELECT 1 FROM job_events e WHERE e.item_id=job_items.item_id AND e.event_type='provider-outcome-uncertain' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')) THEN 'dead_letter' WHEN (SELECT count(*) FROM attempts a WHERE a.item_id=job_items.item_id AND a.outcome<>'cancelled')>=" || maximum_attempts || " AND NOT EXISTS(SELECT 1 FROM job_events e WHERE e.item_id=job_items.item_id AND e.event_type='provider-response') THEN 'dead_letter' ELSE 'queued' END,worker_id=NULL,lease_until=NULL,retry_at=CAST(strftime('%s','now') AS INTEGER),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='running' AND lease_until<=CAST(strftime('%s','now') AS INTEGER)"
     if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot recover expired items", error)
     sql = "UPDATE job_items SET state='cancelled',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='cancel_requested' AND lease_until<=CAST(strftime('%s','now') AS INTEGER)"
     if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot recover cancelled items", error)
@@ -495,14 +502,18 @@ configurejobbudget: procedure = .int
   if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit budget policy", error)
   return 0
 
+/* Returns 1 when an uncalled maintenance claim was deferred at an ordinary
+ * admission limit; malformed policy, stale fences and storage failures stay negative. */
 reservecall: procedure = .int
   arg store = .ragstorehandle, claim = .ragworkclaim, maximum_input_tokens = .int, maximum_output_tokens = .int, maximum_cost = .int, maximum_time_ms = .int, expose reservation = .ragcallreservation, expose error = .string
   error = ""; reservation = .ragcallreservation(-1, "", claim.job_id(), claim.item_id(), claim.attempt_id(), claim.worker_id(), claim.fence(), maximum_input_tokens, maximum_output_tokens, maximum_cost, maximum_time_ms, 0)
   if store.writable() \= 1 | claim.claimed() \= 1 | maximum_input_tokens < 0 | maximum_output_tokens < 0 | maximum_cost < 0 | maximum_time_ms < 1 then do; error = "provider reservation inputs are invalid"; return -1; end
   database = store.database()
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider reservation"; return -3; end
-  if _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND (state<>'active' OR (deadline_epoch-unixepoch())*1000<" || maximum_time_ms || ")",claim.job_id()) > 0 then return _rollback(database,"maintenance window no longer admits provider calls",error)
   if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)
+  reservation_id = claim.attempt_id() || "#call-1"
+  if _boundeventcount(database, claim.job_id(), "reservation-open:" || reservation_id) > 0 then return _rollback(database, "provider call is already reserved", error)
+  if _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND (state<>'active' OR (deadline_epoch-unixepoch())*1000<" || maximum_time_ms || ")",claim.job_id()) > 0 then return _defermaintenancecall(database,claim,"maintenance window no longer admits provider calls",error)
   if _boundcount(database,"SELECT count(*) FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id JOIN job_items i ON i.item_id=a.item_id WHERE e.job_id=?1 AND e.event_type='provider-intent' AND (a.outcome='expired' OR i.lease_until<=unixepoch()) AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')",claim.job_id()) > 0 then return _rollback(database,"provider outcome uncertain; reconcile the original intent before admitting further calls",error)
   policy_json = _boundevent(database, claim.job_id(), "budget-policy")
   if policy_json = "" then return _rollback(database, "job has no immutable provider budget policy", error)
@@ -537,23 +548,21 @@ reservecall: procedure = .int
     codex_budget = _boundscalarint(database, "SELECT codex_turn_budget FROM jobs WHERE job_id=?1", claim.job_id())
     actual_codex = _boundcount(database, "SELECT count(DISTINCT p.provider_run_id) FROM provider_runs p JOIN attempts a ON a.provider_run_id=p.provider_run_id JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1 AND p.charging_basis='subscription-allowance'", claim.job_id())
     reserved_codex = _boundscalarint(database,"SELECT coalesce(sum(CAST(json_extract(e.message,'$.codex_turn') AS INTEGER)),0) FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id WHERE e.job_id=?1 AND e.event_type LIKE 'reservation-open:%' AND a.provider_run_id IS NULL AND NOT EXISTS(SELECT 1 FROM job_events c WHERE c.job_id=e.job_id AND c.event_type='reservation-close:'||json_extract(e.message,'$.reservation_id'))",claim.job_id())
-    if codex_budget < 1 | actual_codex + reserved_codex + 1 > codex_budget then return _rollback(database, "Codex turn budget exhausted", error)
+    if codex_budget < 1 | actual_codex + reserved_codex + 1 > codex_budget then return _defermaintenancecall(database, claim, "Codex turn budget exhausted", error)
   end
   admitted_input = maximum_input_tokens; admitted_output = maximum_output_tokens
   admitted_cost = maximum_cost; admitted_time = maximum_time_ms
   if recovery_call = 1 then do
     admitted_input = 0; admitted_output = 0; admitted_cost = 0; admitted_time = 0
   end
-  if values[6] >= inflight_ceiling then return _rollback(database, "provider in-flight ceiling reached", error)
+  if values[6] >= inflight_ceiling then return _defermaintenancecall(database, claim, "provider in-flight ceiling reached", error)
   call_increment = 1; if recovery_call = 1 then call_increment = 0
   pending_calls = _boundcount(database,"SELECT count(*) FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id WHERE e.job_id=?1 AND e.event_type LIKE 'reservation-open:%' AND a.provider_run_id IS NULL AND NOT EXISTS(SELECT 1 FROM job_events c WHERE c.job_id=e.job_id AND c.event_type='reservation-close:'||json_extract(e.message,'$.reservation_id'))",claim.job_id())
-  if values[5] + pending_calls + call_increment > values[1] then return _rollback(database, "provider call budget exhausted", error)
-  if actual_input + reserved_input + admitted_input > values[2] then return _rollback(database, "provider input-token budget exhausted", error)
-  if actual_output + reserved_output + admitted_output > values[3] then return _rollback(database, "provider output-token budget exhausted", error)
-  if actual_cost + reserved_cost + admitted_cost > values[4] then return _rollback(database, "provider cost budget exhausted", error)
-  if actual_time + reserved_time + admitted_time > time_budget then return _rollback(database, "provider time budget exhausted", error)
-  reservation_id = claim.attempt_id() || "#call-1"
-  if _boundeventcount(database, claim.job_id(), "reservation-open:" || reservation_id) > 0 then return _rollback(database, "provider call is already reserved", error)
+  if values[5] + pending_calls + call_increment > values[1] then return _defermaintenancecall(database, claim, "provider call budget exhausted", error)
+  if actual_input + reserved_input + admitted_input > values[2] then return _defermaintenancecall(database, claim, "provider input-token budget exhausted", error)
+  if actual_output + reserved_output + admitted_output > values[3] then return _defermaintenancecall(database, claim, "provider output-token budget exhausted", error)
+  if actual_cost + reserved_cost + admitted_cost > values[4] then return _defermaintenancecall(database, claim, "provider cost budget exhausted", error)
+  if actual_time + reserved_time + admitted_time > time_budget then return _defermaintenancecall(database, claim, "provider time budget exhausted", error)
   message = "{" || jsonquote("reservation_id") || ":" || jsonquote(reservation_id) || "," || jsonquote("input") || ":" || admitted_input || "," || jsonquote("output") || ":" || admitted_output || "," || jsonquote("cost") || ":" || admitted_cost || "," || jsonquote("time") || ":" || admitted_time || "," || jsonquote("codex_turn") || ":" || codex_turn || "}"
   if _event(database, claim.job_id(), claim.item_id(), claim.attempt_id(), "reservation-open:" || reservation_id, message) \= 0 then return _rollback(database, "cannot record provider reservation", error)
   sql = "UPDATE jobs SET reserved_calls=reserved_calls+1,reserved_tokens=reserved_tokens+" || (admitted_input + admitted_output) || ",reserved_cost=reserved_cost+" || admitted_cost || ",reserved_codex_turns=reserved_codex_turns+" || codex_turn || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(claim.job_id())
@@ -561,6 +570,25 @@ reservecall: procedure = .int
   if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit provider reservation", error)
   reservation = .ragcallreservation(0, reservation_id, claim.job_id(), claim.item_id(), claim.attempt_id(), claim.worker_id(), claim.fence(), maximum_input_tokens, maximum_output_tokens, maximum_cost, maximum_time_ms, codex_turn, admitted_input, admitted_output, admitted_cost, admitted_time)
   return 0
+
+/* Called inside the reservation transaction, after validating the fence.
+ * Reservations held by peers may release unused capacity, so leave active
+ * windows queued for their next checkpoint. A closed window retains the task
+ * for a fresh plan. Neither case consumes a failed or paid attempt. */
+_defermaintenancecall: procedure = .int
+  arg database = .binary, claim = .ragworkclaim, reason = .string, expose error = .string
+  window_state = _boundscalartext(database,"SELECT state FROM maintenance_windows WHERE job_id=?1",claim.job_id())
+  if window_state = "" then return _rollback(database,reason,error)
+  next_state = "queued"; if window_state \= "active" then next_state = "cancelled"
+  if sqliteexec(database,"UPDATE attempts SET outcome='cancelled',validation_state='provider-deferred',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE attempt_id=" || _q(claim.attempt_id()) || " AND outcome='running'") \= 0 | _scalarint(database,"SELECT changes()") \= 1 then return _rollback(database,"cannot defer uncalled attempt",error)
+  if sqliteexec(database,"UPDATE job_items SET state=" || _q(next_state) || ",worker_id=NULL,lease_until=NULL,retry_at=unixepoch()+1,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=" || _q(claim.item_id()) || " AND fence=" || claim.fence() || " AND state='running'") \= 0 | _scalarint(database,"SELECT changes()") \= 1 then return _rollback(database,"cannot retain uncalled item",error)
+  if next_state = "cancelled" then do
+    if sqliteexec(database,"UPDATE maintenance_tasks SET state='pending',updated_epoch=unixepoch() WHERE state='dispatched' AND task_id IN(SELECT task_id FROM maintenance_task_items WHERE item_id=" || _q(claim.item_id()) || ")") \= 0 then return _rollback(database,"cannot retain uncalled maintenance task",error)
+  end
+  if _event(database,claim.job_id(),claim.item_id(),claim.attempt_id(),"provider-deferred",reason) \= 0 | _refreshjob(database,claim.job_id()) \= 0 then return _rollback(database,"cannot checkpoint deferred provider call",error)
+  if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot commit deferred provider call",error)
+  error = ""
+  return 1
 
 /* The event ledger retains the original provider envelope before application
  * validation. Intent without a response is uncertain, never an automatic retry. */
@@ -595,7 +623,7 @@ recoverproviderresponse: procedure = .int
   arg store = .ragstorehandle, claim = .ragworkclaim, expose body = .string, expose original_attempt = .string, expose error = .string
   body = ""; original_attempt = ""; error = ""
   database = store.database()
-  sql = "SELECT json_object('attempt',e.attempt_id,'input_hash',json_extract(e.message,'$.input_hash'),'config_snapshot_id',json_extract(e.message,'$.config_snapshot_id'),'body',coalesce((SELECT r.message FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response'),''),'settled',a.provider_run_id IS NOT NULL) FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id WHERE e.job_id=?1 AND e.item_id=" || _q(claim.item_id()) || " AND e.event_type='provider-intent' ORDER BY e.event_id DESC LIMIT 1"
+  sql = "SELECT json_object('attempt',e.attempt_id,'input_hash',json_extract(e.message,'$.input_hash'),'config_snapshot_id',json_extract(e.message,'$.config_snapshot_id'),'body',coalesce((SELECT r.message FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response'),''),'settled',a.provider_run_id IS NOT NULL) FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id WHERE e.job_id=?1 AND e.item_id=" || _q(claim.item_id()) || " AND e.event_type='provider-intent' AND e.event_id>coalesce((SELECT max(c.event_id) FROM job_events c WHERE c.item_id=e.item_id AND c.event_type='citation-correction-requested'),0) ORDER BY e.event_id DESC LIMIT 1"
   found = _boundscalartext(database,sql,claim.job_id())
   if found = "" then return 0
   document = .jsondocument(found); input_hash = ""; receipt_snapshot = ""; settled = 0
@@ -611,6 +639,17 @@ recoverproviderresponse: procedure = .int
   /* A fully accounted transport failure permits the configured retry. A
    * successful envelope is reused even when later product validation failed. */
   if response_status \= 0 & settled = 1 then do; body = ""; original_attempt = ""; return 0; end
+  return 1
+
+/* The original receipt remains immutable. A correction is a new fenced
+ * attempt, with a new reservation, intent, response and accounted call. */
+citationcorrectioncontext: procedure = .int
+  arg store = .ragstorehandle, claim = .ragworkclaim, expose previous = .string, expose feedback = .string
+  previous = ""; feedback = ""
+  value = _boundscalartext(store.database(),"SELECT json_object('feedback',c.message,'previous',json_extract((SELECT r.message FROM job_events r WHERE r.item_id=c.item_id AND r.event_type='provider-response' AND r.event_id<c.event_id ORDER BY r.event_id DESC LIMIT 1),'$.content')) FROM job_events c WHERE c.item_id=?1 AND c.event_type='citation-correction-requested' ORDER BY c.event_id DESC LIMIT 1",claim.item_id())
+  if value = "" then return 0
+  document = .jsondocument(value)
+  if document.node_string(document.member(document.root(),"feedback"),feedback) \= 0 | document.node_string(document.member(document.root(),"previous"),previous) \= 0 | previous = "" then return -1
   return 1
 
 _recoverprovideraccounting: procedure = .int
@@ -867,15 +906,26 @@ settlecall: procedure = .int
   return 0
 
 failattempt: procedure = .int
-  arg store = .ragstorehandle, claim = .ragworkclaim, retryable = .int, backoff_seconds = .int, maximum_attempts = .int, reason = .string, expose error = .string
+  arg store = .ragstorehandle, claim = .ragworkclaim, retryable = .int, backoff_seconds = .int, maximum_attempts = .int, reason = .string, expose error = .string, citation_failure = ""
   error = ""
   if store.writable() \= 1 | claim.claimed() \= 1 | (retryable \= 0 & retryable \= 1) | backoff_seconds < 0 | maximum_attempts < 1 | reason = "" then do; error = "failed-attempt inputs are invalid"; return -1; end
   database = store.database()
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin failed attempt"; return -3; end
   if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)
-  attempts = _boundcount(database, "SELECT count(*) FROM attempts WHERE item_id=?1", claim.item_id())
+  attempts = _boundcount(database, "SELECT count(*) FROM attempts WHERE item_id=?1 AND outcome<>'cancelled'", claim.item_id())
   if retryable = 1 & attempts < maximum_attempts then next_state = "queued"
   else next_state = "dead_letter"
+  correction_count = _boundcount(database,"SELECT count(*) FROM job_events WHERE item_id=?1 AND event_type='citation-correction-requested'",claim.item_id())
+  /* One explicit correction is independent of the transport retry allowance.
+   * Once requested, a failed correction cannot trigger another paid retry. */
+  if correction_count > 0 then next_state = "dead_letter"
+  if citation_failure \= "" & correction_count = 0 then do
+    if _boundcount(database,"SELECT count(*) FROM job_events WHERE item_id=?1 AND event_type='provider-response'",claim.item_id()) > 0 then do
+      next_state = "queued"; backoff_seconds = 0
+      if _event(database,claim.job_id(),claim.item_id(),claim.attempt_id(),"citation-correction-requested",citation_failure) \= 0 then return _rollback(database,"cannot retain citation correction",error)
+      if sqliteexec(database,"UPDATE job_items SET priority=(SELECT coalesce(max(priority),0)+1 FROM job_items WHERE job_id=" || _q(claim.job_id()) || ") WHERE item_id=" || _q(claim.item_id())) \= 0 then return _rollback(database,"cannot prioritise citation correction",error)
+    end
+  end
   attempt_outcome = "failed"
   if next_state = "dead_letter" then attempt_outcome = "dead_letter"
   sql = "UPDATE attempts SET validation_state=" || _q(reason) || ",outcome=" || _q(attempt_outcome) || ",completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE attempt_id=" || _q(claim.attempt_id()) || " AND outcome='running'"
@@ -1113,11 +1163,13 @@ _runworkeronce: procedure = .int
     error = "job budget policy is unavailable"; disposition = "budget-denied"; return -2
   end
   if receipt_state = 0 then do
-  if reservecall(store, claim, maximum_input, maximum_output, maximum_cost, maximum_time, reservation, error) \= 0 then do
-    failure_error = ""; call failattempt store, claim, 1, 1, maximum_attempts, error, failure_error
-    disposition = "budget-denied"
-    return -2
-  end
+    reservation_status = reservecall(store, claim, maximum_input, maximum_output, maximum_cost, maximum_time, reservation, error)
+    if reservation_status = 1 then do; disposition = "budget-deferred"; return 1; end
+    if reservation_status \= 0 then do
+      failure_error = ""; call failattempt store, claim, 1, 1, maximum_attempts, error, failure_error
+      disposition = "budget-denied"
+      return -2
+    end
   end
   provider_result = provider.process(claim)
   provider_run_id = ""
@@ -1134,7 +1186,7 @@ _runworkeronce: procedure = .int
   if provider_result.ok() \= 1 then do
     retry_seconds = ((provider_result.retry_delay_ms() + 999) / 1000) as .int
     if retry_seconds < 1 then retry_seconds = 1
-    if failattempt(store, claim, provider_result.retryable(), retry_seconds, maximum_attempts, provider_result.error(), error) \= 0 then do; disposition = "failure-recording-failed"; return -3; end
+    if failattempt(store, claim, provider_result.retryable(), retry_seconds, maximum_attempts, provider_result.error(), error, provider_result.citation_failure()) \= 0 then do; disposition = "failure-recording-failed"; return -3; end
     disposition = "retry-or-dead-letter"
     return 0
   end
@@ -1538,6 +1590,7 @@ _refreshjob: procedure = .int
   if active > 0 & (current = "paused" | current = "cancel_requested") then state = current
   else if active > 0 then state = "running"
   else if dead > 0 then state = "completed_with_errors"
+  else if cancelled > 0 & _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND state IN('budget-exhausted','deadline','complete')",job_id) = 1 then state = "completed"
   else if cancelled > 0 then state = "cancelled"
   else state = "completed"
   return sqliteexec(database, "UPDATE jobs SET state=" || _q(state) || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id))

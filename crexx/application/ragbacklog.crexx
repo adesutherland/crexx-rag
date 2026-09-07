@@ -363,6 +363,8 @@ tickbacklogwindow: procedure = .int
     if used + _n(policy,"output_tokens") > _n(policy,"output_budget") then close_reason = "budget-exhausted"
     used = _number(database,"SELECT coalesce(sum(max(0,p.cost_microunits)),0) FROM provider_runs p WHERE EXISTS(SELECT 1 FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE a.provider_run_id=p.provider_run_id AND i.job_id=" || _q(job_id) || ")")
     if used + _n(policy,"cost_microunits") > _n(policy,"cost_budget") then close_reason = "budget-exhausted"
+    used = _number(database,"SELECT coalesce(sum(p.duration_ms),0) FROM provider_runs p WHERE EXISTS(SELECT 1 FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE a.provider_run_id=p.provider_run_id AND i.job_id=" || _q(job_id) || ")")
+    if used + _n(policy,"time_ms") > _n(policy,"window_seconds") * 1000 then close_reason = "budget-exhausted"
     if _s(policy,"charging_basis") = "subscription-allowance" & calls >= _n(policy,"codex_turns") then close_reason = "budget-exhausted"
   end
   if close_reason \= "" then do

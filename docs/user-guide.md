@@ -455,6 +455,37 @@ backlog, `supervised` to review model-proposed changes, or `manual` to collect
 questions without calling providers. The compatibility default `reviewed`
 keeps the earlier ranked batch and mandatory structural review behavior.
 
+For automatic maintenance, `maintain --yes` returns success (exit code 0) when
+its reviewed budget or window is exhausted and admitted calls have finished.
+The window records `budget-exhausted` or `deadline`; unstarted tasks remain in
+the durable backlog for the next invocation's fresh plan. Call limits are
+shared by the configured workers. Reaching a limit creates no failed task and
+does not consume an uncalled task's retry allowance. Execution failures still
+return a nonzero exit code, and rejected provider answers retain their normal
+validation and accounting outcomes.
+
+Citation validation gives extraction and maintenance resolution responses one
+immediate correction attempt when a quotation, literal mention label, relationship
+endpoint or selected evidence span fails grounding. The correction receives the
+original input, saved response and validation feedback. It must pass the same
+strict validation; it may withdraw unsupported extraction content or return an
+unresolved resolution. This does not enable fuzzy matching or partial publication.
+
+The correction is a separate provider call within the existing shared call,
+token, cost and time budgets, including when the ordinary attempt limit is one.
+Its durable `citation-correction-requested` event prevents repeated corrections
+after a restart. Both provider receipts and usage records are retained. If the
+window budget has already been used, no extra call is made. Source-shape, identity,
+lifecycle and publication errors do not receive this citation correction.
+
+A bounded `worker start --job JOB_ID --max-polls N` returns success when its
+workers finish their requested polls. If work remains, `vector_state` is
+`pending-work`; starting the group again continues that same job. Vector
+publication waits until the job completes or is explicitly paused. The nightly
+wrapper plans once, shares each batch across the configured workers, and pauses
+at a batch boundary after its elapsed-time limit. The configured job budgets
+apply to the entire run.
+
 The [durable maintenance guide](autonomous-maintenance.md) describes the full
 runtime configuration, five-hour windows, shared budgets, split/merge follow-up
 tasks, the work-specific limits of interruption recovery, and task/decision
