@@ -1,0 +1,42 @@
+options levelg
+
+import rxfnsb
+import rxsqlite
+import ragstore
+import ragprofilefile
+import ragretrieval
+import ragbacklog
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 \= 2 then return 2
+  store = .ragstorehandle; error = ""
+  if openragstore(args[1],"readonly",store,error) \= 0 then do; say error; return 1; end
+  loader = .ragprofileloader(); loaded = loader.load(args[2],"scottish-history-profile")
+  if loaded.status() \= 0 then do; say loaded.error(); return 1; end
+  statement = .binary
+  sql = "SELECT e.embedding_profile_id,e.vector,c.text FROM revision_chunks r JOIN chunk_contents c ON c.content_id=r.content_id JOIN revision_chunk_embeddings m ON m.revision_chunk_id=r.revision_chunk_id JOIN embeddings e ON e.embedding_id=m.embedding_id WHERE r.visible_to_generation IS NULL AND m.visible_to_generation IS NULL AND c.text LIKE 'Macknights, or Macneits,%' ORDER BY r.revision_chunk_id LIMIT 1"
+  if sqliteprepare(store.database(),sql,statement) \= 0 | sqlitestep(statement) \= 100 then do; say "SCALE_FAIL source embedding unavailable"; return 1; end
+  profile_id = ""; wire = ''x as .binary; expected = ""
+  status = sqlitecolumntext(statement,0,profile_id) | sqlitecolumnblob(statement,1,wire) | sqlitecolumntext(statement,2,expected)
+  call sqlitefinalize statement
+  if status \= 0 then do; say "SCALE_FAIL stored vector decode"; return 1; end
+  retrieval_options = .ragretrievaloptions("full-volume-reliability",profile_id,wire,1,12,1000000,0,12,0,0,60,"both",2000,750000,1000,67108864)
+  result = .ragretrievalresult
+  if retrieveevidence(store,loaded.profile(),"zzzz-no-lexical-match",retrieval_options,result,error) \= 0 then do; say "SCALE_FAIL " || error; return 1; end
+  if result.vector_state() \= "active-ann-ivf-rxvector" then do; say "SCALE_FAIL " || result.vector_state(); return 1; end
+  passages = result.evidence().passages(); found = 0
+  do i = 1 to passages.0
+    if passages[i].text() = expected then found = 1
+  end
+  if found \= 1 then do; say "SCALE_FAIL exact stored-vector source was not retrieved"; return 1; end
+  label = ""; concept_id = ""
+  if resolveknownconcept(store.database(),"Macknights","organisation",label,concept_id,error) < 0 then do; say error; return 1; end
+  trace_notes = .string[]; trace_notes = result.evidence().trace().notes()
+  say "FULL_VOLUME_OK vector_state=" || result.vector_state() || " source=" || expected || " provider_calls=0"
+  do note_index = 1 to trace_notes.0
+    if pos("vector-candidates",trace_notes[note_index]) > 0 then say trace_notes[note_index]
+  end
+  say "MERGE_LOOKUP=" || label || " " || concept_id
+  if closeragstore(store,error) \= 0 then do; say error; return 1; end
+  return 0

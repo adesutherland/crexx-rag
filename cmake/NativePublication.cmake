@@ -18,6 +18,19 @@ function(run_cli output)
     set(${output} "${result}" PARENT_SCOPE)
 endfunction()
 
+function(await_file file pattern)
+    foreach(poll RANGE 1 400)
+        if(EXISTS "${file}")
+            file(READ "${file}" content)
+            if(content MATCHES "${pattern}")
+                return()
+            endif()
+        endif()
+        execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.02)
+    endforeach()
+    message(FATAL_ERROR "concurrent publication rendezvous missing: ${file} ${pattern}")
+endfunction()
+
 foreach(case IN ITEMS write_failure concurrent)
     set(work "${CPRAG_WORK_DIR}/${case}")
     file(MAKE_DIRECTORY "${work}/source")
@@ -34,7 +47,8 @@ foreach(case IN ITEMS write_failure concurrent)
         set(worker_count 2)
         set(request_count 8)
         set(CPRAG_FIXTURE_PORT 19019)
-        set(scenario product-concurrent-extraction)
+        set(scenario product-concurrent-held-extraction)
+        execute_process(COMMAND mkfifo "${work}/release.fifo" COMMAND_ERROR_IS_FATAL ANY)
     endif()
     foreach(source RANGE 1 ${source_count})
         file(WRITE "${work}/source/architecture-${source}.txt"
@@ -49,9 +63,9 @@ foreach(case IN ITEMS write_failure concurrent)
     string(APPEND config "\nprovider.gemini-generate.concurrent_requests = 2\n")
     file(WRITE "${work}/crexxrag.conf" "${config}")
     execute_process(COMMAND /bin/sh -c
-        "( \"$1\" \"$2\" \"$3\" \"$4\"; printf '%s' $? >\"$7\" ) >\"$5\" 2>\"$6\" &"
+        "( \"$1\" \"$2\" \"$3\" \"$4\" \"$8\"; printf '%s' $? >\"$7\" ) >\"$5\" 2>\"$6\" &"
         publication-test "${CPRAG_LOOPBACK}" "${CPRAG_FIXTURE_PORT}" "${request_count}" "${scenario}"
-        "${work}/server.out" "${work}/server.err" "${work}/server.status"
+        "${work}/server.out" "${work}/server.err" "${work}/server.status" "${work}/release.fifo"
         COMMAND_ERROR_IS_FATAL ANY)
     set(ready FALSE)
     foreach(poll RANGE 1 200)
@@ -77,7 +91,37 @@ foreach(case IN ITEMS write_failure concurrent)
             "CREATE TRIGGER publication_fault BEFORE INSERT ON claims BEGIN SELECT RAISE(ABORT,'injected claim publication failure'); END;"
             COMMAND_ERROR_IS_FATAL ANY)
     endif()
-    run_cli(ingest ingest --yes --workers ${worker_count})
+    if(case STREQUAL "concurrent")
+        execute_process(COMMAND /bin/sh -c
+            "( CPRAG_FIXTURE_GEMINI_KEY=synthetic-product-gemini-key CREXXRAG_SELF=\"$1\" \"$1\" ingest --yes --workers 2; printf '%s' $? >\"$4\" ) >\"$2\" 2>\"$3\" &"
+            publication-test "${CPRAG_NATIVE_APPLICATION}" "${work}/ingest.out" "${work}/ingest.err" "${work}/ingest.status"
+            WORKING_DIRECTORY "${work}" COMMAND_ERROR_IS_FATAL ANY)
+        foreach(pair RANGE 1 2)
+            await_file("${work}/server.out" "PAIR_HELD ${pair}")
+            run_cli(busy_report --format json library report)
+            if(NOT busy_report MATCHES "\"chunks\":4" OR
+               NOT busy_report MATCHES "\"storage_verification_issues\":0" OR
+               NOT busy_report MATCHES "\"repository_verification_issues\":0" OR
+               NOT busy_report MATCHES "\"provider_calls\":0")
+                message(FATAL_ERROR "report lost the committed corpus while two workers were busy: ${busy_report}")
+            endif()
+            run_cli(busy_query --format json query evidence "BillingService depends on CustomerDatabase" --mode lexical)
+            if(NOT busy_query MATCHES "BillingService" OR NOT busy_query MATCHES "\"provider_calls\":0")
+                message(FATAL_ERROR "reader lost source evidence while two requests were in flight")
+            endif()
+            run_cli(busy_backup --access admin library backup --output "${work}/busy-backup-${pair}")
+            run_cli(busy_restore --access admin library restore --input "${work}/busy-backup-${pair}" --output "${work}/busy-restored-${pair}")
+            run_cli(busy_verify --library "${work}/busy-restored-${pair}" --access diagnose library verify)
+            run_cli(busy_restored_query --library "${work}/busy-restored-${pair}" --format json query evidence "BillingService depends on CustomerDatabase" --mode lexical)
+            if(NOT busy_restored_query MATCHES "BillingService" OR NOT busy_restored_query MATCHES "\"provider_calls\":0")
+                message(FATAL_ERROR "restored concurrent snapshot lost source evidence")
+            endif()
+            execute_process(COMMAND /bin/sh -c "printf R >\"$1\"" publication-release "${work}/release.fifo" TIMEOUT 5 COMMAND_ERROR_IS_FATAL ANY)
+        endforeach()
+        await_file("${work}/ingest.status" "0")
+    else()
+        run_cli(ingest ingest --yes --workers ${worker_count})
+    endif()
     execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
         "SELECT (SELECT count(*) FROM sources)||':'||(SELECT count(*) FROM revision_chunks)||':'||(SELECT count(*) FROM revision_chunk_embeddings)||':'||(SELECT count(*) FROM provider_runs)||':'||(SELECT count(*) FROM attempts)||':'||(SELECT sum(reserved_calls+reserved_tokens+reserved_cost) FROM jobs)||':'||(SELECT count(*) FROM concepts)||':'||(SELECT count(*) FROM mentions)||':'||(SELECT count(*) FROM claims)||':'||(SELECT count(*) FROM claim_support)||':'||(SELECT count(*) FROM job_items WHERE state='dead_letter');"
         OUTPUT_VARIABLE actual OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)

@@ -2,6 +2,15 @@
 
 Recorded 2026-09-06 after the Scottish corpus recovery investigation.
 
+Current qualification is tracked in [the reliability review](reliability-coverage-review.md).
+The dated results below retain their historical binaries and run states. They
+must not be read as the current installation or live maintenance status.
+The 7 September baseline repairs REL-001 through REL-020 locally; hosted
+nightly soak, installed Linux replay and an explicit staged full-corpus
+replacement workflow remain separate unfinished work. REL-014 protects a
+complete index against an incomplete alternate embedding representation; it
+does not implement a full corpus replacement command.
+
 ## RAG-REC-001 — incomplete replacement hides a complete vector baseline
 
 Status: incident trigger and missing/corrupt sidecar recovery repaired in

@@ -61,6 +61,18 @@ staleprovider: class implements .ragworkprovider
     provider = .fixtureprovider(_response)
     return provider.process(claim)
 
+/* A response validated before the merge still carries the old catalogue ID.
+ * Publication must resolve its mention again while it owns the writer. */
+mergingextractionprovider: class implements .ragworkprovider
+  *: factory
+    return
+  process: method = .ragworkproviderresult
+    arg claim = .ragworkclaim
+    empty = .ragextractionproposal; mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]; aliases = .string[]
+    aliases[1] = "peer"
+    mentions[1] = .ragworkmention("candidate-rel013","Peer","concept",9,13,aliases,"concept-peer")
+    return .ragworkproviderresult(0,"fixture","fixture","request-rel013",10,10,0,1,0,empty,"",0,"","",.ragworkembedding("","","","","",0,"",''x as .binary),"","local-compute",mentions,proposals,notes)
+
 responsejson: procedure = .string
   arg action = .string, target = "", successors = "[]", evidence = "[]", object_id = "", question = "", qualifiers = "{}", effective_from = "", effective_to = ""
   return '{"action":' || jsonquote(action) || ',"object_id":' || jsonquote(object_id) || ',"target_concept_id":' || jsonquote(target) || ',"canonical_label":"","concept_type":"","successors":' || successors || ',"reason":"fixture evidence-based decision","evidence":' || evidence || ',"effective_from":' || jsonquote(effective_from) || ',"effective_to":' || jsonquote(effective_to) || ',"qualifiers_json":' || jsonquote(qualifiers) || ',"question":' || jsonquote(question) || '}'
@@ -255,6 +267,19 @@ main: procedure = .int
   errors = errors + check(runresolution(store,job_id,merge_task,responsejson("merge",child,"[]",evidence,"concept-peer"),error) = 0, "create grounded merge workflow " || error)
   merge_workflow = scalartext(database,"SELECT workflow_id FROM maintenance_workflows WHERE parent_concept_id='concept-peer'")
   errors = errors + check(merge_workflow \= "" & scalartext(database,"SELECT lifecycle_state FROM concepts WHERE concept_id='concept-peer'") = "migration-parent", "merge keeps its parent until migration completes")
+  /* The survivor can already own the old spelling while the parent still
+   * has connections to migrate. It must be the only extraction identity. */
+  generation = scalarint(database,"SELECT published_generation FROM library_meta")
+  errors = errors + check(sqliteexec(database,"INSERT INTO aliases(alias_id,normalized_alias,target_concept_id,visible_from_generation) VALUES('alias-merging-peer','peer','" || child || "'," || generation || ")") = 0,"seed survivor alias before parent retirement")
+  merging_label = ""; merging_identity = ""
+  errors = errors + check(resolveknownconcept(database,"Peer","concept",merging_label,merging_identity,error) = 1 & merging_identity = child,"REL-013 resolves active survivor while merge parent remains visible")
+  extraction_input = '{"revision_chunk_id":"chunk-lifecycle","charging_basis":"local-compute"}'
+  errors = errors + check(sqliteexec(database,"INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,created_at,updated_at) VALUES('job-rel013','" || rxhash..sha256hex('job-rel013' as .binary) || "','{}','snapshot-lifecycle','queued',1,1,128,64,0,'fixture','fixture'); INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES('item-rel013','job-rel013','claim-extraction','queued',1,'idem-rel013','" || rxhash..sha256hex(extraction_input as .binary) || "','" || extraction_input || "','fixture','fixture')") = 0,"REL-013 extraction fixture")
+  errors = errors + check(configurejobbudget(store,"job-rel013",10000,128,64,0,5000,1,1,error) = 0,"REL-013 budget " || error)
+  extracting_provider = .mergingextractionprovider(); extracting_disposition = ""
+  errors = errors + check(runworkeronce(store,"job-rel013","extracting-worker",60,1,claim_policy,extracting_provider,extracting_disposition,error,genericprofile()) = 0 & extracting_disposition = "concepts-and-notes","REL-013 publishes stale response against active survivor " || extracting_disposition || " " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM job_items WHERE item_id='item-rel013' AND state='processed'") = 1 & scalarint(database,"SELECT count(*) FROM mentions WHERE concept_id='" || child || "' AND span_start=9 AND span_end=13") > 0,"REL-013 completes item and grounds survivor mention")
+  errors = errors + check(scalartext(database,"SELECT lifecycle_state FROM concepts WHERE concept_id='concept-peer'") = "migration-parent","REL-013 never revives merge parent")
   errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0, "dispatch merge connections")
   mention_task = connectiontask(database,merge_workflow,"mention")
   errors = errors + check(runresolution(store,job_id,mention_task,responsejson("move",child,"[]",evidence),error) = 0, "move merge mention " || error)
@@ -370,6 +395,32 @@ main: procedure = .int
   errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE subject_id LIKE 'zz-cursor-note-%' AND state='dispatched'") = 5, "automatic window resumes manually collected work")
   errors = errors + check(pausejob(store,job_id,error) = 0 & tickbacklogwindow(store,job_id,error) >= 0, "close test window")
   errors = errors + check(scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0 & scalartext(database,"PRAGMA integrity_check") = "ok", "final backlog integrity")
+  /* A diagnostic is not a search question. Preserve the recorded question
+   * in the provider packet and use it to select source evidence. */
+  gap_warning = "One or more query names remain ambiguous; do not transfer facts between senses."
+  gap_question = 'How does "Platform" relate to Peer?'
+  errors = errors + check(sqliteexec(database,"INSERT INTO query_gaps(gap_id,question_hash,normalized_question,gap_text,trace_id,observed_generation,occurrence_count,state,first_observed_at,last_observed_at) VALUES('gap-platform','question-platform','" || gap_question || "','" || gap_warning || "','trace-platform',1,1,'open','fixture','fixture'),('gap-missing','question-missing','Where is Vestiarium Scoticum?','" || gap_warning || "','trace-missing',1,1,'open','fixture','fixture'),('gap-stopwords','question-stopwords','what which how','" || gap_warning || "','trace-stopwords',1,1,'open','fixture','fixture')") = 0,"seed different query questions with the same warning")
+  packet = ""; fingerprint = ""
+  errors = errors + check(buildbacklogevidence(database,"gap","gap-platform","",65536,packet,fingerprint,error) = 0,"build original query evidence " || error)
+  errors = errors + check(pos('"question":' || jsonquote(gap_question),packet) > 0 & pos('"text":' || jsonquote(gap_warning),packet) > 0,"gap packet retains question and diagnostic separately")
+  errors = errors + check(pos('"revision_chunk_id":"chunk-lifecycle"',packet) > 0 & pos('"text":"Platform Peer"',packet) > 0,"gap selects source passage using question subject")
+  errors = errors + check(buildbacklogevidence(database,"gap","gap-missing","",65536,packet,fingerprint,error) = 0 & pos('"passages":[]',packet) > 0,"same warning with absent question terms returns no invented evidence")
+  errors = errors + check(buildbacklogevidence(database,"gap","gap-stopwords","",65536,packet,fingerprint,error) = 0 & pos('"passages":[]',packet) > 0,"empty useful question never falls back to warning words")
+  errors = errors + check(sqliteexec(database,"INSERT INTO maintenance_tasks(task_id,kind,subject_type,subject_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch) VALUES('task:legacy-gap','query-gap','gap','gap-platform','old-warning-only-evidence','fixture-v1','{}','Investigate the issue','unresolved',750000,0,0)") = 0,"seed unresolved warning-only maintenance record")
+  previous = scalarint(database,"SELECT count(*) FROM provider_runs"); previous_generation = scalarint(database,"SELECT published_generation FROM library_meta")
+  gap_task = ""; replay_task = ""
+  errors = errors + check(enqueuebacklogtask(database,"query-gap","gap","gap-platform","","",750000,policy,gap_task,error) = 0 & gap_task \= "","refresh existing gap with original question " || error)
+  errors = errors + check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='task:legacy-gap'") = "superseded","new evidence supersedes unresolved warning-only interpretation")
+  errors = errors + check(enqueuebacklogtask(database,"query-gap","gap","gap-platform","","",750000,policy,replay_task,error) = 0 & replay_task = gap_task,"corrected gap task is idempotent")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM provider_runs") = previous & scalarint(database,"SELECT published_generation FROM library_meta") = previous_generation & scalarint(database,"SELECT count(*) FROM query_gaps WHERE state='open'") = 3,"evidence refresh preserves gaps and generation with zero provider calls")
+  errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0,"normal maintenance discovers corrected query gaps " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE subject_type='gap' AND state='dispatched'") = 3,"all query gaps enter ordinary durable maintenance")
+  evidence = '[{"evidence_id":"chunk-lifecycle","quote":"Platform Peer"}]'
+  errors = errors + check(runresolution(store,job_id,gap_task,responsejson("retain","","[]",evidence),error) = 0 & scalartext(database,"SELECT state FROM query_gaps WHERE gap_id='gap-platform'") = "resolved","grounded maintenance can settle an investigated gap " || error)
+  gap_task = scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE subject_id='gap-missing' AND state='dispatched'")
+  errors = errors + check(runresolution(store,job_id,gap_task,responsejson("unresolved"),error) = 0 & scalartext(database,"SELECT state FROM query_gaps WHERE gap_id='gap-missing'") = "open" & scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || gap_task || "'") = "unresolved","missing source evidence stays explicitly unresolved " || error)
+  errors = errors + check(pausejob(store,job_id,error) = 0 & tickbacklogwindow(store,job_id,error) >= 0,"close query-gap test window")
+  errors = errors + check(scalartext(database,"SELECT text FROM chunk_contents WHERE content_id='content-lifecycle'") = "Platform Peer" & scalartext(database,"SELECT hex(vector) FROM embeddings WHERE embedding_id='fixture-vector'") = "0000803F" & scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"query-gap maintenance preserves source and vector state")
   call closeragstore store,error
   if errors > 0 then return 1
   say "DURABLE_BACKLOG_OK deduplicated split_fanout fenced_decisions resume uncertainty source_preservation"

@@ -75,6 +75,30 @@ if(NOT citation_query_result EQUAL 0 OR stable_citation STREQUAL "")
 endif()
 
 set(requests "${CPRAG_WORK_DIR}/mcp-requests.jsonl")
+foreach(oversized 9223372036854775808 9999999999999999999999999999999999999999)
+    foreach(option cursor limit)
+        execute_process(COMMAND ${cli} --format json job events job-not-present
+            "--${option}" "${oversized}"
+            WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+            OUTPUT_VARIABLE range_out ERROR_VARIABLE range_err
+            RESULT_VARIABLE range_result TIMEOUT 30)
+        if(NOT range_result EQUAL 2 OR NOT range_out MATCHES "\"exit_code\":2" OR
+           range_err MATCHES "PANIC")
+            message(FATAL_ERROR "Numeric ${option} overflow did not return a validation error:\n${range_out}${range_err}")
+        endif()
+    endforeach()
+endforeach()
+foreach(cursor 0 0000000000000000000000000000000000000000 9223372036854775807)
+    execute_process(COMMAND ${cli} --format json job events job-not-present
+        --cursor "${cursor}" --limit 0001
+        WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+        OUTPUT_VARIABLE range_out ERROR_VARIABLE range_err
+        RESULT_VARIABLE range_result TIMEOUT 30)
+    if(NOT range_result EQUAL 0 OR NOT range_out MATCHES "\"exit_code\":0")
+        message(FATAL_ERROR "Valid numeric boundary rejected:\n${range_out}${range_err}")
+    endif()
+endforeach()
+
 file(WRITE "${requests}"
     "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}\n"
     "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}\n"

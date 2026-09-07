@@ -349,3 +349,23 @@ add_test(NAME native_publication
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativePublication.cmake")
 set_tests_properties(native_publication PROPERTIES
     TIMEOUT 240 LABELS "publication;concurrency;atomic;gemini;sqlite;zero-outbound")
+
+add_test(NAME native_receipts
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-receipts"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeReceipts.cmake")
+set_tests_properties(native_receipts PROPERTIES
+    TIMEOUT 240 LABELS "recovery;concurrency;accounting;gemini;sqlite;zero-outbound")
+
+add_test(NAME native_interruption
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-interruption"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeInterruption.cmake")
+set_tests_properties(native_interruption PROPERTIES
+    TIMEOUT 180 LABELS "native;recovery;cancellation;accounting;publication;sqlite;zero-outbound")

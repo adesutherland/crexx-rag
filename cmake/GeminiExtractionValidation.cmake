@@ -143,7 +143,7 @@ function(run_invalid_extraction case_name port expected_error)
 endfunction()
 
 run_invalid_extraction(product-extraction-invalid-span 19021
-    "provider mention evidence quotation is not in the chunk")
+    "provider receipt content omitted: credential-redacted")
 run_invalid_extraction(product-extraction-unknown-type 19022
     "provider mention concept type is not in the selected profile")
 run_invalid_extraction(product-extraction-unknown-relationship 19023

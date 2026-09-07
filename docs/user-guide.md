@@ -81,6 +81,12 @@ the effective configuration identity. A copied configuration in a new
 directory therefore needs either its referenced files copied with it or
 explicit absolute paths. Credential references stay symbolic.
 
+Libraries created by older versions may retain `file:./...` source URIs.
+Repeat ingestion from their original working directory so equivalent absolute
+paths can be proved without replacing revisions or vector membership. The
+comparison still checks the complete source envelope; changed bytes or policy
+are never hidden by path equivalence.
+
 For each generation role in config/3, choose exactly one prompt source:
 
 ```ini
@@ -290,6 +296,19 @@ crexxrag --access control job replay JOB_ID --item ITEM_ID \
   --reason 'retry one corrected item'
 ```
 
+`job events` reads the durable event ledger for that job, with numeric cursor
+paging; it does not list work items. `job status` includes the last failure or
+uncertainty reason. An interrupted request with no durable response produces
+`provider-outcome-uncertain`, pauses the job and leaves an inspectable dead
+letter. It is not automatically submitted again. Inspect and reconcile that
+outcome before explicitly choosing new work.
+
+Received extraction and embedding outputs are retained before validation and
+settlement. Restarting the same item reuses its receipt without another call,
+under normal input validation and fresh worker ownership. An explicitly created
+replay job is new work and may make another call. Actual late or above-estimate
+usage is recorded once even when the original worker may no longer publish.
+
 `job replay` requires a source job in `completed_with_errors`. It copies the
 selected dead letters into a new queued job under the current configuration
 and current item/call/token/cost/allowance budgets. The source job and source
@@ -341,6 +360,14 @@ authorized worklist. It inspects chunks, concept nodes, claim edges, pending
 reviews, query gaps, failed work and embedding/vector coverage; ranks what is
 worth further analysis; and optionally uses the configured LLM to diagnose and
 propose actions.
+
+Query gaps enter this cycle automatically when they meet
+`maintenance.query_gap_min_occurrences`. Their evidence search uses the recorded
+question, while the diagnostic warning explains the retrieval limitation to the
+resolution provider. They are not automatically manual tasks or database errors.
+Maintenance may settle them, retain an unresolved explanation, or request a
+follow-up; policy exceptions require operator review. A later successful answer
+does not by itself close the original observation.
 
 An optional UTF-8 glossary supplies canonical labels, types, aliases and
 excluded terms. The reviewed plan identifies its content digest and the
@@ -519,7 +546,7 @@ crexxrag library report --top 10 --narrative refresh --yes
 The default report is deterministic, read-only and makes no provider call. It
 binds corpus, catalogue, graph and source-support metrics to the published
 semantic generation; overlays current vector, job, review and maintenance
-state; lists bounded relationship types and top concepts; and gives each top
+state inside one SQLite read transaction; lists bounded relationship types and top concepts; and gives each top
 concept a stable source-span citation. Semantic and operational digests are
 separate so a maintenance or vector-publication change does not masquerade as
 a corpus-generation change.
@@ -529,6 +556,15 @@ provenance, graph, maintenance and review each report their state, issue count
 and deterministic detail. There is no opaque overall score. A reconciliation
 warning means durable maintenance-run state and terminal job state disagree;
 it does not mean lexical or vector retrieval is unavailable.
+
+The separate `durable-maintenance-backlog` record counts every task state,
+unfinished/completed workflows and retained decisions. Open tasks are pending,
+dispatched, unresolved, review or failed; they contribute to maintenance health
+and the snapshot's work backlog alongside legacy maintenance items. Durable
+review tasks also contribute to review health and the snapshot's review count.
+These are work-object counts, not estimates of distinct future provider calls.
+Old snapshots remain unchanged; their stored report identifies which counters
+were available when they were captured.
 
 `--narrative cached` reads a matching prior advisory result without a provider
 call. `--narrative refresh` makes exactly one call through the configured

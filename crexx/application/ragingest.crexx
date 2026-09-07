@@ -6,6 +6,7 @@ import rxfnsb
 import rxjson
 import rxhash
 import rxsqlite
+import rxfs
 import ragstore
 import ragconfig
 import ragglossary
@@ -684,7 +685,7 @@ _validobservation: procedure = .int
   return 1
 
 _observationidentity: procedure = .int
-  arg observation = .ragsourceobservation, parser_version = .string, policy_version = .string, expose normalized_text = .string, expose raw_digest = .string, expose text_digest = .string, expose metadata_fingerprint = .string, expose envelope = .string, expose error = .string
+  arg observation = .ragsourceobservation, parser_version = .string, policy_version = .string, expose normalized_text = .string, expose raw_digest = .string, expose text_digest = .string, expose metadata_fingerprint = .string, expose envelope = .string, expose error = .string, identity_uri = ""
   error = ""
   if observation.retain_raw() = 1 then raw_digest = rxhash..sha256hex(observation.raw())
   else raw_digest = observation.expected_raw_digest()
@@ -694,7 +695,8 @@ _observationidentity: procedure = .int
   end
   if _normalizetext(observation.raw(), observation.encoding(), normalized_text, error) \= 0 then return -1
   text_digest = rxhash..sha256hex(normalized_text as .binary)
-  metadata_canonical = "{" || jsonquote("uri") || ":" || jsonquote(observation.observed_uri()) || "," || jsonquote("title") || ":" || jsonquote(observation.observed_title()) || "," || jsonquote("mime_type") || ":" || jsonquote(observation.mime_type()) || "," || jsonquote("encoding") || ":" || jsonquote(lower(observation.encoding())) || "," || jsonquote("metadata") || ":" || jsonquote(observation.metadata()) || "}"
+  if identity_uri = "" then identity_uri = observation.observed_uri()
+  metadata_canonical = "{" || jsonquote("uri") || ":" || jsonquote(identity_uri) || "," || jsonquote("title") || ":" || jsonquote(observation.observed_title()) || "," || jsonquote("mime_type") || ":" || jsonquote(observation.mime_type()) || "," || jsonquote("encoding") || ":" || jsonquote(lower(observation.encoding())) || "," || jsonquote("metadata") || ":" || jsonquote(observation.metadata()) || "}"
   metadata_fingerprint = rxhash..sha256hex(metadata_canonical as .binary)
   envelope_canonical = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.revision-envelope/1") || "," || jsonquote("stable_key") || ":" || jsonquote(observation.stable_key()) || "," || jsonquote("raw_digest") || ":" || jsonquote(raw_digest) || "," || jsonquote("text_digest") || ":" || jsonquote(text_digest) || "," || jsonquote("metadata_fingerprint") || ":" || jsonquote(metadata_fingerprint) || "," || jsonquote("extractor_version") || ":" || jsonquote("crexx-rag.extract-text/1") || "," || jsonquote("normalization_version") || ":" || jsonquote("crexx-rag.line-endings-utf8/1") || "," || jsonquote("parser_version") || ":" || jsonquote(parser_version) || "," || jsonquote("policy_version") || ":" || jsonquote(policy_version) || "}"
   envelope = rxhash..sha256hex(envelope_canonical as .binary)
@@ -794,6 +796,20 @@ _validsha256: procedure = .int
   arg value = .string
   return length(value) = 64 & verify(value, "0123456789abcdef") = 0
 
+/* Older folder observations used file:./ paths. Configuration now resolves
+ * paths before worker dispatch. Recognize only a provably identical location,
+ * then compare the entire old envelope: bytes, text, metadata and policies.
+ * Keep its original address/history rather than manufacture a new revision. */
+_legacyfoldermatches: procedure = .int
+  arg database = .binary, revision_id = .string, observation = .ragsourceobservation, parser_version = .string, policy_version = .string, expected_envelope = .string, expose error = .string
+  if left(observation.connector_type(),7) \= "folder:" then return 0
+  old_uri = _boundscalartext(database,"SELECT s.observed_uri FROM source_revisions r JOIN sources s ON s.source_id=r.source_id WHERE r.revision_id=?1",revision_id)
+  if left(old_uri,7) \= "file:./" then return 0
+  if observation.observed_uri() \= "file:" || rxfs..cwd() || "/" || substr(old_uri,8) then return 0
+  normalized_text = ""; raw_digest = ""; text_digest = ""; metadata = ""; envelope = ""
+  if _observationidentity(observation,parser_version,policy_version,normalized_text,raw_digest,text_digest,metadata,envelope,error,old_uri) \= 0 then return -1
+  return envelope = expected_envelope
+
 _desiredmatches: procedure = .int
   arg database = .binary, plan = .ragingestplan, observations = .ragsourceobservation[], expose error = .string
   error = ""
@@ -814,7 +830,11 @@ _desiredmatches: procedure = .int
     normalized_text = ""; raw_digest = ""; text_digest = ""; metadata_fingerprint = ""; envelope = ""
     if _observationidentity(observations[i], plan.parser_version(), plan.policy_version(), normalized_text, raw_digest, text_digest, metadata_fingerprint, envelope, error) \= 0 then return -1
     current_envelope = _boundscalartext(database, "SELECT revision_envelope_digest FROM source_revisions WHERE revision_id=?1", current_revision)
-    if current_envelope = "" | current_envelope \= envelope then return 0
+    if current_envelope = "" then return 0
+    if current_envelope \= envelope then do
+      equivalent = _legacyfoldermatches(database,current_revision,observations[i],plan.parser_version(),plan.policy_version(),current_envelope,error)
+      if equivalent \= 1 then return equivalent
+    end
   end
   return 1
 
@@ -822,9 +842,6 @@ _stageobservation: procedure = .int
   arg database = .binary, generation = .int, plan = .ragingestplan, observation = .ragsourceobservation, expose added = .int, expose changed = .int, expose renamed = .int, expose chunks_created = .int, expose chunks_reused = .int, expose occurrences = .int, expose embeddings_reused = .int, expose support_reanchored = .int, expose support_retracted = .int, expose candidates = .int, expose error = .string
   normalized_text = ""; raw_digest = ""; text_digest = ""; metadata_fingerprint = ""; envelope = ""
   if _observationidentity(observation, plan.parser_version(), plan.policy_version(), normalized_text, raw_digest, text_digest, metadata_fingerprint, envelope, error) \= 0 then return -1
-  chunks = .ragchunk[]
-  if chunktext(normalized_text, observation.format(), plan.maximum_chunk_characters(), plan.parser_version(), plan.policy_version(), chunks, error) \= 0 then return -1
-
   source_id = ""; old_revision = ""; current_stable = ""
   found = _findsource(database, observation.connector_type(), observation.stable_key(), source_id, old_revision, current_stable)
   if found < 0 then do; error = "cannot find source"; return -1; end
@@ -835,7 +852,15 @@ _stageobservation: procedure = .int
   if found = 1 & old_revision \= "" then do
     current_envelope = _boundscalartext(database, "SELECT revision_envelope_digest FROM source_revisions WHERE revision_id=?1", old_revision)
     if current_envelope = envelope & current_stable = observation.stable_key() then return 0
+    if current_stable = observation.stable_key() then do
+      equivalent = _legacyfoldermatches(database,old_revision,observation,plan.parser_version(),plan.policy_version(),current_envelope,error)
+      if equivalent = 1 then return 0
+      if equivalent < 0 then return -1
+    end
   end
+
+  chunks = .ragchunk[]
+  if chunktext(normalized_text, observation.format(), plan.maximum_chunk_characters(), plan.parser_version(), plan.policy_version(), chunks, error) \= 0 then return -1
 
   if found = 0 then do
     source_id = "source-sha256:" || rxhash..sha256hex((observation.connector_type() || "00"x || observation.stable_key()) as .binary)

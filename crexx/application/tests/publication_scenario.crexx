@@ -6,7 +6,10 @@ import rxsqlite
 import ragstore
 import ragwork
 import ragclaims
+import ragbackup
+import rxfs
 import generic_profile
+import ragingest
 
 check: procedure = .int
   arg condition = .boolean, label = .string
@@ -58,6 +61,56 @@ cancellingprovider: class implements .ragworkprovider
     provider = .batchprovider("cancelled-response")
     return provider.process(claim)
 
+singleprovider: class implements .ragworkprovider
+  *: factory
+    return
+  process: method = .ragworkproviderresult
+    arg claim = .ragworkclaim
+    source_id = "concept-sha256:" || rxhash..sha256hex(("alpha" || "00"x || "concept") as .binary)
+    target_id = "concept-sha256:" || rxhash..sha256hex(("beta" || "00"x || "concept") as .binary)
+    proposal = .ragextractionproposal("crexx-rag.extraction-proposal/1","single-proposal","claim",source_id,"Alpha","concept","related-to",target_id,"Beta","concept","outbound","{}","","","chunk-publication",0,10,"support","assertion","direct","","fixture-lineage",1000000,"fixture","fixture","single-request","fixture","fixture","public","generic-profile",0)
+    mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
+    return .ragworkproviderresult(0,"fixture","fixture","single-request",10,10,0,1,0,proposal,"",1,"candidate-single-source","missing-single-target",.ragworkembedding("","","","","",0,"",''x as .binary),"","local-compute",mentions,proposals,notes)
+
+retryprovider: class implements .ragworkprovider
+  *: factory
+    return
+  process: method = .ragworkproviderresult
+    arg claim = .ragworkclaim
+    empty = .ragextractionproposal
+    mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
+    return .ragworkproviderresult(-1,"fixture","fixture","retry-request",0,0,0,1,1,empty,"retry fixture",0,"","",.ragworkembedding("","","","","",0,"",''x as .binary),"","local-compute",mentions,proposals,notes,2000)
+
+accountingcase: procedure = .int
+  arg store = .ragstorehandle, tag = .string, limit = .int
+  database = store.database(); error = ""
+  if sqliteexec(database,"INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,created_at,updated_at) VALUES('job-" || tag || "','" || rxhash..sha256hex(tag as .binary) || "','{}','snapshot-publication','queued',2," || limit || ",256,128,200,'fixture','fixture')") \= 0 then return 1
+  do n = 1 to 2
+    if sqliteexec(database,"INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES('item-" || tag || n || "','job-" || tag || "','improve-extraction','queued'," || (3-n) || ",'idem-" || tag || n || "','" || rxhash..sha256hex('{}' as .binary) || "','{}','fixture','fixture')") \= 0 then return 1
+  end
+  return configurejobbudget(store,"job-" || tag,10000,128,64,100,5000,2,3,error)
+
+legacyfoldercase: procedure = .int
+  arg path = .string
+  store = .ragstorehandle; error = ""; errors = 0
+  if initragstore(path,"library-folder","snapshot-folder","folder","1","generic-profile","profile-hash","config-hash","{}",store,error) \= 0 then return 1
+  observations = .ragsourceobservation[]; plan = .ragingestplan
+  observations[1] = .ragsourceobservation("folder:fixture","source.txt","","file:./source.txt","Source","text/plain","utf-8","plain","Alpha Beta." as .binary,1,"","","{}","fixture")
+  status = createingestplan(store,"folder:fixture","snapshot-folder","policy","parser",128,observations,plan,error)
+  first = applyingestplan(store,plan,observations)
+  errors = errors + check(first.status() = 0,"legacy folder fixture " || first.error())
+  observations[1] = .ragsourceobservation("folder:fixture","source.txt","","file:" || rxfs..cwd() || "/source.txt","Source","text/plain","utf-8","plain","Alpha Beta." as .binary,1,"","","{}","fixture")
+  status = createingestplan(store,"folder:fixture","snapshot-folder","policy","parser",128,observations,plan,error)
+  same = applyingestplan(store,plan,observations)
+  errors = errors + check(same.disposition() = "identical-no-op" & same.generation() = first.generation() & same.provider_calls() = 0,"config path resolution preserves legacy folder identity")
+  errors = errors + check(scalar(store.database(),"SELECT count(*) FROM source_revisions") = 1,"equivalent URI did not replace source history")
+  observations[1] = .ragsourceobservation("folder:fixture","source.txt","","file:" || rxfs..cwd() || "/source.txt","Source","text/plain","utf-8","plain","Alpha Changed." as .binary,1,"","","{}","fixture")
+  status = createingestplan(store,"folder:fixture","snapshot-folder","policy","parser",128,observations,plan,error)
+  changed = applyingestplan(store,plan,observations)
+  errors = errors + check(changed.status() = 0 & changed.disposition() = "published" & changed.generation() > first.generation(),"equivalent URI does not hide changed source bytes")
+  ignored = closeragstore(store,error)
+  return errors
+
 main: procedure = .int
   arg args = .string[]
   if args.0 \= 1 then return 2
@@ -73,6 +126,20 @@ main: procedure = .int
    * transaction. A second publisher must not touch its shared projection. */
   status = publishmanifest(other,error)
   errors = errors + check(status \= 0,"manifest publisher ignored another connection's publication ownership")
+  errors = errors + check(sqliteexec(store.database(),"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('uncommitted-concept','Uncommitted','concept','active'," || generation || ")") = 0,"stage a real writer mutation")
+  reader = .ragreadsnapshot
+  errors = errors + check(beginreadsnapshot(args[1],reader,error) = 0 & reader.generation() = 1,"reader pins prior generation during writer ownership " || error)
+  errors = errors + check(scalar(reader.database(),"SELECT count(*) FROM concepts") = 0,"reader cannot see uncommitted writer prefix")
+  backup = .ragbackupreport
+  errors = errors + check(backupragstore(args[1],args[1] || "-during-writer",backup,error) = 0,"backup while writer owns mutation " || error)
+  restored = .ragbackupreport
+  errors = errors + check(restoreragstore(args[1] || "-during-writer",args[1] || "-restored",restored,error) = 0,"restore reader snapshot while writer remains active " || error)
+  restored_view = .ragreadsnapshot
+  errors = errors + check(beginreadsnapshot(args[1] || "-restored",restored_view,error) = 0 & scalar(restored_view.database(),"SELECT count(*) FROM concepts") = 0 & restored_view.generation() = 1,"restored backup contains only committed generation")
+  ignored = closereadsnapshot(restored_view,error) | closereadsnapshot(reader,error)
+  interrupted_backup = .ragbackupsession
+  errors = errors + check(beginragbackup(args[1],args[1] || "-interrupted-backup",interrupted_backup,error) = 0,"start interrupted backup " || error)
+  errors = errors + check(abortragbackup(interrupted_backup,error) = 0 & rxfs..isdir(args[1] || "-interrupted-backup") = 0 & rxfs..isdir(args[1] || "-interrupted-backup.new") = 0,"aborted backup leaves no published partial copy")
   errors = errors + check(abortgeneration(store,error) = 0,"release publication ownership " || error)
   errors = errors + check(publishmanifest(other,error) = 0,"publish after owner released " || error)
   errors = errors + check(closeragstore(other,error) = 0,"close contender")
@@ -119,7 +186,60 @@ main: procedure = .int
   errors = errors + check(scalar(database,"SELECT count(*) FROM provider_runs") = 2 & scalar(database,"SELECT count(*) FROM attempts WHERE item_id='item-cancel' AND outcome='cancelled' AND provider_run_id IS NOT NULL") = 1,"cancelled paid response lost its accounting")
   errors = errors + check(scalar(database,"SELECT reserved_calls+reserved_tokens+reserved_cost FROM jobs WHERE job_id='job-cancel'") = 0 & scalar(database,"SELECT count(*) FROM job_items WHERE item_id='item-cancel' AND state='cancelled'") = 1,"cancelled response did not release reservations and finish")
   errors = errors + check(scalar(database,"SELECT published_generation FROM library_meta") = 1 & scalar(database,"SELECT count(*) FROM concepts") = 0,"cancelled response published graph data")
+  errors = errors + check(accountingcase(store,"single",2) = 0,"single proposal fixture")
+  errors = errors + check(sqliteexec(database,"INSERT INTO candidate_mentions(candidate_id,revision_chunk_id,normalized_candidate,span_start,span_end,extractor_version,visible_from_generation) VALUES('candidate-single-source','chunk-publication','alpha',0,5,'fixture',1); INSERT INTO candidate_decisions(decision_id,candidate_id,decision_version,state,evidence_json,policy_version,created_at) VALUES('decision-single','candidate-single-source',1,'accepted','{}','fixture','fixture')") = 0,"single proposal accepted source candidate")
+  single_provider = .singleprovider()
+  status = runworkeronce(store,"job-single","single-worker",60,1,policy,single_provider,disposition,error,genericprofile())
+  errors = errors + check(status = 0 & disposition = "retry-after-validation-or-promotion-race","single proposal rejects missing target " || disposition || " " || error)
+  errors = errors + check(scalar(database,"SELECT published_generation FROM library_meta") = 1 & scalar(database,"SELECT count(*) FROM concepts") = 0 & scalar(database,"SELECT count(*) FROM mentions") = 0,"single proposal failure rolls back source promotion and generation")
+  errors = errors + check(scalar(database,"SELECT count(*) FROM attempts a JOIN job_items i USING(item_id) WHERE i.job_id='job-single' AND a.provider_run_id IS NOT NULL AND a.outcome='dead_letter'") = 1,"single proposal retains paid failure accounting")
+  errors = errors + check(accountingcase(store,"last-call",1) = 0,"accounting fixture")
+  first = .ragworkclaim; second = .ragworkclaim
+  first_reservation = .ragcallreservation; second_reservation = .ragcallreservation
+  status = claimnext(store,"job-last-call","first",60,3,first,error)
+  status = claimnext(store,"job-last-call","second",60,3,second,error)
+  status = reservecall(store,first,128,64,100,5000,first_reservation,error)
+  status = reservecall(store,second,128,64,100,5000,second_reservation,error)
+  errors = errors + check(first_reservation.status() = 0 & second_reservation.status() \= 0,"last call is reserved against concurrent admission")
+  run_id = ""; duplicate_id = ""
+  status = settlecall(store,first_reservation,"fixture","fixture","excess","succeeded",129,65,101,5001,run_id,error)
+  errors = errors + check(status = 0,"REL-012 accounts above-estimate actual usage " || error)
+  errors = errors + check(scalar(database,"SELECT input_tokens+output_tokens+cost_microunits+duration_ms FROM provider_runs WHERE provider_run_id='" || run_id || "'") = 5296,"exact above-estimate usage")
+  errors = errors + check(settlecall(store,first_reservation,"fixture","fixture","excess","succeeded",129,65,101,5001,duplicate_id,error) = 0 & duplicate_id = run_id,"identical settlement is idempotent " || error)
+  errors = errors + check(settlecall(store,first_reservation,"fixture","fixture","excess","succeeded",129,65,102,5001,duplicate_id,error) \= 0,"conflicting duplicate receipt rejected")
+  errors = errors + check(scalar(database,"SELECT reserved_calls+reserved_tokens+reserved_cost FROM jobs WHERE job_id='job-last-call'") = 0,"no duplicate reservation release")
+
+  errors = errors + check(accountingcase(store,"late",2) = 0,"late fixture")
+  old_claim = .ragworkclaim; new_claim = .ragworkclaim; late_reservation = .ragcallreservation
+  status = claimnext(store,"job-late","old",60,3,old_claim,error)
+  status = reservecall(store,old_claim,128,64,100,5000,late_reservation,error)
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET lease_until=unixepoch()-1 WHERE item_id='" || old_claim.item_id() || "'") = 0,"expire old lease")
+  status = claimnext(store,"job-late","new",60,3,new_claim,error)
+  status = settlecall(store,late_reservation,"fixture","fixture","late","succeeded",20,10,40,12,run_id,error)
+  errors = errors + check(status = 0,"late receipt is accountable " || error)
+  errors = errors + check(scalar(database,"SELECT count(*) FROM attempts WHERE attempt_id='" || old_claim.attempt_id() || "' AND outcome='expired' AND provider_run_id='" || run_id || "'") = 1,"late usage belongs to original expired attempt")
+  errors = errors + check(skipitem(store,old_claim,"stale publication",error) \= 0,"late accounting never restores publication fence")
+  errors = errors + check(settlecall(store,late_reservation,"fixture","fixture","late","succeeded",20,10,40,12,duplicate_id,error) = 0 & duplicate_id = run_id,"late duplicate idempotence")
+  errors = errors + check(scalar(database,"SELECT reserved_calls+reserved_tokens+reserved_cost FROM jobs WHERE job_id='job-late'") = 0,"expired reservation is not released twice")
+  errors = errors + check(accountingcase(store,"turns",2) = 0,"turn budget fixture")
+  turn_input = '{"charging_basis":"subscription-allowance"}'
+  errors = errors + check(sqliteexec(database,"UPDATE jobs SET codex_turn_budget=2 WHERE job_id='job-turns'; UPDATE job_items SET input_json='" || turn_input || "',input_hash='" || rxhash..sha256hex(turn_input as .binary) || "' WHERE job_id='job-turns'") = 0,"two reviewed subscription turns")
+  turn_first = .ragworkclaim; turn_second = .ragworkclaim; turn_reservation = .ragcallreservation; next_turn_reservation = .ragcallreservation
+  status = claimnext(store,"job-turns","turn-one",60,3,turn_first,error)
+  status = claimnext(store,"job-turns","turn-two",60,3,turn_second,error)
+  errors = errors + check(reservecall(store,turn_first,128,64,100,5000,turn_reservation,error) = 0,"reserve first subscription turn " || error)
+  external_id = ""
+  errors = errors + check(beginexternalrun(store,turn_first,"codex","fixture","turn-one","subscription-allowance","fixture-thread",0,external_id,error) = 0,"record first running subscription turn " || error)
+  errors = errors + check(reservecall(store,turn_second,128,64,100,5000,next_turn_reservation,error) = 0,"a running turn is not counted again as an unstarted reservation " || error)
+  errors = errors + check(settlecall(store,turn_reservation,"codex","fixture","turn-one","succeeded",10,10,0,1,run_id,error,external_id,"subscription-allowance") = 0,"settle first subscription turn " || error)
+  errors = errors + check(settlecall(store,next_turn_reservation,"codex","fixture","turn-two","succeeded",10,10,0,1,run_id,error,"","subscription-allowance") = 0,"settle second subscription turn " || error)
+  errors = errors + check(scalar(database,"SELECT reserved_calls+reserved_tokens+reserved_cost+reserved_codex_turns FROM jobs WHERE job_id='job-turns'") = 0,"subscription reservations reconcile exactly")
+  errors = errors + check(accountingcase(store,"retry",2) = 0,"retry delay fixture")
+  retry_provider = .retryprovider()
+  status = runworkeronce(store,"job-retry","retry-worker",60,3,policy,retry_provider,disposition,error,genericprofile())
+  errors = errors + check(status = 0 & scalar(database,"SELECT count(*) FROM job_items WHERE item_id='item-retry1' AND state='queued' AND retry_at-unixepoch() BETWEEN 1 AND 2") = 1,"2000 ms retry becomes two seconds, not remainder " || error)
   errors = errors + check(closeragstore(store,error) = 0,"close fixture")
+  errors = errors + legacyfoldercase(args[1] || "-legacy-folder")
   if errors > 0 then return 1
   say "PUBLICATION_OK ownership batch_atomicity paid_accounting rollback_failure cancellation"
   return 0

@@ -53,7 +53,7 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "source.list" | operation = "source.show" then return _repository(request, operation, "sources")
   if operation = "citation.show" then return _citationshow(request)
   if operation = "job.list" then return _repository(request, operation, "jobs")
-  if operation = "job.events" then return _repository(request, operation, "job-items")
+  if operation = "job.events" then return _jobevents(request)
   if operation = "review.list" | operation = "review.show" then return _repository(request, operation, "reviews")
   if operation = "query.search" | operation = "query.evidence" | operation = "query.answer" | operation = "query.trace" | operation = "query.path" | operation = "query.timeline" then return _query(request, registry)
   if operation = "job.status" then return _jobstatus(request)
@@ -98,6 +98,9 @@ _vectorrebuild: procedure = .ragcommandresult
   embedding_profile_id = _scalartext(store.database(), "SELECT embedding_profile_id FROM embedding_profiles WHERE input_envelope_fingerprint=" || _sqlquote(fingerprint) || " AND dimension=" || role.embedding_dimensions())
   if embedding_profile_id = "" then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 6, "no compatible stored embeddings; vector rebuild never calls a provider"); end
   if _scalarint(store.database(), "SELECT count(*) FROM jobs WHERE state IN('queued','running','paused','cancel_requested')") > 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 6, "vector rebuild requires active jobs to be settled"); end
+  /* A committed graph can outlive its failed file projection, including
+   * before the first vector index exists. Repair that projection first. */
+  if recovermanifest(store,error) \= 0 then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,7,error); end
   rebuilt = .ragvectorgenerationresult
   status = buildannvectorgeneration(store, embedding_profile_id, policy.maximum_rows(), policy.centroids(), policy.probes(), policy.iterations(), policy.maximum_sidecar_bytes(), rebuilt, error)
   close_error = ""; close_status = closeragstore(store, close_error)
@@ -245,6 +248,7 @@ _libraryreport: procedure = .ragcommandresult
 
   store = .ragstorehandle; status = .ragstorestatus
   if openragstore(request.library(), "readonly", store, error) \= 0 then return _openfailure(operation, error)
+  if sqliteexec(store.database(),"BEGIN") \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation,7,"cannot begin library report read snapshot"); end
   if storagestatus(store, status, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, error); end
   database = store.database(); generation = status.published_generation(); library_id = status.library_id()
   visible_source = "visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ")"
@@ -317,6 +321,12 @@ _libraryreport: procedure = .ragcommandresult
   replaying_dead_letters = _scalarint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='in-progress'")
   resolved_dead_letters = _scalarint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='resolved'")
   reconciliation_warning = actionable_dead_letters > 0 & active_jobs = 0
+  durable = _durablereportcensus(database)
+  durable_open = 0
+  do i = 1 to durable.0
+    if durable[i] < 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation,7,"cannot read durable maintenance report census"); end
+    if i <= 5 then durable_open = durable_open + durable[i]
+  end
 
   required_metrics = .int[]
   required_metrics[1] = sources; required_metrics[2] = revisions; required_metrics[3] = chunks; required_metrics[4] = chunk_bytes
@@ -373,6 +383,7 @@ _libraryreport: procedure = .ragcommandresult
   semantic = semantic || ']}'
   semantic_digest = rxhash..sha256hex(semantic as .binary)
   operational = '{"schema":"crexx-rag.library-report-operational/1","generation":' || generation || ',"vector":[' || embedding_links || ',' || vector_rows || ',' || vector_dimension || ',' || vector_centroids || ',' || vector_probes || ',' || vector_coverage || '],"maintenance":[' || incomplete_runs || ',' || pending_items || ',' || diagnosed_items || ',' || review_items || ',' || blocked_items || ',' || applied_items || ',' || active_jobs || ',' || error_jobs || ',' || dead_letters || ',' || dead_extraction || ',' || dead_improvement || ',' || dead_embeddings || ',' || dead_other || ',' || actionable_dead_letters || ',' || replaying_dead_letters || ',' || resolved_dead_letters || '],"review":[' || reviews || ',' || gaps || '],"verification":[' || verification.issue_count() || ',' || repository_verification.issue_count() || ',' || fts_rows || '],"reconciliation_warning":' || _boolean(reconciliation_warning) || '}'
+  operational = substr(operational,1,length(operational)-1) || ',"durable":' || _durablereportjson(durable) || '}'
   operational_digest = rxhash..sha256hex(operational as .binary)
   report_id = "report-sha256:" || semantic_digest
   provider_context = '{"schema":"crexx-rag.library-report-context/1","semantic":' || semantic || ',"operational":' || operational || ',"passages":[' || passages || ']}'
@@ -403,6 +414,13 @@ _libraryreport: procedure = .ragcommandresult
   backlog_fields = .ragresultfield[]
   backlog_fields[1] = .ragresultfield("incomplete_runs", "integer", incomplete_runs); backlog_fields[2] = .ragresultfield("pending_items", "integer", pending_items); backlog_fields[3] = .ragresultfield("diagnosed_items", "integer", diagnosed_items); backlog_fields[4] = .ragresultfield("review_items", "integer", review_items); backlog_fields[5] = .ragresultfield("blocked_or_failed_items", "integer", blocked_items); backlog_fields[6] = .ragresultfield("applied_items", "integer", applied_items); backlog_fields[7] = .ragresultfield("active_jobs", "integer", active_jobs); backlog_fields[8] = .ragresultfield("jobs_with_errors", "integer", error_jobs); backlog_fields[9] = .ragresultfield("dead_letters", "integer", dead_letters); backlog_fields[10] = .ragresultfield("extraction_dead_letters", "integer", dead_extraction); backlog_fields[11] = .ragresultfield("improvement_dead_letters", "integer", dead_improvement); backlog_fields[12] = .ragresultfield("embedding_dead_letters", "integer", dead_embeddings); backlog_fields[13] = .ragresultfield("other_dead_letters", "integer", dead_other); backlog_fields[14] = .ragresultfield("actionable_dead_letters", "integer", actionable_dead_letters); backlog_fields[15] = .ragresultfield("replaying_dead_letters", "integer", replaying_dead_letters); backlog_fields[16] = .ragresultfield("resolved_dead_letters", "integer", resolved_dead_letters); backlog_fields[17] = .ragresultfield("reconciliation_warning", "boolean", _boolean(reconciliation_warning))
   records[records.0 + 1] = .ragresultrecord("maintenance-backlog", backlog_fields)
+  durable_fields = .ragresultfield[]
+  durable_names = "pending_tasks dispatched_tasks unresolved_tasks review_tasks failed_tasks resolved_tasks superseded_tasks migrating_workflows waiting_workflows complete_workflows decisions"
+  do i = 1 to durable.0
+    durable_fields[i] = .ragresultfield(word(durable_names,i),"integer",durable[i])
+  end
+  durable_fields[12] = .ragresultfield("open_tasks","integer",durable_open)
+  records[records.0 + 1] = .ragresultrecord("durable-maintenance-backlog",durable_fields)
 
   storage_issues = verification.issue_count() + repository_verification.issue_count()
   storage_state = "pass"; if storage_issues > 0 then storage_state = "attention"
@@ -417,11 +435,11 @@ _libraryreport: procedure = .ragcommandresult
   if concepts = 0 then graph_state = "empty"
   else if claims = 0 | isolated * 2 > concepts | relationship_concentration >= 900000 then do; graph_state = "attention"; graph_issues = isolated; end
   records[records.0 + 1] = _healthrecord("graph", graph_state, graph_issues, "isolated=" || isolated || ",concepts=" || concepts || ",largest_type_share_millionths=" || relationship_concentration)
-  maintenance_state = "pass"; maintenance_issues = incomplete_runs + pending_items + diagnosed_items + review_items + blocked_items + error_jobs + dead_letters
+  maintenance_state = "pass"; maintenance_issues = incomplete_runs + pending_items + diagnosed_items + review_items + blocked_items + error_jobs + dead_letters + durable_open + durable[8] + durable[9]
   if maintenance_issues > 0 then maintenance_state = "attention"
-  records[records.0 + 1] = _healthrecord("maintenance", maintenance_state, maintenance_issues, "incomplete_runs=" || incomplete_runs || ",pending_items=" || pending_items || ",dead_letters=" || dead_letters || ",reconciliation_warning=" || _boolean(reconciliation_warning))
-  review_state = "pass"; review_issues = reviews + gaps; if review_issues > 0 then review_state = "attention"
-  records[records.0 + 1] = _healthrecord("review", review_state, review_issues, "pending_reviews=" || reviews || ",open_query_gaps=" || gaps)
+  records[records.0 + 1] = _healthrecord("maintenance", maintenance_state, maintenance_issues, "incomplete_runs=" || incomplete_runs || ",pending_items=" || pending_items || ",durable_open_tasks=" || durable_open || ",unfinished_workflows=" || (durable[8]+durable[9]) || ",dead_letters=" || dead_letters || ",reconciliation_warning=" || _boolean(reconciliation_warning))
+  review_state = "pass"; review_issues = reviews + gaps + durable[4]; if review_issues > 0 then review_state = "attention"
+  records[records.0 + 1] = _healthrecord("review", review_state, review_issues, "pending_reviews=" || reviews || ",durable_review_tasks=" || durable[4] || ",open_query_gaps=" || gaps)
 
   do i = 1 to relationship_records.0
     records[records.0 + 1] = relationship_records[i]
@@ -534,7 +552,11 @@ _librarysnapshot: procedure = .ragcommandresult
   concepts = concepts_text as .int; claims = claims_text as .int; supports = supports_text as .int; gaps = gaps_text as .int; reviews = reviews_text as .int
   connected = connected_text as .int; isolated = isolated_text as .int; vector_rows = vector_rows_text as .int; vector_coverage = vector_coverage_text as .int
   incomplete = incomplete_text as .int; pending = pending_text as .int; diagnosed = diagnosed_text as .int; maintenance_review = maintenance_review_text as .int; blocked = blocked_text as .int; active_jobs = active_jobs_text as .int; error_jobs = error_jobs_text as .int; dead = dead_text as .int
-  work_backlog = pending + diagnosed + maintenance_review + blocked
+  durable_open_text = _reportfield(report_result,"durable-maintenance-backlog","open_tasks")
+  durable_review_text = _reportfield(report_result,"durable-maintenance-backlog","review_tasks")
+  if durable_open_text = "" | durable_review_text = "" then return _failure(operation,10,"snapshot census omitted durable maintenance metrics")
+  work_backlog = pending + diagnosed + maintenance_review + blocked + (durable_open_text as .int)
+  reviews = reviews + (durable_review_text as .int)
   attention = _reportattention(report_result)
 
   store = .ragstorehandle
@@ -805,7 +827,7 @@ _persistreportnarrative: procedure = .int
   error = ""; usage = result.usage(); request_hash = rxhash..sha256hex(request_context as .binary)
   provider_run_id = "provider-run-sha256:" || rxhash..sha256hex((result.request_id() || "00"x || provider.provider_id() || "00"x || provider.model()) as .binary)
   narrative_id = "narrative-sha256:" || rxhash..sha256hex((report_id || "00"x || operational_digest || "00"x || provider_run_id) as .binary)
-  duration_ms = result.latency_us() % 1000
+  duration_ms = (result.latency_us() / 1000) as .int
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin report narrative cache transaction"; return -1; end
   prepared = .binary
   sql = "INSERT OR IGNORE INTO report_snapshots(report_id,semantic_generation,profile_hash,report_schema,top_limit,semantic_digest,semantic_json,created_at) VALUES(?1,?2,?3,'crexx-rag.library-report/1',?4,?5,?6,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
@@ -838,7 +860,41 @@ _currentoperationaldigest: procedure = .string
   actionable_dead_letters = _scalarint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='actionable'"); replaying_dead_letters = _scalarint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='in-progress'"); resolved_dead_letters = _scalarint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='resolved'")
   reviews = _scalarint(database, "SELECT count(*) FROM reviews WHERE state='pending'"); gaps = _scalarint(database, "SELECT count(*) FROM query_gaps WHERE state='open' AND observed_generation<=" || generation); fts_rows = _scalarint(database, "SELECT count(*) FROM chunks_fts"); reconciliation_warning = actionable_dead_letters > 0 & active_jobs = 0
   operational = '{"schema":"crexx-rag.library-report-operational/1","generation":' || generation || ',"vector":[' || embedding_links || ',' || vector_rows || ',' || vector_dimension || ',' || vector_centroids || ',' || vector_probes || ',' || vector_coverage || '],"maintenance":[' || incomplete_runs || ',' || pending_items || ',' || diagnosed_items || ',' || review_items || ',' || blocked_items || ',' || applied_items || ',' || active_jobs || ',' || error_jobs || ',' || dead_letters || ',' || dead_extraction || ',' || dead_improvement || ',' || dead_embeddings || ',' || dead_other || ',' || actionable_dead_letters || ',' || replaying_dead_letters || ',' || resolved_dead_letters || '],"review":[' || reviews || ',' || gaps || '],"verification":[' || verification_issues || ',' || repository_issues || ',' || fts_rows || '],"reconciliation_warning":' || _boolean(reconciliation_warning) || '}'
+  durable = _durablereportcensus(database)
+  do i = 1 to durable.0
+    if durable[i] < 0 then return ""
+  end
+  operational = substr(operational,1,length(operational)-1) || ',"durable":' || _durablereportjson(durable) || '}'
   return rxhash..sha256hex(operational as .binary)
+
+_durablereportcensus: procedure = .int[]
+  arg database = .binary
+  counts = .int[]
+  do i = 1 to 11
+    counts[i] = 0
+  end
+  schema_version = _scalarint(database,"SELECT schema_version FROM library_meta WHERE singleton=1")
+  if schema_version < 0 then do; counts[1] = -1; return counts; end
+  if schema_version < 10 then return counts
+  task_states = "pending dispatched unresolved review failed resolved superseded"
+  do i = 1 to 7
+    counts[i] = _scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE state=" || _sqlquote(word(task_states,i)))
+  end
+  workflow_states = "migrating waiting complete"
+  do i = 1 to 3
+    counts[i+7] = _scalarint(database,"SELECT count(*) FROM maintenance_workflows WHERE state=" || _sqlquote(word(workflow_states,i)))
+  end
+  counts[11] = _scalarint(database,"SELECT count(*) FROM maintenance_decisions")
+  return counts
+
+_durablereportjson: procedure = .string
+  arg counts = .int[]
+  output = "["
+  do i = 1 to counts.0
+    if i > 1 then output = output || ","
+    output = output || counts[i]
+  end
+  return output || "]"
 
 _healthrecord: procedure = .ragresultrecord
   arg dimension = .string, state = .string, issue_count = .int, detail = .string
@@ -1597,7 +1653,7 @@ _persistqueryproviderrun: procedure = .int
   arg database = .binary, config_snapshot_id = .string, operation = .string, purpose = .string, provider = .ragproviderconfig, request_input = .string, result = .providerresult, outcome = .string, allowance_before = .int, allowance_after = .int, recovery_json = .string, expose provider_run_id = .string, expose error = .string
   provider_run_id = ""; error = ""
   if config_snapshot_id = "" | operation = "" | purpose = "" | provider.provider_id() = "" | provider.model() = "" | request_input = "" | result.request_id() = "" | wordpos(outcome, "succeeded failed rejected") = 0 then do; error = "query provider history input is invalid"; return -1; end
-  usage = result.usage(); duration_ms = result.latency_us() % 1000
+  usage = result.usage(); duration_ms = (result.latency_us() / 1000) as .int
   request_hash = rxhash..sha256hex((operation || "00"x || purpose || "00"x || provider.provider_id() || "00"x || provider.model() || "00"x || request_input) as .binary)
   provider_run_id = "provider-run-sha256:" || rxhash..sha256hex((result.request_id() || "00"x || purpose || "00"x || time("us")) as .binary)
   prepared = .binary
@@ -1660,8 +1716,55 @@ _jobstatus: procedure = .ragcommandresult
   fields[8] = .ragresultfield("dead_letter", "integer", status.dead_letter())
   fields[9] = .ragresultfield("cancelled", "integer", status.cancelled())
   fields[10] = .ragresultfield("failed_attempts", "integer", status.failed_attempts())
+  fields[11] = .ragresultfield("last_error", "string", status.last_error())
   records = .ragresultrecord[]; records[1] = .ragresultrecord("job-status", fields)
   return .ragcommandresult(operation, "ok", 0, "bounded durable job status", records)
+
+_jobevents: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation = request.operation(); error = ""
+  if _hasaccess(request,"read") \= 1 then return _failure(operation,4,"job events requires read access")
+  if _options(request,"id cursor limit",error) \= 0 then return _failure(operation,2,error)
+  job_id = _id(request,error); cursor = _option(request,"cursor",error); limit_text = _option(request,"limit",error)
+  if error \= "" | job_id = "" then return _failure(operation,2,"job events requires one job id")
+  if cursor = "" then cursor = "0"
+  if limit_text = "" then limit_text = "20"
+  if _unsigned(cursor) \= 1 | _unsigned(limit_text) \= 1 then return _failure(operation,2,"event cursor and limit must be non-negative integers")
+  limit = limit_text as .int
+  if limit < 1 | limit > 100 then return _failure(operation,2,"event limit must be 1 through 100")
+  view = .ragreadsnapshot
+  if beginreadsnapshot(request.library(),view,error) \= 0 then return _openfailure(operation,error)
+  database = view.database(); prepared = .binary
+  sql = "SELECT event_id,coalesce(item_id,''),coalesce(attempt_id,''),event_type,message,occurred_at FROM job_events WHERE job_id=?1 AND event_id>?2 ORDER BY event_id LIMIT ?3"
+  if sqliteprepare(database,sql,prepared) \= 0 then do; ignored = ""; call closereadsnapshot view,ignored; return _failure(operation,7,"cannot prepare durable event page"); end
+  binds = sqlitebindtext(prepared,1,job_id) | sqlitebindint(prepared,2,cursor as .int) | sqlitebindint(prepared,3,limit+1)
+  records = .ragresultrecord[]; next_cursor = ""; last_event = 0
+  do while binds = 0
+    step = sqlitestep(prepared)
+    if step = 101 then leave
+    if step \= 100 then do; error = "cannot read durable event page"; leave; end
+    if records.0 = limit then do; next_cursor = last_event as .string; leave; end
+    event_id = 0; item_id = ""; attempt_id = ""; event_type = ""; message = ""; occurred = ""
+    columns = sqlitecolumnint(prepared,0,event_id) | sqlitecolumntext(prepared,1,item_id) | sqlitecolumntext(prepared,2,attempt_id) | sqlitecolumntext(prepared,3,event_type) | sqlitecolumntext(prepared,4,message) | sqlitecolumntext(prepared,5,occurred)
+    if columns \= 0 then do; error = "cannot decode durable event"; leave; end
+    fields = .ragresultfield[]
+    fields[1] = .ragresultfield("event_id","integer",event_id)
+    fields[2] = .ragresultfield("job_id","string",job_id)
+    fields[3] = .ragresultfield("item_id","string",item_id)
+    fields[4] = .ragresultfield("attempt_id","string",attempt_id)
+    fields[5] = .ragresultfield("event_type","string",event_type)
+    fields[6] = .ragresultfield("message","string",message)
+    fields[7] = .ragresultfield("occurred_at","string",occurred)
+    records[records.0+1] = .ragresultrecord("job-event",fields); last_event = event_id
+  end
+  call sqlitefinalize prepared
+  close_error = ""; closed = closereadsnapshot(view,close_error)
+  if binds \= 0 | error \= "" | closed \= 0 then return _failure(operation,7,"durable event page failed: " || error || close_error)
+  if next_cursor \= "" then do
+    fields = .ragresultfield[]; fields[1] = .ragresultfield("next_cursor","string",next_cursor)
+    records[records.0+1] = .ragresultrecord("page",fields)
+  end
+  return .ragcommandresult(operation,"ok",0,"durable job events in database order",records)
 
 _jobcontrol: procedure = .ragcommandresult
   arg request = .ragcommandrequest
@@ -2213,7 +2316,7 @@ _preparemaintenance: procedure = .int
   repair_reservation = missing; if repair_reservation > batch_items then repair_reservation = batch_items
   repair_call_budget = repair_reservation * embedder.max_attempts()
   if repair_call_budget > budget.model_calls() then do
-    repair_reservation = budget.model_calls() % embedder.max_attempts(); if repair_reservation < 1 & missing > 0 then repair_reservation = 1
+    repair_reservation = (budget.model_calls() / embedder.max_attempts()) as .int; if repair_reservation < 1 & missing > 0 then repair_reservation = 1
     repair_call_budget = repair_reservation * embedder.max_attempts(); if repair_call_budget > budget.model_calls() then repair_call_budget = budget.model_calls()
   end
   available_cognitive_calls = budget.model_calls() - repair_call_budget
@@ -2671,6 +2774,20 @@ _unsigned: procedure = .int
   if value = "" then return 0
   do i = 1 to length(value)
     if pos(substr(value, i, 1), "0123456789") = 0 then return 0
+  end
+  /* Validate the signed SQLite/VM integer range before any strict cast. */
+  significant = value
+  do while length(significant) > 1 & substr(significant,1,1) = "0"
+    significant = substr(significant,2)
+  end
+  if length(significant) < 19 then return 1
+  if length(significant) > 19 then return 0
+  maximum = "9223372036854775807"
+  do i = 1 to 19
+    digit = pos(substr(significant,i,1),"0123456789")
+    boundary = pos(substr(maximum,i,1),"0123456789")
+    if digit < boundary then return 1
+    if digit > boundary then return 0
   end
   return 1
 

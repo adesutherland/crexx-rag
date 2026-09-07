@@ -101,7 +101,9 @@ recordaliasissue: procedure = .int
 resolveknownconcept: procedure = .int
   arg database = .binary, label = .string, concept_type = .string, expose canonical_label = .string, expose concept_id = .string, expose error = .string
   canonical_label = label; concept_id = ""; error = ""; prepared = .binary
-  sql = "SELECT DISTINCT c.concept_id,c.canonical_label FROM concepts c LEFT JOIN aliases a ON a.target_concept_id=c.concept_id AND a.visible_to_generation IS NULL WHERE c.visible_to_generation IS NULL AND c.lifecycle_state<>'retired' AND c.concept_type=" || _q(concept_type) || " AND (lower(c.canonical_label)=" || _q(lower(strip(label))) || " OR a.normalized_alias=" || _q(lower(strip(label))) || ") ORDER BY c.concept_id LIMIT 2"
+  /* A migration parent remains addressable as evidence, but is not a target
+   * for newly extracted mentions. Match the publication lifecycle contract. */
+  sql = "SELECT DISTINCT c.concept_id,c.canonical_label FROM concepts c LEFT JOIN aliases a ON a.target_concept_id=c.concept_id AND a.visible_to_generation IS NULL WHERE c.visible_to_generation IS NULL AND c.lifecycle_state='active' AND c.concept_type=" || _q(concept_type) || " AND (lower(c.canonical_label)=" || _q(lower(strip(label))) || " OR a.normalized_alias=" || _q(lower(strip(label))) || ") ORDER BY c.concept_id LIMIT 2"
   if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot inspect canonical identity"; return -1; end
   count = 0
   do forever
@@ -224,7 +226,7 @@ _subject: procedure = .string
   if kind = "claim" then sql = "SELECT " || _claimobject("c") || " FROM claims c WHERE c.claim_id=" || key || " AND c.visible_to_generation IS NULL"
   if kind = "conflict" then sql = "SELECT json_object('type','conflict','id',f.conflict_id,'first',json(" || _claimobject("c") || "),'second',json(" || _claimobject("d") || ")) FROM claim_conflicts f JOIN claims c ON c.claim_id=f.claim_id JOIN claims d ON d.claim_id=f.competing_claim_id WHERE f.conflict_id=" || key || " AND f.visible_to_generation IS NULL AND f.review_state='pending'"
   if kind = "note" then sql = "SELECT json_object('type','note','id',note_id,'kind',note_kind,'text',text,'next_action',next_action) FROM analysis_notes WHERE note_id=" || key || " AND state='active'"
-  if kind = "gap" then sql = "SELECT json_object('type','gap','id',gap_id,'text',gap_text,'occurrences',occurrence_count) FROM query_gaps WHERE gap_id=" || key || " AND state='open'"
+  if kind = "gap" then sql = "SELECT json_object('type','gap','id',gap_id,'question',normalized_question,'text',gap_text,'occurrences',occurrence_count) FROM query_gaps WHERE gap_id=" || key || " AND state='open'"
   if kind = "alias-issue" then sql = "SELECT json_object('type','alias-issue','id',i.issue_id,'candidate_id',i.candidate_id,'canonical_label',i.proposed_label,'concept_type',i.proposed_type,'aliases',json(i.aliases_json),'candidates',json(coalesce((SELECT json_group_array(json_object('concept_id',z.concept_id,'canonical_label',z.canonical_label,'concept_type',z.concept_type)) FROM (SELECT DISTINCT c.concept_id,c.canonical_label,c.concept_type FROM concepts c LEFT JOIN aliases a ON a.target_concept_id=c.concept_id AND a.visible_to_generation IS NULL WHERE c.visible_to_generation IS NULL AND c.lifecycle_state<>'retired' AND (lower(c.canonical_label)=lower(i.proposed_label) OR a.normalized_alias=lower(i.proposed_label) OR a.normalized_alias IN(SELECT lower(value) FROM json_each(i.aliases_json))) ORDER BY c.concept_id) z),'[]'))) FROM maintenance_alias_issues i WHERE i.issue_id=" || key || " AND i.state='open'"
   if sql = "" then return ""
   return _text(database,sql)
@@ -247,7 +249,9 @@ _passagequery: procedure = .string
   if kind = "note" then selection = "SELECT link_id evidence_id,revision_chunk_id,span_start,span_end FROM analysis_note_links WHERE note_id=" || key || " AND revision_chunk_id IS NOT NULL UNION SELECT m.mention_id,m.revision_chunk_id,m.span_start,m.span_end FROM analysis_note_links l JOIN mentions m ON m.concept_id=l.object_id WHERE l.note_id=" || key || " AND l.object_type='concept'"
   if kind = "alias-issue" then selection = "SELECT c.candidate_id evidence_id,c.revision_chunk_id,c.span_start,c.span_end FROM candidate_mentions c JOIN maintenance_alias_issues i ON i.candidate_id=c.candidate_id WHERE i.issue_id=" || key || " AND c.visible_to_generation IS NULL"
   if kind = "gap" then do
-    question = _text(database,"SELECT gap_text FROM query_gaps WHERE gap_id=" || key); terms = ""; count = 0
+    /* The diagnostic describes a retrieval limitation, not its subject.
+     * Existing observations already retain the originating question. */
+    question = _text(database,"SELECT normalized_question FROM query_gaps WHERE gap_id=" || key); terms = ""; count = 0
     do i = 1 to words(question)
       term = word(question,i)
       if length(term) < 3 | wordpos(lower(term),"what which where when why how does did the and are was were with from this that") > 0 then iterate

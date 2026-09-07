@@ -1,12 +1,11 @@
 # Durable autonomous maintenance
 
-Status: the committed `e369449` baseline passed 24 tests, but its concurrent
-Scottish run failed and was stopped before completing 5,000 items. That pass
-did not establish unattended reliability. Publication and request-contract
-repairs are under qualification; crash recovery across all work kinds remains
-open. See the [use-case coverage review](reliability-coverage-review.md) for
-evidence and release blockers. No nightly schedule or repaired installation has
-been enabled.
+Status: the local reliability baseline includes publication, request-contract
+and received-response recovery repairs. The maintained suite and bounded
+5,000-decision concurrency gate have passed; the separate Scottish hosted run
+remains held and incomplete. See the
+[use-case coverage review](reliability-coverage-review.md) for the exact candidate
+evidence and remaining qualification limits. No nightly schedule has been enabled.
 
 ## Operating cycle
 
@@ -16,6 +15,21 @@ opportunities and missing embedding links. Repairs and unresolved identity
 questions rank ahead of enrichment; waiting questions gain priority with age.
 The census keeps a cursor for each category, so a small batch or an already
 processed prefix does not hide later work.
+
+Query-gap observations preserve the originating normalized question separately
+from the diagnostic warning. Maintenance searches using the question and passes
+both fields to the resolution provider. A generic ambiguity or missing-claim
+warning is never substituted as the search subject. Existing observations already
+contain this question, so the corrected lookup needs no schema or corpus rewrite.
+Changed evidence supersedes waiting stale interpretations under the normal
+fingerprint rules; unchanged corrected tasks remain deduplicated.
+
+Open gaps are maintenance inputs, not automatically operator assignments. The
+configured occurrence threshold controls eligibility. Maintenance can settle a
+supported investigation, preserve uncertainty, or create a focused follow-up;
+policy exceptions become reviews. Missing corpus evidence need not imply a
+repairable defect, and answering a later query does not itself close an earlier
+gap. No maintenance work occurs while its workers remain stopped.
 
 The same public `maintain plan`, `maintain apply`, `worker start`,
 `maintain status` and `maintain inspect` operations serve CLI, JSON and MCP.
@@ -136,12 +150,20 @@ questions for a subsequent window. Paid retries have a configured cap and
 backoff. Recovered unstarted dispatches do not consume the paid-attempt cap.
 A **resolution** response durably stored with settlement can be reused in
 another lease or window, even when its last permitted paid attempt was used.
-Usage remains owned by the original provider run. Codex extraction has a
-separate completed-turn recovery path. Gemini extraction and embedding results
-do not yet share resolution's durable result cache; a crash after usage
-settlement can require another provider call. No path guarantees recovery of a
-network response lost before durable receipt. These differences must be closed
-or explicitly handled before unattended qualification.
+General extraction and embedding now persist an immutable, bounded response
+envelope before validation and settlement. Same-item restart revalidates and
+reuses that receipt without a new external request; usage remains owned by its
+original attempt. Codex retains its managed thread/turn recovery and preserves
+completed output after settlement too. A newly requested replay job is new
+work and can make a new call; it is not the generic same-item recovery path.
+
+An expired outbound intent without a durable response is explicitly uncertain.
+Recovery pauses its job, exposes the affected item as a dead letter and records
+`provider-outcome-uncertain` in `job events`. Further calls on that unresolved
+job are refused. Inspect and reconcile the outcome before explicitly choosing
+new work. No mechanism can recover a network response that was never received
+durably. Late or above-estimate actual usage is still accounted once, with an
+exception event; it never authorizes a stale worker to publish knowledge.
 
 Graph maintenance retains source records and embedding BLOBs. An eligible
 existing vector index remains usable across graph-only generations. Missing

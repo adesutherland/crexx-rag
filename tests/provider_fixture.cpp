@@ -1,4 +1,6 @@
 #include <arpa/inet.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 #include <poll.h>
 #include <signal.h>
@@ -467,13 +469,29 @@ int main(int argc, char** argv)
         } else {
             body = R"({"error":{"message":"unexpected loopback path"}})";
         }
+        if (scenario == "product-hold-response") {
+            if (argc != 5) return 9;
+            const int control = ::open(argv[4], O_RDONLY | O_NONBLOCK);
+            if (control < 0) return 9;
+            std::cout << "RESPONSE_HELD" << std::endl;
+            pollfd release {control, POLLIN, 0};
+            if (::poll(&release, 1, 30000) <= 0) { ::close(control); return 9; }
+            char token = 0;
+            if (::read(control, &token, 1) != 1 || token != 'R') { ::close(control); return 9; }
+            ::close(control);
+        }
+        if (scenario == "product-manifest-fault"
+            && request.find("crexx-rag.discovery-context/1") != std::string::npos) {
+            if (argc != 5 || ::mkdir(argv[4], 0700) != 0) return 9;
+            std::cout << "MANIFEST_FAULT_READY" << std::endl;
+        }
         const std::string response = "HTTP/1.1 " + std::to_string(http_status) + " " + reason_phrase(http_status)
             + "\r\nContent-Type: application/json\r\nContent-Length: "
             + std::to_string(body.size()) + "\r\nX-Request-Id: loopback-request-" + std::to_string(index + 1)
             + "\r\n" + extra_headers + "Connection: close\r\n\r\n" + body;
         if ((scenario == "product-concurrent"
              && request.find("Durable resolution input:") != std::string::npos)
-            || (scenario == "product-concurrent-extraction"
+            || ((scenario == "product-concurrent-extraction" || scenario == "product-concurrent-held-extraction")
                 && request.find("crexx-rag.discovery-context/1") != std::string::npos)) {
             // A rendezvous, not a sleep: neither response is released until
             // two independent product workers have reached the provider.
@@ -481,6 +499,17 @@ int main(int argc, char** argv)
                 paired_client = client;
                 paired_response = response;
             } else {
+                if (scenario == "product-concurrent-held-extraction") {
+                    if (argc != 5) return 9;
+                    const int control = ::open(argv[4], O_RDONLY | O_NONBLOCK);
+                    if (control < 0) return 9;
+                    std::cout << "PAIR_HELD " << barrier_pairs + 1 << std::endl;
+                    pollfd release {control, POLLIN, 0};
+                    if (::poll(&release, 1, 30000) <= 0) { ::close(control); return 9; }
+                    char token = 0;
+                    if (::read(control, &token, 1) != 1 || token != 'R') { ::close(control); return 9; }
+                    ::close(control);
+                }
                 if (!send_all(paired_client, paired_response) || !send_all(client, response)) return 7;
                 ::close(paired_client);
                 ::close(client);
