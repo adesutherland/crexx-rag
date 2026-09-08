@@ -66,6 +66,13 @@ one-point trend refuses to infer direction. The suite does
 not silently substitute a different provider. This makes the default suite
 repeatable and zero-cost.
 
+The deadline regression closes a window while extraction is in flight and
+requires its final worker to settle the durable task without another poll.
+Repeated closed-window checkpoints preserve the deadline and make no calls.
+The Codex application fixture reports 20,000 input tokens, verifies the
+32,768-token default reservation, and preserves the full usage through its
+existing interrupted-turn recovery test.
+
 The CREXX repository owns the generic `rxsqlite` contract suite: typed values,
 file databases, FTS, backup and integrity behavior, concurrent session
 isolation, FULLMUTEX configuration, attached-task discovery, native packaging,

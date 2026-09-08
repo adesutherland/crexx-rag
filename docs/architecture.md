@@ -262,6 +262,11 @@ execution. New policies use `provider_time_budget_ms = 0` for no aggregate cap.
 Policies without that field retain the historic `window_seconds` aggregate
 interpretation, preserving already reviewed work. No schema migration is needed.
 
+Window closure stops admission, while already admitted calls may still settle.
+Workers reconcile terminal task outcomes after settlement even on their last
+item. A later checkpoint also repairs closed-window task status without
+reopening the window, moving its deadline or dispatching further work.
+
 Evidence validation and generation staging share an IMMEDIATE transaction.
 Stale answers retain their provenance without publishing a generation. Cached
 embedding relinking stages a new membership generation rather than rewriting

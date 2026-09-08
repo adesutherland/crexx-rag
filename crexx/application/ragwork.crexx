@@ -1116,7 +1116,12 @@ runworkeronce: procedure = .int
     open_reservations = _boundcount(store.database(),"SELECT count(*) FROM job_events e WHERE e.attempt_id=?1 AND e.event_type LIKE 'reservation-open:%' AND NOT EXISTS(SELECT 1 FROM job_events c WHERE c.attempt_id=e.attempt_id AND c.event_type='reservation-close:'||substr(e.event_type,length('reservation-open:')+1))",claim.attempt_id())
     if pending = 1 & open_reservations = 0 then do
       if acknowledgecancel(store,claim,error) \= 0 then do; disposition = "cancel-acknowledgement-failed"; return -3; end
-      error = ""; disposition = "cancelled"; return 0
+      error = ""; disposition = "cancelled"; status = 0
+    end
+    /* The last worker may stop at its item allowance without another poll. */
+    if status >= 0 & _boundcount(store.database(),"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND state<>'active'",claim.job_id()) > 0 then do
+      reconciliation_error = ""
+      if tickbacklogwindow(store,claim.job_id(),reconciliation_error) < 0 then do; error = reconciliation_error; return -3; end
     end
   end
   return status

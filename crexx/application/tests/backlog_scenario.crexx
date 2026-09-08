@@ -72,6 +72,25 @@ budgetpeerprovider: class implements .ragworkprovider
     _peer_status = runworkeronce(_store,claim.job_id(),"budget-peer",60,1,policy,peer,_peer_disposition,_peer_error,genericprofile())
     return peer.process(claim)
 
+/* Close the window while extraction is in flight, then return its last result.
+ * The worker must reconcile it before returning, even without another poll. */
+closingextractionprovider: class implements .ragworkprovider
+  _store = .ragstorehandle
+  _closed = .int
+  *: factory
+    arg store = .ragstorehandle
+    _store = store; _closed = 0
+    return
+  closed: method = .int
+    return _closed
+  process: method = .ragworkproviderresult
+    arg claim = .ragworkclaim
+    error = ""
+    ignored = sqliteexec(_store.database(),"UPDATE maintenance_windows SET deadline_epoch=unixepoch() WHERE job_id='" || claim.job_id() || "'")
+    _closed = tickbacklogwindow(_store,claim.job_id(),error)
+    empty = .ragextractionproposal; mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
+    return .ragworkproviderresult(0,"fixture","fixture","close-" || claim.attempt_id(),10,10,0,1,0,empty,"",0,"","",.ragworkembedding("","","","","",0,"",''x as .binary),"","local-compute",mentions,proposals,notes)
+
 staleprovider: class implements .ragworkprovider
   _database = .binary
   _response = .string
@@ -501,8 +520,19 @@ main: procedure = .int
   errors = errors + check(sqliteexec(database,"UPDATE maintenance_windows SET deadline_epoch=unixepoch() WHERE job_id='" || job_id || "'") = 0 & tickbacklogwindow(store,job_id,error) = 1 & reservecall(store,recovery_claim,100000,10000,0,1000,duplicate,error) = 1 & error = "","closed window defers its uncalled claim cleanly")
   errors = errors + check(settlecall(store,reservation,"fixture","fixture","deadline-final-call","succeeded",10,10,0,1,settled_run,error) = 0 & skipitem(store,claim,"fixture settled admitted call",error) = 0,"finish call admitted before deadline " || error)
   errors = errors + check(scalartext(database,"SELECT state FROM jobs WHERE job_id='" || job_id || "'") = "completed" & scalarint(database,"SELECT count(*) FROM maintenance_tasks t JOIN maintenance_task_items m USING(task_id) WHERE m.item_id='" || recovery_claim.item_id() || "' AND t.state='pending'") = 1,"deadline completes job and preserves uncalled task")
+  closed_epoch = scalarint(database,"SELECT closed_epoch FROM maintenance_windows WHERE job_id='" || job_id || "'")
+  previous = scalarint(database,"SELECT count(*) FROM provider_runs")
+  errors = errors + check(tickbacklogwindow(store,job_id,error) = 0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks t JOIN maintenance_task_items m USING(task_id) WHERE m.item_id='" || claim.item_id() || "' AND t.state='resolved'") = 1,"closed window reconciles its final settled task " || error)
+  errors = errors + check(tickbacklogwindow(store,job_id,error) = 0 & scalarint(database,"SELECT count(*) FROM provider_runs") = previous & scalarint(database,"SELECT closed_epoch FROM maintenance_windows WHERE job_id='" || job_id || "'") = closed_epoch & scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || job_id || "'") = "deadline","closed reconciliation is idempotent and cannot reopen work")
   /* Two overlapping calls may accumulate more provider minutes than wall
    * minutes. Disabling the explicit provider cap must admit both and continue. */
+  closing_task = ""
+  errors = errors + check(enqueuebacklogtask(database,"alias-follow-up:closed-worker","chunk","chunk-lifecycle","","",1000000,policy,closing_task,error) = 0 & nextwindow(store,policy_json,job_id,error) = 0,"queue final extraction fixture " || error)
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=1000002 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || closing_task || "')") = 0,"select closing extraction")
+  closing_provider = .closingextractionprovider(store)
+  errors = errors + check(runworkeronce(store,job_id,"last-worker",60,1,claim_policy,closing_provider,disposition,error,genericprofile()) = 0 & closing_provider.closed() = 1,"finish extraction after concurrent window closure " || error)
+  errors = errors + check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || closing_task || "'") = "resolved" & scalarint(database,"SELECT reserved_calls FROM jobs WHERE job_id='" || job_id || "'") = 0,"last worker reconciles before stopping without another poll")
+
   time_policy = changestr('"time_ms":1000',changestr('"inflight":1',policy_json,'"inflight":2'),'"time_ms":700000')
   resolved_timing = ""
   errors = errors + check(resolvemaintenancetime(database,"","","",1000,resolved_timing,error) = 0,"resolve a fixed deadline before apply")

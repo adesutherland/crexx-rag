@@ -177,6 +177,13 @@ parseconfigtext: procedure = .int
         end
       end
     end
+    /* Codex receipts include managed context in addition to our source packet.
+     * Explicit format-3 envelopes remain authoritative. */
+    if format_three = 0 & role_name = "extractor" then do
+      do j = 1 to providers.0
+        if providers[j].provider_id() = provider_id & providers[j].kind() = "codex" then maximum_input_tokens = 32768
+      end
+    end
     if provider_id \= "" then roles[roles.0 + 1] = .ragrolebinding(role_name, provider_id, maximum_input_tokens, maximum_output_tokens, maximum_call_cost, dimensions, batch_size, temperature, system_prompt)
   end
 

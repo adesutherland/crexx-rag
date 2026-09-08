@@ -57,7 +57,11 @@ while IFS= read -r line; do
       else
         printf '%s\n' '{"method":"item/completed","params":{"threadId":"fixture-thread","turnId":"fixture-turn","item":{"type":"agentMessage","text":"{\"ok\":true}"}}}'
       fi
-      printf '%s\n' '{"method":"thread/tokenUsage/updated","params":{"threadId":"fixture-thread","turnId":"fixture-turn","tokenUsage":{"last":{"inputTokens":7,"outputTokens":4}}}}'
+      input_tokens=7
+      if [ "${CREXXRAG_CODEX_FIXTURE_MODE:-}" = "extraction" ]; then
+        input_tokens=20000
+      fi
+      printf '{"method":"thread/tokenUsage/updated","params":{"threadId":"fixture-thread","turnId":"fixture-turn","tokenUsage":{"last":{"inputTokens":%s,"outputTokens":4}}}}\n' "$input_tokens"
       printf '%s\n' '{"method":"turn/completed","params":{"threadId":"fixture-thread","turn":{"id":"fixture-turn","status":"completed"}}}'
       ;;
     *'"method":"thread/delete"'*)

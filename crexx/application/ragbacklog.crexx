@@ -411,12 +411,15 @@ tickbacklogwindow: procedure = .int
   error = ""; database = store.database()
   if job_id = "" then job_id = _text(database,"SELECT job_id FROM maintenance_windows WHERE state='active' ORDER BY created_epoch LIMIT 1")
   if job_id = "" then return 0
-  raw = _text(database,"SELECT policy_json FROM maintenance_windows WHERE job_id=" || _q(job_id) || " AND state='active'")
+  raw = _text(database,"SELECT policy_json FROM maintenance_windows WHERE job_id=" || _q(job_id))
   if raw = "" then return 0
   policy = .jsondocument(raw)
   if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do; error = "cannot checkpoint maintenance backlog"; return -1; end
   if _number(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=" || _q(job_id) || " AND state='active'") \= 1 then do
-    if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot close obsolete checkpoint",error)
+    /* Calls admitted before closure may settle afterwards. Reconcile their
+     * task outcomes without changing the window, deadline or dispatch queue. */
+    if _reconcileoutcomes(database,policy,job_id,error) \= 0 then return _rollback(database,error,error)
+    if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot reconcile closed maintenance window",error)
     return 0
   end
   state = _text(database,"SELECT state FROM jobs WHERE job_id=" || _q(job_id))
@@ -434,10 +437,7 @@ tickbacklogwindow: procedure = .int
     sql = "UPDATE maintenance_tasks SET state='pending',last_error='',updated_epoch=unixepoch() WHERE state='review' AND last_error='manual maintenance mode' AND attempt_count=0 AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy"))
     if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot resume manually collected questions",error)
   end
-  sql = "UPDATE maintenance_tasks SET state=CASE WHEN EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=maintenance_tasks.task_id AND i.state IN('processed','skipped')) THEN 'resolved' ELSE 'pending' END,not_before_epoch=CASE WHEN " || _taskcallcount("maintenance_tasks.task_id") || ">0 AND " || _recoverablecount("maintenance_tasks.task_id") || "=0 THEN unixepoch()+" || _n(policy,"retry_seconds") || " ELSE 0 END,updated_epoch=unixepoch() WHERE state='dispatched' AND NOT EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=maintenance_tasks.task_id AND i.state IN('queued','running','cancel_requested'))"
-  if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot reconcile backlog task outcomes",error)
-  sql = "UPDATE maintenance_tasks SET state='failed',last_error='bounded attempt limit reached',updated_epoch=unixepoch() WHERE state='pending' AND " || _taskcallcount("maintenance_tasks.task_id") || ">=" || _n(policy,"maximum_attempts") || " AND " || _recoverablecount("maintenance_tasks.task_id") || "=0"
-  if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot reconcile bounded backlog attempts",error)
+  if _reconcileoutcomes(database,policy,"",error) \= 0 then return _rollback(database,error,error)
   running = _number(database,"SELECT count(*) FROM job_items WHERE job_id=" || _q(job_id) || " AND state IN('running','cancel_requested')")
   close_reason = ""
   cleanup = _cleanupseconds(policy)
@@ -483,6 +483,16 @@ tickbacklogwindow: procedure = .int
     if publishmanifest(store,error) \= 0 then return -4
   end
   else if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot commit backlog checkpoint",error)
+  return 0
+
+_reconcileoutcomes: procedure = .int
+  arg database = .binary, policy = .jsondocument, job_id = .string, expose error = .string
+  sql = "UPDATE maintenance_tasks SET state=CASE WHEN EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=maintenance_tasks.task_id AND i.state IN('processed','skipped')) THEN 'resolved' ELSE 'pending' END,not_before_epoch=CASE WHEN " || _taskcallcount("maintenance_tasks.task_id") || ">0 AND " || _recoverablecount("maintenance_tasks.task_id") || "=0 THEN unixepoch()+" || _n(policy,"retry_seconds") || " ELSE 0 END,updated_epoch=unixepoch() WHERE state='dispatched' AND NOT EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=maintenance_tasks.task_id AND i.state IN('queued','running','cancel_requested'))"
+  if job_id \= "" then sql = sql || " AND task_id IN(SELECT m.task_id FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE i.job_id=" || _q(job_id) || ")"
+  if sqliteexec(database,sql) \= 0 then do; error = "cannot reconcile backlog task outcomes"; return -1; end
+  sql = "UPDATE maintenance_tasks SET state='failed',last_error='bounded attempt limit reached',updated_epoch=unixepoch() WHERE state='pending' AND " || _taskcallcount("maintenance_tasks.task_id") || ">=" || _n(policy,"maximum_attempts") || " AND " || _recoverablecount("maintenance_tasks.task_id") || "=0"
+  if job_id \= "" then sql = sql || " AND task_id IN(SELECT m.task_id FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE i.job_id=" || _q(job_id) || ")"
+  if sqliteexec(database,sql) \= 0 then do; error = "cannot reconcile bounded backlog attempts"; return -1; end
   return 0
 
 _closewindow: procedure = .int

@@ -62,6 +62,19 @@ The override is sent on each generation turn, including citation corrections,
 without changing global Codex settings. Changing it is a prospective
 configuration change: review and apply `config plan` before new work.
 
+Input-token limits cover the complete provider-reported input, including
+managed context, instructions and structured-output schemas. They are not
+source-text token counts. Codex extraction defaults to 32,768 input tokens in
+format-1/2 configurations; format-3 uses its explicit
+`role.extractor.max_input_tokens` value. The four-worker Luna test reported
+16,987–23,948 tokens per call, so an explicit 8,192-token envelope was too small.
+Use 32,768 as the measured starting envelope for that workload, then review
+receipts when changing the model, prompts or evidence size. This is a reservation,
+not a server-enforced limit or a guarantee of future usage. Keep the aggregate
+`budget.input_tokens` large enough for the intended concurrent reservations.
+Actual reported tokens remain authoritative; overruns are retained as
+`settlement-exception` events rather than truncated or discarded.
+
 For local embeddings, start llama.cpp and configure an `openai-compatible`
 provider at `http://127.0.0.1:8081/v1`. The terms are:
 

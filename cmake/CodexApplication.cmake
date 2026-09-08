@@ -105,6 +105,13 @@ endif()
 
 find_program(CREXXRAG_SQLITE3 sqlite3 REQUIRED)
 execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
+    "SELECT json_extract(message,'$.maximum_call_input_tokens') FROM job_events WHERE job_id='${job_id}' AND event_type='budget-policy';"
+    OUTPUT_VARIABLE input_reservation OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE input_reservation_result)
+if(NOT input_reservation_result EQUAL 0 OR NOT input_reservation STREQUAL "32768")
+    message(FATAL_ERROR "Codex input reservation must cover managed context: ${input_reservation}")
+endif()
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
     "UPDATE job_items SET priority=CASE item_type WHEN 'claim-extraction' THEN 200 ELSE 100 END WHERE job_id='${job_id}';"
     RESULT_VARIABLE priority_result ERROR_VARIABLE priority_err)
 if(NOT priority_result EQUAL 0)
@@ -210,6 +217,14 @@ execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
     ERROR_VARIABLE final_state_err RESULT_VARIABLE final_state_result)
 if(NOT final_state_result EQUAL 0 OR NOT final_state STREQUAL "1:4:1:2:0")
     message(FATAL_ERROR "Codex application result was not validated and promoted exactly once: ${final_state} ${final_state_err}")
+endif()
+
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
+    "SELECT input_tokens FROM provider_runs WHERE provider_id='codex-extract' AND outcome='succeeded';"
+    OUTPUT_VARIABLE retained_input OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE retained_input_result)
+if(NOT retained_input_result EQUAL 0 OR NOT retained_input STREQUAL "20000")
+    message(FATAL_ERROR "Codex recovery must retain full managed-context usage: ${retained_input}")
 endif()
 
 execute_process(COMMAND ${cli} --library "${library}" --access diagnose
