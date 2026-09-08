@@ -254,6 +254,14 @@ these Level-G operations; `ragwork` executes them through the existing provider
 admission and fenced publication path. The native CLI and machine surfaces use
 the same operations. See [durable maintenance](autonomous-maintenance.md).
 
+A maintenance plan resolves its relative duration, exact offset timestamp or
+local overnight window to one immutable UTC deadline before the census. Its
+canonical window policy retains the timing envelope and optional aggregate
+provider-time cap; the existing `deadline_epoch` column is authoritative during
+execution. New policies use `provider_time_budget_ms = 0` for no aggregate cap.
+Policies without that field retain the historic `window_seconds` aggregate
+interpretation, preserving already reviewed work. No schema migration is needed.
+
 Evidence validation and generation staging share an IMMEDIATE transaction.
 Stale answers retain their provenance without publishing a generation. Cached
 embedding relinking stages a new membership generation rather than rewriting

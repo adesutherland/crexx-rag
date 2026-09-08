@@ -3,30 +3,25 @@ import rxfnsb
 import rxjson
 
 /* Run beside crexxrag.conf and library. Compile with crexx --noexec.
-   One plan; configured workers; at most batch calls between time checks.
-   The job's configured budgets cover the whole run, including corrections.
-   Change minutes or batch and recompile. The final batch may overrun. */
+   One plan; configured workers; batches of at most batch work attempts.
+   One fixed deadline is owned by cREXX-RAG, including planning and corrections.
+   Change timing or batch and recompile. Late overnight starts are skipped. */
 main: procedure = .int
-  minutes = 30; batch = 100
-  call time "R"
+  timing = "--minutes 30"; batch = 100
+  /* Alternatives: --overnight 18:00-06:00 or --until 2026-09-10T06:00:00+01:00 */
   config = run("config explain")
   workers = field(config,"worker_processes") as .int
   items = (batch / workers) as .int
   if items < 1 then return 2
-  plan = run("--access plan maintain plan")
+  plan = run("--access plan maintain plan " || timing)
+  if field(plan,"disposition") = "skipped" then do; say "Maintenance skipped: outside its time window"; return 0; end
   applied = run("--access curate maintain apply --plan-json " || quoted(field(plan,"canonical_plan")) || " --expect-digest " || quoted(field(plan,"digest")))
+  if field(applied,"disposition") = "skipped" then return 0
   job = quoted(field(applied,"job_id"))
   say "Maintenance job:" field(applied,"job_id")
   do forever
     result = run("--access control worker start --max-items " || items || " --job " || job)
-    elapsed = time("E") as .float
-    say "Maintenance elapsed seconds:" elapsed
     if field(result,"vector_state") \= "pending-work" then leave
-    if elapsed >= minutes * 60 then do
-      result = run("--access control job pause " || job)
-      result = run("--access control worker start --max-polls 1 --job " || job)
-      leave
-    end
   end
   return 0
 

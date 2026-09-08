@@ -69,6 +69,11 @@ foreach(kind IN ITEMS killed_intent cancellation manifest_failure)
     await_file("${work}/server.out" "READY ${CPRAG_FIXTURE_PORT}")
     cli(init init)
     set(database "${work}/library/library.sqlite")
+    if(kind STREQUAL "manifest_failure")
+        # Inject the first post-commit fault on extraction. Equal-priority item
+        # IDs depend on the configuration digest and do not guarantee this order.
+        sql(ordered "CREATE TRIGGER qa_extraction_first AFTER INSERT ON job_items WHEN NEW.item_type='claim-extraction' BEGIN UPDATE job_items SET priority=1000001 WHERE item_id=NEW.item_id; END;")
+    endif()
     execute_process(COMMAND /bin/sh -c
         "( CPRAG_FIXTURE_GEMINI_KEY=synthetic-product-gemini-key CREXXRAG_SELF=\"$1\" \"$1\" ingest --yes --workers 1; printf '%s' $? >\"$4\" ) >\"$2\" 2>\"$3\" &"
         interruption-test "${CPRAG_NATIVE_APPLICATION}" "${work}/ingest.out" "${work}/ingest.err" "${work}/ingest.status"
@@ -80,6 +85,7 @@ foreach(kind IN ITEMS killed_intent cancellation manifest_failure)
         if(NOT state STREQUAL "1:1:1:0")
             message(FATAL_ERROR "post-commit projection failure retried or discarded committed work: ${state}")
         endif()
+        sql(ordered "DROP TRIGGER qa_extraction_first;")
         file(REMOVE_RECURSE "${control}")
         cli(complete --access control --format json worker start --count 2 --poll-ms 20 --max-polls 10)
         cli(recovery --access control --format json vector rebuild)

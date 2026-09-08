@@ -79,7 +79,7 @@ _showhelp: procedure = .int
   say "Human workflow"
   say "  crexxrag init"
   say "  crexxrag ingest [SOURCE_SET] [--workers N] [--yes]"
-  say "  crexxrag maintain [--workers N] [--yes]"
+  say "  crexxrag maintain [--minutes N | --until TIMESTAMP | --overnight HH:MM-HH:MM] [--workers N] [--yes]"
   say "  crexxrag maintain status [RUN_ID]"
   say "  crexxrag maintain inspect ITEM_OR_NOTE_ID"
   say "  crexxrag review list"
@@ -199,6 +199,7 @@ _guidedmaintain: procedure = .int
 
   plan_result = dispatchproduct(plan_request, registry)
   if plan_result.exit_code() \= 0 then return _showresult(plan_result, "human")
+  if _fieldvalue(plan_result,1,"disposition") = "skipped" then return _showresult(plan_result,"human")
   plan_json = _fieldvalue(plan_result, 1, "canonical_plan")
   digest = _fieldvalue(plan_result, 1, "digest")
   if plan_json = "" | digest = "" then return _clierror("render", "internal", "guided maintenance plan did not expose its canonical bytes and digest", 10)
@@ -221,6 +222,7 @@ _guidedmaintain: procedure = .int
   apply_result = dispatchproduct(apply_request, registry)
   ignored = _showresult(apply_result, "human")
   if apply_result.exit_code() \= 0 then return apply_result.exit_code()
+  if _fieldvalue(apply_result,1,"disposition") = "skipped" then return 0
   items = _fieldvalue(apply_result, 1, "work_items")
   if items = "" then return _clierror("render", "internal", "maintenance apply did not expose its durable work count", 10)
   run_id = _fieldvalue(apply_result, 1, "run_id")
@@ -246,6 +248,7 @@ _guidedmaintain: procedure = .int
   poll_ms = config.workers().poll_ms(); guided_seconds = config.workers().guided_deadline_seconds(); if guided_seconds = 0 then guided_seconds = config.budget().minutes() * 60
   maximum_polls = guided_seconds * 1000 / poll_ms; if maximum_polls < 1 then maximum_polls = 1
   worker_options[2] = .ragcommandoption("poll-ms", poll_ms || "", 0)
+  if config.maintenance().mode() \= "reviewed" then maximum_polls = 0
   worker_options[3] = .ragcommandoption("max-polls", maximum_polls || "", 0)
   worker_options[4] = .ragcommandoption("job", job_id, 0)
   worker_request = .ragcommandrequest(plan_request.library(), plan_request.config_id(), plan_request.profile_id(), plan_request.config_file(), "human", plan_request.progress(), access, "worker", "start", "worker.start", worker_options, empty_positionals)
@@ -433,6 +436,13 @@ _maintainplansummary: procedure = .string
   cognitive = _fieldvalue(plan_result, 2, "cognitive_items")
   calls = _fieldvalue(plan_result, 2, "work_provider_calls")
   output = "Maintenance plan"
+  timing = _fieldvalue(plan_result,2,"timing")
+  if timing \= "" then do
+    clock = .jsondocument(timing); local_finish = ""; utc_finish = ""
+    ignored = clock.node_string(clock.member(clock.root(),"deadline_local"),local_finish); ignored = clock.node_string(clock.member(clock.root(),"deadline_utc"),utc_finish)
+    output = output || "0A"x || "  Finish by:        " || local_finish || " local (" || utc_finish || ")"
+    output = output || "0A"x || "  Cleanup allowance: 5 seconds; calls must fit before it"
+  end
   output = output || "0A0A"x || "  Items selected:   " || items
   output = output || "0A"x || "  Cognitive items:  " || cognitive
   output = output || "0A"x || "  Provider work:    " || calls || " calls"
@@ -580,6 +590,7 @@ _aliases: procedure = .string[]
   end
   if noun = "maintain" then do
     if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply status inspect") > 0 then return args
+    timing_args = .string[]
     i = noun_index + 1
     do while i <= args.0
       token = args[i]
@@ -589,12 +600,18 @@ _aliases: procedure = .string[]
         i = i + 1; worker_count = args[i]
       end
       else if left(token, 10) = "--workers=" then worker_count = substr(token, 11)
+      else if token = "--minutes" | token = "--until" | token = "--overnight" then do
+        if i = args.0 then do; error = token || " requires a value"; return args; end
+        timing_args[timing_args.0+1] = token; i = i+1; timing_args[timing_args.0+1] = args[i]
+      end
+      else if left(token,10) = "--minutes=" | left(token,8) = "--until=" | left(token,12) = "--overnight=" then timing_args[timing_args.0+1] = token
       else do; error = "unknown guided maintenance option " || token; return args; end
       i = i + 1
     end
     if worker_count \= "" & _unsignedtext(worker_count) \= 1 then do; error = "--workers requires a positive integer"; return args; end
     output = _prefix(args, noun_index)
     output[output.0 + 1] = "maintain"; output[output.0 + 1] = "plan"
+    do j = 1 to timing_args.0; output[output.0+1] = timing_args[j]; end
     alias = "guided-maintain"
     return output
   end

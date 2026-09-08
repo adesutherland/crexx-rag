@@ -39,12 +39,16 @@ library. The next window uses a new reviewed plan and the unfinished backlog;
 reapplying the identical plan returns its original window rather than granting
 another budget.
 
-All child tasks share the window's durable job and call, token, cost, time,
-item and subscription-turn limits. `maintenance.batch_items` bounds each census
-page and dispatch wave. `budget.item_limit` bounds dispatched items across the
+All child tasks share the window's durable job and call, token, cost,
+item and subscription-turn limits. Elapsed window time is independent of the
+sum of provider-call durations across workers. `maintenance.batch_items` bounds
+each census page and dispatch wave. `budget.item_limit` bounds dispatched items across the
 whole window. Calls are reserved across independent worker processes, and
 admission checks the remaining deadline again immediately before transport.
-The window stops accepting calls early enough for their configured timeout.
+The window stops accepting calls early enough for their configured timeout
+and a five-second cleanup allowance. Admission rechecks this before transport,
+including after waiting for provider capacity. A call which cannot fit is not
+started; this can leave unused time at the end of the window.
 An interrupted process cannot publish through an expired lease or fence.
 
 ## Modes and runtime configuration
@@ -68,15 +72,29 @@ maintenance.retry_seconds = 300
 maintenance.maximum_evidence_bytes = 65536
 maintenance.automatic_actions = reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate
 maintenance.resolution_prompt = Resolve the question from the supplied evidence. Distinguish identity, time, scope and viewpoint. Cite contiguous quotations and preserve uncertainty.
-budget.minutes = 300
+maintenance.provider_time_minutes = 0
 worker.guided_deadline_seconds = 0
 ```
 
 Keep explicit call, item, token, monetary or subscription budgets in the same
-configuration; five hours does not grant unlimited spending. The effective time
-window is the smaller of `maintenance.window_seconds` and `budget.minutes`.
-A zero guided deadline uses the configured budget duration. Provider timeouts
-and role input/output limits must fit the intended window.
+configuration; five hours does not grant unlimited spending.
+`maintenance.window_seconds` is the default elapsed duration, used when no
+per-run timing option is supplied. `budget.minutes` retains its existing meaning
+for ingestion, replay and compatibility `reviewed` maintenance; it does not cap
+automatic, supervised or manual maintenance windows. A separate optional
+`maintenance.provider_time_minutes` caps accumulated provider-call durations
+and reservations across all workers. Zero (the default) disables that aggregate
+time cap; monetary, token, call, item and subscription limits still apply.
+
+For example, two workers may each spend 90 minutes on calls during a two-hour
+window. That is 180 provider minutes, but only two hours of elapsed time. This
+formerly caused premature budget exhaustion because the window duration was
+also used as an aggregate allowance. New windows use the corrected policy;
+existing persisted windows retain their reviewed budgets until they end.
+
+Durable guided maintenance uses the persisted deadline, not a poll count derived
+from `worker.guided_deadline_seconds`. Provider timeouts and role input/output
+limits must fit the intended window.
 
 These settings require no compilation. Edit the file, inspect `config diff`,
 and apply an exact `config plan` before planning new work against an existing
@@ -85,6 +103,55 @@ privacy classification and charging basis. Configuration changes never imply
 corpus reingestion. Extraction/profile and resolution-prompt identities govern
 which interpretation a task requests; changing only a spending limit does not
 reset previously resolved or unresolved questions.
+
+## Choosing a finish time
+
+The same timing controls are accepted by `maintain` and `maintain plan`:
+
+```sh
+crexxrag maintain --minutes 120 --yes
+crexxrag maintain --until 2026-09-10T06:00:00+01:00 --yes
+crexxrag maintain --overnight 18:00-06:00 --yes
+```
+
+Choose one control. `--minutes` accepts 1..10080 and starts its elapsed window
+when maintenance planning begins, including the census and approval time.
+`--until` requires a complete date and time with `Z` or a numeric UTC offset;
+it accepts a future deadline within seven days. This makes an exact one-off
+instant unambiguous. An already passed deadline returns success with
+`disposition: skipped`, without a census, new job or provider call.
+
+`--overnight` uses the host's local timezone and must cross midnight. Its opening
+boundary is inclusive and closing boundary exclusive. With `18:00-06:00`, a
+Monday 22:00 launch and Tuesday 00:30 launch both resolve to Tuesday 06:00.
+Launching at Tuesday 06:00 or 06:05 skips that run. Launching during the daytime
+also skips; the application does not wait until evening or schedule itself.
+The external scheduler remains responsible for launching the wrapper.
+
+Civil dates are converted using the host's timezone rules, so 06:00 stays 06:00
+when daylight-saving changes alter the overnight elapsed duration. Configure the
+scheduler's process timezone consistently (for example `TZ=Europe/London` on
+POSIX hosts). A nonexistent local closing time is rejected; use an explicit
+UTC-offset deadline when a clock-change boundary could be ambiguous.
+
+The plan displays the resolved local and UTC finish time and retains the epoch,
+local UTC offset, requested mode and cleanup allowance. Apply and worker restarts
+retain that deadline. Waiting for approval or restarting workers never grants
+more time. If the deadline passes before apply, apply skips successfully. A
+changed local timezone between plan and apply requires a new plan.
+
+Stopping is graceful and deadline-aware: calls must fit before the cleanup
+allowance, their normal configured timeouts bound transport, and unstarted work
+remains in the durable backlog. Timing does not interrupt database commits or
+kill worker processes. A stalled operating system, provider cleanup or final
+vector publication can still extend final process exit beyond the target; this
+is not a hard process-kill guarantee. Normal deadline/budget closure returns 0.
+
+The small `scripts/nightly-maintenance.crexx` wrapper passes one timing option
+when it plans, then continues the same job in 100-attempt batches using the
+configured workers. Edit its `timing` constant and recompile with
+`crexx --noexec scripts/nightly-maintenance.crexx`; it owns no date rollover or
+worker deadline logic.
 
 ## Evidence and decisions
 

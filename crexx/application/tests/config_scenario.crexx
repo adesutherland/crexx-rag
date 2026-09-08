@@ -47,6 +47,12 @@ main: procedure = .int
   raw = .binary; bytes = 0
   errors = errors + check(ragfile..readbinaryfilebounded(path, 65536, raw, bytes, error) = 0, "fixture reread")
   text = raw as .string
+  time_config = .ragconfig; time_baseline = .ragconfig; time_error = ""
+  errors = errors + check(parseconfigtext(text,time_baseline,time_error) = 0,"provider-time baseline parses")
+  errors = errors + check(maintenance.provider_time_minutes() = 0,"provider-time cap is opt-in")
+  errors = errors + check(parseconfigtext(text || "0A"x || "maintenance.provider_time_minutes = 260",time_config,time_error) = 0 & time_config.maintenance().provider_time_minutes() = 260,"explicit provider-time cap parses")
+  errors = errors + check(canonicalsemanticconfig(time_config) = canonicalsemanticconfig(time_baseline),"provider-time cap is operational")
+  errors = errors + check(rejected(text || "0A"x || "maintenance.provider_time_minutes = 10081","outside its supported range") = 1,"provider-time cap is bounded")
   errors = errors + check(providers[1].reasoning_effort() = "" & pos('"reasoning_effort"', canonicalconfig(config)) = 0, "omitted effort preserves existing canonical identity")
   errors = errors + check(rejected(text || "0A"x || "provider.gemini-generate.reasoning_effort = low", "reasoning_effort") = 1, "non-Codex effort rejected")
   codex_text = changestr("provider.gemini-generate.kind = gemini", text, "provider.gemini-generate.kind = codex")

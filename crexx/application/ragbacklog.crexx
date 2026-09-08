@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragbacklog expose backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept backlogsummary
+namespace ragbacklog expose resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept backlogsummary
 
 import rxfnsb
 import rxjson
@@ -14,10 +14,93 @@ import ragmaintain
 import raggrounding
 import ragclaims
 
+/* Resolve once, before the census. SQLite uses the host timezone rules for
+ * civil overnight dates; UTC epochs remain fixed across worker restarts. */
+resolvemaintenancetime: procedure = .int
+  arg database = .binary, minutes = .string, until_text = .string, overnight = .string, default_seconds = .int, expose timing_json = .string, expose error = .string, now_epoch = -1
+  timing_json = ""; error = ""
+  selectors = 0
+  if minutes \= "" then selectors = selectors + 1
+  if until_text \= "" then selectors = selectors + 1
+  if overnight \= "" then selectors = selectors + 1
+  if selectors > 1 then do; error = "choose only one of --minutes, --until or --overnight"; return -1; end
+  if now_epoch < 0 then now_epoch = _number(database,"SELECT unixepoch()")
+  if now_epoch < 1 then do; error = "current time is unavailable"; return -1; end
+  mode = "duration"; requested = minutes; seconds = default_seconds; skipped = 0
+  if minutes \= "" then do
+    if length(minutes) > 5 | verify(minutes,"0123456789") \= 0 then do; error = "--minutes must be an integer in 1..10080"; return -1; end
+    count = minutes as .int
+    if count < 1 | count > 10080 then do; error = "--minutes must be in 1..10080"; return -1; end
+    seconds = count * 60
+  end
+  deadline = now_epoch + seconds
+  if until_text \= "" then do
+    mode = "until"; requested = until_text
+    if _timestampvalid(database,until_text) \= 1 then do; error = "--until requires a valid YYYY-MM-DDTHH:MM:SSZ or YYYY-MM-DDTHH:MM:SS+HH:MM timestamp"; return -1; end
+    deadline = _number(database,"SELECT unixepoch(" || _q(until_text) || ")")
+  end
+  if overnight \= "" then do
+    mode = "overnight"; requested = overnight
+    if length(overnight) \= 11 | substr(overnight,6,1) \= "-" then do; error = "--overnight requires HH:MM-HH:MM in local time"; return -1; end
+    begin = _clockseconds(left(overnight,5)); finish = _clockseconds(right(overnight,5))
+    if begin < 0 | finish < 0 | begin <= finish then do; error = "--overnight must cross midnight, for example 18:00-06:00"; return -1; end
+    local_now = _text(database,"SELECT datetime(" || now_epoch || ",'unixepoch','localtime')")
+    clock_now = _clockseconds(substr(local_now,12,5)) + (right(local_now,2) as .int)
+    next_day = ""
+    if clock_now >= begin then next_day = ",'+1 day'"
+    if clock_now >= finish & clock_now < begin then skipped = 1
+    day = _text(database,"SELECT date(" || _q(left(local_now,10)) || next_day || ")")
+    local_finish = day || " " || right(overnight,5) || ":00"
+    deadline = _number(database,"SELECT unixepoch(" || _q(local_finish) || ",'utc')")
+    roundtrip = _text(database,"SELECT datetime(" || deadline || ",'unixepoch','localtime')")
+    if roundtrip \= local_finish then do; error = "overnight closing time does not exist in the local timezone on this date"; return -1; end
+  end
+  if deadline <= now_epoch then skipped = 1
+  if deadline < 0 | deadline > now_epoch + 604800 then do; error = "maintenance deadline must be within the next seven days"; return -1; end
+  local_deadline = _text(database,"SELECT datetime(" || deadline || ",'unixepoch','localtime')")
+  utc_deadline = _text(database,"SELECT strftime('%Y-%m-%dT%H:%M:%SZ'," || deadline || ",'unixepoch')")
+  offset = _number(database,"SELECT unixepoch(" || _q(local_deadline) || ")-" || deadline)
+  timing_json = '{"mode":' || jsonquote(mode) || ',"requested":' || jsonquote(requested) || ',"started_epoch":' || now_epoch || ',"deadline_epoch":' || deadline || ',"deadline_utc":' || jsonquote(utc_deadline) || ',"deadline_local":' || jsonquote(local_deadline) || ',"local_utc_offset_seconds":' || offset || ',"timezone":' || jsonquote("host-local:" || getenv("TZ")) || ',"cleanup_seconds":5,"skipped":' || skipped || '}'
+  return 0
+
+_clockseconds: procedure = .int
+  arg clock = .string
+  if length(clock) \= 5 | substr(clock,3,1) \= ":" | verify(left(clock,2) || right(clock,2),"0123456789") \= 0 then return -1
+  hours = left(clock,2) as .int; minutes = right(clock,2) as .int
+  if hours > 23 | minutes > 59 then return -1
+  return hours * 3600 + minutes * 60
+
+_timestampvalid: procedure = .int
+  arg database = .binary, value = .string
+  if length(value) \= 20 & length(value) \= 25 then return 0
+  if substr(value,5,1) \= "-" | substr(value,8,1) \= "-" | substr(value,11,1) \= "T" | substr(value,17,1) \= ":" then return 0
+  if verify(left(value,4) || substr(value,6,2) || substr(value,9,2) || substr(value,18,2),"0123456789") \= 0 then return 0
+  if _clockseconds(substr(value,12,5)) < 0 then return 0
+  if (substr(value,18,2) as .int) > 59 then return 0
+  if length(value) = 20 & right(value,1) \= "Z" then return 0
+  if length(value) = 25 then do
+    if pos(substr(value,20,1),"+-") = 0 | _clockseconds(right(value,5)) < 0 then return 0
+  end
+  civil = changestr("T",left(value,19)," ")
+  if _text(database,"SELECT datetime(" || _q(civil) || ",'+0 days')") \= civil then return 0
+  return _number(database,"SELECT unixepoch(" || _q(value) || ")") >= 0
+
+_providertimebudget: procedure = .int
+  arg policy = .jsondocument
+  /* Existing windows retain their original immutable aggregate limit. */
+  if policy.member(policy.root(),"provider_time_budget_ms") = 0 then return _n(policy,"window_seconds") * 1000
+  return _n(policy,"provider_time_budget_ms")
+
+_cleanupseconds: procedure = .int
+  arg policy = .jsondocument
+  timing = .jsondocument(_s(policy,"timing"))
+  if timing.valid() \= 1 then return 0
+  return _n(timing,"cleanup_seconds")
+
 /* Durable, evidence-bound maintenance. This module owns no provider transport:
  * ordinary fenced job items carry its questions through the configured route. */
 backlogpolicy: procedure = .string
-  arg config = .ragconfig, profile = .ragprofile, discovery_context = .string
+  arg config = .ragconfig, profile = .ragprofile, discovery_context = .string, timing_json = ""
   policy = config.maintenance(); budget = config.budget(); workers = config.workers()
   roles = config.roles(); providers = config.providers(); role = .ragrolebinding; provider = .ragproviderconfig
   do i = 1 to roles.0
@@ -30,7 +113,9 @@ backlogpolicy: procedure = .string
   input_cap = role.maximum_input_tokens(); if input_cap > budget.input_tokens() / inflight then input_cap = budget.input_tokens() / inflight
   output_cap = role.maximum_output_tokens(); if output_cap > budget.output_tokens() / inflight then output_cap = budget.output_tokens() / inflight
   cost_cap = role.maximum_call_cost_microunits(); if cost_cap > budget.cost_microunits() / inflight then cost_cap = budget.cost_microunits() / inflight
-  seconds = policy.window_seconds(); if seconds > budget.minutes() * 60 then seconds = budget.minutes() * 60
+  seconds = policy.window_seconds()
+  timing = .jsondocument(timing_json)
+  if timing.valid() = 1 then seconds = _n(timing,"deadline_epoch") - _n(timing,"started_epoch")
   time_cap = provider.timeout_ms(); if time_cap > seconds * 1000 then time_cap = seconds * 1000
   privacy = "public"; sources = config.source_sets()
   do i = 1 to sources.0
@@ -52,7 +137,7 @@ backlogpolicy: procedure = .string
   embedding_profile = "embedding-" || embedding_role.embedding_dimensions() || "-" || substr(_hash(embedding_envelope),1,12)
   embedding_json = '{"embedding_profile":' || jsonquote(embedding_profile) || ',"embedding_envelope":' || jsonquote(embedding_envelope) || ',"embedding_provider":' || jsonquote(embedding_provider.provider_id()) || ',"embedding_model":' || jsonquote(embedding_provider.model()) || ',"embedding_charging":' || jsonquote(embedding_provider.charging_basis()) || ',"embedding_dimension":' || embedding_role.embedding_dimensions() || ',"embedding_input":' || embedding_input || ',"embedding_cost":' || embedding_cost || ',"embedding_time":' || embedding_provider.timeout_ms() || ','
   identity = _hash(canonicalprofile(profile) || "00"x || role.system_prompt() || "00"x || policy.resolution_prompt() || "00"x || "durable-resolution-v1")
-  return embedding_json || '"mode":' || jsonquote(policy.mode()) || ',"window_seconds":' || seconds || ',"automatic_actions":' || jsonquote(policy.automatic_actions()) || ',"maximum_impact":' || policy.maximum_impact() || ',"maximum_attempts":' || policy.maximum_attempts() || ',"retry_seconds":' || policy.retry_seconds() || ',"maximum_evidence_bytes":' || policy.maximum_evidence_bytes() || ',"sparse_max_degree":' || policy.sparse_max_degree() || ',"query_gap_min_occurrences":' || policy.query_gap_min_occurrences() || ',"batch_items":' || policy.batch_items() || ',"resolution_prompt":' || jsonquote(policy.resolution_prompt()) || ',"knowledge_policy":' || jsonquote(identity) || ',"provider_id":' || jsonquote(provider.provider_id()) || ',"model":' || jsonquote(provider.model()) || ',"charging_basis":' || jsonquote(provider.charging_basis()) || ',"privacy":' || jsonquote(privacy) || ',"profile_id":' || jsonquote(profile.profile_id()) || ',"discovery_context":' || jsonquote(discovery_context) || ',"input_tokens":' || input_cap || ',"output_tokens":' || output_cap || ',"cost_microunits":' || cost_cap || ',"time_ms":' || time_cap || ',"inflight":' || inflight || ',"item_limit":' || budget.item_limit() || ',"model_calls":' || budget.model_calls() || ',"input_budget":' || budget.input_tokens() || ',"output_budget":' || budget.output_tokens() || ',"cost_budget":' || budget.cost_microunits() || ',"codex_turns":' || budget.codex_turns() || '}'
+  return embedding_json || '"timing":' || jsonquote(timing_json) || ',"provider_time_budget_ms":' || policy.provider_time_minutes() * 60000 || ',"mode":' || jsonquote(policy.mode()) || ',"window_seconds":' || seconds || ',"automatic_actions":' || jsonquote(policy.automatic_actions()) || ',"maximum_impact":' || policy.maximum_impact() || ',"maximum_attempts":' || policy.maximum_attempts() || ',"retry_seconds":' || policy.retry_seconds() || ',"maximum_evidence_bytes":' || policy.maximum_evidence_bytes() || ',"sparse_max_degree":' || policy.sparse_max_degree() || ',"query_gap_min_occurrences":' || policy.query_gap_min_occurrences() || ',"batch_items":' || policy.batch_items() || ',"resolution_prompt":' || jsonquote(policy.resolution_prompt()) || ',"knowledge_policy":' || jsonquote(identity) || ',"provider_id":' || jsonquote(provider.provider_id()) || ',"model":' || jsonquote(provider.model()) || ',"charging_basis":' || jsonquote(provider.charging_basis()) || ',"privacy":' || jsonquote(privacy) || ',"profile_id":' || jsonquote(profile.profile_id()) || ',"discovery_context":' || jsonquote(discovery_context) || ',"input_tokens":' || input_cap || ',"output_tokens":' || output_cap || ',"cost_microunits":' || cost_cap || ',"time_ms":' || time_cap || ',"inflight":' || inflight || ',"item_limit":' || budget.item_limit() || ',"model_calls":' || budget.model_calls() || ',"input_budget":' || budget.input_tokens() || ',"output_budget":' || budget.output_tokens() || ',"cost_budget":' || budget.cost_microunits() || ',"codex_turns":' || budget.codex_turns() || '}'
 
 startbacklogwindow: procedure = .int
   arg store = .ragstorehandle, census = .ragmaintenancecensus, snapshot_id = .string, plan_digest = .string, policy_json = .string, expose run_id = .string, expose job_id = .string, expose items = .int, expose error = .string
@@ -73,12 +158,15 @@ startbacklogwindow: procedure = .int
   sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,codex_turn_budget,created_at,updated_at) VALUES(" || _q(job_id) || "," || _q(plan_digest) || "," || _q(census.canonical()) || "," || _q(snapshot_id) || ",'queued'," || _n(policy,"item_limit") || "," || _n(policy,"model_calls") || "," || _n(policy,"input_budget") || "," || _n(policy,"output_budget") || "," || _n(policy,"cost_budget") || "," || _n(policy,"codex_turns") || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
   if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot create shared maintenance job budget", error)
   window_id = "window:" || plan_digest
-  sql = "INSERT INTO maintenance_windows(window_id,run_id,job_id,state,deadline_epoch,policy_json,policy_fingerprint,created_epoch) VALUES(" || _q(window_id) || "," || _q(run_id) || "," || _q(job_id) || ",'active',unixepoch()+" || _n(policy,"window_seconds") || "," || _q(policy_json) || "," || _q(_s(policy,"knowledge_policy")) || ",unixepoch())"
+  deadline = _number(database,"SELECT unixepoch()") + _n(policy,"window_seconds")
+  timing = .jsondocument(_s(policy,"timing"))
+  if timing.valid() = 1 then deadline = _n(timing,"deadline_epoch")
+  sql = "INSERT INTO maintenance_windows(window_id,run_id,job_id,state,deadline_epoch,policy_json,policy_fingerprint,created_epoch) VALUES(" || _q(window_id) || "," || _q(run_id) || "," || _q(job_id) || ",'active'," || deadline || "," || _q(policy_json) || "," || _q(_s(policy,"knowledge_policy")) || ",unixepoch())"
   if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot persist maintenance window", error)
   input_cap = _n(policy,"input_tokens"); if input_cap < _n(policy,"embedding_input") then input_cap = _n(policy,"embedding_input")
   cost_cap = _n(policy,"cost_microunits"); if cost_cap < _n(policy,"embedding_cost") then cost_cap = _n(policy,"embedding_cost")
   time_cap = _n(policy,"time_ms"); if time_cap < _n(policy,"embedding_time") then time_cap = _n(policy,"embedding_time")
-  budget_json = '{"time_budget_ms":' || _n(policy,"window_seconds") * 1000 || ',"maximum_call_input_tokens":' || input_cap || ',"maximum_call_output_tokens":' || _n(policy,"output_tokens") || ',"maximum_call_cost":' || cost_cap || ',"maximum_call_time_ms":' || time_cap || ',"maximum_inflight_calls":' || _n(policy,"inflight") || ',"maximum_attempts":' || _n(policy,"maximum_attempts") || '}'
+  budget_json = '{"time_budget_ms":' || _providertimebudget(policy) || ',"maximum_call_input_tokens":' || input_cap || ',"maximum_call_output_tokens":' || _n(policy,"output_tokens") || ',"maximum_call_cost":' || cost_cap || ',"maximum_call_time_ms":' || time_cap || ',"maximum_inflight_calls":' || _n(policy,"inflight") || ',"maximum_attempts":' || _n(policy,"maximum_attempts") || '}'
   if sqliteexec(database, "INSERT INTO job_events(job_id,event_type,message,occurred_at) VALUES(" || _q(job_id) || ",'budget-policy'," || _q(budget_json) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))") \= 0 then return _rollback(database, "cannot persist maintenance budget policy", error)
   if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit maintenance window", error)
   if tickbacklogwindow(store, job_id, error) < 0 then return -3
@@ -352,7 +440,8 @@ tickbacklogwindow: procedure = .int
   if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot reconcile bounded backlog attempts",error)
   running = _number(database,"SELECT count(*) FROM job_items WHERE job_id=" || _q(job_id) || " AND state IN('running','cancel_requested')")
   close_reason = ""
-  if _number(database,"SELECT deadline_epoch-unixepoch() FROM maintenance_windows WHERE job_id=" || _q(job_id)) * 1000 < _n(policy,"time_ms") then close_reason = "deadline"
+  cleanup = _cleanupseconds(policy)
+  if (_number(database,"SELECT deadline_epoch-unixepoch() FROM maintenance_windows WHERE job_id=" || _q(job_id)) - cleanup) * 1000 < max(_n(policy,"time_ms"),_n(policy,"embedding_time")) then close_reason = "deadline"
   total = _number(database,"SELECT count(*) FROM job_items WHERE job_id=" || _q(job_id))
   calls = _number(database,"SELECT count(DISTINCT p.provider_run_id) FROM provider_runs p JOIN attempts a ON a.provider_run_id=p.provider_run_id JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=" || _q(job_id))
   if calls >= _n(policy,"model_calls") then close_reason = "budget-exhausted"
@@ -364,7 +453,7 @@ tickbacklogwindow: procedure = .int
     used = _number(database,"SELECT coalesce(sum(max(0,p.cost_microunits)),0) FROM provider_runs p WHERE EXISTS(SELECT 1 FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE a.provider_run_id=p.provider_run_id AND i.job_id=" || _q(job_id) || ")")
     if used + _n(policy,"cost_microunits") > _n(policy,"cost_budget") then close_reason = "budget-exhausted"
     used = _number(database,"SELECT coalesce(sum(p.duration_ms),0) FROM provider_runs p WHERE EXISTS(SELECT 1 FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE a.provider_run_id=p.provider_run_id AND i.job_id=" || _q(job_id) || ")")
-    if used + _n(policy,"time_ms") > _n(policy,"window_seconds") * 1000 then close_reason = "budget-exhausted"
+    if _providertimebudget(policy) > 0 & used + _n(policy,"time_ms") > _providertimebudget(policy) then close_reason = "budget-exhausted"
     if _s(policy,"charging_basis") = "subscription-allowance" & calls >= _n(policy,"codex_turns") then close_reason = "budget-exhausted"
   end
   if close_reason \= "" then do
@@ -900,7 +989,7 @@ _qualifyclaim: procedure = .int
 
 backlogsummary: procedure = .string
   arg database = .binary, job_id = .string
-  return _text(database,"SELECT json_object('window_id',window_id,'run_id',run_id,'job_id',job_id,'state',state,'deadline_epoch',deadline_epoch,'pending',(SELECT count(*) FROM maintenance_tasks WHERE state='pending'),'dispatched',(SELECT count(*) FROM maintenance_tasks WHERE state='dispatched'),'resolved',(SELECT count(*) FROM maintenance_tasks WHERE state='resolved'),'unresolved',(SELECT count(*) FROM maintenance_tasks WHERE state='unresolved'),'review',(SELECT count(*) FROM maintenance_tasks WHERE state='review'),'failed',(SELECT count(*) FROM maintenance_tasks WHERE state='failed'),'workflows',(SELECT count(*) FROM maintenance_workflows WHERE state<>'complete'),'decisions',(SELECT count(*) FROM maintenance_decisions d JOIN maintenance_task_items m ON m.item_id=d.item_id WHERE m.window_id=maintenance_windows.window_id),'provider_calls',(SELECT count(DISTINCT p.provider_run_id) FROM provider_runs p JOIN attempts a ON a.provider_run_id=p.provider_run_id JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=maintenance_windows.job_id),'cost_microunits',(SELECT coalesce(sum(max(0,p.cost_microunits)),0) FROM provider_runs p WHERE EXISTS(SELECT 1 FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE a.provider_run_id=p.provider_run_id AND i.job_id=maintenance_windows.job_id))) FROM maintenance_windows WHERE job_id=" || _q(job_id))
+  return _text(database,"SELECT json_object('window_id',window_id,'run_id',run_id,'job_id',job_id,'state',state,'deadline_epoch',deadline_epoch,'timing',json_extract(policy_json,'$.timing'),'provider_time_budget_ms',coalesce(json_extract(policy_json,'$.provider_time_budget_ms'),json_extract(policy_json,'$.window_seconds')*1000),'provider_time_used_ms',(SELECT coalesce(sum(p.duration_ms),0) FROM provider_runs p WHERE EXISTS(SELECT 1 FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE a.provider_run_id=p.provider_run_id AND i.job_id=maintenance_windows.job_id)),'pending',(SELECT count(*) FROM maintenance_tasks WHERE state='pending'),'dispatched',(SELECT count(*) FROM maintenance_tasks WHERE state='dispatched'),'resolved',(SELECT count(*) FROM maintenance_tasks WHERE state='resolved'),'unresolved',(SELECT count(*) FROM maintenance_tasks WHERE state='unresolved'),'review',(SELECT count(*) FROM maintenance_tasks WHERE state='review'),'failed',(SELECT count(*) FROM maintenance_tasks WHERE state='failed'),'workflows',(SELECT count(*) FROM maintenance_workflows WHERE state<>'complete'),'decisions',(SELECT count(*) FROM maintenance_decisions d JOIN maintenance_task_items m ON m.item_id=d.item_id WHERE m.window_id=maintenance_windows.window_id),'provider_calls',(SELECT count(DISTINCT p.provider_run_id) FROM provider_runs p JOIN attempts a ON a.provider_run_id=p.provider_run_id JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=maintenance_windows.job_id),'cost_microunits',(SELECT coalesce(sum(max(0,p.cost_microunits)),0) FROM provider_runs p WHERE EXISTS(SELECT 1 FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE a.provider_run_id=p.provider_run_id AND i.job_id=maintenance_windows.job_id))) FROM maintenance_windows WHERE job_id=" || _q(job_id))
 
 _backlogimpact: procedure = .int
   arg database = .binary, parent = .string, generation = .int, expose types = .string[], expose ids = .string[], expose error = .string

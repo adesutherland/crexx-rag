@@ -508,9 +508,19 @@ worker. Both accept 0..1000000. Use `--max-items` for work batches.
 The bounded command returns success when its workers finish. If work remains, `vector_state` is
 `pending-work`; starting the group again continues that same job. Vector
 publication waits until the job completes or is explicitly paused. The nightly
-wrapper plans once, shares each batch across the configured workers, and pauses
-at a batch boundary after its elapsed-time limit. The configured job budgets
-apply to the entire run.
+wrapper plans once with `--minutes N`, an exact `--until` timestamp, or an
+`--overnight HH:MM-HH:MM` local-time window, and shares each batch across the
+configured workers. The main product checks its fixed deadline before each
+call, allowing the call timeout plus five seconds for cleanup. Worker restarts
+never extend that deadline. A late overnight launch skips successfully.
+
+For durable maintenance, `maintenance.window_seconds` is the default elapsed
+duration. Parallel provider-call durations do not consume it. The optional
+`maintenance.provider_time_minutes` separately caps aggregate provider time;
+zero disables that cap. `budget.minutes` continues to apply to ingestion,
+replay and compatibility reviewed maintenance. Call/token/cost/allowance limits
+still cover the entire run. See [finish-time rules](autonomous-maintenance.md#choosing-a-finish-time)
+for midnight, timezone, daylight-saving and graceful-stop behavior.
 
 The [durable maintenance guide](autonomous-maintenance.md) describes the full
 runtime configuration, five-hour windows, shared budgets, split/merge follow-up

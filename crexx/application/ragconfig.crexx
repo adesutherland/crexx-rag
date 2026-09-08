@@ -466,9 +466,10 @@ ragmaintenancepolicy: class
   _retry_seconds = .int
   _maximum_evidence_bytes = .int
   _resolution_prompt = .string
+  _provider_time_minutes = .int
 
   *: factory
-    arg sparse_max_degree = 1, query_gap_min_occurrences = 1, batch_items = 1000, mode = "reviewed", window_seconds = 18000, automatic_actions = "reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate", maximum_impact = 10000, maximum_attempts = 3, retry_seconds = 300, maximum_evidence_bytes = 65536, resolution_prompt = "Resolve the specific maintenance question using only the supplied evidence. Distinguish identity, time, scope and viewpoint. Cite contiguous source quotations. Preserve uncertainty when evidence is insufficient. Propose only supported actions."
+    arg sparse_max_degree = 1, query_gap_min_occurrences = 1, batch_items = 1000, mode = "reviewed", window_seconds = 18000, automatic_actions = "reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate", maximum_impact = 10000, maximum_attempts = 3, retry_seconds = 300, maximum_evidence_bytes = 65536, resolution_prompt = "Resolve the specific maintenance question using only the supplied evidence. Distinguish identity, time, scope and viewpoint. Cite contiguous source quotations. Preserve uncertainty when evidence is insufficient. Propose only supported actions.", provider_time_minutes = 0
     _sparse_max_degree = sparse_max_degree
     _query_gap_min_occurrences = query_gap_min_occurrences
     _batch_items = batch_items
@@ -480,6 +481,7 @@ ragmaintenancepolicy: class
     _retry_seconds = retry_seconds
     _maximum_evidence_bytes = maximum_evidence_bytes
     _resolution_prompt = resolution_prompt
+    _provider_time_minutes = provider_time_minutes
     return
 
   sparse_max_degree: method = .int
@@ -504,6 +506,8 @@ ragmaintenancepolicy: class
     return _maximum_evidence_bytes
   resolution_prompt: method = .string
     return _resolution_prompt
+  provider_time_minutes: method = .int
+    return _provider_time_minutes
 
 ragobservationpolicy: class
   _capture_threshold = .int
@@ -818,6 +822,7 @@ validateconfig: procedure = .ragvalidationresult
   if retrieval.maximum_evidence_bytes() < 65536 | retrieval.maximum_evidence_bytes() > 1048576 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_retrieval_evidence_limit", "retrieval.maximum_evidence_bytes", "retrieval evidence byte ceiling must be from 65536 through 1048576")
 
   maintenance = config.maintenance()
+  if maintenance.provider_time_minutes() < 0 | maintenance.provider_time_minutes() > 10080 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_time", "maintenance", "maintenance provider time must be 0..10080 minutes")
   if wordpos(maintenance.mode(), "automatic supervised reviewed manual") = 0 | maintenance.window_seconds() < 1 | maintenance.window_seconds() > 86400 | maintenance.maximum_impact() < 1 | maintenance.maximum_impact() > 100000 | maintenance.maximum_attempts() < 1 | maintenance.maximum_attempts() > 10 | maintenance.retry_seconds() < 1 | maintenance.retry_seconds() > 604800 | maintenance.maximum_evidence_bytes() < 1024 | maintenance.maximum_evidence_bytes() > 1048576 | maintenance.resolution_prompt() = "" | length(maintenance.resolution_prompt()) > 16384 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_resolution_policy", "maintenance", "maintenance resolution limits or mode are invalid")
   do a = 1 to words(maintenance.automatic_actions())
     if wordpos(word(maintenance.automatic_actions(), a), "reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate") = 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_automatic_action", "maintenance.automatic_actions", "unknown automatic resolution action")

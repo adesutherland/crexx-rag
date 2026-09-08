@@ -41,7 +41,7 @@ foreach(runtime_name IN ITEMS rxvme rxbvm)
         set(runtime "${CPRAG_RXBVM}")
     endif()
     set(library "${CPRAG_WORK_DIR}/library-${runtime_name}")
-    execute_process(COMMAND "${runtime}"
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E env "TZ=Europe/London" "${runtime}"
         --provider-path "${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers"
         -l "${imports}" "${CPRAG_WORK_DIR}/backlog_scenario" ${modules}
         -a "${library}"

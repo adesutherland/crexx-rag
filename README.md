@@ -107,7 +107,7 @@ work_dir=$(docs/tutorial/setup.sh --no-build --provider codex-local)
 ```text
 crexxrag init
 crexxrag ingest [SOURCE_SET] [--workers N] [--yes]
-crexxrag maintain [--workers N] [--yes]
+crexxrag maintain [--minutes N | --until TIMESTAMP | --overnight HH:MM-HH:MM] [--workers N] [--yes]
 crexxrag review list
 crexxrag --access control job replay JOB_ID [--item ITEM_ID] [--reason TEXT]
 crexxrag library report [--top N] [--narrative off|cached|refresh] [--yes]

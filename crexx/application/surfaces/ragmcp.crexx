@@ -154,6 +154,11 @@ _toolcommand: procedure = .int
   if tool = "rag_maintain_inspect" then do
     if _positional(document, arguments, "id", output, error) \= 0 then return -1
   end
+  if tool = "rag_maintain_plan" then do
+    call _option document, arguments, "minutes", "minutes", output
+    call _option document, arguments, "until", "until", output
+    call _option document, arguments, "overnight", "overnight", output
+  end
   if tool = "rag_ingest_plan" then call _option document, arguments, "source_set", "source-set", output
   if tool = "rag_provider_test" then call _option document, arguments, "provider", "provider", output
   if tool = "rag_proposal_plan" then call _option document, arguments, "input", "input", output
@@ -234,7 +239,7 @@ _toollist: procedure = .string
   end
   if _has(access, "plan") then do
     tools = _addtool(tools, "rag_ingest_plan", "Plan ingestion without writing the library", '{"source_set":{"type":"string"}}', "true")
-    tools = _addtool(tools, "rag_maintain_plan", "Census and rank bounded catalogue, graph, note, query-gap, embedding and vector maintenance without writing", '{}', "true")
+    tools = _addtool(tools, "rag_maintain_plan", "Census and rank bounded catalogue, graph, note, query-gap, embedding and vector maintenance without writing", '{"minutes":{"type":"integer","minimum":1,"maximum":10080},"until":{"type":"string"},"overnight":{"type":"string"}}', "true")
     tools = _addtool(tools, "rag_proposal_plan", "Plan validated proposal NDJSON without writing", '{"input":{"type":"string"}}', "true")
     tools = _addtool(tools, "rag_review_list", "List review proposals", '{}', "true")
     tools = _addtool(tools, "rag_review_decide_preview", "Preview a review decision without writing", '{"id":{"type":"string"},"decision":{"type":"string","enum":["accept","reject","dismiss"]}}', "true")
@@ -283,7 +288,7 @@ _toolargumentsvalid: procedure = .int
   children = .int[]; ignored = document.children(arguments, children)
   do i = 1 to children.0
     name = document.node_name(children[i]); kind = document.node_type(children[i])
-    if wordpos(name, "limit hops top") > 0 then do
+    if wordpos(name, "limit hops top minutes") > 0 then do
       integer_value = 0
       if kind \= "number" | document.node_int(children[i], integer_value) \= 0 then do; error = "tool argument " || name || " must be an integer"; return -1; end
     end
@@ -310,6 +315,7 @@ _toolargumentnames: procedure = .string
   if tool = "rag_job_replay" then return "id item reason"
   if tool = "rag_config_plan" then return "reason"
   if tool = "rag_config_apply" then return "plan_json expect_digest"
+  if tool = "rag_maintain_plan" then return "minutes until overnight"
   if tool = "rag_ingest_plan" then return "source_set"
   if tool = "rag_provider_test" then return "provider"
   if tool = "rag_proposal_plan" then return "input"

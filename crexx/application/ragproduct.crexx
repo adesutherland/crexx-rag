@@ -145,7 +145,7 @@ _configcommand: procedure = .ragcommandresult
       records[records.0 + 1] = .ragresultrecord("retrieval-policy", fields)
       maintenance = config.maintenance(); observation = config.observation(); clear fields; fields = .ragresultfield[]
       fields[1] = .ragresultfield("sparse_max_degree", "integer", maintenance.sparse_max_degree()); fields[2] = .ragresultfield("query_gap_min_occurrences", "integer", maintenance.query_gap_min_occurrences()); fields[3] = .ragresultfield("batch_items", "integer", maintenance.batch_items()); fields[4] = .ragresultfield("snapshot_capture_threshold", "integer", observation.capture_threshold()); fields[5] = .ragresultfield("snapshot_cooldown_seconds", "integer", observation.cooldown_seconds()); fields[6] = .ragresultfield("snapshot_maximum_staleness_seconds", "integer", observation.maximum_staleness_seconds()); fields[7] = .ragresultfield("snapshot_work_minimum_change", "integer", observation.work_minimum_change()); fields[8] = .ragresultfield("snapshot_work_relative_millionths", "integer", observation.work_relative_millionths()); fields[9] = .ragresultfield("snapshot_dead_letter_minimum_change", "integer", observation.dead_letter_minimum_change()); fields[10] = .ragresultfield("snapshot_review_minimum_change", "integer", observation.review_minimum_change()); fields[11] = .ragresultfield("narrative_output_tokens", "integer", observation.narrative_output_tokens())
-      fields[12] = .ragresultfield("mode","string",maintenance.mode()); fields[13] = .ragresultfield("window_seconds","integer",maintenance.window_seconds()); fields[14] = .ragresultfield("automatic_actions","string",maintenance.automatic_actions()); fields[15] = .ragresultfield("maximum_impact","integer",maintenance.maximum_impact()); fields[16] = .ragresultfield("maximum_attempts","integer",maintenance.maximum_attempts()); fields[17] = .ragresultfield("retry_seconds","integer",maintenance.retry_seconds()); fields[18] = .ragresultfield("maximum_evidence_bytes","integer",maintenance.maximum_evidence_bytes()); fields[19] = .ragresultfield("resolution_prompt_sha256","string",rxhash..sha256hex(maintenance.resolution_prompt() as .binary))
+      fields[12] = .ragresultfield("mode","string",maintenance.mode()); fields[13] = .ragresultfield("window_seconds","integer",maintenance.window_seconds()); fields[14] = .ragresultfield("automatic_actions","string",maintenance.automatic_actions()); fields[15] = .ragresultfield("maximum_impact","integer",maintenance.maximum_impact()); fields[16] = .ragresultfield("maximum_attempts","integer",maintenance.maximum_attempts()); fields[17] = .ragresultfield("retry_seconds","integer",maintenance.retry_seconds()); fields[18] = .ragresultfield("maximum_evidence_bytes","integer",maintenance.maximum_evidence_bytes()); fields[19] = .ragresultfield("resolution_prompt_sha256","string",rxhash..sha256hex(maintenance.resolution_prompt() as .binary)); fields[20] = .ragresultfield("provider_time_minutes","integer",maintenance.provider_time_minutes())
       records[records.0 + 1] = .ragresultrecord("maintenance-observation-policy", fields)
       roles = config.roles()
       do i = 1 to roles.0
@@ -2195,6 +2195,25 @@ _maintainapply: procedure = .ragcommandresult
   route_id = provider.provider_id(); secret_reference = provider.credential().ref_string(); privacy = _queryprivacy(config)
   store = .ragstorehandle
   if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
+  reviewed_policy = ""; timing_json = ""
+  if config.maintenance().mode() \= "reviewed" then do
+    reviewed_policy = _actionstring(plan_json,"window_policy",error)
+    timing_json = _scalartext(store.database(),"SELECT coalesce(json_extract(" || _sqlquote(reviewed_policy) || ",'$.timing'),'')")
+    if timing_json \= "" then do
+      timing = .jsondocument(timing_json); timing_mode = ""; timing_request = ""; timing_start = 0
+      decoded = timing.node_string(timing.member(timing.root(),"mode"),timing_mode); decoded = timing.node_string(timing.member(timing.root(),"requested"),timing_request); decoded = timing.node_int(timing.member(timing.root(),"started_epoch"),timing_start)
+      time_minutes = ""; time_until = ""; time_overnight = ""; expected_timing = ""
+      if timing_mode = "duration" then time_minutes = timing_request
+      else if timing_mode = "until" then time_until = timing_request
+      else if timing_mode = "overnight" then time_overnight = timing_request
+      else do; ignored = ""; call closeragstore store,ignored; return _failure(operation,3,"reviewed maintenance timing mode is invalid"); end
+      if timing_start < 1 then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,3,"reviewed maintenance start time is invalid"); end
+      timing_status = resolvemaintenancetime(store.database(),time_minutes,time_until,time_overnight,config.maintenance().window_seconds(),expected_timing,error,timing_start)
+      if timing_status \= 0 | expected_timing \= timing_json then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,3,"reviewed maintenance timing is invalid or its local timezone changed"); end
+      deadline = _scalarint(store.database(),"SELECT json_extract(" || _sqlquote(timing_json) || ",'$.deadline_epoch')")
+      if deadline <= _scalarint(store.database(),"SELECT unixepoch()") then do; ignored = ""; call closeragstore store,ignored; return _maintenanceskip(operation,timing_json); end
+    end
+  end
   snapshot_id = currentconfigsnapshotid(store.database(), error)
   plan = .ragimproveplan
   census = .ragmaintenancecensus
@@ -2209,7 +2228,7 @@ _maintainapply: procedure = .ragcommandresult
     if recovery_status < 0 then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,7,error); end
     old_job = _scalartext(store.database(),"SELECT job_id FROM maintenance_windows WHERE state='active' ORDER BY created_epoch LIMIT 1")
     if old_job \= "" then if tickbacklogwindow(store,old_job,error) < 0 then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,7,error); end
-    policy_json = backlogpolicy(config,profile_lookup.profile(),plan.discovery_context())
+    policy_json = backlogpolicy(config,profile_lookup.profile(),plan.discovery_context(),timing_json)
     reviewed_policy = _actionstring(plan_json,"window_policy",error)
     if reviewed_policy \= policy_json then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,6,"reviewed maintenance window policy changed"); end
     run_id = ""; job_id = ""; items = 0
@@ -2256,23 +2275,42 @@ _maintainapply: procedure = .ragcommandresult
   records = .ragresultrecord[]; records[1] = .ragresultrecord("maintain-apply", fields)
   return .ragcommandresult(operation, "ok", 0, "reviewed maintenance census persisted and durable work queued", records)
 
+_maintenanceskip: procedure = .ragcommandresult
+  arg operation = .string, timing_json = .string
+  fields = .ragresultfield[]; records = .ragresultrecord[]
+  fields[1] = .ragresultfield("disposition","string","skipped")
+  fields[2] = .ragresultfield("timing","string",timing_json)
+  fields[3] = .ragresultfield("provider_calls","integer",0)
+  fields[4] = .ragresultfield("work_items","integer",0)
+  records[1] = .ragresultrecord("maintenance-skip",fields)
+  return .ragcommandresult(operation,"ok",0,"maintenance skipped: outside the permitted window or deadline already passed",records)
+
 _maintainplan: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
   operation = request.operation(); error = ""
   if _hasaccess(request, "plan") \= 1 then return _failure(operation, 4, "maintenance planning requires plan access")
-  if _options(request, "", error) \= 0 then return _failure(operation, 2, error)
+  if _options(request, "minutes until overnight", error) \= 0 then return _failure(operation, 2, error)
   positionals = request.positionals()
   if positionals.0 \= 0 | request.config_id() = "" | request.profile_id() = "" then return _failure(operation, 2, "maintenance planning requires registered --config and --profile ids and no positional arguments")
   config_lookup = registry.config(request.config_id())
   profile_lookup = registry.profile(request.profile_id())
   if config_lookup.found() \= 1 | profile_lookup.found() \= 1 then return _failure(operation, 5, "configuration or profile is not registered")
-  config = config_lookup.config(); budget = config.budget(); workers = config.workers()
+  config = config_lookup.config(); budget = config.budget(); workers = config.workers(); maintenance = config.maintenance()
   provider = _roleproviderconfig(config, "extractor")
   embedding_provider = _roleproviderconfig(config, "embedding")
   if provider.provider_id() = "" then return _failure(operation, 3, "configuration has no extractor provider")
+  minutes = _option(request,"minutes",error); until_text = _option(request,"until",error); overnight = _option(request,"overnight",error)
+  if maintenance.mode() = "reviewed" & (minutes \= "" | until_text \= "" | overnight \= "") then return _failure(operation,2,"maintenance timing options require automatic, supervised or manual mode")
   privacy = _queryprivacy(config)
   store = .ragstorehandle
   if openragstore(request.library(), "readonly", store, error) \= 0 then return _openfailure(operation, error)
+  timing_json = ""
+  if maintenance.mode() \= "reviewed" then do
+    timing_status = resolvemaintenancetime(store.database(),minutes,until_text,overnight,maintenance.window_seconds(),timing_json,error)
+    if timing_status \= 0 then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,2,error); end
+    timing = .jsondocument(timing_json)
+    if _scalarint(store.database(),"SELECT json_extract(" || _sqlquote(timing_json) || ",'$.skipped')") = 1 then do; ignored = ""; call closeragstore store,ignored; return _maintenanceskip(operation,timing_json); end
+  end
   snapshot_id = currentconfigsnapshotid(store.database(), error)
   plan = .ragimproveplan
   census = .ragmaintenancecensus
@@ -2281,12 +2319,13 @@ _maintainplan: procedure = .ragcommandresult
   if plan_status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 1, error); end
   foundation_plan = .ragplan
   action = '{"maintenance_digest":' || jsonquote(census.digest()) || '}'
-  if config.maintenance().mode() \= "reviewed" then action = '{"maintenance_digest":' || jsonquote(census.digest()) || ',"window_policy":' || jsonquote(backlogpolicy(config,profile_lookup.profile(),plan.discovery_context())) || '}'
+  if maintenance.mode() \= "reviewed" then action = '{"maintenance_digest":' || jsonquote(census.digest()) || ',"window_policy":' || jsonquote(backlogpolicy(config,profile_lookup.profile(),plan.discovery_context(),timing_json)) || '}'
   foundation_status = createfoundationplan(request.library(), request.config_id(), request.profile_id(), "maintain.apply", action, "curate", registry, foundation_plan, error)
   if foundation_status = -2 then return _failure(operation, 6, error)
   if foundation_status \= 0 then return _failure(operation, 7, error)
   records = .ragresultrecord[]; plan_fields = .ragresultfield[]
   plan_fields[1] = .ragresultfield("schema_version", "string", foundation_plan.schema_version()); plan_fields[2] = .ragresultfield("operation", "string", foundation_plan.operation()); plan_fields[3] = .ragresultfield("canonical_plan", "string", foundation_plan.payload()); plan_fields[4] = .ragresultfield("digest", "string", foundation_plan.digest()); plan_fields[5] = .ragresultfield("expires_at_epoch", "integer", foundation_plan.expires_at()); plan_fields[6] = .ragresultfield("required_capability", "string", "curate"); plan_fields[7] = .ragresultfield("state", "string", "created"); plan_fields[8] = .ragresultfield("enqueued", "boolean", "false")
+  plan_fields[9] = .ragresultfield("disposition","string","planned")
   records[1] = .ragresultrecord("canonical-plan", plan_fields); fields = .ragresultfield[]
   fields[1] = .ragresultfield("items_planned", "integer", census.item_count())
   plan_triggers = plan.triggers(); fields[2] = .ragresultfield("trigger_count", "integer", plan_triggers.0)
@@ -2310,10 +2349,15 @@ _maintainplan: procedure = .ragcommandresult
   repair_count = _maintenanceitemcount(census, "stale-embedding")
   maximum_work_calls = plan.model_call_budget() + repair_count * embedding_provider.max_attempts(); if maximum_work_calls > budget.model_calls() then maximum_work_calls = budget.model_calls()
   fields[20] = .ragresultfield("maximum_work_provider_calls", "integer", maximum_work_calls)
-  if config.maintenance().mode() \= "reviewed" then do
+  if maintenance.mode() \= "reviewed" then do
     fields[20] = .ragresultfield("maximum_work_provider_calls","integer",budget.model_calls())
-    fields[21] = .ragresultfield("execution_mode","string",config.maintenance().mode())
-    fields[22] = .ragresultfield("window_seconds","integer",min(config.maintenance().window_seconds(),budget.minutes()*60))
+    fields[21] = .ragresultfield("execution_mode","string",maintenance.mode())
+    timing = .jsondocument(timing_json); resolved_start = 0; resolved_deadline = 0
+    decoded = timing.node_int(timing.member(timing.root(),"started_epoch"),resolved_start); decoded = timing.node_int(timing.member(timing.root(),"deadline_epoch"),resolved_deadline)
+    fields[22] = .ragresultfield("window_seconds","integer",resolved_deadline-resolved_start)
+    fields[24] = .ragresultfield("timing","string",timing_json)
+    provider_minutes = maintenance.provider_time_minutes()
+    fields[25] = .ragresultfield("provider_time_minutes","integer",provider_minutes || "")
     fields[23] = .ragresultfield("scope","string","durable backlog and validated follow-up tasks within the shared window budget")
   end
   records[records.0 + 1] = .ragresultrecord("maintenance-preview", fields)
@@ -2323,7 +2367,7 @@ _preparemaintenance: procedure = .int
   arg store = .ragstorehandle, config = .ragconfig, snapshot_id = .string, expose plan = .ragimproveplan, expose census = .ragmaintenancecensus, expose error = .string
   error = ""; budget = config.budget(); workers = config.workers(); maintenance_policy = config.maintenance()
   extractor = _roleproviderconfig(config, "extractor"); embedder = _roleproviderconfig(config, "embedding"); extractor_role = _rolebinding(config, "extractor"); embedding_role = _rolebinding(config, "embedding")
-  if snapshot_id = "" | budget.item_limit() < 1 | budget.item_limit() > 100000 | budget.model_calls() < 1 | budget.minutes() < 1 | extractor.provider_id() = "" | embedder.provider_id() = "" | embedder.kind() = "codex" then do; error = "maintenance requires positive item, provider-call and time budgets plus extractor and embedding providers"; return -1; end
+  if snapshot_id = "" | budget.item_limit() < 1 | budget.item_limit() > 100000 | budget.model_calls() < 1 | (maintenance_policy.mode() = "reviewed" & budget.minutes() < 1) | extractor.provider_id() = "" | embedder.provider_id() = "" | embedder.kind() = "codex" then do; error = "maintenance requires positive item, provider-call and time budgets plus extractor and embedding providers"; return -1; end
   embedding_profile_id = _embeddingprofileid(embedder, embedding_role.embedding_dimensions())
   missing = _missingembeddingcount(store.database(), embedding_profile_id)
   if missing < 0 then do; error = "cannot calculate configured embedding coverage"; return -3; end
@@ -2343,7 +2387,9 @@ _preparemaintenance: procedure = .int
   if maximum_call_input > extractor_role.maximum_input_tokens() then maximum_call_input = extractor_role.maximum_input_tokens()
   maximum_call_output = budget.output_tokens() / maximum_inflight; if maximum_call_output > extractor_role.maximum_output_tokens() then maximum_call_output = extractor_role.maximum_output_tokens()
   maximum_call_cost = budget.cost_microunits() / maximum_inflight; if maximum_call_cost > extractor_role.maximum_call_cost_microunits() then maximum_call_cost = extractor_role.maximum_call_cost_microunits()
-  maximum_call_time = extractor.timeout_ms(); total_time = budget.minutes() * 60000; if maximum_call_time > total_time then maximum_call_time = total_time
+  maximum_call_time = extractor.timeout_ms(); total_time = budget.minutes() * 60000
+  if maintenance_policy.mode() \= "reviewed" then total_time = maintenance_policy.window_seconds() * 1000
+  if maximum_call_time > total_time then maximum_call_time = total_time
   if cognitive_limit > 0 & (maximum_call_input < 1 | maximum_call_output < 1 | (extractor.charging_basis() = "monetary-api" & maximum_call_cost < 1) | maximum_call_time < 1) then do; error = "configured budget cannot safely admit maintenance extraction"; return -1; end
   privacy = _queryprivacy(config)
   discovery = config.discovery(); glossary_loader = .ragglossaryloader(); glossary = glossary_loader.empty()

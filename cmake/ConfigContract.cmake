@@ -136,7 +136,7 @@ if(NOT explain_result EQUAL 0 OR
    NOT explain_evidence_error STREQUAL "NOTFOUND" OR
    NOT explain_evidence_ceiling STREQUAL "262144" OR
    NOT explain_maintenance_error STREQUAL "NOTFOUND" OR
-   NOT explain_maintenance_length EQUAL 19 OR
+   NOT explain_maintenance_length EQUAL 20 OR
    NOT explain_maintenance_batch_error STREQUAL "NOTFOUND" OR
    NOT explain_maintenance_batch STREQUAL "1000" OR
    NOT explain_out MATCHES "\"narrative_output_tokens\":4096" OR

@@ -513,7 +513,7 @@ reservecall: procedure = .int
   if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)
   reservation_id = claim.attempt_id() || "#call-1"
   if _boundeventcount(database, claim.job_id(), "reservation-open:" || reservation_id) > 0 then return _rollback(database, "provider call is already reserved", error)
-  if _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND (state<>'active' OR (deadline_epoch-unixepoch())*1000<" || maximum_time_ms || ")",claim.job_id()) > 0 then return _defermaintenancecall(database,claim,"maintenance window no longer admits provider calls",error)
+  if _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND (state<>'active' OR (deadline_epoch-unixepoch()-coalesce(json_extract(nullif(json_extract(policy_json,'$.timing'),''),'$.cleanup_seconds'),0))*1000<" || maximum_time_ms || ")",claim.job_id()) > 0 then return _defermaintenancecall(database,claim,"maintenance window no longer admits provider calls",error)
   if _boundcount(database,"SELECT count(*) FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id JOIN job_items i ON i.item_id=a.item_id WHERE e.job_id=?1 AND e.event_type='provider-intent' AND (a.outcome='expired' OR i.lease_until<=unixepoch()) AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')",claim.job_id()) > 0 then return _rollback(database,"provider outcome uncertain; reconcile the original intent before admitting further calls",error)
   policy_json = _boundevent(database, claim.job_id(), "budget-policy")
   if policy_json = "" then return _rollback(database, "job has no immutable provider budget policy", error)
@@ -562,7 +562,7 @@ reservecall: procedure = .int
   if actual_input + reserved_input + admitted_input > values[2] then return _defermaintenancecall(database, claim, "provider input-token budget exhausted", error)
   if actual_output + reserved_output + admitted_output > values[3] then return _defermaintenancecall(database, claim, "provider output-token budget exhausted", error)
   if actual_cost + reserved_cost + admitted_cost > values[4] then return _defermaintenancecall(database, claim, "provider cost budget exhausted", error)
-  if actual_time + reserved_time + admitted_time > time_budget then return _defermaintenancecall(database, claim, "provider time budget exhausted", error)
+  if time_budget > 0 & actual_time + reserved_time + admitted_time > time_budget then return _defermaintenancecall(database, claim, "provider time budget exhausted", error)
   message = "{" || jsonquote("reservation_id") || ":" || jsonquote(reservation_id) || "," || jsonquote("input") || ":" || admitted_input || "," || jsonquote("output") || ":" || admitted_output || "," || jsonquote("cost") || ":" || admitted_cost || "," || jsonquote("time") || ":" || admitted_time || "," || jsonquote("codex_turn") || ":" || codex_turn || "}"
   if _event(database, claim.job_id(), claim.item_id(), claim.attempt_id(), "reservation-open:" || reservation_id, message) \= 0 then return _rollback(database, "cannot record provider reservation", error)
   sql = "UPDATE jobs SET reserved_calls=reserved_calls+1,reserved_tokens=reserved_tokens+" || (admitted_input + admitted_output) || ",reserved_cost=reserved_cost+" || admitted_cost || ",reserved_codex_turns=reserved_codex_turns+" || codex_turn || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(claim.job_id())
@@ -782,7 +782,7 @@ admitprovidercall: procedure = .int
     now_epoch = _scalarint(database, "SELECT CAST(strftime('%s','now') AS INTEGER)")
     if now_epoch < 0 then return _rollback(database, "cannot read the provider admission clock", error)
     if sqliteexec(database, "UPDATE provider_admissions SET outcome='expired',released_epoch=" || now_epoch || " WHERE outcome='active' AND lease_until_epoch<=" || now_epoch) \= 0 then return _rollback(database, "cannot expire stale provider admissions", error)
-    if _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND (state<>'active' OR (deadline_epoch-unixepoch())*1000<" || timeout_ms || ")",claim.job_id()) > 0 then return _rollback(database,"maintenance deadline reached during provider admission",error)
+    if _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND (state<>'active' OR (deadline_epoch-unixepoch()-coalesce(json_extract(nullif(json_extract(policy_json,'$.timing'),''),'$.cleanup_seconds'),0))*1000<" || timeout_ms || ")",claim.job_id()) > 0 then return _rollback(database,"maintenance deadline reached during provider admission",error)
     scope = "provider_id=" || _q(provider_id) || " AND model=" || _q(model)
     recent_requests = _scalarint(database, "SELECT count(*) FROM provider_admissions WHERE " || scope || " AND admitted_epoch>" || (now_epoch - 60))
     recent_tokens = _scalarint(database, "SELECT coalesce(sum(reserved_tokens),0) FROM provider_admissions WHERE " || scope || " AND admitted_epoch>" || (now_epoch - 60))
