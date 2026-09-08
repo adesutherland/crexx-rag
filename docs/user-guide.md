@@ -54,11 +54,26 @@ budget. It never sends library content.
 Gemini credentials are normally configured as `env:GEMINI_API_KEY`. Codex login
 is owned by Codex App Server. Never place credential values in a config file.
 
+For a Codex provider, `provider.PROVIDER_ID.reasoning_effort = low` selects
+lighter reasoning for routine extraction and background work. Supported names
+are `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, and `max`; the chosen
+model must support the value. Omit the setting to inherit the Codex default.
+The override is sent on each generation turn, including citation corrections,
+without changing global Codex settings. Changing it is a prospective
+configuration change: review and apply `config plan` before new work.
+
 For local embeddings, start llama.cpp and configure an `openai-compatible`
 provider at `http://127.0.0.1:8081/v1`. The terms are:
 
 - embedding generation: converting text into vectors;
 - vector-index publication: publishing the resulting `.rxvec` generation.
+
+An `openai-compatible` provider can also generate text through
+`/chat/completions`, including JSON-schema output and citation-correction
+history. Configure its local model, context/output limits and zero monetary
+prices, and assign it to the desired generation roles. The `openai` provider
+kind continues to use `/responses`. Both kinds use `/embeddings` for vectors;
+different generation and embedding providers can be assigned independently.
 
 The tutorial includes a ready-to-copy Codex plus local-embedding configuration:
 
@@ -478,8 +493,19 @@ after a restart. Both provider receipts and usage records are retained. If the
 window budget has already been used, no extra call is made. Source-shape, identity,
 lifecycle and publication errors do not receive this citation correction.
 
-A bounded `worker start --job JOB_ID --max-polls N` returns success when its
-workers finish their requested polls. If work remains, `vector_state` is
+A bounded `worker start --job JOB_ID --max-items N` lets each configured worker
+process up to N work attempts. Empty polls and uncalled budget deferrals do not
+consume this allowance. A citation correction is a separate work attempt;
+completed failures and work resolved without a provider call also count.
+Active calls finish before a worker stops. Job completion, pause, drain and
+shared budgets still apply, so a worker can legitimately finish below N.
+
+`worker run --follow` accepts the same per-worker limit. Zero or omission means
+no item limit. The existing `--max-polls N` separately limits all checks,
+including empty ones; if both limits are set, the first one reached stops the
+worker. Both accept 0..1000000. Use `--max-items` for work batches.
+
+The bounded command returns success when its workers finish. If work remains, `vector_state` is
 `pending-work`; starting the group again continues that same job. Vector
 publication waits until the job completes or is explicitly paused. The nightly
 wrapper plans once, shares each batch across the configured workers, and pauses

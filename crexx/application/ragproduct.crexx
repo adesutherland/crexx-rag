@@ -134,6 +134,7 @@ _configcommand: procedure = .ragcommandresult
       do i = 1 to providers.0
         provider = providers[i]; fields = .ragresultfield[]
         fields[1] = .ragresultfield("provider_id", "string", provider.provider_id()); fields[2] = .ragresultfield("model", "string", provider.model()); fields[3] = .ragresultfield("timeout_ms", "integer", provider.timeout_ms()); fields[4] = .ragresultfield("max_attempts", "integer", provider.max_attempts()); fields[5] = .ragresultfield("requests_per_minute", "integer", provider.requests_per_minute()); fields[6] = .ragresultfield("tokens_per_minute", "integer", provider.tokens_per_minute()); fields[7] = .ragresultfield("concurrent_requests", "integer", provider.concurrent_requests()); fields[8] = .ragresultfield("initial_backoff_ms", "integer", provider.initial_backoff_ms()); fields[9] = .ragresultfield("maximum_backoff_ms", "integer", provider.maximum_backoff_ms()); fields[10] = .ragresultfield("jitter_ms", "integer", provider.jitter_ms()); fields[11] = .ragresultfield("credential_reference", "string", provider.credential().ref_string()); fields[12] = .ragresultfield("context_tokens", "integer", provider.context_tokens()); fields[13] = .ragresultfield("maximum_output_tokens", "integer", provider.maximum_output_tokens()); fields[14] = .ragresultfield("embedding_dimensions_minimum", "integer", provider.embedding_dimensions_minimum()); fields[15] = .ragresultfield("embedding_dimensions_maximum", "integer", provider.embedding_dimensions_maximum()); fields[16] = .ragresultfield("maximum_batch_size", "integer", provider.maximum_batch_size()); fields[17] = .ragresultfield("input_price_microunits_per_million", "integer", provider.input_price_microunits_per_million()); fields[18] = .ragresultfield("output_price_microunits_per_million", "integer", provider.output_price_microunits_per_million()); fields[19] = .ragresultfield("catalog_observed_date", "string", provider.catalog_observed_date())
+        if provider.reasoning_effort() \= "" then fields[20] = .ragresultfield("reasoning_effort", "string", provider.reasoning_effort())
         records[records.0 + 1] = .ragresultrecord("provider-policy", fields)
       end
       workers = config.workers(); budget = config.budget(); fields = .ragresultfield[]
@@ -1848,14 +1849,14 @@ _workerstart: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
   operation = request.operation(); error = ""
   if _hasaccess(request, "control") \= 1 then return _failure(operation, 4, "worker start requires control access")
-  if _workeroptions(request, "count poll-ms max-polls job", "", error) \= 0 then return _failure(operation, 2, error)
+  if _workeroptions(request, "count poll-ms max-polls max-items job", "", error) \= 0 then return _failure(operation, 2, error)
   positionals = request.positionals()
   if positionals.0 \= 0 then return _failure(operation, 2, "worker start accepts no positional arguments")
   if request.config_id() = "" | request.profile_id() = "" then return _failure(operation, 2, "worker start requires --config and --profile")
   config_lookup = registry.config(request.config_id()); profile_lookup = registry.profile(request.profile_id())
   if config_lookup.found() \= 1 | profile_lookup.found() \= 1 then return _failure(operation, 5, "configuration or profile is not registered")
   configured_count = config_lookup.config().workers().processes(); count = configured_count
-  count_text = _option(request, "count", error); poll_text = _option(request, "poll-ms", error); maximum_text = _option(request, "max-polls", error); job_filter = _option(request, "job", error)
+  count_text = _option(request, "count", error); poll_text = _option(request, "poll-ms", error); maximum_text = _option(request, "max-polls", error); items_text = _option(request, "max-items", error); job_filter = _option(request, "job", error)
   if count_text \= "" then do
     if _unsigned(count_text) \= 1 then return _failure(operation, 2, "--count must be an integer")
     count = count_text as .int
@@ -1865,19 +1866,23 @@ _workerstart: procedure = .ragcommandresult
     if _unsigned(poll_text) \= 1 then return _failure(operation, 2, "--poll-ms must be an integer")
     poll_milliseconds = poll_text as .int
   end
-  maximum_polls = 0
+  maximum_polls = 0; maximum_items = 0
   if maximum_text \= "" then do
     if _unsigned(maximum_text) \= 1 then return _failure(operation, 2, "--max-polls must be an integer")
     maximum_polls = maximum_text as .int
   end
-  if count < 1 | count > configured_count | poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 then return _failure(operation, 2, "worker start count must be within the configured process ceiling; poll-ms must be 10..60000 and max-polls 0..1000000")
+  if items_text \= "" then do
+    if _unsigned(items_text) \= 1 then return _failure(operation, 2, "--max-items must be an integer")
+    maximum_items = items_text as .int
+  end
+  if count < 1 | count > configured_count | poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | maximum_items < 0 | maximum_items > 1000000 then return _failure(operation, 2, "worker start count must be within the configured process ceiling; poll-ms must be 10..60000 and max-polls/max-items 0..1000000")
   started = .ragprocessstartresult
   tracer = .ragtracer(request.progress(), request.format()); call tracer.emit("controller", "start", "", "workers=" || count)
-  status = startworkerprocesses(request.library(), count, poll_milliseconds, maximum_polls, job_filter, request.config_id(), request.profile_id(), request.config_file(), request.progress(), request.format(), started, error)
+  status = startworkerprocesses(request.library(), count, poll_milliseconds, maximum_polls, job_filter, request.config_id(), request.profile_id(), request.config_file(), request.progress(), request.format(), started, error, maximum_items)
   if status \= 0 then return _failure(operation, 8, error)
   vector_generations = 0; vector_state = "not-requested"
   if job_filter \= "" then do
-    if _publishjobvectors(request.library(), job_filter, config_lookup.config(), vector_generations, vector_state, error, maximum_polls > 0) \= 0 then return _failure(operation, 8, error)
+    if _publishjobvectors(request.library(), job_filter, config_lookup.config(), vector_generations, vector_state, error, maximum_polls > 0 | maximum_items > 0) \= 0 then return _failure(operation, 8, error)
     if vector_state \= "not-applicable" then call tracer.emit("vector", vector_state, job_filter, "generations=" || vector_generations)
   end
   call tracer.emit("controller", "complete", started.controller_id(), "workers=" || started.completed())
@@ -1897,7 +1902,7 @@ _workerrun: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
   operation = request.operation(); error = ""
   if _hasaccess(request, "control") \= 1 then return _failure(operation, 4, "worker run requires control access")
-  if _workeroptions(request, "id parent host-id once follow poll-ms max-polls job", "once follow", error) \= 0 then return _failure(operation, 2, error)
+  if _workeroptions(request, "id parent host-id once follow poll-ms max-polls max-items job", "once follow", error) \= 0 then return _failure(operation, 2, error)
   positionals = request.positionals()
   if positionals.0 \= 0 then return _failure(operation, 2, "worker run accepts no positional arguments")
   if request.config_id() = "" | request.profile_id() = "" then return _failure(operation, 2, "worker run requires --config and --profile")
@@ -1907,8 +1912,8 @@ _workerrun: procedure = .ragcommandresult
   if (once = "") = (follow = "") then return _failure(operation, 2, "worker run requires exactly one of --once or --follow")
   mode = "once"; if follow \= "" then mode = "follow"
   instance_id = _option(request, "id", error); parent_id = _option(request, "parent", error); host_id = _option(request, "host-id", error); job_filter = _option(request, "job", error)
-  poll_text = _option(request, "poll-ms", error); maximum_text = _option(request, "max-polls", error)
-  poll_milliseconds = config_lookup.config().workers().poll_ms(); maximum_polls = 0
+  poll_text = _option(request, "poll-ms", error); maximum_text = _option(request, "max-polls", error); items_text = _option(request, "max-items", error)
+  poll_milliseconds = config_lookup.config().workers().poll_ms(); maximum_polls = 0; maximum_items = 0
   if poll_text \= "" then do
     if _unsigned(poll_text) \= 1 then return _failure(operation, 2, "--poll-ms must be an integer")
     poll_milliseconds = poll_text as .int
@@ -1917,9 +1922,13 @@ _workerrun: procedure = .ragcommandresult
     if _unsigned(maximum_text) \= 1 then return _failure(operation, 2, "--max-polls must be an integer")
     maximum_polls = maximum_text as .int
   end
-  if poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 then return _failure(operation, 2, "worker run requires poll-ms 10..60000 and max-polls 0..1000000")
+  if items_text \= "" then do
+    if _unsigned(items_text) \= 1 then return _failure(operation, 2, "--max-items must be an integer")
+    maximum_items = items_text as .int
+  end
+  if poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | maximum_items < 0 | maximum_items > 1000000 then return _failure(operation, 2, "worker run requires poll-ms 10..60000 and max-polls/max-items 0..1000000")
   final_id = ""; processed = 0
-  if runapplicationworker(request.library(), instance_id, parent_id, host_id, mode, job_filter, poll_milliseconds, maximum_polls, config_lookup.config(), profile_lookup.profile(), request.progress(), request.format(), final_id, processed, error) \= 0 then return _failure(operation, 1, error)
+  if runapplicationworker(request.library(), instance_id, parent_id, host_id, mode, job_filter, poll_milliseconds, maximum_polls, config_lookup.config(), profile_lookup.profile(), request.progress(), request.format(), final_id, processed, error, maximum_items) \= 0 then return _failure(operation, 1, error)
   fields = .ragresultfield[]
   fields[1] = .ragresultfield("worker_id", "string", final_id)
   fields[2] = .ragresultfield("mode", "string", mode)

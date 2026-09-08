@@ -404,7 +404,25 @@ int main(int argc, char** argv)
                 body = R"({"embeddings":[{"values":[0.3,0.4,0.5]},{"values":[-0.3,-0.4,-0.5]}],"usageMetadata":{"promptTokenCount":4}})";
             }
         } else if (path == "/v1/chat/completions") {
-            if (request.find("\"model\":\"structured-valid\"") != std::string::npos) {
+            if (request.find("\"model\":\"local-structured-") != std::string::npos) {
+                const bool valid_shape = request.find("Authorization: Bearer synthetic-local-key") != std::string::npos
+                    && request.find(R"("messages":[{"role":"system","content":"Return the requested structure."},{"role":"user","content":"Classify Edinburgh."},{"role":"assistant","content":"{\"label\":\"wrong\"}"},{"role":"user","content":"Correct the label using the evidence."}])") != std::string::npos
+                    && request.find(R"("max_tokens":64)") != std::string::npos
+                    && request.find(R"("temperature":0)") != std::string::npos
+                    && request.find(R"("response_format":{"type":"json_schema","json_schema":{"name":"cprag_response","strict":true,"schema":{"type":"object","properties":{"label":{"type":"string","enum":["place"]}},"required":["label"],"additionalProperties":false}}})") != std::string::npos;
+                if (!valid_shape) {
+                    http_status = 400;
+                    body = R"({"error":{"message":"local structured generation request shape mismatch"}})";
+                } else {
+                    std::string content = R"({"label":"place"})";
+                    std::string finish = "stop";
+                    if (request.find(R"("model":"local-structured-2")") != std::string::npos) content = "not JSON";
+                    if (request.find(R"("model":"local-structured-3")") != std::string::npos) content = R"({"other":"invented"})";
+                    if (request.find(R"("model":"local-structured-4")") != std::string::npos) finish = "length";
+                    body = "{\"id\":\"local-structured-001\",\"choices\":[{\"message\":{\"content\":" + json_string(content)
+                        + "},\"finish_reason\":" + json_string(finish) + "}],\"usage\":{\"prompt_tokens\":9,\"completion_tokens\":4}}";
+                }
+            } else if (request.find("\"model\":\"structured-valid\"") != std::string::npos) {
                 const bool valid_schema = request.find("\"response_format\":{\"type\":\"json_schema\"") != std::string::npos
                     && request.find("\"strict\":true") != std::string::npos
                     && request.find("\"max_completion_tokens\":32") != std::string::npos;

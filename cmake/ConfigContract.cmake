@@ -11,6 +11,7 @@ endforeach()
 file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
 set(base_import "${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}")
+get_filename_component(config_source_dir "${CPRAG_CONFIG}" DIRECTORY)
 set(program_import "${CPRAG_WORK_DIR};${base_import}")
 set(report "${CPRAG_WORK_DIR}/result.txt")
 file(WRITE "${report}"
@@ -63,6 +64,8 @@ foreach(mode IN ITEMS noopt opt)
         "${program_import}" "${mode_flag}" "${mode} ragprofile")
     compile_crexx("${CPRAG_PROFILE_FILE_MODULE}" "${CPRAG_WORK_DIR}/ragprofilefile"
         "${program_import}" "${mode_flag}" "${mode} ragprofilefile")
+    compile_crexx("${config_source_dir}/ragcanonical.crexx" "${CPRAG_WORK_DIR}/ragcanonical"
+        "${program_import}" "${mode_flag}" "${mode} ragcanonical")
     compile_crexx("${CPRAG_SCENARIO}" "${CPRAG_WORK_DIR}/scenario-${mode}"
         "${program_import}" "${mode_flag}" "${mode} config scenario")
 
@@ -77,7 +80,7 @@ foreach(mode IN ITEMS noopt opt)
             "GEMINI_API_KEY=${secret_marker}"
             "${runtime}" -l "${program_import}"
             "${CPRAG_WORK_DIR}/scenario-${mode}"
-            ragconfigfile ragconfig ragmodel ragfile ragglossary ragprofilefile ragprofile rxfs rx_hash rx_system library
+            ragconfigfile ragconfig ragmodel ragfile ragglossary ragprofilefile ragprofile ragcanonical rxfs rx_hash rx_system library
             -a "${cell}" "${CPRAG_FIXTURE}"
                 "${CPRAG_WORK_DIR}/glossary-valid.tsv"
                 "${CPRAG_WORK_DIR}/glossary-duplicate.tsv"

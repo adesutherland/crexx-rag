@@ -25,7 +25,7 @@ main: procedure = .int
   messages = .providermessage[]; inputs = .string[]
   messages[1] = .providermessage("user", "Return an object whose ok field is true.")
   schema = '{"type":"object","additionalProperties":false,"required":["ok"],"properties":{"ok":{"type":"boolean"}}}'
-  request = .providerrequest("generate_structured", "probe", "default", messages, inputs, schema, 120000, 1, "public", "codex-live-probe", "codex-live-probe", 32, 0, 0, 0)
+  request = .providerrequest("generate_structured", "probe", "default", messages, inputs, schema, 120000, 1, "public", "codex-live-probe", "codex-live-probe", 32, 0, 0, 0, 1000, 60000, 250, "low")
   result = provider.generate_structured(request)
   call provider.close()
   if result.status() \= 0 then do

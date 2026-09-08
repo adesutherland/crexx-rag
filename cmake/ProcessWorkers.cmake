@@ -42,8 +42,20 @@ if [ "$bounds_status" -ne 2 ]; then
   exit 20
 fi
 
+for command in start run; do
+  if [ "$command" = run ]; then set -- --follow; else set --; fi
+  for limit in invalid -1 1000001; do
+    set +e
+    run_app --library "$library" --config architecture-local --profile generic-profile --access control --format json worker "$command" \
+      "$@" --max-items "$limit" >"$output_dir/item-bounds-$command-$limit.out" 2>&1
+    bounds_status=$?
+    set -e
+    if [ "$bounds_status" -ne 2 ]; then exit 25; fi
+  done
+done
+
 run_app --library "$library" --config architecture-local --profile generic-profile --access control --format json worker start \
-  --count 2 --poll-ms 50 --max-polls 40 \
+  --count 2 --poll-ms 50 --max-polls 40 --max-items 1 \
   >"$output_dir/controller.out" 2>"$output_dir/controller.err" &
 controller=$!
 tries=0

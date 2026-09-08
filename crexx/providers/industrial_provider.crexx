@@ -10,6 +10,7 @@ import provider_http
 
 industrialprovider: class implements .provider
   _protocol = .string
+  _chat_completions = .int
   _provider_name = .string
   _base_path = .string
   _transport = .providerhttptransport
@@ -21,14 +22,21 @@ industrialprovider: class implements .provider
     arg protocol = .string, host = .string, port = .int, tls = .int, base_path = .string, api_key = .string, route_class = .string, input_price_microunits_per_million = -1, output_price_microunits_per_million = -1, maximum_batch_size = 1024
     _protocol = protocol
     _provider_name = protocol
+    _chat_completions = 0
+    if protocol = "openai-compatible" then do
+      _protocol = "openai"
+      _provider_name = "openai"
+      _chat_completions = 1
+    end
     _base_path = base_path
     _input_price_microunits_per_million = input_price_microunits_per_million
     _output_price_microunits_per_million = output_price_microunits_per_million
     _maximum_batch_size = maximum_batch_size
-    _transport = .providerhttptransport(host, port, tls, protocol, api_key, route_class)
+    _transport = .providerhttptransport(host, port, tls, _protocol, api_key, route_class)
     return
 
   capabilities: method = .providercapabilities
+    if _chat_completions = 1 then return .providercapabilities("openai", 1, 1, 1, 1, 0, 0, 0, 2048, "text", "text|f32le", "openai-chat-completions", 0)
     if _protocol = "openai" then return .providercapabilities("openai", 1, 1, 1, 1, 0, 0, 0, 2048, "text|image_url|document_url", "text|f32le", "openai-responses", 0)
     if _protocol = "anthropic" then return .providercapabilities("anthropic", 1, 1, 0, 0, 0, 0, 0, 0, "text|image_url|document_url", "text", "anthropic-messages", 0)
     if _protocol = "gemini" then return .providercapabilities("gemini", 1, 1, 1, 1, 0, 0, 0, 100, "text|image_url|document_url|audio_url", "text|f32le", "gemini-generateContent", 0)
@@ -74,7 +82,8 @@ industrialprovider: class implements .provider
     body = _generation_body(request, structured)
     response = _transport.post(request, path, body)
     if response.status() \= 0 then return _transport_failure(request, response)
-    if _protocol = "openai" then result = _parse_openai_generation(request, response)
+    if _chat_completions = 1 then result = _parse_chat_generation(request, response)
+    else if _protocol = "openai" then result = _parse_openai_generation(request, response)
     else if _protocol = "anthropic" then result = _parse_anthropic_generation(request, response)
     else result = _parse_gemini_generation(request, response)
     if result.status() \= 0 | structured = 0 then return result
@@ -98,6 +107,7 @@ industrialprovider: class implements .provider
 
   _generation_path: method = .string
     arg model = .string
+    if _chat_completions = 1 then return _endpoint("/chat/completions")
     if _protocol = "openai" then return _endpoint("/responses")
     if _protocol = "anthropic" then return _endpoint("/messages")
     return _endpoint("/models/" || model || ":generateContent")
@@ -116,9 +126,41 @@ industrialprovider: class implements .provider
 
   _generation_body: method = .string
     arg request = .providerrequest, structured = .int
+    if _chat_completions = 1 then return _chat_generation_body(request, structured)
     if _protocol = "openai" then return _openai_generation_body(request, structured)
     if _protocol = "anthropic" then return _anthropic_generation_body(request, structured)
     return _gemini_generation_body(request, structured)
+
+  _chat_generation_body: method = .string
+    arg request = .providerrequest, structured = .int
+    messages = request.messages(); encoded_messages = .string[]
+    do i = 1 to messages.0
+      message_keys = .string[]; message_values = .string[]
+      message_keys[1] = "role"; message_values[1] = jsonquote(messages[i].role())
+      message_keys[2] = "content"; message_values[2] = jsonquote(messages[i].content())
+      encoded_messages[i] = jsonobject(message_keys, message_values)
+    end
+    keys = .string[]; values = .string[]
+    keys[1] = "model"; values[1] = jsonquote(request.model())
+    keys[2] = "messages"; values[2] = jsonarray(encoded_messages)
+    next = 3
+    if request.max_output_tokens() > 0 then do
+      keys[next] = "max_tokens"; values[next] = request.max_output_tokens(); next = next + 1
+    end
+    if request.temperature_millionths() >= 0 then do
+      keys[next] = "temperature"; values[next] = request.temperature_millionths() / 1000000.0; next = next + 1
+    end
+    if structured \= 0 then do
+      schema_keys = .string[]; schema_values = .string[]
+      schema_keys[1] = "name"; schema_values[1] = jsonquote("cprag_response")
+      schema_keys[2] = "strict"; schema_values[2] = "true"
+      schema_keys[3] = "schema"; schema_values[3] = request.schema()
+      format_keys = .string[]; format_values = .string[]
+      format_keys[1] = "type"; format_values[1] = jsonquote("json_schema")
+      format_keys[2] = "json_schema"; format_values[2] = jsonobject(schema_keys, schema_values)
+      keys[next] = "response_format"; values[next] = jsonobject(format_keys, format_values)
+    end
+    return jsonobject(keys, values)
 
   _openai_generation_body: method = .string
     arg request = .providerrequest, structured = .int
@@ -428,6 +470,25 @@ industrialprovider: class implements .provider
     end
     return jsonobject(keys, values)
 
+  _parse_chat_generation: method = .providerresult
+    arg request = .providerrequest, response = .providerhttpresponse
+    document = .jsondocument(response.body())
+    if document.valid() = 0 then return _malformed(request, response, "Chat Completions response is not valid JSON")
+    root = document.root(); choices = document.member(root, "choices"); choice = document.element(choices, 1)
+    message = document.member(choice, "message"); content_node = document.member(message, "content")
+    content = ""
+    if document.node_string(content_node, content) \= 0 | content = "" then return _malformed(request, response, "Chat Completions generated content is missing")
+    usage_node = document.member(root, "usage")
+    input_tokens = _optional_int(document, usage_node, "prompt_tokens")
+    output_tokens = _optional_int(document, usage_node, "completion_tokens")
+    usage = .providerusage(input_tokens, output_tokens, 1, _estimatecost(request.model(), input_tokens, output_tokens), response.attempts(), response.retry_delay_ms())
+    finish_reason = ""; ignored = document.node_string(document.member(choice, "finish_reason"), finish_reason)
+    if finish_reason \= "stop" then return _failed(request, .providererror("malformed_response", -102, response.http_status(), 0, response.attempts(), "Chat Completions generation did not finish normally"), usage, response.latency_us())
+    response_id = _response_id(document, root, request.request_id(), response.provider_request_id())
+    result = .providerresult()
+    call result.set_generation(_provider_name, request.model(), response_id, content, finish_reason, usage, response.latency_us())
+    return result
+
   _parse_openai_generation: method = .providerresult
     arg request = .providerrequest, response = .providerhttpresponse
     document = .jsondocument(response.body())
@@ -579,6 +640,7 @@ industrialprovider: class implements .provider
     messages = request.messages()
     do i = 1 to messages.0
       modality = messages[i].modality()
+      if _chat_completions = 1 & modality \= "text" then return .providererror("unsupported", -120, 0, 0, 0, "OpenAI-compatible generation currently supports text input only")
       if _protocol = "openai" & modality = "audio_url" then return .providererror("unsupported", -120, 0, 0, 0, "OpenAI audio URL input is not implemented")
       if _protocol = "anthropic" & modality = "audio_url" then return .providererror("unsupported", -120, 0, 0, 0, "Anthropic audio URL input is not supported")
       if modality \= "text" & messages[i].media_type() = "" then return .providererror("invalid_request", -101, 0, 0, 0, "media type is required for non-text input")

@@ -6,6 +6,7 @@ import ragconfigfile
 import ragfile
 import ragglossary
 import ragprofilefile
+import ragcanonical
 
 check: procedure = .int
   arg condition = .boolean, label = .string
@@ -46,6 +47,19 @@ main: procedure = .int
   raw = .binary; bytes = 0
   errors = errors + check(ragfile..readbinaryfilebounded(path, 65536, raw, bytes, error) = 0, "fixture reread")
   text = raw as .string
+  errors = errors + check(providers[1].reasoning_effort() = "" & pos('"reasoning_effort"', canonicalconfig(config)) = 0, "omitted effort preserves existing canonical identity")
+  errors = errors + check(rejected(text || "0A"x || "provider.gemini-generate.reasoning_effort = low", "reasoning_effort") = 1, "non-Codex effort rejected")
+  codex_text = changestr("provider.gemini-generate.kind = gemini", text, "provider.gemini-generate.kind = codex")
+  codex_text = changestr("provider.gemini-generate.base_url = https://generativelanguage.googleapis.com/v1beta", codex_text, "provider.gemini-generate.base_url = app-server://local")
+  codex_text = changestr("provider.gemini-generate.credential = env:GEMINI_API_KEY", codex_text, "provider.gemini-generate.credential = none")
+  low_config = .ragconfig; high_config = .ragconfig; effort_error = ""
+  errors = errors + check(parseconfigtext(codex_text || "0A"x || "provider.gemini-generate.reasoning_effort = low", low_config, effort_error) = 0, "low effort config " || effort_error)
+  errors = errors + check(parseconfigtext(codex_text || "0A"x || "provider.gemini-generate.reasoning_effort = high", high_config, effort_error) = 0, "high effort config " || effort_error)
+  low_providers = low_config.providers()
+  errors = errors + check(low_providers[1].reasoning_effort() = "low", "typed Codex effort")
+  errors = errors + check(canonicalsemanticconfig(low_config) \= canonicalsemanticconfig(high_config) & canonicaloperationalconfig(low_config) = canonicaloperationalconfig(high_config), "effort change is prospective")
+  errors = errors + check(rejected(codex_text || "0A"x || "provider.gemini-generate.reasoning_effort = invalid", "reasoning_effort") = 1, "invalid effort rejected")
+  errors = errors + check(rejected(codex_text || "0A"x || "provider.gemini-generate.reasoning_effort = low medium", "reasoning_effort") = 1, "multiple effort names rejected")
   errors = errors + check(rejected(text || "0A"x || "config.id = duplicate", "duplicated") = 1, "duplicate rejection")
   errors = errors + check(rejected(text || "0A"x || "module.loader = arbitrary.crexx", "unknown or invalid key") = 1, "module key rejection")
   errors = errors + check(rejected(changestr("env:GEMINI_API_KEY", text, "literal-secret"), "literal secrets are forbidden") = 1, "literal secret rejection")

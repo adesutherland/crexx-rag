@@ -22,7 +22,7 @@ generatequeryembedding: procedure = .int
   if _parseurl(provider_config.base_url(), host, port, tls, base_path) \= 0 then do; error = "query embedding provider URL is invalid"; return -1; end
   secret = _secret(provider_config, error)
   if error \= "" then return -1
-  protocol = provider_config.kind(); if protocol = "openai-compatible" then protocol = "openai"
+  protocol = provider_config.kind()
   backend = .industrialprovider(protocol, host, port, tls, base_path, secret, provider_config.route_class(), provider_config.input_price_microunits_per_million(), provider_config.output_price_microunits_per_million(), provider_config.maximum_batch_size())
   messages = .providermessage[]; inputs = .string[]; inputs[1] = question
   request = .providerrequest("embed", "embedding", provider_config.model(), messages, inputs, "", provider_config.timeout_ms(), provider_config.max_attempts(), privacy, request_identity, request_identity, 0, dimension, 0, -1, provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms())
@@ -41,13 +41,13 @@ generatequeryanswer: procedure = .int
   messages[1] = .providermessage("system", system_prompt)
   messages[2] = .providermessage("user", answer_context)
   schema = '{"type":"object","additionalProperties":false,"required":["grounding","answer","citations"],"properties":{"grounding":{"type":"string","enum":["supported","partial","insufficient"]},"answer":{"type":"string"},"citations":{"type":"array","items":{"type":"string"}}}}'
-  request = .providerrequest("generate_structured", "answerer", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), provider_config.max_attempts(), privacy, request_identity, request_identity, maximum_output_tokens, 0, 0, temperature_millionths, provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms())
+  request = .providerrequest("generate_structured", "answerer", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), provider_config.max_attempts(), privacy, request_identity, request_identity, maximum_output_tokens, 0, 0, temperature_millionths, provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms(), provider_config.reasoning_effort())
   if provider_config.kind() = "codex" then return _codexanswer(provider_config, request, minimum_allowance, result, allowance_before, allowance_after, error)
   host = ""; base_path = ""; port = 0; tls = 0
   if _parseurl(provider_config.base_url(), host, port, tls, base_path) \= 0 then do; error = "query answer provider URL is invalid"; return -1; end
   secret = _secret(provider_config, error)
   if error \= "" then return -1
-  protocol = provider_config.kind(); if protocol = "openai-compatible" then protocol = "openai"
+  protocol = provider_config.kind()
   backend = .industrialprovider(protocol, host, port, tls, base_path, secret, provider_config.route_class(), provider_config.input_price_microunits_per_million(), provider_config.output_price_microunits_per_million(), provider_config.maximum_batch_size())
   result = backend.generate_structured(request)
   if result.status() \= 0 then do; error = _providererror(result, "query answer provider failed"); return -2; end
@@ -62,13 +62,13 @@ generatereportnarrative: procedure = .int
   messages[1] = .providermessage("system", system_prompt)
   messages[2] = .providermessage("user", report_context)
   schema = '{"type":"object","additionalProperties":false,"required":["overview","citations","subjects"],"properties":{"overview":{"type":"string"},"citations":{"type":"array","minItems":1,"maxItems":4,"items":{"type":"string"}},"subjects":{"type":"array","minItems":1,"maxItems":10,"items":{"type":"object","additionalProperties":false,"required":["label","description","citations"],"properties":{"label":{"type":"string"},"description":{"type":"string"},"citations":{"type":"array","minItems":1,"maxItems":4,"items":{"type":"string"}}}}}}}'
-  request = .providerrequest("generate_structured", "advisory", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), provider_config.max_attempts(), privacy, request_identity, request_identity, maximum_output_tokens, 0, 0, temperature_millionths, provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms())
+  request = .providerrequest("generate_structured", "advisory", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), provider_config.max_attempts(), privacy, request_identity, request_identity, maximum_output_tokens, 0, 0, temperature_millionths, provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms(), provider_config.reasoning_effort())
   if provider_config.kind() = "codex" then return _codexanswer(provider_config, request, minimum_allowance, result, allowance_before, allowance_after, error)
   host = ""; base_path = ""; port = 0; tls = 0
   if _parseurl(provider_config.base_url(), host, port, tls, base_path) \= 0 then do; error = "library report narrative provider URL is invalid"; return -1; end
   secret = _secret(provider_config, error)
   if error \= "" then return -1
-  protocol = provider_config.kind(); if protocol = "openai-compatible" then protocol = "openai"
+  protocol = provider_config.kind()
   backend = .industrialprovider(protocol, host, port, tls, base_path, secret, provider_config.route_class(), provider_config.input_price_microunits_per_million(), provider_config.output_price_microunits_per_million(), provider_config.maximum_batch_size())
   result = backend.generate_structured(request)
   if result.status() \= 0 then do; error = _providererror(result, "library report narrative provider failed"); return -2; end

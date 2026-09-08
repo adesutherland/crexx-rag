@@ -1,5 +1,6 @@
 options levelg
 
+import rxfnsb
 import provider_contract
 import provider_http
 import industrial_provider
@@ -14,7 +15,7 @@ main: procedure = .int
   arg args = .string[]
   if args.0 \= 1 then return 2
   errors = 0
-  provider = .industrialprovider("openai", "127.0.0.1", 19020, 0, "/v1", "", "local")
+  provider = .industrialprovider("openai-compatible", "127.0.0.1", 19020, 0, "/v1", "", "local")
   capabilities = provider.capabilities()
   errors = errors + check(capabilities.embeddings() = 1 & capabilities.batch_embeddings() = 1, "local embedding capabilities")
 
@@ -34,6 +35,29 @@ main: procedure = .int
   retry_response = retry_transport.post(retry_request, "/v1/chat/completions", '{"model":"retry-local-' || args[1] || '"}')
   errors = errors + check(retry_response.status() = 0 & retry_response.http_status() = 200 & retry_response.attempts() = 3, "retryable provider response succeeds on its third attempt")
   errors = errors + check(retry_response.retry_delay_ms() = 1020 & retry_response.latency_us() >= 1020000, "Retry-After and exponential backoff are respected")
+
+  generation_provider = .industrialprovider("openai-compatible", "127.0.0.1", 19020, 0, "/v1", "synthetic-local-key", "local", 0, 0)
+  messages[1] = .providermessage("system", "Return the requested structure.")
+  messages[2] = .providermessage("user", "Classify Edinburgh.")
+  messages[3] = .providermessage("assistant", '{"label":"wrong"}')
+  messages[4] = .providermessage("user", "Correct the label using the evidence.")
+  schema = '{"type":"object","properties":{"label":{"type":"string","enum":["place"]}},"required":["label"],"additionalProperties":false}'
+  generation_inputs = .string[]
+  do case_index = 1 to 4
+    generation_request = .providerrequest("generate_structured", "extractor", "local-structured-" || case_index, messages, generation_inputs, schema, 10000, 1, "restricted", "local-generation-" || args[1] || case_index, "local-generation-" || args[1] || case_index, 64, 0, 0, 0)
+    generation_result = generation_provider.generate_structured(generation_request)
+    generation_usage = generation_result.usage(); generation_error = generation_result.error()
+    if case_index = 1 & generation_result.status() \= 0 then say "LOCAL_GENERATION_ERROR=" || generation_error.category() || ": " || generation_error.message()
+    if case_index = 1 then do
+      errors = errors + check(generation_result.status() = 0 & generation_result.content() = '{"label":"place"}', "chat schema and correction history mapping")
+      expected_request_id = "loopback-request-" || (5 + 8 * (wordpos(args[1], "noopt-rxvme noopt-rxbvm opt-rxvme opt-rxbvm") - 1))
+      errors = errors + check(generation_result.provider() = "openai" & generation_result.request_id() = expected_request_id & generation_result.finish_reason() = "stop", "chat response identity from HTTP header")
+    end
+    else if case_index < 4 then errors = errors + check(generation_result.status() \= 0 & generation_error.category() = "structured_validation", "reject malformed or wrong-schema output case " || case_index)
+    else errors = errors + check(generation_result.status() \= 0 & generation_error.category() = "malformed_response", "reject truncated output")
+    errors = errors + check(generation_usage.input_tokens() = 9 & generation_usage.output_tokens() = 4 & generation_usage.cost_microunits() = 0 & generation_usage.attempts() = 1, "chat usage retained case " || case_index)
+  end
   if errors > 0 then return 1
+  say "LOCAL_GENERATION_PROTOCOL_OK cell=" || args[1] || " endpoint=/v1/chat/completions schema=validated correction_history=preserved negatives=3"
   say "LOCAL_EMBEDDING_PROTOCOL_OK cell=" || args[1] || " protocol=openai-compatible endpoint=/v1/embeddings dimensions=3 charging=local-compute privacy=restricted retries=3 retry_delay_ms=1020"
   return 0

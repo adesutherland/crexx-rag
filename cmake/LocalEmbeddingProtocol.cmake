@@ -12,7 +12,7 @@ set(server_out "${CPRAG_WORK_DIR}/loopback.out")
 set(server_err "${CPRAG_WORK_DIR}/loopback.err")
 set(server_status "${CPRAG_WORK_DIR}/loopback.status")
 execute_process(COMMAND /bin/sh -c
-    "( \"$1\" 19020 16 local-embedding; printf '%s' $? >\"$4\" ) >\"$2\" 2>\"$3\" &"
+    "( \"$1\" 19020 32 local-embedding; printf '%s' $? >\"$4\" ) >\"$2\" 2>\"$3\" &"
     local-embedding-protocol "${CPRAG_LOOPBACK}" "${server_out}"
     "${server_err}" "${server_status}"
     RESULT_VARIABLE launch_result)
@@ -94,7 +94,7 @@ file(READ "${server_status}" server_result)
 file(READ "${server_out}" final_server_out)
 file(READ "${server_err}" final_server_err)
 if(NOT server_result STREQUAL "0" OR
-   NOT final_server_out MATCHES "SUMMARY scenario=local-embedding connections=16 request_connection_close=16")
+   NOT final_server_out MATCHES "SUMMARY scenario=local-embedding connections=32 request_connection_close=32")
     message(FATAL_ERROR "local embedding loopback failed:\n${final_server_out}${final_server_err}")
 endif()
 message(STATUS "Local OpenAI-compatible embedding protocol passed request mapping, restricted local privacy, vector decoding, zero monetary cost, and Retry-After plus exponential retry on both VMs and compiler modes")

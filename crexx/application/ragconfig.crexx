@@ -95,9 +95,10 @@ ragproviderconfig: class
   _input_price_microunits_per_million = .int
   _output_price_microunits_per_million = .int
   _catalog_observed_date = .string
+  _reasoning_effort = .string
 
   *: factory
-    arg provider_id = .string, kind = .string, base_url = .string, model = .string, route_class = .string, privacy_policy = .string, credential = .ragsecretref, timeout_ms = .int, max_attempts = .int, requests_per_minute = 60000, tokens_per_minute = 2000000000, concurrent_requests = 64, initial_backoff_ms = 1000, maximum_backoff_ms = 60000, jitter_ms = 250, context_tokens = 2000000000, maximum_output_tokens = 2000000000, embedding_dimensions_minimum = 1, embedding_dimensions_maximum = 1000000, maximum_batch_size = 1024, input_price_microunits_per_million = -1, output_price_microunits_per_million = -1, catalog_observed_date = "compatibility-default"
+    arg provider_id = .string, kind = .string, base_url = .string, model = .string, route_class = .string, privacy_policy = .string, credential = .ragsecretref, timeout_ms = .int, max_attempts = .int, requests_per_minute = 60000, tokens_per_minute = 2000000000, concurrent_requests = 64, initial_backoff_ms = 1000, maximum_backoff_ms = 60000, jitter_ms = 250, context_tokens = 2000000000, maximum_output_tokens = 2000000000, embedding_dimensions_minimum = 1, embedding_dimensions_maximum = 1000000, maximum_batch_size = 1024, input_price_microunits_per_million = -1, output_price_microunits_per_million = -1, catalog_observed_date = "compatibility-default", reasoning_effort = ""
     _provider_id = provider_id
     _kind = kind
     _base_url = base_url
@@ -121,6 +122,7 @@ ragproviderconfig: class
     _input_price_microunits_per_million = input_price_microunits_per_million
     _output_price_microunits_per_million = output_price_microunits_per_million
     _catalog_observed_date = catalog_observed_date
+    _reasoning_effort = reasoning_effort
     return
 
   provider_id: method = .string
@@ -169,6 +171,8 @@ ragproviderconfig: class
     return _output_price_microunits_per_million
   catalog_observed_date: method = .string
     return _catalog_observed_date
+  reasoning_effort: method = .string
+    return _reasoning_effort
   charging_basis: method = .string
     if _kind = "codex" then return "subscription-allowance"
     if _route_class = "local" then return "local-compute"
@@ -720,6 +724,9 @@ validateconfig: procedure = .ragvalidationresult
     else do
       if left(provider.base_url(), 7) \= "http://" & left(provider.base_url(), 8) \= "https://" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_provider_url", path || ".base_url", "provider URL must use HTTP or HTTPS")
       if route_class = "hosted" & left(provider.base_url(), 8) \= "https://" then issues[issues.0 + 1] = .ragvalidationissue("config", "insecure_hosted_url", path || ".base_url", "hosted provider URL must use HTTPS")
+    end
+    if provider.reasoning_effort() \= "" then do
+      if kind \= "codex" | words(provider.reasoning_effort()) \= 1 | wordpos(provider.reasoning_effort(), "none minimal low medium high xhigh max") = 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_reasoning_effort", path || ".reasoning_effort", "reasoning_effort requires Codex and a supported effort name")
     end
     privacy_policy = provider.privacy_policy()
     if privacy_policy \= "local-only" & privacy_policy \= "restricted-ok" & privacy_policy \= "public-only" then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_privacy_policy", path || ".privacy_policy", "provider privacy policy is invalid")

@@ -83,7 +83,7 @@ ragapplicationprovider: class implements .ragworkprovider
     else do
       host = ""; base_path = ""; port = 0; tls = 0
       if _parseurl(provider_config.base_url(), host, port, tls, base_path) \= 0 then return _failedwork(provider_id, model, claim, empty_proposal, "provider base URL is invalid", 0)
-      protocol = kind; if kind = "openai-compatible" then protocol = "openai"
+      protocol = kind
       backend = .industrialprovider(protocol, host, port, tls, base_path, secret, provider_config.route_class(), provider_config.input_price_microunits_per_million(), provider_config.output_price_microunits_per_million(), provider_config.maximum_batch_size())
     end
     if operation = "embedding" & kind = "codex" then return _failedwork(provider_id, model, claim, empty_proposal, "Codex does not provide embedding generation", 0)
@@ -144,7 +144,7 @@ ragapplicationprovider: class implements .ragworkprovider
       /* Retain the existing conservative input-envelope estimate and caps. */
       if request_bytes > maximum_input * 3 then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,"citation correction exceeds the reviewed input envelope",0)
     end
-    request = .providerrequest("generate_structured", "extractor", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), 1, _jsonstring(document, root, "privacy"), claim.item_id(), request_id, maximum_output, 0, 0, role_policy.temperature_millionths(), provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms())
+    request = .providerrequest("generate_structured", "extractor", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), 1, _jsonstring(document, root, "privacy"), claim.item_id(), request_id, maximum_output, 0, 0, role_policy.temperature_millionths(), provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms(), provider_config.reasoning_effort())
     durable_run_id = ""; provider_charging_basis = provider_config.charging_basis(); provider_output = .providerresult()
     if receipt_body \= "" then do
       provider_output = _receiptoutput(receipt_body); receipt_document = .jsondocument(receipt_body)
@@ -157,7 +157,7 @@ ragapplicationprovider: class implements .ragworkprovider
       if recoverexternalrun(_store, claim.item_id(), provider_config.provider_id(), provider_config.model(), recovery, codex_error) \= 0 then provider_output = _codexfailure(request, codex_error, 0, "durability")
       else if recovery.found() = 1 then do
         durable_run_id = recovery.provider_run_id(); provider_charging_basis = provider_config.charging_basis(); request_id = recovery.request_id()
-        active_request = .providerrequest(request.operation(), request.role(), request.model(), request.messages(), request.inputs(), request.schema(), request.timeout_ms(), request.max_attempts(), request.privacy_class(), request.idempotency_key(), request_id, request.max_output_tokens(), request.embedding_dimensions(), request.stream_requested(), request.temperature_millionths(), request.initial_backoff_ms(), request.maximum_backoff_ms(), request.jitter_ms())
+        active_request = .providerrequest(request.operation(), request.role(), request.model(), request.messages(), request.inputs(), request.schema(), request.timeout_ms(), request.max_attempts(), request.privacy_class(), request.idempotency_key(), request_id, request.max_output_tokens(), request.embedding_dimensions(), request.stream_requested(), request.temperature_millionths(), request.initial_backoff_ms(), request.maximum_backoff_ms(), request.jitter_ms(), request.reasoning_effort())
         if recovery.state() = "completed" then do
           provider_output = .providerresult()
           call provider_output.set_generation("codex", provider_config.model(), request_id, recovery.content(), "recovered", .providerusage(recovery.input_tokens(), recovery.output_tokens(), 1, -1, 1, 0), 0)

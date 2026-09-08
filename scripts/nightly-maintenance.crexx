@@ -11,14 +11,14 @@ main: procedure = .int
   call time "R"
   config = run("config explain")
   workers = field(config,"worker_processes") as .int
-  polls = (batch / workers) as .int
-  if polls < 1 then return 2
+  items = (batch / workers) as .int
+  if items < 1 then return 2
   plan = run("--access plan maintain plan")
   applied = run("--access curate maintain apply --plan-json " || quoted(field(plan,"canonical_plan")) || " --expect-digest " || quoted(field(plan,"digest")))
   job = quoted(field(applied,"job_id"))
   say "Maintenance job:" field(applied,"job_id")
   do forever
-    result = run("--access control worker start --max-polls " || polls || " --job " || job)
+    result = run("--access control worker start --max-items " || items || " --job " || job)
     elapsed = time("E") as .float
     say "Maintenance elapsed seconds:" elapsed
     if field(result,"vector_state") \= "pending-work" then leave

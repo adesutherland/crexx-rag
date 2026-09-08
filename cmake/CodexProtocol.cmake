@@ -14,7 +14,9 @@ set(fixture "${CPRAG_WORK_DIR}/${fixture_name}")
 file(CHMOD "${fixture}"
     PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
-set(imports "${CPRAG_APPLICATION_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
+get_filename_component(provider_source_dir "${CPRAG_PROBE}" DIRECTORY)
+get_filename_component(provider_source_dir "${provider_source_dir}" DIRECTORY)
+set(imports "${CPRAG_WORK_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
 set(modules
     provider_contract codex_provider rx_system rxfs rxfnsg classlib library)
 
@@ -23,6 +25,22 @@ foreach(mode IN ITEMS noopt opt)
     if(mode STREQUAL "noopt")
         set(mode_flag -n)
     endif()
+    # Compile these sources for this test; the product project no longer
+    # refreshes legacy flat module artifacts in CPRAG_APPLICATION_DIR.
+    foreach(module IN ITEMS provider_contract codex_provider)
+        execute_process(COMMAND "${CPRAG_RXC}" ${mode_flag} -i "${imports}"
+            -o "${CPRAG_WORK_DIR}/${module}" "${provider_source_dir}/${module}.crexx"
+            RESULT_VARIABLE module_result OUTPUT_VARIABLE module_out ERROR_VARIABLE module_err)
+        if(NOT module_result EQUAL 0)
+            message(FATAL_ERROR "${mode} ${module} compile failed:\n${module_out}${module_err}")
+        endif()
+        execute_process(COMMAND "${CPRAG_RXAS}" ${mode_flag}
+            -o "${CPRAG_WORK_DIR}/${module}" "${CPRAG_WORK_DIR}/${module}"
+            RESULT_VARIABLE module_result OUTPUT_VARIABLE module_out ERROR_VARIABLE module_err)
+        if(NOT module_result EQUAL 0)
+            message(FATAL_ERROR "${mode} ${module} assembly failed:\n${module_out}${module_err}")
+        endif()
+    endforeach()
     set(program "${CPRAG_WORK_DIR}/codex-protocol-${mode}")
     execute_process(
         COMMAND "${CPRAG_RXC}" ${mode_flag} -i "${imports}"

@@ -159,7 +159,9 @@ codexprovider: class implements .provider
     if thread_id = "" | request.schema() = "" then do; error = "structured turn inputs are incomplete"; return -1; end
     if _ensure_started(request.timeout_ms(), error) \= 0 then return -1
     prompt = _prompt(request); identity = _identity()
-    body = '{"id":' || identity || ',"method":"turn/start","params":{"approvalPolicy":"never","cwd":' || jsonquote(_working_directory) || ',"input":[{"type":"text","text":' || jsonquote(prompt) || '}],"outputSchema":' || request.schema() || ',"sandboxPolicy":{"type":"readOnly","networkAccess":false},"threadId":' || jsonquote(thread_id) || '}}' || "0A"x
+    effort_field = ""
+    if request.reasoning_effort() \= "" then effort_field = ',"effort":' || jsonquote(request.reasoning_effort())
+    body = '{"id":' || identity || ',"method":"turn/start","params":{"approvalPolicy":"never","cwd":' || jsonquote(_working_directory) || ',"input":[{"type":"text","text":' || jsonquote(prompt) || '}],"outputSchema":' || request.schema() || ',"sandboxPolicy":{"type":"readOnly","networkAccess":false},"threadId":' || jsonquote(thread_id) || effort_field || '}}' || "0A"x
     if _write(body, request.timeout_ms(), error) \= 0 then return -1
     document = .jsondocument
     if _wait_response(identity, request.timeout_ms(), document, error) \= 0 then return -1
@@ -253,7 +255,9 @@ codexprovider: class implements .provider
     turn_request = _identity()
     schema_field = ""
     if structured = 1 then schema_field = ',"outputSchema":' || request.schema()
-    body = '{"id":' || turn_request || ',"method":"turn/start","params":{"approvalPolicy":"never","cwd":' || jsonquote(_working_directory) || ',"input":[{"type":"text","text":' || jsonquote(prompt) || '}]' || schema_field || ',"sandboxPolicy":{"type":"readOnly","networkAccess":false},"threadId":' || jsonquote(thread_id) || '}}' || "0A"x
+    effort_field = ""
+    if request.reasoning_effort() \= "" then effort_field = ',"effort":' || jsonquote(request.reasoning_effort())
+    body = '{"id":' || turn_request || ',"method":"turn/start","params":{"approvalPolicy":"never","cwd":' || jsonquote(_working_directory) || ',"input":[{"type":"text","text":' || jsonquote(prompt) || '}]' || schema_field || ',"sandboxPolicy":{"type":"readOnly","networkAccess":false},"threadId":' || jsonquote(thread_id) || effort_field || '}}' || "0A"x
     if _write(body, request.timeout_ms(), error) \= 0 then do; ignored = _delete_thread(thread_id, request.timeout_ms()); return _failure(request, "transport", -105, 1, error); end
     if _wait_response(turn_request, request.timeout_ms(), document, error) \= 0 then do; ignored = _delete_thread(thread_id, request.timeout_ms()); return _failure(request, "transport", -105, 1, error); end
     result_node = document.member(document.root(), "result"); turn_node = document.member(result_node, "turn")

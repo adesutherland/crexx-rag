@@ -20,6 +20,7 @@ discovery.max_notes = 8
 provider.codex-extract.kind = codex
 provider.codex-extract.base_url = app-server://local
 provider.codex-extract.model = default
+provider.codex-extract.reasoning_effort = low
 provider.codex-extract.route_class = hosted
 provider.codex-extract.privacy_policy = public-only
 provider.codex-extract.credential = none

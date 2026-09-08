@@ -54,7 +54,7 @@ metadata directly.
 | `native_publication` | injected late SQL write failure; four chunks and two workers with forced overlapping requests, querying/backing up/restoring/verifying while each pair is held; exact semantic/usage reconciliation; missing-manifest recovery and provider-free restored queries |
 | `native_receipts` | exit after durable extraction/embedding response but before settlement, then two-worker public restart: no repeated call, original-attempt usage, exact publication and no reservation leak |
 | `native_interruption` | actual busy worker/controller kill with explicit uncertain intent, cancellation while provider response is held, post-commit manifest rejection and first-vector recovery without repeated extraction |
-| `local_embedding_protocol` | llama.cpp-compatible `/v1/embeddings`, restricted local privacy, local-compute charging, and 429 `Retry-After` plus 503 exponential retry on both VMs and compiler modes |
+| `local_embedding_protocol` | llama.cpp-compatible `/v1/embeddings` and `/v1/chat/completions`, strict structured output, correction history, rejected malformed/schema-invalid/truncated generation with retained usage, restricted local privacy, local-compute charging, and 429 `Retry-After` plus 503 exponential retry on both VMs and compiler modes |
 
 The Gemini tests always exercise the Gemini adapter and Google request/response
 shapes through a deterministic local fixture. Report tests additionally prove

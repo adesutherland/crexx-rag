@@ -133,9 +133,10 @@ providerrequest: class
   _initial_backoff_ms = .int
   _maximum_backoff_ms = .int
   _jitter_ms = .int
+  _reasoning_effort = .string
 
   *: factory
-    arg operation = .string, role = .string, model = .string, messages = .providermessage[], inputs = .string[], schema = .string, timeout_ms = .int, max_attempts = .int, privacy_class = .string, idempotency_key = .string, request_id = .string, max_output_tokens = 0, embedding_dimensions = 0, stream_requested = 0, temperature_millionths = -1, initial_backoff_ms = 1000, maximum_backoff_ms = 60000, jitter_ms = 250
+    arg operation = .string, role = .string, model = .string, messages = .providermessage[], inputs = .string[], schema = .string, timeout_ms = .int, max_attempts = .int, privacy_class = .string, idempotency_key = .string, request_id = .string, max_output_tokens = 0, embedding_dimensions = 0, stream_requested = 0, temperature_millionths = -1, initial_backoff_ms = 1000, maximum_backoff_ms = 60000, jitter_ms = 250, reasoning_effort = ""
     _operation = operation
     _role = role
     _model = model
@@ -154,6 +155,7 @@ providerrequest: class
     _initial_backoff_ms = initial_backoff_ms
     _maximum_backoff_ms = maximum_backoff_ms
     _jitter_ms = jitter_ms
+    _reasoning_effort = reasoning_effort
     return
 
   operation: method = .string
@@ -192,6 +194,9 @@ providerrequest: class
     return _maximum_backoff_ms
   jitter_ms: method = .int
     return _jitter_ms
+
+  reasoning_effort: method = .string
+    return _reasoning_effort
 
 providerusage: class
   _input_tokens = .int
@@ -393,6 +398,9 @@ validateproviderrequest: procedure = .providererror
   if request.temperature_millionths() < -1 | request.temperature_millionths() > 2000000 then return .providererror("invalid_request", -101, 0, 0, 0, "temperature millionths must be unspecified or from zero through two million")
   if request.initial_backoff_ms() < 1 | request.maximum_backoff_ms() < request.initial_backoff_ms() | request.maximum_backoff_ms() > 3600000 | request.jitter_ms() < 0 | request.jitter_ms() > request.maximum_backoff_ms() then return .providererror("invalid_request", -101, 0, 0, 0, "retry backoff policy is invalid")
   if request.temperature_millionths() >= 0 & operation \= "generate" & operation \= "generate_structured" then return .providererror("invalid_request", -101, 0, 0, 0, "temperature is only valid for generation")
+  if request.reasoning_effort() \= "" then do
+    if words(request.reasoning_effort()) \= 1 | wordpos(request.reasoning_effort(), "none minimal low medium high xhigh max") = 0 | (operation \= "generate" & operation \= "generate_structured") then return .providererror("invalid_request", -101, 0, 0, 0, "reasoning effort is invalid for this generation request")
+  end
   if request.stream_requested() \= 0 & operation \= "generate" & operation \= "generate_structured" then return .providererror("invalid_request", -101, 0, 0, 0, "streaming is only valid for generation")
   privacy = request.privacy_class()
   if privacy \= "local" & privacy \= "restricted" & privacy \= "public" then return .providererror("invalid_request", -101, 0, 0, 0, "privacy class is invalid")

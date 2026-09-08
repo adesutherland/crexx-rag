@@ -350,9 +350,9 @@ runidleworker: procedure = .int
   return 0
 
 runapplicationworker: procedure = .int
-  arg library = .string, instance_id = .string, parent_instance_id = .string, host_id = .string, mode = .string, job_filter = .string, poll_milliseconds = .int, maximum_polls = .int, config = .ragconfig, profile = .ragprofile, progress = .string, format = .string, expose final_id = .string, expose processed = .int, expose error = .string
+  arg library = .string, instance_id = .string, parent_instance_id = .string, host_id = .string, mode = .string, job_filter = .string, poll_milliseconds = .int, maximum_polls = .int, config = .ragconfig, profile = .ragprofile, progress = .string, format = .string, expose final_id = .string, expose processed = .int, expose error = .string, maximum_items = 0
   final_id = instance_id; processed = 0; error = ""
-  if poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | (mode \= "once" & mode \= "follow") | _validtext(instance_id, 128, 1) \= 1 | _validtext(parent_instance_id, 128, 1) \= 1 | _validtext(host_id, 255, 1) \= 1 | _validtext(job_filter, 256, 1) \= 1 then do; error = "worker poll bounds are invalid"; return -1; end
+  if poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | maximum_items < 0 | maximum_items > 1000000 | (mode \= "once" & mode \= "follow") | _validtext(instance_id, 128, 1) \= 1 | _validtext(parent_instance_id, 128, 1) \= 1 | _validtext(host_id, 255, 1) \= 1 | _validtext(job_filter, 256, 1) \= 1 then do; error = "worker poll bounds are invalid"; return -1; end
   store = .ragstorehandle
   if openragstore(library, "readwrite", store, error) \= 0 then return -2
   if host_id = "" then host_id = currenthostid()
@@ -393,6 +393,7 @@ runapplicationworker: procedure = .int
     end
     if mode = "once" then leave
     if maximum_polls > 0 & polls >= maximum_polls then leave
+    if maximum_items > 0 & processed >= maximum_items then leave
   end
   terminal = "stopped"; exit_code = 0; detail = "application worker stopped cleanly;processed=" || processed
   if status \= 0 then do; terminal = "failed"; exit_code = 1; detail = error; end
@@ -404,9 +405,9 @@ runapplicationworker: procedure = .int
   return 0
 
 startworkerprocesses: procedure = .int
-  arg library = .string, count = .int, poll_milliseconds = .int, maximum_polls = .int, job_filter = .string, config_id = .string, profile_id = .string, config_file = .string, progress = .string, format = .string, expose result = .ragprocessstartresult, expose error = .string
+  arg library = .string, count = .int, poll_milliseconds = .int, maximum_polls = .int, job_filter = .string, config_id = .string, profile_id = .string, config_file = .string, progress = .string, format = .string, expose result = .ragprocessstartresult, expose error = .string, maximum_items = 0
   result = .ragprocessstartresult("", count, 0, count); error = ""
-  if count < 1 | count > 32 | poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | _validtext(job_filter, 256, 1) \= 1 then do; error = "controller bounds are invalid"; return -1; end
+  if count < 1 | count > 32 | poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | maximum_items < 0 | maximum_items > 1000000 | _validtext(job_filter, 256, 1) \= 1 then do; error = "controller bounds are invalid"; return -1; end
   runtime = getenv("CREXXRAG_RUNTIME"); image = getenv("CREXXRAG_IMAGE"); load_path = getenv("CREXXRAG_LOAD_PATH"); self_executable = getenv("CREXXRAG_SELF")
   if runtime = "" & self_executable = "" then self_executable = rxfs..loadpath() || "/crexxrag"
   if runtime \= "" & (image = "" | load_path = "") then do; error = "linked application runtime metadata is incomplete"; return -2; end
@@ -435,7 +436,7 @@ startworkerprocesses: procedure = .int
       ignored = ""; call finishprocess store, controller_id, "failed", 1, error, ignored; call closeragstore store, ignored
       return -2
     end
-    arguments = _childarguments(runtime, image, load_path, library, worker_id, controller_id, host_id, poll_milliseconds, maximum_polls, job_filter, config_id, profile_id, config_file)
+    arguments = _childarguments(runtime, image, load_path, library, worker_id, controller_id, host_id, poll_milliseconds, maximum_polls, job_filter, config_id, profile_id, config_file, maximum_items)
     envelope = _childenvelope(runtime, self_executable, arguments, null_input.provider_reference(), null_output.provider_reference())
     request = children.start(envelope, -1)
     worker_ids[i] = worker_id
@@ -495,7 +496,7 @@ startworkerprocesses: procedure = .int
   return 0
 
 _childarguments: procedure = .channelvalue
-  arg runtime = .string, image = .string, load_path = .string, library = .string, worker_id = .string, controller_id = .string, host_id = .string, poll_milliseconds = .int, maximum_polls = .int, job_filter = .string, config_id = .string, profile_id = .string, config_file = .string
+  arg runtime = .string, image = .string, load_path = .string, library = .string, worker_id = .string, controller_id = .string, host_id = .string, poll_milliseconds = .int, maximum_polls = .int, job_filter = .string, config_id = .string, profile_id = .string, config_file = .string, maximum_items = .int
   args = .string[]
   if runtime \= "" then do
     args[args.0 + 1] = "-l"; args[args.0 + 1] = load_path
@@ -515,6 +516,7 @@ _childarguments: procedure = .channelvalue
   args[args.0 + 1] = "--follow"
   args[args.0 + 1] = "--poll-ms"; args[args.0 + 1] = poll_milliseconds
   args[args.0 + 1] = "--max-polls"; args[args.0 + 1] = maximum_polls
+  if maximum_items > 0 then do; args[args.0 + 1] = "--max-items"; args[args.0 + 1] = maximum_items; end
   if job_filter \= "" then do; args[args.0 + 1] = "--job"; args[args.0 + 1] = job_filter; end
   values = .channelvalue[]
   do i = 1 to args.0
