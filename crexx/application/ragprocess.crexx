@@ -196,16 +196,38 @@ heartbeatprocess: procedure = .int
   if (state \= "idle" & state \= "running" & state \= "draining") | _validtext(current_item_id, 256, 1) \= 1 | _validtext(detail, 1024, 1) \= 1 then do; error = "heartbeat state is invalid"; return -1; end
   prepared = .binary
   sql = "UPDATE runtime_instances SET state=?2,current_item_id=?3,heartbeat_at=CAST(strftime('%s','now') AS INTEGER),detail=?4 WHERE instance_id=?1 AND state NOT IN('stopped','failed')"
-  if sqliteprepare(store.database(), sql, prepared) \= 0 then return _sqlitefailure("prepare process heartbeat", error)
-  binds = sqlitebindtext(prepared, 1, instance_id)
-  binds = binds | sqlitebindtext(prepared, 2, state)
-  binds = binds | sqlitebindtext(prepared, 3, current_item_id)
-  binds = binds | sqlitebindtext(prepared, 4, detail)
-  step = sqlitestep(prepared)
-  call sqlitefinalize prepared
-  if binds \= 0 | step \= 101 then return _sqlitefailure("write process heartbeat", error)
-  if _scalarint(store.database(), "SELECT changes()", error) \= 1 then do; if error = "" then error = "process heartbeat lost its active row"; return -2; end
-  return 0
+  /* A busy heartbeat has not admitted work or changed its row. Retry only
+   * ordinary writer contention, within three existing busy-timeout waits.
+   * A stale read snapshot needs transaction recovery, not statement retry. */
+  do attempt = 1 to 3
+    error = ""
+    if sqliteprepare(store.database(), sql, prepared) \= 0 then return _sqlitefailure("prepare process heartbeat", error)
+    binds = sqlitebindtext(prepared, 1, instance_id)
+    if binds = 0 then binds = sqlitebindtext(prepared, 2, state)
+    if binds = 0 then binds = sqlitebindtext(prepared, 3, current_item_id)
+    if binds = 0 then binds = sqlitebindtext(prepared, 4, detail)
+    if binds \= 0 then do
+      ignored = _sqlitefailure("bind process heartbeat", error)
+      call sqlitefinalize prepared
+      return -2
+    end
+    step = sqlitestep(prepared)
+    if step = 101 then do
+      call sqlitefinalize prepared
+      if _scalarint(store.database(), "SELECT changes()", error) \= 1 then do; if error = "" then error = "process heartbeat lost its active row"; return -2; end
+      return 0
+    end
+    /* rxsqlite clears its session diagnostic on the next normal call. */
+    boundary_code = 0; sqlite_code = 0; extended = 0; operation = ""; message = ""
+    call sqliteerrorextended boundary_code, sqlite_code, extended, operation, message
+    ignored = _sqlitefailure("write process heartbeat", error)
+    call sqlitefinalize prepared
+    if boundary_code \= -6 | sqlite_code \= 5 | (extended \= 5 & extended \= 261) then return -2
+    if attempt = 3 then do; error = error || ";heartbeat_attempts=3"; return -2; end
+    call lineout "stderr", "crexxrag heartbeat " || instance_id || " retry=" || attempt || "/2: " || error
+    call rxplatform..sleep (attempt * 100)
+  end
+  return -2
 
 finishprocess: procedure = .int
   arg store = .ragstorehandle, instance_id = .string, state = .string, exit_code = .int, detail = .string, expose error = .string

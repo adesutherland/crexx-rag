@@ -15,6 +15,28 @@ which is supported and covered by regression tests. Moving work into attached
 tasks would be a separate architecture and recovery-policy decision; native
 SQLite handles would remain VM-local and must never be transferred.
 
+## SQLite heartbeat contention and diagnostic ownership
+
+The 2026-09-09 eight-worker smoke completed ingestion, then maintenance lost one
+worker on its first heartbeat after approximately the five-second SQLite busy
+wait. Its diagnostic was blank because RAG called `sqlitefinalize` before
+reading the error. The installed provider correctly clears a session's previous
+diagnostic on each normal call; this was a RAG error-handling defect.
+
+An independent-connection regression reproduces the same blank error under
+writer contention. RAG now captures diagnostics before cleanup and retries only
+`SQLITE_BUSY`/`SQLITE_BUSY_RECOVERY`, at most three attempts with the existing
+five-second busy timeout and 100/200 ms pauses. It logs each retry and retains
+the final error on exhaustion. Constraints, missing process rows and
+`SQLITE_BUSY_SNAPSHOT` remain errors; no transaction or provider call is replayed.
+The regression releases its writer only after observing the first retry and
+requires recovery on the same heartbeat on both VMs.
+
+The live SQLite code was erased and cannot be recovered retrospectively.
+Writer contention is supported by the timing and reproduction, not proven by a
+retained live code. The original smoke evidence is in
+`/Users/adrian/testrag/overnight-browne-luna-8w-20260908/channel-release-smoke-2h-20260909/`.
+
 ## Provider lifetime
 
 HTTP adapters use operation-scoped provider instances. The Codex adapter keeps

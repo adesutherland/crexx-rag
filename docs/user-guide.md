@@ -313,6 +313,13 @@ with the worker identity; child stderr is inherited so redirected controller
 logs also retain worker and provider channel errors. On controller failure,
 drain requests are recorded before waiting for child cleanup.
 
+A heartbeat encountering ordinary SQLite writer contention makes up to three
+attempts, retaining the existing five-second busy timeout per attempt and short
+100/200 ms pauses. Retries log the process identity and SQLite diagnostic. No
+new work is admitted by that worker while its heartbeat is waiting. Exhausted
+contention, constraints, missing process rows and stale transaction snapshots
+remain errors; heartbeat recovery does not restart workers or provider calls.
+
 For `worker start --job JOB_ID`, an unhealthy provider transport stops its worker
 after preserving the current item's outcome. After that process exits, the
 controller can replace it in the same slot. `worker.max_restarts` permits 0..10

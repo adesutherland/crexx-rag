@@ -10,6 +10,43 @@ import ragbackup
 import rxfs
 import generic_profile
 import ragingest
+import ragprocess
+
+heartbeatcase: procedure = .int
+  arg store = .ragstorehandle, other = .ragstorehandle
+  errors = 0; error = ""; db = store.database()
+  errors = errors + check(activateprocess(store,"worker-heartbeat-qa","worker","","fixture-host",1,"fixture-start","fixture-executable","follow","",error) = 0,"heartbeat fixture registration " || error)
+  errors = errors + check(sqlitebusytimeout(db,0) = 0 & sqliteexec(other.database(),"BEGIN IMMEDIATE") = 0,"hold heartbeat writer lock")
+  status = heartbeatprocess(store,"worker-heartbeat-qa","idle","","fixture heartbeat",error)
+  say "HEARTBEAT_CONTENTION=" || error
+  errors = errors + check(status < 0 & pos("sqlite=5,extended=5,operation=step",error)>0 & pos("heartbeat_attempts=3",error)>0,"bounded heartbeat contention retains SQLite diagnostic " || error)
+  errors = errors + check(sqliteexec(other.database(),"ROLLBACK") = 0 & sqlitebusytimeout(db,5000) = 0,"release heartbeat writer lock")
+  errors = errors + check(heartbeatprocess(store,"worker-heartbeat-qa","running","","recovered heartbeat",error) = 0 & error = "","heartbeat succeeds after writer releases")
+  errors = errors + check(sqliteexec(db,"CREATE TRIGGER fail_heartbeat BEFORE UPDATE ON runtime_instances BEGIN SELECT RAISE(ABORT,'injected heartbeat constraint'); END") = 0,"install heartbeat fault")
+  status = heartbeatprocess(store,"worker-heartbeat-qa","idle","","rejected heartbeat",error)
+  errors = errors + check(status < 0 & pos("sqlite=19,extended=1811,operation=step",error)>0 & pos("injected heartbeat constraint",error)>0 & pos("heartbeat_attempts",error)=0,"heartbeat constraint diagnostic survives cleanup without retry " || error)
+  errors = errors + check(sqliteexec(db,"DROP TRIGGER fail_heartbeat") = 0,"remove heartbeat fault")
+  errors = errors + check(heartbeatprocess(store,"missing-heartbeat-worker","idle","","missing",error) < 0 & error = "process heartbeat lost its active row","missing heartbeat row stays an error")
+  errors = errors + check(sqliteexec(db,"BEGIN") = 0 & scalar(db,"SELECT count(*) FROM runtime_instances") = 1,"pin heartbeat read snapshot")
+  errors = errors + check(sqliteexec(other.database(),"UPDATE runtime_instances SET detail='newer committed heartbeat' WHERE instance_id='worker-heartbeat-qa'") = 0,"advance heartbeat snapshot")
+  status = heartbeatprocess(store,"worker-heartbeat-qa","idle","","stale snapshot",error)
+  errors = errors + check(status < 0 & pos("sqlite=5,extended=517,operation=step",error)>0 & pos("heartbeat_attempts",error)=0,"stale snapshot requires transaction recovery, not retry " || error)
+  errors = errors + check(sqliteexec(db,"ROLLBACK") = 0,"caller retains heartbeat transaction ownership")
+  return errors
+
+/* Used by the process fixture while a separate SQLite writer owns the lock.
+ * Open directly so migration admission cannot wait before the heartbeat. */
+heartbeatprobe: procedure = .int
+  arg path = .string
+  db = .binary; error = ""
+  if sqliteopenmode(path || "/library.sqlite","readwrite",db) \= 0 then return 1
+  if sqlitebusytimeout(db,5000) \= 0 then return 1
+  store = .ragstorehandle(db,path,"readwrite")
+  status = heartbeatprocess(store,"worker-heartbeat-qa","idle","","heartbeat resumed",error)
+  call sqliteclose db
+  if status \= 0 | error \= "" then do; say "HEARTBEAT_FAIL=" || error; return 1; end
+  say "HEARTBEAT_RESUMED"
+  return 0
 
 check: procedure = .int
   arg condition = .boolean, label = .string
@@ -146,12 +183,14 @@ legacyfoldercase: procedure = .int
 
 main: procedure = .int
   arg args = .string[]
+  if args.0 = 2 then if args[2] = "heartbeat" then return heartbeatprobe(args[1])
   if args.0 \= 1 then return 2
   errors = 0; error = ""; store = .ragstorehandle
   errors = errors + check(initragstore(args[1],"library-publication","snapshot-publication","publication","1","generic-profile","profile-hash","config-hash","{}",store,error) = 0,"init " || error)
   if errors > 0 then return 1
   other = .ragstorehandle
   errors = errors + check(openragstore(args[1],"readwrite",other,error) = 0,"independent publisher connection " || error)
+  errors = errors + heartbeatcase(store,other)
   errors = errors + check(sqliteexec(other.database(),"PRAGMA busy_timeout=0") = 0,"bounded lock contender")
   generation = 0
   errors = errors + check(begingeneration(store,1,"snapshot-publication","held publisher",generation,error) = 0,"hold publication ownership " || error)

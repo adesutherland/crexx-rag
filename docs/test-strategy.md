@@ -75,6 +75,12 @@ The Codex application fixture reports 20,000 input tokens, verifies the
 32,768-token default reservation, and preserves the full usage through its
 existing interrupted-turn recovery test.
 
+The publication gate also holds a separate SQLite writer until a heartbeat
+reports its first busy retry, then releases it and requires the same heartbeat
+to succeed with an empty error. Both VMs check bounded lock exhaustion, retained
+constraint diagnostics, missing runtime rows and non-retryable stale snapshots.
+The lock-release handshake does not depend on an assumed duration of work.
+
 The CREXX repository owns the generic `rxsqlite` contract suite: typed values,
 file databases, FTS, backup and integrity behavior, concurrent session
 isolation, FULLMUTEX configuration, attached-task discovery, native packaging,
