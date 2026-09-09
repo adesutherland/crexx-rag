@@ -8,7 +8,8 @@ tests to operator outcomes and records the unproved crash, publication and
 concurrency boundaries. A passing suite is necessary, but is not evidence that
 unattended long-running maintenance is qualified. In particular, idle worker
 launch is not concurrent work qualification, and provider success is not item
-publication success. The live 5,000-item run is held pending those gates.
+publication success. Dated trial records describe their own run status; they
+are not instructions to resume a live library.
 
 ```sh
 cmake --preset debug
@@ -104,6 +105,13 @@ installed native product paths consume the supported provider correctly.
 
 ## Live providers
 
+Fresh external-agent trials complement deterministic regressions. The
+[copied-soak trial](mcp-soak-trials.md) records real-corpus evidence quality,
+task discovery, pagination and exact correction acceptance, including failed
+or incomplete outcomes. Its Codex sessions consumed managed subscription
+inference; the RAG server made no provider calls. Use frozen copies, fixed
+prompts and before/after invariants when repeating those trials.
+
 Live calls are separate because they consume an external quota and require
 credentials. Before a release candidate, run the native `provider test` against
 the intended configuration, including Gemini even when Codex or local llama.cpp
@@ -145,7 +153,7 @@ recovery temporary; reconstruction and vector retrieval succeed with zero
 provider runs. The public query fixture also exercises `vector rebuild`,
 read-capability rejection, idempotent replay, and invalid-hybrid preflight
 without any provider calls. The migration fixture opens a schema-8 bundle
-through the ordinary write path and requires a schema-10 aligned manifest.
+through the ordinary write path and requires a schema-12 aligned manifest.
 
 Maintenance methodology distinguishes successful and failed items within a
 mixed-result job and recognizes embeddings repaired in a later generation.

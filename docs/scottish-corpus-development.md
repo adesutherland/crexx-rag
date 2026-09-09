@@ -1,5 +1,10 @@
 # Scottish corpus development and graph evaluation
 
+This preserves the acquisition and evaluation proposal at its recorded date.
+For implemented metadata defaults, use [the current time and provenance
+contract](time-and-provenance.md); later source additions do not rewrite the
+baseline comparisons below.
+
 Recorded 8 September 2026. This is a research and acquisition plan, not a claim
 that the additional works have been ingested or that the proposed metadata is
 implemented. Keltie's two volumes remain the experimental corpus. The supplied

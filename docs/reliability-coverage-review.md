@@ -1,5 +1,9 @@
 # Reliability and use-case coverage review
 
+This is dated qualification evidence. Live-library statements below describe
+the named run at that time, not current operating status. Later MCP and copied
+corpus trials are recorded in [the agent trial report](mcp-codex-trials.md).
+
 Current repair record: 7 September 2026, based on `dfe25ed`. The previous review
 and held-run incident census are preserved in
 [the 6 September record](reliability-coverage-review-20260906.md). Its open/fixed

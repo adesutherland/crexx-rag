@@ -11,23 +11,28 @@
   cognitive enrichment, maintenance worklists and gradual graph migration.
 - [Autonomous maintenance](autonomous-maintenance.md): bounded windows, runtime policy,
   resolution questions and resumable split/merge task workflows.
-- [Methodology closure checklist](methodology-closure.md): the definitive,
-  requirement-by-requirement implementation and executable-QA proof table.
+- [Time and provenance contracts](time-and-provenance.md): current document
+  metadata defaults, unknown dates and the separate per-support experiment.
+- [Methodology closure checklist](methodology-closure.md): requirement-by-requirement
+  implementation evidence, the dated original closure and later validation.
 - [Test strategy](test-strategy.md): maintained regression matrix and live-call
   boundary.
+- [Fresh Codex MCP trials](mcp-codex-trials.md): observed agent behavior,
+  exact artifact identities, correction acceptance and qualification limits.
+- [Copied-soak MCP trials](mcp-soak-trials.md): real-corpus questions, evidence
+  refresh, connection review and the remaining scale/completion gaps.
 - [Scottish corpus development](scottish-corpus-development.md): proposed source
   additions, provenance, priorities and experiments to measure graph value.
-- [Claim time and provenance proposal](claim-time-provenance-proposal.md): data
-  semantics, implementation scope, existing-data update and bounded validation;
-  approved for implementation and the stated preserved-copy validation.
+- [Claim time and provenance proposal](claim-time-provenance-proposal.md): the
+  original approved design and experiment history; use the current contract
+  above for implemented defaults.
 - [Integration issues](integration-issues.md): current CREXX/platform limits.
 - [Hard-coded configuration audit](configuration-audit.md): complete runtime,
   policy, provider and defensive-limit inventory plus the consolidated repair
   proposal.
 - [Tutorial](tutorial/README.md): a small Gemini ingestion and query walkthrough.
 
-These are the current documents. Historical phase packets and the unreleased
-native prototype are available through Git history, not mixed into the active
-tree.
-
-- [Time and provenance contracts](time-and-provenance.md)
+Guides describe the current product contracts. Proposals and qualification
+records retain their dates, tested artifacts and limits; an older run's status
+is not a live operational status report. Historical phase packets and the
+unreleased native prototype remain available through Git history.

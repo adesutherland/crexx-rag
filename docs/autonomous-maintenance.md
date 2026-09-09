@@ -1,11 +1,12 @@
 # Durable autonomous maintenance
 
-Status: the local reliability baseline includes publication, request-contract
-and received-response recovery repairs. The maintained suite and bounded
-5,000-decision concurrency gate have passed; the separate Scottish hosted run
-remains held and incomplete. See the
-[use-case coverage review](reliability-coverage-review.md) for the exact candidate
-evidence and remaining qualification limits. No nightly schedule has been enabled.
+Maintenance uses durable questions, bounded windows and reviewed policy. The
+local reliability baseline includes publication, request-contract and
+received-response recovery repairs. See the
+[use-case coverage review](reliability-coverage-review.md) for dated candidate
+evidence and qualification limits, and the [MCP trials](mcp-codex-trials.md) for
+external-agent validation. Scheduling and the state of a particular live run
+are operator concerns; this guide does not enable or resume a schedule.
 
 ## Operating cycle
 
@@ -50,6 +51,26 @@ and a five-second cleanup allowance. Admission rechecks this before transport,
 including after waiting for provider capacity. A call which cannot fit is not
 started; this can leave unused time at the end of the window.
 An interrupted process cannot publish through an expired lease or fence.
+
+## Handoff for difficult questions
+
+Resolver capability is separate from task priority and work state. A worker can
+assert that a task needs `advanced-reasoning`; two resolution-content validation
+failures also flag the task. Ordinary workers skip flagged tasks. Transport or
+storage failures alone do not imply that a stronger model would help.
+
+An external agent uses `crexxrag-resolve` to discover the task, inspect its
+history, page original evidence and prepare an exact correction plan. Submission
+requires curation authority and creates a mandatory review. Acceptance uses the
+same evidence validation and lifecycle engine as ordinary maintenance. Splits
+and merges still require connection work before the parent can be retired.
+
+If the stored evidence is incomplete, a reviewed refresh can create a complete
+successor packet within per-task bounds, preserving the old task and question.
+Exploring current sources does not silently extend stored evidence. New graph
+relationships need separate source-grounded claim proposals; missing sources
+and uncertainty can remain unresolved. See the [agent contract](agent-integration.md#difficult-maintenance-tasks)
+for exact tools, input shapes, ownership rules and evidence limits.
 
 ## Modes and runtime configuration
 

@@ -1,33 +1,93 @@
 # crexxrag
 
-`crexxrag` is a human-first cREXX application for building a local evidence
-library and typed knowledge graph from documents. SQLite is the durable source
-of truth. Embedding vectors are stored in SQLite; their rebuildable sidecar indexes never create claims.
+`crexxrag` turns a collection of documents into a local, inspectable evidence
+library and typed knowledge graph. People and agents can explore the corpus,
+ask questions with source citations, inspect uncertainty, and review proposed
+corrections without losing the original evidence.
 
-This repository now contains one product implementation. The former native
-C++ prototype and its compatibility/migration material have been removed; Git
-history remains the recovery mechanism.
+The method combines retrieval with gradual, validated knowledge construction.
+An LLM proposes interpretations; the application checks their vocabulary,
+direction, source support and provenance before they can enter the accepted
+graph. SQLite holds the authoritative corpus, graph and work history.
+Embeddings and rebuildable vector indexes help find evidence; similarity does
+not establish a fact.
 
-## What it does
+## How the method works
 
-- discovers and incrementally ingests configured folders;
-- uses validated LLM output to propose directional, source-supported claims;
-- runs a configurable group of independent worker processes coordinated through
-  SQLite;
-- applies one durable cross-process provider admission policy for request,
-  token, concurrency and retry pacing;
-- publishes embedding generations and supports lexical, vector, and graph
-  retrieval;
-- reports generation-bound corpus, graph, provenance, vector, review and
-  maintenance health, with an optional cached citation-validated advisory
-  summary;
-- retains churn-governed historic observation points and deterministic trends
-  without duplicating unchanged or transient current-state reports;
-- produces cited evidence and optional provider-generated answers;
-- exposes the same operation vocabulary through the human CLI, JSON/NDJSON,
-  `ADDRESS RAG`, and MCP;
-- supports Gemini, ChatGPT-authenticated Codex App Server generation, and local
-  OpenAI-compatible llama.cpp embeddings.
+1. **Capture the sources.** Discover configured folders, retain immutable source
+   revisions, normalize text and create addressable chunks. Unchanged inputs
+   are reused. Document metadata remains linked to its source revision.
+2. **Discover concepts and relationships.** Use a domain profile, optional
+   glossary and bounded LLM extraction to propose typed concepts, directional
+   claims and cited analysis notes.
+3. **Validate before promotion.** Resolve quotations to original UTF-8 spans,
+   check literal endpoints and permitted types, and route ambiguity, conflict
+   and external proposals through review. Notes and co-mentions remain leads
+   until a supported claim is accepted.
+4. **Retrieve and answer.** Combine lexical, vector and graph retrieval into
+   cited evidence. Inspect paths and timelines, or request an optional generated
+   answer constrained to the supplied citations. Preserve unknowns and
+   contradictory evidence.
+5. **Improve the library.** Rank durable maintenance questions, investigate
+   gaps, and review changes to concepts and connections. Split and merge
+   workflows retain the old concept while its connections are reassigned;
+   retirement requires the remaining impact to be accounted for.
+
+For example, suppose a tutorial source says “BillingService accesses
+CustomerDatabase.” The library can retain **BillingService → accesses →
+CustomerDatabase**, supported by that exact source passage. A question can
+follow the edge and resolve its citation. The passage supplies no reverse
+relationship. If another source disagrees, the disagreement remains visible;
+acceptance under the application's rules is not proof that either account is
+true.
+
+Time has several meanings: when a relationship held, when someone asserted it,
+when a document was written or published, and when the system captured it.
+Unknown dates stay unknown. A default document date is not an inferred event
+date. Routine processing uses document metadata; per-support historical and
+provenance assessment is a separate, explicit experiment. See the
+[methodology](docs/algorithm.md) and [time and provenance contract](docs/time-and-provenance.md).
+
+## Current capabilities
+
+| Area | Supported behavior |
+| --- | --- |
+| Corpus understanding | Corpus overview, profile vocabulary, source citations, accepted claims, ambiguity, leads and coverage gaps |
+| Retrieval and answers | Lexical, vector and graph retrieval; directional paths; timelines; optional citation-validated generated answers |
+| Curation | Reviewed claim additions, synonyms, splits, merges, type corrections, connection changes, retirement and restoration |
+| Difficult tasks | Explicit or repeated content-failure escalation to an advanced-reasoning queue; paged evidence exploration, bounded evidence refresh and exact resolution plans |
+| Autonomous maintenance | Ranked worklists, configurable worker processes, bounded windows, durable leases, retries, review policy and auditable recovery |
+| Operations | Shared provider admission and budgets, configuration plan/apply, library verification, generation-pinned backup/restore, health reports and historical trends |
+| Interfaces | One operation vocabulary through the human CLI, JSON/NDJSON, `ADDRESS RAG` and MCP |
+| Providers | Gemini, managed Codex App Server generation, and OpenAI-compatible routes including local llama.cpp embeddings |
+
+## Work with Codex and other agents
+
+An external Codex task can use MCP to understand the corpus and answer questions,
+then investigate difficult maintenance tasks with the installed operating skills:
+
+- `crexxrag-qa` explores evidence and gives cited answers;
+- `crexxrag-resolve` investigates difficult tasks and prepares grounded corrections;
+- `crexxrag-maintain` inspects and plans maintenance;
+- `crexxrag-ingest` plans source ingestion;
+- `crexxrag-diagnose` inspects library and provider health.
+
+Start with `read,plan` access. `query inspect` and `library overview` support
+exploration with no corpus writes or RAG provider calls. An agent can page task
+evidence and original citations, prepare inline new-claim proposals, or plan a
+complete evidence refresh when a task's packet is too small. Resolution
+submission requires `curate` access and creates a mandatory review; acceptance
+rechecks the evidence and uses the normal lifecycle engine.
+
+The advanced-reasoning flag is independent of task priority. Workers can assert
+it, and repeated resolution-content validation failures can set it. It hands
+work off for deeper investigation; it does not automatically launch a stronger
+model. Missing source evidence may remain unresolved after that investigation.
+
+Codex **as an external corpus operator** is separate from Codex **as the
+configured extraction provider**. Each has its own session, permissions and
+usage. See [agent setup and contracts](docs/agent-integration.md) for project-local
+MCP configuration, skill discovery, bounds and review controls.
 
 ## Build
 
@@ -173,12 +233,24 @@ the user documentation under `share/doc/crexxrag`.
 ctest --preset debug --output-on-failure
 ```
 
-The default suite covers native and linked applications, both CREXX VMs,
+The default suite uses deterministic loopback provider fixtures and covers native and linked applications, both CREXX VMs,
 installed `rxsqlite` integration, multi-process workers, Gemini ingestion,
 embeddings, maintenance, external proposal review/promotion, hybrid retrieval,
 cited answers, deterministic and advisory library reports, provider budgets,
 Codex App Server protocol, MCP, and negative provider-output cases. See [the
 test strategy](docs/test-strategy.md).
+
+The 9 September MCP baseline passed all 30 local regression tests. Fresh Codex
+trials also exercised corpus questions, task discovery, inline claims and
+complete evidence refresh through the actual MCP server. Further trials on a
+copy of the real soak corpus validated cited questions, a complete evidence
+refresh and a reviewed connection correction. They also exposed remaining
+backlog-discovery, effect-preview and final-retirement gaps. These are bounded
+integration results; they do not establish historical accuracy, general
+prompt-injection resistance or unrestricted unattended operation. See the
+[synthetic trial record](docs/mcp-codex-trials.md) and
+[copied-corpus results](docs/mcp-soak-trials.md) for artifact identities, measured
+results and recommended repeat tests.
 
 The project is not yet released. Current platform and CREXX integration limits
 are listed in [integration issues](docs/integration-issues.md).

@@ -110,6 +110,21 @@ does not masquerade as an internally measured provider run. Submission queues
 a review, and acceptance revalidates the evidence and generation transactionally.
 See [Agent integration](agent-integration.md#difficult-maintenance-tasks).
 
+The external exploration surface distinguishes the current evidence inventory
+from a task's frozen packet. Both are paged with generation checks; large source
+citations are read in bounded Unicode-character pages while retaining their
+original UTF-8 byte identities. A reviewed, complete refresh supersedes the old
+task and freezes a larger per-task evidence envelope without changing global
+policy, semantic generation or provider receipts. Ordinary workers skip tasks
+flagged for advanced reasoning. Content-validation failures and explicit worker
+assertions can flag a task; transport failure alone cannot.
+
+Inline new-claim NDJSON and server-file proposals share one decoder and the
+existing claim validator. Both produce canonical plans and mandatory reviews.
+Task resolution does not itself add relationships absent from the graph; those
+require separately grounded claim proposals. Neither exploration nor an LLM's
+reasoning bypasses ownership, exact-plan, review or lifecycle retirement gates.
+
 ## Historic observability
 
 The detailed history remains in the existing append-only publication, job,

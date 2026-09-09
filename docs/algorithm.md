@@ -653,8 +653,9 @@ does not silently disable hybrid retrieval.
 
 A high-capability agent should use the library as an evidence substrate:
 
-1. Request `query evidence`, preferably lexical first when privacy or provider
-   availability is uncertain.
+1. Start with `library overview`, the profile vocabulary and `query inspect`.
+   These inspect the corpus without writes or provider calls. Ordinary lexical
+   `query evidence` also avoids providers but records query-gap observations.
 2. Separate accepted claims from passage-only observations, ambiguities,
    leads, and gaps.
 3. Use `query trace` to inspect variants, route states, candidate/selection
@@ -663,12 +664,23 @@ A high-capability agent should use the library as an evidence substrate:
    evidence instead of inferring those views from prose.
 5. Follow promising leads into cited source spans or additional sources and
    state what remains absent.
-6. If deeper analysis proposes a new normalized claim, submit it through
-   `proposal plan`; apply can only create a mandatory pending review, and a
-   human must explicitly decide promotion.
+6. If deeper analysis proposes a new normalized claim, use `proposal plan`
+   with inline NDJSON or a server file. Apply creates mandatory pending reviews;
+   promotion requires explicit operator authority and normal claim validation.
+7. For a durable maintenance question, inspect its history and frozen evidence
+   before using `maintain resolve-plan`. A complete, bounded evidence refresh
+   can supersede an insufficient packet while preserving its original question.
+   Exact resolution submission queues a review; acceptance uses the existing
+   lifecycle engine. Finish justified connection work before retiring a
+   migration parent.
 
 This handoff lets a stronger agent reason across evidence without confusing its
-analysis with the library's accepted graph state.
+analysis with the library's accepted graph state. Tasks can be flagged for
+advanced reasoning independently of priority, either explicitly or after
+repeated resolution-content validation failures. The flag prevents ordinary
+worker dispatch; it does not schedule a stronger model or supply missing
+evidence. See the [agent guide](agent-integration.md#difficult-maintenance-tasks)
+and [fresh trials](mcp-codex-trials.md) for the interface and observed coverage.
 
 ## Non-negotiable invariants
 

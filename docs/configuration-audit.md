@@ -1,6 +1,9 @@
 # Hard-coded configuration audit
 
-Status: recovery and operator configuration repair qualified (21/21 tests); remaining policy backlog explicitly open
+Recorded audit status: recovery and operator configuration repair qualified
+(21/21 tests at that baseline); remaining policy backlog explicitly open.
+This is an audit and repair record. Use the [user guide](user-guide.md) for
+current controls and the [test strategy](test-strategy.md) for the maintained matrix.
 Audit date: 2026-09-06
 Scope: production Level-G application and provider sources under
 `crexx/application` and `crexx/providers`; tests were used as evidence but are

@@ -2,6 +2,9 @@
 
 Date: 9 September 2026.
 
+Subsequent [trials on a copy of the soak corpus](mcp-soak-trials.md) extend this
+synthetic evidence and record remaining discovery and workflow-completion gaps.
+
 The baseline → implementation → fresh repeat sequence demonstrated a useful
 improvement. Codex can now inspect the corpus without tool-approval failures,
 answer the synthetic questions with resolved source citations, discover actual

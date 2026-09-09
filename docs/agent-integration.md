@@ -138,17 +138,19 @@ ln -s /opt/crexxrag/share/crexxrag/skills/crexxrag-diagnose \
   .agents/skills/crexxrag-diagnose
 ln -s /opt/crexxrag/share/crexxrag/skills/crexxrag-maintain \
   .agents/skills/crexxrag-maintain
+ln -s /opt/crexxrag/share/crexxrag/skills/crexxrag-resolve \
+  .agents/skills/crexxrag-resolve
 ```
 
-Add ingestion or maintenance only where the agent is expected to perform that
+Add ingestion, maintenance or resolution only where the agent is expected to perform that
 workflow. To make a skill available to all local projects, place the same link
 under `$HOME/.agents/skills` instead. Restart Codex after adding or changing a
 skill.
 
 Each skill directory contains the required `SKILL.md`. Its `description`
 supports implicit selection, and a user can explicitly select a skill as
-`$crexxrag-qa`, `$crexxrag-ingest`, `$crexxrag-maintain`, or
-`$crexxrag-diagnose`. Current skill discovery and invocation are documented in
+`$crexxrag-qa`, `$crexxrag-ingest`, `$crexxrag-maintain`,
+`$crexxrag-resolve`, or `$crexxrag-diagnose`. Current skill discovery and invocation are documented in
 the official [Codex skills guide](https://learn.chatgpt.com/docs/build-skills).
 The adjacent `manifest.json` is `crexxrag` audit metadata describing expected
 tools and adversarial tests; it is not a replacement for `SKILL.md`.
@@ -157,11 +159,13 @@ Verify the integration with a read-only request first:
 
 ```text
 Use $crexxrag-qa to ask the crexxrag library which component BillingService
-depends on. Use lexical evidence and include the returned citation.
+depends on. Use query inspection with no writes or provider calls, and resolve
+the returned source citation.
 ```
 
-The expected tool sequence is library status, `rag_query_evidence`, and only
-the additional trace/path/timeline view required by the question.
+The expected tool sequence is library status or overview, `rag_query_inspect`,
+and `rag_citation_show`. Use additional trace/path/timeline views only when
+required by the question.
 
 ## Separate capabilities for mutation
 
@@ -325,3 +329,23 @@ next validation cases.
 
 The detailed data, ranking and maintenance methodology is in
 [Methodology and algorithms](algorithm.md).
+
+## Current scale limits
+
+List schemas may advertise 100 items, but a full page plus its cursor can exceed
+the current 100-record renderer. The copied-corpus trial reproduced this for
+reviews. Use pages of 20–50 and follow `next_cursor`; the 1,667-review test
+retrieved every review without duplicates in 84 pages of 20. This operating
+guidance does not close the schema/rendering mismatch.
+
+Some historic jobs contain canonical plans too large for the generic list
+string field. An affected row fails even with `limit: 1`; reducing page size
+does not make the full job history accessible. Report incomplete discovery
+rather than inferring the latest job from a partial listing.
+
+Tasks can be filtered by state, capability and known workflow ID. There is no
+direct concept-label or subject-ID task search, or dedicated workflow listing.
+An agent given only a name may struggle to find its migration in a large
+backlog. When an operator already has a task or workflow ID, pass it with the
+request. Discovery and complete real-corpus lifecycle qualification are tracked
+in the [trial record](mcp-codex-trials.md).

@@ -1,9 +1,11 @@
 # Methodology closure checklist
 
-This is the definitive acceptance list for the implemented `crexxrag`
-methodology. A checked row requires executable QA evidence; source or prose
-alone is not proof. The final closure run records the exact test result beside
-every row.
+This records the original methodology acceptance baseline and its executable
+QA evidence. The closure artifact and 21-test result below are dated
+26 August 2026; they do not identify today's executable. Later contracts and
+test coverage are maintained in the [test strategy](test-strategy.md),
+[agent integration guide](agent-integration.md) and [fresh MCP trials](mcp-codex-trials.md).
+A checked row requires executable evidence; source or prose alone is not proof.
 
 | Done | Requirement | Implementation evidence | Required QA proof |
 | --- | --- | --- | --- |
@@ -52,3 +54,15 @@ The final independent build and regression wall completed on 2026-08-26:
 | External-call boundary | The closure wall made no hosted call and consumed no Gemini API or Codex subscription allowance; live calls remain an explicit, bounded operator action |
 
 `git diff --check` completed without error after the implementation changes.
+
+## Later external-agent validation
+
+The 9 September MCP baseline adds read-only corpus inspection, difficult-task
+handoff, reviewed external resolution, inline new claims and complete bounded
+evidence refresh. Its final local suite passed 30/30 tests in 298.85 seconds.
+Fresh managed Codex sessions exercised the actual installed skills and MCP
+server; their exact plans were subsequently applied and reviewed on disposable
+copies. These sessions used hosted Codex inference, while the RAG server made
+no provider calls. The [trial record](mcp-codex-trials.md) retains exact artifact
+hashes, source-preservation checks and the remaining representative-corpus and
+complete-workflow qualification boundaries.
