@@ -271,7 +271,7 @@ int main(int argc, char** argv)
                         + json_string(resolution)
                         + "}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":210,\"candidatesTokenCount\":64}}";
                 }
-            } else if (request.find("crexx-rag.answer-context/1") != std::string::npos) {
+            } else if (request.find("crexx-rag.answer-context/2") != std::string::npos) {
                 const std::string citation = escaped_citation(request);
                 const bool valid_answer = valid_auth && valid_structured && !citation.empty()
                     && request.find("only citation IDs present") != std::string::npos
@@ -357,6 +357,18 @@ int main(int argc, char** argv)
                             "],\"relationships\":["
                             "{\"source_mention\":0,\"relationship_type\":\"depends-on\",\"target_mention\":1,\"evidence_quote\":\"BillingService depends on CustomerDatabase.\",\"confidence_millionths\":940000},"
                             "{\"source_mention\":2,\"relationship_type\":\"depends-on\",\"target_mention\":3,\"evidence_quote\":\"Again, BillingService depends on CustomerDatabase.\",\"confidence_millionths\":930000}],\"notes\":[]}";
+                    }
+                    // The fixture has no historical or bibliographic assertions.
+                    if (request.find("crexx-rag.support-assessment/1") != std::string::npos) {
+                        const std::string annotation = R"fixture(,"assessment":{"temporal":{"schema":"crexx-rag.period/1","kind":"unknown","start":{"value":"","precision":"unresolved","certainty":"stated","calendar":"unspecified","constraint":"on","earliest":"","latest":""},"end":{"value":"","precision":"unresolved","certainty":"stated","calendar":"unspecified","constraint":"on","earliest":"","latest":""},"end_condition":"unknown"},"temporal_quote":"","modality":"asserted","stance":"assertion","directness":"direct","polarity":"support","voice":"","voice_quote":"","voice_description_id":"","origin":"unknown","origin_quote":"","asserted_period":{"schema":"crexx-rag.period/1","kind":"unknown","start":{"value":"","precision":"unresolved","certainty":"stated","calendar":"unspecified","constraint":"on","earliest":"","latest":""},"end":{"value":"","precision":"unresolved","certainty":"stated","calendar":"unspecified","constraint":"on","earliest":"","latest":""},"end_condition":"unknown"},"asserted_quote":"","asserted_description_id":"","derivation_ids":[]})fixture";
+                        const std::string marker = "\"confidence_millionths\":";
+                        std::size_t cursor = 0;
+                        while ((cursor = proposal.find(marker, cursor)) != std::string::npos) {
+                            cursor += marker.size();
+                            while (cursor < proposal.size() && proposal[cursor] >= '0' && proposal[cursor] <= '9') ++cursor;
+                            proposal.insert(cursor, annotation);
+                            cursor += annotation.size();
+                        }
                     }
                     body = "{\"responseId\":\"product-gemini-extract-001\",\"candidates\":[{\"content\":{\"parts\":[{\"text\":"
                         + json_string(proposal)

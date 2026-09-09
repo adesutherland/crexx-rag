@@ -1,0 +1,227 @@
+options levelg
+
+namespace ragperiod expose ragperiod periodunknown perioddate periodvalue periodschema periodquery periodcompatibility
+
+import rxfnsb
+import rxjson
+
+/* Historical civil dates are not ingestion timestamps. Endpoint envelopes
+ * express precision; a year-sized point envelope is not a year-long event. */
+ragperiod: class
+  _json = .string
+  _error = .string
+  _kind = .string
+  _lower = .string
+  _upper = .string
+  _certain_lower = .string
+  _certain_upper = .string
+  _uncertain = .int
+
+  *: factory
+    arg input = .string
+    _json = ""; _error = ""; _lower = ""; _upper = ""; _certain_lower = ""; _certain_upper = ""; _uncertain = 0
+    document = .jsondocument(input); root = document.root()
+    if document.valid() \= 1 | _members(document,root,"schema kind start end end_condition") \= 1 then do; _error = "period must have five unique schema members"; return; end
+    _kind = _s(document,root,"kind"); end_condition = _s(document,root,"end_condition")
+    if _s(document,root,"schema") \= "crexx-rag.period/1" | wordpos(_kind,"point interval unknown not-applicable") = 0 | wordpos(end_condition,"bounded open unknown") = 0 then do; _error = "period schema, kind or end condition is invalid"; return; end
+    start = ""; finish = ""; start_low = ""; start_high = ""; end_low = ""; end_high = ""; start_uncertain = 0; end_uncertain = 0
+    if _endpoint(document,document.member(root,"start"),start,start_low,start_high,start_uncertain,_error) \= 0 then return
+    if _endpoint(document,document.member(root,"end"),finish,end_low,end_high,end_uncertain,_error) \= 0 then return
+    start_doc = .jsondocument(start); end_doc = .jsondocument(finish)
+    start_value = _s(start_doc,start_doc.root(),"value"); end_value = _s(end_doc,end_doc.root(),"value")
+    if _kind = "unknown" | _kind = "not-applicable" then do
+      if start_value \= "" | end_value \= "" | end_condition \= "unknown" then do; _error = "unknown or inapplicable period cannot supply dates"; return; end
+      _uncertain = 1
+    end
+    else if _kind = "point" then do
+      if start_value = "" | end_value \= "" | end_condition \= "bounded" then do; _error = "point period requires a start expression and no end"; return; end
+      _lower = start_low; _upper = start_high; _certain_lower = start_high; _certain_upper = start_low; _uncertain = start_uncertain
+    end
+    else do
+      if start_value = "" & end_value = "" then do; _error = "interval requires an endpoint"; return; end
+      if (end_condition = "bounded" & end_value = "") | (end_condition \= "bounded" & end_value \= "") then do; _error = "interval end condition contradicts its end expression"; return; end
+      if start_low \= "" & end_high \= "" & start_low > end_high then do; _error = "period interval is reversed"; return; end
+      _lower = start_low; _upper = end_high; _certain_lower = start_high; _certain_upper = end_low
+      _uncertain = start_uncertain | end_uncertain | end_condition = "unknown" | start_value = ""
+      if end_condition = "open" then do; _upper = "9999-12-31"; _certain_upper = _upper; end_uncertain = 0; _uncertain = start_uncertain; end
+    end
+    _json = '{"schema":"crexx-rag.period/1","kind":' || jsonquote(_kind) || ',"start":' || start || ',"end":' || finish || ',"end_condition":' || jsonquote(end_condition) || '}'
+    return
+
+  ok: method = .int
+    return _error = ""
+  error: method = .string
+    return _error
+  canonical: method = .string
+    return _json
+  kind: method = .string
+    return _kind
+  lower: method = .string
+    return _lower
+  upper: method = .string
+    return _upper
+  certain_lower: method = .string
+    return _certain_lower
+  certain_upper: method = .string
+    return _certain_upper
+  uncertain: method = .int
+    return _uncertain
+
+perioddate: procedure = .string
+  arg value = "", precision = "unresolved", certainty = "stated", calendar = "unspecified", constraint = "on", earliest = "", latest = ""
+  return '{"value":' || jsonquote(value) || ',"precision":' || jsonquote(precision) || ',"certainty":' || jsonquote(certainty) || ',"calendar":' || jsonquote(calendar) || ',"constraint":' || jsonquote(constraint) || ',"earliest":' || jsonquote(earliest) || ',"latest":' || jsonquote(latest) || '}'
+
+periodvalue: procedure = .string
+  arg kind = .string, start = .string, finish = .string, end_condition = .string
+  return '{"schema":"crexx-rag.period/1","kind":' || jsonquote(kind) || ',"start":' || start || ',"end":' || finish || ',"end_condition":' || jsonquote(end_condition) || '}'
+
+periodunknown: procedure = .string
+  arg kind = "unknown"
+  return periodvalue(kind,perioddate(),perioddate(),"unknown")
+
+periodquery: procedure = .ragperiod
+  arg at = .string, during = .string
+  if at \= "" & during \= "" then return .ragperiod('{}')
+  if during = "" then return .ragperiod(periodvalue("point",_querydate(at),perioddate(),"bounded"))
+  slash = pos("/",during)
+  if slash < 2 | slash >= length(during) | pos("/",during,slash+1) > 0 then return .ragperiod('{}')
+  return .ragperiod(periodvalue("interval",_querydate(left(during,slash-1)),_querydate(substr(during,slash+1)),"bounded"))
+
+_querydate: procedure = .string
+  arg text = .string
+  precision = "day"
+  if length(text) = 4 then precision = "year"
+  if length(text) = 7 then precision = "month"
+  return perioddate(text,precision,"stated","gregorian")
+
+periodcompatibility: procedure = .string
+  arg claim = .ragperiod, query = .ragperiod
+  if claim.ok() = 0 | query.ok() = 0 | claim.kind() = "unknown" | claim.kind() = "not-applicable" | query.kind() = "unknown" | query.kind() = "not-applicable" then return "unknown"
+  if claim.upper() \= "" & query.lower() \= "" & claim.upper() < query.lower() then return "disjoint"
+  if claim.lower() \= "" & query.upper() \= "" & claim.lower() > query.upper() then return "disjoint"
+  if claim.uncertain() = 1 | claim.lower() = "" | claim.upper() = "" then return "unknown"
+  if claim.kind() = "point" then do
+    if claim.lower() >= query.lower() & claim.upper() <= query.upper() then return "definite"
+    return "possible"
+  end
+  if claim.certain_lower() \= "" & claim.certain_upper() \= "" & claim.certain_lower() <= query.upper() & claim.certain_upper() >= query.lower() then return "definite"
+  return "possible"
+
+_endpoint: procedure = .int
+  arg document = .jsondocument, node = .int, expose canonical = .string, expose low = .string, expose high = .string, expose uncertain = .int, expose error = .string
+  canonical = ""; low = ""; high = ""; uncertain = 0
+  if _members(document,node,"value precision certainty calendar constraint earliest latest") \= 1 then do; error = "period endpoint must have seven unique members"; return -1; end
+  names = "value precision certainty calendar constraint earliest latest"
+  do i = 1 to words(names)
+    value = ""
+    if document.node_string(document.member(node,word(names,i)),value) \= 0 then do; error = "period endpoint members must be strings"; return -1; end
+  end
+  value = _s(document,node,"value"); precision = _s(document,node,"precision"); certainty = _s(document,node,"certainty"); calendar = _s(document,node,"calendar"); constraint = _s(document,node,"constraint"); earliest = _s(document,node,"earliest"); latest = _s(document,node,"latest")
+  if length(value) > 256 | wordpos(precision,"day month year unresolved") = 0 | wordpos(certainty,"stated approximate") = 0 | wordpos(calendar,"gregorian julian old-style unspecified") = 0 | wordpos(constraint,"on before after") = 0 then do; error = "period endpoint classification is invalid"; return -1; end
+  if value = "" then do
+    if precision \= "unresolved" | certainty \= "stated" | calendar \= "unspecified" | constraint \= "on" | earliest \= "" | latest \= "" then do; error = "empty date expression cannot carry precision or bounds"; return -1; end
+    canonical = perioddate(); return 0
+  end
+  normalized = value; literal_low = ""; literal_high = ""
+  if precision \= "unresolved" then do
+    if _literaldate(value,precision,normalized,literal_low,literal_high,calendar) \= 0 then do; error = "invalid literal date or stated precision"; return -1; end
+  end
+  /* Unresolved calendars have no invented Gregorian bounds. */
+  uncertain = calendar \= "gregorian" | precision = "unresolved" | certainty = "approximate"
+  if uncertain = 0 then do; low = literal_low; high = literal_high; end
+  if constraint = "before" then do
+    low = ""
+    if high \= "" then high = _shiftday(literal_low,-1)
+  end
+  if constraint = "after" then do
+    high = ""
+    if low \= "" then low = _shiftday(literal_high,1)
+  end
+  checked = ""; bound_low = ""; bound_high = ""
+  if earliest \= "" then do
+    if calendar \= "gregorian" | _literaldate(earliest,"day",checked,bound_low,bound_high) \= 0 | checked \= earliest then do; error = "earliest bound must be an explicit Gregorian date"; return -1; end
+    if low \= "" & earliest < low then do; error = "earliest bound contradicts the literal expression"; return -1; end
+    low = earliest
+  end
+  if latest \= "" then do
+    if calendar \= "gregorian" | _literaldate(latest,"day",checked,bound_low,bound_high) \= 0 | checked \= latest then do; error = "latest bound must be an explicit Gregorian date"; return -1; end
+    if high \= "" & latest > high then do; error = "latest bound contradicts the literal expression"; return -1; end
+    high = latest
+  end
+  if low \= "" & high \= "" & low > high then do; error = "date endpoint bounds are reversed"; return -1; end
+  if earliest \= "" & latest \= "" then uncertain = 0
+  canonical = perioddate(normalized,precision,certainty,calendar,constraint,earliest,latest)
+  return 0
+
+_literaldate: procedure = .int
+  arg input = .string, precision = .string, expose normalized = .string, expose low = .string, expose high = .string, calendar = "gregorian"
+  normalized = strip(input); low = ""; high = ""
+  /* The literal grammar is deliberately small; relative/BCE text stays unresolved. */
+  if words(normalized) = 3 & precision = "day" then do
+    day_text = word(normalized,1); month_text = lower(word(normalized,2)); year_text = word(normalized,3)
+    month = wordpos(month_text,"january february march april may june july august september october november december")
+    if month = 0 | verify(day_text || year_text,"0123456789") \= 0 | length(day_text) > 2 | length(year_text) \= 4 then return -1
+    normalized = year_text || "-" || right("0" || month,2) || "-" || right("0" || day_text,2)
+  end
+  expected = 10
+  if precision = "year" then expected = 4
+  if precision = "month" then expected = 7
+  if length(normalized) \= expected | verify(changestr("-",normalized,""),"0123456789") \= 0 then return -1
+  if expected > 4 & substr(normalized,5,1) \= "-" then return -1
+  if expected > 7 & substr(normalized,8,1) \= "-" then return -1
+  year = left(normalized,4) as .int; month = 1; day = 1
+  if year < 1 | year > 9999 then return -1
+  if expected > 4 then month = substr(normalized,6,2) as .int
+  if month < 1 | month > 12 then return -1
+  if expected > 7 then day = right(normalized,2) as .int
+  if day < 1 | day > _monthdays(year,month,calendar) then return -1
+  low = right("0000" || year,4) || "-" || right("00" || month,2) || "-" || right("00" || day,2)
+  high = low
+  if precision = "year" then high = left(normalized,4) || "-12-31"
+  if precision = "month" then high = normalized || "-" || _monthdays(year,month,calendar)
+  return 0
+
+_monthdays: procedure = .int
+  arg year = .int, month = .int, calendar = "gregorian"
+  if month = 2 then do
+    if calendar \= "gregorian" & year % 4 = 0 then return 29
+    if year % 400 = 0 | (year % 4 = 0 & year % 100 \= 0) then return 29
+    return 28
+  end
+  if wordpos(month || "","4 6 9 11") > 0 then return 30
+  return 31
+
+_shiftday: procedure = .string
+  arg date = .string, delta = .int
+  year = left(date,4) as .int; month = substr(date,6,2) as .int; day = (right(date,2) as .int) + delta
+  if day < 1 then do
+    month = month - 1
+    if month = 0 then do; year = year - 1; month = 12; end
+    day = _monthdays(year,month)
+  end
+  if day > _monthdays(year,month) then do
+    month = month + 1; day = 1
+    if month = 13 then do; year = year + 1; month = 1; end
+  end
+  if year < 1 | year > 9999 then return ""
+  return right("0000" || year,4) || "-" || right("00" || month,2) || "-" || right("00" || day,2)
+
+_s: procedure = .string
+  arg document = .jsondocument, node = .int, key = .string
+  value = ""; ignored = document.node_string(document.member(node,key),value)
+  return value
+
+_members: procedure = .int
+  arg doc = .jsondocument, node = .int, names = .string
+  if doc.node_type(node) \= "object" | doc.node_count(node) \= words(names) then return 0
+  children = .int[]; ignored = doc.children(node,children); seen = ""
+  do i = 1 to children.0
+    name = doc.node_name(children[i])
+    if wordpos(name,names) = 0 | wordpos(name,seen) > 0 then return 0
+    seen = seen || " " || name
+  end
+  return 1
+
+periodschema: procedure = .string
+  endpoint = '{"type":"object","additionalProperties":false,"required":["value","precision","certainty","calendar","constraint","earliest","latest"],"properties":{"value":{"type":"string"},"precision":{"type":"string","enum":["day","month","year","unresolved"]},"certainty":{"type":"string","enum":["stated","approximate"]},"calendar":{"type":"string","enum":["gregorian","julian","old-style","unspecified"]},"constraint":{"type":"string","enum":["on","before","after"]},"earliest":{"type":"string"},"latest":{"type":"string"}}}'
+  return '{"type":"object","additionalProperties":false,"required":["schema","kind","start","end","end_condition"],"properties":{"schema":{"type":"string","enum":["crexx-rag.period/1"]},"kind":{"type":"string","enum":["point","interval","unknown","not-applicable"]},"start":' || endpoint || ',"end":' || endpoint || ',"end_condition":{"type":"string","enum":["bounded","open","unknown"]}}}'

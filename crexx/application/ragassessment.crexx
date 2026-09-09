@@ -1,0 +1,242 @@
+options levelg
+namespace ragassessment expose assessmentcitationfailure ragsupportassessment assessmentschema assessmentprompt
+import rxfnsb
+import rxjson
+import rxhash
+import ragperiod
+import raggrounding
+
+/* Shared by new extraction and bounded assessment of existing supports.
+ * Providers select quotations; the product owns validation and byte offsets. */
+ragsupportassessment: class
+  _error = .string
+  _canonical = .string
+  _description = .string
+  _provenance = .string
+  _qualifiers = .string
+  _from = .string
+  _to = .string
+  _voice = .string
+  _stance = .string
+  _directness = .string
+  _polarity = .string
+  _review = .int
+
+  *: factory
+    arg input = .string, body = .string, metadata = .string, relationship_quote = .string
+    _error = ""; _canonical = ""; _description = ""; _provenance = ""; _review = 0
+    doc = .jsondocument(input); root = doc.root(); context = .jsondocument(metadata)
+    names = "temporal temporal_quote modality stance directness polarity voice voice_quote voice_description_id origin origin_quote asserted_period asserted_quote asserted_description_id derivation_ids"
+    if length(input) > 32768 | doc.valid() \= 1 | _members(doc,root,names) = 0 | context.valid() \= 1 then do; _error = "support assessment shape or metadata context is invalid"; return; end
+    text_names = "temporal_quote modality stance directness polarity voice voice_quote voice_description_id origin origin_quote asserted_quote asserted_description_id"
+    do i = 1 to words(text_names)
+      value = ""
+      if doc.node_string(doc.member(root,word(text_names,i)),value) \= 0 | length(value)>4096 then do; _error = "support assessment text field is invalid"; return; end
+    end
+    temporal = .ragperiod(doc.node_get(doc.member(root,"temporal"))); asserted = .ragperiod(doc.node_get(doc.member(root,"asserted_period")))
+    if temporal.ok() = 0 | asserted.ok() = 0 then do; _error = "support assessment period is invalid: " || temporal.error() || asserted.error(); return; end
+    _stance = _s(doc,root,"stance"); _directness = _s(doc,root,"directness"); _polarity = _s(doc,root,"polarity"); _voice = _s(doc,root,"voice")
+    modality = _s(doc,root,"modality"); origin = _s(doc,root,"origin")
+    if wordpos(_stance,"assertion quotation report negation speculation proposal")=0 | wordpos(_directness,"direct indirect")=0 | wordpos(_polarity,"support contradiction")=0 | wordpos(modality,"asserted proposed hypothetical")=0 | wordpos(origin,"unknown primary secondary derived mixed")=0 then do; _error = "support assessment classification is invalid"; return; end
+    if (_stance="proposal" & modality\="proposed") | (_stance="speculation" & modality\="hypothetical") then do; _error = "support stance contradicts claim modality"; return; end
+    grounding = .raggrounding(body); primary_start = -1; primary_end = -1
+    if grounding.find(relationship_quote,primary_start,primary_end) \= 1 then do; _error = "assessment relationship quotation is not in the chunk"; return; end
+    temporal_quote = _s(doc,root,"temporal_quote"); asserted_quote = _s(doc,root,"asserted_quote"); origin_quote = _s(doc,root,"origin_quote"); voice_quote = _s(doc,root,"voice_quote")
+    temporal_ground = "{}"; asserted_ground = "{}"; origin_ground = "{}"; voice_ground = "{}"
+    if _periodground(temporal,temporal_quote,grounding,temporal_ground,_error) \= 0 then return
+    if temporal.kind()="point" | temporal.kind()="interval" then do
+      begin = -1; finish = -1
+      if grounding.find(temporal_quote,begin,finish) \= 1 | begin\=primary_start | finish\=primary_end then do; _error = "historical date quotation must be the relationship quotation, not an unrelated date"; return; end
+    end
+    source = context.member(context.root(),"description"); source_provenance = context.member(context.root(),"provenance")
+    asserted_id = _s(doc,root,"asserted_description_id")
+    if asserted_id \= "" then do
+      inherited = context.member(source,"asserted_period"); ground = context.member(source_provenance,"asserted_period")
+      if asserted_id \= _s(context,ground,"description_id") | asserted.canonical() \= context.node_get(inherited) | asserted_quote \= "" then do; _error = "assertion period inheritance is not in the pinned metadata"; return; end
+      asserted_ground = _inherited(asserted_id)
+    end
+    else if _periodground(asserted,asserted_quote,grounding,asserted_ground,_error) \= 0 then return
+    voice_id = _s(doc,root,"voice_description_id")
+    if voice_id \= "" then do
+      contributors = context.member(source,"contributors"); ground = context.member(source_provenance,"contributors"); found = 0
+      do c = 1 to context.node_count(contributors)
+        contributor = context.element(contributors,c)
+        if _s(context,contributor,"label")=_voice & _s(context,contributor,"role")="author" then found = 1
+      end
+      if found=0 | voice_id\=_s(context,ground,"description_id") | voice_quote\="" | _stance="quotation" | _stance="report" then do; _error = "voice inheritance is not a known narrative author"; return; end
+      voice_ground = _inherited(voice_id)
+    end
+    else if _voice \= "" then do
+      if _quoteground(voice_quote,grounding,voice_ground,_error) \= 0 then return
+      voice_match = .raggrounding(voice_quote); begin = -1; finish = -1
+      if voice_match.find(_voice,begin,finish) \= 1 then do; _error = "voice name is not in its quotation"; return; end
+    end
+    else do
+      if voice_quote \= "" then do; _error = "unknown voice cannot carry a name quotation"; return; end
+      if _stance="quotation" | _stance="report" then _review = 1
+      else do
+        /* Deterministic narrator inheritance is restricted to exactly one author. */
+        contributors = context.member(source,"contributors"); authors = 0
+        do c = 1 to context.node_count(contributors)
+          contributor = context.element(contributors,c)
+          if _s(context,contributor,"role")="author" then do; authors = authors+1; _voice = _s(context,contributor,"label"); end
+        end
+        if authors = 1 then do
+          ground = context.member(source_provenance,"contributors"); voice_id = _s(context,ground,"description_id")
+          voice_ground = _inherited(voice_id)
+        end
+        else _voice = ""
+      end
+    end
+    if origin="unknown" then do
+      if origin_quote\="" then do; _error = "unknown origin cannot carry a classification quotation"; return; end
+    end
+    else if _quoteground(origin_quote,grounding,origin_ground,_error) \= 0 then return
+    derivations = doc.member(root,"derivation_ids"); relations = context.member(context.root(),"relations"); ids = "["; seen = .string[]
+    if doc.node_type(derivations)\="array" | doc.node_count(derivations)>16 then do; _error = "derivation references must be a bounded array"; return; end
+    do d = 1 to doc.node_count(derivations)
+      id = ""; found = 0
+      if doc.node_string(doc.element(derivations,d),id)\=0 | id="" then do; _error = "derivation reference is invalid"; return; end
+      do j = 1 to d-1
+        if seen[j]=id then do; _error="duplicate derivation reference"; return; end
+      end
+      seen[d]=id
+      do r = 1 to context.node_count(relations)
+        if _s(context,context.element(relations,r),"relation_id")=id then found=1
+      end
+      if found=0 then do; _error="derivation is not in the pinned source context"; return; end
+      if d>1 then ids=ids || ","
+      ids=ids || jsonquote(id)
+    end
+    ids=ids || "]"
+    if origin="derived" & doc.node_count(derivations)=0 then do; _error="derived evidence requires an identified upstream relation"; return; end
+    _from=temporal.lower(); _to=temporal.upper()
+    temporal_doc=.jsondocument(temporal.canonical())
+    if _s(temporal_doc,temporal_doc.root(),"end_condition")="open" then _to=""
+    _qualifiers='{"modality":' || jsonquote(modality) || ',"temporal":' || temporal.canonical() || '}'
+    assessment_state="assessed"
+    if _review=1 then assessment_state="review-required"
+    _description='{"assessment":' || jsonquote(assessment_state) || ',"voice":' || jsonquote(_voice) || ',"origin":' || jsonquote(origin) || ',"asserted_period":' || asserted.canonical() || ',"derivation_ids":' || ids || ',"source_description_ids":' || context.node_get(context.member(context.root(),"description_ids")) || ',"metadata_fingerprint":' || jsonquote(rxhash..sha256hex(metadata as .binary)) || '}'
+    primary_ground='{"method":"LLM-proposed","review":"machine-validated","quote":' || jsonquote(relationship_quote) || ',"span_start":' || primary_start || ',"span_end":' || primary_end || '}'
+    _provenance='{"temporal":' || temporal_ground || ',"asserted_period":' || asserted_ground || ',"voice":' || voice_ground || ',"origin":' || origin_ground || ',"modality":' || primary_ground || ',"stance":' || primary_ground || ',"directness":' || primary_ground || ',"polarity":' || primary_ground || ',"normalization_rule":"crexx-rag.period/1","raw_assessment":' || input || '}'
+    /* Retain the exact validated input for receipt replay and independent revalidation. */
+    _canonical='{"schema":"crexx-rag.support-assessment/1","input":' || input || ',"relationship_quote":' || jsonquote(relationship_quote) || ',"source_metadata":' || metadata || ',"description":' || _description || ',"provenance":' || _provenance || '}'
+    return
+  ok: method = .int
+    return _error=""
+  error: method = .string
+    return _error
+  canonical: method = .string
+    return _canonical
+  description: method = .string
+    return _description
+  provenance: method = .string
+    return _provenance
+  qualifiers: method = .string
+    return _qualifiers
+  effective_from: method = .string
+    return _from
+  effective_to: method = .string
+    return _to
+  voice: method = .string
+    return _voice
+  stance: method = .string
+    return _stance
+  directness: method = .string
+    return _directness
+  polarity: method = .string
+    return _polarity
+  review_required: method = .int
+    return _review
+
+_periodground: procedure = .int
+  arg period = .ragperiod, quote = .string, grounding = .raggrounding, expose encoded = .string, expose error = .string
+  if period.kind()="unknown" | period.kind()="not-applicable" then do
+    if quote\="" then do; error="unknown period cannot carry a date quotation"; return -1; end
+    encoded='{"method":"LLM-proposed","review":"machine-validated","assessment":"undated"}'; return 0
+  end
+  if _quoteground(quote,grounding,encoded,error)\=0 then return -1
+  doc=.jsondocument(period.canonical()); endpoints="start end"
+  do i=1 to 2
+    node=doc.member(doc.root(),word(endpoints,i)); value=_s(doc,node,"value"); precision=_s(doc,node,"precision")
+    if value="" then iterate
+    if precision="unresolved" then do
+      matcher=.raggrounding(quote); begin=-1; finish=-1
+      if matcher.find(value,begin,finish)\=1 then do; error="unresolved date wording is not in its quotation"; return -1; end
+    end
+    else if _literalquoted(value,precision,quote)=0 then do; error="date expression is not in its relationship quotation"; return -1; end
+    certainty=_s(doc,node,"certainty"); constraint=_s(doc,node,"constraint"); folded=lower(quote)
+    calendar=_s(doc,node,"calendar")
+    if calendar="gregorian" & pos("gregorian",folded)=0 & (precision\="day" | pos(value,quote)=0) then do; error="Gregorian calendar requires stated calendar or an ISO day expression"; return -1; end
+    if calendar="julian" & pos("julian",folded)=0 then do; error="Julian calendar is not stated in its quotation"; return -1; end
+    if calendar="old-style" & pos("old style",folded)=0 & pos("old-style",folded)=0 & pos("o.s.",folded)=0 then do; error="Old Style calendar is not stated in its quotation"; return -1; end
+    if certainty="approximate" & pos("about",folded)=0 & pos("around",folded)=0 & pos("circa",folded)=0 & pos("approx",folded)=0 & pos("c.",folded)=0 then do; error="approximate date needs explicit approximate wording"; return -1; end
+    if constraint="before" & pos("before",folded)=0 then do; error="before constraint needs explicit wording"; return -1; end
+    if constraint="after" & pos("after",folded)=0 then do; error="after constraint needs explicit wording"; return -1; end
+    bounds="earliest latest"
+    do b=1 to 2
+      bound=_s(doc,node,word(bounds,b))
+      if bound\="" then if _literalquoted(bound,"day",quote)=0 then do; error="date bound is not explicitly quoted"; return -1; end
+    end
+  end
+  if _s(doc,doc.root(),"end_condition")="open" then do
+    folded=lower(quote)
+    if pos("ongoing",folded)=0 & pos("continues",folded)=0 & pos("still",folded)=0 & pos("until further",folded)=0 then do; error="open period needs explicit ongoing wording"; return -1; end
+  end
+  return 0
+_literalquoted: procedure = .int
+  arg value=.string, precision=.string, quote=.string
+  matcher=.raggrounding(quote); begin=-1; finish=-1
+  if matcher.find(value,begin,finish)=1 then return 1
+  if precision="year" then return 0
+  month=substr(value,6,2) as .int
+  month_name=word("January February March April May June July August September October November December",month)
+  literal=month_name || " " || left(value,4)
+  if precision="day" then literal=(right(value,2) as .int) || " " || literal
+  return matcher.find(literal,begin,finish)
+_quoteground: procedure = .int
+  arg quote=.string, grounding=.raggrounding, expose encoded=.string, expose error=.string
+  begin=-1; finish=-1
+  if quote="" | grounding.find(quote,begin,finish)\=1 then do; error="provenance quotation is not in the chunk"; return -1; end
+  encoded='{"method":"LLM-proposed","review":"machine-validated","quote":' || jsonquote(quote) || ',"span_start":' || begin || ',"span_end":' || finish || '}'
+  return 0
+_inherited: procedure = .string
+  arg id=.string
+  return '{"method":"inherited","review":"machine-validated","description_id":' || jsonquote(id) || '}'
+_members: procedure = .int
+  arg doc=.jsondocument, node=.int, names=.string
+  if doc.node_type(node)\="object" | doc.node_count(node)\=words(names) then return 0
+  children=.int[]; ignored=doc.children(node,children); seen=""
+  do i=1 to children.0
+    name=doc.node_name(children[i])
+    if wordpos(name,names)=0 | wordpos(name,seen)>0 then return 0
+    seen=seen || " " || name
+  end
+  return 1
+_s: procedure = .string
+  arg doc=.jsondocument, node=.int, key=.string
+  value=""; ignored=doc.node_string(doc.member(node,key),value)
+  return value
+
+assessmentprompt: procedure = .string
+  return "For each relationship also assess its historical period, modality and support provenance. Historical time is when this relationship held, never the publication or capture date. A dated temporal_quote MUST be the same contiguous evidence_quote as the relationship, containing the date and both endpoints. Use unknown periods and empty quotations when no date is justified. A year is a point with year precision, not a year-long duration. Use interval only for duration; omitted end means unknown, open requires explicit ongoing wording. Use calendar unspecified unless the quotation states a calendar or supplies an ISO day expression. Preserve approximate, before/after and unresolved calendar or relative wording; do not invent Gregorian conversion or bounds. Empty default endpoints have value empty, precision unresolved, certainty stated, calendar unspecified, constraint on, earliest/latest empty. Preserve primary, secondary, derived or mixed origin relative to this particular claim; primary is not a truth rating. Origin needs a source quotation; unknown is acceptable. A narrative may inherit an identified author using the contributors field description_id, or leave voice empty for deterministic inheritance. A quotation or report needs the actual quoted voice and its name quotation; leave unknown voices empty for review, never substitute the narrator. Assertion time is independent of publication time and historical validity; inherit only the explicit asserted_period with its field description_id. Derived origin must reference supplied source relation IDs. Stance proposal pairs with proposed modality; speculation pairs with hypothetical. Document draft status does not itself imply that every assertion is hypothetical. Return only the exact assessment schema."
+assessmentschema: procedure = .string
+  names="temporal temporal_quote modality stance directness polarity voice voice_quote voice_description_id origin origin_quote asserted_period asserted_quote asserted_description_id derivation_ids"
+  required="["; properties="{"
+  do i=1 to words(names)
+    name=word(names,i); definition='{"type":"string"}'
+    if name="temporal" | name="asserted_period" then definition=periodschema()
+    if name="derivation_ids" then definition='{"type":"array","items":{"type":"string"}}'
+    if name="modality" then definition='{"type":"string","enum":["asserted","proposed","hypothetical"]}'
+    if name="stance" then definition='{"type":"string","enum":["assertion","quotation","report","negation","speculation","proposal"]}'
+    if name="directness" then definition='{"type":"string","enum":["direct","indirect"]}'
+    if name="polarity" then definition='{"type":"string","enum":["support","contradiction"]}'
+    if name="origin" then definition='{"type":"string","enum":["unknown","primary","secondary","derived","mixed"]}'
+    if i>1 then do; required=required || ","; properties=properties || ","; end
+    required=required || jsonquote(name); properties=properties || jsonquote(name) || ":" || definition
+  end
+  return '{"type":"object","additionalProperties":false,"required":' || required || '],"properties":' || properties || '}}'
+
+assessmentcitationfailure: procedure = .int
+  arg message=.string
+  return message="assessment relationship quotation is not in the chunk" | message="provenance quotation is not in the chunk" | message="voice name is not in its quotation" | message="date expression is not in its relationship quotation" | message="historical date quotation must be the relationship quotation, not an unrelated date" | message="unresolved date wording is not in its quotation" | message="date bound is not explicitly quoted" | message="Gregorian calendar requires stated calendar or an ISO day expression" | message="Julian calendar is not stated in its quotation" | message="Old Style calendar is not stated in its quotation"

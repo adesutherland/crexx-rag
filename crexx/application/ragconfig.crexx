@@ -284,14 +284,17 @@ ragworkerpolicy: class
   _lease_seconds = .int
   _poll_ms = .int
   _guided_deadline_seconds = .int
+  _max_restarts = .int
+  _restart_backoff_ms = .int
 
   *: factory
-    arg processes = .int, max_in_flight = .int, lease_seconds = .int, poll_ms = 100, guided_deadline_seconds = 0
+    arg processes = .int, max_in_flight = .int, lease_seconds = .int, poll_ms = 100, guided_deadline_seconds = 0, max_restarts = 2, restart_backoff_ms = 5000
     _processes = processes
     _max_in_flight = max_in_flight
     _lease_seconds = lease_seconds
     _poll_ms = poll_ms
     _guided_deadline_seconds = guided_deadline_seconds
+    _max_restarts = max_restarts; _restart_backoff_ms = restart_backoff_ms
     return
 
   processes: method = .int
@@ -304,6 +307,11 @@ ragworkerpolicy: class
     return _poll_ms
   guided_deadline_seconds: method = .int
     return _guided_deadline_seconds
+
+  max_restarts: method = .int
+    return _max_restarts
+  restart_backoff_ms: method = .int
+    return _restart_backoff_ms
 
 ragschedule: class
   _schedule_id = .string
@@ -797,6 +805,7 @@ validateconfig: procedure = .ragvalidationresult
   if workers.processes() < 1 | workers.processes() > 32 then issues[issues.0 + 1] = .ragvalidationissue("config", "worker_processes", "workers.processes", "worker processes must be from 1 through 32")
   if workers.max_in_flight() \= 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "worker_in_flight", "workers.max_in_flight", "each worker process currently owns one in-flight item")
   if workers.lease_seconds() <= 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_lease", "workers.lease_seconds", "worker lease must be positive")
+  if workers.max_restarts() < 0 | workers.max_restarts() > 10 | workers.restart_backoff_ms() < 10 | workers.restart_backoff_ms() > 60000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_worker_recovery", "workers", "worker restart ceiling or backoff is invalid")
   if workers.poll_ms() < 10 | workers.poll_ms() > 60000 | workers.guided_deadline_seconds() < 0 | workers.guided_deadline_seconds() > 604800 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_worker_runtime", "workers", "worker poll and guided deadline policy is invalid")
 
   discovery = config.discovery()

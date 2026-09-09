@@ -184,6 +184,8 @@ worker.max_in_flight = 1
 worker.lease_seconds = 120
 worker.poll_ms = 100
 worker.guided_deadline_seconds = 0
+worker.max_restarts = 2
+worker.restart_backoff_ms = 5000
 
 vector.maximum_rows = 1000000
 vector.maximum_sidecar_bytes = 67108864
@@ -304,6 +306,40 @@ stale rows are not silently deleted.
 
 Workers are operating-system processes, not attached cREXX threads. Each owns a
 VM, provider process/session, and SQLite connection.
+
+The controller reserves and registers the complete configured worker group
+before admitting work. Startup failure or a registration timeout is reported
+with the worker identity; child stderr is inherited so redirected controller
+logs also retain worker and provider channel errors. On controller failure,
+drain requests are recorded before waiting for child cleanup.
+
+For `worker start --job JOB_ID`, an unhealthy provider transport stops its worker
+after preserving the current item's outcome. After that process exits, the
+controller can replace it in the same slot. `worker.max_restarts` permits 0..10
+automatic replacements across the whole job, defaulting to two; zero disables
+replacement. `worker.restart_backoff_ms` accepts 10..60000, defaulting to 5000.
+The delay multiplies by six after each replacement, capped at 60000 milliseconds
+(the defaults therefore wait five and thirty seconds). Both settings are optional
+operational configuration. Default values preserve existing configuration hashes.
+
+Replacement reservations are durable job events, so restarting a controller or
+pruning process rows cannot reset that ceiling. Replacement preserves the slot's
+remaining item/poll allowance and the original job budgets and deadline. A pause,
+cancellation, drain or exhausted ceiling stops further work. Startup failures and
+unclassified crashes require diagnosis; they do not automatically consume more
+process launches. Unfiltered worker groups also require operator restart.
+Successful controller results include `workers_restarted`; historical failed
+process records remain available for diagnosis.
+
+The selected provider's `max_attempts` independently limits retryable item
+failures. Set it to three when three total attempts are wanted; a value of one
+still means no ordinary item retry. Worker replacement never rewrites dead
+letters or resets attempt history. A submitted request with an unknown outcome
+pauses the job for reconciliation, retaining its external identities and any
+reported usage. A saved successful response remains eligible for publication
+even if releasing its provider admission fails. Such a failure stops the worker
+and reports the admission identity and SQLite diagnostic. Exact duplicate
+admission settlement succeeds; conflicting settlement remains an error.
 
 Provider admission is persisted in SQLite and shared by those processes. A
 call that cannot obtain request, reserved-token or concurrency capacity waits
@@ -495,7 +531,9 @@ validation and accounting outcomes.
 Citation validation gives extraction and maintenance resolution responses one
 immediate correction attempt when a quotation, literal mention label, relationship
 endpoint or selected evidence span fails grounding. The correction receives the
-original input, saved response and validation feedback. It must pass the same
+original input, saved response and validation feedback. Extraction feedback
+identifies the failing array entry, rejected quotation and required endpoint
+labels when relevant. It must pass the same
 strict validation; it may withdraw unsupported extraction content or return an
 unresolved resolution. This does not enable fuzzy matching or partial publication.
 
@@ -572,6 +610,16 @@ requires `curate` capability and explicit authority. See
 [Methodology and algorithms](algorithm.md#catalogue-and-graph-maintenance-methodology)
 for ranking, the worklist, automation modes, split connection review and the
 retirement gate.
+
+## Claim time and provenance
+
+Use [time and provenance](time-and-provenance.md) to attach document dates and
+status once per source revision with `ingest plan --metadata-input FILE`.
+Chunks and citations inherit these links without per-claim LLM assessment.
+Ordinary ingestion and maintenance do not request that optional experimental
+assessment. Source publication, historical validity, assertion time and system
+capture are separate. Unknown dates remain explicit. The same reference covers
+historical query filters and the version 2 evidence contract.
 
 ## Query
 
@@ -790,6 +838,14 @@ run differences with a map back to the original bytes.
 Repeated quotations within a chunk select the first match. Invalid quotations,
 unsupported relationships and conflicting canonical identities remain rejected;
 no provider output overrides existing evidence or identity validation.
+
+A conflicting classification or ambiguous catalogue match creates a durable
+identity-resolution question instead of failing the extraction batch. Its
+dependent relationships remain deferred. Maintenance reviews the source and
+competing identities, including recent classification changes, under the normal
+evidence and impact rules. An accepted resolution is retained for that source
+occurrence and used by follow-up extraction. Uncertain decisions remain open
+or require review; a mismatch alone never authorises changing a classification.
 
 Explicit `query ... --mode hybrid` fails if the published sidecar is missing
 or corrupt, before calling a query provider. Automatic mode may use lexical

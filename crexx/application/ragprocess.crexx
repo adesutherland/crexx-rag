@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragprocess expose ragprocessrecord ragprocessstartresult newprocessidentity reserveprocess activateprocess heartbeatprocess finishprocess requestprocess processrequest listprocesses pruneprocesses runidleworker runapplicationworker startworkerprocesses currentprocessid currenthostid processalive
+namespace ragprocess expose ragprocessrecord ragprocessstartresult newprocessidentity reserveprocess activateprocess heartbeatprocess finishprocess requestprocess processrequest listprocesses pruneprocesses runidleworker runapplicationworker startworkerprocesses currentprocessid currenthostid processalive reserveworkerreplacement
 
 import rxfnsb
 import concurrency
@@ -98,13 +98,14 @@ ragprocessstartresult: class
   _requested = .int
   _completed = .int
   _failed = .int
+  _restarted = .int
 
   *: factory
-    arg controller_id = .string, requested = .int, completed = .int, failed = .int
+    arg controller_id = .string, requested = .int, completed = .int, failed = .int, restarted = 0
     _controller_id = controller_id
     _requested = requested
     _completed = completed
-    _failed = failed
+    _failed = failed; _restarted = restarted
     return
 
   controller_id: method = .string
@@ -115,6 +116,9 @@ ragprocessstartresult: class
     return _completed
   failed: method = .int
     return _failed
+
+  restarted: method = .int
+    return _restarted
 
 newprocessidentity: procedure = .string
   arg store = .ragstorehandle, kind = .string, expose error = .string
@@ -151,7 +155,7 @@ activateprocess: procedure = .int
   if _validtext(instance_id, 128, 0) \= 1 | _validtext(parent_instance_id, 128, 1) \= 1 | _validtext(host_id, 255, 0) \= 1 | pid <= 0 | _validtext(process_start_token, 128, 0) \= 1 | _validtext(executable_identity, 4096, 0) \= 1 | _validtext(job_filter, 256, 1) \= 1 | (kind \= "controller" & kind \= "worker") | (mode \= "wait" & mode \= "once" & mode \= "follow") then do; error = "active process identity is invalid"; return -1; end
   database = store.database(); prepared = .binary
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then return _sqlitefailure("begin process activation", error)
-  sql = "UPDATE runtime_instances SET parent_instance_id=NULLIF(?2,''),host_id=?3,pid=?4,process_start_token=?5,executable_identity=?6,mode=?7,job_filter=?8,state='idle',requested_state='none',current_item_id='',started_at=CAST(strftime('%s','now') AS INTEGER),heartbeat_at=CAST(strftime('%s','now') AS INTEGER),stopped_at=NULL,exit_code=NULL,detail='active' WHERE instance_id=?1 AND kind=?9 AND state='starting'"
+  sql = "UPDATE runtime_instances SET parent_instance_id=NULLIF(?2,''),host_id=?3,pid=?4,process_start_token=?5,executable_identity=?6,mode=?7,job_filter=?8,state='idle',current_item_id='',started_at=CAST(strftime('%s','now') AS INTEGER),heartbeat_at=CAST(strftime('%s','now') AS INTEGER),stopped_at=NULL,exit_code=NULL,detail='active' WHERE instance_id=?1 AND kind=?9 AND state='starting'"
   if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "prepare reserved process activation", error)
   binds = sqlitebindtext(prepared, 1, instance_id)
   binds = binds | sqlitebindtext(prepared, 2, parent_instance_id)
@@ -351,6 +355,17 @@ runidleworker: procedure = .int
 
 runapplicationworker: procedure = .int
   arg library = .string, instance_id = .string, parent_instance_id = .string, host_id = .string, mode = .string, job_filter = .string, poll_milliseconds = .int, maximum_polls = .int, config = .ragconfig, profile = .ragprofile, progress = .string, format = .string, expose final_id = .string, expose processed = .int, expose error = .string, maximum_items = 0
+  status = -2
+  do
+    status = _runapplicationworker(library,instance_id,parent_instance_id,host_id,mode,job_filter,poll_milliseconds,maximum_polls,config,profile,progress,format,final_id,processed,error,maximum_items)
+  on signal channel_error as problem
+    error = "worker channel failure: " || problem.message()
+  end
+  if status \= 0 then call lineout "stderr", "crexxrag worker " || instance_id || ": " || error
+  return status
+
+_runapplicationworker: procedure = .int
+  arg library = .string, instance_id = .string, parent_instance_id = .string, host_id = .string, mode = .string, job_filter = .string, poll_milliseconds = .int, maximum_polls = .int, config = .ragconfig, profile = .ragprofile, progress = .string, format = .string, expose final_id = .string, expose processed = .int, expose error = .string, maximum_items = 0
   final_id = instance_id; processed = 0; error = ""
   if poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | maximum_items < 0 | maximum_items > 1000000 | (mode \= "once" & mode \= "follow") | _validtext(instance_id, 128, 1) \= 1 | _validtext(parent_instance_id, 128, 1) \= 1 | _validtext(host_id, 255, 1) \= 1 | _validtext(job_filter, 256, 1) \= 1 then do; error = "worker poll bounds are invalid"; return -1; end
   store = .ragstorehandle
@@ -360,6 +375,22 @@ runapplicationworker: procedure = .int
   pid = currentprocessid(); start_token = _scalartext(store.database(), "SELECT lower(hex(randomblob(16)))", error); executable = _executableidentity()
   if error \= "" | final_id = "" | pid <= 0 | start_token = "" then do; ignored = ""; call closeragstore store, ignored; if error = "" then error = "worker process identity is unavailable"; return -2; end
   if activateprocess(store, final_id, "worker", parent_instance_id, host_id, pid, start_token, executable, mode, job_filter, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return -2; end
+  /* Register the whole group before any child starts publication. Otherwise
+   * ingestion writers can starve the remaining startup registrations. */
+  if parent_instance_id \= "" then do
+    parent_state = ""
+    do startup_poll = 1 to 600
+      parent_state = _scalartext(store.database(),"SELECT state FROM runtime_instances WHERE instance_id=" || _sqlquote(parent_instance_id),error)
+      if error \= "" | parent_state = "running" | parent_state = "failed" | parent_state = "stopped" then leave
+      call rxplatform..sleep 100
+    end
+    if parent_state \= "running" then do
+      if error = "" then error = "controller did not admit the complete worker group"
+      ignored = ""; call finishprocess store,final_id,"failed",1,error,ignored
+      call closeragstore store,ignored
+      return -2
+    end
+  end
   tracer = .ragtracer(progress, format); provider = .ragapplicationprovider(store, config, profile, tracer); policy = _profilepolicy(profile)
   workers = config.workers(); lease_seconds = workers.lease_seconds(); maximum_attempts = _providerattempts(config)
   polls = 0; status = 0; call tracer.emit("worker", "start", final_id, mode)
@@ -378,7 +409,7 @@ runapplicationworker: procedure = .int
         if error \= "" then do; status = -2; leave; end
         closed_window = 0
         if job_state = "paused" then closed_window = _scalarint(store.database(),"SELECT count(*) FROM maintenance_windows WHERE job_id=" || _sqlquote(job_filter) || " AND state<>'active'",error)
-        if job_state = "completed" | job_state = "completed_with_errors" | job_state = "failed" | job_state = "cancelled" | closed_window = 1 then do
+        if job_state = "completed" | job_state = "completed_with_errors" | job_state = "failed" | job_state = "cancelled" | job_state = "paused" | closed_window = 1 then do
           call tracer.emit("job", "complete", job_filter, job_state)
           leave
         end
@@ -391,23 +422,47 @@ runapplicationworker: procedure = .int
       call tracer.emit("work", "processed", final_id, disposition)
       if heartbeatprocess(store, final_id, "running", "", disposition, error) \= 0 then do; status = -2; leave; end
     end
+    if provider.health_error() \= "" then do; status = -4; error = provider.health_error(); leave; end
     if mode = "once" then leave
     if maximum_polls > 0 & polls >= maximum_polls then leave
     if maximum_items > 0 & processed >= maximum_items then leave
   end
-  terminal = "stopped"; exit_code = 0; detail = "application worker stopped cleanly;processed=" || processed
+  terminal = "stopped"; exit_code = 0; detail = "application worker stopped cleanly"
   if status \= 0 then do; terminal = "failed"; exit_code = 1; detail = error; end
+  if provider.health_error() \= "" then do; terminal = "failed"; exit_code = 75; detail = provider.health_error(); status = -4; end
+  detail = left(detail,min(length(detail),900)) || ";processed=" || processed || ";polls=" || polls
   finish_error = ""; if finishprocess(store, final_id, terminal, exit_code, detail, finish_error) \= 0 & error = "" then error = finish_error
-  call provider.close()
+  do
+    call provider.close()
+    if provider.health_error() \= "" then do
+      status = -4; error = provider.health_error(); ignored = ""
+      call finishprocess store,final_id,"failed",75,left(error,min(length(error),900)) || ";processed=" || processed || ";polls=" || polls,ignored
+    end
+  on signal channel_error as problem
+    status = -2; error = "worker provider cleanup failed: " || problem.message()
+    ignored = ""; call finishprocess store,final_id,"failed",26,error,ignored
+  end
   close_error = ""; close_status = closeragstore(store, close_error); if close_status \= 0 & error = "" then error = close_error
   if status \= 0 | close_status \= 0 then return -2
   call tracer.emit("worker", "complete", final_id, "processed=" || processed)
   return 0
 
 startworkerprocesses: procedure = .int
-  arg library = .string, count = .int, poll_milliseconds = .int, maximum_polls = .int, job_filter = .string, config_id = .string, profile_id = .string, config_file = .string, progress = .string, format = .string, expose result = .ragprocessstartresult, expose error = .string, maximum_items = 0
+  arg library = .string, count = .int, poll_milliseconds = .int, maximum_polls = .int, job_filter = .string, config_id = .string, profile_id = .string, config_file = .string, progress = .string, format = .string, expose result = .ragprocessstartresult, expose error = .string, maximum_items = 0, max_restarts = 2, restart_backoff_ms = 5000
+  status = -2
+  do
+    status = _startworkerprocesses(library,count,poll_milliseconds,maximum_polls,job_filter,config_id,profile_id,config_file,progress,format,result,error,maximum_items,max_restarts,restart_backoff_ms)
+  on signal channel_error as problem
+    error = "controller channel failure: " || problem.message()
+  end
+  if status \= 0 then call lineout "stderr", "crexxrag controller: " || error
+  return status
+
+_startworkerprocesses: procedure = .int
+  arg library = .string, count = .int, poll_milliseconds = .int, maximum_polls = .int, job_filter = .string, config_id = .string, profile_id = .string, config_file = .string, progress = .string, format = .string, expose result = .ragprocessstartresult, expose error = .string, maximum_items = 0, max_restarts = 2, restart_backoff_ms = 5000
   result = .ragprocessstartresult("", count, 0, count); error = ""
   if count < 1 | count > 32 | poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | maximum_items < 0 | maximum_items > 1000000 | _validtext(job_filter, 256, 1) \= 1 then do; error = "controller bounds are invalid"; return -1; end
+  if max_restarts < 0 | max_restarts > 10 | restart_backoff_ms < 10 | restart_backoff_ms > 60000 then do; error = "worker replacement policy is invalid"; return -1; end
   runtime = getenv("CREXXRAG_RUNTIME"); image = getenv("CREXXRAG_IMAGE"); load_path = getenv("CREXXRAG_LOAD_PATH"); self_executable = getenv("CREXXRAG_SELF")
   if runtime = "" & self_executable = "" then self_executable = rxfs..loadpath() || "/crexxrag"
   if runtime \= "" & (image = "" | load_path = "") then do; error = "linked application runtime metadata is incomplete"; return -2; end
@@ -426,7 +481,8 @@ startworkerprocesses: procedure = .int
   children = .channel.open(5, 255, channel_config)
   null_input = .byteendpoint.null_endpoint(1)
   null_output = .byteendpoint.null_endpoint(2)
-  worker_ids = .string[]; request_ids = .int[]
+  worker_ids = .string[]; request_ids = .int[]; remaining_items = .int[]; remaining_polls = .int[]
+  requests = .channelrequest[]
   do i = 1 to count
     worker_id = newprocessidentity(store, "worker", error)
     if worker_id = "" | reserveprocess(store, worker_id, "worker", controller_id, host_id, "follow", job_filter, executable, error) \= 0 then do
@@ -436,19 +492,38 @@ startworkerprocesses: procedure = .int
       ignored = ""; call finishprocess store, controller_id, "failed", 1, error, ignored; call closeragstore store, ignored
       return -2
     end
+    worker_ids[i] = worker_id; remaining_items[i] = maximum_items; remaining_polls[i] = maximum_polls
+  end
+  /* No child publishes while the controller is still reserving the group. */
+  do i = 1 to count
+    worker_id = worker_ids[i]
     arguments = _childarguments(runtime, image, load_path, library, worker_id, controller_id, host_id, poll_milliseconds, maximum_polls, job_filter, config_id, profile_id, config_file, maximum_items)
     envelope = _childenvelope(runtime, self_executable, arguments, null_input.provider_reference(), null_output.provider_reference())
     request = children.start(envelope, -1)
-    worker_ids[i] = worker_id
+    requests[i] = request
     request_ids[i] = request.identity()
+    admission = request.completion()
+    if admission.available() = 1 then if admission.succeeded() = 0 then do
+      error = "worker " || worker_id || " launch rejected: " || admission.message()
+      leave
+    end
   end
 
   tracer = .ragtracer(progress, format)
-  completed = 0; failed = 0; first_failure_detail = ""
-  do while completed < count
+  completed = 0; failed = 0; restarted = 0; first_failure_detail = ""; group_ready = 0
+  startup_deadline = _scalarint(store.database(),"SELECT unixepoch()",error) + 60
+  do while completed < count & error = ""
     completion = children.wait(1000)
     heartbeat_error = ""
-    if heartbeatprocess(store, controller_id, "running", "", "supervising " || count || " worker processes", heartbeat_error) \= 0 then do; error = heartbeat_error; leave; end
+    if group_ready = 0 then do
+      registered = _scalarint(store.database(),"SELECT count(*) FROM runtime_instances WHERE parent_instance_id=" || _sqlquote(controller_id) || " AND pid>0 AND state IN('idle','running')",heartbeat_error)
+      if heartbeat_error \= "" then do; error = heartbeat_error; leave; end
+      if registered = count then group_ready = 1
+      else if _scalarint(store.database(),"SELECT unixepoch()",heartbeat_error) >= startup_deadline then do; error = "worker registration timed out: " || registered || "/" || count || " registered"; leave; end
+    end
+    controller_state = "idle"; controller_detail = "waiting for all worker registrations"
+    if group_ready = 1 then do; controller_state = "running"; controller_detail = "supervising " || count || " worker processes"; end
+    if heartbeatprocess(store, controller_id, controller_state, "", controller_detail, heartbeat_error) \= 0 then do; error = heartbeat_error; leave; end
     if completion.available() = 0 then iterate
     completed = completed + 1; exit_code = 1
     if completion.succeeded() = 1 & completion.has_value() = 1 then exit_code = completion.value().as_integer()
@@ -458,11 +533,17 @@ startworkerprocesses: procedure = .int
       if request_ids[i] = completion.request_identity() then worker_index = i
     end
     if worker_index > 0 then do
+      do
+        call requests[worker_index].release()
+      on signal channel_error as problem
+        error = "worker child request release failed: " || problem.message()
+      end
+      if error \= "" then leave
       worker_state = "complete"; if exit_code \= 0 then worker_state = "failed"
       call tracer.emit("worker", worker_state, worker_ids[worker_index], "completed=" || completed || "/" || count)
       state = _scalartext(store.database(), "SELECT state FROM runtime_instances WHERE instance_id=" || _sqlquote(worker_ids[worker_index]), heartbeat_error)
       if state = "starting" then do
-        terminal = "failed"; detail = "child process exited before worker registration"
+        terminal = "failed"; detail = "child process exited with code " || exit_code || " before worker registration"
         if exit_code = 0 then do; terminal = "stopped"; detail = "child process completed before worker registration"; end
         ignored = ""; call finishprocess store, worker_ids[worker_index], terminal, exit_code, detail, ignored
       end
@@ -475,7 +556,57 @@ startworkerprocesses: procedure = .int
         detail_error = ""
         first_failure_detail = _scalartext(store.database(), "SELECT coalesce((SELECT detail FROM runtime_instances WHERE instance_id=" || _sqlquote(worker_ids[worker_index]) || "),'child process failed without a runtime detail')", detail_error)
         if detail_error \= "" then first_failure_detail = "child process failed without a readable runtime detail"
+        call lineout "stderr", "crexxrag worker " || worker_ids[worker_index] || ": " || first_failure_detail
       end
+    end
+    if group_ready = 1 & exit_code \= 0 & worker_index > 0 & job_filter \= "" then do
+      previous_id = worker_ids[worker_index]
+      used_items = _scalarint(store.database(),"SELECT count(*) FROM attempts WHERE worker_id=" || _sqlquote(previous_id) || " AND outcome<>'cancelled'",error)
+      used_polls = _scalarint(store.database(),"SELECT CASE WHEN instr(detail,';polls=')>0 THEN CAST(substr(detail,instr(detail,';polls=')+7) AS INTEGER) ELSE 0 END FROM runtime_instances WHERE instance_id=" || _sqlquote(previous_id),error)
+      if error \= "" then leave
+      if maximum_items > 0 then remaining_items[worker_index] = max(0,remaining_items[worker_index]-used_items)
+      if maximum_polls > 0 then remaining_polls[worker_index] = max(0,remaining_polls[worker_index]-used_polls)
+      batch_available = (maximum_items = 0 | remaining_items[worker_index] > 0) & (maximum_polls = 0 | remaining_polls[worker_index] > 0)
+      if batch_available then do
+        replacement_id = ""; delay_ms = 0
+        replacement_status = reserveworkerreplacement(store,controller_id,previous_id,max_restarts,restart_backoff_ms,replacement_id,delay_ms,error)
+        if replacement_status < 0 then leave
+        if replacement_status = 0 then do
+          call tracer.emit("worker","replacing",previous_id,"replacement=" || replacement_id)
+          /* Wait in short increments; pause, cancellation and drain stay effective. */
+          do while delay_ms > 0
+            if _replacementallowed(store,job_filter,previous_id,error) \= 1 then leave
+            slice = min(100,delay_ms); call rxplatform..sleep slice; delay_ms = delay_ms-slice
+            ignored = heartbeatprocess(store,controller_id,"running","","waiting to replace unhealthy worker",error)
+            if error \= "" then leave
+          end
+          if error = "" & _replacementallowed(store,job_filter,previous_id,error) = 1 then do
+            arguments = _childarguments(runtime,image,load_path,library,replacement_id,controller_id,host_id,poll_milliseconds,remaining_polls[worker_index],job_filter,config_id,profile_id,config_file,remaining_items[worker_index])
+            envelope = _childenvelope(runtime,self_executable,arguments,null_input.provider_reference(),null_output.provider_reference())
+            request = children.start(envelope,-1)
+            requests[worker_index] = request
+            worker_ids[worker_index] = replacement_id; request_ids[worker_index] = request.identity()
+            completed = completed-1; failed = failed-1; restarted = restarted+1
+            iterate
+          end
+          ignored = ""; call finishprocess store,replacement_id,"stopped",0,"replacement cancelled before launch",ignored
+        end
+      end
+    end
+    if failed > 0 then do
+      if error = "" then do
+        error = "one or more worker processes failed: " || first_failure_detail
+        if group_ready = 0 then error = "worker group startup failed: " || first_failure_detail
+      end
+      leave
+    end
+  end
+  if error \= "" then do
+    /* Publish failure and drain requests before waiting for child cleanup. */
+    call lineout "stderr", "crexxrag controller " || controller_id || ": " || error
+    ignored = ""; call finishprocess store,controller_id,"failed",1,error,ignored
+    do i = 1 to worker_ids.0
+      ignored = ""; call requestprocess store,worker_ids[i],"drain",ignored
     end
   end
   call children.close(1)
@@ -485,7 +616,7 @@ startworkerprocesses: procedure = .int
   if error \= "" | failed > 0 then do; controller_state = "failed"; controller_exit = 1; controller_detail = "one or more worker processes failed"; end
   finish_error = ""; call finishprocess store, controller_id, controller_state, controller_exit, controller_detail, finish_error
   close_error = ""; close_status = closeragstore(store, close_error)
-  result = .ragprocessstartresult(controller_id, count, completed, failed)
+  result = .ragprocessstartresult(controller_id, count, completed, failed, restarted)
   if error = "" then error = finish_error
   if error = "" then error = close_error
   if error = "" & failed > 0 then do
@@ -494,6 +625,42 @@ startworkerprocesses: procedure = .int
   end
   if error \= "" | failed > 0 | close_status \= 0 then return -2
   return 0
+
+/* Only explicitly unhealthy, fully exited workers are candidates. The caller
+ * has already observed child completion before invoking this reservation. */
+reserveworkerreplacement: procedure = .int
+  arg store = .ragstorehandle, controller_id = .string, previous_id = .string, maximum = .int, initial_backoff_ms = .int, expose replacement_id = .string, expose delay_ms = .int, expose error = .string
+  replacement_id = ""; delay_ms = 0; error = ""
+  if maximum < 0 | maximum > 10 | initial_backoff_ms < 10 | initial_backoff_ms > 60000 then do; error = "worker replacement bounds are invalid"; return -1; end
+  database = store.database()
+  if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then return _sqlitefailure("begin worker replacement",error)
+  job_id = _scalartext(database,"SELECT coalesce((SELECT job_filter FROM runtime_instances WHERE instance_id=" || _sqlquote(previous_id) || " AND parent_instance_id=" || _sqlquote(controller_id) || " AND kind='worker' AND state='failed' AND exit_code=75 AND requested_state='none'), '')",error)
+  if error \= "" then return _rollback(database,"read failed worker",error)
+  eligible = 0
+  if job_id \= "" then eligible = _replacementallowed(store,job_id,previous_id,error)
+  if eligible \= 1 | maximum = 0 then do; call sqliteexec database,"ROLLBACK"; return 1; end
+  used = _scalarint(database,"SELECT count(*) FROM job_events WHERE job_id=" || _sqlquote(job_id) || " AND event_type='worker-replacement'",error)
+  repeated = _scalarint(database,"SELECT count(*) FROM job_events WHERE job_id=" || _sqlquote(job_id) || " AND event_type='worker-replacement' AND json_extract(message,'$.previous')=" || _sqlquote(previous_id),error)
+  if error \= "" then return _rollback(database,"read worker replacement history",error)
+  if used >= maximum then return _rollback(database,"worker replacement ceiling reached for job " || job_id,error)
+  if repeated > 0 then return _rollback(database,"worker replacement was already reserved",error)
+  replacement_id = newprocessidentity(store,"worker",error)
+  if replacement_id = "" then return _rollback(database,"allocate replacement worker",error)
+  delay_ms = initial_backoff_ms
+  do retry = 1 to used
+    delay_ms = min(60000,delay_ms*6)
+  end
+  sql = "INSERT INTO runtime_instances(instance_id,kind,parent_instance_id,host_id,pid,process_start_token,executable_identity,mode,job_filter,state,requested_state,current_item_id,started_at,heartbeat_at,detail) SELECT " || _sqlquote(replacement_id) || ",kind," || _sqlquote(controller_id) || ",host_id,0,'',executable_identity,mode,job_filter,'starting','none','',unixepoch(),unixepoch(),'reserved replacement' FROM runtime_instances WHERE instance_id=" || _sqlquote(previous_id)
+  if sqliteexec(database,sql) \= 0 then return _rollback(database,"reserve replacement worker",error)
+  sql = "INSERT INTO job_events(job_id,event_type,message,occurred_at) VALUES(" || _sqlquote(job_id) || ",'worker-replacement',json_object('controller'," || _sqlquote(controller_id) || ",'previous'," || _sqlquote(previous_id) || ",'replacement'," || _sqlquote(replacement_id) || ",'ordinal'," || (used+1) || ",'delay_ms'," || delay_ms || "),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteexec(database,sql) \= 0 then return _rollback(database,"record worker replacement",error)
+  if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"commit worker replacement",error)
+  return 0
+
+_replacementallowed: procedure = .int
+  arg store = .ragstorehandle, job_id = .string, previous_id = .string, expose error = .string
+  sql = "SELECT count(*) FROM jobs j WHERE j.job_id=" || _sqlquote(job_id) || " AND j.state IN('queued','running') AND EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=j.job_id AND i.state='queued') AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.worker_id=" || _sqlquote(previous_id) || " AND a.outcome='running') AND NOT EXISTS(SELECT 1 FROM runtime_instances r WHERE r.instance_id=" || _sqlquote(previous_id) || " AND r.requested_state<>'none') AND NOT EXISTS(SELECT 1 FROM maintenance_windows w WHERE w.job_id=j.job_id AND (w.state<>'active' OR w.deadline_epoch<=unixepoch())) AND NOT EXISTS(SELECT 1 FROM job_events e WHERE e.job_id=j.job_id AND e.event_type='provider-outcome-uncertain' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response'))"
+  return _scalarint(store.database(),sql,error)
 
 _childarguments: procedure = .channelvalue
   arg runtime = .string, image = .string, load_path = .string, library = .string, worker_id = .string, controller_id = .string, host_id = .string, poll_milliseconds = .int, maximum_polls = .int, job_filter = .string, config_id = .string, profile_id = .string, config_file = .string, maximum_items = .int
@@ -556,7 +723,9 @@ _childenvelope: procedure = .channelvalue
   names[3] = "environment"; values[3] = .channelvalue.null_value()
   names[4] = "executable"; values[4] = .channelvalue.string_value(executable)
   names[5] = "mode"; values[5] = .channelvalue.integer_value(0)
-  names[6] = "stderr"; values[6] = output_reference
+  /* Inherit stderr so startup failures and runtime panics reach the caller's
+   * diagnostic log. Keep child JSON stdout out of the controller's result. */
+  names[6] = "stderr"; values[6] = .channelvalue.null_value()
   names[7] = "stdin"; values[7] = stdin_reference
   names[8] = "stdout"; values[8] = output_reference
   names[9] = "workingDirectory"; values[9] = .channelvalue.null_value()

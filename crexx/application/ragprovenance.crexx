@@ -1,0 +1,374 @@
+options levelg
+
+namespace ragprovenance expose defaultdocumentdate supportfamilies canonicalmetadata applymetadata sourcemetadata supportmetadata putdescription provenancecontext metadatafingerprint
+
+import rxfnsb
+import rxjson
+import rxhash
+import rxsqlite
+import ragstore
+import ragperiod
+import raggrounding
+
+/* Metadata is versioned separately from immutable source bytes. These routines
+ * own validation and SQL; callers own access, reviewed plans and transactions. */
+canonicalmetadata: procedure = .int
+  arg database = .binary, input = .string, expose output = .string, expose error = .string, prospective = "{}"
+  output = ""; error = ""; doc = .jsondocument(input); root = doc.root()
+  if length(input) > 1048576 | doc.valid() \= 1 | _members(doc,root,"schema descriptions relations",error) \= 0 | _s(doc,root,"schema") \= "crexx-rag.source-metadata/1" then return _fail("invalid source metadata manifest",error)
+  descriptions = doc.member(root,"descriptions"); relations = doc.member(root,"relations")
+  if doc.node_type(descriptions) \= "array" | doc.node_type(relations) \= "array" | doc.node_count(descriptions) > 256 | doc.node_count(relations) > 512 then return _fail("metadata manifest exceeds its bounds",error)
+  encoded = "["; identities = .string[]
+  do i = 1 to doc.node_count(descriptions)
+    node = doc.element(descriptions,i); value = ""
+    if _description(database,doc,node,value,error,prospective) \= 0 then return -1
+    row = .jsondocument(value); identity = _s(row,row.root(),"revision_id") || ":" || _n(row,row.root(),"scope_start") || ":" || _n(row,row.root(),"scope_end")
+    do j = 1 to identities.0
+      if identities[j] = identity then return _fail("duplicate metadata scope",error)
+    end
+    identities[identities.0+1] = identity
+    if i > 1 then encoded = encoded || ","
+    encoded = encoded || value
+  end
+  encoded = encoded || "]"; links = "["
+  do i = 1 to doc.node_count(relations)
+    value = ""
+    if _relation(database,doc,doc.element(relations,i),value,error,prospective) \= 0 then return -1
+    if i > 1 then links = links || ","
+    links = links || value
+  end
+  output = '{"schema":"crexx-rag.source-metadata/1","descriptions":' || encoded || ',"relations":' || links || ']}'
+  /* Check proposed scopes against one another, not only against stored scopes. */
+  sql = "SELECT count(*) FROM json_each(" || _q(output) || ",'$.descriptions') a JOIN json_each(" || _q(output) || ",'$.descriptions') b ON a.key<b.key WHERE json_extract(a.value,'$.revision_id')=json_extract(b.value,'$.revision_id') AND json_extract(a.value,'$.scope_start')>=0 AND json_extract(b.value,'$.scope_start')>=0 AND json_extract(a.value,'$.scope_start')<json_extract(b.value,'$.scope_end') AND json_extract(b.value,'$.scope_start')<json_extract(a.value,'$.scope_end') AND NOT ((json_extract(a.value,'$.scope_start')<=json_extract(b.value,'$.scope_start') AND json_extract(a.value,'$.scope_end')>=json_extract(b.value,'$.scope_end')) OR (json_extract(b.value,'$.scope_start')<=json_extract(a.value,'$.scope_start') AND json_extract(b.value,'$.scope_end')>=json_extract(a.value,'$.scope_end')))"
+  if _number(database,sql) \= 0 then return _fail("metadata scopes overlap without containment",error)
+  return 0
+
+_description: procedure = .int
+  arg database = .binary, doc = .jsondocument, node = .int, expose output = .string, expose error = .string, prospective = "{}"
+  if _members(doc,node,"revision_id text_digest scope_start scope_end expected_description_id description provenance",error) \= 0 then return -1
+  revision = _s(doc,node,"revision_id"); digest = _s(doc,node,"text_digest"); begin = _n(doc,node,"scope_start"); finish = _n(doc,node,"scope_end"); expected = _s(doc,node,"expected_description_id")
+  if _scope(database,revision,digest,begin,finish,error,prospective) \= 0 then return -1
+  description = doc.member(node,"description"); provenance = doc.member(node,"provenance")
+  if doc.node_type(description) \= "object" | doc.node_type(provenance) \= "object" | doc.node_count(description) = 0 then return _fail("source description and field provenance are required",error)
+  children = .int[]; ignored = doc.children(description,children); encoded = "{"; grounds = "{"; names = .string[]
+  do i = 1 to children.0
+    names[names.0+1] = doc.node_name(children[i])
+  end
+  call arraysort names
+  do i = 1 to names.0
+    name = names[i]; child = doc.member(description,name); text = ""; value = ""
+    if i > 1 then if names[i-1] = name then return _fail("duplicate metadata field",error)
+    if wordpos(name,"title work_ref edition_ref contributors document_status written_period published_period asserted_period captured_at document_date") = 0 then return _fail("unknown source description field " || name,error)
+    if name = "contributors" then do
+      if doc.node_type(child) \= "array" | doc.node_count(child) > 32 then return _fail("contributors must be a bounded array",error)
+      value = "["
+      do c = 1 to doc.node_count(child)
+        contributor = doc.element(child,c)
+        if _members(doc,contributor,"label role concept_id",error) \= 0 then return -1
+        label = _s(doc,contributor,"label"); role = _s(doc,contributor,"role"); concept = _s(doc,contributor,"concept_id")
+        if label = "" | length(label) > 512 | wordpos(role,"author editor translator compiler collective") = 0 then return _fail("invalid contributor role or name",error)
+        if concept \= "" then if _number(database,"SELECT count(*) FROM concepts WHERE concept_id=" || _q(concept) || " AND visible_to_generation IS NULL") \= 1 then return _fail("contributor concept is unavailable",error)
+        if c > 1 then value = value || ","
+        value = value || '{"label":' || jsonquote(label) || ',"role":' || jsonquote(role) || ',"concept_id":' || jsonquote(concept) || '}'
+      end
+      value = value || "]"
+    end
+    else if right(name,7) = "_period" then do
+      period = .ragperiod(doc.node_get(child))
+      if period.ok() = 0 then return _fail(period.error(),error)
+      value = period.canonical()
+    end
+    else do
+      if doc.node_string(child,text) \= 0 | length(text) > 2048 then return _fail("metadata text field is invalid",error)
+      if name="document_date" then do
+        date_value=.ragperiod(periodvalue("point",perioddate(text,"day","stated","gregorian"),perioddate(),"bounded"))
+        if date_value.ok()=0 | length(text)\=10 then return _fail("document date must be YYYY-MM-DD",error)
+      end
+      if name = "document_status" & wordpos(text,"unknown draft final published withdrawn") = 0 then return _fail("invalid document status",error)
+      if name = "captured_at" & text \= "" then do
+        if right(text,1) \= "Z" | _text(database,"SELECT strftime('%Y-%m-%dT%H:%M:%SZ'," || _q(text) || ")") \= text then return _fail("capture metadata must be an explicit UTC timestamp",error)
+      end
+      value = jsonquote(text)
+    end
+    ground = ""
+    if _fieldground(database,revision,begin,finish,doc,doc.member(provenance,name),ground,error,prospective) \= 0 then return -1
+    if i > 1 then do; encoded = encoded || ","; grounds = grounds || ","; end
+    encoded = encoded || jsonquote(name) || ":" || value
+    grounds = grounds || jsonquote(name) || ":" || ground
+  end
+  if doc.node_count(provenance) \= names.0 then return _fail("metadata provenance must match the declared fields",error)
+  active = _text(database,"SELECT description_id FROM source_descriptions WHERE revision_id=" || _q(revision) || " AND scope_start=" || begin || " AND scope_end=" || finish || " AND visible_to_generation IS NULL")
+  semantic = encoded || "}"; grounded = grounds || "}"
+  existing_same = _number(database,"SELECT count(*) FROM source_descriptions WHERE description_id=" || _q(active) || " AND description_json=" || _q(semantic) || " AND provenance_json=" || _q(grounded))
+  if active \= expected & existing_same \= 1 then return _fail("source description changed; review the conflict or re-plan",error)
+  overlap = "SELECT count(*) FROM source_descriptions WHERE revision_id=" || _q(revision) || " AND visible_to_generation IS NULL AND scope_start>=0 AND " || begin || ">=0 AND scope_start<" || finish || " AND scope_end>" || begin || " AND NOT ((scope_start<=" || begin || " AND scope_end>=" || finish || ") OR (scope_start>=" || begin || " AND scope_end<=" || finish || "))"
+  if _number(database,overlap) \= 0 then return _fail("metadata scope crosses an existing section",error)
+  output = '{"revision_id":' || jsonquote(revision) || ',"text_digest":' || jsonquote(digest) || ',"scope_start":' || begin || ',"scope_end":' || finish || ',"expected_description_id":' || jsonquote(expected) || ',"description":' || semantic || ',"provenance":' || grounded || '}'
+  return 0
+
+_scope: procedure = .int
+  arg database = .binary, revision = .string, digest = .string, begin = .int, finish = .int, expose error = .string, prospective = "{}"
+  if revision = "" | length(digest) \= 64 | ((begin = -1 & finish = -1) | (begin >= 0 & finish > begin)) = 0 then return _fail("invalid metadata revision or scope",error)
+  body = _sourcebody(database,revision,prospective)
+  size = binlength(body as .binary)
+  if size < 1 | _hash(body) \= digest | finish > size then return _fail("metadata source digest or byte range is stale",error)
+  if begin >= 0 then do
+    offset = 0; start_ok = begin = 0; end_ok = 0
+    do i = 1 to length(body)
+      offset = offset + binlength(substr(body,i,1) as .binary)
+      if offset = begin then start_ok = 1
+      if offset = finish then end_ok = 1
+      if offset >= finish then leave
+    end
+    if start_ok = 0 | end_ok = 0 then return _fail("metadata scope splits a UTF-8 character",error)
+  end
+  return 0
+
+/* The ingestion UI supplies one document date. Keep an existing date; only
+ * fill missing metadata, using the local calendar date when none was supplied. */
+defaultdocumentdate: procedure = .string
+  arg database=.binary, input=.string, revision=.string, digest=.string, date=.string
+  selector="json_extract(value,'$.revision_id')=" || _q(revision) || " AND json_extract(value,'$.scope_start')=-1 AND json_extract(value,'$.scope_end')=-1"
+  row=_text(database,"SELECT value FROM json_each(" || _q(input) || ",'$.descriptions') WHERE " || selector)
+  supplied=row\=""
+  if row="" then row=_text(database,"SELECT json_object('revision_id',revision_id,'text_digest'," || _q(digest) || ",'scope_start',-1,'scope_end',-1,'expected_description_id',description_id,'description',json(description_json),'provenance',json(provenance_json)) FROM source_descriptions WHERE revision_id=" || _q(revision) || " AND scope_start=-1 AND scope_end=-1 AND visible_to_generation IS NULL")
+  if row="" then row='{"revision_id":' || jsonquote(revision) || ',"text_digest":' || jsonquote(digest) || ',"scope_start":-1,"scope_end":-1,"expected_description_id":"","description":{},"provenance":{}}'
+  doc=.jsondocument(row); description=doc.member(doc.root(),"description")
+  if _s(doc,description,"document_date")\="" then return input
+  if date="" then do
+    if wordpos(_s(doc,doc.member(description,"published_period"),"kind"),"point interval")>0 | wordpos(_s(doc,doc.member(description,"written_period"),"kind"),"point interval")>0 then return input
+    date=_text(database,"SELECT strftime('%Y-%m-%d','now','localtime')")
+  end
+  ground='{"method":"operator-declared","actor":"ingest UI","review":"reviewed","reference":"document-date input; local today when omitted","quote":""}'
+  row=_text(database,"SELECT json_set(" || _q(row) || ",'$.description.document_date'," || _q(date) || ",'$.provenance.document_date',json(" || _q(ground) || "))")
+  path="$.descriptions[#]"
+  if supplied then path=_text(database,"SELECT '$.descriptions['||key||']' FROM json_each(" || _q(input) || ",'$.descriptions') WHERE " || selector)
+  return _text(database,"SELECT json_set(" || _q(input) || "," || _q(path) || ",json(" || _q(row) || "))")
+
+_fieldground: procedure = .int
+  arg database = .binary, revision = .string, scope_start = .int, scope_end = .int, doc = .jsondocument, node = .int, expose output = .string, expose error = .string, prospective = "{}"
+  if _members(doc,node,"method actor review reference quote",error) \= 0 then return -1
+  field_method = _s(doc,node,"method"); actor = _s(doc,node,"actor"); review = _s(doc,node,"review"); declaration_ref = _s(doc,node,"reference"); quote = _s(doc,node,"quote")
+  if wordpos(field_method,"operator-declared deterministically-parsed") = 0 | actor = "" | length(actor) > 512 | wordpos(review,"reviewed machine-validated") = 0 | (declaration_ref = "" & quote = "") | length(declaration_ref) > 4096 | length(quote) > 16384 then return _fail("metadata needs a declared actor and evidence or declaration reference",error)
+  if quote \= "" then do
+    body = _sourcebody(database,revision,prospective)
+    matcher = .raggrounding(body); begin = -1; finish = -1; lower_bound = scope_start
+    if lower_bound < 0 then lower_bound = 0
+    if matcher.find(quote,begin,finish,lower_bound,scope_end) \= 1 then return _fail("source metadata quotation is outside its source scope",error)
+  end
+  output = '{"method":' || jsonquote(field_method) || ',"actor":' || jsonquote(actor) || ',"review":' || jsonquote(review) || ',"reference":' || jsonquote(declaration_ref) || ',"quote":' || jsonquote(quote) || '}'
+  return 0
+
+_relation: procedure = .int
+  arg database = .binary, doc = .jsondocument, node = .int, expose output = .string, expose error = .string, prospective = "{}"
+  if _members(doc,node,"revision_id text_digest scope_start scope_end target_revision_id external_work_ref relation_type expected_relation_id provenance",error) \= 0 then return -1
+  revision = _s(doc,node,"revision_id"); digest = _s(doc,node,"text_digest"); begin = _n(doc,node,"scope_start"); finish = _n(doc,node,"scope_end"); target = _s(doc,node,"target_revision_id"); external = _s(doc,node,"external_work_ref"); kind = _s(doc,node,"relation_type")
+  if _scope(database,revision,digest,begin,finish,error,prospective) \= 0 then return -1
+  if (target = "") = (external = "") | target = revision | length(external) > 4096 | wordpos(kind,"quotes reports derived-from revises edition-of") = 0 then return _fail("invalid source relationship or target",error)
+  if target \= "" then if _sourcebody(database,target,prospective) = "" then return _fail("source relationship target is unavailable",error)
+  ground = ""
+  if _fieldground(database,revision,begin,finish,doc,doc.member(node,"provenance"),ground,error,prospective) \= 0 then return -1
+  expected_relation = _s(doc,node,"expected_relation_id")
+  same=_number(database,"SELECT count(*) FROM source_relations WHERE revision_id=" || _q(revision) || " AND scope_start=" || begin || " AND scope_end=" || finish || " AND coalesce(target_revision_id,'')=" || _q(target) || " AND coalesce(external_work_ref,'')=" || _q(external) || " AND relation_type=" || _q(kind) || " AND grounding_json=" || _q(ground) || " AND visible_to_generation IS NULL")
+  if expected_relation\="" & same\=1 then if _number(database,"SELECT count(*) FROM source_relations WHERE relation_id=" || _q(expected_relation) || " AND revision_id=" || _q(revision) || " AND scope_start=" || begin || " AND scope_end=" || finish || " AND visible_to_generation IS NULL")\=1 then return _fail("source relationship changed; review the conflict or re-plan",error)
+  output = '{"revision_id":' || jsonquote(revision) || ',"text_digest":' || jsonquote(digest) || ',"scope_start":' || begin || ',"scope_end":' || finish || ',"target_revision_id":' || jsonquote(target) || ',"external_work_ref":' || jsonquote(external) || ',"relation_type":' || jsonquote(kind) || ',"expected_relation_id":' || jsonquote(expected_relation) || ',"provenance":' || ground || '}'
+  return 0
+
+applymetadata: procedure = .int
+  arg store = .ragstorehandle, canonical = .string, expected_generation = .int, snapshot_id = .string, expose generation = .int, expose changed = .int, expose error = .string, external_generation = 0
+  generation = expected_generation; changed = 0; database = store.database()
+  if external_generation = 0 then if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then return _fail("cannot begin metadata publication",error)
+  current = _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  if current \= expected_generation then return _rollback(database,"metadata generation changed",error)
+  validated = ""
+  if canonicalmetadata(database,canonical,validated,error) \= 0 | validated \= canonical then return _rollback(database,"metadata manifest changed or is invalid: " || error,error)
+  doc = .jsondocument(canonical); descriptions = doc.member(doc.root(),"descriptions"); relations = doc.member(doc.root(),"relations")
+  staged = external_generation
+  /* Whole-source and outer scopes are published before their children. */
+  sorted = _text(database,"SELECT json_group_array(json(value)) FROM (SELECT value FROM json_each(" || _q(canonical) || ",'$.descriptions') ORDER BY CASE WHEN json_extract(value,'$.scope_start')=-1 THEN 2147483647 ELSE json_extract(value,'$.scope_end')-json_extract(value,'$.scope_start') END DESC)")
+  ordered = .jsondocument(sorted); descriptions = ordered.root(); doc = ordered
+  do i = 1 to doc.node_count(descriptions)
+    node = doc.element(descriptions,i); revision = _s(doc,node,"revision_id"); begin = _n(doc,node,"scope_start"); finish = _n(doc,node,"scope_end")
+    description = doc.node_get(doc.member(node,"description")); provenance = doc.node_get(doc.member(node,"provenance"))
+    same = _number(database,"SELECT count(*) FROM source_descriptions WHERE revision_id=" || _q(revision) || " AND scope_start=" || begin || " AND scope_end=" || finish || " AND visible_to_generation IS NULL AND description_json=" || _q(description) || " AND provenance_json=" || _q(provenance))
+    if same = 1 then iterate
+    if staged = 0 then if stagegeneration(store,current,snapshot_id,"source provenance metadata",staged,error) \= 0 then return -1
+    if sqliteexec(database,"UPDATE source_descriptions SET visible_to_generation=" || staged || " WHERE revision_id=" || _q(revision) || " AND scope_start=" || begin || " AND scope_end=" || finish || " AND visible_to_generation IS NULL") \= 0 then return _rollback(database,"cannot supersede source description",error)
+    parent = _text(database,"SELECT description_id FROM source_descriptions WHERE revision_id=" || _q(revision) || " AND visible_to_generation IS NULL AND " || begin || ">=0 AND (scope_start=-1 OR (scope_start<=" || begin || " AND scope_end>=" || finish || ")) ORDER BY CASE WHEN scope_start=-1 THEN 2147483647 ELSE scope_end-scope_start END LIMIT 1")
+    id = "description:" || _hash(revision || ":" || begin || ":" || finish || ":" || staged || ":" || description || provenance)
+    sql = "INSERT INTO source_descriptions(description_id,revision_id,scope_start,scope_end,parent_description_id,description_json,provenance_json,visible_from_generation,created_at) VALUES(" || _q(id) || "," || _q(revision) || "," || begin || "," || finish || ",NULLIF(" || _q(parent) || ",'')," || _q(description) || "," || _q(provenance) || "," || staged || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+    if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot publish source description",error)
+    changed = changed + 1
+  end
+  doc = .jsondocument(canonical); relations = doc.member(doc.root(),"relations")
+  do i = 1 to doc.node_count(relations)
+    node = doc.element(relations,i); value = doc.node_get(node)
+    same=_number(database,"SELECT count(*) FROM source_relations WHERE revision_id=" || _q(_s(doc,node,"revision_id")) || " AND scope_start=" || _n(doc,node,"scope_start") || " AND scope_end=" || _n(doc,node,"scope_end") || " AND coalesce(target_revision_id,'')=" || _q(_s(doc,node,"target_revision_id")) || " AND coalesce(external_work_ref,'')=" || _q(_s(doc,node,"external_work_ref")) || " AND relation_type=" || _q(_s(doc,node,"relation_type")) || " AND grounding_json=" || _q(doc.node_get(doc.member(node,"provenance"))) || " AND visible_to_generation IS NULL")
+    if same=1 then iterate
+    if staged = 0 then if stagegeneration(store,current,snapshot_id,"source provenance metadata",staged,error) \= 0 then return -1
+    expected_relation=_s(doc,node,"expected_relation_id")
+    if expected_relation\="" then if sqliteexec(database,"UPDATE source_relations SET visible_to_generation=" || staged || " WHERE relation_id=" || _q(expected_relation) || " AND visible_to_generation IS NULL")\=0 then return _rollback(database,"cannot supersede source relationship",error)
+    id="source-relation:" || _hash(value || ":" || staged)
+    sql = "INSERT INTO source_relations(relation_id,revision_id,scope_start,scope_end,target_revision_id,external_work_ref,relation_type,grounding_json,visible_from_generation,created_at) VALUES(" || _q(id) || "," || _q(_s(doc,node,"revision_id")) || "," || _n(doc,node,"scope_start") || "," || _n(doc,node,"scope_end") || ",NULLIF(" || _q(_s(doc,node,"target_revision_id")) || ",''),NULLIF(" || _q(_s(doc,node,"external_work_ref")) || ",'')," || _q(_s(doc,node,"relation_type")) || "," || _q(doc.node_get(doc.member(node,"provenance"))) || "," || staged || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+    if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot publish source relationship",error)
+    changed = changed + 1
+  end
+  if external_generation > 0 then do; generation = staged; return 0; end
+  if staged = 0 then do
+    if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot complete metadata no-op",error)
+    return 0
+  end
+  generation = staged
+  if commitgeneration(store,staged,error) \= 0 then return -1
+  return publishmanifest(store,error)
+
+sourcemetadata: procedure = .string
+  arg database = .binary, revision = .string, begin = .int, finish = .int, generation = .int
+  base = '{"title":"","work_ref":"","edition_ref":"","contributors":[],"document_status":"unknown","written_period":' || periodunknown() || ',"published_period":' || periodunknown() || ',"asserted_period":' || periodunknown() || ',"captured_at":""}'
+  ids = "["; fields = "{}"; count = 0; statement = .binary
+  sql = "SELECT description_id,description_json,provenance_json FROM source_descriptions WHERE revision_id=" || _q(revision) || " AND visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ") AND (scope_start=-1 OR (scope_start<=" || begin || " AND scope_end>=" || finish || ")) ORDER BY CASE WHEN scope_start=-1 THEN 2147483647 ELSE scope_end-scope_start END DESC,description_id"
+  if sqliteprepare(database,sql,statement) \= 0 then return ""
+  do forever
+    step = sqlitestep(statement); if step = 101 then leave
+    id = ""; description = ""; provenance = ""
+    if step \= 100 | sqlitecolumntext(statement,0,id) \= 0 | sqlitecolumntext(statement,1,description) \= 0 | sqlitecolumntext(statement,2,provenance) \= 0 then do; call sqlitefinalize statement; return ""; end
+    base = _text(database,"SELECT json_patch(" || _q(base) || "," || _q(description) || ")")
+    field_doc = .jsondocument(provenance); children = .int[]; ignored = field_doc.children(field_doc.root(),children)
+    do f = 1 to children.0
+      name = field_doc.node_name(children[f])
+      provenance = _text(database,"SELECT json_set(" || _q(provenance) || "," || _q("$." || name || ".description_id") || "," || _q(id) || ")")
+    end
+    fields = _text(database,"SELECT json_patch(" || _q(fields) || "," || _q(provenance) || ")")
+    if count > 0 then ids = ids || ","
+    ids = ids || jsonquote(id); count = count + 1
+  end
+  call sqlitefinalize statement
+  relations = _text(database,"SELECT json_group_array(json_object('relation_id',relation_id,'revision_id',revision_id,'target_revision_id',coalesce(target_revision_id,''),'external_work_ref',coalesce(external_work_ref,''),'relation_type',relation_type,'provenance',json(grounding_json))) FROM (SELECT * FROM source_relations WHERE revision_id=" || _q(revision) || " AND visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ") AND (scope_start=-1 OR (scope_start<=" || begin || " AND scope_end>=" || finish || ")) ORDER BY relation_id)")
+  return '{"description_ids":' || ids || '],"description":' || base || ',"provenance":' || fields || ',"relations":' || relations || '}' 
+
+provenancecontext: procedure = .string
+  arg database = .binary, chunk = .string, generation = .int, relative_start = -1, relative_end = -1
+  row = .jsondocument(_text(database,"SELECT json_object('revision',revision_id,'begin',normalized_start,'end',normalized_end) FROM revision_chunks WHERE revision_chunk_id=" || _q(chunk)))
+  if row.valid() \= 1 then return ""
+  revision=_s(row,row.root(),"revision"); begin=_n(row,row.root(),"begin"); finish=_n(row,row.root(),"end")
+  if relative_start>=0 then do
+    if relative_end<=relative_start | relative_end>finish-begin then return ""
+    return sourcemetadata(database,revision,begin+relative_start,begin+relative_end,generation)
+  end
+  source=sourcemetadata(database,revision,begin,finish,generation)
+  scopes="["; count=0; statement=.binary
+  sql="SELECT scope_start,scope_end FROM source_descriptions WHERE revision_id=" || _q(revision) || " AND scope_start>=0 AND scope_start<" || finish || " AND scope_end>" || begin || " AND NOT(scope_start<=" || begin || " AND scope_end>=" || finish || ") AND visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ") ORDER BY scope_start,scope_end DESC"
+  if sqliteprepare(database,sql,statement)\=0 then return ""
+  do forever
+    step=sqlitestep(statement); if step=101 then leave
+    scope_start=0; scope_end=0
+    if step\=100 | sqlitecolumnint(statement,0,scope_start)\=0 | sqlitecolumnint(statement,1,scope_end)\=0 then do; call sqlitefinalize statement; return ""; end
+    if scope_start<begin then scope_start=begin
+    if scope_end>finish then scope_end=finish
+    if count>0 then scopes=scopes || ","
+    scopes=scopes || '{"span_start":' || (scope_start-begin) || ',"span_end":' || (scope_end-begin) || ',"metadata":' || sourcemetadata(database,revision,scope_start,scope_end,generation) || '}'
+    count=count+1
+  end
+  call sqlitefinalize statement
+  return left(source,length(source)-1) || ',"scopes":' || scopes || ']}'
+
+metadatafingerprint: procedure = .string
+  arg database = .binary, chunk = .string, generation = .int
+  return _hash(provenancecontext(database,chunk,generation))
+
+supportmetadata: procedure = .string
+  arg database = .binary, support = .string, generation = .int
+  row = _text(database,"SELECT json_object('description_id',description_id,'description',json(description_json),'provenance',json(json_remove(provenance_json,'$.raw_assessment')),'raw_assessment_omitted',json('true')) FROM support_descriptions WHERE support_id=" || _q(support) || " AND visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ") ORDER BY visible_from_generation DESC LIMIT 1")
+  if row = "" then return '{"description_id":"","description":{"assessment":"unassessed","origin":"unknown","voice":"","asserted_period":' || periodunknown() || '},"provenance":{}}'
+  return row
+
+putdescription: procedure = .int
+  arg database = .binary, support = .string, description = .string, provenance = .string, provider_run = .string, generation = .int, expose error = .string
+  /* Only called after full proposal validation, inside its fenced publication. */
+  if _number(database,"SELECT count(*) FROM support_descriptions WHERE support_id=" || _q(support) || " AND visible_to_generation IS NULL AND description_json=" || _q(description) || " AND provenance_json=" || _q(provenance)) = 1 then return 0
+  if sqliteexec(database,"UPDATE support_descriptions SET visible_to_generation=" || generation || " WHERE support_id=" || _q(support) || " AND visible_to_generation IS NULL") \= 0 then return _fail("cannot version support description",error)
+  id = "support-description:" || _hash(support || ":" || generation || ":" || description || provenance)
+  sql = "INSERT INTO support_descriptions(description_id,support_id,description_json,provenance_json,provider_run_id,visible_from_generation,created_at) VALUES(" || _q(id) || "," || _q(support) || "," || _q(description) || "," || _q(provenance) || ",NULLIF(" || _q(provider_run) || ",'')," || generation || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteexec(database,sql) \= 0 then return _fail("cannot publish support description",error)
+  return 0
+
+_sourcebody: procedure = .string
+  arg database = .binary, revision = .string, prospective = .string
+  body = _text(database,"SELECT t.normalized_utf8 FROM source_revisions r JOIN source_revision_texts t USING(text_id) WHERE revision_id=" || _q(revision) || " AND r.visible_to_generation IS NULL")
+  if body = "" then do
+    doc = .jsondocument(prospective); body = _s(doc,doc.root(),revision)
+  end
+  return body
+
+_members: procedure = .int
+  arg doc = .jsondocument, node = .int, allowed = .string, expose error = .string
+  if doc.node_type(node) \= "object" | doc.node_count(node) \= words(allowed) then return _fail("metadata object has an invalid shape",error)
+  children = .int[]; ignored = doc.children(node,children); seen = ""
+  do i = 1 to children.0
+    name = doc.node_name(children[i])
+    if wordpos(name,allowed) = 0 | wordpos(name,seen) > 0 then return _fail("unknown or duplicate metadata member",error)
+    if wordpos(name,"schema revision_id text_digest expected_description_id expected_relation_id label role concept_id method actor review reference quote target_revision_id external_work_ref relation_type") > 0 then do
+      value = ""
+      if doc.node_string(children[i],value) \= 0 then return _fail("metadata member must be a string: " || name,error)
+    end
+    seen = seen || " " || name
+  end
+  return 0
+
+_s: procedure = .string
+  arg doc = .jsondocument, node = .int, key = .string
+  value = ""; ignored = doc.node_string(doc.member(node,key),value)
+  return value
+_n: procedure = .int
+  arg doc = .jsondocument, node = .int, key = .string
+  value = -2; ignored = doc.node_int(doc.member(node,key),value)
+  return value
+_q: procedure = .string
+  arg value = .string
+  return "'" || changestr("'",value,"''") || "'"
+_hash: procedure = .string
+  arg value = .string
+  return rxhash..sha256hex(value as .binary)
+_text: procedure = .string
+  arg database = .binary, sql = .string
+  statement = .binary; value = ""
+  if sqliteprepare(database,sql,statement) = 0 then do
+    if sqlitestep(statement) = 100 then ignored = sqlitecolumntext(statement,0,value)
+    call sqlitefinalize statement
+  end
+  return value
+_number: procedure = .int
+  arg database = .binary, sql = .string
+  statement = .binary; value = -1
+  if sqliteprepare(database,sql,statement) = 0 then do
+    if sqlitestep(statement) = 100 then ignored = sqlitecolumnint(statement,0,value)
+    call sqlitefinalize statement
+  end
+  return value
+_fail: procedure = .int
+  arg message = .string, expose error = .string
+  error = message; return -1
+_rollback: procedure = .int
+  arg database = .binary, message = .string, expose error = .string
+  ignored = sqliteexec(database,"ROLLBACK")
+  return _fail(message,error)
+
+supportfamilies: procedure = .string
+  arg database=.binary, support=.string, generation=.int
+  description=supportmetadata(database,support,generation); doc=.jsondocument(description); root=doc.member(doc.root(),"description")
+  selected=doc.node_get(doc.member(root,"derivation_ids"))
+  if selected="" then selected="[]"
+  /* Explicit upstream links identify dependence. Missing links do not prove
+   * independence, and the legacy chunk lineage is never used as a family. */
+  sql="WITH RECURSIVE upstream(revision,external,depth) AS (SELECT target_revision_id,external_work_ref,0 FROM source_relations WHERE relation_id IN(SELECT value FROM json_each(" || _q(selected) || ")) AND visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ") UNION SELECT r.target_revision_id,r.external_work_ref,u.depth+1 FROM upstream u JOIN source_relations r ON r.revision_id=u.revision WHERE u.depth<16 AND r.relation_type IN('derived-from','quotes','reports','edition-of') AND r.scope_start=-1 AND r.visible_from_generation<=" || generation || " AND (r.visible_to_generation IS NULL OR r.visible_to_generation>" || generation || ")) SELECT json_group_array(DISTINCT family) FROM (SELECT CASE WHEN external IS NOT NULL THEN external ELSE coalesce((SELECT nullif(json_extract(description_json,'$.work_ref'),'') FROM source_descriptions d WHERE d.revision_id=u.revision AND d.scope_start=-1 AND d.visible_from_generation<=" || generation || " AND (d.visible_to_generation IS NULL OR d.visible_to_generation>" || generation || ") ORDER BY visible_from_generation DESC LIMIT 1),'revision:'||revision) END family FROM upstream u WHERE external IS NOT NULL OR NOT EXISTS(SELECT 1 FROM source_relations r WHERE r.revision_id=u.revision AND r.scope_start=-1 AND r.relation_type IN('derived-from','quotes','reports','edition-of') AND r.visible_from_generation<=" || generation || " AND (r.visible_to_generation IS NULL OR r.visible_to_generation>" || generation || ")) ORDER BY family)"
+  families=_text(database,sql)
+  if families="" then return "[]"
+  if families="[]" & _s(doc,root,"origin")="primary" then do
+    row=.jsondocument(_text(database,"SELECT json_object('revision',r.revision_id,'begin',r.normalized_start+s.span_start,'end',r.normalized_start+s.span_end,'stance',s.stance) FROM claim_support s JOIN revision_chunks r ON r.revision_chunk_id=s.revision_chunk_id WHERE s.support_id=" || _q(support)))
+    if _s(row,row.root(),"stance")="assertion" then do
+      source=.jsondocument(sourcemetadata(database,_s(row,row.root(),"revision"),_n(row,row.root(),"begin"),_n(row,row.root(),"end"),generation))
+      work=_s(source,source.member(source.root(),"description"),"work_ref")
+      if work\="" then families="[" || jsonquote(work) || "]"
+    end
+  end
+  return families

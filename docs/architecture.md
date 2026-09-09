@@ -40,6 +40,15 @@ SQLite rows are the process communication mechanism. Leases, fencing,
 idempotency keys, attempts, provider runs, events, heartbeats, and requested
 worker state make recovery explicit.
 
+`ragprocess` replaces explicitly unhealthy, exited workers in job-filtered
+groups under a job-wide durable restart ceiling. The existing `job_events`
+ledger records each replacement before launch; no schema migration is needed.
+The controller carries remaining slot limits forward, and ordinary fenced work
+admission continues to enforce the original job policy. `ragapplicationprovider`
+distinguishes failed preflight from an uncertain submitted turn and preserves
+successful output across admission-release failure. `ragwork` pauses uncertain
+outcomes for reconciliation instead of treating missing output as a paid retry.
+
 CREXX owns the generic SQLite implementation, bundled SQLite build, dynamic
 provider, native archive, session isolation, and typed API. This repository
 imports `rxsqlite` and owns only the schema, repositories, orchestration, and
@@ -273,3 +282,19 @@ embedding relinking stages a new membership generation rather than rewriting
 a historical snapshot. Conflict questions remain pending when their supported
 claim moves. Source bytes, vector BLOBs and existing publication history remain
 under the original SQLite authority.
+
+## Claim time and source provenance
+
+Schema 11 adds generation-versioned `source_descriptions`, `source_relations`
+and `support_descriptions`, owned by Level-G `ragprovenance`. `ragperiod` owns
+canonical historical meaning; `ragassessment` validates grounded field values
+for the shared provider contract. `ragenrich` composes these with the existing
+maintenance worklist, receipt, review and publication paths for explicitly
+requested experimental assessment. Normal ingestion, improvement and maintenance
+use ordinary extraction; they do not enrol each support into assessment.
+Document dates are recorded once per source revision and resolved through chunk
+and citation links. Source-only metadata queues no provider work and never
+changes embedding inputs. Retrieval carries per-support
+provenance and period compatibility through version 2 evidence and answer
+context; graph traversal checks common period bounds across a filtered path.
+See [time and provenance](time-and-provenance.md) for the public contracts.

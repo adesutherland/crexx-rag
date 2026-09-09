@@ -53,6 +53,7 @@ codexprovider: class implements .provider
   _closed = .int
   _next_identity = .int
   _read_buffer = .string
+  _health_error = .string
 
   *: factory
     arg executable = .string, working_directory = .string, observer = .codexrunobserver
@@ -94,17 +95,42 @@ codexprovider: class implements .provider
     call result.set_failure("codex", "", request_id, .providererror("unsupported", -120, 0, 0, 0, "turn cancellation is not exposed by this bounded adapter"))
     return result
 
+  health_error: method = .string
+    return _health_error
+
   close: method = .void
     if _closed = 1 then return
     _closed = 1
     if _started = 1 then do
-      call _stdin.half_close(2)
-      completion = _child.wait(2000)
-      if completion.available() = 0 then call _child.cancel(.channelvalue.string_value("Codex provider is closing"))
-      call _children.close(2)
-      call _stdin.close()
-      call _stdout.close()
-      call _stderr.close()
+      /* Each resource gets its cleanup even if an earlier operation fails. */
+      do
+        call _stdin.half_close(2)
+        completion = _child.wait(2000)
+        if completion.available() = 0 then call _child.cancel(.channelvalue.string_value("Codex provider is closing"))
+        else call _child.release()
+      on signal channel_error as problem
+        _health_error = "Codex cleanup failed: " || problem.message()
+      end
+      do
+        call _children.close(2)
+      on signal channel_error as problem
+        _health_error = "Codex child cleanup failed: " || problem.message()
+      end
+      do
+        call _stdin.close()
+      on signal channel_error as problem
+        _health_error = "Codex stdin cleanup failed: " || problem.message()
+      end
+      do
+        call _stdout.close()
+      on signal channel_error as problem
+        _health_error = "Codex stdout cleanup failed: " || problem.message()
+      end
+      do
+        call _stderr.close()
+      on signal channel_error as problem
+        _health_error = "Codex stderr cleanup failed: " || problem.message()
+      end
     end
     _started = 0
     return
@@ -174,11 +200,18 @@ codexprovider: class implements .provider
     arg request = .providerrequest, thread_id = .string, turn_id = .string
     if thread_id = "" | turn_id = "" then return _failure(request, "invalid_request", -101, 0, "thread and turn identities are required")
     started_us = time("us"); content = ""; input_tokens = 0; output_tokens = 0; error = ""
-    if _wait_turn(request, thread_id, turn_id, content, input_tokens, output_tokens, error, 0) \= 0 then return _failure(request, "provider", -103, 1, error)
-    validation = validatestructuredresponse(content, request.schema())
-    if validation.code() \= 0 then return _failed(request, validation)
+    wait_status = _wait_turn(request,thread_id,turn_id,content,input_tokens,output_tokens,error,0)
     elapsed = time("us") - started_us; if elapsed < 0 then elapsed = elapsed + 86400000000
     result = .providerresult()
+    if wait_status \= 0 then do
+      call result.set_failure("codex",request.model(),request.request_id(),.providererror("provider",-103,0,1,1,error),.providerusage(input_tokens,output_tokens,1,-1,1,0),elapsed)
+      return result
+    end
+    validation = validatestructuredresponse(content, request.schema())
+    if validation.code() \= 0 then do
+      call result.set_failure("codex",request.model(),request.request_id(),validation,.providerusage(input_tokens,output_tokens,1,-1,1,0),elapsed)
+      return result
+    end
     call result.set_generation("codex", request.model(), request.request_id(), content, "completed", .providerusage(input_tokens, output_tokens, 1, -1, 1, 0), elapsed)
     return result
 
@@ -316,6 +349,7 @@ codexprovider: class implements .provider
   _ensure_started: method = .int
     arg timeout_ms = .int, expose error = .string
     error = ""
+    if _health_error \= "" then do; error = _health_error; return -1; end
     if _started = 1 then return 0
     if _closed = 1 | _executable = "" | _working_directory = "" then do; error = "Codex App Server process configuration is incomplete"; return -1; end
     names = .string[]; values = .channelvalue[]
@@ -370,6 +404,18 @@ codexprovider: class implements .provider
 
   _readline: method = .int
     arg timeout_ms = .int, expose line = .string, expose error = .string
+    if _health_error \= "" then do; error = _health_error; return -1; end
+    status = -1
+    do
+      status = _readline_checked(timeout_ms,line,error)
+    on signal channel_error as problem
+      error = "Codex App Server read channel failed: " || problem.message()
+    end
+    if status \= 0 then _health_error = error
+    return status
+
+  _readline_checked: method = .int
+    arg timeout_ms = .int, expose line = .string, expose error = .string
     line = ""; error = ""
     do reads = 1 to 1024
       marker = pos("0A"x, _read_buffer)
@@ -380,8 +426,14 @@ codexprovider: class implements .provider
         if line = "" then iterate
         return 0
       end
-      completion = _stdout.start_read(65536, timeout_ms).wait(timeout_ms)
-      if completion.available() = 0 then do; error = "Codex App Server response timed out"; return -1; end
+      pending = _stdout.start_read(65536, timeout_ms)
+      completion = pending.wait(timeout_ms)
+      if completion.available() = 0 then do
+        call pending.cancel(.channelvalue.string_value("response read timed out"))
+        error = "Codex App Server response timed out"; return -1
+      end
+      /* The saved completion survives release, including failed outcomes. */
+      call pending.release()
       if completion.succeeded() = 0 then do; error = "Codex App Server stdout failed: " || completion.message(); return -1; end
       if completion.details().field("eof").as_boolean() = 1 then do; error = "Codex App Server closed stdout"; return -1; end
       _read_buffer = _read_buffer || (completion.value().as_binary() as .string)
@@ -392,9 +444,26 @@ codexprovider: class implements .provider
 
   _write: method = .int
     arg wire = .string, timeout_ms = .int, expose error = .string
+    if _health_error \= "" then do; error = _health_error; return -1; end
+    status = -1
+    do
+      status = _write_checked(wire,timeout_ms,error)
+    on signal channel_error as problem
+      error = "Codex App Server write channel failed: " || problem.message()
+    end
+    if status \= 0 then _health_error = error
+    return status
+
+  _write_checked: method = .int
+    arg wire = .string, timeout_ms = .int, expose error = .string
     error = ""
-    completion = _stdin.start_write(wire as .binary, timeout_ms).wait(timeout_ms)
-    if completion.available() = 0 then do; error = "Codex App Server write timed out"; return -1; end
+    pending = _stdin.start_write(wire as .binary, timeout_ms)
+    completion = pending.wait(timeout_ms)
+    if completion.available() = 0 then do
+      call pending.cancel(.channelvalue.string_value("request write timed out"))
+      error = "Codex App Server write timed out"; return -1
+    end
+    call pending.release()
     if completion.succeeded() = 0 then do; error = "Codex App Server stdin failed: " || completion.message(); return -1; end
     if completion.value().as_integer() \= binlength(wire as .binary) then do; error = "Codex App Server accepted a partial JSONL request"; return -1; end
     return 0

@@ -17,8 +17,7 @@ file(CHMOD "${fixture}"
 get_filename_component(provider_source_dir "${CPRAG_PROBE}" DIRECTORY)
 get_filename_component(provider_source_dir "${provider_source_dir}" DIRECTORY)
 set(imports "${CPRAG_WORK_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
-set(modules
-    provider_contract codex_provider rx_system rxfs rxfnsg classlib library)
+set(modules provider_contract codex_provider rx_system rxfs rxfnsg classlib library)
 
 foreach(mode IN ITEMS noopt opt)
     set(mode_flag)
@@ -78,5 +77,17 @@ foreach(mode IN ITEMS noopt opt)
     endforeach()
 endforeach()
 
+# Each account cycle needs two write/read pairs on the same persistent adapter.
+# 17,000 cycles exceed the old context-wide 65,535 unreleased-ticket ceiling.
+execute_process(
+    COMMAND "${CPRAG_RXBVM}" -l "${imports}" "${program}" ${modules}
+        -a "${fixture}" "${CPRAG_WORK_DIR}/empty-cwd" 17000
+    RESULT_VARIABLE turnover_result OUTPUT_VARIABLE turnover_out ERROR_VARIABLE turnover_err
+    TIMEOUT 120)
+if(NOT turnover_result EQUAL 0 OR NOT turnover_out MATCHES
+        "PASS: Codex App Server returned managed account status and schema-validated structured output")
+    message(FATAL_ERROR "Persistent Codex request turnover failed (${turnover_result}):\n${turnover_out}\n${turnover_err}")
+endif()
+
 message(STATUS
-    "Codex protocol passed App Server initialize, managed-account, structured-turn, usage, schema-validation and cleanup on both VMs")
+    "Codex protocol passed on both VMs, including 17,000 persistent account cycles beyond the old ticket ceiling")

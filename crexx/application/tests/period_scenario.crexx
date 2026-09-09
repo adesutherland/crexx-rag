@@ -1,0 +1,52 @@
+options levelg
+import rxfnsb
+import rxjson
+import ragperiod
+
+main: procedure = .int
+  errors = 0
+  unknown = .ragperiod(periodunknown()); at_year = periodquery("1745",""); at_day = periodquery("1745-07-20","")
+  errors = errors + check(unknown.ok() & unknown.lower() = "" & periodcompatibility(unknown,at_year) = "unknown","unknown is not all time")
+  point = .ragperiod(periodvalue("point",perioddate("1745","year","stated","gregorian"),perioddate(),"bounded"))
+  errors = errors + check(point.ok() & point.lower() = "1745-01-01" & point.upper() = "1745-12-31","year envelope")
+  errors = errors + check(periodcompatibility(point,at_year) = "definite" & periodcompatibility(point,at_day) = "possible","point is not a year-long event")
+  next_year = periodquery("1746","")
+  errors = errors + check(periodcompatibility(point,next_year) = "disjoint","disjoint year")
+  approximate = .ragperiod(periodvalue("point",perioddate("1745","year","approximate","gregorian"),perioddate(),"bounded"))
+  errors = errors + check(approximate.ok() & approximate.lower() = "" & periodcompatibility(approximate,next_year) = "unknown","circa does not invent bounds")
+  interval = .ragperiod(periodvalue("interval",perioddate("1745","year","stated","gregorian"),perioddate("1746","year","stated","gregorian"),"bounded"))
+  errors = errors + check(interval.ok() & interval.certain_lower() = "1745-12-31" & interval.certain_upper() = "1746-01-01","interval endpoint uncertainty")
+  errors = errors + check(periodcompatibility(interval,at_day) = "possible","uncertain start not definite")
+  open_period = .ragperiod(periodvalue("interval",perioddate("1745-01-01","day","stated","gregorian"),perioddate(),"open"))
+  unknown_end = .ragperiod(periodvalue("interval",perioddate("1745-01-01","day","stated","gregorian"),perioddate(),"unknown"))
+  errors = errors + check(periodcompatibility(open_period,next_year) = "definite" & periodcompatibility(unknown_end,next_year) = "unknown","open is not omitted")
+  invalid = .ragperiod(periodvalue("interval",perioddate("1746","year","stated","gregorian"),perioddate("1745","year","stated","gregorian"),"bounded"))
+  errors = errors + check(invalid.ok() = 0,"reversed interval rejected")
+  invalid = periodquery("2023-02-29","")
+  errors = errors + check(invalid.ok() = 0,"invalid leap day rejected")
+  leap = periodquery("2024-02-29","")
+  errors = errors + check(leap.ok() & leap.lower() = "2024-02-29","leap day accepted")
+  word_date = .ragperiod(periodvalue("point",perioddate("20 July 1745","day","stated","gregorian"),perioddate(),"bounded"))
+  errors = errors + check(word_date.ok() & word_date.canonical() = at_day.canonical(),"literal date normalization and canonical identity")
+  old_style = .ragperiod(periodvalue("point",perioddate("1745-07-20","day","stated","old-style"),perioddate(),"bounded"))
+  errors = errors + check(old_style.ok() & old_style.lower() = "" & periodcompatibility(old_style,at_day) = "unknown","unknown calendar conversion")
+  julian = .ragperiod(periodvalue("point",perioddate("1700-02-29","day","stated","julian"),perioddate(),"bounded"))
+  errors = errors + check(julian.ok() & julian.lower()="","Julian leap day retained without Gregorian conversion")
+  before = .ragperiod(periodvalue("point",perioddate("1745","year","stated","gregorian","before"),perioddate(),"bounded"))
+  after = .ragperiod(periodvalue("point",perioddate("1745","year","stated","gregorian","after"),perioddate(),"bounded"))
+  errors = errors + check(before.ok() & before.upper() = "1744-12-31" & before.lower() = "" & after.lower() = "1746-01-01" & after.upper() = "","before and after preserve open constraint")
+  parsed = .ragperiod(point.canonical())
+  errors = errors + check(parsed.ok() & parsed.canonical() = point.canonical(),"canonical no-op")
+  during = periodquery("","1745/1746"); bad_query = periodquery("1745","1745/1746")
+  errors = errors + check(during.ok() & bad_query.ok() = 0,"query selectors share validation")
+  schema = .jsondocument(periodschema())
+  errors = errors + check(schema.valid(),"provider period schema is JSON")
+  if errors > 0 then return 1
+  say "PERIOD_OK precision uncertainty open_end calendar canonical query"
+  return 0
+
+check: procedure = .int
+  arg condition = .int, message = .string
+  if condition = 1 then return 0
+  say "FAIL " || message
+  return 1

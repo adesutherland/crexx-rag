@@ -72,8 +72,11 @@ decodeproposaljson: procedure = .int
   if document.valid() \= 1 | document.node_type(document.root()) \= "object" then return _fail("proposal is not a JSON object", error)
   root = document.root()
   allowed = "schema proposal_id kind source_concept_id source_label source_type relationship_type target_concept_id target_label target_type direction qualifiers effective_from effective_to revision_chunk_id span_start span_end polarity stance directness attribution lineage_group confidence_millionths provider_id model request_id prompt_version extractor_identity source_scope profile_id external"
-  if document.node_count(root) \= 31 | _objectmembers(document, root, allowed, error) \= 0 then do
-    if error = "" then error = "proposal must contain exactly the 31 public schema members"
+  encoded_schema = ""; ignored = document.node_string(document.member(root,"schema"),encoded_schema)
+  members = 31; assessment = ""
+  if encoded_schema = "crexx-rag.extraction-proposal/2" then do; members = 32; allowed = allowed || " assessment"; assessment = document.node_get(document.member(root,"assessment")); end
+  if document.node_count(root) \= members | _objectmembers(document, root, allowed, error) \= 0 then do
+    if error = "" then error = "proposal must contain exactly its versioned schema members"
     return -1
   end
   schema = ""; proposal_id = ""; kind = ""; source_concept_id = ""; source_label = ""; source_type = ""; relationship_type = ""
@@ -119,15 +122,15 @@ decodeproposaljson: procedure = .int
   span_start = 0; span_end = 0; confidence = 0; external = 0
   if document.node_int(document.member(root, "span_start"), span_start) \= 0 | document.node_int(document.member(root, "span_end"), span_end) \= 0 | document.node_int(document.member(root, "confidence_millionths"), confidence) \= 0 | document.node_int(document.member(root, "external"), external) \= 0 then return _fail("proposal numeric members must be exact integers", error)
   if require_external = 1 & external \= 1 then return _fail("public proposal input must declare external=1", error)
-  proposal = .ragextractionproposal(schema, proposal_id, kind, source_concept_id, source_label, source_type, relationship_type, target_concept_id, target_label, target_type, direction, qualifiers, effective_from, effective_to, revision_chunk_id, span_start, span_end, polarity, stance, directness, attribution, lineage_group, confidence, provider_id, model, request_id, prompt_version, extractor_identity, source_scope, profile_id, external)
+  proposal = .ragextractionproposal(schema, proposal_id, kind, source_concept_id, source_label, source_type, relationship_type, target_concept_id, target_label, target_type, direction, qualifiers, effective_from, effective_to, revision_chunk_id, span_start, span_end, polarity, stance, directness, attribution, lineage_group, confidence, provider_id, model, request_id, prompt_version, extractor_identity, source_scope, profile_id, external, assessment)
   return 0
 
 internalizeproposal: procedure = .ragextractionproposal
   arg proposal = .ragextractionproposal
-  return .ragextractionproposal(proposal.schema(), proposal.proposal_id(), proposal.kind(), proposal.source_concept_id(), proposal.source_label(), proposal.source_type(), proposal.relationship_type(), proposal.target_concept_id(), proposal.target_label(), proposal.target_type(), proposal.direction(), proposal.qualifiers_json(), proposal.effective_from(), proposal.effective_to(), proposal.revision_chunk_id(), proposal.span_start(), proposal.span_end(), proposal.polarity(), proposal.stance(), proposal.directness(), proposal.attribution(), proposal.lineage_group(), proposal.confidence_millionths(), proposal.provider_id(), proposal.model(), proposal.request_id(), proposal.prompt_version(), proposal.extractor_identity(), proposal.source_scope(), proposal.profile_id(), 0)
+  return .ragextractionproposal(proposal.schema(), proposal.proposal_id(), proposal.kind(), proposal.source_concept_id(), proposal.source_label(), proposal.source_type(), proposal.relationship_type(), proposal.target_concept_id(), proposal.target_label(), proposal.target_type(), proposal.direction(), proposal.qualifiers_json(), proposal.effective_from(), proposal.effective_to(), proposal.revision_chunk_id(), proposal.span_start(), proposal.span_end(), proposal.polarity(), proposal.stance(), proposal.directness(), proposal.attribution(), proposal.lineage_group(), proposal.confidence_millionths(), proposal.provider_id(), proposal.model(), proposal.request_id(), proposal.prompt_version(), proposal.extractor_identity(), proposal.source_scope(), proposal.profile_id(), 0, proposal.assessment_json())
 
 profileclaimpolicy: procedure = .ragclaimpolicy
-  arg profile = .ragprofile
+  arg profile = .ragprofile, policy_version = ""
   types = ""; values = profile.concept_types()
   do i = 1 to values.0
     if types \= "" then types = types || "|"
@@ -138,7 +141,8 @@ profileclaimpolicy: procedure = .ragclaimpolicy
     if relationships \= "" then relationships = relationships || "|"
     relationships = relationships || relationship_values[i].relationship_id()
   end
-  return .ragclaimpolicy("surface-claim-v2:" || profile.version(), types, relationships, 1000, 700, 600, 500, 300)
+  if policy_version = "" then policy_version = "surface-claim-v2:" || profile.version()
+  return .ragclaimpolicy(policy_version, types, relationships, 1000, 700, 600, 500, 300)
 
 _objectmembers: procedure = .int
   arg document = .jsondocument, node = .int, allowed = .string, expose error = .string

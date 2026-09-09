@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragbacklog expose resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept backlogsummary
+namespace ragbacklog expose enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary
 
 import rxfnsb
 import rxjson
@@ -9,6 +9,7 @@ import rxsqlite
 import ragconfig
 import ragprofile
 import ragcanonical
+import ragenrich
 import ragstore
 import ragmaintain
 import raggrounding
@@ -168,6 +169,17 @@ startbacklogwindow: procedure = .int
   time_cap = _n(policy,"time_ms"); if time_cap < _n(policy,"embedding_time") then time_cap = _n(policy,"embedding_time")
   budget_json = '{"time_budget_ms":' || _providertimebudget(policy) || ',"maximum_call_input_tokens":' || input_cap || ',"maximum_call_output_tokens":' || _n(policy,"output_tokens") || ',"maximum_call_cost":' || cost_cap || ',"maximum_call_time_ms":' || time_cap || ',"maximum_inflight_calls":' || _n(policy,"inflight") || ',"maximum_attempts":' || _n(policy,"maximum_attempts") || '}'
   if sqliteexec(database, "INSERT INTO job_events(job_id,event_type,message,occurred_at) VALUES(" || _q(job_id) || ",'budget-policy'," || _q(budget_json) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))") \= 0 then return _rollback(database, "cannot persist maintenance budget policy", error)
+  selection = .jsondocument(_s(policy,"enrichment"))
+  if selection.valid() = 1 then do
+    chunks = selection.member(selection.root(),"chunks")
+    do i = 1 to selection.node_count(chunks)
+      node = selection.element(chunks,i); chunk = ""; expected_fingerprint = ""
+      ignored = selection.node_string(selection.member(node,"revision_chunk_id"),chunk); ignored = selection.node_string(selection.member(node,"evidence_fingerprint"),expected_fingerprint)
+      packet = ""; fingerprint = ""; task_id = ""
+      if enrichmentpacket(database,chunk,_n(policy,"maximum_evidence_bytes"),packet,fingerprint,error) \= 0 | fingerprint \= expected_fingerprint then return _rollback(database,"provenance worklist changed; re-plan",error)
+      if enqueuebacklogtask(database,"provenance-enrichment","provenance-chunk",chunk,"","",900000,policy,task_id,error) \= 0 then return _rollback(database,error,error)
+    end
+  end
   if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit maintenance window", error)
   if tickbacklogwindow(store, job_id, error) < 0 then return -3
   items = _number(database, "SELECT count(*) FROM job_items WHERE job_id=" || _q(job_id) || " AND state='queued'")
@@ -182,9 +194,22 @@ recordaliasissue: procedure = .int
   end
   values = values || "]"
   issue_id = "alias-issue:" || _hash(candidate_id || "00"x || label || "00"x || concept_type || "00"x || values)
-  sql = "INSERT OR IGNORE INTO maintenance_alias_issues(issue_id,candidate_id,proposed_label,proposed_type,aliases_json,created_epoch) VALUES(" || _q(issue_id) || "," || _q(candidate_id) || "," || _q(label) || "," || _q(concept_type) || "," || _q(values) || ",unixepoch())"
+  sql = "INSERT INTO maintenance_alias_issues(issue_id,candidate_id,proposed_label,proposed_type,aliases_json,created_epoch) VALUES(" || _q(issue_id) || "," || _q(candidate_id) || "," || _q(label) || "," || _q(concept_type) || "," || _q(values) || ",unixepoch()) ON CONFLICT(issue_id) DO UPDATE SET state='open'"
   if sqliteexec(database, sql) \= 0 then do; error = "cannot preserve unresolved alias question"; return -1; end
   return 0
+
+/* An evidence-validated occurrence decision takes precedence over an ambiguous
+ * name lookup, but only while its selected identity still has that meaning. */
+resolveknownmention: procedure = .int
+  arg database = .binary, candidate_id = .string, expose label = .string, expose concept_type = .string, expose concept_id = .string, expose error = .string
+  error = ""; concept_id = ""
+  decision = .jsondocument(_text(database,"SELECT d.evidence_json FROM candidate_decisions d JOIN candidate_mentions m ON m.candidate_id=d.candidate_id WHERE d.candidate_id=" || _q(candidate_id) || " AND d.state='accepted' AND m.visible_to_generation IS NULL ORDER BY d.decision_version DESC LIMIT 1"))
+  selected = _s(decision,"resolved_concept_id")
+  if selected = "" then return 0
+  canonical = .jsondocument(_text(database,"SELECT json_object('label',canonical_label,'type',concept_type) FROM concepts WHERE concept_id=" || _q(selected) || " AND lifecycle_state='active' AND visible_to_generation IS NULL"))
+  if _s(canonical,"label") \= _s(decision,"canonical_label") | _s(canonical,"type") \= _s(decision,"concept_type") then return 0
+  label = _s(canonical,"label"); concept_type = _s(canonical,"type"); concept_id = selected
+  return 1
 
 resolveknownconcept: procedure = .int
   arg database = .binary, label = .string, concept_type = .string, expose canonical_label = .string, expose concept_id = .string, expose error = .string
@@ -202,11 +227,13 @@ resolveknownconcept: procedure = .int
   end
   call sqlitefinalize prepared
   if count \= 1 then do; canonical_label = label; concept_id = ""; end
-  return count = 1
+  /* Zero is new; two means ambiguous, never an implicit selected identity. */
+  return count
 
 buildbacklogevidence: procedure = .int
   arg database = .binary, subject_type = .string, subject_id = .string, workflow_id = .string, maximum_bytes = .int, expose output = .string, expose fingerprint = .string, expose error = .string
   output = ""; fingerprint = ""; error = ""
+  if subject_type = "provenance-chunk" then return enrichmentpacket(database,subject_id,maximum_bytes,output,fingerprint,error)
   subject = _subject(database, subject_type, subject_id)
   if subject = "" then return 1
   successors = "[]"
@@ -261,7 +288,9 @@ enqueuebacklogtask: procedure = .int
 
 _question: procedure = .string
   arg kind = .string
-  if kind = "alias-resolution" then return "Does this occurrence reuse a supplied concept, express a distinct meaning, or remain unresolved? Do not infer identity from spelling alone."
+  if kind = "provenance-enrichment" then return enrichmentprompt()
+  if kind = "alias-resolution" then return "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage."
+  if kind = "identity-review" then return "Review this concept's classification against its source passages, competing meanings and recorded changes. Correct only what the evidence supports. Distinguish an actor from the object or place it acts upon; an index heading alone does not classify every name in its entry. Prefer splitting mixed meanings and reviewing their connections over changing all occurrences to one type."
   if kind = "connection" then return "Which successor does this particular connection belong to? Preserve its source-supported meaning and direction; retain uncertainty rather than copying a fact to every successor."
   if kind = "claim-conflict" then return "Are these claims contradictory, different in time or scope, or simultaneously valid? Decide whether to retain, qualify or retract one, with source evidence."
   if kind = "retirement" then return "Can this migration parent retire after all affected connections have been accounted for? Never discard remaining evidence."
@@ -317,7 +346,13 @@ _subject: procedure = .string
   if kind = "gap" then sql = "SELECT json_object('type','gap','id',gap_id,'question',normalized_question,'text',gap_text,'occurrences',occurrence_count) FROM query_gaps WHERE gap_id=" || key || " AND state='open'"
   if kind = "alias-issue" then sql = "SELECT json_object('type','alias-issue','id',i.issue_id,'candidate_id',i.candidate_id,'canonical_label',i.proposed_label,'concept_type',i.proposed_type,'aliases',json(i.aliases_json),'candidates',json(coalesce((SELECT json_group_array(json_object('concept_id',z.concept_id,'canonical_label',z.canonical_label,'concept_type',z.concept_type)) FROM (SELECT DISTINCT c.concept_id,c.canonical_label,c.concept_type FROM concepts c LEFT JOIN aliases a ON a.target_concept_id=c.concept_id AND a.visible_to_generation IS NULL WHERE c.visible_to_generation IS NULL AND c.lifecycle_state<>'retired' AND (lower(c.canonical_label)=lower(i.proposed_label) OR a.normalized_alias=lower(i.proposed_label) OR a.normalized_alias IN(SELECT lower(value) FROM json_each(i.aliases_json))) ORDER BY c.concept_id) z),'[]'))) FROM maintenance_alias_issues i WHERE i.issue_id=" || key || " AND i.state='open'"
   if sql = "" then return ""
-  return _text(database,sql)
+  subject = _text(database,sql)
+  if kind = "concept" then do
+    history = _text(database,"SELECT json_group_array(json_object('version',version,'canonical_label',canonical_label,'concept_type',concept_type,'reason',reason,'generation',generation)) FROM (SELECT * FROM concept_versions WHERE concept_id=" || key || " ORDER BY version DESC LIMIT 8)")
+    alternatives = _text(database,"SELECT json_group_array(json_object('concept_id',concept_id,'canonical_label',canonical_label,'concept_type',concept_type)) FROM (SELECT d.* FROM concepts d JOIN concepts c ON c.concept_id=" || key || " WHERE d.concept_id<>c.concept_id AND d.lifecycle_state='active' AND d.visible_to_generation IS NULL AND lower(d.canonical_label)=lower(c.canonical_label) ORDER BY d.concept_id LIMIT 16)")
+    subject = _text(database,"SELECT json_set(" || _q(subject) || ",'$.recent_versions',json(" || _q(history) || "),'$.competing_identities',json(" || _q(alternatives) || "))")
+  end
+  return subject
 
 _claimobject: procedure = .string
   arg alias = .string
@@ -354,6 +389,7 @@ _passagequery: procedure = .string
 
 _scan: procedure = .int
   arg database = .binary, policy = .jsondocument, expose error = .string, scan_token = .string
+  if _s(policy,"enrichment") \= "" then return 0
   more = 0
   queries = .string[]; kinds = .string[]; types = .string[]; priorities = .int[]
   queries[1] = "SELECT issue_id FROM maintenance_alias_issues WHERE state='open'"; kinds[1] = "alias-resolution"; types[1] = "alias-issue"; priorities[1] = 950000
@@ -366,6 +402,9 @@ _scan: procedure = .int
     queries[7] = "SELECT r.revision_chunk_id FROM revision_chunks r WHERE r.visible_to_generation IS NULL AND NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings l JOIN embeddings e ON e.embedding_id=l.embedding_id WHERE l.revision_chunk_id=r.revision_chunk_id AND l.visible_to_generation IS NULL AND e.embedding_profile_id=" || _q(_s(policy,"embedding_profile")) || ")"
     kinds[7] = "embedding-repair:" || _s(policy,"embedding_profile"); types[7] = "chunk"; priorities[7] = 980000
   end
+  review_index = queries.0 + 1
+  queries[review_index] = "SELECT c.concept_id FROM concepts c WHERE c.lifecycle_state='active' AND c.visible_to_generation IS NULL AND EXISTS(SELECT 1 FROM maintenance_alias_issues i WHERE i.state='open' AND lower(i.proposed_label)=lower(c.canonical_label) AND (i.proposed_type<>c.concept_type OR EXISTS(SELECT 1 FROM concepts d WHERE d.concept_id<>c.concept_id AND d.lifecycle_state='active' AND d.visible_to_generation IS NULL AND lower(d.canonical_label)=lower(c.canonical_label))))"
+  kinds[review_index] = "identity-review"; types[review_index] = "concept"; priorities[review_index] = 960000
   do i = 1 to queries.0
     /* Finish each category once for a stable evidence snapshot. New provider
      * outcomes or graph generations reopen the census while preserving progress. */
@@ -505,7 +544,10 @@ _closewindow: procedure = .int
   if sqliteexec(database,sql) \= 0 then do; error = "cannot close maintenance window"; return -1; end
   sql = "UPDATE jobs SET state=CASE WHEN EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=jobs.job_id AND i.state IN('running','cancel_requested')) THEN 'paused' ELSE 'completed' END,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id)
   if sqliteexec(database,sql) \= 0 then do; error = "cannot checkpoint maintenance job"; return -1; end
-  sql = "UPDATE maintenance_runs SET state=CASE WHEN EXISTS(SELECT 1 FROM maintenance_tasks WHERE state IN('pending','dispatched','unresolved','review','failed')) THEN 'incomplete' ELSE 'complete' END,completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=(SELECT run_id FROM maintenance_windows WHERE job_id=" || _q(job_id) || ")"
+  task_scope = ""
+  policy = .jsondocument(_text(database,"SELECT policy_json FROM maintenance_windows WHERE job_id=" || _q(job_id)))
+  if _s(policy,"enrichment") \= "" then task_scope = " AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy"))
+  sql = "UPDATE maintenance_runs SET state=CASE WHEN EXISTS(SELECT 1 FROM maintenance_tasks WHERE state IN('pending','dispatched','unresolved','review','failed')" || task_scope || ") THEN 'incomplete' ELSE 'complete' END,completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=(SELECT run_id FROM maintenance_windows WHERE job_id=" || _q(job_id) || ")"
   if sqliteexec(database,sql) \= 0 then do; error = "cannot checkpoint maintenance report"; return -1; end
   return 0
 
@@ -612,6 +654,7 @@ _expandworkflows: procedure = .int
 
 backlogschema: procedure = .string
   arg subject_type = "", workflow = 0
+  if subject_type = "provenance-chunk" then return enrichmentschema()
   actions = _resolutionactions(subject_type,workflow); encoded = "["
   do i = 1 to words(actions)
     if i > 1 then encoded = encoded || ","
@@ -634,6 +677,7 @@ _resolutionactions: procedure = .string
 validatebacklogresponse: procedure = .int
   arg database = .binary, task_id = .string, response = .string, expose grounding_json = .string, expose error = .string
   error = ""; grounding_json = "[]"; result = .jsondocument(response)
+  if _text(database,"SELECT subject_type FROM maintenance_tasks WHERE task_id=" || _q(task_id)) = "provenance-chunk" then return validateenrichment(database,task_id,response,grounding_json,error)
   if result.valid() \= 1 | result.node_type(result.root()) \= "object" | result.node_count(result.root()) \= 12 | length(response) > 131072 then do; error = "resolution response has an invalid bounded shape"; return -1; end
   required = "action object_id target_concept_id canonical_label concept_type reason effective_from effective_to qualifiers_json question"
   do i = 1 to words(required)
@@ -728,6 +772,8 @@ completebacklogdecision: procedure = .int
   if action = "unresolved" then decision_state = "unresolved"
   if action = "investigate" then decision_state = "unresolved"
   if action \= "unresolved" & (_s(policy,"mode") \= "automatic" | wordpos(action,_s(policy,"automatic_actions")) = 0) then decision_state = "review"
+  if action = "assess-provenance" & _s(policy,"enrichment") \= "" & _s(policy,"mode") = "automatic" then decision_state = "resolved"
+  if action = "assess-provenance" then if _number(database,"SELECT count(*) FROM json_each(" || _q(grounds) || ") WHERE json_extract(value,'$.assessment.description.assessment')='review-required'")>0 | _number(database,"SELECT count(*) FROM json_each(" || _q(response) || ",'$.assessments') WHERE json_extract(value,'$.confidence_millionths')<500000")>0 then decision_state="review"
   if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do; error = "cannot record resolution decision"; return -3; end
   current = _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1"); generation = 0
   if _number(database,"SELECT count(*) FROM job_items i JOIN attempts a ON a.item_id=i.item_id AND a.attempt_id=" || _q(attempt_id) || " WHERE i.item_id=" || _q(item_id) || " AND i.state='running' AND i.worker_id=" || _q(worker_id) || " AND i.fence=" || fence || " AND i.lease_until>unixepoch() AND a.outcome='running' AND a.fence=i.fence") \= 1 then return _rollback(database,"resolution worker fence is stale",error)
@@ -746,6 +792,11 @@ completebacklogdecision: procedure = .int
       if _backlogimpact(database,subject,current,impact_types,impact_ids,error) \= 0 then return _rollback(database,error,error)
       if impact_ids.0 > _n(policy,"maximum_impact") then decision_state = "review"
     end
+  end
+  if decision_state="resolved" & action="assess-provenance" then do
+    review_status=enrichmentreviewrequired(store,task_id,response,profile,current,error)
+    if review_status<0 then return _rollback(database,error,error)
+    if review_status=1 then decision_state="review"
   end
   if decision_state = "resolved" then do
     snapshot_id = _text(database,"SELECT config_snapshot_id FROM jobs WHERE job_id=" || _q(job_id))
@@ -828,6 +879,7 @@ inspectbacklog: procedure = .string
 _applydecision: procedure = .int
   arg store = .ragstorehandle, task_id = .string, task = .jsondocument, result = .jsondocument, profile = .ragprofile, job_id = .string, current = .int, generation = .int, policy = .jsondocument, expose error = .string
   database = store.database(); action = _s(result,"action"); kind = _s(task,"subject_type"); object = _s(task,"subject_id"); target = _s(result,"target_concept_id"); workflow_id = _s(task,"workflow_id")
+  if action = "assess-provenance" & kind = "provenance-chunk" then return applyenrichment(store,task_id,result.node_get(result.root()),profile,job_id,current,generation,error)
   if action = "reuse" | action = "distinct" then do
     if _resolvealias(store,task,result,profile,current,generation,error) \= 0 then return -1
     chunk = _text(database,"SELECT c.revision_chunk_id FROM maintenance_alias_issues i JOIN candidate_mentions c ON c.candidate_id=i.candidate_id WHERE i.issue_id=" || _q(object))
@@ -960,6 +1012,12 @@ _resolvealias: procedure = .int
   ambiguity = .string[]; promoted = ""
   snapshot_id = _text(database,"SELECT config_snapshot_id FROM published_generations WHERE generation=" || current)
   if promotemention(store,_s(issue,"candidate_id"),label,concept_type,aliases,ambiguity,claim_policy,snapshot_id,promoted,error,selected,generation,1) \= 0 then return -1
+  /* Append the occurrence binding; do not rewrite its prior acceptance. The
+   * follow-up extraction can reuse this decision without another identity loop. */
+  binding = '{"resolved_concept_id":' || jsonquote(promoted) || ',"canonical_label":' || jsonquote(label) || ',"concept_type":' || jsonquote(concept_type) || ',"identity_issue":' || jsonquote(_s(task,"subject_id")) || ',"generation":' || generation || '}'
+  decision_id = "candidate-identity:" || _hash(_s(issue,"candidate_id") || "00"x || binding)
+  sql = "INSERT INTO candidate_decisions(decision_id,candidate_id,decision_version,state,evidence_json,policy_version,created_at) SELECT " || _q(decision_id) || "," || _q(_s(issue,"candidate_id")) || ",coalesce(max(decision_version),0)+1,'accepted'," || _q(binding) || ",'identity-resolution-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM candidate_decisions WHERE candidate_id=" || _q(_s(issue,"candidate_id"))
+  if sqliteexec(database,sql) \= 0 then do; error = "cannot record resolved occurrence identity"; return -1; end
   if sqliteexec(database,"UPDATE maintenance_alias_issues SET state='resolved' WHERE issue_id=" || _q(_s(task,"subject_id"))) \= 0 then do; error = "cannot settle identity resolution question"; return -1; end
   return 0
 
@@ -1060,3 +1118,12 @@ _taskcallcount: procedure = .string
 _recoverablecount: procedure = .string
   arg task_expression = .string
   return "(SELECT count(*) FROM maintenance_provider_outputs o WHERE o.task_id=" || task_expression || " AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.item_id=o.item_id AND a.outcome IN('failed','dead_letter')))"
+
+enrichmentpolicy: procedure = .string
+  arg database = .binary, config = .ragconfig, profile = .ragprofile, timing_json = .string, census = .ragmaintenancecensus
+  base = backlogpolicy(config,profile,"",timing_json); policy = .jsondocument(base)
+  count = census.item_count(); calls = count*2
+  if calls > _n(policy,"model_calls") then calls = _n(policy,"model_calls")
+  items = count; if items > _n(policy,"item_limit") then items = _n(policy,"item_limit")
+  turns = calls; if turns > _n(policy,"codex_turns") then turns = _n(policy,"codex_turns")
+  return _text(database,"SELECT json_set(" || _q(base) || ",'$.enrichment'," || _q(census.canonical()) || ",'$.knowledge_policy'," || _q(_hash(_s(policy,"knowledge_policy") || census.digest() || "provenance-assessment/1")) || ",'$.maximum_attempts',1,'$.model_calls'," || calls || ",'$.item_limit'," || items || ",'$.codex_turns'," || turns || ")")

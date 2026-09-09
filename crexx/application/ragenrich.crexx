@@ -1,0 +1,223 @@
+options levelg
+namespace ragenrich expose enrichmentreviewrequired prepareenrichment enrichmentpacket validateenrichment applyenrichment enrichmentschema enrichmentprompt
+import rxfnsb
+import rxjson
+import rxhash
+import rxsqlite
+import ragstore
+import ragclaims
+import ragprofile
+import ragproposalio
+import ragmaintain
+import ragassessment
+import ragprovenance
+
+prepareenrichment: procedure = .int
+  arg database=.binary, input=.string, maximum_bytes=.int, expose census=.ragmaintenancecensus, expose error=.string
+  doc=.jsondocument(input); root=doc.root(); schema=""; error=""
+  if length(input)>1048576 | doc.valid()\=1 | doc.node_type(root)\="object" | doc.node_count(root)\=2 | doc.node_string(doc.member(root,"schema"),schema)\=0 | schema\="crexx-rag.provenance-worklist/1" then return _fail("invalid bounded provenance worklist",error)
+  chunks=doc.member(root,"chunks")
+  if doc.node_type(chunks)\="array" | doc.node_count(chunks)>5000 then return _fail("provenance worklist must contain at most 5000 chunk IDs",error)
+  ids=.string[]
+  do i=1 to doc.node_count(chunks)
+    id=""
+    if doc.node_string(doc.element(chunks,i),id)\=0 | id="" then return _fail("provenance worklist chunk ID is invalid",error)
+    ids[ids.0+1]=id
+  end
+  call arraysort ids
+  entries="["; count=0; supports=0; generation=_number(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  types=.string[]; subjects=.string[]; selected=.string[]; scores=.int[]; triggers=.string[]; diagnoses=.string[]; actions=.string[]
+  do i=1 to ids.0
+    if i>1 then if ids[i]=ids[i-1] then return _fail("duplicate provenance worklist chunk",error)
+    packet=""; fingerprint=""
+    status=enrichmentpacket(database,ids[i],maximum_bytes,packet,fingerprint,error)
+    if status<0 | status=2 then return -1
+    if status=1 then iterate
+    if count>0 then entries=entries || ","
+    entries=entries || '{"revision_chunk_id":' || jsonquote(ids[i]) || ',"evidence_fingerprint":' || jsonquote(fingerprint) || '}'
+    parsed=.jsondocument(packet); supports=supports+parsed.node_count(parsed.member(parsed.root(),"supports")); count=count+1
+    types[count]="provenance-enrichment"; subjects[count]="provenance-chunk"; selected[count]=ids[i]; scores[count]=900000; triggers[count]="unassessed supports"; diagnoses[count]=fingerprint; actions[count]="assess-provenance"
+  end
+  canonical='{"schema":"crexx-rag.provenance-plan/1","generation":' || generation || ',"chunks":' || entries || '],"supports":' || supports || ',"maximum_initial_calls":' || count || ',"maximum_correction_calls":' || count || '}'
+  census=.ragmaintenancecensus(generation,"",types,subjects,selected,scores,triggers,diagnoses,actions,canonical,_hash(canonical))
+  return 0
+
+enrichmentpacket: procedure = .int
+  arg database=.binary, chunk=.string, maximum_bytes=.int, expose output=.string, expose fingerprint=.string, expose error=.string
+  output=""; fingerprint=""; error=""
+  body=_text(database,"SELECT t.text FROM revision_chunks r JOIN chunk_contents t USING(content_id) WHERE r.revision_chunk_id=" || _q(chunk) || " AND r.visible_to_generation IS NULL")
+  if body="" then return _fail("selected provenance chunk is unavailable",error)
+  generation=_number(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  supports=_text(database,"SELECT json_group_array(json(value)) FROM (SELECT json_object('support_id',s.support_id,'claim_id',c.claim_id,'source_id',c.source_concept_id,'source_label',a.canonical_label,'source_type',a.concept_type,'relationship_type',c.relationship_type,'target_id',c.target_concept_id,'target_label',b.canonical_label,'target_type',b.concept_type,'direction',c.direction,'qualifiers',json(c.qualifiers_json),'effective_from',coalesce(c.effective_from,''),'effective_to',coalesce(c.effective_to,''),'policy_version',c.policy_version,'span_start',s.span_start,'span_end',s.span_end,'polarity',s.polarity,'stance',s.stance,'directness',s.directness,'attribution',coalesce(s.attribution,''),'lineage_group',s.lineage_group,'evidence_quote',CAST(substr(CAST(t.text AS BLOB),s.span_start+1,s.span_end-s.span_start) AS TEXT)) value FROM claim_support s JOIN claims c USING(claim_id) JOIN concepts a ON a.concept_id=c.source_concept_id JOIN concepts b ON b.concept_id=c.target_concept_id JOIN revision_chunks r ON r.revision_chunk_id=s.revision_chunk_id JOIN chunk_contents t ON t.content_id=r.content_id WHERE s.revision_chunk_id=" || _q(chunk) || " AND s.visible_to_generation IS NULL AND c.visible_to_generation IS NULL AND NOT EXISTS(SELECT 1 FROM support_descriptions d WHERE d.support_id=s.support_id AND d.visible_to_generation IS NULL AND json_extract(d.description_json,'$.assessment')='assessed') ORDER BY s.support_id)")
+  doc=.jsondocument(supports)
+  if doc.valid()\=1 then return _fail("cannot read provenance support packet",error)
+  if doc.node_count(doc.root())=0 then return 1
+  if doc.node_count(doc.root())>32 then do; error="provenance chunk exceeds 32 supports; review a smaller scope"; return 2; end
+  do i=1 to doc.node_count(doc.root())
+    row=doc.element(doc.root(),i); context=provenancecontext(database,chunk,generation,_n(doc,row,"span_start"),_n(doc,row,"span_end"))
+    supports=_text(database,"SELECT json_set(" || _q(supports) || "," || _q("$[" || (i-1) || "].source_metadata") || ",json(" || _q(context) || "))")
+  end
+  output='{"schema":"crexx-rag.provenance-evidence/1","subject":{"type":"provenance-chunk","id":' || jsonquote(chunk) || ',"text":' || jsonquote(body) || '},"source_metadata":' || provenancecontext(database,chunk,generation) || ',"supports":' || supports || ',"successors":[],"passages":[]}'
+  if binlength(output as .binary)>maximum_bytes then do; error="provenance evidence exceeds the configured byte limit"; return 2; end
+  fingerprint=_hash(output)
+  return 0
+
+validateenrichment: procedure = .int
+  arg database=.binary, task_id=.string, response=.string, expose grounds=.string, expose error=.string
+  grounds="[]"; error=""; doc=.jsondocument(response); root=doc.root()
+  if length(response)>131072 | doc.valid()\=1 | _members(doc,root,"action reason assessments")=0 then return _fail("invalid provenance response shape",error)
+  action=_s(doc,root,"action"); reason=_s(doc,root,"reason"); rows=doc.member(root,"assessments")
+  if wordpos(action,"assess-provenance unresolved")=0 | reason="" | length(reason)>2048 | doc.node_type(rows)\="array" then return _fail("invalid provenance response disposition",error)
+  packet=.jsondocument(_text(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _q(task_id)))
+  if packet.valid()\=1 then return _fail("provenance task has no frozen evidence",error)
+  supports=packet.member(packet.root(),"supports"); subject=packet.member(packet.root(),"subject"); body=_s(packet,subject,"text"); metadata=packet.node_get(packet.member(packet.root(),"source_metadata"))
+  if action="unresolved" then do
+    if doc.node_count(rows)\=0 then return _fail("unresolved provenance response must not apply assessments",error)
+    return 0
+  end
+  if doc.node_count(rows)\=packet.node_count(supports) then return _fail("provenance response must account for every supplied support",error)
+  seen=.string[]; encoded="["
+  do i=1 to doc.node_count(rows)
+    row=doc.element(rows,i); id=_s(doc,row,"support_id"); confidence=-1
+    if _members(doc,row,"support_id confidence_millionths assessment")=0 | doc.node_int(doc.member(row,"confidence_millionths"),confidence)\=0 | confidence<0 | confidence>1000000 then return _fail("provenance assessment entry is invalid",error)
+    do j=1 to seen.0
+      if seen[j]=id then return _fail("duplicate assessed support",error)
+    end
+    seen[seen.0+1]=id; original=_support(packet,id)
+    if original=0 then return _fail("provenance response refers to an unrequested support",error)
+    support_context=packet.node_get(packet.member(original,"source_metadata"))
+    assessment=.ragsupportassessment(doc.node_get(doc.member(row,"assessment")),body,support_context,_s(packet,original,"evidence_quote"))
+    if assessment.ok()=0 then return _fail(assessment.error(),error)
+    if i>1 then encoded=encoded || ","
+    encoded=encoded || '{"support_id":' || jsonquote(id) || ',"prior_claim_id":' || jsonquote(_s(packet,original,"claim_id")) || ',"assessment":' || assessment.canonical() || '}'
+  end
+  grounds=encoded || "]"
+  return 0
+
+applyenrichment: procedure = .int
+  arg store=.ragstorehandle, task_id=.string, response=.string, profile=.ragprofile, job_id=.string, current=.int, generation=.int, expose error=.string
+  database=store.database(); task=.jsondocument(_text(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _q(task_id)))
+  doc=.jsondocument(response); rows=doc.member(doc.root(),"assessments"); subject=task.member(task.root(),"subject"); chunk=_s(task,subject,"id"); body=_s(task,subject,"text"); metadata=task.node_get(task.member(task.root(),"source_metadata"))
+  snapshot_id=_text(database,"SELECT config_snapshot_id FROM jobs WHERE job_id=" || _q(job_id)); policy=profileclaimpolicy(profile)
+  provider_run=_text(database,"SELECT provider_run_id FROM maintenance_provider_outputs WHERE task_id=" || _q(task_id) || " ORDER BY created_epoch DESC LIMIT 1")
+  provider_id=_text(database,"SELECT provider_id FROM provider_runs WHERE provider_run_id=" || _q(provider_run)); model=_text(database,"SELECT model FROM provider_runs WHERE provider_run_id=" || _q(provider_run))
+  do i=1 to doc.node_count(rows)
+    row=doc.element(rows,i); id=_s(doc,row,"support_id"); old=_support(task,id)
+    support_context=task.node_get(task.member(old,"source_metadata"))
+    assessment=.ragsupportassessment(doc.node_get(doc.member(row,"assessment")),body,support_context,_s(task,old,"evidence_quote"))
+    if assessment.ok()=0 then return _fail(assessment.error(),error)
+    previous_claim=_s(task,old,"claim_id"); old_qualifiers=task.node_get(task.member(old,"qualifiers"))
+    qualified=_text(database,"SELECT json_patch(" || _q(old_qualifiers) || "," || _q(assessment.qualifiers()) || ")")
+    same_meaning=_samemeaning(database,task,old,assessment)
+    same_core=assessment.stance()=_s(task,old,"stance") & assessment.directness()=_s(task,old,"directness") & assessment.polarity()=_s(task,old,"polarity")
+    if same_meaning=1 then qualified=old_qualifiers
+    target_support=id
+    if same_meaning\=1 | same_core=0 then do
+      proposal=_proposal(database,task_id,task,doc,row,profile,assessment,qualified)
+      policy=profileclaimpolicy(profile,_s(task,old,"policy_version"))
+      result=.ragproposalresult
+      if applyproposaltransaction(store,proposal,policy,current,snapshot_id,generation,result,error)\=0 then return -1
+      if result.disposition()="review" then return _fail("provenance publication now requires review; retry the durable receipt",error)
+      if wordpos(result.disposition(),"accepted identical-no-op")=0 then return _fail("provenance replacement did not publish",error)
+      target_support=result.support_id()
+      if target_support\=id then do
+        if sqliteexec(database,"UPDATE claim_support SET visible_to_generation=" || generation || " WHERE support_id=" || _q(id) || " AND visible_to_generation IS NULL")\=0 then return _fail("cannot supersede assessed support",error)
+        if sqliteexec(database,"UPDATE support_descriptions SET visible_to_generation=" || generation || " WHERE support_id=" || _q(id) || " AND visible_to_generation IS NULL")\=0 then return _fail("cannot supersede prior support description",error)
+        if sqliteexec(database,"UPDATE claims SET visible_to_generation=" || generation || " WHERE claim_id=" || _q(previous_claim) || " AND claim_id<>" || _q(result.claim_id()) || " AND visible_to_generation IS NULL AND NOT EXISTS(SELECT 1 FROM claim_support WHERE claim_id=" || _q(previous_claim) || " AND visible_to_generation IS NULL)")\=0 then return _fail("cannot close unsupported prior claim",error)
+      end
+    end
+    ground=_text(database,"SELECT json_set(" || _q(assessment.provenance()) || ",'$.qualification',json_object('prior_claim_id'," || _q(previous_claim) || ",'prior_support_id'," || _q(id) || ",'task_id'," || _q(task_id) || "))")
+    if _number(database,"SELECT count(*) FROM support_descriptions WHERE support_id=" || _q(target_support) || " AND visible_from_generation=" || generation || " AND json_extract(provenance_json,'$.qualification.prior_support_id') IS NOT NULL AND json_extract(provenance_json,'$.qualification.prior_support_id')<>" || _q(id))>0 then return _fail("two assessments converge on one support; review their provenance conflict",error)
+    /* A newly inserted description is still private to this transaction. */
+    if sqliteexec(database,"DELETE FROM support_descriptions WHERE support_id=" || _q(target_support) || " AND visible_from_generation=" || generation)\=0 then return _fail("cannot attach assessed qualification provenance",error)
+    if putdescription(database,target_support,assessment.description(),ground,provider_run,generation,error)\=0 then return -1
+  end
+  return 0
+
+_support: procedure = .int
+  arg doc=.jsondocument, id=.string
+  rows=doc.member(doc.root(),"supports")
+  do i=1 to doc.node_count(rows)
+    node=doc.element(rows,i)
+    if _s(doc,node,"support_id")=id then return node
+  end
+  return 0
+_members: procedure = .int
+  arg doc=.jsondocument, node=.int, names=.string
+  if doc.node_type(node)\="object" | doc.node_count(node)\=words(names) then return 0
+  children=.int[]; ignored=doc.children(node,children); seen=""
+  do i=1 to children.0
+    name=doc.node_name(children[i])
+    if wordpos(name,names)=0 | wordpos(name,seen)>0 then return 0
+    seen=seen || " " || name
+  end
+  return 1
+_s: procedure = .string
+  arg doc=.jsondocument, node=.int, key=.string
+  value=""; ignored=doc.node_string(doc.member(node,key),value); return value
+_n: procedure = .int
+  arg doc=.jsondocument, node=.int, key=.string
+  value=-1; ignored=doc.node_int(doc.member(node,key),value); return value
+_q: procedure = .string
+  arg value=.string
+  return "'" || changestr("'",value,"''") || "'"
+_hash: procedure = .string
+  arg value=.string
+  return rxhash..sha256hex(value as .binary)
+_text: procedure = .string
+  arg database=.binary, sql=.string
+  p=.binary; value=""
+  if sqliteprepare(database,sql,p)=0 then do; if sqlitestep(p)=100 then ignored=sqlitecolumntext(p,0,value); call sqlitefinalize p; end
+  return value
+_number: procedure = .int
+  arg database=.binary, sql=.string
+  p=.binary; value=-1
+  if sqliteprepare(database,sql,p)=0 then do; if sqlitestep(p)=100 then ignored=sqlitecolumnint(p,0,value); call sqlitefinalize p; end
+  return value
+_fail: procedure = .int
+  arg message=.string, expose error=.string
+  error=message; return -1
+
+enrichmentschema: procedure = .string
+  return '{"type":"object","additionalProperties":false,"required":["action","reason","assessments"],"properties":{"action":{"type":"string","enum":["assess-provenance","unresolved"]},"reason":{"type":"string"},"assessments":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["support_id","confidence_millionths","assessment"],"properties":{"support_id":{"type":"string"},"confidence_millionths":{"type":"integer"},"assessment":' || assessmentschema() || '}}}}}'
+enrichmentprompt: procedure = .string
+  return "Assess exactly the supplied existing supports. Do not discover new relationships or change their endpoints. Return one assessment per supplied support_id, or unresolved with no assessments for the whole packet. Confidence is your confidence in the interpretation, from 0 to 1000000. Every relationship evidence_quote is frozen in the support packet: a historical temporal_quote must equal that quotation. If it contains no grounded historical date, assess it as unknown; a successfully undated assessment is useful. " || assessmentprompt()
+
+_proposal: procedure = .ragextractionproposal
+  arg database=.binary, task_id=.string, task=.jsondocument, doc=.jsondocument, row=.int, profile=.ragprofile, assessment=.ragsupportassessment, qualified=.string
+  id=_s(doc,row,"support_id"); old=_support(task,id); subject=task.member(task.root(),"subject"); chunk=_s(task,subject,"id"); response=doc.node_get(doc.root())
+  provider_run=_text(database,"SELECT provider_run_id FROM maintenance_provider_outputs WHERE task_id=" || _q(task_id) || " ORDER BY created_epoch DESC LIMIT 1")
+  provider_id=_text(database,"SELECT provider_id FROM provider_runs WHERE provider_run_id=" || _q(provider_run)); model=_text(database,"SELECT model FROM provider_runs WHERE provider_run_id=" || _q(provider_run))
+  confidence=0; ignored=doc.node_int(doc.member(row,"confidence_millionths"),confidence)
+  return .ragextractionproposal("crexx-rag.extraction-proposal/2","enrich:" || _hash(task_id || id || response),"claim",_s(task,old,"source_id"),_s(task,old,"source_label"),_s(task,old,"source_type"),_s(task,old,"relationship_type"),_s(task,old,"target_id"),_s(task,old,"target_label"),_s(task,old,"target_type"),_s(task,old,"direction"),qualified,assessment.effective_from(),assessment.effective_to(),chunk,_n(task,old,"span_start"),_n(task,old,"span_end"),assessment.polarity(),assessment.stance(),assessment.directness(),assessment.voice(),_s(task,old,"lineage_group"),confidence,provider_id,model,provider_run,"provenance-enrichment/1","provenance-enrichment/1:" || assessment.stance() || ":" || assessment.directness(),"provenance-worklist",profile.profile_id(),0,assessment.canonical())
+
+_samemeaning: procedure = .int
+  arg database=.binary, task=.jsondocument, old=.int, assessment=.ragsupportassessment
+  if _s(task,old,"effective_from")\=assessment.effective_from() | _s(task,old,"effective_to")\=assessment.effective_to() then return 0
+  old_qualifiers=task.node_get(task.member(old,"qualifiers")); qualified=assessment.qualifiers()
+  return _number(database,"SELECT coalesce(json_extract(" || _q(old_qualifiers) || ",'$.modality'),'asserted')=json_extract(" || _q(qualified) || ",'$.modality') AND coalesce(json_extract(" || _q(old_qualifiers) || ",'$.temporal.kind'),'unknown')=json_extract(" || _q(qualified) || ",'$.temporal.kind') AND (json_extract(" || _q(qualified) || ",'$.temporal.kind')='unknown' OR json_extract(" || _q(old_qualifiers) || ",'$.temporal')=json_extract(" || _q(qualified) || ",'$.temporal'))")
+
+enrichmentreviewrequired: procedure = .int
+  arg store=.ragstorehandle, task_id=.string, response=.string, profile=.ragprofile, generation=.int, expose error=.string
+  database=store.database(); task=.jsondocument(_text(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _q(task_id)))
+  doc=.jsondocument(response); rows=doc.member(doc.root(),"assessments"); subject=task.member(task.root(),"subject"); body=_s(task,subject,"text")
+  do i=1 to doc.node_count(rows)
+    row=doc.element(rows,i); id=_s(doc,row,"support_id"); old=_support(task,id); confidence=_n(doc,row,"confidence_millionths")
+    assessment=.ragsupportassessment(doc.node_get(doc.member(row,"assessment")),body,task.node_get(task.member(old,"source_metadata")),_s(task,old,"evidence_quote"))
+    if assessment.ok()=0 then do; error=assessment.error(); return -1; end
+    if confidence<500000 | assessment.review_required()=1 then return 1
+    assessed=.jsondocument(assessment.qualifiers()); temporal=assessed.member(assessed.root(),"temporal")
+    if _s(assessed,temporal,"kind")="unknown" & (_s(task,old,"effective_from")\="" | _s(task,old,"effective_to")\="") then return 1
+    old_meaning=.jsondocument(task.node_get(task.member(old,"qualifiers"))); old_period=old_meaning.member(old_meaning.root(),"temporal")
+    if _s(assessed,temporal,"kind")="unknown" & wordpos(_s(old_meaning,old_period,"kind"),"point interval not-applicable")>0 then return 1
+    same_meaning=_samemeaning(database,task,old,assessment)
+    same_core=assessment.stance()=_s(task,old,"stance") & assessment.directness()=_s(task,old,"directness") & assessment.polarity()=_s(task,old,"polarity")
+    if same_meaning=1 & same_core=1 then iterate
+    old_qualifiers=task.node_get(task.member(old,"qualifiers")); qualified=_text(database,"SELECT json_patch(" || _q(old_qualifiers) || "," || _q(assessment.qualifiers()) || ")")
+    if same_meaning=1 then qualified=old_qualifiers
+    proposal=_proposal(database,task_id,task,doc,row,profile,assessment,qualified); validation=.ragproposalvalidation
+    if validateproposal(store,proposal,profileclaimpolicy(profile,_s(task,old,"policy_version")),validation,error,generation)\=0 then return -1
+    if validation.status()\=0 then do; error=validation.reason(); return -1; end
+    if validation.disposition()="review" then return 1
+  end
+  return 0

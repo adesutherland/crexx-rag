@@ -116,6 +116,16 @@ mergingextractionprovider: class implements .ragworkprovider
     mentions[1] = .ragworkmention("candidate-rel013","Peer","concept",9,13,aliases,"concept-peer")
     return .ragworkproviderresult(0,"fixture","fixture","request-rel013",10,10,0,1,0,empty,"",0,"","",.ragworkembedding("","","","","",0,"",''x as .binary),"","local-compute",mentions,proposals,notes)
 
+identitycollisionprovider: class implements .ragworkprovider
+  *: factory
+    return
+  process: method = .ragworkproviderresult
+    arg claim = .ragworkclaim
+    empty = .ragextractionproposal; mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]; aliases = .string[]
+    aliases[1] = "Platform"
+    mentions[1] = .ragworkmention("candidate-identity-collision","Platform","evidence-span",0,8,aliases)
+    return .ragworkproviderresult(0,"fixture","fixture","identity-" || claim.attempt_id(),10,10,0,1,0,empty,"",0,"","",.ragworkembedding("","","","","",0,"",''x as .binary),"","local-compute",mentions,proposals,notes)
+
 responsejson: procedure = .string
   arg action = .string, target = "", successors = "[]", evidence = "[]", object_id = "", question = "", qualifiers = "{}", effective_from = "", effective_to = ""
   return '{"action":' || jsonquote(action) || ',"object_id":' || jsonquote(object_id) || ',"target_concept_id":' || jsonquote(target) || ',"canonical_label":"","concept_type":"","successors":' || successors || ',"reason":"fixture evidence-based decision","evidence":' || evidence || ',"effective_from":' || jsonquote(effective_from) || ',"effective_to":' || jsonquote(effective_to) || ',"qualifiers_json":' || jsonquote(qualifiers) || ',"question":' || jsonquote(question) || '}'
@@ -554,6 +564,33 @@ main: procedure = .int
   errors = errors + check(reservecall(store,claim,100000,10000,0,700000,reservation,error) = 0 & reservecall(store,recovery_claim,100000,10000,0,700000,duplicate,error) = 1,"explicit aggregate cap still counts concurrent reservations")
   errors = errors + check(settlecall(store,reservation,"fixture","fixture","cap-owner","succeeded",10,10,0,600000,settled_run,error) = 0 & skipitem(store,claim,"time fixture",error) = 0 & tickbacklogwindow(store,job_id,error) = 1,"explicit provider-time limit closes successfully")
   errors = errors + check(scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || job_id || "'") = "budget-exhausted" & scalarint(database,"SELECT reserved_calls FROM jobs WHERE job_id='" || job_id || "'") = 0,"explicit cap has clean settlement")
+  /* A prior correction retained the ID derived from the former type. New
+   * extraction must preserve a repair question rather than fail the batch. */
+  collision_id = "concept-sha256:" || rxhash..sha256hex(("platform" || "00"x || "evidence-span") as .binary)
+  generation = scalarint(database,"SELECT published_generation FROM library_meta")
+  errors = errors + check(sqliteexec(database,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('" || collision_id || "','Platform','concept','active'," || generation || ")") = 0,"seed retained ID after type correction")
+  collision_task = ""
+  errors = errors + check(enqueuebacklogtask(database,"alias-follow-up:identity-collision","chunk","chunk-lifecycle","","",1000000,policy,collision_task,error) = 0 & nextwindow(store,policy_json,job_id,error) = 0,"dispatch colliding extraction " || error)
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=1000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || collision_task || "') AND state='queued'") = 0,"select colliding extraction")
+  collision_provider = .identitycollisionprovider()
+  identity_policy = .ragclaimpolicy("fixture-v1","concept|source-artifact|evidence-span","related-to|mentioned-in|mentions",1000000,750000,500000,-1000000,250000)
+  errors = errors + check(runworkeronce(store,job_id,"identity-fixture",60,3,identity_policy,collision_provider,disposition,error,genericprofile()) = 0 & disposition = "concepts-and-notes","collision becomes durable repair instead of batch failure " || disposition || " " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_alias_issues WHERE candidate_id='candidate-identity-collision' AND state='open'") = 1,"retain one identity repair issue")
+  errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0,"dispatch identity and deep classification review " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE kind='identity-review' AND subject_id='" || collision_id || "'") > 0,"conflicting classification receives deep source review")
+  alias_task = scalartext(database,"SELECT t.task_id FROM maintenance_tasks t JOIN maintenance_alias_issues i ON i.issue_id=t.subject_id WHERE i.candidate_id='candidate-identity-collision' AND t.state='dispatched'")
+  evidence = '[{"evidence_id":"candidate-identity-collision","quote":"Platform"}]'
+  response = changestr('"canonical_label":""',responsejson("distinct","","[]",evidence),'"canonical_label":"Platform"')
+  response = changestr('"concept_type":""',response,'"concept_type":"evidence-span"')
+  errors = errors + check(runresolution(store,job_id,alias_task,response,error) = 0,"grounded distinct identity repairs retained-ID conflict " || error)
+  label = "Platform"; selected_type = "evidence-span"; selected = ""
+  errors = errors + check(resolveknownmention(database,"candidate-identity-collision",label,selected_type,selected,error) = 1 & selected \= collision_id & selected_type = "evidence-span","occurrence remembers its resolved identity")
+  errors = errors + check(scalartext(database,"SELECT concept_type FROM concepts WHERE concept_id='" || collision_id || "'") = "concept","repair never overwrites old identity")
+  repair_followup = scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE parent_task_id='" || alias_task || "' AND kind LIKE 'alias-follow-up:%'")
+  errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0 & sqliteexec(database,"UPDATE job_items SET priority=1000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || repair_followup || "') AND state='queued'") = 0,"dispatch repaired extraction follow-up")
+  errors = errors + check(runworkeronce(store,job_id,"identity-fixture",60,3,identity_policy,collision_provider,disposition,error,genericprofile()) = 0 & disposition = "concepts-and-notes","follow-up reuses resolved identity " || disposition || " " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_alias_issues WHERE candidate_id='candidate-identity-collision' AND state='open'") = 0 & scalarint(database,"SELECT count(*) FROM mentions WHERE concept_id='" || selected || "' AND visible_to_generation IS NULL") > 0,"repair converges without reopening the same question")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"identity repair preserves foreign keys")
   call closeragstore store,error
   if errors > 0 then return 1
   say "DURABLE_BACKLOG_OK deduplicated split_fanout fenced_decisions resume uncertainty source_preservation"

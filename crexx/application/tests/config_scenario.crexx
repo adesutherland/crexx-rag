@@ -81,6 +81,12 @@ main: procedure = .int
   errors = errors + check(parseconfigtext(v2_text, v2_config, v2_error) = 0, "format two parse " || v2_error)
   v2_providers = v2_config.providers()
   errors = errors + check(v2_providers[1].requests_per_minute() = 60 & v2_providers[1].tokens_per_minute() = 1000000 & v2_providers[1].concurrent_requests() = 2 & v2_providers[1].initial_backoff_ms() = 1000 & v2_providers[1].maximum_backoff_ms() = 60000 & v2_providers[1].jitter_ms() = 250, "format two provider policy")
+  errors = errors + check(workers.max_restarts() = 2 & workers.restart_backoff_ms() = 5000,"default worker recovery policy")
+  recovery_config = .ragconfig; recovery_error = ""
+  errors = errors + check(parseconfigtext(text || "0A"x || "worker.max_restarts = 0" || "0A"x || "worker.restart_backoff_ms = 10",recovery_config,recovery_error) = 0,"explicit worker recovery policy " || recovery_error)
+  errors = errors + check(recovery_config.workers().max_restarts() = 0 & recovery_config.workers().restart_backoff_ms() = 10,"disabled automatic replacement")
+  errors = errors + check(rejected(text || "0A"x || "worker.max_restarts = 11","outside its supported range") = 1,"restart ceiling bound")
+  errors = errors + check(rejected(text || "0A"x || "worker.restart_backoff_ms = 0","outside its supported range") = 1,"restart delay bound")
   invalid_backoff = changestr("provider.gemini-generate.initial_backoff_ms = 1000", v2_text, "provider.gemini-generate.initial_backoff_ms = 60001")
   errors = errors + check(rejected(invalid_backoff, "outside its supported range") = 1, "backoff bound rejection")
   errors = errors + check(rejected(changestr("budget.model_calls = 50", text, "budget.model_calls = 050"), "canonical integer syntax") = 1, "integer syntax rejection")

@@ -1,0 +1,143 @@
+options levelg
+import rxfnsb
+import rxjson
+import rxhash
+import rxsqlite
+import ragstore
+import ragbackup
+import ragingest
+import ragassessment
+import ragperiod
+import ragprovenance
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 \= 1 then return 2
+  store = .ragstorehandle; error = ""; errors = 0
+  if initragstore(args[1],"metadata-fixture","metadata-snapshot","metadata-fixture","1","generic-profile","profile-hash","config-hash",'{}',store,error) \= 0 then do; say error; return 1; end
+  db = store.database(); body = "Édition. Ada wrote this history. The crossing occurred in 1745."
+  observations = .ragsourceobservation[]
+  observations[1] = .ragsourceobservation("folder:fixture","book.txt","","fixture://book","book.txt","text/plain","utf-8","plain",body as .binary,1,"","","{}","2026-09-08T12:00:00Z")
+  plan = .ragingestplan
+  errors = errors + check(createingestplan(store,"folder:fixture","metadata-snapshot","policy-1","parser-1",1024,observations,plan,error) = 0,"plan " || error)
+  digest = rxhash..sha256hex(body as .binary)
+  manifest = '{"schema":"crexx-rag.source-metadata/1","descriptions":[' || description("file:book.txt",digest,-1,-1,"","published") || '],"relations":[]}'
+  canonical = ""; before_changes = number(db,"SELECT total_changes()")
+  errors = errors + check(prepareingestmetadata(store,plan,observations,manifest,canonical,error) = 0,"prospective metadata " || error)
+  errors = errors + check(number(db,"SELECT total_changes()") = before_changes & number(db,"SELECT count(*) FROM sources") = 0,"planning is read-only")
+  result = applyingestplan(store,plan,observations,canonical)
+  errors = errors + check(result.ok() & result.generation() = 2,"atomic ingestion " || result.error())
+  revision = text(db,"SELECT current_revision_id FROM sources"); chunk = text(db,"SELECT revision_chunk_id FROM revision_chunks")
+  context = provenancecontext(db,chunk,2)
+  errors = errors + check(pos('"published"',context)>0 & pos('"Ada"',context)>0 & pos('"1875"',context)>0,"document date and author linked to the new chunk")
+  errors = errors + check(number(db,"SELECT count(*) FROM job_items WHERE item_type='claim-extraction'")=1 & number(db,"SELECT count(*) FROM job_items WHERE json_extract(input_json,'$.provenance_contract') IS NOT NULL")=0,"ordinary ingestion does not request per-claim assessments")
+  errors = errors + check(number(db,"SELECT count(*) FROM support_descriptions")=0,"document dates need no support assessment")
+  quote = "The crossing occurred in 1745."
+  unknown_input = assessmentinput(periodunknown(),"","assertion","asserted")
+  narrator = .ragsupportassessment(unknown_input,body,context,quote)
+  errors = errors + check(narrator.ok() & narrator.voice()="Ada" & narrator.effective_from()="","known narrator inherited; no date invented")
+  dated_input = assessmentinput(periodvalue("point",perioddate("1745","year","stated","unspecified"),perioddate(),"bounded"),quote,"assertion","asserted")
+  dated = .ragsupportassessment(dated_input,body,context,quote)
+  errors = errors + check(dated.ok() & pos('"1745"',dated.qualifiers())>0 & dated.effective_from()="","historical year preserved with unresolved calendar")
+  unrelated = .ragsupportassessment(dated_input,body || " Ada led Bea.",context,"Ada led Bea.")
+  errors = errors + check(unrelated.ok()=0 & pos("unrelated",unrelated.error())>0,"unrelated year does not date another relationship")
+  quoted = .ragsupportassessment(assessmentinput(periodunknown(),"","quotation","asserted"),body,context,quote)
+  errors = errors + check(quoted.ok() & quoted.voice()="" & quoted.review_required(),"unidentified quoted voice is reviewed, not inherited")
+  proposed = .ragsupportassessment(assessmentinput(periodunknown(),"","proposal","proposed"),body,context,quote)
+  errors = errors + check(proposed.ok() & pos('"proposed"',proposed.qualifiers())>0,"proposal modality distinct from acceptance")
+  bad_stance = .ragsupportassessment(assessmentinput(periodunknown(),"","proposal","asserted"),body,context,quote)
+  errors = errors + check(bad_stance.ok()=0,"proposal stance cannot assert enactment")
+  source_identity = text(db,"SELECT json_group_array(revision_id||revision_envelope_digest||captured_at) FROM source_revisions")
+  chunk_identity = text(db,"SELECT json_group_array(revision_chunk_id||content_id||normalized_start||normalized_end) FROM revision_chunks")
+  item_count = number(db,"SELECT count(*) FROM job_items")
+  errors = errors + check(createingestplan(store,"folder:fixture","metadata-snapshot","policy-1","parser-1",1024,observations,plan,error)=0,"no-op plan")
+  result = applyingestplan(store,plan,observations,canonical)
+  errors = errors + check(result.ok() & result.disposition()="identical-no-op" & result.generation()=2,"metadata no-op " || result.error())
+  changed_observations = .ragsourceobservation[]
+  changed_observations[1] = .ragsourceobservation("folder:fixture","book.txt","","fixture://moved/book","book.txt","text/plain","utf-8","plain",body as .binary,1,"","","{}","2026-09-08T12:00:00Z")
+  changed_plan = .ragingestplan; rejected = ""
+  errors = errors + check(createingestplan(store,"folder:fixture","metadata-snapshot","policy-1","parser-1",1024,changed_observations,changed_plan,error)=0,"changed source location plan")
+  errors = errors + check(prepareingestmetadata(store,changed_plan,changed_observations,canonical,rejected,error)\=0 & pos("replaces or deletes",error)>0,"metadata cannot target a revision the plan retires")
+  errors = errors + check(source_identity=text(db,"SELECT json_group_array(revision_id||revision_envelope_digest||captured_at) FROM source_revisions") & number(db,"SELECT published_generation FROM library_meta")=2,"rejected metadata plan preserves source history")
+  wrong = changestr('"published"',canonical,'"draft"'); validated = ""
+  errors = errors + check(canonicalmetadata(db,wrong,validated,error) \= 0 & pos("conflict",error)>0,"conflict needs reviewed version")
+  id = text(db,"SELECT description_id FROM source_descriptions WHERE visible_to_generation IS NULL")
+  updated = '{"schema":"crexx-rag.source-metadata/1","descriptions":[' || description(revision,digest,-1,-1,id,"draft") || '],"relations":[]}'
+  errors = errors + check(canonicalmetadata(db,updated,validated,error)=0,"reviewed update " || error)
+  result = applyingestplan(store,plan,observations,validated)
+  errors = errors + check(result.ok() & result.disposition()="metadata-only" & result.generation()=3,"metadata generation " || result.error())
+  errors = errors + check(pos('"published"',provenancecontext(db,chunk,2))>0 & pos('"draft"',provenancecontext(db,chunk,3))>0,"historic descriptions are pinned")
+  stale_generation = 0; changed = 0
+  errors = errors + check(applymetadata(store,validated,2,"metadata-snapshot",stale_generation,changed,error) \= 0 & number(db,"SELECT published_generation FROM library_meta")=3,"stale generation rejected atomically")
+  scoped = '{"schema":"crexx-rag.source-metadata/1","descriptions":[' || description(revision,digest,0,35,"","final") || ',' || description(revision,digest,10,45,"","draft") || '],"relations":[]}'
+  errors = errors + check(canonicalmetadata(db,scoped,validated,error) \= 0 & pos("overlap",error)>0,"crossing scopes rejected")
+  scoped = '{"schema":"crexx-rag.source-metadata/1","descriptions":[' || description(revision,digest,1,35,"","final") || '],"relations":[]}'
+  errors = errors + check(canonicalmetadata(db,scoped,validated,error) \= 0 & pos("UTF-8",error)>0,"UTF-8 scope boundary")
+  errors = errors + check(source_identity=text(db,"SELECT json_group_array(revision_id||revision_envelope_digest||captured_at) FROM source_revisions") & chunk_identity=text(db,"SELECT json_group_array(revision_chunk_id||content_id||normalized_start||normalized_end) FROM revision_chunks") & item_count=number(db,"SELECT count(*) FROM job_items"),"metadata preserves sources chunks and queued work")
+  errors = errors + check(number(db,"SELECT count(*) FROM provider_runs")=0 & text(db,"PRAGMA integrity_check")="ok" & number(db,"SELECT count(*) FROM pragma_foreign_key_check")=0,"zero provider calls and integrity")
+  scoped = '{"schema":"crexx-rag.source-metadata/1","descriptions":[' || description(revision,digest,10,35,"","final") || '],"relations":[' || relation(revision,digest,"","fixture:upstream-a") || ']}'
+  errors = errors + check(canonicalmetadata(db,scoped,validated,error)=0,"nested scope and relation validation " || error)
+  published=0; changed=0
+  errors = errors + check(applymetadata(store,validated,3,"metadata-snapshot",published,changed,error)=0 & published=4 & changed=2,"nested metadata publication " || error)
+  scoped_context=.jsondocument(provenancecontext(db,chunk,4,10,35)); scope_description=scoped_context.member(scoped_context.root(),"description"); status=""; ignored=scoped_context.node_string(scoped_context.member(scope_description,"document_status"),status)
+  errors = errors + check(status="final" & pos('"scopes":[{',provenancecontext(db,chunk,4))>0,"nearest scope and extractor scope context")
+  relation_id=text(db,"SELECT relation_id FROM source_relations WHERE visible_to_generation IS NULL")
+  replacement='{"schema":"crexx-rag.source-metadata/1","descriptions":[],"relations":[' || relation(revision,digest,relation_id,"fixture:upstream-b") || ']}'
+  errors = errors + check(canonicalmetadata(db,replacement,validated,error)=0 & applymetadata(store,validated,4,"metadata-snapshot",published,changed,error)=0 & published=5,"reviewed source relationship replacement " || error)
+  errors = errors + check(number(db,"SELECT count(*) FROM source_relations WHERE visible_to_generation IS NULL")=1 & number(db,"SELECT count(*) FROM source_relations")=2,"relationship version history")
+  errors = errors + check(canonicalmetadata(db,replacement,validated,error)=0 & applymetadata(store,validated,5,"metadata-snapshot",published,changed,error)=0 & published=5 & changed=0,"relationship replacement no-op")
+  stale=changestr("fixture:upstream-b",replacement,"fixture:upstream-c")
+  errors = errors + check(canonicalmetadata(db,stale,validated,error)\=0 & pos("conflict",error)>0,"stale relationship correction rejected")
+  errors = errors + check(publishmanifest(store,error)=0,"metadata manifest aligned")
+  saved=.ragbackupreport; restored=.ragbackupreport; reader=.ragreadsnapshot
+  errors = errors + check(backupragstore(args[1],args[1] || "-backup",saved,error)=0 & restoreragstore(args[1] || "-backup",args[1] || "-restored",restored,error)=0,"metadata backup and restore " || error)
+  errors = errors + check(beginreadsnapshot(args[1] || "-restored",reader,error)=0 & reader.generation()=5 & number(reader.database(),"SELECT count(*) FROM source_relations")=2 & pos('"published"',provenancecontext(reader.database(),chunk,2))>0 & pos("fixture:upstream-b",provenancecontext(reader.database(),chunk,5))>0,"restored historical metadata and current relation")
+  ignored = closereadsnapshot(reader,error)
+  errors = errors + check(sqliteexec(db,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('family-a','A','concept','active',5),('family-b','B','concept','active',5)")=0 & sqliteexec(db,"INSERT INTO claims(claim_id,source_concept_id,relationship_type,target_concept_id,direction,qualifiers_json,policy_version,visible_from_generation) VALUES('family-claim','family-a','related-to','family-b','outbound','{}','fixture',5)")=0,"dependency fixture concepts")
+  errors = errors + check(sqliteexec(db,"INSERT INTO claim_support(support_id,claim_id,revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity,visible_from_generation) VALUES('family-one','family-claim'," || q(chunk) || ",0,8,'support','quotation','direct','Nora','different-one','fixture',5),('family-two','family-claim'," || q(chunk) || ",10,20,'support','quotation','direct','Nora','different-two','fixture',5)")=0,"distinct extraction lineages")
+  relation_id=text(db,"SELECT relation_id FROM source_relations WHERE visible_to_generation IS NULL")
+  description_json='{"assessment":"assessed","origin":"derived","derivation_ids":[' || jsonquote(relation_id) || ']}'
+  family_generation=0
+  errors = errors + check(begingeneration(store,5,"metadata-snapshot","dependency fixture",family_generation,error)=0 & putdescription(db,"family-one",description_json,"{}","",family_generation,error)=0 & putdescription(db,"family-two",description_json,"{}","",family_generation,error)=0 & commitgeneration(store,family_generation,error)=0,"publish dependency fixture " || error)
+  errors = errors + check(supportfamilies(db,"family-one",family_generation)='["fixture:upstream-b"]' & supportfamilies(db,"family-two",family_generation)='["fixture:upstream-b"]',"two derived supports are one known family despite different extraction lineages")
+  prior_family_generation=family_generation
+  errors = errors + check(begingeneration(store,prior_family_generation,"metadata-snapshot","unknown dependence fixture",family_generation,error)=0 & putdescription(db,"family-two",'{"assessment":"assessed","origin":"unknown","derivation_ids":[]}',"{}","",family_generation,error)=0 & commitgeneration(store,family_generation,error)=0,"publish unknown dependence fixture " || error)
+  errors = errors + check(supportfamilies(db,"family-two",family_generation)="[]" & supportfamilies(db,"family-two",prior_family_generation)='["fixture:upstream-b"]',"unknown independence is not a new family; historic dependence preserved")
+  errors = errors + check(publishmanifest(store,error)=0,"final fixture manifest")
+  ignored = closeragstore(store,error)
+  if errors > 0 then return 1
+  say "PROVENANCE_OK atomic_ingest read_only_plan no_op stale_conflict historical_scopes source_preservation"
+  return 0
+
+description: procedure = .string
+  arg revision = .string, digest = .string, begin = .int, finish = .int, expected = .string, status = .string
+  ground = '{"method":"operator-declared","actor":"test curator","review":"reviewed","reference":"fixture://declaration","quote":""}'
+  published = periodvalue("point",perioddate("1875","year","stated","unspecified"),perioddate(),"bounded")
+  return '{"revision_id":' || jsonquote(revision) || ',"text_digest":' || jsonquote(digest) || ',"scope_start":' || begin || ',"scope_end":' || finish || ',"expected_description_id":' || jsonquote(expected) || ',"description":{"contributors":[{"label":"Ada","role":"author","concept_id":""}],"document_status":' || jsonquote(status) || ',"published_period":' || published || '},"provenance":{"contributors":' || ground || ',"document_status":' || ground || ',"published_period":' || ground || '}}'
+check: procedure = .int
+  arg condition = .int, message = .string
+  if condition = 1 then return 0
+  say "FAIL " || message
+  return 1
+number: procedure = .int
+  arg db = .binary, sql = .string
+  p = .binary; value = -1
+  if sqliteprepare(db,sql,p)=0 then do; if sqlitestep(p)=100 then ignored=sqlitecolumnint(p,0,value); call sqlitefinalize p; end
+  return value
+text: procedure = .string
+  arg db = .binary, sql = .string
+  p = .binary; value = ""
+  if sqliteprepare(db,sql,p)=0 then do; if sqlitestep(p)=100 then ignored=sqlitecolumntext(p,0,value); call sqlitefinalize p; end
+  return value
+
+assessmentinput: procedure = .string
+  arg period=.string, quote=.string, stance=.string, modality=.string
+  return '{"temporal":' || period || ',"temporal_quote":' || jsonquote(quote) || ',"modality":' || jsonquote(modality) || ',"stance":' || jsonquote(stance) || ',"directness":"direct","polarity":"support","voice":"","voice_quote":"","voice_description_id":"","origin":"unknown","origin_quote":"","asserted_period":' || periodunknown() || ',"asserted_quote":"","asserted_description_id":"","derivation_ids":[]}'
+
+relation: procedure = .string
+  arg revision=.string, digest=.string, expected=.string, target=.string
+  return '{"revision_id":' || jsonquote(revision) || ',"text_digest":' || jsonquote(digest) || ',"scope_start":-1,"scope_end":-1,"target_revision_id":"","external_work_ref":' || jsonquote(target) || ',"relation_type":"derived-from","expected_relation_id":' || jsonquote(expected) || ',"provenance":{"method":"operator-declared","actor":"test curator","review":"reviewed","reference":"fixture://declaration","quote":""}}'
+
+q: procedure = .string
+  arg value=.string
+  return "'" || changestr("'",value,"''") || "'"

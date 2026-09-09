@@ -17,9 +17,54 @@ SQLite handles would remain VM-local and must never be transferred.
 
 ## Provider lifetime
 
-The application currently uses one operation-scoped provider pool/process per
-adapter invocation. It does not claim long-lived reuse, streaming, or
-cancellation across operations.
+HTTP adapters use operation-scoped provider instances. The Codex adapter keeps
+one App Server child and its byte channels for the lifetime of a worker.
+
+### Long-lived Codex channels: completed-request retention
+
+Repaired upstream and installed on 2026-09-09 in clean CREXX commit
+`5ccf057a1633652a7b506bb52acc89ba2e064263`. RAG explicitly releases observed
+terminal Codex byte requests and supervised child-process requests with the new
+`.channelrequest.release()` API. Saved completion values remain usable. Pending
+timeouts are cancelled and reclaimed by whole-channel cleanup; they are not
+released before terminal observation. Rebuild RAG with the matching installed
+class library and runtime; an old native executable retains its old archives.
+
+The original defect was reproduced against installed clean CREXX commit
+`7de12145a0695a81b345eeff8405203c23586e8c`. The private channel core retains
+observed completed tickets until channel close. Its context-wide ceiling is
+65,535 tickets; the next start returns `RXVM_CHANNEL_RESOURCE_EXHAUSTED` (8).
+The byte provider also retains request state until close. Destruction visits
+oldest tickets while removing them from a newest-first linked list, making
+cleanup quadratic in the retained request count.
+
+A standalone, zero-network probe linked to the installed archives completed
+65,535 synchronous byte-channel operations, observed all 65,535 tickets still
+live, and reproduced status 8 on operation 65,536. Closing took 14.377 CPU
+seconds, versus 1.175 CPU seconds for the successful operations; all tickets
+were released only at close. The probe used approximately 19 MB resident
+memory. Evidence and source are in
+`/Users/adrian/testrag/worker-identity-repair-20260909/runtime-diagnosis/`.
+
+The live eight-worker run developed the same status in one Codex worker after
+about an hour. Samples of that worker and an otherwise successful worker put
+cleanup in `byte_channel_request_destroy`. The exact live ticket count was not
+captured, so slot exhaustion in that process remains an inference supported by
+the reproduced runtime mechanism. Generic status 8 can also cover allocation
+or thread-creation failures. This is distinct from Google's HTTP 429 response.
+
+RAG now stops new claims on an unhealthy transport, preserves successful
+responses and uncertainty holds, and supports replacement after worker exit
+under a durable job-wide ceiling and the original budgets/deadline. This is
+application recovery, separate from request reclamation. A replacement waits
+for the old process to exit. Provider cleanup attempts each resource even when
+an earlier channel operation fails. The Codex protocol gate exercises 17,000
+account cycles on one adapter (over 68,000 byte requests), beyond the former
+unreleased-ticket ceiling. Upstream local qualification and installation are
+documented in CREXX `concurrency/CHANNEL-REQUEST-LIFETIME.md`; Linux/Windows
+qualification remains separately owned upstream.
+Completed-request reclamation and cleanup complexity belong in CREXX; this
+repository must not hide them with a second transport implementation.
 
 ## Installed Linux replay
 

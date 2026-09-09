@@ -1,12 +1,13 @@
 options levelg
 
-namespace ragingest expose ragsourceobservation ragnormalizedsource ragchunk ragingestplan ragingestresult ragtermstatistics normalizebytes chunktext createingestplan createingestplanconfigured applyingestplan applyingestplanconfigured termstatistics
+namespace ragingest expose prepareingestmetadata ragsourceobservation ragnormalizedsource ragchunk ragingestplan ragingestresult ragtermstatistics normalizebytes chunktext createingestplan createingestplanconfigured applyingestplan applyingestplanconfigured termstatistics
 
 import rxfnsb
 import rxjson
 import rxhash
 import rxsqlite
 import rxfs
+import ragprovenance
 import ragstore
 import ragconfig
 import ragglossary
@@ -415,17 +416,17 @@ createingestplanconfigured: procedure = .int
   return 0
 
 applyingestplan: procedure = .ragingestresult
-  arg store = .ragstorehandle, plan = .ragingestplan, observations = .ragsourceobservation[]
+  arg store = .ragstorehandle, plan = .ragingestplan, observations = .ragsourceobservation[], metadata = ""
   config = .ragconfig
   profile = .ragprofile
-  return _applyingestplan(store, plan, observations, config, profile, 0)
+  return _applyingestplan(store, plan, observations, config, profile, 0, metadata)
 
 applyingestplanconfigured: procedure = .ragingestresult
-  arg store = .ragstorehandle, plan = .ragingestplan, observations = .ragsourceobservation[], config = .ragconfig, profile = .ragprofile
-  return _applyingestplan(store, plan, observations, config, profile, 1)
+  arg store = .ragstorehandle, plan = .ragingestplan, observations = .ragsourceobservation[], config = .ragconfig, profile = .ragprofile, metadata = ""
+  return _applyingestplan(store, plan, observations, config, profile, 1, metadata)
 
 _applyingestplan: procedure = .ragingestresult
-  arg store = .ragstorehandle, plan = .ragingestplan, observations = .ragsourceobservation[], config = .ragconfig, profile = .ragprofile, configured = .int
+  arg store = .ragstorehandle, plan = .ragingestplan, observations = .ragsourceobservation[], config = .ragconfig, profile = .ragprofile, configured = .int, metadata = ""
   if store.writable() \= 1 then return _failure(-5, "ingest apply requires readwrite access")
   if plan.schema() \= "crexx-rag.ingest-plan/1" | plan.observation_count() \= observations.0 | length(plan.digest()) \= 64 then return _failure(-1, "ingest plan shape is invalid")
   current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
@@ -442,7 +443,13 @@ _applyingestplan: procedure = .ragingestresult
   match_error = ""
   match_status = _desiredmatches(store.database(), plan, observations, match_error)
   if match_status < 0 then return _failure(-3, match_error)
-  if match_status = 1 then return .ragingestresult(0, "identical-no-op", current, 0, 0, observations.0, observations.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "")
+  if match_status = 1 then do
+    metadata_changes = 0; metadata_generation = current
+    if metadata \= "" then if applymetadata(store,metadata,current,plan.config_snapshot_id(),metadata_generation,metadata_changes,match_error) \= 0 then return _failure(-3,match_error)
+    disposition = "identical-no-op"
+    if metadata_changes > 0 then disposition = "metadata-only"
+    return .ragingestresult(0, disposition, metadata_generation, metadata_changes, 0, observations.0, observations.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "")
+  end
 
   before_changes = _scalarint(store.database(), "SELECT total_changes()")
   if before_changes < 0 then return _failure(-3, "cannot read SQLite change counter")
@@ -462,6 +469,8 @@ _applyingestplan: procedure = .ragingestresult
   if configured = 1 then if _insertglossarycandidates(store.database(), generation, glossary, glossary_candidates, error) \= 0 then return _abortresult(store, error)
   candidates = candidates + glossary_candidates
   if _finalizecandidates(store.database(), generation, plan.policy_version(), error) \= 0 then return _abortresult(store, error)
+  metadata_changes = 0; metadata_generation = generation
+  if metadata \= "" then if applymetadata(store,metadata,current,plan.config_snapshot_id(),metadata_generation,metadata_changes,error,generation) \= 0 then return _abortresult(store,error)
   if _queuework(store.database(), generation, plan, context, config, profile, configured, items, error) \= 0 then return _abortresult(store, error)
   if commitgeneration(store, generation, error) \= 0 then return _failure(-3, error)
   after_changes = _scalarint(store.database(), "SELECT total_changes()")
@@ -1619,3 +1628,66 @@ _wordcount: procedure = .int
 _sqlquote: procedure = .string
   arg value = .string
   return "'" || changestr("'", value, "''") || "'"
+
+/* Resolve selected folder files against the same identity rules as ingestion.
+ * The prospective bytes are used only for read-only metadata validation. */
+prepareingestmetadata: procedure = .int
+  arg store = .ragstorehandle, plan = .ragingestplan, observations = .ragsourceobservation[], input = .string, expose output = .string, expose error = .string, fill_document_date = 0, document_date = ""
+  database = store.database(); mapping = "{"; bodies = "{"; planned_revisions = ""
+  revisions=.string[]; digests=.string[]
+  do i = 1 to observations.0
+    observation = observations[i]; body = ""; raw_digest = ""; text_digest = ""; fingerprint = ""; envelope = ""
+    if _observationidentity(observation,plan.parser_version(),plan.policy_version(),body,raw_digest,text_digest,fingerprint,envelope,error) \= 0 then return -1
+    source = ""; old_revision = ""; stable = ""
+    found = _findsource(database,observation.connector_type(),observation.stable_key(),source,old_revision,stable)
+    if found=0 & observation.previous_stable_key()\="" then found=_findsource(database,observation.connector_type(),observation.previous_stable_key(),source,old_revision,stable)
+    if found < 0 then do; error = "cannot resolve metadata source"; return -1; end
+    if found = 0 then source = "source-sha256:" || rxhash..sha256hex((observation.connector_type() || "00"x || observation.stable_key()) as .binary)
+    revision = "revision-sha256:" || rxhash..sha256hex((source || "00"x || envelope) as .binary)
+    if old_revision \= "" then do
+      current_envelope = _boundscalartext(database,"SELECT revision_envelope_digest FROM source_revisions WHERE revision_id=?1",old_revision)
+      if current_envelope = envelope then revision = old_revision
+      else if _legacyfoldermatches(database,old_revision,observation,plan.parser_version(),plan.policy_version(),current_envelope,error) = 1 then revision = old_revision
+      if error \= "" then return -1
+    end
+    if i > 1 then do; mapping = mapping || ","; bodies = bodies || ","; end
+    planned_revisions = planned_revisions || " " || revision
+    revisions[i]=revision; digests[i]=text_digest
+    mapping = mapping || jsonquote("file:" || observation.stable_key()) || ":" || jsonquote(revision)
+    bodies = bodies || jsonquote(revision) || ":" || jsonquote(body)
+  end
+  if input="" then input='{"schema":"crexx-rag.source-metadata/1","descriptions":[],"relations":[]}'
+  map = .jsondocument(mapping || "}"); bodies = bodies || "}"; doc = .jsondocument(input)
+  if doc.valid() \= 1 then do; error = "metadata file must be JSON"; return -1; end
+  resolved = input; groups = "descriptions relations"
+  do g = 1 to 2
+    group = word(groups,g); rows = doc.member(doc.root(),group)
+    do i = 1 to doc.node_count(rows)
+      node = doc.element(rows,i); keys = "revision_id"
+      if group = "relations" then keys = keys || " target_revision_id"
+      do k = 1 to words(keys)
+        key = word(keys,k); value = ""; ignored = doc.node_string(doc.member(node,key),value)
+        if left(value,5) = "file:" then do
+          target = ""
+          if map.node_string(map.member(map.root(),value),target) \= 0 then do; error = "metadata names a file outside the reviewed source set"; return -1; end
+          json_path = "$." || group || "[" || (i-1) || "]." || key
+          resolved = _boundscalartext(database,"SELECT json_set(?1," || _sqlquote(json_path) || "," || _sqlquote(target) || ")",resolved)
+          value = target
+        end
+        if value \= "" & wordpos(value,planned_revisions) = 0 then do
+          retiring = _scalarint(database,"SELECT count(*) FROM source_revisions r JOIN sources s USING(source_id) WHERE r.revision_id=" || _sqlquote(value) || " AND r.visible_to_generation IS NULL AND s.connector_type=" || _sqlquote(plan.source_scope()))
+          if retiring < 0 then do; error = "cannot check metadata revision against the planned source set"; return -1; end
+          if retiring > 0 then do
+            error = "metadata references a revision this ingest plan replaces or deletes; check source paths and use file:relative/path for the planned revision"
+            return -1
+          end
+        end
+      end
+    end
+  end
+  validated=""
+  if canonicalmetadata(database,resolved,validated,error,bodies)\=0 then return -1
+  if fill_document_date then do i=1 to observations.0
+    validated=defaultdocumentdate(database,validated,revisions[i],digests[i],document_date)
+  end
+  return canonicalmetadata(database,validated,output,error,bodies)

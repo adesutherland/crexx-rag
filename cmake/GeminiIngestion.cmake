@@ -77,7 +77,7 @@ set(cli "${CMAKE_COMMAND}" -E env
 execute_process(COMMAND ${cli} --library "${library}" --config-file "${config}"
     --profile it-architecture-profile --access admin --format json library init
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "\"schema_version\":10")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "\"schema_version\":11")
     message(FATAL_ERROR "Gemini product library init failed:\n${init_out}${init_err}")
 endif()
 
@@ -217,7 +217,8 @@ execute_process(COMMAND ${failing_cli} --library "${library}" --config-file "${c
     OUTPUT_VARIABLE failed_child_out ERROR_VARIABLE failed_child_err
     RESULT_VARIABLE failed_child_result TIMEOUT 30)
 if(failed_child_result EQUAL 0 OR
-   NOT failed_child_out MATCHES "ERROR: one or more worker processes failed:" OR
+   NOT failed_child_out MATCHES "ERROR: worker group startup failed: child process exited with code [1-9][0-9]* before worker registration" OR
+   NOT failed_child_err MATCHES "crexxrag worker worker-" OR
    failed_child_out MATCHES "ERROR:[ \r\n]*$" OR
    failed_child_out MATCHES "synthetic-product-gemini-key" OR
    failed_child_err MATCHES "synthetic-product-gemini-key")

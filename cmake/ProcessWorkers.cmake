@@ -10,6 +10,17 @@ set(load_path
     "${application_dir}/providers;${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
 file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
 file(MAKE_DIRECTORY "${CPRAG_WORK_DIR}")
+set(CPRAG_FIXTURE_SOURCE "${CPRAG_WORK_DIR}/source-docs")
+set(CPRAG_FIXTURE_GLOSSARY "")
+set(CPRAG_FIXTURE_PORT 1)
+file(MAKE_DIRECTORY "${CPRAG_FIXTURE_SOURCE}")
+file(READ "${CMAKE_CURRENT_LIST_DIR}/../tests/fixtures/providers/gemini-ingestion.conf.in" worker_config)
+string(REPLACE "config.id = gemini-loopback" "config.id = architecture-local" worker_config "${worker_config}")
+string(REPLACE "profiles = it-architecture-profile" "profiles = generic-profile" worker_config "${worker_config}")
+string(REPLACE "worker.processes = 2" "worker.processes = 8" worker_config "${worker_config}")
+string(CONFIGURE "${worker_config}" worker_config @ONLY)
+string(REPLACE "discovery.glossary_file = \n" "" worker_config "${worker_config}")
+file(WRITE "${CPRAG_WORK_DIR}/workers.conf" "${worker_config}")
 set(driver "${CPRAG_WORK_DIR}/process-framework.sh")
 file(WRITE "${driver}" [=[
 set -eu
@@ -19,6 +30,7 @@ application=$3
 library=$4
 output_dir=$5
 launcher=$6
+configuration=$7
 
 export CREXXRAG_RUNTIME="$runtime"
 export CREXXRAG_IMAGE="$application"
@@ -26,7 +38,7 @@ export CREXXRAG_LOAD_PATH="$load_path"
 export CREXXRAG_SELF="$launcher"
 
 run_app() {
-  "$runtime" -l "$load_path" "$application" -a "$@"
+  "$runtime" -l "$load_path" "$application" -a --config-file "$configuration" "$@"
 }
 
 run_app --library "$library" --config architecture-local \
@@ -55,7 +67,7 @@ for command in start run; do
 done
 
 run_app --library "$library" --config architecture-local --profile generic-profile --access control --format json worker start \
-  --count 2 --poll-ms 50 --max-polls 40 --max-items 1 \
+  --count 8 --poll-ms 50 --max-polls 40 --max-items 1 \
   >"$output_dir/controller.out" 2>"$output_dir/controller.err" &
 controller=$!
 tries=0
@@ -64,7 +76,7 @@ while [ "$tries" -lt 80 ]; do
   if run_app --library "$library" --access read --format json worker list \
        --stale-seconds 2 >"$output_dir/observer.out" 2>"$output_dir/observer.err"; then
     idle_count=$(grep -o '"classification":"idle"' "$output_dir/observer.out" | wc -l | tr -d ' ')
-    if [ "$idle_count" -ge 2 ]; then
+    if [ "$idle_count" -ge 8 ]; then
       observed=1
       break
     fi
@@ -78,6 +90,18 @@ if [ "$observed" -ne 1 ]; then
   exit 21
 fi
 wait "$controller"
+
+# A failed child launch must return with a diagnostic, not wait indefinitely
+# for a reserved worker that never registered.
+export CREXXRAG_RUNTIME="$output_dir/missing-runtime"
+set +e
+run_app --library "$library" --config architecture-local --profile generic-profile --access control --format json worker start \
+  --count 2 --poll-ms 50 --max-polls 1 \
+  >"$output_dir/startup-failure.out" 2>"$output_dir/startup-failure.err"
+startup_status=$?
+set -e
+export CREXXRAG_RUNTIME="$runtime"
+if [ "$startup_status" -eq 0 ] || [ ! -s "$output_dir/startup-failure.err" ]; then exit 26; fi
 
 worker_id=worker-drain-qa
 run_app --library "$library" --config architecture-local --profile generic-profile --access control --format json worker run \
@@ -100,7 +124,7 @@ wait "$worker"
 
 stale_id=worker-stale-qa
 "$runtime" -l "$load_path" "$application" -a \
-  --library "$library" --config architecture-local --profile generic-profile --access control --format json worker run \
+  --config-file "$configuration" --library "$library" --config architecture-local --profile generic-profile --access control --format json worker run \
   --id "$stale_id" --follow --poll-ms 50 \
   >"$output_dir/stale-worker.out" 2>"$output_dir/stale-worker.err" &
 stale_worker=$!
@@ -132,12 +156,14 @@ foreach(runtime IN ITEMS "${CPRAG_RXVME}" "${CPRAG_RXBVM}")
     file(MAKE_DIRECTORY "${cell_dir}")
     execute_process(
         COMMAND /bin/sh "${driver}" "${runtime}" "${load_path}"
-            "${CPRAG_APPLICATION}" "${library}" "${cell_dir}" "${CPRAG_LAUNCHER}"
+            "${CPRAG_APPLICATION}" "${library}" "${cell_dir}" "${CPRAG_LAUNCHER}" "${CPRAG_WORK_DIR}/workers.conf"
         WORKING_DIRECTORY "${cell_dir}"
         RESULT_VARIABLE result
         OUTPUT_VARIABLE shell_out
         ERROR_VARIABLE shell_err
-        TIMEOUT 30)
+        # The complete sequence launches many independent CLIs (29.3 seconds
+        # in the traced local run); keep margin around the existing poll bounds.
+        TIMEOUT 60)
     if(NOT result EQUAL 0)
         message(FATAL_ERROR
             "${runtime_name} process framework failed (${result}):\n${shell_out}${shell_err}")
@@ -163,9 +189,9 @@ foreach(runtime IN ITEMS "${CPRAG_RXVME}" "${CPRAG_RXBVM}")
     file(READ "${cell_dir}/final-list.out" final_list_out)
     file(READ "${cell_dir}/final-list.err" final_list_err)
     string(FIND "${final_list_out}" "\"records\":[]" empty_records_position)
-    if(NOT init_out MATCHES "\"schema_version\":10" OR
-       NOT controller_out MATCHES "\"workers_requested\":2" OR
-       NOT controller_out MATCHES "\"workers_completed\":2" OR
+    if(NOT init_out MATCHES "\"schema_version\":11" OR
+       NOT controller_out MATCHES "\"workers_requested\":8" OR
+       NOT controller_out MATCHES "\"workers_completed\":8" OR
        NOT controller_out MATCHES "\"workers_failed\":0" OR
        NOT bounds_out MATCHES "\"operation\":\"worker.start\",\"status\":\"error\",\"exit_code\":2" OR
        NOT observer_out MATCHES "\"kind\":\"controller\"" OR
@@ -203,4 +229,4 @@ if(NOT launcher_result EQUAL 0 OR
 endif()
 
 message(STATUS
-    "Process framework passed two-worker observation, drain, stale detection and explicit pruning on both VMs")
+    "Process framework passed eight-worker registration, startup diagnostics, drain, stale detection and explicit pruning on both VMs")

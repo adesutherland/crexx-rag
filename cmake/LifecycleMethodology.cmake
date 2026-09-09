@@ -11,15 +11,14 @@ file(GLOB project_member_dirs LIST_DIRECTORIES true
     "${CPRAG_APPLICATION_DIR}/project/crexxrag-project.crexx-build/members/*")
 list(JOIN project_member_dirs ";" project_imports)
 set(imports "${CPRAG_WORK_DIR};${project_imports};${CPRAG_APPLICATION_DIR};${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
-set(modules
-    ragmodel ragevidence ragjob ragconfig ragprofile ragregistry ragschema
-    ragfile ragconfigfile ragglossary ragstore ragbackup ragrepository ragcanonical ragplanning
-    ragtrace ragcommand ragingest ragfolder ragclaims ragimprove ragmaintain ragbacklog ragproposalio ragwork ragquery
-    ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragproviderdiagnostics
-    raggrounding ragapplicationprovider ragqueryprovider ragquerypolicy ragproduct
-    provider_contract provider_catalog provider_http industrial_provider codex_provider
-    architecture_local_config generic_profile it_architecture_profile operator_registry
-    rxsqlite rx_hash rx_system rxfs rxplatform rxvector rxfnsg library)
+set(modules ragenrich ragproposalio ragperiod ragprovenance ragassessment ragmodel ragevidence
+    ragjob ragconfig ragprofile ragregistry ragschema ragfile ragconfigfile ragglossary
+    ragstore ragbackup ragrepository ragcanonical ragplanning ragtrace ragcommand ragingest
+    ragfolder ragclaims ragimprove ragmaintain ragbacklog ragwork ragquery ragembedding
+    ragretrieval ragevidencejson ragfoundation ragprocess ragproviderdiagnostics raggrounding ragapplicationprovider ragqueryprovider
+    ragquerypolicy ragproduct provider_contract provider_catalog provider_http industrial_provider codex_provider architecture_local_config
+    generic_profile it_architecture_profile operator_registry rxsqlite rx_hash rx_system rxfs rxplatform
+    rxvector rxfnsg library)
 
 execute_process(COMMAND "${CPRAG_RXC}" -i "${imports}"
     -o "${CPRAG_WORK_DIR}/lifecycle_methodology" "${CPRAG_SCENARIO}"

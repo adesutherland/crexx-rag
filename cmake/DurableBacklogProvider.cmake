@@ -255,7 +255,7 @@ foreach(case IN LISTS CPRAG_CASES)
                 message(FATAL_ERROR "item-limited worker group failed: ${first}")
             endif()
             execute_process(COMMAND "${CPRAG_SQLITE}" "${database}"
-                "SELECT (SELECT count(*) FROM maintenance_decisions)||':'||(SELECT count(*) FROM runtime_instances WHERE job_filter='${continuing_job}' AND kind='worker' AND state='stopped' AND exit_code=0 AND detail='application worker stopped cleanly;processed=1'); DROP TRIGGER qa_count_idle; DROP TABLE qa_idle_polls;"
+                "SELECT (SELECT count(*) FROM maintenance_decisions)||':'||(SELECT count(*) FROM runtime_instances r WHERE job_filter='${continuing_job}' AND kind='worker' AND state='stopped' AND exit_code=0 AND (SELECT count(*) FROM attempts a WHERE a.worker_id=r.instance_id AND a.outcome<>'cancelled')=1); DROP TRIGGER qa_count_idle; DROP TABLE qa_idle_polls;"
                 OUTPUT_VARIABLE item_result OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
             if(NOT item_result STREQUAL "2:2")
                 message(FATAL_ERROR "empty polls consumed the work allowance or workers exceeded it: ${item_result}")

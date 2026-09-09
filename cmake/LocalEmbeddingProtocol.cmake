@@ -38,8 +38,8 @@ file(GLOB project_member_dirs LIST_DIRECTORIES true
     "${CPRAG_APPLICATION_DIR}/project/crexxrag-project.crexx-build/members/*")
 list(JOIN project_member_dirs ";" project_imports)
 set(imports "${CPRAG_WORK_DIR};${project_imports};${CPRAG_APPLICATION_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
-set(modules provider_contract provider_catalog provider_http industrial_provider
-    rx_hash rx_system rxfs rxplatform rxvector rxfnsg library)
+set(modules provider_contract provider_catalog provider_http industrial_provider rx_hash rx_system rxfs
+    rxplatform rxvector rxfnsg library)
 foreach(mode IN ITEMS noopt opt)
     set(mode_flag)
     if(mode STREQUAL "noopt")

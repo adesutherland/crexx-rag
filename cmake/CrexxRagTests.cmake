@@ -46,7 +46,7 @@ add_test(NAME process_workers
         "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-process-workers"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ProcessWorkers.cmake")
 set_tests_properties(process_workers PROPERTIES
-    TIMEOUT 60 LABELS "process;sqlite;multi-process;worker;zero-outbound")
+    TIMEOUT 150 LABELS "process;sqlite;multi-process;worker;zero-outbound")
 
 add_test(NAME gemini_ingestion
     COMMAND "${CMAKE_COMMAND}"
@@ -112,6 +112,16 @@ add_test(NAME codex_application
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CodexApplication.cmake")
 set_tests_properties(codex_application PROPERTIES
     TIMEOUT 180 LABELS "provider;codex;application;worker;durability;recovery;zero-outbound")
+
+add_test(NAME worker_recovery
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CODEX_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-app-server-fixture.sh"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-application.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-worker-recovery"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/WorkerRecovery.cmake")
+set_tests_properties(worker_recovery PROPERTIES
+    TIMEOUT 180 LABELS "provider;worker;durability;recovery;zero-outbound")
 
 add_test(NAME gemini_maintenance
     COMMAND "${CMAKE_COMMAND}"
@@ -298,6 +308,21 @@ add_test(NAME quotation_grounding
         "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-quotation-grounding"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/QuotationGrounding.cmake")
 set_tests_properties(quotation_grounding PROPERTIES
+    LABELS "extraction;quotation;unicode;provenance;zero-outbound")
+
+add_test(NAME temporal_provenance
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_PLUGIN_DIR=${CREXXRAG_SQLITE_PROVIDER_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/provenance_scenario.crexx"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-temporal-provenance"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/TemporalProvenance.cmake")
+set_tests_properties(temporal_provenance PROPERTIES
     LABELS "extraction;quotation;unicode;provenance;zero-outbound")
 
 add_test(NAME durable_backlog

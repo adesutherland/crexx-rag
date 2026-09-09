@@ -18,7 +18,10 @@ log_method()
 }
 
 while IFS= read -r line; do
-  id=$(printf '%s\n' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  # Compact adapter envelopes have a numeric top-level id. Avoid a subprocess
+  # for each message in the long-lived request-reclamation regression.
+  id=${line#*'"id":'}
+  id=${id%%[!0-9]*}
   case "$line" in
     *'"method":"initialize"'*)
       log_method initialize
@@ -28,6 +31,12 @@ while IFS= read -r line; do
       ;;
     *'"method":"account/read"'*)
       log_method account/read
+      case "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" in
+        preflight-always) exit 70 ;;
+        preflight-once)
+          if mkdir "${CREXXRAG_CODEX_FIXTURE_ONCE:?}" 2>/dev/null; then exit 70; fi
+          ;;
+      esac
       printf '{"id":%s,"result":{"account":{"type":"chatgpt","planType":"pro"}}}\n' "$id"
       ;;
     *'"method":"account/rateLimits/read"'*)
@@ -44,6 +53,12 @@ while IFS= read -r line; do
       ;;
     *'"method":"turn/start"'*)
       log_method turn/start
+      if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "citation-feedback" ] && [ -d "${CREXXRAG_CODEX_FIXTURE_ONCE:?}" ]; then
+        case "$line" in
+          *'field=relationships[0].evidence_quote'*) log_method correction-feedback-checked ;;
+          *) exit 71 ;;
+        esac
+      fi
       case "$line" in
         *'"effort":"low"'*) ;;
         *)
@@ -52,7 +67,13 @@ while IFS= read -r line; do
           ;;
       esac
       printf '{"id":%s,"result":{"turn":{"id":"fixture-turn"}}}\n' "$id"
-      if [ "${CREXXRAG_CODEX_FIXTURE_MODE:-}" = "extraction" ]; then
+      if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "turn-disconnect" ]; then
+        printf '%s\n' '{"method":"thread/tokenUsage/updated","params":{"threadId":"fixture-thread","turnId":"fixture-turn","tokenUsage":{"last":{"inputTokens":7,"outputTokens":2}}}}'
+        exit 70
+      fi
+      if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "citation-feedback" ] && mkdir "${CREXXRAG_CODEX_FIXTURE_ONCE:?}" 2>/dev/null; then
+        printf '%s\n' '{"method":"item/completed","params":{"threadId":"fixture-thread","turnId":"fixture-turn","item":{"type":"agentMessage","text":"{\"mentions\":[{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"BillingService\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"CustomerDatabase\",\"aliases\":[]}],\"relationships\":[{\"source_mention\":0,\"relationship_type\":\"depends-on\",\"target_mention\":1,\"evidence_quote\":\"depends on CustomerDatabase.\",\"confidence_millionths\":940000}],\"notes\":[]}"}}}'
+      elif [ "${CREXXRAG_CODEX_FIXTURE_MODE:-}" = "extraction" ]; then
         printf '%s\n' '{"method":"item/completed","params":{"threadId":"fixture-thread","turnId":"fixture-turn","item":{"type":"agentMessage","text":"{\"mentions\":[{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"BillingService\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"CustomerDatabase\",\"aliases\":[]},{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"Again, BillingService depends on CustomerDatabase.\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"Again, BillingService depends on CustomerDatabase.\",\"aliases\":[]}],\"relationships\":[{\"source_mention\":0,\"relationship_type\":\"depends-on\",\"target_mention\":1,\"evidence_quote\":\"BillingService depends on CustomerDatabase.\",\"confidence_millionths\":940000},{\"source_mention\":2,\"relationship_type\":\"depends-on\",\"target_mention\":3,\"evidence_quote\":\"Again, BillingService depends on CustomerDatabase.\",\"confidence_millionths\":930000}],\"notes\":[]}"}}}'
       else
         printf '%s\n' '{"method":"item/completed","params":{"threadId":"fixture-thread","turnId":"fixture-turn","item":{"type":"agentMessage","text":"{\"ok\":true}"}}}'

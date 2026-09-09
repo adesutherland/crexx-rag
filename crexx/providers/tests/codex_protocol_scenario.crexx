@@ -6,8 +6,8 @@ import codex_provider
 
 main: procedure = .int
   arg args = .string[]
-  if args.0 \= 2 then do
-    say "usage: codex_provider_live_probe CODEX_EXECUTABLE EMPTY_WORK_DIR"
+  if args.0 < 2 | args.0 > 3 then do
+    say "usage: codex_provider_live_probe CODEX_EXECUTABLE EMPTY_WORK_DIR [ACCOUNT_CYCLES]"
     return 2
   end
   if rxfs..isfile(args[1]) \= 1 | rxfs..isdir(args[2]) \= 1 then do
@@ -17,10 +17,15 @@ main: procedure = .int
   observer = .codexnoopobserver()
   provider = .codexprovider(args[1], args[2], observer)
   account_type = ""; plan_type = ""; used_percent = -1; error = ""
-  if provider.account_status(120000, account_type, plan_type, used_percent, error) \= 0 | account_type = "" | used_percent < 0 | used_percent > 100 then do
-    call provider.close()
-    say "FAIL: managed account status " || error
-    return 1
+  cycles = 1
+  if args.0 = 3 then cycles = args[3] as .int
+  if cycles < 1 | cycles > 20000 then return 2
+  do cycle = 1 to cycles
+    if provider.account_status(120000, account_type, plan_type, used_percent, error) \= 0 | account_type = "" | used_percent < 0 | used_percent > 100 then do
+      call provider.close()
+      say "FAIL: managed account status at cycle " || cycle || ": " || error
+      return 1
+    end
   end
   messages = .providermessage[]; inputs = .string[]
   messages[1] = .providermessage("user", "Return an object whose ok field is true.")
@@ -28,6 +33,10 @@ main: procedure = .int
   request = .providerrequest("generate_structured", "probe", "default", messages, inputs, schema, 120000, 1, "public", "codex-live-probe", "codex-live-probe", 32, 0, 0, 0, 1000, 60000, 250, "low")
   result = provider.generate_structured(request)
   call provider.close()
+  if provider.health_error() \= "" then do
+    say "FAIL: provider cleanup " || provider.health_error()
+    return 1
+  end
   if result.status() \= 0 then do
     failure = result.error()
     say "FAIL: " || failure.category() || " " || failure.message()

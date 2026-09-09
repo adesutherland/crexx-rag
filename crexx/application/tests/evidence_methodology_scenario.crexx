@@ -102,8 +102,8 @@ main: procedure = .int
   errors = errors + check(encodeanswercontext(outbound.evidence(), 65536, answer_context, error) = 0 & pos('"factual_status":"analysis-only"', answer_context) > 0, "analysis-only answer context " || error)
   trace_json = ""; paths_json = ""; timeline_json = ""
   errors = errors + check(encodetraceprojection(outbound.evidence(), 65536, trace_json, error) = 0 & pos('"schema":"crexx-rag.query-trace/1"', trace_json) > 0, "dedicated trace projection " || error)
-  errors = errors + check(encodepathprojection(outbound.evidence(), 65536, paths_json, error) = 0 & pos('"schema":"crexx-rag.query-paths/1"', paths_json) > 0 & pos('"follow_question":', paths_json) > 0, "dedicated path and follow-up projection " || error)
-  errors = errors + check(encodetimelineprojection(outbound.evidence(), 65536, timeline_json, error) = 0 & pos('"schema":"crexx-rag.query-timeline/1"', timeline_json) > 0 & pos('"start":"1603"', timeline_json) > 0, "dedicated cited timeline projection " || error)
+  errors = errors + check(encodepathprojection(outbound.evidence(), 65536, paths_json, error) = 0 & pos('"schema":"crexx-rag.query-paths/2"', paths_json) > 0 & pos('"follow_question":', paths_json) > 0, "dedicated path and follow-up projection " || error)
+  errors = errors + check(encodetimelineprojection(outbound.evidence(), 65536, timeline_json, error) = 0 & pos('"schema":"crexx-rag.query-timeline/2"', timeline_json) > 0 & pos('"year":"1603"', timeline_json) > 0, "dedicated cited timeline projection " || error)
   parsed_library = ""; parsed_citation = .ragcitation
   stable_id = "crexx-rag:library-evidence-methodology:source-sha256:" || copies("a", 64) || ":revision-sha256:" || copies("b", 64) || ":utf8-10-25"
   errors = errors + check(parsecitation(stable_id, parsed_library, parsed_citation, error) = 0 & parsed_library = "library-evidence-methodology" & parsed_citation.span_start() = 10 & parsed_citation.span_end() = 25, "canonical public citation parsing " || error)

@@ -333,26 +333,44 @@ _canonicalactionnode: procedure = .int
   output = ""; error = ""
   if operation = "ingest.apply" then do
     source_set = ""; ingest_plan = ""; ingest_digest = ""
-    if document.node_count(action_node) \= 3 | document.node_string(document.member(action_node, "source_set"), source_set) \= 0 | document.node_string(document.member(action_node, "ingest_plan"), ingest_plan) \= 0 | document.node_string(document.member(action_node, "ingest_digest"), ingest_digest) \= 0 | validregistryid(source_set) \= 1 | _sourcesetexists(config, source_set) \= 1 | ingest_plan = "" | _validsha256(ingest_digest) \= 1 | rxhash..sha256hex(ingest_plan as .binary) \= ingest_digest then do
+    if (document.node_count(action_node) \= 3 & document.node_count(action_node) \= 4) | document.node_string(document.member(action_node, "source_set"), source_set) \= 0 | document.node_string(document.member(action_node, "ingest_plan"), ingest_plan) \= 0 | document.node_string(document.member(action_node, "ingest_digest"), ingest_digest) \= 0 | validregistryid(source_set) \= 1 | _sourcesetexists(config, source_set) \= 1 | ingest_plan = "" | _validsha256(ingest_digest) \= 1 | rxhash..sha256hex(ingest_plan as .binary) \= ingest_digest then do
       error = "ingest plan requires one registered source_set and one digest-bound domain plan"
       return -1
     end
-    output = "{" || jsonquote("source_set") || ":" || jsonquote(source_set) || "," || jsonquote("ingest_plan") || ":" || jsonquote(ingest_plan) || "," || jsonquote("ingest_digest") || ":" || jsonquote(ingest_digest) || "}"
+    output = "{" || jsonquote("source_set") || ":" || jsonquote(source_set) || "," || jsonquote("ingest_plan") || ":" || jsonquote(ingest_plan) || "," || jsonquote("ingest_digest") || ":" || jsonquote(ingest_digest)
+    if document.node_count(action_node) = 4 then do
+      metadata = ""
+      if document.node_string(document.member(action_node,"metadata"),metadata) \= 0 | length(metadata)>1048576 then do; error="ingest metadata must be a bounded frozen manifest string"; return -1; end
+      if metadata \= "" then do
+        manifest=.jsondocument(metadata); schema=""
+        if manifest.valid() \= 1 | manifest.node_type(manifest.root()) \= "object" | manifest.node_string(manifest.member(manifest.root(),"schema"),schema) \= 0 | schema \= "crexx-rag.source-metadata/1" then do; error="ingest metadata contract is invalid"; return -1; end
+      end
+      output=output || ',"metadata":' || jsonquote(metadata)
+    end
+    output=output || "}"
     return 0
   end
   if operation = "maintain.apply" then do
     maintenance_digest = ""
-    if (document.node_count(action_node) \= 1 & document.node_count(action_node) \= 2) | document.node_string(document.member(action_node, "maintenance_digest"), maintenance_digest) \= 0 | _validsha256(maintenance_digest) \= 1 then do
+    if (document.node_count(action_node) < 1 | document.node_count(action_node) > 3) | document.node_string(document.member(action_node, "maintenance_digest"), maintenance_digest) \= 0 | _validsha256(maintenance_digest) \= 1 then do
       error = "maintenance plan requires exactly one lowercase SHA-256 maintenance_digest"
       return -1
     end
     output = "{" || jsonquote("maintenance_digest") || ":" || jsonquote(maintenance_digest)
-    if document.node_count(action_node) = 2 then do
-      window_policy = ""
-      if document.node_string(document.member(action_node,"window_policy"),window_policy) \= 0 | length(window_policy) > 131072 then do; error = "maintenance window policy is invalid"; return -1; end
+    if document.node_count(action_node) >= 2 then do
+      window_policy = ""; maximum_policy=131072
+      if document.node_count(action_node)=3 then maximum_policy=4194304
+      if document.node_string(document.member(action_node,"window_policy"),window_policy) \= 0 | length(window_policy) > maximum_policy then do; error = "maintenance window policy is invalid"; return -1; end
       policy_document = .jsondocument(window_policy)
       if policy_document.valid() \= 1 | policy_document.node_type(policy_document.root()) \= "object" then do; error = "maintenance window policy must contain a bounded JSON object"; return -1; end
       output = output || "," || jsonquote("window_policy") || ":" || jsonquote(window_policy)
+    end
+    if document.node_count(action_node)=3 then do
+      enrichment_input=""
+      if document.node_string(document.member(action_node,"enrichment_input"),enrichment_input) \= 0 | length(enrichment_input)>1048576 then do; error="provenance input must be a bounded frozen worklist string"; return -1; end
+      worklist=.jsondocument(enrichment_input); schema=""
+      if worklist.valid() \= 1 | worklist.node_type(worklist.root()) \= "object" | worklist.node_string(worklist.member(worklist.root(),"schema"),schema) \= 0 | schema \= "crexx-rag.provenance-worklist/1" then do; error="provenance worklist contract is invalid"; return -1; end
+      output=output || ',"enrichment_input":' || jsonquote(enrichment_input)
     end
     output = output || "}"
     return 0

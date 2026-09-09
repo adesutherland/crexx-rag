@@ -15,6 +15,11 @@
   requirement-by-requirement implementation and executable-QA proof table.
 - [Test strategy](test-strategy.md): maintained regression matrix and live-call
   boundary.
+- [Scottish corpus development](scottish-corpus-development.md): proposed source
+  additions, provenance, priorities and experiments to measure graph value.
+- [Claim time and provenance proposal](claim-time-provenance-proposal.md): data
+  semantics, implementation scope, existing-data update and bounded validation;
+  approved for implementation and the stated preserved-copy validation.
 - [Integration issues](integration-issues.md): current CREXX/platform limits.
 - [Hard-coded configuration audit](configuration-audit.md): complete runtime,
   policy, provider and defensive-limit inventory plus the consolidated repair
@@ -24,3 +29,5 @@
 These are the current documents. Historical phase packets and the unreleased
 native prototype are available through Git history, not mixed into the active
 tree.
+
+- [Time and provenance contracts](time-and-provenance.md)

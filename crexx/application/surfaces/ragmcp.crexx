@@ -112,6 +112,9 @@ _toolcommand: procedure = .int
     call _option document, arguments, "hops", "hops", output
     call _option document, arguments, "mode", "mode", output
     call _option document, arguments, "direction", "direction", output
+    call _option document, arguments, "at", "at", output
+    call _option document, arguments, "during", "during", output
+    call _option document, arguments, "time_unknown", "time-unknown", output
   end
   if tool = "rag_citation_show" then do
     if _positional(document, arguments, "citation", output, error) \= 0 then return -1
@@ -155,11 +158,16 @@ _toolcommand: procedure = .int
     if _positional(document, arguments, "id", output, error) \= 0 then return -1
   end
   if tool = "rag_maintain_plan" then do
+    call _option document, arguments, "enrich_provenance", "enrich-provenance", output
+    call _option document, arguments, "input", "input", output
     call _option document, arguments, "minutes", "minutes", output
     call _option document, arguments, "until", "until", output
     call _option document, arguments, "overnight", "overnight", output
   end
-  if tool = "rag_ingest_plan" then call _option document, arguments, "source_set", "source-set", output
+  if tool = "rag_ingest_plan" then do
+    call _option document, arguments, "source_set", "source-set", output
+    call _option document, arguments, "metadata_input", "metadata-input", output
+  end
   if tool = "rag_provider_test" then call _option document, arguments, "provider", "provider", output
   if tool = "rag_proposal_plan" then call _option document, arguments, "input", "input", output
   if tool = "rag_review_decide_preview" | tool = "rag_review_decide" then do
@@ -238,8 +246,8 @@ _toollist: procedure = .string
     tools = _addtool(tools, "rag_provider_test", "Make a budgeted provider call using only public synthetic text and validate the returned structure or embedding", '{"provider":{"type":"string"}}', "true", "true", "false")
   end
   if _has(access, "plan") then do
-    tools = _addtool(tools, "rag_ingest_plan", "Plan ingestion without writing the library", '{"source_set":{"type":"string"}}', "true")
-    tools = _addtool(tools, "rag_maintain_plan", "Census and rank bounded catalogue, graph, note, query-gap, embedding and vector maintenance without writing", '{"minutes":{"type":"integer","minimum":1,"maximum":10080},"until":{"type":"string"},"overnight":{"type":"string"}}', "true")
+    tools = _addtool(tools, "rag_ingest_plan", "Plan ingestion without writing the library", '{"source_set":{"type":"string"},"metadata_input":{"type":"string"}}', "true")
+    tools = _addtool(tools, "rag_maintain_plan", "Census and rank bounded catalogue, graph, note, query-gap, embedding and vector maintenance without writing", '{"minutes":{"type":"integer","minimum":1,"maximum":10080},"until":{"type":"string"},"overnight":{"type":"string"},"enrich_provenance":{"type":"boolean"},"input":{"type":"string"}}', "true")
     tools = _addtool(tools, "rag_proposal_plan", "Plan validated proposal NDJSON without writing", '{"input":{"type":"string"}}', "true")
     tools = _addtool(tools, "rag_review_list", "List review proposals", '{}', "true")
     tools = _addtool(tools, "rag_review_decide_preview", "Preview a review decision without writing", '{"id":{"type":"string"},"decision":{"type":"string","enum":["accept","reject","dismiss"]}}', "true")
@@ -303,7 +311,7 @@ _toolargumentsvalid: procedure = .int
 _toolargumentnames: procedure = .string
   arg tool = .string
   if tool = "rag_maintain_status" | tool = "rag_maintain_inspect" then return "id cursor limit"
-  if left(tool, 10) = "rag_query_" then return "question limit hops mode direction"
+  if left(tool, 10) = "rag_query_" then return "question limit hops mode direction at during time_unknown"
   if tool = "rag_citation_show" then return "citation"
   if tool = "rag_library_report" then return "top narrative"
   if tool = "rag_library_snapshot" then return "trigger reason"
@@ -315,8 +323,8 @@ _toolargumentnames: procedure = .string
   if tool = "rag_job_replay" then return "id item reason"
   if tool = "rag_config_plan" then return "reason"
   if tool = "rag_config_apply" then return "plan_json expect_digest"
-  if tool = "rag_maintain_plan" then return "minutes until overnight"
-  if tool = "rag_ingest_plan" then return "source_set"
+  if tool = "rag_maintain_plan" then return "minutes until overnight enrich_provenance input"
+  if tool = "rag_ingest_plan" then return "source_set metadata_input"
   if tool = "rag_provider_test" then return "provider"
   if tool = "rag_proposal_plan" then return "input"
   if tool = "rag_review_decide_preview" | tool = "rag_review_decide" then return "id decision"
@@ -346,7 +354,7 @@ _objectmembers: procedure = .int
   return 0
 
 _queryproperties: procedure = .string
-  return '{"question":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":12},"hops":{"type":"integer","minimum":0,"maximum":4},"mode":{"type":"string","enum":["auto","lexical","hybrid"]},"direction":{"type":"string","enum":["outbound","inbound","both"]}}'
+  return '{"question":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":12},"hops":{"type":"integer","minimum":0,"maximum":4},"mode":{"type":"string","enum":["auto","lexical","hybrid"]},"direction":{"type":"string","enum":["outbound","inbound","both"]},"at":{"type":"string"},"during":{"type":"string"},"time_unknown":{"type":"string","enum":["include","exclude"]}}'
 
 _applyproperties: procedure = .string
   return '{"plan_json":{"type":"string"},"expect_digest":{"type":"string"}}'

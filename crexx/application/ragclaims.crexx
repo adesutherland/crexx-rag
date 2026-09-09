@@ -1,11 +1,15 @@
 options levelg
 
-namespace ragclaims expose ragclaimpolicy ragextractionproposal ragproposalvalidation ragproposalresult ragtraversalstep ragextractionrank promotemention rankchunk validateproposal applyproposal applyproposaltransaction applyclaimedproposal retractsupport traverseclaims
+namespace ragclaims expose validateassessment ragclaimpolicy ragextractionproposal ragproposalvalidation ragproposalresult ragtraversalstep ragextractionrank promotemention rankchunk validateproposal applyproposal applyproposaltransaction applyclaimedproposal retractsupport traverseclaims
 
 import rxfnsb
 import rxjson
 import rxhash
 import rxsqlite
+import raggrounding
+import ragperiod
+import ragassessment
+import ragprovenance
 import ragstore
 
 /* Graph policy stays in Level G. Provider output is represented by an
@@ -46,7 +50,7 @@ ragclaimpolicy: class
     if stance = "quotation" then return _quotation_weight
     if stance = "report" then return _report_weight
     if stance = "negation" then return _negation_weight
-    if stance = "speculation" then return _speculation_weight
+    if stance = "speculation" | stance = "proposal" then return _speculation_weight
     return 0
 
 ragextractionproposal: class
@@ -81,9 +85,10 @@ ragextractionproposal: class
   _source_scope = .string
   _profile_id = .string
   _external = .int
+  _assessment_json = .string
 
   *: factory
-    arg schema = .string, proposal_id = .string, kind = .string, source_concept_id = .string, source_label = .string, source_type = .string, relationship_type = .string, target_concept_id = .string, target_label = .string, target_type = .string, direction = .string, qualifiers_json = .string, effective_from = .string, effective_to = .string, revision_chunk_id = .string, span_start = .int, span_end = .int, polarity = .string, stance = .string, directness = .string, attribution = .string, lineage_group = .string, confidence_millionths = .int, provider_id = .string, model = .string, request_id = .string, prompt_version = .string, extractor_identity = .string, source_scope = .string, profile_id = .string, external = .int
+    arg schema = .string, proposal_id = .string, kind = .string, source_concept_id = .string, source_label = .string, source_type = .string, relationship_type = .string, target_concept_id = .string, target_label = .string, target_type = .string, direction = .string, qualifiers_json = .string, effective_from = .string, effective_to = .string, revision_chunk_id = .string, span_start = .int, span_end = .int, polarity = .string, stance = .string, directness = .string, attribution = .string, lineage_group = .string, confidence_millionths = .int, provider_id = .string, model = .string, request_id = .string, prompt_version = .string, extractor_identity = .string, source_scope = .string, profile_id = .string, external = .int, assessment_json = ""
     _schema = schema; _proposal_id = proposal_id; _kind = kind
     _source_concept_id = source_concept_id; _source_label = source_label; _source_type = source_type
     _relationship_type = relationship_type
@@ -96,7 +101,7 @@ ragextractionproposal: class
     _confidence_millionths = confidence_millionths
     _provider_id = provider_id; _model = model; _request_id = request_id
     _prompt_version = prompt_version; _extractor_identity = extractor_identity
-    _source_scope = source_scope; _profile_id = profile_id; _external = external
+    _source_scope = source_scope; _profile_id = profile_id; _external = external; _assessment_json = assessment_json
     return
 
   schema: method = .string
@@ -161,8 +166,12 @@ ragextractionproposal: class
     return _profile_id
   external: method = .int
     return _external
+  assessment_json: method = .string
+    return _assessment_json
   canonical: method = .string
-    return "{" || jsonquote("schema") || ":" || jsonquote(_schema) || "," || jsonquote("proposal_id") || ":" || jsonquote(_proposal_id) || "," || jsonquote("kind") || ":" || jsonquote(_kind) || "," || jsonquote("source_concept_id") || ":" || jsonquote(_source_concept_id) || "," || jsonquote("source_label") || ":" || jsonquote(_source_label) || "," || jsonquote("source_type") || ":" || jsonquote(_source_type) || "," || jsonquote("relationship_type") || ":" || jsonquote(_relationship_type) || "," || jsonquote("target_concept_id") || ":" || jsonquote(_target_concept_id) || "," || jsonquote("target_label") || ":" || jsonquote(_target_label) || "," || jsonquote("target_type") || ":" || jsonquote(_target_type) || "," || jsonquote("direction") || ":" || jsonquote(_direction) || "," || jsonquote("qualifiers") || ":" || _qualifiers_json || "," || jsonquote("effective_from") || ":" || jsonquote(_effective_from) || "," || jsonquote("effective_to") || ":" || jsonquote(_effective_to) || "," || jsonquote("revision_chunk_id") || ":" || jsonquote(_revision_chunk_id) || "," || jsonquote("span_start") || ":" || _span_start || "," || jsonquote("span_end") || ":" || _span_end || "," || jsonquote("polarity") || ":" || jsonquote(_polarity) || "," || jsonquote("stance") || ":" || jsonquote(_stance) || "," || jsonquote("directness") || ":" || jsonquote(_directness) || "," || jsonquote("attribution") || ":" || jsonquote(_attribution) || "," || jsonquote("lineage_group") || ":" || jsonquote(_lineage_group) || "," || jsonquote("confidence_millionths") || ":" || _confidence_millionths || "," || jsonquote("provider_id") || ":" || jsonquote(_provider_id) || "," || jsonquote("model") || ":" || jsonquote(_model) || "," || jsonquote("request_id") || ":" || jsonquote(_request_id) || "," || jsonquote("prompt_version") || ":" || jsonquote(_prompt_version) || "," || jsonquote("extractor_identity") || ":" || jsonquote(_extractor_identity) || "," || jsonquote("source_scope") || ":" || jsonquote(_source_scope) || "," || jsonquote("profile_id") || ":" || jsonquote(_profile_id) || "," || jsonquote("external") || ":" || _external || "}"
+    extra = ""
+    if _schema = "crexx-rag.extraction-proposal/2" then extra = "," || jsonquote("assessment") || ":" || _assessment_json
+    return "{" || jsonquote("schema") || ":" || jsonquote(_schema) || "," || jsonquote("proposal_id") || ":" || jsonquote(_proposal_id) || "," || jsonquote("kind") || ":" || jsonquote(_kind) || "," || jsonquote("source_concept_id") || ":" || jsonquote(_source_concept_id) || "," || jsonquote("source_label") || ":" || jsonquote(_source_label) || "," || jsonquote("source_type") || ":" || jsonquote(_source_type) || "," || jsonquote("relationship_type") || ":" || jsonquote(_relationship_type) || "," || jsonquote("target_concept_id") || ":" || jsonquote(_target_concept_id) || "," || jsonquote("target_label") || ":" || jsonquote(_target_label) || "," || jsonquote("target_type") || ":" || jsonquote(_target_type) || "," || jsonquote("direction") || ":" || jsonquote(_direction) || "," || jsonquote("qualifiers") || ":" || _qualifiers_json || "," || jsonquote("effective_from") || ":" || jsonquote(_effective_from) || "," || jsonquote("effective_to") || ":" || jsonquote(_effective_to) || "," || jsonquote("revision_chunk_id") || ":" || jsonquote(_revision_chunk_id) || "," || jsonquote("span_start") || ":" || _span_start || "," || jsonquote("span_end") || ":" || _span_end || "," || jsonquote("polarity") || ":" || jsonquote(_polarity) || "," || jsonquote("stance") || ":" || jsonquote(_stance) || "," || jsonquote("directness") || ":" || jsonquote(_directness) || "," || jsonquote("attribution") || ":" || jsonquote(_attribution) || "," || jsonquote("lineage_group") || ":" || jsonquote(_lineage_group) || "," || jsonquote("confidence_millionths") || ":" || _confidence_millionths || "," || jsonquote("provider_id") || ":" || jsonquote(_provider_id) || "," || jsonquote("model") || ":" || jsonquote(_model) || "," || jsonquote("request_id") || ":" || jsonquote(_request_id) || "," || jsonquote("prompt_version") || ":" || jsonquote(_prompt_version) || "," || jsonquote("extractor_identity") || ":" || jsonquote(_extractor_identity) || "," || jsonquote("source_scope") || ":" || jsonquote(_source_scope) || "," || jsonquote("profile_id") || ":" || jsonquote(_profile_id) || "," || jsonquote("external") || ":" || _external || extra || "}"
 
 ragproposalvalidation: class
   _status = .int
@@ -331,7 +340,7 @@ _promotemention: procedure = .int
     if promotion_complete = 1 then do; concept_or_ambiguity_id = ambiguity_id; return 0; end
   end
   else do
-    concept_id = "concept-sha256:" || rxhash..sha256hex((lower(canonical_label) || "00"x || concept_type) as .binary)
+    concept_id = _promotionidentity(database,canonical_label,concept_type,candidate_id,shared_alias)
     if selected_concept_id \= "" then concept_id = selected_concept_id
     existing_label = ""; existing_type = ""
     if _activeconcept(database, concept_id, current, existing_label, existing_type) \= 1 | existing_type \= concept_type then promotion_complete = 0
@@ -365,7 +374,7 @@ _promotemention: procedure = .int
     concept_or_ambiguity_id = ambiguity_id
   end
   else do
-    concept_id = "concept-sha256:" || rxhash..sha256hex((lower(canonical_label) || "00"x || concept_type) as .binary)
+    concept_id = _promotionidentity(database,canonical_label,concept_type,candidate_id,shared_alias)
     if selected_concept_id \= "" then concept_id = selected_concept_id
     if _insertconcept(database, concept_id, canonical_label, concept_type, generation, error) \= 0 then do
       preserved_error = error
@@ -402,6 +411,14 @@ _promotemention: procedure = .int
   end
   return 0
 
+/* An explicit, grounded distinct-sense decision may need a fresh ID because a
+ * prior type correction retained the ordinary label/type-derived ID. */
+_promotionidentity: procedure = .string
+  arg database = .binary, label = .string, concept_type = .string, candidate_id = .string, distinct = .int
+  identity = "concept-sha256:" || rxhash..sha256hex((lower(label) || "00"x || concept_type) as .binary)
+  if distinct = 1 then if _boundcount(database,"SELECT count(*) FROM concepts WHERE concept_id=?1",identity) > 0 then identity = "concept-sha256:" || rxhash..sha256hex((lower(label) || "00"x || concept_type || "00"x || "distinct:" || candidate_id) as .binary)
+  return identity
+
 rankchunk: procedure = .int
   arg store = .ragstorehandle, revision_chunk_id = .string, policy_version = .string, expose rank = .ragextractionrank, expose error = .string
   error = ""; rank = .ragextractionrank(revision_chunk_id, policy_version, 0, 0, 0, 0, 0, 0, 0, 0, "")
@@ -432,7 +449,7 @@ rankchunk: procedure = .int
 validateproposal: procedure = .int
   arg store = .ragstorehandle, proposal = .ragextractionproposal, policy = .ragclaimpolicy, expose validation = .ragproposalvalidation, expose error = .string, view_generation = 0
   error = ""; validation = .ragproposalvalidation(-1, "rejected", "invalid", "proposal has not been validated")
-  if store.open() \= 1 | proposal.schema() \= "crexx-rag.extraction-proposal/1" | proposal.proposal_id() = "" | proposal.kind() \= "claim" then do
+  if store.open() \= 1 | (proposal.schema() \= "crexx-rag.extraction-proposal/1" & proposal.schema() \= "crexx-rag.extraction-proposal/2") | proposal.proposal_id() = "" | proposal.kind() \= "claim" then do
     validation = .ragproposalvalidation(-1, "rejected", "shape", "proposal schema, identity, or kind is invalid")
     return 0
   end
@@ -466,7 +483,7 @@ validateproposal: procedure = .int
     return 0
   end
   if proposal.stance() = "quotation" | proposal.stance() = "report" then do
-    if proposal.attribution() = "" then do
+    if proposal.attribution() = "" & proposal.schema() = "crexx-rag.extraction-proposal/1" then do
       validation = .ragproposalvalidation(-1, "rejected", "attribution", "quoted or reported support requires attribution")
       return 0
     end
@@ -480,6 +497,15 @@ validateproposal: procedure = .int
   if _activechunkspan(store.database(), proposal.revision_chunk_id(), current, proposal.span_start(), proposal.span_end()) \= 1 then do
     validation = .ragproposalvalidation(0, "review", "evidence-span", "evidence chunk or UTF-8 byte span is unavailable")
     return 0
+  end
+  if proposal.schema() = "crexx-rag.extraction-proposal/2" then do
+    assessment = .ragsupportassessment
+    if validateassessment(store.database(),proposal,current,assessment,error) \= 0 then do
+      validation = .ragproposalvalidation(-1,"rejected","provenance",error); error = ""; return 0
+    end
+    if assessment.review_required() = 1 then do
+      validation = .ragproposalvalidation(0,"review","unknown-voice","quotation or report has an unidentified source voice"); return 0
+    end
   end
   source_label = ""; source_type = ""
   target_label = ""; target_type = ""
@@ -651,6 +677,11 @@ _applyproposal: procedure = .int
     preserved_error = error
     return _abortproposal(store, preserved_error, result, error)
   end
+  if proposal.schema() = "crexx-rag.extraction-proposal/2" then do
+    assessment_doc = .jsondocument(proposal.assessment_json()); assessment_root = assessment_doc.root()
+    provider_run = _boundscalartext(database,"SELECT provider_run_id FROM attempts WHERE attempt_id=?1",attempt_id)
+    if putdescription(database,support_id,assessment_doc.node_get(assessment_doc.member(assessment_root,"description")),assessment_doc.node_get(assessment_doc.member(assessment_root,"provenance")),provider_run,generation,error) \= 0 then return _abortproposal(store,error,result,error)
+  end
   if item_id \= "" then do
     if _finishitem(database, item_id, worker_id, fence, attempt_id, "accepted", proposal.canonical()) \= 0 then return _abortproposal(store, "cannot finish promoted work item", result, error)
   end
@@ -804,11 +835,26 @@ _aliasambiguous: procedure = .int
 _conflictingclaim: procedure = .int
   arg database = .binary, proposal = .ragextractionproposal, generation = .int
   prepared = .binary
-  sql = "SELECT count(*) FROM claims WHERE source_concept_id=?1 AND relationship_type=?2 AND direction=?3 AND target_concept_id<>?4 AND visible_from_generation<=?5 AND (visible_to_generation IS NULL OR visible_to_generation>?5)"
-  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, proposal.source_concept_id()) \= 0 | sqlitebindtext(prepared, 2, proposal.relationship_type()) \= 0 | sqlitebindtext(prepared, 3, proposal.direction()) \= 0 | sqlitebindtext(prepared, 4, proposal.target_concept_id()) \= 0 | sqlitebindint(prepared, 5, generation) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
-  count = 0; status = sqlitecolumnint(prepared, 0, count); call sqlitefinalize prepared
-  if status \= 0 then return -1
-  return count > 0
+  proposed = .jsondocument(proposal.qualifiers_json()); proposed_modality = "asserted"
+  ignored = proposed.node_string(proposed.member(proposed.root(),"modality"),proposed_modality)
+  proposed_period = .ragperiod(proposed.node_get(proposed.member(proposed.root(),"temporal")))
+  sql = "SELECT qualifiers_json FROM claims WHERE source_concept_id=?1 AND relationship_type=?2 AND direction=?3 AND target_concept_id<>?4 AND visible_from_generation<=?5 AND (visible_to_generation IS NULL OR visible_to_generation>?5)"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, proposal.source_concept_id()) \= 0 | sqlitebindtext(prepared, 2, proposal.relationship_type()) \= 0 | sqlitebindtext(prepared, 3, proposal.direction()) \= 0 | sqlitebindtext(prepared, 4, proposal.target_concept_id()) \= 0 | sqlitebindint(prepared, 5, generation) \= 0 then do; call sqlitefinalize prepared; return -1; end
+  step_status = sqlitestep(prepared); conflict = 0
+  do while step_status = 100
+    value = ""
+    if sqlitecolumntext(prepared,0,value) \= 0 then do; call sqlitefinalize prepared; return -1; end
+    existing = .jsondocument(value); existing_modality = "asserted"
+    ignored = existing.node_string(existing.member(existing.root(),"modality"),existing_modality)
+    existing_period = .ragperiod(existing.node_get(existing.member(existing.root(),"temporal")))
+    /* Different modalities and definitely disjoint periods are distinct meanings.
+     * Unknown or non-comparable time retains the existing conservative review. */
+    if proposed_modality = existing_modality & periodcompatibility(existing_period,proposed_period) \= "disjoint" then conflict = 1
+    step_status = sqlitestep(prepared)
+  end
+  call sqlitefinalize prepared
+  if step_status \= 101 then return -1
+  return conflict
 
 _activefence: procedure = .int
   arg database = .binary, item_id = .string, worker_id = .string, fence = .int, attempt_id = .string
@@ -913,3 +959,26 @@ _boundscalartext: procedure = .string
 _q: procedure = .string
   arg value = .string
   return "'" || changestr("'", value, "''") || "'"
+
+validateassessment: procedure = .int
+  arg database = .binary, proposal = .ragextractionproposal, generation = .int, expose assessment = .ragsupportassessment, expose error = .string
+  doc = .jsondocument(proposal.assessment_json()); root = doc.root(); schema = ""
+  if doc.valid() \= 1 | doc.node_string(doc.member(root,"schema"),schema) \= 0 | schema \= "crexx-rag.support-assessment/1" then do; error="missing versioned support assessment"; return -1; end
+  source_context = provenancecontext(database,proposal.revision_chunk_id(),generation,proposal.span_start(),proposal.span_end())
+  if source_context \= doc.node_get(doc.member(root,"source_metadata")) then do; error="source metadata changed; re-plan the assessment"; return -1; end
+  body = _boundscalartext(database,"SELECT c.text FROM revision_chunks rc JOIN chunk_contents c USING(content_id) WHERE rc.revision_chunk_id=?1",proposal.revision_chunk_id())
+  quote = ""; ignored = doc.node_string(doc.member(root,"relationship_quote"),quote)
+  matcher = .raggrounding(body); begin = -1; finish = -1
+  if matcher.find(quote,begin,finish) \= 1 | begin \= proposal.span_start() | finish \= proposal.span_end() then do; error="assessment quotation differs from the support span"; return -1; end
+  assessment = .ragsupportassessment(doc.node_get(doc.member(root,"input")),body,source_context,quote)
+  if assessment.ok() = 0 then do; error=assessment.error(); return -1; end
+  if assessment.canonical() \= proposal.assessment_json() then do; error="support assessment differs from validated interpretation"; return -1; end
+  qualifiers = .jsondocument(proposal.qualifiers_json()); expected = .jsondocument(assessment.qualifiers()); modality=""; expected_modality=""
+  ignored=qualifiers.node_string(qualifiers.member(qualifiers.root(),"modality"),modality)
+  ignored=expected.node_string(expected.member(expected.root(),"modality"),expected_modality)
+  temporal_value=qualifiers.node_get(qualifiers.member(qualifiers.root(),"temporal")); expected_temporal=expected.node_get(expected.member(expected.root(),"temporal"))
+  if modality="" & expected_modality="asserted" then modality="asserted"
+  expected_period=.jsondocument(expected_temporal); expected_kind=""; ignored=expected_period.node_string(expected_period.member(expected_period.root(),"kind"),expected_kind)
+  if temporal_value="" & expected_kind="unknown" then temporal_value=expected_temporal
+  if qualifiers.valid() \= 1 | modality \= expected_modality | temporal_value \= expected_temporal | proposal.effective_from() \= assessment.effective_from() | proposal.effective_to() \= assessment.effective_to() | proposal.stance() \= assessment.stance() | proposal.directness() \= assessment.directness() | proposal.polarity() \= assessment.polarity() | proposal.attribution() \= assessment.voice() then do; error="claim or support semantics differ from their assessment"; return -1; end
+  return 0

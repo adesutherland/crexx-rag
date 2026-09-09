@@ -618,10 +618,16 @@ _aliases: procedure = .string[]
   if noun \= "ingest" then return args
   if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply") > 0 then return args
 
+  metadata_args=.string[]
   i = noun_index + 1
   do while i <= args.0
     token = args[i]
     if token = "--yes" then auto_confirm = 1
+    else if token="--document-date" | token="--metadata-input" then do
+      if i=args.0 then do; error=token || " requires a value"; return args; end
+      metadata_args[metadata_args.0+1]=token; i=i+1; metadata_args[metadata_args.0+1]=args[i]
+    end
+    else if left(token,16)="--document-date=" | left(token,17)="--metadata-input=" then metadata_args[metadata_args.0+1]=token
     else if token = "--source-set" then do
       if i = args.0 then do; error = "--source-set requires a value"; return args; end
       i = i + 1; source_set = args[i]
@@ -646,6 +652,7 @@ _aliases: procedure = .string[]
   output = _prefix(args, noun_index)
   output[output.0 + 1] = "ingest"; output[output.0 + 1] = "plan"
   output[output.0 + 1] = "--source-set"; output[output.0 + 1] = source_set
+  do j=1 to metadata_args.0; output[output.0+1]=metadata_args[j]; end
   alias = "guided-ingest"
   return output
 

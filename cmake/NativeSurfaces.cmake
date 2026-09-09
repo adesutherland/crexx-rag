@@ -125,6 +125,7 @@ execute_process(COMMAND ${cli} --access read,plan,curate,control,admin serve mcp
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}" INPUT_FILE "${requests}"
     OUTPUT_VARIABLE mcp_out ERROR_VARIABLE mcp_err
     RESULT_VARIABLE mcp_result TIMEOUT 90)
+file(WRITE "${CPRAG_WORK_DIR}/mcp-out.jsonl" "${mcp_out}")
 if(NOT mcp_result EQUAL 0 OR
    NOT mcp_out MATCHES "\"operation\":\"vector.rebuild\",\"status\":\"ok\"" OR
    NOT mcp_out MATCHES "\"serverInfo\":{\"name\":\"crexxrag-mcp\"" OR
@@ -183,9 +184,9 @@ if(NOT mcp_result EQUAL 0 OR
    NOT mcp_out MATCHES "\"operation\":\"query.trace\",\"status\":\"ok\"" OR
    NOT mcp_out MATCHES "crexx-rag.query-trace/1" OR
    NOT mcp_out MATCHES "\"operation\":\"query.path\",\"status\":\"ok\"" OR
-   NOT mcp_out MATCHES "crexx-rag.query-paths/1" OR
+   NOT mcp_out MATCHES "crexx-rag.query-paths/2" OR
    NOT mcp_out MATCHES "\"operation\":\"query.timeline\",\"status\":\"ok\"" OR
-   NOT mcp_out MATCHES "crexx-rag.query-timeline/1" OR
+   NOT mcp_out MATCHES "crexx-rag.query-timeline/2" OR
    NOT mcp_out MATCHES "\"operation\":\"maintain.plan\"" OR
    NOT mcp_out MATCHES "\"recurrence_owner\":\"external\"" OR
    NOT mcp_out MATCHES "\"code\":-32602,\"message\":\"unknown object member surprise\"" OR
@@ -227,3 +228,27 @@ file(WRITE "${CPRAG_WORK_DIR}/result.txt"
     "annotations=truthful\nreport=deterministic-mcp\nmaintenance=plan+apply+status+inspect-advertised\nmaintenance_plan=called\nunknown_arguments=rejected\nsecret_values_logged=0\n"
     "${init_out}${ingest_out}${ingest_err}${mcp_out}${mcp_err}${verify_out}${verify_err}")
 message(STATUS "Native surfaces passed unified crexxrag MCP serving, stable citation resolution, dedicated trace/path/timeline projections, deterministic reporting, churn-governed snapshots, historic trends, maintenance vocabulary, discovered config, provider-backed structured answer, lexical zero-call route, truthful annotations, strict arguments, and clean integrity")
+
+# Historical filters validate before any provider request and keep unknowns explicit.
+execute_process(COMMAND ${cli} --format json query evidence
+    "What does BillingService depend on?" --mode lexical --at 2026 --time-unknown exclude
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE temporal_out ERROR_VARIABLE temporal_err RESULT_VARIABLE temporal_rc TIMEOUT 30)
+if(NOT temporal_rc EQUAL 0 OR NOT temporal_out MATCHES "crexx-rag.evidence/2")
+    message(FATAL_ERROR "Temporal query surface failed: ${temporal_out}${temporal_err}")
+endif()
+execute_process(COMMAND ${cli} --format json query evidence
+    "BillingService" --at 2026-02-30
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE temporal_bad ERROR_VARIABLE temporal_bad_err RESULT_VARIABLE temporal_bad_rc TIMEOUT 30)
+if(NOT temporal_bad_rc EQUAL 2)
+    message(FATAL_ERROR "Invalid historical date did not fail before provider work: ${temporal_bad}${temporal_bad_err}")
+endif()
+file(WRITE "${CPRAG_WORK_DIR}/metadata-empty.json" "{\"schema\":\"crexx-rag.source-metadata/1\",\"descriptions\":[],\"relations\":[]}")
+execute_process(COMMAND ${cli} --format json --access plan ingest plan
+    --source-set architecture-docs --metadata-input "${CPRAG_WORK_DIR}/metadata-empty.json"
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE metadata_out ERROR_VARIABLE metadata_err RESULT_VARIABLE metadata_rc TIMEOUT 30)
+if(NOT metadata_rc EQUAL 0 OR NOT metadata_out MATCHES "canonical_plan")
+    message(FATAL_ERROR "Metadata plan surface failed: ${metadata_out}${metadata_err}")
+endif()

@@ -1,0 +1,152 @@
+options levelg
+import rxfnsb
+import rxjson
+import rxsqlite
+import ragstore
+import ragingest
+import ragenrich
+import ragbacklog
+import ragwork
+import ragclaims
+import ragproposalio
+import ragcanonical
+import ragperiod
+import ragretrieval
+import ragevidencejson
+import ragmaintain
+import generic_profile
+import architecture_local_config
+import operator_registry
+import ragconfig
+import ragconfiguration
+import ragcommand
+import ragproduct
+import ragfile
+
+fixtureprovider: class implements .ragworkprovider
+  process: method = .ragworkproviderresult
+    arg claim=.ragworkclaim
+    empty=.ragextractionproposal; mentions=.ragworkmention[]; proposals=.ragworkproposal[]; notes=.ragworknote[]
+    return .ragworkproviderresult(-1,"fixture","fixture","unexpected-call",0,0,0,0,0,empty,"durable receipt should prevent another provider call",0,"","",.ragworkembedding("","","","","",0,"",''x as .binary),"","local-compute",mentions,proposals,notes)
+
+main: procedure = .int
+  arg args=.string[]
+  if args.0\=1 then return 2
+  errors=0; error=""; store=.ragstorehandle
+  base=architecturelocalconfig()
+  config=.ragconfig(base.config_id(),base.version(),base.source_sets(),base.providers(),base.roles(),base.profile_ids(),base.budget(),base.workers(),base.schedules(),base.discovery(),base.vector(),base.retrieval(),.ragmaintenancepolicy(1,1,100,"automatic"),base.observation(),base.profile_files())
+  identity=.ragconfigidentity
+  if identifyconfig(config,genericprofile(),identity,error)\=0 then do; say error; return 1; end
+  snapshot_id=identity.snapshot_id()
+  if initragstore(args[1],"enrichment-fixture",snapshot_id,config.config_id(),config.version(),"generic-profile",identity.profile_hash(),identity.config_hash(),identity.effective_json(),store,error,identity.semantic_hash(),identity.operational_hash())\=0 then do; say error; return 1; end
+  db=store.database(); first="On Gregorian 1745-07-20 Ada commanded Bea."; second="In Gregorian 1750, Bea served Cora."; body=first || " " || second; undated="Ada commanded Bea."
+  observations=.ragsourceobservation[]
+  observations[1]=.ragsourceobservation("folder:fixture","book.txt","","fixture://book","book.txt","text/plain","utf-8","plain",body as .binary,1,"","","{}","2026-09-08T12:00:00Z")
+  observations[2]=.ragsourceobservation("folder:fixture","letter.txt","","fixture://letter","letter.txt","text/plain","utf-8","plain",undated as .binary,1,"","","{}","2026-09-08T12:00:00Z")
+  plan=.ragingestplan
+  if createingestplan(store,"folder:fixture",snapshot_id,"fixture-v1","fixture-v1",1024,observations,plan,error)\=0 then do; say error; return 1; end
+  ingested=applyingestplan(store,plan,observations)
+  if ingested.ok()=0 then do; say ingested.error(); return 1; end
+  chunk=text(db,"SELECT r.revision_chunk_id FROM revision_chunks r JOIN chunk_contents c USING(content_id) WHERE c.text=" || q(body)); letter_chunk=text(db,"SELECT r.revision_chunk_id FROM revision_chunks r JOIN chunk_contents c USING(content_id) WHERE c.text=" || q(undated))
+  errors=errors+check(sqliteexec(db,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('a','Ada','concept','active',2),('b','Bea','concept','active',2),('c','Cora','concept','active',2)")=0,"fixture concepts")
+  errors=errors+check(sqliteexec(db,"INSERT INTO claims(claim_id,source_concept_id,relationship_type,target_concept_id,direction,qualifiers_json,policy_version,visible_from_generation) VALUES('claim-a','a','related-to','b','outbound','{}','fixture-v1',2),('claim-b','b','related-to','c','outbound','{}','fixture-v1',2)")=0,"fixture claims")
+  errors=errors+check(sqliteexec(db,"INSERT INTO claim_support(support_id,claim_id,revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity,visible_from_generation) VALUES('support-a','claim-a'," || q(chunk) || ",0," || length(first) || ",'support','assertion','direct','','legacy','fixture-v1',2),('support-b','claim-b'," || q(chunk) || "," || (length(first)+1) || "," || length(body) || ",'support','assertion','direct','','legacy','fixture-v1',2),('support-undated','claim-a'," || q(letter_chunk) || ",0," || length(undated) || ",'support','assertion','direct','','legacy','fixture-v1',2)")=0,"fixture supports")
+  if errors>0 then return 1
+  source_identity=text(db,"SELECT json_group_array(revision_id||revision_envelope_digest||captured_at) FROM source_revisions")
+  worklist='{"schema":"crexx-rag.provenance-worklist/1","chunks":[' || jsonquote(chunk) || ']}'
+  census=.ragmaintenancecensus
+  errors=errors+check(prepareenrichment(db,worklist,65536,census,error)=0 & census.item_count()=1,"bounded assessment census " || error)
+  policy='{"mode":"automatic","window_seconds":1000,"automatic_actions":"assess-provenance","maximum_impact":100,"maximum_attempts":1,"retry_seconds":1,"maximum_evidence_bytes":65536,"batch_items":1,"resolution_prompt":"Fixture resolution","knowledge_policy":"enrichment-fixture","provider_id":"fixture","model":"fixture","charging_basis":"local-compute","privacy":"public","profile_id":"generic-profile","discovery_context":"{}","input_tokens":100000,"output_tokens":10000,"cost_microunits":0,"time_ms":1000,"inflight":1,"item_limit":1,"model_calls":2,"input_budget":200000,"output_budget":20000,"cost_budget":0,"codex_turns":0,"enrichment":' || jsonquote(census.canonical()) || '}'
+  job=""; run=""; items=0
+  errors=errors+check(startbacklogwindow(store,census,snapshot_id,copies("a",64),policy,run,job,items,error)=0 & items=1,"selected window " || error)
+  errors=errors+check(number(db,"SELECT count(*) FROM maintenance_tasks")=1 & number(db,"SELECT count(*) FROM job_items WHERE job_id=" || q(job) || " AND item_type='maintenance-resolution'")=1,"no discovery or embedding work added")
+  response='{"action":"assess-provenance","reason":"two explicitly dated relationships","assessments":[{"support_id":"support-a","confidence_millionths":900000,"assessment":' || assessment(periodvalue("point",perioddate("1745-07-20","day","stated","gregorian"),perioddate(),"bounded"),first) || '},{"support_id":"support-b","confidence_millionths":900000,"assessment":' || assessment(periodvalue("point",perioddate("1750","year","stated","gregorian"),perioddate(),"bounded"),second) || '}]}'
+  task=text(db,"SELECT task_id FROM maintenance_tasks"); grounds=""
+  errors=errors+check(validateenrichment(db,task,response,grounds,error)=0,"strict complete response " || error)
+  review_response=changestr('"confidence_millionths":900000',response,'"confidence_millionths":400000')
+  errors=errors+check(enrichmentreviewrequired(store,task,review_response,genericprofile(),2,error)=1 & number(db,"SELECT count(*) FROM support_descriptions")=0 & number(db,"SELECT count(*) FROM claim_support WHERE visible_to_generation IS NOT NULL")=0,"review leaves the whole packet unpublished")
+  bad_quote=changestr(first,response,"A fabricated quotation")
+  errors=errors+check(validateenrichment(db,task,bad_quote,grounds,error)\=0 & number(db,"SELECT count(*) FROM support_descriptions")=0,"one fabricated field rejects the whole packet")
+  bad=changestr('"support-b"',response,'"support-a"')
+  errors=errors+check(validateenrichment(db,task,bad,grounds,error)\=0,"duplicate support rejected before mutation")
+  claim=.ragworkclaim; reservation=.ragcallreservation
+  errors=errors+check(claimnext(store,job,"crashed-fixture",60,1,claim,error)=0 & reservecall(store,claim,100000,10000,0,1000,reservation,error)=0,"claim and reserve " || error)
+  errors=errors+check(beginproviderrequest(store,claim,"fixture-assessment",error)=0 & recordproviderresponse(store,claim,response,error)=0,"durable intent and response " || error)
+  provider_run=""
+  errors=errors+check(settlecall(store,reservation,"fixture","fixture","assessed-before-crash","succeeded",1000,500,0,1,provider_run,error,"","local-compute",1,"",response,ragsha256(canonicalprofile(genericprofile())))=0,"durable response and usage " || error)
+  errors=errors+check(sqliteexec(db,"UPDATE job_items SET lease_until=0 WHERE item_id=" || q(claim.item_id()))=0,"simulate death after settlement")
+  provider=.fixtureprovider; disposition=""
+  status=runworkeronce(store,job,"replacement-fixture",60,1,profileclaimpolicy(genericprofile()),provider,disposition,error,genericprofile())
+  errors=errors+check(status=0 & disposition="resolution-recorded","recover and publish " || error || " " || disposition)
+  errors=errors+check(number(db,"SELECT count(*) FROM provider_runs")=1,"receipt recovery avoids another call")
+  errors=errors+check(number(db,"SELECT count(*) FROM claim_support WHERE support_id='support-undated' AND visible_to_generation IS NULL")=1 & number(db,"SELECT count(*) FROM claims WHERE claim_id='claim-a' AND visible_to_generation IS NULL")=1,"undated support stays with original claim")
+  errors=errors+check(number(db,"SELECT count(*) FROM claim_support WHERE support_id IN('support-a','support-b') AND visible_to_generation IS NOT NULL")=2 & number(db,"SELECT count(*) FROM support_descriptions WHERE visible_to_generation IS NULL")=2,"only assessed supports replaced")
+  errors=errors+check(number(db,"SELECT count(*) FROM claims WHERE json_extract(qualifiers_json,'$.temporal.kind')='point' AND visible_to_generation IS NULL")=2,"canonical qualified claims")
+  errors=errors+check(prepareenrichment(db,worklist,65536,census,error)=0 & census.item_count()=0,"repeated successful worklist is zero-call no-op")
+  during=periodquery("","1740/1760"); retrieval_policy=.ragretrievaloptions("temporal-test","",''x as .binary,24,12,100000,2,12,8,0,60,"outbound",2000,750000,1000,67108864,during.canonical(),"exclude")
+  retrieval=.ragretrievalresult
+  errors=errors+check(retrieveevidence(store,genericprofile(),"Ada",retrieval_policy,retrieval,error)=0,"temporal retrieval " || error)
+  evidence_json=""; trace_json=""; timeline=""
+  errors=errors+check(encodeevidence(retrieval.evidence(),65536,evidence_json,error)=0 & encodetraceprojection(retrieval.evidence(),65536,trace_json,error)=0,"temporal encoding " || error)
+  errors=errors+check(pos("no-common-period",trace_json)>0 & pos('"object":"Cora"',evidence_json)=0,"disjoint edges cannot form a contemporaneous path")
+  errors=errors+check(pos('"asserted_at":""',evidence_json)>0 & pos('"schema":"crexx-rag.evidence/2"',evidence_json)>0 & pos('"raw_captured_at":"2026-',evidence_json)>0,"capture is separate from assertion time")
+  errors=errors+check(encodetimelineprojection(retrieval.evidence(),65536,timeline,error)=0 & pos('"kind":"historical-validity"',timeline)>0 & pos('"text_year_leads":',timeline)>0,"separate historical timeline and text-year leads " || error)
+  bounded=""
+  errors=errors+check(encodeanswercontext(retrieval.evidence(),4096,bounded,error)=0 & binlength(bounded as .binary)<=4096 & pos('"truncation":{"incomplete":true',bounded)>0 & pos("absence is not negative evidence",bounded)>0,"bounded context keeps explicit omissions and qualifications " || error)
+  errors=errors+check(encodeanswercontext(retrieval.evidence(),64,bounded,error)\=0,"mandatory guidance cannot be silently discarded")
+  errors=errors+check(source_identity=text(db,"SELECT json_group_array(revision_id||revision_envelope_digest||captured_at) FROM source_revisions") & number(db,"SELECT count(*) FROM pragma_foreign_key_check")=0 & number(db,"SELECT reserved_calls+reserved_tokens+reserved_cost+reserved_codex_turns FROM jobs WHERE job_id=" || q(job))=0,"source preservation and settlement")
+  errors=errors+check(tickbacklogwindow(store,job,error)>=0 & text(db,"SELECT state FROM maintenance_windows WHERE job_id=" || q(job))\="active","settle completed fixture window " || error)
+  ignored=closeragstore(store,error)
+  /* Exercise the same public plan/apply handoff as native CLI and MCP. The
+   * other source still has one legacy support, so this cannot skip the apply. */
+  worklist='{"schema":"crexx-rag.provenance-worklist/1","chunks":[' || jsonquote(letter_chunk) || ']}'
+  input_path=args[1] || "-public-worklist.json"
+  errors=errors+check(writebinaryfile(input_path,worklist as .binary,error)=0,"public worklist file")
+  registry=operatorregistryforconfig(config); access=.string[]; access[1]="plan"; access[2]="curate"
+  command_options=.ragcommandoption[]; positionals=.string[]
+  command_options[1]=.ragcommandoption("enrich-provenance","true",1); command_options[2]=.ragcommandoption("input",input_path,0); command_options[3]=.ragcommandoption("minutes","15",0)
+  request=.ragcommandrequest(args[1],config.config_id(),"generic-profile","","json","off",access,"maintain","plan","maintain.plan",command_options,positionals)
+  planned=dispatchproduct(request,registry)
+  errors=errors+check(planned.exit_code()=0 & resultfield(planned,"canonical_plan")\="","public enrichment plan " || planned.message())
+  apply_options=.ragcommandoption[]
+  apply_options[1]=.ragcommandoption("plan-json",resultfield(planned,"canonical_plan"),0); apply_options[2]=.ragcommandoption("expect-digest",resultfield(planned,"digest"),0)
+  request=.ragcommandrequest(args[1],config.config_id(),"generic-profile","","json","off",access,"maintain","apply","maintain.apply",apply_options,positionals)
+  applied=dispatchproduct(request,registry)
+  errors=errors+check(applied.exit_code()=0 & resultfield(applied,"disposition")="provenance-window-created" & resultfield(applied,"work_items")="1","public enrichment apply " || applied.message())
+  errors=errors+check(openragstore(args[1],"readonly",store,error)=0,"inspect public window")
+  errors=errors+check(number(store.database(),"SELECT count(*) FROM provider_runs")=1 & number(store.database(),"SELECT count(*) FROM job_items WHERE job_id=" || q(resultfield(applied,"job_id")) || " AND item_type='maintenance-resolution'")=1,"public apply queues selected work without another provider call")
+  ignored=closeragstore(store,error)
+  if errors>0 then return 1
+  say "ENRICHMENT_OK frozen_worklist receipt_recovery selective_qualification no_op temporal_path capture_separation"
+  return 0
+
+assessment: procedure = .string
+  arg period=.string, quote=.string
+  return '{"temporal":' || period || ',"temporal_quote":' || jsonquote(quote) || ',"modality":"asserted","stance":"assertion","directness":"direct","polarity":"support","voice":"","voice_quote":"","voice_description_id":"","origin":"unknown","origin_quote":"","asserted_period":' || periodunknown() || ',"asserted_quote":"","asserted_description_id":"","derivation_ids":[]}'
+resultfield: procedure = .string
+  arg result=.ragcommandresult, name=.string
+  records=result.records()
+  do r=1 to records.0
+    fields=records[r].fields()
+    do f=1 to fields.0
+      if fields[f].name()=name then return fields[f].value()
+    end
+  end
+  return ""
+check: procedure = .int
+  arg condition=.int, label=.string
+  if condition=1 then return 0
+  say "FAIL " || label; return 1
+q: procedure = .string
+  arg value=.string
+  return "'" || changestr("'",value,"''") || "'"
+text: procedure = .string
+  arg db=.binary, sql=.string
+  p=.binary; value=""
+  if sqliteprepare(db,sql,p)=0 then do; if sqlitestep(p)=100 then ignored=sqlitecolumntext(p,0,value); call sqlitefinalize p; end
+  return value
+number: procedure = .int
+  arg db=.binary, sql=.string
+  p=.binary; value=-1
+  if sqliteprepare(db,sql,p)=0 then do; if sqlitestep(p)=100 then ignored=sqlitecolumnint(p,0,value); call sqlitefinalize p; end
+  return value

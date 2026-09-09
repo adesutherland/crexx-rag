@@ -8,6 +8,8 @@ import rxhash
 import rxvector
 import rxjson
 import rxsqlite
+import ragperiod
+import ragprovenance
 import ragstore
 import ragprofile
 import ragmodel
@@ -32,9 +34,11 @@ ragretrievaloptions: class
   _graph_decay_millionths = .int
   _directness_bonus_millionths = .int
   _maximum_sidecar_bytes = .int
+  _temporal_query = .string
+  _time_unknown = .string
 
   *: factory
-    arg policy_version = "retrieval-v1", embedding_profile_id = "", query_vector = .binary, lexical_limit = 24, vector_limit = 12, vector_scan_limit = 100000, graph_hops = 2, passage_limit = 12, claim_limit = 8, lead_limit = 8, rrf_k = 60, graph_direction = "both", graph_boost_millionths = 2000, graph_decay_millionths = 750000, directness_bonus_millionths = 1000, maximum_sidecar_bytes = 67108864
+    arg policy_version = "retrieval-v1", embedding_profile_id = "", query_vector = .binary, lexical_limit = 24, vector_limit = 12, vector_scan_limit = 100000, graph_hops = 2, passage_limit = 12, claim_limit = 8, lead_limit = 8, rrf_k = 60, graph_direction = "both", graph_boost_millionths = 2000, graph_decay_millionths = 750000, directness_bonus_millionths = 1000, maximum_sidecar_bytes = 67108864, temporal_query = "", time_unknown = "include"
     _policy_version = policy_version
     _embedding_profile_id = embedding_profile_id
     _query_vector = query_vector
@@ -51,6 +55,7 @@ ragretrievaloptions: class
     _graph_decay_millionths = graph_decay_millionths
     _directness_bonus_millionths = directness_bonus_millionths
     _maximum_sidecar_bytes = maximum_sidecar_bytes
+    _temporal_query = temporal_query; _time_unknown = time_unknown
     return
 
   policy_version: method = .string
@@ -85,6 +90,11 @@ ragretrievaloptions: class
     return _directness_bonus_millionths
   maximum_sidecar_bytes: method = .int
     return _maximum_sidecar_bytes
+
+  temporal_query: method = .string
+    return _temporal_query
+  time_unknown: method = .string
+    return _time_unknown
 
 ragretrievalresult: class
   _status = .int
@@ -156,7 +166,7 @@ retrieveevidence: procedure = .int
   candidate_ids = .string[]
   lexical_ranks = .int[]; vector_ranks = .int[]; graph_ranks = .int[]
   vector_scores = .float[]; graph_hops = .int[]; directness_values = .float[]
-  claim_ids = .string[]; claim_hops = .int[]; trace_notes = .string[]
+  claim_ids = .string[]; claim_hops = .int[]; claim_paths = .string[]; trace_notes = .string[]
   lexical_status = _lexical(store.database(), query_plan, retrieval_options.lexical_limit(), candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values, trace_notes, error)
   if lexical_status \= 0 then return -3
 
@@ -165,13 +175,13 @@ retrieveevidence: procedure = .int
     vector_status = _vector(store, generation, retrieval_options, candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values, vector_state, trace_notes, error)
     if vector_status < 0 then return -3
   end
-  if _graph(store.database(), generation, query_plan, retrieval_options.graph_hops(), retrieval_options.graph_direction(), candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values, claim_ids, claim_hops, trace_notes, error) \= 0 then return -3
+  if _graph(store.database(), generation, query_plan, retrieval_options.graph_hops(), retrieval_options.graph_direction(), candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values, claim_ids, claim_hops, trace_notes, error,retrieval_options,claim_paths) \= 0 then return -3
 
   passages = .ragpassage[]; selected_ids = .string[]; selected_sources = .string[]; selected_contents = .string[]
   scores = .float[]
   if _rankandpassages(store.database(), library_id, generation, profile, query_plan, retrieval_options, candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values, scores, passages, selected_ids, selected_sources, selected_contents, trace_notes, error) \= 0 then return -3
   claims = .ragacceptedclaim[]
-  if _claims(store.database(), library_id, generation, retrieval_options.claim_limit(), claim_ids, claim_hops, selected_ids, claims, trace_notes, error) \= 0 then return -3
+  if _claims(store.database(), library_id, generation, retrieval_options.claim_limit(), claim_ids, claim_hops, selected_ids, claims, trace_notes, error,retrieval_options,claim_paths) \= 0 then return -3
   ambiguities = query_plan.ambiguities()
   if _retrievedambiguities(store.database(), generation, selected_ids, ambiguities, error) \= 0 then return -3
   leads = .raggraphlead[]
@@ -184,13 +194,14 @@ retrieveevidence: procedure = .int
   do i = 1 to variants.0
     plan_strings[i] = variants[i].kind() || ":" || variants[i].query()
   end
-  trace_identity = rxhash..sha256hex(("crexx-rag.retrieval-trace/1" || "00"x || library_id || "00"x || generation || "00"x || query_plan.fingerprint() || "00"x || _join(selected_ids)) as .binary)
+  if retrieval_options.temporal_query() \= "" then plan_strings[plan_strings.0+1] = "temporal:" || retrieval_options.temporal_query() || ";unknown=" || retrieval_options.time_unknown()
+  trace_identity = rxhash..sha256hex(("crexx-rag.retrieval-trace/1" || "00"x || library_id || "00"x || generation || "00"x || query_plan.fingerprint() || "00"x || retrieval_options.temporal_query() || "00"x || retrieval_options.time_unknown() || "00"x || _join(selected_ids)) as .binary)
   trace_notes[trace_notes.0 + 1] = "policy=" || retrieval_options.policy_version()
   trace_notes[trace_notes.0 + 1] = "vector=" || vector_state
   trace_notes[trace_notes.0 + 1] = "candidates=" || candidate_ids.0 || ";selected=" || passages.0 || ";claims=" || claims.0 || ";leads=" || leads.0 || ";analysis-notes=" || analysis_notes.0
   trace_record = .ragtrace("trace-" || substr(trace_identity, 1, 24), plan_strings, trace_notes)
-  guidance = "Answer only from passages and accepted claim support; preserve attribution, stance, time, ambiguity, conflict, leads, and explicit gaps."
-  evidence = .ragevidence("crexx-rag.evidence/1", library_id, generation, question, plan_strings, passages, claims, ambiguities, leads, analysis_notes, gaps, trace_record, guidance, "")
+  guidance = "Answer only from passages and accepted claim support. Use resolved support voice and provenance; never treat capture or publication as historical validity or assertion time. RAG acceptance is validation, not historical truth. Primary and secondary describe evidence origin, not reliability. Proposed or hypothetical relationships must never be presented as enacted facts. Preserve unknown dates, precision, calendars, draft status, attribution, conflicts and temporal compatibility. Known evidence families indicate dependence; unknown independence is not independent confirmation. Exploratory leads and textual years are not typed claims."
+  evidence = .ragevidence("crexx-rag.evidence/2", library_id, generation, question, plan_strings, passages, claims, ambiguities, leads, analysis_notes, gaps, trace_record, guidance, "")
   lexical_candidates = _nonzero(lexical_ranks); vector_candidates = _nonzero(vector_ranks); graph_candidates = _nonzero(graph_ranks)
   lexical_passages = _selectedchannels(selected_ids, candidate_ids, lexical_ranks); vector_passages = _selectedchannels(selected_ids, candidate_ids, vector_ranks); graph_passages = _selectedchannels(selected_ids, candidate_ids, graph_ranks)
   result = .ragretrievalresult(0, "complete", evidence, candidate_ids.0, lexical_candidates, vector_candidates, graph_candidates, lexical_passages, vector_passages, graph_passages, vector_state, "")
@@ -199,11 +210,15 @@ retrieveevidence: procedure = .int
 recordquerygaps: procedure = .int
   arg store = .ragstorehandle, evidence = .ragevidence, expose recorded = .int, expose error = .string
   recorded = 0; error = ""
-  if store.writable() \= 1 | evidence.schema_version() \= "crexx-rag.evidence/1" | evidence.active_generation() < 1 then do; error = "query-gap recording input is invalid"; return -1; end
+  if store.writable() \= 1 | (evidence.schema_version() \= "crexx-rag.evidence/1" & evidence.schema_version() \= "crexx-rag.evidence/2") | evidence.active_generation() < 1 then do; error = "query-gap recording input is invalid"; return -1; end
   gaps = evidence.gaps()
   if gaps.0 = 0 then return 0
   normalized_question = lower(strip(evidence.original_question()))
-  question_hash = rxhash..sha256hex(normalized_question as .binary)
+  question_identity = normalized_question; query_steps = evidence.query_plan()
+  do i = 1 to query_steps.0
+    if left(query_steps[i],9) = "temporal:" then question_identity = question_identity || "00"x || query_steps[i]
+  end
+  question_hash = rxhash..sha256hex(question_identity as .binary)
   trace_id = evidence.trace().trace_id(); database = store.database()
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin query-gap recording"; return -3; end
   do i = 1 to gaps.0
@@ -241,7 +256,9 @@ resolvecitation: procedure = .int
   if column_status \= 0 | citation.span_end() > binlength(revision_bytes) then do; error = "citation UTF-8 span is outside the immutable revision"; return -2; end
   body = binsubstr(revision_bytes, citation.span_start() + 1, citation.span_end() - citation.span_start()) as .string
   channels = .string[]; channels[1] = "historical-resolution"
-  passage = .ragpassage(citation, title, body, source_type, 1.0, captured_at, event_start, event_end, "historical", "direct", channels, empty_scores)
+  generation = _scalarint(store.database(),"SELECT published_generation FROM library_meta WHERE singleton=1")
+  metadata = sourcemetadata(store.database(),citation.revision(),citation.span_start(),citation.span_end(),generation)
+  passage = .ragpassage(citation, title, body, source_type, 1.0, _capturevalue(store.database(),captured_at), event_start, event_end, "historical", "direct", channels, empty_scores,metadata,captured_at)
   return 0
 
 parsecitation: procedure = .int
@@ -442,20 +459,27 @@ _allrowspositive: procedure = .int
   return 1
 
 _graph: procedure = .int
-  arg database = .binary, generation = .int, plan = .ragqueryplan, maximum_hops = .int, graph_direction = .string, expose candidate_ids = .string[], expose lexical_ranks = .int[], expose vector_ranks = .int[], expose graph_ranks = .int[], expose vector_scores = .float[], expose graph_hops = .int[], expose directness_values = .float[], expose claim_ids = .string[], expose claim_hops = .int[], expose trace_notes = .string[], expose error = .string
+  arg database = .binary, generation = .int, plan = .ragqueryplan, maximum_hops = .int, graph_direction = .string, expose candidate_ids = .string[], expose lexical_ranks = .int[], expose vector_ranks = .int[], expose graph_ranks = .int[], expose vector_scores = .float[], expose graph_hops = .int[], expose directness_values = .float[], expose claim_ids = .string[], expose claim_hops = .int[], expose trace_notes = .string[], expose error = .string, retrieval_options = .ragretrievaloptions, expose claim_paths = .string[]
   anchors = .string[]
   if _anchors(database, generation, plan.normalized_question(), anchors, error) \= 0 then return -1
+  query_period = .ragperiod(retrieval_options.temporal_query()); filtered = retrieval_options.temporal_query() \= ""
   frontier = anchors; visited = .string[]; next_rank = 1
+  frontier_low = .string[]; frontier_high = .string[]; frontier_paths = .string[]; frontier_unknown = .int[]
+  do a = 1 to anchors.0
+    frontier_low[a]=""; frontier_high[a]=""; frontier_paths[a]="[]"; frontier_unknown[a]=0
+    if filtered then do; frontier_low[a]=query_period.lower(); frontier_high[a]=query_period.upper(); end
+  end
   do hop = 1 to maximum_hops
-    next_frontier = .string[]
+    next_frontier = .string[]; next_low=.string[]; next_high=.string[]; next_paths=.string[]; next_unknown=.int[]; next_keys=.string[]
     do f = 1 to frontier.0
       concept_id = frontier[f]
-      if _contains(visited, concept_id) = 1 then iterate
-      visited[visited.0 + 1] = concept_id
+      visit_key=concept_id || ":" || frontier_low[f] || ":" || frontier_high[f] || ":" || frontier_unknown[f]
+      if _contains(visited,visit_key)=1 then iterate
+      visited[visited.0+1]=visit_key
       prepared = .binary
-      if graph_direction = "outbound" then sql = "SELECT c.claim_id,c.target_concept_id,s.revision_chunk_id,s.directness FROM claims c JOIN claim_support s ON s.claim_id=c.claim_id WHERE c.source_concept_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) AND s.visible_from_generation<=?2 AND (s.visible_to_generation IS NULL OR s.visible_to_generation>?2) ORDER BY c.claim_id,s.support_id"
-      else if graph_direction = "inbound" then sql = "SELECT c.claim_id,c.source_concept_id,s.revision_chunk_id,s.directness FROM claims c JOIN claim_support s ON s.claim_id=c.claim_id WHERE c.target_concept_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) AND s.visible_from_generation<=?2 AND (s.visible_to_generation IS NULL OR s.visible_to_generation>?2) ORDER BY c.claim_id,s.support_id"
-      else sql = "SELECT c.claim_id,CASE WHEN c.source_concept_id=?1 THEN c.target_concept_id ELSE c.source_concept_id END,s.revision_chunk_id,s.directness FROM claims c JOIN claim_support s ON s.claim_id=c.claim_id WHERE (c.source_concept_id=?1 OR c.target_concept_id=?1) AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) AND s.visible_from_generation<=?2 AND (s.visible_to_generation IS NULL OR s.visible_to_generation>?2) ORDER BY c.claim_id,s.support_id"
+      if graph_direction = "outbound" then sql = "SELECT c.claim_id,c.target_concept_id,s.revision_chunk_id,s.directness,c.qualifiers_json FROM claims c JOIN claim_support s ON s.claim_id=c.claim_id WHERE c.source_concept_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) AND s.visible_from_generation<=?2 AND (s.visible_to_generation IS NULL OR s.visible_to_generation>?2) ORDER BY c.claim_id,s.support_id"
+      else if graph_direction = "inbound" then sql = "SELECT c.claim_id,c.source_concept_id,s.revision_chunk_id,s.directness,c.qualifiers_json FROM claims c JOIN claim_support s ON s.claim_id=c.claim_id WHERE c.target_concept_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) AND s.visible_from_generation<=?2 AND (s.visible_to_generation IS NULL OR s.visible_to_generation>?2) ORDER BY c.claim_id,s.support_id"
+      else sql = "SELECT c.claim_id,CASE WHEN c.source_concept_id=?1 THEN c.target_concept_id ELSE c.source_concept_id END,s.revision_chunk_id,s.directness,c.qualifiers_json FROM claims c JOIN claim_support s ON s.claim_id=c.claim_id WHERE (c.source_concept_id=?1 OR c.target_concept_id=?1) AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) AND s.visible_from_generation<=?2 AND (s.visible_to_generation IS NULL OR s.visible_to_generation>?2) ORDER BY c.claim_id,s.support_id"
       if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, concept_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare directed graph retrieval"; return -1; end
       do forever
         step_status = sqlitestep(prepared)
@@ -463,15 +487,38 @@ _graph: procedure = .int
         if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read directed graph retrieval"; return -1; end
         claim_id = ""; adjacent = ""; chunk_id = ""; directness = ""
         if sqlitecolumntext(prepared, 0, claim_id) \= 0 | sqlitecolumntext(prepared, 1, adjacent) \= 0 | sqlitecolumntext(prepared, 2, chunk_id) \= 0 | sqlitecolumntext(prepared, 3, directness) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode directed graph retrieval"; return -1; end
+        qualifiers=""; ignored=sqlitecolumntext(prepared,4,qualifiers); period=_period(qualifiers); period_match="not-requested"
+        if filtered then period_match=periodcompatibility(period,query_period)
+        if period_match="disjoint" | (period_match="unknown" & retrieval_options.time_unknown()="exclude") then iterate
+        low=frontier_low[f]; high=frontier_high[f]; unknown=frontier_unknown[f]
+        if period.lower()\="" then if low="" | period.lower()>low then low=period.lower()
+        if period.upper()\="" then if high="" | period.upper()<high then high=period.upper()
+        if period.lower()="" | period.upper()="" | period.uncertain()=1 then unknown=1
+        disjoint=low\="" & high\="" & low>high
+        if filtered & disjoint then do; trace_notes[trace_notes.0+1]="temporal-path-rejected=" || claim_id || ";reason=no-common-period"; iterate; end
+        chain=frontier_paths[f]; chain=left(chain,length(chain)-1)
+        if chain\="[" then chain=chain || ","
+        chain=chain || jsonquote(claim_id) || "]"
+        compatibility="possible-common-period"
+        if disjoint then compatibility="non-contemporaneous"
+        else if unknown then compatibility="unknown-common-period"
+        path='{"claim_ids":' || chain || ',"possible_start":' || jsonquote(low) || ',"possible_end":' || jsonquote(high) || ',"compatibility":' || jsonquote(compatibility) || '}'
+        qualifier_doc=.jsondocument(qualifiers); modality="asserted"; ignored=qualifier_doc.node_string(qualifier_doc.member(qualifier_doc.root(),"modality"),modality)
         index = _candidate(chunk_id, candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values)
         if graph_ranks[index] = 0 then do; graph_ranks[index] = next_rank; next_rank = next_rank + 1; graph_hops[index] = hop; end
         if directness = "direct" then directness_values[index] = 1.0
-        if _contains(claim_ids, claim_id) = 0 then do; claim_ids[claim_ids.0 + 1] = claim_id; claim_hops[claim_hops.0 + 1] = hop; end
-        if _contains(visited, adjacent) = 0 & _contains(next_frontier, adjacent) = 0 then next_frontier[next_frontier.0 + 1] = adjacent
+        if _contains(claim_ids, claim_id) = 0 then do; claim_ids[claim_ids.0 + 1] = claim_id; claim_hops[claim_hops.0 + 1] = hop; claim_paths[claim_paths.0+1]=path; end
+        next_key=adjacent || ":" || low || ":" || high || ":" || unknown
+        if _contains(next_keys,next_key)=1 then iterate
+        if modality="asserted" & next_frontier.0<2048 then do
+          next_keys[next_keys.0+1]=next_key
+          n=next_frontier.0+1; next_frontier[n]=adjacent; next_low[n]=low; next_high[n]=high; next_paths[n]=chain; next_unknown[n]=unknown
+        end
+        else if next_frontier.0>=2048 then trace_notes[trace_notes.0+1]="temporal-frontier-truncated=2048"
       end
       call sqlitefinalize prepared
     end
-    frontier = next_frontier
+    frontier = next_frontier; frontier_low=next_low; frontier_high=next_high; frontier_paths=next_paths; frontier_unknown=next_unknown
     if frontier.0 = 0 then leave
   end
   trace_notes[trace_notes.0 + 1] = "graph-anchors=" || anchors.0 || ";supported-claims=" || claim_ids.0 || ";traversal=" || graph_direction || ";claims-preserve-stored-direction=1"
@@ -540,13 +587,13 @@ _rankandpassages: procedure = .int
     score_parts[score_parts.0 + 1] = .ragscore("duplication-penalty", best_duplicate_penalty)
     directness = "lead"
     if directness_values[index] > 0.0 then directness = "direct"
-    passages[passages.0 + 1] = .ragpassage(citations[index], titles[index], bodies[index], source_types[index], 1.0, captured_values[index], event_starts[index], event_ends[index], evidence_classes[index], directness, channels, score_parts)
+    passages[passages.0 + 1] = .ragpassage(citations[index], titles[index], bodies[index], source_types[index], 1.0, _capturevalue(database,captured_values[index]), event_starts[index], event_ends[index], evidence_classes[index], directness, channels, score_parts, provenancecontext(database,candidate_ids[index],generation), captured_values[index])
     selected_ids[selected_ids.0 + 1] = candidate_ids[index]; selected_sources[selected_sources.0 + 1] = source_ids[index]; selected_contents[selected_contents.0 + 1] = content_ids[index]
   end
   return 0
 
 _claims: procedure = .int
-  arg database = .binary, library_id = .string, generation = .int, maximum = .int, claim_ids = .string[], claim_hops = .int[], selected_chunks = .string[], expose claims = .ragacceptedclaim[], expose trace_notes = .string[], expose error = .string
+  arg database = .binary, library_id = .string, generation = .int, maximum = .int, claim_ids = .string[], claim_hops = .int[], selected_chunks = .string[], expose claims = .ragacceptedclaim[], expose trace_notes = .string[], expose error = .string, retrieval_options = .ragretrievaloptions, claim_paths = .string[]
   do c = 1 to claim_ids.0
     if claims.0 >= maximum then leave
     prepared = .binary
@@ -559,20 +606,19 @@ _claims: procedure = .int
     if column_status \= 0 then do; error = "cannot decode accepted claim"; return -1; end
     supports = .ragsupportcitation[]; support_selected = 0; asserted_at = ""
     support_statement = .binary
-    sql = "SELECT s.revision_chunk_id,s.span_start,s.span_end,s.polarity,s.stance,s.attribution,s.lineage_group,rc.normalized_start,r.revision_id,r.source_id,r.captured_at FROM claim_support s JOIN revision_chunks rc ON rc.revision_chunk_id=s.revision_chunk_id JOIN source_revisions r ON r.revision_id=rc.revision_id WHERE s.claim_id=?1 AND s.visible_from_generation<=?2 AND (s.visible_to_generation IS NULL OR s.visible_to_generation>?2) ORDER BY s.support_id"
+    sql = "SELECT s.revision_chunk_id,s.span_start,s.span_end,s.polarity,s.stance,s.attribution,s.lineage_group,rc.normalized_start,r.revision_id,r.source_id,r.captured_at,s.support_id,s.directness FROM claim_support s JOIN revision_chunks rc ON rc.revision_chunk_id=s.revision_chunk_id JOIN source_revisions r ON r.revision_id=rc.revision_id WHERE s.claim_id=?1 AND s.visible_from_generation<=?2 AND (s.visible_to_generation IS NULL OR s.visible_to_generation>?2) ORDER BY s.support_id"
     if sqliteprepare(database, sql, support_statement) \= 0 | sqlitebindtext(support_statement, 1, claim_ids[c]) \= 0 | sqlitebindint(support_statement, 2, generation) \= 0 then do; call sqlitefinalize support_statement; error = "cannot prepare claim support"; return -1; end
     do forever
       step_status = sqlitestep(support_statement)
       if step_status = 101 then leave
       if step_status \= 100 then do; call sqlitefinalize support_statement; error = "cannot read claim support"; return -1; end
-      chunk_id = ""; span_start = 0; span_end = 0; polarity = ""; stance = ""; attribution = ""; lineage = ""; chunk_start = 0; revision_id = ""; support_source = ""; captured_at = ""
-      column_status = sqlitecolumntext(support_statement, 0, chunk_id) | sqlitecolumnint(support_statement, 1, span_start) | sqlitecolumnint(support_statement, 2, span_end) | sqlitecolumntext(support_statement, 3, polarity) | sqlitecolumntext(support_statement, 4, stance) | sqlitecolumntext(support_statement, 5, attribution) | sqlitecolumntext(support_statement, 6, lineage) | sqlitecolumnint(support_statement, 7, chunk_start) | sqlitecolumntext(support_statement, 8, revision_id) | sqlitecolumntext(support_statement, 9, support_source) | sqlitecolumntext(support_statement, 10, captured_at)
+      chunk_id = ""; span_start = 0; span_end = 0; polarity = ""; stance = ""; attribution = ""; lineage = ""; chunk_start = 0; revision_id = ""; support_source = ""; captured_at = ""; support_id = ""; directness = ""
+      column_status = sqlitecolumntext(support_statement, 0, chunk_id) | sqlitecolumnint(support_statement, 1, span_start) | sqlitecolumnint(support_statement, 2, span_end) | sqlitecolumntext(support_statement, 3, polarity) | sqlitecolumntext(support_statement, 4, stance) | sqlitecolumntext(support_statement, 5, attribution) | sqlitecolumntext(support_statement, 6, lineage) | sqlitecolumnint(support_statement, 7, chunk_start) | sqlitecolumntext(support_statement, 8, revision_id) | sqlitecolumntext(support_statement, 9, support_source) | sqlitecolumntext(support_statement, 10, captured_at) | sqlitecolumntext(support_statement,11,support_id) | sqlitecolumntext(support_statement,12,directness)
       if column_status \= 0 then do; call sqlitefinalize support_statement; error = "cannot decode claim support"; return -1; end
       stable = _stablecitation(library_id, support_source, revision_id, chunk_start + span_start, chunk_start + span_end)
       citation = .ragcitation(stable, support_source, revision_id, chunk_start + span_start, chunk_start + span_end)
-      supports[supports.0 + 1] = .ragsupportcitation(citation, polarity, stance, attribution, lineage)
+      supports[supports.0 + 1] = .ragsupportcitation(citation, polarity, stance, attribution, lineage,support_id,directness,supportmetadata(database,support_id,generation),sourcemetadata(database,revision_id,chunk_start+span_start,chunk_start+span_end,generation),supportfamilies(database,support_id,generation),_capturevalue(database,captured_at),captured_at)
       if _contains(selected_chunks, chunk_id) = 1 then support_selected = 1
-      if asserted_at = "" | captured_at < asserted_at then asserted_at = captured_at
     end
     call sqlitefinalize support_statement
     if supports.0 = 0 | support_selected = 0 then iterate
@@ -588,9 +634,11 @@ _claims: procedure = .int
       conflicts[conflicts.0 + 1] = conflict
     end
     call sqlitefinalize conflict_statement
+    temporal_match="not-requested"
+    if retrieval_options.temporal_query()\="" then temporal_match=periodcompatibility(_period(qualifiers),.ragperiod(retrieval_options.temporal_query()))
     confidence = 1.0
     breakdown = .ragscore[]; breakdown[1] = .ragscore("support-count", supports.0); breakdown[2] = .ragscore("hop-decay", 0.75 ** (claim_hops[c] - 1))
-    claims[claims.0 + 1] = .ragacceptedclaim(claim_ids[c], subject, relationship, object, direction, confidence, effective_start, effective_end, asserted_at, supports, breakdown, conflicts)
+    claims[claims.0 + 1] = .ragacceptedclaim(claim_ids[c], subject, relationship, object, direction, confidence, effective_start, effective_end, asserted_at, supports, breakdown, conflicts,qualifiers,temporal_match,claim_paths[c],_families(supports))
   end
   trace_notes[trace_notes.0 + 1] = "accepted-claims=" || claims.0 || ";support-required=1"
   return 0
@@ -905,6 +953,8 @@ _digits: procedure = .int
 
 _validoptions: procedure = .int
   arg retrieval_options = .ragretrievaloptions
+  if wordpos(retrieval_options.time_unknown(),"include exclude")=0 then return 0
+  if retrieval_options.temporal_query()\="" then do; period=.ragperiod(retrieval_options.temporal_query()); if period.ok()=0 then return 0; end
   return retrieval_options.policy_version() \= "" & retrieval_options.lexical_limit() >= 1 & retrieval_options.lexical_limit() <= 1000 & retrieval_options.vector_limit() >= 1 & retrieval_options.vector_limit() <= 1000 & retrieval_options.vector_scan_limit() >= retrieval_options.vector_limit() & retrieval_options.vector_scan_limit() <= 1000000 & retrieval_options.graph_hops() >= 0 & retrieval_options.graph_hops() <= 4 & retrieval_options.passage_limit() >= 1 & retrieval_options.passage_limit() <= 12 & retrieval_options.claim_limit() >= 0 & retrieval_options.claim_limit() <= 8 & retrieval_options.lead_limit() >= 0 & retrieval_options.lead_limit() <= 8 & retrieval_options.rrf_k() >= 1 & retrieval_options.rrf_k() <= 10000 & retrieval_options.graph_boost_millionths() >= 0 & retrieval_options.graph_boost_millionths() <= 1000000 & retrieval_options.graph_decay_millionths() >= 1 & retrieval_options.graph_decay_millionths() <= 1000000 & retrieval_options.directness_bonus_millionths() >= 0 & retrieval_options.directness_bonus_millionths() <= 1000000 & retrieval_options.maximum_sidecar_bytes() >= 1048576 & retrieval_options.maximum_sidecar_bytes() <= 2000000000 & wordpos(retrieval_options.graph_direction(), "outbound inbound both") > 0
 
 _scalarint: procedure = .int
@@ -932,3 +982,33 @@ _emptyevidence: procedure = .ragevidence
   query_plan = .string[]; passages = .ragpassage[]; claims = .ragacceptedclaim[]; ambiguities = .string[]; leads = .raggraphlead[]; analysis_notes = .raganalysisnote[]; gaps = .string[]; trace_notes = .string[]
   trace_record = .ragtrace("", query_plan, trace_notes)
   return .ragevidence("", "", 0, question, query_plan, passages, claims, ambiguities, leads, analysis_notes, gaps, trace_record, "", "")
+
+_capturevalue: procedure = .string
+  arg database=.binary, raw=.string
+  if pos("T",raw)=0 | right(raw,1)\="Z" then return ""
+  if _scalartext(database,"SELECT coalesce(datetime(" || _q(raw) || "),'')")="" then return ""
+  return raw
+
+_families: procedure = .string
+  arg supports=.ragsupportcitation[]
+  families=.string[]; unknown=0
+  do i=1 to supports.0
+    doc=.jsondocument(supports[i].evidence_families())
+    if doc.node_count(doc.root())=0 then unknown=unknown+1
+    do j=1 to doc.node_count(doc.root())
+      family=""; ignored=doc.node_string(doc.element(doc.root(),j),family)
+      if _contains(families,family)=0 then families[families.0+1]=family
+    end
+  end
+  encoded="["
+  do i=1 to families.0
+    if i>1 then encoded=encoded || ","
+    encoded=encoded || jsonquote(families[i])
+  end
+  return '{"raw_support_count":' || supports.0 || ',"known_family_count":' || families.0 || ',"known_families":' || encoded || '],"unknown_independence_supports":' || unknown || '}'
+
+_period: procedure = .ragperiod
+  arg qualifiers=.string
+  doc=.jsondocument(qualifiers); node=doc.member(doc.root(),"temporal")
+  if node<1 then return .ragperiod(periodunknown())
+  return .ragperiod(doc.node_get(node))

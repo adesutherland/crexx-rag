@@ -5,6 +5,7 @@ namespace ragevidencejson expose encodeevidence encodeanswercontext encoderetrie
 import rxfnsb
 import rxjson
 import ragevidence
+import ragperiod
 import ragretrieval
 
 encodeevidence: procedure = .int
@@ -36,7 +37,7 @@ encodeevidence: procedure = .int
   end
   trace_record = evidence.trace()
   encoded_trace = '{"trace_id":' || jsonquote(trace_record.trace_id()) || ',"query_plan":' || _strings(trace_record.query_plan()) || ',"notes":' || _strings(trace_record.notes()) || '}'
-  output = '{"schema":' || jsonquote(evidence.schema_version()) || ',"library_id":' || jsonquote(evidence.library_id()) || ',"active_generation":' || evidence.active_generation() || ',"original_question":' || jsonquote(evidence.original_question()) || ',"query_plan":' || encoded_plan || ',"passages":[' || encoded_passages || '],"claims":[' || encoded_claims || '],"ambiguities":' || _strings(ambiguities) || ',"leads":[' || encoded_leads || '],"analysis_notes":[' || encoded_notes || '],"gaps":' || _strings(gaps) || ',"trace":' || encoded_trace || ',"answer_guidance":' || jsonquote(evidence.answer_guidance()) || ',"generated_answer":' || jsonquote(evidence.generated_answer()) || '}'
+  output = '{"schema":' || jsonquote("crexx-rag.evidence/2") || ',"library_id":' || jsonquote(evidence.library_id()) || ',"active_generation":' || evidence.active_generation() || ',"original_question":' || jsonquote(evidence.original_question()) || ',"query_plan":' || encoded_plan || ',"passages":[' || encoded_passages || '],"claims":[' || encoded_claims || '],"ambiguities":' || _strings(ambiguities) || ',"leads":[' || encoded_leads || '],"analysis_notes":[' || encoded_notes || '],"gaps":' || _strings(gaps) || ',"trace":' || encoded_trace || ',"answer_guidance":' || jsonquote(evidence.answer_guidance()) || ',"generated_answer":' || jsonquote(evidence.generated_answer()) || '}'
   if binlength(output as .binary) > maximum_bytes then do; error = "serialized evidence exceeds the configured byte ceiling"; output = ""; return -2; end
   return 0
 
@@ -44,7 +45,7 @@ encoderetrieval: procedure = .int
   arg retrieval = .ragretrievalresult, maximum_bytes = 65536, expose output = .string, expose error = .string
   evidence_output = ""
   if encodeevidence(retrieval.evidence(), maximum_bytes, evidence_output, error) \= 0 then do; output = ""; return -1; end
-  output = '{"schema":"crexx-rag.retrieval-result/1","status":' || retrieval.status() || ',"state":' || jsonquote(retrieval.state()) || ',"candidate_count":' || retrieval.candidate_count() || ',"vector_state":' || jsonquote(retrieval.vector_state()) || ',"error":' || jsonquote(retrieval.error()) || ',"evidence":' || evidence_output || '}'
+  output = '{"schema":"crexx-rag.retrieval-result/2","status":' || retrieval.status() || ',"state":' || jsonquote(retrieval.state()) || ',"candidate_count":' || retrieval.candidate_count() || ',"vector_state":' || jsonquote(retrieval.vector_state()) || ',"error":' || jsonquote(retrieval.error()) || ',"evidence":' || evidence_output || '}'
   if binlength(output as .binary) > maximum_bytes then do; error = "serialized retrieval result exceeds the configured byte ceiling"; output = ""; return -2; end
   return 0
 
@@ -71,9 +72,40 @@ encodeanswercontext: procedure = .int
     if i > 1 then encoded_notes = encoded_notes || ","
     encoded_notes = encoded_notes || _answernote(notes[i])
   end
-  output = '{"schema":"crexx-rag.answer-context/1","question":' || jsonquote(evidence.original_question()) || ',"passages":[' || encoded_passages || '],"accepted_claims":[' || encoded_claims || '],"ambiguities":' || _strings(ambiguities) || ',"graph_leads":[' || encoded_leads || '],"analysis_notes":[' || encoded_notes || '],"gaps":' || _strings(gaps) || ',"answer_guidance":' || jsonquote(evidence.answer_guidance()) || '}'
-  if binlength(output as .binary) > maximum_bytes then do; error = "serialized answer context exceeds the configured byte ceiling"; output = ""; return -2; end
+  output = '{"schema":"crexx-rag.answer-context/2","question":' || jsonquote(evidence.original_question()) || ',"passages":[' || encoded_passages || '],"accepted_claims":[' || encoded_claims || '],"ambiguities":' || _strings(ambiguities) || ',"graph_leads":[' || encoded_leads || '],"analysis_notes":[' || encoded_notes || '],"gaps":' || _strings(gaps) || ',"answer_guidance":' || jsonquote(evidence.answer_guidance()) || '}'
+  if binlength(output as .binary) > maximum_bytes then return _boundedanswercontext(evidence,maximum_bytes,output,error)
   return 0
+
+/* Drop only whole records. Qualifications and citations travel with each
+ * retained claim; ambiguity, gaps and answer guidance are never stripped. */
+_boundedanswercontext: procedure = .int
+  arg evidence=.ragevidence, maximum_bytes=.int, expose output=.string, expose error=.string
+  passages=evidence.passages(); claims=evidence.claims(); leads=evidence.leads(); notes=evidence.analysis_notes()
+  passage_rows=.string[]; claim_rows=.string[]; lead_rows=.string[]; note_rows=.string[]
+  do i=1 to passages.0; passage_rows[i]=_answerpassage(passages[i]); end
+  do i=1 to claims.0; claim_rows[i]=_answerclaim(claims[i]); end
+  do i=1 to leads.0; lead_rows[i]=_answerlead(leads[i]); end
+  do i=1 to notes.0; note_rows[i]=_answernote(notes[i]); end
+  pc=passages.0; cc=claims.0; lc=leads.0; nc=notes.0
+  do forever
+    if nc>0 then nc=nc-1
+    else if lc>0 then lc=lc-1
+    else if pc>0 then pc=pc-1
+    else if cc>0 then cc=cc-1
+    else do; error="answer context cannot retain mandatory qualifications within the byte ceiling"; output=""; return -2; end
+    omitted='{"passages":' || (passages.0-pc) || ',"claims":' || (claims.0-cc) || ',"leads":' || (leads.0-lc) || ',"analysis_notes":' || (notes.0-nc) || '}'
+    output='{"schema":"crexx-rag.answer-context/2","question":' || jsonquote(evidence.original_question()) || ',"passages":' || _prefixobjects(passage_rows,pc) || ',"accepted_claims":' || _prefixobjects(claim_rows,cc) || ',"ambiguities":' || _strings(evidence.ambiguities()) || ',"graph_leads":' || _prefixobjects(lead_rows,lc) || ',"analysis_notes":' || _prefixobjects(note_rows,nc) || ',"gaps":' || _strings(evidence.gaps()) || ',"answer_guidance":' || jsonquote(evidence.answer_guidance() || " Context is incomplete: whole records were omitted to meet the byte ceiling. Report this limitation; absence is not negative evidence.") || ',"truncation":{"incomplete":true,"omitted":' || omitted || '}}'
+    if binlength(output as .binary)<=maximum_bytes then return 0
+  end
+
+_prefixobjects: procedure = .string
+  arg rows=.string[], count=.int
+  output="["
+  do i=1 to count
+    if i>1 then output=output || ","
+    output=output || rows[i]
+  end
+  return output || "]"
 
 encodetraceprojection: procedure = .int
   arg evidence = .ragevidence, maximum_bytes = 65536, expose output = .string, expose error = .string
@@ -89,7 +121,7 @@ encodepathprojection: procedure = .int
     supports = claims[i].supports(); citation_ids = .string[]
     do j = 1 to supports.0; citation_ids[j] = supports[j].citation().citation(); end
     if encoded \= "" then encoded = encoded || ","
-    encoded = encoded || '{"kind":"accepted-claim","claim_id":' || jsonquote(claims[i].claim_id()) || ',"nodes":[' || jsonquote(claims[i].subject()) || ',' || jsonquote(claims[i].object()) || '],"relationship":' || jsonquote(claims[i].relationship_type()) || ',"direction":' || jsonquote(claims[i].direction()) || ',"citations":' || _strings(citation_ids) || '}'
+    encoded = encoded || '{"kind":"accepted-claim","claim_id":' || jsonquote(claims[i].claim_id()) || ',"nodes":[' || jsonquote(claims[i].subject()) || ',' || jsonquote(claims[i].object()) || '],"relationship":' || jsonquote(claims[i].relationship_type()) || ',"direction":' || jsonquote(claims[i].direction()) || ',"citations":' || _strings(citation_ids) || ',"qualifiers":' || claims[i].qualifiers() || ',"temporal_match":' || jsonquote(claims[i].temporal_match()) || ',"temporal_path":' || claims[i].temporal_path() || '}'
     count = count + 1
   end
   do i = 1 to leads.0
@@ -102,36 +134,73 @@ encodepathprojection: procedure = .int
     encoded = encoded || '{"kind":"exploratory-lead","nodes":' || _strings(path) || ',"reason":' || jsonquote(leads[i].reason()) || ',"limitation":' || jsonquote(leads[i].limitation()) || ',"follow_question":' || jsonquote(follow_question) || '}'
     count = count + 1
   end
-  output = '{"schema":"crexx-rag.query-paths/1","path_count":' || count || ',"paths":[' || encoded || ']}'
+  output = '{"schema":"crexx-rag.query-paths/2","path_count":' || count || ',"paths":[' || encoded || ']}'
   if binlength(output as .binary) > maximum_bytes then do; error = "serialized query paths exceed the configured byte ceiling"; output = ""; return -1; end
   return 0
 
 encodetimelineprojection: procedure = .int
-  arg evidence = .ragevidence, maximum_bytes = 65536, expose output = .string, expose error = .string
-  error = ""; passages = evidence.passages(); claims = evidence.claims(); encoded = ""; count = 0
-  do i = 1 to passages.0
-    if passages[i].event_start_at() \= "" | passages[i].event_end_at() \= "" then do
-      if encoded \= "" then encoded = encoded || ","
-      encoded = encoded || '{"kind":"source-event","start":' || jsonquote(passages[i].event_start_at()) || ',"end":' || jsonquote(passages[i].event_end_at()) || ',"citation":' || jsonquote(passages[i].citation().citation()) || ',"text":' || jsonquote(passages[i].text()) || '}'
-      count = count + 1
+  arg evidence=.ragevidence, maximum_bytes=65536, expose output=.string, expose error=.string
+  error=""; entries=.string[]; keys=.string[]; unresolved=.string[]; seen=.string[]; leads="["; lead_count=0
+  passages=evidence.passages(); claims=evidence.claims()
+  do i=1 to passages.0
+    source=.jsondocument(passages[i].source_metadata()); description=source.member(source.root(),"description"); provenance=source.member(source.root(),"provenance")
+    fields="written_period published_period"
+    do f=1 to 2
+      field=word(fields,f); value=source.node_get(source.member(description,field))
+      if value="" then value=periodunknown()
+      identity=passages[i].citation().revision() || field || value
+      if _containsstring(seen,identity)=1 then iterate
+      seen[seen.0+1]=identity
+      ground=source.node_get(source.member(provenance,field)); if ground="" then ground="{}"
+      call _timelineentry field,value,passages[i].citation().citation(),"",ground,entries,keys,unresolved
     end
-    years = .string[]; call _years passages[i].text(), years
-    do j = 1 to years.0
-      if encoded \= "" then encoded = encoded || ","
-      encoded = encoded || '{"kind":"text-year","start":' || jsonquote(years[j]) || ',"end":' || jsonquote(years[j]) || ',"citation":' || jsonquote(passages[i].citation().citation()) || ',"text":' || jsonquote(passages[i].text()) || '}'
-      count = count + 1
+    years=.string[]; call _years passages[i].text(),years
+    do y=1 to years.0
+      if lead_count>0 then leads=leads || ","
+      leads=leads || '{"kind":"unclassified-year-mention","year":' || jsonquote(years[y]) || ',"citation":' || jsonquote(passages[i].citation().citation()) || '}'
+      lead_count=lead_count+1
     end
   end
-  do i = 1 to claims.0
-    if claims[i].effective_start_at() = "" & claims[i].effective_end_at() = "" then iterate
-    supports = claims[i].supports(); citation = ""; if supports.0 > 0 then citation = supports[1].citation().citation()
-    if encoded \= "" then encoded = encoded || ","
-    encoded = encoded || '{"kind":"claim-effective-period","start":' || jsonquote(claims[i].effective_start_at()) || ',"end":' || jsonquote(claims[i].effective_end_at()) || ',"citation":' || jsonquote(citation) || ',"claim_id":' || jsonquote(claims[i].claim_id()) || ',"text":' || jsonquote(claims[i].subject() || " --" || claims[i].relationship_type() || "--> " || claims[i].object()) || '}'
-    count = count + 1
+  do i=1 to claims.0
+    qualifiers=.jsondocument(claims[i].qualifiers()); value=qualifiers.node_get(qualifiers.member(qualifiers.root(),"temporal"))
+    if value="" then value=periodunknown()
+    supports=claims[i].supports(); citation=""
+    if supports.0>0 then citation=supports[1].citation().citation()
+    legacy='{"legacy_start":' || jsonquote(claims[i].effective_start_at()) || ',"legacy_end":' || jsonquote(claims[i].effective_end_at()) || ',"qualifiers":' || claims[i].qualifiers() || '}'
+    call _timelineentry "historical-validity",value,citation,claims[i].claim_id(),legacy,entries,keys,unresolved
+    do j=1 to supports.0
+      metadata=.jsondocument(supports[j].provenance()); description=metadata.member(metadata.root(),"description")
+      value=metadata.node_get(metadata.member(description,"asserted_period")); if value="" then value=periodunknown()
+      ground=metadata.member(metadata.root(),"provenance"); provenance=metadata.node_get(metadata.member(ground,"asserted_period")); if provenance="" then provenance="{}"
+      call _timelineentry "assertion-time",value,supports[j].citation().citation(),claims[i].claim_id(),provenance,entries,keys,unresolved
+    end
   end
-  output = '{"schema":"crexx-rag.query-timeline/1","entry_count":' || count || ',"entries":[' || encoded || ']}'
-  if binlength(output as .binary) > maximum_bytes then do; error = "serialized query timeline exceeds the configured byte ceiling"; output = ""; return -1; end
+  output='{"schema":"crexx-rag.query-timeline/2","entry_count":' || entries.0 || ',"entries":' || _objects(entries) || ',"unresolved_count":' || unresolved.0 || ',"unresolved":' || _objects(unresolved) || ',"text_year_leads":' || leads || '],"ordering":"Gregorian possible lower bound; precision and uncertainty remain explicit"}'
+  if binlength(output as .binary)>maximum_bytes then do; error="serialized query timeline exceeds the configured byte ceiling"; output=""; return -1; end
   return 0
+
+_timelineentry: procedure
+  arg kind=.string, value=.string, citation=.string, claim=.string, provenance=.string, expose entries=.string[], expose keys=.string[], expose unresolved=.string[]
+  period=.ragperiod(value); comparison="unresolved"
+  if period.ok()=1 & period.lower()\="" & period.uncertain()=0 then comparison="comparable-envelope"
+  encoded='{"kind":' || jsonquote(kind) || ',"period":' || value || ',"citation":' || jsonquote(citation) || ',"claim_id":' || jsonquote(claim) || ',"provenance":' || provenance || ',"comparison":' || jsonquote(comparison) || '}'
+  if comparison="unresolved" then do; unresolved[unresolved.0+1]=encoded; return; end
+  key=period.lower() || kind || claim || citation; j=keys.0
+  do while j>=1
+    if keys[j]<=key then leave
+    keys[j+1]=keys[j]; entries[j+1]=entries[j]; j=j-1
+  end
+  keys[j+1]=key; entries[j+1]=encoded
+  return
+
+_objects: procedure = .string
+  arg values=.string[]
+  output="["
+  do i=1 to values.0
+    if i>1 then output=output || ","
+    output=output || values[i]
+  end
+  return output || "]"
 
 _years: procedure
   arg value = .string, expose years = .string[]
@@ -183,11 +252,11 @@ _passage: procedure = .string
     if i > 1 then encoded_scores = encoded_scores || ","
     encoded_scores = encoded_scores || _score(scores[i])
   end
-  return '{"citation":' || _citation(passage.citation()) || ',"title":' || jsonquote(passage.title()) || ',"text":' || jsonquote(passage.text()) || ',"source_type":' || jsonquote(passage.source_type()) || ',"confidence":' || passage.confidence() || ',"captured_at":' || jsonquote(passage.captured_at()) || ',"event_start_at":' || jsonquote(passage.event_start_at()) || ',"event_end_at":' || jsonquote(passage.event_end_at()) || ',"evidence_class":' || jsonquote(passage.evidence_class()) || ',"directness":' || jsonquote(passage.directness()) || ',"retrieval_channels":' || _strings(channels) || ',"scores":[' || encoded_scores || ']}'
+  return '{"citation":' || _citation(passage.citation()) || ',"title":' || jsonquote(passage.title()) || ',"text":' || jsonquote(passage.text()) || ',"source_type":' || jsonquote(passage.source_type()) || ',"confidence":' || passage.confidence() || ',"captured_at":' || jsonquote(passage.captured_at()) || ',"event_start_at":' || jsonquote(passage.event_start_at()) || ',"event_end_at":' || jsonquote(passage.event_end_at()) || ',"evidence_class":' || jsonquote(passage.evidence_class()) || ',"directness":' || jsonquote(passage.directness()) || ',"retrieval_channels":' || _strings(channels) || ',"scores":[' || encoded_scores || ']' || ',"source_metadata":' || passage.source_metadata() || ',"raw_captured_at":' || jsonquote(passage.raw_captured_at()) || '}'
 
 _support: procedure = .string
   arg support = .ragsupportcitation
-  return '{"citation":' || _citation(support.citation()) || ',"polarity":' || jsonquote(support.polarity()) || ',"stance":' || jsonquote(support.stance()) || ',"attribution":' || jsonquote(support.attribution()) || ',"lineage":' || jsonquote(support.lineage()) || '}'
+  return '{"citation":' || _citation(support.citation()) || ',"polarity":' || jsonquote(support.polarity()) || ',"stance":' || jsonquote(support.stance()) || ',"attribution":' || jsonquote(support.attribution()) || ',"lineage":' || jsonquote(support.lineage()) || ',"support_id":' || jsonquote(support.support_id()) || ',"directness":' || jsonquote(support.directness()) || ',"provenance":' || support.provenance() || ',"source_metadata":' || support.source_metadata() || ',"evidence_families":' || support.evidence_families() || ',"captured_at":' || jsonquote(support.captured_at()) || ',"raw_captured_at":' || jsonquote(support.raw_captured_at()) || '}'
 
 _claim: procedure = .string
   arg claim = .ragacceptedclaim
@@ -201,7 +270,7 @@ _claim: procedure = .string
     if i > 1 then encoded_breakdown = encoded_breakdown || ","
     encoded_breakdown = encoded_breakdown || _score(breakdown[i])
   end
-  return '{"claim_id":' || jsonquote(claim.claim_id()) || ',"subject":' || jsonquote(claim.subject()) || ',"relationship_type":' || jsonquote(claim.relationship_type()) || ',"object":' || jsonquote(claim.object()) || ',"direction":' || jsonquote(claim.direction()) || ',"confidence":' || claim.confidence() || ',"effective_start_at":' || jsonquote(claim.effective_start_at()) || ',"effective_end_at":' || jsonquote(claim.effective_end_at()) || ',"asserted_at":' || jsonquote(claim.asserted_at()) || ',"supports":[' || encoded_supports || '],"confidence_breakdown":[' || encoded_breakdown || '],"conflicts":' || _strings(conflicts) || '}'
+  return '{"claim_id":' || jsonquote(claim.claim_id()) || ',"subject":' || jsonquote(claim.subject()) || ',"relationship_type":' || jsonquote(claim.relationship_type()) || ',"object":' || jsonquote(claim.object()) || ',"direction":' || jsonquote(claim.direction()) || ',"confidence":' || claim.confidence() || ',"effective_start_at":' || jsonquote(claim.effective_start_at()) || ',"effective_end_at":' || jsonquote(claim.effective_end_at()) || ',"asserted_at":' || jsonquote(claim.asserted_at()) || ',"supports":[' || encoded_supports || '],"confidence_breakdown":[' || encoded_breakdown || '],"conflicts":' || _strings(conflicts) || ',"qualifiers":' || claim.qualifiers() || ',"temporal_match":' || jsonquote(claim.temporal_match()) || ',"temporal_path":' || claim.temporal_path() || ',"evidence_families":' || claim.evidence_families() || '}'
 
 _lead: procedure = .string
   arg lead = .raggraphlead
@@ -218,11 +287,11 @@ _analysisnote: procedure = .string
 
 _answerpassage: procedure = .string
   arg passage = .ragpassage
-  return '{"citation":' || jsonquote(passage.citation().citation()) || ',"text":' || jsonquote(passage.text()) || ',"captured_at":' || jsonquote(passage.captured_at()) || ',"event_start_at":' || jsonquote(passage.event_start_at()) || ',"event_end_at":' || jsonquote(passage.event_end_at()) || ',"evidence_class":' || jsonquote(passage.evidence_class()) || ',"directness":' || jsonquote(passage.directness()) || '}'
+  return '{"citation":' || jsonquote(passage.citation().citation()) || ',"text":' || jsonquote(passage.text()) || ',"captured_at":' || jsonquote(passage.captured_at()) || ',"event_start_at":' || jsonquote(passage.event_start_at()) || ',"event_end_at":' || jsonquote(passage.event_end_at()) || ',"evidence_class":' || jsonquote(passage.evidence_class()) || ',"directness":' || jsonquote(passage.directness()) || ',"source_metadata":' || passage.source_metadata() || '}'
 
 _answersupport: procedure = .string
   arg support = .ragsupportcitation
-  return '{"citation":' || jsonquote(support.citation().citation()) || ',"polarity":' || jsonquote(support.polarity()) || ',"stance":' || jsonquote(support.stance()) || ',"attribution":' || jsonquote(support.attribution()) || ',"lineage":' || jsonquote(support.lineage()) || '}'
+  return '{"citation":' || jsonquote(support.citation().citation()) || ',"polarity":' || jsonquote(support.polarity()) || ',"stance":' || jsonquote(support.stance()) || ',"attribution":' || jsonquote(support.attribution()) || ',"lineage":' || jsonquote(support.lineage()) || ',"directness":' || jsonquote(support.directness()) || ',"provenance":' || support.provenance() || ',"source_metadata":' || support.source_metadata() || ',"evidence_families":' || support.evidence_families() || '}'
 
 _answerclaim: procedure = .string
   arg claim = .ragacceptedclaim
@@ -231,7 +300,7 @@ _answerclaim: procedure = .string
     if i > 1 then encoded_supports = encoded_supports || ","
     encoded_supports = encoded_supports || _answersupport(supports[i])
   end
-  return '{"claim_id":' || jsonquote(claim.claim_id()) || ',"subject":' || jsonquote(claim.subject()) || ',"relationship_type":' || jsonquote(claim.relationship_type()) || ',"object":' || jsonquote(claim.object()) || ',"direction":' || jsonquote(claim.direction()) || ',"effective_start_at":' || jsonquote(claim.effective_start_at()) || ',"effective_end_at":' || jsonquote(claim.effective_end_at()) || ',"supports":[' || encoded_supports || ']}'
+  return '{"claim_id":' || jsonquote(claim.claim_id()) || ',"subject":' || jsonquote(claim.subject()) || ',"relationship_type":' || jsonquote(claim.relationship_type()) || ',"object":' || jsonquote(claim.object()) || ',"direction":' || jsonquote(claim.direction()) || ',"effective_start_at":' || jsonquote(claim.effective_start_at()) || ',"effective_end_at":' || jsonquote(claim.effective_end_at()) || ',"supports":[' || encoded_supports || ']' || ',"qualifiers":' || claim.qualifiers() || ',"temporal_match":' || jsonquote(claim.temporal_match()) || ',"temporal_path":' || claim.temporal_path() || ',"evidence_families":' || claim.evidence_families() || '}'
 
 _answerlead: procedure = .string
   arg lead = .raggraphlead
