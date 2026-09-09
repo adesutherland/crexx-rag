@@ -34,10 +34,11 @@ proposal, or review decision.
    review id and decision explicitly approved by the operator.
 6. External analysis enters through `rag_proposal_plan` and, only after
    separate authority, `rag_proposal_apply`. It cannot bypass mandatory review
-   or the normal claim validator. Its `input` is a server-side NDJSON file path,
-   not inline content. A session without file access cannot currently prepare
-   new claim additions; report this interface gap instead of passing JSON as
-   a path. Existing task corrections use the inline resolution path below.
+   or the normal claim validator. Supply exactly one of `proposals_ndjson`
+   (inline content, at most 65535 bytes) or `input` (server-side file path).
+   The `crexxrag-resolve` skill contains the complete external claim shape and
+   guidance for grounding new claims. Existing task corrections use the inline
+   resolution path below.
 
 For difficult task resolutions, use the `crexxrag-resolve` workflow:
 read task evidence, explore with `rag_query_inspect`, check types with
@@ -55,9 +56,12 @@ advanced reasoning with a concrete reason. Workers may assert `action:
 authentication and quota failures do not imply a reasoning requirement.
 Missing evidence can require additional sources, regardless of model strength.
 Task/evidence limits are 1–50, query limits 1–12, and job/review/event limits
-1–100. A task whose packet has `limit_exceeded: true` needs a fresh task after
-the evidence/configuration issue is addressed; this interface cannot refresh
-an incomplete packet.
+1–100. For `limit_exceeded: true`, inspect `rag_task_evidence_inventory` pages
+for the current passages, catalogue and context. Use `rag_task_refresh_plan`
+to prepare a complete replacement with per-task byte/catalogue ceilings;
+authorized `rag_task_refresh_apply` preserves and supersedes the old task.
+Resolve the returned successor using its stored inventory. See
+`crexxrag-resolve` for ceilings, completeness and ownership rules.
 
 Example: `rag_maintain_plan({})`, followed after explicit authorization by
 `rag_maintain_apply({"plan_json":"...","expect_digest":"..."})` in the

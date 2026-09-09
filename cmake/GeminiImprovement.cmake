@@ -293,6 +293,33 @@ if(NOT proposal_plan_result EQUAL 0 OR proposal_plan_json_error OR
    NOT proposal_plan_out MATCHES "\"library_writes\":0")
     message(FATAL_ERROR "external proposal planning failed:\n${proposal_plan_out}${proposal_plan_err}")
 endif()
+file(READ "${CPRAG_WORK_DIR}/external-proposal.ndjson" inline_proposal)
+execute_process(COMMAND ${cli} --profile it-architecture-profile --access plan
+        --format json proposal plan --proposals-ndjson "${inline_proposal}"
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE inline_plan_out ERROR_VARIABLE inline_plan_err
+    RESULT_VARIABLE inline_plan_result TIMEOUT 30)
+string(JSON inline_plan ERROR_VARIABLE inline_plan_json_error GET "${inline_plan_out}" records 0 fields canonical_plan)
+if(NOT inline_plan_result EQUAL 0 OR inline_plan_json_error OR NOT inline_plan STREQUAL proposal_plan)
+    message(FATAL_ERROR "inline proposal did not retain the exact file-path plan:\n${inline_plan_out}${inline_plan_err}")
+endif()
+foreach(invalid_inline IN ITEMS "{}" "${inline_proposal}\n${inline_proposal}")
+    execute_process(COMMAND ${cli} --profile it-architecture-profile --access plan
+            --format json proposal plan --proposals-ndjson "${invalid_inline}"
+        WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE invalid_out
+        ERROR_VARIABLE invalid_err RESULT_VARIABLE invalid_result TIMEOUT 30)
+    if(invalid_result EQUAL 0)
+        message(FATAL_ERROR "malformed or duplicate inline proposal was accepted: ${invalid_out}")
+    endif()
+endforeach()
+execute_process(COMMAND ${cli} --profile it-architecture-profile --access plan
+        --format json proposal plan --input "${CPRAG_WORK_DIR}/external-proposal.ndjson"
+        --proposals-ndjson "${inline_proposal}"
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE conflicting_out
+    ERROR_VARIABLE conflicting_err RESULT_VARIABLE conflicting_result TIMEOUT 30)
+if(conflicting_result EQUAL 0)
+    message(FATAL_ERROR "competing inline and file proposal inputs were accepted")
+endif()
 execute_process(COMMAND ${cli} --profile it-architecture-profile --access curate
         --format json proposal apply --plan-json "${proposal_plan}"
         --expect-digest "${proposal_digest}"

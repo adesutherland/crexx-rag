@@ -275,6 +275,12 @@ file(WRITE "${requests}"
     "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_job_list\",\"arguments\":{\"limit\":5}}}\n"
     "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_review_decide_preview\",\"arguments\":{\"id\":\"review-not-present\",\"decision\":\"reject\"}}}\n"
     "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_maintain_plan\",\"arguments\":{\"enrich_provenance\":false}}}\n")
+file(APPEND "${requests}"
+    "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_proposal_plan\",\"arguments\":{\"input\":\"unused\",\"proposals_ndjson\":\"{}\"}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_proposal_plan\",\"arguments\":{}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_proposal_plan\",\"arguments\":{\"proposals_ndjson\":\"{}\"}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":11,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_task_evidence_inventory\",\"arguments\":{\"id\":\"task:not-present\",\"scope\":\"current\",\"kind\":\"catalogue\",\"limit\":1}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":12,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_task_refresh_plan\",\"arguments\":{\"id\":\"task:not-present\",\"reason\":\"fixture\",\"maximum_bytes\":1048576,\"maximum_concepts\":1000}}}\n")
 execute_process(COMMAND ${cli} --access read,plan serve mcp
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}" INPUT_FILE "${requests}"
     OUTPUT_FILE "${CPRAG_WORK_DIR}/mcp-read-only.jsonl"
@@ -284,7 +290,7 @@ if(NOT read_rc EQUAL 0)
 endif()
 file(STRINGS "${CPRAG_WORK_DIR}/mcp-read-only.jsonl" read_responses)
 list(LENGTH read_responses response_count)
-if(NOT response_count EQUAL 7)
+if(NOT response_count EQUAL 12)
     message(FATAL_ERROR "Read MCP lost responses: ${response_count}")
 endif()
 foreach(response IN LISTS read_responses)
@@ -294,10 +300,19 @@ foreach(response IN LISTS read_responses)
         if(NOT ping_type STREQUAL "OBJECT")
             message(FATAL_ERROR "MCP ping did not return an object")
         endif()
+    elseif(response_id EQUAL 8 OR response_id EQUAL 9)
+        string(JSON argument_error GET "${response}" error code)
+        if(NOT argument_error EQUAL -32602)
+            message(FATAL_ERROR "MCP accepted competing or absent proposal input: ${response}")
+        endif()
     else()
         set(expected_code 0)
-        if(response_id EQUAL 6)
+        if(response_id EQUAL 6 OR response_id EQUAL 11)
             set(expected_code 5)
+        elseif(response_id EQUAL 10)
+            set(expected_code 2)
+        elseif(response_id EQUAL 12)
+            set(expected_code 3)
         endif()
         string(JSON response_code GET "${response}" result structuredContent exit_code)
         if(NOT response_code EQUAL expected_code)
@@ -310,3 +325,40 @@ if(NOT read_database_before STREQUAL read_database_after)
     message(FATAL_ERROR "Read-only MCP batch changed the SQLite database")
 endif()
 file(APPEND "${CPRAG_WORK_DIR}/result.txt" "read_only_mcp=zero-database-writes\nmissing_review_preview=rejected\nping=supported\n")
+
+# Independent oversized immutable-text fixture: exercise Unicode paging through
+# the public citation command without provider calls or changing the main case.
+find_program(CPRAG_CITATION_SQLITE sqlite3 REQUIRED)
+set(citation_library "${CPRAG_WORK_DIR}/citation-library")
+file(COPY "${CPRAG_WORK_DIR}/library/" DESTINATION "${citation_library}")
+execute_process(COMMAND "${CPRAG_CITATION_SQLITE}" "${citation_library}/library.sqlite"
+    "UPDATE source_revision_texts SET normalized_utf8=replace(hex(zeroblob(50000)),'00','é🙂');"
+    COMMAND_ERROR_IS_FATAL ANY)
+string(REPEAT "é🙂" 50000 expected_text)
+string(REGEX REPLACE ":utf8-[0-9]+-[0-9]+$" ":utf8-0-300000" large_citation "${stable_citation}")
+set(citation_cursor "0")
+set(reconstructed "")
+foreach(page RANGE 1 20)
+    execute_process(COMMAND ${cli} --library "${citation_library}" --access read --format json
+            citation show "${large_citation}" --cursor "${citation_cursor}"
+        WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE page_out
+        ERROR_VARIABLE page_err RESULT_VARIABLE page_rc TIMEOUT 30)
+    if(NOT page_rc EQUAL 0)
+        message(FATAL_ERROR "Large citation page failed: ${page_out}${page_err}")
+    endif()
+    string(JSON page_text GET "${page_out}" records 0 fields text)
+    string(JSON next_cursor GET "${page_out}" records 0 fields next_cursor)
+    string(JSON text_complete GET "${page_out}" records 0 fields text_complete)
+    if(text_complete OR (NOT next_cursor STREQUAL "" AND NOT next_cursor GREATER citation_cursor))
+        message(FATAL_ERROR "Large citation page made a false completeness claim or did not advance")
+    endif()
+    string(APPEND reconstructed "${page_text}")
+    if(next_cursor STREQUAL "")
+        break()
+    endif()
+    set(citation_cursor "${next_cursor}")
+endforeach()
+if(NOT next_cursor STREQUAL "" OR NOT reconstructed STREQUAL expected_text)
+    message(FATAL_ERROR "Large citation pages omitted, padded, duplicated or split Unicode source characters")
+endif()
+file(APPEND "${CPRAG_WORK_DIR}/result.txt" "large_citation=300000-utf8-bytes-exact-unicode-pagination\n")

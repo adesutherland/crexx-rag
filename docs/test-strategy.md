@@ -73,7 +73,12 @@ task/job discovery, planning and missing-review preview. The durable backlog
 scenario also exercises external escalation, stale/tampered plans, exact replay,
 mandatory review, split fan-out without fabricated provider usage, worker-asserted
 escalation, pending-review task ownership, and the distinction between repeated
-content failures and transport/storage failures on both VMs. Real fresh-Codex trials are separate bounded acceptance
+content failures and transport/storage failures on both VMs. It also checks
+complete evidence refresh beyond catalogue/byte ceilings, current and stored
+inventory, stale/tampered plans, replay, preserved questions/history, ownership
+exclusion, resolution acceptance and census retention. The Gemini maintenance
+fixture compares file and inline proposal canonical plans and rejects malformed,
+duplicate and competing inputs before normal apply/review. Real fresh-Codex trials are separate bounded acceptance
 runs, using installed skills and actual MCP traffic on isolated synthetic
 libraries; they are not replaced by a static tools-list or file-existence test.
 

@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragproposalio expose loadexternalproposals decodeexternalplan decodeproposaljson internalizeproposal profileclaimpolicy
+namespace ragproposalio expose loadexternalproposals decodeexternalproposals decodeexternalplan decodeproposaljson internalizeproposal profileclaimpolicy
 
 import rxfnsb
 import rxjson
@@ -21,7 +21,12 @@ loadexternalproposals: procedure = .int
     error = "proposal input could not be read within the 8 MiB ceiling: " || error
     return -1
   end
-  text = raw as .string
+  return decodeexternalproposals(raw as .string,proposals,error)
+
+decodeexternalproposals: procedure = .int
+  arg text = .string, expose proposals = .ragextractionproposal[], expose error = .string
+  proposals = .ragextractionproposal[]; error = ""
+  if length(text)>8388608 then return _fail("proposal input exceeds the 8 MiB ceiling",error)
   if text = "" | pos("00"x, text) > 0 then return _fail("proposal input is empty or contains a NUL byte", error)
   start = 1; line_number = 0
   do forever

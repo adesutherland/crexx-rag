@@ -18,16 +18,37 @@ Use `rag_query_inspect` for surrounding evidence and `rag_profile_show` for
 permitted types. Query results do not automatically extend the task's durable
 evidence packet; report that boundary if additional evidence is needed.
 Task lists and evidence pages accept limits 1–50; queries accept limits 1–12
-and graph hops 0–4. Inspect `limit_exceeded` and task errors: an oversized
-packet with no passages needs a fresh task after a source/configuration
-change. The current interface cannot refresh that packet or resolve it.
+and graph hops 0–4. For a large or incomplete packet, use
+`rag_task_evidence_inventory` with `scope: "current"` and `kind: "passages"`,
+`"catalogue"` or `"context"`. Follow `next_cursor`; pass the returned
+`generation` as `expect_generation` on later pages and restart if it changes. Passage entries
+provide required-span and full-context citations. Resolve them with
+`rag_citation_show`; a large `rag_task_evidence` entry explicitly omits text
+and points there. For large citations, follow `next_cursor` with the same
+citation until empty; optional `limit` is 1–8192 characters. The cursor counts
+Unicode characters, while citations retain half-open UTF-8 byte ranges.
+
+Prepare `rag_task_refresh_plan` with the task ID, reason and per-task ceilings
+when `limit_exceeded` is true or a complete replacement packet is needed.
+Defaults are 1 MiB and 1000 catalogue concepts; maximum is 8 MiB/1000 concepts.
+Review its completeness, counts, source binding and successor ID. With user
+authority, `rag_task_refresh_apply` takes exact `plan_json`/`expect_digest`.
+It preserves the prior task, supersedes it and creates a successor holding the
+complete current evidence, original question, workflow and priority. It makes
+no provider calls or semantic generation and changes no global configuration.
+Active workers or pending reviews must finish first. Inspect the successor and
+its `scope: "stored"` inventory before resolving; current exploration does not
+extend stored evidence. Failure to fit the ceiling leaves the old task intact.
+Provenance-enrichment tasks use a separate complete-support assessment contract
+and do not support this generic refresh. Report that boundary if encountered.
 
 Submit `rag_task_resolve_plan` with the task ID and `response_json` matching
 that schema. All twelve response fields are required. Use empty strings,
 `successors: []`, `evidence: []` and `qualifiers_json: "{}"` for unused fields.
 Each evidence entry is `{"evidence_id":"returned ID","quote":"original
 source text"}`. Quotations must overlap the selected evidence's required span.
-Claim resolutions must account for every affected support. Set `object_id` to
+Claim/conflict resolutions must account for every affected support; responses
+are limited to 131072 bytes and 1000 evidence entries. Set `object_id` to
 the selected concept when resolving a lifecycle note. Set `actor` and `model`
 only as honest self-reported attribution; unknown model can be omitted.
 
@@ -47,8 +68,29 @@ accounted for. Resolving an analysis note, retracting a claim and retiring a
 concept are different actions.
 If a relationship exists only in source text, splitting does not create an
 accepted edge or an existing edge to move. It needs a separate external claim
-proposal. The current `rag_proposal_plan` takes a server-side NDJSON file path;
-an agent without that file access must report the new-claim input limitation.
+proposal. Use `rag_proposal_plan({"proposals_ndjson":"..."})` for inline new
+claims, or `input` for a server-side file; supply exactly one. Inline input is
+at most 65535 bytes, one complete JSON object per line. Planning uses normal
+claim validation; inspect every result for grounding, endpoint and type issues.
+`rag_proposal_apply` queues mandatory reviews. Only their authorized acceptance
+creates accepted claims. Apply a split first and discover its actual successor
+IDs before proposing claims about those successors.
+
+Version 1 requires exactly the 31 fields below. This is a shape example, not
+an assertion about the current corpus. Replace IDs, labels, vocabulary, scope
+and byte range using observed catalogue and source evidence. Span offsets are
+relative to the immutable revision chunk, not the complete source revision.
+The selected contiguous span must contain both literal endpoint labels and
+support the asserted direction; naming both endpoints alone proves no relation.
+Use exact canonical labels/types, permitted relationships from
+`rag_profile_show`, `external: 1`, truthful self-reported provenance and a stable
+unique proposal ID. Do not invent source voice or effective dates. `qualifiers`
+is an object; unused attribution/dates are empty strings. Provider/model fields
+describe attribution, never a fabricated paid-provider receipt.
+
+```json
+{"schema":"crexx-rag.extraction-proposal/1","proposal_id":"external-accesses-1","kind":"claim","source_concept_id":"<observed source concept ID>","source_label":"BillingService","source_type":"application-component","relationship_type":"accesses","target_concept_id":"<observed target concept ID>","target_label":"CustomerDatabase","target_type":"data-store","direction":"outbound","qualifiers":{},"effective_from":"","effective_to":"","revision_chunk_id":"<observed chunk ID>","span_start":0,"span_end":44,"polarity":"support","stance":"assertion","directness":"direct","attribution":"","lineage_group":"<source lineage>","confidence_millionths":900000,"provider_id":"external-agent","model":"unspecified","request_id":"external-review-1","prompt_version":"external-v1","extractor_identity":"external-agent/1","source_scope":"<observed source scope>","profile_id":"<active profile ID>","external":1}
+```
 
 If stronger reasoning is required, `rag_task_escalate_plan` creates a reviewable
 flag and `rag_task_escalate_apply` persists it. The flag stops ordinary dispatch

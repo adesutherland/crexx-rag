@@ -281,22 +281,45 @@ The corresponding CLI verbs are `maintain tasks`, `maintain evidence`,
 `maintain resolve-plan`, `maintain resolve-apply`, `maintain escalate-plan`
 and `maintain escalate-apply`.
 
-Exploratory query results do not automatically extend a task's immutable
-evidence catalogue. Evidence beyond that packet may require new ingestion or
-a fresh maintenance task. A packet exceeding its configured byte or catalogue
-limit remains an explicit review hold, without an automatic reasoning flag:
-it contains no usable passages and cannot be resolved through this interface.
-After an appropriate configuration/source change, maintenance must generate a
-fresh task. A bounded evidence-inventory and task-refresh operation remains a
-follow-up gap; raising the limit alone does not repair an existing packet. A
-stronger model cannot manufacture missing evidence. Review preview checks
-existence and pending state; it is not a dry run of all lifecycle effects.
+Exploratory query results do not extend a task's immutable evidence catalogue.
+`rag_task_evidence_inventory` pages current or stored passages, catalogue and
+context, including an oversized task whose stored passages are empty. Each
+passage entry has a stable evidence ID, required span and source/context
+citations. Read source text with `rag_citation_show`; large citations return
+text pages with `next_cursor` and optional `limit` 1–8192 characters. Follow the
+same citation until its cursor is empty. Citation byte offsets and paging's
+Unicode character offsets are explicitly distinguished. For inventory, follow `next_cursor`,
+passing the first page's generation as `expect_generation`; restart pagination
+if it changes. Current inventory is exploration, not accepted task evidence.
 
-New claim additions remain a separate integration gap for agents without
-server filesystem access: `rag_proposal_plan.input` is an NDJSON file path.
-Inline task resolution does not turn unextracted source relationships into new
-claim proposals. A future bounded inline proposal codec should compose the
-existing external claim validator, canonical plan and mandatory review gate.
+`rag_task_refresh_plan` assembles a complete current packet with per-task
+ceilings, defaulting to 1 MiB/1000 concepts and allowing up to 8 MiB/1000 concepts.
+It returns completeness/counts, immutable bindings and a successor task ID.
+Authorized `rag_task_refresh_apply` uses the exact canonical plan and digest,
+preserves the old task, marks it superseded and creates the successor with its
+original question, workflow and priority. The expanded task requires advanced
+reasoning. Configuration, semantic generation and provider usage stay unchanged.
+Active worker ownership or a pending review blocks refresh. Repeated apply is
+an exact no-op. Read the successor's stored inventory before resolving it.
+Later census and resolution validate using its retained envelope. An incomplete
+packet is never installed; evidence changes invalidate an unapplied plan.
+
+CLI equivalents are `maintain evidence-index --id TASK --kind passages
+--scope current`, `maintain refresh-plan --id TASK --reason REASON
+--maximum-bytes 1048576 --maximum-concepts 1000`, and `maintain refresh-apply`
+with exact `--plan-json` and `--expect-digest`. Claim/conflict resolution still
+requires all affected supports; response limits are 131072 bytes/1000 entries.
+Generic refresh excludes provenance-enrichment's separate complete-support
+assessment contract. Missing evidence still requires sources. Review preview
+checks pending existence, rather than simulating all lifecycle effects.
+
+New claim additions accept inline NDJSON through
+`rag_proposal_plan.proposals_ndjson` (at most 65535 bytes), or a server file
+through `input`; supply exactly one. Both use the same external claim decoder,
+validator, canonical plan and mandatory review. The installed `crexxrag-resolve`
+skill supplies the complete versioned claim shape and grounding rules. Inline
+task resolution does not create unextracted relationships; prepare separate
+claim proposals after discovering any newly accepted successor concepts.
 See [the fresh Codex trials](mcp-codex-trials.md) for measured coverage and the
 next validation cases.
 

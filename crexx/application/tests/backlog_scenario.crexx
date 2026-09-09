@@ -200,6 +200,69 @@ agentchecks: procedure = .int
   end
   return errors
 
+refreshchecks: procedure = .int
+  arg store = .ragstorehandle, policy_json = .string
+  errors=0; error=""; database=store.database(); policy=.jsondocument(policy_json)
+  config=architecturelocalconfig(); profile=genericprofile()
+  current=scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  calls=scalarint(database,"SELECT count(*) FROM provider_runs"); sources=scalarint(database,"SELECT count(*) FROM source_revisions")
+  errors=errors+check(sqliteexec(database,"WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<105) INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) SELECT 'refresh-concept-'||i,'Platform','concept','active'," || current || " FROM n")=0,"seed expanded catalogue")
+  errors=errors+check(sqliteexec(database,"INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) SELECT 'refresh-mention-'||concept_id,concept_id,'chunk-lifecycle',0,8," || current || " FROM concepts WHERE concept_id LIKE 'refresh-concept-%'")=0,"seed expanded catalogue evidence")
+  task_id=""; canonical=""; successor=""; replay=""
+  errors=errors+check(enqueuebacklogtask(database,"external-refresh","concept","refresh-concept-1","","",12345,policy,task_id,error)=0,"bounded task discovery " || error)
+  old_packet=scalartext(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id='" || task_id || "'")
+  errors=errors+check(pos('"limit_exceeded":true',old_packet)>0,"oversized catalogue records explicit sentinel")
+  inventory_sql=backlogindexquery(database,task_id,"catalogue","current")
+  count=scalarint(database,"SELECT count(*) FROM (" || inventory_sql || ")")
+  errors=errors+check(count>100,"inventory exposes catalogue beyond worker ceiling")
+  inventory_sql=backlogindexquery(database,task_id,"passages","current")
+  errors=errors+check(scalarint(database,"SELECT count(*) FROM (" || inventory_sql || ")")=1 & pos('crexx-rag:',scalartext(database,"SELECT detail FROM (" || inventory_sql || ")"))>0,"inventory exposes citation despite empty packet")
+  errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET question='Keep this precise follow-up question' WHERE task_id='" || task_id || "'")=0,"preserve custom question fixture")
+  rows=scalarint(database,"SELECT count(*) FROM maintenance_tasks")
+  errors=errors+check(planbacklogrefresh(store,config,profile,task_id,1048576,1000,"Review the complete context","fixture-agent","fixture",canonical,error)=0,"plan complete refresh " || error)
+  errors=errors+check(scalarint(database,"SELECT count(*) FROM maintenance_tasks")=rows,"refresh planning writes nothing")
+  digest=rxhash..sha256hex(canonical as .binary)
+  errors=errors+check(applybacklogrefresh(store,config,profile,canonical,copies("0",64),successor,error)\=0,"refresh rejects altered digest")
+  errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET updated_epoch=updated_epoch+1 WHERE task_id='" || task_id || "'")=0 & applybacklogrefresh(store,config,profile,canonical,digest,successor,error)\=0,"refresh rejects stale task binding")
+  errors=errors+check(planbacklogrefresh(store,config,profile,task_id,1024,1000,"small bound","fixture-agent","fixture",canonical,error)\=0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks")=rows,"incomplete refresh never persists")
+  errors=errors+check(sqliteexec(database,"INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) VALUES('refresh-blocked-review','maintenance-external','" || task_id || "','pending','{}','fixture')")=0,"pending review fixture")
+  errors=errors+check(planbacklogrefresh(store,config,profile,task_id,1048576,1000,"review","fixture-agent","fixture",canonical,error)\=0 & pos('pending review',error)>0,"pending review blocks refresh")
+  errors=errors+check(sqliteexec(database,"UPDATE reviews SET state='rejected' WHERE review_id='refresh-blocked-review'; UPDATE maintenance_tasks SET state='dispatched' WHERE task_id='" || task_id || "'")=0,"worker ownership fixture")
+  errors=errors+check(planbacklogrefresh(store,config,profile,task_id,1048576,1000,"review","fixture-agent","fixture",canonical,error)\=0,"running task blocks refresh")
+  errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET state='unresolved' WHERE task_id='" || task_id || "'")=0,"release fixture ownership")
+  errors=errors+check(planbacklogrefresh(store,config,profile,task_id,1048576,1000,"Review the complete context","fixture-agent","fixture",canonical,error)=0,"re-plan complete refresh " || error)
+  digest=rxhash..sha256hex(canonical as .binary)
+  errors=errors+check(applybacklogrefresh(store,config,profile,canonical,digest,successor,error)=0 & applybacklogrefresh(store,config,profile,canonical,digest,replay,error)=0 & successor=replay,"exact refresh and replay " || error)
+  altered=changestr('"complete":true',canonical,'"complete":false'); altered_digest=rxhash..sha256hex(altered as .binary)
+  errors=errors+check(applybacklogrefresh(store,config,profile,altered,altered_digest,replay,error)\=0,"replay rejects altered complete plan even with matching digest")
+  altered=changestr('"passages":1',canonical,'"passages":2'); altered_digest=rxhash..sha256hex(altered as .binary)
+  errors=errors+check(applybacklogrefresh(store,config,profile,altered,altered_digest,replay,error)\=0,"replay rejects altered counts")
+  errors=errors+check(scalarint(database,"SELECT count(*) FROM maintenance_tasks")=rows+1 & scalartext(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id='" || task_id || "'")=old_packet,"one successor and immutable prior evidence")
+  errors=errors+check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || task_id || "'")="superseded" & scalartext(database,"SELECT question||':'||priority||':'||parent_task_id||':'||required_capability FROM maintenance_tasks WHERE task_id='" || successor || "'")="Keep this precise follow-up question:12345:" || task_id || ":advanced-reasoning","preserve question priority lineage and external ownership")
+  inventory_sql=backlogindexquery(database,successor,"catalogue","stored")
+  errors=errors+check(scalarint(database,"SELECT count(*) FROM (" || inventory_sql || ")")=count,"stored inventory retains complete catalogue")
+  note_task=scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE subject_type='note' ORDER BY created_epoch LIMIT 1")
+  inventory_sql=backlogindexquery(database,note_task,"context","stored")
+  errors=errors+check(scalarint(database,"SELECT count(*) FROM (" || inventory_sql || ") WHERE id='$.subject.text'")=1,"stored note diagnostic remains inspectable")
+  errors=errors+check(enqueuebacklogtask(database,"external-refresh","concept","refresh-concept-1","","",12345,policy,replay,error)=0 & replay=successor,"census retains refreshed successor")
+  errors=errors+check(scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")=current,"refresh does not change corpus generation")
+  response=responsejson("retain","","[]",'[{"evidence_id":"refresh-mention-refresh-concept-1","quote":"Platform"}]')
+  errors=errors+check(planagentaction(store,config,profile,successor,"resolution",response,"review","fixture-agent","fixture",canonical,error)=0,"resolve refreshed packet using stored envelope " || error)
+  digest=rxhash..sha256hex(canonical as .binary); review_id=""
+  errors=errors+check(applyagentaction(store,config,profile,canonical,digest,"resolution",review_id,error)=0 & reviewagentaction(store,review_id,"accept",config,profile,error)=0,"review accepts refreshed evidence " || error)
+  errors=errors+check(enqueuebacklogtask(database,"external-refresh","concept","refresh-concept-1","","",12345,policy,replay,error)=0 & replay=successor,"resolved refresh is not replaced by an oversized sentinel")
+  /* A byte-limited packet also has a usable inventory and changes identity when
+   * evidence beyond the original cutoff changes. No source bytes are edited. */
+  errors=errors+check(sqliteexec(database,"WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<500) INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) SELECT 'refresh-extra-'||i,'refresh-concept-2','chunk-lifecycle',0,8," || current || " FROM n")=0,"seed oversized passage collection")
+  byte_task=""
+  errors=errors+check(enqueuebacklogtask(database,"external-refresh","concept","refresh-concept-2","","",12345,policy,byte_task,error)=0,"byte limited task")
+  errors=errors+check(planbacklogrefresh(store,config,profile,byte_task,1048576,1000,"full passages","fixture-agent","fixture",canonical,error)=0 & pos('"passages":501',canonical)>0,"complete byte refresh plan " || error)
+  digest=rxhash..sha256hex(canonical as .binary)
+  errors=errors+check(sqliteexec(database,"UPDATE mentions SET span_end=7 WHERE mention_id='refresh-extra-99'")=0 & applybacklogrefresh(store,config,profile,canonical,digest,replay,error)\=0,"changed evidence invalidates refresh apply")
+  errors=errors+check(enqueuebacklogtask(database,"external-refresh","concept","refresh-concept-2","","",12345,policy,replay,error)=0 & replay\=byte_task,"sentinel fingerprints evidence beyond cutoff")
+  errors=errors+check(scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")=current+1 & scalarint(database,"SELECT count(*) FROM provider_runs")=calls & scalarint(database,"SELECT count(*) FROM source_revisions")=sources,"only accepted resolution changes generation; source and provider receipts preserved")
+  return errors
+
 responsejson: procedure = .string
   arg action = .string, target = "", successors = "[]", evidence = "[]", object_id = "", question = "", qualifiers = "{}", effective_from = "", effective_to = ""
   return '{"action":' || jsonquote(action) || ',"object_id":' || jsonquote(object_id) || ',"target_concept_id":' || jsonquote(target) || ',"canonical_label":"","concept_type":"","successors":' || successors || ',"reason":"fixture evidence-based decision","evidence":' || evidence || ',"effective_from":' || jsonquote(effective_from) || ',"effective_to":' || jsonquote(effective_to) || ',"qualifiers_json":' || jsonquote(qualifiers) || ',"question":' || jsonquote(question) || '}'
@@ -666,6 +729,7 @@ main: procedure = .int
   errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_alias_issues WHERE candidate_id='candidate-identity-collision' AND state='open'") = 0 & scalarint(database,"SELECT count(*) FROM mentions WHERE concept_id='" || selected || "' AND visible_to_generation IS NULL") > 0,"repair converges without reopening the same question")
   errors = errors + check(scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"identity repair preserves foreign keys")
   errors = errors + agentchecks(store,policy_json)
+  errors = errors + refreshchecks(store,policy_json)
   call closeragstore store,error
   if errors > 0 then return 1
   say "DURABLE_BACKLOG_OK deduplicated split_fanout fenced_decisions resume uncertainty source_preservation"

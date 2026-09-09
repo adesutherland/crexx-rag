@@ -804,6 +804,21 @@ successor connection has been resolved. `maintain escalate-plan` and
 `maintain escalate-apply` persist an external agent's explicit reasoning flag.
 See [the full agent workflow and evidence limits](agent-integration.md#difficult-maintenance-tasks).
 
+For an oversized task, `maintain evidence-index --id TASK_ID --kind passages
+--scope current` pages an addressable inventory; catalogue and context are also
+available. `maintain refresh-plan --id TASK_ID --reason 'Review complete evidence'`
+prepares a complete replacement, defaulting to 1 MiB/1000 concepts. Authorized
+`maintain refresh-apply --plan-json PLAN --expect-digest DIGEST` preserves and
+supersedes the old task. Read and resolve the returned successor. Per-task
+ceilings can grow to 8 MiB/1000 concepts without changing worker configuration;
+workers and pending reviews must release ownership first. This operation makes
+no provider calls or semantic generation. See the agent workflow for the
+separate provenance-enrichment contract and complete-support limits.
+
+For new claims, `proposal plan --proposals-ndjson NDJSON` accepts inline input
+up to 65535 bytes. Supply either that option or `--input FILE`. Both feed the
+same normal validator, exact-plan apply and mandatory review.
+
 Canonical commands separate planning, applying, and supervision:
 
 ```text

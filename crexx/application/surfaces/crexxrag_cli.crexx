@@ -589,7 +589,7 @@ _aliases: procedure = .string[]
     return args
   end
   if noun = "maintain" then do
-    if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply status inspect tasks evidence escalate-plan escalate-apply resolve-plan resolve-apply") > 0 then return args
+    if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply status inspect tasks evidence evidence-index refresh-plan refresh-apply escalate-plan escalate-apply resolve-plan resolve-apply") > 0 then return args
     timing_args = .string[]
     i = noun_index + 1
     do while i <= args.0

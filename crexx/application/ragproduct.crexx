@@ -82,6 +82,8 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "maintain.plan" then return _maintainplan(request, registry)
   if operation = "maintain.apply" then return _maintainapply(request, registry)
   if operation = "maintain.tasks" | operation = "maintain.evidence" then return _taskread(request)
+  if operation = "maintain.evidence-index" then return _taskinventory(request)
+  if operation = "maintain.refresh-plan" | operation = "maintain.refresh-apply" then return _taskrefresh(request,registry)
   if operation = "maintain.escalate-plan" | operation = "maintain.escalate-apply" | operation = "maintain.resolve-plan" | operation = "maintain.resolve-apply" then return _agentaction(request,registry)
   if operation = "maintain.status" | operation = "maintain.inspect" then return _maintainread(request)
   return dispatchfoundation(request, registry)
@@ -1037,15 +1039,20 @@ _proposalplan: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
   operation = "proposal.plan"; error = ""
   if _hasaccess(request, "plan") \= 1 then return _failure(operation, 4, "proposal planning requires plan access")
-  if _options(request, "input", error) \= 0 then return _failure(operation, 2, error)
+  if _options(request, "input proposals-ndjson", error) \= 0 then return _failure(operation, 2, error)
   positionals = request.positionals()
   if positionals.0 \= 0 then return _failure(operation, 2, "proposal plan accepts no positional arguments")
-  input = _option(request, "input", error)
-  if error \= "" | input = "" then return _failure(operation, 2, "proposal plan requires one --input NDJSON file")
+  input = _option(request, "input", error); inline = _option(request,"proposals-ndjson",error)
+  input_options = request.command_options()
+  if error \= "" | input_options.0 \= 1 | (input = "") = (inline = "") then return _failure(operation, 2, "proposal plan requires exactly one --input NDJSON file or --proposals-ndjson inline content")
+  if binlength(inline as .binary)>65535 then return _failure(operation,2,"inline proposals exceed 65535 UTF-8 bytes; use smaller batches or a server-side file")
   lookup = registry.profile(request.profile_id())
   if lookup.found() \= 1 then return _failure(operation, 5, "profile is not registered")
   proposals = .ragextractionproposal[]
-  if loadexternalproposals(input, proposals, error) \= 0 then return _failure(operation, 2, error)
+  decoded = 0
+  if input \= "" then decoded = loadexternalproposals(input,proposals,error)
+  else decoded = decodeexternalproposals(inline,proposals,error)
+  if decoded \= 0 then return _failure(operation,2,error)
   store = .ragstorehandle
   if openragstore(request.library(), "readonly", store, error) \= 0 then return _openfailure(operation, error)
   snapshot_id = currentconfigsnapshotid(store.database(), error)
@@ -1315,7 +1322,14 @@ _citationshow: procedure = .ragcommandresult
   arg request = .ragcommandrequest
   operation = request.operation(); error = ""
   if _hasaccess(request, "read") \= 1 then return _failure(operation, 4, "citation resolution requires read access")
-  if _options(request, "", error) \= 0 then return _failure(operation, 2, error)
+  if _options(request, "cursor limit", error) \= 0 then return _failure(operation, 2, error)
+  cursor=_option(request,"cursor",error); limit_text=_option(request,"limit",error)
+  if cursor="" then cursor="0"
+  if _unsigned(cursor)\=1 | length(cursor)>9 then return _failure(operation,2,"citation cursor must be a bounded character offset")
+  if limit_text\="" then do
+    if _unsigned(limit_text)\=1 | length(limit_text)>4 then return _failure(operation,2,"citation page limit must be 1..8192 characters")
+    if limit_text as .int<1 | limit_text as .int>8192 then return _failure(operation,2,"citation page limit must be 1..8192 characters")
+  end
   positionals = request.positionals()
   if positionals.0 \= 1 | positionals[1] = "" then return _failure(operation, 2, "citation show requires exactly one citation id")
   citation = .ragcitation; cited_library = ""
@@ -1331,6 +1345,13 @@ _citationshow: procedure = .ragcommandresult
     if error = "" then error = close_error
     return _failure(operation, 5, error)
   end
+  body=passage.text(); total=length(body); offset=cursor as .int; page_limit=total
+  if offset>total then return _failure(operation,2,"citation cursor is beyond the source span")
+  if limit_text\="" then page_limit=limit_text as .int
+  else if binlength(body as .binary)>65535 | offset>0 then page_limit=8192
+  if page_limit>total-offset then page_limit=total-offset
+  body=substr(body,offset+1,page_limit); next_cursor=""
+  if offset+length(body)<total then next_cursor=offset+length(body)
   fields = .ragresultfield[]
   fields[1] = .ragresultfield("citation", "string", citation.citation())
   fields[2] = .ragresultfield("library_id", "string", cited_library)
@@ -1340,13 +1361,18 @@ _citationshow: procedure = .ragcommandresult
   fields[6] = .ragresultfield("span_start", "integer", citation.span_start())
   fields[7] = .ragresultfield("span_end", "integer", citation.span_end())
   fields[8] = .ragresultfield("title", "string", passage.title())
-  fields[9] = .ragresultfield("text", "string", passage.text())
+  fields[9] = .ragresultfield("text", "string", body)
   fields[10] = .ragresultfield("source_type", "string", passage.source_type())
   fields[11] = .ragresultfield("captured_at", "string", passage.captured_at())
   fields[12] = .ragresultfield("event_start_at", "string", passage.event_start_at())
   fields[13] = .ragresultfield("event_end_at", "string", passage.event_end_at())
   fields[14] = .ragresultfield("source_metadata", "string", passage.source_metadata())
   fields[15] = .ragresultfield("raw_captured_at", "string", passage.raw_captured_at())
+  fields[16] = .ragresultfield("text_complete","boolean",_boolean(offset=0 & next_cursor=""))
+  fields[17] = .ragresultfield("next_cursor","string",next_cursor)
+  fields[18] = .ragresultfield("text_offset","integer",offset)
+  fields[19] = .ragresultfield("total_characters","integer",total)
+  fields[20] = .ragresultfield("cursor_unit","string","unicode-characters; citation offsets remain UTF-8 bytes")
   records = .ragresultrecord[]; records[1] = .ragresultrecord("citation-resolution", fields)
   return .ragcommandresult(operation, "ok", 0, "citation resolved to immutable source text", records)
 
@@ -2555,6 +2581,90 @@ _agentaction: procedure = .ragcommandresult
   records = .ragresultrecord[]; records[1] = .ragresultrecord("agent-action",fields)
   return .ragcommandresult(operation,"ok",0,"evidence-bound external agent action",records)
 
+_taskrefresh: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation=request.operation(); apply=operation="maintain.refresh-apply"; error=""
+  access="plan"; if apply then access="curate"
+  if _hasaccess(request,access)\=1 then return _failure(operation,4,"evidence refresh requires " || access || " access")
+  if _options(request,"id maximum-bytes maximum-concepts reason actor model plan-json expect-digest",error)\=0 then return _failure(operation,2,error)
+  id=_id(request,error); canonical=_option(request,"plan-json",error); digest=_option(request,"expect-digest",error)
+  bytes=_option(request,"maximum-bytes",error); concepts=_option(request,"maximum-concepts",error)
+  reason=_option(request,"reason",error); actor=_option(request,"actor",error); model=_option(request,"model",error)
+  if apply & (id\="" | bytes\="" | concepts\="" | reason\="" | actor\="" | model\="") then return _failure(operation,2,"refresh apply accepts only exact plan-json and expect-digest")
+  if \apply & (canonical\="" | digest\="" | id="") then return _failure(operation,2,"refresh planning requires a task ID, not an existing plan")
+  if bytes="" then bytes="1048576"
+  if concepts="" then concepts="1000"
+  if _unsigned(bytes)\=1 | length(bytes)>8 | _unsigned(concepts)\=1 | length(concepts)>4 then return _failure(operation,2,"refresh ceilings must be bounded integers")
+  if actor="" then actor="external-agent"
+  if model="" then model="unspecified"
+  config_lookup=registry.config(request.config_id()); profile_lookup=registry.profile(request.profile_id())
+  if config_lookup.found()\=1 | profile_lookup.found()\=1 then return _failure(operation,5,"configuration or profile is not registered")
+  config=config_lookup.config(); profile=profile_lookup.profile(); store=.ragstorehandle
+  store_access="readonly"; if apply then store_access="readwrite"
+  if openragstore(request.library(),store_access,store,error)\=0 then return _openfailure(operation,error)
+  if _querysnapshotmatches(store,config,profile)\=1 then do; ignored=""; call closeragstore store,ignored; return _failure(operation,6,"configuration changes have not been applied; review config diff first"); end
+  successor=""; status=0
+  if apply then status=applybacklogrefresh(store,config,profile,canonical,digest,successor,error)
+  else do
+    if sqliteexec(store.database(),"BEGIN")\=0 then do; status=-1; error="cannot begin refresh planning snapshot"; end
+    else status=planbacklogrefresh(store,config,profile,id,bytes as .int,concepts as .int,reason,actor,model,canonical,error)
+    call sqliteexec store.database(),"ROLLBACK"
+  end
+  ignored=""; closed=closeragstore(store,ignored)
+  if status\=0 | closed\=0 then return _failure(operation,3,error || ignored)
+  planned=.jsondocument(canonical); ignored=planned.node_string(planned.member(planned.root(),"successor_task_id"),successor)
+  fields=.ragresultfield[]
+  fields[1]=.ragresultfield("canonical_plan","string",canonical); fields[2]=.ragresultfield("digest","string",rxhash..sha256hex(canonical as .binary))
+  fields[3]=.ragresultfield("successor_task_id","string",successor); fields[4]=.ragresultfield("applied","boolean",_boolean(apply))
+  fields[5]=.ragresultfield("provider_calls","integer",0)
+  records=.ragresultrecord[]; records[1]=.ragresultrecord("task-evidence-refresh",fields)
+  return .ragcommandresult(operation,"ok",0,"complete evidence refresh; apply supersedes the old task without changing corpus generation",records)
+
+_taskinventory: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation=request.operation(); error=""
+  if _hasaccess(request,"read")\=1 then return _failure(operation,4,"evidence inventory requires read access")
+  if _options(request,"id cursor limit kind scope expect-generation",error)\=0 then return _failure(operation,2,error)
+  id=_id(request,error); cursor=_option(request,"cursor",error); count_text=_option(request,"limit",error)
+  kind=_option(request,"kind",error); scope=_option(request,"scope",error); expected=_option(request,"expect-generation",error)
+  if kind="" then kind="passages"
+  if scope="" then scope="current"
+  if count_text="" then count_text="20"
+  if expected="" then expected="0"
+  if error\="" | id="" | _unsigned(count_text)\=1 | length(count_text)>2 | _unsigned(expected)\=1 | length(expected)>15 | length(cursor)>1024 | wordpos(kind,"passages catalogue context")=0 | wordpos(scope,"current stored")=0 then return _failure(operation,2,"inventory requires task id, kind passages/catalogue/context, scope current/stored and bounded numeric paging")
+  limit=count_text as .int
+  if limit<1 | limit>50 then return _failure(operation,2,"inventory page limit must be 1..50")
+  store=.ragstorehandle
+  if openragstore(request.library(),"readonly",store,error)\=0 then return _openfailure(operation,error)
+  database=store.database(); ignored=""
+  if sqliteexec(database,"BEGIN")\=0 then do; call closeragstore store,ignored; return _failure(operation,7,"cannot begin inventory read snapshot"); end
+  generation=_scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  if expected\="0" & expected as .int\=generation then do; call sqliteexec database,"ROLLBACK"; call closeragstore store,ignored; return _failure(operation,6,"inventory generation changed; restart pagination"); end
+  task_type=_scalartext(database,"SELECT subject_type FROM maintenance_tasks WHERE task_id=" || _sqlquote(id))
+  if task_type="" | task_type="provenance-chunk" then do; call sqliteexec database,"ROLLBACK"; call closeragstore store,ignored; return _failure(operation,5,"task is missing or uses the separate provenance-enrichment support inventory"); end
+  selection=backlogindexquery(database,id,kind,scope)
+  if selection="" then do; call sqliteexec database,"ROLLBACK"; call closeragstore store,ignored; return _failure(operation,5,"current evidence context is unavailable; inspect stored scope"); end
+  sql="SELECT id,detail FROM (" || selection || ") WHERE id>" || _sqlquote(cursor) || " ORDER BY id LIMIT " || (limit+1)
+  records=.ragresultrecord[]; prepared=.binary; returned=0; next_cursor=""; previous=""
+  if sqliteprepare(database,sql,prepared)\=0 then error="cannot prepare evidence inventory"
+  else do forever
+    step=sqlitestep(prepared); if step=101 then leave
+    row_id=""; detail=""
+    if step\=100 | sqlitecolumntext(prepared,0,row_id)\=0 | sqlitecolumntext(prepared,1,detail)\=0 then do; error="cannot read evidence inventory"; leave; end
+    if returned=limit then do; next_cursor=previous; leave; end
+    if length(detail)>65535 then do; error="inventory entry exceeds the single-record bound"; leave; end
+    fields=.ragresultfield[]; fields[1]=.ragresultfield("id","string",row_id); fields[2]=.ragresultfield("detail","string",detail)
+    records[records.0+1]=.ragresultrecord("task-evidence-inventory",fields); returned=returned+1; previous=row_id
+  end
+  call sqlitefinalize prepared
+  call sqliteexec database,"ROLLBACK"
+  closed=closeragstore(store,ignored)
+  if error\="" | closed\=0 then return _failure(operation,7,error || ignored)
+  fields=.ragresultfield[]; fields[1]=.ragresultfield("returned","integer",returned); fields[2]=.ragresultfield("next_cursor","string",next_cursor)
+  fields[3]=.ragresultfield("generation","integer",generation); fields[4]=.ragresultfield("scope","string",scope); fields[5]=.ragresultfield("kind","string",kind)
+  records[records.0+1]=.ragresultrecord("page",fields)
+  return .ragcommandresult(operation,"ok",0,"paged evidence inventory; current scope is exploration, stored scope is the task packet",records)
+
 _taskread: procedure = .ragcommandresult
   arg request = .ragcommandrequest
   operation = request.operation(); error = ""
@@ -2593,7 +2703,10 @@ _taskread: procedure = .ragcommandresult
     row_id = ""; detail = ""
     if step \= 100 | sqlitecolumntext(prepared,0,row_id) \= 0 | sqlitecolumntext(prepared,1,detail) \= 0 then do; error = "cannot read task page"; leave; end
     if returned = limit then do; next_cursor = previous; leave; end
-    if length(detail)>65535 then do; error = "task evidence passage exceeds response bound; use a focused lexical query"; leave; end
+    if length(detail)>65535 & operation="maintain.evidence" then do
+      detail=_scalartext(database,"SELECT json_set(json_remove(" || _sqlquote(detail) || ",'$.text'),'$.text_omitted',json('true'),'$.text_read_tool','rag_citation_show','$.inventory_tool','rag_task_evidence_inventory')")
+    end
+    if detail="" | length(detail)>65535 then do; error = "task page entry exceeds response bound; inspect the paged evidence inventory"; leave; end
     fields = .ragresultfield[]; fields[1] = .ragresultfield("id","string",row_id); fields[2] = .ragresultfield("detail","string",detail)
     records[records.0+1] = .ragresultrecord("maintenance-task-page-item",fields); returned = returned+1; previous = row_id
   end

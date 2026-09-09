@@ -158,7 +158,10 @@ Skill validation and manifest/tool-reference checks passed for all three
 changed/new skills. No hosted Gemini qualification or live-corpus trial was
 performed.
 
-## Remaining gaps and next trials
+## Gaps recorded after the first trials
+
+The approved follow-up below addresses items 1 and 2. Items 3 and 4 remain
+representative-corpus qualification work after the soak.
 
 1. **Inline new-claim proposals.** The fresh agent found the two Gateway
    relationships in source text, but neither was an accepted graph edge.
@@ -190,3 +193,90 @@ performed.
 Keep the real soak library outside these trials. Synthetic success establishes
 the basic agent interface and correction path; the remaining cases determine
 whether it is useful across the actual corpus and its harder maintenance work.
+
+## Approved follow-up: inline claims and complete evidence refresh
+
+The follow-up is based on commit
+`2b6b1573f48c509c0920403c2ee3c522962a89ae`, on the isolated
+`temp/mcp-codex-integration` branch. The original checkout, running soak,
+authoritative library and global installation were not changed. Evidence is
+retained under `/Users/adrian/testrag/mcp-gaps-2b6b157`.
+
+Inline NDJSON now enters through the existing external-proposal decoder and
+claim validator. Agents can prepare new claims without a server file. Exact
+apply still queues mandatory reviews; acceptance uses normal validation.
+Evidence inventory pages current and stored passages, catalogue and context.
+A reviewed refresh creates a complete successor packet with per-task ceilings,
+preserving the old task, original question, workflow and priority. It does not
+change global configuration, semantic generation or provider accounting.
+
+Three fresh managed Codex CLI sessions used installed skills and actual MCP
+with `read,plan` access. Each had a 20-call/eight-minute ceiling, no corpus
+filesystem/SQL access, and no RAG provider calls. The harness measured time and
+hashed every database table before and after; all three left every table
+unchanged.
+
+| Fresh session | Measured result | MCP calls | Seconds |
+|---|---|---:|---:|
+| `gaps-inline` | Discovered the accepted Gateway successors and prepared one canonical bundle containing the two missing directed claims | 19 | 200.93 |
+| `gaps-oversized` | Found the empty oversized task, paged all 106 current catalogue entries and prepared a complete refresh plan | 19 | 205.85 |
+| `gaps-refreshed` | Discovered the refreshed successor, read its complete stored packet and prepared a grounded split plan | 19 | 196.21 |
+
+The inline trial used the prior trial's accepted split on a separate copy. The
+catalogue stress fixture added 105 explicitly synthetic context rows to the
+existing Gateway passage; public manual maintenance generated the oversized
+task. Its source bytes and accepted claims were unchanged. This is a targeted
+capacity test, not evidence that those synthetic rows are valid extractions.
+The refresh plan retained one passage and all 106 concepts in 17,685 bytes.
+
+The first two sessions ran the initial follow-up artifact. Independent review
+then found and closed three edge cases: large citation rendering, exact replay
+of refresh summary fields, and preservation of note/gap diagnostic text.
+The third session and all exact-plan application probes used the final artifact:
+native SHA-256
+`7db85065ce9a6d1f7fbb40096b99ff44af923710333861197c715b0414477ca5`,
+linked application SHA-256
+`e17cd659ed013d56ade0a41081a3075869b579fe0a36accaca85770d0e16b6f8`.
+`VALIDATION-STATE.json` binds the changed source files to that artifact.
+
+`applied-inline` replayed the actual agent bundle through the final MCP server.
+The server-file and inline canonical plans were byte-identical. Competing,
+missing, malformed and oversized Unicode input failed without database writes.
+Exact apply and replay created two reviews, and review acceptance created the
+two justified claims, advancing generation 6 to 8. Source text, source
+revisions, configuration and provider receipts were unchanged; library verify
+and foreign keys passed.
+
+`applied-oversized` applied the actual refresh plan and replayed it exactly,
+keeping generation 5. Altered completeness, counts or extra canonical fields
+with newly calculated digests were rejected. All 106 stored catalogue entries
+were paged without duplicates, and a mismatched generation was rejected. The
+old task and packet remained available. That result supplied the third fresh
+session's isolated starting copy.
+
+`applied-refreshed` submitted and replayed the third agent's exact split plan,
+then accepted its mandatory review. Generation advanced from 5 to 6, with
+source text, source revisions, configuration and provider receipts unchanged.
+The two successors and migration workflow were created through normal lifecycle
+validation; library verify and foreign keys passed. Remaining alias/mention
+migration and new-claim work were correctly reported as separate actions.
+
+The regression suite covers catalogue and byte overflow, changed evidence
+beyond an overflow cutoff, stale plans, ownership exclusion, original question
+retention, resolution review and census retention of refreshed tasks. It also
+reconstructs a 300,000-byte Unicode citation exactly from bounded pages. A
+separate actual-MCP probe verified the large task-passage redirect and the same
+exact source reconstruction in 13 pages. The independent reviewer rechecked
+all three findings and reported no remaining material issue within that scope.
+
+Final validation: all 30 local CTest cases passed in 298.85 seconds, including
+the complete default loopback-provider suite and both-VM backlog scenarios.
+Both edited skills passed the skill validator and `git diff --check` passed.
+This baseline was validated locally; nothing was pushed or installed globally.
+
+Refresh remains deliberately bounded at 8 MiB/1000 catalogue concepts, and
+claim/conflict responses must cover all supports within 131072 bytes/1000
+entries. Generic refresh excludes provenance-enrichment's separate assessment
+contract. These trials close the two identified interface gaps within those
+bounds; representative corpus and complete migration-workflow qualification
+remain separate work.
