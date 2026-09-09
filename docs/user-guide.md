@@ -779,6 +779,31 @@ normal churn matrix decides whether a new historic point is warranted.
 
 ## Automation and MCP
 
+Agents can use `query inspect 'question'` for lexical source evidence with
+zero writes and no provider calls. Over MCP, `rag_query_inspect`,
+`rag_library_overview` and `rag_profile_show` support corpus orientation and
+source-grounded answers without opening a writing route. Query limits are
+1–12 and graph hops 0–4. Resolve returned citations with `rag_citation_show`.
+
+`maintain tasks --capability advanced-reasoning` discovers difficult tasks;
+omit the filter to inspect all work. `maintain inspect TASK_ID` returns its
+subject, history and response schema, and `maintain evidence TASK_ID` pages
+its original evidence. Task lists and evidence pages accept `--limit 1..50`
+and return a continuation cursor. Capability is separate from priority:
+workers can assert a need for stronger reasoning, and two validated-content
+failures on the same task also flag it. Transport and storage failures do not.
+
+Use the installed `$crexxrag-resolve` skill for evidence-grounded split,
+merge, reclassification and connection proposals. `maintain resolve-plan`
+takes a task `--id` and inline `--response-json`; `maintain resolve-apply`
+requires the exact `--plan-json` and `--expect-digest`. Submission creates a
+mandatory review; acceptance revalidates the source evidence and current
+generation before applying the existing lifecycle rules. Split/merge starts
+connection migration work, so an accepted proposal does not imply that every
+successor connection has been resolved. `maintain escalate-plan` and
+`maintain escalate-apply` persist an external agent's explicit reasoning flag.
+See [the full agent workflow and evidence limits](agent-integration.md#difficult-maintenance-tasks).
+
 Canonical commands separate planning, applying, and supervision:
 
 ```text

@@ -3,7 +3,7 @@ options levelg
 namespace ragschema expose ragschemaversion migrationname migrationchecksum migrationstatements
 
 ragschemaversion: procedure = .int
-  return 11
+  return 12
 
 migrationname: procedure = .string
   arg version = .int
@@ -17,11 +17,13 @@ migrationname: procedure = .string
   if version = 8 then return "direct-provider-history"
   if version = 10 then return "durable-maintenance-backlog"
   if version = 11 then return "claim-time-and-source-provenance"
+  if version = 12 then return "agent-maintenance-handoff"
   if version = 9 then return "prospective-configuration-transitions"
   return ""
 
 migrationchecksum: procedure = .string
   arg version = .int
+  if version = 12 then return "abe73ac0a801d3a824f08b7689bdc756b0c50a209ef3ff0eb88c1cfd17a2ce2d"
   if version = 11 then return "641b75b26a3946f1a55c40eb6b7913c8264501aaec4d7a4166e1720ed09acd74"
   /* SHA-256 of the ordered migration statements, each followed by LF. */
   if version = 10 then return "7bf90419a4f3e691691f4e18e86f2faa87ca59c06c1e863b6dcc4aa83e388a9c"
@@ -39,6 +41,17 @@ migrationchecksum: procedure = .string
 migrationstatements: procedure = .int
   arg version = .int, expose statements = .string[]
   statements = .string[]
+  if version = 12 then do
+    statements[statements.0 + 1] = "ALTER TABLE maintenance_tasks ADD COLUMN required_capability TEXT NOT NULL DEFAULT 'standard' CHECK(required_capability IN('standard','advanced-reasoning'))"
+    statements[statements.0 + 1] = "ALTER TABLE maintenance_tasks ADD COLUMN escalation_origin TEXT NOT NULL DEFAULT ''"
+    statements[statements.0 + 1] = "ALTER TABLE maintenance_tasks ADD COLUMN escalation_reason TEXT NOT NULL DEFAULT ''"
+    statements[statements.0 + 1] = "ALTER TABLE maintenance_tasks ADD COLUMN semantic_failures INTEGER NOT NULL DEFAULT 0 CHECK(semantic_failures>=0)"
+    statements[statements.0 + 1] = "CREATE TABLE maintenance_agent_actions(action_id TEXT PRIMARY KEY,task_id TEXT NOT NULL REFERENCES maintenance_tasks(task_id),action_kind TEXT NOT NULL CHECK(action_kind IN('escalation','resolution')),actor TEXT NOT NULL,model TEXT NOT NULL,canonical_plan TEXT NOT NULL CHECK(json_valid(canonical_plan)),created_epoch INTEGER NOT NULL) STRICT"
+    statements[statements.0 + 1] = "CREATE INDEX maintenance_agent_actions_task ON maintenance_agent_actions(task_id,action_id)"
+    statements[statements.0 + 1] = "CREATE TRIGGER maintenance_agent_actions_immutable_update BEFORE UPDATE ON maintenance_agent_actions BEGIN SELECT RAISE(ABORT,'agent action is immutable'); END"
+    statements[statements.0 + 1] = "CREATE TRIGGER maintenance_agent_actions_immutable_delete BEFORE DELETE ON maintenance_agent_actions BEGIN SELECT RAISE(ABORT,'agent action is immutable'); END"
+    return statements.0
+  end
   if version = 1 then do
     statements[statements.0 + 1] = "CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY,name TEXT NOT NULL UNIQUE,checksum TEXT NOT NULL CHECK(length(checksum)=64),applied_at TEXT NOT NULL,tool_version TEXT NOT NULL) STRICT"
     statements[statements.0 + 1] = "CREATE TABLE config_snapshots(config_snapshot_id TEXT PRIMARY KEY,config_id TEXT NOT NULL,config_version TEXT NOT NULL,profile_id TEXT NOT NULL,profile_hash TEXT NOT NULL,config_hash TEXT NOT NULL,effective_json TEXT NOT NULL,created_at TEXT NOT NULL) STRICT"

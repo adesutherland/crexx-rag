@@ -249,6 +249,7 @@ ragworkproviderresult: class
   _provider_called = .int
   _diagnostic_json = .string
   _citation_failure = .string
+  _content_failure = .int
   _worker_failure = .string
   _outcome_uncertain = .int
   _attempt_limit = .int
@@ -327,6 +328,12 @@ ragworkproviderresult: class
     return _attempt_limit
   citation_failure: method = .string
     return _citation_failure
+  content_failure: method = .int
+    return _content_failure
+  set_content_failure: method = .void
+    arg value = .int
+    _content_failure = value
+    return
   set_citation_failure: method = .void
     arg value = .string
     _citation_failure = value
@@ -941,7 +948,7 @@ settlecall: procedure = .int
   return 0
 
 failattempt: procedure = .int
-  arg store = .ragstorehandle, claim = .ragworkclaim, retryable = .int, backoff_seconds = .int, maximum_attempts = .int, reason = .string, expose error = .string, citation_failure = ""
+  arg store = .ragstorehandle, claim = .ragworkclaim, retryable = .int, backoff_seconds = .int, maximum_attempts = .int, reason = .string, expose error = .string, citation_failure = "", content_failure = 0
   error = ""
   if store.writable() \= 1 | claim.claimed() \= 1 | (retryable \= 0 & retryable \= 1) | backoff_seconds < 0 | maximum_attempts < 1 | reason = "" then do; error = "failed-attempt inputs are invalid"; return -1; end
   database = store.database()
@@ -962,6 +969,19 @@ failattempt: procedure = .int
     end
   end
   attempt_outcome = "failed"
+  /* Content validation is distinct from transport, admission and SQL failure.
+   * Count it only under the active worker fence, against this evidence task. */
+  if content_failure = 1 then do
+    task_id = _boundscalartext(database,"SELECT task_id FROM maintenance_task_items WHERE item_id=?1",claim.item_id())
+    if task_id \= "" then do
+      if sqliteexec(database,"UPDATE maintenance_tasks SET semantic_failures=semantic_failures+1 WHERE task_id=" || _q(task_id)) \= 0 then return _rollback(database,"cannot count task content validation failure",error)
+      if _boundcount(database,"SELECT count(*) FROM maintenance_tasks WHERE task_id=?1 AND semantic_failures>=2",task_id) = 1 then do
+        next_state = "dead_letter"
+        if sqliteexec(database,"UPDATE maintenance_tasks SET state='unresolved',required_capability='advanced-reasoning',escalation_origin='validation-failures',escalation_reason=" || _q(reason) || ",updated_epoch=unixepoch() WHERE task_id=" || _q(task_id)) \= 0 then return _rollback(database,"cannot escalate repeated content validation failures",error)
+        if _event(database,claim.job_id(),claim.item_id(),claim.attempt_id(),"advanced-reasoning-required",reason) \= 0 then return _rollback(database,"cannot record task escalation",error)
+      end
+    end
+  end
   if next_state = "dead_letter" then attempt_outcome = "dead_letter"
   sql = "UPDATE attempts SET validation_state=" || _q(reason) || ",outcome=" || _q(attempt_outcome) || ",completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE attempt_id=" || _q(claim.attempt_id()) || " AND outcome='running'"
   if sqliteexec(database, sql) \= 0 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "cannot close failed attempt", error)
@@ -1243,7 +1263,7 @@ _runworkeronce: procedure = .int
     if retry_seconds < 1 then retry_seconds = 1
     attempt_limit = maximum_attempts
     if provider_result.attempt_limit() > 0 then attempt_limit = provider_result.attempt_limit()
-    if failattempt(store, claim, provider_result.retryable(), retry_seconds, attempt_limit, provider_result.error(), error, provider_result.citation_failure()) \= 0 then do; disposition = "failure-recording-failed"; return -3; end
+    if failattempt(store, claim, provider_result.retryable(), retry_seconds, attempt_limit, provider_result.error(), error, provider_result.citation_failure(),provider_result.content_failure()) \= 0 then do; disposition = "failure-recording-failed"; return -3; end
     disposition = "retry-or-dead-letter"
     return 0
   end

@@ -12,6 +12,7 @@ import ragclaims
 import ragprofile
 import ragcanonical
 import generic_profile
+import architecture_local_config
 
 check: procedure = .int
   arg condition = .boolean, label = .string
@@ -125,6 +126,79 @@ identitycollisionprovider: class implements .ragworkprovider
     aliases[1] = "Platform"
     mentions[1] = .ragworkmention("candidate-identity-collision","Platform","evidence-span",0,8,aliases)
     return .ragworkproviderresult(0,"fixture","fixture","identity-" || claim.attempt_id(),10,10,0,1,0,empty,"",0,"","",.ragworkembedding("","","","","",0,"",''x as .binary),"","local-compute",mentions,proposals,notes)
+
+failureclassprovider: class implements .ragworkprovider
+  _status = .int
+  _content = .int
+  *: factory
+    arg status = .int, content = .int
+    _status = status; _content = content
+    return
+  process: method = .ragworkproviderresult
+    arg claim = .ragworkclaim
+    empty = .ragextractionproposal
+    mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
+    result = .ragworkproviderresult(_status,"fixture","fixture","request-" || claim.attempt_id(),10,10,0,1,1,empty,"fixture classified failure",0,"","",.ragworkembedding("","","","","",0,"",''x as .binary),"","local-compute",mentions,proposals,notes)
+    call result.set_content_failure(_content)
+    return result
+
+agentchecks: procedure = .int
+  arg store = .ragstorehandle, policy_json = .string
+  errors = 0; error = ""; database = store.database(); config = architecturelocalconfig(); profile = genericprofile(); policy = .jsondocument(policy_json)
+  current = scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  calls = scalarint(database,"SELECT count(*) FROM provider_runs"); sources = scalarint(database,"SELECT count(*) FROM source_revisions")
+  errors = errors + check(sqliteexec(database,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('concept-external','Platform','concept','active'," || current || ")") = 0,"external fixture concept")
+  errors = errors + check(sqliteexec(database,"INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('mention-external','concept-external','chunk-lifecycle',0,8," || current || ")") = 0,"external fixture mention")
+  task_id = ""
+  errors = errors + check(enqueuebacklogtask(database,"external-review","concept","concept-external","","",999999,policy,task_id,error) = 0,"external task " || error)
+  canonical = ""; review_id = ""
+  errors = errors + check(planagentaction(store,config,profile,task_id,"escalation","","Distinct meanings require connection review","fixture-agent","self-reported-fixture",canonical,error) = 0,"plan escalation " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_agent_actions") = 0,"planning writes no receipt")
+  digest = rxhash..sha256hex(canonical as .binary)
+  errors = errors + check(applyagentaction(store,config,profile,canonical,digest,"escalation",review_id,error) = 0 & applyagentaction(store,config,profile,canonical,digest,"escalation",review_id,error) = 0,"exact escalation and replay " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_agent_actions") = 1 & scalartext(database,"SELECT required_capability FROM maintenance_tasks WHERE task_id='" || task_id || "'") = "advanced-reasoning","one durable escalation independent of priority")
+  evidence = '[{"evidence_id":"mention-external","quote":"Platform"}]'
+  successors = '[{"canonical_label":"External Alpha","concept_type":"concept"},{"canonical_label":"External Beta","concept_type":"concept"}]'
+  response = responsejson("split","",successors,evidence,"concept-external")
+  errors = errors + check(planagentaction(store,config,profile,task_id,"resolution",changestr('"quote":"Platform"',response,'"quote":"Invented"'),"review","fixture-agent","fixture",canonical,error) \= 0,"external forged quote rejected")
+  errors = errors + check(planagentaction(store,config,profile,task_id,"resolution",response,"review","fixture-agent","fixture",canonical,error) = 0,"grounded external split plan " || error)
+  digest = rxhash..sha256hex(canonical as .binary)
+  errors = errors + check(applyagentaction(store,config,profile,canonical,copies("0",64),"resolution",review_id,error) \= 0,"tampered external digest rejected")
+  errors = errors + check(sqliteexec(database,"UPDATE maintenance_tasks SET updated_epoch=updated_epoch+1 WHERE task_id='" || task_id || "'") = 0,"advance task revision")
+  errors = errors + check(applyagentaction(store,config,profile,canonical,digest,"resolution",review_id,error) \= 0 & scalarint(database,"SELECT count(*) FROM maintenance_agent_actions") = 1,"stale external plan rejected without receipt")
+  errors = errors + check(planagentaction(store,config,profile,task_id,"resolution",response,"review","fixture-agent","fixture",canonical,error) = 0,"fresh external split plan " || error)
+  digest = rxhash..sha256hex(canonical as .binary)
+  errors = errors + check(applyagentaction(store,config,profile,canonical,digest,"resolution",review_id,error) = 0,"external proposal submitted " || error)
+  errors = errors + check(applyagentaction(store,config,profile,canonical,digest,"resolution",review_id,error) = 0 & scalarint(database,"SELECT count(*) FROM maintenance_agent_actions") = 2,"duplicate proposal is exact no-op")
+  errors = errors + check(scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1") = current,"submission does not change corpus")
+  job_id = scalartext(database,"SELECT job_id FROM maintenance_windows WHERE state='active' LIMIT 1")
+  errors = errors + check(scalartext(database,"SELECT last_error FROM maintenance_tasks WHERE task_id='" || task_id || "'") = "external resolution awaiting review","submission replaces manual marker")
+  errors = errors + check(sqliteexec(database,"UPDATE maintenance_tasks SET last_error='manual maintenance mode',required_capability='standard' WHERE task_id='" || task_id || "'") = 0,"simulate legacy manual marker during pending review")
+  errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0 & tickbacklogwindow(store,job_id,error) >= 0,"resume ordinary workers with external review pending " || error)
+  errors = errors + check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || task_id || "'") = "review" & scalarint(database,"SELECT count(*) FROM maintenance_task_items WHERE task_id='" || task_id || "'") = 0,"pending external review retains exclusive task ownership")
+  errors = errors + check(reviewagentaction(store,review_id,"accept",config,profile,error) = 0,"accept grounded external split " || error)
+  errors = errors + check(scalartext(database,"SELECT lifecycle_state FROM concepts WHERE concept_id='concept-external'") = "migration-parent" & scalarint(database,"SELECT count(*) FROM maintenance_workflows WHERE origin_task_id='" || task_id || "' AND state='migrating'") = 1,"external split reuses resumable lifecycle")
+  errors = errors + check(reviewagentaction(store,review_id,"accept",config,profile,error) \= 0,"repeat acceptance cannot publish twice")
+  errors = errors + check(scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1") = current+1 & scalarint(database,"SELECT count(*) FROM provider_runs") = calls & scalarint(database,"SELECT count(*) FROM source_revisions") = sources,"one generation with no fabricated provider usage or source rewrite")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"external resolution foreign keys")
+  worker_task = ""
+  errors = errors + check(enqueuebacklogtask(database,"worker-escalation-test","concept","concept-peer","","",999999,policy,worker_task,error) = 0 & nextwindow(store,policy_json,job_id,error) = 0,"dispatch worker assertion test " || error)
+  errors = errors + check(runresolution(store,job_id,worker_task,responsejson("escalate"),error) = 0,"worker can assert advanced reasoning " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE task_id='" || worker_task || "' AND state='unresolved' AND required_capability='advanced-reasoning' AND escalation_origin='worker'") = 1,"worker assertion keeps task unresolved and flags resolver")
+  do failure_class = 1 to 3
+    failure_task = ""; status = -123; if failure_class = 2 then status = -101
+    provider = .failureclassprovider(status,failure_class = 1); disposition = ""
+    claim_policy = .ragclaimpolicy("fixture-v1","concept|source-artifact|evidence-span","related-to|mentioned-in|mentions",1000000,750000,500000,-1000000,250000)
+    errors = errors + check(enqueuebacklogtask(database,"failure-class-" || failure_class,"concept","concept-peer","","",999999,policy,failure_task,error) = 0 & nextwindow(store,policy_json,job_id,error) = 0,"dispatch classified failure " || error)
+    errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=1000010 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || failure_task || "') AND state='queued'") = 0,"select classified failure task")
+    do attempt = 1 to 2
+      errors = errors + check(runworkeronce(store,job_id,"failure-class-fixture",60,3,claim_policy,provider,disposition,error,profile) = 0,"settle classified failure " || error)
+      errors = errors + check(sqliteexec(database,"UPDATE job_items SET retry_at=0 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || failure_task || "') AND state='queued'") = 0,"make fixture retry ready without sleeping")
+    end
+    if failure_class = 1 then errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE task_id='" || failure_task || "' AND semantic_failures=2 AND required_capability='advanced-reasoning' AND state='unresolved'") = 1,"repeated content failures escalate and stop ordinary work")
+    else errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE task_id='" || failure_task || "' AND semantic_failures=0 AND required_capability='standard'") = 1,"transport and storage failure status alone is not an intelligence signal")
+  end
+  return errors
 
 responsejson: procedure = .string
   arg action = .string, target = "", successors = "[]", evidence = "[]", object_id = "", question = "", qualifiers = "{}", effective_from = "", effective_to = ""
@@ -591,6 +665,7 @@ main: procedure = .int
   errors = errors + check(runworkeronce(store,job_id,"identity-fixture",60,3,identity_policy,collision_provider,disposition,error,genericprofile()) = 0 & disposition = "concepts-and-notes","follow-up reuses resolved identity " || disposition || " " || error)
   errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_alias_issues WHERE candidate_id='candidate-identity-collision' AND state='open'") = 0 & scalarint(database,"SELECT count(*) FROM mentions WHERE concept_id='" || selected || "' AND visible_to_generation IS NULL") > 0,"repair converges without reopening the same question")
   errors = errors + check(scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"identity repair preserves foreign keys")
+  errors = errors + agentchecks(store,policy_json)
   call closeragstore store,error
   if errors > 0 then return 1
   say "DURABLE_BACKLOG_OK deduplicated split_fanout fenced_decisions resume uncertainty source_preservation"

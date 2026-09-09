@@ -34,7 +34,7 @@ metadata directly.
 | `worker_recovery` | native managed-process disconnects: bounded replacement, restart ceiling surviving controller restart and runtime pruning, preserved item allowance, no preflight phantom calls, uncertain-turn hold, and successful publication with exact SQLite diagnostics after injected admission-release failure |
 | `gemini_ingestion` | Gemini request/response mapping, compact gap-free LF/CR/CRLF normalization maps, durable work, claims, embeddings, vector publication, replay and failure paths |
 | `gemini_extraction_validation` | invalid UTF-8 spans, unknown concept/relationship types and malformed extraction output dead-letter without product mutation or secret disclosure |
-| `provider_durability` | reservation recovery, Codex turns, fencing, completed-turn reuse, durable cross-process admission, no false call record on preflight failure, immutable replay lineage, backlog reconciliation, and schema 1-to-11 migration with historic-cost backfill and prospective-transition auditing |
+| `provider_durability` | reservation recovery, Codex turns, fencing, completed-turn reuse, durable cross-process admission, no false call record on preflight failure, immutable replay lineage, backlog reconciliation, and schema 1-to-12 migration with historic-cost backfill and prospective-transition auditing |
 | `codex_protocol` | App Server initialize/account/turn/schema/usage/cleanup over JSONL; 17,000 account cycles on one persistent adapter exceed the old 65,535-ticket ceiling |
 | `codex_application` | public Codex extraction, worker-crash recovery from a persisted completed turn, duplicate-turn prevention, validation, allowance settlement and library verification |
 | `gemini_maintenance` | hosted-style maintenance, glossary-drift rejection, durable cognitive notes, ANN publication/reuse, provider/profile discovery and external proposal review/promotion |
@@ -67,6 +67,15 @@ suppressed/coalesced, a cached narrative is associated by report digests, and a
 one-point trend refuses to infer direction. The suite does
 not silently substitute a different provider. This makes the default suite
 repeatable and zero-cost.
+
+The MCP read-only regression hashes SQLite around lexical inspection, overview,
+task/job discovery, planning and missing-review preview. The durable backlog
+scenario also exercises external escalation, stale/tampered plans, exact replay,
+mandatory review, split fan-out without fabricated provider usage, worker-asserted
+escalation, pending-review task ownership, and the distinction between repeated
+content failures and transport/storage failures on both VMs. Real fresh-Codex trials are separate bounded acceptance
+runs, using installed skills and actual MCP traffic on isolated synthetic
+libraries; they are not replaced by a static tools-list or file-existence test.
 
 The deadline regression closes a window while extraction is in flight and
 requires its final worker to settle the durable task without another poll.

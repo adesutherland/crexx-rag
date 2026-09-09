@@ -100,6 +100,16 @@ representative source-span passages. Exact-schema and known-citation
 validation occurs before a narrative is cached or displayed; advisory output
 has no graph-mutation path.
 
+## External maintenance agents
+
+External maintenance agents use the same durable task evidence validator and
+lifecycle engine as workers. Task resolver capability is separate from work
+priority and status. Schema 12 records external action plans in an immutable
+`maintenance_agent_actions` table; their self-reported actor/model attribution
+does not masquerade as an internally measured provider run. Submission queues
+a review, and acceptance revalidates the evidence and generation transactionally.
+See [Agent integration](agent-integration.md#difficult-maintenance-tasks).
+
 ## Historic observability
 
 The detailed history remains in the existing append-only publication, job,

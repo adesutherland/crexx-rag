@@ -90,7 +90,11 @@ tools. This follows the current official
 Read access does not imply zero network use. Query `mode: auto` or `hybrid` may
 call the configured embedding provider, and `rag_query_answer` may call the
 answerer. Use `rag_query_evidence` with `mode: lexical` when the task must make
-no outbound provider call.
+no outbound provider call. For **zero writes as well as zero provider calls**,
+use `rag_query_inspect`. Its CLI equivalent is `query inspect QUESTION`.
+The older query routes record durable gap observations even in lexical mode.
+`rag_library_overview` similarly exposes deterministic reporting without the
+optional narrative refresh, so Codex can approve it as a read-only tool.
 
 Read access also advertises `rag_config_check`, `rag_config_explain`, and
 `rag_config_diff`; all three make zero provider calls and never resolve a
@@ -104,7 +108,7 @@ RexxScript.
 
 ## Configure the Codex skills
 
-The installation provides four skill sources:
+The installation provides five skill sources:
 
 | Skill | Use | Expected MCP access |
 | --- | --- | --- |
@@ -112,6 +116,7 @@ The installation provides four skill sources:
 | `crexxrag-ingest` | Zero-write ingestion plan, followed by separately authorized apply | `read,plan`; `ingest` for apply |
 | `crexxrag-maintain` | Ranked maintenance census, exact apply, inspection and explicit review/curation | `read,plan`; `curate` for writes |
 | `crexxrag-diagnose` | Library verification, redacted diagnostics, bounded provider smoke tests | `read,diagnose` |
+| `crexxrag-resolve` | Investigate difficult tasks; plan and review grounded lifecycle resolutions | `read,plan`; `curate` for submission, escalation and acceptance |
 
 `$crexxrag-maintain` defaults to inspection and zero-write planning. Apply
 requires a separately enabled `curate` capability, the exact reviewed plan and
@@ -213,16 +218,87 @@ privacy and budgets visible.
 
 ## Evidence handoff to a high-capability agent
 
-The preferred handoff is `rag_query_evidence`, not a provider-generated prose
-answer. It includes ranked passages, accepted claims and support, ambiguities,
+The default provider-free handoff is `rag_query_inspect`. It includes ranked
+lexical passages, accepted claims and support, ambiguities,
 graph leads, gaps, a trace identity, and answer guidance. An agent can then:
 
 1. state supported facts with the returned stable citations;
 2. label graph leads and gaps as unresolved rather than facts;
 3. use trace, path, or timeline tools for focused follow-up;
 4. perform deeper analysis outside the library; and
-5. return any proposed new claim through the external-proposal and mandatory
-   human-review path.
+5. return new claims through the external-proposal path, or resolve an existing
+   maintenance task through the task proposal and mandatory review path.
+
+## Difficult maintenance tasks
+
+Schema 12 adds `required_capability` to existing maintenance tasks. It is
+`standard` or `advanced-reasoning`, independently of priority and task state.
+The task records a reason, origin and content-validation failure count. An
+ordinary worker may return `action: "escalate"`; two content-validation failures
+for the same evidence task also flag it. Provider transport/admission failures
+and exhausted call budgets are not intelligence signals. An input envelope
+that exceeds the worker limit can be handed off when its complete evidence
+packet exists. Ordinary
+workers do not dispatch flagged tasks. Source changes produce a fresh task
+identity under the existing evidence-fingerprint rules.
+The flag does not automatically launch Codex or select a more capable model;
+an operator or external agent discovers the queue and chooses the resolver.
+
+`rag_task_list` discovers all durable tasks without needing a run ID. Filter
+by capability, state or workflow and follow its `next_cursor`. Inspect a task
+with `rag_maintain_inspect` to obtain the subject, catalogue, response schema
+and history; `rag_task_evidence` returns paged original passages and source
+citations. `rag_profile_show` supplies permitted vocabulary. Workflow inspection
+pages its task and historical-note-link arrays using a numeric cursor;
+`rag_task_list(workflow: ID)` provides the task selection independently.
+`rag_job_list` supplies actual job IDs and timestamps, and `rag_job_events`
+supports cursor/limit continuation. Job IDs are not ordered by creation time.
+
+The external resolution sequence is:
+
+1. Call `rag_task_resolve_plan` with task ID and inline `response_json` matching
+   the returned task schema. Source quotations must pass the normal durable
+   packet validator. The canonical plan freezes the task stamp, evidence,
+   configuration, profile, generation, attribution and impact census.
+2. With authorized `curate` access, submit exact `plan_json` and `expect_digest`
+   to `rag_task_resolve_apply`. This records an immutable external-agent action
+   and creates a pending review; it does not change the corpus.
+3. Inspect that `agent-action:` ID with `rag_maintain_inspect`. Preview and
+   accept the returned review only within the user's authority. Acceptance
+   revalidates current evidence, generation, profile and configuration and
+   composes the existing lifecycle engine in one transaction. A stale proposal
+   must be rejected and replanned. Exact submission replay is a no-op.
+
+Actor and model labels are self-reported external attribution. No worker item,
+provider run, usage or zero-cost model call is invented for the external agent.
+Split and merge start migration workflows; connection disposition and eventual
+parent retirement remain separate tasks. Unresolved decisions do not close a
+task, and rejecting or dismissing a proposal leaves its task unresolved.
+
+`rag_task_escalate_plan` and `rag_task_escalate_apply` use the same exact-plan
+contract for an operator/agent flag. Active worker ownership blocks handoff.
+The corresponding CLI verbs are `maintain tasks`, `maintain evidence`,
+`maintain resolve-plan`, `maintain resolve-apply`, `maintain escalate-plan`
+and `maintain escalate-apply`.
+
+Exploratory query results do not automatically extend a task's immutable
+evidence catalogue. Evidence beyond that packet may require new ingestion or
+a fresh maintenance task. A packet exceeding its configured byte or catalogue
+limit remains an explicit review hold, without an automatic reasoning flag:
+it contains no usable passages and cannot be resolved through this interface.
+After an appropriate configuration/source change, maintenance must generate a
+fresh task. A bounded evidence-inventory and task-refresh operation remains a
+follow-up gap; raising the limit alone does not repair an existing packet. A
+stronger model cannot manufacture missing evidence. Review preview checks
+existence and pending state; it is not a dry run of all lifecycle effects.
+
+New claim additions remain a separate integration gap for agents without
+server filesystem access: `rag_proposal_plan.input` is an NDJSON file path.
+Inline task resolution does not turn unextracted source relationships into new
+claim proposals. A future bounded inline proposal codec should compose the
+existing external claim validator, canonical plan and mandatory review gate.
+See [the fresh Codex trials](mcp-codex-trials.md) for measured coverage and the
+next validation cases.
 
 The detailed data, ranking and maintenance methodology is in
 [Methodology and algorithms](algorithm.md).

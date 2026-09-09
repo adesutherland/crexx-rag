@@ -58,7 +58,7 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "job.list" then return _repository(request, operation, "jobs")
   if operation = "job.events" then return _jobevents(request)
   if operation = "review.list" | operation = "review.show" then return _repository(request, operation, "reviews")
-  if operation = "query.search" | operation = "query.evidence" | operation = "query.answer" | operation = "query.trace" | operation = "query.path" | operation = "query.timeline" then return _query(request, registry)
+  if operation = "query.inspect" | operation = "query.search" | operation = "query.evidence" | operation = "query.answer" | operation = "query.trace" | operation = "query.path" | operation = "query.timeline" then return _query(request, registry)
   if operation = "job.status" then return _jobstatus(request)
   if operation = "job.pause" | operation = "job.resume" | operation = "job.cancel" then return _jobcontrol(request)
   if operation = "job.retry" then return _jobretry(request)
@@ -81,6 +81,8 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "ingest.apply" then return _ingestapply(request, registry)
   if operation = "maintain.plan" then return _maintainplan(request, registry)
   if operation = "maintain.apply" then return _maintainapply(request, registry)
+  if operation = "maintain.tasks" | operation = "maintain.evidence" then return _taskread(request)
+  if operation = "maintain.escalate-plan" | operation = "maintain.escalate-apply" | operation = "maintain.resolve-plan" | operation = "maintain.resolve-apply" then return _agentaction(request,registry)
   if operation = "maintain.status" | operation = "maintain.inspect" then return _maintainread(request)
   return dispatchfoundation(request, registry)
 
@@ -1374,6 +1376,10 @@ _query: procedure = .ragcommandresult
   end
   if limit < 1 | limit > 12 | hops < 0 | hops > 4 then return _failure(operation, 2, "query limit must be 1 through 12 and hops 0 through 4")
   if mode = "" then mode = "auto"
+  if operation = "query.inspect" then do
+    if mode \= "auto" & mode \= "lexical" then return _failure(operation,2,"query inspect supports lexical evidence only")
+    mode = "lexical"
+  end
   if mode \= "auto" & mode \= "lexical" & mode \= "hybrid" then return _failure(operation, 2, "query mode must be auto, lexical, or hybrid")
   if graph_direction = "" then graph_direction = retrieval_policy.graph_direction()
   if wordpos(graph_direction, "outbound inbound both") = 0 then return _failure(operation, 2, "query direction must be outbound, inbound, or both")
@@ -1386,7 +1392,8 @@ _query: procedure = .ragcommandresult
     temporal_query=period.canonical()
   end
   store = .ragstorehandle
-  if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
+  store_access = "readwrite"; if operation = "query.inspect" then store_access = "readonly"
+  if openragstore(request.library(), store_access, store, error) \= 0 then return _openfailure(operation, error)
   if _querysnapshotmatches(store, config, profile) \= 1 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 6, "configuration changes have not been applied; review config diff and config plan before querying with these settings"); end
   plan = .ragqueryplan
   if planquery(store, profile, positionals[1], "surface-retrieval-v2", plan, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 1, error); end
@@ -1441,7 +1448,7 @@ _query: procedure = .ragcommandresult
   if mode = "hybrid" & retrieval.vector_state() \= "active-ann-ivf-rxvector" then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 6, "hybrid query requires a valid vector sidecar; run vector rebuild to recover it from SQLite"); end
   evidence = retrieval.evidence(); answer_context = ""
   query_gaps_recorded = 0
-  if recordquerygaps(store, evidence, query_gaps_recorded, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, error); end
+  if operation \= "query.inspect" then if recordquerygaps(store, evidence, query_gaps_recorded, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 7, error); end
   if answer_planned = 1 then do
     if encodeanswercontext(evidence, retrieval_policy.maximum_evidence_bytes(), answer_context, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 1, error); end
   end
@@ -1757,6 +1764,7 @@ _jobevents: procedure = .ragcommandresult
   view = .ragreadsnapshot
   if beginreadsnapshot(request.library(),view,error) \= 0 then return _openfailure(operation,error)
   database = view.database(); prepared = .binary
+  if _scalarint(database,"SELECT count(*) FROM jobs WHERE job_id=" || _sqlquote(job_id)) \= 1 then do; ignored = ""; call closereadsnapshot view,ignored; return _failure(operation,5,"job was not found"); end
   sql = "SELECT event_id,coalesce(item_id,''),coalesce(attempt_id,''),event_type,message,occurred_at FROM job_events WHERE job_id=?1 AND event_id>?2 ORDER BY event_id LIMIT ?3"
   if sqliteprepare(database,sql,prepared) \= 0 then do; ignored = ""; call closereadsnapshot view,ignored; return _failure(operation,7,"cannot prepare durable event page"); end
   binds = sqlitebindtext(prepared,1,job_id) | sqlitebindint(prepared,2,cursor as .int) | sqlitebindint(prepared,3,limit+1)
@@ -2509,6 +2517,93 @@ _missingembeddingcount: procedure = .int
   if generation < 1 then return -1
   return _scalarint(database, "SELECT count(*) FROM revision_chunks rc WHERE rc.visible_from_generation<=" || generation || " AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>" || generation || ") AND NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id WHERE rce.revision_chunk_id=rc.revision_chunk_id AND e.embedding_profile_id=" || _sqlquote(embedding_profile_id) || " AND rce.visible_from_generation<=" || generation || " AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>" || generation || "))")
 
+_agentaction: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = request.operation(); error = ""; apply = right(operation,6) = "-apply"
+  kind = "resolution"; if pos("escalate",operation)>0 then kind = "escalation"
+  required = "plan"; if apply then required = "curate"
+  if _hasaccess(request,required) \= 1 then return _failure(operation,4,"agent action requires " || required || " access")
+  if _options(request,"id response-json reason actor model plan-json expect-digest",error) \= 0 then return _failure(operation,2,error)
+  config_lookup = registry.config(request.config_id()); profile_lookup = registry.profile(request.profile_id())
+  if config_lookup.found() \= 1 | profile_lookup.found() \= 1 then return _failure(operation,5,"configuration or profile is unavailable")
+  config = config_lookup.config(); profile = profile_lookup.profile()
+  canonical = _option(request,"plan-json",error); digest = _option(request,"expect-digest",error)
+  id = _id(request,error); response = _option(request,"response-json",error); reason = _option(request,"reason",error)
+  actor = _option(request,"actor",error); model = _option(request,"model",error)
+  if error \= "" then return _failure(operation,2,error)
+  if apply & (id \= "" | response \= "" | reason \= "" | actor \= "" | model \= "") then return _failure(operation,2,"apply accepts only exact plan-json and expect-digest")
+  if \apply & (canonical \= "" | digest \= "") then return _failure(operation,2,"planning accepts task inputs, not an existing plan")
+  if actor = "" then actor = "external-agent"
+  if model = "" then model = "unspecified"
+  if kind = "resolution" & reason = "" then do; decoded = .jsondocument(response); ignored = decoded.node_string(decoded.member(decoded.root(),"reason"),reason); end
+  store = .ragstorehandle; access = "readonly"; if apply then access = "readwrite"
+  if openragstore(request.library(),access,store,error) \= 0 then return _openfailure(operation,error)
+  if _querysnapshotmatches(store,config,profile) \= 1 then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,6,"configuration changes have not been applied; review config diff first"); end
+  review_id = ""
+  if apply then status = applyagentaction(store,config,profile,canonical,digest,kind,review_id,error)
+  else status = planagentaction(store,config,profile,id,kind,response,reason,actor,model,canonical,error)
+  ignored = ""; closed = closeragstore(store,ignored)
+  if status \= 0 then return _failure(operation,3,error)
+  if closed \= 0 then return _failure(operation,7,ignored)
+  fields = .ragresultfield[]; fields[1] = .ragresultfield("kind","string",kind)
+  fields[2] = .ragresultfield("digest","string",rxhash..sha256hex(canonical as .binary))
+  fields[3] = .ragresultfield("canonical_plan","string",canonical)
+  fields[4] = .ragresultfield("applied","boolean",_boolean(apply))
+  fields[5] = .ragresultfield("review_id","string",review_id)
+  fields[6] = .ragresultfield("validation","string","task, grounding, profile types and impact checked; resolution apply queues mandatory review; acceptance revalidates lifecycle and current evidence")
+  fields[7] = .ragresultfield("provider_calls","integer",0)
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("agent-action",fields)
+  return .ragcommandresult(operation,"ok",0,"evidence-bound external agent action",records)
+
+_taskread: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation = request.operation(); error = ""
+  if _hasaccess(request,"read") \= 1 then return _failure(operation,4,"task inspection requires read access")
+  if _options(request,"id cursor limit state capability workflow",error) \= 0 then return _failure(operation,2,error)
+  id = _id(request,error); cursor = _option(request,"cursor",error); count_text = _option(request,"limit",error)
+  state = _option(request,"state",error); capability = _option(request,"capability",error); workflow = _option(request,"workflow",error)
+  if error \= "" then return _failure(operation,2,error)
+  if count_text = "" then count_text = "20"
+  if _unsigned(count_text) \= 1 then return _failure(operation,2,"limit must be an integer")
+  limit = count_text as .int
+  if limit < 1 | limit > 50 | length(cursor)>512 then return _failure(operation,2,"task page limit must be 1 through 50 and cursor at most 512 bytes")
+  if state \= "" & wordpos(state,"pending dispatched resolved unresolved review superseded failed") = 0 then return _failure(operation,2,"unknown task state")
+  if capability \= "" & wordpos(capability,"standard advanced-reasoning") = 0 then return _failure(operation,2,"unknown resolver capability")
+  store = .ragstorehandle
+  if openragstore(request.library(),"readonly",store,error) \= 0 then return _openfailure(operation,error)
+  database = store.database(); sql = ""
+  if operation = "maintain.tasks" then do
+    filter = ""
+    if id \= "" then filter = filter || " AND task_id=" || _sqlquote(id)
+    if state \= "" then filter = filter || " AND state=" || _sqlquote(state)
+    if capability \= "" then filter = filter || " AND required_capability=" || _sqlquote(capability)
+    if workflow \= "" then filter = filter || " AND workflow_id=" || _sqlquote(workflow)
+    sql = "SELECT task_id,json_object('task_id',task_id,'kind',kind,'subject_type',subject_type,'subject_id',subject_id,'workflow_id',workflow_id,'state',state,'priority',priority,'question',question,'attempts',attempt_count,'required_capability',required_capability,'escalation_origin',escalation_origin,'escalation_reason',escalation_reason,'semantic_failures',semantic_failures,'reason',last_error) FROM maintenance_tasks WHERE task_id>" || _sqlquote(cursor) || filter || " ORDER BY task_id LIMIT " || (limit+1)
+  end
+  else do
+    if cursor = "" then cursor = "0"
+    if _unsigned(cursor) \= 1 | id = "" then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,2,"task evidence requires a task id and numeric cursor"); end
+    if _scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE task_id=" || _sqlquote(id)) \= 1 then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,5,"task was not found"); end
+    sql = "SELECT CAST(p.key+1 AS TEXT),json_set(p.value,'$.citation','crexx-rag:'||l.library_id||':'||v.source_id||':'||v.revision_id||':utf8-'||r.normalized_start||'-'||r.normalized_end,'$.source_title',s.observed_title) FROM maintenance_tasks t,json_each(t.evidence_json,'$.passages') p JOIN revision_chunks r ON r.revision_chunk_id=json_extract(p.value,'$.revision_chunk_id') JOIN source_revisions v ON v.revision_id=r.revision_id JOIN sources s ON s.source_id=v.source_id CROSS JOIN library_meta l WHERE t.task_id=" || _sqlquote(id) || " AND p.key+1>" || (cursor as .int) || " ORDER BY p.key LIMIT " || (limit+1)
+  end
+  records = .ragresultrecord[]; prepared = .binary; returned = 0; next_cursor = ""; previous = ""
+  if sqliteprepare(database,sql,prepared) \= 0 then do; detail = _sqliteerrordetail(); ignored = ""; call closeragstore store,ignored; return _failure(operation,7,"cannot prepare task page: " || detail); end
+  do forever
+    step = sqlitestep(prepared); if step = 101 then leave
+    row_id = ""; detail = ""
+    if step \= 100 | sqlitecolumntext(prepared,0,row_id) \= 0 | sqlitecolumntext(prepared,1,detail) \= 0 then do; error = "cannot read task page"; leave; end
+    if returned = limit then do; next_cursor = previous; leave; end
+    if length(detail)>65535 then do; error = "task evidence passage exceeds response bound; use a focused lexical query"; leave; end
+    fields = .ragresultfield[]; fields[1] = .ragresultfield("id","string",row_id); fields[2] = .ragresultfield("detail","string",detail)
+    records[records.0+1] = .ragresultrecord("maintenance-task-page-item",fields); returned = returned+1; previous = row_id
+  end
+  call sqlitefinalize prepared
+  ignored = ""; closed = closeragstore(store,ignored)
+  if error \= "" | closed \= 0 then return _failure(operation,7,error || ignored)
+  fields = .ragresultfield[]; fields[1] = .ragresultfield("returned","integer",returned); fields[2] = .ragresultfield("next_cursor","string",next_cursor)
+  records[records.0+1] = .ragresultrecord("page",fields)
+  return .ragcommandresult(operation,"ok",0,"bounded task inspection without writes or provider calls",records)
+
 _maintainread: procedure = .ragcommandresult
   arg request = .ragcommandrequest
   operation = request.operation(); error = ""
@@ -2525,12 +2620,23 @@ _maintainread: procedure = .ragcommandresult
   if error \= "" | limit < 1 | limit > 98 then return _failure(operation, 2, "maintenance limit must be 1 through 98")
   returned = 0; has_more = 0; next_cursor = ""; cursor_filter = ""
   store = .ragstorehandle
-  if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
+  store_access = "readwrite"; if operation = "maintain.inspect" then store_access = "readonly"
+  if openragstore(request.library(), store_access, store, error) \= 0 then return _openfailure(operation, error)
   database = store.database(); records = .ragresultrecord[]
   if operation = "maintain.inspect" then do
-    detail = inspectbacklog(database,id)
+    if (left(id,5) = "task:" | left(id,9) = "workflow:") & cursor \= "" then do
+      if _unsigned(cursor) \= 1 | length(cursor)>9 then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,2,"task and workflow history cursor must be numeric and at most nine digits"); end
+    end
+    detail = inspectbacklog(database,id,cursor,limit)
     if detail \= "" then do
       fields = .ragresultfield[]; fields[1] = .ragresultfield("id","string",id); fields[2] = .ragresultfield("detail","string",detail); records[1] = .ragresultrecord("maintenance-detail",fields)
+      if left(id,5) = "task:" then do
+        subject_type = _scalartext(database,"SELECT subject_type FROM maintenance_tasks WHERE task_id=" || _sqlquote(id))
+        workflow = _scalartext(database,"SELECT workflow_id FROM maintenance_tasks WHERE task_id=" || _sqlquote(id))
+        fields[3] = .ragresultfield("response_schema","string",backlogschema(subject_type,workflow \= ""))
+        records[1] = .ragresultrecord("maintenance-detail",fields)
+      end
+      if left(id,13) = "agent-action:" then do; fields[2] = .ragresultfield("canonical_plan","string",detail); records[1] = .ragresultrecord("agent-action",fields); end
       ignored = ""; call closeragstore store,ignored
       return .ragcommandresult(operation,"ok",0,"durable maintenance evidence and decisions",records)
     end
@@ -2666,11 +2772,22 @@ _reviewdecision: procedure = .ragcommandresult
   if id = "" | (decision \= "accept" & decision \= "reject" & decision \= "dismiss") then return _failure(operation, 2, "review decide requires an id and accept, reject, or dismiss")
   if apply_value = "true" then apply = 1
   if apply = 1 & _hasaccess(request, "curate") \= 1 then return _failure(operation, 4, "review decision apply requires curate access")
+  preview_store = .ragstorehandle
+  if openragstore(request.library(),"readonly",preview_store,error) \= 0 then return _openfailure(operation,error)
+  preview_state = _scalartext(preview_store.database(),"SELECT state FROM reviews WHERE review_id=" || _sqlquote(id))
+  preview_type = _scalartext(preview_store.database(),"SELECT review_type FROM reviews WHERE review_id=" || _sqlquote(id))
+  ignored = ""; closed = closeragstore(preview_store,ignored)
+  if closed \= 0 then return _failure(operation,7,ignored)
+  if preview_state = "" then return _failure(operation,5,"review was not found")
+  if preview_state \= "pending" then return _failure(operation,5,"review was already decided")
   fields = .ragresultfield[]
   fields[1] = .ragresultfield("review_id", "string", id)
   fields[2] = .ragresultfield("decision", "string", decision)
   fields[3] = .ragresultfield("would_write", "boolean", _boolean(apply))
   fields[4] = .ragresultfield("applied", "boolean", "false")
+  fields[5] = .ragresultfield("review_type","string",preview_type)
+  fields[6] = .ragresultfield("current_state","string",preview_state)
+  fields[7] = .ragresultfield("validation","string","pending review exists; acceptance revalidates current evidence during apply")
   records = .ragresultrecord[]; records[1] = .ragresultrecord("review-decision-preview", fields)
   if apply = 1 then do
     store = .ragstorehandle
@@ -2685,6 +2802,15 @@ _reviewdecision: procedure = .ragcommandresult
     call sqlitefinalize prepared
     if columns \= 0 | current_state \= "pending" then do; ignored = ""; call closeragstore store, ignored; return _failure(operation, 5, "pending review was not found or was already decided"); end
     promotion_disposition = "not-applicable"; promoted_claim = ""; promoted_support = ""; maintenance_item_id = ""; maintenance_item_type = ""; maintenance_action = ""; maintenance_expected = 0; maintenance_applied = 0; vector_generations = 0; vector_state = "not-applicable"
+    if review_type = "maintenance-external" then do
+      profile_lookup = registry.profile(request.profile_id()); config_lookup = registry.config(request.config_id())
+      if profile_lookup.found() \= 1 | config_lookup.found() \= 1 then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,5,"external resolution configuration or profile is unavailable"); end
+      review_status = reviewagentaction(store,id,decision,config_lookup.config(),profile_lookup.profile(),error)
+      ignored = ""; call closeragstore store,ignored
+      if review_status \= 0 then return _failure(operation,3,error)
+      fields[4] = .ragresultfield("applied","boolean","true"); records[1] = .ragresultrecord("review-decision",fields)
+      return .ragcommandresult(operation,"ok",0,"external resolution review applied with current evidence validation",records)
+    end
     if review_type = "maintenance-resolution" then do
       profile_lookup = registry.profile(request.profile_id())
       if profile_lookup.found() \= 1 then do; ignored = ""; call closeragstore store,ignored; return _failure(operation,5,"resolution profile is unavailable"); end

@@ -283,7 +283,7 @@ ragapplicationprovider: class implements .ragworkprovider
     if provider_output.provider() \= _backendidentity(provider_config.kind()) | provider_output.model() \= provider_config.model() | provider_output.request_id() = "" then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider returned incomplete provider/model identity", durable_run_id)
     if resolution_work then do
       grounding_json = ""; resolution_error = ""
-      if validatebacklogresponse(_store.database(), _jsonstring(document,root,"task_id"), provider_output.content(), grounding_json, resolution_error) \= 0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, resolution_error, durable_run_id)
+      if validatebacklogresponse(_store.database(), _jsonstring(document,root,"task_id"), provider_output.content(), grounding_json, resolution_error) \= 0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, resolution_error, durable_run_id, 1)
       usage = provider_output.usage(); cost = usage.cost_microunits(); if cost < 0 | provider_charging_basis \= "monetary-api" then cost = 0
       mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
       result = .ragworkproviderresult(0, provider_config.provider_id(), provider_config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, (provider_output.latency_us() / 1000) as .int, 0, empty_proposal, "", 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), durable_run_id, provider_charging_basis, mentions, proposals, notes)
@@ -533,11 +533,12 @@ _citationoutput: procedure = .ragworkproviderresult
   return result
 
 _failedoutput: procedure = .ragworkproviderresult
-  arg config = .ragproviderconfig, request_id = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, output = .providerresult, message = .string, provider_run_id = ""
+  arg config = .ragproviderconfig, request_id = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, output = .providerresult, message = .string, provider_run_id = "", content_failure = 0
   usage = output.usage(); cost = usage.cost_microunits(); if cost < 0 | config.charging_basis() \= "monetary-api" then cost = 0
   mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
   result = .ragworkproviderresult(-123, config.provider_id(), config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, (output.latency_us() / 1000) as .int, 0, proposal, message, 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id, config.charging_basis(), mentions, proposals, notes, usage.retry_delay_ms())
   call result.set_diagnostic(_failurediagnostic(config, claim, output.content(), message))
+  call result.set_content_failure(content_failure)
   /* Only these source-grounding failures are eligible. Shape, identity,
    * lifecycle, transport and publication failures keep their existing rules. */
   if message = "provider mention evidence quotation is not in the chunk" | message = "provider mention label is not in its evidence quotation" | message = "provider relationship evidence quotation is not in the chunk" | message = "provider relationship quotation does not contain both endpoints" | message = "provider analysis note quotation is not in the chunk" | message = "resolution quotation does not ground the selected connection" | message = "resolution cites evidence outside its durable packet" then call result.set_citation_failure(message)

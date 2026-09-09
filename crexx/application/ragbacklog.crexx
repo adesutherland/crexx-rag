@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragbacklog expose enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary
+namespace ragbacklog expose enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction
 
 import rxfnsb
 import rxjson
@@ -473,7 +473,7 @@ tickbacklogwindow: procedure = .int
    * not consume another attempt for an item that never called a provider. */
   if sqliteexec(database,"UPDATE job_items SET state='cancelled',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='queued' AND job_id IN(SELECT job_id FROM maintenance_windows WHERE state<>'active')") \= 0 then return _rollback(database,"cannot reconcile closed-window work",error)
   if _s(policy,"mode") \= "manual" then do
-    sql = "UPDATE maintenance_tasks SET state='pending',last_error='',updated_epoch=unixepoch() WHERE state='review' AND last_error='manual maintenance mode' AND attempt_count=0 AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy"))
+    sql = "UPDATE maintenance_tasks SET state='pending',last_error='',updated_epoch=unixepoch() WHERE state='review' AND last_error='manual maintenance mode' AND attempt_count=0 AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending') AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy"))
     if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot resume manually collected questions",error)
   end
   if _reconcileoutcomes(database,policy,"",error) \= 0 then return _rollback(database,error,error)
@@ -512,8 +512,8 @@ tickbacklogwindow: procedure = .int
       if scan_status < 0 then return _rollback(database,error,error)
       if _dispatch(store,job_id,window_id,policy,generation,error) \= 0 then return _rollback(database,error,error)
       queued = _number(database,"SELECT count(*) FROM job_items WHERE job_id=" || _q(job_id) || " AND state='queued'")
-      waiting_retry = _number(database,"SELECT count(*) FROM maintenance_tasks WHERE state='pending' AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy")) || " AND not_before_epoch>unixepoch() AND not_before_epoch<(SELECT deadline_epoch FROM maintenance_windows WHERE job_id=" || _q(job_id) || ")")
-      eligible = _number(database,"SELECT count(*) FROM maintenance_tasks WHERE state='pending' AND not_before_epoch<=unixepoch() AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy")))
+      waiting_retry = _number(database,"SELECT count(*) FROM maintenance_tasks WHERE state='pending' AND required_capability='standard' AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending') AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy")) || " AND not_before_epoch>unixepoch() AND not_before_epoch<(SELECT deadline_epoch FROM maintenance_windows WHERE job_id=" || _q(job_id) || ")")
+      eligible = _number(database,"SELECT count(*) FROM maintenance_tasks WHERE state='pending' AND required_capability='standard' AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending') AND not_before_epoch<=unixepoch() AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy")))
       if queued = 0 & scan_status = 0 & waiting_retry = 0 & eligible = 0 then if _closewindow(database,job_id,"complete",error) \= 0 then return _rollback(database,error,error)
     end
   end
@@ -559,7 +559,7 @@ _dispatch: procedure = .int
   if remaining > _n(policy,"batch_items") then remaining = _n(policy,"batch_items")
   if remaining < 1 then return 0
   prepared = .binary; ids = .string[]
-  sql = "SELECT task_id FROM maintenance_tasks WHERE state='pending' AND not_before_epoch<=unixepoch() AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy")) || " AND (" || _taskcallcount("maintenance_tasks.task_id") || "<" || _n(policy,"maximum_attempts") || " OR " || _recoverablecount("maintenance_tasks.task_id") || ">0) ORDER BY min(1000000,priority+(unixepoch()-created_epoch)/60) DESC,created_epoch,task_id LIMIT " || remaining
+  sql = "SELECT task_id FROM maintenance_tasks WHERE state='pending' AND required_capability='standard' AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending') AND not_before_epoch<=unixepoch() AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy")) || " AND (" || _taskcallcount("maintenance_tasks.task_id") || "<" || _n(policy,"maximum_attempts") || " OR " || _recoverablecount("maintenance_tasks.task_id") || ">0) ORDER BY min(1000000,priority+(unixepoch()-created_epoch)/60) DESC,created_epoch,task_id LIMIT " || remaining
   if sqliteprepare(database,sql,prepared) \= 0 then do; error = "cannot select eligible maintenance tasks"; return -1; end
   do forever
     step = sqlitestep(prepared); if step = 101 then leave
@@ -610,7 +610,7 @@ _dispatch: procedure = .int
     input = input || '}'
     /* The byte bound is conservative for the model's input token envelope. */
     if binlength(input as .binary) > input_bound * 3 then do
-      if sqliteexec(database,"UPDATE maintenance_tasks SET state='review',last_error='resolution input exceeds configured token envelope',updated_epoch=unixepoch() WHERE task_id=" || _q(id)) \= 0 then do; error = "cannot record oversized maintenance task"; return -1; end
+      if sqliteexec(database,"UPDATE maintenance_tasks SET state='review',required_capability='advanced-reasoning',escalation_origin='evidence-limit',escalation_reason='Resolution input exceeds configured token envelope',last_error='resolution input exceeds configured token envelope',updated_epoch=unixepoch() WHERE task_id=" || _q(id)) \= 0 then do; error = "cannot record oversized maintenance task"; return -1; end
       iterate
     end
     sql = "INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES(" || _q(item_id) || "," || _q(job_id) || "," || _q(operation) || ",'queued'," || _n(task,"priority") || "," || _q(item_id) || "," || _q(_hash(input)) || "," || _q(input) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
@@ -665,8 +665,8 @@ backlogschema: procedure = .string
 
 _resolutionactions: procedure = .string
   arg subject_type = .string, workflow = .int
-  if subject_type = "" then return "unresolved reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate"
-  actions = "unresolved retain investigate"
+  if subject_type = "" then return "unresolved reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate escalate"
+  actions = "unresolved retain investigate escalate"
   if subject_type = "alias-issue" then actions = actions || " reuse distinct"
   if subject_type = "concept" | (subject_type = "note" & workflow = 0) then actions = actions || " split merge synonym type-correction retire restore"
   if subject_type = "claim" | subject_type = "conflict" then actions = actions || " retract qualify"
@@ -685,7 +685,7 @@ validatebacklogresponse: procedure = .int
     if result.node_string(result.member(result.root(),word(required,i)),value) \= 0 then do; error = "resolution response omitted a required string"; return -1; end
   end
   action = _s(result,"action")
-  if wordpos(action,"unresolved reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate") = 0 | _s(result,"reason") = "" | length(_s(result,"reason")) > 2048 | length(_s(result,"question")) > 2048 | length(_s(result,"canonical_label")) > 512 then do; error = "resolution action or rationale is invalid"; return -1; end
+  if wordpos(action,"unresolved reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate escalate") = 0 | _s(result,"reason") = "" | length(_s(result,"reason")) > 2048 | length(_s(result,"question")) > 2048 | length(_s(result,"canonical_label")) > 512 then do; error = "resolution action or rationale is invalid"; return -1; end
   qualifiers = .jsondocument(_s(result,"qualifiers_json"))
   if qualifiers.valid() \= 1 | qualifiers.node_type(qualifiers.root()) \= "object" then do; error = "resolution qualifiers must be a JSON object"; return -1; end
   if _s(result,"effective_from") \= "" & _s(result,"effective_to") \= "" & _s(result,"effective_to") < _s(result,"effective_from") then do; error = "resolution time interval is reversed"; return -1; end
@@ -705,7 +705,7 @@ validatebacklogresponse: procedure = .int
   subject_type = _text(database,"SELECT subject_type FROM maintenance_tasks WHERE task_id=" || _q(task_id))
   workflow = _text(database,"SELECT workflow_id FROM maintenance_tasks WHERE task_id=" || _q(task_id)) \= ""
   if wordpos(action,_resolutionactions(subject_type,workflow)) = 0 then do; error = "resolution action is not applicable to its subject"; return -1; end
-  if action \= "unresolved" & action \= "investigate" & action \= "retire" & result.node_count(evidence_node) = 0 then do; error = "resolution decision requires source evidence"; return -1; end
+  if action \= "unresolved" & action \= "investigate" & action \= "escalate" & action \= "retire" & result.node_count(evidence_node) = 0 then do; error = "resolution decision requires source evidence"; return -1; end
   grounds = "["; seen = .string[]
   do i = 1 to result.node_count(evidence_node)
     node = result.element(evidence_node,i); evidence_id = ""; quote = ""
@@ -772,6 +772,7 @@ completebacklogdecision: procedure = .int
   if action = "unresolved" then decision_state = "unresolved"
   if action = "investigate" then decision_state = "unresolved"
   if action \= "unresolved" & (_s(policy,"mode") \= "automatic" | wordpos(action,_s(policy,"automatic_actions")) = 0) then decision_state = "review"
+  if action = "escalate" then decision_state = "unresolved"
   if action = "assess-provenance" & _s(policy,"enrichment") \= "" & _s(policy,"mode") = "automatic" then decision_state = "resolved"
   if action = "assess-provenance" then if _number(database,"SELECT count(*) FROM json_each(" || _q(grounds) || ") WHERE json_extract(value,'$.assessment.description.assessment')='review-required'")>0 | _number(database,"SELECT count(*) FROM json_each(" || _q(response) || ",'$.assessments') WHERE json_extract(value,'$.confidence_millionths')<500000")>0 then decision_state="review"
   if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do; error = "cannot record resolution decision"; return -3; end
@@ -809,6 +810,7 @@ completebacklogdecision: procedure = .int
   if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot retain maintenance decision provenance",error)
   sql = "UPDATE maintenance_tasks SET state=" || _q(decision_state) || ",last_error=" || _q(_s(result,"reason")) || ",updated_epoch=unixepoch() WHERE task_id=" || _q(task_id)
   if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot checkpoint maintenance decision",error)
+  if action = "escalate" then if sqliteexec(database,"UPDATE maintenance_tasks SET required_capability='advanced-reasoning',escalation_origin='worker',escalation_reason=" || _q(_s(result,"reason")) || " WHERE task_id=" || _q(task_id)) \= 0 then return _rollback(database,"cannot retain worker escalation",error)
   if decision_state = "review" then do
     proposal = '{"schema":"crexx-rag.resolution-review/1","task_id":' || jsonquote(task_id) || ',"decision_id":' || jsonquote(decision_id) || '}'
     sql = "INSERT OR IGNORE INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) VALUES(" || _q("review:" || decision_id) || ",'maintenance-resolution'," || _q(task_id) || ",'pending'," || _q(proposal) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
@@ -870,9 +872,16 @@ reviewbacklogdecision: procedure = .int
   return 0
 
 inspectbacklog: procedure = .string
-  arg database = .binary, id = .string
-  if left(id,5) = "task:" then return _text(database,"SELECT json_object('task_id',task_id,'kind',kind,'subject_type',subject_type,'subject_id',subject_id,'workflow_id',workflow_id,'parent_task_id',parent_task_id,'state',state,'priority',priority,'attempts',attempt_count,'not_before_epoch',not_before_epoch,'evidence_fingerprint',evidence_fingerprint,'policy_fingerprint',policy_fingerprint,'question',question,'evidence',json(evidence_json),'reason',last_error,'decisions',json((SELECT json_group_array(json_object('decision_id',decision_id,'disposition',disposition,'provider_run_id',provider_run_id)) FROM maintenance_decisions d WHERE d.task_id=t.task_id))) FROM maintenance_tasks t WHERE task_id=" || _q(id))
-  if left(id,9) = "workflow:" then return _text(database,"SELECT json_object('workflow_id',workflow_id,'kind',kind,'origin_task_id',origin_task_id,'parent_concept_id',parent_concept_id,'successors',json(successors_json),'state',state,'created_generation',created_generation,'completed_generation',completed_generation,'note_link_history',json((SELECT json_group_array(json_object('link_id',h.link_id,'note_id',h.note_id,'object_type',h.object_type,'object_id',h.object_id,'revision_chunk_id',h.revision_chunk_id,'span_start',h.span_start,'span_end',h.span_end,'from_generation',h.from_generation,'to_generation',h.to_generation)) FROM maintenance_link_history h WHERE h.object_type='concept' AND h.object_id=w.parent_concept_id)),'tasks',json((SELECT json_group_array(json_object('task_id',task_id,'subject_type',subject_type,'subject_id',subject_id,'state',state)) FROM maintenance_tasks t WHERE t.workflow_id=w.workflow_id))) FROM maintenance_workflows w WHERE workflow_id=" || _q(id))
+  arg database = .binary, id = .string, cursor = "", limit = 20
+  offset = 0
+  if cursor \= "" then do
+    if length(cursor)>9 | verify(cursor,"0123456789") \= 0 then return ""
+    offset = cursor as .int
+  end
+  if limit<1 | limit>98 then return ""
+  if left(id,13) = "agent-action:" then return _text(database,"SELECT canonical_plan FROM maintenance_agent_actions WHERE action_id=" || _q(id))
+  if left(id,5) = "task:" then return _text(database,"SELECT json_object('task_id',task_id,'kind',kind,'subject_type',subject_type,'subject_id',subject_id,'workflow_id',workflow_id,'parent_task_id',parent_task_id,'state',state,'priority',priority,'required_capability',required_capability,'escalation_origin',escalation_origin,'escalation_reason',escalation_reason,'semantic_failures',semantic_failures,'attempts',attempt_count,'not_before_epoch',not_before_epoch,'evidence_fingerprint',evidence_fingerprint,'policy_fingerprint',policy_fingerprint,'question',question,'evidence',json(json_remove(evidence_json,'$.passages')),'evidence_passage_count',json_array_length(evidence_json,'$.passages'),'evidence_tool','rag_task_evidence','reason',last_error,'decision_count',(SELECT count(*) FROM maintenance_decisions d WHERE d.task_id=t.task_id),'agent_actions',json((SELECT json_group_array(action_id) FROM (SELECT action_id FROM maintenance_agent_actions a WHERE a.task_id=t.task_id ORDER BY action_id LIMIT " || limit || " OFFSET " || offset || "))),'next_cursor',CASE WHEN max((SELECT count(*) FROM maintenance_decisions d WHERE d.task_id=t.task_id),(SELECT count(*) FROM maintenance_agent_actions a WHERE a.task_id=t.task_id))>" || (offset+limit) || " THEN '" || (offset+limit) || "' ELSE '' END,'decisions',json((SELECT json_group_array(json_object('decision_id',decision_id,'disposition',disposition,'provider_run_id',provider_run_id)) FROM (SELECT * FROM maintenance_decisions d WHERE d.task_id=t.task_id ORDER BY decision_id LIMIT " || limit || " OFFSET " || offset || ") d))) FROM maintenance_tasks t WHERE task_id=" || _q(id))
+  if left(id,9) = "workflow:" then return _text(database,"SELECT json_object('workflow_id',workflow_id,'kind',kind,'origin_task_id',origin_task_id,'parent_concept_id',parent_concept_id,'successors',json(successors_json),'state',state,'created_generation',created_generation,'completed_generation',completed_generation,'task_count',(SELECT count(*) FROM maintenance_tasks t WHERE t.workflow_id=w.workflow_id),'next_cursor',CASE WHEN max((SELECT count(*) FROM maintenance_tasks t WHERE t.workflow_id=w.workflow_id),(SELECT count(*) FROM maintenance_link_history h WHERE h.object_type='concept' AND h.object_id=w.parent_concept_id))>" || (offset+limit) || " THEN '" || (offset+limit) || "' ELSE '' END,'note_link_history',json((SELECT json_group_array(json_object('link_id',h.link_id,'note_id',h.note_id,'object_type',h.object_type,'object_id',h.object_id,'revision_chunk_id',h.revision_chunk_id,'span_start',h.span_start,'span_end',h.span_end,'from_generation',h.from_generation,'to_generation',h.to_generation)) FROM (SELECT * FROM maintenance_link_history h WHERE h.object_type='concept' AND h.object_id=w.parent_concept_id ORDER BY link_id,to_generation LIMIT " || limit || " OFFSET " || offset || ") h)),'tasks',json((SELECT json_group_array(json_object('task_id',task_id,'subject_type',subject_type,'subject_id',subject_id,'state',state)) FROM (SELECT * FROM maintenance_tasks t WHERE t.workflow_id=w.workflow_id ORDER BY task_id LIMIT " || limit || " OFFSET " || offset || ") t))) FROM maintenance_workflows w WHERE workflow_id=" || _q(id))
   if left(id,21) = "decision-maintenance:" then return _text(database,"SELECT json_object('decision_id',decision_id,'task_id',task_id,'item_id',item_id,'provider_run_id',provider_run_id,'response',json(response_json),'grounding',json(grounding_json),'disposition',disposition,'applied_generation',applied_generation) FROM maintenance_decisions WHERE decision_id=" || _q(id))
   return ""
 
@@ -1118,6 +1127,135 @@ _taskcallcount: procedure = .string
 _recoverablecount: procedure = .string
   arg task_expression = .string
   return "(SELECT count(*) FROM maintenance_provider_outputs o WHERE o.task_id=" || task_expression || " AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.item_id=o.item_id AND a.outcome IN('failed','dead_letter')))"
+
+/* External agents submit evidence-bound proposals, not fabricated worker or
+ * provider receipts. Their immutable attribution is separate from paid usage. */
+planagentaction: procedure = .int
+  arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile, task_id = .string, kind = .string, response = .string, reason = .string, actor = .string, model = .string, expose canonical = .string, expose error = .string
+  database = store.database(); error = ""; canonical = ""
+  if wordpos(kind,"escalation resolution") = 0 | actor = "" | length(actor)>256 | length(model)>256 | reason = "" | length(reason)>2048 then do; error = "agent action requires bounded actor, model and reason"; return -1; end
+  stamp = _agenttaskstamp(database,task_id); task = .jsondocument(stamp)
+  if task.valid() \= 1 then do; error = "task was not found"; return -1; end
+  if wordpos(_s(task,"state"),"pending unresolved review failed") = 0 then do; error = "task is running, resolved or superseded; inspect current work before proposing"; return -1; end
+  if _number(database,"SELECT count(*) FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=" || _q(task_id) || " AND i.state IN('queued','running','cancel_requested')") > 0 then do; error = "task has active worker ownership"; return -1; end
+  if _number(database,"SELECT count(*) FROM reviews WHERE subject_id=" || _q(task_id) || " AND state='pending'") > 0 then do; error = "task already has a pending review; inspect and decide that review first"; return -1; end
+  current = _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  action_snapshot_id = _text(database,"SELECT current_config_snapshot_id FROM library_config_state WHERE singleton=1")
+  library = _text(database,"SELECT library_id FROM library_meta WHERE singleton=1")
+  job_id = _text(database,"SELECT job_id FROM maintenance_windows WHERE policy_fingerprint=" || _q(_s(task,"policy_fingerprint")) || " ORDER BY created_epoch DESC,window_id DESC LIMIT 1")
+  impact = "[]"; grounds = "[]"
+  if kind = "resolution" then do
+    if job_id = "" then do; error = "task has no compatible maintenance window context"; return -1; end
+    fresh = ""; fingerprint = ""
+    if buildbacklogevidence(database,_s(task,"subject_type"),_s(task,"subject_id"),_s(task,"workflow_id"),config.maintenance().maximum_evidence_bytes(),fresh,fingerprint,error) \= 0 | fingerprint \= _s(task,"evidence_fingerprint") then do; error = "task evidence changed or exceeds its bound; obtain a fresh maintenance task"; return -1; end
+    if validatebacklogresponse(database,task_id,response,grounds,error) \= 0 then return -1
+    result = .jsondocument(response); action = _s(result,"action")
+    if action = "escalate" then do; error = "use an escalation plan to flag advanced reasoning"; return -1; end
+    types = profile.concept_types(); selected_type = _s(result,"concept_type"); successors = result.member(result.root(),"successors")
+    if selected_type \= "" & _agenttype(types,selected_type) \= 1 then do; error = "resolution concept type is outside the active profile"; return -1; end
+    do i = 1 to result.node_count(successors)
+      item = .jsondocument(result.node_get(result.element(successors,i)))
+      if _agenttype(types,_s(item,"concept_type")) \= 1 then do; error = "successor type is outside the active profile"; return -1; end
+    end
+    parent = ""
+    if _s(task,"subject_type") = "concept" then parent = _s(task,"subject_id")
+    if _s(task,"subject_type") = "note" & wordpos(action,"split merge synonym type-correction retire restore")>0 then do
+      parent = _s(result,"object_id")
+      if _number(database,"SELECT count(*) FROM maintenance_tasks t,json_each(t.evidence_json,'$.catalogue') c WHERE t.task_id=" || _q(task_id) || " AND json_extract(c.value,'$.concept_id')=" || _q(parent)) \= 1 then do; error = "lifecycle object is outside the task catalogue"; return -1; end
+    end
+    if parent \= "" then do
+      impact_types = .string[]; impact_ids = .string[]
+      if _backlogimpact(database,parent,current,impact_types,impact_ids,error) \= 0 then return -1
+      if impact_ids.0 > config.maintenance().maximum_impact() then do; error = "resolution exceeds configured impact bound"; return -1; end
+      impact = "["
+      do i = 1 to impact_ids.0
+        if i>1 then impact = impact || ","
+        impact = impact || '{"object_type":' || jsonquote(impact_types[i]) || ',"object_id":' || jsonquote(impact_ids[i]) || '}'
+      end
+      impact = impact || "]"
+    end
+  end
+  else if response \= "" then do; error = "escalation cannot contain a corpus resolution"; return -1; end
+  canonical = '{"schema":"crexx-rag.agent-action/1","kind":' || jsonquote(kind) || ',"library_id":' || jsonquote(library) || ',"generation":' || current || ',"config_snapshot_id":' || jsonquote(action_snapshot_id) || ',"profile_hash":' || jsonquote(_hash(canonicalprofile(profile))) || ',"task_id":' || jsonquote(task_id) || ',"task_stamp":' || jsonquote(_hash(stamp)) || ',"evidence_fingerprint":' || jsonquote(_s(task,"evidence_fingerprint")) || ',"job_id":' || jsonquote(job_id) || ',"actor":' || jsonquote(actor) || ',"model":' || jsonquote(model) || ',"attribution":"self-reported external agent; provider usage not measured here","reason":' || jsonquote(reason) || ',"response_json":' || jsonquote(response) || ',"grounding":' || grounds || ',"impact":' || impact || '}'
+  if length(canonical)>16777216 then do; canonical = ""; error = "agent plan exceeds response bound"; return -1; end
+  return 0
+
+_agenttype: procedure = .int
+  arg types = .string[], selected = .string
+  do i = 1 to types.0
+    if types[i] = selected then return 1
+  end
+  return 0
+
+_agenttaskstamp: procedure = .string
+  arg database = .binary, id = .string
+  return _text(database,"SELECT json_object('subject_type',subject_type,'subject_id',subject_id,'workflow_id',workflow_id,'kind',kind,'state',state,'evidence_fingerprint',evidence_fingerprint,'policy_fingerprint',policy_fingerprint,'question',question,'attempts',attempt_count,'updated_epoch',updated_epoch,'required_capability',required_capability,'escalation_origin',escalation_origin,'escalation_reason',escalation_reason,'semantic_failures',semantic_failures) FROM maintenance_tasks WHERE task_id=" || _q(id))
+
+applyagentaction: procedure = .int
+  arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile, canonical = .string, digest = .string, expected_kind = .string, expose review_id = .string, expose error = .string
+  database = store.database(); error = ""; review_id = ""; document = .jsondocument(canonical)
+  if store.writable() \= 1 | document.valid() \= 1 | digest \= _hash(canonical) | _s(document,"kind") \= expected_kind then do; error = "agent plan kind or digest does not match"; return -1; end
+  action_id = "agent-action:" || digest; task_id = _s(document,"task_id")
+  if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin agent action"; return -3; end
+  if _number(database,"SELECT count(*) FROM maintenance_agent_actions WHERE action_id=" || _q(action_id) || " AND canonical_plan=" || _q(canonical)) = 1 then do
+    if expected_kind = "resolution" then review_id = "review:" || action_id
+    call sqliteexec database,"ROLLBACK"
+    return 0
+  end
+  fresh = ""
+  if planagentaction(store,config,profile,task_id,expected_kind,_s(document,"response_json"),_s(document,"reason"),_s(document,"actor"),_s(document,"model"),fresh,error) \= 0 then return _rollback(database,error,error)
+  if fresh \= canonical then return _rollback(database,"agent plan is stale; inspect and re-plan",error)
+  sql = "INSERT INTO maintenance_agent_actions(action_id,task_id,action_kind,actor,model,canonical_plan,created_epoch) VALUES(" || _q(action_id) || "," || _q(task_id) || "," || _q(expected_kind) || "," || _q(_s(document,"actor")) || "," || _q(_s(document,"model")) || "," || _q(canonical) || ",unixepoch())"
+  if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot retain external agent attribution",error)
+  if expected_kind = "escalation" then do
+    if sqliteexec(database,"UPDATE maintenance_tasks SET required_capability='advanced-reasoning',escalation_origin='external-agent',escalation_reason=" || _q(_s(document,"reason")) || ",updated_epoch=unixepoch() WHERE task_id=" || _q(task_id)) \= 0 then return _rollback(database,"cannot flag advanced reasoning",error)
+  end
+  else do
+    review_id = "review:" || action_id
+    proposal = '{"schema":"crexx-rag.external-resolution-review/1","action_id":' || jsonquote(action_id) || ',"task_id":' || jsonquote(task_id) || '}'
+    sql = "INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) VALUES(" || _q(review_id) || ",'maintenance-external'," || _q(task_id) || ",'pending'," || _q(proposal) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+    if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot queue external resolution review",error)
+    if sqliteexec(database,"UPDATE maintenance_tasks SET state='review',last_error='external resolution awaiting review',updated_epoch=unixepoch() WHERE task_id=" || _q(task_id)) \= 0 then return _rollback(database,"cannot checkpoint proposed task",error)
+  end
+  if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot commit agent action",error)
+  return 0
+
+reviewagentaction: procedure = .int
+  arg store = .ragstorehandle, review_id = .string, decision = .string, config = .ragconfig, profile = .ragprofile, expose error = .string
+  database = store.database(); error = ""
+  if wordpos(decision,"accept reject dismiss") = 0 then do; error = "invalid external resolution decision"; return -1; end
+  if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin external resolution review"; return -3; end
+  raw = _text(database,"SELECT a.canonical_plan FROM reviews r JOIN maintenance_agent_actions a ON a.action_id=json_extract(r.proposal_json,'$.action_id') WHERE r.review_id=" || _q(review_id) || " AND r.review_type='maintenance-external' AND r.state='pending'")
+  plan = .jsondocument(raw)
+  if plan.valid() \= 1 then return _rollback(database,"pending external resolution review was not found",error)
+  task_id = _s(plan,"task_id"); task = .jsondocument(_agenttaskstamp(database,task_id)); result = .jsondocument(_s(plan,"response_json"))
+  generation = 0; task_state = "unresolved"
+  if decision = "accept" then do
+    current = _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+    if current \= _n(plan,"generation") | _s(plan,"profile_hash") \= _hash(canonicalprofile(profile)) | _s(plan,"config_snapshot_id") \= _text(database,"SELECT current_config_snapshot_id FROM library_config_state WHERE singleton=1") then return _rollback(database,"external resolution generation, profile or configuration changed; reject and re-plan",error)
+    if _s(task,"state") \= "review" | _s(task,"evidence_fingerprint") \= _s(plan,"evidence_fingerprint") then return _rollback(database,"external resolution task changed",error)
+    if _number(database,"SELECT count(*) FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=" || _q(task_id) || " AND i.state IN('queued','running','cancel_requested')") > 0 then return _rollback(database,"task has active worker ownership",error)
+    fresh = ""; fingerprint = ""; grounds = ""
+    if buildbacklogevidence(database,_s(task,"subject_type"),_s(task,"subject_id"),_s(task,"workflow_id"),config.maintenance().maximum_evidence_bytes(),fresh,fingerprint,error) \= 0 | fingerprint \= _s(plan,"evidence_fingerprint") then return _rollback(database,"external resolution evidence changed; reject and re-plan",error)
+    if validatebacklogresponse(database,task_id,_s(plan,"response_json"),grounds,error) \= 0 then return _rollback(database,error,error)
+    action = _s(result,"action")
+    if action \= "unresolved" then do
+      if stagegeneration(store,current,_s(plan,"config_snapshot_id"),"external resolution " || task_id,generation,error) \= 0 then return _rollback(database,error,error)
+      policy = .jsondocument(backlogpolicy(config,profile,""))
+      if _applydecision(store,task_id,task,result,profile,_s(plan,"job_id"),current,generation,policy,error) \= 0 then return _rollback(database,error,error)
+      task_state = "resolved"; if action = "investigate" then task_state = "unresolved"
+    end
+  end
+  if sqliteexec(database,"UPDATE maintenance_tasks SET state=" || _q(task_state) || ",last_error=" || _q("external resolution " || decision) || ",updated_epoch=unixepoch() WHERE task_id=" || _q(task_id) || " AND state='review'") \= 0 then return _rollback(database,"cannot checkpoint external resolution",error)
+  state = decision || "ed"; if decision = "accept" then state = "accepted"
+  disposition = '{"decision":' || jsonquote(decision) || ',"generation":' || generation || ',"task_state":' || jsonquote(task_state) || '}'
+  if sqliteexec(database,"UPDATE reviews SET state=" || _q(state) || ",decision_json=" || _q(disposition) || ",decided_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE review_id=" || _q(review_id) || " AND state='pending'") \= 0 then return _rollback(database,"cannot retain external resolution decision",error)
+  if generation>0 then do
+    if commitgeneration(store,generation,error) \= 0 then return -3
+    if publishmanifest(store,error) \= 0 then return -4
+  end
+  else if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot commit external review",error)
+  return 0
 
 enrichmentpolicy: procedure = .string
   arg database = .binary, config = .ragconfig, profile = .ragprofile, timing_json = .string, census = .ragmaintenancecensus

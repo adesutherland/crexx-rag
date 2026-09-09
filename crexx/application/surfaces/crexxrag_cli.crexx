@@ -547,7 +547,7 @@ _aliases: procedure = .string[]
     return output
   end
   if noun = "query" then do
-    if noun_index < args.0 & wordpos(args[noun_index + 1], "search evidence answer trace timeline path") = 0 then do
+    if noun_index < args.0 & wordpos(args[noun_index + 1], "inspect search evidence answer trace timeline path") = 0 then do
       output = _prefix(args, noun_index)
       query_verb = "evidence"
       if config_loaded = 1 then do
@@ -589,7 +589,7 @@ _aliases: procedure = .string[]
     return args
   end
   if noun = "maintain" then do
-    if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply status inspect") > 0 then return args
+    if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply status inspect tasks evidence escalate-plan escalate-apply resolve-plan resolve-apply") > 0 then return args
     timing_args = .string[]
     i = noun_index + 1
     do while i <= args.0

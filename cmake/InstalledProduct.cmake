@@ -43,7 +43,9 @@ foreach(required_path
         "${tutorial}/architecture.glossary.tsv"
         "${tutorial}/source-docs/architecture.txt"
         "${skills}/crexxrag-maintain/SKILL.md"
-        "${skills}/crexxrag-maintain/manifest.json")
+        "${skills}/crexxrag-maintain/manifest.json"
+        "${skills}/crexxrag-resolve/SKILL.md"
+        "${skills}/crexxrag-resolve/manifest.json")
     if(NOT EXISTS "${required_path}")
         message(FATAL_ERROR "installed product is missing ${required_path}")
     endif()

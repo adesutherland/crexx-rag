@@ -94,8 +94,8 @@ foreach(cursor 0 0000000000000000000000000000000000000000 9223372036854775807)
         WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
         OUTPUT_VARIABLE range_out ERROR_VARIABLE range_err
         RESULT_VARIABLE range_result TIMEOUT 30)
-    if(NOT range_result EQUAL 0 OR NOT range_out MATCHES "\"exit_code\":0")
-        message(FATAL_ERROR "Valid numeric boundary rejected:\n${range_out}${range_err}")
+    if(NOT range_result EQUAL 5 OR NOT range_out MATCHES "\"exit_code\":5")
+        message(FATAL_ERROR "Valid numeric boundary did not reach missing-job validation:\n${range_out}${range_err}")
     endif()
 endforeach()
 
@@ -252,3 +252,61 @@ execute_process(COMMAND ${cli} --format json --access plan ingest plan
 if(NOT metadata_rc EQUAL 0 OR NOT metadata_out MATCHES "canonical_plan")
     message(FATAL_ERROR "Metadata plan surface failed: ${metadata_out}${metadata_err}")
 endif()
+
+# Actual no-write paths must work under a client that only approves read tools.
+file(SHA256 "${CPRAG_WORK_DIR}/library/library.sqlite" read_database_before)
+execute_process(COMMAND ${cli} --format json --access read query inspect "unsupported quantum algorithm" --mode lexical
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE inspect_out ERROR_VARIABLE inspect_err RESULT_VARIABLE inspect_rc TIMEOUT 30)
+if(NOT inspect_rc EQUAL 0 OR NOT inspect_out MATCHES "\"operation\":\"query.inspect\"")
+    message(FATAL_ERROR "Read-only query was intercepted by the guided CLI alias: ${inspect_out}${inspect_err}")
+endif()
+execute_process(COMMAND ${cli} --format json --access read maintain tasks --limit 5
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
+    OUTPUT_VARIABLE tasks_out ERROR_VARIABLE tasks_err RESULT_VARIABLE tasks_rc TIMEOUT 30)
+if(NOT tasks_rc EQUAL 0 OR NOT tasks_out MATCHES "\"operation\":\"maintain.tasks\"")
+    message(FATAL_ERROR "Task discovery was intercepted by the guided CLI alias: ${tasks_out}${tasks_err}")
+endif()
+file(WRITE "${requests}"
+    "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_task_list\",\"arguments\":{\"limit\":5}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_query_inspect\",\"arguments\":{\"question\":\"unsupported quantum algorithm\"}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_library_overview\",\"arguments\":{}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_job_list\",\"arguments\":{\"limit\":5}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_review_decide_preview\",\"arguments\":{\"id\":\"review-not-present\",\"decision\":\"reject\"}}}\n"
+    "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_maintain_plan\",\"arguments\":{\"enrich_provenance\":false}}}\n")
+execute_process(COMMAND ${cli} --access read,plan serve mcp
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" INPUT_FILE "${requests}"
+    OUTPUT_FILE "${CPRAG_WORK_DIR}/mcp-read-only.jsonl"
+    ERROR_VARIABLE read_err RESULT_VARIABLE read_rc TIMEOUT 60)
+if(NOT read_rc EQUAL 0)
+    message(FATAL_ERROR "Read MCP process failed: ${read_err}")
+endif()
+file(STRINGS "${CPRAG_WORK_DIR}/mcp-read-only.jsonl" read_responses)
+list(LENGTH read_responses response_count)
+if(NOT response_count EQUAL 7)
+    message(FATAL_ERROR "Read MCP lost responses: ${response_count}")
+endif()
+foreach(response IN LISTS read_responses)
+    string(JSON response_id GET "${response}" id)
+    if(response_id EQUAL 1)
+        string(JSON ping_type TYPE "${response}" result)
+        if(NOT ping_type STREQUAL "OBJECT")
+            message(FATAL_ERROR "MCP ping did not return an object")
+        endif()
+    else()
+        set(expected_code 0)
+        if(response_id EQUAL 6)
+            set(expected_code 5)
+        endif()
+        string(JSON response_code GET "${response}" result structuredContent exit_code)
+        if(NOT response_code EQUAL expected_code)
+            message(FATAL_ERROR "Read MCP contract failed: ${response}")
+        endif()
+    endif()
+endforeach()
+file(SHA256 "${CPRAG_WORK_DIR}/library/library.sqlite" read_database_after)
+if(NOT read_database_before STREQUAL read_database_after)
+    message(FATAL_ERROR "Read-only MCP batch changed the SQLite database")
+endif()
+file(APPEND "${CPRAG_WORK_DIR}/result.txt" "read_only_mcp=zero-database-writes\nmissing_review_preview=rejected\nping=supported\n")
