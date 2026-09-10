@@ -227,7 +227,7 @@ ragapplicationprovider: class implements .ragworkprovider
       if request_bytes > maximum_input * 3 then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,"citation correction exceeds the reviewed input envelope",0)
     end
     request = .providerrequest("generate_structured", "extractor", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), 1, _jsonstring(document, root, "privacy"), claim.item_id(), request_id, maximum_output, 0, 0, role_policy.temperature_millionths(), provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms(), provider_config.reasoning_effort())
-    durable_run_id = ""; provider_charging_basis = provider_config.charging_basis(); provider_output = .providerresult()
+    durable_run_id = ""; provider_charging_basis = provider_config.charging_basis(); provider_output = .providerresult(); terminal_observed = 0; observation = ""; recovered_usage_complete = -1
     if receipt_body \= "" then do
       provider_output = _receiptoutput(receipt_body); receipt_document = .jsondocument(receipt_body)
       request_id = _jsonstring(receipt_document,receipt_document.root(),"expected_request_id")
@@ -284,12 +284,43 @@ ragapplicationprovider: class implements .ragworkprovider
             else do
               call _tracer.emit("codex", "running", claim.item_id(), "contained structured extraction started")
               provider_output = _codex_backend.wait_structured(request, thread_id, turn_id)
+              /* Observe the exact submitted turn once through a fresh bounded
+               * transport. Unknown history holds this item; it cannot drain peers. */
+              if provider_output.status() \= 0 & _codex_backend.health_error() \= "" then do
+                observed_state = ""; observed_content = ""; observed_error = ""
+                observation_timeout = min(5000,provider_config.timeout_ms(),max(1,(claim.lease_until()-_databaseepoch(_store.database())-5)*1000))
+                observed_status = _codex_backend.inspect_turn_fresh(thread_id,turn_id,observation_timeout,observed_state,observed_content,observed_error)
+                if observed_status = 0 then do
+                  usage = provider_output.usage()
+                  if observed_state = "completed" & observed_content \= "" then do
+                    validation = validatestructuredresponse(observed_content,request.schema())
+                    provider_output = .providerresult()
+                    if validation.code() = 0 then call provider_output.set_generation("codex",request.model(),request_id,observed_content,"recovered",usage,0)
+                    else call provider_output.set_failure("codex",request.model(),request_id,validation,usage,0)
+                    terminal_observed = 1
+                  end
+                  else if (observed_state = "interrupted" | observed_state = "failed") & observed_content = "" then do
+                    provider_output = .providerresult()
+                    call provider_output.set_failure("codex",request.model(),request_id,.providererror("provider",-103,0,1,1,"confirmed Codex turn " || observed_state),usage,0)
+                    terminal_observed = 1
+                  end
+                  if terminal_observed = 1 then do
+                    recovered_usage_complete = 0
+                    observation = '{"attempt_id":' || jsonquote(claim.attempt_id()) || ',"state":' || jsonquote(observed_state) || ',"thread_id":' || jsonquote(thread_id) || ',"turn_id":' || jsonquote(turn_id) || ',"usage_complete":0}'
+                    call _tracer.emit("codex","observed",claim.item_id(),observed_state)
+                    if provider_output.status() \= 0 then do
+                      receipt_body = _receiptjson(provider_output,provider_config,request_id,durable_run_id)
+                      if recordproviderresponse(_store,claim,receipt_body,codex_error,observation) \= 0 then return _failedoutput(provider_config,request_id,claim,empty_proposal,provider_output,codex_error,durable_run_id)
+                    end
+                  end
+                end
+              end
               if provider_output.status() = 0 then do
                 usage = provider_output.usage()
-                if completeexternalrun(_store, durable_run_id, thread_id, turn_id, request_id, provider_output.content(), usage.input_tokens(), usage.output_tokens(), codex_error) \= 0 then provider_output = _codexfailure(request, "Codex output durability failed: " || codex_error, 0, "durability")
+                if completeexternalrun(_store, durable_run_id, thread_id, turn_id, request_id, provider_output.content(), usage.input_tokens(), usage.output_tokens(), codex_error,recovered_usage_complete) \= 0 then provider_output = _codexfailure(request, "Codex output durability failed: " || codex_error, 0, "durability")
                 else do
                   receipt_body = _receiptjson(provider_output,provider_config,request_id,durable_run_id)
-                  if recordproviderresponse(_store,claim,receipt_body,codex_error) \= 0 then return _failedoutput(provider_config,request_id,claim,empty_proposal,provider_output,codex_error,durable_run_id)
+                  if recordproviderresponse(_store,claim,receipt_body,codex_error,observation) \= 0 then return _failedoutput(provider_config,request_id,claim,empty_proposal,provider_output,codex_error,durable_run_id)
                   call _tracer.emit("codex", "persisted", claim.item_id(), "validated output and usage committed")
                   after_account = ""; after_plan = ""; allowance_after = -1; allowance_error = ""
                   /* Optional account refresh and history cleanup share the
@@ -331,8 +362,8 @@ ragapplicationprovider: class implements .ragworkprovider
           failed_result = _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,provider_output.error().message(),provider_output.error().retryable(),"",provider_charging_basis,provider_config.initial_backoff_ms())
           if provider_output.error().retryable() = 1 then call failed_result.set_admission_deferred()
         end
-        if durable_run_id \= "" then call failed_result.set_worker_failure("Codex outcome requires job reconcile before retry",1)
-        if _codex_backend.health_error() \= "" then call failed_result.set_worker_failure(_codex_backend.health_error(),durable_run_id \= "")
+        if durable_run_id \= "" & terminal_observed = 0 then call failed_result.set_worker_failure("Codex outcome requires job reconcile before retry",1)
+        if _codex_backend.health_error() \= "" then call failed_result.set_worker_failure(_codex_backend.health_error(),durable_run_id \= "" & terminal_observed = 0)
       end
       return failed_result
     end

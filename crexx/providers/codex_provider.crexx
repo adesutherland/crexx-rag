@@ -263,6 +263,15 @@ codexprovider: class implements .provider
     retryable = state = "interrupted" | state = "failed"
     return _failure(request, "reconciliation", -105, retryable, "persisted Codex turn is " || state || "; inspect/reconcile its outcome before retry")
 
+  /* A broken stream must not be reused to inspect its own lost response. */
+  inspect_turn_fresh: method = .int
+    arg thread_id = .string, turn_id = .string, timeout_ms = .int, expose state = .string, expose content = .string, expose error = .string
+    reader = .codexprovider(_executable,_working_directory,.codexnoopobserver())
+    call reader.begin_operation(timeout_ms)
+    status = reader.inspect_turn(thread_id,turn_id,timeout_ms,state,content,error)
+    call reader.close()
+    return status
+
   /* Observation never resumes, interrupts or deletes external work. */
   inspect_turn: method = .int
     arg thread_id = .string, turn_id = .string, timeout_ms = .int, expose state = .string, expose content = .string, expose error = .string

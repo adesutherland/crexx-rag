@@ -196,6 +196,14 @@ discover a flagged task, explore its evidence, prepare a proposal and follow
 the existing review/apply controls. Measure useful grounded resolutions and
 correct escalation; embedding throughput is not its acceptance criterion.
 
+## Follow-up: isolate worker failures
+
+The user subsequently requested an isolated regression and repair so one worker
+failure cannot stop healthy peers. See the [controller recovery qualification](controller-recovery-report.md)
+for its baseline reproduction, implementation and final test status. The task-level
+three-attempt rule and the decision between task, worker and environment failure
+are a separate backlog decision, [RAG-OPS-004](recovery-defects.md#rag-ops-004--p1-distinguish-task-failure-worker-failure-and-environment-outage).
+
 ## Evidence and status boundaries
 
 - [Live embedding comparison](/Users/adrian/testrag/embedding-remediation-20260910/BENCHMARK.md)

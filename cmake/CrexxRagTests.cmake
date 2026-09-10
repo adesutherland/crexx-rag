@@ -123,6 +123,16 @@ add_test(NAME worker_recovery
 set_tests_properties(worker_recovery PROPERTIES
     TIMEOUT 180 LABELS "provider;worker;durability;recovery;zero-outbound")
 
+add_test(NAME controller_recovery
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CODEX_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-app-server-fixture.sh"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-application.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-controller-recovery"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ControllerRecovery.cmake")
+set_tests_properties(controller_recovery PROPERTIES
+    TIMEOUT 180 LABELS "provider;worker;concurrency;recovery;zero-outbound")
+
 add_test(NAME gemini_maintenance
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"

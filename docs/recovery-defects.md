@@ -191,6 +191,46 @@ Required closure:
 This is a backlog requirement, not a claim that these command extensions have
 been implemented. It complements RAG-OPS-001 recovery and RAG-OPS-002 retry.
 
+## RAG-OPS-004 — P1: distinguish task failure, worker failure and environment outage
+
+Status: backlog only. User clarification on 10 September 2026: the intended
+three-attempt retry limit applies to an individual task, not to a worker or the
+whole job. This entry does not change current task, worker or job limits.
+
+Design an explicit recovery decision in the existing task, worker and provider
+owners. A counter alone is insufficient evidence for its scope:
+
+- A task that repeatedly fails on otherwise healthy workers needs a bounded
+  task retry, then an inspectable hold or review with its evidence and history.
+- A broken worker needs replacement while its task retains the same identity,
+  attempts, receipts and budget. Replacing a process must not reset task history.
+- Correlated failures across healthy workers may indicate a provider, database,
+  network or wider environment outage. Use shared backoff and bounded recovery
+  probes, then resume eligible work when the affected service recovers. Quota
+  waits and unavailable infrastructure must not condemn otherwise valid tasks
+  as permanently failed.
+
+Decide which failures count toward the task's three attempts, which evidence
+permits a classification, and how ambiguous cases are held and reassessed.
+Unknown submitted provider work still requires outcome reconciliation before
+another call. Preserve budgets and deadlines and expose the decision, evidence,
+waiting reason and next action through product commands (RAG-OPS-003).
+Operator retry requests remain available for every task state (RAG-OPS-002).
+
+Acceptance must include one repeatedly failing task among eight healthy workers,
+a failing worker processing otherwise valid tasks, and an outage affecting the
+whole pool followed by recovery. Check exact task attempts, uninterrupted peer
+progress, replacement without history reset, shared outage backoff and automatic
+resumption through public commands. Review and agree this policy before changing
+it; the current controller isolation repair does not close this backlog item.
+
+A related fixture observation belongs in this review: an ordinary ingest job
+can exhaust *currently available* token capacity while healthy peers hold their
+reservations. The non-maintenance path currently turns that denial into a worker
+failure, even though capacity may soon be released. Distinguish temporary
+reservation pressure from exhausted total budget; do not solve it by weakening
+budget accounting or repeatedly replacing healthy workers.
+
 ## Earlier recovery record
 
 Recorded 2026-09-06 after the Scottish corpus recovery investigation.

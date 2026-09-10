@@ -527,7 +527,7 @@ int main(int argc, char** argv)
         } else {
             body = R"({"error":{"message":"unexpected loopback path"}})";
         }
-        if (scenario == "product-hold-response") {
+        if (scenario == "product-hold-response" && index == 0) {
             if (argc != 5) return 9;
             const int control = ::open(argv[4], O_RDONLY | O_NONBLOCK);
             if (control < 0) return 9;

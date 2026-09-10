@@ -46,8 +46,15 @@ ledger records each replacement before launch; no schema migration is needed.
 The controller carries remaining slot limits forward, and ordinary fenced work
 admission continues to enforce the original job policy. `ragapplicationprovider`
 distinguishes failed preflight from an uncertain submitted turn and preserves
-successful output across admission-release failure. `ragwork` pauses uncertain
-outcomes for reconciliation instead of treating missing output as a paid retry.
+successful output across admission-release failure. A failed Codex stream gets
+one bounded exact-turn inspection through a fresh transport: completed output
+returns through normal validation; confirmed interruption without output permits
+the ordinary bounded retry. `ragwork` holds only an item with an unknown outcome.
+Healthy workers continue, including when the replacement ceiling is exhausted.
+The controller reports unreplaced failures after peers finish, without draining
+them. A confirmed exited worker's leases are recovered before replacement. When
+only held work remains, the drained job pauses for public reconciliation and
+reports vector publication as pending; it does not try to publish missing vectors.
 
 Codex intent is durable before turn submission. Public `job reconcile` binds
 the original attempt, input hash, snapshot, provider run, thread and turn to a
@@ -58,7 +65,7 @@ paused. A completed response is untrusted input for the existing validation and
 publication path; confirmed interruption without a final answer allows a retry
 only within the original limits. Missing or ambiguous history remains held.
 Unknown usage is explicitly a lower bound; admission conservatively retains the
-unobserved part of the original token/time reservation. It never reports those
+unobserved part of the original token, time, cost and call reservation. It never reports those
 estimates as measured provider usage.
 
 Account preflight, thread/turn submission and answer reads share the configured

@@ -3,6 +3,8 @@
 This is dated qualification evidence. Live-library statements below describe
 the named run at that time, not current operating status. Later MCP and copied
 corpus trials are recorded in [the agent trial report](mcp-codex-trials.md).
+The subsequent [10 September controller repair](controller-recovery-report.md)
+changes the job-wide uncertain-outcome pause described in this dated record.
 
 Current repair record: 7 September 2026, based on `dfe25ed`. The previous review
 and held-run incident census are preserved in

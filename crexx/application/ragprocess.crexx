@@ -633,6 +633,7 @@ _startworkerprocesses: procedure = .int
     end
     if group_ready = 1 & worker_index > 0 & job_filter \= "" then do
       previous_id = worker_ids[worker_index]
+      if recoverworkerclaims(store,job_filter,previous_id,error) \= 0 then leave
       used_items = _scalarint(store.database(),"SELECT count(*) FROM attempts WHERE worker_id=" || _sqlquote(previous_id) || " AND outcome<>'cancelled'",error)
       used_polls = _scalarint(store.database(),"SELECT CASE WHEN instr(detail,';polls=')>0 THEN CAST(substr(detail,instr(detail,';polls=')+7) AS INTEGER) ELSE 0 END FROM runtime_instances WHERE instance_id=" || _sqlquote(previous_id),error)
       if error \= "" then leave
@@ -643,6 +644,7 @@ _startworkerprocesses: procedure = .int
         replacement_id = ""; delay_ms = 0
         replacement_status = reserveworkerreplacement(store,controller_id,previous_id,max_restarts,restart_backoff_ms,replacement_id,delay_ms,error)
         if replacement_status < 0 then leave
+        if replacement_status = 2 then call tracer.emit("worker","replacement-exhausted",previous_id,"healthy peers continue")
         if replacement_status = 0 then do
           call tracer.emit("worker","replacing",previous_id,"replacement=" || replacement_id)
           /* Wait in short increments; pause, cancellation and drain stay effective. */
@@ -666,13 +668,9 @@ _startworkerprocesses: procedure = .int
         end
       end
     end
-    if failed > 0 then do
-      if error = "" then do
-        error = "one or more worker processes failed: " || first_failure_detail
-        if group_ready = 0 then error = "worker group startup failed: " || first_failure_detail
-      end
-      leave
-    end
+    /* A slot failure never drains healthy admitted peers. Report unreplaced
+     * failures after those peers finish; startup failure remains a group error. */
+    if failed > 0 & group_ready = 0 then do; error = "worker group startup failed: " || first_failure_detail; leave; end
   end
   if error \= "" then do
     /* Publish failure and drain requests before waiting for child cleanup. */
@@ -715,7 +713,7 @@ reserveworkerreplacement: procedure = .int
   used = _scalarint(database,"SELECT count(*) FROM job_events WHERE job_id=" || _sqlquote(job_id) || " AND event_type='worker-replacement'",error)
   repeated = _scalarint(database,"SELECT count(*) FROM job_events WHERE job_id=" || _sqlquote(job_id) || " AND event_type='worker-replacement' AND json_extract(message,'$.previous')=" || _sqlquote(previous_id),error)
   if error \= "" then return _rollback(database,"read worker replacement history",error)
-  if used >= maximum then return _rollback(database,"worker replacement ceiling reached for job " || job_id,error)
+  if used >= maximum then do; ignored = sqliteexec(database,"ROLLBACK"); return 2; end
   if repeated > 0 then return _rollback(database,"worker replacement was already reserved",error)
   replacement_id = newprocessidentity(store,"worker",error)
   if replacement_id = "" then return _rollback(database,"allocate replacement worker",error)
@@ -732,7 +730,7 @@ reserveworkerreplacement: procedure = .int
 
 _replacementallowed: procedure = .int
   arg store = .ragstorehandle, job_id = .string, previous_id = .string, expose error = .string
-  sql = "SELECT count(*) FROM jobs j WHERE j.job_id=" || _sqlquote(job_id) || " AND j.state IN('queued','running') AND EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=j.job_id AND i.state='queued') AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.worker_id=" || _sqlquote(previous_id) || " AND a.outcome='running') AND NOT EXISTS(SELECT 1 FROM runtime_instances r WHERE r.instance_id=" || _sqlquote(previous_id) || " AND r.requested_state<>'none') AND NOT EXISTS(SELECT 1 FROM maintenance_windows w WHERE w.job_id=j.job_id AND (w.state<>'active' OR w.deadline_epoch<=unixepoch())) AND NOT EXISTS(SELECT 1 FROM job_events e WHERE e.job_id=j.job_id AND e.event_type='provider-outcome-uncertain' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response'))"
+  sql = "SELECT count(*) FROM jobs j WHERE j.job_id=" || _sqlquote(job_id) || " AND j.state IN('queued','running') AND EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=j.job_id AND i.state='queued') AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.worker_id=" || _sqlquote(previous_id) || " AND a.outcome='running') AND NOT EXISTS(SELECT 1 FROM runtime_instances r WHERE r.instance_id=" || _sqlquote(previous_id) || " AND r.requested_state<>'none') AND NOT EXISTS(SELECT 1 FROM maintenance_windows w WHERE w.job_id=j.job_id AND (w.state<>'active' OR w.deadline_epoch<=unixepoch()))"
   return _scalarint(store.database(),sql,error)
 
 _childarguments: procedure = .channelvalue

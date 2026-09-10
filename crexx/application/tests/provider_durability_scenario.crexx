@@ -234,6 +234,35 @@ main: procedure = .int
   errors = errors + check(sqliteexec(database,"UPDATE provider_cooldowns SET not_before_epoch=unixepoch()-1 WHERE model='cooldown'")=0,"advance fixture recovery clock")
   errors = errors + check(admitprovidercall(store,cooling[3],"gemini","cooldown",10,100,10000,8,100,probe,waited,error)=0 & releaseprovidercall(store,probe,1,"succeeded",error)=0,"successful recovery clears cooldown")
   errors = errors + check(scalarint(database,"SELECT failure_count+not_before_epoch FROM provider_cooldowns WHERE model='cooldown'")=0,"provider recovered")
+  /* Quarantine is item-local, but an unanswered call still consumes its
+   * reviewed ceiling in every dimension after its live reservation closes. */
+  do dimension = 1 to 5
+    unknown_job = "unknown-job-" || dimension
+    calls = 10; input_limit = 1000; output_limit = 1000; cost_limit = 1000; time_limit = 10000
+    if dimension = 1 then input_limit = 150
+    if dimension = 2 then output_limit = 70
+    if dimension = 3 then cost_limit = 150
+    if dimension = 4 then time_limit = 6000
+    if dimension = 5 then calls = 1
+    sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,created_at,updated_at) VALUES('" || unknown_job || "','" || rxhash..sha256hex(unknown_job as .binary) || "','{}','snapshot-p3r-03','queued',2," || calls || "," || input_limit || "," || output_limit || "," || cost_limit || ",'fixture','fixture')"
+    errors = errors + check(sqliteexec(database,sql) = 0,"seed uncertain budget dimension " || dimension)
+    do n = 1 to 2
+      id = unknown_job || "-item-" || n
+      sql = "INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES('" || id || "','" || unknown_job || "','claim-extraction','queued'," || (3-n) || ",'" || id || "','" || input_hash || "','{}','fixture','fixture')"
+      errors = errors + check(sqliteexec(database,sql) = 0,"seed uncertain budget item")
+    end
+    errors = errors + check(configurejobbudget(store,unknown_job,time_limit,128,64,100,5000,2,3,error) = 0,"unknown budget policy " || error)
+    held = .ragworkclaim; peer = .ragworkclaim; held_reservation = .ragcallreservation; peer_reservation = .ragcallreservation
+    errors = errors + check(claimnext(store,unknown_job,"unknown-worker",30,3,held,error) = 0,"claim unknown item")
+    errors = errors + check(reservecall(store,held,128,64,100,5000,held_reservation,error) = 0,"reserve unknown call " || error)
+    errors = errors + check(beginproviderrequest(store,held,"unknown-request-" || dimension,error) = 0,"persist unknown intent")
+    errors = errors + check(recoverworkerclaims(store,unknown_job,"unknown-worker",error) = 0,"recover only exited ownership " || error)
+    errors = errors + check(claimnext(store,unknown_job,"healthy-peer",30,3,peer,error) = 0,"healthy peer can still claim")
+    errors = errors + check(reservecall(store,peer,128,64,100,5000,peer_reservation,error) < 0 & pos("budget",error)>0,"uncertain dimension retains original allowance " || dimension || " " || error)
+    errors = errors + check(failattempt(store,peer,0,1,3,"fixture budget exhausted",error) = 0,"finish peer fixture")
+    errors = errors + check(requestcancel(store,unknown_job,"operator cancelled held fixture",error) = 0,"cancel an otherwise held job " || error)
+    errors = errors + check(scalarint(database,"SELECT count(*) FROM jobs WHERE job_id='" || unknown_job || "' AND state IN('queued','running','paused','cancel_requested')") = 0,"uncertain item cannot override cancellation")
+  end
   errors = errors + check(closeragstore(store, error) = 0, "close " || error)
   if errors \= 0 then do; say "PROVIDER_DURABILITY_ERRORS=" || errors; return 1; end
   say "PROVIDER_DURABILITY_OK completed_turn_reused=1 codex_turns=1 stale_reservations=0 fence=2 admissions=durable uncalled_provider_runs=0 paused_completion=sticky batch_retry=2 replay=immutable reconciliation=in-progress indexes=11 migration=1to6-validated-to11 provider_history=costed prospective_config=audited large_plan=renderable"

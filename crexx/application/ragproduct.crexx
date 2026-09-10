@@ -2292,6 +2292,7 @@ _jobcomplete: procedure = .int
   job_state = ""; column_status = sqlitecolumntext(prepared, 0, job_state); call sqlitefinalize prepared
   if column_status \= 0 then do; error = "cannot decode completed job state for vector publication"; return -1; end
   if _scalarint(database, "SELECT count(*) FROM job_items WHERE job_id=" || _sqlquote(job_id) || " AND state IN('running','cancel_requested')") > 0 then do; error = "vector publication is waiting for in-flight work to settle"; return -1; end
+  if job_state = "paused" then if _scalarint(database,"SELECT count(*) FROM job_events e WHERE e.job_id=" || _sqlquote(job_id) || " AND e.event_type='provider-outcome-uncertain' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')") > 0 then return 1
   if bounded = 1 & (job_state = "queued" | job_state = "running") then return 1
   if job_state \= "completed" & job_state \= "completed_with_errors" & job_state \= "cancelled" & job_state \= "paused" then do; error = "worker group ended before vector publication because job state is " || job_state; return -1; end
   return 0

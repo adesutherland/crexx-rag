@@ -9,6 +9,12 @@ if [ "${1:-}" != "app-server" ]; then
 fi
 
 rate_limit_reads=0
+controller_case=0
+thread_id=fixture-thread
+case "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" in
+  controller-*) controller_case=1; thread_id=fixture-thread-$$ ;;
+esac
+cleanup_fault=0
 
 log_method()
 {
@@ -31,6 +37,7 @@ while IFS= read -r line; do
       ;;
     *'"method":"account/read"'*)
       log_method account/read
+      if [ "$cleanup_fault" = 1 ]; then sleep 4; exit 70; fi
       if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "account-fragments" ]; then
         printf '{"id":%s,"result":{"padding":"' "$id"
         n=0
@@ -68,6 +75,10 @@ while IFS= read -r line; do
       ;;
     *'"method":"thread/read"'*)
       log_method thread/read
+      if [ "$controller_case" = 1 ]; then
+        thread_id=${line#*'"threadId":"'}
+        thread_id=${thread_id%%\"*}
+      fi
       state=interrupted
       if [ -n "${CREXXRAG_CODEX_FIXTURE_STATE_FILE:-}" ]; then
         IFS= read -r state < "$CREXXRAG_CODEX_FIXTURE_STATE_FILE"
@@ -83,16 +94,16 @@ while IFS= read -r line; do
           printf '{"id":%s,"result":{"thread":{"id":"fixture-thread","turns":[{"id":"other-turn","status":"completed","items":[]}]}}}\n' "$id"
           ;;
         completed)
-          printf '{"id":%s,"result":{"thread":{"id":"fixture-thread","turns":[{"id":"fixture-turn","status":"completed","items":[{"type":"agentMessage","phase":"final_answer","text":"{\\"mentions\\":[],\\"relationships\\":[],\\"notes\\":[]}"},{"type":"agentMessage","phase":"commentary","text":"This is commentary, not the final JSON."}]}]}}}\n' "$id"
+          printf '{"id":%s,"result":{"thread":{"id":"%s","turns":[{"id":"fixture-turn","status":"completed","items":[{"type":"agentMessage","phase":"final_answer","text":"{\\"mentions\\":[],\\"relationships\\":[],\\"notes\\":[]}"},{"type":"agentMessage","phase":"commentary","text":"This is commentary, not the final JSON."}]}]}}}\n' "$id" "$thread_id"
           ;;
         *)
-          printf '{"id":%s,"result":{"thread":{"id":"fixture-thread","turns":[{"id":"fixture-turn","status":"%s","items":[]}]}}}\n' "$id" "$state"
+          printf '{"id":%s,"result":{"thread":{"id":"%s","turns":[{"id":"fixture-turn","status":"%s","items":[]}]}}}\n' "$id" "$thread_id" "$state"
           ;;
       esac
       ;;
     *'"method":"thread/start"'*)
       log_method thread/start
-      printf '{"id":%s,"result":{"thread":{"id":"fixture-thread"}}}\n' "$id"
+      printf '{"id":%s,"result":{"thread":{"id":"%s"}}}\n' "$id" "$thread_id"
       ;;
     *'"method":"turn/start"'*)
       log_method turn/start
@@ -110,6 +121,43 @@ while IFS= read -r line; do
           ;;
       esac
       printf '{"id":%s,"result":{"turn":{"id":"fixture-turn"}}}\n' "$id"
+      if [ "$controller_case" = 1 ]; then
+        # All eight first requests must overlap before any response is released.
+        sync=${CREXXRAG_CODEX_FIXTURE_SYNC:?}
+        if [ ! -e "$sync/released" ]; then
+          : > "$sync/$$.ready"
+          polls=0
+          while [ ! -e "$sync/released" ]; do
+            set -- "$sync"/*.ready
+            if [ "$#" -ge 8 ]; then : > "$sync/released"; break; fi
+            polls=$((polls + 1))
+            if [ "$polls" -ge 1000 ]; then exit 72; fi
+            sleep 0.01
+          done
+        fi
+        fault=0
+        if [ "$CREXXRAG_CODEX_FIXTURE_FAILURE" = controller-exhausted ]; then
+          for slot in 1 2 3; do
+            if mkdir "${CREXXRAG_CODEX_FIXTURE_ONCE:?}-$slot" 2>/dev/null; then fault=1; break; fi
+          done
+        elif mkdir "${CREXXRAG_CODEX_FIXTURE_ONCE:?}" 2>/dev/null; then
+          fault=1
+        fi
+        if [ "$fault" = 1 ]; then
+          case "$CREXXRAG_CODEX_FIXTURE_FAILURE" in
+            controller-cleanup) cleanup_fault=1 ;;
+            *)
+              printf '{"method":"thread/tokenUsage/updated","params":{"threadId":"%s","turnId":"fixture-turn","tokenUsage":{"last":{"inputTokens":7,"outputTokens":2}}}}\n' "$thread_id"
+              log_method fault-submitted
+              exit 70
+              ;;
+          esac
+        fi
+        printf '{"method":"item/completed","params":{"threadId":"%s","turnId":"fixture-turn","item":{"type":"agentMessage","text":"{\\"mentions\\":[],\\"relationships\\":[],\\"notes\\":[]}"}}}\n' "$thread_id"
+        printf '{"method":"thread/tokenUsage/updated","params":{"threadId":"%s","turnId":"fixture-turn","tokenUsage":{"last":{"inputTokens":7,"outputTokens":4}}}}\n' "$thread_id"
+        printf '{"method":"turn/completed","params":{"threadId":"%s","turn":{"id":"fixture-turn","status":"completed"}}}\n' "$thread_id"
+        continue
+      fi
       if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "turn-noise" ]; then
         n=0
         while [ "$n" -lt 80 ]; do

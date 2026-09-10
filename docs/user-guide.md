@@ -353,11 +353,13 @@ operational configuration. Default values preserve existing configuration hashes
 Replacement reservations are durable job events, so restarting a controller or
 pruning process rows cannot reset that ceiling. Replacement preserves the slot's
 remaining item/poll allowance and the original job budgets and deadline. A pause,
-cancellation, drain or exhausted ceiling stops further work. A clean worker exit
-also permits replacement when work and the original slot allowance remain;
-normal item/poll limits and completed jobs do not refill the slot. Startup failures and
-unclassified crashes require diagnosis; they do not automatically consume more
-process launches. Unfiltered worker groups also require operator restart.
+cancellation or drain stops further work. An exhausted replacement ceiling stops
+new replacements; healthy peers continue within the original job limits. A clean
+worker exit also permits replacement when work and the original slot allowance
+remain; normal item/poll limits and completed jobs do not refill the slot.
+The existing recoverable-exit classification still governs replacement;
+unclassified failures remain inspectable while healthy peers continue. Group
+startup failures and unfiltered worker groups still require operator restart.
 Successful controller results include `workers_restarted`; historical failed
 process records remain available for diagnosis.
 
@@ -365,8 +367,8 @@ The selected provider's `max_attempts` independently limits retryable item
 failures. Set it to three when three total attempts are wanted; a value of one
 still means no ordinary item retry. Worker replacement never rewrites dead
 letters or resets attempt history. A submitted request with an unknown outcome
-pauses the job for reconciliation, retaining its external identities and any
-reported usage. A saved successful response remains eligible for publication
+holds its item for reconciliation, retaining its external identities and any
+reported usage while healthy peers continue. A saved successful response remains eligible for publication
 even if releasing its provider admission fails. Such a failure stops the worker
 and reports the admission identity and SQLite diagnostic. Exact duplicate
 admission settlement succeeds; conflicting settlement remains an error.
@@ -435,7 +437,8 @@ An incompatible configuration returns before producing failed items; inspect
 `config diff` and use the original configuration. A closed maintenance window
 requires a new reviewed `maintain plan`.
 
-For a held Codex outcome, inspect the exact item before resuming:
+Independent queued items can run while a Codex outcome remains held. Before
+retrying that held item, pause and drain its job, then inspect the exact outcome:
 
 ```sh
 crexxrag --access diagnose --format json job reconcile JOB_ID --item ITEM_ID
@@ -484,10 +487,17 @@ crexxrag --access control job replay JOB_ID --item ITEM_ID \
 
 `job events` reads the durable event ledger for that job, with numeric cursor
 paging; it does not list work items. `job status` includes the last failure or
-uncertainty reason. An interrupted request with no durable response produces
-`provider-outcome-uncertain`, pauses the job and leaves an inspectable dead
-letter. It is not automatically submitted again. Inspect and reconcile that
-outcome before explicitly choosing new work.
+uncertainty reason. After a Codex stream failure, the worker makes one bounded
+read of the exact submitted turn through a fresh connection. It reuses a confirmed
+completed answer through normal validation, or permits the configured retry when
+the turn is confirmed interrupted/failed without output. Partial usage remains
+explicitly incomplete and its original reservation ceiling still counts toward
+admission. If history is unavailable, ambiguous or still running,
+`provider-outcome-uncertain` holds that item as an inspectable dead letter without
+pausing the job or draining healthy peers. That item is not submitted again.
+When only held work remains, the drained job pauses for reconciliation and vector
+publication remains pending. Otherwise pause and drain before applying public
+`job reconcile` to the held outcome.
 
 Received extraction and embedding outputs are retained before validation and
 settlement. Restarting the same item reuses its receipt without another call,

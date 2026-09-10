@@ -99,7 +99,12 @@ foreach(case IN ITEMS preflight-once preflight-always preflight-disabled turn-di
     elseif(case STREQUAL "admission-release")
         set(limit 1)
     endif()
-    run_cli(${expected} --access control worker start --count 1 --job "${job}" --max-items "${limit}" --poll-ms 20)
+    set(poll_limit 0)
+    if(case STREQUAL "turn-disconnect")
+        set(expected ok)
+        set(poll_limit 10)
+    endif()
+    run_cli(${expected} --access control worker start --count 1 --job "${job}" --max-items "${limit}" --poll-ms 20 --max-polls "${poll_limit}")
     sql("SELECT count(*) FROM attempts WHERE outcome='running';" "0")
     sql("SELECT reserved_calls+reserved_tokens+reserved_cost+reserved_codex_turns FROM jobs;" "0")
     if(case STREQUAL "preflight-once")
@@ -185,14 +190,15 @@ foreach(case IN ITEMS preflight-once preflight-always preflight-disabled turn-di
         sql("SELECT count(*) FROM attempts;" "1")
         sql("SELECT count(*) FROM provider_runs;" "0")
     elseif(case STREQUAL "turn-disconnect")
-        sql("SELECT state FROM jobs;" "paused")
+        sql("SELECT state FROM jobs;" "running")
         sql("SELECT count(DISTINCT attempt_id) FROM job_events WHERE event_type='provider-outcome-uncertain';" "1")
-        sql("SELECT count(*) FROM job_events WHERE event_type='worker-replacement';" "0")
+        sql("SELECT count(*) FROM job_events WHERE event_type='worker-replacement';" "1")
         sql("SELECT count(*) FROM provider_runs WHERE external_turn_id='fixture-turn' AND outcome='running';" "1")
         sql("SELECT input_tokens||':'||output_tokens FROM provider_runs;" "7:2")
-        # This paused corpus has no embeddings to publish; the command reports
-        # that existing readiness gap without retrying the uncertain turn.
-        run_cli(error --access control worker start --count 1 --job "${job}" --max-items 1 --poll-ms 20)
+        # A later bounded launch leaves the same uncertain item held. Pause
+        # explicitly before testing the operator's reviewed reconciliation.
+        run_cli(ok --access control worker start --count 1 --job "${job}" --max-items 1 --poll-ms 20 --max-polls 5)
+        run_cli(ok --access control job pause "${job}")
         sql("SELECT count(*) FROM provider_runs;" "1")
         execute_process(COMMAND "${sqlite_cli}" "${library}/library.sqlite"
             "SELECT item_id FROM job_items WHERE item_type='claim-extraction';"
