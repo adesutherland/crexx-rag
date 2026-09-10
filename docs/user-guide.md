@@ -301,8 +301,10 @@ crexxrag worker prune --stale-seconds 30
 
 Controllers and workers register PID, host identity, process-start token,
 heartbeat, state, and current item in SQLite. Lists can therefore distinguish
-local/remote, live/stale, idle/running, and stopped records. Pruning is explicit;
-stale rows are not silently deleted.
+local/remote, live/stale, idle/running, and stopped records. Pruning removes
+terminal records and stale local records only when their process has exited.
+A stale heartbeat does not authorize deleting live or remote ownership.
+`job run` performs this ownership cleanup as part of its supported restart.
 
 Workers are operating-system processes, not attached cREXX threads. Each owns a
 VM, provider process/session, and SQLite connection.
@@ -413,6 +415,59 @@ paused or completed jobs become skipped with an audit event. Unknown submitted
 outcomes remain held; paused mixed jobs stay paused. A plain `vector rebuild`
 only rebuilds the projection. Both forms accept safely drained paused jobs,
 and reject active workers, running items or outstanding reservations.
+
+## Jobs
+
+Use the installed, tested executable and the job's original configuration:
+
+```sh
+crexxrag --access control job run JOB_ID
+crexxrag --access control job run JOB_ID --count 8
+```
+
+This fixed command checks configuration before claiming anything, removes
+confirmed exited local process ownership, resumes a paused eligible job and
+supervises workers using configured counts, polling and restart limits. Optional
+`--count` stays within the configured ceiling; `--poll-ms`, `--max-polls` and
+`--max-items` have the same meaning as `worker start`. Budgets, attempt history
+and maintenance deadlines remain unchanged. A live group must first drain.
+An incompatible configuration returns before producing failed items; inspect
+`config diff` and use the original configuration. A closed maintenance window
+requires a new reviewed `maintain plan`.
+
+For a held Codex outcome, inspect the exact item before resuming:
+
+```sh
+crexxrag --access diagnose --format json job reconcile JOB_ID --item ITEM_ID
+crexxrag --access control job reconcile JOB_ID --item ITEM_ID \
+  --apply --expect-digest DIGEST_FROM_INSPECTION
+crexxrag --access control job run JOB_ID
+```
+
+Inspection reads stored output or the exact App Server thread/turn history. It
+never resumes, cancels or deletes an external turn. Apply requires a paused,
+drained job and rechecks the observation digest. Completed output is queued
+for normal validation without another generation call. A confirmed interrupted
+or failed turn **without a final answer** is settled once and becomes retryable
+only within the existing attempt and job limits. Still-running work, missing
+turn identity/history, and ambiguous terminal output remain held. Repeated
+apply is a no-op. The job remains paused until `job run` or `job resume`.
+
+The returned `observation_json` includes `known_input_tokens`,
+`known_output_tokens` and `usage_complete`. Incomplete usage is a lower bound;
+the unobserved part of the original reservation still counts against admission
+budgets. The receipt and `provider-reconciled` event retain that distinction.
+No SQL/config patch script, rebuild or reimport is part of ordinary restart.
+MCP exposes `rag_job_reconcile_inspect` with `diagnose` access and
+`rag_job_reconcile_apply` with `control` access.
+
+Extraction still has one bounded citation correction. Its feedback lists up
+to 16 detected problems across the response, including OCR surface forms and
+relationship endpoints. A wait before making that call does not consume the
+correction. Terminal content failures enter the existing advanced-reasoning
+task queue. Read the task's source evidence and its linked job/item event
+history, then use the usual proposal/resolution review workflow. Transport and
+storage errors remain operational recovery work.
 
 ## Dead letters and replay
 
@@ -887,7 +942,7 @@ maintain plan / maintain apply / maintain status / maintain inspect
 proposal plan / proposal apply
 worker start / worker run
 job list / job status / job events
-job replay
+job run / job reconcile / job replay
 query search / evidence / answer / trace / path / timeline
 library status / report / snapshot / trend / verify / backup / restore
 config check / config explain / config diff / config plan / config apply

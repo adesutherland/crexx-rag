@@ -74,6 +74,16 @@ foreach(mode IN ITEMS noopt opt)
             message(FATAL_ERROR
                 "${mode}-${runtime_name} Codex protocol fixture failed (${run_result}):\n${run_out}\n${run_err}")
         endif()
+        foreach(noisy_stage IN ITEMS account-noise account-fragments turn-noise)
+            execute_process(COMMAND "${CMAKE_COMMAND}" -E env
+                "CREXXRAG_CODEX_FIXTURE_FAILURE=${noisy_stage}"
+                "${runtime}" -l "${imports}" "${program}" ${modules}
+                -a "${fixture}" "${CPRAG_WORK_DIR}/empty-cwd" 1 "${noisy_stage}"
+                RESULT_VARIABLE noisy_status OUTPUT_VARIABLE noisy_out ERROR_VARIABLE noisy_err TIMEOUT 15)
+            if(NOT noisy_status EQUAL 0 OR NOT noisy_out MATCHES "PASS: noisy")
+                message(FATAL_ERROR "${mode}-${runtime_name} deadline fixture failed: ${noisy_out}${noisy_err}")
+            endif()
+        endforeach()
     endforeach()
 endforeach()
 

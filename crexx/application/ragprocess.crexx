@@ -9,6 +9,7 @@ import rxfs
 import rxsqlite
 import ragstore
 import ragconfig
+import ragconfiguration
 import ragprofile
 import ragclaims
 import ragwork
@@ -154,7 +155,11 @@ activateprocess: procedure = .int
   error = ""
   if _validtext(instance_id, 128, 0) \= 1 | _validtext(parent_instance_id, 128, 1) \= 1 | _validtext(host_id, 255, 0) \= 1 | pid <= 0 | _validtext(process_start_token, 128, 0) \= 1 | _validtext(executable_identity, 4096, 0) \= 1 | _validtext(job_filter, 256, 1) \= 1 | (kind \= "controller" & kind \= "worker") | (mode \= "wait" & mode \= "once" & mode \= "follow") then do; error = "active process identity is invalid"; return -1; end
   database = store.database(); prepared = .binary
-  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then return _sqlitefailure("begin process activation", error)
+  if beginwritetransaction(database,"begin process activation",error) \= 0 then return -2
+  if kind = "controller" then do
+    overlap = "(job_filter='' OR " || _sqlquote(job_filter) || "='' OR job_filter=" || _sqlquote(job_filter) || ")"
+    if _scalarint(database,"SELECT count(*) FROM runtime_instances WHERE kind='controller' AND state NOT IN('stopped','failed') AND instance_id<>" || _sqlquote(instance_id) || " AND " || overlap,error) \= 0 then return _rollback(database,"job already has a controller; drain it or use job run after its process has exited",error)
+  end
   sql = "UPDATE runtime_instances SET parent_instance_id=NULLIF(?2,''),host_id=?3,pid=?4,process_start_token=?5,executable_identity=?6,mode=?7,job_filter=?8,state='idle',current_item_id='',started_at=CAST(strftime('%s','now') AS INTEGER),heartbeat_at=CAST(strftime('%s','now') AS INTEGER),stopped_at=NULL,exit_code=NULL,detail='active' WHERE instance_id=?1 AND kind=?9 AND state='starting'"
   if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "prepare reserved process activation", error)
   binds = sqlitebindtext(prepared, 1, instance_id)
@@ -331,14 +336,40 @@ pruneprocesses: procedure = .int
   arg store = .ragstorehandle, stale_seconds = .int, expose deleted = .int, expose error = .string
   deleted = 0; error = ""
   if stale_seconds < 1 | stale_seconds > 86400 then do; error = "stale threshold must be 1 through 86400 seconds"; return -1; end
-  prepared = .binary
-  sql = "DELETE FROM runtime_instances WHERE state IN('stopped','failed') OR heartbeat_at < CAST(strftime('%s','now') AS INTEGER)-?1"
+  prepared = .binary; database = store.database()
+  /* An old heartbeat is a reason to inspect ownership, never proof of death.
+   * Only this host can establish that an active PID has exited. */
+  sql = "SELECT instance_id,coalesce(pid,0),heartbeat_at,state,coalesce(parent_instance_id,'') FROM runtime_instances WHERE state IN('stopped','failed') OR (host_id=" || _sqlquote(currenthostid()) || " AND heartbeat_at < unixepoch()-?1)"
   if sqliteprepare(store.database(), sql, prepared) \= 0 then return _sqlitefailure("prepare process prune", error)
-  binds = sqlitebindint(prepared, 1, stale_seconds); step = sqlitestep(prepared)
+  binds = sqlitebindint(prepared, 1, stale_seconds); step = 0
+  ids = .string[]; pids = .int[]; beats = .int[]; states = .string[]; parents = .string[]
+  do forever
+    step = sqlitestep(prepared)
+    if step \= 100 then leave
+    index = ids.0+1; identity = ""; pid = 0; beat = 0; state = ""; parent = ""
+    columns = sqlitecolumntext(prepared,0,identity) | sqlitecolumnint(prepared,1,pid) | sqlitecolumnint(prepared,2,beat) | sqlitecolumntext(prepared,3,state) | sqlitecolumntext(prepared,4,parent)
+    if columns \= 0 then do; call sqlitefinalize prepared; return _sqlitefailure("read process prune candidates",error); end
+    ids[index]=identity; pids[index]=pid; beats[index]=beat; states[index]=state; parents[index]=parent
+  end
   call sqlitefinalize prepared
   if binds \= 0 | step \= 101 then return _sqlitefailure("prune process rows", error)
-  deleted = _scalarint(store.database(), "SELECT changes()", error)
-  if error \= "" then return -2
+  do index = 1 to ids.0
+    if states[index] \= "stopped" & states[index] \= "failed" then do
+      if pids[index] > 0 & processalive(pids[index]) = 1 then iterate
+      if pids[index] = 0 & parents[index] \= "" then do
+        parent_pid = _scalarint(database,"SELECT coalesce(max(pid),0) FROM runtime_instances WHERE instance_id=" || _sqlquote(parents[index]),error)
+        if error \= "" then return -2
+        if parent_pid > 0 & processalive(parent_pid) = 1 then iterate
+      end
+    end
+    sql = "DELETE FROM runtime_instances WHERE instance_id=" || _sqlquote(ids[index]) || " AND heartbeat_at=" || beats[index] || " AND coalesce(pid,0)=" || pids[index] || " AND state=" || _sqlquote(states[index])
+    if beginwritetransaction(database,"begin process prune",error) \= 0 then return -2
+    if sqliteexec(database,sql) \= 0 then return _rollback(database,"prune confirmed process rows",error)
+    changed = _scalarint(database,"SELECT changes()",error)
+    if error \= "" then return _rollback(database,error,error)
+    if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"commit process prune",error)
+    deleted = deleted + changed
+  end
   return 0
 
 currentprocessid: procedure = .int
@@ -408,6 +439,7 @@ _runapplicationworker: procedure = .int
   if poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | maximum_items < 0 | maximum_items > 1000000 | (mode \= "once" & mode \= "follow") | _validtext(instance_id, 128, 1) \= 1 | _validtext(parent_instance_id, 128, 1) \= 1 | _validtext(host_id, 255, 1) \= 1 | _validtext(job_filter, 256, 1) \= 1 then do; error = "worker poll bounds are invalid"; return -1; end
   store = .ragstorehandle
   if openragstore(library, "readwrite", store, error) \= 0 then return -2
+  if checkworkerconfiguration(store,job_filter,config,profile,error) \= 0 then do; ignored = ""; call closeragstore store,ignored; return -2; end
   if host_id = "" then host_id = currenthostid()
   if final_id = "" then final_id = newprocessidentity(store, "worker", error)
   pid = currentprocessid(); start_token = _scalartext(store.database(), "SELECT lower(hex(randomblob(16)))", error); executable = _executableidentity()

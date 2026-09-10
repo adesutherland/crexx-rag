@@ -114,8 +114,10 @@ foreach(kind IN ITEMS killed_intent cancellation manifest_failure)
                 message(FATAL_ERROR "native cancellation lost usage, published a result or leaked ownership: ${state}")
             endif()
         else()
-            sql(ignore "UPDATE job_items SET lease_until=unixepoch()-1 WHERE state='running';")
-            cli(restart --access control --format json worker start --count 2 --poll-ms 20 --max-polls 5)
+            # Advance the fixture's expired-lease and stale-heartbeat clocks;
+            # the product must confirm dead PIDs through its public restart.
+            sql(ignore "UPDATE job_items SET lease_until=unixepoch()-1 WHERE state='running'; UPDATE runtime_instances SET heartbeat_at=unixepoch()-2;")
+            cli(restart --access control --format json job run "${job}" --count 2 --poll-ms 20 --max-polls 5)
             sql(state "SELECT (SELECT state FROM jobs)||':'||(SELECT count(*) FROM provider_runs)||':'||(SELECT count(*) FROM job_events WHERE event_type='provider-intent')||':'||(SELECT count(*) FROM job_events WHERE event_type='provider-response')||':'||(SELECT count(*) FROM job_events WHERE event_type='provider-outcome-uncertain')||':'||(SELECT sum(reserved_calls+reserved_tokens+reserved_cost) FROM jobs);")
             if(NOT state STREQUAL "paused:0:1:0:1:0")
                 message(FATAL_ERROR "killed request was silently repeated or uncertainty lost: ${state}")

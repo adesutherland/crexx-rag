@@ -41,6 +41,7 @@ import ragembedding
 import ragproviderdiagnostics
 import ragqueryprovider
 import ragquerypolicy
+import ragapplicationprovider
 
 /* This dispatcher is the single transport-neutral product surface.
  * CLI, ADDRESS RAG and MCP translate into one .ragcommandrequest and preserve
@@ -63,6 +64,8 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "job.pause" | operation = "job.resume" | operation = "job.cancel" then return _jobcontrol(request)
   if operation = "job.retry" then return _jobretry(request)
   if operation = "job.replay" then return _jobreplay(request, registry)
+  if operation = "job.reconcile" then return _jobreconcile(request, registry)
+  if operation = "job.run" then return _workerstart(request, registry)
   if operation = "worker.start" then return _workerstart(request, registry)
   if operation = "worker.run" then return _workerrun(request, registry)
   if operation = "worker.list" | operation = "worker.status" then return _workerread(request)
@@ -1909,18 +1912,56 @@ _jobreplay: procedure = .ragcommandresult
   records = .ragresultrecord[]; records[1] = .ragresultrecord("job-replay", fields)
   return .ragcommandresult(operation, "ok", 0, "dead letters copied into a new budgeted job with immutable source lineage", records)
 
+_jobreconcile: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = request.operation(); error = ""
+  if _workeroptions(request,"id item apply expect-digest","apply",error) \= 0 then return _failure(operation,2,error)
+  job_id = _id(request,error); item_id = _option(request,"item",error); apply_text = _option(request,"apply",error); digest = _option(request,"expect-digest",error)
+  apply = apply_text = "true"
+  if error \= "" | job_id = "" | item_id = "" then return _failure(operation,2,"job reconcile requires a job id and --item; inspect first, then --apply --expect-digest")
+  capability = "diagnose"; mode = "readonly"
+  if apply then do; capability = "control"; mode = "readwrite"; end
+  if _hasaccess(request,capability) \= 1 then return _failure(operation,4,"job reconciliation requires " || capability || " access")
+  if apply & length(digest) \= 64 then return _failure(operation,2,"apply requires the inspected --expect-digest")
+  if apply = 0 & digest \= "" then return _failure(operation,2,"--expect-digest requires --apply")
+  lookup = registry.config(request.config_id()); profile = registry.profile(request.profile_id())
+  if lookup.found() \= 1 | profile.found() \= 1 then return _failure(operation,5,"configuration or profile is not registered")
+  store = .ragstorehandle
+  if openragstore(request.library(),mode,store,error) \= 0 then return _openfailure(operation,error)
+  tracer = .ragtracer(request.progress(),request.format()); provider = .ragapplicationprovider(store,lookup.config(),profile.profile(),tracer)
+  plan = ""; status = provider.reconcile(job_id,item_id,apply,digest,plan,error)
+  call provider.close()
+  ignored = ""; call closeragstore store,ignored
+  if status \= 0 then return _failure(operation,6,error)
+  observed = .jsondocument(plan)
+  observed_digest = ""; observed_state = ""
+  ignored = observed.node_string(observed.member(observed.root(),"digest"),observed_digest)
+  ignored = observed.node_string(observed.member(observed.root(),"state"),observed_state)
+  fields = .ragresultfield[]; fields[1] = .ragresultfield("observation_json","string",plan); fields[2] = .ragresultfield("apply_requested","integer",apply)
+  fields[3] = .ragresultfield("digest","string",observed_digest)
+  fields[4] = .ragresultfield("state","string",observed_state)
+  fields[5] = .ragresultfield("provider_calls","integer",0)
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("job-reconciliation",fields)
+  return .ragcommandresult(operation,"ok",0,"exact Codex outcome inspected; no generation call or corpus publication",records)
+
 _workerstart: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
   operation = request.operation(); error = ""
   if _hasaccess(request, "control") \= 1 then return _failure(operation, 4, "worker start requires control access")
-  if _workeroptions(request, "count poll-ms max-polls max-items job", "", error) \= 0 then return _failure(operation, 2, error)
+  allowed = "count poll-ms max-polls max-items job"
+  if operation = "job.run" then allowed = "count poll-ms max-polls max-items id"
+  if _workeroptions(request, allowed, "", error) \= 0 then return _failure(operation, 2, error)
   positionals = request.positionals()
-  if positionals.0 \= 0 then return _failure(operation, 2, "worker start accepts no positional arguments")
+  if operation \= "job.run" & positionals.0 \= 0 then return _failure(operation, 2, "worker start accepts no positional arguments")
   if request.config_id() = "" | request.profile_id() = "" then return _failure(operation, 2, "worker start requires --config and --profile")
   config_lookup = registry.config(request.config_id()); profile_lookup = registry.profile(request.profile_id())
   if config_lookup.found() \= 1 | profile_lookup.found() \= 1 then return _failure(operation, 5, "configuration or profile is not registered")
   configured_count = config_lookup.config().workers().processes(); count = configured_count
   count_text = _option(request, "count", error); poll_text = _option(request, "poll-ms", error); maximum_text = _option(request, "max-polls", error); items_text = _option(request, "max-items", error); job_filter = _option(request, "job", error)
+  if operation = "job.run" then do
+    job_filter = _id(request,error)
+    if error \= "" | job_filter = "" then return _failure(operation,2,"job run requires one job id")
+  end
   if count_text \= "" then do
     if _unsigned(count_text) \= 1 then return _failure(operation, 2, "--count must be an integer")
     count = count_text as .int
@@ -1940,6 +1981,23 @@ _workerstart: procedure = .ragcommandresult
     maximum_items = items_text as .int
   end
   if count < 1 | count > configured_count | poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | maximum_items < 0 | maximum_items > 1000000 then return _failure(operation, 2, "worker start count must be within the configured process ceiling; poll-ms must be 10..60000 and max-polls/max-items 0..1000000")
+  preflight_store = .ragstorehandle
+  preflight_mode = "readonly"; if operation = "job.run" then preflight_mode = "readwrite"
+  if openragstore(request.library(),preflight_mode,preflight_store,error) \= 0 then return _openfailure(operation,error)
+  preflight = checkworkerconfiguration(preflight_store,job_filter,config_lookup.config(),profile_lookup.profile(),error)
+  if preflight = 0 & operation = "job.run" then do
+    pruned = 0; preflight = pruneprocesses(preflight_store,1,pruned,error)
+    if preflight = 0 then do
+      if _scalarint(preflight_store.database(),"SELECT count(*) FROM runtime_instances WHERE (job_filter='' OR job_filter=" || _sqlquote(job_filter) || ") AND state NOT IN('stopped','failed')") \= 0 then do; preflight = -1; error = "job already has process ownership; use worker status and worker drain"; end
+      else do
+        state = _scalartext(preflight_store.database(),"SELECT state FROM jobs WHERE job_id=" || _sqlquote(job_filter))
+        if state = "paused" then preflight = resumejob(preflight_store,job_filter,error)
+        else if state \= "queued" & state \= "running" then do; preflight = -1; error = "job is terminal; inspect job status and use job retry for reviewed dead letters"; end
+      end
+    end
+  end
+  ignored = ""; call closeragstore preflight_store,ignored
+  if preflight \= 0 then return _failure(operation,6,error)
   started = .ragprocessstartresult
   tracer = .ragtracer(request.progress(), request.format()); call tracer.emit("controller", "start", "", "workers=" || count)
   status = startworkerprocesses(request.library(), count, poll_milliseconds, maximum_polls, job_filter, request.config_id(), request.profile_id(), request.config_file(), request.progress(), request.format(), started, error, maximum_items, config_lookup.config().workers().max_restarts(), config_lookup.config().workers().restart_backoff_ms())

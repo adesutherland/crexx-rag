@@ -157,8 +157,14 @@ sql("SELECT count(*) FROM provider_runs;" "34")
 sql("BEGIN IMMEDIATE; INSERT INTO published_generations(generation,parent_generation,state,config_snapshot_id,summary,created_at,published_at) SELECT m.next_generation,m.published_generation,'published',g.config_snapshot_id,'duplicate-membership fixture',strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM library_meta m JOIN published_generations g ON g.generation=m.published_generation; INSERT INTO publication_events(generation,previous_generation,event_type,reason,occurred_at) SELECT next_generation,published_generation,'publish','duplicate fixture',strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM library_meta; UPDATE library_meta SET published_generation=next_generation,next_generation=next_generation+1; INSERT INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) SELECT revision_chunk_id,embedding_id,(SELECT published_generation FROM library_meta) FROM revision_chunk_embeddings WHERE visible_to_generation IS NULL ORDER BY revision_chunk_id LIMIT 1; COMMIT;" "")
 execute_process(COMMAND ${cli} --access diagnose library verify
     RESULT_VARIABLE verify_status OUTPUT_VARIABLE verify_output ERROR_VARIABLE verify_errors TIMEOUT 30)
-if(verify_status EQUAL 0 OR NOT verify_output MATCHES "embedding-membership-duplicates")
+if(verify_status EQUAL 0 OR NOT verify_output MATCHES "\"exit_name\":\"integrity\"")
     message(FATAL_ERROR "Verifier did not detect duplicate memberships: ${verify_output}${verify_errors}")
+endif()
+# The verifier exposes issue counts; the report exposes storage issue names.
+# Check the specific duplicate diagnostic through that public surface.
+run_cli(--access read library report --narrative off)
+if(NOT last_output MATCHES "embedding-membership-duplicates")
+    message(FATAL_ERROR "Storage report omitted duplicate-membership diagnosis: ${last_output}")
 endif()
 run_cli(--access control vector rebuild --reconcile)
 sql("SELECT count(*) FROM revision_chunk_embeddings;" "33")

@@ -248,6 +248,16 @@ identity under the existing evidence-fingerprint rules.
 The flag does not automatically launch Codex or select a more capable model;
 an operator or external agent discovers the queue and chooses the resolver.
 
+Terminal extraction-content failures also create an advanced-reasoning chunk
+review task. Its question names the original job and item. Page
+`rag_job_events` for that job to read the retained provider response, the one
+correction request and the final validation failure; filter those events by
+the named item. The `extraction-review-required` event links back to the task.
+Read its source packet through the usual evidence tools, treating rejected
+answers as untrusted data. A later ordinary maintenance census preserves this
+handoff while the same evidence remains unresolved. No stronger provider is
+started automatically.
+
 `rag_task_list` discovers all durable tasks without needing a run ID. Filter
 by capability, state or workflow and follow its `next_cursor`. Inspect a task
 with `rag_maintain_inspect` to obtain the subject, catalogue, response schema

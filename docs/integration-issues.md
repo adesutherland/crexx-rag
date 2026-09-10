@@ -15,6 +15,21 @@ which is supported and covered by regression tests. Moving work into attached
 tasks would be a separate architecture and recovery-policy decision; native
 SQLite handles would remain VM-local and must never be transferred.
 
+## Local process liveness and permission boundary
+
+The installed `ADDRESS CREXX ps PID` reports a POSIX `kill(pid,0)` failure as
+not found, including permission denial. It does not expose the distinction
+between `ESRCH` and `EPERM`, or an operating-system process birth identity.
+This was confirmed while testing restart ownership on 10 September against
+the installed `5ccf057a1633` route. Native changes belong in CREXX.
+
+RAG's automatic restart/prune qualification covers its local workers launched
+under the same operating-system account. Tests retain a live process owned by
+that account and retain remote ownership despite old heartbeats. Running a
+shared library's workers across OS accounts is not qualified for automatic
+pruning. A positive PID check is conservative, including a reused live PID;
+the stored process-start token is a RAG identity, not an OS birth token.
+
 ## SQLite heartbeat contention and diagnostic ownership
 
 The 2026-09-09 eight-worker smoke completed ingestion, then maintenance lost one

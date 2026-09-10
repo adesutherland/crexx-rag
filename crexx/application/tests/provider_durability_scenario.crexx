@@ -8,6 +8,7 @@ import rxsqlite
 import ragstore
 import ragwork
 import ragcommand
+import rxjson
 
 check: procedure = .int
   arg condition = .boolean, label = .string
@@ -47,6 +48,11 @@ main: procedure = .int
   errors = errors + check(updateexternalrunturn(store, provider_run, "thread-p3r-03", "turn-p3r-03", error) = 0, "persist external turn " || error)
   content = '{"mentions":[],"relationships":[],"notes":[]}'
   errors = errors + check(completeexternalrun(store, provider_run, "thread-p3r-03", "turn-p3r-03", "request-p3r-03", content, 32, 16, error) = 0, "persist completed output " || error)
+  /* Match the application's completed-response checkpoint. The earlier
+   * boundary, with only raw external output, requires public reconciliation
+   * and is exercised separately by worker_recovery. */
+  receipt = '{"schema":"crexx-rag.provider-receipt/1","status":0,"provider_run_id":' || jsonquote(provider_run) || ',"content":' || jsonquote(content) || '}'
+  errors = errors + check(recordproviderresponse(store,first,receipt,error) = 0,"persist completed receipt " || error)
   call rxplatform..sleep 1200
 
   second = .ragworkclaim
@@ -65,7 +71,10 @@ main: procedure = .int
   admission_first = ""; admission_wait = 0
   errors = errors + check(admitprovidercall(store, first, "gemini", "rate-model", 10, 10, 1000, 1, 250, admission_first, admission_wait, error) = 0, "first global provider admission " || error)
   admission_second = ""; blocked_wait = 0; error = ""
-  errors = errors + check(admitprovidercall(store, second, "gemini", "rate-model", 10, 10, 1000, 1, 100, admission_second, blocked_wait, error) = 1 & admission_second = "" & blocked_wait < 50, "concurrent provider admission is blocked before a call")
+  /* A deferred admission returns the retry delay for parking the item.
+   * It does not report elapsed blocking time or create another admission. */
+  errors = errors + check(admitprovidercall(store, second, "gemini", "rate-model", 10, 10, 1000, 1, 100, admission_second, blocked_wait, error) = 1 & admission_second = "" & blocked_wait = 1000, "concurrent provider admission is deferred with a retry delay " || error)
+  errors = errors + check(scalarint(database, "SELECT count(*) FROM provider_admissions WHERE provider_id='gemini' AND model='rate-model'") = 1, "deferred provider call creates no admission")
   error = ""
   errors = errors + check(releaseprovidercall(store, admission_first, 7, "succeeded", error) = 0, "release first global provider admission " || error)
   errors = errors + check(releaseprovidercall(store,admission_first,7,"succeeded",error) = 0,"identical admission release is idempotent " || error)

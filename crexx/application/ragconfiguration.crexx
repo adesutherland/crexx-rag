@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragconfiguration expose ragconfigidentity ragconfigdiff identifyconfig inspectconfigchange createreconfigureplan applyreconfigureplan currentconfigsnapshotid
+namespace ragconfiguration expose ragconfigidentity ragconfigdiff identifyconfig inspectconfigchange createreconfigureplan applyreconfigureplan currentconfigsnapshotid worksnapshotmatches checkworkerconfiguration
 
 import rxfnsb
 import rxjson
@@ -10,6 +10,42 @@ import ragconfig
 import ragprofile
 import ragcanonical
 import ragstore
+
+worksnapshotmatches: procedure = .int
+  arg store = .ragstorehandle, snapshot_id = .string, config = .ragconfig, profile = .ragprofile
+  identity = .ragconfigidentity(); error = ""
+  if identifyconfig(config,profile,identity,error) \= 0 then return 0
+  prepared = .binary; matches = 0
+  /* Preserve the immutable provider request; only worker count is operational. */
+  sql = "SELECT profile_hash=?2 AND (config_hash=?3 OR json_remove(effective_json,'$.config.workers.processes')=json_remove(?4,'$.config.workers.processes')) FROM config_snapshots WHERE config_snapshot_id=?1"
+  if sqliteprepare(store.database(),sql,prepared) \= 0 then return 0
+  binds = sqlitebindtext(prepared,1,snapshot_id) | sqlitebindtext(prepared,2,identity.profile_hash()) | sqlitebindtext(prepared,3,identity.config_hash()) | sqlitebindtext(prepared,4,identity.effective_json())
+  step = sqlitestep(prepared)
+  if binds \= 0 | step \= 100 then do; call sqlitefinalize prepared; return 0; end
+  columns = sqlitecolumnint(prepared,0,matches); call sqlitefinalize prepared
+  return columns = 0 & matches = 1
+
+checkworkerconfiguration: procedure = .int
+  arg store = .ragstorehandle, job_id = .string, config = .ragconfig, profile = .ragprofile, expose error = .string
+  error = ""; prepared = .binary
+  sql = "SELECT DISTINCT config_snapshot_id FROM jobs WHERE (?1='' AND state IN('queued','running')) OR job_id=?1"
+  if sqliteprepare(store.database(),sql,prepared) \= 0 | sqlitebindtext(prepared,1,job_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot inspect worker configuration snapshots"; return -1; end
+  found = 0
+  do forever
+    step = sqlitestep(prepared)
+    if step = 101 then leave
+    snapshot_id = ""
+    if step \= 100 | sqlitecolumntext(prepared,0,snapshot_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot read worker configuration snapshot"; return -1; end
+    found = found + 1
+    if worksnapshotmatches(store,snapshot_id,config,profile) \= 1 then do
+      call sqlitefinalize prepared
+      error = "worker configuration is incompatible with job snapshot " || snapshot_id || "; use the job's original configuration (worker count may differ); inspect with job status or config diff; use job replay only for explicitly reviewed new work"
+      return -2
+    end
+  end
+  call sqlitefinalize prepared
+  if job_id \= "" & found = 0 then do; error = "worker job does not exist"; return -2; end
+  return 0
 
 ragconfigidentity: class
   _snapshot_id = .string

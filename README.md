@@ -57,7 +57,7 @@ provenance assessment is a separate, explicit experiment. See the
 | Curation | Reviewed claim additions, synonyms, splits, merges, type corrections, connection changes, retirement and restoration |
 | Difficult tasks | Explicit or repeated content-failure escalation to an advanced-reasoning queue; paged evidence exploration, bounded evidence refresh and exact resolution plans |
 | Autonomous maintenance | Ranked worklists, configurable worker processes, bounded windows, durable leases, retries, review policy and auditable recovery |
-| Operations | Shared provider admission and budgets, configuration plan/apply, library verification, generation-pinned backup/restore, health reports and historical trends |
+| Operations | Shared admission and budgets, configuration checks before claims, supervised `job run`, digest-checked Codex outcome reconciliation, verification, generation-pinned backup/restore and historical trends |
 | Interfaces | One operation vocabulary through the human CLI, JSON/NDJSON, `ADDRESS RAG` and MCP |
 | Providers | Gemini, managed Codex App Server generation, and OpenAI-compatible routes including local llama.cpp embeddings |
 
@@ -80,9 +80,19 @@ submission requires `curate` access and creates a mandatory review; acceptance
 rechecks the evidence and uses the normal lifecycle engine.
 
 The advanced-reasoning flag is independent of task priority. Workers can assert
-it, and repeated resolution-content validation failures can set it. It hands
+it, repeated resolution-content validation failures can set it, and terminal
+extraction-content failures create source-backed review tasks with links to
+their rejected-output and correction history. Transport failures use job
+recovery. The flag hands
 work off for deeper investigation; it does not automatically launch a stronger
 model. Missing source evidence may remain unresolved after that investigation.
+
+An uncertain Codex provider call has a supported inspection and recovery path:
+`job reconcile JOB_ID --item ITEM_ID` observes its exact retained thread and
+turn. Applying the returned digest settles a confirmed terminal outcome once,
+without generating another answer. Completed output still passes the normal
+evidence validators. `job run JOB_ID` resumes eligible work using the existing
+configuration, budget and restart ceiling. See the [operator workflow](docs/user-guide.md#jobs).
 
 Codex **as an external corpus operator** is separate from Codex **as the
 configured extraction provider**. Each has its own session, permissions and

@@ -49,6 +49,34 @@ distinguishes failed preflight from an uncertain submitted turn and preserves
 successful output across admission-release failure. `ragwork` pauses uncertain
 outcomes for reconciliation instead of treating missing output as a paid retry.
 
+Codex intent is durable before turn submission. Public `job reconcile` binds
+the original attempt, input hash, snapshot, provider run, thread and turn to a
+fresh observation. Inspect reads App Server history without cancellation or
+resumption. Apply checks the digest again and atomically records the response,
+ordinary settlement receipt, observation and item disposition. The job remains
+paused. A completed response is untrusted input for the existing validation and
+publication path; confirmed interruption without a final answer allows a retry
+only within the original limits. Missing or ambiguous history remains held.
+Unknown usage is explicitly a lower bound; admission conservatively retains the
+unobserved part of the original token/time reservation. It never reports those
+estimates as measured provider usage.
+
+Account preflight, thread/turn submission and answer reads share the configured
+operation timeout, capped by the remaining worker lease with cleanup time.
+Unrelated notifications and partial lines cannot restart that deadline. Usage
+notifications are persisted through the ordinary SQLite writer retry helper.
+`job run` checks compatibility before claims, prunes only confirmed exited local
+ownership or terminal records, and uses the existing controller. Controller
+registration rejects overlapping controller groups atomically.
+
+Extraction correction reports up to 16 citation problems from the bounded
+response, including literal OCR labels and both relationship endpoints. There
+is still only one paid correction. Uncalled capacity/preflight deferrals do not
+consume it. Terminal content failures create ordinary chunk review tasks marked
+`advanced-reasoning`; their question and immutable job events retain the source
+job/item and rejected responses. Transport and storage failures do not create
+reasoning tasks. No schema or native-provider changes support these controls.
+
 CREXX owns the generic SQLite implementation, bundled SQLite build, dynamic
 provider, native archive, session isolation, and typed API. This repository
 imports `rxsqlite` and owns only the schema, repositories, orchestration, and

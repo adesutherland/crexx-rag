@@ -56,9 +56,50 @@ ragapplicationprovider: class implements .ragworkprovider
   health_error: method = .string
     return _health_error
 
+  reconcile: method = .int
+    arg job_id = .string, item_id = .string, apply = .int, expected_digest = .string, expose plan_json = .string, expose error = .string
+    error = ""; plan_json = ""
+    identity_json = readexternalidentity(_store,job_id,item_id)
+    if identity_json = "" then do; error = "no durable Codex run for this job and item"; return -1; end
+    identity = .jsondocument(identity_json); node = identity.root()
+    attempt = _jsonstring(identity,node,"attempt")
+    previous = readexternalobservation(_store,attempt)
+    if previous \= "" then do
+      plan_json = previous; previous_plan = .jsondocument(previous)
+      if apply = 1 & expected_digest \= _jsonstring(previous_plan,previous_plan.root(),"digest") then do; error = "reconciliation digest does not match the applied observation"; return -1; end
+      return 0
+    end
+    provider_config = _providerconfig(_config,_jsonstring(identity,node,"provider_id"))
+    if provider_config.kind() \= "codex" | provider_config.model() \= _jsonstring(identity,node,"model") | provider_config.charging_basis() \= _jsonstring(identity,node,"charging_basis") then do; error = "reconciliation requires the original Codex provider route"; return -1; end
+    if worksnapshotmatches(_store,_jsonstring(identity,node,"snapshot"),_config,_profile) \= 1 then do; error = "reconciliation requires the original configuration; use config diff to inspect the mismatch"; return -1; end
+    thread_id = _jsonstring(identity,node,"thread_id"); turn_id = _jsonstring(identity,node,"turn_id"); request_id = _jsonstring(identity,node,"request_id")
+    content = ""; state = "unavailable"; usage_complete = 0; detail = ""
+    if _jsonstring(identity,node,"outcome") = "completed-unsettled" then do
+      content = _jsonstring(identity,node,"content"); state = "completed"; usage_complete = _receiptint(identity,node,"usage_complete")
+    end
+    else if _ensurecodex(error) \= 0 then return -1
+    else if _codex_backend.inspect_turn(thread_id,turn_id,provider_config.timeout_ms(),state,content,detail) \= 0 then state = "unavailable"
+    if state = "completed" & content = "" then state = "completed-without-output"
+    if (state = "interrupted" | state = "failed") & content \= "" then state = "terminal-with-output"
+    input_tokens = _receiptint(identity,node,"input"); output_tokens = _receiptint(identity,node,"output")
+    output = .providerresult()
+    usage = .providerusage(input_tokens,output_tokens,1,-1,1,0)
+    if state = "completed" then call output.set_generation("codex",provider_config.model(),request_id,content,"reconciled",usage,0)
+    else call output.set_failure("codex",provider_config.model(),request_id,.providererror("reconciliation",-105,0,1,1,"observed Codex turn state: " || state),usage,0)
+    receipt = _receiptjson(output,provider_config,request_id,_jsonstring(identity,node,"provider_run_id"))
+    /* Completion may already have persisted the exact receipt before a crash.
+     * Its original finish/usage fields are immutable and part of the digest. */
+    if state = "completed" & _jsonstring(identity,node,"outcome") = "completed-unsettled" & _jsonstring(identity,node,"receipt") \= "" then receipt = _jsonstring(identity,node,"receipt")
+    digest = rxhash..sha256hex((identity_json || "00"x || state || "00"x || usage_complete || "00"x || receipt) as .binary)
+    plan_json = '{"schema":"crexx-rag.external-observation/1","job_id":' || jsonquote(job_id) || ',"item_id":' || jsonquote(item_id) || ',"attempt_id":' || jsonquote(attempt) || ',"provider_run_id":' || jsonquote(_jsonstring(identity,node,"provider_run_id")) || ',"thread_id":' || jsonquote(thread_id) || ',"turn_id":' || jsonquote(turn_id) || ',"state":' || jsonquote(state) || ',"content_sha256":' || jsonquote(rxhash..sha256hex(content as .binary)) || ',"known_input_tokens":' || input_tokens || ',"known_output_tokens":' || output_tokens || ',"usage_complete":' || usage_complete || ',"usage_basis":' || jsonquote("retained usage; incomplete values are lower bounds") || ',"provider_calls":0,"detail":' || jsonquote(detail) || ',"digest":' || jsonquote(digest) || '}'
+    if apply = 0 then return 0
+    if expected_digest \= digest then do; error = "reconciliation observation changed or digest is missing; inspect and apply the new digest"; return -1; end
+    return applyexternalobservation(_store,identity_json,plan_json,receipt,provider_config.max_attempts(),error)
+
   process: method = .ragworkproviderresult
     arg claim = .ragworkclaim
     result = _process(claim)
+    if _codex_ready = 1 then call _codex_backend.end_operation()
     selected_provider = _providerconfig(_config,result.provider_id())
     if selected_provider.provider_id() = result.provider_id() then call result.set_attempt_limit(selected_provider.max_attempts())
     if result.worker_failure() \= "" then _health_error = result.worker_failure()
@@ -68,7 +109,7 @@ ragapplicationprovider: class implements .ragworkprovider
   _process: method = .ragworkproviderresult
     arg claim = .ragworkclaim
     empty_proposal = .ragextractionproposal
-    if _snapshotmatches(_store, claim.config_snapshot_id(), _config, _profile) \= 1 then return _failedwork("configuration", "snapshot-mismatch", claim, empty_proposal, "worker configuration does not match the durable job snapshot", 0)
+    if worksnapshotmatches(_store, claim.config_snapshot_id(), _config, _profile) \= 1 then return _failedwork("configuration", "snapshot-mismatch", claim, empty_proposal, "worker configuration does not match the durable job snapshot", 0)
     input_json = _iteminput(_store.database(), claim.item_id())
     if input_json = "" | rxhash..sha256hex(input_json as .binary) \= claim.input_hash() then return _failedwork("configuration", "input-mismatch", claim, empty_proposal, "durable work input is missing or does not match its digest", 0)
     document = .jsondocument(input_json)
@@ -194,6 +235,8 @@ ragapplicationprovider: class implements .ragworkprovider
     end
     else if provider_config.kind() = "codex" then do
       provider_charging_basis = "local-compute"
+      now_epoch = _databaseepoch(_store.database())
+      call _codex_backend.begin_operation(min(provider_config.timeout_ms(),max(1,(claim.lease_until()-now_epoch-5)*1000)))
       recovery = .ragexternalrecovery; codex_error = ""; active_request = request
       if recoverexternalrun(_store, claim.item_id(), provider_config.provider_id(), provider_config.model(), recovery, codex_error) \= 0 then provider_output = _codexfailure(request, codex_error, 0, "durability")
       else if recovery.found() = 1 then do
@@ -206,8 +249,7 @@ ragapplicationprovider: class implements .ragworkprovider
           call _codex_backend.delete_thread(recovery.thread_id(), provider_config.timeout_ms())
         end
         else if recovery.turn_id() = "" then do
-          call _codex_backend.abandon_thread(recovery.thread_id(), recovery.turn_id(), provider_config.timeout_ms())
-          provider_output = _codexfailure(active_request, "persisted Codex thread had no started turn and requires a fenced retry", 1, "interrupted")
+          provider_output = _codexfailure(active_request, "persisted Codex thread has no confirmed turn identity; inspect before retry", 0, "reconciliation")
         end
         else do
           provider_output = _codex_backend.recover_structured(active_request, recovery.thread_id(), recovery.turn_id(), recovery.input_tokens(), recovery.output_tokens())
@@ -232,26 +274,28 @@ ragapplicationprovider: class implements .ragworkprovider
           end
           else do
             provider_charging_basis = provider_config.charging_basis()
+            call _codex_backend.observe(.ragcodexusageobserver(_store,durable_run_id))
             if _codex_backend.start_structured_turn(request, thread_id, turn_id, codex_error) \= 0 then do
-              call _codex_backend.abandon_thread(thread_id, turn_id, provider_config.timeout_ms())
               provider_output = _codexfailure(request, "Codex turn start failed: " || codex_error, 1, "transport")
             end
             else if updateexternalrunturn(_store, durable_run_id, thread_id, turn_id, codex_error) \= 0 then do
-              call _codex_backend.abandon_thread(thread_id, turn_id, provider_config.timeout_ms())
               provider_output = _codexfailure(request, "Codex turn durability failed: " || codex_error, 0, "durability")
             end
             else do
               call _tracer.emit("codex", "running", claim.item_id(), "contained structured extraction started")
               provider_output = _codex_backend.wait_structured(request, thread_id, turn_id)
-              if provider_output.status() \= 0 then call _codex_backend.abandon_thread(thread_id, turn_id, provider_config.timeout_ms())
-              else do
+              if provider_output.status() = 0 then do
                 usage = provider_output.usage()
                 if completeexternalrun(_store, durable_run_id, thread_id, turn_id, request_id, provider_output.content(), usage.input_tokens(), usage.output_tokens(), codex_error) \= 0 then provider_output = _codexfailure(request, "Codex output durability failed: " || codex_error, 0, "durability")
                 else do
+                  receipt_body = _receiptjson(provider_output,provider_config,request_id,durable_run_id)
+                  if recordproviderresponse(_store,claim,receipt_body,codex_error) \= 0 then return _failedoutput(provider_config,request_id,claim,empty_proposal,provider_output,codex_error,durable_run_id)
                   call _tracer.emit("codex", "persisted", claim.item_id(), "validated output and usage committed")
                   after_account = ""; after_plan = ""; allowance_after = -1; allowance_error = ""
-                  if _codex_backend.account_status(provider_config.timeout_ms(), after_account, after_plan, allowance_after, allowance_error) = 0 & allowance_after >= 0 then ignored = updateexternalrunallowance(_store, durable_run_id, allowance_after, allowance_error)
-                  call _codex_backend.delete_thread(thread_id, provider_config.timeout_ms())
+                  /* Optional account refresh and history cleanup share the
+                   * remaining operation time; they cannot extend the lease. */
+                  if _codex_backend.account_status(2000, after_account, after_plan, allowance_after, allowance_error) = 0 & allowance_after >= 0 then ignored = updateexternalrunallowance(_store, durable_run_id, allowance_after, allowance_error)
+                  call _codex_backend.delete_thread(thread_id,2000)
                 end
               end
             end
@@ -283,7 +327,11 @@ ragapplicationprovider: class implements .ragworkprovider
     if provider_output.status() \= 0 then do
       failed_result = _providerfailure(provider_config,request_id,claim,empty_proposal,provider_output,durable_run_id,provider_charging_basis)
       if provider_config.kind() = "codex" then do
-        if durable_run_id = "" then failed_result = _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,provider_output.error().message(),provider_output.error().retryable(),"",provider_charging_basis,provider_config.initial_backoff_ms())
+        if durable_run_id = "" then do
+          failed_result = _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,provider_output.error().message(),provider_output.error().retryable(),"",provider_charging_basis,provider_config.initial_backoff_ms())
+          if provider_output.error().retryable() = 1 then call failed_result.set_admission_deferred()
+        end
+        if durable_run_id \= "" then call failed_result.set_worker_failure("Codex outcome requires job reconcile before retry",1)
         if _codex_backend.health_error() \= "" then call failed_result.set_worker_failure(_codex_backend.health_error(),durable_run_id \= "")
       end
       return failed_result
@@ -302,31 +350,31 @@ ragapplicationprovider: class implements .ragworkprovider
       return result
     end
     response = .jsondocument(provider_output.content())
-    if response.valid() \= 1 | response.node_type(response.root()) \= "object" then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider claim proposal is not an object", durable_run_id)
+    if response.valid() \= 1 | response.node_type(response.root()) \= "object" then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider claim proposal is not an object", durable_run_id, 1)
     response_root = response.root()
     mentions_node = response.member(response_root, "mentions"); relationships_node = response.member(response_root, "relationships"); notes_node = response.member(response_root, "notes")
-    if response.node_count(response_root) \= 3 | response.node_type(mentions_node) \= "array" | response.node_type(relationships_node) \= "array" | response.node_type(notes_node) \= "array" | response.node_count(mentions_node) > discovery.max_mentions() | response.node_count(relationships_node) > discovery.max_relationships() | response.node_count(notes_node) > discovery.max_notes() then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider discovery arrays violate the reviewed bounds", durable_run_id)
+    if response.node_count(response_root) \= 3 | response.node_type(mentions_node) \= "array" | response.node_type(relationships_node) \= "array" | response.node_type(notes_node) \= "array" | response.node_count(mentions_node) > discovery.max_mentions() | response.node_count(relationships_node) > discovery.max_relationships() | response.node_count(notes_node) > discovery.max_notes() then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider discovery arrays violate the reviewed bounds", durable_run_id, 1)
     revision_chunk_id = _jsonstring(document, root, "revision_chunk_id"); body = _jsonstring(document, root, "text"); prompt_version = _jsonstring(document, root, "prompt_version"); profile_id = _jsonstring(document, root, "profile_id"); source_scope = _jsonstring(document, root, "source_scope"); discovery_context = _jsonstring(document, root, "discovery_context")
     body_binary = body as .binary; body_bytes = binlength(body_binary); work_mentions = .ragworkmention[]
     grounding = .raggrounding(body); mention_labels = .string[]; mention_count = response.node_count(mentions_node)
     do i = 1 to response.node_count(mentions_node)
       node = response.element(mentions_node, i); label = ""; canonical_label = ""; concept_type = ""; span_start = -1; span_end = -1; quotation = ""
       aliases_node = response.member(node, "aliases")
-      if response.node_type(node) \= "object" | response.node_count(node) \= 5 | response.node_string(response.member(node, "label"), label) \= 0 | response.node_string(response.member(node, "canonical_label"), canonical_label) \= 0 | response.node_string(response.member(node, "concept_type"), concept_type) \= 0 | response.node_string(response.member(node, "evidence_quote"), quotation) \= 0 | response.node_type(aliases_node) \= "array" | response.node_count(aliases_node) > 16 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider mention shape is invalid", durable_run_id)
-      if label = "" | canonical_label = "" | length(label) > 512 | length(canonical_label) > 512 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider mention label is invalid", durable_run_id)
-      if _permittedtype(_profile, concept_type) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider mention concept type is not in the selected profile", durable_run_id)
+      if response.node_type(node) \= "object" | response.node_count(node) \= 5 | response.node_string(response.member(node, "label"), label) \= 0 | response.node_string(response.member(node, "canonical_label"), canonical_label) \= 0 | response.node_string(response.member(node, "concept_type"), concept_type) \= 0 | response.node_string(response.member(node, "evidence_quote"), quotation) \= 0 | response.node_type(aliases_node) \= "array" | response.node_count(aliases_node) > 16 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider mention shape is invalid", durable_run_id, 1)
+      if label = "" | canonical_label = "" | length(label) > 512 | length(canonical_label) > 512 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider mention label is invalid", durable_run_id, 1)
+      if _permittedtype(_profile, concept_type) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider mention concept type is not in the selected profile", durable_run_id, 1)
       quote_start = -1; quote_end = -1
-      if grounding.find(quotation, quote_start, quote_end) \= 1 then return _citationoutput(provider_config,request_id,claim,empty_proposal,provider_output,"provider mention evidence quotation is not in the chunk",durable_run_id,"mentions[" || (i-1) || "].evidence_quote",quotation,"")
-      if grounding.find(label, span_start, span_end, quote_start, quote_end) \= 1 then return _citationoutput(provider_config,request_id,claim,empty_proposal,provider_output,"provider mention label is not in its evidence quotation",durable_run_id,"mentions[" || (i-1) || "].evidence_quote",quotation,"Required literal label: " || jsonquote(label))
+      if grounding.find(quotation, quote_start, quote_end) \= 1 then return _citationoutput(provider_config,request_id,claim,empty_proposal,provider_output,"provider mention evidence quotation is not in the chunk",durable_run_id,"mentions[" || (i-1) || "].evidence_quote",quotation,"",body)
+      if grounding.find(label, span_start, span_end, quote_start, quote_end) \= 1 then return _citationoutput(provider_config,request_id,claim,empty_proposal,provider_output,"provider mention label is not in its evidence quotation",durable_run_id,"mentions[" || (i-1) || "].evidence_quote",quotation,"Required literal label: " || jsonquote(label),body)
       mention_labels[i] = label
       aliases = .string[]; aliases[1] = canonical_label
       do a = 1 to response.node_count(aliases_node)
         alias = ""
-        if response.node_string(response.element(aliases_node, a), alias) \= 0 | alias = "" | length(alias) > 512 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider alias is invalid", durable_run_id)
+        if response.node_string(response.element(aliases_node, a), alias) \= 0 | alias = "" | length(alias) > 512 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider alias is invalid", durable_run_id, 1)
         if _containslower(aliases, alias) = 0 then aliases[aliases.0 + 1] = alias
       end
       glossary_error = ""
-      if validateglossarymention(discovery_context, label, canonical_label, concept_type, aliases, glossary_error) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, glossary_error, durable_run_id)
+      if validateglossarymention(discovery_context, label, canonical_label, concept_type, aliases, glossary_error) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, glossary_error, durable_run_id, 1)
       resolved_label = canonical_label; resolved_id = ""; resolution_error = ""
       candidate_id = _mentioncandidate(revision_chunk_id, span_start, span_end, canonical_label, concept_type)
       known = resolveknownmention(_store.database(),candidate_id,resolved_label,concept_type,resolved_id,resolution_error)
@@ -334,7 +382,7 @@ ragapplicationprovider: class implements .ragworkprovider
       if known < 0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, resolution_error, durable_run_id)
       if resolved_id \= "" then do
         canonical_label = resolved_label
-        if validateglossarymention(discovery_context, label, canonical_label, concept_type, aliases, glossary_error) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, glossary_error, durable_run_id)
+        if validateglossarymention(discovery_context, label, canonical_label, concept_type, aliases, glossary_error) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, glossary_error, durable_run_id, 1)
       end
       work_mentions[i] = .ragworkmention(candidate_id, canonical_label, concept_type, span_start, span_end, aliases, resolved_id)
     end
@@ -343,13 +391,13 @@ ragapplicationprovider: class implements .ragworkprovider
     work_proposals = .ragworkproposal[]
     do i = 1 to response.node_count(relationships_node)
       node = response.element(relationships_node, i); source_index = -1; target_index = -1; relationship = ""; span_start = -1; span_end = -1; confidence = -1; quotation = ""
-      if response.node_type(node) \= "object" | response.node_count(node) \= relationship_fields | response.node_int(response.member(node, "source_mention"), source_index) \= 0 | response.node_string(response.member(node, "relationship_type"), relationship) \= 0 | response.node_int(response.member(node, "target_mention"), target_index) \= 0 | response.node_string(response.member(node, "evidence_quote"), quotation) \= 0 | response.node_int(response.member(node, "confidence_millionths"), confidence) \= 0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship shape is invalid", durable_run_id)
-      if source_index < 0 | target_index < 0 | source_index = target_index | source_index >= mention_count | target_index >= mention_count then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship endpoints are invalid", durable_run_id)
-      if _permittedrelationship(_profile, relationship) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship type is not in the selected profile", durable_run_id)
+      if response.node_type(node) \= "object" | response.node_count(node) \= relationship_fields | response.node_int(response.member(node, "source_mention"), source_index) \= 0 | response.node_string(response.member(node, "relationship_type"), relationship) \= 0 | response.node_int(response.member(node, "target_mention"), target_index) \= 0 | response.node_string(response.member(node, "evidence_quote"), quotation) \= 0 | response.node_int(response.member(node, "confidence_millionths"), confidence) \= 0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship shape is invalid", durable_run_id, 1)
+      if source_index < 0 | target_index < 0 | source_index = target_index | source_index >= mention_count | target_index >= mention_count then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship endpoints are invalid", durable_run_id, 1)
+      if _permittedrelationship(_profile, relationship) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship type is not in the selected profile", durable_run_id, 1)
       if confidence < 0 | confidence > 1000000 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider relationship confidence is invalid", durable_run_id)
-      if grounding.find(quotation, span_start, span_end) \= 1 then return _citationoutput(provider_config,request_id,claim,empty_proposal,provider_output,"provider relationship evidence quotation is not in the chunk",durable_run_id,"relationships[" || (i-1) || "].evidence_quote",quotation,"")
+      if grounding.find(quotation, span_start, span_end) \= 1 then return _citationoutput(provider_config,request_id,claim,empty_proposal,provider_output,"provider relationship evidence quotation is not in the chunk",durable_run_id,"relationships[" || (i-1) || "].evidence_quote",quotation,"",body)
       source_start = -1; source_end = -1; target_start = -1; target_end = -1
-      if grounding.find(mention_labels[source_index + 1], source_start, source_end, span_start, span_end) \= 1 | grounding.find(mention_labels[target_index + 1], target_start, target_end, span_start, span_end) \= 1 then return _citationoutput(provider_config,request_id,claim,empty_proposal,provider_output,"provider relationship quotation does not contain both endpoints",durable_run_id,"relationships[" || (i-1) || "].evidence_quote",quotation,"Required literal labels: " || jsonquote(mention_labels[source_index + 1]) || " and " || jsonquote(mention_labels[target_index + 1]))
+      if grounding.find(mention_labels[source_index + 1], source_start, source_end, span_start, span_end) \= 1 | grounding.find(mention_labels[target_index + 1], target_start, target_end, span_start, span_end) \= 1 then return _citationoutput(provider_config,request_id,claim,empty_proposal,provider_output,"provider relationship quotation does not contain both endpoints",durable_run_id,"relationships[" || (i-1) || "].evidence_quote",quotation,"Required literal labels: " || jsonquote(mention_labels[source_index + 1]) || " and " || jsonquote(mention_labels[target_index + 1]),body)
       /* Anchor endpoints within this relationship's supporting quotation,
        * independent of an earlier occurrence selected for the mention. */
       original_source = work_mentions[source_index + 1]; original_target = work_mentions[target_index + 1]
@@ -375,7 +423,7 @@ ragapplicationprovider: class implements .ragworkprovider
     do i = 1 to response.node_count(notes_node)
       node = response.element(notes_node, i); kind = ""; note_text = ""; next_action = ""; importance = -1; uncertainty = -1; span_start = -1; span_end = -1; quotation = ""
       if response.node_type(node) \= "object" | response.node_count(node) \= 6 | response.node_string(response.member(node, "kind"), kind) \= 0 | response.node_string(response.member(node, "text"), note_text) \= 0 | response.node_int(response.member(node, "importance_millionths"), importance) \= 0 | response.node_int(response.member(node, "uncertainty_millionths"), uncertainty) \= 0 | response.node_string(response.member(node, "next_action"), next_action) \= 0 | response.node_string(response.member(node, "evidence_quote"), quotation) \= 0 | wordpos(kind, "observation insight hypothesis question gap conflict lead follow-up recommendation synonym split merge type-correction retire restore") = 0 | note_text = "" | length(note_text) > 4096 | length(next_action) > 16384 | importance < 0 | importance > 1000000 | uncertainty < 0 | uncertainty > 1000000 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider analysis note is invalid or ungrounded", durable_run_id)
-      if grounding.find(quotation, span_start, span_end) \= 1 then return _citationoutput(provider_config,request_id,claim,empty_proposal,provider_output,"provider analysis note quotation is not in the chunk",durable_run_id,"notes[" || (i-1) || "].evidence_quote",quotation,"")
+      if grounding.find(quotation, span_start, span_end) \= 1 then return _citationoutput(provider_config,request_id,claim,empty_proposal,provider_output,"provider analysis note quotation is not in the chunk",durable_run_id,"notes[" || (i-1) || "].evidence_quote",quotation,"",body)
       if wordpos(kind, "synonym split merge type-correction retire restore") > 0 & _validlifecycleaction(next_action, kind) \= 1 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider lifecycle note does not contain an exact executable maintenance action", durable_run_id)
       work_notes[work_notes.0 + 1] = .ragworknote(kind, note_text, importance, uncertainty, next_action, span_start, span_end)
     end
@@ -557,7 +605,7 @@ _selectedexcerpts: procedure = .string
   return result
 
 _citationoutput: procedure = .ragworkproviderresult
-  arg config = .ragproviderconfig, request_id = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, output = .providerresult, message = .string, provider_run_id = .string, field = .string, quotation = .string, detail = .string
+  arg config = .ragproviderconfig, request_id = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, output = .providerresult, message = .string, provider_run_id = .string, field = .string, quotation = .string, detail = .string, source_text = ""
   result = _failedoutput(config,request_id,claim,proposal,output,message,provider_run_id)
   credential = config.credential(); secret = ""
   if credential.empty() = 0 then secret = getenv(credential.name())
@@ -569,8 +617,53 @@ _citationoutput: procedure = .ragworkproviderresult
   end
   feedback = message || "; field=" || field || "; rejected quotation=" || jsonquote(left(quotation,min(length(quotation),512)))
   if detail \= "" then feedback = feedback || "; " || detail
+  if source_text \= "" then feedback = _citationfeedback(source_text,output.content())
+  if secret \= "" then do
+    feedback = changestr(secret,feedback,"[REDACTED]")
+    feedback = changestr(escaped,feedback,"[REDACTED]")
+  end
+  call result.set_content_failure(1)
   call result.set_citation_failure(feedback)
   return result
+
+/* Report every unsupported citation in the bounded response, rather than
+ * spending the single correction on the first failing field only. */
+_citationfeedback: procedure = .string
+  arg source_text = .string, content = .string
+  response = .jsondocument(content); root = response.root(); grounding = .raggrounding(source_text)
+  mentions = response.member(root,"mentions"); relationships = response.member(root,"relationships"); notes = response.member(root,"notes")
+  feedback = ""; failures = 0
+  do kind = 1 to 3
+    array = mentions; name = "mentions"
+    if kind = 2 then do; array = relationships; name = "relationships"; end
+    if kind = 3 then do; array = notes; name = "notes"; end
+    do index = 1 to response.node_count(array)
+      node = response.element(array,index); quote = _jsonstring(response,node,"evidence_quote"); reason = ""; required = ""; begin = -1; finish = -1
+      if grounding.find(quote,begin,finish) \= 1 then reason = "quote is not a contiguous source substring"
+      if kind = 1 then do
+        label = _jsonstring(response,node,"label"); first = -1; last = -1
+        required = "source-surface label=" || jsonquote(left(label,min(length(label),512)))
+        if begin >= 0 then if grounding.find(label,first,last,begin,finish) \= 1 then reason = "label is absent from its quote; preserve OCR and whitespace in label, use canonical_label for a normalized name"
+      end
+      if kind = 2 then do
+        source = -1; target = -1
+        ignored = response.node_int(response.member(node,"source_mention"),source)
+        ignored = response.node_int(response.member(node,"target_mention"),target)
+        if source >= 0 & target >= 0 & source < response.node_count(mentions) & target < response.node_count(mentions) then do
+          source_label = _jsonstring(response,response.element(mentions,source+1),"label"); target_label = _jsonstring(response,response.element(mentions,target+1),"label")
+          required = "literal endpoints=" || jsonquote(left(source_label,min(length(source_label),512))) || " and " || jsonquote(left(target_label,min(length(target_label),512)))
+          first = -1; last = -1
+          if begin >= 0 then if grounding.find(source_label,first,last,begin,finish) \= 1 | grounding.find(target_label,first,last,begin,finish) \= 1 then reason = "quote omits an endpoint; extend the contiguous source quote or remove this relationship"
+        end
+        else reason = "mention index is out of range; repair dependent indexes after removing a mention"
+      end
+      if reason \= "" then do
+        failures = failures+1
+        if failures <= 16 then feedback = feedback || "field=" || name || "[" || (index-1) || "].evidence_quote; " || reason || "; " || required || "; rejected=" || jsonquote(left(quote,min(length(quote),256))) || "0A"x
+      end
+    end
+  end
+  return "Detected citation problems=" || failures || ". Up to 16 are listed; recheck the whole response. " || "0A"x || feedback
 
 _failedoutput: procedure = .ragworkproviderresult
   arg config = .ragproviderconfig, request_id = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, output = .providerresult, message = .string, provider_run_id = "", content_failure = 0
@@ -598,26 +691,6 @@ _admissionfailure: procedure = .ragworkproviderresult
    * The worker stops after settlement/publication instead of paying to retry it. */
   call result.set_worker_failure("provider admission release failed: " || message,result.outcome_uncertain())
   return result
-
-_snapshotmatches: procedure = .int
-  arg store = .ragstorehandle, snapshot_id = .string, config = .ragconfig, profile = .ragprofile
-  prepared = .binary
-  sql = "SELECT config_hash,profile_hash FROM config_snapshots WHERE config_snapshot_id=?1"
-  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindtext(prepared, 1, snapshot_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return 0; end
-  config_hash = ""; profile_hash = ""; columns = sqlitecolumntext(prepared, 0, config_hash) | sqlitecolumntext(prepared, 1, profile_hash); call sqlitefinalize prepared
-  if columns \= 0 then return 0
-  identity = .ragconfigidentity(); identity_error = ""
-  if identifyconfig(config, profile, identity, identity_error) \= 0 then return 0
-  if profile_hash \= identity.profile_hash() then return 0
-  if config_hash = identity.config_hash() then return 1
-  /* Worker count is an operational control, not part of provider work. Keep
-   * every other snapshot field exact: semantic hashes alone omit prospective
-   * provider settings that must not change an already planned request. */
-  sql = "SELECT json_remove(effective_json,'$.config.workers.processes')=json_remove(?2,'$.config.workers.processes') FROM config_snapshots WHERE config_snapshot_id=?1"
-  matches = 0
-  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindtext(prepared, 1, snapshot_id) \= 0 | sqlitebindtext(prepared, 2, identity.effective_json()) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return 0; end
-  columns = sqlitecolumnint(prepared, 0, matches); call sqlitefinalize prepared
-  return columns = 0 & matches = 1
 
 _iteminput: procedure = .string
   arg database = .binary, item_id = .string
@@ -849,3 +922,36 @@ _enrichedschema: procedure = .string
     call sqlitefinalize prepared
   end
   return output
+
+_databaseepoch: procedure = .int
+  arg database = .binary
+  prepared = .binary; value = 0
+  if sqliteprepare(database,"SELECT unixepoch()",prepared) \= 0 then return 0
+  if sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return 0; end
+  status = sqlitecolumnint(prepared,0,value); call sqlitefinalize prepared
+  if status \= 0 then return 0
+  return value
+
+ragcodexusageobserver: class implements .codexrunobserver
+  _store = .ragstorehandle
+  _provider_run_id = .string
+  *: factory
+    arg store = .ragstorehandle, provider_run_id = .string
+    _store = store; _provider_run_id = provider_run_id
+    return
+  thread_started: method = .int
+    arg request_id = .string, thread_id = .string
+    return 0
+  turn_started: method = .int
+    arg request_id = .string, thread_id = .string, turn_id = .string
+    return 0
+  usage_updated: method = .int
+    arg request_id = .string, thread_id = .string, turn_id = .string, input_tokens = .int, output_tokens = .int
+    error = ""
+    return updateexternalrunusage(_store,_provider_run_id,thread_id,turn_id,input_tokens,output_tokens,error)
+  turn_completed: method = .int
+    arg request_id = .string, thread_id = .string, turn_id = .string, content = .string, input_tokens = .int, output_tokens = .int
+    return 0
+  allowance_updated: method = .int
+    arg request_id = .string, used_percent = .int
+    return 0

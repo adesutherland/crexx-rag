@@ -86,6 +86,7 @@ _toolcommand: procedure = .int
   else if tool = "rag_job_list" then do; noun = "job"; verb = "list"; end
   else if tool = "rag_job_events" then do; noun = "job"; verb = "events"; end
   else if tool = "rag_job_replay" then do; noun = "job"; verb = "replay"; end
+  else if tool = "rag_job_reconcile_inspect" | tool = "rag_job_reconcile_apply" then do; noun = "job"; verb = "reconcile"; end
   else if tool = "rag_config_check" then do; noun = "config"; verb = "check"; end
   else if tool = "rag_config_explain" then do; noun = "config"; verb = "explain"; end
   else if tool = "rag_config_diff" then do; noun = "config"; verb = "diff"; end
@@ -204,6 +205,14 @@ _toolcommand: procedure = .int
     call _option document, arguments, "item", "item", output
     call _option document, arguments, "reason", "reason", output
   end
+  if tool = "rag_job_reconcile_inspect" | tool = "rag_job_reconcile_apply" then do
+    if _positional(document,arguments,"id",output,error) \= 0 then return -1
+    call _option document,arguments,"item","item",output
+    if tool = "rag_job_reconcile_apply" then do
+      output[output.0+1] = "--apply"
+      call _option document,arguments,"expect_digest","expect-digest",output
+    end
+  end
   if tool = "rag_config_plan" then call _option document, arguments, "reason", "reason", output
   if tool = "rag_config_apply" then do
     call _option document, arguments, "plan_json", "plan-json", output
@@ -274,6 +283,8 @@ _value: procedure = .string
 
 _toolcapability: procedure = .string
   arg tool = .string
+  if tool = "rag_job_reconcile_inspect" then return "diagnose"
+  if tool = "rag_job_reconcile_apply" then return "control"
   if tool = "rag_task_escalate_plan" | tool = "rag_task_resolve_plan" then return "plan"
   if tool = "rag_task_refresh_apply" | tool = "rag_task_escalate_apply" | tool = "rag_task_resolve_apply" then return "curate"
   if tool = "rag_library_verify" | tool = "rag_provider_diagnostics" | tool = "rag_provider_test" then return "diagnose"
@@ -315,6 +326,7 @@ _toollist: procedure = .string
   tools = _addtool(tools, "rag_task_evidence", "Read a page of a task durable evidence packet with original source text, evidence_id and resolvable citations. Use these exact evidence IDs for a resolution; further query results are exploration until bound to a task", '{"id":{"type":"string"},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":50}}', "true")
   tools = _addtool(tools,"rag_task_evidence_inventory","Page source evidence IDs/citations, catalogue concepts or context fields without loading the full packet. scope=current explores present evidence even when a task packet exceeded its limit; scope=stored inspects its frozen packet. Page limits 1..50. Pass the returned generation as expect_generation to reject changes across pages",'{"id":{"type":"string"},"kind":{"type":"string","enum":["passages","catalogue","context"]},"scope":{"type":"string","enum":["current","stored"]},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":50},"expect_generation":{"type":"integer","minimum":0}}',"true")
   if _has(access, "diagnose") then do
+    tools = _addtool(tools,"rag_job_reconcile_inspect","Inspect the exact retained Codex thread and turn without generation, cancellation or library writes. Returns terminal state, known usage, completeness and a digest",'{"id":{"type":"string"},"item":{"type":"string"}}',"true","true","true")
     tools = _addtool(tools, "rag_library_verify", "Verify bundle and generation invariants", '{}', "true")
     tools = _addtool(tools, "rag_provider_diagnostics", "Read redacted provider route diagnostics; Codex allowance inspection may contact its hosted account service", '{}', "true", "true", "true")
     tools = _addtool(tools, "rag_provider_test", "Make a budgeted provider call using only public synthetic text and validate the returned structure or embedding", '{"provider":{"type":"string"}}', "true", "true", "false")
@@ -331,6 +343,7 @@ _toollist: procedure = .string
     tools = _addtool(tools, "rag_config_plan", "Freeze a digest-checked zero-write configuration transition plan", '{"reason":{"type":"string","maxLength":256}}', "true")
   end
   if _has(access, "control") then do
+    tools = _addtool(tools,"rag_job_reconcile_apply","Reobserve and atomically settle the exact digest-reviewed Codex outcome. Requires a paused, drained job. Preserves usage and attempts; completed output is queued for normal validation. Never starts generation",'{"id":{"type":"string"},"item":{"type":"string"},"expect_digest":{"type":"string"}}',"false","true","true")
     tools = _addtool(tools, "rag_vector_rebuild", "Rebuild stored vectors without provider calls. Optional reconcile closes duplicate active links and skips already covered queued embeddings; requires drained workers", '{"reconcile":{"type":"boolean"}}', "false", "false", "true")
     tools = _addtool(tools, "rag_library_snapshot", "Evaluate the deterministic churn matrix and capture only a materially distinct historic observation", '{"trigger":{"type":"string","enum":["manual","ingestion","maintenance","vector-publication","replay","reconciliation","migration","backup","scheduled"]},"reason":{"type":"string","maxLength":256}}', "false", "false", "false")
     tools = _addtool(tools, "rag_job_pause", "Pause one durable job", '{"id":{"type":"string"}}', "false")
@@ -366,6 +379,8 @@ _addtool: procedure = .string
   if name = "rag_task_escalate_plan" then required = '["id","reason"]'
   if name = "rag_task_resolve_plan" then required = '["id","response_json"]'
   if name = "rag_task_refresh_plan" then required = '["id","reason"]'
+  if name = "rag_job_reconcile_inspect" then required = '["id","item"]'
+  if name = "rag_job_reconcile_apply" then required = '["id","item","expect_digest"]'
   destructive = "true"
   if readonly = "true" then destructive = "false"
   if idempotent = "" then do; idempotent = "false"; if readonly = "true" then idempotent = "true"; end
@@ -408,6 +423,8 @@ _toolargumentsvalid: procedure = .int
 
 _toolargumentnames: procedure = .string
   arg tool = .string
+  if tool = "rag_job_reconcile_inspect" then return "id item"
+  if tool = "rag_job_reconcile_apply" then return "id item expect_digest"
   if tool = "rag_library_overview" then return "top"
   if tool = "rag_task_list" then return "cursor limit state capability workflow"
   if tool = "rag_task_evidence" then return "id cursor limit"
@@ -442,6 +459,8 @@ _toolargumentnames: procedure = .string
 
 _toolrequiredarguments: procedure = .string
   arg tool = .string
+  if tool = "rag_job_reconcile_inspect" then return "id item"
+  if tool = "rag_job_reconcile_apply" then return "id item expect_digest"
   if tool = "rag_task_evidence" then return "id"
   if tool = "rag_task_evidence_inventory" then return "id"
   if tool = "rag_task_refresh_plan" then return "id reason"

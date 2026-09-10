@@ -1,12 +1,13 @@
 options levelg
 
 import rxfs
+import rxfnsb
 import provider_contract
 import codex_provider
 
 main: procedure = .int
   arg args = .string[]
-  if args.0 < 2 | args.0 > 3 then do
+  if args.0 < 2 | args.0 > 4 then do
     say "usage: codex_provider_live_probe CODEX_EXECUTABLE EMPTY_WORK_DIR [ACCOUNT_CYCLES]"
     return 2
   end
@@ -16,6 +17,26 @@ main: procedure = .int
   end
   observer = .codexnoopobserver()
   provider = .codexprovider(args[1], args[2], observer)
+  if args.0 = 4 then do
+    messages = .providermessage[]; inputs = .string[]
+    messages[1] = .providermessage("user","Return an object whose ok field is true.")
+    schema = '{"type":"object","required":["ok"],"properties":{"ok":{"type":"boolean"}}}'
+    request = .providerrequest("generate_structured","probe","default",messages,inputs,schema,200,1,"public","deadline","deadline",32,0,0,0,1000,60000,250,"low")
+    error = ""; account_type = ""; plan_type = ""; used_percent = -1; status = 0
+    started = time("us"); call provider.begin_operation(200)
+    if args[4] \= "turn-noise" then status = provider.account_status(10000,account_type,plan_type,used_percent,error)
+    else do
+      thread_id = ""; turn_id = ""
+      status = provider.start_thread(request,thread_id,error)
+      if status = 0 then status = provider.start_structured_turn(request,thread_id,turn_id,error)
+      if status = 0 then do; result = provider.wait_structured(request,thread_id,turn_id); status = result.status(); end
+    end
+    elapsed = time("us")-started; if elapsed < 0 then elapsed = elapsed+86400000000
+    call provider.close()
+    if status = 0 | elapsed > 2000000 then do; say "FAIL: notifications extended the operation deadline: " || elapsed; return 1; end
+    say "PASS: noisy " || args[4] || " respected the shared deadline"
+    return 0
+  end
   account_type = ""; plan_type = ""; used_percent = -1; error = ""
   cycles = 1
   if args.0 = 3 then cycles = args[3] as .int

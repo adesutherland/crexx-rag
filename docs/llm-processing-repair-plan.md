@@ -1,11 +1,39 @@
 # LLM processing repair plan — 10 September 2026
 
-Proposal for agreement. Embeddings continue with eight workers; this plan
-does not resume extraction, change provider settings or implement LLM repairs.
+Items 1–3 were approved on 10 September and implemented in the isolated
+`temp/llm-recovery` worktree after committing baseline `17d7acb`. The user then
+stopped further offline testing and authorized the live LLM backlog until
+16:30 BST. Eight workers started at approximately 14:34 BST using the existing
+built artifact, after the four interrupted turns were inspected and reconciled
+through public commands with zero generation calls. Monitoring is active;
+publication of source changes must leave that running artifact unchanged.
 
-## Current evidence
+## Qualification at publication
 
-The paused ingestion job has 11,914 queued extraction chunks, 2,841 accepted,
+The latest complete suite ran all 32 tests in 414.38 seconds: 30 passed and
+two failed. The provider-durability failure was an incorrect test update in
+baseline `17d7acb`: the deferred admission's recommended retry delay was still
+compared with elapsed waiting time. The corrected test subsequently passed
+all four compiler/runtime combinations in 9.81 seconds, including a check
+that deferral creates no extra admission. No product change was required for
+that correction.
+
+One test remains unresolved: `native_interruption` reaches the public
+`job run` restart after killing a worker, then reports unavailable embedding
+coverage (`0/1 active chunks`) during vector finalization. Its later assertions
+and remaining scenarios were not reached. Full regression qualification is
+therefore incomplete; the user authorized the live run and source publication
+with further test execution stopped. Local run evidence is retained in
+`/tmp/crexx-rag-llm-full-2.log` and `/tmp/crexx-rag-llm-provider-final.log`.
+
+Running native artifact SHA-256:
+`fe154f4b0ef7d74044a1b328c92299b7b08ee7d6905d55072ad71ecf72ef4c39`.
+The controlled corpus-copy and fresh-agent trials proposed in item 4 remain
+separate from this ongoing live backlog run.
+
+## Evidence collected before repair
+
+The paused ingestion job had 11,914 queued extraction chunks, 2,841 accepted,
 838 skipped and 196 dead letters. These counts were reread from the live
 SQLite library on 10 September; they are unique items, not provider attempts.
 The 196 terminal items break down as follows:
@@ -176,7 +204,10 @@ correct escalation; embedding throughput is not its acceptance criterion.
 - [Operational recovery backlog](recovery-defects.md)
 - [Existing agent workflow](agent-integration.md)
 
-Recommended first repair is item 1, with the minimum restart changes from item
-2 needed to run it. Keep grounding improvements in a separate bounded change.
-No LLM code was changed and no extraction or maintenance generation was started
-while preparing this plan.
+The public recovery flow is documented under [Jobs](user-guide.md#jobs).
+Local protocol fixtures exercise outcome inspection and atomic reconciliation,
+completed-answer reuse, bounded worker replacement, configuration rejection
+before claims, citation correction and the advanced-reasoning handoff. The real extraction and
+fresh-agent acceptance trials in item 4 still require their separate bounded
+agreement; deterministic correction fixtures are not a claim of measured
+improvement in hosted model accuracy.

@@ -186,10 +186,15 @@ execute_process(COMMAND ${cli} --library "${library}"
     RESULT_VARIABLE recovery_result TIMEOUT 30)
 if(NOT recovery_result EQUAL 0 OR
    NOT recovery_out MATCHES "\"items_processed\":1" OR
-   NOT recovery_err MATCHES "crexxrag codex recovered" OR
    recovery_out MATCHES "SIGNAL OUT_OF_RANGE" OR
    recovery_err MATCHES "SIGNAL OUT_OF_RANGE")
     message(FATAL_ERROR "Codex application recovery failed:\n${recovery_out}${recovery_err}")
+endif()
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${library}/library.sqlite"
+    "SELECT count(*) FROM job_events WHERE event_type='provider-receipt-reused';"
+    OUTPUT_VARIABLE receipt_reuse OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT receipt_reuse STREQUAL "1")
+    message(FATAL_ERROR "Completed response was not durably reused exactly once: ${receipt_reuse}")
 endif()
 
 execute_process(COMMAND ${cli} --library "${library}"

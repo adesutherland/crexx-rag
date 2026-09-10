@@ -6,6 +6,15 @@ Status: open, high-priority backlog requirement raised by the user on
 2026-09-10. Address after the current embedding run; this entry does not claim
 that the operational workflow is hardened.
 
+The approved LLM repair now supplies an isolated implementation of `job run`,
+pre-claim configuration checks, conservative process pruning and digest-checked
+Codex `job reconcile` inspection/apply. Local recovery fixtures exercise these
+paths. The user subsequently authorized the live LLM backlog until 16:30 BST;
+that run is underway with eight workers on a fixed artifact. It does not yet
+close the whole requirement, and the earlier paid embedding response without
+a durable receipt still needs evidence-led closeout. See the current
+[qualification record](llm-processing-repair-plan.md#qualification-at-publication).
+
 Starting or resuming an approved workload must be a repeatable command using
 the already built, tested executable and ordinary configuration. It must not
 depend on agent-written Python, SQL edits, generated per-run repair programs,
@@ -91,6 +100,96 @@ Current priority: let the authorized embedding backlog run and address actual
 processing failures. Do not turn this requirement into another prelaunch
 redesign or delay. Subsequent repairs should be small, justified against the
 owning state transition, and remove the need for operational intervention.
+
+## RAG-OPS-002 — P1: operators must be able to mark any task for retry
+
+User requirement, confirmed 10 September: any task can be marked for retry;
+the framework must not disable that operator action because of a task state,
+parent-job state or closed maintenance window. The five failed embeddings below
+are the reproduced case, not the boundary of this requirement.
+
+The public operation must retain a durable retry request, reason and original
+history, deduplicate repeated requests, and arrange eligible work through the
+existing maintenance/job owner. Execution still accounts for existing calls,
+budgets, ownership and uncertain external outcomes; any waiting condition must
+be explicit and must not erase or reject the retry request. Cover every task
+state and both open and closed parent jobs in the operator-flow acceptance.
+Review the overly aggressive one-attempt transient-error default as part of
+this defect. The user considers three attempts reasonable; preserve an
+explicitly authorized ceiling such as the current six-call embedding limit.
+Quota waits and failures before a provider call must not be confused with
+permanent content failure or consume a reasoning correction.
+
+Status: open; confirmed by the 10 September final coverage check. The eight-worker
+window completed its admitted work with 34,900 of 34,905 active chunks covered.
+The five missing chunks belong to maintenance job
+`job-maintenance:cf5808df5d3703bf71ff2ec0881f5660e65b14741f6dcbbade1f34d6e5815fbf`.
+Each made one recorded provider call, failed with a quota/resource-exhausted
+response, and became a failed maintenance task under that window's one-attempt
+limit. These are separate from the later run's two held item records.
+
+`ragbacklog` retains the same task identity on a later census with unchanged
+evidence and knowledge policy. `INSERT OR IGNORE` leaves its failed state in
+place; dispatch selects pending tasks. Raising the later embedding allowance
+to six does not reconsider these earlier failures. Another ordinary maintenance
+window therefore does not automatically repair these five gaps.
+
+Provide a supported, reviewed reconsideration/requeue transition in the existing
+maintenance owner. It must distinguish confirmed transient failures from
+uncertain paid outcomes, preserve original attempts and usage, apply the
+current authorized cumulative ceiling and window budget, and expose ineligible
+tasks explicitly. Validate by carrying a one-attempt quota failure into a later
+authorized window, with repeated requeue as a no-op and no repeat call for an
+already covered chunk. No live data patch or extra generation was made while
+diagnosing this gap; it is separate from the approved LLM items 1–3.
+
+The user's requested command-surface test then tried `job retry` for all five
+items. Every call returned `job is not eligible for dead-letter retry`. A
+single-item `job replay` also returned `source job must be terminal with explicit
+dead letters`. Public `job status` reports the source as `completed` with five
+dead letters, whereas both recovery controls require `completed_with_errors`
+(retry also permits `queued`). Public task inspection still shows failed state,
+one attempt and no semantic failures. No retries, new jobs or provider calls
+were created. Correct the owning terminal-state projection and maintenance
+reconsideration together; merely bypassing the job-state guard would leave the
+closed window and failed task unresolved. Include explicit listing, bounded
+retry and reasoned close/waive semantics in the operator-flow review; waiving a
+missing embedding must not count it as covered.
+
+## RAG-OPS-003 — P1: routine status must be available through product commands
+
+Status: open; requested by the user on 10 September after live monitoring
+repeatedly required manually written SQL. Operators and Codex must be able to
+understand progress, diagnose failures and select recovery commands without
+knowing the database schema or writing SQL or per-run status scripts.
+
+Audit the monitoring queries against the existing `job status`, `job events`,
+`worker status`, `maintain tasks`/`maintain inspect` and `library report`
+surfaces first. Use existing commands wherever they already answer the
+question; extend their owning Level-G cREXX repositories and command results
+only for missing information. Expose equivalent structured results through
+JSON/NDJSON and MCP, without a separate reporting framework or source of truth.
+
+Required closure:
+
+1. Report consistent completed/total counts by operation and source, including
+   accepted, skipped, queued, running, deferred, review and terminal failures.
+   Distinguish unique corpus coverage, task completion and provider attempts;
+   every percentage must state its denominator and reconcile with its parts.
+2. Provide bounded, filterable failure and retry inspection with the affected
+   item, attempt, reason, attempt allowance, next retry time, uncertain outcome
+   and supported recovery action. Show why a job is waiting or stopped.
+3. Report configured versus live workers, controller ownership, heartbeat
+   freshness, failed/replaced workers and remaining restart allowance.
+4. Support a run or time interval for accepted-item throughput, provider-call
+   outcomes, correction success, known usage and explicitly incomplete usage.
+   Include observation time and enough context for a meaningful finish estimate.
+5. Have a fresh operator or agent reproduce the live-run status and recovery
+   diagnosis using documented commands alone. Keep reads bounded and efficient
+   while workers are active; routine monitoring must not require raw SQL.
+
+This is a backlog requirement, not a claim that these command extensions have
+been implemented. It complements RAG-OPS-001 recovery and RAG-OPS-002 retry.
 
 ## Earlier recovery record
 
