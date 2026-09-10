@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragembedding expose ragembeddingresult ragvectorgenerationresult registerembeddingprofile embedmissing buildannvectorgeneration
+namespace ragembedding expose ragembeddingresult ragvectorgenerationresult registerembeddingprofile embedmissing buildannvectorgeneration reconcileembeddings embeddingwriters
 
 import rxfnsb
 import rxfnsg
@@ -13,6 +13,37 @@ import provider_contract
 import ragstore
 import ragbackup
 import ragfile
+
+embeddingwriters: procedure = .int
+  arg database = .binary
+  return _scalarint(database,"SELECT (SELECT count(*) FROM jobs WHERE state IN('queued','running','cancel_requested') OR reserved_calls>0)+(SELECT count(*) FROM job_items WHERE state IN('running','cancel_requested'))+(SELECT count(*) FROM runtime_instances WHERE state IN('starting','running','idle','draining') AND heartbeat_at>unixepoch()-300)")
+
+/* Explicit, provider-free repair. Retain every old visibility interval and
+ * provider receipt. A safely paused mixed job stays paused. */
+reconcileembeddings: procedure = .int
+  arg store = .ragstorehandle, profile_id = .string, snapshot_id = .string, expose duplicates = .int, expose reconciled = .int, expose error = .string
+  error = ""; duplicates = 0; reconciled = 0; database = store.database()
+  if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do; error = "cannot lock embedding reconciliation"; return -1; end
+  if embeddingwriters(database) \= 0 then return _rollback(database,"embedding reconciliation requires drained workers and paused or settled jobs",error)
+  duplicate_rows = "visible_to_generation IS NULL AND embedding_id IN(SELECT embedding_id FROM embeddings WHERE embedding_profile_id=" || _q(profile_id) || ") AND visible_from_generation>(SELECT min(l.visible_from_generation) FROM revision_chunk_embeddings l WHERE l.revision_chunk_id=revision_chunk_embeddings.revision_chunk_id AND l.embedding_id=revision_chunk_embeddings.embedding_id AND l.visible_to_generation IS NULL)"
+  duplicates = _scalarint(database,"SELECT count(*) FROM revision_chunk_embeddings WHERE " || duplicate_rows)
+  generation = 0
+  if duplicates > 0 then do
+    current = _scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+    if stagegeneration(store,current,snapshot_id,"reconcile duplicate embedding memberships",generation,error) \= 0 then return -1
+    if sqliteexec(database,"UPDATE revision_chunk_embeddings SET visible_to_generation=" || generation || " WHERE " || duplicate_rows) \= 0 then return _rollback(database,"cannot close duplicate embedding intervals",error)
+  end
+  selected = "item_type='embedding' AND json_valid(input_json) AND state IN('queued','dead_letter') AND job_id IN(SELECT job_id FROM jobs WHERE state IN('paused','completed','completed_with_errors')) AND item_id NOT IN(SELECT e.item_id FROM job_events e WHERE e.item_id IS NOT NULL AND e.event_type='provider-intent' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')) AND EXISTS(SELECT 1 FROM revision_chunk_embeddings l JOIN embeddings e ON e.embedding_id=l.embedding_id JOIN embedding_profiles p ON p.embedding_profile_id=e.embedding_profile_id JOIN revision_chunks c ON c.revision_chunk_id=l.revision_chunk_id WHERE c.revision_chunk_id=json_extract(job_items.input_json,'$.revision_chunk_id') AND c.visible_to_generation IS NULL AND l.visible_to_generation IS NULL AND e.embedding_profile_id=" || _q(profile_id) || " AND p.provider_id=json_extract(job_items.input_json,'$.provider_id') AND p.model=json_extract(job_items.input_json,'$.model') AND p.dimension=json_extract(job_items.input_json,'$.embedding_dimension'))"
+  reconciled = _scalarint(database,"SELECT count(*) FROM job_items WHERE " || selected)
+  if duplicates < 0 | reconciled < 0 then return _rollback(database,"cannot inspect embedding reconciliation",error)
+  if sqliteexec(database,"INSERT INTO job_events(job_id,item_id,event_type,message,occurred_at) SELECT job_id,item_id,'embedding-reconciled',json_object('embedding_profile_id'," || _q(profile_id) || ",'reason','current SQLite embedding already satisfies immutable queued work','provider_calls',0),strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM job_items WHERE " || selected) \= 0 then return _rollback(database,"cannot audit embedding reconciliation",error)
+  if sqliteexec(database,"UPDATE job_items SET state='skipped',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE " || selected) \= 0 then return _rollback(database,"cannot reconcile covered embedding items",error)
+  if generation > 0 then do
+    if commitgeneration(store,generation,error) \= 0 then return -1
+    if publishmanifest(store,error) \= 0 then return -1
+  end
+  else if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot commit embedding reconciliation",error)
+  return 0
 
 ragembeddingresult: class
   _status = .int
@@ -419,7 +450,7 @@ _attachreusable: procedure = .int
   reused = 0
   do i = 1 to chunk_ids.0
     insert = .binary
-    sql = "INSERT OR IGNORE INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) VALUES(?1,?2,?3)"
+    sql = "INSERT INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) SELECT ?1,?2,?3 WHERE NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings WHERE revision_chunk_id=?1 AND embedding_id=?2 AND visible_to_generation IS NULL)"
     if sqliteprepare(database, sql, insert) \= 0 then do; error = "cannot prepare reusable embedding attachment"; return -1; end
     bind_status = sqlitebindtext(insert, 1, chunk_ids[i]) | sqlitebindtext(insert, 2, digests[i]) | sqlitebindint(insert, 3, generation)
     step_status = sqlitestep(insert); call sqlitefinalize insert
@@ -471,7 +502,7 @@ _storebatch: procedure = .int
     step_status = sqlitestep(embedding_statement); call sqlitefinalize embedding_statement
     if bind_status \= 0 | step_status \= 101 then return _rollback(database, "cannot insert embedding", error)
     occurrence_statement = .binary
-    sql = "INSERT OR IGNORE INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) VALUES(?1,?2,?3)"
+    sql = "INSERT INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) SELECT ?1,?2,?3 WHERE NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings WHERE revision_chunk_id=?1 AND embedding_id=?2 AND visible_to_generation IS NULL)"
     if sqliteprepare(database, sql, occurrence_statement) \= 0 then return _rollback(database, "cannot prepare embedding occurrence", error)
     bind_status = sqlitebindtext(occurrence_statement, 1, chunk_ids[i]) | sqlitebindtext(occurrence_statement, 2, embedding_id) | sqlitebindint(occurrence_statement, 3, generation)
     step_status = sqlitestep(occurrence_statement); call sqlitefinalize occurrence_statement

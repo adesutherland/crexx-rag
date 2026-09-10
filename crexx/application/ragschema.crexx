@@ -3,7 +3,7 @@ options levelg
 namespace ragschema expose ragschemaversion migrationname migrationchecksum migrationstatements
 
 ragschemaversion: procedure = .int
-  return 12
+  return 13
 
 migrationname: procedure = .string
   arg version = .int
@@ -18,11 +18,13 @@ migrationname: procedure = .string
   if version = 10 then return "durable-maintenance-backlog"
   if version = 11 then return "claim-time-and-source-provenance"
   if version = 12 then return "agent-maintenance-handoff"
+  if version = 13 then return "embedding-retry-admission"
   if version = 9 then return "prospective-configuration-transitions"
   return ""
 
 migrationchecksum: procedure = .string
   arg version = .int
+  if version = 13 then return "9d5236180dd1c7b39c1853658f0ed0b167521f4e1a56c52942af4f1bebf470f9"
   if version = 12 then return "abe73ac0a801d3a824f08b7689bdc756b0c50a209ef3ff0eb88c1cfd17a2ce2d"
   if version = 11 then return "641b75b26a3946f1a55c40eb6b7913c8264501aaec4d7a4166e1720ed09acd74"
   /* SHA-256 of the ordered migration statements, each followed by LF. */
@@ -41,6 +43,11 @@ migrationchecksum: procedure = .string
 migrationstatements: procedure = .int
   arg version = .int, expose statements = .string[]
   statements = .string[]
+  if version = 13 then do
+    statements[statements.0 + 1] = "CREATE TABLE provider_cooldowns(provider_id TEXT NOT NULL,model TEXT NOT NULL,not_before_epoch INTEGER NOT NULL DEFAULT 0,failure_count INTEGER NOT NULL DEFAULT 0 CHECK(failure_count>=0),updated_epoch INTEGER NOT NULL,PRIMARY KEY(provider_id,model)) STRICT"
+    statements[statements.0 + 1] = "CREATE INDEX job_items_embedding_subject ON job_items(json_extract(input_json,'$.revision_chunk_id'),json_extract(input_json,'$.provider_id'),json_extract(input_json,'$.model'),json_extract(input_json,'$.embedding_dimension')) WHERE item_type='embedding' AND json_valid(input_json)"
+    return statements.0
+  end
   if version = 12 then do
     statements[statements.0 + 1] = "ALTER TABLE maintenance_tasks ADD COLUMN required_capability TEXT NOT NULL DEFAULT 'standard' CHECK(required_capability IN('standard','advanced-reasoning'))"
     statements[statements.0 + 1] = "ALTER TABLE maintenance_tasks ADD COLUMN escalation_origin TEXT NOT NULL DEFAULT ''"

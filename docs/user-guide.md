@@ -307,6 +307,12 @@ stale rows are not silently deleted.
 Workers are operating-system processes, not attached cREXX threads. Each owns a
 VM, provider process/session, and SQLite connection.
 
+A reviewed change to `worker.processes` can be used when resuming an existing
+job after its group drains. Workers retain the job's immutable snapshot and
+accept only the worker-count difference; all other configuration and profile
+fields must still match. Apply the operational configuration through `config
+plan` and `config apply` before launching the new group.
+
 The controller reserves and registers the complete configured worker group
 before admitting work. Startup failure or a registration timeout is reported
 with the worker identity; child stderr is inherited so redirected controller
@@ -316,9 +322,22 @@ drain requests are recorded before waiting for child cleanup.
 A heartbeat encountering ordinary SQLite writer contention makes up to three
 attempts, retaining the existing five-second busy timeout per attempt and short
 100/200 ms pauses. Retries log the process identity and SQLite diagnostic. No
-new work is admitted by that worker while its heartbeat is waiting. Exhausted
-contention, constraints, missing process rows and stale transaction snapshots
-remain errors; heartbeat recovery does not restart workers or provider calls.
+new work is admitted by that worker while its heartbeat is waiting. The worker and controller supervisors allow up to four such bounded heartbeat
+cycles (about one minute) before giving up on ordinary contention. Constraints,
+missing process rows and stale transaction snapshots still fail immediately.
+A safely settled worker that exhausts ordinary heartbeat contention is eligible
+for bounded replacement; no provider call is replayed by a heartbeat retry.
+
+Work claims, embedding receipts, reservations, admission, settlement and
+embedding completion also retry ordinary contention when starting their writer
+transaction. This shared path makes at most six attempts with the existing
+five-second busy timeout and short staggered delays. It preserves the exact
+SQLite diagnostic and never replays a transaction body or provider request.
+An uncalled busy admission is deferred without consuming a provider attempt;
+a safely settled worker exiting after exhausted contention is eligible for the
+same bounded replacement policy. Other SQLite failures remain errors.
+Quota-blocked work waits for the earliest capacity expiry instead of repeatedly
+claiming and settling an uncalled attempt every second.
 
 For `worker start --job JOB_ID`, an unhealthy provider transport stops its worker
 after preserving the current item's outcome. After that process exits, the
@@ -332,7 +351,9 @@ operational configuration. Default values preserve existing configuration hashes
 Replacement reservations are durable job events, so restarting a controller or
 pruning process rows cannot reset that ceiling. Replacement preserves the slot's
 remaining item/poll allowance and the original job budgets and deadline. A pause,
-cancellation, drain or exhausted ceiling stops further work. Startup failures and
+cancellation, drain or exhausted ceiling stops further work. A clean worker exit
+also permits replacement when work and the original slot allowance remain;
+normal item/poll limits and completed jobs do not refill the slot. Startup failures and
 unclassified crashes require diagnosis; they do not automatically consume more
 process launches. Unfiltered worker groups also require operator restart.
 Successful controller results include `workers_restarted`; historical failed
@@ -349,10 +370,49 @@ and reports the admission identity and SQLite diagnostic. Exact duplicate
 admission settlement succeeds; conflicting settlement remains an error.
 
 Provider admission is persisted in SQLite and shared by those processes. A
-call that cannot obtain request, reserved-token or concurrency capacity waits
-only within its configured timeout. If it times out before the adapter runs,
-the reservation is settled but no provider call is recorded. Retryable HTTP
-results use exponential backoff, bounded jitter and `Retry-After` when present.
+call that cannot obtain request, reserved-token or concurrency capacity is
+returned to the queue with its reservation released. Such a deferral creates no
+provider run and consumes no provider-attempt allowance. The worker remains
+available to heartbeat and observe stop requests.
+
+Retryable provider responses establish a shared provider/model cooldown. After
+the cooldown, one probe is admitted before normal concurrency resumes. A success
+from an older in-flight call cannot erase a newer cooldown. Cooldown and failure
+history survive controller restarts. Embedding retry delays use actual persisted
+calls across ingestion, repair and replay jobs, with exponential backoff and
+request-dependent jitter. `Retry-After` supports seconds and HTTP dates; a longer
+server delay is not shortened by the local exponential cap.
+
+To repair embeddings while leaving extraction and other maintenance held:
+
+```sh
+crexxrag maintain --embeddings-only --minutes 360 --workers 8 --yes
+```
+
+The canonical operation is `maintain plan --embeddings-only`; apply uses its
+frozen selection and budgets. The matching MCP argument is `embeddings_only`.
+Use automatic, supervised or manual maintenance mode. The scope selects missing
+embeddings for the configured provider/model/dimensions and reuses existing
+SQLite vectors before a paid call. It does not reimport sources. Worker count
+shares the configured provider limits; eight workers do not multiply the quota.
+The existing maintenance status includes `embedding_missing`, `embedding_total`
+and `embeddings_only`. An embedding window with remaining missing coverage is
+reported as incomplete even if its time window ended normally.
+
+After draining workers, reconcile covered queued work and duplicate active links
+and publish the vector index without provider calls:
+
+```sh
+crexxrag --access control vector rebuild --reconcile
+crexxrag --access read library verify
+```
+
+Reconciliation closes redundant visibility intervals in a new generation and
+retains their history. Already covered queued or dead-letter embedding items in
+paused or completed jobs become skipped with an audit event. Unknown submitted
+outcomes remain held; paused mixed jobs stay paused. A plain `vector rebuild`
+only rebuilds the projection. Both forms accept safely drained paused jobs,
+and reject active workers, running items or outstanding reservations.
 
 ## Dead letters and replay
 

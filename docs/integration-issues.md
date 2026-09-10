@@ -37,6 +37,37 @@ Writer contention is supported by the timing and reproduction, not proven by a
 retained live code. The original smoke evidence is in
 `/Users/adrian/testrag/overnight-browne-luna-8w-20260908/channel-release-smoke-2h-20260909/`.
 
+The embedding remediation extends supervisor tolerance to four bounded heartbeat
+cycles while preserving the low-level heartbeat contract. It also removes repeated
+busy-batch census checkpoints and unused chunk catalogue work. Embedding-only
+maintenance skips cognitive census categories. These are RAG orchestration and
+query changes; the SQLite provider contract and worker-process architecture are
+unchanged. Scale qualification must still use a consistent full corpus copy.
+
+The subsequent 10 September live embedding run exposed additional transaction
+start failures in work claims, reservations and provider receipt/admission.
+Those paths discarded the SQLite diagnostic and exited as generic failures,
+which the controller deliberately did not replace. Contention is consistent
+with the retained heartbeat diagnostics and writer workload, but the old generic
+errors cannot prove their exact SQLite result codes retrospectively.
+
+The current candidate consolidates four reservation-ledger scans under the
+writer lock into one indexed pass, parks quota-blocked work until capacity can
+return, and shares bounded transaction-start retries with preserved diagnostics.
+Only ordinary busy/busy-recovery is retried, before executing any transaction
+body. Safely settled workers exhausting that path now use the existing bounded
+replacement classification. The user chose the live job, including 15 minutes
+with eight workers followed by 15 minutes with sixteen, as the immediate test.
+The eight-worker measurement completed in 926 seconds with 581 newly covered
+chunks, 450 successful calls and no new failed items. At the user's request,
+the sixteen-worker sample ended after 416 seconds: 212 covered chunks, 173
+successful calls, 78 transaction and 9 heartbeat busy retries, and no new
+failed items or replacements. All sixteen workers drained cleanly. Eight
+workers then resumed the same job. This demonstrates live recovery inside the
+retry loops; it does not qualify replacement after exhausted retries or Codex
+transport recovery. Evidence is in
+`/Users/adrian/testrag/embedding-remediation-20260910/BENCHMARK.md`.
+
 ## Provider lifetime
 
 HTTP adapters use operation-scoped provider instances. The Codex adapter keeps

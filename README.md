@@ -194,6 +194,19 @@ available for scripts and agents. Start with the
 the [methodology and algorithm description](docs/algorithm.md), and the
 [methodology closure checklist](docs/methodology-closure.md).
 
+## Complete embedding coverage
+
+Use `crexxrag maintain --embeddings-only --workers 8 --minutes 360 --yes` to
+repair missing embeddings within the configured budgets while leaving extraction
+and knowledge maintenance held. Workers share provider limits, durable cooldowns
+and bounded retries. Stored vectors are reused before making a paid call.
+Inspect coverage separately from the maintenance window's stop reason.
+After workers drain, `crexxrag --access control vector rebuild --reconcile`
+reconciles already covered queued work and duplicate links, preserves history,
+and publishes from SQLite without provider calls. Finish with `library verify`.
+See the [worker and recovery controls](docs/user-guide.md) for retry settings,
+paused-job boundaries and the matching MCP operations.
+
 ## Providers and privacy
 
 Gemini is the tested hosted default. Codex generation uses the official local
@@ -254,3 +267,5 @@ results and recommended repeat tests.
 
 The project is not yet released. Current platform and CREXX integration limits
 are listed in [integration issues](docs/integration-issues.md).
+Repeatable launch/resume and recovery without bespoke repair scripts remain an
+open [high-priority hardening requirement](docs/recovery-defects.md#rag-ops-001--p1-routine-launch-and-recovery-must-be-product-operations).

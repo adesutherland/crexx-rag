@@ -109,8 +109,6 @@ inspectconfigchange: procedure = .int
   values = .string[]
   sql = "SELECT c.config_snapshot_id,c.config_hash,c.semantic_hash,c.operational_hash,c.profile_hash,c.config_version FROM library_config_state s JOIN config_snapshots c ON c.config_snapshot_id=s.current_config_snapshot_id WHERE s.singleton=1"
   if _textrow(store.database(), sql, 6, values, error) \= 0 then return -2
-  active = _scalarint(store.database(), "SELECT count(*) FROM jobs WHERE state IN('queued','running','paused','cancel_requested')", error)
-  if active < 0 then return -2
   classification = "prospective"
   if values[2] = target.config_hash() then classification = "identical"
   else if values[3] = "" | values[4] = "" then do
@@ -118,10 +116,19 @@ inspectconfigchange: procedure = .int
     if values[2] = ragsha256(legacy_json) & values[5] = target.profile_hash() then classification = "identity-upgrade"
   end
   else if values[3] = target.semantic_hash() then classification = "operational"
+  active = _configurationactivejobs(store.database(),classification,error)
+  if active < 0 then return -2
   /* Profile vocabulary, ranking and chunk policy describe subsequent work.
    * Existing evidence retains its original snapshot, spans and validation. */
   difference = .ragconfigdiff(classification, values[1], target.snapshot_id(), values[2], target.config_hash(), values[3], target.semantic_hash(), values[4], target.operational_hash(), active)
   return 0
+
+/* Operational settings govern newly planned work. Drained paused jobs keep
+ * their immutable inputs and receipts; no running owner may cross the change. */
+_configurationactivejobs: procedure = .int
+  arg database = .binary, classification = .string, expose error = .string
+  if classification \= "operational" then return _scalarint(database,"SELECT count(*) FROM jobs WHERE state IN('queued','running','paused','cancel_requested')",error)
+  return _scalarint(database,"SELECT (SELECT count(*) FROM jobs WHERE state IN('queued','running','cancel_requested') OR reserved_calls+reserved_tokens+reserved_cost+reserved_codex_turns>0)+(SELECT count(*) FROM job_items WHERE state IN('running','cancel_requested'))+(SELECT count(*) FROM runtime_instances WHERE state IN('starting','running','idle','draining') AND heartbeat_at>unixepoch()-300)",error)
 
 createreconfigureplan: procedure = .int
   arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile, reason = .string, expose plan = .ragplan, expose difference = .ragconfigdiff, expose error = .string
@@ -160,7 +167,7 @@ applyreconfigureplan: procedure = .int
   database = store.database()
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin configuration apply"; return -2; end
   if _scalarint(database, "SELECT count(*) FROM library_config_state WHERE singleton=1 AND current_config_snapshot_id=" || _q(current.source_snapshot_id()), error) \= 1 then return _rollback(database, "configuration state changed before apply", error)
-  if _scalarint(database, "SELECT count(*) FROM jobs WHERE state IN('queued','running','paused','cancel_requested')", error) \= 0 then return _rollback(database, "active work appeared before configuration apply", error)
+  if _configurationactivejobs(database,classification,error) \= 0 then return _rollback(database, "active work appeared before configuration apply", error)
   prepared = .binary
   sql = "INSERT OR IGNORE INTO config_snapshots(config_snapshot_id,config_id,config_version,profile_id,profile_hash,config_hash,effective_json,created_at,semantic_hash,operational_hash) VALUES(?1,?2,?3,?4,?5,?6,?7,strftime('%Y-%m-%dT%H:%M:%fZ','now'),?8,?9)"
   if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare configuration snapshot", error)

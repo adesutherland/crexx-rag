@@ -229,6 +229,22 @@ heartbeatprocess: procedure = .int
   end
   return -2
 
+/* Keep the supervisor alive through ordinary writer contention, within the
+ * worker lease. Other SQL errors still fail immediately. The low-level
+ * heartbeat retains its independently tested three-attempt contract. */
+_busyheartbeat: procedure = .int
+  arg error = .string
+  return pos("heartbeat",error)>0 & (pos(",sqlite=5,extended=5,",error)>0 | pos(",sqlite=5,extended=261,",error)>0)
+
+_supervisorheartbeat: procedure = .int
+  arg store = .ragstorehandle, id = .string, state = .string, item = .string, detail = .string, expose error = .string
+  do cycle = 1 to 4
+    status = heartbeatprocess(store,id,state,item,detail,error)
+    if status = 0 | _busyheartbeat(error) = 0 then return status
+    if cycle < 4 then call rxplatform..sleep 250
+  end
+  return -2
+
 finishprocess: procedure = .int
   arg store = .ragstorehandle, instance_id = .string, state = .string, exit_code = .int, detail = .string, expose error = .string
   error = ""
@@ -358,7 +374,7 @@ runidleworker: procedure = .int
   polls = 0; status = 0
   do forever
     polls = polls + 1
-    if heartbeatprocess(store, final_id, "idle", "", "waiting for durable work", error) \= 0 then do; status = -2; leave; end
+    if _supervisorheartbeat(store, final_id, "idle", "", "waiting for durable work", error) \= 0 then do; status = -2; leave; end
     requested = processrequest(store, final_id, error)
     if error \= "" then do; status = -2; leave; end
     if requested = "stop" | requested = "drain" then leave
@@ -418,7 +434,7 @@ _runapplicationworker: procedure = .int
   polls = 0; status = 0; call tracer.emit("worker", "start", final_id, mode)
   do forever
     polls = polls + 1
-    if heartbeatprocess(store, final_id, "idle", "", "waiting for durable work", error) \= 0 then do; status = -2; leave; end
+    if _supervisorheartbeat(store, final_id, "idle", "", "waiting for durable work", error) \= 0 then do; status = -2; leave; end
     requested = processrequest(store, final_id, error)
     if error \= "" then do; status = -2; leave; end
     if requested = "stop" | requested = "drain" then do; call tracer.emit("worker", "draining", final_id, requested); leave; end
@@ -440,9 +456,10 @@ _runapplicationworker: procedure = .int
     end
     else if work_status \= 0 then do; status = work_status; call tracer.emit("work", "failed", final_id, disposition); leave; end
     else do
-      processed = processed + 1
+      if disposition \= "provider-deferred" then processed = processed + 1
+      else call rxplatform..sleep poll_milliseconds
       call tracer.emit("work", "processed", final_id, disposition)
-      if heartbeatprocess(store, final_id, "running", "", disposition, error) \= 0 then do; status = -2; leave; end
+      if _supervisorheartbeat(store, final_id, "running", "", disposition, error) \= 0 then do; status = -2; leave; end
     end
     if provider.health_error() \= "" then do; status = -4; error = provider.health_error(); leave; end
     if mode = "once" then leave
@@ -451,6 +468,7 @@ _runapplicationworker: procedure = .int
   end
   terminal = "stopped"; exit_code = 0; detail = "application worker stopped cleanly"
   if status \= 0 then do; terminal = "failed"; exit_code = 1; detail = error; end
+  if status \= 0 & sqlitebusyerror(error) = 1 then exit_code = 75
   if provider.health_error() \= "" then do; terminal = "failed"; exit_code = 75; detail = provider.health_error(); status = -4; end
   detail = left(detail,min(length(detail),900)) || ";processed=" || processed || ";polls=" || polls
   finish_error = ""; if finishprocess(store, final_id, terminal, exit_code, detail, finish_error) \= 0 & error = "" then error = finish_error
@@ -545,7 +563,7 @@ _startworkerprocesses: procedure = .int
     end
     controller_state = "idle"; controller_detail = "waiting for all worker registrations"
     if group_ready = 1 then do; controller_state = "running"; controller_detail = "supervising " || count || " worker processes"; end
-    if heartbeatprocess(store, controller_id, controller_state, "", controller_detail, heartbeat_error) \= 0 then do; error = heartbeat_error; leave; end
+    if _supervisorheartbeat(store, controller_id, controller_state, "", controller_detail, heartbeat_error) \= 0 then do; error = heartbeat_error; leave; end
     if completion.available() = 0 then iterate
     completed = completed + 1; exit_code = 1
     if completion.succeeded() = 1 & completion.has_value() = 1 then exit_code = completion.value().as_integer()
@@ -581,7 +599,7 @@ _startworkerprocesses: procedure = .int
         call lineout "stderr", "crexxrag worker " || worker_ids[worker_index] || ": " || first_failure_detail
       end
     end
-    if group_ready = 1 & exit_code \= 0 & worker_index > 0 & job_filter \= "" then do
+    if group_ready = 1 & worker_index > 0 & job_filter \= "" then do
       previous_id = worker_ids[worker_index]
       used_items = _scalarint(store.database(),"SELECT count(*) FROM attempts WHERE worker_id=" || _sqlquote(previous_id) || " AND outcome<>'cancelled'",error)
       used_polls = _scalarint(store.database(),"SELECT CASE WHEN instr(detail,';polls=')>0 THEN CAST(substr(detail,instr(detail,';polls=')+7) AS INTEGER) ELSE 0 END FROM runtime_instances WHERE instance_id=" || _sqlquote(previous_id),error)
@@ -608,7 +626,8 @@ _startworkerprocesses: procedure = .int
             request = children.start(envelope,-1)
             requests[worker_index] = request
             worker_ids[worker_index] = replacement_id; request_ids[worker_index] = request.identity()
-            completed = completed-1; failed = failed-1; restarted = restarted+1
+            completed = completed-1; restarted = restarted+1
+            if exit_code \= 0 then failed = failed-1
             iterate
           end
           ignored = ""; call finishprocess store,replacement_id,"stopped",0,"replacement cancelled before launch",ignored
@@ -655,8 +674,8 @@ reserveworkerreplacement: procedure = .int
   replacement_id = ""; delay_ms = 0; error = ""
   if maximum < 0 | maximum > 10 | initial_backoff_ms < 10 | initial_backoff_ms > 60000 then do; error = "worker replacement bounds are invalid"; return -1; end
   database = store.database()
-  if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then return _sqlitefailure("begin worker replacement",error)
-  job_id = _scalartext(database,"SELECT coalesce((SELECT job_filter FROM runtime_instances WHERE instance_id=" || _sqlquote(previous_id) || " AND parent_instance_id=" || _sqlquote(controller_id) || " AND kind='worker' AND state='failed' AND exit_code=75 AND requested_state='none'), '')",error)
+  if beginwritetransaction(database,"begin worker replacement",error) \= 0 then return -2
+  job_id = _scalartext(database,"SELECT coalesce((SELECT job_filter FROM runtime_instances WHERE instance_id=" || _sqlquote(previous_id) || " AND parent_instance_id=" || _sqlquote(controller_id) || " AND kind='worker' AND ((state='failed' AND exit_code=75) OR (state='stopped' AND exit_code=0)) AND requested_state='none'), '')",error)
   if error \= "" then return _rollback(database,"read failed worker",error)
   eligible = 0
   if job_id \= "" then eligible = _replacementallowed(store,job_id,previous_id,error)

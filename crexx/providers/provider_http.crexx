@@ -1,6 +1,6 @@
 options levelg
 
-namespace provider_http expose providerhttpresponse providerhttptransport
+namespace provider_http expose providerhttpresponse providerhttptransport providerretrydelay
 
 import rxfnsb
 import rxjson
@@ -298,18 +298,54 @@ _elapsed_us: procedure = .int
 
 _retry_delay_ms: procedure = .int
   arg request = .providerrequest, failed_attempt = .int, headers = .string
+  return providerretrydelay(request,failed_attempt,headers)
+
+providerretrydelay: procedure = .int
+  arg request = .providerrequest, failed_attempt = .int, headers = .string, now_epoch = -1
   delay_ms = request.initial_backoff_ms()
   do i = 2 to failed_attempt
-    delay_ms = delay_ms * 2
+    delay_ms = min(request.maximum_backoff_ms(),delay_ms * 2)
   end
-  retry_after = strip(http_header_value(headers, "Retry-After"))
-  if _digits(retry_after) = 1 then do
-    server_delay = (retry_after as .int) * 1000
-    if server_delay > delay_ms then delay_ms = server_delay
+  identity = request.request_id(); seed = 0
+  do i = 1 to length(identity)
+    seed = (seed * 31 + c2d(substr(identity,i,1))) % 1000000007
   end
   jitter = request.jitter_ms()
-  if jitter > 0 then delay_ms = delay_ms + ((length(request.request_id()) * 37 + failed_attempt * 53) % (jitter + 1))
+  if jitter > 0 then delay_ms = delay_ms + ((seed + failed_attempt * 53) % (jitter + 1))
   if delay_ms > request.maximum_backoff_ms() then delay_ms = request.maximum_backoff_ms()
+  retry_after = strip(http_header_value(headers, "Retry-After")); server_delay = 0
+  if _digits(retry_after) = 1 & length(retry_after) <= 12 then server_delay = (retry_after as .int) * 1000
+  else if length(retry_after) = 29 & substr(retry_after,4,2) = ", " & right(retry_after,4) = " GMT" then do
+    clock = substr(retry_after,18,8)
+    if substr(clock,3,1) = ":" & substr(clock,6,1) = ":" & _digits(left(clock,2) || substr(clock,4,2) || right(clock,2)) = 1 then do
+      hours = left(clock,2) as .int; minutes = substr(clock,4,2) as .int; seconds = right(clock,2) as .int
+      if hours < 24 & minutes < 60 & seconds < 60 then do
+        server_epoch = -1
+        do
+          server_epoch = (date("EP",substr(retry_after,6,11),"N") as .int) + hours*3600 + minutes*60 + seconds
+        on signal invalid_arguments
+          server_epoch = -1
+        end
+        if now_epoch < 0 then do
+          /* Public clock functions give civil and UTC time. Select the UTC
+           * day using the standard timezone offset, allowing daylight saving. */
+          day = .int; local_seconds = .int; utc = .string
+          do forever
+            day = date("EP") as .int; local_seconds = time("S") as .int; utc = time("UTC")
+            if day = (date("EP") as .int) then leave
+          end
+          utc_seconds = (left(utc,2) as .int)*3600 + (substr(utc,4,2) as .int)*60 + (right(utc,2) as .int)
+          offset = local_seconds-utc_seconds; standard_offset = -(time("ZD") as .int)
+          do while offset-standard_offset > 43200; offset = offset-86400; end
+          do while offset-standard_offset < -43200; offset = offset+86400; end
+          now_epoch = day+local_seconds-offset
+        end
+        if server_epoch > now_epoch then server_delay = (server_epoch-now_epoch)*1000
+      end
+    end
+  end
+  /* The local cap limits our exponential policy, never a server's not-before. */
+  if server_delay > delay_ms then delay_ms = server_delay
   return delay_ms
 
 _digits: procedure = .int

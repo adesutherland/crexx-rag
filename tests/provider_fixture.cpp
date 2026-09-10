@@ -132,9 +132,10 @@ int main(int argc, char** argv)
     std::string paired_response;
     int barrier_pairs = 0;
     std::unordered_map<std::string, int> retry_attempts;
+    std::string embedding_retry_target;
     for (int index = 0; index < requests; ++index) {
         pollfd ready {server, POLLIN, 0};
-        if (::poll(&ready, 1, 10000) <= 0) {
+        if (::poll(&ready, 1, scenario == "embedding-exhaustion" ? 120000 : 10000) <= 0) {
             ::close(server);
             return 3;
         }
@@ -378,7 +379,7 @@ int main(int argc, char** argv)
         } else if (path.find("/gemini/v1beta/models/gemini-embedding-2:embedContent") != std::string::npos) {
             const bool valid_auth = request.find("x-goog-api-key: synthetic-product-gemini-key") != std::string::npos;
             const bool valid_shape = request.find("\"outputDimensionality\":768") != std::string::npos
-                && (request.find("BillingService depends on CustomerDatabase") != std::string::npos
+                && (scenario == "embedding-scale" || request.find("BillingService depends on CustomerDatabase") != std::string::npos
                     || request.find("What does BillingService depend on?") != std::string::npos);
             if (!valid_auth || !valid_shape) {
                 http_status = 400;
@@ -390,6 +391,20 @@ int main(int argc, char** argv)
                     body += dimension % 2 == 0 ? "0.03125" : "-0.03125";
                 }
                 body += "]},\"usageMetadata\":{\"promptTokenCount\":24}}";
+                if (scenario == "embedding-recovery" || scenario == "embedding-exhaustion") {
+                    const std::string identity = header_value(request, "Idempotency-Key");
+                    if (embedding_retry_target.empty()) embedding_retry_target = identity;
+                    const int attempt = ++retry_attempts[identity];
+                    if (identity == embedding_retry_target && (attempt <= 2 || scenario == "embedding-exhaustion")) {
+                        http_status = (scenario == "embedding-exhaustion" && attempt > 2) ? 503 : 429;
+                        if (attempt == 1) extra_headers = "Retry-After: 1\r\n";
+                        body = R"({"error":{"message":"synthetic embedding rate limit"}})";
+                    }
+                    const auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count();
+                    std::cout << "EMBEDDING_CALL identity=" << identity << " attempt=" << attempt
+                              << " status=" << http_status << " epoch_ms=" << timestamp << std::endl;
+                }
             }
         } else if (path.find("/gemini/v1beta/models/gemini-2.5-flash-lite:generateContent") != std::string::npos) {
             const bool valid_auth = request.find("x-goog-api-key: synthetic-gemini-key") != std::string::npos;

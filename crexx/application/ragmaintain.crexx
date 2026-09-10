@@ -108,7 +108,7 @@ ragmaintenanceapplyresult: class
     return _error
 
 buildmaintenancecensus: procedure = .int
-  arg store = .ragstorehandle, analysis_plan = .ragimproveplan, embedding_profile_id = .string, maximum_items = .int, expose census = .ragmaintenancecensus, expose error = .string, sparse_max_degree = 1, query_gap_min_occurrences = 1
+  arg store = .ragstorehandle, analysis_plan = .ragimproveplan, embedding_profile_id = .string, maximum_items = .int, expose census = .ragmaintenancecensus, expose error = .string, sparse_max_degree = 1, query_gap_min_occurrences = 1, embedding_only = 0
   item_types = .string[]; subject_types = .string[]; subject_ids = .string[]; scores = .int[]
   triggers = .string[]; diagnoses = .string[]; actions = .string[]
   census = .ragmaintenancecensus(0, "", item_types, subject_types, subject_ids, scores, triggers, diagnoses, actions, "", "")
@@ -116,6 +116,8 @@ buildmaintenancecensus: procedure = .int
   if store.open() \= 1 | analysis_plan.schema() \= "crexx-rag.improve-plan/1" | embedding_profile_id = "" | maximum_items < 1 | maximum_items > 100000 | sparse_max_degree < 0 | sparse_max_degree > 1000 | query_gap_min_occurrences < 1 | query_gap_min_occurrences > 1000000 then do; error = "maintenance census input is invalid"; return -1; end
   generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
   if generation \= analysis_plan.expected_generation() then do; error = "maintenance census generation changed"; return -2; end
+  prepared = .binary
+  if embedding_only = 0 then do
   chunk_ids = analysis_plan.chunk_ids(); chunk_scores = analysis_plan.scores()
   do i = 1 to chunk_ids.0
     score = 600000 + chunk_scores[i] * 100
@@ -127,7 +129,7 @@ buildmaintenancecensus: procedure = .int
     call census.add("concept-review", "chunk", chunk_ids[i], score, trigger, diagnosis, action, maximum_items)
   end
 
-  prepared = .binary
+  prepared = ''x as .binary
   sql = "SELECT conflict_id,claim_id,competing_claim_id FROM claim_conflicts WHERE review_state='pending' AND visible_from_generation<=?1 AND (visible_to_generation IS NULL OR visible_to_generation>?1) ORDER BY conflict_id"
   if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare maintenance conflict census"; return -3; end
   do forever
@@ -140,7 +142,7 @@ buildmaintenancecensus: procedure = .int
   end
   call sqlitefinalize prepared
 
-  prepared = .binary
+  prepared = ''x as .binary
   sql = "SELECT c.concept_id,c.canonical_label,(SELECT count(*) FROM claims q WHERE (q.source_concept_id=c.concept_id OR q.target_concept_id=c.concept_id) AND q.visible_from_generation<=?1 AND (q.visible_to_generation IS NULL OR q.visible_to_generation>?1)) AS degree FROM concepts c WHERE c.visible_from_generation<=?1 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?1) AND c.lifecycle_state IN('active','migration-parent') ORDER BY degree,c.concept_id"
   if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare sparse-node census"; return -3; end
   do forever
@@ -155,7 +157,7 @@ buildmaintenancecensus: procedure = .int
   end
   call sqlitefinalize prepared
 
-  prepared = .binary
+  prepared = ''x as .binary
   sql = "SELECT n.note_id,n.note_kind,n.importance,n.uncertainty,n.next_action FROM analysis_notes n WHERE n.state='active' ORDER BY n.importance DESC,n.note_id"
   if sqliteprepare(store.database(), sql, prepared) \= 0 then do; error = "cannot prepare analysis-note census"; return -3; end
   do forever
@@ -181,7 +183,7 @@ buildmaintenancecensus: procedure = .int
   end
   call sqlitefinalize prepared
 
-  prepared = .binary
+  prepared = ''x as .binary
   sql = "SELECT gap_id,occurrence_count,gap_text FROM query_gaps WHERE state='open' ORDER BY occurrence_count DESC,gap_id"
   if sqliteprepare(store.database(), sql, prepared) \= 0 then do; error = "cannot prepare query-gap census"; return -3; end
   do forever
@@ -196,6 +198,7 @@ buildmaintenancecensus: procedure = .int
   end
   call sqlitefinalize prepared
 
+  end
   prepared = .binary
   sql = "SELECT rc.revision_chunk_id FROM revision_chunks rc WHERE rc.visible_from_generation<=?1 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?1) AND NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id WHERE rce.revision_chunk_id=rc.revision_chunk_id AND e.embedding_profile_id=?2 AND rce.visible_from_generation<=?1 AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>?1)) ORDER BY rc.revision_chunk_id"
   if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 | sqlitebindtext(prepared, 2, embedding_profile_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare embedding coverage census"; return -3; end

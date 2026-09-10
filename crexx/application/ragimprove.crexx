@@ -195,7 +195,7 @@ createimproveplan: procedure = .int
    * growing a cREXX identity array or scanning prior work once per chunk. */
   sql = "SELECT c.revision_chunk_id,c.content_id FROM revision_chunks c WHERE c.visible_from_generation<=?1 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?1) AND c.content_id NOT IN(SELECT json_extract(i.input_json,'$.content_id') FROM job_items i WHERE i.item_type='improve-extraction' AND json_valid(i.input_json) AND json_extract(i.input_json,'$.content_id') IS NOT NULL AND json_extract(i.input_json,'$.policy_version')=?2 AND json_extract(i.input_json,'$.prompt_version')=?3) ORDER BY c.revision_chunk_id"
   if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 | sqlitebindtext(prepared, 2, policy_version) \= 0 | sqlitebindtext(prepared, 3, prompt_version) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare improvement census"; return -3; end
-  do forever
+  do while maximum_items > 0
     step = sqlitestep(prepared)
     if step = 101 then leave
     if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read improvement census"; return -3; end

@@ -600,6 +600,7 @@ _aliases: procedure = .string[]
         i = i + 1; worker_count = args[i]
       end
       else if left(token, 10) = "--workers=" then worker_count = substr(token, 11)
+      else if token = "--embeddings-only" then timing_args[timing_args.0+1] = token
       else if token = "--minutes" | token = "--until" | token = "--overnight" then do
         if i = args.0 then do; error = token || " requires a value"; return args; end
         timing_args[timing_args.0+1] = token; i = i+1; timing_args[timing_args.0+1] = args[i]

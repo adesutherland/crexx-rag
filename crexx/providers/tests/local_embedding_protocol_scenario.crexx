@@ -36,6 +36,15 @@ main: procedure = .int
   errors = errors + check(retry_response.status() = 0 & retry_response.http_status() = 200 & retry_response.attempts() = 3, "retryable provider response succeeds on its third attempt")
   errors = errors + check(retry_response.retry_delay_ms() = 1020 & retry_response.latency_us() >= 1020000, "Retry-After and exponential backoff are respected")
 
+  policy_request = .providerrequest("embed", "embedding", "retry-policy", retry_messages, retry_inputs, "", 1000, 1, "public", "policy", "equal-id-a", 0, 3, 0, -1, 1000, 60000, 0)
+  errors = errors + check(providerretrydelay(policy_request,1,"") = 1000 & providerretrydelay(policy_request,2,"") = 2000 & providerretrydelay(policy_request,3,"") = 4000 & providerretrydelay(policy_request,10,"") = 60000,"retry ordinal grows and caps")
+  errors = errors + check(providerretrydelay(policy_request,1,"Retry-After: 120" || "0D0A"x) = 120000,"server delay exceeds local exponential cap")
+  errors = errors + check(providerretrydelay(policy_request,1,"Retry-After: Thu, 01 Jan 1970 00:02:00 GMT" || "0D0A"x,0) = 120000,"HTTP-date Retry-After")
+  errors = errors + check(providerretrydelay(policy_request,1,"Retry-After: Thu, 31 Feb 1970 00:02:00 GMT" || "0D0A"x,0) = 1000,"malformed HTTP date ignored")
+  jitter_a = .providerrequest("embed", "embedding", "retry-policy", retry_messages, retry_inputs, "", 1000, 1, "public", "policy", "equal-id-a", 0, 3, 0, -1, 1000, 60000, 250)
+  jitter_b = .providerrequest("embed", "embedding", "retry-policy", retry_messages, retry_inputs, "", 1000, 1, "public", "policy", "equal-id-b", 0, 3, 0, -1, 1000, 60000, 250)
+  errors = errors + check(providerretrydelay(jitter_a,1,"") \= providerretrydelay(jitter_b,1,""),"equal-length request identities have different jitter")
+
   generation_provider = .industrialprovider("openai-compatible", "127.0.0.1", 19020, 0, "/v1", "synthetic-local-key", "local", 0, 0)
   messages[1] = .providermessage("system", "Return the requested structure.")
   messages[2] = .providermessage("user", "Classify Edinburgh.")

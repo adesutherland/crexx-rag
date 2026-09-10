@@ -65,6 +65,21 @@ immutable source root as actionable, replaying, or resolved from the state of
 its descendants. The earlier single-item same-job retry remains a compatibility
 operation for an operator who deliberately wants that behavior.
 
+Schema 13 adds provider/model cooldown state and an index for embedding attempt
+history. Admission parks uncalled work without charging an attempt. Retry delays
+use durable embedding calls; a shared cooldown admits one recovery probe before
+restoring configured concurrency. An older in-flight success cannot clear a newer
+cooldown. Embedding-only maintenance uses the existing plan/apply and fenced job
+machinery, omitting cognitive census and dispatch. Busy batch checkpoints avoid
+repeating the full census on each worker poll; chunk evidence skips the unused
+catalogue projection.
+
+Explicit vector reconciliation closes duplicate active membership intervals in a
+new generation and audits covered queued embeddings as skipped. It preserves
+paused jobs and unmatched provider intents. Public verification compares the FTS
+projection using bidirectional set differences and cardinality, and diagnoses
+duplicate active embedding membership.
+
 ## Evidence and claims
 
 Sources, revisions, chunks, concepts, claims, and support use stable

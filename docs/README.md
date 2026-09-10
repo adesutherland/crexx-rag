@@ -27,6 +27,11 @@
   original approved design and experiment history; use the current contract
   above for implemented defaults.
 - [Integration issues](integration-issues.md): current CREXX/platform limits.
+- [Operational hardening and recovery backlog](recovery-defects.md): the open
+  P1 requirement for repeatable launch/resume and product-owned repair paths,
+  followed by the historical recovery defects.
+- [LLM processing repair plan](llm-processing-repair-plan.md): proposed recovery,
+  extraction-grounding and real-corpus qualification after embedding repair.
 - [Hard-coded configuration audit](configuration-audit.md): complete runtime,
   policy, provider and defensive-limit inventory plus the consolidated repair
   proposal.

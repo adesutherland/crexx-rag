@@ -88,6 +88,10 @@ ragapplicationprovider: class implements .ragworkprovider
       if operation = "embedding" then return _embedding(document,root,claim,provider_config,cached_backend,receipt_body)
       return _extraction(document,root,input_json,claim,provider_config,cached_backend,receipt_body)
     end
+    if operation = "embedding" then do
+      cached_embedding = _cachedembedding(document,root,claim,provider_config)
+      if cached_embedding.provider_id() = provider_id then return cached_embedding
+    end
     secret = ""; credential = provider_config.credential()
     if credential.empty() = 0 then secret = getenv(credential.name())
     if (provider_config.route_class() = "hosted" & kind \= "codex" & secret = "") | pos("0A"x, secret) > 0 | pos("0D"x, secret) > 0 then return _failedwork(provider_id, model, claim, empty_proposal, "provider credential reference is unavailable or invalid", 0)
@@ -109,7 +113,12 @@ ragapplicationprovider: class implements .ragworkprovider
     if reserved_tokens < 0 then return _failedwork(provider_id, model, claim, empty_proposal, "durable provider token reservation is invalid", 0)
     admission_id = ""; admission_wait = 0; admission_error = ""
     admission_status = admitprovidercall(_store, claim, provider_id, model, reserved_tokens, provider_config.requests_per_minute(), provider_config.tokens_per_minute(), provider_config.concurrent_requests(), provider_config.timeout_ms(), admission_id, admission_wait, admission_error)
-    if admission_status \= 0 then return _failedwork(provider_id, model, claim, empty_proposal, admission_error, 1, "", provider_config.charging_basis(), provider_config.initial_backoff_ms())
+    if admission_status \= 0 then do
+      uncalled_wait = admission_status = 1 | sqlitebusyerror(admission_error) = 1
+      deferred = _failedwork(provider_id, model, claim, empty_proposal, admission_error, uncalled_wait, "", provider_config.charging_basis(), max(1000,admission_wait))
+      if uncalled_wait = 1 then call deferred.set_admission_deferred()
+      return deferred
+    end
     call _tracer.emit("provider", "start", claim.item_id(), provider_id || " " || model)
     if operation = "embedding" then result = _embedding(document, root, claim, provider_config, backend)
     else if operation = "claim-extraction" | operation = "improve-extraction" | operation = "maintenance-resolution" then result = _extraction(document, root, input_json, claim, provider_config, backend)
@@ -117,7 +126,9 @@ ragapplicationprovider: class implements .ragworkprovider
     call result.add_wait_ms(admission_wait)
     release_outcome = "failed"; if result.ok() = 1 then release_outcome = "succeeded"
     release_error = ""
-    if releaseprovidercall(_store, admission_id, result.input_tokens() + result.output_tokens(), release_outcome, release_error) \= 0 then result = _admissionfailure(result, release_error)
+    cooldown_delay = 0
+    if result.retryable() = 1 & result.provider_called() = 1 then cooldown_delay = result.retry_delay_ms()
+    if releaseprovidercall(_store, admission_id, result.input_tokens() + result.output_tokens(), release_outcome, release_error, cooldown_delay, provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms()) \= 0 then result = _admissionfailure(result, release_error)
     if result.ok() = 1 then call _tracer.emit("provider", "complete", claim.item_id(), provider_id || " " || model)
     else call _tracer.emit("provider", "failed", claim.item_id(), provider_id || " " || model)
     return result
@@ -388,6 +399,29 @@ ragapplicationprovider: class implements .ragworkprovider
     _codex_ready = 1
     return 0
 
+  _cachedembedding: method = .ragworkproviderresult
+    arg document = .jsondocument, root = .int, claim = .ragworkclaim, config = .ragproviderconfig
+    empty_proposal = .ragextractionproposal
+    empty_mentions = .ragworkmention[]; empty_proposals = .ragworkproposal[]; empty_notes = .ragworknote[]
+    empty_result = .ragworkproviderresult(1,"","","",0,0,0,0,0,empty_proposal,"cache miss",0,"","",.ragworkembedding("","","","","",0,"",''x as .binary),"","local-compute",empty_mentions,empty_proposals,empty_notes,0,0)
+    dimension = _rolebinding(_config,"embedding").embedding_dimensions()
+    input_dimension = 0; ignored = document.node_int(document.member(root,"embedding_dimension"),input_dimension)
+    if _jsonstring(document,root,"text") = "" | _jsonstring(document,root,"revision_chunk_id") = "" | length(_jsonstring(document,root,"content_digest")) \= 64 | input_dimension \= dimension | _rolebinding(_config,"embedding").provider_id() \= config.provider_id() then return _failedwork(config.provider_id(),config.model(),claim,empty_proposal,"durable embedding input is invalid",0)
+    envelope = "crexx-rag.embedding-input/1|" || config.provider_id() || "|" || config.kind() || "|" || config.model() || "|" || dimension
+    profile_id = "embedding-" || dimension || "-" || substr(rxhash..sha256hex(envelope as .binary),1,12)
+    digest = rxhash..sha256hex((_jsonstring(document,root,"content_digest") || "00"x || envelope) as .binary)
+    prepared = .binary
+    if sqliteprepare(_store.database(),"SELECT vector FROM embeddings WHERE embedding_profile_id=?1 AND input_digest=?2 AND dimension=?3",prepared) \= 0 then return _failedwork(config.provider_id(),config.model(),claim,empty_proposal,"cannot read embedding cache",0)
+    binds = sqlitebindtext(prepared,1,profile_id) | sqlitebindtext(prepared,2,digest) | sqlitebindint(prepared,3,dimension)
+    payload = ''x as .binary; step = sqlitestep(prepared)
+    if binds \= 0 | (step \= 100 & step \= 101) then do; call sqlitefinalize prepared; return _failedwork(config.provider_id(),config.model(),claim,empty_proposal,"cannot read embedding cache",0); end
+    if step = 101 then do; call sqlitefinalize prepared; return empty_result; end
+    status = sqlitecolumnblob(prepared,0,payload); call sqlitefinalize prepared
+    if status \= 0 | binlength(payload) \= dimension*4 then return _failedwork(config.provider_id(),config.model(),claim,empty_proposal,"stored embedding cache payload is invalid",0)
+    embedding = .ragworkembedding(_jsonstring(document,root,"revision_chunk_id"),profile_id,digest,config.provider_id(),config.model(),dimension,rxhash..sha256hex(envelope as .binary),payload)
+    proposal = .ragextractionproposal; mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
+    return .ragworkproviderresult(0,config.provider_id(),config.model(),"cached-" || claim.attempt_id(),0,0,0,0,0,proposal,"",0,"","",embedding,"",config.charging_basis(),mentions,proposals,notes,0,0)
+
   _embedding: method = .ragworkproviderresult
     arg document = .jsondocument, root = .int, claim = .ragworkclaim, provider_config = .ragproviderconfig, backend = .provider, receipt_body = ""
     empty_proposal = .ragextractionproposal; messages = .providermessage[]; inputs = .string[]
@@ -396,7 +430,13 @@ ragapplicationprovider: class implements .ragworkprovider
     role_policy = _rolebinding(_config, "embedding")
     if body = "" | revision_chunk_id = "" | length(content_digest) \= 64 | role_policy.provider_id() \= provider_config.provider_id() | dimension \= role_policy.embedding_dimensions() then return _failedwork(provider_config.provider_id(), provider_config.model(), claim, empty_proposal, "durable embedding input is invalid", 0)
     inputs[1] = body; request_id = "embed-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 32)
-    request = .providerrequest("embed", "embedding", provider_config.model(), messages, inputs, "", provider_config.timeout_ms(), 1, _jsonstring(document, root, "privacy"), claim.item_id(), request_id, 0, dimension, 0, -1, provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms())
+    /* Read the exact immutable input; the count spans ingestion and repair. */
+    prior_calls = embeddingcallcount(_store.database(),_iteminput(_store.database(),claim.item_id()))
+    if receipt_body = "" & prior_calls >= provider_config.max_attempts() then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,"embedding provider attempt allowance exhausted",0)
+    if prior_calls < 0 then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,"cannot inspect embedding provider attempt history",0)
+    retry_base = provider_config.initial_backoff_ms()
+    do retry = 1 to min(prior_calls,30); retry_base = min(provider_config.maximum_backoff_ms(),retry_base*2); end
+    request = .providerrequest("embed", "embedding", provider_config.model(), messages, inputs, "", provider_config.timeout_ms(), 1, _jsonstring(document, root, "privacy"), claim.item_id(), request_id, 0, dimension, 0, -1, retry_base, provider_config.maximum_backoff_ms(), provider_config.jitter_ms())
     provider_output = .providerresult()
     if receipt_body \= "" then do
       provider_output = _receiptoutput(receipt_body); receipt_document = .jsondocument(receipt_body)
@@ -568,7 +608,16 @@ _snapshotmatches: procedure = .int
   if columns \= 0 then return 0
   identity = .ragconfigidentity(); identity_error = ""
   if identifyconfig(config, profile, identity, identity_error) \= 0 then return 0
-  return config_hash = identity.config_hash() & profile_hash = identity.profile_hash()
+  if profile_hash \= identity.profile_hash() then return 0
+  if config_hash = identity.config_hash() then return 1
+  /* Worker count is an operational control, not part of provider work. Keep
+   * every other snapshot field exact: semantic hashes alone omit prospective
+   * provider settings that must not change an already planned request. */
+  sql = "SELECT json_remove(effective_json,'$.config.workers.processes')=json_remove(?2,'$.config.workers.processes') FROM config_snapshots WHERE config_snapshot_id=?1"
+  matches = 0
+  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindtext(prepared, 1, snapshot_id) \= 0 | sqlitebindtext(prepared, 2, identity.effective_json()) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return 0; end
+  columns = sqlitecolumnint(prepared, 0, matches); call sqlitefinalize prepared
+  return columns = 0 & matches = 1
 
 _iteminput: procedure = .string
   arg database = .binary, item_id = .string

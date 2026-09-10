@@ -1,4 +1,98 @@
-# SQLite authority and vector publication recovery defects
+# Operational hardening and recovery defects
+
+## RAG-OPS-001 — P1: routine launch and recovery must be product operations
+
+Status: open, high-priority backlog requirement raised by the user on
+2026-09-10. Address after the current embedding run; this entry does not claim
+that the operational workflow is hardened.
+
+Starting or resuming an approved workload must be a repeatable command using
+the already built, tested executable and ordinary configuration. It must not
+depend on agent-written Python, SQL edits, generated per-run repair programs,
+or rebuilding the application to repair a routine data/configuration state.
+Validation must either lead to a supported recovery path or explain the
+specific decision that requires operator input. Another blocking check alone
+does not close this requirement.
+
+The embedding launch on 10 September exposed an operational configuration
+guard that classified a drained, paused extraction job as active. Correcting
+that guard required another build after earlier tests. The exact launch path
+had not been qualified in advance, delaying the requested processing. The
+live launch subsequently used public configuration plan/apply, maintenance
+plan/apply and worker commands; that success does not qualify the entire
+operator recovery workflow. Broader regression risk remains open because the
+user directed immediate live execution before the full suite completed.
+
+The live run also retained one failed item with `cannot begin provider receipt`
+after a metered embedding response, while other embeddings continued. Include
+this observed receipt-persistence failure in the recovery review; its underlying
+cause is not yet established. Inspect durable response/usage evidence before
+replay, and require recovery through the public product surface.
+
+Four successive live worker groups also stopped on generic transaction-start
+failures. The confirmed replacement gap was classification: those exits were
+recorded as generic failure, while the supervisor accepted explicitly recoverable
+exits. The generic messages discarded the SQLite result code. The reservation
+path also scanned the growing event ledger four times under its writer lock,
+and quota deferrals repeatedly reclaimed work before capacity returned.
+Candidate 13 adds bounded retries of transaction start only, retains diagnostics,
+marks safely settled busy exits for the existing replacement policy, combines
+the four ledger scans, and waits for quota capacity. The same real job is being
+used for the user's requested eight-versus-sixteen-worker comparison. This is
+ongoing live validation; the wider P1 requirement remains open.
+
+The eight-worker interval then added 581 covered chunks and 450 successful
+provider calls in 926 seconds, with no new dead letters or worker replacements.
+Changing only `worker.processes` to sixteen exposed another mismatch: the
+public operational configuration transition succeeded, but each worker still
+required the original full configuration hash. The group was drained after
+288 uncalled configuration rejections. Candidate 14 permits a difference only
+in the worker-count field; provider, profile and all remaining configuration
+fields remain exact. The original snapshots and job limits are preserved.
+Recovery uses public `job retry` for those uncalled rejections before a fresh
+sixteen-worker interval. A configuration error must also be diagnosed once at
+the group boundary rather than propagated into hundreds of item dead letters;
+include that case in the P1 operator-flow qualification.
+
+Required closure:
+
+1. Review the existing configuration, job, maintenance-window, worker and
+   publication state transitions together. Assign each decision and repair to
+   its owning cREXX component and reuse its public controls. Consolidate
+   conflicting guards and remove superseded workarounds; do not introduce a
+   parallel orchestration framework or a second source of job truth.
+2. Provide one documented entry point for starting and resuming the requested
+   backlog with configured workers and explicit time/spend limits. Repeating
+   it must not duplicate a job, provider call or reservation, or reset the
+   original deadline and budget. Normal operation must require no build step.
+3. Make recoverable configuration, migration, stale-owner, settled-job,
+   cached-embedding and sidecar problems diagnosable and repairable through
+   the tool itself. Repairs must be bounded, idempotent and auditable, preserve
+   corpus history, and leave unrelated paused work alone. Return an actionable
+   public command when a separate repair step is necessary.
+4. Make the controller continue eligible work after transient provider errors
+   or recoverable worker exits, using shared backoff and durable attempt
+   limits. If the controller itself stops, provide a supported resume path
+   with the same limits. Keep genuinely uncertain paid requests inspectable
+   and held; do not silently resubmit them. Show why progress is waiting or
+   stopped and distinguish that from an exhausted backlog.
+5. Qualify the exact installed executable through the complete operator flow:
+   launch, stop, resume, controller/worker interruption, throttling, ordinary
+   reader/writer contention, drained paused jobs, configuration transitions,
+   cache reuse and final index publication on a representative corpus copy.
+   Verify coverage and paid-call accounting, not merely process startup.
+6. Have a fresh agent or operator execute the documented commands without
+   source edits, bespoke scripts or private database knowledge. Any required
+   workaround fails this acceptance case. Run the relevant regression suite
+   on the final artifact before claiming closure; retain live-run results
+   separately from deterministic test evidence.
+
+Current priority: let the authorized embedding backlog run and address actual
+processing failures. Do not turn this requirement into another prelaunch
+redesign or delay. Subsequent repairs should be small, justified against the
+owning state transition, and remove the need for operational intervention.
+
+## Earlier recovery record
 
 Recorded 2026-09-06 after the Scottish corpus recovery investigation.
 

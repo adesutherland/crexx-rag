@@ -247,6 +247,7 @@ ragworkproviderresult: class
   _retryable = .int
   _retry_delay_ms = .int
   _provider_called = .int
+  _admission_deferred = .int
   _diagnostic_json = .string
   _citation_failure = .string
   _content_failure = .int
@@ -346,6 +347,11 @@ ragworkproviderresult: class
     return
   provider_called: method = .int
     return _provider_called
+  admission_deferred: method = .int
+    return _admission_deferred
+  set_admission_deferred: method = .void
+    _admission_deferred = 1
+    return
   proposal: method = .ragextractionproposal
     return _proposal
   error: method = .string
@@ -414,7 +420,7 @@ claimnext: procedure = .int
   error = ""; claim = .ragworkclaim(1, "", "", "", "", worker_id, 0, "", 0, "")
   if store.writable() \= 1 | worker_id = "" | lease_seconds < 1 | lease_seconds > 86400 | maximum_attempts < 1 | maximum_attempts > 100 then do; error = "worker claim policy is invalid"; return -1; end
   database = store.database()
-  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin worker claim"; return -3; end
+  if beginwritetransaction(database,"begin worker claim",error) \= 0 then return -3
   /* Lease recovery is exceptional.  The indexed existence check keeps the
    * normal claim path independent of the growing reservation-event ledger. */
   expired = _scalarint(database, "SELECT EXISTS(SELECT 1 FROM job_items WHERE state IN('running','cancel_requested') AND lease_until<=CAST(strftime('%s','now') AS INTEGER) LIMIT 1)")
@@ -533,7 +539,7 @@ reservecall: procedure = .int
   error = ""; reservation = .ragcallreservation(-1, "", claim.job_id(), claim.item_id(), claim.attempt_id(), claim.worker_id(), claim.fence(), maximum_input_tokens, maximum_output_tokens, maximum_cost, maximum_time_ms, 0)
   if store.writable() \= 1 | claim.claimed() \= 1 | maximum_input_tokens < 0 | maximum_output_tokens < 0 | maximum_cost < 0 | maximum_time_ms < 1 then do; error = "provider reservation inputs are invalid"; return -1; end
   database = store.database()
-  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider reservation"; return -3; end
+  if beginwritetransaction(database,"begin provider reservation",error) \= 0 then return -3
   if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)
   reservation_id = claim.attempt_id() || "#call-1"
   if _boundeventcount(database, claim.job_id(), "reservation-open:" || reservation_id) > 0 then return _rollback(database, "provider call is already reserved", error)
@@ -554,10 +560,10 @@ reservecall: procedure = .int
   actual_output = _actualusage(database, claim.job_id(), "output")
   actual_cost = _actualusage(database, claim.job_id(), "cost")
   actual_time = _actualusage(database, claim.job_id(), "time")
-  reserved_input = _reservationdelta(database, claim.job_id(), "input")
-  reserved_output = _reservationdelta(database, claim.job_id(), "output")
-  reserved_cost = _reservationdelta(database, claim.job_id(), "cost")
-  reserved_time = _reservationdelta(database, claim.job_id(), "time")
+  reserved = .int[]
+  if _reservationusage(database,claim.job_id(),reserved) \= 4 then return _rollback(database,"cannot read provider reservations",error)
+  reserved_input = reserved[1]; reserved_output = reserved[2]
+  reserved_cost = reserved[3]; reserved_time = reserved[4]
   codex_turn = 0; recovery_call = 0; input_json = _boundscalartext(database, "SELECT input_json FROM job_items WHERE item_id=?1", claim.item_id())
   if input_json \= "" then do
     input_document = .jsondocument(input_json)
@@ -620,7 +626,7 @@ _defermaintenancecall: procedure = .int
 beginproviderrequest: procedure = .int
   arg store = .ragstorehandle, claim = .ragworkclaim, request_id = .string, expose error = .string
   database = store.database(); error = ""
-  if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider intent"; return -3; end
+  if beginwritetransaction(database,"begin provider intent",error) \= 0 then return -3
   if _activefence(database,claim) \= 1 then return _rollback(database,"provider intent fence is stale",error)
   if _boundcount(database,"SELECT count(*) FROM job_events WHERE attempt_id=?1 AND event_type='provider-intent'",claim.attempt_id()) \= 0 then return _rollback(database,"provider request already has a durable intent",error)
   body = '{"input_hash":' || jsonquote(claim.input_hash()) || ',"config_snapshot_id":' || jsonquote(claim.config_snapshot_id()) || ',"request_id":' || jsonquote(request_id) || '}'
@@ -633,7 +639,7 @@ recordproviderresponse: procedure = .int
   database = store.database(); error = ""
   document = .jsondocument(body)
   if document.valid() \= 1 then do; error = "provider receipt is not JSON"; return -1; end
-  if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider receipt"; return -3; end
+  if beginwritetransaction(database,"begin provider receipt",error) \= 0 then return -3
   /* Late responses still belong to their original durable intent. */
   if _boundcount(database,"SELECT count(*) FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id WHERE e.attempt_id=?1 AND e.event_type='provider-intent' AND a.worker_id=" || _q(claim.worker_id()) || " AND a.fence=" || claim.fence(),claim.attempt_id()) \= 1 then return _rollback(database,"provider receipt has no matching intent",error)
   previous = _boundscalartext(database,"SELECT message FROM job_events WHERE attempt_id=?1 AND event_type='provider-response'",claim.attempt_id())
@@ -702,7 +708,7 @@ _recoverprovideraccounting: procedure = .int
     profile_hash = ""; if result.resolution_json() \= "" then profile_hash = ragsha256(canonicalprofile(result.resolution_profile()))
     if settlecall(store,reservation,result.provider_id(),result.model(),result.request_id(),outcome,result.input_tokens(),result.output_tokens(),result.cost(),result.duration_ms(),provider_run_id,error,result.provider_run_id(),result.charging_basis(),result.provider_called(),result.diagnostic_json(),result.resolution_json(),profile_hash) \= 0 then return -3
   end
-  if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin recovered receipt link"; return -3; end
+  if beginwritetransaction(database,"begin recovered receipt link",error) \= 0 then return -3
   if _activefence(database,claim) \= 1 then return _rollback(database,"receipt recovery publication fence is stale",error)
   admission_outcome = "failed"; if result.ok() = 1 then admission_outcome = "succeeded"
   if sqliteexec(database,"UPDATE provider_admissions SET actual_tokens=" || (result.input_tokens()+result.output_tokens()) || ",outcome=" || _q(admission_outcome) || ",released_epoch=unixepoch() WHERE attempt_id=" || _q(original_attempt) || " AND outcome IN('active','expired')") \= 0 then return _rollback(database,"cannot release recovered provider admission",error)
@@ -803,7 +809,12 @@ admitprovidercall: procedure = .int
   database = store.database(); started = time("us")
   admission_id = "admission-sha256:" || rxhash..sha256hex((claim.attempt_id() || "00"x || provider_id || "00"x || model) as .binary)
   do forever
-    if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider admission"; return -3; end
+    /* Capacity waits are reads. Recheck after taking the writer lock before
+     * inserting admission, so independent workers cannot oversubscribe. */
+    scope = "provider_id=" || _q(provider_id) || " AND model=" || _q(model)
+    cooldown = _scalarint(database,"SELECT coalesce((SELECT not_before_epoch FROM provider_cooldowns WHERE " || scope || "),0)")
+    if cooldown > _scalarint(database,"SELECT unixepoch()") then do; admission_id = ""; wait_ms = (cooldown-_scalarint(database,"SELECT unixepoch()"))*1000; error = "provider cooldown pending"; return 1; end
+    if beginwritetransaction(database,"begin provider admission",error) \= 0 then return -3
     now_epoch = _scalarint(database, "SELECT CAST(strftime('%s','now') AS INTEGER)")
     if now_epoch < 0 then return _rollback(database, "cannot read the provider admission clock", error)
     if sqliteexec(database, "UPDATE provider_admissions SET outcome='expired',released_epoch=" || now_epoch || " WHERE outcome='active' AND lease_until_epoch<=" || now_epoch) \= 0 then return _rollback(database, "cannot expire stale provider admissions", error)
@@ -812,8 +823,10 @@ admitprovidercall: procedure = .int
     recent_requests = _scalarint(database, "SELECT count(*) FROM provider_admissions WHERE " || scope || " AND admitted_epoch>" || (now_epoch - 60))
     recent_tokens = _scalarint(database, "SELECT coalesce(sum(reserved_tokens),0) FROM provider_admissions WHERE " || scope || " AND admitted_epoch>" || (now_epoch - 60))
     active_requests = _scalarint(database, "SELECT count(*) FROM provider_admissions WHERE " || scope || " AND outcome='active' AND lease_until_epoch>" || now_epoch)
-    if recent_requests < 0 | recent_tokens < 0 | active_requests < 0 then return _rollback(database, "cannot inspect provider admission capacity", error)
-    if recent_requests < requests_per_minute & recent_tokens + reserved_tokens <= tokens_per_minute & active_requests < concurrent_requests then do
+    cooldown = _scalarint(database,"SELECT coalesce((SELECT not_before_epoch FROM provider_cooldowns WHERE " || scope || "),0)")
+    recovering = _scalarint(database,"SELECT coalesce((SELECT failure_count FROM provider_cooldowns WHERE " || scope || "),0)")
+    if recent_requests < 0 | recent_tokens < 0 | active_requests < 0 | cooldown < 0 | recovering < 0 then return _rollback(database, "cannot inspect provider admission capacity", error)
+    if cooldown <= now_epoch & (recovering = 0 | active_requests = 0) & recent_requests < requests_per_minute & recent_tokens + reserved_tokens <= tokens_per_minute & active_requests < concurrent_requests then do
       lease_seconds = (((timeout_ms + 999) / 1000) as .int) + 30
       wait_ms = _elapsedms(started)
       prepared = .binary
@@ -825,15 +838,47 @@ admitprovidercall: procedure = .int
       if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit provider admission", error)
       return 0
     end
+    wait_ms = 1000
+    if recent_requests >= requests_per_minute | recent_tokens + reserved_tokens > tokens_per_minute then do
+      first_epoch = _scalarint(database,"SELECT coalesce(min(admitted_epoch)," || now_epoch || ") FROM provider_admissions WHERE " || scope || " AND admitted_epoch>" || (now_epoch-60))
+      if first_epoch < 0 then return _rollback(database,"cannot inspect provider capacity release",error)
+      wait_ms = max(wait_ms,(first_epoch+61-now_epoch)*1000)
+    end
+    if cooldown > now_epoch then wait_ms = max(wait_ms,(cooldown-now_epoch)*1000)
     if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot finish provider capacity inspection", error)
-    wait_ms = _elapsedms(started)
-    if wait_ms >= timeout_ms then do; admission_id = ""; error = "provider admission timed out while respecting configured request, token, or concurrency limits"; return -2; end
-    delay_ms = 50
-    if timeout_ms - wait_ms < delay_ms then delay_ms = timeout_ms - wait_ms
-    if delay_ms > 0 then call rxplatform..sleep delay_ms
+    /* Park the item; the worker can heartbeat and observe pause/deadline.
+     * A capacity shortage is not a provider failure or a spent attempt. */
+    admission_id = ""; error = "provider admission deferred by request, token, concurrency or cooldown limits"; return 1
   end
 
 releaseprovidercall: procedure = .int
+  arg store = .ragstorehandle, admission_id = .string, actual_tokens = .int, outcome = .string, expose error = .string, retry_delay_ms = 0, initial_backoff_ms = 1000, maximum_backoff_ms = 60000
+  error = ""; database = store.database()
+  if beginwritetransaction(database,"begin provider admission release",error) \= 0 then return -3
+  previous = _boundscalartext(database,"SELECT outcome FROM provider_admissions WHERE admission_id=?1",admission_id)
+  status = _releaseprovidercall(store,admission_id,actual_tokens,outcome,error)
+  if status \= 0 then do; ignored = sqliteexec(database,"ROLLBACK"); return status; end
+  if previous = "active" | previous = "expired" then do
+    scope = "provider_id=(SELECT provider_id FROM provider_admissions WHERE admission_id=" || _q(admission_id) || ") AND model=(SELECT model FROM provider_admissions WHERE admission_id=" || _q(admission_id) || ")"
+    if outcome = "succeeded" then do
+      if sqliteexec(database,"UPDATE provider_cooldowns SET failure_count=0,not_before_epoch=0,updated_epoch=unixepoch() WHERE " || scope || " AND (SELECT admitted_epoch FROM provider_admissions WHERE admission_id=" || _q(admission_id) || ")>=not_before_epoch") \= 0 then return _rollback(database,"cannot clear provider cooldown",error)
+    end
+    else if retry_delay_ms > 0 then do
+      failures = _scalarint(database,"SELECT coalesce((SELECT failure_count FROM provider_cooldowns WHERE " || scope || "),0)")
+      delay_ms = initial_backoff_ms
+      do i = 1 to min(failures,30); delay_ms = min(maximum_backoff_ms,delay_ms*2); end
+      delay_ms = max(delay_ms,retry_delay_ms)
+      /* Epoch storage has whole-second precision. Round away from an early
+       * retry even when the response arrived late within the current second. */
+      seconds = (((delay_ms+999)/1000) as .int) + 1
+      sql = "INSERT INTO provider_cooldowns(provider_id,model,not_before_epoch,failure_count,updated_epoch) SELECT provider_id,model,unixepoch()+" || seconds || ",1,unixepoch() FROM provider_admissions WHERE admission_id=" || _q(admission_id) || " ON CONFLICT(provider_id,model) DO UPDATE SET not_before_epoch=max(not_before_epoch,excluded.not_before_epoch),failure_count=failure_count+1,updated_epoch=excluded.updated_epoch"
+      if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot retain provider cooldown",error)
+    end
+  end
+  if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot commit provider admission release",error)
+  return 0
+
+_releaseprovidercall: procedure = .int
   arg store = .ragstorehandle, admission_id = .string, actual_tokens = .int, outcome = .string, expose error = .string
   error = ""
   if store.writable() \= 1 | admission_id = "" | actual_tokens < 0 | (outcome \= "succeeded" & outcome \= "failed") then do; error = "provider admission release inputs are invalid"; return -1; end
@@ -869,7 +914,7 @@ settlecall: procedure = .int
   if diagnostic_json \= "" & (outcome \= "failed" | binlength(diagnostic_json as .binary) > 262144 | .jsondocument(diagnostic_json).valid() \= 1) then do; error = "provider failure diagnostic is invalid"; return -1; end
   if record_provider_run = 0 & (actual_input_tokens \= 0 | actual_output_tokens \= 0 | actual_cost \= 0 | existing_provider_run_id \= "") then do; error = "uncalled provider settlement cannot contain provider usage"; return -1; end
   database = store.database()
-  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider settlement"; return -3; end
+  if beginwritetransaction(database,"begin provider settlement",error) \= 0 then return -3
   claim = .ragworkclaim(0, reservation.job_id(), reservation.item_id(), "", "", reservation.worker_id(), reservation.fence(), reservation.attempt_id(), 0, "")
   /* The durable original attempt authorizes accounting even after lease expiry.
    * Publication still requires _activefence. Actual charges are observations,
@@ -948,15 +993,16 @@ settlecall: procedure = .int
   return 0
 
 failattempt: procedure = .int
-  arg store = .ragstorehandle, claim = .ragworkclaim, retryable = .int, backoff_seconds = .int, maximum_attempts = .int, reason = .string, expose error = .string, citation_failure = "", content_failure = 0
+  arg store = .ragstorehandle, claim = .ragworkclaim, retryable = .int, backoff_seconds = .int, maximum_attempts = .int, reason = .string, expose error = .string, citation_failure = "", content_failure = 0, uncalled = 0
   error = ""
   if store.writable() \= 1 | claim.claimed() \= 1 | (retryable \= 0 & retryable \= 1) | backoff_seconds < 0 | maximum_attempts < 1 | reason = "" then do; error = "failed-attempt inputs are invalid"; return -1; end
   database = store.database()
-  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin failed attempt"; return -3; end
+  if beginwritetransaction(database,"begin failed attempt",error) \= 0 then return -3
   if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)
   attempts = _boundcount(database, "SELECT count(*) FROM attempts WHERE item_id=?1 AND outcome<>'cancelled'", claim.item_id())
   if retryable = 1 & attempts < maximum_attempts then next_state = "queued"
   else next_state = "dead_letter"
+  if uncalled = 1 & retryable = 1 then next_state = "queued"
   correction_count = _boundcount(database,"SELECT count(*) FROM job_events WHERE item_id=?1 AND event_type='citation-correction-requested'",claim.item_id())
   /* One explicit correction is independent of the transport retry allowance.
    * Once requested, a failed correction cannot trigger another paid retry. */
@@ -969,6 +1015,7 @@ failattempt: procedure = .int
     end
   end
   attempt_outcome = "failed"
+  if uncalled = 1 & retryable = 1 then attempt_outcome = "cancelled"
   /* Content validation is distinct from transport, admission and SQL failure.
    * Count it only under the active worker fence, against this evidence task. */
   if content_failure = 1 then do
@@ -1226,7 +1273,9 @@ _runworkeronce: procedure = .int
     reservation_status = reservecall(store, claim, maximum_input, maximum_output, maximum_cost, maximum_time, reservation, error)
     if reservation_status = 1 then do; disposition = "budget-deferred"; return 1; end
     if reservation_status \= 0 then do
-      failure_error = ""; call failattempt store, claim, 1, 1, maximum_attempts, error, failure_error
+      failure_error = ""; failure = error; busy = sqlitebusyerror(failure)
+      call failattempt store, claim, 1, 1, maximum_attempts, failure, failure_error, "", 0, busy
+      if failure_error \= "" then error = failure_error
       disposition = "budget-denied"
       return -2
     end
@@ -1263,8 +1312,9 @@ _runworkeronce: procedure = .int
     if retry_seconds < 1 then retry_seconds = 1
     attempt_limit = maximum_attempts
     if provider_result.attempt_limit() > 0 then attempt_limit = provider_result.attempt_limit()
-    if failattempt(store, claim, provider_result.retryable(), retry_seconds, attempt_limit, provider_result.error(), error, provider_result.citation_failure(),provider_result.content_failure()) \= 0 then do; disposition = "failure-recording-failed"; return -3; end
+    if failattempt(store, claim, provider_result.retryable(), retry_seconds, attempt_limit, provider_result.error(), error, provider_result.citation_failure(),provider_result.content_failure(),provider_result.admission_deferred()) \= 0 then do; disposition = "failure-recording-failed"; return -3; end
     disposition = "retry-or-dead-letter"
+    if provider_result.admission_deferred() = 1 then disposition = "provider-deferred"
     return 0
   end
   if claim.item_type() = "maintenance-resolution" then do
@@ -1525,11 +1575,13 @@ _reservationcaps: procedure = .int
 _completeembedding: procedure = .int
   arg store = .ragstorehandle, claim = .ragworkclaim, embedding = .ragworkembedding, provider_run_id = .string, expose error = .string
   error = ""; database = store.database()
-  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin embedding completion"; return -3; end
+  if beginwritetransaction(database,"begin embedding completion",error) \= 0 then return -3
   if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)
   sql = "INSERT OR IGNORE INTO embedding_profiles(embedding_profile_id,provider_id,model,dimension,input_envelope_fingerprint,created_at) VALUES(" || _q(embedding.embedding_profile_id()) || "," || _q(embedding.provider_id()) || "," || _q(embedding.model()) || "," || embedding.dimension() || "," || _q(embedding.envelope_fingerprint()) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
   if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot register worker embedding profile", error)
   embedding_id = "embedding-sha256:" || rxhash..sha256hex((embedding.embedding_profile_id() || "00"x || embedding.input_digest()) as .binary)
+  existing_id = _boundscalartext(database,"SELECT embedding_id FROM embeddings WHERE embedding_profile_id=" || _q(embedding.embedding_profile_id()) || " AND input_digest=?1",embedding.input_digest())
+  if existing_id \= "" then embedding_id = existing_id
   prepared = .binary
   sql = "INSERT OR IGNORE INTO embeddings(embedding_id,input_digest,embedding_profile_id,vector,dimension,provider_run_id,created_at) VALUES(?1,?2,?3,?4,?5,?6,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
   if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare worker embedding", error)
@@ -1537,7 +1589,7 @@ _completeembedding: procedure = .int
   step = sqlitestep(prepared); call sqlitefinalize prepared
   if binds \= 0 | step \= 101 then return _rollback(database, "cannot store worker embedding", error)
   generation = _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1")
-  sql = "INSERT OR IGNORE INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) VALUES(" || _q(embedding.revision_chunk_id()) || "," || _q(embedding_id) || "," || generation || ")"
+  sql = "INSERT INTO revision_chunk_embeddings(revision_chunk_id,embedding_id,visible_from_generation) SELECT " || _q(embedding.revision_chunk_id()) || "," || _q(embedding_id) || "," || generation || " WHERE NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings WHERE revision_chunk_id=" || _q(embedding.revision_chunk_id()) || " AND embedding_id=" || _q(embedding_id) || " AND visible_to_generation IS NULL)"
   if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot attach worker embedding", error)
   output_hash = rxhash..sha256hex(embedding.vector())
   sql = "UPDATE attempts SET output_hash=" || _q(output_hash) || ",validation_state='validated-embedding',outcome='succeeded',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE attempt_id=" || _q(claim.attempt_id()) || " AND outcome='running'"
@@ -1621,11 +1673,30 @@ _actualusage: procedure = .int
   else if kind = "time" then expression = "coalesce(sum(p.duration_ms),0)"
   else expression = "coalesce(sum(p.cost_microunits),0)"
   prepared = .binary
-  sql = "SELECT " || expression || " FROM provider_runs p WHERE EXISTS(SELECT 1 FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE a.provider_run_id=p.provider_run_id AND i.job_id=?1)"
+  /* Start from this job's indexed items; IN counts a recovered run once even
+   * when several attempts reference it, without scanning unrelated history. */
+  sql = "SELECT " || expression || " FROM provider_runs p WHERE p.provider_run_id IN(SELECT a.provider_run_id FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1 AND a.provider_run_id IS NOT NULL)"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, job_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
   value = 0; status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
   if status \= 0 then return -1
   return value
+
+/* Read all four immutable ledger deltas together while holding the writer
+ * lock. Prefix ranges use the existing event-type index and avoid visiting
+ * large provider-response rows or rescanning the ledger four times. */
+_reservationusage: procedure = .int
+  arg database = .binary, job_id = .string, expose values = .int[]
+  clear values
+  prepared = .binary
+  sql = "SELECT coalesce(sum(CAST(json_extract(message,'$.input') AS INTEGER)),0),coalesce(sum(CAST(json_extract(message,'$.output') AS INTEGER)),0),coalesce(sum(CAST(json_extract(message,'$.cost') AS INTEGER)),0),coalesce(sum(CAST(json_extract(message,'$.time') AS INTEGER)),0) FROM job_events WHERE job_id=?1 AND (event_type GLOB 'reservation-open:*' OR event_type GLOB 'reservation-close:*')"
+  if sqliteprepare(database,sql,prepared) \= 0 | sqlitebindtext(prepared,1,job_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  status = 0
+  do i = 0 to 3
+    value = 0; status = status | sqlitecolumnint(prepared,i,value); values[i+1] = value
+  end
+  call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return values.0
 
 _reservationdelta: procedure = .int
   arg database = .binary, job_id = .string, field = .string

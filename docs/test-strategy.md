@@ -55,6 +55,8 @@ metadata directly.
 | `durable_backlog_provider` | native guided maintenance through Gemini loopback: valid decisions, malformed responses, product-rejected quotations, redacted diagnostics, runtime configuration transitions; 40 resolutions with two workers and 20 forced overlapping request pairs, exact terminal accounting and unchanged source/vector state |
 | `publication` | independent SQLite connections prove manifest ownership and reader/backup snapshots during uncommitted writes; batch/single-proposal rollback, cancellation, late/excess/duplicate usage, stale fences, final call and Codex-turn allowance; unchanged legacy folder URI identity, both VMs |
 | `native_publication` | injected late SQL write failure; four chunks and two workers with forced overlapping requests, querying/backing up/restoring/verifying while each pair is held; exact semantic/usage reconciliation; missing-manifest recovery and provider-free restored queries |
+| `embedding_recovery` | eight native workers, four embedding-only dispatch batches, durable 429 retries, paused extraction, exact call accounting, zero-call reconciliation, duplicate-link history and public verification |
+| `embedding_exhaustion` | eight workers through 429/503 failures, six actual calls per embedding across controller restarts and new maintenance windows, retained incomplete coverage and settled reservations |
 | `native_receipts` | exit after durable extraction/embedding response but before settlement, then two-worker public restart: no repeated call, original-attempt usage, exact publication and no reservation leak |
 | `native_interruption` | actual busy worker/controller kill with explicit uncertain intent, cancellation while provider response is held, post-commit manifest rejection and first-vector recovery without repeated extraction |
 | `local_embedding_protocol` | llama.cpp-compatible `/v1/embeddings` and `/v1/chat/completions`, strict structured output, correction history, rejected malformed/schema-invalid/truncated generation with retained usage, restricted local privacy, local-compute charging, and 429 `Retry-After` plus 503 exponential retry on both VMs and compiler modes |
@@ -153,7 +155,7 @@ recovery temporary; reconstruction and vector retrieval succeed with zero
 provider runs. The public query fixture also exercises `vector rebuild`,
 read-capability rejection, idempotent replay, and invalid-hybrid preflight
 without any provider calls. The migration fixture opens a schema-8 bundle
-through the ordinary write path and requires a schema-12 aligned manifest.
+through the ordinary write path and requires a schema-13 aligned manifest.
 
 Maintenance methodology distinguishes successful and failed items within a
 mixed-result job and recognizes embeddings repaired in a later generation.

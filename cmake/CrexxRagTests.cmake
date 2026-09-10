@@ -375,6 +375,27 @@ add_test(NAME native_publication
 set_tests_properties(native_publication PROPERTIES
     TIMEOUT 240 LABELS "publication;concurrency;atomic;gemini;sqlite;zero-outbound")
 
+add_test(NAME embedding_recovery
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-embedding-recovery"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbeddingRecovery.cmake")
+set_tests_properties(embedding_recovery PROPERTIES
+    TIMEOUT 240 LABELS "recovery;concurrency;accounting;gemini;sqlite;zero-outbound")
+
+add_test(NAME embedding_exhaustion
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-embedding-exhaustion"
+        "-DCPRAG_EXHAUSTION=ON"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbeddingRecovery.cmake")
+set_tests_properties(embedding_exhaustion PROPERTIES
+    TIMEOUT 240 LABELS "recovery;concurrency;accounting;gemini;sqlite;zero-outbound")
+
 add_test(NAME native_receipts
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"

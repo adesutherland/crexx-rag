@@ -217,7 +217,9 @@ _toolcommand: procedure = .int
   if tool = "rag_maintain_inspect" then do
     if _positional(document, arguments, "id", output, error) \= 0 then return -1
   end
+  if tool = "rag_vector_rebuild" & _value(document,arguments,"reconcile") = "true" then call _option document, arguments, "reconcile", "reconcile", output
   if tool = "rag_maintain_plan" then do
+    if _value(document,arguments,"embeddings_only") = "true" then call _option document, arguments, "embeddings_only", "embeddings-only", output
     if _value(document,arguments,"enrich_provenance") = "true" then call _option document, arguments, "enrich_provenance", "enrich-provenance", output
     call _option document, arguments, "input", "input", output
     call _option document, arguments, "minutes", "minutes", output
@@ -322,14 +324,14 @@ _toollist: procedure = .string
     tools = _addtool(tools,"rag_task_resolve_plan","Plan an external resolution without writes or provider calls. Inspect the task for response_schema, read rag_task_evidence and rag_profile_show, then submit response_json. Returns canonical plan, digest, grounding and affected objects; apply queues mandatory review",'{"id":{"type":"string"},"response_json":{"type":"string","description":"JSON object matching the response_schema returned by rag_maintain_inspect(task ID). Use original source quotes and exact evidence_id values from rag_task_evidence."},"actor":{"type":"string"},"model":{"type":"string"}}',"true")
     tools = _addtool(tools,"rag_task_escalate_plan","Plan flagging a task as requiring advanced reasoning, independently of priority and status. Does not call a provider or change the corpus",'{"id":{"type":"string"},"reason":{"type":"string"},"actor":{"type":"string"},"model":{"type":"string"}}',"true")
     tools = _addtool(tools, "rag_ingest_plan", "Plan ingestion without writing the library", '{"source_set":{"type":"string"},"metadata_input":{"type":"string"}}', "true")
-    tools = _addtool(tools, "rag_maintain_plan", "Census and rank bounded catalogue, graph, note, query-gap, embedding and vector maintenance without writing", '{"minutes":{"type":"integer","minimum":1,"maximum":10080},"until":{"type":"string"},"overnight":{"type":"string"},"enrich_provenance":{"type":"boolean"},"input":{"type":"string"}}', "true")
+    tools = _addtool(tools, "rag_maintain_plan", "Census and rank bounded catalogue, graph, note, query-gap, embedding and vector maintenance without writing", '{"minutes":{"type":"integer","minimum":1,"maximum":10080},"until":{"type":"string"},"overnight":{"type":"string"},"embeddings_only":{"type":"boolean"},"enrich_provenance":{"type":"boolean"},"input":{"type":"string"}}', "true")
     tools = _addtool(tools, "rag_proposal_plan", "Plan new claims through the normal external proposal validator without writes. Supply exactly one of proposals_ndjson (inline NDJSON, at most 65535 bytes) or input (server-side file path). Apply queues mandatory review; no claims are accepted by planning", '{"input":{"type":"string","description":"Server-side NDJSON file path; omit when using inline content."},"proposals_ndjson":{"type":"string","maxLength":65535,"description":"Inline crexx-rag.extraction-proposal/1 or /2 NDJSON, external=1; one complete proposal per line. UTF-8 spans must bind both endpoint labels to an existing revision_chunk_id."}}', "true")
     tools = _addtool(tools, "rag_review_list", "List review proposals with state; continue using next_cursor", '{"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100}}', "true")
     tools = _addtool(tools, "rag_review_decide_preview", "Preview a review decision without writing", '{"id":{"type":"string"},"decision":{"type":"string","enum":["accept","reject","dismiss"]}}', "true")
     tools = _addtool(tools, "rag_config_plan", "Freeze a digest-checked zero-write configuration transition plan", '{"reason":{"type":"string","maxLength":256}}', "true")
   end
   if _has(access, "control") then do
-    tools = _addtool(tools, "rag_vector_rebuild", "Rebuild a missing or corrupt vector index from stored SQLite embeddings without provider calls", '{}', "false", "false", "true")
+    tools = _addtool(tools, "rag_vector_rebuild", "Rebuild stored vectors without provider calls. Optional reconcile closes duplicate active links and skips already covered queued embeddings; requires drained workers", '{"reconcile":{"type":"boolean"}}', "false", "false", "true")
     tools = _addtool(tools, "rag_library_snapshot", "Evaluate the deterministic churn matrix and capture only a materially distinct historic observation", '{"trigger":{"type":"string","enum":["manual","ingestion","maintenance","vector-publication","replay","reconciliation","migration","backup","scheduled"]},"reason":{"type":"string","maxLength":256}}', "false", "false", "false")
     tools = _addtool(tools, "rag_job_pause", "Pause one durable job", '{"id":{"type":"string"}}', "false")
     tools = _addtool(tools, "rag_job_resume", "Resume one durable job", '{"id":{"type":"string"}}', "false")
@@ -429,7 +431,8 @@ _toolargumentnames: procedure = .string
   if tool = "rag_job_replay" then return "id item reason"
   if tool = "rag_config_plan" then return "reason"
   if tool = "rag_config_apply" then return "plan_json expect_digest"
-  if tool = "rag_maintain_plan" then return "minutes until overnight enrich_provenance input"
+  if tool = "rag_vector_rebuild" then return "reconcile"
+  if tool = "rag_maintain_plan" then return "minutes until overnight embeddings_only enrich_provenance input"
   if tool = "rag_ingest_plan" then return "source_set metadata_input"
   if tool = "rag_provider_test" then return "provider"
   if tool = "rag_proposal_plan" then return "input proposals_ndjson"
