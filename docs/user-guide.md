@@ -418,6 +418,37 @@ outcomes remain held; paused mixed jobs stay paused. A plain `vector rebuild`
 only rebuilds the projection. Both forms accept safely drained paused jobs,
 and reject active workers, running items or outstanding reservations.
 
+## Retrying unfinished work
+
+A retry request is accepted even when a task's earlier job or maintenance
+window has finished. Acceptance records the intent; execution still needs a
+compatible reviewed window and available attempt allowance:
+
+```sh
+crexxrag --access control maintain retry TASK_ID --reason "quota restored"
+crexxrag maintain inspect TASK_ID
+crexxrag --access plan maintain plan --embeddings-only --minutes 5
+# Review and apply the returned plan, then run its new job.
+```
+
+`job retry JOB_ID --item ITEM_ID --reason TEXT` uses the same task request for
+maintenance items. Ordinary job items can requeue under their original policy.
+It accepts every item state and preserves pause/cancel controls. Use `job resume`
+explicitly for an ordinary paused job; a closed maintenance window needs a new
+plan. Repeating either retry command reuses the pending request and keeps the
+original reason. MCP exposes `rag_task_retry` and `rag_job_retry` with control
+access.
+
+The response includes `retry_request_id`, `retry_accepted`, `retry_state` and
+`retry_disposition`. Task inspection shows the latest request; job status shows
+`retry_pending` and `retry_reason`. `existing-work` means an existing item keeps
+ownership; `closed-window`, `retry-delay`, `review-required`, `attempt-limit`,
+`policy-unavailable` and `provider-outcome-uncertain` explain holds. `runnable`
+means eligible for normal admission, not a grant of additional budget.
+`already-complete` completes the request without another call; `superseded`
+closes only the request, without counting the task as completed coverage.
+Attempts, receipts, usage, old items and window deadlines remain intact.
+
 ## Jobs
 
 Use the installed, tested executable and the job's original configuration:
@@ -509,7 +540,7 @@ under normal input validation and fresh worker ownership. An explicitly created
 replay job is new work and may make another call. Actual late or above-estimate
 usage is recorded once even when the original worker may no longer publish.
 
-`job replay` requires a source job in `completed_with_errors`. It copies the
+`job replay` requires a terminal source job with explicit dead letters. It copies the
 selected dead letters into a new queued job under the current configuration
 and current item/call/token/cost/allowance budgets. The source job and source
 items remain terminal and unchanged; `job_replays` and `job_replay_items`
@@ -520,9 +551,10 @@ reingesting the corpus or replacing its existing data.
 
 The command itself makes no provider call. Start workers for the returned
 `replay_job_id` using the normal supervised worker command. The command
-`job retry JOB_ID --item ITEM_ID` remains available for compatibility but
-requeues the item inside the original job; prefer `job replay` when preserving
-the failed baseline matters.
+`job retry JOB_ID --item ITEM_ID` records a durable request. Eligible ordinary
+items reuse their original job; maintenance items retain the task owner and
+need a new reviewed window after closure. Replay applies only to ordinary
+items and rejects active, completed or uncertain work in the same lineage.
 
 `library report` reconciles those immutable source dead letters with all replay
 descendants. It reports `actionable` roots when no replay is active or has

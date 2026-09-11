@@ -53,6 +53,17 @@ The module does not own settlement, worker replacement or provider rate limits.
 `job status` reports the latest queued deferral in `waiting_reason`, separately
 from `last_error`; it clears when that item is reclaimed or stops waiting.
 
+`raglifecycle` owns shared terminal-state projection, retry eligibility and the
+schema-14 retry-request ledger. A request targets one task or ordinary item,
+is deduplicated across process restarts, and records a pending/completed state
+and disposition. Its creation and the owner's reconsideration run in one
+SQLite writer transaction. `ragwork` retains leases, fences and same-job
+execution; `ragbacklog` retains policy, windows and task dispatch. Closing a
+window no longer hides dead letters behind an unconditional completed job.
+A request cannot reopen a closed window, reset attempts, renew an allowance,
+resume a pause/cancellation or erase an uncertain provider intent. See
+[lifecycle recovery](lifecycle-recovery.md) for the contract and qualification.
+
 `ragprocess` replaces explicitly unhealthy, exited workers in job-filtered
 groups under a job-wide durable restart ceiling. The existing `job_events`
 ledger records each replacement before launch; no schema migration is needed.
@@ -110,8 +121,11 @@ current semantically compatible configuration snapshot and current budgets,
 and retains job/item lineage. The new budget policy and all replay items are
 committed atomically; historical reservations must fit the reviewed envelope. A recursive reconciliation view classifies each
 immutable source root as actionable, replaying, or resolved from the state of
-its descendants. The earlier single-item same-job retry remains a compatibility
-operation for an operator who deliberately wants that behavior.
+its descendants. Replay rejects active, completed or uncertain work in the
+same replay family. `job retry` records a durable request; maintenance-linked
+items delegate to the task owner and continue in a new reviewed window.
+Ordinary items retain their original job policy. Read-only schema-13 task
+inspection remains available; the ordinary write-open path upgrades additively.
 
 Schema 13 adds provider/model cooldown state and an index for embedding attempt
 history. Admission parks uncalled work without charging an attempt. Retry delays

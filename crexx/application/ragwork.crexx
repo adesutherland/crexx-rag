@@ -14,6 +14,7 @@ import ragcanonical
 import ragprofile
 import ragbacklog
 import ragadmission
+import raglifecycle
 
 /* Durable improvement work uses database-clock leases and per-item monotonic
  * fencing. Provider work happens after claim commit and before a short fenced
@@ -474,6 +475,7 @@ claimnext: procedure = .int
     if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot commit lease recovery",error)
     return 1
   end
+  if _reconsideritemretries(database,job_filter) \= 0 then return _rollback(database,"cannot reconsider pending item retries",error)
   sql = "SELECT i.item_id,i.job_id,i.item_type,i.input_hash,i.fence,j.config_snapshot_id FROM job_items i JOIN jobs j ON j.job_id=i.job_id WHERE i.state='queued' AND i.retry_at<=CAST(strftime('%s','now') AS INTEGER) AND j.state IN('queued','running') AND i.item_type IN('embedding','claim-extraction','improve-extraction','maintenance-resolution')"
   if job_filter \= "" then sql = sql || " AND i.job_id=?1"
   sql = sql || " ORDER BY i.priority DESC,i.item_id LIMIT 1"
@@ -1247,18 +1249,59 @@ drainjob: procedure = .int
 retrydeadletter: procedure = .int
   arg store = .ragstorehandle, job_id = .string, item_id = .string, reason = .string, expose retried = .int, expose error = .string
   retried = 0; error = ""
-  if store.writable() \= 1 | job_id = "" | item_id = "" | reason = "" | length(reason) > 256 then do; error = "dead-letter retry inputs are invalid"; return -1; end
+  if store.writable() \= 1 | job_id = "" | item_id = "" | reason = "" | length(reason)>256 then do; error = "retry inputs are invalid"; return -1; end
   database = store.database()
-  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin dead-letter retry"; return -3; end
-  if _boundcount(database, "SELECT count(*) FROM jobs WHERE job_id=?1 AND state IN('completed_with_errors','queued')", job_id) \= 1 then return _rollback(database, "job is not eligible for dead-letter retry", error)
-  if _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND item_id=" || _q(item_id) || " AND state='dead_letter'", job_id) \= 1 then return _rollback(database, "dead-letter item is unavailable", error)
-  if _boundscalarint(database, "SELECT reserved_calls+reserved_tokens+reserved_cost FROM jobs WHERE job_id=?1", job_id) \= 0 | _reservationdelta(database, job_id, "input") \= 0 | _reservationdelta(database, job_id, "output") \= 0 | _reservationdelta(database, job_id, "cost") \= 0 | _reservationdelta(database, job_id, "time") \= 0 then return _rollback(database, "job has outstanding provider reservations", error)
-  sql = "UPDATE job_items SET state='queued',worker_id=NULL,lease_until=NULL,retry_at=CAST(strftime('%s','now') AS INTEGER),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id) || " AND item_id=" || _q(item_id) || " AND state='dead_letter'"
-  if sqliteexec(database, sql) \= 0 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "dead-letter retry lost its predicate", error)
-  if _event(database, job_id, item_id, "", "operator-retry", reason) \= 0 then return _rollback(database, "cannot append dead-letter retry event", error)
-  if sqliteexec(database, "UPDATE jobs SET state='queued',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id)) \= 0 then return _rollback(database, "cannot reopen retried job", error)
-  if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit dead-letter retry", error)
-  retried = 1
+  if _boundcount(database,"SELECT count(*) FROM job_items WHERE job_id=?1 AND item_id=" || _q(item_id),job_id) \= 1 then do; error = "retry item was not found in this job"; return -1; end
+  task_id = _boundscalartext(database,"SELECT task_id FROM maintenance_task_items WHERE item_id=?1",item_id)
+  if task_id \= "" then return requestbacklogretry(store,task_id,reason,retried,error)
+  if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin item retry request"; return -3; end
+  request_id = ""
+  if recordretryrequest(database,"",item_id,reason,request_id,retried,error) \= 0 then return _rollback(database,error,error)
+  if retried = 1 then if _event(database,job_id,item_id,"","operator-retry",reason) \= 0 then return _rollback(database,"cannot append retry request event",error)
+  if _reconsideritemretries(database,job_id) \= 0 then return _rollback(database,"cannot reconsider requested job items",error)
+  if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot commit item retry request",error)
+  return 0
+
+/* Called within the same writer transaction as claim/terminal projection.
+ * Copy request identities before mutating, so iteration cannot revisit its
+ * own writes. The pending index keeps ordinary claims independent of history. */
+_reconsideritemretries: procedure = .int
+  arg database = .binary, job_filter = .string
+  prepared = .binary; items = .string[]; requests = .string[]
+  sql = "SELECT r.item_id,r.request_id FROM retry_requests r JOIN job_items i ON i.item_id=r.item_id WHERE r.state='pending'"
+  if job_filter \= "" then sql = sql || " AND i.job_id=" || _q(job_filter)
+  if sqliteprepare(database,sql,prepared) \= 0 then return -1
+  do forever
+    step = sqlitestep(prepared); if step = 101 then leave
+    item_id = ""; request_id = ""
+    if step \= 100 | sqlitecolumntext(prepared,0,item_id) \= 0 | sqlitecolumntext(prepared,1,request_id) \= 0 then do; call sqlitefinalize prepared; return -1; end
+    items[items.0+1] = item_id; requests[requests.0+1] = request_id
+  end
+  call sqlitefinalize prepared
+  do i = 1 to items.0
+    item_id = items[i]; request_id = requests[i]
+    job_id = _boundscalartext(database,"SELECT job_id FROM job_items WHERE item_id=?1",item_id)
+    state = _boundscalartext(database,"SELECT state FROM job_items WHERE item_id=?1",item_id)
+    parent = _boundscalartext(database,"SELECT state FROM jobs WHERE job_id=?1",job_id)
+    owned = _boundcount(database,"SELECT count(*) FROM job_items WHERE item_id=?1 AND state IN('queued','running','cancel_requested')",item_id)
+    uncertain = _scalarint(database,"SELECT CASE WHEN " || uncertainitem(_q(item_id)) || " THEN 1 ELSE 0 END")
+    ceiling = _boundscalarint(database,"SELECT coalesce(json_extract(message,'$.maximum_attempts'),0) FROM job_events WHERE job_id=?1 AND event_type='budget-policy' AND json_valid(message) ORDER BY event_id DESC LIMIT 1",job_id)
+    spent = _boundcount(database,"SELECT count(*) FROM attempts WHERE item_id=?1 AND outcome<>'cancelled'",item_id)
+    delayed = _boundcount(database,"SELECT count(*) FROM job_items WHERE item_id=?1 AND retry_at>unixepoch()",item_id)
+    hold = ""
+    if parent = "paused" then hold = "job-paused"
+    if parent = "cancelled" | parent = "cancel_requested" then hold = "job-cancelled"
+    if _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1",job_id)>0 then hold = "closed-window"
+    disposition = retrydisposition(state,owned,uncertain,0,ceiling,spent,delayed,hold)
+    family_hold = retryfamilyhold(database,item_id)
+    if family_hold \= "" then disposition = family_hold
+    if disposition = "runnable" | disposition = "retry-delay" then do
+      sql = "UPDATE job_items SET state='queued',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=" || _q(item_id) || " AND state IN('dead_letter','cancelled')"
+      if sqliteexec(database,sql) \= 0 then return -1
+      if sqliteexec(database,"UPDATE jobs SET state='queued',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id) || " AND state IN('completed','completed_with_errors','failed')") \= 0 then return -1
+    end
+    if setretrydisposition(database,request_id,disposition) \= 0 then return -1
+  end
   return 0
 
 replaydeadletters: procedure = .int
@@ -1266,7 +1309,7 @@ replaydeadletters: procedure = .int
   replay_job_id = ""; replayed = 0; error = ""
   if store.writable() \= 1 | source_job_id = "" | target_config_snapshot_id = "" | reason = "" | length(reason) > 256 | item_budget < 1 | model_call_budget < 1 | input_token_budget < 0 | output_token_budget < 0 | cost_budget < 0 | codex_turn_budget < 0 then do; error = "dead-letter replay inputs are invalid"; return -1; end
   database = store.database()
-  if _boundcount(database, "SELECT count(*) FROM jobs WHERE job_id=?1 AND state='completed_with_errors'", source_job_id) \= 1 then do; error = "source job must be terminal with explicit dead letters"; return -2; end
+  if terminaljob(_boundscalartext(database,"SELECT state FROM jobs WHERE job_id=?1",source_job_id)) \= 1 then do; error = "source job must be terminal with explicit dead letters"; return -2; end
   source_snapshot = _boundscalartext(database, "SELECT config_snapshot_id FROM jobs WHERE job_id=?1", source_job_id)
   if source_snapshot = "" then do; error = "source job configuration snapshot is unavailable"; return -2; end
   compatibility = _scalarint(database, "SELECT count(*) FROM config_snapshots s JOIN config_snapshots t ON t.config_snapshot_id=" || _q(target_config_snapshot_id) || " WHERE s.config_snapshot_id=" || _q(source_snapshot) || " AND (s.semantic_hash=t.semantic_hash OR (s.semantic_hash='' AND EXISTS(SELECT 1 FROM config_change_events e WHERE e.source_config_snapshot_id=s.config_snapshot_id AND e.target_config_snapshot_id=t.config_snapshot_id AND e.classification='identity-upgrade')))")
@@ -1285,9 +1328,14 @@ replaydeadletters: procedure = .int
   digest = rxhash..sha256hex(canonical as .binary); replay_job_id = "job-replay-sha256:" || digest
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin dead-letter replay"; return -3; end
   if _scalarint(database, "SELECT count(*) FROM library_config_state WHERE singleton=1 AND current_config_snapshot_id=" || _q(target_config_snapshot_id)) \= 1 then return _rollback(database, "replay target configuration is no longer current", error)
-  if _boundcount(database, "SELECT count(*) FROM jobs WHERE job_id=?1 AND state='completed_with_errors'", source_job_id) \= 1 then return _rollback(database, "source job changed before replay", error)
+  if terminaljob(_boundscalartext(database,"SELECT state FROM jobs WHERE job_id=?1",source_job_id)) \= 1 then return _rollback(database, "source job changed before replay", error)
   current_selected = _scalarint(database, "SELECT count(*) FROM job_items WHERE job_id=" || _q(source_job_id) || " AND state='dead_letter'" || selector)
   if current_selected \= selected then return _rollback(database, "dead-letter selection changed before replay", error)
+  selected_sql = "SELECT item_id FROM job_items WHERE job_id=" || _q(source_job_id) || " AND state='dead_letter'" || selector
+  if _scalarint(database,"SELECT count(*) FROM maintenance_task_items WHERE item_id IN(" || selected_sql || ")") > 0 then return _rollback(database,"maintenance tasks retain their retry owner; request maintain retry and apply a new reviewed window",error)
+  if _scalarint(database,"SELECT count(*) FROM job_items i WHERE i.item_id IN(" || selected_sql || ") AND " || uncertainitem("i.item_id")) > 0 then return _rollback(database,"provider outcome uncertain; reconcile before replay",error)
+  descendants = "WITH RECURSIVE descendants(item_id) AS (SELECT replay_item_id FROM job_replay_items WHERE source_item_id IN(" || selected_sql || ") UNION SELECT m.replay_item_id FROM job_replay_items m JOIN descendants d ON m.source_item_id=d.item_id) "
+  if _scalarint(database,descendants || "SELECT count(*) FROM descendants d JOIN job_items i ON i.item_id=d.item_id WHERE i.state IN('queued','running','cancel_requested','processed','skipped') OR " || uncertainitem("i.item_id")) > 0 then return _rollback(database,"replay already has active, completed or uncertain descendants",error)
   sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,codex_turn_budget,created_at,updated_at) VALUES(" || _q(replay_job_id) || "," || _q(digest) || "," || _q(canonical) || "," || _q(target_config_snapshot_id) || ",'queued'," || selected || "," || model_call_budget || "," || input_token_budget || "," || output_token_budget || "," || cost_budget || "," || codex_turn_budget || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
   if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot create replay job", error)
   if _event(database, replay_job_id, "", "", "budget-policy", budget_policy) \= 0 then return _rollback(database, "cannot record replay budget policy", error)
@@ -1309,6 +1357,7 @@ replaydeadletters: procedure = .int
     columns = sqlitecolumntext(prepared, 0, item_id) | sqlitecolumntext(prepared, 1, item_type) | sqlitecolumnint(prepared, 2, priority) | sqlitecolumntext(prepared, 3, input_json)
     input_document = .jsondocument(input_json)
     if columns \= 0 | input_document.valid() \= 1 | input_document.node_type(input_document.root()) \= "object" then do; call sqlitefinalize prepared; return _rollback(database, "source replay input is invalid", error); end
+    if retryfamilyhold(database,item_id) \= "" then do; call sqlitefinalize prepared; return _rollback(database,"replay family already has active, completed or uncertain work",error); end
     replay_input = input_json
     replay_item_id = "item-replay-sha256:" || rxhash..sha256hex((replay_job_id || "00"x || item_id) as .binary)
     idempotency = "replay-sha256:" || rxhash..sha256hex((replay_item_id || "00"x || target_config_snapshot_id) as .binary)
@@ -1351,7 +1400,10 @@ readjobstatus: procedure = .int
   if _boundcount(database,"SELECT count(*) FROM job_events e WHERE e.job_id=?1 AND e.event_type='provider-outcome-uncertain' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')",job_id) > 0 then last_error = "provider outcome uncertain: inspect durable job events before reconciliation or retry"
   waiting_reason = ""
   if state = "queued" | state = "running" then waiting_reason = _boundscalartext(database,"SELECT e.message FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id JOIN job_items i ON i.item_id=e.item_id AND i.fence=a.fence WHERE e.job_id=?1 AND e.event_type='provider-deferred' AND a.outcome='cancelled' AND i.state='queued' ORDER BY e.event_id DESC LIMIT 1",job_id)
-  status = .ragjobstatus(job_id, state, planned, queued, running, processed, skipped, dead, cancelled, failures, current, provider, model, 0.0, created, created, updated, completed, last_error, "durable", waiting_reason)
+  retry_summary = .jsondocument(jobretrysummary(database,job_id)); retry_pending = 0; retry_reason = ""
+  ignored = retry_summary.node_int(retry_summary.member(retry_summary.root(),"pending"),retry_pending)
+  ignored = retry_summary.node_string(retry_summary.member(retry_summary.root(),"reason"),retry_reason)
+  status = .ragjobstatus(job_id, state, planned, queued, running, processed, skipped, dead, cancelled, failures, current, provider, model, 0.0, created, created, updated, completed, last_error, "durable", waiting_reason, retry_pending, retry_reason)
   return 0
 
 runworkeronce: procedure = .int
@@ -1904,22 +1956,13 @@ _boundeventcount: procedure = .int
 
 _refreshjob: procedure = .int
   arg database = .binary, job_id = .string
-  current = _boundscalartext(database, "SELECT state FROM jobs WHERE job_id=?1", job_id)
-  active = _boundcount(database, "SELECT EXISTS(SELECT 1 FROM job_items WHERE job_id=?1 AND state IN('queued','running','cancel_requested') LIMIT 1)", job_id)
-  dead = _boundcount(database, "SELECT EXISTS(SELECT 1 FROM job_items WHERE job_id=?1 AND state='dead_letter' LIMIT 1)", job_id)
-  cancelled = _boundcount(database, "SELECT EXISTS(SELECT 1 FROM job_items WHERE job_id=?1 AND state='cancelled' LIMIT 1)", job_id)
-  if current = "" | active < 0 | dead < 0 | cancelled < 0 then return -1
-  if _boundcount(database, "SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND state='active'", job_id) = 1 & current \= "paused" & current \= "cancel_requested" then return 0
-  if active > 0 & (current = "paused" | current = "cancel_requested") then state = current
-  else if active > 0 then state = "running"
-  /* A hold becomes job-wide only after all runnable/queued peers have finished,
-   * leaving the drained job available to the public reconciliation command. */
-  else if dead > 0 & current \= "cancel_requested" & current \= "cancelled" & _boundcount(database,"SELECT count(*) FROM job_events e WHERE e.job_id=?1 AND e.event_type='provider-outcome-uncertain' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')",job_id) > 0 then state = "paused"
-  else if dead > 0 then state = "completed_with_errors"
-  else if cancelled > 0 & _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND state IN('budget-exhausted','deadline','complete')",job_id) = 1 then state = "completed"
-  else if cancelled > 0 then state = "cancelled"
-  else state = "completed"
-  return sqliteexec(database, "UPDATE jobs SET state=" || _q(state) || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id))
+  if refreshlifecyclejob(database,job_id) \= 0 then return -1
+  /* Replay settlement can resolve an ancestor or sibling's pending request.
+   * Reconsider only the indexed pending item ledger, retaining every owner's
+   * pause, uncertainty, attempt and admission controls. */
+  scope = job_id
+  if _boundcount(database,"SELECT count(*) FROM job_replays WHERE replay_job_id=?1",job_id)>0 then scope = ""
+  return _reconsideritemretries(database,scope)
 
 _rollback: procedure = .int
   arg database = .binary, message = .string, expose error = .string

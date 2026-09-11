@@ -82,6 +82,7 @@ _showhelp: procedure = .int
   say "  crexxrag maintain [--minutes N | --until TIMESTAMP | --overnight HH:MM-HH:MM] [--workers N] [--yes]"
   say "  crexxrag maintain status [RUN_ID]"
   say "  crexxrag maintain inspect ITEM_OR_NOTE_ID"
+  say "  crexxrag --access control maintain retry TASK_ID --reason TEXT"
   say "  crexxrag review list"
   say "  crexxrag --access control job replay JOB_ID [--item ITEM_ID] [--reason TEXT]"
   say "  crexxrag query QUESTION"
@@ -589,7 +590,7 @@ _aliases: procedure = .string[]
     return args
   end
   if noun = "maintain" then do
-    if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply status inspect tasks evidence evidence-index refresh-plan refresh-apply escalate-plan escalate-apply resolve-plan resolve-apply") > 0 then return args
+    if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply status inspect retry tasks evidence evidence-index refresh-plan refresh-apply escalate-plan escalate-apply resolve-plan resolve-apply") > 0 then return args
     timing_args = .string[]
     i = noun_index + 1
     do while i <= args.0

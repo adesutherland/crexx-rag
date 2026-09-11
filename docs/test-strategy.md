@@ -45,7 +45,7 @@ metadata directly.
 | `controller_recovery` | eight overlapping native Codex workers; one command recovers confirmed interruption and completed output, replaces optional-cleanup failure, isolates unavailable history, and keeps healthy peers running after three failures exhaust two replacements; exact call counts, unchanged budgets and released ownership |
 | `gemini_ingestion` | Gemini request/response mapping, compact gap-free LF/CR/CRLF normalization maps, durable work, claims, embeddings, vector publication, replay and failure paths |
 | `gemini_extraction_validation` | invalid UTF-8 spans, unknown concept/relationship types and malformed extraction output dead-letter without product mutation or secret disclosure |
-| `provider_durability` | reservation recovery, Codex turns, fencing, completed-turn reuse, durable cross-process admission, no false call record on preflight failure, immutable replay lineage, backlog reconciliation, and schema 1-to-12 migration with historic-cost backfill and prospective-transition auditing |
+| `provider_durability` | reservation recovery, Codex turns, fencing, completed-turn reuse, durable cross-process admission, no false call record on preflight failure, immutable replay lineage, backlog reconciliation, and schema 1-to-14 migration with historic-cost backfill and prospective-transition auditing |
 | `codex_protocol` | App Server initialize/account/turn/schema/usage/cleanup over JSONL; shared deadlines despite unrelated notifications and fragmented lines before and after submission; 17,000 account cycles exceed the old 65,535-ticket ceiling |
 | `codex_application` | public Codex extraction, worker-crash recovery from a persisted completed turn, duplicate-turn prevention, validation, allowance settlement and library verification |
 | `gemini_maintenance` | hosted-style maintenance, glossary-drift rejection, durable cognitive notes, ANN publication/reuse, provider/profile discovery and external proposal review/promotion |
@@ -70,6 +70,8 @@ metadata directly.
 | `native_receipts` | exit after durable extraction/embedding response but before settlement, then two-worker public restart: no repeated call, original-attempt usage, exact publication and no reservation leak |
 | `native_interruption` | actual busy worker/controller kill with explicit uncertain intent, cancellation while provider response is held, post-commit manifest rejection and first-vector recovery without repeated extraction |
 | `local_embedding_protocol` | llama.cpp-compatible `/v1/embeddings` and `/v1/chat/completions`, strict structured output, correction history, rejected malformed/schema-invalid/truncated generation with retained usage, restricted local privacy, local-compute charging, and 429 `Retry-After` plus 503 exponential retry on both VMs and compiler modes |
+| `regression_lifecycle` | Both optimized VMs: task-independent item/parent acceptance, original attempt ceilings, uncertain intent, live claim competition, explicit resume, pause during failed settlement, immutable requests and missing-policy holds. |
+| `native_lifecycle`, `native_lifecycle_holds` | Five persisted closed-window failures recovered through public commands and fresh processes; retry beside a held loopback response; exact calls and history; exhausted/uncertain tasks remain held across another window. |
 
 The Gemini tests always exercise the Gemini adapter and Google request/response
 shapes through a deterministic local fixture. Report tests additionally prove
@@ -164,8 +166,9 @@ ANN methodology removes and corrupts sidecars and leaves an interrupted
 recovery temporary; reconstruction and vector retrieval succeed with zero
 provider runs. The public query fixture also exercises `vector rebuild`,
 read-capability rejection, idempotent replay, and invalid-hybrid preflight
-without any provider calls. The migration fixture opens a schema-8 bundle
-through the ordinary write path and requires a schema-13 aligned manifest.
+without any provider calls. The migration fixture retains the earlier schema-1/6/8 upgrades, checks
+schema-13 task inspection, then opens that bundle through the ordinary write path
+and requires a schema-14 aligned manifest.
 
 Maintenance methodology distinguishes successful and failed items within a
 mixed-result job and recognizes embeddings repaired in a later generation.

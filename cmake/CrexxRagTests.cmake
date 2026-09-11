@@ -450,3 +450,39 @@ add_test(NAME native_admission
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeAdmission.cmake")
 set_tests_properties(native_admission PROPERTIES
     TIMEOUT 180 LABELS "regression;native;worker;accounting;zero-outbound")
+
+add_test(NAME native_lifecycle
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-lifecycle"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeLifecycle.cmake")
+set_tests_properties(native_lifecycle PROPERTIES
+    TIMEOUT 180 LABELS "native;recovery;lifecycle;regression;loopback")
+
+add_test(NAME regression_lifecycle
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_PLUGIN_DIR=${CREXXRAG_SQLITE_PROVIDER_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/lifecycle_regression.crexx"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-regression-lifecycle"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/LifecycleRegression.cmake")
+set_tests_properties(regression_lifecycle PROPERTIES
+    TIMEOUT 180 LABELS "regression;RAG-OPS-002;worker;accounting;zero-outbound")
+
+add_test(NAME native_lifecycle_holds
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-lifecycle-holds"
+        "-DCPRAG_HOLDS=1"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeLifecycle.cmake")
+set_tests_properties(native_lifecycle_holds PROPERTIES
+    TIMEOUT 180 LABELS "native;recovery;lifecycle;regression;loopback")

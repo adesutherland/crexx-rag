@@ -47,6 +47,7 @@ set(CREXXRAG_APPLICATION_SOURCES
     "${CREXXRAG_APP_DIR}/ragmaintain.crexx"
     "${CREXXRAG_APP_DIR}/ragbacklog.crexx"
     "${CREXXRAG_APP_DIR}/ragproposalio.crexx"
+    "${CREXXRAG_APP_DIR}/raglifecycle.crexx"
     "${CREXXRAG_APP_DIR}/ragadmission.crexx"
     "${CREXXRAG_APP_DIR}/ragwork.crexx"
     "${CREXXRAG_APP_DIR}/ragquery.crexx"

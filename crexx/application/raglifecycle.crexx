@@ -1,0 +1,154 @@
+options levelg
+
+namespace raglifecycle expose terminaljob lifecyclejobstate refreshlifecyclejob retrydisposition recordretryrequest setretrydisposition retryrequestjson jobretrysummary uncertainitem retryfamilyhold
+
+import rxfnsb
+import rxhash
+import rxsqlite
+
+/* One owner for lifecycle decisions. Callers supply facts while holding the
+ * writer transaction that claims/requeues work. Requests confer no execution
+ * authority: item fences, reviewed windows and provider budgets still apply. */
+terminaljob: procedure = .int
+  arg state = .string
+  if wordpos(state,"completed completed_with_errors cancelled failed") > 0 then return 1
+  return 0
+
+lifecyclejobstate: procedure = .string
+  arg current = .string, active = .int, dead = .int, cancelled = .int, uncertain = .int, window = .string
+  if current = "" | min(active,dead,cancelled,uncertain) < 0 then return ""
+  if window = "active" & current \= "paused" & current \= "cancel_requested" then return current
+  if active > 0 then do
+    if current = "paused" | current = "cancel_requested" then return current
+    if window \= "" & window \= "active" then return "paused"
+    return "running"
+  end
+  if current = "paused" & dead > 0 & window = "" then return "paused"
+  if dead > 0 then do
+    if uncertain > 0 & current \= "cancel_requested" & current \= "cancelled" then return "paused"
+    return "completed_with_errors"
+  end
+  if cancelled > 0 then do
+    if wordpos(window,"budget-exhausted deadline complete") > 0 then return "completed"
+    return "cancelled"
+  end
+  return "completed"
+
+refreshlifecyclejob: procedure = .int
+  arg database = .binary, job_id = .string
+  selector = " WHERE job_id=" || _q(job_id)
+  current = _text(database,"SELECT state FROM jobs" || selector)
+  window = _text(database,"SELECT state FROM maintenance_windows" || selector)
+  if window = "active" & current \= "paused" & current \= "cancel_requested" then return 0
+  active = _number(database,"SELECT EXISTS(SELECT 1 FROM job_items" || selector || " AND state IN('queued','running','cancel_requested'))")
+  dead = _number(database,"SELECT EXISTS(SELECT 1 FROM job_items" || selector || " AND state='dead_letter')")
+  cancelled = _number(database,"SELECT EXISTS(SELECT 1 FROM job_items" || selector || " AND state='cancelled')")
+  uncertain = 0
+  if active = 0 & dead > 0 then uncertain = _number(database,"SELECT EXISTS(SELECT 1 FROM job_items i" || selector || " AND " || uncertainitem("i.item_id") || ")")
+  state = lifecyclejobstate(current,active,dead,cancelled,uncertain,window)
+  if state = "" then return -1
+  return sqliteexec(database,"UPDATE jobs SET state=" || _q(state) || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')" || selector)
+
+retrydisposition: procedure = .string
+  arg state = .string, owned = .int, uncertain = .int, review = .int, ceiling = .int, spent = .int, delayed = .int, hold = .string
+  if owned > 0 then return "existing-work"
+  if uncertain > 0 then return "provider-outcome-uncertain"
+  if wordpos(state,"resolved processed skipped") > 0 then return "already-complete"
+  if state = "superseded" then return "superseded"
+  if min(owned,uncertain,review,ceiling,spent,delayed) < 0 then return "policy-unavailable"
+  if review > 0 then return "review-required"
+  if ceiling = 0 then return "policy-unavailable"
+  if spent >= ceiling then return "attempt-limit"
+  if hold \= "" then return hold
+  if delayed > 0 then return "retry-delay"
+  return "runnable"
+
+/* Expression argument is supplied only by owning source code, never a caller
+ * string. An intent without a receipt remains uncertain even if no worker has
+ * yet appended the explanatory outcome event. */
+uncertainitem: procedure = .string
+  arg item_expression = .string
+  return "EXISTS(SELECT 1 FROM job_events u WHERE u.item_id=" || item_expression || " AND u.event_type IN('provider-intent','provider-outcome-uncertain') AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=u.attempt_id AND r.event_type='provider-response'))"
+
+/* Replay ancestry is one family. Checking only direct descendants would let
+ * a caller retry an older source or failed sibling beside an active replay. */
+retryfamilyhold: procedure = .string
+  arg database = .binary, item_id = .string
+  family = "WITH RECURSIVE ancestors(item_id) AS (SELECT " || _q(item_id) || " UNION SELECT m.source_item_id FROM job_replay_items m JOIN ancestors a ON m.replay_item_id=a.item_id), family(item_id) AS (SELECT item_id FROM ancestors UNION SELECT m.replay_item_id FROM job_replay_items m JOIN family f ON m.source_item_id=f.item_id) "
+  peers = " FROM family f JOIN job_items i ON i.item_id=f.item_id WHERE i.item_id<>" || _q(item_id)
+  completed = _number(database,family || "SELECT count(*)" || peers || " AND i.state IN('processed','skipped')")
+  owned = _number(database,family || "SELECT count(*)" || peers || " AND i.state IN('queued','running','cancel_requested')")
+  uncertain = _number(database,family || "SELECT count(*)" || peers || " AND " || uncertainitem("i.item_id"))
+  if min(completed,owned,uncertain)<0 then return "policy-unavailable"
+  if uncertain>0 then return "provider-outcome-uncertain"
+  if owned>0 then return "existing-work"
+  if completed>0 then return "already-complete"
+  return ""
+
+recordretryrequest: procedure = .int
+  arg database = .binary, task_id = .string, item_id = .string, reason = .string, expose request_id = .string, expose accepted = .int, expose error = .string
+  request_id = ""; accepted = 0; error = ""
+  if (task_id = "" & item_id = "") | (task_id \= "" & item_id \= "") | reason = "" | length(reason)>256 then do; error = "retry requires one target and a reason of 1 through 256 characters"; return -1; end
+  selector = ""; version = ""; task_value = ""; item_value = ""
+  if task_id \= "" then do
+    selector = "task_id=" || _q(task_id)
+    version = _text(database,"SELECT evidence_fingerprint||':'||attempt_count FROM maintenance_tasks WHERE " || selector)
+    task_value = _q(task_id); item_value = "NULL"
+  end
+  else do
+    selector = "item_id=" || _q(item_id)
+    version = _text(database,"SELECT input_hash||':'||fence FROM job_items WHERE " || selector)
+    task_value = "NULL"; item_value = _q(item_id)
+  end
+  if version = "" then do; error = "retry target was not found"; return -1; end
+  request_id = _text(database,"SELECT request_id FROM retry_requests WHERE " || selector || " AND state='pending'")
+  if request_id \= "" then return 0
+  request_id = "retry:" || rxhash..sha256hex((task_id || "00"x || item_id || "00"x || version) as .binary)
+  sql = "INSERT OR IGNORE INTO retry_requests(request_id,task_id,item_id,source_version,reason,state,disposition,created_epoch,updated_epoch) VALUES(" || _q(request_id) || "," || task_value || "," || item_value || "," || _q(version) || "," || _q(reason) || ",'pending','accepted',unixepoch(),unixepoch())"
+  if sqliteexec(database,sql) \= 0 then do
+    boundary_code = 0; sqlite_code = 0; extended_code = 0; operation = ""; message = ""
+    call sqliteerrorextended boundary_code,sqlite_code,extended_code,operation,message
+    error = "cannot persist retry request: " || message
+    return -1
+  end
+  accepted = _number(database,"SELECT changes()")
+  if accepted < 0 then do; error = "cannot read retry acceptance"; return -1; end
+  return 0
+
+setretrydisposition: procedure = .int
+  arg database = .binary, request_id = .string, disposition = .string
+  state = "pending"
+  if disposition = "already-complete" | disposition = "superseded" then state = "completed"
+  return sqliteexec(database,"UPDATE retry_requests SET state=" || _q(state) || ",disposition=" || _q(disposition) || ",updated_epoch=unixepoch() WHERE request_id=" || _q(request_id) || " AND state='pending' AND (state<>" || _q(state) || " OR disposition<>" || _q(disposition) || ")")
+
+retryrequestjson: procedure = .string
+  arg database = .binary, task_id = .string, item_id = .string
+  if _number(database,"SELECT schema_version FROM library_meta WHERE singleton=1") < 14 then return ""
+  if task_id = "" & item_id \= "" then task_id = _text(database,"SELECT task_id FROM maintenance_task_items WHERE item_id=" || _q(item_id))
+  selector = "item_id=" || _q(item_id)
+  if task_id \= "" then selector = "task_id=" || _q(task_id)
+  return _text(database,"SELECT json_object('retry_request_id',request_id,'retry_state',state,'retry_disposition',disposition,'reason',reason) FROM retry_requests WHERE " || selector || " ORDER BY (state='pending') DESC,created_epoch DESC,rowid DESC LIMIT 1")
+
+jobretrysummary: procedure = .string
+  arg database = .binary, job_id = .string
+  if _number(database,"SELECT schema_version FROM library_meta WHERE singleton=1") < 14 then return '{"pending":0,"reason":""}'
+  selector = "r.state='pending' AND (r.item_id IN(SELECT item_id FROM job_items WHERE job_id=" || _q(job_id) || ") OR r.task_id IN(SELECT m.task_id FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE i.job_id=" || _q(job_id) || "))"
+  return _text(database,"SELECT json_object('pending',count(*),'reason',coalesce(min(disposition),'')) FROM retry_requests r WHERE " || selector)
+
+_q: procedure = .string
+  arg value = .string
+  return "'" || changestr("'",value,"''") || "'"
+
+_text: procedure = .string
+  arg database = .binary, sql = .string
+  prepared = .binary; value = ""
+  if sqliteprepare(database,sql,prepared) = 0 then if sqlitestep(prepared) = 100 then call sqlitecolumntext prepared,0,value
+  call sqlitefinalize prepared
+  return value
+
+_number: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary; value = -1
+  if sqliteprepare(database,sql,prepared) = 0 then if sqlitestep(prepared) = 100 then call sqlitecolumnint prepared,0,value
+  call sqlitefinalize prepared
+  return value

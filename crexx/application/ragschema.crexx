@@ -3,7 +3,7 @@ options levelg
 namespace ragschema expose ragschemaversion migrationname migrationchecksum migrationstatements
 
 ragschemaversion: procedure = .int
-  return 13
+  return 14
 
 migrationname: procedure = .string
   arg version = .int
@@ -18,12 +18,14 @@ migrationname: procedure = .string
   if version = 10 then return "durable-maintenance-backlog"
   if version = 11 then return "claim-time-and-source-provenance"
   if version = 12 then return "agent-maintenance-handoff"
+  if version = 14 then return "durable-retry-requests"
   if version = 13 then return "embedding-retry-admission"
   if version = 9 then return "prospective-configuration-transitions"
   return ""
 
 migrationchecksum: procedure = .string
   arg version = .int
+  if version = 14 then return "95002606a4552c399870908d7c1c42128c9e3ddde1427a1c10dc2ef0d6d39996"
   if version = 13 then return "9d5236180dd1c7b39c1853658f0ed0b167521f4e1a56c52942af4f1bebf470f9"
   if version = 12 then return "abe73ac0a801d3a824f08b7689bdc756b0c50a209ef3ff0eb88c1cfd17a2ce2d"
   if version = 11 then return "641b75b26a3946f1a55c40eb6b7913c8264501aaec4d7a4166e1720ed09acd74"
@@ -43,6 +45,14 @@ migrationchecksum: procedure = .string
 migrationstatements: procedure = .int
   arg version = .int, expose statements = .string[]
   statements = .string[]
+  if version = 14 then do
+    statements[statements.0 + 1] = "CREATE TABLE retry_requests(request_id TEXT PRIMARY KEY,task_id TEXT REFERENCES maintenance_tasks(task_id),item_id TEXT REFERENCES job_items(item_id),source_version TEXT NOT NULL,reason TEXT NOT NULL CHECK(length(reason) BETWEEN 1 AND 256),state TEXT NOT NULL CHECK(state IN('pending','completed')),disposition TEXT NOT NULL,created_epoch INTEGER NOT NULL,updated_epoch INTEGER NOT NULL,CHECK((task_id IS NULL)!=(item_id IS NULL)),UNIQUE(task_id,source_version),UNIQUE(item_id,source_version)) STRICT"
+    statements[statements.0 + 1] = "CREATE UNIQUE INDEX retry_requests_pending_task ON retry_requests(task_id) WHERE state='pending'"
+    statements[statements.0 + 1] = "CREATE UNIQUE INDEX retry_requests_pending_item ON retry_requests(item_id) WHERE state='pending'"
+    statements[statements.0 + 1] = "CREATE TRIGGER retry_requests_identity_immutable BEFORE UPDATE ON retry_requests WHEN NEW.request_id<>OLD.request_id OR NEW.task_id IS NOT OLD.task_id OR NEW.item_id IS NOT OLD.item_id OR NEW.source_version<>OLD.source_version OR NEW.reason<>OLD.reason OR NEW.created_epoch<>OLD.created_epoch BEGIN SELECT RAISE(ABORT,'retry request identity is immutable'); END"
+    statements[statements.0 + 1] = "CREATE TRIGGER retry_requests_immutable_delete BEFORE DELETE ON retry_requests BEGIN SELECT RAISE(ABORT,'retry request history is immutable'); END"
+    return statements.0
+  end
   if version = 13 then do
     statements[statements.0 + 1] = "CREATE TABLE provider_cooldowns(provider_id TEXT NOT NULL,model TEXT NOT NULL,not_before_epoch INTEGER NOT NULL DEFAULT 0,failure_count INTEGER NOT NULL DEFAULT 0 CHECK(failure_count>=0),updated_epoch INTEGER NOT NULL,PRIMARY KEY(provider_id,model)) STRICT"
     statements[statements.0 + 1] = "CREATE INDEX job_items_embedding_subject ON job_items(json_extract(input_json,'$.revision_chunk_id'),json_extract(input_json,'$.provider_id'),json_extract(input_json,'$.model'),json_extract(input_json,'$.embedding_dimension')) WHERE item_type='embedding' AND json_valid(input_json)"

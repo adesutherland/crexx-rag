@@ -31,6 +31,7 @@ import ragperiod
 import ragprovenance
 import ragenrich
 import ragbacklog
+import raglifecycle
 import ragclaims
 import ragproposalio
 import ragjob
@@ -63,6 +64,7 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "job.status" then return _jobstatus(request)
   if operation = "job.pause" | operation = "job.resume" | operation = "job.cancel" then return _jobcontrol(request)
   if operation = "job.retry" then return _jobretry(request)
+  if operation = "maintain.retry" then return _taskretry(request)
   if operation = "job.replay" then return _jobreplay(request, registry)
   if operation = "job.reconcile" then return _jobreconcile(request, registry)
   if operation = "job.run" then return _workerstart(request, registry)
@@ -1785,6 +1787,8 @@ _jobstatus: procedure = .ragcommandresult
   fields[10] = .ragresultfield("failed_attempts", "integer", status.failed_attempts())
   fields[11] = .ragresultfield("last_error", "string", status.last_error())
   fields[12] = .ragresultfield("waiting_reason", "string", status.waiting_reason())
+  fields[13] = .ragresultfield("retry_pending", "integer", status.retry_pending())
+  fields[14] = .ragresultfield("retry_reason", "string", status.retry_reason())
   records = .ragresultrecord[]; records[1] = .ragresultrecord("job-status", fields)
   return .ragcommandresult(operation, "ok", 0, "bounded durable job status", records)
 
@@ -1873,14 +1877,46 @@ _jobretry: procedure = .ragcommandresult
   store = .ragstorehandle
   if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
   retried = 0; status = retrydeadletter(store, job_id, item_id, reason, retried, error)
+  detail = retryrequestjson(store.database(),"",item_id)
   close_error = ""; close_status = closeragstore(store, close_error)
   if status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 1, error); end
-  fields = .ragresultfield[]
-  fields[1] = .ragresultfield("job_id", "string", job_id)
-  fields[2] = .ragresultfield("item_id", "string", item_id)
-  fields[3] = .ragresultfield("items_retried", "integer", retried)
+  fields = _retryfields(detail,retried)
+  fields[fields.0+1] = .ragresultfield("job_id", "string", job_id)
+  fields[fields.0+1] = .ragresultfield("item_id", "string", item_id)
+  fields[fields.0+1] = .ragresultfield("items_retried", "integer", retried)
   records = .ragresultrecord[]; records[1] = .ragresultrecord("job-retry", fields)
-  return .ragcommandresult(operation, "ok", 0, "one dead-letter item was explicitly requeued", records)
+  return .ragcommandresult(operation, "ok", 0, "durable retry request accepted; inspect disposition for execution eligibility", records)
+
+_taskretry: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation = request.operation(); error = ""
+  if _hasaccess(request,"control") \= 1 then return _failure(operation,4,"task retry requires control access")
+  if _options(request,"id reason",error) \= 0 then return _failure(operation,2,error)
+  task_id = _id(request,error); reason = _option(request,"reason",error)
+  if reason = "" then reason = "operator-corrected"
+  if error \= "" | task_id = "" then return _failure(operation,2,"maintain retry requires one task id")
+  store = .ragstorehandle
+  if openragstore(request.library(),"readwrite",store,error) \= 0 then return _openfailure(operation,error)
+  accepted = 0; status = requestbacklogretry(store,task_id,reason,accepted,error)
+  detail = retryrequestjson(store.database(),task_id,"")
+  close_error = ""; close_status = closeragstore(store,close_error)
+  if status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation,1,error); end
+  fields = _retryfields(detail,accepted)
+  fields[fields.0+1] = .ragresultfield("task_id","string",task_id)
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("task-retry",fields)
+  return .ragcommandresult(operation,"ok",0,"durable retry request accepted; execution retains its policy and window controls",records)
+
+_retryfields: procedure = .ragresultfield[]
+  arg detail = .string, accepted = .int
+  fields = .ragresultfield[]; document = .jsondocument(detail)
+  names = "retry_request_id retry_state retry_disposition"
+  do i = 1 to words(names)
+    name = word(names,i); value = ""
+    ignored = document.node_string(document.member(document.root(),name),value)
+    fields[fields.0+1] = .ragresultfield(name,"string",value)
+  end
+  fields[fields.0+1] = .ragresultfield("retry_accepted","integer",accepted)
+  return fields
 
 _jobreplay: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
