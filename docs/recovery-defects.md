@@ -217,6 +217,44 @@ another call. Preserve budgets and deadlines and expose the decision, evidence,
 waiting reason and next action through product commands (RAG-OPS-003).
 Operator retry requests remain available for every task state (RAG-OPS-002).
 
+### Worker replacement within a rolling time window
+
+User roadmap clarification on 10 September: worker replacement limits must be
+time-based. A lifetime count for a long-running job must not permanently prevent
+replacement after a few isolated failures. In the evening run, one worker exited
+after a Codex response timeout while seven peers continued; the job had already
+used its two replacements during the afternoon.
+
+Specify a configurable maximum number of worker replacements within a rolling
+time window, with backoff for bursts. Old replacement events age out of the
+active allowance while remaining in the audit history. Window duration and
+count defaults require policy agreement; this entry does not select new values
+or change the running job.
+
+When the recent replacement allowance is exhausted, preserve healthy peers and
+defer further replacement until the next eligible time. The controller must
+automatically reassess and restore the configured worker count when the window,
+provider/environment state and remaining job budgets permit it. An operator
+restart must not be necessary merely because the rolling allowance recovered.
+Persist replacement timestamps and decisions across controller restarts so a
+restart neither clears a recent failure burst nor retains permanent exhaustion.
+
+Keep this worker recovery policy separate from the task's three-attempt limit.
+Time passing or replacing a worker must not reset task attempts, receipts,
+uncertain provider outcomes, spend or the run deadline. Correlated environment
+failures still require shared backoff and recovery probes rather than repeated
+worker launches. Product status must show the window, recent replacement count,
+next eligible replacement time, configured/live worker counts and waiting reason.
+
+Acceptance must exercise isolated worker failures spread across a long run,
+a burst that exhausts the rolling allowance, and automatic replacement after
+the oldest event ages out, including when no healthy worker remains. Repeat
+across a controller restart and at the window boundary; concurrent decisions
+must not double-reserve a replacement. Verify uninterrupted healthy peers,
+restoration of the configured pool, preserved task retry history, no duplicate
+provider submission and respect for the original budgets and cutoff. Validate
+through the normal public job command, without manual database/config repair.
+
 Acceptance must include one repeatedly failing task among eight healthy workers,
 a failing worker processing otherwise valid tasks, and an outage affecting the
 whole pool followed by recovery. Check exact task attempts, uninterrupted peer
@@ -230,6 +268,69 @@ reservations. The non-maintenance path currently turns that denial into a worker
 failure, even though capacity may soon be released. Distinguish temporary
 reservation pressure from exhausted total budget; do not solve it by weakening
 budget accounting or repeatedly replacing healthy workers.
+
+## RAG-OPS-005 — P1: simple continuation and renewable budgets
+
+Status: backlog only. User direction on 11 September 2026: simplify the rules
+and restart workflow. Whatever optional limits were selected, an operator must
+be able to reset/renew the applicable budgets and continue existing work through
+one straightforward product operation. Users must not have to align elapsed
+time, aggregate provider hours, money, calls and token limits manually.
+
+The overnight ingestion job stopped at its saved 72-hour aggregate provider-time
+cap despite the later authorized wall-clock cutoff and remaining account quota.
+The subsequent maintenance launch spent about three minutes preparing before
+rejecting an operational configuration registration mismatch. Recovery required
+separate public config diff, plan and apply commands before a second launch.
+These are concrete examples of operational brittleness, not satisfactory normal
+startup. Preserve the incident evidence in the 10–11 September overnight report.
+
+The same session exposed a further continuation gap: pausing a degraded
+maintenance pool left its job terminal while durable work remained. The normal
+same-job restart then rejected it, requiring a fresh maintenance window whose
+startup took about eight minutes. Resuming remaining work must not depend on
+the operator diagnosing these internal job/window state distinctions.
+
+Review every limit and distinguish essential safety protections from optional
+operator controls. Candidate essentials include source/evidence integrity,
+privacy and provider authorization, exclusive work ownership, and protection
+against duplicate submission of uncertain external work. Time, spend, calls,
+tokens, aggregate provider duration and replacement counts need an explicit
+decision about purpose, defaults and whether they should exist in the normal
+workflow at all. A user-requested stop time remains binding unless the user
+changes it; external provider/account restrictions cannot be reset locally.
+
+The intended operator experience is “continue” or “reset budget and continue”.
+The product should show the actual stopping reason and the effective remaining
+allowance in plain language, then perform the supported recovery and resume
+eligible work. An obsolete internal counter must not permanently veto an
+explicitly authorized renewal. Avoid hidden lifetime limits and interacting
+defaults that require the operator to understand internal admission accounting.
+
+Renewal must preserve cumulative usage and its audit history, completed work,
+task attempts, receipts and uncertain outcomes. Record a new authorization or
+allowance period instead of erasing historical spend or replaying completed work.
+Distinguish temporarily reserved capacity from consumed budget. Optional limits
+must have a clear way to be omitted, disabled or renewed without editing SQL,
+rebuilding, manufacturing a replacement job or rewriting the configuration file.
+
+Integrate routine semantically compatible configuration registration and worker
+recovery into the normal command path where existing authorization permits it.
+Check genuine incompatibilities early, before expensive worklist preparation,
+and give one actionable recovery path when user input is actually required.
+Do not make every routine restart a multi-command repair exercise. This
+complements RAG-OPS-001, RAG-OPS-003 and RAG-OPS-004 rather than replacing their
+ownership, diagnostics or worker-recovery requirements.
+
+Acceptance must demonstrate through public commands: stop at an optional budget,
+one operator renewal and successful continuation of the same remaining work;
+conflicting/default limits that no longer require manual alignment; a permitted
+operational configuration mismatch recovered during ordinary startup; and
+preserved histories, held outcomes, healthy peers and explicitly retained cutoff.
+Include pause/drain followed by continuation when internal job state is terminal
+but eligible durable work remains; the public operation must handle that state.
+Review the policy and command design before implementation. No budget reset API,
+new defaults or code changes are introduced by this backlog entry.
 
 ## Earlier recovery record
 
