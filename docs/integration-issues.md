@@ -88,6 +88,20 @@ transport recovery. Evidence is in
 HTTP adapters use operation-scoped provider instances. The Codex adapter keeps
 one App Server child and its byte channels for the lifetime of a worker.
 
+### Proposed native embedding capability
+
+The current local embedding integration uses the OpenAI-compatible llama.cpp
+endpoint. An in-process inference provider is proposed in
+[CREXX-NI-01 through NI-06](https://github.com/adesutherland/CREXX/blob/develop/docs/planning/native-inference-backlog.md),
+captured 2026-09-11; it is not supplied by the installed CREXX package described
+here. CREXX owns its native library, model lifecycle, CPU/Metal support and
+packaging. The product's provider selection, persistent request scheduling,
+embedding profiles and migration requirements are in
+[RAG-QE-04, QE-07 and QE-08](query-engine-backlog.md).
+Use existing long-lived worker facilities; a new attached-worker architecture
+or durable-service framework is not a prerequisite. This is a future capability
+dependency, not a regression in the supported HTTP route.
+
 ### Long-lived Codex channels: completed-request retention
 
 Repaired upstream and installed on 2026-09-09 in clean CREXX commit

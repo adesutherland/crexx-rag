@@ -27,6 +27,10 @@
   original approved design and experiment history; use the current contract
   above for implemented defaults.
 - [Integration issues](integration-issues.md): current CREXX/platform limits.
+- [Query engine and local embedding backlog](query-engine-backlog.md): open
+  requirements for curated graph exploration, standalone querying, local
+  embeddings, model longevity/migration and comparative retrieval evaluation;
+  includes the dependency on CREXX's native inference backlog.
 - [Operational hardening and recovery backlog](recovery-defects.md): the open
   P1 requirement for repeatable launch/resume and product-owned repair paths,
   followed by the historical recovery defects.
