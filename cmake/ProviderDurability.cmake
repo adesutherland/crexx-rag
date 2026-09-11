@@ -13,7 +13,7 @@ file(GLOB project_member_dirs LIST_DIRECTORIES true
 list(JOIN project_member_dirs ";" project_imports)
 set(imports "${project_imports};${CPRAG_APPLICATION_DIR};${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
 set(modules ragenrich ragproposalio ragperiod ragprovenance ragassessment ragschema ragfile
-    ragstore ragmodel ragjob ragclaims ragadmission raglifecycle ragwork ragcommand ragtrace ragbacklog
+    ragstore ragmodel ragjob ragclaims ragadmission raglifecycle ragworktypes ragusage ragreceipts ragwork ragcommand ragtrace ragbacklog
     ragmaintain ragimprove ragconfig ragprofile ragcanonical raggrounding rxfnsg rxsqlite
     rx_hash rx_system rxfs rxplatform library)
 

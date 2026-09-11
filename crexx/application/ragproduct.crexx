@@ -36,6 +36,7 @@ import ragclaims
 import ragproposalio
 import ragjob
 import ragwork
+import ragworktypes
 import ragprocess
 import ragtrace
 import ragembedding

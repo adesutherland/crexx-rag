@@ -7,6 +7,7 @@ import ragingest
 import ragenrich
 import ragbacklog
 import ragwork
+import ragworktypes
 import ragclaims
 import ragproposalio
 import ragcanonical

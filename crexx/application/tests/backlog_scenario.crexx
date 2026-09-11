@@ -8,6 +8,7 @@ import rxhash
 import rxjson
 import ragbacklog
 import ragwork
+import ragworktypes
 import ragclaims
 import ragprofile
 import ragcanonical

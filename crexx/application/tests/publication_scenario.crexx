@@ -5,6 +5,7 @@ import rxhash
 import rxsqlite
 import ragstore
 import ragwork
+import ragworktypes
 import ragclaims
 import ragbackup
 import rxfs

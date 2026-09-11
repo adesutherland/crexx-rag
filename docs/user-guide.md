@@ -534,6 +534,17 @@ When only held work remains, the drained job pauses for reconciliation and vecto
 publication remains pending. Otherwise pause and drain before applying public
 `job reconcile` to the held outcome.
 
+If writing a returned response fails, the worker records an explicit
+`provider-outcome-uncertain` hold and retains any known usage on the original
+attempt. This is a storage failure, not rejected evidence. `job retry` records
+your request but does not resubmit the item; `job status` explains the hold.
+Other eligible items can continue within the original limits. If Codex saved
+its completed output before the receipt write failed, the same `job reconcile`
+inspection/apply sequence above recovers it without another generation call.
+When neither SQLite nor the provider can supply that output, it remains held;
+restarting cannot reconstruct a lost answer or safely assume the request was
+free. See [receipt recovery](receipt-recovery.md).
+
 Received extraction and embedding outputs are retained before validation and
 settlement. Restarting the same item reuses its receipt without another call,
 under normal input validation and fresh worker ownership. An explicitly created

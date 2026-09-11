@@ -64,6 +64,23 @@ A request cannot reopen a closed window, reset attempts, renew an allowance,
 resume a pause/cancellation or erase an uncertain provider intent. See
 [lifecycle recovery](lifecycle-recovery.md) for the contract and qualification.
 
+`ragreceipts` owns request intent, immutable responses, stored external identity
+and exact-outcome reconciliation. `ragusage` owns incurred usage, settlement,
+admission release, expired reservations and unknown-usage allowance. Both use
+`ragworktypes` value contracts and the shared active-fence predicate in
+`raglifecycle`, without importing the worker implementation. `ragwork` composes
+these services with claims and fenced publication; its existing function entry
+points remain delegates. A cREXX caller using worker value types imports
+`ragworktypes` explicitly. No public command or stored schema changes.
+
+Receipt persistence failure is an uncertainty hold, not a content rejection.
+Known usage is retained on the original provider run, while independently saved
+Codex output remains intact for `job reconcile`. Without a recoverable response,
+restarting or requesting retry cannot submit that item again. Expired reservation
+capacity is released, but unaccounted allowance remains conservative. Healthy
+peers can run within the remaining reviewed limits. See
+[receipt recovery](receipt-recovery.md) for the fault tests and boundaries.
+
 `ragprocess` replaces explicitly unhealthy, exited workers in job-filtered
 groups under a job-wide durable restart ceiling. The existing `job_events`
 ledger records each replacement before launch; no schema migration is needed.

@@ -1,6 +1,6 @@
 options levelg
 
-namespace raglifecycle expose terminaljob lifecyclejobstate refreshlifecyclejob retrydisposition recordretryrequest setretrydisposition retryrequestjson jobretrysummary uncertainitem retryfamilyhold
+namespace raglifecycle expose activeworkfence terminaljob lifecyclejobstate refreshlifecyclejob retrydisposition recordretryrequest setretrydisposition retryrequestjson jobretrysummary uncertainitem retryfamilyhold
 
 import rxfnsb
 import rxhash
@@ -152,3 +152,13 @@ _number: procedure = .int
   if sqliteprepare(database,sql,prepared) = 0 then if sqlitestep(prepared) = 100 then call sqlitecolumnint prepared,0,value
   call sqlitefinalize prepared
   return value
+
+activeworkfence: procedure = .int
+  arg database = .binary, job_id = .string, item_id = .string, attempt_id = .string, worker_id = .string, fence = .int, allow_cancelled_settlement = 0
+  prepared = .binary
+  sql = "SELECT count(*) FROM job_items i JOIN attempts a ON a.attempt_id=?1 AND a.item_id=i.item_id WHERE i.item_id=?2 AND i.job_id=?3 AND i.worker_id=?4 AND i.fence=?5 AND i.state='running' AND i.lease_until>CAST(strftime('%s','now') AS INTEGER) AND a.worker_id=i.worker_id AND a.fence=i.fence AND a.outcome='running'"
+  if allow_cancelled_settlement = 1 then sql = changestr("i.state='running'",sql,"i.state IN('running','cancel_requested')")
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, attempt_id) \= 0 | sqlitebindtext(prepared, 2, item_id) \= 0 | sqlitebindtext(prepared, 3, job_id) \= 0 | sqlitebindtext(prepared, 4, worker_id) \= 0 | sqlitebindint(prepared, 5, fence) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  count = 0; status = sqlitecolumnint(prepared, 0, count); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return count

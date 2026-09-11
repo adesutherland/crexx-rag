@@ -7,6 +7,7 @@ import rxfs
 import rxsqlite
 import ragstore
 import ragwork
+import ragworktypes
 import ragbacklog
 import ragcommand
 import rxjson
@@ -54,6 +55,12 @@ main: procedure = .int
    * and is exercised separately by worker_recovery. */
   receipt = '{"schema":"crexx-rag.provider-receipt/1","status":0,"provider_run_id":' || jsonquote(provider_run) || ',"content":' || jsonquote(content) || '}'
   errors = errors + check(recordproviderresponse(store,first,receipt,error) = 0,"persist completed receipt " || error)
+  errors = errors + check(recordproviderresponse(store,first,receipt,error) = 0,"exact duplicate response is idempotent " || error)
+  conflicting_receipt = '{"schema":"crexx-rag.provider-receipt/1","status":0,"content":"different"}'
+  errors = errors + check(recordproviderresponse(store,first,conflicting_receipt,error) < 0 & pos("conflicting duplicate",error)>0,"conflicting duplicate response is rejected")
+  retained = ""; original = ""
+  errors = errors + check(recoverproviderresponse(store,first,retained,original,error) = 1 & retained = receipt & original = first.attempt_id(),"duplicate cannot replace original response or identity")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM job_events WHERE event_type='provider-response'") = 1,"one immutable response after duplicates")
   call rxplatform..sleep 1200
 
   second = .ragworkclaim

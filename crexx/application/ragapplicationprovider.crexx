@@ -19,6 +19,7 @@ import ragconfiguration
 import ragstore
 import ragclaims
 import ragwork
+import ragworktypes
 import ragbacklog
 import ragtrace
 import provider_contract
@@ -310,7 +311,7 @@ ragapplicationprovider: class implements .ragworkprovider
                     call _tracer.emit("codex","observed",claim.item_id(),observed_state)
                     if provider_output.status() \= 0 then do
                       receipt_body = _receiptjson(provider_output,provider_config,request_id,durable_run_id)
-                      if recordproviderresponse(_store,claim,receipt_body,codex_error,observation) \= 0 then return _failedoutput(provider_config,request_id,claim,empty_proposal,provider_output,codex_error,durable_run_id)
+                      if recordproviderresponse(_store,claim,receipt_body,codex_error,observation) \= 0 then return _receiptfailure(provider_config,request_id,claim,empty_proposal,provider_output,codex_error,durable_run_id)
                     end
                   end
                 end
@@ -320,7 +321,7 @@ ragapplicationprovider: class implements .ragworkprovider
                 if completeexternalrun(_store, durable_run_id, thread_id, turn_id, request_id, provider_output.content(), usage.input_tokens(), usage.output_tokens(), codex_error,recovered_usage_complete) \= 0 then provider_output = _codexfailure(request, "Codex output durability failed: " || codex_error, 0, "durability")
                 else do
                   receipt_body = _receiptjson(provider_output,provider_config,request_id,durable_run_id)
-                  if recordproviderresponse(_store,claim,receipt_body,codex_error,observation) \= 0 then return _failedoutput(provider_config,request_id,claim,empty_proposal,provider_output,codex_error,durable_run_id)
+                  if recordproviderresponse(_store,claim,receipt_body,codex_error,observation) \= 0 then return _receiptfailure(provider_config,request_id,claim,empty_proposal,provider_output,codex_error,durable_run_id)
                   call _tracer.emit("codex", "persisted", claim.item_id(), "validated output and usage committed")
                   after_account = ""; after_plan = ""; allowance_after = -1; allowance_error = ""
                   /* Optional account refresh and history cleanup share the
@@ -339,7 +340,7 @@ ragapplicationprovider: class implements .ragworkprovider
       if beginproviderrequest(_store,claim,request_id,receipt_error) \= 0 then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,receipt_error,0)
       provider_output = backend.generate_structured(request)
       receipt_body = _receiptjson(provider_output,provider_config,request_id)
-      if recordproviderresponse(_store,claim,receipt_body,receipt_error) \= 0 then return _failedoutput(provider_config,request_id,claim,empty_proposal,provider_output,receipt_error)
+      if recordproviderresponse(_store,claim,receipt_body,receipt_error) \= 0 then return _receiptfailure(provider_config,request_id,claim,empty_proposal,provider_output,receipt_error)
       receipt_document = .jsondocument(receipt_body); omitted = _jsonstring(receipt_document,receipt_document.root(),"omitted")
       if omitted \= "" then return _failedoutput(provider_config,request_id,claim,empty_proposal,provider_output,"provider receipt content omitted: " || omitted)
       provider_output = _receiptoutput(receipt_body)
@@ -348,9 +349,9 @@ ragapplicationprovider: class implements .ragworkprovider
      * completed envelope after settlement too, for failed-publication replay. */
     if provider_config.kind() = "codex" & provider_output.status() = 0 & receipt_body = "" then do
       receipt_error = ""
-      if beginproviderrequest(_store,claim,request_id,receipt_error) \= 0 then return _failedoutput(provider_config,request_id,claim,empty_proposal,provider_output,receipt_error,durable_run_id)
+      if beginproviderrequest(_store,claim,request_id,receipt_error) \= 0 then return _receiptfailure(provider_config,request_id,claim,empty_proposal,provider_output,receipt_error,durable_run_id)
       receipt_body = _receiptjson(provider_output,provider_config,request_id,durable_run_id)
-      if recordproviderresponse(_store,claim,receipt_body,receipt_error) \= 0 then return _failedoutput(provider_config,request_id,claim,empty_proposal,provider_output,receipt_error,durable_run_id)
+      if recordproviderresponse(_store,claim,receipt_body,receipt_error) \= 0 then return _receiptfailure(provider_config,request_id,claim,empty_proposal,provider_output,receipt_error,durable_run_id)
       receipt_document = .jsondocument(receipt_body); omitted = _jsonstring(receipt_document,receipt_document.root(),"omitted")
       if omitted \= "" then return _failedoutput(provider_config,request_id,claim,empty_proposal,provider_output,"provider receipt content omitted: " || omitted,durable_run_id)
       provider_output = _receiptoutput(receipt_body)
@@ -526,7 +527,7 @@ ragapplicationprovider: class implements .ragworkprovider
       if beginproviderrequest(_store,claim,request_id,receipt_error) \= 0 then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,receipt_error,0)
       provider_output = backend.embed(request)
       receipt_body = _receiptjson(provider_output,provider_config,request_id)
-      if recordproviderresponse(_store,claim,receipt_body,receipt_error) \= 0 then return _failedoutput(provider_config,request_id,claim,empty_proposal,provider_output,receipt_error)
+      if recordproviderresponse(_store,claim,receipt_body,receipt_error) \= 0 then return _receiptfailure(provider_config,request_id,claim,empty_proposal,provider_output,receipt_error)
       receipt_document = .jsondocument(receipt_body); omitted = _jsonstring(receipt_document,receipt_document.root(),"omitted")
       if omitted \= "" then return _failedoutput(provider_config,request_id,claim,empty_proposal,provider_output,"provider receipt content omitted: " || omitted)
       provider_output = _receiptoutput(receipt_body)
@@ -695,6 +696,15 @@ _citationfeedback: procedure = .string
     end
   end
   return "Detected citation problems=" || failures || ". Up to 16 are listed; recheck the whole response. " || "0A"x || feedback
+
+_receiptfailure: procedure = .ragworkproviderresult
+  arg config = .ragproviderconfig, request_id = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, output = .providerresult, message = .string, provider_run_id = ""
+  result = _failedoutput(config,request_id,claim,proposal,output,message,provider_run_id)
+  /* The envelope did not commit. Never settle it as rejected content: doing
+   * so can overwrite independently durable external output. Keep the original
+   * intent and any observed usage; recovery must establish a durable response. */
+  call result.set_worker_failure("provider receipt persistence failed: " || message,1)
+  return result
 
 _failedoutput: procedure = .ragworkproviderresult
   arg config = .ragproviderconfig, request_id = .string, claim = .ragworkclaim, proposal = .ragextractionproposal, output = .providerresult, message = .string, provider_run_id = "", content_failure = 0

@@ -1,0 +1,408 @@
+options levelg
+
+namespace ragworktypes expose ragworkclaim ragcallreservation ragworkembedding ragworkmention ragworkproposal ragworknote ragworkproviderresult ragexternalrecovery ragworkprovider
+
+import rxfnsb
+import rxhash
+import ragclaims
+import ragprofile
+
+/* Shared worker value contracts. No database, provider or orchestration owner
+ * is imported here; receipt and usage services can depend on these types. */
+ragworkclaim: class
+  _status = .int
+  _job_id = .string
+  _item_id = .string
+  _item_type = .string
+  _input_hash = .string
+  _worker_id = .string
+  _fence = .int
+  _attempt_id = .string
+  _lease_until = .int
+  _config_snapshot_id = .string
+
+  *: factory
+    arg status = .int, job_id = .string, item_id = .string, item_type = .string, input_hash = .string, worker_id = .string, fence = .int, attempt_id = .string, lease_until = .int, config_snapshot_id = .string
+    _status = status; _job_id = job_id; _item_id = item_id; _item_type = item_type
+    _input_hash = input_hash; _worker_id = worker_id; _fence = fence
+    _attempt_id = attempt_id; _lease_until = lease_until
+    _config_snapshot_id = config_snapshot_id
+    return
+  status: method = .int
+    return _status
+  claimed: method = .int
+    return _status = 0 & _item_id \= ""
+  job_id: method = .string
+    return _job_id
+  item_id: method = .string
+    return _item_id
+  item_type: method = .string
+    return _item_type
+  input_hash: method = .string
+    return _input_hash
+  worker_id: method = .string
+    return _worker_id
+  fence: method = .int
+    return _fence
+  attempt_id: method = .string
+    return _attempt_id
+  lease_until: method = .int
+    return _lease_until
+  config_snapshot_id: method = .string
+    return _config_snapshot_id
+
+ragcallreservation: class
+  _status = .int
+  _reservation_id = .string
+  _job_id = .string
+  _item_id = .string
+  _attempt_id = .string
+  _worker_id = .string
+  _fence = .int
+  _maximum_input_tokens = .int
+  _maximum_output_tokens = .int
+  _maximum_cost = .int
+  _maximum_time_ms = .int
+  _codex_turn = .int
+  _reserved_input_tokens = .int
+  _reserved_output_tokens = .int
+  _reserved_cost = .int
+  _reserved_time_ms = .int
+
+  *: factory
+    arg status = .int, reservation_id = .string, job_id = .string, item_id = .string, attempt_id = .string, worker_id = .string, fence = .int, maximum_input_tokens = .int, maximum_output_tokens = .int, maximum_cost = .int, maximum_time_ms = .int, codex_turn = 0, reserved_input_tokens = -1, reserved_output_tokens = -1, reserved_cost = -1, reserved_time_ms = -1
+    _status = status; _reservation_id = reservation_id; _job_id = job_id
+    _item_id = item_id; _attempt_id = attempt_id; _worker_id = worker_id
+    _fence = fence; _maximum_input_tokens = maximum_input_tokens
+    _maximum_output_tokens = maximum_output_tokens; _maximum_cost = maximum_cost
+    _maximum_time_ms = maximum_time_ms
+    _codex_turn = codex_turn
+    if reserved_input_tokens < 0 then reserved_input_tokens = maximum_input_tokens
+    if reserved_output_tokens < 0 then reserved_output_tokens = maximum_output_tokens
+    if reserved_cost < 0 then reserved_cost = maximum_cost
+    if reserved_time_ms < 0 then reserved_time_ms = maximum_time_ms
+    _reserved_input_tokens = reserved_input_tokens
+    _reserved_output_tokens = reserved_output_tokens
+    _reserved_cost = reserved_cost
+    _reserved_time_ms = reserved_time_ms
+    return
+  status: method = .int
+    return _status
+  reservation_id: method = .string
+    return _reservation_id
+  job_id: method = .string
+    return _job_id
+  item_id: method = .string
+    return _item_id
+  attempt_id: method = .string
+    return _attempt_id
+  worker_id: method = .string
+    return _worker_id
+  fence: method = .int
+    return _fence
+  maximum_input_tokens: method = .int
+    return _maximum_input_tokens
+  maximum_output_tokens: method = .int
+    return _maximum_output_tokens
+  maximum_cost: method = .int
+    return _maximum_cost
+  maximum_time_ms: method = .int
+    return _maximum_time_ms
+  codex_turn: method = .int
+    return _codex_turn
+  reserved_input_tokens: method = .int
+    return _reserved_input_tokens
+  reserved_output_tokens: method = .int
+    return _reserved_output_tokens
+  reserved_cost: method = .int
+    return _reserved_cost
+  reserved_time_ms: method = .int
+    return _reserved_time_ms
+
+ragworkembedding: class
+  _revision_chunk_id = .string
+  _embedding_profile_id = .string
+  _input_digest = .string
+  _provider_id = .string
+  _model = .string
+  _dimension = .int
+  _envelope_fingerprint = .string
+  _vector = .binary
+
+  *: factory
+    arg revision_chunk_id = .string, embedding_profile_id = .string, input_digest = .string, provider_id = .string, model = .string, dimension = .int, envelope_fingerprint = .string, vector = .binary
+    _revision_chunk_id = revision_chunk_id; _embedding_profile_id = embedding_profile_id
+    _input_digest = input_digest; _provider_id = provider_id; _model = model
+    _dimension = dimension; _envelope_fingerprint = envelope_fingerprint; _vector = vector
+    return
+  revision_chunk_id: method = .string
+    return _revision_chunk_id
+  embedding_profile_id: method = .string
+    return _embedding_profile_id
+  input_digest: method = .string
+    return _input_digest
+  provider_id: method = .string
+    return _provider_id
+  model: method = .string
+    return _model
+  dimension: method = .int
+    return _dimension
+  envelope_fingerprint: method = .string
+    return _envelope_fingerprint
+  vector: method = .binary
+    return _vector
+  valid: method = .int
+    return _revision_chunk_id \= "" & _embedding_profile_id \= "" & length(_input_digest) = 64 & _provider_id \= "" & _model \= "" & _dimension > 0 & _envelope_fingerprint \= "" & binlength(_vector) = _dimension * 4
+
+ragworkmention: class
+  _candidate_id = .string
+  _concept_id = .string
+  _label = .string
+  _concept_type = .string
+  _span_start = .int
+  _span_end = .int
+  _aliases = .string[]
+  *: factory
+    arg candidate_id = "", label = "", concept_type = "", span_start = 0, span_end = 0, aliases = .string[], concept_id = ""
+    _concept_id = concept_id
+    if _concept_id = "" then _concept_id = "concept-sha256:" || rxhash..sha256hex((lower(label) || "00"x || concept_type) as .binary)
+    _candidate_id = candidate_id; _label = label; _concept_type = concept_type
+    _span_start = span_start; _span_end = span_end; _aliases = aliases
+    return
+  concept_id: method = .string
+    return _concept_id
+  candidate_id: method = .string
+    return _candidate_id
+  label: method = .string
+    return _label
+  concept_type: method = .string
+    return _concept_type
+  span_start: method = .int
+    return _span_start
+  span_end: method = .int
+    return _span_end
+  aliases: method = .string[]
+    return _aliases
+
+ragworkproposal: class
+  _proposal = .ragextractionproposal
+  _source_candidate_id = .string
+  _target_candidate_id = .string
+  *: factory
+    arg proposal = .ragextractionproposal, source_candidate_id = "", target_candidate_id = ""
+    _proposal = proposal; _source_candidate_id = source_candidate_id; _target_candidate_id = target_candidate_id
+    return
+  proposal: method = .ragextractionproposal
+    return _proposal
+  source_candidate_id: method = .string
+    return _source_candidate_id
+  target_candidate_id: method = .string
+    return _target_candidate_id
+
+ragworknote: class
+  _kind = .string
+  _text = .string
+  _importance = .int
+  _uncertainty = .int
+  _next_action = .string
+  _span_start = .int
+  _span_end = .int
+  *: factory
+    arg kind = "", text = "", importance = 0, uncertainty = 0, next_action = "", span_start = 0, span_end = 0
+    _kind = kind; _text = text; _importance = importance; _uncertainty = uncertainty
+    _next_action = next_action; _span_start = span_start; _span_end = span_end
+    return
+  kind: method = .string
+    return _kind
+  text: method = .string
+    return _text
+  importance: method = .int
+    return _importance
+  uncertainty: method = .int
+    return _uncertainty
+  next_action: method = .string
+    return _next_action
+  span_start: method = .int
+    return _span_start
+  span_end: method = .int
+    return _span_end
+
+ragworkproviderresult: class
+  _status = .int
+  _provider_id = .string
+  _model = .string
+  _request_id = .string
+  _input_tokens = .int
+  _output_tokens = .int
+  _cost = .int
+  _duration_ms = .int
+  _retryable = .int
+  _retry_delay_ms = .int
+  _provider_called = .int
+  _admission_deferred = .int
+  _diagnostic_json = .string
+  _citation_failure = .string
+  _content_failure = .int
+  _worker_failure = .string
+  _outcome_uncertain = .int
+  _attempt_limit = .int
+  _resolution_json = .string
+  _resolution_profile = .ragprofile
+  _proposal = .ragextractionproposal
+  _error = .string
+  _has_proposal = .int
+  _source_candidate_id = .string
+  _target_candidate_id = .string
+  _embedding = .ragworkembedding
+  _provider_run_id = .string
+  _charging_basis = .string
+  _mentions = .ragworkmention[]
+  _proposals = .ragworkproposal[]
+  _notes = .ragworknote[]
+
+  *: factory
+    arg status = .int, provider_id = .string, model = .string, request_id = .string, input_tokens = .int, output_tokens = .int, cost = .int, duration_ms = .int, retryable = .int, proposal = .ragextractionproposal, error = .string, has_proposal = 1, source_candidate_id = "", target_candidate_id = "", embedding = .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), provider_run_id = "", charging_basis = "monetary-api", mentions = .ragworkmention[], proposals = .ragworkproposal[], notes = .ragworknote[], retry_delay_ms = 0, provider_called = 1
+    _status = status; _provider_id = provider_id; _model = model; _request_id = request_id
+    _input_tokens = input_tokens; _output_tokens = output_tokens; _cost = cost
+    _duration_ms = duration_ms; _retryable = retryable; _retry_delay_ms = retry_delay_ms; _provider_called = provider_called; _proposal = proposal; _error = error
+    _has_proposal = has_proposal; _source_candidate_id = source_candidate_id
+    _target_candidate_id = target_candidate_id; _embedding = embedding
+    _provider_run_id = provider_run_id; _charging_basis = charging_basis
+    _mentions = mentions; _proposals = proposals; _notes = notes
+    if _proposals.0 = 0 & has_proposal = 1 then _proposals[1] = .ragworkproposal(proposal, source_candidate_id, target_candidate_id)
+    return
+  resolution: method = .void
+    arg value = .string, profile = .ragprofile
+    _resolution_json = value; _resolution_profile = profile
+    return
+  resolution_json: method = .string
+    return _resolution_json
+  resolution_profile: method = .ragprofile
+    return _resolution_profile
+  status: method = .int
+    return _status
+  ok: method = .int
+    return _status = 0
+  provider_id: method = .string
+    return _provider_id
+  model: method = .string
+    return _model
+  request_id: method = .string
+    return _request_id
+  input_tokens: method = .int
+    return _input_tokens
+  output_tokens: method = .int
+    return _output_tokens
+  cost: method = .int
+    return _cost
+  duration_ms: method = .int
+    return _duration_ms
+  retryable: method = .int
+    return _retryable
+  retry_delay_ms: method = .int
+    return _retry_delay_ms
+  add_wait_ms: method = .void
+    arg wait_ms = .int
+    if wait_ms > 0 then _duration_ms = _duration_ms + wait_ms
+    return
+  set_worker_failure: method = .void
+    arg message = .string, uncertain = 0
+    _worker_failure = message; _outcome_uncertain = uncertain
+    return
+  worker_failure: method = .string
+    return _worker_failure
+  outcome_uncertain: method = .int
+    return _outcome_uncertain
+  set_attempt_limit: method = .void
+    arg maximum = .int
+    _attempt_limit = maximum
+    return
+  attempt_limit: method = .int
+    return _attempt_limit
+  citation_failure: method = .string
+    return _citation_failure
+  content_failure: method = .int
+    return _content_failure
+  set_content_failure: method = .void
+    arg value = .int
+    _content_failure = value
+    return
+  set_citation_failure: method = .void
+    arg value = .string
+    _citation_failure = value
+    return
+  diagnostic_json: method = .string
+    return _diagnostic_json
+  set_diagnostic: method = .void
+    arg value = .string
+    _diagnostic_json = value
+    return
+  provider_called: method = .int
+    return _provider_called
+  admission_deferred: method = .int
+    return _admission_deferred
+  set_admission_deferred: method = .void
+    _admission_deferred = 1
+    return
+  proposal: method = .ragextractionproposal
+    return _proposal
+  error: method = .string
+    return _error
+  has_proposal: method = .int
+    return _has_proposal
+  source_candidate_id: method = .string
+    return _source_candidate_id
+  target_candidate_id: method = .string
+    return _target_candidate_id
+  embedding: method = .ragworkembedding
+    return _embedding
+  provider_run_id: method = .string
+    return _provider_run_id
+  charging_basis: method = .string
+    return _charging_basis
+  mentions: method = .ragworkmention[]
+    return _mentions
+  proposals: method = .ragworkproposal[]
+    return _proposals
+  notes: method = .ragworknote[]
+    return _notes
+
+ragexternalrecovery: class
+  _found = .int
+  _provider_run_id = .string
+  _request_id = .string
+  _content = .string
+  _input_tokens = .int
+  _output_tokens = .int
+  _state = .string
+  _thread_id = .string
+  _turn_id = .string
+
+  *: factory
+    arg found = 0, provider_run_id = "", request_id = "", content = "", input_tokens = 0, output_tokens = 0, state = "", thread_id = "", turn_id = ""
+    _found = found; _provider_run_id = provider_run_id; _request_id = request_id
+    _content = content; _input_tokens = input_tokens; _output_tokens = output_tokens
+    _state = state; _thread_id = thread_id; _turn_id = turn_id
+    return
+  found: method = .int
+    return _found
+  provider_run_id: method = .string
+    return _provider_run_id
+  request_id: method = .string
+    return _request_id
+  content: method = .string
+    return _content
+  input_tokens: method = .int
+    return _input_tokens
+  output_tokens: method = .int
+    return _output_tokens
+  state: method = .string
+    return _state
+  thread_id: method = .string
+    return _thread_id
+  turn_id: method = .string
+    return _turn_id
+
+ragworkprovider: interface
+  process: method = .ragworkproviderresult
+    arg claim = .ragworkclaim

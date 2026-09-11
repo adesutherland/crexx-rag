@@ -406,6 +406,16 @@ add_test(NAME embedding_exhaustion
 set_tests_properties(embedding_exhaustion PROPERTIES
     TIMEOUT 240 LABELS "recovery;concurrency;accounting;gemini;sqlite;zero-outbound")
 
+add_test(NAME native_receipt_failure
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-receipt-failure"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeReceiptFailure.cmake")
+set_tests_properties(native_receipt_failure PROPERTIES
+    TIMEOUT 240 LABELS "recovery;concurrency;accounting;gemini;sqlite;zero-outbound")
+
 add_test(NAME native_receipts
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"

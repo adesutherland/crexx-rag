@@ -13,6 +13,7 @@ import ragconfiguration
 import ragprofile
 import ragclaims
 import ragwork
+import ragworktypes
 import ragtrace
 import ragapplicationprovider
 

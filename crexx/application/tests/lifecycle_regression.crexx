@@ -5,6 +5,7 @@ import rxsqlite
 import rxjson
 import ragstore
 import ragwork
+import ragworktypes
 import raglifecycle
 
 check: procedure = .int

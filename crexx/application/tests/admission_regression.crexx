@@ -4,6 +4,7 @@ import rxfnsb
 import rxsqlite
 import ragstore
 import ragwork
+import ragworktypes
 import ragclaims
 import generic_profile
 import ragadmission
