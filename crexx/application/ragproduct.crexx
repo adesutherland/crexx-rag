@@ -1784,6 +1784,7 @@ _jobstatus: procedure = .ragcommandresult
   fields[9] = .ragresultfield("cancelled", "integer", status.cancelled())
   fields[10] = .ragresultfield("failed_attempts", "integer", status.failed_attempts())
   fields[11] = .ragresultfield("last_error", "string", status.last_error())
+  fields[12] = .ragresultfield("waiting_reason", "string", status.waiting_reason())
   records = .ragresultrecord[]; records[1] = .ragresultrecord("job-status", fields)
   return .ragcommandresult(operation, "ok", 0, "bounded durable job status", records)
 

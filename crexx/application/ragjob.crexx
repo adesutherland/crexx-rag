@@ -25,9 +25,10 @@ ragjobstatus: class
   _completed_at = .string
   _last_error = .string
   _artifact_state = .string
+  _waiting_reason = .string
 
   *: factory
-    arg job_id = .string, state = .string, planned_total = .int, queued = .int, running = .int, processed = .int, skipped = .int, dead_letter = .int, cancelled = .int, failed_attempts = .int, current_item = .string, provider = .string, model = .string, throughput_per_second = .float, created_at = .string, started_at = .string, updated_at = .string, completed_at = .string, last_error = .string, artifact_state = .string
+    arg job_id = .string, state = .string, planned_total = .int, queued = .int, running = .int, processed = .int, skipped = .int, dead_letter = .int, cancelled = .int, failed_attempts = .int, current_item = .string, provider = .string, model = .string, throughput_per_second = .float, created_at = .string, started_at = .string, updated_at = .string, completed_at = .string, last_error = .string, artifact_state = .string, waiting_reason = ""
     _job_id = job_id
     _state = state
     _planned_total = planned_total
@@ -48,6 +49,7 @@ ragjobstatus: class
     _completed_at = completed_at
     _last_error = last_error
     _artifact_state = artifact_state
+    _waiting_reason = waiting_reason
     return
 
   job_id: method = .string
@@ -88,6 +90,8 @@ ragjobstatus: class
     return _completed_at
   last_error: method = .string
     return _last_error
+  waiting_reason: method = .string
+    return _waiting_reason
   artifact_state: method = .string
     return _artifact_state
 

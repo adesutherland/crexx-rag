@@ -1,0 +1,37 @@
+options levelg
+
+namespace ragadmission expose ragadmissiondecision
+
+/* One decision across all job allowance dimensions. The caller reads the
+ * ledger and reserves inside the SAME writer transaction; this module neither
+ * opens transactions nor mutates claims, receipts or budgets. Unknown usage
+ * is retained separately from both measured usage and live peer reservations.
+ * Inspect every dimension: a temporary hold must not mask a permanent stop. */
+ragadmissiondecision: class
+  _rank = .int
+  _dimension = .string
+  *: factory
+    _rank = 0; _dimension = ""
+    return
+  consider: method = .int
+    arg dimension = .string, allowance = .int, consumed = .int, held = .int, uncertain = .int, requested = .int
+    rank = 0
+    if allowance < 0 | consumed < 0 | held < 0 | uncertain < 0 | requested < 0 then rank = 4
+    /* Subtract from the allowance to avoid overflow in accumulated sums. */
+    else if consumed > allowance | requested > allowance-consumed then rank = 3
+    else if uncertain > allowance-consumed-requested then rank = 2
+    else if held > allowance-consumed-requested-uncertain then rank = 1
+    if rank > _rank then do; _rank = rank; _dimension = dimension; end
+    return 0
+  state: method = .string
+    if _rank = 4 then return "invalid"
+    if _rank = 3 then return "exhausted"
+    if _rank = 2 then return "uncertain"
+    if _rank = 1 then return "waiting"
+    return "admitted"
+  reason: method = .string
+    if _rank = 4 then return _dimension || " accounting is invalid"
+    if _rank = 3 then return _dimension || " exhausted"
+    if _rank = 2 then return _dimension || " held by uncertain usage; reconcile before retry"
+    if _rank = 1 then return "waiting for provider capacity: " || _dimension
+    return ""

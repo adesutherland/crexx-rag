@@ -1,5 +1,14 @@
 # Test strategy
 
+The admission slice adds `native_admission`: a loopback response is held until
+a peer reaches a deliberately narrower reservation ceiling in a scratch job.
+It checks public waiting status, no failed/replacement worker, no phantom call,
+unchanged policy and exactly four completed items/receipts/settlements after
+release. `regression_ingest_capacity` checks each allowance dimension on both
+optimized VMs, cancellation while waiting, invalid per-call caps, real
+exhaustion and classification precedence. Existing maintenance deadline and
+unknown-usage suites remain required controls.
+
 The maintained suite tests the single shipping architecture rather than an old
 implementation comparison.
 

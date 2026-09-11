@@ -40,6 +40,19 @@ SQLite rows are the process communication mechanism. Leases, fencing,
 idempotency keys, attempts, provider runs, events, heartbeats, and requested
 worker state make recovery explicit.
 
+`ragadmission` classifies job allowance from measured usage, live reservations,
+uncertain usage and the requested call. It examines all dimensions before
+returning admitted, waiting, exhausted, uncertain or invalid. Consumed and
+uncertain allowance take precedence over temporary pressure. `ragwork` reads
+the ledger and creates the reservation in the same writer transaction, and
+owns the fenced item transition. Ordinary ingestion and active maintenance
+both queue an uncalled capacity waiter without consuming a failed attempt;
+closed maintenance windows keep their existing backlog policy. Real exhaustion
+and uncertain outcomes retain their existing stopping/reconciliation paths.
+The module does not own settlement, worker replacement or provider rate limits.
+`job status` reports the latest queued deferral in `waiting_reason`, separately
+from `last_error`; it clears when that item is reclaimed or stops waiting.
+
 `ragprocess` replaces explicitly unhealthy, exited workers in job-filtered
 groups under a job-wide durable restart ceiling. The existing `job_events`
 ledger records each replacement before launch; no schema migration is needed.

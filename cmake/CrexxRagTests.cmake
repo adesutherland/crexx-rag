@@ -425,3 +425,28 @@ add_test(NAME native_interruption
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeInterruption.cmake")
 set_tests_properties(native_interruption PROPERTIES
     TIMEOUT 180 LABELS "native;recovery;cancellation;accounting;publication;sqlite;zero-outbound")
+
+add_test(NAME regression_ingest_capacity
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_PLUGIN_DIR=${CREXXRAG_SQLITE_PROVIDER_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/admission_regression.crexx"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-regression-ingest-capacity"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/AdmissionRegression.cmake")
+set_tests_properties(regression_ingest_capacity PROPERTIES
+    TIMEOUT 180 LABELS "regression;RAG-OPS-004;worker;accounting;zero-outbound")
+
+add_test(NAME native_admission
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-admission"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeAdmission.cmake")
+set_tests_properties(native_admission PROPERTIES
+    TIMEOUT 180 LABELS "regression;native;worker;accounting;zero-outbound")

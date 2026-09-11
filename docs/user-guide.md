@@ -487,7 +487,11 @@ crexxrag --access control job replay JOB_ID --item ITEM_ID \
 
 `job events` reads the durable event ledger for that job, with numeric cursor
 paging; it does not list work items. `job status` includes the last failure or
-uncertainty reason. After a Codex stream failure, the worker makes one bounded
+uncertainty reason. Its separate `waiting_reason` reports a queued provider
+deferral, such as capacity reserved by another worker. That worker can continue
+after capacity is released without consuming a failed attempt; the reason clears
+when the item is reclaimed or stops waiting. Consumed budgets and uncertain
+usage still constrain admission. After a Codex stream failure, the worker makes one bounded
 read of the exact submitted turn through a fresh connection. It reuses a confirmed
 completed answer through normal validation, or permits the configured retry when
 the turn is confirmed interrupted/failed without output. Partial usage remains

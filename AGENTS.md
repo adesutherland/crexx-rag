@@ -22,6 +22,19 @@ dependency and compatibility review. Identify the owning component and its
 existing public controls before editing. Do not bundle unrelated refactoring,
 new frameworks, schema changes or reporting systems into a small request.
 
+Keep the logic for each cohesive aspect together in its owning source module,
+and separate different aspects behind narrow module interfaces. Shared policy
+and state-transition decisions must have one implementation; ingestion,
+maintenance, workers and public commands should compose it. Command dispatch
+and transport adapters should not accumulate domain rules. Preserve transaction
+ownership and avoid circular imports when extracting modules.
+
+Robust recovery is a priority: preserve task identity, attempts, provider
+receipts, cumulative usage, uncertain outcomes and publication fencing across
+failures and restarts. Separate task outcome, worker health, provider admission
+and environment health. Separate executables are an optional, lower-priority
+surface simplification, not a prerequisite for source modularity or recovery.
+
 When asked for a standalone cREXX wrapper, deliver a standalone script that
 composes existing commands. Leave product implementation bodies, contracts,
 build files and tests unchanged. Use wrapper arguments for time, spend and batch
@@ -74,6 +87,24 @@ provider discovery for child task VMs, but changing this product to attached
 workers is a separate architecture decision; native handles remain VM-local.
 
 ## Build and QA
+
+Implementation must start by confirming regression coverage, including before
+a refactor. Identify the affected public journeys, module contracts, state
+transitions and failure/recovery invariants; inspect and run the relevant tests
+against the chosen baseline before changing product implementation. A test's
+name or a previously green full suite is not sufficient evidence of coverage.
+
+If coverage is missing or inadequate, add the necessary tests first. A defect
+fix needs a reproduction of the intended failure plus a passing positive
+control; a behavior-preserving refactor needs passing characterization tests
+before code moves. Use independent state, source, receipt and usage assertions
+where relevant. Record the test names, baseline results and remaining gaps in
+the change notes. Extend coverage at each new module boundary.
+
+After implementation, the targeted acceptance must pass and previously passing
+checks must remain passing. Run the required full suite and report any remaining
+tracked defects explicitly. Never hide failures by disabling tests, weakening
+their assertions, or treating known-defect labels as passes.
 
 ```sh
 cmake --preset debug

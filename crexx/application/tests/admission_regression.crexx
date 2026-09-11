@@ -1,0 +1,141 @@
+options levelg
+
+import rxfnsb
+import rxsqlite
+import ragstore
+import ragwork
+import ragclaims
+import generic_profile
+import ragadmission
+
+classifications: procedure = .int
+  errors = 0
+  decision = .ragadmissiondecision()
+  call decision.consider("input budget",100,10,20,0,70)
+  errors = errors + check(decision.state() = "admitted","exact remaining allowance is admissible")
+  call decision.consider("output budget",100,10,21,0,70)
+  errors = errors + check(decision.state() = "waiting","held allowance is temporary pressure")
+  call decision.consider("cost budget",100,10,0,21,70)
+  errors = errors + check(decision.state() = "uncertain","unaccounted usage dominates temporary pressure")
+  call decision.consider("time budget",100,31,0,0,70)
+  errors = errors + check(decision.state() = "exhausted","consumed allowance dominates pressure and uncertainty")
+  call decision.consider("call budget",100,0,0,0,1)
+  errors = errors + check(decision.state() = "exhausted","another available dimension cannot erase the stop")
+  call decision.consider("invalid budget",100,-1,0,0,1)
+  errors = errors + check(decision.state() = "invalid","invalid accounting cannot grant admission")
+  return errors
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if condition then return 0
+  say "ADMISSION_REGRESSION_FAIL=" || label
+  return 1
+
+scalar: procedure = .int
+  arg db = .binary, sql = .string
+  statement = .binary; value = -1
+  if sqliteprepare(db,sql,statement) \= 0 | sqlitestep(statement) \= 100 then do; call sqlitefinalize statement; return -1; end
+  status = sqlitecolumnint(statement,0,value); call sqlitefinalize statement
+  if status \= 0 then return -1
+  return value
+
+countingprovider: class implements .ragworkprovider
+  _calls = .int
+  *: factory
+    _calls = 0
+    return
+  calls: method = .int
+    return _calls
+  process: method = .ragworkproviderresult
+    arg claim = .ragworkclaim
+    _calls = _calls+1
+    empty = .ragextractionproposal; mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
+    return .ragworkproviderresult(0,"fixture","fixture",claim.attempt_id(),16,16,10,10,0,empty,"",0,"","",.ragworkembedding("","","","","",0,"",''x as .binary),"","local-compute",mentions,proposals,notes)
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 \= 1 then return 2
+  store = .ragstorehandle; error = ""; errors = classifications()
+  if errors > 0 then return 2
+  if initragstore(args[1],"admission-regression","snapshot","fixture","1","generic-profile","profile","config",'{}',store,error) \= 0 then do; say "SETUP_FAIL=" || error; return 2; end
+  db = store.database()
+  policy = .ragclaimpolicy("fixture","concept","related-to",1000000,750000,500000,-1000000,250000)
+  dimensions = "control input output cost time inflight cancel exhausted"
+  do cell = 1 to words(dimensions)
+    before_setup = errors
+    dimension = word(dimensions,cell); job = "job-" || dimension
+    input = 256; output = 128; cost = 200; duration = 10000; inflight = 2
+    if dimension = "input" then input = 144
+    if dimension = "output" then output = 80
+    if dimension = "cost" then cost = 110
+    if dimension = "time" then duration = 5010
+    if dimension = "inflight" | dimension = "cancel" then inflight = 1
+    errors = errors + check(sqliteexec(db,"INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,created_at,updated_at) VALUES('" || job || "','" || job || "','{}','snapshot','queued',2,2," || input || "," || output || "," || cost || ",'fixture','fixture')") = 0,"setup job " || dimension)
+    do item = 1 to 2
+      id = job || "-" || item
+      errors = errors + check(sqliteexec(db,"INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES('" || id || "','" || job || "','claim-extraction','queued'," || (3-item) || ",'" || id || "','fixture-hash','{}','fixture','fixture')") = 0,"setup item " || id)
+    end
+    errors = errors + check(configurejobbudget(store,job,duration,128,64,100,5000,inflight,1,error) = 0,"budget " || error)
+    owner = .ragworkclaim; reservation = .ragcallreservation
+    errors = errors + check(claimnext(store,job,"owner",60,1,owner,error) = 0,"owner claim " || error)
+    errors = errors + check(reservecall(store,owner,129,64,100,5000,reservation,error) < 0 & error = "provider call exceeds the per-call cap","invalid cap cannot become a wait")
+    errors = errors + check(reservecall(store,owner,128,64,100,5000,reservation,error) = 0,"owner reservation " || error)
+    if errors > before_setup then return 2
+    if dimension = "exhausted" then do
+      /* A settled call has really consumed the remaining allowance. Holding
+       * another dimension cannot turn this into an endless capacity wait. */
+      run = ""
+      if settlecall(store,reservation,"fixture","fixture",job || "-owner","succeeded",256,128,200,10000,run,error,"","local-compute") \= 0 | skipitem(store,owner,"consumed allowance",error) \= 0 then return 2
+      peer = .ragworkclaim; denied = .ragcallreservation
+      if claimnext(store,job,"exhausted-peer",60,1,peer,error) \= 0 then return 2
+      errors = errors + check(reservecall(store,peer,128,64,100,5000,denied,error) < 0 & pos("budget exhausted",error) > 0,"consumed allowance stops explicitly")
+      errors = errors + check(scalar(db,"SELECT count(*) FROM job_events WHERE job_id='" || job || "' AND event_type='provider-deferred'") = 0,"exhaustion must not spin in capacity retry")
+      if requestcancel(store,job,"end exhaustion control",error) \= 0 | acknowledgecancel(store,peer,error) \= 0 then return 2
+      iterate
+    end
+    provider = .countingprovider(); disposition = ""
+    /* The first reservation is durably held before invoking the peer. No
+     * scheduling race or timer determines whether the boundary is reached. */
+    status = runworkeronce(store,job,"peer",60,1,policy,provider,disposition,error,genericprofile())
+    if dimension = "control" then do
+      errors = errors + check(status = 0 & disposition = "no-claim" & provider.calls() = 1,"positive control invokes provider and completes")
+      if errors > 0 then return 2
+      say "ADMISSION_POSITIVE_CONTROL_OK"
+    end
+    else do
+      if status < 0 & disposition = "budget-denied" then say "KNOWN_DEFECT=RAG-OPS-004 dimension=" || dimension || " status=" || status || " reason=" || error
+      errors = errors + check(status = 1 & disposition = "budget-deferred" & error = "","temporary capacity must defer healthy peer: " || dimension)
+      errors = errors + check(provider.calls() = 0 & scalar(db,"SELECT count(*) FROM attempts a JOIN job_items i USING(item_id) WHERE i.job_id='" || job || "' AND a.outcome IN('failed','dead_letter')") = 0,"uncalled peer consumes no failure allowance: " || dimension)
+    end
+    /* The owner used less than its estimate: there is now enough actual
+     * allowance for the peer. Settlement never resets a configured budget. */
+    run = ""
+    invariant_errors = 0
+    if dimension = "cancel" then do
+      errors = errors + check(requestcancel(store,job,"cancel while waiting",error) = 0,"cancel waiting job")
+      errors = errors + check(scalar(db,"SELECT count(*) FROM job_items WHERE job_id='" || job || "' AND state='cancelled'") = 1,"cancel removes waiting peer immediately")
+    end
+    invariant_errors = invariant_errors + check(settlecall(store,reservation,"fixture","fixture",job || "-owner","succeeded",16,16,10,10,run,error,"","local-compute") = 0,"owner settlement " || error)
+    if dimension = "cancel" then do
+      errors = errors + check(acknowledgecancel(store,owner,error) = 0,"cancelled admitted peer still settles")
+      errors = errors + check(runworkeronce(store,job,"cancelled-peer",60,1,policy,provider,disposition,error,genericprofile()) = 1 & provider.calls() = 0,"released capacity cannot restart cancelled work")
+      errors = errors + check(scalar(db,"SELECT reserved_calls+reserved_tokens+reserved_cost FROM jobs WHERE job_id='" || job || "'") = 0,"cancelled job retains no reservation")
+      if invariant_errors > 0 then return 2
+      iterate
+    end
+    invariant_errors = invariant_errors + check(skipitem(store,owner,"fixture owner complete",error) = 0,"owner completion " || error)
+    invariant_errors = invariant_errors + check(scalar(db,"SELECT reserved_calls+reserved_tokens+reserved_cost+reserved_codex_turns FROM jobs WHERE job_id='" || job || "'") = 0,"reservations settle exactly once")
+    if invariant_errors > 0 then return 2
+    if dimension \= "control" then do
+      /* Advance only the readiness field, not the state or attempt history. */
+      if sqliteexec(db,"UPDATE job_items SET retry_at=0 WHERE job_id='" || job || "' AND state='queued'") \= 0 then return 2
+      status = runworkeronce(store,job,"peer-after-release",60,1,policy,provider,disposition,error,genericprofile())
+      errors = errors + check(status = 0 & disposition = "no-claim" & provider.calls() = 1,"peer finishes after unused allowance is released: " || dimension)
+    end
+    errors = errors + check(scalar(db,"SELECT count(*) FROM provider_runs p JOIN attempts a USING(provider_run_id) JOIN job_items i USING(item_id) WHERE i.job_id='" || job || "'") = 2,"exactly two actual calls: " || dimension)
+  end
+  errors = errors + check(scalar(db,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"foreign keys")
+  if closeragstore(store,error) \= 0 then return 2
+  if errors > 0 then return 1
+  say "ADMISSION_REGRESSION_OK"
+  return 0
