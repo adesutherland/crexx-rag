@@ -1,0 +1,91 @@
+options levelg
+
+namespace ragpolicypublication expose readpolicyfile publishpolicyfile
+
+import rxfnsb
+import rxfs
+import rxhash
+import rxsqlite
+import ragfile
+import ragsqlsupport
+
+/* File publication only. ragpolicyfile must validate candidate bytes first.
+   A stable adjacent SQLite file serializes cooperating editors. Never unlink
+   its inode: process exit releases SQLite locks without a stale-lock protocol.
+   Content publication uses same-directory rename; metadata follows the newly
+   created file and this API does not claim fsync/power-loss durability. */
+readpolicyfile: procedure = .int
+  arg path = .string, expose data = .binary, expose digest = .string, expose exists = .int, expose error = .string
+  data = ''x as .binary; digest = "missing"; exists = 0; error = ""
+  if rxfs..isdir(path) = 1 then do; error = "selected policy path is a directory"; return 1; end
+  if rxfs..isfile(path) \= 1 then return 0
+  exists = 1; bytes = 0
+  if ragfile..readbinaryfilebounded(path,65536,data,bytes,error) \= 0 then do; error = "policy file could not be read within 65536 bytes: " || error; return 1; end
+  digest = lower(rxhash..sha256hex(data))
+  return 0
+
+publishpolicyfile: procedure = .int
+  arg path = .string, candidate = .binary, expected = .string, expose digest = .string, expose changed = .int, expose error = .string
+  digest = ""; changed = 0; error = ""
+  if binlength(candidate) < 1 | binlength(candidate) > 65536 then do; error = "policy candidate must contain 1 through 65536 bytes"; return 1; end
+  database = .binary
+  if sqliteopenmode(path || ".edit-lock.sqlite","create",database) \= 0 then do; error = "cannot open the policy edit coordination file"; return 1; end
+  if sqlitebusytimeout(database,0) \= 0 then return _failed(database,"","cannot configure the policy edit lock",error)
+  if sqliteexec(database,"BEGIN EXCLUSIVE") \= 0 then do
+    boundary = 0; sqlite_code = 0; operation = ""; detail = ""
+    call sqliteerror boundary,sqlite_code,operation,detail
+    ignored = sqliteclose(database)
+    if sqlite_code = 5 | sqlite_code = 6 then do; error = "another policy edit is in progress; retry with the current file hash"; return 6; end
+    error = "cannot acquire the policy edit lock: " || detail
+    return 1
+  end
+  current = .binary; current_hash = ""; exists = 0
+  if readpolicyfile(path,current,current_hash,exists,error) \= 0 then return _failed(database,"",error,error)
+  if current_hash \= expected then do
+    call _release database
+    error = "policy file changed after inspection; read config show and use its current sha256"
+    return 6
+  end
+  digest = lower(rxhash..sha256hex(candidate))
+  if digest = current_hash then do
+    if _release(database) \= 0 then error = "policy is unchanged; coordination cleanup failed"
+    return 0
+  end
+  token = sqlreadtext(database,"SELECT lower(hex(randomblob(16)))")
+  if length(token) \= 32 then return _failed(database,"","cannot allocate the policy staging identity",error)
+  temporary = path || ".edit-" || token || ".tmp"
+  if rxfs..isfile(temporary) = 1 | rxfs..isdir(temporary) = 1 then return _failed(database,"","policy staging path already exists; retry",error)
+  if ragfile..writebinaryfile(temporary,candidate,error) \= 0 then return _failed(database,temporary,error,error)
+  staged = .binary; staged_hash = ""; staged_exists = 0
+  if readpolicyfile(temporary,staged,staged_hash,staged_exists,error) \= 0 then return _failed(database,temporary,error,error)
+  if staged_exists \= 1 | staged_hash \= digest then return _failed(database,temporary,"policy staging bytes did not match the validated candidate",error)
+  /* Catch ordinary external-editor changes too. Arbitrary external writers do
+     not participate in this lock, so this is not a filesystem-wide CAS. */
+  if readpolicyfile(path,current,current_hash,exists,error) \= 0 then return _failed(database,temporary,error,error)
+  if current_hash \= expected then do
+    ignored = _failed(database,temporary,"policy file changed before publication; inspect it again",error)
+    return 6
+  end
+  if rxfs..rename(temporary,path) \= 0 then return _failed(database,temporary,"could not atomically replace the policy file",error)
+  changed = 1
+  /* Once renamed, report publication even if unlock fails. A retry must use
+     the returned new hash; it must not assume that the old file survived. */
+  if _release(database) \= 0 then error = "policy was published; coordination cleanup failed"
+  return 0
+
+_release: procedure = .int
+  arg database = .binary
+  rolled_back = sqliteexec(database,"ROLLBACK")
+  closed = sqliteclose(database)
+  return rolled_back \= 0 | closed \= 0
+
+_failed: procedure = .int
+  arg database = .binary, temporary = .string, message = .string, expose error = .string
+  error = message
+  if temporary \= "" then do
+    if rxfs..isfile(temporary) = 1 then do
+      if rxfs..delete(temporary) \= 0 then error = error || "; staging file cleanup failed: " || temporary
+    end
+  end
+  ignored = _release(database)
+  return 1

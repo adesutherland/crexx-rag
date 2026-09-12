@@ -10,7 +10,7 @@ the user and architecture documentation, and is committed separately.
 
 `crexxrag.conf` remains the single operator policy entry point. Referenced
 profiles and optional prompt files are data selected by that policy, not
-competing policies. Step 5 adds supported file editing/replacement commands
+competing policies. Step 5 supplies supported file editing/replacement commands
 alongside the existing reviewed library configuration transition. File changes
 must validate before replacement and must not silently change active jobs.
 
@@ -24,8 +24,8 @@ control, original evidence and provider usage remain authoritative.
 | 1 | `ragclaimrules`: one effective claim-policy factory | Committed `b038495`; 51/51 full regression tests |
 | 2 | Domain prompt/contracts: complete effective requests and schemas together | Committed `f62158f`; 53/53 full regression tests |
 | 3 | Report, observation and query services: cohesive domain orchestration and bounded operator inspection | Committed `e792f1d`; 54/54 full regression tests |
-| 4 | Command catalogue: one operation/argument/capability definition used by surfaces | Green; 57/57 full regression tests |
-| 5 | Effective configuration policy and safe policy-file update/replacement commands | Pending |
+| 4 | Command catalogue: one operation/argument/capability definition used by surfaces | Committed `14677d1`; 57/57 full regression tests |
+| 5 | Effective configuration policy and safe policy-file update/replacement commands | Complete; 59/59 full regression tests |
 
 ## Stage 1 — claim policy
 
@@ -232,3 +232,120 @@ parallel capability implementation or cross-module import cycle, and changed
 documentation links and whitespace checks pass. The optional full-volume
 harness also has the updated module dependency; no unrequested corpus was used.
 This is local qualification with synthetic providers and scratch installations.
+
+
+## Stage 5 — worker defaults and policy-file administration
+
+Coverage first: stage 4 `14677d1` passed 57/57. Before product edits, the extended
+`configuration_contract` passed in 29.37 seconds. It compares omitted versus
+explicit compatibility defaults, exact canonical identity, typed lower/upper
+bounds and invalid neighbors, and semantic versus operational identity. An
+initial test compared different config formats and was corrected before the
+passing baseline; it was not a product defect. New native and two-VM file tests
+passed the existing config-check control, then failed on absent file operations.
+An additional parser control reproduced an explicit `true` value incorrectly
+marked as a bare flag. That distinction is now fixed in `ragcommand`.
+
+`ragworkerdefaults` owns the five optional worker runtime/recovery defaults and
+bounds, consumed by typed construction/validation, file loading/key recognition
+and canonical omission. Explicit default bytes and historical identities are
+preserved. The other setting families and schema invariants retain their
+existing owners; this is the first bounded family from the original proposal.
+`ragpolicyfile` owns selected-file commands and validation; `ragpolicypublication`
+owns file bytes, edit coordination and publication. It depends only on file,
+hash, SQLite and scalar helpers, not worker orchestration. CLI and MCP use the
+same loader, and the catalogue declares the three new operations together.
+
+Read `config show` exposes path, SHA-256, existence and validation state. Admin
+`config set` edits one key and removes a competing role prompt-source key;
+`config replace` validates a replacement or repairs a bounded invalid policy.
+`missing` is the explicit bootstrap token. Validation includes referenced profiles
+and prompts, resolved relative to the destination policy. Both operations require
+the inspected hash, preserve library history and make no provider calls.
+A file-bound MCP server reloads configuration and profiles on subsequent product
+calls, sees its own edits, can expose repair commands from an invalid starting
+file, and refuses a removed profile instead of reusing a stale registry.
+
+Publication holds an exclusive SQLite lock in a stable adjacent coordination
+file. It verifies staged bytes and rechecks the target before rename, reports
+conflict for another editor, and retains the new hash if post-publication cleanup
+fails. Killed-owner locks release without manual recovery, and orphan temporary
+files never become policy or block a retry. This is process-crash recovery with
+rename publication; custom mode/ACL preservation, arbitrary external-writer
+coordination and power-loss durability are explicitly limited by the installed
+filesystem API. See the [integration record](integration-issues.md#policy-file-publication-metadata-and-durability).
+
+The first focused run passed six tests; its sole failure was the intentionally
+changed metadata snapshot. An independent JSON comparison found precisely one
+new read tool and two admin tools, no removals, unchanged old schemas/annotations,
+and only a clarified `config apply` description among the original 63 tools.
+The reviewed snapshot now records 33 read tools and 66 tools with all grants.
+The native policy fixture covers invalid/stale input, no-op bytes, literal true,
+prompt switches, destination-relative replacement, repair, MCP freshness, actual
+cross-process lock conflict/SIGKILL recovery, orphan staging, publication I/O
+failure and an identical complete library dump. Both VMs exercise the same
+service directly. The scratch-installed test edits a copy of the shipped
+policy/profile/prompt cohort and inspects the resulting effective objective.
+
+Baseline and focused evidence: `/tmp/crexx-rag-refactor-5-baseline2.log`,
+`/tmp/crexx-rag-refactor-5-red.log`, `/tmp/crexx-rag-refactor-5-true-red.log`,
+`/tmp/crexx-rag-refactor-5-focused1.log`, and
+`/tmp/crexx-rag-refactor-5-focused2.log`. The revised focused gate passed
+**5/5 in 52.71 seconds**, including the installed round trip. The first full run completed **56/59 in 1,445.68 seconds**. It retained three
+failures: the backlog fixture exited after ten idle seconds before a call at
+about eleven seconds; heartbeat contention exceeded its 30-second harness
+limit; and concurrent publication missed its second pair after HTTP timeouts.
+Heavy independent compiler/test activity was observed at the time. Failed
+fixtures and logs are retained under `/tmp/crexx-rag-refactor-5-failed-fixtures`
+and `/tmp/crexx-rag-refactor-5-full.log`; this run is not a green qualification.
+
+Further surface review found that ADDRESS kept the registry from `LIBRARY OPEN`.
+The extended `address_surface` scenario passed its existing controls and the
+policy edit, then reproduced a stale prompt in 4.06 seconds before the fix
+(`/tmp/crexx-rag-refactor-5-address-red2.log`). MCP and ADDRESS now share
+`ragpolicyfile.refreshpolicyrequest`; both ADDRESS execution and its function
+interface compose it. The regression also covers invalid-file refusal, unbound
+function repair, config-ID changes and removed profiles. A fixture-only direct
+class construction was corrected before this reproduction. The focused replay
+passed **6/6 in 93.45 seconds**, including ADDRESS, policy editing and all three
+previously timed-out cases, with unchanged assertions and timeouts
+(`/tmp/crexx-rag-refactor-5-focused3.log`).
+
+The final `cmake --workflow --preset regression` passed **59/59 in 737.26
+seconds**, with no rebuild needed. All three original result/Unicode defects
+and the three earlier timing failures pass in this full run. Native and
+scratch-installed SHA-256 both equal
+`7e03aa31f86ce170086538dfc4b7be001fd3047c004498da8067e1bee91fb330`;
+linked application SHA-256 is
+`42e7307a5f90c8910cf1e1d6682dc9678be0212b019c8a95547e217130a768b6`.
+Evidence: `/tmp/crexx-rag-refactor-5-build3.log`,
+`/tmp/crexx-rag-refactor-5-full-final.log` and
+`/tmp/crexx-rag-refactor-5-review.txt`. Final source review found no blocking
+issue or cross-module import cycle; changed documentation links/anchors and
+whitespace checks pass. This is local qualification with synthetic providers
+and scratch libraries/installations. No timeout or assertion was weakened to
+obtain the final green gate; the earlier failed run remains recorded.
+
+
+## Maintenance assessment after the five changes
+
+The demonstrated improvement is ownership: claim policy, domain prompt/schema
+assembly, report/query/observation orchestration, command metadata/access and
+worker runtime defaults each have a named source owner and boundary tests.
+The dispatcher is now 1,925 lines versus 3,351 at the review baseline;
+`ragmcp` delegates catalogue and policy work. These counts help
+navigation; they do not measure reliability. `ragproduct` and `ragprocess` still
+contain substantial orchestration, and the other default families have not all
+been consolidated. Further extraction should follow a concrete change or failure,
+with the same test-first discipline, rather than a target file size.
+
+There is no measured long-term regression-rate comparison yet. Tests exposed
+real interface drift during this work: missing shorthand registration, ignored
+positional errors, advertised boolean arguments rejected by a separate map and
+an explicit true value misclassified as a flag. The new owners remove those
+specific duplication paths and the regressions preserve their acceptances.
+Unresolved operational P1 outcomes, comprehensive recovery/renewal journeys,
+long-run/hosted/platform qualification and retrieval-quality evaluation remain
+tracked in the [roadmap](ROADMAP.md). Separate executables are not required for
+these ownership improvements. The future native model bridge remains a CREXX
+provider responsibility behind the existing product boundary.

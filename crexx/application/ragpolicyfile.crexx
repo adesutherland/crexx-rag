@@ -1,0 +1,174 @@
+options levelg
+
+namespace ragpolicyfile expose policyfileoperation policyfilecommand loadpolicyregistry refreshpolicyrequest
+
+import rxfnsb
+import rxfs
+import ragcommand
+import ragcommandutil
+import ragconfig
+import ragconfigfile
+import ragregistry
+import ragfile
+import ragpolicypublication
+import operator_registry
+
+/* Selected policy-file administration. Parsing/profile validation stays in its
+   existing owners; publication and edit serialization are delegated together.
+   These operations do not open a library or change retained work snapshots. */
+policyfileoperation: procedure = .int
+  arg operation = .string
+  return wordpos(operation,"config.show config.set config.replace") > 0
+
+loadpolicyregistry: procedure = .int
+  arg path = .string, expose config = .ragconfig, expose registry = .ragregistry, expose error = .string
+  if loadconfigfile(path,config,error) \= 0 then return -1
+  return _registry(config,registry,error)
+
+/* File-bound transports share freshness and profile selection. File repair
+   bypasses eager loading, and a failed reload never falls back to old policy. */
+refreshpolicyrequest: procedure = .int
+  arg expose request = .ragcommandrequest, expose registry = .ragregistry, expose error = .string
+  error = ""; path = request.config_file()
+  if path = "" | policyfileoperation(request.operation()) = 1 then return 0
+  selected = .ragconfig
+  if loadpolicyregistry(path,selected,registry,error) \= 0 then return -1
+  profile = request.profile_id()
+  if profile = "" then do
+    profile_ids = selected.profile_ids()
+    if profile_ids.0 = 1 then profile = profile_ids[1]
+  end
+  request = bindcommandconfig(request,selected.config_id(),path,profile)
+  return 0
+
+_registry: procedure = .int
+  arg config = .ragconfig, expose registry = .ragregistry, expose error = .string
+  registry = operatorregistryforconfig(config)
+  if registry.valid() \= 1 then do; error = "loaded configuration references an unregistered profile"; return -1; end
+  return 0
+
+_validate: procedure = .int
+  arg text = .string, directory = .string, expose config = .ragconfig, expose error = .string
+  if parseconfigtext(text,config,error,directory) \= 0 then return -1
+  registry = .ragregistry
+  return _registry(config,registry,error)
+
+policyfilecommand: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation = request.operation(); error = ""
+  if policyfileoperation(operation) \= 1 then return commandfailure(operation,2,"unknown policy-file operation")
+  required = "admin"; if operation = "config.show" then required = "read"
+  if commandhasaccess(request,required) \= 1 then return commandfailure(operation,4,"policy-file operation requires " || required || " access")
+  allowed = ""; if operation = "config.set" then allowed = "key value expect-sha256"
+  if operation = "config.replace" then allowed = "input expect-sha256"
+  positionals = request.positionals()
+  if commandoptions(request,allowed,error) \= 0 then return commandfailure(operation,2,error)
+  if positionals.0 \= 0 then return commandfailure(operation,2,"policy-file operations accept named options only")
+  path = request.config_file()
+  if path = "" then return commandfailure(operation,3,"policy-file operation requires a selected --config-file")
+  if length(path) > 4000 | pos("00"x,path) > 0 | pos("0A"x,path) > 0 | pos("0D"x,path) > 0 then return commandfailure(operation,2,"policy file path is invalid or too long for staging")
+  path = resolveconfigpath(path,rxfs..cwd()); directory = left(path,lastpos("/",path))
+  if length(path) > 4000 then return commandfailure(operation,2,"absolute policy file path is too long for staging")
+  expected = ""
+  if operation \= "config.show" then do
+    expected = commandoption(request,"expect-sha256",error)
+    if _hashshape(expected) \= 1 then return commandfailure(operation,2,"--expect-sha256 requires the inspected lowercase SHA-256 or missing")
+  end
+  current = .binary; current_hash = ""; exists = 0
+  if readpolicyfile(path,current,current_hash,exists,error) \= 0 then return commandfailure(operation,1,error)
+  config = invalidconfig(); validation_error = ""; valid = 0
+  if operation = "config.show" then do
+    if exists = 1 then valid = _validate(current as .string,directory,config,validation_error) = 0
+    else validation_error = "policy file does not exist"
+    return _result(operation,path,current_hash,exists,valid,config.config_id(),validation_error,0,"","")
+  end
+  if current_hash \= expected then return commandfailure(operation,6,"policy file changed after inspection; read config show and use its current sha256")
+  candidate = .binary
+  if operation = "config.set" then do
+    key = strip(commandoption(request,"key",error)); value = commandoption(request,"value",error)
+    if key = "" | value = "" | length(key) > 256 | length(value) > 4096 then return commandfailure(operation,2,"config set requires one bounded --key and --value")
+    if _singleline(key) \= 1 | _singleline(value) \= 1 then return commandfailure(operation,2,"config set accepts a single-line key and value; use a referenced prompt file for multiline prompts")
+    if exists \= 1 then return commandfailure(operation,5,"config set requires an existing policy; config replace can create one")
+    if _validate(current as .string,directory,config,error) \= 0 then return commandfailure(operation,3,"current policy is invalid; use config replace to repair it: " || error)
+    candidate = _settext(current as .string,key,value) as .binary
+  end
+  else do
+    input = commandoption(request,"input",error); bytes = 0
+    if input = "" | length(input) > 4096 | _singleline(input) \= 1 then return commandfailure(operation,2,"config replace requires one valid --input file")
+    if ragfile..readbinaryfilebounded(input,65536,candidate,bytes,error) \= 0 then return commandfailure(operation,3,"replacement policy could not be read: " || error)
+  end
+  if binlength(candidate) < 1 | binlength(candidate) > 65536 then return commandfailure(operation,3,"candidate policy must contain 1 through 65536 bytes")
+  if _validate(candidate as .string,directory,config,error) \= 0 then return commandfailure(operation,3,"candidate policy is invalid: " || error)
+  digest = ""; changed = 0
+  status = publishpolicyfile(path,candidate,expected,digest,changed,error)
+  if status \= 0 then return commandfailure(operation,status,error)
+  return _result(operation,path,digest,1,1,config.config_id(),"",changed,expected,error)
+
+_settext: procedure = .string
+  arg text = .string, key = .string, value = .string
+  paired = ""; dot = lastpos(".",key); field = substr(key,dot+1)
+  if left(key,5) = "role." then do
+    if field = "system_prompt" then paired = left(key,dot) || "system_prompt_file"
+    if field = "system_prompt_file" then paired = left(key,dot) || "system_prompt"
+  end
+  output = ""; start = 1; found = 0; append_ending = "0A"x
+  if pos("0D0A"x,text) > 0 then append_ending = "0D0A"x
+  do forever
+    marker = pos("0A"x,text,start); original = substr(text,start); ending = ""
+    if marker > 0 then do; original = substr(text,start,marker-start); ending = "0A"x; end
+    line = original
+    if right(line,1) = "0D"x then do; line = left(line,length(line)-1); ending = "0D"x || ending; end
+    stripped = strip(line); line_key = ""
+    if stripped \= "" & left(stripped,1) \= "#" then do
+      equals = pos("=",stripped)
+      if equals > 1 then line_key = strip(left(stripped,equals-1))
+    end
+    if line_key = key then do; output = output || key || " = " || value || ending; found = 1; end
+    else if paired = "" | line_key \= paired then output = output || line || ending
+    if marker = 0 then leave
+    start = marker + 1
+  end
+  if found = 0 then do
+    if output \= "" & right(output,1) \= "0A"x then output = output || append_ending
+    output = output || key || " = " || value || append_ending
+  end
+  return output
+
+_singleline: procedure = .int
+  arg value = .string
+  return pos("00"x,value) = 0 & pos("0A"x,value) = 0 & pos("0D"x,value) = 0
+
+_hashshape: procedure = .int
+  arg value = .string
+  if value = "missing" then return 1
+  if length(value) \= 64 then return 0
+  do i = 1 to length(value)
+    if pos(substr(value,i,1),"0123456789abcdef") = 0 then return 0
+  end
+  return 1
+
+_result: procedure = .ragcommandresult
+  arg operation = .string, path = .string, digest = .string, exists = .int, valid = .int, config_id = .string, validation_error = .string, changed = .int, previous = .string, publication_note = .string
+  fields = .ragresultfield[]; records = .ragresultrecord[]
+  fields[1] = .ragresultfield("path","string",path)
+  fields[2] = .ragresultfield("sha256","string",digest)
+  fields[3] = .ragresultfield("exists","boolean",_boolean(exists))
+  fields[4] = .ragresultfield("valid","boolean",_boolean(valid))
+  fields[5] = .ragresultfield("config_id","string",config_id)
+  fields[6] = .ragresultfield("validation_error","string",validation_error)
+  fields[7] = .ragresultfield("changed","boolean",_boolean(changed))
+  fields[8] = .ragresultfield("previous_sha256","string",previous)
+  fields[9] = .ragresultfield("publication_note","string",publication_note)
+  records[1] = .ragresultrecord("policy-file",fields)
+  message = "selected policy file inspected without library access or provider calls"
+  if operation \= "config.show" then do
+    message = "policy file is unchanged"
+    if changed = 1 then message = "validated policy file published; use config diff and plan/apply to activate library changes for future work"
+    if publication_note \= "" then message = publication_note
+  end
+  return .ragcommandresult(operation,"ok",0,message,records)
+
+_boolean: procedure = .string
+  arg value = .int
+  if value = 1 then return "true"
+  return "false"

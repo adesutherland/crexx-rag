@@ -4,6 +4,8 @@ namespace address_surface_scenario expose main
 
 import rxfnsb
 import rxjson
+import rxhash
+import ragfile
 import rag_address_environment
 
 main: procedure = .int
@@ -60,5 +62,75 @@ main: procedure = .int
   clear lines
   address RAG "LIBRARY CLOSE" output lines
   if rc \= 0 | lines.0 \= 1 then return 19
+  /* The session must see edits to its selected file, including invalid-file
+     holds and repair. Never modify the repository fixture. */
+  raw = .binary; bytes = 0; error = ""
+  if ragfile..readbinaryfilebounded(config_file,65536,raw,bytes,error) \= 0 then return 25
+  policy_path = library || "/address-policy.conf"; replacement_path = library || "/address-replacement.conf"
+  if ragfile..writebinaryfile(policy_path,raw,error) \= 0 | ragfile..writebinaryfile(replacement_path,raw,error) \= 0 then return 26
+  clear lines
+  command = "LIBRARY OPEN " || library || " --config-file " || "22"x || policy_path || "22"x || " --profile generic-profile --access admin --format json"
+  address RAG (command) output lines
+  if rc \= 0 then return 27
+  clear lines
+  address RAG "CONFIG PROMPT --role answerer" output lines
+  if rc \= 0 | pos('"configured_objective":',lines[1]) = 0 then return 28
+  clear lines
+  command = 'CONFIG SET --key role.answerer.system_prompt --value "ADDRESS updated objective." --expect-sha256 ' || rxhash..sha256hex(raw)
+  address RAG (command) output lines
+  if rc \= 0 then do;say "ADDRESS_POLICY_FAIL edit " || lines[1];return 29;end
+  clear lines
+  address RAG "CONFIG PROMPT --role answerer" output lines
+  if rc \= 0 | pos('"configured_objective":"ADDRESS updated objective."',lines[1]) = 0 then do;say "ADDRESS_POLICY_FAIL stale prompt " || lines[1];return 30;end
+  function_args = .string[]
+  function_args[1]="--config-file=" || policy_path; function_args[2]="--profile=generic-profile"
+  function_args[3]="config"; function_args[4]="prompt"; function_args[5]="--role=answerer"
+  function_environment = addressenv("rag") as .addressfunctionenvironment
+  function_result = function_environment.invoke(.addressfunctionrequest("RAG","COMMAND",function_args,.standardaddresssandbox()))
+  if function_result.get_rc() \= 0 | pos('"configured_objective":"ADDRESS updated objective."',function_result.get_result()) = 0 then do;say "ADDRESS_POLICY_FAIL function stale prompt";return 43;end
+  broken = "format = broken" || "0A"x
+  if ragfile..writebinaryfile(policy_path,broken as .binary,error) \= 0 then return 31
+  clear lines
+  address RAG "CONFIG PROMPT --role answerer" output lines
+  if rc \= 3 then do;say "ADDRESS_POLICY_FAIL invalid file reused registry";return 32;end
+  clear lines
+  address RAG "CONFIG SHOW" output lines
+  if rc \= 0 | pos('"valid":false',lines[1]) = 0 then return 33
+  clear lines
+  clear function_args
+  function_args[1]="--config-file=" || policy_path; function_args[2]="--access=admin"
+  function_args[3]="config"; function_args[4]="replace"; function_args[5]="--input=" || replacement_path
+  function_args[6]="--expect-sha256=" || rxhash..sha256hex(broken as .binary)
+  address RAG "LIBRARY CLOSE" output lines
+  if rc \= 0 then return 44
+  unbound_environment = addressenv("rag") as .addressfunctionenvironment
+  function_result = unbound_environment.invoke(.addressfunctionrequest("RAG","COMMAND",function_args,.standardaddresssandbox()))
+  if function_result.get_rc() \= 0 then do;say "ADDRESS_POLICY_FAIL unbound repair " || function_result.get_result();return 34;end
+  clear lines
+  command = "LIBRARY OPEN " || library || " --config-file " || "22"x || policy_path || "22"x || " --profile generic-profile --access admin --format json"
+  address RAG (command) output lines
+  if rc \= 0 then return 45
+  clear lines
+  address RAG "CONFIG PROMPT --role answerer" output lines
+  if rc \= 0 | pos('"configured_objective":"ADDRESS updated objective."',lines[1]) > 0 then return 35
+  if ragfile..readbinaryfilebounded(policy_path,65536,raw,bytes,error) \= 0 then return 36
+  clear lines
+  command = 'CONFIG SET --key config.id --value address-edited --expect-sha256 ' || rxhash..sha256hex(raw)
+  address RAG (command) output lines
+  if rc \= 0 then return 37
+  clear lines
+  address RAG "CONFIG CHECK" output lines
+  if rc \= 0 | pos('"config_id":"address-edited"',lines[1]) = 0 then do;say "ADDRESS_POLICY_FAIL stale config identity " || lines[1];return 38;end
+  if ragfile..readbinaryfilebounded(policy_path,65536,raw,bytes,error) \= 0 then return 39
+  clear lines
+  command = 'CONFIG SET --key profiles --value it-architecture-profile --expect-sha256 ' || rxhash..sha256hex(raw)
+  address RAG (command) output lines
+  if rc \= 0 then return 40
+  clear lines
+  address RAG "CONFIG PROMPT --role answerer" output lines
+  if rc \= 5 then do;say "ADDRESS_POLICY_FAIL removed profile reused registry";return 41;end
+  clear lines
+  address RAG "LIBRARY CLOSE" output lines
+  if rc \= 0 then return 42
   say "ADDRESS_SURFACE_OK library_id=" || library_id || " report=deterministic trend=empty snapshot=denied maintenance=plan maintenance_apply=denied access_denial=ingest config_file=bound failed_open=atomic"
   return 0

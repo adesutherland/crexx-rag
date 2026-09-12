@@ -105,6 +105,26 @@ including instructions appended to the configurable objective. Prompt edits
 use the selected policy and its reviewed configuration transition; source
 evidence validation remains enforced.
 
+`rag_config_show` reads the selected policy path, hash and validation state.
+Admin access adds `rag_config_set` (`key`, `value`, `expect_sha256`) and
+`rag_config_replace` (`input`, `expect_sha256`). Inspect immediately before
+editing and supply that exact hash; `missing` explicitly creates an absent
+policy. Role objective keys are `role.ROLE.system_prompt` and
+`role.ROLE.system_prompt_file`; resolution uses `maintenance.resolution_prompt`.
+The two role prompt-source keys replace one another in the same validated edit.
+Multiline prompt files are referenced data; these tools change their selection,
+not their contents. Required evidence instructions and validators still apply.
+
+A server started with a selected file reloads it and its profile registry for
+each product tool call. It observes edits in the same session, can start with an
+invalid file to expose repair operations, and never falls back to a stale
+registry if validation fails. An explicitly selected profile removed by an edit
+remains an error. File editing makes no library changes or provider calls;
+`rag_config_diff`, plan and apply govern the subsequent library transition.
+File-bound `ADDRESS RAG` sessions use the same refresh rule after edits,
+including changed config IDs, invalid-policy holds and removed-profile errors.
+See the [policy publication limits](integration-issues.md#policy-file-publication-metadata-and-durability).
+
 Plan access adds `rag_config_plan`, admin access adds
 `rag_config_apply`, and control access adds `rag_job_replay`. Configuration
 apply accepts only the exact canonical JSON and digest returned by planning.

@@ -2,7 +2,9 @@
 
 12 September 2026. This review ranks maintenance changes by demonstrated
 ownership problems, change size and available regression protection. These are
-proposals, not additional implementation in the public-result repair.
+proposals at that baseline, not additional implementation in the public-result
+repair. Their subsequent implementation and per-stage qualification are tracked
+in the [delivery record](maintenance-refactoring-delivery.md).
 
 ## Reviewed delivery and qualification
 

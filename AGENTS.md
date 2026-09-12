@@ -82,6 +82,13 @@ recognition and the MCP tool/schema/capability/forwarding definitions. Change
 that entry together with its owning service, public-surface tests and user/agent
 documentation; do not introduce a second adapter map.
 
+`crexxrag.conf` is the single selected operator policy entry point. File edits
+belong in `ragpolicyfile` and publication/locking in `ragpolicypublication`;
+workers and surfaces must consume validated configuration. Worker runtime and
+recovery defaults/bounds are owned by `ragworkerdefaults`, including canonical
+omission. Use public policy inspection/edit and operational query commands
+instead of maintaining a competing policy file or ad hoc SQL workflow.
+
 Gemini remains the hosted regression route. Codex uses managed App Server
 authentication; never extract tokens. Local embeddings use the
 OpenAI-compatible llama.cpp endpoint. Preserve privacy route classification and

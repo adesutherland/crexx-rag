@@ -7,7 +7,8 @@ import rxjson
 import ragcommand
 import ragcommandcatalog
 import ragconfig
-import ragconfigfile
+import ragcommandutil
+import ragpolicyfile
 import ragregistry
 import ragproduct
 import operator_registry
@@ -18,7 +19,7 @@ mcpdispatch: procedure = .string
   return mcpdispatchwithregistry(request_json, library, config, profile, access, operatorregistry())
 
 mcpdispatchwithregistry: procedure = .string
-  arg request_json = .string, library = .string, config = .string, profile = .string, access = .string, registry = .ragregistry
+  arg request_json = .string, library = .string, config = .string, profile = .string, access = .string, registry = .ragregistry, config_file = ""
   document = .jsondocument(request_json)
   if document.valid() \= 1 then return _error("null", -32700, "request is not strict JSON")
   root = document.root()
@@ -44,11 +45,16 @@ mcpdispatchwithregistry: procedure = .string
   definition = commanddefinition(tool)
   if definition.name() = "" | capabilityallows(access,definition.capability()) \= 1 then return _error(id_json,-32602,"unknown or unavailable tool")
   command_args = .string[]
-  if _toolcommand(definition, document, arguments, library, config, profile, access, command_args, error) \= 0 then return _error(id_json, -32602, error)
+  if _toolcommand(definition, document, arguments, library, config, profile, access, config_file, command_args, error) \= 0 then return _error(id_json, -32602, error)
   request = .ragcommandrequest
   if parsecommand(command_args, request, error) \= 0 then return _error(id_json, -32602, error)
-  result = dispatchproduct(request, registry)
-  result_json = ""
+  effective_registry = registry
+  if refreshpolicyrequest(request,effective_registry,error) \= 0 then return _commandresponse(id_json,commandfailure(request.operation(),3,error))
+  return _commandresponse(id_json,dispatchproduct(request,effective_registry))
+
+_commandresponse: procedure = .string
+  arg id_json = .string, result = .ragcommandresult
+  result_json = ""; error = ""
   if rendercommandresult(result, "json", result_json, error) \= 0 then return _error(id_json, -32603, error)
   is_error = "false"
   if result.exit_code() \= 0 then is_error = "true"
@@ -56,13 +62,14 @@ mcpdispatchwithregistry: procedure = .string
   return _response(id_json, payload)
 
 _toolcommand: procedure = .int
-  arg definition = .ragcommanddefinition, document = .jsondocument, arguments = .int, library = .string, config = .string, profile = .string, access = .string, expose output = .string[], expose error = .string
+  arg definition = .ragcommanddefinition, document = .jsondocument, arguments = .int, library = .string, config = .string, profile = .string, access = .string, config_file = .string, expose output = .string[], expose error = .string
   clear output; error = ""
-  if library \= "" then do; output[output.0+1]="--library"; output[output.0+1]=library; end
-  output[output.0+1]="--config"; output[output.0+1]=config
-  output[output.0+1]="--profile"; output[output.0+1]=profile
-  output[output.0+1]="--format"; output[output.0+1]="json"
-  output[output.0+1]="--access"; output[output.0+1]=access
+  if library \= "" then output[output.0+1]="--library=" || library
+  if config \= "" then output[output.0+1]="--config=" || config
+  if profile \= "" then output[output.0+1]="--profile=" || profile
+  if config_file \= "" then output[output.0+1]="--config-file=" || config_file
+  output[output.0+1]="--format=json"
+  output[output.0+1]="--access=" || access
   return catalogcommand(definition,document,arguments,output,error)
 
 _objectmembers: procedure = .int

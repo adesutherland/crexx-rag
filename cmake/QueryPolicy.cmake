@@ -18,7 +18,7 @@ foreach(mode IN ITEMS noopt opt)
     if(mode STREQUAL "noopt")
         set(mode_flag -n)
     endif()
-    foreach(module IN ITEMS ragmodel ragconfig provider_contract provider_catalog ragquerypolicy)
+    foreach(module IN ITEMS ragmodel ragworkerdefaults ragconfig provider_contract provider_catalog ragquerypolicy)
         set(source "${CPRAG_APPLICATION_DIR}/${module}.crexx")
         if(module STREQUAL "provider_contract" OR module STREQUAL "provider_catalog")
             set(source "${CPRAG_PROVIDER_DIR}/${module}.crexx")
@@ -55,7 +55,7 @@ foreach(mode IN ITEMS noopt opt)
             set(runtime "${CPRAG_RXBVM}")
         endif()
         execute_process(COMMAND "${runtime}" -l "${imports}" "${program}"
-            ragquerypolicy ragconfig ragmodel provider_contract provider_catalog rx_hash rx_system library
+            ragquerypolicy ragconfig ragworkerdefaults ragmodel provider_contract provider_catalog rx_hash rx_system library
             -a "${mode}-${runtime_name}"
             RESULT_VARIABLE run_result OUTPUT_VARIABLE run_out ERROR_VARIABLE run_err TIMEOUT 30)
         if(NOT run_result EQUAL 0 OR NOT run_out MATCHES "QUERY_POLICY_OK")

@@ -1,0 +1,71 @@
+options levelg
+import rxfnsb
+import rxhash
+import rxsqlite
+import ragfile
+import ragconfig
+import ragconfigfile
+import ragcanonical
+import ragcommand
+import ragproduct
+import operator_registry
+
+main: procedure = .int
+  arg args = .string[]
+  raw = .binary; bytes = 0; error = ""; config = .ragconfig
+  if ragfile..readbinaryfilebounded(getenv("CPRAG_CONFIG_FIXTURE"),65536,raw,bytes,error) \= 0 then do;say error;return 1;end
+  path = args[1] || "/policy.conf"
+  if ragfile..writebinaryfile(path,raw,error) \= 0 | loadconfigfile(path,config,error) \= 0 then do;say error;return 1;end
+  registry = operatorregistryforconfig(config); access = .string[];access[1]="read"
+  command_options = .ragcommandoption[];positionals = .string[]
+  request = .ragcommandrequest("",config.config_id(),"it-architecture-profile",path,"json","off",access,"config","check","config.check",command_options,positionals)
+  result = dispatchproduct(request,registry)
+  if result.exit_code() \= 0 then do;say "POLICY_FILE_FAIL baseline config check";return 1;end
+  literal_args = .string[]
+  literal_args[1]="--library";literal_args[2]="unused";literal_args[3]="job";literal_args[4]="cancel"
+  literal_args[5]="--reason";literal_args[6]="true";literal_args[7]="--";literal_args[8]="unused"
+  literal_request=.ragcommandrequest
+  if parsecommand(literal_args,literal_request,error)\=0 then return 1
+  literal_options=literal_request.command_options()
+  if literal_options.0\=1 | literal_options[1].flag()\=0 | literal_options[1].value()\="true" then do;say "POLICY_FILE_FAIL explicit true value is misclassified as an enabling flag";return 1;end
+  request = .ragcommandrequest("","","",path,"json","off",access,"config","show","config.show",command_options,positionals)
+  result = dispatchproduct(request,registry); original_hash = rxhash..sha256hex(raw)
+  if result.exit_code() \= 0 | _field(result,"sha256") \= original_hash then do;say "POLICY_FILE_FAIL inspect " || result.message();return 1;end
+  database = .binary
+  if sqliteopenmode(path || ".edit-lock.sqlite","create",database) \= 0 | sqliteexec(database,"BEGIN EXCLUSIVE") \= 0 then do;say "POLICY_FILE_FAIL fixture lock";return 1;end
+  access[1]="admin"
+  command_options[1]=.ragcommandoption("key","worker.max_restarts",0)
+  command_options[2]=.ragcommandoption("value","1",0)
+  command_options[3]=.ragcommandoption("expect-sha256",original_hash,0)
+  request=.ragcommandrequest("","","",path,"json","off",access,"config","set","config.set",command_options,positionals)
+  result=dispatchproduct(request,registry)
+  if result.exit_code()\=6 then do;call sqliteclose database;say "POLICY_FILE_FAIL competing lock " || result.message();return 1;end
+  if ragfile..readbinaryfilebounded(path,65536,raw,bytes,error)\=0 | rxhash..sha256hex(raw)\=original_hash then do;call sqliteclose database;say "POLICY_FILE_FAIL busy changed bytes";return 1;end
+  if sqliteexec(database,"ROLLBACK")\=0 | sqliteclose(database)\=0 then return 1
+  result=dispatchproduct(request,registry)
+  if result.exit_code()\=0 | _field(result,"changed")\="true" then do;say "POLICY_FILE_FAIL update " || result.message();return 1;end
+  current_hash=_field(result,"sha256");updated=.ragconfig
+  if loadconfigfile(path,updated,error)\=0 | updated.workers().max_restarts()\=1 then do;say "POLICY_FILE_FAIL reload";return 1;end
+  if canonicalsemanticconfig(config)\=canonicalsemanticconfig(updated) | canonicaloperationalconfig(config)=canonicaloperationalconfig(updated) then do;say "POLICY_FILE_FAIL identity split";return 1;end
+  result=dispatchproduct(request,registry)
+  if result.exit_code()\=6 then do;say "POLICY_FILE_FAIL stale hash";return 1;end
+  command_options[3]=.ragcommandoption("expect-sha256",current_hash,0)
+  request=.ragcommandrequest("","","",path,"json","off",access,"config","set","config.set",command_options,positionals)
+  result=dispatchproduct(request,registry)
+  if result.exit_code()\=0 | _field(result,"changed")\="false" | _field(result,"sha256")\=current_hash then do;say "POLICY_FILE_FAIL no-op";return 1;end
+  access[1]="read"
+  request=.ragcommandrequest("","","",path,"json","off",access,"config","set","config.set",command_options,positionals)
+  result=dispatchproduct(request,registry)
+  if result.exit_code()\=4 then do;say "POLICY_FILE_FAIL access";return 1;end
+  say "POLICY_FILE_OK"
+  return 0
+
+_field: procedure = .string
+  arg result = .ragcommandresult, name = .string
+  records=result.records()
+  if records.0<1 then return ""
+  fields=records[1].fields()
+  do i=1 to fields.0
+    if fields[i].name()=name then return fields[i].value()
+  end
+  return ""

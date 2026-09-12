@@ -2,6 +2,16 @@ set(CREXXRAG_NATIVE_APPLICATION
     "${CMAKE_BINARY_DIR}/crexxrag-native/package/crexxrag${CMAKE_EXECUTABLE_SUFFIX}")
 set(CREXXRAG_PROVIDER_FIXTURE "$<TARGET_FILE:crexxrag_provider_fixture>")
 
+add_test(NAME regression_policy_file
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
+        "-DCPRAG_LOCK_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/policy/lock-owner.sh"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-policy-file"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PolicyFile.cmake")
+set_tests_properties(regression_policy_file PROPERTIES
+    TIMEOUT 240 LABELS "regression;configuration;policy;recovery;zero-outbound")
+
 add_test(NAME regression_command_metadata
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
@@ -60,6 +70,24 @@ add_test(NAME regression_prompt_contract
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PromptContract.cmake")
 set_tests_properties(regression_prompt_contract PROPERTIES
     TIMEOUT 180 LABELS "regression;prompt;schema;loopback;zero-outbound")
+
+add_test(NAME regression_policy_file_vm
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXLINK=${CREXX_RXLINK_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/policy_file_scenario.crexx"
+        "-DCPRAG_MARKER=POLICY_FILE_OK"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-policy-file-vm"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ProjectContract.cmake")
+set_tests_properties(regression_policy_file_vm PROPERTIES
+    TIMEOUT 150 LABELS "regression;configuration;policy;sqlite;zero-outbound")
+set_tests_properties(regression_policy_file_vm PROPERTIES
+    ENVIRONMENT "CPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf")
 
 add_test(NAME regression_command_catalogue
     COMMAND "${CMAKE_COMMAND}"

@@ -7,6 +7,7 @@ import ragcommand
 import ragcommandcatalog
 import ragconfig
 import ragconfigfile
+import ragpolicyfile
 import ragregistry
 import ragproduct
 import ragproviderdiagnostics
@@ -38,10 +39,23 @@ else do
 end
 
 registry = operatorregistry()
+/* File administration must remain available when the current policy is invalid.
+ * A file-bound MCP session reloads the selected policy for each product call. */
+selected_operation = ""; noun_index = _nounindex(command_args)
+if noun_index > 0 & noun_index < command_args.0 then selected_operation = command_args[noun_index] || "." || command_args[noun_index+1]
+file_operation = policyfileoperation(selected_operation)
+file_server = selected_operation = "serve.mcp" & config_path \= ""
+if file_operation = 1 | file_server = 1 then do
+  if config_path = "" then config_path = "./crexxrag.conf"
+  command_args = _defaults(command_args,loaded_config,0,"")
+  request = .ragcommandrequest
+  if parsecommand(command_args,request,error) \= 0 then return _clierror("parse","usage",error,2)
+  request = bindcommandconfig(request,request.config_id(),config_path)
+  if file_server = 1 then return _servemcp(request,registry)
+  return _showresult(dispatchproduct(request,registry),request.format())
+end
 if config_path \= "" then do
-  if loadconfigfile(config_path, loaded_config, error) \= 0 then return _clierror("config", "configuration", config_origin || " " || config_path || ": " || error, 3)
-  registry = operatorregistryforconfig(loaded_config)
-  if registry.valid() \= 1 then return _clierror("config", "configuration", "loaded configuration references an unregistered profile", 3)
+  if loadpolicyregistry(config_path, loaded_config, registry, error) \= 0 then return _clierror("config", "configuration", config_origin || " " || config_path || ": " || error, 3)
   config_loaded = 1
 end
 
@@ -54,7 +68,7 @@ request = .ragcommandrequest
 if parsecommand(command_args, request, error) \= 0 then return _clierror("parse", "usage", error, 2)
 if config_loaded = 1 then do
   if request.config_id() \= "" & request.config_id() \= loaded_config.config_id() then return _clierror("config", "configuration", "--config does not match " || config_origin || " " || config_path, 3)
-  request = _bindrequestconfig(request, loaded_config.config_id(), config_path)
+  request = bindcommandconfig(request, loaded_config.config_id(), config_path)
 end
 
 if alias = "guided-ingest" then return _guidedingest(request, registry, source_set, worker_count, auto_confirm)
@@ -95,6 +109,9 @@ _showhelp: procedure = .int
   say "  crexxrag library report [--top N] [--narrative off|cached|refresh] [--yes]"
   say "  crexxrag library snapshot [--trigger TYPE] [--reason TEXT]"
   say "  crexxrag library trend [--limit N]"
+  say "  crexxrag config show"
+  say "  crexxrag --access admin config set --key KEY --value TEXT --expect-sha256 SHA256"
+  say "  crexxrag --access admin config replace --input FILE --expect-sha256 SHA256_OR_missing"
   say "  crexxrag config check|explain"
   say "  crexxrag config prompt --role extractor|resolution|answerer|advisory"
   say "  crexxrag config diff"
@@ -125,14 +142,14 @@ _servemcp: procedure = .int
   arg request = .ragcommandrequest, registry = .ragregistry
   positionals = request.positionals(); command_options = request.command_options()
   if positionals.0 > 0 | command_options.0 > 0 then return _clierror("serve.mcp", "usage", "serve mcp accepts only global options", 2)
-  if request.config_id() = "" | request.profile_id() = "" then return _clierror("serve.mcp", "configuration", "serve mcp requires a selected configuration and profile", 3)
+  if request.config_file() = "" & (request.config_id() = "" | request.profile_id() = "") then return _clierror("serve.mcp", "configuration", "serve mcp requires a selected configuration and profile", 3)
   access = request.access(); access_text = ""
   do i = 1 to access.0
     if access_text \= "" then access_text = access_text || ","
     access_text = access_text || access[i]
   end
   do while lines("stdin") > 0
-    response = mcpdispatchwithregistry(linein("stdin"), request.library(), request.config_id(), request.profile_id(), access_text, registry)
+    response = mcpdispatchwithregistry(linein("stdin"), request.library(), request.config_id(), request.profile_id(), access_text, registry, request.config_file())
     if response \= "" then say response
   end
   return 0
@@ -709,11 +726,6 @@ _unsignedtext: procedure = .int
     if pos(substr(value, i, 1), "0123456789") = 0 then return 0
   end
   return 1
-
-_bindrequestconfig: procedure = .ragcommandrequest
-  arg request = .ragcommandrequest, config_id = .string, config_path = .string
-  selected_config = request.config_id(); if selected_config = "" then selected_config = config_id
-  return .ragcommandrequest(request.library(), selected_config, request.profile_id(), config_path, request.format(), request.progress(), request.access(), request.noun(), request.verb(), request.operation(), request.command_options(), request.positionals())
 
 _configfileargs: procedure = .string[]
   arg args = .string[], expose config_path = .string, expose error = .string

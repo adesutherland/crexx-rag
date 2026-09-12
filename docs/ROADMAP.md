@@ -1,13 +1,14 @@
 # Consolidated roadmap and defect register
 
-The five maintenance refactors are now in delivery; see the
+All five maintenance refactors are implemented; see the
 [coverage and implementation record](maintenance-refactoring-delivery.md).
-Stages 1 through 3 have full green gates. Stage 3 extracts domain services
-and adds bounded operator diagnosis; the complete local suite passes 54/54.
-Stage 4 consolidates the public command catalogue; the full local gate passes
-57/57. Policy-file editing and effective defaults follow in stage 5.
+Each stage confirmed or extended regression coverage before implementation and
+passed its full local gate. The final suite passes **59/59 in 737.26 seconds**.
+Shared owners now cover claim policy, domain prompt contracts, report/query
+services, command metadata and worker defaults. One selected policy file has
+validated public editing/replacement and consistent CLI/MCP/ADDRESS behavior.
 
-Current delivery, 12 September 2026: the review baseline and full regression
+Earlier repair milestone, 12 September 2026: the review baseline and full regression
 gate are committed in `5d1481a`. Steps 5a/5b and 6 now implement the three
 previously failing public-result/Unicode acceptances: **50/50 tests pass** in
 the full local workflow. Qualification and exact
@@ -15,8 +16,7 @@ artifact evidence are in the [repair record](public-result-lexical-repair.md).
 The [coverage record](regression-coverage.md) distinguishes the original red
 baseline from the completed gate; all review tests are retained in Git.
 The [post-repair maintenance review](maintenance-refactoring-review-20260912.md)
-proposes the next bounded ownership changes, starting with the duplicated
-claim-policy factory and then effective extraction prompts and contracts.
+ranked the five ownership changes now recorded in the delivery record.
 
 | Acceptance | Repair and owner |
 | --- | --- |
@@ -188,7 +188,7 @@ below; it did not execute a separate acceptance test for every HC row.
 | HC-27 | P1 | Open storage policy decision. Do not make WAL/FULL casually mutable: choose only supported modes after workload/durability evidence. Foreign keys remain invariant. |
 | HC-28 | P1 | Open named backup page/retry/wait policy; preserve installed `rxsqlite` semantics. |
 | HC-29 | P1 | Open provider-admission grace/poll policy; review alongside OPS-004, not as independent knobs. |
-| HC-30 | P1 | Partial: worker polling configured; stale/prune/controller timing still needs one coherent policy. |
+| HC-30 | P1 | Partial: worker runtime/recovery defaults and bounds now share `ragworkerdefaults` across typed config, file input and canonical identity. Stale/prune/controller timing still needs one coherent policy. |
 | HC-31 | P1 | Partial policy consolidation: process and one-in-flight checks are explicit. File parsing and runtime claims now cap leases at 86,400 seconds, superseding the audit's old 3,600 figure. The typed config validator checks positivity only, but a public 86,401-second config probe was correctly rejected before library access; do not report a reproduced public lease-bounds defect. |
 | HC-32 | P1 | Implemented in source: plan TTL used by planning and configuration transitions. |
 | HC-33 | P1 | Partial: maintenance cursor handling and UX-02 maximum review/job/event pages are implemented. Wider defaults/maxima still need coherent presentation policy. |
@@ -196,7 +196,7 @@ below; it did not execute a separate acceptance test for every HC row.
 | HC-35 | P1 | Open snapshot churn weights; lower urgency than correctness/recovery. |
 | HC-36 | P1 | Open report-health thresholds and narrative subject policy. |
 | HC-37 | P1 | Recorded repair: provider smoke uses configured embedding dimensions/envelope. |
-| HC-38 | P1 | Partial: editable runtime files and labelled compiled compatibility fallbacks exist; production registry simplification remains a decision. |
+| HC-38 | P1 | Partial: one selected runtime policy now has validated public show/set/replace commands and fresh MCP registry loading; labelled compiled compatibility fallbacks remain. Broader registry simplification remains a decision. |
 | HC-39 | P1 | Partial: editable profile TSVs exist; compiled fallback remains. Preserve compatibility rather than deleting it as incidental cleanup. |
 | HC-40 | P2 | Open named HTTP wire/buffer guards; expose only operator-relevant policy. |
 | HC-41 | P2 | Open documented transport timeout/protocol-version guards. |
@@ -208,7 +208,7 @@ below; it did not execute a separate acceptance test for every HC row.
 | HC-47 | P2 | Open shared platform/executable discovery and named temporary-allocation guard. |
 | HC-48 | P1 | Partial: config/3 next-batch requirements and compatibility projection exist; full policy migration is not complete. |
 | HC-49 | P2 | Open central generated-response bounds; relation to reviewed evidence/citation policy must remain explicit. |
-| HC-50 | P1 | Partial: contextual resolution actions share a builder; vocabulary still spans schemas and validators. Centralize ownership while retaining mandatory independent validation of untrusted output. |
+| HC-50 | P1 | Recorded repair: `ragresolutioncontract.resolutionactions` is consumed by both response schemas and backlog validation, with subject/workflow and optional-provenance regressions. Independent grounding and untrusted-output validation remain mandatory. |
 | HC-51 | P1 | Open replay-lineage depth/truncation visibility. |
 
 Do not implement this as 51 unrelated configuration switches. Shared typed
@@ -273,6 +273,7 @@ raise its priority above the operational P1s.
 | RAG-EXP-02 | Optional experiment | Per-support time/provenance assessment is separate from normal document metadata. Broad automatic assessment was rolled back as default; do not reopen it via older proposal wording. [Current contract](time-and-provenance.md), [dated proposal](claim-time-provenance-proposal.md). |
 | CREXX-NI-01–06 | Upstream, open | Generic native inference, CPU/GPU, persistent model owner, packaging, artifact identity and qualification. RAG consumes installed capability via QE-04/07/08; no native inference copy in RAG. [Dependency record](integration-issues.md#proposed-native-embedding-capability). |
 | CREXX-NI-07 | Upstream, optional | Local generation; not prerequisite to standalone reader/query support. |
+| Policy publication boundary | Upstream/qualification limit | Preserve custom mode/ACL and expose durable file/directory flush through a generic CREXX API; qualify non-macOS replacement. Current policy edits use verified same-directory rename and process-default metadata. [Integration issues](integration-issues.md#policy-file-publication-metadata-and-durability). |
 | Process identity boundary | Upstream/qualification limit | Distinguish missing PID from permission denial and OS birth identity; same-account local pruning only is qualified. [Integration issues](integration-issues.md#local-process-liveness-and-permission-boundary). |
 | Interactive input | Upstream current recorded issue | Extra Enter on affected builds; `--yes` is the documented explicit automation path. Verify installed behavior before closing. |
 | Channel request retention; project-build scaling; attached-provider discovery | Recorded upstream repairs | Retain installed-package regression obligations; do not duplicate as open RAG implementations. [Integration issues](integration-issues.md). |
@@ -300,8 +301,8 @@ Next complete public operator diagnostics/recovery,
 effect previews and external retirement (OPS-001/002/003, UX-01/03/04), and
 specify renewal/continuation under OPS-005 without erasing history. Wider shared
 infrastructure recovery and hosted/platform/long-run qualification remain open
-under OPS-004 and QA-01/02/03. Consolidate HC-16's claim-policy construction and
-extract query/reporting services only with characterized contracts. Extend the
+under OPS-004 and QA-01/02/03. Claim policy, prompt contracts, query/reporting
+services and command metadata now have shared owners. Extend the
 lexical seed into QE-09 evidence before ranking/model choices; preserve the
 upstream ownership and profile/migration dependencies of QE-04/07/08.
 

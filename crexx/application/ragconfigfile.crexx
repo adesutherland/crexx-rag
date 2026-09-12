@@ -1,11 +1,12 @@
 options levelg
 
-namespace ragconfigfile expose loadconfigfile parseconfigtext
+namespace ragconfigfile expose loadconfigfile parseconfigtext resolveconfigpath
 
 import rxfnsb
 import rxfs
 import ragmodel
 import ragconfig
+import ragworkerdefaults
 import ragpromptdefaults
 import ragfile
 
@@ -20,7 +21,7 @@ loadconfigfile: procedure = .int
     error = "configuration file could not be read within the 65536-byte ceiling: " || error
     return -1
   end
-  absolute_path = _resolvepath(path, rxfs..cwd())
+  absolute_path = resolveconfigpath(path, rxfs..cwd())
   directory = left(absolute_path, lastpos("/", absolute_path))
   return parseconfigtext(raw as .string, config, error, directory)
 
@@ -76,7 +77,7 @@ parseconfigtext: procedure = .int
     retain_text = _required(keys, values, prefix || "retain_raw_artifact", error)
     if error \= "" then return -1
     if _safesourcepath(root) \= 1 then return _fail(prefix || "root contains traversal or a control character", error)
-    root = _resolvepath(root, base_directory)
+    root = resolveconfigpath(root, base_directory)
     patterns = .string[]
     if _csv(include_text, 32, 256, patterns, error) \= 0 then return -1
     do j = 1 to patterns.0
@@ -172,7 +173,7 @@ parseconfigtext: procedure = .int
         if prompt_path \= "" then do
           if _safesourcepath(prompt_path) \= 1 then return _fail(prefix || "system_prompt_file contains traversal or a control character", error)
           prompt_raw = .binary; prompt_bytes = 0
-          if ragfile..readbinaryfilebounded(_resolvepath(prompt_path, base_directory), 16384, prompt_raw, prompt_bytes, error) \= 0 then return _fail(prefix || "system_prompt_file could not be read within 16384 bytes: " || error, error)
+          if ragfile..readbinaryfilebounded(resolveconfigpath(prompt_path, base_directory), 16384, prompt_raw, prompt_bytes, error) \= 0 then return _fail(prefix || "system_prompt_file could not be read within 16384 bytes: " || error, error)
           system_prompt = prompt_raw as .string
           if strip(system_prompt) = "" | pos("00"x, system_prompt) > 0 then return _fail(prefix || "system_prompt_file is empty or contains a NUL byte", error)
         end
@@ -204,7 +205,7 @@ parseconfigtext: procedure = .int
     if error \= "" then return -1
     if _contains(profile_ids, profile_file_ids[i]) \= 1 then return _fail(prefix || "file names a profile not selected by profiles", error)
     if _safesourcepath(profile_path) \= 1 then return _fail(prefix || "file contains traversal or a control character", error)
-    profile_path = _resolvepath(profile_path, base_directory)
+    profile_path = resolveconfigpath(profile_path, base_directory)
     profile_files[i] = .ragprofilefilebinding(profile_file_ids[i], profile_path)
   end
 
@@ -225,22 +226,22 @@ parseconfigtext: procedure = .int
   end
   if error \= "" then return -1
 
-  processes = 0; max_in_flight = 0; lease_seconds = 0; poll_ms = 100; guided_deadline_seconds = 0; max_restarts = 2; restart_backoff_ms = 5000; restart_window_seconds = 3600
+  processes = 0; max_in_flight = 0; lease_seconds = 0; poll_ms = workerdefault("poll_ms"); guided_deadline_seconds = workerdefault("guided_deadline_seconds"); max_restarts = workerdefault("max_restarts"); restart_backoff_ms = workerdefault("restart_backoff_ms"); restart_window_seconds = workerdefault("restart_window_seconds")
   if _uint(_required(keys, values, "worker.processes", error), 1, 32, "worker.processes", processes, error) \= 0 then return -1
   if _uint(_required(keys, values, "worker.max_in_flight", error), 1, 1, "worker.max_in_flight", max_in_flight, error) \= 0 then return -1
   if _uint(_required(keys, values, "worker.lease_seconds", error), 1, 86400, "worker.lease_seconds", lease_seconds, error) \= 0 then return -1
   setting = _optional(keys, values, "worker.restart_window_seconds")
-  if setting \= "" then if _uint(setting, 1, 86400, "worker.restart_window_seconds", restart_window_seconds, error) \= 0 then return -1
+  if setting \= "" then if _uint(setting, workerminimum("restart_window_seconds"), workermaximum("restart_window_seconds"), "worker.restart_window_seconds", restart_window_seconds, error) \= 0 then return -1
   setting = _optional(keys, values, "worker.max_restarts")
-  if setting \= "" then if _uint(setting, 0, 10, "worker.max_restarts", max_restarts, error) \= 0 then return -1
+  if setting \= "" then if _uint(setting, workerminimum("max_restarts"), workermaximum("max_restarts"), "worker.max_restarts", max_restarts, error) \= 0 then return -1
   setting = _optional(keys, values, "worker.restart_backoff_ms")
-  if setting \= "" then if _uint(setting, 10, 60000, "worker.restart_backoff_ms", restart_backoff_ms, error) \= 0 then return -1
+  if setting \= "" then if _uint(setting, workerminimum("restart_backoff_ms"), workermaximum("restart_backoff_ms"), "worker.restart_backoff_ms", restart_backoff_ms, error) \= 0 then return -1
   setting = _optional(keys, values, "worker.poll_ms")
   if format_three = 1 then setting = _required(keys, values, "worker.poll_ms", error)
-  if setting \= "" then if _uint(setting, 10, 60000, "worker.poll_ms", poll_ms, error) \= 0 then return -1
+  if setting \= "" then if _uint(setting, workerminimum("poll_ms"), workermaximum("poll_ms"), "worker.poll_ms", poll_ms, error) \= 0 then return -1
   setting = _optional(keys, values, "worker.guided_deadline_seconds")
   if format_three = 1 then setting = _required(keys, values, "worker.guided_deadline_seconds", error)
-  if setting \= "" then if _uint(setting, 0, 604800, "worker.guided_deadline_seconds", guided_deadline_seconds, error) \= 0 then return -1
+  if setting \= "" then if _uint(setting, workerminimum("guided_deadline_seconds"), workermaximum("guided_deadline_seconds"), "worker.guided_deadline_seconds", guided_deadline_seconds, error) \= 0 then return -1
   if error \= "" then return -1
 
   schedule_ids = .string[]
@@ -261,7 +262,7 @@ parseconfigtext: procedure = .int
   if discovery_mode = "" then discovery_mode = "all"
   glossary_path = _optional(keys, values, "discovery.glossary_file")
   if glossary_path \= "" & _safesourcepath(glossary_path) \= 1 then return _fail("discovery.glossary_file contains traversal or a control character", error)
-  if glossary_path \= "" then glossary_path = _resolvepath(glossary_path, base_directory)
+  if glossary_path \= "" then glossary_path = resolveconfigpath(glossary_path, base_directory)
   ranked_limit = 64; max_mentions = 16; max_relationships = 16; max_notes = 16
   setting = _optional(keys, values, "discovery.ranked_limit")
   if setting \= "" then if _uint(setting, 1, 1000000, "discovery.ranked_limit", ranked_limit, error) \= 0 then return -1
@@ -358,7 +359,8 @@ parseconfigtext: procedure = .int
 
 _validconfigkey: procedure = .int
   arg key = .string
-  if wordpos(key, "plan.ttl_seconds format config.id config.version profiles budget.minutes budget.item_limit budget.model_calls budget.input_tokens budget.output_tokens budget.cost_microunits budget.codex_turns budget.minimum_codex_allowance_percent worker.processes worker.max_in_flight worker.lease_seconds worker.max_restarts worker.restart_backoff_ms worker.restart_window_seconds worker.poll_ms worker.guided_deadline_seconds discovery.mode discovery.glossary_file discovery.ranked_limit discovery.max_mentions discovery.max_relationships discovery.max_notes vector.algorithm vector.centroids vector.probes vector.iterations vector.recall_minimum_millionths vector.maximum_rows vector.maximum_sidecar_bytes vector.embedding_maximum_items retrieval.lexical_candidates retrieval.vector_candidates retrieval.vector_scan_limit retrieval.graph_hops retrieval.passage_limit retrieval.claim_limit retrieval.lead_limit retrieval.rrf_k retrieval.graph_boost_millionths retrieval.graph_decay_millionths retrieval.directness_bonus_millionths retrieval.graph_direction retrieval.maximum_evidence_bytes maintenance.mode maintenance.provider_time_minutes maintenance.window_seconds maintenance.automatic_actions maintenance.maximum_impact maintenance.maximum_attempts maintenance.retry_seconds maintenance.maximum_evidence_bytes maintenance.resolution_prompt maintenance.sparse_max_degree maintenance.query_gap_min_occurrences maintenance.batch_items observation.capture_threshold observation.cooldown_seconds observation.maximum_staleness_seconds observation.work_minimum_change observation.work_relative_millionths observation.dead_letter_minimum_change observation.review_minimum_change observation.narrative_output_tokens") > 0 then return 1
+  if left(key,7) = "worker." & workersettingknown(substr(key,8)) = 1 then return 1
+  if wordpos(key, "plan.ttl_seconds format config.id config.version profiles budget.minutes budget.item_limit budget.model_calls budget.input_tokens budget.output_tokens budget.cost_microunits budget.codex_turns budget.minimum_codex_allowance_percent worker.processes worker.max_in_flight worker.lease_seconds discovery.mode discovery.glossary_file discovery.ranked_limit discovery.max_mentions discovery.max_relationships discovery.max_notes vector.algorithm vector.centroids vector.probes vector.iterations vector.recall_minimum_millionths vector.maximum_rows vector.maximum_sidecar_bytes vector.embedding_maximum_items retrieval.lexical_candidates retrieval.vector_candidates retrieval.vector_scan_limit retrieval.graph_hops retrieval.passage_limit retrieval.claim_limit retrieval.lead_limit retrieval.rrf_k retrieval.graph_boost_millionths retrieval.graph_decay_millionths retrieval.directness_bonus_millionths retrieval.graph_direction retrieval.maximum_evidence_bytes maintenance.mode maintenance.provider_time_minutes maintenance.window_seconds maintenance.automatic_actions maintenance.maximum_impact maintenance.maximum_attempts maintenance.retry_seconds maintenance.maximum_evidence_bytes maintenance.resolution_prompt maintenance.sparse_max_degree maintenance.query_gap_min_occurrences maintenance.batch_items observation.capture_threshold observation.cooldown_seconds observation.maximum_staleness_seconds observation.work_minimum_change observation.work_relative_millionths observation.dead_letter_minimum_change observation.review_minimum_change observation.narrative_output_tokens") > 0 then return 1
   if _entitykey(key, "source.", "connector root include stable_key privacy retain_raw_artifact maximum_file_bytes maximum_depth") = 1 then return 1
   if _entitykey(key, "provider.", "kind base_url model route_class privacy_policy credential timeout_ms max_attempts requests_per_minute tokens_per_minute concurrent_requests initial_backoff_ms maximum_backoff_ms jitter_ms context_tokens maximum_output_tokens embedding_dimensions_minimum embedding_dimensions_maximum maximum_batch_size input_price_microunits_per_million output_price_microunits_per_million catalog_observed_date reasoning_effort") = 1 then return 1
   if _entitykey(key, "schedule.", "operation trigger enabled") = 1 then return 1
@@ -375,7 +377,7 @@ _validconfigkey: procedure = .int
 /* Resolve once when loading configuration, so every consumer and child worker
  * uses the same path and canonical identity regardless of working directory.
  * Pure parseconfigtext callers may omit the base for in-memory fixtures. */
-_resolvepath: procedure = .string
+resolveconfigpath: procedure = .string
   arg path = .string, base_directory = .string
   if base_directory = "" then return path
   path = changestr("\", path, "/"); base_directory = changestr("\", base_directory, "/")

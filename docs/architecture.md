@@ -71,6 +71,40 @@ later behavior change must update its domain contract and review canonical
 identity, validation and retained-work compatibility together. Existing durable
 identities are preserved by this refactor.
 
+## Effective defaults and policy-file ownership
+
+| Owner | Responsibility and callers |
+| --- | --- |
+| `ragworkerdefaults` | Default, minimum and maximum for worker poll, guided deadline, replacement count, replacement backoff and rolling window. Typed `ragworkerpolicy`, file parsing and canonical default omission consume the same specification. |
+| `ragconfigfile` | Bounded declarative parsing, relative paths and complete typed configuration construction. It owns no publication or command access. |
+| `ragpolicyfile` | `config show/set/replace`, whole-candidate and referenced-profile validation, prompt-source pair edits, selected-file registry loading and `refreshpolicyrequest` for file-bound transports. CLI, dispatcher, MCP and ADDRESS compose it. |
+| `ragpolicypublication` | Bounded file reads/hashes, serialized edit ownership, verified sibling staging and rename publication. It accepts already validated candidate bytes and opens only an adjacent coordination database. |
+| `ragconfiguration` | Existing immutable library configuration history and reviewed prospective/operational transition; file publication never rewrites retained job snapshots. |
+
+Worker defaults stay byte-compatible: poll 100 ms (10–60000), guided deadline
+0 seconds (0–604800), two replacements (0–10), 5000 ms backoff (10–60000), and a
+3600-second rolling window (1–86400). Explicit invalid typed values are rejected,
+not converted to defaults. The wider budget/provider/retrieval default families
+remain in their existing owners; this stage consolidates one bounded family.
+
+The CLI routes file administration before eager policy loading, allowing invalid
+policy repair without a library. File-bound MCP and ADDRESS retain the selected path
+and use the same policy refresh helper after argument validation on every
+ordinary product call. There is no stale-cache fallback. `ragcommand` owns the
+shared request rebinding; the catalogue owns the new commands' schema and access.
+Legacy typed MCP callers without a file retain their supplied registry behavior.
+ADDRESS `LIBRARY OPEN` still validates its initial binding; its function interface
+can inspect or repair an explicitly supplied policy without an open session.
+
+Publication uses a stable adjacent SQLite file and `BEGIN EXCLUSIVE` with no
+busy wait; a competing editor receives conflict status and must inspect again.
+A process crash releases the native SQLite lock. The target hash is checked under
+that lock and again after staged bytes are verified; rename is the publication
+point. Success after rename remains success even if coordination cleanup fails,
+with a diagnostic and the new hash. The file contains no second policy and is
+never unlinked to recover a lock. Filesystem metadata, external-writer races and
+power-loss guarantees have explicit [integration limits](integration-issues.md#policy-file-publication-metadata-and-durability).
+
 ## Public result and lexical boundaries
 
 `ragresultpages` constructs repository result rows, explicit page metadata and

@@ -6,7 +6,8 @@ import _rxsysb
 import rxfnsb
 import ragcommand
 import ragconfig
-import ragconfigfile
+import ragpolicyfile
+import ragcommandutil
 import ragregistry
 import ragproduct
 import operator_registry
@@ -71,7 +72,7 @@ ragaddressenvironment: class implements .addressenvironment .addressinstance .ad
     cli_args = _sessionargs(args)
     parsed = .ragcommandrequest
     if parsecommand(cli_args, parsed, error) \= 0 then return _addressfailure(error)
-    return _addresscomplete(request, dispatchproduct(parsed, _registry), target)
+    return _addresscomplete(request, _dispatchcommand(parsed), target)
 
   invoke: method = .addressfunctionresponse
     arg request = .addressfunctionrequest
@@ -85,11 +86,18 @@ ragaddressenvironment: class implements .addressenvironment .addressinstance .ad
     end
     parsed = .ragcommandrequest; error = ""
     if parsecommand(args, parsed, error) \= 0 then return .addressfunctionresponse(2, error, "FAILURE")
-    result = dispatchproduct(parsed, _registry); output = ""
+    result = _dispatchcommand(parsed); output = ""
     if rendercommandresult(result, "json", output, error) \= 0 then return .addressfunctionresponse(10, error, "FAILURE")
     condition = ""
     if result.exit_code() \= 0 then condition = "FAILURE"
     return .addressfunctionresponse(result.exit_code(), output, condition)
+
+  _dispatchcommand: method = .ragcommandresult
+    arg parsed = .ragcommandrequest
+    selected_registry = _registry; error = ""
+    if parsed.config_file() = "" & _config_file \= "" then parsed = bindcommandconfig(parsed,parsed.config_id(),_config_file)
+    if refreshpolicyrequest(parsed,selected_registry,error) \= 0 then return commandfailure(parsed.operation(),3,error)
+    return dispatchproduct(parsed,selected_registry)
 
   _openargs: method = .int
     arg args = .string[], expose error = .string
@@ -109,10 +117,9 @@ ragaddressenvironment: class implements .addressenvironment .addressinstance .ad
     selected_registry = operatorregistry()
     if config_file \= "" then do
       loaded_config = .ragconfig
-      if loadconfigfile(config_file, loaded_config, error) \= 0 then return -1
+      if loadpolicyregistry(config_file, loaded_config, selected_registry, error) \= 0 then return -1
       if config \= "" & config \= loaded_config.config_id() then do; error = "--config does not match config.id in --config-file"; return -1; end
-      config = loaded_config.config_id(); selected_registry = operatorregistryforconfig(loaded_config)
-      if selected_registry.valid() \= 1 then do; error = "loaded configuration references an unregistered profile"; return -1; end
+      config = loaded_config.config_id()
       if profile = "" then do
         profile_ids = loaded_config.profile_ids()
         if profile_ids.0 = 1 then profile = profile_ids[1]

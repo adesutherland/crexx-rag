@@ -1,0 +1,47 @@
+options levelg
+
+namespace ragworkerdefaults expose workerdefault workerminimum workermaximum workerinrange workersettingknown
+
+/* Compatibility defaults and bounds for worker runtime/recovery settings.
+   Typed construction, file parsing and canonical omission use this one owner. */
+ragworkersetting: class
+  _default_value = .int
+  _minimum_value = .int
+  _maximum_value = .int
+  *: factory
+    arg default_value = .int, minimum_value = .int, maximum_value = .int
+    _default_value = default_value; _minimum_value = minimum_value; _maximum_value = maximum_value
+    return
+  default_value: method = .int
+    return _default_value
+  minimum_value: method = .int
+    return _minimum_value
+  maximum_value: method = .int
+    return _maximum_value
+
+_spec: procedure = .ragworkersetting
+  arg name = .string
+  if name = "poll_ms" then return .ragworkersetting(100,10,60000)
+  if name = "guided_deadline_seconds" then return .ragworkersetting(0,0,604800)
+  if name = "max_restarts" then return .ragworkersetting(2,0,10)
+  if name = "restart_backoff_ms" then return .ragworkersetting(5000,10,60000)
+  if name = "restart_window_seconds" then return .ragworkersetting(3600,1,86400)
+  return .ragworkersetting(0,1,0)
+
+workerdefault: procedure = .int
+  arg name = .string
+  return _spec(name).default_value()
+workerminimum: procedure = .int
+  arg name = .string
+  return _spec(name).minimum_value()
+workermaximum: procedure = .int
+  arg name = .string
+  return _spec(name).maximum_value()
+workerinrange: procedure = .int
+  arg name = .string, value = .int
+  rule = _spec(name)
+  return value >= rule.minimum_value() & value <= rule.maximum_value()
+workersettingknown: procedure = .int
+  arg name = .string
+  rule = _spec(name)
+  return rule.minimum_value() <= rule.maximum_value()

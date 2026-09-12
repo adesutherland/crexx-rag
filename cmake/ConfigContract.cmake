@@ -52,6 +52,8 @@ foreach(mode IN ITEMS noopt opt)
     endif()
     compile_crexx("${CPRAG_MODEL}" "${CPRAG_WORK_DIR}/ragmodel"
         "${base_import}" "${mode_flag}" "${mode} ragmodel")
+    compile_crexx("${config_source_dir}/ragworkerdefaults.crexx" "${CPRAG_WORK_DIR}/ragworkerdefaults"
+        "${program_import}" "${mode_flag}" "${mode} worker defaults")
     compile_crexx("${CPRAG_CONFIG}" "${CPRAG_WORK_DIR}/ragconfig"
         "${program_import}" "${mode_flag}" "${mode} ragconfig")
     compile_crexx("${CPRAG_FILE}" "${CPRAG_WORK_DIR}/ragfile"
@@ -82,7 +84,7 @@ foreach(mode IN ITEMS noopt opt)
             "GEMINI_API_KEY=${secret_marker}"
             "${runtime}" -l "${program_import}"
             "${CPRAG_WORK_DIR}/scenario-${mode}"
-            ragconfigfile ragpromptdefaults ragconfig ragmodel ragfile ragglossary ragprofilefile ragprofile ragcanonical rxfs rx_hash rx_system library
+            ragconfigfile ragpromptdefaults ragworkerdefaults ragconfig ragmodel ragfile ragglossary ragprofilefile ragprofile ragcanonical rxfs rx_hash rx_system library
             -a "${cell}" "${CPRAG_FIXTURE}"
                 "${CPRAG_WORK_DIR}/glossary-valid.tsv"
                 "${CPRAG_WORK_DIR}/glossary-duplicate.tsv"

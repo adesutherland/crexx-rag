@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragcommand expose ragcommandoption ragcommandrequest ragresultfield ragresultrecord ragcommandresult parsecommand commandexitname rendercommandresult validcommandresult
+namespace ragcommand expose ragcommandoption ragcommandrequest ragresultfield ragresultrecord ragcommandresult parsecommand bindcommandconfig commandexitname rendercommandresult validcommandresult
 
 import rxfnsb
 import ragcommandcatalog
@@ -220,7 +220,7 @@ parsecommand: procedure = .int
       iterate
     end
     if positional_only = 0 & left(token, 2) = "--" then do
-      name = ""; value = ""; inline_value = 0
+      name = ""; value = ""; inline_value = 0; bare_flag = 0
       if _splitoption(token, name, value, inline_value) \= 0 then return _usage("invalid command option syntax", error)
       if name = "library" | name = "config" | name = "profile" | name = "config-file" | name = "format" | name = "progress" | name = "access" then return _usage("global options must precede the noun", error)
       if inline_value = 0 then do
@@ -228,12 +228,12 @@ parsecommand: procedure = .int
           index = index + 1
           value = args[index]
         end
-        else value = "true"
+        else do; value = "true"; bare_flag = 1; end
       end
       maximum_option_bytes = 65535; if name = "plan-json" then maximum_option_bytes = 16777216
       if name = "response-json" then maximum_option_bytes = 131072
       if length(value) > maximum_option_bytes then return _usage("command option value is too long", error)
-      command_options[command_options.0 + 1] = .ragcommandoption(name, value, inline_value = 0 & value = "true")
+      command_options[command_options.0 + 1] = .ragcommandoption(name, value, bare_flag)
     end
     else do
       if length(token) > 65535 then return _usage("positional argument is too long", error)
@@ -459,3 +459,9 @@ _invalidresult: procedure = .int
   arg message = .string, expose error = .string
   error = message
   return -1
+
+
+bindcommandconfig: procedure = .ragcommandrequest
+  arg request = .ragcommandrequest, config_id = .string, config_path = .string, profile_id = ""
+  if profile_id = "" then profile_id = request.profile_id()
+  return .ragcommandrequest(request.library(),config_id,profile_id,config_path,request.format(),request.progress(),request.access(),request.noun(),request.verb(),request.operation(),request.command_options(),request.positionals())

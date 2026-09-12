@@ -12,8 +12,11 @@ delivery record; golden data was captured before product changes.
 
 ## Current status — 12 September 2026
 
-Maintenance refactor stage 1 now passes **51/51 in 706.70 seconds**; see the
-[stage evidence](maintenance-refactoring-delivery.md#stage-1--claim-policy).
+All five maintenance refactors are complete. The final full workflow passes
+**59/59 in 737.26 seconds**, including every original defect test and the new
+policy/transport boundaries; see the [stage evidence](maintenance-refactoring-delivery.md).
+An earlier stage-5 run had three timing failures under concurrent machine load;
+those failures and their unchanged-limit replays are retained in that record.
 The following 50-test result records the earlier public-result repair.
 
 The complete review baseline and regression workflow are committed in `5d1481a`.
@@ -278,3 +281,16 @@ Command-catalogue coverage begins with captured metadata and a failing advertise
 boolean test on stage 3. Native MCP argument regressions and a two-VM scenario
 cover transport validation, access filtering, literal forwarding and zero-write
 planning. Qualification is recorded in the [delivery record](maintenance-refactoring-delivery.md).
+
+
+Stage 5 starts with passing worker-default characterization and failing public
+file-operation controls before implementation. `regression_policy_file` and
+`regression_policy_file_vm` cover policy validation/publication, optimistic edit
+conflicts, invalid-policy repair, prompt-source switching, exact no-op identity,
+MCP refresh and killed-owner lock recovery. `configuration_contract` covers the
+shared default/bounds family; `installed_product` adds the installed policy edit
+round trip. Extended `address_surface` coverage reproduced its cached-registry
+gap before a shared refresh fix; execution and function calls cover same-session
+prompt/config/profile changes, invalid-file holds and repair. A complete library
+dump remains identical across file edits. Platform
+metadata and power-loss limits remain explicit in the integration register.

@@ -209,3 +209,19 @@ controls without executable selection. Introducing RexxScript solely because
 it may become more powerful would add a second authoring path without a current
 requirement, so integration is intentionally deferred rather than treated as a
 missing capability.
+
+## Policy-file publication metadata and durability
+
+The installed `rxfs` API provides file creation and same-directory rename but
+no mode/ACL preservation or file/directory fsync contract. Policy edits therefore
+publish validated complete bytes using the new file's process-default metadata;
+they do not promise preservation of custom permissions or power-loss durability.
+A generic metadata-preserving durable replacement API belongs in CREXX, not a
+product-specific native bridge. The current route is locally qualified on macOS;
+Windows replacement and crash/power-loss behavior need separate qualification.
+
+A stable adjacent SQLite coordination file serializes cooperating policy editors.
+It stores no policy and no library data. Native process death releases its lock;
+an orphan staging file is never selected as policy. External editors do not use
+this lock. Rechecking the target hash catches ordinary stale edits but cannot
+make their arbitrary writes participate in an atomic compare-and-swap protocol.

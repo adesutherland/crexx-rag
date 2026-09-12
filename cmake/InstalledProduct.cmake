@@ -57,6 +57,31 @@ execute_process(COMMAND "${application}" --config-file "${operator_config}/edita
 if(NOT operator_result EQUAL 0 OR NOT operator_out MATCHES "\"origin\":\"data-file\"")
     message(FATAL_ERROR "installed editable configuration failed: ${operator_out}${operator_err}")
 endif()
+# Edit a copy of the installed policy/profile/prompt cohort, never the template.
+file(COPY "${operator_config}/" DESTINATION "${CPRAG_WORK_DIR}/policy-work")
+set(edit_policy "${CPRAG_WORK_DIR}/policy-work/editable-gemini.conf")
+file(SHA256 "${operator_config}/editable-gemini.conf" template_hash)
+execute_process(COMMAND "${application}" --config-file "${edit_policy}" --format json config show
+    RESULT_VARIABLE show_result OUTPUT_VARIABLE show_out ERROR_VARIABLE show_err TIMEOUT 30)
+string(JSON edit_hash GET "${show_out}" records 0 fields sha256)
+string(JSON edit_valid GET "${show_out}" records 0 fields valid)
+if(NOT show_result EQUAL 0 OR NOT edit_valid)
+    message(FATAL_ERROR "Installed policy inspection failed: ${show_out}${show_err}")
+endif()
+execute_process(COMMAND "${application}" --config-file "${edit_policy}" --format json --access admin
+    config set --key role.answerer.system_prompt --value "Installed policy objective." --expect-sha256 "${edit_hash}"
+    RESULT_VARIABLE edit_result OUTPUT_VARIABLE edit_out ERROR_VARIABLE edit_err TIMEOUT 30)
+if(NOT edit_result EQUAL 0)
+    message(FATAL_ERROR "Installed policy edit failed: ${edit_out}${edit_err}")
+endif()
+execute_process(COMMAND "${application}" --config-file "${edit_policy}" --profile it-architecture-profile --format json
+    config prompt --role answerer RESULT_VARIABLE prompt_result OUTPUT_VARIABLE prompt_out ERROR_VARIABLE prompt_err TIMEOUT 30)
+string(JSON edit_objective GET "${prompt_out}" records 0 fields configured_objective)
+file(SHA256 "${operator_config}/editable-gemini.conf" template_after)
+if(NOT prompt_result EQUAL 0 OR NOT edit_objective STREQUAL "Installed policy objective." OR
+   NOT template_hash STREQUAL template_after OR EXISTS "${CPRAG_WORK_DIR}/policy-work/library")
+    message(FATAL_ERROR "Installed policy round trip failed: ${prompt_out}${prompt_err}")
+endif()
 if(EXISTS "${skills}/crexxrag-improve")
     message(FATAL_ERROR "obsolete crexxrag-improve skill was installed")
 endif()
@@ -124,7 +149,7 @@ endforeach()
 
 file(WRITE "${CPRAG_WORK_DIR}/result.txt"
     "test=installed-product\nprefix=${prefix}\n"
-    "doctor=passed\nprovider_smoke=passed\ningest=passed\nmaintenance=passed\nquery=passed\n"
+    "doctor=passed\npolicy_edit=passed\nprovider_smoke=passed\ningest=passed\nmaintenance=passed\nquery=passed\n"
     "skill=crexxrag-maintain\nobsolete_skill=absent\n"
     "obsolete_sqlite_provider=removed\n"
     "${doctor_out}${doctor_err}${smoke_out}${smoke_err}${maintenance_out}${maintenance_err}")

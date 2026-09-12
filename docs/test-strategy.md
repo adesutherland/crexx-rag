@@ -1,5 +1,10 @@
 # Test strategy
 
+The five maintenance refactors each required coverage before implementation
+and a complete green gate. The final local workflow passes **59/59**; the
+[delivery record](maintenance-refactoring-delivery.md) retains baseline failures,
+per-stage evidence and the limits of that qualification.
+
 The admission slice adds `native_admission`: a loopback response is held until
 a peer reaches a deliberately narrower reservation ceiling in a scratch job.
 It checks public waiting status, no failed/replacement worker, no phantom call,
@@ -53,9 +58,11 @@ metadata directly.
 | --- | --- |
 | `regression_prompt_contract` | Captured baseline system-prompt/schema hashes from actual extraction, resolution, answer and report calls; correction history and existing ingestion/query/maintenance assertions |
 | `regression_prompt_inspection` | Native public inspection, both-VM contract builders, optional provenance schema, subject/workflow action rules, typed/MCP access and argument controls |
+| `regression_policy_file` | Native CLI/MCP: bounded validated set/replace, stale hashes, invalid-policy repair, prompt-source switching, destination-relative references, same-session reload, removed-profile refusal, lock conflict and retry after a killed owner, unchanged complete library dump |
+| `regression_policy_file_vm` | Both VMs: config positive control, explicit `true` value parsing, direct file inspection/edit, competing SQLite connection, unchanged semantic identity for operational edits, exact no-op/stale hashes and access refusal |
 | `regression_claim_policy` | Both VMs: effective profile vocabulary, exact tokens, stance weights, version propagation, external overrides and compatibility/shared-factory equivalence |
 | `linked_application` | installed `rxsqlite` provider mapping and both CREXX VMs |
-| `configuration_contract` | format-1 compatibility, format-2/3 bounded settings, split identities, credential-free check/explain, identical/operational/prospective diff, tamper-resistant plan/apply, and a regression proving a provider-policy change leaves an existing corpus generation unchanged with zero new jobs or provider calls |
+| `configuration_contract` | format-1 compatibility, format-2/3 bounded settings, omitted/explicit worker defaults and typed bounds, split identities, credential-free check/explain, identical/operational/prospective diff, tamper-resistant plan/apply, and a regression proving a provider-policy change leaves an existing corpus generation unchanged with zero new jobs or provider calls |
 | `process_workers` | eight-worker registration before admission, failed-launch diagnostics, observation, drain, stale PID detection, explicit pruning |
 | `worker_recovery` | native managed-process disconnects; bounded replacement and durable rolling restart history; no preflight phantom calls; public exact-turn inspection, stale digest and ambiguous-history holds, atomic reconciliation rollback, repeated settlement, completed-output reuse and bounded retry; OCR/multiple-citation feedback, uncalled correction deferral, advanced-reasoning handoff; admission-release diagnostics; a real receipt-write fault preserves completed Codex output and public reconciliation reuses it without another generation |
 | `regression_supervision` | optimized two-VM rolling-window boundaries, burst expiry, restart before/after expiry, generic exit exclusion, temporary queue emptiness while peers own work, pause and competing process reservations |
@@ -74,7 +81,7 @@ metadata directly.
 | `evidence_methodology` | outbound/inbound/both graph traversal without invented inverse claims, durable notes, leads and repeated query gaps on both VMs |
 | `maintenance_methodology` | complete typed census, bounded deterministic ranking, stable worklist digest, generation binding and replay on both VMs |
 | `native_surfaces` | human defaults, deterministic MCP reporting/snapshot/trend, configuration lifecycle, replay and external-schedule definition tools, MCP structured-content/strict-argument behavior, and exact integer boundaries including oversized-input rejection without a VM panic |
-| `address_surface` | linked `ADDRESS RAG` report/trend/session/config/access behavior and snapshot denial on both VMs |
+| `address_surface` | File-bound prompt freshness, invalid-policy holds/repair, changed config identity, removed profiles and the function interface on both VMs; linked `ADDRESS RAG` report/trend/session/config/access behavior and snapshot denial on both VMs |
 | `gemini_provider_smoke` | generation and embedding smoke, human/JSON/MCP, cancellation, aggregate budget, malformed output, secret redaction |
 | `installed_product` | scratch-prefix installation, installed skills/tutorial, doctor/init/provider smoke/ingest/maintain/query using only installed product artifacts; maximum public pages, exact large-plan reads and Unicode retrieval |
 | `temporal_provenance` | period precision/calendars, scoped metadata, stale conflicts and zero-call no-op, whole-packet assessment, selective claim qualification, receipt recovery, temporal paths and bounded answer context on both VMs with and without optimization |

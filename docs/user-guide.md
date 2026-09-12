@@ -229,6 +229,44 @@ wait from the reviewed job time budget. The vector sidecar setting is an
 explicit fail-safe, not an RSS target: the current ANN reader still loads the
 bounded sidecar as a whole, pending the compact/streamed representation work.
 
+The selected policy can be inspected and edited through the same commands used
+by people and agents. Selection is `--config-file`, then `CREXXRAG_CONFIG`, then
+`./crexxrag.conf`. No library is needed for these file operations:
+
+```sh
+crexxrag --format json config show > policy-state.json
+sha=$(jq -r '.records[0].fields.sha256' policy-state.json)
+crexxrag --access admin config set --key role.answerer.system_prompt \
+  --value 'Answer only from the supplied evidence and state uncertainty.' \
+  --expect-sha256 "$sha"
+```
+
+`config show` returns the absolute path, exact file hash, existence and validation
+state, including when a bounded current file is invalid. Read it again before
+each edit. `config set` validates the whole candidate, changes one key and
+preserves unrelated lines. Use `config replace --input FILE --expect-sha256 SHA`
+with admin access to replace or repair the whole policy. To create a missing
+policy, first inspect it and use `--expect-sha256 missing`. Relative profile,
+source and prompt paths in a replacement resolve from the destination policy
+directory. Credential settings remain symbolic references; no secret is resolved.
+
+An edit rejects stale hashes, invalid settings, missing referenced profiles or
+prompt files, and competing edits. Source/provider availability remains part of
+normal planning and diagnostics. Publication stages and verifies complete bytes before a
+same-directory rename. The adjacent `.edit-lock.sqlite` contains coordination
+state, not a second policy; keep it in place. Process death releases its lock,
+so a killed editor does not require a recovery command. An abandoned
+`.edit-TOKEN.tmp` is not used as policy and does not block a retry.
+
+The installed filesystem API does not preserve the original mode/ACL metadata
+on replacement or expose a power-loss flush guarantee: new file metadata uses
+the process defaults. Ordinary external editors do not take the coordination
+lock; the final hash check is not a universal filesystem compare-and-swap.
+See the [platform boundary](integration-issues.md#policy-file-publication-metadata-and-durability).
+These commands edit the selected file. Use the reviewed library transition
+below to activate changes for subsequent library work; retained jobs and
+accepted evidence keep their recorded configuration.
+
 Inspect the effective policy before changing a library:
 
 ```sh
@@ -316,8 +354,18 @@ You can change role objectives with `role.ROLE.system_prompt` or its selected
 `maintenance.resolution_prompt`, in the one selected `crexxrag.conf` policy.
 Run `config check`, inspect the effective prompt, then review `config diff` and
 use `config plan`/`config apply` before subsequent library work. Existing jobs
-and accepted evidence retain their original identities. Supported policy-file
-update/replacement commands are being added in delivery stage 5.
+and accepted evidence retain their original identities. Use `config set` with
+`role.ROLE.system_prompt` for a single-line objective, or
+`role.ROLE.system_prompt_file` for an existing multiline UTF-8 text file. Switching
+between those two keys removes the other key atomically. The referenced prompt
+file itself is authored with an ordinary editor. Its content affects the
+effective configuration identity; the `config show` hash covers the policy
+file bytes only, so recheck the effective prompt after editing referenced data.
+
+MCP and file-bound `ADDRESS RAG` sessions reload the selected policy before
+subsequent product calls, so prompt edits are visible without restarting a
+healthy session. An invalid file blocks those calls until repaired; a removed
+selected profile is an error.
 
 Required quotation instructions and validation are product contracts: an
 editable objective cannot authorize fabricated evidence or bypass a validator.

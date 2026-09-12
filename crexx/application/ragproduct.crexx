@@ -11,6 +11,7 @@ import ragclaims
 import ragcommand
 import ragcommandutil
 import ragconfig
+import ragpolicyfile
 import ragconfiguration
 import ragembedding
 import ragenrich
@@ -62,6 +63,7 @@ import rxsqlite
 dispatchproduct: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
   operation = request.operation()
+  if policyfileoperation(operation) = 1 then return policyfilecommand(request)
   if left(operation, 7) = "config." then return _configcommand(request, registry)
   if operation = "library.report" then return libraryreport(request, registry)
   if operation = "library.snapshot" then return librarysnapshot(request, registry)

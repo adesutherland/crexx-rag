@@ -186,6 +186,9 @@ crexxrag library trend [--limit N]
 crexxrag query QUESTION
 crexxrag provider list|status|test
 crexxrag provider login codex
+crexxrag config show
+crexxrag --access admin config set --key KEY --value TEXT --expect-sha256 SHA256
+crexxrag --access admin config replace --input FILE --expect-sha256 SHA256_OR_missing
 crexxrag config check|explain|diff
 crexxrag config prompt --role extractor|resolution|answerer|advisory
 crexxrag --access plan config plan --reason TEXT
@@ -224,6 +227,13 @@ Gemini is the tested hosted default. Codex generation uses the official local
 App Server process, which owns ChatGPT login and token refresh; it is still a
 hosted privacy route because source content leaves the machine. Local llama.cpp
 embedding generation uses the OpenAI-compatible `/v1/embeddings` protocol.
+
+One selected `crexxrag.conf` is the operator policy entry point. `config show`
+returns its hash and validation state; admin `config set` and `config replace`
+validate before publishing changes. Role objectives are editable inline or via
+referenced prompt files. Inspect `config prompt`, then review and apply the
+library configuration transition for future work. See the
+[policy-file workflow and platform limits](docs/user-guide.md).
 
 Credentials are symbolic `env:NAME` references in configuration and are never
 stored in the library. Subscription allowance, local compute, and monetary API
