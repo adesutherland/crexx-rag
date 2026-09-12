@@ -11,6 +11,9 @@
   delivery order, cohesive source owners and coverage checks before each change.
 - [Public results and Unicode repair](public-result-lexical-repair.md): page bounds,
   complete retained-plan reads and Unicode regression qualification.
+- [Maintenance and ownership review](maintenance-refactoring-review-20260912.md):
+  post-repair assessment and ranked refactors for shared rules, effective prompts,
+  command metadata and domain services, with coverage required before each.
 - [Architecture](architecture.md): enduring components, ownership, and data flow.
 - [Standalone setup](standalone-setup.md): install-to-workspace setup for a
   human using the packaged executable and examples.

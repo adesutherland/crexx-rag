@@ -22,6 +22,12 @@ human CLI / JSON / MCP / ADDRESS RAG
 
 There is no second product implementation or compatibility bridge.
 
+The [maintenance and ownership review](maintenance-refactoring-review-20260912.md)
+distinguishes current owners from proposed extractions, prioritising shared
+claim rules and domain prompt/contracts. Each proposal requires regression
+characterization before implementation; a directory or executable split is
+not itself an acceptance criterion.
+
 ## Public result and lexical boundaries
 
 `ragresultpages` constructs repository result rows, explicit page metadata and
