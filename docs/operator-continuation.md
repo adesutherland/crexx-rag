@@ -10,8 +10,12 @@ runnable queue alone does not prove corpus coverage.
 ## Ordinary command journey
 
 Select the processing library and its existing `crexxrag.conf`. A relocated
-query copy is a different library. Do not reimport completed sources to restart
-processing. Use `job list` and `source list` to identify the retained work;
+query copy is a different library. After installing a newer version, use
+`crexxrag --access admin library migrate` to apply its schema/index upgrades
+before large diagnostic reads. Read-only commands preserve an older schema,
+so they cannot benefit from a newly added index until migration. Original
+plans and processing outcomes remain. Do not reimport completed sources to
+restart processing. Use `job list` and `source list` to identify the retained work;
 `job plan JOB` reads its exact original plan in bounded pages.
 
 ```sh
@@ -70,7 +74,11 @@ are not rewritten by installing this version.
 `job status` distinguishes actual materialized items from allowances, recorded
 provider usage from reservations, and incomplete/unknown usage. It includes
 aggregate provider time, retry and worker waiting reasons, and a selectable
-observation interval. `job progress` partitions each actual item into exactly
+observation interval. `uncertain_items` retains its compatible total of intents
+without matched receipts. Its `active_unsettled_items` and
+`held_uncertain_items` parts distinguish active submitted work from held work;
+an active call alone is not a reconciliation failure. Active item guidance
+directs the operator to worker status and waiting/draining first. `job progress` partitions each actual item into exactly
 one operation/source group and one state; queued excludes deferred. Its totals
 are task counts, not percentages of source coverage or counts of provider
 attempts. Questions without one immutable input source are explicitly grouped

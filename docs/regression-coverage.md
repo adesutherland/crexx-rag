@@ -346,3 +346,11 @@ and repairs; no case was disabled.
 [Retained logs](qa/operator-continuation-20260912/) include baseline reds, focused
 results, metadata review and public corpus observations. No outcome is closed
 by a test count alone.
+
+The live smoke added RAG-SMK-001: active submitted work was shown as a
+reconciliation hold. `regression_operator_diagnostics` reproduced the wrong
+next action before repair, with one active intent, one terminal unknown and one
+matched receipt. It now checks the disjoint public active/held counters and
+unchanged database state. Candidate 8 passed its three focused cases in 26.98
+seconds and the separate installed CLI/MCP scenario. Full QA then passed
+**63/63 in 933.50 seconds**.

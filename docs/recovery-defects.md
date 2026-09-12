@@ -707,3 +707,21 @@ without generation calls; provider-run count stayed 20809 and uncertainty
 became zero. Incomplete usage remains a lower bound. The exact hashes and
 logs are in the [handoff](operator-continuation-handoff.md). Actual processing
 master ingestion and 60-minute maintenance are still required live evidence.
+
+## RAG-SMK-001 — P2: active calls displayed as reconciliation holds
+
+The 12 September continuation smoke showed eight healthy workers and useful
+progress, but `uncertain_items=5` included ordinary in-flight provider intents.
+More seriously, inspecting an active submitted item selected `job reconcile`
+before the existing running-item guidance. This is a diagnostic defect, not
+proof that those calls failed or a permission to resubmit them.
+
+`regression_operator_diagnostics` first reproduced the wrong next action on
+committed 702af3a (0.64 seconds), with a distinct terminal unknown and a matched
+receipt as controls. The repair preserves the old unresolved total and adds
+its disjoint active/held parts in `ragusage`; `ragoperationsquery` displays them
+and prioritizes active ownership guidance. Accounting and recovery guards are
+unchanged. Candidate 8 passed full QA **63/63 in 933.50 seconds**, its focused
+three-case gate and separate installed CLI/MCP confirmation. This closes the
+reproduced diagnostic defect on that artifact. The running ingestion still uses
+frozen 702af3a until drainage; the broader live outcome remains open.

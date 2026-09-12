@@ -1,0 +1,24 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start  4: regression_operator_diagnostics
+1/3 Test  #4: regression_operator_diagnostics ...   Passed    5.89 sec
+    Start 35: documentation_contract
+2/3 Test #35: documentation_contract ............   Passed    0.06 sec
+    Start 62: native_continuation_holds
+3/3 Test #62: native_continuation_holds .........   Passed   21.04 sec
+
+100% tests passed, 0 tests failed out of 3
+
+Label Time Summary:
+continuation     =  21.04 sec*proc (1 test)
+documentation    =   0.06 sec*proc (1 test)
+loopback         =  21.04 sec*proc (1 test)
+methodology      =   0.06 sec*proc (1 test)
+native           =  21.04 sec*proc (1 test)
+operator         =   5.89 sec*proc (1 test)
+pagination       =   5.89 sec*proc (1 test)
+recovery         =  21.04 sec*proc (1 test)
+regression       =  26.92 sec*proc (2 tests)
+skills           =   0.06 sec*proc (1 test)
+zero-outbound    =   5.95 sec*proc (2 tests)
+
+Total Test time (real) =  26.98 sec

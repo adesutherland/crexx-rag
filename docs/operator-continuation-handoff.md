@@ -1,6 +1,6 @@
 # Operator continuation: live handoff
 
-Updated: 2026-09-12 21:54 UTC. This file is the persistent task state; update it
+Updated: 2026-09-12 22:26 UTC. This file is the persistent task state; update it
 at every QA/commit/live-run boundary. No outcome is closed merely because one
 slice compiles. Read the current Git diff and current logs before continuing.
 
@@ -489,3 +489,162 @@ Next: final documentation/whitespace review, local commit, then run the exact
 qualified executable against the processing master. It remains unchanged at
 this checkpoint; no new Scottish generation has run. Real ingestion and the
 60-minute maintenance outcome are still pending, not closed by local QA.
+
+## Checkpoint 2026-09-12 21:59 UTC — committed; master recovery and run launched
+
+Implementation commit **702af3a** (`702af3a` resolves in temp/project-review),
+full QA 63/63 in 848.41 seconds and final docs contract green. Clean checkout
+was verified immediately after commit. Only later live evidence/notes should
+be dirty. No push. Exact installed executable is now durable under the run:
+`/Users/adrian/testrag/overnight-scottish-20260909/continuation-20260912/artifact/bin/crexxrag`.
+Its SHA256 is **8015c65a512698b135c3409cec15c65a82c878738ebcaef9c04a7c5f1b9bc9df**,
+identical to build 7 and installed qualification. Use this `CREXXRAG_SELF` path
+for children. The run directory also stores `implementation-commit.txt`.
+
+Master has now migrated normally to schema16 at unchanged generation23208.
+The pre-migration read-only status remained running after 35 seconds because
+schema15 lacks the new item/event index; only that observed read PID72780 was
+terminated. `job pause` opened/migrated the library but returned unavailable
+because the job was already paused. Indexed public status then confirmed
+paused/1206queued/515dead/0running/2uncertain. Worker inventory retained historic
+stale entries, which normal continuation prunes; no external work was assumed
+uncalled from those entries.
+
+Both master Codex turns were freshly observed as interrupted and applied by
+exact digest through public `job reconcile`. The commands succeeded with zero
+generation calls. Named `job continue --renew scottish-ingestion-20260912
+--prepare` then succeeded with provider_calls0. Original plans and histories
+remain; aggregate limits gained one original allocation. Existing per-task
+one-attempt policy is unchanged. Run snapshots are retained beside the artifact
+and copied into repo QA evidence.
+
+At **21:58:27 UTC**, detached launcher PID **72923** started ordinary `job run`
+for ingestion job `job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622`
+under caffeinate with the selected original policy/configured8workers.
+Logs in the run directory: `ingestion.log`, `ingestion.err`,
+`ingestion-launcher.log`, `ingestion-started.txt`; `ingestion.exit` is written
+only after the command terminates. Initial launch alone does not yet prove
+provider activity; confirm current process/public status and useful work next.
+Do not launch a duplicate supervisor. The process is detached to survive context
+or session takeover; no new shell-owned product workflow was introduced.
+
+Remaining work: monitor actual ingestion and fix run problems; inspect all
+resulting holds and preserve strict evidence. The known baseline includes
+487 content-validation holds, 23 operational extraction holds and five missing
+embeddings; reconcile current public inventory before retry/replay decisions.
+Ingestion retry requests respect original ceilings; reviewed replay/new work
+must use ordinary controls and preserve lineage. Afterwards use the single
+policy file's public config controls to authorize reasonable retry settings
+(three reasoning, explicit six embedding as previously agreed), public
+config plan/apply, request the five failed tasks and use a reviewed embedding
+repair window. Do not blindly replay unknown outcomes or overwrite old budgets.
+Run ordinary automatic maintenance for **60 minutes** under the configured
+policy/managed authentication/account reserve; record the actual start/deadline,
+stop, outcomes/usage, unique coverage and every failure. Maintenance has not yet
+started. Record functional remainders honestly and finish docs/roadmap/evidence
+with a final local commit; do not call the entire outcome complete yet.
+
+## Checkpoint 2026-09-12 22:01 UTC — persistent session replaces ended launcher
+
+The detached launcher PID72923 and its descendants were absent on the next
+process check; no exit marker or worker-start output was produced. Do not rely
+on shell backgrounding across this command runner. Public status afterward
+proved no live workers, no reservations/uncertain items and unchanged 20809
+provider runs. The durable job was running with 1206 queued and the one named
+allowance. This was a launch-execution problem, not evidence of failed paid work.
+
+Ordinary `job run` was then started in **persistent exec session 70061** at
+22:00 UTC, using the same artifact/config/job/allowance. New authoritative logs:
+`ingestion-session.log`, `ingestion-session.err`,
+`ingestion-session-started.txt`, and terminal `ingestion-session.exit`, all in
+`/Users/adrian/testrag/overnight-scottish-20260909/continuation-20260912`.
+The controller now reports `start workers=8`. One worker has logged its first
+bounded heartbeat SQLITE_BUSY retry. Public progress/worker snapshot is being
+captured; actual useful work is not yet confirmed at this checkpoint.
+
+An optional 10-minute recurring heartbeat was requested for takeover, but automatic
+approval review rejected it as insufficiently bounded future paid-processing
+scope/automation authority. The rejection was disclosed; **no automation exists**
+for this run. Do not silently recreate it or implement a workaround scheduler.
+Continue the already-authorized work in this active session. Older Scottish
+heartbeats are PAUSED and belong to other runs; leave them unchanged.
+
+## Checkpoint 2026-09-12 22:07 UTC — useful live work; diagnostic regression reproduced
+
+The first live snapshot at 22:01:34 showed 20 new processed items, 5 valid skips,
+1 new dead letter,1172queued/8running and all 8 live workers. Controller
+`controller-9ca4b364b485551aed8787993ff4d264`, PID73021, had a one-second
+heartbeat and zero replacements. Worker PIDs73023-73030. Multiple heartbeat
+and one transaction-acquisition BUSY retries were logged; no worker exit yet.
+Snapshot/evidence files `scottish-master-live-status-1.json` and
+`scottish-master-live-workers-1.json` are retained in repo QA.
+
+**RAG-SMK-001** found during smoke: normal active provider intents appear in
+`uncertain_items`, and active-item guidance incorrectly recommends reconcile.
+Do not interpret the five unmatched live intents as five held failures. A new
+synthetic public regression first passed the old status control, then failed
+on the active item's erroneous next action (red 0.64 s). Its distinct held unknown
+and matched receipt control the counts. Source repair in ragusage and
+ragoperationsquery adds `active_unsettled_items`/`held_uncertain_items`, preserving
+the old total and all accounting/guard semantics; active ownership guidance
+comes first. Test and docs changes are uncommitted after 702af3a.
+
+Candidate8 build is running, session **40745**, log
+`/private/tmp/crexx-active-outcome-build8.log`. Do not change the live frozen
+artifact yet. Next: finish build, focused diagnostics/continuation-held gate,
+then required full63 and installed evidence before a separate fix commit.
+Meanwhile actual ingestion continues in **session 70061** and its authoritative
+`ingestion-session.*` logs. No automation was created. Continue active monitoring
+and retain logs/holds/usage. Remaining ingestion, operational recovery,
+five-embedding repair and 60-minute maintenance are still outstanding.
+
+## Checkpoint 2026-09-12 22:11 UTC — five retry requests accepted; diagnostic QA running
+
+All five actual failed embedding tasks were inspected through public `job items`
+on original maintenance job cf5808df5d3703bf71ff2ec0881f5660e65b14741f6dcbbade1f34d6e5815fbf.
+Each has one confirmed quota-failed call, no uncertainty and an explicit
+attempt-limit hold. Public `maintain retry` accepted every request; repeating
+the first returned the same request ID with retry_accepted=0. No embedding call
+has been made; repair still needs a reviewed policy/window after ingestion.
+Exact task IDs/requests: `scottish-five-embedding-holds.json` and
+`scottish-embedding-retry-request-*.json` in repo evidence and run directory.
+Do not repeat selection by guessing task IDs or equate acceptance with coverage.
+
+At 22:09:53 UTC the ingestion status was 1032 queued, 6 running, 14666 processed,
+15356 skipped, 518 dead letters; all 8 live workers, zero replacements,
+21009 provider runs. Relative to start: 130 processed, 35 skips and 3 new holds.
+Content and operational hold classification must be checked after drainage;
+normal active unmatched intents are not final unknown holds.
+
+Candidate 8 build completed. Native hash
+`af99d5e94405942834cbd19c3957c143d0bb3082c3561612fda54c57702f3ee6`,
+linked `7038e88785f08571af7a404b17421c7502d3a286adfd47d65f025e5cea248c9b`.
+Focused diagnostic/held/docs gate passed **3/3 in 26.98 seconds**. Full 63-test
+gate is running as **session 65462**, log `/private/tmp/crexx-active-outcome-full.log`.
+A separate scratch install/public diagnostics check is running under
+`/private/tmp/crexx-active-outcome-installed`, log
+`/private/tmp/crexx-active-outcome-installed-check.log`. No product source changes
+since candidate 8 build. Commit the diagnostic repair only after full green;
+keep live 702af3a executable untouched until its supervisor drains.
+
+Actual ingestion remains **session 70061** with `ingestion-session.*` logs.
+No recurring automation exists. Continue the active run, maintain durable
+checkpoints, finish eligible remaining work/embedding recovery and the requested
+60-minute maintenance, then verify/record/commit final outcomes. No push.
+
+## Checkpoint 2026-09-12 22:26 UTC — diagnostic repair fully green
+
+Candidate 8 full suite passed **63/63 in 933.50 seconds**, with its separate
+installed CLI/MCP diagnostic check also passing. Focused gate was3/3 in26.98s.
+RAG-SMK-001 is repaired and qualified; the old unmatched-intent total is retained,
+active/held parts are disjoint, and active item guidance respects ownership.
+No accounting, budget, attempt, recovery or publication rule changed.
+
+Next: final whitespace/docs review and local fix commit, then install candidate8
+to a NEW run prefix so the existing live 702af3a supervisor/children keep their
+frozen executable. Public read-only status can validate the new diagnostics
+on real in-flight work; later recovery and maintenance can use the new artifact
+once the current supervisor drains. Actual ingestion remains session70061 and
+its ingestion-session logs; no recurring automation exists. Remaining original
+queued work, operational recovery, five missing embeddings and the60-minute
+maintenance still need completion. Do not report the whole outcome closed.

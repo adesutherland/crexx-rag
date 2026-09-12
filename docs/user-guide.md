@@ -571,6 +571,14 @@ runs/token/cost totals, incomplete observations and uncertain outcomes remain
 separate from corpus coverage. Interval throughput and correction-requested /
 correction-processed counts distinguish attempted calls from accepted work.
 
+Live outcome diagnostics retain `uncertain_items` as the total of unmatched
+provider intents, with disjoint `active_unsettled_items` and
+`held_uncertain_items` fields. Normal running calls belong to the active part;
+wait or inspect worker status before changing ownership. The held part needs
+outcome inspection. `unpriced_runs` and `timestamp_unknown_runs` can also
+include work that has not yet settled; terminal uncertainty must be assessed
+alongside item state rather than inferred from an aggregate counter.
+
 
 List jobs with `job list --limit 100`, following the final `page` record's
 `next_cursor`. The limit counts data rows; a cursor is additional metadata.

@@ -40,6 +40,14 @@ VALUES('z-task-homonym','fixture','concept','concept-homonym','evidence','policy
 INSERT INTO maintenance_workflows(workflow_id,origin_task_id,kind,parent_concept_id,successors_json,state,created_generation,created_epoch,updated_epoch)
 VALUES('workflow-1','z-task-1','split','concept-target','[{"concept_id":"concept-successor"}]','migrating',(SELECT published_generation FROM library_meta),1,1),('workflow-2','z-task-2','split','concept-target','[]','waiting',(SELECT published_generation FROM library_meta),1,1),('workflow-3','z-task-homonym','split','concept-homonym','[]','waiting',(SELECT published_generation FROM library_meta),1,1),('workflow-4','z-task-unicode','split','concept-unicode','[]','waiting',(SELECT published_generation FROM library_meta),1,1);
 UPDATE maintenance_tasks SET workflow_id='workflow-1' WHERE task_id='z-task-3';
+-- Distinguish an ordinary live submitted call from an interrupted held one.
+UPDATE jobs SET state='running' WHERE job_id='job-noise';
+UPDATE job_items SET state='running',lease_until=unixepoch()+300 WHERE item_id='a-item-001';
+UPDATE attempts SET outcome='running',validation_state='pending',completed_at=NULL WHERE item_id='a-item-001';
+INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at)
+SELECT job_id,item_id,'attempt-'||item_id,'provider-intent','{}','2026-09-12' FROM job_items WHERE item_id IN('a-item-001','a-item-002','a-item-003');
+INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at)
+VALUES('job-noise','a-item-003','attempt-a-item-003','provider-response','{}','2026-09-12');
 ]=])
 file(WRITE "${CPRAG_WORK_DIR}/seed.sql" "${seed}")
 execute_process(COMMAND "${CREXXRAG_SQLITE3}" -bail "${database}" INPUT_FILE "${CPRAG_WORK_DIR}/seed.sql"
@@ -59,6 +67,22 @@ function(read_command expected)
 endfunction()
 # Existing positive control is required before checking the missing interface.
 read_command(0 job status job-target)
+# A live call is still unresolved, but is not a reconciliation hold. Preserve
+# the old total while exposing its disjoint active/held parts; matched receipts
+# must disappear from all three counts. Reads may not change any outcome.
+read_command(0 job items job-noise --state running)
+string(JSON active_detail GET "${response}" records 0 fields detail)
+string(JSON active_action GET "${active_detail}" recovery next_action)
+if(NOT active_action MATCHES "worker status" OR active_action MATCHES "job reconcile")
+    message(FATAL_ERROR "Live submitted work wrongly recommends reconciliation: ${active_action}")
+endif()
+read_command(0 job status job-noise)
+string(JSON unresolved GET "${response}" records 0 fields uncertain_items)
+string(JSON active GET "${response}" records 0 fields active_unsettled_items)
+string(JSON held GET "${response}" records 0 fields held_uncertain_items)
+if(NOT unresolved EQUAL 2 OR NOT active EQUAL 1 OR NOT held EQUAL 1)
+    message(FATAL_ERROR "Live/held uncertainty counts overlap, lose outcomes or include a matched receipt")
+endif()
 # Empty, malformed and missing input remains safe to inspect. Public totals
 # group by actual operation/source, with no hidden denominator or raw payload.
 read_command(0 job progress job-target)

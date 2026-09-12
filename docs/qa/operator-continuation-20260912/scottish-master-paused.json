@@ -1,0 +1,1 @@
+{"schema":"crexx-rag.command-result/1","operation":"job.pause","status":"error","exit_code":1,"exit_name":"operation-failed","message":"job state transition is unavailable","records":[]}

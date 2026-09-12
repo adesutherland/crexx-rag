@@ -1,0 +1,22 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start 4: regression_operator_diagnostics
+1/1 Test #4: regression_operator_diagnostics ...***Failed    0.63 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/OperatorDiagnostics.cmake:77 (message):
+  Live submitted work wrongly recommends reconciliation: job reconcile JOB
+  --item ITEM; inspect first; apply only an observed terminal receipt
+
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+operator         =   0.63 sec*proc (1 test)
+pagination       =   0.63 sec*proc (1 test)
+regression       =   0.63 sec*proc (1 test)
+zero-outbound    =   0.63 sec*proc (1 test)
+
+Total Test time (real) =   0.64 sec
+
+The following tests FAILED:
+	  4 - regression_operator_diagnostics (Failed)          operator pagination regression zero-outbound

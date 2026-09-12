@@ -251,9 +251,10 @@ jobusagejson: procedure = .string
   result=_boundscalartext(database,sql,job_id)
   if result="" then return ""
   uncertainty=_boundcount(database,"SELECT count(*) FROM job_items i WHERE i.job_id=?1 AND " || uncertainitem("i.item_id"),job_id)
+  active=_boundcount(database,"SELECT count(*) FROM job_items i WHERE i.job_id=?1 AND i.state IN('running','cancel_requested') AND " || uncertainitem("i.item_id"),job_id)
   incomplete=_boundcount(database,"SELECT count(*) FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1 AND EXISTS(SELECT 1 FROM job_events e WHERE e.attempt_id=a.attempt_id AND e.event_type IN('provider-observed','provider-reconciled') AND CASE WHEN json_valid(e.message) THEN coalesce(json_extract(e.message,'$.usage_complete'),0)=0 ELSE 1 END AND NOT EXISTS(SELECT 1 FROM job_events n WHERE n.attempt_id=e.attempt_id AND n.event_type IN('provider-observed','provider-reconciled') AND n.event_id>e.event_id))",job_id)
-  if uncertainty<0 | incomplete<0 then return ""
-  return substr(result,1,length(result)-1) || ',"uncertain_items":' || uncertainty || ',"incomplete_usage_observations":' || incomplete || '}'
+  if uncertainty<0 | active<0 | incomplete<0 then return ""
+  return substr(result,1,length(result)-1) || ',"uncertain_items":' || uncertainty || ',"active_unsettled_items":' || active || ',"held_uncertain_items":' || (uncertainty-active) || ',"incomplete_usage_observations":' || incomplete || '}'
 
 actualusage: procedure = .int
   arg database = .binary, job_id = .string, kind = .string

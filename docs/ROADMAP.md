@@ -401,3 +401,14 @@ The [continuation record](operator-continuation.md) and [handoff](operator-conti
 track implementation, full regression gate, commit and real-corpus run separately.
 A missing command or incorrect retry rule is unfinished implementation, not
 “complete subject to smoke”. Closure counts must reflect that distinction.
+
+### Live continuation finding — RAG-SMK-001
+
+Active submitted calls were included in aggregate uncertainty, and active-item
+guidance prematurely recommended reconciliation. A failing public regression
+precedes the repair in the existing usage/query owners. Candidate 8 separates
+active unsettled from held unknown outcomes while retaining the old total;
+full QA passed **63/63 in 933.50 seconds**, and its installed CLI/MCP
+confirmation passed. See [the finding](recovery-defects.md#rag-smk-001--p2-active-calls-displayed-as-reconciliation-holds)
+and [current run state](operator-continuation-handoff.md). This is an OPS-003
+operator clarity defect; do not mistake it for five new failed calls.
