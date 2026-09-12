@@ -1078,6 +1078,21 @@ discoverable without modifying the immutable snapshot.
 suppressed counts, the policy, chronological points and signed deltas. With one
 point it reports `baseline-only` and zero deltas rather than inventing a trend.
 
+## Continue interrupted ingestion or maintenance
+
+Use the [complete continuation guide](operator-continuation.md) for diagnosis,
+renewal, retry and coverage. The common path is `job status JOB`, `job progress
+JOB`, then `job continue JOB`. `job items JOB --state dead_letter` includes
+source identity and recovery facts; full plans remain available through paged
+`job plan JOB`. `job list` returns compact metadata.
+
+For explicitly authorized extra allowance, use `job continue JOB --renew NAME`.
+A maintenance period can add `--minutes 60`. Repeat the same NAME after a
+restart; it cannot grant a second allocation or move the deadline. `--prepare`
+records preparation without launching workers. Existing per-task attempts,
+unknown outcomes, cumulative usage and original plans are retained. `--minutes`
+is wall-clock maintenance time, not an ordinary ingestion time-budget edit.
+
 ## Backup and restore
 
 Backups include the SQLite authority, manifest and every published vector

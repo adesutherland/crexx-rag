@@ -400,3 +400,41 @@ completion (UX-04/OPS-002), then the combined public recovery journey.
 `ragproduct` owns command snapshots; `ragcommandutil` owns bounded presentation.
 The new tests preceded each repair. Full local QA passed **59/59 in 758.92
 seconds**; no import cycle was introduced. See [the detailed qualification](connection-effect-previews.md).
+
+## Complete operator continuation follow-up — 12 September
+
+The [operator continuation delivery](operator-continuation.md) composes existing
+owners. `ragallowance` owns effective cumulative allowances and immutable named
+period history. `ragcontinuation` coordinates compatible configuration,
+drained ownership, the existing window/job transitions and retry reconsideration.
+The public adapter only parses/selects the operation and uses the existing
+configured process supervisor.
+
+`ragbacklog` now exposes one retry-facts decision for both inspection and
+execution, including current reviewed attempt ceilings and explicit embedding
+precedence. `ragoperationsquery` owns bounded source/operation progress and
+item recovery explanations; `ragsupervision` reads configured/runtime worker
+facts using `ragworkerdefaults`. `ragusage` retains usage/accounting ownership.
+Schema 16 adds recovery lookup/period indexes and immutable period triggers;
+earlier migrations remain unchanged. Both VM module cohorts and native
+packaging include the new owners.
+
+The [coverage matrix](regression-coverage.md#complete-operator-continuation-follow-up--12-september)
+records the tests added before repairs and the missed historic cases. The
+[handoff](operator-continuation-handoff.md) is the authoritative in-flight
+QA/commit/live-run checkpoint. Original plans, task attempts, receipts,
+reservations and usage are not rewritten to create a completion claim.
+
+Full qualification exposed an additional startup race before worker replacement:
+concurrent WAL acquisition could return SQLITE_BUSY immediately despite the
+configured busy timeout. The deterministic two-VM regression precedes the fix.
+`ragstore` now owns one bounded lock-acquisition helper for both journal startup
+and transaction admission; no transaction body or provider work is retried.
+
+Qualification checkpoint 2026-09-12 21:54 UTC: build 7 passed the full **63/63** suite
+in **848.41 seconds**, plus the scratch-installed continuation/held journey.
+The isolated full-corpus copy rehearsal reconciled both interrupted turns
+without generation calls; provider-run count stayed 20809 and uncertainty
+became zero. Incomplete usage remains a lower bound. The exact hashes and
+logs are in the [handoff](operator-continuation-handoff.md). Actual processing
+master ingestion and 60-minute maintenance are still required live evidence.

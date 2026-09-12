@@ -1,0 +1,15 @@
+options levelg
+import rxfnsb
+import ragstore
+main: procedure = .int
+  arg args=.string[]
+  if args.0<>1 then return 2
+  do i=1 to 100
+    store=.ragstorehandle;error=""
+    status=openragstore(args[1],"readwrite",store,error)
+    if status<>0 then do;say "OPEN_FAIL=" || status || ":" || error;return 2;end
+    status=closeragstore(store,error)
+    if status<>0 then do;say "CLOSE_FAIL=" || status || ":" || error;return 2;end
+  end
+  say "OPEN_CLOSE_OK=100"
+  return 0

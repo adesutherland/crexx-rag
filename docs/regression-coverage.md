@@ -319,3 +319,30 @@ dump remains identical across file edits. Platform
 metadata and policy-file power-loss limits remain explicit in the integration
 register, accepted outside active defect work by the 12 September decision.
 Library, receipt and usage recovery obligations are unchanged.
+
+## Complete operator continuation follow-up — 12 September
+
+The [operator journey](operator-continuation.md) is one delivery, with complete
+QA/live status in the [handoff](operator-continuation-handoff.md). Relevant
+baseline tests passed 6/6 in 127.87 seconds before product changes.
+
+| Acceptance | Reproduction and current coverage |
+| --- | --- |
+| Same-job continuation/renewal | `native_continuation` first failed on unknown `job continue`. Now covers CLI/MCP repeat, conflicting period minutes, immutable original policy/history, renewed maintenance execution and compatible worker-count registration. |
+| Retained holds and ownership | `native_continuation_holds` retains exhausted/uncertain tasks and denies renewal during a live provider response. Prior paid calls, missing coverage and retry requests remain visible. |
+| True historic one-attempt failure | `native_legacy_retry_ceiling` produced zero queued retries, expected five, under a later reviewed three-attempt policy. Equal-ceiling fixtures had missed it. |
+| Explicit embedding ceiling | `native_embedding_retry_policy` reproduced zero queued retries under explicit embedding six versus reasoning one. Both the reviewed policy and dispatcher now use the shared effective ceiling; original paid attempts still count. |
+| Public source/operation progress | `regression_operator_diagnostics` first rejected the missing command. Continuation tests page five sources, reconcile original/new item counts, filter by source/operation and compare CLI/MCP. Malformed historic item input remains inspectable. |
+| Corpus-scale diagnostics | EXPLAIN reproduced one full event scan per item; migration 16 adds the item/event index. On the generation-23208 Scottish copy, status took 0.777 s, progress 0.378 s and five held items 0.187 s. Six public pages later accounted for all 515 holds with no duplicate IDs. |
+| Concurrent journal startup | The second full gate exposed a silent child exit. Isolated repeat 95 captured `enable WAL` / `SQLITE_BUSY`. A controlled exclusive-lock rendezvous then failed on both VMs before repair; `regression_supervision` now requires the actual first BUSY retry followed by successful open. It preserves normal timeouts and strict one-winner reservation checks. |
+| Configured/live worker distinction | A new fixture first expected three configured workers but received zero without a controller event. Status now reads canonical configuration/defaults; the Scottish copy reports eight configured, zero live and an explicit continuation action. |
+
+The pre-WAL focused gate passed **6/6 in 113.35 seconds**. Build 7 then passed
+the WAL/supervision/publication/held gate **4/4 in 115.50 seconds**, the complete
+**63/63 in 848.41 seconds**, and the scratch-installed recovery journey.
+The real remaining-ingestion/60-minute maintenance run is subsequent required
+evidence. The two earlier full failures are retained with their reproductions
+and repairs; no case was disabled.
+[Retained logs](qa/operator-continuation-20260912/) include baseline reds, focused
+results, metadata review and public corpus observations. No outcome is closed
+by a test count alone.

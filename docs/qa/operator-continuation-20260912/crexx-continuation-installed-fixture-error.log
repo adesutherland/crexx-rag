@@ -1,0 +1,10 @@
+CMake Error at cmake/NativeLifecycle.cmake:50 (message):
+  Lifecycle command failed:
+  --access;read;job;progress;job-maintenance:d4ff9a85a380d5042e9707fcaff1986c9ed5a1af53d3ca56a14d676fcd1aaaa5;--operation;embedding;--limit;2;--cursor;
+
+
+  {"schema":"crexx-rag.command-result/1","operation":"job.progress","status":"error","exit_code":2,"exit_name":"usage","message":"option
+  --cursor requires a value","records":[]}
+
+Call Stack (most recent call first):
+  cmake/NativeLifecycle.cmake:330 (run_cli)

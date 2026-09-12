@@ -1,0 +1,141 @@
+-- Reproduction iteration 31
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 32
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 33
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 34
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 35
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 36
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 37
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 38
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 39
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 40
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 41
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 42
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 43
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 44
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 45
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 46
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 47
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 48
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 49
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 50
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 51
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 52
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 53
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 54
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 55
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 56
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 57
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 58
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 59
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 60
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 61
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 62
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 63
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 64
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 65
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 66
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 67
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 68
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 69
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 70
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 71
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 72
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 73
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 74
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 75
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 76
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 77
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 78
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 79
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 80
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 81
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 82
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 83
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 84
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 85
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 86
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 87
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 88
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 89
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 90
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 91
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 92
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 93
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 94
+-- Supervision regression passed on both VMs with optimized code
+-- Reproduction iteration 95
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/SupervisionRegression.cmake:57 (message):
+  RAG-OPS-004 acceptance failed:
+
+  RXBVM concurrent reservation exit=1 left=2 right=0
+
+  : RACE_OPEN_FAIL=enable WAL: database is locked
+  [boundary=-6,sqlite=5,extended=5,operation=exec]
+
+  RACE=0
+
+Call Stack (most recent call first):
+  /private/tmp/reproduce-supervision-race-extended.cmake:12 (include)

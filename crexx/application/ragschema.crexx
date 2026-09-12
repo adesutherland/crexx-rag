@@ -3,7 +3,7 @@ options levelg
 namespace ragschema expose ragschemaversion migrationname migrationchecksum migrationstatements
 
 ragschemaversion: procedure = .int
-  return 15
+  return 16
 
 migrationname: procedure = .string
   arg version = .int
@@ -18,6 +18,7 @@ migrationname: procedure = .string
   if version = 10 then return "durable-maintenance-backlog"
   if version = 11 then return "claim-time-and-source-provenance"
   if version = 12 then return "agent-maintenance-handoff"
+  if version = 16 then return "indexed-recovery-and-allowance-periods"
   if version = 15 then return "reasoned-task-waivers"
   if version = 14 then return "durable-retry-requests"
   if version = 13 then return "embedding-retry-admission"
@@ -26,6 +27,7 @@ migrationname: procedure = .string
 
 migrationchecksum: procedure = .string
   arg version = .int
+  if version = 16 then return "0fb69902fc0e01a37b02fdd48c206a0b3c412cd762cf7b158add6b56ebee39cc"
   if version = 15 then return "4595893c9edfdae7b4e05965c8ae88ec3b0419878e83e918159111827dbe9b33"
   if version = 14 then return "95002606a4552c399870908d7c1c42128c9e3ddde1427a1c10dc2ef0d6d39996"
   if version = 13 then return "9d5236180dd1c7b39c1853658f0ed0b167521f4e1a56c52942af4f1bebf470f9"
@@ -47,6 +49,13 @@ migrationchecksum: procedure = .string
 migrationstatements: procedure = .int
   arg version = .int, expose statements = .string[]
   statements = .string[]
+  if version = 16 then do
+    statements[statements.0 + 1] = "CREATE INDEX job_events_item_type ON job_events(item_id,event_type,attempt_id)"
+    statements[statements.0 + 1] = "CREATE UNIQUE INDEX job_allowance_period_name ON job_events(job_id,json_extract(message,'$.name')) WHERE event_type='allowance-period'"
+    statements[statements.0 + 1] = "CREATE TRIGGER job_allowance_immutable_update BEFORE UPDATE ON job_events WHEN OLD.event_type='allowance-period' BEGIN SELECT RAISE(ABORT,'allowance period history is immutable'); END"
+    statements[statements.0 + 1] = "CREATE TRIGGER job_allowance_immutable_delete BEFORE DELETE ON job_events WHEN OLD.event_type='allowance-period' BEGIN SELECT RAISE(ABORT,'allowance period history is immutable'); END"
+    return statements.0
+  end
   if version = 15 then do
     statements[statements.0 + 1] = "CREATE TABLE maintenance_task_waivers(waiver_id TEXT PRIMARY KEY,task_id TEXT NOT NULL REFERENCES maintenance_tasks(task_id),reason TEXT NOT NULL CHECK(length(reason) BETWEEN 1 AND 256),state TEXT NOT NULL CHECK(state IN('active','reopened')),created_epoch INTEGER NOT NULL,reopened_epoch INTEGER,retry_request_id TEXT REFERENCES retry_requests(request_id),CHECK((state='active' AND reopened_epoch IS NULL AND retry_request_id IS NULL) OR (state='reopened' AND reopened_epoch IS NOT NULL AND retry_request_id IS NOT NULL))) STRICT"
     statements[statements.0 + 1] = "CREATE UNIQUE INDEX maintenance_task_waivers_active ON maintenance_task_waivers(task_id) WHERE state='active'"

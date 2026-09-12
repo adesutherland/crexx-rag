@@ -1,0 +1,23 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start 60: native_continuation
+1/1 Test #60: native_continuation ..............***Failed   15.63 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeLifecycle.cmake:349 (message):
+  Recovery changed retained item/attempt/provider history or usage
+
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+continuation    =  15.63 sec*proc (1 test)
+loopback        =  15.63 sec*proc (1 test)
+native          =  15.63 sec*proc (1 test)
+recovery        =  15.63 sec*proc (1 test)
+regression      =  15.63 sec*proc (1 test)
+
+Total Test time (real) =  15.63 sec
+
+The following tests FAILED:
+	 60 - native_continuation (Failed)                      continuation loopback native recovery regression
+Errors while running CTest

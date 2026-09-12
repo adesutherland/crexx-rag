@@ -308,3 +308,9 @@ Canonical operations and MCP argument contracts have one source owner,
 `ragcommandcatalog`. Tool schemas, argument validation and forwarding are kept
 together; the same catalogue supplies CLI operation recognition and library
 requirements. See [module ownership](docs/architecture.md).
+
+Interrupted processing uses the [operator continuation journey](docs/operator-continuation.md):
+inspect actual source/operation progress, retain retry/receipt history and use
+named allowance periods when explicitly renewing work. The
+[live delivery handoff](docs/operator-continuation-handoff.md) records current
+qualification and the Scottish processing run; it is not a closure claim.

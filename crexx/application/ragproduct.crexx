@@ -12,6 +12,7 @@ import ragcommand
 import ragcommandutil
 import ragconfig
 import ragpolicyfile
+import ragcontinuation
 import ragconfiguration
 import ragembedding
 import ragenrich
@@ -77,6 +78,7 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "job.events" then return jobeventscommand(request)
   if operation = "review.list" | operation = "review.show" then return _repository(request, operation, "reviews")
   if operation = "query.inspect" | operation = "query.search" | operation = "query.evidence" | operation = "query.answer" | operation = "query.trace" | operation = "query.path" | operation = "query.timeline" then return querycommand(request, registry)
+  if operation = "job.progress" then return jobprogresscommand(request)
   if operation = "job.status" then return jobstatuscommand(request)
   if operation = "job.pause" | operation = "job.resume" | operation = "job.cancel" then return _jobcontrol(request)
   if operation = "job.retry" then return _jobretry(request)
@@ -85,7 +87,7 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "maintain.reconcile" then return _workflowreconcile(request)
   if operation = "job.replay" then return _jobreplay(request, registry)
   if operation = "job.reconcile" then return _jobreconcile(request, registry)
-  if operation = "job.run" then return _workerstart(request, registry)
+  if operation = "job.run" | operation="job.continue" then return _workerstart(request, registry)
   if operation = "worker.start" then return _workerstart(request, registry)
   if operation = "worker.run" then return _workerrun(request, registry)
   if operation = "worker.list" | operation = "worker.status" then return _workerread(request)
@@ -865,17 +867,19 @@ _workerstart: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
   operation = request.operation(); error = ""
   if commandhasaccess(request, "control") \= 1 then return commandfailure(operation, 4, "worker start requires control access")
+  is_job=operation="job.run" | operation="job.continue"
   allowed = "count poll-ms max-polls max-items job"
-  if operation = "job.run" then allowed = "count poll-ms max-polls max-items id"
-  if commandworkeroptions(request, allowed, "", error) \= 0 then return commandfailure(operation, 2, error)
+  if is_job then allowed = "count poll-ms max-polls max-items id"
+  if operation="job.continue" then allowed=allowed || " renew minutes prepare"
+  if commandworkeroptions(request, allowed, "prepare", error) \= 0 then return commandfailure(operation, 2, error)
   positionals = request.positionals()
-  if operation \= "job.run" & positionals.0 \= 0 then return commandfailure(operation, 2, "worker start accepts no positional arguments")
+  if is_job=0 & positionals.0 \= 0 then return commandfailure(operation, 2, "worker start accepts no positional arguments")
   if request.config_id() = "" | request.profile_id() = "" then return commandfailure(operation, 2, "worker start requires --config and --profile")
   config_lookup = registry.config(request.config_id()); profile_lookup = registry.profile(request.profile_id())
   if config_lookup.found() \= 1 | profile_lookup.found() \= 1 then return commandfailure(operation, 5, "configuration or profile is not registered")
   configured_count = config_lookup.config().workers().processes(); count = configured_count
   count_text = commandoption(request, "count", error); poll_text = commandoption(request, "poll-ms", error); maximum_text = commandoption(request, "max-polls", error); items_text = commandoption(request, "max-items", error); job_filter = commandoption(request, "job", error)
-  if operation = "job.run" then do
+  if is_job then do
     job_filter = commandid(request,error)
     if error \= "" | job_filter = "" then return commandfailure(operation,2,"job run requires one job id")
   end
@@ -898,23 +902,39 @@ _workerstart: procedure = .ragcommandresult
     maximum_items = items_text as .int
   end
   if count < 1 | count > configured_count | poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | maximum_items < 0 | maximum_items > 1000000 then return commandfailure(operation, 2, "worker start count must be within the configured process ceiling; poll-ms must be 10..60000 and max-polls/max-items 0..1000000")
+  period=commandoption(request,"renew",error);minutes_text=commandoption(request,"minutes",error);prepare=commandoption(request,"prepare",error)
+  minutes=0
+  if period<>"" then if length(period)>128 | pos("00"x,period)>0 then return commandfailure(operation,2,"renewal period must be 1 through 128 characters without NUL")
+  if minutes_text<>"" then do
+    if commandunsigned(minutes_text)<>1 | length(minutes_text)>5 | period="" then return commandfailure(operation,2,"--minutes requires --renew PERIOD and an integer from 1 through 10080")
+    minutes=minutes_text as .int
+    if minutes<1 | minutes>10080 then return commandfailure(operation,2,"maintenance continuation minutes must be 1 through 10080")
+  end
   preflight_store = .ragstorehandle
-  preflight_mode = "readonly"; if operation = "job.run" then preflight_mode = "readwrite"
+  preflight_mode = "readonly"; if is_job then preflight_mode = "readwrite"
   if openragstore(request.library(),preflight_mode,preflight_store,error) \= 0 then return commandopenfailure(operation,error)
   preflight = checkworkerconfiguration(preflight_store,job_filter,config_lookup.config(),profile_lookup.profile(),error)
-  if preflight = 0 & operation = "job.run" then do
+  if preflight = 0 & is_job then do
     pruned = 0; preflight = pruneprocesses(preflight_store,1,pruned,error)
     if preflight = 0 then do
       if sqlreadint(preflight_store.database(),"SELECT count(*) FROM runtime_instances WHERE (job_filter='' OR job_filter=" || sqlquote(job_filter) || ") AND state NOT IN('stopped','failed')") \= 0 then do; preflight = -1; error = "job already has process ownership; use worker status and worker drain"; end
       else do
-        state = sqlreadtext(preflight_store.database(),"SELECT state FROM jobs WHERE job_id=" || sqlquote(job_filter))
-        if state = "paused" then preflight = resumejob(preflight_store,job_filter,error)
-        else if state \= "queued" & state \= "running" then do; preflight = -1; error = "job is terminal; inspect job status and use job retry for reviewed dead letters"; end
+        if operation="job.continue" then preflight=preparecontinuation(preflight_store,job_filter,period,minutes,config_lookup.config(),profile_lookup.profile(),error)
+        else do
+          state = sqlreadtext(preflight_store.database(),"SELECT state FROM jobs WHERE job_id=" || sqlquote(job_filter))
+          if state = "paused" then preflight = resumejob(preflight_store,job_filter,error)
+          else if state \= "queued" & state \= "running" then do; preflight = -1; error = "job is terminal; inspect job status and use job retry for reviewed dead letters"; end
+        end
       end
     end
   end
   ignored = ""; call closeragstore preflight_store,ignored
   if preflight \= 0 then return commandfailure(operation,6,error)
+  if prepare="true" then do
+    fields=.ragresultfield[];fields[1]=.ragresultfield("job_id","string",job_filter);fields[2]=.ragresultfield("period","string",period);fields[3]=.ragresultfield("provider_calls","integer",0)
+    records=.ragresultrecord[];records[1]=.ragresultrecord("job-continuation",fields)
+    return .ragcommandresult(operation,"ok",0,"existing job prepared; job run starts its configured workers; holds and history retained",records)
+  end
   started = .ragprocessstartresult
   tracer = .ragtracer(request.progress(), request.format()); call tracer.emit("controller", "start", "", "workers=" || count)
   status = startworkerprocesses(request.library(), count, poll_milliseconds, maximum_polls, job_filter, request.config_id(), request.profile_id(), request.config_file(), request.progress(), request.format(), started, error, maximum_items, config_lookup.config().workers().max_restarts(), config_lookup.config().workers().restart_backoff_ms(), config_lookup.config().workers().restart_window_seconds())

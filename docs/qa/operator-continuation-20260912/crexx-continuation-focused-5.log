@@ -1,0 +1,29 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start 14: native_supervision
+1/6 Test #14: native_supervision ...............   Passed   61.95 sec
+    Start 58: regression_lifecycle
+2/6 Test #58: regression_lifecycle .............   Passed    2.68 sec
+    Start 60: native_continuation
+3/6 Test #60: native_continuation ..............   Passed   11.04 sec
+    Start 61: native_legacy_retry_ceiling
+4/6 Test #61: native_legacy_retry_ceiling ......   Passed   10.65 sec
+    Start 62: native_continuation_holds
+5/6 Test #62: native_continuation_holds ........   Passed   16.21 sec
+    Start 63: native_embedding_retry_policy
+6/6 Test #63: native_embedding_retry_policy ....   Passed   10.81 sec
+
+100% tests passed, 0 tests failed out of 6
+
+Label Time Summary:
+RAG-OPS-002      =   2.68 sec*proc (1 test)
+accounting       =   2.68 sec*proc (1 test)
+continuation     =  27.25 sec*proc (2 tests)
+lifecycle        =  21.46 sec*proc (2 tests)
+loopback         =  48.71 sec*proc (4 tests)
+native           = 110.66 sec*proc (5 tests)
+recovery         = 110.66 sec*proc (5 tests)
+regression       = 113.34 sec*proc (6 tests)
+worker           =  64.64 sec*proc (2 tests)
+zero-outbound    =  64.64 sec*proc (2 tests)
+
+Total Test time (real) = 113.35 sec

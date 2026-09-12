@@ -1,7 +1,8 @@
 options levelg
 
-namespace ragoperationsquery expose readtaskpage operatordiagnostics jobstatuscommand jobplancommand jobeventscommand taskinventorycommand
+namespace ragoperationsquery expose jobprogresscommand readtaskpage operatordiagnostics jobstatuscommand jobplancommand jobeventscommand taskinventorycommand
 
+import ragallowance
 import ragbacklog
 import ragjob
 import ragwork
@@ -141,6 +142,11 @@ operatordiagnostics: procedure = .ragcommandresult
     row_id="";detail=""
     if step\=100 | sqlitecolumntext(prepared,0,row_id)\=0 | sqlitecolumntext(prepared,1,detail)\=0 then do;error="cannot read operator page";leave;end
     if records.0=limit then do;next_cursor=previous;leave;end
+    if operation="job.items" then do
+      recovery=_itemrecovery(database,row_id)
+      if recovery="" then do;error="cannot inspect item recovery";leave;end
+      detail=sqlreadtext(database,"SELECT json_set(" || sqlquote(detail) || ",'$.recovery',json(" || sqlquote(recovery) || "))")
+    end
     if row_id="" | length(row_id)>512 | length(detail)>65535 then do;error="operator page record exceeds its bound";leave;end
     fields=.ragresultfield[];fields[1]=.ragresultfield("id","string",row_id);fields[2]=.ragresultfield("detail","string",detail)
     fields[3]=.ragresultfield("generation","integer",view.generation())
@@ -195,6 +201,7 @@ jobstatuscommand: procedure = .ragcommandresult
   usage=jobusagejson(view.database(),job_id,observed,seconds)
   interval=jobintervaljson(view.database(),job_id,observed,seconds)
   if usage="" | interval="" then do;error="cannot read job usage or observation interval";read_status=-1;end
+  allowance=joballowancejson(view.database(),job_id)
   ignored = ""; close_status = closereadsnapshot(view, ignored)
   if read_status = -2 then return commandfailure(operation, 5, "job was not found")
   if read_status \= 0 | close_status \= 0 then return commandfailure(operation, 7, error)
@@ -214,7 +221,7 @@ jobstatuscommand: procedure = .ragcommandresult
   fields[13] = .ragresultfield("retry_pending", "integer", status.retry_pending())
   fields[14] = .ragresultfield("retry_reason", "string", status.retry_reason())
   recovery = .jsondocument(supervision)
-  names = "configured_workers live_workers window_seconds max_restarts recent_replacements next_eligible_epoch"
+  names = "configured_workers live_workers requested_workers window_seconds max_restarts recent_replacements remaining_replacements next_eligible_epoch heartbeat_age_seconds"
   do i = 1 to words(names)
     name = word(names,i); value = 0
     ignored = recovery.node_int(recovery.member(recovery.root(),name),value)
@@ -222,9 +229,15 @@ jobstatuscommand: procedure = .ragcommandresult
   end
   reason = ""; ignored = recovery.node_string(recovery.member(recovery.root(),"waiting_reason"),reason)
   fields[fields.0+1] = .ragresultfield("worker_waiting_reason","string",reason)
+  names="controller_id controller_state"
+  do i=1 to words(names)
+    name=word(names,i);text="";ignored=recovery.node_string(recovery.member(recovery.root(),name),text)
+    fields[fields.0+1]=.ragresultfield("worker_" || name,"string",text)
+  end
   fields[fields.0+1]=.ragresultfield("item_limit","integer",status.item_limit())
+  fields[fields.0+1]=.ragresultfield("allowance","string",allowance)
   usage_document=.jsondocument(usage);interval_document=.jsondocument(interval)
-  names="recorded_provider_runs recorded_input_tokens recorded_output_tokens recorded_cost_microunits unpriced_runs successful_provider_runs failed_provider_runs other_provider_runs interval_provider_runs interval_successful_runs timestamp_unknown_runs uncertain_items incomplete_usage_observations"
+  names="recorded_provider_runs recorded_provider_time_ms recorded_input_tokens recorded_output_tokens recorded_cost_microunits unpriced_runs successful_provider_runs failed_provider_runs other_provider_runs interval_provider_runs interval_successful_runs timestamp_unknown_runs uncertain_items incomplete_usage_observations"
   do i=1 to words(names)
     name=word(names,i);value=0;ignored=usage_document.node_int(usage_document.member(usage_document.root(),name),value)
     fields[fields.0+1]=.ragresultfield(name,"integer",value)
@@ -348,3 +361,47 @@ taskinventorycommand: procedure = .ragcommandresult
   fields[3]=.ragresultfield("generation","integer",generation); fields[4]=.ragresultfield("scope","string",scope); fields[5]=.ragresultfield("kind","string",kind)
   records[records.0+1]=.ragresultrecord("page",fields)
   return .ragcommandresult(operation,"ok",0,"paged evidence inventory; current scope is exploration, stored scope is the task packet",records)
+
+/* Source attribution is the immutable input chunk. Catalogue-wide maintenance
+ * questions have no single source and are labelled explicitly. Each item belongs
+ * to exactly one group; deferred is a partition of queued, not another attempt. */
+jobprogresscommand: procedure = .ragcommandresult
+  arg request=.ragcommandrequest
+  operation=request.operation();error=""
+  if commandhasaccess(request,"read")<>1 then return commandfailure(operation,4,"job progress requires read access")
+  if commandoptions(request,"id source operation cursor limit",error)<>0 then return commandfailure(operation,2,error)
+  id=commandid(request,error);source=commandoption(request,"source",error);kind=commandoption(request,"operation",error);cursor=commandoption(request,"cursor",error);limit_text=commandoption(request,"limit",error)
+  if error<>"" | id="" then return commandfailure(operation,2,"job progress requires one job id")
+  if limit_text="" then limit_text="50"
+  if commandunsigned(limit_text)<>1 | length(limit_text)>3 then return commandfailure(operation,2,"progress limit must be 1 through 100")
+  limit=limit_text as .int
+  if limit<1 | limit>100 | length(source)>512 | length(kind)>128 | length(cursor)>1024 | pos("00"x,id || source || kind || cursor)>0 then return commandfailure(operation,2,"invalid bounded progress filters")
+  view=.ragreadsnapshot
+  if beginreadsnapshot(request.library(),view,error)<>0 then return commandopenfailure(operation,error)
+  database=view.database()
+  if _jobexists(database,id,error)<>1 then do;ignored="";call closereadsnapshot view,ignored;return commandfailure(operation,5,"job was not found");end
+  sql="WITH items AS (SELECT i.*,coalesce(s.source_id,'') AS source_id,coalesce(s.observed_title,'Library or unresolved source') AS source_title FROM job_items i LEFT JOIN revision_chunks c ON c.revision_chunk_id=json_extract(CASE WHEN json_valid(i.input_json) THEN i.input_json ELSE '{}' END,'$.revision_chunk_id') LEFT JOIN source_revisions v ON v.revision_id=c.revision_id LEFT JOIN sources s ON s.source_id=v.source_id WHERE i.job_id=" || sqlquote(id) || "), groups AS (SELECT item_type||':'||source_id AS page_key,item_type,source_id,source_title,count(*) AS total,sum(state='processed') AS processed,sum(state='skipped') AS skipped,sum(state='queued' AND coalesce(retry_at,0)<=unixepoch()) AS queued,sum(state='queued' AND retry_at>unixepoch()) AS deferred,sum(state IN('running','cancel_requested')) AS running,sum(state='dead_letter') AS dead_letter,sum(state='cancelled') AS cancelled FROM items WHERE (" || sqlquote(source) || "='' OR source_id=" || sqlquote(source) || ") AND (" || sqlquote(kind) || "='' OR item_type=" || sqlquote(kind) || ") GROUP BY item_type,source_id,source_title) SELECT page_key,json_object('operation',item_type,'source_id',source_id,'source_title',source_title,'total',total,'processed',processed,'skipped',skipped,'queued',queued,'deferred',deferred,'running',running,'dead_letter',dead_letter,'cancelled',cancelled,'denominator','materialized job items; queued excludes deferred; provider attempts and corpus coverage are separate') FROM groups WHERE page_key>" || sqlquote(cursor) || " ORDER BY page_key LIMIT " || (limit+1)
+  prepared=.binary;records=.ragresultrecord[];previous="";next_cursor=""
+  if sqliteprepare(database,sql,prepared)<>0 then error="cannot prepare job progress: " || sqliteerrordetail()
+  do while error=""
+    step=sqlitestep(prepared);if step=101 then leave
+    row_id="";detail=""
+    if step<>100 | sqlitecolumntext(prepared,0,row_id)<>0 | sqlitecolumntext(prepared,1,detail)<>0 then do;error="cannot read job progress";leave;end
+    if records.0=limit then do;next_cursor=previous;leave;end
+    fields=.ragresultfield[];fields[1]=.ragresultfield("id","string",row_id);fields[2]=.ragresultfield("detail","string",detail);fields[3]=.ragresultfield("generation","integer",view.generation())
+    records[records.0+1]=.ragresultrecord("job-progress",fields);previous=row_id
+  end
+  call sqlitefinalize prepared
+  ignored="";closed=closereadsnapshot(view,ignored)
+  if error<>"" | closed<>0 then return commandfailure(operation,7,error || ignored)
+  call appendresultpage records,next_cursor,limit
+  return .ragcommandresult(operation,"ok",0,"actual job items by operation and source; one consistent snapshot",records)
+
+_itemrecovery: procedure = .string
+  arg database=.binary,item_id=.string
+  selector=" WHERE i.item_id=" || sqlquote(item_id)
+  task=sqlreadtext(database,"SELECT task_id FROM maintenance_task_items WHERE item_id=" || sqlquote(item_id))
+  facts="{}";request=retryrequestjson(database,task,item_id)
+  if request="" then request="null"
+  if task<>"" then facts=taskretryfacts(database,task,"")
+  return sqlreadtext(database,"SELECT json_object('source_id',s.source_id,'source_title',s.observed_title,'revision_chunk_id',c.revision_chunk_id,'task_policy',json(" || sqlquote(facts) || "),'retry_request',json(" || sqlquote(request) || "),'uncertain_outcome',CASE WHEN " || uncertainitem("i.item_id") || " THEN 1 ELSE 0 END,'last_attempt_reason',(SELECT validation_state FROM attempts a WHERE a.item_id=i.item_id ORDER BY a.fence DESC LIMIT 1),'original_attempt_limit',(SELECT json_extract(message,'$.maximum_attempts') FROM job_events WHERE job_id=i.job_id AND event_type='budget-policy' ORDER BY event_id DESC LIMIT 1),'next_action',CASE WHEN " || uncertainitem("i.item_id") || " THEN 'job reconcile JOB --item ITEM; inspect first; apply only an observed terminal receipt' WHEN i.state IN('processed','skipped') THEN 'complete; no retry call needed' WHEN i.state IN('running','cancel_requested') THEN 'worker status; drain before changing ownership' WHEN i.state='queued' AND i.retry_at>unixepoch() THEN 'wait until retry_at; inspect provider status' WHEN i.state='queued' THEN 'job continue JOB; retain the current allowance' WHEN " || sqlquote(task) || "<>'' THEN 'maintain inspect TASK; maintain retry TASK --reason REASON retains an explicit request' ELSE 'job retry JOB --item ITEM --reason REASON; job continue JOB; inspect any retained hold' END) FROM job_items i LEFT JOIN revision_chunks c ON c.revision_chunk_id=json_extract(CASE WHEN json_valid(i.input_json) THEN i.input_json ELSE '{}' END,'$.revision_chunk_id') LEFT JOIN source_revisions v ON v.revision_id=c.revision_id LEFT JOIN sources s ON s.source_id=v.source_id" || selector)

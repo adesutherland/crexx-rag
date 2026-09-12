@@ -20,6 +20,9 @@ Prerequisites: `diagnose` access for verification/provider diagnostics and
    substituted with library or user content.
 4. Discover jobs with `rag_job_list`, comparing creation times rather than IDs.
    Read `rag_job_status` with optional `seconds` (1–86400, default 300).
+   Use `rag_job_progress` for actual source/operation groups; queued excludes
+   deferred and each item belongs to one group. Inspect the status allowance
+   object separately from recorded usage and reservations.
    `planned_total` counts actual items; `item_limit` is the separate allowance.
    Report accepted item throughput and correction completions separately from
    provider attempts, recorded usage, incomplete usage and uncertain outcomes.

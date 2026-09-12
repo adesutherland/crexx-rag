@@ -1,0 +1,20 @@
+-- Supervision regression passed on both VMs with optimized code
+Warning in openclose-race.crexx @ 2:8 - #UNUSED_IMPORT: Import is recognised but not used., "rxfnsb"
+1 warning(s) in source file
+-- RXVME result=0 OPEN_CLOSE_OK=100
+OPEN_CLOSE_OK=100
+OPEN_CLOSE_OK=100
+OPEN_CLOSE_OK=100
+OPEN_CLOSE_OK=100
+OPEN_CLOSE_OK=100
+OPEN_CLOSE_OK=100
+OPEN_CLOSE_OK=100
+
+-- RXBVM result=0 OPEN_CLOSE_OK=100
+OPEN_CLOSE_OK=100
+OPEN_CLOSE_OK=100
+OPEN_CLOSE_OK=100
+OPEN_CLOSE_OK=100
+OPEN_CLOSE_OK=100
+OPEN_CLOSE_OK=100
+OPEN_CLOSE_OK=100

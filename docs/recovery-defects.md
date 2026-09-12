@@ -4,7 +4,24 @@ Start with the [consolidated roadmap](ROADMAP.md) for cross-project priorities,
 current status and related query, configuration and agent findings. This file
 retains the complete operational requirements and dated incident evidence.
 
-## Current local implementation — 12 September 2026
+## Current continuation delivery — 12 September 2026
+
+The authorized [complete operator journey](operator-continuation.md) is now in
+full QA. It combines OPS-001/002/003/005 instead of treating a retry button as
+complete recovery. New failing reproductions exposed the old one-attempt
+ceiling veto, a separate embedding/reasoning ceiling conflict, unindexed
+uncertainty reads and configured-worker reporting without a controller event.
+Named continuation, shared retry facts and bounded progress are implemented.
+The [coverage matrix](regression-coverage.md#complete-operator-continuation-follow-up--12-september)
+and [persistent handoff](operator-continuation-handoff.md) retain current evidence.
+The master has not been changed and the requested hosted run has not started.
+
+The incident accounts below preserve the original requirements and dated
+measurements. Their statements that an old run is underway, or that a now
+implemented command is missing, describe that incident, not current execution.
+Current closure is recorded in the consolidated roadmap and continuation record.
+
+## Previous local implementation — 12 September 2026
 
 The [public recovery follow-up](public-recovery-journey.md) adds reasoned
 waiver/reopen controls, consistent status/usage/interval observations and old
@@ -657,3 +674,36 @@ and `/Users/adrian/testrag/durable-backlog-20260906/full-test-final.log`.
 The live library and paused automation are unchanged. Broad hosted maintenance
 and the historical top-5,000 test remain unqualified; this local closure does
 not close the separate staged full-corpus replacement workflow in RAG-REC-001.
+
+## Complete operator continuation follow-up — 12 September
+
+The [operator outcome](operator-continuation.md) is being implemented and
+qualified as one delivery. The [persistent handoff](operator-continuation-handoff.md)
+records current state and evidence; no broader OPS item is closed by this note.
+The baseline relevant cases passed 6/6 in 127.87 seconds. New tests first
+reproduced missing continuation/progress and the true one-attempt legacy retry
+failure. The latter had zero queued retries under a later three-attempt policy;
+previous equal-ceiling fixtures did not cover it. A query-plan reproduction also
+found a full event scan for each status item. Tests cover named period identity,
+historic usage, compatible worker-count registration and CLI/MCP parity.
+Automated completion, exact-artifact corpus qualification and the requested
+real ingestion plus 60-minute maintenance evidence are recorded separately.
+
+### Continuation qualification: concurrent WAL acquisition
+
+The second full continuation gate exposed one early worker-open failure. The
+95th isolated repetition captured SQLITE_BUSY at `enable WAL`, before any
+replacement reservation. A separate exclusive-lock rendezvous then reproduced
+failure on both VMs. `ragstore` now shares the existing bounded acquisition retry
+between WAL startup and BEGIN IMMEDIATE; transaction bodies and provider calls
+are excluded. This is an OPS-001/004 recovery fix. Its final gate remains in the
+[handoff](operator-continuation-handoff.md); an earlier successful repeat was not
+accepted as proof that the race was harmless.
+
+Qualification checkpoint 2026-09-12 21:54 UTC: build 7 passed the full **63/63** suite
+in **848.41 seconds**, plus the scratch-installed continuation/held journey.
+The isolated full-corpus copy rehearsal reconciled both interrupted turns
+without generation calls; provider-run count stayed 20809 and uncertainty
+became zero. Incomplete usage remains a lower bound. The exact hashes and
+logs are in the [handoff](operator-continuation-handoff.md). Actual processing
+master ingestion and 60-minute maintenance are still required live evidence.

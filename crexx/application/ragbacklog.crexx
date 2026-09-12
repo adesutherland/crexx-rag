@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragbacklog expose waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh
+namespace ragbacklog expose taskretryfacts continuebacklogwindow waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh
 
 import rxfnsb
 import rxjson
@@ -8,6 +8,7 @@ import rxhash
 import rxsqlite
 import ragconfig
 import ragprofile
+import ragallowance
 import ragcanonical
 import ragenrich
 import ragresolutioncontract
@@ -156,7 +157,7 @@ backlogpolicy: procedure = .string
   end
   if embedding_only = 1 then embedding_json = embedding_json || '"embeddings_only":1,"embedding_attempts":' || embedding_provider.max_attempts() || ','
   identity = _hash(canonicalprofile(profile) || "00"x || role.system_prompt() || "00"x || policy.resolution_prompt() || "00"x || "durable-resolution-v1")
-  return embedding_json || '"timing":' || jsonquote(timing_json) || ',"provider_time_budget_ms":' || policy.provider_time_minutes() * 60000 || ',"mode":' || jsonquote(policy.mode()) || ',"window_seconds":' || seconds || ',"automatic_actions":' || jsonquote(policy.automatic_actions()) || ',"maximum_impact":' || policy.maximum_impact() || ',"maximum_attempts":' || policy.maximum_attempts() || ',"retry_seconds":' || policy.retry_seconds() || ',"maximum_evidence_bytes":' || policy.maximum_evidence_bytes() || ',"sparse_max_degree":' || policy.sparse_max_degree() || ',"query_gap_min_occurrences":' || policy.query_gap_min_occurrences() || ',"batch_items":' || policy.batch_items() || ',"resolution_prompt":' || jsonquote(policy.resolution_prompt()) || ',"knowledge_policy":' || jsonquote(identity) || ',"provider_id":' || jsonquote(provider.provider_id()) || ',"model":' || jsonquote(provider.model()) || ',"charging_basis":' || jsonquote(provider.charging_basis()) || ',"privacy":' || jsonquote(privacy) || ',"profile_id":' || jsonquote(profile.profile_id()) || ',"discovery_context":' || jsonquote(discovery_context) || ',"input_tokens":' || input_cap || ',"output_tokens":' || output_cap || ',"cost_microunits":' || cost_cap || ',"time_ms":' || time_cap || ',"inflight":' || inflight || ',"item_limit":' || budget.item_limit() || ',"model_calls":' || budget.model_calls() || ',"input_budget":' || budget.input_tokens() || ',"output_budget":' || budget.output_tokens() || ',"cost_budget":' || budget.cost_microunits() || ',"codex_turns":' || budget.codex_turns() || '}'
+  return embedding_json || '"timing":' || jsonquote(timing_json) || ',"provider_time_budget_ms":' || policy.provider_time_minutes() * 60000 || ',"mode":' || jsonquote(policy.mode()) || ',"window_seconds":' || seconds || ',"automatic_actions":' || jsonquote(policy.automatic_actions()) || ',"maximum_impact":' || policy.maximum_impact() || ',"maximum_attempts":' || _configuredattemptlimit(policy.maximum_attempts(),embedding_only,embedding_provider.max_attempts()) || ',"retry_seconds":' || policy.retry_seconds() || ',"maximum_evidence_bytes":' || policy.maximum_evidence_bytes() || ',"sparse_max_degree":' || policy.sparse_max_degree() || ',"query_gap_min_occurrences":' || policy.query_gap_min_occurrences() || ',"batch_items":' || policy.batch_items() || ',"resolution_prompt":' || jsonquote(policy.resolution_prompt()) || ',"knowledge_policy":' || jsonquote(identity) || ',"provider_id":' || jsonquote(provider.provider_id()) || ',"model":' || jsonquote(provider.model()) || ',"charging_basis":' || jsonquote(provider.charging_basis()) || ',"privacy":' || jsonquote(privacy) || ',"profile_id":' || jsonquote(profile.profile_id()) || ',"discovery_context":' || jsonquote(discovery_context) || ',"input_tokens":' || input_cap || ',"output_tokens":' || output_cap || ',"cost_microunits":' || cost_cap || ',"time_ms":' || time_cap || ',"inflight":' || inflight || ',"item_limit":' || budget.item_limit() || ',"model_calls":' || budget.model_calls() || ',"input_budget":' || budget.input_tokens() || ',"output_budget":' || budget.output_tokens() || ',"cost_budget":' || budget.cost_microunits() || ',"codex_turns":' || budget.codex_turns() || '}'
 
 startbacklogwindow: procedure = .int
   arg store = .ragstorehandle, census = .ragmaintenancecensus, snapshot_id = .string, plan_digest = .string, policy_json = .string, expose run_id = .string, expose job_id = .string, expose items = .int, expose error = .string
@@ -185,7 +186,7 @@ startbacklogwindow: procedure = .int
   input_cap = _n(policy,"input_tokens"); if input_cap < _n(policy,"embedding_input") then input_cap = _n(policy,"embedding_input")
   cost_cap = _n(policy,"cost_microunits"); if cost_cap < _n(policy,"embedding_cost") then cost_cap = _n(policy,"embedding_cost")
   time_cap = _n(policy,"time_ms"); if time_cap < _n(policy,"embedding_time") then time_cap = _n(policy,"embedding_time")
-  budget_json = '{"time_budget_ms":' || _providertimebudget(policy) || ',"maximum_call_input_tokens":' || input_cap || ',"maximum_call_output_tokens":' || _n(policy,"output_tokens") || ',"maximum_call_cost":' || cost_cap || ',"maximum_call_time_ms":' || time_cap || ',"maximum_inflight_calls":' || _n(policy,"inflight") || ',"maximum_attempts":' || _n(policy,"maximum_attempts") || '}'
+  budget_json = '{"time_budget_ms":' || _providertimebudget(policy) || ',"maximum_call_input_tokens":' || input_cap || ',"maximum_call_output_tokens":' || _n(policy,"output_tokens") || ',"maximum_call_cost":' || cost_cap || ',"maximum_call_time_ms":' || time_cap || ',"maximum_inflight_calls":' || _n(policy,"inflight") || ',"maximum_attempts":' || _attemptlimit(policy) || '}'
   if sqliteexec(database, "INSERT INTO job_events(job_id,event_type,message,occurred_at) VALUES(" || _q(job_id) || ",'budget-policy'," || _q(budget_json) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))") \= 0 then return _rollback(database, "cannot persist maintenance budget policy", error)
   selection = .jsondocument(_s(policy,"enrichment"))
   if selection.valid() = 1 then do
@@ -241,18 +242,20 @@ _reconsidertaskretries: procedure = .int
   end
   return 0
 
-_updatetaskretry: procedure = .int
-  arg database = .binary, task_id = .string, request_id = .string, job_id = .string, expose error = .string
+taskretryfacts: procedure = .string
+  arg database = .binary, task_id = .string, job_id = .string
+  error=""
   task = .jsondocument(_text(database,"SELECT json_object('state',state,'kind',kind,'policy',policy_fingerprint,'capability',required_capability,'delayed',not_before_epoch>unixepoch()) FROM maintenance_tasks WHERE task_id=" || _q(task_id)))
-  if task.valid() \= 1 then do; error = "cannot read retry target"; return -1; end
+  if task.valid() \= 1 then do; error = "cannot read retry target"; return ""; end
   linked = " FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id JOIN maintenance_windows w ON w.window_id=m.window_id WHERE m.task_id=" || _q(task_id)
   owned = _number(database,"SELECT count(*)" || linked || " AND (i.state IN('running','cancel_requested') OR (i.state='queued' AND w.state='active'))")
   uncertain = _number(database,"SELECT count(*)" || linked || " AND " || uncertainitem("i.item_id"))
   review = _number(database,"SELECT count(*) FROM reviews WHERE subject_id=" || _q(task_id) || " AND state='pending'")
   if _s(task,"state") = "review" | _s(task,"capability") \= "standard" then review = 1
-  /* Keep the smallest explicit ceiling in this task's existing windows. A
-   * new reviewed window grants budget, never erases prior paid attempts. */
-  ceiling = _number(database,"SELECT coalesce(min(json_extract(w.policy_json,'$.maximum_attempts')),0)" || linked)
+  /* Read the latest recorded window until a compatible active policy supplies
+   * the currently authorised cumulative ceiling. Historic calls still count. */
+  historic_policy=.jsondocument(_text(database,"SELECT w.policy_json" || linked || " ORDER BY w.created_epoch DESC,m.rowid DESC LIMIT 1"))
+  ceiling=_attemptlimit(historic_policy)
   spent = _number(database,"SELECT " || _taskcallcount(_q(task_id)))
   recoverable = _number(database,"SELECT " || _recoverablecount(_q(task_id)))
   if recoverable > 0 & uncertain = 0 then spent = 0
@@ -264,12 +267,19 @@ _updatetaskretry: procedure = .int
     hold = "policy-mismatch"
     if _s(task,"policy") = _s(active_policy,"knowledge_policy") & (_n(active_policy,"embeddings_only") = 0 | _s(task,"kind") = "embedding-repair:" || _s(active_policy,"embedding_profile")) then do
       hold = ""
-      if ceiling = 0 then ceiling = _n(active_policy,"maximum_attempts")
-      else ceiling = min(ceiling,_n(active_policy,"maximum_attempts"))
+      ceiling = _attemptlimit(active_policy)
       if _s(active_policy,"mode") = "manual" then review = 1
     end
   end
   disposition = retrydisposition(_s(task,"state"),owned,uncertain,review,ceiling,spent,_n(task,"delayed"),hold)
+  if taskwaiveractive(database,task_id)>0 then disposition="waived"
+  return '{"state":' || jsonquote(_s(task,"state")) || ',"disposition":' || jsonquote(disposition) || ',"attempt_limit":' || ceiling || ',"recorded_calls":' || _number(database,"SELECT " || _taskcallcount(_q(task_id))) || ',"reusable_output":' || recoverable || ',"uncertain_items":' || uncertain || ',"review_required":' || review || '}'
+
+_updatetaskretry: procedure = .int
+  arg database = .binary, task_id = .string, request_id = .string, job_id = .string, expose error = .string
+  facts=.jsondocument(taskretryfacts(database,task_id,job_id))
+  if facts.valid()<>1 then do;error="cannot inspect task retry eligibility";return -1;end
+  disposition=_s(facts,"disposition")
   if disposition = "runnable" | disposition = "retry-delay" then do
     if sqliteexec(database,"UPDATE maintenance_tasks SET state='pending',updated_epoch=unixepoch() WHERE task_id=" || _q(task_id) || " AND state IN('failed','unresolved')") \= 0 then do; error = "cannot reconsider requested task"; return -1; end
   end
@@ -751,7 +761,7 @@ _reconcileoutcomes: procedure = .int
   sql = sql || _taskscope(policy)
   if job_id \= "" then sql = sql || " AND task_id IN(SELECT m.task_id FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE i.job_id=" || _q(job_id) || ")"
   if sqliteexec(database,sql) \= 0 then do; error = "cannot reconcile backlog task outcomes"; return -1; end
-  sql = "UPDATE maintenance_tasks SET state='failed',last_error='bounded attempt limit reached',updated_epoch=unixepoch() WHERE state='pending' AND " || _taskcallcount("maintenance_tasks.task_id") || ">=" || _n(policy,"maximum_attempts") || " AND " || _recoverablecount("maintenance_tasks.task_id") || "=0"
+  sql = "UPDATE maintenance_tasks SET state='failed',last_error='bounded attempt limit reached',updated_epoch=unixepoch() WHERE state='pending' AND " || _taskcallcount("maintenance_tasks.task_id") || ">=" || _attemptlimit(policy) || " AND " || _recoverablecount("maintenance_tasks.task_id") || "=0"
   sql = sql || _taskscope(policy)
   if job_id \= "" then sql = sql || " AND task_id IN(SELECT m.task_id FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE i.job_id=" || _q(job_id) || ")"
   if sqliteexec(database,sql) \= 0 then do; error = "cannot reconcile bounded backlog attempts"; return -1; end
@@ -797,7 +807,7 @@ _dispatch: procedure = .int
   if remaining > _n(policy,"batch_items") then remaining = _n(policy,"batch_items")
   if remaining < 1 then return 0
   prepared = .binary; ids = .string[]
-  sql = "SELECT task_id FROM maintenance_tasks WHERE state='pending' AND required_capability='standard' AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending')" || _taskscope(policy) || _taskdispatchsafe() || " AND not_before_epoch<=unixepoch() AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy")) || " AND (" || _taskcallcount("maintenance_tasks.task_id") || "<" || _n(policy,"maximum_attempts") || " OR " || _recoverablecount("maintenance_tasks.task_id") || ">0) ORDER BY min(1000000,priority+(unixepoch()-created_epoch)/60) DESC,created_epoch,task_id LIMIT " || remaining
+  sql = "SELECT task_id FROM maintenance_tasks WHERE state='pending' AND required_capability='standard' AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending')" || _taskscope(policy) || _taskdispatchsafe() || " AND not_before_epoch<=unixepoch() AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy")) || " AND (" || _taskcallcount("maintenance_tasks.task_id") || "<" || _attemptlimit(policy) || " OR " || _recoverablecount("maintenance_tasks.task_id") || ">0) ORDER BY min(1000000,priority+(unixepoch()-created_epoch)/60) DESC,created_epoch,task_id LIMIT " || remaining
   if sqliteprepare(database,sql,prepared) \= 0 then do; error = "cannot select eligible maintenance tasks"; return -1; end
   do forever
     step = sqlitestep(prepared); if step = 101 then leave
@@ -1644,3 +1654,40 @@ enrichmentpolicy: procedure = .string
   items = count; if items > _n(policy,"item_limit") then items = _n(policy,"item_limit")
   turns = calls; if turns > _n(policy,"codex_turns") then turns = _n(policy,"codex_turns")
   return _text(database,"SELECT json_set(" || _q(base) || ",'$.enrichment'," || _q(census.canonical()) || ",'$.knowledge_policy'," || _q(_hash(_s(policy,"knowledge_policy") || census.digest() || "provenance-assessment/1")) || ",'$.maximum_attempts',1,'$.model_calls'," || calls || ",'$.item_limit'," || items || ",'$.codex_turns'," || turns || ")")
+
+/* Caller owns the continuation transaction. Reopen this existing window without
+ * a new census or task identities. A repeated period never moves its deadline. */
+continuebacklogwindow: procedure = .int
+  arg database=.binary,job_id=.string,renewed=.int,minutes=.int,expose error=.string
+  error="";selector=" WHERE job_id=" || _q(job_id)
+  raw=_text(database,"SELECT policy_json FROM maintenance_windows" || selector)
+  if raw="" then return 0
+  if _number(database,"SELECT count(*) FROM maintenance_windows WHERE job_id<>" || _q(job_id) || " AND state='active'")<>0 then do;error="another maintenance window is active; inspect maintain status and drain its workers first";return -1;end
+  deadline=_number(database,"SELECT deadline_epoch FROM maintenance_windows" || selector)
+  if renewed=1 then do
+    policy=.jsondocument(raw);seconds=_n(policy,"window_seconds")
+    if minutes>0 then seconds=minutes*60
+    timing=""
+    if resolvemaintenancetime(database,"","","",seconds,timing,error)<>0 then return -1
+    deadline=_number(database,"SELECT json_extract(message,'$.deadline_epoch') FROM job_events WHERE job_id=" || _q(job_id) || " AND event_type='allowance-period' ORDER BY event_id DESC LIMIT 1")
+    timing=_text(database,"SELECT json_set(" || _q(timing) || ",'$.deadline_epoch'," || deadline || ",'$.deadline_utc',strftime('%Y-%m-%dT%H:%M:%SZ'," || deadline || ",'unixepoch'),'$.deadline_local',datetime(" || deadline || ",'unixepoch','localtime'))")
+    allowance=joballowancejson(database,job_id)
+    raw=_text(database,"SELECT json_set(" || _q(raw) || ",'$.window_seconds'," || seconds || ",'$.timing'," || _q(timing) || ", '$.item_limit',json_extract(" || _q(allowance) || ",'$.item_limit'),'$.model_calls',json_extract(" || _q(allowance) || ",'$.model_calls'),'$.input_budget',json_extract(" || _q(allowance) || ",'$.input_tokens'),'$.output_budget',json_extract(" || _q(allowance) || ",'$.output_tokens'),'$.cost_budget',json_extract(" || _q(allowance) || ",'$.cost_microunits'),'$.codex_turns',json_extract(" || _q(allowance) || ",'$.codex_turns'),'$.provider_time_budget_ms',json_extract(" || _q(allowance) || ",'$.provider_policy.time_budget_ms'))")
+    if raw="" then do;error="cannot project renewed maintenance policy";return -1;end
+  end
+  if deadline<=_number(database,"SELECT unixepoch()") then do;error="maintenance deadline has passed; job continue requires --renew PERIOD [--minutes N] for a new explicit allowance period";return -1;end
+  if sqliteexec(database,"UPDATE maintenance_windows SET state='active',closed_epoch=NULL,deadline_epoch=" || deadline || ",policy_json=" || _q(raw) || selector)<>0 then do;error="cannot continue maintenance window";return -1;end
+  if sqliteexec(database,"UPDATE maintenance_runs SET state='running',completed_at=NULL WHERE run_id=(SELECT run_id FROM maintenance_windows" || selector || ")")<>0 then do;error="cannot continue maintenance run";return -1;end
+  return 0
+
+/* An embedding-only run has its provider's explicitly reviewed cumulative
+ * call ceiling. A reasoning ceiling must not silently veto a six-call repair.
+ * Existing windows without the separate field retain their recorded limit. */
+_configuredattemptlimit: procedure = .int
+  arg reasoning=.int,embedding_only=.int,embedding=.int
+  if embedding_only=1 & embedding>0 then return embedding
+  return reasoning
+
+_attemptlimit: procedure = .int
+  arg policy=.jsondocument
+  return _configuredattemptlimit(_n(policy,"maximum_attempts"),_n(policy,"embeddings_only"),_n(policy,"embedding_attempts"))

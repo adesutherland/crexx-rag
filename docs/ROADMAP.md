@@ -3,7 +3,8 @@
 All five maintenance refactors are implemented; see the
 [coverage and implementation record](maintenance-refactoring-delivery.md).
 Each stage confirmed or extended regression coverage before implementation and
-passed its full local gate. The final suite passes **59/59 in 737.26 seconds**.
+passed its full local gate. At the end of those five refactors, the suite passed
+**59/59 in 737.26 seconds**.
 Shared owners now cover claim policy, domain prompt contracts, report/query
 services, command metadata and worker defaults. One selected policy file has
 validated public editing/replacement and consistent CLI/MCP/ADDRESS behavior.
@@ -76,16 +77,22 @@ automatically a defect; distinguish policy, format guards and invariant rules.
 
 ## Operational P1 requirements
 
-All five remain open as complete operator outcomes. Their source of detailed
-acceptance is [the operational recovery record](recovery-defects.md).
+The authorized [operator continuation outcome](operator-continuation.md) passed
+full local QA (63/63). The remaining Scottish ingestion and 60-minute maintenance
+run are next. Its implementation adds named renewal, compatible worker-count registration,
+true legacy/explicit embedding retry ceilings and bounded source/hold/worker
+observations. The [handoff](operator-continuation-handoff.md) contains the current
+exact artifact, 63-test gate and corpus state. No whole OPS item is newly closed before its
+required evidence. Original detailed acceptance remains in
+[the operational recovery record](recovery-defects.md).
 
 | ID | Status and owning components | Required outcome and remaining acceptance |
 | --- | --- | --- |
-| RAG-OPS-001 | Partial — operator composition in `ragproduct`; configuration, lifecycle, receipt/usage and worker owners | One repeatable launch/resume path, early compatible configuration handling, supported recovery and idempotence without builds, SQL or bespoke scripts. `job run`, pre-claim checks and Codex reconciliation exist. Step 3 now tests receipt-write failure for extraction/embedding: original usage survives, saved Codex output is reused and unavailable output remains held without a blind repeat. The [public recovery follow-up](public-recovery-journey.md) tests composed diagnosis/retry/waiver on a frozen installed artifact. Compatible worker-count transition and fresh-operator real-corpus qualification remain required for broader closure. |
-| RAG-OPS-002 | Partial — shared rules/requests in `raglifecycle`; task/window execution in `ragbacklog`, claims in `ragwork` | Accept a durable, deduplicated retry request for **every task state**, including closed windows/terminal parents; distinguish accepting the request from when execution is safe. Preserve attempts, receipts, usage, uncertain outcomes and explicit authorized ceilings. Step 2 implements request acceptance, task reconsideration and shared job-state projection; native cases cover five retained failures, covered work and exhausted/uncertain holds. Reasoned waiver/reopen controls are implemented in the [public recovery follow-up](public-recovery-journey.md), retaining missing coverage, attempts and uncertainty. The UX-04 follow-up adds targeted external-retirement controls; its qualification is recorded separately. Review the proposed three-attempt normal policy without overriding explicit exceptions. |
-| RAG-OPS-003 | Partial — job/worker/task/report queries and command adapters; step 5 public-result repairs delivered | Documented commands alone explain progress, denominators, unique coverage versus attempts, failures, retry eligibility, waiting reasons, configured/live workers, recovery allowance, interval throughput and known/incomplete usage. Steps 1/4 add admission/supervision waiting status, pool counts and rolling capacity. Step 5 repairs UX-02's maximum-page and large-plan discovery failures, with complete detail reads. The [public recovery follow-up](public-recovery-journey.md) adds consistent actual item counts versus limits, recorded/incomplete usage, interval throughput and correction outcomes; fresh-operator/platform qualification remains open. |
-| RAG-OPS-004 | Partial — `ragadmission`, `ragsupervision`, `ragenvironment` | Temporary capacity pressure, rolling worker replacement and safely uncalled shared preflight backoff are implemented. [Supervision evidence](supervision-recovery.md) covers expiry, controller restart, concurrent reservations, zero healthy workers, eight-worker outage/recovery and task isolation. Task attempts, uncertain outcomes, cumulative usage and cutoffs remain independent. Wider infrastructure classification and live/platform qualification remain open. |
-| RAG-OPS-005 | Open design — existing configuration, job, budget and window owners | One continuation/renewal operation handles optional exhausted budgets, operational configuration registration and remaining work under terminal internal jobs/windows. Preserve cumulative usage, attempts, receipts, held outcomes and completed work through a new authorization period; do not erase history. Distinguish reserved from consumed capacity. Agree essential versus optional controls, omission/renewal semantics and defaults before code; external account restrictions and the user's unchanged cutoff remain binding. |
+| RAG-OPS-001 | Partial — operator composition in `ragproduct`; configuration, lifecycle, receipt/usage and worker owners | One repeatable launch/resume path, early compatible configuration handling, supported recovery and idempotence without builds, SQL or bespoke scripts. `job run`, pre-claim checks and Codex reconciliation exist. Step 3 now tests receipt-write failure for extraction/embedding: original usage survives, saved Codex output is reused and unavailable output remains held without a blind repeat. The [public recovery follow-up](public-recovery-journey.md) tests composed diagnosis/retry/waiver on a frozen installed artifact. Compatible worker-count registration is now implemented and covered in the continuation journey. The installed continuation journey and full 63/63 gate passed; real corpus execution remains required before closure. |
+| RAG-OPS-002 | Partial — shared rules/requests in `raglifecycle`; task/window execution in `ragbacklog`, claims in `ragwork` | Accept a durable, deduplicated retry request for **every task state**, including closed windows/terminal parents; distinguish accepting the request from when execution is safe. Preserve attempts, receipts, usage, uncertain outcomes and explicit authorized ceilings. Step 2 implements request acceptance, task reconsideration and shared job-state projection; native cases cover five retained failures, covered work and exhausted/uncertain holds. Reasoned waiver/reopen controls are implemented in the [public recovery follow-up](public-recovery-journey.md), retaining missing coverage, attempts and uncertainty. The UX-04 follow-up adds targeted external-retirement controls; its qualification is recorded separately. The continuation follow-up reproduces and repairs an actual old one-attempt failure under a later policy, plus explicit embedding six versus reasoning one. Shipped Gemini examples now use three; existing explicit policies remain intact. Full local QA passed 63/63; real corpus recovery remains required. |
+| RAG-OPS-003 | Partial — job/worker/task/report queries and command adapters; step 5 public-result repairs delivered | Documented commands alone explain progress, denominators, unique coverage versus attempts, failures, retry eligibility, waiting reasons, configured/live workers, recovery allowance, interval throughput and known/incomplete usage. Steps 1/4 add admission/supervision waiting status, pool counts and rolling capacity. Step 5 repairs UX-02's maximum-page and large-plan discovery failures, with complete detail reads. The [public recovery follow-up](public-recovery-journey.md) adds consistent actual item counts versus limits, recorded/incomplete usage, interval throughput and correction outcomes; The continuation follow-up adds paged source/operation totals, current item retry facts, provider time and controller/heartbeat/replacement details, with corpus-scale read evidence. Final full QA passed 63/63; real corpus execution remains required. |
+| RAG-OPS-004 | Partial — `ragadmission`, `ragsupervision`, `ragenvironment` | Temporary capacity pressure, rolling worker replacement and safely uncalled shared preflight backoff are implemented. [Supervision evidence](supervision-recovery.md) covers expiry, controller restart, concurrent reservations, zero healthy workers, eight-worker outage/recovery and task isolation. Task attempts, uncertain outcomes, cumulative usage and cutoffs remain independent. The continuation gate additionally reproduced a WAL startup race; `ragstore` now shares bounded BUSY acquisition retry with transaction admission, tested by an exclusive-lock rendezvous on both VMs. Final full QA passed 63/63; real live qualification remains required. Wider infrastructure/platform classification remains separate. |
+| RAG-OPS-005 | Implemented, local full QA 63/63; real continuation qualification required — existing configuration, job, budget and window owners | One continuation/renewal operation handles optional exhausted budgets, operational configuration registration and remaining work under terminal internal jobs/windows. Preserve cumulative usage, attempts, receipts, held outcomes and completed work through a new authorization period; do not erase history. Distinguish reserved from consumed capacity. Agree essential versus optional controls, omission/renewal semantics and defaults before code; external account restrictions and the user's unchanged cutoff remain binding. |
 
 OPS-001 is the overall operator journey; OPS-002/004/005 define transitions and
 OPS-003 makes their outcomes visible. Implement shared decisions once; avoid five
@@ -309,7 +316,7 @@ gate. The third slice implements the public diagnostic/recovery journey under OP
 including reasoned task waiver; see [implementation and remaining qualification](public-recovery-journey.md).
 The third slice passed **59/59 in 1238.52 seconds** and the frozen installed recovery replay. Confirm regression
 coverage first and commit only after the full local gate is green at each step.
-OPS-005 renewal/continuation remains separate design work without erasing history. Wider shared
+OPS-005 renewal/continuation is now in the approved [coherent operator delivery](operator-continuation.md), together with the actual retry-ceiling and corpus-scale status gaps. It is not yet closed; see the [live handoff](operator-continuation-handoff.md). Wider shared
 infrastructure recovery and hosted/platform/long-run qualification remain open
 under OPS-004 and QA-01/02/03. Claim policy, prompt contracts, query/reporting
 services and command metadata now have shared owners. Extend the
@@ -383,3 +390,14 @@ For future updates, change the consolidated status here and link the exact
 implementation/acceptance evidence. Keep dated incident reports append-only in
 meaning. Do not infer completion from a test count, a successful provider call,
 an implementation commit, or a related repaired ID.
+
+## Current delivery boundary
+
+The approved next outcome is “An operator can continue interrupted Scottish
+processing, understand every hold, and finish ingestion and maintenance through
+ordinary commands.” It includes the known functional remainder across OPS-001,
+OPS-002, OPS-003 and OPS-005 and composes the existing OPS-004 supervision rules.
+The [continuation record](operator-continuation.md) and [handoff](operator-continuation-handoff.md)
+track implementation, full regression gate, commit and real-corpus run separately.
+A missing command or incorrect retry rule is unfinished implementation, not
+“complete subject to smoke”. Closure counts must reflect that distinction.

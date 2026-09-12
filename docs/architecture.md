@@ -617,3 +617,30 @@ When adding a public operation, update its catalogue entry, owning service,
 focused public-surface regression and user/agent documentation. Review the
 captured metadata contract when changing an advertised schema. Do not add
 parallel tool-name, required-argument or capability maps to an adapter.
+
+## Continuation and allowance ownership
+
+| Owner | Contract and callers |
+| --- | --- |
+| `ragallowance` | Reads original/effective budget policy, projects cumulative job ceilings, and appends an immutable named allowance period exactly once. `ragwork` admission/settlement and `ragoperationsquery` inspection consume this same policy. No provider execution or usage reset. |
+| `ragcontinuation` | Composes compatible configuration registration, existing job recovery and window continuation. It owns the preparation transaction and delegates budget and task decisions. `ragproduct` uses it before the existing process launcher. |
+| `ragbacklog` | Owns window continuation/closure, timing, census/dispatch and `taskretryfacts`; the same current-policy eligibility feeds public inspection and retry execution. |
+| `ragwork` / `raglifecycle` | Retain claims, fencing, receipt/usage recovery, job projection and pending item requests. `refreshjobrecovery` exposes that existing atomic projection to continuation. |
+| `ragoperationsquery` | Bounded item recovery facts, actual source/operation groups and one-snapshot status/usage. Does not invent an independent task state. |
+| `ragschema` | Schema 16 adds indexed item-event lookup and immutable, uniquely named allowance-period history. Earlier schema checksums and original job policy events remain unchanged. |
+
+A renewal changes current allowance/window projections while recording the
+previous and original bounds. Each explicit period retains its fixed deadline;
+repeating it cannot extend the run. Per-call and task limits, provider history,
+uncertainty and publication fences remain independent. A compatible active
+reviewed maintenance policy supplies the current cumulative task ceiling;
+old windows record prior authority rather than permanently vetoing later
+authority. All existing paid calls still count. See the
+[operator contract and qualification](operator-continuation.md).
+
+The continuation qualification also exposed journal-mode acquisition during
+concurrent worker startup. `ragstore` owns one bounded lock-acquisition helper
+for WAL startup and `BEGIN IMMEDIATE`. It retries only BUSY/BUSY_RECOVERY before
+any transaction body or provider call. Opening a connection and reserving a
+worker replacement remain separate decisions; the journal race must not be
+hidden by increasing replacement or paid-attempt allowances.

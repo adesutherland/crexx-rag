@@ -1,0 +1,59 @@
+options levelg
+
+namespace ragcontinuation expose preparecontinuation
+
+import ragallowance
+import ragbacklog
+import ragconfiguration
+import ragconfig
+import raglifecycle
+import ragprofile
+import ragjob
+import ragwork
+import ragsqlsupport
+import ragstore
+import rxfnsb
+import rxsqlite
+
+preparecontinuation: procedure = .int
+  arg store=.ragstorehandle,job_id=.string,period=.string,minutes=.int,config=.ragconfig,profile=.ragprofile,expose error=.string
+  error="";database=store.database()
+  if store.writable()<>1 then do;error="continuation requires a writable library";return -1;end
+  if checkworkerconfiguration(store,job_id,config,profile,error)<>0 then return -1
+  /* The selected policy remains authoritative. Register only an already
+   * compatible operational change through the existing reviewed-plan owner. */
+  difference=.ragconfigdiff
+  if inspectconfigchange(store,config,profile,difference,error)<>0 then return -1
+  if difference.classification()="operational" then do
+    owned=sqlreadint(database,"SELECT count(*) FROM runtime_instances WHERE state NOT IN('stopped','failed')")
+    if owned<>0 then do;error="operational configuration registration requires drained workers; use worker status and worker drain";return -1;end
+    state=sqlreadtext(database,"SELECT state FROM jobs WHERE job_id=" || sqlquote(job_id))
+    if state="queued" | state="running" then if pausejob(store,job_id,error)<>0 then return -1
+    plan=.ragplan
+    if createreconfigureplan(store,config,profile,"compatible policy registration for job continuation",plan,difference,error)<>0 then return -1
+    if difference.active_jobs()<>0 then do;error="other active work prevents compatible policy registration; inspect job list and worker status";return -1;end
+    if applyreconfigureplan(store,config,profile,plan.payload(),plan.digest(),difference,error)<>0 then return -1
+  end
+  if sqliteexec(database,"BEGIN IMMEDIATE")<>0 then do;error="cannot begin continuation; retry this same command after writer contention clears";return -1;end
+  selector=" WHERE job_id=" || sqlquote(job_id)
+  owned=sqlreadint(database,"SELECT count(*) FROM runtime_instances WHERE (job_filter='' OR job_filter=" || sqlquote(job_id) || ") AND state NOT IN('stopped','failed')")
+  running=sqlreadint(database,"SELECT count(*) FROM job_items" || selector || " AND state IN('running','cancel_requested')")
+  if owned<>0 | running<>0 then return _rollback(database,"job still has ownership; use worker status, worker drain and worker prune before repeating job continue",error)
+  if minutes>0 & sqlreadint(database,"SELECT count(*) FROM maintenance_windows" || selector)<>1 then return _rollback(database,"--minutes sets a maintenance wall-clock period; ordinary job renewal retains its original aggregate provider-time allocation",error)
+  renewed=0
+  if period<>"" then if renewjoballowance(database,job_id,period,minutes,renewed,error)<>0 then return _rollback(database,error,error)
+  if continuebacklogwindow(database,job_id,renewed,minutes,error)<>0 then return _rollback(database,error,error)
+  /* Resume the job; held items require the existing explicit retry/reconcile
+   * operations. No paid request or uncertain outcome is silently repeated. */
+  if sqliteexec(database,"UPDATE jobs SET state='queued',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')" || selector)<>0 then return _rollback(database,"cannot continue job",error)
+  if refreshjobrecovery(database,job_id)<>0 then return _rollback(database,"cannot reconsider existing retry requests",error)
+  if sqliteexec(database,"INSERT INTO job_events(job_id,event_type,message,occurred_at) VALUES(" || sqlquote(job_id) || ",'operator-continue','continued through existing task, attempt and admission controls',strftime('%Y-%m-%dT%H:%M:%fZ','now'))")<>0 then return _rollback(database,"cannot retain continuation event",error)
+  if sqliteexec(database,"COMMIT")<>0 then return _rollback(database,"cannot commit continuation",error)
+  if tickbacklogwindow(store,job_id,error)<0 then return -1
+  return 0
+
+_rollback: procedure = .int
+  arg database=.binary,message=.string,expose error=.string
+  call sqliteexec database,"ROLLBACK"
+  error=message
+  return -1

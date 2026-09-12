@@ -1,0 +1,13 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start 51: regression_plan_detail
+1/1 Test #51: regression_plan_detail ...........   Passed    7.73 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+native             =   7.73 sec*proc (1 test)
+public-contract    =   7.73 sec*proc (1 test)
+regression         =   7.73 sec*proc (1 test)
+zero-outbound      =   7.73 sec*proc (1 test)
+
+Total Test time (real) =   7.73 sec

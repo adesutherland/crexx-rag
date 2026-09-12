@@ -1,0 +1,36 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start  4: regression_operator_diagnostics
+1/3 Test  #4: regression_operator_diagnostics ...   Passed    6.61 sec
+    Start 60: native_continuation
+2/3 Test #60: native_continuation ...............***Failed    9.54 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeLifecycle.cmake:165 (message):
+  Lifecycle assertion: SELECT count(*) FROM config_change_events WHERE
+  classification='operational';
+
+  Expected 1; got 0
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeLifecycle.cmake:289 (assert_sql)
+
+
+
+    Start 61: native_legacy_retry_ceiling
+3/3 Test #61: native_legacy_retry_ceiling .......   Passed   13.87 sec
+
+67% tests passed, 1 tests failed out of 3
+
+Label Time Summary:
+continuation     =   9.54 sec*proc (1 test)
+lifecycle        =  13.87 sec*proc (1 test)
+loopback         =  23.41 sec*proc (2 tests)
+native           =  23.41 sec*proc (2 tests)
+operator         =   6.61 sec*proc (1 test)
+pagination       =   6.61 sec*proc (1 test)
+recovery         =  23.41 sec*proc (2 tests)
+regression       =  30.02 sec*proc (3 tests)
+zero-outbound    =   6.61 sec*proc (1 test)
+
+Total Test time (real) =  30.02 sec
+
+The following tests FAILED:
+	 60 - native_continuation (Failed)                      continuation loopback native recovery regression
+Errors while running CTest

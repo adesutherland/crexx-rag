@@ -678,3 +678,43 @@ add_test(NAME native_lifecycle_holds
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeLifecycle.cmake")
 set_tests_properties(native_lifecycle_holds PROPERTIES
     TIMEOUT 180 LABELS "native;recovery;lifecycle;regression;loopback")
+
+add_test(NAME native_continuation
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-continuation"
+        -DCPRAG_CONTINUATION=ON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeLifecycle.cmake")
+set_tests_properties(native_continuation PROPERTIES TIMEOUT 180 LABELS "native;recovery;continuation;regression;loopback")
+
+add_test(NAME native_legacy_retry_ceiling
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-legacy-retry"
+        -DCPRAG_LEGACY_CEILING=ON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeLifecycle.cmake")
+set_tests_properties(native_legacy_retry_ceiling PROPERTIES TIMEOUT 180 LABELS "native;recovery;lifecycle;regression;loopback")
+
+add_test(NAME native_continuation_holds
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-continuation-holds"
+        -DCPRAG_CONTINUATION=ON -DCPRAG_HOLDS=ON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeLifecycle.cmake")
+set_tests_properties(native_continuation_holds PROPERTIES TIMEOUT 180 LABELS "native;recovery;continuation;regression;loopback")
+
+add_test(NAME native_embedding_retry_policy
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-embedding-retry-policy"
+        -DCPRAG_LEGACY_CEILING=ON -DCPRAG_EMBEDDING_POLICY=ON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeLifecycle.cmake")
+set_tests_properties(native_embedding_retry_policy PROPERTIES TIMEOUT 180 LABELS "native;recovery;lifecycle;regression;loopback")

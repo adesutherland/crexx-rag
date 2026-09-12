@@ -1,0 +1,1 @@
+crexxrag lock retry=1/5: enable WAL: database is locked [boundary=-6,sqlite=5,extended=5,operation=exec]

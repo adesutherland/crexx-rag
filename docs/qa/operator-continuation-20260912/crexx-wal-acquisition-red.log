@@ -1,0 +1,31 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start 13: regression_supervision
+1/1 Test #13: regression_supervision ...........***Failed   15.47 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/SupervisionRegression.cmake:106 (message):
+  RAG-OPS-004 acceptance failed:
+
+  RXVME WAL lock recovery failed (23): RACE_OPEN_FAIL=enable WAL: database is
+  locked [boundary=-6,sqlite=5,extended=5,operation=exec]
+
+
+
+  RXBVM WAL lock recovery failed (23): RACE_OPEN_FAIL=enable WAL: database is
+  locked [boundary=-6,sqlite=5,extended=5,operation=exec]
+
+
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+recovery         =  15.47 sec*proc (1 test)
+regression       =  15.47 sec*proc (1 test)
+worker           =  15.47 sec*proc (1 test)
+zero-outbound    =  15.47 sec*proc (1 test)
+
+Total Test time (real) =  15.47 sec
+
+The following tests FAILED:
+	 13 - regression_supervision (Failed)                   recovery regression worker zero-outbound
+Errors while running CTest

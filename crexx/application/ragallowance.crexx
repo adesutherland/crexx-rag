@@ -1,0 +1,59 @@
+options levelg
+
+namespace ragallowance expose effectivebudgetpolicy renewjoballowance joballowancejson
+
+import ragstore
+import ragsqlsupport
+import rxfnsb
+import rxjson
+import rxsqlite
+
+/* Original plans and budget-policy events are immutable. A named, explicit
+ * allowance period adds the original allocation to the cumulative ceilings.
+ * Callers own the writer transaction and drained-job check. Usage, reservations,
+ * per-call limits and task attempts are never reset. */
+effectivebudgetpolicy: procedure = .string
+  arg database=.binary,job_id=.string
+  result=sqlreadtext(database,"SELECT json_extract(message,'$.effective_policy') FROM job_events WHERE job_id=" || sqlquote(job_id) || " AND event_type='allowance-period' ORDER BY event_id DESC LIMIT 1")
+  if result<>"" then return result
+  return sqlreadtext(database,"SELECT message FROM job_events WHERE job_id=" || sqlquote(job_id) || " AND event_type='budget-policy' ORDER BY event_id DESC LIMIT 1")
+
+joballowancejson: procedure = .string
+  arg database=.binary,job_id=.string
+  policy=effectivebudgetpolicy(database,job_id)
+  if policy="" then policy="{}"
+  return sqlreadtext(database,"SELECT json_object('periods',(SELECT count(*) FROM job_events WHERE job_id=j.job_id AND event_type='allowance-period'),'latest_period',(SELECT json_extract(message,'$.name') FROM job_events WHERE job_id=j.job_id AND event_type='allowance-period' ORDER BY event_id DESC LIMIT 1),'item_limit',item_budget,'model_calls',model_call_budget,'input_tokens',input_token_budget,'output_tokens',output_token_budget,'cost_microunits',cost_budget,'codex_turns',codex_turn_budget,'reserved_calls',reserved_calls,'reserved_tokens',reserved_tokens,'reserved_cost',reserved_cost,'reserved_codex_turns',reserved_codex_turns,'provider_policy',json(" || sqlquote(policy) || ")) FROM jobs j WHERE job_id=" || sqlquote(job_id))
+
+renewjoballowance: procedure = .int
+  arg database=.binary,job_id=.string,name=.string,minutes=.int,expose renewed=.int,expose error=.string
+  renewed=0;error=""
+  if name="" | length(name)>128 | pos("00"x,name)>0 then do;error="renewal requires a stable period name of 1 through 128 characters";return -1;end
+  previous=sqlreadtext(database,"SELECT message FROM job_events WHERE job_id=" || sqlquote(job_id) || " AND event_type='allowance-period' AND json_extract(message,'$.name')=" || sqlquote(name) || " ORDER BY event_id LIMIT 1")
+  if previous<>"" then do
+    same=sqlreadint(database,"SELECT json_extract(" || sqlquote(previous) || ",'$.minutes')=" || minutes)
+    if same<>1 then do;error="this period name already exists with different minutes; repeat its original request or use a new period name";return -1;end
+    return 0
+  end
+  before=joballowancejson(database,job_id)
+  original=sqlreadtext(database,"SELECT json_extract(message,'$.original') FROM job_events WHERE job_id=" || sqlquote(job_id) || " AND event_type='allowance-period' ORDER BY event_id LIMIT 1")
+  if original="" then original=before
+  policy=effectivebudgetpolicy(database,job_id)
+  if before="" | original="" | policy="" then do;error="job allowance history is unavailable; inspect job plan and events";return -1;end
+  names="item_limit model_calls input_tokens output_tokens cost_microunits codex_turns"
+  columns="item_budget model_call_budget input_token_budget output_token_budget cost_budget codex_turn_budget"
+  assignments=""
+  do i=1 to words(names)
+    value=sqlreadint(database,"SELECT json_extract(" || sqlquote(before) || ",'$." || word(names,i) || "')+json_extract(" || sqlquote(original) || ",'$." || word(names,i) || "')")
+    if value<0 | value>9000000000000000 then do;error="renewed allowance exceeds the supported cumulative bound";return -1;end
+    if i>1 then assignments=assignments || ","
+    assignments=assignments || word(columns,i) || "=" || value
+  end
+  policy=sqlreadtext(database,"SELECT json_set(" || sqlquote(policy) || ",'$.time_budget_ms',json_extract(" || sqlquote(before) || ",'$.provider_policy.time_budget_ms')+json_extract(" || sqlquote(original) || ",'$.provider_policy.time_budget_ms'))")
+  time_limit=sqlreadint(database,"SELECT json_extract(" || sqlquote(policy) || ",'$.time_budget_ms')")
+  if policy="" | time_limit<0 | time_limit>9000000000000000 then do;error="cannot calculate bounded renewed provider time";return -1;end
+  event=sqlreadtext(database,"SELECT json_object('schema','crexx-rag.allowance-period/1','name'," || sqlquote(name) || ",'minutes'," || minutes || ",'deadline_epoch',(SELECT unixepoch()+CASE WHEN " || minutes || ">0 THEN " || minutes || "*60 ELSE json_extract(policy_json,'$.window_seconds') END FROM maintenance_windows WHERE job_id=" || sqlquote(job_id) || "),'original',json(" || sqlquote(original) || "),'before',json(" || sqlquote(before) || "),'effective_policy',json(" || sqlquote(policy) || "),'previous_window',(SELECT json_object('state',state,'deadline_epoch',deadline_epoch,'policy',json(policy_json)) FROM maintenance_windows WHERE job_id=" || sqlquote(job_id) || "))")
+  if event="" then do;error="cannot retain allowance provenance";return -1;end
+  if sqliteexec(database,"UPDATE jobs SET " || assignments || " WHERE job_id=" || sqlquote(job_id))<>0 then do;error="cannot project renewed allowance";return -1;end
+  if sqliteexec(database,"INSERT INTO job_events(job_id,event_type,message,occurred_at) VALUES(" || sqlquote(job_id) || ",'allowance-period'," || sqlquote(event) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))")<>0 then do;error="cannot record allowance period";return -1;end
+  renewed=1
+  return 0

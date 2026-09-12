@@ -1,0 +1,6 @@
+CMake Error at cmake/OperatorDiagnostics.cmake:56 (message):
+  Operator read failed (job;progress;job-target): ERROR parse [usage]:
+  unknown operation job progress
+
+Call Stack (most recent call first):
+  cmake/OperatorDiagnostics.cmake:64 (read_command)

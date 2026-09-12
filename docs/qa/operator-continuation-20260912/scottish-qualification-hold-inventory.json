@@ -1,0 +1,74 @@
+{
+  "total": 515,
+  "by_reason": {
+    "provider mention label is not in its evidence quotation": 108,
+    "provider relationship quotation does not contain both endpoints": 166,
+    "provider relationship evidence quotation is not in the chunk": 39,
+    "provider mention evidence quotation is not in the chunk": 125,
+    "provider relationship endpoints are invalid": 18,
+    "cannot begin provider reservation": 1,
+    "provider analysis note quotation is not in the chunk": 12,
+    "provider mention contradicts the reviewed glossary identity": 8,
+    "provider discovery arrays violate the reviewed bounds": 10,
+    "lease-expired": 7,
+    "Codex allowance preflight failed: Codex App Server response timed out": 3,
+    "provider mention label is invalid": 1,
+    "embedding provider attempt allowance exhausted": 5,
+    "confirmed Codex turn interrupted": 5,
+    "provider time budget exhausted": 7
+  },
+  "uncertain": [
+    {
+      "item_id": "item-sha256:4ee890139468d4264a519a5d7db58ac1107280040196925c56215b4e7aa0ac2c",
+      "job_id": "job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622",
+      "item_type": "claim-extraction",
+      "state": "dead_letter",
+      "worker_id": null,
+      "fence": 1,
+      "lease_until": null,
+      "retry_at": 1789051924,
+      "input_hash": "5afd0eee38c76a9c041b467ce138564f41f5083425d32660ead5e06aaecb7743",
+      "created_at": "2026-09-09T20:40:07.454Z",
+      "updated_at": "2026-09-10T14:52:04.423Z",
+      "attempts": 1,
+      "task_id": null,
+      "recovery": {
+        "source_id": "source-sha256:96c31d2b06281b8812a87e8d5d97d865a8a4b17e7a207a28e254c732193dbf3b",
+        "source_title": "browne-history-highlands-clans-vol-3-1836.txt",
+        "revision_chunk_id": "occurrence-sha256:c472d3d25ca4dccc09ac7721b101a034b92c3c32a5fad84730c3753c0fd736ea",
+        "task_policy": {},
+        "retry_request": null,
+        "uncertain_outcome": 1,
+        "last_attempt_reason": "lease-expired",
+        "original_attempt_limit": 1,
+        "next_action": "job reconcile JOB --item ITEM; inspect first; apply only an observed terminal receipt"
+      }
+    },
+    {
+      "item_id": "item-sha256:a90dddfa088393404df7614f63c994f62ed4297a665f1655bcb12bac4a077078",
+      "job_id": "job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622",
+      "item_type": "claim-extraction",
+      "state": "dead_letter",
+      "worker_id": null,
+      "fence": 2,
+      "lease_until": null,
+      "retry_at": 1789079545,
+      "input_hash": "9c7356379001693c6e050af3f199564039435f1cab71e88d425908b333ff82d8",
+      "created_at": "2026-09-09T20:40:00.852Z",
+      "updated_at": "2026-09-10T22:32:25.160Z",
+      "attempts": 2,
+      "task_id": null,
+      "recovery": {
+        "source_id": "source-sha256:96c31d2b06281b8812a87e8d5d97d865a8a4b17e7a207a28e254c732193dbf3b",
+        "source_title": "browne-history-highlands-clans-vol-3-1836.txt",
+        "revision_chunk_id": "occurrence-sha256:f63bfc89173584c442425a062471810e4e6df29cfbaa6ca8127c2415d3ad1806",
+        "task_policy": {},
+        "retry_request": null,
+        "uncertain_outcome": 1,
+        "last_attempt_reason": "lease-expired",
+        "original_attempt_limit": 1,
+        "next_action": "job reconcile JOB --item ITEM; inspect first; apply only an observed terminal receipt"
+      }
+    }
+  ]
+}

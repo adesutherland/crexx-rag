@@ -1,0 +1,8 @@
+CMake Error at cmake/NativeLifecycle.cmake:46 (message):
+  Lifecycle command failed:
+  --access;control;job;continue;job-maintenance:98cff635dcbf9064fcb98106b0d48c6b944ca5e02076b528ef644cad986188d3;--renew;regression-period;--minutes;2;--prepare
+
+  ERROR parse [usage]: unknown operation job continue
+
+Call Stack (most recent call first):
+  cmake/NativeLifecycle.cmake:281 (run_cli)

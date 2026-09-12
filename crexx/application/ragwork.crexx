@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragwork expose jobintervaljson recoverworkerclaims readexternalidentity readexternalobservation applyexternalobservation beginproviderrequest recordproviderresponse recoverproviderresponse citationcorrectioncontext claimnext heartbeat configurejobbudget reservecall admitprovidercall releaseprovidercall beginexternalrun updateexternalrunusage updateexternalrunturn updateexternalrunallowance completeexternalrun recoverexternalrun settlecall failattempt skipitem requestcancel acknowledgecancel pausejob resumejob drainjob retrydeadletter replaydeadletters readjobstatus runworkeronce runworkerfollow
+namespace ragwork expose refreshjobrecovery jobintervaljson recoverworkerclaims readexternalidentity readexternalobservation applyexternalobservation beginproviderrequest recordproviderresponse recoverproviderresponse citationcorrectioncontext claimnext heartbeat configurejobbudget reservecall admitprovidercall releaseprovidercall beginexternalrun updateexternalrunusage updateexternalrunturn updateexternalrunallowance completeexternalrun recoverexternalrun settlecall failattempt skipitem requestcancel acknowledgecancel pausejob resumejob drainjob retrydeadletter replaydeadletters readjobstatus runworkeronce runworkerfollow
 
 import rxfnsb
 import rxjson
@@ -12,6 +12,7 @@ import ragjob
 import ragclaims
 import ragcanonical
 import ragprofile
+import ragallowance
 import ragbacklog
 import ragadmission
 import raglifecycle
@@ -616,7 +617,9 @@ readjobstatus: procedure = .int
   last_error = _boundscalartext(database,"SELECT validation_state FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1 AND a.outcome IN('failed','expired','dead_letter') ORDER BY a.completed_at DESC LIMIT 1",job_id)
   if uncertain>0 then last_error = "provider outcome uncertain: inspect durable job events before reconciliation or retry"
   waiting_reason = ""
-  if state = "queued" | state = "running" then waiting_reason = _boundscalartext(database,"SELECT e.message FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id JOIN job_items i ON i.item_id=e.item_id AND i.fence=a.fence WHERE e.job_id=?1 AND e.event_type='provider-deferred' AND a.outcome='cancelled' AND i.state='queued' ORDER BY e.event_id DESC LIMIT 1",job_id)
+  if state = "queued" | state = "running" | state="paused" then waiting_reason = _boundscalartext(database,"SELECT e.message FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id JOIN job_items i ON i.item_id=e.item_id AND i.fence=a.fence WHERE e.job_id=?1 AND e.event_type='provider-deferred' AND a.outcome='cancelled' AND i.state='queued' ORDER BY e.event_id DESC LIMIT 1",job_id)
+  if waiting_reason="" & window<>"" & window<>"active" then waiting_reason="maintenance window " || window || "; use job continue, with --renew PERIOD if its allowance or deadline is exhausted"
+  if waiting_reason="" & state="paused" then waiting_reason="job paused; inspect held items, then job continue"
   retry_summary = .jsondocument(jobretrysummary(database,job_id)); retry_pending = 0; retry_reason = ""
   ignored = retry_summary.node_int(retry_summary.member(retry_summary.root(),"pending"),retry_pending)
   ignored = retry_summary.node_string(retry_summary.member(retry_summary.root(),"reason"),retry_reason)
@@ -1106,6 +1109,7 @@ _elapsedms: procedure = .int
 
 _boundevent: procedure = .string
   arg database = .binary, job_id = .string, event_type = .string
+  if event_type="budget-policy" then return effectivebudgetpolicy(database,job_id)
   prepared = .binary
   sql = "SELECT message FROM job_events WHERE job_id=?1 AND event_type=?2 ORDER BY event_id DESC LIMIT 1"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, job_id) \= 0 | sqlitebindtext(prepared, 2, event_type) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return ""; end
@@ -1171,3 +1175,9 @@ _boundscalarint: procedure = .int
 _q: procedure = .string
   arg value = .string
   return "'" || changestr("'", value, "''") || "'"
+
+/* Continuation composes the same atomic projection/request reconsideration as
+ * normal settlement. The caller owns its writer transaction. */
+refreshjobrecovery: procedure = .int
+  arg database=.binary,job_id=.string
+  return _refreshjob(database,job_id)

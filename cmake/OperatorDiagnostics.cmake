@@ -59,6 +59,21 @@ function(read_command expected)
 endfunction()
 # Existing positive control is required before checking the missing interface.
 read_command(0 job status job-target)
+# Empty, malformed and missing input remains safe to inspect. Public totals
+# group by actual operation/source, with no hidden denominator or raw payload.
+read_command(0 job progress job-target)
+string(JSON detail GET "${response}" records 0 fields detail)
+string(JSON total GET "${detail}" total)
+string(JSON failed GET "${detail}" dead_letter)
+if(NOT total EQUAL 103 OR NOT failed EQUAL 103)
+    message(FATAL_ERROR "Public progress lost failed items or its denominator")
+endif()
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" -readonly "${database}"
+    "EXPLAIN QUERY PLAN SELECT count(*) FROM job_items i WHERE i.job_id='job-target' AND EXISTS(SELECT 1 FROM job_events u WHERE u.item_id=i.item_id AND u.event_type IN('provider-intent','provider-outcome-uncertain') AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=u.attempt_id AND r.event_type='provider-response'));"
+    OUTPUT_VARIABLE uncertainty_plan RESULT_VARIABLE plan_status)
+if(NOT plan_status EQUAL 0 OR uncertainty_plan MATCHES "SCAN u")
+    message(FATAL_ERROR "Routine uncertainty status scans the entire event ledger per item: ${uncertainty_plan}")
+endif()
 read_command(2 maintain tasks task-a task-b)
 read_command(0 job items job-target --state dead_letter --limit 100)
 string(JSON count LENGTH "${response}" records)

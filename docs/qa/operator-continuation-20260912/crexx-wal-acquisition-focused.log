@@ -1,0 +1,26 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start 13: regression_supervision
+1/4 Test #13: regression_supervision ...........   Passed   15.73 sec
+    Start 14: native_supervision
+2/4 Test #14: native_supervision ...............   Passed   60.11 sec
+    Start 41: publication
+3/4 Test #41: publication ......................   Passed   22.01 sec
+    Start 62: native_continuation_holds
+4/4 Test #62: native_continuation_holds ........   Passed   17.65 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Label Time Summary:
+atomic           =  22.01 sec*proc (1 test)
+concurrency      =  22.01 sec*proc (1 test)
+continuation     =  17.65 sec*proc (1 test)
+loopback         =  17.65 sec*proc (1 test)
+native           =  77.76 sec*proc (2 tests)
+publication      =  22.01 sec*proc (1 test)
+recovery         =  93.49 sec*proc (3 tests)
+regression       =  93.49 sec*proc (3 tests)
+sqlite           =  22.01 sec*proc (1 test)
+worker           =  75.84 sec*proc (2 tests)
+zero-outbound    =  97.85 sec*proc (3 tests)
+
+Total Test time (real) = 115.50 sec

@@ -1,0 +1,5 @@
+Compared the frozen 0e99708 native tool catalogue with candidate 3.
+read: 33 -> 34; added rag_job_progress; no removed or changed existing tools.
+all: 69 -> 71; added rag_job_progress and rag_job_continue; no removed or changed existing tools.
+Reviewed required id, access=read/control, bounded arguments, additionalProperties=false and tool annotations.
+Updated the golden hashes only after this exact comparison.

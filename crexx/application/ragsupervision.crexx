@@ -3,8 +3,10 @@ options levelg
 namespace ragsupervision expose reserveworkerreplacement replacementallowed recordsupervision readsupervision
 
 import rxfnsb
+import rxjson
 import rxsqlite
 import ragstore
+import ragworkerdefaults
 import ragenvironment
 
 /* Durable pool policy. The process owner calls only after observing child exit.
@@ -74,9 +76,14 @@ readsupervision: procedure = .string
   arg store = .ragstorehandle, job_id = .string, expose error = .string
   database = store.database()
   policy = "SELECT message FROM job_events WHERE job_id=" || _sqlquote(job_id) || " AND event_type='worker-supervision' ORDER BY event_id DESC LIMIT 1"
-  window_seconds = _scalarint(database,"SELECT coalesce(json_extract((" || policy || "),'$.window_seconds'),3600)",error)
-  maximum = _scalarint(database,"SELECT coalesce(json_extract((" || policy || "),'$.max_restarts'),2)",error)
-  configured = _scalarint(database,"SELECT coalesce(json_extract((" || policy || "),'$.configured_workers'),0)",error)
+  selected="SELECT c.effective_json FROM library_config_state s JOIN config_snapshots c ON c.config_snapshot_id=s.current_config_snapshot_id WHERE s.singleton=1"
+  window_seconds = _scalarint(database,"SELECT coalesce(json_extract((" || policy || "),'$.window_seconds'),json_extract((" || selected || "),'$.config.worker_restart_window_seconds')," || workerdefault("restart_window_seconds") || ")",error)
+  maximum = _scalarint(database,"SELECT coalesce(json_extract((" || policy || "),'$.max_restarts'),json_extract((" || selected || "),'$.config.worker_recovery.max_restarts')," || workerdefault("max_restarts") || ")",error)
+  requested = _scalarint(database,"SELECT coalesce(json_extract((" || policy || "),'$.configured_workers'),0)",error)
+  configured = _scalarint(database,"SELECT coalesce(json_extract(c.effective_json,'$.config.workers.processes')," || requested || ") FROM library_config_state s JOIN config_snapshots c ON c.config_snapshot_id=s.current_config_snapshot_id WHERE s.singleton=1",error)
+  controller = _scalartext(database,"SELECT coalesce(json_extract((" || policy || "),'$.controller'),'')",error)
+  controller_state = _scalartext(database,"SELECT coalesce((SELECT state FROM runtime_instances WHERE instance_id=" || _sqlquote(controller) || "),'not-active')",error)
+  heartbeat_age = _scalarint(database,"SELECT coalesce((SELECT max(0,unixepoch()-heartbeat_at) FROM runtime_instances WHERE instance_id=" || _sqlquote(controller) || "),-1)",error)
   now_epoch = _scalarint(database,"SELECT unixepoch()",error)
   recent = "job_id=" || _sqlquote(job_id) || " AND event_type='worker-replacement' AND coalesce(unixepoch(occurred_at)," || now_epoch || ")>" || (now_epoch-window_seconds)
   used = _scalarint(database,"SELECT count(*) FROM job_events WHERE " || recent,error)
@@ -92,8 +99,12 @@ readsupervision: procedure = .string
     next_epoch = max(next_epoch,now_epoch+wait_seconds)
     if reason = "" then reason = "provider-backoff-or-probe"
   end
+  if live=0 & reason="" then do
+    remaining=_scalarint(database,"SELECT count(*) FROM job_items WHERE job_id=" || _sqlquote(job_id) || " AND state='queued'",error)
+    if remaining>0 then reason="no-active-workers; use job continue"
+  end
   if error \= "" then return ""
-  return '{"configured_workers":' || configured || ',"live_workers":' || live || ',"window_seconds":' || window_seconds || ',"max_restarts":' || maximum || ',"recent_replacements":' || used || ',"next_eligible_epoch":' || next_epoch || ',"waiting_reason":"' || reason || '"}'
+  return '{"controller_id":' || jsonquote(controller) || ',"controller_state":' || jsonquote(controller_state) || ',"heartbeat_age_seconds":' || heartbeat_age || ',"requested_workers":' || requested || ',"remaining_replacements":' || max(0,maximum-used) || ',"configured_workers":' || configured || ',"live_workers":' || live || ',"window_seconds":' || window_seconds || ',"max_restarts":' || maximum || ',"recent_replacements":' || used || ',"next_eligible_epoch":' || next_epoch || ',"waiting_reason":"' || reason || '"}'
 
 _scalartext: procedure = .string
   arg database = .binary, sql = .string, expose error = .string

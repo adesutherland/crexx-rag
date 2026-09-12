@@ -70,7 +70,7 @@ metadata directly.
 | `controller_recovery` | eight overlapping native Codex workers; one command recovers confirmed interruption and completed output, replaces optional-cleanup failure, isolates unavailable history, and keeps healthy peers running after three failures exhaust two replacements; exact call counts, unchanged budgets and released ownership |
 | `gemini_ingestion` | Gemini request/response mapping, compact gap-free LF/CR/CRLF normalization maps, durable work, claims, embeddings, vector publication, replay and failure paths |
 | `gemini_extraction_validation` | invalid UTF-8 spans, unknown concept/relationship types and malformed extraction output dead-letter without product mutation or secret disclosure |
-| `provider_durability` | exact/conflicting raw response duplicates, reservation recovery, Codex turns, fencing, completed-turn reuse, durable cross-process admission, no false call record on preflight failure, immutable replay lineage, backlog reconciliation, and schema 1-to-15 migration with historic-cost backfill and prospective-transition auditing |
+| `provider_durability` | exact/conflicting raw response duplicates, reservation recovery, Codex turns, fencing, completed-turn reuse, durable cross-process admission, no false call record on preflight failure, immutable replay lineage, backlog reconciliation, and schema 1-to-16 migration with historic-cost backfill and prospective-transition auditing |
 | `codex_protocol` | App Server initialize/account/turn/schema/usage/cleanup over JSONL; shared deadlines despite unrelated notifications and fragmented lines before and after submission; 17,000 account cycles exceed the old 65,535-ticket ceiling |
 | `codex_application` | public Codex extraction, worker-crash recovery from a persisted completed turn, duplicate-turn prevention, validation, allowance settlement and library verification |
 | `gemini_maintenance` | hosted-style maintenance, glossary-drift rejection, durable cognitive notes, ANN publication/reuse, provider/profile discovery and external proposal review/promotion |
@@ -102,6 +102,8 @@ metadata directly.
 | `regression_result_contract` | Both optimized VMs: ADDRESS maximum review/event pages and full plan reads; extra-record validator negatives, existing task metadata, read access and Unicode planner terms |
 | `regression_retry`, `regression_closed_retry` | Public five-item retry, CLI/MCP deduplication and retained history; completed-parent task requests keep closed windows intact; terminal replay and duplicate-lineage protection. |
 | `regression_lifecycle` | Both optimized VMs: task-independent item/parent acceptance, original attempt ceilings, uncertain intent, live claim competition, explicit resume, pause during failed settlement, immutable requests and missing-policy holds. |
+| `native_continuation`, `native_continuation_holds` | Same-job named allowance renewal, deadline/idempotence, compatible worker-count registration, CLI/MCP parity, immutable original history and usage, retained uncertain/exhausted tasks and public completion. |
+| `native_legacy_retry_ceiling`, `native_embedding_retry_policy` | Actual old one-attempt quota failure under a later reviewed ceiling; explicit six-attempt embedding policy takes precedence over a one-attempt reasoning policy, while paid history still counts. |
 | `native_lifecycle`, `native_lifecycle_holds` | Five persisted closed-window failures recovered through public commands and fresh processes; retry beside a held loopback response; exact calls and history; exhausted/uncertain tasks remain held across another window. |
 | `regression_retrieval`, `regression_retrieval_unicode` | independently specified passage/citation corpus, CLI/MCP agreement, UTF-8 offsets, zero calls/writes, absent terms and faithful OCR/uncertainty; indexed Unicode-name retention covers the QE-06 correctness repair |
 | `regression_ingest_capacity` | deterministic owned reservation versus ordinary peer worker, five capacity dimensions, optimized code on both VMs; exposes OPS-004 without introducing timing races |
@@ -200,7 +202,7 @@ recovery temporary; reconstruction and vector retrieval succeed with zero
 provider runs. The public query fixture also exercises `vector rebuild`,
 read-capability rejection, idempotent replay, and invalid-hybrid preflight
 without any provider calls. The migration fixture retains the earlier schema-1/6/8 upgrades, checks
-schema-13 and schema-14 task inspection with retained retry history, then opens that bundle through the ordinary write path and requires a schema-15 aligned manifest.
+schema-13 and schema-14 task inspection with retained retry history, then opens that bundle through the ordinary write path and requires a schema-16 aligned manifest.
 
 Maintenance methodology distinguishes successful and failed items within a
 mixed-result job and recognizes embeddings repaired in a later generation.
@@ -292,7 +294,7 @@ intervals and provider totals in active/terminal observations, public report
 reconciliation, CLI/MCP waiver and retry, active ownership/access/reason denial,
 unknown outcomes, retained ceilings and missing coverage. `regression_lifecycle`
 checks immutable waiver/reopen cycles; `provider_durability` checks read-only
-13/14 compatibility and ordinary migration to 15 without rewriting history.
+13/14 compatibility and ordinary migration to 16 without rewriting history.
 `durable_backlog` adds legacy retired-parent reconciliation on both VMs and the
 native command path. `durable_backlog_provider` uses real correction outcomes
 to check public requested/processed correction counts. Required baseline reds
@@ -304,3 +306,22 @@ only for that test process. It changes no product or CTest timeout. A real
 392-second idle sleep interrupted the recovery follow-up's first full run;
 retain that failure and repeat the full gate on the unchanged artifact, rather
 than interpreting a suspended host as an ordinary concurrency measurement.
+
+## Complete operator continuation follow-up — 12 September
+
+Run all 63 registered cases for this public-command/schema/recovery change.
+The default matrix above names the four new continuation and legacy-ceiling
+cases. The [coverage matrix](regression-coverage.md#complete-operator-continuation-follow-up--12-september)
+records their required failing reproductions and independent assertions.
+Qualify a scratch-installed exact binary through the same continuation/held
+journey, then record the real Scottish run separately. Follow the
+[persistent handoff](operator-continuation-handoff.md) for the current gate;
+do not confuse a historical 59-test milestone with this candidate's result.
+
+Qualification checkpoint 2026-09-12 21:54 UTC: build 7 passed the full **63/63** suite
+in **848.41 seconds**, plus the scratch-installed continuation/held journey.
+The isolated full-corpus copy rehearsal reconciled both interrupted turns
+without generation calls; provider-run count stayed 20809 and uncertainty
+became zero. Incomplete usage remains a lower bound. The exact hashes and
+logs are in the [handoff](operator-continuation-handoff.md). Actual processing
+master ingestion and 60-minute maintenance are still required live evidence.

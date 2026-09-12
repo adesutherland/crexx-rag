@@ -1,0 +1,29 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start  2: regression_command_metadata
+1/5 Test  #2: regression_command_metadata ......   Passed    0.36 sec
+    Start 13: regression_supervision
+2/5 Test #13: regression_supervision ...........   Passed    3.54 sec
+    Start 35: documentation_contract
+3/5 Test #35: documentation_contract ...........   Passed    0.04 sec
+    Start 60: native_continuation
+4/5 Test #60: native_continuation ..............   Passed   11.78 sec
+    Start 62: native_continuation_holds
+5/5 Test #62: native_continuation_holds ........   Passed   15.94 sec
+
+100% tests passed, 0 tests failed out of 5
+
+Label Time Summary:
+command          =   0.36 sec*proc (1 test)
+continuation     =  27.72 sec*proc (2 tests)
+contract         =   0.36 sec*proc (1 test)
+documentation    =   0.04 sec*proc (1 test)
+loopback         =  27.72 sec*proc (2 tests)
+methodology      =   0.04 sec*proc (1 test)
+native           =  27.72 sec*proc (2 tests)
+recovery         =  31.26 sec*proc (3 tests)
+regression       =  31.63 sec*proc (4 tests)
+skills           =   0.04 sec*proc (1 test)
+worker           =   3.54 sec*proc (1 test)
+zero-outbound    =   3.94 sec*proc (3 tests)
+
+Total Test time (real) =  31.67 sec

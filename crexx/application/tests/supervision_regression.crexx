@@ -21,7 +21,12 @@ main: procedure = .int
   if args.0 < 1 then return 2
   errors = 0; error = ""; store = .ragstorehandle
   if args.0 = 2 then do
-    if openragstore(args[1],"readwrite",store,error) \= 0 then return 2
+    if openragstore(args[1],"readwrite",store,error) \= 0 then do; say "RACE_OPEN_FAIL=" || error; return 2; end
+    if args[2]="open-only" then do
+      if closeragstore(store,error)<>0 then do;say "CLOSE_FAIL=" || error;return 2;end
+      say "WAL_OPEN_OK"
+      return 0
+    end
     replacement = ""; delay = 0
     status = ragsupervision..reserveworkerreplacement(store,"controller",args[2],1,10,replacement,delay,error,100,5000)
     say "RACE=" || status

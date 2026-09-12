@@ -767,7 +767,7 @@ _configurereadwrite: procedure = .int
   arg database = .binary, expose error = .string
   if sqliteexec(database, "PRAGMA foreign_keys=ON") \= 0 then return _sqlitefailure("enable foreign keys", error)
   if sqlitebusytimeout(database, 5000) \= 0 then return _sqlitefailure("set busy timeout", error)
-  if sqliteexec(database, "PRAGMA journal_mode=WAL") \= 0 then return _sqlitefailure("enable WAL", error)
+  if _acquirelock(database,"PRAGMA journal_mode=WAL","enable WAL",error)<>0 then return -3
   if sqliteexec(database, "PRAGMA synchronous=FULL") \= 0 then return _sqlitefailure("set synchronous policy", error)
   return 0
 
@@ -1033,16 +1033,21 @@ _sqlquote: procedure = .string
   return "'" || changestr("'", value, "''") || "'"
 
 /* Retry only lock acquisition, before any transaction body or provider call.
- * Six existing five-second busy waits stay within the worker lease. Preserve
- * the provider diagnostic before another SQLite call can clear it. */
+ * WAL startup and transaction admission share this bounded policy. Journal-mode
+ * conversion can return BUSY immediately when two new connections compete,
+ * despite the SQLite busy timeout. Never retry arbitrary statement bodies. */
 beginwritetransaction: procedure = .int
   arg database = .binary, context = .string, expose error = .string
+  return _acquirelock(database,"BEGIN IMMEDIATE",context,error)
+
+_acquirelock: procedure = .int
+  arg database=.binary,statement=.string,context=.string,expose error=.string
   do attempt = 1 to 6
     error = ""
-    if sqliteexec(database,"BEGIN IMMEDIATE") = 0 then return 0
+    if sqliteexec(database,statement) = 0 then return 0
     ignored = _sqlitefailure(context,error)
     if sqlitebusyerror(error) = 0 | attempt = 6 then return -3
-    call lineout "stderr", "crexxrag transaction retry=" || attempt || "/5: " || error
+    call lineout "stderr", "crexxrag lock retry=" || attempt || "/5: " || error
     call rxplatform..sleep (100 * attempt + ((time("us") as .int) % 97))
   end
   return -3

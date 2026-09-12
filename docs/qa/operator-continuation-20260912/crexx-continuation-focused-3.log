@@ -1,0 +1,34 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start  4: regression_operator_diagnostics
+1/6 Test  #4: regression_operator_diagnostics ...   Passed    4.94 sec
+    Start 35: documentation_contract
+2/6 Test #35: documentation_contract ............   Passed    0.03 sec
+    Start 58: regression_lifecycle
+3/6 Test #58: regression_lifecycle ..............   Passed    2.79 sec
+    Start 60: native_continuation
+4/6 Test #60: native_continuation ...............   Passed   10.87 sec
+    Start 61: native_legacy_retry_ceiling
+5/6 Test #61: native_legacy_retry_ceiling .......   Passed   10.64 sec
+    Start 62: native_continuation_holds
+6/6 Test #62: native_continuation_holds .........   Passed   16.16 sec
+
+100% tests passed, 0 tests failed out of 6
+
+Label Time Summary:
+RAG-OPS-002      =   2.79 sec*proc (1 test)
+accounting       =   2.79 sec*proc (1 test)
+continuation     =  27.03 sec*proc (2 tests)
+documentation    =   0.03 sec*proc (1 test)
+lifecycle        =  10.64 sec*proc (1 test)
+loopback         =  37.68 sec*proc (3 tests)
+methodology      =   0.03 sec*proc (1 test)
+native           =  37.68 sec*proc (3 tests)
+operator         =   4.94 sec*proc (1 test)
+pagination       =   4.94 sec*proc (1 test)
+recovery         =  37.68 sec*proc (3 tests)
+regression       =  45.40 sec*proc (5 tests)
+skills           =   0.03 sec*proc (1 test)
+worker           =   2.79 sec*proc (1 test)
+zero-outbound    =   7.75 sec*proc (3 tests)
+
+Total Test time (real) =  45.43 sec

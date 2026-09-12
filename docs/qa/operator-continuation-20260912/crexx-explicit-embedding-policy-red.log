@@ -1,0 +1,8 @@
+CMake Error at cmake/NativeLifecycle.cmake:169 (message):
+  Lifecycle assertion: SELECT count(*) FROM job_items WHERE
+  job_id='job-maintenance:7dbd1f1ea3e35f6351be99ed18fdc1f5bf1c75052d3b5c3c963b7fb3a3e5fe21'
+  AND state='queued';
+
+  Expected 5; got 0
+Call Stack (most recent call first):
+  cmake/NativeLifecycle.cmake:322 (assert_sql)
