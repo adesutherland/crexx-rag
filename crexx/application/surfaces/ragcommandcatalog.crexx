@@ -1,0 +1,312 @@
+options levelg
+
+namespace ragcommandcatalog expose ragcommanddefinition commandcatalog commanddefinition commandknown commandlibrary commandtools catalogarguments catalogcommand capabilityallows
+
+import rxfnsb
+import rxjson
+
+/* Public surface owner: operation, argument contract, capability and forwarding
+   are declared together. Domain services retain state-dependent validation.
+   This module imports no dispatcher, repository or request/result type. */
+ragcommanddefinition: class
+  _name = .string
+  _operation = .string
+  _capability = .string
+  _requires_library = .int
+  _positionals = .string
+  _fixed = .string
+  _description = .string
+  _schema = .string
+  _annotations = .string
+
+  *: factory
+    arg name = "", operation = "", capability = "", requires_library = 0, positionals = "", fixed = "", description = "", schema = "", annotations = ""
+    _name = name
+    _operation = operation
+    _capability = capability
+    _requires_library = requires_library
+    _positionals = positionals
+    _fixed = fixed
+    _description = description
+    _schema = schema
+    _annotations = annotations
+    return
+  name: method = .string
+    return _name
+  operation: method = .string
+    return _operation
+  capability: method = .string
+    return _capability
+  requires_library: method = .int
+    return _requires_library
+  positionals: method = .string
+    return _positionals
+  fixed: method = .string
+    return _fixed
+  description: method = .string
+    return _description
+  schema: method = .string
+    return _schema
+  annotations: method = .string
+    return _annotations
+
+commandcatalog: procedure = .ragcommanddefinition[]
+  entries = .ragcommanddefinition[]
+  entries[entries.0+1] = .ragcommanddefinition('rag_job_items','job.items','read',1,'id','','Read a job''s durable items, worker/fence/retry state, task links and attempt counts; filters apply before pagination and raw inputs are omitted','{"type":"object","properties":{"id":{"type":"string"},"state":{"type":"string","enum":["queued","running","processed","skipped","dead_letter","cancelled","cancel_requested"]},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100}},"required":["id"],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_job_attempts','job.attempts','read',1,'id','','Read a job''s durable attempt history, optionally for one item; includes provider-run IDs and validation/outcome state without raw provider output','{"type":"object","properties":{"id":{"type":"string"},"item":{"type":"string"},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100}},"required":["id"],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_workflow_list','maintain.workflows','read',1,'','','Discover migration workflows by exact subject ID or canonical concept label, including successor membership. Homonymous concepts remain separate. Use returned workflow_id with rag_task_list(workflow)','{"type":"object","properties":{"id":{"type":"string"},"subject":{"type":"string","maxLength":512},"concept":{"type":"string","maxLength":512},"state":{"type":"string","enum":["migrating","waiting","complete"]},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100}},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_config_prompt','config.prompt','read',0,'','','Inspect the configured objective, effective system prompt, response schema and hashes without library access or provider calls','{"type":"object","properties":{"role":{"type":"string","enum":["extractor","resolution","answerer","advisory"]}},"required":["role"],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_library_status','library.status','read',1,'','','Read bounded library status','{"type":"object","properties":{},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_library_overview','library.report','read',1,'','','Read deterministic corpus scope and health without writes, narrative refresh or provider calls','{"type":"object","properties":{"top":{"type":"integer","minimum":1,"maximum":20}},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_profile_show','profile.show','read',0,'','','Read the selected profile vocabulary, including permitted concept and relationship types','{"type":"object","properties":{},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_library_report','library.report','read',1,'','','Report deterministic generation-bound corpus, graph, vector, provenance and maintenance health; optional refresh makes one configured advisory-provider call and caches only citation-validated output','{"type":"object","properties":{"top":{"type":"integer","minimum":1,"maximum":20},"narrative":{"type":"string","enum":["off","cached","refresh"]}},"required":[],"additionalProperties":false}','{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":true}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_library_trend','library.trend','read',1,'','','Read immutable historic observation points and deterministic deltas without provider calls','{"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":50}},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_source_list','source.list','read',1,'','','List sources with cursor-bounded records','{"type":"object","properties":{"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100}},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_citation_show','citation.show','read',1,'citation','','Resolve a stable citation to immutable source text and provenance. Large spans are paged; follow next_cursor on the same citation until empty. Cursor counts Unicode characters; citation offsets remain UTF-8 bytes','{"type":"object","properties":{"citation":{"type":"string"},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":8192}},"required":["citation"],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_schedule_list','schedule.list','read',0,'','','List configured recurring operation definitions; recurrence and invocation remain externally owned','{"type":"object","properties":{},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_schedule_show','schedule.show','read',0,'id','','Show one configured recurring operation definition without invoking it','{"type":"object","properties":{"id":{"type":"string"}},"required":["id"],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_query_search','query.search','read',1,'question','','Search and return typed evidence; records durable gap signals and configured auto or hybrid mode may call an embedding provider',_queryschema(),'{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":true}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_query_evidence','query.evidence','read',1,'question','','Return an LLM-ready typed evidence packet and record durable gap signals; configured auto or hybrid mode may call an embedding provider',_queryschema(),'{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":true}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_query_inspect','query.inspect','read',1,'question','','Read lexical source passages and typed graph evidence without writes or provider calls; decode evidence_json and cite its stable citations. Use focused searches when a broad question returns no passages',changestr('["auto","lexical","hybrid"]',_queryschema(),'["lexical"]'),'{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_query_answer','query.answer','read',1,'question','','Return evidence and an optional provider-generated, citation-validated answer; records durable gap signals',_queryschema(),'{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":true}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_query_trace','query.trace','read',1,'question','','Return the bounded query trace and record durable gap signals; configured auto or hybrid mode may call an embedding provider',_queryschema(),'{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":true}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_query_path','query.path','read',1,'question','','Return bounded typed paths and record durable gap signals; configured auto or hybrid mode may call an embedding provider',_queryschema(),'{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":true}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_query_timeline','query.timeline','read',1,'question','','Return a bounded evidence timeline and record durable gap signals; configured auto or hybrid mode may call an embedding provider',_queryschema(),'{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":true}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_job_status','job.status','read',1,'id','','Read one durable job status','{"type":"object","properties":{"id":{"type":"string"}},"required":["id"],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_job_list','job.list','read',1,'','','Discover durable jobs with their creation and update times; page all results to select the latest job','{"type":"object","properties":{"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100}},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_job_plan','job.plan','read',1,'id','','Read exact retained plan text in bounded Unicode-character pages; concatenate text using next_cursor','{"type":"object","properties":{"id":{"type":"string"},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":8192}},"required":["id"],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_job_events','job.events','read',1,'id','','Read durable job events in event order; continue using next_cursor','{"type":"object","properties":{"id":{"type":"string"},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100}},"required":["id"],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_config_check','config.check','read',0,'','','Validate effective configuration and compute split identities without resolving credentials','{"type":"object","properties":{},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_config_explain','config.explain','read',0,'','','Explain effective operational provider policy with redacted credential references','{"type":"object","properties":{},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_config_diff','config.diff','read',1,'','','Classify the effective configuration against the current library snapshot without writes','{"type":"object","properties":{},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_maintain_status','maintain.status','read',1,'','','Read and reconcile one durable maintenance run with cursor pagination','{"type":"object","properties":{"id":{"type":"string"},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":98}},"required":[],"additionalProperties":false}','{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_maintain_inspect','maintain.inspect','read',1,'id','','Inspect one maintenance run, work item, or analysis note with cursor pagination','{"type":"object","properties":{"id":{"type":"string"},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":98}},"required":["id"],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_task_list','maintain.tasks','read',1,'','','Discover durable maintenance tasks independently of run IDs. Separate required_capability and escalation reason from priority, task state and failures. Use subject for an exact subject ID or concept for an exact canonical label plus related workflows; retain separate homonyms. Page until next_cursor is empty','{"type":"object","properties":{"id":{"type":"string"},"subject":{"type":"string","maxLength":512},"concept":{"type":"string","maxLength":512},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":50},"state":{"type":"string","enum":["pending","dispatched","resolved","unresolved","review","superseded","failed"]},"capability":{"type":"string","enum":["standard","advanced-reasoning"]},"workflow":{"type":"string"}},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_task_evidence','maintain.evidence','read',1,'id','','Read a page of a task durable evidence packet with original source text, evidence_id and resolvable citations. Use these exact evidence IDs for a resolution; further query results are exploration until bound to a task','{"type":"object","properties":{"id":{"type":"string"},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":50}},"required":["id"],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_task_evidence_inventory','maintain.evidence-index','read',1,'id','','Page source evidence IDs/citations, catalogue concepts or context fields without loading the full packet. scope=current explores present evidence even when a task packet exceeded its limit; scope=stored inspects its frozen packet. Page limits 1..50. Pass the returned generation as expect_generation to reject changes across pages','{"type":"object","properties":{"id":{"type":"string"},"kind":{"type":"string","enum":["passages","catalogue","context"]},"scope":{"type":"string","enum":["current","stored"]},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":50},"expect_generation":{"type":"integer","minimum":0}},"required":["id"],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_job_reconcile_inspect','job.reconcile','diagnose',1,'id','','Inspect the exact retained Codex thread and turn without generation, cancellation or library writes. Returns terminal state, known usage, completeness and a digest','{"type":"object","properties":{"id":{"type":"string"},"item":{"type":"string"}},"required":["id","item"],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":true}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_library_verify','library.verify','diagnose',1,'','','Verify bundle and generation invariants','{"type":"object","properties":{},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_provider_diagnostics','provider.status','diagnose',0,'','','Read redacted provider route diagnostics; Codex allowance inspection may contact its hosted account service','{"type":"object","properties":{},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":true}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_provider_test','provider.test','diagnose',0,'','','Make a budgeted provider call using only public synthetic text and validate the returned structure or embedding','{"type":"object","properties":{"provider":{"type":"string"}},"required":["provider"],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_task_refresh_plan','maintain.refresh-plan','plan',1,'id','','Plan a complete evidence refresh into a new external-agent task. Preserves question/workflow/history and supersedes the old task only on apply. Optional per-action ceilings: maximum_bytes 1024..8388608 (default1048576), maximum_concepts 1..1000 (default1000). Never truncates supports; does not change worker configuration or corpus generation. Generic refresh excludes provenance-enrichment tasks','{"type":"object","properties":{"id":{"type":"string"},"reason":{"type":"string"},"maximum_bytes":{"type":"integer","minimum":1024,"maximum":8388608},"maximum_concepts":{"type":"integer","minimum":1,"maximum":1000},"actor":{"type":"string"},"model":{"type":"string"}},"required":["id","reason"],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_task_resolve_plan','maintain.resolve-plan','plan',1,'id','','Plan an external resolution without writes or provider calls. Inspect the task for response_schema, read rag_task_evidence and rag_profile_show, then submit response_json. Returns canonical plan, digest, grounding and affected objects; apply queues mandatory review','{"type":"object","properties":{"id":{"type":"string"},"response_json":{"type":"string","description":"JSON object matching the response_schema returned by rag_maintain_inspect(task ID). Use original source quotes and exact evidence_id values from rag_task_evidence."},"actor":{"type":"string"},"model":{"type":"string"}},"required":["id","response_json"],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_task_escalate_plan','maintain.escalate-plan','plan',1,'id','','Plan flagging a task as requiring advanced reasoning, independently of priority and status. Does not call a provider or change the corpus','{"type":"object","properties":{"id":{"type":"string"},"reason":{"type":"string"},"actor":{"type":"string"},"model":{"type":"string"}},"required":["id","reason"],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_ingest_plan','ingest.plan','plan',1,'','','Plan ingestion without writing the library','{"type":"object","properties":{"source_set":{"type":"string"},"metadata_input":{"type":"string"}},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_maintain_plan','maintain.plan','plan',1,'','','Census and rank bounded catalogue, graph, note, query-gap, embedding and vector maintenance without writing','{"type":"object","properties":{"minutes":{"type":"integer","minimum":1,"maximum":10080},"until":{"type":"string"},"overnight":{"type":"string"},"embeddings_only":{"type":"boolean"},"enrich_provenance":{"type":"boolean"},"input":{"type":"string"}},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_proposal_plan','proposal.plan','plan',1,'','','Plan new claims through the normal external proposal validator without writes. Supply exactly one of proposals_ndjson (inline NDJSON, at most 65535 bytes) or input (server-side file path). Apply queues mandatory review; no claims are accepted by planning','{"type":"object","properties":{"input":{"type":"string","description":"Server-side NDJSON file path; omit when using inline content."},"proposals_ndjson":{"type":"string","maxLength":65535,"description":"Inline crexx-rag.extraction-proposal/1 or /2 NDJSON, external=1; one complete proposal per line. UTF-8 spans must bind both endpoint labels to an existing revision_chunk_id."}},"required":[],"oneOf":[{"required":["input"]},{"required":["proposals_ndjson"]}],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_review_list','review.list','plan',1,'','','List review proposals with state; continue using next_cursor','{"type":"object","properties":{"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100}},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_review_decide_preview','review.decide','plan',1,'id','--apply false','Preview a review decision without writing','{"type":"object","properties":{"id":{"type":"string"},"decision":{"type":"string","enum":["accept","reject","dismiss"]}},"required":["id","decision"],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_config_plan','config.plan','plan',1,'','','Freeze a digest-checked zero-write configuration transition plan','{"type":"object","properties":{"reason":{"type":"string","maxLength":256}},"required":[],"additionalProperties":false}','{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_task_retry','maintain.retry','control',1,'id','','Record a durable deduplicated task retry request in any state. Execution retains reviewed windows, attempt limits and uncertainty holds','{"type":"object","properties":{"id":{"type":"string"},"reason":{"type":"string","maxLength":256}},"required":["id"],"additionalProperties":false}','{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_job_retry','job.retry','control',1,'id','','Record a durable item retry request; linked maintenance work retains its task owner','{"type":"object","properties":{"id":{"type":"string"},"item":{"type":"string"},"reason":{"type":"string","maxLength":256}},"required":["id","item"],"additionalProperties":false}','{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_job_reconcile_apply','job.reconcile','control',1,'id','--apply','Reobserve and atomically settle the exact digest-reviewed Codex outcome. Requires a paused, drained job. Preserves usage and attempts; completed output is queued for normal validation. Never starts generation','{"type":"object","properties":{"id":{"type":"string"},"item":{"type":"string"},"expect_digest":{"type":"string"}},"required":["id","item","expect_digest"],"additionalProperties":false}','{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_vector_rebuild','vector.rebuild','control',1,'','','Rebuild stored vectors without provider calls. Optional reconcile closes duplicate active links and skips already covered queued embeddings; requires drained workers','{"type":"object","properties":{"reconcile":{"type":"boolean"}},"required":[],"additionalProperties":false}','{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_library_snapshot','library.snapshot','control',1,'','','Evaluate the deterministic churn matrix and capture only a materially distinct historic observation','{"type":"object","properties":{"trigger":{"type":"string","enum":["manual","ingestion","maintenance","vector-publication","replay","reconciliation","migration","backup","scheduled"]},"reason":{"type":"string","maxLength":256}},"required":[],"additionalProperties":false}','{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_job_pause','job.pause','control',1,'id','','Pause one durable job','{"type":"object","properties":{"id":{"type":"string"}},"required":["id"],"additionalProperties":false}','{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_job_resume','job.resume','control',1,'id','','Resume one durable job','{"type":"object","properties":{"id":{"type":"string"}},"required":["id"],"additionalProperties":false}','{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_job_cancel','job.cancel','control',1,'id','','Request cancellation for one job','{"type":"object","properties":{"id":{"type":"string"},"reason":{"type":"string"}},"required":["id"],"additionalProperties":false}','{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_job_replay','job.replay','control',1,'id','','Copy one or all terminal dead letters into a new current-config budgeted job while retaining source lineage','{"type":"object","properties":{"id":{"type":"string"},"item":{"type":"string"},"reason":{"type":"string","maxLength":256}},"required":["id"],"additionalProperties":false}','{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_worker_drain','worker.drain','control',1,'id','','Drain one job without taking supervision authority','{"type":"object","properties":{"id":{"type":"string"}},"required":["id"],"additionalProperties":false}','{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_ingest_apply','ingest.apply','ingest',1,'','','Apply an exact reviewed ingestion plan',_applyschema(),'{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_task_refresh_apply','maintain.refresh-apply','curate',1,'','','Apply an exact reviewed evidence refresh plan; returns the successor task ID and preserves old evidence/history. No provider calls or corpus-generation change',_applyschema(),'{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_task_resolve_apply','maintain.resolve-apply','curate',1,'','','Submit the exact external resolution plan for mandatory review; returns review_id. Does not apply the proposed corpus change',_applyschema(),'{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_task_escalate_apply','maintain.escalate-apply','curate',1,'','','Apply the exact reviewed advanced reasoning flag; stop ordinary worker dispatch for the task',_applyschema(),'{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_maintain_apply','maintain.apply','curate',1,'','','Apply an exact reviewed maintenance worklist',_applyschema(),'{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_proposal_apply','proposal.apply','curate',1,'','','Apply an exact reviewed proposal plan',_applyschema(),'{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_review_decide','review.decide','curate',1,'id','--apply true','Persist an authorized review decision','{"type":"object","properties":{"id":{"type":"string"},"decision":{"type":"string","enum":["accept","reject","dismiss"]}},"required":["id","decision"],"additionalProperties":false}','{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":false}')
+  entries[entries.0+1] = .ragcommanddefinition('rag_config_apply','config.apply','admin',1,'','','Apply an exact reviewed operational configuration plan with immutable audit history',_applyschema(),'{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":false}')
+  /* CLI/ADDRESS operations without a separate MCP tool. */
+  entries[entries.0+1] = .ragcommanddefinition("",'doctor','read',0)
+  entries[entries.0+1] = .ragcommanddefinition("",'library.init','admin',1)
+  entries[entries.0+1] = .ragcommanddefinition("",'library.backup','admin',1)
+  entries[entries.0+1] = .ragcommanddefinition("",'library.restore','admin',0)
+  entries[entries.0+1] = .ragcommanddefinition("",'library.migrate','admin',1)
+  entries[entries.0+1] = .ragcommanddefinition("",'provider.list','read',0)
+  entries[entries.0+1] = .ragcommanddefinition("",'profile.list','read',0)
+  entries[entries.0+1] = .ragcommanddefinition("",'profile.validate','read',0)
+  entries[entries.0+1] = .ragcommanddefinition("",'source.show','read',1)
+  entries[entries.0+1] = .ragcommanddefinition("",'review.show','read',1)
+  entries[entries.0+1] = .ragcommanddefinition("",'job.run','control',1)
+  entries[entries.0+1] = .ragcommanddefinition("",'worker.start','control',1)
+  entries[entries.0+1] = .ragcommanddefinition("",'worker.run','control',1)
+  entries[entries.0+1] = .ragcommanddefinition("",'worker.list','read',1)
+  entries[entries.0+1] = .ragcommanddefinition("",'worker.status','read',1)
+  entries[entries.0+1] = .ragcommanddefinition("",'worker.prune','control',1)
+  entries[entries.0+1] = .ragcommanddefinition("",'serve.mcp','read',1)
+  return entries
+
+_queryschema: procedure = .string
+  return '{"type":"object","properties":{"question":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":12},"hops":{"type":"integer","minimum":0,"maximum":4},"mode":{"type":"string","enum":["auto","lexical","hybrid"]},"direction":{"type":"string","enum":["outbound","inbound","both"]},"at":{"type":"string"},"during":{"type":"string"},"time_unknown":{"type":"string","enum":["include","exclude"]}},"required":["question"],"additionalProperties":false}'
+
+_applyschema: procedure = .string
+  return '{"type":"object","properties":{"plan_json":{"type":"string"},"expect_digest":{"type":"string"}},"required":["plan_json","expect_digest"],"additionalProperties":false}'
+
+commanddefinition: procedure = .ragcommanddefinition
+  arg name = .string
+  entries = commandcatalog()
+  do i = 1 to entries.0
+    if name \= "" & entries[i].name() = name then return entries[i]
+  end
+  return .ragcommanddefinition()
+
+commandknown: procedure = .int
+  arg noun = .string, verb = .string
+  operation = noun || "." || verb
+  if noun = "doctor" & verb = "" then operation = "doctor"
+  entries = commandcatalog()
+  do i = 1 to entries.0
+    if entries[i].operation() = operation then return 1
+  end
+  return 0
+
+commandlibrary: procedure = .int
+  arg noun = .string, verb = .string
+  operation = noun || "." || verb
+  if noun = "doctor" & verb = "" then operation = "doctor"
+  entries = commandcatalog()
+  do i = 1 to entries.0
+    if entries[i].operation() = operation then return entries[i].requires_library()
+  end
+  return 0
+
+capabilityallows: procedure = .int
+  arg access = .string, required = .string
+  grants = changestr(",", access, " ")
+  do i = 1 to words(grants)
+    granted = word(grants, i)
+    if granted = required then return 1
+    if required = "read" then return 1
+    if required = "plan" & (granted = "ingest" | granted = "curate") then return 1
+    if required = "control" & (granted = "curate" | granted = "admin") then return 1
+    if required = "diagnose" & granted = "admin" then return 1
+  end
+  return 0
+
+commandtools: procedure = .string
+  arg access = .string
+  output = ""; entries = commandcatalog()
+  do i = 1 to entries.0
+    entry = entries[i]
+    if entry.name() = "" | capabilityallows(access,entry.capability()) \= 1 then iterate
+    if output \= "" then output = output || ","
+    output = output || '{"name":' || jsonquote(entry.name()) || ',"description":' || jsonquote(entry.description()) || ',"inputSchema":' || entry.schema() || ',"outputSchema":{"type":"object","required":["schema","operation","status","exit_code","records"]},"annotations":' || entry.annotations() || '}'
+  end
+  return output
+
+/* Validate the schema subset actually declared here: primitive properties,
+   required fields, enums, bounds and required-field oneOf alternatives. */
+catalogarguments: procedure = .int
+  arg entry = .ragcommanddefinition, document = .jsondocument, arguments = .int, expose error = .string
+  error = ""
+  if entry.name() = "" then return _invalid("unknown or unavailable tool",error)
+  if arguments \= 0 & document.node_type(arguments) \= "object" then return _invalid("tool arguments must be an object",error)
+  schema = .jsondocument(entry.schema()); root = schema.root()
+  properties = schema.member(root,"properties"); children = .int[]
+  ignored = document.children(arguments,children); seen = ""
+  do i = 1 to children.0
+    node = children[i]; name = document.node_name(node); rule = schema.member(properties,name)
+    if rule = 0 then return _invalid("unknown object member " || name,error)
+    if wordpos(name,seen) > 0 then return _invalid("duplicate object member " || name,error)
+    seen = seen || " " || name
+    expected = ""; ignored = schema.node_string(schema.member(rule,"type"),expected)
+    kind = document.node_type(node); value = ""
+    if expected = "integer" then do
+      number = 0
+      if kind \= "number" | document.node_int(node,number) \= 0 then return _invalid("tool argument " || name || " must be an integer",error)
+      bound = 0; bound_node = schema.member(rule,"minimum")
+      if bound_node \= 0 then do
+        ignored = schema.node_int(bound_node,bound)
+        if number < bound then return _invalid("tool argument " || name || " is below its minimum",error)
+      end
+      bound_node = schema.member(rule,"maximum")
+      if bound_node \= 0 then do
+        ignored = schema.node_int(bound_node,bound)
+        if number > bound then return _invalid("tool argument " || name || " exceeds its maximum",error)
+      end
+    end
+    else if expected = "boolean" then do
+      if kind \= "boolean" then return _invalid("tool argument " || name || " must be a boolean",error)
+    end
+    else if expected = "string" then do
+      if kind \= "string" | document.node_string(node,value) \= 0 then return _invalid("tool argument " || name || " must be a string",error)
+      maximum = 0; bound_node = schema.member(rule,"maxLength")
+      if bound_node \= 0 then do
+        ignored = schema.node_int(bound_node,maximum)
+        if length(value) > maximum then return _invalid("tool argument " || name || " exceeds its maximum length",error)
+      end
+      enum_node = schema.member(rule,"enum")
+      if enum_node \= 0 then do
+        choices = .int[]; ignored = schema.children(enum_node,choices); found = 0
+        do j = 1 to choices.0
+          choice = ""; ignored = schema.node_string(choices[j],choice)
+          if choice = value then found = 1
+        end
+        if found = 0 then return _invalid("tool argument " || name || " is not an allowed value",error)
+      end
+    end
+    else return _invalid("unsupported catalogue argument type",error)
+  end
+  if _required(schema,schema.member(root,"required"),document,arguments,error) \= 0 then return -1
+  alternatives = .int[]; ignored = schema.children(schema.member(root,"oneOf"),alternatives)
+  if alternatives.0 > 0 then do
+    matched = 0; selected = 0
+    do i = 1 to alternatives.0
+      detail = ""
+      if _required(schema,schema.member(alternatives[i],"required"),document,arguments,detail,0) = 0 then do; matched = matched + 1; selected = alternatives[i]; end
+    end
+    if matched \= 1 then return _invalid("supply exactly one declared argument alternative",error)
+    if _required(schema,schema.member(selected,"required"),document,arguments,error) \= 0 then return -1
+  end
+  return 0
+
+_required: procedure = .int
+  arg schema = .jsondocument, required = .int, document = .jsondocument, arguments = .int, expose error = .string, nonempty = 1
+  names = .int[]; ignored = schema.children(required,names)
+  do i = 1 to names.0
+    name = ""; ignored = schema.node_string(names[i],name); node = document.member(arguments,name)
+    if node = 0 then return _invalid("tool requires argument " || name,error)
+    if nonempty = 1 & document.node_type(node) = "string" then do
+      value = ""; ignored = document.node_string(node,value)
+      if value = "" then return _invalid("tool requires argument " || name,error)
+    end
+  end
+  return 0
+
+catalogcommand: procedure = .int
+  arg entry = .ragcommanddefinition, document = .jsondocument, arguments = .int, expose output = .string[], expose error = .string
+  if catalogarguments(entry,document,arguments,error) \= 0 then return -1
+  operation = changestr(".",entry.operation()," ")
+  do i = 1 to words(operation); output[output.0+1] = word(operation,i); end
+  schema = .jsondocument(entry.schema()); properties = .int[]
+  ignored = schema.children(schema.member(schema.root(),"properties"),properties)
+  do i = 1 to properties.0
+    name = schema.node_name(properties[i]); node = document.member(arguments,name)
+    if node = 0 | wordpos(name,entry.positionals()) > 0 then iterate
+    value = _value(document,node)
+    if value = "" then iterate
+    if document.node_type(node) = "boolean" then do
+      if value = "true" then output[output.0+1] = "--" || changestr("_",name,"-")
+    end
+    else do
+      /* Inline options keep a value beginning with -- from becoming syntax. */
+      output[output.0+1] = "--" || changestr("_",name,"-") || "=" || value
+    end
+  end
+  do i = 1 to words(entry.fixed()); output[output.0+1] = word(entry.fixed(),i); end
+  if entry.positionals() \= "" then output[output.0+1] = "--"
+  do i = 1 to words(entry.positionals())
+    output[output.0+1] = _value(document,document.member(arguments,word(entry.positionals(),i)))
+  end
+  return 0
+
+_value: procedure = .string
+  arg document = .jsondocument, node = .int
+  if document.node_type(node) = "string" then do
+    value = ""; ignored = document.node_string(node,value); return value
+  end
+  return document.node_get(node)
+
+_invalid: procedure = .int
+  arg message = .string, expose error = .string
+  error = message
+  return -1

@@ -4,6 +4,7 @@ import rxfnsb
 import rxfs
 import rxjson
 import ragcommand
+import ragcommandcatalog
 import ragconfig
 import ragconfigfile
 import ragregistry
@@ -504,7 +505,7 @@ _defaults: procedure = .string[]
     noun = args[noun_index]
     if noun_index < args.0 then verb = args[noun_index + 1]
   end
-  if _requiresdefaultlibrary(noun, verb) = 1 & _hasglobal(args, "library") = 0 then do; output[output.0 + 1] = "--library"; output[output.0 + 1] = "./library"; end
+  if commandlibrary(noun, verb) = 1 & _hasglobal(args, "library") = 0 then do; output[output.0 + 1] = "--library"; output[output.0 + 1] = "./library"; end
   if config_loaded = 1 & _hasglobal(args, "config") = 0 then do; output[output.0 + 1] = "--config"; output[output.0 + 1] = config.config_id(); end
   if config_loaded = 1 & _hasglobal(args, "profile") = 0 then do
     profile_ids = config.profile_ids()
@@ -541,7 +542,7 @@ _aliases: procedure = .string[]
     return output
   end
   if noun = "query" then do
-    if noun_index < args.0 & wordpos(args[noun_index + 1], "inspect search evidence answer trace timeline path") = 0 then do
+    if noun_index < args.0 & commandknown("query",args[noun_index + 1]) = 0 then do
       output = _prefix(args, noun_index)
       query_verb = "evidence"
       if config_loaded = 1 then do
@@ -583,7 +584,7 @@ _aliases: procedure = .string[]
     return args
   end
   if noun = "maintain" then do
-    if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply status inspect retry tasks workflows evidence evidence-index refresh-plan refresh-apply escalate-plan escalate-apply resolve-plan resolve-apply") > 0 then return args
+    if noun_index < args.0 & commandknown("maintain",args[noun_index + 1]) = 1 then return args
     timing_args = .string[]
     i = noun_index + 1
     do while i <= args.0
@@ -611,7 +612,7 @@ _aliases: procedure = .string[]
     return output
   end
   if noun \= "ingest" then return args
-  if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply") > 0 then return args
+  if noun_index < args.0 & commandknown("ingest",args[noun_index + 1]) = 1 then return args
 
   metadata_args=.string[]
   i = noun_index + 1
@@ -700,13 +701,6 @@ _globalvalue: procedure = .string
     i = i + 1
   end
   return ""
-
-_requiresdefaultlibrary: procedure = .int
-  arg noun = .string, verb = .string
-  if noun = "" | noun = "doctor" | noun = "provider" | noun = "profile" then return 0
-  if noun = "config" & (verb = "check" | verb = "explain") then return 0
-  if noun = "library" & verb = "restore" then return 0
-  return 1
 
 _unsignedtext: procedure = .int
   arg value = .string

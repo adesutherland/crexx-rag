@@ -77,6 +77,11 @@ terminal-friendly. The local defaults are `./crexxrag.conf` and `./library`.
 Machine callers use the same operation vocabulary with JSON/NDJSON or MCP.
 Do not add shell scripts that own product workflows.
 
+`crexx/application/surfaces/ragcommandcatalog.crexx` owns canonical operation
+recognition and the MCP tool/schema/capability/forwarding definitions. Change
+that entry together with its owning service, public-surface tests and user/agent
+documentation; do not introduce a second adapter map.
+
 Gemini remains the hosted regression route. Codex uses managed App Server
 authentication; never extract tokens. Local embeddings use the
 OpenAI-compatible llama.cpp endpoint. Preserve privacy route classification and

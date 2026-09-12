@@ -1,0 +1,42 @@
+options levelg
+import rxfnsb
+import rxjson
+import ragcommand
+import ragcommandcatalog
+import ragmcp
+
+main: procedure = .int
+  arg args = .string[]
+  /* Caller text that resembles options must remain data on both VMs. */
+  document=.jsondocument('{"question":"--mode=hybrid","limit":1,"mode":"lexical"}')
+  command_args=.string[];command_args[1]="--library";command_args[2]="unused"
+  error="";request=.ragcommandrequest
+  if catalogcommand(commanddefinition("rag_query_inspect"),document,document.root(),command_args,error)\=0 then do;say "COMMAND_CATALOGUE_FAIL line 14";return 1;end
+  if parsecommand(command_args,request,error)\=0 then do;say error;return 1;end
+  positionals=request.positionals();command_options=request.command_options()
+  if request.operation()\="query.inspect" | positionals.0\=1 | positionals[1]\="--mode=hybrid" | command_options.0\=2 then do;say "COMMAND_CATALOGUE_FAIL line 17";return 1;end
+  document=.jsondocument('{"id":"--all","reason":"--apply"}')
+  clear command_args;command_args=.string[];command_args[1]="--library";command_args[2]="unused"
+  if catalogcommand(commanddefinition("rag_job_cancel"),document,document.root(),command_args,error)\=0 then do;say "COMMAND_CATALOGUE_FAIL line 20";return 1;end
+  if parsecommand(command_args,request,error)\=0 then do;say "COMMAND_CATALOGUE_FAIL line 21";return 1;end
+  positionals=request.positionals();command_options=request.command_options()
+  if positionals.0\=1 | positionals[1]\="--all" | command_options.0\=1 | command_options[1].value()\="--apply" then do;say "COMMAND_CATALOGUE_FAIL line 23";return 1;end
+  document=.jsondocument('{"embeddings_only":true,"enrich_provenance":false}')
+  clear command_args;command_args=.string[];command_args[1]="--library";command_args[2]="unused"
+  if catalogcommand(commanddefinition("rag_maintain_plan"),document,document.root(),command_args,error)\=0 then do;say "COMMAND_CATALOGUE_FAIL line 26";return 1;end
+  if parsecommand(command_args,request,error)\=0 then do;say "COMMAND_CATALOGUE_FAIL line 27";return 1;end
+  command_options=request.command_options()
+  if command_options.0\=1 | command_options[1].name()\="embeddings-only" | command_options[1].value()\="true" | command_options[1].flag()\=1 then do;say "COMMAND_CATALOGUE_FAIL line 29";return 1;end
+  if commandknown("maintain","workflows")\=1 | commandknown("query","invented")\=0 then do;say "COMMAND_CATALOGUE_FAIL line 30";return 1;end
+  if commandlibrary("config","prompt")\=0 | commandlibrary("schedule","show")\=0 | commandlibrary("job","items")\=1 then do;say "COMMAND_CATALOGUE_FAIL line 31";return 1;end
+  if capabilityallows("curate","plan")\=1 | capabilityallows("curate","control")\=1 | capabilityallows("admin","diagnose")\=1 then do;say "COMMAND_CATALOGUE_FAIL line 32";return 1;end
+  if capabilityallows("read","control")\=0 | capabilityallows("admin","plan")\=0 | capabilityallows("","read")\=0 then do;say "COMMAND_CATALOGUE_FAIL line 33";return 1;end
+  if commandtools("")\="" then do;say "COMMAND_CATALOGUE_FAIL line 34";return 1;end
+  response=mcpdispatch('{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rag_vector_rebuild","arguments":{"reconcile":true}}}',"unused","architecture-local","generic-profile","read")
+  if pos('"code":-32602',response)=0 then do;say "COMMAND_CATALOGUE_FAIL line 36";return 1;end
+  document=.jsondocument('{"limit":101}')
+  if catalogarguments(commanddefinition("rag_job_list"),document,document.root(),error)=0 then do;say "COMMAND_CATALOGUE_FAIL line 38";return 1;end
+  document=.jsondocument('{"input":"x","proposals_ndjson":"x"}')
+  if catalogarguments(commanddefinition("rag_proposal_plan"),document,document.root(),error)=0 then do;say "COMMAND_CATALOGUE_FAIL line 40";return 1;end
+  say "COMMAND_CATALOGUE_OK"
+  return 0

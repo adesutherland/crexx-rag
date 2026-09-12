@@ -1182,3 +1182,9 @@ The matching MCP tools are `rag_job_items`, `rag_job_attempts`,
 `rag_workflow_list`, and the extended `rag_task_list`. The same domain commands
 also remain available through ADDRESS RAG. Reports, snapshots and queries keep
 their existing commands and behavior after the source ownership changes.
+
+MCP callers should use the exact types and bounds shown by `tools/list`.
+`embeddings_only`, `enrich_provenance` and `reconcile` are JSON booleans: `true`
+enables the option and `false` leaves it disabled. Unknown, duplicate, missing,
+out-of-range or wrong-type arguments fail before dispatch. Command-like text
+inside a query, identifier or option value remains literal caller data.

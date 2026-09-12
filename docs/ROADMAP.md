@@ -4,6 +4,8 @@ The five maintenance refactors are now in delivery; see the
 [coverage and implementation record](maintenance-refactoring-delivery.md).
 Stages 1 through 3 have full green gates. Stage 3 extracts domain services
 and adds bounded operator diagnosis; the complete local suite passes 54/54.
+Stage 4 consolidates the public command catalogue; the full local gate passes
+57/57. Policy-file editing and effective defaults follow in stage 5.
 
 Current delivery, 12 September 2026: the review baseline and full regression
 gate are committed in `5d1481a`. Steps 5a/5b and 6 now implement the three

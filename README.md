@@ -290,3 +290,8 @@ Read-only operator diagnosis is available through `job items`, `job attempts`,
 `maintain workflows --concept LABEL` and `maintain tasks --concept LABEL`.
 See the [operator guide](docs/user-guide.md#find-work-and-failures-without-direct-sql)
 and [module ownership](docs/architecture.md#report-observation-query-and-diagnostic-services).
+
+Canonical operations and MCP argument contracts have one source owner,
+`ragcommandcatalog`. Tool schemas, argument validation and forwarding are kept
+together; the same catalogue supplies CLI operation recognition and library
+requirements. See [module ownership](docs/architecture.md).

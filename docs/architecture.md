@@ -521,3 +521,19 @@ The new diagnostic pages filter in SQL before their keyset cursor and limit,
 using stable row identities. Job/workflow reads use one SQLite read snapshot.
 They expose state, lineage and provider-run IDs while leaving raw retained
 request/response content to its existing controlled inspection surface.
+
+### Public command contract ownership
+
+`surfaces/ragcommandcatalog.crexx` owns the canonical operation inventory and
+MCP tool definitions: argument schemas, required fields, capabilities, library
+requirements, positional forwarding and fixed command variants. It depends only
+on primitive functions and JSON, so `ragcommand`, the CLI, MCP and access helpers
+can use it without importing product services. `ragmcp` only handles JSON-RPC,
+server bindings and result rendering. `ragcommand` owns typed requests/results
+and CLI parsing. Guided CLI interactions remain in `crexxrag_cli`; domain
+services own state-dependent argument checks, authorization and execution.
+
+When adding a public operation, update its catalogue entry, owning service,
+focused public-surface regression and user/agent documentation. Review the
+captured metadata contract when changing an advertised schema. Do not add
+parallel tool-name, required-argument or capability maps to an adapter.

@@ -2,6 +2,23 @@ set(CREXXRAG_NATIVE_APPLICATION
     "${CMAKE_BINARY_DIR}/crexxrag-native/package/crexxrag${CMAKE_EXECUTABLE_SUFFIX}")
 set(CREXXRAG_PROVIDER_FIXTURE "$<TARGET_FILE:crexxrag_provider_fixture>")
 
+add_test(NAME regression_command_metadata
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
+        "-DCPRAG_EXPECTED_CONTRACTS=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/contracts/command-metadata.sha256"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-command-metadata"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CommandMetadata.cmake")
+set_tests_properties(regression_command_metadata PROPERTIES TIMEOUT 60 LABELS "regression;command;contract;zero-outbound")
+
+add_test(NAME regression_command_arguments
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-command-arguments"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CommandArguments.cmake")
+set_tests_properties(regression_command_arguments PROPERTIES TIMEOUT 120 LABELS "regression;command;strict-json;zero-outbound")
+
 add_test(NAME regression_operator_diagnostics
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
@@ -43,6 +60,22 @@ add_test(NAME regression_prompt_contract
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PromptContract.cmake")
 set_tests_properties(regression_prompt_contract PROPERTIES
     TIMEOUT 180 LABELS "regression;prompt;schema;loopback;zero-outbound")
+
+add_test(NAME regression_command_catalogue
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXLINK=${CREXX_RXLINK_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/command_catalogue_scenario.crexx"
+        "-DCPRAG_MARKER=COMMAND_CATALOGUE_OK"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-command-catalogue"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ProjectContract.cmake")
+set_tests_properties(regression_command_catalogue PROPERTIES
+    TIMEOUT 150 LABELS "regression;command;contract;zero-outbound")
 
 add_test(NAME regression_claim_policy
     COMMAND "${CMAKE_COMMAND}"

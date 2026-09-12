@@ -3,21 +3,16 @@ options levelg
 namespace ragcommandutil expose commandhasaccess commandoptions commandworkeroptions commandoption commandid commandunsigned commandboolean commandfailure commandopenfailure
 
 import ragcommand
+import ragcommandcatalog
 import rxfnsb
 
 /* Shared transport-neutral argument, capability and result errors. Domain services retain semantic validation. */
 commandhasaccess: procedure = .int
   arg request = .ragcommandrequest, required = .string
-  access = request.access()
-  do i = 1 to access.0
-    granted = access[i]
-    if granted = required then return 1
-    if required = "read" then return 1
-    if required = "plan" & (granted = "ingest" | granted = "curate") then return 1
-    if required = "control" & (granted = "curate" | granted = "admin") then return 1
-    if required = "diagnose" & granted = "admin" then return 1
-  end
-  return 0
+  access = request.access(); grants = ""
+  do i = 1 to access.0; grants = grants || " " || access[i]; end
+  return capabilityallows(grants,required)
+
 commandoptions: procedure = .int
   arg request = .ragcommandrequest, allowed = .string, expose error = .string
   error = ""; request_options = request.command_options()

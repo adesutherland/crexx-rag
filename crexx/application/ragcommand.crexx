@@ -3,6 +3,7 @@ options levelg
 namespace ragcommand expose ragcommandoption ragcommandrequest ragresultfield ragresultrecord ragcommandresult parsecommand commandexitname rendercommandresult validcommandresult
 
 import rxfnsb
+import ragcommandcatalog
 import rxjson
 import ragmodel
 import ragtrace
@@ -204,11 +205,11 @@ parsecommand: procedure = .int
   else do
     if index > args.0 then return _usage("command verb is required", error)
     verb = args[index]; index = index + 1
-    if _validoperation(noun, verb) \= 1 then return _usage("unknown operation " || noun || " " || verb, error)
+    if commandknown(noun, verb) \= 1 then return _usage("unknown operation " || noun || " " || verb, error)
     operation = noun || "." || verb
   end
-  if noun \= "doctor" & _validoperation(noun, verb) \= 1 then return _usage("unknown operation " || noun || " " || verb, error)
-  if _requireslibrary(noun, verb) = 1 & library = "" then return _usage("operation " || operation || " requires --library", error)
+  if noun \= "doctor" & commandknown(noun, verb) \= 1 then return _usage("unknown operation " || noun || " " || verb, error)
+  if commandlibrary(noun, verb) = 1 & library = "" then return _usage("operation " || operation || " requires --library", error)
 
   positional_only = 0
   do while index <= args.0
@@ -423,33 +424,6 @@ _addaccess: procedure = .int
     if start > length(value) then return _usage("access capability list contains an empty value", error)
   end
   return 0
-
-_validoperation: procedure = .int
-  arg noun = .string, verb = .string
-  if noun = "library" then return pos(" " || verb || " ", " init status report snapshot trend verify backup restore migrate ") > 0
-  if noun = "config" then return pos(" " || verb || " ", " check explain prompt diff plan apply ") > 0
-  if noun = "provider" then return pos(" " || verb || " ", " list status test ") > 0
-  if noun = "profile" then return pos(" " || verb || " ", " list show validate ") > 0
-  if noun = "schedule" then return pos(" " || verb || " ", " list show ") > 0
-  if noun = "source" then return pos(" " || verb || " ", " list show ") > 0
-  if noun = "citation" then return verb = "show"
-  if noun = "vector" then return verb = "rebuild"
-  if noun = "ingest" then return pos(" " || verb || " ", " plan apply ") > 0
-  if noun = "job" then return pos(" " || verb || " ", " list status events plan items attempts pause resume cancel retry replay reconcile run ") > 0
-  if noun = "worker" then return pos(" " || verb || " ", " start run list status drain prune ") > 0
-  if noun = "query" then return pos(" " || verb || " ", " inspect search evidence answer trace timeline path ") > 0
-  if noun = "maintain" then return pos(" " || verb || " ", " plan apply status inspect retry tasks workflows evidence evidence-index refresh-plan refresh-apply escalate-plan escalate-apply resolve-plan resolve-apply ") > 0
-  if noun = "proposal" then return pos(" " || verb || " ", " plan apply ") > 0
-  if noun = "review" then return pos(" " || verb || " ", " list show decide ") > 0
-  if noun = "serve" then return verb = "mcp"
-  return 0
-
-_requireslibrary: procedure = .int
-  arg noun = .string, verb = .string
-  if noun = "doctor" | noun = "provider" | noun = "profile" | noun = "schedule" then return 0
-  if noun = "config" & (verb = "check" | verb = "explain" | verb = "prompt") then return 0
-  if noun = "library" & verb = "restore" then return 0
-  return 1
 
 _validkey: procedure = .int
   arg value = .string, maximum = .int, separator = .string

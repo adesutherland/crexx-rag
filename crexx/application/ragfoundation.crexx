@@ -9,6 +9,7 @@ import ragconfig
 import ragprofile
 import ragregistry
 import ragcommand
+import ragcommandcatalog
 import ragstore
 import ragbackup
 import ragrepository
@@ -407,16 +408,9 @@ _openfailure: procedure = .ragcommandresult
 
 _hasaccess: procedure = .int
   arg request = .ragcommandrequest, required = .string
-  access = request.access()
-  do i = 1 to access.0
-    granted = access[i]
-    if granted = required then return 1
-    if required = "read" then return 1
-    if required = "plan" & (granted = "ingest" | granted = "curate") then return 1
-    if required = "control" & (granted = "curate" | granted = "admin") then return 1
-    if required = "diagnose" & granted = "admin" then return 1
-  end
-  return 0
+  access = request.access(); grants = ""
+  do i = 1 to access.0; grants = grants || " " || access[i]; end
+  return capabilityallows(grants,required)
 
 _validateoptions: procedure = .int
   arg request = .ragcommandrequest, allowed = .string, expose error = .string

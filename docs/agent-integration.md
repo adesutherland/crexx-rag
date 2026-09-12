@@ -379,3 +379,10 @@ Then use `subject` or `workflow` with returned IDs for a bounded focused page.
 and provider-run references without SQL or raw provider content. These are
 read-only tools, not retry/reconciliation authority. Page until the cursor is
 empty and keep existing review requirements for every subsequent mutation.
+
+Tool definitions, argument validation and forwarding now come from one command
+catalogue. Use JSON booleans for enabling options, not strings such as `"true"`.
+A false value omits the enabling flag. Argument schema violations return JSON-RPC
+`-32602`; domain failures remain structured command results. Tool inspection
+requires no library access or provider call. Capability filtering and runtime
+authorization both remain enforced.

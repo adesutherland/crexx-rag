@@ -273,3 +273,8 @@ a failing `regression_operator_diagnostics` interface test with a passing
 job-status control. Its fixtures place unrelated rows before matching job and
 concept rows to catch post-pagination filtering. Full stage 3 qualification is
 recorded in the [delivery record](maintenance-refactoring-delivery.md).
+
+Command-catalogue coverage begins with captured metadata and a failing advertised
+boolean test on stage 3. Native MCP argument regressions and a two-VM scenario
+cover transport validation, access filtering, literal forwarding and zero-write
+planning. Qualification is recorded in the [delivery record](maintenance-refactoring-delivery.md).

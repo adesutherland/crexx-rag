@@ -257,3 +257,11 @@ without omissions, exact canonical labels preserve homonyms and Unicode,
 unknown arguments fail, native CLI and MCP return the same rows, and the full
 scratch-library dump remains unchanged. Existing query/report, snapshot,
 recovery and installed-surface journeys remain required for service changes.
+
+`regression_command_metadata` freezes the complete advertised read/all tool
+contracts before catalogue changes. `regression_command_arguments` exercises
+native MCP booleans, bounds, enums, lengths, required fields, oneOf, unknown and
+duplicate arguments, with an identical scratch database dump before/after.
+`regression_command_catalogue` checks both VMs, capability inheritance, operation
+recognition and literal forwarding of option-like caller text. Existing native,
+ADDRESS, installed-product and provider journeys validate service behavior.

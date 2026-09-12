@@ -23,8 +23,8 @@ control, original evidence and provider usage remain authoritative.
 | --- | --- | --- |
 | 1 | `ragclaimrules`: one effective claim-policy factory | Committed `b038495`; 51/51 full regression tests |
 | 2 | Domain prompt/contracts: complete effective requests and schemas together | Committed `f62158f`; 53/53 full regression tests |
-| 3 | Report, observation and query services: cohesive domain orchestration and bounded operator inspection | Green; 54/54 full regression tests |
-| 4 | Command catalogue: one operation/argument/capability definition used by surfaces | Pending |
+| 3 | Report, observation and query services: cohesive domain orchestration and bounded operator inspection | Committed `e792f1d`; 54/54 full regression tests |
+| 4 | Command catalogue: one operation/argument/capability definition used by surfaces | Green; 57/57 full regression tests |
 | 5 | Effective configuration policy and safe policy-file update/replacement commands | Pending |
 
 ## Stage 1 — claim policy
@@ -174,3 +174,61 @@ all 72 production namespaces have no cross-module import cycle, documentation
 links resolve, and whitespace checks pass. This is local qualification with
 synthetic providers and scratch libraries/installations. This interface work
 does not close the broader operational recovery or external-retirement outcomes.
+
+
+## Stage 4 — command catalogue
+
+Coverage first: stage 3 `e792f1d` passed the full 54-test gate. Before product
+edits, `regression_command_metadata` captured and froze the advertised schemas,
+required fields, descriptions and annotations for 32 read tools and all 63
+tools; it passed in 0.36 seconds. The new argument journey initialized its
+scratch library and passed a no-call maintenance-plan control, then reproduced
+the advertised `embeddings_only` boolean being rejected as a non-string
+(0.55 seconds). `reconcile` had the same separate-validator discrepancy.
+
+`ragcommandcatalog` declares each tool's canonical operation, input schema,
+capability, library requirement, positional mapping, fixed flags, description
+and annotations together. MCP derives tool metadata, required/type/enum/bounds
+validation and argument forwarding from those entries. CLI and ADDRESS parse
+the same canonical operation list; CLI shorthand recognition and default-library
+selection use it too. CLI-only operations are explicitly marked in the same
+catalogue. Capability inheritance has one implementation used by MCP and the
+product/foundation access helpers. Domain services retain state-dependent
+validation and enforce access when invoked directly.
+
+Boolean false omits an enabling flag; true enables it. Declared argument bounds
+are now rejected at the MCP invalid-parameters boundary instead of being passed
+to product usage validation. Forwarded option values use inline assignments,
+and positional values follow `--`, so caller text resembling an option remains
+data. No operation gains authority and no library or provider is opened by
+catalogue inspection. The first focused run caught an empty-string corner in
+oneOf matching: alternatives must count supplied fields independently of their
+nonempty-value validation. That regression now passes. The two-VM fixture also
+needed explicit clearing before reusing an argument array.
+
+Under concurrent machine load, the existing native surface fixture expired its
+ten-second idle interval while seven provider-free numeric checks ran between
+its ingestion and answering requests. Alternating the exact stage 3 binary and
+stage 4 `config check` five times gave medians 0.349 and 0.354 seconds; this
+comparison does not show a material startup regression in that route. The
+surface rerun and corrected two-VM scenario passed 2/2 in 14.52 seconds. The
+numeric checks now run after the live provider interval; no timeout or assertion
+was weakened. Source review removed two unused copies of the old capability
+helper left behind by extraction; only the catalogue now implements inheritance.
+The partial gate was stopped and rerun against that cleaned source.
+
+The final `cmake --workflow --preset regression` passed **57/57 in 715.52
+seconds**, with no rebuild needed. Native SHA-256:
+`053ea92ab4e9ef26ff25e1fc24fdb503d077ae168eb2c4f722b349fbbde76771`.
+Evidence: `/tmp/crexx-rag-refactor-4-baseline.log`,
+`/tmp/crexx-rag-refactor-4-red.log`,
+`/tmp/crexx-rag-refactor-4-focused1.log`,
+`/tmp/crexx-rag-refactor-4-focused3.log`,
+`/tmp/crexx-rag-refactor-4-timing-before.txt` and
+`/tmp/crexx-rag-refactor-4-full.log`. The earlier interrupted gate is retained
+separately and is not qualification evidence. Advertised metadata is unchanged;
+empty grants now correctly advertise no tools. Source review found no remaining
+parallel capability implementation or cross-module import cycle, and changed
+documentation links and whitespace checks pass. The optional full-volume
+harness also has the updated module dependency; no unrequested corpus was used.
+This is local qualification with synthetic providers and scratch installations.
