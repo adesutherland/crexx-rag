@@ -1,24 +1,22 @@
 # Consolidated roadmap and defect register
 
-Current status, 12 September 2026, at `8e4f5a8`: recovery steps 1–4 are
-committed and locally qualified for their scoped acceptance. The full review
-gate remains **45/48 passing**; the three failures below were freshly
-reproduced, with their positive controls passing. The [implementation plan](recovery-implementation-plan.md#current-status-and-next-work)
-now assigns them explicit next stages. They must precede further architecture
-or feature expansion; none is repaired by the completed recovery work.
+Current delivery, 12 September 2026: the review baseline and full regression
+gate are committed in `5d1481a`. Steps 5a/5b and 6 now implement the three
+previously failing public-result/Unicode acceptances: **50/50 tests pass** in
+the full local workflow. Qualification and exact
+artifact evidence are in the [repair record](public-result-lexical-repair.md).
+The [coverage record](regression-coverage.md) distinguishes the original red
+baseline from the completed gate; all review tests are retained in Git.
 
-| Still-failing test | Defect and public effect | Next work |
-| --- | --- | --- |
-| `regression_page_max` | UX-02: 100 review rows plus cursor exceed the 100-record result bound; human/JSON/NDJSON/MCP fail | Step 5a: coherent data-row and page-metadata contract |
-| `regression_large_job` | UX-02: a 65,536-character retained plan overflows generic `value`, making even a one-job listing fail on all four surfaces | Step 5b: bounded summaries and complete, separately accessible plan detail |
-| `regression_retrieval_unicode` | QE-06: indexed quoted `Élodie` and `東京` return no passage through JSON/MCP because query planning strips Unicode terms | Step 6: preserve lexical terms with source/citation controls |
+| Acceptance | Repair and owner |
+| --- | --- |
+| `regression_page_max` | UX-02: `ragcommand` validates 100 data rows plus bounded cursor metadata, composed by `ragresultpages` |
+| `regression_large_job` | UX-02: `ragrepository` supplies bounded summaries and exact plan slices; `job plan` / `rag_job_plan` expose complete detail |
+| `regression_retrieval_unicode` | QE-06: `ragquery` preserves indexed Unicode text, with source/citation, both-VM and installed-copy controls |
 
-The roadmap, workflow and seven broader review tests still have uncommitted
-changes. All 41 tests included in the recovery commits pass, but that narrower
-set omits these failures. Include the remaining review gate in the next
-implementation delivery so a clean checkout retains it. See the [coverage
-status](regression-coverage.md#current-status--12-september-2026) for precise
-committed versus working-tree evidence. This review updates documentation only.
+These bounded repairs do not close all operational P1s or the wider QE-06
+quality requirement. The remaining operator, renewal, profile/migration and
+qualification requirements below keep their existing scope.
 
 Reviewed 11 September 2026 against `df9649d7ae18fcc74a40616f5ff9b515f86b382b`.
 This is the starting point for current priorities and outstanding acceptance
@@ -73,7 +71,7 @@ acceptance is [the operational recovery record](recovery-defects.md).
 | --- | --- | --- |
 | RAG-OPS-001 | Partial — operator composition in `ragproduct`; configuration, lifecycle, receipt/usage and worker owners | One repeatable launch/resume path, early compatible configuration handling, supported recovery and idempotence without builds, SQL or bespoke scripts. `job run`, pre-claim checks and Codex reconciliation exist. Step 3 now tests receipt-write failure for extraction/embedding: original usage survives, saved Codex output is reused and unavailable output remains held without a blind repeat. Complete the combined operator flow, compatible worker-count transition and supported disposition of unrecoverable outcomes on a frozen installed artifact with a fresh operator. |
 | RAG-OPS-002 | Partial — shared rules/requests in `raglifecycle`; task/window execution in `ragbacklog`, claims in `ragwork` | Accept a durable, deduplicated retry request for **every task state**, including closed windows/terminal parents; distinguish accepting the request from when execution is safe. Preserve attempts, receipts, usage, uncertain outcomes and explicit authorized ceilings. Step 2 implements request acceptance, task reconsideration and shared job-state projection; native cases cover five retained failures, covered work and exhausted/uncertain holds. Reasoned close/waive controls and the complete external-retirement workflow remain open. Review the proposed three-attempt normal policy without overriding explicit exceptions. |
-| RAG-OPS-003 | Partial — job/worker/task/report queries and command adapters; public-result repairs next in step 5 | Documented commands alone explain progress, denominators, unique coverage versus attempts, failures, retry eligibility, waiting reasons, configured/live workers, recovery allowance, interval throughput and known/incomplete usage. Steps 1/4 add admission/supervision waiting status, pool counts and rolling capacity. UX-02's page/large-plan failures remain open and block reliable discovery. Reconcile counts under active work and complete the public-only diagnostic/recovery journey; fixing these two bounds alone does not close OPS-003. |
+| RAG-OPS-003 | Partial — job/worker/task/report queries and command adapters; public-result repairs next in step 5 | Documented commands alone explain progress, denominators, unique coverage versus attempts, failures, retry eligibility, waiting reasons, configured/live workers, recovery allowance, interval throughput and known/incomplete usage. Steps 1/4 add admission/supervision waiting status, pool counts and rolling capacity. Step 5 repairs UX-02's maximum-page and large-plan discovery failures, with complete detail reads. Reconcile counts under active work and complete the public-only diagnostic/recovery journey; fixing these two bounds alone does not close OPS-003. |
 | RAG-OPS-004 | Partial — `ragadmission`, `ragsupervision`, `ragenvironment` | Temporary capacity pressure, rolling worker replacement and safely uncalled shared preflight backoff are implemented. [Supervision evidence](supervision-recovery.md) covers expiry, controller restart, concurrent reservations, zero healthy workers, eight-worker outage/recovery and task isolation. Task attempts, uncertain outcomes, cumulative usage and cutoffs remain independent. Wider infrastructure classification and live/platform qualification remain open. |
 | RAG-OPS-005 | Open design — existing configuration, job, budget and window owners | One continuation/renewal operation handles optional exhausted budgets, operational configuration registration and remaining work under terminal internal jobs/windows. Preserve cumulative usage, attempts, receipts, held outcomes and completed work through a new authorization period; do not erase history. Distinguish reserved from consumed capacity. Agree essential versus optional controls, omission/renewal semantics and defaults before code; external account restrictions and the user's unchanged cutoff remain binding. |
 
@@ -99,7 +97,7 @@ consolidated delivery and dependency map, not a new feature specification.
 | RAG-QE-03 | Standalone human or optional LLM-directed querying | Shared query service and surfaces. Installed reader without extraction credentials; preserve zero-write/zero-provider `query inspect`. Bound searcher calls/privacy/budgets, validate citations/IDs, and prevent implicit claim writes. Answerer changes do not invalidate embeddings. |
 | RAG-QE-04 | Local embeddings with persistent CREXX ownership | Existing provider abstraction and process/session ownership; upstream NI-01–06. Prove offline installed cold/warm use, model reuse, actual CPU/GPU backend, per-owner memory, bounded batches and durable recovery. Preserve HTTP routes; no cross-process native handles or assumed shared allocation. |
 | RAG-QE-05 | Deliberately embedding-free lifecycle | Configuration, ingest, maintenance, health and query. Disabled is distinct from missing/failed required coverage; no embedding calls or endless repair census. Later enabling creates only embedding/index work, retaining evidence and graph. This crosses more than the query adapter. |
-| RAG-QE-06 | Measured lexical baseline and improvements | `ragquery` and lexical retrieval. **Step 6 first repairs the reproduced Unicode query loss**, independently of broader ranking work. Names/inflections/OCR/typos/aliases/phrases and variant allocation then need frozen-question evidence of gain and precision loss, preserving original citations. |
+| RAG-QE-06 | Measured lexical baseline and improvements | `ragquery` and lexical retrieval. **Step 6 repairs the reproduced Unicode query loss**, independently of broader ranking work; see [qualification](public-result-lexical-repair.md). Names/inflections/OCR/typos/aliases/phrases and variant allocation then need frozen-question evidence of gain and precision loss, preserving original citations. |
 | RAG-QE-07 | Stable, reproducible embedding profiles | Configuration/work/vector identity; upstream NI-05. Bind weights/checksum, revision, tokenizer, preparation, query/document instructions, pooling, normalization, truncation, dimensions and precision. Retain artifacts/licence and backend qualification. Same dimensions/display name cannot prove compatibility. |
 | RAG-QE-08 | Resumable embedding-model migration | Embedding-only maintenance, storage and publication; QE-07. Keep complete old model/index queryable until replacement coverage passes; resume, publish atomically and roll back. No repeated source import/extraction, mixed embedding spaces or paid sidecar rebuild. |
 | RAG-QE-09 | Comparative retrieval, exploration, performance and longevity evaluation | Cross-route QA. Start with 60–100 independently supported questions, fixed corpus/graph/settings and agreed thresholds. Compare lexical, graph and small/stronger embeddings; separate ANN error, graph maturity and iterative exploration. Measure useful packet evidence, displacement, calls, latency/tails, memory, throughput and rebuild time on identified hardware/artifacts. Retain Nomic comparison; model candidates are experiments, not selected defaults. |
@@ -128,7 +126,7 @@ data provide evidence, not a new live authorization.
 | Register ID | Status | Requirement, mapping and acceptance |
 | --- | --- | --- |
 | RAG-UX-01 | Open | Task lookup by subject/concept and addressable workflow inventory. Maps to OPS-003; repeat the Turray discovery without supplying evaluator IDs. The trial exhausted 30 product calls without finding the named migration. |
-| RAG-UX-02 | Open — next in steps 5a/5b; both failures reproduced again after step 4 | Coherent pagination and large-row detail. Maps to HC-33/34 and OPS-003. Tests demonstrate the 99/100 review-page boundary and a one-job page failing at 65,536 retained-plan characters after 65,535 succeeds, in human/JSON/NDJSON/MCP. The copied-corpus trial also found a 1,468,714-character plan. Separate/paginate bulky detail, preserving exact full-detail access; ADDRESS and installed-copy boundary cases remain acceptance before changing those surfaces. |
+| RAG-UX-02 | Recorded repair — steps 5a/5b; see [qualified boundaries](public-result-lexical-repair.md) | Coherent pagination and large-row detail. Maps to HC-33/34 and OPS-003. Tests demonstrate the 99/100 review-page boundary and a one-job page failing at 65,536 retained-plan characters after 65,535 succeeds, in human/JSON/NDJSON/MCP. The copied-corpus trial also found a 1,468,714-character plan. The repaired summary/detail projection preserves exact full-detail access, with ADDRESS and installed-copy boundary checks. Wider result-shape limits remain HC-34. |
 | RAG-UX-03 | Open | Trustworthy connection effect preview. Both Turray retraction plans showed empty impact despite changing a claim/support. Require affected objects and proposed effect before reviewed acceptance, using the lifecycle owner. |
 | RAG-UX-04 | Open | Complete an external correction through census and parent retirement without unrelated worker work. Three connections were resolved and remaining impact empty, but workflow stayed migrating with no retirement task. Maps to OPS-001/002; require final retirement, preserved history and idempotence through public controls. |
 | RAG-UX-05 | Proposed | Source-scoped query inspection and citation-adjacent context. Maps to QE-01/02/06/09. Repeat fixed historical questions and measure coverage, citations, faithful qualification and calls. |
@@ -183,8 +181,8 @@ below; it did not execute a separate acceptance test for every HC row.
 | HC-30 | P1 | Partial: worker polling configured; stale/prune/controller timing still needs one coherent policy. |
 | HC-31 | P1 | Partial policy consolidation: process and one-in-flight checks are explicit. File parsing and runtime claims now cap leases at 86,400 seconds, superseding the audit's old 3,600 figure. The typed config validator checks positivity only, but a public 86,401-second config probe was correctly rejected before library access; do not report a reproduced public lease-bounds defect. |
 | HC-32 | P1 | Implemented in source: plan TTL used by planning and configuration transitions. |
-| HC-33 | P1 | Partial: maintenance has cursor handling; review/job pagination defects remain under UX-02. Defaults/maxima still need coherent presentation policy. |
-| HC-34 | P1 | Open output/record bounds and complete-result handling; UX-02 supplies concrete failures. |
+| HC-33 | P1 | Partial: maintenance cursor handling and UX-02 maximum review/job/event pages are implemented. Wider defaults/maxima still need coherent presentation policy. |
+| HC-34 | P1 | Partial: UX-02 maximum-page and large-job bounds are repaired with complete plan access; broader result-shape/field limits still need review. |
 | HC-35 | P1 | Open snapshot churn weights; lower urgency than correctness/recovery. |
 | HC-36 | P1 | Open report-health thresholds and narrative subject policy. |
 | HC-37 | P1 | Recorded repair: provider smoke uses configured embedding dimensions/envelope. |
@@ -282,16 +280,13 @@ separate step that offsets the numbering.
 3. **Completed step 3:** receipt persistence and usage recovery, `d36db07`.
 4. **Completed step 4:** rolling supervision and shared preflight recovery,
    `8e4f5a8`. These are scoped deliveries, not closure of all operational P1s.
-5. **Next, step 5a then 5b:** repair the maximum-page and large-plan failures
-   under UX-02. Confirm and extend tests first, including ADDRESS/installed
-   boundaries and complete plan-detail access. Only Unicode may remain as an
-   original failing test when this stage is complete.
-6. **Then step 6:** repair Unicode lexical query loss under QE-06. Require all
-   48 current tests plus new acceptance to pass. Include the currently
-   uncommitted review fixtures, registration and workflow in the delivery so
-   the complete gate runs from a clean checkout.
+5. **Implemented steps 5a/5b:** maximum-page and large-plan repairs under
+   UX-02, with ADDRESS/installed boundaries and exact plan-detail access.
+6. **Implemented step 6:** Unicode lexical query loss under QE-06, with
+   independent citation/index controls. The complete gate and all review
+   documentation are versioned; see the current qualification record.
 
-After these three defects pass, complete public operator diagnostics/recovery,
+Next complete public operator diagnostics/recovery,
 effect previews and external retirement (OPS-001/002/003, UX-01/03/04), and
 specify renewal/continuation under OPS-005 without erasing history. Wider shared
 infrastructure recovery and hosted/platform/long-run qualification remain open

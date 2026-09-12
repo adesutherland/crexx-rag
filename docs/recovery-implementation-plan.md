@@ -13,52 +13,40 @@ move the entire application before repairing the known failures.
 
 ## Current status and next work
 
-Reviewed at `8e4f5a8413e289374408491dfc01dbb904ff0153` in
-`temp/project-review`. Steps 1–4 are committed and qualified for their scoped
-local acceptance. The overall review gate is **not green**: the last complete
-run passed **45/48 in 620.61 seconds**. A fresh focused run on 12 September
-reproduced all three failures with both control tests passing (2/5, 32.11
-seconds); the native artifact hash still matches the step-4 qualification.
-See the [coverage record](regression-coverage.md#current-status--12-september-2026).
+The previously uncommitted review baseline, fixtures and regression workflow
+are now committed in `5d1481a`. Steps 1–4 remain committed as `4500e77`,
+`10a91d2`, `d36db07` and `8e4f5a8`. Steps 5a/5b and 6 implement the remaining
+three failures with the tests confirmed and extended before product edits.
+See [public results and Unicode repair](public-result-lexical-repair.md) for
+qualification, compatibility review and exact artifact evidence.
 
-| Step | Delivered boundary and outcome | Commit / status |
-| --- | --- | --- |
-| 1 | `ragadmission`: temporary reservation pressure defers uncalled work without consuming a failed attempt | `4500e77`, scoped acceptance passes |
-| 2 | `raglifecycle`: durable retry requests and shared task/job/window decisions, preserving limits and uncertainty | `10a91d2`, scoped acceptance passes |
-| 3 | `ragreceipts`, `ragusage`, `ragworktypes`: retain original usage and saved output after receipt persistence failure | `d36db07`, scoped acceptance passes |
-| 4 | `ragsupervision`, `ragenvironment`: rolling replacement, shared preflight backoff and recovery probing | `8e4f5a8`, scoped acceptance passes |
-| 5a | Maximum public pages, including their cursor | **Next defect repair**, `regression_page_max` remains red |
-| 5b | Bounded job summaries and separately accessible complete plan detail | **Next defect repair**, `regression_large_job` remains red |
-| 6 | Preserve indexed Unicode terms through lexical query planning | **Next defect repair**, `regression_retrieval_unicode` remains red |
+| Step | Current delivery |
+| --- | --- |
+| 1 | `ragadmission`: recover temporary reservation pressure |
+| 2 | `raglifecycle`: durable retry requests and shared lifecycle decisions |
+| 3 | `ragreceipts`, `ragusage`, `ragworktypes`: retain output and usage on receipt failure |
+| 4 | `ragsupervision`, `ragenvironment`: rolling replacement and shared preflight recovery |
+| 5a | `ragresultpages` / `ragcommand`: full data pages plus bounded cursor metadata |
+| 5b | `ragrepository` / `ragresultpages`: bounded summaries and exact `job plan` reads |
+| 6 | `ragquery`: preserve Unicode terms through lexical query planning |
 
-The three failures were recorded but insufficiently scheduled: public results
-were a "potentially immediately after slice 1" note, and Unicode was grouped
-with later query work. Steps 1–4 did not repair them. This revision makes them
-explicit next stages with acceptance gates, ahead of further architecture or
-feature expansion. The broader QE-06 evaluation is not a prerequisite to
-repairing demonstrated loss of an indexed literal name.
-
-There is also a version-control gap: the consolidated review documents,
-regression workflow preset and seven public/retrieval review tests remain
-uncommitted working-tree changes. The committed tree registers 41 tests;
-those all passed, while the complete working-tree gate includes all 48. The
-41-test result cannot substitute for that full gate. Preserve and include the
-remaining review fixtures, registration, workflow and documentation in the next
-implementation delivery, so a clean checkout runs the same required gate.
-This status review changes documentation only; it does not implement or commit
-steps 5–6.
+The scheduling gap identified in the earlier review is addressed: the two
+public-result repairs and Unicode correctness fix now have implementation and
+named acceptance, rather than being loose later-work notes. The broader
+operator and QE requirements below remain open; a scoped repair does not close
+all related backlog items. The tests-first instruction remains in AGENTS.md.
 
 The architecture has improved in specific places. `ragwork` has reduced from
 1,956 to 1,156 physical lines as receipt, usage and shared contracts moved to
 named owners; no cross-module product import cycle was found. `ragproduct`
-has grown from 3,304 to 3,354 lines and still mixes dispatch, queries, reports,
+has grown from 3,304 to 3,351 lines and still mixes dispatch, queries, reports,
 jobs and other operations. These size counts help locate responsibility; they
 do not measure reliability. The targeted modularisation is useful, but no
-reduction in escaped-regression rate has yet been measured. The next public
-result fix should establish one coherent result-page owner; a general dispatcher
+reduction in escaped-regression rate has yet been measured. The public
+result fix establishes one coherent result-page owner; a general dispatcher
 split and separate executables remain later choices.
 
-Sections 1–4 below retain their original coverage checkpoints and completion
+Sections 1–6 below retain their original coverage checkpoints and completion
 criteria as implementation records; they are not instructions to repeat those
 completed stages.
 
@@ -249,9 +237,8 @@ nor controller restarts reset task or provider history.
 
 ## 5. Repair bounded public results — UX-02 / OPS-003 / HC-33/34
 
-**Status:** open, next implementation stage. Deliver two small fixes in order,
-with coverage confirmed before each. The first changes the shared page
-contract; the second changes job summary/detail construction.
+**Status:** implemented; see [repair qualification](public-result-lexical-repair.md).
+The following scope and test checkpoints are retained as the acceptance record.
 
 **5a — Maximum page plus cursor.** `ragrepository.pagerepository` and
 `ragproduct._repository` accept 100 data rows, but the latter appends a cursor
@@ -291,7 +278,7 @@ outstanding. Broader OPS-003 operator diagnostics remain separate acceptance.
 
 ## 6. Repair Unicode lexical query loss — QE-06
 
-**Status:** open, immediately after step 5 and before broader query features.
+**Status:** implemented after step 5; see [repair qualification](public-result-lexical-repair.md).
 `ragquery._words` keeps only ASCII letters/digits; `_ftswords` uses it even for
 quoted phrases. Direct SQLite FTS finds the indexed `Élodie` and `東京`, while
 `query inspect` returns no passage through JSON/MCP. The query planner owns

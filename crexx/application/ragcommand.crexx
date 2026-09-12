@@ -267,10 +267,31 @@ validcommandresult: procedure = .int
   if (result.status() = "ok") \= (result.exit_code() = 0) then return _invalidresult("status and exit code disagree", error)
   if length(result.message()) > 65535 then return _invalidresult("message is too long", error)
   records = result.records()
-  if records.0 > 100 then return _invalidresult("result exceeds the 100-record rendering bound", error)
+  data_records=records.0
+  if records.0>0 then if records[records.0].kind()="page" then data_records=data_records-1
+  if data_records > 100 then return _invalidresult("result exceeds the 100-record rendering bound", error)
   do i = 1 to records.0
     if _validkey(records[i].kind(), 64, "-") \= 1 then return _invalidresult("record kind is invalid", error)
     fields = records[i].fields()
+    /* Existing bounded task pages have their own metadata vocabulary. Only
+     * the extra record allowance needs this narrower cursor contract. */
+    if records.0>100 & records[i].kind()="page" then do
+      if i\=records.0 | fields.0<1 | fields.0>2 then return _invalidresult("page metadata must be one bounded final record",error)
+      cursor_found=0
+      do j=1 to fields.0
+        if fields[j].name()="next_cursor" then do
+          if fields[j].value_type()\="string" | fields[j].value()="" | length(fields[j].value())>512 then return _invalidresult("page cursor is invalid",error)
+          cursor_found=1
+        end
+        else if fields[j].name()="limit" then do
+          if fields[j].value_type()\="integer" | _canonicalinteger(fields[j].value())\=1 | length(fields[j].value())>3 then return _invalidresult("page limit is invalid",error)
+          page_limit=fields[j].value() as .int
+          if page_limit<1 | page_limit>100 | data_records>page_limit then return _invalidresult("page limit is invalid",error)
+        end
+        else return _invalidresult("page metadata field is unsupported",error)
+      end
+      if cursor_found\=1 then return _invalidresult("page metadata requires a cursor",error)
+    end
     if fields.0 > 100 then return _invalidresult("record exceeds the 100-field rendering bound", error)
     do j = 1 to fields.0
       if _validkey(fields[j].name(), 64, "_") \= 1 then return _invalidresult("field name is invalid", error)
@@ -414,7 +435,7 @@ _validoperation: procedure = .int
   if noun = "citation" then return verb = "show"
   if noun = "vector" then return verb = "rebuild"
   if noun = "ingest" then return pos(" " || verb || " ", " plan apply ") > 0
-  if noun = "job" then return pos(" " || verb || " ", " list status events pause resume cancel retry replay reconcile run ") > 0
+  if noun = "job" then return pos(" " || verb || " ", " list status events plan pause resume cancel retry replay reconcile run ") > 0
   if noun = "worker" then return pos(" " || verb || " ", " start run list status drain prune ") > 0
   if noun = "query" then return pos(" " || verb || " ", " inspect search evidence answer trace timeline path ") > 0
   if noun = "maintain" then return pos(" " || verb || " ", " plan apply status inspect retry tasks evidence evidence-index refresh-plan refresh-apply escalate-plan escalate-apply resolve-plan resolve-apply ") > 0

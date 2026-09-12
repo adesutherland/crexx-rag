@@ -464,6 +464,27 @@ Attempts, receipts, usage, old items and window deadlines remain intact.
 
 ## Jobs
 
+List jobs with `job list --limit 100`, following the final `page` record's
+`next_cursor`. The limit counts data rows; a cursor is additional metadata.
+The same rule applies to review and event pages.
+
+Job lists retain small canonical plans in `value`. If `value_complete` is
+`false`, `value` is empty and `detail_operation` identifies `job.plan`; the job
+summary remains available. Read the exact retained plan in bounded pages:
+
+```sh
+crexxrag --format json job plan JOB_ID --limit 8192
+crexxrag --format json job plan JOB_ID --cursor NEXT_CURSOR --limit 8192
+```
+
+Concatenate each page's `text` until `next_cursor` is empty. Cursors and limits
+count Unicode characters, independently of UTF-8 citation byte offsets. Each
+page carries the original `plan_digest`, `text_offset`, `total_characters` and
+`text_complete`; compare the digest across pages. The default and maximum page
+size is 8,192 characters. Reads require `read` access, make no provider calls
+and do not modify the library. JSON/MCP preserve exact text; human output is a
+preview subject to the normal display truncation.
+
 Use the installed, tested executable and the job's original configuration:
 
 ```sh
@@ -825,6 +846,11 @@ crexxrag --format json query timeline 'question' --mode hybrid
 crexxrag citation show 'crexx-rag:...'
 ```
 
+Quoted and ordinary lexical queries preserve accented and non-Latin text for
+the same SQLite Unicode tokenizer used by the index. Source text and citation
+offsets stay unchanged. This does not imply stemming or fuzzy matching for
+every language.
+
 Lexical mode makes no embedding call. Automatic mode reports provider fallback
 truthfully if query embedding is unavailable. Explicit hybrid mode fails if its
 required embedding route fails. Generated answers are rejected for unknown,
@@ -1011,7 +1037,7 @@ ingest plan / ingest apply
 maintain plan / maintain apply / maintain status / maintain inspect
 proposal plan / proposal apply
 worker start / worker run
-job list / job status / job events
+job list / job status / job events / job plan
 job run / job reconcile / job replay
 query search / evidence / answer / trace / path / timeline
 library status / report / snapshot / trend / verify / backup / restore

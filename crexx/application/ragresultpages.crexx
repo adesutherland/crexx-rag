@@ -1,0 +1,77 @@
+options levelg
+namespace ragresultpages expose repositoryresultrecords appendresultpage parseplanpage planresultrecords
+import rxfnsb
+import rxjson
+import ragcommand
+import ragrepository
+
+/* Result projection owns page metadata and summary/detail presentation.
+ * Repositories retain SQL reads; commands retain access and operation routing. */
+repositoryresultrecords: procedure = .ragresultrecord[]
+  arg page = .ragrepositorypage, metadata_rows = .string[], id = .string, limit = .int
+  repository = page.repository()
+  source_records = page.records(); records = .ragresultrecord[]
+  do i = 1 to source_records.0
+    source = source_records[i]
+    if id \= "" & source.identity() \= id & source.parent_identity() \= id then iterate
+    fields = .ragresultfield[]
+    fields[1] = .ragresultfield("identity", "string", source.identity())
+    fields[2] = .ragresultfield("parent_identity", "string", source.parent_identity())
+    fields[3] = .ragresultfield("related_identity", "string", source.related_identity())
+    fields[4] = .ragresultfield("name", "string", source.name())
+    fields[5] = .ragresultfield("category", "string", source.category())
+    fields[6] = .ragresultfield("state", "string", source.state())
+    fields[7] = .ragresultfield("value", "string", source.value())
+    fields[8] = .ragresultfield("detail", "string", source.detail())
+    fields[9] = .ragresultfield("generation", "integer", page.snapshot_generation())
+    if repository = "sources" then fields[10] = .ragresultfield("source_metadata", "string", metadata_rows[i])
+    if repository="jobs" then do
+      detail=.jsondocument(source.detail()); total=0
+      ignored=detail.node_int(detail.member(detail.root(),"plan_characters"),total)
+      complete="true"; if total>65535 then complete="false"
+      fields[10]=.ragresultfield("value_complete","boolean",complete)
+      fields[11]=.ragresultfield("plan_characters","integer",total)
+      fields[12]=.ragresultfield("detail_operation","string","job.plan")
+    end
+    records[records.0 + 1] = .ragresultrecord(repository, fields)
+  end
+  if id \= "" & records.0=0 then return records
+  call appendresultpage records,page.next_cursor(),limit
+  return records
+
+appendresultpage: procedure
+  arg expose records = .ragresultrecord[], cursor = .string, limit = 0
+  if cursor = "" then return
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("next_cursor","string",cursor)
+  if limit > 0 then fields[2] = .ragresultfield("limit","integer",limit)
+  records[records.0+1] = .ragresultrecord("page",fields)
+  return
+
+parseplanpage: procedure = .int
+  arg cursor = .string, limit = .string, expose offset = .int, expose count = .int, expose error = .string
+  offset=0; count=8192; error=""
+  if cursor="" then cursor="0"
+  if limit="" then limit="8192"
+  if length(cursor)>9 | verify(cursor,"0123456789")\=0 | length(limit)>4 | verify(limit,"0123456789")\=0 then do
+    error="plan cursor must be a bounded character offset and limit must be 1..8192"; return -1
+  end
+  offset=cursor as .int; count=limit as .int
+  if count<1 | count>8192 then do; error="plan limit must be 1..8192 characters"; return -1; end
+  return 0
+
+planresultrecords: procedure = .ragresultrecord[]
+  arg page = .ragjobplanpage
+  fields=.ragresultfield[]; records=.ragresultrecord[]; next_cursor=""
+  if page.offset()+length(page.text())<page.total_characters() then next_cursor=page.offset()+length(page.text())
+  fields[1]=.ragresultfield("job_id","string",page.job_id())
+  fields[2]=.ragresultfield("plan_digest","string",page.digest())
+  fields[3]=.ragresultfield("text","string",page.text())
+  fields[4]=.ragresultfield("text_offset","integer",page.offset())
+  fields[5]=.ragresultfield("total_characters","integer",page.total_characters())
+  fields[6]=.ragresultfield("next_cursor","string",next_cursor)
+  fields[7]=.ragresultfield("cursor_unit","string","unicode-characters")
+  complete="false"; if page.offset()=0 & next_cursor="" then complete="true"
+  fields[8]=.ragresultfield("text_complete","boolean",complete)
+  records[1]=.ragresultrecord("job-plan",fields)
+  return records

@@ -107,6 +107,21 @@ if(NOT maintenance_result EQUAL 0)
     message(FATAL_ERROR "installed init/ingest/maintain/query workflow failed:\n${maintenance_out}${maintenance_err}")
 endif()
 
+# The same public boundaries must work from a scratch installation.
+foreach(case IN ITEMS page_max plan_detail retrieval_unicode)
+    execute_process(COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${application}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CPRAG_PROVIDER_CONFIG_TEMPLATE}"
+        "-DCPRAG_CORPUS=${CMAKE_CURRENT_LIST_DIR}/../tests/fixtures/retrieval/regression.json"
+        "-DCPRAG_CASE=${case}"
+        "-DCPRAG_WORK_DIR=${CPRAG_WORK_DIR}/public-${case}"
+        -P "${CMAKE_CURRENT_LIST_DIR}/PublicRegression.cmake"
+        RESULT_VARIABLE public_result OUTPUT_VARIABLE public_out ERROR_VARIABLE public_err TIMEOUT 180)
+    if(NOT public_result EQUAL 0)
+        message(FATAL_ERROR "Installed ${case} failed: ${public_out}${public_err}")
+    endif()
+endforeach()
+
 file(WRITE "${CPRAG_WORK_DIR}/result.txt"
     "test=installed-product\nprefix=${prefix}\n"
     "doctor=passed\nprovider_smoke=passed\ningest=passed\nmaintenance=passed\nquery=passed\n"

@@ -9,6 +9,8 @@
   gate, executable defect cases, risk mapping and remaining acceptance.
 - [First recovery refactors and fixes](recovery-implementation-plan.md): proposed
   delivery order, cohesive source owners and coverage checks before each change.
+- [Public results and Unicode repair](public-result-lexical-repair.md): page bounds,
+  complete retained-plan reads and Unicode regression qualification.
 - [Architecture](architecture.md): enduring components, ownership, and data flow.
 - [Standalone setup](standalone-setup.md): install-to-workspace setup for a
   human using the packaged executable and examples.

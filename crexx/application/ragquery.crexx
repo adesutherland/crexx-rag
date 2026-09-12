@@ -359,7 +359,10 @@ _singlequotedphrases: procedure
 _wordcharacter: procedure = .int
   arg value = .string
   if value = "" then return 0
-  return pos(lower(value), "abcdefghijklmnopqrstuvwxyz0123456789") > 0
+  /* Preserve non-ASCII text, including combining marks, for the installed
+   * unicode61 tokenizer. Its token/diacritic rules also govern the index.
+   * ASCII FTS syntax stays a separator; no query text becomes an operator. */
+  return binlength(value as .binary)>1 | pos(lower(value), "abcdefghijklmnopqrstuvwxyz0123456789") > 0
 
 _impliedphrase: procedure = .string
   arg normalized = .string
@@ -384,7 +387,7 @@ _words: procedure
   words = .string[]; current = ""
   do i = 1 to length(value)
     character = substr(value, i, 1)
-    if pos(character, "abcdefghijklmnopqrstuvwxyz0123456789") > 0 then current = current || character
+    if _wordcharacter(character) = 1 then current = current || character
     else if current \= "" then do; words[words.0 + 1] = current; current = ""; end
   end
   if current \= "" then words[words.0 + 1] = current
@@ -406,7 +409,7 @@ _normalize: procedure = .string
 
 _ftswords: procedure = .string
   arg value = .string, prefix = .int
-  words = .string[]; call _words value, words
+  words = .string[]; call _words lower(value), words
   output = ""
   do i = 1 to words.0
     if output \= "" then output = output || " "

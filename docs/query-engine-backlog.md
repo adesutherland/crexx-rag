@@ -142,13 +142,12 @@ not just an accidental provider failure fallback.
 
 ## RAG-QE-06 — Establish and improve the lexical baseline
 
-12 September status: `regression_retrieval_unicode` still reproduces missing
-passages for indexed quoted `Élodie` and `東京` through JSON/MCP after recovery
-steps 1–4. The [implementation plan](recovery-implementation-plan.md#6-repair-unicode-lexical-query-loss--qe-06)
-assigns this bounded defect to step 6, immediately after the two UX-02 public
-result repairs. Confirm and extend regression coverage first. Broader ranking
-evaluation below must not delay this correctness fix; repairing it alone does
-not close the whole QE-06 requirement.
+12 September update: step 6 repairs indexed quoted/unquoted `Élodie` and `東京`,
+including uppercase/decomposed text and Unicode punctuation. The [repair
+record](public-result-lexical-repair.md) gives the public, both-VM and installed
+acceptance evidence. Source/citation oracles, zero-provider and zero-write
+controls remain. This closes the reproduced query/index mismatch, while the
+broader measured lexical improvements below remain open.
 
 Audit the current SQLite FTS5/BM25 search, phrase/original/focused variants,
 corpus-frequency ordering, aliases, bounded spelling correction, prefix search

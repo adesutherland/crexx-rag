@@ -2,6 +2,18 @@
 
 ## Current status — 12 September 2026
 
+The complete review baseline and regression workflow are committed in `5d1481a`.
+Steps 5a/5b and 6 implement the three original failing acceptances. The
+[repair record](public-result-lexical-repair.md) records their test-first
+baseline, additional public/ADDRESS/installed checks and final qualification.
+The complete workflow passed **50/50 tests in 654.74 seconds**, including the
+two new result/detail cases and all three former failures. The matched native
+SHA-256 is `a571e3d7c90fc115c43e236094101a527b8f5128282d865eab5479c08473b6a8`.
+Full log: `/tmp/crexx-rag-results-full.log`. Resolved known-defect labels were removed; all tests still use ordinary
+pass/fail assertions.
+
+## Status before steps 5–6 — 12 September 2026
+
 Product HEAD: `8e4f5a8413e289374408491dfc01dbb904ff0153`,
 `temp/project-review`. The last full step-4 run passed **45/48 in 620.61
 seconds**. All 41 tests registered in the committed tree passed. Seven further
@@ -66,7 +78,7 @@ and both VM logs. These are disposable generated artifacts, overwritten on a
 rerun. Copy them before another run when retaining evidence for a repair.
 
 For iteration, `ctest --preset debug -R '^regression_' --output-on-failure`
-runs the ten currently registered cases with that prefix, including lifecycle
+runs the twelve currently registered cases with that prefix, including lifecycle
 and supervision added after REG-01. It excludes the native recovery cases and
 other required controls, so this narrower panel is not the complete gate.
 The workflow makes no hosted calls. The provider suites use local fixtures;
@@ -119,12 +131,12 @@ review gate exits 8. Step 1 is qualified, but the full review gate is not green.
 | Test | Independent assertions and baseline expectation | Register/owner |
 | --- | --- | --- |
 | `regression_pages` | Traverse all 101 ordered reviews with limits 1, 20 and 99; no omitted, repeated or reordered identities; cursor terminates. Positive 99-row boundary in human/JSON/NDJSON/MCP, invalid limits rejected, integrity and zero provider calls. | OPS-003, UX-02, HC-33/34; `ragproduct`, `ragrepository`, `ragcommand`, MCP |
-| `regression_page_max` | After each transport's successful 99-row control, request the advertised maximum of 100 from 101 reviews. Requires success with all 100 rows and a cursor. Currently fails in all four transports because the cursor becomes record 101. | UX-02; same owners |
-| `regression_large_job` | A valid retained JSON plan of 65,535 characters renders on a one-job page. One extra character must not make the job undiscoverable. Currently fails in human/JSON/NDJSON/MCP. The earlier test of a `canonical_plan` field did not exercise this repository `value` field. | UX-02, HC-34; `ragrepository`, `ragcommand` |
+| `regression_page_max` | After each transport's successful 99-row control, request the advertised maximum of 100 from 101 reviews. Requires success with all 100 rows and a cursor. The original failure was cursor record 101; step 5a now permits the bounded cursor in addition to all data rows. | UX-02; same owners |
+| `regression_large_job` | A valid retained JSON plan of 65,535 characters renders on a one-job page. One extra character must not make the job undiscoverable. Step 5b keeps both sizes discoverable through human/JSON/NDJSON/MCP and provides exact paged detail. The earlier test of a `canonical_plan` field did not exercise this repository `value` field. | UX-02, HC-34; `ragrepository`, `ragcommand` |
 | `regression_retry` | Public retry of five dead letters, including after the first retry changes the parent to queued; read-only access cannot mutate; repeated submission cannot duplicate work/events; original attempts, fences, input hashes and diagnostics survive; no calls or reservation leakage. | OPS-001/002, MNT-002/003; `ragwork`, `ragproduct` |
 | `regression_closed_retry` | The same positive retry control plus five failed tasks linked to a closed window under a completed parent. Step 2 now accepts the task request without reopening the window, preserves original history, supports terminal-parent replay, and rejects active/completed replay descendants through CLI/MCP. | OPS-002; job/task/window boundary |
 | `regression_retrieval` | Six frozen questions, including an absent term, against six small synthetic documents; exact expected passage text, CLI/MCP citation agreement and citation resolution, original UTF-8 offsets, no fabricated graph claims, zero provider calls, unchanged complete SQLite dump. OCR spelling and uncertainty must survive intact. | QE-03/06/09; query, evidence, citation surfaces |
-| `regression_retrieval_unicode` | Runs the same positive controls plus quoted `Élodie` and `東京`. Direct FTS probes independently prove each name is indexed. Both names currently return no passage through CLI and MCP; this is a demonstrated query-planning loss, not a claim that all Unicode retrieval fails. | QE-06; `ragquery._words` / FTS planning |
+| `regression_retrieval_unicode` | Runs the same positive controls plus quoted `Élodie` and `東京`. Direct FTS probes independently prove each name is indexed. Both names failed through CLI/MCP at baseline. Step 6 retains them, with quoted/unquoted, uppercase/decomposed and Unicode-punctuation controls; this is not a general retrieval-quality score. | QE-06; `ragquery._words` / FTS planning |
 | `regression_ingest_capacity` | An ordinary ingestion worker competes with a durably held reservation. Separate input, output, cost, time and in-flight cells; unpressured positive control; the peer must defer without a failed attempt, then finish when unused capacity is released. Actual call counts and settlement checked on both VMs with optimized code. All five pressure cells failed at the original baseline; the admission repair now passes them. | OPS-004; `ragwork` reservation/worker boundary |
 
 The closed-parent fixture deliberately reproduces a recorded persisted state

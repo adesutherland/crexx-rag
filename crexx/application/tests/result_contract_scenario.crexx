@@ -1,0 +1,124 @@
+options levelg
+namespace result_contract_scenario expose main
+import rxfnsb
+import rxjson
+import rxsqlite
+import ragstore
+import ragcommand
+import ragquery
+import ragproduct
+import operator_registry
+import generic_profile
+import rag_address_environment
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if condition then return 0
+  say "RESULT_CONTRACT_FAIL=" || label
+  return 1
+
+field: procedure = .string
+  arg text = .string, name = .string, row = 1
+  doc = .jsondocument(text); value = ""
+  records = doc.member(doc.root(),"records"); record = doc.element(records,row)
+  fields = doc.member(record,"fields")
+  status = doc.node_string(doc.member(fields,name),value)
+  return value
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 \= 2 then return 2
+  errors = 0; error = ""; store = .ragstorehandle
+  if openragstore(args[1],"readwrite",store,error) \= 0 then return 3
+  database = store.database()
+  errors = errors + check(sqliteexec(database,"DELETE FROM reviews; DELETE FROM job_events; DELETE FROM jobs; WITH RECURSIVE n(i) AS (VALUES(0) UNION ALL SELECT i+1 FROM n WHERE i<100) INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) SELECT printf('review-%03d',i),'maintenance-external','fixture','pending','{}','fixture' FROM n; INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,created_at,updated_at) SELECT 'large-job','fixture-digest',json_object('text',replace(hex(zeroblob(23000)),'00','東京é')),config_snapshot_id,'completed',1,1,128,64,0,'fixture','fixture' FROM config_snapshots LIMIT 1;")=0,"seed")
+  errors = errors + check(sqliteexec(database,"WITH RECURSIVE n(i) AS (VALUES(0) UNION ALL SELECT i+1 FROM n WHERE i<100) INSERT INTO job_events(job_id,event_type,message,occurred_at) SELECT 'large-job','fixture','event-'||i,'fixture' FROM n;")=0,"seed maximum event page")
+  call closeragstore store,error
+  if errors \= 0 then return 4
+  command = "LIBRARY OPEN " || args[1] || " --config architecture-local --profile generic-profile --access read --format json"
+  lines = .string[]
+  address RAG (command) output lines
+  errors = errors + check(rc=0,"ADDRESS open")
+  clear lines
+  address RAG "REVIEW LIST --limit 99" output lines
+  errors = errors + check(rc=0,"ADDRESS positive 99-row page")
+  clear lines
+  address RAG "REVIEW LIST --limit 100" output lines
+  errors = errors + check(rc=0,"ADDRESS maximum page")
+  if rc=0 then errors = errors + check(field(lines[1],"identity",100)="review-099" & field(lines[1],"next_cursor",101)="review-099","ADDRESS full page and cursor")
+  clear lines
+  address RAG "REVIEW LIST --limit 100 --cursor review-099" output lines
+  errors = errors + check(rc=0 & field(lines[1],"identity")="review-100","ADDRESS final row")
+  clear lines
+  address RAG "JOB LIST --limit 1" output lines
+  errors = errors + check(rc=0,"ADDRESS large summary")
+  if rc=0 then errors = errors + check(field(lines[1],"identity")="large-job" & field(lines[1],"detail_operation")="job.plan","ADDRESS detail discovery")
+  clear lines
+  address RAG "JOB EVENTS large-job --limit 100" output lines
+  errors = errors + check(rc=0,"ADDRESS maximum event page")
+  if rc=0 then errors = errors + check(field(lines[1],"next_cursor",101)\="","ADDRESS event cursor")
+  body = ""; cursor = "0"
+  do page = 1 to 20
+    clear lines
+    command = "JOB PLAN large-job --cursor " || cursor || " --limit 8192"
+    address RAG (command) output lines
+    errors = errors + check(rc=0,"ADDRESS plan page " || page)
+    if rc\=0 then leave
+    body = body || field(lines[1],"text"); cursor=field(lines[1],"next_cursor")
+    if cursor="" then leave
+  end
+  errors = errors + check(body='{"text":"' || copies("東京é",23000) || '"}' & cursor="","ADDRESS exact multibyte plan")
+  clear lines
+  address RAG "JOB PLAN large-job --limit 8193" output lines
+  errors = errors + check(rc=2,"ADDRESS rejects oversized detail page")
+  clear lines
+  address RAG "JOB PLAN large-job --cursor 9223372036854775808" output lines
+  errors = errors + check(rc=2,"ADDRESS rejects overflow before conversion")
+  clear lines
+  address RAG "LIBRARY CLOSE" output lines
+
+  access=.string[]; command_options=.ragcommandoption[]; positionals=.string[]; positionals[1]="large-job"
+  request=.ragcommandrequest(args[1],"architecture-local","generic-profile","","json","off",access,"job","plan","job.plan",command_options,positionals)
+  denied=dispatchproduct(request,operatorregistry())
+  errors=errors+check(denied.exit_code()=4,"plan read requires read capability")
+
+  /* Existing task pages always report returned + next_cursor, even at EOF. */
+  records=.ragresultrecord[]; fields=.ragresultfield[]
+  fields[1]=.ragresultfield("returned","integer",0); fields[2]=.ragresultfield("next_cursor","string","")
+  records[1]=.ragresultrecord("page",fields)
+  result=.ragcommandresult("maintain.tasks","ok",0,"fixture",records)
+  errors=errors+check(validcommandresult(result,error)=0,"preserve existing empty task-page metadata")
+
+  /* A cursor allowance cannot permit arbitrary extra data or multiple pages. */
+  records=.ragresultrecord[]; fields=.ragresultfield[]
+  fields[1]=.ragresultfield("identity","string","fixture")
+  do i=1 to 101; records[i]=.ragresultrecord("row",fields); end
+  result=.ragcommandresult("review.list","ok",0,"fixture",records)
+  errors=errors+check(validcommandresult(result,error)\=0,"reject 101 data records")
+  pagefields=.ragresultfield[]; pagefields[1]=.ragresultfield("next_cursor","string","cursor")
+  records[101]=.ragresultrecord("page",pagefields)
+  result=.ragcommandresult("review.list","ok",0,"fixture",records)
+  errors=errors+check(validcommandresult(result,error)=0,"allow bounded data plus cursor")
+  records[100]=.ragresultrecord("page",pagefields)
+  result=.ragcommandresult("review.list","ok",0,"fixture",records)
+  errors=errors+check(validcommandresult(result,error)\=0,"reject duplicate page metadata")
+  records[100]=.ragresultrecord("row",fields); pagefields[1]=.ragresultfield("next_cursor","string",copies("x",513));records[101]=.ragresultrecord("page",pagefields)
+  result=.ragcommandresult("review.list","ok",0,"fixture",records)
+  errors=errors+check(validcommandresult(result,error)\=0,"reject oversized cursor")
+
+  if openragstore(args[1],"readonly",store,error)\=0 then return 5
+  queries=.string[]; queries[1]='"Élodie"'; queries[2]='"東京"';queries[3]='"Élodie"';queries[4]='東京 Élodie';queries[5]='"a OR b"'
+  expected=.string[];expected[1]="élodie";expected[2]="東京";expected[3]="élodie";expected[4]="東京 élodie";expected[5]='"a or b"'
+  do i=1 to queries.0
+    plan=.ragqueryplan
+    errors=errors+check(planquery(store,genericprofile(),queries[i],"regression",plan,error)=0,"planner accepts " || queries[i])
+    variants=plan.variants(); found=0
+    do j=1 to variants.0
+      if pos(expected[i],variants[j].query())>0 then found=1
+    end
+    errors=errors+check(found=1,"planner retains literal terms " || queries[i])
+  end
+  call closeragstore store,error
+  if errors>0 then return 1
+  say "ADDRESS_SURFACE_OK result_contract=bounded unicode=preserved plan=exact"
+  return 0

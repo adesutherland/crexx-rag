@@ -40,6 +40,7 @@ set(CREXXRAG_APPLICATION_SOURCES
     "${CREXXRAG_APP_DIR}/ragplanning.crexx"
     "${CREXXRAG_APP_DIR}/ragtrace.crexx"
     "${CREXXRAG_APP_DIR}/ragcommand.crexx"
+    "${CREXXRAG_APP_DIR}/ragresultpages.crexx"
     "${CREXXRAG_APP_DIR}/ragingest.crexx"
     "${CREXXRAG_APP_DIR}/ragfolder.crexx"
     "${CREXXRAG_APP_DIR}/ragclaims.crexx"

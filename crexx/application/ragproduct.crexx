@@ -18,6 +18,7 @@ import ragfoundation
 import ragstore
 import ragfile
 import ragrepository
+import ragresultpages
 import ragquery
 import ragretrieval
 import ragevidencejson
@@ -60,6 +61,7 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "source.list" | operation = "source.show" then return _repository(request, operation, "sources")
   if operation = "citation.show" then return _citationshow(request)
   if operation = "job.list" then return _repository(request, operation, "jobs")
+  if operation = "job.plan" then return _jobplan(request)
   if operation = "job.events" then return _jobevents(request)
   if operation = "review.list" | operation = "review.show" then return _repository(request, operation, "reviews")
   if operation = "query.inspect" | operation = "query.search" | operation = "query.evidence" | operation = "query.answer" | operation = "query.trace" | operation = "query.path" | operation = "query.timeline" then return _query(request, registry)
@@ -1308,30 +1310,8 @@ _repository: procedure = .ragcommandresult
     if error = "" then error = close_error
     return _failure(operation, 7, error)
   end
-  source_records = page.records(); records = .ragresultrecord[]
-  do i = 1 to source_records.0
-    source = source_records[i]
-    if id \= "" & source.identity() \= id & source.parent_identity() \= id then iterate
-    fields = .ragresultfield[]
-    fields[1] = .ragresultfield("identity", "string", source.identity())
-    fields[2] = .ragresultfield("parent_identity", "string", source.parent_identity())
-    fields[3] = .ragresultfield("related_identity", "string", source.related_identity())
-    fields[4] = .ragresultfield("name", "string", source.name())
-    fields[5] = .ragresultfield("category", "string", source.category())
-    fields[6] = .ragresultfield("state", "string", source.state())
-    fields[7] = .ragresultfield("value", "string", source.value())
-    fields[8] = .ragresultfield("detail", "string", source.detail())
-    fields[9] = .ragresultfield("generation", "integer", page.snapshot_generation())
-    if repository = "sources" then fields[10] = .ragresultfield("source_metadata", "string", metadata_rows[i])
-    records[records.0 + 1] = .ragresultrecord(repository, fields)
-  end
+  records = repositoryresultrecords(page,metadata_rows,id,limit)
   if id \= "" & records.0 = 0 then return _failure(operation, 5, "requested record was not found")
-  if page.next_cursor() \= "" then do
-    fields = .ragresultfield[]
-    fields[1] = .ragresultfield("next_cursor", "string", page.next_cursor())
-    fields[2] = .ragresultfield("limit", "integer", limit)
-    records[records.0 + 1] = .ragresultrecord("page", fields)
-  end
   return .ragcommandresult(operation, "ok", 0, "bounded repository page read without mutation", records)
 
 _citationshow: procedure = .ragcommandresult
@@ -1805,6 +1785,26 @@ _jobstatus: procedure = .ragcommandresult
   records = .ragresultrecord[]; records[1] = .ragresultrecord("job-status", fields)
   return .ragcommandresult(operation, "ok", 0, "bounded durable job status", records)
 
+_jobplan: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation=request.operation(); error=""
+  if _hasaccess(request,"read")\=1 then return _failure(operation,4,"job plan requires read access")
+  if _options(request,"id cursor limit",error)\=0 then return _failure(operation,2,error)
+  id=_id(request,error); cursor=_option(request,"cursor",error); limit=_option(request,"limit",error)
+  if error\="" | id="" then return _failure(operation,2,"job plan requires one job id")
+  offset=0; count=0
+  if parseplanpage(cursor,limit,offset,count,error)\=0 then return _failure(operation,2,error)
+  view=.ragreadsnapshot
+  if beginreadsnapshot(request.library(),view,error)\=0 then return _openfailure(operation,error)
+  page=.ragjobplanpage
+  status=readjobplanpage(view,id,offset,count,page,error)
+  close_error=""; closed=closereadsnapshot(view,close_error)
+  if closed\=0 then return _failure(operation,7,close_error)
+  if status=1 then return _failure(operation,5,error)
+  if status=-1 then return _failure(operation,2,error)
+  if status\=0 then return _failure(operation,7,error)
+  return .ragcommandresult(operation,"ok",0,"bounded retained job plan read without mutation",planresultrecords(page))
+
 _jobevents: procedure = .ragcommandresult
   arg request = .ragcommandrequest
   operation = request.operation(); error = ""
@@ -1846,10 +1846,7 @@ _jobevents: procedure = .ragcommandresult
   call sqlitefinalize prepared
   close_error = ""; closed = closereadsnapshot(view,close_error)
   if binds \= 0 | error \= "" | closed \= 0 then return _failure(operation,7,"durable event page failed: " || error || close_error)
-  if next_cursor \= "" then do
-    fields = .ragresultfield[]; fields[1] = .ragresultfield("next_cursor","string",next_cursor)
-    records[records.0+1] = .ragresultrecord("page",fields)
-  end
+  call appendresultpage records,next_cursor,limit
   return .ragcommandresult(operation,"ok",0,"durable job events in database order",records)
 
 _jobcontrol: procedure = .ragcommandresult

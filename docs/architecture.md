@@ -22,6 +22,22 @@ human CLI / JSON / MCP / ADDRESS RAG
 
 There is no second product implementation or compatibility bridge.
 
+## Public result and lexical boundaries
+
+`ragresultpages` constructs repository result rows, explicit page metadata and
+job-plan text pages. `ragrepository` owns the SQL projections and bounded plan
+slice reads; `ragproduct` composes access checks and commands. `ragcommand`
+validates at most 100 data records plus one bounded final cursor record, rather
+than counting the cursor against the advertised data limit. Large plans no
+longer enter a generic list value: summaries state completeness and link to
+`job.plan`. SQLite supplies a bounded character slice on each detail read.
+
+`ragquery` owns lexical query preparation. It preserves non-ASCII text,
+including combining marks, for the installed Unicode tokenizer, and keeps
+ASCII FTS syntax out of generated terms. Index normalization remains SQLite's
+responsibility; evidence text and citation byte offsets are not rewritten.
+See [public results and lexical repair](public-result-lexical-repair.md).
+
 ## Durable ingestion
 
 1. The controller discovers configured source files and creates a canonical,

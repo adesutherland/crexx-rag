@@ -292,6 +292,24 @@ add_test(NAME address_surface
 set_tests_properties(address_surface PROPERTIES
     TIMEOUT 180 LABELS "address;surface;configuration;access;zero-outbound")
 
+add_test(NAME regression_result_contract
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXLINK=${CREXX_RXLINK_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_ADDRESS_RXBIN=${CREXXRAG_ADDRESS_RXBIN}"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/result_contract_scenario.crexx"
+        "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-result-contract"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/AddressSurface.cmake")
+set_tests_properties(regression_result_contract PROPERTIES
+    TIMEOUT 180 LABELS "regression;address;public-contract;query;zero-outbound")
+
 add_test(NAME gemini_provider_smoke
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
@@ -471,9 +489,9 @@ add_test(NAME native_interruption
 set_tests_properties(native_interruption PROPERTIES
     TIMEOUT 180 LABELS "native;recovery;cancellation;accounting;publication;sqlite;zero-outbound")
 
-# Keep known defects red. The regression workflow includes these tests; no
+# Keep repaired defects as ordinary regressions in the full workflow; no
 # WILL_FAIL property can turn a setup error or crash into a passing result.
-foreach(case IN ITEMS pages page_max large_job retry closed_retry retrieval retrieval_unicode)
+foreach(case IN ITEMS pages page_max large_job plan_detail retry closed_retry retrieval retrieval_unicode)
     add_test(NAME regression_${case}
         COMMAND "${CMAKE_COMMAND}"
             "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
@@ -485,9 +503,9 @@ foreach(case IN ITEMS pages page_max large_job retry closed_retry retrieval retr
     set_tests_properties(regression_${case} PROPERTIES
         TIMEOUT 180 LABELS "regression;native;public-contract;zero-outbound")
 endforeach()
-set_property(TEST regression_page_max regression_large_job APPEND PROPERTY LABELS "known-defect;RAG-UX-02")
+set_property(TEST regression_page_max regression_large_job APPEND PROPERTY LABELS "RAG-UX-02")
 set_property(TEST regression_closed_retry APPEND PROPERTY LABELS "RAG-OPS-002")
-set_property(TEST regression_retrieval_unicode APPEND PROPERTY LABELS "known-defect;RAG-QE-06")
+set_property(TEST regression_retrieval_unicode APPEND PROPERTY LABELS "RAG-QE-06")
 
 add_test(NAME regression_ingest_capacity
     COMMAND "${CMAKE_COMMAND}"

@@ -266,7 +266,10 @@ citations. `rag_profile_show` supplies permitted vocabulary. Workflow inspection
 pages its task and historical-note-link arrays using a numeric cursor;
 `rag_task_list(workflow: ID)` provides the task selection independently.
 `rag_job_list` supplies actual job IDs and timestamps, and `rag_job_events`
-supports cursor/limit continuation. Job IDs are not ordered by creation time.
+supports cursor/limit continuation. `rag_job_plan` accepts `id`, a string
+`cursor` and `limit` (1–8192 Unicode characters). Concatenate its `text` pages
+until `next_cursor` is empty, checking the retained `plan_digest`. Job IDs are
+not ordered by creation time.
 
 The external resolution sequence is:
 
@@ -342,16 +345,15 @@ The detailed data, ranking and maintenance methodology is in
 
 ## Current scale limits
 
-List schemas may advertise 100 items, but a full page plus its cursor can exceed
-the current 100-record renderer. The copied-corpus trial reproduced this for
-reviews. Use pages of 20–50 and follow `next_cursor`; the 1,667-review test
-retrieved every review without duplicates in 84 pages of 20. This operating
-guidance does not close the schema/rendering mismatch.
-
-Some historic jobs contain canonical plans too large for the generic list
-string field. An affected row fails even with `limit: 1`; reducing page size
-does not make the full job history accessible. Report incomplete discovery
-rather than inferring the latest job from a partial listing.
+Review, repository and event pages support 100 data rows plus one bounded final
+cursor record. Follow `next_cursor` to finish discovery. Job lists expose
+`value_complete`; small plans retain their original inline `value`, while a
+larger plan has an empty `value`, an explicit character count and
+`detail_operation: job.plan`. Use `rag_job_plan` to read its complete text;
+reducing the listing size is no longer necessary to discover that job.
+The [public-result repair record](public-result-lexical-repair.md) describes the
+cross-surface and installed-copy qualification. Subject/workflow discovery
+limitations below remain separate.
 
 Tasks can be filtered by state, capability and known workflow ID. There is no
 direct concept-label or subject-ID task search, or dedicated workflow listing.
