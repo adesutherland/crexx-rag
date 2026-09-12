@@ -274,6 +274,10 @@ files never become policy or block a retry. This is process-crash recovery with
 rename publication; custom mode/ACL preservation, arbitrary external-writer
 coordination and power-loss durability are explicitly limited by the installed
 filesystem API. See the [integration record](integration-issues.md#policy-file-publication-metadata-and-durability).
+The subsequent 12 September decision accepts custom metadata and policy-file
+power-loss limits outside active defect work, including manual policy restoration
+after power loss. It retains ordinary process-crash recovery and all library,
+receipt and usage protections; this disposition does not change stage 5 QA.
 
 The first focused run passed six tests; its sole failure was the intentionally
 changed metadata snapshot. An independent JSON comparison found precisely one

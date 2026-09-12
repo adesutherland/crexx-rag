@@ -64,6 +64,8 @@ census or live-library inspection is claimed.
 - **Recorded repair:** named historical implementation/QA evidence exists;
   this does not establish unattended, hosted or platform qualification.
 - **Proposed:** a review recommendation or experiment, not implementation approval.
+- **Accepted limitation:** an explicitly agreed boundary, outside active defect
+  work; reopen only when the supported use case or requirement changes.
 - **Upstream:** CREXX owns implementation; RAG owns downstream qualification.
 
 P1 means high priority in RAG-OPS. HC priorities retain the configuration audit's
@@ -121,6 +123,10 @@ behind the RAG provider interface; confirm model/session lifetime, concurrency,
 cancellation, failure isolation and memory ownership before choosing the worker
 layout. Admission and recovery should remain independent of HTTP versus a
 linked bridge. The installed runtime is not yet qualified for this route.
+The agreed 12 September decision retains process workers for fault isolation
+and replacement. A bounded attached-thread comparison is an optional QE-04
+experiment alongside the bridge, measuring model lifetime, memory, throughput
+and cancellation; it is not the remedy for cross-account PID inspection.
 Deliver QE-08 with profile changes rather than adding migration after adoption.
 Qualify QE-03 and QE-05 as complete installed workflows. Operational P1 closure
 remains a parallel prerequisite for unattended work, not an implication of
@@ -273,9 +279,9 @@ raise its priority above the operational P1s.
 | RAG-EXP-02 | Optional experiment | Per-support time/provenance assessment is separate from normal document metadata. Broad automatic assessment was rolled back as default; do not reopen it via older proposal wording. [Current contract](time-and-provenance.md), [dated proposal](claim-time-provenance-proposal.md). |
 | CREXX-NI-01–06 | Upstream, open | Generic native inference, CPU/GPU, persistent model owner, packaging, artifact identity and qualification. RAG consumes installed capability via QE-04/07/08; no native inference copy in RAG. [Dependency record](integration-issues.md#proposed-native-embedding-capability). |
 | CREXX-NI-07 | Upstream, optional | Local generation; not prerequisite to standalone reader/query support. |
-| Policy publication boundary | Upstream/qualification limit | Preserve custom mode/ACL and expose durable file/directory flush through a generic CREXX API; qualify non-macOS replacement. Current policy edits use verified same-directory rename and process-default metadata. [Integration issues](integration-issues.md#policy-file-publication-metadata-and-durability). |
-| Process identity boundary | Upstream/qualification limit | Distinguish missing PID from permission denial and OS birth identity; same-account local pruning only is qualified. [Integration issues](integration-issues.md#local-process-liveness-and-permission-boundary). |
-| Interactive input | Upstream current recorded issue | Extra Enter on affected builds; `--yes` is the documented explicit automation path. Verify installed behavior before closing. |
+| Policy publication boundary | Accepted limitation — agreed 12 September | Custom mode/ACL preservation and policy-file power-loss durability are outside active defect work. Process-default metadata and manual policy restoration after power loss are accepted. Retain validation, staged rename, ordinary process-crash recovery and all SQLite/receipt/usage protections. Non-macOS replacement remains QA-03 qualification. [Integration issues](integration-issues.md#policy-file-publication-metadata-and-durability). |
+| Process identity boundary | Lower-priority upstream improvement / qualification limit | Keep process workers and same-account local pruning. A future CREXX check should distinguish alive, missing and unknown/error; unknown ownership must prevent automatic pruning. OS birth identity remains unavailable. No same-account failure was established by this review; changing to threads is not required. [Integration issues](integration-issues.md#local-process-liveness-and-permission-boundary). |
+| Interactive input | Recorded upstream repair — installed route verified 12 September | CREXX fixes #670, #669 and #678 are included in installed `5ccf057a1633`. Existing pipe and real-PTY driver regressions both pass after one newline. The stale outstanding label is closed for this installation; retain regression coverage and the normal `--yes` automation path. [Repair history and verification](integration-issues.md#interactive-input). |
 | Channel request retention; project-build scaling; attached-provider discovery | Recorded upstream repairs | Retain installed-package regression obligations; do not duplicate as open RAG implementations. [Integration issues](integration-issues.md). |
 | RexxScript configuration | Deferred feature choice | Current declarative configuration suffices; no evidence requires an additional executable configuration language. |
 

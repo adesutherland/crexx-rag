@@ -293,4 +293,6 @@ round trip. Extended `address_surface` coverage reproduced its cached-registry
 gap before a shared refresh fix; execution and function calls cover same-session
 prompt/config/profile changes, invalid-file holds and repair. A complete library
 dump remains identical across file edits. Platform
-metadata and power-loss limits remain explicit in the integration register.
+metadata and policy-file power-loss limits remain explicit in the integration
+register, accepted outside active defect work by the 12 September decision.
+Library, receipt and usage recovery obligations are unchanged.

@@ -104,6 +104,9 @@ point. Success after rename remains success even if coordination cleanup fails,
 with a diagnostic and the new hash. The file contains no second policy and is
 never unlinked to recover a lock. Filesystem metadata, external-writer races and
 power-loss guarantees have explicit [integration limits](integration-issues.md#policy-file-publication-metadata-and-durability).
+Custom metadata preservation and policy-file power-loss durability are accepted
+limitations by the 12 September decision; SQLite and receipt-recovery guarantees
+remain unchanged.
 
 ## Public result and lexical boundaries
 
@@ -138,6 +141,13 @@ See [public results and lexical repair](public-result-lexical-repair.md).
 SQLite rows are the process communication mechanism. Leases, fencing,
 idempotency keys, attempts, provider runs, events, heartbeats, and requested
 worker state make recovery explicit.
+
+The 12 September architecture decision retains processes for independent worker
+replacement and native-failure containment. Attached threads are an optional
+QE-04 comparison alongside the future model bridge, with measured model lifetime,
+memory, throughput and cancellation. They do not remove durable recovery rules
+or permit SQLite handles to cross VM owners. See the
+[execution decision and focused evidence](integration-issues.md#worker-execution-architecture).
 
 `ragadmission` classifies job allowance from measured usage, live reservations,
 uncertain usage and the requested call. It examines all dimensions before

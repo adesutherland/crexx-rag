@@ -3,8 +3,8 @@
 The [consolidated roadmap](ROADMAP.md#other-qualification-research-and-upstream-dependencies)
 maps these dependencies and qualification limits to the product backlog.
 
-These are current boundaries. Any source-level containment used by the product
-is stated explicitly.
+These are current boundaries, accepted limitations and recorded repairs. Any
+source-level containment used by the product is stated explicitly.
 
 ## Worker execution architecture
 
@@ -17,6 +17,20 @@ design. Every process starts a fresh VM and opens its own SQLite connection,
 which is supported and covered by regression tests. Moving work into attached
 tasks would be a separate architecture and recovery-policy decision; native
 SQLite handles would remain VM-local and must never be transferred.
+
+**Agreed decision, 12 September 2026:** retain process workers as the default
+for independent replacement and containment of a worker native crash. Attached
+threads share the process failure boundary; cancellation depends on runtime and
+plugin capabilities. Either layout still requires durable task identities,
+receipts, usage accounting and publication fencing.
+
+The existing CREXX `lib/plugins/sqlite/tests/rxsqlite_attached_test.crexx`
+passed through installed `crexx` (`5ccf057a1633`) on 12 September: the controller
+and two attached workers each resolved their own SQLite provider session. This
+proves the narrow integration capability, not a RAG worker migration or a
+performance gain. A bounded thread comparison may accompany the forthcoming
+llama.cpp bridge under QE-04, measuring persistent model ownership, memory,
+throughput and cancellation before any architecture change.
 
 ## Local process liveness and permission boundary
 
@@ -32,6 +46,13 @@ that account and retain remote ownership despite old heartbeats. Running a
 shared library's workers across OS accounts is not qualified for automatic
 pruning. A positive PID check is conservative, including a reused live PID;
 the stored process-start token is a RAG identity, not an OS birth token.
+
+The 12 September review did not establish a failure in the supported
+same-account arrangement. Retain this as a lower-priority upstream improvement,
+not a reason to replace processes with threads. The proposed CREXX result
+should distinguish alive, missing and unknown/error; RAG must then retain
+uncertain ownership rather than automatically pruning it. This richer result
+and its consuming guard are not implemented or qualified by this decision.
 
 ## SQLite heartbeat contention and diagnostic ownership
 
@@ -193,12 +214,29 @@ application regression retains that source-level contract.
 
 ## Interactive input
 
-The current CREXX line-input behavior can require an additional Enter after a
-confirmation prompt on affected builds. This is a known CREXX issue; the
-product does not carry a duplicate roadmap entry. Interactive use remains safe
-because no apply begins before an affirmative answer is read. After reviewing
-the displayed plan, use `--yes` for automation and repeatable smoke tests; that
-path does not read stdin and is not affected by the extra-Enter behavior.
+**Recorded upstream repair; installed route verified 12 September 2026.**
+The earlier outstanding extra-Enter label was stale. Repository history records
+three distinct fixes:
+
+| Issue | Cause | CREXX repair |
+| --- | --- | --- |
+| #670 | `linein()` probed beyond the newline and waited for another character. | `1d69fa79c`, 25 August |
+| #669 | The driver's `ADDRESS CREXX` launch substituted null input instead of inheriting stdin. | `1eb26ab89`, 25 August |
+| #678 | Child process-group ownership conflicted with terminal access/restoration. | `b64f67a00`, 28 August |
+
+Installed `crexx -version` reports `1.0.0-beta.3+local.g5ccf057a1633`; all three
+repairs are ancestors of that build. Scratch copies of the existing CREXX
+`lib/rxfnsb/tests_functional/ts_linein_stdin.crexx` were run through that
+installed driver with `linein_stdin_harness.c` and `linein_tty_harness.c`. Both
+passed after one newline, with the former keeping its input pipe open and the
+latter using a real pseudo-terminal. These are focused macOS installation
+checks, not a new full or cross-platform QA run.
+
+Retain pipe, real-terminal and terminal-restoration regression coverage when
+changing process launch or input handling. These repairs are separate from the
+PID permission-inspection limitation above and do not establish a reason to
+replace process workers. After reviewing a plan, `--yes` remains the normal
+explicit automation path; it is not a required workaround on this installation.
 
 ## RexxScript configuration boundary
 
@@ -216,9 +254,19 @@ The installed `rxfs` API provides file creation and same-directory rename but
 no mode/ACL preservation or file/directory fsync contract. Policy edits therefore
 publish validated complete bytes using the new file's process-default metadata;
 they do not promise preservation of custom permissions or power-loss durability.
-A generic metadata-preserving durable replacement API belongs in CREXX, not a
-product-specific native bridge. The current route is locally qualified on macOS;
-Windows replacement and crash/power-loss behavior need separate qualification.
+
+**Accepted limitations, agreed 12 September 2026:** custom ACL/mode preservation
+and policy-file power-loss durability are outside active defect work. Normal
+process-default metadata and manual restoration of the policy after a sudden
+power failure are acceptable for the current use case. No new filesystem layer
+or upstream flush API is required for this work plan. Any future generic API
+would belong in CREXX. Ordinary replacement is locally qualified on macOS;
+non-macOS replacement remains a separate QA-03 qualification requirement.
+
+This acceptance applies only to policy-file replacement. Keep candidate
+validation, hash checks, staged rename and ordinary process-crash recovery.
+SQLite WAL/FULL settings, transactional publication, provider receipts,
+cumulative usage and uncertain-outcome recovery remain required protections.
 
 A stable adjacent SQLite coordination file serializes cooperating policy editors.
 It stores no policy and no library data. Native process death releases its lock;

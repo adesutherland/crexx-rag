@@ -260,7 +260,10 @@ so a killed editor does not require a recovery command. An abandoned
 
 The installed filesystem API does not preserve the original mode/ACL metadata
 on replacement or expose a power-loss flush guarantee: new file metadata uses
-the process defaults. Ordinary external editors do not take the coordination
+the process defaults. These are accepted limitations for the current use case;
+manually restoring the policy after a sudden power failure is acceptable.
+Library transactions, provider receipts and usage recovery retain their existing
+protections. Ordinary external editors do not take the coordination
 lock; the final hash check is not a universal filesystem compare-and-swap.
 See the [platform boundary](integration-issues.md#policy-file-publication-metadata-and-durability).
 These commands edit the selected file. Use the reviewed library transition

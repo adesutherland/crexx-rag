@@ -195,6 +195,7 @@ confirming that the configured budget and privacy route are appropriate:
 crexxrag provider test gemini-generate --yes
 ```
 
-The interactive input issue listed in [Integration issues](integration-issues.md)
-can require an additional Enter on affected CREXX builds; it does not change
-the reviewed plan or make the ingestion run twice.
+The historical extra-Enter issue is fixed in installed CREXX `5ccf057a1633`;
+pipe and real-terminal checks passed on 12 September 2026. See the
+[repair history and verification](integration-issues.md#interactive-input).
+After reviewing the plan, use `--yes` for explicit automation as usual.

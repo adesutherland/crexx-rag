@@ -167,12 +167,14 @@ qualification remain separate. This repair does not authorize restarting the
 held 5,000-item Scottish hosted experiment. See the
 [operator process cases](qa-process-cases.md) for the precise tested boundaries.
 
-The upstream extra-Enter interactive-input issue remains recorded in
-[integration issues](integration-issues.md). It is a CREXX-owned issue, outside
-this repository's edit authority, and is not reported as fixed by these RAG
-changes. The compiler scaling issue is already closed in the installed CREXX
-version. RexxScript configuration is a deferred feature choice; current
-declarative configuration does not require recompilation.
+Subsequent verification on 12 September closed the stale extra-Enter label for
+installed CREXX `5ccf057a1633`: the upstream repairs are present and both pipe
+and real-PTY driver checks pass after one newline. These are CREXX repairs,
+not effects of the RAG changes in this report. Retain the
+[history and regression boundary](integration-issues.md#interactive-input).
+The compiler scaling issue is already closed in the installed CREXX version.
+RexxScript configuration is a deferred feature choice; current declarative
+configuration does not require recompilation.
 
 ## Proposed retention follow-up
 
