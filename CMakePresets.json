@@ -47,7 +47,31 @@
       "output": {
         "outputOnFailure": true
       }
+    },
+    {
+      "name": "regression",
+      "displayName": "Full regression gate, including known defects",
+      "inherits": "debug",
+      "output": {
+        "outputOnFailure": true,
+        "outputLogFile": "${sourceDir}/cmake-build-debug/regression.log"
+      },
+      "execution": {
+        "jobs": 1,
+        "stopOnFailure": false,
+        "noTestsAction": "error"
+      }
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "regression",
+      "displayName": "Configure, build and run the full regression gate",
+      "steps": [
+        { "type": "configure", "name": "debug" },
+        { "type": "build", "name": "debug" },
+        { "type": "test", "name": "regression" }
+      ]
     }
   ]
 }
-

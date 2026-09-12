@@ -2,6 +2,16 @@ set(CREXXRAG_NATIVE_APPLICATION
     "${CMAKE_BINARY_DIR}/crexxrag-native/package/crexxrag${CMAKE_EXECUTABLE_SUFFIX}")
 set(CREXXRAG_PROVIDER_FIXTURE "$<TARGET_FILE:crexxrag_provider_fixture>")
 
+add_test(NAME native_lifecycle
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-lifecycle"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeLifecycle.cmake")
+set_tests_properties(native_lifecycle PROPERTIES
+    TIMEOUT 180 LABELS "native;recovery;lifecycle;regression;loopback")
+
 add_test(NAME linked_application
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
@@ -461,6 +471,24 @@ add_test(NAME native_interruption
 set_tests_properties(native_interruption PROPERTIES
     TIMEOUT 180 LABELS "native;recovery;cancellation;accounting;publication;sqlite;zero-outbound")
 
+# Keep known defects red. The regression workflow includes these tests; no
+# WILL_FAIL property can turn a setup error or crash into a passing result.
+foreach(case IN ITEMS pages page_max large_job retry closed_retry retrieval retrieval_unicode)
+    add_test(NAME regression_${case}
+        COMMAND "${CMAKE_COMMAND}"
+            "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+            "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-regression-${case}"
+            "-DCPRAG_CASE=${case}"
+            "-DCPRAG_CORPUS=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/retrieval/regression.json"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PublicRegression.cmake")
+    set_tests_properties(regression_${case} PROPERTIES
+        TIMEOUT 180 LABELS "regression;native;public-contract;zero-outbound")
+endforeach()
+set_property(TEST regression_page_max regression_large_job APPEND PROPERTY LABELS "known-defect;RAG-UX-02")
+set_property(TEST regression_closed_retry APPEND PROPERTY LABELS "RAG-OPS-002")
+set_property(TEST regression_retrieval_unicode APPEND PROPERTY LABELS "known-defect;RAG-QE-06")
+
 add_test(NAME regression_ingest_capacity
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
@@ -485,16 +513,6 @@ add_test(NAME native_admission
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeAdmission.cmake")
 set_tests_properties(native_admission PROPERTIES
     TIMEOUT 180 LABELS "regression;native;worker;accounting;zero-outbound")
-
-add_test(NAME native_lifecycle
-    COMMAND "${CMAKE_COMMAND}"
-        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
-        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
-        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
-        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-lifecycle"
-        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeLifecycle.cmake")
-set_tests_properties(native_lifecycle PROPERTIES
-    TIMEOUT 180 LABELS "native;recovery;lifecycle;regression;loopback")
 
 add_test(NAME regression_lifecycle
     COMMAND "${CMAKE_COMMAND}"

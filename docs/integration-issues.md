@@ -1,5 +1,8 @@
 # CREXX and platform integration issues
 
+The [consolidated roadmap](ROADMAP.md#other-qualification-research-and-upstream-dependencies)
+maps these dependencies and qualification limits to the product backlog.
+
 These are current boundaries. Any source-level containment used by the product
 is stated explicitly.
 

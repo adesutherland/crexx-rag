@@ -1,5 +1,14 @@
 # Documentation
 
+- [Consolidated roadmap and defect register](ROADMAP.md): current operational
+  P1s, query/embedding requirements, configuration findings, agent gaps and
+  qualification work, with links to the detailed historical records.
+- [Architecture and regression assessment](project-review-20260911.md): evidence
+  for targeted modularisation, testing gaps and recommended priorities.
+- [Regression coverage baseline](regression-coverage.md): the required local
+  gate, executable defect cases, risk mapping and remaining acceptance.
+- [First recovery refactors and fixes](recovery-implementation-plan.md): proposed
+  delivery order, cohesive source owners and coverage checks before each change.
 - [Architecture](architecture.md): enduring components, ownership, and data flow.
 - [Standalone setup](standalone-setup.md): install-to-workspace setup for a
   human using the packaged executable and examples.

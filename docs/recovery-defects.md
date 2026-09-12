@@ -1,5 +1,9 @@
 # Operational hardening and recovery defects
 
+Start with the [consolidated roadmap](ROADMAP.md) for cross-project priorities,
+current status and related query, configuration and agent findings. This file
+retains the complete operational requirements and dated incident evidence.
+
 ## RAG-OPS-001 — P1: routine launch and recovery must be product operations
 
 Status: open, high-priority backlog requirement raised by the user on
@@ -193,7 +197,21 @@ been implemented. It complements RAG-OPS-001 recovery and RAG-OPS-002 retry.
 
 ## RAG-OPS-004 — P1: distinguish task failure, worker failure and environment outage
 
-Status: backlog only. User clarification on 10 September 2026: the intended
+12 September step 4: rolling supervision and shared preflight backoff are
+implemented in [supervision recovery](supervision-recovery.md). Defaults are two
+replacements per rolling hour; qualified evidence and remaining scope are
+recorded there. Task attempts, unknown outcomes and cumulative usage remain
+separate from replacement capacity.
+
+
+11 September admission slice: [temporary capacity recovery](admission-recovery.md)
+now shares the allowance decision between ordinary ingestion and maintenance.
+This repairs the tested capacity-pressure case; the wider supervision/outage
+requirement below remains open.
+
+The following records the original requirement. The step-4 slice above now
+implements worker replacement and shared preflight recovery. User clarification
+on 10 September 2026: the intended
 three-attempt retry limit applies to an individual task, not to a worker or the
 whole job. This entry does not change current task, worker or job limits.
 
@@ -259,8 +277,8 @@ Acceptance must include one repeatedly failing task among eight healthy workers,
 a failing worker processing otherwise valid tasks, and an outage affecting the
 whole pool followed by recovery. Check exact task attempts, uninterrupted peer
 progress, replacement without history reset, shared outage backoff and automatic
-resumption through public commands. Review and agree this policy before changing
-it; the current controller isolation repair does not close this backlog item.
+resumption through public commands. The later explicit step-4 implementation authority applies to the policy
+and tests documented above. Wider outage/platform qualification remains open.
 
 A related fixture observation belongs in this review: an ordinary ingest job
 can exhaust *currently available* token capacity while healthy peers hold their

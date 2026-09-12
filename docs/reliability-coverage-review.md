@@ -1,5 +1,9 @@
 # Reliability and use-case coverage review
 
+The [consolidated roadmap](ROADMAP.md#recovery-and-reliability-history) indexes
+these repaired cases alongside later open requirements. Keep their separate
+qualification boundaries when assessing current readiness.
+
 This is dated qualification evidence. Live-library statements below describe
 the named run at that time, not current operating status. Later MCP and copied
 corpus trials are recorded in [the agent trial report](mcp-codex-trials.md).

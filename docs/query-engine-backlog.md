@@ -1,5 +1,14 @@
 # Query engine and local embedding requirements backlog
 
+The [consolidated roadmap](ROADMAP.md) places these requirements alongside the
+operational P1s and other outstanding findings. This file retains their full
+design intent and acceptance conditions.
+
+Subsequent review direction: REG-01 regression coverage precedes implementation.
+The user permits evaluating multiple executables for a simpler reader/operator
+experience. References below to one application describe one coherent product
+and shared operation contracts, not a final single-executable packaging choice.
+
 Status: open requirements captured from the 10–11 September 2026 design
 discussion. This records future product work, not implemented behavior or an
 implementation approval. It is additive to the existing
@@ -86,6 +95,18 @@ Changing the answerer does not invalidate document embeddings.
 
 ## RAG-QE-04 — Local embeddings through persistent CREXX ownership
 
+11 September direction: Adrian reports that CREXX will soon provide a plugin
+running models through a linked llama.cpp bridge. Plan the RAG adapter against
+that capability once its contract is available. Model loading and native
+inference remain CREXX responsibilities; provider selection, embedding identity,
+admission, durable work and recovery remain Level-G RAG responsibilities.
+The linked route does not by itself select attached VMs, separate processes or
+another executable. Qualify model/session lifetime, thread/process safety,
+concurrent request bounds, cancellation and per-owner memory before making that
+choice. Keep orchestration independent of the adapter so existing HTTP routes
+and a linked route share the same job/usage/recovery rules. This is a planned
+dependency; it is not yet qualified in the installed CREXX package.
+
 Consume the installed CREXX native embedding provider through the existing
 application provider abstraction. Keep a model loaded in an application-owned
 long-lived worker/session and send it bounded requests. Choose worker counts,
@@ -120,6 +141,14 @@ and citations. Text-and-graph-only retrieval remains an evaluated product mode,
 not just an accidental provider failure fallback.
 
 ## RAG-QE-06 — Establish and improve the lexical baseline
+
+12 September status: `regression_retrieval_unicode` still reproduces missing
+passages for indexed quoted `Élodie` and `東京` through JSON/MCP after recovery
+steps 1–4. The [implementation plan](recovery-implementation-plan.md#6-repair-unicode-lexical-query-loss--qe-06)
+assigns this bounded defect to step 6, immediately after the two UX-02 public
+result repairs. Confirm and extend regression coverage first. Broader ranking
+evaluation below must not delay this correctness fix; repairing it alone does
+not close the whole QE-06 requirement.
 
 Audit the current SQLite FTS5/BM25 search, phrase/original/focused variants,
 corpus-frequency ordering, aliases, bounded spelling correction, prefix search

@@ -1,5 +1,10 @@
 # LLM processing repair plan — 10 September 2026
 
+Use the [consolidated roadmap](ROADMAP.md) for current cross-cutting status.
+This dated plan retains its original qualification checkpoints; the later
+[controller report](controller-recovery-report.md) records subsequent repair
+of the interruption/peer-isolation path.
+
 Items 1–3 were approved on 10 September and implemented in the isolated
 `temp/llm-recovery` worktree after committing baseline `17d7acb`. The user then
 stopped further offline testing and authorized the live LLM backlog until

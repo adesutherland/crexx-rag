@@ -1,0 +1,21 @@
+{
+  "description": "Synthetic evidence oracles written independently of retrieval output; exact source text is authoritative. This is a small contract corpus, not the QE-09 quality benchmark.",
+  "documents": [
+    {"name": "dependency.txt", "text": "BillingService depends on CustomerDatabase. The direction is from BillingService to CustomerDatabase.\n"},
+    {"name": "accent.txt", "text": "Élodie catalogued the blue manuscript in Forfar.\n"},
+    {"name": "nonlatin.txt", "text": "東京 is the label printed on the archive box.\n"},
+    {"name": "ocr.txt", "text": "The catalogue spells the title Covenanters’ Ribbin and retains No.  CLII. exactly.\n"},
+    {"name": "uncertainty.txt", "text": "Lanier may have visited Forfar in 1746. This passage does not establish whether the visit occurred.\n"},
+    {"name": "distractor.txt", "text": "The garden contains three oak trees.\n"}
+  ],
+  "questions": [
+    {"id": "literal-name", "question": "BillingService", "document": "dependency.txt"},
+    {"id": "target-name", "question": "CustomerDatabase", "document": "dependency.txt"},
+    {"id": "accent-quoted", "question": "\"Élodie\"", "document": "accent.txt", "known_issue": "RAG-QE-06"},
+    {"id": "nonlatin-quoted", "question": "\"東京\"", "document": "nonlatin.txt", "known_issue": "RAG-QE-06"},
+    {"id": "ocr-literal", "question": "Ribbin", "document": "ocr.txt"},
+    {"id": "uncertainty", "question": "Lanier", "document": "uncertainty.txt"},
+    {"id": "ordinary-word", "question": "oak", "document": "distractor.txt"},
+    {"id": "absent", "question": "Zyzzyva", "document": ""}
+  ]
+}

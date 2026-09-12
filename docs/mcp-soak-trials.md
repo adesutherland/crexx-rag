@@ -1,5 +1,9 @@
 # MCP trials on a copy of the soak corpus
 
+The [consolidated roadmap](ROADMAP.md#agent-and-public-surface-findings-outside-the-numbered-backlogs)
+indexes the outstanding discovery, pagination, preview and workflow-completion
+findings below. This report retains the original trial evidence.
+
 9 September 2026. These trials extend the [synthetic fresh-agent
 tests](mcp-codex-trials.md). The interface supports useful grounded questions
 and real evidence refresh. A known connection task also passed exact submission

@@ -104,7 +104,9 @@ the change notes. Extend coverage at each new module boundary.
 After implementation, the targeted acceptance must pass and previously passing
 checks must remain passing. Run the required full suite and report any remaining
 tracked defects explicitly. Never hide failures by disabling tests, weakening
-their assertions, or treating known-defect labels as passes.
+their assertions, or treating known-defect labels as passes. The maintained
+[coverage matrix](docs/regression-coverage.md) records the current baseline and
+unimplemented acceptance; update it with the work.
 
 ```sh
 cmake --preset debug

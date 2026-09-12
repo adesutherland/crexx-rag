@@ -12,6 +12,19 @@ unknown-usage suites remain required controls.
 The maintained suite tests the single shipping architecture rather than an old
 implementation comparison.
 
+The [REG-01 coverage baseline](regression-coverage.md) maps the prioritized
+escape paths, new executable cases and remaining policy/qualification gaps.
+Run the configure/build/full-test gate with one command:
+
+```sh
+cmake --workflow --preset regression
+```
+
+Known defect tests are included and remain red until repaired. The
+`known-defect` label is descriptive; it does not invert or suppress failures.
+The gate retains `cmake-build-debug/regression.log`. The individual commands
+below remain available for focused development.
+
 The [reliability coverage review](reliability-coverage-review.md) maps these
 tests to operator outcomes and records the unproved crash, publication and
 concurrency boundaries. A passing suite is necessary, but is not evidence that
@@ -73,8 +86,12 @@ metadata directly.
 | `native_receipts` | exit after durable extraction/embedding response but before settlement, then two-worker public restart: no repeated call, original-attempt usage, exact publication and no reservation leak |
 | `native_interruption` | actual busy worker/controller kill with explicit uncertain intent, cancellation while provider response is held, post-commit manifest rejection and first-vector recovery without repeated extraction |
 | `local_embedding_protocol` | llama.cpp-compatible `/v1/embeddings` and `/v1/chat/completions`, strict structured output, correction history, rejected malformed/schema-invalid/truncated generation with retained usage, restricted local privacy, local-compute charging, and 429 `Retry-After` plus 503 exponential retry on both VMs and compiler modes |
+| `regression_pages`, `regression_page_max`, `regression_large_job` | complete ordered page traversal, exact 99/100 and 65,535/65,536 boundaries through human/JSON/NDJSON/MCP; the latter two expose UX-02 and remain failing acceptance |
+| `regression_retry`, `regression_closed_retry` | Public five-item retry, CLI/MCP deduplication and retained history; completed-parent task requests keep closed windows intact; terminal replay and duplicate-lineage protection. |
 | `regression_lifecycle` | Both optimized VMs: task-independent item/parent acceptance, original attempt ceilings, uncertain intent, live claim competition, explicit resume, pause during failed settlement, immutable requests and missing-policy holds. |
 | `native_lifecycle`, `native_lifecycle_holds` | Five persisted closed-window failures recovered through public commands and fresh processes; retry beside a held loopback response; exact calls and history; exhausted/uncertain tasks remain held across another window. |
+| `regression_retrieval`, `regression_retrieval_unicode` | independently specified passage/citation corpus, CLI/MCP agreement, UTF-8 offsets, zero calls/writes, absent terms and faithful OCR/uncertainty; indexed Unicode-name loss exposes QE-06 |
+| `regression_ingest_capacity` | deterministic owned reservation versus ordinary peer worker, five capacity dimensions, optimized code on both VMs; exposes OPS-004 without introducing timing races |
 
 The Gemini tests always exercise the Gemini adapter and Google request/response
 shapes through a deterministic local fixture. Report tests additionally prove
@@ -170,8 +187,7 @@ recovery temporary; reconstruction and vector retrieval succeed with zero
 provider runs. The public query fixture also exercises `vector rebuild`,
 read-capability rejection, idempotent replay, and invalid-hybrid preflight
 without any provider calls. The migration fixture retains the earlier schema-1/6/8 upgrades, checks
-schema-13 task inspection, then opens that bundle through the ordinary write path
-and requires a schema-14 aligned manifest.
+schema-13 task inspection, then opens that bundle through the ordinary write path and requires a schema-14 aligned manifest.
 
 Maintenance methodology distinguishes successful and failed items within a
 mixed-result job and recognizes embeddings repaired in a later generation.

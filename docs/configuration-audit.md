@@ -1,5 +1,9 @@
 # Hard-coded configuration audit
 
+See the [consolidated roadmap](ROADMAP.md#configuration-audit-reconciliation)
+for all HC IDs reconciled with later repairs and overlapping requirements.
+The inventory and source locations below retain the dated audit's evidence.
+
 Recorded audit status: recovery and operator configuration repair qualified
 (21/21 tests at that baseline); remaining policy backlog explicitly open.
 This is an audit and repair record. Use the [user guide](user-guide.md) for
