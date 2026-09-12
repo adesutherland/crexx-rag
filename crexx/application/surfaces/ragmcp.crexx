@@ -83,6 +83,9 @@ _toolcommand: procedure = .int
   else if tool = "rag_query_path" then do; noun = "query"; verb = "path"; end
   else if tool = "rag_query_timeline" then do; noun = "query"; verb = "timeline"; end
   else if tool = "rag_job_status" then do; noun = "job"; verb = "status"; end
+  else if tool = "rag_job_items" then do; noun="job";verb="items";end
+  else if tool = "rag_job_attempts" then do; noun="job";verb="attempts";end
+  else if tool = "rag_workflow_list" then do; noun="maintain";verb="workflows";end
   else if tool = "rag_job_plan" then do; noun = "job"; verb = "plan"; end
   else if tool = "rag_job_list" then do; noun = "job"; verb = "list"; end
   else if tool = "rag_job_events" then do; noun = "job"; verb = "events"; end
@@ -125,6 +128,18 @@ _toolcommand: procedure = .int
   required = _toolcapability(tool)
   if _has(access, required) \= 1 then do; error = "tool is not advertised for the granted capability"; return -1; end
   output[output.0 + 1] = noun; output[output.0 + 1] = verb
+  if tool="rag_job_items" | tool="rag_job_attempts" | tool="rag_workflow_list" then do
+    if tool\="rag_workflow_list" then do
+      if _positional(document,arguments,"id",output,error)\=0 then return -1
+    end
+    else call _option document,arguments,"id","id",output
+    call _option document,arguments,"cursor","cursor",output
+    call _option document,arguments,"limit","limit",output
+    call _option document,arguments,"state","state",output
+    call _option document,arguments,"item","item",output
+    call _option document,arguments,"subject","subject",output
+    call _option document,arguments,"concept","concept",output
+  end
   if left(tool, 10) = "rag_query_" then do
     if _positional(document, arguments, "question", output, error) \= 0 then return -1
     call _option document, arguments, "limit", "limit", output
@@ -175,6 +190,9 @@ _toolcommand: procedure = .int
       call _option document,arguments,"state","state",output
       call _option document,arguments,"capability","capability",output
       call _option document,arguments,"workflow","workflow",output
+      call _option document,arguments,"id","id",output
+      call _option document,arguments,"subject","subject",output
+      call _option document,arguments,"concept","concept",output
     end
   end
   if tool = "rag_task_escalate_plan" | tool = "rag_task_resolve_plan" then do
@@ -307,6 +325,9 @@ _toolcapability: procedure = .string
 _toollist: procedure = .string
   arg access = .string
   tools = ""
+  tools = _addtool(tools,"rag_job_items","Read a job's durable items, worker/fence/retry state, task links and attempt counts; filters apply before pagination and raw inputs are omitted",'{"id":{"type":"string"},"state":{"type":"string","enum":["queued","running","processed","skipped","dead_letter","cancelled","cancel_requested"]},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100}}',"true")
+  tools = _addtool(tools,"rag_job_attempts","Read a job's durable attempt history, optionally for one item; includes provider-run IDs and validation/outcome state without raw provider output",'{"id":{"type":"string"},"item":{"type":"string"},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100}}',"true")
+  tools = _addtool(tools,"rag_workflow_list","Discover migration workflows by exact subject ID or canonical concept label, including successor membership. Homonymous concepts remain separate. Use returned workflow_id with rag_task_list(workflow)",'{"id":{"type":"string"},"subject":{"type":"string","maxLength":512},"concept":{"type":"string","maxLength":512},"state":{"type":"string","enum":["migrating","waiting","complete"]},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100}}',"true")
   tools = _addtool(tools,"rag_config_prompt","Inspect the configured objective, effective system prompt, response schema and hashes without library access or provider calls",'{"role":{"type":"string","enum":["extractor","resolution","answerer","advisory"]}}',"true")
   tools = _addtool(tools, "rag_library_status", "Read bounded library status", '{}', "true")
   tools = _addtool(tools, "rag_library_overview", "Read deterministic corpus scope and health without writes, narrative refresh or provider calls", '{"top":{"type":"integer","minimum":1,"maximum":20}}', "true")
@@ -333,7 +354,7 @@ _toollist: procedure = .string
   tools = _addtool(tools, "rag_config_diff", "Classify the effective configuration against the current library snapshot without writes", '{}', "true")
   tools = _addtool(tools, "rag_maintain_status", "Read and reconcile one durable maintenance run with cursor pagination", '{"id":{"type":"string"},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":98}}', "false")
   tools = _addtool(tools, "rag_maintain_inspect", "Inspect one maintenance run, work item, or analysis note with cursor pagination", '{"id":{"type":"string"},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":98}}', "true")
-  tools = _addtool(tools, "rag_task_list", "Discover durable maintenance tasks independently of run IDs. Separate required_capability and escalation reason from priority, task state and failures. Page until next_cursor is empty", '{"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":50},"state":{"type":"string","enum":["pending","dispatched","resolved","unresolved","review","superseded","failed"]},"capability":{"type":"string","enum":["standard","advanced-reasoning"]},"workflow":{"type":"string"}}', "true")
+  tools = _addtool(tools, "rag_task_list", "Discover durable maintenance tasks independently of run IDs. Separate required_capability and escalation reason from priority, task state and failures. Use subject for an exact subject ID or concept for an exact canonical label plus related workflows; retain separate homonyms. Page until next_cursor is empty", '{"id":{"type":"string"},"subject":{"type":"string","maxLength":512},"concept":{"type":"string","maxLength":512},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":50},"state":{"type":"string","enum":["pending","dispatched","resolved","unresolved","review","superseded","failed"]},"capability":{"type":"string","enum":["standard","advanced-reasoning"]},"workflow":{"type":"string"}}', "true")
   tools = _addtool(tools, "rag_task_evidence", "Read a page of a task durable evidence packet with original source text, evidence_id and resolvable citations. Use these exact evidence IDs for a resolution; further query results are exploration until bound to a task", '{"id":{"type":"string"},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":50}}', "true")
   tools = _addtool(tools,"rag_task_evidence_inventory","Page source evidence IDs/citations, catalogue concepts or context fields without loading the full packet. scope=current explores present evidence even when a task packet exceeded its limit; scope=stored inspects its frozen packet. Page limits 1..50. Pass the returned generation as expect_generation to reject changes across pages",'{"id":{"type":"string"},"kind":{"type":"string","enum":["passages","catalogue","context"]},"scope":{"type":"string","enum":["current","stored"]},"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":50},"expect_generation":{"type":"integer","minimum":0}}',"true")
   if _has(access, "diagnose") then do
@@ -387,6 +408,7 @@ _addtool: procedure = .string
   if pos('"id"', properties) > 0 then required = '["id"]'
   if pos('"provider"', properties) > 0 then required = '["provider"]'
   if pos('"plan_json"', properties) > 0 then required = '["plan_json","expect_digest"]'
+  if name="rag_workflow_list" | name="rag_task_list" then required="[]"
   if name = "rag_maintain_status" then required = '[]'
   if name = "rag_proposal_plan" then required = '[]'
   if name = "rag_review_decide_preview" | name = "rag_review_decide" then required = '["id","decision"]'
@@ -439,11 +461,14 @@ _toolargumentsvalid: procedure = .int
 
 _toolargumentnames: procedure = .string
   arg tool = .string
+  if tool="rag_job_items" then return "id state cursor limit"
+  if tool="rag_job_attempts" then return "id item cursor limit"
+  if tool="rag_workflow_list" then return "id subject concept state cursor limit"
   if tool = "rag_config_prompt" then return "role"
   if tool = "rag_job_reconcile_inspect" then return "id item"
   if tool = "rag_job_reconcile_apply" then return "id item expect_digest"
   if tool = "rag_library_overview" then return "top"
-  if tool = "rag_task_list" then return "cursor limit state capability workflow"
+  if tool = "rag_task_list" then return "id cursor limit state capability workflow subject concept"
   if tool = "rag_task_evidence" then return "id cursor limit"
   if tool = "rag_task_evidence_inventory" then return "id cursor limit kind scope expect_generation"
   if tool = "rag_task_refresh_plan" then return "id reason maximum_bytes maximum_concepts actor model"
@@ -477,6 +502,7 @@ _toolargumentnames: procedure = .string
 
 _toolrequiredarguments: procedure = .string
   arg tool = .string
+  if tool="rag_job_items" | tool="rag_job_attempts" then return "id"
   if tool = "rag_config_prompt" then return "role"
   if tool = "rag_job_retry" then return "id item"
   if tool = "rag_task_retry" then return "id"

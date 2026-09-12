@@ -1,0 +1,53 @@
+options levelg
+
+namespace ragdirectcalls expose persistdirectproviderrun recorddirectproviderrun directproviderrecord
+
+import provider_contract
+import ragcommand
+import ragconfig
+import ragstore
+import rxfnsb
+import rxhash
+import rxsqlite
+
+/* Durable accounting and public usage projection for direct query/report calls. Worker receipts and reservations remain in ragreceipts/ragusage. */
+persistdirectproviderrun: procedure = .int
+  arg database = .binary, config_snapshot_id = .string, operation = .string, purpose = .string, provider = .ragproviderconfig, request_input = .string, result = .providerresult, outcome = .string, allowance_before = .int, allowance_after = .int, recovery_json = .string, expose provider_run_id = .string, expose error = .string
+  provider_run_id = ""; error = ""
+  if config_snapshot_id = "" | operation = "" | purpose = "" | provider.provider_id() = "" | provider.model() = "" | request_input = "" | result.request_id() = "" | wordpos(outcome, "succeeded failed rejected") = 0 then do; error = "query provider history input is invalid"; return -1; end
+  usage = result.usage(); duration_ms = (result.latency_us() / 1000) as .int
+  request_hash = rxhash..sha256hex((operation || "00"x || purpose || "00"x || provider.provider_id() || "00"x || provider.model() || "00"x || request_input) as .binary)
+  provider_run_id = "provider-run-sha256:" || rxhash..sha256hex((result.request_id() || "00"x || purpose || "00"x || time("us")) as .binary)
+  prepared = .binary
+  sql = "INSERT INTO provider_runs(provider_run_id,config_snapshot_id,provider_id,model,request_hash,outcome,input_tokens,output_tokens,duration_ms,started_at,completed_at,charging_basis,allowance_used_before_percent,allowance_used_after_percent,recovery_json,cost_microunits,purpose) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'),?10,?11,?12,?13,?14,?15)"
+  if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare query provider history"; return -1; end
+  binds = sqlitebindtext(prepared, 1, provider_run_id) | sqlitebindtext(prepared, 2, config_snapshot_id) | sqlitebindtext(prepared, 3, provider.provider_id()) | sqlitebindtext(prepared, 4, provider.model()) | sqlitebindtext(prepared, 5, request_hash) | sqlitebindtext(prepared, 6, outcome) | sqlitebindint(prepared, 7, usage.input_tokens()) | sqlitebindint(prepared, 8, usage.output_tokens()) | sqlitebindint(prepared, 9, duration_ms) | sqlitebindtext(prepared, 10, provider.charging_basis()) | sqlitebindint(prepared, 11, allowance_before) | sqlitebindint(prepared, 12, allowance_after) | sqlitebindtext(prepared, 13, recovery_json) | sqlitebindint(prepared, 14, usage.cost_microunits()) | sqlitebindtext(prepared, 15, purpose)
+  step = sqlitestep(prepared); call sqlitefinalize prepared
+  if binds \= 0 | step \= 101 then do; provider_run_id = ""; error = "cannot persist query provider history"; return -1; end
+  return 0
+recorddirectproviderrun: procedure = .int
+  arg library = .string, config_snapshot_id = .string, operation = .string, purpose = .string, provider = .ragproviderconfig, request_input = .string, result = .providerresult, outcome = .string, allowance_before = .int, allowance_after = .int, expose error = .string
+  error = ""; provider_run_id = ""; store = .ragstorehandle
+  if openragstore(library, "readwrite", store, error) \= 0 then return -1
+  status = persistdirectproviderrun(store.database(), config_snapshot_id, operation, purpose, provider, request_input, result, outcome, allowance_before, allowance_after, "", provider_run_id, error)
+  close_error = ""; close_status = closeragstore(store, close_error)
+  if status \= 0 then return -1
+  if close_status \= 0 then do; error = close_error; return -1; end
+  return 0
+directproviderrecord: procedure = .ragresultrecord
+  arg role = .string, provider = .ragproviderconfig, result = .providerresult, provider_run_id = .string, allowance_before = .int, allowance_after = .int
+  usage = result.usage(); fields = .ragresultfield[]
+  fields[1] = .ragresultfield("role", "string", role)
+  fields[2] = .ragresultfield("provider_id", "string", provider.provider_id())
+  fields[3] = .ragresultfield("kind", "string", provider.kind())
+  fields[4] = .ragresultfield("model", "string", provider.model())
+  fields[5] = .ragresultfield("charging_basis", "string", provider.charging_basis())
+  fields[6] = .ragresultfield("input_tokens", "integer", usage.input_tokens())
+  fields[7] = .ragresultfield("output_tokens", "integer", usage.output_tokens())
+  outcome = "failed"; if result.status() = 0 then outcome = "succeeded"
+  fields[8] = .ragresultfield("outcome", "string", outcome)
+  fields[9] = .ragresultfield("provider_run_id", "string", provider_run_id)
+  if provider.charging_basis() = "monetary-api" & usage.cost_microunits() >= 0 then fields[fields.0 + 1] = .ragresultfield("estimated_cost_microunits", "integer", usage.cost_microunits())
+  if allowance_before >= 0 then fields[fields.0 + 1] = .ragresultfield("allowance_before_percent", "integer", allowance_before)
+  if allowance_after >= 0 then fields[fields.0 + 1] = .ragresultfield("allowance_after_percent", "integer", allowance_after)
+  return .ragresultrecord("query-provider", fields)

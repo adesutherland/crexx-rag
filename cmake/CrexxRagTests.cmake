@@ -2,6 +2,15 @@ set(CREXXRAG_NATIVE_APPLICATION
     "${CMAKE_BINARY_DIR}/crexxrag-native/package/crexxrag${CMAKE_EXECUTABLE_SUFFIX}")
 set(CREXXRAG_PROVIDER_FIXTURE "$<TARGET_FILE:crexxrag_provider_fixture>")
 
+add_test(NAME regression_operator_diagnostics
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-operator-diagnostics"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/OperatorDiagnostics.cmake")
+set_tests_properties(regression_operator_diagnostics PROPERTIES
+    TIMEOUT 120 LABELS "regression;operator;pagination;zero-outbound")
+
 add_test(NAME regression_prompt_inspection
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"

@@ -368,3 +368,14 @@ An agent given only a name may struggle to find its migration in a large
 backlog. When an operator already has a task or workflow ID, pass it with the
 request. Discovery and complete real-corpus lifecycle qualification are tracked
 in the [trial record](mcp-codex-trials.md).
+
+### Locate durable work before choosing a repair
+
+Use `rag_workflow_list(concept: "Turray")` or `rag_task_list(concept: "Turray")`
+for exact canonical-label discovery; preserve separate homonymous concepts.
+Then use `subject` or `workflow` with returned IDs for a bounded focused page.
+`rag_job_items(id, state, cursor, limit)` and
+`rag_job_attempts(id, item, cursor, limit)` expose durable ownership, attempts
+and provider-run references without SQL or raw provider content. These are
+read-only tools, not retry/reconciliation authority. Page until the cursor is
+empty and keep existing review requirements for every subsequent mutation.

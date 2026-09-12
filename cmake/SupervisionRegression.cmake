@@ -11,7 +11,7 @@ file(GLOB members LIST_DIRECTORIES true
 list(JOIN members ";" member_imports)
 set(imports "${member_imports};${CPRAG_APPLICATION_DIR};${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
 set(modules ragsupervision ragenrich ragproposalio ragperiod ragprovenance ragassessment ragschema ragfile
-    ragstore ragmodel ragjob ragquotationcontract ragextractioncontract ragresolutioncontract raganswercontract ragreportcontract ragpromptdefaults ragpromptinspection ragclaimrules ragclaims ragadmission ragsupervision ragworktypes ragenvironment ragusage ragreceipts ragwork ragcommand ragtrace ragbacklog
+    ragstore ragmodel ragjob ragquotationcontract ragextractioncontract ragresolutioncontract raganswercontract ragreportcontract ragpromptdefaults ragpromptinspection ragcommandutil ragsqlsupport ragdirectcalls ragreportservice ragobservationservice ragqueryservice ragoperationsquery ragclaimrules ragclaims ragadmission ragsupervision ragworktypes ragenvironment ragusage ragreceipts ragwork ragcommand ragtrace ragbacklog
     ragmaintain ragimprove ragconfig ragprofile ragcanonical raggrounding generic_profile
     rxfnsg rxsqlite rx_hash rx_system rxfs rxplatform library)
 set(program "${CPRAG_WORK_DIR}/supervision-regression")

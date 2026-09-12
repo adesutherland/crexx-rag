@@ -1,0 +1,454 @@
+options levelg
+
+namespace ragreportservice expose libraryreport reportoperationaldigest
+
+import provider_contract
+import ragcommand
+import ragcommandutil
+import ragconfig
+import ragconfiguration
+import ragdirectcalls
+import ragevidencejson
+import ragprofile
+import ragquerypolicy
+import ragqueryprovider
+import ragregistry
+import ragrepository
+import ragsqlsupport
+import ragstore
+import rxfnsb
+import rxhash
+import rxjson
+import rxsqlite
+
+/* Generation-bound reports, narrative validation and cache persistence. This service owns report SQL and calls domain/provider contracts. */
+libraryreport: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = "library.report"; error = ""
+  if commandhasaccess(request, "read") \= 1 then return commandfailure(operation, 4, "library report requires read access")
+  if commandworkeroptions(request, "top narrative yes", "yes", error) \= 0 then return commandfailure(operation, 2, error)
+  positionals = request.positionals()
+  if positionals.0 \= 0 then return commandfailure(operation, 2, "library report accepts no positional arguments")
+  top_text = commandoption(request, "top", error); if top_text = "" then top_text = "10"
+  narrative = commandoption(request, "narrative", error); if narrative = "" then narrative = "off"
+  confirm = commandoption(request, "yes", error)
+  if wordpos(narrative, "off cached refresh") = 0 then return commandfailure(operation, 2, "--narrative must be off, cached, or refresh")
+  if narrative = "refresh" & request.format() = "human" & confirm \= "true" then return commandfailure(operation, 2, "human narrative refresh requires --yes because it makes one configured provider call")
+  if commandunsigned(top_text) \= 1 then return commandfailure(operation, 2, "--top must be an integer from 1 through 20")
+  top = top_text as .int
+  if top < 1 | top > 20 then return commandfailure(operation, 2, "--top must be an integer from 1 through 20")
+
+  store = .ragstorehandle; status = .ragstorestatus
+  if openragstore(request.library(), "readonly", store, error) \= 0 then return commandopenfailure(operation, error)
+  if sqliteexec(store.database(),"BEGIN") \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation,7,"cannot begin library report read snapshot"); end
+  if storagestatus(store, status, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, error); end
+  database = store.database(); generation = status.published_generation(); library_id = status.library_id()
+  visible_source = "visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ")"
+  visible_revision = visible_source
+  visible_chunk = visible_source
+  visible_concept = visible_source
+  visible_claim = visible_source
+  visible_support = visible_source
+
+  verification = .ragverifyresult
+  if verifyragstore(store, 1, verification, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, error); end
+  repository_verification = .ragrepositoryverifyresult
+  report_snapshot = .ragreadsnapshot(database, generation)
+  if verifyrepositories(report_snapshot, repository_verification, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, error); end
+
+  sources = sqlreadint(database, "SELECT count(*) FROM sources WHERE " || visible_source)
+  revisions = sqlreadint(database, "SELECT count(*) FROM source_revisions WHERE " || visible_revision)
+  chunks = sqlreadint(database, "SELECT count(*) FROM revision_chunks WHERE " || visible_chunk)
+  chunk_bytes = sqlreadint(database, "SELECT coalesce(sum(length(t.text)),0) FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c." || visible_chunk)
+  chunk_min = sqlreadint(database, "SELECT coalesce(min(length(t.text)),0) FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c." || visible_chunk)
+  chunk_max = sqlreadint(database, "SELECT coalesce(max(length(t.text)),0) FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c." || visible_chunk)
+  chunk_average = 0; if chunks > 0 then chunk_average = (chunk_bytes / chunks) as .int
+
+  concepts = sqlreadint(database, "SELECT count(*) FROM concepts WHERE lifecycle_state='active' AND " || visible_concept)
+  aliases = sqlreadint(database, "SELECT count(*) FROM aliases WHERE " || visible_concept)
+  mentions = sqlreadint(database, "SELECT count(*) FROM mentions WHERE " || visible_concept)
+  claims = sqlreadint(database, "SELECT count(*) FROM claims WHERE " || visible_claim)
+  supports = sqlreadint(database, "SELECT count(*) FROM claim_support WHERE " || visible_support)
+  notes = sqlreadint(database, "SELECT count(*) FROM analysis_notes WHERE state IN('proposed','active') AND created_generation<=" || generation)
+  gaps = sqlreadint(database, "SELECT count(*) FROM query_gaps WHERE state='open' AND observed_generation<=" || generation)
+  reviews = sqlreadint(database, "SELECT count(*) FROM reviews WHERE state='pending'")
+
+  connected = sqlreadint(database, "SELECT count(DISTINCT concept_id) FROM (SELECT source_concept_id AS concept_id FROM claims WHERE " || visible_claim || " UNION SELECT target_concept_id FROM claims WHERE " || visible_claim || ")")
+  isolated = concepts - connected; if isolated < 0 then isolated = 0
+  maximum_degree = sqlreadint(database, "SELECT coalesce(max(degree),0) FROM (SELECT concept_id,count(*) AS degree FROM (SELECT source_concept_id AS concept_id FROM claims WHERE " || visible_claim || " UNION ALL SELECT target_concept_id FROM claims WHERE " || visible_claim || ") GROUP BY concept_id)")
+  unsupported = sqlreadint(database, "SELECT count(*) FROM claims c WHERE c." || visible_claim || " AND NOT EXISTS(SELECT 1 FROM claim_support s WHERE s.claim_id=c.claim_id AND s." || visible_support || ")")
+  single_supported = sqlreadint(database, "SELECT count(*) FROM claims c WHERE c." || visible_claim || " AND 1=(SELECT count(*) FROM claim_support s WHERE s.claim_id=c.claim_id AND s." || visible_support || ")")
+  conflicts = sqlreadint(database, "SELECT count(*) FROM claim_conflicts WHERE " || visible_claim)
+  relationship_kinds = sqlreadint(database, "SELECT count(DISTINCT relationship_type) FROM claims WHERE " || visible_claim)
+  largest_relationship = sqlreadint(database, "SELECT coalesce(max(n),0) FROM (SELECT count(*) AS n FROM claims WHERE " || visible_claim || " GROUP BY relationship_type)")
+  relationship_concentration = 0; if claims > 0 then relationship_concentration = ((largest_relationship * 1000000) / claims) as .int
+  support_min = sqlreadint(database, "SELECT coalesce(min(span_end-span_start),0) FROM claim_support WHERE " || visible_support)
+  support_max = sqlreadint(database, "SELECT coalesce(max(span_end-span_start),0) FROM claim_support WHERE " || visible_support)
+  support_total = sqlreadint(database, "SELECT coalesce(sum(span_end-span_start),0) FROM claim_support WHERE " || visible_support)
+  support_average = 0; if supports > 0 then support_average = (support_total / supports) as .int
+
+  embedding_links = sqlreadint(database, "SELECT count(*) FROM revision_chunk_embeddings WHERE " || visible_chunk)
+  vector_rows = sqlreadint(database, "SELECT coalesce(max(row_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
+  vector_dimension = sqlreadint(database, "SELECT coalesce(max(dimension),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
+  vector_centroids = sqlreadint(database, "SELECT coalesce(max(centroid_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
+  vector_probes = sqlreadint(database, "SELECT coalesce(max(probe_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
+  vector_model = sqlreadtext(database, "SELECT p.model FROM vector_generations v JOIN embedding_profiles p ON p.embedding_profile_id=v.embedding_profile_id WHERE v.state='published' AND " || compatiblevectorpredicate(generation as .string, "v.") || " ORDER BY v.published_at DESC LIMIT 1")
+  vector_coverage = 0; if chunks > 0 then vector_coverage = ((vector_rows * 1000000) / chunks) as .int
+  fts_rows = sqlreadint(database, "SELECT count(*) FROM chunks_fts")
+
+  incomplete_runs = sqlreadint(database, "SELECT count(*) FROM maintenance_runs WHERE state<>'complete'")
+  pending_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state='pending'")
+  diagnosed_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state='diagnosed'")
+  review_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state IN('review-required','approved')")
+  blocked_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state IN('blocked','failed')")
+  applied_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state='applied'")
+  active_jobs = sqlreadint(database, "SELECT count(*) FROM jobs WHERE state IN('queued','running','paused','cancel_requested')")
+  error_jobs = sqlreadint(database, "SELECT count(*) FROM jobs WHERE state IN('completed_with_errors','failed')")
+  dead_letters = sqlreadint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter'")
+  dead_extraction = sqlreadint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='claim-extraction'")
+  dead_improvement = sqlreadint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='improve-extraction'")
+  dead_embeddings = sqlreadint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='embedding'")
+  dead_other = dead_letters - dead_extraction - dead_improvement - dead_embeddings; if dead_other < 0 then dead_other = 0
+  actionable_dead_letters = sqlreadint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='actionable'")
+  replaying_dead_letters = sqlreadint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='in-progress'")
+  resolved_dead_letters = sqlreadint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='resolved'")
+  reconciliation_warning = actionable_dead_letters > 0 & active_jobs = 0
+  durable = _durablereportcensus(database)
+  durable_open = 0
+  do i = 1 to durable.0
+    if durable[i] < 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation,7,"cannot read durable maintenance report census"); end
+    if i <= 5 then durable_open = durable_open + durable[i]
+  end
+
+  required_metrics = .int[]
+  required_metrics[1] = sources; required_metrics[2] = revisions; required_metrics[3] = chunks; required_metrics[4] = chunk_bytes
+  required_metrics[5] = concepts; required_metrics[6] = aliases; required_metrics[7] = mentions; required_metrics[8] = claims; required_metrics[9] = supports
+  required_metrics[10] = connected; required_metrics[11] = maximum_degree; required_metrics[12] = unsupported; required_metrics[13] = conflicts
+  required_metrics[14] = embedding_links; required_metrics[15] = vector_rows; required_metrics[16] = fts_rows
+  required_metrics[17] = incomplete_runs; required_metrics[18] = pending_items; required_metrics[19] = dead_letters; required_metrics[20] = error_jobs; required_metrics[21] = actionable_dead_letters; required_metrics[22] = replaying_dead_letters; required_metrics[23] = resolved_dead_letters
+  do i = 1 to required_metrics.0
+    if required_metrics[i] < 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "library report could not read a required metric"); end
+  end
+
+  semantic = '{"schema":"crexx-rag.library-report-semantic/1","library_id":' || jsonquote(library_id) || ',"generation":' || generation || ',"profile_hash":' || jsonquote(status.profile_hash()) || ',"top":' || top || ',"corpus":[' || sources || ',' || revisions || ',' || chunks || ',' || chunk_bytes || ',' || chunk_min || ',' || chunk_max || '],"catalogue":[' || concepts || ',' || aliases || ',' || mentions || ',' || claims || ',' || supports || ',' || notes || '],"graph":[' || connected || ',' || isolated || ',' || maximum_degree || ',' || unsupported || ',' || single_supported || ',' || conflicts || ',' || relationship_kinds || ',' || relationship_concentration || '],"support_lengths":[' || support_min || ',' || support_average || ',' || support_max || '],"concepts":['
+  records = .ragresultrecord[]; top_concept_records = .ragresultrecord[]; known_citations = .string[]; passages = ""
+  prepared = .binary
+  sql = "WITH vm AS (SELECT * FROM mentions WHERE " || visible_concept || "),vc AS (SELECT * FROM claims WHERE " || visible_claim || ") SELECT c.concept_id,c.canonical_label,c.concept_type,count(m.mention_id),count(DISTINCT m.revision_chunk_id),(SELECT count(*) FROM vc WHERE source_concept_id=c.concept_id OR target_concept_id=c.concept_id) AS degree FROM concepts c LEFT JOIN vm m ON m.concept_id=c.concept_id WHERE c.lifecycle_state='active' AND c.visible_from_generation<=" || generation || " AND (c.visible_to_generation IS NULL OR c.visible_to_generation>" || generation || ") GROUP BY c.concept_id,c.canonical_label,c.concept_type ORDER BY count(m.mention_id) DESC,count(DISTINCT m.revision_chunk_id) DESC,degree DESC,c.canonical_label,c.concept_id LIMIT ?1"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, top) \= 0 then do; call sqlitefinalize prepared; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "library report could not prepare top concepts"); end
+  rank = 0
+  do forever
+    step = sqlitestep(prepared); if step = 101 then leave
+    if step \= 100 then do; call sqlitefinalize prepared; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "library report could not read top concepts"); end
+    concept_id = ""; label = ""; concept_type = ""; mention_count = 0; concept_chunks = 0; degree = 0
+    columns = sqlitecolumntext(prepared, 0, concept_id) | sqlitecolumntext(prepared, 1, label) | sqlitecolumntext(prepared, 2, concept_type) | sqlitecolumnint(prepared, 3, mention_count) | sqlitecolumnint(prepared, 4, concept_chunks) | sqlitecolumnint(prepared, 5, degree)
+    if columns \= 0 then do; call sqlitefinalize prepared; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "library report could not decode top concepts"); end
+    citation = ""; passage = ""; call _conceptpassage database, library_id, generation, concept_id, citation, passage
+    if citation \= "" then do
+      known_citations[known_citations.0 + 1] = citation
+      if passages \= "" then passages = passages || ","
+      passages = passages || '{"citation":' || jsonquote(citation) || ',"text":' || jsonquote(passage) || '}'
+    end
+    rank = rank + 1; top_fields = .ragresultfield[]
+    top_fields[1] = .ragresultfield("rank", "integer", rank); top_fields[2] = .ragresultfield("concept_id", "string", concept_id); top_fields[3] = .ragresultfield("label", "string", label); top_fields[4] = .ragresultfield("concept_type", "string", concept_type); top_fields[5] = .ragresultfield("mentions", "integer", mention_count); top_fields[6] = .ragresultfield("chunks", "integer", concept_chunks); top_fields[7] = .ragresultfield("degree", "integer", degree); top_fields[8] = .ragresultfield("citation", "string", citation)
+    top_concept_records[rank] = .ragresultrecord("top-concept", top_fields)
+    if rank > 1 then semantic = semantic || ","
+    semantic = semantic || '{"id":' || jsonquote(concept_id) || ',"label":' || jsonquote(label) || ',"type":' || jsonquote(concept_type) || ',"mentions":' || mention_count || ',"chunks":' || concept_chunks || ',"degree":' || degree || ',"citation":' || jsonquote(citation) || '}'
+  end
+  call sqlitefinalize prepared
+  semantic = semantic || '],"relationships":['; relationship_records = .ragresultrecord[]
+  prepared = .binary
+  sql = "SELECT relationship_type,count(*) FROM claims WHERE " || visible_claim || " GROUP BY relationship_type ORDER BY count(*) DESC,relationship_type LIMIT ?1"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, top) \= 0 then do; call sqlitefinalize prepared; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "library report could not prepare relationship statistics"); end
+  relationship_rank = 0
+  do forever
+    relationship_step = sqlitestep(prepared); if relationship_step = 101 then leave
+    if relationship_step \= 100 then do; call sqlitefinalize prepared; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "library report could not read relationship statistics"); end
+    relationship_type = ""; relationship_count = 0
+    if sqlitecolumntext(prepared, 0, relationship_type) \= 0 | sqlitecolumnint(prepared, 1, relationship_count) \= 0 then do; call sqlitefinalize prepared; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "library report could not decode relationship statistics"); end
+    relationship_rank = relationship_rank + 1; relationship_share = 0; if claims > 0 then relationship_share = ((relationship_count * 1000000) / claims) as .int
+    relationship_fields = .ragresultfield[]; relationship_fields[1] = .ragresultfield("rank", "integer", relationship_rank); relationship_fields[2] = .ragresultfield("relationship_type", "string", relationship_type); relationship_fields[3] = .ragresultfield("claims", "integer", relationship_count); relationship_fields[4] = .ragresultfield("share_millionths", "integer", relationship_share)
+    relationship_records[relationship_rank] = .ragresultrecord("relationship-stat", relationship_fields)
+    if relationship_rank > 1 then semantic = semantic || ","
+    semantic = semantic || '{"type":' || jsonquote(relationship_type) || ',"claims":' || relationship_count || ',"share_millionths":' || relationship_share || '}'
+  end
+  call sqlitefinalize prepared
+  semantic = semantic || ']}'
+  semantic_digest = rxhash..sha256hex(semantic as .binary)
+  operational = '{"schema":"crexx-rag.library-report-operational/1","generation":' || generation || ',"vector":[' || embedding_links || ',' || vector_rows || ',' || vector_dimension || ',' || vector_centroids || ',' || vector_probes || ',' || vector_coverage || '],"maintenance":[' || incomplete_runs || ',' || pending_items || ',' || diagnosed_items || ',' || review_items || ',' || blocked_items || ',' || applied_items || ',' || active_jobs || ',' || error_jobs || ',' || dead_letters || ',' || dead_extraction || ',' || dead_improvement || ',' || dead_embeddings || ',' || dead_other || ',' || actionable_dead_letters || ',' || replaying_dead_letters || ',' || resolved_dead_letters || '],"review":[' || reviews || ',' || gaps || '],"verification":[' || verification.issue_count() || ',' || repository_verification.issue_count() || ',' || fts_rows || '],"reconciliation_warning":' || commandboolean(reconciliation_warning) || '}'
+  operational = substr(operational,1,length(operational)-1) || ',"durable":' || _durablereportjson(durable) || '}'
+  operational_digest = rxhash..sha256hex(operational as .binary)
+  report_id = "report-sha256:" || semantic_digest
+  provider_context = '{"schema":"crexx-rag.library-report-context/1","semantic":' || semantic || ',"operational":' || operational || ',"passages":[' || passages || ']}'
+
+  snapshot_fields = .ragresultfield[]
+  snapshot_fields[1] = .ragresultfield("schema", "string", "crexx-rag.library-report/1"); snapshot_fields[2] = .ragresultfield("report_id", "string", report_id); snapshot_fields[3] = .ragresultfield("library_id", "string", library_id); snapshot_fields[4] = .ragresultfield("schema_version", "integer", status.schema_version()); snapshot_fields[5] = .ragresultfield("generation", "integer", generation); snapshot_fields[6] = .ragresultfield("profile_id", "string", status.profile_id()); snapshot_fields[7] = .ragresultfield("profile_hash", "string", status.profile_hash()); snapshot_fields[8] = .ragresultfield("top", "integer", top); snapshot_fields[9] = .ragresultfield("semantic_digest", "string", semantic_digest); snapshot_fields[10] = .ragresultfield("operational_digest", "string", operational_digest); snapshot_fields[11] = .ragresultfield("deterministic", "boolean", "true"); snapshot_fields[12] = .ragresultfield("storage_verification_issues", "integer", verification.issue_count()); snapshot_fields[13] = .ragresultfield("repository_verification_issues", "integer", repository_verification.issue_count())
+  records[records.0 + 1] = .ragresultrecord("report-snapshot", snapshot_fields)
+  corpus_fields = .ragresultfield[]
+  corpus_fields[1] = .ragresultfield("sources", "integer", sources); corpus_fields[2] = .ragresultfield("revisions", "integer", revisions); corpus_fields[3] = .ragresultfield("chunks", "integer", chunks); corpus_fields[4] = .ragresultfield("bytes", "integer", chunk_bytes); corpus_fields[5] = .ragresultfield("average_chunk_bytes", "integer", chunk_average); corpus_fields[6] = .ragresultfield("minimum_chunk_bytes", "integer", chunk_min); corpus_fields[7] = .ragresultfield("maximum_chunk_bytes", "integer", chunk_max)
+  records[records.0 + 1] = .ragresultrecord("corpus-stat", corpus_fields)
+  catalogue_fields = .ragresultfield[]
+  catalogue_fields[1] = .ragresultfield("concepts", "integer", concepts); catalogue_fields[2] = .ragresultfield("aliases", "integer", aliases); catalogue_fields[3] = .ragresultfield("mentions", "integer", mentions); catalogue_fields[4] = .ragresultfield("claims", "integer", claims); catalogue_fields[5] = .ragresultfield("supports", "integer", supports); catalogue_fields[6] = .ragresultfield("active_notes", "integer", notes); catalogue_fields[7] = .ragresultfield("open_query_gaps", "integer", gaps); catalogue_fields[8] = .ragresultfield("pending_reviews", "integer", reviews)
+  records[records.0 + 1] = .ragresultrecord("catalogue-stat", catalogue_fields)
+  graph_fields = .ragresultfield[]
+  graph_fields[1] = .ragresultfield("connected_concepts", "integer", connected); graph_fields[2] = .ragresultfield("isolated_concepts", "integer", isolated); graph_fields[3] = .ragresultfield("maximum_degree", "integer", maximum_degree); graph_fields[4] = .ragresultfield("claims_without_support", "integer", unsupported); graph_fields[5] = .ragresultfield("single_supported_claims", "integer", single_supported); graph_fields[6] = .ragresultfield("conflicts", "integer", conflicts); graph_fields[7] = .ragresultfield("relationship_types", "integer", relationship_kinds); graph_fields[8] = .ragresultfield("largest_type_share_millionths", "integer", relationship_concentration)
+  records[records.0 + 1] = .ragresultrecord("graph-stat", graph_fields)
+  length_fields = .ragresultfield[]
+  length_fields[1] = .ragresultfield("minimum_bytes", "integer", support_min); length_fields[2] = .ragresultfield("average_bytes", "integer", support_average); length_fields[3] = .ragresultfield("maximum_bytes", "integer", support_max)
+  records[records.0 + 1] = .ragresultrecord("relationship-length", length_fields)
+  vector_state = "ready"
+  if chunks = 0 then vector_state = "empty"
+  else if vector_rows = 0 then vector_state = "missing"
+  else if vector_rows < chunks | embedding_links < chunks then vector_state = "partial"
+  else if vector_rows > chunks | embedding_links > chunks then vector_state = "inconsistent"
+  vector_fields = .ragresultfield[]
+  vector_fields[1] = .ragresultfield("state", "string", vector_state); vector_fields[2] = .ragresultfield("active_embeddings", "integer", embedding_links); vector_fields[3] = .ragresultfield("published_rows", "integer", vector_rows); vector_fields[4] = .ragresultfield("dimension", "integer", vector_dimension); vector_fields[5] = .ragresultfield("model", "string", vector_model); vector_fields[6] = .ragresultfield("centroids", "integer", vector_centroids); vector_fields[7] = .ragresultfield("probes", "integer", vector_probes); vector_fields[8] = .ragresultfield("coverage_millionths", "integer", vector_coverage)
+  records[records.0 + 1] = .ragresultrecord("vector-stat", vector_fields)
+  backlog_fields = .ragresultfield[]
+  backlog_fields[1] = .ragresultfield("incomplete_runs", "integer", incomplete_runs); backlog_fields[2] = .ragresultfield("pending_items", "integer", pending_items); backlog_fields[3] = .ragresultfield("diagnosed_items", "integer", diagnosed_items); backlog_fields[4] = .ragresultfield("review_items", "integer", review_items); backlog_fields[5] = .ragresultfield("blocked_or_failed_items", "integer", blocked_items); backlog_fields[6] = .ragresultfield("applied_items", "integer", applied_items); backlog_fields[7] = .ragresultfield("active_jobs", "integer", active_jobs); backlog_fields[8] = .ragresultfield("jobs_with_errors", "integer", error_jobs); backlog_fields[9] = .ragresultfield("dead_letters", "integer", dead_letters); backlog_fields[10] = .ragresultfield("extraction_dead_letters", "integer", dead_extraction); backlog_fields[11] = .ragresultfield("improvement_dead_letters", "integer", dead_improvement); backlog_fields[12] = .ragresultfield("embedding_dead_letters", "integer", dead_embeddings); backlog_fields[13] = .ragresultfield("other_dead_letters", "integer", dead_other); backlog_fields[14] = .ragresultfield("actionable_dead_letters", "integer", actionable_dead_letters); backlog_fields[15] = .ragresultfield("replaying_dead_letters", "integer", replaying_dead_letters); backlog_fields[16] = .ragresultfield("resolved_dead_letters", "integer", resolved_dead_letters); backlog_fields[17] = .ragresultfield("reconciliation_warning", "boolean", commandboolean(reconciliation_warning))
+  records[records.0 + 1] = .ragresultrecord("maintenance-backlog", backlog_fields)
+  durable_fields = .ragresultfield[]
+  durable_names = "pending_tasks dispatched_tasks unresolved_tasks review_tasks failed_tasks resolved_tasks superseded_tasks migrating_workflows waiting_workflows complete_workflows decisions"
+  do i = 1 to durable.0
+    durable_fields[i] = .ragresultfield(word(durable_names,i),"integer",durable[i])
+  end
+  durable_fields[12] = .ragresultfield("open_tasks","integer",durable_open)
+  records[records.0 + 1] = .ragresultrecord("durable-maintenance-backlog",durable_fields)
+
+  storage_issues = verification.issue_count() + repository_verification.issue_count()
+  storage_state = "pass"; if storage_issues > 0 then storage_state = "attention"
+  records[records.0 + 1] = _healthrecord("storage", storage_state, storage_issues, verification.summary() || "; repositories=" || repository_verification.summary())
+  lexical_state = "pass"; lexical_issues = 0; if fts_rows \= chunks then do; lexical_state = "attention"; lexical_issues = 1; end
+  records[records.0 + 1] = _healthrecord("lexical", lexical_state, lexical_issues, "fts_rows=" || fts_rows || ",active_chunks=" || chunks)
+  vector_issues = 0; if vector_state \= "ready" & vector_state \= "empty" then vector_issues = 1
+  records[records.0 + 1] = _healthrecord("vector", vector_state, vector_issues, "published_rows=" || vector_rows || ",active_chunks=" || chunks || ",active_embeddings=" || embedding_links)
+  provenance_state = "pass"; if unsupported > 0 | conflicts > 0 then provenance_state = "attention"
+  records[records.0 + 1] = _healthrecord("provenance", provenance_state, unsupported + conflicts, "unsupported_claims=" || unsupported || ",conflicts=" || conflicts)
+  graph_state = "pass"; graph_issues = 0
+  if concepts = 0 then graph_state = "empty"
+  else if claims = 0 | isolated * 2 > concepts | relationship_concentration >= 900000 then do; graph_state = "attention"; graph_issues = isolated; end
+  records[records.0 + 1] = _healthrecord("graph", graph_state, graph_issues, "isolated=" || isolated || ",concepts=" || concepts || ",largest_type_share_millionths=" || relationship_concentration)
+  maintenance_state = "pass"; maintenance_issues = incomplete_runs + pending_items + diagnosed_items + review_items + blocked_items + error_jobs + dead_letters + durable_open + durable[8] + durable[9]
+  if maintenance_issues > 0 then maintenance_state = "attention"
+  records[records.0 + 1] = _healthrecord("maintenance", maintenance_state, maintenance_issues, "incomplete_runs=" || incomplete_runs || ",pending_items=" || pending_items || ",durable_open_tasks=" || durable_open || ",unfinished_workflows=" || (durable[8]+durable[9]) || ",dead_letters=" || dead_letters || ",reconciliation_warning=" || commandboolean(reconciliation_warning))
+  review_state = "pass"; review_issues = reviews + gaps + durable[4]; if review_issues > 0 then review_state = "attention"
+  records[records.0 + 1] = _healthrecord("review", review_state, review_issues, "pending_reviews=" || reviews || ",durable_review_tasks=" || durable[4] || ",open_query_gaps=" || gaps)
+
+  do i = 1 to relationship_records.0
+    records[records.0 + 1] = relationship_records[i]
+  end
+  do i = 1 to top_concept_records.0
+    records[records.0 + 1] = top_concept_records[i]
+  end
+
+  narrative_state = "off"; provider_calls = 0; narrative_json = ""; narrative_provider_run = ""; narrative_provider = ""; narrative_model = ""; narrative_prompt = ""; narrative_charging = ""; narrative_created = ""; narrative_input = 0; narrative_output = 0; narrative_cost = -1; narrative_allowance_before = -1; narrative_allowance_after = -1
+  config_lookup = registry.config(request.config_id()); profile_lookup = registry.profile(request.profile_id())
+  if narrative = "cached" then do
+    if config_lookup.found() = 1 & profile_lookup.found() = 1 then do
+      advisory = roleproviderconfig(config_lookup.config(), "advisory"); narrative_provider = advisory.provider_id(); narrative_model = advisory.model(); narrative_prompt = _advisorypromptversion(profile_lookup.profile())
+    end
+    cache_state = _loadreportnarrative(database, report_id, operational_digest, narrative_provider, narrative_model, narrative_prompt, narrative_json, narrative_provider_run, narrative_provider, narrative_model, narrative_prompt, narrative_charging, narrative_created, narrative_input, narrative_output, narrative_cost, narrative_allowance_before, narrative_allowance_after)
+    if cache_state < 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "cached report narrative could not be read"); end
+    if cache_state = 0 then narrative_state = "not-cached"
+    else do
+      if _validreportnarrative(narrative_json, known_citations, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "cached report narrative failed validation: " || error); end
+      narrative_state = "cached"
+      call _appendreportnarrative records, narrative_json, narrative_state, narrative_provider_run, narrative_provider, narrative_model, narrative_prompt, narrative_charging, narrative_created, narrative_input, narrative_output, narrative_cost, narrative_allowance_before, narrative_allowance_after
+    end
+  end
+  if narrative = "refresh" then do
+    if config_lookup.found() \= 1 | profile_lookup.found() \= 1 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 5, "narrative refresh requires a registered configuration and profile"); end
+    config = config_lookup.config(); profile = profile_lookup.profile(); advisory = roleproviderconfig(config, "advisory")
+    if advisory.provider_id() = "" then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 8, "narrative refresh requires a configured advisory role"); end
+    if querysnapshotmatches(store, config, profile) \= 1 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 6, "narrative configuration and profile do not match the published generation"); end
+    privacy = queryprivacy(config)
+    if queryrouteallowed(advisory, privacy) \= 1 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 4, "library privacy denies the configured advisory route"); end
+    if known_citations.0 = 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 1, "narrative refresh requires at least one representative cited passage"); end
+    missing_provider = .ragproviderconfig("", "", "", "", "", "", .ragsecretref(), 0, 0)
+    budget = config.budget(); advisory_role = rolebinding(config, "advisory"); maximum_output = config.observation().narrative_output_tokens()
+    if maximum_output > advisory_role.maximum_output_tokens() then maximum_output = advisory_role.maximum_output_tokens()
+    if querypreflight(budget, missing_provider, 0, advisory, 1, error, maximum_output, 1, advisory_role.maximum_input_tokens()) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 6, error); end
+    config_snapshot_id = currentconfigsnapshotid(database, error)
+    narrative_prompt = _advisorypromptversion(profile)
+    request_identity = "report-narrative-" || substr(rxhash..sha256hex((semantic_digest || "00"x || operational_digest || "00"x || advisory.provider_id() || "00"x || advisory.model() || "00"x || narrative_prompt || "00"x || time("us")) as .binary), 1, 32)
+    close_error = ""; if closeragstore(store, close_error) \= 0 then return commandfailure(operation, 7, close_error)
+    provider_result = .providerresult(); allowance_before = -1; allowance_after = -1
+    provider_status = generatereportnarrative(advisory, provider_context, privacy, maximum_output, budget.minimum_codex_allowance_percent(), request_identity, provider_result, allowance_before, allowance_after, error, advisory_role.system_prompt(), advisory_role.temperature_millionths())
+    if provider_status \= 0 then do
+      provider_error = error; audit_error = ""
+      if provider_result.request_id() \= "" then if recorddirectproviderrun(request.library(), config_snapshot_id, operation, "report-narrative", advisory, provider_context, provider_result, "failed", allowance_before, allowance_after, audit_error) \= 0 then return commandfailure(operation, 7, audit_error)
+      return commandfailure(operation, 8, provider_error)
+    end
+    usage = provider_result.usage()
+    if queryusagewithin(budget, missing_provider, .providerusage(), 0, advisory, usage, 1) \= 1 then do
+      audit_error = ""; if recorddirectproviderrun(request.library(), config_snapshot_id, operation, "report-narrative", advisory, provider_context, provider_result, "rejected", allowance_before, allowance_after, audit_error) \= 0 then return commandfailure(operation, 7, audit_error)
+      return commandfailure(operation, 6, "report narrative usage exceeded the configured token or cost ceiling, or monetary usage was unavailable")
+    end
+    if _validreportnarrative(provider_result.content(), known_citations, error) \= 0 then do
+      validation_error = error; audit_error = ""; if recorddirectproviderrun(request.library(), config_snapshot_id, operation, "report-narrative", advisory, provider_context, provider_result, "rejected", allowance_before, allowance_after, audit_error) \= 0 then return commandfailure(operation, 7, audit_error)
+      return commandfailure(operation, 1, "report narrative output was rejected: " || validation_error)
+    end
+    if openragstore(request.library(), "readwrite", store, error) \= 0 then return commandopenfailure(operation, error)
+    if querysnapshotmatches(store, config, profile) \= 1 | sqlreadint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1") \= generation then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 6, "library generation changed while the report narrative was generated"); end
+    current_operational = reportoperationaldigest(store.database(), generation, verification.issue_count(), repository_verification.issue_count())
+    if current_operational \= operational_digest then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 6, "library operational state changed while the report narrative was generated"); end
+    narrative_json = provider_result.content(); narrative_provider = advisory.provider_id(); narrative_model = advisory.model(); narrative_charging = advisory.charging_basis(); narrative_input = usage.input_tokens(); narrative_output = usage.output_tokens(); narrative_cost = usage.cost_microunits(); narrative_allowance_before = allowance_before; narrative_allowance_after = allowance_after
+    if _persistreportnarrative(store.database(), report_id, generation, status.profile_hash(), top, semantic_digest, semantic, provider_context, operational_digest, config_snapshot_id, advisory, narrative_prompt, provider_result, allowance_before, allowance_after, narrative_provider_run, narrative_created, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, error); end
+    narrative_state = "generated"; provider_calls = 1
+    call _appendreportnarrative records, narrative_json, narrative_state, narrative_provider_run, narrative_provider, narrative_model, narrative_prompt, narrative_charging, narrative_created, narrative_input, narrative_output, narrative_cost, narrative_allowance_before, narrative_allowance_after
+  end
+  control_fields = .ragresultfield[]; control_fields[1] = .ragresultfield("narrative_state", "string", narrative_state); control_fields[2] = .ragresultfield("provider_calls", "integer", provider_calls); control_fields[3] = .ragresultfield("semantic_cacheable", "boolean", "true"); control_fields[4] = .ragresultfield("operational_overlay_live", "boolean", "true")
+  records[records.0 + 1] = .ragresultrecord("report-control", control_fields)
+  close_error = ""; if closeragstore(store, close_error) \= 0 then return commandfailure(operation, 7, close_error)
+  message = "deterministic library report generated without provider calls"
+  if narrative_state = "cached" then message = "deterministic library report generated with a cached validated advisory narrative and no provider call"
+  if narrative_state = "not-cached" then message = "deterministic library report generated; no matching advisory narrative is cached"
+  if narrative_state = "generated" then message = "deterministic library report generated with one validated and cached advisory-provider call"
+  return .ragcommandresult(operation, "ok", 0, message, records)
+_conceptpassage: procedure = .void
+  arg database = .binary, library_id = .string, generation = .int, concept_id = .string, expose citation = .string, expose text = .string
+  prepared = .binary; source_id = ""; revision_id = ""; start = 0; finish = 0; citation = ""; text = ""
+  sql = "SELECT s.source_id,r.revision_id,c.normalized_start,c.normalized_end,t.text FROM mentions m JOIN revision_chunks c ON c.revision_chunk_id=m.revision_chunk_id JOIN chunk_contents t ON t.content_id=c.content_id JOIN source_revisions r ON r.revision_id=c.revision_id JOIN sources s ON s.source_id=r.source_id WHERE m.concept_id=?1 AND m.visible_from_generation<=" || generation || " AND (m.visible_to_generation IS NULL OR m.visible_to_generation>" || generation || ") AND c.visible_from_generation<=" || generation || " AND (c.visible_to_generation IS NULL OR c.visible_to_generation>" || generation || ") ORDER BY m.revision_chunk_id,m.span_start LIMIT 1"
+  if sqliteprepare(database, sql, prepared) = 0 & sqlitebindtext(prepared, 1, concept_id) = 0 & sqlitestep(prepared) = 100 then do
+    columns = sqlitecolumntext(prepared, 0, source_id) | sqlitecolumntext(prepared, 1, revision_id) | sqlitecolumnint(prepared, 2, start) | sqlitecolumnint(prepared, 3, finish) | sqlitecolumntext(prepared, 4, text)
+    if columns \= 0 then source_id = ""
+  end
+  call sqlitefinalize prepared
+  if source_id = "" | revision_id = "" | finish <= start then do; citation = ""; text = ""; return; end
+  citation = "crexx-rag:" || library_id || ":" || source_id || ":" || revision_id || ":utf8-" || start || "-" || finish
+  return
+_advisorypromptversion: procedure = .string
+  arg profile = .ragprofile
+  prompts = profile.prompts()
+  do i = 1 to prompts.0
+    if prompts[i].role() = "advisory" then return prompts[i].template_id() || ":" || prompts[i].version()
+  end
+  return "library-report-advisory:1"
+_validreportnarrative: procedure = .int
+  arg content = .string, known_citations = .string[], expose error = .string
+  error = ""; overview = ""; document = .jsondocument(content)
+  if document.valid() \= 1 | document.node_type(document.root()) \= "object" | document.node_count(document.root()) \= 3 then do; error = "output is not the exact report narrative object"; return -1; end
+  root = document.root()
+  if document.node_string(document.member(root, "overview"), overview) \= 0 | overview = "" | length(overview) > 4096 then do; error = "overview is missing or too long"; return -1; end
+  citations = document.member(root, "citations")
+  if _validnarrativecitations(document, citations, known_citations, error) \= 0 then return -1
+  subjects = document.member(root, "subjects"); subject_count = document.node_count(subjects)
+  if document.node_type(subjects) \= "array" | subject_count < 1 | subject_count > 10 then do; error = "subjects must contain 1 through 10 entries"; return -1; end
+  do i = 1 to subject_count
+    subject = document.element(subjects, i); label = ""; description = ""
+    if document.node_type(subject) \= "object" | document.node_count(subject) \= 3 then do; error = "subject contains fields outside the exact schema"; return -1; end
+    if document.node_string(document.member(subject, "label"), label) \= 0 | label = "" | length(label) > 128 then do; error = "subject label is missing or too long"; return -1; end
+    if document.node_string(document.member(subject, "description"), description) \= 0 | description = "" | length(description) > 2048 then do; error = "subject description is missing or too long"; return -1; end
+    if _validnarrativecitations(document, document.member(subject, "citations"), known_citations, error) \= 0 then return -1
+  end
+  return 0
+_validnarrativecitations: procedure = .int
+  arg document = .jsondocument, citations = .int, known = .string[], expose error = .string
+  if document.node_type(citations) \= "array" | document.node_count(citations) < 1 | document.node_count(citations) > 4 then do; error = "narrative citations must contain 1 through 4 entries"; return -1; end
+  seen = .string[]
+  do i = 1 to document.node_count(citations)
+    citation = ""
+    if document.node_string(document.element(citations, i), citation) \= 0 | citation = "" | containscitation(known, citation) \= 1 | containscitation(seen, citation) = 1 then do; error = "narrative contains an unknown or duplicate citation"; return -1; end
+    seen[seen.0 + 1] = citation
+  end
+  return 0
+_appendreportnarrative: procedure = .void
+  arg expose records = .ragresultrecord[], narrative_json = .string, state = .string, provider_run_id = .string, provider_id = .string, model = .string, prompt_version = .string, charging_basis = .string, created_at = .string, input_tokens = .int, output_tokens = .int, cost_microunits = .int, allowance_before = .int, allowance_after = .int
+  document = .jsondocument(narrative_json); root = document.root(); overview = ""; ignored = document.node_string(document.member(root, "overview"), overview)
+  citations_json = encodecitationarray(document, document.member(root, "citations"))
+  fields = .ragresultfield[]; fields[1] = .ragresultfield("state", "string", state); fields[2] = .ragresultfield("provider_run_id", "string", provider_run_id); fields[3] = .ragresultfield("provider_id", "string", provider_id); fields[4] = .ragresultfield("model", "string", model); fields[5] = .ragresultfield("prompt_version", "string", prompt_version); fields[6] = .ragresultfield("charging_basis", "string", charging_basis); fields[7] = .ragresultfield("created_at", "string", created_at); fields[8] = .ragresultfield("overview", "string", overview); fields[9] = .ragresultfield("citations", "string", citations_json); fields[10] = .ragresultfield("input_tokens", "integer", input_tokens); fields[11] = .ragresultfield("output_tokens", "integer", output_tokens); fields[12] = .ragresultfield("cost_microunits", "integer", cost_microunits); fields[13] = .ragresultfield("allowance_before_percent", "integer", allowance_before); fields[14] = .ragresultfield("allowance_after_percent", "integer", allowance_after)
+  records[records.0 + 1] = .ragresultrecord("report-narrative", fields)
+  subjects = document.member(root, "subjects")
+  do i = 1 to document.node_count(subjects)
+    subject = document.element(subjects, i); label = ""; description = ""; ignored = document.node_string(document.member(subject, "label"), label); ignored = document.node_string(document.member(subject, "description"), description)
+    subject_citations = encodecitationarray(document, document.member(subject, "citations"))
+    subject_fields = .ragresultfield[]; subject_fields[1] = .ragresultfield("rank", "integer", i); subject_fields[2] = .ragresultfield("label", "string", label); subject_fields[3] = .ragresultfield("description", "string", description); subject_fields[4] = .ragresultfield("citations", "string", subject_citations)
+    records[records.0 + 1] = .ragresultrecord("report-subject", subject_fields)
+  end
+  return
+_loadreportnarrative: procedure = .int
+  arg database = .binary, report_id = .string, operational_digest = .string, requested_provider = .string, requested_model = .string, requested_prompt = .string, expose narrative_json = .string, expose provider_run_id = .string, expose provider_id = .string, expose model = .string, expose prompt_version = .string, expose charging_basis = .string, expose created_at = .string, expose input_tokens = .int, expose output_tokens = .int, expose cost_microunits = .int, expose allowance_before = .int, expose allowance_after = .int
+  prepared = .binary
+  sql = "SELECT n.narrative_json,n.provider_run_id,n.provider_id,n.model,n.prompt_version,p.charging_basis,n.created_at,n.input_tokens,n.output_tokens,n.cost_microunits,n.allowance_before_percent,n.allowance_after_percent FROM report_narratives n JOIN provider_runs p ON p.provider_run_id=n.provider_run_id WHERE n.report_id=?1 AND n.operational_digest=?2 AND (?3='' OR n.provider_id=?3) AND (?4='' OR n.model=?4) AND (?5='' OR n.prompt_version=?5) ORDER BY n.created_at DESC,n.narrative_id DESC LIMIT 1"
+  if sqliteprepare(database, sql, prepared) \= 0 then return -1
+  if sqlitebindtext(prepared, 1, report_id) \= 0 | sqlitebindtext(prepared, 2, operational_digest) \= 0 | sqlitebindtext(prepared, 3, requested_provider) \= 0 | sqlitebindtext(prepared, 4, requested_model) \= 0 | sqlitebindtext(prepared, 5, requested_prompt) \= 0 then do; call sqlitefinalize prepared; return -1; end
+  step = sqlitestep(prepared)
+  if step = 101 then do; call sqlitefinalize prepared; return 0; end
+  if step \= 100 then do; call sqlitefinalize prepared; return -1; end
+  columns = sqlitecolumntext(prepared, 0, narrative_json) | sqlitecolumntext(prepared, 1, provider_run_id) | sqlitecolumntext(prepared, 2, provider_id) | sqlitecolumntext(prepared, 3, model) | sqlitecolumntext(prepared, 4, prompt_version) | sqlitecolumntext(prepared, 5, charging_basis) | sqlitecolumntext(prepared, 6, created_at) | sqlitecolumnint(prepared, 7, input_tokens) | sqlitecolumnint(prepared, 8, output_tokens) | sqlitecolumnint(prepared, 9, cost_microunits) | sqlitecolumnint(prepared, 10, allowance_before) | sqlitecolumnint(prepared, 11, allowance_after)
+  call sqlitefinalize prepared
+  if columns \= 0 then return -1
+  return 1
+_persistreportnarrative: procedure = .int
+  arg database = .binary, report_id = .string, generation = .int, profile_hash = .string, top = .int, semantic_digest = .string, semantic_json = .string, request_context = .string, operational_digest = .string, config_snapshot_id = .string, provider = .ragproviderconfig, prompt_version = .string, result = .providerresult, allowance_before = .int, allowance_after = .int, expose provider_run_id = .string, expose created_at = .string, expose error = .string
+  error = ""; usage = result.usage(); request_hash = rxhash..sha256hex(request_context as .binary)
+  provider_run_id = "provider-run-sha256:" || rxhash..sha256hex((result.request_id() || "00"x || provider.provider_id() || "00"x || provider.model()) as .binary)
+  narrative_id = "narrative-sha256:" || rxhash..sha256hex((report_id || "00"x || operational_digest || "00"x || provider_run_id) as .binary)
+  duration_ms = (result.latency_us() / 1000) as .int
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin report narrative cache transaction"; return -1; end
+  prepared = .binary
+  sql = "INSERT OR IGNORE INTO report_snapshots(report_id,semantic_generation,profile_hash,report_schema,top_limit,semantic_digest,semantic_json,created_at) VALUES(?1,?2,?3,'crexx-rag.library-report/1',?4,?5,?6,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, report_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 | sqlitebindtext(prepared, 3, profile_hash) \= 0 | sqlitebindint(prepared, 4, top) \= 0 | sqlitebindtext(prepared, 5, semantic_digest) \= 0 | sqlitebindtext(prepared, 6, semantic_json) \= 0 | sqlitestep(prepared) \= 101 then do; call sqlitefinalize prepared; call sqliteexec database, "ROLLBACK"; error = "cannot persist the deterministic report snapshot"; return -1; end
+  call sqlitefinalize prepared
+  if sqlreadtext(database, "SELECT semantic_digest FROM report_snapshots WHERE report_id=" || sqlquote(report_id)) \= semantic_digest then do; call sqliteexec database, "ROLLBACK"; error = "cached deterministic report snapshot disagrees with the current report"; return -1; end
+  prepared = .binary
+  sql = "INSERT INTO provider_runs(provider_run_id,config_snapshot_id,provider_id,model,request_hash,outcome,input_tokens,output_tokens,duration_ms,started_at,completed_at,charging_basis,allowance_used_before_percent,allowance_used_after_percent,recovery_json,cost_microunits,purpose) VALUES(?1,?2,?3,?4,?5,'succeeded',?6,?7,?8,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'),?9,?10,?11,'',?12,'report-narrative')"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, provider_run_id) \= 0 | sqlitebindtext(prepared, 2, config_snapshot_id) \= 0 | sqlitebindtext(prepared, 3, provider.provider_id()) \= 0 | sqlitebindtext(prepared, 4, provider.model()) \= 0 | sqlitebindtext(prepared, 5, request_hash) \= 0 | sqlitebindint(prepared, 6, usage.input_tokens()) \= 0 | sqlitebindint(prepared, 7, usage.output_tokens()) \= 0 | sqlitebindint(prepared, 8, duration_ms) \= 0 | sqlitebindtext(prepared, 9, provider.charging_basis()) \= 0 | sqlitebindint(prepared, 10, allowance_before) \= 0 | sqlitebindint(prepared, 11, allowance_after) \= 0 | sqlitebindint(prepared, 12, usage.cost_microunits()) \= 0 | sqlitestep(prepared) \= 101 then do; call sqlitefinalize prepared; call sqliteexec database, "ROLLBACK"; error = "cannot persist the report provider run"; return -1; end
+  call sqlitefinalize prepared
+  prepared = .binary
+  sql = "INSERT INTO report_narratives(narrative_id,report_id,operational_digest,provider_run_id,provider_id,model,prompt_version,narrative_json,input_tokens,output_tokens,cost_microunits,allowance_before_percent,allowance_after_percent,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, narrative_id) \= 0 | sqlitebindtext(prepared, 2, report_id) \= 0 | sqlitebindtext(prepared, 3, operational_digest) \= 0 | sqlitebindtext(prepared, 4, provider_run_id) \= 0 | sqlitebindtext(prepared, 5, provider.provider_id()) \= 0 | sqlitebindtext(prepared, 6, provider.model()) \= 0 | sqlitebindtext(prepared, 7, prompt_version) \= 0 | sqlitebindtext(prepared, 8, result.content()) \= 0 | sqlitebindint(prepared, 9, usage.input_tokens()) \= 0 | sqlitebindint(prepared, 10, usage.output_tokens()) \= 0 | sqlitebindint(prepared, 11, usage.cost_microunits()) \= 0 | sqlitebindint(prepared, 12, allowance_before) \= 0 | sqlitebindint(prepared, 13, allowance_after) \= 0 | sqlitestep(prepared) \= 101 then do; call sqlitefinalize prepared; call sqliteexec database, "ROLLBACK"; error = "cannot persist the validated report narrative"; return -1; end
+  call sqlitefinalize prepared
+  created_at = sqlreadtext(database, "SELECT created_at FROM report_narratives WHERE narrative_id=" || sqlquote(narrative_id))
+  if created_at = "" | sqliteexec(database, "COMMIT") \= 0 then do; call sqliteexec database, "ROLLBACK"; error = "cannot commit the report narrative cache"; return -1; end
+  return 0
+reportoperationaldigest: procedure = .string
+  arg database = .binary, generation = .int, verification_issues = .int, repository_issues = .int
+  visible = "visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ")"
+  embedding_links = sqlreadint(database, "SELECT count(*) FROM revision_chunk_embeddings WHERE " || visible)
+  vector_rows = sqlreadint(database, "SELECT coalesce(max(row_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
+  vector_dimension = sqlreadint(database, "SELECT coalesce(max(dimension),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
+  vector_centroids = sqlreadint(database, "SELECT coalesce(max(centroid_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
+  vector_probes = sqlreadint(database, "SELECT coalesce(max(probe_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
+  chunks = sqlreadint(database, "SELECT count(*) FROM revision_chunks WHERE " || visible); vector_coverage = 0; if chunks > 0 then vector_coverage = ((vector_rows * 1000000) / chunks) as .int
+  incomplete_runs = sqlreadint(database, "SELECT count(*) FROM maintenance_runs WHERE state<>'complete'"); pending_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state='pending'"); diagnosed_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state='diagnosed'"); review_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state IN('review-required','approved')"); blocked_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state IN('blocked','failed')"); applied_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state='applied'")
+  active_jobs = sqlreadint(database, "SELECT count(*) FROM jobs WHERE state IN('queued','running','paused','cancel_requested')"); error_jobs = sqlreadint(database, "SELECT count(*) FROM jobs WHERE state IN('completed_with_errors','failed')"); dead_letters = sqlreadint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter'"); dead_extraction = sqlreadint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='claim-extraction'"); dead_improvement = sqlreadint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='improve-extraction'"); dead_embeddings = sqlreadint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='embedding'"); dead_other = dead_letters - dead_extraction - dead_improvement - dead_embeddings
+  actionable_dead_letters = sqlreadint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='actionable'"); replaying_dead_letters = sqlreadint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='in-progress'"); resolved_dead_letters = sqlreadint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='resolved'")
+  reviews = sqlreadint(database, "SELECT count(*) FROM reviews WHERE state='pending'"); gaps = sqlreadint(database, "SELECT count(*) FROM query_gaps WHERE state='open' AND observed_generation<=" || generation); fts_rows = sqlreadint(database, "SELECT count(*) FROM chunks_fts"); reconciliation_warning = actionable_dead_letters > 0 & active_jobs = 0
+  operational = '{"schema":"crexx-rag.library-report-operational/1","generation":' || generation || ',"vector":[' || embedding_links || ',' || vector_rows || ',' || vector_dimension || ',' || vector_centroids || ',' || vector_probes || ',' || vector_coverage || '],"maintenance":[' || incomplete_runs || ',' || pending_items || ',' || diagnosed_items || ',' || review_items || ',' || blocked_items || ',' || applied_items || ',' || active_jobs || ',' || error_jobs || ',' || dead_letters || ',' || dead_extraction || ',' || dead_improvement || ',' || dead_embeddings || ',' || dead_other || ',' || actionable_dead_letters || ',' || replaying_dead_letters || ',' || resolved_dead_letters || '],"review":[' || reviews || ',' || gaps || '],"verification":[' || verification_issues || ',' || repository_issues || ',' || fts_rows || '],"reconciliation_warning":' || commandboolean(reconciliation_warning) || '}'
+  durable = _durablereportcensus(database)
+  do i = 1 to durable.0
+    if durable[i] < 0 then return ""
+  end
+  operational = substr(operational,1,length(operational)-1) || ',"durable":' || _durablereportjson(durable) || '}'
+  return rxhash..sha256hex(operational as .binary)
+_durablereportcensus: procedure = .int[]
+  arg database = .binary
+  counts = .int[]
+  do i = 1 to 11
+    counts[i] = 0
+  end
+  schema_version = sqlreadint(database,"SELECT schema_version FROM library_meta WHERE singleton=1")
+  if schema_version < 0 then do; counts[1] = -1; return counts; end
+  if schema_version < 10 then return counts
+  task_states = "pending dispatched unresolved review failed resolved superseded"
+  do i = 1 to 7
+    counts[i] = sqlreadint(database,"SELECT count(*) FROM maintenance_tasks WHERE state=" || sqlquote(word(task_states,i)))
+  end
+  workflow_states = "migrating waiting complete"
+  do i = 1 to 3
+    counts[i+7] = sqlreadint(database,"SELECT count(*) FROM maintenance_workflows WHERE state=" || sqlquote(word(workflow_states,i)))
+  end
+  counts[11] = sqlreadint(database,"SELECT count(*) FROM maintenance_decisions")
+  return counts
+_durablereportjson: procedure = .string
+  arg counts = .int[]
+  output = "["
+  do i = 1 to counts.0
+    if i > 1 then output = output || ","
+    output = output || counts[i]
+  end
+  return output || "]"
+_healthrecord: procedure = .ragresultrecord
+  arg dimension = .string, state = .string, issue_count = .int, detail = .string
+  fields = .ragresultfield[]; fields[1] = .ragresultfield("dimension", "string", dimension); fields[2] = .ragresultfield("state", "string", state); fields[3] = .ragresultfield("issue_count", "integer", issue_count); fields[4] = .ragresultfield("detail", "string", detail)
+  return .ragresultrecord("health", fields)

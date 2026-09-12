@@ -183,7 +183,7 @@ ragapplicationprovider: class implements .ragworkprovider
     arg document = .jsondocument, root = .int, input_json = .string, claim = .ragworkclaim, provider_config = .ragproviderconfig, backend = .provider, receipt_body = ""
     empty_proposal = .ragextractionproposal
     messages = .providermessage[]; inputs = .string[]
-    role_policy = _rolebinding(_config, "extractor")
+    role_policy = rolebinding(_config, "extractor")
     if role_policy.provider_id() \= provider_config.provider_id() | role_policy.system_prompt() = "" then return _failedwork(provider_config.provider_id(), provider_config.model(), claim, empty_proposal, "configured extraction role policy is unavailable", 0)
     discovery=_config.discovery()
     messages=extractionmessages(_profile,discovery,input_json,role_policy.system_prompt())
@@ -484,9 +484,9 @@ ragapplicationprovider: class implements .ragworkprovider
     empty_proposal = .ragextractionproposal
     empty_mentions = .ragworkmention[]; empty_proposals = .ragworkproposal[]; empty_notes = .ragworknote[]
     empty_result = .ragworkproviderresult(1,"","","",0,0,0,0,0,empty_proposal,"cache miss",0,"","",.ragworkembedding("","","","","",0,"",''x as .binary),"","local-compute",empty_mentions,empty_proposals,empty_notes,0,0)
-    dimension = _rolebinding(_config,"embedding").embedding_dimensions()
+    dimension = rolebinding(_config,"embedding").embedding_dimensions()
     input_dimension = 0; ignored = document.node_int(document.member(root,"embedding_dimension"),input_dimension)
-    if _jsonstring(document,root,"text") = "" | _jsonstring(document,root,"revision_chunk_id") = "" | length(_jsonstring(document,root,"content_digest")) \= 64 | input_dimension \= dimension | _rolebinding(_config,"embedding").provider_id() \= config.provider_id() then return _failedwork(config.provider_id(),config.model(),claim,empty_proposal,"durable embedding input is invalid",0)
+    if _jsonstring(document,root,"text") = "" | _jsonstring(document,root,"revision_chunk_id") = "" | length(_jsonstring(document,root,"content_digest")) \= 64 | input_dimension \= dimension | rolebinding(_config,"embedding").provider_id() \= config.provider_id() then return _failedwork(config.provider_id(),config.model(),claim,empty_proposal,"durable embedding input is invalid",0)
     envelope = "crexx-rag.embedding-input/1|" || config.provider_id() || "|" || config.kind() || "|" || config.model() || "|" || dimension
     profile_id = "embedding-" || dimension || "-" || substr(rxhash..sha256hex(envelope as .binary),1,12)
     digest = rxhash..sha256hex((_jsonstring(document,root,"content_digest") || "00"x || envelope) as .binary)
@@ -507,7 +507,7 @@ ragapplicationprovider: class implements .ragworkprovider
     empty_proposal = .ragextractionproposal; messages = .providermessage[]; inputs = .string[]
     body = _jsonstring(document, root, "text"); revision_chunk_id = _jsonstring(document, root, "revision_chunk_id"); content_digest = _jsonstring(document, root, "content_digest")
     dimension = 0; ignored = document.node_int(document.member(root, "embedding_dimension"), dimension)
-    role_policy = _rolebinding(_config, "embedding")
+    role_policy = rolebinding(_config, "embedding")
     if body = "" | revision_chunk_id = "" | length(content_digest) \= 64 | role_policy.provider_id() \= provider_config.provider_id() | dimension \= role_policy.embedding_dimensions() then return _failedwork(provider_config.provider_id(), provider_config.model(), claim, empty_proposal, "durable embedding input is invalid", 0)
     inputs[1] = body; request_id = "embed-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 32)
     /* Read the exact immutable input; the count spans ingestion and repair. */
@@ -702,14 +702,6 @@ _roleprovider: procedure = .string
     if roles[i].role() = role then return roles[i].provider_id()
   end
   return ""
-
-_rolebinding: procedure = .ragrolebinding
-  arg config = .ragconfig, role = .string
-  roles = config.roles()
-  do i = 1 to roles.0
-    if roles[i].role() = role then return roles[i]
-  end
-  return .ragrolebinding()
 
 _providerconfig: procedure = .ragproviderconfig
   arg config = .ragconfig, provider_id = .string

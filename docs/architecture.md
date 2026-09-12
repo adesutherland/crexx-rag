@@ -494,3 +494,30 @@ changes embedding inputs. Retrieval carries per-support
 provenance and period compatibility through version 2 evidence and answer
 context; graph traversal checks common period bounds across a filtered path.
 See [time and provenance](time-and-provenance.md) for the public contracts.
+
+### Report, observation, query and diagnostic services
+
+`ragproduct.dispatchproduct` composes transport-neutral domain services. CLI,
+ADDRESS and MCP all reach these same services; adapters do not issue domain SQL.
+
+| Source owner | Public entry points | Authoritative responsibility and dependencies |
+| --- | --- | --- |
+| `ragreportservice` | `libraryreport`, `reportoperationaldigest` | Report census, health/context, citation-validated narrative cache and report SQL. Uses configuration, repository and direct-call/provider services. |
+| `ragobservationservice` | `librarysnapshot`, `librarytrend` | Observation policy application, immutable snapshots and deltas. Calls the report service directly; owns observation SQL. |
+| `ragqueryservice` | `querycommand`, `citationshow` | Query/citation argument semantics, retrieval composition, sidecar checks and answer validation. Uses retrieval/evidence, configuration and provider policy owners. |
+| `ragdirectcalls` | `persistdirectproviderrun`, `recorddirectproviderrun`, `directproviderrecord` | Existing direct query/report call history and usage projection. Worker reservations/receipts remain in `ragusage`/`ragreceipts`. |
+| `ragoperationsquery` | `readtaskpage`, `operatordiagnostics`, `jobstatuscommand`, `jobeventscommand`, `jobplancommand`, `taskinventorycommand` | Job status/events/plans, task evidence and bounded task/workflow/item/attempt reads. Consumes read interfaces of job/backlog/supervision owners; makes no provider calls or state transitions. |
+| `ragcommandutil` | `commandhasaccess`, `commandoptions`, `commandworkeroptions`, `commandoption`, `commandid`, result/error helpers | Shared service argument/access/error conventions. Domain services retain semantic validation. |
+| `ragsqlsupport` | `sqlreadtext`, `sqlreadint`, `sqlquote`, `sqliteerrordetail` | Small scalar/error helpers only. Transactions and SQL statements belong to their domains. |
+
+Existing owners also hold the shared rules consumed by these services:
+`ragconfig.rolebinding/roleproviderconfig`,
+`ragconfiguration.querysnapshotmatches`, `ragquerypolicy.queryprivacy`, and
+`ragevidencejson.encodecitationarray/containscitation/evidencehascitation`.
+Follow those owners when changing the related rule and review all consumers;
+do not add a replacement copy to the dispatcher or a provider adapter.
+
+The new diagnostic pages filter in SQL before their keyset cursor and limit,
+using stable row identities. Job/workflow reads use one SQLite read snapshot.
+They expose state, lineage and provider-run IDs while leaving raw retained
+request/response content to its existing controlled inspection surface.

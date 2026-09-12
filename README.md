@@ -285,3 +285,8 @@ records current module ownership, operator-interface changes and the full
 regression qualification for each separately committed stage.
 Repeatable launch/resume and recovery without bespoke repair scripts remain an
 open [high-priority hardening requirement](docs/recovery-defects.md#rag-ops-001--p1-routine-launch-and-recovery-must-be-product-operations).
+
+Read-only operator diagnosis is available through `job items`, `job attempts`,
+`maintain workflows --concept LABEL` and `maintain tasks --concept LABEL`.
+See the [operator guide](docs/user-guide.md#find-work-and-failures-without-direct-sql)
+and [module ownership](docs/architecture.md#report-observation-query-and-diagnostic-services).

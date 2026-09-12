@@ -1,0 +1,319 @@
+options levelg
+
+namespace ragoperationsquery expose readtaskpage operatordiagnostics jobstatuscommand jobplancommand jobeventscommand taskinventorycommand
+
+import ragbacklog
+import ragjob
+import ragwork
+import ragrepository
+import ragsupervision
+import rxjson
+import ragcommand
+import ragcommandutil
+import ragsqlsupport
+import ragresultpages
+import ragstore
+import rxfnsb
+import rxsqlite
+
+/* Read-only, bounded operator inspection of durable tasks, workflows, job items and attempts. No provider execution or repair side effects. */
+readtaskpage: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation = request.operation(); error = ""
+  if commandhasaccess(request,"read") \= 1 then return commandfailure(operation,4,"task inspection requires read access")
+  if commandoptions(request,"id cursor limit state capability workflow subject concept",error) \= 0 then return commandfailure(operation,2,error)
+  id = commandid(request,error)
+  if error\="" then return commandfailure(operation,2,error)
+  cursor = commandoption(request,"cursor",error); count_text = commandoption(request,"limit",error)
+  state = commandoption(request,"state",error); capability = commandoption(request,"capability",error); workflow = commandoption(request,"workflow",error)
+  subject=commandoption(request,"subject",error);concept=commandoption(request,"concept",error)
+  if pos("00"x,id || cursor || state || capability || workflow || subject || concept)>0 then return commandfailure(operation,2,"inspection filters must not contain NUL")
+  if length(subject)>512 | length(concept)>512 then return commandfailure(operation,2,"subject and concept filters must be at most 512 characters")
+  if operation\="maintain.tasks" & (subject\="" | concept\="") then return commandfailure(operation,2,"subject/concept filters apply to task lists only")
+  if error \= "" then return commandfailure(operation,2,error)
+  if count_text = "" then count_text = "20"
+  if commandunsigned(count_text) \= 1 then return commandfailure(operation,2,"limit must be an integer")
+  limit = count_text as .int
+  if limit < 1 | limit > 50 | length(cursor)>512 then return commandfailure(operation,2,"task page limit must be 1 through 50 and cursor at most 512 bytes")
+  if state \= "" & wordpos(state,"pending dispatched resolved unresolved review superseded failed") = 0 then return commandfailure(operation,2,"unknown task state")
+  if capability \= "" & wordpos(capability,"standard advanced-reasoning") = 0 then return commandfailure(operation,2,"unknown resolver capability")
+  store = .ragstorehandle
+  if openragstore(request.library(),"readonly",store,error) \= 0 then return commandopenfailure(operation,error)
+  database = store.database(); sql = ""
+  if operation = "maintain.tasks" then do
+    filter = ""
+    if id \= "" then filter = filter || " AND task_id=" || sqlquote(id)
+    if state \= "" then filter = filter || " AND state=" || sqlquote(state)
+    if capability \= "" then filter = filter || " AND required_capability=" || sqlquote(capability)
+    if workflow \= "" then filter = filter || " AND workflow_id=" || sqlquote(workflow)
+    if subject\="" then filter=filter || " AND subject_id=" || sqlquote(subject)
+    if concept\="" then filter=filter || " AND ((subject_type='concept' AND subject_id IN(SELECT concept_id FROM concepts WHERE canonical_label=" || sqlquote(concept) || ")) OR workflow_id IN(SELECT w.workflow_id FROM maintenance_workflows w WHERE " || _workflowconceptpredicate(concept) || "))"
+    sql = "SELECT task_id,json_object('task_id',task_id,'kind',kind,'subject_type',subject_type,'subject_id',subject_id,'workflow_id',workflow_id,'state',state,'priority',priority,'question',question,'attempts',attempt_count,'required_capability',required_capability,'escalation_origin',escalation_origin,'escalation_reason',escalation_reason,'semantic_failures',semantic_failures,'reason',last_error) FROM maintenance_tasks WHERE task_id>" || sqlquote(cursor) || filter || " ORDER BY task_id LIMIT " || (limit+1)
+  end
+  else do
+    if cursor = "" then cursor = "0"
+    if commandunsigned(cursor) \= 1 | id = "" then do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation,2,"task evidence requires a task id and numeric cursor"); end
+    if sqlreadint(database,"SELECT count(*) FROM maintenance_tasks WHERE task_id=" || sqlquote(id)) \= 1 then do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation,5,"task was not found"); end
+    sql = "SELECT CAST(p.key+1 AS TEXT),json_set(p.value,'$.citation','crexx-rag:'||l.library_id||':'||v.source_id||':'||v.revision_id||':utf8-'||r.normalized_start||'-'||r.normalized_end,'$.source_title',s.observed_title) FROM maintenance_tasks t,json_each(t.evidence_json,'$.passages') p JOIN revision_chunks r ON r.revision_chunk_id=json_extract(p.value,'$.revision_chunk_id') JOIN source_revisions v ON v.revision_id=r.revision_id JOIN sources s ON s.source_id=v.source_id CROSS JOIN library_meta l WHERE t.task_id=" || sqlquote(id) || " AND p.key+1>" || (cursor as .int) || " ORDER BY p.key LIMIT " || (limit+1)
+  end
+  records = .ragresultrecord[]; prepared = .binary; returned = 0; next_cursor = ""; previous = ""
+  if sqliteprepare(database,sql,prepared) \= 0 then do; detail = sqliteerrordetail(); ignored = ""; call closeragstore store,ignored; return commandfailure(operation,7,"cannot prepare task page: " || detail); end
+  do forever
+    step = sqlitestep(prepared); if step = 101 then leave
+    row_id = ""; detail = ""
+    if step \= 100 | sqlitecolumntext(prepared,0,row_id) \= 0 | sqlitecolumntext(prepared,1,detail) \= 0 then do; error = "cannot read task page"; leave; end
+    if returned = limit then do; next_cursor = previous; leave; end
+    if length(detail)>65535 & operation="maintain.evidence" then do
+      detail=sqlreadtext(database,"SELECT json_set(json_remove(" || sqlquote(detail) || ",'$.text'),'$.text_omitted',json('true'),'$.text_read_tool','rag_citation_show','$.inventory_tool','rag_task_evidence_inventory')")
+    end
+    if detail="" | length(detail)>65535 then do; error = "task page entry exceeds response bound; inspect the paged evidence inventory"; leave; end
+    fields = .ragresultfield[]; fields[1] = .ragresultfield("id","string",row_id); fields[2] = .ragresultfield("detail","string",detail)
+    records[records.0+1] = .ragresultrecord("maintenance-task-page-item",fields); returned = returned+1; previous = row_id
+  end
+  call sqlitefinalize prepared
+  ignored = ""; closed = closeragstore(store,ignored)
+  if error \= "" | closed \= 0 then return commandfailure(operation,7,error || ignored)
+  fields = .ragresultfield[]; fields[1] = .ragresultfield("returned","integer",returned); fields[2] = .ragresultfield("next_cursor","string",next_cursor)
+  records[records.0+1] = .ragresultrecord("page",fields)
+  return .ragcommandresult(operation,"ok",0,"bounded task inspection without writes or provider calls",records)
+
+/* The WHERE clause owns filtering before the keyset cursor and row limit.
+ * These queries expose durable identities and summaries, never raw inputs or
+ * provider response bodies. All reads share one SQLite snapshot. */
+operatordiagnostics: procedure = .ragcommandresult
+  arg request=.ragcommandrequest
+  operation=request.operation();error=""
+  if commandhasaccess(request,"read")\=1 then return commandfailure(operation,4,"operator inspection requires read access")
+  allowed="id cursor limit state"
+  if operation="job.attempts" then allowed="id item cursor limit"
+  if operation="maintain.workflows" then allowed="id subject concept state cursor limit"
+  if commandoptions(request,allowed,error)\=0 then return commandfailure(operation,2,error)
+  id=commandid(request,error)
+  if error\="" then return commandfailure(operation,2,error)
+  cursor=commandoption(request,"cursor",error);count_text=commandoption(request,"limit",error)
+  state=commandoption(request,"state",error);item=commandoption(request,"item",error)
+  subject=commandoption(request,"subject",error);concept=commandoption(request,"concept",error)
+  if pos("00"x,id || cursor || state || item || subject || concept)>0 then return commandfailure(operation,2,"inspection filters must not contain NUL")
+  if count_text="" then count_text="20"
+  if commandunsigned(count_text)\=1 then return commandfailure(operation,2,"limit must be an integer")
+  limit=count_text as .int
+  if limit<1 | limit>100 | length(cursor)>512 | length(id)>512 | length(item)>512 | length(subject)>512 | length(concept)>512 then return commandfailure(operation,2,"inspection limit must be 1 through 100 and identities/labels/cursors at most 512 characters")
+  if operation="job.items" & state\="" then if wordpos(state,"queued running processed skipped dead_letter cancelled cancel_requested")=0 then return commandfailure(operation,2,"unknown job item state")
+  if operation="maintain.workflows" & state\="" then if wordpos(state,"migrating waiting complete")=0 then return commandfailure(operation,2,"unknown workflow state")
+  if left(operation,4)="job." & id="" then return commandfailure(operation,2,"job inspection requires one job id")
+  view=.ragreadsnapshot
+  if beginreadsnapshot(request.library(),view,error)\=0 then return commandopenfailure(operation,error)
+  database=view.database()
+  if left(operation,4)="job." then do
+    found=_jobexists(database,id,error)
+    if found\=1 then do
+      ignored="";call closereadsnapshot view,ignored
+      if found=0 then return commandfailure(operation,5,"job was not found")
+      return commandfailure(operation,7,error)
+    end
+  end
+  filter="";sql="";kind=""
+  if operation="job.items" then do
+    kind="job-item"
+    sql="SELECT i.item_id,json_object('item_id',i.item_id,'job_id',i.job_id,'item_type',i.item_type,'state',i.state,'worker_id',i.worker_id,'fence',i.fence,'lease_until',i.lease_until,'retry_at',i.retry_at,'input_hash',i.input_hash,'created_at',i.created_at,'updated_at',i.updated_at,'attempts',(SELECT count(*) FROM attempts a WHERE a.item_id=i.item_id),'task_id',(SELECT task_id FROM maintenance_task_items t WHERE t.item_id=i.item_id)) FROM job_items i WHERE i.job_id=?1 AND i.item_id>?2 AND (?3='' OR i.state=?3) ORDER BY i.item_id LIMIT ?4"
+  end
+  if operation="job.attempts" then do
+    kind="job-attempt"
+    sql="SELECT a.attempt_id,json_object('attempt_id',a.attempt_id,'item_id',a.item_id,'job_id',i.job_id,'worker_id',a.worker_id,'fence',a.fence,'input_hash',a.input_hash,'output_hash',a.output_hash,'provider_run_id',a.provider_run_id,'validation_state',a.validation_state,'outcome',a.outcome,'started_at',a.started_at,'completed_at',a.completed_at) FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1 AND a.attempt_id>?2 AND (?3='' OR a.item_id=?3) ORDER BY a.attempt_id LIMIT ?4"
+    state=item
+  end
+  if operation="maintain.workflows" then do
+    kind="maintenance-workflow"
+    if subject\="" then filter=filter || " AND (w.parent_concept_id=" || sqlquote(subject) || " OR EXISTS(SELECT 1 FROM json_each(w.successors_json) s WHERE json_extract(s.value,'$.concept_id')=" || sqlquote(subject) || "))"
+    if concept\="" then filter=filter || " AND " || _workflowconceptpredicate(concept)
+    sql="SELECT w.workflow_id,json_object('workflow_id',w.workflow_id,'kind',w.kind,'parent_concept_id',w.parent_concept_id,'parent_label',c.canonical_label,'origin_task_id',w.origin_task_id,'successors',json(w.successors_json),'state',w.state,'created_generation',w.created_generation,'completed_generation',w.completed_generation,'task_count',(SELECT count(*) FROM maintenance_tasks t WHERE t.workflow_id=w.workflow_id)) FROM maintenance_workflows w JOIN concepts c ON c.concept_id=w.parent_concept_id WHERE (?1='' OR w.workflow_id=?1) AND w.workflow_id>?2 AND (?3='' OR w.state=?3)" || filter || " ORDER BY w.workflow_id LIMIT ?4"
+  end
+  prepared=.binary;records=.ragresultrecord[];previous="";next_cursor=""
+  status=sqliteprepare(database,sql,prepared);prepared_ok=status=0
+  if status=0 then status=sqlitebindtext(prepared,1,id) | sqlitebindtext(prepared,2,cursor) | sqlitebindtext(prepared,3,state) | sqlitebindint(prepared,4,limit+1)
+  if status\=0 then error="cannot prepare operator page: " || sqliteerrordetail()
+  do while error=""
+    step=sqlitestep(prepared)
+    if step=101 then leave
+    row_id="";detail=""
+    if step\=100 | sqlitecolumntext(prepared,0,row_id)\=0 | sqlitecolumntext(prepared,1,detail)\=0 then do;error="cannot read operator page";leave;end
+    if records.0=limit then do;next_cursor=previous;leave;end
+    if row_id="" | length(row_id)>512 | length(detail)>65535 then do;error="operator page record exceeds its bound";leave;end
+    fields=.ragresultfield[];fields[1]=.ragresultfield("id","string",row_id);fields[2]=.ragresultfield("detail","string",detail)
+    fields[3]=.ragresultfield("generation","integer",view.generation())
+    records[records.0+1]=.ragresultrecord(kind,fields);previous=row_id
+  end
+  if prepared_ok then call sqlitefinalize prepared
+  close_error="";closed=closereadsnapshot(view,close_error)
+  if error\="" | closed\=0 then return commandfailure(operation,7,error || close_error)
+  if operation="maintain.workflows" & id\="" & records.0=0 then return commandfailure(operation,5,"workflow was not found")
+  call appendresultpage records,next_cursor,limit
+  return .ragcommandresult(operation,"ok",0,"bounded operator inspection without writes or provider calls",records)
+
+_jobexists: procedure = .int
+  arg database=.binary,id=.string,expose error=.string
+  error="";prepared=.binary;found=0
+  if sqliteprepare(database,"SELECT count(*) FROM jobs WHERE job_id=?1",prepared)\=0 then do;error="cannot prepare job lookup";return -1;end
+  status=sqlitebindtext(prepared,1,id)
+  if status=0 then do
+    if sqlitestep(prepared)\=100 then status=-1
+    else status=sqlitecolumnint(prepared,0,found)
+  end
+  call sqlitefinalize prepared
+  if status\=0 then do;error="cannot read job lookup";return -1;end
+  return found
+
+/* Exact canonical labels may identify several concepts. Preserve every match;
+ * the caller uses returned stable IDs to select one subject/workflow. */
+_workflowconceptpredicate: procedure = .string
+  arg concept=.string
+  ids="SELECT concept_id FROM concepts WHERE canonical_label=" || sqlquote(concept)
+  return "(w.parent_concept_id IN(" || ids || ") OR EXISTS(SELECT 1 FROM json_each(w.successors_json) s WHERE json_extract(s.value,'$.concept_id') IN(" || ids || ")))"
+
+jobstatuscommand: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation = request.operation(); error = ""
+  if commandhasaccess(request, "read") \= 1 then return commandfailure(operation, 4, "job status requires read access")
+  if commandoptions(request, "id", error) \= 0 then return commandfailure(operation, 2, error)
+  job_id = commandid(request, error)
+  if error \= "" | job_id = "" then return commandfailure(operation, 2, "job status requires one job id")
+  store = .ragstorehandle
+  if openragstore(request.library(), "readonly", store, error) \= 0 then return commandopenfailure(operation, error)
+  status = .ragjobstatus; read_status = readjobstatus(store, job_id, status, error)
+  supervision = readsupervision(store,job_id,error)
+  if error \= "" then read_status = -1
+  ignored = ""; close_status = closeragstore(store, ignored)
+  if read_status = -2 then return commandfailure(operation, 5, "job was not found")
+  if read_status \= 0 | close_status \= 0 then return commandfailure(operation, 7, error)
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("job_id", "string", status.job_id())
+  fields[2] = .ragresultfield("state", "string", status.state())
+  fields[3] = .ragresultfield("planned_total", "integer", status.planned_total())
+  fields[4] = .ragresultfield("queued", "integer", status.queued())
+  fields[5] = .ragresultfield("running", "integer", status.running())
+  fields[6] = .ragresultfield("processed", "integer", status.processed())
+  fields[7] = .ragresultfield("skipped", "integer", status.skipped())
+  fields[8] = .ragresultfield("dead_letter", "integer", status.dead_letter())
+  fields[9] = .ragresultfield("cancelled", "integer", status.cancelled())
+  fields[10] = .ragresultfield("failed_attempts", "integer", status.failed_attempts())
+  fields[11] = .ragresultfield("last_error", "string", status.last_error())
+  fields[12] = .ragresultfield("waiting_reason", "string", status.waiting_reason())
+  fields[13] = .ragresultfield("retry_pending", "integer", status.retry_pending())
+  fields[14] = .ragresultfield("retry_reason", "string", status.retry_reason())
+  recovery = .jsondocument(supervision)
+  names = "configured_workers live_workers window_seconds max_restarts recent_replacements next_eligible_epoch"
+  do i = 1 to words(names)
+    name = word(names,i); value = 0
+    ignored = recovery.node_int(recovery.member(recovery.root(),name),value)
+    fields[fields.0+1] = .ragresultfield("worker_" || name,"integer",value)
+  end
+  reason = ""; ignored = recovery.node_string(recovery.member(recovery.root(),"waiting_reason"),reason)
+  fields[fields.0+1] = .ragresultfield("worker_waiting_reason","string",reason)
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("job-status", fields)
+  return .ragcommandresult(operation, "ok", 0, "bounded durable job status", records)
+jobplancommand: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation=request.operation(); error=""
+  if commandhasaccess(request,"read")\=1 then return commandfailure(operation,4,"job plan requires read access")
+  if commandoptions(request,"id cursor limit",error)\=0 then return commandfailure(operation,2,error)
+  id=commandid(request,error); cursor=commandoption(request,"cursor",error); limit=commandoption(request,"limit",error)
+  if error\="" | id="" then return commandfailure(operation,2,"job plan requires one job id")
+  offset=0; count=0
+  if parseplanpage(cursor,limit,offset,count,error)\=0 then return commandfailure(operation,2,error)
+  view=.ragreadsnapshot
+  if beginreadsnapshot(request.library(),view,error)\=0 then return commandopenfailure(operation,error)
+  page=.ragjobplanpage
+  status=readjobplanpage(view,id,offset,count,page,error)
+  close_error=""; closed=closereadsnapshot(view,close_error)
+  if closed\=0 then return commandfailure(operation,7,close_error)
+  if status=1 then return commandfailure(operation,5,error)
+  if status=-1 then return commandfailure(operation,2,error)
+  if status\=0 then return commandfailure(operation,7,error)
+  return .ragcommandresult(operation,"ok",0,"bounded retained job plan read without mutation",planresultrecords(page))
+jobeventscommand: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation = request.operation(); error = ""
+  if commandhasaccess(request,"read") \= 1 then return commandfailure(operation,4,"job events requires read access")
+  if commandoptions(request,"id cursor limit",error) \= 0 then return commandfailure(operation,2,error)
+  job_id = commandid(request,error); cursor = commandoption(request,"cursor",error); limit_text = commandoption(request,"limit",error)
+  if error \= "" | job_id = "" then return commandfailure(operation,2,"job events requires one job id")
+  if cursor = "" then cursor = "0"
+  if limit_text = "" then limit_text = "20"
+  if commandunsigned(cursor) \= 1 | commandunsigned(limit_text) \= 1 then return commandfailure(operation,2,"event cursor and limit must be non-negative integers")
+  limit = limit_text as .int
+  if limit < 1 | limit > 100 then return commandfailure(operation,2,"event limit must be 1 through 100")
+  view = .ragreadsnapshot
+  if beginreadsnapshot(request.library(),view,error) \= 0 then return commandopenfailure(operation,error)
+  database = view.database(); prepared = .binary
+  if sqlreadint(database,"SELECT count(*) FROM jobs WHERE job_id=" || sqlquote(job_id)) \= 1 then do; ignored = ""; call closereadsnapshot view,ignored; return commandfailure(operation,5,"job was not found"); end
+  sql = "SELECT event_id,coalesce(item_id,''),coalesce(attempt_id,''),event_type,message,occurred_at FROM job_events WHERE job_id=?1 AND event_id>?2 ORDER BY event_id LIMIT ?3"
+  if sqliteprepare(database,sql,prepared) \= 0 then do; ignored = ""; call closereadsnapshot view,ignored; return commandfailure(operation,7,"cannot prepare durable event page"); end
+  binds = sqlitebindtext(prepared,1,job_id) | sqlitebindint(prepared,2,cursor as .int) | sqlitebindint(prepared,3,limit+1)
+  records = .ragresultrecord[]; next_cursor = ""; last_event = 0
+  do while binds = 0
+    step = sqlitestep(prepared)
+    if step = 101 then leave
+    if step \= 100 then do; error = "cannot read durable event page"; leave; end
+    if records.0 = limit then do; next_cursor = last_event as .string; leave; end
+    event_id = 0; item_id = ""; attempt_id = ""; event_type = ""; message = ""; occurred = ""
+    columns = sqlitecolumnint(prepared,0,event_id) | sqlitecolumntext(prepared,1,item_id) | sqlitecolumntext(prepared,2,attempt_id) | sqlitecolumntext(prepared,3,event_type) | sqlitecolumntext(prepared,4,message) | sqlitecolumntext(prepared,5,occurred)
+    if columns \= 0 then do; error = "cannot decode durable event"; leave; end
+    fields = .ragresultfield[]
+    fields[1] = .ragresultfield("event_id","integer",event_id)
+    fields[2] = .ragresultfield("job_id","string",job_id)
+    fields[3] = .ragresultfield("item_id","string",item_id)
+    fields[4] = .ragresultfield("attempt_id","string",attempt_id)
+    fields[5] = .ragresultfield("event_type","string",event_type)
+    fields[6] = .ragresultfield("message","string",message)
+    fields[7] = .ragresultfield("occurred_at","string",occurred)
+    records[records.0+1] = .ragresultrecord("job-event",fields); last_event = event_id
+  end
+  call sqlitefinalize prepared
+  close_error = ""; closed = closereadsnapshot(view,close_error)
+  if binds \= 0 | error \= "" | closed \= 0 then return commandfailure(operation,7,"durable event page failed: " || error || close_error)
+  call appendresultpage records,next_cursor,limit
+  return .ragcommandresult(operation,"ok",0,"durable job events in database order",records)
+taskinventorycommand: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation=request.operation(); error=""
+  if commandhasaccess(request,"read")\=1 then return commandfailure(operation,4,"evidence inventory requires read access")
+  if commandoptions(request,"id cursor limit kind scope expect-generation",error)\=0 then return commandfailure(operation,2,error)
+  id=commandid(request,error); cursor=commandoption(request,"cursor",error); count_text=commandoption(request,"limit",error)
+  kind=commandoption(request,"kind",error); scope=commandoption(request,"scope",error); expected=commandoption(request,"expect-generation",error)
+  if kind="" then kind="passages"
+  if scope="" then scope="current"
+  if count_text="" then count_text="20"
+  if expected="" then expected="0"
+  if error\="" | id="" | commandunsigned(count_text)\=1 | length(count_text)>2 | commandunsigned(expected)\=1 | length(expected)>15 | length(cursor)>1024 | wordpos(kind,"passages catalogue context")=0 | wordpos(scope,"current stored")=0 then return commandfailure(operation,2,"inventory requires task id, kind passages/catalogue/context, scope current/stored and bounded numeric paging")
+  limit=count_text as .int
+  if limit<1 | limit>50 then return commandfailure(operation,2,"inventory page limit must be 1..50")
+  store=.ragstorehandle
+  if openragstore(request.library(),"readonly",store,error)\=0 then return commandopenfailure(operation,error)
+  database=store.database(); ignored=""
+  if sqliteexec(database,"BEGIN")\=0 then do; call closeragstore store,ignored; return commandfailure(operation,7,"cannot begin inventory read snapshot"); end
+  generation=sqlreadint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  if expected\="0" & expected as .int\=generation then do; call sqliteexec database,"ROLLBACK"; call closeragstore store,ignored; return commandfailure(operation,6,"inventory generation changed; restart pagination"); end
+  task_type=sqlreadtext(database,"SELECT subject_type FROM maintenance_tasks WHERE task_id=" || sqlquote(id))
+  if task_type="" | task_type="provenance-chunk" then do; call sqliteexec database,"ROLLBACK"; call closeragstore store,ignored; return commandfailure(operation,5,"task is missing or uses the separate provenance-enrichment support inventory"); end
+  selection=backlogindexquery(database,id,kind,scope)
+  if selection="" then do; call sqliteexec database,"ROLLBACK"; call closeragstore store,ignored; return commandfailure(operation,5,"current evidence context is unavailable; inspect stored scope"); end
+  sql="SELECT id,detail FROM (" || selection || ") WHERE id>" || sqlquote(cursor) || " ORDER BY id LIMIT " || (limit+1)
+  records=.ragresultrecord[]; prepared=.binary; returned=0; next_cursor=""; previous=""
+  if sqliteprepare(database,sql,prepared)\=0 then error="cannot prepare evidence inventory"
+  else do forever
+    step=sqlitestep(prepared); if step=101 then leave
+    row_id=""; detail=""
+    if step\=100 | sqlitecolumntext(prepared,0,row_id)\=0 | sqlitecolumntext(prepared,1,detail)\=0 then do; error="cannot read evidence inventory"; leave; end
+    if returned=limit then do; next_cursor=previous; leave; end
+    if length(detail)>65535 then do; error="inventory entry exceeds the single-record bound"; leave; end
+    fields=.ragresultfield[]; fields[1]=.ragresultfield("id","string",row_id); fields[2]=.ragresultfield("detail","string",detail)
+    records[records.0+1]=.ragresultrecord("task-evidence-inventory",fields); returned=returned+1; previous=row_id
+  end
+  call sqlitefinalize prepared
+  call sqliteexec database,"ROLLBACK"
+  closed=closeragstore(store,ignored)
+  if error\="" | closed\=0 then return commandfailure(operation,7,error || ignored)
+  fields=.ragresultfield[]; fields[1]=.ragresultfield("returned","integer",returned); fields[2]=.ragresultfield("next_cursor","string",next_cursor)
+  fields[3]=.ragresultfield("generation","integer",generation); fields[4]=.ragresultfield("scope","string",scope); fields[5]=.ragresultfield("kind","string",kind)
+  records[records.0+1]=.ragresultrecord("page",fields)
+  return .ragcommandresult(operation,"ok",0,"paged evidence inventory; current scope is exploration, stored scope is the task packet",records)

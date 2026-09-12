@@ -2,8 +2,8 @@
 
 The five maintenance refactors are now in delivery; see the
 [coverage and implementation record](maintenance-refactoring-delivery.md).
-Stage 1 is committed; stage 2 separates domain prompt/contracts and adds
-read-only effective prompt inspection. Each stage retains the full QA gate.
+Stages 1 through 3 have full green gates. Stage 3 extracts domain services
+and adds bounded operator diagnosis; the complete local suite passes 54/54.
 
 Current delivery, 12 September 2026: the review baseline and full regression
 gate are committed in `5d1481a`. Steps 5a/5b and 6 now implement the three
@@ -133,7 +133,7 @@ data provide evidence, not a new live authorization.
 
 | Register ID | Status | Requirement, mapping and acceptance |
 | --- | --- | --- |
-| RAG-UX-01 | Open | Task lookup by subject/concept and addressable workflow inventory. Maps to OPS-003; repeat the Turray discovery without supplying evaluator IDs. The trial exhausted 30 product calls without finding the named migration. |
+| RAG-UX-01 | Partial — interface implemented in maintenance refactor stage 3; full local QA 54/54 | Task lookup by subject/concept and addressable workflow inventory. Maps to OPS-003; repeat the Turray discovery without supplying evaluator IDs. The trial exhausted 30 product calls without finding the named migration. |
 | RAG-UX-02 | Recorded repair — steps 5a/5b; see [qualified boundaries](public-result-lexical-repair.md) | Coherent pagination and large-row detail. Maps to HC-33/34 and OPS-003. Tests demonstrate the 99/100 review-page boundary and a one-job page failing at 65,536 retained-plan characters after 65,535 succeeds, in human/JSON/NDJSON/MCP. The copied-corpus trial also found a 1,468,714-character plan. The repaired summary/detail projection preserves exact full-detail access, with ADDRESS and installed-copy boundary checks. Wider result-shape limits remain HC-34. |
 | RAG-UX-03 | Open | Trustworthy connection effect preview. Both Turray retraction plans showed empty impact despite changing a claim/support. Require affected objects and proposed effect before reviewed acceptance, using the lifecycle owner. |
 | RAG-UX-04 | Open | Complete an external correction through census and parent retirement without unrelated worker work. Three connections were resolved and remaining impact empty, but workflow stayed migrating with no retirement task. Maps to OPS-001/002; require final retirement, preserved history and idempotence through public controls. |

@@ -1,0 +1,232 @@
+options levelg
+
+namespace ragobservationservice expose librarysnapshot librarytrend
+
+import ragcommand
+import ragcommandutil
+import ragconfig
+import ragconfiguration
+import ragregistry
+import ragreportservice
+import ragsqlsupport
+import ragstore
+import rxfnsb
+import rxhash
+import rxjson
+import rxsqlite
+
+/* Immutable observations and trend projection. Snapshot capture composes libraryreport directly, without returning through the dispatcher. */
+librarysnapshot: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = "library.snapshot"; error = ""
+  if commandhasaccess(request, "control") \= 1 then return commandfailure(operation, 4, "library snapshot requires control access")
+  if commandoptions(request, "trigger reason", error) \= 0 then return commandfailure(operation, 2, error)
+  positionals = request.positionals()
+  if positionals.0 \= 0 then return commandfailure(operation, 2, "library snapshot accepts no positional arguments")
+  trigger = commandoption(request, "trigger", error); if trigger = "" then trigger = "manual"
+  reason = strip(commandoption(request, "reason", error)); if reason = "" then reason = "operator requested observation"
+  top_text = "10"
+  if wordpos(trigger, "manual ingestion maintenance vector-publication replay reconciliation migration backup scheduled") = 0 then return commandfailure(operation, 2, "--trigger is not a supported lifecycle boundary")
+  if length(reason) > 256 | pos("00"x, reason) > 0 then return commandfailure(operation, 2, "--reason must contain 1 through 256 text bytes")
+  report_options = .ragcommandoption[]; report_options[1] = .ragcommandoption("top", top_text, 0); report_options[2] = .ragcommandoption("narrative", "cached", 0)
+  no_positionals = .string[]
+  report_request = .ragcommandrequest(request.library(), request.config_id(), request.profile_id(), request.config_file(), "json", "off", request.access(), "library", "report", "library.report", report_options, no_positionals)
+  report_result = libraryreport(report_request, registry)
+  if report_result.exit_code() \= 0 then return .ragcommandresult(operation, "error", report_result.exit_code(), "snapshot census failed: " || report_result.message(), report_result.records())
+  report_json = ""
+  if rendercommandresult(report_result, "json", report_json, error) \= 0 then return commandfailure(operation, 10, "snapshot report could not be rendered: " || error)
+
+  report_id = _reportfield(report_result, "report-snapshot", "report_id")
+  semantic_digest = _reportfield(report_result, "report-snapshot", "semantic_digest")
+  operational_digest = _reportfield(report_result, "report-snapshot", "operational_digest")
+  profile_hash = _reportfield(report_result, "report-snapshot", "profile_hash")
+  generation_text = _reportfield(report_result, "report-snapshot", "generation")
+  verification_text = _reportfield(report_result, "report-snapshot", "storage_verification_issues")
+  repository_text = _reportfield(report_result, "report-snapshot", "repository_verification_issues")
+  sources_text = _reportfield(report_result, "corpus-stat", "sources"); revisions_text = _reportfield(report_result, "corpus-stat", "revisions"); chunks_text = _reportfield(report_result, "corpus-stat", "chunks"); bytes_text = _reportfield(report_result, "corpus-stat", "bytes")
+  concepts_text = _reportfield(report_result, "catalogue-stat", "concepts"); claims_text = _reportfield(report_result, "catalogue-stat", "claims"); supports_text = _reportfield(report_result, "catalogue-stat", "supports"); gaps_text = _reportfield(report_result, "catalogue-stat", "open_query_gaps"); reviews_text = _reportfield(report_result, "catalogue-stat", "pending_reviews")
+  connected_text = _reportfield(report_result, "graph-stat", "connected_concepts"); isolated_text = _reportfield(report_result, "graph-stat", "isolated_concepts")
+  vector_rows_text = _reportfield(report_result, "vector-stat", "published_rows"); vector_coverage_text = _reportfield(report_result, "vector-stat", "coverage_millionths")
+  incomplete_text = _reportfield(report_result, "maintenance-backlog", "incomplete_runs"); pending_text = _reportfield(report_result, "maintenance-backlog", "pending_items"); diagnosed_text = _reportfield(report_result, "maintenance-backlog", "diagnosed_items"); maintenance_review_text = _reportfield(report_result, "maintenance-backlog", "review_items"); blocked_text = _reportfield(report_result, "maintenance-backlog", "blocked_or_failed_items"); active_jobs_text = _reportfield(report_result, "maintenance-backlog", "active_jobs"); error_jobs_text = _reportfield(report_result, "maintenance-backlog", "jobs_with_errors"); dead_text = _reportfield(report_result, "maintenance-backlog", "dead_letters")
+  if report_id = "" | semantic_digest = "" | operational_digest = "" | profile_hash = "" | generation_text = "" | verification_text = "" | repository_text = "" | sources_text = "" | revisions_text = "" | chunks_text = "" | bytes_text = "" | concepts_text = "" | claims_text = "" | supports_text = "" | gaps_text = "" | reviews_text = "" | connected_text = "" | isolated_text = "" | vector_rows_text = "" | vector_coverage_text = "" | incomplete_text = "" | pending_text = "" | diagnosed_text = "" | maintenance_review_text = "" | blocked_text = "" | active_jobs_text = "" | error_jobs_text = "" | dead_text = "" | length(semantic_digest) \= 64 | length(operational_digest) \= 64 then return commandfailure(operation, 10, "snapshot census omitted a required metric")
+
+  generation = generation_text as .int; verification_issues = verification_text as .int; repository_issues = repository_text as .int
+  sources = sources_text as .int; revisions = revisions_text as .int; chunks = chunks_text as .int; bytes = bytes_text as .int
+  concepts = concepts_text as .int; claims = claims_text as .int; supports = supports_text as .int; gaps = gaps_text as .int; reviews = reviews_text as .int
+  connected = connected_text as .int; isolated = isolated_text as .int; vector_rows = vector_rows_text as .int; vector_coverage = vector_coverage_text as .int
+  incomplete = incomplete_text as .int; pending = pending_text as .int; diagnosed = diagnosed_text as .int; maintenance_review = maintenance_review_text as .int; blocked = blocked_text as .int; active_jobs = active_jobs_text as .int; error_jobs = error_jobs_text as .int; dead = dead_text as .int
+  durable_open_text = _reportfield(report_result,"durable-maintenance-backlog","open_tasks")
+  durable_review_text = _reportfield(report_result,"durable-maintenance-backlog","review_tasks")
+  if durable_open_text = "" | durable_review_text = "" then return commandfailure(operation,10,"snapshot census omitted durable maintenance metrics")
+  work_backlog = pending + diagnosed + maintenance_review + blocked + (durable_open_text as .int)
+  reviews = reviews + (durable_review_text as .int)
+  attention = _reportattention(report_result)
+
+  store = .ragstorehandle
+  if openragstore(request.library(), "readwrite", store, error) \= 0 then return commandopenfailure(operation, error)
+  database = store.database()
+  if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "cannot begin snapshot decision transaction"); end
+  if sqlreadint(database, "SELECT published_generation FROM library_meta WHERE singleton=1") \= generation | reportoperationaldigest(database, generation, verification_issues, repository_issues) \= operational_digest then do
+    call sqliteexec database, "ROLLBACK"; ignored = ""; call closeragstore store, ignored
+    return commandfailure(operation, 6, "library state changed while the snapshot census was evaluated; retry")
+  end
+  config_snapshot_id = currentconfigsnapshotid(database, error)
+  vector_generation_id = sqlreadtext(database, "SELECT vector_generation_id FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string) || " ORDER BY published_at DESC,vector_generation_id DESC LIMIT 1")
+  narrative_id = sqlreadtext(database, "SELECT narrative_id FROM report_narratives WHERE report_id=" || sqlquote(report_id) || " AND operational_digest=" || sqlquote(operational_digest) || " ORDER BY created_at DESC,narrative_id DESC LIMIT 1")
+  previous_id = sqlreadtext(database, "SELECT snapshot_id FROM observation_snapshots ORDER BY sequence_number DESC LIMIT 1")
+  elapsed = -1; previous_semantic = ""; previous_operational = ""; previous_vector = ""; previous_work = 0; previous_dead = 0; previous_review_total = 0; previous_attention = 0; previous_active_jobs = 0
+  if previous_id \= "" then do
+    previous_semantic = sqlreadtext(database, "SELECT semantic_digest FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
+    previous_operational = sqlreadtext(database, "SELECT operational_digest FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
+    previous_vector = sqlreadtext(database, "SELECT vector_generation_id FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
+    previous_work = sqlreadint(database, "SELECT work_backlog FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
+    previous_dead = sqlreadint(database, "SELECT historical_dead_letters FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
+    previous_review_total = sqlreadint(database, "SELECT pending_reviews+open_query_gaps FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
+    previous_attention = sqlreadint(database, "SELECT health_attention_dimensions FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
+    previous_active_jobs = sqlreadint(database, "SELECT active_jobs FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
+    elapsed = sqlreadint(database, "SELECT max(0,CAST(strftime('%s','now') AS INTEGER)-CAST(strftime('%s',captured_at) AS INTEGER)) FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
+  end
+
+  config_lookup = registry.config(request.config_id())
+  if config_lookup.found() \= 1 then do; call sqliteexec database, "ROLLBACK"; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 5, "snapshot observation policy requires a registered configuration"); end
+  observation = config_lookup.config().observation()
+  policy = "churn-matrix/2"; threshold = observation.capture_threshold(); cooldown = observation.cooldown_seconds(); maximum_staleness = observation.maximum_staleness_seconds()
+  semantic_score = 0; vector_score = 0; health_score = 0; settlement_score = 0; work_score = 0; dead_score = 0; review_score = 0; age_score = 0
+  semantic_changed = previous_id \= "" & semantic_digest \= previous_semantic
+  vector_changed = previous_id \= "" & (vector_generation_id \= previous_vector | vector_coverage \= sqlreadint(database, "SELECT vector_coverage_millionths FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id)))
+  health_changed = previous_id \= "" & attention \= previous_attention
+  settled = previous_id \= "" & previous_active_jobs > 0 & active_jobs = 0
+  if semantic_changed then semantic_score = 100
+  if vector_changed then vector_score = 70
+  if health_changed then health_score = 100
+  if settled then settlement_score = 60
+  work_delta = _absolute(work_backlog - previous_work); work_material = observation.work_minimum_change(); percentage = (previous_work * observation.work_relative_millionths() / 1000000) as .int; if percentage > work_material then work_material = percentage
+  if previous_id \= "" & work_delta >= work_material then work_score = 50
+  else if previous_id \= "" & work_delta > 0 then work_score = 10
+  dead_delta = _absolute(dead - previous_dead); dead_material = observation.dead_letter_minimum_change(); percentage = (previous_dead * observation.work_relative_millionths() / 1000000) as .int; if percentage > dead_material then dead_material = percentage
+  if previous_id \= "" & dead_delta >= dead_material then dead_score = 40
+  else if previous_id \= "" & dead_delta > 0 then dead_score = 5
+  review_total = reviews + gaps; review_delta = _absolute(review_total - previous_review_total); review_material = observation.review_minimum_change(); percentage = (previous_review_total * observation.work_relative_millionths() / 1000000) as .int; if percentage > review_material then review_material = percentage
+  if previous_id \= "" & review_delta >= review_material then review_score = 30
+  else if previous_id \= "" & review_delta > 0 then review_score = 5
+  if previous_id \= "" & operational_digest \= previous_operational & elapsed >= maximum_staleness then age_score = 50
+  score = semantic_score + vector_score + health_score + settlement_score + work_score + dead_score + review_score + age_score
+  outcome = "captured"
+  if previous_id = "" then score = 1000
+  else if semantic_digest = previous_semantic & operational_digest = previous_operational then do; outcome = "skipped-identical"; score = 0; end
+  else if elapsed < cooldown & semantic_score = 0 & vector_score = 0 & health_score = 0 & settlement_score = 0 then outcome = "skipped-cooldown"
+  else if score < threshold then outcome = "skipped-threshold"
+  churn = '{"schema":"crexx-rag.churn-matrix/2","semantic":{"changed":' || commandboolean(semantic_changed) || ',"score":' || semantic_score || '},"vector":{"changed":' || commandboolean(vector_changed) || ',"score":' || vector_score || '},"health":{"changed":' || commandboolean(health_changed) || ',"score":' || health_score || '},"job_settlement":{"changed":' || commandboolean(settled) || ',"score":' || settlement_score || '},"work_backlog":{"current":' || work_backlog || ',"previous":' || previous_work || ',"delta":' || work_delta || ',"material":' || work_material || ',"score":' || work_score || '},"historical_dead_letters":{"current":' || dead || ',"previous":' || previous_dead || ',"delta":' || dead_delta || ',"material":' || dead_material || ',"score":' || dead_score || '},"reviews":{"current":' || review_total || ',"previous":' || previous_review_total || ',"delta":' || review_delta || ',"material":' || review_material || ',"score":' || review_score || '},"age":{"elapsed_seconds":' || elapsed || ',"maximum_staleness_seconds":' || maximum_staleness || ',"score":' || age_score || '},"total_score":' || score || ',"threshold":' || threshold || ',"cooldown_seconds":' || cooldown || '}'
+  decision_id = "observation-decision-sha256:" || rxhash..sha256hex((previous_id || "00"x || semantic_digest || "00"x || operational_digest || "00"x || trigger || "00"x || reason || "00"x || outcome || "00"x || score) as .binary)
+  sql = "INSERT INTO observation_decisions(decision_id,policy_version,trigger,reason,previous_snapshot_id,outcome,score,threshold,cooldown_seconds,elapsed_seconds,semantic_digest,operational_digest,churn_json,evaluation_count,first_evaluated_at,last_evaluated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,1,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')) ON CONFLICT(decision_id) DO UPDATE SET evaluation_count=observation_decisions.evaluation_count+1,last_evaluated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')"
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 then do; detail = sqliteerrordetail(); call sqliteexec database, "ROLLBACK"; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "cannot prepare the snapshot decision: " || detail); end
+  binds = sqlitebindtext(prepared, 1, decision_id) | sqlitebindtext(prepared, 2, policy) | sqlitebindtext(prepared, 3, trigger) | sqlitebindtext(prepared, 4, reason) | sqlitebindtext(prepared, 5, previous_id) | sqlitebindtext(prepared, 6, outcome) | sqlitebindint(prepared, 7, score) | sqlitebindint(prepared, 8, threshold) | sqlitebindint(prepared, 9, cooldown) | sqlitebindint(prepared, 10, elapsed) | sqlitebindtext(prepared, 11, semantic_digest) | sqlitebindtext(prepared, 12, operational_digest) | sqlitebindtext(prepared, 13, churn)
+  if binds \= 0 then do; detail = sqliteerrordetail(); call sqlitefinalize prepared; call sqliteexec database, "ROLLBACK"; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "cannot bind the snapshot decision: " || detail); end
+  step = sqlitestep(prepared)
+  if step \= 101 then do; detail = sqliteerrordetail(); call sqlitefinalize prepared; call sqliteexec database, "ROLLBACK"; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "cannot persist the snapshot decision: " || detail); end
+  call sqlitefinalize prepared
+
+  snapshot_id = ""; sequence = 0; captured_at = ""
+  if outcome = "captured" then do
+    sequence = sqlreadint(database, "SELECT coalesce(max(sequence_number),0)+1 FROM observation_snapshots")
+    snapshot_id = "observation-sha256:" || rxhash..sha256hex((decision_id || "00"x || sequence || "00"x || time("us")) as .binary)
+    sql = "INSERT INTO observation_snapshots(snapshot_id,sequence_number,decision_id,trigger,reason,semantic_generation,profile_hash,config_snapshot_id,vector_generation_id,report_id,narrative_id,semantic_digest,operational_digest,sources,revisions,chunks,bytes,concepts,claims,supports,connected_concepts,isolated_concepts,vector_rows,vector_coverage_millionths,incomplete_runs,work_backlog,active_jobs,jobs_with_errors,historical_dead_letters,pending_reviews,open_query_gaps,health_attention_dimensions,report_json,captured_at) VALUES(" || sqlquote(snapshot_id) || "," || sequence || "," || sqlquote(decision_id) || "," || sqlquote(trigger) || "," || sqlquote(reason) || "," || generation || "," || sqlquote(profile_hash) || "," || sqlquote(config_snapshot_id) || "," || sqlquote(vector_generation_id) || "," || sqlquote(report_id) || "," || sqlquote(narrative_id) || "," || sqlquote(semantic_digest) || "," || sqlquote(operational_digest) || "," || sources || "," || revisions || "," || chunks || "," || bytes || "," || concepts || "," || claims || "," || supports || "," || connected || "," || isolated || "," || vector_rows || "," || vector_coverage || "," || incomplete || "," || work_backlog || "," || active_jobs || "," || error_jobs || "," || dead || "," || reviews || "," || gaps || "," || attention || "," || sqlquote(report_json) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+    if sqliteexec(database, sql) \= 0 then do; detail = sqliteerrordetail(); call sqliteexec database, "ROLLBACK"; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "cannot persist the observation snapshot: " || detail); end
+    captured_at = sqlreadtext(database, "SELECT captured_at FROM observation_snapshots WHERE snapshot_id=" || sqlquote(snapshot_id))
+  end
+  if sqliteexec(database, "COMMIT") \= 0 then do; call sqliteexec database, "ROLLBACK"; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "cannot commit the snapshot decision"); end
+  evaluations = sqlreadint(database, "SELECT evaluation_count FROM observation_decisions WHERE decision_id=" || sqlquote(decision_id))
+  snapshot_count = sqlreadint(database, "SELECT count(*) FROM observation_snapshots")
+  ignored = ""; if closeragstore(store, ignored) \= 0 then return commandfailure(operation, 7, ignored)
+
+  records = .ragresultrecord[]
+  decision_fields = .ragresultfield[]; decision_fields[1] = .ragresultfield("policy_version", "string", policy); decision_fields[2] = .ragresultfield("decision_id", "string", decision_id); decision_fields[3] = .ragresultfield("outcome", "string", outcome); decision_fields[4] = .ragresultfield("trigger", "string", trigger); decision_fields[5] = .ragresultfield("reason", "string", reason); decision_fields[6] = .ragresultfield("score", "integer", score); decision_fields[7] = .ragresultfield("threshold", "integer", threshold); decision_fields[8] = .ragresultfield("cooldown_seconds", "integer", cooldown); decision_fields[9] = .ragresultfield("elapsed_seconds", "integer", elapsed); decision_fields[10] = .ragresultfield("previous_snapshot_id", "string", previous_id); decision_fields[11] = .ragresultfield("evaluation_count", "integer", evaluations); decision_fields[12] = .ragresultfield("semantic_digest", "string", semantic_digest); decision_fields[13] = .ragresultfield("operational_digest", "string", operational_digest); decision_fields[14] = .ragresultfield("detail", "string", churn)
+  records[1] = .ragresultrecord("snapshot-decision", decision_fields)
+  if snapshot_id \= "" then do
+    captured_fields = .ragresultfield[]; captured_fields[1] = .ragresultfield("snapshot_id", "string", snapshot_id); captured_fields[2] = .ragresultfield("sequence", "integer", sequence); captured_fields[3] = .ragresultfield("captured_at", "string", captured_at); captured_fields[4] = .ragresultfield("generation", "integer", generation); captured_fields[5] = .ragresultfield("vector_generation_id", "string", vector_generation_id); captured_fields[6] = .ragresultfield("report_id", "string", report_id); captured_fields[7] = .ragresultfield("narrative_id", "string", narrative_id); captured_fields[8] = .ragresultfield("work_backlog", "integer", work_backlog); captured_fields[9] = .ragresultfield("historical_dead_letters", "integer", dead); captured_fields[10] = .ragresultfield("health_attention_dimensions", "integer", attention)
+    records[2] = .ragresultrecord("observation-snapshot", captured_fields)
+  end
+  control_fields = .ragresultfield[]; control_fields[1] = .ragresultfield("snapshot_count", "integer", snapshot_count); control_fields[2] = .ragresultfield("provider_calls", "integer", 0); control_fields[3] = .ragresultfield("narrative_attached", "boolean", commandboolean(narrative_id \= "")); records[records.0 + 1] = .ragresultrecord("snapshot-control", control_fields)
+  if outcome = "captured" then return .ragcommandresult(operation, "ok", 0, "historic observation snapshot captured after churn-policy evaluation", records)
+  return .ragcommandresult(operation, "ok", 0, "snapshot evaluation recorded without creating a redundant observation", records)
+librarytrend: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = "library.trend"; error = ""
+  if commandhasaccess(request, "read") \= 1 then return commandfailure(operation, 4, "library trend requires read access")
+  if commandoptions(request, "limit", error) \= 0 then return commandfailure(operation, 2, error)
+  positionals = request.positionals(); if positionals.0 \= 0 then return commandfailure(operation, 2, "library trend accepts no positional arguments")
+  limit_text = commandoption(request, "limit", error); if limit_text = "" then limit_text = "20"
+  if commandunsigned(limit_text) \= 1 then return commandfailure(operation, 2, "--limit must be an integer from 1 through 50")
+  limit = limit_text as .int; if limit < 1 | limit > 50 then return commandfailure(operation, 2, "--limit must be an integer from 1 through 50")
+  store = .ragstorehandle
+  if openragstore(request.library(), "readonly", store, error) \= 0 then return commandopenfailure(operation, error)
+  database = store.database(); total_points = sqlreadint(database, "SELECT count(*) FROM observation_snapshots"); total_evaluations = sqlreadint(database, "SELECT coalesce(sum(evaluation_count),0) FROM observation_decisions"); suppressed = sqlreadint(database, "SELECT coalesce(sum(evaluation_count),0) FROM observation_decisions WHERE outcome<>'captured'")
+  if total_points < 0 | total_evaluations < 0 | suppressed < 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "historic observation tables could not be read"); end
+  point_records = .ragresultrecord[]; earliest = ""; latest = ""; latest_snapshot = ""; latest_narrative = ""; previous_concepts = 0; previous_claims = 0; previous_connected = 0; previous_isolated = 0; previous_vector_rows = 0; previous_coverage = 0; previous_work = 0; previous_dead = 0; previous_reviews = 0; previous_attention = 0
+  prepared = .binary
+  sql = "WITH selected AS (SELECT * FROM observation_snapshots ORDER BY sequence_number DESC LIMIT ?1) SELECT sequence_number,snapshot_id,captured_at,trigger,reason,semantic_generation,vector_generation_id,report_id,coalesce(nullif(narrative_id,''),(SELECT n.narrative_id FROM report_narratives n WHERE n.report_id=selected.report_id AND n.operational_digest=selected.operational_digest ORDER BY n.created_at DESC,n.narrative_id DESC LIMIT 1),''),concepts,claims,connected_concepts,isolated_concepts,vector_rows,vector_coverage_millionths,work_backlog,historical_dead_letters,pending_reviews,open_query_gaps,health_attention_dimensions FROM selected ORDER BY sequence_number"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, limit) \= 0 then do; call sqlitefinalize prepared; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "historic trend query could not be prepared"); end
+  do forever
+    step = sqlitestep(prepared); if step = 101 then leave
+    if step \= 100 then do; call sqlitefinalize prepared; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "historic trend points could not be read"); end
+    sequence = 0; snapshot_id = ""; captured_at = ""; trigger = ""; reason = ""; generation = 0; vector_generation = ""; report_id = ""; narrative_id = ""; concepts = 0; claims = 0; connected = 0; isolated = 0; vector_rows = 0; coverage = 0; work = 0; dead = 0; reviews = 0; gaps = 0; attention = 0
+    columns = sqlitecolumnint(prepared, 0, sequence) | sqlitecolumntext(prepared, 1, snapshot_id) | sqlitecolumntext(prepared, 2, captured_at) | sqlitecolumntext(prepared, 3, trigger) | sqlitecolumntext(prepared, 4, reason) | sqlitecolumnint(prepared, 5, generation) | sqlitecolumntext(prepared, 6, vector_generation) | sqlitecolumntext(prepared, 7, report_id) | sqlitecolumntext(prepared, 8, narrative_id) | sqlitecolumnint(prepared, 9, concepts) | sqlitecolumnint(prepared, 10, claims) | sqlitecolumnint(prepared, 11, connected) | sqlitecolumnint(prepared, 12, isolated) | sqlitecolumnint(prepared, 13, vector_rows) | sqlitecolumnint(prepared, 14, coverage) | sqlitecolumnint(prepared, 15, work) | sqlitecolumnint(prepared, 16, dead) | sqlitecolumnint(prepared, 17, reviews) | sqlitecolumnint(prepared, 18, gaps) | sqlitecolumnint(prepared, 19, attention)
+    if columns \= 0 then do; call sqlitefinalize prepared; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "historic trend point is invalid"); end
+    baseline = point_records.0 = 0; review_total = reviews + gaps
+    concept_delta = 0; claim_delta = 0; connected_delta = 0; isolated_delta = 0; vector_delta = 0; coverage_delta = 0; work_delta = 0; dead_delta = 0; review_delta = 0; attention_delta = 0
+    if \baseline then do
+      concept_delta = concepts - previous_concepts; claim_delta = claims - previous_claims; connected_delta = connected - previous_connected; isolated_delta = isolated - previous_isolated; vector_delta = vector_rows - previous_vector_rows; coverage_delta = coverage - previous_coverage; work_delta = work - previous_work; dead_delta = dead - previous_dead; review_delta = review_total - previous_reviews; attention_delta = attention - previous_attention
+    end
+    fields = .ragresultfield[]; fields[1] = .ragresultfield("sequence", "integer", sequence); fields[2] = .ragresultfield("snapshot_id", "string", snapshot_id); fields[3] = .ragresultfield("captured_at", "string", captured_at); fields[4] = .ragresultfield("trigger", "string", trigger); fields[5] = .ragresultfield("reason", "string", reason); fields[6] = .ragresultfield("generation", "integer", generation); fields[7] = .ragresultfield("vector_generation_id", "string", vector_generation); fields[8] = .ragresultfield("report_id", "string", report_id); fields[9] = .ragresultfield("narrative_id", "string", narrative_id); fields[10] = .ragresultfield("baseline", "boolean", commandboolean(baseline)); fields[11] = .ragresultfield("concepts", "integer", concepts); fields[12] = .ragresultfield("concept_delta", "integer", concept_delta); fields[13] = .ragresultfield("claims", "integer", claims); fields[14] = .ragresultfield("claim_delta", "integer", claim_delta); fields[15] = .ragresultfield("connected_concepts", "integer", connected); fields[16] = .ragresultfield("connected_delta", "integer", connected_delta); fields[17] = .ragresultfield("isolated_concepts", "integer", isolated); fields[18] = .ragresultfield("isolated_delta", "integer", isolated_delta); fields[19] = .ragresultfield("vector_rows", "integer", vector_rows); fields[20] = .ragresultfield("vector_rows_delta", "integer", vector_delta); fields[21] = .ragresultfield("vector_coverage_millionths", "integer", coverage); fields[22] = .ragresultfield("vector_coverage_delta", "integer", coverage_delta); fields[23] = .ragresultfield("work_backlog", "integer", work); fields[24] = .ragresultfield("work_backlog_delta", "integer", work_delta); fields[25] = .ragresultfield("historical_dead_letters", "integer", dead); fields[26] = .ragresultfield("historical_dead_letters_delta", "integer", dead_delta); fields[27] = .ragresultfield("pending_review_and_gaps", "integer", review_total); fields[28] = .ragresultfield("review_and_gap_delta", "integer", review_delta); fields[29] = .ragresultfield("health_attention_dimensions", "integer", attention); fields[30] = .ragresultfield("health_attention_delta", "integer", attention_delta)
+    point_records[point_records.0 + 1] = .ragresultrecord("trend-point", fields)
+    if earliest = "" then earliest = captured_at
+    latest = captured_at; latest_snapshot = snapshot_id; latest_narrative = narrative_id
+    previous_concepts = concepts; previous_claims = claims; previous_connected = connected; previous_isolated = isolated; previous_vector_rows = vector_rows; previous_coverage = coverage; previous_work = work; previous_dead = dead; previous_reviews = review_total; previous_attention = attention
+  end
+  call sqlitefinalize prepared
+  state = "no-observations"; direction = 0
+  if point_records.0 = 1 then state = "baseline-only"
+  if point_records.0 > 1 then do; state = "direction-available"; direction = 1; end
+  records = .ragresultrecord[]
+  summary_fields = .ragresultfield[]; summary_fields[1] = .ragresultfield("schema", "string", "crexx-rag.historic-trend/1"); summary_fields[2] = .ragresultfield("state", "string", state); summary_fields[3] = .ragresultfield("point_count", "integer", point_records.0); summary_fields[4] = .ragresultfield("total_snapshot_count", "integer", total_points); summary_fields[5] = .ragresultfield("total_evaluations", "integer", total_evaluations); summary_fields[6] = .ragresultfield("suppressed_evaluations", "integer", suppressed); summary_fields[7] = .ragresultfield("direction_available", "boolean", commandboolean(direction)); summary_fields[8] = .ragresultfield("earliest_at", "string", earliest); summary_fields[9] = .ragresultfield("latest_at", "string", latest)
+  records[1] = .ragresultrecord("trend-summary", summary_fields)
+  config_lookup = registry.config(request.config_id()); observation = .ragobservationpolicy()
+  if config_lookup.found() = 1 then observation = config_lookup.config().observation()
+  policy_fields = .ragresultfield[]; policy_fields[1] = .ragresultfield("policy_version", "string", "churn-matrix/2"); policy_fields[2] = .ragresultfield("capture_threshold", "integer", observation.capture_threshold()); policy_fields[3] = .ragresultfield("cooldown_seconds", "integer", observation.cooldown_seconds()); policy_fields[4] = .ragresultfield("maximum_staleness_seconds", "integer", observation.maximum_staleness_seconds()); policy_fields[5] = .ragresultfield("work_minimum_change", "integer", observation.work_minimum_change()); policy_fields[6] = .ragresultfield("work_relative_millionths", "integer", observation.work_relative_millionths()); policy_fields[7] = .ragresultfield("dead_letter_minimum_change", "integer", observation.dead_letter_minimum_change()); policy_fields[8] = .ragresultfield("review_minimum_change", "integer", observation.review_minimum_change()); policy_fields[9] = .ragresultfield("critical_changes_bypass_cooldown", "boolean", "true")
+  records[2] = .ragresultrecord("churn-policy", policy_fields)
+  do i = 1 to point_records.0; records[records.0 + 1] = point_records[i]; end
+  if latest_narrative \= "" then do
+    narrative_json = sqlreadtext(database, "SELECT narrative_json FROM report_narratives WHERE narrative_id=" || sqlquote(latest_narrative)); provider_id = sqlreadtext(database, "SELECT provider_id FROM report_narratives WHERE narrative_id=" || sqlquote(latest_narrative)); model = sqlreadtext(database, "SELECT model FROM report_narratives WHERE narrative_id=" || sqlquote(latest_narrative)); cost = sqlreadint(database, "SELECT cost_microunits FROM report_narratives WHERE narrative_id=" || sqlquote(latest_narrative)); overview = ""
+    document = .jsondocument(narrative_json); if document.valid() = 1 then ignored_json = document.node_string(document.member(document.root(), "overview"), overview)
+    narrative_fields = .ragresultfield[]; narrative_fields[1] = .ragresultfield("snapshot_id", "string", latest_snapshot); narrative_fields[2] = .ragresultfield("narrative_id", "string", latest_narrative); narrative_fields[3] = .ragresultfield("provider_id", "string", provider_id); narrative_fields[4] = .ragresultfield("model", "string", model); narrative_fields[5] = .ragresultfield("overview", "string", overview); narrative_fields[6] = .ragresultfield("cost_microunits", "integer", cost)
+    records[records.0 + 1] = .ragresultrecord("trend-narrative", narrative_fields)
+  end
+  ignored = ""; if closeragstore(store, ignored) \= 0 then return commandfailure(operation, 7, ignored)
+  return .ragcommandresult(operation, "ok", 0, "historic trend report generated without provider calls", records)
+_reportfield: procedure = .string
+  arg result = .ragcommandresult, kind = .string, name = .string
+  records = result.records()
+  do i = 1 to records.0
+    if records[i].kind() \= kind then iterate
+    fields = records[i].fields()
+    do j = 1 to fields.0
+      if fields[j].name() = name then return fields[j].value()
+    end
+  end
+  return ""
+_reportattention: procedure = .int
+  arg result = .ragcommandresult
+  count = 0; records = result.records()
+  do i = 1 to records.0
+    if records[i].kind() \= "health" then iterate
+    fields = records[i].fields()
+    do j = 1 to fields.0
+      if fields[j].name() = "state" & fields[j].value() = "attention" then count = count + 1
+    end
+  end
+  return count
+_absolute: procedure = .int
+  arg value = .int
+  if value < 0 then return 0 - value
+  return value

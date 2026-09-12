@@ -82,6 +82,10 @@ _showhelp: procedure = .int
   say "  crexxrag maintain [--minutes N | --until TIMESTAMP | --overnight HH:MM-HH:MM] [--workers N] [--yes]"
   say "  crexxrag maintain status [RUN_ID]"
   say "  crexxrag maintain inspect ITEM_OR_NOTE_ID"
+  say "  crexxrag maintain tasks [--subject ID | --concept LABEL] [--workflow ID]"
+  say "  crexxrag maintain workflows [--subject ID | --concept LABEL]"
+  say "  crexxrag job items JOB_ID [--state STATE] [--cursor ID] [--limit N]"
+  say "  crexxrag job attempts JOB_ID [--item ITEM_ID] [--cursor ID] [--limit N]"
   say "  crexxrag --access control maintain retry TASK_ID --reason TEXT"
   say "  crexxrag review list"
   say "  crexxrag --access control job replay JOB_ID [--item ITEM_ID] [--reason TEXT]"
@@ -396,7 +400,7 @@ _plansummary: procedure = .string
   end
   budget = config.budget(); providers = config.providers()
   cost = _money(budget.cost_microunits())
-  extractor = _roleprovider(config, "extractor"); embeddings = _roleprovider(config, "embedding")
+  extractor = roleproviderconfig(config, "extractor"); embeddings = roleproviderconfig(config, "embedding")
   output = "Ingestion plan"
   output = output || "0A0A"x || "  Source set:       " || source_set_id
   if source_root \= "" then output = output || "0A"x || "  Source folder:    " || source_root
@@ -432,7 +436,7 @@ _plansummary: procedure = .string
 
 _maintainplansummary: procedure = .string
   arg config = .ragconfig, plan_result = .ragcommandresult, digest = .string, workers = .int
-  provider = _roleprovider(config, "extractor"); budget = config.budget()
+  provider = roleproviderconfig(config, "extractor"); budget = config.budget()
   items = _fieldvalue(plan_result, 2, "items_planned")
   triggers = _fieldvalue(plan_result, 2, "trigger_count")
   cognitive = _fieldvalue(plan_result, 2, "cognitive_items")
@@ -466,18 +470,6 @@ _maintainplansummary: procedure = .string
   else output = output || "0A"x || "  Monetary API cost: Not applicable"
   output = output || "0A"x || "  Plan digest:      " || digest
   return output
-
-_roleprovider: procedure = .ragproviderconfig
-  arg config = .ragconfig, role_name = .string
-  provider_id = ""; roles = config.roles()
-  do i = 1 to roles.0
-    if roles[i].role() = role_name then provider_id = roles[i].provider_id()
-  end
-  providers = config.providers()
-  do i = 1 to providers.0
-    if providers[i].provider_id() = provider_id then return providers[i]
-  end
-  return .ragproviderconfig("", "", "", "", "", "", .ragsecretref(), 0, 0)
 
 _money: procedure = .string
   arg microunits = .int
@@ -553,7 +545,7 @@ _aliases: procedure = .string[]
       output = _prefix(args, noun_index)
       query_verb = "evidence"
       if config_loaded = 1 then do
-        answerer = _roleprovider(config, "answerer")
+        answerer = roleproviderconfig(config, "answerer")
         if answerer.provider_id() \= "" then query_verb = "answer"
       end
       output[output.0 + 1] = "query"; output[output.0 + 1] = query_verb
@@ -591,7 +583,7 @@ _aliases: procedure = .string[]
     return args
   end
   if noun = "maintain" then do
-    if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply status inspect retry tasks evidence evidence-index refresh-plan refresh-apply escalate-plan escalate-apply resolve-plan resolve-apply") > 0 then return args
+    if noun_index < args.0 & wordpos(args[noun_index + 1], "plan apply status inspect retry tasks workflows evidence evidence-index refresh-plan refresh-apply escalate-plan escalate-apply resolve-plan resolve-apply") > 0 then return args
     timing_args = .string[]
     i = noun_index + 1
     do while i <= args.0

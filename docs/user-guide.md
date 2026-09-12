@@ -1150,3 +1150,35 @@ Maintenance worklists use complete cursor pagination. `maintain status` and
 pass that cursor unchanged to get the next page for the same run. MCP exposes
 the same `limit` and `cursor` arguments. Successful items in a mixed-result
 job are marked applied individually; failed items remain visibly failed.
+
+### Find work and failures without direct SQL
+
+Use the read-only diagnostic commands to locate a named migration, then select
+its returned stable workflow/subject IDs. `--concept` matches an exact canonical
+label, including its spelling and case; it returns all matching concepts rather
+than merging homonyms. Workflow lookup includes parents and successors. Task
+lookup includes matching concept tasks and tasks linked to matching workflows.
+`--subject` instead filters the exact stored subject ID (workflow parent or
+successor for workflow listings). Combined filters are intersected.
+
+```sh
+crexxrag maintain workflows --concept Turray
+crexxrag maintain tasks --concept Turray
+crexxrag maintain tasks --workflow WORKFLOW_ID
+crexxrag job items JOB_ID --state dead_letter --limit 100
+crexxrag job attempts JOB_ID --item ITEM_ID
+```
+
+Use `--cursor` with the returned `next_cursor` until it is empty or there is no
+page record. Task pages retain a maximum of 50 rows; workflow/item/attempt pages
+allow 100. An existing empty job returns an empty page; an unknown job returns
+`not-found`. These commands make no provider calls or library changes. Item
+summaries include worker/fence/retry state, attempt counts and linked task IDs;
+attempts include provider-run IDs and validation outcomes. Raw inputs and
+provider responses are omitted. Use `job events` for the event ledger and
+`maintain inspect` for a selected task's evidence/response contract.
+
+The matching MCP tools are `rag_job_items`, `rag_job_attempts`,
+`rag_workflow_list`, and the extended `rag_task_list`. The same domain commands
+also remain available through ADDRESS RAG. Reports, snapshots and queries keep
+their existing commands and behavior after the source ownership changes.

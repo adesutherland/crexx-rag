@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragquerypolicy expose queryrouteallowed querypreflight queryansweroutputlimit queryusagewithin
+namespace ragquerypolicy expose queryrouteallowed querypreflight queryansweroutputlimit queryusagewithin queryprivacy
 
 import ragconfig
 import provider_contract
@@ -84,3 +84,13 @@ _configuredcost: procedure = .int
   /* Formats 1 and 2 retain the compiled catalogue solely as an explicitly
    * labelled compatibility projection. Config/3 supplies reviewed prices. */
   return estimatecostmicrounits(_backend(provider.kind()), provider.model(), input_tokens, output_tokens)
+
+/* Shared effective configuration/citation helpers consumed by domain services. */
+queryprivacy: procedure = .string
+  arg config = .ragconfig
+  privacy = "public"; sources = config.source_sets()
+  do i = 1 to sources.0
+    if sources[i].privacy() = "local" then return "local"
+    if sources[i].privacy() = "restricted" | sources[i].privacy() = "internal" then privacy = "restricted"
+  end
+  return privacy

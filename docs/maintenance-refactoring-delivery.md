@@ -22,8 +22,8 @@ control, original evidence and provider usage remain authoritative.
 | Stage | Owner and intended outcome | Status |
 | --- | --- | --- |
 | 1 | `ragclaimrules`: one effective claim-policy factory | Committed `b038495`; 51/51 full regression tests |
-| 2 | Domain prompt/contracts: complete effective requests and schemas together | Complete; 53/53 full regression tests |
-| 3 | Report, observation and query services: cohesive domain orchestration and bounded operator inspection | Pending |
+| 2 | Domain prompt/contracts: complete effective requests and schemas together | Committed `f62158f`; 53/53 full regression tests |
+| 3 | Report, observation and query services: cohesive domain orchestration and bounded operator inspection | Green; 54/54 full regression tests |
 | 4 | Command catalogue: one operation/argument/capability definition used by surfaces | Pending |
 | 5 | Effective configuration policy and safe policy-file update/replacement commands | Pending |
 
@@ -119,3 +119,58 @@ identical, all 65 production namespaces have no cross-module import cycle,
 documentation links resolve, and staged whitespace checks pass. This is local
 qualification using synthetic providers and scratch libraries/installations;
 no live hosted calls or global installation were performed.
+
+## Stage 3 — domain services and operator diagnosis
+
+Coverage first: the stage 2 full gate on `f62158f` passed all 53 tests, including
+`gemini_query`, `query_policy`, `native_surfaces`, `address_surface` and the
+scratch-installed product. Those journeys exercise cached/refresh reports,
+rejected narrative citations, immutable observations, query privacy, failed-call
+usage and retained responses. Before product edits, the new
+`regression_operator_diagnostics` passed fixture initialization and the existing
+job-status control, then failed on the missing `job items` operation (0.55 s).
+It uses only a scratch library with foreign-key-checked synthetic rows.
+
+`ragreportservice` owns report assembly, narrative validation and report-cache
+SQL. `ragobservationservice` owns observation capture and trend SQL and composes
+the report service directly. `ragqueryservice` owns query/citation orchestration
+and answer validation; retrieval algorithms remain in `ragretrieval`/`ragquery`.
+`ragdirectcalls` owns existing direct-call accounting and usage projection.
+Argument/access/error helpers have one `ragcommandutil` owner; small SQLite
+scalar/error helpers are in `ragsqlsupport`. Role lookup is in `ragconfig`,
+snapshot matching in `ragconfiguration`, query privacy in `ragquerypolicy`, and
+citation-array operations in `ragevidencejson`. None imports the dispatcher.
+An independent normalized comparison found all 49 moved function bodies
+unchanged apart from names; the task-page extension is reviewed separately.
+
+`ragoperationsquery` owns bounded read-only job status/events/plans/items,
+attempts, task pages/evidence inventory and workflow inventory. `job items` and `job attempts` expose durable state and
+provider-run references without raw request/response bodies. Task/workflow
+queries accept exact subject IDs or exact canonical concept labels; name
+matches preserve homonymous concepts and workflow successors. Filters are
+applied before pagination. CLI and MCP share the service, while schema/state
+transitions stay with existing storage and lifecycle owners.
+
+The first diagnostic run passed job-item/attempt pagination and task filters,
+then exposed the separate CLI shorthand list's missing `workflows` verb. A
+further pre-fix negative reproduced a previously ignored two-positional-ID
+error in task listings: option reads cleared the error and returned an
+unfiltered list. The shorthand registration is corrected; task inspection now
+rejects that error immediately. NUL filters are rejected before SQL. Exact
+provider/CLI role lookup copies now consume `ragconfig` as well.
+
+The new diagnostic regression checks maximum-size pages and continuations,
+job/item/subject ownership, intersecting filters, missing versus empty jobs,
+quoted and Unicode labels, homonyms, invalid arguments, CLI/MCP equivalence and
+an identical complete database dump before/after reads. The six focused tests
+passed in 54.70 seconds, then the complete `cmake --workflow --preset regression`
+passed **54/54 in 785.99 seconds**. Native SHA-256:
+`4242955df2d37391ca4e40f853acd4c9863f1dd6e31baa2180bd4c4995f9cbe9`.
+Evidence: `/tmp/crexx-rag-refactor-3-red.log`,
+`/tmp/crexx-rag-refactor-3-arguments-red.log`,
+`/tmp/crexx-rag-refactor-3-focused.log` and
+`/tmp/crexx-rag-refactor-3-full.log`. Self-review found no blocking issue;
+all 72 production namespaces have no cross-module import cycle, documentation
+links resolve, and whitespace checks pass. This is local qualification with
+synthetic providers and scratch libraries/installations. This interface work
+does not close the broader operational recovery or external-retirement outcomes.

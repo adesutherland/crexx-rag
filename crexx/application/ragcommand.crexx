@@ -435,10 +435,10 @@ _validoperation: procedure = .int
   if noun = "citation" then return verb = "show"
   if noun = "vector" then return verb = "rebuild"
   if noun = "ingest" then return pos(" " || verb || " ", " plan apply ") > 0
-  if noun = "job" then return pos(" " || verb || " ", " list status events plan pause resume cancel retry replay reconcile run ") > 0
+  if noun = "job" then return pos(" " || verb || " ", " list status events plan items attempts pause resume cancel retry replay reconcile run ") > 0
   if noun = "worker" then return pos(" " || verb || " ", " start run list status drain prune ") > 0
   if noun = "query" then return pos(" " || verb || " ", " inspect search evidence answer trace timeline path ") > 0
-  if noun = "maintain" then return pos(" " || verb || " ", " plan apply status inspect retry tasks evidence evidence-index refresh-plan refresh-apply escalate-plan escalate-apply resolve-plan resolve-apply ") > 0
+  if noun = "maintain" then return pos(" " || verb || " ", " plan apply status inspect retry tasks workflows evidence evidence-index refresh-plan refresh-apply escalate-plan escalate-apply resolve-plan resolve-apply ") > 0
   if noun = "proposal" then return pos(" " || verb || " ", " plan apply ") > 0
   if noun = "review" then return pos(" " || verb || " ", " list show decide ") > 0
   if noun = "serve" then return verb = "mcp"

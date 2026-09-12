@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragconfig expose ragsecretref ragsourceset ragproviderconfig ragrolebinding ragprofilefilebinding ragbudget ragworkerpolicy ragschedule ragdiscoverypolicy ragvectorpolicy ragretrievalpolicy ragmaintenancepolicy ragobservationpolicy ragconfig ragconfigsnapshot validateconfig snapshotconfig invalidconfig
+namespace ragconfig expose ragsecretref ragsourceset ragproviderconfig ragrolebinding ragprofilefilebinding ragbudget ragworkerpolicy ragschedule ragdiscoverypolicy ragvectorpolicy ragretrievalpolicy ragmaintenancepolicy ragobservationpolicy ragconfig ragconfigsnapshot validateconfig snapshotconfig invalidconfig roleproviderconfig rolebinding
 
 import ragmodel
 import rxfnsb
@@ -886,3 +886,23 @@ _provider_exists: procedure = .int
     if providers[i].provider_id() = provider_id then return 1
   end
   return 0
+
+/* Shared effective configuration/citation helpers consumed by domain services. */
+roleproviderconfig: procedure = .ragproviderconfig
+  arg config = .ragconfig, role = .string
+  provider_id = ""; roles = config.roles()
+  do i = 1 to roles.0
+    if roles[i].role() = role then provider_id = roles[i].provider_id()
+  end
+  providers = config.providers()
+  do i = 1 to providers.0
+    if providers[i].provider_id() = provider_id then return providers[i]
+  end
+  return .ragproviderconfig("", "", "", "", "", "", .ragsecretref(), 0, 0)
+rolebinding: procedure = .ragrolebinding
+  arg config = .ragconfig, role = .string
+  roles = config.roles()
+  do i = 1 to roles.0
+    if roles[i].role() = role then return roles[i]
+  end
+  return .ragrolebinding()

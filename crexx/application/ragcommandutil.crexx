@@ -1,0 +1,97 @@
+options levelg
+
+namespace ragcommandutil expose commandhasaccess commandoptions commandworkeroptions commandoption commandid commandunsigned commandboolean commandfailure commandopenfailure
+
+import ragcommand
+import rxfnsb
+
+/* Shared transport-neutral argument, capability and result errors. Domain services retain semantic validation. */
+commandhasaccess: procedure = .int
+  arg request = .ragcommandrequest, required = .string
+  access = request.access()
+  do i = 1 to access.0
+    granted = access[i]
+    if granted = required then return 1
+    if required = "read" then return 1
+    if required = "plan" & (granted = "ingest" | granted = "curate") then return 1
+    if required = "control" & (granted = "curate" | granted = "admin") then return 1
+    if required = "diagnose" & granted = "admin" then return 1
+  end
+  return 0
+commandoptions: procedure = .int
+  arg request = .ragcommandrequest, allowed = .string, expose error = .string
+  error = ""; request_options = request.command_options()
+  do i = 1 to request_options.0
+    if wordpos(request_options[i].name(), allowed) = 0 then do; error = "unknown option --" || request_options[i].name(); return -1; end
+    if (request_options[i].flag() = 1 & request_options[i].name() \= "enrich-provenance" & request_options[i].name() \= "embeddings-only" & request_options[i].name() \= "reconcile") | request_options[i].value() = "" then do; error = "option --" || request_options[i].name() || " requires a value"; return -1; end
+    do j = 1 to i - 1
+      if request_options[j].name() = request_options[i].name() then do; error = "option --" || request_options[i].name() || " may be supplied once"; return -1; end
+    end
+  end
+  return 0
+commandworkeroptions: procedure = .int
+  arg request = .ragcommandrequest, allowed = .string, allowed_flags = .string, expose error = .string
+  error = ""; request_options = request.command_options()
+  do i = 1 to request_options.0
+    name = request_options[i].name()
+    if wordpos(name, allowed) = 0 then do; error = "unknown option --" || name; return -1; end
+    if request_options[i].flag() = 1 & wordpos(name, allowed_flags) = 0 then do; error = "option --" || name || " requires a value"; return -1; end
+    if request_options[i].value() = "" then do; error = "option --" || name || " requires a value"; return -1; end
+    if request_options[i].flag() = 1 & request_options[i].value() \= "true" then do; error = "flag --" || name || " is invalid"; return -1; end
+    do j = 1 to i - 1
+      if request_options[j].name() = name then do; error = "option --" || name || " may be supplied once"; return -1; end
+    end
+  end
+  return 0
+commandoption: procedure = .string
+  arg request = .ragcommandrequest, name = .string, expose error = .string
+  error = ""; value = ""; request_options = request.command_options()
+  do i = 1 to request_options.0
+    if request_options[i].name() = name then do
+      if value \= "" then do; error = "option --" || name || " may be supplied once"; return ""; end
+      value = request_options[i].value()
+    end
+  end
+  return value
+commandid: procedure = .string
+  arg request = .ragcommandrequest, expose error = .string
+  id = commandoption(request, "id", error); positionals = request.positionals()
+  if positionals.0 > 1 then do; error = "operation accepts one id"; return ""; end
+  if positionals.0 = 1 then do
+    if id \= "" & id \= positionals[1] then do; error = "id was supplied twice"; return ""; end
+    id = positionals[1]
+  end
+  return id
+commandunsigned: procedure = .int
+  arg value = .string
+  if value = "" then return 0
+  do i = 1 to length(value)
+    if pos(substr(value, i, 1), "0123456789") = 0 then return 0
+  end
+  /* Validate the signed SQLite/VM integer range before any strict cast. */
+  significant = value
+  do while length(significant) > 1 & substr(significant,1,1) = "0"
+    significant = substr(significant,2)
+  end
+  if length(significant) < 19 then return 1
+  if length(significant) > 19 then return 0
+  maximum = "9223372036854775807"
+  do i = 1 to 19
+    digit = pos(substr(significant,i,1),"0123456789")
+    boundary = pos(substr(maximum,i,1),"0123456789")
+    if digit < boundary then return 1
+    if digit > boundary then return 0
+  end
+  return 1
+commandboolean: procedure = .string
+  arg value = .int
+  if value \= 0 then return "true"
+  return "false"
+commandfailure: procedure = .ragcommandresult
+  arg operation = .string, code = .int, message = .string
+  records = .ragresultrecord[]
+  return .ragcommandresult(operation, "error", code, message, records)
+commandopenfailure: procedure = .ragcommandresult
+  arg operation = .string, message = .string
+  if pos("does not exist", message) > 0 then return commandfailure(operation, 5, message)
+  return commandfailure(operation, 7, message)

@@ -267,3 +267,9 @@ local tests.
 The prompt-contract stage passed the complete **53/53** regression workflow in
 733.58 seconds. Exact artifact and baseline evidence are recorded in the
 [delivery record](maintenance-refactoring-delivery.md#stage-2--prompts-and-response-contracts).
+
+The stage 3 service extraction is preceded by the complete stage 2 baseline and
+a failing `regression_operator_diagnostics` interface test with a passing
+job-status control. Its fixtures place unrelated rows before matching job and
+concept rows to catch post-pagination filtering. Full stage 3 qualification is
+recorded in the [delivery record](maintenance-refactoring-delivery.md).

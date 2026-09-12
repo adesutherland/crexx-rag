@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragconfiguration expose ragconfigidentity ragconfigdiff identifyconfig inspectconfigchange createreconfigureplan applyreconfigureplan currentconfigsnapshotid worksnapshotmatches checkworkerconfiguration
+namespace ragconfiguration expose ragconfigidentity ragconfigdiff identifyconfig inspectconfigchange createreconfigureplan applyreconfigureplan currentconfigsnapshotid worksnapshotmatches checkworkerconfiguration querysnapshotmatches
 
 import rxfnsb
 import rxjson
@@ -314,3 +314,15 @@ _boolean: procedure = .string
   arg value = .int
   if value = 1 then return "true"
   return "false"
+
+/* Shared effective configuration/citation helpers consumed by domain services. */
+querysnapshotmatches: procedure = .int
+  arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile
+  prepared = .binary
+  sql = "SELECT s.config_hash,s.profile_hash FROM config_snapshots s JOIN library_config_state c ON c.current_config_snapshot_id=s.config_snapshot_id WHERE c.singleton=1"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return 0; end
+  config_hash = ""; profile_hash = ""; columns = sqlitecolumntext(prepared, 0, config_hash) | sqlitecolumntext(prepared, 1, profile_hash); call sqlitefinalize prepared
+  if columns \= 0 then return 0
+  identity = .ragconfigidentity(); identity_error = ""
+  if identifyconfig(config, profile, identity, identity_error) \= 0 then return 0
+  return config_hash = identity.config_hash() & profile_hash = identity.profile_hash()

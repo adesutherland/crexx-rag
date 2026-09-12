@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragevidencejson expose encodeevidence encodeanswercontext encoderetrieval encodetraceprojection encodepathprojection encodetimelineprojection
+namespace ragevidencejson expose encodeevidence encodeanswercontext encoderetrieval encodetraceprojection encodepathprojection encodetimelineprojection encodecitationarray containscitation evidencehascitation
 
 import rxfnsb
 import rxjson
@@ -322,3 +322,34 @@ _strings: procedure = .string
     encoded = encoded || jsonquote(values[i])
   end
   return encoded || "]"
+
+/* Shared effective configuration/citation helpers consumed by domain services. */
+encodecitationarray: procedure = .string
+  arg document = .jsondocument, node = .int
+  output = "["
+  do i = 1 to document.node_count(node)
+    value = ""; ignored = document.node_string(document.element(node, i), value)
+    if i > 1 then output = output || ","
+    output = output || jsonquote(value)
+  end
+  return output || "]"
+containscitation: procedure = .int
+  arg values = .string[], expected = .string
+  do i = 1 to values.0
+    if values[i] = expected then return 1
+  end
+  return 0
+evidencehascitation: procedure = .int
+  arg evidence = .ragevidence, expected = .string
+  passages = evidence.passages()
+  do i = 1 to passages.0
+    if passages[i].citation().citation() = expected then return 1
+  end
+  claims = evidence.claims()
+  do i = 1 to claims.0
+    supports = claims[i].supports()
+    do j = 1 to supports.0
+      if supports[j].citation().citation() = expected then return 1
+    end
+  end
+  return 0

@@ -250,3 +250,10 @@ the candidate hash belong in the reliability closure record.
 
 These are bounded scale and fault gates. They do not substitute for the
 separate multi-hour nightly soak, hosted-provider or non-macOS release gates.
+
+`regression_operator_diagnostics` protects the domain-service refactor's public
+operator reads: job/subject filters precede pagination, 100-row pages continue
+without omissions, exact canonical labels preserve homonyms and Unicode,
+unknown arguments fail, native CLI and MCP return the same rows, and the full
+scratch-library dump remains unchanged. Existing query/report, snapshot,
+recovery and installed-surface journeys remain required for service changes.

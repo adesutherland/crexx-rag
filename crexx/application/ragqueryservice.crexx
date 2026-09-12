@@ -1,0 +1,368 @@
+options levelg
+
+namespace ragqueryservice expose citationshow querycommand
+
+import provider_contract
+import ragcommand
+import ragcommandutil
+import ragconfig
+import ragconfiguration
+import ragdirectcalls
+import ragevidence
+import ragevidencejson
+import ragfile
+import ragperiod
+import ragquery
+import ragquerypolicy
+import ragqueryprovider
+import ragregistry
+import ragretrieval
+import ragsqlsupport
+import ragstore
+import ragtrace
+import rxfnsb
+import rxhash
+import rxjson
+import rxsqlite
+
+/* Query/citation composition, retrieval selection and answer validation. Retrieval algorithms and bounded provider policy retain their existing owners. */
+citationshow: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation = request.operation(); error = ""
+  if commandhasaccess(request, "read") \= 1 then return commandfailure(operation, 4, "citation resolution requires read access")
+  if commandoptions(request, "cursor limit", error) \= 0 then return commandfailure(operation, 2, error)
+  cursor=commandoption(request,"cursor",error); limit_text=commandoption(request,"limit",error)
+  if cursor="" then cursor="0"
+  if commandunsigned(cursor)\=1 | length(cursor)>9 then return commandfailure(operation,2,"citation cursor must be a bounded character offset")
+  if limit_text\="" then do
+    if commandunsigned(limit_text)\=1 | length(limit_text)>4 then return commandfailure(operation,2,"citation page limit must be 1..8192 characters")
+    if limit_text as .int<1 | limit_text as .int>8192 then return commandfailure(operation,2,"citation page limit must be 1..8192 characters")
+  end
+  positionals = request.positionals()
+  if positionals.0 \= 1 | positionals[1] = "" then return commandfailure(operation, 2, "citation show requires exactly one citation id")
+  citation = .ragcitation; cited_library = ""
+  if parsecitation(positionals[1], cited_library, citation, error) \= 0 then return commandfailure(operation, 2, error)
+  store = .ragstorehandle
+  if openragstore(request.library(), "readonly", store, error) \= 0 then return commandopenfailure(operation, error)
+  library_id = sqlreadtext(store.database(), "SELECT library_id FROM library_meta WHERE singleton=1")
+  if library_id \= cited_library then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 5, "citation belongs to a different library"); end
+  passage = .ragpassage
+  resolution_status = resolvecitation(store, citation, passage, error)
+  close_error = ""; close_status = closeragstore(store, close_error)
+  if resolution_status \= 0 | close_status \= 0 then do
+    if error = "" then error = close_error
+    return commandfailure(operation, 5, error)
+  end
+  body=passage.text(); total=length(body); offset=cursor as .int; page_limit=total
+  if offset>total then return commandfailure(operation,2,"citation cursor is beyond the source span")
+  if limit_text\="" then page_limit=limit_text as .int
+  else if binlength(body as .binary)>65535 | offset>0 then page_limit=8192
+  if page_limit>total-offset then page_limit=total-offset
+  body=substr(body,offset+1,page_limit); next_cursor=""
+  if offset+length(body)<total then next_cursor=offset+length(body)
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("citation", "string", citation.citation())
+  fields[2] = .ragresultfield("library_id", "string", cited_library)
+  fields[3] = .ragresultfield("source_id", "string", citation.source())
+  fields[4] = .ragresultfield("revision_id", "string", citation.revision())
+  fields[5] = .ragresultfield("span_unit", "string", "utf8")
+  fields[6] = .ragresultfield("span_start", "integer", citation.span_start())
+  fields[7] = .ragresultfield("span_end", "integer", citation.span_end())
+  fields[8] = .ragresultfield("title", "string", passage.title())
+  fields[9] = .ragresultfield("text", "string", body)
+  fields[10] = .ragresultfield("source_type", "string", passage.source_type())
+  fields[11] = .ragresultfield("captured_at", "string", passage.captured_at())
+  fields[12] = .ragresultfield("event_start_at", "string", passage.event_start_at())
+  fields[13] = .ragresultfield("event_end_at", "string", passage.event_end_at())
+  fields[14] = .ragresultfield("source_metadata", "string", passage.source_metadata())
+  fields[15] = .ragresultfield("raw_captured_at", "string", passage.raw_captured_at())
+  fields[16] = .ragresultfield("text_complete","boolean",commandboolean(offset=0 & next_cursor=""))
+  fields[17] = .ragresultfield("next_cursor","string",next_cursor)
+  fields[18] = .ragresultfield("text_offset","integer",offset)
+  fields[19] = .ragresultfield("total_characters","integer",total)
+  fields[20] = .ragresultfield("cursor_unit","string","unicode-characters; citation offsets remain UTF-8 bytes")
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("citation-resolution", fields)
+  return .ragcommandresult(operation, "ok", 0, "citation resolved to immutable source text", records)
+querycommand: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = request.operation(); error = ""
+  if commandhasaccess(request, "read") \= 1 then return commandfailure(operation, 4, "query requires read access")
+  if commandoptions(request, "limit hops mode direction at during time-unknown", error) \= 0 then return commandfailure(operation, 2, error)
+  positionals = request.positionals()
+  if positionals.0 \= 1 | positionals[1] = "" then return commandfailure(operation, 2, "query requires exactly one question")
+  if request.profile_id() = "" then return commandfailure(operation, 2, "query requires --profile")
+  profile_lookup = registry.profile(request.profile_id())
+  if profile_lookup.found() \= 1 then return commandfailure(operation, 5, "profile is not registered")
+  config_lookup = registry.config(request.config_id())
+  if config_lookup.found() \= 1 then return commandfailure(operation, 5, "configuration is not registered")
+  config = config_lookup.config(); profile = profile_lookup.profile(); budget = config.budget()
+  retrieval_policy = config.retrieval(); limit = retrieval_policy.passage_limit(); hops = retrieval_policy.graph_hops()
+  limit_text = commandoption(request, "limit", error); hops_text = commandoption(request, "hops", error); mode = commandoption(request, "mode", error); graph_direction = commandoption(request, "direction", error)
+  if error \= "" then return commandfailure(operation, 2, error)
+  if limit_text \= "" then do
+    if commandunsigned(limit_text) \= 1 then return commandfailure(operation, 2, "query limit must be an integer")
+    limit = limit_text as .int
+  end
+  if hops_text \= "" then do
+    if commandunsigned(hops_text) \= 1 then return commandfailure(operation, 2, "query hops must be an integer")
+    hops = hops_text as .int
+  end
+  if limit < 1 | limit > 12 | hops < 0 | hops > 4 then return commandfailure(operation, 2, "query limit must be 1 through 12 and hops 0 through 4")
+  if mode = "" then mode = "auto"
+  if operation = "query.inspect" then do
+    if mode \= "auto" & mode \= "lexical" then return commandfailure(operation,2,"query inspect supports lexical evidence only")
+    mode = "lexical"
+  end
+  if mode \= "auto" & mode \= "lexical" & mode \= "hybrid" then return commandfailure(operation, 2, "query mode must be auto, lexical, or hybrid")
+  if graph_direction = "" then graph_direction = retrieval_policy.graph_direction()
+  if wordpos(graph_direction, "outbound inbound both") = 0 then return commandfailure(operation, 2, "query direction must be outbound, inbound, or both")
+  at=commandoption(request,"at",error); during=commandoption(request,"during",error); time_unknown=commandoption(request,"time-unknown",error); temporal_query=""
+  if time_unknown="" then time_unknown="include"
+  if wordpos(time_unknown,"include exclude")=0 then return commandfailure(operation,2,"--time-unknown must be include or exclude")
+  if at\="" | during\="" then do
+    period=periodquery(at,during)
+    if period.ok()=0 then return commandfailure(operation,2,"use one valid --at DATE or --during START/END")
+    temporal_query=period.canonical()
+  end
+  store = .ragstorehandle
+  store_access = "readwrite"; if operation = "query.inspect" then store_access = "readonly"
+  if openragstore(request.library(), store_access, store, error) \= 0 then return commandopenfailure(operation, error)
+  if querysnapshotmatches(store, config, profile) \= 1 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 6, "configuration changes have not been applied; review config diff and config plan before querying with these settings"); end
+  plan = .ragqueryplan
+  if planquery(store, profile, positionals[1], "surface-retrieval-v2", plan, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 1, error); end
+  privacy = queryprivacy(config); embedding_provider = roleproviderconfig(config, "embedding"); answer_provider = roleproviderconfig(config, "answerer"); embedding_role = rolebinding(config, "embedding"); answer_role = rolebinding(config, "answerer")
+  active_profile = ""; dimension = 0; query_vector = ''x as .binary
+  if _activequeryembedding(store.database(), embedding_provider, active_profile, dimension, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, error); end
+  if active_profile \= "" & _querysidecaravailable(store, active_profile, config.vector().maximum_sidecar_bytes()) \= 1 then do; active_profile = ""; dimension = 0; end
+  if active_profile \= "" & dimension \= embedding_role.embedding_dimensions() then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "active vector dimension does not match role.embedding.dimensions"); end
+  embedding_state = "not-requested"; embedding_planned = 0
+  if mode \= "lexical" then do
+    if active_profile = "" then embedding_state = "no-compatible-index"
+    else if queryrouteallowed(embedding_provider, privacy) \= 1 then embedding_state = "privacy-fallback"
+    else do; embedding_planned = 1; embedding_state = "planned"; end
+  end
+  if mode = "hybrid" & embedding_planned \= 1 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 8, "hybrid query requires a compatible active index and permitted embedding route"); end
+  answer_planned = operation = "query.answer"
+  if answer_planned = 1 & answer_provider.provider_id() = "" then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 8, "query answer requires a configured answerer role"); end
+  if answer_planned = 1 & queryrouteallowed(answer_provider, privacy) \= 1 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 4, "library privacy denies the configured answerer route"); end
+  requested_output = 0
+  if answer_planned = 1 then requested_output = queryansweroutputlimit(budget, answer_role.maximum_output_tokens())
+  if querypreflight(budget, embedding_provider, embedding_planned, answer_provider, answer_planned, error, requested_output, embedding_role.maximum_input_tokens(), answer_role.maximum_input_tokens()) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 6, error); end
+  config_snapshot_id = currentconfigsnapshotid(store.database(), error)
+  query_generation = sqlreadint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if config_snapshot_id = "" | query_generation < 1 then do; ignored = ""; call closeragstore store, ignored; if error = "" then error = "cannot identify the query configuration snapshot"; return commandfailure(operation, 7, error); end
+
+  tracer = .ragtracer(request.progress(), request.format()); embedding_output = .providerresult(); embedding_attempted = 0; embedding_called = 0; embedding_provider_run = ""
+  if embedding_planned = 1 then do
+    embedding_identity = "query-embed-" || substr(rxhash..sha256hex((plan.fingerprint() || "00"x || active_profile) as .binary), 1, 32)
+    call tracer.emit("query-embedding", "start", active_profile, embedding_provider.provider_id() || " " || embedding_provider.model())
+    embedding_attempted = 1
+    embedding_status = generatequeryembedding(embedding_provider, positionals[1], privacy, dimension, embedding_identity, embedding_output, error)
+    if embedding_output.request_id() \= "" then do
+      embedding_outcome = "succeeded"
+      if embedding_status \= 0 then do; embedding_outcome = "rejected"; if embedding_output.status() \= 0 then embedding_outcome = "failed"; end
+      persistence_error = ""
+      if persistdirectproviderrun(store.database(), config_snapshot_id, operation, "query-embedding", embedding_provider, positionals[1], embedding_output, embedding_outcome, -1, -1, "", embedding_provider_run, persistence_error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, persistence_error); end
+    end
+    if embedding_status \= 0 then do
+      call tracer.emit("query-embedding", "failed", active_profile, "using lexical fallback")
+      if mode = "hybrid" then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 8, error); end
+      embedding_state = "provider-fallback"; error = ""
+    end
+    else do
+      vectors = embedding_output.embeddings(); query_vector = vectors[1].payload(); embedding_called = 1; embedding_state = "generated"
+      call tracer.emit("query-embedding", "complete", active_profile, "dimension=" || dimension)
+    end
+  end
+  retrieval_profile = ""; if embedding_called = 1 then retrieval_profile = active_profile
+  retrieval_options = .ragretrievaloptions("surface-retrieval-v2", retrieval_profile, query_vector, retrieval_policy.lexical_candidates(), retrieval_policy.vector_candidates(), retrieval_policy.vector_scan_limit(), hops, limit, retrieval_policy.claim_limit(), retrieval_policy.lead_limit(), retrieval_policy.rrf_k(), graph_direction, retrieval_policy.graph_boost_millionths(), retrieval_policy.graph_decay_millionths(), retrieval_policy.directness_bonus_millionths(), config.vector().maximum_sidecar_bytes(),temporal_query,time_unknown)
+  retrieval = .ragretrievalresult
+  if retrieveevidence(store, profile, positionals[1], retrieval_options, retrieval, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 1, error); end
+  if mode = "hybrid" & retrieval.vector_state() \= "active-ann-ivf-rxvector" then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 6, "hybrid query requires a valid vector sidecar; run vector rebuild to recover it from SQLite"); end
+  evidence = retrieval.evidence(); answer_context = ""
+  query_gaps_recorded = 0
+  if operation \= "query.inspect" then if recordquerygaps(store, evidence, query_gaps_recorded, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, error); end
+  if answer_planned = 1 then do
+    if encodeanswercontext(evidence, retrieval_policy.maximum_evidence_bytes(), answer_context, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 1, error); end
+  end
+  evidence_json = ""
+  close_error = ""
+  if closeragstore(store, close_error) \= 0 then return commandfailure(operation, 7, close_error)
+  answer_output = .providerresult(); allowance_before = -1; allowance_after = -1; generated_answer = ""; answer_grounding = ""; answer_citations_json = "[]"; answer_citation = ""; answer_called = 0; answer_provider_run = ""
+  if answer_planned = 1 then do
+    answer_identity = "query-answer-" || substr(rxhash..sha256hex((answer_context || "00"x || answer_provider.provider_id() || "00"x || answer_provider.model()) as .binary), 1, 32)
+    call tracer.emit("answer", "start", plan.fingerprint(), answer_provider.provider_id() || " " || answer_provider.model())
+    answer_status = generatequeryanswer(answer_provider, answer_context, privacy, requested_output, budget.minimum_codex_allowance_percent(), answer_identity, answer_output, allowance_before, allowance_after, error, answer_role.system_prompt(), answer_role.temperature_millionths())
+    answer_provider_error = error; answer_validation = -1; answer_validation_error = ""
+    if answer_status = 0 then answer_validation = _answeroutput(answer_output.content(), evidence, generated_answer, answer_grounding, answer_citations_json, answer_citation, answer_validation_error)
+    if answer_output.request_id() \= "" then do
+      answer_outcome = "succeeded"
+      if answer_status \= 0 then do; answer_outcome = "rejected"; if answer_output.status() \= 0 then answer_outcome = "failed"; end
+      else if answer_validation \= 0 then answer_outcome = "rejected"
+      answer_store = .ragstorehandle; persistence_error = ""
+      if openragstore(request.library(), "readwrite", answer_store, persistence_error) \= 0 then return commandopenfailure(operation, persistence_error)
+      recovery_json = ""
+      if answer_outcome = "rejected" & answer_validation_error \= "" then recovery_json = '{"schema":"crexx-rag.provider-recovery/1","stage":"product-validation","error":' || jsonquote(answer_validation_error) || '}'
+      persistence_status = persistdirectproviderrun(answer_store.database(), config_snapshot_id, operation, "query-answer", answer_provider, answer_context, answer_output, answer_outcome, allowance_before, allowance_after, recovery_json, answer_provider_run, persistence_error)
+      state_changed = currentconfigsnapshotid(answer_store.database(), persistence_error) \= config_snapshot_id | sqlreadint(answer_store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1") \= query_generation
+      ignored = ""; close_status = closeragstore(answer_store, ignored)
+      if persistence_status \= 0 then return commandfailure(operation, 7, persistence_error)
+      if close_status \= 0 then return commandfailure(operation, 7, ignored)
+      if state_changed then return commandfailure(operation, 6, "library generation or configuration changed while the query answer was generated; retry")
+    end
+    if answer_status \= 0 then do; call tracer.emit("answer", "failed", plan.fingerprint(), "provider answer rejected"); return commandfailure(operation, 8, answer_provider_error); end
+    if answer_validation \= 0 then do; call tracer.emit("answer", "failed", plan.fingerprint(), "citation validation failed"); return commandfailure(operation, 1, answer_validation_error); end
+    answer_called = 1; evidence = evidence.with_generated_answer(generated_answer)
+    call tracer.emit("answer", "complete", plan.fingerprint(), "citations validated")
+  end
+  embedding_usage = embedding_output.usage(); answer_usage = answer_output.usage()
+  if queryusagewithin(budget, embedding_provider, embedding_usage, embedding_attempted, answer_provider, answer_usage, answer_called) \= 1 then return commandfailure(operation, 6, "query provider usage exceeded the configured token or cost ceiling, or monetary usage was unavailable")
+  if encodeevidence(evidence, retrieval_policy.maximum_evidence_bytes(), evidence_json, error) \= 0 then return commandfailure(operation, 1, error)
+  fields = .ragresultfield[]
+  fields[1] = .ragresultfield("evidence_schema", "string", "crexx-rag.evidence/2")
+  fields[2] = .ragresultfield("query_plan_fingerprint", "string", plan.fingerprint())
+  fields[3] = .ragresultfield("vector_state", "string", retrieval.vector_state())
+  fields[4] = .ragresultfield("candidate_count", "integer", retrieval.candidate_count())
+  fields[5] = .ragresultfield("evidence_json", "string", evidence_json)
+  if generated_answer = "" then fields[6] = .ragresultfield("generated_answer", "null", "")
+  else fields[6] = .ragresultfield("generated_answer", "string", generated_answer)
+  evidence_summary = ""; evidence_citation = ""; accepted_claims = evidence.claims()
+  if accepted_claims.0 > 0 then do
+    evidence_summary = accepted_claims[1].subject() || " --" || accepted_claims[1].relationship_type() || "--> " || accepted_claims[1].object()
+    supports = accepted_claims[1].supports()
+    if supports.0 > 0 then evidence_citation = supports[1].citation().citation()
+  end
+  summary = evidence_summary; citation = evidence_citation
+  if answer_planned = 1 then do; summary = generated_answer; citation = answer_citation; end
+  fields[7] = .ragresultfield("summary", "string", summary)
+  fields[8] = .ragresultfield("citation", "string", citation)
+  effective_mode = "lexical"; if retrieval.vector_state() = "active-ann-ivf-rxvector" then effective_mode = "hybrid"
+  fields[9] = .ragresultfield("retrieval_mode", "string", effective_mode)
+  fields[10] = .ragresultfield("query_embedding_state", "string", embedding_state)
+  fields[11] = .ragresultfield("provider_calls", "integer", embedding_attempted + answer_called)
+  fields[12] = .ragresultfield("graph_direction", "string", graph_direction)
+  fields[13] = .ragresultfield("query_gaps_recorded", "integer", query_gaps_recorded)
+  fields[14] = .ragresultfield("lexical_candidates", "integer", retrieval.lexical_candidates())
+  fields[15] = .ragresultfield("vector_candidates", "integer", retrieval.vector_candidates())
+  fields[16] = .ragresultfield("graph_candidates", "integer", retrieval.graph_candidates())
+  fields[17] = .ragresultfield("lexical_passages", "integer", retrieval.lexical_passages())
+  fields[18] = .ragresultfield("vector_passages", "integer", retrieval.vector_passages())
+  fields[19] = .ragresultfield("graph_passages", "integer", retrieval.graph_passages())
+  fields[20] = .ragresultfield("effective_lexical_limit", "integer", retrieval_policy.lexical_candidates())
+  fields[21] = .ragresultfield("effective_vector_limit", "integer", retrieval_policy.vector_candidates())
+  fields[22] = .ragresultfield("effective_vector_scan_limit", "integer", retrieval_policy.vector_scan_limit())
+  fields[23] = .ragresultfield("effective_graph_hops", "integer", hops)
+  fields[24] = .ragresultfield("effective_passage_limit", "integer", limit)
+  fields[25] = .ragresultfield("effective_claim_limit", "integer", retrieval_policy.claim_limit())
+  fields[26] = .ragresultfield("effective_lead_limit", "integer", retrieval_policy.lead_limit())
+  fields[27] = .ragresultfield("effective_rrf_k", "integer", retrieval_policy.rrf_k())
+  fields[28] = .ragresultfield("effective_graph_boost_millionths", "integer", retrieval_policy.graph_boost_millionths())
+  fields[29] = .ragresultfield("effective_graph_decay_millionths", "integer", retrieval_policy.graph_decay_millionths())
+  fields[30] = .ragresultfield("effective_directness_bonus_millionths", "integer", retrieval_policy.directness_bonus_millionths())
+  fields[31] = .ragresultfield("evidence_summary", "string", evidence_summary)
+  fields[32] = .ragresultfield("evidence_citation", "string", evidence_citation)
+  if answer_grounding = "" then fields[33] = .ragresultfield("answer_grounding", "null", "")
+  else fields[33] = .ragresultfield("answer_grounding", "string", answer_grounding)
+  fields[34] = .ragresultfield("answer_citations_json", "string", answer_citations_json)
+  query_leads = .raggraphlead[]; query_leads = evidence.leads()
+  fields[35] = .ragresultfield("lead_count", "integer", query_leads.0)
+  leading_lead = ""; leading_follow_question = ""
+  if query_leads.0 > 0 then do
+    lead_path = .string[]; lead_path = query_leads[1].path()
+    if lead_path.0 > 0 then leading_lead = lead_path[1]
+    if lead_path.0 > 1 then do
+      lead_target = ""
+      do i = 2 to lead_path.0
+        if lead_path[i] \= lead_path[1] then do; lead_target = lead_path[i]; leave; end
+      end
+      if lead_target \= "" then do
+        leading_lead = leading_lead || " -> " || lead_target
+        leading_follow_question = "What is the relationship between " || lead_path[1] || " and " || lead_target || "?"
+      end
+    end
+  end
+  fields[36] = .ragresultfield("leading_lead", "string", leading_lead)
+  fields[37] = .ragresultfield("leading_follow_question", "string", leading_follow_question)
+  projection = ""
+  if operation = "query.trace" then do
+    if encodetraceprojection(evidence, retrieval_policy.maximum_evidence_bytes(), projection, error) \= 0 then return commandfailure(operation, 1, error)
+    fields[38] = .ragresultfield("trace_json", "string", projection)
+  end
+  else if operation = "query.path" then do
+    if encodepathprojection(evidence, retrieval_policy.maximum_evidence_bytes(), projection, error) \= 0 then return commandfailure(operation, 1, error)
+    fields[38] = .ragresultfield("paths_json", "string", projection)
+  end
+  else if operation = "query.timeline" then do
+    if encodetimelineprojection(evidence, retrieval_policy.maximum_evidence_bytes(), projection, error) \= 0 then return commandfailure(operation, 1, error)
+    fields[38] = .ragresultfield("timeline_json", "string", projection)
+  end
+  record_kind = changestr(".", operation, "-")
+  records = .ragresultrecord[]; records[1] = .ragresultrecord(record_kind, fields)
+  if embedding_attempted = 1 then records[records.0 + 1] = directproviderrecord("embedding", embedding_provider, embedding_output, embedding_provider_run, -1, -1)
+  if answer_called = 1 then records[records.0 + 1] = directproviderrecord("answerer", answer_provider, answer_output, answer_provider_run, allowance_before, allowance_after)
+  message = "typed evidence retrieved"
+  if answer_called = 1 then message = "evidence-backed answer generated with validated citations"
+  else if operation = "query.trace" then message = "bounded query trace retrieved"
+  else if operation = "query.path" then message = "bounded typed paths and follow-up leads retrieved"
+  else if operation = "query.timeline" then message = "bounded cited evidence timeline retrieved"
+  else if embedding_called = 1 then message = "typed evidence retrieved with compatible hybrid search"
+  return .ragcommandresult(operation, "ok", 0, message, records)
+_activequeryembedding: procedure = .int
+  arg database = .binary, provider = .ragproviderconfig, expose profile_id = .string, expose dimension = .int, expose error = .string
+  profile_id = ""; dimension = 0; error = ""
+  if provider.provider_id() = "" | provider.kind() = "codex" then return 0
+  prepared = .binary
+  sql = "SELECT p.embedding_profile_id,p.dimension,p.input_envelope_fingerprint FROM vector_generations v JOIN embedding_profiles p ON p.embedding_profile_id=v.embedding_profile_id WHERE v.state='published' AND " || compatiblevectorpredicate("(SELECT published_generation FROM library_meta WHERE singleton=1)", "v.") || " AND p.provider_id=?1 AND p.model=?2 ORDER BY p.embedding_profile_id"
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, provider.provider_id()) \= 0 | sqlitebindtext(prepared, 2, provider.model()) \= 0 then do; call sqlitefinalize prepared; error = "cannot inspect the active query embedding profile"; return -1; end
+  rows = 0; fingerprint = ""
+  do forever
+    step = sqlitestep(prepared)
+    if step = 101 then leave
+    if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read the active query embedding profile"; return -1; end
+    rows = rows + 1
+    if rows > 1 then do; call sqlitefinalize prepared; error = "multiple compatible active query embedding profiles are ambiguous"; return -1; end
+    columns = sqlitecolumntext(prepared, 0, profile_id) | sqlitecolumnint(prepared, 1, dimension) | sqlitecolumntext(prepared, 2, fingerprint)
+    if columns \= 0 then do; call sqlitefinalize prepared; error = "cannot decode the active query embedding profile"; return -1; end
+  end
+  call sqlitefinalize prepared
+  if rows = 0 then do; profile_id = ""; dimension = 0; return 0; end
+  envelope = "crexx-rag.embedding-input/1|" || provider.provider_id() || "|" || provider.kind() || "|" || provider.model() || "|" || dimension
+  if dimension < 1 | fingerprint \= rxhash..sha256hex(envelope as .binary) then do; error = "active query embedding profile does not match the configured provider envelope"; return -1; end
+  return 0
+
+/* Check the derived file before reserving or calling a query provider. */
+_querysidecaravailable: procedure = .int
+  arg store = .ragstorehandle, profile_id = .string, maximum_bytes = .int
+  prepared = .binary; error = ""; manifest_state = ""
+  if manifeststate(store, manifest_state, error) \= 0 | manifest_state \= "aligned" then return 0
+  sql = "SELECT sidecar_name,sidecar_checksum FROM vector_generations WHERE state='published' AND algorithm='ivf-flat-v1' AND " || compatiblevectorpredicate("(SELECT published_generation FROM library_meta WHERE singleton=1)") || " AND embedding_profile_id=?1"
+  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindtext(prepared, 1, profile_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return 0; end
+  name = ""; checksum = ""
+  columns = sqlitecolumntext(prepared, 0, name) | sqlitecolumntext(prepared, 1, checksum); call sqlitefinalize prepared
+  if columns \= 0 | name = "" | pos("/", name) > 0 | pos("\", name) > 0 then return 0
+  actual = ""; bytes = 0
+  if ragfile..sha256filebounded(store.path() || "/" || name, maximum_bytes, actual, bytes, error) \= 0 then return 0
+  return actual = checksum
+_answeroutput: procedure = .int
+  arg content = .string, evidence = .ragevidence, expose answer = .string, expose grounding = .string, expose citations_json = .string, expose first_citation = .string, expose error = .string
+  answer = ""; grounding = ""; citations_json = "[]"; first_citation = ""; error = ""; document = .jsondocument(content)
+  if document.valid() \= 1 | document.node_type(document.root()) \= "object" then do; error = "query answer is not a JSON object"; return -1; end
+  root = document.root()
+  if document.node_count(root) \= 3 then do; error = "query answer contains fields outside the exact schema"; return -1; end
+  if document.node_string(document.member(root, "grounding"), grounding) \= 0 | wordpos(grounding, "supported partial insufficient") = 0 then do; error = "query answer grounding is invalid"; return -1; end
+  if document.node_string(document.member(root, "answer"), answer) \= 0 | answer = "" | length(answer) > 8192 then do; error = "query answer text is invalid"; return -1; end
+  citations = document.member(root, "citations")
+  if document.node_type(citations) \= "array" | document.node_count(citations) > 12 then do; error = "query answer citations are invalid"; return -1; end
+  seen = .string[]
+  do i = 1 to document.node_count(citations)
+    citation = ""
+    if document.node_string(document.element(citations, i), citation) \= 0 | citation = "" | evidencehascitation(evidence, citation) \= 1 | containscitation(seen, citation) = 1 then do; error = "query answer contains an unknown or duplicate citation"; return -1; end
+    seen[seen.0 + 1] = citation
+    if first_citation = "" then first_citation = citation
+  end
+  if grounding = "supported" & seen.0 = 0 then do; error = "supported query answer omitted citations"; return -1; end
+  if grounding = "partial" & seen.0 = 0 then do; error = "partial query answer omitted citations"; return -1; end
+  if grounding = "insufficient" & seen.0 > 0 then do; error = "insufficient query answer included citations"; return -1; end
+  if grounding = "insufficient" then answer = "The available evidence is insufficient to answer this question."
+  citations_json = encodecitationarray(document, citations)
+  return 0
