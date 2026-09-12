@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragusage expose closeexpiredreservations retainuncertainusage updateexternalrunusage updateexternalrunallowance releaseprovidercall settlecall settlecallintransaction recoverprovideraccounting unknownusageguard actualusage reservationusage reservationdelta
+namespace ragusage expose jobusagejson closeexpiredreservations retainuncertainusage updateexternalrunusage updateexternalrunallowance releaseprovidercall settlecall settlecallintransaction recoverprovideraccounting unknownusageguard actualusage reservationusage reservationdelta
 
 import rxfnsb
 import rxjson
@@ -237,6 +237,23 @@ unknownusageguard: procedure = .int
   call sqlitefinalize prepared
   if status \= 0 then return -1
   return values.0
+
+/* Bounded job totals and a caller-selected observation interval. Provider runs
+ * are counted once even when retries reuse the same receipt. These are recorded
+ * amounts, not a claim that missing provider usage has become known. */
+jobusagejson: procedure = .string
+  arg database = .binary, job_id = .string, observed_epoch = .int, seconds = .int
+  if job_id="" | seconds<1 | seconds>86400 then return ""
+  cutoff=observed_epoch-seconds
+  runs="SELECT p.* FROM provider_runs p WHERE p.provider_run_id IN(SELECT a.provider_run_id FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1 AND a.provider_run_id IS NOT NULL)"
+  recent="coalesce(unixepoch(completed_at),0)>=" || cutoff || " AND coalesce(unixepoch(completed_at),0)<=" || observed_epoch
+  sql="WITH runs AS (" || runs || ") SELECT json_object('recorded_provider_runs',count(*),'recorded_input_tokens',coalesce(sum(max(0,input_tokens)),0),'recorded_output_tokens',coalesce(sum(max(0,output_tokens)),0),'recorded_cost_microunits',coalesce(sum(max(0,cost_microunits)),0),'unpriced_runs',coalesce(sum(cost_microunits<0),0),'successful_provider_runs',coalesce(sum(outcome='succeeded'),0),'failed_provider_runs',coalesce(sum(outcome='failed'),0),'other_provider_runs',coalesce(sum(outcome NOT IN('succeeded','failed')),0),'interval_provider_runs',coalesce(sum(" || recent || "),0),'interval_successful_runs',coalesce(sum((" || recent || ") AND outcome='succeeded'),0),'timestamp_unknown_runs',coalesce(sum(unixepoch(completed_at) IS NULL),0)) FROM runs"
+  result=_boundscalartext(database,sql,job_id)
+  if result="" then return ""
+  uncertainty=_boundcount(database,"SELECT count(*) FROM job_items i WHERE i.job_id=?1 AND " || uncertainitem("i.item_id"),job_id)
+  incomplete=_boundcount(database,"SELECT count(*) FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1 AND EXISTS(SELECT 1 FROM job_events e WHERE e.attempt_id=a.attempt_id AND e.event_type IN('provider-observed','provider-reconciled') AND CASE WHEN json_valid(e.message) THEN coalesce(json_extract(e.message,'$.usage_complete'),0)=0 ELSE 1 END AND NOT EXISTS(SELECT 1 FROM job_events n WHERE n.attempt_id=e.attempt_id AND n.event_type IN('provider-observed','provider-reconciled') AND n.event_id>e.event_id))",job_id)
+  if uncertainty<0 | incomplete<0 then return ""
+  return substr(result,1,length(result)-1) || ',"uncertain_items":' || uncertainty || ',"incomplete_usage_observations":' || incomplete || '}'
 
 actualusage: procedure = .int
   arg database = .binary, job_id = .string, kind = .string

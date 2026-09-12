@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragwork expose recoverworkerclaims readexternalidentity readexternalobservation applyexternalobservation beginproviderrequest recordproviderresponse recoverproviderresponse citationcorrectioncontext claimnext heartbeat configurejobbudget reservecall admitprovidercall releaseprovidercall beginexternalrun updateexternalrunusage updateexternalrunturn updateexternalrunallowance completeexternalrun recoverexternalrun settlecall failattempt skipitem requestcancel acknowledgecancel pausejob resumejob drainjob retrydeadletter replaydeadletters readjobstatus runworkeronce runworkerfollow
+namespace ragwork expose jobintervaljson recoverworkerclaims readexternalidentity readexternalobservation applyexternalobservation beginproviderrequest recordproviderresponse recoverproviderresponse citationcorrectioncontext claimnext heartbeat configurejobbudget reservecall admitprovidercall releaseprovidercall beginexternalrun updateexternalrunusage updateexternalrunturn updateexternalrunallowance completeexternalrun recoverexternalrun settlecall failattempt skipitem requestcancel acknowledgecancel pausejob resumejob drainjob retrydeadletter replaydeadletters readjobstatus runworkeronce runworkerfollow
 
 import rxfnsb
 import rxjson
@@ -573,6 +573,17 @@ replaydeadletters: procedure = .int
   if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit dead-letter replay", error)
   return 0
 
+/* Item throughput is distinct from provider attempts and corpus coverage.
+ * The command composes this read with status and usage in one read snapshot. */
+jobintervaljson: procedure = .string
+  arg database = .binary, job_id = .string, observed_epoch = .int, seconds = .int
+  if job_id="" | seconds<1 | seconds>86400 then return ""
+  cutoff=observed_epoch-seconds
+  sql="SELECT json_object('observed_at',strftime('%Y-%m-%dT%H:%M:%SZ'," || observed_epoch || ",'unixepoch'),'interval_seconds'," || seconds || ",'interval_processed',coalesce(sum(state='processed' AND unixepoch(updated_at)>=" || cutoff || " AND unixepoch(updated_at)<=" || observed_epoch || "),0),'interval_skipped',coalesce(sum(state='skipped' AND unixepoch(updated_at)>=" || cutoff || " AND unixepoch(updated_at)<=" || observed_epoch || "),0)) FROM job_items WHERE job_id=?1"
+  corrected="EXISTS(SELECT 1 FROM job_events e WHERE e.item_id=i.item_id AND e.event_type='citation-correction-requested')"
+  sql="SELECT json_set((" || sql || "),'$.correction_requested_items',(SELECT count(*) FROM job_items i WHERE i.job_id=?1 AND " || corrected || "),'$.correction_processed_items',(SELECT count(*) FROM job_items i WHERE i.job_id=?1 AND i.state='processed' AND " || corrected || "),'$.interval_correction_processed',(SELECT count(*) FROM job_items i WHERE i.job_id=?1 AND i.state='processed' AND unixepoch(i.updated_at)>=" || cutoff || " AND unixepoch(i.updated_at)<=" || observed_epoch || " AND " || corrected || "))"
+  return _boundscalartext(database,sql,job_id)
+
 readjobstatus: procedure = .int
   arg store = .ragstorehandle, job_id = .string, expose status = .ragjobstatus, expose error = .string
   error = ""; status = .ragjobstatus("", "failed", 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 0.0, "", "", "", "", "", "")
@@ -580,8 +591,8 @@ readjobstatus: procedure = .int
   database = store.database(); prepared = .binary
   sql = "SELECT state,item_budget,created_at,updated_at FROM jobs WHERE job_id=?1"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, job_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "job is unavailable"; return -2; end
-  state = ""; planned = 0; created = ""; updated = ""
-  columns = sqlitecolumntext(prepared, 0, state) | sqlitecolumnint(prepared, 1, planned) | sqlitecolumntext(prepared, 2, created) | sqlitecolumntext(prepared, 3, updated)
+  state = ""; item_limit = 0; created = ""; updated = ""
+  columns = sqlitecolumntext(prepared, 0, state) | sqlitecolumnint(prepared, 1, item_limit) | sqlitecolumntext(prepared, 2, created) | sqlitecolumntext(prepared, 3, updated)
   call sqlitefinalize prepared
   if columns \= 0 then do; error = "job status is malformed"; return -3; end
   queued = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='queued'", job_id)
@@ -590,6 +601,12 @@ readjobstatus: procedure = .int
   skipped = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='skipped'", job_id)
   dead = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='dead_letter'", job_id)
   cancelled = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='cancelled'", job_id)
+  if min(queued,running,processed,skipped,dead,cancelled)<0 then do; error="cannot read consistent job item counts";return -3;end
+  planned=queued+running+processed+skipped+dead+cancelled
+  uncertain=_boundcount(database,"SELECT count(*) FROM job_items i WHERE i.job_id=?1 AND " || uncertainitem("i.item_id"),job_id)
+  window=_boundscalartext(database,"SELECT state FROM maintenance_windows WHERE job_id=?1",job_id)
+  state=lifecyclejobstate(state,queued+running,dead,cancelled,uncertain,window)
+  if state="" then do;error="cannot project job lifecycle state";return -3;end
   failures = _boundcount(database, "SELECT count(*) FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1 AND a.outcome IN('failed','expired','dead_letter')", job_id)
   current = _boundscalartext(database, "SELECT coalesce(min(item_id),'') FROM job_items WHERE job_id=?1 AND state IN('running','cancel_requested')", job_id)
   provider = _boundscalartext(database, "SELECT coalesce(max(p.provider_id),'') FROM provider_runs p JOIN attempts a ON a.provider_run_id=p.provider_run_id JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1", job_id)
@@ -597,13 +614,13 @@ readjobstatus: procedure = .int
   completed = ""
   if state = "completed" | state = "completed_with_errors" | state = "cancelled" | state = "failed" then completed = updated
   last_error = _boundscalartext(database,"SELECT validation_state FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1 AND a.outcome IN('failed','expired','dead_letter') ORDER BY a.completed_at DESC LIMIT 1",job_id)
-  if _boundcount(database,"SELECT count(*) FROM job_events e WHERE e.job_id=?1 AND e.event_type='provider-outcome-uncertain' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')",job_id) > 0 then last_error = "provider outcome uncertain: inspect durable job events before reconciliation or retry"
+  if uncertain>0 then last_error = "provider outcome uncertain: inspect durable job events before reconciliation or retry"
   waiting_reason = ""
   if state = "queued" | state = "running" then waiting_reason = _boundscalartext(database,"SELECT e.message FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id JOIN job_items i ON i.item_id=e.item_id AND i.fence=a.fence WHERE e.job_id=?1 AND e.event_type='provider-deferred' AND a.outcome='cancelled' AND i.state='queued' ORDER BY e.event_id DESC LIMIT 1",job_id)
   retry_summary = .jsondocument(jobretrysummary(database,job_id)); retry_pending = 0; retry_reason = ""
   ignored = retry_summary.node_int(retry_summary.member(retry_summary.root(),"pending"),retry_pending)
   ignored = retry_summary.node_string(retry_summary.member(retry_summary.root(),"reason"),retry_reason)
-  status = .ragjobstatus(job_id, state, planned, queued, running, processed, skipped, dead, cancelled, failures, current, provider, model, 0.0, created, created, updated, completed, last_error, "durable", waiting_reason, retry_pending, retry_reason)
+  status = .ragjobstatus(job_id, state, planned, queued, running, processed, skipped, dead, cancelled, failures, current, provider, model, 0.0, created, created, updated, completed, last_error, "durable", waiting_reason, retry_pending, retry_reason, item_limit)
   return 0
 
 runworkeronce: procedure = .int

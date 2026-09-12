@@ -12,6 +12,9 @@ graph. SQLite holds the authoritative corpus, graph and work history.
 Embeddings and rebuildable vector indexes help find evidence; similarity does
 not establish a fact.
 
+For operational diagnosis, safe retry, reasoned waivers and migration completion,
+follow the [public recovery journey](docs/public-recovery-journey.md).
+
 ## How the method works
 
 1. **Capture the sources.** Discover configured folders, retain immutable source

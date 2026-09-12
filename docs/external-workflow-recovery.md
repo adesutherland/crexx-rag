@@ -3,8 +3,9 @@
 This is the second approved follow-up after [UX-03](connection-effect-previews.md).
 It addresses the OPS-002 external-retirement portion: a correction can finish
 through public controls without launching an unrelated maintenance batch.
-Reasoned task close/waive and the combined installed recovery journey remain
-separate acceptance; this does not close OPS-002 as a whole.
+Reasoned task close/waive and the combined installed recovery journey are
+recorded in the [third follow-up](public-recovery-journey.md); neither local slice
+closes broader OPS-002 operator/platform qualification.
 
 ## Public journey
 
@@ -25,7 +26,9 @@ MCP uses `rag_workflow_reconcile_preview` with plan access and
 `rag_workflow_reconcile` with curate access and `expect_generation`.
 The CLI uses the same catalogue and service. Preview has no writes; apply is
 transactional and generation-checked. Repeating reconciliation cannot duplicate
-a task or publication. A completed workflow is an operational no-op.
+a task or publication. A completed workflow is an operational no-op. The third follow-up also recovers
+an old unfinished marker when a published retirement record, empty impact and
+all normal holds prove completion is safe; it publishes no new generation.
 
 `reconcile-connections` means remaining objects still need their own decisions.
 `queue-retirement` means the census permits a retirement question, not that the

@@ -6,6 +6,11 @@ starting at `1ebee11`. Each stage confirms coverage before product edits,
 extends missing tests, passes the complete local regression workflow, updates
 the user and architecture documentation, and is committed separately.
 
+The approved follow-ups retain these owners: UX-03 connection previews and
+UX-04 targeted workflow closure each passed a full 59/59 gate. The third
+[public recovery slice](public-recovery-journey.md) extends lifecycle and query
+owners with waiver/reopen and consistent observations. Its final full gate passed **59/59 in 1238.52 seconds**; the frozen installed replay also passed.
+
 ## Scope and operator interface
 
 `crexxrag.conf` remains the single operator policy entry point. Referenced

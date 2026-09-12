@@ -417,3 +417,21 @@ A false value omits the enabling flag. Argument schema violations return JSON-RP
 `-32602`; domain failures remain structured command results. Tool inspection
 requires no library access or provider call. Capability filtering and runtime
 authorization both remain enforced.
+
+## Public recovery observations and dispositions
+
+`rag_job_status({id, seconds})` observes actual items separately from the item
+allowance and records usage/uncertainty and interval outcomes in one snapshot.
+Use `rag_job_items` and `rag_task_list` to discover task IDs; inspect evidence
+and retry dispositions with `rag_maintain_inspect`. With existing user authority
+and control access, `rag_task_waive({id, reason})` accepts leaving an exact
+question unfinished after its workers and reviews are settled. It retains
+missing coverage, attempts and unknown outcomes. `rag_task_retry` reopens the
+waiver under the original limits. Neither grants renewal or blind provider
+replay. Workflow reconciliation can complete an old unfinished marker when
+retained published retirement history and all normal holds permit it.
+
+Follow the [public recovery journey](public-recovery-journey.md), including
+report reconciliation and paged discovery. Prefer these supported commands to
+SQL or per-run repair scripts. Corpus changes retain their existing plan/review
+contract; operational dispositions do not establish facts or successful coverage.

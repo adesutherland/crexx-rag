@@ -70,7 +70,7 @@ metadata directly.
 | `controller_recovery` | eight overlapping native Codex workers; one command recovers confirmed interruption and completed output, replaces optional-cleanup failure, isolates unavailable history, and keeps healthy peers running after three failures exhaust two replacements; exact call counts, unchanged budgets and released ownership |
 | `gemini_ingestion` | Gemini request/response mapping, compact gap-free LF/CR/CRLF normalization maps, durable work, claims, embeddings, vector publication, replay and failure paths |
 | `gemini_extraction_validation` | invalid UTF-8 spans, unknown concept/relationship types and malformed extraction output dead-letter without product mutation or secret disclosure |
-| `provider_durability` | exact/conflicting raw response duplicates, reservation recovery, Codex turns, fencing, completed-turn reuse, durable cross-process admission, no false call record on preflight failure, immutable replay lineage, backlog reconciliation, and schema 1-to-14 migration with historic-cost backfill and prospective-transition auditing |
+| `provider_durability` | exact/conflicting raw response duplicates, reservation recovery, Codex turns, fencing, completed-turn reuse, durable cross-process admission, no false call record on preflight failure, immutable replay lineage, backlog reconciliation, and schema 1-to-15 migration with historic-cost backfill and prospective-transition auditing |
 | `codex_protocol` | App Server initialize/account/turn/schema/usage/cleanup over JSONL; shared deadlines despite unrelated notifications and fragmented lines before and after submission; 17,000 account cycles exceed the old 65,535-ticket ceiling |
 | `codex_application` | public Codex extraction, worker-crash recovery from a persisted completed turn, duplicate-turn prevention, validation, allowance settlement and library verification |
 | `gemini_maintenance` | hosted-style maintenance, glossary-drift rejection, durable cognitive notes, ANN publication/reuse, provider/profile discovery and external proposal review/promotion |
@@ -199,7 +199,7 @@ recovery temporary; reconstruction and vector retrieval succeed with zero
 provider runs. The public query fixture also exercises `vector rebuild`,
 read-capability rejection, idempotent replay, and invalid-hybrid preflight
 without any provider calls. The migration fixture retains the earlier schema-1/6/8 upgrades, checks
-schema-13 task inspection, then opens that bundle through the ordinary write path and requires a schema-14 aligned manifest.
+schema-13 and schema-14 task inspection with retained retry history, then opens that bundle through the ordinary write path and requires a schema-15 aligned manifest.
 
 Maintenance methodology distinguishes successful and failed items within a
 mixed-result job and recognizes embeddings repaired in a later generation.
@@ -283,3 +283,23 @@ checks retain their one-second window. This harness lifetime is independent of
 product request timeouts and retry/backoff policy. `native_surfaces` deliberately
 delays preparation for eleven seconds to protect this boundary. Exact request
 counts, malformed-output, timeout and coverage assertions remain required.
+
+## Public recovery follow-up
+
+`native_lifecycle` and `native_lifecycle_holds` exercise actual counts, bounded
+intervals and provider totals in active/terminal observations, public report
+reconciliation, CLI/MCP waiver and retry, active ownership/access/reason denial,
+unknown outcomes, retained ceilings and missing coverage. `regression_lifecycle`
+checks immutable waiver/reopen cycles; `provider_durability` checks read-only
+13/14 compatibility and ordinary migration to 15 without rewriting history.
+`durable_backlog` adds legacy retired-parent reconciliation on both VMs and the
+native command path. `durable_backlog_provider` uses real correction outcomes
+to check public requested/processed correction counts. Required baseline reds
+and final exact-artifact results are in [the recovery record](public-recovery-journey.md).
+
+For local wall-time qualification on a Mac that may enter idle sleep,
+`caffeinate -i ctest --preset debug --output-on-failure` keeps the host awake
+only for that test process. It changes no product or CTest timeout. A real
+392-second idle sleep interrupted the recovery follow-up's first full run;
+retain that failure and repeat the full gate on the unchanged artifact, rather
+than interpreting a suspended host as an ordinary concurrency measurement.

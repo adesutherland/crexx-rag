@@ -516,6 +516,8 @@ add_test(NAME durable_backlog
         "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
         "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
         "-DCPRAG_PLUGIN_DIR=${CREXXRAG_SQLITE_PROVIDER_DIR}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
         "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/backlog_scenario.crexx"
         "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-durable-backlog"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/DurableBacklog.cmake")

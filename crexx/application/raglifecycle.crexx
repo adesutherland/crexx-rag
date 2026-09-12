@@ -1,6 +1,6 @@
 options levelg
 
-namespace raglifecycle expose activeworkfence terminaljob lifecyclejobstate refreshlifecyclejob retrydisposition recordretryrequest setretrydisposition retryrequestjson jobretrysummary uncertainitem retryfamilyhold
+namespace raglifecycle expose activeworkfence terminaljob lifecyclejobstate refreshlifecyclejob retrydisposition recordretryrequest setretrydisposition retryrequestjson jobretrysummary uncertainitem retryfamilyhold recordtaskwaiver taskwaived taskwaiverjson taskwaiveractive taskwaivercount
 
 import rxfnsb
 import rxhash
@@ -85,6 +85,55 @@ retryfamilyhold: procedure = .string
   if completed>0 then return "already-complete"
   return ""
 
+/* A waiver stops this durable question, not its missing corpus coverage.
+ * Callers own the writer transaction; active work/review must be settled first. */
+recordtaskwaiver: procedure = .int
+  arg database = .binary, task_id = .string, reason = .string, expose waiver_id = .string, expose error = .string
+  waiver_id="";error=""
+  if task_id="" | strip(reason)="" | length(reason)>256 | pos("00"x,reason)>0 then do; error="waiver requires one task and an explicit reason of 1 through 256 characters"; return -1; end
+  state=_text(database,"SELECT state FROM maintenance_tasks WHERE task_id=" || _q(task_id))
+  if state="" then do; error="task was not found"; return -1; end
+  if wordpos(state,"resolved superseded")>0 then do; error="completed or superseded tasks do not need a waiver"; return -1; end
+  owned=_number(database,"SELECT count(*) FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=" || _q(task_id) || " AND i.state IN('queued','running','cancel_requested')")
+  reviews=_number(database,"SELECT count(*) FROM reviews WHERE subject_id=" || _q(task_id) || " AND state='pending'")
+  if owned<>0 | reviews<>0 then do; error="settle active worker ownership and pending reviews before waiving a task"; return -1; end
+  waiver_id=_text(database,"SELECT waiver_id FROM maintenance_task_waivers WHERE task_id=" || _q(task_id) || " AND state='active'")
+  if waiver_id<>"" then return 0
+  sequence=_number(database,"SELECT count(*) FROM maintenance_task_waivers WHERE task_id=" || _q(task_id))
+  if sequence<0 then do; error="cannot inspect task waiver history"; return -1; end
+  waiver_id="waiver:" || rxhash..sha256hex((task_id || "00"x || sequence) as .binary)
+  sql="INSERT INTO maintenance_task_waivers(waiver_id,task_id,reason,state,created_epoch) VALUES(" || _q(waiver_id) || "," || _q(task_id) || "," || _q(reason) || ",'active',unixepoch())"
+  if sqliteexec(database,sql)<>0 then do; error="cannot retain task waiver"; return -1; end
+  request=_text(database,"SELECT request_id FROM retry_requests WHERE task_id=" || _q(task_id) || " AND state='pending'")
+  if request<>"" then if setretrydisposition(database,request,"waived")<>0 then do; error="cannot close the pending retry with its waiver"; return -1; end
+  return 0
+
+/* SQL expressions come from owning source code, never command input. */
+taskwaived: procedure = .string
+  arg task_expression = .string
+  return "EXISTS(SELECT 1 FROM maintenance_task_waivers v WHERE v.task_id=" || task_expression || " AND v.state='active')"
+
+taskwaiverjson: procedure = .string
+  arg database = .binary, task_id = .string
+  if _number(database,"SELECT schema_version FROM library_meta WHERE singleton=1")<15 then return "null"
+  result=_text(database,"SELECT json_object('waiver_id',waiver_id,'state',state,'operator_disposition',CASE state WHEN 'active' THEN 'waived' ELSE 'open' END,'reason',reason,'created_epoch',created_epoch,'reopened_epoch',reopened_epoch,'retry_request_id',retry_request_id) FROM maintenance_task_waivers WHERE task_id=" || _q(task_id) || " ORDER BY created_epoch DESC,rowid DESC LIMIT 1")
+  if result="" then return "null"
+  return result
+
+taskwaiveractive: procedure = .int
+  arg database = .binary, task_id = .string
+  version=_number(database,"SELECT schema_version FROM library_meta WHERE singleton=1")
+  if version<0 then return -1
+  if version<15 then return 0
+  return _number(database,"SELECT count(*) FROM maintenance_task_waivers WHERE task_id=" || _q(task_id) || " AND state='active'")
+
+taskwaivercount: procedure = .int
+  arg database = .binary
+  version=_number(database,"SELECT schema_version FROM library_meta WHERE singleton=1")
+  if version<0 then return -1
+  if version<15 then return 0
+  return _number(database,"SELECT count(*) FROM maintenance_task_waivers WHERE state='active'")
+
 recordretryrequest: procedure = .int
   arg database = .binary, task_id = .string, item_id = .string, reason = .string, expose request_id = .string, expose accepted = .int, expose error = .string
   request_id = ""; accepted = 0; error = ""
@@ -93,6 +142,8 @@ recordretryrequest: procedure = .int
   if task_id \= "" then do
     selector = "task_id=" || _q(task_id)
     version = _text(database,"SELECT evidence_fingerprint||':'||attempt_count FROM maintenance_tasks WHERE " || selector)
+    latest_waiver=_text(database,"SELECT waiver_id FROM maintenance_task_waivers WHERE task_id=" || _q(task_id) || " ORDER BY created_epoch DESC,rowid DESC LIMIT 1")
+    if version<>"" & latest_waiver<>"" then version=version || ":after-waiver:" || latest_waiver
     task_value = _q(task_id); item_value = "NULL"
   end
   else do
@@ -113,12 +164,16 @@ recordretryrequest: procedure = .int
   end
   accepted = _number(database,"SELECT changes()")
   if accepted < 0 then do; error = "cannot read retry acceptance"; return -1; end
+  if task_id<>"" then do
+    sql="UPDATE maintenance_task_waivers SET state='reopened',reopened_epoch=unixepoch(),retry_request_id=" || _q(request_id) || " WHERE task_id=" || _q(task_id) || " AND state='active'"
+    if sqliteexec(database,sql)<>0 then do; error="cannot reopen the retained task waiver"; return -1; end
+  end
   return 0
 
 setretrydisposition: procedure = .int
   arg database = .binary, request_id = .string, disposition = .string
   state = "pending"
-  if disposition = "already-complete" | disposition = "superseded" then state = "completed"
+  if disposition = "already-complete" | disposition = "superseded" | disposition = "waived" then state = "completed"
   return sqliteexec(database,"UPDATE retry_requests SET state=" || _q(state) || ",disposition=" || _q(disposition) || ",updated_epoch=unixepoch() WHERE request_id=" || _q(request_id) || " AND state='pending' AND (state<>" || _q(state) || " OR disposition<>" || _q(disposition) || ")")
 
 retryrequestjson: procedure = .string

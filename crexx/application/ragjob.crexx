@@ -8,6 +8,7 @@ ragjobstatus: class
   _job_id = .string
   _state = .string
   _planned_total = .int
+  _item_limit = .int
   _queued = .int
   _running = .int
   _processed = .int
@@ -30,10 +31,11 @@ ragjobstatus: class
   _retry_reason = .string
 
   *: factory
-    arg job_id = .string, state = .string, planned_total = .int, queued = .int, running = .int, processed = .int, skipped = .int, dead_letter = .int, cancelled = .int, failed_attempts = .int, current_item = .string, provider = .string, model = .string, throughput_per_second = .float, created_at = .string, started_at = .string, updated_at = .string, completed_at = .string, last_error = .string, artifact_state = .string, waiting_reason = "", retry_pending = 0, retry_reason = ""
+    arg job_id = .string, state = .string, planned_total = .int, queued = .int, running = .int, processed = .int, skipped = .int, dead_letter = .int, cancelled = .int, failed_attempts = .int, current_item = .string, provider = .string, model = .string, throughput_per_second = .float, created_at = .string, started_at = .string, updated_at = .string, completed_at = .string, last_error = .string, artifact_state = .string, waiting_reason = "", retry_pending = 0, retry_reason = "", item_limit = 0
     _job_id = job_id
     _state = state
     _planned_total = planned_total
+    _item_limit = item_limit
     _queued = queued
     _running = running
     _processed = processed
@@ -60,6 +62,8 @@ ragjobstatus: class
     return _job_id
   state: method = .string
     return _state
+  item_limit: method = .int
+    return _item_limit
   planned_total: method = .int
     return _planned_total
   queued: method = .int

@@ -548,7 +548,29 @@ means eligible for normal admission, not a grant of additional budget.
 closes only the request, without counting the task as completed coverage.
 Attempts, receipts, usage, old items and window deadlines remain intact.
 
+To accept leaving an exact durable question unfinished, first settle active
+workers and pending reviews, then use:
+
+```sh
+crexxrag --access control maintain waive TASK_ID --reason 'Accept this missing result'
+crexxrag --access read maintain inspect TASK_ID
+```
+
+The waiver retains the task outcome, missing coverage, reason, attempts and
+provider uncertainty. A repeat keeps the original reason and ID. Explicit
+`maintain retry` reopens it under existing limits. The full
+[public recovery journey](public-recovery-journey.md) combines diagnosis,
+reconciliation, retry, waiver and external workflow completion.
+
 ## Jobs
+
+`job status JOB_ID --seconds 300` reads a consistent observation (1–86400
+seconds, default 300). `planned_total` counts actual items and equals the six
+reported state counts; `item_limit` is the separate allowance. Recorded provider
+runs/token/cost totals, incomplete observations and uncertain outcomes remain
+separate from corpus coverage. Interval throughput and correction-requested /
+correction-processed counts distinguish attempted calls from accepted work.
+
 
 List jobs with `job list --limit 100`, following the final `page` record's
 `next_cursor`. The limit counts data rows; a cursor is additional metadata.

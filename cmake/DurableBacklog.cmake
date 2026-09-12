@@ -1,5 +1,5 @@
 foreach(required_var CPRAG_RXC CPRAG_RXAS CPRAG_RXVME CPRAG_RXBVM
-        CPRAG_CREXX_BIN_DIR CPRAG_APPLICATION_DIR CPRAG_PLUGIN_DIR CPRAG_SCENARIO CPRAG_WORK_DIR)
+        CPRAG_CREXX_BIN_DIR CPRAG_APPLICATION_DIR CPRAG_PLUGIN_DIR CPRAG_SCENARIO CPRAG_WORK_DIR CPRAG_NATIVE_APPLICATION CPRAG_CONFIG_FIXTURE)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
         message(FATAL_ERROR "${required_var} is required")
     endif()
@@ -49,6 +49,58 @@ foreach(runtime_name IN ITEMS rxvme rxbvm)
         message(FATAL_ERROR "${runtime_name} durable backlog failed:\n${run_out}${run_err}")
     endif()
 endforeach()
+
+# Replay the old unfinished marker through the shipped native command path.
+# SQL only represents historical state and checks retained facts.
+find_program(sqlite_cli sqlite3 REQUIRED)
+set(database "${CPRAG_WORK_DIR}/library-rxbvm/library.sqlite")
+set(native "${CPRAG_NATIVE_APPLICATION}" --library "${CPRAG_WORK_DIR}/library-rxbvm"
+    --config-file "${CPRAG_CONFIG_FIXTURE}" --profile it-architecture-profile --format json)
+set(facts "SELECT (SELECT published_generation FROM library_meta)||':'||(SELECT count(*) FROM maintenance_tasks)||':'||(SELECT count(*) FROM provider_runs)||':'||(SELECT count(*) FROM source_revisions)||':'||(SELECT count(*) FROM attempts)||':'||(SELECT count(*) FROM reviews);")
+execute_process(COMMAND "${sqlite_cli}" "${database}" "${facts}"
+    OUTPUT_VARIABLE before OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND "${sqlite_cli}" "${database}"
+    "UPDATE maintenance_workflows SET state='migrating',completed_generation=NULL WHERE workflow_id='closure-workflow';"
+    COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND ${native} --access read maintain workflows --concept "Platform closure"
+    RESULT_VARIABLE result OUTPUT_VARIABLE inventory ERROR_VARIABLE errors TIMEOUT 30)
+if(NOT result EQUAL 0)
+    message(FATAL_ERROR "Native workflow discovery failed: ${inventory}${errors}")
+endif()
+string(JSON count LENGTH "${inventory}" records)
+math(EXPR last "${count}-1")
+set(workflow "")
+foreach(i RANGE 0 ${last})
+    string(JSON kind GET "${inventory}" records ${i} kind)
+    if(kind STREQUAL "maintenance-workflow")
+        string(JSON detail GET "${inventory}" records ${i} fields detail)
+        string(JSON workflow GET "${detail}" workflow_id)
+    endif()
+endforeach()
+if(NOT workflow STREQUAL "closure-workflow")
+    message(FATAL_ERROR "Native discovery omitted the named workflow: ${inventory}")
+endif()
+execute_process(COMMAND ${native} --access plan maintain reconcile "${workflow}"
+    RESULT_VARIABLE result OUTPUT_VARIABLE preview ERROR_VARIABLE errors TIMEOUT 30)
+if(NOT result EQUAL 0 OR NOT preview MATCHES "complete-retired-workflow")
+    message(FATAL_ERROR "Native old workflow preview failed: ${preview}${errors}")
+endif()
+string(JSON generation GET "${preview}" records 0 fields generation)
+foreach(repetition RANGE 1 2)
+    execute_process(COMMAND ${native} --access curate maintain reconcile "${workflow}" --apply --expect-generation "${generation}"
+        RESULT_VARIABLE result OUTPUT_VARIABLE applied ERROR_VARIABLE errors TIMEOUT 30)
+    if(NOT result EQUAL 0 OR NOT applied MATCHES "complete")
+        message(FATAL_ERROR "Native old workflow completion failed: ${applied}${errors}")
+    endif()
+endforeach()
+execute_process(COMMAND "${sqlite_cli}" "${database}" "${facts}"
+    OUTPUT_VARIABLE after OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND "${sqlite_cli}" "${database}"
+    "SELECT state||':'||(completed_generation=(SELECT max(generation) FROM concept_versions WHERE concept_id='closure-parent' AND lifecycle_state='retired')) FROM maintenance_workflows WHERE workflow_id='closure-workflow';"
+    OUTPUT_VARIABLE state OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+if(NOT before STREQUAL after OR NOT state STREQUAL "complete:1")
+    message(FATAL_ERROR "Native workflow recovery changed history or published again: ${before}, ${after}, ${state}")
+endif()
 
 file(WRITE "${CPRAG_WORK_DIR}/result.txt"
     "Durable backlog passed task deduplication, fenced split fan-out, window resume, mention migration, stale-answer rejection, uncertainty and source preservation on both VMs.\n")

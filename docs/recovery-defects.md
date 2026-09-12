@@ -4,6 +4,15 @@ Start with the [consolidated roadmap](ROADMAP.md) for cross-project priorities,
 current status and related query, configuration and agent findings. This file
 retains the complete operational requirements and dated incident evidence.
 
+## Current local implementation — 12 September 2026
+
+The [public recovery follow-up](public-recovery-journey.md) adds reasoned
+waiver/reopen controls, consistent status/usage/interval observations and old
+workflow-marker recovery. Tests reproduce each gap first; the final local gate passed
+**59/59 in 1238.52 seconds**, with frozen installed recovery replay also passing. The original requirements and incident accounts below remain evidence,
+not claims that their dated live runs are still underway. Broader fresh-operator,
+hosted, platform and long-run closure remains open; OPS-005 renewal is separate.
+
 ## RAG-OPS-001 — P1: routine launch and recovery must be product operations
 
 Status: open, high-priority backlog requirement raised by the user on

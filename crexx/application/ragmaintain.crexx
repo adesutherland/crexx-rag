@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragmaintain expose ragmaintenancecensus ragmaintenanceapplyresult buildmaintenancecensus persistmaintenance refreshmaintenance applylifecycleaction ensuremaintenancejob recordmaintenanceembeddingitems lifecycleimpact applylifecycletransaction applyconnectiontransaction applysupporttransaction connectioneffects workflowholds retirementready
+namespace ragmaintain expose ragmaintenancecensus ragmaintenanceapplyresult buildmaintenancecensus persistmaintenance refreshmaintenance applylifecycleaction ensuremaintenancejob recordmaintenanceembeddingitems lifecycleimpact applylifecycletransaction applyconnectiontransaction applysupporttransaction connectioneffects workflowholds retirementready publishedretirement
 
 import rxfnsb
 import rxjson
@@ -460,6 +460,17 @@ workflowholds: procedure = .int
   if min(owned,reviews,legacy,uncertain)<0 then do; error="cannot inspect workflow retirement holds"; return -1; end
   reviews=reviews+legacy
   return 0
+
+/* Older publishers could retire the graph without completing its workflow.
+ * Require a matching retained final version; never infer or republish it. */
+publishedretirement: procedure = .int
+  arg database = .binary, concept_id = .string, expose generation = .int, expose error = .string
+  generation=0;error=""
+  lifecycle=_boundtext(database,"SELECT lifecycle_state FROM concepts WHERE concept_id=?1",concept_id)
+  if lifecycle<>"retired" then return 0
+  generation=_boundint(database,"SELECT coalesce(max(v.generation),0) FROM concepts c JOIN concept_versions v ON v.concept_id=c.concept_id WHERE c.concept_id=?1 AND c.lifecycle_state='retired' AND v.lifecycle_state='retired' AND v.version=(SELECT max(version) FROM concept_versions WHERE concept_id=c.concept_id) AND v.generation<=(SELECT published_generation FROM library_meta WHERE singleton=1)",concept_id)
+  if generation<1 then do;error="retired workflow parent has no matching published retirement history";return -1;end
+  return 1
 
 retirementready: procedure = .int
   arg database = .binary, concept_id = .string, maintenance_item_id = .string, expose error = .string

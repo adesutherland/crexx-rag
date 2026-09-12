@@ -5,6 +5,8 @@ namespace ragoperationsquery expose readtaskpage operatordiagnostics jobstatusco
 import ragbacklog
 import ragjob
 import ragwork
+import ragusage
+import raglifecycle
 import ragrepository
 import ragsupervision
 import rxjson
@@ -66,6 +68,7 @@ readtaskpage: procedure = .ragcommandresult
     if length(detail)>65535 & operation="maintain.evidence" then do
       detail=sqlreadtext(database,"SELECT json_set(json_remove(" || sqlquote(detail) || ",'$.text'),'$.text_omitted',json('true'),'$.text_read_tool','rag_citation_show','$.inventory_tool','rag_task_evidence_inventory')")
     end
+    if operation="maintain.tasks" then detail=sqlreadtext(database,"SELECT json_set(" || sqlquote(detail) || ",'$.waiver',json(" || sqlquote(taskwaiverjson(database,row_id)) || "))")
     if detail="" | length(detail)>65535 then do; error = "task page entry exceeds response bound; inspect the paged evidence inventory"; leave; end
     fields = .ragresultfield[]; fields[1] = .ragresultfield("id","string",row_id); fields[2] = .ragresultfield("detail","string",detail)
     records[records.0+1] = .ragresultrecord("maintenance-task-page-item",fields); returned = returned+1; previous = row_id
@@ -174,15 +177,25 @@ jobstatuscommand: procedure = .ragcommandresult
   arg request = .ragcommandrequest
   operation = request.operation(); error = ""
   if commandhasaccess(request, "read") \= 1 then return commandfailure(operation, 4, "job status requires read access")
-  if commandoptions(request, "id", error) \= 0 then return commandfailure(operation, 2, error)
+  if commandoptions(request, "id seconds", error) \= 0 then return commandfailure(operation, 2, error)
   job_id = commandid(request, error)
   if error \= "" | job_id = "" then return commandfailure(operation, 2, "job status requires one job id")
-  store = .ragstorehandle
-  if openragstore(request.library(), "readonly", store, error) \= 0 then return commandopenfailure(operation, error)
+  seconds_text=commandoption(request,"seconds",error)
+  if seconds_text="" then seconds_text="300"
+  if commandunsigned(seconds_text)<>1 | length(seconds_text)>5 then return commandfailure(operation,2,"status interval requires --seconds from 1 through 86400")
+  seconds=seconds_text as .int
+  if seconds<1 | seconds>86400 then return commandfailure(operation,2,"status interval requires --seconds from 1 through 86400")
+  view=.ragreadsnapshot
+  if beginreadsnapshot(request.library(),view,error)<>0 then return commandopenfailure(operation,error)
+  store=.ragstorehandle(view.database(),request.library(),"readonly")
+  observed=sqlreadint(view.database(),"SELECT unixepoch()")
   status = .ragjobstatus; read_status = readjobstatus(store, job_id, status, error)
   supervision = readsupervision(store,job_id,error)
-  if error \= "" then read_status = -1
-  ignored = ""; close_status = closeragstore(store, ignored)
+  if error <> "" then read_status = -1
+  usage=jobusagejson(view.database(),job_id,observed,seconds)
+  interval=jobintervaljson(view.database(),job_id,observed,seconds)
+  if usage="" | interval="" then do;error="cannot read job usage or observation interval";read_status=-1;end
+  ignored = ""; close_status = closereadsnapshot(view, ignored)
   if read_status = -2 then return commandfailure(operation, 5, "job was not found")
   if read_status \= 0 | close_status \= 0 then return commandfailure(operation, 7, error)
   fields = .ragresultfield[]
@@ -209,6 +222,24 @@ jobstatuscommand: procedure = .ragcommandresult
   end
   reason = ""; ignored = recovery.node_string(recovery.member(recovery.root(),"waiting_reason"),reason)
   fields[fields.0+1] = .ragresultfield("worker_waiting_reason","string",reason)
+  fields[fields.0+1]=.ragresultfield("item_limit","integer",status.item_limit())
+  usage_document=.jsondocument(usage);interval_document=.jsondocument(interval)
+  names="recorded_provider_runs recorded_input_tokens recorded_output_tokens recorded_cost_microunits unpriced_runs successful_provider_runs failed_provider_runs other_provider_runs interval_provider_runs interval_successful_runs timestamp_unknown_runs uncertain_items incomplete_usage_observations"
+  do i=1 to words(names)
+    name=word(names,i);value=0;ignored=usage_document.node_int(usage_document.member(usage_document.root(),name),value)
+    fields[fields.0+1]=.ragresultfield(name,"integer",value)
+  end
+  names="interval_seconds interval_processed interval_skipped correction_requested_items correction_processed_items interval_correction_processed"
+  processed=0
+  do i=1 to words(names)
+    name=word(names,i);value=0;ignored=interval_document.node_int(interval_document.member(interval_document.root(),name),value)
+    if name="interval_processed" then processed=value
+    fields[fields.0+1]=.ragresultfield(name,"integer",value)
+  end
+  observed_at="";ignored=interval_document.node_string(interval_document.member(interval_document.root(),"observed_at"),observed_at)
+  fields[fields.0+1]=.ragresultfield("observed_at","string",observed_at)
+  fields[fields.0+1]=.ragresultfield("processed_per_minute","string",(processed as .float)*60.0/(seconds as .float))
+  fields[fields.0+1]=.ragresultfield("usage_basis","string","recorded provider runs; unknown outcomes and unpriced usage remain explicit")
   records = .ragresultrecord[]; records[1] = .ragresultrecord("job-status", fields)
   return .ragcommandresult(operation, "ok", 0, "bounded durable job status", records)
 jobplancommand: procedure = .ragcommandresult

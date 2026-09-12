@@ -51,7 +51,8 @@ OPS-002 external lifecycle closure, followed by the combined public recovery
 journey under OPS-001/003. UX-03 and UX-04 have now each passed the full 59/59
 local gate; see [connection effect previews](connection-effect-previews.md) and
 [external workflow recovery](external-workflow-recovery.md). The combined
-operator journey is the next slice. Each follow-up
+operator journey is implemented for local qualification; see
+[public recovery](public-recovery-journey.md). Its final full gate passed **59/59 in 1238.52 seconds**, alongside the frozen installed replay. Each follow-up
 confirms coverage before code and requires the full green gate before commit.
 
 Sections 1–6 below retain their original coverage checkpoints and completion

@@ -163,7 +163,7 @@ The module does not own settlement, worker replacement or provider rate limits.
 from `last_error`; it clears when that item is reclaimed or stops waiting.
 
 `raglifecycle` owns shared terminal-state projection, retry eligibility and the
-schema-14 retry-request ledger. A request targets one task or ordinary item,
+schema-14 retry-request ledger, extended by the schema-15 waiver ledger. A request targets one task or ordinary item,
 is deduplicated across process restarts, and records a pending/completed state
 and disposition. Its creation and the owner's reconsideration run in one
 SQLite writer transaction. `ragwork` retains leases, fences and same-job
@@ -173,6 +173,18 @@ A request cannot reopen a closed window, reset attempts, renew an allowance,
 resume a pause/cancellation or erase an uncertain provider intent. See
 [lifecycle recovery](lifecycle-recovery.md) for the contract and qualification.
 
+Reasoned operational closure is owned by `raglifecycle`: it retains a separate
+waiver record and only an explicit retry reopens it. `ragbacklog` wraps the
+writer transaction and applies the same waiver predicate to dispatch and
+external proposals. Corpus coverage, original outcomes and attempt ceilings
+are independent of this disposition. `ragwork` supplies actual item counts and
+correction intervals; `ragusage` supplies recorded usage and its unknowns.
+`ragoperationsquery` reads these with supervision under one read snapshot.
+`ragreportservice` uses one named disposition projection in both report context
+and cache comparison, preserving the earlier durable array. Old workflow-marker
+recovery composes `ragmaintain.publishedretirement` with the existing backlog
+census. See [the public recovery contract](public-recovery-journey.md).
+
 `ragreceipts` owns request intent, immutable responses, stored external identity
 and exact-outcome reconciliation. `ragusage` owns incurred usage, settlement,
 admission release, expired reservations and unknown-usage allowance. Both use
@@ -180,7 +192,7 @@ admission release, expired reservations and unknown-usage allowance. Both use
 `raglifecycle`, without importing the worker implementation. `ragwork` composes
 these services with claims and fenced publication; its existing function entry
 points remain delegates. A cREXX caller using worker value types imports
-`ragworktypes` explicitly. No public command or stored schema changes.
+`ragworktypes` explicitly. That receipt/usage extraction itself made no public command or stored schema changes.
 
 Receipt persistence failure is an uncertainty hold, not a content rejection.
 Known usage is retained on the original provider run, while independently saved

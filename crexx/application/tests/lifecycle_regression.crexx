@@ -116,6 +116,30 @@ main: procedure = .int
   errors = errors + check(number(database,"SELECT count(*) FROM job_replay_items WHERE source_item_id='replay-root'")=1,"one immutable replay lineage")
   errors = errors + check(sqliteexec(database,"UPDATE retry_requests SET reason='changed'")\=0,"request reason immutable")
   errors = errors + check(sqliteexec(database,"DELETE FROM retry_requests")\=0,"request history immutable")
+  /* Operational waiver history is separate from completion and retry limits. */
+  errors=errors+check(sqliteexec(database,"INSERT INTO maintenance_tasks(task_id,kind,subject_type,subject_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch) VALUES('task:waiver','fixture','chunk','fixture','evidence','policy','{}','fixture question','failed',1,0,0)")=0,"waiver task fixture")
+  errors=errors+check(sqliteexec(database,"BEGIN IMMEDIATE")=0,"begin waiver ledger fixture")
+  waiver="";again=""
+  errors=errors+check(recordtaskwaiver(database,"task:waiver","",waiver,error)<>0,"waiver needs an explicit reason")
+  errors=errors+check(sqliteexec(database,"INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) VALUES('waiver-review','fixture','task:waiver','pending','{}','fixture')")=0,"waiver pending review fixture")
+  errors=errors+check(recordtaskwaiver(database,"task:waiver","not while reviewing",waiver,error)<>0,"waiver cannot bypass pending review")
+  errors=errors+check(sqliteexec(database,"UPDATE reviews SET state='dismissed' WHERE review_id='waiver-review'")=0,"settle waiver review")
+  errors=errors+check(recordtaskwaiver(database,"task:waiver","keep missing coverage explicit",waiver,error)=0,"record explicit waiver " || error)
+  errors=errors+check(recordtaskwaiver(database,"task:waiver","duplicate reason",again,error)=0 & waiver=again,"waiver idempotence")
+  errors=errors+check(pos('keep missing coverage explicit',taskwaiverjson(database,"task:waiver"))>0 & number(database,"SELECT count(*) FROM maintenance_tasks WHERE task_id='task:waiver' AND state='failed' AND attempt_count=0")=1,"waiver preserves original reason and task outcome")
+  errors=errors+check(sqliteexec(database,"UPDATE maintenance_task_waivers SET reason='changed'")<>0 & sqliteexec(database,"DELETE FROM maintenance_task_waivers")<>0,"waiver identity and history are immutable")
+  reopened="";accepted=0
+  errors=errors+check(recordretryrequest(database,"task:waiver","","explicit reconsideration",reopened,accepted,error)=0 & accepted=1,"retry reopens waived question " || error)
+  errors=errors+check(pos('reopened',taskwaiverjson(database,"task:waiver"))>0,"reopen retains the waiver")
+  duplicate=""
+  errors=errors+check(recordretryrequest(database,"task:waiver","","repeat reconsideration",duplicate,accepted,error)=0 & duplicate=reopened & accepted=0,"reopened retry identity survives repeats")
+  second_waiver=""
+  errors=errors+check(recordtaskwaiver(database,"task:waiver","close again with history",second_waiver,error)=0 & second_waiver<>waiver,"later waiver has a distinct retained identity")
+  errors=errors+check(number(database,"SELECT count(*) FROM retry_requests WHERE task_id='task:waiver' AND state='completed' AND disposition='waived'")=1,"waiver closes the old retry without deleting it")
+  second_retry=""
+  errors=errors+check(recordretryrequest(database,"task:waiver","","reconsider again",second_retry,accepted,error)=0 & second_retry<>reopened & accepted=1,"new waiver can reopen without changing evidence or attempts")
+  errors=errors+check(number(database,"SELECT count(*) FROM maintenance_task_waivers WHERE task_id='task:waiver' AND state='reopened'")=2 & number(database,"SELECT attempt_count FROM maintenance_tasks WHERE task_id='task:waiver'")=0,"all closure history and attempt ceilings remain")
+  errors=errors+check(sqliteexec(database,"COMMIT")=0,"commit waiver ledger fixture")
   errors = errors + check(number(database,"SELECT count(*) FROM provider_runs")=0,"no fabricated provider calls")
   errors = errors + check(number(database,"SELECT count(*) FROM pragma_foreign_key_check")=0,"foreign keys intact")
   errors = errors + check(closeragstore(store,error)=0,"close " || error)

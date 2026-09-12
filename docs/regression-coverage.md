@@ -12,6 +12,15 @@ delivery record; golden data was captured before product changes.
 
 ## Current status — 12 September 2026
 
+The third follow-up extends native recovery with actual denominators, interval
+usage, CLI/MCP waiver/reopen, active-work/access/reason denial, unchanged missing
+coverage and retained uncertainty. Both-VM owner tests cover immutable history
+and schema-14 compatibility; workflow recovery also uses native discovery and
+reconciliation. Real correction provider fixtures assert public outcome counts.
+See [the public recovery evidence](public-recovery-journey.md) for the test-first
+baseline and final qualification. Its full gate passed **59/59 in 1238.52 seconds**,
+following host-sleep/load timeouts and unchanged complete reruns.
+
 UX-04 adds public workflow census and external retirement cases to
 `durable_backlog`, including CLI/MCP parity, explicit generation, access,
 review/ownership/uncertainty holds and idempotence, including legacy publication.
@@ -24,7 +33,7 @@ and bounded complete effect lists. Baseline positive controls and the intended
 red assertions preceded implementation; see [the evidence](connection-effect-previews.md).
 The post-change full gate passed **59/59 in 758.92 seconds**. The figures below
 retain earlier results; this records the UX-03 checkpoint; the later UX-04 checkpoint is above. The
-combined installed operator journey remains separate acceptance.
+frozen installed replay is now recorded in the third follow-up above; independent fresh-operator acceptance remains open.
 
 All five maintenance refactors are complete. The final full workflow passes
 **59/59 in 737.26 seconds**, including every original defect test and the new
@@ -199,7 +208,7 @@ remain in the [consolidated register](ROADMAP.md#recovery-and-reliability-histor
 | Incomplete embedding replacement hides complete baseline | `ann_methodology`, `embedding_recovery`, `embedding_exhaustion` | QE-07/08 complete profile identity, migration/resume/rollback workflow |
 | Provider response retained but paid request repeats | `native_receipt_failure`, `native_receipts`, `codex_application`, `worker_recovery`, `provider_durability` | Stage 3 adds real receipt-INSERT aborts: Gemini missing output remains held with known usage; Codex saved output survives and reconciles without another generation. Full-corpus installed operator/platform qualification remains open |
 | Unknown, duplicate, late or excessive usage | `publication`, `provider_durability`, `worker_recovery`, `native_interruption` | External account reconciliation and hosted qualification under QA-02; reservations are not actual usage |
-| Pause/drain/cancel/terminal parent loses remaining work | `process_workers`, `provider_durability`, `durable_backlog`, `native_interruption`, new retry cases | Step 2 covers request acceptance/deduplication, closed-window reconsideration, safe execution and pause/claim races. Reasoned close/waive controls remain open; UX-04 adds scoped external-retirement acceptance with queue-to-publication hold revalidation; OPS-005 renewal policy is not implemented |
+| Pause/drain/cancel/terminal parent loses remaining work | `process_workers`, `provider_durability`, `durable_backlog`, `native_interruption`, new retry cases | Step 2 covers request acceptance/deduplication, closed-window reconsideration, safe execution and pause/claim races. The third follow-up tests reasoned waiver/reopen, preserved missing coverage and uncertainty; UX-04 adds scoped external-retirement acceptance with queue-to-publication hold revalidation; OPS-005 renewal policy is not implemented |
 | Bad task, failed worker and shared outage treated alike | `worker_recovery`, `controller_recovery`, new capacity test; exact calls and healthy-peer outcomes | OPS-004 rolling replacement, shared-outage probes/backoff, concurrent replenishment and zero-worker policy require agreed behavior before executable acceptance |
 | Public status/page hides outstanding failures or work | `native_surfaces`, `durable_backlog_provider`, new page/large-job tests | OPS-003 complete public-only diagnostic journey; UX-01 workflow/subject lookup and UX-04 external retirement completion; UX-03 local effect assertions are recorded separately |
 | Retrieval changes meaning or drops evidence | `evidence_methodology`, `quotation_grounding`, `temporal_provenance`, `gemini_query`, new frozen corpus cases | QE-01/02 selected graph roots/traversal; QE-09 60–100-question independently judged comparative benchmark. Eight synthetic questions are a contract seed, not a quality score |

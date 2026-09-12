@@ -80,6 +80,7 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "job.status" then return jobstatuscommand(request)
   if operation = "job.pause" | operation = "job.resume" | operation = "job.cancel" then return _jobcontrol(request)
   if operation = "job.retry" then return _jobretry(request)
+  if operation = "maintain.waive" then return _taskwaive(request)
   if operation = "maintain.retry" then return _taskretry(request)
   if operation = "maintain.reconcile" then return _workflowreconcile(request)
   if operation = "job.replay" then return _jobreplay(request, registry)
@@ -747,6 +748,24 @@ _workflowreconcile: procedure = .ragcommandresult
   fields[fields.0+1]=.ragresultfield("applied","boolean",commandboolean(apply))
   records=.ragresultrecord[]; records[1]=.ragresultrecord("workflow-census",fields)
   return .ragcommandresult(operation,"ok",0,"targeted workflow census; retirement remains a reviewed resolution",records)
+
+_taskwaive: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation=request.operation();error=""
+  if commandhasaccess(request,"control")<>1 then return commandfailure(operation,4,"task waiver requires control access")
+  if commandoptions(request,"id reason",error)<>0 then return commandfailure(operation,2,error)
+  id=commandid(request,error); reason=commandoption(request,"reason",error)
+  if error<>"" | id="" | strip(reason)="" then return commandfailure(operation,2,"maintain waive requires one task id and an explicit --reason")
+  store=.ragstorehandle
+  if openragstore(request.library(),"readwrite",store,error)<>0 then return commandopenfailure(operation,error)
+  waiver="";status=waivebacklogtask(store,id,reason,waiver,error)
+  close_error="";closed=closeragstore(store,close_error)
+  if status<>0 then return commandfailure(operation,3,error)
+  if closed<>0 then return commandfailure(operation,7,close_error)
+  fields=.ragresultfield[];fields[1]=.ragresultfield("task_id","string",id);fields[2]=.ragresultfield("waiver_id","string",waiver)
+  fields[3]=.ragresultfield("operator_disposition","string","waived");fields[4]=.ragresultfield("provider_calls","integer",0)
+  records=.ragresultrecord[];records[1]=.ragresultrecord("task-waiver",fields)
+  return .ragcommandresult(operation,"ok",0,"task waived with retained history; missing coverage remains missing; maintain retry reopens under existing limits",records)
 
 _taskretry: procedure = .ragcommandresult
   arg request = .ragcommandrequest

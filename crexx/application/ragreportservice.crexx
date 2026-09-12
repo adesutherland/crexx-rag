@@ -9,6 +9,7 @@ import ragconfig
 import ragconfiguration
 import ragdirectcalls
 import ragevidencejson
+import raglifecycle
 import ragprofile
 import ragquerypolicy
 import ragqueryprovider
@@ -113,6 +114,13 @@ libraryreport: procedure = .ragcommandresult
   replaying_dead_letters = sqlreadint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='in-progress'")
   resolved_dead_letters = sqlreadint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='resolved'")
   reconciliation_warning = actionable_dead_letters > 0 & active_jobs = 0
+  dispositions=_dispositionreportjson(database)
+  if dispositions="" then do; ignored="";call closeragstore store,ignored;return commandfailure(operation,7,"cannot read operator dispositions");end
+  disposition_document=.jsondocument(dispositions)
+  waived_tasks=0;unwaived_open=0;waived_dead=0
+  disposition_read=disposition_document.node_int(disposition_document.member(disposition_document.root(),"waived_tasks"),waived_tasks)
+  disposition_read=disposition_document.node_int(disposition_document.member(disposition_document.root(),"unwaived_open_tasks"),unwaived_open)
+  disposition_read=disposition_document.node_int(disposition_document.member(disposition_document.root(),"waived_dead_letters"),waived_dead)
   durable = _durablereportcensus(database)
   durable_open = 0
   do i = 1 to durable.0
@@ -175,7 +183,7 @@ libraryreport: procedure = .ragcommandresult
   semantic = semantic || ']}'
   semantic_digest = rxhash..sha256hex(semantic as .binary)
   operational = '{"schema":"crexx-rag.library-report-operational/1","generation":' || generation || ',"vector":[' || embedding_links || ',' || vector_rows || ',' || vector_dimension || ',' || vector_centroids || ',' || vector_probes || ',' || vector_coverage || '],"maintenance":[' || incomplete_runs || ',' || pending_items || ',' || diagnosed_items || ',' || review_items || ',' || blocked_items || ',' || applied_items || ',' || active_jobs || ',' || error_jobs || ',' || dead_letters || ',' || dead_extraction || ',' || dead_improvement || ',' || dead_embeddings || ',' || dead_other || ',' || actionable_dead_letters || ',' || replaying_dead_letters || ',' || resolved_dead_letters || '],"review":[' || reviews || ',' || gaps || '],"verification":[' || verification.issue_count() || ',' || repository_verification.issue_count() || ',' || fts_rows || '],"reconciliation_warning":' || commandboolean(reconciliation_warning) || '}'
-  operational = substr(operational,1,length(operational)-1) || ',"durable":' || _durablereportjson(durable) || '}'
+  operational = substr(operational,1,length(operational)-1) || ',"durable":' || _durablereportjson(durable) || ',"operator_dispositions":' || dispositions || '}'
   operational_digest = rxhash..sha256hex(operational as .binary)
   report_id = "report-sha256:" || semantic_digest
   provider_context = '{"schema":"crexx-rag.library-report-context/1","semantic":' || semantic || ',"operational":' || operational || ',"passages":[' || passages || ']}'
@@ -205,6 +213,7 @@ libraryreport: procedure = .ragcommandresult
   records[records.0 + 1] = .ragresultrecord("vector-stat", vector_fields)
   backlog_fields = .ragresultfield[]
   backlog_fields[1] = .ragresultfield("incomplete_runs", "integer", incomplete_runs); backlog_fields[2] = .ragresultfield("pending_items", "integer", pending_items); backlog_fields[3] = .ragresultfield("diagnosed_items", "integer", diagnosed_items); backlog_fields[4] = .ragresultfield("review_items", "integer", review_items); backlog_fields[5] = .ragresultfield("blocked_or_failed_items", "integer", blocked_items); backlog_fields[6] = .ragresultfield("applied_items", "integer", applied_items); backlog_fields[7] = .ragresultfield("active_jobs", "integer", active_jobs); backlog_fields[8] = .ragresultfield("jobs_with_errors", "integer", error_jobs); backlog_fields[9] = .ragresultfield("dead_letters", "integer", dead_letters); backlog_fields[10] = .ragresultfield("extraction_dead_letters", "integer", dead_extraction); backlog_fields[11] = .ragresultfield("improvement_dead_letters", "integer", dead_improvement); backlog_fields[12] = .ragresultfield("embedding_dead_letters", "integer", dead_embeddings); backlog_fields[13] = .ragresultfield("other_dead_letters", "integer", dead_other); backlog_fields[14] = .ragresultfield("actionable_dead_letters", "integer", actionable_dead_letters); backlog_fields[15] = .ragresultfield("replaying_dead_letters", "integer", replaying_dead_letters); backlog_fields[16] = .ragresultfield("resolved_dead_letters", "integer", resolved_dead_letters); backlog_fields[17] = .ragresultfield("reconciliation_warning", "boolean", commandboolean(reconciliation_warning))
+  backlog_fields[18]=.ragresultfield("waived_dead_letters","integer",waived_dead)
   records[records.0 + 1] = .ragresultrecord("maintenance-backlog", backlog_fields)
   durable_fields = .ragresultfield[]
   durable_names = "pending_tasks dispatched_tasks unresolved_tasks review_tasks failed_tasks resolved_tasks superseded_tasks migrating_workflows waiting_workflows complete_workflows decisions"
@@ -212,6 +221,8 @@ libraryreport: procedure = .ragcommandresult
     durable_fields[i] = .ragresultfield(word(durable_names,i),"integer",durable[i])
   end
   durable_fields[12] = .ragresultfield("open_tasks","integer",durable_open)
+  durable_fields[13]=.ragresultfield("waived_tasks","integer",waived_tasks)
+  durable_fields[14]=.ragresultfield("unwaived_open_tasks","integer",unwaived_open)
   records[records.0 + 1] = .ragresultrecord("durable-maintenance-backlog",durable_fields)
 
   storage_issues = verification.issue_count() + repository_verification.issue_count()
@@ -419,7 +430,9 @@ reportoperationaldigest: procedure = .string
   do i = 1 to durable.0
     if durable[i] < 0 then return ""
   end
-  operational = substr(operational,1,length(operational)-1) || ',"durable":' || _durablereportjson(durable) || '}'
+  dispositions=_dispositionreportjson(database)
+  if dispositions="" then return ""
+  operational = substr(operational,1,length(operational)-1) || ',"durable":' || _durablereportjson(durable) || ',"operator_dispositions":' || dispositions || '}'
   return rxhash..sha256hex(operational as .binary)
 _durablereportcensus: procedure = .int[]
   arg database = .binary
@@ -440,6 +453,21 @@ _durablereportcensus: procedure = .int[]
   end
   counts[11] = sqlreadint(database,"SELECT count(*) FROM maintenance_decisions")
   return counts
+/* Named operational additions preserve the existing durable census array.
+ * Both public report context and cache comparison use this exact projection. */
+_dispositionreportjson: procedure = .string
+  arg database = .binary
+  version=sqlreadint(database,"SELECT schema_version FROM library_meta WHERE singleton=1")
+  waived=taskwaivercount(database);unwaived=0;dead=0
+  if version<0 | waived<0 then return ""
+  if version>=10 then do
+    sql="SELECT count(*) FROM maintenance_tasks t WHERE t.state NOT IN('resolved','superseded')"
+    if version>=15 then sql=sql || " AND NOT " || taskwaived("t.task_id")
+    unwaived=sqlreadint(database,sql)
+  end
+  if version>=15 then dead=sqlreadint(database,"SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='waived'")
+  if unwaived<0 | dead<0 then return ""
+  return '{"waived_tasks":' || waived || ',"unwaived_open_tasks":' || unwaived || ',"waived_dead_letters":' || dead || '}'
 _durablereportjson: procedure = .string
   arg counts = .int[]
   output = "["
