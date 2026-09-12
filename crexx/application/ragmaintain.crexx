@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragmaintain expose ragmaintenancecensus ragmaintenanceapplyresult buildmaintenancecensus persistmaintenance refreshmaintenance applylifecycleaction ensuremaintenancejob recordmaintenanceembeddingitems lifecycleimpact applylifecycletransaction applyconnectiontransaction applysupporttransaction
+namespace ragmaintain expose ragmaintenancecensus ragmaintenanceapplyresult buildmaintenancecensus persistmaintenance refreshmaintenance applylifecycleaction ensuremaintenancejob recordmaintenanceembeddingitems lifecycleimpact applylifecycletransaction applyconnectiontransaction applysupporttransaction connectioneffects
 
 import rxfnsb
 import rxjson
@@ -445,6 +445,121 @@ lifecycleimpact: procedure = .int
   types = .string[]; ids = .string[]
   return _impact(database, concept_id, generation, types, ids, error)
 
+/* Read-only connection projection. Backlog planning supplies its validated
+ * response and workflow identity; publication keeps transaction ownership. */
+connectioneffects: procedure = .int
+  arg database = .binary, parent = .string, kind = .string, object = .string, result = .jsondocument, current = .int, maximum = .int, expose impact = .string, expose error = .string
+  impact = "[]"; error = ""; action = _jsonstring(result,"action"); target = _jsonstring(result,"target_concept_id")
+  if wordpos(action,"move retract qualify retain") = 0 then return 0
+  if action <> "move" then target = ""
+  if kind = "conflict" then do
+    if action = "retain" then do
+      impact = '[' || _effectrow(kind,object,"resolve","") || ']'
+      return 0
+    end
+    selected = _jsonstring(result,"object_id")
+    if _scalarint(database,"SELECT count(*) FROM claim_conflicts WHERE conflict_id=" || _q(object) || " AND visible_to_generation IS NULL AND (claim_id=" || _q(selected) || " OR competing_claim_id=" || _q(selected) || ")") <> 1 then do; error = "claim resolution selected an unrelated object"; return -1; end
+    kind = "claim"; object = selected
+  end
+  if kind = "claim" | kind = "support" then do
+    claim = object; only_support = ""; claim_effect = action
+    if kind = "support" then do
+      only_support = object; claim = _supportclaim(database,parent,object,error)
+      if claim = "" then return -1
+      if _scalarint(database,"SELECT count(*) FROM claim_support WHERE claim_id=" || _q(claim) || " AND visible_to_generation IS NULL AND support_id<>" || _q(object)) > 0 then claim_effect = "retain"
+    end
+    else if _scalarint(database,"SELECT count(*) FROM claims WHERE claim_id=" || _q(claim) || " AND visible_to_generation IS NULL") <> 1 then do; error = "claim is no longer active"; return -1; end
+    if action = "move" then do
+      new_source = ""; new_target = ""
+      if _claimtarget(database,parent,claim,target,only_support,new_source,new_target,error) <> 0 then return -1
+    end
+    if action = "qualify" then do
+      qualifiers = _jsonstring(result,"qualifiers_json"); begin = _jsonstring(result,"effective_from"); finish = _jsonstring(result,"effective_to")
+      if _scalarint(database,"SELECT count(*) FROM claims WHERE claim_id=" || _q(claim) || " AND coalesce(effective_from,'')=" || _q(begin) || " AND coalesce(effective_to,'')=" || _q(finish) || " AND json(qualifiers_json)=json(" || _q(qualifiers) || ")") = 1 then do; action = "retain"; claim_effect = "retain"; end
+      else if qualifiers = "{}" & begin = "" & finish = "" then do; error = "claim qualification must supply a scope or time interval"; return -1; end
+    end
+    selection = ""; if only_support <> "" then selection = " AND support_id=" || _q(only_support)
+    sql = "SELECT 'claim' kind," || _q(claim) || " id," || _q(claim_effect) || " effect UNION ALL SELECT 'support',support_id," || _q(action) || " FROM claim_support WHERE claim_id=" || _q(claim) || " AND visible_to_generation IS NULL" || selection
+    if action <> "retain" & (claim_effect <> "retain" | action = "move") then do
+      conflict_effect = "'resolve'"; carried = ""
+      if action = "move" then do
+        moved_claim = _migratedclaimid(database,claim,new_source,new_target)
+        other = "CASE WHEN f.claim_id=" || _q(claim) || " THEN f.competing_claim_id ELSE f.claim_id END"
+        carried = "f.review_state='pending' AND (" || other || ")<>" || _q(moved_claim) || " AND EXISTS(SELECT 1 FROM claims c WHERE c.claim_id=(" || other || ") AND c.visible_to_generation IS NULL)"
+        conflict_effect = "CASE WHEN " || carried || " THEN 'carry' ELSE 'resolve' END"
+      end
+      sql = sql || " UNION ALL SELECT 'conflict',conflict_id," || conflict_effect || " FROM claim_conflicts f WHERE (claim_id=" || _q(claim) || " OR competing_claim_id=" || _q(claim) || ") AND visible_to_generation IS NULL"
+      if action = "move" & claim_effect = "retain" then sql = sql || " AND " || carried
+    end
+    return _effectquery(database,sql,target,maximum,impact,error)
+  end
+  if wordpos(kind,"alias mention note ambiguity") = 0 then return 0
+  if action = "move" | action = "retract" then do
+    if kind = "ambiguity" then do
+      if _scalarint(database,"SELECT count(*) FROM ambiguity_candidates WHERE ambiguity_id=json_extract(" || _q(object) || ",'$[0]') AND concept_id=" || _q(parent) || " AND revision_chunk_id=json_extract(" || _q(object) || ",'$[2]') AND visible_to_generation IS NULL") <> 1 then do; error = "ambiguity no longer belongs to this migration"; return -1; end
+    end
+    else do
+      types = .string[]; ids = .string[]
+      if lifecycleimpact(database,parent,current,types,ids,error) <> 0 then return -1
+      if _pairindex(types,ids,kind,object) = 0 then do; error = "connection no longer belongs to its migration parent"; return -1; end
+    end
+  end
+  effect = action; if kind = "note" & (action = "retract" | action = "retain") then effect = "resolve"
+  impact = '[' || _effectrow(kind,object,effect,target) || ']'
+  return 0
+
+_supportclaim: procedure = .string
+  arg database = .binary, parent = .string, support = .string, expose error = .string
+  claim = _boundtext(database,"SELECT s.claim_id FROM claim_support s JOIN claims c ON c.claim_id=s.claim_id WHERE s.support_id=?1 AND s.visible_to_generation IS NULL AND c.visible_to_generation IS NULL",support)
+  if claim = "" | _scalarint(database,"SELECT count(*) FROM claims WHERE claim_id=" || _q(claim) || " AND (source_concept_id=" || _q(parent) || " OR target_concept_id=" || _q(parent) || ")") <> 1 then do; error = "claim support no longer belongs to this migration"; return ""; end
+  return claim
+
+_claimtarget: procedure = .int
+  arg database = .binary, parent = .string, claim = .string, target = .string, only_support = .string, expose source = .string, expose object = .string, expose error = .string
+  source = _boundtext(database,"SELECT source_concept_id FROM claims WHERE claim_id=?1",claim)
+  object = _boundtext(database,"SELECT target_concept_id FROM claims WHERE claim_id=?1",claim)
+  if source <> parent & object <> parent then do; error = "claim no longer belongs to its migration parent"; return -1; end
+  if source = parent then source = target
+  if object = parent then object = target
+  if source = object then do; error = "claim migration would create a self relationship"; return -1; end
+  selection = ""; if only_support <> "" then selection = " AND s.support_id=" || _q(only_support)
+  ungrounded = _scalarint(database,"SELECT count(*) FROM claim_support s WHERE s.claim_id=" || _q(claim) || " AND s.visible_to_generation IS NULL" || selection || " AND NOT EXISTS(SELECT 1 FROM mentions m WHERE m.revision_chunk_id=s.revision_chunk_id AND m.concept_id=" || _q(target) || " AND m.span_start>=s.span_start AND m.span_end<=s.span_end AND m.visible_to_generation IS NULL)")
+  if ungrounded <> 0 then do; error = "claim migration requires a successor mention inside every selected support span"; return -1; end
+  return 0
+
+_migratedclaimid: procedure = .string
+  arg database = .binary, claim = .string, source = .string, target = .string
+  facts = .jsondocument(_boundtext(database,"SELECT json_object('relationship',relationship_type,'direction',direction,'qualifiers',qualifiers_json,'begin',coalesce(effective_from,''),'finish',coalesce(effective_to,''),'policy',policy_version) FROM claims WHERE claim_id=?1",claim))
+  return "claim-sha256:" || rxhash..sha256hex((source || "00"x || _jsonstring(facts,"relationship") || "00"x || target || "00"x || _jsonstring(facts,"direction") || "00"x || _jsonstring(facts,"qualifiers") || "00"x || _jsonstring(facts,"begin") || "00"x || _jsonstring(facts,"finish") || "00"x || _jsonstring(facts,"policy")) as .binary)
+
+_effectrow: procedure = .string
+  arg kind = .string, id = .string, effect = .string, target = .string
+  return '{"object_type":' || jsonquote(kind) || ',"object_id":' || jsonquote(id) || ',"effect":' || jsonquote(effect) || ',"target_concept_id":' || jsonquote(target) || '}'
+
+_effectquery: procedure = .int
+  arg database = .binary, sql = .string, target = .string, maximum = .int, expose impact = .string, expose error = .string
+  prepared = .binary; impact = "["; count = 0
+  if sqliteprepare(database,"SELECT kind,id,effect FROM (" || sql || ") ORDER BY kind,id LIMIT " || maximum+1,prepared) <> 0 then do; error = "cannot prepare connection effect preview"; return -1; end
+  do forever
+    step = sqlitestep(prepared); if step = 101 then leave
+    kind = ""; id = ""; effect = ""
+    if step <> 100 | sqlitecolumntext(prepared,0,kind) <> 0 | sqlitecolumntext(prepared,1,id) <> 0 | sqlitecolumntext(prepared,2,effect) <> 0 then do; call sqlitefinalize prepared; error = "cannot read connection effect preview"; return -1; end
+    count = count+1
+    if count > maximum then do; call sqlitefinalize prepared; error = "resolution exceeds configured impact bound"; return -1; end
+    if count > 1 then impact = impact || ","
+    impact = impact || _effectrow(kind,id,effect,target)
+    if length(impact) > 16777216 then do; call sqlitefinalize prepared; error = "connection effect preview exceeds plan bound"; return -1; end
+  end
+  call sqlitefinalize prepared
+  impact = impact || "]"
+  return 0
+
+_jsonstring: procedure = .string
+  arg document = .jsondocument, name = .string
+  value = ""
+  ignored = document.node_string(document.member(document.root(),name),value)
+  return value
+
 applyconnectiontransaction: procedure = .int
   arg database = .binary, parent_id = .string, object_type = .string, object_id = .string, action = .string, target = .string, current = .int, generation = .int, expose error = .string
   types = .string[]; ids = .string[]
@@ -459,8 +574,8 @@ applyconnectiontransaction: procedure = .int
 
 applysupporttransaction: procedure = .int
   arg database = .binary, parent_id = .string, support_id = .string, action = .string, target = .string, current = .int, generation = .int, expose error = .string
-  claim_id = _boundtext(database,"SELECT s.claim_id FROM claim_support s JOIN claims c ON c.claim_id=s.claim_id WHERE s.support_id=?1 AND s.visible_to_generation IS NULL AND c.visible_to_generation IS NULL",support_id)
-  if claim_id = "" | _scalarint(database,"SELECT count(*) FROM claims WHERE claim_id=" || _q(claim_id) || " AND (source_concept_id=" || _q(parent_id) || " OR target_concept_id=" || _q(parent_id) || ")") \= 1 then do; error = "claim support no longer belongs to this migration"; return -2; end
+  claim_id = _supportclaim(database,parent_id,support_id,error)
+  if claim_id = "" then return -2
   if action = "move-child" then return _moveclaim(database,parent_id,claim_id,action,target,current,generation,error,support_id)
   if action \= "retract" then do; error = "invalid support disposition"; return -1; end
   if _closevisible(database,"claim_support","support_id",support_id,generation,error) \= 0 then return -1
@@ -700,14 +815,9 @@ _moveclaim: procedure = .int
   source = ""; relationship = ""; object = ""; direction = ""; qualifiers = ""; effective_from = ""; effective_to = ""; policy = ""
   columns = sqlitecolumntext(prepared, 0, source) | sqlitecolumntext(prepared, 1, relationship) | sqlitecolumntext(prepared, 2, object) | sqlitecolumntext(prepared, 3, direction) | sqlitecolumntext(prepared, 4, qualifiers) | sqlitecolumntext(prepared, 5, effective_from) | sqlitecolumntext(prepared, 6, effective_to) | sqlitecolumntext(prepared, 7, policy); call sqlitefinalize prepared
   if columns \= 0 then do; error = "cannot decode claim disposition"; return -1; end
-  new_source = source; new_object = object
-  if source = parent_id then new_source = target
-  if object = parent_id then new_object = target
-  if new_source = new_object then do; error = "claim migration would create a self relationship"; return -1; end
-  selection = ""; if only_support_id \= "" then selection = " AND s.support_id=" || _q(only_support_id)
-  ungrounded = _scalarint(database,"SELECT count(*) FROM claim_support s WHERE s.claim_id=" || _q(claim_id) || " AND s.visible_to_generation IS NULL" || selection || " AND NOT EXISTS(SELECT 1 FROM mentions m WHERE m.revision_chunk_id=s.revision_chunk_id AND m.concept_id=" || _q(target) || " AND m.span_start>=s.span_start AND m.span_end<=s.span_end AND m.visible_to_generation IS NULL)")
-  if ungrounded \= 0 then do; error = "claim migration requires a successor mention inside every selected support span"; return -1; end
-  new_claim = "claim-sha256:" || rxhash..sha256hex((new_source || "00"x || relationship || "00"x || new_object || "00"x || direction || "00"x || qualifiers || "00"x || effective_from || "00"x || effective_to || "00"x || policy) as .binary)
+  new_source = ""; new_object = ""
+  if _claimtarget(database,parent_id,claim_id,target,only_support_id,new_source,new_object,error) \= 0 then return -1
+  new_claim = _migratedclaimid(database,claim_id,new_source,new_object)
   prepared = .binary
   sql = "INSERT OR IGNORE INTO claims(claim_id,source_concept_id,relationship_type,target_concept_id,direction,qualifiers_json,effective_from,effective_to,policy_version,visible_from_generation) VALUES(?1,?2,?3,?4,?5,?6,NULLIF(?7,''),NULLIF(?8,''),?9,?10)"
   if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare migrated claim"; return -1; end

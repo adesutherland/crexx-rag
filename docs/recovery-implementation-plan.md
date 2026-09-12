@@ -46,6 +46,12 @@ reduction in escaped-regression rate has yet been measured. The public
 result fix establishes one coherent result-page owner; a general dispatcher
 split and separate executables remain later choices.
 
+The approved follow-up order is UX-03 connection previews, then UX-04 with
+OPS-002 external lifecycle closure, followed by the combined public recovery
+journey under OPS-001/003. UX-03 ownership and test evidence are recorded in
+[connection effect previews](connection-effect-previews.md); each follow-up
+confirms coverage before code and requires the full green gate before commit.
+
 Sections 1–6 below retain their original coverage checkpoints and completion
 criteria as implementation records; they are not instructions to repeat those
 completed stages.

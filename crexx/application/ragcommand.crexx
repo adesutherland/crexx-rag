@@ -302,7 +302,7 @@ validcommandresult: procedure = .int
       value_type = fields[j].value_type(); value = fields[j].value()
       if value_type = "string" then do
         maximum_length = 65535
-        if fields[j].name() = "canonical_plan" | fields[j].name() = "maintenance_plan" then maximum_length = 16777216
+        if fields[j].name() = "canonical_plan" | fields[j].name() = "maintenance_plan" | fields[j].name() = "impact_json" then maximum_length = 16777216
         if wordpos(fields[j].name(), "evidence_json trace_json paths_json timeline_json") > 0 then maximum_length = 1048576
         if length(value) > maximum_length then return _invalidresult("string field is too long", error)
       end
@@ -345,7 +345,7 @@ rendercommandresult: procedure = .int
       fields = records[i].fields(); section = ""
       do j = 1 to fields.0
         name = fields[j].name(); value = fields[j].value()
-        if wordpos(name, "canonical_plan evidence_json config_hash profile_hash query_plan_fingerprint process_start_token secret_reference secret_values") > 0 then iterate
+        if wordpos(name, "canonical_plan impact_json evidence_json config_hash profile_hash query_plan_fingerprint process_start_token secret_reference secret_values") > 0 then iterate
         if fields[j].value_type() = "null" | value = "" then iterate
         if name = "detail" & (left(strip(value), 1) = "{" | left(strip(value), 1) = "[") then iterate
         value = _human(value)

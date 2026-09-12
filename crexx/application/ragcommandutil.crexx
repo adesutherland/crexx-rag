@@ -1,10 +1,11 @@
 options levelg
 
-namespace ragcommandutil expose commandhasaccess commandoptions commandworkeroptions commandoption commandid commandunsigned commandboolean commandfailure commandopenfailure
+namespace ragcommandutil expose commandhasaccess commandoptions commandworkeroptions commandoption commandid commandunsigned commandboolean commandfailure commandopenfailure commandeffectrecords
 
 import ragcommand
 import ragcommandcatalog
 import rxfnsb
+import rxjson
 
 /* Shared transport-neutral argument, capability and result errors. Domain services retain semantic validation. */
 commandhasaccess: procedure = .int
@@ -90,3 +91,26 @@ commandopenfailure: procedure = .ragcommandresult
   arg operation = .string, message = .string
   if pos("does not exist", message) > 0 then return commandfailure(operation, 5, message)
   return commandfailure(operation, 7, message)
+
+/* Presentation only: retain complete machine-readable effects and show up to
+ * the existing 100-record result bound, including the leading summary. */
+commandeffectrecords: procedure = .ragresultrecord[]
+  arg records = .ragresultrecord[], impact = .string
+  document = .jsondocument(impact); count = document.node_count(document.root())
+  shown = min(count,100-records.0); fields = records[1].fields()
+  fields[fields.0+1] = .ragresultfield("impact_json","string",impact)
+  fields[fields.0+1] = .ragresultfield("impact_count","integer",count)
+  fields[fields.0+1] = .ragresultfield("impact_shown","integer",shown)
+  fields[fields.0+1] = .ragresultfield("impact_truncated","boolean",commandboolean(shown<count))
+  records[1] = .ragresultrecord(records[1].kind(),fields)
+  do i = 1 to shown
+    node = document.element(document.root(),i); fields = .ragresultfield[]
+    names = "object_type object_id effect target_concept_id"
+    do j = 1 to words(names)
+      name = word(names,j); value = ""
+      ignored = document.node_string(document.member(node,name),value)
+      if value <> "" then fields[fields.0+1] = .ragresultfield(name,"string",value)
+    end
+    records[records.0+1] = .ragresultrecord("resolution-effect",fields)
+  end
+  return records

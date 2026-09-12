@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragbacklog expose requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh
+namespace ragbacklog expose requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh
 
 import rxfnsb
 import rxjson
@@ -1387,27 +1387,41 @@ planagentaction: procedure = .int
       item = .jsondocument(result.node_get(result.element(successors,i)))
       if _agenttype(types,_s(item,"concept_type")) \= 1 then do; error = "successor type is outside the active profile"; return -1; end
     end
-    parent = ""
-    if _s(task,"subject_type") = "concept" then parent = _s(task,"subject_id")
-    if _s(task,"subject_type") = "note" & wordpos(action,"split merge synonym type-correction retire restore")>0 then do
-      parent = _s(result,"object_id")
-      if _number(database,"SELECT count(*) FROM maintenance_tasks t,json_each(t.evidence_json,'$.catalogue') c WHERE t.task_id=" || _q(task_id) || " AND json_extract(c.value,'$.concept_id')=" || _q(parent)) \= 1 then do; error = "lifecycle object is outside the task catalogue"; return -1; end
-    end
-    if parent \= "" then do
-      impact_types = .string[]; impact_ids = .string[]
-      if _backlogimpact(database,parent,current,impact_types,impact_ids,error) \= 0 then return -1
-      if impact_ids.0 > config.maintenance().maximum_impact() then do; error = "resolution exceeds configured impact bound"; return -1; end
-      impact = "["
-      do i = 1 to impact_ids.0
-        if i>1 then impact = impact || ","
-        impact = impact || '{"object_type":' || jsonquote(impact_types[i]) || ',"object_id":' || jsonquote(impact_ids[i]) || '}'
-      end
-      impact = impact || "]"
-    end
+    if _agenteffects(database,config,task_id,task,result,current,impact,error) \= 0 then return -1
   end
   else if response \= "" then do; error = "escalation cannot contain a corpus resolution"; return -1; end
   canonical = '{"schema":"crexx-rag.agent-action/1","kind":' || jsonquote(kind) || ',"library_id":' || jsonquote(library) || ',"generation":' || current || ',"config_snapshot_id":' || jsonquote(action_snapshot_id) || ',"profile_hash":' || jsonquote(_hash(canonicalprofile(profile))) || ',"task_id":' || jsonquote(task_id) || ',"task_stamp":' || jsonquote(_hash(stamp)) || ',"evidence_fingerprint":' || jsonquote(_s(task,"evidence_fingerprint")) || ',"job_id":' || jsonquote(job_id) || ',"actor":' || jsonquote(actor) || ',"model":' || jsonquote(model) || ',"attribution":"self-reported external agent; provider usage not measured here","reason":' || jsonquote(reason) || ',"response_json":' || jsonquote(response) || ',"grounding":' || grounds || ',"impact":' || impact || '}'
   if length(canonical)>16777216 then do; canonical = ""; error = "agent plan exceeds response bound"; return -1; end
+  return 0
+
+_agenteffects: procedure = .int
+  arg database = .binary, config = .ragconfig, task_id = .string, task = .jsondocument, result = .jsondocument, current = .int, expose impact = .string, expose error = .string
+  impact = "[]"; action = _s(result,"action")
+  parent = ""
+  if _s(task,"subject_type") = "concept" then parent = _s(task,"subject_id")
+  if _s(task,"subject_type") = "note" & wordpos(action,"split merge synonym type-correction retire restore")>0 then do
+    parent = _s(result,"object_id")
+    if _number(database,"SELECT count(*) FROM maintenance_tasks t,json_each(t.evidence_json,'$.catalogue') c WHERE t.task_id=" || _q(task_id) || " AND json_extract(c.value,'$.concept_id')=" || _q(parent)) \= 1 then do; error = "lifecycle object is outside the task catalogue"; return -1; end
+  end
+  if parent \= "" then do
+    impact_types = .string[]; impact_ids = .string[]
+    if _backlogimpact(database,parent,current,impact_types,impact_ids,error) \= 0 then return -1
+    if impact_ids.0 > config.maintenance().maximum_impact() then do; error = "resolution exceeds configured impact bound"; return -1; end
+    impact = "["
+    do i = 1 to impact_ids.0
+      if i>1 then impact = impact || ","
+      impact = impact || '{"object_type":' || jsonquote(impact_types[i]) || ',"object_id":' || jsonquote(impact_ids[i]) || '}'
+    end
+    impact = impact || "]"
+  end
+  else do
+    workflow_id = _s(task,"workflow_id"); connection_parent = ""
+    if workflow_id \= "" then connection_parent = _text(database,"SELECT parent_concept_id FROM maintenance_workflows WHERE workflow_id=" || _q(workflow_id))
+    if action = "move" then do
+      if connection_parent = "" | _number(database,"SELECT count(*) FROM maintenance_workflows w,json_each(w.successors_json) s JOIN concepts c ON c.concept_id=json_extract(s.value,'$.concept_id') WHERE w.workflow_id=" || _q(workflow_id) || " AND c.concept_id=" || _q(_s(result,"target_concept_id")) || " AND c.lifecycle_state<>'retired' AND c.visible_to_generation IS NULL") \= 1 then do; error = "connection target is not an available workflow successor"; return -1; end
+    end
+    if connectioneffects(database,connection_parent,_s(task,"subject_type"),_s(task,"subject_id"),result,current,config.maintenance().maximum_impact(),impact,error) \= 0 then return -1
+  end
   return 0
 
 _agenttype: procedure = .int
@@ -1476,6 +1490,30 @@ applybacklogrefresh: procedure = .int
   if sqliteexec(database,"COMMIT")\=0 then return _rollback(database,"cannot commit evidence refresh",error)
   return 0
 
+/* Recompute a pending review's effects under its retained generation and
+ * response. Older stored plans may have an empty impact array; never rewrite
+ * their attribution or digest merely to show the current verified preview. */
+previewagentaction: procedure = .int
+  arg store = .ragstorehandle, review_id = .string, config = .ragconfig, profile = .ragprofile, expose canonical = .string, expose impact = .string, expose error = .string
+  database = store.database(); error = ""; impact = "[]"
+  canonical = _text(database,"SELECT a.canonical_plan FROM reviews r JOIN maintenance_agent_actions a ON a.action_id=json_extract(r.proposal_json,'$.action_id') WHERE r.review_id=" || _q(review_id) || " AND r.review_type='maintenance-external' AND r.state='pending'")
+  plan = .jsondocument(canonical)
+  if plan.valid() <> 1 then do; error = "pending external resolution review was not found"; return -1; end
+  task = .jsondocument(_agenttaskstamp(database,_s(plan,"task_id")))
+  return _checkagentreview(database,plan,task,config,profile,impact,error)
+
+_checkagentreview: procedure = .int
+  arg database = .binary, plan = .jsondocument, task = .jsondocument, config = .ragconfig, profile = .ragprofile, expose impact = .string, expose error = .string
+  current = _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1"); task_id = _s(plan,"task_id")
+  if current <> _n(plan,"generation") | _s(plan,"profile_hash") <> _hash(canonicalprofile(profile)) | _s(plan,"config_snapshot_id") <> _text(database,"SELECT current_config_snapshot_id FROM library_config_state WHERE singleton=1") then do; error = "external resolution generation, profile or configuration changed; reject and re-plan"; return -1; end
+  if _s(task,"state") <> "review" | _s(task,"evidence_fingerprint") <> _s(plan,"evidence_fingerprint") then do; error = "external resolution task changed"; return -1; end
+  if _number(database,"SELECT count(*) FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=" || _q(task_id) || " AND i.state IN('queued','running','cancel_requested')") > 0 then do; error = "task has active worker ownership"; return -1; end
+  fresh = ""; fingerprint = ""; grounds = ""
+  if _freshbacklogtask(database,task_id,config.maintenance().maximum_evidence_bytes(),fresh,fingerprint,error) <> 0 | fingerprint <> _s(plan,"evidence_fingerprint") then do; error = "external resolution evidence changed; reject and re-plan"; return -1; end
+  if validatebacklogresponse(database,task_id,_s(plan,"response_json"),grounds,error) <> 0 then return -1
+  result = .jsondocument(_s(plan,"response_json"))
+  return _agenteffects(database,config,task_id,task,result,current,impact,error)
+
 applyagentaction: procedure = .int
   arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile, canonical = .string, digest = .string, expected_kind = .string, expose review_id = .string, expose error = .string
   database = store.database(); error = ""; review_id = ""; document = .jsondocument(canonical)
@@ -1517,12 +1555,8 @@ reviewagentaction: procedure = .int
   generation = 0; task_state = "unresolved"
   if decision = "accept" then do
     current = _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
-    if current \= _n(plan,"generation") | _s(plan,"profile_hash") \= _hash(canonicalprofile(profile)) | _s(plan,"config_snapshot_id") \= _text(database,"SELECT current_config_snapshot_id FROM library_config_state WHERE singleton=1") then return _rollback(database,"external resolution generation, profile or configuration changed; reject and re-plan",error)
-    if _s(task,"state") \= "review" | _s(task,"evidence_fingerprint") \= _s(plan,"evidence_fingerprint") then return _rollback(database,"external resolution task changed",error)
-    if _number(database,"SELECT count(*) FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=" || _q(task_id) || " AND i.state IN('queued','running','cancel_requested')") > 0 then return _rollback(database,"task has active worker ownership",error)
-    fresh = ""; fingerprint = ""; grounds = ""
-    if _freshbacklogtask(database,task_id,config.maintenance().maximum_evidence_bytes(),fresh,fingerprint,error) \= 0 | fingerprint \= _s(plan,"evidence_fingerprint") then return _rollback(database,"external resolution evidence changed; reject and re-plan",error)
-    if validatebacklogresponse(database,task_id,_s(plan,"response_json"),grounds,error) \= 0 then return _rollback(database,error,error)
+    impact = ""
+    if _checkagentreview(database,plan,task,config,profile,impact,error) \= 0 then return _rollback(database,error,error)
     action = _s(result,"action")
     if action \= "unresolved" then do
       if stagegeneration(store,current,_s(plan,"config_snapshot_id"),"external resolution " || task_id,generation,error) \= 0 then return _rollback(database,error,error)

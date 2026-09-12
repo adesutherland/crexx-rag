@@ -14,6 +14,10 @@ import ragprofile
 import ragcanonical
 import generic_profile
 import architecture_local_config
+import ragcommand
+import ragcommandutil
+import ragproduct
+import operator_registry
 
 check: procedure = .int
   arg condition = .boolean, label = .string
@@ -142,6 +146,139 @@ failureclassprovider: class implements .ragworkprovider
     result = .ragworkproviderresult(_status,"fixture","fixture","request-" || claim.attempt_id(),10,10,0,1,1,empty,"fixture classified failure",0,"","",.ragworkembedding("","","","","",0,"",''x as .binary),"","local-compute",mentions,proposals,notes)
     call result.set_content_failure(_content)
     return result
+
+/* UX-03: compare the proposed connection effects with independent ledger reads.
+ * This fixture does not call a provider or run a worker window. */
+connectioneffectchecks: procedure = .int
+  arg store = .ragstorehandle, policy_json = .string
+  database = store.database(); errors = 0; error = ""; config = architecturelocalconfig(); profile = genericprofile(); policy = .jsondocument(policy_json)
+  current = scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  calls = scalarint(database,"SELECT count(*) FROM provider_runs"); sources = scalarint(database,"SELECT count(*) FROM source_revisions")
+  errors = errors + check(sqliteexec(database,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('effect-parent','Platform','concept','migration-parent'," || current || "),('effect-target','Platform successor','concept','active'," || current || ")") = 0,"effect concepts")
+  errors = errors + check(sqliteexec(database,"INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('effect-mention','effect-parent','chunk-lifecycle',0,8," || current || "),('effect-target-mention','effect-target','chunk-lifecycle',0,8," || current || ")") = 0,"effect mentions")
+  errors = errors + check(sqliteexec(database,"INSERT INTO claims(claim_id,source_concept_id,relationship_type,target_concept_id,direction,qualifiers_json,policy_version,visible_from_generation) VALUES('effect-claim','effect-parent','related-to','effect-target','outbound','{}','fixture'," || current || "),('effect-other','effect-target','related-to','effect-parent','outbound','{}','fixture'," || current || ")") = 0,"effect claims")
+  errors = errors + check(sqliteexec(database,"INSERT INTO claim_support(support_id,claim_id,revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity,visible_from_generation) VALUES('effect-support-a','effect-claim','chunk-lifecycle',0,13,'support','assertion','direct','','effect-a','fixture'," || current || "),('effect-support-b','effect-claim','chunk-lifecycle',0,13,'support','assertion','direct','','effect-b','fixture-b'," || current || ")") = 0,"effect supports")
+  errors = errors + check(sqliteexec(database,"INSERT INTO claim_conflicts(conflict_id,claim_id,competing_claim_id,review_state,visible_from_generation) VALUES('effect-conflict','effect-claim','effect-other','pending'," || current || ")") = 0,"effect conflict")
+  origin = ""
+  errors = errors + check(enqueuebacklogtask(database,"effect-origin","concept","effect-parent","","",1,policy,origin,error) = 0,"effect origin " || error)
+  errors = errors + check(sqliteexec(database,"INSERT INTO maintenance_workflows(workflow_id,origin_task_id,kind,parent_concept_id,successors_json,state,created_generation,created_epoch,updated_epoch) VALUES('effect-workflow','" || origin || "','merge','effect-parent','[{" || '"concept_id":"effect-target"' || "}]','migrating'," || current || ",unixepoch(),unixepoch())") = 0,"effect workflow")
+  task_id = ""; canonical = ""; review_id = ""
+  errors = errors + connectionvariantchecks(store,current)
+  errors = errors + check(enqueuebacklogtask(database,"connection","support","effect-support-a","effect-workflow",origin,1,policy,task_id,error) = 0,"effect support task " || error)
+  evidence = '[{"evidence_id":"effect-support-a","quote":"Platform"}]'
+  response = responsejson("retract","","[]",evidence)
+  errors = errors + check(planagentaction(store,config,profile,task_id,"resolution",response,"effect test","fixture","fixture",canonical,error) = 0,"positive control grounded support plan " || error)
+  if canonical = "" then return errors + 1
+  errors = errors + effectcheck(database,canonical,"support","effect-support-a","retract")
+  errors = errors + effectcheck(database,canonical,"claim","effect-claim","retain")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM json_each(" || _testquote(canonical) || ",'$.impact') WHERE json_extract(value,'$.object_type')='conflict'") = 0,"other support keeps conflicts active")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM claim_support WHERE claim_id='effect-claim' AND visible_to_generation IS NULL") = 2,"preview makes no support writes")
+  errors = errors + check(planagentaction(store,config,profile,task_id,"resolution",responsejson("move","effect-target","[]",evidence),"effect test","fixture","fixture",canonical,error) <> 0,"self-edge migration rejected during planning")
+  errors = errors + check(planagentaction(store,config,profile,task_id,"resolution",response,"effect test","fixture","fixture",canonical,error) = 0,"recreate support plan")
+  digest = rxhash..sha256hex(canonical as .binary)
+  errors = errors + check(applyagentaction(store,config,profile,canonical,digest,"resolution",review_id,error) = 0,"submit support plan " || error)
+  errors = errors + revieweffectchecks(store,review_id,canonical)
+  /* Seed a legacy action as immutable history; never disable its write guards. */
+  original_action = scalartext(database,"SELECT json_extract(proposal_json,'$.action_id') FROM reviews WHERE review_id=" || _testquote(review_id))
+  errors = errors + check(sqliteexec(database,"INSERT INTO maintenance_agent_actions(action_id,task_id,action_kind,actor,model,canonical_plan,created_epoch) SELECT 'legacy-effect-action',task_id,action_kind,actor,model,json_set(canonical_plan,'$.impact',json('[]')),created_epoch FROM maintenance_agent_actions WHERE action_id=" || _testquote(original_action) || "; UPDATE reviews SET proposal_json=json_set(proposal_json,'$.action_id','legacy-effect-action') WHERE review_id=" || _testquote(review_id)) = 0,"legacy preview fixture")
+  errors = errors + revieweffectchecks(store,review_id,canonical)
+  errors = errors + check(scalartext(database,"SELECT json_extract(canonical_plan,'$.impact') FROM maintenance_agent_actions WHERE action_id='legacy-effect-action'") = "[]","preview does not rewrite retained action")
+  errors = errors + check(sqliteexec(database,"UPDATE reviews SET proposal_json=json_set(proposal_json,'$.action_id'," || _testquote(original_action) || ") WHERE review_id=" || _testquote(review_id)) = 0,"restore original reviewed action")
+  errors = errors + stalepreviewchecks(store,review_id)
+  errors = errors + effectboundchecks(store)
+  errors = errors + check(reviewagentaction(store,review_id,"accept",config,profile,error) = 0,"accept support retraction " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM claim_support WHERE support_id='effect-support-a' AND visible_to_generation IS NOT NULL") = 1 & scalarint(database,"SELECT count(*) FROM claims WHERE claim_id='effect-claim' AND visible_to_generation IS NULL") = 1,"support retraction matches preview and retains supported claim")
+  errors = errors + check(enqueuebacklogtask(database,"connection","claim","effect-claim","effect-workflow",origin,1,policy,task_id,error) = 0,"effect claim task " || error)
+  evidence = '[{"evidence_id":"effect-support-b","quote":"Platform"}]'
+  response = responsejson("retract","","[]",evidence,"effect-claim")
+  errors = errors + check(planagentaction(store,config,profile,task_id,"resolution",response,"effect test","fixture","fixture",canonical,error) = 0,"positive control grounded claim plan " || error)
+  errors = errors + effectcheck(database,canonical,"claim","effect-claim","retract")
+  errors = errors + effectcheck(database,canonical,"support","effect-support-b","retract")
+  errors = errors + effectcheck(database,canonical,"conflict","effect-conflict","resolve")
+  errors = errors + check(scalarint(database,"SELECT json_array_length(" || _testquote(canonical) || ",'$.impact')") = 3,"claim preview includes exactly active affected rows")
+  digest = rxhash..sha256hex(canonical as .binary)
+  errors = errors + check(applyagentaction(store,config,profile,canonical,digest,"resolution",review_id,error) = 0,"submit claim retraction " || error)
+  errors = errors + revieweffectchecks(store,review_id,canonical)
+  errors = errors + check(reviewagentaction(store,review_id,"accept",config,profile,error) = 0,"accept claim retraction " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM claims WHERE claim_id='effect-claim' AND visible_to_generation IS NOT NULL") = 1 & scalarint(database,"SELECT count(*) FROM claim_support WHERE claim_id='effect-claim' AND visible_to_generation IS NULL") = 0 & scalarint(database,"SELECT count(*) FROM claim_conflicts WHERE conflict_id='effect-conflict' AND visible_to_generation IS NOT NULL") = 1,"claim support conflict publication matches effect preview")
+  errors = errors + check(applyagentaction(store,config,profile,canonical,digest,"resolution",review_id,error) = 0 & reviewagentaction(store,review_id,"accept",config,profile,error) <> 0,"exact replay retains history without repeated publication")
+  errors = errors + check(scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1") = current+2 & scalarint(database,"SELECT count(*) FROM provider_runs") = calls & scalarint(database,"SELECT count(*) FROM source_revisions") = sources & scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"effect checks preserve sources usage history and foreign keys")
+  return errors
+
+connectionvariantchecks: procedure = .int
+  arg store = .ragstorehandle, current = .int
+  database = store.database(); errors = 0; error = ""; impact = ""; result = .jsondocument(responsejson("retract"))
+  errors = errors + check(connectioneffects(database,"effect-parent","claim","effect-claim",result,current,4,impact,error) = 0,"effect bound positive control")
+  errors = errors + check(connectioneffects(database,"effect-parent","claim","effect-claim",result,current,3,impact,error) <> 0,"effect count enforces configured bound")
+  errors = errors + check(sqliteexec(database,"BEGIN IMMEDIATE") = 0,"begin isolated move projection fixture")
+  errors = errors + check(sqliteexec(database,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('effect-successor','Platform','concept','active'," || current || "); INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('effect-successor-mention','effect-successor','chunk-lifecycle',0,8," || current || "); INSERT INTO claim_conflicts(conflict_id,claim_id,competing_claim_id,review_state,visible_from_generation) VALUES('effect-resolved-conflict','effect-claim','effect-other','resolved-retain-both'," || current || ")") = 0,"move projection fixture")
+  result = .jsondocument(responsejson("move","effect-successor"))
+  errors = errors + check(connectioneffects(database,"effect-parent","claim","effect-claim",result,current,10,impact,error) = 0,"supported move has an effect preview " || error)
+  errors = errors + effectcheck(database,'{"impact":' || impact || '}',"conflict","effect-conflict","carry")
+  errors = errors + effectcheck(database,'{"impact":' || impact || '}',"conflict","effect-resolved-conflict","resolve")
+  preview_publication = 0
+  errors = errors + check(stagegeneration(store,current,scalartext(database,"SELECT current_config_snapshot_id FROM library_config_state WHERE singleton=1"),"isolated effect fixture",preview_publication,error) = 0,"stage isolated move generation")
+  errors = errors + check(applyconnectiontransaction(database,"effect-parent","claim","effect-claim","move-child","effect-successor",current,preview_publication,error) = 0,"move publication positive control " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM claims WHERE source_concept_id='effect-successor' AND visible_to_generation IS NULL") = 1 & scalarint(database,"SELECT count(*) FROM claim_conflicts WHERE claim_id='effect-claim' AND visible_to_generation IS NULL") = 0 & scalarint(database,"SELECT count(*) FROM claim_conflicts WHERE claim_id IN(SELECT claim_id FROM claims WHERE source_concept_id='effect-successor') AND review_state='pending' AND visible_to_generation IS NULL") = 1,"move carries pending conflicts and closes former rows")
+  errors = errors + check(sqliteexec(database,"ROLLBACK") = 0,"rollback isolated move projection fixture")
+  result = .jsondocument(responsejson("retain"))
+  errors = errors + check(connectioneffects(database,"effect-parent","note","effect-note",result,current,10,impact,error) = 0,"note settlement projection")
+  errors = errors + effectcheck(database,'{"impact":' || impact || '}',"note","effect-note","resolve")
+  return errors
+
+stalepreviewchecks: procedure = .int
+  arg store = .ragstorehandle, review_id = .string
+  database = store.database(); errors = 0; config = architecturelocalconfig(); access = .string[]; access[1] = "plan"; positionals = .string[]
+  preview_generation = scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  errors = errors + check(sqliteexec(database,"UPDATE library_meta SET published_generation=published_generation-1 WHERE singleton=1") = 0,"stale review preview fixture")
+  command_options = .ragcommandoption[]; command_options[1] = .ragcommandoption("id",review_id,0); command_options[2] = .ragcommandoption("decision","accept",0)
+  request = .ragcommandrequest(store.path(),config.config_id(),"generic-profile","","json","off",access,"review","decide","review.decide",command_options,positionals)
+  result = dispatchproduct(request,operatorregistry())
+  errors = errors + check(result.exit_code() = 3,"stale review cannot advertise acceptable effects")
+  command_options[2] = .ragcommandoption("decision","reject",0)
+  request = .ragcommandrequest(store.path(),config.config_id(),"generic-profile","","json","off",access,"review","decide","review.decide",command_options,positionals)
+  result = dispatchproduct(request,operatorregistry())
+  errors = errors + check(result.exit_code() = 0,"stale review can still be rejected")
+  errors = errors + check(sqliteexec(database,"UPDATE library_meta SET published_generation=" || preview_generation || " WHERE singleton=1") = 0,"restore review snapshot")
+  return errors
+
+effectboundchecks: procedure = .int
+  arg store = .ragstorehandle
+  errors = 0; error = ""; impact = "["
+  do i = 1 to 1000
+    if i > 1 then impact = impact || ","
+    impact = impact || '{"object_type":"support","object_id":"effect-' || i || '","effect":"retract","target_concept_id":""}'
+  end
+  impact = impact || "]"; fields = .ragresultfield[]; fields[1] = .ragresultfield("applied","boolean","false")
+  records = .ragresultrecord[]; records[1] = .ragresultrecord("agent-action",fields)
+  records = commandeffectrecords(records,impact); result = .ragcommandresult("maintain.resolve-plan","ok",0,"effect bound",records); output = ""
+  errors = errors + check(records.0 = 100 & rendercommandresult(result,"json",output,error) = 0,"bounded preview remains renderable " || error)
+  errors = errors + check(scalartext(store.database(),"SELECT json_extract(" || _testquote(output) || ",'$.records[0].fields.impact_json')") = impact & scalarint(store.database(),"SELECT json_extract(" || _testquote(output) || ",'$.records[0].fields.impact_truncated')") = 1,"full effects survive explicit human display truncation")
+  return errors
+
+revieweffectchecks: procedure = .int
+  arg store = .ragstorehandle, review_id = .string, expected = .string
+  errors = 0; error = ""; config = architecturelocalconfig(); access = .string[]; access[1] = "plan"
+  command_options = .ragcommandoption[]; command_options[1] = .ragcommandoption("id",review_id,0); command_options[2] = .ragcommandoption("decision","accept",0)
+  positionals = .string[]
+  request = .ragcommandrequest(store.path(),config.config_id(),"generic-profile","","json","off",access,"review","decide","review.decide",command_options,positionals)
+  result = dispatchproduct(request,operatorregistry()); output = ""; human = ""
+  errors = errors + check(result.exit_code() = 0,"review effect preview positive control")
+  errors = errors + check(rendercommandresult(result,"json",output,error) = 0 & rendercommandresult(result,"human",human,error) = 0,"render review effect preview " || error)
+  wanted = scalartext(store.database(),"SELECT json_extract(" || _testquote(expected) || ",'$.impact')")
+  actual = scalartext(store.database(),"SELECT json_extract(" || _testquote(output) || ",'$.records[0].fields.impact_json')")
+  errors = errors + check(wanted <> "[]" & actual = wanted,"review shows complete planned effects")
+  errors = errors + check(pos("effect-support",human)>0 & pos("retract",human)>0,"human preview shows affected support and action")
+  errors = errors + check(scalartext(store.database(),"SELECT state FROM reviews WHERE review_id=" || _testquote(review_id)) = "pending","review preview makes no writes")
+  return errors
+
+effectcheck: procedure = .int
+  arg database = .binary, canonical = .string, kind = .string, id = .string, effect = .string
+  return check(scalarint(database,"SELECT count(*) FROM json_each(" || _testquote(canonical) || ",'$.impact') WHERE json_extract(value,'$.object_type')=" || _testquote(kind) || " AND json_extract(value,'$.object_id')=" || _testquote(id) || " AND json_extract(value,'$.effect')=" || _testquote(effect)) = 1,"UX-03 preview " || kind || " " || id || " " || effect)
+
+_testquote: procedure = .string
+  arg value = .string
+  return "'" || changestr("'",value,"''") || "'"
 
 agentchecks: procedure = .int
   arg store = .ragstorehandle, policy_json = .string
@@ -730,6 +867,7 @@ main: procedure = .int
   errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_alias_issues WHERE candidate_id='candidate-identity-collision' AND state='open'") = 0 & scalarint(database,"SELECT count(*) FROM mentions WHERE concept_id='" || selected || "' AND visible_to_generation IS NULL") > 0,"repair converges without reopening the same question")
   errors = errors + check(scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"identity repair preserves foreign keys")
   errors = errors + agentchecks(store,policy_json)
+  errors = errors + connectioneffectchecks(store,policy_json)
   errors = errors + refreshchecks(store,policy_json)
   call closeragstore store,error
   if errors > 0 then return 1

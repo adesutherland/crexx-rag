@@ -1516,6 +1516,8 @@ _agentaction: procedure = .ragcommandresult
   fields[6] = .ragresultfield("validation","string","task, grounding, profile types and impact checked; resolution apply queues mandatory review; acceptance revalidates lifecycle and current evidence")
   fields[7] = .ragresultfield("provider_calls","integer",0)
   records = .ragresultrecord[]; records[1] = .ragresultrecord("agent-action",fields)
+  document = .jsondocument(canonical); impact = document.node_get(document.member(document.root(),"impact"))
+  records = commandeffectrecords(records,impact)
   return .ragcommandresult(operation,"ok",0,"evidence-bound external agent action",records)
 
 _taskrefresh: procedure = .ragcommandresult
@@ -1707,8 +1709,16 @@ _reviewdecision: procedure = .ragcommandresult
   if apply = 1 & commandhasaccess(request, "curate") \= 1 then return commandfailure(operation, 4, "review decision apply requires curate access")
   preview_store = .ragstorehandle
   if openragstore(request.library(),"readonly",preview_store,error) \= 0 then return commandopenfailure(operation,error)
+  if sqliteexec(preview_store.database(),"BEGIN") \= 0 then do; ignored = ""; call closeragstore preview_store,ignored; return commandfailure(operation,7,"cannot open review preview snapshot"); end
+  preview_plan = ""; preview_impact = "[]"
   preview_state = sqlreadtext(preview_store.database(),"SELECT state FROM reviews WHERE review_id=" || sqlquote(id))
   preview_type = sqlreadtext(preview_store.database(),"SELECT review_type FROM reviews WHERE review_id=" || sqlquote(id))
+  if preview_type = "maintenance-external" & preview_state = "pending" & decision = "accept" then do
+    config_lookup = registry.config(request.config_id()); profile_lookup = registry.profile(request.profile_id())
+    if config_lookup.found() \= 1 | profile_lookup.found() \= 1 then do; ignored = ""; call sqliteexec preview_store.database(),"ROLLBACK"; call closeragstore preview_store,ignored; return commandfailure(operation,5,"external resolution configuration or profile is unavailable"); end
+    if previewagentaction(preview_store,id,config_lookup.config(),profile_lookup.profile(),preview_plan,preview_impact,error) \= 0 then do; ignored = ""; call sqliteexec preview_store.database(),"ROLLBACK"; call closeragstore preview_store,ignored; return commandfailure(operation,3,error); end
+  end
+  call sqliteexec preview_store.database(),"ROLLBACK"
   ignored = ""; closed = closeragstore(preview_store,ignored)
   if closed \= 0 then return commandfailure(operation,7,ignored)
   if preview_state = "" then return commandfailure(operation,5,"review was not found")
@@ -1721,7 +1731,9 @@ _reviewdecision: procedure = .ragcommandresult
   fields[5] = .ragresultfield("review_type","string",preview_type)
   fields[6] = .ragresultfield("current_state","string",preview_state)
   fields[7] = .ragresultfield("validation","string","pending review exists; acceptance revalidates current evidence during apply")
+  if preview_plan \= "" then fields[8] = .ragresultfield("canonical_plan","string",preview_plan)
   records = .ragresultrecord[]; records[1] = .ragresultrecord("review-decision-preview", fields)
+  if preview_plan \= "" then records = commandeffectrecords(records,preview_impact)
   if apply = 1 then do
     store = .ragstorehandle
     if openragstore(request.library(), "readwrite", store, error) \= 0 then return commandopenfailure(operation, error)
@@ -1741,7 +1753,7 @@ _reviewdecision: procedure = .ragcommandresult
       review_status = reviewagentaction(store,id,decision,config_lookup.config(),profile_lookup.profile(),error)
       ignored = ""; call closeragstore store,ignored
       if review_status \= 0 then return commandfailure(operation,3,error)
-      fields[4] = .ragresultfield("applied","boolean","true"); records[1] = .ragresultrecord("review-decision",fields)
+      fields = records[1].fields(); fields[4] = .ragresultfield("applied","boolean","true"); records[1] = .ragresultrecord("review-decision",fields)
       return .ragcommandresult(operation,"ok",0,"external resolution review applied with current evidence validation",records)
     end
     if review_type = "maintenance-resolution" then do

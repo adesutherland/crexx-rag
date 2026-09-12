@@ -323,6 +323,17 @@ priority and status. Schema 12 records external action plans in an immutable
 `maintenance_agent_actions` table; their self-reported actor/model attribution
 does not masquerade as an internally measured provider run. Submission queues
 a review, and acceptance revalidates the evidence and generation transactionally.
+
+`ragmaintain.connectioneffects` owns the read-only projection of connection
+changes. Support membership, successor-span checks and migrated claim identity
+are shared with publication. `ragbacklog` binds those effects to the task,
+workflow and exact response; its one pending-review validator is used by both
+preview and transactional acceptance. Existing immutable action bytes are never
+rewritten to repair an old empty preview. `ragproduct` owns opening and ending
+the read snapshot; `ragcommandutil.commandeffectrecords` only presents the
+complete effect JSON and bounded human records. Adapters do not infer effects
+from task labels or duplicate lifecycle rules. See the
+[effect-preview qualification](connection-effect-previews.md).
 See [Agent integration](agent-integration.md#difficult-maintenance-tasks).
 
 The external exploration surface distinguishes the current evidence inventory

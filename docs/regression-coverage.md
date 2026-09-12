@@ -12,6 +12,14 @@ delivery record; golden data was captured before product changes.
 
 ## Current status — 12 September 2026
 
+UX-03 extends `durable_backlog` with support/claim/conflict effect assertions,
+public human/JSON review previews, legacy immutable actions, stale acceptance
+and bounded complete effect lists. Baseline positive controls and the intended
+red assertions preceded implementation; see [the evidence](connection-effect-previews.md).
+The post-change full gate passed **59/59 in 758.92 seconds**. The figures below
+retain earlier results; this closes the local UX-03 acceptance, not UX-04 or the
+combined installed operator journey.
+
 All five maintenance refactors are complete. The final full workflow passes
 **59/59 in 737.26 seconds**, including every original defect test and the new
 policy/transport boundaries; see the [stage evidence](maintenance-refactoring-delivery.md).
@@ -187,7 +195,7 @@ remain in the [consolidated register](ROADMAP.md#recovery-and-reliability-histor
 | Unknown, duplicate, late or excessive usage | `publication`, `provider_durability`, `worker_recovery`, `native_interruption` | External account reconciliation and hosted qualification under QA-02; reservations are not actual usage |
 | Pause/drain/cancel/terminal parent loses remaining work | `process_workers`, `provider_durability`, `durable_backlog`, `native_interruption`, new retry cases | Step 2 covers request acceptance/deduplication, closed-window reconsideration, safe execution and pause/claim races. Reasoned close/waive operator controls and complete external-retirement workflows remain open; OPS-005 renewal policy is not implemented |
 | Bad task, failed worker and shared outage treated alike | `worker_recovery`, `controller_recovery`, new capacity test; exact calls and healthy-peer outcomes | OPS-004 rolling replacement, shared-outage probes/backoff, concurrent replenishment and zero-worker policy require agreed behavior before executable acceptance |
-| Public status/page hides outstanding failures or work | `native_surfaces`, `durable_backlog_provider`, new page/large-job tests | OPS-003 complete public-only diagnostic journey; UX-01 workflow/subject lookup, UX-03 trustworthy impact preview, UX-04 external retirement completion |
+| Public status/page hides outstanding failures or work | `native_surfaces`, `durable_backlog_provider`, new page/large-job tests | OPS-003 complete public-only diagnostic journey; UX-01 workflow/subject lookup and UX-04 external retirement completion; UX-03 local effect assertions are recorded separately |
 | Retrieval changes meaning or drops evidence | `evidence_methodology`, `quotation_grounding`, `temporal_provenance`, `gemini_query`, new frozen corpus cases | QE-01/02 selected graph roots/traversal; QE-09 60–100-question independently judged comparative benchmark. Eight synthetic questions are a contract seed, not a quality score |
 | Packaging/runtime divergence | `linked_application`, `address_surface`, `installed_product`; installed-package provider ownership | New 99/100 and large-row cases currently exercise native human/JSON/NDJSON/MCP, not ADDRESS or an installed copy; extend them before a transport/package refactor. Installed Linux remains QA-03 |
 | Workload/ledger grows beyond small fixtures | Existing 40-resolution overlapping native backlog case, 32-chunk/eight-worker embedding case, 17,000 protocol cycles and methodology fixtures | QA-01/PERF-01 multi-hour mixed load, long-ledger admission/census latency, concurrent readers/backup and memory/latency measurements remain open |

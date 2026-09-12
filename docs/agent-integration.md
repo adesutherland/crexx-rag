@@ -303,7 +303,12 @@ The external resolution sequence is:
 1. Call `rag_task_resolve_plan` with task ID and inline `response_json` matching
    the returned task schema. Source quotations must pass the normal durable
    packet validator. The canonical plan freezes the task stamp, evidence,
-   configuration, profile, generation, attribution and impact census.
+   configuration, profile, generation, attribution and impact census. Connection
+   effects identify the affected objects and dispositions; inspect `impact_json`
+   when `impact_truncated` says the human records are incomplete. Before applying
+   acceptance, use the existing review-decision preview to revalidate current
+   effects. Old pending plans are inspected without rewriting their immutable
+   attribution. See [effect previews](connection-effect-previews.md).
 2. With authorized `curate` access, submit exact `plan_json` and `expect_digest`
    to `rag_task_resolve_apply`. This records an immutable external-agent action
    and creates a pending review; it does not change the corpus.

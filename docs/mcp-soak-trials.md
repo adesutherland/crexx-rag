@@ -2,7 +2,9 @@
 
 The [consolidated roadmap](ROADMAP.md#agent-and-public-surface-findings-outside-the-numbered-backlogs)
 indexes the outstanding discovery, pagination, preview and workflow-completion
-findings below. This report retains the original trial evidence.
+findings below. This report retains the original trial evidence. The subsequent
+[UX-03 repair](connection-effect-previews.md) has separate local synthetic
+regression evidence; it does not claim a rerun of this copied-corpus trial.
 
 9 September 2026. These trials extend the [synthetic fresh-agent
 tests](mcp-codex-trials.md). The interface supports useful grounded questions

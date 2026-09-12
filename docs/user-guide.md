@@ -1093,8 +1093,17 @@ failures on the same task also flag it. Transport and storage failures do not.
 Use the installed `$crexxrag-resolve` skill for evidence-grounded split,
 merge, reclassification and connection proposals. `maintain resolve-plan`
 takes a task `--id` and inline `--response-json`; `maintain resolve-apply`
-requires the exact `--plan-json` and `--expect-digest`. Submission creates a
-mandatory review; acceptance revalidates the source evidence and current
+requires the exact `--plan-json` and `--expect-digest`. Connection plans list
+the affected objects and proposed effects, including whether retracting one
+support leaves its claim supported. Before acceptance, run `review decide
+REVIEW_ID --decision accept` without `--apply` to validate and inspect the
+current effects. The preview makes no writes or provider calls. A stale review
+must be rejected and replanned; rejection remains available. Human output shows
+up to 99 effect rows with explicit counts/truncation, while JSON/NDJSON/MCP
+retain the complete `impact_json` list. This also works for older pending
+external reviews whose saved plan had an empty impact list, without rewriting
+that saved plan. See [the tested boundaries](connection-effect-previews.md).
+Submission creates a mandatory review; acceptance revalidates the source evidence and current
 generation before applying the existing lifecycle rules. Split/merge starts
 connection migration work, so an accepted proposal does not imply that every
 successor connection has been resolved. `maintain escalate-plan` and

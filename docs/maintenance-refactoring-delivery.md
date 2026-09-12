@@ -353,3 +353,13 @@ long-run/hosted/platform qualification and retrieval-quality evaluation remain
 tracked in the [roadmap](ROADMAP.md). Separate executables are not required for
 these ownership improvements. The future native model bridge remains a CREXX
 provider responsibility behind the existing product boundary.
+
+## Follow-up — UX-03 connection effect previews
+
+The approved sequence starts with trustworthy previews, then external lifecycle
+completion (UX-04/OPS-002), then the combined public recovery journey.
+`ragmaintain` owns connection effects and shared publication checks;
+`ragbacklog` owns task/response binding and one acceptance validator;
+`ragproduct` owns command snapshots; `ragcommandutil` owns bounded presentation.
+The new tests preceded each repair. Full local QA passed **59/59 in 758.92
+seconds**; no import cycle was introduced. See [the detailed qualification](connection-effect-previews.md).

@@ -143,7 +143,7 @@ data provide evidence, not a new live authorization.
 | --- | --- | --- |
 | RAG-UX-01 | Partial — interface implemented in maintenance refactor stage 3; full local QA 54/54 | Task lookup by subject/concept and addressable workflow inventory. Maps to OPS-003; repeat the Turray discovery without supplying evaluator IDs. The trial exhausted 30 product calls without finding the named migration. |
 | RAG-UX-02 | Recorded repair — steps 5a/5b; see [qualified boundaries](public-result-lexical-repair.md) | Coherent pagination and large-row detail. Maps to HC-33/34 and OPS-003. Tests demonstrate the 99/100 review-page boundary and a one-job page failing at 65,536 retained-plan characters after 65,535 succeeds, in human/JSON/NDJSON/MCP. The copied-corpus trial also found a 1,468,714-character plan. The repaired summary/detail projection preserves exact full-detail access, with ADDRESS and installed-copy boundary checks. Wider result-shape limits remain HC-34. |
-| RAG-UX-03 | Open | Trustworthy connection effect preview. Both Turray retraction plans showed empty impact despite changing a claim/support. Require affected objects and proposed effect before reviewed acceptance, using the lifecycle owner. |
+| RAG-UX-03 | Recorded local repair — full QA 59/59 | Connection plans and pending external acceptance previews expose affected claims, supports and conflicts, plus connection dispositions. Lifecycle validation is shared with publication; old saved plans remain immutable. See [coverage and qualification](connection-effect-previews.md). |
 | RAG-UX-04 | Open | Complete an external correction through census and parent retirement without unrelated worker work. Three connections were resolved and remaining impact empty, but workflow stayed migrating with no retirement task. Maps to OPS-001/002; require final retirement, preserved history and idempotence through public controls. |
 | RAG-UX-05 | Proposed | Source-scoped query inspection and citation-adjacent context. Maps to QE-01/02/06/09. Repeat fixed historical questions and measure coverage, citations, faithful qualification and calls. |
 
@@ -303,9 +303,11 @@ separate step that offsets the numbering.
    independent citation/index controls. The complete gate and all review
    documentation are versioned; see the current qualification record.
 
-Next complete public operator diagnostics/recovery,
-effect previews and external retirement (OPS-001/002/003, UX-01/03/04), and
-specify renewal/continuation under OPS-005 without erasing history. Wider shared
+The approved next sequence is **UX-03 effect previews**, then **UX-04 with
+OPS-002 external correction and lifecycle closure**, followed by the complete
+public diagnostic/recovery journey under OPS-001/003. Confirm regression
+coverage first and commit only after the full local gate is green at each step.
+OPS-005 renewal/continuation remains separate design work without erasing history. Wider shared
 infrastructure recovery and hosted/platform/long-run qualification remain open
 under OPS-004 and QA-01/02/03. Claim policy, prompt contracts, query/reporting
 services and command metadata now have shared owners. Extend the
