@@ -7,6 +7,7 @@ import rxjson
 import rxhash
 import rxsqlite
 import ragstore
+import ragenvironment
 import ragworktypes
 import raglifecycle
 import ragcanonical
@@ -59,21 +60,7 @@ releaseprovidercall: procedure = .int
   status = _releaseprovidercall(store,admission_id,actual_tokens,outcome,error)
   if status \= 0 then do; ignored = sqliteexec(database,"ROLLBACK"); return status; end
   if previous = "active" | previous = "expired" then do
-    scope = "provider_id=(SELECT provider_id FROM provider_admissions WHERE admission_id=" || _q(admission_id) || ") AND model=(SELECT model FROM provider_admissions WHERE admission_id=" || _q(admission_id) || ")"
-    if outcome = "succeeded" then do
-      if sqliteexec(database,"UPDATE provider_cooldowns SET failure_count=0,not_before_epoch=0,updated_epoch=unixepoch() WHERE " || scope || " AND (SELECT admitted_epoch FROM provider_admissions WHERE admission_id=" || _q(admission_id) || ")>=not_before_epoch") \= 0 then return _rollback(database,"cannot clear provider cooldown",error)
-    end
-    else if retry_delay_ms > 0 then do
-      failures = _scalarint(database,"SELECT coalesce((SELECT failure_count FROM provider_cooldowns WHERE " || scope || "),0)")
-      delay_ms = initial_backoff_ms
-      do i = 1 to min(failures,30); delay_ms = min(maximum_backoff_ms,delay_ms*2); end
-      delay_ms = max(delay_ms,retry_delay_ms)
-      /* Epoch storage has whole-second precision. Round away from an early
-       * retry even when the response arrived late within the current second. */
-      seconds = (((delay_ms+999)/1000) as .int) + 1
-      sql = "INSERT INTO provider_cooldowns(provider_id,model,not_before_epoch,failure_count,updated_epoch) SELECT provider_id,model,unixepoch()+" || seconds || ",1,unixepoch() FROM provider_admissions WHERE admission_id=" || _q(admission_id) || " ON CONFLICT(provider_id,model) DO UPDATE SET not_before_epoch=max(not_before_epoch,excluded.not_before_epoch),failure_count=failure_count+1,updated_epoch=excluded.updated_epoch"
-      if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot retain provider cooldown",error)
-    end
+    if updatecooldown(database,admission_id,outcome,retry_delay_ms,initial_backoff_ms,maximum_backoff_ms,error) \= 0 then return _rollback(database,error,error)
   end
   if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot commit provider admission release",error)
   return 0

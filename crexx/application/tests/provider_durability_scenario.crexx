@@ -229,6 +229,10 @@ main: procedure = .int
   end
   admitted = ""; waited = 0
   errors = errors + check(admitprovidercall(store,cooling[1],"gemini","cooldown",10,100,10000,8,100,admitted,waited,error)=0,"admit initial cooldown call")
+  errors = errors + check(sqliteexec(database,"CREATE TRIGGER reject_cooldown BEFORE INSERT ON provider_cooldowns BEGIN SELECT RAISE(ABORT,'fixture cooldown write failed'); END")=0,"inject environment write failure")
+  errors = errors + check(releaseprovidercall(store,admitted,0,"failed",error,5000,5000,60000) \= 0,"cooldown failure rejects atomic release")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM provider_admissions WHERE model='cooldown' AND outcome='active'")=1 & scalarint(database,"SELECT count(*) FROM provider_cooldowns WHERE model='cooldown'")=0,"environment failure rolls back admission settlement")
+  errors = errors + check(sqliteexec(database,"DROP TRIGGER reject_cooldown")=0,"repair fixture environment write")
   errors = errors + check(releaseprovidercall(store,admitted,0,"failed",error,5000,5000,60000)=0,"persist shared cooldown")
   do i = 2 to 8
     rejected = ""

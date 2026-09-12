@@ -81,21 +81,33 @@ capacity is released, but unaccounted allowance remains conservative. Healthy
 peers can run within the remaining reviewed limits. See
 [receipt recovery](receipt-recovery.md) for the fault tests and boundaries.
 
-`ragprocess` replaces explicitly unhealthy, exited workers in job-filtered
-groups under a job-wide durable restart ceiling. The existing `job_events`
-ledger records each replacement before launch; no schema migration is needed.
-The controller carries remaining slot limits forward, and ordinary fenced work
-admission continues to enforce the original job policy. `ragapplicationprovider`
-distinguishes failed preflight from an uncertain submitted turn and preserves
-successful output across admission-release failure. A failed Codex stream gets
-one bounded exact-turn inspection through a fresh transport: completed output
-returns through normal validation; confirmed interruption without output permits
-the ordinary bounded retry. `ragwork` holds only an item with an unknown outcome.
-Healthy workers continue, including when the replacement ceiling is exhausted.
-The controller reports unreplaced failures after peers finish, without draining
-them. A confirmed exited worker's leases are recovered before replacement. When
-only held work remains, the drained job pauses for public reconciliation and
-reports vector publication as pending; it does not try to publish missing vectors.
+`ragsupervision` owns rolling replacement eligibility, durable reservations and
+pool status. `ragprocess` observes child completion, launches eligible replacements
+and continues supervising healthy peers while missing slots wait. The default
+allowance is two replacements per rolling hour, configurable independently of
+task attempts. Old events age out of active capacity but remain in `job_events`;
+controller restart and runtime pruning cannot erase them. The controller
+reconsiders even a completely empty pool. Explicit poll limits also bound parked
+slots; pause, cancellation and the original maintenance cutoff remain binding.
+
+`ragenvironment` owns provider/model cooldowns, shared admission and the single
+recovery probe. Both called retryable failures and safely uncalled unhealthy
+preflights can establish backoff. Uncalled deferrals consume no failed-task or
+provider-call allowance. When all eligible routes are cooling, replacement
+waits; an empty pool admits one replacement to probe, then restores other slots
+when provider health recovers. Generic process exits are not outage evidence.
+Usage settlement composes the environment transition inside its original writer
+transaction. These modules have no dependency on HTTP versus a future native
+model bridge. See [supervision recovery](supervision-recovery.md) for policy,
+coverage and qualification boundaries.
+
+`ragapplicationprovider` distinguishes failed preflight from an uncertain
+submitted turn and preserves successful output across admission-release failure.
+A failed Codex stream gets one bounded exact-turn inspection through a fresh
+transport. Completed output returns through normal validation; a confirmed
+interruption without output permits ordinary bounded retry. Unknown outcomes
+hold only their affected items. When only held work remains, the drained job
+pauses for public reconciliation and reports vector publication as pending.
 
 Codex intent is durable before turn submission. Public `job reconcile` binds
 the original attempt, input hash, snapshot, provider run, thread and turn to a

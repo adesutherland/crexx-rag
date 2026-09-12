@@ -10,21 +10,21 @@ file(GLOB members LIST_DIRECTORIES true
     "${CPRAG_APPLICATION_DIR}/project/crexxrag-project.crexx-build/members/*")
 list(JOIN members ";" member_imports)
 set(imports "${member_imports};${CPRAG_APPLICATION_DIR};${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
-set(modules ragenrich ragproposalio ragperiod ragprovenance ragassessment ragschema ragfile
-    ragstore ragmodel ragjob ragclaims ragadmission raglifecycle ragworktypes ragenvironment ragusage ragreceipts ragwork ragcommand ragtrace ragbacklog
+set(modules ragsupervision ragenrich ragproposalio ragperiod ragprovenance ragassessment ragschema ragfile
+    ragstore ragmodel ragjob ragclaims ragadmission ragsupervision ragworktypes ragenvironment ragusage ragreceipts ragwork ragcommand ragtrace ragbacklog
     ragmaintain ragimprove ragconfig ragprofile ragcanonical raggrounding generic_profile
     rxfnsg rxsqlite rx_hash rx_system rxfs rxplatform library)
-set(program "${CPRAG_WORK_DIR}/admission-regression")
+set(program "${CPRAG_WORK_DIR}/supervision-regression")
 execute_process(COMMAND "${CPRAG_RXC}" -i "${imports}" -o "${program}" "${CPRAG_SCENARIO}"
     RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
 file(WRITE "${CPRAG_WORK_DIR}/compile.log" "${output}${errors}")
 if(NOT status EQUAL 0)
-    message(FATAL_ERROR "Admission regression compile failed:\n${output}${errors}")
+    message(FATAL_ERROR "Supervision regression compile failed:\n${output}${errors}")
 endif()
 execute_process(COMMAND "${CPRAG_RXAS}" -o "${program}" "${program}"
     RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)
 if(NOT status EQUAL 0)
-    message(FATAL_ERROR "Admission regression assembly failed:\n${output}${errors}")
+    message(FATAL_ERROR "Supervision regression assembly failed:\n${output}${errors}")
 endif()
 set(failures)
 foreach(runtime IN ITEMS RXVME RXBVM)
@@ -32,11 +32,22 @@ foreach(runtime IN ITEMS RXVME RXBVM)
         -a "${CPRAG_WORK_DIR}/library-${runtime}"
         RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors TIMEOUT 60)
     file(WRITE "${CPRAG_WORK_DIR}/${runtime}.log" "exit=${status}\n${output}${errors}")
-    if(NOT output MATCHES "ADMISSION_POSITIVE_CONTROL_OK" OR
-       (NOT status EQUAL 0 AND NOT status EQUAL 1))
-        message(FATAL_ERROR "${runtime}: setup/control or unexpected runtime failure:\n${output}${errors}")
+    if(status EQUAL 0 AND output MATCHES "SUPERVISION_REGRESSION_OK")
+        # Two fresh processes reserve against the same rolling limit. They
+        # race independent SQLite connections; exactly one reservation wins.
+        file(WRITE "${CPRAG_WORK_DIR}/race-${runtime}.sh"
+            "#!/bin/sh\nset -eu\n\"$@\" worker-5 > '${CPRAG_WORK_DIR}/race-${runtime}-1.log' &\na=$!\n\"$@\" worker-6 > '${CPRAG_WORK_DIR}/race-${runtime}-2.log' &\nb=$!\nwait $a\nwait $b\n")
+        execute_process(COMMAND /bin/sh "${CPRAG_WORK_DIR}/race-${runtime}.sh"
+            "${CPRAG_${runtime}}" -l "${imports}" "${program}" ${modules}
+            -a "${CPRAG_WORK_DIR}/library-${runtime}"
+            RESULT_VARIABLE raced TIMEOUT 30)
+        file(READ "${CPRAG_WORK_DIR}/race-${runtime}-1.log" first)
+        file(READ "${CPRAG_WORK_DIR}/race-${runtime}-2.log" second)
+        if(NOT raced EQUAL 0 OR NOT "${first}${second}" MATCHES "RACE=0" OR NOT "${first}${second}" MATCHES "RACE=2")
+            list(APPEND failures "Concurrent reservation: ${first}${second}")
+        endif()
     endif()
-    if(NOT status EQUAL 0 OR NOT output MATCHES "ADMISSION_REGRESSION_OK")
+    if(NOT status EQUAL 0 OR NOT output MATCHES "SUPERVISION_REGRESSION_OK")
         list(APPEND failures "${runtime}: ${output}${errors}")
     endif()
 endforeach()
@@ -44,4 +55,4 @@ if(failures)
     list(JOIN failures "\n" detail)
     message(FATAL_ERROR "RAG-OPS-004 acceptance failed:\n${detail}")
 endif()
-message(STATUS "Admission regression passed on both VMs with optimized code")
+message(STATUS "Supervision regression passed on both VMs with optimized code")

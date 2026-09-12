@@ -36,6 +36,31 @@ add_test(NAME configuration_contract
 set_tests_properties(configuration_contract PROPERTIES
     LABELS "configuration;gemini;privacy;zero-outbound")
 
+add_test(NAME regression_supervision
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_PLUGIN_DIR=${CREXXRAG_SQLITE_PROVIDER_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/supervision_regression.crexx"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-supervision-regression"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/SupervisionRegression.cmake")
+set_tests_properties(regression_supervision PROPERTIES
+    TIMEOUT 150 LABELS "regression;worker;recovery;zero-outbound")
+
+add_test(NAME native_supervision
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CODEX_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-app-server-fixture.sh"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-application.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-supervision"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeSupervision.cmake")
+set_tests_properties(native_supervision PROPERTIES
+    TIMEOUT 240 LABELS "regression;worker;recovery;native;zero-outbound")
+
 add_test(NAME process_workers
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"

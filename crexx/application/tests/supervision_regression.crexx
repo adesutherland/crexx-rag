@@ -1,0 +1,65 @@
+options levelg
+import rxfnsb
+import rxsqlite
+import ragstore
+import ragsupervision
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if \condition then do; say "SUPERVISION_FAIL=" || label; return 1; end
+  return 0
+
+number: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary; value = -1
+  if sqliteprepare(database,sql,prepared) = 0 then if sqlitestep(prepared) = 100 then call sqlitecolumnint prepared,0,value
+  call sqlitefinalize prepared
+  return value
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 < 1 then return 2
+  errors = 0; error = ""; store = .ragstorehandle
+  if args.0 = 2 then do
+    if openragstore(args[1],"readwrite",store,error) \= 0 then return 2
+    replacement = ""; delay = 0
+    status = ragsupervision..reserveworkerreplacement(store,"controller",args[2],1,10,replacement,delay,error,100,5000)
+    say "RACE=" || status
+    call closeragstore store,error
+    return 0
+  end
+  errors = errors + check(initragstore(args[1],"library-supervision","snapshot-supervision","supervision","1","generic-profile","profile-hash","config-hash",'{}',store,error)=0,"initialise " || error)
+  if errors \= 0 then return 2
+  database = store.database()
+  errors = errors + check(sqliteexec(database,"INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,created_at,updated_at) VALUES('job','plan','{}','snapshot-supervision','running',10,10,1000,1000,1000,'fixture','fixture'); INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES('item','job','claim-extraction','queued',1,'item','input','{}','fixture','fixture')")=0,"seed eligible work")
+  errors = errors + check(sqliteexec(database,"INSERT INTO runtime_instances(instance_id,kind,host_id,pid,process_start_token,executable_identity,mode,job_filter,state,started_at,heartbeat_at) VALUES('controller','controller','fixture',1,'token','exe','wait','job','running',1,1)")=0,"seed controller")
+  do i = 1 to 6
+    errors = errors + check(sqliteexec(database,"INSERT INTO runtime_instances(instance_id,kind,parent_instance_id,host_id,pid,process_start_token,executable_identity,mode,job_filter,state,started_at,heartbeat_at,exit_code) VALUES('worker-" || i || "','worker','controller','fixture',0,'token','exe','follow','job','failed',1,1,75)")=0,"seed exited worker")
+  end
+  replacement = ""; delay = 0
+  errors = errors + check(ragsupervision..reserveworkerreplacement(store,"controller","worker-1",2,10,replacement,delay,error,100,1000)=0 & delay=10,"first isolated replacement " || error)
+  errors = errors + check(ragsupervision..reserveworkerreplacement(store,"controller","worker-1",2,10,replacement,delay,error,100,1000)=1,"same failure cannot reserve twice")
+  errors = errors + check(ragsupervision..reserveworkerreplacement(store,"controller","worker-2",2,10,replacement,delay,error,100,1050)=0 & delay=60,"burst backoff")
+  errors = errors + check(ragsupervision..reserveworkerreplacement(store,"controller","worker-3",2,10,replacement,delay,error,100,1099)=2 & delay=1000,"window exhausted before boundary")
+  errors = errors + check(closeragstore(store,error)=0 & openragstore(args[1],"readwrite",store,error)=0,"restart before expiry")
+  errors = errors + check(ragsupervision..reserveworkerreplacement(store,"controller","worker-3",2,10,replacement,delay,error,100,1099)=2,"restart preserves recent burst")
+  errors = errors + check(ragsupervision..reserveworkerreplacement(store,"controller","worker-3",2,10,replacement,delay,error,100,1100)=0,"oldest event expires at exact boundary")
+  errors = errors + check(closeragstore(store,error)=0 & openragstore(args[1],"readwrite",store,error)=0,"restart after expiry")
+  errors = errors + check(ragsupervision..reserveworkerreplacement(store,"controller","worker-4",2,10,replacement,delay,error,100,1200)=0 & delay=10,"isolated long-run failure restores allowance")
+  database = store.database()
+  errors = errors + check(number(database,"SELECT count(*) FROM job_events WHERE event_type='worker-replacement'")=4,"all historic events retained")
+  errors = errors + check(number(database,"SELECT count(*) FROM attempts")=0 & number(database,"SELECT count(*) FROM provider_runs")=0,"supervision creates no task attempts or provider calls")
+  errors = errors + check(sqliteexec(database,"UPDATE runtime_instances SET exit_code=1 WHERE instance_id='worker-5'")=0,"unclassified exit fixture")
+  errors = errors + check(ragsupervision..reserveworkerreplacement(store,"controller","worker-5",2,10,replacement,delay,error,100,1300)=1,"generic nonzero exit is not classified")
+  errors = errors + check(sqliteexec(database,"UPDATE runtime_instances SET exit_code=75 WHERE instance_id='worker-5'; UPDATE jobs SET state='paused'")=0,"pause fixture")
+  errors = errors + check(ragsupervision..reserveworkerreplacement(store,"controller","worker-5",2,10,replacement,delay,error,100,1300)=1,"pause binds replacements")
+  errors = errors + check(sqliteexec(database,"UPDATE jobs SET state='running'")=0,"restore fixture for concurrent reservations")
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET state='running'; INSERT INTO attempts(attempt_id,item_id,worker_id,fence,input_hash,validation_state,outcome,started_at) VALUES('healthy-attempt','item','healthy',1,'input','valid','running','fixture')")=0,"all remaining work temporarily belongs to a healthy peer")
+  errors = errors + check(replacementallowed(store,"job","worker-5",error)=1,"live peer work retains missing slot")
+  errors = errors + check(ragsupervision..reserveworkerreplacement(store,"controller","worker-5",2,10,replacement,delay,error,100,1300)=2 & delay=1000,"empty queue waits for peer disposition without launching")
+  errors = errors + check(number(database,"SELECT count(*) FROM attempts WHERE attempt_id='healthy-attempt' AND outcome='running'")=1 & number(database,"SELECT count(*) FROM job_events WHERE event_type='worker-replacement'")=4,"waiting preserves healthy ownership and history")
+  errors = errors + check(sqliteexec(database,"UPDATE attempts SET outcome='failed',completed_at='fixture' WHERE attempt_id='healthy-attempt'; UPDATE job_items SET state='queued'")=0,"peer requeues fixture for competing reservations")
+  errors = errors + check(closeragstore(store,error)=0,"close " || error)
+  if errors > 0 then return 1
+  say "SUPERVISION_REGRESSION_OK"
+  return 0

@@ -15,7 +15,7 @@ set(imports "${project_imports};${CPRAG_APPLICATION_DIR};${CPRAG_PLUGIN_DIR};${C
 set(modules ragenrich ragproposalio ragperiod ragprovenance ragassessment ragmodel ragevidence
     ragjob ragconfig ragconfiguration ragprofile ragregistry ragschema ragfile ragconfigfile ragglossary
     ragstore ragbackup ragrepository ragcanonical ragplanning ragtrace ragcommand ragingest
-    ragfolder ragclaims ragimprove ragmaintain ragbacklog ragadmission raglifecycle ragworktypes ragusage ragreceipts ragwork ragquery ragembedding
+    ragfolder ragclaims ragimprove ragmaintain ragbacklog ragadmission raglifecycle ragworktypes ragenvironment ragusage ragreceipts ragwork ragquery ragembedding
     ragretrieval ragevidencejson ragfoundation ragprocess ragproviderdiagnostics raggrounding ragapplicationprovider ragqueryprovider
     ragquerypolicy ragproduct provider_contract provider_catalog provider_http industrial_provider codex_provider architecture_local_config
     generic_profile it_architecture_profile operator_registry rxsqlite rx_hash rx_system rxfs rxplatform

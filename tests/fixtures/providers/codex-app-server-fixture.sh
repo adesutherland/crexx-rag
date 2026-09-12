@@ -58,6 +58,22 @@ while IFS= read -r line; do
         done
       fi
       case "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" in
+        supervision-outage)
+          n=1
+          while [ "$n" -le 8 ]; do
+            if mkdir "${CREXXRAG_CODEX_FIXTURE_SYNC:?}/initial-$n" 2>/dev/null; then
+              tries=0
+              while [ ! -d "$CREXXRAG_CODEX_FIXTURE_SYNC/initial-8" ]; do
+                tries=$((tries + 1))
+                if [ "$tries" -ge 400 ]; then exit 71; fi
+                sleep 0.025
+              done
+              log_method outage-preflight-failed
+              exit 70
+            fi
+            n=$((n + 1))
+          done
+          ;;
         preflight-always) exit 70 ;;
         preflight-once)
           if mkdir "${CREXXRAG_CODEX_FIXTURE_ONCE:?}" 2>/dev/null; then exit 70; fi
@@ -107,6 +123,17 @@ while IFS= read -r line; do
       ;;
     *'"method":"turn/start"'*)
       log_method turn/start
+      if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = supervision-task ]; then
+        case "$line" in
+          *BAD_TASK*)
+            printf '{"id":%s,"result":{"turn":{"id":"fixture-turn"}}}\n' "$id"
+            printf '%s\n' '{"method":"item/completed","params":{"threadId":"fixture-thread","turnId":"fixture-turn","item":{"type":"agentMessage","text":"{\"mentions\":[{\"label\":\"Unsupported\",\"canonical_label\":\"Unsupported\",\"concept_type\":\"application-component\",\"evidence_quote\":\"Not in this source\",\"aliases\":[]}],\"relationships\":[],\"notes\":[]}"}}}'
+            printf '%s\n' '{"method":"thread/tokenUsage/updated","params":{"threadId":"fixture-thread","turnId":"fixture-turn","tokenUsage":{"last":{"inputTokens":7,"outputTokens":2}}}}'
+            printf '%s\n' '{"method":"turn/completed","params":{"threadId":"fixture-thread","turn":{"id":"fixture-turn","status":"completed"}}}'
+            continue
+            ;;
+        esac
+      fi
       if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "citation-feedback" ] && [ -d "${CREXXRAG_CODEX_FIXTURE_ONCE:?}" ]; then
         case "$line" in
           *'field=mentions[0].evidence_quote'*'field=relationships[0].evidence_quote'*) log_method correction-feedback-checked ;;

@@ -38,6 +38,7 @@ import ragjob
 import ragwork
 import ragworktypes
 import ragprocess
+import ragsupervision
 import ragtrace
 import ragembedding
 import ragproviderdiagnostics
@@ -1772,6 +1773,8 @@ _jobstatus: procedure = .ragcommandresult
   store = .ragstorehandle
   if openragstore(request.library(), "readonly", store, error) \= 0 then return _openfailure(operation, error)
   status = .ragjobstatus; read_status = readjobstatus(store, job_id, status, error)
+  supervision = readsupervision(store,job_id,error)
+  if error \= "" then read_status = -1
   ignored = ""; close_status = closeragstore(store, ignored)
   if read_status = -2 then return _failure(operation, 5, "job was not found")
   if read_status \= 0 | close_status \= 0 then return _failure(operation, 7, error)
@@ -1790,6 +1793,15 @@ _jobstatus: procedure = .ragcommandresult
   fields[12] = .ragresultfield("waiting_reason", "string", status.waiting_reason())
   fields[13] = .ragresultfield("retry_pending", "integer", status.retry_pending())
   fields[14] = .ragresultfield("retry_reason", "string", status.retry_reason())
+  recovery = .jsondocument(supervision)
+  names = "configured_workers live_workers window_seconds max_restarts recent_replacements next_eligible_epoch"
+  do i = 1 to words(names)
+    name = word(names,i); value = 0
+    ignored = recovery.node_int(recovery.member(recovery.root(),name),value)
+    fields[fields.0+1] = .ragresultfield("worker_" || name,"integer",value)
+  end
+  reason = ""; ignored = recovery.node_string(recovery.member(recovery.root(),"waiting_reason"),reason)
+  fields[fields.0+1] = .ragresultfield("worker_waiting_reason","string",reason)
   records = .ragresultrecord[]; records[1] = .ragresultrecord("job-status", fields)
   return .ragcommandresult(operation, "ok", 0, "bounded durable job status", records)
 
@@ -2038,7 +2050,7 @@ _workerstart: procedure = .ragcommandresult
   if preflight \= 0 then return _failure(operation,6,error)
   started = .ragprocessstartresult
   tracer = .ragtracer(request.progress(), request.format()); call tracer.emit("controller", "start", "", "workers=" || count)
-  status = startworkerprocesses(request.library(), count, poll_milliseconds, maximum_polls, job_filter, request.config_id(), request.profile_id(), request.config_file(), request.progress(), request.format(), started, error, maximum_items, config_lookup.config().workers().max_restarts(), config_lookup.config().workers().restart_backoff_ms())
+  status = startworkerprocesses(request.library(), count, poll_milliseconds, maximum_polls, job_filter, request.config_id(), request.profile_id(), request.config_file(), request.progress(), request.format(), started, error, maximum_items, config_lookup.config().workers().max_restarts(), config_lookup.config().workers().restart_backoff_ms(), config_lookup.config().workers().restart_window_seconds())
   if status \= 0 then return _failure(operation, 8, error)
   vector_generations = 0; vector_state = "not-requested"
   if job_filter \= "" then do

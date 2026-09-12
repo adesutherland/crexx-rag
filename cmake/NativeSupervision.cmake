@@ -1,0 +1,203 @@
+# Public recovery contracts: scratch libraries and deterministic protocol faults.
+foreach(required CPRAG_NATIVE_APPLICATION CPRAG_CODEX_FIXTURE CPRAG_CONFIG_TEMPLATE CPRAG_WORK_DIR)
+    if(NOT DEFINED ${required})
+        message(FATAL_ERROR "${required} is required")
+    endif()
+endforeach()
+find_program(sqlite_cli sqlite3 REQUIRED)
+file(REMOVE_RECURSE "${CPRAG_WORK_DIR}")
+function(run_cli)
+    execute_process(COMMAND ${cli} ${ARGN} RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors TIMEOUT 60)
+    file(APPEND "${cell}/commands.log" "${ARGN}\nstatus=${status}\n${output}${errors}\n")
+    if(NOT status EQUAL 0)
+        message(FATAL_ERROR "Supervision command failed: ${ARGN}\n${output}${errors}")
+    endif()
+    set(last_output "${output}" PARENT_SCOPE)
+endfunction()
+function(sql query expected)
+    execute_process(COMMAND "${sqlite_cli}" -cmd ".timeout 5000" "${library}/library.sqlite" "${query}"
+        RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(NOT status EQUAL 0 OR NOT output STREQUAL "${expected}")
+        message(FATAL_ERROR "Supervision assertion: ${query}\nExpected ${expected}, got ${output}\n${errors}")
+    endif()
+endfunction()
+if(NOT DEFINED CPRAG_CASES)
+    set(CPRAG_CASES positive aged replenish cancel outage bad-task)
+endif()
+foreach(case IN LISTS CPRAG_CASES)
+    set(cell "${CPRAG_WORK_DIR}/${case}")
+    set(library "${cell}/library")
+    set(CPRAG_FIXTURE_SOURCE "${cell}/source")
+    set(CPRAG_FIXTURE_GLOSSARY "${cell}/glossary.tsv")
+    set(CPRAG_FIXTURE_PORT 1)
+    file(MAKE_DIRECTORY "${CPRAG_FIXTURE_SOURCE}")
+    file(WRITE "${CPRAG_FIXTURE_SOURCE}/source.txt" "BillingService depends on CustomerDatabase.\nAgain, BillingService depends on CustomerDatabase.\nBill-\ningService depends on CustomerDatabase.\n")
+    file(WRITE "${CPRAG_FIXTURE_GLOSSARY}" "format\tcrexx-rag.glossary/1\nconcept\tBillingService\tapplication-component\nconcept\tCustomerDatabase\tdata-store\n")
+    file(READ "${CPRAG_CONFIG_TEMPLATE}" config)
+    string(CONFIGURE "${config}" config @ONLY)
+    string(APPEND config "\nworker.max_restarts = 2\nworker.restart_backoff_ms = 10\n")
+    set(count 1)
+    set(failure preflight-once)
+    if(case STREQUAL "outage" OR case STREQUAL "bad-task")
+        set(count 8)
+        set(failure supervision-outage)
+        file(MAKE_DIRECTORY "${cell}/sync")
+        foreach(n RANGE 2 8)
+            file(COPY_FILE "${CPRAG_FIXTURE_SOURCE}/source.txt" "${CPRAG_FIXTURE_SOURCE}/${n}.txt")
+        endforeach()
+        string(REPLACE "worker.processes = 1" "worker.processes = 8" config "${config}")
+        string(REPLACE "budget.item_limit = 2" "budget.item_limit = 16" config "${config}")
+        string(REPLACE "budget.model_calls = 2" "budget.model_calls = 16" config "${config}")
+        string(REPLACE "budget.codex_turns = 1" "budget.codex_turns = 8" config "${config}")
+        string(REPLACE "budget.input_tokens = 65536" "budget.input_tokens = 1000000" config "${config}")
+        string(REPLACE "budget.output_tokens = 1024" "budget.output_tokens = 100000" config "${config}")
+        if(case STREQUAL "outage")
+        string(APPEND config "worker.restart_window_seconds = 2\nprovider.codex-extract.concurrent_requests = 8\nprovider.codex-extract.initial_backoff_ms = 10\nprovider.codex-extract.maximum_backoff_ms = 10\nprovider.codex-extract.jitter_ms = 0\n")
+        else()
+            set(failure supervision-task)
+            file(APPEND "${CPRAG_FIXTURE_SOURCE}/source.txt" "BAD_TASK\n")
+            string(REPLACE "budget.codex_turns = 8" "budget.codex_turns = 10" config "${config}")
+        endif()
+    endif()
+    file(WRITE "${cell}/recovery.conf" "${config}")
+    file(WRITE "${cell}/codex-fixture.sh" "#!/bin/sh\nexec /bin/sh '${CPRAG_CODEX_FIXTURE}' \"\$@\"\n")
+    file(CHMOD "${cell}/codex-fixture.sh" PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+    set(cli "${CMAKE_COMMAND}" -E env "CREXXRAG_CODEX=${cell}/codex-fixture.sh"
+        "CREXXRAG_SELF=${CPRAG_NATIVE_APPLICATION}" "CREXXRAG_CODEX_FIXTURE_MODE=extraction"
+        "CREXXRAG_CODEX_FIXTURE_FAILURE=${failure}" "CREXXRAG_CODEX_FIXTURE_SYNC=${cell}/sync" "CREXXRAG_CODEX_FIXTURE_ONCE=${cell}/failed-once"
+        "CREXXRAG_CODEX_FIXTURE_LOG=${cell}/methods.log"
+        "${CPRAG_NATIVE_APPLICATION}" --library "${library}" --config-file "${cell}/recovery.conf"
+        --profile it-architecture-profile --format json --progress plain)
+    run_cli(--access admin library init)
+    run_cli(--access plan ingest plan --source-set architecture-docs)
+    string(JSON plan GET "${last_output}" records 0 fields canonical_plan)
+    string(JSON digest GET "${last_output}" records 0 fields digest)
+    run_cli(--access ingest ingest apply --plan-json "${plan}" --expect-digest "${digest}")
+    string(JSON job GET "${last_output}" records 0 fields job_id)
+    sql("UPDATE job_items SET priority=200 WHERE item_type='claim-extraction'; UPDATE job_items SET retry_at=unixepoch()+3600 WHERE item_type='embedding';" "")
+    set(historical 0)
+    if(case STREQUAL "aged" OR case STREQUAL "replenish" OR case STREQUAL "cancel")
+        set(historical 2)
+        foreach(n RANGE 1 2)
+            sql("INSERT INTO job_events(job_id,event_type,message,occurred_at) VALUES('${job}','worker-replacement',json_object('previous','historic-${n}','replacement','old-${n}'),strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 hours'));" "")
+        endforeach()
+    endif()
+    if(case STREQUAL "replenish" OR case STREQUAL "cancel")
+        # Set durable times at the observed failure boundary. No product clock
+        # override or multi-hour wait; the controller must wake with zero peers.
+        sql("CREATE TRIGGER recent_burst AFTER UPDATE ON runtime_instances WHEN NEW.kind='worker' AND NEW.state='failed' AND NEW.exit_code=75 BEGIN UPDATE job_events SET occurred_at=strftime('%Y-%m-%dT%H:%M:%fZ','now','-3595 seconds') WHERE event_type='worker-replacement'; END;" "")
+    endif()
+    if(case STREQUAL "outage")
+        # Observe the real first recovery probe while it is held by the fixture.
+        # Admission must serialize probes even though provider concurrency is 8.
+        sql("CREATE TABLE probe_audit(active INTEGER,failed INTEGER); CREATE TRIGGER probe_observed AFTER INSERT ON provider_admissions WHEN (SELECT failure_count FROM provider_cooldowns WHERE provider_id=NEW.provider_id AND model=NEW.model)>0 BEGIN INSERT INTO probe_audit SELECT count(*),(SELECT count(*) FROM provider_admissions WHERE outcome='failed') FROM provider_admissions WHERE outcome='active'; END;" "")
+    endif()
+    if(case STREQUAL "bad-task")
+        run_cli(--access control job run "${job}" --count 8 --max-polls 1000 --poll-ms 20)
+        sql("SELECT count(*) FROM job_items WHERE item_type='claim-extraction' AND state='processed';" "7")
+        sql("SELECT count(*) FROM job_items WHERE item_type='claim-extraction' AND state='dead_letter';" "1")
+        sql("SELECT count(*) FROM attempts WHERE outcome IN('failed','dead_letter');" "2")
+        sql("SELECT count(DISTINCT item_id) FROM attempts WHERE outcome IN('failed','dead_letter');" "1")
+        sql("SELECT count(*) FROM job_events WHERE event_type='worker-replacement';" "0")
+        sql("SELECT count(*) FROM runtime_instances WHERE kind='worker' AND state='failed';" "0")
+        sql("SELECT count(*) FROM provider_runs;" "9")
+        sql("SELECT reserved_calls+reserved_tokens+reserved_cost+reserved_codex_turns FROM jobs;" "0")
+        file(READ "${cell}/methods.log" methods)
+        string(REGEX MATCHALL "turn/start" calls "${methods}")
+        list(LENGTH calls call_count)
+        if(NOT call_count EQUAL 9)
+            message(FATAL_ERROR "Task retry escaped its allowance: ${methods}")
+        endif()
+        continue()
+    endif()
+    if(case STREQUAL "replenish" OR case STREQUAL "cancel")
+        file(WRITE "${cell}/observe.sh" [=[
+set -eu
+db=$1
+job=$2
+cell=$3
+mode=$4
+shift 4
+"$@" --access control job run "$job" --count 1 --max-items 1 --max-polls 2000 --poll-ms 20 >"$cell/controller.out" 2>"$cell/controller.err" &
+controller=$!
+trap 'kill "$controller" 2>/dev/null || true' EXIT
+tries=0
+while :; do
+  ready=$(sqlite3 -cmd '.timeout 5000' "$db" "SELECT (SELECT count(*) FROM runtime_instances WHERE kind='worker' AND state='failed')=1 AND (SELECT count(*) FROM runtime_instances WHERE kind='worker' AND state IN('starting','idle','running'))=0;")
+  if [ "$ready" = 1 ]; then break; fi
+  tries=$((tries+1))
+  if [ "$tries" -gt 200 ]; then exit 21; fi
+  sleep 0.025
+done
+"$@" --access read job status "$job" >"$cell/waiting.json"
+if [ "$mode" = cancel ]; then
+  "$@" --access control job cancel "$job" >"$cell/cancel.json"
+  set +e
+  wait "$controller"
+  status=$?
+  set -e
+  if [ "$status" -ne 8 ]; then exit 22; fi
+else
+  wait "$controller"
+fi
+trap - EXIT
+]=])
+        execute_process(COMMAND /bin/sh "${cell}/observe.sh" "${library}/library.sqlite" "${job}" "${cell}" "${case}" ${cli}
+            RESULT_VARIABLE observed OUTPUT_VARIABLE output ERROR_VARIABLE errors TIMEOUT 60)
+        if(NOT observed EQUAL 0)
+            message(FATAL_ERROR "Parked controller observation failed: ${observed} ${output}${errors}; see ${cell}/controller.err")
+        endif()
+        file(READ "${cell}/waiting.json" waiting)
+        string(JSON reason GET "${waiting}" records 0 fields worker_waiting_reason)
+        string(JSON live GET "${waiting}" records 0 fields worker_live_workers)
+        string(JSON recent GET "${waiting}" records 0 fields worker_recent_replacements)
+        string(JSON window GET "${waiting}" records 0 fields worker_window_seconds)
+        string(JSON next GET "${waiting}" records 0 fields worker_next_eligible_epoch)
+        if(NOT reason STREQUAL "replacement-window" OR NOT live EQUAL 0 OR NOT recent EQUAL 2 OR NOT window EQUAL 3600 OR NOT next GREATER 0)
+            message(FATAL_ERROR "Public parked-state status is incomplete: ${waiting}")
+        endif()
+        if(case STREQUAL "cancel")
+            sql("SELECT state FROM jobs;" "cancelled")
+            sql("SELECT count(*) FROM provider_runs;" "0")
+            sql("SELECT count(*) FROM job_events WHERE event_type='worker-replacement';" "2")
+            sql("SELECT count(*) FROM attempts WHERE outcome='cancelled';" "1")
+            sql("SELECT reserved_calls+reserved_tokens+reserved_cost+reserved_codex_turns FROM jobs;" "0")
+            continue()
+        endif()
+    else()
+    run_cli(--access control job run "${job}" --count "${count}" --max-items 1 --max-polls 2000 --poll-ms 20)
+    endif()
+    math(EXPR replacements "${historical}+${count}")
+    sql("SELECT count(*) FROM job_events WHERE event_type='worker-replacement';" "${replacements}")
+    sql("SELECT count(*) FROM job_items WHERE item_type='claim-extraction' AND state='processed';" "${count}")
+    sql("SELECT count(*) FROM attempts WHERE outcome IN('failed','dead_letter','running');" "0")
+    sql("SELECT count(*) FROM provider_runs;" "${count}")
+    sql("SELECT count(*) FROM job_events WHERE event_type='provider-intent';" "${count}")
+    sql("SELECT reserved_calls+reserved_tokens+reserved_cost+reserved_codex_turns FROM jobs;" "0")
+    if(case STREQUAL "outage")
+        sql("SELECT count(*) FROM probe_audit WHERE active=1 AND failed=8;" "1")
+        sql("SELECT count(*) FROM probe_audit;" "1")
+        sql("SELECT count(*) FROM provider_admissions WHERE outcome='failed';" "8")
+        sql("SELECT count(*) FROM attempts WHERE validation_state LIKE 'Codex allowance preflight failed:%' AND outcome='cancelled';" "8")
+        sql("SELECT failure_count+not_before_epoch FROM provider_cooldowns WHERE provider_id='codex-extract';" "0")
+        sql("SELECT count(*) FROM runtime_instances WHERE kind='worker';" "16")
+        sql("SELECT max((SELECT count(*) FROM job_events p WHERE p.event_type='worker-replacement' AND p.event_id<=e.event_id AND unixepoch(p.occurred_at)>unixepoch(e.occurred_at)-2)) FROM job_events e WHERE e.event_type='worker-replacement';" "2")
+        sql("SELECT model_call_budget||':'||codex_turn_budget||':'||input_token_budget||':'||output_token_budget FROM jobs;" "16:8:1000000:100000")
+    else()
+    sql("SELECT model_call_budget||':'||codex_turn_budget||':'||input_token_budget||':'||output_token_budget FROM jobs;" "2:1:65536:1024")
+    endif()
+    file(READ "${cell}/methods.log" methods)
+    string(REGEX MATCHALL "turn/start" calls "${methods}")
+    list(LENGTH calls call_count)
+    if(NOT call_count EQUAL count)
+        message(FATAL_ERROR "Recovery repeated generation: ${methods}")
+    endif()
+    run_cli(--access read job status "${job}")
+    string(JSON recent GET "${last_output}" records 0 fields worker_recent_replacements)
+    string(JSON live GET "${last_output}" records 0 fields worker_live_workers)
+    if(NOT live EQUAL 0)
+        message(FATAL_ERROR "Terminal public worker count is not zero: ${last_output}")
+    endif()
+    file(WRITE "${cell}/status.json" "${last_output}")
+    sql("PRAGMA integrity_check;" "ok")
+endforeach()

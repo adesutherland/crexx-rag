@@ -1,0 +1,135 @@
+options levelg
+
+namespace ragsupervision expose reserveworkerreplacement replacementallowed recordsupervision readsupervision
+
+import rxfnsb
+import rxsqlite
+import ragstore
+import ragenvironment
+
+/* Durable pool policy. The process owner calls only after observing child exit.
+ * Reservation and audit event are one writer transaction; task history is read
+ * but never rewritten here. now_epoch is an explicit deterministic test seam. */
+reserveworkerreplacement: procedure = .int
+  arg store = .ragstorehandle, controller_id = .string, previous_id = .string, maximum = .int, initial_backoff_ms = .int, expose replacement_id = .string, expose delay_ms = .int, expose error = .string, window_seconds = 3600, now_epoch = 0
+  replacement_id = ""; delay_ms = 0; error = ""
+  if maximum < 0 | maximum > 10 | window_seconds < 1 | window_seconds > 86400 | now_epoch < 0 | initial_backoff_ms < 10 | initial_backoff_ms > 60000 then do; error = "worker replacement bounds are invalid"; return -1; end
+  database = store.database()
+  if beginwritetransaction(database,"begin worker replacement",error) \= 0 then return -2
+  if now_epoch = 0 then now_epoch = _scalarint(database,"SELECT unixepoch()",error)
+  job_id = _scalartext(database,"SELECT coalesce((SELECT job_filter FROM runtime_instances WHERE instance_id=" || _sqlquote(previous_id) || " AND parent_instance_id=" || _sqlquote(controller_id) || " AND kind='worker' AND ((state='failed' AND exit_code=75) OR (state='stopped' AND exit_code=0)) AND requested_state='none'), '')",error)
+  if error \= "" then return _rollback(database,"read failed worker",error)
+  eligible = 0
+  if job_id \= "" then eligible = replacementallowed(store,job_id,previous_id,error)
+  if eligible \= 1 | maximum = 0 then do; call sqliteexec database,"ROLLBACK"; return 1; end
+  /* A temporarily empty queue is not completion while healthy peers own work.
+   * Keep the slot pending, without launching or spending replacement capacity. */
+  queued = _scalarint(database,"SELECT count(*) FROM job_items WHERE job_id=" || _sqlquote(job_id) || " AND state='queued'",error)
+  if error \= "" then return _rollback(database,"read pending work",error)
+  if queued = 0 then do; delay_ms = 1000; call sqliteexec database,"ROLLBACK"; return 2; end
+  history = "job_id=" || _sqlquote(job_id) || " AND event_type='worker-replacement'"
+  recent = history || " AND coalesce(unixepoch(occurred_at)," || now_epoch || ")>" || (now_epoch-window_seconds)
+  used = _scalarint(database,"SELECT count(*) FROM job_events WHERE " || recent,error)
+  repeated = _scalarint(database,"SELECT count(*) FROM job_events WHERE job_id=" || _sqlquote(job_id) || " AND event_type='worker-replacement' AND json_extract(message,'$.previous')=" || _sqlquote(previous_id),error)
+  if error \= "" then return _rollback(database,"read worker replacement history",error)
+  if repeated > 0 then do; call sqliteexec database,"ROLLBACK"; return 1; end
+  if used >= maximum then do
+    earliest = _scalarint(database,"SELECT min(coalesce(unixepoch(occurred_at)," || now_epoch || ")) FROM job_events WHERE " || recent,error)
+    delay_ms = max(1,earliest+window_seconds-now_epoch)*1000
+    call sqliteexec database,"ROLLBACK"
+    if error \= "" then return -2
+    return 2
+  end
+  live = _scalarint(database,"SELECT count(*) FROM runtime_instances WHERE kind='worker' AND job_filter=" || _sqlquote(job_id) || " AND state IN('starting','idle','running','draining')",error)
+  environment_wait = replacementwait(database,job_id,live,error,now_epoch)
+  if error \= "" then return _rollback(database,"inspect replacement environment",error)
+  if environment_wait > 0 then do; delay_ms = environment_wait*1000; call sqliteexec database,"ROLLBACK"; return 2; end
+  replacement_id = "worker-" || _scalartext(database,"SELECT lower(hex(randomblob(16)))",error)
+  if replacement_id = "" then return _rollback(database,"allocate replacement worker",error)
+  delay_ms = initial_backoff_ms
+  do retry = 1 to used
+    delay_ms = min(60000,delay_ms*6)
+  end
+  sql = "INSERT INTO runtime_instances(instance_id,kind,parent_instance_id,host_id,pid,process_start_token,executable_identity,mode,job_filter,state,requested_state,current_item_id,started_at,heartbeat_at,detail) SELECT " || _sqlquote(replacement_id) || ",kind," || _sqlquote(controller_id) || ",host_id,0,'',executable_identity,mode,job_filter,'starting','none','',unixepoch(),unixepoch(),'reserved replacement' FROM runtime_instances WHERE instance_id=" || _sqlquote(previous_id)
+  if sqliteexec(database,sql) \= 0 then return _rollback(database,"reserve replacement worker",error)
+  sql = "INSERT INTO job_events(job_id,event_type,message,occurred_at) VALUES(" || _sqlquote(job_id) || ",'worker-replacement',json_object('controller'," || _sqlquote(controller_id) || ",'previous'," || _sqlquote(previous_id) || ",'replacement'," || _sqlquote(replacement_id) || ",'ordinal'," || (used+1) || ",'delay_ms'," || delay_ms || "),strftime('%Y-%m-%dT%H:%M:%fZ'," || now_epoch || ",'unixepoch'))"
+  if sqliteexec(database,sql) \= 0 then return _rollback(database,"record worker replacement",error)
+  if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"commit worker replacement",error)
+  return 0
+
+replacementallowed: procedure = .int
+  arg store = .ragstorehandle, job_id = .string, previous_id = .string, expose error = .string
+  sql = "SELECT count(*) FROM jobs j WHERE j.job_id=" || _sqlquote(job_id) || " AND j.state IN('queued','running') AND EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=j.job_id AND i.state IN('queued','running')) AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.worker_id=" || _sqlquote(previous_id) || " AND a.outcome='running') AND NOT EXISTS(SELECT 1 FROM runtime_instances r WHERE r.instance_id=" || _sqlquote(previous_id) || " AND r.requested_state<>'none') AND NOT EXISTS(SELECT 1 FROM maintenance_windows w WHERE w.job_id=j.job_id AND (w.state<>'active' OR w.deadline_epoch<=unixepoch()))"
+  return _scalarint(store.database(),sql,error)
+
+
+recordsupervision: procedure = .int
+  arg store = .ragstorehandle, job_id = .string, controller_id = .string, count = .int, maximum = .int, window_seconds = .int, expose error = .string
+  if job_id = "" then return 0
+  sql = "INSERT INTO job_events(job_id,event_type,message,occurred_at) VALUES(" || _sqlquote(job_id) || ",'worker-supervision',json_object('controller'," || _sqlquote(controller_id) || ",'configured_workers'," || count || ",'max_restarts'," || maximum || ",'window_seconds'," || window_seconds || "),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
+  if sqliteexec(store.database(),sql) \= 0 then return _sqlitefailure("record supervision policy",error)
+  return 0
+
+readsupervision: procedure = .string
+  arg store = .ragstorehandle, job_id = .string, expose error = .string
+  database = store.database()
+  policy = "SELECT message FROM job_events WHERE job_id=" || _sqlquote(job_id) || " AND event_type='worker-supervision' ORDER BY event_id DESC LIMIT 1"
+  window_seconds = _scalarint(database,"SELECT coalesce(json_extract((" || policy || "),'$.window_seconds'),3600)",error)
+  maximum = _scalarint(database,"SELECT coalesce(json_extract((" || policy || "),'$.max_restarts'),2)",error)
+  configured = _scalarint(database,"SELECT coalesce(json_extract((" || policy || "),'$.configured_workers'),0)",error)
+  now_epoch = _scalarint(database,"SELECT unixepoch()",error)
+  recent = "job_id=" || _sqlquote(job_id) || " AND event_type='worker-replacement' AND coalesce(unixepoch(occurred_at)," || now_epoch || ")>" || (now_epoch-window_seconds)
+  used = _scalarint(database,"SELECT count(*) FROM job_events WHERE " || recent,error)
+  next_epoch = 0; reason = ""
+  if maximum = 0 then reason = "automatic-replacement-disabled"
+  else if used >= maximum then do
+    next_epoch = _scalarint(database,"SELECT min(coalesce(unixepoch(occurred_at)," || now_epoch || "))+" || window_seconds || " FROM job_events WHERE " || recent,error)
+    reason = "replacement-window"
+  end
+  live = _scalarint(database,"SELECT count(*) FROM runtime_instances WHERE kind='worker' AND job_filter=" || _sqlquote(job_id) || " AND state IN('starting','idle','running','draining')",error)
+  wait_seconds = replacementwait(database,job_id,live,error,now_epoch)
+  if wait_seconds > 0 then do
+    next_epoch = max(next_epoch,now_epoch+wait_seconds)
+    if reason = "" then reason = "provider-backoff-or-probe"
+  end
+  if error \= "" then return ""
+  return '{"configured_workers":' || configured || ',"live_workers":' || live || ',"window_seconds":' || window_seconds || ',"max_restarts":' || maximum || ',"recent_replacements":' || used || ',"next_eligible_epoch":' || next_epoch || ',"waiting_reason":"' || reason || '"}'
+
+_scalartext: procedure = .string
+  arg database = .binary, sql = .string, expose error = .string
+  prepared = .binary; value = ""
+  if sqliteprepare(database, sql, prepared) \= 0 then do; ignored = _sqlitefailure("prepare text query", error); return ""; end
+  step = sqlitestep(prepared)
+  if step = 100 then status = sqlitecolumntext(prepared, 0, value)
+  else status = -1
+  call sqlitefinalize prepared
+  if step \= 100 | status \= 0 then do; ignored = _sqlitefailure("read text query", error); return ""; end
+  return value
+
+_scalarint: procedure = .int
+  arg database = .binary, sql = .string, expose error = .string
+  prepared = .binary; value = -1
+  if sqliteprepare(database, sql, prepared) \= 0 then do; ignored = _sqlitefailure("prepare integer query", error); return -1; end
+  step = sqlitestep(prepared)
+  if step = 100 then status = sqlitecolumnint(prepared, 0, value)
+  else status = -1
+  call sqlitefinalize prepared
+  if step \= 100 | status \= 0 then do; ignored = _sqlitefailure("read integer query", error); return -1; end
+  return value
+
+_sqlquote: procedure = .string
+  arg value = .string
+  return "'" || changestr("'", value, "''") || "'"
+
+_sqlitefailure: procedure = .int
+  arg prefix = .string, expose error = .string
+  boundary_code = 0; sqlite_code = 0; sqlite_extended = 0; operation = ""; message = ""
+  call sqliteerrorextended boundary_code, sqlite_code, sqlite_extended, operation, message
+  error = prefix || ": " || message || " [boundary=" || boundary_code || ",sqlite=" || sqlite_code || ",extended=" || sqlite_extended || ",operation=" || operation || "]"
+  return -2
+
+_rollback: procedure = .int
+  arg database = .binary, prefix = .string, expose error = .string
+  if error = "" then ignored = _sqlitefailure(prefix, error)
+  call sqliteexec database, "ROLLBACK"
+  return -2

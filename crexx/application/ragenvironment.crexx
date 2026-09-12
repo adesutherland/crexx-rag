@@ -1,0 +1,129 @@
+options levelg
+
+namespace ragenvironment expose admitprovidercall updatecooldown replacementwait
+
+import rxfnsb
+import rxhash
+import rxsqlite
+import ragstore
+import ragworktypes
+
+/* Provider/model scope, durable cooldown and one recovery probe. All routes
+ * compose this gate; transport and model execution remain adapter concerns. */
+admitprovidercall: procedure = .int
+  arg store = .ragstorehandle, claim = .ragworkclaim, provider_id = .string, model = .string, reserved_tokens = .int, requests_per_minute = .int, tokens_per_minute = .int, concurrent_requests = .int, timeout_ms = .int, expose admission_id = .string, expose wait_ms = .int, expose error = .string
+  admission_id = ""; wait_ms = 0; error = ""
+  if store.writable() \= 1 | claim.claimed() \= 1 | provider_id = "" | model = "" | reserved_tokens < 0 | requests_per_minute < 1 | tokens_per_minute < 1 | concurrent_requests < 1 | timeout_ms < 1 then do; error = "provider admission inputs are invalid"; return -1; end
+  if reserved_tokens > tokens_per_minute then do; error = "provider token reservation exceeds its configured per-minute capacity"; return -2; end
+  database = store.database(); started = time("us")
+  admission_id = "admission-sha256:" || rxhash..sha256hex((claim.attempt_id() || "00"x || provider_id || "00"x || model) as .binary)
+  do forever
+    /* Capacity waits are reads. Recheck after taking the writer lock before
+     * inserting admission, so independent workers cannot oversubscribe. */
+    scope = "provider_id=" || _q(provider_id) || " AND model=" || _q(model)
+    cooldown = _scalarint(database,"SELECT coalesce((SELECT not_before_epoch FROM provider_cooldowns WHERE " || scope || "),0)")
+    if cooldown > _scalarint(database,"SELECT unixepoch()") then do; admission_id = ""; wait_ms = (cooldown-_scalarint(database,"SELECT unixepoch()"))*1000; error = "provider cooldown pending"; return 1; end
+    if beginwritetransaction(database,"begin provider admission",error) \= 0 then return -3
+    now_epoch = _scalarint(database, "SELECT CAST(strftime('%s','now') AS INTEGER)")
+    if now_epoch < 0 then return _rollback(database, "cannot read the provider admission clock", error)
+    if sqliteexec(database, "UPDATE provider_admissions SET outcome='expired',released_epoch=" || now_epoch || " WHERE outcome='active' AND lease_until_epoch<=" || now_epoch) \= 0 then return _rollback(database, "cannot expire stale provider admissions", error)
+    if _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND (state<>'active' OR (deadline_epoch-unixepoch()-coalesce(json_extract(nullif(json_extract(policy_json,'$.timing'),''),'$.cleanup_seconds'),0))*1000<" || timeout_ms || ")",claim.job_id()) > 0 then return _rollback(database,"maintenance deadline reached during provider admission",error)
+    scope = "provider_id=" || _q(provider_id) || " AND model=" || _q(model)
+    recent_requests = _scalarint(database, "SELECT count(*) FROM provider_admissions WHERE " || scope || " AND admitted_epoch>" || (now_epoch - 60))
+    recent_tokens = _scalarint(database, "SELECT coalesce(sum(reserved_tokens),0) FROM provider_admissions WHERE " || scope || " AND admitted_epoch>" || (now_epoch - 60))
+    active_requests = _scalarint(database, "SELECT count(*) FROM provider_admissions WHERE " || scope || " AND outcome='active' AND lease_until_epoch>" || now_epoch)
+    cooldown = _scalarint(database,"SELECT coalesce((SELECT not_before_epoch FROM provider_cooldowns WHERE " || scope || "),0)")
+    recovering = _scalarint(database,"SELECT coalesce((SELECT failure_count FROM provider_cooldowns WHERE " || scope || "),0)")
+    if recent_requests < 0 | recent_tokens < 0 | active_requests < 0 | cooldown < 0 | recovering < 0 then return _rollback(database, "cannot inspect provider admission capacity", error)
+    if cooldown <= now_epoch & (recovering = 0 | active_requests = 0) & recent_requests < requests_per_minute & recent_tokens + reserved_tokens <= tokens_per_minute & active_requests < concurrent_requests then do
+      lease_seconds = (((timeout_ms + 999) / 1000) as .int) + 30
+      wait_ms = _elapsedms(started)
+      prepared = .binary
+      sql = "INSERT INTO provider_admissions(admission_id,provider_id,model,job_id,item_id,attempt_id,reserved_tokens,admitted_epoch,lease_until_epoch,outcome,wait_ms) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,'active',?10)"
+      if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare provider admission", error)
+      binds = sqlitebindtext(prepared, 1, admission_id) | sqlitebindtext(prepared, 2, provider_id) | sqlitebindtext(prepared, 3, model) | sqlitebindtext(prepared, 4, claim.job_id()) | sqlitebindtext(prepared, 5, claim.item_id()) | sqlitebindtext(prepared, 6, claim.attempt_id()) | sqlitebindint(prepared, 7, reserved_tokens) | sqlitebindint(prepared, 8, now_epoch) | sqlitebindint(prepared, 9, now_epoch + lease_seconds) | sqlitebindint(prepared, 10, wait_ms)
+      step = sqlitestep(prepared); call sqlitefinalize prepared
+      if binds \= 0 | step \= 101 then return _rollback(database, "cannot persist provider admission", error)
+      if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot commit provider admission", error)
+      return 0
+    end
+    wait_ms = 1000
+    if recent_requests >= requests_per_minute | recent_tokens + reserved_tokens > tokens_per_minute then do
+      first_epoch = _scalarint(database,"SELECT coalesce(min(admitted_epoch)," || now_epoch || ") FROM provider_admissions WHERE " || scope || " AND admitted_epoch>" || (now_epoch-60))
+      if first_epoch < 0 then return _rollback(database,"cannot inspect provider capacity release",error)
+      wait_ms = max(wait_ms,(first_epoch+61-now_epoch)*1000)
+    end
+    if cooldown > now_epoch then wait_ms = max(wait_ms,(cooldown-now_epoch)*1000)
+    if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "cannot finish provider capacity inspection", error)
+    /* Park the item; the worker can heartbeat and observe pause/deadline.
+     * A capacity shortage is not a provider failure or a spent attempt. */
+    admission_id = ""; error = "provider admission deferred by request, token, concurrency or cooldown limits"; return 1
+  end
+
+
+/* Called inside the admission-settlement writer transaction. Exact duplicate
+ * settlement never enters this transition. */
+updatecooldown: procedure = .int
+  arg database = .binary, admission_id = .string, outcome = .string, retry_delay_ms = .int, initial_backoff_ms = .int, maximum_backoff_ms = .int, expose error = .string
+  scope = "provider_id=(SELECT provider_id FROM provider_admissions WHERE admission_id=" || _q(admission_id) || ") AND model=(SELECT model FROM provider_admissions WHERE admission_id=" || _q(admission_id) || ")"
+  if outcome = "succeeded" then do
+    if sqliteexec(database,"UPDATE provider_cooldowns SET failure_count=0,not_before_epoch=0,updated_epoch=unixepoch() WHERE " || scope || " AND (SELECT admitted_epoch FROM provider_admissions WHERE admission_id=" || _q(admission_id) || ")>=not_before_epoch") \= 0 then do; error = "cannot clear provider cooldown"; return -3; end
+  end
+  else if retry_delay_ms > 0 then do
+    failures = _scalarint(database,"SELECT coalesce((SELECT failure_count FROM provider_cooldowns WHERE " || scope || "),0)")
+    delay_ms = initial_backoff_ms
+    do i = 1 to min(failures,30); delay_ms = min(maximum_backoff_ms,delay_ms*2); end
+    delay_ms = max(delay_ms,retry_delay_ms)
+    /* Epoch storage has whole-second precision. Round away from an early
+     * retry even when the response arrived late within the current second. */
+    seconds = (((delay_ms+999)/1000) as .int) + 1
+    sql = "INSERT INTO provider_cooldowns(provider_id,model,not_before_epoch,failure_count,updated_epoch) SELECT provider_id,model,unixepoch()+" || seconds || ",1,unixepoch() FROM provider_admissions WHERE admission_id=" || _q(admission_id) || " ON CONFLICT(provider_id,model) DO UPDATE SET not_before_epoch=max(not_before_epoch,excluded.not_before_epoch),failure_count=failure_count+1,updated_epoch=excluded.updated_epoch"
+    if sqliteexec(database,sql) \= 0 then do; error = "cannot retain provider cooldown"; return -3; end
+  end
+  return 0
+
+
+/* Do not refill a whole failed pool while its remaining routes are cooling.
+ * Existing healthy workers can perform the single admission-gated probe. With
+ * zero live workers exactly one reserved replacement becomes the probe owner. */
+replacementwait: procedure = .int
+  arg database = .binary, job_id = .string, live_workers = .int, expose error = .string, now_epoch = 0
+  if now_epoch = 0 then now_epoch = _scalarint(database,"SELECT unixepoch()")
+  sql = "SELECT coalesce(min(CASE WHEN coalesce(c.failure_count,0)=0 THEN 0 WHEN c.not_before_epoch>" || now_epoch || " THEN c.not_before_epoch-" || now_epoch || " WHEN " || live_workers || ">0 THEN 1 ELSE 0 END),0) FROM job_items i LEFT JOIN provider_cooldowns c ON c.provider_id=json_extract(i.input_json,'$.provider_id') AND c.model=json_extract(i.input_json,'$.model') WHERE i.job_id=" || _q(job_id) || " AND i.state='queued' AND (coalesce(i.retry_at,0)<=" || now_epoch || " OR c.failure_count>0)"
+  waited = _scalarint(database,sql)
+  if waited < 0 then error = "cannot read environment recovery eligibility"
+  return waited
+
+_scalarint: procedure = .int
+  arg database = .binary, sql = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  value = -1; status = sqlitecolumnint(prepared, 0, value); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return value
+
+
+_boundcount: procedure = .int
+  arg database = .binary, sql = .string, value = .string
+  prepared = .binary
+  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, value) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
+  count = -1; status = sqlitecolumnint(prepared, 0, count); call sqlitefinalize prepared
+  if status \= 0 then return -1
+  return count
+
+
+_q: procedure = .string
+  arg value = .string
+  return "'" || changestr("'", value, "''") || "'"
+
+_elapsedms: procedure = .int
+  arg started = .int
+  elapsed = (time("us") as .int) - started
+  if elapsed < 0 then elapsed = elapsed + 86400000000
+  return (elapsed / 1000) as .int
+
+
+_rollback: procedure = .int
+  arg database = .binary, message = .string, expose error = .string
+  call sqliteexec database, "ROLLBACK"; error = message
+  return -3

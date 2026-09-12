@@ -169,7 +169,7 @@ ragapplicationprovider: class implements .ragworkprovider
     release_outcome = "failed"; if result.ok() = 1 then release_outcome = "succeeded"
     release_error = ""
     cooldown_delay = 0
-    if result.retryable() = 1 & result.provider_called() = 1 then cooldown_delay = result.retry_delay_ms()
+    if result.retryable() = 1 & (result.provider_called() = 1 | (result.worker_failure() \= "" & result.outcome_uncertain() = 0)) then cooldown_delay = result.retry_delay_ms()
     if releaseprovidercall(_store, admission_id, result.input_tokens() + result.output_tokens(), release_outcome, release_error, cooldown_delay, provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms()) \= 0 then result = _admissionfailure(result, release_error)
     if result.ok() = 1 then call _tracer.emit("provider", "complete", claim.item_id(), provider_id || " " || model)
     else call _tracer.emit("provider", "failed", claim.item_id(), provider_id || " " || model)

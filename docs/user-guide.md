@@ -185,6 +185,7 @@ worker.lease_seconds = 120
 worker.poll_ms = 100
 worker.guided_deadline_seconds = 0
 worker.max_restarts = 2
+worker.restart_window_seconds = 3600
 worker.restart_backoff_ms = 5000
 
 vector.maximum_rows = 1000000
@@ -341,27 +342,39 @@ same bounded replacement policy. Other SQLite failures remain errors.
 Quota-blocked work waits for the earliest capacity expiry instead of repeatedly
 claiming and settling an uncalled attempt every second.
 
-For `worker start --job JOB_ID`, an unhealthy provider transport stops its worker
-after preserving the current item's outcome. After that process exits, the
-controller can replace it in the same slot. `worker.max_restarts` permits 0..10
-automatic replacements across the whole job, defaulting to two; zero disables
-replacement. `worker.restart_backoff_ms` accepts 10..60000, defaulting to 5000.
-The delay multiplies by six after each replacement, capped at 60000 milliseconds
-(the defaults therefore wait five and thirty seconds). Both settings are optional
-operational configuration. Default values preserve existing configuration hashes.
+For `worker start --job JOB_ID` and `job run JOB_ID`, an unhealthy provider
+transport stops its worker after preserving the current item's outcome. Once
+that process exits, the controller can replace it in the same slot.
+`worker.max_restarts` permits 0..10 automatic replacements per rolling window,
+defaulting to two; zero disables replacement. `worker.restart_window_seconds`
+accepts 1..86400 seconds and defaults to 3600 (one hour).
+`worker.restart_backoff_ms` accepts 10..60000, defaulting to 5000. Its delay
+multiplies by six for each recent replacement, capped at 60000 milliseconds.
+All three settings are optional operational configuration. Omitted default
+values preserve existing configuration hashes.
 
-Replacement reservations are durable job events, so restarting a controller or
-pruning process rows cannot reset that ceiling. Replacement preserves the slot's
-remaining item/poll allowance and the original job budgets and deadline. A pause,
-cancellation or drain stops further work. An exhausted replacement ceiling stops
-new replacements; healthy peers continue within the original job limits. A clean
-worker exit also permits replacement when work and the original slot allowance
-remain; normal item/poll limits and completed jobs do not refill the slot.
-The existing recoverable-exit classification still governs replacement;
-unclassified failures remain inspectable while healthy peers continue. Group
-startup failures and unfiltered worker groups still require operator restart.
-Successful controller results include `workers_restarted`; historical failed
-process records remain available for diagnosis.
+Replacement reservations remain durable job events. Restarting a controller or
+pruning process rows does not reset the recent count. Old events age out of the
+allowance but remain inspectable. The controller automatically reconsiders
+missing slots, even when no healthy worker remains, while healthy peers continue.
+Replacement preserves original task history, budgets, the maintenance deadline
+and the slot's remaining item/poll allowance. Parked waiting consumes idle polls
+when `--max-polls` is explicitly set, so a bounded batch still ends. A pause,
+cancellation or drain stops further replacement.
+
+A shared provider cooldown also delays replacement. Existing workers can make
+the single recovery probe; an empty pool reserves one replacement to probe before
+refilling other slots. Safely uncalled, unhealthy preflights now participate in
+that cooldown without consuming a provider call or failed-task allowance.
+`job status` exposes the configured/live counts, rolling policy, recent count,
+next eligibility epoch and worker waiting reason. See the
+[recovery contract and regression evidence](supervision-recovery.md).
+
+The existing recoverable-exit classification governs replacement; generic
+failures remain inspectable while healthy peers continue. Group startup failures
+and unfiltered worker groups still require operator restart. Successful controller
+results include `workers_restarted`; historical failed process records remain
+available for diagnosis.
 
 The selected provider's `max_attempts` independently limits retryable item
 failures. Set it to three when three total attempts are wanted; a value of one

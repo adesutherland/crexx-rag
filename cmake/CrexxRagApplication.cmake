@@ -59,6 +59,8 @@ set(CREXXRAG_APPLICATION_SOURCES
     "${CREXXRAG_APP_DIR}/ragevidencejson.crexx"
     "${CREXXRAG_APP_DIR}/ragfoundation.crexx"
     "${CREXXRAG_APP_DIR}/ragprocess.crexx"
+    "${CREXXRAG_APP_DIR}/ragsupervision.crexx"
+    "${CREXXRAG_APP_DIR}/ragenvironment.crexx"
     "${CREXXRAG_APP_DIR}/ragproviderdiagnostics.crexx"
     "${CREXXRAG_APP_DIR}/ragapplicationprovider.crexx"
     "${CREXXRAG_APP_DIR}/ragqueryprovider.crexx"
