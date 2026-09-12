@@ -103,6 +103,12 @@ folder together so its relative references remain valid. Provider URLs,
 models, capabilities, prices, role limits, worker settings and prompts can all
 be changed as data, without recompiling.
 
+`crexxrag.conf` is the operator policy entry point. Workers and externally
+submitted claims use the same effective profile vocabulary and claim rules;
+there is no separate worker or agent claim-policy file. Editing a profile
+changes future interpretation through the reviewed configuration lifecycle
+below. Historical claims retain the policy version under which they were made.
+
 All relative source roots, profile files, glossary files and prompt files are
 resolved from the configuration file's directory. The resulting paths enter
 the effective configuration identity. A copied configuration in a new

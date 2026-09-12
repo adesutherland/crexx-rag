@@ -1,0 +1,23 @@
+options levelg
+namespace ragclaimrules expose effectiveclaimpolicy
+import rxfnsb
+import ragprofile
+import ragclaims
+
+/* One factory for worker, external review and command claim policy.
+ * Vocabulary comes from the effective profile; these versioned stance weights
+ * are product semantics, not a second operator policy file. */
+effectiveclaimpolicy: procedure = .ragclaimpolicy
+  arg profile = .ragprofile, policy_version = ""
+  types = ""; values = profile.concept_types()
+  do i = 1 to values.0
+    if types \= "" then types = types || "|"
+    types = types || values[i]
+  end
+  relationships = ""; relationship_values = .ragrelationshiptype[]; relationship_values = profile.relationship_types()
+  do i = 1 to relationship_values.0
+    if relationships \= "" then relationships = relationships || "|"
+    relationships = relationships || relationship_values[i].relationship_id()
+  end
+  if policy_version = "" then policy_version = "surface-claim-v2:" || profile.version()
+  return .ragclaimpolicy(policy_version, types, relationships, 1000, 700, 600, 500, 300)

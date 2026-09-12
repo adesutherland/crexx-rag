@@ -44,6 +44,7 @@ set(CREXXRAG_APPLICATION_SOURCES
     "${CREXXRAG_APP_DIR}/ragingest.crexx"
     "${CREXXRAG_APP_DIR}/ragfolder.crexx"
     "${CREXXRAG_APP_DIR}/ragclaims.crexx"
+    "${CREXXRAG_APP_DIR}/ragclaimrules.crexx"
     "${CREXXRAG_APP_DIR}/ragimprove.crexx"
     "${CREXXRAG_APP_DIR}/ragmaintain.crexx"
     "${CREXXRAG_APP_DIR}/ragbacklog.crexx"

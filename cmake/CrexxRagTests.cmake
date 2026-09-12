@@ -2,6 +2,22 @@ set(CREXXRAG_NATIVE_APPLICATION
     "${CMAKE_BINARY_DIR}/crexxrag-native/package/crexxrag${CMAKE_EXECUTABLE_SUFFIX}")
 set(CREXXRAG_PROVIDER_FIXTURE "$<TARGET_FILE:crexxrag_provider_fixture>")
 
+add_test(NAME regression_claim_policy
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXLINK=${CREXX_RXLINK_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/claim_policy_scenario.crexx"
+        "-DCPRAG_MARKER=CLAIM_POLICY_OK"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-claim-policy"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ProjectContract.cmake")
+set_tests_properties(regression_claim_policy PROPERTIES
+    TIMEOUT 150 LABELS "regression;claim;policy;zero-outbound")
+
 add_test(NAME native_lifecycle
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"

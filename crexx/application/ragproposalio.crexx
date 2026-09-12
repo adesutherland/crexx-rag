@@ -8,6 +8,7 @@ import rxhash
 import ragfile
 import ragprofile
 import ragclaims
+import ragclaimrules
 
 /* Bounded public codec for normalized external extraction proposals. The
  * application accepts NDJSON so each proposal is independently inspectable;
@@ -134,20 +135,10 @@ internalizeproposal: procedure = .ragextractionproposal
   arg proposal = .ragextractionproposal
   return .ragextractionproposal(proposal.schema(), proposal.proposal_id(), proposal.kind(), proposal.source_concept_id(), proposal.source_label(), proposal.source_type(), proposal.relationship_type(), proposal.target_concept_id(), proposal.target_label(), proposal.target_type(), proposal.direction(), proposal.qualifiers_json(), proposal.effective_from(), proposal.effective_to(), proposal.revision_chunk_id(), proposal.span_start(), proposal.span_end(), proposal.polarity(), proposal.stance(), proposal.directness(), proposal.attribution(), proposal.lineage_group(), proposal.confidence_millionths(), proposal.provider_id(), proposal.model(), proposal.request_id(), proposal.prompt_version(), proposal.extractor_identity(), proposal.source_scope(), proposal.profile_id(), 0, proposal.assessment_json())
 
+/* Compatibility entry point; policy decisions belong to ragclaimrules. */
 profileclaimpolicy: procedure = .ragclaimpolicy
   arg profile = .ragprofile, policy_version = ""
-  types = ""; values = profile.concept_types()
-  do i = 1 to values.0
-    if types \= "" then types = types || "|"
-    types = types || values[i]
-  end
-  relationships = ""; relationship_values = .ragrelationshiptype[]; relationship_values = profile.relationship_types()
-  do i = 1 to relationship_values.0
-    if relationships \= "" then relationships = relationships || "|"
-    relationships = relationships || relationship_values[i].relationship_id()
-  end
-  if policy_version = "" then policy_version = "surface-claim-v2:" || profile.version()
-  return .ragclaimpolicy(policy_version, types, relationships, 1000, 700, 600, 500, 300)
+  return effectiveclaimpolicy(profile,policy_version)
 
 _objectmembers: procedure = .int
   arg document = .jsondocument, node = .int, allowed = .string, expose error = .string

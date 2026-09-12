@@ -28,6 +28,22 @@ claim rules and domain prompt/contracts. Each proposal requires regression
 characterization before implementation; a directory or executable split is
 not itself an acceptance criterion.
 
+## Claim-policy ownership
+
+`ragclaimrules.effectiveclaimpolicy(profile, policy_version)` is the single
+factory for the effective profile vocabulary and versioned stance weights.
+Workers in `ragprocess`, public proposal commands and review acceptance compose
+it. The legacy `ragproposalio.profileclaimpolicy` entry point delegates without
+adding rules. `ragproposalio` owns bounded proposal decoding; `ragclaims` owns
+typed validation, support decisions and transactional graph publication.
+Dependencies run from orchestration through the factory to profile and claim
+types, never from the validator back to process or command code.
+
+Changing claim policy starts with `regression_claim_policy` and the ingestion,
+external-review and grounding controls. See the
+[staged delivery record](maintenance-refactoring-delivery.md) for qualification
+and subsequent owners. Operator settings still enter through `crexxrag.conf`.
+
 ## Public result and lexical boundaries
 
 `ragresultpages` constructs repository result rows, explicit page metadata and

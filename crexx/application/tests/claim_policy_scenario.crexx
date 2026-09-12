@@ -1,0 +1,50 @@
+options levelg
+import rxfnsb
+import ragclaims
+import ragclaimrules
+import ragprofile
+import ragproposalio
+import generic_profile
+import it_architecture_profile
+
+check: procedure = .int
+  arg condition=.boolean,label=.string
+  if condition then return 0
+  say "CLAIM_POLICY_FAIL=" || label
+  return 1
+
+checkweights: procedure = .int
+  arg policy=.ragclaimpolicy
+  errors=0
+  errors=errors+check(policy.stance_weight("assertion")=1000,"assertion")
+  errors=errors+check(policy.stance_weight("quotation")=700,"quotation")
+  errors=errors+check(policy.stance_weight("report")=600,"report")
+  errors=errors+check(policy.stance_weight("negation")=500,"negation")
+  errors=errors+check(policy.stance_weight("speculation")=300,"speculation")
+  errors=errors+check(policy.stance_weight("proposal")=300,"proposal")
+  errors=errors+check(policy.stance_weight("unknown")=0,"unknown stance rejected")
+  return errors
+
+main: procedure = .int
+  errors=0
+  generic=profileclaimpolicy(genericprofile())
+  architecture=profileclaimpolicy(itarchitectureprofile())
+  errors=errors+check(generic.policy_version()="surface-claim-v2:1","default version")
+  errors=errors+check(generic.permits_type("concept")=1 & generic.permits_type("application-component")=0,"profile isolation")
+  errors=errors+check(architecture.permits_type("application-component")=1 & architecture.permits_type("component")=0,"exact concept tokens")
+  errors=errors+check(architecture.permits_relationship("depends-on")=1 & architecture.permits_relationship("depends")=0,"exact relationship tokens")
+  errors=errors+checkweights(generic)+checkweights(architecture)
+  shared=effectiveclaimpolicy(itarchitectureprofile())
+  errors=errors+check(shared.policy_version()=architecture.policy_version() & shared.permits_type("actor")=1 & shared.permits_type("unknown")=0,"shared factory and compatibility route")
+  errors=errors+checkweights(shared)
+  base=itarchitectureprofile()
+  custom=.ragprofile(base.profile_id(),"reviewed-7",base.concept_types(),base.relationship_types(),base.aliases(),base.chunk_policy(),base.ranking_weights(),base.prompts(),base.validators())
+  changed=profileclaimpolicy(custom)
+  override=profileclaimpolicy(custom,"retained-policy-42")
+  errors=errors+check(changed.policy_version()="surface-claim-v2:reviewed-7","profile version propagates")
+  errors=errors+check(override.policy_version()="retained-policy-42","explicit external policy version survives")
+  errors=errors+check(override.permits_type("actor")=1 & override.permits_relationship("accesses")=1,"override retains vocabulary")
+  errors=errors+checkweights(changed)+checkweights(override)
+  if errors>0 then return 1
+  say "CLAIM_POLICY_OK"
+  return 0

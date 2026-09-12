@@ -1,5 +1,8 @@
 # Consolidated roadmap and defect register
 
+The five maintenance refactors are now in delivery; see the
+[coverage and implementation record](maintenance-refactoring-delivery.md).
+
 Current delivery, 12 September 2026: the review baseline and full regression
 gate are committed in `5d1481a`. Steps 5a/5b and 6 now implement the three
 previously failing public-result/Unicode acceptances: **50/50 tests pass** in
@@ -167,7 +170,7 @@ below; it did not execute a separate acceptance test for every HC row.
 | HC-13 | P1 | Open lead mentions per passage. |
 | HC-14 | P1 | Open diversity and evidence/temporal ranking weights; measure before tuning under QE-09. |
 | HC-15 | P1 | Open policy/representation review: accepted-claim confidence is still 1.0 and hop breakdown uses .75. The later algorithm guide explicitly defines 1.0 as a validation marker, not probability; do not label it a newly discovered false-probability calculation. Decide whether the machine field and score breakdown communicate that meaning clearly; do not replace it with an arbitrary tunable confidence. |
-| HC-16 | P1 | Open duplicate claim-policy builders in `ragprocess` and `ragproposalio`; consolidate their identical stance weights under one owner. |
+| HC-16 | P1 | Recorded repair: stage 1 shares `ragclaimrules` across workers, external proposals and reviews. Baseline characterization and the complete 51-test gate pass; see the staged delivery record. Configurable weight changes remain separate policy work. |
 | HC-17 | P1 | Open claim promotion threshold policy (500,000 millionths). |
 | HC-18 | P1 | Open extraction cue/ranking policy. |
 | HC-19 | P1 | Open maintenance context limits for prior notes/query gaps. |

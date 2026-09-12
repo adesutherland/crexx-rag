@@ -51,6 +51,7 @@ metadata directly.
 
 | Test | Main assurance |
 | --- | --- |
+| `regression_claim_policy` | Both VMs: effective profile vocabulary, exact tokens, stance weights, version propagation, external overrides and compatibility/shared-factory equivalence |
 | `linked_application` | installed `rxsqlite` provider mapping and both CREXX VMs |
 | `configuration_contract` | format-1 compatibility, format-2/3 bounded settings, split identities, credential-free check/explain, identical/operational/prospective diff, tamper-resistant plan/apply, and a regression proving a provider-policy change leaves an existing corpus generation unchanged with zero new jobs or provider calls |
 | `process_workers` | eight-worker registration before admission, failed-launch diagnostics, observation, drain, stale PID detection, explicit pruning |

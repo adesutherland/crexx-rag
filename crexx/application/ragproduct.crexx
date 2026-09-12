@@ -34,6 +34,7 @@ import ragenrich
 import ragbacklog
 import raglifecycle
 import ragclaims
+import ragclaimrules
 import ragproposalio
 import ragjob
 import ragwork
@@ -1074,7 +1075,7 @@ _proposalplan: procedure = .ragcommandresult
   store = .ragstorehandle
   if openragstore(request.library(), "readonly", store, error) \= 0 then return _openfailure(operation, error)
   snapshot_id = currentconfigsnapshotid(store.database(), error)
-  policy = profileclaimpolicy(lookup.profile()); plan = .ragexternalproposalplan
+  policy = effectiveclaimpolicy(lookup.profile()); plan = .ragexternalproposalplan
   status = createexternalproposalplan(store, snapshot_id, policy, proposals, plan, error)
   close_error = ""; close_status = closeragstore(store, close_error)
   if status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return _failure(operation, 7, error); end
@@ -1104,7 +1105,7 @@ _proposalapply: procedure = .ragcommandresult
   store = .ragstorehandle
   if openragstore(request.library(), "readwrite", store, error) \= 0 then return _openfailure(operation, error)
   snapshot_id = currentconfigsnapshotid(store.database(), error)
-  policy = profileclaimpolicy(lookup.profile()); plan = .ragexternalproposalplan
+  policy = effectiveclaimpolicy(lookup.profile()); plan = .ragexternalproposalplan
   plan_status = createexternalproposalplan(store, snapshot_id, policy, proposals, plan, error)
   if plan_status = 0 & (plan.canonical() \= plan_json | plan.digest() \= digest) then do; plan_status = -2; error = "external proposals or library generation changed after review"; end
   reviews_created = 0; apply_status = -1
@@ -3064,7 +3065,7 @@ _reviewdecision: procedure = .ragcommandresult
         if error = "" then error = "external proposal profile does not match the selected profile"
         ignored = ""; call closeragstore store, ignored; return _failure(operation, 3, error)
       end
-      proposal = internalizeproposal(external); policy = profileclaimpolicy(profile_lookup.profile())
+      proposal = internalizeproposal(external); policy = effectiveclaimpolicy(profile_lookup.profile())
       generation = _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1")
       snapshot_id = currentconfigsnapshotid(database, error)
       promotion = .ragproposalresult

@@ -12,6 +12,7 @@ import ragconfig
 import ragconfiguration
 import ragprofile
 import ragclaims
+import ragclaimrules
 import ragwork
 import ragworktypes
 import ragtrace
@@ -463,7 +464,7 @@ _runapplicationworker: procedure = .int
       return -2
     end
   end
-  tracer = .ragtracer(progress, format); provider = .ragapplicationprovider(store, config, profile, tracer); policy = _profilepolicy(profile)
+  tracer = .ragtracer(progress, format); provider = .ragapplicationprovider(store, config, profile, tracer); policy = effectiveclaimpolicy(profile)
   workers = config.workers(); lease_seconds = workers.lease_seconds(); maximum_attempts = _providerattempts(config)
   polls = 0; status = 0; call tracer.emit("worker", "start", final_id, mode)
   do forever
@@ -775,20 +776,6 @@ _childarguments: procedure = .channelvalue
     values[i] = .channelvalue.string_value(args[i])
   end
   return .channelvalue.array_value(values)
-
-_profilepolicy: procedure = .ragclaimpolicy
-  arg profile = .ragprofile
-  types = ""; concept_types = profile.concept_types()
-  do i = 1 to concept_types.0
-    if types \= "" then types = types || "|"
-    types = types || concept_types[i]
-  end
-  relationships = ""; relationship_types = profile.relationship_types()
-  do i = 1 to relationship_types.0
-    if relationships \= "" then relationships = relationships || "|"
-    relationships = relationships || relationship_types[i].relationship_id()
-  end
-  return .ragclaimpolicy("surface-claim-v2:" || profile.version(), types, relationships, 1000, 700, 600, 500, 300)
 
 _providerattempts: procedure = .int
   arg config = .ragconfig

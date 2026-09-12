@@ -29,6 +29,13 @@ maintenance, workers and public commands should compose it. Command dispatch
 and transport adapters should not accumulate domain rules. Preserve transaction
 ownership and avoid circular imports when extracting modules.
 
+Before changing a rule, prompt, command or effective configuration value,
+consult the owning-module map in `docs/architecture.md` and inspect its callers.
+Update the authoritative owner and confirm all worker, external-proposal and
+public-surface consumers still agree. Keep related prompt text, schema and
+version decisions reachable from the domain owner. Record ownership changes
+and their regression evidence in `docs/maintenance-refactoring-delivery.md`.
+
 Robust recovery is a priority: preserve task identity, attempts, provider
 receipts, cumulative usage, uncertain outcomes and publication fencing across
 failures and restarts. Separate task outcome, worker health, provider admission

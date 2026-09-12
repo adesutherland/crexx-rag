@@ -279,5 +279,8 @@ The project is not yet released. Current platform and CREXX integration limits
 are listed in [integration issues](docs/integration-issues.md).
 Development priorities and outstanding acceptance work are collected in the
 [consolidated roadmap and defect register](docs/ROADMAP.md).
+The [maintenance refactoring delivery](docs/maintenance-refactoring-delivery.md)
+records current module ownership, operator-interface changes and the full
+regression qualification for each separately committed stage.
 Repeatable launch/resume and recovery without bespoke repair scripts remain an
 open [high-priority hardening requirement](docs/recovery-defects.md#rag-ops-001--p1-routine-launch-and-recovery-must-be-product-operations).

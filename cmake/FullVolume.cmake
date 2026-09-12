@@ -22,7 +22,7 @@ set(imports "${CPRAG_WORK_DIR};${project_imports};${CPRAG_APPLICATION_DIR};${CPR
 set(modules ragenrich ragproposalio ragperiod ragprovenance ragassessment ragmodel ragevidence
     ragjob ragconfig ragprofile ragprofilefile ragregistry ragschema ragfile ragconfigfile
     ragglossary ragstore ragbackup ragrepository ragcanonical ragplanning ragtrace ragcommand
-    ragingest ragfolder ragclaims ragimprove ragmaintain ragbacklog ragadmission raglifecycle ragworktypes ragenvironment ragusage ragreceipts ragwork ragquery
+    ragingest ragfolder ragclaimrules ragclaims ragimprove ragmaintain ragbacklog ragadmission raglifecycle ragworktypes ragenvironment ragusage ragreceipts ragwork ragquery
     ragembedding ragretrieval ragevidencejson ragfoundation ragprocess ragproviderdiagnostics raggrounding ragapplicationprovider
     ragqueryprovider ragquerypolicy ragproduct provider_contract provider_catalog provider_http industrial_provider codex_provider
     architecture_local_config generic_profile it_architecture_profile operator_registry rxsqlite rx_hash rx_system rxfs

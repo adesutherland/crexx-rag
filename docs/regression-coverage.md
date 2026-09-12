@@ -1,6 +1,15 @@
 # Regression coverage baseline — REG-01
 
+The [maintenance refactoring delivery](maintenance-refactoring-delivery.md)
+extends this gate at each new owner. Stage 1 adds `regression_claim_policy`,
+characterized against the pre-refactor implementation on both VMs before
+sharing the factory. All earlier regression cases remain required.
+
 ## Current status — 12 September 2026
+
+Maintenance refactor stage 1 now passes **51/51 in 706.70 seconds**; see the
+[stage evidence](maintenance-refactoring-delivery.md#stage-1--claim-policy).
+The following 50-test result records the earlier public-result repair.
 
 The complete review baseline and regression workflow are committed in `5d1481a`.
 Steps 5a/5b and 6 implement the three original failing acceptances. The

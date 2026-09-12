@@ -1,5 +1,9 @@
 # Documentation
 
+- [Maintenance refactoring delivery](maintenance-refactoring-delivery.md):
+  stage-by-stage coverage, qualification and source ownership, including
+  the operator policy and command interface.
+
 - [Consolidated roadmap and defect register](ROADMAP.md): current operational
   P1s, query/embedding requirements, configuration findings, agent gaps and
   qualification work, with links to the detailed historical records.
