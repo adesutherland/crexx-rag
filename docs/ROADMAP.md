@@ -2,6 +2,8 @@
 
 The five maintenance refactors are now in delivery; see the
 [coverage and implementation record](maintenance-refactoring-delivery.md).
+Stage 1 is committed; stage 2 separates domain prompt/contracts and adds
+read-only effective prompt inspection. Each stage retains the full QA gate.
 
 Current delivery, 12 September 2026: the review baseline and full regression
 gate are committed in `5d1481a`. Steps 5a/5b and 6 now implement the three

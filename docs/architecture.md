@@ -44,6 +44,33 @@ external-review and grounding controls. See the
 [staged delivery record](maintenance-refactoring-delivery.md) for qualification
 and subsequent owners. Operator settings still enter through `crexxrag.conf`.
 
+## Prompt and response-contract ownership
+
+| Owner | Authoritative responsibility and consumers |
+| --- | --- |
+| `ragpromptdefaults` | Compatibility role objectives for older config formats; consumed by `ragconfigfile`. Explicit operator objectives remain config data. |
+| `ragextractioncontract` | Effective extraction messages, profile-shaped schema and optional assessment extension; consumed by `ragapplicationprovider` and prompt inspection. |
+| `ragresolutioncontract` | Effective resolution messages, selected-span excerpts, schema and subject/workflow action vocabulary. Both `ragapplicationprovider` and `ragbacklog` validation consume this vocabulary. |
+| `ragquotationcontract` | Shared literal-quotation instructions and bounded correction feedback; normal `raggrounding` validation remains independent and authoritative. |
+| `raganswercontract` / `ragreportcontract` | Answer and advisory-report message/schema pairs; consumed by `ragqueryprovider`. |
+| `ragpromptinspection` | Public projection of those same builders, including exact system/schema hashes; no provider or library access. |
+
+`ragapplicationprovider` retains execution, input-envelope checks, receipt
+recovery, secret redaction and extraction decoding/validation. `ragbacklog`
+retains task evidence validation and transactional lifecycle application.
+`ragassessment` and `ragenrich` retain their specialized provenance contracts.
+Domain contract modules do not import the product dispatcher or provider
+execution adapters. The optional extraction schema extension uses SQLite JSON
+functions but changes no persistent data.
+
+Use `config prompt` to find the effective prompt, not just its configurable
+objective. Runtime source context and correction history remain request data.
+Golden wire checks protect the original text and schemas during extraction;
+they are not a quality score or authority to accept an altered prompt. Any
+later behavior change must update its domain contract and review canonical
+identity, validation and retained-work compatibility together. Existing durable
+identities are preserved by this refactor.
+
 ## Public result and lexical boundaries
 
 `ragresultpages` constructs repository result rows, explicit page metadata and

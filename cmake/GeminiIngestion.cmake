@@ -231,11 +231,19 @@ set(abrupt_child "${CPRAG_WORK_DIR}/abrupt-crexxrag-child.sh")
 file(WRITE "${abrupt_child}" [=[#!/bin/sh
 "$CPRAG_REAL_NATIVE" "$@" &
 child=$!
-# Allow the child to publish its runtime row even when compiler/VM matrices are
-# running concurrently; the assertion is specifically post-registration.
-sleep 1
+# Wait for this child's controller to acknowledge registration. A fixed sleep
+# can kill before registration on a loaded machine and test the wrong path.
+registered=0
+poll=0
+while [ "$poll" -lt 300 ]; do
+  state=$("$CPRAG_SQLITE3" -readonly "$CPRAG_ABRUPT_DB" "SELECT p.state FROM runtime_instances c JOIN runtime_instances p ON p.instance_id=c.parent_instance_id WHERE c.pid=$child AND c.state IN('idle','running')" 2>/dev/null)
+  if [ "$state" = running ]; then registered=1; break; fi
+  sleep 0.02
+  poll=$((poll + 1))
+done
 kill -KILL "$child" 2>/dev/null || true
 wait "$child" 2>/dev/null || true
+if [ "$registered" -ne 1 ]; then exit 98; fi
 exit 99
 ]=])
 file(CHMOD "${abrupt_child}"
@@ -243,6 +251,8 @@ file(CHMOD "${abrupt_child}"
 set(abrupt_cli "${CMAKE_COMMAND}" -E env
     "CPRAG_FIXTURE_GEMINI_KEY=synthetic-product-gemini-key"
     "CPRAG_REAL_NATIVE=${CPRAG_NATIVE_APPLICATION}"
+    "CPRAG_SQLITE3=${CREXXRAG_SQLITE3}"
+    "CPRAG_ABRUPT_DB=${library}/library.sqlite"
     "CREXXRAG_SELF=${abrupt_child}"
     "NO_COLOR=1"
     "${CPRAG_NATIVE_APPLICATION}")

@@ -1,0 +1,16 @@
+options levelg
+namespace ragreportcontract expose reportcontractversion reportmessages reportresponseschema
+import provider_contract
+
+reportcontractversion: procedure = .string
+  return "crexx-rag.report-contract/1"
+
+reportmessages: procedure = .providermessage[]
+  arg objective=.string,context=.string
+  messages=.providermessage[]
+  messages[1]=.providermessage("system",objective)
+  messages[2]=.providermessage("user",context)
+  return messages
+
+reportresponseschema: procedure = .string
+  return '{"type":"object","additionalProperties":false,"required":["overview","citations","subjects"],"properties":{"overview":{"type":"string"},"citations":{"type":"array","minItems":1,"maxItems":4,"items":{"type":"string"}},"subjects":{"type":"array","minItems":1,"maxItems":10,"items":{"type":"object","additionalProperties":false,"required":["label","description","citations"],"properties":{"label":{"type":"string"},"description":{"type":"string"},"citations":{"type":"array","minItems":1,"maxItems":4,"items":{"type":"string"}}}}}}}'

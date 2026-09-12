@@ -427,7 +427,7 @@ _addaccess: procedure = .int
 _validoperation: procedure = .int
   arg noun = .string, verb = .string
   if noun = "library" then return pos(" " || verb || " ", " init status report snapshot trend verify backup restore migrate ") > 0
-  if noun = "config" then return pos(" " || verb || " ", " check explain diff plan apply ") > 0
+  if noun = "config" then return pos(" " || verb || " ", " check explain prompt diff plan apply ") > 0
   if noun = "provider" then return pos(" " || verb || " ", " list status test ") > 0
   if noun = "profile" then return pos(" " || verb || " ", " list show validate ") > 0
   if noun = "schedule" then return pos(" " || verb || " ", " list show ") > 0
@@ -447,7 +447,7 @@ _validoperation: procedure = .int
 _requireslibrary: procedure = .int
   arg noun = .string, verb = .string
   if noun = "doctor" | noun = "provider" | noun = "profile" | noun = "schedule" then return 0
-  if noun = "config" & (verb = "check" | verb = "explain") then return 0
+  if noun = "config" & (verb = "check" | verb = "explain" | verb = "prompt") then return 0
   if noun = "library" & verb = "restore" then return 0
   return 1
 

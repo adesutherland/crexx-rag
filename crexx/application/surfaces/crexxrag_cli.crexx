@@ -91,6 +91,7 @@ _showhelp: procedure = .int
   say "  crexxrag library snapshot [--trigger TYPE] [--reason TEXT]"
   say "  crexxrag library trend [--limit N]"
   say "  crexxrag config check|explain"
+  say "  crexxrag config prompt --role extractor|resolution|answerer|advisory"
   say "  crexxrag config diff"
   say "  crexxrag --access plan config plan --reason TEXT"
   say "  crexxrag --access admin config apply --plan-json JSON --expect-digest SHA256"

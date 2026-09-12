@@ -8,6 +8,8 @@ import provider_contract
 import industrial_provider
 import codex_provider
 import ragconfig
+import raganswercontract
+import ragreportcontract
 import ragproviderdiagnostics
 
 /* Read-only query calls use the same generic provider protocol as durable
@@ -37,10 +39,8 @@ generatequeryanswer: procedure = .int
   arg provider_config = .ragproviderconfig, answer_context = .string, privacy = .string, maximum_output_tokens = .int, minimum_allowance = .int, request_identity = .string, expose result = .providerresult, expose allowance_before = .int, expose allowance_after = .int, expose error = .string, system_prompt = .string, temperature_millionths = 0
   result = .providerresult(); allowance_before = -1; allowance_after = -1; error = ""
   if answer_context = "" | request_identity = "" | maximum_output_tokens < 1 | system_prompt = "" then do; error = "query answer input is invalid"; return -1; end
-  messages = .providermessage[]; inputs = .string[]
-  messages[1] = .providermessage("system", system_prompt)
-  messages[2] = .providermessage("user", answer_context)
-  schema = '{"type":"object","additionalProperties":false,"required":["grounding","answer","citations"],"properties":{"grounding":{"type":"string","enum":["supported","partial","insufficient"]},"answer":{"type":"string"},"citations":{"type":"array","items":{"type":"string"}}}}'
+  messages=answermessages(system_prompt,answer_context);inputs=.string[]
+  schema=answerresponseschema()
   request = .providerrequest("generate_structured", "answerer", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), provider_config.max_attempts(), privacy, request_identity, request_identity, maximum_output_tokens, 0, 0, temperature_millionths, provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms(), provider_config.reasoning_effort())
   if provider_config.kind() = "codex" then return _codexanswer(provider_config, request, minimum_allowance, result, allowance_before, allowance_after, error)
   host = ""; base_path = ""; port = 0; tls = 0
@@ -58,10 +58,8 @@ generatereportnarrative: procedure = .int
   arg provider_config = .ragproviderconfig, report_context = .string, privacy = .string, maximum_output_tokens = .int, minimum_allowance = .int, request_identity = .string, expose result = .providerresult, expose allowance_before = .int, expose allowance_after = .int, expose error = .string, system_prompt = .string, temperature_millionths = 0
   result = .providerresult(); allowance_before = -1; allowance_after = -1; error = ""
   if report_context = "" | request_identity = "" | maximum_output_tokens < 1 | system_prompt = "" then do; error = "library report narrative input is invalid"; return -1; end
-  messages = .providermessage[]; inputs = .string[]
-  messages[1] = .providermessage("system", system_prompt)
-  messages[2] = .providermessage("user", report_context)
-  schema = '{"type":"object","additionalProperties":false,"required":["overview","citations","subjects"],"properties":{"overview":{"type":"string"},"citations":{"type":"array","minItems":1,"maxItems":4,"items":{"type":"string"}},"subjects":{"type":"array","minItems":1,"maxItems":10,"items":{"type":"object","additionalProperties":false,"required":["label","description","citations"],"properties":{"label":{"type":"string"},"description":{"type":"string"},"citations":{"type":"array","minItems":1,"maxItems":4,"items":{"type":"string"}}}}}}}'
+  messages=reportmessages(system_prompt,report_context);inputs=.string[]
+  schema=reportresponseschema()
   request = .providerrequest("generate_structured", "advisory", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), provider_config.max_attempts(), privacy, request_identity, request_identity, maximum_output_tokens, 0, 0, temperature_millionths, provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms(), provider_config.reasoning_effort())
   if provider_config.kind() = "codex" then return _codexanswer(provider_config, request, minimum_allowance, result, allowance_before, allowance_after, error)
   host = ""; base_path = ""; port = 0; tls = 0

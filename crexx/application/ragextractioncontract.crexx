@@ -1,0 +1,80 @@
+options levelg
+namespace ragextractioncontract expose extractioncontractversion extractionprompt extractionmessages extractionresponseschema enrichextractionschema
+import rxfnsb
+import rxjson
+import rxsqlite
+import ragprofile
+import ragconfig
+import ragassessment
+import ragquotationcontract
+import provider_contract
+
+/* Complete extraction request content, including its response schema.
+ * Metadata staleness, reservation and durable-call decisions stay with their
+ * application owners. Changing contract text is a versioned behavior change. */
+extractioncontractversion: procedure = .string
+  return "crexx-rag.extraction-contract/1"
+
+extractionprompt: procedure = .string
+  arg objective=.string,enriched=0
+  text=objective || "0A"x || quotationcontract() || " Current response contract: provide evidence_quote copied from the supplied chunk for every mention, relationship and note. Use a short exact mention quotation with enough context to identify the mention. For each relationship, select the quotation first, then choose mention indexes whose labels both occur inside it. A full-name mention cannot stand for a shortened name or pronoun in that quotation; choose another grounded mention or omit the relationship. Do not return or calculate byte offsets, even if earlier configuration text mentions offsets. Mention labels must occur in their quotation. A relationship quotation must contain both endpoint labels and support the stated direction. Exact text is preferred; case differences and whitespace runs are accepted. Repeated quotations select their first occurrence within the chunk. Copy one contiguous substring, preferably preserving all whitespace and punctuation; never insert ellipses or join separated excerpts. source_mention and target_mention are zero-based indexes in the mentions array, and the labels at both indexes must occur in the same relationship quotation. Return a relationship only when that quotation explicitly supports its meaning and direction. Headings, lists and co-occurrence alone do not establish a relationship. Omit any relationship without qualifying evidence; empty arrays are valid. Keep canonical_label equal to label unless the supplied glossary or catalogue explicitly identifies the canonical name. Do not invent aliases. Allowed note kinds: observation, insight, hypothesis, question, gap, conflict, lead, follow-up, recommendation, synonym, split, merge, type-correction, retire, restore. Return only the requested JSON fields."
+  if enriched=1 then text=text || "0A"x || assessmentprompt()
+  return text
+
+extractionmessages: procedure = .providermessage[]
+  arg profile=.ragprofile,discovery=.ragdiscoverypolicy,input_json=.string,objective=.string,enriched=0
+  messages=.providermessage[]
+  messages[1]=.providermessage("system",extractionprompt(objective,enriched))
+  types=_types(profile);relationships=_relationships(profile)
+  messages[2] = .providermessage("user", "Allowed concept types: " || types || "0A"x || "Allowed relationship types: " || relationships || "0A"x || "Maximum mentions: " || discovery.max_mentions() || "; relationships: " || discovery.max_relationships() || "; notes: " || discovery.max_notes() || "0A"x || "Durable input: " || input_json)
+  return messages
+
+extractionresponseschema: procedure = .string
+  arg profile=.ragprofile
+  return '{"type":"object","additionalProperties":false,"required":["mentions","relationships","notes"],"properties":{"mentions":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["label","canonical_label","concept_type","evidence_quote","aliases"],"properties":{"label":{"type":"string"},"canonical_label":{"type":"string"},"concept_type":{"type":"string","enum":' || _concepttypesjson(profile) || '},"evidence_quote":{"type":"string"},"aliases":{"type":"array","items":{"type":"string"}}}}},"relationships":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["source_mention","relationship_type","target_mention","evidence_quote","confidence_millionths"],"properties":{"source_mention":{"type":"integer"},"relationship_type":{"type":"string","enum":' || _relationshiptypesjson(profile) || '},"target_mention":{"type":"integer"},"evidence_quote":{"type":"string"},"confidence_millionths":{"type":"integer"}}}},"notes":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["kind","text","importance_millionths","uncertainty_millionths","next_action","evidence_quote"],"properties":{"kind":{"type":"string","enum":["observation","insight","hypothesis","question","gap","conflict","lead","follow-up","recommendation","synonym","split","merge","type-correction","retire","restore"]},"text":{"type":"string"},"importance_millionths":{"type":"integer"},"uncertainty_millionths":{"type":"integer"},"next_action":{"type":"string"},"evidence_quote":{"type":"string"}}}}}}'
+
+enrichextractionschema: procedure = .string
+  arg database=.binary, schema=.string
+  prepared=.binary; output=""
+  sql="SELECT json_set(?1,'$.properties.relationships.items.required[#]','assessment','$.properties.relationships.items.properties.assessment',json(?2))"
+  if sqliteprepare(database,sql,prepared)=0 then do
+    if sqlitebindtext(prepared,1,schema)=0 & sqlitebindtext(prepared,2,assessmentschema())=0 then if sqlitestep(prepared)=100 then ignored=sqlitecolumntext(prepared,0,output)
+    call sqlitefinalize prepared
+  end
+  return output
+
+_types: procedure = .string
+  arg profile = .ragprofile
+  values = profile.concept_types(); output = ""
+  do i = 1 to values.0
+    if output \= "" then output = output || ","
+    output = output || values[i]
+  end
+  return output
+
+_relationships: procedure = .string
+  arg profile = .ragprofile
+  values = profile.relationship_types(); output = ""
+  do i = 1 to values.0
+    if output \= "" then output = output || ","
+    output = output || values[i].relationship_id()
+  end
+  return output
+
+_concepttypesjson: procedure = .string
+  arg profile = .ragprofile
+  values = profile.concept_types(); output = "["
+  do i = 1 to values.0
+    if i > 1 then output = output || ","
+    output = output || jsonquote(values[i])
+  end
+  return output || "]"
+
+_relationshiptypesjson: procedure = .string
+  arg profile = .ragprofile
+  values = profile.relationship_types(); output = "["
+  do i = 1 to values.0
+    if i > 1 then output = output || ","
+    output = output || jsonquote(values[i].relationship_id())
+  end
+  return output || "]"

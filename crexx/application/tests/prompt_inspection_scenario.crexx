@@ -1,0 +1,48 @@
+options levelg
+import rxfnsb
+import rxjson
+import rxsqlite
+import ragcommand
+import ragproduct
+import ragmcp
+import operator_registry
+import ragextractioncontract
+import ragresolutioncontract
+import ragquotationcontract
+import ragassessment
+import ragenrich
+import generic_profile
+
+main: procedure = .int
+  arg args=.string[]
+  plain=extractionprompt("operator objective");enriched=extractionprompt("operator objective",1)
+  if left(plain,18)\="operator objective" | enriched\=plain || "0A"x || assessmentprompt() then return 1
+  if wordpos("split",resolutionactions("claim",0))>0 | wordpos("retract",resolutionactions("claim",0))=0 then return 1
+  if wordpos("move",resolutionactions("support",0))>0 | wordpos("move",resolutionactions("support",1))=0 then return 1
+  if resolutionresponseschema("provenance-chunk",0)\=enrichmentschema() then return 1
+  if resolutionprompt("ignored","provenance-chunk")\=enrichmentprompt() || "0A"x || quotationcontract() then return 1
+  feedback=quotationfeedback("Alpha",'{"mentions":[{"label":"Beta","evidence_quote":"Beta"}],"relationships":[],"notes":[]}')
+  if pos("Detected citation problems=1",feedback)=0 | pos(feedback,correctionmessage(feedback))=0 then return 1
+  database=.binary
+  if sqliteopenmode(args[1] || "/prompt-schema.sqlite","create",database)\=0 then return 1
+  schema=.jsondocument(enrichextractionschema(database,extractionresponseschema(genericprofile())))
+  call sqliteclose database
+  properties=schema.member(schema.root(),"properties");relationships=schema.member(properties,"relationships");item=schema.member(relationships,"items")
+  if schema.node_count(schema.member(item,"required"))\=6 then return 1
+  if schema.node_type(schema.member(schema.member(item,"properties"),"assessment"))\="object" then return 1
+  access=.string[];access[1]="read";command_options=.ragcommandoption[];positionals=.string[]
+  command_options[1]=.ragcommandoption("role","extractor",0)
+  request=.ragcommandrequest("","architecture-local","generic-profile","","json","off",access,"config","prompt","config.prompt",command_options,positionals)
+  result=dispatchproduct(request,operatorregistry());error="";output=""
+  if result.exit_code()\=0 | rendercommandresult(result,"json",output,error)\=0 then do;say "PROMPT_INSPECTION_FAIL typed dispatch " || error;return 1;end
+  if pos("Source quotation rules:",output)=0 | pos('"response_schema":',output)=0 then return 1
+  response=mcpdispatch('{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rag_config_prompt","arguments":{"role":"extractor"}}}',"","architecture-local","generic-profile","read")
+  if pos('"isError":false',response)=0 | pos("Source quotation rules:",response)=0 then do;say response;return 1;end
+  response=mcpdispatch('{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rag_config_prompt","arguments":{"role":"extractor","unexpected":"x"}}}',"","architecture-local","generic-profile","read")
+  if pos('"code":-32602',response)=0 then return 1
+  clear access;access=.string[]
+  denied=.ragcommandrequest("","architecture-local","generic-profile","","json","off",access,"config","prompt","config.prompt",command_options,positionals)
+  result=dispatchproduct(denied,operatorregistry())
+  if result.exit_code()\=4 then return 1
+  say "PROMPT_INSPECTION_OK"
+  return 0

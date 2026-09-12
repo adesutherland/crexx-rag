@@ -1,0 +1,16 @@
+options levelg
+namespace raganswercontract expose answercontractversion answermessages answerresponseschema
+import provider_contract
+
+answercontractversion: procedure = .string
+  return "crexx-rag.answer-contract/1"
+
+answermessages: procedure = .providermessage[]
+  arg objective=.string,context=.string
+  messages=.providermessage[]
+  messages[1]=.providermessage("system",objective)
+  messages[2]=.providermessage("user",context)
+  return messages
+
+answerresponseschema: procedure = .string
+  return '{"type":"object","additionalProperties":false,"required":["grounding","answer","citations"],"properties":{"grounding":{"type":"string","enum":["supported","partial","insufficient"]},"answer":{"type":"string"},"citations":{"type":"array","items":{"type":"string"}}}}'

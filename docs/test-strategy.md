@@ -51,6 +51,8 @@ metadata directly.
 
 | Test | Main assurance |
 | --- | --- |
+| `regression_prompt_contract` | Captured baseline system-prompt/schema hashes from actual extraction, resolution, answer and report calls; correction history and existing ingestion/query/maintenance assertions |
+| `regression_prompt_inspection` | Native public inspection, both-VM contract builders, optional provenance schema, subject/workflow action rules, typed/MCP access and argument controls |
 | `regression_claim_policy` | Both VMs: effective profile vocabulary, exact tokens, stance weights, version propagation, external overrides and compatibility/shared-factory equivalence |
 | `linked_application` | installed `rxsqlite` provider mapping and both CREXX VMs |
 | `configuration_contract` | format-1 compatibility, format-2/3 bounded settings, split identities, credential-free check/explain, identical/operational/prospective diff, tamper-resistant plan/apply, and a regression proving a provider-policy change leaves an existing corpus generation unchanged with zero new jobs or provider calls |

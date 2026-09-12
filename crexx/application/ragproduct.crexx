@@ -35,6 +35,7 @@ import ragbacklog
 import raglifecycle
 import ragclaims
 import ragclaimrules
+import ragpromptinspection
 import ragproposalio
 import ragjob
 import ragwork
@@ -147,6 +148,14 @@ _configcommand: procedure = .ragcommandresult
   lookup = registry.config(request.config_id()); profile_lookup = registry.profile(request.profile_id())
   if lookup.found() \= 1 | profile_lookup.found() \= 1 then return _failure(operation, 5, "configuration and profile must be selected and registered")
   config = lookup.config(); profile = profile_lookup.profile(); positionals = request.positionals()
+  if operation="config.prompt" then do
+    if _hasaccess(request,"read")\=1 then return _failure(operation,4,"prompt inspection requires read access")
+    if _options(request,"role",error)\=0 | positionals.0\=0 then return _failure(operation,2,"config prompt accepts --role only")
+    role=_option(request,"role",error)
+    records=promptrecords(config,profile,role,error)
+    if error\="" then return _failure(operation,2,error)
+    return .ragcommandresult(operation,"ok",0,"effective prompt contract read without library access or provider calls",records)
+  end
   if operation = "config.check" | operation = "config.explain" then do
     if _hasaccess(request, "read") \= 1 then return _failure(operation, 4, "configuration inspection requires read access")
     if _options(request, "", error) \= 0 | positionals.0 \= 0 then return _failure(operation, 2, "configuration check and explain accept no command arguments")

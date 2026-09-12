@@ -1,0 +1,46 @@
+options levelg
+namespace ragpromptinspection expose promptrecords
+import rxfnsb
+import rxhash
+import ragcommand
+import ragconfig
+import ragprofile
+import ragextractioncontract
+import ragresolutioncontract
+import raganswercontract
+import ragreportcontract
+
+/* Public, credential-free view of the same contract builders used by calls. */
+promptrecords: procedure = .ragresultrecord[]
+  arg config=.ragconfig,profile=.ragprofile,role=.string,expose error=.string
+  records=.ragresultrecord[];fields=.ragresultfield[];error=""
+  if wordpos(role,"extractor resolution answerer advisory")=0 then do
+    error="prompt role must be extractor, resolution, answerer or advisory";return records
+  end
+  objective="";roles=config.roles()
+  do i=1 to roles.0
+    if roles[i].role()=role then objective=roles[i].system_prompt()
+  end
+  system=objective;schema="";version=""
+  scope="Effective system prompt and response schema; source context and correction history are supplied per request."
+  if role="extractor" then do
+    system=extractionprompt(objective);schema=extractionresponseschema(profile);version=extractioncontractversion()
+    scope=scope || " Optional provenance assessment adds its own contract."
+  end
+  if role="resolution" then do
+    objective=config.maintenance().resolution_prompt();system=resolutionprompt(objective)
+    schema=resolutionresponseschema();version=resolutioncontractversion()
+    scope=scope || " This schema lists all actions; maintain inspect returns the narrower task-specific schema."
+  end
+  if role="answerer" then do;schema=answerresponseschema();version=answercontractversion();end
+  if role="advisory" then do;schema=reportresponseschema();version=reportcontractversion();end
+  fields[1]=.ragresultfield("role","string",role)
+  fields[2]=.ragresultfield("contract_version","string",version)
+  fields[3]=.ragresultfield("configured_objective","string",objective)
+  fields[4]=.ragresultfield("system_prompt","string",system)
+  fields[5]=.ragresultfield("response_schema","string",schema)
+  fields[6]=.ragresultfield("system_prompt_sha256","string",rxhash..sha256hex(system as .binary))
+  fields[7]=.ragresultfield("response_schema_sha256","string",rxhash..sha256hex(schema as .binary))
+  fields[8]=.ragresultfield("scope","string",scope)
+  records[1]=.ragresultrecord("prompt-contract",fields)
+  return records

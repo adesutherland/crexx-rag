@@ -9,6 +9,7 @@
 
 #include <chrono>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -163,6 +164,15 @@ int main(int argc, char** argv)
         }
 
         const std::string path = request_path(request);
+        // Optional test-only capture of JSON bodies, excluding credential headers.
+        if (const char* directory = std::getenv("CREXXRAG_FIXTURE_CAPTURE_DIR")) {
+            const std::size_t body_start = request.find("\r\n\r\n");
+            if (body_start == std::string::npos) return 10;
+            std::ofstream capture(std::string(directory) + "/" + std::to_string(::getpid())
+                + "-" + std::to_string(index) + ".json", std::ios::binary);
+            capture << request.substr(body_start + 4);
+            if (!capture) return 10;
+        }
         std::cout << "REQUEST " << path << std::endl;
         if (request.find("Connection: close") != std::string::npos) ++close_requests;
         std::string body;

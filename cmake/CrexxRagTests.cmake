@@ -2,6 +2,39 @@ set(CREXXRAG_NATIVE_APPLICATION
     "${CMAKE_BINARY_DIR}/crexxrag-native/package/crexxrag${CMAKE_EXECUTABLE_SUFFIX}")
 set(CREXXRAG_PROVIDER_FIXTURE "$<TARGET_FILE:crexxrag_provider_fixture>")
 
+add_test(NAME regression_prompt_inspection
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXLINK=${CREXX_RXLINK_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/prompt_inspection_scenario.crexx"
+        "-DCPRAG_MARKER=PROMPT_INSPECTION_OK"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-prompt-inspection"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PromptInspection.cmake")
+set_tests_properties(regression_prompt_inspection PROPERTIES
+    TIMEOUT 150 LABELS "regression;prompt;configuration;zero-outbound")
+
+add_test(NAME regression_prompt_contract
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION=${CREXXRAG_APPLICATION_RXBIN}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_INGESTION_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_QUERY_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-query.conf.in"
+        "-DCPRAG_EXPECTED_CONTRACTS=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/contracts/provider-contracts.sha256"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-prompt-contract"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PromptContract.cmake")
+set_tests_properties(regression_prompt_contract PROPERTIES
+    TIMEOUT 180 LABELS "regression;prompt;schema;loopback;zero-outbound")
+
 add_test(NAME regression_claim_policy
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"

@@ -56,11 +56,11 @@ mcpdispatchwithregistry: procedure = .string
 _toolcommand: procedure = .int
   arg tool = .string, document = .jsondocument, arguments = .int, library = .string, config = .string, profile = .string, access = .string, expose output = .string[], expose error = .string
   clear output; error = ""
-  output[1] = "--library"; output[2] = library
-  output[3] = "--config"; output[4] = config
-  output[5] = "--profile"; output[6] = profile
-  output[7] = "--format"; output[8] = "json"
-  output[9] = "--access"; output[10] = access
+  if library \= "" then do; output[output.0+1]="--library"; output[output.0+1]=library; end
+  output[output.0+1] = "--config"; output[output.0+1] = config
+  output[output.0+1] = "--profile"; output[output.0+1] = profile
+  output[output.0+1] = "--format"; output[output.0+1] = "json"
+  output[output.0+1] = "--access"; output[output.0+1] = access
   noun = ""; verb = ""
   if tool = "rag_library_status" then do; noun = "library"; verb = "status"; end
   else if tool = "rag_library_report" then do; noun = "library"; verb = "report"; end
@@ -92,6 +92,7 @@ _toolcommand: procedure = .int
   else if tool = "rag_job_reconcile_inspect" | tool = "rag_job_reconcile_apply" then do; noun = "job"; verb = "reconcile"; end
   else if tool = "rag_config_check" then do; noun = "config"; verb = "check"; end
   else if tool = "rag_config_explain" then do; noun = "config"; verb = "explain"; end
+  else if tool = "rag_config_prompt" then do; noun = "config"; verb = "prompt"; end
   else if tool = "rag_config_diff" then do; noun = "config"; verb = "diff"; end
   else if tool = "rag_config_plan" then do; noun = "config"; verb = "plan"; end
   else if tool = "rag_config_apply" then do; noun = "config"; verb = "apply"; end
@@ -220,6 +221,7 @@ _toolcommand: procedure = .int
       call _option document,arguments,"expect_digest","expect-digest",output
     end
   end
+  if tool = "rag_config_prompt" then call _option document,arguments,"role","role",output
   if tool = "rag_config_plan" then call _option document, arguments, "reason", "reason", output
   if tool = "rag_config_apply" then do
     call _option document, arguments, "plan_json", "plan-json", output
@@ -305,6 +307,7 @@ _toolcapability: procedure = .string
 _toollist: procedure = .string
   arg access = .string
   tools = ""
+  tools = _addtool(tools,"rag_config_prompt","Inspect the configured objective, effective system prompt, response schema and hashes without library access or provider calls",'{"role":{"type":"string","enum":["extractor","resolution","answerer","advisory"]}}',"true")
   tools = _addtool(tools, "rag_library_status", "Read bounded library status", '{}', "true")
   tools = _addtool(tools, "rag_library_overview", "Read deterministic corpus scope and health without writes, narrative refresh or provider calls", '{"top":{"type":"integer","minimum":1,"maximum":20}}', "true")
   tools = _addtool(tools, "rag_profile_show", "Read the selected profile vocabulary, including permitted concept and relationship types", '{}', "true")
@@ -378,6 +381,7 @@ _addtool: procedure = .string
   arg tools = .string, name = .string, description = .string, properties = .string, readonly = .string, openworld = "false", idempotent = ""
   if tools \= "" then tools = tools || ","
   required = "[]"
+  if name = "rag_config_prompt" then required = '["role"]'
   if pos('"question"', properties) > 0 then required = '["question"]'
   if pos('"citation"', properties) > 0 then required = '["citation"]'
   if pos('"id"', properties) > 0 then required = '["id"]'
@@ -435,6 +439,7 @@ _toolargumentsvalid: procedure = .int
 
 _toolargumentnames: procedure = .string
   arg tool = .string
+  if tool = "rag_config_prompt" then return "role"
   if tool = "rag_job_reconcile_inspect" then return "id item"
   if tool = "rag_job_reconcile_apply" then return "id item expect_digest"
   if tool = "rag_library_overview" then return "top"
@@ -472,6 +477,7 @@ _toolargumentnames: procedure = .string
 
 _toolrequiredarguments: procedure = .string
   arg tool = .string
+  if tool = "rag_config_prompt" then return "role"
   if tool = "rag_job_retry" then return "id item"
   if tool = "rag_task_retry" then return "id"
   if tool = "rag_job_reconcile_inspect" then return "id item"

@@ -98,7 +98,14 @@ optional narrative refresh, so Codex can approve it as a read-only tool.
 
 Read access also advertises `rag_config_check`, `rag_config_explain`, and
 `rag_config_diff`; all three make zero provider calls and never resolve a
-credential value. Plan access adds `rag_config_plan`, admin access adds
+credential value.
+`rag_config_prompt` is also read-only: give it an extractor, resolution,
+answerer or advisory `role` to inspect the actual system prompt and schema,
+including instructions appended to the configurable objective. Prompt edits
+use the selected policy and its reviewed configuration transition; source
+evidence validation remains enforced.
+
+Plan access adds `rag_config_plan`, admin access adds
 `rag_config_apply`, and control access adds `rag_job_replay`. Configuration
 apply accepts only the exact canonical JSON and digest returned by planning.
 Replay creates new current-config work and preserves its terminal source job

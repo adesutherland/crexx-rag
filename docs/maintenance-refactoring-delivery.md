@@ -21,8 +21,8 @@ control, original evidence and provider usage remain authoritative.
 
 | Stage | Owner and intended outcome | Status |
 | --- | --- | --- |
-| 1 | `ragclaimrules`: one effective claim-policy factory | Green: 51/51 full regression tests |
-| 2 | Domain prompt/contracts: complete effective requests and schemas together | Pending |
+| 1 | `ragclaimrules`: one effective claim-policy factory | Committed `b038495`; 51/51 full regression tests |
+| 2 | Domain prompt/contracts: complete effective requests and schemas together | Complete; 53/53 full regression tests |
 | 3 | Report, observation and query services: cohesive domain orchestration and bounded operator inspection | Pending |
 | 4 | Command catalogue: one operation/argument/capability definition used by surfaces | Pending |
 | 5 | Effective configuration policy and safe policy-file update/replacement commands | Pending |
@@ -54,3 +54,68 @@ baseline after renaming; namespace inspection found no cross-module production
 import cycle. The ADDRESS adapter's extension of installed `_rxsysb` is not a
 product dependency cycle. Final documentation and whitespace checks pass.
 No hosted calls, user-library changes or global installation were used.
+
+## Stage 2 — prompts and response contracts
+
+Before product edits, captured actual Gemini fixture request bodies from
+ingestion, query/report generation and maintenance resolution with a correction.
+The new `regression_prompt_contract` retains four independently captured system
+prompt/schema hash pairs, checks correction message order and runs the existing
+end-to-end assertions. It and `local_embedding_protocol`/`temporal_provenance`
+passed **3/3 in 57.53 seconds** against the stage 1 artifact. The separate
+`regression_prompt_inspection` first passed its configuration control and then
+failed because `config prompt` did not exist. Captures exclude HTTP headers;
+fixtures contain synthetic data and credentials only.
+
+Domain owners now construct the complete message lists and response schemas.
+`ragquotationcontract` owns shared quotation instructions and bounded correction
+feedback; `ragresolutioncontract` also owns the action vocabulary used by both
+its schema and `ragbacklog` validation. `ragpromptdefaults` owns compatibility
+role objectives. Execution, preflight, retained responses and settlement stay
+in their existing owners. Configured objectives remain editable data.
+
+`config prompt --role extractor|resolution|answerer|advisory` and
+`rag_config_prompt` expose the configured objective, effective system text,
+schema and hashes without library access or calls. Resolution inspection shows
+the union schema; task inspection still supplies its narrower applicable
+schema. Inspection states where per-request source context, correction history
+and optional provenance contracts are added. The two-VM scenario exercises
+direct builders, optional assessment, subject/workflow action restrictions,
+typed dispatch, MCP, access denial and unknown arguments.
+
+Contract versions identify the extracted builders for inspection. This
+behavior-preserving stage retains all existing configuration, work and replay
+identities; it does not introduce an identity migration. A future behavioral
+contract change must review its effective identity and retained-work semantics,
+not merely change the inspection version or update a golden file.
+
+The inspection regression exposed an MCP transport defect: it always passed an
+empty `--library` even for library-independent operations. The adapter now omits
+that argument when no library is bound; library-requiring commands still fail
+normal parsing. Native inspection passed before this MCP correction.
+
+The captured ingestion journey also exposed a timing assumption in the
+post-registration child-death fixture under concurrent machine load. Its fixed
+one-second sleep could kill a child before registration. The fixture now waits
+for that specific child and its controller to acknowledge registration before
+killing it, and fails separately if this precondition is never reached. The
+production supervision implementation is unchanged.
+
+The final `cmake --workflow --preset regression` passed **53/53 in 733.58
+seconds**. Native SHA-256:
+`d68a356a37ebc4451661a55de2490fb411d137d4b84197e1b02c0bf39b799d5d`.
+The corrected inspection test passed on native CLI and both VMs; the stable
+artifact request/recovery rerun passed **2/2 in 111.26 seconds**. Evidence:
+`/tmp/crexx-rag-refactor-2-baseline.log`,
+`/tmp/crexx-rag-refactor-2-inspection-red.log`,
+`/tmp/crexx-rag-refactor-2-inspection2.log`,
+`/tmp/crexx-rag-refactor-2-focused2.log` and
+`/tmp/crexx-rag-refactor-2-full.log`. An earlier mixed build/test run was invalid
+because packaging briefly replaced the running test's executable; it is not
+qualification evidence. The final gate ran serially without concurrent builds.
+
+Self-review found no blocking issue. The four captured request contracts remain
+identical, all 65 production namespaces have no cross-module import cycle,
+documentation links resolve, and staged whitespace checks pass. This is local
+qualification using synthetic providers and scratch libraries/installations;
+no live hosted calls or global installation were performed.

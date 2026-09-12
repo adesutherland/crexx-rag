@@ -297,6 +297,35 @@ corpus remains a no-op. A change classified `reingest-required` needs an
 explicit, separately qualified transition and must preserve the prior source,
 history and usable derived representation.
 
+## Inspect and edit prompts
+
+```sh
+crexxrag --format json config prompt --role extractor
+crexxrag --format json config prompt --role resolution
+crexxrag --format json config prompt --role answerer
+crexxrag --format json config prompt --role advisory
+```
+
+These read-only commands show the configured objective, the assembled system
+prompt, response schema and their hashes. They need no library, credentials or
+provider calls. MCP exposes the same view as `rag_config_prompt`. JSON/MCP
+return complete text; human output is a preview.
+
+You can change role objectives with `role.ROLE.system_prompt` or its selected
+`system_prompt_file`, and resolution objectives with
+`maintenance.resolution_prompt`, in the one selected `crexxrag.conf` policy.
+Run `config check`, inspect the effective prompt, then review `config diff` and
+use `config plan`/`config apply` before subsequent library work. Existing jobs
+and accepted evidence retain their original identities. Supported policy-file
+update/replacement commands are being added in delivery stage 5.
+
+Required quotation instructions and validation are product contracts: an
+editable objective cannot authorize fabricated evidence or bypass a validator.
+Resolution inspection lists all possible actions; `maintain inspect TASK_ID`
+gives the narrower response schema for that task and workflow. Source context,
+prior response/correction messages and optional provenance assessment are added
+for each request, as the inspection's scope explains.
+
 ## Workers
 
 ```sh

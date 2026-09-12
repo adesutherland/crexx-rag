@@ -187,6 +187,7 @@ crexxrag query QUESTION
 crexxrag provider list|status|test
 crexxrag provider login codex
 crexxrag config check|explain|diff
+crexxrag config prompt --role extractor|resolution|answerer|advisory
 crexxrag --access plan config plan --reason TEXT
 crexxrag --access admin config apply --plan-json JSON --expect-digest SHA256
 crexxrag profile list

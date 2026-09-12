@@ -5,6 +5,11 @@ extends this gate at each new owner. Stage 1 adds `regression_claim_policy`,
 characterized against the pre-refactor implementation on both VMs before
 sharing the factory. All earlier regression cases remain required.
 
+Stage 2 adds `regression_prompt_contract` for captured effective provider
+messages/schemas and `regression_prompt_inspection` for public and direct
+contract boundaries. Its baseline and final gate are recorded in the same
+delivery record; golden data was captured before product changes.
+
 ## Current status — 12 September 2026
 
 Maintenance refactor stage 1 now passes **51/51 in 706.70 seconds**; see the
@@ -258,3 +263,7 @@ all **41 scoped tests pass**. The three remaining review failures are unchanged:
 The full gate still exits nonzero. General infrastructure diagnosis, hosted
 endurance and additional platform qualification are not inferred from these
 local tests.
+
+The prompt-contract stage passed the complete **53/53** regression workflow in
+733.58 seconds. Exact artifact and baseline evidence are recorded in the
+[delivery record](maintenance-refactoring-delivery.md#stage-2--prompts-and-response-contracts).
