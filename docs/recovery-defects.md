@@ -725,3 +725,35 @@ unchanged. Candidate 8 passed full QA **63/63 in 933.50 seconds**, its focused
 three-case gate and separate installed CLI/MCP confirmation. This closes the
 reproduced diagnostic defect on that artifact. The running ingestion still uses
 frozen 702af3a until drainage; the broader live outcome remains open.
+
+## RAG-SMK-002 — P1: Codex byte-stream decoding can terminate a worker
+
+The 12 September live continuation lost one of eight workers to an invalid
+UTF-8 binary-to-string panic (exit9). The exact item/attempt and retained turn
+are recorded in the handoff; healthy peers continued and the affected item
+remained held. Read-only inspection found the retained turn interrupted, with
+incomplete usage and no final output; it has not been blindly retried.
+
+The adapter converts each pipe read to a string before framing JSONL, so a
+multibyte code point split across reads is a concrete suspected mechanism.
+Test-first regressions reproduced the defect on both VMs and optimization
+modes. The repair decodes only complete byte-framed lines and retains a bounded
+error for malformed UTF-8. A live raw stream was not retained, so distinguish
+this mechanism from proof of the precise live fragment boundary. No CREXX
+runtime modification or evidence-validation relaxation is justified.
+
+The framing regression reproduced **eight panics**: valid fragmented and
+malformed frames on RXVME/RXBVM, each optimized/unoptimized (35.86 seconds).
+The adapter now buffers bytes, locates newline boundaries in bytes and only
+then decodes a complete frame. A malformed frame becomes a cached provider
+error, enabling existing exact-turn recovery rather than killing the worker.
+The original 4 MiB bound is measured in bytes. All framing cases plus the
+17,000-cycle persistent protocol test passed in **41.61 seconds**. Candidate 9 qualification is recorded below; the live raw fragment itself was
+not captured.
+
+Qualification 2026-09-12 23:06 UTC: candidate9 passed full **63/63 in 938.12 seconds**,
+focused packaged checks5/5 in20.84s and the installed Codex receipt-interruption
+journey. The eight before-fix panics and after-fix protocol tests are retained.
+The code repair is locally qualified; the live supervisor still uses702af3a
+until the controlled upgrade recorded in the handoff. Preserve the distinction
+between reproduced decoding failure and the uncaptured exact live fragment.

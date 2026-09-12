@@ -1,0 +1,14 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start 19: codex_protocol
+1/1 Test #19: codex_protocol ...................   Passed   41.61 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+codex            =  41.61 sec*proc (1 test)
+jsonl            =  41.61 sec*proc (1 test)
+provider         =  41.61 sec*proc (1 test)
+schema           =  41.61 sec*proc (1 test)
+zero-outbound    =  41.61 sec*proc (1 test)
+
+Total Test time (real) =  41.61 sec

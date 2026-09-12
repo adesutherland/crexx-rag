@@ -1,6 +1,6 @@
 # Operator continuation: live handoff
 
-Updated: 2026-09-12 22:26 UTC. This file is the persistent task state; update it
+Updated: 2026-09-12 23:06 UTC. This file is the persistent task state; update it
 at every QA/commit/live-run boundary. No outcome is closed merely because one
 slice compiles. Read the current Git diff and current logs before continuing.
 
@@ -648,3 +648,153 @@ once the current supervisor drains. Actual ingestion remains session70061 and
 its ingestion-session logs; no recurring automation exists. Remaining original
 queued work, operational recovery, five missing embeddings and the60-minute
 maintenance still need completion. Do not report the whole outcome closed.
+
+## Checkpoint 2026-09-12 22:34 UTC — diagnostic committed; first real worker crash
+
+Diagnostic repair committed **d1cc6f5**, full 63/63 in 933.50 seconds and installed
+CLI/MCP check green. Installed to separate run prefix
+`continuation-20260912/artifact-diagnostics/bin/crexxrag`, native hash
+`af99d5e94405942834cbd19c3957c143d0bb3082c3561612fda54c57702f3ee6`.
+Use this for diagnostics; existing ingestion children remain on702af3a under
+`artifact/bin/crexxrag`. Real read-only status verified disjoint active/held
+counts, and seven active item records gave correct worker guidance.
+
+At22:27:14 status showed736queued/6running/14883processed/15424skipped/529dead,
+7live workers and zero replacements. Its six unmatched outcomes divided into
+five active and **one held**. Logs show a real panic:
+`PANIC: Invalid UTF-8 in binary-to-string conversion (SIGNAL UNICODE_ERROR)`.
+Worker `worker-eeaf2d2bfcee39b8117e9e8054b241ff`, PID73027, exited9 after
+registration. Public status confirmed failed/not-running. The controller and
+seven peers continue. Full pre-recovery log is `ingestion-failure-1.err` in the
+run directory; worker snapshots are in repo evidence. This is now a confirmed
+run defect **RAG-SMK-002**, not a normal contention retry or content rejection.
+
+Six public held-item pages identified exactly one uncertain item:
+`item-sha256:f385bee6340faf49dba0990fbca56c42ecd56e1e93c5fb24ecbddba486e15c3c`,
+attempt4, Browne volume4, last reason lease-expired. Exact public reconciliation
+inspection returned interrupted/no output, incomplete usage0 lower bound,
+provider_calls0. Provider run `provider-run-sha256:01c2557d1ce2ddbadd1483843d909b0ddef18492458aa3109cd89e748c7b12e0`,
+thread `01a097ba-7fd3-7c30-b624-f51b177bddd9`,
+turn `01a097ba-809f-74e3-95d9-f4d7d09c03f7`,
+digest `90ce81e20d097859b0d5b5a9142f859c9cd1eb2c96b3349a95fa2d1590c0281b`.
+Observation saved as `scottish-utf8-crash-observe.json`; **not applied yet**
+because healthy workers are still active. Reobserve/apply only after public
+pause/drain, then use normal retry/replay as eligible. Never assume a crash was
+uncalled or erase its reservation/unknown usage.
+
+Source investigation: `crexx/providers/codex_provider.crexx` stores `_read_buffer`
+as string and casts each byte-endpoint read to string before newline framing
+(line495 at d1cc6f5). A split multibyte character can therefore panic even when
+the overall JSONL is valid. This is a concrete suspected mechanism, not yet a
+captured live raw stream. Add regression before repair: fixture now splits
+valid2/3/4-byte characters and emits separately a complete invalid UTF-8 frame;
+probe requires exact Unicode roundtrip or bounded error. `codex_protocol` runs
+both VMs/noopt+opt. **Red is running session80517**, log
+`/private/tmp/crexx-codex-utf8-red.log`. Only test files have changed afterd1cc6f5;
+no provider implementation repair has been applied yet.
+
+Likely narrow repair after confirmed red: accumulate `.binary`, find newline
+with byte functions, then decode a complete bounded frame; catch unicode_error
+as a provider transport/format failure, preserving existing response recovery.
+Do not modify CREXX or relax source validation. Provider changes require focused
+Codex protocol/application/recovery plus Gemini/negative controls, full63 and
+installed qualification before commit/new live artifact. Existing supervisor
+only replaces exit75 or clean exhausted workers, so native panic9 is currently
+not automatically replaced; do not broaden exit policy without evidence.
+
+Continue observing ingestion session70061 and its logs while preparing the fix.
+If further faults materially degrade the pool, preserve evidence and publicly
+pause/drain before recovery; never overlap groups. Finish remaining ingestion,
+reviewed operational recovery, the five embedding requests already recorded,
+and the60-minute maintenance. No recurring automation exists or is authorized
+by automatic review. Current proof must be updated before another compaction.
+
+## Checkpoint 2026-09-12 22:38 UTC — UTF-8 framing mechanism reproduced and fixed
+
+`codex_protocol` reproduced all eight expected panics (valid fragments and
+invalid frame, both VMs/noopt+opt), red35.86s. Source repair is now applied in
+`crexx/providers/codex_provider.crexx`: binary accumulation, byte newline search,
+complete-frame conversion and caught unicode_error. No CREXX modification,
+provider generation policy or response-validation weakening. The existing4MiB
+ceiling is counted as bytes. Protocol/17,000-cycle regression passed41.61s.
+The exact live raw fragment was not captured; this reproduces and removes the
+matching panic mechanism including both valid fragmentation and invalid input.
+
+**Build9 is running**; log `/private/tmp/crexx-codex-utf8-build9.log`.
+Product is uncommitted afterd1cc6f5. Next: finish build, focused provider/Codex
+application/recovery/Gemini negatives, required full63 and scratch-installed
+qualification. Then local commit/new run prefix, preserve live evidence,
+public pause/drain, reobserve/apply the retained interrupted crash turn and
+continue the SAME ingestion allowance with the new artifact. Keep queued and
+held work/history intact; do not create a new allowance period to replace workers.
+
+The live run remains session70061 using original702af3a; its log still shows
+exactly one panic/worker failure. Seven peers continue; no restart yet. Native
+panic exit9 is outside the current automatic replacement exit75 policy. Preserve
+and recover through ordinary controls after the fix. Five embedding retry
+requests are already retained for the later reviewed policy/window. The user
+still requires remaining ingestion/recovery plus60-minute maintenance, final
+verification, honest defect/roadmap updates and final local evidence commit.
+No automation exists. Do not end merely because a repair is committed or a
+worker launch succeeds; record actual completion and unresolved evidence holds.
+
+## Checkpoint 2026-09-12 22:51 UTC — build 9 focused/installed green; full QA running
+
+Build9 complete. Native SHA256
+`de42459f5612a95c8a297169ae7f685af832a14d656f9fa215287ad900a32d8f`;
+linked `a8755769ac9551a3a6c6c3e740b62af4322c00b3794b75e2f6921eefa50b0bb9`.
+Focused packaged gate passed **5/5 in20.84s** (Codex application, native receipt
+failure/interruption, Gemini smoke and malformed extraction/secret controls).
+Scratch-installed Codex application receipt/interruption test exited0 with
+its expected receipt-reuse and provider-call accounting assertions; prefix
+`/private/tmp/crexx-codex-utf8-installed`, fixture summary copied to evidence.
+Provider implementation unchanged since build9. **Full63 is running as
+session74490**, log `/private/tmp/crexx-codex-utf8-full.log`. All older build/QA
+sessions are finished. Commit RAG-SMK-002 only after this gate and final docs.
+
+The live original702af3a run remains session70061. First native UTF-8 panic
+worker stayed failed; seven peers continued. A SECOND worker
+`worker-977161015ed6d2985265f6f0ed86bced` (PID73026) later reported
+`Codex App Server response timed out;processed=94;polls=374` and was automatically
+replaced by `worker-a62a578d9728ad7145800dd1184652f7`. This is successful observed
+replacement, separate from the unhandled exit9. Public detail does not establish
+the timeout's exact provider phase; do not infer it was preflight or free. At
+22:42:23 the public counters were473queued/6running/15076processed/15489skipped/
+534dead,7live workers,1replacement and1held uncertain outcome. A new status8
+snapshot follows in evidence. Preserve original logs before future drainage.
+
+Next after full green: local fix commit; install to NEW `artifact-utf8` prefix
+in the authorized run directory (never overwrite running old executable);
+public pause/drain and verify all old workers/controller exit; reobserve/apply
+the exact held turn(s), then normal `job continue`/`job run` with SAME named
+period, no extra allowance. Continue remaining work on fixed artifact; prepare
+reviewed operational recovery as required. Five embedding retry requests remain
+pending, requiring reviewed retry policy/new window after ingestion. Then
+ordinary maintenance for60minutes, public verification/report/coverage/usage,
+final honest roadmap/docs and local evidence commit. No push or automation.
+
+For the later human command, `maintain --minutes 60 --yes` requires human format
+(omit JSON, or use `--format human`). Machine operation is the separate public
+`maintain plan` / digest-checked `maintain apply` / `job run` sequence. Use
+configured workers, keep one policy file and preserve the10percent account
+reserve. `library migrate` is the ordinary explicit schema upgrade command;
+it is now documented before large older-schema diagnostic reads.
+
+## Checkpoint 2026-09-12 23:06 UTC — UTF-8 repair full QA green
+
+Build9 full suite passed **63/63 in 938.12 seconds**, alongside focused
+5/5 in20.84s, both-VM/optimization UTF-8 framing/invalid-byte cases and the
+scratch-installed receipt/interruption journey. Native hash remains
+`de42459f5612a95c8a297169ae7f685af832a14d656f9fa215287ad900a32d8f`;
+linked `a8755769ac9551a3a6c6c3e740b62af4322c00b3794b75e2f6921eefa50b0bb9`.
+No product changes since this build. Final logs copied to repo evidence.
+
+Next: docs/whitespace, local RAG-SMK-002 fix commit, install NEW artifact-utf8
+prefix, preserve full current runtime evidence, public pause/drain and verify
+old controller/workers exit (session70061). Reobserve/apply held turns via fresh
+digests while drained. Resume SAME ingestion with the fixed artifact and same
+existing named allowance. Do not grant another period or change the old policy
+just to restart workers. Then remaining operational retries/replays, reviewed
+policy and five embedding repairs, the full60-minute maintenance, final public
+verification/report and truthful docs/roadmap/evidence commit. Overall live
+outcome is still incomplete. No push, sibling changes, usage reset or automation.

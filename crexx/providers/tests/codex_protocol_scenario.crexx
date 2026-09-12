@@ -17,6 +17,23 @@ main: procedure = .int
   end
   observer = .codexnoopobserver()
   provider = .codexprovider(args[1], args[2], observer)
+  if args.0 = 4 then if args[4] = "utf8-fragments" | args[4] = "utf8-invalid" then do
+    error="";account_type="";plan_type="";used_percent=-1
+    status=provider.account_status(5000,account_type,plan_type,used_percent,error)
+    call provider.close()
+    if args[4]="utf8-fragments" then do
+      if status<>0 | account_type<>"chatgpt" | plan_type<>"pro-é漢🦄" | used_percent<>12 then do
+        say "FAIL: fragmented UTF-8 changed or aborted account data: " || error
+        return 1
+      end
+    end
+    else if status=0 | pos("invalid UTF-8",error)=0 then do
+      say "FAIL: invalid UTF-8 did not become a bounded provider error: " || error
+      return 1
+    end
+    say "PASS: UTF-8 framing " || args[4]
+    return 0
+  end
   if args.0 = 4 then do
     messages = .providermessage[]; inputs = .string[]
     messages[1] = .providermessage("user","Return an object whose ok field is true.")

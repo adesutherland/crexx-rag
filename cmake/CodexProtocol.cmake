@@ -74,6 +74,16 @@ foreach(mode IN ITEMS noopt opt)
             message(FATAL_ERROR
                 "${mode}-${runtime_name} Codex protocol fixture failed (${run_result}):\n${run_out}\n${run_err}")
         endif()
+        foreach(utf8_stage IN ITEMS utf8-fragments utf8-invalid)
+            execute_process(COMMAND "${CMAKE_COMMAND}" -E env
+                "CREXXRAG_CODEX_FIXTURE_FAILURE=${utf8_stage}"
+                "${runtime}" -l "${imports}" "${program}" ${modules}
+                -a "${fixture}" "${CPRAG_WORK_DIR}/empty-cwd" 1 "${utf8_stage}"
+                RESULT_VARIABLE utf8_status OUTPUT_VARIABLE utf8_out ERROR_VARIABLE utf8_err TIMEOUT 15)
+            if(NOT utf8_status EQUAL 0 OR NOT utf8_out MATCHES "PASS: UTF-8 framing")
+                list(APPEND utf8_failures "${mode}-${runtime_name} ${utf8_stage}: ${utf8_out}${utf8_err}")
+            endif()
+        endforeach()
         foreach(noisy_stage IN ITEMS account-noise account-fragments turn-noise)
             execute_process(COMMAND "${CMAKE_COMMAND}" -E env
                 "CREXXRAG_CODEX_FIXTURE_FAILURE=${noisy_stage}"
@@ -86,6 +96,10 @@ foreach(mode IN ITEMS noopt opt)
         endforeach()
     endforeach()
 endforeach()
+
+if(utf8_failures)
+    message(FATAL_ERROR "Codex byte framing failed: ${utf8_failures}")
+endif()
 
 # Each account cycle needs two write/read pairs on the same persistent adapter.
 # 17,000 cycles exceed the old context-wide 65,535 unreleased-ticket ceiling.

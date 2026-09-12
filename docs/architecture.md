@@ -644,3 +644,10 @@ for WAL startup and `BEGIN IMMEDIATE`. It retries only BUSY/BUSY_RECOVERY before
 any transaction body or provider call. Opening a connection and reserving a
 worker replacement remain separate decisions; the journal race must not be
 hidden by increasing replacement or paid-attempt allowances.
+
+The Codex App Server adapter owns JSONL byte framing: accumulate arbitrary pipe
+fragments as `.binary`, bound them in bytes and decode only a complete newline
+frame. A UTF-8 character may cross read boundaries. Invalid complete frames
+become adapter errors; the existing receipt/exact-turn recovery owner decides
+the submitted outcome. Framing does not make a malformed reply valid or decide
+whether a generation call was uncalled.

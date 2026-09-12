@@ -35,8 +35,11 @@ plan/apply transition. Other configuration changes retain the original job's
 compatibility checks. Other active work can require a separate drain; the
 command reports that condition rather than rewriting its policy.
 
-Use `worker status PROCESS` to inspect a discovered process, `worker drain`
-with its documented selector to stop owned work, and `worker prune` for stale
+To upgrade a running group, use `job pause JOB` to stop admitting new items,
+then `worker drain WORKER_ID` for each live worker belonging to that controller,
+as listed by `worker list`. Drain accepts a worker identity, not a controller or
+job selector. Wait for those workers and their controller to exit; check their
+public status before restarting. Use `worker prune` for confirmed stale
 ownership. Then repeat the same continuation. Ordinary continuation keeps the
 existing allowance and deadline. `--prepare` performs the durable preparation
 without launching workers; `job run JOB` subsequently uses that preparation.

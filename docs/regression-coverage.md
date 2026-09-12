@@ -354,3 +354,11 @@ matched receipt. It now checks the disjoint public active/held counters and
 unchanged database state. Candidate 8 passed its three focused cases in 26.98
 seconds and the separate installed CLI/MCP scenario. Full QA then passed
 **63/63 in 933.50 seconds**.
+
+RAG-SMK-002 adds `codex_protocol` cases for valid 2/3/4-byte UTF-8 characters
+split across stdout writes and for a complete invalid-byte frame. All eight
+VM/optimization combinations reproduced panics before the adapter fix. The
+repair retains exact Unicode text and returns a bounded malformed-frame error;
+protocol and 17,000-cycle request-reclamation checks passed in 41.61 seconds.
+Full provider/native qualification then passed **63/63 in 938.12 seconds**,
+alongside the installed receipt-interruption journey.

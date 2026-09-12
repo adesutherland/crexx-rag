@@ -1,0 +1,41 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start 17: gemini_extraction_validation
+1/5 Test #17: gemini_extraction_validation .....   Passed    4.31 sec
+    Start 20: codex_application
+2/5 Test #20: codex_application ................   Passed    2.11 sec
+    Start 33: gemini_provider_smoke
+3/5 Test #33: gemini_provider_smoke ............   Passed    1.60 sec
+    Start 45: native_receipt_failure
+4/5 Test #45: native_receipt_failure ...........   Passed    6.12 sec
+    Start 47: native_interruption
+5/5 Test #47: native_interruption ..............   Passed    6.69 sec
+
+100% tests passed, 0 tests failed out of 5
+
+Label Time Summary:
+accounting       =  12.81 sec*proc (2 tests)
+application      =   2.11 sec*proc (1 test)
+budget           =   1.60 sec*proc (1 test)
+cancellation     =   6.69 sec*proc (1 test)
+citation         =   1.60 sec*proc (1 test)
+codex            =   2.11 sec*proc (1 test)
+concurrency      =   6.12 sec*proc (1 test)
+dead-letter      =   4.31 sec*proc (1 test)
+durability       =   2.11 sec*proc (1 test)
+embedding        =   1.60 sec*proc (1 test)
+extraction       =   4.31 sec*proc (1 test)
+gemini           =  12.03 sec*proc (3 tests)
+generation       =   1.60 sec*proc (1 test)
+native           =   6.69 sec*proc (1 test)
+provider         =   3.71 sec*proc (2 tests)
+publication      =   6.69 sec*proc (1 test)
+recovery         =  14.93 sec*proc (3 tests)
+registry         =   4.31 sec*proc (1 test)
+secret-free      =   5.91 sec*proc (2 tests)
+span             =   4.31 sec*proc (1 test)
+sqlite           =  12.81 sec*proc (2 tests)
+validation       =   4.31 sec*proc (1 test)
+worker           =   2.11 sec*proc (1 test)
+zero-outbound    =  14.93 sec*proc (3 tests)
+
+Total Test time (real) =  20.84 sec

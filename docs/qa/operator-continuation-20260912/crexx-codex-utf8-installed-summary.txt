@@ -1,0 +1,1 @@
+Codex application extraction passed through the public worker surface; a persisted completed turn survived a simulated worker crash, recovered without a second turn, validated four mentions/two supports, settled subscription allowance, and verified the library.

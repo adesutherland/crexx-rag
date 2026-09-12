@@ -38,6 +38,22 @@ while IFS= read -r line; do
     *'"method":"account/read"'*)
       log_method account/read
       if [ "$cleanup_fault" = 1 ]; then sleep 4; exit 70; fi
+      case "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" in
+        utf8-fragments)
+          printf '{"id":%s,"result":{"account":{"type":"chatgpt","planType":"pro-' "$id"
+          # Split valid 2-, 3- and 4-byte code points between stdout writes.
+          # The consumer has already submitted account/read and is waiting.
+          printf '\303'; sleep 0.05; printf '\251'
+          printf '\346'; sleep 0.05; printf '\274'; sleep 0.05; printf '\242'
+          printf '\360'; sleep 0.05; printf '\237'; sleep 0.05; printf '\246'; sleep 0.05; printf '\204'
+          printf '"}}}\n'
+          continue
+          ;;
+        utf8-invalid)
+          printf '{"id":%s,"result":{"account":{"type":"chatgpt","planType":"bad-\377"}}}\n' "$id"
+          continue
+          ;;
+      esac
       if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "account-fragments" ]; then
         printf '{"id":%s,"result":{"padding":"' "$id"
         n=0

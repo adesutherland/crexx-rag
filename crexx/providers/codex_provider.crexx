@@ -52,7 +52,7 @@ codexprovider: class implements .provider
   _started = .int
   _closed = .int
   _next_identity = .int
-  _read_buffer = .string
+  _read_buffer = .binary
   _health_error = .string
   _operation_started = .int
   _operation_timeout = .int
@@ -65,7 +65,7 @@ codexprovider: class implements .provider
     _started = 0
     _closed = 0
     _next_identity = 1
-    _read_buffer = ""
+    _read_buffer = ''x as .binary
     return
 
   capabilities: method = .providercapabilities
@@ -462,6 +462,8 @@ codexprovider: class implements .provider
       status = _readline_checked(timeout_ms,line,error)
     on signal channel_error as problem
       error = "Codex App Server read channel failed: " || problem.message()
+    on signal unicode_error as problem
+      error = "Codex App Server emitted invalid UTF-8 JSONL"
     end
     if status \= 0 then _health_error = error
     return status
@@ -472,10 +474,13 @@ codexprovider: class implements .provider
     if timeout_ms < 1 then do; error = "Codex operation deadline reached before read"; return -1; end
     line = ""; error = ""; started = time("us")
     do reads = 1 to 1024
-      marker = pos("0A"x, _read_buffer)
+      marker = binpos("0A"x as .binary, _read_buffer)
       if marker > 0 then do
-        line = left(_read_buffer, marker - 1)
-        _read_buffer = substr(_read_buffer, marker + 1)
+        /* Pipe fragments can end within a multibyte code point. Decode only
+         * a complete JSONL frame; a malformed frame becomes a retained adapter
+         * error so the existing exact-turn recovery can decide its outcome. */
+        line = binsubstr(_read_buffer, 1, marker - 1) as .string
+        _read_buffer = binsubstr(_read_buffer, marker + 1, binlength(_read_buffer) - marker)
         if right(line, 1) = "0D"x then line = left(line, length(line) - 1)
         if line = "" then iterate
         return 0
@@ -492,8 +497,8 @@ codexprovider: class implements .provider
       call pending.release()
       if completion.succeeded() = 0 then do; error = "Codex App Server stdout failed: " || completion.message(); return -1; end
       if completion.details().field("eof").as_boolean() = 1 then do; error = "Codex App Server closed stdout"; return -1; end
-      _read_buffer = _read_buffer || (completion.value().as_binary() as .string)
-      if length(_read_buffer) > 4194304 then do; error = "Codex App Server line exceeded the 4 MiB ceiling"; return -1; end
+      _read_buffer = _read_buffer || completion.value().as_binary()
+      if binlength(_read_buffer) > 4194304 then do; error = "Codex App Server line exceeded the 4 MiB ceiling"; return -1; end
     end
     error = "Codex App Server read ceiling was exceeded"
     return -1

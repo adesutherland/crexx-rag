@@ -1,0 +1,46 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start 19: codex_protocol
+1/1 Test #19: codex_protocol ...................***Failed   35.85 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/CodexProtocol.cmake:101 (message):
+  Codex byte framing failed: noopt-rxvme utf8-fragments: PANIC: Invalid UTF-8
+  in binary-to-string conversion (SIGNAL UNICODE_ERROR)
+
+  ;noopt-rxvme utf8-invalid: PANIC: Invalid UTF-8 in binary-to-string
+  conversion (SIGNAL UNICODE_ERROR)
+
+  ;noopt-rxbvm utf8-fragments: PANIC: Invalid UTF-8 in binary-to-string
+  conversion (SIGNAL UNICODE_ERROR)
+
+  ;noopt-rxbvm utf8-invalid: PANIC: Invalid UTF-8 in binary-to-string
+  conversion (SIGNAL UNICODE_ERROR)
+
+  ;opt-rxvme utf8-fragments: PANIC: Invalid UTF-8 in binary-to-string
+  conversion (SIGNAL UNICODE_ERROR)
+
+  ;opt-rxvme utf8-invalid: PANIC: Invalid UTF-8 in binary-to-string
+  conversion (SIGNAL UNICODE_ERROR)
+
+  ;opt-rxbvm utf8-fragments: PANIC: Invalid UTF-8 in binary-to-string
+  conversion (SIGNAL UNICODE_ERROR)
+
+  ;opt-rxbvm utf8-invalid: PANIC: Invalid UTF-8 in binary-to-string
+  conversion (SIGNAL UNICODE_ERROR)
+
+
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+codex            =  35.85 sec*proc (1 test)
+jsonl            =  35.85 sec*proc (1 test)
+provider         =  35.85 sec*proc (1 test)
+schema           =  35.85 sec*proc (1 test)
+zero-outbound    =  35.85 sec*proc (1 test)
+
+Total Test time (real) =  35.86 sec
+
+The following tests FAILED:
+	 19 - codex_protocol (Failed)                           codex jsonl provider schema zero-outbound
+Errors while running CTest

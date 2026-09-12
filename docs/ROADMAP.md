@@ -412,3 +412,13 @@ full QA passed **63/63 in 933.50 seconds**, and its installed CLI/MCP
 confirmation passed. See [the finding](recovery-defects.md#rag-smk-001--p2-active-calls-displayed-as-reconciliation-holds)
 and [current run state](operator-continuation-handoff.md). This is an OPS-003
 operator clarity defect; do not mistake it for five new failed calls.
+
+### Live continuation finding — RAG-SMK-002
+
+One live worker exited9 after a UTF-8 decoding panic. Its held turn and usage
+were preserved while seven peers continued. Test-first reproduction found
+per-read text decoding in the Codex adapter unsafe for split multibyte
+characters; malformed bytes also escaped the provider boundary. Both VMs and
+optimization modes now pass byte-framed decoding/error containment tests.
+Packaging and full QA passed **63/63 in 938.12 seconds**; the ordinary
+drained-worker upgrade/recovery remains required for live closure. This P1 is recorded in [the defect register](recovery-defects.md#rag-smk-002--p1-codex-byte-stream-decoding-can-terminate-a-worker).
