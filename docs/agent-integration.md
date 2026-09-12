@@ -141,19 +141,24 @@ The installation provides five skill sources:
 | --- | --- | --- |
 | `crexxrag-qa` | Cited evidence questions, traces, paths, and timelines | `read` |
 | `crexxrag-ingest` | Zero-write ingestion plan, followed by separately authorized apply | `read,plan`; `ingest` for apply |
-| `crexxrag-maintain` | Ranked maintenance census, exact apply, inspection and explicit review/curation | `read,plan`; `curate` for writes |
+| `crexxrag-maintain` | Ranked maintenance census, exact apply, inspection and explicit review/curation | `read,plan`; `curate` for corpus writes; `control` for retry/waiver |
 | `crexxrag-diagnose` | Library verification, redacted diagnostics, bounded provider smoke tests | `read,diagnose` |
 | `crexxrag-resolve` | Investigate difficult tasks; plan and review grounded lifecycle resolutions | `read,plan`; `curate` for submission, escalation and acceptance |
 
 `$crexxrag-maintain` defaults to inspection and zero-write planning. Apply
 requires a separately enabled `curate` capability, the exact reviewed plan and
-explicit operator authority. See [Methodology and
+explicit operator authority. Operational retry/waiver uses separately granted
+`control` access and existing user authority. See [Methodology and
 algorithms](algorithm.md#catalogue-and-graph-maintenance-methodology).
 
 Codex discovers repository skills under `.agents/skills` between the current
 directory and repository root. It discovers personal skills under
 `$HOME/.agents/skills`. The installed `share/crexxrag/skills` directory is a
-distribution source, not an automatic discovery location.
+distribution source, not an automatic discovery location. Install the executable,
+skills and operator documentation from the same tested build. Updating this
+repository does not update an existing installation or a copied workspace skill.
+Refresh those copies or links and restart the MCP session after an upgrade;
+check its advertised tools before relying on newly documented commands.
 
 For one project, link only the required skills into the project:
 
@@ -327,14 +332,15 @@ task, and rejecting or dismissing a proposal leaves its task unresolved.
 `rag_task_escalate_plan` and `rag_task_escalate_apply` use the same exact-plan
 contract for an operator/agent flag. Active worker ownership blocks handoff.
 The corresponding CLI verbs are `maintain tasks`, `maintain evidence`,
+`maintain resolve-plan`, `maintain resolve-apply`, `maintain escalate-plan`
+and `maintain escalate-apply`.
+
+Discover the migration with `rag_workflow_list` using its concept label or ID.
 After connection correction, use `rag_workflow_reconcile_preview` and then
 `rag_workflow_reconcile` with its `expect_generation`. Inspect the returned
 retirement task and use the existing resolution/review path; a census is not
 itself retirement. Waiting reasons retain ownership, review and unknown-outcome
 holds. See [external workflow recovery](external-workflow-recovery.md).
-
-`maintain resolve-plan`, `maintain resolve-apply`, `maintain escalate-plan`
-and `maintain escalate-apply`.
 
 Exploratory query results do not extend a task's immutable evidence catalogue.
 `rag_task_evidence_inventory` pages current or stored passages, catalogue and
@@ -365,8 +371,11 @@ CLI equivalents are `maintain evidence-index --id TASK --kind passages
 with exact `--plan-json` and `--expect-digest`. Claim/conflict resolution still
 requires all affected supports; response limits are 131072 bytes/1000 entries.
 Generic refresh excludes provenance-enrichment's separate complete-support
-assessment contract. Missing evidence still requires sources. Review preview
-checks pending existence, rather than simulating all lifecycle effects.
+assessment contract. Missing evidence still requires sources. For connection
+acceptance, `rag_review_decide_preview` validates the current task, generation,
+configuration, profile and source grounding, and reports the actual effects.
+Inspect the complete `impact_json`; a preview cannot establish the truth of an
+unsupported source claim or grant authority to accept it.
 
 New claim additions accept inline NDJSON through
 `rag_proposal_plan.proposals_ndjson` (at most 65535 bytes), or a server file

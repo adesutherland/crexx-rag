@@ -11,6 +11,27 @@ UX-04 targeted workflow closure each passed a full 59/59 gate. The third
 [public recovery slice](public-recovery-journey.md) extends lifecycle and query
 owners with waiver/reopen and consistent observations. Its final full gate passed **59/59 in 1238.52 seconds**; the frozen installed replay also passed.
 
+## Instruction audit — 12 September 2026
+
+The post-recovery audit found stale review-preview and pagination guidance,
+incomplete resolution/diagnostic recovery instructions, and five resolution
+skill tools missing from its manifest. The existing documentation check passed;
+a new cross-check of every skill's prose, manifest and the canonical command
+catalogue reproduced the omission before the instruction fixes. It now also
+checks required access and write capabilities. This is a consistency check,
+not proof that an independent agent completes every workflow.
+
+Human and agent instructions now agree on current effects, workflow discovery,
+reconciliation, operational waiver/retry, progress/usage and capability boundaries.
+All five distributable skills were audited. `documentation_contract` and
+`installed_product` passed **2/2 in 110.83 seconds**. The scratch installation's
+11 skill files and human/agent/recovery guides matched their sources exactly;
+the native binary retained the public recovery gate's SHA-256. Product code and
+MCP schemas were unchanged, so the earlier 59/59 product gate remains the code
+baseline. `git diff --check` and relative document-target checks passed.
+Existing installed or copied workspace skills require a separate update; a
+source commit does not activate them in an already-running MCP client.
+
 ## Scope and operator interface
 
 `crexxrag.conf` remains the single operator policy entry point. Referenced

@@ -31,7 +31,10 @@ proposal, or review decision. Operational retry/waiver additionally requires
    process launch and control remain operator-owned public commands, not skill
    authority.
 5. Review structural catalogue/graph proposals with `rag_review_list` and
-   `rag_review_decide_preview`. Persist `rag_review_decide` only for the exact
+   `rag_review_decide_preview`. For connection acceptance, inspect its complete
+   `impact_json`, including the remaining support after retraction. A stale
+   acceptance requires rejection and a fresh plan; preview grants no authority.
+   Persist `rag_review_decide` only for the exact
    review id and decision explicitly approved by the operator.
 6. External analysis enters through `rag_proposal_plan` and, only after
    separate authority, `rag_proposal_apply`. It cannot bypass mandatory review

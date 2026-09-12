@@ -83,6 +83,7 @@ metadata directly.
 | `native_surfaces` | human defaults, deterministic MCP reporting/snapshot/trend, configuration lifecycle, replay and external-schedule definition tools, MCP structured-content/strict-argument behavior, and exact integer boundaries including oversized-input rejection without a VM panic |
 | `address_surface` | File-bound prompt freshness, invalid-policy holds/repair, changed config identity, removed profiles and the function interface on both VMs; linked `ADDRESS RAG` report/trend/session/config/access behavior and snapshot denial on both VMs |
 | `gemini_provider_smoke` | generation and embedding smoke, human/JSON/MCP, cancellation, aggregate budget, malformed output, secret redaction |
+| `documentation_contract` | all five skill instruction tool names are declared in their manifests; declared tools and required capabilities match the shipping command catalogue |
 | `installed_product` | scratch-prefix installation, installed skills/tutorial, doctor/init/provider smoke/ingest/maintain/query using only installed product artifacts; maximum public pages, exact large-plan reads and Unicode retrieval |
 | `temporal_provenance` | period precision/calendars, scoped metadata, stale conflicts and zero-call no-op, whole-packet assessment, selective claim qualification, receipt recovery, temporal paths and bounded answer context on both VMs with and without optimization |
 | `quotation_grounding` | exact-first/Unicode casefold/whitespace grounding, original byte mapping, repeated spans and scoped endpoints on both VMs and optimization modes |

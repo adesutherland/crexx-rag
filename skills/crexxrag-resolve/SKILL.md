@@ -55,8 +55,13 @@ only as honest self-reported attribution; unknown model can be omitted.
 Review the canonical plan's grounding, affected objects, task/generation
 binding and intended action. `rag_task_resolve_apply` with exact `plan_json`
 and `expect_digest` queues a review. Retrieve the frozen plan using
-`rag_maintain_inspect` on its `agent-action:` ID. Accept that review through
-`rag_review_decide` only within the user's authorization. Rejection or
+`rag_maintain_inspect` on its `agent-action:` ID. Before accepting, call
+`rag_review_decide_preview` with `decision: "accept"`. Inspect the actual
+connection effects in the complete `impact_json`, including whether retracting
+a support leaves its claim supported; human records can be truncated. Old
+pending plans remain immutable while their current effects are revalidated.
+Reject and re-plan a stale review. Accept through `rag_review_decide` only
+within the user's authorization. Rejection or
 dismissal leaves the task unresolved. Acceptance revalidates source evidence,
 profile, configuration and generation, and runs normal lifecycle checks.
 
@@ -65,7 +70,20 @@ on the parent, inspect all child tasks and their evidence, and assign each
 supported connection to the justified successor. Never duplicate a fact across
 both meanings by default. Retire the parent only when all connections are
 accounted for. Resolving an analysis note, retracting a claim and retiring a
-concept are different actions.
+concept are different actions. Discover the workflow with `rag_workflow_list`
+using the concept label or ID, then page `rag_task_list` with its `workflow` ID.
+After connection corrections, call `rag_workflow_reconcile_preview` and, within
+existing curate authority, `rag_workflow_reconcile` using the returned
+`expect_generation`. Inspect and resolve the returned retirement task through
+the same mandatory review. Ownership, pending review and unknown-provider
+holds remain binding. `complete-retired-workflow` only checkpoints proven prior
+retirement; it publishes no new generation. `waiting-retired-impact` requires
+investigation. Do not use SQL or an unrelated worker batch to force closure.
+
+If task inspection shows an active waiver, leave it in place and hand off to
+the maintenance recovery workflow. This skill has no control authority to
+reopen it; a waiver never establishes source coverage.
+
 If a relationship exists only in source text, splitting does not create an
 accepted edge or an existing edge to move. It needs a separate external claim
 proposal. Use `rag_proposal_plan({"proposals_ndjson":"..."})` for inline new

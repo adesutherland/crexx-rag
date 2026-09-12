@@ -30,9 +30,8 @@ the `crexx-rag.command-result/1` / `crexx-rag.evidence/2` schemas.
    hybrid retrieval and records gaps; `rag_query_inspect` makes neither writes
    nor provider calls. A tool approval failure is not evidence of absence.
 
-Query limits are 1–12 and graph hops 0–4. Source-list schemas advertise 1–100;
-use pages of at most 50 to leave room for cursor metadata within the current
-100-record renderer, and continue until `next_cursor` is empty. Keep
+Query limits are 1–12 and graph hops 0–4. Source-list pages accept 1–100
+data rows plus a separate cursor record. Continue until `next_cursor` is empty. Keep
 searches focused and decode nested JSON before answering; empty graph conflict
 fields do not override disagreement in the original passages.
 
