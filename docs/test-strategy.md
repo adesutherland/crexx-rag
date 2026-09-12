@@ -272,3 +272,14 @@ duplicate arguments, with an identical scratch database dump before/after.
 `regression_command_catalogue` checks both VMs, capability inheritance, operation
 recognition and literal forwarding of option-like caller text. Existing native,
 ADDRESS, installed-product and provider journeys validate service behavior.
+
+### Loopback fixture lifetime
+
+The shared `tests/provider_fixture.cpp` server permits a bounded sixty-second
+idle interval between requests so local library preparation and scenario
+compilation do not masquerade as provider failures under build load. Its
+embedding-exhaustion case retains its explicit 120-second interval; zero-outbound
+checks retain their one-second window. This harness lifetime is independent of
+product request timeouts and retry/backoff policy. `native_surfaces` deliberately
+delays preparation for eleven seconds to protect this boundary. Exact request
+counts, malformed-output, timeout and coverage assertions remain required.

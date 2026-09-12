@@ -50,6 +50,8 @@ if(NOT ready)
     message(FATAL_ERROR "Native-surface Gemini loopback did not become ready")
 endif()
 
+# Exercise slow preparation after readiness; product call timeouts are separate.
+execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 11)
 execute_process(COMMAND ${cli} init
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err

@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragmaintain expose ragmaintenancecensus ragmaintenanceapplyresult buildmaintenancecensus persistmaintenance refreshmaintenance applylifecycleaction ensuremaintenancejob recordmaintenanceembeddingitems lifecycleimpact applylifecycletransaction applyconnectiontransaction applysupporttransaction connectioneffects
+namespace ragmaintain expose ragmaintenancecensus ragmaintenanceapplyresult buildmaintenancecensus persistmaintenance refreshmaintenance applylifecycleaction ensuremaintenancejob recordmaintenanceembeddingitems lifecycleimpact applylifecycletransaction applyconnectiontransaction applysupporttransaction connectioneffects workflowholds retirementready
 
 import rxfnsb
 import rxjson
@@ -9,6 +9,7 @@ import rxsqlite
 import ragstore
 import ragimprove
 import ragprofile
+import raglifecycle
 
 ragmaintenancecensus: class
   _generation = .int
@@ -440,6 +441,51 @@ applylifecycletransaction: procedure = .int
   published = 0; disposition = ""
   return _applylifecycle(store, profile, maintenance_item_id, action_json, expected_generation, published, disposition, error, generation)
 
+_retirementreviewcount: procedure = .int
+  arg database = .binary, concept_id = .string, exclude_item = .string
+  return _scalarint(database,"SELECT count(*) FROM maintenance_items WHERE subject_id=" || _q(concept_id) || " AND state IN('pending','review-required','approved') AND item_id<>" || _q(exclude_item))
+
+/* Retirement safety belongs with graph publication. Census and previews use
+ * this same projection; publication rechecks it while holding the writer. */
+workflowholds: procedure = .int
+  arg database = .binary, workflow_id = .string, exclude_task = .string, exclude_item = .string, expose owned = .int, expose reviews = .int, expose uncertain = .int, expose error = .string
+  workflow=.jsondocument(_boundtext(database,"SELECT json_object('task',origin_task_id,'parent',parent_concept_id) FROM maintenance_workflows WHERE workflow_id=?1",workflow_id))
+  if workflow.valid()<>1 then do; error="workflow was not found"; return -1; end
+  task_scope="SELECT task_id FROM maintenance_tasks WHERE workflow_id=" || _q(workflow_id) || " OR task_id=" || _q(_jsonstring(workflow,"task"))
+  owned=_scalarint(database,"SELECT count(*) FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id IN(" || task_scope || ") AND m.task_id<>" || _q(exclude_task) || " AND i.state IN('queued','running','cancel_requested')")
+  reviews=_scalarint(database,"SELECT count(*) FROM reviews WHERE subject_id IN(" || task_scope || ") AND subject_id<>" || _q(exclude_task) || " AND state='pending'")
+  legacy=_retirementreviewcount(database,_jsonstring(workflow,"parent"),exclude_item)
+  /* Historical uncertainty is never excluded, including on the current task. */
+  uncertain=_scalarint(database,"SELECT count(*) FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id IN(" || task_scope || ") AND " || uncertainitem("i.item_id"))
+  if min(owned,reviews,legacy,uncertain)<0 then do; error="cannot inspect workflow retirement holds"; return -1; end
+  reviews=reviews+legacy
+  return 0
+
+retirementready: procedure = .int
+  arg database = .binary, concept_id = .string, maintenance_item_id = .string, expose error = .string
+  error=""
+  pending=_retirementreviewcount(database,concept_id,maintenance_item_id)
+  if pending<>0 then do; error="retirement gate requires other maintenance reviews to be decided"; return -1; end
+  exclude_task=""
+  if left(maintenance_item_id,19)="maintenance-action:" then exclude_task=_boundtext(database,"SELECT task_id FROM maintenance_tasks WHERE task_id=?1",substr(maintenance_item_id,20))
+  prepared=.binary; workflows=.string[]
+  if sqliteprepare(database,"SELECT workflow_id FROM maintenance_workflows WHERE parent_concept_id=" || _q(concept_id) || " AND state<>'complete' ORDER BY workflow_id",prepared)<>0 then do; error="cannot inspect retirement workflows"; return -1; end
+  do forever
+    step=sqlitestep(prepared); if step=101 then leave
+    id=""
+    if step<>100 | sqlitecolumntext(prepared,0,id)<>0 then do; call sqlitefinalize prepared; error="cannot read retirement workflow"; return -1; end
+    workflows[workflows.0+1]=id
+  end
+  call sqlitefinalize prepared
+  do i=1 to workflows.0
+    owned=0; reviews=0; uncertain=0
+    if workflowholds(database,workflows[i],exclude_task,maintenance_item_id,owned,reviews,uncertain,error)<>0 then return -1
+    if owned>0 then do; error="workflow has queued or running work; settle ownership before retirement"; return -1; end
+    if reviews>0 then do; error="workflow has another pending review; decide it before retirement"; return -1; end
+    if uncertain>0 then do; error="workflow has an uncertain provider outcome; reconcile it before retirement"; return -1; end
+  end
+  return 0
+
 lifecycleimpact: procedure = .int
   arg database = .binary, concept_id = .string, generation = .int, expose types = .string[], expose ids = .string[], expose error = .string
   types = .string[]; ids = .string[]
@@ -715,9 +761,10 @@ _applylifecycle: procedure = .int
 
   if operation = "retire" then do
     remaining = _activeimpactcount(database, concept_id, current, generation)
-    pending_reviews = _scalarint(database, "SELECT count(*) FROM maintenance_items WHERE subject_id=" || _q(concept_id) || " AND state IN('pending','review-required','approved') AND item_id<>" || _q(maintenance_item_id))
-    if remaining \= 0 | pending_reviews \= 0 then return _lifecycleabort(store, "retirement gate requires every active alias, mention, incident claim, linked note, ambiguity and claim conflict to be migrated, resolved, retracted or reviewed", error)
+    if retirementready(database,concept_id,maintenance_item_id,error)<>0 then return _lifecycleabort(store,error,error)
+    if remaining \= 0 then return _lifecycleabort(store, "retirement gate requires every active alias, mention, incident claim, linked note, ambiguity and claim conflict to be migrated, resolved, retracted or reviewed", error)
     if sqliteexec(database, "UPDATE concepts SET lifecycle_state='retired' WHERE concept_id=" || _q(concept_id)) \= 0 | _version(database, concept_id, label, old_type, "retired", generation, reason, error) \= 0 then return _lifecycleabort(store, "cannot retire concept", error)
+    if sqliteexec(database,"UPDATE maintenance_workflows SET state='complete',completed_generation=" || generation || ",updated_epoch=unixepoch() WHERE parent_concept_id=" || _q(concept_id) || " AND state<>'complete'")<>0 then return _lifecycleabort(store,"cannot finish migration workflows",error)
   end
   sql = "UPDATE maintenance_items SET state='applied',applied_generation=" || generation || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=" || _q(maintenance_item_id) || " AND state IN('review-required','approved')"
   if sqliteexec(database, sql) \= 0 | _scalarint(database, "SELECT changes()") \= 1 then return _lifecycleabort(store, "cannot complete maintenance item", error)

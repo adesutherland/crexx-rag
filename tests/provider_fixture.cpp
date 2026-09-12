@@ -136,7 +136,14 @@ int main(int argc, char** argv)
     std::string embedding_retry_target;
     for (int index = 0; index < requests; ++index) {
         pollfd ready {server, POLLIN, 0};
-        if (::poll(&ready, 1, scenario == "embedding-exhaustion" ? 120000 : 10000) <= 0) {
+        // Library setup and separately compiled VM fixtures can precede a
+        // request. This is the harness idle lifetime, not a provider-call
+        // timeout; the product's timeout/backoff assertions remain unchanged.
+        const int idle_ms = scenario == "embedding-exhaustion" ? 120000 : 60000;
+        if (::poll(&ready, 1, idle_ms) <= 0) {
+            std::cerr << "IDLE_TIMEOUT scenario=" << scenario
+                      << " request=" << index + 1 << '/' << requests
+                      << " idle_ms=" << idle_ms << std::endl;
             ::close(server);
             return 3;
         }

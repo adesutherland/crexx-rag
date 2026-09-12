@@ -354,6 +354,17 @@ tracked in the [roadmap](ROADMAP.md). Separate executables are not required for
 these ownership improvements. The future native model bridge remains a CREXX
 provider responsibility behind the existing product boundary.
 
+## Follow-up — UX-04 external workflow reconciliation
+
+`ragbacklog` now supplies a shared per-workflow census for ordinary maintenance
+and the public targeted reconciliation command. `raglifecycle` retains unknown
+outcome classification; `ragmaintain` owns shared workflow holds, readiness and
+atomic graph/workflow retirement for every publisher. CLI/MCP
+contracts live only in `ragcommandcatalog`, with service presentation in
+`ragproduct`. The clean full gate passed **59/59 in 805.49 seconds**, including
+the retained preparation-delay regression for the repaired shared test fixture.
+See [test-first evidence and qualification](external-workflow-recovery.md).
+
 ## Follow-up — UX-03 connection effect previews
 
 The approved sequence starts with trustworthy previews, then external lifecycle

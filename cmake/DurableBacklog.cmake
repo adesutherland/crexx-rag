@@ -13,7 +13,7 @@ list(JOIN project_member_dirs ";" project_imports)
 set(imports "${CPRAG_WORK_DIR};${project_imports};${CPRAG_APPLICATION_DIR};${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
 set(modules ragenrich ragproposalio ragperiod ragprovenance ragassessment ragmodel ragevidence
     ragjob ragconfig ragprofile ragregistry ragschema ragfile ragconfigfile ragglossary
-    ragstore ragbackup ragrepository ragcanonical ragplanning ragtrace ragcommandcatalog ragcommand ragworkerdefaults ragpolicypublication ragpolicyfile ragingest
+    ragstore ragbackup ragrepository ragcanonical ragplanning ragtrace ragcommandcatalog ragcommand ragmcp ragworkerdefaults ragpolicypublication ragpolicyfile ragingest
     ragfolder ragquotationcontract ragextractioncontract ragresolutioncontract raganswercontract ragreportcontract ragpromptdefaults ragpromptinspection ragcommandutil ragsqlsupport ragdirectcalls ragreportservice ragobservationservice ragqueryservice ragoperationsquery ragclaimrules ragclaims ragimprove ragmaintain ragbacklog ragadmission raglifecycle ragworktypes ragenvironment ragusage ragreceipts ragwork ragquery ragembedding
     ragretrieval ragevidencejson ragfoundation ragprocess ragproviderdiagnostics raggrounding ragapplicationprovider ragqueryprovider
     ragquerypolicy ragproduct provider_contract provider_catalog provider_http industrial_provider codex_provider architecture_local_config

@@ -1106,7 +1106,13 @@ that saved plan. See [the tested boundaries](connection-effect-previews.md).
 Submission creates a mandatory review; acceptance revalidates the source evidence and current
 generation before applying the existing lifecycle rules. Split/merge starts
 connection migration work, so an accepted proposal does not imply that every
-successor connection has been resolved. `maintain escalate-plan` and
+successor connection has been resolved. After resolving connections, run
+`maintain reconcile WORKFLOW_ID`, then `maintain reconcile WORKFLOW_ID --apply
+--expect-generation GENERATION` using the preview's generation. This performs
+a targeted census and returns a retirement task when its holds clear. Resolve
+and review that task to retire the parent; no unrelated worker batch is needed.
+See [the complete external workflow](external-workflow-recovery.md).
+`maintain escalate-plan` and
 `maintain escalate-apply` persist an external agent's explicit reasoning flag.
 See [the full agent workflow and evidence limits](agent-integration.md#difficult-maintenance-tasks).
 

@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragbacklog expose requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh
+namespace ragbacklog expose reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh
 
 import rxfnsb
 import rxjson
@@ -871,25 +871,67 @@ _expandworkflows: procedure = .int
     ids[ids.0+1] = id
   end
   call sqlitefinalize prepared
-  current = _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
-  do i = 1 to ids.0
-    workflow = .jsondocument(_text(database,"SELECT json_object('parent',parent_concept_id,'task',origin_task_id) FROM maintenance_workflows WHERE workflow_id=" || _q(ids[i])))
-    types = .string[]; objects = .string[]
-    if _backlogimpact(database,_s(workflow,"parent"),current,types,objects,error) \= 0 then return -1
-    if objects.0 > _n(policy,"maximum_impact") then do
-      if sqliteexec(database,"UPDATE maintenance_workflows SET state='waiting',updated_epoch=unixepoch() WHERE workflow_id=" || _q(ids[i])) \= 0 then do; error = "cannot retain oversized migration"; return -1; end
-      iterate
-    end
-    do j = 1 to objects.0
-      task = ""
-      if enqueuebacklogtask(database,"connection",types[j],objects[j],ids[i],_s(workflow,"task"),900000,policy,task,error) \= 0 then return -1
-    end
-    if objects.0 = 0 then do
-      task = ""
-      if enqueuebacklogtask(database,"retirement","concept",_s(workflow,"parent"),ids[i],_s(workflow,"task"),850000,policy,task,error) \= 0 then return -1
-    end
+  do i=1 to ids.0
+    detail=""
+    if _censusworkflow(database,ids[i],policy,1,detail,error)<>0 then return -1
   end
   return 0
+
+/* Targeted operational reconciliation uses the workflow's retained policy.
+ * It never opens a worker window, renews a budget or publishes corpus changes. */
+reconcileworkflow: procedure = .int
+  arg store = .ragstorehandle, workflow_id = .string, apply = .int, expected_generation = .int, expose detail = .string, expose error = .string
+  database = store.database(); error = ""; detail = ""
+  if workflow_id = "" | length(workflow_id)>512 | (apply<>0 & apply<>1) | (apply=1 & store.writable()<>1) then do; error="workflow reconciliation requires one workflow and appropriate store access"; return -1; end
+  begin = "BEGIN"; if apply=1 then begin="BEGIN IMMEDIATE"
+  if sqliteexec(database,begin)<>0 then do; error="cannot begin workflow census"; return -3; end
+  current = _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  if apply=1 & current<>expected_generation then return _rollback(database,"workflow census generation changed; preview again",error)
+  raw = _text(database,"SELECT w.policy_json FROM maintenance_workflows f JOIN maintenance_tasks t ON t.task_id=f.origin_task_id JOIN maintenance_windows w ON w.policy_fingerprint=t.policy_fingerprint WHERE f.workflow_id=" || _q(workflow_id) || " ORDER BY w.created_epoch DESC,w.window_id DESC LIMIT 1")
+  if raw="" then return _rollback(database,"workflow or its retained maintenance policy was not found",error)
+  policy=.jsondocument(raw)
+  if _censusworkflow(database,workflow_id,policy,apply,detail,error)<>0 then return _rollback(database,error,error)
+  if apply=1 then do
+    if sqliteexec(database,"COMMIT")<>0 then return _rollback(database,"cannot commit targeted workflow census",error)
+  end
+  else if sqliteexec(database,"ROLLBACK")<>0 then do; error="cannot end workflow census preview"; return -3; end
+  return 0
+
+_censusworkflow: procedure = .int
+  arg database = .binary, workflow_id = .string, policy = .jsondocument, apply = .int, expose detail = .string, expose error = .string
+  workflow = .jsondocument(_text(database,"SELECT json_object('parent',parent_concept_id,'task',origin_task_id,'state',state) FROM maintenance_workflows WHERE workflow_id=" || _q(workflow_id)))
+  if workflow.valid()<>1 then do; error="workflow was not found"; return -1; end
+  current = _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1"); parent = _s(workflow,"parent"); state = _s(workflow,"state")
+  types=.string[]; objects=.string[]; action="already-complete"; retirement=""; owned=0; reviews=0; uncertain=0
+  if state<>"complete" then do
+    if _backlogimpact(database,parent,current,types,objects,error)<>0 then return -1
+    if workflowholds(database,workflow_id,"","",owned,reviews,uncertain,error)<>0 then return -1
+    action="reconcile-connections"
+    if objects.0>_n(policy,"maximum_impact") then action="waiting-impact-bound"
+    else if objects.0=0 then do
+      action="queue-retirement"
+      if owned>0 then action="waiting-worker"
+      else if reviews>0 then action="waiting-review"
+      else if uncertain>0 then action="waiting-provider-outcome"
+    end
+    if apply=1 then do
+      if action="reconcile-connections" then do j=1 to objects.0
+        task=""
+        if enqueuebacklogtask(database,"connection",types[j],objects[j],workflow_id,_s(workflow,"task"),900000,policy,task,error)<>0 then return -1
+      end
+      if action="queue-retirement" then if enqueuebacklogtask(database,"retirement","concept",parent,workflow_id,_s(workflow,"task"),850000,policy,retirement,error)<>0 then return -1
+      next_state="migrating"; if left(action,8)="waiting-" then next_state="waiting"
+      if next_state<>state then do
+        if sqliteexec(database,"UPDATE maintenance_workflows SET state=" || _q(next_state) || ",updated_epoch=unixepoch() WHERE workflow_id=" || _q(workflow_id))<>0 then do; error="cannot checkpoint workflow census"; return -1; end
+        state=next_state
+      end
+    end
+  end
+  if retirement="" then retirement=_text(database,"SELECT task_id FROM maintenance_tasks WHERE workflow_id=" || _q(workflow_id) || " AND kind='retirement' AND state<>'superseded' ORDER BY created_epoch DESC,task_id LIMIT 1")
+  applied="false"; if apply=1 then applied="true"
+  detail='{"workflow_id":' || jsonquote(workflow_id) || ',"parent_concept_id":' || jsonquote(parent) || ',"workflow_state":' || jsonquote(state) || ',"generation":' || current || ',"action":' || jsonquote(action) || ',"remaining_impact":' || objects.0 || ',"owned_items":' || owned || ',"pending_reviews":' || reviews || ',"uncertain_outcomes":' || uncertain || ',"retirement_task_id":' || jsonquote(retirement) || ',"applied":' || applied || ',"provider_calls":0}'
+  return 0
+
 
 backlogschema: procedure = .string
   arg subject_type="",workflow=0
@@ -1212,9 +1254,6 @@ _applydecision: procedure = .int
       if enqueuebacklogtask(database,"connection",impact_types[i],impact_ids[i],new_workflow,task_id,900000,policy,child_task,error) \= 0 then return -1
     end
   end
-  if action = "retire" & workflow_id \= "" then do
-    if sqliteexec(database,"UPDATE maintenance_workflows SET state='complete',completed_generation=" || generation || ",updated_epoch=unixepoch() WHERE workflow_id=" || _q(workflow_id)) \= 0 then do; error = "cannot finish migration workflow"; return -1; end
-  end
   if kind = "note" then do
     if sqliteexec(database,"UPDATE analysis_notes SET state='resolved',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE note_id=" || _q(object)) \= 0 then do; error = "cannot complete lifecycle lead"; return -1; end
   end
@@ -1404,6 +1443,7 @@ _agenteffects: procedure = .int
     if _number(database,"SELECT count(*) FROM maintenance_tasks t,json_each(t.evidence_json,'$.catalogue') c WHERE t.task_id=" || _q(task_id) || " AND json_extract(c.value,'$.concept_id')=" || _q(parent)) \= 1 then do; error = "lifecycle object is outside the task catalogue"; return -1; end
   end
   if parent \= "" then do
+    if action="retire" then if retirementready(database,parent,"maintenance-action:" || task_id,error)<>0 then return -1
     impact_types = .string[]; impact_ids = .string[]
     if _backlogimpact(database,parent,current,impact_types,impact_ids,error) \= 0 then return -1
     if impact_ids.0 > config.maintenance().maximum_impact() then do; error = "resolution exceeds configured impact bound"; return -1; end

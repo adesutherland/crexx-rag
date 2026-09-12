@@ -48,8 +48,10 @@ split and separate executables remain later choices.
 
 The approved follow-up order is UX-03 connection previews, then UX-04 with
 OPS-002 external lifecycle closure, followed by the combined public recovery
-journey under OPS-001/003. UX-03 ownership and test evidence are recorded in
-[connection effect previews](connection-effect-previews.md); each follow-up
+journey under OPS-001/003. UX-03 and UX-04 have now each passed the full 59/59
+local gate; see [connection effect previews](connection-effect-previews.md) and
+[external workflow recovery](external-workflow-recovery.md). The combined
+operator journey is the next slice. Each follow-up
 confirms coverage before code and requires the full green gate before commit.
 
 Sections 1–6 below retain their original coverage checkpoints and completion

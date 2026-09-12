@@ -81,6 +81,7 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "job.pause" | operation = "job.resume" | operation = "job.cancel" then return _jobcontrol(request)
   if operation = "job.retry" then return _jobretry(request)
   if operation = "maintain.retry" then return _taskretry(request)
+  if operation = "maintain.reconcile" then return _workflowreconcile(request)
   if operation = "job.replay" then return _jobreplay(request, registry)
   if operation = "job.reconcile" then return _jobreconcile(request, registry)
   if operation = "job.run" then return _workerstart(request, registry)
@@ -710,6 +711,42 @@ _jobretry: procedure = .ragcommandresult
   fields[fields.0+1] = .ragresultfield("items_retried", "integer", retried)
   records = .ragresultrecord[]; records[1] = .ragresultrecord("job-retry", fields)
   return .ragcommandresult(operation, "ok", 0, "durable retry request accepted; inspect disposition for execution eligibility", records)
+
+_workflowreconcile: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation=request.operation(); error=""
+  if commandhasaccess(request,"plan")<>1 then return commandfailure(operation,4,"workflow census requires plan access")
+  if commandworkeroptions(request,"id apply expect-generation","apply",error)<>0 then return commandfailure(operation,2,error)
+  id=commandid(request,error); apply_text=commandoption(request,"apply",error); expected_text=commandoption(request,"expect-generation",error)
+  if error<>"" | id="" | (apply_text<>"" & apply_text<>"true" & apply_text<>"false") then return commandfailure(operation,2,"maintain reconcile requires one workflow id and an optional --apply flag")
+  apply=apply_text="true"; expected=0
+  if apply=1 & commandhasaccess(request,"curate")<>1 then return commandfailure(operation,4,"workflow census apply requires curate access")
+  if apply=1 then do
+    if commandunsigned(expected_text)<>1 | length(expected_text)>9 then return commandfailure(operation,2,"workflow census apply requires --expect-generation from its preview")
+    expected=expected_text as .int
+  end
+  else if expected_text<>"" then return commandfailure(operation,2,"--expect-generation belongs to workflow census apply")
+  access="readonly"; if apply=1 then access="readwrite"
+  store=.ragstorehandle
+  if openragstore(request.library(),access,store,error)<>0 then return commandopenfailure(operation,error)
+  detail=""; status=reconcileworkflow(store,id,apply,expected,detail,error)
+  close_error=""; closed=closeragstore(store,close_error)
+  if status<>0 then return commandfailure(operation,3,error)
+  if closed<>0 then return commandfailure(operation,7,close_error)
+  document=.jsondocument(detail); fields=.ragresultfield[]
+  names="workflow_id parent_concept_id workflow_state action retirement_task_id"
+  do i=1 to words(names)
+    name=word(names,i); value=""; ignored=document.node_string(document.member(document.root(),name),value)
+    fields[fields.0+1]=.ragresultfield(name,"string",value)
+  end
+  names="generation remaining_impact owned_items pending_reviews uncertain_outcomes provider_calls"
+  do i=1 to words(names)
+    name=word(names,i); value=0; ignored=document.node_int(document.member(document.root(),name),value)
+    fields[fields.0+1]=.ragresultfield(name,"integer",value)
+  end
+  fields[fields.0+1]=.ragresultfield("applied","boolean",commandboolean(apply))
+  records=.ragresultrecord[]; records[1]=.ragresultrecord("workflow-census",fields)
+  return .ragcommandresult(operation,"ok",0,"targeted workflow census; retirement remains a reviewed resolution",records)
 
 _taskretry: procedure = .ragcommandresult
   arg request = .ragcommandrequest

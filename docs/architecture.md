@@ -336,6 +336,19 @@ from task labels or duplicate lifecycle rules. See the
 [effect-preview qualification](connection-effect-previews.md).
 See [Agent integration](agent-integration.md#difficult-maintenance-tasks).
 
+`ragbacklog._censusworkflow` owns per-workflow census and task fan-out for both
+normal windows and public `maintain reconcile`. Its public entry uses the
+workflow's retained compatible policy under a read or writer transaction,
+checks the expected generation on apply and exposes worker/review/uncertainty
+holds before retirement can be queued. `ragmaintain.workflowholds` and
+`retirementready` own the shared hold projection and readiness rule. Preview,
+worker and legacy/external publication use that rule; actual publication
+rechecks it under the writer transaction and completes all active parent
+workflows atomically with retirement. Historical provider uncertainty is never
+excluded with the current task's own ownership/review. The command creates no
+maintenance window or provider work. See
+[the workflow recovery boundary](external-workflow-recovery.md).
+
 The external exploration surface distinguishes the current evidence inventory
 from a task's frozen packet. Both are paged with generation checks; large source
 citations are read in bounded Unicode-character pages while retaining their

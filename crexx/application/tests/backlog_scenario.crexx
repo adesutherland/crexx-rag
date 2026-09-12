@@ -17,6 +17,7 @@ import architecture_local_config
 import ragcommand
 import ragcommandutil
 import ragproduct
+import ragmcp
 import operator_registry
 
 check: procedure = .int
@@ -149,6 +150,125 @@ failureclassprovider: class implements .ragworkprovider
 
 /* UX-03: compare the proposed connection effects with independent ledger reads.
  * This fixture does not call a provider or run a worker window. */
+workflowclosurechecks: procedure = .int
+  arg store = .ragstorehandle, policy_json = .string
+  database = store.database(); errors = 0; error = ""; policy = .jsondocument(policy_json); config = architecturelocalconfig(); profile = genericprofile()
+  current = scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  calls = scalarint(database,"SELECT count(*) FROM provider_runs"); sources = scalarint(database,"SELECT count(*) FROM source_revisions")
+  jobs = scalarint(database,"SELECT count(*) FROM jobs"); items = scalarint(database,"SELECT count(*) FROM job_items")
+  errors = errors + check(sqliteexec(database,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('closure-parent','Platform closure','concept','migration-parent'," || current || ")") = 0,"external closure fixture")
+  origin = ""
+  errors = errors + check(enqueuebacklogtask(database,"closure-origin","concept","closure-parent","","",1,policy,origin,error) = 0,"external closure origin")
+  errors = errors + check(sqliteexec(database,"INSERT INTO maintenance_workflows(workflow_id,origin_task_id,kind,parent_concept_id,successors_json,state,created_generation,created_epoch,updated_epoch) VALUES('closure-workflow'," || _testquote(origin) || ",'split','closure-parent','[]','migrating'," || current || ",unixepoch(),unixepoch())") = 0,"external closure workflow")
+  errors = errors + check(sqliteexec(database,"INSERT INTO mentions(mention_id,concept_id,revision_chunk_id,span_start,span_end,visible_from_generation) VALUES('closure-mention','closure-parent','chunk-lifecycle',0,8," || current || "); UPDATE maintenance_tasks SET state='resolved' WHERE task_id=" || _testquote(origin)) = 0,"retained completed split and connection")
+  connection=""; connection_plan=""; connection_review=""
+  errors = errors + check(enqueuebacklogtask(database,"connection","mention","closure-mention","closure-workflow",origin,1,policy,connection,error) = 0,"external connection task")
+  errors = errors + check(planagentaction(store,config,profile,connection,"resolution",responsejson("retract","","[]",'[{"evidence_id":"closure-mention","quote":"Platform"}]'),"external correction","fixture","fixture",connection_plan,error) = 0,"grounded correction before closure " || error)
+  errors = errors + check(applyagentaction(store,config,profile,connection_plan,rxhash..sha256hex(connection_plan as .binary),"resolution",connection_review,error) = 0 & reviewagentaction(store,connection_review,"accept",config,profile,error) = 0,"reviewed correction before closure " || error)
+  current=current+1
+  types = .string[]; ids = .string[]
+  errors = errors + check(lifecycleimpact(database,"closure-parent",current,types,ids,error) = 0 & ids.0 = 0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE workflow_id='closure-workflow' AND kind='retirement'") = 0,"positive control empty impact with no retirement task")
+  unrelated = scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE workflow_id<>'closure-workflow'")
+  result = workflowcommand(store,"closure-workflow",0,current,"plan")
+  errors = errors + check(result.exit_code() = 0,"UX-04 public workflow census preview " || result.message())
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE workflow_id='closure-workflow' AND kind='retirement'") = 0,"workflow preview makes no writes")
+  if result.exit_code() <> 0 then return errors
+  output = ""; human = ""
+  errors = errors + check(rendercommandresult(result,"json",output,error) = 0 & rendercommandresult(result,"human",human,error) = 0 & pos("queue-retirement",human)>0,"workflow preview names retirement effect")
+  result = workflowcommand(store,"closure-workflow",1,current,"plan")
+  errors = errors + check(result.exit_code() = 4,"workflow census apply requires curate access")
+  result = workflowcommand(store,"closure-workflow",1,current-1,"curate")
+  errors = errors + check(result.exit_code() <> 0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE workflow_id='closure-workflow' AND kind='retirement'") = 0,"stale workflow census cannot enqueue")
+  errors = errors + check(sqliteexec(database,"INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) VALUES('closure-guard-review','fixture'," || _testquote(origin) || ",'pending','{}','fixture')") = 0,"pending review guard fixture")
+  result = workflowcommand(store,"closure-workflow",1,current,"curate")
+  output=""; errors = errors + check(result.exit_code() = 0 & rendercommandresult(result,"json",output,error) = 0 & pos("waiting-review",output)>0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE workflow_id='closure-workflow' AND kind='retirement'") = 0,"pending workflow review holds retirement")
+  errors = errors + check(sqliteexec(database,"UPDATE reviews SET state='dismissed',decision_json='{}' WHERE review_id='closure-guard-review'") = 0,"release pending review fixture")
+  legacy_run=scalartext(database,"SELECT run_id FROM maintenance_windows WHERE policy_fingerprint=(SELECT policy_fingerprint FROM maintenance_tasks WHERE task_id=" || _testquote(origin) || ") ORDER BY created_epoch DESC,window_id DESC LIMIT 1")
+  errors=errors+check(sqliteexec(database,"INSERT INTO maintenance_items(item_id,run_id,item_type,subject_type,subject_id,score,trigger_json,diagnosis_json,action_json,state,expected_generation,created_at,updated_at) VALUES('closure-legacy-review'," || _testquote(legacy_run) || ",'concept-review','concept','closure-parent',1,'{}','{}','{}','review-required'," || current || ",'fixture','fixture')")=0,"legacy lifecycle review fixture")
+  result=workflowcommand(store,"closure-workflow",0,current,"plan"); output=""
+  errors=errors+check(result.exit_code()=0 & rendercommandresult(result,"json",output,error)=0 & pos("waiting-review",output)>0,"workflow preview includes legacy lifecycle review gate")
+  errors=errors+check(sqliteexec(database,"UPDATE maintenance_items SET state='rejected' WHERE item_id='closure-legacy-review'")=0,"release legacy review fixture")
+  errors = errors + workflowholdchecks(store,origin,current)
+  items=items+1
+  result = workflowcommand(store,"closure-workflow",1,current,"curate")
+  errors = errors + check(result.exit_code() = 0,"apply targeted workflow census")
+  task_id = scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE workflow_id='closure-workflow' AND kind='retirement'")
+  errors = errors + check(task_id <> "" & scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(task_id)) = "pending","one public retirement task is available")
+  result = workflowcommand(store,"closure-workflow",1,current,"curate")
+  errors = errors + check(result.exit_code() = 0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE workflow_id='closure-workflow' AND kind='retirement'") = 1,"workflow reconciliation is idempotent")
+  rpc='{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rag_workflow_reconcile_preview","arguments":{"id":"closure-workflow"}}}'
+  rpc_result=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","plan")
+  errors=errors+check(scalarint(database,"SELECT json_extract(" || _testquote(rpc_result) || ",'$.result.structuredContent.exit_code')")=0 & pos(task_id,rpc_result)>0,"MCP preview discovers the same retirement task")
+  rpc='{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"rag_workflow_reconcile","arguments":{"id":"closure-workflow","expect_generation":' || current || '}}}'
+  rpc_result=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","plan")
+  errors=errors+check(scalarint(database,"SELECT json_extract(" || _testquote(rpc_result) || ",'$.error.code')")=-32602,"MCP plan access cannot apply reconciliation")
+  rpc_result=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","curate")
+  errors=errors+check(scalarint(database,"SELECT json_extract(" || _testquote(rpc_result) || ",'$.result.structuredContent.exit_code')")=0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE workflow_id='closure-workflow' AND kind='retirement'")=1,"MCP reconciliation shares CLI idempotence")
+
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE workflow_id<>'closure-workflow'") = unrelated & scalarint(database,"SELECT count(*) FROM jobs") = jobs & scalarint(database,"SELECT count(*) FROM job_items") = items,"targeted census creates no unrelated tasks or workers")
+  if task_id = "" then return errors+1
+  errors=errors+legacyclosurecheck(store,profile,current,legacy_run,1)
+  canonical = ""; review_id = ""
+  errors = errors + check(planagentaction(store,config,profile,task_id,"resolution",responsejson("retire","","[]","[]","closure-parent"),"external retirement","fixture","fixture",canonical,error) = 0,"publicly discovered retirement can be proposed " || error)
+  errors = errors + check(applyagentaction(store,config,profile,canonical,rxhash..sha256hex(canonical as .binary),"resolution",review_id,error) = 0,"submit reviewed retirement " || error)
+  held_job=scalartext(database,"SELECT job_id FROM job_items WHERE item_id='closure-held-item'")
+  errors=errors+check(sqliteexec(database,"INSERT INTO attempts(attempt_id,item_id,worker_id,fence,input_hash,validation_state,outcome,started_at,completed_at) VALUES('closure-late-attempt','closure-held-item','historic',2,'fixture','unknown','expired','fixture','fixture'); INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) VALUES(" || _testquote(held_job) || ",'closure-held-item','closure-late-attempt','provider-intent','{}','fixture')")=0,"late workflow hold after retirement proposal")
+  errors=errors+legacyclosurecheck(store,profile,current,legacy_run,0)
+  retirement_preview=""; retirement_impact=""
+  errors=errors+check(previewagentaction(store,review_id,config,profile,retirement_preview,retirement_impact,error)<>0,"retirement preview rechecks late workflow outcome hold")
+  held_status=reviewagentaction(store,review_id,"accept",config,profile,error)
+  errors=errors+check(held_status<>0 & scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")=current & scalartext(database,"SELECT lifecycle_state FROM concepts WHERE concept_id='closure-parent'")="migration-parent","retirement acceptance rechecks late workflow outcome hold")
+  errors=errors+check(sqliteexec(database,"INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) VALUES(" || _testquote(held_job) || ",'closure-held-item','closure-late-attempt','provider-response','{}','fixture')")=0,"settle late fixture without deleting history")
+  if held_status=0 then return errors
+  errors = errors + check(reviewagentaction(store,review_id,"accept",config,profile,error) = 0,"complete external retirement " || error)
+  errors = errors + check(scalartext(database,"SELECT lifecycle_state FROM concepts WHERE concept_id='closure-parent'") = "retired" & scalartext(database,"SELECT state FROM maintenance_workflows WHERE workflow_id='closure-workflow'") = "complete","retirement closes parent and workflow")
+  result = workflowcommand(store,"closure-workflow",1,current+1,"curate")
+  errors = errors + check(result.exit_code() = 0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE workflow_id='closure-workflow'") = 2,"completed workflow reconciliation is a no-op")
+  errors = errors + check(scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1") = current+1 & scalarint(database,"SELECT count(*) FROM provider_runs") = calls & scalarint(database,"SELECT count(*) FROM source_revisions") = sources & scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"external closure preserves source usage and history with one reviewed generation")
+  return errors
+
+legacyclosurecheck: procedure = .int
+  arg store = .ragstorehandle, profile = .ragprofile, current = .int, legacy_run = .string, expect_success = .int
+  database=store.database();errors=0;error=""
+  errors=errors+check(sqliteexec(database,"BEGIN IMMEDIATE")=0,"begin isolated legacy retirement check")
+  legacy_action='{"schema":"crexx-rag.lifecycle-action/1","operation":"retire","concept_id":"closure-parent","target_concept_id":"","alias":"","concept_type":"","reason":"isolated legacy retirement check","successors":[],"dispositions":[]}'
+  errors=errors+check(sqliteexec(database,"INSERT INTO maintenance_items(item_id,run_id,item_type,subject_type,subject_id,score,trigger_json,diagnosis_json,action_json,state,expected_generation,created_at,updated_at) VALUES('closure-direct-retire'," || _testquote(legacy_run) || ",'retire','concept','closure-parent',1,'{}','{}'," || _testquote(legacy_action) || ",'approved'," || current || ",'fixture','fixture')")=0,"legacy retirement item matches reviewed action")
+  isolated_generation=0
+  errors=errors+check(stagegeneration(store,current,scalartext(database,"SELECT current_config_snapshot_id FROM library_config_state WHERE singleton=1"),"legacy retirement gate fixture",isolated_generation,error)=0,"stage isolated legacy retirement generation")
+  status=applylifecycletransaction(store,profile,"closure-direct-retire",legacy_action,current,isolated_generation,error)
+  if expect_success=0 then errors=errors+check(status<>0,"legacy retirement publication enforces workflow holds")
+  else do
+    errors=errors+check(status=0,"legacy retirement positive control " || error)
+    errors=errors+check(scalartext(database,"SELECT state FROM maintenance_workflows WHERE workflow_id='closure-workflow'")="complete" & scalartext(database,"SELECT lifecycle_state FROM concepts WHERE concept_id='closure-parent'")="retired","legacy retirement closes the workflow in the same transaction")
+  end
+  ignored=sqliteexec(database,"ROLLBACK")
+  errors=errors+check(scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")=current & scalartext(database,"SELECT lifecycle_state FROM concepts WHERE concept_id='closure-parent'")="migration-parent","isolated legacy gate preserves generation and parent")
+  return errors
+
+workflowholdchecks: procedure = .int
+  arg store = .ragstorehandle, origin = .string, generation = .int
+  database=store.database(); errors=0; error=""
+  window=scalartext(database,"SELECT window_id FROM maintenance_windows WHERE policy_fingerprint=(SELECT policy_fingerprint FROM maintenance_tasks WHERE task_id=" || _testquote(origin) || ") ORDER BY created_epoch DESC,window_id DESC LIMIT 1")
+  job=scalartext(database,"SELECT job_id FROM maintenance_windows WHERE window_id=" || _testquote(window))
+  errors=errors+check(sqliteexec(database,"INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES('closure-held-item'," || _testquote(job) || ",'maintenance-resolution','queued',1,'closure-held-item','fixture','{}','fixture','fixture'); INSERT INTO maintenance_task_items(item_id,task_id,window_id,attempt_number) VALUES('closure-held-item'," || _testquote(origin) || "," || _testquote(window) || ",99)")=0,"workflow ownership fixture")
+  result=workflowcommand(store,"closure-workflow",1,generation,"curate"); output=""
+  errors=errors+check(result.exit_code()=0 & rendercommandresult(result,"json",output,error)=0 & pos("waiting-worker",output)>0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE workflow_id='closure-workflow' AND kind='retirement'")=0,"queued workflow ownership holds retirement")
+  errors=errors+check(sqliteexec(database,"UPDATE job_items SET state='dead_letter' WHERE item_id='closure-held-item'; INSERT INTO attempts(attempt_id,item_id,worker_id,fence,input_hash,validation_state,outcome,started_at,completed_at) VALUES('closure-held-attempt','closure-held-item','historic',1,'fixture','unknown','expired','fixture','fixture'); INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) VALUES(" || _testquote(job) || ",'closure-held-item','closure-held-attempt','provider-intent','{}','fixture')")=0,"uncertain workflow outcome fixture")
+  result=workflowcommand(store,"closure-workflow",1,generation,"curate"); output=""
+  errors=errors+check(result.exit_code()=0 & rendercommandresult(result,"json",output,error)=0 & pos("waiting-provider-outcome",output)>0 & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE workflow_id='closure-workflow' AND kind='retirement'")=0,"uncertain provider outcome cannot be hidden by workflow retirement")
+  errors=errors+check(sqliteexec(database,"INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) VALUES(" || _testquote(job) || ",'closure-held-item','closure-held-attempt','provider-response','{}','fixture'); UPDATE job_items SET state='skipped' WHERE item_id='closure-held-item'")=0,"settle fixture while retaining its attempt and events")
+  return errors
+
+workflowcommand: procedure = .ragcommandresult
+  arg store = .ragstorehandle, workflow = .string, apply = .int, generation = .int, capability = .string
+  config=architecturelocalconfig(); command_args=.string[]
+  command_args[1]="--library=" || store.path(); command_args[2]="--config=" || config.config_id(); command_args[3]="--profile=generic-profile"; command_args[4]="--format=json"; command_args[5]="--access=" || capability
+  command_args[6]="maintain"; command_args[7]="reconcile"; command_args[8]=workflow
+  if apply=1 then do; command_args[9]="--apply"; command_args[10]="--expect-generation=" || generation; end
+  request=.ragcommandrequest; error=""
+  if parsecommand(command_args,request,error)<>0 then return commandfailure("maintain.reconcile",2,error)
+  return dispatchproduct(request,operatorregistry())
+
 connectioneffectchecks: procedure = .int
   arg store = .ragstorehandle, policy_json = .string
   database = store.database(); errors = 0; error = ""; config = architecturelocalconfig(); profile = genericprofile(); policy = .jsondocument(policy_json)
@@ -414,7 +534,10 @@ runresolution: procedure = .int
   provider = .fixtureprovider(response); disposition = ""
   policy = .ragclaimpolicy("fixture-v1","concept|source-artifact|evidence-span","related-to|mentioned-in|mentions",1000000,750000,500000,-1000000,250000)
   status = runworkeronce(store,job_id,"backlog-fixture",60,3,policy,provider,disposition,error,genericprofile())
-  if status = 0 & disposition \= "resolution-recorded" & disposition \= "resolution-stale" then do; error = disposition; return -1; end
+  if status = 0 & disposition \= "resolution-recorded" & disposition \= "resolution-stale" then do
+    error = disposition || " " || scalartext(database,"SELECT message FROM job_events WHERE job_id=" || _testquote(job_id) || " AND event_type='dead_letter' ORDER BY event_id DESC LIMIT 1")
+    return -1
+  end
   return status
 
 nextwindow: procedure = .int
@@ -574,6 +697,9 @@ main: procedure = .int
   evidence = '[{"evidence_id":"ambiguity-parent","quote":"Platform"}]'
   errors = errors + check(runresolution(store,job_id,ambiguity_task,responsejson("move",child,"[]",evidence),error) = 0, "move explicit ambiguity candidate " || error)
   errors = errors + check(scalarint(database,"SELECT count(*) FROM ambiguity_candidates WHERE concept_id='concept-parent' AND visible_to_generation IS NOT NULL") = 1, "ambiguity history preserved")
+  stale_conflict=connectiontask(database,workflow,"conflict"); before_stale=scalarint(database,"SELECT count(*) FROM provider_runs")
+  errors=errors+check(stale_conflict<>"" & runresolution(store,job_id,stale_conflict,responsejson("unresolved"),error)=0,"drain obsolete retirement conflict work " || error)
+  errors=errors+check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(stale_conflict))="superseded" & scalarint(database,"SELECT count(*) FROM provider_runs")=before_stale,"obsolete retirement conflict drains without a provider call")
   errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0, "refresh retirement census " || error)
   retire_task = scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE workflow_id='" || workflow || "' AND kind='retirement' AND state='dispatched'")
   errors = errors + check(retire_task \= "" & runresolution(store,job_id,retire_task,responsejson("retire","","[]","[]","concept-parent"),error) = 0, "retire only after complete impact census " || error)
@@ -650,6 +776,9 @@ main: procedure = .int
   support_id = scalartext(database,"SELECT subject_id FROM maintenance_tasks WHERE task_id='" || support_task || "'")
   evidence = '[{"evidence_id":' || jsonquote(support_id) || ',"quote":"Platform Peer"}]'
   errors = errors + check(runresolution(store,job_id,support_task,responsejson("move",child,"[]",evidence),error) = 0, "move remaining independent merge support " || error)
+  stale_conflict=connectiontask(database,merge_workflow,"conflict"); before_stale=scalarint(database,"SELECT count(*) FROM provider_runs")
+  errors=errors+check(stale_conflict<>"" & runresolution(store,job_id,stale_conflict,responsejson("unresolved"),error)=0,"drain obsolete merge retirement conflict work " || error)
+  errors=errors+check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id=" || _testquote(stale_conflict))="superseded" & scalarint(database,"SELECT count(*) FROM provider_runs")=before_stale,"obsolete merge retirement conflict drains without a provider call")
   errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0, "refresh merge retirement census")
   retire_task = scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE workflow_id='" || merge_workflow || "' AND kind='retirement' AND state='dispatched'")
   errors = errors + check(retire_task \= "" & runresolution(store,job_id,retire_task,responsejson("retire","","[]","[]","concept-peer"),error) = 0, "complete merge retirement " || error)
@@ -868,6 +997,7 @@ main: procedure = .int
   errors = errors + check(scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"identity repair preserves foreign keys")
   errors = errors + agentchecks(store,policy_json)
   errors = errors + connectioneffectchecks(store,policy_json)
+  errors = errors + workflowclosurechecks(store,policy_json)
   errors = errors + refreshchecks(store,policy_json)
   call closeragstore store,error
   if errors > 0 then return 1

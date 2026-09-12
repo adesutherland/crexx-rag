@@ -327,6 +327,12 @@ task, and rejecting or dismissing a proposal leaves its task unresolved.
 `rag_task_escalate_plan` and `rag_task_escalate_apply` use the same exact-plan
 contract for an operator/agent flag. Active worker ownership blocks handoff.
 The corresponding CLI verbs are `maintain tasks`, `maintain evidence`,
+After connection correction, use `rag_workflow_reconcile_preview` and then
+`rag_workflow_reconcile` with its `expect_generation`. Inspect the returned
+retirement task and use the existing resolution/review path; a census is not
+itself retirement. Waiting reasons retain ownership, review and unknown-outcome
+holds. See [external workflow recovery](external-workflow-recovery.md).
+
 `maintain resolve-plan`, `maintain resolve-apply`, `maintain escalate-plan`
 and `maintain escalate-apply`.
 
