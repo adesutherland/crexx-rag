@@ -1,0 +1,21 @@
+{
+  "provider_runs": 82549,
+  "attempts": 116184,
+  "job_events": 647252,
+  "job_items": 95151,
+  "sources": 9,
+  "revision_chunks": 34907,
+  "old_jobs_keep_snapshots": true,
+  "current_config": "config-a211c0fede4237fe77bbc797",
+  "queued_new_operations": [
+    [
+      "claim-extraction",
+      2
+    ],
+    [
+      "embedding",
+      2
+    ]
+  ],
+  "policy_sha256": "0541ed3efa5cfc78f07e39ea3e9fed50fb5547d1e5b82e8214fc92956be15dcb"
+}

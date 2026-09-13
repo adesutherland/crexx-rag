@@ -1,0 +1,4 @@
+documentation_contract=pass
+git_diff_check=pass
+affected_source_hashes=all-match
+remaining_qa_processes=none-observed

@@ -1,0 +1,2 @@
+-- PARTIAL_ANCESTRAL_CONTROL_OK
+-- PUBLICATION_RECOVERY_CONTROLS_CHECKED calls=2 history=preserved; errors above remain failures

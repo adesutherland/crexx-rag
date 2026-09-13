@@ -1,0 +1,24 @@
+init
+OK: library initialized
+library status
+  library id: library-89fe07dfa0316ec99137b947
+  schema version: 17
+  published generation: 1
+  next generation: 2
+  profile id: it-architecture-profile
+  manifest state: aligned
+  issue count: 0
+  state: initialized
+config snapshot
+  config id: gemini-loopback
+  config version: 1
+  profile id: it-architecture-profile
+  semantic hash: 914d257b8942183398a6ecb2a63b2620d5ba1ede2fee5fe10cc4412fc82542a4
+  operational hash: ad76dd137dace2651ea72c4af340684b05113dbef3857cf657e6a386a6232d8b
+
+job run job-sha256:d6d2efd457ae5fb3c69cefa13a298658ab74d84a03d7947fe41a01e2e8683bac with live group
+{"schema":"crexx-rag.command-result/1","operation":"job.run","status":"error","exit_code":6,"exit_name":"conflict","message":"job already has process ownership; use worker status and worker drain","records":[]}
+
+--access;control;--format;json;job;continue;job-sha256:d6d2efd457ae5fb3c69cefa13a298658ab74d84a03d7947fe41a01e2e8683bac;--count;1;--poll-ms;20;--max-polls;5
+{"schema":"crexx-rag.command-result/1","operation":"job.continue","status":"ok","exit_code":0,"exit_name":"success","message":"controller supervised the requested OS-process workers to completion","records":[{"kind":"worker-controller","fields":{"controller_id":"controller-3b5d1ceca631694fa40afe5d1eb4074d","workers_requested":1,"workers_completed":1,"workers_failed":0,"vector_generations":1,"vector_state":"identical-no-op","workers_restarted":0}}]}
+

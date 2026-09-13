@@ -1,0 +1,124 @@
+{
+  "provider_runs": 82549,
+  "attempts": 116184,
+  "job_events": 647251,
+  "job_items": 95147,
+  "sources": 8,
+  "revision_chunks": 34905,
+  "jobs": [
+    [
+      "job-maintenance:098256bc4fa63a03a9078d1678f7e7d609ca735858c7c7aa28347fee42f168d9",
+      "config-64604a9570fe34bcbbb9c442"
+    ],
+    [
+      "job-maintenance:2ac50e8499a58952b7d5c57cef6af3c041da250b2e58f083bc016e61989459da",
+      "config-6d3089d9f074a2c540562dc4"
+    ],
+    [
+      "job-maintenance:2f8ee22b424ce7bca742ed0ec7af528c98f3048bed6f22cb06efffa7159cc6b3",
+      "config-e3d4f76cb46a8dfbc15eab66"
+    ],
+    [
+      "job-maintenance:43426bc58b2e65b3047f86fc0bf43bb9ae331989248c5ff69b1edbc0a8bbe2bc",
+      "config-fe479707411d396de0e334e6"
+    ],
+    [
+      "job-maintenance:4d69ff45b1dd7508e50f43ec84a5449adea0e9c56e59d2e3363cb647edd0e114",
+      "config-7846c9e9f000974def2376f1"
+    ],
+    [
+      "job-maintenance:54f591aae409f89da46a9e78395198d7c569432697d3c9c6ebf299b5aa7b44fe",
+      "config-e562b61a41c4edbfec3f9f89"
+    ],
+    [
+      "job-maintenance:5782eff0eef6ba2092c95b19da0ea9f82453f4d2c5df45428dcfb9c084a033bb",
+      "config-7846c9e9f000974def2376f1"
+    ],
+    [
+      "job-maintenance:6487899bc4c6b8d12edb57e101218c0b25346cf0f8c7bdb8267cf188a253e3f5",
+      "config-1319520a7ecf72cca25bdcba"
+    ],
+    [
+      "job-maintenance:6b51afd358f5a6f71da90350e628035bb506c43838d1102374c5299ef291b458",
+      "config-7846c9e9f000974def2376f1"
+    ],
+    [
+      "job-maintenance:7abebbd8f6a34526f0a3871e35b496d854c31f47da7e0d235b494fd04e125962",
+      "config-64604a9570fe34bcbbb9c442"
+    ],
+    [
+      "job-maintenance:7f59b215f25b81d22360d91ef02da41d9a7384a6c9a09c10496fb0f722556645",
+      "config-fe479707411d396de0e334e6"
+    ],
+    [
+      "job-maintenance:8addeee85f20e81d9bc1255dae27b9aa3b0d4e3fa7b3d004f9ce3c4f7c489f3d",
+      "config-7846c9e9f000974def2376f1"
+    ],
+    [
+      "job-maintenance:a2942f0646c0aba01c38421b729b8e327b99fccfcd4afd46f8ea5de5f9ff38b8",
+      "config-fe479707411d396de0e334e6"
+    ],
+    [
+      "job-maintenance:b1448ae56773fab7c6c9552c82b127b6150db90da0fce4942566e28efbb575a3",
+      "config-7846c9e9f000974def2376f1"
+    ],
+    [
+      "job-maintenance:c97f49e9d114536722008ebbc4d1816e95bba778b2a73d4dae21cb6c90651918",
+      "config-d81b9da5364cd2ce08642449"
+    ],
+    [
+      "job-maintenance:cc5e1d6a70fbabf039c1da14291a5a419f4461a162d59518b31df162b84800b5",
+      "config-7846c9e9f000974def2376f1"
+    ],
+    [
+      "job-maintenance:ce0c57c223ad81e5b7b91b5fb046f30b05caa10be50257990ba74d6122428034",
+      "config-7846c9e9f000974def2376f1"
+    ],
+    [
+      "job-maintenance:cf5808df5d3703bf71ff2ec0881f5660e65b14741f6dcbbade1f34d6e5815fbf",
+      "config-fe479707411d396de0e334e6"
+    ],
+    [
+      "job-maintenance:d40ed9c08dc658d3c7449f56d816c50a76a58cd630588800eede91b8c29ae3a9",
+      "config-fe479707411d396de0e334e6"
+    ],
+    [
+      "job-maintenance:d860079381def7b72a89b0476eb23c56ce08098d268bb9aa6e4e9eba659bf98e",
+      "config-7846c9e9f000974def2376f1"
+    ],
+    [
+      "job-maintenance:e41308a080c08e240a78d0f513c5fac206c4d36c9ab78ddf8651ebeee7f36b40",
+      "config-bd4ae91b6a019ac3453baeba"
+    ],
+    [
+      "job-maintenance:e88473e5eca7f42770bf230a00f68fedf103f46e77b67efe10f466834210fe54",
+      "config-7846c9e9f000974def2376f1"
+    ],
+    [
+      "job-maintenance:f7eda686327ff00fb57ecc3df64aeacc6b5f300a74aa6f4574147643194eea46",
+      "config-7846c9e9f000974def2376f1"
+    ],
+    [
+      "job-sha256:019fbba15d51be8eb1a63efeec7820769c4c0b05942e19504367575a6b691c21",
+      "config-79493fd43036748c260b8bc7"
+    ],
+    [
+      "job-sha256:06c64d8a9b343a59041dc2ab4ef536ed712372290fd1edf1430ecaeffdf3559e",
+      "config-fd997a3253607100a33ec6f5"
+    ],
+    [
+      "job-sha256:27d8d796e72bc1d1c231500e10f105f10a61b245de15482eedbce6559d5da0c9",
+      "config-98990e04b19325e16f8fb080"
+    ],
+    [
+      "job-sha256:f9e63ddacaab6fbbb16d3e5e53f67cbd894c7f72f1b8f8cc04b39e118f8e2ec0",
+      "config-64604a9570fe34bcbbb9c442"
+    ],
+    [
+      "job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622",
+      "config-fe479707411d396de0e334e6"
+    ]
+  ],
+  "current_config": "config-bd4ae91b6a019ac3453baeba",
+  "old_task": "resolved"
+}

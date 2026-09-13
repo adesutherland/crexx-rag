@@ -1,0 +1,2 @@
+-- SMOKE_STATUS_CONTROLS_OK: live, stale-but-alive, confirmed exited, empty group
+-- SMOKE_STATUS_READ_ONLY_OK: stale_workers; any errors above remain failures

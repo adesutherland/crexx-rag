@@ -11,6 +11,18 @@ UX-04 targeted workflow closure each passed a full 59/59 gate. The third
 [public recovery slice](public-recovery-journey.md) extends lifecycle and query
 owners with waiver/reopen and consistent observations. Its final full gate passed **59/59 in 1238.52 seconds**; the frozen installed replay also passed.
 
+## Shared-rule simplification — 13 September 2026
+
+The user approved removing unnecessary checks and searching for duplicates.
+The [repair record](rule-simplification-repair-20260913.md) tracks this follow-up.
+`ragconfiguration` now records future policy without a global execution veto;
+continuation composes that owner. `raglifecycle` owns completion precedence,
+explicit-redo eligibility, replay-family decisions and active claim ownership.
+Work, receipt, maintenance and legacy claimed-proposal consumers delegate to it.
+Inner publication helpers no longer recheck ownership in the same writer
+transaction, and missing historical receipts no longer veto vector publication.
+No schema, provider transport or new orchestration framework was added.
+
 ## Instruction audit — 12 September 2026
 
 The post-recovery audit found stale review-preview and pagination guidance,
@@ -461,3 +473,31 @@ Schema-17 repair qualification: full **63/63 in 847.44 seconds**. The new
 scale/fresh/upgrade controls pass alongside worker, provider, publication and
 installed-product regressions. Actual replacement maintenance smoke remains
 required; see the [handoff](operator-continuation-handoff.md).
+
+
+## Four smoke/restart repairs — 13 September 2026
+
+The [repair record](four-smoke-fixes-20260913.md) records the pre-change failures,
+new boundary coverage, source ownership and current gate. `raglifecycle` now
+shares read projection and active/error totals across job pages and both report
+paths. `ragsupervision` supplies shared process-presence/claim-admission facts;
+`ragprocess` owns selected-group drain/cleanup and fresh launch; `ragwork` checks
+the managed worker's original controller under the claim writer lock. These
+interfaces preserve transaction ownership and avoid an import cycle or a new
+schema. Public commands compose the existing services. No provider/prompt,
+retry-policy or live-library change is included in this delivery.
+
+The final candidate passes **67/67 in 932.92 seconds** and a separate
+**5/5** scratch-installed replay on the matching native hash. The record retains
+the regression-first failures and exact source/artifact evidence.
+
+## Automatic vector publication — RAG-SMK-006
+
+The [repair record](smk006-publication-repair-20260913.md) documents the failing
+partial-ancestral-index reproduction, passing controls and exact artifacts.
+Manifest alignment now belongs to `ragembedding.buildannvectorgeneration` for
+both new and replayed indexes, using the existing transactional store recovery.
+The command-specific and replay-only copies are removed. No dependency, provider
+contract, schema, receipt or worker-fencing change is introduced. Focused QA
+passes 5/5; full QA passes 68/68 in 944.08s, and the matching
+scratch-installed publication/fault/history replay passes.

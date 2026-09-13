@@ -25,13 +25,8 @@ preparecontinuation: procedure = .int
   difference=.ragconfigdiff
   if inspectconfigchange(store,config,profile,difference,error)<>0 then return -1
   if difference.classification()="operational" then do
-    owned=sqlreadint(database,"SELECT count(*) FROM runtime_instances WHERE state NOT IN('stopped','failed')")
-    if owned<>0 then do;error="operational configuration registration requires drained workers; use worker status and worker drain";return -1;end
-    state=sqlreadtext(database,"SELECT state FROM jobs WHERE job_id=" || sqlquote(job_id))
-    if state="queued" | state="running" then if pausejob(store,job_id,error)<>0 then return -1
     plan=.ragplan
     if createreconfigureplan(store,config,profile,"compatible policy registration for job continuation",plan,difference,error)<>0 then return -1
-    if difference.active_jobs()<>0 then do;error="other active work prevents compatible policy registration; inspect job list and worker status";return -1;end
     if applyreconfigureplan(store,config,profile,plan.payload(),plan.digest(),difference,error)<>0 then return -1
   end
   if sqliteexec(database,"BEGIN IMMEDIATE")<>0 then do;error="cannot begin continuation; retry this same command after writer contention clears";return -1;end

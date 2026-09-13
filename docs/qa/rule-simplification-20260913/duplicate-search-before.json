@@ -1,0 +1,128 @@
+[
+  {
+    "kind": "uncertain_queries",
+    "file": "crexx/application/ragwork.crexx",
+    "line": 61,
+    "text": "sql = \"UPDATE job_items SET state=CASE WHEN EXISTS(SELECT 1 FROM job_events e WHERE e.item_id=job_items.item_id AND e.event_type='provider-outcome-uncertain' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')) THEN 'dead_letter' WHEN (SELECT count(*) FROM attempts a WHERE a.item_id=job_items.item_id AND a.outcome<>'cancelled')>=\" || maximum_attempts || \" AND NOT EXISTS(SELECT 1 FROM job_events e WHERE e.item_id=job_items.item_id AND e.event_type='provider-response') THEN 'dead_letter' ELSE 'queued' END,worker_id=NULL,lease_until=NULL,retry_at=CAST(strftime('%s','now') AS INTEGER),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='running' AND lease_until<=CAST(strftime('%s','now') AS INTEGER)\""
+  },
+  {
+    "kind": "uncertain_queries",
+    "file": "crexx/application/ragwork.crexx",
+    "line": 169,
+    "text": "if _boundcount(database,\"SELECT count(*) FROM job_events e WHERE e.item_id=?1 AND e.event_type='provider-outcome-uncertain' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')\",claim.item_id()) > 0 then return _rollback(database,\"provider outcome uncertain; reconcile this item before retry\",error)"
+  },
+  {
+    "kind": "replay_family",
+    "file": "crexx/application/ragwork.crexx",
+    "line": 542,
+    "text": "descendants = \"WITH RECURSIVE descendants(item_id) AS (SELECT replay_item_id FROM job_replay_items WHERE source_item_id IN(\" || selected_sql || \") UNION SELECT m.replay_item_id FROM job_replay_items m JOIN descendants d ON m.source_item_id=d.item_id) \""
+  },
+  {
+    "kind": "inner_batch_fences",
+    "file": "crexx/application/ragwork.crexx",
+    "line": 892,
+    "text": "if _activefence(database, claim) \\= 1 then return _rollback(database, \"worker fence is stale during mention census\", error)"
+  },
+  {
+    "kind": "inner_batch_fences",
+    "file": "crexx/application/ragwork.crexx",
+    "line": 936,
+    "text": "if _activefence(database, claim) \\= 1 then return _rollback(database, \"worker fence is stale during batch completion\", error)"
+  },
+  {
+    "kind": "raw_config_veto",
+    "file": "crexx/application/ragconfiguration.crexx",
+    "line": 155,
+    "text": "active = _configurationactivejobs(store.database(),classification,error)"
+  },
+  {
+    "kind": "raw_config_veto",
+    "file": "crexx/application/ragconfiguration.crexx",
+    "line": 164,
+    "text": "_configurationactivejobs: procedure = .int"
+  },
+  {
+    "kind": "raw_config_veto",
+    "file": "crexx/application/ragconfiguration.crexx",
+    "line": 206,
+    "text": "if _configurationactivejobs(database,classification,error) \\= 0 then return _rollback(database, \"active work appeared before configuration apply\", error)"
+  },
+  {
+    "kind": "fence_implementations",
+    "file": "crexx/application/ragbacklog.crexx",
+    "line": 1038,
+    "text": "if _number(database,\"SELECT count(*) FROM job_items i JOIN attempts a ON a.item_id=i.item_id WHERE i.item_id=\" || _q(item_id) || \" AND i.state='running' AND i.worker_id=\" || _q(worker_id) || \" AND i.fence=\" || fence || \" AND i.lease_until>unixepoch() AND a.attempt_id=\" || _q(attempt_id) || \" AND a.outcome='running' AND a.fence=i.fence\") \\= 1 then return _rollback(database,\"maintenance worker fence is stale\",error)"
+  },
+  {
+    "kind": "fence_implementations",
+    "file": "crexx/application/ragbacklog.crexx",
+    "line": 1070,
+    "text": "if _number(database,\"SELECT count(*) FROM job_items i JOIN attempts a ON a.item_id=i.item_id AND a.attempt_id=\" || _q(attempt_id) || \" WHERE i.item_id=\" || _q(item_id) || \" AND i.state='running' AND i.worker_id=\" || _q(worker_id) || \" AND i.fence=\" || fence || \" AND i.lease_until>unixepoch() AND a.outcome='running' AND a.fence=i.fence\") \\= 1 then return _rollback(database,\"resolution worker fence is stale\",error)"
+  },
+  {
+    "kind": "uncertain_queries",
+    "file": "crexx/application/ragproduct.crexx",
+    "line": 1230,
+    "text": "if job_state = \"paused\" then if sqlreadint(database,\"SELECT count(*) FROM job_events e WHERE e.job_id=\" || sqlquote(job_id) || \" AND e.event_type='provider-outcome-uncertain' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')\") > 0 then return 1"
+  },
+  {
+    "kind": "replay_family",
+    "file": "crexx/application/raglifecycle.crexx",
+    "line": 104,
+    "text": "family = \"WITH RECURSIVE ancestors(item_id) AS (SELECT \" || _q(item_id) || \" UNION SELECT m.source_item_id FROM job_replay_items m JOIN ancestors a ON m.replay_item_id=a.item_id), family(item_id) AS (SELECT item_id FROM ancestors UNION SELECT m.replay_item_id FROM job_replay_items m JOIN family f ON m.source_item_id=f.item_id) \""
+  },
+  {
+    "kind": "fence_implementations",
+    "file": "crexx/application/raglifecycle.crexx",
+    "line": 241,
+    "text": "sql = \"SELECT count(*) FROM job_items i JOIN attempts a ON a.attempt_id=?1 AND a.item_id=i.item_id WHERE i.item_id=?2 AND i.job_id=?3 AND i.worker_id=?4 AND i.fence=?5 AND i.state='running' AND i.lease_until>CAST(strftime('%s','now') AS INTEGER) AND a.worker_id=i.worker_id AND a.fence=i.fence AND a.outcome='running'\""
+  },
+  {
+    "kind": "replay_family",
+    "file": "crexx/application/ragschema.crexx",
+    "line": 74,
+    "text": "statements[statements.0 + 1] = \"CREATE VIEW dead_letter_reconciliation AS WITH RECURSIVE roots(root_item_id,root_job_id,item_type) AS (SELECT i.item_id,i.job_id,i.item_type FROM job_items i WHERE i.state='dead_letter' AND NOT EXISTS(SELECT 1 FROM job_replay_items r WHERE r.replay_item_id=i.item_id)),lineage(root_item_id,item_id,depth) AS (SELECT root_item_id,root_item_id,0 FROM roots UNION ALL SELECT l.root_item_id,r.replay_item_id,l.depth+1 FROM lineage l JOIN job_replay_items r ON r.source_item_id=l.item_id WHERE l.depth<64) SELECT roots.root_item_id,roots.root_job_id,roots.item_type,CASE WHEN EXISTS(SELECT 1 FROM maintenance_task_items m JOIN maintenance_tasks t ON t.task_id=m.task_id WHERE m.item_id=roots.root_item_id AND t.state='resolved') OR sum(CASE WHEN lineage.depth>0 AND items.state IN('processed','skipped') THEN 1 ELSE 0 END)>0 THEN 'resolved' WHEN EXISTS(SELECT 1 FROM maintenance_task_items m JOIN maintenance_task_items n ON n.task_id=m.task_id JOIN job_items j ON j.item_id=n.item_id WHERE m.item_id=roots.root_item_id AND j.state IN('queued','running','cancel_requested')) OR sum(CASE WHEN lineage.depth>0 AND items.state IN('queued','running','cancel_requested') THEN 1 ELSE 0 END)>0 THEN 'in-progress' WHEN EXISTS(SELECT 1 FROM maintenance_task_items m JOIN maintenance_task_waivers v ON v.task_id=m.task_id WHERE m.item_id=roots.root_item_id AND v.state='active') THEN 'waived' ELSE 'actionable' END AS reconciliation_state,sum(CASE WHEN lineage.depth>0 THEN 1 ELSE 0 END) AS replay_count,sum(CASE WHEN lineage.depth>0 AND items.state IN('processed','skipped') THEN 1 ELSE 0 END) AS resolved_descendants,sum(CASE WHEN lineage.depth>0 AND items.state IN('queued','running','cancel_requested') THEN 1 ELSE 0 END) AS active_descendants,sum(CASE WHEN lineage.depth>0 AND items.state='dead_letter' THEN 1 ELSE 0 END) AS dead_descendants,max(items.updated_at) AS last_updated_at FROM roots JOIN lineage ON lineage.root_item_id=roots.root_item_id JOIN job_items items ON items.item_id=lineage.item_id GROUP BY roots.root_item_id,roots.root_job_id,roots.item_type\""
+  },
+  {
+    "kind": "replay_family",
+    "file": "crexx/application/ragschema.crexx",
+    "line": 208,
+    "text": "statements[statements.0 + 1] = \"CREATE VIEW dead_letter_reconciliation AS WITH RECURSIVE roots(root_item_id,root_job_id,item_type) AS (SELECT i.item_id,i.job_id,i.item_type FROM job_items i WHERE i.state='dead_letter' AND NOT EXISTS(SELECT 1 FROM job_replay_items r WHERE r.replay_item_id=i.item_id)),lineage(root_item_id,item_id,depth) AS (SELECT root_item_id,root_item_id,0 FROM roots UNION ALL SELECT l.root_item_id,r.replay_item_id,l.depth+1 FROM lineage l JOIN job_replay_items r ON r.source_item_id=l.item_id WHERE l.depth<64) SELECT roots.root_item_id,roots.root_job_id,roots.item_type,CASE WHEN sum(CASE WHEN lineage.depth>0 AND items.state IN('processed','skipped') THEN 1 ELSE 0 END)>0 THEN 'resolved' WHEN sum(CASE WHEN lineage.depth>0 AND items.state IN('queued','running','cancel_requested') THEN 1 ELSE 0 END)>0 THEN 'in-progress' ELSE 'actionable' END AS reconciliation_state,sum(CASE WHEN lineage.depth>0 THEN 1 ELSE 0 END) AS replay_count,sum(CASE WHEN lineage.depth>0 AND items.state IN('processed','skipped') THEN 1 ELSE 0 END) AS resolved_descendants,sum(CASE WHEN lineage.depth>0 AND items.state IN('queued','running','cancel_requested') THEN 1 ELSE 0 END) AS active_descendants,sum(CASE WHEN lineage.depth>0 AND items.state='dead_letter' THEN 1 ELSE 0 END) AS dead_descendants,max(items.updated_at) AS last_updated_at FROM roots JOIN lineage ON lineage.root_item_id=roots.root_item_id JOIN job_items items ON items.item_id=lineage.item_id GROUP BY roots.root_item_id,roots.root_job_id,roots.item_type\""
+  },
+  {
+    "kind": "replay_family",
+    "file": "crexx/application/ragstore.crexx",
+    "line": 543,
+    "text": "sql = \"WITH RECURSIVE lineage(generation) AS (SELECT \" || current || \" UNION ALL SELECT p.parent_generation FROM published_generations p JOIN lineage l ON p.generation=l.generation WHERE p.parent_generation IS NOT NULL) SELECT count(*) FROM lineage JOIN published_generations p USING(generation) WHERE generation=\" || target_generation || \" AND p.state='published'\""
+  },
+  {
+    "kind": "replay_family",
+    "file": "crexx/application/ragstore.crexx",
+    "line": 1101,
+    "text": "sql = qualifier || \"vector_generation_id IN (WITH RECURSIVE target(generation) AS (SELECT \" || generation_sql || \"), lineage(generation) AS (SELECT generation FROM target UNION ALL SELECT p.parent_generation FROM published_generations p JOIN lineage l ON p.generation=l.generation WHERE p.parent_generation IS NOT NULL), candidates AS (SELECT v.* FROM vector_generations v JOIN lineage l ON l.generation=v.semantic_generation WHERE v.state='published'), latest AS (SELECT a.* FROM candidates a WHERE NOT EXISTS(SELECT 1 FROM candidates b WHERE b.embedding_profile_id=a.embedding_profile_id AND b.semantic_generation>a.semantic_generation)) SELECT v.vector_generation_id FROM latest v CROSS JOIN target t WHERE v.semantic_generation=t.generation OR (NOT EXISTS(SELECT 1 FROM revision_chunks rc WHERE (rc.visible_from_generation<=v.semantic_generation AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>v.semantic_generation))<>(rc.visible_from_generation<=t.generation AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>t.generation))) AND NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id WHERE e.embedding_profile_id=v.embedding_profile_id AND (rce.visible_from_generation<=v.semantic_generation AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>v.semantic_generation))<>(rce.visible_from_generation<=t.generation AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>t.generation)))))\""
+  },
+  {
+    "kind": "global_continuation_registry",
+    "file": "crexx/application/ragcontinuation.crexx",
+    "line": 28,
+    "text": "owned=sqlreadint(database,\"SELECT count(*) FROM runtime_instances WHERE state NOT IN('stopped','failed')\")"
+  },
+  {
+    "kind": "replay_family",
+    "file": "crexx/application/ragprovenance.crexx",
+    "line": 363,
+    "text": "sql=\"WITH RECURSIVE upstream(revision,external,depth) AS (SELECT target_revision_id,external_work_ref,0 FROM source_relations WHERE relation_id IN(SELECT value FROM json_each(\" || _q(selected) || \")) AND visible_from_generation<=\" || generation || \" AND (visible_to_generation IS NULL OR visible_to_generation>\" || generation || \") UNION SELECT r.target_revision_id,r.external_work_ref,u.depth+1 FROM upstream u JOIN source_relations r ON r.revision_id=u.revision WHERE u.depth<16 AND r.relation_type IN('derived-from','quotes','reports','edition-of') AND r.scope_start=-1 AND r.visible_from_generation<=\" || generation || \" AND (r.visible_to_generation IS NULL OR r.visible_to_generation>\" || generation || \")) SELECT json_group_array(DISTINCT family) FROM (SELECT CASE WHEN external IS NOT NULL THEN external ELSE coalesce((SELECT nullif(json_extract(description_json,'$.work_ref'),'') FROM source_descriptions d WHERE d.revision_id=u.revision AND d.scope_start=-1 AND d.visible_from_generation<=\" || generation || \" AND (d.visible_to_generation IS NULL OR d.visible_to_generation>\" || generation || \") ORDER BY visible_from_generation DESC LIMIT 1),'revision:'||revision) END family FROM upstream u WHERE external IS NOT NULL OR NOT EXISTS(SELECT 1 FROM source_relations r WHERE r.revision_id=u.revision AND r.scope_start=-1 AND r.relation_type IN('derived-from','quotes','reports','edition-of') AND r.visible_from_generation<=\" || generation || \" AND (r.visible_to_generation IS NULL OR r.visible_to_generation>\" || generation || \")) ORDER BY family)\""
+  },
+  {
+    "kind": "fence_implementations",
+    "file": "crexx/application/ragrepository.crexx",
+    "line": 286,
+    "text": "attempt_issues = _count(database, \"SELECT count(*) FROM attempts a WHERE a.fence<1 OR a.validation_state='' OR a.outcome NOT IN('running','succeeded','failed','expired','cancelled','skipped','dead_letter') OR (a.outcome='running' AND a.completed_at IS NOT NULL) OR (a.outcome<>'running' AND a.completed_at IS NULL) OR (a.outcome='running' AND NOT EXISTS(SELECT 1 FROM job_items i WHERE i.item_id=a.item_id AND i.state IN('running','cancel_requested') AND i.worker_id=a.worker_id AND i.fence=a.fence AND i.lease_until>0))\", error)"
+  },
+  {
+    "kind": "fence_implementations",
+    "file": "crexx/application/ragclaims.crexx",
+    "line": 862,
+    "text": "sql = \"SELECT count(*) FROM job_items i JOIN attempts a ON a.item_id=i.item_id AND a.attempt_id=?1 WHERE i.item_id=?2 AND i.worker_id=?3 AND i.fence=?4 AND i.state='running' AND i.lease_until>CAST(strftime('%s','now') AS INTEGER) AND a.worker_id=i.worker_id AND a.fence=i.fence AND a.outcome='running'\""
+  }
+]

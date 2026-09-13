@@ -1,0 +1,55 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start  7: regression_rule_simplification
+1/2 Test  #7: regression_rule_simplification ...***Failed    0.18 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/RuleSimplification.cmake:37 (message):
+  Rule fixture init failed: ERROR config [configuration]: --config-file
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-rule-simplification/old.conf:
+  source.architecture-docs.root contains traversal or a control character
+
+
+
+
+    Start 64: regression_lifecycle
+2/2 Test #64: regression_lifecycle .............***Failed    3.49 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/LifecycleRegression.cmake:41 (message):
+  RAG-OPS-002 acceptance failed:
+
+  RXVME: LIFECYCLE_FAIL=completed task outranks an older unknown response
+
+  LIFECYCLE_FAIL=stopped job remains stopped with an unknown attempt
+
+  LIFECYCLE_FAIL=explicit redo is eligible without repairing old output
+
+  LIFECYCLE_FAIL=explicit redo can claim
+
+
+
+  RXBVM: LIFECYCLE_FAIL=completed task outranks an older unknown response
+
+  LIFECYCLE_FAIL=stopped job remains stopped with an unknown attempt
+
+  LIFECYCLE_FAIL=explicit redo is eligible without repairing old output
+
+  LIFECYCLE_FAIL=explicit redo can claim
+
+
+
+
+
+0% tests passed, 2 tests failed out of 2
+
+Label Time Summary:
+RAG-OPS-002      =   3.49 sec*proc (1 test)
+accounting       =   3.49 sec*proc (1 test)
+configuration    =   0.18 sec*proc (1 test)
+lifecycle        =   0.18 sec*proc (1 test)
+regression       =   3.67 sec*proc (2 tests)
+worker           =   3.49 sec*proc (1 test)
+zero-outbound    =   3.67 sec*proc (2 tests)
+
+Total Test time (real) =   3.67 sec
+
+The following tests FAILED:
+	  7 - regression_rule_simplification (Failed)           configuration lifecycle regression zero-outbound
+	 64 - regression_lifecycle (Failed)                     RAG-OPS-002 accounting regression worker zero-outbound
+Errors while running CTest

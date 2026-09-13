@@ -1,7 +1,22 @@
 # Test strategy
 
+Latest publication follow-up: `embedding_publication` reproduces RAG-SMK-006's
+partial ancestral index failure and now passes with four existing controls
+(**5/5 in 52.41s**). Full QA passes **68/68 in 944.08s**, with a passing
+matching scratch-installed replay on CREXX `g037e7939bc29`. See the
+[publication repair record](smk006-publication-repair-20260913.md).
+
+Current checkpoint: the four smoke-status and simple-restart regressions now
+pass after shared-owner repairs. They first failed against unchanged product
+code; branch coverage was extended before implementation. The final focused
+panel is 9/9; the full suite passes **67/67 in 932.92 seconds**, and the
+separate scratch-installed replay passes **5/5**. See
+[the repair record](four-smoke-fixes-20260913.md). All assertions remain ordinary
+required passes. Known-defect tests must never be disabled or inverted to make
+a gate green.
+
 The five maintenance refactors each required coverage before implementation
-and a complete green gate. The final local workflow passes **59/59**; the
+and a complete green gate. That historical local workflow passed **59/59**; the
 [delivery record](maintenance-refactoring-delivery.md) retains baseline failures,
 per-stage evidence and the limits of that qualification.
 
@@ -99,7 +114,11 @@ metadata directly.
 | `embedding_exhaustion` | eight workers through 429/503 failures, six actual calls per embedding across controller restarts and new maintenance windows, retained incomplete coverage and settled reservations |
 | `native_receipt_failure` | Abort the response INSERT after Gemini extraction/embedding returns; controller restart and public retry preserve original intent/usage, explicitly hold the lost response, finish the healthy peer and make no repeat call. |
 | `native_receipts` | exit after durable extraction/embedding response but before settlement, then two-worker public restart: no repeated call, original-attempt usage, exact publication and no reservation leak |
-| `native_interruption` | actual busy worker/controller kill with explicit uncertain intent, cancellation while provider response is held, post-commit manifest rejection and first-vector recovery without repeated extraction |
+| `native_interruption` | actual busy worker AND controller kill with explicit uncertain intent, cancellation while provider response is held, post-commit manifest rejection and first-vector recovery without repeated extraction |
+| `regression_controller_loss` | controller-only kill while the first provider response is held; child must not take further work and must exit; initial live group, queued peer and final integrity checks |
+| `regression_restart_live` | ordinary job run with a surviving group must clean/start fresh; repeat continuation after drain preserves complete attempts/receipts/claims/embeddings and starts fresh children |
+| `regression_smoke_stale_workers` | CLI/MCP exclude confirmed exited workers from live count; known-live, empty-group and public PID controls; complete SQLite dump unchanged |
+| `regression_smoke_terminal_state` | CLI/MCP status/list/report agree on drained deadline outcome; running, intentional pause, uncertain outcome and complete controls; complete SQLite dump unchanged |
 | `local_embedding_protocol` | llama.cpp-compatible `/v1/embeddings` and `/v1/chat/completions`, strict structured output, correction history, rejected malformed/schema-invalid/truncated generation with retained usage, restricted local privacy, local-compute charging, and 429 `Retry-After` plus 503 exponential retry on both VMs and compiler modes |
 | `regression_pages`, `regression_page_max`, `regression_large_job` | complete ordered page traversal, exact 99/100 and 65,535/65,536 boundaries through human/JSON/NDJSON/MCP; the latter two retain the repaired UX-02 boundary cases |
 | `regression_plan_detail` | 1.5-million-character summary, exact multibyte plan reconstruction, JSON/MCP paging, invalid/end cursors, mixed listings, zero calls and unchanged SQLite |

@@ -1,0 +1,4 @@
+READY 19046
+REQUEST /gemini/v1beta/models/gemini-embedding-2:embedContent
+RESPONSE_HELD
+REQUEST /gemini/v1beta/models/gemini-embedding-2:embedContent

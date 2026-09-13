@@ -1,0 +1,4 @@
+READY 19051
+REQUEST /gemini/v1beta/models/gemini-embedding-2:embedContent
+REQUEST /gemini/v1beta/models/gemini-embedding-2:embedContent
+SUMMARY scenario=product connections=2 request_connection_close=2 barrier_pairs=0

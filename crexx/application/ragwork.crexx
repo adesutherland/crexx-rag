@@ -16,6 +16,7 @@ import ragallowance
 import ragbacklog
 import ragadmission
 import raglifecycle
+import ragsupervision
 import ragenvironment
 import ragworktypes
 import ragreceipts
@@ -39,7 +40,7 @@ recoverworkerclaims: procedure = .int
   return 0
 
 claimnext: procedure = .int
-  arg store = .ragstorehandle, job_filter = .string, worker_id = .string, lease_seconds = .int, maximum_attempts = .int, expose claim = .ragworkclaim, expose error = .string, claim_enabled = 1
+  arg store = .ragstorehandle, job_filter = .string, worker_id = .string, lease_seconds = .int, maximum_attempts = .int, expose claim = .ragworkclaim, expose error = .string, claim_enabled = 1, parent_instance_id = ""
   error = ""; claim = .ragworkclaim(1, "", "", "", "", worker_id, 0, "", 0, "")
   if store.writable() \= 1 | worker_id = "" | lease_seconds < 1 | lease_seconds > 86400 | maximum_attempts < 1 | maximum_attempts > 100 then do; error = "worker claim policy is invalid"; return -1; end
   database = store.database()
@@ -51,7 +52,7 @@ claimnext: procedure = .int
   if expired = 1 then do
     if ragusage..closeexpiredreservations(database,error) \= 0 then return _rollback(database,error,error)
     uncertain = "EXISTS(SELECT 1 FROM job_events e WHERE e.attempt_id=attempts.attempt_id AND e.event_type='provider-intent' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response'))"
-    sql = "INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) SELECT i.job_id,i.item_id,a.attempt_id,'provider-outcome-uncertain','Provider intent has no durable response; reconcile before retry',strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM attempts a JOIN job_items i ON i.item_id=a.item_id AND i.fence=a.fence WHERE a.outcome='running' AND i.lease_until<=unixepoch() AND " || changestr("attempts.attempt_id",uncertain,"a.attempt_id")
+    sql = "INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) SELECT i.job_id,i.item_id,a.attempt_id,'provider-outcome-uncertain','Provider intent has no durable response; explicit retry may redo unfinished work',strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM attempts a JOIN job_items i ON i.item_id=a.item_id AND i.fence=a.fence WHERE a.outcome='running' AND i.lease_until<=unixepoch() AND " || changestr("attempts.attempt_id",uncertain,"a.attempt_id")
     if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot preserve uncertain provider outcome",error)
     /* An uncertain call holds its item; unrelated items retain admission. */
     /* Expired attempts are closed before their items become eligible again. */
@@ -76,6 +77,9 @@ claimnext: procedure = .int
     if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot commit lease recovery",error)
     return 1
   end
+  permitted = workerclaimallowed(database,worker_id,error,parent_instance_id)
+  if permitted < 0 then return _rollback(database,error,error)
+  if permitted = 0 then do; call sqliteexec database,"ROLLBACK"; return 1; end
   if _reconsideritemretries(database,job_filter) \= 0 then return _rollback(database,"cannot reconsider pending item retries",error)
   sql = "SELECT i.item_id,i.job_id,i.item_type,i.input_hash,i.fence,j.config_snapshot_id FROM job_items i JOIN jobs j ON j.job_id=i.job_id WHERE i.state='queued' AND i.retry_at<=CAST(strftime('%s','now') AS INTEGER) AND j.state IN('queued','running') AND i.item_type IN('embedding','claim-extraction','improve-extraction','maintenance-resolution')"
   if job_filter \= "" then sql = sql || " AND i.job_id=?1"
@@ -162,8 +166,7 @@ reservecall: procedure = .int
   reservation_id = claim.attempt_id() || "#call-1"
   if _boundeventcount(database, claim.job_id(), "reservation-open:" || reservation_id) > 0 then return _rollback(database, "provider call is already reserved", error)
   if _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND (state<>'active' OR (deadline_epoch-unixepoch()-coalesce(json_extract(nullif(json_extract(policy_json,'$.timing'),''),'$.cleanup_seconds'),0))*1000<" || maximum_time_ms || ")",claim.job_id()) > 0 then return _deferuncalledclaim(database,claim,"maintenance window no longer admits provider calls",error)
-  if _boundcount(database,"SELECT count(*) FROM job_events e WHERE e.item_id=?1 AND e.event_type='provider-outcome-uncertain' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')",claim.item_id()) > 0 then return _rollback(database,"provider outcome uncertain; reconcile this item before retry",error)
-  if _boundcount(database,"SELECT count(*) FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id JOIN job_items i ON i.item_id=a.item_id WHERE e.item_id=?1 AND e.event_type='provider-intent' AND (a.outcome='expired' OR i.lease_until<=unixepoch()) AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')",claim.item_id()) > 0 then return _rollback(database,"provider outcome uncertain; reconcile this item's original intent before retry",error)
+  if _scalarint(database,"SELECT " || retryblockeditem(_q(claim.item_id()))) > 0 then return _rollback(database,"unfinished provider request needs an explicit retry",error)
   policy_json = _boundevent(database, claim.job_id(), "budget-policy")
   if policy_json = "" then return _rollback(database, "job has no immutable provider budget policy", error)
   policy = .jsondocument(policy_json)
@@ -407,6 +410,9 @@ requestcancel: procedure = .int
   if store.writable() \= 1 | job_id = "" | reason = "" then do; error = "cancellation inputs are invalid"; return -1; end
   database = store.database()
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin cancellation"; return -3; end
+  state = _boundscalartext(database,"SELECT state FROM jobs WHERE job_id=?1",job_id)
+  if state = "" then return _rollback(database,"job was not found",error)
+  if terminaljob(state)=1 | state="cancel_requested" then do; call sqliteexec database,"ROLLBACK"; return 0; end
   if sqliteexec(database, "UPDATE jobs SET state='cancel_requested',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id) || " AND state IN('queued','running','paused')") \= 0 then return _rollback(database, "cannot request job cancellation", error)
   if sqliteexec(database, "UPDATE job_items SET state='cancelled',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id) || " AND state='queued'") \= 0 then return _rollback(database, "cannot cancel queued items", error)
   if sqliteexec(database, "UPDATE job_items SET state='cancel_requested',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id) || " AND state='running'") \= 0 then return _rollback(database, "cannot request running-item cancellation", error)
@@ -485,7 +491,7 @@ _reconsideritemretries: procedure = .int
     state = _boundscalartext(database,"SELECT state FROM job_items WHERE item_id=?1",item_id)
     parent = _boundscalartext(database,"SELECT state FROM jobs WHERE job_id=?1",job_id)
     owned = _boundcount(database,"SELECT count(*) FROM job_items WHERE item_id=?1 AND state IN('queued','running','cancel_requested')",item_id)
-    uncertain = _scalarint(database,"SELECT CASE WHEN " || uncertainitem(_q(item_id)) || " THEN 1 ELSE 0 END")
+    uncertain = _scalarint(database,"SELECT CASE WHEN " || retryblockeditem(_q(item_id)) || " THEN 1 ELSE 0 END")
     ceiling = _boundscalarint(database,"SELECT coalesce(json_extract(message,'$.maximum_attempts'),0) FROM job_events WHERE job_id=?1 AND event_type='budget-policy' AND json_valid(message) ORDER BY event_id DESC LIMIT 1",job_id)
     spent = _boundcount(database,"SELECT count(*) FROM attempts WHERE item_id=?1 AND outcome<>'cancelled'",item_id)
     delayed = _boundcount(database,"SELECT count(*) FROM job_items WHERE item_id=?1 AND retry_at>unixepoch()",item_id)
@@ -494,8 +500,10 @@ _reconsideritemretries: procedure = .int
     if parent = "cancelled" | parent = "cancel_requested" then hold = "job-cancelled"
     if _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1",job_id)>0 then hold = "closed-window"
     disposition = retrydisposition(state,owned,uncertain,0,ceiling,spent,delayed,hold)
-    family_hold = retryfamilyhold(database,item_id)
-    if family_hold \= "" then disposition = family_hold
+    if disposition \= "already-complete" then do
+      family_hold = retryfamilyhold(database,item_id,1)
+      if family_hold \= "" then disposition = family_hold
+    end
     if disposition = "runnable" | disposition = "retry-delay" then do
       sql = "UPDATE job_items SET state='queued',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=" || _q(item_id) || " AND state IN('dead_letter','cancelled')"
       if sqliteexec(database,sql) \= 0 then return -1
@@ -534,9 +542,6 @@ replaydeadletters: procedure = .int
   if current_selected \= selected then return _rollback(database, "dead-letter selection changed before replay", error)
   selected_sql = "SELECT item_id FROM job_items WHERE job_id=" || _q(source_job_id) || " AND state='dead_letter'" || selector
   if _scalarint(database,"SELECT count(*) FROM maintenance_task_items WHERE item_id IN(" || selected_sql || ")") > 0 then return _rollback(database,"maintenance tasks retain their retry owner; request maintain retry and apply a new reviewed window",error)
-  if _scalarint(database,"SELECT count(*) FROM job_items i WHERE i.item_id IN(" || selected_sql || ") AND " || uncertainitem("i.item_id")) > 0 then return _rollback(database,"provider outcome uncertain; reconcile before replay",error)
-  descendants = "WITH RECURSIVE descendants(item_id) AS (SELECT replay_item_id FROM job_replay_items WHERE source_item_id IN(" || selected_sql || ") UNION SELECT m.replay_item_id FROM job_replay_items m JOIN descendants d ON m.source_item_id=d.item_id) "
-  if _scalarint(database,descendants || "SELECT count(*) FROM descendants d JOIN job_items i ON i.item_id=d.item_id WHERE i.state IN('queued','running','cancel_requested','processed','skipped') OR " || uncertainitem("i.item_id")) > 0 then return _rollback(database,"replay already has active, completed or uncertain descendants",error)
   sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,codex_turn_budget,created_at,updated_at) VALUES(" || _q(replay_job_id) || "," || _q(digest) || "," || _q(canonical) || "," || _q(target_config_snapshot_id) || ",'queued'," || selected || "," || model_call_budget || "," || input_token_budget || "," || output_token_budget || "," || cost_budget || "," || codex_turn_budget || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
   if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot create replay job", error)
   if _event(database, replay_job_id, "", "", "budget-policy", budget_policy) \= 0 then return _rollback(database, "cannot record replay budget policy", error)
@@ -558,7 +563,7 @@ replaydeadletters: procedure = .int
     columns = sqlitecolumntext(prepared, 0, item_id) | sqlitecolumntext(prepared, 1, item_type) | sqlitecolumnint(prepared, 2, priority) | sqlitecolumntext(prepared, 3, input_json)
     input_document = .jsondocument(input_json)
     if columns \= 0 | input_document.valid() \= 1 | input_document.node_type(input_document.root()) \= "object" then do; call sqlitefinalize prepared; return _rollback(database, "source replay input is invalid", error); end
-    if retryfamilyhold(database,item_id) \= "" then do; call sqlitefinalize prepared; return _rollback(database,"replay family already has active, completed or uncertain work",error); end
+    if retryfamilyhold(database,item_id,1) \= "" then do; call sqlitefinalize prepared; return _rollback(database,"replay family already has active or completed work",error); end
     replay_input = input_json
     replay_item_id = "item-replay-sha256:" || rxhash..sha256hex((replay_job_id || "00"x || item_id) as .binary)
     idempotency = "replay-sha256:" || rxhash..sha256hex((replay_item_id || "00"x || target_config_snapshot_id) as .binary)
@@ -627,9 +632,9 @@ readjobstatus: procedure = .int
   return 0
 
 runworkeronce: procedure = .int
-  arg store = .ragstorehandle, job_filter = .string, worker_id = .string, lease_seconds = .int, maximum_attempts = .int, policy = .ragclaimpolicy, provider = .ragworkprovider, expose disposition = .string, expose error = .string, recovery_profile = .ragprofile
+  arg store = .ragstorehandle, job_filter = .string, worker_id = .string, lease_seconds = .int, maximum_attempts = .int, policy = .ragclaimpolicy, provider = .ragworkprovider, expose disposition = .string, expose error = .string, recovery_profile = .ragprofile, parent_instance_id = ""
   claim = .ragworkclaim
-  status = _runworkeronce(store,job_filter,worker_id,lease_seconds,maximum_attempts,policy,provider,disposition,error,recovery_profile,claim)
+  status = _runworkeronce(store,job_filter,worker_id,lease_seconds,maximum_attempts,policy,provider,disposition,error,recovery_profile,claim,parent_instance_id)
   /* A cancellation may arrive during the provider or during final validation.
    * All publication paths retain their ordinary fence checks. Acknowledge only
    * after this attempt has no unsettled reservation, including uncalled work. */
@@ -649,14 +654,14 @@ runworkeronce: procedure = .int
   return status
 
 _runworkeronce: procedure = .int
-  arg store = .ragstorehandle, job_filter = .string, worker_id = .string, lease_seconds = .int, maximum_attempts = .int, policy = .ragclaimpolicy, provider = .ragworkprovider, expose disposition = .string, expose error = .string, recovery_profile = .ragprofile, expose claim = .ragworkclaim
+  arg store = .ragstorehandle, job_filter = .string, worker_id = .string, lease_seconds = .int, maximum_attempts = .int, policy = .ragclaimpolicy, provider = .ragworkprovider, expose disposition = .string, expose error = .string, recovery_profile = .ragprofile, expose claim = .ragworkclaim, parent_instance_id = ""
   disposition = "idle"; error = ""; claim = .ragworkclaim
   if tickbacklogwindow(store, job_filter, error) < 0 then return -3
-  claim_status = claimnext(store, job_filter, worker_id, lease_seconds, maximum_attempts, claim, error)
+  claim_status = claimnext(store, job_filter, worker_id, lease_seconds, maximum_attempts, claim, error, 1, parent_instance_id)
   if claim_status = 1 then return 1
   if claim_status \= 0 then return claim_status
   if claim.item_type() = "maintenance-resolution" then do
-    context_status = checkbacklogclaim(store,claim.item_id(),claim.attempt_id(),claim.worker_id(),claim.fence(),error)
+    context_status = checkbacklogclaim(store,claim.job_id(),claim.item_id(),claim.attempt_id(),claim.worker_id(),claim.fence(),error)
     if context_status < 0 then return context_status
     if context_status = 1 then do; disposition = "resolution-stale"; return 0; end
   end
@@ -679,7 +684,7 @@ _runworkeronce: procedure = .int
   if receipt_state < 0 then return -3
   if receipt_state = 2 then do
     failure_error = ""
-    if failattempt(store,claim,0,1,maximum_attempts,"provider outcome uncertain: intent persisted without a response; reconcile before retry",failure_error) \= 0 then do; error = failure_error; return -3; end
+    if failattempt(store,claim,0,1,maximum_attempts,"provider outcome uncertain: intent persisted without a response; explicit retry may redo unfinished work",failure_error) \= 0 then do; error = failure_error; return -3; end
     disposition = "provider-outcome-uncertain"; return 0
   end
   reservation = .ragcallreservation
@@ -880,14 +885,8 @@ _stageproviderbatch: procedure = .int
   return _completebatchattempt(store,claim,notes,revision_chunk_id,provider_run_id,mentions.0,proposals.0,dispositions,error,generation)
 
 _ensureprovidermentions: procedure = .int
-  arg store = .ragstorehandle, claim = .ragworkclaim, mentions = .ragworkmention[], revision_chunk_id = .string, provider_run_id = .string, expose error = .string, owned_generation = 0
+  arg store = .ragstorehandle, claim = .ragworkclaim, mentions = .ragworkmention[], revision_chunk_id = .string, provider_run_id = .string, expose error = .string, generation = .int
   database = store.database()
-  if owned_generation = 0 then do
-    if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider mention census"; return -1; end
-  end
-  if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale during mention census", error)
-  generation = _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1")
-  if owned_generation > 0 then generation = owned_generation
   do i = 1 to mentions.0
     mention = mentions[i]
     prepared = .binary
@@ -918,20 +917,11 @@ _ensureprovidermentions: procedure = .int
     step = sqlitestep(prepared); call sqlitefinalize prepared
     if binds \= 0 | step \= 101 then return _rollback(database, "insert provider mention decision", error)
   end
-  if owned_generation = 0 then do
-    if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "commit provider mention census", error)
-  end
   return 0
 
 _completebatchattempt: procedure = .int
-  arg store = .ragstorehandle, claim = .ragworkclaim, notes = .ragworknote[], revision_chunk_id = .string, provider_run_id = .string, mention_count = .int, proposal_count = .int, dispositions = .string, expose error = .string, owned_generation = 0
+  arg store = .ragstorehandle, claim = .ragworkclaim, notes = .ragworknote[], revision_chunk_id = .string, provider_run_id = .string, mention_count = .int, proposal_count = .int, dispositions = .string, expose error = .string, generation = .int
   database = store.database()
-  if owned_generation = 0 then do
-    if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin provider batch completion"; return -1; end
-  end
-  if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale during batch completion", error)
-  generation = _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1")
-  if owned_generation > 0 then generation = owned_generation
   do i = 1 to notes.0
     note = notes[i]
     note_id = "note-sha256:" || rxhash..sha256hex((claim.input_hash() || "00"x || note.kind() || "00"x || note.text() || "00"x || note.span_start() || "00"x || note.span_end()) as .binary)
@@ -953,9 +943,6 @@ _completebatchattempt: procedure = .int
   sql = "UPDATE job_items SET state='processed',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=" || _q(claim.item_id()) || " AND worker_id=" || _q(claim.worker_id()) || " AND fence=" || claim.fence() || " AND state='running'"
   if sqliteexec(database, sql) \= 0 | _scalarint(database, "SELECT changes()") \= 1 then return _rollback(database, "complete provider batch item", error)
   if _event(database, claim.job_id(), claim.item_id(), claim.attempt_id(), "processed", output) \= 0 | _refreshjob(database, claim.job_id()) \= 0 then return _rollback(database, "finish provider batch", error)
-  if owned_generation = 0 then do
-    if sqliteexec(database, "COMMIT") \= 0 then return _rollback(database, "commit provider batch", error)
-  end
   return 0
 
 _reservationcaps: procedure = .int

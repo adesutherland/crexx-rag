@@ -363,7 +363,7 @@ ragapplicationprovider: class implements .ragworkprovider
           failed_result = _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,provider_output.error().message(),provider_output.error().retryable(),"",provider_charging_basis,provider_config.initial_backoff_ms())
           if provider_output.error().retryable() = 1 then call failed_result.set_admission_deferred()
         end
-        if durable_run_id \= "" & terminal_observed = 0 then call failed_result.set_worker_failure("Codex outcome requires job reconcile before retry",1)
+        if durable_run_id \= "" & terminal_observed = 0 then call failed_result.set_worker_failure("Codex response is unavailable; recover the retained turn or explicitly retry",1)
         if _codex_backend.health_error() \= "" then call failed_result.set_worker_failure(_codex_backend.health_error(),durable_run_id \= "" & terminal_observed = 0)
       end
       return failed_result

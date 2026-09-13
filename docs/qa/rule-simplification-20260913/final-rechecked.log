@@ -1,0 +1,20 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start 24: worker_recovery
+1/2 Test #24: worker_recovery ..................   Passed  140.55 sec
+    Start 49: native_receipt_failure
+2/2 Test #49: native_receipt_failure ...........   Passed    4.77 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Label Time Summary:
+accounting       =   4.77 sec*proc (1 test)
+concurrency      =   4.77 sec*proc (1 test)
+durability       = 140.55 sec*proc (1 test)
+gemini           =   4.77 sec*proc (1 test)
+provider         = 140.55 sec*proc (1 test)
+recovery         = 145.32 sec*proc (2 tests)
+sqlite           =   4.77 sec*proc (1 test)
+worker           = 140.55 sec*proc (1 test)
+zero-outbound    = 145.32 sec*proc (2 tests)
+
+Total Test time (real) = 145.32 sec

@@ -1,0 +1,37 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start  4: regression_operator_diagnostics
+1/6 Test  #4: regression_operator_diagnostics ...   Passed    5.74 sec
+    Start 13: regression_supervision
+2/6 Test #13: regression_supervision ............   Passed   17.02 sec
+    Start 18: provider_durability
+3/6 Test #18: provider_durability ...............   Passed   12.28 sec
+    Start 19: codex_protocol
+4/6 Test #19: codex_protocol ....................   Passed   41.51 sec
+    Start 22: controller_recovery
+5/6 Test #22: controller_recovery ...............   Passed   46.62 sec
+    Start 47: native_interruption
+6/6 Test #47: native_interruption ...............   Passed    6.37 sec
+
+100% tests passed, 0 tests failed out of 6
+
+Label Time Summary:
+accounting             =   6.37 sec*proc (1 test)
+cancellation           =   6.37 sec*proc (1 test)
+codex                  =  53.79 sec*proc (2 tests)
+concurrency            =  46.62 sec*proc (1 test)
+durability             =  12.28 sec*proc (1 test)
+jsonl                  =  41.51 sec*proc (1 test)
+native                 =   6.37 sec*proc (1 test)
+operator               =   5.74 sec*proc (1 test)
+pagination             =   5.74 sec*proc (1 test)
+provider               = 100.42 sec*proc (3 tests)
+publication            =   6.37 sec*proc (1 test)
+recovery               =  70.01 sec*proc (3 tests)
+regression             =  22.75 sec*proc (2 tests)
+schema                 =  41.51 sec*proc (1 test)
+sqlite                 =   6.37 sec*proc (1 test)
+subscription-budget    =  12.28 sec*proc (1 test)
+worker                 =  63.64 sec*proc (2 tests)
+zero-outbound          = 129.55 sec*proc (6 tests)
+
+Total Test time (real) = 129.55 sec

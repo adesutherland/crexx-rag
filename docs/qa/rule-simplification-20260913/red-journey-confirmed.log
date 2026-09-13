@@ -1,0 +1,23 @@
+CMake Error at /private/tmp/crexxrag-simplify-20260913/RuleSimplification.cmake:51 (message):
+  repeated stop is not a no-op
+
+
+CMake Error at /private/tmp/crexxrag-simplify-20260913/RuleSimplification.cmake:32 (message):
+  completed task wins over historical uncertainty: expected
+  'already-complete', got 'provider-outcome-uncertain'
+Call Stack (most recent call first):
+  /private/tmp/crexxrag-simplify-20260913/RuleSimplification.cmake:63 (expect)
+
+
+CMake Error at /private/tmp/crexxrag-simplify-20260913/RuleSimplification.cmake:65 (message):
+  Completed Gemini task must not demand Codex reconciliation
+
+
+CMake Error at /private/tmp/crexxrag-simplify-20260913/RuleSimplification.cmake:32 (message):
+  source policy applies despite queued and historical work: expected '0', got
+  '6'
+Call Stack (most recent call first):
+  /private/tmp/crexxrag-simplify-20260913/RuleSimplification.cmake:68 (expect)
+
+
+-- RULE_SIMPLIFICATION_JOURNEY_FINISHED; failed expectations remain ordinary failures

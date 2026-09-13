@@ -16,8 +16,12 @@ repaired smoke defects are closed on their stated evidence.
 
 The whole corpus recovery remains open. Five embeddings are missing, the
 original job retains 521 content and 24 operational extraction holds, and
-maintenance retains 101 holds. RAG-SMK-004 and RAG-SMK-005 are open P2 public
-status defects. Higher retry-policy authorization remains pending after automatic
+maintenance retains 101 holds. RAG-SMK-004 and RAG-SMK-005 are locally qualified:
+full **67/67 in 932.92 seconds**, plus **5/5** separate scratch-installed
+fixture invocations. Evidence is in
+[the four-fix record](four-smoke-fixes-20260913.md). The same repair delivers
+the controller-loss and routine restart requirements under OPS-001/004.
+Higher retry-policy authorization remains pending after automatic
 approval review rejected the persistent increase; no policy write ran.
 
 The incident accounts below preserve the original requirements and dated
@@ -35,6 +39,17 @@ not claims that their dated live runs are still underway. Broader fresh-operator
 hosted, platform and long-run closure remains open; OPS-005 renewal is separate.
 
 ## RAG-OPS-001 — P1: routine launch and recovery must be product operations
+
+**13 September restart clarification — open, tests added before repair.**
+The [simple restart decision](architecture.md#durable-ingestion) replaces the
+prior elaborate proposal. A real controller-only kill now reproduces further
+child claims in `regression_controller_loss`. `regression_restart_live` returns
+6 (existing ownership) instead of performing ordinary cleanup/start; its
+already-drained repeated-continuation control preserves completed history.
+See [coverage and limits](regression-coverage.md#current-status--13-september-2026).
+No restart implementation or closure is claimed by these failing tests.
+
+The following is the original incident requirement:
 
 Status: open, high-priority backlog requirement raised by the user on
 2026-09-10. Address after the current embedding run; this entry does not claim
@@ -793,6 +808,16 @@ No heartbeat tolerance, attempt allowance or provider budget was increased.
 
 ## RAG-SMK-004 — P2: job status calls stale registered workers live
 
+Current repair, 13 September: implemented with an ordinary passing regression.
+The shared owner, exact artifact, full gate and scratch-installed results are
+recorded in [the four-fix record](four-smoke-fixes-20260913.md). The following
+account preserves the incident and pre-repair evidence.
+
+13 September test-only follow-up: `regression_smoke_stale_workers` reproduces
+this through CLI and MCP on a scratch library. Public PID checks independently
+confirm a known exited worker; the count is 1 rather than 0. Healthy/empty group
+controls and unchanged SQLite dump pass. The defect remains open.
+
 Open display defect, observed after the failed maintenance group exited.
 Public `job status` reported `worker_live_workers: 7` with a failed controller
 and a708-second-old heartbeat. A same-domain public `worker list` showed those
@@ -823,6 +848,16 @@ See the [complete acceptance and remaining work](operator-continuation-smoke-202
 
 ## RAG-SMK-005 — P2: final public job states disagree
 
+Current repair, 13 September: implemented with an ordinary passing regression.
+The shared owner, exact artifact, full gate and scratch-installed results are
+recorded in [the four-fix record](four-smoke-fixes-20260913.md). The following
+account preserves the incident and pre-repair evidence.
+
+13 September test-only follow-up: `regression_smoke_terminal_state` reproduces
+CLI/MCP job-list and report disagreement with drained job status. Running,
+intentional pause, unknown-outcome hold, completed state and unchanged SQLite
+controls pass. The defect remains open; no lifecycle rule has been changed.
+
 Open, reproduced by the final read-only audit at generation 24,922. For the
 same drained maintenance job, `job status` says `completed_with_errors` with
 zero queued/running items and a stopped controller, while `job list` says
@@ -841,3 +876,67 @@ control state from current outcome/activity. Preserve an intentional live
 pause, unknown outcomes and remaining durable work. Add public CLI/MCP and
 report parity tests for normal deadline drain, operator pause and uncertain
 holds before changing the owning rule. Track under OPS-003; no repair is claimed.
+
+## RAG-SMK-006 — P2: embedding repair completes before automatic publication fails
+
+Current status: repaired and locally qualified on installed CREXX `g037e7939bc29`.
+The new regression failed before implementation and passes after moving manifest
+recovery into the shared vector builder. Focused **5/5**, full **68/68 in 944.08s**
+and matching scratch-installed replay pass. See the
+[repair and exact evidence](smk006-publication-repair-20260913.md).
+The following preserves the original Test 1 incident; no live repeat is claimed.
+
+Originally observed in [Test 1](test1-embeddings-20260913.md) on 13 September 2026,
+native SHA-256 `62eaaa2292e210b0c468d2de58ed126ca92557a1a24760109d863c764b85fa81`.
+Five missing embeddings were successfully generated and committed. The job
+status was completed with five successful calls and stopped workers, but the
+same `job run` exited 8: `library manifest must be aligned before sidecar publication`.
+Verification reported an invalid manifest, zero repository issues; report
+showed 34,905 stored embeddings but no compatible published vector rows.
+
+The existing public `vector rebuild --reconcile` repaired the projection and
+published all 34,905 vectors with no further provider calls. Final verification
+passes. This operational recovery does not qualify automatic job publication.
+
+Observed owner asymmetry: `ragproduct._vectorrebuild` calls `recovermanifest`
+after checking writers, before `buildannvectorgeneration`; `_publishjobvectors`
+and `_publishconfiguredvector` omit that recovery. `ragbackup._preparesidecar`
+requires an aligned manifest. This is the immediate failing guard and a repair
+lead; no new scratch reproduction or source fix is claimed in Test 1.
+
+Required regression: begin with a compatible partial published index, repair
+the remaining embeddings through a fresh reviewed embedding-only job, and
+require `job run` exit 0, complete vector coverage, aligned manifest and exactly
+the required calls. Include a committed-output/failed-projection recovery
+control preserving receipts and prohibiting provider replay. Place any fix in
+the existing publication owner and retain writer/fence checks. Evidence includes
+the failed run, intervening verification/report, public recovery and final
+passing checks in `docs/qa/test1-embeddings-20260913/`.
+
+
+## RAG-SMK-007 — P1: historical jobs veto future configuration
+
+Repaired and locally qualified: **69/69** tests pass. `ragconfiguration` no longer
+uses a global job/worker/reservation veto for future policy; continuation uses
+that same owner. Old snapshots and per-item provider checks remain. The real
+corpus copy accepted the new source while its historical jobs remained intact.
+See the [repair and smoke evidence](rule-simplification-repair-20260913.md).
+The earlier [expanded-guard proposal](configuration-hold-investigation-20260913.md)
+was superseded by the user's simplification direction.
+
+## RAG-SMK-008 — P2: repeated cancel toggles an uncertain parent's stored state
+
+Repaired through `ragwork.requestcancel` and shared `raglifecycle`. Cancelling
+already terminal work makes no writes; completed and stopped outcomes no longer
+oscillate because an older attempt lacks a receipt. The public regression checks
+repeat cancellation, unchanged history and agreement with the stored outcome.
+The final suite passes **69/69**; see the [repair](rule-simplification-repair-20260913.md).
+
+## RAG-SMK-009 — P2: Gemini hold recommends unavailable Codex reconciliation
+
+Repaired. Completed work reports `already-complete`; unfinished work uses ordinary
+explicit-retry guidance. Old unknown responses and usage remain visible. The
+actual resolved Gemini item in the corpus copy now says no retry call is needed.
+Retained Codex reconciliation still works, including from a drained terminal
+parent; shared lifecycle refresh makes recovered work runnable. The final suite
+passes **69/69**; see the [repair](rule-simplification-repair-20260913.md).

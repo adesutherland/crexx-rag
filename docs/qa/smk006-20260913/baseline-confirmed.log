@@ -1,0 +1,21 @@
+-- PARTIAL_ANCESTRAL_CONTROL_OK
+CMake Error at /private/tmp/EmbeddingPublication.cmake:55 (message):
+  RAG-SMK-006 automatic publication after repair: expected '0', got '8'
+Call Stack (most recent call first):
+  /private/tmp/EmbeddingPublication.cmake:101 (expect)
+
+
+CMake Error at /private/tmp/EmbeddingPublication.cmake:55 (message):
+  RAG-SMK-006 automatic manifest integrity: expected '0', got '7'
+Call Stack (most recent call first):
+  /private/tmp/EmbeddingPublication.cmake:103 (expect)
+
+
+CMake Error at /private/tmp/EmbeddingPublication.cmake:55 (message):
+  RAG-SMK-006 coverage publication receipts reservations: expected
+  '2:2:2:1:0', got '2:2:2:0:0'
+Call Stack (most recent call first):
+  /private/tmp/EmbeddingPublication.cmake:105 (expect)
+
+
+-- PUBLICATION_RECOVERY_CONTROLS_CHECKED calls=2 history=preserved; errors above remain failures

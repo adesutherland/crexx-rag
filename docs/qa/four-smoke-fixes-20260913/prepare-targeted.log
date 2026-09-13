@@ -1,0 +1,37 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start  5: regression_smoke_stale_workers
+1/9 Test  #5: regression_smoke_stale_workers ....   Passed    1.90 sec
+    Start  6: regression_smoke_terminal_state
+2/9 Test  #6: regression_smoke_terminal_state ...   Passed    2.09 sec
+    Start 49: native_interruption
+3/9 Test #49: native_interruption ...............   Passed    6.44 sec
+    Start 50: regression_controller_loss
+4/9 Test #50: regression_controller_loss ........   Passed    1.40 sec
+    Start 51: regression_restart_live
+5/9 Test #51: regression_restart_live ...........   Passed    3.00 sec
+    Start 64: native_continuation
+6/9 Test #64: native_continuation ...............   Passed   12.78 sec
+    Start 65: native_legacy_retry_ceiling
+7/9 Test #65: native_legacy_retry_ceiling .......   Passed   10.41 sec
+    Start 66: native_continuation_holds
+8/9 Test #66: native_continuation_holds .........   Passed   18.31 sec
+    Start 67: native_embedding_retry_policy
+9/9 Test #67: native_embedding_retry_policy .....   Passed   10.73 sec
+
+100% tests passed, 0 tests failed out of 9
+
+Label Time Summary:
+accounting       =   6.44 sec*proc (1 test)
+cancellation     =   6.44 sec*proc (1 test)
+continuation     =  31.09 sec*proc (2 tests)
+lifecycle        =  21.13 sec*proc (2 tests)
+loopback         =  52.22 sec*proc (4 tests)
+native           =  63.07 sec*proc (7 tests)
+operator         =   3.98 sec*proc (2 tests)
+publication      =   6.44 sec*proc (1 test)
+recovery         =  67.05 sec*proc (9 tests)
+regression       =  60.61 sec*proc (8 tests)
+sqlite           =   6.44 sec*proc (1 test)
+zero-outbound    =  14.83 sec*proc (5 tests)
+
+Total Test time (real) =  67.06 sec

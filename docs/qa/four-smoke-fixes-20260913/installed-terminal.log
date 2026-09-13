@@ -1,0 +1,2 @@
+-- SMOKE_STATUS_CONTROLS_OK: running, operator pause, unknown outcome, complete
+-- SMOKE_STATUS_READ_ONLY_OK: terminal_state; any errors above remain failures

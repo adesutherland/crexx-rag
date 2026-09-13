@@ -1,0 +1,98 @@
+[
+  {
+    "kind": "shared_retry_call",
+    "file": "crexx/application/ragwork.crexx",
+    "line": 169,
+    "text": "if _scalarint(database,\"SELECT \" || retryblockeditem(_q(claim.item_id()))) > 0 then return _rollback(database,\"unfinished provider request needs an explicit retry\",error)"
+  },
+  {
+    "kind": "shared_retry_call",
+    "file": "crexx/application/ragwork.crexx",
+    "line": 494,
+    "text": "uncertain = _scalarint(database,\"SELECT CASE WHEN \" || retryblockeditem(_q(item_id)) || \" THEN 1 ELSE 0 END\")"
+  },
+  {
+    "kind": "shared_retry_call",
+    "file": "crexx/application/ragwork.crexx",
+    "line": 504,
+    "text": "family_hold = retryfamilyhold(database,item_id,1)"
+  },
+  {
+    "kind": "shared_retry_call",
+    "file": "crexx/application/ragwork.crexx",
+    "line": 566,
+    "text": "if retryfamilyhold(database,item_id,1) \\= \"\" then do; call sqlitefinalize prepared; return _rollback(database,\"replay family already has active or completed work\",error); end"
+  },
+  {
+    "kind": "shared_fence_call",
+    "file": "crexx/application/ragwork.crexx",
+    "line": 1046,
+    "text": "return activeworkfence(database,claim.job_id(),claim.item_id(),claim.attempt_id(),claim.worker_id(),claim.fence(),allow_cancelled_settlement)"
+  },
+  {
+    "kind": "shared_fence_call",
+    "file": "crexx/application/ragusage.crexx",
+    "line": 301,
+    "text": "return activeworkfence(database,claim.job_id(),claim.item_id(),claim.attempt_id(),claim.worker_id(),claim.fence(),allow_cancelled_settlement)"
+  },
+  {
+    "kind": "shared_retry_call",
+    "file": "crexx/application/ragbacklog.crexx",
+    "line": 275,
+    "text": "if _number(database,\"SELECT \" || retryrequested(\"NULL\",_q(task_id)))=1 then retry_uncertain=0"
+  },
+  {
+    "kind": "shared_retry_call",
+    "file": "crexx/application/ragbacklog.crexx",
+    "line": 294,
+    "text": "return \" AND NOT \" || taskwaived(\"maintenance_tasks.task_id\") || \" AND NOT EXISTS(SELECT 1 FROM retry_requests r WHERE r.task_id=maintenance_tasks.task_id AND r.state='pending' AND r.disposition NOT IN('runnable','retry-delay')) AND NOT EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=maintenance_tasks.task_id AND (i.state IN('queued','running','cancel_requested') OR \" || retryblockeditem(\"i.item_id\") || \"))\""
+  },
+  {
+    "kind": "shared_fence_call",
+    "file": "crexx/application/ragbacklog.crexx",
+    "line": 1040,
+    "text": "if activeworkfence(database,job_id,item_id,attempt_id,worker_id,fence) \\= 1 then return _rollback(database,\"maintenance worker fence is stale\",error)"
+  },
+  {
+    "kind": "shared_fence_call",
+    "file": "crexx/application/ragbacklog.crexx",
+    "line": 1072,
+    "text": "if activeworkfence(database,job_id,item_id,attempt_id,worker_id,fence) \\= 1 then return _rollback(database,\"resolution worker fence is stale\",error)"
+  },
+  {
+    "kind": "shared_retry_call",
+    "file": "crexx/application/raglifecycle.crexx",
+    "line": 107,
+    "text": "return \"(\" || uncertainitem(item_expression) || \" AND NOT \" || retryrequested(item_expression) || \")\""
+  },
+  {
+    "kind": "replay_family",
+    "file": "crexx/application/raglifecycle.crexx",
+    "line": 112,
+    "text": "family = \"WITH RECURSIVE ancestors(item_id) AS (SELECT \" || _q(item_id) || \" UNION SELECT m.source_item_id FROM job_replay_items m JOIN ancestors a ON m.replay_item_id=a.item_id), family(item_id) AS (SELECT item_id FROM ancestors UNION SELECT m.replay_item_id FROM job_replay_items m JOIN family f ON m.source_item_id=f.item_id) \""
+  },
+  {
+    "kind": "claim_fence_sql",
+    "file": "crexx/application/raglifecycle.crexx",
+    "line": 250,
+    "text": "sql = \"SELECT count(*) FROM job_items i JOIN attempts a ON a.attempt_id=?1 AND a.item_id=i.item_id WHERE i.item_id=?2 AND i.job_id=?3 AND i.worker_id=?4 AND i.fence=?5 AND i.state='running' AND i.lease_until>CAST(strftime('%s','now') AS INTEGER) AND a.worker_id=i.worker_id AND a.fence=i.fence AND a.outcome='running'\""
+  },
+  {
+    "kind": "shared_retry_call",
+    "file": "crexx/application/ragreceipts.crexx",
+    "line": 63,
+    "text": "if original_attempt \\= claim.attempt_id() & _boundcount(database,\"SELECT count(*) FROM job_items WHERE item_id=?1 AND \" || retryrequested(\"job_items.item_id\"),claim.item_id())=1 then do"
+  },
+  {
+    "kind": "shared_fence_call",
+    "file": "crexx/application/ragreceipts.crexx",
+    "line": 229,
+    "text": "return activeworkfence(database,claim.job_id(),claim.item_id(),claim.attempt_id(),claim.worker_id(),claim.fence(),allow_cancelled_settlement)"
+  },
+  {
+    "kind": "shared_fence_call",
+    "file": "crexx/application/ragclaims.crexx",
+    "line": 863,
+    "text": "return activeworkfence(database,job_id,item_id,attempt_id,worker_id,fence)"
+  }
+]

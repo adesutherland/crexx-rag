@@ -1,0 +1,29 @@
+--- ragembedding.before.crexx
++++ ragembedding.crexx
+@@ -250,6 +250,14 @@
+    * Partial initial libraries and same-profile repair remain supported. */
+   replacements = _scalarint(store.database(),"SELECT count(*) FROM vector_generations WHERE state='published' AND embedding_profile_id<>" || _q(embedding_profile_id) || " AND " || compatiblevectorpredicate(generation as .string))
+   if replacements > 0 & rows < active_chunks then do; error = "replacement embedding representation is incomplete; existing vectors remain published"; return -2; end
++  /* Completed embeddings can invalidate a partial ancestral index without
++   * a new semantic generation. Both new and replayed vector publication must
++   * recover SQLite's current manifest projection before sidecar preparation. */
++  manifest_status = ""
++  if manifeststate(store, manifest_status, error) \= 0 | manifest_status \= "aligned" then do
++    error = ""
++    if recovermanifest(store, error) \= 0 then return -3
++  end
+   centroid_count = requested_centroids
+   if centroid_count > rows then centroid_count = rows
+   probe_count = requested_probes
+@@ -298,11 +306,6 @@
+       if _restorederivedsidecar(store, generation, vector_generation_id, sidecar_name, payload_text, error, target_generation) \= 0 then return -3
+       state = "rebuilt-from-sqlite"
+     end
+-    manifest_status = ""
+-    if manifeststate(store, manifest_status, error) \= 0 | manifest_status \= "aligned" then do
+-      error = ""
+-      if publishmanifest(store, error) \= 0 then return -3
+-    end
+     result = .ragvectorgenerationresult(0, state, vector_generation_id, generation, embedding_profile_id, dimension, rows, sidecar_name, checksum, "")
+     return 0
+   end

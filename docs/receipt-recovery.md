@@ -1,5 +1,11 @@
 # Receipt and usage recovery
 
+13 September update: the approved [rule simplification](rule-simplification-repair-20260913.md)
+lets completed work stay complete and an explicit retry redo unfinished work
+without recovering an old missing receipt. Automatic restart still retains
+unanswered attempts without repeating the call; old usage and attempt limits
+remain effective. The earlier hold rules and qualification below are historical.
+
 Stage 3 of the recovery plan, 11 September 2026. Receipt persistence, usage
 accounting and permission to publish are separate outcomes. A failed receipt
 write must preserve the original request and usage, hold missing output, and

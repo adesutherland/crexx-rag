@@ -1,0 +1,12 @@
+--- before
+
++++ after
+
+@@ -41,5 +41,5 @@
+
+ provider.gemini-embed.credential = env:GEMINI_API_KEY
+ provider.gemini-embed.timeout_ms = 60000
+-provider.gemini-embed.max_attempts = 1
++provider.gemini-embed.max_attempts = 2
+ provider.gemini-embed.requests_per_minute = 40
+ provider.gemini-embed.tokens_per_minute = 250000

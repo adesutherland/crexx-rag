@@ -132,9 +132,6 @@ _vectorrebuild: procedure = .ragcommandresult
   embedding_profile_id = sqlreadtext(store.database(), "SELECT embedding_profile_id FROM embedding_profiles WHERE input_envelope_fingerprint=" || sqlquote(fingerprint) || " AND dimension=" || role.embedding_dimensions())
   if embedding_profile_id = "" then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 6, "no compatible stored embeddings; vector rebuild never calls a provider"); end
   if embeddingwriters(store.database()) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 6, "vector rebuild requires drained workers and paused or settled jobs"); end
-  /* A committed graph can outlive its failed file projection, including
-   * before the first vector index exists. Repair that projection first. */
-  if recovermanifest(store,error) \= 0 then do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation,7,error); end
   duplicates = 0; reconciled = 0
   if reconcile = "true" then do
     snapshot_id = currentconfigsnapshotid(store.database(),error)
@@ -915,7 +912,9 @@ _workerstart: procedure = .ragcommandresult
   if openragstore(request.library(),preflight_mode,preflight_store,error) \= 0 then return commandopenfailure(operation,error)
   preflight = checkworkerconfiguration(preflight_store,job_filter,config_lookup.config(),profile_lookup.profile(),error)
   if preflight = 0 & is_job then do
-    pruned = 0; preflight = pruneprocesses(preflight_store,1,pruned,error)
+    /* Preparation has no launch: retain its refusal of active ownership
+     * without draining the running group or changing its authorization. */
+    if prepare \= "true" then preflight = cleanupjobprocesses(preflight_store,job_filter,config_lookup.config().workers().lease_seconds(),error)
     if preflight = 0 then do
       if sqlreadint(preflight_store.database(),"SELECT count(*) FROM runtime_instances WHERE (job_filter='' OR job_filter=" || sqlquote(job_filter) || ") AND state NOT IN('stopped','failed')") \= 0 then do; preflight = -1; error = "job already has process ownership; use worker status and worker drain"; end
       else do
@@ -1042,8 +1041,7 @@ _workerread: procedure = .ragcommandresult
     if process.host_id() = local_host then do
       pid_check = "not-running"
       if process.state() \= "stopped" & process.state() \= "failed" then do
-        pid_check = "missing"
-        if processalive(process.pid()) = 1 then pid_check = "alive"
+        pid_check = processpresence(process.pid(),process.host_id())
       end
     end
     fields = .ragresultfield[]
@@ -1229,7 +1227,6 @@ _jobcomplete: procedure = .int
   job_state = ""; column_status = sqlitecolumntext(prepared, 0, job_state); call sqlitefinalize prepared
   if column_status \= 0 then do; error = "cannot decode completed job state for vector publication"; return -1; end
   if sqlreadint(database, "SELECT count(*) FROM job_items WHERE job_id=" || sqlquote(job_id) || " AND state IN('running','cancel_requested')") > 0 then do; error = "vector publication is waiting for in-flight work to settle"; return -1; end
-  if job_state = "paused" then if sqlreadint(database,"SELECT count(*) FROM job_events e WHERE e.job_id=" || sqlquote(job_id) || " AND e.event_type='provider-outcome-uncertain' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')") > 0 then return 1
   if bounded = 1 & (job_state = "queued" | job_state = "running") then return 1
   if job_state \= "completed" & job_state \= "completed_with_errors" & job_state \= "cancelled" & job_state \= "paused" then do; error = "worker group ended before vector publication because job state is " || job_state; return -1; end
   return 0

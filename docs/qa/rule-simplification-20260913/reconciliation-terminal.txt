@@ -1,0 +1,1 @@
+Eight overlapping workers recovered unavailable-only within one controller, completed 15 extraction items, preserved budgets and made exactly 16 generation calls.

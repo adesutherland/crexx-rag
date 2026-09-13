@@ -1,5 +1,13 @@
 # Reliability and use-case coverage review
 
+13 September coverage clarification: the historical REL-006 kill case below
+kills controller and children together. It did not prove that children stop
+when only the controller dies. The [new regression baseline](regression-coverage.md#current-status--13-september-2026)
+added controller-only death, live-group restart and the two final-status escapes
+before implementation. All four now pass with the shared-owner repairs;
+[the repair record](four-smoke-fixes-20260913.md) records current full-suite and
+scratch-installed qualification separately from the historical REL results.
+
 The [consolidated roadmap](ROADMAP.md#recovery-and-reliability-history) indexes
 these repaired cases alongside later open requirements. Keep their separate
 qualification boundaries when assessing current readiness.

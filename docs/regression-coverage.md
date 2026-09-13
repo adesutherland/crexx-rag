@@ -1,5 +1,19 @@
 # Regression coverage baseline — REG-01
 
+Latest simplification: the [repair](rule-simplification-repair-20260913.md) adds
+`regression_rule_simplification` for prospective policy beside historical/queued
+jobs, stable repeated cancel, completed-task diagnostics and one-source ingest.
+Both-VM lifecycle and native maintenance tests cover explicit redo with retained
+history. The final complete suite passes **69/69 in 901.87 seconds**. The terminal
+controller case also covers reconciliation followed by prepared continuation. Interrupted
+request controls now distinguish automatic restart from an explicit redo.
+
+Latest publication follow-up: `embedding_publication` reproduces RAG-SMK-006's
+partial ancestral index failure and now passes with four existing controls
+(**5/5 in 52.41s**). Full QA passes **68/68 in 944.08s**, with a passing
+matching scratch-installed replay on CREXX `g037e7939bc29`. See the
+[publication repair record](smk006-publication-repair-20260913.md).
+
 The [maintenance refactoring delivery](maintenance-refactoring-delivery.md)
 extends this gate at each new owner. Stage 1 adds `regression_claim_policy`,
 characterized against the pre-refactor implementation on both VMs before
@@ -10,7 +24,98 @@ messages/schemas and `regression_prompt_inspection` for public and direct
 contract boundaries. Its baseline and final gate are recorded in the same
 delivery record; golden data was captured before product changes.
 
-## Current status — 12 September 2026
+## Current status — 13 September 2026
+
+The user subsequently authorized all four repairs. The shared status readers and
+simple controller cleanup/start behavior are implemented in this checkout.
+The extended baseline failed all four cases before product changes. The final
+focused panel passes **9/9 in 67.06 seconds**, including original
+interruption and continuation/retry controls. Earlier both-VM supervision and
+lifecycle controls also pass in the final full suite. The full suite passes **67/67 in
+932.92 seconds**; the separate scratch-installed replay passes **5/5**.
+[The repair record](four-smoke-fixes-20260913.md) owns exact artifact hashes,
+retained logs and qualification boundaries. No known-defect assertion was disabled or
+inverted; the four resolved labels were removed.
+
+Additional branch controls cover selected-group isolation (including unrelated
+live and terminal rows), PID-zero reservations, refusal of remote ownership
+without mutation, startup controller death and loss of the parent foreign-key
+link before a real claim. Direct and managed caller controls remain required.
+Remote and PID-zero status observations stay unverified. The installed CREXX
+probe cannot distinguish absent from inaccessible PIDs; cross-account and
+non-macOS behavior remain outside this local qualification.
+
+## Historical test-only baseline — 13 September 2026
+
+This is the test-only checkpoint requested before a new implementation session.
+Checkout: `crexx-rag-review`, branch `temp/project-review`, product/evidence HEAD
+`9292c8d8d724b52fce34047c868f15531348faca` (product implementation `1edb325`).
+Native SHA-256:
+`02f2d4ef292ff6cb6417a466178d682c42265c6878b999708101a01365a07fb5`.
+The configure step passed and the build reported `ninja: no work to do`.
+Only instructions, documentation and test registration/fixtures have changed.
+
+Before adding tests, the affected existing panel passed **6/6 in 129.55 seconds**:
+`regression_operator_diagnostics`, `regression_supervision`, `native_interruption`,
+`controller_recovery`, `provider_durability` and `codex_protocol`. Names alone
+had hidden gaps: the old kill case killed controller AND workers, and the old
+status cases did not compare the final drained state across readers.
+
+| Requirement | Executable regression and independent controls | Baseline result / next acceptance |
+| --- | --- | --- |
+| RAG-SMK-004: stale workers called live | `regression_smoke_stale_workers`: CLI/MCP job status, public PID inspection, known live runner (fresh and old heartbeat) and synchronously exited process, empty group, SQLite integrity and exact read-only dump | Fails: confirmed exited worker counted as 1 live worker instead of 0. Healthy, stale-but-alive and empty groups pass. Repair shared supervision facts; do not equate inaccessible with absent. |
+| RAG-SMK-005: disagreeing final states | `regression_smoke_terminal_state`: CLI/MCP status/list/report for a drained deadline job; running, intentional pause, unknown-outcome hold and complete controls; exact read-only dump | Fails: list says paused instead of completed_with_errors; report counts 4 active jobs instead of 3, including the drained job. Status and controls pass. Share lifecycle projection without losing real pauses/holds. |
+| OPS-001/004: child outlives controller and keeps taking work | `regression_controller_loss`: real registered controller/child, one provider response held on a FIFO, one queued peer; kill ONLY controller, release response, inspect attempts and actual child exit | Fails: attempts rise from 1 to 3 after controller loss. Child eventually exits, but has taken more work. Require no new claim once the controller is gone; no perfect recovery of the interrupted response is imposed. |
+| OPS-001/004: routine restart rejects surviving ownership | `regression_restart_live`: invoke ordinary job run while the first response is held; inspect new controller, old child exit and reservations; repeat ordinary continuation after drain and compare complete attempts/receipts/claims/embedding rows | Fails: job run returns 6 and no fresh controller is created. Repeated continuation after the old group drains is a control; it must create fresh children without repeating completed work. |
+
+All four use ordinary assertions and remain in the full gate. `known-defect`
+is a descriptive label, never `WILL_FAIL`, a skip, or a substitute for passing
+setup controls. Process tests use only their freshly created scratch library's
+registered PIDs. Providers are bounded localhost fixtures with synthetic keys;
+there are no hosted calls or changes to the Scottish master or selected policy.
+Scratch SQL constructs/observes test state; operators still use public commands.
+
+**Full suite: 63/67 pass in 879.91 seconds; exactly the four new regressions
+fail. All 63 pre-existing tests pass.** A final focused repeat, including the
+strengthened stale-but-alive/listing controls, passes the original interruption
+and documentation gates and reproduces all four defects again (2/6, 15.28s).
+The full gate is red, with no unexplained failures. Retained logs and final
+fixture hashes are in [the test evidence directory](qa/restart-coverage-20260913/).
+Product code is unchanged; no repair or new live qualification is claimed.
+
+### Coverage retained and remaining limits
+
+- RAG-SMK-001 already has active-submission versus unknown-hold assertions in
+  `regression_operator_diagnostics`. RAG-SMK-002 has fragmented UTF-8 and malformed
+  framing controls in `codex_protocol`. Do not replace these with success-only
+  provider checks.
+- RAG-SMK-003 already has 30,000-question/5,000-review fresh/upgrade query-plan and
+  semantic checks in `provider_durability`. This guards the reproduced scan
+  escape. It does not prove a maximum census writer duration; profile the
+  remaining contention before selecting a change or a timing expectation.
+- `native_legacy_retry_ceiling` and `native_embedding_retry_policy` cover the old
+  one-attempt failure and explicit embedding-six/reasoning-one policy boundary.
+  Higher-policy execution on the actual five Scottish items remains unperformed;
+  that is live acceptance, not a missing synthetic retry test.
+- Existing cancellation, lost/durable receipts, unknown outcomes, exhausted
+  allowance and fresh/upgrade recovery cases remain required. The simple
+  restart must compose these existing rules rather than replace them.
+- The new process tests cover the launcher's local permission domain. Selected
+  group isolation, permission errors and the exact PID representation need
+  branch-specific controls before implementation changes those areas. These
+  are declared extension points, not claims of cross-platform qualification.
+- Retained content failures need independently adjudicated valid/invalid source
+  fixtures before prompt or validator changes. Existing quotation and workflow
+  negatives remain passing controls; a rejected model response is not evidence
+  that validation is wrong. No correctness oracle for all 521/100 content holds
+  has been invented here.
+
+The requested first coverage increment is complete. The product defects and
+remaining roadmap acceptance are still open. Start the next
+session with the [handoff](operator-continuation-handoff.md) and make the
+specific failing acceptances pass without weakening the controls.
+
+## Historical status — 12 September 2026
 
 The third follow-up extends native recovery with actual denominators, interval
 usage, CLI/MCP waiver/reopen, active-work/access/reason denial, unchanged missing

@@ -271,7 +271,9 @@ taskretryfacts: procedure = .string
       if _s(active_policy,"mode") = "manual" then review = 1
     end
   end
-  disposition = retrydisposition(_s(task,"state"),owned,uncertain,review,ceiling,spent,_n(task,"delayed"),hold)
+  retry_uncertain = uncertain
+  if _number(database,"SELECT " || retryrequested("NULL",_q(task_id)))=1 then retry_uncertain=0
+  disposition = retrydisposition(_s(task,"state"),owned,retry_uncertain,review,ceiling,spent,_n(task,"delayed"),hold)
   if taskwaiveractive(database,task_id)>0 then disposition="waived"
   return '{"state":' || jsonquote(_s(task,"state")) || ',"disposition":' || jsonquote(disposition) || ',"attempt_limit":' || ceiling || ',"recorded_calls":' || _number(database,"SELECT " || _taskcallcount(_q(task_id))) || ',"reusable_output":' || recoverable || ',"uncertain_items":' || uncertain || ',"review_required":' || review || '}'
 
@@ -286,10 +288,10 @@ _updatetaskretry: procedure = .int
   if setretrydisposition(database,request_id,disposition) \= 0 then do; error = "cannot retain task retry disposition"; return -1; end
   return 0
 
-/* Apply this predicate even to tasks without an operator request. Reconcile
- * may make a task pending, but it cannot authorize a duplicate uncertain call. */
+/* Automatic dispatch retains unanswered work; an explicit retry may redo it.
+ * Active items remain exclusive in both cases. */
 _taskdispatchsafe: procedure = .string
-  return " AND NOT " || taskwaived("maintenance_tasks.task_id") || " AND NOT EXISTS(SELECT 1 FROM retry_requests r WHERE r.task_id=maintenance_tasks.task_id AND r.state='pending' AND r.disposition NOT IN('runnable','retry-delay')) AND NOT EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=maintenance_tasks.task_id AND (i.state IN('queued','running','cancel_requested') OR " || uncertainitem("i.item_id") || "))"
+  return " AND NOT " || taskwaived("maintenance_tasks.task_id") || " AND NOT EXISTS(SELECT 1 FROM retry_requests r WHERE r.task_id=maintenance_tasks.task_id AND r.state='pending' AND r.disposition NOT IN('runnable','retry-delay')) AND NOT EXISTS(SELECT 1 FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id=maintenance_tasks.task_id AND (i.state IN('queued','running','cancel_requested') OR " || retryblockeditem("i.item_id") || "))"
 
 recordaliasissue: procedure = .int
   arg database = .binary, candidate_id = .string, label = .string, concept_type = .string, aliases = .string[], expose error = .string
@@ -1031,11 +1033,11 @@ validatebacklogresponse: procedure = .int
   return 0
 
 checkbacklogclaim: procedure = .int
-  arg store = .ragstorehandle, item_id = .string, attempt_id = .string, worker_id = .string, fence = .int, expose error = .string
+  arg store = .ragstorehandle, job_id = .string, item_id = .string, attempt_id = .string, worker_id = .string, fence = .int, expose error = .string
   database = store.database(); error = ""
   if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do; error = "cannot validate claimed maintenance context"; return -3; end
   task = .jsondocument(_text(database,"SELECT json_object('task_id',t.task_id,'subject_type',t.subject_type,'subject_id',t.subject_id,'workflow_id',t.workflow_id,'fingerprint',t.evidence_fingerprint,'maximum_bytes',json_extract(w.policy_json,'$.maximum_evidence_bytes')) FROM maintenance_task_items m JOIN maintenance_tasks t ON t.task_id=m.task_id JOIN maintenance_windows w ON w.window_id=m.window_id WHERE m.item_id=" || _q(item_id)))
-  if _number(database,"SELECT count(*) FROM job_items i JOIN attempts a ON a.item_id=i.item_id WHERE i.item_id=" || _q(item_id) || " AND i.state='running' AND i.worker_id=" || _q(worker_id) || " AND i.fence=" || fence || " AND i.lease_until>unixepoch() AND a.attempt_id=" || _q(attempt_id) || " AND a.outcome='running' AND a.fence=i.fence") \= 1 then return _rollback(database,"maintenance worker fence is stale",error)
+  if activeworkfence(database,job_id,item_id,attempt_id,worker_id,fence) \= 1 then return _rollback(database,"maintenance worker fence is stale",error)
   fresh = ""; fingerprint = ""
   status = _freshbacklogtask(database,_s(task,"task_id"),_n(task,"maximum_bytes"),fresh,fingerprint,error)
   if status < 0 then return _rollback(database,error,error)
@@ -1067,7 +1069,7 @@ completebacklogdecision: procedure = .int
   if action = "assess-provenance" then if _number(database,"SELECT count(*) FROM json_each(" || _q(grounds) || ") WHERE json_extract(value,'$.assessment.description.assessment')='review-required'")>0 | _number(database,"SELECT count(*) FROM json_each(" || _q(response) || ",'$.assessments') WHERE json_extract(value,'$.confidence_millionths')<500000")>0 then decision_state="review"
   if sqliteexec(database,"BEGIN IMMEDIATE") \= 0 then do; error = "cannot record resolution decision"; return -3; end
   current = _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1"); generation = 0
-  if _number(database,"SELECT count(*) FROM job_items i JOIN attempts a ON a.item_id=i.item_id AND a.attempt_id=" || _q(attempt_id) || " WHERE i.item_id=" || _q(item_id) || " AND i.state='running' AND i.worker_id=" || _q(worker_id) || " AND i.fence=" || fence || " AND i.lease_until>unixepoch() AND a.outcome='running' AND a.fence=i.fence") \= 1 then return _rollback(database,"resolution worker fence is stale",error)
+  if activeworkfence(database,job_id,item_id,attempt_id,worker_id,fence) \= 1 then return _rollback(database,"resolution worker fence is stale",error)
   task = .jsondocument(_text(database,"SELECT json_object('kind',kind,'subject_type',subject_type,'subject_id',subject_id,'workflow_id',workflow_id,'evidence_fingerprint',evidence_fingerprint,'evidence_json',evidence_json) FROM maintenance_tasks WHERE task_id=" || _q(task_id)))
   fresh = ""; fingerprint = ""
   status = _freshbacklogtask(database,task_id,_n(policy,"maximum_evidence_bytes"),fresh,fingerprint,error)

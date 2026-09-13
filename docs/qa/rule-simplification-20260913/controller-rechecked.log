@@ -1,0 +1,12 @@
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/ControllerRecovery.cmake:15 (message):
+  Controller command failed:
+  --access;control;job;reconcile;job-sha256:730478ec9d1cc48277de93fef07c704e1fec60b86915dc687f47d49e30f21562;--item;item-sha256:55098cbe1afc97b63894cf98ac14bb4299d8c680dd2efcedee8c45351a7ed392;--apply;--expect-digest;06f29c0d31ef533ed852bba495aff72814723eccaa6e7aabe6c74de02a20bd26
+
+  
+  {"schema":"crexx-rag.command-result/1","operation":"job.reconcile","status":"error","exit_code":6,"exit_name":"conflict","message":"pause
+  the job before applying reconciliation","records":[]}
+
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/ControllerRecovery.cmake:144 (run_cli)
+
+

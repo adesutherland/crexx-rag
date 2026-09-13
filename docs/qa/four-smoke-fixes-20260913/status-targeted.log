@@ -1,0 +1,34 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start  4: regression_operator_diagnostics
+1/5 Test  #4: regression_operator_diagnostics ...   Passed    5.30 sec
+    Start  5: regression_smoke_stale_workers
+2/5 Test  #5: regression_smoke_stale_workers ....   Passed    1.89 sec
+    Start  6: regression_smoke_terminal_state
+3/5 Test  #6: regression_smoke_terminal_state ...   Passed    2.07 sec
+    Start 26: gemini_query
+4/5 Test #26: gemini_query ......................   Passed    9.24 sec
+    Start 62: regression_lifecycle
+5/5 Test #62: regression_lifecycle ..............   Passed    2.75 sec
+
+100% tests passed, 0 tests failed out of 5
+
+Label Time Summary:
+RAG-OPS-002      =   2.75 sec*proc (1 test)
+accounting       =   2.75 sec*proc (1 test)
+answer           =   9.24 sec*proc (1 test)
+budget           =   9.24 sec*proc (1 test)
+citation         =   9.24 sec*proc (1 test)
+embedding        =   9.24 sec*proc (1 test)
+gemini           =   9.24 sec*proc (1 test)
+hybrid           =   9.24 sec*proc (1 test)
+known-defect     =   3.96 sec*proc (2 tests)
+operator         =   9.25 sec*proc (3 tests)
+pagination       =   5.30 sec*proc (1 test)
+privacy          =   9.24 sec*proc (1 test)
+query            =   9.24 sec*proc (1 test)
+recovery         =   3.96 sec*proc (2 tests)
+regression       =  12.00 sec*proc (4 tests)
+worker           =   2.75 sec*proc (1 test)
+zero-outbound    =  12.00 sec*proc (4 tests)
+
+Total Test time (real) =  21.25 sec

@@ -1,12 +1,160 @@
 # Operator continuation: live handoff
 
-Updated: 2026-09-13 01:28 UTC. This file is the persistent task state; update it
-at every QA/commit/live-run boundary. No outcome is closed merely because one
-slice compiles. Read the current Git diff and current logs before continuing.
+Updated: 2026-09-13 15:19 UTC. This file records the current result and next action.
+The detailed history below is retained for reference.
 
-## Current state — read this before acting
+## Current checkpoint — simplification complete; document ready for live smoke
 
-**No paid process or exec session remains active. Do not launch another run.**
+The approved [shared-rule simplification](rule-simplification-repair-20260913.md)
+is implemented. Global configuration vetoes and duplicate claim/replay checks
+are removed. Completed work stays complete; explicit redo retains history and
+uses ordinary limits. Reconciliation now works from a drained terminal parent
+without an artificial pause; the focused eight-worker case passes.
+
+Final native candidate: `751e3ca283c036f524feee93d5eb6b7565ec424bd4cd18fce038bc419fae0da3`.
+Full QA passes **69/69 in 901.87 seconds**, exit 0. Evidence is retained in
+`docs/qa/rule-simplification-20260913/full-reconciliation.log`.
+Temporary installation: `/private/tmp/crexxrag-simplify-20260913/installed/bin/crexxrag`.
+
+The disposable corpus accepted its new source configuration and imported one
+public Bannockburn excerpt as two chunks and four work items. Repeat import is
+an exact no-op; lexical retrieval and exact citation resolution pass. Original
+job snapshots, 82,549 provider runs and 116,184 attempts remain unchanged.
+The final executable successfully prepared the new job without provider calls.
+
+Prepared library: `/private/tmp/crexxrag-smk006-V6YatF/smoke-library`.
+Policy: `/private/tmp/crexxrag-smk006-V6YatF/test2.conf` (two workers, five minutes,
+eight calls, four managed Codex turns, $0.005 monetary provider budget).
+Policy SHA-256: `0541ed3efa5cfc78f07e39ea3e9fed50fb5547d1e5b82e8214fc92956be15dcb`.
+New job: `job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095`.
+
+Next: hosted processing of this new job, pending bounded authority. Product
+repairs, full QA, temporary installation and provider-free corpus smoke are complete. No master-library or normal installation
+change, no hosted calls, commit or push; do not reuse expired Test 1 authority.
+
+## Previous checkpoint — Test 2 configuration barrier investigated
+
+The user selected investigation: "yes we need to get these runs working.
+investigate the issue." Diagnosis on the disposable copy and ten synthetic
+fixtures confirms three open findings: RAG-SMK-007 inconsistent configuration
+execution guard, RAG-SMK-008 cancellation toggling a held parent's stored state,
+and RAG-SMK-009 Gemini diagnostics recommending Codex-only reconciliation.
+See [the investigation and proposed repairs](configuration-hold-investigation-20260913.md).
+
+Existing relevant controls pass **3/3 in 35.36s**. The corpus copy still verifies,
+generation 24,922, and all provider/attempt/event/item counts are unchanged.
+No product source, policy, master or installation change; no hosted calls.
+Documentation QA passed 1/1; all 19 retained evidence hashes and diff whitespace passed.
+New regression probes expose missing acceptance; the last 68/68 suite is not
+closure of these findings. All investigation/QA processes finished.
+
+Recommended repair: one drained-execution guard for future configuration while
+retaining old snapshots/holds, stable cancellation/refresh and capability-aware
+recovery guidance. Do not clear uncertainty to add the source. Register failing
+regressions before implementation, then full QA and installed/corpus-copy tests.
+The new-document source is staged but not imported. Its hosted run remains
+pending concrete bounded authority. The earlier preference question is answered.
+
+## Previous checkpoint — RAG-SMK-006 qualified on updated CREXX
+
+The approved work resumed after installed CREXX was updated to
+`crexx-1.0.0-beta.3+local.g037e7939bc29`. Both RAG artifacts were rebuilt.
+The new regression reproduced the automatic partial-index publication failure
+before implementation; existing controls passed **3/3**. Shared manifest
+recovery is now in `ragembedding`; focused QA passes **5/5 in 52.41s**.
+Full QA passes **68/68 in 944.08s**, exit 0. The separate scratch-installed
+publication fixture passes with the identical native hash and two synthetic calls.
+Native candidate: `1572df54e58261d6300bbdf44903edfb3b36a07f6cd164ad3357b7d95377a7a5`.
+Linked candidate: `c1da0015c6ff6bf99f44e2ca5750cfc9cc7ec9e7510fb160e7d91cb2c0e5a5af`.
+See [the repair record](smk006-publication-repair-20260913.md).
+
+Evidence/work: `/private/tmp/crexxrag-smk006-V6YatF`; current full log is
+`full-fixed.log`; retained evidence is in `docs/qa/smk006-20260913/`. All QA
+commands have finished. No new hosted calls, master-library changes, commit or push.
+The new document and verified disposable corpus copy are prepared. Prospective
+configuration is blocked by inherited paused/uncertain jobs. A public cancel
+request only in the copy did not remove uncertainty; history remains held.
+The user has been asked whether to investigate this barrier first or run the
+new-document smoke in a fresh empty scratch library. Do not bypass the guard
+with SQL or waive unknown outcomes. Existing dirty checkout work is preserved.
+
+## Previous checkpoint — Test 1 embedding repair complete
+
+The user explicitly approved the five-chunk Gemini Test 1 run. All **five**
+missing embeddings are repaired: **34,905/34,905** stored and published vectors,
+zero missing, integrity passes at generation **24,922**, schema 17. Five
+successful calls cost **$0.000208**; no reasoning calls. All eight workers and
+their controller stopped. The fixed window ended at **12:28:19 UTC** and grants
+no further paid authority.
+
+The initial `job run` failed at automatic vector publication with a manifest
+alignment error. Public `vector rebuild --reconcile` completed publication
+without more provider calls and reconciled ten historical embedding items.
+This is corpus recovery, not closure of that new product defect: **RAG-SMK-006
+remains open**. All five original failed attempts and receipts are preserved.
+The original ingestion now has zero embedding dead letters and **545 retained
+extraction holds**. See [Test 1 and exact evidence](test1-embeddings-20260913.md).
+
+Current selected policy changes only `provider.gemini-embed.max_attempts` **1 → 2**;
+the resulting SHA-256 is
+`9a180b6121e8cdbcb663817a5613a513d87aeb78e175b8ad3abc1aae37039c6d`, snapshot
+`config-bd4ae91b6a019ac3453baeba`. Reasoning/general maintenance stay at 1.
+The former broader 3/6/3 proposal is still unauthorized. The verified pre-test
+backup and frozen current executable are retained beneath
+`/Users/adrian/testrag/overnight-scottish-20260909/test1-embeddings-20260913/`.
+No new product changes, commits or pushes were made in Test 1. The original
+checkout and permanent ScottishHistory query copy remain untouched. Final
+documentation QA passed 1/1; diff whitespace and all 43 evidence hashes passed.
+
+## Previous checkpoint — four defects complete, 13 September 2026
+
+The user explicitly requested **"OK Please fix the 4 now"**. All four repairs
+are implemented and locally qualified in this review checkout, uncommitted on
+`9292c8d8d724b52fce34047c868f15531348faca` (`temp/project-review`). Existing
+test/documentation work is retained. The previous test-only restriction was
+superseded for these defects; no commit, push, live run or retry-policy change
+was requested.
+
+- RAG-SMK-004: shared observations distinguish registered, confirmed-live and
+  unverified workers.
+- RAG-SMK-005: status, job pages and report/cache activity use the same lifecycle
+  rule while retaining real pauses and uncertainty.
+- OPS-001/004 controller loss: managed children stop taking work when their
+  controller ends, including startup and parent-link loss.
+- OPS-001/004 routine restart: existing job commands drain/clean the selected
+  old group and start fresh controller/children, retaining durable history.
+
+The extended baseline reproduced all four failures before product changes.
+The final focused panel passed **9/9 in 67.06s**. The full suite passes **67/67
+in 932.92s**, CTest exit 0. A separate scratch install matches the tested
+native hash and passes **5/5** fixture invocations: the four repaired cases plus
+original interruption. No test assertion was disabled or weakened.
+
+Native SHA-256:
+`62eaaa2292e210b0c468d2de58ed126ca92557a1a24760109d863c764b85fa81`.
+Linked SHA-256:
+`01712c8c081097b4208d982208035502735f2fbd84c574428dcd8bc0047e340c`.
+See [the repair record](four-smoke-fixes-20260913.md) and
+[retained evidence](qa/four-smoke-fixes-20260913/).
+
+At that four-fix checkpoint, no live library or selected policy changed.
+The subsequent Test 1 above supersedes only the five-embedding and embedding-policy
+parts of that earlier boundary. Process recovery is qualified only in the
+launcher's local process visibility domain; the installed CREXX hidden-PID
+limitation and non-macOS qualification remain separate. No QA process remains
+active after the final checkpoint below.
+
+## Previous checkpoint — test-only handoff
+
+**No paid process remains active. Do not launch another live run.**
+The requested tests/documentation checkpoint is complete. Full CTest finished:
+**63/67 pass in 879.91s; all 63 old tests pass and exactly the four new
+regressions fail.** The final focused repeat confirms the same four defects
+with passing controls. No test process or exec session remains active. Changes
+are uncommitted on `9292c8d`; start a new session for product repairs.
+See [coverage and evidence](regression-coverage.md#current-status--13-september-2026).
+
+The following describes the completed live smoke, not a current run:
 Session 59810 ended with exit 0 at 01:19:59 UTC on 13 September. Its fixed
 60-minute window ended at 01:21:32; actual worker runtime was 56m55s. Eight
 workers drained, with one confirmed interrupted timeout safely replaced.
@@ -15,6 +163,16 @@ The master still uses the frozen `artifact-review-index` executable at product
 commit **1edb325**. The selected policy hash is unchanged; 63% account allowance
 remains, with a 10% reserve. No further paid work is authorized by this window.
 
+Latest user direction: **simplify controller recovery**. AGENTS.md now requires
+the simplest complete solution and accepts small losses of unfinished work.
+The architecture/roadmap describe one ordinary cleanup/start path using the
+recorded controller/child PIDs, polite shutdown and fresh children. This
+supersedes the prior elaborate proposal. Four new regression tests now expose
+the two public-status defects and missing controller-loss/live-group restart
+behavior. Product implementation is unchanged. The tests and documentation are
+uncommitted on HEAD `9292c8d`; do not start repairs in this test-only session.
+See [the current coverage record](regression-coverage.md#current-status--13-september-2026).
+
 Read [the final smoke report](operator-continuation-smoke-20260913.md) and current
 ROADMAP. OPS-005, UX-01/03/04 and RAG-SMK-001/002/003 are closed on named evidence.
 The whole recovery outcome remains open. RAG-SMK-004/005 are concrete public
@@ -22,15 +180,21 @@ status defects; five embeddings and retained ingestion holds remain. The exact
 3/6/3 retry-policy approval is still pending; the rejected policy write never ran.
 Do not bypass it through another policy, replay, waiver or reset history.
 
-Final evidence/docs passed the documentation gate and evidence review. No source
-or test change followed product 1edb325's full 63/63 gate. The evidence commit
-containing this checkpoint is identified by `git log -1 -- docs/operator-continuation-handoff.md`.
+Final smoke evidence/docs passed their documentation gate and were committed
+as `9292c8d`. Product `1edb325` had a full 63/63 gate. The new test-only changes
+extend that suite to 67 tests; the four new tests are intended ordinary failures
+until repaired, not additional green product qualification.
 The latest dated checkpoint below is the takeover state; older live-session
 instructions are historical and must not trigger another paid run.
 
 ## Authority and target
 
-The user explicitly authorizes implementation of the complete outcome:
+Previous four-fix scope: fix the four reproduced status/controller/restart defects, retain
+and extend regression coverage, run full local QA and scratch-installed checks,
+and document exact results. No live run, retry-policy change, commit or push is
+authorized by this repair request. The original cwd remains untouched.
+
+The following authority describes the completed overnight outcome:
 “An operator can continue interrupted Scottish processing, understand every
 hold, and finish ingestion and maintenance through ordinary commands.”
 Then update documentation/roadmap, commit when green, ingest the remaining
@@ -1506,3 +1670,119 @@ paid continuation period is authorized by the expired window. Preserve the
 single selected policy, all histories, 10% reserve and separate query copy.
 The broader corpus outcome is explicitly open; only the named closures in the
 final report are closed. User can plan from those actual acceptance boundaries.
+
+## Checkpoint 2026-09-13 08:19 UTC — user-directed simplicity and routine restart
+
+User explicitly corrected the proposed recovery complexity: persist worker and
+controller PIDs; children stop taking work and exit when the controller is gone;
+restart always performs polite shutdown, database runtime cleanup and starts
+fresh children. An incomplete task is an accepted small cost. Codified the
+simplicity principle in AGENTS.md, the implementation direction and ownership
+in architecture.md, and the pending work in ROADMAP.md. Do not revive the prior
+proposal for new liveness protocols, controller election or preserving every
+in-flight result. Keep existing committed-data/accounting/retry protections.
+
+No product code, schema, policy, library or paid run changed. These documentation
+changes are uncommitted; this discussion did not request a new commit or runtime
+implementation. Documentation_contract passed 1/1 and git diff --check passed.
+The next implementation must first confirm regression coverage for the simple behavior.
+The completed smoke at product1edb325/evidence9292c8d remains historical evidence;
+this new controller-loss contract is pending implementation. No active run.
+
+## Checkpoint 2026-09-13 08:52 UTC — test-only baseline, full gate running
+
+Authoritative checkout remains `crexx-rag-review`, `temp/project-review`, HEAD
+`9292c8d8d724b52fce34047c868f15531348faca`. Product source is unchanged.
+`cmake --preset debug` passes; build reports no work. Native SHA-256:
+`02f2d4ef292ff6cb6417a466178d682c42265c6878b999708101a01365a07fb5`.
+
+Pre-change affected panel: 6/6 pass, 129.55s; log
+`/private/tmp/smoke-regression-baseline-20260913.log`.
+Two new public tests in `cmake/SmokeStatus.cmake` fail only their intended
+SMK-004/005 expectations, with positive and read-only controls passing.
+`cmake/NativeInterruption.cmake` retains its three original cases and adds
+controller-only death (1 initial attempt becomes 3) and ordinary restart with
+live ownership (exit 6, no fresh controller). The original interruption gate
+still passes. The repeated-continuation assertion compares fresh identities,
+not retained runtime row counts, because normal pruning can remove old rows.
+
+Full CTest is running as exec session **49902**. Log:
+`/private/tmp/smoke-regression-full-20260913.log`. Expected result: the previous
+63 pass, the four new named regressions fail. Inspect every other failure;
+fixture failure is not valid defect evidence. Finish the run, retain exact logs
+under `docs/qa/restart-coverage-20260913/`, replace pending results in the coverage
+record and this handoff, then run documentation/diff checks. Do not implement
+product fixes to turn this explicitly requested red baseline green.
+
+Roadmap records routine cleanup/start, controller and child PID ownership,
+child exit before further work, fresh children, accepted unfinished-task loss,
+and preservation of committed history/usage. It also corrects the obsolete
+OPS-005-open sentence. Instructions already require regression coverage first.
+Remaining process-scope/permission branches, adjudicated content fixtures and
+census-duration profiling are explicit limits, not claimed covered outcomes.
+All changes remain uncommitted for the requested next session. No live activity.
+
+## Checkpoint 2026-09-13 09:02 UTC — test-only handoff complete
+
+Full local suite: **63/67 pass in 879.91s**, CTest exit 8. The previous 63
+checks all pass; the only failures are the four new ordinary regressions:
+
+- `regression_smoke_stale_workers`: confirmed exited worker still counted live.
+- `regression_smoke_terminal_state`: drained status differs from list/activity.
+- `regression_controller_loss`: child takes further work after controller death.
+- `regression_restart_live`: ordinary job run rejects surviving ownership
+  instead of cleaning it and starting a fresh controller/children.
+
+Final focused repeat: **2/6 pass in 15.28s**, same four failures;
+original interruption and documentation tests pass. New controls verify live
+processes even with old heartbeats, real pauses/unknown outcomes in listings,
+unchanged read-only SQLite, and completed work/receipts preserved when ordinary
+continuation is repeated after drain. Scratch provider/process fixtures only.
+`git diff --check` passes. No product implementation, live library or policy
+changed. No commit, push or live run was performed in this test-only step.
+
+Evidence: `docs/qa/restart-coverage-20260913/` contains baseline/configure/build,
+full and final-focused logs, public command responses and test source hashes.
+Native hash remains `02f2d4ef292ff6cb6417a466178d682c42265c6878b999708101a01365a07fb5`.
+The tracked work plus new `cmake/SmokeStatus.cmake` and evidence files are all
+uncommitted; retain them together. Nothing is stashed or reset.
+
+Next session: read AGENTS.md, the current coverage section, and the simple
+restart section in ROADMAP/architecture. Fix the two status readers and then
+the simple controller/restart outcome, keeping related rules in their existing
+owners. Confirm additional affected branch coverage before editing. The four
+new tests must become green through product fixes; do not skip/invert them.
+Do not revive the old election/adoption design or require perfect recovery of
+unfinished work. All historical paid-run windows are over; current test work
+adds no live-run or retry-policy authority. The wider retained corpus/content
+acceptances and qualification limits remain listed rather than silently closed.
+
+## Checkpoint 2026-09-13 11:34 UTC — full gate caught preparation regression
+
+Full first candidate 64/67 in 975.40s; continuation and continuation-holds failed
+because preparation drained live ownership. Legacy retry then failed fixture
+readiness after the first failed test left the port occupied. All four requested
+regressions and the later embedding-policy case passed. The stronger exact
+runtime-request check reproduces the mutation (37.62s); `ragproduct` now skips
+cleanup for `--prepare` and leaves existing ownership refusal in charge.
+Build/focused/full/installed gates remain required. No live library changed.
+
+## Checkpoint 2026-09-13 11:40 UTC — corrected focused panel green
+
+Preparation-only guard build passes on native `62eaaa2292e210b0c468d2de58ed126ca92557a1a24760109d863c764b85fa81`, linked `01712c8c081097b4208d982208035502735f2fbd84c574428dcd8bc0047e340c`.
+Focused **9/9 in 67.06s** includes all four repaired regressions, original
+interruption, both continuation cases and both legacy/embedding retry cases.
+Full rerun session 52467 is running with `caffeinate`. Inspect final status;
+then separately install to the working evidence directory's `installed` prefix,
+verify the native hash and run the four fixtures plus original interruption.
+No live operations, commit or policy change is authorized by this repair.
+
+## Checkpoint 2026-09-13 11:57 UTC — four repairs locally qualified
+
+Build and full QA completed: **67/67 in 932.92s**, exit 0. Separate
+scratch-installed replay: **5/5**, installed native SHA-256 `62eaaa2292e210b0c468d2de58ed126ca92557a1a24760109d863c764b85fa81`.
+No product source changed after the full gate. The current front summary and
+[four-fix record](four-smoke-fixes-20260913.md) supersede the earlier test-only
+instructions. Changes remain uncommitted on `9292c8d`; no push or new live run
+was performed. The retained logs preserve the failed baseline and intermediate
+parent-identity failure as well as the final passing gates.

@@ -1,0 +1,1 @@
+{"schema":"crexx-rag.command-result/1","operation":"job.run","status":"error","exit_code":8,"exit_name":"unavailable","message":"library manifest must be aligned before sidecar publication","records":[]}

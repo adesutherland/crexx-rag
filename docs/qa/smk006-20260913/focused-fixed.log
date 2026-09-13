@@ -1,0 +1,32 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start 28: ann_methodology
+1/5 Test #28: ann_methodology ..................   Passed    6.09 sec
+    Start 44: native_publication
+2/5 Test #44: native_publication ...............   Passed    8.78 sec
+    Start 45: embedding_recovery
+3/5 Test #45: embedding_recovery ...............   Passed   26.00 sec
+    Start 46: embedding_publication
+4/5 Test #46: embedding_publication ............   Passed    5.84 sec
+    Start 50: native_interruption
+5/5 Test #50: native_interruption ..............   Passed    5.69 sec
+
+100% tests passed, 0 tests failed out of 5
+
+Label Time Summary:
+accounting       =  37.52 sec*proc (3 tests)
+ann              =   6.09 sec*proc (1 test)
+atomic           =   8.78 sec*proc (1 test)
+cancellation     =   5.69 sec*proc (1 test)
+concurrency      =  34.78 sec*proc (2 tests)
+gemini           =  40.62 sec*proc (3 tests)
+native           =   5.69 sec*proc (1 test)
+publication      =  20.31 sec*proc (3 tests)
+recall           =   6.09 sec*proc (1 test)
+recovery         =  37.52 sec*proc (3 tests)
+retrieval        =   6.09 sec*proc (1 test)
+rxvector         =   6.09 sec*proc (1 test)
+sqlite           =  52.40 sec*proc (5 tests)
+tamper           =   6.09 sec*proc (1 test)
+zero-outbound    =  46.31 sec*proc (4 tests)
+
+Total Test time (real) =  52.41 sec

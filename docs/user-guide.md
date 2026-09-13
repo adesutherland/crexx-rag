@@ -300,7 +300,8 @@ crexxrag --library ./library --access admin config apply \
   --plan-json "$plan" --expect-digest "$digest"
 ```
 
-Apply fails if the plan is changed, expired, stale, or active jobs remain.
+Apply fails if the plan is changed, expired, or its configuration identity is stale.
+Existing jobs do not block recording future configuration.
 Configuration application changes the current planning policy and appends an
 immutable audit event; it does not publish a corpus generation or queue work.
 Existing jobs, provider runs, claims, embeddings and generations retain their
@@ -394,11 +395,13 @@ A stale heartbeat does not authorize deleting live or remote ownership.
 Run liveness checks and pruning in the launcher's process visibility/permission
 domain: the current CREXX probe can report a sandbox-inaccessible PID as missing,
 even under the same operating-system account.
-`job run` performs this ownership cleanup as part of its supported restart.
-The current job-status `worker_live_workers` field counts retained nonterminal
-registrations and can include stale records after a failed controller. Check
-controller state, heartbeat age and `worker list` together; the field alone is
-not proof of OS process liveness. This display gap is tracked as RAG-SMK-004.
+`job run` drains and cleans only its selected group before starting fresh
+processes. `worker_live_workers` counts confirmed live local processes;
+`worker_registered_workers` counts nonterminal registrations and
+`worker_unverified_workers` identifies remote, not-yet-registered or otherwise
+unverified processes. An old heartbeat does not remove a confirmed live worker
+from the count. Inspect controller state, heartbeat age and `worker list`
+together. These reads do not prune or change the library.
 
 Workers are operating-system processes, not attached cREXX threads. Each owns a
 VM, provider process/session, and SQLite connection.
@@ -413,7 +416,10 @@ The controller reserves and registers the complete configured worker group
 before admitting work. Startup failure or a registration timeout is reported
 with the worker identity; child stderr is inherited so redirected controller
 logs also retain worker and provider channel errors. On controller failure,
-drain requests are recorded before waiting for child cleanup.
+children stop taking work and exit. Ordinary restart records drain requests for
+the old controller and children, waits for exit and starts fresh processes. If
+the configured lease/startup grace expires first, it reports the incomplete
+drain and retains ownership; repeat after the old calls settle.
 
 A heartbeat encountering ordinary SQLite writer contention makes up to three
 attempts, retaining the existing five-second busy timeout per attempt and short
@@ -514,7 +520,7 @@ and publish the vector index without provider calls:
 
 ```sh
 crexxrag --access control vector rebuild --reconcile
-crexxrag --access read library verify
+crexxrag --access diagnose library verify
 ```
 
 Reconciliation closes redundant visibility intervals in a new generation and
@@ -553,7 +559,9 @@ ownership; `closed-window`, `retry-delay`, `review-required`, `attempt-limit`,
 means eligible for normal admission, not a grant of additional budget.
 `already-complete` completes the request without another call; `superseded`
 closes only the request, without counting the task as completed coverage.
-Attempts, receipts, usage, old items and window deadlines remain intact.
+Completed work takes precedence over older unanswered attempts. An explicit
+retry can redo unfinished work with a missing response within the normal attempt
+and run limits. Attempts, receipts, usage, old items and window deadlines remain intact.
 
 To accept leaving an exact durable question unfinished, first settle active
 workers and pending reviews, then use:
@@ -577,6 +585,11 @@ reported state counts; `item_limit` is the separate allowance. Recorded provider
 runs/token/cost totals, incomplete observations and uncertain outcomes remain
 separate from corpus coverage. Interval throughput and correction-requested /
 correction-processed counts distinguish attempted calls from accepted work.
+
+`job status`, `job list` and report active/error totals use the same current
+lifecycle projection. A drained deadline window with retained errors is
+`completed_with_errors`; an intentional pause or uncertain outcome stays paused.
+The maintenance window's `deadline` reason remains a separate fact.
 
 Live outcome diagnostics retain `uncertain_items` as the total of unmatched
 provider intents, with disjoint `active_unsettled_items` and
@@ -615,18 +628,21 @@ crexxrag --access control job run JOB_ID
 crexxrag --access control job run JOB_ID --count 8
 ```
 
-This fixed command checks configuration before claiming anything, removes
-confirmed exited local process ownership, resumes a paused eligible job and
-supervises workers using configured counts, polling and restart limits. Optional
+This command checks configuration, politely drains and cleans the selected
+local group, resumes a paused eligible job and supervises fresh workers using
+configured counts, polling and restart limits. Optional
 `--count` stays within the configured ceiling; `--poll-ms`, `--max-polls` and
 `--max-items` have the same meaning as `worker start`. Budgets, attempt history
-and maintenance deadlines remain unchanged. A live group must first drain.
-An incompatible configuration returns before producing failed items; inspect
-`config diff` and use the original configuration. A closed maintenance window
-requires a new reviewed `maintain plan`.
+and maintenance deadlines remain unchanged. Unfiltered overlapping groups and
+remote ownership require explicit diagnosis before restart. An incompatible
+configuration returns before cleanup or failed items; inspect `config diff`
+and use the original configuration. Use `job continue` for a closed maintenance
+window, with an explicitly authorized named renewal when allowance or time is
+exhausted.
 
-Independent queued items can run while a Codex outcome remains held. Before
-retrying that held item, pause and drain its job, then inspect the exact outcome:
+Independent queued items can run while a Codex outcome remains held. To recover
+a saved Codex result instead of requesting a redo, drain active workers and
+inspect the exact outcome:
 
 ```sh
 crexxrag --access diagnose --format json job reconcile JOB_ID --item ITEM_ID
@@ -636,13 +652,16 @@ crexxrag --access control job run JOB_ID
 ```
 
 Inspection reads stored output or the exact App Server thread/turn history. It
-never resumes, cancels or deletes an external turn. Apply requires a paused,
-drained job and rechecks the observation digest. Completed output is queued
+never resumes, cancels or deletes an external turn. Apply requires drained
+workers and claims and rechecks the observation digest. A terminal job does not
+need a pause transition. Completed output is queued
 for normal validation without another generation call. A confirmed interrupted
 or failed turn **without a final answer** is settled once and becomes retryable
 only within the existing attempt and job limits. Still-running work, missing
 turn identity/history, and ambiguous terminal output remain held. Repeated
-apply is a no-op. The job remains paused until `job run` or `job resume`.
+apply is a no-op. An intentional pause stays paused until `job run` or
+`job resume`; a terminal parent with newly queued work becomes runnable through
+the shared lifecycle refresh.
 
 The returned `observation_json` includes `known_input_tokens`,
 `known_output_tokens` and `usage_complete`. Incomplete usage is a lower bound;
@@ -686,21 +705,21 @@ the turn is confirmed interrupted/failed without output. Partial usage remains
 explicitly incomplete and its original reservation ceiling still counts toward
 admission. If history is unavailable, ambiguous or still running,
 `provider-outcome-uncertain` holds that item as an inspectable dead letter without
-pausing the job or draining healthy peers. That item is not submitted again.
-When only held work remains, the drained job pauses for reconciliation and vector
-publication remains pending. Otherwise pause and drain before applying public
-`job reconcile` to the held outcome.
+pausing the job or draining healthy peers. Automatic restart does not submit it
+again. A drained job finishes with errors; available vectors can still publish.
+Use an explicit retry to redo unfinished work, or `job reconcile` when a retained
+Codex thread/turn can supply the original result.
 
 If writing a returned response fails, the worker records an explicit
 `provider-outcome-uncertain` hold and retains any known usage on the original
-attempt. This is a storage failure, not rejected evidence. `job retry` records
-your request but does not resubmit the item; `job status` explains the hold.
+attempt. This is a storage failure, not rejected evidence. `job retry` requests
+a redo under the existing limits; `job status` retains the old failure.
 Other eligible items can continue within the original limits. If Codex saved
 its completed output before the receipt write failed, the same `job reconcile`
 inspection/apply sequence above recovers it without another generation call.
-When neither SQLite nor the provider can supply that output, it remains held;
-restarting cannot reconstruct a lost answer or safely assume the request was
-free. See [receipt recovery](receipt-recovery.md).
+When neither SQLite nor the provider can supply that output, an explicit redo
+may make a new call. The old missing response and its known or conservatively
+reserved usage remain history; the new call uses the remaining allowance. See [receipt recovery](receipt-recovery.md).
 
 Received extraction and embedding outputs are retained before validation and
 settlement. Restarting the same item reuses its receipt without another call,
@@ -1104,8 +1123,9 @@ source identity and recovery facts; full plans remain available through paged
 For explicitly authorized extra allowance, use `job continue JOB --renew NAME`.
 A maintenance period can add `--minutes 60`. Repeat the same NAME after a
 restart; it cannot grant a second allocation or move the deadline. `--prepare`
-records preparation without launching workers. Existing per-task attempts,
-unknown outcomes, cumulative usage and original plans are retained. `--minutes`
+records preparation without launching workers and refuses active ownership
+without draining it. Existing per-task attempts, unknown outcomes, cumulative
+usage and original plans are retained. `--minutes`
 is wall-clock maintenance time, not an ordinary ingestion time-budget edit.
 
 ## Backup and restore

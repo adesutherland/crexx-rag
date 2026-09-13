@@ -38,6 +38,29 @@ add_test(NAME regression_operator_diagnostics
 set_tests_properties(regression_operator_diagnostics PROPERTIES
     TIMEOUT 120 LABELS "regression;operator;pagination;zero-outbound")
 
+# Smoke regressions retain ordinary assertions after their product repairs.
+# Labels describe the cause; they never invert or suppress failures.
+foreach(case IN ITEMS stale_workers terminal_state)
+    add_test(NAME regression_smoke_${case}
+        COMMAND "${CMAKE_COMMAND}"
+            "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+            "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
+            "-DCPRAG_CASE=${case}"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-smoke-${case}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/SmokeStatus.cmake")
+    set_tests_properties(regression_smoke_${case} PROPERTIES
+        TIMEOUT 90 LABELS "regression;operator;recovery;zero-outbound")
+endforeach()
+
+add_test(NAME regression_rule_simplification
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-rule-simplification"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/RuleSimplification.cmake")
+set_tests_properties(regression_rule_simplification PROPERTIES
+    TIMEOUT 90 LABELS "regression;configuration;lifecycle;zero-outbound")
+
 add_test(NAME regression_prompt_inspection
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
@@ -569,6 +592,16 @@ add_test(NAME embedding_recovery
 set_tests_properties(embedding_recovery PROPERTIES
     TIMEOUT 240 LABELS "recovery;concurrency;accounting;gemini;sqlite;zero-outbound")
 
+add_test(NAME embedding_publication
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-embedding-publication"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbeddingPublication.cmake")
+set_tests_properties(embedding_publication PROPERTIES
+    TIMEOUT 120 LABELS "recovery;publication;accounting;gemini;sqlite;zero-outbound")
+
 add_test(NAME embedding_exhaustion
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
@@ -609,6 +642,20 @@ add_test(NAME native_interruption
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeInterruption.cmake")
 set_tests_properties(native_interruption PROPERTIES
     TIMEOUT 180 LABELS "native;recovery;cancellation;accounting;publication;sqlite;zero-outbound")
+
+# Agreed simple restart behavior, tested before its implementation.
+foreach(case IN ITEMS controller_loss restart_live)
+    add_test(NAME regression_${case}
+        COMMAND "${CMAKE_COMMAND}"
+            "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+            "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+            "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+            "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-${case}"
+            "-DCPRAG_CASES=${case}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeInterruption.cmake")
+    set_tests_properties(regression_${case} PROPERTIES
+        TIMEOUT 120 LABELS "regression;native;recovery;zero-outbound")
+endforeach()
 
 # Keep repaired defects as ordinary regressions in the full workflow; no
 # WILL_FAIL property can turn a setup error or crash into a passing result.

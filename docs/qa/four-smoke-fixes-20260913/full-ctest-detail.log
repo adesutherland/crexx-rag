@@ -1,0 +1,1256 @@
+Start testing: Sep 13 12:40 BST
+----------------------------------------------------------
+1/67 Testing: regression_policy_file
+1/67 Test: regression_policy_file
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CONFIG_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/config/google-gemini.conf" "-DCPRAG_LOCK_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/policy/lock-owner.sh" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-policy-file" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/PolicyFile.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_policy_file" start time: Sep 13 12:40 BST
+Output:
+----------------------------------------------------------
+-- Policy file edits preserve validation, optimistic concurrency, prompt ownership, MCP freshness and library history; killed lock owner does not block retry
+<end of output>
+Test time =   7.40 sec
+----------------------------------------------------------
+Test Passed.
+"regression_policy_file" end time: Sep 13 12:40 BST
+"regression_policy_file" time elapsed: 00:00:07
+----------------------------------------------------------
+
+2/67 Testing: regression_command_metadata
+2/67 Test: regression_command_metadata
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CONFIG_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/config/google-gemini.conf" "-DCPRAG_EXPECTED_CONTRACTS=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/contracts/command-metadata.sha256" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-command-metadata" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/CommandMetadata.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_command_metadata" start time: Sep 13 12:40 BST
+Output:
+----------------------------------------------------------
+-- Advertised command schemas, required fields and access annotations match the captured baseline
+<end of output>
+Test time =   0.36 sec
+----------------------------------------------------------
+Test Passed.
+"regression_command_metadata" end time: Sep 13 12:40 BST
+"regression_command_metadata" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/67 Testing: regression_command_arguments
+3/67 Test: regression_command_arguments
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CONFIG_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/config/google-gemini.conf" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-command-arguments" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/CommandArguments.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_command_arguments" start time: Sep 13 12:40 BST
+Output:
+----------------------------------------------------------
+-- Declared boolean, enum, integer, length, required, oneOf and duplicate argument contracts hold without writes
+<end of output>
+Test time =   4.71 sec
+----------------------------------------------------------
+Test Passed.
+"regression_command_arguments" end time: Sep 13 12:40 BST
+"regression_command_arguments" time elapsed: 00:00:04
+----------------------------------------------------------
+
+4/67 Testing: regression_operator_diagnostics
+4/67 Test: regression_operator_diagnostics
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CONFIG_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/config/google-gemini.conf" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-operator-diagnostics" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/OperatorDiagnostics.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_operator_diagnostics" start time: Sep 13 12:40 BST
+Output:
+----------------------------------------------------------
+-- Operator diagnostics preserve job/subject ownership, bounded pages, strict arguments and zero-write CLI/MCP equivalence
+<end of output>
+Test time =   5.39 sec
+----------------------------------------------------------
+Test Passed.
+"regression_operator_diagnostics" end time: Sep 13 12:40 BST
+"regression_operator_diagnostics" time elapsed: 00:00:05
+----------------------------------------------------------
+
+5/67 Testing: regression_smoke_stale_workers
+5/67 Test: regression_smoke_stale_workers
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CONFIG_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/config/google-gemini.conf" "-DCPRAG_CASE=stale_workers" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-smoke-stale_workers" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_smoke_stale_workers" start time: Sep 13 12:40 BST
+Output:
+----------------------------------------------------------
+-- SMOKE_STATUS_CONTROLS_OK: live, stale-but-alive, confirmed exited, empty group
+-- SMOKE_STATUS_READ_ONLY_OK: stale_workers; any errors above remain failures
+<end of output>
+Test time =   1.91 sec
+----------------------------------------------------------
+Test Passed.
+"regression_smoke_stale_workers" end time: Sep 13 12:40 BST
+"regression_smoke_stale_workers" time elapsed: 00:00:01
+----------------------------------------------------------
+
+6/67 Testing: regression_smoke_terminal_state
+6/67 Test: regression_smoke_terminal_state
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CONFIG_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/config/google-gemini.conf" "-DCPRAG_CASE=terminal_state" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-smoke-terminal_state" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_smoke_terminal_state" start time: Sep 13 12:40 BST
+Output:
+----------------------------------------------------------
+-- SMOKE_STATUS_CONTROLS_OK: running, operator pause, unknown outcome, complete
+-- SMOKE_STATUS_READ_ONLY_OK: terminal_state; any errors above remain failures
+<end of output>
+Test time =   2.07 sec
+----------------------------------------------------------
+Test Passed.
+"regression_smoke_terminal_state" end time: Sep 13 12:40 BST
+"regression_smoke_terminal_state" time elapsed: 00:00:02
+----------------------------------------------------------
+
+7/67 Testing: regression_prompt_inspection
+7/67 Test: regression_prompt_inspection
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXLINK=/Users/adrian/.local/bin/rxlink" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CONFIG_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/config/google-gemini.conf" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/prompt_inspection_scenario.crexx" "-DCPRAG_MARKER=PROMPT_INSPECTION_OK" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-prompt-inspection" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/PromptInspection.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_prompt_inspection" start time: Sep 13 12:40 BST
+Output:
+----------------------------------------------------------
+-- PROMPT_INSPECTION_OK: passed on both VMs
+<end of output>
+Test time =   3.39 sec
+----------------------------------------------------------
+Test Passed.
+"regression_prompt_inspection" end time: Sep 13 12:41 BST
+"regression_prompt_inspection" time elapsed: 00:00:03
+----------------------------------------------------------
+
+8/67 Testing: regression_prompt_contract
+8/67 Test: regression_prompt_contract
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application/crexxrag.rxbin" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_INGESTION_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_QUERY_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-query.conf.in" "-DCPRAG_EXPECTED_CONTRACTS=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/contracts/provider-contracts.sha256" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-prompt-contract" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/PromptContract.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_prompt_contract" start time: Sep 13 12:41 BST
+Output:
+----------------------------------------------------------
+-- Gemini ingestion passed canonical JSON and human-default execution through native workers, truthful replay, vector publication, meaningful pre/post-registration child failure, evidence retrieval, integrity verification, and sanitized progress
+-- Gemini query passed human hybrid retrieval and cited answer generation, explicit zero-outbound lexical mode, required-hybrid failure, citation rejection, valid insufficient-evidence handling, and post-query integrity
+-- Effective extraction, resolution, answer/report prompts and schemas match the captured baseline; correction history preserved
+<end of output>
+Test time =  25.88 sec
+----------------------------------------------------------
+Test Passed.
+"regression_prompt_contract" end time: Sep 13 12:41 BST
+"regression_prompt_contract" time elapsed: 00:00:25
+----------------------------------------------------------
+
+9/67 Testing: regression_policy_file_vm
+9/67 Test: regression_policy_file_vm
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXLINK=/Users/adrian/.local/bin/rxlink" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/policy_file_scenario.crexx" "-DCPRAG_MARKER=POLICY_FILE_OK" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-policy-file-vm" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/ProjectContract.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_policy_file_vm" start time: Sep 13 12:41 BST
+Output:
+----------------------------------------------------------
+-- POLICY_FILE_OK: passed on both VMs
+<end of output>
+Test time =   2.36 sec
+----------------------------------------------------------
+Test Passed.
+"regression_policy_file_vm" end time: Sep 13 12:41 BST
+"regression_policy_file_vm" time elapsed: 00:00:02
+----------------------------------------------------------
+
+10/67 Testing: regression_command_catalogue
+10/67 Test: regression_command_catalogue
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXLINK=/Users/adrian/.local/bin/rxlink" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/command_catalogue_scenario.crexx" "-DCPRAG_MARKER=COMMAND_CATALOGUE_OK" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-command-catalogue" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/ProjectContract.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_command_catalogue" start time: Sep 13 12:41 BST
+Output:
+----------------------------------------------------------
+-- COMMAND_CATALOGUE_OK: passed on both VMs
+<end of output>
+Test time =   2.24 sec
+----------------------------------------------------------
+Test Passed.
+"regression_command_catalogue" end time: Sep 13 12:41 BST
+"regression_command_catalogue" time elapsed: 00:00:02
+----------------------------------------------------------
+
+11/67 Testing: regression_claim_policy
+11/67 Test: regression_claim_policy
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXLINK=/Users/adrian/.local/bin/rxlink" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/claim_policy_scenario.crexx" "-DCPRAG_MARKER=CLAIM_POLICY_OK" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-claim-policy" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/ProjectContract.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_claim_policy" start time: Sep 13 12:41 BST
+Output:
+----------------------------------------------------------
+-- CLAIM_POLICY_OK: passed on both VMs
+<end of output>
+Test time =   0.63 sec
+----------------------------------------------------------
+Test Passed.
+"regression_claim_policy" end time: Sep 13 12:41 BST
+"regression_claim_policy" time elapsed: 00:00:00
+----------------------------------------------------------
+
+12/67 Testing: native_lifecycle
+12/67 Test: native_lifecycle
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-native-lifecycle" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeLifecycle.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"native_lifecycle" start time: Sep 13 12:41 BST
+Output:
+----------------------------------------------------------
+-- LIFECYCLE_RECOVERY_OK failures=5 calls=5 history=preserved requests=durable live-owner=deduplicated
+<end of output>
+Test time =  10.58 sec
+----------------------------------------------------------
+Test Passed.
+"native_lifecycle" end time: Sep 13 12:41 BST
+"native_lifecycle" time elapsed: 00:00:10
+----------------------------------------------------------
+
+13/67 Testing: linked_application
+13/67 Test: linked_application
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application/crexxrag.rxbin" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-linked-application" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/CrexxRagApplicationSmoke.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"linked_application" start time: Sep 13 12:41 BST
+Output:
+----------------------------------------------------------
+-- Linked cREXX application passed VM autoload and SQLite API mapping smoke
+<end of output>
+Test time =   1.57 sec
+----------------------------------------------------------
+Test Passed.
+"linked_application" end time: Sep 13 12:41 BST
+"linked_application" time elapsed: 00:00:01
+----------------------------------------------------------
+
+14/67 Testing: configuration_contract
+14/67 Test: configuration_contract
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_PLUGIN_DIR=/Users/adrian/.local/bin/providers" "-DCPRAG_MODEL=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/ragmodel.crexx" "-DCPRAG_CONFIG=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/ragconfig.crexx" "-DCPRAG_FILE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/ragfile.crexx" "-DCPRAG_CONFIG_FILE_MODULE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/ragconfigfile.crexx" "-DCPRAG_GLOSSARY_MODULE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/ragglossary.crexx" "-DCPRAG_PROFILE_MODULE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/ragprofile.crexx" "-DCPRAG_PROFILE_FILE_MODULE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/ragprofilefile.crexx" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/config_scenario.crexx" "-DCPRAG_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/config/google-gemini.conf" "-DCPRAG_SUBSCRIPTION_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/docs/tutorial/crexxrag-codex-local.conf" "-DCPRAG_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application/crexxrag.rxbin" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-configuration" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/ConfigContract.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"configuration_contract" start time: Sep 13 12:41 BST
+Output:
+----------------------------------------------------------
+-- Configuration contract passed four compiler/VM cells, linked CLI discovery, and reviewed split-identity lifecycle
+<end of output>
+Test time =  30.71 sec
+----------------------------------------------------------
+Test Passed.
+"configuration_contract" end time: Sep 13 12:42 BST
+"configuration_contract" time elapsed: 00:00:30
+----------------------------------------------------------
+
+15/67 Testing: regression_supervision
+15/67 Test: regression_supervision
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_PLUGIN_DIR=/Users/adrian/.local/bin/providers" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/supervision_regression.crexx" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-supervision-regression" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/SupervisionRegression.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_supervision" start time: Sep 13 12:42 BST
+Output:
+----------------------------------------------------------
+-- Supervision regression passed on both VMs with optimized code
+<end of output>
+Test time =  16.09 sec
+----------------------------------------------------------
+Test Passed.
+"regression_supervision" end time: Sep 13 12:42 BST
+"regression_supervision" time elapsed: 00:00:16
+----------------------------------------------------------
+
+16/67 Testing: native_supervision
+16/67 Test: native_supervision
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CODEX_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/codex-app-server-fixture.sh" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/codex-application.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-native-supervision" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeSupervision.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"native_supervision" start time: Sep 13 12:42 BST
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =  62.38 sec
+----------------------------------------------------------
+Test Passed.
+"native_supervision" end time: Sep 13 12:43 BST
+"native_supervision" time elapsed: 00:01:02
+----------------------------------------------------------
+
+17/67 Testing: process_workers
+17/67 Test: process_workers
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application/crexxrag.rxbin" "-DCPRAG_LAUNCHER=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-product/crexxrag" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-process-workers" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/ProcessWorkers.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"process_workers" start time: Sep 13 12:43 BST
+Output:
+----------------------------------------------------------
+-- Process framework passed eight-worker registration, startup diagnostics, drain, stale detection and explicit pruning on both VMs
+<end of output>
+Test time =  26.47 sec
+----------------------------------------------------------
+Test Passed.
+"process_workers" end time: Sep 13 12:43 BST
+"process_workers" time elapsed: 00:00:26
+----------------------------------------------------------
+
+18/67 Testing: gemini_ingestion
+18/67 Test: gemini_ingestion
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application/crexxrag.rxbin" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-gemini-ingestion" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/GeminiIngestion.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"gemini_ingestion" start time: Sep 13 12:43 BST
+Output:
+----------------------------------------------------------
+-- Gemini ingestion passed canonical JSON and human-default execution through native workers, truthful replay, vector publication, meaningful pre/post-registration child failure, evidence retrieval, integrity verification, and sanitized progress
+<end of output>
+Test time =   7.85 sec
+----------------------------------------------------------
+Test Passed.
+"gemini_ingestion" end time: Sep 13 12:44 BST
+"gemini_ingestion" time elapsed: 00:00:07
+----------------------------------------------------------
+
+19/67 Testing: gemini_extraction_validation
+19/67 Test: gemini_extraction_validation
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-gemini-extraction-validation" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/GeminiExtractionValidation.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"gemini_extraction_validation" start time: Sep 13 12:44 BST
+Output:
+----------------------------------------------------------
+-- Gemini extraction negative validation passed four durable-worker cases
+<end of output>
+Test time =   4.10 sec
+----------------------------------------------------------
+Test Passed.
+"gemini_extraction_validation" end time: Sep 13 12:44 BST
+"gemini_extraction_validation" time elapsed: 00:00:04
+----------------------------------------------------------
+
+20/67 Testing: provider_durability
+20/67 Test: provider_durability
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_PLUGIN_DIR=/Users/adrian/.local/bin/providers" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/provider_durability_scenario.crexx" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-provider-durability" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/ProviderDurability.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"provider_durability" start time: Sep 13 12:44 BST
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =  12.06 sec
+----------------------------------------------------------
+Test Passed.
+"provider_durability" end time: Sep 13 12:44 BST
+"provider_durability" time elapsed: 00:00:12
+----------------------------------------------------------
+
+21/67 Testing: codex_protocol
+21/67 Test: codex_protocol
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_PLUGIN_DIR=/Users/adrian/.local/bin/providers" "-DCPRAG_PROBE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/providers/tests/codex_protocol_scenario.crexx" "-DCPRAG_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/codex-app-server-fixture.sh" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-codex-protocol" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/CodexProtocol.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"codex_protocol" start time: Sep 13 12:44 BST
+Output:
+----------------------------------------------------------
+-- Codex protocol passed on both VMs, including 17,000 persistent account cycles beyond the old ticket ceiling
+<end of output>
+Test time =  41.19 sec
+----------------------------------------------------------
+Test Passed.
+"codex_protocol" end time: Sep 13 12:45 BST
+"codex_protocol" time elapsed: 00:00:41
+----------------------------------------------------------
+
+22/67 Testing: codex_application
+22/67 Test: codex_application
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CODEX_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/codex-app-server-fixture.sh" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/codex-application.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-codex-application" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/CodexApplication.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"codex_application" start time: Sep 13 12:45 BST
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   2.02 sec
+----------------------------------------------------------
+Test Passed.
+"codex_application" end time: Sep 13 12:45 BST
+"codex_application" time elapsed: 00:00:02
+----------------------------------------------------------
+
+23/67 Testing: worker_recovery
+23/67 Test: worker_recovery
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CODEX_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/codex-app-server-fixture.sh" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/codex-application.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-worker-recovery" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/WorkerRecovery.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"worker_recovery" start time: Sep 13 12:45 BST
+Output:
+----------------------------------------------------------
+-- Worker recovery passed: bounded replacement, durable ceiling, preserved batch limit, no phantom calls, uncertain-turn hold, and saved-response publication after admission failure
+<end of output>
+Test time = 141.17 sec
+----------------------------------------------------------
+Test Passed.
+"worker_recovery" end time: Sep 13 12:47 BST
+"worker_recovery" time elapsed: 00:02:21
+----------------------------------------------------------
+
+24/67 Testing: controller_recovery
+24/67 Test: controller_recovery
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CODEX_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/codex-app-server-fixture.sh" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/codex-application.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-controller-recovery" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/ControllerRecovery.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"controller_recovery" start time: Sep 13 12:47 BST
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =  41.35 sec
+----------------------------------------------------------
+Test Passed.
+"controller_recovery" end time: Sep 13 12:48 BST
+"controller_recovery" time elapsed: 00:00:41
+----------------------------------------------------------
+
+25/67 Testing: gemini_maintenance
+25/67 Test: gemini_maintenance
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_PROPOSAL_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/proposals/external-architecture.ndjson.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-gemini-improvement" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/GeminiImprovement.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"gemini_maintenance" start time: Sep 13 12:48 BST
+Output:
+----------------------------------------------------------
+-- Gemini maintenance and the public provider, profile, lifecycle, proposal, and review surfaces passed with glossary-drift rejection, durable-note output, ANN finalisation, integrity verification, and zero-call replay
+<end of output>
+Test time =   9.61 sec
+----------------------------------------------------------
+Test Passed.
+"gemini_maintenance" end time: Sep 13 12:48 BST
+"gemini_maintenance" time elapsed: 00:00:09
+----------------------------------------------------------
+
+26/67 Testing: gemini_query
+26/67 Test: gemini_query
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-query.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-gemini-query" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/GeminiQuery.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"gemini_query" start time: Sep 13 12:48 BST
+Output:
+----------------------------------------------------------
+-- Gemini query passed human hybrid retrieval and cited answer generation, explicit zero-outbound lexical mode, required-hybrid failure, citation rejection, valid insufficient-evidence handling, and post-query integrity
+<end of output>
+Test time =   8.69 sec
+----------------------------------------------------------
+Test Passed.
+"gemini_query" end time: Sep 13 12:48 BST
+"gemini_query" time elapsed: 00:00:08
+----------------------------------------------------------
+
+27/67 Testing: query_policy
+27/67 Test: query_policy
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application" "-DCPRAG_PROVIDER_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/providers" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/query_policy_scenario.crexx" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-query-policy" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/QueryPolicy.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"query_policy" start time: Sep 13 12:48 BST
+Output:
+----------------------------------------------------------
+-- Query privacy and budget policy passed in four compiler/VM cells
+<end of output>
+Test time =   6.27 sec
+----------------------------------------------------------
+Test Passed.
+"query_policy" end time: Sep 13 12:48 BST
+"query_policy" time elapsed: 00:00:06
+----------------------------------------------------------
+
+28/67 Testing: ann_methodology
+28/67 Test: ann_methodology
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_PLUGIN_DIR=/Users/adrian/.local/bin/providers" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/ann_methodology_scenario.crexx" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-ann-methodology" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/AnnMethodology.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"ann_methodology" start time: Sep 13 12:48 BST
+Output:
+----------------------------------------------------------
+-- ANN methodology passed bounded approximate retrieval and exact-oracle recall on both VMs
+<end of output>
+Test time =   5.82 sec
+----------------------------------------------------------
+Test Passed.
+"ann_methodology" end time: Sep 13 12:48 BST
+"ann_methodology" time elapsed: 00:00:05
+----------------------------------------------------------
+
+29/67 Testing: lifecycle_methodology
+29/67 Test: lifecycle_methodology
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_PLUGIN_DIR=/Users/adrian/.local/bin/providers" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/lifecycle_methodology_scenario.crexx" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-lifecycle-methodology" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/LifecycleMethodology.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"lifecycle_methodology" start time: Sep 13 12:48 BST
+Output:
+----------------------------------------------------------
+-- Lifecycle methodology passed all reviewed operations and negative gates on both VMs
+<end of output>
+Test time =   4.87 sec
+----------------------------------------------------------
+Test Passed.
+"lifecycle_methodology" end time: Sep 13 12:48 BST
+"lifecycle_methodology" time elapsed: 00:00:04
+----------------------------------------------------------
+
+30/67 Testing: evidence_methodology
+30/67 Test: evidence_methodology
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_PLUGIN_DIR=/Users/adrian/.local/bin/providers" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/evidence_methodology_scenario.crexx" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-evidence-methodology" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/EvidenceMethodology.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"evidence_methodology" start time: Sep 13 12:48 BST
+Output:
+----------------------------------------------------------
+-- Evidence methodology passed explicit graph-anchor, projection, query-plan, lead, note, citation, and gap assertions on both VMs
+<end of output>
+Test time =   3.75 sec
+----------------------------------------------------------
+Test Passed.
+"evidence_methodology" end time: Sep 13 12:48 BST
+"evidence_methodology" time elapsed: 00:00:03
+----------------------------------------------------------
+
+31/67 Testing: maintenance_methodology
+31/67 Test: maintenance_methodology
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_PLUGIN_DIR=/Users/adrian/.local/bin/providers" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/maintenance_methodology_scenario.crexx" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-maintenance-methodology" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/MaintenanceMethodology.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"maintenance_methodology" start time: Sep 13 12:48 BST
+Output:
+----------------------------------------------------------
+-- Maintenance methodology passed complete census and worklist proof on both VMs
+<end of output>
+Test time =   3.98 sec
+----------------------------------------------------------
+Test Passed.
+"maintenance_methodology" end time: Sep 13 12:48 BST
+"maintenance_methodology" time elapsed: 00:00:03
+----------------------------------------------------------
+
+32/67 Testing: native_surfaces
+32/67 Test: native_surfaces
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-query.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-native-surfaces" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeSurfaces.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"native_surfaces" start time: Sep 13 12:48 BST
+Output:
+----------------------------------------------------------
+-- Native surfaces passed unified crexxrag MCP serving, stable citation resolution, dedicated trace/path/timeline projections, deterministic reporting, churn-governed snapshots, historic trends, maintenance vocabulary, discovered config, provider-backed structured answer, lexical zero-call route, truthful annotations, strict arguments, and clean integrity
+<end of output>
+Test time =  18.41 sec
+----------------------------------------------------------
+Test Passed.
+"native_surfaces" end time: Sep 13 12:49 BST
+"native_surfaces" time elapsed: 00:00:18
+----------------------------------------------------------
+
+33/67 Testing: address_surface
+33/67 Test: address_surface
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXLINK=/Users/adrian/.local/bin/rxlink" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_ADDRESS_RXBIN=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application/address/rag_address_environment.rxbin" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/address_surface_scenario.crexx" "-DCPRAG_CONFIG_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/config/google-gemini.conf" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-address-surface" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/AddressSurface.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"address_surface" start time: Sep 13 12:49 BST
+Output:
+----------------------------------------------------------
+-- ADDRESS RAG passed deterministic reporting, empty historic trends, snapshot access denial, maintenance planning/denial, session binding, config loading, access control, and atomic failed-open checks on both VMs
+<end of output>
+Test time =   3.04 sec
+----------------------------------------------------------
+Test Passed.
+"address_surface" end time: Sep 13 12:49 BST
+"address_surface" time elapsed: 00:00:03
+----------------------------------------------------------
+
+34/67 Testing: regression_result_contract
+34/67 Test: regression_result_contract
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXLINK=/Users/adrian/.local/bin/rxlink" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_ADDRESS_RXBIN=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application/address/rag_address_environment.rxbin" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/result_contract_scenario.crexx" "-DCPRAG_CONFIG_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/config/google-gemini.conf" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-result-contract" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/AddressSurface.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_result_contract" start time: Sep 13 12:49 BST
+Output:
+----------------------------------------------------------
+-- ADDRESS RAG passed deterministic reporting, empty historic trends, snapshot access denial, maintenance planning/denial, session binding, config loading, access control, and atomic failed-open checks on both VMs
+<end of output>
+Test time =   2.98 sec
+----------------------------------------------------------
+Test Passed.
+"regression_result_contract" end time: Sep 13 12:49 BST
+"regression_result_contract" time elapsed: 00:00:02
+----------------------------------------------------------
+
+35/67 Testing: gemini_provider_smoke
+35/67 Test: gemini_provider_smoke
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-query.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-gemini-provider-smoke" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/GeminiProviderSmoke.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"gemini_provider_smoke" start time: Sep 13 12:49 BST
+Output:
+----------------------------------------------------------
+-- Gemini provider smoke passed human, machine and MCP routes with exact output validation/rejection, truthful annotations, cancellation, aggregate and zero-call budget rejection, and secret-free output
+<end of output>
+Test time =   1.45 sec
+----------------------------------------------------------
+Test Passed.
+"gemini_provider_smoke" end time: Sep 13 12:49 BST
+"gemini_provider_smoke" time elapsed: 00:00:01
+----------------------------------------------------------
+
+36/67 Testing: installed_product
+36/67 Test: installed_product
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_BUILD_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_PROVIDER_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-query.conf.in" "-DCPRAG_MAINTENANCE_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_PROPOSAL_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/proposals/external-architecture.ndjson.in" "-DCPRAG_PROVIDER_SMOKE_SCRIPT=/Users/adrian/CLionProjects/crexx-rag-review/cmake/GeminiProviderSmoke.cmake" "-DCPRAG_MAINTENANCE_SCRIPT=/Users/adrian/CLionProjects/crexx-rag-review/cmake/GeminiImprovement.cmake" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-installed-product" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/InstalledProduct.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"installed_product" start time: Sep 13 12:49 BST
+Output:
+----------------------------------------------------------
+-- Scratch-prefix installed crexxrag passed doctor, Gemini provider smoke, init, ingest, maintain, hybrid query, tutorial and skill audit
+<end of output>
+Test time =  31.82 sec
+----------------------------------------------------------
+Test Passed.
+"installed_product" end time: Sep 13 12:49 BST
+"installed_product" time elapsed: 00:00:31
+----------------------------------------------------------
+
+37/67 Testing: documentation_contract
+37/67 Test: documentation_contract
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_SOURCE_DIR=/Users/adrian/CLionProjects/crexx-rag-review" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-documentation-contract" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/DocumentationContract.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"documentation_contract" start time: Sep 13 12:49 BST
+Output:
+----------------------------------------------------------
+-- Documentation and installed-skill source describe the implemented maintain and IVF-flat ANN surface without a product-methodology postponement list
+<end of output>
+Test time =   0.05 sec
+----------------------------------------------------------
+Test Passed.
+"documentation_contract" end time: Sep 13 12:49 BST
+"documentation_contract" time elapsed: 00:00:00
+----------------------------------------------------------
+
+38/67 Testing: local_embedding_protocol
+38/67 Test: local_embedding_protocol
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_PROBE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/providers/tests/local_embedding_protocol_scenario.crexx" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-local-embedding-protocol" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/LocalEmbeddingProtocol.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"local_embedding_protocol" start time: Sep 13 12:49 BST
+Output:
+----------------------------------------------------------
+-- Local OpenAI-compatible embedding protocol passed request mapping, restricted local privacy, vector decoding, zero monetary cost, and Retry-After plus exponential retry on both VMs and compiler modes
+<end of output>
+Test time =   6.56 sec
+----------------------------------------------------------
+Test Passed.
+"local_embedding_protocol" end time: Sep 13 12:49 BST
+"local_embedding_protocol" time elapsed: 00:00:06
+----------------------------------------------------------
+
+39/67 Testing: quotation_grounding
+39/67 Test: quotation_grounding
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_PLUGIN_DIR=/Users/adrian/.local/bin/providers" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/grounding_scenario.crexx" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-quotation-grounding" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/QuotationGrounding.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"quotation_grounding" start time: Sep 13 12:49 BST
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   1.73 sec
+----------------------------------------------------------
+Test Passed.
+"quotation_grounding" end time: Sep 13 12:49 BST
+"quotation_grounding" time elapsed: 00:00:01
+----------------------------------------------------------
+
+40/67 Testing: temporal_provenance
+40/67 Test: temporal_provenance
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_PLUGIN_DIR=/Users/adrian/.local/bin/providers" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/provenance_scenario.crexx" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-temporal-provenance" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/TemporalProvenance.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"temporal_provenance" start time: Sep 13 12:49 BST
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =  21.99 sec
+----------------------------------------------------------
+Test Passed.
+"temporal_provenance" end time: Sep 13 12:50 BST
+"temporal_provenance" time elapsed: 00:00:21
+----------------------------------------------------------
+
+41/67 Testing: durable_backlog
+41/67 Test: durable_backlog
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_PLUGIN_DIR=/Users/adrian/.local/bin/providers" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CONFIG_FIXTURE=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/config/google-gemini.conf" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/backlog_scenario.crexx" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-durable-backlog" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/DurableBacklog.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"durable_backlog" start time: Sep 13 12:50 BST
+Output:
+----------------------------------------------------------
+-- Durable backlog assertions passed on both VMs
+<end of output>
+Test time =  14.40 sec
+----------------------------------------------------------
+Test Passed.
+"durable_backlog" end time: Sep 13 12:50 BST
+"durable_backlog" time elapsed: 00:00:14
+----------------------------------------------------------
+
+42/67 Testing: durable_backlog_provider
+42/67 Test: durable_backlog_provider
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-durable-backlog-provider" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/DurableBacklogProvider.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"durable_backlog_provider" start time: Sep 13 12:50 BST
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =  49.75 sec
+----------------------------------------------------------
+Test Passed.
+"durable_backlog_provider" end time: Sep 13 12:51 BST
+"durable_backlog_provider" time elapsed: 00:00:49
+----------------------------------------------------------
+
+43/67 Testing: publication
+43/67 Test: publication
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_PLUGIN_DIR=/Users/adrian/.local/bin/providers" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/publication_scenario.crexx" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-publication" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/Publication.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"publication" start time: Sep 13 12:51 BST
+Output:
+----------------------------------------------------------
+-- Publication assertions passed on both VMs
+<end of output>
+Test time =  22.33 sec
+----------------------------------------------------------
+Test Passed.
+"publication" end time: Sep 13 12:51 BST
+"publication" time elapsed: 00:00:22
+----------------------------------------------------------
+
+44/67 Testing: native_publication
+44/67 Test: native_publication
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-native-publication" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/NativePublication.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"native_publication" start time: Sep 13 12:51 BST
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   8.39 sec
+----------------------------------------------------------
+Test Passed.
+"native_publication" end time: Sep 13 12:51 BST
+"native_publication" time elapsed: 00:00:08
+----------------------------------------------------------
+
+45/67 Testing: embedding_recovery
+45/67 Test: embedding_recovery
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-embedding-recovery" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/EmbeddingRecovery.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"embedding_recovery" start time: Sep 13 12:51 BST
+Output:
+----------------------------------------------------------
+-- EMBEDDING_RECOVERY_OK workers=8 batches=4 covered=32 calls=34 retries=2 extraction=held reconcile=idempotent
+<end of output>
+Test time =  20.99 sec
+----------------------------------------------------------
+Test Passed.
+"embedding_recovery" end time: Sep 13 12:52 BST
+"embedding_recovery" time elapsed: 00:00:20
+----------------------------------------------------------
+
+46/67 Testing: embedding_exhaustion
+46/67 Test: embedding_exhaustion
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-embedding-exhaustion" "-DCPRAG_EXHAUSTION=ON" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/EmbeddingRecovery.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"embedding_exhaustion" start time: Sep 13 12:52 BST
+Output:
+----------------------------------------------------------
+-- EMBEDDING_EXHAUSTION_OK workers=8 calls=7 ceiling=6 restarts=preserved incomplete=reported
+<end of output>
+Test time =  74.76 sec
+----------------------------------------------------------
+Test Passed.
+"embedding_exhaustion" end time: Sep 13 12:53 BST
+"embedding_exhaustion" time elapsed: 00:01:14
+----------------------------------------------------------
+
+47/67 Testing: native_receipt_failure
+47/67 Test: native_receipt_failure
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-native-receipt-failure" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeReceiptFailure.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"native_receipt_failure" start time: Sep 13 12:53 BST
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   7.20 sec
+----------------------------------------------------------
+Test Passed.
+"native_receipt_failure" end time: Sep 13 12:53 BST
+"native_receipt_failure" time elapsed: 00:00:07
+----------------------------------------------------------
+
+48/67 Testing: native_receipts
+48/67 Test: native_receipts
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-native-receipts" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeReceipts.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"native_receipts" start time: Sep 13 12:53 BST
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   5.36 sec
+----------------------------------------------------------
+Test Passed.
+"native_receipts" end time: Sep 13 12:53 BST
+"native_receipts" time elapsed: 00:00:05
+----------------------------------------------------------
+
+49/67 Testing: native_interruption
+49/67 Test: native_interruption
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-native-interruption" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeInterruption.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"native_interruption" start time: Sep 13 12:53 BST
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   6.22 sec
+----------------------------------------------------------
+Test Passed.
+"native_interruption" end time: Sep 13 12:53 BST
+"native_interruption" time elapsed: 00:00:06
+----------------------------------------------------------
+
+50/67 Testing: regression_controller_loss
+50/67 Test: regression_controller_loss
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-controller_loss" "-DCPRAG_CASES=controller_loss" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeInterruption.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_controller_loss" start time: Sep 13 12:53 BST
+Output:
+----------------------------------------------------------
+-- RESTART_CONTROLS_OK: one held call, one queued peer, live controller and child
+-- RESTART_CLEANUP_CHECKED: controller_loss; errors above remain failures
+<end of output>
+Test time =   1.50 sec
+----------------------------------------------------------
+Test Passed.
+"regression_controller_loss" end time: Sep 13 12:53 BST
+"regression_controller_loss" time elapsed: 00:00:01
+----------------------------------------------------------
+
+51/67 Testing: regression_restart_live
+51/67 Test: regression_restart_live
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-restart_live" "-DCPRAG_CASES=restart_live" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeInterruption.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_restart_live" start time: Sep 13 12:53 BST
+Output:
+----------------------------------------------------------
+-- RESTART_CONTROLS_OK: one held call, one queued peer, live controller and child
+-- RESTART_REPEAT_CHECKED: no repeated work or provider receipt
+-- RESTART_CLEANUP_CHECKED: restart_live; errors above remain failures
+<end of output>
+Test time =   3.93 sec
+----------------------------------------------------------
+Test Passed.
+"regression_restart_live" end time: Sep 13 12:53 BST
+"regression_restart_live" time elapsed: 00:00:03
+----------------------------------------------------------
+
+52/67 Testing: regression_pages
+52/67 Test: regression_pages
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-regression-pages" "-DCPRAG_CASE=pages" "-DCPRAG_CORPUS=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/retrieval/regression.json" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/PublicRegression.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_pages" start time: Sep 13 12:53 BST
+Output:
+----------------------------------------------------------
+-- PUBLIC_REGRESSION_OK case=pages native_sha256=62eaaa2292e210b0c468d2de58ed126ca92557a1a24760109d863c764b85fa81
+<end of output>
+Test time =  22.58 sec
+----------------------------------------------------------
+Test Passed.
+"regression_pages" end time: Sep 13 12:54 BST
+"regression_pages" time elapsed: 00:00:22
+----------------------------------------------------------
+
+53/67 Testing: regression_page_max
+53/67 Test: regression_page_max
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-regression-page_max" "-DCPRAG_CASE=page_max" "-DCPRAG_CORPUS=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/retrieval/regression.json" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/PublicRegression.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_page_max" start time: Sep 13 12:54 BST
+Output:
+----------------------------------------------------------
+-- PUBLIC_REGRESSION_OK case=page_max native_sha256=62eaaa2292e210b0c468d2de58ed126ca92557a1a24760109d863c764b85fa81
+<end of output>
+Test time =   1.77 sec
+----------------------------------------------------------
+Test Passed.
+"regression_page_max" end time: Sep 13 12:54 BST
+"regression_page_max" time elapsed: 00:00:01
+----------------------------------------------------------
+
+54/67 Testing: regression_large_job
+54/67 Test: regression_large_job
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-regression-large_job" "-DCPRAG_CASE=large_job" "-DCPRAG_CORPUS=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/retrieval/regression.json" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/PublicRegression.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_large_job" start time: Sep 13 12:54 BST
+Output:
+----------------------------------------------------------
+-- PUBLIC_REGRESSION_OK case=large_job native_sha256=62eaaa2292e210b0c468d2de58ed126ca92557a1a24760109d863c764b85fa81
+<end of output>
+Test time =   1.78 sec
+----------------------------------------------------------
+Test Passed.
+"regression_large_job" end time: Sep 13 12:54 BST
+"regression_large_job" time elapsed: 00:00:01
+----------------------------------------------------------
+
+55/67 Testing: regression_plan_detail
+55/67 Test: regression_plan_detail
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-regression-plan_detail" "-DCPRAG_CASE=plan_detail" "-DCPRAG_CORPUS=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/retrieval/regression.json" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/PublicRegression.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_plan_detail" start time: Sep 13 12:54 BST
+Output:
+----------------------------------------------------------
+-- PUBLIC_REGRESSION_OK case=plan_detail native_sha256=62eaaa2292e210b0c468d2de58ed126ca92557a1a24760109d863c764b85fa81
+<end of output>
+Test time =   7.87 sec
+----------------------------------------------------------
+Test Passed.
+"regression_plan_detail" end time: Sep 13 12:54 BST
+"regression_plan_detail" time elapsed: 00:00:07
+----------------------------------------------------------
+
+56/67 Testing: regression_retry
+56/67 Test: regression_retry
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-regression-retry" "-DCPRAG_CASE=retry" "-DCPRAG_CORPUS=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/retrieval/regression.json" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/PublicRegression.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_retry" start time: Sep 13 12:54 BST
+Output:
+----------------------------------------------------------
+-- PUBLIC_REGRESSION_OK case=retry native_sha256=62eaaa2292e210b0c468d2de58ed126ca92557a1a24760109d863c764b85fa81
+<end of output>
+Test time =   1.77 sec
+----------------------------------------------------------
+Test Passed.
+"regression_retry" end time: Sep 13 12:54 BST
+"regression_retry" time elapsed: 00:00:01
+----------------------------------------------------------
+
+57/67 Testing: regression_closed_retry
+57/67 Test: regression_closed_retry
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-regression-closed_retry" "-DCPRAG_CASE=closed_retry" "-DCPRAG_CORPUS=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/retrieval/regression.json" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/PublicRegression.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_closed_retry" start time: Sep 13 12:54 BST
+Output:
+----------------------------------------------------------
+-- PUBLIC_REGRESSION_OK case=closed_retry native_sha256=62eaaa2292e210b0c468d2de58ed126ca92557a1a24760109d863c764b85fa81
+<end of output>
+Test time =   3.45 sec
+----------------------------------------------------------
+Test Passed.
+"regression_closed_retry" end time: Sep 13 12:54 BST
+"regression_closed_retry" time elapsed: 00:00:03
+----------------------------------------------------------
+
+58/67 Testing: regression_retrieval
+58/67 Test: regression_retrieval
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-regression-retrieval" "-DCPRAG_CASE=retrieval" "-DCPRAG_CORPUS=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/retrieval/regression.json" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/PublicRegression.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_retrieval" start time: Sep 13 12:54 BST
+Output:
+----------------------------------------------------------
+-- LEXICAL_REGRESSION_CHECKED case=retrieval surfaces=2 provider_calls=0 writes=0 citation_offsets=utf8
+-- PUBLIC_REGRESSION_OK case=retrieval native_sha256=62eaaa2292e210b0c468d2de58ed126ca92557a1a24760109d863c764b85fa81
+<end of output>
+Test time =   5.15 sec
+----------------------------------------------------------
+Test Passed.
+"regression_retrieval" end time: Sep 13 12:54 BST
+"regression_retrieval" time elapsed: 00:00:05
+----------------------------------------------------------
+
+59/67 Testing: regression_retrieval_unicode
+59/67 Test: regression_retrieval_unicode
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-regression-retrieval_unicode" "-DCPRAG_CASE=retrieval_unicode" "-DCPRAG_CORPUS=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/retrieval/regression.json" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/PublicRegression.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_retrieval_unicode" start time: Sep 13 12:54 BST
+Output:
+----------------------------------------------------------
+-- LEXICAL_REGRESSION_CHECKED case=retrieval_unicode surfaces=2 provider_calls=0 writes=0 citation_offsets=utf8
+-- PUBLIC_REGRESSION_OK case=retrieval_unicode native_sha256=62eaaa2292e210b0c468d2de58ed126ca92557a1a24760109d863c764b85fa81
+<end of output>
+Test time =  11.13 sec
+----------------------------------------------------------
+Test Passed.
+"regression_retrieval_unicode" end time: Sep 13 12:54 BST
+"regression_retrieval_unicode" time elapsed: 00:00:11
+----------------------------------------------------------
+
+60/67 Testing: regression_ingest_capacity
+60/67 Test: regression_ingest_capacity
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_PLUGIN_DIR=/Users/adrian/.local/bin/providers" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/admission_regression.crexx" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-regression-ingest-capacity" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/AdmissionRegression.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_ingest_capacity" start time: Sep 13 12:54 BST
+Output:
+----------------------------------------------------------
+-- Admission regression passed on both VMs with optimized code
+<end of output>
+Test time =   2.22 sec
+----------------------------------------------------------
+Test Passed.
+"regression_ingest_capacity" end time: Sep 13 12:54 BST
+"regression_ingest_capacity" time elapsed: 00:00:02
+----------------------------------------------------------
+
+61/67 Testing: native_admission
+61/67 Test: native_admission
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-native-admission" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeAdmission.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"native_admission" start time: Sep 13 12:54 BST
+Output:
+----------------------------------------------------------
+-- Native admission: held peer, clean workers, unchanged allowance, four exact settlements
+<end of output>
+Test time =   4.31 sec
+----------------------------------------------------------
+Test Passed.
+"native_admission" end time: Sep 13 12:54 BST
+"native_admission" time elapsed: 00:00:04
+----------------------------------------------------------
+
+62/67 Testing: regression_lifecycle
+62/67 Test: regression_lifecycle
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_RXC=/Users/adrian/.local/bin/rxc" "-DCPRAG_RXAS=/Users/adrian/.local/bin/rxas" "-DCPRAG_RXVME=/Users/adrian/.local/bin/rxvme" "-DCPRAG_RXBVM=/Users/adrian/.local/bin/rxbvm" "-DCPRAG_CREXX_BIN_DIR=/Users/adrian/.local/bin" "-DCPRAG_PLUGIN_DIR=/Users/adrian/.local/bin/providers" "-DCPRAG_APPLICATION_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application" "-DCPRAG_SCENARIO=/Users/adrian/CLionProjects/crexx-rag-review/cmake/../crexx/application/tests/lifecycle_regression.crexx" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-regression-lifecycle" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/LifecycleRegression.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"regression_lifecycle" start time: Sep 13 12:54 BST
+Output:
+----------------------------------------------------------
+-- Lifecycle regression passed on both VMs with optimized code
+<end of output>
+Test time =   2.69 sec
+----------------------------------------------------------
+Test Passed.
+"regression_lifecycle" end time: Sep 13 12:55 BST
+"regression_lifecycle" time elapsed: 00:00:02
+----------------------------------------------------------
+
+63/67 Testing: native_lifecycle_holds
+63/67 Test: native_lifecycle_holds
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-native-lifecycle-holds" "-DCPRAG_HOLDS=1" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeLifecycle.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"native_lifecycle_holds" start time: Sep 13 12:55 BST
+Output:
+----------------------------------------------------------
+-- LIFECYCLE_RECOVERY_OK failures=5 calls=3 history=preserved requests=durable live-owner=deduplicated
+<end of output>
+Test time =  16.05 sec
+----------------------------------------------------------
+Test Passed.
+"native_lifecycle_holds" end time: Sep 13 12:55 BST
+"native_lifecycle_holds" time elapsed: 00:00:16
+----------------------------------------------------------
+
+64/67 Testing: native_continuation
+64/67 Test: native_continuation
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-native-continuation" "-DCPRAG_CONTINUATION=ON" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeLifecycle.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"native_continuation" start time: Sep 13 12:55 BST
+Output:
+----------------------------------------------------------
+-- LIFECYCLE_RECOVERY_OK failures=5 calls=5 history=preserved requests=durable live-owner=deduplicated
+<end of output>
+Test time =  12.88 sec
+----------------------------------------------------------
+Test Passed.
+"native_continuation" end time: Sep 13 12:55 BST
+"native_continuation" time elapsed: 00:00:12
+----------------------------------------------------------
+
+65/67 Testing: native_legacy_retry_ceiling
+65/67 Test: native_legacy_retry_ceiling
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-native-legacy-retry" "-DCPRAG_LEGACY_CEILING=ON" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeLifecycle.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"native_legacy_retry_ceiling" start time: Sep 13 12:55 BST
+Output:
+----------------------------------------------------------
+-- LIFECYCLE_RECOVERY_OK failures=5 calls=5 history=preserved requests=durable live-owner=deduplicated
+<end of output>
+Test time =  10.50 sec
+----------------------------------------------------------
+Test Passed.
+"native_legacy_retry_ceiling" end time: Sep 13 12:55 BST
+"native_legacy_retry_ceiling" time elapsed: 00:00:10
+----------------------------------------------------------
+
+66/67 Testing: native_continuation_holds
+66/67 Test: native_continuation_holds
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-native-continuation-holds" "-DCPRAG_CONTINUATION=ON" "-DCPRAG_HOLDS=ON" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeLifecycle.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"native_continuation_holds" start time: Sep 13 12:55 BST
+Output:
+----------------------------------------------------------
+-- LIFECYCLE_RECOVERY_OK failures=5 calls=3 history=preserved requests=durable live-owner=deduplicated
+<end of output>
+Test time =  18.20 sec
+----------------------------------------------------------
+Test Passed.
+"native_continuation_holds" end time: Sep 13 12:55 BST
+"native_continuation_holds" time elapsed: 00:00:18
+----------------------------------------------------------
+
+67/67 Testing: native_embedding_retry_policy
+67/67 Test: native_embedding_retry_policy
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag-review/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-native-embedding-retry-policy" "-DCPRAG_LEGACY_CEILING=ON" "-DCPRAG_EMBEDDING_POLICY=ON" "-P" "/Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeLifecycle.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+"native_embedding_retry_policy" start time: Sep 13 12:55 BST
+Output:
+----------------------------------------------------------
+-- LIFECYCLE_RECOVERY_OK failures=5 calls=5 history=preserved requests=durable live-owner=deduplicated
+<end of output>
+Test time =  10.80 sec
+----------------------------------------------------------
+Test Passed.
+"native_embedding_retry_policy" end time: Sep 13 12:56 BST
+"native_embedding_retry_policy" time elapsed: 00:00:10
+----------------------------------------------------------
+
+End testing: Sep 13 12:56 BST
+
+RAG-OPS-002 =   6.14 sec*proc
+
+RAG-OPS-004 =   2.22 sec*proc
+
+RAG-QE-06 =  11.13 sec*proc
+
+RAG-UX-02 =   3.55 sec*proc
+
+access =   3.04 sec*proc
+
+accounting = 123.75 sec*proc
+
+address =   6.01 sec*proc
+
+ann =  15.42 sec*proc
+
+answer =  27.10 sec*proc
+
+application =   3.59 sec*proc
+
+atomic =  50.00 sec*proc
+
+budget =  16.42 sec*proc
+
+cancellation =   6.22 sec*proc
+
+census =   3.98 sec*proc
+
+citation =  10.15 sec*proc
+
+claim =  18.09 sec*proc
+
+codex =  61.55 sec*proc
+
+command =   7.32 sec*proc
+
+concurrency = 180.38 sec*proc
+
+configuration =  65.30 sec*proc
+
+continuation =  31.08 sec*proc
+
+contract =   2.60 sec*proc
+
+dead-letter =   4.10 sec*proc
+
+direction =   3.75 sec*proc
+
+documentation =   0.05 sec*proc
+
+durability = 155.25 sec*proc
+
+embedding =  24.56 sec*proc
+
+extraction =  27.81 sec*proc
+
+gap =   3.75 sec*proc
+
+gemini = 279.09 sec*proc
+
+generation =   1.45 sec*proc
+
+graph =   3.75 sec*proc
+
+human =  18.41 sec*proc
+
+hybrid =   8.69 sec*proc
+
+ingestion =  39.68 sec*proc
+
+installed =  31.82 sec*proc
+
+jsonl =  41.19 sec*proc
+
+lead =   3.75 sec*proc
+
+lifecycle =  67.20 sec*proc
+
+linked =   1.57 sec*proc
+
+llama.cpp =   6.56 sec*proc
+
+local =   6.56 sec*proc
+
+loopback = 112.75 sec*proc
+
+maintenance = 114.42 sec*proc
+
+mcp =  18.41 sec*proc
+
+merge =  19.27 sec*proc
+
+methodology =   0.05 sec*proc
+
+multi-process =  26.47 sec*proc
+
+native = 263.10 sec*proc
+
+note =   3.75 sec*proc
+
+openai-compatible =   6.56 sec*proc
+
+operator =   9.37 sec*proc
+
+pagination =   5.39 sec*proc
+
+policy =  10.39 sec*proc
+
+privacy =  52.24 sec*proc
+
+process =  26.47 sec*proc
+
+prompt =  29.27 sec*proc
+
+provenance =  23.71 sec*proc
+
+provider = 247.38 sec*proc
+
+public-contract =  58.48 sec*proc
+
+publication =  36.95 sec*proc
+
+query =  49.77 sec*proc
+
+quotation =  23.71 sec*proc
+
+ranking =   3.98 sec*proc
+
+recall =   5.82 sec*proc
+
+recovery = 473.37 sec*proc
+
+redaction =  49.75 sec*proc
+
+registry =   4.10 sec*proc
+
+regression = 286.96 sec*proc
+
+replay =   3.98 sec*proc
+
+resolution =  49.75 sec*proc
+
+retirement =  19.27 sec*proc
+
+retrieval =   9.56 sec*proc
+
+reviewed-plan =   9.61 sec*proc
+
+rxvector =   5.82 sec*proc
+
+schema =  67.08 sec*proc
+
+secret-free =   5.55 sec*proc
+
+skills =  31.87 sec*proc
+
+span =   4.10 sec*proc
+
+split =  19.27 sec*proc
+
+sqlite = 258.22 sec*proc
+
+strict-json =  23.12 sec*proc
+
+subscription-budget =  12.06 sec*proc
+
+surface =   3.04 sec*proc
+
+tamper =   5.82 sec*proc
+
+trace =   7.85 sec*proc
+
+unicode =  23.71 sec*proc
+
+validation =   4.10 sec*proc
+
+worker = 308.31 sec*proc
+
+worklist =   3.98 sec*proc
+
+zero-outbound = 732.57 sec*proc
+

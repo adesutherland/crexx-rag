@@ -1,10 +1,11 @@
 options levelg
 
-namespace ragsupervision expose reserveworkerreplacement replacementallowed recordsupervision readsupervision
+namespace ragsupervision expose reserveworkerreplacement replacementallowed recordsupervision readsupervision processpresence workerclaimallowed
 
 import rxfnsb
 import rxjson
 import rxsqlite
+import rxplatform
 import ragstore
 import ragworkerdefaults
 import ragenvironment
@@ -61,7 +62,7 @@ reserveworkerreplacement: procedure = .int
 
 replacementallowed: procedure = .int
   arg store = .ragstorehandle, job_id = .string, previous_id = .string, expose error = .string
-  sql = "SELECT count(*) FROM jobs j WHERE j.job_id=" || _sqlquote(job_id) || " AND j.state IN('queued','running') AND EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=j.job_id AND i.state IN('queued','running')) AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.worker_id=" || _sqlquote(previous_id) || " AND a.outcome='running') AND NOT EXISTS(SELECT 1 FROM runtime_instances r WHERE r.instance_id=" || _sqlquote(previous_id) || " AND r.requested_state<>'none') AND NOT EXISTS(SELECT 1 FROM maintenance_windows w WHERE w.job_id=j.job_id AND (w.state<>'active' OR w.deadline_epoch<=unixepoch()))"
+  sql = "SELECT count(*) FROM jobs j WHERE j.job_id=" || _sqlquote(job_id) || " AND j.state IN('queued','running') AND EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=j.job_id AND i.state IN('queued','running')) AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.worker_id=" || _sqlquote(previous_id) || " AND a.outcome='running') AND NOT EXISTS(SELECT 1 FROM runtime_instances r WHERE r.instance_id=" || _sqlquote(previous_id) || " AND r.requested_state<>'none') AND NOT EXISTS(SELECT 1 FROM runtime_instances c JOIN runtime_instances w ON w.parent_instance_id=c.instance_id WHERE w.instance_id=" || _sqlquote(previous_id) || " AND (c.requested_state<>'none' OR c.state IN('draining','stopped','failed'))) AND NOT EXISTS(SELECT 1 FROM maintenance_windows w WHERE w.job_id=j.job_id AND (w.state<>'active' OR w.deadline_epoch<=unixepoch()))"
   return _scalarint(store.database(),sql,error)
 
 
@@ -93,18 +94,76 @@ readsupervision: procedure = .string
     next_epoch = _scalarint(database,"SELECT min(coalesce(unixepoch(occurred_at)," || now_epoch || "))+" || window_seconds || " FROM job_events WHERE " || recent,error)
     reason = "replacement-window"
   end
-  live = _scalarint(database,"SELECT count(*) FROM runtime_instances WHERE kind='worker' AND job_filter=" || _sqlquote(job_id) || " AND state IN('starting','idle','running','draining')",error)
+  live = 0; registered = 0; unverified = 0
+  if _workerpresence(database,job_id,live,registered,unverified,error) \= 0 then return ""
   wait_seconds = replacementwait(database,job_id,live,error,now_epoch)
   if wait_seconds > 0 then do
     next_epoch = max(next_epoch,now_epoch+wait_seconds)
     if reason = "" then reason = "provider-backoff-or-probe"
   end
+  if unverified>0 & reason="" then reason="process-liveness-unverified"
   if live=0 & reason="" then do
     remaining=_scalarint(database,"SELECT count(*) FROM job_items WHERE job_id=" || _sqlquote(job_id) || " AND state='queued'",error)
     if remaining>0 then reason="no-active-workers; use job continue"
   end
   if error \= "" then return ""
-  return '{"controller_id":' || jsonquote(controller) || ',"controller_state":' || jsonquote(controller_state) || ',"heartbeat_age_seconds":' || heartbeat_age || ',"requested_workers":' || requested || ',"remaining_replacements":' || max(0,maximum-used) || ',"configured_workers":' || configured || ',"live_workers":' || live || ',"window_seconds":' || window_seconds || ',"max_restarts":' || maximum || ',"recent_replacements":' || used || ',"next_eligible_epoch":' || next_epoch || ',"waiting_reason":"' || reason || '"}'
+  return '{"controller_id":' || jsonquote(controller) || ',"controller_state":' || jsonquote(controller_state) || ',"heartbeat_age_seconds":' || heartbeat_age || ',"requested_workers":' || requested || ',"remaining_replacements":' || max(0,maximum-used) || ',"configured_workers":' || configured || ',"live_workers":' || live || ',"registered_workers":' || registered || ',"unverified_workers":' || unverified || ',"window_seconds":' || window_seconds || ',"max_restarts":' || maximum || ',"recent_replacements":' || used || ',"next_eligible_epoch":' || next_epoch || ',"waiting_reason":"' || reason || '"}'
+
+/* The installed probe only qualifies local processes in the launcher's
+ * visibility domain. Remote, PID-zero and probe errors remain unverified.
+ * CREXX rc=4 cannot distinguish a hidden PID from an absent PID; do not run
+ * automatic recovery across permission domains (see integration-issues.md). */
+processpresence: procedure = .string
+  arg pid = .int, host_id = .string
+  if host_id \= rxplatform..host() then return "remote"
+  if pid <= 0 then return "unregistered"
+  pid_text = pid || ""; captured = .string[]; errors = .string[]
+  address crexx "ps :pid_text" output captured error errors
+  if rc = 0 then return "alive"
+  if rc = 4 then return "missing"
+  return "unknown"
+
+workerclaimallowed: procedure = .int
+  arg database = .binary, worker_id = .string, expose error = .string, expected_parent = ""
+  prepared = .binary
+  sql = "SELECT coalesce(w.parent_instance_id,''),w.requested_state,w.state,coalesce(p.pid,0),coalesce(p.host_id,''),coalesce(p.state,''),coalesce(p.requested_state,'') FROM runtime_instances w LEFT JOIN runtime_instances p ON p.instance_id=w.parent_instance_id WHERE w.instance_id=" || _sqlquote(worker_id)
+  if sqliteprepare(database,sql,prepared) \= 0 then return _sqlitefailure("inspect claim controller",error)
+  step = sqlitestep(prepared)
+  /* Direct library callers retain their existing lease/fence contract. */
+  if step = 101 then do; call sqlitefinalize prepared; return expected_parent = ""; end
+  parent = ""; requested = ""; state = ""; pid = 0; host_id = ""; parent_state = ""; parent_request = ""
+  columns = sqlitecolumntext(prepared,0,parent) | sqlitecolumntext(prepared,1,requested) | sqlitecolumntext(prepared,2,state) | sqlitecolumnint(prepared,3,pid) | sqlitecolumntext(prepared,4,host_id) | sqlitecolumntext(prepared,5,parent_state) | sqlitecolumntext(prepared,6,parent_request)
+  call sqlitefinalize prepared
+  if step \= 100 | columns \= 0 then return _sqlitefailure("read claim controller",error)
+  if requested \= "none" | state = "stopped" | state = "failed" then return 0
+  /* Parent identity comes from the managed launch too: ON DELETE SET NULL
+   * must never turn an orphan into a standalone claimant. */
+  if expected_parent \= "" & parent \= expected_parent then return 0
+  if parent = "" then return 1
+  if parent_state \= "running" | parent_request \= "none" then return 0
+  presence = processpresence(pid,host_id)
+  if presence = "alive" then return 1
+  if presence = "missing" then return 0
+  error = "controller process visibility is unverified; use the launcher's permission domain"
+  return -1
+
+_workerpresence: procedure = .int
+  arg database = .binary, job_id = .string, expose live = .int, expose registered = .int, expose unverified = .int, expose error = .string
+  live = 0; registered = 0; unverified = 0; prepared = .binary
+  sql = "SELECT pid,host_id FROM runtime_instances WHERE kind='worker' AND job_filter=" || _sqlquote(job_id) || " AND state IN('starting','idle','running','draining')"
+  if sqliteprepare(database,sql,prepared) \= 0 then return _sqlitefailure("inspect worker presence",error)
+  do forever
+    step = sqlitestep(prepared)
+    if step = 101 then leave
+    pid = 0; host_id = ""
+    if step \= 100 | sqlitecolumnint(prepared,0,pid) \= 0 | sqlitecolumntext(prepared,1,host_id) \= 0 then do; call sqlitefinalize prepared; return _sqlitefailure("read worker presence",error); end
+    presence = processpresence(pid,host_id)
+    registered = registered+1
+    if presence = "alive" then live = live+1
+    else if presence \= "missing" then unverified = unverified+1
+  end
+  call sqlitefinalize prepared
+  return 0
 
 _scalartext: procedure = .string
   arg database = .binary, sql = .string, expose error = .string

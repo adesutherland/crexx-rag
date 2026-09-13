@@ -1,0 +1,10 @@
+[
+  {
+    "job_id": "job-maintenance:6487899bc4c6b8d12edb57e101218c0b25346cf0f8c7bdb8267cf188a253e3f5",
+    "item_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c",
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-8",
+    "event_type": "provider-intent",
+    "message": "{\"input_hash\":\"e949c25e8e5ca134443a6043e6041c0012c61dff86e51b5987c58764863553c1\",\"config_snapshot_id\":\"config-1319520a7ecf72cca25bdcba\",\"request_id\":\"embed-5a2064596806e978359f594f68002074\"}",
+    "occurred_at": "2026-09-10T09:34:06.670Z"
+  }
+]

@@ -1,6 +1,9 @@
 options levelg
 import rxfnsb
 import rxsqlite
+import rxplatform
+import ragwork
+import ragworktypes
 import ragstore
 import ragsupervision
 
@@ -64,6 +67,31 @@ main: procedure = .int
   errors = errors + check(ragsupervision..reserveworkerreplacement(store,"controller","worker-5",2,10,replacement,delay,error,100,1300)=2 & delay=1000,"empty queue waits for peer disposition without launching")
   errors = errors + check(number(database,"SELECT count(*) FROM attempts WHERE attempt_id='healthy-attempt' AND outcome='running'")=1 & number(database,"SELECT count(*) FROM job_events WHERE event_type='worker-replacement'")=4,"waiting preserves healthy ownership and history")
   errors = errors + check(sqliteexec(database,"UPDATE attempts SET outcome='failed',completed_at='fixture' WHERE attempt_id='healthy-attempt'; UPDATE job_items SET state='queued'")=0,"peer requeues fixture for competing reservations")
+  /* Shared process/claim boundary: observations do not grant replacement
+   * or a new attempt after a controller drain or loss. Restore the race fixture. */
+  captured = .string[]; diagnostics = .string[]
+  address crexx "pid" output captured error diagnostics
+  errors = errors + check(rc=0 & captured.0=1,"local process identity")
+  local_pid = captured[1] as .int
+  errors = errors + check(processpresence(local_pid,rxplatform..host())="alive","local live process observation")
+  errors = errors + check(processpresence(local_pid,"another-host")="remote" & processpresence(0,rxplatform..host())="unregistered","unverified process observations")
+  errors = errors + check(sqliteexec(database,"BEGIN IMMEDIATE")=0,"begin claim ownership controls")
+  errors = errors + check(sqliteexec(database,"UPDATE runtime_instances SET pid=" || local_pid || ",host_id='" || rxplatform..host() || "' WHERE instance_id='controller'; UPDATE runtime_instances SET state='idle' WHERE instance_id='worker-5'")=0,"live parent and child control")
+  errors = errors + check(workerclaimallowed(database,"worker-5",error,"controller")=1 & workerclaimallowed(database,"direct-caller",error)=1,"owned and direct claims remain permitted")
+  errors = errors + check(sqliteexec(database,"UPDATE runtime_instances SET requested_state='drain' WHERE instance_id='controller'")=0,"parent drain control")
+  errors = errors + check(workerclaimallowed(database,"worker-5",error,"controller")=0 & replacementallowed(store,"job","worker-5",error)=0,"drain prevents claims and replacements")
+  errors = errors + check(sqliteexec(database,"UPDATE runtime_instances SET requested_state='none',host_id='another-host' WHERE instance_id='controller'")=0,"inaccessible parent control")
+  error=""
+  errors = errors + check(workerclaimallowed(database,"worker-5",error,"controller")<0 & error<>"","unverified parent holds claims with a diagnostic")
+  errors = errors + check(sqliteexec(database,"DELETE FROM runtime_instances WHERE instance_id='controller'")=0,"missing parent control")
+  error=""
+  errors = errors + check(workerclaimallowed(database,"worker-5",error,"controller")=0,"missing parent prevents claims")
+  errors = errors + check(sqliteexec(database,"COMMIT")=0,"retain missing parent for claim boundary")
+  before_attempts = number(database,"SELECT count(*) FROM attempts")
+  refused = .ragworkclaim
+  errors = errors + check(claimnext(store,"job","worker-5",30,3,refused,error,1,"controller")=1 & refused.claimed()=0,"claim writer retains original controller identity")
+  errors = errors + check(number(database,"SELECT count(*) FROM attempts")=before_attempts,"orphan claim creates no attempt")
+  errors = errors + check(sqliteexec(database,"INSERT INTO runtime_instances(instance_id,kind,host_id,pid,process_start_token,executable_identity,mode,job_filter,state,started_at,heartbeat_at) VALUES('controller','controller','fixture',1,'token','exe','wait','job','running',1,1); UPDATE runtime_instances SET parent_instance_id='controller' WHERE kind='worker'; UPDATE runtime_instances SET state='failed' WHERE instance_id='worker-5'")=0,"restore parent for reservation races")
   errors = errors + check(closeragstore(store,error)=0,"close " || error)
   if errors > 0 then return 1
   say "SUPERVISION_REGRESSION_OK"

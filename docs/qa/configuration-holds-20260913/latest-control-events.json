@@ -1,0 +1,38 @@
+[
+  {
+    "job_id": "job-maintenance:6487899bc4c6b8d12edb57e101218c0b25346cf0f8c7bdb8267cf188a253e3f5",
+    "event_type": "cancel-requested",
+    "message": "Disposable Test 2 copy: stop inherited idle scheduling; preserve the held outcome and receipt history",
+    "occurred_at": "2026-09-13T13:15:55.669Z"
+  },
+  {
+    "job_id": "job-maintenance:6487899bc4c6b8d12edb57e101218c0b25346cf0f8c7bdb8267cf188a253e3f5",
+    "event_type": "resume",
+    "message": "queued",
+    "occurred_at": "2026-09-10T11:26:48.595Z"
+  },
+  {
+    "job_id": "job-maintenance:6487899bc4c6b8d12edb57e101218c0b25346cf0f8c7bdb8267cf188a253e3f5",
+    "event_type": "pause",
+    "message": "paused",
+    "occurred_at": "2026-09-10T11:26:08.578Z"
+  },
+  {
+    "job_id": "job-maintenance:6487899bc4c6b8d12edb57e101218c0b25346cf0f8c7bdb8267cf188a253e3f5",
+    "event_type": "resume",
+    "message": "queued",
+    "occurred_at": "2026-09-10T11:17:33.572Z"
+  },
+  {
+    "job_id": "job-maintenance:6487899bc4c6b8d12edb57e101218c0b25346cf0f8c7bdb8267cf188a253e3f5",
+    "event_type": "pause",
+    "message": "paused",
+    "occurred_at": "2026-09-10T11:16:55.902Z"
+  },
+  {
+    "job_id": "job-maintenance:6487899bc4c6b8d12edb57e101218c0b25346cf0f8c7bdb8267cf188a253e3f5",
+    "event_type": "budget-policy",
+    "message": "{\"time_budget_ms\":0,\"maximum_call_input_tokens\":8192,\"maximum_call_output_tokens\":0,\"maximum_call_cost\":1000,\"maximum_call_time_ms\":60000,\"maximum_inflight_calls\":8,\"maximum_attempts\":6}",
+    "occurred_at": "2026-09-10T09:28:57.128Z"
+  }
+]

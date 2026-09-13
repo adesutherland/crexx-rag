@@ -1,0 +1,128 @@
+[0/5] Building the cREXX application project
+SKIP: project member current provider_contract
+SKIP: project member current provider_catalog
+SKIP: project member current codex_provider
+SKIP: project member current ragmodel
+SKIP: project member current ragevidence
+SKIP: project member current ragjob
+SKIP: project member current ragconfig
+SKIP: project member current ragconfigfile
+SKIP: project member current ragglossary
+SKIP: project member current ragprofile
+SKIP: project member current ragprofilefile
+SKIP: project member current ragregistry
+SKIP: project member current ragschema
+SKIP: project member current ragfile
+SKIP: project member current ragstore
+SKIP: project member current ragbackup
+SKIP: project member current ragcanonical
+SKIP: project member current raggrounding
+SKIP: project member current ragperiod
+SKIP: project member current ragassessment
+SKIP: project member current ragprovenance
+SKIP: project member current ragconfiguration
+SKIP: project member current ragplanning
+SKIP: project member current ragtrace
+SKIP: project member current ragcommandcatalog
+SKIP: project member current ragcommand
+SKIP: project member current ragworkerdefaults
+SKIP: project member current ragpolicypublication
+SKIP: project member current ragpolicyfile
+SKIP: project member current ragingest
+SKIP: project member current ragfolder
+SKIP: project member current ragclaims
+SKIP: project member current ragcommandutil
+SKIP: project member current ragsqlsupport
+SKIP: project member current ragdirectcalls
+SKIP: project member current ragclaimrules
+SKIP: project member current ragquotationcontract
+SKIP: project member current ragextractioncontract
+SKIP: project member current raganswercontract
+SKIP: project member current ragreportcontract
+SKIP: project member current ragpromptdefaults
+SKIP: project member current ragimprove
+SKIP: project member current ragproposalio
+SKIP: project member current ragadmission
+SKIP: project member current ragworktypes
+SKIP: project member current ragallowance
+SKIP: project member current ragquery
+SKIP: project member current ragenvironment
+SKIP: project member current ragquerypolicy
+SKIP: project member current architecture_local_config
+SKIP: project member current generic_profile
+SKIP: project member current it_architecture_profile
+SKIP: project member current operator_registry
+WAVE: project compile/assemble jobs=30
+START: project member ragresultpages
+START: project member ragrepository
+START: project member industrial_provider
+START: project member crexxrag_cli
+START: project member ragobservationservice
+START: project member ragreportservice
+START: project member provider_http
+START: project member ragenrich
+BUILT: project member ragresultpages
+START: project member ragbacklog
+BUILT: project member provider_http
+BUILT: project member industrial_provider
+START: project member ragoperationsquery
+BUILT: project member ragreportservice
+BUILT: project member ragobservationservice
+START: project member ragreceipts
+START: project member raglifecycle
+BUILT: project member raglifecycle
+START: project member ragprocess
+START: project member ragresolutioncontract
+BUILT: project member ragenrich
+BUILT: project member ragrepository
+START: project member ragpromptinspection
+START: project member ragmaintain
+BUILT: project member ragmaintain
+START: project member ragevidencejson
+BUILT: project member ragresolutioncontract
+BUILT: project member ragpromptinspection
+START: project member ragretrieval
+START: project member ragembedding
+BUILT: project member crexxrag_cli
+START: project member ragqueryservice
+BUILT: project member ragbacklog
+START: project member ragfoundation
+BUILT: project member ragreceipts
+START: project member ragsupervision
+BUILT: project member ragevidencejson
+START: project member ragproduct
+BUILT: project member ragembedding
+START: project member ragqueryprovider
+BUILT: project member ragoperationsquery
+START: project member ragwork
+BUILT: project member ragretrieval
+BUILT: project member ragfoundation
+START: project member ragmcp
+BUILT: project member ragprocess
+BUILT: project member ragqueryservice
+START: project member ragcontinuation
+BUILT: project member ragsupervision
+BUILT: project member ragqueryprovider
+BUILT: project member ragwork
+START: project member ragapplicationprovider
+START: project member ragusage
+BUILT: project member ragcontinuation
+BUILT: project member ragmcp
+BUILT: project member ragproduct
+BUILT: project member ragapplicationprovider
+BUILT: project member ragusage
+START: project member ragproviderdiagnostics
+BUILT: project member ragproviderdiagnostics
+BARRIER: link program
+PUBLISHED: program /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application/project/crexxrag-project.rxbin
+[1/5] Building the ADDRESS RAG environment module
+WAVE: project compile/assemble jobs=1
+START: project member rag_address_environment
+BUILT: project member rag_address_environment
+BARRIER: link library
+PUBLISHED: library /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application/address/rag_address_environment.rxbin
+[2/5] Publishing the linked Level-G crexxrag application
+-- Built linked cREXX application /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application/crexxrag.rxbin (4b45240bf09a464d8aa0dc48a0f7da25c362e3e02904eea3f7af357f6565e348)
+[3/5] Staging the runnable crexxrag product directory
+[4/5] Packaging the native crexxrag executable
+-- CREXX native application passed library init and two-worker supervision (75f7eb63f89e5c1da03692aeefc27e4556df59db104fd9aa667c04c8f5e49967)

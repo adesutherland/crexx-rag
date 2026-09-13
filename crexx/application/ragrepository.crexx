@@ -5,6 +5,7 @@ namespace ragrepository expose ragjobplanpage readjobplanpage ragrepositoryrecor
 import rxfnsb
 import rxsqlite
 import ragstore
+import raglifecycle
 
 /* Plan pages are character slices of the immutable retained plan. SQLite
  * returns only the requested slice; listings need not load the whole plan. */
@@ -351,6 +352,10 @@ _page: procedure = .int
     end
     rows = rows + 1
     if rows <= limit then do
+      if repository = "jobs" then do
+        state = readlifecyclejob(read_snapshot.database(),identity)
+        if state = "" then do; call sqlitefinalize prepared; error = "cannot project job lifecycle"; return -3; end
+      end
       records[records.0 + 1] = .ragrepositoryrecord(repository, identity, parent_identity, related_identity, name, category, state, value, detail, payload, ordinal, metric, visible_from, visible_to)
       last_cursor = cursor_token
     end

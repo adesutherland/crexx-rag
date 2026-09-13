@@ -1,0 +1,2 @@
+-- RESTART_CONTROLS_OK: one held call, one queued peer, live controller and child
+-- RESTART_CLEANUP_CHECKED: controller_loss; errors above remain failures

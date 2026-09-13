@@ -7,7 +7,7 @@ This is the historical initial assessment. Recovery steps 1–4 subsequently
 changed and committed product implementation. For current progress, remaining
 defects and the corrected next sequence, use the
 [12 September status in the implementation plan](recovery-implementation-plan.md#current-status-and-next-work)
-and the [current coverage result](regression-coverage.md#current-status--12-september-2026).
+and the [current coverage result](regression-coverage.md#current-status--13-september-2026).
 The original module counts, defect descriptions and validation statements below
 describe their dated baseline; they are not the current release status.
 

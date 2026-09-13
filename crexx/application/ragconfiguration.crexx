@@ -152,19 +152,12 @@ inspectconfigchange: procedure = .int
     if values[2] = ragsha256(legacy_json) & values[5] = target.profile_hash() then classification = "identity-upgrade"
   end
   else if values[3] = target.semantic_hash() then classification = "operational"
-  active = _configurationactivejobs(store.database(),classification,error)
-  if active < 0 then return -2
+  /* Compatibility field: future configuration has no global job veto. */
+  active = 0
   /* Profile vocabulary, ranking and chunk policy describe subsequent work.
    * Existing evidence retains its original snapshot, spans and validation. */
   difference = .ragconfigdiff(classification, values[1], target.snapshot_id(), values[2], target.config_hash(), values[3], target.semantic_hash(), values[4], target.operational_hash(), active)
   return 0
-
-/* Operational settings govern newly planned work. Drained paused jobs keep
- * their immutable inputs and receipts; no running owner may cross the change. */
-_configurationactivejobs: procedure = .int
-  arg database = .binary, classification = .string, expose error = .string
-  if classification \= "operational" then return _scalarint(database,"SELECT count(*) FROM jobs WHERE state IN('queued','running','paused','cancel_requested')",error)
-  return _scalarint(database,"SELECT (SELECT count(*) FROM jobs WHERE state IN('queued','running','cancel_requested') OR reserved_calls+reserved_tokens+reserved_cost+reserved_codex_turns>0)+(SELECT count(*) FROM job_items WHERE state IN('running','cancel_requested'))+(SELECT count(*) FROM runtime_instances WHERE state IN('starting','running','idle','draining') AND heartbeat_at>unixepoch()-300)",error)
 
 createreconfigureplan: procedure = .int
   arg store = .ragstorehandle, config = .ragconfig, profile = .ragprofile, reason = .string, expose plan = .ragplan, expose difference = .ragconfigdiff, expose error = .string
@@ -183,27 +176,21 @@ applyreconfigureplan: procedure = .int
   if store.writable() \= 1 | length(plan_json) < 2 | length(plan_json) > 16777216 | length(expected_digest) \= 64 | ragsha256(plan_json) \= expected_digest then do; error = "reviewed configuration plan or digest is invalid"; return -1; end
   document = .jsondocument(plan_json)
   if document.valid() \= 1 | document.node_type(document.root()) \= "object" | document.node_count(document.root()) \= 9 then do; error = "configuration plan must be one exact canonical object"; return -1; end
-  root = document.root(); schema = ""; classification = ""; source = ""; target = ""; reason = ""; created = 0; expires = 0; active = -1
-  if document.node_string(document.member(root, "schema"), schema) \= 0 | document.node_string(document.member(root, "classification"), classification) \= 0 | document.node_string(document.member(root, "source_config_snapshot_id"), source) \= 0 | document.node_string(document.member(root, "target_config_snapshot_id"), target) \= 0 | document.node_string(document.member(root, "reason"), reason) \= 0 | document.node_int(document.member(root, "active_jobs"), active) \= 0 | document.node_int(document.member(root, "created_at_epoch"), created) \= 0 | document.node_int(document.member(root, "expires_at_epoch"), expires) \= 0 then do; error = "configuration plan fields are missing or mistyped"; return -1; end
-  if schema \= "crexx-rag.reconfigure-plan/1" | expires - created \= config.plan_ttl_seconds() then do; error = "configuration plan schema or expiry is invalid"; return -1; end
-  hash_node = document.member(root, "hashes")
-  if document.node_type(hash_node) \= "object" | document.node_count(hash_node) \= 4 then do; error = "configuration plan hashes are invalid"; return -1; end
-  source_semantic = ""; target_semantic = ""; source_operational = ""; target_operational = ""
-  if document.node_string(document.member(hash_node, "source_semantic"), source_semantic) \= 0 | document.node_string(document.member(hash_node, "target_semantic"), target_semantic) \= 0 | document.node_string(document.member(hash_node, "source_operational"), source_operational) \= 0 | document.node_string(document.member(hash_node, "target_operational"), target_operational) \= 0 then do; error = "configuration plan hashes are mistyped"; return -1; end
+  root = document.root(); reason = ""; created = 0; expires = 0; active = 0
+  if document.node_string(document.member(root,"reason"),reason) \= 0 | document.node_int(document.member(root,"created_at_epoch"),created) \= 0 | document.node_int(document.member(root,"expires_at_epoch"),expires) \= 0 | document.node_int(document.member(root,"active_jobs"),active) \= 0 then do; error = "configuration plan fields are missing or mistyped"; return -1; end
+  if expires-created \= config.plan_ttl_seconds() then do; error = "configuration plan expiry is invalid"; return -1; end
   current = .ragconfigdiff
   if inspectconfigchange(store, config, profile, current, error) \= 0 then return -2
-  if source \= current.source_snapshot_id() | target \= current.target_snapshot_id() | classification \= current.classification() | active \= current.active_jobs() | source_semantic \= current.source_semantic_hash() | target_semantic \= current.target_semantic_hash() | source_operational \= current.source_operational_hash() | target_operational \= current.target_operational_hash() | plan_json \= _planjson(current, reason, created, expires) then do; error = "library or effective configuration changed after review; plan again"; return -2; end
+  if plan_json \= _planjson(current,reason,created,expires,active) then do; error = "library or effective configuration changed after review; plan again"; return -2; end
+  classification = current.classification()
   now = _scalarint(store.database(), "SELECT CAST(strftime('%s','now') AS INTEGER)", error)
   if now >= expires then do; error = "configuration plan expired; plan again"; return -2; end
-  if active \= 0 then do; error = "configuration apply requires all active jobs to be drained or settled"; return -2; end
   if classification = "identical" then do; error = "effective configuration is already current"; return -2; end
   if classification \= "identity-upgrade" & classification \= "operational" & classification \= "prospective" then do; error = "configuration change classification is unsupported"; return -1; end
   identity = .ragconfigidentity
   if identifyconfig(config, profile, identity, error) \= 0 then return -1
   database = store.database()
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot begin configuration apply"; return -2; end
-  if _scalarint(database, "SELECT count(*) FROM library_config_state WHERE singleton=1 AND current_config_snapshot_id=" || _q(current.source_snapshot_id()), error) \= 1 then return _rollback(database, "configuration state changed before apply", error)
-  if _configurationactivejobs(database,classification,error) \= 0 then return _rollback(database, "active work appeared before configuration apply", error)
   prepared = .binary
   sql = "INSERT OR IGNORE INTO config_snapshots(config_snapshot_id,config_id,config_version,profile_id,profile_hash,config_hash,effective_json,created_at,semantic_hash,operational_hash) VALUES(?1,?2,?3,?4,?5,?6,?7,strftime('%Y-%m-%dT%H:%M:%fZ','now'),?8,?9)"
   if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database, "cannot prepare configuration snapshot", error)
@@ -223,8 +210,9 @@ applyreconfigureplan: procedure = .int
   return 0
 
 _planjson: procedure = .string
-  arg difference = .ragconfigdiff, reason = .string, created = .int, expires = .int
-  return "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.reconfigure-plan/1") || "," || jsonquote("classification") || ":" || jsonquote(difference.classification()) || "," || jsonquote("source_config_snapshot_id") || ":" || jsonquote(difference.source_snapshot_id()) || "," || jsonquote("target_config_snapshot_id") || ":" || jsonquote(difference.target_snapshot_id()) || "," || jsonquote("hashes") || ":{" || jsonquote("source_semantic") || ":" || jsonquote(difference.source_semantic_hash()) || "," || jsonquote("target_semantic") || ":" || jsonquote(difference.target_semantic_hash()) || "," || jsonquote("source_operational") || ":" || jsonquote(difference.source_operational_hash()) || "," || jsonquote("target_operational") || ":" || jsonquote(difference.target_operational_hash()) || "}," || jsonquote("active_jobs") || ":" || difference.active_jobs() || "," || jsonquote("reason") || ":" || jsonquote(reason) || "," || jsonquote("created_at_epoch") || ":" || created || "," || jsonquote("expires_at_epoch") || ":" || expires || "}"
+  arg difference = .ragconfigdiff, reason = .string, created = .int, expires = .int, observed_active = -1
+  if observed_active < 0 then observed_active = difference.active_jobs()
+  return "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.reconfigure-plan/1") || "," || jsonquote("classification") || ":" || jsonquote(difference.classification()) || "," || jsonquote("source_config_snapshot_id") || ":" || jsonquote(difference.source_snapshot_id()) || "," || jsonquote("target_config_snapshot_id") || ":" || jsonquote(difference.target_snapshot_id()) || "," || jsonquote("hashes") || ":{" || jsonquote("source_semantic") || ":" || jsonquote(difference.source_semantic_hash()) || "," || jsonquote("target_semantic") || ":" || jsonquote(difference.target_semantic_hash()) || "," || jsonquote("source_operational") || ":" || jsonquote(difference.source_operational_hash()) || "," || jsonquote("target_operational") || ":" || jsonquote(difference.target_operational_hash()) || "}," || jsonquote("active_jobs") || ":" || observed_active || "," || jsonquote("reason") || ":" || jsonquote(reason) || "," || jsonquote("created_at_epoch") || ":" || created || "," || jsonquote("expires_at_epoch") || ":" || expires || "}"
 
 _legacycanonicalconfig: procedure = .string
   arg config = .ragconfig, config_version = ""

@@ -1,0 +1,21 @@
+{
+  "status": "locally-qualified",
+  "defect": "RAG-SMK-006",
+  "installed_crexx": "crexx-1.0.0-beta.3+local.g037e7939bc29",
+  "head": "9292c8d8d724b52fce34047c868f15531348faca",
+  "uncommitted": true,
+  "native_sha256": "1572df54e58261d6300bbdf44903edfb3b36a07f6cd164ad3357b7d95377a7a5",
+  "linked_sha256": "c1da0015c6ff6bf99f44e2ca5750cfc9cc7ec9e7510fb160e7d91cb2c0e5a5af",
+  "baseline_controls": "3/3",
+  "baseline_controls_seconds": 36.25,
+  "baseline_regression": "failed job exit, manifest integrity and complete publication; controls passed",
+  "focused": "5/5",
+  "focused_seconds": 52.41,
+  "full": "68/68",
+  "full_seconds": 944.08,
+  "scratch_installed_regression": "pass",
+  "installed_fixture_calls": 2,
+  "new_hosted_calls": 0,
+  "master_changed": false,
+  "test2_status": "prepared; inherited paused/uncertain jobs block prospective source configuration"
+}

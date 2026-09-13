@@ -1,0 +1,1 @@
+{"schema":"crexx-rag.command-result/1","operation":"ingest.apply","status":"error","exit_code":1,"exit_name":"operation-failed","message":"configured budget cannot safely admit the configured in-flight workers","records":[]}

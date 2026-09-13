@@ -1,0 +1,330 @@
+[
+  {
+    "event_id": 332269,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-1",
+    "event_type": "claimed",
+    "message_length": 54,
+    "message": "worker=worker-cf8beef4ea1476e7170424ee817b094c;fence=1",
+    "occurred_at": "2026-09-10T09:33:42.452Z"
+  },
+  {
+    "event_id": 332291,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-1",
+    "event_type": "reservation-open:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-1#call-1",
+    "message_length": 183,
+    "message": "{\"reservation_id\":\"item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-1#call-1\",\"input\":8192,\"output\":0,\"cost\":1000,\"time\":60000,\"codex_turn\":0}",
+    "occurred_at": "2026-09-10T09:33:43.441Z"
+  },
+  {
+    "event_id": 332318,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-1",
+    "event_type": "reservation-close:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-1#call-1",
+    "message_length": 202,
+    "message": "{\"reservation_id\":\"item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-1#call-1\",\"input\":-8192,\"output\":0,\"cost\":-1000,\"time\":-60000,\"actual_cost\":0,\"codex_turn\":0}",
+    "occurred_at": "2026-09-10T09:33:44.597Z"
+  },
+  {
+    "event_id": 332319,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-1",
+    "event_type": "settlement-receipt:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-1#call-1",
+    "message_length": 117,
+    "message": "[\"gemini-embed\",\"gemini-embedding-2\",\"failed-dd0f5efe0deea0724c2193af\",\"failed\",0,0,0,0,\"\",\"monetary-api\",0,\"\",\"\",\"\"]",
+    "occurred_at": "2026-09-10T09:33:44.597Z"
+  },
+  {
+    "event_id": 332320,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-1",
+    "event_type": "queued",
+    "message_length": 77,
+    "message": "provider admission deferred by request, token, concurrency or cooldown limits",
+    "occurred_at": "2026-09-10T09:33:44.730Z"
+  },
+  {
+    "event_id": 332383,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-2",
+    "event_type": "claimed",
+    "message_length": 54,
+    "message": "worker=worker-745da88a832c107888f9452dabf5ca68;fence=2",
+    "occurred_at": "2026-09-10T09:33:46.985Z"
+  },
+  {
+    "event_id": 332394,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-2",
+    "event_type": "reservation-open:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-2#call-1",
+    "message_length": 183,
+    "message": "{\"reservation_id\":\"item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-2#call-1\",\"input\":8192,\"output\":0,\"cost\":1000,\"time\":60000,\"codex_turn\":0}",
+    "occurred_at": "2026-09-10T09:33:47.494Z"
+  },
+  {
+    "event_id": 332401,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-2",
+    "event_type": "reservation-close:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-2#call-1",
+    "message_length": 202,
+    "message": "{\"reservation_id\":\"item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-2#call-1\",\"input\":-8192,\"output\":0,\"cost\":-1000,\"time\":-60000,\"actual_cost\":0,\"codex_turn\":0}",
+    "occurred_at": "2026-09-10T09:33:48.007Z"
+  },
+  {
+    "event_id": 332402,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-2",
+    "event_type": "settlement-receipt:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-2#call-1",
+    "message_length": 117,
+    "message": "[\"gemini-embed\",\"gemini-embedding-2\",\"failed-d7d2220c2b6749b516439d46\",\"failed\",0,0,0,0,\"\",\"monetary-api\",0,\"\",\"\",\"\"]",
+    "occurred_at": "2026-09-10T09:33:48.007Z"
+  },
+  {
+    "event_id": 332403,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-2",
+    "event_type": "queued",
+    "message_length": 77,
+    "message": "provider admission deferred by request, token, concurrency or cooldown limits",
+    "occurred_at": "2026-09-10T09:33:48.128Z"
+  },
+  {
+    "event_id": 332432,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-3",
+    "event_type": "claimed",
+    "message_length": 54,
+    "message": "worker=worker-d211f3b755ae073006706e9860aa0235;fence=3",
+    "occurred_at": "2026-09-10T09:33:49.603Z"
+  },
+  {
+    "event_id": 332452,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-3",
+    "event_type": "reservation-open:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-3#call-1",
+    "message_length": 183,
+    "message": "{\"reservation_id\":\"item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-3#call-1\",\"input\":8192,\"output\":0,\"cost\":1000,\"time\":60000,\"codex_turn\":0}",
+    "occurred_at": "2026-09-10T09:33:50.400Z"
+  },
+  {
+    "event_id": 332468,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-3",
+    "event_type": "reservation-close:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-3#call-1",
+    "message_length": 202,
+    "message": "{\"reservation_id\":\"item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-3#call-1\",\"input\":-8192,\"output\":0,\"cost\":-1000,\"time\":-60000,\"actual_cost\":0,\"codex_turn\":0}",
+    "occurred_at": "2026-09-10T09:33:51.684Z"
+  },
+  {
+    "event_id": 332469,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-3",
+    "event_type": "settlement-receipt:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-3#call-1",
+    "message_length": 117,
+    "message": "[\"gemini-embed\",\"gemini-embedding-2\",\"failed-4a595c544775139a3dfec41c\",\"failed\",0,0,0,0,\"\",\"monetary-api\",0,\"\",\"\",\"\"]",
+    "occurred_at": "2026-09-10T09:33:51.684Z"
+  },
+  {
+    "event_id": 332470,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-3",
+    "event_type": "queued",
+    "message_length": 77,
+    "message": "provider admission deferred by request, token, concurrency or cooldown limits",
+    "occurred_at": "2026-09-10T09:33:51.777Z"
+  },
+  {
+    "event_id": 332485,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-4",
+    "event_type": "claimed",
+    "message_length": 54,
+    "message": "worker=worker-959619f9ea88903cf7dabca31cbb7331;fence=4",
+    "occurred_at": "2026-09-10T09:33:52.283Z"
+  },
+  {
+    "event_id": 332492,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-4",
+    "event_type": "reservation-open:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-4#call-1",
+    "message_length": 183,
+    "message": "{\"reservation_id\":\"item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-4#call-1\",\"input\":8192,\"output\":0,\"cost\":1000,\"time\":60000,\"codex_turn\":0}",
+    "occurred_at": "2026-09-10T09:33:52.516Z"
+  },
+  {
+    "event_id": 332504,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-4",
+    "event_type": "reservation-close:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-4#call-1",
+    "message_length": 202,
+    "message": "{\"reservation_id\":\"item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-4#call-1\",\"input\":-8192,\"output\":0,\"cost\":-1000,\"time\":-60000,\"actual_cost\":0,\"codex_turn\":0}",
+    "occurred_at": "2026-09-10T09:33:53.402Z"
+  },
+  {
+    "event_id": 332505,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-4",
+    "event_type": "settlement-receipt:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-4#call-1",
+    "message_length": 117,
+    "message": "[\"gemini-embed\",\"gemini-embedding-2\",\"failed-88207076c1963f3248b4debb\",\"failed\",0,0,0,0,\"\",\"monetary-api\",0,\"\",\"\",\"\"]",
+    "occurred_at": "2026-09-10T09:33:53.402Z"
+  },
+  {
+    "event_id": 332506,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-4",
+    "event_type": "queued",
+    "message_length": 77,
+    "message": "provider admission deferred by request, token, concurrency or cooldown limits",
+    "occurred_at": "2026-09-10T09:33:53.520Z"
+  },
+  {
+    "event_id": 332529,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-5",
+    "event_type": "claimed",
+    "message_length": 54,
+    "message": "worker=worker-745da88a832c107888f9452dabf5ca68;fence=5",
+    "occurred_at": "2026-09-10T09:33:54.411Z"
+  },
+  {
+    "event_id": 332549,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-5",
+    "event_type": "reservation-open:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-5#call-1",
+    "message_length": 183,
+    "message": "{\"reservation_id\":\"item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-5#call-1\",\"input\":8192,\"output\":0,\"cost\":1000,\"time\":60000,\"codex_turn\":0}",
+    "occurred_at": "2026-09-10T09:33:55.360Z"
+  },
+  {
+    "event_id": 332561,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-5",
+    "event_type": "reservation-close:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-5#call-1",
+    "message_length": 202,
+    "message": "{\"reservation_id\":\"item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-5#call-1\",\"input\":-8192,\"output\":0,\"cost\":-1000,\"time\":-60000,\"actual_cost\":0,\"codex_turn\":0}",
+    "occurred_at": "2026-09-10T09:33:56.114Z"
+  },
+  {
+    "event_id": 332562,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-5",
+    "event_type": "settlement-receipt:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-5#call-1",
+    "message_length": 117,
+    "message": "[\"gemini-embed\",\"gemini-embedding-2\",\"failed-c63d6f73e102c9c977921b35\",\"failed\",0,0,0,0,\"\",\"monetary-api\",0,\"\",\"\",\"\"]",
+    "occurred_at": "2026-09-10T09:33:56.114Z"
+  },
+  {
+    "event_id": 332563,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-5",
+    "event_type": "queued",
+    "message_length": 77,
+    "message": "provider admission deferred by request, token, concurrency or cooldown limits",
+    "occurred_at": "2026-09-10T09:33:56.293Z"
+  },
+  {
+    "event_id": 332591,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-6",
+    "event_type": "claimed",
+    "message_length": 54,
+    "message": "worker=worker-d211f3b755ae073006706e9860aa0235;fence=6",
+    "occurred_at": "2026-09-10T09:33:57.367Z"
+  },
+  {
+    "event_id": 332603,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-6",
+    "event_type": "reservation-open:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-6#call-1",
+    "message_length": 183,
+    "message": "{\"reservation_id\":\"item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-6#call-1\",\"input\":8192,\"output\":0,\"cost\":1000,\"time\":60000,\"codex_turn\":0}",
+    "occurred_at": "2026-09-10T09:33:58.252Z"
+  },
+  {
+    "event_id": 332611,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-6",
+    "event_type": "reservation-close:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-6#call-1",
+    "message_length": 202,
+    "message": "{\"reservation_id\":\"item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-6#call-1\",\"input\":-8192,\"output\":0,\"cost\":-1000,\"time\":-60000,\"actual_cost\":0,\"codex_turn\":0}",
+    "occurred_at": "2026-09-10T09:33:58.838Z"
+  },
+  {
+    "event_id": 332612,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-6",
+    "event_type": "settlement-receipt:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-6#call-1",
+    "message_length": 117,
+    "message": "[\"gemini-embed\",\"gemini-embedding-2\",\"failed-ebf0c34145f3e5966af95641\",\"failed\",0,0,0,0,\"\",\"monetary-api\",0,\"\",\"\",\"\"]",
+    "occurred_at": "2026-09-10T09:33:58.838Z"
+  },
+  {
+    "event_id": 332613,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-6",
+    "event_type": "queued",
+    "message_length": 77,
+    "message": "provider admission deferred by request, token, concurrency or cooldown limits",
+    "occurred_at": "2026-09-10T09:33:59.054Z"
+  },
+  {
+    "event_id": 332655,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-7",
+    "event_type": "claimed",
+    "message_length": 54,
+    "message": "worker=worker-4b9998008452e3d77223812c76261c91;fence=7",
+    "occurred_at": "2026-09-10T09:34:00.650Z"
+  },
+  {
+    "event_id": 332661,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-7",
+    "event_type": "reservation-open:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-7#call-1",
+    "message_length": 183,
+    "message": "{\"reservation_id\":\"item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-7#call-1\",\"input\":8192,\"output\":0,\"cost\":1000,\"time\":60000,\"codex_turn\":0}",
+    "occurred_at": "2026-09-10T09:34:00.987Z"
+  },
+  {
+    "event_id": 332670,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-7",
+    "event_type": "reservation-close:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-7#call-1",
+    "message_length": 202,
+    "message": "{\"reservation_id\":\"item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-7#call-1\",\"input\":-8192,\"output\":0,\"cost\":-1000,\"time\":-60000,\"actual_cost\":0,\"codex_turn\":0}",
+    "occurred_at": "2026-09-10T09:34:01.491Z"
+  },
+  {
+    "event_id": 332671,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-7",
+    "event_type": "settlement-receipt:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-7#call-1",
+    "message_length": 117,
+    "message": "[\"gemini-embed\",\"gemini-embedding-2\",\"failed-ef2d788bb7f610c8634dc0ac\",\"failed\",0,0,0,0,\"\",\"monetary-api\",0,\"\",\"\",\"\"]",
+    "occurred_at": "2026-09-10T09:34:01.492Z"
+  },
+  {
+    "event_id": 332672,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-7",
+    "event_type": "queued",
+    "message_length": 77,
+    "message": "provider admission deferred by request, token, concurrency or cooldown limits",
+    "occurred_at": "2026-09-10T09:34:01.629Z"
+  },
+  {
+    "event_id": 332730,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-8",
+    "event_type": "claimed",
+    "message_length": 54,
+    "message": "worker=worker-959619f9ea88903cf7dabca31cbb7331;fence=8",
+    "occurred_at": "2026-09-10T09:34:04.958Z"
+  },
+  {
+    "event_id": 332734,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-8",
+    "event_type": "reservation-open:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-8#call-1",
+    "message_length": 183,
+    "message": "{\"reservation_id\":\"item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-8#call-1\",\"input\":8192,\"output\":0,\"cost\":1000,\"time\":60000,\"codex_turn\":0}",
+    "occurred_at": "2026-09-10T09:34:05.581Z"
+  },
+  {
+    "event_id": 332747,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-8",
+    "event_type": "provider-intent",
+    "message_length": 190,
+    "message": "{\"input_hash\":\"e949c25e8e5ca134443a6043e6041c0012c61dff86e51b5987c58764863553c1\",\"config_snapshot_id\":\"config-1319520a7ecf72cca25bdcba\",\"request_id\":\"embed-5a2064596806e978359f594f68002074\"}",
+    "occurred_at": "2026-09-10T09:34:06.670Z"
+  },
+  {
+    "event_id": 332789,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-8",
+    "event_type": "reservation-close:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-8#call-1",
+    "message_length": 202,
+    "message": "{\"reservation_id\":\"item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-8#call-1\",\"input\":-8192,\"output\":0,\"cost\":-1000,\"time\":-60000,\"actual_cost\":2,\"codex_turn\":0}",
+    "occurred_at": "2026-09-10T09:34:12.338Z"
+  },
+  {
+    "event_id": 332790,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-8",
+    "event_type": "settlement-receipt:item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-8#call-1",
+    "message_length": 127,
+    "message": "[\"gemini-embed\",\"gemini-embedding-2\",\"embed-5a2064596806e978359f594f68002074\",\"failed\",12,0,2,545,\"\",\"monetary-api\",1,\"\",\"\",\"\"]",
+    "occurred_at": "2026-09-10T09:34:12.338Z"
+  },
+  {
+    "event_id": 332791,
+    "attempt_id": "item-maintenance:d43ceb2521c2a043f6094565678f28b3c7e6feda7a4e7c6b73f354cea7c4159c#attempt-8",
+    "event_type": "dead_letter",
+    "message_length": 29,
+    "message": "cannot begin provider receipt",
+    "occurred_at": "2026-09-10T09:34:12.600Z"
+  }
+]

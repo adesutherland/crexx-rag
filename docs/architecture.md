@@ -142,6 +142,55 @@ SQLite rows are the process communication mechanism. Leases, fencing,
 idempotency keys, attempts, provider runs, events, heartbeats, and requested
 worker state make recovery explicit.
 
+**Simple restart implementation, 13 September 2026:** controller
+failure ends the run. Workers record their own PID and their controller's PID
+in SQLite, check whether that controller still exists before taking more work,
+and exit when it is gone. Use the existing process registry and process checks;
+workers and restart run in the launcher's process visibility/permission domain.
+Report an actual permission failure directly instead of treating it as proof
+that a process is absent.
+
+Every ordinary launch/restart uses the same sequence: politely stop the previous
+recorded controller, if present, and its children for the selected job; reconcile
+abandoned runtime records/claims using existing recovery rules; then create a
+fresh controller and fresh children. Repeat that cleanup even when it has nothing
+to do. Do not adopt old workers or select a recovery mode based on a collection
+of special cases. `ragprocess` owns group shutdown/startup; existing work and
+lifecycle owners reconcile durable state. Public commands compose that sequence.
+
+Losing or leaving an in-flight task unfinished is an accepted small cost. Keep
+committed corpus data, task/attempt history and recorded usage; an interrupted
+item can remain pending or held under the existing rules without preventing
+other eligible work from starting. Do not erase history or reset budgets as
+part of runtime cleanup. No new parent-liveness channel, controller election,
+extra supervisor or perfect recovery of in-flight work is required. Confirm
+regression coverage for controller loss, polite restart with surviving children,
+repeat cleanup, fresh children and preserved completed work before implementation.
+This supersedes the more elaborate restart proposal in the conversation.
+The [four-defect repair record](four-smoke-fixes-20260913.md) owns current
+qualification. `cleanupjobprocesses` snapshots the selected registered group,
+refuses unfiltered overlap or remote ownership before writes, requests drain,
+waits for confirmed exit and recovers abandoned claims before deleting the
+selected runtime rows. Drain waiting uses the configured worker lease with
+at least the existing 60-second startup grace; expiration retains ownership
+and reports the incomplete drain. The launcher then uses the existing atomic
+controller-registration guard and starts fresh children.
+
+`ragsupervision.processpresence` supplies shared read-only process observations
+for worker diagnostics, pool counts and claim admission. Status separates
+`worker_registered_workers`, `worker_live_workers` and
+`worker_unverified_workers`. The installed probe's hidden-PID limitation remains
+in [integration issues](integration-issues.md#local-process-liveness-and-permission-boundary).
+`workerclaimallowed` is rechecked under the claim writer lock. Managed workers
+also pass their original controller identity through `runworkeronce`/`claimnext`,
+so a foreign-key `ON DELETE SET NULL` cannot turn them into standalone claimants.
+The parent check during startup/worker iterations remains in `ragprocess`.
+
+`readlifecyclejob` and `countlifecyclejobs` compose the existing lifecycle rule
+for bounded job pages and report active/error totals. Report generation and
+operational-cache validation use the same counts; reads do not repair stored
+job state. Intentional pauses and uncertain outcomes retain their existing meaning.
+
 The 12 September architecture decision retains processes for independent worker
 replacement and native-failure containment. Attached threads are an optional
 QE-04 comparison alongside the future model bridge, with measured model lifetime,
@@ -170,7 +219,13 @@ SQLite writer transaction. `ragwork` retains leases, fences and same-job
 execution; `ragbacklog` retains policy, windows and task dispatch. Closing a
 window no longer hides dead letters behind an unconditional completed job.
 A request cannot reopen a closed window, reset attempts, renew an allowance,
-resume a pause/cancellation or erase an uncertain provider intent. See
+resume a pause/cancellation or erase an uncertain provider intent.
+Completion takes precedence over historical uncertainty. `retryrequested` and
+`retryblockeditem` share the distinction between automatic recovery and an
+explicit redo across item admission, receipt recovery and maintenance dispatch.
+Publication checks `activeworkfence` once on entry to its writer transaction;
+inner mention/batch helpers use that transaction and its supplied generation.
+Maintenance and legacy claimed-proposal entry points use the same fence owner. See
 [lifecycle recovery](lifecycle-recovery.md) for the contract and qualification.
 
 Reasoned operational closure is owned by `raglifecycle`: it retains a separate
@@ -197,7 +252,8 @@ points remain delegates. A cREXX caller using worker value types imports
 Receipt persistence failure is an uncertainty hold, not a content rejection.
 Known usage is retained on the original provider run, while independently saved
 Codex output remains intact for `job reconcile`. Without a recoverable response,
-restarting or requesting retry cannot submit that item again. Expired reservation
+automatic restart cannot submit that item again. An explicit retry may redo
+unfinished work while preserving the old unknown response and usage. Expired reservation
 capacity is released, but unaccounted allowance remains conservative. Healthy
 peers can run within the remaining reviewed limits. See
 [receipt recovery](receipt-recovery.md) for the fault tests and boundaries.
@@ -227,15 +283,18 @@ submitted turn and preserves successful output across admission-release failure.
 A failed Codex stream gets one bounded exact-turn inspection through a fresh
 transport. Completed output returns through normal validation; a confirmed
 interruption without output permits ordinary bounded retry. Unknown outcomes
-hold only their affected items. When only held work remains, the drained job
-pauses for public reconciliation and reports vector publication as pending.
+hold only their affected items from automatic retry. A drained job finishes
+with errors and can publish available vectors; an explicit redo uses normal
+admission without requiring reconstruction of the old answer.
 
 Codex intent is durable before turn submission. Public `job reconcile` binds
 the original attempt, input hash, snapshot, provider run, thread and turn to a
 fresh observation. Inspect reads App Server history without cancellation or
 resumption. Apply checks the digest again and atomically records the response,
-ordinary settlement receipt, observation and item disposition. The job remains
-paused. A completed response is untrusted input for the existing validation and
+ordinary settlement receipt, observation and item disposition. Actual worker
+and claim ownership must be drained; a separate paused-parent gate is unnecessary.
+The shared lifecycle refresh preserves an intentional pause and makes a drained
+terminal parent runnable when reconciliation queues work. A completed response is untrusted input for the existing validation and
 publication path; confirmed interruption without a final answer allows a retry
 only within the original limits. Missing or ambiguous history remains held.
 Unknown usage is explicitly a lower bound; admission conservatively retains the
@@ -246,9 +305,9 @@ Account preflight, thread/turn submission and answer reads share the configured
 operation timeout, capped by the remaining worker lease with cleanup time.
 Unrelated notifications and partial lines cannot restart that deadline. Usage
 notifications are persisted through the ordinary SQLite writer retry helper.
-`job run` checks compatibility before claims, prunes only confirmed exited local
-ownership or terminal records, and uses the existing controller. Controller
-registration rejects overlapping controller groups atomically.
+`job run` checks compatibility before cleanup or claims, drains and cleans only
+the selected local group, and starts a fresh controller. Controller registration
+rejects overlapping groups atomically.
 
 Extraction correction reports up to 16 citation problems from the bounded
 response, including literal OCR labels and both relationship endpoints. There
@@ -289,8 +348,8 @@ current semantically compatible configuration snapshot and current budgets,
 and retains job/item lineage. The new budget policy and all replay items are
 committed atomically; historical reservations must fit the reviewed envelope. A recursive reconciliation view classifies each
 immutable source root as actionable, replaying, or resolved from the state of
-its descendants. Replay rejects active, completed or uncertain work in the
-same replay family. `job retry` records a durable request; maintenance-linked
+its descendants. Replay rejects active or completed work in the
+same replay family through the shared `raglifecycle.retryfamilyhold` decision. `job retry` records a durable request; maintenance-linked
 items delegate to the task owner and continue in a new reviewed window.
 Ordinary items retain their original job policy. Read-only schema-13 task
 inspection remains available; the ordinary write-open path upgrades additively.
@@ -499,9 +558,10 @@ changes.
 `config check` and `config explain` validate and project the effective policy
 without reading credential values. `config diff` classifies it as identical,
 legacy identity upgrade, operational or prospective. Plan
-freezes the source and target identities, classification, active-job count,
-reason and the configured plan expiry into canonical JSON. Apply verifies the exact digest
-and current state, requires active work to be drained, and appends an immutable
+freezes the source and target identities, classification, reason and configured
+expiry into canonical JSON. The legacy `active_jobs` field is zero and imposes
+no execution veto. Apply verifies the exact digest and current configuration
+identity, then conditionally changes the planning pointer and appends an immutable
 change event. Identity upgrades, operational changes and prospective changes
 can use this path. A prospective change affects only newly planned work; it
 does not publish a corpus generation, rewrite provenance or queue existing
@@ -536,6 +596,13 @@ dead-letter reconciliation view; canonical source, concept and claim ownership
 remains unchanged. The ordered
 migration/checksum mechanism is part of the format so every schema evolution
 remains ordered and checksum-verified. There is no old schema importer.
+
+`ragembedding.buildannvectorgeneration` owns manifest alignment for both new
+and replayed vector publication. After validating coverage and replacement
+policy, it uses `ragstore.recovermanifest` when SQLite's current projection is
+missing or stale. Automatic job publication and explicit vector rebuild share
+that rule; command-level writer guards and transactional sidecar fencing stay
+in their existing owners. See [RAG-SMK-006](smk006-publication-repair-20260913.md).
 
 Semantic generations are immutable once published. Vector generations are
 separate rebuildable publications. Backup pins SQLite and sidecar identities;

@@ -1,0 +1,12 @@
+--- ragproduct.before.crexx
++++ ragproduct.crexx
+@@ -132,9 +132,6 @@
+   embedding_profile_id = sqlreadtext(store.database(), "SELECT embedding_profile_id FROM embedding_profiles WHERE input_envelope_fingerprint=" || sqlquote(fingerprint) || " AND dimension=" || role.embedding_dimensions())
+   if embedding_profile_id = "" then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 6, "no compatible stored embeddings; vector rebuild never calls a provider"); end
+   if embeddingwriters(store.database()) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 6, "vector rebuild requires drained workers and paused or settled jobs"); end
+-  /* A committed graph can outlive its failed file projection, including
+-   * before the first vector index exists. Repair that projection first. */
+-  if recovermanifest(store,error) \= 0 then do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation,7,error); end
+   duplicates = 0; reconciled = 0
+   if reconcile = "true" then do
+     snapshot_id = currentconfigsnapshotid(store.database(),error)

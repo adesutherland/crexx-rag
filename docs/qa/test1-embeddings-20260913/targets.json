@@ -1,0 +1,27 @@
+[
+  {
+    "item_id": "item-maintenance:70177d46abc945b7d9f3d6fa997d5f178ad5fa39526b583e3e93726b9ddaefe4",
+    "task_id": "task:8c4b4035cc6cb1c5eeb35f741574b5e229402c2ded964f00efc4a411c22af7e2",
+    "revision_chunk_id": "occurrence-sha256:1d64b87d3a4ceee948221bd859df404e029bda72cc4551fdd71a1073872bf45e"
+  },
+  {
+    "item_id": "item-maintenance:71af3a4750acf43f17675eeca94e773f4517c2723236c575ba5f223c10d4fbe6",
+    "task_id": "task:53242ae0c8f2c5188314589e09d637c4d40807fdb1ab733fa3f1dc7cca698f71",
+    "revision_chunk_id": "occurrence-sha256:1c0ada1159b0461af38de9a49ec7b51da0becc57f144947e3233e849421e05a6"
+  },
+  {
+    "item_id": "item-maintenance:72d1c4f166798ddf412e4f4e72ece13b1d820379ea047e230c28104685a72092",
+    "task_id": "task:5494fef31857fdbebc4bc585c19f59a21437359eba5913680c64f44520f41d3c",
+    "revision_chunk_id": "occurrence-sha256:1d095f462902a4a96e5d7adb34249eacba4232fcb80e4ece903ca9e315d3637b"
+  },
+  {
+    "item_id": "item-maintenance:7502e51a7ee4eaae9e59255ef14bc701e3bf15028f4e94986ac1f4a41bd15ae0",
+    "task_id": "task:3fddf5678266e9521d3a49bd97543cbf355917d88b6e64e341c8a3c907112e28",
+    "revision_chunk_id": "occurrence-sha256:1badd12715a168952afb2ff9e9dfdeb924412c86d0f590c44d21808eddc392fb"
+  },
+  {
+    "item_id": "item-maintenance:7eddfcc9f25a561fd3241b67a0bffc3bd137d51ed94dc15f2d3fb907e6715c21",
+    "task_id": "task:e8007cfb217820c4cf554a04615be8dd31789fc73c4be2b381d1991affe4a99d",
+    "revision_chunk_id": "occurrence-sha256:1cf24db0072c2c26331472c7461519c8a3ca92b51a31a6ddda4f7ba979ade96a"
+  }
+]

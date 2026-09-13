@@ -1,0 +1,56 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start  5: regression_smoke_stale_workers
+1/9 Test  #5: regression_smoke_stale_workers ....   Passed    1.91 sec
+    Start  6: regression_smoke_terminal_state
+2/9 Test  #6: regression_smoke_terminal_state ...   Passed    2.09 sec
+    Start 15: regression_supervision
+3/9 Test #15: regression_supervision ............***Failed    2.07 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/SupervisionRegression.cmake:113 (message):
+  RAG-OPS-004 acceptance failed:
+
+  RXVME: SUPERVISION_FAIL=missing parent prevents claims
+
+
+
+  RXBVM: SUPERVISION_FAIL=missing parent prevents claims
+
+
+
+
+    Start 16: native_supervision
+4/9 Test #16: native_supervision ................   Passed   63.93 sec
+    Start 17: process_workers
+5/9 Test #17: process_workers ...................   Passed   26.43 sec
+    Start 24: controller_recovery
+6/9 Test #24: controller_recovery ...............   Passed   46.25 sec
+    Start 49: native_interruption
+7/9 Test #49: native_interruption ...............   Passed    6.41 sec
+    Start 50: regression_controller_loss
+8/9 Test #50: regression_controller_loss ........   Passed    1.42 sec
+    Start 51: regression_restart_live
+9/9 Test #51: regression_restart_live ...........   Passed    3.97 sec
+
+89% tests passed, 1 tests failed out of 9
+
+Label Time Summary:
+accounting       =   6.41 sec*proc (1 test)
+cancellation     =   6.41 sec*proc (1 test)
+concurrency      =  46.25 sec*proc (1 test)
+known-defect     =   9.39 sec*proc (4 tests)
+multi-process    =  26.43 sec*proc (1 test)
+native           =  75.74 sec*proc (4 tests)
+operator         =   3.99 sec*proc (2 tests)
+process          =  26.43 sec*proc (1 test)
+provider         =  46.25 sec*proc (1 test)
+publication      =   6.41 sec*proc (1 test)
+recovery         = 128.05 sec*proc (8 tests)
+regression       =  75.39 sec*proc (6 tests)
+sqlite           =  32.84 sec*proc (2 tests)
+worker           = 138.68 sec*proc (4 tests)
+zero-outbound    = 154.48 sec*proc (9 tests)
+
+Total Test time (real) = 154.49 sec
+
+The following tests FAILED:
+	 15 - regression_supervision (Failed)                   recovery regression worker zero-outbound
+Errors while running CTest

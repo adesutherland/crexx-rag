@@ -1,0 +1,33 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start 64: native_continuation
+1/1 Test #64: native_continuation ..............***Failed   37.61 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeLifecycle.cmake:404 (message):
+  Continuation prepare changed active ownership requests:
+  before=controller-50150f66a456bf6642b30c55623491a2:none|worker-583ff98e8f939af1fc9c7cffa0838f74:none|worker-e81f6bfad9f0b7bdc941e46c80a6ef0f:none;
+  after=
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeLifecycle.cmake:182 (message):
+  Lifecycle rendezvous missing:
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-native-continuation/server.status
+  0
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeLifecycle.cmake:425 (await_file)
+
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+continuation    =  37.61 sec*proc (1 test)
+loopback        =  37.61 sec*proc (1 test)
+native          =  37.61 sec*proc (1 test)
+recovery        =  37.61 sec*proc (1 test)
+regression      =  37.61 sec*proc (1 test)
+
+Total Test time (real) =  37.62 sec
+
+The following tests FAILED:
+	 64 - native_continuation (Failed)                      continuation loopback native recovery regression
+Errors while running CTest

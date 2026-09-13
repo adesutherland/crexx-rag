@@ -1,0 +1,1 @@
+{"schema":"crexx-rag.command-result/1","operation":"job.reconcile","status":"error","exit_code":6,"exit_name":"conflict","message":"no durable Codex run for this job and item","records":[]}

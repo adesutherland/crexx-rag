@@ -1,5 +1,10 @@
 # Scottish continuation smoke — 12–13 September 2026
 
+Later local repair: the two public-status defects and the controller-loss/restart
+requirements have been implemented in the review checkout. See the
+[four-fix qualification](four-smoke-fixes-20260913.md). This report retains the
+actual earlier live smoke outcome; no new corpus run is implied.
+
 The requested implementation and bounded maintenance smoke are complete. **The
 whole corpus recovery outcome is not closed:** retained ingestion failures,
 five missing embeddings and two public-status defects remain. This report is

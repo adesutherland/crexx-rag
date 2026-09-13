@@ -1,0 +1,12 @@
+[
+  {
+    "job_id": "job-maintenance:6487899bc4c6b8d12edb57e101218c0b25346cf0f8c7bdb8267cf188a253e3f5",
+    "state": "completed_with_errors",
+    "updated_at": "2026-09-10T13:07:39.730Z"
+  },
+  {
+    "job_id": "job-maintenance:d40ed9c08dc658d3c7449f56d816c50a76a58cd630588800eede91b8c29ae3a9",
+    "state": "paused",
+    "updated_at": "2026-09-13T01:19:37.345Z"
+  }
+]

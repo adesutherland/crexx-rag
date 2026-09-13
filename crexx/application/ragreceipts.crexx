@@ -59,7 +59,12 @@ recoverproviderresponse: procedure = .int
   ignored = document.node_string(document.member(document.root(),"body"),body)
   ignored = document.node_int(document.member(document.root(),"settled"),settled)
   if input_hash \= claim.input_hash() | receipt_snapshot \= claim.config_snapshot_id() then do; error = "provider receipt does not match immutable work input"; return -1; end
-  if body = "" then return 2
+  if body = "" then do
+    if original_attempt \= claim.attempt_id() & _boundcount(database,"SELECT count(*) FROM job_items WHERE item_id=?1 AND " || retryrequested("job_items.item_id"),claim.item_id())=1 then do
+      original_attempt = ""; return 0
+    end
+    return 2
+  end
   response = .jsondocument(body); response_status = -1
   ignored = response.node_int(response.member(response.root(),"status"),response_status)
   /* A fully accounted transport failure permits the configured retry. A
@@ -181,7 +186,6 @@ applyexternalobservation: procedure = .int
     return 0
   end
   if readexternalidentity(store,job_id,item_id) \= identity_json then return _rollback(database,"external reconciliation identity changed; inspect again",error)
-  if _boundcount(database,"SELECT count(*) FROM jobs WHERE job_id=?1 AND state='paused'",job_id) \= 1 then return _rollback(database,"pause the job before applying reconciliation",error)
   if _boundcount(database,"SELECT count(*) FROM runtime_instances WHERE (job_filter=?1 OR job_filter='') AND state NOT IN('stopped','failed','lost')",job_id) \= 0 then return _rollback(database,"drain workers and prune confirmed dead ownership before reconciliation",error)
   if _boundcount(database,"SELECT count(*) FROM job_items WHERE job_id=?1 AND state IN('running','cancel_requested') AND lease_until>unixepoch()",job_id) \= 0 then return _rollback(database,"job still has active claims; drain before reconciliation",error)
   if _boundcount(database,"SELECT count(*) FROM job_items WHERE item_id=?1 AND state IN('queued','dead_letter')",item_id) \= 1 then return _rollback(database,"item is not drained; let worker lease recovery finish before reconciliation",error)
@@ -205,6 +209,7 @@ applyexternalobservation: procedure = .int
   if state \= "completed" & _boundcount(database,"SELECT count(*) FROM job_events WHERE item_id=?1 AND event_type='citation-correction-requested'",item_id) > 0 then next_state = "dead_letter"
   if sqliteexec(database,"UPDATE attempts SET outcome='expired',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE attempt_id=" || _q(attempt_id) || " AND outcome='running'") \= 0 then return _rollback(database,"cannot close reconciled ownership",error)
   if sqliteexec(database,"UPDATE job_items SET state=" || _q(next_state) || ",worker_id=NULL,lease_until=NULL,retry_at=unixepoch(),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE item_id=" || _q(item_id)) \= 0 then return _rollback(database,"cannot retain reconciled work",error)
+  if refreshlifecyclejob(database,job_id) \= 0 then return _rollback(database,"cannot refresh reconciled work",error)
   if _event(database,job_id,item_id,attempt_id,"provider-reconciled",observation) \= 0 then return _rollback(database,"cannot retain terminal observation",error)
   if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"cannot commit reconciliation",error)
   return 0

@@ -1,0 +1,9 @@
+{
+  "artifact_sha256": "1572df54e58261d6300bbdf44903edfb3b36a07f6cd164ad3357b7d95377a7a5",
+  "existing_controls": "3/3 in 35.36 seconds",
+  "probe_cases": 10,
+  "expected_baseline_observations_confirmed": 11,
+  "acceptance_status": "unimplemented; investigation is not qualification",
+  "master_writes": 0,
+  "new_hosted_calls": 0
+}

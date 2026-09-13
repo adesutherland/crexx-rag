@@ -1,0 +1,3 @@
+-- RESTART_CONTROLS_OK: one held call, one queued peer, live controller and child
+-- RESTART_REPEAT_CHECKED: no repeated work or provider receipt
+-- RESTART_CLEANUP_CHECKED: restart_live; errors above remain failures

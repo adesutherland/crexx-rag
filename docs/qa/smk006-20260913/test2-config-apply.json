@@ -1,0 +1,1 @@
+{"schema":"crexx-rag.command-result/1","operation":"config.apply","status":"error","exit_code":6,"exit_name":"conflict","message":"configuration apply requires all active jobs to be drained or settled","records":[]}

@@ -32,6 +32,6 @@ ragadmissiondecision: class
   reason: method = .string
     if _rank = 4 then return _dimension || " accounting is invalid"
     if _rank = 3 then return _dimension || " exhausted"
-    if _rank = 2 then return _dimension || " held by uncertain usage; reconcile before retry"
+    if _rank = 2 then return _dimension || " held by unaccounted prior usage"
     if _rank = 1 then return "waiting for provider capacity: " || _dimension
     return ""

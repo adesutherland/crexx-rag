@@ -11,6 +11,7 @@ import ragperiod
 import ragassessment
 import ragprovenance
 import ragstore
+import raglifecycle
 
 /* Graph policy stays in Level G. Provider output is represented by an
  * immutable typed proposal and cannot write graph state directly. */
@@ -858,12 +859,8 @@ _conflictingclaim: procedure = .int
 
 _activefence: procedure = .int
   arg database = .binary, item_id = .string, worker_id = .string, fence = .int, attempt_id = .string
-  prepared = .binary
-  sql = "SELECT count(*) FROM job_items i JOIN attempts a ON a.item_id=i.item_id AND a.attempt_id=?1 WHERE i.item_id=?2 AND i.worker_id=?3 AND i.fence=?4 AND i.state='running' AND i.lease_until>CAST(strftime('%s','now') AS INTEGER) AND a.worker_id=i.worker_id AND a.fence=i.fence AND a.outcome='running'"
-  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, attempt_id) \= 0 | sqlitebindtext(prepared, 2, item_id) \= 0 | sqlitebindtext(prepared, 3, worker_id) \= 0 | sqlitebindint(prepared, 4, fence) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return -1; end
-  count = 0; status = sqlitecolumnint(prepared, 0, count); call sqlitefinalize prepared
-  if status \= 0 then return -1
-  return count
+  job_id = _boundscalartext(database,"SELECT job_id FROM job_items WHERE item_id=?1",item_id)
+  return activeworkfence(database,job_id,item_id,attempt_id,worker_id,fence)
 
 _contentreuse: procedure = .int
   arg database = .binary, chunk_id = .string, generation = .int

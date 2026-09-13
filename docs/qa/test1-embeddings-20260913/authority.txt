@@ -1,0 +1,5 @@
+User requested: OK - Can we fix the 4 (or 5) embedding issues. That is test 1
+Automatic approval review initially rejected maintain apply pending explicit destination and paid-call authority. No job or provider call was started by that rejected command.
+The user subsequently answered: Approve this Test 1 run
+Approved scope: only five identified public-history chunks to Google Gemini at generativelanguage.googleapis.com, gemini-embedding-2; at most five additional embedding calls in a fresh five-minute window; combined configured per-call cap $0.005; no reasoning calls.
+Executed window: 2026-09-13T12:23:19Z to 2026-09-13T12:28:19Z. No new paid run is authorized by this completed window.

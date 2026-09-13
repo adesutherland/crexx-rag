@@ -1,0 +1,26 @@
+-- complete operational: raw=completed_with_errors; projected=completed_with_errors; active=0; apply_exit=not-applied
+-- complete prospective: raw=completed_with_errors; projected=completed_with_errors; active=0; apply_exit=0
+-- stale_deadline operational: raw=paused; projected=completed_with_errors; active=0; apply_exit=not-applied
+-- stale_deadline prospective: raw=paused; projected=completed_with_errors; active=1; apply_exit=6
+-- unknown_terminal operational: raw=completed_with_errors; projected=paused; active=0; apply_exit=not-applied
+-- unknown_terminal prospective: raw=completed_with_errors; projected=paused; active=0; apply_exit=0
+-- unknown_terminal cancel 1: raw=paused; projected=paused
+-- unknown_terminal cancel 2: raw=completed_with_errors; projected=paused
+-- unknown_terminal cancel 3: raw=paused; projected=paused
+-- unknown_paused operational: raw=paused; projected=paused; active=0; apply_exit=not-applied
+-- unknown_paused prospective: raw=paused; projected=paused; active=1; apply_exit=6
+-- unknown_paused cancel 1: raw=completed_with_errors; projected=paused
+-- unknown_paused cancel 2: raw=paused; projected=paused
+-- unknown_paused cancel 3: raw=completed_with_errors; projected=paused
+-- queued operational: raw=queued; projected=running; active=1; apply_exit=6
+-- queued prospective: raw=queued; projected=running; active=1; apply_exit=6
+-- reserved operational: raw=paused; projected=paused; active=1; apply_exit=6
+-- reserved prospective: raw=paused; projected=paused; active=1; apply_exit=6
+-- live operational: raw=paused; projected=paused; active=1; apply_exit=6
+-- live prospective: raw=paused; projected=paused; active=1; apply_exit=6
+-- terminal_reserved operational: raw=completed_with_errors; projected=completed_with_errors; active=1; apply_exit=6
+-- terminal_reserved prospective: raw=completed_with_errors; projected=completed_with_errors; active=0; apply_exit=0
+-- terminal_live operational: raw=completed_with_errors; projected=completed_with_errors; active=1; apply_exit=6
+-- terminal_live prospective: raw=completed_with_errors; projected=completed_with_errors; active=0; apply_exit=0
+-- intentional_pause operational: raw=paused; projected=paused; active=0; apply_exit=not-applied
+-- intentional_pause prospective: raw=paused; projected=paused; active=1; apply_exit=6

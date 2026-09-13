@@ -22,6 +22,20 @@ dependency and compatibility review. Identify the owning component and its
 existing public controls before editing. Do not bundle unrelated refactoring,
 new frameworks, schema changes or reporting systems into a small request.
 
+Prefer the simplest complete design that meets the user's stated outcome.
+Accepted small losses of unfinished work are a design constraint, not a defect
+to eliminate through extra recovery machinery. Reuse existing commands, state
+and modules before adding abstractions, protocols, configuration or services.
+Do not expand a bounded local workflow into a general availability system.
+When proposing additional complexity, name the observed problem it solves and
+explain why the simple approach is insufficient. Regression coverage comes
+first; tests should prove the agreed behavior, not expand it.
+
+The authoritative controller-recovery direction is the simple restart decision
+in `docs/architecture.md`: one routine cleanup/start path, fresh children and
+accepted loss of unfinished work. Follow it instead of extending the earlier
+more elaborate proposal. Use the four-smoke-fixes repair record for current implementation and QA status.
+
 Keep the logic for each cohesive aspect together in its owning source module,
 and separate different aspects behind narrow module interfaces. Shared policy
 and state-transition decisions must have one implementation; ingestion,

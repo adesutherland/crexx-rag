@@ -1,0 +1,5 @@
+crexxrag controller start workers=2
+crexxrag worker complete [worker-e81f6bfad9f0b7bdc941e46c80a6ef0f] completed=1/2
+crexxrag worker complete [worker-583ff98e8f939af1fc9c7cffa0838f74] completed=2/2
+crexxrag vector pending-work [job-maintenance:c87aea6b136a827ffe70afd1beec0e4bfbc9015961960a77a09754208585c789] generations=0
+crexxrag controller complete [controller-50150f66a456bf6642b30c55623491a2] workers=2

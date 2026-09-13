@@ -1,5 +1,11 @@
 # Durable retry requests and lifecycle ownership
 
+13 September update: the approved [rule simplification](rule-simplification-repair-20260913.md)
+lets completed work stay complete and an explicit retry redo unfinished work
+without recovering an old missing receipt. Automatic restart still retains
+unanswered attempts without repeating the call; old usage and attempt limits
+remain effective. The earlier hold rules and qualification below are historical.
+
 Step 2, based on `4500e771036d115045178afc68df0c1991ea03cf`.
 
 The baseline focused run passed four of five tests in 25.61 seconds. Only

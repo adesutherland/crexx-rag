@@ -1,0 +1,162 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start  5: regression_smoke_stale_workers
+1/4 Test  #5: regression_smoke_stale_workers ....***Failed    2.00 sec
+-- SMOKE_STATUS_CONTROLS_OK: live, stale-but-alive, confirmed exited, empty group
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake:69 (message):
+  unverified remote/reserved workers are not confirmed live: expected '0',
+  got '2'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake:116 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake:69 (message):
+  unverified worker ownership is visible: expected '2', got
+  'records-0-fields-worker_unverified_workers-NOTFOUND'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake:118 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake:69 (message):
+  RAG-SMK-004 CLI counts stale exited worker as live: expected '0', got '1'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake:121 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake:69 (message):
+  RAG-SMK-004 MCP counts stale exited worker as live: expected '0', got '1'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake:124 (expect)
+
+
+-- SMOKE_STATUS_READ_ONLY_OK: stale_workers; any errors above remain failures
+
+    Start  6: regression_smoke_terminal_state
+2/4 Test  #6: regression_smoke_terminal_state ...***Failed    2.10 sec
+-- SMOKE_STATUS_CONTROLS_OK: running, operator pause, unknown outcome, complete
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake:69 (message):
+  RAG-SMK-005 cli list contradicts drained job status: expected
+  'completed_with_errors', got 'paused'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake:158 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake:69 (message):
+  RAG-SMK-005 cli report includes drained deadline job as active: expected
+  '3', got '4'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake:175 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake:69 (message):
+  RAG-SMK-005 mcp list contradicts drained job status: expected
+  'completed_with_errors', got 'paused'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake:158 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake:69 (message):
+  RAG-SMK-005 mcp report includes drained deadline job as active: expected
+  '3', got '4'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/SmokeStatus.cmake:175 (expect)
+
+
+-- SMOKE_STATUS_READ_ONLY_OK: terminal_state; any errors above remain failures
+
+    Start 50: regression_controller_loss
+3/4 Test #50: regression_controller_loss ........***Failed    8.26 sec
+-- RESTART_CONTROLS_OK: one held call, one queued peer, live controller and child
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeInterruption.cmake:66 (message):
+  OPS-001 controller loss must prevent a new item claim: expected '1', got
+  '3'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeInterruption.cmake:193 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeInterruption.cmake:66 (message):
+  orphan exits cleanly during group admission: expected '0', got 'Process
+  terminated due to timeout'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeInterruption.cmake:198 (expect)
+
+
+-- RESTART_CLEANUP_CHECKED: controller_loss; errors above remain failures
+
+    Start 51: regression_restart_live
+4/4 Test #51: regression_restart_live ...........***Failed    2.28 sec
+-- RESTART_CONTROLS_OK: one held call, one queued peer, live controller and child
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeInterruption.cmake:66 (message):
+  OPS-001 ordinary restart must clean old ownership and run: expected '0',
+  got '6'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeInterruption.cmake:212 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeInterruption.cmake:66 (message):
+  OPS-001 restart creates a fresh controller: expected '1', got '0'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeInterruption.cmake:214 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeInterruption.cmake:66 (message):
+  OPS-001 first restart creates fresh children: expected '1', got '0'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeInterruption.cmake:224 (expect)
+
+
+-- RESTART_REPEAT_CHECKED: no repeated work or provider receipt
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeInterruption.cmake:66 (message):
+  restart preserves unrelated live and terminal ownership: expected
+  'other-live|controller||Adrians-MacBook-Air.local|24414|other|fixture|wait|other-job|running|none||1|1|||
+
+  
+  other-terminal|worker|other-live|Adrians-MacBook-Air.local|0|other|fixture|follow|other-job|stopped|none||1|1|||',
+  got
+  'other-live|controller||Adrians-MacBook-Air.local|24414|other|fixture|wait|other-job|running|none||1|1|||'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeInterruption.cmake:238 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeInterruption.cmake:66 (message):
+  remote denial preserves runtime ownership: expected
+  'controller-5d0c7e615ba1f6b28cce40ff16fdcbe6|controller||Adrians-MacBook-Air.local|24570|c87e96f295265c557fc2fa3e49c4bdd8|/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag|wait|job-sha256:d6d2efd457ae5fb3c69cefa13a298658ab74d84a03d7947fe41a01e2e8683bac|stopped|none||1789296903|1789296904|1789296904|0|all
+  worker processes completed
+
+  
+  other-live|controller||Adrians-MacBook-Air.local|24414|other|fixture|wait|other-job|running|none||1|1|||
+
+  
+  remote-owner|controller||another-host|24414|remote|fixture|wait|job-sha256:d6d2efd457ae5fb3c69cefa13a298658ab74d84a03d7947fe41a01e2e8683bac|running|none||1|1|||
+
+  
+  worker-f4a4ed9ace724fae8920adff8bf61c5f|worker|controller-5d0c7e615ba1f6b28cce40ff16fdcbe6|Adrians-MacBook-Air.local|24571|955a9b7ab1aa90e34cecb0e2ff59b77c|/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexxrag-native/package/crexxrag|follow|job-sha256:d6d2efd457ae5fb3c69cefa13a298658ab74d84a03d7947fe41a01e2e8683bac|stopped|none||1789296903|1789296904|1789296904|0|application
+  worker stopped cleanly;processed=0;polls=1', got
+  'other-live|controller||Adrians-MacBook-Air.local|24414|other|fixture|wait|other-job|running|none||1|1|||
+
+  
+  remote-owner|controller||another-host|24414|remote|fixture|wait|job-sha256:d6d2efd457ae5fb3c69cefa13a298658ab74d84a03d7947fe41a01e2e8683bac|running|none||1|1|||'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag-review/cmake/NativeInterruption.cmake:249 (expect)
+
+
+-- RESTART_CLEANUP_CHECKED: restart_live; errors above remain failures
+
+
+0% tests passed, 4 tests failed out of 4
+
+Label Time Summary:
+known-defect     =  14.63 sec*proc (4 tests)
+native           =  10.53 sec*proc (2 tests)
+operator         =   4.10 sec*proc (2 tests)
+recovery         =  14.63 sec*proc (4 tests)
+regression       =  14.63 sec*proc (4 tests)
+zero-outbound    =  14.63 sec*proc (4 tests)
+
+Total Test time (real) =  14.64 sec
+
+The following tests FAILED:
+	  5 - regression_smoke_stale_workers (Failed)           known-defect operator recovery regression zero-outbound
+	  6 - regression_smoke_terminal_state (Failed)          known-defect operator recovery regression zero-outbound
+	 50 - regression_controller_loss (Failed)               known-defect native recovery regression zero-outbound
+	 51 - regression_restart_live (Failed)                  known-defect native recovery regression zero-outbound
+Errors while running CTest

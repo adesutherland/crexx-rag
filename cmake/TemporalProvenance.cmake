@@ -12,7 +12,7 @@ file(GLOB project_member_dirs LIST_DIRECTORIES true
     "${CPRAG_APPLICATION_DIR}/project/crexxrag-project.crexx-build/members/*")
 list(JOIN project_member_dirs ";" project_imports)
 set(imports "${project_imports};${CPRAG_APPLICATION_DIR};${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
-set(modules ragenrich ragproposalio ragperiod ragprovenance ragassessment ragmodel ragevidence
+set(modules ragsupervision ragenrich ragproposalio ragperiod ragprovenance ragassessment ragmodel ragevidence
     ragjob ragconfig ragconfiguration ragprofile ragregistry ragschema ragfile ragconfigfile ragglossary
     ragstore ragbackup ragrepository ragcanonical ragplanning ragtrace ragcommandcatalog ragcommand ragworkerdefaults ragpolicypublication ragpolicyfile ragingest
     ragfolder ragquotationcontract ragextractioncontract ragresolutioncontract raganswercontract ragreportcontract ragpromptdefaults ragpromptinspection ragcommandutil ragsqlsupport ragdirectcalls ragreportservice ragobservationservice ragqueryservice ragoperationsquery ragclaimrules ragclaims ragimprove ragmaintain ragbacklog ragadmission raglifecycle ragworktypes ragenvironment ragusage ragreceipts ragallowance ragwork ragquery ragembedding

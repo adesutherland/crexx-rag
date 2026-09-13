@@ -1,0 +1,39 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start 14: configuration_contract
+1/6 Test #14: configuration_contract ...........   Passed   30.52 sec
+    Start 20: provider_durability
+2/6 Test #20: provider_durability ..............   Passed   11.98 sec
+    Start 43: publication
+3/6 Test #43: publication ......................   Passed   22.19 sec
+    Start 63: regression_lifecycle
+4/6 Test #63: regression_lifecycle .............   Passed    2.68 sec
+    Start 65: native_continuation
+5/6 Test #65: native_continuation ..............   Passed   13.12 sec
+    Start 67: native_continuation_holds
+6/6 Test #67: native_continuation_holds ........   Passed   18.91 sec
+
+100% tests passed, 0 tests failed out of 6
+
+Label Time Summary:
+RAG-OPS-002            =   2.68 sec*proc (1 test)
+accounting             =   2.68 sec*proc (1 test)
+atomic                 =  22.19 sec*proc (1 test)
+codex                  =  11.98 sec*proc (1 test)
+concurrency            =  22.19 sec*proc (1 test)
+configuration          =  30.52 sec*proc (1 test)
+continuation           =  32.03 sec*proc (2 tests)
+durability             =  11.98 sec*proc (1 test)
+gemini                 =  30.52 sec*proc (1 test)
+loopback               =  32.03 sec*proc (2 tests)
+native                 =  32.03 sec*proc (2 tests)
+privacy                =  30.52 sec*proc (1 test)
+provider               =  11.98 sec*proc (1 test)
+publication            =  22.19 sec*proc (1 test)
+recovery               =  32.03 sec*proc (2 tests)
+regression             =  34.71 sec*proc (3 tests)
+sqlite                 =  22.19 sec*proc (1 test)
+subscription-budget    =  11.98 sec*proc (1 test)
+worker                 =   2.68 sec*proc (1 test)
+zero-outbound          =  67.38 sec*proc (4 tests)
+
+Total Test time (real) =  99.42 sec

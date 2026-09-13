@@ -1,6 +1,6 @@
 options levelg
 
-namespace raglifecycle expose activeworkfence terminaljob lifecyclejobstate refreshlifecyclejob retrydisposition recordretryrequest setretrydisposition retryrequestjson jobretrysummary uncertainitem retryfamilyhold recordtaskwaiver taskwaived taskwaiverjson taskwaiveractive taskwaivercount
+namespace raglifecycle expose activeworkfence terminaljob lifecyclejobstate readlifecyclejob countlifecyclejobs refreshlifecyclejob retrydisposition recordretryrequest setretrydisposition retryrequestjson jobretrysummary uncertainitem retryrequested retryblockeditem retryfamilyhold recordtaskwaiver taskwaived taskwaiverjson taskwaiveractive taskwaivercount
 
 import rxfnsb
 import rxhash
@@ -17,43 +17,68 @@ terminaljob: procedure = .int
 lifecyclejobstate: procedure = .string
   arg current = .string, active = .int, dead = .int, cancelled = .int, uncertain = .int, window = .string
   if current = "" | min(active,dead,cancelled,uncertain) < 0 then return ""
+  if current = "cancelled" then return current
   if window = "active" & current \= "paused" & current \= "cancel_requested" then return current
   if active > 0 then do
     if current = "paused" | current = "cancel_requested" then return current
     if window \= "" & window \= "active" then return "paused"
     return "running"
   end
+  if current = "cancel_requested" then return "cancelled"
   if current = "paused" & dead > 0 & window = "" then return "paused"
-  if dead > 0 then do
-    if uncertain > 0 & current \= "cancel_requested" & current \= "cancelled" then return "paused"
-    return "completed_with_errors"
-  end
+  if dead > 0 then return "completed_with_errors"
   if cancelled > 0 then do
     if wordpos(window,"budget-exhausted deadline complete") > 0 then return "completed"
     return "cancelled"
   end
   return "completed"
 
-refreshlifecyclejob: procedure = .int
+/* Shared read projection. Callers retain their existing read/write snapshot;
+ * indexed existence checks avoid reading full plans or scanning event history. */
+readlifecyclejob: procedure = .string
   arg database = .binary, job_id = .string
   selector = " WHERE job_id=" || _q(job_id)
   current = _text(database,"SELECT state FROM jobs" || selector)
   window = _text(database,"SELECT state FROM maintenance_windows" || selector)
-  if window = "active" & current \= "paused" & current \= "cancel_requested" then return 0
+  if current = "" then return ""
+  if window = "active" & current \= "paused" & current \= "cancel_requested" then return current
   active = _number(database,"SELECT EXISTS(SELECT 1 FROM job_items" || selector || " AND state IN('queued','running','cancel_requested'))")
   dead = _number(database,"SELECT EXISTS(SELECT 1 FROM job_items" || selector || " AND state='dead_letter')")
   cancelled = _number(database,"SELECT EXISTS(SELECT 1 FROM job_items" || selector || " AND state='cancelled')")
   uncertain = 0
-  if active = 0 & dead > 0 then uncertain = _number(database,"SELECT EXISTS(SELECT 1 FROM job_items i" || selector || " AND " || uncertainitem("i.item_id") || ")")
-  state = lifecyclejobstate(current,active,dead,cancelled,uncertain,window)
+  return lifecyclejobstate(current,active,dead,cancelled,uncertain,window)
+
+countlifecyclejobs: procedure = .int
+  arg database = .binary, expose active = .int, expose errors = .int
+  active = 0; errors = 0; prepared = .binary
+  if sqliteprepare(database,"SELECT job_id FROM jobs",prepared) \= 0 then return -1
+  do forever
+    step = sqlitestep(prepared)
+    if step = 101 then leave
+    id = ""; state = ""
+    if step \= 100 | sqlitecolumntext(prepared,0,id) \= 0 then do; call sqlitefinalize prepared; return -1; end
+    state = readlifecyclejob(database,id)
+    if state = "" then do; call sqlitefinalize prepared; return -1; end
+    if wordpos(state,"queued running paused cancel_requested") > 0 then active = active+1
+    if wordpos(state,"completed_with_errors failed") > 0 then errors = errors+1
+  end
+  call sqlitefinalize prepared
+  return 0
+
+refreshlifecyclejob: procedure = .int
+  arg database = .binary, job_id = .string
+  current = _text(database,"SELECT state FROM jobs WHERE job_id=" || _q(job_id))
+  window = _text(database,"SELECT state FROM maintenance_windows WHERE job_id=" || _q(job_id))
+  if window = "active" & current \= "paused" & current \= "cancel_requested" then return 0
+  state = readlifecyclejob(database,job_id)
   if state = "" then return -1
-  return sqliteexec(database,"UPDATE jobs SET state=" || _q(state) || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')" || selector)
+  return sqliteexec(database,"UPDATE jobs SET state=" || _q(state) || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id))
 
 retrydisposition: procedure = .string
   arg state = .string, owned = .int, uncertain = .int, review = .int, ceiling = .int, spent = .int, delayed = .int, hold = .string
+  if wordpos(state,"resolved processed skipped") > 0 then return "already-complete"
   if owned > 0 then return "existing-work"
   if uncertain > 0 then return "provider-outcome-uncertain"
-  if wordpos(state,"resolved processed skipped") > 0 then return "already-complete"
   if state = "superseded" then return "superseded"
   if min(owned,uncertain,review,ceiling,spent,delayed) < 0 then return "policy-unavailable"
   if review > 0 then return "review-required"
@@ -70,19 +95,30 @@ uncertainitem: procedure = .string
   arg item_expression = .string
   return "EXISTS(SELECT 1 FROM job_events u WHERE u.item_id=" || item_expression || " AND u.event_type IN('provider-intent','provider-outcome-uncertain') AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=u.attempt_id AND r.event_type='provider-response'))"
 
-/* Replay ancestry is one family. Checking only direct descendants would let
- * a caller retry an older source or failed sibling beside an active replay. */
+/* An existing explicit retry request permits redoing unfinished work. Keep
+ * uncertainty itself unchanged for diagnostics and allowance accounting. */
+retryrequested: procedure = .string
+  arg item_expression = .string, task_expression = ""
+  if task_expression = "" then task_expression = "(SELECT task_id FROM maintenance_task_items WHERE item_id=" || item_expression || ")"
+  return "EXISTS(SELECT 1 FROM retry_requests r WHERE r.state='pending' AND (r.item_id=" || item_expression || " OR r.task_id=" || task_expression || "))"
+
+retryblockeditem: procedure = .string
+  arg item_expression = .string
+  return "(" || uncertainitem(item_expression) || " AND NOT " || retryrequested(item_expression) || ")"
+
+/* Replay ancestry is one family, including failed siblings of a source. */
 retryfamilyhold: procedure = .string
-  arg database = .binary, item_id = .string
+  arg database = .binary, item_id = .string, explicit_retry = 0
   family = "WITH RECURSIVE ancestors(item_id) AS (SELECT " || _q(item_id) || " UNION SELECT m.source_item_id FROM job_replay_items m JOIN ancestors a ON m.replay_item_id=a.item_id), family(item_id) AS (SELECT item_id FROM ancestors UNION SELECT m.replay_item_id FROM job_replay_items m JOIN family f ON m.source_item_id=f.item_id) "
   peers = " FROM family f JOIN job_items i ON i.item_id=f.item_id WHERE i.item_id<>" || _q(item_id)
   completed = _number(database,family || "SELECT count(*)" || peers || " AND i.state IN('processed','skipped')")
   owned = _number(database,family || "SELECT count(*)" || peers || " AND i.state IN('queued','running','cancel_requested')")
-  uncertain = _number(database,family || "SELECT count(*)" || peers || " AND " || uncertainitem("i.item_id"))
+  uncertain = 0
+  if explicit_retry=0 then uncertain = _number(database,family || "SELECT count(*)" || peers || " AND " || uncertainitem("i.item_id"))
   if min(completed,owned,uncertain)<0 then return "policy-unavailable"
-  if uncertain>0 then return "provider-outcome-uncertain"
-  if owned>0 then return "existing-work"
   if completed>0 then return "already-complete"
+  if owned>0 then return "existing-work"
+  if uncertain>0 & explicit_retry=0 then return "provider-outcome-uncertain"
   return ""
 
 /* A waiver stops this durable question, not its missing corpus coverage.

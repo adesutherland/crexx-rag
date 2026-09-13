@@ -1,0 +1,24 @@
+init
+OK: library initialized
+library status
+  library id: library-dc662ae6a1ce75450526635e
+  schema version: 17
+  published generation: 1
+  next generation: 2
+  profile id: it-architecture-profile
+  manifest state: aligned
+  issue count: 0
+  state: initialized
+config snapshot
+  config id: gemini-loopback
+  config version: 1
+  profile id: it-architecture-profile
+  semantic hash: b8e75f4d2f6d62683c8512f16a46fd262ec6baff746db134a5baa5cdb17cfb12
+  operational hash: ad76dd137dace2651ea72c4af340684b05113dbef3857cf657e6a386a6232d8b
+
+job run job-sha256:2588be91eba739aecebaa2879c9e92a36bb0620eb90f7c411b065f84d6080d38 with live group
+{"schema":"crexx-rag.command-result/1","operation":"job.run","status":"ok","exit_code":0,"exit_name":"success","message":"controller supervised the requested OS-process workers to completion","records":[{"kind":"worker-controller","fields":{"controller_id":"controller-da28d3b8d7a21af1ca219f2b1d448a09","workers_requested":1,"workers_completed":1,"workers_failed":0,"vector_generations":1,"vector_state":"published","workers_restarted":0}}]}
+
+--access;control;--format;json;job;continue;job-sha256:2588be91eba739aecebaa2879c9e92a36bb0620eb90f7c411b065f84d6080d38;--count;1;--poll-ms;20;--max-polls;5
+{"schema":"crexx-rag.command-result/1","operation":"job.continue","status":"ok","exit_code":0,"exit_name":"success","message":"controller supervised the requested OS-process workers to completion","records":[{"kind":"worker-controller","fields":{"controller_id":"controller-6c759eb3677e842999e0ccf9b038d229","workers_requested":1,"workers_completed":1,"workers_failed":0,"vector_generations":1,"vector_state":"identical-no-op","workers_restarted":0}}]}
+

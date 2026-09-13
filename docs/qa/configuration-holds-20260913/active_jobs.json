@@ -1,0 +1,24 @@
+[
+  {
+    "job_id": "job-maintenance:6487899bc4c6b8d12edb57e101218c0b25346cf0f8c7bdb8267cf188a253e3f5",
+    "state": "paused",
+    "config_snapshot_id": "config-1319520a7ecf72cca25bdcba",
+    "created_at": "2026-09-10T09:28:57.128Z",
+    "updated_at": "2026-09-13T13:15:55.669Z",
+    "reserved_calls": 0,
+    "reserved_tokens": 0,
+    "reserved_cost": 0,
+    "reserved_codex_turns": 0
+  },
+  {
+    "job_id": "job-maintenance:d40ed9c08dc658d3c7449f56d816c50a76a58cd630588800eede91b8c29ae3a9",
+    "state": "paused",
+    "config_snapshot_id": "config-fe479707411d396de0e334e6",
+    "created_at": "2026-09-12T23:24:28.789Z",
+    "updated_at": "2026-09-13T01:19:37.345Z",
+    "reserved_calls": 0,
+    "reserved_tokens": 0,
+    "reserved_cost": 0,
+    "reserved_codex_turns": 0
+  }
+]

@@ -1,0 +1,9 @@
+crexxrag controller start workers=8
+crexxrag worker complete [worker-a2ed911f218facbd95db733468a6e13e] completed=1/8
+crexxrag worker complete [worker-6a676de320ecdc348660392a93a1496b] completed=2/8
+crexxrag worker complete [worker-0cb66aea43a8e3872f61d88bb4bb43df] completed=3/8
+crexxrag worker complete [worker-9e32605406154ac7ca0026e79153da6c] completed=4/8
+crexxrag worker complete [worker-af70095bd97d227f333e5e0ba476b33b] completed=5/8
+crexxrag worker complete [worker-03410660f9f5c8fd924e0ee32179f11b] completed=6/8
+crexxrag worker complete [worker-e98fdb030d78c182e8df10f1275bd296] completed=7/8
+crexxrag worker complete [worker-0a90fb1195f7e9215a256595f20dacc5] completed=8/8

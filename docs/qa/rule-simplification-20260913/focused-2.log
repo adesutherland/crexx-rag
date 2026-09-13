@@ -1,0 +1,27 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start  6: regression_smoke_terminal_state
+1/4 Test  #6: regression_smoke_terminal_state ...   Passed    2.07 sec
+    Start  7: regression_rule_simplification
+2/4 Test  #7: regression_rule_simplification ....   Passed    1.73 sec
+    Start 64: regression_lifecycle
+3/4 Test #64: regression_lifecycle ..............   Passed    3.50 sec
+    Start 68: native_continuation_holds
+4/4 Test #68: native_continuation_holds .........   Passed   18.48 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Label Time Summary:
+RAG-OPS-002      =   3.50 sec*proc (1 test)
+accounting       =   3.50 sec*proc (1 test)
+configuration    =   1.73 sec*proc (1 test)
+continuation     =  18.48 sec*proc (1 test)
+lifecycle        =   1.73 sec*proc (1 test)
+loopback         =  18.48 sec*proc (1 test)
+native           =  18.48 sec*proc (1 test)
+operator         =   2.07 sec*proc (1 test)
+recovery         =  20.56 sec*proc (2 tests)
+regression       =  25.79 sec*proc (4 tests)
+worker           =   3.50 sec*proc (1 test)
+zero-outbound    =   7.30 sec*proc (3 tests)
+
+Total Test time (real) =  25.79 sec
