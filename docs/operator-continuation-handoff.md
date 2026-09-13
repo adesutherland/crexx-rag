@@ -1,9 +1,30 @@
 # Operator continuation: live handoff
 
-Updated: 2026-09-13 16:35 UTC. This file records the current result and next action.
+Updated: 2026-09-13, after local version consolidation. This file records the current result and next action.
 The detailed history below is retained for reference.
 
-## Current checkpoint — Test 3 bounded maintenance complete
+## Current checkpoint — complete refactoring merged into main and installed
+
+Use **`/Users/adrian/CLionProjects/crexx-rag` on `main`** for further product work.
+The complete `temp/project-review` history, including the substantial shared-owner
+refactoring and smoke repairs, has been fast-forwarded into local `main`.
+All local/fetched branch histories were included, and the pending smoke results
+and performance audit were committed as `207a2a4`. Earlier worktree authority
+statements below describe their historical checkpoints.
+
+The normal **`/Users/adrian/.local/bin/crexxrag`** now matches the freshly built
+primary-checkout native, SHA-256
+`ba35a980f1a4bcc06ea7cae5e6011bd4aeb0e123cbac3a7bf705d23b68737816`.
+All 103 checked installed application/provider/skill files match the source.
+Build and eight focused/documentation checks passed. Product/build/test trees
+are unchanged from the 69/69-tested baseline `ab620e5`.
+
+See the [consolidation record](version-consolidation-20260913.md) for exact
+scope and evidence. This was a local merge/install; no push, release, user-library
+change or new hosted run occurred. The next engineering work is the
+[unfinished maintenance preparation performance repair](maintenance-planning-performance-20260913.md).
+
+## Previous checkpoint — Test 3 bounded maintenance complete
 
 [Test 3](test3-maintenance-20260913.md) completed in **62 seconds**, exit 0,
 on baseline `ab620e5`, using the same disposable corpus and unchanged native

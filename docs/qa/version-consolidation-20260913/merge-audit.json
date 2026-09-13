@@ -1,0 +1,59 @@
+{
+  "source_commit": "207a2a4bc01098abadebcd00c587ae79fe99e3e6",
+  "branch": "main",
+  "checkout": "/Users/adrian/CLionProjects/crexx-rag",
+  "all_ref_tips_contained": true,
+  "refs": [
+    {
+      "ref": "refs/heads/main",
+      "commits_missing_from_main": 0
+    },
+    {
+      "ref": "refs/heads/temp/controller-recovery",
+      "commits_missing_from_main": 0
+    },
+    {
+      "ref": "refs/heads/temp/llm-recovery",
+      "commits_missing_from_main": 0
+    },
+    {
+      "ref": "refs/heads/temp/maintenance-deadlines",
+      "commits_missing_from_main": 0
+    },
+    {
+      "ref": "refs/heads/temp/mcp-codex-integration",
+      "commits_missing_from_main": 0
+    },
+    {
+      "ref": "refs/heads/temp/project-review",
+      "commits_missing_from_main": 0
+    },
+    {
+      "ref": "refs/heads/temp/query-engine-backlog",
+      "commits_missing_from_main": 0
+    },
+    {
+      "ref": "refs/heads/temp/reservation-usage-scan",
+      "commits_missing_from_main": 0
+    },
+    {
+      "ref": "refs/remotes/origin/main",
+      "commits_missing_from_main": 0
+    },
+    {
+      "ref": "refs/remotes/origin/temp/maintenance-deadlines",
+      "commits_missing_from_main": 0
+    },
+    {
+      "ref": "refs/remotes/origin/temp/mcp-codex-integration",
+      "commits_missing_from_main": 0
+    }
+  ],
+  "baseline_product_commit": "ab620e5f303696ba477d6b91845f075789b779c9",
+  "trees": {
+    "crexx": "acc6e5acf7ed9a63d0ba078ac4ba7d39d5bb3e45",
+    "cmake": "b02ff5780f1a362394889f9e136c7d7a971788cd",
+    "tests": "c734f337719c8bf4584c403fd414e54baf3d3636"
+  },
+  "same_product_build_test_trees_as_baseline": true
+}

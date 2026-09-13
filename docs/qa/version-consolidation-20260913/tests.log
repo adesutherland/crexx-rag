@@ -1,0 +1,42 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start  1: regression_policy_file
+1/7 Test  #1: regression_policy_file ............   Passed    7.48 sec
+    Start  4: regression_operator_diagnostics
+2/7 Test  #4: regression_operator_diagnostics ...   Passed    5.43 sec
+    Start  7: regression_rule_simplification
+3/7 Test  #7: regression_rule_simplification ....   Passed    1.75 sec
+    Start  9: regression_prompt_contract
+4/7 Test  #9: regression_prompt_contract ........   Passed   25.73 sec
+    Start 11: regression_command_catalogue
+5/7 Test #11: regression_command_catalogue ......   Passed    2.26 sec
+    Start 12: regression_claim_policy
+6/7 Test #12: regression_claim_policy ...........   Passed    0.65 sec
+    Start 37: installed_product
+7/7 Test #37: installed_product .................   Passed   33.37 sec
+
+100% tests passed, 0 tests failed out of 7
+
+Label Time Summary:
+claim            =   0.65 sec*proc (1 test)
+command          =   2.26 sec*proc (1 test)
+configuration    =   9.22 sec*proc (2 tests)
+contract         =   2.26 sec*proc (1 test)
+gemini           =  33.37 sec*proc (1 test)
+ingestion        =  33.37 sec*proc (1 test)
+installed        =  33.37 sec*proc (1 test)
+lifecycle        =   1.75 sec*proc (1 test)
+loopback         =  25.73 sec*proc (1 test)
+maintenance      =  33.37 sec*proc (1 test)
+native           =  33.37 sec*proc (1 test)
+operator         =   5.43 sec*proc (1 test)
+pagination       =   5.43 sec*proc (1 test)
+policy           =   8.13 sec*proc (2 tests)
+prompt           =  25.73 sec*proc (1 test)
+query            =  33.37 sec*proc (1 test)
+recovery         =   7.48 sec*proc (1 test)
+regression       =  43.29 sec*proc (6 tests)
+schema           =  25.73 sec*proc (1 test)
+skills           =  33.37 sec*proc (1 test)
+zero-outbound    =  43.29 sec*proc (6 tests)
+
+Total Test time (real) =  76.66 sec

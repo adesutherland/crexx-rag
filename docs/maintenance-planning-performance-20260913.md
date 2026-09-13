@@ -145,16 +145,21 @@ methodology fixture checks census/ranking/digest/replay semantics; the recent
 30,000-task fixture targets review-hold queries. Passing these does not establish
 that planning plus apply is fast on the operational corpus.
 
-There is a separate checkout/install consistency issue. The original
-`/Users/adrian/CLionProjects/crexx-rag` remains at `e1a616a` on
+At audit time there was a separate checkout/install consistency issue. The
+original `/Users/adrian/CLionProjects/crexx-rag` was at `e1a616a` on
 `temp/maintenance-deadlines`, **31 commits behind** the review checkout. The
-normally installed `/Users/adrian/.local/bin/crexxrag` also differs byte-for-byte
+normally installed `/Users/adrian/.local/bin/crexxrag` also differed byte-for-byte
 from the tested artifact; its exact source revision was not established by
 this audit. However, Test 3 and this profiling used the explicitly named frozen
 executable, whose SHA-256 matches the current review build exactly:
 `751e3ca283c036f524feee93d5eb6b7565ec424bd4cd18fce038bc419fae0da3`.
 Thus the measured delay is not explained by accidentally running that separate
 installed binary or building the older original checkout.
+
+The subsequent [version consolidation](version-consolidation-20260913.md)
+merged the complete review history into `main`, returned the primary checkout
+to that branch and updated the normal installation. That resolves the version
+consistency issue; the performance findings in this report remain open.
 
 The practical gap is completing and timing the whole maintenance startup on
 one agreed build. Prior successful component repairs should remain credited;

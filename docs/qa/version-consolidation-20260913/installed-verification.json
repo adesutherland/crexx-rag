@@ -1,0 +1,9 @@
+{
+  "installed_native": "/Users/adrian/.local/bin/crexxrag",
+  "installed_native_sha256": "ba35a980f1a4bcc06ea7cae5e6011bd4aeb0e123cbac3a7bf705d23b68737816",
+  "build_native_sha256": "ba35a980f1a4bcc06ea7cae5e6011bd4aeb0e123cbac3a7bf705d23b68737816",
+  "native_matches": true,
+  "checked_support_files": 103,
+  "mismatches": [],
+  "config_explain_status": "ok"
+}
