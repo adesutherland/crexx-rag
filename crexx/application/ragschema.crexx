@@ -3,7 +3,7 @@ options levelg
 namespace ragschema expose ragschemaversion migrationname migrationchecksum migrationstatements
 
 ragschemaversion: procedure = .int
-  return 16
+  return 17
 
 migrationname: procedure = .string
   arg version = .int
@@ -18,6 +18,7 @@ migrationname: procedure = .string
   if version = 10 then return "durable-maintenance-backlog"
   if version = 11 then return "claim-time-and-source-provenance"
   if version = 12 then return "agent-maintenance-handoff"
+  if version = 17 then return "indexed-review-holds"
   if version = 16 then return "indexed-recovery-and-allowance-periods"
   if version = 15 then return "reasoned-task-waivers"
   if version = 14 then return "durable-retry-requests"
@@ -27,6 +28,7 @@ migrationname: procedure = .string
 
 migrationchecksum: procedure = .string
   arg version = .int
+  if version = 17 then return "9ab5f09ae6a287250dec45e2f546afe743145724af5dd5f749d833b8bdbb506c"
   if version = 16 then return "0fb69902fc0e01a37b02fdd48c206a0b3c412cd762cf7b158add6b56ebee39cc"
   if version = 15 then return "4595893c9edfdae7b4e05965c8ae88ec3b0419878e83e918159111827dbe9b33"
   if version = 14 then return "95002606a4552c399870908d7c1c42128c9e3ddde1427a1c10dc2ef0d6d39996"
@@ -49,6 +51,12 @@ migrationchecksum: procedure = .string
 migrationstatements: procedure = .int
   arg version = .int, expose statements = .string[]
   statements = .string[]
+  /* Eligibility and lifecycle gates join reviews by subject and state.
+   * A full review scan per task holds the SQLite writer at corpus scale. */
+  if version = 17 then do
+    statements[statements.0 + 1] = "CREATE INDEX reviews_subject_state ON reviews(subject_id,state)"
+    return statements.0
+  end
   if version = 16 then do
     statements[statements.0 + 1] = "CREATE INDEX job_events_item_type ON job_events(item_id,event_type,attempt_id)"
     statements[statements.0 + 1] = "CREATE UNIQUE INDEX job_allowance_period_name ON job_events(job_id,json_extract(message,'$.name')) WHERE event_type='allowance-period'"

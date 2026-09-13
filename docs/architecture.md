@@ -627,7 +627,7 @@ parallel tool-name, required-argument or capability maps to an adapter.
 | `ragbacklog` | Owns window continuation/closure, timing, census/dispatch and `taskretryfacts`; the same current-policy eligibility feeds public inspection and retry execution. |
 | `ragwork` / `raglifecycle` | Retain claims, fencing, receipt/usage recovery, job projection and pending item requests. `refreshjobrecovery` exposes that existing atomic projection to continuation. |
 | `ragoperationsquery` | Bounded item recovery facts, actual source/operation groups and one-snapshot status/usage. Does not invent an independent task state. |
-| `ragschema` | Schema 16 adds indexed item-event lookup and immutable, uniquely named allowance-period history. Earlier schema checksums and original job policy events remain unchanged. |
+| `ragschema` | Schema 16 adds indexed item-event lookup and immutable, uniquely named allowance-period history. Schema 17 adds the shared `reviews(subject_id,state)` access path used by task eligibility and lifecycle holds. Earlier schema checksums, review content and original job policy events remain unchanged. |
 
 A renewal changes current allowance/window projections while recording the
 previous and original bounds. Each explicit period retains its fixed deadline;

@@ -211,7 +211,7 @@ execute_process(COMMAND ${lifecycle_cli}
     OUTPUT_VARIABLE lifecycle_init_out ERROR_VARIABLE lifecycle_init_err
     TIMEOUT 30)
 if(NOT lifecycle_init_result EQUAL 0 OR
-   NOT lifecycle_init_out MATCHES "\"schema_version\":16")
+   NOT lifecycle_init_out MATCHES "\"schema_version\":17")
     message(FATAL_ERROR
         "configuration lifecycle init failed:\n${lifecycle_init_out}${lifecycle_init_err}")
 endif()

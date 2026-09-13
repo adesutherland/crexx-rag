@@ -129,3 +129,17 @@ and coverage assertions are unchanged. The native executable SHA remained
 
 This is local synthetic qualification. It does not claim a fresh Turray trial,
 non-macOS qualification or live hosted-provider recovery.
+
+## Actual Scottish repeat — 12 September 2026
+
+The processing-master Turray workflow completed through installed public
+commands on `3b4c481`: exact source citation, connection resolve-plan/apply,
+mandatory review preview/accept, targeted census, retirement resolve-plan/apply
+and mandatory review preview/accept. Generation24218 retracted the redundant
+related-to claim/support; generation24219 retired Turray and closed its workflow.
+The final public census reported complete/already-complete, zero remaining
+impacts, ownership, reviews and uncertain outcomes. External reasoning was
+attributed honestly and created zero provider calls. Full command evidence is
+in [the continuation record](qa/operator-continuation-20260912/). This completes
+the named live Turray repeat; it does not close the separately failed unattended
+maintenance smoke or every OPS-002 acceptance.

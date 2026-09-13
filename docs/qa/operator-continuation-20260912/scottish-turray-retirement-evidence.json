@@ -1,0 +1,1 @@
+{"schema":"crexx-rag.command-result/1","operation":"maintain.evidence","status":"ok","exit_code":0,"exit_name":"success","message":"bounded task inspection without writes or provider calls","records":[{"kind":"page","fields":{"returned":0,"next_cursor":""}}]}

@@ -1,0 +1,13 @@
+crexxrag controller start workers=8
+crexxrag lock retry=1/5: begin provider reservation: database is locked [boundary=-6,sqlite=5,extended=5,operation=exec]
+crexxrag heartbeat worker-3d3b0e5806bab6e5789475ff7ff5b561 retry=1/2: write process heartbeat: database is locked [boundary=-6,sqlite=5,extended=5,operation=step]
+crexxrag worker complete [worker-5a6569eddb267c74842cc3ae2b7ed290] completed=1/8
+crexxrag worker complete [worker-aaabfc9bb6e60b0263d1ee2cab45858e] completed=2/8
+crexxrag worker complete [worker-96978e72307f91040956ec6b652e250d] completed=3/8
+crexxrag worker complete [worker-7f2bc52f3d62f69ce7f3d834ee608b50] completed=4/8
+crexxrag worker complete [worker-b1fe9640de82af2d34a5f7245a01bf47] completed=5/8
+crexxrag worker complete [worker-59ddc4c0219b1a845ced8d39ad76041d] completed=6/8
+crexxrag worker complete [worker-b81e9e1833b42c487d4e278e4833e36f] completed=7/8
+crexxrag worker complete [worker-3d3b0e5806bab6e5789475ff7ff5b561] completed=8/8
+crexxrag vector identical-no-op [job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622] generations=1
+crexxrag controller complete [controller-cea4078becb412740d2bca2215d086bf] workers=8

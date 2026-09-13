@@ -438,3 +438,26 @@ without generation calls; provider-run count stayed 20809 and uncertainty
 became zero. Incomplete usage remains a lower bound. The exact hashes and
 logs are in the [handoff](operator-continuation-handoff.md). Actual processing
 master ingestion and 60-minute maintenance are still required live evidence.
+
+## Live maintenance checkpoint repair — RAG-SMK-003
+
+The first 60-minute Scottish maintenance attempt stopped after sustained writer
+contention; it is a failed smoke, not completed maintenance. Corpus-copy profiling
+measured 27.28 seconds in census/evidence construction, 28.18 seconds selecting
+dispatch candidates and 27.40 seconds counting remaining eligible questions.
+The common review predicate repeatedly scanned the entire review table per task.
+An isolated public-predicate SQL measurement was 28.56 seconds; a temporary
+subject/state index reduced it to 0.00365 seconds. All diagnostic copy writes
+were rolled back and made no provider calls.
+
+The owning repair is one additive `ragschema` migration, version 17, installing
+`reviews_subject_state`. `ragbacklog` retains task dispatch and transaction
+ownership; `ragmaintain` retains lifecycle readiness. Review, attempt, policy,
+receipt and usage semantics do not change. Schema-16 upgrades retain pending
+review identity/content. Fresh and upgraded scale regressions failed before
+the implementation. Full QA and the replacement live smoke remain required.
+
+Schema-17 repair qualification: full **63/63 in 847.44 seconds**. The new
+scale/fresh/upgrade controls pass alongside worker, provider, publication and
+installed-product regressions. Actual replacement maintenance smoke remains
+required; see the [handoff](operator-continuation-handoff.md).

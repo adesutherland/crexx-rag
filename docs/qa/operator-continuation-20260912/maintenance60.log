@@ -1,0 +1,1 @@
+{"schema":"crexx-rag.command-result/1","operation":"job.run","status":"error","exit_code":8,"exit_name":"unavailable","message":"write process heartbeat: database is locked [boundary=-6,sqlite=5,extended=5,operation=step];heartbeat_attempts=3","records":[]}

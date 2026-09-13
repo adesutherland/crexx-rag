@@ -3,8 +3,9 @@
 Delivery status: implementation passed the complete **63/63** automated gate
 in **848.41 seconds**, plus the scratch-installed recovery journey. The
 [handoff](operator-continuation-handoff.md) contains the commit and real Scottish
-run state. Remaining ingestion and the requested 60-minute maintenance are
-required live evidence; the whole outcome is not yet declared complete. An empty
+run state. The original ingestion queue has drained with 550 inventoried holds;
+the actual Turray recovery is complete. The first maintenance smoke failed with
+RAG-SMK-003, so the requested 60-minute outcome remains incomplete. An empty
 runnable queue alone does not prove corpus coverage.
 
 ## Ordinary command journey

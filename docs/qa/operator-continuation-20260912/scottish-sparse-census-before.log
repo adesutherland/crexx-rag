@@ -1,0 +1,10 @@
+CO-ROUTINE (subquery-2)
+SEARCH c USING INDEX sqlite_autoindex_concepts_1 (concept_id>?)
+CORRELATED SCALAR SUBQUERY 1
+MULTI-INDEX OR
+INDEX 1
+SEARCH q USING INDEX claims_source_visibility (source_concept_id=?)
+INDEX 2
+SEARCH q USING INDEX claims_target_visibility (target_concept_id=?)
+SCAN (subquery-2)
+rows=1 microseconds=422

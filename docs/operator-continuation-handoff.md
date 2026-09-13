@@ -1,6 +1,6 @@
 # Operator continuation: live handoff
 
-Updated: 2026-09-12 23:06 UTC. This file is the persistent task state; update it
+Updated: 2026-09-12 23:41 UTC. This file is the persistent task state; update it
 at every QA/commit/live-run boundary. No outcome is closed merely because one
 slice compiles. Read the current Git diff and current logs before continuing.
 
@@ -798,3 +798,391 @@ just to restart workers. Then remaining operational retries/replays, reviewed
 policy and five embedding repairs, the full60-minute maintenance, final public
 verification/report and truthful docs/roadmap/evidence commit. Overall live
 outcome is still incomplete. No push, sibling changes, usage reset or automation.
+
+## Checkpoint 2026-09-12 23:12 UTC — committed UTF-8 repair deployed; same ingestion resumed
+
+**HEAD3b4c481**, full63/63 in938.12s, focused5/5 and installed receipt recovery
+green, final docs contract green. Installed NEW `artifact-utf8` under the live
+run root; native `de42459f5612a95c8a297169ae7f685af832a14d656f9fa215287ad900a32d8f`,
+linked `a8755769ac9551a3a6c6c3e740b62af4322c00b3794b75e2f6921eefa50b0bb9`.
+Original ingestion session70061 is FINISHED exit8 reporting the recorded UTF-8
+worker failure after seven peers settled normally. Public `job pause` was
+sufficient for this job-filtered group to drain; all ten retained process rows
+(controller plus original/replacement workers) are terminal and `not-running`,
+confirmed by an escalated public `worker list`. The earlier sandboxed list
+reported even a live controller PID as missing: that restricted observation is
+not proof of absence. No live ownership was pruned on that evidence.
+
+Fresh exact-turn read on the drained master again observed interrupted/no output,
+digest `90ce81e20d097859b0d5b5a9142f859c9cd1eb2c96b3349a95fa2d1590c0281b`.
+Public digest-checked reconciliation applied, generation calls0, incomplete
+usage retained. Same-job `job continue --prepare` then succeeded with no new
+period/allowance. The original selected policy is unchanged, SHA256
+`e2d82f0fe11043986f25c03e917b9897ab11a47f5b10ff833db906902d516bb0`.
+
+**ACTIVE session60732**: ordinary `job run` on artifact-utf8, configured8workers,
+started23:10:47UTC. Logs `ingestion-utf8.log`/`.err`, terminal marker `.exit`,
+start marker `ingestion-utf8-started.txt` in run root. `CREXXRAG_SELF` uses this
+exact native binary; persistent exec, no background automation. At
+2026-09-12T23:11:01Z: queued49,running8,processed15416,
+skipped15556,deadletter549,live workers8,
+held uncertain0,incomplete observations13.
+Controller `controller-cea4078becb412740d2bca2215d086bf`. Do not launch another group.
+
+Operator invocation mistakes preserved: initial `--progress on` rejected at
+parse before work (use `plain`); an attempted retry had a mistyped policy path
+and automatic approval review rejected it before any command ran. User informed.
+The verified original path/hash was restored and the exact corrected launch
+approved. No current approval blocker. Optional recurring monitor remains
+rejected/not created; do not recreate it.
+
+NEXT: let remaining ingestion finish; capture all held items/lineage and public
+status/progress/report, settle any new unknowns via public observation/apply when
+drained. Review operational failures and ordinary replay under the planned
+policy; preserve evidence-validation/advanced-review holds. Change the ONE
+selected policy through hash-checked public config set, review config plan/apply
+(3reasoning attempts, explicit6embedding, maintenance3) only after old work has
+finished. Five retained embedding retry requests already exist; new compatible
+embedding-only maintenance window must actually repair missing5 without
+reextraction. Then run the requested60-minute automatic maintenance, record
+actual timing/outcomes/holds, public verification/report/coverage/usage and final
+roadmap/docs/evidence commit. Overall outcome remains unfinished. No push,
+sibling modification, blind uncertain retry, blanket waiver, new source import
+or usage reset. Continue updating this handoff before compaction.
+
+## Checkpoint 2026-09-12 23:21 UTC — original queue finished; retry setting approval blocked
+
+**Ingestion session60732 finished exit0**, all8workers completed,0failed/restarted,
+vector publication identical-no-op. Artifact/HEAD3b4c481 is unchanged and qualified.
+At23:14:27UTC the original job is `completed_with_errors`: queued0,running0,
+processed15463,skipped15565,deadletter550,held uncertain0,incomplete usage13.
+Provider runs22211,provider time276824086ms,input335474436,output10242466,
+recorded monetary91578micro-units. First-run failures and all paid history remain.
+Complete public six-page hold inventory now accounts for **521 evidence failures,
+24 operational extraction failures and5embedding items**, no uncertain outcomes.
+Full JSON inventory and24 reviewed candidate selectors are in repo/run evidence.
+No operational replay has been created yet. The original source job is now
+terminal, satisfying that public replay prerequisite. Do not bulk replay the
+evidence holds, maintenance-owned work or already-covered lineage.
+
+Public `library report --narrative off` passed storage/repository/lexical and
+provenance checks (unsupported claims0). Generation24135,8sources/34905chunks,
+27448concepts,62814mentions,7965claims,8245supports,4402pending reviews.
+34900 embeddings and published rows:5still missing. Active jobs0. Historic
+all-job deadletters13872 include other old jobs; do not equate them with550
+selected items. Durable open tasks30640,18migrating workflows; no waivers.
+
+**NEW APPROVAL BLOCKER: automatic review rejected public config set** of
+`provider.codex-extract.max_attempts=3`, saying trusted messages did not explicitly
+authorize that exact persistent paid-processing setting. NO POLICY WRITE RAN.
+The original policy still has1reasoning/1embedding/1maintenance attempts and
+SHAe2d82f0fe11043986f25c03e917b9897ab11a47f5b10ff833db906902d516bb0.
+Earlier checkpoints called3/6/3 agreed; the broad recovery approval plus recorded
+requirements did not satisfy automatic review. A read of recent thread messages
+found approval for the outcome but no new explicit exact setting approval.
+Do not bypass by another policy file, budget reset or alternate paid retries.
+
+User was informed of rejection, and **one async approval question is pending**:
+may the existing policy use3reasoning/maintenance attempts and6embedding while
+retaining cumulative history, all overall budgets and10percent reserve? If user
+answers approving, apply only through hash-checked config set/reread and reviewed
+config plan/apply while writers are drained. If no answer, keep settings intact;
+finish unaffected work and honestly report the5embedding recovery as blocked by
+automatic review. No repeated question or implied elapsed-time approval.
+
+**ACTIVE read-only maintenance plan session94322, PID44642**, using committed
+artifact and UNCHANGED policy: `maintain plan --minutes 60`, output
+`/private/tmp/scottish-maintenance60-plan.json`. At2m10s planner is CPU-bound100%,
+not idle/lock waiting; no output yet. Plan makes no generation calls and has not
+been applied. Preserve planning time as smoke evidence. On return inspect exact
+canonical plan/current original1attempts, budgets, fixed timing/expiration and
+10percent reserve; public digest-apply then run the returned job in a persistent
+exec session. This is the explicitly authorized60-minute maintenance under the
+original policy, independent of the rejected higher retry settings. No live
+provider group is running at this checkpoint. Do not duplicate the planner.
+
+Also observed: `job list --state queued` is unsupported; it rejected before any
+write. Use supported job list paging (currently includes full plan, known size
+limitation) or library report active_jobs (0before new work). Restricted sandbox
+worker reads can say missing even while same-account workers heartbeat; escalated
+reads with run visibility confirmed all old workers gone before continuation.
+Update existing process-liveness limitation to include visibility boundaries.
+
+Next: maintenance plan/apply/run and60-minute observed window; operational
+recovery within authorized unchanged policy if safe and not circumventing retry
+rejection, or after explicit approval of revised policy. The five retry requests
+are already retained; do not resubmit new requests as an attempted bypass.
+Record the actual remaining holds, complete public verification/report/coverage,
+review UX-03/04 actual Scottish workflow acceptance, update docs/roadmap and
+commit final evidence. Overall outcome is not complete. No push or automation.
+
+## Checkpoint 2026-09-12 23:23 UTC — original-policy maintenance apply running
+
+Read-only planner94322 FINISHED exit0 after approximately142seconds of CPU
+census work. Canonical maintenance plan digest
+`d40ed9c08dc658d3c7449f56d816c50a76a58cd630588800eede91b8c29ae3a9`,
+creation1789255211,expiration1789258811. Fixed60-minute maintenance window
+starts23:17:49UTC and ends **2026-09-13 00:17:49UTC** (01:17:49British time).
+Plan timing includes census preparation; record actual worker runtime separately
+from the requested wall-clock window. It preserves current configuration
+`config-fe479707411d396de0e334e6`,1attempt,8workers,gpt-5.6-luna low,original
+call/token/monetary budgets and10percent reserve. Aggregate maintenance provider
+time remains disabled0. Preview100census items is only the initial bounded
+selection; automatic scope is durable backlog/follow-ups within the window.
+
+**ACTIVE mutation session71178**: public `maintain apply` using the exact
+reviewed plan/digest and UNCHANGED original policy. Output
+`/private/tmp/scottish-maintenance60-apply.json`. Do not duplicate or change the
+policy while it is running. No rejected retry-policy change was made; approval
+question3/6/3 remains pending. Applying/running the existing1attempt policy is
+unaffected authorized60-minute maintenance, not an alternative retry grant.
+On completion inspect returned job_id then run that job onartifact-utf8 in a
+persistent exec with CREXXRAG_SELF matching. Save start/end/log/exit and update
+this file. No provider group currently running before apply finishes.
+
+## Checkpoint 2026-09-12 23:31 UTC — maintenance workers running; Turray evidence prepared
+
+Maintenance apply71178 FINISHED exit0, provider_calls0, created job
+`job-maintenance:d40ed9c08dc658d3c7449f56d816c50a76a58cd630588800eede91b8c29ae3a9`.
+**ACTIVE provider session24180**, ordinary `job run`, started23:27:22UTC using
+HEAD/artifact3b4c481, unchanged selected policy,8workers. Controller
+`controller-2a68a64ff5b3389c4a155ed1ecb61bba`. Run-root evidence:
+`maintenance60-started.txt`, `maintenance60.log`, `maintenance60.err`; completion
+will write `maintenance60.exit` and `maintenance60-ended.txt`. Fixed reviewed
+window ends **00:17:49UTC /01:17:49British time13September**. Start of planning
+was23:17:49; census/apply/preparation consumed about9.5minutes. Record actual
+worker runtime separately; do not call that60minutes of active workers.
+No pending build/tests. No second group should be launched.
+
+At23:28:42UTC the window's first100materialized items show56queued,8running,
+21processed,13skipped,2dead,0held uncertain,8live workers. Public failure read
+shows exactly two content validations: selected connection quote not grounded,
+and split successor equals migration parent. Neither is a runtime crash or
+unknown paid outcome. Check status/logs in bounded intervals, preserve real
+failures, and let the existing fixed deadline/cutoffs govern. Higher3/6/3retry
+policy question remains pending; NO SETTING WAS CHANGED. Do not grant or replay
+paid work to circumvent that rejection. Five retained embedding requests remain
+held by1attempt;24operational ingestion candidates are inventoried, not replayed.
+
+A public lookup found the actual Turray workflow on the processing master:
+`workflow:task:48057daa37dbcb56d4246e26e106943bb9aed22ac1ce1cccf64fe02ae964420b`.
+It is migrating with1remaining impact,0ownership/reviews/uncertain outcomes.
+Alias and mention connections are resolved. The failed support connection is
+`task:3f2a84e7ef5a80316f9cc82cb00c0eb32e8ffdba3eab77178e261208f5e4341d`,
+3old attempts; retained claim
+`claim-sha256:b0649fe90968aee4b8ee59aa319341946b6404cf9358ece94fa81de3931e7163`,
+support `support-sha256:cfac5050fee55cdc663364154b292f744f732abead5fb5d4c2959f25a8ba1952`.
+The immutable108-character source was fully resolved by public citation show:
+`[241] _Turray_ is the old name of Turriff.--Gordon of Rothiemay, vol.\nii. p. 254. Gordon of Sallagh, p. 401.`
+ParentTurray `concept-sha256:aa20285dbb62db4828c70246261ef075169f7d1c00b0dc4880be3dd9d4bbccdb`;
+successorTurriff `concept-sha256:5e1608b3f90c57f1543bb85b788a070e7244948cdbd8257bd28d64fb44ccac78`.
+The related-to claim is redundant after identity merge; moving it would make a
+self-relation. Prepared twelve-field response is
+`/private/tmp/scottish-turray-retraction-response.json`, copied to evidence.
+NO resolve plan/submission/review/semantic write has been made for it yet.
+
+Installed skill read and user informed:
+`artifact-utf8/share/crexxrag/skills/crexxrag-resolve/SKILL.md`. Follow its public
+resolve-plan/resolve-apply, mandatory review preview/accept, then targeted
+maintain reconcile preview/apply and retirement resolution/review. It requires
+source grounding and existing authority; no extra approval imposed by skill.
+This Turray replay is the real UX-03/04 acceptance already owed in this task,
+using external reviewed reasoning, not an extra hosted provider retry. Wait
+until current maintenance writers drain to keep generation checks reviewable;
+reinspect current task/claim before planning. Then complete and verify retirement
+while preserving all source/history and provider accounting. No direct SQL.
+
+After window ends: collect final status/task dispositions, safely reconcile any
+unknowns, verify library/report/coverage, finish Turray as above, handle the
+policy approval if received (only after drainage), repair5embeddings and24
+operational failures when authorized, update the consolidated defects/roadmap
+and docs with actual closures and exact remainder, docs gate and final evidence
+commit. Retain automatic-review refusal if still blocking; don't hide it under
+smoke pending. Continue in active session; no scheduled automation exists.
+
+## Checkpoint 2026-09-12 23:41 UTC — maintenance smoke FAILED; diagnose before restart
+
+**Maintenance session24180 FINISHED exit8.** Sustained writer contention caused
+controller and7peer workers to exhaust heartbeat tolerance. At23:33:20UTC, first
+100items were83processed/13skipped/4dead,0queued/running,0held uncertain;
+heartbeat age76seconds. Public pause afterwards SUCCEEDED. Original fixed
+deadline00:17:49UTC remains; don't declare60minute smoke complete. No automatic
+restart yet, no new allowance, no higher retry policy. Async3/6/3approval remains
+pending. Need freshly verify all terminal ownership with escalated worker list
+and current job status before restarting on any repaired artifact.
+
+**RAG-SMK-003 P1: maintenance checkpoint stalls writer coordination.** Source
+`ragbacklog.tickbacklogwindow` holds BEGIN IMMEDIATE across outcome reconciliation,
+census/evidence construction and dispatch when a100item batch empties. The real
+run had100finished items and sustained explicitSQLITE_BUSY heartbeat diagnostics.
+At6m31s runtime, the last worker44891 (`worker-d2aab79c6fe6b7a60fa419098abd22f1`)
+had107secondsCPU; others had exited. Exact slow SQL/body is not yet proved; do
+not assume all census work or add indexes speculatively. No source fix or new
+regression has been made for this failure yet. Do not merely increase heartbeat
+retries or change paid limits to conceal a long product writer transaction.
+
+Read-only developer profiling is on the existing **qualification-library**
+copy, never raw SQL as a live operator repair. InstalledCREXX generic profiling
+script `/private/tmp/profile-rag-query.crexx` accepts DB and one-lineSQL file:
+`crexx SCRIPT -args DB SQLFILE`. IMPORTANT: -args is required; earlier omitted
+-args made the driver parse the SQLite filename as another input and produced
+exit_fragment errors. Those are invocation mistakes, not an upstream finding.
+`profile-census-identity.crexx` independently ran actual identity census query
+on the copy:100rows in2.641s, automaticstate index plus SCANd. That alone does
+NOT explain the>60second lock. Pending task allowance query was0.0107s despite
+SCANmaintenance_provider_outputs, so also not the cause on this snapshot. Sparse
+query result is `/private/tmp/scottish-sparse-census-before.log`. Need profile
+actual evidence construction/census stages or use runtime profile support to
+identify the dominant path, then a reproducing regression before narrow repair.
+All profiling processes have finished except check latest tool state if another
+is launched. No paid group is running. Full63gate/installed verification and
+new local commit/artifact remain required after a product/schema repair.
+
+Separate existing platform boundary now conclusively reproduced in paired public
+reads on the SAME active maintenance PIDs: restricted sandbox reports missing,
+while escalatedsame-account visibility reports alive for controller+8workers.
+Files `scottish-maintenance60-sandbox-workers.json` and `...visible-workers.json`.
+No pruning used the restricted result. Update existing integration limitation
+to include visibility boundaries; don't falsely call sameaccount sufficient.
+This is distinct from the writer stall; native fix belongs to CREXX.
+
+Turray source/response preparation and original550ingestion holds remain as
+previous checkpoint; no externalproposalwriteyet. While repair/QA proceeds, its
+ordinary reviewed zero-provider connection/retirement journey can now be completed
+after confirming drained ownership. Do not let that substitute for repairing
+and rerunning the failed maintenance smoke. Keep final closures honest.
+
+## Checkpoint 2026-09-12 23:54 UTC — Turray public recovery completed
+
+Actual processing-master Turray workflow is COMPLETE at generation24219, using
+artifact-utf8/3b4c481 and only public commands. Connection proposal digest
+a6bedd8b12e982f55bc46fa252aa3b7c50bf5e39a592eb5999c7b1161466912c was
+source-validated, submitted, review-previewed and accepted: generation24218
+retracted the redundant related-to claim/support. Census then found zero
+remaining impacts/owned items/reviews/unknowns and created retirement task
+task:1f1e75ecf7d05f72174abc2288c7562153d87d2fcb9892829f59e85dd387f697.
+Retirement proposal d4f851f954e474b66d0665fc1958744901fa9dbef60c6579d8d5807097774474
+was submitted, previewed and accepted: generation24219. Fresh public reconcile
+returns complete/already-complete, all four hold counts0, provider_calls0.
+Actor codex-operator, model unspecified, honest external attribution. No fake
+provider receipt, paid retry, budget/policy update, waiver or SQL repair.
+All scottish-turray-* JSON evidence copied into repo evidence and live run root.
+Still verify retained source citation and parent/successor history. This closes
+the actual Turray repeat, not the failed60minute maintenance outcome.
+
+Final failed maintenance read:200 materialized items,88processed/16skipped/4dead/
+92cancelled,0queued/running. Controller failed, one worker stopped, seven stale
+idle records whose exact PIDs are missing even in escalated process domain.
+No live processes. Public job run owns restart/prune; do not treat retained
+worker_live_workers7 status count as OS proof of seven processes. Files
+scottish-maintenance60-terminal-workers/status.json retain the distinction.
+
+Read-only evidence harness:100alias packets4.25s,100notes3.03s,100concepts6.36s,
+100chunks0.018s,25supports0.006s. Actual temporary instrumented _scan on the
+qualification copy in a rolled-back transaction:27.25s total; identity category
+10.59s, sparse6.46s, alias4.72s,notes3.47s,18workflows~1.77s. None alone explains
+the observed >100sec CPU lock. Extended profile now running session14835,
+/private/tmp/scottish-checkpoint-before2.log: includes actual dispatch selection,
+outcome reconciliation and eligible-count. Temporary tools/diagnostic namespace
+only; NO product/test edit for RAG-SMK-003 yet. Earlier extended harness had
+8compile errors from overly broad diagnostic text replacement, fixed by restricting
+it to the profilescan wrapper; not a product defect. Script
+/private/tmp/prepare-scan-profile.py regenerates base diagnostic source; then
+/private/tmp/extend-scan-profile.py adds dispatch timing; cmake -P
+/private/tmp/profile-scan.cmake compiles/runs copy. It rolls ALL data writes back
+and makes zero provider calls. Do not run against master.
+
+Higher3/6/3retry policy approval still pending; current1/1/1 and policyhash
+unchanged. Five embedding retry requests held;24operational extraction candidates
+not replayed. Continue diagnosis, regression-first repair, full63gate, commit,
+new artifact and replacement60minute smoke. No automation exists.
+
+## Checkpoint 2026-09-13 00:05 UTC — narrow review-index repair in full QA
+
+**Active full gate session36144**, log `/private/tmp/review-index-full-qa.log`.
+No paid worker group is running. No higher retry policy approval has arrived.
+Current HEAD remains3b4c481; schema repair is uncommitted. Build92715 finished0.
+New native SHA02f2d4ef292ff6cb6417a466178d682c42265c6878b999708101a01365a07fb5;
+linked059354153691243cfc04c57ac6a29fb5802ee88505add33df5f646b91c58d113.
+Product change is ONLY additive schema17 `reviews_subject_state` on
+reviews(subject_id,state). Earlier checksums and all review/attempt/policy/usage
+semantics are unchanged. Owning source ragschema; no changes to ragbacklog
+transaction logic, heartbeat tolerance, retry limits or budgets. Six CMake
+expected schema-version assertions now17.
+
+Independent cause proof: isolated pending-review predicate28.558205s, indexed
+0.003647s. Full temporary copy profile BEFORE: scan27.283556s, reconcile0.010951s,
+dispatch-select28.176061s, dispatch-body0.055285s, eligible27.397190s/28928rows.
+Public native `library migrate` upgraded qualification-library to17, preserved
+generation23208/aligned manifest. AFTER same profile: scan27.617854s,
+reconcile0.010957s, dispatch-select0.047991s, body0.052443s, eligible0.039572s
+with SAME28928rows. Both profiles rolled back all census/dispatch writes.
+This removes the reproduced repeated review scans, not every possible source
+of a long future census. The replacement real60minute run is still required.
+
+Regression first: provider_durability adds30,000pending tasks/5,000reviews,
+asserts indexed plan without host-speed threshold, checks pending blocks only
+its own subject, accepted/unrelated reviews do not, and review retention.
+Unchanged product valid red in3.02s: exactly2access-path failures, fresh+upgrade.
+Earlier compile-red was test-only reserved `query` identifier; retained separately.
+Postfix focused run passed durable_backlog15.59s, native_continuation12.97s,
+held18.82s; provider_durability exposed a NEW TEST JSON-string escaping error.
+Corrected fixture via SQLite json_object, no product edit/relaxed assertion.
+Provider_durability then passed all noopt/opt and rxvme/rxbvm in12.17s, including
+schema16->17 pending-review identity/proposal retention. Full63suite nowrunning.
+
+Turray verification is complete: public current-context inventory proves
+retired/version3 plus versions1/2 retained, final named workflow complete at24219,
+and original108character citation text EXACTLY unchanged. All JSON saved in
+repo evidence and runroot. Roadmap now honestly closes UX-01 named discovery,
+UX-03 effects and UX-04 targeted completion against these actual observations.
+This does NOT close whole OPS items, content holds or failed maintenance.
+
+Next: await fullgate terminal result; do not launch a second suite or group.
+Fix any real failures; ifgreen, scratch-install/ordinary recovery verification,
+document actualresults, whitespace/secret/file-size review, localcommit. Then
+freeze new `artifact-review-index` in live runroot, verifysha, public migrate
+MASTER after confirming ownership drained. Current master stillschema16,
+generation24219, no activegroup. Use same selectedpolicyhash
+e2d82f0fe11043986f25c03e917b9897ab11a47f5b10ff833db906902d516bb0.
+Restart failed job-maintenance:d40ed9c08dc658d3c7449f56d816c50a76a58cd630588800eede91b8c29ae3a9
+through public job continue with a SINGLE named renewal/minutes60 once its old
+deadline passes. Do not extend a period by repeating it. Userauthorized rerun
+within recovery outcome; do not raise the rejected per-task3/6/3ceilings.
+Capture actual group start/end, window start/end, all holds, reserve10percent;
+run required60minute maintenance. Product `job run` prunes stale missing
+records in its correctly escalated visibility domain before workerstart.
+Keep policyapproval pending; five embeddingrequests remainheld and24operational
+extraction candidates remainnotreplayed. Fullcorrpuscoveragecannotbeclaimed.
+No automation exists. Do not end at commit or launch.
+
+## Checkpoint 2026-09-13 00:18 UTC — schema17 full gate GREEN, commit then rerun
+
+Full session36144 FINISHED0:63/63 in 847.44s. Logs copied to repo evidence.
+No additional source/test edits after qualification. Product hashes remain
+native02f2d4ef292ff6cb6417a466178d682c42265c6878b999708101a01365a07fb5;
+linked059354153691243cfc04c57ac6a29fb5802ee88505add33df5f646b91c58d113.
+Scratch prefix `/private/tmp/crexx-review-index-installed` has matching native
+and libexec/crexxrag/crexxrag.rxbin (the linked file is NOT bin/crexxrag.rxbin).
+Full gate includes installed-product qualification.144changed-doc relative links
+resolved; credential-pattern scan found no matches in evidence. Recheck docs
+contract after final prose updates, then localcommit all task changes.
+
+New recorded OPEN P2RAG-SMK-004: readsupervision counts nonterminal registry
+rows as live even when stale/exited; correctly visible publicworkerlist confirmed
+all7stale PIDs missing. This is distinct from restrictedprocessvisibility.
+No codefixclaim; userguide/diagnoseskill/maintainskill explain the current
+field and require launchvisibility. Their manifests/toolauthority are unchanged.
+No skillapproval requirement was added. Reinstall latest instructions in final
+frozenartifactaftercommit. Lastproviderstatus had65percent accountallowance
+available, above10percentreserve, no modelcall.
+
+Master remains generation24219/schema16, no activeworkers, higher3/6/3question
+stillpending andpolicyunchanged. Exactfailedmaintenancejob/renewalstrategy in
+previouscheckpoint. Freeze `artifact-review-index`, capturecommitSHA, public
+migrateMASTER, verifyownershipsamevisibility, and resume SAMEfailedjob using
+one named60minuteperiod `scottish-maintenance-recovery-20260913` ifolddeadline
+expired. Then runandmonitor realmaintenanceforrequiredwindow; recordwallwindow
+andactualworkertime separately. Fullgatealone doesNOTcloseRAG-SMK-003orOPS.
+No automation exists; stayinactivesession. NeveruseSQLtoliverepair, neverwaive
+contentholdsorchangeattemptceilingswithoutthependingauthority.

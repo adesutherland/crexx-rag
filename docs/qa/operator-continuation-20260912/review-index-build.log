@@ -1,0 +1,144 @@
+[0/5] Building the cREXX application project
+SKIP: project member current provider_contract
+SKIP: project member current provider_catalog
+SKIP: project member current codex_provider
+SKIP: project member current ragmodel
+SKIP: project member current ragevidence
+SKIP: project member current ragjob
+SKIP: project member current ragconfig
+SKIP: project member current ragconfigfile
+SKIP: project member current ragglossary
+SKIP: project member current ragprofile
+SKIP: project member current ragprofilefile
+SKIP: project member current ragregistry
+SKIP: project member current ragfile
+SKIP: project member current ragcanonical
+SKIP: project member current raggrounding
+SKIP: project member current ragperiod
+SKIP: project member current ragassessment
+SKIP: project member current ragtrace
+SKIP: project member current ragcommandcatalog
+SKIP: project member current ragcommand
+SKIP: project member current ragworkerdefaults
+SKIP: project member current ragpolicypublication
+SKIP: project member current ragpolicyfile
+SKIP: project member current ragcommandutil
+SKIP: project member current ragsqlsupport
+SKIP: project member current ragquotationcontract
+SKIP: project member current ragextractioncontract
+SKIP: project member current raganswercontract
+SKIP: project member current ragreportcontract
+SKIP: project member current ragpromptdefaults
+SKIP: project member current raglifecycle
+SKIP: project member current ragadmission
+SKIP: project member current ragquerypolicy
+SKIP: project member current architecture_local_config
+SKIP: project member current generic_profile
+SKIP: project member current it_architecture_profile
+SKIP: project member current operator_registry
+WAVE: project compile/assemble jobs=46
+START: project member ragenrich
+START: project member ragschema
+START: project member ragbackup
+START: project member ragrepository
+START: project member provider_http
+START: project member ragstore
+START: project member crexxrag_cli
+START: project member industrial_provider
+BUILT: project member ragstore
+BUILT: project member industrial_provider
+BUILT: project member ragrepository
+BUILT: project member ragbackup
+BUILT: project member provider_http
+BUILT: project member ragschema
+START: project member ragingest
+START: project member ragclaims
+START: project member ragplanning
+START: project member ragconfiguration
+START: project member ragresultpages
+START: project member ragfolder
+BUILT: project member ragenrich
+START: project member ragdirectcalls
+BUILT: project member ragdirectcalls
+START: project member ragimprove
+BUILT: project member crexxrag_cli
+START: project member ragprovenance
+BUILT: project member ragplanning
+START: project member ragqueryservice
+BUILT: project member ragclaims
+BUILT: project member ragfolder
+START: project member ragpromptinspection
+START: project member ragresolutioncontract
+BUILT: project member ragimprove
+START: project member ragwork
+BUILT: project member ragresolutioncontract
+START: project member ragusage
+BUILT: project member ragpromptinspection
+START: project member ragallowance
+BUILT: project member ragallowance
+START: project member ragsupervision
+BUILT: project member ragsupervision
+BUILT: project member ragwork
+START: project member ragenvironment
+BUILT: project member ragusage
+START: project member ragprocess
+BUILT: project member ragingest
+BUILT: project member ragconfiguration
+BUILT: project member ragenvironment
+BUILT: project member ragresultpages
+START: project member ragobservationservice
+START: project member ragoperationsquery
+BUILT: project member ragprovenance
+BUILT: project member ragprocess
+BUILT: project member ragqueryservice
+START: project member ragclaimrules
+START: project member ragproposalio
+BUILT: project member ragoperationsquery
+START: project member ragworktypes
+START: project member ragreportservice
+START: project member ragmcp
+BUILT: project member ragobservationservice
+BUILT: project member ragclaimrules
+START: project member ragreceipts
+BUILT: project member ragreceipts
+START: project member ragfoundation
+BUILT: project member ragproposalio
+BUILT: project member ragworktypes
+BUILT: project member ragreportservice
+START: project member ragretrieval
+START: project member ragevidencejson
+START: project member ragmaintain
+BUILT: project member ragmaintain
+START: project member ragquery
+BUILT: project member ragquery
+START: project member ragproviderdiagnostics
+START: project member ragbacklog
+BUILT: project member ragmcp
+BUILT: project member ragfoundation
+START: project member ragproduct
+BUILT: project member ragevidencejson
+START: project member ragcontinuation
+BUILT: project member ragretrieval
+START: project member ragqueryprovider
+BUILT: project member ragproviderdiagnostics
+BUILT: project member ragbacklog
+BUILT: project member ragcontinuation
+START: project member ragembedding
+BUILT: project member ragproduct
+BUILT: project member ragqueryprovider
+BUILT: project member ragembedding
+START: project member ragapplicationprovider
+BUILT: project member ragapplicationprovider
+BARRIER: link program
+PUBLISHED: program /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application/project/crexxrag-project.rxbin
+[1/5] Building the ADDRESS RAG environment module
+WAVE: project compile/assemble jobs=1
+START: project member rag_address_environment
+BUILT: project member rag_address_environment
+BARRIER: link library
+PUBLISHED: library /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application/address/rag_address_environment.rxbin
+[2/5] Publishing the linked Level-G crexxrag application
+-- Built linked cREXX application /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/crexx-application/crexxrag.rxbin (059354153691243cfc04c57ac6a29fb5802ee88505add33df5f646b91c58d113)
+[3/5] Staging the runnable crexxrag product directory
+[4/5] Packaging the native crexxrag executable
+-- CREXX native application passed library init and two-worker supervision (02f2d4ef292ff6cb6417a466178d682c42265c6878b999708101a01365a07fb5)

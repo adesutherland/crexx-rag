@@ -41,15 +41,21 @@ This was confirmed while testing restart ownership on 10 September against
 the installed `5ccf057a1633` route. Native changes belong in CREXX.
 
 RAG's automatic restart/prune qualification covers its local workers launched
-under the same operating-system account. Tests retain a live process owned by
+under the same operating-system account and process visibility/permission domain.
+Tests retain a live process owned by
 that account and retain remote ownership despite old heartbeats. Running a
 shared library's workers across OS accounts is not qualified for automatic
 pruning. A positive PID check is conservative, including a reused live PID;
 the stored process-start token is a RAG identity, not an OS birth token.
 
-The 12 September review did not establish a failure in the supported
-same-account arrangement. Retain this as a lower-priority upstream improvement,
-not a reason to replace processes with threads. The proposed CREXX result
+The 12 September smoke reproduced this boundary even under the same account:
+a restricted observer reported all nine active controller/worker PIDs missing,
+while an observer with the launcher's process visibility reported those exact
+PIDs alive. The paired public reads are retained in
+[the continuation evidence](qa/operator-continuation-20260912/). Never use a
+restricted missing result to prune a group launched outside that visibility
+domain. Retain this as a separate upstream improvement; this evidence does not
+justify replacing processes with threads. The proposed CREXX result
 should distinguish alive, missing and unknown/error; RAG must then retain
 uncertain ownership rather than automatically pruning it. This richer result
 and its consuming guard are not implemented or qualified by this decision.

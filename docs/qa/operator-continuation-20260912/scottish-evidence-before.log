@@ -1,0 +1,11 @@
+starting=alias-issue
+kind=alias-issue rows=100 microseconds=4247972
+starting=note
+kind=note rows=100 microseconds=3033801
+starting=concept
+kind=concept rows=100 microseconds=6364400
+starting=chunk
+kind=chunk rows=100 microseconds=17550
+starting=support
+kind=support rows=25 microseconds=6254
+profile result=0

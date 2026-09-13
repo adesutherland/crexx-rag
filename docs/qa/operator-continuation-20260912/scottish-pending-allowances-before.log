@@ -1,0 +1,11 @@
+SEARCH t USING COVERING INDEX maintenance_tasks_ready (state=?)
+CORRELATED SCALAR SUBQUERY 1
+USE TEMP B-TREE FOR count(DISTINCT)
+SEARCH m USING INDEX maintenance_task_items_task (task_id=?)
+SEARCH a USING INDEX attempts_item (item_id=?)
+SEARCH p USING COVERING INDEX sqlite_autoindex_provider_runs_1 (provider_run_id=?)
+CORRELATED SCALAR SUBQUERY 3
+SCAN o
+CORRELATED SCALAR SUBQUERY 2
+SEARCH a USING COVERING INDEX attempts_item (item_id=? AND outcome=?)
+rows=1 microseconds=10722

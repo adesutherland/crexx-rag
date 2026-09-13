@@ -25,12 +25,45 @@ scalarint: procedure = .int
   if status \= 0 then return -1
   return value
 
+/* Corpus-scale review holds must use a persistent subject/state lookup.
+ * Query-plan coverage avoids a host-speed-dependent wall-clock threshold;
+ * the selected rows separately prove pending versus completed review semantics. */
+reviewindexchecks: procedure = .int
+  arg database=.binary
+  errors=0
+  if sqliteexec(database,"BEGIN IMMEDIATE")<>0 then return check(0,"begin review scale fixture")
+  sql="WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<30000) INSERT INTO maintenance_tasks(task_id,kind,subject_type,subject_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch) SELECT 'review-scale-task-'||x,'analysis-lead','note','review-scale-subject-'||x,'scale-evidence','scale-policy','{}','review scale fixture','pending',1,1,1 FROM n"
+  errors=errors+check(sqliteexec(database,sql)=0,"seed thirty thousand pending questions")
+  sql="WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<5000) INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) SELECT 'review-scale-'||x,'fixture',CASE WHEN x<=2 THEN 'review-scale-task-'||x ELSE 'unrelated-review-subject-'||x END,CASE WHEN x=2 THEN 'accepted' ELSE 'pending' END,'{}','fixture' FROM n"
+  errors=errors+check(sqliteexec(database,sql)=0,"seed pending and completed review history")
+  eligibility_sql="SELECT count(*) FROM maintenance_tasks t WHERE t.policy_fingerprint='scale-policy' AND t.state='pending' AND NOT EXISTS(SELECT 1 FROM reviews r WHERE r.subject_id=t.task_id AND r.state='pending')"
+  prepared=.binary;indexed=0;scanned=0;step=0
+  if sqliteprepare(database,"EXPLAIN QUERY PLAN " || eligibility_sql,prepared)<>0 then errors=errors+check(0,"prepare review eligibility plan")
+  else do
+    do forever
+      step=sqlitestep(prepared);if step=101 then leave
+      detail=""
+      if step<>100 | sqlitecolumntext(prepared,3,detail)<>0 then do;errors=errors+check(0,"read review eligibility plan");leave;end
+      if pos("SEARCH r USING",detail)>0 then indexed=1
+      if pos("SCAN r",detail)>0 then scanned=1
+    end
+  end
+  call sqlitefinalize prepared
+  errors=errors+check(indexed=1 & scanned=0,"review holds use indexed subject/state lookup at corpus scale")
+  /* Continue the semantic control only when the access path is bounded; the
+   * unindexed corpus case was independently measured before this regression. */
+  if indexed=1 & scanned=0 then errors=errors+check(scalarint(database,eligibility_sql)=29999,"pending review blocks only its subject; accepted and unrelated reviews do not")
+  errors=errors+check(scalarint(database,"SELECT count(*) FROM reviews WHERE review_id LIKE 'review-scale-%'")=5000,"eligibility retains every review")
+  errors=errors+check(sqliteexec(database,"ROLLBACK")=0,"rollback isolated review scale fixture")
+  return errors
+
 main: procedure = .int
   arg args = .string[]
   if args.0 \= 1 then return 2
   path = args[1]; errors = 0; error = ""; store = .ragstorehandle
   errors = errors + check(initragstore(path, "library-p3r-03", "snapshot-p3r-03", "provider-addendum", "1", "generic-profile", "profile-hash", "config-hash", '{}', store, error) = 0, "initialize " || error)
   if errors \= 0 then return 1
+  errors = errors + reviewindexchecks(store.database())
   database = store.database(); digest = copies("a", 64)
   errors = errors + check(scalarint(database, "SELECT count(*) FROM sqlite_schema WHERE type='index' AND name IN('attempts_item','attempts_provider_run','job_events_attempt_type','job_events_type','job_items_lease','candidate_mentions_chunk_visibility','mentions_chunk_visibility','aliases_lookup','claims_source_visibility','claims_target_visibility')") = 10, "worker and graph indexes")
   sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,codex_turn_budget,created_at,updated_at) VALUES('job-p3r-03','" || digest || "','{}','snapshot-p3r-03','queued',1,1,128,64,0,1,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
@@ -213,13 +246,17 @@ main: procedure = .int
   errors=errors+check(applymigrations(upgrade,"crexxrag",14,error)=0,"retain schema fourteen before waiver upgrade")
   errors=errors+check(sqliteexec(upgrade,"INSERT INTO retry_requests(request_id,task_id,source_version,reason,state,disposition,created_epoch,updated_epoch) VALUES('retry:legacy','task:legacy','legacy:0','retained legacy retry','pending','attempt-limit',0,0)")=0,"retain legacy retry identity")
   errors=errors+check(scalarint(upgrade,"SELECT count(*) FROM sqlite_schema WHERE name='maintenance_task_waivers'")=0 & pos('retained legacy retry',inspectbacklog(upgrade,"task:legacy","",1))>0,"schema fourteen readonly inspection before waiver migration")
+  errors=errors+check(applymigrations(upgrade,"crexxrag",16,error)=0,"retain schema sixteen before review index upgrade")
+  errors=errors+check(sqliteexec(upgrade,"INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) VALUES('review-upgrade-pending','fixture','task:legacy','pending',json_object('keep',1),'fixture')")=0,"retain pending review through index migration")
   upgrade_store = .ragstorehandle(upgrade, upgrade_path, "readwrite")
   errors = errors + check(publishmanifest(upgrade_store, error) = 0, "publish schema eight manifest " || error)
   errors = errors + check(closeragstore(upgrade_store, error) = 0, "close schema eight bundle " || error)
   errors = errors + check(openragstore(upgrade_path, "readwrite", upgrade_store, error) = 0, "automatic schema eight to eleven migration " || error)
   upgrade = upgrade_store.database(); manifest_state = ""
   errors = errors + check(manifeststate(upgrade_store, manifest_state, error) = 0 & manifest_state = "aligned", "automatic migration aligns manifest " || error)
-  errors = errors + check(scalarint(upgrade, "SELECT count(*) FROM schema_migrations WHERE version IN(2,3,4,5,6,7,8,9) AND name IN('worker-hot-path-indexes','provider-run-accounting-index','library-report-cache','historic-observability','configuration-lifecycle-and-provider-resilience','indexed-term-statistics-and-backlog-reconciliation','direct-provider-history','prospective-configuration-transitions')") = 8 & scalarint(upgrade, "SELECT schema_version FROM library_meta WHERE singleton=1") = 16 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE type='index' AND name IN('job_items_lease','attempts_provider_run','report_narratives_cache','observation_decisions_outcome','observation_snapshots_history','provider_admissions_window','provider_admissions_active','job_replays_source','provider_runs_purpose_history')") = 9 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE type='table' AND name IN('report_snapshots','report_narratives','observation_decisions','observation_snapshots','library_config_state','config_change_events','provider_admissions','job_replays','job_replay_items','chunks_fts_vocab')") = 10 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='config_change_events_v8'") = 0 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE sql LIKE '%prospective%' AND name='config_change_events'") = 1 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE type='view' AND name='dead_letter_reconciliation'") = 1 & scalarint(upgrade, "SELECT count(*) FROM provider_runs WHERE provider_run_id='upgrade-report-run' AND cost_microunits=123 AND purpose='report-narrative'") = 1, "schema version one upgrade is complete")
+  errors = errors + check(scalarint(upgrade, "SELECT count(*) FROM schema_migrations WHERE version IN(2,3,4,5,6,7,8,9) AND name IN('worker-hot-path-indexes','provider-run-accounting-index','library-report-cache','historic-observability','configuration-lifecycle-and-provider-resilience','indexed-term-statistics-and-backlog-reconciliation','direct-provider-history','prospective-configuration-transitions')") = 8 & scalarint(upgrade, "SELECT schema_version FROM library_meta WHERE singleton=1") = 17 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE type='index' AND name IN('job_items_lease','attempts_provider_run','report_narratives_cache','observation_decisions_outcome','observation_snapshots_history','provider_admissions_window','provider_admissions_active','job_replays_source','provider_runs_purpose_history')") = 9 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE type='table' AND name IN('report_snapshots','report_narratives','observation_decisions','observation_snapshots','library_config_state','config_change_events','provider_admissions','job_replays','job_replay_items','chunks_fts_vocab')") = 10 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='config_change_events_v8'") = 0 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE sql LIKE '%prospective%' AND name='config_change_events'") = 1 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE type='view' AND name='dead_letter_reconciliation'") = 1 & scalarint(upgrade, "SELECT count(*) FROM provider_runs WHERE provider_run_id='upgrade-report-run' AND cost_microunits=123 AND purpose='report-narrative'") = 1, "schema version one upgrade is complete")
+  errors = errors + reviewindexchecks(upgrade)
+  errors=errors+check(scalarint(upgrade,"SELECT count(*) FROM reviews WHERE review_id='review-upgrade-pending' AND subject_id='task:legacy' AND state='pending' AND proposal_json=json_object('keep',1)")=1,"schema seventeen preserves pending review identity and proposal")
   errors = errors + check(scalarint(upgrade, "SELECT count(*) FROM schema_migrations WHERE version=11 AND name='claim-time-and-source-provenance'") = 1 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE type='table' AND name IN('source_descriptions','source_relations','support_descriptions')") = 3 & scalarint(upgrade, "SELECT count(*) FROM sqlite_schema WHERE type='index' AND name IN('source_description_active_scope','source_description_history','source_relation_history','support_description_active','support_description_history')") = 5, "schema eleven provenance migration and indexes")
   errors = errors + check(scalarint(upgrade, "SELECT count(*) FROM schema_migrations WHERE version=14 AND name='durable-retry-requests'") = 1 & scalarint(upgrade, "SELECT count(*) FROM retry_requests WHERE request_id='retry:legacy' AND reason='retained legacy retry' AND disposition='attempt-limit'") = 1 & scalarint(upgrade, "SELECT count(*) FROM job_items WHERE item_id='legacy-empty-item' AND state='dead_letter' AND input_json=''") = 1, "schema thirteen upgrades additively with legacy work intact")
   errors=errors+check(scalarint(upgrade,"SELECT count(*) FROM schema_migrations WHERE version=15 AND name='reasoned-task-waivers'")=1 & scalarint(upgrade,"SELECT count(*) FROM maintenance_task_waivers")=0,"schema fourteen waiver migration is additive and empty")

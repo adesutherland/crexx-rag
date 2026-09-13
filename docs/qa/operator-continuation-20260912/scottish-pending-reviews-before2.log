@@ -1,0 +1,4 @@
+SEARCH t USING COVERING INDEX maintenance_tasks_ready (state=?)
+CORRELATED SCALAR SUBQUERY 1
+SCAN r
+rows=1 microseconds=28558205

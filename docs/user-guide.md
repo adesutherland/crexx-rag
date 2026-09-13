@@ -391,7 +391,14 @@ heartbeat, state, and current item in SQLite. Lists can therefore distinguish
 local/remote, live/stale, idle/running, and stopped records. Pruning removes
 terminal records and stale local records only when their process has exited.
 A stale heartbeat does not authorize deleting live or remote ownership.
+Run liveness checks and pruning in the launcher's process visibility/permission
+domain: the current CREXX probe can report a sandbox-inaccessible PID as missing,
+even under the same operating-system account.
 `job run` performs this ownership cleanup as part of its supported restart.
+The current job-status `worker_live_workers` field counts retained nonterminal
+registrations and can include stale records after a failed controller. Check
+controller state, heartbeat age and `worker list` together; the field alone is
+not proof of OS process liveness. This display gap is tracked as RAG-SMK-004.
 
 Workers are operating-system processes, not attached cREXX threads. Each owns a
 VM, provider process/session, and SQLite connection.

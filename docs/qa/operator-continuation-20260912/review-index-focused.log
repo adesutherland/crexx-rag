@@ -1,0 +1,49 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start 18: provider_durability
+1/4 Test #18: provider_durability ..............***Failed    2.92 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/ProviderDurability.cmake:57 (message):
+  noopt-rxvme provider durability failed (6):
+
+
+
+  PANIC: (SIGNAL CONVERSION_ERROR)
+
+    at module 1 (/Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug/test-provider-durability/provider-durability-noopt) address 8071 (0x1f87)
+    source: provider_durability_scenario.crexx:250:3:   errors=errors+check(sqliteexec(upgrade,"INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at) VALUES('review-upgrade-pending','fixture','task:legacy','pending','{\"keep\":true}','fixture')")=0,"retain pending review through index migration")
+
+
+
+
+    Start 39: durable_backlog
+2/4 Test #39: durable_backlog ..................   Passed   15.59 sec
+    Start 60: native_continuation
+3/4 Test #60: native_continuation ..............   Passed   12.97 sec
+    Start 62: native_continuation_holds
+4/4 Test #62: native_continuation_holds ........   Passed   18.82 sec
+
+75% tests passed, 1 tests failed out of 4
+
+Label Time Summary:
+atomic                 =  15.59 sec*proc (1 test)
+codex                  =   2.92 sec*proc (1 test)
+continuation           =  31.79 sec*proc (2 tests)
+durability             =   2.92 sec*proc (1 test)
+lifecycle              =  15.59 sec*proc (1 test)
+loopback               =  31.79 sec*proc (2 tests)
+maintenance            =  15.59 sec*proc (1 test)
+merge                  =  15.59 sec*proc (1 test)
+native                 =  31.79 sec*proc (2 tests)
+provider               =   2.92 sec*proc (1 test)
+recovery               =  31.79 sec*proc (2 tests)
+regression             =  31.79 sec*proc (2 tests)
+retirement             =  15.59 sec*proc (1 test)
+split                  =  15.59 sec*proc (1 test)
+sqlite                 =  15.59 sec*proc (1 test)
+subscription-budget    =   2.92 sec*proc (1 test)
+zero-outbound          =   2.92 sec*proc (1 test)
+
+Total Test time (real) =  50.29 sec
+
+The following tests FAILED:
+	 18 - provider_durability (Failed)                      codex durability provider subscription-budget zero-outbound
+Errors while running CTest

@@ -6,15 +6,21 @@ retains the complete operational requirements and dated incident evidence.
 
 ## Current continuation delivery — 12 September 2026
 
-The authorized [complete operator journey](operator-continuation.md) is now in
-full QA. It combines OPS-001/002/003/005 instead of treating a retry button as
+The authorized [complete operator journey](operator-continuation.md) passed
+63/63 local QA, then entered the real corpus smoke. It combines OPS-001/002/003/005 instead of treating a retry button as
 complete recovery. New failing reproductions exposed the old one-attempt
 ceiling veto, a separate embedding/reasoning ceiling conflict, unindexed
 uncertainty reads and configured-worker reporting without a controller event.
 Named continuation, shared retry facts and bounded progress are implemented.
 The [coverage matrix](regression-coverage.md#complete-operator-continuation-follow-up--12-september)
 and [persistent handoff](operator-continuation-handoff.md) retain current evidence.
-The master has not been changed and the requested hosted run has not started.
+The original ingestion queue has drained: 15,463 processed, 15,565 skipped,
+550 retained holds (521 evidence validation, 24 operational extraction, five
+embedding), and no uncertain outcomes. The actual Turray migration completed
+through public reviewed commands at generation 24,219. The first maintenance
+run failed with RAG-SMK-003 below; the requested 60-minute smoke remains incomplete.
+Higher retry settings were rejected by automatic approval review and await the
+user's exact authorization. Current one-attempt policy remains unchanged.
 
 The incident accounts below preserve the original requirements and dated
 measurements. Their statements that an old run is underway, or that a now
@@ -754,6 +760,55 @@ not captured.
 Qualification 2026-09-12 23:06 UTC: candidate9 passed full **63/63 in 938.12 seconds**,
 focused packaged checks5/5 in20.84s and the installed Codex receipt-interruption
 journey. The eight before-fix panics and after-fix protocol tests are retained.
-The code repair is locally qualified; the live supervisor still uses702af3a
-until the controlled upgrade recorded in the handoff. Preserve the distinction
+The code repair is locally qualified. The live group was then upgraded to
+3b4c481, and all eight workers drained the remaining original ingestion queue
+with exit0 and no further decoding panic. The affected turn was reconciled
+through the public exact-turn path before restart; no blind paid retry was used. Preserve the distinction
 between reproduced decoding failure and the uncaptured exact live fragment.
+
+## RAG-SMK-003 — P1: maintenance checkpoint exhausts worker heartbeat tolerance
+
+The first real100-item maintenance batch on3b4c481 processed83, skipped13 and
+retained4validation failures. Its next checkpoint coincided with a sustained
+SQLite writer lock: controller/peer heartbeat retries exhausted after more than
+a minute. The group exited8; public pause succeeded, and no uncertain provider
+outcome was visible in the retained status. The60-minute smoke is incomplete.
+
+`ragbacklog.tickbacklogwindow` owns the transaction across reconciliation,
+census/evidence preparation and dispatch. Identify and reproduce the actual
+slow body on the corpus copy before repair; early isolated identity and pending
+allowance queries did not explain the full delay. Do not hide it by increasing
+heartbeat tolerance or paid-attempt budgets. Preserve source evidence, existing
+task/census progress, attempts, receipts, usage and deadline when recovering.
+See the live handoff for sessions, artifacts, logs and current qualification.
+
+RAG-SMK-003 cause is now reproduced on the corpus copy: the shared pending-review
+predicate scans all reviews once per pending task. The complete checkpoint
+profile measured census27.28s, dispatch selection28.18s, dispatch body0.055s,
+and eligible count27.40s. Isolating only the review predicate took28.56s; adding
+a temporary subject/state index reduced it to0.00365s. The diagnostic transaction
+was rolled back. An additive schema17 index is now implemented after the valid
+red scale regression. Focused controls and full **63/63 in 847.44 seconds**
+passed, including installed-product qualification; replacement live maintenance
+qualification remains pending.
+No heartbeat tolerance, attempt allowance or provider budget was increased.
+
+## RAG-SMK-004 — P2: job status calls stale registered workers live
+
+Open display defect, observed after the failed maintenance group exited.
+Public `job status` reported `worker_live_workers: 7` with a failed controller
+and a708-second-old heartbeat. A same-domain public `worker list` showed those
+seven retained idle records stale with their exact PIDs missing; the controller
+and last worker were terminal. No live process remained. The terminal status
+and worker-list JSON are in the continuation evidence.
+
+`ragsupervision.readsupervision` counts starting/idle/running/draining registry
+rows without checking age or process liveness; `ragoperationsquery` exposes
+that value as live workers. This differs from the separate CREXX permission
+boundary: these PIDs were missing in the correctly visible launch domain too.
+Ordinary `worker list` and restart cleanup remain available, so this does not
+block the replacement smoke. Until repaired, interpret the count as retained
+nonterminal registrations and inspect controller state, heartbeat age and worker
+list together. A future fix must preserve the distinction between stale,
+confirmed exited and inaccessible/unknown; stale alone never authorizes pruning.
+Track under OPS-003; no product repair or closure is claimed here.

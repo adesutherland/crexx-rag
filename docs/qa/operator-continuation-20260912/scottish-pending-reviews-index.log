@@ -1,0 +1,4 @@
+SEARCH t USING COVERING INDEX maintenance_tasks_ready (state=?)
+CORRELATED SCALAR SUBQUERY 1
+SEARCH r USING COVERING INDEX diagnostic_reviews_subject_state (subject_id=? AND state=?)
+rows=1 microseconds=3647

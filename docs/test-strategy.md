@@ -15,7 +15,11 @@ exhaustion and classification precedence. Existing maintenance deadline and
 unknown-usage suites remain required controls.
 
 The maintained suite tests the single shipping architecture rather than an old
-implementation comparison.
+implementation comparison. Corpus-scale recovery checks must also inspect
+access paths: small correctness fixtures missed repeated full review scans
+inside a maintenance writer transaction. `provider_durability` now seeds
+30,000 questions/5,000 reviews and checks indexed access plus review-hold
+semantics on fresh and upgraded stores, without a machine-speed timeout test.
 
 The [REG-01 coverage baseline](regression-coverage.md) maps the prioritized
 escape paths, new executable cases and remaining policy/qualification gaps.
@@ -325,3 +329,8 @@ without generation calls; provider-run count stayed 20809 and uncertainty
 became zero. Incomplete usage remains a lower bound. The exact hashes and
 logs are in the [handoff](operator-continuation-handoff.md). Actual processing
 master ingestion and 60-minute maintenance are still required live evidence.
+
+Schema-17 repair qualification: full **63/63 in 847.44 seconds**. The new
+scale/fresh/upgrade controls pass alongside worker, provider, publication and
+installed-product regressions. Actual replacement maintenance smoke remains
+required; see the [handoff](operator-continuation-handoff.md).

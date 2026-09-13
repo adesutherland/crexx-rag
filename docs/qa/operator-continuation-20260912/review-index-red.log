@@ -1,0 +1,31 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start 18: provider_durability
+1/1 Test #18: provider_durability ..............***Failed    0.04 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/ProviderDurability.cmake:32 (message):
+  noopt provider durability compile failed:
+
+
+
+  Error in provider_durability_scenario.crexx @ 39:3 - #KEYWORD: Reserved
+  keyword cannot be used here., "query"
+
+  1 error(s) in source file
+
+
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+codex                  =   0.04 sec*proc (1 test)
+durability             =   0.04 sec*proc (1 test)
+provider               =   0.04 sec*proc (1 test)
+subscription-budget    =   0.04 sec*proc (1 test)
+zero-outbound          =   0.04 sec*proc (1 test)
+
+Total Test time (real) =   0.04 sec
+
+The following tests FAILED:
+	 18 - provider_durability (Failed)                      codex durability provider subscription-budget zero-outbound
+Errors while running CTest

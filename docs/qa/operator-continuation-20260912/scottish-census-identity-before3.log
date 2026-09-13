@@ -1,0 +1,5 @@
+SEARCH c USING INDEX sqlite_autoindex_concepts_1 (concept_id>?)
+SEARCH i EXISTS USING AUTOMATIC PARTIAL COVERING INDEX (state=?)
+CORRELATED SCALAR SUBQUERY 1
+SCAN d
+rows=100 microseconds=2640927

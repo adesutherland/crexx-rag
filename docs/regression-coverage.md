@@ -362,3 +362,17 @@ repair retains exact Unicode text and returns a bounded malformed-frame error;
 protocol and 17,000-cycle request-reclamation checks passed in 41.61 seconds.
 Full provider/native qualification then passed **63/63 in 938.12 seconds**,
 alongside the installed receipt-interruption journey.
+
+RAG-SMK-003 adds corpus-scale review lookup coverage to `provider_durability`:
+30,000 pending questions and 5,000 reviews in both fresh and upgraded stores.
+The query plan must use a subject lookup; pending, accepted and unrelated
+reviews have separate selection controls, and all reviews survive inspection.
+The unmodified product failed exactly the two new access-path assertions in
+3.02 seconds. A prior test-only reserved identifier error is recorded separately.
+The additive schema-17 repair and fresh/schema-16 upgrade preservation checks
+are under QA; final results belong in the handoff before closure.
+
+Schema-17 repair qualification: full **63/63 in 847.44 seconds**. The new
+scale/fresh/upgrade controls pass alongside worker, provider, publication and
+installed-product regressions. Actual replacement maintenance smoke remains
+required; see the [handoff](operator-continuation-handoff.md).

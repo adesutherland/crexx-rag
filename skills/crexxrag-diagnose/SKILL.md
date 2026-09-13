@@ -31,6 +31,12 @@ Prerequisites: `diagnose` access for verification/provider diagnostics and
    task with `rag_maintain_inspect` for evidence, retry holds and waiver state.
    Follow every relevant `next_cursor`; job/item/attempt/event pages allow
    1–100 data rows plus a cursor record. Use these tools instead of SQL.
+   A retained worker count is a durable registry observation, not proof that
+   those OS processes are alive. PID checks need the launcher's process
+   visibility/permission domain; the current CREXX probe can report a running
+   but sandbox-inaccessible PID as missing, even under the same account.
+   Report that uncertainty instead of treating a restricted missing result as
+   proof of exit or recommending pruning from it.
 6. Report the failing layer, exact `exit_code`, stable message and next bounded
    check. Hand off recovery to the maintenance workflow with the observed IDs
    and holds; this diagnostic session cannot retry, waive or accept a proposal.

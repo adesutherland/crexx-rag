@@ -1,0 +1,34 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start 18: provider_durability
+1/1 Test #18: provider_durability ..............***Failed    3.02 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag-review/cmake/ProviderDurability.cmake:57 (message):
+  noopt-rxvme provider durability failed (1):
+
+  PROVIDER_DURABILITY_FAIL=review holds use indexed subject/state lookup at
+  corpus scale
+
+  PROVIDER_DURABILITY_FAIL=review holds use indexed subject/state lookup at
+  corpus scale
+
+  PROVIDER_DURABILITY_ERRORS=2
+
+
+
+
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+codex                  =   3.02 sec*proc (1 test)
+durability             =   3.02 sec*proc (1 test)
+provider               =   3.02 sec*proc (1 test)
+subscription-budget    =   3.02 sec*proc (1 test)
+zero-outbound          =   3.02 sec*proc (1 test)
+
+Total Test time (real) =   3.02 sec
+
+The following tests FAILED:
+	 18 - provider_durability (Failed)                      codex durability provider subscription-budget zero-outbound
+Errors while running CTest

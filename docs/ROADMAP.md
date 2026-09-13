@@ -78,8 +78,11 @@ automatically a defect; distinguish policy, format guards and invariant rules.
 ## Operational P1 requirements
 
 The authorized [operator continuation outcome](operator-continuation.md) passed
-full local QA (63/63). The remaining Scottish ingestion and 60-minute maintenance
-run are next. Its implementation adds named renewal, compatible worker-count registration,
+full local QA (63/63). The original Scottish ingestion queue has drained, with
+550 explicitly inventoried holds and no uncertain outcomes. The actual Turray
+connection/retirement journey completed at generation 24,219 using public
+reviewed commands. The first maintenance run failed with RAG-SMK-003; the
+60-minute outcome is still incomplete. Its implementation adds named renewal, compatible worker-count registration,
 true legacy/explicit embedding retry ceilings and bounded source/hold/worker
 observations. The [handoff](operator-continuation-handoff.md) contains the current
 exact artifact, 63-test gate and corpus state. No whole OPS item is newly closed before its
@@ -148,10 +151,10 @@ data provide evidence, not a new live authorization.
 
 | Register ID | Status | Requirement, mapping and acceptance |
 | --- | --- | --- |
-| RAG-UX-01 | Partial — interface implemented in maintenance refactor stage 3; full local QA 54/54 | Task lookup by subject/concept and addressable workflow inventory. Maps to OPS-003; repeat the Turray discovery without supplying evaluator IDs. The trial exhausted 30 product calls without finding the named migration. |
+| RAG-UX-01 | Closed — local QA and actual named Turray discovery on 12 September | Task lookup by subject/concept and addressable workflow inventory. Maps to OPS-003. The actual repeat found Turray through `maintain workflows --concept Turray` without supplying evaluator IDs, then paged its related tasks. The original failed trial remains historical evidence. |
 | RAG-UX-02 | Recorded repair — steps 5a/5b; see [qualified boundaries](public-result-lexical-repair.md) | Coherent pagination and large-row detail. Maps to HC-33/34 and OPS-003. Tests demonstrate the 99/100 review-page boundary and a one-job page failing at 65,536 retained-plan characters after 65,535 succeeds, in human/JSON/NDJSON/MCP. The copied-corpus trial also found a 1,468,714-character plan. The repaired summary/detail projection preserves exact full-detail access, with ADDRESS and installed-copy boundary checks. Wider result-shape limits remain HC-34. |
-| RAG-UX-03 | Recorded local repair — full QA 59/59 | Connection plans and pending external acceptance previews expose affected claims, supports and conflicts, plus connection dispositions. Lifecycle validation is shared with publication; old saved plans remain immutable. See [coverage and qualification](connection-effect-previews.md). |
-| RAG-UX-04 | Recorded repair — local full gate 59/59 | Targeted public workflow census enqueues remaining connection or retirement questions with generation and ownership/outcome checks. Existing reviewed retirement completes the parent/workflow while preserving history. See [external workflow recovery](external-workflow-recovery.md). Maps to the external-retirement part of OPS-001/002; broader operator qualification remains separate. |
+| RAG-UX-03 | Closed — full QA 59/59 and actual Turray effect preview/acceptance | Connection plans and pending external acceptance previews expose affected claims, supports and conflicts, plus connection dispositions. Lifecycle validation is shared with publication; old saved plans remain immutable. See [coverage and qualification](connection-effect-previews.md). |
+| RAG-UX-04 | Closed — full QA 59/59 and actual Turray retirement at generation 24,219 | Targeted public workflow census enqueues remaining connection or retirement questions with generation and ownership/outcome checks. Existing reviewed retirement completes the parent/workflow while preserving history. See [external workflow recovery](external-workflow-recovery.md). Maps to the external-retirement part of OPS-001/002; broader operator qualification remains separate. |
 | RAG-UX-05 | Proposed | Source-scoped query inspection and citation-adjacent context. Maps to QE-01/02/06/09. Repeat fixed historical questions and measure coverage, citations, faithful qualification and calls. |
 
 Inline claim submission and complete task-evidence refresh were subsequently
@@ -422,3 +425,20 @@ characters; malformed bytes also escaped the provider boundary. Both VMs and
 optimization modes now pass byte-framed decoding/error containment tests.
 Packaging and full QA passed **63/63 in 938.12 seconds**; the ordinary
 drained-worker upgrade/recovery remains required for live closure. This P1 is recorded in [the defect register](recovery-defects.md#rag-smk-002--p1-codex-byte-stream-decoding-can-terminate-a-worker).
+
+### Live maintenance finding — RAG-SMK-003
+
+The first real maintenance window failed with sustained writer contention.
+The review-hold query performed a full review scan for each pending task;
+corpus-copy profiling and a temporary index reproduced and isolated the cost.
+The narrow additive schema-17 repair passed full63/63 in 847.44s, including
+installed qualification; the replacement60-minute smoke remains required. Do not close OPS-001/002/003/005 on the earlier
+green fixture count. Turray's actual external reviewed connection and retirement
+journey has now completed, closing that named repeat; retained paid retry
+ceilings and corpus evidence holds remain explicit.
+
+RAG-SMK-004 is an open P2 display defect under OPS-003: job status counts stale
+nonterminal worker registrations as live after a failed controller. Public
+worker list correctly exposed the missing processes in the launch visibility
+domain. See the [exact evidence and owner](recovery-defects.md#rag-smk-004--p2-job-status-calls-stale-registered-workers-live).
+It is recorded for repair; it does not prevent the current ordinary restart.

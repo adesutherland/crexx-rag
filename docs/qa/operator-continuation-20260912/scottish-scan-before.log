@@ -1,0 +1,61 @@
+Warning in diagnosticbacklog.crexx @ 125:6 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 122, column 6. Declare this binding explicitly if intentional., "i"
+Warning in diagnosticbacklog.crexx @ 137:6 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 122, column 6. Declare this binding explicitly if intentional., "i"
+Warning in diagnosticbacklog.crexx @ 143:6 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 122, column 6. Declare this binding explicitly if intentional., "i"
+Warning in diagnosticbacklog.crexx @ 146:6 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 122, column 6. Declare this binding explicitly if intentional., "i"
+Warning in diagnosticbacklog.crexx @ 719:5 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 678, column 7. Declare this binding explicitly if intentional., "usage_filter"
+Warning in diagnosticbacklog.crexx @ 822:5 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 816, column 5. Declare this binding explicitly if intentional., "id"
+Warning in diagnosticbacklog.crexx @ 841:7 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 835, column 7. Declare this binding explicitly if intentional., "evidence"
+Warning in diagnosticbacklog.crexx @ 841:59 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 835, column 59. Declare this binding explicitly if intentional., "subject"
+Warning in diagnosticbacklog.crexx @ 841:113 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 835, column 113. Declare this binding explicitly if intentional., "body"
+Warning in diagnosticbacklog.crexx @ 841:124 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 835, column 124. Declare this binding explicitly if intentional., "content_id"
+Warning in diagnosticbacklog.crexx @ 841:162 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 835, column 141. Declare this binding explicitly if intentional., "source_scope"
+Warning in diagnosticbacklog.crexx @ 842:7 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 836, column 7. Declare this binding explicitly if intentional., "ignored"
+Warning in diagnosticbacklog.crexx @ 988:6 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 977, column 6. Declare this binding explicitly if intentional., "i"
+Warning in diagnosticbacklog.crexx @ 1004:6 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 977, column 6. Declare this binding explicitly if intentional., "i"
+Warning in diagnosticbacklog.crexx @ 1005:5 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 989, column 5. Declare this binding explicitly if intentional., "node"
+Warning in diagnosticbacklog.crexx @ 1023:3 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 1010, column 7. Declare this binding explicitly if intentional., "ignored"
+Warning in diagnosticbacklog.crexx @ 1025:8 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 977, column 6. Declare this binding explicitly if intentional., "i"
+Warning in diagnosticbacklog.crexx @ 1026:7 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 1009, column 7. Declare this binding explicitly if intentional., "passage"
+Warning in diagnosticbacklog.crexx @ 1028:10 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 1008, column 8. Declare this binding explicitly if intentional., "j"
+Warning in diagnosticbacklog.crexx @ 1199:5 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 1195, column 5. Declare this binding explicitly if intentional., "child_task"
+Warning in diagnosticbacklog.crexx @ 1237:3 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 1220, column 5. Declare this binding explicitly if intentional., "parent"
+Warning in diagnosticbacklog.crexx @ 1273:13 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 1250, column 6. Declare this binding explicitly if intentional., "i"
+Warning in diagnosticbacklog.crexx @ 1274:7 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 1251, column 5. Declare this binding explicitly if intentional., "node"
+Warning in diagnosticbacklog.crexx @ 1274:39 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 1251, column 37. Declare this binding explicitly if intentional., "label"
+Warning in diagnosticbacklog.crexx @ 1274:51 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 1251, column 49. Declare this binding explicitly if intentional., "concept_type"
+Warning in diagnosticbacklog.crexx @ 1275:7 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 1252, column 5. Declare this binding explicitly if intentional., "ignored"
+Warning in diagnosticbacklog.crexx @ 1284:8 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 1250, column 6. Declare this binding explicitly if intentional., "i"
+Warning in diagnosticbacklog.crexx @ 1285:7 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 1195, column 5. Declare this binding explicitly if intentional., "child_task"
+Warning in diagnosticbacklog.crexx @ 1314:6 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 1308, column 6. Declare this binding explicitly if intentional., "i"
+Warning in diagnosticbacklog.crexx @ 1396:6 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 1376, column 6. Declare this binding explicitly if intentional., "i"
+Warning in diagnosticbacklog.crexx @ 1400:7 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 1384, column 9. Declare this binding explicitly if intentional., "step"
+Warning in diagnosticbacklog.crexx @ 1401:7 - #NOT_IN_SAME_SCOPE: Implicit use creates a separate binding; the earlier same-named binding is at line 1385, column 9. Declare this binding explicitly if intentional., "id"
+32 warning(s) in source file
+SCAN_KIND=alias-resolution rows=100 microseconds=4719782
+SCAN_KIND=claim-conflict rows=0 microseconds=15
+SCAN_KIND=analysis-lead rows=100 microseconds=3474872
+SCAN_KIND=query-gap rows=16 microseconds=48674
+SCAN_KIND=sparse-node rows=100 microseconds=6462810
+SCAN_KIND=concept-review rows=100 microseconds=95362
+SCAN_KIND=embedding-repair:embedding-768-203113f9024a rows=5 microseconds=84873
+SCAN_KIND=identity-review rows=100 microseconds=10591419
+WORKFLOW=workflow:task:39b09f52242d88542a29e103453926649e0880b76606c29cc43fc570c307f83a microseconds=125720
+WORKFLOW=workflow:task:4444069d6c9e07371b41806b0f2db66aa3c283c19b36f595c7151b6e2bb2a7fb microseconds=91463
+WORKFLOW=workflow:task:48057daa37dbcb56d4246e26e106943bb9aed22ac1ce1cccf64fe02ae964420b microseconds=54217
+WORKFLOW=workflow:task:4fc732789bfb7e97a2f289451efbc091438630899ca37350c0c9c6609eb5d87e microseconds=90719
+WORKFLOW=workflow:task:5c0d7ed4fb99fe3193508b20f2571388c7e8eea4fdb10f027d8ad2073eed0b7f microseconds=92654
+WORKFLOW=workflow:task:688d92387fe5b703c047fe103e8b585405875cf663ce2be104f854e0afc3901a microseconds=89541
+WORKFLOW=workflow:task:722351afb800b0565bf3342e9efafe6f4664c83ea84d1a6c7c58576914fd8180 microseconds=164681
+WORKFLOW=workflow:task:796129d39f743c9b25d5f510d1934623ae0528f8be10e8ddceb6d9a49accadd9 microseconds=91132
+WORKFLOW=workflow:task:874950c26f6c374471b56835473cd4ca102249930e5623d94154c3a8cc7accaf microseconds=131103
+WORKFLOW=workflow:task:8d1a68cd3a32036676bcfc769e61447847acb2316aed5e6ff88bfe19b9770b21 microseconds=54450
+WORKFLOW=workflow:task:8ebe867fec0de4b6ca4ada82013716ce93be451e54dd7ebee0a4064d6888a221 microseconds=54635
+WORKFLOW=workflow:task:950a63e6bc7b48a9c35436afb0e6adf7c417ae0ac7d778d97f8b933800f35e00 microseconds=132942
+WORKFLOW=workflow:task:9ca6e0b265d2e97152a5162c9ac00676dddee698dedbbfa5b518a27ab0eac34b microseconds=97711
+WORKFLOW=workflow:task:bd3ad7c57d808585dfc57e3c1e11bde00d8af869441a151b717e3744fa8081a6 microseconds=91601
+WORKFLOW=workflow:task:bd99ea10e6bfdc2b66a8493c177997132c74a189783f2740b51505916107aa9b microseconds=140195
+WORKFLOW=workflow:task:c3d9f010860d1dbc0601afa59001d566ffda4a862a3a24322a0c4a66f523e8a4 microseconds=121305
+WORKFLOW=workflow:task:d5f1dc1f20ea265b1b7b069464055f58aa2d8677865ae2653a81e3bf645f7696 microseconds=54007
+WORKFLOW=workflow:task:e5d5fc995d41a0bb462931b45a310af7a56c8dc2e69fbae24d750288c9779315 microseconds=94623
+SCAN_TOTAL=27251585 status=1 error=
+profile result=0

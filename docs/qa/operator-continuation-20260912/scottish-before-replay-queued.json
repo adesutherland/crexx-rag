@@ -1,0 +1,1 @@
+{"schema":"crexx-rag.command-result/1","operation":"job.list","status":"error","exit_code":2,"exit_name":"usage","message":"unknown option --state","records":[]}
