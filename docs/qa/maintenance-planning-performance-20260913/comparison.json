@@ -1,0 +1,14 @@
+{
+  "baseline_status": "ok",
+  "indexed_status": "ok",
+  "maintenance_digest_equal": true,
+  "canonical_maintenance_plan_equal": true,
+  "maintenance_digest": "2980cc4fc73ab7ec1203670373d00eedb84443c40cf394ebffc07bfd47afa330",
+  "items": 8,
+  "cognitive_items": 0,
+  "baseline_time": "190.18 real        93.37 user        77.86 sys",
+  "indexed_time": "20.63 real         9.68 user         1.89 sys",
+  "changed_preview_fields": [
+    "timing"
+  ]
+}

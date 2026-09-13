@@ -1,0 +1,13 @@
+{
+  "counts": {
+    "sources": 9,
+    "revision_chunks": 34907,
+    "claims": 7969,
+    "provider_runs": 82553,
+    "attempts": 116189,
+    "job_items": 95151,
+    "reviews": 4404
+  },
+  "source_revision_digest": "cf7cfa02b01c3a5b4eb55cff2c0dc2a96db2e6b4d94bb7e990517f0ee5404308",
+  "generation": 24925
+}

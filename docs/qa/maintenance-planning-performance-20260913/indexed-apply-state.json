@@ -1,0 +1,15 @@
+{
+  "status": "ok",
+  "job_id": "job-maintenance:339db51c0a49adf1ff10594577d3fdb439d4323bb15f7b03bf709116e0c24254",
+  "items": 8,
+  "job_timestamps": [
+    "2026-09-13T17:02:07.310Z",
+    "2026-09-13T17:02:07.310Z"
+  ],
+  "item_timestamps": [
+    "2026-09-13T17:03:22.161Z",
+    "2026-09-13T17:03:22.168Z",
+    8
+  ],
+  "provider_calls": 0
+}

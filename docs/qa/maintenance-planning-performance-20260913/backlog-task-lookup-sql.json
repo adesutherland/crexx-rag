@@ -1,0 +1,46 @@
+[
+  {
+    "sql": "SELECT task_id FROM maintenance_tasks WHERE kind=?1 AND subject_type=?2 AND subject_id=?3 AND workflow_id=?4 AND policy_fingerprint=?5 AND state<>'superseded' AND json_type(evidence_json,'$.external_refresh')='object' ORDER BY created_epoch DESC,task_id LIMIT 1",
+    "seconds": 0.00037720915861427784,
+    "rows": 0,
+    "query_plan": [
+      [
+        5,
+        0,
+        59,
+        "SEARCH maintenance_tasks USING INDEX sqlite_autoindex_maintenance_tasks_2 (kind=? AND subject_type=? AND subject_id=? AND workflow_id=?)"
+      ],
+      [
+        35,
+        0,
+        0,
+        "USE TEMP B-TREE FOR ORDER BY"
+      ]
+    ]
+  },
+  {
+    "sql": "SELECT task_id FROM maintenance_tasks t WHERE kind=?1 AND subject_type=?2 AND subject_id=?3 AND evidence_fingerprint=?4 AND required_capability='advanced-reasoning' AND state IN('unresolved','review') AND EXISTS(SELECT 1 FROM job_events e WHERE e.event_type='extraction-review-required' AND json_extract(e.message,'$.task_id')=t.task_id) ORDER BY created_epoch,task_id LIMIT 1",
+    "seconds": 0.00019654189236462116,
+    "rows": 0,
+    "query_plan": [
+      [
+        7,
+        0,
+        60,
+        "SEARCH t USING INDEX sqlite_autoindex_maintenance_tasks_2 (kind=? AND subject_type=? AND subject_id=?)"
+      ],
+      [
+        25,
+        0,
+        216,
+        "SCAN e EXISTS"
+      ],
+      [
+        45,
+        0,
+        0,
+        "USE TEMP B-TREE FOR ORDER BY"
+      ]
+    ]
+  }
+]

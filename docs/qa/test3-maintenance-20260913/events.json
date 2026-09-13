@@ -1,0 +1,406 @@
+[
+  {
+    "event_type": "budget-policy",
+    "message": "{\"time_budget_ms\":0,\"maximum_call_input_tokens\":32768,\"maximum_call_output_tokens\":16384,\"maximum_call_cost\":1000,\"maximum_call_time_ms\":120000,\"maximum_inflight_calls\":2,\"maximum_attempts\":1}"
+  },
+  {
+    "event_type": "worker-supervision",
+    "message": "{\"controller\":\"controller-6a07576f40f3d3c3fb8bd9a9f507d09b\",\"configured_workers\":2,\"max_restarts\":2,\"window_seconds\":3600}"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-eb2d70bfcc9ad33e218fbb8756a0db09;fence=1"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=1"
+  },
+  {
+    "event_type": "reservation-open:item-maintenance:99e3ce29eefe750007ce8ee8905b455dbbb3fa43e1ec7ee35703669afe33bca8#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-maintenance:99e3ce29eefe750007ce8ee8905b455dbbb3fa43e1ec7ee35703669afe33bca8#attempt-1#call-1\",\"input\":32768,\"output\":16384,\"cost\":0,\"time\":120000,\"codex_turn\":1}"
+  },
+  {
+    "event_type": "reservation-open:item-maintenance:07543cb5d81be14f377c95fcd1e60eab7597882548e52a858e42c706674f16a3#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-maintenance:07543cb5d81be14f377c95fcd1e60eab7597882548e52a858e42c706674f16a3#attempt-1#call-1\",\"input\":32768,\"output\":16384,\"cost\":0,\"time\":120000,\"codex_turn\":1}"
+  },
+  {
+    "event_type": "provider-intent",
+    "message": "{\"input_hash\":\"8d5f4be1ab515cb4790817e303e2c65da19593e8e19e9a06eda2bc65e9a15804\",\"config_snapshot_id\":\"config-a211c0fede4237fe77bbc797\",\"request_id\":\"extract-1aca6e3e305cf3d0d0ef194075b18753\"}"
+  },
+  {
+    "event_type": "provider-intent",
+    "message": "{\"input_hash\":\"8362f99013abfbfd042c355062f116d6c091e421a5d61fc9ee3f2bd6ae5e1adb\",\"config_snapshot_id\":\"config-a211c0fede4237fe77bbc797\",\"request_id\":\"extract-f389acd29c4357ef89cc39772526af2c\"}"
+  },
+  {
+    "event_type": "provider-response",
+    "message": "{\"schema\":\"crexx-rag.provider-receipt/1\",\"expected_request_id\":\"extract-f389acd29c4357ef89cc39772526af2c\",\"provider_run_id\":\"provider-run-sha256:f9ee41cd5fdcd2ca1db9dcf8a5df323263a373bbf2ea79d694f510dc1832b3c7\",\"status\":0,\"provider\":\"codex\",\"model\":\"gpt-5.6-luna\",\"request_id\":\"extract-f389acd29c4357ef89cc39772526af2c\",\"content\":\"{\\\"action\\\":\\\"retain\\\",\\\"object_id\\\":\\\"concept-sha256:15ede89faddd3d5134859f642b2fe83082dd77c956eeef2ffb950acb182bd01a\\\",\\\"target_concept_id\\\":\\\"\\\",\\\"canonical_label\\\":\\\"Iter\\\",\\\"concept_type\\\":\\\"artefact\\\",\\\"successors\\\":[],\\\"reason\\\":\\\"The source describes Iter as a route or itinerary proceeding between geographic stations, supporting the current artefact classification rather than the competing place identity.\\\",\\\"evidence\\\":[{\\\"evidence_id\\\":\\\"mention-sha256:f1b8a96184351b7b1d96f437561a5e7bf59ba5fce52cadd7f7a31c2c724fa159\\\",\\\"quote\\\":\\\"From the Dee at Peter-Culter, the Iter proceeded on the right of \\\\nAchlea, Fiddy, and Kinmundy, and from thence in a north-north-west \\\\ndirection, it went through a plain district, till it reached the site or \\\\nKintore on the Don, and thence it followed, according to the Roman \\\\npractice, the strath of the river to the head of the Don, where there \\\\nis a ford, at the same place where the high road has always passed \\\\nthe same river to Inver-urie. The Romans then passed the Urie, \\\\nand pushed on in a north-north-west course, through a moorish district \\\\nto the sources of the Ithan, the Ztuna of Richard, where the camp of \\\\nGlen-mailen was placed, an extended course of twenty-six statute \\\\nmiles between these itinerary stations.\\\"}],\\\"effective_from\\\":\\\"\\\",\\\"effective_to\\\":\\\"\\\",\\\"qualifiers_json\\\":\\\"{}\\\",\\\"question\\\":\\\"\\\"}\",\"content_sha256\":\"5e9f152bd5980c2a3a1e4791ee443c1a949eb8b3c13f3d9feff2b6d1a85b9703\",\"content_bytes\":1326,\"omitted\":\"\",\"finish\":\"completed\",\"input\":18306,\"output\":435,\"input_count\":1,\"cost\":-1,\"attempts\":1,\"retry_delay\":0,\"latency_us\":10954269,\"error_category\":\"none\",\"error_code\":0,\"http_status\":0,\"retryable\":0,\"error_attempt\":0,\"error_message\":\"\",\"vectors\":[]}"
+  },
+  {
+    "event_type": "reservation-close:item-maintenance:99e3ce29eefe750007ce8ee8905b455dbbb3fa43e1ec7ee35703669afe33bca8#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-maintenance:99e3ce29eefe750007ce8ee8905b455dbbb3fa43e1ec7ee35703669afe33bca8#attempt-1#call-1\",\"input\":-32768,\"output\":-16384,\"cost\":0,\"time\":-120000,\"actual_cost\":0,\"codex_turn\":-1}"
+  },
+  {
+    "event_type": "settlement-receipt:item-maintenance:99e3ce29eefe750007ce8ee8905b455dbbb3fa43e1ec7ee35703669afe33bca8#attempt-1#call-1",
+    "message": "[\"codex-extract\",\"gpt-5.6-luna\",\"extract-f389acd29c4357ef89cc39772526af2c\",\"succeeded\",18306,435,0,11167,\"provider-run-sha256:f9ee41cd5fdcd2ca1db9dcf8a5df323263a373bbf2ea79d694f510dc1832b3c7\",\"subscription-allowance\",1,\"\",\"{\\\"action\\\":\\\"retain\\\",\\\"object_id\\\":\\\"concept-sha256:15ede89faddd3d5134859f642b2fe83082dd77c956eeef2ffb950acb182bd01a\\\",\\\"target_concept_id\\\":\\\"\\\",\\\"canonical_label\\\":\\\"Iter\\\",\\\"concept_type\\\":\\\"artefact\\\",\\\"successors\\\":[],\\\"reason\\\":\\\"The source describes Iter as a route or itinerary proceeding between geographic stations, supporting the current artefact classification rather than the competing place identity.\\\",\\\"evidence\\\":[{\\\"evidence_id\\\":\\\"mention-sha256:f1b8a96184351b7b1d96f437561a5e7bf59ba5fce52cadd7f7a31c2c724fa159\\\",\\\"quote\\\":\\\"From the Dee at Peter-Culter, the Iter proceeded on the right of \\\\nAchlea, Fiddy, and Kinmundy, and from thence in a north-north-west \\\\ndirection, it went through a plain district, till it reached the site or \\\\nKintore on the Don, and thence it followed, according to the Roman \\\\npractice, the strath of the river to the head of the Don, where there \\\\nis a ford, at the same place where the high road has always passed \\\\nthe same river to Inver-urie. The Romans then passed the Urie, \\\\nand pushed on in a north-north-west course, through a moorish district \\\\nto the sources of the Ithan, the Ztuna of Richard, where the camp of \\\\nGlen-mailen was placed, an extended course of twenty-six statute \\\\nmiles between these itinerary stations.\\\"}],\\\"effective_from\\\":\\\"\\\",\\\"effective_to\\\":\\\"\\\",\\\"qualifiers_json\\\":\\\"{}\\\",\\\"question\\\":\\\"\\\"}\",\"3e50bc08cfab707f916e8a195da5ce33414221e4842059b92e0f219a04bb4f92\"]"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=1"
+  },
+  {
+    "event_type": "reservation-open:item-maintenance:b5c03c8fa0e020d2c6de7a0c0d2bdb58b3c107ab2c2d1ce050a861ab0a767169#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-maintenance:b5c03c8fa0e020d2c6de7a0c0d2bdb58b3c107ab2c2d1ce050a861ab0a767169#attempt-1#call-1\",\"input\":32768,\"output\":16384,\"cost\":0,\"time\":120000,\"codex_turn\":1}"
+  },
+  {
+    "event_type": "provider-intent",
+    "message": "{\"input_hash\":\"94919e80ca9a7ade9404963900a65c3f20638f0c746ca0609469852ccdd1f7e8\",\"config_snapshot_id\":\"config-a211c0fede4237fe77bbc797\",\"request_id\":\"extract-32d590720d17de0e5a2dcb104d31d5e3\"}"
+  },
+  {
+    "event_type": "provider-response",
+    "message": "{\"schema\":\"crexx-rag.provider-receipt/1\",\"expected_request_id\":\"extract-1aca6e3e305cf3d0d0ef194075b18753\",\"provider_run_id\":\"provider-run-sha256:275f14cf3d21a1afd8bb8f74c46707312620970dd015a02ba5bd66615db0d275\",\"status\":0,\"provider\":\"codex\",\"model\":\"gpt-5.6-luna\",\"request_id\":\"extract-1aca6e3e305cf3d0d0ef194075b18753\",\"content\":\"{\\\"action\\\":\\\"retain\\\",\\\"object_id\\\":\\\"concept-sha256:13f6c6b64a8da9e9a2944ccb0327c05ecc5e839034e558f74bd1e3c6b1095d13\\\",\\\"target_concept_id\\\":\\\"\\\",\\\"canonical_label\\\":\\\"Ogilvie\\\",\\\"concept_type\\\":\\\"person\\\",\\\"successors\\\":[],\\\"reason\\\":\\\"The supplied passages consistently use Ogilvie as a person: a lord issuing a commission, a named executed individual, and one of the lords joining Charles. No supplied passage supports reclassifying this concept as a place.\\\",\\\"evidence\\\":[{\\\"evidence_id\\\":\\\"mention-sha256:63e52f6181d33331f6b3038a4a18817fc1b565793116898cbca3ce733c186688\\\",\\\"quote\\\":\\\"my \\\\nlord  Ogilvie  having  his  Royal  Highness\u2019s  approbation,  gave  me  a commission\\\"},{\\\"evidence_id\\\":\\\"mention-sha256:9eeb946099cd766256e79e694e8a6710c40fd7a9ab079036746af4352d1c0527\\\",\\\"quote\\\":\\\"Execution of Sirs William Rollock, and Philip Nisbet, and Ogilvie, younger of Inverquharity\\\"},{\\\"evidence_id\\\":\\\"mention-sha256:c2e26813ec54bfc02d4d42902f8f0f903ae751f9847c44b64695ca73139157b7\\\",\\\"quote\\\":\\\"At  Perth,  Charles  was  joined  by  the  duke  of  Perth,  the  lords  Ogilvie  and  Strathallan\\\"},{\\\"evidence_id\\\":\\\"mention-sha256:c7707e840f821594cbe0bcef2de0dbbe6edcf02b573fb252debb7f2d409e3967\\\",\\\"quote\\\":\\\"the execution of Nisbet and Ogilvie, was heard to utter this  barbarous expression\\\"}],\\\"effective_from\\\":\\\"\\\",\\\"effective_to\\\":\\\"\\\",\\\"qualifiers_json\\\":\\\"{}\\\",\\\"question\\\":\\\"\\\"}\",\"content_sha256\":\"ba1eb2f039a8ef323747aa9d407faddb966d9344b37d3ef3948d3d1286d728dd\",\"content_bytes\":1324,\"omitted\":\"\",\"finish\":\"completed\",\"input\":21226,\"output\":660,\"input_count\":1,\"cost\":-1,\"attempts\":1,\"retry_delay\":0,\"latency_us\":16284499,\"error_category\":\"none\",\"error_code\":0,\"http_status\":0,\"retryable\":0,\"error_attempt\":0,\"error_message\":\"\",\"vectors\":[]}"
+  },
+  {
+    "event_type": "reservation-close:item-maintenance:07543cb5d81be14f377c95fcd1e60eab7597882548e52a858e42c706674f16a3#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-maintenance:07543cb5d81be14f377c95fcd1e60eab7597882548e52a858e42c706674f16a3#attempt-1#call-1\",\"input\":-32768,\"output\":-16384,\"cost\":0,\"time\":-120000,\"actual_cost\":0,\"codex_turn\":-1}"
+  },
+  {
+    "event_type": "settlement-receipt:item-maintenance:07543cb5d81be14f377c95fcd1e60eab7597882548e52a858e42c706674f16a3#attempt-1#call-1",
+    "message": "[\"codex-extract\",\"gpt-5.6-luna\",\"extract-1aca6e3e305cf3d0d0ef194075b18753\",\"succeeded\",21226,660,0,16293,\"provider-run-sha256:275f14cf3d21a1afd8bb8f74c46707312620970dd015a02ba5bd66615db0d275\",\"subscription-allowance\",1,\"\",\"{\\\"action\\\":\\\"retain\\\",\\\"object_id\\\":\\\"concept-sha256:13f6c6b64a8da9e9a2944ccb0327c05ecc5e839034e558f74bd1e3c6b1095d13\\\",\\\"target_concept_id\\\":\\\"\\\",\\\"canonical_label\\\":\\\"Ogilvie\\\",\\\"concept_type\\\":\\\"person\\\",\\\"successors\\\":[],\\\"reason\\\":\\\"The supplied passages consistently use Ogilvie as a person: a lord issuing a commission, a named executed individual, and one of the lords joining Charles. No supplied passage supports reclassifying this concept as a place.\\\",\\\"evidence\\\":[{\\\"evidence_id\\\":\\\"mention-sha256:63e52f6181d33331f6b3038a4a18817fc1b565793116898cbca3ce733c186688\\\",\\\"quote\\\":\\\"my \\\\nlord  Ogilvie  having  his  Royal  Highness\u2019s  approbation,  gave  me  a commission\\\"},{\\\"evidence_id\\\":\\\"mention-sha256:9eeb946099cd766256e79e694e8a6710c40fd7a9ab079036746af4352d1c0527\\\",\\\"quote\\\":\\\"Execution of Sirs William Rollock, and Philip Nisbet, and Ogilvie, younger of Inverquharity\\\"},{\\\"evidence_id\\\":\\\"mention-sha256:c2e26813ec54bfc02d4d42902f8f0f903ae751f9847c44b64695ca73139157b7\\\",\\\"quote\\\":\\\"At  Perth,  Charles  was  joined  by  the  duke  of  Perth,  the  lords  Ogilvie  and  Strathallan\\\"},{\\\"evidence_id\\\":\\\"mention-sha256:c7707e840f821594cbe0bcef2de0dbbe6edcf02b573fb252debb7f2d409e3967\\\",\\\"quote\\\":\\\"the execution of Nisbet and Ogilvie, was heard to utter this  barbarous expression\\\"}],\\\"effective_from\\\":\\\"\\\",\\\"effective_to\\\":\\\"\\\",\\\"qualifiers_json\\\":\\\"{}\\\",\\\"question\\\":\\\"\\\"}\",\"3e50bc08cfab707f916e8a195da5ce33414221e4842059b92e0f219a04bb4f92\"]"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-eb2d70bfcc9ad33e218fbb8756a0db09;fence=1"
+  },
+  {
+    "event_type": "reservation-open:item-maintenance:c9d45d2fe70dd9cbb29b52fd84d25517b6e4c9b42d4cc335b3d4be4642f86301#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-maintenance:c9d45d2fe70dd9cbb29b52fd84d25517b6e4c9b42d4cc335b3d4be4642f86301#attempt-1#call-1\",\"input\":32768,\"output\":16384,\"cost\":0,\"time\":120000,\"codex_turn\":1}"
+  },
+  {
+    "event_type": "provider-intent",
+    "message": "{\"input_hash\":\"80888617c37046989142a13e0d9afd3e7cca38f1a1fb1cd375eb5b8119ca948f\",\"config_snapshot_id\":\"config-a211c0fede4237fe77bbc797\",\"request_id\":\"extract-0f64538161e2eeb4c74ba34a82c02613\"}"
+  },
+  {
+    "event_type": "provider-response",
+    "message": "{\"schema\":\"crexx-rag.provider-receipt/1\",\"expected_request_id\":\"extract-32d590720d17de0e5a2dcb104d31d5e3\",\"provider_run_id\":\"provider-run-sha256:61ac909d8052c4e7e55ecff6406670b63e1fceb905c30f493a114dc667ffe5bc\",\"status\":0,\"provider\":\"codex\",\"model\":\"gpt-5.6-luna\",\"request_id\":\"extract-32d590720d17de0e5a2dcb104d31d5e3\",\"content\":\"{\\\"action\\\":\\\"retain\\\",\\\"object_id\\\":\\\"concept-sha256:0dc12170a84f787b5615c536838b046f1247e3d291965199daeee5816d84bb5b\\\",\\\"target_concept_id\\\":\\\"\\\",\\\"canonical_label\\\":\\\"Comgal\\\",\\\"concept_type\\\":\\\"person\\\",\\\"successors\\\":[],\\\"reason\\\":\\\"The source identifies Comgal as the son\u2019s parent, supporting a person classification; no evidence supports changing the concept or splitting it.\\\",\\\"evidence\\\":[{\\\"evidence_id\\\":\\\"mention-sha256:6bb952c88c50deed9127952e758d0beccf5d3463494b57a364a1e4fe3f1be987\\\",\\\"quote\\\":\\\"Conal, the son of Comgal then succeeded in five hundred and fifty-\\\"}],\\\"effective_from\\\":\\\"\\\",\\\"effective_to\\\":\\\"\\\",\\\"qualifiers_json\\\":\\\"{}\\\",\\\"question\\\":\\\"\\\"}\",\"content_sha256\":\"a8b94f10fdd48b4bc1f3d06a4fe8b823ba73f9cb92c9781f6fc5eda9d4d7bad2\",\"content_bytes\":624,\"omitted\":\"\",\"finish\":\"completed\",\"input\":17256,\"output\":250,\"input_count\":1,\"cost\":-1,\"attempts\":1,\"retry_delay\":0,\"latency_us\":8534795,\"error_category\":\"none\",\"error_code\":0,\"http_status\":0,\"retryable\":0,\"error_attempt\":0,\"error_message\":\"\",\"vectors\":[]}"
+  },
+  {
+    "event_type": "reservation-close:item-maintenance:b5c03c8fa0e020d2c6de7a0c0d2bdb58b3c107ab2c2d1ce050a861ab0a767169#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-maintenance:b5c03c8fa0e020d2c6de7a0c0d2bdb58b3c107ab2c2d1ce050a861ab0a767169#attempt-1#call-1\",\"input\":-32768,\"output\":-16384,\"cost\":0,\"time\":-120000,\"actual_cost\":0,\"codex_turn\":-1}"
+  },
+  {
+    "event_type": "settlement-receipt:item-maintenance:b5c03c8fa0e020d2c6de7a0c0d2bdb58b3c107ab2c2d1ce050a861ab0a767169#attempt-1#call-1",
+    "message": "[\"codex-extract\",\"gpt-5.6-luna\",\"extract-32d590720d17de0e5a2dcb104d31d5e3\",\"succeeded\",17256,250,0,8639,\"provider-run-sha256:61ac909d8052c4e7e55ecff6406670b63e1fceb905c30f493a114dc667ffe5bc\",\"subscription-allowance\",1,\"\",\"{\\\"action\\\":\\\"retain\\\",\\\"object_id\\\":\\\"concept-sha256:0dc12170a84f787b5615c536838b046f1247e3d291965199daeee5816d84bb5b\\\",\\\"target_concept_id\\\":\\\"\\\",\\\"canonical_label\\\":\\\"Comgal\\\",\\\"concept_type\\\":\\\"person\\\",\\\"successors\\\":[],\\\"reason\\\":\\\"The source identifies Comgal as the son\u2019s parent, supporting a person classification; no evidence supports changing the concept or splitting it.\\\",\\\"evidence\\\":[{\\\"evidence_id\\\":\\\"mention-sha256:6bb952c88c50deed9127952e758d0beccf5d3463494b57a364a1e4fe3f1be987\\\",\\\"quote\\\":\\\"Conal, the son of Comgal then succeeded in five hundred and fifty-\\\"}],\\\"effective_from\\\":\\\"\\\",\\\"effective_to\\\":\\\"\\\",\\\"qualifiers_json\\\":\\\"{}\\\",\\\"question\\\":\\\"\\\"}\",\"3e50bc08cfab707f916e8a195da5ce33414221e4842059b92e0f219a04bb4f92\"]"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=1"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=1"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=1"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=1"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=2"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=2"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=2"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=3"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=3"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=3"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=4"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=4"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=4"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=5"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=5"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=5"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=6"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=6"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=6"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=7"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=7"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=7"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=8"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=8"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=8"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=9"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=9"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=9"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=10"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=10"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=10"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=11"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=11"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=11"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "provider-response",
+    "message": "{\"schema\":\"crexx-rag.provider-receipt/1\",\"expected_request_id\":\"extract-0f64538161e2eeb4c74ba34a82c02613\",\"provider_run_id\":\"provider-run-sha256:fd7d8e95aff95164e51b3d95ea54f261158f927c513a761bf2943fa30f4140c9\",\"status\":0,\"provider\":\"codex\",\"model\":\"gpt-5.6-luna\",\"request_id\":\"extract-0f64538161e2eeb4c74ba34a82c02613\",\"content\":\"{\\\"action\\\":\\\"split\\\",\\\"object_id\\\":\\\"concept-sha256:1588996d95510ea978da494933954f6b3d1c43e6c6d06d052fd5424233487085\\\",\\\"target_concept_id\\\":\\\"\\\",\\\"canonical_label\\\":\\\"\\\",\\\"concept_type\\\":\\\"\\\",\\\"successors\\\":[{\\\"canonical_label\\\":\\\"Borodale\\\",\\\"concept_type\\\":\\\"person\\\"},{\\\"canonical_label\\\":\\\"Borodale\\\",\\\"concept_type\\\":\\\"place\\\"}],\\\"reason\\\":\\\"The passages support mixed meanings: Borodale is an acting person in some passages and a place reference in others. Split the mixed concept rather than changing all occurrences to one type.\\\",\\\"evidence\\\":[{\\\"evidence_id\\\":\\\"mention-sha256:9429e2052a55f3721ad86feae25c98ba4edeb2d91ef708daab2f5c45dda58bd6\\\",\\\"quote\\\":\\\"he took leave of Borodale and his son* in-law, and attended by Glenaladale\\\"},{\\\"evidence_id\\\":\\\"mention-sha256:9b5459c7fb776c2bc14d50ed5e090a0aa0488e1097b478a4ee4bb7d2d37ceb00\\\",\\\"quote\\\":\\\"that the prince was in concealment about Borodale ; and representing the danger Charles would be in, by remaining on Borodale\u2019s lands any longer\\\"},{\\\"evidence_id\\\":\\\"mention-sha256:bf7a9d005b61185a574c0000b570493549715501991d098af999e9c02662ed9f\\\",\\\"quote\\\":\\\"Borodale, who had proceeded to Glen Morar in advance of the party to procure some necessaries\\\"},{\\\"evidence_id\\\":\\\"mention-sha256:ca20cb9f8c9d61621794fb7cb051c74ef5acb97657c4324a855b8f17fe518bad\\\",\\\"quote\\\":\\\"Borodale conducted his guest to a hut in a neighbouring wood\\\"}],\\\"effective_from\\\":\\\"\\\",\\\"effective_to\\\":\\\"\\\",\\\"qualifiers_json\\\":\\\"{}\\\",\\\"question\\\":\\\"\\\"}\",\"content_sha256\":\"dc82f25f650adba47e4269bfa12c1840067bffc9f99046a1765530c3ac19a3d0\",\"content_bytes\":1396,\"omitted\":\"\",\"finish\":\"completed\",\"input\":21785,\"output\":662,\"input_count\":1,\"cost\":-1,\"attempts\":1,\"retry_delay\":0,\"latency_us\":16916364,\"error_category\":\"none\",\"error_code\":0,\"http_status\":0,\"retryable\":0,\"error_attempt\":0,\"error_message\":\"\",\"vectors\":[]}"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=12"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=12"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "claimed",
+    "message": "worker=worker-62adf1dff46cc99e19eb709b41f175cb;fence=12"
+  },
+  {
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted"
+  },
+  {
+    "event_type": "reservation-close:item-maintenance:c9d45d2fe70dd9cbb29b52fd84d25517b6e4c9b42d4cc335b3d4be4642f86301#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-maintenance:c9d45d2fe70dd9cbb29b52fd84d25517b6e4c9b42d4cc335b3d4be4642f86301#attempt-1#call-1\",\"input\":-32768,\"output\":-16384,\"cost\":0,\"time\":-120000,\"actual_cost\":0,\"codex_turn\":-1}"
+  },
+  {
+    "event_type": "settlement-receipt:item-maintenance:c9d45d2fe70dd9cbb29b52fd84d25517b6e4c9b42d4cc335b3d4be4642f86301#attempt-1#call-1",
+    "message": "[\"codex-extract\",\"gpt-5.6-luna\",\"extract-0f64538161e2eeb4c74ba34a82c02613\",\"failed\",21785,662,0,16924,\"provider-run-sha256:fd7d8e95aff95164e51b3d95ea54f261158f927c513a761bf2943fa30f4140c9\",\"subscription-allowance\",1,\"{\\\"schema\\\":\\\"crexx-rag.rejected-output/1\\\",\\\"input_hash\\\":\\\"80888617c37046989142a13e0d9afd3e7cca38f1a1fb1cd375eb5b8119ca948f\\\",\\\"error\\\":\\\"resolution quotation does not ground the selected connection\\\",\\\"output_sha256\\\":\\\"dc82f25f650adba47e4269bfa12c1840067bffc9f99046a1765530c3ac19a3d0\\\",\\\"output_bytes\\\":1396,\\\"omitted\\\":\\\"\\\",\\\"content\\\":\\\"{\\\\\\\"action\\\\\\\":\\\\\\\"split\\\\\\\",\\\\\\\"object_id\\\\\\\":\\\\\\\"concept-sha256:1588996d95510ea978da494933954f6b3d1c43e6c6d06d052fd5424233487085\\\\\\\",\\\\\\\"target_concept_id\\\\\\\":\\\\\\\"\\\\\\\",\\\\\\\"canonical_label\\\\\\\":\\\\\\\"\\\\\\\",\\\\\\\"concept_type\\\\\\\":\\\\\\\"\\\\\\\",\\\\\\\"successors\\\\\\\":[{\\\\\\\"canonical_label\\\\\\\":\\\\\\\"Borodale\\\\\\\",\\\\\\\"concept_type\\\\\\\":\\\\\\\"person\\\\\\\"},{\\\\\\\"canonical_label\\\\\\\":\\\\\\\"Borodale\\\\\\\",\\\\\\\"concept_type\\\\\\\":\\\\\\\"place\\\\\\\"}],\\\\\\\"reason\\\\\\\":\\\\\\\"The passages support mixed meanings: Borodale is an acting person in some passages and a place reference in others. Split the mixed concept rather than changing all occurrences to one type.\\\\\\\",\\\\\\\"evidence\\\\\\\":[{\\\\\\\"evidence_id\\\\\\\":\\\\\\\"mention-sha256:9429e2052a55f3721ad86feae25c98ba4edeb2d91ef708daab2f5c45dda58bd6\\\\\\\",\\\\\\\"quote\\\\\\\":\\\\\\\"he took leave of Borodale and his son* in-law, and attended by Glenaladale\\\\\\\"},{\\\\\\\"evidence_id\\\\\\\":\\\\\\\"mention-sha256:9b5459c7fb776c2bc14d50ed5e090a0aa0488e1097b478a4ee4bb7d2d37ceb00\\\\\\\",\\\\\\\"quote\\\\\\\":\\\\\\\"that the prince was in concealment about Borodale ; and representing the danger Charles would be in, by remaining on Borodale\u2019s lands any longer\\\\\\\"},{\\\\\\\"evidence_id\\\\\\\":\\\\\\\"mention-sha256:bf7a9d005b61185a574c0000b570493549715501991d098af999e9c02662ed9f\\\\\\\",\\\\\\\"quote\\\\\\\":\\\\\\\"Borodale, who had proceeded to Glen Morar in advance of the party to procure some necessaries\\\\\\\"},{\\\\\\\"evidence_id\\\\\\\":\\\\\\\"mention-sha256:ca20cb9f8c9d61621794fb7cb051c74ef5acb97657c4324a855b8f17fe518bad\\\\\\\",\\\\\\\"quote\\\\\\\":\\\\\\\"Borodale conducted his guest to a hut in a neighbouring wood\\\\\\\"}],\\\\\\\"effective_from\\\\\\\":\\\\\\\"\\\\\\\",\\\\\\\"effective_to\\\\\\\":\\\\\\\"\\\\\\\",\\\\\\\"qualifiers_json\\\\\\\":\\\\\\\"{}\\\\\\\",\\\\\\\"question\\\\\\\":\\\\\\\"\\\\\\\"}\\\"}\",\"\",\"\"]"
+  },
+  {
+    "event_type": "citation-correction-requested",
+    "message": "resolution quotation does not ground the selected connection"
+  },
+  {
+    "event_type": "queued",
+    "message": "resolution quotation does not ground the selected connection"
+  }
+]

@@ -1,0 +1,71 @@
+{
+  "sql": "SELECT count(*) FROM maintenance_tasks WHERE state='pending' AND (SELECT count(DISTINCT p.provider_run_id) FROM maintenance_task_items m JOIN attempts a ON a.item_id=m.item_id JOIN provider_runs p ON p.provider_run_id=a.provider_run_id WHERE m.task_id=maintenance_tasks.task_id)>=1 AND (SELECT count(*) FROM maintenance_provider_outputs o WHERE o.task_id=maintenance_tasks.task_id AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.item_id=o.item_id AND a.outcome IN('failed','dead_letter')))=0",
+  "seconds": 0.10098920785821974,
+  "result": [
+    [
+      0
+    ]
+  ],
+  "query_plan": [
+    [
+      3,
+      0,
+      54,
+      "SEARCH maintenance_tasks USING COVERING INDEX maintenance_tasks_ready (state=?)"
+    ],
+    [
+      8,
+      0,
+      0,
+      "CORRELATED SCALAR SUBQUERY 1"
+    ],
+    [
+      13,
+      8,
+      0,
+      "USE TEMP B-TREE FOR count(DISTINCT)"
+    ],
+    [
+      19,
+      8,
+      62,
+      "SEARCH m USING INDEX maintenance_task_items_task (task_id=?)"
+    ],
+    [
+      24,
+      8,
+      62,
+      "SEARCH a USING INDEX attempts_item (item_id=?)"
+    ],
+    [
+      29,
+      8,
+      44,
+      "SEARCH p USING COVERING INDEX sqlite_autoindex_provider_runs_1 (provider_run_id=?)"
+    ],
+    [
+      47,
+      0,
+      0,
+      "CORRELATED SCALAR SUBQUERY 3"
+    ],
+    [
+      52,
+      47,
+      216,
+      "SCAN o"
+    ],
+    [
+      58,
+      47,
+      0,
+      "CORRELATED SCALAR SUBQUERY 2"
+    ],
+    [
+      62,
+      58,
+      54,
+      "SEARCH a USING COVERING INDEX attempts_item (item_id=? AND outcome=?)"
+    ]
+  ]
+}

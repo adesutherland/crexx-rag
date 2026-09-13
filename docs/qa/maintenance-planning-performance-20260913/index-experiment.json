@@ -1,0 +1,65 @@
+[
+  {
+    "file": "ragclaims.crexx",
+    "line": 868,
+    "index": "CREATE INDEX profile_revision_chunks_content_generation ON revision_chunks(content_id,visible_from_generation)",
+    "executions": 200,
+    "before_seconds": 1.0288921250030398,
+    "index_build_seconds": 0.023070916067808867,
+    "after_seconds": 0.001080250134691596,
+    "results_equal": true,
+    "result_sha256": "d00795c3da9c42516dbc024a4a088c3134088c929b3ac067c0ea8e64f785198e",
+    "query_plan_after": [
+      [
+        5,
+        0,
+        46,
+        "SEARCH target USING INDEX sqlite_autoindex_revision_chunks_1 (revision_chunk_id=?)"
+      ],
+      [
+        12,
+        0,
+        46,
+        "SEARCH c USING COVERING INDEX profile_revision_chunks_content_generation (content_id=? AND visible_from_generation<?)"
+      ]
+    ]
+  },
+  {
+    "file": "ragclaims.crexx",
+    "line": 432,
+    "index": "CREATE INDEX profile_claim_support_chunk_visibility ON claim_support(revision_chunk_id,visible_from_generation,visible_to_generation)",
+    "executions": 200,
+    "before_seconds": 0.2252622921951115,
+    "index_build_seconds": 0.003369083860889077,
+    "after_seconds": 0.0003393329679965973,
+    "results_equal": true,
+    "result_sha256": "3514ad205a13567d79b490d57465187ab7832803a75d434c7bc2cf2ac9deefad",
+    "query_plan_after": [
+      [
+        3,
+        0,
+        46,
+        "SEARCH claim_support USING COVERING INDEX profile_claim_support_chunk_visibility (revision_chunk_id=? AND visible_from_generation<?)"
+      ]
+    ]
+  },
+  {
+    "file": "ragimprove.crexx",
+    "line": 517,
+    "index": "CREATE INDEX profile_reviews_pending_chunk_type ON reviews(json_extract(proposal_json,'$.revision_chunk_id'),review_type) WHERE state='pending'",
+    "executions": 200,
+    "before_seconds": 1.1738164590205997,
+    "index_build_seconds": 0.009747333126142621,
+    "after_seconds": 0.00033595808781683445,
+    "results_equal": true,
+    "result_sha256": "8eeab6e3029540764e2105187e4e8e420ae7407ce51ad4ae54d1602d84b570ba",
+    "query_plan_after": [
+      [
+        4,
+        0,
+        61,
+        "SEARCH reviews USING INDEX profile_reviews_pending_chunk_type (<expr>=?)"
+      ]
+    ]
+  }
+]

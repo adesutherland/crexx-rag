@@ -1,0 +1,114 @@
+{
+  "providers": [
+    {
+      "provider_id": "codex-extract",
+      "model": "gpt-5.6-luna",
+      "charging_basis": "subscription-allowance",
+      "outcome": "succeeded",
+      "calls": 2,
+      "input_tokens": 37555,
+      "output_tokens": 2001,
+      "duration_ms": 44046,
+      "cost_microunits": 0
+    },
+    {
+      "provider_id": "gemini-embed",
+      "model": "gemini-embedding-2",
+      "charging_basis": "monetary-api",
+      "outcome": "succeeded",
+      "calls": 2,
+      "input_tokens": 248,
+      "output_tokens": 0,
+      "duration_ms": 1545,
+      "cost_microunits": 49
+    }
+  ],
+  "attempts": [
+    {
+      "item_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04",
+      "fence": 1,
+      "provider_run_id": "provider-run-sha256:6f31ddb0151974d1a194c3c1c068f4f70205be396495c1667dfcaa4f2508a1b3",
+      "validation_state": "validated-embedding",
+      "outcome": "succeeded",
+      "started_at": "2026-09-13T16:06:05.119Z",
+      "completed_at": "2026-09-13T16:06:06.225Z"
+    },
+    {
+      "item_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49",
+      "fence": 1,
+      "provider_run_id": null,
+      "validation_state": "provider admission deferred by request, token, concurrency or cooldown limits",
+      "outcome": "cancelled",
+      "started_at": "2026-09-13T16:06:05.124Z",
+      "completed_at": "2026-09-13T16:06:05.826Z"
+    },
+    {
+      "item_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405",
+      "fence": 1,
+      "provider_run_id": "provider-run-sha256:547450858cfcb20ae881739e7419b2cf4230f9c87aadfc92371109ac2de15512",
+      "validation_state": "validated-discovery-batch",
+      "outcome": "succeeded",
+      "started_at": "2026-09-13T16:06:05.935Z",
+      "completed_at": "2026-09-13T16:06:30.687Z"
+    },
+    {
+      "item_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49",
+      "fence": 2,
+      "provider_run_id": "provider-run-sha256:369dded043a00975e85bcfb3faec0fd5831584126e7766b5aa0f9be6d79e7008",
+      "validation_state": "validated-embedding",
+      "outcome": "succeeded",
+      "started_at": "2026-09-13T16:06:06.226Z",
+      "completed_at": "2026-09-13T16:06:06.712Z"
+    },
+    {
+      "item_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa",
+      "fence": 1,
+      "provider_run_id": "provider-run-sha256:e3c6ba8279f8fb9e262b5f213c3f32f339298760a7d733f93d17c19ab8a63002",
+      "validation_state": "validated-discovery-batch",
+      "outcome": "succeeded",
+      "started_at": "2026-09-13T16:06:06.715Z",
+      "completed_at": "2026-09-13T16:06:31.963Z"
+    }
+  ],
+  "counts": {
+    "sources": 9,
+    "revision_chunks": 34907,
+    "provider_runs": 82553,
+    "attempts": 116189,
+    "claims": 7969,
+    "unique_embedding_payloads": 30477
+  },
+  "vector_generations": [
+    {
+      "vector_generation_id": "vg-b69b2a0326ba3dc33ad046fc",
+      "semantic_generation": 24925,
+      "embedding_profile_id": "embedding-768-203113f9024a",
+      "state": "published",
+      "algorithm": "ivf-flat-v1",
+      "sidecar_name": "vectors.24925.vg-b69b2a0326ba3dc33ad046fc.b69b2a0326ba3dc3.rxvec",
+      "sidecar_checksum": "b69b2a0326ba3dc33ad046fce035bbe62719889c4940148b307e087ce1acdcf4",
+      "dimension": 768,
+      "row_count": 34907,
+      "centroid_count": 16,
+      "probe_count": 4,
+      "created_at": "2026-09-13T16:06:56.604Z",
+      "published_at": "2026-09-13T16:06:56.604Z"
+    },
+    {
+      "vector_generation_id": "vg-e0274299763111a02de8071c",
+      "semantic_generation": 24922,
+      "embedding_profile_id": "embedding-768-203113f9024a",
+      "state": "published",
+      "algorithm": "ivf-flat-v1",
+      "sidecar_name": "vectors.24922.vg-e0274299763111a02de8071c.e0274299763111a0.rxvec",
+      "sidecar_checksum": "e0274299763111a02de8071cbc6f67b9125def92c5f4cd738e7ec53a2a62d127",
+      "dimension": 768,
+      "row_count": 34905,
+      "centroid_count": 16,
+      "probe_count": 4,
+      "created_at": "2026-09-13T12:26:35.057Z",
+      "published_at": "2026-09-13T12:26:35.057Z"
+    }
+  ],
+  "citation_exact_bytes": true
+}

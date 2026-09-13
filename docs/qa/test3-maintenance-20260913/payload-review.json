@@ -1,0 +1,42 @@
+{
+  "selected_subjects": [
+    "Ogilvie",
+    "Iter",
+    "Comgal",
+    "Borodale",
+    "Dunrobin castle",
+    "Rothiemay",
+    "Welsh",
+    "Celtic"
+  ],
+  "task_count": 8,
+  "passage_count": 22,
+  "source_documents": [
+    {
+      "source_id": "source-sha256:3a6541add3b99b6e6ca9b90de244dc1f5ed008e8611cb77a2907e7c8d0cd308d",
+      "observed_title": "browne-history-highlands-clans-vol-4-1838.txt",
+      "connector_type": "folder:scotland-overnight"
+    },
+    {
+      "source_id": "source-sha256:e0167833b4707e1087582b3865eedc123d93a59c1822bad2921252b7a202a3df",
+      "observed_title": "browne-history-highlands-clans-vol-1-1837.txt",
+      "connector_type": "folder:scotland-corpus"
+    },
+    {
+      "source_id": "source-sha256:96c31d2b06281b8812a87e8d5d97d865a8a4b17e7a207a28e254c732193dbf3b",
+      "observed_title": "browne-history-highlands-clans-vol-3-1836.txt",
+      "connector_type": "folder:scotland-overnight"
+    },
+    {
+      "source_id": "source-sha256:40ea83531ea42b40cada1ca4892a6aa5a84e3d2c4504efca8e5d6119601014d5",
+      "observed_title": "gutenberg-59468-scottish-highlands-clans-regiments-vol-1.txt",
+      "connector_type": "folder:scotland-corpus"
+    },
+    {
+      "source_id": "source-sha256:f81b9b4cf61cc004e85bb26ed9691d2d4a3ee7f64517d3de331651ab64afeafd",
+      "observed_title": "gutenberg-59469-scottish-highlands-clans-regiments-vol-2.txt",
+      "connector_type": "folder:scotland-corpus"
+    }
+  ],
+  "review": "Selected payload consists of these historical text passages, derived historical catalogue entries/classifications, and the maintenance question. The plan route privacy is public. All eight tasks are maintenance-resolution with no missing embeddings; expected external calls are at most four managed Codex turns. No private working documents, messages or credentials are included in the evidence packets."
+}

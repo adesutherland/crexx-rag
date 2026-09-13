@@ -1,0 +1,33 @@
+options levelg
+import rxfnsb
+import rxsqlite
+main: procedure
+  database = .binary
+  if sqliteopenmode("/private/tmp/crexxrag-smk006-V6YatF/smoke-library/library.sqlite", "readonly", database) <> 0 then exit 1
+  prepared = .binary; value = ""
+  call sqliteprepare database, "SELECT sqlite_version()", prepared
+  call sqlitestep prepared
+  call sqlitecolumntext prepared, 0, value
+  say "sqlite_version=" || value
+  call sqlitefinalize prepared
+  queries = .string[]
+  queries[1] = "SELECT id FROM (SELECT concept_id id FROM (SELECT c.concept_id FROM concepts c WHERE c.lifecycle_state='active' AND c.visible_to_generation IS NULL AND EXISTS(SELECT 1 FROM maintenance_alias_issues i WHERE i.state='open' AND lower(i.proposed_label)=lower(c.canonical_label) AND (i.proposed_type<>c.concept_type OR EXISTS(SELECT 1 FROM concepts d WHERE d.concept_id<>c.concept_id AND d.lifecycle_state='active' AND d.visible_to_generation IS NULL AND lower(d.canonical_label)=lower(c.canonical_label)))))) WHERE id>'' ORDER BY id LIMIT 8"
+  queries[2] = "SELECT json_object('type','alias-issue','id',i.issue_id,'candidate_id',i.candidate_id,'canonical_label',i.proposed_label,'concept_type',i.proposed_type,'aliases',json(i.aliases_json),'candidates',json(coalesce((SELECT json_group_array(json_object('concept_id',z.concept_id,'canonical_label',z.canonical_label,'concept_type',z.concept_type)) FROM (SELECT DISTINCT c.concept_id,c.canonical_label,c.concept_type FROM concepts c LEFT JOIN aliases a ON a.target_concept_id=c.concept_id AND a.visible_to_generation IS NULL WHERE c.visible_to_generation IS NULL AND c.lifecycle_state<>'retired' AND (lower(c.canonical_label)=lower(i.proposed_label) OR a.normalized_alias=lower(i.proposed_label) OR a.normalized_alias IN(SELECT lower(value) FROM json_each(i.aliases_json))) ORDER BY c.concept_id) z),'[]'))) FROM maintenance_alias_issues i WHERE i.issue_id=(SELECT issue_id FROM maintenance_alias_issues WHERE state='open' ORDER BY issue_id LIMIT 1) AND i.state='open'"
+  do i = 1 to queries.0
+    prepared = .binary
+    call sqliteprepare database, "EXPLAIN QUERY PLAN " || queries[i], prepared
+    do while sqlitestep(prepared) = 100
+      value = ""; call sqlitecolumntext prepared, 3, value
+      say "query=" || i || " eqp=" || value
+    end
+    call sqlitefinalize prepared
+    started = time("R"); count = 0
+    call sqliteprepare database, queries[i], prepared
+    do while sqlitestep(prepared) = 100
+      count = count+1
+    end
+    call sqlitefinalize prepared
+    say "query=" || i || " rows=" || count || " seconds=" || time("E")
+  end
+  call sqliteclose database
+  exit 0

@@ -1,0 +1,185 @@
+{
+  "sqlite_version": "3.53.4",
+  "generation": 24928,
+  "queries": [
+    {
+      "file": "ragimprove.crexx",
+      "line": 196,
+      "sql": "SELECT c.revision_chunk_id,c.content_id FROM revision_chunks c WHERE c.visible_from_generation<=?1 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?1) AND c.content_id NOT IN(SELECT json_extract(i.input_json,'$.content_id') FROM job_items i WHERE i.item_type='improve-extraction' AND json_valid(i.input_json) AND json_extract(i.input_json,'$.content_id') IS NOT NULL AND json_extract(i.input_json,'$.policy_version')=?2 AND json_extract(i.input_json,'$.prompt_version')=?3) ORDER BY c.revision_chunk_id",
+      "params": [
+        24928,
+        "surface-claim-v1",
+        "surface-prompt-v1"
+      ],
+      "seconds": 2.6837811251170933,
+      "rows": 28917,
+      "query_plan": [
+        [
+          4,
+          0,
+          223,
+          "SCAN c USING INDEX sqlite_autoindex_revision_chunks_1"
+        ],
+        [
+          16,
+          0,
+          0,
+          "LIST SUBQUERY 1"
+        ],
+        [
+          19,
+          16,
+          216,
+          "SCAN i"
+        ],
+        [
+          40,
+          16,
+          0,
+          "CREATE BLOOM FILTER"
+        ]
+      ]
+    },
+    {
+      "file": "ragmaintain.crexx",
+      "line": 147,
+      "sql": "SELECT c.concept_id,c.canonical_label,(SELECT count(*) FROM claims q WHERE (q.source_concept_id=c.concept_id OR q.target_concept_id=c.concept_id) AND q.visible_from_generation<=?1 AND (q.visible_to_generation IS NULL OR q.visible_to_generation>?1)) AS degree FROM concepts c WHERE c.visible_from_generation<=?1 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?1) AND c.lifecycle_state IN('active','migration-parent') ORDER BY degree,c.concept_id",
+      "params": [
+        24928
+      ],
+      "seconds": 0.1526255828794092,
+      "rows": 27560,
+      "query_plan": [
+        [
+          3,
+          0,
+          216,
+          "SCAN c"
+        ],
+        [
+          16,
+          0,
+          0,
+          "CORRELATED SCALAR SUBQUERY 1"
+        ],
+        [
+          23,
+          16,
+          0,
+          "MULTI-INDEX OR"
+        ],
+        [
+          24,
+          23,
+          0,
+          "INDEX 1"
+        ],
+        [
+          37,
+          24,
+          51,
+          "SEARCH q USING INDEX claims_source_visibility (source_concept_id=? AND visible_from_generation<?)"
+        ],
+        [
+          42,
+          23,
+          0,
+          "INDEX 2"
+        ],
+        [
+          55,
+          42,
+          51,
+          "SEARCH q USING INDEX claims_target_visibility (target_concept_id=? AND visible_from_generation<?)"
+        ],
+        [
+          78,
+          0,
+          0,
+          "USE TEMP B-TREE FOR ORDER BY"
+        ]
+      ]
+    },
+    {
+      "file": "ragmaintain.crexx",
+      "line": 162,
+      "sql": "SELECT n.note_id,n.note_kind,n.importance,n.uncertainty,n.next_action FROM analysis_notes n WHERE n.state='active' ORDER BY n.importance DESC,n.note_id",
+      "params": [],
+      "seconds": 0.10495870793238282,
+      "rows": 10381,
+      "query_plan": [
+        [
+          4,
+          0,
+          62,
+          "SEARCH n USING INDEX analysis_notes_state (state=?)"
+        ],
+        [
+          17,
+          0,
+          0,
+          "USE TEMP B-TREE FOR ORDER BY"
+        ]
+      ]
+    },
+    {
+      "file": "ragmaintain.crexx",
+      "line": 188,
+      "sql": "SELECT gap_id,occurrence_count,gap_text FROM query_gaps WHERE state='open' ORDER BY occurrence_count DESC,gap_id",
+      "params": [],
+      "seconds": 0.00037420797161757946,
+      "rows": 16,
+      "query_plan": [
+        [
+          4,
+          0,
+          62,
+          "SEARCH query_gaps USING INDEX query_gaps_work (state=?)"
+        ],
+        [
+          22,
+          0,
+          0,
+          "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+        ]
+      ]
+    },
+    {
+      "file": "ragmaintain.crexx",
+      "line": 204,
+      "sql": "SELECT rc.revision_chunk_id FROM revision_chunks rc WHERE rc.visible_from_generation<=?1 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?1) AND NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id WHERE rce.revision_chunk_id=rc.revision_chunk_id AND e.embedding_profile_id=?2 AND rce.visible_from_generation<=?1 AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>?1)) ORDER BY rc.revision_chunk_id",
+      "params": [
+        24928,
+        "embedding-768-203113f9024a"
+      ],
+      "seconds": 2.112882584100589,
+      "rows": 0,
+      "query_plan": [
+        [
+          4,
+          0,
+          223,
+          "SCAN rc USING INDEX sqlite_autoindex_revision_chunks_1"
+        ],
+        [
+          14,
+          0,
+          0,
+          "CORRELATED SCALAR SUBQUERY 1"
+        ],
+        [
+          20,
+          14,
+          56,
+          "SEARCH rce USING PRIMARY KEY (revision_chunk_id=?)"
+        ],
+        [
+          30,
+          14,
+          46,
+          "SEARCH e USING INDEX sqlite_autoindex_embeddings_1 (embedding_id=?)"
+        ]
+      ]
+    }
+  ]
+}

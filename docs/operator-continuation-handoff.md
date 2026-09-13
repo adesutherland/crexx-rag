@@ -1,9 +1,57 @@
 # Operator continuation: live handoff
 
-Updated: 2026-09-13 15:19 UTC. This file records the current result and next action.
+Updated: 2026-09-13 16:35 UTC. This file records the current result and next action.
 The detailed history below is retained for reference.
 
-## Current checkpoint — simplification complete; document ready for live smoke
+## Current checkpoint — Test 3 bounded maintenance complete
+
+[Test 3](test3-maintenance-20260913.md) completed in **62 seconds**, exit 0,
+on baseline `ab620e5`, using the same disposable corpus and unchanged native
+artifact. Four managed Codex turns produced **three retained/resolved reviews**
+and **one correctly rejected split**; there were zero Gemini calls. Three
+unstarted tasks remain pending and one stale alias task was superseded.
+The window closed at its four-turn limit; both workers and controller stopped.
+
+Library verification passes at generation **24,928**, with zero issues and all
+**34,907 chunks** still covered by published vectors. Source revisions, claims
+and the Test 2 citation are unchanged. The rejected Borodale split cited a
+quotation outside its selected mention; its task, response and usage survive.
+It is not completed content and no correction call was made beyond the budget.
+
+Preparation remains a finding: plan took 160 seconds and apply 218 seconds.
+A 15-minute plan deadline allowed that preparation while actual worker execution
+remained below the separate five-minute cap. A literal five-minute end-to-end
+maintenance launch is therefore not qualified. The report records the timing
+path and the difference between preview notes and the actual durable dispatch.
+
+No product/configuration changes, further commits, push, normal installation or
+master-library changes occurred. Test 2 and Test 3 evidence and this handoff are
+uncommitted follow-up documentation. No more hosted work is running; the next
+previously proposed smoke is targeted inspection of extraction holds (Test 4),
+not a broad retry or cleanup.
+
+## Previous checkpoint — baseline committed; Test 2 passed
+
+Baseline committed as `ab620e5f303696ba477d6b91845f075789b779c9` on
+`temp/project-review`, with the unchanged tested native artifact and 69/69 QA.
+The user then authorized the prepared bounded live Test 2. It passed in
+**53 seconds (16:06:03–16:06:56 UTC), exit 0**: all four new-document items
+processed, using two successful managed Codex turns and two successful Gemini
+embedding calls. Recorded Gemini cost was **$0.000049**.
+
+Automatic publication covers **34,907/34,907 chunks** at generation 24,925.
+Library verification found zero issues and an aligned manifest. New-source
+retrieval and exact citation resolution pass. Both workers and the controller
+stopped; no queued, failed or uncertain work remains in this new job.
+
+See [Test 2 result and evidence](test2-new-document-20260913.md). The disposable
+library, policy and job below remain the Test 2 identities. The master corpus,
+permanent query copy and normal installation were untouched. No push occurred.
+This result and handoff are uncommitted follow-up documentation after the requested
+baseline commit. Test 2 is complete; further hosted or maintenance runs need
+their own bounded scope. Previous checkpoints below are historical.
+
+## Previous checkpoint — simplification complete; document ready for live smoke
 
 The approved [shared-rule simplification](rule-simplification-repair-20260913.md)
 is implemented. Global configuration vetoes and duplicate claim/replay checks

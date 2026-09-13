@@ -1,0 +1,50 @@
+[
+  {
+    "task_id": "task:4acddd1f3c91c13e610f4d2fc44c9cba82c94656697370c989768bd5bd4a93cc",
+    "evidence_id": "mention-sha256:63e52f6181d33331f6b3038a4a18817fc1b565793116898cbca3ce733c186688",
+    "contiguous_source_span": "my \nlord  Ogilvie  having  his  Royal  Highness\u2019s  approbation,  gave  me  a commission",
+    "provider_quote_exact": true,
+    "matches_documented_grounding": true,
+    "overlaps_selected_span": true
+  },
+  {
+    "task_id": "task:4acddd1f3c91c13e610f4d2fc44c9cba82c94656697370c989768bd5bd4a93cc",
+    "evidence_id": "mention-sha256:9eeb946099cd766256e79e694e8a6710c40fd7a9ab079036746af4352d1c0527",
+    "contiguous_source_span": "Execution of Sirs William Rollock, and Philip Nisbet, and Ogilvie, \nyounger of Inverquharity",
+    "provider_quote_exact": false,
+    "matches_documented_grounding": true,
+    "overlaps_selected_span": true
+  },
+  {
+    "task_id": "task:4acddd1f3c91c13e610f4d2fc44c9cba82c94656697370c989768bd5bd4a93cc",
+    "evidence_id": "mention-sha256:c2e26813ec54bfc02d4d42902f8f0f903ae751f9847c44b64695ca73139157b7",
+    "contiguous_source_span": "At  Perth,  Charles  was  joined  by  the  duke  of  Perth,  the  lords  Ogilvie \nand  Strathallan",
+    "provider_quote_exact": false,
+    "matches_documented_grounding": true,
+    "overlaps_selected_span": true
+  },
+  {
+    "task_id": "task:4acddd1f3c91c13e610f4d2fc44c9cba82c94656697370c989768bd5bd4a93cc",
+    "evidence_id": "mention-sha256:c7707e840f821594cbe0bcef2de0dbbe6edcf02b573fb252debb7f2d409e3967",
+    "contiguous_source_span": "the execution of Nisbet and Ogilvie, was heard to utter this \nbarbarous expression",
+    "provider_quote_exact": false,
+    "matches_documented_grounding": true,
+    "overlaps_selected_span": true
+  },
+  {
+    "task_id": "task:de11481a7e4919baa4bdef732c53171b14b5f87ca4d2957725943d2d888173d7",
+    "evidence_id": "mention-sha256:f1b8a96184351b7b1d96f437561a5e7bf59ba5fce52cadd7f7a31c2c724fa159",
+    "contiguous_source_span": "From the Dee at Peter-Culter, the Iter proceeded on the right of \nAchlea, Fiddy, and Kinmundy, and from thence in a north-north-west \ndirection, it went through a plain district, till it reached the site or \nKintore on the Don, and thence it followed, according to the Roman \npractice, the strath of the river to the head of the Don, where there \nis a ford, at the same place where the high road has always passed \nthe same river to Inver-urie. The Romans then passed the Urie, \nand pushed on in a north-north-west course, through a moorish district \nto the sources of the Ithan, the Ztuna of Richard, where the camp of \nGlen-mailen was placed, an extended course of twenty-six statute \nmiles between these itinerary stations.",
+    "provider_quote_exact": true,
+    "matches_documented_grounding": true,
+    "overlaps_selected_span": true
+  },
+  {
+    "task_id": "task:54ec19130d1f91b038b8f25e5524f8ff3079b85035ba738182f7fc6b3ea7fc20",
+    "evidence_id": "mention-sha256:6bb952c88c50deed9127952e758d0beccf5d3463494b57a364a1e4fe3f1be987",
+    "contiguous_source_span": "Conal, the son of Comgal then succeeded in five hundred and fifty-",
+    "provider_quote_exact": true,
+    "matches_documented_grounding": true,
+    "overlaps_selected_span": true
+  }
+]

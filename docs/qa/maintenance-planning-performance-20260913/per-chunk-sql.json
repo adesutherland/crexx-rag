@@ -1,0 +1,442 @@
+{
+  "candidates": 28917,
+  "chunks": [
+    "occurrence-sha256:00005ea48301c1c8a054d4ae70d2ff2d5e321e0abc5928953b5af9ae19e0842c",
+    "occurrence-sha256:01480593cb6d5f1413952647343688980d827747c522120862d315c3d43ef47a",
+    "occurrence-sha256:026db4e616012eec0de98d58d45b3552081a0f1cc86baf7e415814a03bdb85f8",
+    "occurrence-sha256:03dc734fdf87dc56010c2a18c8a4e2dc6dee724d59be609f5f34c2cdbf308475",
+    "occurrence-sha256:051c2ed41af03bc664a25ce35e261541428a6b9872c6e29bfb01de25c3e8c0b5",
+    "occurrence-sha256:062db3695be6bfad42d50a39817fe7c54a011668db7215b8a9ca8efcb46c0ccd",
+    "occurrence-sha256:078c6cc79a4656ab0dd3ded9af14090815858501f67f5ba7530d2079f896a7a6",
+    "occurrence-sha256:08f88e3f92d8719056c4cb76b9ee9cdaadeee14ee1a7e9e81d571dd4a69234f8",
+    "occurrence-sha256:0a2e6dcd46340c4d036bea71e28375541367debb3fef62673c7376804b8c2918",
+    "occurrence-sha256:0b7e68e4a44cb39ef93f5f9dec4103724b478dc2206370edb0304161195b3f81",
+    "occurrence-sha256:0ce14a6841c3711b845365ad700e79ec91180c7ede1b8d65471f1881b11661f4",
+    "occurrence-sha256:0e41694624f8dc1fb9761c0601af60b2bd04c40053181c22192226cb77b74a67",
+    "occurrence-sha256:0f8d1a0d8d118fb1ed11a3f4dd876459baeb489a04167c951587e0dbc1d139d9",
+    "occurrence-sha256:10d2830effaaeb9c998e9f9c82002c895c677d09d6d53bb89b7c6626ca786728",
+    "occurrence-sha256:11f3cf59f19c28913530858b210185951c65519df6e0ecf6cccf4ad6bf51dcef",
+    "occurrence-sha256:13332a30b3b9e4b96c5d74926814d9aca3397b4d0675dc4b831ed7bf43915585",
+    "occurrence-sha256:148505b17935e20021253cdd81e693ec6809c3f5f19760776512c30f8b98e98b",
+    "occurrence-sha256:15e4c66abe1ec95b19dfce713ac5ab92e40677d1f2e15241f05e635d671ae24b",
+    "occurrence-sha256:174e69abc8df0c2f8afd9102515b694d416a45dd5415d8a22a40d73917076713",
+    "occurrence-sha256:1897dbeeac34de3a618da4aebef0885038dfa741cb30ba5e45cf6fa627da4aaa",
+    "occurrence-sha256:1a228642e2a8bd7dd0f1d91435e9076b97060a50d32ac8a9a23a738e271a36d4",
+    "occurrence-sha256:1b601cc975fff0e02eac536d229891151c8c83ddd51f690edbbf1c16b92a2bd6",
+    "occurrence-sha256:1c94d6212e8d89f3bf64541c11d3dffc06944a13688c1032b755f1b1608121b4",
+    "occurrence-sha256:1dfaf42e2431145f36d3a8c284199c2e76c6c769dbc2b405774f05a3e45571ad",
+    "occurrence-sha256:1f517c9f1af611d2f77952ed1a11c94589f880ab18cd1413970c8be302b28d1f",
+    "occurrence-sha256:20a1527c8ee6425231c764258b8e221ab4a77253b8a6c035ae2a73bc59a4c612",
+    "occurrence-sha256:21bdb7f507ea18e8400e1a8ee3945e68c6f78e8b14c922eed2aea8b202ed4d65",
+    "occurrence-sha256:22f1c5031009405f9ab486566897eb3301ecbdf44f271d651c9b377796d2067c",
+    "occurrence-sha256:242c0353c47eb1ca85b590ad595931fdd5853a5792b3a8193b0304a70181cc69",
+    "occurrence-sha256:25796928cc195ee2a6ba44559a42e21d4aaa345ac08586177cf4fc87ee5d7cd7",
+    "occurrence-sha256:27108d6c5a0073aa0e6665ca9d5e0cb3acc089a5eb722c93217a3457f0a86fdd",
+    "occurrence-sha256:2859a30ad2b840e4e28b412393a504d7a6a582c5f9d5daf62dd7316117153735",
+    "occurrence-sha256:297dd15001591ba77a5ef47d1564b324d059752543138819f50d7ffeb9fee455",
+    "occurrence-sha256:2aceb063b26a853061afea4a7564992a20f418ca73bd056381f763c5afe1cd8f",
+    "occurrence-sha256:2c176ebfc0d22bf240f0e4e074d872f4e14778dcb9e6be5b1e9d3cda8abe1f48",
+    "occurrence-sha256:2d27b979808487b0bb4cd6906e9d81dfd28f9b30b0bf8f3949911e8e104929cf",
+    "occurrence-sha256:2e90f865587df9f6a587be53723e0cb70ddbeebfb72b1c0932506bfbd51de219",
+    "occurrence-sha256:2fcf4e9292a94234f9b6f3d83f4155b555259ee12861968462e3448666f43b9c",
+    "occurrence-sha256:30f8744943892c021f2d2c508ac0d85b21e2616020b08e2234c010e77b8dafba",
+    "occurrence-sha256:32358f01dd903ea31c91ad24fa3afa2ede44045160237c4fd7536061284c8ab9",
+    "occurrence-sha256:3390811bc9d9475ef5dccee262994208d0357affcc490bf150f11a8460c16c7d",
+    "occurrence-sha256:34e2a03a96a7d1dfd08c0d1d8d597bf96fca56c3b1690ee0c533f9ad1ee16b62",
+    "occurrence-sha256:3628ddec9d5eb17051a33cac51b25870ef0f45fc48c8fcd4e6549fc0dc7f9d2b",
+    "occurrence-sha256:376f06490a2e135a812e067e73108e12abc82827d09e0247c612e3dbc8ae2f47",
+    "occurrence-sha256:38871ed0133d7328ea0d48e55ddd46884750c22f19efd168971ceaa3a75946da",
+    "occurrence-sha256:39b13f5485a6fe86b15fcf2241e9e5228771a01b1016c7caa1a3241d5fd722c2",
+    "occurrence-sha256:3af83d7120822ea54822e90b4bfcb0806a202cd66ba1af4200592c72c2bd8782",
+    "occurrence-sha256:3c410d061679b84d52707e46d6d6d5c7a59db73cb5a8ddff22a4b6b757e3f05d",
+    "occurrence-sha256:3d9fdee12e1856e491d6599658d3a6023eb129ab212a2a8588e5b3d58ff34f5b",
+    "occurrence-sha256:3ebcd77f430636268c1f20dc4315e428f98116975b3e3f578ac3f1a1f45848e4",
+    "occurrence-sha256:402063f8715f143b7e7ffab09dac03a92ebdf05ad82a473d5da1b85113baa193",
+    "occurrence-sha256:417184c3610fc302057e31247579c265a3e1b22628a6fa20ab14658d256a6035",
+    "occurrence-sha256:428e3b9d58aa3e258df3fdb01b48abd17402cb53da46d00e3afb9181f138aaf6",
+    "occurrence-sha256:43b0423cfd3ab1f97c0e72acb4394578e8553dc412c1eee44c1510465634962a",
+    "occurrence-sha256:450656545e65d1b4c85e03b7bb51d8dca8ff6e97e1862ae3658cf0dd3286f925",
+    "occurrence-sha256:466401add2ab2dddaa76a4651bb850f7c635f196b3d25d7e6449835f19e04d78",
+    "occurrence-sha256:47d57b0cbe16b9ab5bf8beaff9bac7289c4be0e7b153127c280aaacc32cdde23",
+    "occurrence-sha256:49404a83d5e75f6cc67c56ba7f90a8078087ac1c23be8056968539bd2d0a7425",
+    "occurrence-sha256:4a81fc3cfd7091da727bd355a9f1ebf23bdf3eb277dde3846d8aeb3af3cfa1b7",
+    "occurrence-sha256:4bac73577b0d9a984859d6177464a9937d97601f8cb4b6c2ffe9071edee68387",
+    "occurrence-sha256:4cf6714b3a583d84d45f95c97d5e9864661a49c6bd0a0304ca0eba1cf73b3254",
+    "occurrence-sha256:4e3de50094ae06d9b8044bf259d4688d03a4701ff7957ffbfb6802457ccb1589",
+    "occurrence-sha256:4f92ad9ca20e390cb9d098c83e41146dd30a735b4a805fce938f3119e149f8b3",
+    "occurrence-sha256:50cdbdaa19e161a2ee702b7e280264c856ae0079a2287c4890a2695e0a30ecc5",
+    "occurrence-sha256:5205151ae7063bdd63613bfe5f50c1a2e842b7bf9cb777d21654397bcf34e0c4",
+    "occurrence-sha256:53557a6bdff580ad716f5cef77d51c8c9383f5033d5a99a22f7988e42110f093",
+    "occurrence-sha256:546ace71502929de1f800fbc474b9cbf2e28e701650c41d6ad357b987b5746d5",
+    "occurrence-sha256:55d09a5dfd25d03681eab191d94ec8af3959fe5f0668293339f58f61cf4124d6",
+    "occurrence-sha256:56f076432c4bd8262ab6793b700b509fa7abd1f8e9882a7e10dfdad5ed87edca",
+    "occurrence-sha256:580e87546da20520f29daa7bbb53d86db0f8dbb3bccb26b569f65dcc85451e28",
+    "occurrence-sha256:592451882031ede2ce74bc7d0bd703c7c3c3be2c87b5914ade1f0881ca7370ee",
+    "occurrence-sha256:5a63360018568f0a5e186414d202146d86c17732de756563fee63522bd49e33b",
+    "occurrence-sha256:5ba59b14ef46daf149f8ca19d3a232bb5cdf3ba7114af30ddd769d1831f2b6bd",
+    "occurrence-sha256:5d29ebafab15de37938253290540c06c49107f6effe5617553d05cb036481453",
+    "occurrence-sha256:5e7f18d202eb4512f0fd520af8b00aa2a706bff1b3f0c0c464c0309223cb2674",
+    "occurrence-sha256:5fd67d1052b2bdba8539f2c140ec08cfc166ae02f818ceb322f6bfd28cfd8c98",
+    "occurrence-sha256:612e311b82250b4adb0b48752abfff36d8094cf1a2b35e7dc3e45dd9ace758dd",
+    "occurrence-sha256:6271ff019ad5516a435eac320d7d593728e9745be3f1d769bf3d11c5223e98a6",
+    "occurrence-sha256:63bc17116f945dc22a7892f322fe8a535ae04e6272439813f18fc3d49970a65e",
+    "occurrence-sha256:650c5805f1dbb9b9477d769975c1a91b4b3b7fa627b223320214c2027cdb30e2",
+    "occurrence-sha256:662e2be0753df26e902f992dcb81d48f0597ca050aafece07a0cd75466030558",
+    "occurrence-sha256:6769648669f3a77a8889a726fdbd6714cd9eb9881fc4ecf6d743ccb1e4594d95",
+    "occurrence-sha256:68a91ee02932c4ffc47cc359e8af7e76a03c942b4c6b40dfe238ed3c254243ef",
+    "occurrence-sha256:69f1fec3e6c19eb830bd44ea627071271075133697e4bdac934bd4fd443114b9",
+    "occurrence-sha256:6b3a690ebc66424043236a414dc5ef7fb9ef12b1d0e9ae98acc3b7fe0867c506",
+    "occurrence-sha256:6c859c3cf7146c0c47c49b0202f945b823928bf81073f87d90a960ae520f5263",
+    "occurrence-sha256:6dc5f1e33441730a52c73fd99aad68b814cbba7c7495cb013dee26b543d290e7",
+    "occurrence-sha256:6f0d0fd90bb35658b2845a1bd1b80343fa3148f4ab4a372c7c81218f52cd22ae",
+    "occurrence-sha256:704ace7ac8e0848c25b17fb63e7378b4e21e823f180f09d91c40209d22d220ea",
+    "occurrence-sha256:71b32a1c59d97201d8cce3eaae58111cd3e00c534f753a480aedfb04ea160e5d",
+    "occurrence-sha256:72f384d8e8f80776412d323d2f51830cb98e81f12d6455ed34d82150170f25b7",
+    "occurrence-sha256:74579abd005593e8a7011390820c008747452637fad4ea8c14a740d19d1de6a2",
+    "occurrence-sha256:756de44dc7d5149456529bd41fcfb1498ab88017f00568b66db82dbbe5587792",
+    "occurrence-sha256:76bfdccd0f45f6284fa3c3ba3d1b1db29a3506e7f4e3dc745a540a91d9b23224",
+    "occurrence-sha256:77ffc9022a0b071701a5ae1fa87489475fe0985e14b35b423933f245eaaf9868",
+    "occurrence-sha256:797268d5fb79c322c3a5453b7c4bacc3e4b4f8ea2c2910d595183902f9a391d7",
+    "occurrence-sha256:7a9f83bd67ef4f73e97d7a0af0412c1646ac3c84acf9e997965efebe3903d9d6",
+    "occurrence-sha256:7c01c6c6d0e53cca477d040ae8ae3b2ea33ac2dbdcb4ab6e6d2533868f0a5719",
+    "occurrence-sha256:7d273c767fe4688cacf7e3ab61a6674b118862b7bbafcc4fabddbb07ab1ee4d4",
+    "occurrence-sha256:7e8d0a4bde1aa97791dc7588490f545765b6185716d1dc03cc350d03a9ee9e0a",
+    "occurrence-sha256:7fff8528aa4321b8bb176c344ffee0ca525d0e1ce0b6d90e514f8ca7e389c464",
+    "occurrence-sha256:813e57213cc856f0fbb189b3b3803870ae1a8374601d169b83fa1b3d301443f3",
+    "occurrence-sha256:828f44d3a821c4310215fea9f8e6f3e6ac259353757452ef9fa1cc33864bdaaa",
+    "occurrence-sha256:83d067e4b7c5358f13fcaa55fe828924cc069cbea6e8ec1337dd786d1d3081d1",
+    "occurrence-sha256:84ffad2dff7265be18b8e38800b8a4427225952de3732c061b07c6448e81dc3a",
+    "occurrence-sha256:8666ec84550407e6f6674314eea0d22a288d5d2c4b2fee41a4397df4a48e5737",
+    "occurrence-sha256:87e5c33f8f856ca5ee6d1d2663c368ca9e4186c89bcac596e9b2a5911a193025",
+    "occurrence-sha256:8900e50bedc38db40a942241bc059fd52781c6c50b0d32b971ced9b30d737fd9",
+    "occurrence-sha256:8a6270c77afa7cd48b0abfe91cfc788b4da9f43577b806db0ce18969b1ec54c2",
+    "occurrence-sha256:8bafac0d92f7f3e36e85881cb5827496e9298fb0c69d7193c2b80ad9cdc26f32",
+    "occurrence-sha256:8ccb5717b8d6bf602c0c9d23c61eb7acfb80c7b92c96d3b185c21b0d4961f914",
+    "occurrence-sha256:8e01494fa091ec95a8f967578dc7e357b9b122a571ac66671bd20f944d56d428",
+    "occurrence-sha256:8f4cd12252507e314fe98da4e08d3cccab64ca81b53c0692867a8a65d757f965",
+    "occurrence-sha256:9098d1f28bb9025b5d126400e465869db84741d54b8332d0b99e567872db85e1",
+    "occurrence-sha256:91bff160808d204482ad4e3e82ad9bb48bac232e8ea3685948c8e87039ba4faf",
+    "occurrence-sha256:9336dfca54729fea6b411efb663ab1712a4aac00f8b2ac5b9ecaea661adc4942",
+    "occurrence-sha256:947cc0dffe5de07cf4d803a43f1cbfa86138b5695dbe820f9d66b5bf254a25b1",
+    "occurrence-sha256:95d6a98808a75d868548ca37f40701f64fa4b5fa21ef6103c4f5d5e5b1bfb104",
+    "occurrence-sha256:96e3b52220181319df02c56e1e633b50671e14dc5f7110470e25bc710c569546",
+    "occurrence-sha256:985be431845866d095a0f2cfc2dfec2c1e4429b0f62fc5ce400464b882cad77b",
+    "occurrence-sha256:998fa128a758a83adf7a20c46a885d1c29fa1fd2d3748d176c77a11e4b016b11",
+    "occurrence-sha256:9aedc9a65c735a2fbcf8c4fa94d5f4a5493a3122cf615cb08f209e665efa3cf7",
+    "occurrence-sha256:9c03b731c3383ccdff8777daa1bf7ea66770ed3cd2ad34deaee34406bfd29496",
+    "occurrence-sha256:9d672234e54f6cec8e178541befe04ed41d4a3193725a1a7ccf8ed0b71df4d35",
+    "occurrence-sha256:9ed7b79b074e72005a59e001b1756c7f92aa33d2fe96cbeaefabc47694029505",
+    "occurrence-sha256:a001ed99b6de16ed19663e9a6e32ee59727338f6bc57d09d15f3878356dcaaf0",
+    "occurrence-sha256:a1278ad24a0449e35ba8e09d3913cdbf4c20f0d7997af4122b1ae95399ecb7a2",
+    "occurrence-sha256:a285b088f3d0fd779bec45f174301484d9caec7727d563316e21ae8c6dbc5e5f",
+    "occurrence-sha256:a3d148f628e430fe7b97a6dbfa4c2a6fa2cc66657b1ba65af34fedc443889a14",
+    "occurrence-sha256:a51e5ba5b30aa20279a998bbdd93885a52a22ce27b578a58e0ded5f0115ff5ab",
+    "occurrence-sha256:a62c689a3543eaaa3ba3e3931f8376c8f6c9891c93c8c23376b3e05482504934",
+    "occurrence-sha256:a79258a9897e117db579922522733a5e4a449b8d6e3811edb72bfc32981c7d06",
+    "occurrence-sha256:a8b95e2ca2f2d4900bba6247ea5ec2823568f935155a8311132908fa144eb069",
+    "occurrence-sha256:aa0bc3290b016406d478cb0da85715bdd5a1110e70cc9acc0aea991d6ea782cb",
+    "occurrence-sha256:ab6139692241412f6511bd7874c264724c626c2a77a7ffa1fb8586bc30eccfb0",
+    "occurrence-sha256:accd9ce72332ea29985f44e1239de18126df8d5d6e28069f51aa59296a5bc543",
+    "occurrence-sha256:ae310442dd06ad61eea389b37c328936fdf66d0c118006107fae50df02479246",
+    "occurrence-sha256:af55c7f5a9894974f0340156a43fc4f78987fb36350fc58f262305a92b3a4579",
+    "occurrence-sha256:b0993732730112e83e75371718d1fdca1b58c06db1ef68e1503de2d818387d13",
+    "occurrence-sha256:b1e64dd5dea607f9cf03128bb85526076eb44c46bc6fb7498b372e4acaa0d4d0",
+    "occurrence-sha256:b360159b5ceee69632d4ab18ce31e71539adbfb0c9b994cacbe99f8428230ed1",
+    "occurrence-sha256:b485c9c7b6183374ab49e90f8fb75b27992898f4489ae00be775a21d4705c434",
+    "occurrence-sha256:b5b3d4fa8397f42a3cc693a32b8f111fb2fb1cc00c06df0f25547d32ad9ae721",
+    "occurrence-sha256:b7068df5ce7fbd668afd287ee01e76e975d8a292de51c73fad86f331ba6381a1",
+    "occurrence-sha256:b84b418b8e8988c82691dbf0c7d115934330ef70d81b4ef98ba63ed9a99d6e8e",
+    "occurrence-sha256:b9a6afc5a3466261419f3925762c9d84f145d32756d150c1fb2ecce5b48b7e1b",
+    "occurrence-sha256:baf931c49c3856d5621838d09d68d4ddd8418b5c92a7934ffcd2eecfdb94c846",
+    "occurrence-sha256:bc23f7ee765695f80f10751450455cec569b0956caf4551760bbd7608b780782",
+    "occurrence-sha256:bd767e96eae4dd966ccf93d72ba6179bacbf6f75e5e7ecd0e0b3b6f9592a5699",
+    "occurrence-sha256:beb7ffe100094d782c545635e86cf68f3dcbfc9a35e763285eb84b2001df7d28",
+    "occurrence-sha256:c011b6250790e2c9f8d602b8a76913bbde4610c4137fc10db7d9cef1d0af56f5",
+    "occurrence-sha256:c153bbe48c7a2f720d64098e74ad30a4961a71fd6ff43afed04ade03ee08fbcc",
+    "occurrence-sha256:c2b0098665a06fd42e91bd4df7c38092092e07461fab589e7726879905bbd42a",
+    "occurrence-sha256:c3bee6efcff66dfdae93bd0365052b2bda2c610e7fdd7640c464de8e5bd593d0",
+    "occurrence-sha256:c517cd9502e25287263342779024287af890af11f6a891644b50679f973f07d5",
+    "occurrence-sha256:c64cf760243dfe9c5772e9a378333659f857ef5779018b53773f5c8a78e25c78",
+    "occurrence-sha256:c777a11b769c7abd6cc2a2af48024233e21cbd0d26865f2ff67cf29602371e9a",
+    "occurrence-sha256:c8dc7cfa018e3358b153891730cc078d58196b75da33c8f66027aa95965e093c",
+    "occurrence-sha256:ca0dba15af8bcec01809a6c1e2e50ee460378179c672390ce0b2476628c1ea47",
+    "occurrence-sha256:cb60f8e5ea96e8cff87bb53552b23c26100b8f08073f5a1c1be791fc132edcca",
+    "occurrence-sha256:cc7c2463ca8568c3f694ff26a0b41d9a11c5b71ac07c309ce610ec24567ec51e",
+    "occurrence-sha256:cdc6c5703a9d0d30fffc1ed821088a186406963fa1db49c0ef80e7430bbe3ea3",
+    "occurrence-sha256:cef092e362141844b424f537545c30e96e99642e4e8e0881186f558a80a652f6",
+    "occurrence-sha256:d02c4481527f19315ccbe63bf4e9666318e122b95602202cd613dab104dfb964",
+    "occurrence-sha256:d15271fe0561f48f96ab8a6d77a1a0cbc492c179239d1aaf4d41df6ddba64e3c",
+    "occurrence-sha256:d27114adc7063b97bb724d648886e736137c234b829b876fd119dc5d775e3e50",
+    "occurrence-sha256:d3afd0b97c6810eda681ce87587f703fb9736f61748231a46c5ef0c010e6af7d",
+    "occurrence-sha256:d514db24baf9b7ed09dbdfd55a479d3b707013621880f0d6da8d03e72ab3ae43",
+    "occurrence-sha256:d631826083aa50b732c17e882c926c67e2378a3a4078de1b51b02c914c819def",
+    "occurrence-sha256:d7854ec07a7d1d2bc6536b0c6350911e7f27e7ff26b8f496e3ca29e3ac724601",
+    "occurrence-sha256:d8992691301c1abd1b46271dc3fc8768960f7ef40b6a54fe1cf67ca7d95a5d2b",
+    "occurrence-sha256:d9f8df5efd69c49e93ba2ad0f6e4cff763c015ea102e64d8048d1e9635420a2b",
+    "occurrence-sha256:db1a7cc490035b7f4bc4c578a2b182a7539a089762f4fb134fa943855880b78b",
+    "occurrence-sha256:dc589ed902dca0ca0e1244948db68739744a97950ced67341e21e2f6ba0f538a",
+    "occurrence-sha256:dd8405653a9a68849c664c1c03b5c364720ee0591fa9aaf7e9ac69b657f1ff69",
+    "occurrence-sha256:defdf9ce64f7ab35e5ff12999081dbd35095c2497c1722a08f4124a8d8003495",
+    "occurrence-sha256:e088c7826af5d30d410ddce88f2c29caee8a440f2e7a6c47c81ee950bf07eae5",
+    "occurrence-sha256:e1bca57a825f6086508f4a9d4b7e0b039eb50b91432996b0bb9d3d6bbaabe359",
+    "occurrence-sha256:e2fafcbb6a7f93f6cf7a9c47bdb414a860f110339a6f5356de13824babaa9a19",
+    "occurrence-sha256:e45cef4ae8c2ff6665df0c6d902c86463458b4644da24cd2a017e51fdba3399e",
+    "occurrence-sha256:e5cb1c55f05766c657103f3a665c084aade89d650749a346cdec0a7e0ffa8334",
+    "occurrence-sha256:e6ea2a2a308e6965041ca82df147a46925e0710086bc9768c834719e6feb7cec",
+    "occurrence-sha256:e831a6de6ce4d8e18f7b8abdd8d2b66b41a413433bbc400fa445da608bb028de",
+    "occurrence-sha256:e959f7fcc4c9eb088f7bacd891c229e9bdd3d2f2194e9970756db87f3775db2a",
+    "occurrence-sha256:eaa3028414cb052bdb15e47794330c3cad66ac0ee57a34dc1e678c6ebe368b31",
+    "occurrence-sha256:ebe8cb69f7d09bbf53e0e68826e3650482cf780b0bb0a09a97619ce7896d76fe",
+    "occurrence-sha256:ed290ff7d8ea76b71ac475a3230b14925dd6e05a3c8da06c4c8a8f13dcab1fba",
+    "occurrence-sha256:ee79b3cca7eb8d6d5cc160456d0bf09c439ee00e2ece34fa24a01bce341c0bd6",
+    "occurrence-sha256:efccc83a633304e07e542b54fe641c4274c88941aee1687bac553732796948e5",
+    "occurrence-sha256:f0ff26d2999f551e25cfd251545c62f7e11360baeff77371e0832404058b44c9",
+    "occurrence-sha256:f2737ef8f09564d1b5228343d95e31e489ff74206bc31767ff949b0b1cd6ccfa",
+    "occurrence-sha256:f38d0a85de4704a889e051fbb1777c55211973a3a47b56a9999f3cb6d0e549b2",
+    "occurrence-sha256:f4d2f7593f1074a549ee1a3ce6b61ed4f13bc8c013830b729bfb8bc7b97477a2",
+    "occurrence-sha256:f6166d0298cad7a0c634f64591cf03d0587662380f41c05ba35e6f53f0a96a05",
+    "occurrence-sha256:f7717c71b6655c794c80f6510ab886799884e45fc1f077c42b528f6ff9294348",
+    "occurrence-sha256:f8cdf9b7cd452d6ef38f3d5ecc6a2e27c8a2bed325d59c21f985b9c3b30f3c84",
+    "occurrence-sha256:f9f96674d76372b17c91d7ab241618cf84d1eaf20c9959630e9178e42c9470fa",
+    "occurrence-sha256:fb510866feef8ecc97d4b68e4119df92c9045430f54ca688f85f123de65a97a3",
+    "occurrence-sha256:fcb2d203682a7d01755ffabdbcd29e1db68a516f44dec4903d8cd2c321102c87",
+    "occurrence-sha256:fe1b1101d2e731ff91c0efc725773481eb096d4d0c28709616feaeb6e3607dfd"
+  ],
+  "sqlite_version": "3.53.4",
+  "queries": [
+    {
+      "file": "ragclaims.crexx",
+      "line": 427,
+      "sql": "SELECT published_generation FROM library_meta WHERE singleton=1",
+      "count": 200,
+      "seconds": 0.0004342091269791126,
+      "projected_28917_seconds": 0.062780126624275,
+      "query_plan": [
+        [
+          2,
+          0,
+          33,
+          "SEARCH library_meta USING INTEGER PRIMARY KEY (rowid=?)"
+        ]
+      ]
+    },
+    {
+      "file": "ragclaims.crexx",
+      "line": 430,
+      "sql": "SELECT count(*) FROM candidate_mentions WHERE revision_chunk_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)",
+      "count": 200,
+      "seconds": 0.02369574992917478,
+      "projected_28917_seconds": 3.4260500035097357,
+      "query_plan": [
+        [
+          3,
+          0,
+          47,
+          "SEARCH candidate_mentions USING COVERING INDEX candidate_mentions_chunk_visibility (revision_chunk_id=? AND visible_from_generation<?)"
+        ]
+      ]
+    },
+    {
+      "file": "ragclaims.crexx",
+      "line": 431,
+      "sql": "SELECT count(*) FROM mentions WHERE revision_chunk_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)",
+      "count": 200,
+      "seconds": 0.015275374986231327,
+      "projected_28917_seconds": 2.2085900923842563,
+      "query_plan": [
+        [
+          3,
+          0,
+          47,
+          "SEARCH mentions USING COVERING INDEX mentions_chunk_visibility (revision_chunk_id=? AND visible_from_generation<?)"
+        ]
+      ]
+    },
+    {
+      "file": "ragclaims.crexx",
+      "line": 432,
+      "sql": "SELECT count(*) FROM claim_support WHERE revision_chunk_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)",
+      "count": 200,
+      "seconds": 0.22785250004380941,
+      "projected_28917_seconds": 32.94405371883418,
+      "query_plan": [
+        [
+          3,
+          0,
+          216,
+          "SCAN claim_support"
+        ]
+      ]
+    },
+    {
+      "file": "ragclaims.crexx",
+      "line": 443,
+      "sql": "SELECT count(*) FROM candidate_mentions c WHERE c.revision_chunk_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) AND NOT EXISTS(SELECT 1 FROM candidate_decisions d WHERE d.candidate_id=c.candidate_id AND d.state='accepted')",
+      "count": 200,
+      "seconds": 0.07106920797377825,
+      "projected_28917_seconds": 10.275541434888728,
+      "query_plan": [
+        [
+          3,
+          0,
+          47,
+          "SEARCH c USING COVERING INDEX candidate_mentions_chunk_visibility (revision_chunk_id=? AND visible_from_generation<?)"
+        ],
+        [
+          17,
+          0,
+          0,
+          "CORRELATED SCALAR SUBQUERY 1"
+        ],
+        [
+          22,
+          17,
+          62,
+          "SEARCH d USING INDEX sqlite_autoindex_candidate_decisions_2 (candidate_id=?)"
+        ]
+      ]
+    },
+    {
+      "file": "ragclaims.crexx",
+      "line": 813,
+      "sql": "SELECT t.text FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c.revision_chunk_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2)",
+      "count": 200,
+      "seconds": 0.010843083029612899,
+      "projected_28917_seconds": 1.567747159836581,
+      "query_plan": [
+        [
+          5,
+          0,
+          46,
+          "SEARCH c USING INDEX sqlite_autoindex_revision_chunks_1 (revision_chunk_id=?)"
+        ],
+        [
+          18,
+          0,
+          46,
+          "SEARCH t USING INDEX sqlite_autoindex_chunk_contents_1 (content_id=?)"
+        ]
+      ]
+    },
+    {
+      "file": "ragclaims.crexx",
+      "line": 868,
+      "sql": "SELECT count(*)-1 FROM revision_chunks c JOIN revision_chunks target ON target.content_id=c.content_id WHERE target.revision_chunk_id=?1 AND c.visible_from_generation<=?2",
+      "count": 200,
+      "seconds": 1.0993230838794261,
+      "projected_28917_seconds": 158.94562808270683,
+      "query_plan": [
+        [
+          5,
+          0,
+          46,
+          "SEARCH target USING INDEX sqlite_autoindex_revision_chunks_1 (revision_chunk_id=?)"
+        ],
+        [
+          12,
+          0,
+          216,
+          "SCAN c"
+        ]
+      ]
+    },
+    {
+      "file": "ragclaims.crexx",
+      "line": 876,
+      "sql": "SELECT evidence_class FROM revision_chunks WHERE revision_chunk_id=?1",
+      "count": 200,
+      "seconds": 0.0014551249332726002,
+      "projected_28917_seconds": 0.2103892384772189,
+      "query_plan": [
+        [
+          3,
+          0,
+          39,
+          "SEARCH revision_chunks USING INDEX sqlite_autoindex_revision_chunks_1 (revision_chunk_id=?)"
+        ]
+      ]
+    },
+    {
+      "file": "ragimprove.crexx",
+      "line": 391,
+      "sql": "SELECT gap_id,gap_text,occurrence_count FROM query_gaps WHERE state='open' ORDER BY occurrence_count DESC,gap_id LIMIT 8",
+      "count": 200,
+      "seconds": 0.0015324160922318697,
+      "projected_28917_seconds": 0.22156438069534487,
+      "query_plan": [
+        [
+          5,
+          0,
+          62,
+          "SEARCH query_gaps USING INDEX query_gaps_work (state=?)"
+        ],
+        [
+          29,
+          0,
+          0,
+          "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+        ]
+      ]
+    },
+    {
+      "file": "ragimprove.crexx",
+      "line": 407,
+      "sql": "SELECT n.note_id,n.note_kind,n.text,n.importance,n.uncertainty,n.next_action FROM analysis_note_links l JOIN analysis_notes n ON n.note_id=l.note_id WHERE l.object_type='chunk' AND l.object_id=?1 AND n.state='active' AND n.provider_run_id IS NULL ORDER BY n.importance DESC,n.note_id LIMIT 8",
+      "count": 200,
+      "seconds": 0.013692541979253292,
+      "projected_28917_seconds": 1.9797361820703372,
+      "query_plan": [
+        [
+          6,
+          0,
+          55,
+          "SEARCH l USING COVERING INDEX analysis_note_links_object (object_type=? AND object_id=?)"
+        ],
+        [
+          13,
+          0,
+          46,
+          "SEARCH n USING INDEX sqlite_autoindex_analysis_notes_1 (note_id=?)"
+        ],
+        [
+          36,
+          0,
+          0,
+          "USE TEMP B-TREE FOR ORDER BY"
+        ]
+      ]
+    },
+    {
+      "file": "ragimprove.crexx",
+      "line": 511,
+      "sql": "SELECT count(*) FROM claim_support WHERE revision_chunk_id=?1 AND stance IN('negation','speculation') AND visible_to_generation IS NULL",
+      "count": 200,
+      "seconds": 0.21486629219725728,
+      "projected_28917_seconds": 31.066442857340444,
+      "query_plan": [
+        [
+          3,
+          0,
+          216,
+          "SCAN claim_support"
+        ]
+      ]
+    },
+    {
+      "file": "ragimprove.crexx",
+      "line": 517,
+      "sql": "SELECT count(*) FROM reviews WHERE state='pending' AND json_extract(proposal_json,'$.revision_chunk_id')=?1 AND (?2='' OR review_type=?2)",
+      "count": 200,
+      "seconds": 1.3309111250564456,
+      "projected_28917_seconds": 192.4297850162862,
+      "query_plan": [
+        [
+          3,
+          0,
+          216,
+          "SCAN reviews"
+        ]
+      ]
+    }
+  ]
+}

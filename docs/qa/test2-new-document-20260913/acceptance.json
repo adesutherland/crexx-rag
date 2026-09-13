@@ -1,0 +1,23 @@
+{
+  "baseline_commit": "ab620e5f303696ba477d6b91845f075789b779c9",
+  "start_utc": "2026-09-13T16:06:03Z",
+  "end_utc": "2026-09-13T16:06:56Z",
+  "run_exit_code": 0,
+  "all_four_processed": true,
+  "job_completed": true,
+  "no_unsettled_or_failed": true,
+  "four_calls_two_each": true,
+  "all_chunks_published": true,
+  "library_verified": true,
+  "new_source_retrieved": true,
+  "citation_exact_bytes": true,
+  "workers_completed": true,
+  "gemini_cost_microunits": 49,
+  "managed_codex_turns": 2,
+  "notes": [
+    "One embedding admission attempt was deferred before a provider call, then succeeded automatically; four calls, five local attempts.",
+    "Embeddings are deduplicated payloads; vector publication covers 34907 chunk occurrences.",
+    "Provider-free repeat import already passed before the live run."
+  ],
+  "wall_seconds": 53
+}

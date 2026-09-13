@@ -1,0 +1,20 @@
+{
+  "status": "not-applied",
+  "reason": "Five-minute deadline includes expensive plan and repeated apply preparation; insufficient transport time remains. No calls or writes occurred.",
+  "digest": "3893acf8b61dfd49f9639d1235eccbc6968450a903d6d3a648673f66546b1799",
+  "timing": {
+    "mode": "duration",
+    "requested": "5",
+    "started_epoch": 1789316067,
+    "deadline_epoch": 1789316367,
+    "deadline_utc": "2026-09-13T16:19:27Z",
+    "deadline_local": "2026-09-13 17:19:27",
+    "local_utc_offset_seconds": 3600,
+    "timezone": "host-local:",
+    "cleanup_seconds": 5,
+    "skipped": 0
+  },
+  "plan_created_epoch": 1789316234,
+  "preparation_seconds": 167,
+  "execution_approach": "New 15-minute plan permits preparation; actual worker execution limited to five minutes, eight calls including four Codex turns, and 5000 monetary microunits; no old allowance renewal."
+}

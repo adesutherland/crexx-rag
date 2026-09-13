@@ -1,0 +1,66 @@
+[
+  {
+    "evidence_id": "mention-sha256:9429e2052a55f3721ad86feae25c98ba4edeb2d91ef708daab2f5c45dda58bd6",
+    "quote": "he took leave of Borodale and his son* in-law, and attended by Glenaladale",
+    "required_span": [
+      339,
+      347
+    ],
+    "matching_spans": [
+      [
+        318,
+        403
+      ]
+    ],
+    "selected_span_overlapped": true,
+    "source_excerpt": "Finding  thus,  that  the  whole  of  Clanranald\u2019s  country  -was  wholly  sur- \nrounded by  the  government  troops,  and  that  he  would  not  be  able  to \njoin  that  chief,  Charles  resolved  to  leave  it  immediately.  To  lessen \nthe  risk  of  discovery,  by  reducing  the  number  of  his  companions,  he \ntook  leave  of  Borodale  and  his  son* in-law,  and  attended  by  Glenaladale, \nhis  brother  Lieutenant  John  Macdonald,  who  had  been  an  officer \nin  the  French  service,  and  John  Macdonald  junior,  Borodale\u2019s  son, \nset  out  in  the  morning  of  the  eighteenth  of  July,  and  by  mid-day \nreached  the  summit  of  a hill,  called  Scoorvuy,  at  the  eastern  ex- \ntremity of  Arisaig.  Here  they  rested  and  took  some  refreshment, \nand  Glenaladale\u2019s "
+  },
+  {
+    "evidence_id": "mention-sha256:9b5459c7fb776c2bc14d50ed5e090a0aa0488e1097b478a4ee4bb7d2d37ceb00",
+    "quote": "that the prince was in concealment about Borodale ; and representing the danger Charles would be in, by remaining on Borodale\u2019s lands any longer",
+    "required_span": [
+      68,
+      76
+    ],
+    "matching_spans": [
+      [
+        322,
+        490
+      ]
+    ],
+    "selected_span_overlapped": false,
+    "source_excerpt": "an  appointed  place,  and  paid  a visit  to  Charles.  Next  day  Borodale  re- \nceived a letter  from  his  son-in-law,  Angus  Mac  Eachan,  residing  in \nthe  glen  of  Morar,  who  had  served  as  surgeon  to  Glengary\u2019s  regiment, \ninforming  him  that  a rumour  was  beginning  to  prevail  in  the  country, \nthat  the  prince  was  in  concealment  about  Borodale  ; and  representing  the \ndanger  Charles  would  be  in,  by  remaining  on  Borodale\u2019s  lands  any \nlonger,  he  offered  him  a more  secure  asylum,  in  a place  he  had  pre- \npared for  him.  Before  accepting  this  offer,  Ronald  Macdonald  was  sent \nto  reconnoitre  the  place.  Next  day,  John  Macdonald  was  despatched \nto  view  the  coast,  and  ascertain  the  motions  of  the  military ; and  having"
+  },
+  {
+    "evidence_id": "mention-sha256:bf7a9d005b61185a574c0000b570493549715501991d098af999e9c02662ed9f",
+    "quote": "Borodale, who had proceeded to Glen Morar in advance of the party to procure some necessaries",
+    "required_span": [
+      0,
+      8
+    ],
+    "matching_spans": [
+      [
+        0,
+        108
+      ]
+    ],
+    "selected_span_overlapped": true,
+    "source_excerpt": "Borodale,  who  had  proceeded  to  Glen  Morar  in  advance  of  the  party \nto  procure  some  necessaries,  received  information,  on  his  arrival  there, \nthat  some  men-of-war  with  troops  on  board,  under  General  Campbell, \nhad  anchored  in  Loch  Nevis.  He  thereupon  despatched  two  men  to \nLoch  Nevis,  by  way  of  Loch  Morar,  to  observe  General  Campbell\u2019s \nmotions,  and  having  received  farther  intelligence,  that  Captain  Scott  had \narrived  with  a party  in  the  lower  part  of  Arisaig,  he  returned  to \nCharles,  and  communicated  to  him  the  information  he  had  received. \nBeing  assured  that  Charles  was  upon  one  of  the  promontories  betwixt \nLoch  Hourn  and  Loch  Shiel,  the  English  commanders  had  formed \na chain  of  posts  acros"
+  },
+  {
+    "evidence_id": "mention-sha256:ca20cb9f8c9d61621794fb7cb051c74ef5acb97657c4324a855b8f17fe518bad",
+    "quote": "Borodale conducted his guest to a hut in a neighbouring wood",
+    "required_span": [
+      0,
+      8
+    ],
+    "matching_spans": [
+      [
+        0,
+        68
+      ]
+    ],
+    "selected_span_overlapped": true,
+    "source_excerpt": "Borodale  conducted  his  guest  to  a hut  in  a neighbouring  wood,  where \nhe  entertained  him  in  the  best  manner  he  could  for  three  days,  and  in \nthe  meantime,  Charles  despatched  John  Macdonald,  junior,  one  of  Boro- \ndale\u2019s  sons,  with  a letter  to  Alexander  Macdonald  of  Glenaladale,  who \nhad  been  in  his  service  as  Major  of  the  Clanranald  regiment.f  Receiv- \ning, shortly  after  this  express  had  been  sent,  information  of  the  laird  of \nMackinnon\u2019s  capture,  and  judging  that  his  residence  in  the  wood  was \nnot  safe,  Borodale,  accompanied  by  his  son  Ronald,  who  had  been  a \nlieutenant  in  Clanranald\u2019s  own  company,  conducted  Charles  to  an  al- \nmost inaccessible  cave  four  miles  eastward,  in  which  he  directed  "
+  }
+]

@@ -1,0 +1,152 @@
+[
+  [
+    "sqlite_autoindex_revision_chunks_1",
+    "revision_chunks",
+    null
+  ],
+  [
+    "sqlite_autoindex_revision_chunks_2",
+    "revision_chunks",
+    null
+  ],
+  [
+    "sqlite_autoindex_candidate_mentions_1",
+    "candidate_mentions",
+    null
+  ],
+  [
+    "sqlite_autoindex_candidate_decisions_1",
+    "candidate_decisions",
+    null
+  ],
+  [
+    "sqlite_autoindex_candidate_decisions_2",
+    "candidate_decisions",
+    null
+  ],
+  [
+    "sqlite_autoindex_concepts_1",
+    "concepts",
+    null
+  ],
+  [
+    "sqlite_autoindex_mentions_1",
+    "mentions",
+    null
+  ],
+  [
+    "sqlite_autoindex_claims_1",
+    "claims",
+    null
+  ],
+  [
+    "sqlite_autoindex_claim_support_1",
+    "claim_support",
+    null
+  ],
+  [
+    "sqlite_autoindex_claim_support_2",
+    "claim_support",
+    null
+  ],
+  [
+    "sqlite_autoindex_job_items_1",
+    "job_items",
+    null
+  ],
+  [
+    "sqlite_autoindex_job_items_2",
+    "job_items",
+    null
+  ],
+  [
+    "sqlite_autoindex_reviews_1",
+    "reviews",
+    null
+  ],
+  [
+    "sqlite_autoindex_analysis_notes_1",
+    "analysis_notes",
+    null
+  ],
+  [
+    "sqlite_autoindex_analysis_note_links_1",
+    "analysis_note_links",
+    null
+  ],
+  [
+    "sqlite_autoindex_analysis_note_links_2",
+    "analysis_note_links",
+    null
+  ],
+  [
+    "revision_chunks_visibility",
+    "revision_chunks",
+    "CREATE INDEX revision_chunks_visibility ON revision_chunks(revision_id,visible_from_generation,visible_to_generation)"
+  ],
+  [
+    "claims_visibility",
+    "claims",
+    "CREATE INDEX claims_visibility ON claims(visible_from_generation,visible_to_generation)"
+  ],
+  [
+    "claim_support_visibility",
+    "claim_support",
+    "CREATE INDEX claim_support_visibility ON claim_support(claim_id,visible_from_generation,visible_to_generation)"
+  ],
+  [
+    "job_items_claim",
+    "job_items",
+    "CREATE INDEX job_items_claim ON job_items(job_id,state,priority,retry_at,item_id)"
+  ],
+  [
+    "analysis_notes_state",
+    "analysis_notes",
+    "CREATE INDEX analysis_notes_state ON analysis_notes(state,note_kind,importance,note_id)"
+  ],
+  [
+    "analysis_note_links_object",
+    "analysis_note_links",
+    "CREATE INDEX analysis_note_links_object ON analysis_note_links(object_type,object_id,note_id)"
+  ],
+  [
+    "job_items_lease",
+    "job_items",
+    "CREATE INDEX job_items_lease ON job_items(state,lease_until,item_id)"
+  ],
+  [
+    "candidate_mentions_chunk_visibility",
+    "candidate_mentions",
+    "CREATE INDEX candidate_mentions_chunk_visibility ON candidate_mentions(revision_chunk_id,visible_from_generation,visible_to_generation,span_start,candidate_id)"
+  ],
+  [
+    "mentions_chunk_visibility",
+    "mentions",
+    "CREATE INDEX mentions_chunk_visibility ON mentions(revision_chunk_id,visible_from_generation,visible_to_generation,span_start,mention_id)"
+  ],
+  [
+    "claims_source_visibility",
+    "claims",
+    "CREATE INDEX claims_source_visibility ON claims(source_concept_id,visible_from_generation,visible_to_generation,claim_id)"
+  ],
+  [
+    "claims_target_visibility",
+    "claims",
+    "CREATE INDEX claims_target_visibility ON claims(target_concept_id,visible_from_generation,visible_to_generation,claim_id)"
+  ],
+  [
+    "sqlite_autoindex_maintenance_alias_issues_1",
+    "maintenance_alias_issues",
+    null
+  ],
+  [
+    "job_items_embedding_subject",
+    "job_items",
+    "CREATE INDEX job_items_embedding_subject ON job_items(json_extract(input_json,'$.revision_chunk_id'),json_extract(input_json,'$.provider_id'),json_extract(input_json,'$.model'),json_extract(input_json,'$.embedding_dimension')) WHERE item_type='embedding' AND json_valid(input_json)"
+  ],
+  [
+    "reviews_subject_state",
+    "reviews",
+    "CREATE INDEX reviews_subject_state ON reviews(subject_id,state)"
+  ]
+]

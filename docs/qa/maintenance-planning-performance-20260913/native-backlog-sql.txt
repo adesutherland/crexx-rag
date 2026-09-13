@@ -1,0 +1,18 @@
+sqlite_version=3.53.2
+query=1 eqp=SEARCH c USING INDEX sqlite_autoindex_concepts_1 (concept_id>?)
+query=1 eqp=SEARCH i EXISTS USING AUTOMATIC PARTIAL COVERING INDEX (state=?)
+query=1 eqp=CORRELATED SCALAR SUBQUERY 1
+query=1 eqp=SCAN d
+query=1 rows=8 seconds=0.652907
+query=2 eqp=SEARCH i USING INDEX sqlite_autoindex_maintenance_alias_issues_1 (issue_id=?)
+query=2 eqp=SCALAR SUBQUERY 4
+query=2 eqp=SCAN maintenance_alias_issues
+query=2 eqp=USE TEMP B-TREE FOR ORDER BY
+query=2 eqp=CORRELATED SCALAR SUBQUERY 3
+query=2 eqp=CO-ROUTINE z
+query=2 eqp=SCAN c USING INDEX sqlite_autoindex_concepts_1
+query=2 eqp=SEARCH a USING AUTOMATIC PARTIAL COVERING INDEX (target_concept_id=?) LEFT-JOIN
+query=2 eqp=CORRELATED LIST SUBQUERY 1
+query=2 eqp=SCAN json_each VIRTUAL TABLE INDEX 1:
+query=2 eqp=SCAN z
+query=2 rows=1 seconds=0.170017

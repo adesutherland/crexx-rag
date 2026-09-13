@@ -1,0 +1,128 @@
+[
+  {
+    "subject_type": "alias-issue",
+    "sql": "SELECT json_object('type','alias-issue','id',i.issue_id,'candidate_id',i.candidate_id,'canonical_label',i.proposed_label,'concept_type',i.proposed_type,'aliases',json(i.aliases_json),'candidates',json(coalesce((SELECT json_group_array(json_object('concept_id',z.concept_id,'canonical_label',z.canonical_label,'concept_type',z.concept_type)) FROM (SELECT DISTINCT c.concept_id,c.canonical_label,c.concept_type FROM concepts c LEFT JOIN aliases a ON a.target_concept_id=c.concept_id AND a.visible_to_generation IS NULL WHERE c.visible_to_generation IS NULL AND c.lifecycle_state<>'retired' AND (lower(c.canonical_label)=lower(i.proposed_label) OR a.normalized_alias=lower(i.proposed_label) OR a.normalized_alias IN(SELECT lower(value) FROM json_each(i.aliases_json))) ORDER BY c.concept_id) z),'[]'))) FROM maintenance_alias_issues i WHERE i.issue_id=?1 AND i.state='open'",
+    "seconds": 0.6013075858354568,
+    "times": [
+      0.2525841249153018,
+      0.05012791696935892,
+      0.04998833383433521,
+      0.048816584050655365,
+      0.04959700000472367,
+      0.05068316706456244,
+      0.051275583915412426,
+      0.04823487508110702
+    ],
+    "executions": 8,
+    "query_plan": [
+      [
+        3,
+        0,
+        39,
+        "SEARCH i USING INDEX sqlite_autoindex_maintenance_alias_issues_1 (issue_id=?)"
+      ],
+      [
+        19,
+        0,
+        0,
+        "CORRELATED SCALAR SUBQUERY 3"
+      ],
+      [
+        22,
+        19,
+        0,
+        "CO-ROUTINE z"
+      ],
+      [
+        28,
+        22,
+        224,
+        "SCAN c USING INDEX sqlite_autoindex_concepts_1"
+      ],
+      [
+        47,
+        22,
+        53,
+        "SEARCH a USING AUTOMATIC PARTIAL COVERING INDEX (target_concept_id=?) LEFT-JOIN"
+      ],
+      [
+        65,
+        22,
+        0,
+        "CORRELATED LIST SUBQUERY 1"
+      ],
+      [
+        67,
+        65,
+        0,
+        "SCAN json_each VIRTUAL TABLE INDEX 1:"
+      ],
+      [
+        97,
+        19,
+        228,
+        "SCAN z"
+      ]
+    ]
+  },
+  {
+    "subject_type": "concept",
+    "sql": "SELECT json_object('type','concept','id',c.concept_id,'canonical_label',c.canonical_label,'concept_type',c.concept_type,'lifecycle',c.lifecycle_state,'version',coalesce((SELECT max(version) FROM concept_versions WHERE concept_id=c.concept_id),0),'aliases',json(coalesce((SELECT json_group_array(normalized_alias) FROM (SELECT normalized_alias FROM aliases WHERE target_concept_id=c.concept_id AND visible_to_generation IS NULL ORDER BY normalized_alias)),'[]'))) FROM concepts c WHERE c.concept_id=?1 AND c.visible_to_generation IS NULL",
+    "seconds": 0.17217208282090724,
+    "times": [
+      0.06209266697987914,
+      0.015555917052552104,
+      0.015369958011433482,
+      0.015024665975943208,
+      0.01666412502527237,
+      0.015181249938905239,
+      0.016360916895791888,
+      0.015922582941129804
+    ],
+    "executions": 8,
+    "query_plan": [
+      [
+        3,
+        0,
+        39,
+        "SEARCH c USING INDEX sqlite_autoindex_concepts_1 (concept_id=?)"
+      ],
+      [
+        17,
+        0,
+        0,
+        "CORRELATED SCALAR SUBQUERY 1"
+      ],
+      [
+        22,
+        17,
+        56,
+        "SEARCH concept_versions USING PRIMARY KEY (concept_id=?)"
+      ],
+      [
+        39,
+        0,
+        0,
+        "CORRELATED SCALAR SUBQUERY 3"
+      ],
+      [
+        42,
+        39,
+        0,
+        "CO-ROUTINE (subquery-2)"
+      ],
+      [
+        46,
+        42,
+        225,
+        "SCAN aliases USING INDEX aliases_lookup"
+      ],
+      [
+        60,
+        39,
+        197,
+        "SCAN (subquery-2)"
+      ]
+    ]
+  }
+]

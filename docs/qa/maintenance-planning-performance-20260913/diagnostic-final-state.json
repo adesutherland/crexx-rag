@@ -1,0 +1,11 @@
+{
+  "job_id": "job-maintenance:339db51c0a49adf1ff10594577d3fdb439d4323bb15f7b03bf709116e0c24254",
+  "job_state": "cancelled",
+  "item_states": [
+    [
+      "cancelled",
+      8
+    ]
+  ],
+  "provider_calls": 0
+}

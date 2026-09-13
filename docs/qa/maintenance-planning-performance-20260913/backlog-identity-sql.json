@@ -1,0 +1,31 @@
+{
+  "sql": "SELECT id FROM (SELECT concept_id id FROM (SELECT c.concept_id FROM concepts c WHERE c.lifecycle_state='active' AND c.visible_to_generation IS NULL AND EXISTS(SELECT 1 FROM maintenance_alias_issues i WHERE i.state='open' AND lower(i.proposed_label)=lower(c.canonical_label) AND (i.proposed_type<>c.concept_type OR EXISTS(SELECT 1 FROM concepts d WHERE d.concept_id<>c.concept_id AND d.lifecycle_state='active' AND d.visible_to_generation IS NULL AND lower(d.canonical_label)=lower(c.canonical_label)))))) WHERE id>'' ORDER BY id LIMIT 8",
+  "seconds": 0.7659554579295218,
+  "rows": 8,
+  "query_plan": [
+    [
+      7,
+      0,
+      204,
+      "SEARCH c USING INDEX sqlite_autoindex_concepts_1 (concept_id>?)"
+    ],
+    [
+      28,
+      0,
+      53,
+      "SEARCH i EXISTS USING AUTOMATIC PARTIAL COVERING INDEX (state=?)"
+    ],
+    [
+      41,
+      0,
+      0,
+      "CORRELATED SCALAR SUBQUERY 1"
+    ],
+    [
+      45,
+      41,
+      216,
+      "SCAN d"
+    ]
+  ]
+}
