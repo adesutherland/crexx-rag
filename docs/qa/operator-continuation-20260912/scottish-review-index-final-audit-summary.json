@@ -1,0 +1,142 @@
+{
+  "observed_at": "2026-09-13T01:20:56.048390+00:00",
+  "commands": {
+    "workers": {
+      "exit": 0,
+      "status": "ok",
+      "message": "bounded runtime registry read; heartbeat classification is authoritative and PID state is diagnostic"
+    },
+    "ingestion-status": {
+      "exit": 0,
+      "status": "ok",
+      "message": "bounded durable job status"
+    },
+    "ingestion-progress": {
+      "exit": 0,
+      "status": "ok",
+      "message": "actual job items by operation and source; one consistent snapshot"
+    },
+    "ingestion-holds-page1": {
+      "exit": 0,
+      "status": "ok",
+      "message": "bounded operator inspection without writes or provider calls"
+    },
+    "ingestion-holds-page2": {
+      "exit": 0,
+      "status": "ok",
+      "message": "bounded operator inspection without writes or provider calls"
+    },
+    "ingestion-holds-page3": {
+      "exit": 0,
+      "status": "ok",
+      "message": "bounded operator inspection without writes or provider calls"
+    },
+    "ingestion-holds-page4": {
+      "exit": 0,
+      "status": "ok",
+      "message": "bounded operator inspection without writes or provider calls"
+    },
+    "ingestion-holds-page5": {
+      "exit": 0,
+      "status": "ok",
+      "message": "bounded operator inspection without writes or provider calls"
+    },
+    "ingestion-holds-page6": {
+      "exit": 0,
+      "status": "ok",
+      "message": "bounded operator inspection without writes or provider calls"
+    },
+    "maintenance-status": {
+      "exit": 0,
+      "status": "ok",
+      "message": "bounded durable job status"
+    },
+    "maintenance-progress": {
+      "exit": 0,
+      "status": "ok",
+      "message": "actual job items by operation and source; one consistent snapshot"
+    },
+    "maintenance-holds-page1": {
+      "exit": 0,
+      "status": "ok",
+      "message": "bounded operator inspection without writes or provider calls"
+    },
+    "maintenance-holds-page2": {
+      "exit": 0,
+      "status": "ok",
+      "message": "bounded operator inspection without writes or provider calls"
+    },
+    "sources": {
+      "exit": 0,
+      "status": "ok",
+      "message": "bounded repository page read without mutation"
+    },
+    "report": {
+      "exit": 0,
+      "status": "ok",
+      "message": "deterministic library report generated without provider calls"
+    },
+    "maintenance-summary": {
+      "exit": 0,
+      "status": "ok",
+      "message": "durable maintenance backlog"
+    },
+    "query-turray": {
+      "exit": 0,
+      "status": "ok",
+      "message": "typed evidence retrieved"
+    },
+    "citation-turray": {
+      "exit": 0,
+      "status": "ok",
+      "message": "citation resolved to immutable source text"
+    },
+    "verify_read_access_attempt": {
+      "exit": 4,
+      "status": "error",
+      "message": "library verify requires diagnose access"
+    },
+    "verify_diagnose": {
+      "exit": 0,
+      "status": "ok",
+      "message": "library and repositories verified"
+    }
+  },
+  "ingestion_holds": {
+    "total": 550,
+    "reasons": {
+      "provider mention label is not in its evidence quotation": 112,
+      "provider relationship quotation does not contain both endpoints": 173,
+      "provider relationship evidence quotation is not in the chunk": 42,
+      "provider mention evidence quotation is not in the chunk": 139,
+      "provider relationship endpoints are invalid": 20,
+      "cannot begin provider reservation": 1,
+      "provider analysis note quotation is not in the chunk": 12,
+      "provider mention contradicts the reviewed glossary identity": 11,
+      "provider discovery arrays violate the reviewed bounds": 11,
+      "lease-expired": 8,
+      "Codex allowance preflight failed: Codex App Server response timed out": 3,
+      "provider mention label is invalid": 1,
+      "embedding provider attempt allowance exhausted": 5,
+      "confirmed Codex turn interrupted": 5,
+      "provider time budget exhausted": 7
+    },
+    "uncertain": 0
+  },
+  "maintenance_holds": {
+    "total": 101,
+    "reasons": {
+      "resolution quotation does not ground the selected connection": 52,
+      "resolution cites evidence outside its durable packet": 3,
+      "split successors must be distinct from the migration parent": 28,
+      "split successor identity conflicts with the catalogue": 3,
+      "identity decision did not select a supplied candidate": 9,
+      "identity decision requires a label and type": 4,
+      "synonym collides with another active concept": 1,
+      "confirmed Codex turn interrupted": 1
+    },
+    "uncertain": 0
+  },
+  "turray_source_span_unchanged": true,
+  "audit_invocation_note": "The first library verify invocation used read access and was correctly denied; diagnose access passed. No product failure or repair."
+}

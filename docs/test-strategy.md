@@ -327,10 +327,13 @@ in **848.41 seconds**, plus the scratch-installed continuation/held journey.
 The isolated full-corpus copy rehearsal reconciled both interrupted turns
 without generation calls; provider-run count stayed 20809 and uncertainty
 became zero. Incomplete usage remains a lower bound. The exact hashes and
-logs are in the [handoff](operator-continuation-handoff.md). Actual processing
-master ingestion and 60-minute maintenance are still required live evidence.
+logs are in the [handoff](operator-continuation-handoff.md). At that historical
+checkpoint, actual processing-master ingestion and maintenance were still
+required; the completed live evidence is linked below.
 
 Schema-17 repair qualification: full **63/63 in 847.44 seconds**. The new
 scale/fresh/upgrade controls pass alongside worker, provider, publication and
-installed-product regressions. Actual replacement maintenance smoke remains
-required; see the [handoff](operator-continuation-handoff.md).
+installed-product regressions. The repaired bounded maintenance smoke subsequently passed: exit 0, all eight
+workers drained, one recovered timeout and no held uncertainty. See the
+[final report](operator-continuation-smoke-20260913.md) for its actual 56m55s
+worker runtime, retained holds and remaining status defects.

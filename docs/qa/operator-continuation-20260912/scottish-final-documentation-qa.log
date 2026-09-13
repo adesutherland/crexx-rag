@@ -1,0 +1,13 @@
+Test project /Users/adrian/CLionProjects/crexx-rag-review/cmake-build-debug
+    Start 35: documentation_contract
+1/1 Test #35: documentation_contract ...........   Passed    0.07 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+documentation    =   0.07 sec*proc (1 test)
+methodology      =   0.07 sec*proc (1 test)
+skills           =   0.07 sec*proc (1 test)
+zero-outbound    =   0.07 sec*proc (1 test)
+
+Total Test time (real) =   0.08 sec

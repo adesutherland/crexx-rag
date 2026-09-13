@@ -1,12 +1,12 @@
 # Continue interrupted processing
 
-Delivery status: implementation passed the complete **63/63** automated gate
-in **848.41 seconds**, plus the scratch-installed recovery journey. The
-[handoff](operator-continuation-handoff.md) contains the commit and real Scottish
-run state. The original ingestion queue has drained with 550 inventoried holds;
-the actual Turray recovery is complete. The first maintenance smoke failed with
-RAG-SMK-003, so the requested 60-minute outcome remains incomplete. An empty
-runnable queue alone does not prove corpus coverage.
+Delivery status: implementation and the repaired bounded maintenance smoke passed.
+The final product gate is **63/63**; the worker group exited 0 after **56m55s**
+within its fixed 60-minute window. Original ingestion is drained; the actual
+Turray recovery is complete. Five embeddings, retained content/operational holds
+and two status defects remain, so the whole corpus recovery outcome is open.
+See the [final acceptance report](operator-continuation-smoke-20260913.md) for
+actual closures, counts, the failed first run and pending policy authorization.
 
 ## Ordinary command journey
 

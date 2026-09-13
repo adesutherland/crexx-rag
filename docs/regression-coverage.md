@@ -370,9 +370,11 @@ reviews have separate selection controls, and all reviews survive inspection.
 The unmodified product failed exactly the two new access-path assertions in
 3.02 seconds. A prior test-only reserved identifier error is recorded separately.
 The additive schema-17 repair and fresh/schema-16 upgrade preservation checks
-are under QA; final results belong in the handoff before closure.
+passed the final gate below; the live acceptance is recorded separately.
 
 Schema-17 repair qualification: full **63/63 in 847.44 seconds**. The new
 scale/fresh/upgrade controls pass alongside worker, provider, publication and
-installed-product regressions. Actual replacement maintenance smoke remains
-required; see the [handoff](operator-continuation-handoff.md).
+installed-product regressions. The repaired bounded maintenance smoke subsequently passed: exit 0, all eight
+workers drained, one recovered timeout and no held uncertainty. See the
+[final report](operator-continuation-smoke-20260913.md) for its actual 56m55s
+worker runtime, retained holds and remaining status defects.

@@ -1,8 +1,32 @@
 # Operator continuation: live handoff
 
-Updated: 2026-09-12 23:41 UTC. This file is the persistent task state; update it
+Updated: 2026-09-13 01:28 UTC. This file is the persistent task state; update it
 at every QA/commit/live-run boundary. No outcome is closed merely because one
 slice compiles. Read the current Git diff and current logs before continuing.
+
+## Current state — read this before acting
+
+**No paid process or exec session remains active. Do not launch another run.**
+Session 59810 ended with exit 0 at 01:19:59 UTC on 13 September. Its fixed
+60-minute window ended at 01:21:32; actual worker runtime was 56m55s. Eight
+workers drained, with one confirmed interrupted timeout safely replaced.
+The final public integrity check passed at generation **24,922**, schema 17.
+The master still uses the frozen `artifact-review-index` executable at product
+commit **1edb325**. The selected policy hash is unchanged; 63% account allowance
+remains, with a 10% reserve. No further paid work is authorized by this window.
+
+Read [the final smoke report](operator-continuation-smoke-20260913.md) and current
+ROADMAP. OPS-005, UX-01/03/04 and RAG-SMK-001/002/003 are closed on named evidence.
+The whole recovery outcome remains open. RAG-SMK-004/005 are concrete public
+status defects; five embeddings and retained ingestion holds remain. The exact
+3/6/3 retry-policy approval is still pending; the rejected policy write never ran.
+Do not bypass it through another policy, replay, waiver or reset history.
+
+Final evidence/docs passed the documentation gate and evidence review. No source
+or test change followed product 1edb325's full 63/63 gate. The evidence commit
+containing this checkpoint is identified by `git log -1 -- docs/operator-continuation-handoff.md`.
+The latest dated checkpoint below is the takeover state; older live-session
+instructions are historical and must not trigger another paid run.
 
 ## Authority and target
 
@@ -1186,3 +1210,299 @@ expired. Then runandmonitor realmaintenanceforrequiredwindow; recordwallwindow
 andactualworkertime separately. Fullgatealone doesNOTcloseRAG-SMK-003orOPS.
 No automation exists; stayinactivesession. NeveruseSQLtoliverepair, neverwaive
 contentholdsorchangeattemptceilingswithoutthependingauthority.
+
+## Checkpoint 2026-09-13 00:25 UTC — replacement maintenance RUNNING, do not relaunch
+
+**ACTIVE PAID WORKER SESSION59810**. Frozenartifact
+`/Users/adrian/testrag/overnight-scottish-20260909/continuation-20260912/artifact-review-index/bin/crexxrag`
+from CLEAN committed **1edb325e784fdc0103820f66984da2d89097aab0**.
+Full63/63 in847.44s plusinstalledproduct andfinaldocsgate passed beforecommit.
+Native02f2d4ef292ff6cb6417a466178d682c42265c6878b999708101a01365a07fb5;
+linked059354153691243cfc04c57ac6a29fb5802ee88505add33df5f646b91c58d113.
+Allaccumulatedpriorlogs/docs/Turrayclosureareinthatcommit. Newrunobservations
+aftercommitareuncommittedforthenext evidencecommit. No sourceor tests pending.
+
+All9oldownershiprecordswereverifiedexitedinthecorrectescalatedvisibilitydomain.
+Publicmasterlibrarymigrateappliedschema17, preservedgeneration24219/aligned
+manifest; libraryverifyPASSED. Session78407finished0. Oldartifact-utf8isschema16;
+USE NEW ARTIFACT for master now. The selectedpolicyhash remains
+e2d82f0fe11043986f25c03e917b9897ab11a47f5b10ff833db906902d516bb0,1attempt.
+
+Publicjobcontinue SAMEfailedjob withone renewal
+`scottish-maintenance-recovery-20260913`,minutes60,preparetrue FINISHED0
+(session84117),provider_calls0. **Do not add anotherperiod or extendthisone.**
+Windowfixed **2026-09-13T00:21:32Z →01:21:32Z**, cleanup5s/percallceiling120s.
+Actualgroupstarted **00:23:04Z**. Recordwallwindowvsactualworkertimehonestly;
+preparationconsumed92seconds. Monitorthroughcompletionandrecordnormaladmission
+cutoff,don'tclaim60minutesofactiveworkers.
+Job `job-maintenance:d40ed9c08dc658d3c7449f56d816c50a76a58cd630588800eede91b8c29ae3a9`.
+Controller **controller-fde633966985475488f4c4f277910227**,8workers.
+Status00:23:23Z:running,89queued/8running/91processed/16skipped/4dead,
+0helduncertain,heartbeatage0. Historicalfailedrunbaseline88processed/16skipped/
+4dead/92cancelled. Newwindowprepared100freshmaterializeditems;useactualtotals
+fromstatusratherthanassumingcancelledIDsrevived. Renewedbudget100000items/calls,
+2e9input/6e8output/10m monetaryµ/60000turns; allpriorusagepreserved,per-task1
+andper-calllimitsunchanged. Lastaccountread65percentavailable,minimumreserve10.
+
+Runrootfiles:
+- maintenance60-review-index-started.txt
+- maintenance60-review-index.log
+- maintenance60-review-index.err
+- maintenance60-review-index.exit and-ended.txt appearONLYaftercompletion.
+Latestpublicstatus `/private/tmp/scottish-review-index-maintenance-status-1.json`;
+summaryfile `...maintenance-summary-1.json` hasmaintenance-window.backlog JSON
+withdeadline/timing/cumulativeprovider_calls. Bothcopiedrepo/runroot.
+Statusprovider-time is cumulative1178930ms,112provider_callsatthelatestread;
+notnewwindow-onlyfigures. Fiveembeddingsstillmissing34905total.
+
+No otherexecsessionsactive. Do NOT launchanothergroupwhile59810runs.
+Pollsession/logs and publicstatus atboundedintervals; provideraccountreserve
+aboutfive-minutechecks. Preserveactive_unsettled vsheld_uncertain distinction.
+Ifgroupfails,pause/drain,recordfreshPIDs/outcomesbeforeanyrepair/restart.
+Fixrunblockerswithregressionfirst/fullQA/commit/newartifact; recordnonblocking
+findings forlater. RAG-SMK-004 staleregisteredworkerdisplayremainsOPENP2.
+RAG-SMK-003islocallyqualifiedbutLIVEqualificationisongoing.
+
+The3/6/3reasoning/embedding/maintenanceretryapprovalquestionremainsPENDING.
+Automaticapprovalreviewrejectedthatpolicywrite; itNEVERran. Don'tbypassvia
+newpolicyorpaidreplay.5embeddingrequestsheld,24operationalingestioncandidates
+notreplayed,521evidenceholdsretained. Originalingestionqueued0/uncertain0.
+TurrayUX01/03/04closedat24219withpublichistory/sourceverification.
+
+Aftermaintenanceends: finalstatus/holds/allowance, correctvisibilityownership,
+publiclibraryverify/report/sourceprogress andusage. Reportelapsedwindowandactual
+processingseparately; don'tcallglobalbacklogfinishedorcorpuscoveredwhileholds
+remain. Updateallcurrentstatus/docs/roadmapandcommitfinalevidence. Endonlyafter
+requestedworkiscompletedoractualexternalapprovaldependencyisclearlyreported.
+No scheduledautomationexists. Activeexecutionmustcontinue.
+
+## Checkpoint 2026-09-13 00:31 UTC — first replacement batch transition passed
+
+Session59810 is STILL RUNNING. Status00:29:13Z:400actual items,92queued,
+8running,170processed,20skipped,18dead,92cancelled;8registeredworkers,
+controller running, heartbeat age0, held_uncertain0. This is82additional
+processed/4skipped/14dead compared with the failed-run baseline88/16/4.
+The batch transition produced explicit SQLITE_BUSY heartbeat retry diagnostics
+but recovered without a worker replacement or terminal heartbeat failure.
+Do NOT describe this as zero contention. Both repeated review scans are fixed;
+census/evidence construction still holds the writer for a bounded batch.
+The whole60minute smoke remains in progress, not closed by this transition.
+
+Public hold inventory at00:27-ish had14total failures:8quotation-not-grounded,
+4successor-equals-parent,2successor-catalogue-conflict. A later status had18;
+refresh final inventory before reporting totals. These are provider response
+validation holds; do not relax validation or invent accepted coverage.
+Last public provider status now64percent available; preserve10percentreserve.
+No unknown outcomes or paid retry policy change. Both diagnostic read sessions
+are finished. ONLY59810 remains active.
+
+Current front summary has been added and its timestamp refreshed to make
+takeover immediate. Continue roughlyminute publicstatus reads and meaningful
+progress updates, five-minute allowance checks, recording batch transitions
+and any actual faults. Files throughstatus4/firstholds/secondallowanceread
+are copied into repo evidence and runroot. Partial stderr snapshot
+maintenance60-review-index-transition1.err is explicitly a mid-run capture.
+When eventually finished, capture complete logs/status and final source/coverage
+verification, update roadmap/docs with honest closures and remaining holds,
+then commit evidence. No scheduler exists and no second group is authorized
+while this one is active. Do not end at this checkpoint.
+
+## Checkpoint 2026-09-13 00:36 UTC — two batch transitions passed; run still active
+
+Only paid session **59810** is active; do not relaunch it. At00:35:30 UTC,
+status-7 reported500 materialized items:264 processed,39 skipped,28 dead,
+92 historically cancelled,69 queued and8 running. The restart has therefore
+added176 processed,23 skipped and24 validation failures to baseline88/16/4.
+The third new100-item batch is underway. Both transitions recovered bounded
+SQLITE_BUSY heartbeat retries without replacement or terminal failure.
+Controller state running, heartbeat age0, held uncertain0, replacements0.
+Do not describe this as zero contention or as completed60-minute qualification.
+
+Correctly escalated public `worker list` verified controller+8worker PIDs alive
+(`scottish-review-index-live-workers-1.json`). Account read3 reported64percent
+available, minimum reserve10. Both reads completed; no extra sessions remain.
+Snapshots throughstatus7 and providerstatus3 are copied to repository evidence
+and runroot; stderr transition2 is explicitly a partial log snapshot.
+
+HEAD1edb325 and product/tests are unchanged and fully qualified. Only ongoing
+run notes/evidence are dirty. Master remains on schema17 and the frozen
+artifact-review-index. Fixed window still ends01:21:32 UTC; actual group began
+00:23:04. Continue minute-scale status and five-minute reserve/process checks,
+keep the handoff current, and complete the run plus final public verification,
+documentation and evidence commit. The pending higher retry-setting authority
+has not arrived; current1attempt remains. No original ingestion replay or
+embedding retry bypass, SQL repair, waiver or second allowance was performed.
+
+## Checkpoint 2026-09-13 00:46 UTC — real timeout recovered; maintenance continues
+
+**Only paid session59810 is active.** At00:44:45 UTC, status12 reported600
+materialized items,376 processed/46 skipped/42 dead/92 historical cancelled,
+43 queued/1 running; controller heartbeat age2,8 registered workers,1 recorded
+replacement,0 held uncertain outcomes. New work since restart:288 processed,
+30 skipped,38 failures. Do not claim a failure-free run. Fixed window remains
+00:21:32→01:21:32 UTC; actual workers began00:23:04.
+
+The third batch's final paid call reached the120-second Codex deadline. Worker
+`worker-65ff1fb51bb0e8e676efa28fe4c5e6d4` exited; supervisor replaced it with
+`worker-44a3b213ab4bb57fd7ac2bf8ccefc27d` and continued. Public held-item facts
+confirm the exact turn is interrupted, not uncertain, with one recorded paid
+call and an attempt-limit hold under the unchanged ceiling1. Item:
+`item-maintenance:ef465875a2547818dd4afe0f3f7584372ba68417d30d5c8afab5f071617670a8`;
+task `task:545363ebb336fe8f6488471cfa9645a212f4b2f7b60cfc491c72205a55668971`.
+Its ten claim attempts comprise nine cancelled deferrals with provider_run_id
+NULL and one paid attempt,00:39:31.464→00:41:31.765. Provider run
+`provider-run-sha256:8b6917094c40d902d4e6f2525fe6e07235dc05027d57b17469c0f9c2e6e1eeec`.
+No blind retry or higher ceiling was used. The public status last_error can
+retain the old uncertain message even after held_uncertain=0; the current
+item's recovery facts say confirmed interrupted/uncertain0/recorded_calls1.
+
+Public worker-list3 in correct launch visibility now confirms controller+8
+current workers alive, and the failed old worker not-running. Provider-status5
+reports64percent available; minimum reserve10 remains. These reads finished.
+Evidence throughstatus12,holds2,timeout-attempts,process-read3 andreserve5 is
+copied into repository evidence and runroot. recovery1.err is a partial
+stderr snapshot including the real automatic replacement.
+
+At the holds2 snapshot,41 total failures were22 quotation-grounding,3 outside
+durable packet,3 successor catalogue conflict,9 successor equals parent,
+1 missing identity label/type,1 unsupplied identity candidate,1 synonym
+collision,1 confirmed interrupted. Status12 subsequently had42, so refresh
+final counts. These source validations remain in force. No new product change
+is required merely because an invalid model response was rejected. Record
+actual outcomes and distinguish paid transport interruption from content holds.
+
+HEAD1edb325/schema17/frozen artifact remain unchanged. Continue the one group,
+minute status and roughlyfive-minute actual PID/reserve checks, preserving its
+fixed named renewal. Higher3/6/3policy approval is STILL PENDING; it was never
+applied. No additional original ingestion replay/embedding retry/waiver/SQL
+repair. The first maintenance attempt remains a failed smoke; this replacement
+is still underway. Complete final public verification/report/hold inventory,
+update roadmap and evidence, and commit afterwards. Do not end now.
+
+## Checkpoint 2026-09-13 00:58 UTC — window past midpoint; fifth batch transition passed
+
+**Only paid session 59810 is active.** Status 16 at 00:57:10 UTC reports
+800 materialized items: 546 processed, 61 skipped, 64 dead, 92 historically
+cancelled, 29 queued and 8 running. Compared with the failed-run baseline
+88/16/4, this restart adds 458 processed, 45 skipped and 60 holds. The controller
+heartbeat age is zero, one replacement is recorded, and held uncertainty is
+zero. Six active unsettled calls are work in flight, not reconciliation holds.
+
+The fixed deadline remains 01:21:32 UTC; actual worker start was 00:23:04.
+Public process read 5 in the launch permission domain confirms one live
+controller and eight live current workers. The earlier failed worker remains
+visible as failed/not-running. Provider status 7 reports 63% available.
+Summary 2 still reports five missing embeddings and zero waivers. No policy
+change, paid replay, extra renewal or direct SQL repair has been performed.
+
+All temporary review-index JSON snapshots through status 16, process read 5,
+provider read 7 and maintenance summary 2 have been copied to repository
+evidence and the run root. Product code/tests are unchanged at 1edb325; the
+remaining dirty files are ongoing evidence and this handoff. Continue to the
+fixed deadline, collect terminal logs/exit and public integrity, progress,
+current holds and drained ownership. Update roadmap and commit final evidence.
+The 3/6/3 retry-policy question is still unanswered; do not perform dependent
+retries or claim complete corpus coverage. RAG-SMK-004 remains open P2.
+
+## Checkpoint 2026-09-13 01:05 UTC — bounded maintenance continues
+
+Only paid session **59810** is active. Public status at 2026-09-13T01:05:15Z
+reports 1000 materialized items: 670 processed,
+73 skipped, 75 dead, 92 historical
+cancellations, 82 queued and 8 running. Since restart,
+that is 582 additional processed items, 57
+skips and 71 holds. Recorded replacements:
+1; held uncertainty: 0;
+controller heartbeat age: 0 seconds.
+All current temporary JSON snapshots are copied to run root and repository.
+No product or policy changes. The fixed window still ends **01:21:32 UTC**.
+
+Source review confirms that an automatically replaced failed slot is removed
+from the current failure count (`ragprocess`, replacement launch), while its
+original process/attempt history remains. A terminal exit 0 would therefore
+mean the group recovered and drained; it would not mean no timeout occurred.
+Report the actual terminal result, replacement and retained holds separately.
+
+After session 59810 finishes and its .exit file exists, the prepared one-time
+read-only audit script `/private/tmp/scottish-final-public-audit.py` can be run
+with escalation for launch-domain process visibility and evidence writes. It
+uses only public commands, follows all hold cursors for both jobs, and captures
+source progress, report, verify and maintenance state. No paid work or repair.
+Inspect every result, then update final docs/roadmap/coverage/handoff and commit.
+Do not run another maintenance window or bypass the pending retry-policy
+approval. There is no automation. Continue this live task through verification.
+
+## Checkpoint 2026-09-13 01:15 UTC — bounded maintenance continues
+
+Only paid session **59810** is active. Public status at 2026-09-13T01:14:53Z
+reports 1100 materialized items: 817 processed,
+99 skipped, 92 dead, 92 historical
+cancellations, 0 queued and 0 running. Since restart,
+that is 729 additional processed items, 83
+skips and 88 holds. Recorded replacements:
+1; held uncertainty: 0;
+controller heartbeat age: 7 seconds.
+All current temporary JSON snapshots are copied to run root and repository.
+No product or policy changes. The fixed window still ends **01:21:32 UTC**.
+
+Source review confirms that an automatically replaced failed slot is removed
+from the current failure count (`ragprocess`, replacement launch), while its
+original process/attempt history remains. A terminal exit 0 would therefore
+mean the group recovered and drained; it would not mean no timeout occurred.
+Report the actual terminal result, replacement and retained holds separately.
+
+After session 59810 finishes and its .exit file exists, the prepared one-time
+read-only audit script `/private/tmp/scottish-final-public-audit.py` can be run
+with escalation for launch-domain process visibility and evidence writes. It
+uses only public commands, follows all hold cursors for both jobs, and captures
+source progress, report, verify and maintenance state. No paid work or repair.
+Inspect every result, then update final docs/roadmap/coverage/handoff and commit.
+Do not run another maintenance window or bypass the pending retry-policy
+approval. There is no automation. Continue this live task through verification.
+
+## Checkpoint 2026-09-13 01:26 UTC — live run and final audit complete; evidence commit next
+
+Paid session 59810 and audit sessions 19605/61731 are finished. No active
+controller/worker PIDs remain. Complete logs, final paged hold inventories,
+status/progress/report, search/citation and provider reserve are retained in
+repository evidence and run root. The corrected diagnose-access verification
+passed with zero issues; the first read-access denial is retained as an
+invocation mistake. Policy SHA remains e2d82f0fe11043986f25c03e917b9897ab11a47f5b10ff833db906902d516bb0.
+
+Final maintenance totals: 879 processed/128 skipped/101 dead/92 historical
+cancelled, zero queued/running/held uncertainty. Restart delta: 791/112/97.
+Original ingestion: 15463 processed/15565 skipped/550 dead, zero queued/running/
+uncertain. Five embeddings missing; no waivers. Final generation24922, 8sources,
+34905chunks, 34900embeddings. Global durable open32565, migratingworkflows44.
+
+New RAG-SMK-005: public job status projects completed_with_errors, job list
+retains paused, report counts it active, while maintenance window is deadline
+and all PIDs exited. Owner raglifecycle projection through ragwork versus raw
+ragrepository/ragreportservice readers. Recorded open P2 with parity regression
+requirements; no code fix performed. RAG-SMK-004 also remains open P2.
+
+Final acceptance, architecture, roadmap, defects, coverage and test-strategy
+notes are updated. Run the documentation_contract gate and git diff --check,
+review actual changed files/evidence for secrets and incorrect closure claims,
+then commit all this task's final docs/evidence locally. Do not run new paid work
+or modify product code merely to hide retained content holds. No push/release.
+The pending exact retry-policy approval is still unanswered and was not applied.
+
+## Checkpoint 2026-09-13 01:28 UTC — final verified takeover state
+
+No process, tool session or automation is running. The authorized bounded live
+work ended and its final audit is complete. Product remains 1edb325/schema17;
+final docs/evidence are the only subsequent changes. Documentation contract
+passed 1/1 in 0.08s, git diff --check passed, 119 relative links resolved, all
+new JSON parsed, and the bounded credential-pattern scan found no matches
+across the 99 changed files at that scan. Exact logs are retained. The local
+commit containing this checkpoint is the final evidence commit; no push.
+
+Start any next session from the final smoke report and ROADMAP, not the old
+running checkpoints. RAG-SMK-004/005 are open P2 with named owners and required
+regressions. Five embeddings and retained operational/content holds remain;
+exact 3/6/3 retry policy approval is pending and no such write ran. No new
+paid continuation period is authorized by the expired window. Preserve the
+single selected policy, all histories, 10% reserve and separate query copy.
+The broader corpus outcome is explicitly open; only the named closures in the
+final report are closed. User can plan from those actual acceptance boundaries.

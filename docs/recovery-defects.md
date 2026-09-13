@@ -4,23 +4,21 @@ Start with the [consolidated roadmap](ROADMAP.md) for cross-project priorities,
 current status and related query, configuration and agent findings. This file
 retains the complete operational requirements and dated incident evidence.
 
-## Current continuation delivery — 12 September 2026
+## Current continuation delivery — 13 September 2026
 
-The authorized [complete operator journey](operator-continuation.md) passed
-63/63 local QA, then entered the real corpus smoke. It combines OPS-001/002/003/005 instead of treating a retry button as
-complete recovery. New failing reproductions exposed the old one-attempt
-ceiling veto, a separate embedding/reasoning ceiling conflict, unindexed
-uncertainty reads and configured-worker reporting without a controller event.
-Named continuation, shared retry facts and bounded progress are implemented.
-The [coverage matrix](regression-coverage.md#complete-operator-continuation-follow-up--12-september)
-and [persistent handoff](operator-continuation-handoff.md) retain current evidence.
-The original ingestion queue has drained: 15,463 processed, 15,565 skipped,
-550 retained holds (521 evidence validation, 24 operational extraction, five
-embedding), and no uncertain outcomes. The actual Turray migration completed
-through public reviewed commands at generation 24,219. The first maintenance
-run failed with RAG-SMK-003 below; the requested 60-minute smoke remains incomplete.
-Higher retry settings were rejected by automatic approval review and await the
-user's exact authorization. Current one-attempt policy remains unchanged.
+The [final smoke report](operator-continuation-smoke-20260913.md) records the
+completed continuation implementation, 63/63 final product gate, original
+queue drain and repaired bounded maintenance run: exit 0, eight workers drained,
+one automatic replacement, 791 additional processed items. The fixed window
+was 60 minutes; actual worker runtime was 56m55s. Integrity passed at generation
+24,922. Turray's actual reviewed migration is complete; OPS-005 and the three
+repaired smoke defects are closed on their stated evidence.
+
+The whole corpus recovery remains open. Five embeddings are missing, the
+original job retains 521 content and 24 operational extraction holds, and
+maintenance retains 101 holds. RAG-SMK-004 and RAG-SMK-005 are open P2 public
+status defects. Higher retry-policy authorization remains pending after automatic
+approval review rejected the persistent increase; no policy write ran.
 
 The incident accounts below preserve the original requirements and dated
 measurements. Their statements that an old run is underway, or that a now
@@ -812,3 +810,34 @@ nonterminal registrations and inspect controller state, heartbeat age and worker
 list together. A future fix must preserve the distinction between stale,
 confirmed exited and inaccessible/unknown; stale alone never authorizes pruning.
 Track under OPS-003; no product repair or closure is claimed here.
+
+## Final qualification — 13 September 2026
+
+RAG-SMK-003's repaired run on 1edb325 completed with exit 0, all eight current
+workers drained and no terminal heartbeat failure over nine batch transitions.
+Its one Codex timeout was confirmed interrupted and automatically replaced;
+bounded SQLite BUSY retries still occurred. The index defect is closed on the
+63/63 local gate plus this live evidence. Reducing census writer duration is a
+separate follow-up, not a claim that the run was contention-free.
+See the [complete acceptance and remaining work](operator-continuation-smoke-20260913.md).
+
+## RAG-SMK-005 — P2: final public job states disagree
+
+Open, reproduced by the final read-only audit at generation 24,922. For the
+same drained maintenance job, `job status` says `completed_with_errors` with
+zero queued/running items and a stopped controller, while `job list` says
+`paused`. `maintain status` says the window reached `deadline`; `library report`
+counts one active job. All controller/worker PIDs are confirmed not running.
+The final status, job-list, maintenance-summary, worker and report JSON preserve
+this mismatch. No SQL repair or renewed paid run was used to make them agree.
+
+`ragwork.readjobstatus` projects through `raglifecycle.lifecyclejobstate` using
+item totals and window state. `ragrepository` job listing and
+`ragreportservice` active-job accounting consume stored job state; the latter
+includes paused jobs as active. The public terms therefore describe different
+facts without making that distinction clear. Repair must give these readers
+one consistent current lifecycle projection or explicitly separate persisted
+control state from current outcome/activity. Preserve an intentional live
+pause, unknown outcomes and remaining durable work. Add public CLI/MCP and
+report parity tests for normal deadline drain, operator pause and uncertain
+holds before changing the owning rule. Track under OPS-003; no repair is claimed.

@@ -258,6 +258,24 @@ consume it. Terminal content failures create ordinary chunk review tasks marked
 job/item and rejected responses. Transport and storage failures do not create
 reasoning tasks. No schema or native-provider changes support these controls.
 
+`ragbacklog.tickbacklogwindow` owns the maintenance checkpoint transaction:
+outcome reconciliation, census and evidence preparation, dispatch selection,
+and remaining-work accounting. `ragschema` owns its durable access paths.
+Schema 17 adds `reviews(subject_id,state)` for the shared pending-review
+predicate; selection and eligibility must not scan every review for each task.
+The same index supports fresh libraries and additive upgrades without changing
+review decisions, task identities, receipt history or attempt ceilings.
+
+The Scottish scale regression uses 30,000 tasks and 5,000 reviews and checks
+the query plan plus selection semantics. Corpus-copy profiling isolated two
+roughly 28-second repeated review scans, reduced below 0.05 seconds by the
+index. Census/evidence preparation still took about 27 seconds inside the
+writer transaction, and the live repair run still emitted bounded heartbeat
+retries. Reducing that remaining critical section is a separate follow-up in
+this owner, with snapshot/fence and concurrent-publication regression coverage;
+adding executables or moving SQLite policy into CREXX would not repair this
+access-path defect. See the [incident and evidence](recovery-defects.md#rag-smk-003--p1-maintenance-checkpoint-exhausts-worker-heartbeat-tolerance).
+
 CREXX owns the generic SQLite implementation, bundled SQLite build, dynamic
 provider, native archive, session isolation, and typed API. This repository
 imports `rxsqlite` and owns only the schema, repositories, orchestration, and

@@ -1,0 +1,1 @@
+{"schema":"crexx-rag.command-result/1","operation":"library.verify","status":"error","exit_code":4,"exit_name":"access-denied","message":"library verify requires diagnose access","records":[]}
