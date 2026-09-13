@@ -1,5 +1,15 @@
 # Regression coverage baseline — REG-01
 
+SQL review implementation is tracked in the [delivery checklist](sql-performance-delivery-20260913.md).
+Its clean product baseline passed 69/69 in 943.87 seconds. New acceptance covers
+fresh/upgraded SQL access paths, legacy JSON, unrelated-job recovery isolation,
+active admissions older than the rate interval, numeric-row error cleanup,
+FTS duplicate parity, native page boundaries, strongest-occurrence ranking and
+workflow connection progress across publications. Final focused QA passes
+**4/4 in 25.51 seconds**; full acceptance passes **70/70 in 919.24 seconds**.
+The final native corpus smoke and complete report also pass with no hosted calls.
+
+
 Latest simplification: the [repair](rule-simplification-repair-20260913.md) adds
 `regression_rule_simplification` for prospective policy beside historical/queued
 jobs, stable repeated cancel, completed-task diagnostics and one-source ingest.

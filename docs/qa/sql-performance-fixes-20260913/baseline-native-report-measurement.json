@@ -1,0 +1,7 @@
+{
+  "seconds": 41.70119062485173,
+  "native_sha256": "ba35a980f1a4bcc06ea7cae5e6011bd4aeb0e123cbac3a7bf705d23b68737816",
+  "exit_code": 0,
+  "status": "ok",
+  "message": "deterministic library report generated without provider calls"
+}

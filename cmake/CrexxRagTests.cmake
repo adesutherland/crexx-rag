@@ -765,3 +765,18 @@ add_test(NAME native_embedding_retry_policy
         -DCPRAG_LEGACY_CEILING=ON -DCPRAG_EMBEDDING_POLICY=ON
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeLifecycle.cmake")
 set_tests_properties(native_embedding_retry_policy PROPERTIES TIMEOUT 180 LABELS "native;recovery;lifecycle;regression;loopback")
+
+add_test(NAME regression_sql_performance
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXLINK=${CREXX_RXLINK_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/sql_performance_scenario.crexx"
+        "-DCPRAG_MARKER=SQL_PERFORMANCE_OK"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-sql-performance"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ProjectContract.cmake")
+set_tests_properties(regression_sql_performance PROPERTIES TIMEOUT 150 LABELS "regression;sqlite;zero-outbound")

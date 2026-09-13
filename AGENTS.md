@@ -119,6 +119,14 @@ Worker processes each open their own SQLite connection. CREXX supports
 provider discovery for child task VMs, but changing this product to attached
 workers is a separate architecture decision; native handles remain VM-local.
 
+## SQL and data access
+
+Follow the SQL and data access rules in `docs/architecture.md`. Change the
+owning query/projection and its callers together; check indexing, repeated
+reads and loop/transaction scope. Keep the repair checklist and affected
+regression evidence in `docs/sql-performance-delivery-20260913.md` current.
+Do not duplicate those rules in command adapters or additional approval gates.
+
 ## Build and QA
 
 Implementation must start by confirming regression coverage, including before

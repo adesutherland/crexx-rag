@@ -1,0 +1,1 @@
+{"schema":"crexx-rag.command-result/1","operation":"job.cancel","status":"ok","exit_code":0,"exit_name":"success","message":"job control applied through the durable fenced store","records":[{"kind":"job-control","fields":{"job_id":"job-maintenance:093ff63e2f4851321ed15d40c1793b7b6e9a82c53a2161aafab2c4c0eb5955e4","operation":"job.cancel"}}]}

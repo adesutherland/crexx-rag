@@ -501,3 +501,23 @@ The command-specific and replay-only copies are removed. No dependency, provider
 contract, schema, receipt or worker-fencing change is introduced. Focused QA
 passes 5/5; full QA passes 68/68 in 944.08s, and the matching
 scratch-installed publication/fault/history replay passes.
+
+
+## SQL review implementation — 13 September 2026
+
+The [SQL repair checklist](sql-performance-delivery-20260913.md) tracks the
+implementation and acceptance independently. `ragclaims` now composes
+`raglifecycle` for job completion and owns the shared chunk-rank projection;
+`ragimprove` consumes it and retains context only for selected work.
+`ragbacklog` owns the automatic preview/activation distinction and bounded
+census. `ragusage` owns grouped job usage. `ragreportservice` owns grouped
+operational projections; `ragstore` owns complete FTS parity, reused by
+repository verification only in the same read snapshot. `ragsqlsupport`
+provides numeric-row decoding without taking transaction or domain ownership.
+The original 69-test baseline passed in 943.87 seconds. Final focused QA passes
+4/4 in 25.51 seconds and the complete suite passes **70/70 in 919.24 seconds**.
+The new SQL regression covers stronger shared-content occurrences, complete
+FTS parity, row-decoding cleanup and workflow cursor progress across publication.
+The final native corpus plan/apply takes 0.204/0.625 seconds for eight items,
+with no provider calls; full report semantics match the installed baseline.
+See the checklist's retained evidence for exact source and executable hashes.

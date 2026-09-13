@@ -1,11 +1,12 @@
 options levelg
 
-namespace ragusage expose jobusagejson closeexpiredreservations retainuncertainusage updateexternalrunusage updateexternalrunallowance releaseprovidercall settlecall settlecallintransaction recoverprovideraccounting unknownusageguard actualusage reservationusage reservationdelta
+namespace ragusage expose jobusagevalues jobusagejson closeexpiredreservations retainuncertainusage updateexternalrunusage updateexternalrunallowance releaseprovidercall settlecall settlecallintransaction recoverprovideraccounting unknownusageguard actualusage reservationusage reservationdelta
 
 import rxfnsb
 import rxjson
 import rxhash
 import rxsqlite
+import ragsqlsupport
 import ragstore
 import ragenvironment
 import ragworktypes
@@ -256,6 +257,12 @@ jobusagejson: procedure = .string
   if uncertainty<0 | active<0 | incomplete<0 then return ""
   return substr(result,1,length(result)-1) || ',"uncertain_items":' || uncertainty || ',"active_unsettled_items":' || active || ',"held_uncertain_items":' || (uncertainty-active) || ',"incomplete_usage_observations":' || incomplete || '}'
 
+/* Calls/input/output/cost/time from this job's distinct durable runs. */
+jobusagevalues: procedure = .int
+  arg database=.binary, job_id=.string, expose values=.int[]
+  sql="SELECT count(*),coalesce(sum(p.input_tokens),0),coalesce(sum(p.output_tokens),0),coalesce(sum(max(0,p.cost_microunits)),0),coalesce(sum(p.duration_ms),0) FROM provider_runs p WHERE p.provider_run_id IN(SELECT a.provider_run_id FROM job_items i JOIN attempts a ON a.item_id=i.item_id WHERE i.job_id=" || _q(job_id) || " AND a.provider_run_id IS NOT NULL)"
+  return sqlreadints(database,sql,values,5)
+
 actualusage: procedure = .int
   arg database = .binary, job_id = .string, kind = .string
   if kind = "input" then expression = "coalesce(sum(p.input_tokens),0)"
@@ -374,9 +381,9 @@ closeexpiredreservations: procedure = .int
   /* Close reservations whose owning fenced lease has expired.  Rebuilding
    * counters from immutable event pairs repairs a process that died after
    * appending the close event but before returning to its controller. */
-  sql = "INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) SELECT e.job_id,e.item_id,e.attempt_id,'reservation-close:'||substr(e.event_type,length('reservation-open:')+1),json_object('reservation_id',json_extract(e.message,'$.reservation_id'),'input',-CAST(json_extract(e.message,'$.input') AS INTEGER),'output',-CAST(json_extract(e.message,'$.output') AS INTEGER),'cost',-CAST(json_extract(e.message,'$.cost') AS INTEGER),'time',-CAST(json_extract(e.message,'$.time') AS INTEGER),'actual_cost',0,'codex_turn',-coalesce(CAST(json_extract(e.message,'$.codex_turn') AS INTEGER),0),'reason','lease-expired'),strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id JOIN job_items i ON i.item_id=a.item_id AND i.fence=a.fence WHERE e.event_type LIKE 'reservation-open:%' AND a.outcome='running' AND i.lease_until<=CAST(strftime('%s','now') AS INTEGER) AND NOT EXISTS(SELECT 1 FROM job_events c WHERE c.job_id=e.job_id AND c.event_type='reservation-close:'||substr(e.event_type,length('reservation-open:')+1))"
+  sql = "INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) SELECT e.job_id,e.item_id,e.attempt_id,'reservation-close:'||substr(e.event_type,length('reservation-open:')+1),json_object('reservation_id',json_extract(e.message,'$.reservation_id'),'input',-CAST(json_extract(e.message,'$.input') AS INTEGER),'output',-CAST(json_extract(e.message,'$.output') AS INTEGER),'cost',-CAST(json_extract(e.message,'$.cost') AS INTEGER),'time',-CAST(json_extract(e.message,'$.time') AS INTEGER),'actual_cost',0,'codex_turn',-coalesce(CAST(json_extract(e.message,'$.codex_turn') AS INTEGER),0),'reason','lease-expired'),strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM job_items i CROSS JOIN attempts a ON a.item_id=i.item_id AND a.fence=i.fence CROSS JOIN job_events e ON e.attempt_id=a.attempt_id WHERE i.state IN('running','cancel_requested') AND i.lease_until<=unixepoch() AND a.outcome='running' AND e.event_type LIKE 'reservation-open:%' AND NOT EXISTS(SELECT 1 FROM job_events c WHERE c.job_id=e.job_id AND c.event_type='reservation-close:'||substr(e.event_type,length('reservation-open:')+1))"
   if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot close stale provider reservations", error)
-  sql = "UPDATE jobs SET reserved_calls=coalesce((SELECT sum(CASE WHEN e.event_type LIKE 'reservation-open:%' THEN 1 ELSE -1 END) FROM job_events e WHERE e.job_id=jobs.job_id AND (e.event_type LIKE 'reservation-open:%' OR e.event_type LIKE 'reservation-close:%')),0),reserved_tokens=coalesce((SELECT sum(CAST(json_extract(e.message,'$.input') AS INTEGER)+CAST(json_extract(e.message,'$.output') AS INTEGER)) FROM job_events e WHERE e.job_id=jobs.job_id AND (e.event_type LIKE 'reservation-open:%' OR e.event_type LIKE 'reservation-close:%')),0),reserved_cost=coalesce((SELECT sum(CAST(json_extract(e.message,'$.cost') AS INTEGER)) FROM job_events e WHERE e.job_id=jobs.job_id AND (e.event_type LIKE 'reservation-open:%' OR e.event_type LIKE 'reservation-close:%')),0),reserved_codex_turns=coalesce((SELECT sum(coalesce(CAST(json_extract(e.message,'$.codex_turn') AS INTEGER),0)) FROM job_events e WHERE e.job_id=jobs.job_id AND (e.event_type LIKE 'reservation-open:%' OR e.event_type LIKE 'reservation-close:%')),0)"
+  sql = "UPDATE jobs SET (reserved_calls,reserved_tokens,reserved_cost,reserved_codex_turns)=(SELECT coalesce(sum(CASE WHEN e.event_type LIKE 'reservation-open:%' THEN 1 ELSE -1 END),0),coalesce(sum(CAST(json_extract(e.message,'$.input') AS INTEGER)+CAST(json_extract(e.message,'$.output') AS INTEGER)),0),coalesce(sum(CAST(json_extract(e.message,'$.cost') AS INTEGER)),0),coalesce(sum(coalesce(CAST(json_extract(e.message,'$.codex_turn') AS INTEGER),0)),0) FROM job_events e WHERE e.job_id=jobs.job_id AND (e.event_type LIKE 'reservation-open:%' OR e.event_type LIKE 'reservation-close:%')) WHERE job_id IN(SELECT job_id FROM job_items WHERE state IN('running','cancel_requested') AND lease_until<=unixepoch())"
   if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot reconcile provider reservation counters", error)
   return 0
 

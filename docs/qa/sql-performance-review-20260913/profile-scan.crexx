@@ -1,0 +1,12 @@
+options levelg
+import rxfnsb
+import rxsqlite
+import diagnosticbacklog
+main: procedure = .int
+  arg args=.string[]
+  db=.binary;error=""
+  if sqliteopen(args[1],db)<>0 then return 3
+  disable_indexes=0; if args.0>1 then disable_indexes=args[2] as .int
+  status=profilescan(db,error,disable_indexes)
+  call sqliteclose db
+  return 0

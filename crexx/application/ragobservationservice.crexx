@@ -76,15 +76,18 @@ librarysnapshot: procedure = .ragcommandresult
   previous_id = sqlreadtext(database, "SELECT snapshot_id FROM observation_snapshots ORDER BY sequence_number DESC LIMIT 1")
   elapsed = -1; previous_semantic = ""; previous_operational = ""; previous_vector = ""; previous_work = 0; previous_dead = 0; previous_review_total = 0; previous_attention = 0; previous_active_jobs = 0
   if previous_id \= "" then do
-    previous_semantic = sqlreadtext(database, "SELECT semantic_digest FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
-    previous_operational = sqlreadtext(database, "SELECT operational_digest FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
-    previous_vector = sqlreadtext(database, "SELECT vector_generation_id FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
-    previous_work = sqlreadint(database, "SELECT work_backlog FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
-    previous_dead = sqlreadint(database, "SELECT historical_dead_letters FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
-    previous_review_total = sqlreadint(database, "SELECT pending_reviews+open_query_gaps FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
-    previous_attention = sqlreadint(database, "SELECT health_attention_dimensions FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
-    previous_active_jobs = sqlreadint(database, "SELECT active_jobs FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
-    elapsed = sqlreadint(database, "SELECT max(0,CAST(strftime('%s','now') AS INTEGER)-CAST(strftime('%s',captured_at) AS INTEGER)) FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id))
+    prior=.jsondocument(sqlreadtext(database,"SELECT json_object('previous_semantic',semantic_digest,'previous_operational',operational_digest,'previous_vector',vector_generation_id,'previous_work',work_backlog,'previous_dead',historical_dead_letters,'previous_review_total',pending_reviews+open_query_gaps,'previous_attention',health_attention_dimensions,'previous_active_jobs',active_jobs,'elapsed',max(0,CAST(strftime('%s','now') AS INTEGER)-CAST(strftime('%s',captured_at) AS INTEGER))) FROM observation_snapshots WHERE snapshot_id=" || sqlquote(previous_id)))
+    previous_read=0
+    previous_read=previous_read | prior.node_string(prior.member(prior.root(),"previous_semantic"),previous_semantic)
+    previous_read=previous_read | prior.node_string(prior.member(prior.root(),"previous_operational"),previous_operational)
+    previous_read=previous_read | prior.node_string(prior.member(prior.root(),"previous_vector"),previous_vector)
+    previous_read=previous_read | prior.node_int(prior.member(prior.root(),"previous_work"),previous_work)
+    previous_read=previous_read | prior.node_int(prior.member(prior.root(),"previous_dead"),previous_dead)
+    previous_read=previous_read | prior.node_int(prior.member(prior.root(),"previous_review_total"),previous_review_total)
+    previous_read=previous_read | prior.node_int(prior.member(prior.root(),"previous_attention"),previous_attention)
+    previous_read=previous_read | prior.node_int(prior.member(prior.root(),"previous_active_jobs"),previous_active_jobs)
+    previous_read=previous_read | prior.node_int(prior.member(prior.root(),"elapsed"),elapsed)
+    if previous_read<>0 then do;call sqliteexec database,"ROLLBACK";ignored="";call closeragstore store,ignored;return commandfailure(operation,7,"cannot read previous observation");end
   end
 
   config_lookup = registry.config(request.config_id())
@@ -197,7 +200,10 @@ librarytrend: procedure = .ragcommandresult
   records[2] = .ragresultrecord("churn-policy", policy_fields)
   do i = 1 to point_records.0; records[records.0 + 1] = point_records[i]; end
   if latest_narrative \= "" then do
-    narrative_json = sqlreadtext(database, "SELECT narrative_json FROM report_narratives WHERE narrative_id=" || sqlquote(latest_narrative)); provider_id = sqlreadtext(database, "SELECT provider_id FROM report_narratives WHERE narrative_id=" || sqlquote(latest_narrative)); model = sqlreadtext(database, "SELECT model FROM report_narratives WHERE narrative_id=" || sqlquote(latest_narrative)); cost = sqlreadint(database, "SELECT cost_microunits FROM report_narratives WHERE narrative_id=" || sqlquote(latest_narrative)); overview = ""
+    narrative=.jsondocument(sqlreadtext(database,"SELECT json_object('narrative',narrative_json,'provider',provider_id,'model',model,'cost',cost_microunits) FROM report_narratives WHERE narrative_id=" || sqlquote(latest_narrative)))
+    narrative_json="";provider_id="";model="";cost=0;overview=""
+    narrative_read=narrative.node_string(narrative.member(narrative.root(),"narrative"),narrative_json) | narrative.node_string(narrative.member(narrative.root(),"provider"),provider_id) | narrative.node_string(narrative.member(narrative.root(),"model"),model) | narrative.node_int(narrative.member(narrative.root(),"cost"),cost)
+    if narrative_read<>0 then do;ignored="";call closeragstore store,ignored;return commandfailure(operation,7,"cannot read retained narrative");end
     document = .jsondocument(narrative_json); if document.valid() = 1 then ignored_json = document.node_string(document.member(document.root(), "overview"), overview)
     narrative_fields = .ragresultfield[]; narrative_fields[1] = .ragresultfield("snapshot_id", "string", latest_snapshot); narrative_fields[2] = .ragresultfield("narrative_id", "string", latest_narrative); narrative_fields[3] = .ragresultfield("provider_id", "string", provider_id); narrative_fields[4] = .ragresultfield("model", "string", model); narrative_fields[5] = .ragresultfield("overview", "string", overview); narrative_fields[6] = .ragresultfield("cost_microunits", "integer", cost)
     records[records.0 + 1] = .ragresultrecord("trend-narrative", narrative_fields)

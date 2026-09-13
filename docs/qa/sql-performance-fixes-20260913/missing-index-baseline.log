@@ -1,0 +1,93 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 21: provider_durability
+1/1 Test #21: provider_durability ..............***Failed    3.17 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/ProviderDurability.cmake:57 (message):
+  noopt-rxvme provider durability failed (1):
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access
+  revision_chunks_content_generation
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access claim_support_chunk_visibility
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access reviews_pending_chunk_type
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access
+  job_events_extraction_review_task
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access aliases_target_visibility
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access mentions_concept_visibility
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access concepts_label_visibility
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access
+  maintenance_alias_issues_open_label
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access provider_admissions_expiry
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access
+  candidate_mentions_generation_label
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access aliases_lower_visibility
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access analysis_note_links_chunk
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access
+  maintenance_provider_outputs_task
+
+  PROVIDER_DURABILITY_FAIL=retain malformed historical JSON through
+  expression-index upgrade
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access
+  revision_chunks_content_generation
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access claim_support_chunk_visibility
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access reviews_pending_chunk_type
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access
+  job_events_extraction_review_task
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access aliases_target_visibility
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access mentions_concept_visibility
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access concepts_label_visibility
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access
+  maintenance_alias_issues_open_label
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access provider_admissions_expiry
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access
+  candidate_mentions_generation_label
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access aliases_lower_visibility
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access analysis_note_links_chunk
+
+  PROVIDER_DURABILITY_FAIL=indexed SQL access
+  maintenance_provider_outputs_task
+
+  PROVIDER_DURABILITY_ERRORS=27
+
+
+
+
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+codex                  =   3.17 sec*proc (1 test)
+durability             =   3.17 sec*proc (1 test)
+provider               =   3.17 sec*proc (1 test)
+subscription-budget    =   3.17 sec*proc (1 test)
+zero-outbound          =   3.17 sec*proc (1 test)
+
+Total Test time (real) =   3.17 sec
+
+The following tests FAILED:
+	 21 - provider_durability (Failed)                      codex durability provider subscription-budget zero-outbound
+Errors while running CTest

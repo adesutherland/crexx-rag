@@ -3,7 +3,7 @@ options levelg
 namespace ragschema expose ragschemaversion migrationname migrationchecksum migrationstatements
 
 ragschemaversion: procedure = .int
-  return 17
+  return 18
 
 migrationname: procedure = .string
   arg version = .int
@@ -18,6 +18,7 @@ migrationname: procedure = .string
   if version = 10 then return "durable-maintenance-backlog"
   if version = 11 then return "claim-time-and-source-provenance"
   if version = 12 then return "agent-maintenance-handoff"
+  if version = 18 then return "indexed-sql-access-paths"
   if version = 17 then return "indexed-review-holds"
   if version = 16 then return "indexed-recovery-and-allowance-periods"
   if version = 15 then return "reasoned-task-waivers"
@@ -28,6 +29,7 @@ migrationname: procedure = .string
 
 migrationchecksum: procedure = .string
   arg version = .int
+  if version = 18 then return "4cb2a9720f37963a3b3be2e5683590eaea03cf6a12e3c2c271121627b46618e9"
   if version = 17 then return "9ab5f09ae6a287250dec45e2f546afe743145724af5dd5f749d833b8bdbb506c"
   if version = 16 then return "0fb69902fc0e01a37b02fdd48c206a0b3c412cd762cf7b158add6b56ebee39cc"
   if version = 15 then return "4595893c9edfdae7b4e05965c8ae88ec3b0419878e83e918159111827dbe9b33"
@@ -51,6 +53,35 @@ migrationchecksum: procedure = .string
 migrationstatements: procedure = .int
   arg version = .int, expose statements = .string[]
   statements = .string[]
+  /* Expression predicates intentionally tolerate retained malformed legacy JSON. */
+  if version = 18 then do
+    statements[statements.0 + 1] = "CREATE INDEX revision_chunks_content_generation ON revision_chunks(content_id,visible_from_generation)"
+    statements[statements.0 + 1] = "CREATE INDEX claim_support_chunk_visibility ON claim_support(revision_chunk_id,visible_from_generation,visible_to_generation)"
+    statements[statements.0 + 1] = "CREATE INDEX reviews_pending_chunk_type ON reviews(CASE WHEN json_valid(proposal_json) THEN json_extract(proposal_json,'$.revision_chunk_id') END,review_type) WHERE state='pending'"
+    statements[statements.0 + 1] = "CREATE INDEX job_events_extraction_review_task ON job_events(CASE WHEN json_valid(message) THEN json_extract(message,'$.task_id') END) WHERE event_type='extraction-review-required'"
+    statements[statements.0 + 1] = "CREATE INDEX aliases_target_visibility ON aliases(target_concept_id,visible_to_generation,normalized_alias)"
+    statements[statements.0 + 1] = "CREATE INDEX mentions_concept_visibility ON mentions(concept_id,visible_to_generation,revision_chunk_id)"
+    statements[statements.0 + 1] = "CREATE INDEX concepts_label_visibility ON concepts(lower(canonical_label),visible_to_generation,lifecycle_state,concept_id)"
+    statements[statements.0 + 1] = "CREATE INDEX maintenance_alias_issues_open_label ON maintenance_alias_issues(lower(proposed_label),proposed_type) WHERE state='open'"
+    statements[statements.0 + 1] = "CREATE INDEX provider_admissions_expiry ON provider_admissions(lease_until_epoch,admission_id) WHERE outcome='active'"
+    statements[statements.0 + 1] = "CREATE INDEX candidate_mentions_generation_label ON candidate_mentions(visible_from_generation,normalized_candidate)"
+    statements[statements.0 + 1] = "CREATE INDEX aliases_lower_visibility ON aliases(lower(normalized_alias),visible_from_generation,visible_to_generation,alias_id)"
+    statements[statements.0 + 1] = "CREATE INDEX analysis_note_links_chunk ON analysis_note_links(revision_chunk_id,note_id)"
+    statements[statements.0 + 1] = "CREATE INDEX maintenance_provider_outputs_task ON maintenance_provider_outputs(task_id,created_epoch DESC,item_id)"
+    statements[statements.0 + 1] = "CREATE INDEX revision_chunks_generation ON revision_chunks(visible_from_generation,revision_chunk_id)"
+    statements[statements.0 + 1] = "CREATE INDEX claim_support_lineage ON claim_support(lineage_group,support_id)"
+    statements[statements.0 + 1] = "CREATE INDEX maintenance_tasks_parent ON maintenance_tasks(parent_task_id,created_epoch,task_id)"
+    statements[statements.0 + 1] = "CREATE INDEX maintenance_tasks_subject ON maintenance_tasks(subject_id,state,task_id)"
+    statements[statements.0 + 1] = "CREATE INDEX maintenance_decisions_task ON maintenance_decisions(task_id,decision_id)"
+    statements[statements.0 + 1] = "CREATE INDEX maintenance_link_history_object ON maintenance_link_history(object_id,link_id,to_generation)"
+    statements[statements.0 + 1] = "CREATE INDEX maintenance_items_subject ON maintenance_items(subject_id,state,item_id)"
+    statements[statements.0 + 1] = "CREATE INDEX job_replay_items_source ON job_replay_items(source_item_id,replay_item_id)"
+    statements[statements.0 + 1] = "CREATE INDEX maintenance_provider_outputs_run ON maintenance_provider_outputs(provider_run_id,task_id,item_id)"
+    statements[statements.0 + 1] = "CREATE INDEX claim_conflicts_claim_visibility ON claim_conflicts(claim_id,visible_from_generation,visible_to_generation)"
+    statements[statements.0 + 1] = "CREATE INDEX ambiguity_candidates_chunk_visibility ON ambiguity_candidates(revision_chunk_id,visible_from_generation,visible_to_generation)"
+    statements[statements.0 + 1] = "CREATE INDEX ambiguity_candidates_concept_visibility ON ambiguity_candidates(concept_id,visible_from_generation,visible_to_generation)"
+    return statements.0
+  end
   /* Eligibility and lifecycle gates join reviews by subject and state.
    * A full review scan per task holds the SQLite writer at corpus scale. */
   if version = 17 then do

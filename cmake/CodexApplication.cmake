@@ -70,7 +70,7 @@ execute_process(COMMAND ${cli} --library "${library}"
     --profile it-architecture-profile --access admin --format json library init
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err
     RESULT_VARIABLE init_result TIMEOUT 30)
-if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "\"schema_version\":17")
+if(NOT init_result EQUAL 0 OR NOT init_out MATCHES "\"schema_version\":18")
     message(FATAL_ERROR "Codex application init failed:\n${init_out}${init_err}")
 endif()
 

@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragstore expose beginwritetransaction sqlitebusyerror compatiblevectorpredicate ragstorehandle ragreadsnapshot ragstorestatus ragverifyresult applymigrations validatemigrations initragstore openragstore closeragstore storagestatus beginreadsnapshot closereadsnapshot begingeneration stagegeneration commitgeneration abortgeneration rollbackgeneration writemanifesttemporary publishmanifest manifeststate recovermanifest verifyragstore
+namespace ragstore expose ftsparityissues beginwritetransaction sqlitebusyerror compatiblevectorpredicate ragstorehandle ragreadsnapshot ragstorestatus ragverifyresult applymigrations validatemigrations initragstore openragstore closeragstore storagestatus beginreadsnapshot closereadsnapshot begingeneration stagegeneration commitgeneration abortgeneration rollbackgeneration writemanifesttemporary publishmanifest manifeststate recovermanifest verifyragstore
 
 import rxfnsb
 import rxjson
@@ -96,15 +96,19 @@ ragstorestatus: class
     return _manifest_state
 
 ragverifyresult: class
+  _fts_issues = .int
   _issues = .int
   _summary = .string
 
   *: factory
-    arg issues = .int, summary = .string
+    arg issues = .int, summary = .string, fts_issues = -1
+    _fts_issues=fts_issues
     _issues = issues
     _summary = summary
     return
 
+  fts_issues: method = .int
+    return _fts_issues
   ok: method = .int
     return _issues = 0
   issue_count: method = .int
@@ -724,14 +728,9 @@ verifyragstore: procedure = .int
     issues = issues + 1
     summary = _addissue(summary, "visibility-bounds")
   end
-  /* FTS has no ordinary index on revision_chunk_id. Compare complete sets in
-   * both directions and their cardinality, rather than scan FTS per chunk. */
-  expected_fts = "SELECT r.revision_chunk_id,r.content_id,c.text FROM revision_chunks r JOIN chunk_contents c ON c.content_id=r.content_id WHERE r.visible_from_generation<=" || generation || " AND (r.visible_to_generation IS NULL OR r.visible_to_generation>" || generation || ")"
-  actual_fts = "SELECT revision_chunk_id,content_id,body FROM chunks_fts"
-  fts_sql = "SELECT abs((SELECT count(*) FROM chunks_fts)-(SELECT count(*) FROM (" || expected_fts || ")))+(SELECT count(*) FROM (" || expected_fts || " EXCEPT " || actual_fts || "))+(SELECT count(*) FROM (" || actual_fts || " EXCEPT " || expected_fts || "))"
-  if _scalarint(store.database(), fts_sql, error) \= 0 then do
-    issues = issues + 1
-    summary = _addissue(summary, "fts-parity")
+  fts_issues=ftsparityissues(store.database(),generation,error)
+  if fts_issues<>0 then do
+    issues=issues+1;summary=_addissue(summary,"fts-parity")
   end
   if _scalarint(store.database(), "SELECT count(*) FROM embeddings WHERE length(vector)<>dimension*4", error) \= 0 then do
     issues = issues + 1
@@ -760,7 +759,7 @@ verifyragstore: procedure = .int
     end
   end
   if issues = 0 then summary = "ok"
-  result = .ragverifyresult(issues, summary)
+  result = .ragverifyresult(issues, summary, fts_issues)
   return 0
 
 _configurereadwrite: procedure = .int
@@ -1103,3 +1102,12 @@ compatiblevectorpredicate: procedure = .string
    * compatible index must not invalidate that independently recorded view. */
   if newest_only = 0 then sql = changestr(" WHERE NOT EXISTS(SELECT 1 FROM candidates b WHERE b.embedding_profile_id=a.embedding_profile_id AND b.semantic_generation>a.semantic_generation)",sql,"")
   return sql
+
+/* Full set and cardinality parity. Reuse its result only within the caller's
+ * unchanged read snapshot, never across publication or provider execution. */
+ftsparityissues: procedure = .int
+  arg database=.binary, generation=.int, expose error=.string
+  expected="SELECT r.revision_chunk_id,r.content_id,c.text FROM revision_chunks r JOIN chunk_contents c ON c.content_id=r.content_id WHERE r.visible_from_generation<=" || generation || " AND (r.visible_to_generation IS NULL OR r.visible_to_generation>" || generation || ")"
+  actual="SELECT revision_chunk_id,content_id,body FROM chunks_fts"
+  sql="SELECT abs((SELECT count(*) FROM chunks_fts)-(SELECT count(*) FROM (" || expected || ")))+(SELECT count(*) FROM (" || expected || " EXCEPT " || actual || "))+(SELECT count(*) FROM (" || actual || " EXCEPT " || expected || "))"
+  return _scalarint(database,sql,error)

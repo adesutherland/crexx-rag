@@ -1,0 +1,1524 @@
+{
+  "sqlite_version": "3.53.4",
+  "generation": 24928,
+  "before": [
+    {
+      "name": "task_review_hold",
+      "calls": 2,
+      "seconds": 7.5320060001686215,
+      "max_seconds": 3.88378266710788,
+      "rows": 2,
+      "digest": "412fc4b368e9241c89bff7c2d1b1805591463af07670da414c409b9e8cb93a98",
+      "eqp": [
+        [
+          7,
+          0,
+          60,
+          "SEARCH t USING INDEX sqlite_autoindex_maintenance_tasks_2 (kind=? AND subject_type=? AND subject_id=?)"
+        ],
+        [
+          25,
+          0,
+          216,
+          "SCAN e EXISTS"
+        ],
+        [
+          45,
+          0,
+          0,
+          "USE TEMP B-TREE FOR ORDER BY"
+        ]
+      ]
+    },
+    {
+      "name": "concept_subject",
+      "calls": 20,
+      "seconds": 0.40402600006200373,
+      "max_seconds": 0.10654729092493653,
+      "rows": 20,
+      "digest": "b41b055f08a580873d89dee4987263b8e989cfc316f787b62cfdb4d83685c9c1",
+      "eqp": [
+        [
+          3,
+          0,
+          39,
+          "SEARCH c USING INDEX sqlite_autoindex_concepts_1 (concept_id=?)"
+        ],
+        [
+          17,
+          0,
+          0,
+          "CORRELATED SCALAR SUBQUERY 1"
+        ],
+        [
+          22,
+          17,
+          56,
+          "SEARCH concept_versions USING PRIMARY KEY (concept_id=?)"
+        ],
+        [
+          39,
+          0,
+          0,
+          "CORRELATED SCALAR SUBQUERY 3"
+        ],
+        [
+          42,
+          39,
+          0,
+          "CO-ROUTINE (subquery-2)"
+        ],
+        [
+          46,
+          42,
+          225,
+          "SCAN aliases USING INDEX aliases_lookup"
+        ],
+        [
+          60,
+          39,
+          197,
+          "SCAN (subquery-2)"
+        ]
+      ]
+    },
+    {
+      "name": "competing_concepts",
+      "calls": 20,
+      "seconds": 0.38752466603182256,
+      "max_seconds": 0.06445670803077519,
+      "rows": 20,
+      "digest": "df4ce5b8ce520a75bd254f2001a4dbc5c29bdb4930114e00fcf764c6b90012ae",
+      "eqp": [
+        [
+          2,
+          0,
+          0,
+          "CO-ROUTINE (subquery-1)"
+        ],
+        [
+          9,
+          2,
+          46,
+          "SEARCH c USING INDEX sqlite_autoindex_concepts_1 (concept_id=?)"
+        ],
+        [
+          16,
+          2,
+          223,
+          "SCAN d USING INDEX sqlite_autoindex_concepts_1"
+        ],
+        [
+          43,
+          0,
+          56,
+          "SCAN (subquery-1)"
+        ]
+      ]
+    },
+    {
+      "name": "alias_issue_subject",
+      "calls": 10,
+      "seconds": 0.5673177919816226,
+      "max_seconds": 0.059765541926026344,
+      "rows": 10,
+      "digest": "54fe06adf51db0c038d4f7c7b9c58265f2d9775b9a81b1bc53a088fae72712df",
+      "eqp": [
+        [
+          3,
+          0,
+          39,
+          "SEARCH i USING INDEX sqlite_autoindex_maintenance_alias_issues_1 (issue_id=?)"
+        ],
+        [
+          19,
+          0,
+          0,
+          "CORRELATED SCALAR SUBQUERY 3"
+        ],
+        [
+          22,
+          19,
+          0,
+          "CO-ROUTINE z"
+        ],
+        [
+          28,
+          22,
+          224,
+          "SCAN c USING INDEX sqlite_autoindex_concepts_1"
+        ],
+        [
+          47,
+          22,
+          53,
+          "SEARCH a USING AUTOMATIC PARTIAL COVERING INDEX (target_concept_id=?) LEFT-JOIN"
+        ],
+        [
+          65,
+          22,
+          0,
+          "CORRELATED LIST SUBQUERY 1"
+        ],
+        [
+          67,
+          65,
+          0,
+          "SCAN json_each VIRTUAL TABLE INDEX 1:"
+        ],
+        [
+          97,
+          19,
+          228,
+          "SCAN z"
+        ]
+      ]
+    },
+    {
+      "name": "identity_census_100",
+      "calls": 1,
+      "seconds": 4.278031874913722,
+      "max_seconds": 4.277972666081041,
+      "rows": 100,
+      "digest": "06a4e345214d4e57089198dea91c27eb326338b90cf31f933b3d09d788b679da",
+      "eqp": [
+        [
+          7,
+          0,
+          204,
+          "SEARCH c USING INDEX sqlite_autoindex_concepts_1 (concept_id>?)"
+        ],
+        [
+          28,
+          0,
+          53,
+          "SEARCH i EXISTS USING AUTOMATIC PARTIAL COVERING INDEX (state=?)"
+        ],
+        [
+          41,
+          0,
+          0,
+          "CORRELATED SCALAR SUBQUERY 1"
+        ],
+        [
+          45,
+          41,
+          216,
+          "SCAN d"
+        ]
+      ]
+    },
+    {
+      "name": "concept_passage_selection",
+      "calls": 20,
+      "seconds": 1.0312062921002507,
+      "max_seconds": 0.2104039581026882,
+      "rows": 27,
+      "digest": "258688685780cfeb64194c2c66947ad5f814e09c3baded8355f09feb41bef654",
+      "eqp": [
+        [
+          2,
+          0,
+          0,
+          "MERGE (UNION)"
+        ],
+        [
+          4,
+          2,
+          0,
+          "LEFT"
+        ],
+        [
+          8,
+          4,
+          224,
+          "SCAN mentions USING INDEX sqlite_autoindex_mentions_1"
+        ],
+        [
+          17,
+          4,
+          0,
+          "SCALAR SUBQUERY 1"
+        ],
+        [
+          22,
+          17,
+          39,
+          "SEARCH concepts USING INDEX sqlite_autoindex_concepts_1 (concept_id=?)"
+        ],
+        [
+          43,
+          2,
+          0,
+          "RIGHT"
+        ],
+        [
+          50,
+          43,
+          0,
+          "MULTI-INDEX OR"
+        ],
+        [
+          51,
+          50,
+          0,
+          "INDEX 1"
+        ],
+        [
+          61,
+          51,
+          62,
+          "SEARCH c USING INDEX claims_source_visibility (source_concept_id=?)"
+        ],
+        [
+          66,
+          50,
+          0,
+          "INDEX 2"
+        ],
+        [
+          76,
+          66,
+          62,
+          "SEARCH c USING INDEX claims_target_visibility (target_concept_id=?)"
+        ],
+        [
+          88,
+          43,
+          61,
+          "SEARCH s USING INDEX claim_support_visibility (claim_id=?)"
+        ],
+        [
+          103,
+          43,
+          0,
+          "USE TEMP B-TREE FOR ORDER BY"
+        ]
+      ]
+    },
+    {
+      "name": "glossary_candidates",
+      "calls": 2,
+      "seconds": 1.42385183298029,
+      "max_seconds": 1.1321657500229776,
+      "rows": 1,
+      "digest": "dec6ce0c156bc34ebaadd366d4e10cb3c23d81764e3c1dc0f3b8840f4929d4d6",
+      "eqp": [
+        [
+          4,
+          0,
+          224,
+          "SCAN candidate_mentions USING INDEX sqlite_autoindex_candidate_mentions_1"
+        ],
+        [
+          12,
+          0,
+          0,
+          "CORRELATED SCALAR SUBQUERY 1"
+        ],
+        [
+          16,
+          12,
+          54,
+          "SEARCH d USING COVERING INDEX sqlite_autoindex_candidate_decisions_2 (candidate_id=?)"
+        ]
+      ]
+    },
+    {
+      "name": "retrieval_alias",
+      "calls": 4,
+      "seconds": 0.06127445795573294,
+      "max_seconds": 0.02465991606004536,
+      "rows": 6,
+      "digest": "ad1e3364a8899158358d0dd580fcae9fac08e705c4b63d260fdfa160960bf2f5",
+      "eqp": [
+        [
+          7,
+          0,
+          224,
+          "SCAN a USING INDEX sqlite_autoindex_aliases_1"
+        ],
+        [
+          19,
+          0,
+          46,
+          "SEARCH c USING INDEX sqlite_autoindex_concepts_1 (concept_id=?) LEFT-JOIN"
+        ]
+      ]
+    },
+    {
+      "name": "retrieval_notes",
+      "calls": 20,
+      "seconds": 0.15684670791961253,
+      "max_seconds": 0.05859858402982354,
+      "rows": 3,
+      "digest": "c268e4f1d3fe3fef4d83921296153915d1a924f3c64188c3abf8efdbd7680bb7",
+      "eqp": [
+        [
+          13,
+          0,
+          46,
+          "SEARCH rc USING INDEX sqlite_autoindex_revision_chunks_1 (revision_chunk_id=?)"
+        ],
+        [
+          26,
+          0,
+          46,
+          "SEARCH r USING INDEX sqlite_autoindex_source_revisions_1 (revision_id=?)"
+        ],
+        [
+          31,
+          0,
+          44,
+          "SEARCH s USING COVERING INDEX sqlite_autoindex_sources_1 (source_id=?)"
+        ],
+        [
+          35,
+          0,
+          62,
+          "SEARCH n USING INDEX analysis_notes_state (state=?)"
+        ],
+        [
+          40,
+          0,
+          56,
+          "SEARCH l USING COVERING INDEX sqlite_autoindex_analysis_note_links_2 (note_id=?)"
+        ],
+        [
+          75,
+          0,
+          0,
+          "USE TEMP B-TREE FOR DISTINCT"
+        ],
+        [
+          76,
+          0,
+          0,
+          "USE TEMP B-TREE FOR ORDER BY"
+        ]
+      ]
+    },
+    {
+      "name": "cached_resolution",
+      "calls": 20,
+      "seconds": 0.13228024984709918,
+      "max_seconds": 0.09851112496107817,
+      "rows": 5,
+      "digest": "aa57d7891f085391fc736bd03fbed93185ade917801d3a9857da092ce8be36e0",
+      "eqp": [
+        [
+          7,
+          0,
+          47,
+          "SEARCH m USING INDEX sqlite_autoindex_maintenance_task_items_1 (item_id=?)"
+        ],
+        [
+          14,
+          0,
+          215,
+          "SCAN o USING INDEX sqlite_autoindex_maintenance_provider_outputs_1"
+        ],
+        [
+          21,
+          0,
+          0,
+          "CORRELATED SCALAR SUBQUERY 1"
+        ],
+        [
+          25,
+          21,
+          54,
+          "SEARCH a USING COVERING INDEX attempts_item (item_id=? AND outcome=?)"
+        ],
+        [
+          67,
+          0,
+          0,
+          "USE TEMP B-TREE FOR ORDER BY"
+        ]
+      ]
+    },
+    {
+      "name": "admission_expiry_candidates",
+      "calls": 1,
+      "seconds": 0.15885266684927046,
+      "max_seconds": 0.15882366709411144,
+      "rows": 0,
+      "digest": "cf1cbb66a638b4860a516671fb74850e6ccf787fe6c4c8d29e9c04efe880bd05",
+      "eqp": [
+        [
+          2,
+          0,
+          214,
+          "SCAN provider_admissions USING COVERING INDEX provider_admissions_active"
+        ]
+      ]
+    }
+  ],
+  "after": [
+    {
+      "name": "task_review_hold",
+      "calls": 2,
+      "seconds": 0.0003542909398674965,
+      "max_seconds": 0.00023454101756215096,
+      "rows": 2,
+      "digest": "412fc4b368e9241c89bff7c2d1b1805591463af07670da414c409b9e8cb93a98",
+      "eqp": [
+        [
+          8,
+          0,
+          60,
+          "SEARCH t USING INDEX sqlite_autoindex_maintenance_tasks_2 (kind=? AND subject_type=? AND subject_id=?)"
+        ],
+        [
+          26,
+          0,
+          197,
+          "SCAN e EXISTS USING INDEX review_extraction_event_task"
+        ],
+        [
+          44,
+          0,
+          0,
+          "USE TEMP B-TREE FOR ORDER BY"
+        ]
+      ]
+    },
+    {
+      "name": "concept_subject",
+      "calls": 20,
+      "seconds": 0.0003565000370144844,
+      "max_seconds": 0.00021937512792646885,
+      "rows": 20,
+      "digest": "b41b055f08a580873d89dee4987263b8e989cfc316f787b62cfdb4d83685c9c1",
+      "eqp": [
+        [
+          3,
+          0,
+          39,
+          "SEARCH c USING INDEX sqlite_autoindex_concepts_1 (concept_id=?)"
+        ],
+        [
+          17,
+          0,
+          0,
+          "CORRELATED SCALAR SUBQUERY 1"
+        ],
+        [
+          22,
+          17,
+          56,
+          "SEARCH concept_versions USING PRIMARY KEY (concept_id=?)"
+        ],
+        [
+          39,
+          0,
+          0,
+          "CORRELATED SCALAR SUBQUERY 3"
+        ],
+        [
+          42,
+          39,
+          0,
+          "CO-ROUTINE (subquery-2)"
+        ],
+        [
+          45,
+          42,
+          55,
+          "SEARCH aliases USING COVERING INDEX review_alias_target (target_concept_id=? AND visible_to_generation=?)"
+        ],
+        [
+          57,
+          39,
+          48,
+          "SCAN (subquery-2)"
+        ]
+      ]
+    },
+    {
+      "name": "competing_concepts",
+      "calls": 20,
+      "seconds": 0.00012608407996594906,
+      "max_seconds": 3.779097460210323e-05,
+      "rows": 20,
+      "digest": "df4ce5b8ce520a75bd254f2001a4dbc5c29bdb4930114e00fcf764c6b90012ae",
+      "eqp": [
+        [
+          2,
+          0,
+          0,
+          "CO-ROUTINE (subquery-1)"
+        ],
+        [
+          9,
+          2,
+          46,
+          "SEARCH c USING INDEX sqlite_autoindex_concepts_1 (concept_id=?)"
+        ],
+        [
+          16,
+          2,
+          62,
+          "SEARCH d USING INDEX review_active_concept_label (<expr>=?)"
+        ],
+        [
+          38,
+          0,
+          46,
+          "SCAN (subquery-1)"
+        ]
+      ]
+    },
+    {
+      "name": "alias_issue_subject",
+      "calls": 10,
+      "seconds": 0.36634337506257,
+      "max_seconds": 0.05296954186633229,
+      "rows": 10,
+      "digest": "54fe06adf51db0c038d4f7c7b9c58265f2d9775b9a81b1bc53a088fae72712df",
+      "eqp": [
+        [
+          3,
+          0,
+          39,
+          "SEARCH i USING INDEX sqlite_autoindex_maintenance_alias_issues_1 (issue_id=?)"
+        ],
+        [
+          19,
+          0,
+          0,
+          "CORRELATED SCALAR SUBQUERY 3"
+        ],
+        [
+          22,
+          19,
+          0,
+          "CO-ROUTINE z"
+        ],
+        [
+          28,
+          22,
+          224,
+          "SCAN c USING INDEX sqlite_autoindex_concepts_1"
+        ],
+        [
+          35,
+          22,
+          55,
+          "SEARCH a USING COVERING INDEX review_alias_target (target_concept_id=? AND visible_to_generation=?) LEFT-JOIN"
+        ],
+        [
+          53,
+          22,
+          0,
+          "CORRELATED LIST SUBQUERY 1"
+        ],
+        [
+          55,
+          53,
+          0,
+          "SCAN json_each VIRTUAL TABLE INDEX 1:"
+        ],
+        [
+          85,
+          19,
+          215,
+          "SCAN z"
+        ]
+      ]
+    },
+    {
+      "name": "identity_census_100",
+      "calls": 1,
+      "seconds": 0.002044250024482608,
+      "max_seconds": 0.0020055000204592943,
+      "rows": 100,
+      "digest": "06a4e345214d4e57089198dea91c27eb326338b90cf31f933b3d09d788b679da",
+      "eqp": [
+        [
+          8,
+          0,
+          204,
+          "SEARCH c USING INDEX sqlite_autoindex_concepts_1 (concept_id>?)"
+        ],
+        [
+          16,
+          0,
+          61,
+          "SEARCH i EXISTS USING INDEX review_open_issue_label (<expr>=?)"
+        ],
+        [
+          27,
+          0,
+          0,
+          "CORRELATED SCALAR SUBQUERY 1"
+        ],
+        [
+          32,
+          27,
+          62,
+          "SEARCH d USING INDEX review_active_concept_label (<expr>=?)"
+        ]
+      ]
+    },
+    {
+      "name": "concept_passage_selection",
+      "calls": 20,
+      "seconds": 0.004101250087842345,
+      "max_seconds": 0.002844667062163353,
+      "rows": 27,
+      "digest": "258688685780cfeb64194c2c66947ad5f814e09c3baded8355f09feb41bef654",
+      "eqp": [
+        [
+          2,
+          0,
+          0,
+          "MERGE (UNION)"
+        ],
+        [
+          4,
+          2,
+          0,
+          "LEFT"
+        ],
+        [
+          8,
+          4,
+          62,
+          "SEARCH mentions USING INDEX review_mentions_concept (concept_id=?)"
+        ],
+        [
+          19,
+          4,
+          0,
+          "SCALAR SUBQUERY 1"
+        ],
+        [
+          24,
+          19,
+          39,
+          "SEARCH concepts USING INDEX sqlite_autoindex_concepts_1 (concept_id=?)"
+        ],
+        [
+          44,
+          4,
+          0,
+          "USE TEMP B-TREE FOR ORDER BY"
+        ],
+        [
+          56,
+          2,
+          0,
+          "RIGHT"
+        ],
+        [
+          63,
+          56,
+          0,
+          "MULTI-INDEX OR"
+        ],
+        [
+          64,
+          63,
+          0,
+          "INDEX 1"
+        ],
+        [
+          74,
+          64,
+          62,
+          "SEARCH c USING INDEX claims_source_visibility (source_concept_id=?)"
+        ],
+        [
+          79,
+          63,
+          0,
+          "INDEX 2"
+        ],
+        [
+          89,
+          79,
+          62,
+          "SEARCH c USING INDEX claims_target_visibility (target_concept_id=?)"
+        ],
+        [
+          101,
+          56,
+          61,
+          "SEARCH s USING INDEX claim_support_visibility (claim_id=?)"
+        ],
+        [
+          116,
+          56,
+          0,
+          "USE TEMP B-TREE FOR ORDER BY"
+        ]
+      ]
+    },
+    {
+      "name": "glossary_candidates",
+      "calls": 2,
+      "seconds": 2.050003968179226e-05,
+      "max_seconds": 1.691584475338459e-05,
+      "rows": 1,
+      "digest": "dec6ce0c156bc34ebaadd366d4e10cb3c23d81764e3c1dc0f3b8840f4929d4d6",
+      "eqp": [
+        [
+          4,
+          0,
+          61,
+          "SEARCH candidate_mentions USING INDEX review_candidate_generation (visible_from_generation=? AND normalized_candidate=?)"
+        ],
+        [
+          14,
+          0,
+          0,
+          "CORRELATED SCALAR SUBQUERY 1"
+        ],
+        [
+          18,
+          14,
+          54,
+          "SEARCH d USING COVERING INDEX sqlite_autoindex_candidate_decisions_2 (candidate_id=?)"
+        ],
+        [
+          31,
+          0,
+          0,
+          "USE TEMP B-TREE FOR ORDER BY"
+        ]
+      ]
+    },
+    {
+      "name": "retrieval_alias",
+      "calls": 4,
+      "seconds": 7.049995474517345e-05,
+      "max_seconds": 3.858399577438831e-05,
+      "rows": 6,
+      "digest": "ad1e3364a8899158358d0dd580fcae9fac08e705c4b63d260fdfa160960bf2f5",
+      "eqp": [
+        [
+          7,
+          0,
+          51,
+          "SEARCH a USING INDEX review_alias_lower (<expr>=? AND visible_from_generation<?)"
+        ],
+        [
+          20,
+          0,
+          46,
+          "SEARCH c USING INDEX sqlite_autoindex_concepts_1 (concept_id=?) LEFT-JOIN"
+        ],
+        [
+          47,
+          0,
+          0,
+          "USE TEMP B-TREE FOR ORDER BY"
+        ]
+      ]
+    },
+    {
+      "name": "retrieval_notes",
+      "calls": 20,
+      "seconds": 0.0019377078860998154,
+      "max_seconds": 0.0005465000867843628,
+      "rows": 3,
+      "digest": "c268e4f1d3fe3fef4d83921296153915d1a924f3c64188c3abf8efdbd7680bb7",
+      "eqp": [
+        [
+          15,
+          0,
+          46,
+          "SEARCH rc USING INDEX sqlite_autoindex_revision_chunks_1 (revision_chunk_id=?)"
+        ],
+        [
+          28,
+          0,
+          46,
+          "SEARCH r USING INDEX sqlite_autoindex_source_revisions_1 (revision_id=?)"
+        ],
+        [
+          33,
+          0,
+          44,
+          "SEARCH s USING COVERING INDEX sqlite_autoindex_sources_1 (source_id=?)"
+        ],
+        [
+          37,
+          0,
+          62,
+          "SEARCH l USING INDEX review_note_chunk (revision_chunk_id=?)"
+        ],
+        [
+          44,
+          0,
+          46,
+          "SEARCH n USING INDEX sqlite_autoindex_analysis_notes_1 (note_id=?)"
+        ],
+        [
+          79,
+          0,
+          0,
+          "USE TEMP B-TREE FOR DISTINCT"
+        ],
+        [
+          80,
+          0,
+          0,
+          "USE TEMP B-TREE FOR ORDER BY"
+        ]
+      ]
+    },
+    {
+      "name": "cached_resolution",
+      "calls": 20,
+      "seconds": 0.0019449160899966955,
+      "max_seconds": 0.00027600000612437725,
+      "rows": 5,
+      "digest": "aa57d7891f085391fc736bd03fbed93185ade917801d3a9857da092ce8be36e0",
+      "eqp": [
+        [
+          7,
+          0,
+          47,
+          "SEARCH m USING INDEX sqlite_autoindex_maintenance_task_items_1 (item_id=?)"
+        ],
+        [
+          14,
+          0,
+          62,
+          "SEARCH o USING INDEX review_output_task (task_id=?)"
+        ],
+        [
+          20,
+          0,
+          0,
+          "CORRELATED SCALAR SUBQUERY 1"
+        ],
+        [
+          24,
+          20,
+          54,
+          "SEARCH a USING COVERING INDEX attempts_item (item_id=? AND outcome=?)"
+        ]
+      ]
+    },
+    {
+      "name": "admission_expiry_candidates",
+      "calls": 1,
+      "seconds": 1.2042000889778137e-05,
+      "max_seconds": 8.916016668081284e-06,
+      "rows": 0,
+      "digest": "cf1cbb66a638b4860a516671fb74850e6ccf787fe6c4c8d29e9c04efe880bd05",
+      "eqp": [
+        [
+          2,
+          0,
+          180,
+          "SEARCH provider_admissions USING COVERING INDEX review_admission_expiry (lease_until_epoch<?)"
+        ]
+      ]
+    }
+  ],
+  "indexes": [
+    {
+      "sql": "CREATE INDEX review_extraction_event_task ON job_events(json_extract(message,'$.task_id')) WHERE event_type='extraction-review-required'",
+      "seconds": 4.67492804210633,
+      "bytes": 32768
+    },
+    {
+      "sql": "CREATE INDEX review_alias_target ON aliases(target_concept_id,visible_to_generation,normalized_alias)",
+      "seconds": 0.07257300009950995,
+      "bytes": 3100672
+    },
+    {
+      "sql": "CREATE INDEX review_mentions_concept ON mentions(concept_id,visible_to_generation,revision_chunk_id)",
+      "seconds": 0.16654358408413827,
+      "bytes": 11264000
+    },
+    {
+      "sql": "CREATE INDEX review_active_concept_label ON concepts(lower(canonical_label),concept_id) WHERE visible_to_generation IS NULL AND lifecycle_state='active'",
+      "seconds": 0.03821395896375179,
+      "bytes": 2957312
+    },
+    {
+      "sql": "CREATE INDEX review_open_issue_label ON maintenance_alias_issues(lower(proposed_label),proposed_type) WHERE state='open'",
+      "seconds": 0.013854583026841283,
+      "bytes": 180224
+    },
+    {
+      "sql": "CREATE INDEX review_candidate_generation ON candidate_mentions(visible_from_generation,normalized_candidate)",
+      "seconds": 0.7194924161303788,
+      "bytes": 6778880
+    },
+    {
+      "sql": "CREATE INDEX review_alias_lower ON aliases(lower(normalized_alias),visible_from_generation,visible_to_generation,alias_id)",
+      "seconds": 0.017869625007733703,
+      "bytes": 3145728
+    },
+    {
+      "sql": "CREATE INDEX review_note_chunk ON analysis_note_links(revision_chunk_id,note_id)",
+      "seconds": 0.05535775003954768,
+      "bytes": 2060288
+    },
+    {
+      "sql": "CREATE INDEX review_output_task ON maintenance_provider_outputs(task_id,created_epoch DESC,item_id)",
+      "seconds": 0.0447479160502553,
+      "bytes": 729088
+    },
+    {
+      "sql": "CREATE INDEX review_admission_expiry ON provider_admissions(lease_until_epoch,admission_id) WHERE outcome='active'",
+      "seconds": 0.4581659999676049,
+      "bytes": 4096
+    }
+  ],
+  "cases": [
+    {
+      "name": "task_review_hold",
+      "sql": "SELECT task_id FROM maintenance_tasks t WHERE kind=? AND subject_type=? AND subject_id=? AND evidence_fingerprint=? AND required_capability='advanced-reasoning' AND state IN('unresolved','review') AND EXISTS(SELECT 1 FROM job_events e WHERE e.event_type='extraction-review-required' AND json_extract(e.message,'$.task_id')=t.task_id) ORDER BY created_epoch,task_id LIMIT 1",
+      "parameters": [
+        [
+          "concept-review",
+          "chunk",
+          "occurrence-sha256:e5a571607e60082c0bbbadcf7287032d4cfe5fc290d53fc2cebb4f78b345a2eb",
+          "dbce4c6b7f71ba10a7bd2a0ee5963cdda90e4ebef6f0b842f84eda67426d488b"
+        ],
+        [
+          "concept-review",
+          "chunk",
+          "occurrence-sha256:6b09d6b4f46a0ffa561e14f16c2eac6afc5feba57a860d30bc3ea007c53d3005",
+          "e162156b4ae2952f5b2fbb822c2c91567f081abb07c2132f34dfee762db9a920"
+        ]
+      ]
+    },
+    {
+      "name": "concept_subject",
+      "sql": "SELECT json_object('type','concept','id',c.concept_id,'canonical_label',c.canonical_label,'concept_type',c.concept_type,'lifecycle',c.lifecycle_state,'version',coalesce((SELECT max(version) FROM concept_versions WHERE concept_id=c.concept_id),0),'aliases',json(coalesce((SELECT json_group_array(normalized_alias) FROM (SELECT normalized_alias FROM aliases WHERE target_concept_id=c.concept_id AND visible_to_generation IS NULL ORDER BY normalized_alias)),'[]'))) FROM concepts c WHERE c.concept_id=? AND c.visible_to_generation IS NULL",
+      "parameters": [
+        [
+          "concept-sha256:0001ae4e9e5cc21b2aeecd9998313e5cf2ff9fa05a7b641ff2842a31aaf433e5"
+        ],
+        [
+          "concept-sha256:000506c36e11b5ee955efa45dd8cea0f9091cd64e165ae1ee73ce70e3537ae68"
+        ],
+        [
+          "concept-sha256:0005f972a52df6df95a88fc92b21232f10b0b30fa99c3616e8e1b88b584e8b1e"
+        ],
+        [
+          "concept-sha256:000741d187edaa739be8b904cbece35de222e285e50590b73a1bea92e6ee2a2f"
+        ],
+        [
+          "concept-sha256:000b2e9799f949300b8dc274b2673ab4b2ab07e39388f47377d0fb9ac15bbc52"
+        ],
+        [
+          "concept-sha256:000c2006d52000ea6bd0e8d71d2bea013ddefcffba0b3837689e673cdf2d9641"
+        ],
+        [
+          "concept-sha256:000f5be6b1dbaeb5904ac853de295c624dc720b6393d1a6f08d8ca41e60c1e44"
+        ],
+        [
+          "concept-sha256:0014ab49da7f79c9a5eb062f19ee58de65d62d2be6bee520d1574a061d7de30c"
+        ],
+        [
+          "concept-sha256:001909afd48487d9851d9b59178f0fb16794b528f01e79d905d1c48649bd30cf"
+        ],
+        [
+          "concept-sha256:001ce99fbab23a3945799ab3d68cacb5db6e8260c839eb613f6a221fce1b57c8"
+        ],
+        [
+          "concept-sha256:001d50c7c87d84360ef277ec37247d6bc2c8517d55697ef988f160757e82f0b5"
+        ],
+        [
+          "concept-sha256:001ffb7ac80592b5ef161b534bf5dd1dbc1c2d0655e59417c6badc98496c3bbf"
+        ],
+        [
+          "concept-sha256:00255e8cb9435a956ac11d81b69aa3f7402d47ad087afe108431277831362fbc"
+        ],
+        [
+          "concept-sha256:00281a99e03a525872e5aff1bb7f269f2f7a40a98ad64beeb1e7f9e1e1ac0f1b"
+        ],
+        [
+          "concept-sha256:0028a403fd938849eeedd60e3917cfb323fe9a1407926036cab36544a9a6b0ab"
+        ],
+        [
+          "concept-sha256:0028fec7231d3a2fd91434a1998fb33bb369cf1e0ec28d8254652f0f756935b2"
+        ],
+        [
+          "concept-sha256:002c656661797e8577ae1f8ec9ba2f43d865dad9f49ecbc4ee590da0ea82d98e"
+        ],
+        [
+          "concept-sha256:002e64afb33df6b6dc88e1b14becdb4d42fa0844d9172751747a4e72cd22e435"
+        ],
+        [
+          "concept-sha256:002fe0baee06275224380cec356b1a9a58551386c2f9d244c16df7b3c733bc1c"
+        ],
+        [
+          "concept-sha256:003162639160d37b2e2126e48823a2cef8cf796b1053d270980fd0b8e5aa7d7a"
+        ]
+      ]
+    },
+    {
+      "name": "competing_concepts",
+      "sql": "SELECT json_group_array(json_object('concept_id',concept_id,'canonical_label',canonical_label,'concept_type',concept_type)) FROM (SELECT d.* FROM concepts d JOIN concepts c ON c.concept_id=? WHERE d.concept_id<>c.concept_id AND d.lifecycle_state='active' AND d.visible_to_generation IS NULL AND lower(d.canonical_label)=lower(c.canonical_label) ORDER BY d.concept_id LIMIT 16)",
+      "parameters": [
+        [
+          "concept-sha256:0001ae4e9e5cc21b2aeecd9998313e5cf2ff9fa05a7b641ff2842a31aaf433e5"
+        ],
+        [
+          "concept-sha256:000506c36e11b5ee955efa45dd8cea0f9091cd64e165ae1ee73ce70e3537ae68"
+        ],
+        [
+          "concept-sha256:0005f972a52df6df95a88fc92b21232f10b0b30fa99c3616e8e1b88b584e8b1e"
+        ],
+        [
+          "concept-sha256:000741d187edaa739be8b904cbece35de222e285e50590b73a1bea92e6ee2a2f"
+        ],
+        [
+          "concept-sha256:000b2e9799f949300b8dc274b2673ab4b2ab07e39388f47377d0fb9ac15bbc52"
+        ],
+        [
+          "concept-sha256:000c2006d52000ea6bd0e8d71d2bea013ddefcffba0b3837689e673cdf2d9641"
+        ],
+        [
+          "concept-sha256:000f5be6b1dbaeb5904ac853de295c624dc720b6393d1a6f08d8ca41e60c1e44"
+        ],
+        [
+          "concept-sha256:0014ab49da7f79c9a5eb062f19ee58de65d62d2be6bee520d1574a061d7de30c"
+        ],
+        [
+          "concept-sha256:001909afd48487d9851d9b59178f0fb16794b528f01e79d905d1c48649bd30cf"
+        ],
+        [
+          "concept-sha256:001ce99fbab23a3945799ab3d68cacb5db6e8260c839eb613f6a221fce1b57c8"
+        ],
+        [
+          "concept-sha256:001d50c7c87d84360ef277ec37247d6bc2c8517d55697ef988f160757e82f0b5"
+        ],
+        [
+          "concept-sha256:001ffb7ac80592b5ef161b534bf5dd1dbc1c2d0655e59417c6badc98496c3bbf"
+        ],
+        [
+          "concept-sha256:00255e8cb9435a956ac11d81b69aa3f7402d47ad087afe108431277831362fbc"
+        ],
+        [
+          "concept-sha256:00281a99e03a525872e5aff1bb7f269f2f7a40a98ad64beeb1e7f9e1e1ac0f1b"
+        ],
+        [
+          "concept-sha256:0028a403fd938849eeedd60e3917cfb323fe9a1407926036cab36544a9a6b0ab"
+        ],
+        [
+          "concept-sha256:0028fec7231d3a2fd91434a1998fb33bb369cf1e0ec28d8254652f0f756935b2"
+        ],
+        [
+          "concept-sha256:002c656661797e8577ae1f8ec9ba2f43d865dad9f49ecbc4ee590da0ea82d98e"
+        ],
+        [
+          "concept-sha256:002e64afb33df6b6dc88e1b14becdb4d42fa0844d9172751747a4e72cd22e435"
+        ],
+        [
+          "concept-sha256:002fe0baee06275224380cec356b1a9a58551386c2f9d244c16df7b3c733bc1c"
+        ],
+        [
+          "concept-sha256:003162639160d37b2e2126e48823a2cef8cf796b1053d270980fd0b8e5aa7d7a"
+        ]
+      ]
+    },
+    {
+      "name": "alias_issue_subject",
+      "sql": "SELECT json_object('type','alias-issue','id',i.issue_id,'candidate_id',i.candidate_id,'canonical_label',i.proposed_label,'concept_type',i.proposed_type,'aliases',json(i.aliases_json),'candidates',json(coalesce((SELECT json_group_array(json_object('concept_id',z.concept_id,'canonical_label',z.canonical_label,'concept_type',z.concept_type)) FROM (SELECT DISTINCT c.concept_id,c.canonical_label,c.concept_type FROM concepts c LEFT JOIN aliases a ON a.target_concept_id=c.concept_id AND a.visible_to_generation IS NULL WHERE c.visible_to_generation IS NULL AND c.lifecycle_state<>'retired' AND (lower(c.canonical_label)=lower(i.proposed_label) OR a.normalized_alias=lower(i.proposed_label) OR a.normalized_alias IN(SELECT lower(value) FROM json_each(i.aliases_json))) ORDER BY c.concept_id) z),'[]'))) FROM maintenance_alias_issues i WHERE i.issue_id=? AND i.state='open'",
+      "parameters": [
+        [
+          "alias-issue:0022fe7583186c7f8cb68c438e1de29cf1f5f2202156f7a82e7807345c2a0f35"
+        ],
+        [
+          "alias-issue:002ff8e207f5720a6ba2f717367a78437a0e1524354a8dab288e2ed75c3a4ca4"
+        ],
+        [
+          "alias-issue:00303ec73abf99a61a58fac34d664827c7e313afbe1ea6dc1fba29a63edc3d5c"
+        ],
+        [
+          "alias-issue:003cce55385ddc24b9da58387369a0e7bec418b6048ed8c29c3a5a3ecf38a90d"
+        ],
+        [
+          "alias-issue:0040295a345d0e9965b888565edd0723fba71e519a24add3e4c2da9bc3ebe550"
+        ],
+        [
+          "alias-issue:00425e93ec218ccdf784b602cb90516020b6e3e6ba4bac5b97d56cb9bcaa6104"
+        ],
+        [
+          "alias-issue:0043490ad623327047999283bd68ca82eae0f7eb6edd2c109ce120c69805c2c5"
+        ],
+        [
+          "alias-issue:00446f17a2fdf5dbc5ec8ba8cf3ba694be9959b59a99327e53f459af31253b18"
+        ],
+        [
+          "alias-issue:0056a027d2963d43ae857fc4f4a84d0468f1904f90630a2b5e7c1f1c3295cb06"
+        ],
+        [
+          "alias-issue:005862c98230a6b7568d3a85f7f40808bc18cf749aeba7cef3dcbd32c0c7ad89"
+        ]
+      ]
+    },
+    {
+      "name": "identity_census_100",
+      "sql": "SELECT concept_id FROM (SELECT c.concept_id FROM concepts c WHERE c.lifecycle_state='active' AND c.visible_to_generation IS NULL AND EXISTS(SELECT 1 FROM maintenance_alias_issues i WHERE i.state='open' AND lower(i.proposed_label)=lower(c.canonical_label) AND (i.proposed_type<>c.concept_type OR EXISTS(SELECT 1 FROM concepts d WHERE d.concept_id<>c.concept_id AND d.lifecycle_state='active' AND d.visible_to_generation IS NULL AND lower(d.canonical_label)=lower(c.canonical_label))))) WHERE concept_id>'' ORDER BY concept_id LIMIT 100",
+      "parameters": [
+        []
+      ]
+    },
+    {
+      "name": "concept_passage_selection",
+      "sql": "SELECT mention_id evidence_id,revision_chunk_id,span_start,span_end FROM mentions WHERE concept_id=? AND (visible_to_generation IS NULL OR EXISTS(SELECT 1 FROM concepts WHERE concept_id=? AND lifecycle_state='retired')) UNION SELECT s.support_id,s.revision_chunk_id,s.span_start,s.span_end FROM claim_support s JOIN claims c ON c.claim_id=s.claim_id WHERE (c.source_concept_id=? OR c.target_concept_id=?) AND c.visible_to_generation IS NULL AND s.visible_to_generation IS NULL",
+      "parameters": [
+        [
+          "concept-sha256:0001ae4e9e5cc21b2aeecd9998313e5cf2ff9fa05a7b641ff2842a31aaf433e5",
+          "concept-sha256:0001ae4e9e5cc21b2aeecd9998313e5cf2ff9fa05a7b641ff2842a31aaf433e5",
+          "concept-sha256:0001ae4e9e5cc21b2aeecd9998313e5cf2ff9fa05a7b641ff2842a31aaf433e5",
+          "concept-sha256:0001ae4e9e5cc21b2aeecd9998313e5cf2ff9fa05a7b641ff2842a31aaf433e5"
+        ],
+        [
+          "concept-sha256:000506c36e11b5ee955efa45dd8cea0f9091cd64e165ae1ee73ce70e3537ae68",
+          "concept-sha256:000506c36e11b5ee955efa45dd8cea0f9091cd64e165ae1ee73ce70e3537ae68",
+          "concept-sha256:000506c36e11b5ee955efa45dd8cea0f9091cd64e165ae1ee73ce70e3537ae68",
+          "concept-sha256:000506c36e11b5ee955efa45dd8cea0f9091cd64e165ae1ee73ce70e3537ae68"
+        ],
+        [
+          "concept-sha256:0005f972a52df6df95a88fc92b21232f10b0b30fa99c3616e8e1b88b584e8b1e",
+          "concept-sha256:0005f972a52df6df95a88fc92b21232f10b0b30fa99c3616e8e1b88b584e8b1e",
+          "concept-sha256:0005f972a52df6df95a88fc92b21232f10b0b30fa99c3616e8e1b88b584e8b1e",
+          "concept-sha256:0005f972a52df6df95a88fc92b21232f10b0b30fa99c3616e8e1b88b584e8b1e"
+        ],
+        [
+          "concept-sha256:000741d187edaa739be8b904cbece35de222e285e50590b73a1bea92e6ee2a2f",
+          "concept-sha256:000741d187edaa739be8b904cbece35de222e285e50590b73a1bea92e6ee2a2f",
+          "concept-sha256:000741d187edaa739be8b904cbece35de222e285e50590b73a1bea92e6ee2a2f",
+          "concept-sha256:000741d187edaa739be8b904cbece35de222e285e50590b73a1bea92e6ee2a2f"
+        ],
+        [
+          "concept-sha256:000b2e9799f949300b8dc274b2673ab4b2ab07e39388f47377d0fb9ac15bbc52",
+          "concept-sha256:000b2e9799f949300b8dc274b2673ab4b2ab07e39388f47377d0fb9ac15bbc52",
+          "concept-sha256:000b2e9799f949300b8dc274b2673ab4b2ab07e39388f47377d0fb9ac15bbc52",
+          "concept-sha256:000b2e9799f949300b8dc274b2673ab4b2ab07e39388f47377d0fb9ac15bbc52"
+        ],
+        [
+          "concept-sha256:000c2006d52000ea6bd0e8d71d2bea013ddefcffba0b3837689e673cdf2d9641",
+          "concept-sha256:000c2006d52000ea6bd0e8d71d2bea013ddefcffba0b3837689e673cdf2d9641",
+          "concept-sha256:000c2006d52000ea6bd0e8d71d2bea013ddefcffba0b3837689e673cdf2d9641",
+          "concept-sha256:000c2006d52000ea6bd0e8d71d2bea013ddefcffba0b3837689e673cdf2d9641"
+        ],
+        [
+          "concept-sha256:000f5be6b1dbaeb5904ac853de295c624dc720b6393d1a6f08d8ca41e60c1e44",
+          "concept-sha256:000f5be6b1dbaeb5904ac853de295c624dc720b6393d1a6f08d8ca41e60c1e44",
+          "concept-sha256:000f5be6b1dbaeb5904ac853de295c624dc720b6393d1a6f08d8ca41e60c1e44",
+          "concept-sha256:000f5be6b1dbaeb5904ac853de295c624dc720b6393d1a6f08d8ca41e60c1e44"
+        ],
+        [
+          "concept-sha256:0014ab49da7f79c9a5eb062f19ee58de65d62d2be6bee520d1574a061d7de30c",
+          "concept-sha256:0014ab49da7f79c9a5eb062f19ee58de65d62d2be6bee520d1574a061d7de30c",
+          "concept-sha256:0014ab49da7f79c9a5eb062f19ee58de65d62d2be6bee520d1574a061d7de30c",
+          "concept-sha256:0014ab49da7f79c9a5eb062f19ee58de65d62d2be6bee520d1574a061d7de30c"
+        ],
+        [
+          "concept-sha256:001909afd48487d9851d9b59178f0fb16794b528f01e79d905d1c48649bd30cf",
+          "concept-sha256:001909afd48487d9851d9b59178f0fb16794b528f01e79d905d1c48649bd30cf",
+          "concept-sha256:001909afd48487d9851d9b59178f0fb16794b528f01e79d905d1c48649bd30cf",
+          "concept-sha256:001909afd48487d9851d9b59178f0fb16794b528f01e79d905d1c48649bd30cf"
+        ],
+        [
+          "concept-sha256:001ce99fbab23a3945799ab3d68cacb5db6e8260c839eb613f6a221fce1b57c8",
+          "concept-sha256:001ce99fbab23a3945799ab3d68cacb5db6e8260c839eb613f6a221fce1b57c8",
+          "concept-sha256:001ce99fbab23a3945799ab3d68cacb5db6e8260c839eb613f6a221fce1b57c8",
+          "concept-sha256:001ce99fbab23a3945799ab3d68cacb5db6e8260c839eb613f6a221fce1b57c8"
+        ],
+        [
+          "concept-sha256:001d50c7c87d84360ef277ec37247d6bc2c8517d55697ef988f160757e82f0b5",
+          "concept-sha256:001d50c7c87d84360ef277ec37247d6bc2c8517d55697ef988f160757e82f0b5",
+          "concept-sha256:001d50c7c87d84360ef277ec37247d6bc2c8517d55697ef988f160757e82f0b5",
+          "concept-sha256:001d50c7c87d84360ef277ec37247d6bc2c8517d55697ef988f160757e82f0b5"
+        ],
+        [
+          "concept-sha256:001ffb7ac80592b5ef161b534bf5dd1dbc1c2d0655e59417c6badc98496c3bbf",
+          "concept-sha256:001ffb7ac80592b5ef161b534bf5dd1dbc1c2d0655e59417c6badc98496c3bbf",
+          "concept-sha256:001ffb7ac80592b5ef161b534bf5dd1dbc1c2d0655e59417c6badc98496c3bbf",
+          "concept-sha256:001ffb7ac80592b5ef161b534bf5dd1dbc1c2d0655e59417c6badc98496c3bbf"
+        ],
+        [
+          "concept-sha256:00255e8cb9435a956ac11d81b69aa3f7402d47ad087afe108431277831362fbc",
+          "concept-sha256:00255e8cb9435a956ac11d81b69aa3f7402d47ad087afe108431277831362fbc",
+          "concept-sha256:00255e8cb9435a956ac11d81b69aa3f7402d47ad087afe108431277831362fbc",
+          "concept-sha256:00255e8cb9435a956ac11d81b69aa3f7402d47ad087afe108431277831362fbc"
+        ],
+        [
+          "concept-sha256:00281a99e03a525872e5aff1bb7f269f2f7a40a98ad64beeb1e7f9e1e1ac0f1b",
+          "concept-sha256:00281a99e03a525872e5aff1bb7f269f2f7a40a98ad64beeb1e7f9e1e1ac0f1b",
+          "concept-sha256:00281a99e03a525872e5aff1bb7f269f2f7a40a98ad64beeb1e7f9e1e1ac0f1b",
+          "concept-sha256:00281a99e03a525872e5aff1bb7f269f2f7a40a98ad64beeb1e7f9e1e1ac0f1b"
+        ],
+        [
+          "concept-sha256:0028a403fd938849eeedd60e3917cfb323fe9a1407926036cab36544a9a6b0ab",
+          "concept-sha256:0028a403fd938849eeedd60e3917cfb323fe9a1407926036cab36544a9a6b0ab",
+          "concept-sha256:0028a403fd938849eeedd60e3917cfb323fe9a1407926036cab36544a9a6b0ab",
+          "concept-sha256:0028a403fd938849eeedd60e3917cfb323fe9a1407926036cab36544a9a6b0ab"
+        ],
+        [
+          "concept-sha256:0028fec7231d3a2fd91434a1998fb33bb369cf1e0ec28d8254652f0f756935b2",
+          "concept-sha256:0028fec7231d3a2fd91434a1998fb33bb369cf1e0ec28d8254652f0f756935b2",
+          "concept-sha256:0028fec7231d3a2fd91434a1998fb33bb369cf1e0ec28d8254652f0f756935b2",
+          "concept-sha256:0028fec7231d3a2fd91434a1998fb33bb369cf1e0ec28d8254652f0f756935b2"
+        ],
+        [
+          "concept-sha256:002c656661797e8577ae1f8ec9ba2f43d865dad9f49ecbc4ee590da0ea82d98e",
+          "concept-sha256:002c656661797e8577ae1f8ec9ba2f43d865dad9f49ecbc4ee590da0ea82d98e",
+          "concept-sha256:002c656661797e8577ae1f8ec9ba2f43d865dad9f49ecbc4ee590da0ea82d98e",
+          "concept-sha256:002c656661797e8577ae1f8ec9ba2f43d865dad9f49ecbc4ee590da0ea82d98e"
+        ],
+        [
+          "concept-sha256:002e64afb33df6b6dc88e1b14becdb4d42fa0844d9172751747a4e72cd22e435",
+          "concept-sha256:002e64afb33df6b6dc88e1b14becdb4d42fa0844d9172751747a4e72cd22e435",
+          "concept-sha256:002e64afb33df6b6dc88e1b14becdb4d42fa0844d9172751747a4e72cd22e435",
+          "concept-sha256:002e64afb33df6b6dc88e1b14becdb4d42fa0844d9172751747a4e72cd22e435"
+        ],
+        [
+          "concept-sha256:002fe0baee06275224380cec356b1a9a58551386c2f9d244c16df7b3c733bc1c",
+          "concept-sha256:002fe0baee06275224380cec356b1a9a58551386c2f9d244c16df7b3c733bc1c",
+          "concept-sha256:002fe0baee06275224380cec356b1a9a58551386c2f9d244c16df7b3c733bc1c",
+          "concept-sha256:002fe0baee06275224380cec356b1a9a58551386c2f9d244c16df7b3c733bc1c"
+        ],
+        [
+          "concept-sha256:003162639160d37b2e2126e48823a2cef8cf796b1053d270980fd0b8e5aa7d7a",
+          "concept-sha256:003162639160d37b2e2126e48823a2cef8cf796b1053d270980fd0b8e5aa7d7a",
+          "concept-sha256:003162639160d37b2e2126e48823a2cef8cf796b1053d270980fd0b8e5aa7d7a",
+          "concept-sha256:003162639160d37b2e2126e48823a2cef8cf796b1053d270980fd0b8e5aa7d7a"
+        ]
+      ]
+    },
+    {
+      "name": "glossary_candidates",
+      "sql": "SELECT candidate_id FROM candidate_mentions WHERE visible_from_generation=?1 AND normalized_candidate=?2 AND NOT EXISTS(SELECT 1 FROM candidate_decisions d WHERE d.candidate_id=candidate_mentions.candidate_id) ORDER BY candidate_id",
+      "parameters": [
+        [
+          24928,
+          "sql-review-positive-control"
+        ],
+        [
+          24928,
+          "sql-review-absent-control"
+        ]
+      ],
+      "setup": {
+        "sql": "INSERT INTO candidate_mentions(candidate_id,revision_chunk_id,normalized_candidate,span_start,span_end,extractor_version,visible_from_generation) VALUES('candidate-sql-review-positive-control',?,'sql-review-positive-control',0,1,'sql-review-diagnostic',24928)",
+        "parameters": [
+          "occurrence-sha256:00005ea48301c1c8a054d4ae70d2ff2d5e321e0abc5928953b5af9ae19e0842c"
+        ],
+        "scope": "Same scratch database; insert before each SELECT comparison and roll back afterwards. Before also drops candidate-generation index transactionally."
+      }
+    },
+    {
+      "name": "retrieval_alias",
+      "sql": "SELECT COALESCE(c.canonical_label,''),COALESCE(a.ambiguity_id,'') FROM aliases a LEFT JOIN concepts c ON c.concept_id=a.target_concept_id WHERE lower(a.normalized_alias)=?1 AND a.visible_from_generation<=?2 AND (a.visible_to_generation IS NULL OR a.visible_to_generation>?2) ORDER BY a.alias_id LIMIT 2",
+      "parameters": [
+        [
+          "stewart",
+          24928
+        ],
+        [
+          "scotland",
+          24928
+        ],
+        [
+          "william",
+          24928
+        ],
+        [
+          "absent-review-control",
+          24928
+        ]
+      ]
+    },
+    {
+      "name": "retrieval_notes",
+      "sql": "SELECT DISTINCT n.note_id,n.note_kind,n.text,n.importance,n.uncertainty,n.next_action,n.state,n.author,l.object_type,l.object_id,s.source_id,r.revision_id,rc.normalized_start,l.span_start,l.span_end FROM analysis_notes n JOIN analysis_note_links l ON l.note_id=n.note_id JOIN revision_chunks rc ON rc.revision_chunk_id=l.revision_chunk_id JOIN source_revisions r ON r.revision_id=rc.revision_id JOIN sources s ON s.source_id=r.source_id WHERE n.state='active' AND l.revision_chunk_id=?1 AND rc.visible_from_generation<=?2 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?2) ORDER BY n.importance DESC,n.note_id LIMIT ?3",
+      "parameters": [
+        [
+          "occurrence-sha256:00005ea48301c1c8a054d4ae70d2ff2d5e321e0abc5928953b5af9ae19e0842c",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:0000ab74cce6d3490445019c0e935ca996bcf38cf08843198cbf5ffd6c316134",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:00033b4aeddd2f2258da6f349f20615bd6e9fbbe9f63bad1c61a8861a0385a6b",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:0004a2ca71517ab42bd76526f64326471fd3520cac38f946cccd58709ad9c8bc",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:000733711f2d262fecbd3e2cba9ae13f13d8c13aa8ad7b9e5d1d68c29970a21e",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:000b04f218638b8f4b51f5254668c62d9fbc6c43e031e48b0f49c0c0885fa892",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:000c3f6480dd64de58e4fbdcc763f557bf4fd0d945fc6258d1bfbafde6112d2b",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:000cabeb1059840b7665d6940dca48273fdd7933be650e48b5d0a01463f56a4a",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:000f497cc0dfd7e8869b678b2d1a5fd610d6111f28a3497c0ffdd4cceb895e0b",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:000ff9dab20a470277c4a45618ac94a510a2387ab14debe96124acc9bf6a0c4f",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:0011ed5a31ec671fd48d7300d715e29c988e0bb5a2765246cff15a3f47ef5341",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:00135f70d512b1f0a105fb15881bce33a157b149f38c361367941ef791cf6375",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:001482c645d0072e66fce11ed840bb99ad9eef0dd2e4b1ee4e2fa4ed1417fb95",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:00176e2fa0c5b3b896afb90f09c1d6522333313a7b5289abc3459e1f41857269",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:0017fd0bc899ba79c2a1705d605a58e9683675c5df9b51e09662b3a601cb31f9",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:001927930d9f0c484c891b668950126b91f743a738d2b6b874c1ceea280b262f",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:001d6443c9af064b27e12cd96db04fd924a30199c117f2e3580dbe75a4b435de",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:001d749bba29febe9f11bca9e1dc237b7250efe2774b9f98fadfea7a19b531ff",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:00217ab8cd3fb4cca4c8325726f546336f59ef13c7e1f9d893fe6b03ba509a10",
+          24928,
+          8
+        ],
+        [
+          "occurrence-sha256:0021d1e70f1a46ddeb7c53dfe824d9c608fe9f8d27c9b11327a92f0f6e8ab404",
+          24928,
+          8
+        ]
+      ]
+    },
+    {
+      "name": "cached_resolution",
+      "sql": "SELECT json_object('response',o.response_json,'provider_run_id',o.provider_run_id,'profile_hash',o.profile_hash) FROM maintenance_provider_outputs o JOIN maintenance_task_items m ON m.task_id=o.task_id WHERE m.item_id=?1 AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.item_id=o.item_id AND a.outcome IN('failed','dead_letter')) ORDER BY o.created_epoch DESC,o.item_id LIMIT 1",
+      "parameters": [
+        [
+          "item-maintenance:00007f4382e9593aaa2e20263dc5dfa1135421723e84dbf3b924b215be4d8bf4"
+        ],
+        [
+          "item-maintenance:000155bb2291c299e133c3194555c270eb7a1f5daff39b4e4df9660223336422"
+        ],
+        [
+          "item-maintenance:00060853890d87535935aa881cc2657e8d3b9d5b3d9e1a3f327c2db69334ff5e"
+        ],
+        [
+          "item-maintenance:000813e2c9ef78501321c9a6f060ea2eecfbc5ec4b055395f8d7c9beae94ef03"
+        ],
+        [
+          "item-maintenance:000a3009c8b0233a91c85656a10703cf63b55738e8a7a1bea0dc83820867babe"
+        ],
+        [
+          "item-maintenance:000fc07d13c79f6222c0b23a1271e8cb83f02a5c975909b08852d48867a5dee3"
+        ],
+        [
+          "item-maintenance:00105f05d4e91ffd0ebaac53c87564858409b21a7c0f6b863938af2b7739c418"
+        ],
+        [
+          "item-maintenance:0013de23817e7b6f73ee4edfe0f52fd3d36c7ae7c9ac9e09b71e0f94d7953347"
+        ],
+        [
+          "item-maintenance:001d86fb48759910f9f77f3d0edeebea49970b8b6c9fb98156828f0a9b834694"
+        ],
+        [
+          "item-maintenance:0026a48a91bf0e2e3a0f2bcec8c47eb41051f4e4b2f2efa3123f6892ef5348b0"
+        ],
+        [
+          "item-maintenance:0026d23e6efdd33f5892a1599a5c11bd0db415d0415e6f7fd072ad68661254b3"
+        ],
+        [
+          "item-maintenance:0027a828703cf7198b9b3b8e6676835b0ae3d938209d22b008309fa4b6c559b6"
+        ],
+        [
+          "item-maintenance:0027d637fe4ca4bfeb3cf66aaf815817ac6e39c48fe4d1605310b22c999d78e4"
+        ],
+        [
+          "item-maintenance:0028213c1486f8cc4637c87d1178aaff926c10ea9567c384ecbffd4285b690f7"
+        ],
+        [
+          "item-maintenance:002bfc0cd2721f52c4daf6702639cc441d1b0210a0a60aa3b20e29cc0ee40f78"
+        ],
+        [
+          "item-maintenance:002dcaa06b14188af4d876a83d3fb128e4c44d29c76d5cef3c691557406e6b13"
+        ],
+        [
+          "item-maintenance:00313702e381096b79813419c5092e9c3d787a047a6e14b65e03001a072e2b18"
+        ],
+        [
+          "item-maintenance:00341d8cd09f7b053b5921664e69c049fa6f2d3432df0a361f439df62444ef14"
+        ],
+        [
+          "item-maintenance:0038a820d03405fd7e323a1114293ebd7d09b5ab7da0b84ab0bbb9c741ef9b16"
+        ],
+        [
+          "item-maintenance:003b9fec57e554753e1cff84ce8d6dad3a37d5f6c7e2b69d368f26f0e3045a2c"
+        ]
+      ]
+    },
+    {
+      "name": "admission_expiry_candidates",
+      "sql": "SELECT admission_id FROM provider_admissions WHERE outcome='active' AND lease_until_epoch<=unixepoch()",
+      "parameters": [
+        []
+      ]
+    }
+  ],
+  "method_notes": [
+    "Final glossary SELECT compares one synthetic undecided candidate and one absent key. Both data insertion and the baseline index drop were rolled back. The first exploratory DELETE at generation 24928 matched zero rows and was replaced by this explicit positive/negative comparison.",
+    "Result equivalence is exact ordered arrays including JSON text for these parameter sets; no claim about untested inputs.",
+    "Python SQLite 3.53.4 differs from installed CREXX SQLite 3.53.2; the separate checkpoint profile checks the installed provider."
+  ]
+}

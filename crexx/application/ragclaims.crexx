@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragclaims expose validateassessment ragclaimpolicy ragextractionproposal ragproposalvalidation ragproposalresult ragtraversalstep ragextractionrank promotemention rankchunk validateproposal applyproposal applyproposaltransaction applyclaimedproposal retractsupport traverseclaims
+namespace ragclaims expose validateassessment ragclaimpolicy ragextractionproposal ragproposalvalidation ragproposalresult ragtraversalstep ragextractionrank promotemention chunkrankprojection rankchunk validateproposal applyproposal applyproposaltransaction applyclaimedproposal retractsupport traverseclaims
 
 import rxfnsb
 import rxjson
@@ -420,30 +420,35 @@ _promotionidentity: procedure = .string
   if distinct = 1 then if _boundcount(database,"SELECT count(*) FROM concepts WHERE concept_id=?1",identity) > 0 then identity = "concept-sha256:" || rxhash..sha256hex((lower(label) || "00"x || concept_type || "00"x || "distinct:" || candidate_id) as .binary)
   return identity
 
+/* One owner for rank facts; callers can include it in a bounded read cursor. */
+chunkrankprojection: procedure = .string
+  arg alias = .string, generation = .int, reuse_expression = ""
+  if reuse_expression="" then reuse_expression="(SELECT max(0,count(*)-1) FROM revision_chunks WHERE content_id=" || alias || ".content_id AND visible_from_generation<=" || generation || ")"
+  key=alias || ".revision_chunk_id"; visible="visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ")"
+  return "json_object('body',(SELECT text FROM chunk_contents WHERE content_id=" || alias || ".content_id),'class'," || alias || ".evidence_class,'candidates',(SELECT count(*) FROM candidate_mentions WHERE revision_chunk_id=" || key || " AND " || visible || "),'supports',(SELECT count(*) FROM claim_support WHERE revision_chunk_id=" || key || " AND " || visible || "),'reuse'," || reuse_expression || ",'unresolved',(SELECT count(*) FROM candidate_mentions m WHERE m.revision_chunk_id=" || key || " AND m." || visible || " AND NOT EXISTS(SELECT 1 FROM candidate_decisions d WHERE d.candidate_id=m.candidate_id AND d.state='accepted')))"
+
 rankchunk: procedure = .int
-  arg store = .ragstorehandle, revision_chunk_id = .string, policy_version = .string, expose rank = .ragextractionrank, expose error = .string
+  arg store = .ragstorehandle, revision_chunk_id = .string, policy_version = .string, expose rank = .ragextractionrank, expose error = .string, current = -1, facts_json = "", hash_input = 1
   error = ""; rank = .ragextractionrank(revision_chunk_id, policy_version, 0, 0, 0, 0, 0, 0, 0, 0, "")
   if store.open() \= 1 | revision_chunk_id = "" | policy_version = "" then do; error = "ranking inputs are invalid"; return -1; end
-  current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
-  body = _activechunktext(store.database(), revision_chunk_id, current)
-  if body = "" then do; error = "active chunk is unavailable"; return -2; end
-  concepts = _boundcount2(store.database(), "SELECT count(*) FROM candidate_mentions WHERE revision_chunk_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)", revision_chunk_id, current)
-  mentions = _boundcount2(store.database(), "SELECT count(*) FROM mentions WHERE revision_chunk_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)", revision_chunk_id, current)
-  extracted = _boundcount2(store.database(), "SELECT count(*) FROM claim_support WHERE revision_chunk_id=?1 AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)", revision_chunk_id, current)
-  if concepts < 0 | mentions < 0 | extracted < 0 then do; error = "ranking census failed"; return -3; end
+  if current<0 then current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
+  if facts_json="" then facts_json=_boundscalartext(store.database(),"SELECT " || chunkrankprojection("c",current) || " FROM revision_chunks c WHERE c.revision_chunk_id=?1 AND c.visible_from_generation<=" || current || " AND (c.visible_to_generation IS NULL OR c.visible_to_generation>" || current || ")",revision_chunk_id)
+  facts=.jsondocument(facts_json);body="";evidence_class="";concepts=0;extracted=0;reuse=0;unresolved=0
+  if facts.valid()<>1 then do;error="active chunk ranking facts are unavailable";return -2;end
+  decoded=facts.node_string(facts.member(facts.root(),"body"),body) | facts.node_string(facts.member(facts.root(),"class"),evidence_class) | facts.node_int(facts.member(facts.root(),"candidates"),concepts) | facts.node_int(facts.member(facts.root(),"supports"),extracted) | facts.node_int(facts.member(facts.root(),"reuse"),reuse) | facts.node_int(facts.member(facts.root(),"unresolved"),unresolved)
+  if decoded<>0 | body="" then do;error="chunk ranking facts are incomplete";return -3;end
   lower_body = lower(body)
   cues = _occurs(lower_body, " depends on ") + _occurs(lower_body, " uses ") + _occurs(lower_body, " calls ") + _occurs(lower_body, " owns ") + _occurs(lower_body, " reports ")
   novelty = 1000
   if extracted > 0 then novelty = 0
-  redundancy = _contentreuse(store.database(), revision_chunk_id, current) * 100
+  redundancy = reuse * 100
   bridge = 0
   if concepts >= 2 then bridge = (concepts - 1) * 200
   source_quality = 500
-  if _evidenceclass(store.database(), revision_chunk_id) = "code" then source_quality = 300
-  unresolved = _boundcount2(store.database(), "SELECT count(*) FROM candidate_mentions c WHERE c.revision_chunk_id=?1 AND c.visible_from_generation<=?2 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?2) AND NOT EXISTS(SELECT 1 FROM candidate_decisions d WHERE d.candidate_id=c.candidate_id AND d.state='accepted')", revision_chunk_id, current)
-  if unresolved < 0 then do; error = "unresolved-risk census failed"; return -3; end
+  if evidence_class = "code" then source_quality = 300
   total = concepts * 100 + cues * 350 + novelty - redundancy + bridge + source_quality + unresolved * 50
-  fingerprint = rxhash..sha256hex(("crexx-rag.extraction-rank/1" || "00"x || policy_version || "00"x || revision_chunk_id || "00"x || current || "00"x || concepts || "00"x || cues || "00"x || novelty || "00"x || redundancy || "00"x || bridge || "00"x || source_quality || "00"x || unresolved) as .binary)
+  fingerprint = ""
+  if hash_input=1 then fingerprint = rxhash..sha256hex(("crexx-rag.extraction-rank/1" || "00"x || policy_version || "00"x || revision_chunk_id || "00"x || current || "00"x || concepts || "00"x || cues || "00"x || novelty || "00"x || redundancy || "00"x || bridge || "00"x || source_quality || "00"x || unresolved) as .binary)
   rank = .ragextractionrank(revision_chunk_id, policy_version, concepts, cues, novelty, redundancy, bridge, source_quality, unresolved, total, fingerprint)
   return 0
 
@@ -764,16 +769,7 @@ _finishitem: procedure = .int
 
 _refreshjob: procedure = .int
   arg database = .binary, job_id = .string
-  if job_id = "" then return -1
-  queued = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state IN('queued','running','cancel_requested')", job_id)
-  dead = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='dead_letter'", job_id)
-  cancelled = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='cancelled'", job_id)
-  if queued < 0 | dead < 0 | cancelled < 0 then return -1
-  if queued > 0 then state = "running"
-  else if dead > 0 then state = "completed_with_errors"
-  else if cancelled > 0 then state = "cancelled"
-  else state = "completed"
-  return sqliteexec(database, "UPDATE jobs SET state=" || _q(state) || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id))
+  return refreshlifecyclejob(database, job_id)
 
 _candidate: procedure = .int
   arg database = .binary, candidate_id = .string, expose chunk = .string, expose start = .int, expose finish = .int, expose decision = .string
@@ -861,19 +857,6 @@ _activefence: procedure = .int
   arg database = .binary, item_id = .string, worker_id = .string, fence = .int, attempt_id = .string
   job_id = _boundscalartext(database,"SELECT job_id FROM job_items WHERE item_id=?1",item_id)
   return activeworkfence(database,job_id,item_id,attempt_id,worker_id,fence)
-
-_contentreuse: procedure = .int
-  arg database = .binary, chunk_id = .string, generation = .int
-  prepared = .binary
-  sql = "SELECT count(*)-1 FROM revision_chunks c JOIN revision_chunks target ON target.content_id=c.content_id WHERE target.revision_chunk_id=?1 AND c.visible_from_generation<=?2"
-  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, chunk_id) \= 0 | sqlitebindint(prepared, 2, generation) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return 0; end
-  count = 0; call sqlitecolumnint prepared, 0, count; call sqlitefinalize prepared
-  if count < 0 then return 0
-  return count
-
-_evidenceclass: procedure = .string
-  arg database = .binary, chunk_id = .string
-  return _boundscalartext(database, "SELECT evidence_class FROM revision_chunks WHERE revision_chunk_id=?1", chunk_id)
 
 _occurs: procedure = .int
   arg text = .string, needle = .string

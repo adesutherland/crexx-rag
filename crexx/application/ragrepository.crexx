@@ -215,7 +215,9 @@ pagerepository: procedure = .int
     return _page(read_snapshot, repository, sql, cursor, limit, page, error)
   end
   if repository = "generations" then do
-    sql = "SELECT printf('%020d',generation),CAST(generation AS TEXT),coalesce(CAST(parent_generation AS TEXT),''),config_snapshot_id,summary,'generation',state,created_at,coalesce(published_at,'')," || empty_blob || ",generation,0,generation,0 FROM published_generations WHERE printf('%020d',generation)>?1 AND state='published' AND generation<=" || generation || " ORDER BY generation LIMIT ?2"
+    boundary="generation>CAST(?1 AS INTEGER)"
+    if cursor<>"" & (length(cursor)<>20 | verify(cursor,"0123456789")<>0) then boundary="printf('%020d',generation)>?1"
+    sql = "SELECT printf('%020d',generation),CAST(generation AS TEXT),coalesce(CAST(parent_generation AS TEXT),''),config_snapshot_id,summary,'generation',state,created_at,coalesce(published_at,'')," || empty_blob || ",generation,0,generation,0 FROM published_generations WHERE " || boundary || " AND state='published' AND generation<=" || generation || " ORDER BY generation LIMIT ?2"
     return _page(read_snapshot, repository, sql, cursor, limit, page, error)
   end
   if repository = "concepts" then do
@@ -231,11 +233,15 @@ pagerepository: procedure = .int
     return _page(read_snapshot, repository, sql, cursor, limit, page, error)
   end
   if repository = "lineage" then do
-    sql = "SELECT lineage_group||char(31)||support_id,support_id,lineage_group,claim_id,attribution,polarity,stance,directness,extractor_identity," || empty_blob || ",span_start,span_end,visible_from_generation,coalesce(visible_to_generation,0) FROM claim_support WHERE (lineage_group||char(31)||support_id)>?1 AND " || visible || " ORDER BY lineage_group,support_id LIMIT ?2"
+    boundary="(lineage_group,support_id)>(substr(?1,1,instr(?1,char(31))-1),substr(?1,instr(?1,char(31))+1))"
+    if cursor<>"" & pos("1f"x,cursor)=0 then boundary="(lineage_group||char(31)||support_id)>?1"
+    sql = "SELECT lineage_group||char(31)||support_id,support_id,lineage_group,claim_id,attribution,polarity,stance,directness,extractor_identity," || empty_blob || ",span_start,span_end,visible_from_generation,coalesce(visible_to_generation,0) FROM claim_support WHERE " || boundary || " AND " || visible || " ORDER BY lineage_group,support_id LIMIT ?2"
     return _page(read_snapshot, repository, sql, cursor, limit, page, error)
   end
   if repository = "embeddings" then do
-    sql = "SELECT l.revision_chunk_id||char(31)||e.embedding_id,e.embedding_id,l.revision_chunk_id,e.embedding_profile_id,e.input_digest,coalesce(e.provider_run_id,''),'active',e.created_at,'',e.vector,e.dimension,length(e.vector),l.visible_from_generation,coalesce(l.visible_to_generation,0) FROM revision_chunk_embeddings l JOIN embeddings e ON e.embedding_id=l.embedding_id JOIN revision_chunks r ON r.revision_chunk_id=l.revision_chunk_id WHERE (l.revision_chunk_id||char(31)||e.embedding_id)>?1 AND l.visible_from_generation<=" || generation || " AND (l.visible_to_generation IS NULL OR l.visible_to_generation>" || generation || ") AND r.visible_from_generation<=" || generation || " AND (r.visible_to_generation IS NULL OR r.visible_to_generation>" || generation || ") ORDER BY l.revision_chunk_id,e.embedding_id LIMIT ?2"
+    boundary="(l.revision_chunk_id,l.embedding_id)>(substr(?1,1,instr(?1,char(31))-1),substr(?1,instr(?1,char(31))+1))"
+    if cursor<>"" & pos("1f"x,cursor)=0 then boundary="(l.revision_chunk_id||char(31)||e.embedding_id)>?1"
+    sql = "SELECT l.revision_chunk_id||char(31)||e.embedding_id,e.embedding_id,l.revision_chunk_id,e.embedding_profile_id,e.input_digest,coalesce(e.provider_run_id,''),'active',e.created_at,'',e.vector,e.dimension,length(e.vector),l.visible_from_generation,coalesce(l.visible_to_generation,0) FROM revision_chunk_embeddings l JOIN embeddings e ON e.embedding_id=l.embedding_id JOIN revision_chunks r ON r.revision_chunk_id=l.revision_chunk_id WHERE " || boundary || " AND l.visible_from_generation<=" || generation || " AND (l.visible_to_generation IS NULL OR l.visible_to_generation>" || generation || ") AND r.visible_from_generation<=" || generation || " AND (r.visible_to_generation IS NULL OR r.visible_to_generation>" || generation || ") ORDER BY l.revision_chunk_id,e.embedding_id LIMIT ?2"
     return _page(read_snapshot, repository, sql, cursor, limit, page, error)
   end
   if repository = "jobs" then do
@@ -258,7 +264,7 @@ pagerepository: procedure = .int
   return -1
 
 verifyrepositories: procedure = .int
-  arg read_snapshot = .ragreadsnapshot, expose result = .ragrepositoryverifyresult, expose error = .string
+  arg read_snapshot = .ragreadsnapshot, expose result = .ragrepositoryverifyresult, expose error = .string, fts_issues = -1
   result = .ragrepositoryverifyresult(1, "verification did not run")
   error = ""
   if read_snapshot.open() \= 1 then do
@@ -285,7 +291,7 @@ verifyrepositories: procedure = .int
   item_issues = _count(database, "SELECT count(*) FROM job_items WHERE state NOT IN('queued','running','processed','skipped','dead_letter','cancel_requested','cancelled') OR fence<0 OR (state IN('running','cancel_requested') AND (worker_id IS NULL OR worker_id='' OR fence<1 OR lease_until<1))", error)
   attempt_issues = _count(database, "SELECT count(*) FROM attempts a WHERE a.fence<1 OR a.validation_state='' OR a.outcome NOT IN('running','succeeded','failed','expired','cancelled','skipped','dead_letter') OR (a.outcome='running' AND a.completed_at IS NOT NULL) OR (a.outcome<>'running' AND a.completed_at IS NULL) OR (a.outcome='running' AND NOT EXISTS(SELECT 1 FROM job_items i WHERE i.item_id=a.item_id AND i.state IN('running','cancel_requested') AND i.worker_id=a.worker_id AND i.fence=a.fence AND i.lease_until>0))", error)
   review_issues = _count(database, "SELECT count(*) FROM reviews WHERE state NOT IN('pending','accepted','rejected','dismissed') OR (state='pending' AND (decision_json IS NOT NULL OR decided_at IS NOT NULL)) OR (state<>'pending' AND (decision_json IS NULL OR decided_at IS NULL))", error)
-  fts_issues = _count(database, "SELECT (SELECT count(*) FROM (SELECT c.revision_chunk_id,c.content_id,t.text FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE " || visible_chunk || " EXCEPT SELECT revision_chunk_id,content_id,body FROM chunks_fts))+(SELECT count(*) FROM (SELECT revision_chunk_id,content_id,body FROM chunks_fts EXCEPT SELECT c.revision_chunk_id,c.content_id,t.text FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE " || visible_chunk || "))", error)
+  if fts_issues<0 then fts_issues=ftsparityissues(database,generation,error)
   observation_issues = _count(database, "SELECT (SELECT count(*) FROM observation_decisions d WHERE (d.outcome='captured' AND NOT EXISTS(SELECT 1 FROM observation_snapshots s WHERE s.decision_id=d.decision_id)) OR (d.outcome<>'captured' AND EXISTS(SELECT 1 FROM observation_snapshots s WHERE s.decision_id=d.decision_id)))+(SELECT count(*) FROM observation_snapshots s JOIN observation_decisions d ON d.decision_id=s.decision_id LEFT JOIN published_generations g ON g.generation=s.semantic_generation LEFT JOIN config_snapshots c ON c.config_snapshot_id=s.config_snapshot_id WHERE d.outcome<>'captured' OR d.semantic_digest<>s.semantic_digest OR d.operational_digest<>s.operational_digest OR d.trigger<>s.trigger OR g.generation IS NULL OR c.config_snapshot_id IS NULL OR json_valid(s.report_json)<>1 OR (s.vector_generation_id<>'' AND NOT EXISTS(SELECT 1 FROM vector_generations v WHERE v.vector_generation_id=s.vector_generation_id AND " || compatiblevectorpredicate("s.semantic_generation","v.",0) || ")) OR (s.narrative_id<>'' AND NOT EXISTS(SELECT 1 FROM report_narratives n WHERE n.narrative_id=s.narrative_id AND n.report_id=s.report_id AND n.operational_digest=s.operational_digest)))+(SELECT CASE WHEN count(*)=0 THEN 0 WHEN min(sequence_number)=1 AND max(sequence_number)=count(*) THEN 0 ELSE 1 END FROM observation_snapshots)", error)
 
   counts = .int[]

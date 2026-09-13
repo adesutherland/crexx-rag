@@ -507,41 +507,10 @@ termstatistics: procedure = .int
     statistics = .ragtermstatistics(normalized_term, occurrences, chunks, source_diversity, policy_version, fingerprint)
     return 0
   end
-  prepared = .binary
-  sql = "SELECT c.revision_chunk_id,s.source_id,t.text FROM revision_chunks c JOIN source_revisions r ON r.revision_id=c.revision_id JOIN sources s ON s.source_id=r.source_id JOIN chunk_contents t ON t.content_id=c.content_id WHERE c.visible_from_generation<=?1 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?1) ORDER BY c.revision_chunk_id"
-  if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do
-    call sqlitefinalize prepared
-    error = "cannot prepare term census"
-    return -3
-  end
-  occurrences = 0; chunks = 0; sources = .string[]
-  do forever
-    step_status = sqlitestep(prepared)
-    if step_status = 101 then leave
-    if step_status \= 100 then do
-      call sqlitefinalize prepared
-      error = "cannot read term census"
-      return -3
-    end
-    chunk_id = ""; source_id = ""; body = ""
-    column_status = sqlitecolumntext(prepared, 0, chunk_id)
-    column_status = column_status | sqlitecolumntext(prepared, 1, source_id)
-    column_status = column_status | sqlitecolumntext(prepared, 2, body)
-    if column_status \= 0 then do
-      call sqlitefinalize prepared
-      error = "cannot decode term census"
-      return -3
-    end
-    count = _wordcount(lower(body), normalized_term)
-    if count > 0 then do
-      occurrences = occurrences + count
-      chunks = chunks + 1
-      if _contains(sources, source_id) = 0 then sources[sources.0 + 1] = source_id
-    end
-  end
-  call sqlitefinalize prepared
-  fingerprint = rxhash..sha256hex(("crexx-rag.ranking-input/1" || "00"x || policy_version || "00"x || generation || "00"x || normalized_term || "00"x || occurrences || "00"x || chunks || "00"x || sources.0) as .binary)
-  statistics = .ragtermstatistics(normalized_term, occurrences, chunks, sources.0, policy_version, fingerprint)
+  /* This API counts indexed terms. The former body-token fallback could
+   * never match a term containing spaces; preserve that result without a scan. */
+  fingerprint = rxhash..sha256hex(("crexx-rag.ranking-input/1" || "00"x || policy_version || "00"x || generation || "00"x || normalized_term || "00"x || 0 || "00"x || 0 || "00"x || 0) as .binary)
+  statistics = .ragtermstatistics(normalized_term,0,0,0,policy_version,fingerprint)
   return 0
 
 _failure: procedure = .ragingestresult
@@ -611,10 +580,13 @@ _configuredcontext: procedure = .int
 _insertglossarycandidates: procedure = .int
   arg database = .binary, generation = .int, glossary = .ragglossarydata, expose count = .int, expose error = .string
   count = 0; excluded = glossary.excluded()
-  do i = 1 to excluded.0
-    prepared = .binary
-    sql = "DELETE FROM candidate_mentions WHERE visible_from_generation=?1 AND normalized_candidate=?2 AND NOT EXISTS(SELECT 1 FROM candidate_decisions d WHERE d.candidate_id=candidate_mentions.candidate_id)"
-    if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 | sqlitebindtext(prepared, 2, excluded[i]) \= 0 | sqlitestep(prepared) \= 101 then do; call sqlitefinalize prepared; error = "cannot apply glossary exclusion"; return -1; end
+  prepared = .binary
+  sql = "DELETE FROM candidate_mentions WHERE visible_from_generation=?1 AND normalized_candidate=?2 AND NOT EXISTS(SELECT 1 FROM candidate_decisions d WHERE d.candidate_id=candidate_mentions.candidate_id)"
+  if excluded.0>0 then do
+    if sqliteprepare(database,sql,prepared)<>0 then do;error="cannot prepare glossary exclusions";return -1;end
+    do i = 1 to excluded.0
+      if sqlitebindint(prepared,1,generation)<>0 | sqlitebindtext(prepared,2,excluded[i])<>0 | sqlitestep(prepared)<>101 | sqlitereset(prepared)<>0 | sqliteclearbindings(prepared)<>0 then do;call sqlitefinalize prepared;error="cannot apply glossary exclusion";return -1;end
+    end
     call sqlitefinalize prepared
   end
   entries = glossary.entries()
@@ -631,6 +603,8 @@ _insertglossarycandidates: procedure = .int
     chunks[chunks.0 + 1] = chunk_id; bodies[bodies.0 + 1] = body
   end
   call sqlitefinalize prepared
+  candidate_statement=.binary; decision_statement=.binary
+  if sqliteprepare(database,"INSERT OR IGNORE INTO candidate_mentions(candidate_id,revision_chunk_id,normalized_candidate,span_start,span_end,extractor_version,visible_from_generation) VALUES(?1,?2,?3,?4,?5,'glossary-v1',?6)",candidate_statement)<>0 | sqliteprepare(database,"INSERT OR IGNORE INTO candidate_decisions(decision_id,candidate_id,decision_version,state,evidence_json,provider_run_id,policy_version,created_at) VALUES(?1,?2,1,'accepted',?3,NULL,'glossary-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now'))",decision_statement)<>0 then do;call sqlitefinalize candidate_statement;call sqlitefinalize decision_statement;error="cannot prepare glossary inserts";return -1;end
   do c = 1 to chunks.0
     folded = lower(bodies[c])
     do e = 1 to entries.0
@@ -642,27 +616,22 @@ _insertglossarycandidates: procedure = .int
           if found = 0 then leave
           finish = found - 1 + length(aliases[a])
           candidate_id = "candidate-sha256:" || rxhash..sha256hex((chunks[c] || "00"x || (found - 1) || "00"x || finish || "00"x || "glossary-v1") as .binary)
-          prepared = .binary
-          sql = "INSERT OR IGNORE INTO candidate_mentions(candidate_id,revision_chunk_id,normalized_candidate,span_start,span_end,extractor_version,visible_from_generation) VALUES(?1,?2,?3,?4,?5,'glossary-v1',?6)"
-          if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare glossary candidate"; return -1; end
-          binds = sqlitebindtext(prepared, 1, candidate_id) | sqlitebindtext(prepared, 2, chunks[c]) | sqlitebindtext(prepared, 3, lower(entries[e].canonical_label())) | sqlitebindint(prepared, 4, found - 1) | sqlitebindint(prepared, 5, finish) | sqlitebindint(prepared, 6, generation)
-          step = sqlitestep(prepared); call sqlitefinalize prepared
-          if binds \= 0 | step \= 101 then do; error = "cannot insert glossary candidate"; return -1; end
+          binds = sqlitebindtext(candidate_statement, 1, candidate_id) | sqlitebindtext(candidate_statement, 2, chunks[c]) | sqlitebindtext(candidate_statement, 3, lower(entries[e].canonical_label())) | sqlitebindint(candidate_statement, 4, found - 1) | sqlitebindint(candidate_statement, 5, finish) | sqlitebindint(candidate_statement, 6, generation)
+          step = sqlitestep(candidate_statement); reset_status=sqlitereset(candidate_statement) | sqliteclearbindings(candidate_statement)
+          if binds \= 0 | step \= 101 | reset_status<>0 then do; call sqlitefinalize candidate_statement;call sqlitefinalize decision_statement; error = "cannot insert glossary candidate"; return -1; end
           decision_id = "decision-sha256:" || rxhash..sha256hex((candidate_id || "00"x || glossary.digest()) as .binary)
           evidence = "{" || jsonquote("source") || ":" || jsonquote("glossary") || "," || jsonquote("canonical_label") || ":" || jsonquote(entries[e].canonical_label()) || "," || jsonquote("concept_type") || ":" || jsonquote(entries[e].concept_type()) || "," || jsonquote("glossary_digest") || ":" || jsonquote(glossary.digest()) || "}"
-          prepared = .binary
-          sql = "INSERT OR IGNORE INTO candidate_decisions(decision_id,candidate_id,decision_version,state,evidence_json,provider_run_id,policy_version,created_at) VALUES(?1,?2,1,'accepted',?3,NULL,'glossary-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
-          if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare glossary decision"; return -1; end
-          binds = sqlitebindtext(prepared, 1, decision_id) | sqlitebindtext(prepared, 2, candidate_id) | sqlitebindtext(prepared, 3, evidence)
-          step = sqlitestep(prepared); call sqlitefinalize prepared
-          if binds \= 0 | step \= 101 then do; error = "cannot insert glossary decision"; return -1; end
+          binds = sqlitebindtext(decision_statement, 1, decision_id) | sqlitebindtext(decision_statement, 2, candidate_id) | sqlitebindtext(decision_statement, 3, evidence)
+          step = sqlitestep(decision_statement); reset_status=sqlitereset(decision_statement) | sqliteclearbindings(decision_statement)
+          if binds \= 0 | step \= 101 | reset_status<>0 then do; call sqlitefinalize candidate_statement;call sqlitefinalize decision_statement; error = "cannot insert glossary decision"; return -1; end
           count = count + 1
-          if count > 100000 then do; error = "glossary candidate census exceeds 100000 occurrences"; return -1; end
+          if count > 100000 then do; call sqlitefinalize candidate_statement;call sqlitefinalize decision_statement; error = "glossary candidate census exceeds 100000 occurrences"; return -1; end
           start = found + length(needle)
         end
       end
     end
   end
+  call sqlitefinalize candidate_statement;call sqlitefinalize decision_statement
   return 0
 
 _validobservation: procedure = .int
@@ -1609,21 +1578,6 @@ _boundtextexec2: procedure = .int
   status = sqlitestep(prepared); call sqlitefinalize prepared
   if status = 101 then return 0
   return -1
-
-_wordcount: procedure = .int
-  arg text = .string, expected = .string
-  count = 0; position = 1
-  do while position <= length(text)
-    do while position <= length(text) & _iswordcharacter(substr(text, position, 1)) = 0
-      position = position + 1
-    end
-    start = position
-    do while position <= length(text) & _iswordcharacter(substr(text, position, 1)) = 1
-      position = position + 1
-    end
-    if position > start & substr(text, start, position - start) = expected then count = count + 1
-  end
-  return count
 
 _sqlquote: procedure = .string
   arg value = .string

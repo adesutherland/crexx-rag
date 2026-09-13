@@ -1,0 +1,88 @@
+options levelg
+
+import rxfnsb
+import rxjson
+import rxsqlite
+import ragstore
+import ragbacklog
+import ragrepository
+import ragingest
+import ragsqlsupport
+import ragimprove
+import ragmaintain
+
+check: procedure = .int
+  arg condition = .boolean, label = .string
+  if condition then return 0
+  say "SQL_PERFORMANCE_FAIL=" || label
+  return 1
+
+contains: procedure = .int
+  arg values = .string[], expected = .string
+  do i = 1 to values.0
+    if values[i] = expected then return 1
+  end
+  return 0
+
+main: procedure = .int
+  arg args = .string[]
+  if args.0 \= 1 then return 2
+  path = args[1] || "/sql-" || time("us"); errors = 0; error = ""; store = .ragstorehandle
+  errors = errors + check(initragstore(path, "library-maintenance-methodology", "snapshot-maintenance", "maintenance-methodology", "1", "generic-profile", "profile-hash", "config-hash", '{}', store, error) = 0, "initialize " || error)
+  if errors > 0 then return 1
+  database = store.database()
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_artifacts(artifact_id,raw_digest,mime_type,encoding,bytes,external_reference,created_at) VALUES('artifact-maintenance','raw-maintenance','text/plain','utf-8',NULL,'fixture://maintenance',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "artifact")
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('text-maintenance','text-digest-maintenance','Alpha links Beta. Sparse concept.','fixture-v1','utf8-v1',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "revision text")
+  errors = errors + check(sqliteexec(database, "INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('source-maintenance','fixture','maintenance','revision-maintenance','active','fixture://maintenance','Maintenance corpus',1)") = 0, "source")
+  errors = errors + check(sqliteexec(database, "INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES('revision-maintenance','source-maintenance','revision-envelope-maintenance','artifact-maintenance','text-maintenance','metadata-maintenance','2026-01-01T00:00:00Z',1)") = 0, "revision")
+  errors = errors + check(sqliteexec(database, "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('content-main','digest-main','Alpha links Beta.','input-main'),('content-sparse','digest-sparse','Sparse concept.','input-sparse')") = 0, "contents")
+  errors = errors + check(sqliteexec(database, "INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('chunk-main','revision-maintenance',1,0,17,'content-main','continuity-main','fixture-v1','direct',1),('chunk-sparse','revision-maintenance',2,18,33,'content-sparse','continuity-sparse','fixture-v1','direct',1)") = 0, "chunks")
+  errors = errors + check(sqliteexec(database, "INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('concept-alpha','Alpha','concept','active',1),('concept-beta','Beta','concept','active',1),('concept-gamma','Gamma','concept','active',1),('concept-sparse','Sparse','concept','active',1)") = 0, "concepts")
+  errors = errors + check(sqliteexec(database, "INSERT INTO claims(claim_id,source_concept_id,relationship_type,target_concept_id,direction,qualifiers_json,policy_version,visible_from_generation) VALUES('claim-alpha-beta','concept-alpha','related-to','concept-beta','outbound','{}','fixture-v1',1),('claim-alpha-gamma','concept-alpha','related-to','concept-gamma','outbound','{}','fixture-v1',1)") = 0, "claims")
+  errors = errors + check(sqliteexec(database, "INSERT INTO claim_support(support_id,claim_id,revision_chunk_id,span_start,span_end,polarity,stance,directness,attribution,lineage_group,extractor_identity,decision_id,visible_from_generation) VALUES('support-alpha-beta','claim-alpha-beta','chunk-main',0,17,'support','assertion','direct','','lineage-one','fixture',NULL,1),('support-alpha-gamma','claim-alpha-gamma','chunk-main',0,17,'support','assertion','direct','','lineage-two','fixture',NULL,1)") = 0, "supports")
+  errors = errors + check(sqliteexec(database, "INSERT INTO claim_conflicts(conflict_id,claim_id,competing_claim_id,review_state,visible_from_generation) VALUES('conflict-alpha','claim-alpha-beta','claim-alpha-gamma','pending',1)") = 0, "conflict")
+  errors = errors + check(sqliteexec(database, "INSERT INTO analysis_notes(note_id,note_kind,text,importance,uncertainty,next_action,state,grounding_json,author,created_generation,created_at,updated_at) VALUES('note-lead','insight','Inspect Alpha linkage',820000,240000,'Inspect corroborating spans','active','{}','fixture',1,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')),('note-question','question','Which Gamma sense applies?',740000,400000,'Collect disambiguating evidence','active','{}','fixture',1,strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "notes")
+  errors = errors + check(sqliteexec(database, "INSERT INTO analysis_note_links(link_id,note_id,object_type,object_id,revision_chunk_id,span_start,span_end) VALUES('link-lead','note-lead','chunk','chunk-main','chunk-main',0,5),('link-question','note-question','chunk','chunk-main','chunk-main',12,16)") = 0, "note links")
+  errors = errors + check(sqliteexec(database, "INSERT INTO query_gaps(gap_id,question_hash,normalized_question,gap_text,trace_id,observed_generation,occurrence_count,state,first_observed_at,last_observed_at) VALUES('gap-repeat','question-hash','what links gamma?','No supported directed claim answered the requested relationship.','trace-gap',1,3,'open',strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "query gap")
+  errors = errors + check(sqliteexec(database, "INSERT INTO embedding_profiles(embedding_profile_id,provider_id,model,dimension,input_envelope_fingerprint,created_at) VALUES('maintenance-profile','fixture-provider','fixture-model',2,'fixture-envelope',strftime('%Y-%m-%dT%H:%M:%fZ','now'))") = 0, "embedding profile")
+  errors = errors + check(publishmanifest(store, error) = 0, "manifest " || error)
+  if errors > 0 then return 1
+
+  errors=errors+check(sqliteexec(database,"INSERT INTO chunks_fts(revision_chunk_id,content_id,body) SELECT r.revision_chunk_id,r.content_id,c.text FROM revision_chunks r JOIN chunk_contents c ON c.content_id=r.content_id")=0,"FTS fixture")
+  statistics=.ragtermstatistics
+  errors=errors+check(termstatistics(store,"alpha","fixture",statistics,error)=0 & statistics.occurrences()=1,"indexed single-token positive control")
+  errors=errors+check(termstatistics(store,"alpha links","fixture",statistics,error)=0 & statistics.occurrences()=0,"multiword input preserves single-token statistic semantics")
+  label="";identity=""
+  errors=errors+check(resolveknownconcept(database,"ALPHA","concept",label,identity,error)=1 & identity="concept-alpha","case-insensitive unique identity")
+  errors=errors+check(sqliteexec(database,"INSERT INTO aliases(alias_id,normalized_alias,target_concept_id,ambiguity_id,visible_from_generation) VALUES('alias-ambiguous','alpha','concept-beta',NULL,1)")=0,"ambiguous alias fixture")
+  errors=errors+check(resolveknownconcept(database,"Alpha","concept",label,identity,error)=2 & identity="","ambiguous alias never selects one identity")
+  errors=errors+check(ftsparityissues(database,1,error)=0,"complete FTS parity control")
+  errors=errors+check(sqliteexec(database,"INSERT INTO chunks_fts SELECT revision_chunk_id,content_id,body FROM chunks_fts LIMIT 1")=0 & ftsparityissues(database,1,error)>0,"duplicate FTS row remains a verification failure")
+  projection=.int[]
+  errors=errors+check(sqlreadints(database,"SELECT 0,17,9223372036854775807",projection,3)=0 & projection[1]=0 & projection[2]=17,"numeric projection reads zero and multiple columns")
+  errors=errors+check(sqlreadints(database,"SELECT 1 WHERE 0",projection,1)<0 & projection.0=0,"empty numeric projection fails without stale values")
+  errors=errors+check(sqliteexec(database,"INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('chunk-z-stronger','revision-maintenance',3,34,51,'content-main','continuity-stronger','fixture-v1','direct',1); INSERT INTO candidate_mentions(candidate_id,revision_chunk_id,normalized_candidate,span_start,span_end,extractor_version,visible_from_generation) VALUES('candidate-stronger-1','chunk-z-stronger','alpha',0,5,'fixture',1),('candidate-stronger-2','chunk-z-stronger','beta',12,16,'fixture',1)")=0,"same content has different occurrence evidence")
+  triggers=.string[];triggers[1]="profile-change";plan=.ragimproveplan
+  errors=errors+check(createimproveplan(store,"snapshot-maintenance","sql-fixture","sql-fixture",triggers,2,2,4096,1024,1000000,60000,4096,1024,1000000,60000,1,1,"public","fixture-provider","",'{}',plan,error)=0,"rank repeated content")
+  chosen=plan.chunk_ids()
+  errors=errors+check(contains(chosen,"chunk-z-stronger")=1 & contains(chosen,"chunk-main")=0 & chosen.0=2,"retain strongest eligible occurrence once per content")
+  read_snapshot=.ragreadsnapshot(database,1);page=.ragrepositorypage
+  errors=errors+check(pagerepository(read_snapshot,"generations","",1,page,error)=0,"first generation page")
+  cursor="00000000000000000001"
+  errors=errors+check(pagerepository(read_snapshot,"generations",cursor,1,page,error)=0,"next generation page")
+  page_records=page.records()
+  errors=errors+check(page_records.0=0,"generation cursor excludes prior row")
+  policy_json='{"mode":"manual","window_seconds":1000,"automatic_actions":"reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate","maximum_impact":100,"maximum_attempts":3,"retry_seconds":1,"maximum_evidence_bytes":65536,"batch_items":1,"resolution_prompt":"Fixture resolution","knowledge_policy":"fixture-v1","provider_id":"fixture","model":"fixture","charging_basis":"local-compute","privacy":"public","profile_id":"generic-profile","discovery_context":"{}","input_tokens":100000,"output_tokens":10000,"cost_microunits":0,"time_ms":1000,"inflight":1,"item_limit":10,"model_calls":100,"input_budget":10000000,"output_budget":1000000,"cost_budget":0,"codex_turns":0}'
+  policy=.jsondocument(policy_json);origin=""
+  errors=errors+check(enqueuebacklogtask(database,"fixture-workflow","concept","concept-alpha","","",1,policy,origin,error)=0,"workflow origin")
+  errors=errors+check(sqliteexec(database,"INSERT INTO maintenance_workflows(workflow_id,origin_task_id,kind,parent_concept_id,successors_json,state,created_generation,created_epoch,updated_epoch) VALUES('workflow-sql'," || sqlquote(origin) || ",'split','concept-alpha','[]','migrating',1,unixepoch(),unixepoch())")=0,"workflow with independently addressable support connections")
+  census=.ragmaintenancecensus;run_id="";job_id="";items=0
+  errors=errors+check(previewbacklogwindow(database,"maintenance-profile",1,0,census,error)=0 & startbacklogwindow(store,census,"snapshot-maintenance",copies("c",64),policy_json,run_id,job_id,items,error)=0,"bounded manual discovery")
+  errors=errors+check(sqlreadint(database,"SELECT count(DISTINCT subject_id) FROM maintenance_tasks WHERE workflow_id='workflow-sql' AND kind='connection'")=1,"first checkpoint prepares one connection")
+  errors=errors+check(sqliteexec(database,"INSERT INTO published_generations(generation,parent_generation,state,config_snapshot_id,summary,created_at,published_at) VALUES(2,1,'published','snapshot-maintenance','fixture generation change','fixture','fixture');UPDATE library_meta SET published_generation=2,next_generation=3")=0,"simulate an intervening publication")
+  errors=errors+check(tickbacklogwindow(store,job_id,error)=0,"continue discovery after publication")
+  errors=errors+check(sqlreadint(database,"SELECT count(DISTINCT subject_id) FROM maintenance_tasks WHERE workflow_id='workflow-sql' AND kind='connection'")=2,"publication does not restart at the same held connection")
+  errors=errors+check(closeragstore(store,error)=0,"close SQL fixture")
+  if errors>0 then return 1
+  say "SQL_PERFORMANCE_OK"
+  return 0

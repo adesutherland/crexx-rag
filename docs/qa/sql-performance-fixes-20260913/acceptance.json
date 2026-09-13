@@ -1,0 +1,16 @@
+{
+  "tests_passed": 70,
+  "tests_failed": 0,
+  "ctest_exit_code": 0,
+  "ctest_seconds": 919.24,
+  "focused_tests_passed": 4,
+  "focused_seconds": 25.51,
+  "diff_check_exit_code": 0,
+  "source_hashes_unchanged": true,
+  "native_sha256": "e3967d87a24df035fa43373719bc5ed611592c7cf49433326dca85115cc762ab",
+  "linked_sha256": "860ba8b1c10357c6aa6252714d4e3f88684ef3d1d06d65e24d888156c3e5edec",
+  "normal_installed_sha256": "ba35a980f1a4bcc06ea7cae5e6011bd4aeb0e123cbac3a7bf705d23b68737816",
+  "normal_installation_changed": false,
+  "hosted_calls": 0,
+  "committed_at_acceptance": false
+}

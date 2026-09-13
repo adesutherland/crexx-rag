@@ -35,44 +35,43 @@ lifecyclejobstate: procedure = .string
 
 /* Shared read projection. Callers retain their existing read/write snapshot;
  * indexed existence checks avoid reading full plans or scanning event history. */
+_lifecycleprojection: procedure = .string
+  return "SELECT j.state,coalesce(w.state,''),EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=j.job_id AND i.state IN('queued','running','cancel_requested')),EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=j.job_id AND i.state='dead_letter'),EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=j.job_id AND i.state='cancelled') FROM jobs j LEFT JOIN maintenance_windows w ON w.job_id=j.job_id"
+
+_lifecyclerow: procedure = .string
+  arg prepared=.binary
+  current="";window="";active=0;dead=0;cancelled=0
+  if sqlitecolumntext(prepared,0,current)<>0 | sqlitecolumntext(prepared,1,window)<>0 | sqlitecolumnint(prepared,2,active)<>0 | sqlitecolumnint(prepared,3,dead)<>0 | sqlitecolumnint(prepared,4,cancelled)<>0 then return ""
+  return lifecyclejobstate(current,active,dead,cancelled,0,window)
+
 readlifecyclejob: procedure = .string
   arg database = .binary, job_id = .string
-  selector = " WHERE job_id=" || _q(job_id)
-  current = _text(database,"SELECT state FROM jobs" || selector)
-  window = _text(database,"SELECT state FROM maintenance_windows" || selector)
-  if current = "" then return ""
-  if window = "active" & current \= "paused" & current \= "cancel_requested" then return current
-  active = _number(database,"SELECT EXISTS(SELECT 1 FROM job_items" || selector || " AND state IN('queued','running','cancel_requested'))")
-  dead = _number(database,"SELECT EXISTS(SELECT 1 FROM job_items" || selector || " AND state='dead_letter')")
-  cancelled = _number(database,"SELECT EXISTS(SELECT 1 FROM job_items" || selector || " AND state='cancelled')")
-  uncertain = 0
-  return lifecyclejobstate(current,active,dead,cancelled,uncertain,window)
+  prepared=.binary;state=""
+  if sqliteprepare(database,_lifecycleprojection() || " WHERE j.job_id=" || _q(job_id),prepared)<>0 then return ""
+  if sqlitestep(prepared)=100 then state=_lifecyclerow(prepared)
+  call sqlitefinalize prepared
+  return state
 
 countlifecyclejobs: procedure = .int
   arg database = .binary, expose active = .int, expose errors = .int
-  active = 0; errors = 0; prepared = .binary
-  if sqliteprepare(database,"SELECT job_id FROM jobs",prepared) \= 0 then return -1
+  active=0;errors=0;prepared=.binary
+  if sqliteprepare(database,_lifecycleprojection(),prepared)<>0 then return -1
   do forever
-    step = sqlitestep(prepared)
-    if step = 101 then leave
-    id = ""; state = ""
-    if step \= 100 | sqlitecolumntext(prepared,0,id) \= 0 then do; call sqlitefinalize prepared; return -1; end
-    state = readlifecyclejob(database,id)
-    if state = "" then do; call sqlitefinalize prepared; return -1; end
-    if wordpos(state,"queued running paused cancel_requested") > 0 then active = active+1
-    if wordpos(state,"completed_with_errors failed") > 0 then errors = errors+1
+    step=sqlitestep(prepared);if step=101 then leave
+    if step<>100 then do;call sqlitefinalize prepared;return -1;end
+    state=_lifecyclerow(prepared)
+    if state="" then do;call sqlitefinalize prepared;return -1;end
+    if wordpos(state,"queued running paused cancel_requested")>0 then active=active+1
+    if wordpos(state,"completed_with_errors failed")>0 then errors=errors+1
   end
   call sqlitefinalize prepared
   return 0
 
 refreshlifecyclejob: procedure = .int
   arg database = .binary, job_id = .string
-  current = _text(database,"SELECT state FROM jobs WHERE job_id=" || _q(job_id))
-  window = _text(database,"SELECT state FROM maintenance_windows WHERE job_id=" || _q(job_id))
-  if window = "active" & current \= "paused" & current \= "cancel_requested" then return 0
-  state = readlifecyclejob(database,job_id)
-  if state = "" then return -1
-  return sqliteexec(database,"UPDATE jobs SET state=" || _q(state) || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id))
+  state=readlifecyclejob(database,job_id)
+  if state="" then return -1
+  return sqliteexec(database,"UPDATE jobs SET state=" || _q(state) || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id) || " AND (state IN('paused','cancel_requested') OR NOT EXISTS(SELECT 1 FROM maintenance_windows w WHERE w.job_id=jobs.job_id AND w.state='active'))")
 
 retrydisposition: procedure = .string
   arg state = .string, owned = .int, uncertain = .int, review = .int, ceiling = .int, spent = .int, delayed = .int, hold = .string

@@ -1,0 +1,26 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 70: regression_sql_performance
+1/1 Test #70: regression_sql_performance .......***Failed    2.56 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/ProjectContract.cmake:33 (message):
+  /Users/adrian/.local/bin/rxvme contract failed:
+
+  SQL_PERFORMANCE_FAIL=empty numeric projection fails without stale values
+
+  SQL_PERFORMANCE_FAIL=retain strongest eligible occurrence once per content
+
+
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+regression       =   2.56 sec*proc (1 test)
+sqlite           =   2.56 sec*proc (1 test)
+zero-outbound    =   2.56 sec*proc (1 test)
+
+Total Test time (real) =   2.56 sec
+
+The following tests FAILED:
+	 70 - regression_sql_performance (Failed)               regression sqlite zero-outbound
+Errors while running CTest

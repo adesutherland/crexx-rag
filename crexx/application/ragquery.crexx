@@ -262,7 +262,7 @@ _spelling: procedure = .int
   spelling = value
   if length(value) < 4 then return 0
   prepared = .binary
-  sql = "SELECT candidate FROM (SELECT lower(normalized_alias) candidate FROM aliases WHERE visible_from_generation<=?1 AND (visible_to_generation IS NULL OR visible_to_generation>?1) UNION SELECT lower(canonical_label) FROM concepts WHERE visible_from_generation<=?1 AND (visible_to_generation IS NULL OR visible_to_generation>?1)) ORDER BY candidate LIMIT 512"
+  sql = "SELECT candidate FROM (SELECT candidate FROM (SELECT DISTINCT lower(normalized_alias) candidate FROM aliases WHERE visible_from_generation<=?1 AND (visible_to_generation IS NULL OR visible_to_generation>?1) ORDER BY candidate LIMIT 512) UNION SELECT candidate FROM (SELECT DISTINCT lower(canonical_label) candidate FROM concepts WHERE visible_from_generation<=?1 AND (visible_to_generation IS NULL OR visible_to_generation>?1) ORDER BY candidate LIMIT 512)) ORDER BY candidate LIMIT 512"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare spelling expansion"; return -1; end
   best_distance = 3
   do forever

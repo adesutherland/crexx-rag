@@ -783,30 +783,18 @@ _wordcharacter: procedure = .int
 
 _anchors: procedure = .int
   arg database = .binary, generation = .int, normalized_question = .string, expose anchors = .string[], expose error = .string
+  /* Space-delimited substrings exactly match the existing phrase boundary
+   * rule, including repeated spaces. Probe labels/aliases from this question. */
+  sql = "WITH RECURSIVE boundaries(p) AS (VALUES(0) UNION ALL SELECT p+instr(substr(?2,p+1),' ') FROM boundaries WHERE instr(substr(?2,p+1),' ')>0),phrases(label) AS MATERIALIZED (SELECT DISTINCT substr(?2,a.p+1,b.p-a.p-1) FROM boundaries a JOIN boundaries b ON b.p>a.p+1),matches(origin,concept_id) AS (SELECT 0,c.concept_id FROM phrases p CROSS JOIN concepts c ON lower(c.canonical_label)=p.label WHERE c.visible_from_generation<=?1 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?1) UNION ALL SELECT 1,a.target_concept_id FROM phrases p CROSS JOIN aliases a ON lower(a.normalized_alias)=p.label WHERE a.target_concept_id IS NOT NULL AND a.visible_from_generation<=?1 AND (a.visible_to_generation IS NULL OR a.visible_to_generation>?1)) SELECT concept_id FROM matches GROUP BY concept_id ORDER BY min(origin),concept_id"
   prepared = .binary
-  sql = "SELECT concept_id,lower(canonical_label) FROM concepts WHERE visible_from_generation<=?1 AND (visible_to_generation IS NULL OR visible_to_generation>?1) ORDER BY concept_id"
-  if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare concept anchors"; return -1; end
+  if sqliteprepare(database,sql,prepared)<>0 | sqlitebindint(prepared,1,generation)<>0 | sqlitebindtext(prepared,2,normalized_question || " ")<>0 then do;call sqlitefinalize prepared;error="cannot prepare indexed concept anchors";return -1;end
   do forever
-    step_status = sqlitestep(prepared)
-    if step_status = 101 then leave
-    if step_status \= 100 then do; call sqlitefinalize prepared; error = "cannot read concept anchors"; return -1; end
-    concept_id = ""; label = ""
-    if sqlitecolumntext(prepared, 0, concept_id) \= 0 | sqlitecolumntext(prepared, 1, label) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode concept anchors"; return -1; end
-    if label \= "" & pos(" " || label || " ", " " || normalized_question || " ") > 0 & _contains(anchors, concept_id) = 0 then anchors[anchors.0 + 1] = concept_id
+    step=sqlitestep(prepared);if step=101 then leave
+    concept_id=""
+    if step<>100 | sqlitecolumntext(prepared,0,concept_id)<>0 then do;call sqlitefinalize prepared;error="cannot read indexed concept anchors";return -1;end
+    if _contains(anchors,concept_id)=0 then anchors[anchors.0+1]=concept_id
   end
   call sqlitefinalize prepared
-  alias_statement = .binary
-  sql = "SELECT DISTINCT target_concept_id,lower(normalized_alias) FROM aliases WHERE target_concept_id IS NOT NULL AND visible_from_generation<=?1 AND (visible_to_generation IS NULL OR visible_to_generation>?1) ORDER BY target_concept_id,normalized_alias"
-  if sqliteprepare(database, sql, alias_statement) \= 0 | sqlitebindint(alias_statement, 1, generation) \= 0 then do; call sqlitefinalize alias_statement; error = "cannot prepare explicit alias anchors"; return -1; end
-  do forever
-    step_status = sqlitestep(alias_statement)
-    if step_status = 101 then leave
-    if step_status \= 100 then do; call sqlitefinalize alias_statement; error = "cannot read explicit alias anchors"; return -1; end
-    concept_id = ""; alias = ""
-    if sqlitecolumntext(alias_statement, 0, concept_id) \= 0 | sqlitecolumntext(alias_statement, 1, alias) \= 0 then do; call sqlitefinalize alias_statement; error = "cannot decode explicit alias anchors"; return -1; end
-    if alias \= "" & pos(" " || alias || " ", " " || normalized_question || " ") > 0 & _contains(anchors, concept_id) = 0 then anchors[anchors.0 + 1] = concept_id
-  end
-  call sqlitefinalize alias_statement
   return 0
 
 _chunks: procedure = .int

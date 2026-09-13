@@ -1283,7 +1283,7 @@ _maintainapply: procedure = .ragcommandresult
       timing_status = resolvemaintenancetime(store.database(),time_minutes,time_until,time_overnight,config.maintenance().window_seconds(),expected_timing,error,timing_start)
       if timing_status \= 0 | expected_timing \= timing_json then do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation,3,"reviewed maintenance timing is invalid or its local timezone changed"); end
       deadline = sqlreadint(store.database(),"SELECT json_extract(" || sqlquote(timing_json) || ",'$.deadline_epoch')")
-      if deadline <= sqlreadint(store.database(),"SELECT unixepoch()") then do; ignored = ""; call closeragstore store,ignored; return _maintenanceskip(operation,timing_json); end
+      if timing_mode<>"duration" & deadline <= sqlreadint(store.database(),"SELECT unixepoch()") then do; ignored = ""; call closeragstore store,ignored; return _maintenanceskip(operation,timing_json); end
     end
   end
   snapshot_id = currentconfigsnapshotid(store.database(), error)
@@ -1447,10 +1447,12 @@ _maintainplan: procedure = .ragcommandresult
     fields[24] = .ragresultfield("timing","string",timing_json)
     provider_minutes = maintenance.provider_time_minutes()
     fields[25] = .ragresultfield("provider_time_minutes","integer",provider_minutes || "")
-    fields[23] = .ragresultfield("scope","string","durable backlog and validated follow-up tasks within the shared window budget")
+    fields[23] = .ragresultfield("scope","string","durable backlog discovery and selection at activation, within the shared window budget")
+    fields[fields.0+1] = .ragresultfield("selection_deferred","boolean","true")
   end
   fields[fields.0+1] = .ragresultfield("embeddings_only","boolean",changestr("0",changestr("1",embedding_only || "","true"),"false"))
   records[records.0 + 1] = .ragresultrecord("maintenance-preview", fields)
+  if maintenance.mode()<>"reviewed" then return .ragcommandresult(operation,"ok",0,"bounded maintenance policy previewed; task selection occurs at activation",records)
   return .ragcommandresult(operation, "ok", 0, "bounded maintenance census and worklist created without library writes", records)
 
 _preparemaintenance: procedure = .int
@@ -1459,7 +1461,8 @@ _preparemaintenance: procedure = .int
   extractor = roleproviderconfig(config, "extractor"); embedder = roleproviderconfig(config, "embedding"); extractor_role = rolebinding(config, "extractor"); embedding_role = rolebinding(config, "embedding")
   if snapshot_id = "" | budget.item_limit() < 1 | budget.item_limit() > 100000 | budget.model_calls() < 1 | (maintenance_policy.mode() = "reviewed" & budget.minutes() < 1) | extractor.provider_id() = "" | embedder.provider_id() = "" | embedder.kind() = "codex" then do; error = "maintenance requires positive item, provider-call and time budgets plus extractor and embedding providers"; return -1; end
   embedding_profile_id = _embeddingprofileid(embedder, embedding_role.embedding_dimensions())
-  missing = _missingembeddingcount(store.database(), embedding_profile_id)
+  missing = 0
+  if maintenance_policy.mode()="reviewed" then missing = _missingembeddingcount(store.database(), embedding_profile_id)
   if missing < 0 then do; error = "cannot calculate configured embedding coverage"; return -3; end
   batch_items = maintenance_policy.batch_items(); if batch_items > budget.item_limit() then batch_items = budget.item_limit()
   repair_reservation = missing; if repair_reservation > batch_items then repair_reservation = batch_items
@@ -1469,7 +1472,7 @@ _preparemaintenance: procedure = .int
     repair_call_budget = repair_reservation * embedder.max_attempts(); if repair_call_budget > budget.model_calls() then repair_call_budget = budget.model_calls()
   end
   available_cognitive_calls = budget.model_calls() - repair_call_budget
-  if embedding_only = 1 then available_cognitive_calls = 0
+  if embedding_only = 1 | maintenance_policy.mode()<>"reviewed" then available_cognitive_calls = 0
   cognitive_limit = available_cognitive_calls
   remaining_items = batch_items - repair_reservation; if cognitive_limit > remaining_items then cognitive_limit = remaining_items
   cognitive_call_budget = cognitive_limit * extractor.max_attempts(); if cognitive_call_budget > available_cognitive_calls then cognitive_call_budget = available_cognitive_calls
@@ -1492,6 +1495,11 @@ _preparemaintenance: procedure = .int
   if creatediscoverycontext(glossary, "maintenance", discovery.ranked_limit(), discovery.max_mentions(), discovery.max_relationships(), discovery.max_notes(), discovery_context, error) \= 0 then return -1
   triggers = .string[]; triggers[1] = "bridge"; triggers[2] = "conflict"; triggers[3] = "maintenance-priority"; triggers[4] = "operator-review"; triggers[5] = "unprocessed-extraction"; triggers[6] = "unresolved"; triggers[7] = "weak-support"
   if createimproveplan(store, snapshot_id, "surface-claim-v1", "surface-prompt-v1", triggers, cognitive_limit, cognitive_call_budget, budget.input_tokens(), budget.output_tokens(), budget.cost_microunits(), total_time, maximum_call_input, maximum_call_output, maximum_call_cost, maximum_call_time, maximum_inflight, extractor.max_attempts(), privacy, extractor.provider_id(), extractor.credential().ref_string(), discovery_context, plan, error) \= 0 then return -3
+  if maintenance_policy.mode()<>"reviewed" then do
+    if embedding_only=0 & queryrouteallowed(extractor,privacy)<>1 then do;error="library privacy denies the configured maintenance extractor route";return -2;end
+    if queryrouteallowed(embedder,privacy)<>1 then do;error="library privacy denies the configured maintenance embedding route";return -2;end
+    return previewbacklogwindow(store.database(),embedding_profile_id,batch_items,embedding_only,census,error)
+  end
   maximum_passes = plan.item_count() + 2
   do pass = 1 to maximum_passes
     if buildmaintenancecensus(store, plan, embedding_profile_id, batch_items, census, error, maintenance_policy.sparse_max_degree(), maintenance_policy.query_gap_min_occurrences(),embedding_only) \= 0 then return -3

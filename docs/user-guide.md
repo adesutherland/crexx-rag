@@ -874,6 +874,14 @@ backlog, `supervised` to review model-proposed changes, or `manual` to collect
 questions without calling providers. The compatibility default `reviewed`
 keeps the earlier ranked batch and mandatory structural review behavior.
 
+Automatic, supervised and manual plans review the policy, providers and limits.
+Their preview reports `selection_deferred=true`: the durable backlog discovers
+and selects tasks when the window activates, so zero preselected items does not
+mean the library has no work. Reviewed mode still previews an exact worklist.
+`--minutes` gives the activated window its full duration after preparation;
+worker restarts retain that deadline. `--until` and overnight closing times
+remain fixed. The window status is authoritative for the activated deadline.
+
 For automatic maintenance, `maintain --yes` returns success (exit code 0) when
 its reviewed budget or window is exhausted and admitted calls have finished.
 The window records `budget-exhausted` or `deadline`; unstarted tasks remain in

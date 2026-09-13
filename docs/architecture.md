@@ -736,3 +736,65 @@ frame. A UTF-8 character may cross read boundaries. Invalid complete frames
 become adapter errors; the existing receipt/exact-turn recovery owner decides
 the submitted outcome. Framing does not make a malformed reply valid or decide
 whether a generation call was uncalled.
+
+
+## SQL and data access rules
+
+SQL repositories and migrations remain Level-G cREXX responsibilities. The
+owning module keeps a query together with its selection, visibility and
+transaction rules. Command adapters compose that owner. A repeated decision or
+cohesive projection has one implementation; equal SQL text alone does not make
+reads from different snapshots interchangeable.
+
+- Match indexes to the complete access path: leading equality keys, range and
+  visibility predicates, reverse relationships, and ordered page keys. Inspect
+  the plan with representative positive and empty results. A primary key in the
+  opposite direction does not cover a reverse lookup. Review write/space cost
+  and existing index prefixes before adding an index.
+- Keep row-dependent queries out of corpus-wide loops where a joined or grouped
+  projection serves the same purpose. Read related counts together, hoist
+  snapshot-wide facts, and build evidence/context hashes for retained work.
+  When content is shared by several occurrences, retain the strongest eligible
+  occurrence; content reuse does not make occurrence-specific evidence equal.
+  Distinct provider runs remain the charging unit even when recovery attaches
+  one run to several attempts. Zero counts and an unsuccessful read differ.
+- Automatic maintenance plans approve the durable backlog policy and bounds.
+  Discovery, evidence preparation and dispatch belong to `ragbacklog` at
+  activation/checkpoints; they must respect the remaining item allowance and
+  existing census cursors. Reviewed worklists retain exact subset replay.
+  Workflow connection cursors use stable identities and continue across
+  publications, so held entries or removal of earlier connections cannot
+  repeatedly restart preparation at the beginning.
+  Relative duration begins when the window activates; its persisted deadline
+  survives retries. Absolute and overnight deadlines retain their civil-time
+  meaning. These rules require no additional approval or recovery protocol.
+- Scope recovery to expired ownership and the affected jobs. Preserve receipt,
+  reservation and fence semantics while avoiding sweeps of unrelated history.
+  All job completion paths use `raglifecycle`, including claim publication.
+- Reuse prepared statements within their connection and operation. Reset and
+  clear bindings between executions; finalize on success and every error exit.
+  Statements and native handles never cross worker VM/connection boundaries.
+- Retain typed and directional source evidence, visibility intervals and
+  lifecycle distinctions when rewriting joins. Ambiguous identity resolution
+  must not pick one candidate; migration parents can remain evidence while new
+  mentions require active targets. Preserve case-folding and phrase-boundary
+  behavior explicitly. `termstatistics` counts indexed single terms; inputs
+  containing spaces retain the established zero result without scanning bodies.
+- JSON expression indexes and their queries use the same expression/predicate.
+  Tolerate retained malformed legacy JSON with `CASE WHEN json_valid(...) THEN
+  json_extract(...) END`; do not discard history to construct an index.
+- Page by native numeric or composite keys. Encode only the returned cursor;
+  avoid wrapping every stored key in formatting/concatenation for comparison.
+  Keep existing legacy cursor behavior where a cursor cannot use that path.
+- Reuse full FTS parity results only within the same unchanged read snapshot.
+  Parity includes both set directions and cardinality, so duplicate rows remain
+  defects. Re-read operational projections after provider execution or another
+  transaction boundary. No process-wide SQL or result cache is implied.
+- Schema repairs are additive migrations with immutable ordered checksums.
+  Keep old migration identities, foreign keys, evidence and audit triggers.
+  Validate fresh and upgraded stores, including retained malformed history.
+
+The implementation and measured acceptance for these rules are tracked in the
+[SQL performance delivery](sql-performance-delivery-20260913.md). The original
+[statement review](sql-performance-review-20260913.md) records the pre-repair
+inventory and experiments; it is historical evidence, not another rule owner.

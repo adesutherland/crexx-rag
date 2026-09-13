@@ -958,11 +958,11 @@ main: procedure = .int
 
   time_policy = changestr('"time_ms":1000',changestr('"inflight":1',policy_json,'"inflight":2'),'"time_ms":700000')
   resolved_timing = ""
-  errors = errors + check(resolvemaintenancetime(database,"","","",1000,resolved_timing,error) = 0,"resolve a fixed deadline before apply")
+  errors = errors + check(resolvemaintenancetime(database,"","","",1000,resolved_timing,error,scalarint(database,"SELECT unixepoch()")-30) = 0,"resolve duration before simulated preparation")
   time_policy = '{"timing":' || jsonquote(resolved_timing) || ',"provider_time_budget_ms":0,' || substr(time_policy,2)
   errors = errors + check(nextwindow(store,time_policy,job_id,error) = 0,"open independent wall-time window " || error)
-  original_deadline = scalarint(database,"SELECT json_extract('" || resolved_timing || "','$.deadline_epoch')")
-  errors = errors + check(scalarint(database,"SELECT deadline_epoch FROM maintenance_windows WHERE job_id='" || job_id || "'") = original_deadline,"apply preserves the planned deadline")
+  original_deadline = scalarint(database,"SELECT deadline_epoch FROM maintenance_windows WHERE job_id='" || job_id || "'")
+  errors = errors + check(original_deadline>=scalarint(database,"SELECT unixepoch()")+998,"duration begins at activation after preparation")
   errors = errors + check(claimnext(store,job_id,"time-owner",60,1,claim,error) = 0 & claimnext(store,job_id,"time-peer",60,1,recovery_claim,error) = 0,"claim parallel time peers")
   errors = errors + check(reservecall(store,claim,100000,10000,0,700000,reservation,error) = 0 & reservecall(store,recovery_claim,100000,10000,0,700000,duplicate,error) = 0,"parallel reservations do not consume wall duration " || error)
   errors = errors + check(settlecall(store,reservation,"fixture","fixture","time-owner","succeeded",10,10,0,600000,settled_run,error) = 0 & skipitem(store,claim,"time fixture",error) = 0,"settle first simulated long call")

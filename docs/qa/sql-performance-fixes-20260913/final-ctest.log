@@ -1,0 +1,238 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+      Start  1: regression_policy_file
+ 1/70 Test  #1: regression_policy_file ............   Passed    7.60 sec
+      Start  2: regression_command_metadata
+ 2/70 Test  #2: regression_command_metadata .......   Passed    0.38 sec
+      Start  3: regression_command_arguments
+ 3/70 Test  #3: regression_command_arguments ......   Passed    4.75 sec
+      Start  4: regression_operator_diagnostics
+ 4/70 Test  #4: regression_operator_diagnostics ...   Passed    5.40 sec
+      Start  5: regression_smoke_stale_workers
+ 5/70 Test  #5: regression_smoke_stale_workers ....   Passed    1.92 sec
+      Start  6: regression_smoke_terminal_state
+ 6/70 Test  #6: regression_smoke_terminal_state ...   Passed    2.09 sec
+      Start  7: regression_rule_simplification
+ 7/70 Test  #7: regression_rule_simplification ....   Passed    1.73 sec
+      Start  8: regression_prompt_inspection
+ 8/70 Test  #8: regression_prompt_inspection ......   Passed    3.35 sec
+      Start  9: regression_prompt_contract
+ 9/70 Test  #9: regression_prompt_contract ........   Passed   26.09 sec
+      Start 10: regression_policy_file_vm
+10/70 Test #10: regression_policy_file_vm .........   Passed    2.36 sec
+      Start 11: regression_command_catalogue
+11/70 Test #11: regression_command_catalogue ......   Passed    2.21 sec
+      Start 12: regression_claim_policy
+12/70 Test #12: regression_claim_policy ...........   Passed    0.65 sec
+      Start 13: native_lifecycle
+13/70 Test #13: native_lifecycle ..................   Passed   10.57 sec
+      Start 14: linked_application
+14/70 Test #14: linked_application ................   Passed    1.60 sec
+      Start 15: configuration_contract
+15/70 Test #15: configuration_contract ............   Passed   30.94 sec
+      Start 16: regression_supervision
+16/70 Test #16: regression_supervision ............   Passed   16.06 sec
+      Start 17: native_supervision
+17/70 Test #17: native_supervision ................   Passed   63.25 sec
+      Start 18: process_workers
+18/70 Test #18: process_workers ...................   Passed   24.94 sec
+      Start 19: gemini_ingestion
+19/70 Test #19: gemini_ingestion ..................   Passed    7.38 sec
+      Start 20: gemini_extraction_validation
+20/70 Test #20: gemini_extraction_validation ......   Passed    4.13 sec
+      Start 21: provider_durability
+21/70 Test #21: provider_durability ...............   Passed   12.50 sec
+      Start 22: codex_protocol
+22/70 Test #22: codex_protocol ....................   Passed   41.31 sec
+      Start 23: codex_application
+23/70 Test #23: codex_application .................   Passed    2.07 sec
+      Start 24: worker_recovery
+24/70 Test #24: worker_recovery ...................   Passed  141.41 sec
+      Start 25: controller_recovery
+25/70 Test #25: controller_recovery ...............   Passed   42.06 sec
+      Start 26: gemini_maintenance
+26/70 Test #26: gemini_maintenance ................   Passed    9.19 sec
+      Start 27: gemini_query
+27/70 Test #27: gemini_query ......................   Passed    9.58 sec
+      Start 28: query_policy
+28/70 Test #28: query_policy ......................   Passed    6.33 sec
+      Start 29: ann_methodology
+29/70 Test #29: ann_methodology ...................   Passed    5.86 sec
+      Start 30: lifecycle_methodology
+30/70 Test #30: lifecycle_methodology .............   Passed    4.82 sec
+      Start 31: evidence_methodology
+31/70 Test #31: evidence_methodology ..............   Passed    3.71 sec
+      Start 32: maintenance_methodology
+32/70 Test #32: maintenance_methodology ...........   Passed    3.94 sec
+      Start 33: native_surfaces
+33/70 Test #33: native_surfaces ...................   Passed   18.30 sec
+      Start 34: address_surface
+34/70 Test #34: address_surface ...................   Passed    3.06 sec
+      Start 35: regression_result_contract
+35/70 Test #35: regression_result_contract ........   Passed    3.00 sec
+      Start 36: gemini_provider_smoke
+36/70 Test #36: gemini_provider_smoke .............   Passed    1.48 sec
+      Start 37: installed_product
+37/70 Test #37: installed_product .................   Passed   34.02 sec
+      Start 38: documentation_contract
+38/70 Test #38: documentation_contract ............   Passed    0.35 sec
+      Start 39: local_embedding_protocol
+39/70 Test #39: local_embedding_protocol ..........   Passed    6.57 sec
+      Start 40: quotation_grounding
+40/70 Test #40: quotation_grounding ...............   Passed    1.74 sec
+      Start 41: temporal_provenance
+41/70 Test #41: temporal_provenance ...............   Passed   21.78 sec
+      Start 42: durable_backlog
+42/70 Test #42: durable_backlog ...................   Passed   14.31 sec
+      Start 43: durable_backlog_provider
+43/70 Test #43: durable_backlog_provider ..........   Passed   49.43 sec
+      Start 44: publication
+44/70 Test #44: publication .......................   Passed   22.69 sec
+      Start 45: native_publication
+45/70 Test #45: native_publication ................   Passed    9.10 sec
+      Start 46: embedding_recovery
+46/70 Test #46: embedding_recovery ................   Passed   23.89 sec
+      Start 47: embedding_publication
+47/70 Test #47: embedding_publication .............   Passed    5.92 sec
+      Start 48: embedding_exhaustion
+48/70 Test #48: embedding_exhaustion ..............   Passed   42.80 sec
+      Start 49: native_receipt_failure
+49/70 Test #49: native_receipt_failure ............   Passed    3.84 sec
+      Start 50: native_receipts
+50/70 Test #50: native_receipts ...................   Passed    5.86 sec
+      Start 51: native_interruption
+51/70 Test #51: native_interruption ...............   Passed    7.22 sec
+      Start 52: regression_controller_loss
+52/70 Test #52: regression_controller_loss ........   Passed    1.45 sec
+      Start 53: regression_restart_live
+53/70 Test #53: regression_restart_live ...........   Passed    3.91 sec
+      Start 54: regression_pages
+54/70 Test #54: regression_pages ..................   Passed   22.43 sec
+      Start 55: regression_page_max
+55/70 Test #55: regression_page_max ...............   Passed    1.79 sec
+      Start 56: regression_large_job
+56/70 Test #56: regression_large_job ..............   Passed    1.79 sec
+      Start 57: regression_plan_detail
+57/70 Test #57: regression_plan_detail ............   Passed    7.97 sec
+      Start 58: regression_retry
+58/70 Test #58: regression_retry ..................   Passed    1.76 sec
+      Start 59: regression_closed_retry
+59/70 Test #59: regression_closed_retry ...........   Passed    3.51 sec
+      Start 60: regression_retrieval
+60/70 Test #60: regression_retrieval ..............   Passed    5.22 sec
+      Start 61: regression_retrieval_unicode
+61/70 Test #61: regression_retrieval_unicode ......   Passed   11.24 sec
+      Start 62: regression_ingest_capacity
+62/70 Test #62: regression_ingest_capacity ........   Passed    2.14 sec
+      Start 63: native_admission
+63/70 Test #63: native_admission ..................   Passed    4.17 sec
+      Start 64: regression_lifecycle
+64/70 Test #64: regression_lifecycle ..............   Passed    3.54 sec
+      Start 65: native_lifecycle_holds
+65/70 Test #65: native_lifecycle_holds ............   Passed   17.13 sec
+      Start 66: native_continuation
+66/70 Test #66: native_continuation ...............   Passed   13.02 sec
+      Start 67: native_legacy_retry_ceiling
+67/70 Test #67: native_legacy_retry_ceiling .......   Passed   10.47 sec
+      Start 68: native_continuation_holds
+68/70 Test #68: native_continuation_holds .........   Passed   17.97 sec
+      Start 69: native_embedding_retry_policy
+69/70 Test #69: native_embedding_retry_policy .....   Passed   11.00 sec
+      Start 70: regression_sql_performance
+70/70 Test #70: regression_sql_performance ........   Passed    3.16 sec
+
+100% tests passed, 0 tests failed out of 70
+
+Label Time Summary:
+RAG-OPS-002            =   7.04 sec*proc (2 tests)
+RAG-OPS-004            =   2.14 sec*proc (1 test)
+RAG-QE-06              =  11.24 sec*proc (1 test)
+RAG-UX-02              =   3.58 sec*proc (2 tests)
+access                 =   3.06 sec*proc (1 test)
+accounting             =  99.39 sec*proc (9 tests)
+address                =   6.06 sec*proc (2 tests)
+ann                    =  15.06 sec*proc (2 tests)
+answer                 =  27.89 sec*proc (2 tests)
+application            =   3.67 sec*proc (2 tests)
+atomic                 =  50.93 sec*proc (4 tests)
+budget                 =  17.40 sec*proc (3 tests)
+cancellation           =   7.22 sec*proc (1 test)
+census                 =   3.94 sec*proc (1 test)
+citation               =  11.07 sec*proc (2 tests)
+claim                  =  17.22 sec*proc (3 tests)
+codex                  =  62.21 sec*proc (4 tests)
+command                =   7.33 sec*proc (3 tests)
+concurrency            = 150.25 sec*proc (7 tests)
+configuration          =  67.35 sec*proc (7 tests)
+continuation           =  30.99 sec*proc (2 tests)
+contract               =   2.59 sec*proc (2 tests)
+dead-letter            =   4.13 sec*proc (1 test)
+direction              =   3.71 sec*proc (1 test)
+documentation          =   0.35 sec*proc (1 test)
+durability             = 155.98 sec*proc (3 tests)
+embedding              =  25.01 sec*proc (4 tests)
+extraction             =  27.65 sec*proc (3 tests)
+gap                    =   3.71 sec*proc (1 test)
+gemini                 = 255.89 sec*proc (15 tests)
+generation             =   1.48 sec*proc (1 test)
+graph                  =   3.71 sec*proc (1 test)
+human                  =  18.30 sec*proc (1 test)
+hybrid                 =   9.58 sec*proc (1 test)
+ingestion              =  41.39 sec*proc (2 tests)
+installed              =  34.02 sec*proc (1 test)
+jsonl                  =  41.31 sec*proc (1 test)
+lead                   =   3.71 sec*proc (1 test)
+lifecycle              =  70.02 sec*proc (7 tests)
+linked                 =   1.60 sec*proc (1 test)
+llama.cpp              =   6.57 sec*proc (1 test)
+local                  =   6.57 sec*proc (1 test)
+loopback               = 113.62 sec*proc (8 tests)
+maintenance            = 115.71 sec*proc (6 tests)
+mcp                    =  18.30 sec*proc (1 test)
+merge                  =  19.13 sec*proc (2 tests)
+methodology            =   0.35 sec*proc (1 test)
+multi-process          =  24.94 sec*proc (1 test)
+native                 = 268.17 sec*proc (21 tests)
+note                   =   3.71 sec*proc (1 test)
+openai-compatible      =   6.57 sec*proc (1 test)
+operator               =   9.41 sec*proc (3 tests)
+pagination             =   5.40 sec*proc (1 test)
+policy                 =  10.62 sec*proc (3 tests)
+privacy                =  53.43 sec*proc (4 tests)
+process                =  24.94 sec*proc (1 test)
+prompt                 =  29.44 sec*proc (2 tests)
+provenance             =  23.52 sec*proc (2 tests)
+provider               = 249.00 sec*proc (8 tests)
+public-contract        =  58.70 sec*proc (9 tests)
+publication            =  44.94 sec*proc (4 tests)
+query                  =  52.93 sec*proc (4 tests)
+quotation              =  23.52 sec*proc (2 tests)
+ranking                =   3.94 sec*proc (1 test)
+recall                 =   5.86 sec*proc (1 test)
+recovery               = 451.52 sec*proc (22 tests)
+redaction              =  49.43 sec*proc (1 test)
+registry               =   4.13 sec*proc (1 test)
+regression             = 295.06 sec*proc (35 tests)
+replay                 =   3.94 sec*proc (1 test)
+resolution             =  49.43 sec*proc (1 test)
+retirement             =  19.13 sec*proc (2 tests)
+retrieval              =   9.57 sec*proc (2 tests)
+reviewed-plan          =   9.19 sec*proc (1 test)
+rxvector               =   5.86 sec*proc (1 test)
+schema                 =  67.40 sec*proc (2 tests)
+secret-free            =   5.61 sec*proc (2 tests)
+skills                 =  34.37 sec*proc (2 tests)
+span                   =   4.13 sec*proc (1 test)
+split                  =  19.13 sec*proc (2 tests)
+sqlite                 = 235.47 sec*proc (18 tests)
+strict-json            =  23.05 sec*proc (2 tests)
+subscription-budget    =  12.50 sec*proc (1 test)
+surface                =   3.06 sec*proc (1 test)
+tamper                 =   5.86 sec*proc (1 test)
+trace                  =   7.38 sec*proc (1 test)
+unicode                =  23.52 sec*proc (2 tests)
+validation             =   4.13 sec*proc (1 test)
+worker                 = 308.84 sec*proc (10 tests)
+worklist               =   3.94 sec*proc (1 test)
+zero-outbound          = 715.76 sec*proc (51 tests)
+
+Total Test time (real) = 919.24 sec

@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragbacklog expose taskretryfacts continuebacklogwindow waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh
+namespace ragbacklog expose previewbacklogwindow taskretryfacts continuebacklogwindow waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh
 
 import rxfnsb
 import rxjson
@@ -8,6 +8,7 @@ import rxhash
 import rxsqlite
 import ragconfig
 import ragprofile
+import ragusage
 import ragallowance
 import ragcanonical
 import ragenrich
@@ -159,6 +160,17 @@ backlogpolicy: procedure = .string
   identity = _hash(canonicalprofile(profile) || "00"x || role.system_prompt() || "00"x || policy.resolution_prompt() || "00"x || "durable-resolution-v1")
   return embedding_json || '"timing":' || jsonquote(timing_json) || ',"provider_time_budget_ms":' || policy.provider_time_minutes() * 60000 || ',"mode":' || jsonquote(policy.mode()) || ',"window_seconds":' || seconds || ',"automatic_actions":' || jsonquote(policy.automatic_actions()) || ',"maximum_impact":' || policy.maximum_impact() || ',"maximum_attempts":' || _configuredattemptlimit(policy.maximum_attempts(),embedding_only,embedding_provider.max_attempts()) || ',"retry_seconds":' || policy.retry_seconds() || ',"maximum_evidence_bytes":' || policy.maximum_evidence_bytes() || ',"sparse_max_degree":' || policy.sparse_max_degree() || ',"query_gap_min_occurrences":' || policy.query_gap_min_occurrences() || ',"batch_items":' || policy.batch_items() || ',"resolution_prompt":' || jsonquote(policy.resolution_prompt()) || ',"knowledge_policy":' || jsonquote(identity) || ',"provider_id":' || jsonquote(provider.provider_id()) || ',"model":' || jsonquote(provider.model()) || ',"charging_basis":' || jsonquote(provider.charging_basis()) || ',"privacy":' || jsonquote(privacy) || ',"profile_id":' || jsonquote(profile.profile_id()) || ',"discovery_context":' || jsonquote(discovery_context) || ',"input_tokens":' || input_cap || ',"output_tokens":' || output_cap || ',"cost_microunits":' || cost_cap || ',"time_ms":' || time_cap || ',"inflight":' || inflight || ',"item_limit":' || budget.item_limit() || ',"model_calls":' || budget.model_calls() || ',"input_budget":' || budget.input_tokens() || ',"output_budget":' || budget.output_tokens() || ',"cost_budget":' || budget.cost_microunits() || ',"codex_turns":' || budget.codex_turns() || '}'
 
+/* Automatic plans approve the durable selection policy. Discovery and task
+ * packets belong to activation/checkpoints, not a discarded cognitive census. */
+previewbacklogwindow: procedure = .int
+  arg database=.binary, embedding_profile=.string, maximum_items=.int, embedding_only=.int, expose census=.ragmaintenancecensus, expose error=.string
+  generation=_number(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
+  if generation<1 then do;error="cannot read backlog preview generation";return -1;end
+  canonical='{"schema":"crexx-rag.backlog-preview/1","expected_generation":' || generation || ',"embedding_profile_id":' || jsonquote(embedding_profile) || ',"maximum_items":' || maximum_items || ',"embeddings_only":' || embedding_only || ',"selection":"durable-backlog-at-activation"}'
+  strings=.string[];scores=.int[]
+  census=.ragmaintenancecensus(generation,embedding_profile,strings,strings,strings,scores,strings,strings,strings,canonical,rxhash..sha256hex(canonical as .binary))
+  return 0
+
 startbacklogwindow: procedure = .int
   arg store = .ragstorehandle, census = .ragmaintenancecensus, snapshot_id = .string, plan_digest = .string, policy_json = .string, expose run_id = .string, expose job_id = .string, expose items = .int, expose error = .string
   error = ""; items = 0; database = store.database(); policy = .jsondocument(policy_json)
@@ -180,7 +192,10 @@ startbacklogwindow: procedure = .int
   window_id = "window:" || plan_digest
   deadline = _number(database,"SELECT unixepoch()") + _n(policy,"window_seconds")
   timing = .jsondocument(_s(policy,"timing"))
-  if timing.valid() = 1 then deadline = _n(timing,"deadline_epoch")
+  if timing.valid() = 1 then do
+    if _s(timing,"mode")="duration" then deadline=_number(database,"SELECT unixepoch()")+_n(timing,"deadline_epoch")-_n(timing,"started_epoch")
+    else deadline = _n(timing,"deadline_epoch")
+  end
   sql = "INSERT INTO maintenance_windows(window_id,run_id,job_id,state,deadline_epoch,policy_json,policy_fingerprint,created_epoch) VALUES(" || _q(window_id) || "," || _q(run_id) || "," || _q(job_id) || ",'active'," || deadline || "," || _q(policy_json) || "," || _q(_s(policy,"knowledge_policy")) || ",unixepoch())"
   if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot persist maintenance window", error)
   input_cap = _n(policy,"input_tokens"); if input_cap < _n(policy,"embedding_input") then input_cap = _n(policy,"embedding_input")
@@ -324,7 +339,7 @@ resolveknownconcept: procedure = .int
   canonical_label = label; concept_id = ""; error = ""; prepared = .binary
   /* A migration parent remains addressable as evidence, but is not a target
    * for newly extracted mentions. Match the publication lifecycle contract. */
-  sql = "SELECT DISTINCT c.concept_id,c.canonical_label FROM concepts c LEFT JOIN aliases a ON a.target_concept_id=c.concept_id AND a.visible_to_generation IS NULL WHERE c.visible_to_generation IS NULL AND c.lifecycle_state='active' AND c.concept_type=" || _q(concept_type) || " AND (lower(c.canonical_label)=" || _q(lower(strip(label))) || " OR a.normalized_alias=" || _q(lower(strip(label))) || ") ORDER BY c.concept_id LIMIT 2"
+  sql = "SELECT DISTINCT c.concept_id,c.canonical_label FROM concepts c WHERE c.concept_id IN(SELECT concept_id FROM concepts WHERE lower(canonical_label)=" || _q(lower(strip(label))) || " AND visible_to_generation IS NULL UNION SELECT target_concept_id FROM aliases WHERE normalized_alias=" || _q(lower(strip(label))) || " AND visible_to_generation IS NULL) AND c.visible_to_generation IS NULL AND c.lifecycle_state='active' AND c.concept_type=" || _q(concept_type) || " ORDER BY c.concept_id LIMIT 2"
   if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot inspect canonical identity"; return -1; end
   count = 0
   do forever
@@ -415,7 +430,7 @@ enqueuebacklogtask: procedure = .int
   else if status \= 0 then return -1
   /* A failed extraction already handed to an external reviewer must not be
    * redispatched by a later ordinary chunk census with the same evidence. */
-  held = _text(database,"SELECT task_id FROM maintenance_tasks t WHERE kind=" || _q(kind) || " AND subject_type=" || _q(subject_type) || " AND subject_id=" || _q(subject_id) || " AND evidence_fingerprint=" || _q(fingerprint) || " AND required_capability='advanced-reasoning' AND state IN('unresolved','review') AND EXISTS(SELECT 1 FROM job_events e WHERE e.event_type='extraction-review-required' AND json_extract(e.message,'$.task_id')=t.task_id) ORDER BY created_epoch,task_id LIMIT 1")
+  held = _text(database,"SELECT task_id FROM maintenance_tasks t WHERE kind=" || _q(kind) || " AND subject_type=" || _q(subject_type) || " AND subject_id=" || _q(subject_id) || " AND evidence_fingerprint=" || _q(fingerprint) || " AND required_capability='advanced-reasoning' AND state IN('unresolved','review') AND EXISTS(SELECT 1 FROM job_events e WHERE e.event_type='extraction-review-required' AND CASE WHEN json_valid(e.message) THEN json_extract(e.message,'$.task_id') END=t.task_id) ORDER BY created_epoch,task_id LIMIT 1")
   if held \= "" then do; task_id = held; error = ""; return 0; end
   task_id = "task:" || _hash(kind || "00"x || subject_type || "00"x || subject_id || "00"x || workflow_id || "00"x || fingerprint || "00"x || _s(policy,"knowledge_policy"))
   question = _question(kind)
@@ -485,7 +500,7 @@ _subject: procedure = .string
   if kind = "conflict" then sql = "SELECT json_object('type','conflict','id',f.conflict_id,'first',json(" || _claimobject("c") || "),'second',json(" || _claimobject("d") || ")) FROM claim_conflicts f JOIN claims c ON c.claim_id=f.claim_id JOIN claims d ON d.claim_id=f.competing_claim_id WHERE f.conflict_id=" || key || " AND f.visible_to_generation IS NULL AND f.review_state='pending'"
   if kind = "note" then sql = "SELECT json_object('type','note','id',note_id,'kind',note_kind,'text',text,'next_action',next_action) FROM analysis_notes WHERE note_id=" || key || " AND state='active'"
   if kind = "gap" then sql = "SELECT json_object('type','gap','id',gap_id,'question',normalized_question,'text',gap_text,'occurrences',occurrence_count) FROM query_gaps WHERE gap_id=" || key || " AND state='open'"
-  if kind = "alias-issue" then sql = "SELECT json_object('type','alias-issue','id',i.issue_id,'candidate_id',i.candidate_id,'canonical_label',i.proposed_label,'concept_type',i.proposed_type,'aliases',json(i.aliases_json),'candidates',json(coalesce((SELECT json_group_array(json_object('concept_id',z.concept_id,'canonical_label',z.canonical_label,'concept_type',z.concept_type)) FROM (SELECT DISTINCT c.concept_id,c.canonical_label,c.concept_type FROM concepts c LEFT JOIN aliases a ON a.target_concept_id=c.concept_id AND a.visible_to_generation IS NULL WHERE c.visible_to_generation IS NULL AND c.lifecycle_state<>'retired' AND (lower(c.canonical_label)=lower(i.proposed_label) OR a.normalized_alias=lower(i.proposed_label) OR a.normalized_alias IN(SELECT lower(value) FROM json_each(i.aliases_json))) ORDER BY c.concept_id) z),'[]'))) FROM maintenance_alias_issues i WHERE i.issue_id=" || key || " AND i.state='open'"
+  if kind = "alias-issue" then sql = "SELECT json_object('type','alias-issue','id',i.issue_id,'candidate_id',i.candidate_id,'canonical_label',i.proposed_label,'concept_type',i.proposed_type,'aliases',json(i.aliases_json),'candidates',json(coalesce((SELECT json_group_array(json_object('concept_id',z.concept_id,'canonical_label',z.canonical_label,'concept_type',z.concept_type)) FROM (SELECT DISTINCT c.concept_id,c.canonical_label,c.concept_type FROM concepts c WHERE c.concept_id IN(SELECT concept_id FROM concepts WHERE lower(canonical_label)=lower(i.proposed_label) AND visible_to_generation IS NULL UNION SELECT target_concept_id FROM aliases WHERE visible_to_generation IS NULL AND normalized_alias IN(SELECT lower(i.proposed_label) UNION SELECT lower(value) FROM json_each(i.aliases_json))) AND c.visible_to_generation IS NULL AND c.lifecycle_state<>'retired' ORDER BY c.concept_id) z),'[]'))) FROM maintenance_alias_issues i WHERE i.issue_id=" || key || " AND i.state='open'"
   if sql = "" then return ""
   subject = _text(database,sql)
   if kind = "concept" then do
@@ -601,7 +616,8 @@ _freshbacklogtask: procedure = .int
   return buildbacklogevidence(database,_s(task,"subject_type"),_s(task,"subject_id"),_s(task,"workflow_id"),maximum_bytes,packet,fingerprint,error)
 
 _scan: procedure = .int
-  arg database = .binary, policy = .jsondocument, expose error = .string, scan_token = .string
+  arg database = .binary, policy = .jsondocument, expose error = .string, scan_token = .string, maximum_items = 0
+  batch_items=_n(policy,"batch_items");if maximum_items>0 then batch_items=min(batch_items,maximum_items)
   if _s(policy,"enrichment") \= "" then return 0
   more = 0
   queries = .string[]; kinds = .string[]; types = .string[]; priorities = .int[]
@@ -628,7 +644,7 @@ _scan: procedure = .int
     prepared = .binary; ids = .string[]
     sql = "SELECT * FROM (" || queries[i] || ") WHERE 1>0 ORDER BY 1"
     /* Alias the projected id to allow one bounded cursor predicate. */
-    sql = "SELECT id FROM (SELECT " || _idcolumn(types[i]) || " id FROM (" || queries[i] || ")) WHERE id>" || _q(cursor) || " ORDER BY id LIMIT " || _n(policy,"batch_items")
+    sql = "SELECT id FROM (SELECT " || _idcolumn(types[i]) || " id FROM (" || queries[i] || ")) WHERE id>" || _q(cursor) || " ORDER BY id LIMIT " || batch_items
     if sqliteprepare(database,sql,prepared) \= 0 then do; error = "cannot prepare backlog census"; return -1; end
     do forever
       step = sqlitestep(prepared); if step = 101 then leave
@@ -648,10 +664,14 @@ _scan: procedure = .int
     if ids.0 = 0 & previous_cursor \= "" then do
       if _text(database,"SELECT scan_token FROM maintenance_scan_cursors WHERE kind=" || _q(kinds[i])) \= scan_token then do; completed = 0; more = 1; end
     end
-    if ids.0 >= _n(policy,"batch_items") then do; cursor = ids[ids.0]; completed = 0; more = 1; end
+    if ids.0 >= batch_items then do; cursor = ids[ids.0]; completed = 0; more = 1; end
     if sqliteexec(database,"INSERT INTO maintenance_scan_cursors(kind,after_id,scan_token,completed) VALUES(" || _q(kinds[i]) || "," || _q(cursor) || "," || _q(scan_token) || "," || completed || ") ON CONFLICT(kind) DO UPDATE SET after_id=excluded.after_id,scan_token=excluded.scan_token,completed=excluded.completed") \= 0 then do; error = "cannot checkpoint backlog census"; return -1; end
   end
-  if _n(policy,"embeddings_only") \= 1 then if _expandworkflows(database,policy,error) \= 0 then return -1
+  if _n(policy,"embeddings_only") <> 1 then do
+    workflow_status=_expandworkflows(database,policy,error,batch_items,scan_token)
+    if workflow_status<0 then return -1
+    if workflow_status>0 then more=1
+  end
   return more
 
 _idcolumn: procedure = .string
@@ -711,20 +731,13 @@ tickbacklogwindow: procedure = .int
   cleanup = _cleanupseconds(policy)
   if (_number(database,"SELECT deadline_epoch-unixepoch() FROM maintenance_windows WHERE job_id=" || _q(job_id)) - cleanup) * 1000 < max(_n(policy,"time_ms"),_n(policy,"embedding_time")) then close_reason = "deadline"
   total = _number(database,"SELECT count(*) FROM job_items WHERE job_id=" || _q(job_id))
-  calls = _number(database,"SELECT count(DISTINCT p.provider_run_id) FROM provider_runs p JOIN attempts a ON a.provider_run_id=p.provider_run_id JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=" || _q(job_id))
-  if calls >= _n(policy,"model_calls") then close_reason = "budget-exhausted"
-  if running = 0 then do
-    /* Select this job's indexed runs once per aggregate, counting a run only
-     * once even when recovery links it to more than one attempt. */
-    usage_filter = " FROM provider_runs p WHERE p.provider_run_id IN(SELECT a.provider_run_id FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=" || _q(job_id) || ")"
-    used = _number(database,"SELECT coalesce(sum(p.input_tokens),0)" || usage_filter)
-    if used + _n(policy,"input_tokens") > _n(policy,"input_budget") then close_reason = "budget-exhausted"
-    used = _number(database,"SELECT coalesce(sum(p.output_tokens),0)" || usage_filter)
-    if used + _n(policy,"output_tokens") > _n(policy,"output_budget") then close_reason = "budget-exhausted"
-    used = _number(database,"SELECT coalesce(sum(max(0,p.cost_microunits)),0)" || usage_filter)
-    if used + _n(policy,"cost_microunits") > _n(policy,"cost_budget") then close_reason = "budget-exhausted"
-    used = _number(database,"SELECT coalesce(sum(p.duration_ms),0)" || usage_filter)
-    if _providertimebudget(policy) > 0 & used + _n(policy,"time_ms") > _providertimebudget(policy) then close_reason = "budget-exhausted"
+  usage=.int[]
+  if jobusagevalues(database,job_id,usage)<>0 then return _rollback(database,"cannot read maintenance usage",error)
+  calls=usage[1]
+  if calls>=_n(policy,"model_calls") then close_reason="budget-exhausted"
+  if running=0 then do
+    if usage[2]+_n(policy,"input_tokens")>_n(policy,"input_budget") | usage[3]+_n(policy,"output_tokens")>_n(policy,"output_budget") | usage[4]+_n(policy,"cost_microunits")>_n(policy,"cost_budget") then close_reason="budget-exhausted"
+    if _providertimebudget(policy)>0 & usage[5]+_n(policy,"time_ms")>_providertimebudget(policy) then close_reason="budget-exhausted"
     if _s(policy,"charging_basis") = "subscription-allowance" & calls >= _n(policy,"codex_turns") then close_reason = "budget-exhausted"
   end
   if close_reason \= "" then do
@@ -740,7 +753,7 @@ tickbacklogwindow: procedure = .int
     end
     else do
       scan_token = window_id || ":" || _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1") || ":" || _number(database,"SELECT count(*) FROM provider_runs")
-      scan_status = _scan(database,policy,error,scan_token)
+      scan_status = _scan(database,policy,error,scan_token,_n(policy,"item_limit")-total)
       if scan_status < 0 then return _rollback(database,error,error)
       if _reconsidertaskretries(database,job_id,error) \= 0 then return _rollback(database,error,error)
       if _dispatch(store,job_id,window_id,policy,generation,error) \= 0 then return _rollback(database,error,error)
@@ -882,21 +895,38 @@ _dispatch: procedure = .int
   return 0
 
 _expandworkflows: procedure = .int
-  arg database = .binary, policy = .jsondocument, expose error = .string
-  prepared = .binary; ids = .string[]
-  if sqliteprepare(database,"SELECT workflow_id FROM maintenance_workflows WHERE state<>'complete' ORDER BY workflow_id",prepared) \= 0 then do; error = "cannot inspect active migration workflows"; return -1; end
-  do forever
-    step = sqlitestep(prepared); if step = 101 then leave
-    id = ""
-    if step \= 100 | sqlitecolumntext(prepared,0,id) \= 0 then do; call sqlitefinalize prepared; error = "cannot read migration workflow"; return -1; end
-    ids[ids.0+1] = id
+  arg database = .binary, policy = .jsondocument, expose error = .string, maximum_items = 0, scan_token = ""
+  cursor=_text(database,"SELECT after_id FROM maintenance_scan_cursors WHERE kind='workflow'")
+  eligible="SELECT workflow_id FROM maintenance_workflows f WHERE f.state<>'complete' AND NOT EXISTS(SELECT 1 FROM maintenance_scan_cursors c WHERE c.kind='workflow-connections:'||f.workflow_id AND c.scan_token=" || _q(scan_token) || " AND c.completed=1)"
+  id=_text(database,eligible || " AND workflow_id>" || _q(cursor) || " ORDER BY workflow_id LIMIT 1")
+  if id="" & cursor<>"" then id=_text(database,eligible || " ORDER BY workflow_id LIMIT 1")
+  if id="" then return 0
+  detail=""
+  if _censusworkflow(database,id,policy,1,detail,error,maximum_items,scan_token)<>0 then return -1
+  if sqliteexec(database,"INSERT INTO maintenance_scan_cursors(kind,after_id,scan_token,completed) VALUES('workflow'," || _q(id) || "," || _q(scan_token) || ",0) ON CONFLICT(kind) DO UPDATE SET after_id=excluded.after_id,scan_token=excluded.scan_token,completed=0")<>0 then do;error="cannot checkpoint workflow discovery";return -1;end
+  return 1
+
+/* Select bounded stable keys before constructing connection packets. Keeping
+ * identity cursors across publications avoids repeating held first entries or
+ * skipping entries when preceding connections leave the impact set. */
+_connectionpage: procedure = .int[]
+  arg types=.string[], objects=.string[], after_key=.string, maximum=.int
+  selected=.int[];keys=.string[]
+  do i=1 to objects.0
+    key=types[i] || "1f"x || objects[i]
+    if key<=after_key then iterate
+    position=keys.0+1
+    do j=1 to keys.0
+      if key<keys[j] then do;position=j;leave;end
+    end
+    if position>maximum then iterate
+    last=min(maximum,keys.0+1)
+    do j=last to position+1 by -1
+      keys[j]=keys[j-1];selected[j]=selected[j-1]
+    end
+    keys[position]=key;selected[position]=i
   end
-  call sqlitefinalize prepared
-  do i=1 to ids.0
-    detail=""
-    if _censusworkflow(database,ids[i],policy,1,detail,error)<>0 then return -1
-  end
-  return 0
+  return selected
 
 /* Targeted operational reconciliation uses the workflow's retained policy.
  * It never opens a worker window, renews a budget or publishes corpus changes. */
@@ -919,7 +949,7 @@ reconcileworkflow: procedure = .int
   return 0
 
 _censusworkflow: procedure = .int
-  arg database = .binary, workflow_id = .string, policy = .jsondocument, apply = .int, expose detail = .string, expose error = .string
+  arg database = .binary, workflow_id = .string, policy = .jsondocument, apply = .int, expose detail = .string, expose error = .string, maximum_items = 0, scan_token = ""
   workflow = .jsondocument(_text(database,"SELECT json_object('parent',parent_concept_id,'task',origin_task_id,'state',state) FROM maintenance_workflows WHERE workflow_id=" || _q(workflow_id)))
   if workflow.valid()<>1 then do; error="workflow was not found"; return -1; end
   current = _number(database,"SELECT published_generation FROM library_meta WHERE singleton=1"); parent = _s(workflow,"parent"); state = _s(workflow,"state")
@@ -940,9 +970,28 @@ _censusworkflow: procedure = .int
     end
     else if retirement_generation>0 then action="waiting-retired-impact"
     if apply=1 then do
-      if action="reconcile-connections" then do j=1 to objects.0
-        task=""
-        if enqueuebacklogtask(database,"connection",types[j],objects[j],workflow_id,_s(workflow,"task"),900000,policy,task,error)<>0 then return -1
+      connection_kind="workflow-connections:" || workflow_id
+      connection_complete=0;after_key=""
+      if action="reconcile-connections" then do
+        if maximum_items>0 then do
+          after_key=_text(database,"SELECT after_id FROM maintenance_scan_cursors WHERE kind=" || _q(connection_kind))
+          selected=_connectionpage(types,objects,after_key,maximum_items+1)
+          connection_limit=min(maximum_items,selected.0)
+          do j=1 to connection_limit
+            row=selected[j];task=""
+            if enqueuebacklogtask(database,"connection",types[row],objects[row],workflow_id,_s(workflow,"task"),900000,policy,task,error)<>0 then return -1
+          end
+          connection_complete=selected.0<=maximum_items;after_key=""
+          if connection_complete=0 then do;row=selected[connection_limit];after_key=types[row] || "1f"x || objects[row];end
+        end
+        else do j=1 to objects.0
+          task=""
+          if enqueuebacklogtask(database,"connection",types[j],objects[j],workflow_id,_s(workflow,"task"),900000,policy,task,error)<>0 then return -1
+        end
+      end
+      else do;connection_complete=1;after_key="";end
+      if maximum_items>0 then do
+        if sqliteexec(database,"INSERT INTO maintenance_scan_cursors(kind,after_id,scan_token,completed) VALUES(" || _q(connection_kind) || "," || _q(after_key) || "," || _q(scan_token) || "," || connection_complete || ") ON CONFLICT(kind) DO UPDATE SET after_id=excluded.after_id,scan_token=excluded.scan_token,completed=excluded.completed")<>0 then do;error="cannot checkpoint workflow connections";return -1;end
       end
       if action="queue-retirement" then if enqueuebacklogtask(database,"retirement","concept",parent,workflow_id,_s(workflow,"task"),850000,policy,retirement,error)<>0 then return -1
       next_state="migrating"; if left(action,8)="waiting-" then next_state="waiting"
@@ -1130,7 +1179,7 @@ reviewbacklogdecision: procedure = .int
   database = store.database(); error = ""
   if wordpos(decision,"accept reject dismiss") = 0 then do; error = "invalid resolution review decision"; return -1; end
   decision_id = _text(database,"SELECT json_extract(proposal_json,'$.decision_id') FROM reviews WHERE review_id=" || _q(review_id) || " AND review_type='maintenance-resolution' AND state='pending'")
-  row = .jsondocument(_text(database,"SELECT json_object('task_id',d.task_id,'response',d.response_json,'job_id',i.job_id,'profile_hash',o.profile_hash) FROM maintenance_decisions d JOIN job_items i ON i.item_id=d.item_id JOIN maintenance_provider_outputs o ON o.provider_run_id=d.provider_run_id WHERE d.decision_id=" || _q(decision_id) || " AND d.disposition LIKE '%:review'"))
+  row = .jsondocument(_text(database,"SELECT json_object('task_id',d.task_id,'response',d.response_json,'job_id',i.job_id,'profile_hash',o.profile_hash) FROM maintenance_decisions d JOIN job_items i ON i.item_id=d.item_id JOIN maintenance_provider_outputs o ON o.provider_run_id=d.provider_run_id AND o.task_id=d.task_id WHERE d.decision_id=" || _q(decision_id) || " AND d.disposition LIKE '%:review'"))
   if decision_id = "" | row.valid() \= 1 then do; error = "pending durable resolution review is unavailable"; return -1; end
   if _s(row,"profile_hash") \= ragsha256(canonicalprofile(profile)) then do; error = "resolution review profile has changed"; return -1; end
   task_id = _s(row,"task_id"); job_id = _s(row,"job_id"); response = _s(row,"response"); grounds = ""
@@ -1361,7 +1410,9 @@ _qualifyclaim: procedure = .int
 
 backlogsummary: procedure = .string
   arg database = .binary, job_id = .string
-  summary = _text(database,"SELECT json_object('window_id',window_id,'run_id',run_id,'job_id',job_id,'state',state,'deadline_epoch',deadline_epoch,'timing',json_extract(policy_json,'$.timing'),'provider_time_budget_ms',coalesce(json_extract(policy_json,'$.provider_time_budget_ms'),json_extract(policy_json,'$.window_seconds')*1000),'provider_time_used_ms',(SELECT coalesce(sum(p.duration_ms),0) FROM provider_runs p WHERE EXISTS(SELECT 1 FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE a.provider_run_id=p.provider_run_id AND i.job_id=maintenance_windows.job_id)),'pending',(SELECT count(*) FROM maintenance_tasks WHERE state='pending'),'dispatched',(SELECT count(*) FROM maintenance_tasks WHERE state='dispatched'),'resolved',(SELECT count(*) FROM maintenance_tasks WHERE state='resolved'),'unresolved',(SELECT count(*) FROM maintenance_tasks WHERE state='unresolved'),'review',(SELECT count(*) FROM maintenance_tasks WHERE state='review'),'failed',(SELECT count(*) FROM maintenance_tasks WHERE state='failed'),'workflows',(SELECT count(*) FROM maintenance_workflows WHERE state<>'complete'),'decisions',(SELECT count(*) FROM maintenance_decisions d JOIN maintenance_task_items m ON m.item_id=d.item_id WHERE m.window_id=maintenance_windows.window_id),'provider_calls',(SELECT count(DISTINCT p.provider_run_id) FROM provider_runs p JOIN attempts a ON a.provider_run_id=p.provider_run_id JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=maintenance_windows.job_id),'cost_microunits',(SELECT coalesce(sum(max(0,p.cost_microunits)),0) FROM provider_runs p WHERE EXISTS(SELECT 1 FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE a.provider_run_id=p.provider_run_id AND i.job_id=maintenance_windows.job_id))) FROM maintenance_windows WHERE job_id=" || _q(job_id))
+  usage=.int[]
+  if jobusagevalues(database,job_id,usage)<>0 then return ""
+  summary = _text(database,"SELECT json_object('window_id',window_id,'run_id',run_id,'job_id',job_id,'state',state,'deadline_epoch',deadline_epoch,'timing',json_extract(policy_json,'$.timing'),'provider_time_budget_ms',coalesce(json_extract(policy_json,'$.provider_time_budget_ms'),json_extract(policy_json,'$.window_seconds')*1000),'provider_time_used_ms'," || usage[5] || ",'pending',t.pending,'dispatched',t.dispatched,'resolved',t.resolved,'unresolved',t.unresolved,'review',t.review,'failed',t.failed,'workflows',(SELECT count(*) FROM maintenance_workflows WHERE state<>'complete'),'decisions',(SELECT count(*) FROM maintenance_decisions d JOIN maintenance_task_items m ON m.item_id=d.item_id WHERE m.window_id=maintenance_windows.window_id),'provider_calls'," || usage[1] || ",'cost_microunits'," || usage[4] || ") FROM maintenance_windows CROSS JOIN (SELECT coalesce(sum(state='pending'),0) pending,coalesce(sum(state='dispatched'),0) dispatched,coalesce(sum(state='resolved'),0) resolved,coalesce(sum(state='unresolved'),0) unresolved,coalesce(sum(state='review'),0) review,coalesce(sum(state='failed'),0) failed FROM maintenance_tasks) t WHERE job_id=" || _q(job_id))
 
   policy = .jsondocument(_text(database,"SELECT policy_json FROM maintenance_windows WHERE job_id=" || _q(job_id)))
   if summary = "" then return summary

@@ -99,8 +99,8 @@ applyenrichment: procedure = .int
   database=store.database(); task=.jsondocument(_text(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _q(task_id)))
   doc=.jsondocument(response); rows=doc.member(doc.root(),"assessments"); subject=task.member(task.root(),"subject"); chunk=_s(task,subject,"id"); body=_s(task,subject,"text"); metadata=task.node_get(task.member(task.root(),"source_metadata"))
   snapshot_id=_text(database,"SELECT config_snapshot_id FROM jobs WHERE job_id=" || _q(job_id)); policy=profileclaimpolicy(profile)
-  provider_run=_text(database,"SELECT provider_run_id FROM maintenance_provider_outputs WHERE task_id=" || _q(task_id) || " ORDER BY created_epoch DESC LIMIT 1")
-  provider_id=_text(database,"SELECT provider_id FROM provider_runs WHERE provider_run_id=" || _q(provider_run)); model=_text(database,"SELECT model FROM provider_runs WHERE provider_run_id=" || _q(provider_run))
+  provider_metadata=.jsondocument(_outputprovider(database,task_id))
+  provider_run=_s(provider_metadata,provider_metadata.root(),"run");provider_id=_s(provider_metadata,provider_metadata.root(),"provider");model=_s(provider_metadata,provider_metadata.root(),"model")
   do i=1 to doc.node_count(rows)
     row=doc.element(rows,i); id=_s(doc,row,"support_id"); old=_support(task,id)
     support_context=task.node_get(task.member(old,"source_metadata"))
@@ -113,7 +113,7 @@ applyenrichment: procedure = .int
     if same_meaning=1 then qualified=old_qualifiers
     target_support=id
     if same_meaning\=1 | same_core=0 then do
-      proposal=_proposal(database,task_id,task,doc,row,profile,assessment,qualified)
+      proposal=_proposal(database,task_id,task,doc,row,profile,assessment,qualified,provider_metadata.node_get(provider_metadata.root()))
       policy=profileclaimpolicy(profile,_s(task,old,"policy_version"))
       result=.ragproposalresult
       if applyproposaltransaction(store,proposal,policy,current,snapshot_id,generation,result,error)\=0 then return -1
@@ -184,10 +184,11 @@ enrichmentprompt: procedure = .string
   return "Assess exactly the supplied existing supports. Do not discover new relationships or change their endpoints. Return one assessment per supplied support_id, or unresolved with no assessments for the whole packet. Confidence is your confidence in the interpretation, from 0 to 1000000. Every relationship evidence_quote is frozen in the support packet: a historical temporal_quote must equal that quotation. If it contains no grounded historical date, assess it as unknown; a successfully undated assessment is useful. " || assessmentprompt()
 
 _proposal: procedure = .ragextractionproposal
-  arg database=.binary, task_id=.string, task=.jsondocument, doc=.jsondocument, row=.int, profile=.ragprofile, assessment=.ragsupportassessment, qualified=.string
+  arg database=.binary, task_id=.string, task=.jsondocument, doc=.jsondocument, row=.int, profile=.ragprofile, assessment=.ragsupportassessment, qualified=.string, provider_json=""
   id=_s(doc,row,"support_id"); old=_support(task,id); subject=task.member(task.root(),"subject"); chunk=_s(task,subject,"id"); response=doc.node_get(doc.root())
-  provider_run=_text(database,"SELECT provider_run_id FROM maintenance_provider_outputs WHERE task_id=" || _q(task_id) || " ORDER BY created_epoch DESC LIMIT 1")
-  provider_id=_text(database,"SELECT provider_id FROM provider_runs WHERE provider_run_id=" || _q(provider_run)); model=_text(database,"SELECT model FROM provider_runs WHERE provider_run_id=" || _q(provider_run))
+  if provider_json="" then provider_json=_outputprovider(database,task_id)
+  provider_metadata=.jsondocument(provider_json)
+  provider_run=_s(provider_metadata,provider_metadata.root(),"run");provider_id=_s(provider_metadata,provider_metadata.root(),"provider");model=_s(provider_metadata,provider_metadata.root(),"model")
   confidence=0; ignored=doc.node_int(doc.member(row,"confidence_millionths"),confidence)
   return .ragextractionproposal("crexx-rag.extraction-proposal/2","enrich:" || _hash(task_id || id || response),"claim",_s(task,old,"source_id"),_s(task,old,"source_label"),_s(task,old,"source_type"),_s(task,old,"relationship_type"),_s(task,old,"target_id"),_s(task,old,"target_label"),_s(task,old,"target_type"),_s(task,old,"direction"),qualified,assessment.effective_from(),assessment.effective_to(),chunk,_n(task,old,"span_start"),_n(task,old,"span_end"),assessment.polarity(),assessment.stance(),assessment.directness(),assessment.voice(),_s(task,old,"lineage_group"),confidence,provider_id,model,provider_run,"provenance-enrichment/1","provenance-enrichment/1:" || assessment.stance() || ":" || assessment.directness(),"provenance-worklist",profile.profile_id(),0,assessment.canonical())
 
@@ -201,6 +202,7 @@ enrichmentreviewrequired: procedure = .int
   arg store=.ragstorehandle, task_id=.string, response=.string, profile=.ragprofile, generation=.int, expose error=.string
   database=store.database(); task=.jsondocument(_text(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _q(task_id)))
   doc=.jsondocument(response); rows=doc.member(doc.root(),"assessments"); subject=task.member(task.root(),"subject"); body=_s(task,subject,"text")
+  provider_metadata=.jsondocument(_outputprovider(database,task_id))
   do i=1 to doc.node_count(rows)
     row=doc.element(rows,i); id=_s(doc,row,"support_id"); old=_support(task,id); confidence=_n(doc,row,"confidence_millionths")
     assessment=.ragsupportassessment(doc.node_get(doc.member(row,"assessment")),body,task.node_get(task.member(old,"source_metadata")),_s(task,old,"evidence_quote"))
@@ -215,9 +217,13 @@ enrichmentreviewrequired: procedure = .int
     if same_meaning=1 & same_core=1 then iterate
     old_qualifiers=task.node_get(task.member(old,"qualifiers")); qualified=_text(database,"SELECT json_patch(" || _q(old_qualifiers) || "," || _q(assessment.qualifiers()) || ")")
     if same_meaning=1 then qualified=old_qualifiers
-    proposal=_proposal(database,task_id,task,doc,row,profile,assessment,qualified); validation=.ragproposalvalidation
+    proposal=_proposal(database,task_id,task,doc,row,profile,assessment,qualified,provider_metadata.node_get(provider_metadata.root())); validation=.ragproposalvalidation
     if validateproposal(store,proposal,profileclaimpolicy(profile,_s(task,old,"policy_version")),validation,error,generation)\=0 then return -1
     if validation.status()\=0 then do; error=validation.reason(); return -1; end
     if validation.disposition()="review" then return 1
   end
   return 0
+
+_outputprovider: procedure = .string
+  arg database=.binary, task_id=.string
+  return _text(database,"SELECT json_object('run',p.provider_run_id,'provider',p.provider_id,'model',p.model) FROM maintenance_provider_outputs o JOIN provider_runs p ON p.provider_run_id=o.provider_run_id WHERE o.task_id=" || _q(task_id) || " ORDER BY o.created_epoch DESC,o.item_id LIMIT 1")

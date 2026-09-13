@@ -1,0 +1,24 @@
+{
+  "native_sha256": "e3967d87a24df035fa43373719bc5ed611592c7cf49433326dca85115cc762ab",
+  "rxbin_sha256": "860ba8b1c10357c6aa6252714d4e3f88684ef3d1d06d65e24d888156c3e5edec",
+  "library": "/private/tmp/crexxrag-sql-fixes-20260913/native-library",
+  "generation": 24928,
+  "plan_seconds": 0.20388208399526775,
+  "apply_seconds": 0.6247298330999911,
+  "cancel_seconds": 0.19251362513750792,
+  "items": 8,
+  "provider_runs_before": 82557,
+  "provider_runs_after": 82557,
+  "window_at_activation": [
+    "window:093ff63e2f4851321ed15d40c1793b7b6e9a82c53a2161aafab2c4c0eb5955e4",
+    "active",
+    900
+  ],
+  "final_job_state": "cancelled",
+  "final_item_states": [
+    [
+      "cancelled",
+      8
+    ]
+  ]
+}

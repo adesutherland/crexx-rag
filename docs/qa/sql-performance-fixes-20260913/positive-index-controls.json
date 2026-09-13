@@ -1,0 +1,108 @@
+{
+  "synthetic_rows": 20000,
+  "rolled_back": true,
+  "controls": [
+    {
+      "name": "conflict-claim",
+      "rows": 1,
+      "eqp": [
+        [
+          3,
+          0,
+          51,
+          "SEARCH claim_conflicts USING INDEX claim_conflicts_claim_visibility (claim_id=? AND visible_from_generation<?)"
+        ]
+      ]
+    },
+    {
+      "name": "ambiguity-chunk",
+      "rows": 1,
+      "eqp": [
+        [
+          2,
+          0,
+          47,
+          "SEARCH ambiguity_candidates USING COVERING INDEX ambiguity_candidates_chunk_visibility (revision_chunk_id=? AND visible_from_generation<?)"
+        ]
+      ]
+    },
+    {
+      "name": "ambiguity-concept",
+      "rows": 1,
+      "eqp": [
+        [
+          2,
+          0,
+          47,
+          "SEARCH ambiguity_candidates USING COVERING INDEX ambiguity_candidates_concept_visibility (concept_id=? AND visible_from_generation<?)"
+        ]
+      ]
+    },
+    {
+      "name": "task-parent",
+      "rows": 1,
+      "eqp": [
+        [
+          4,
+          0,
+          54,
+          "SEARCH maintenance_tasks USING COVERING INDEX maintenance_tasks_parent (parent_task_id=?)"
+        ],
+        [
+          27,
+          0,
+          0,
+          "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+        ]
+      ]
+    },
+    {
+      "name": "task-subject",
+      "rows": 2,
+      "eqp": [
+        [
+          2,
+          0,
+          54,
+          "SEARCH maintenance_tasks USING COVERING INDEX maintenance_tasks_subject (subject_id=? AND state=?)"
+        ]
+      ]
+    },
+    {
+      "name": "decision-task",
+      "rows": 1,
+      "eqp": [
+        [
+          4,
+          0,
+          54,
+          "SEARCH maintenance_decisions USING COVERING INDEX maintenance_decisions_task (task_id=?)"
+        ]
+      ]
+    },
+    {
+      "name": "output-run",
+      "rows": 1,
+      "eqp": [
+        [
+          2,
+          0,
+          55,
+          "SEARCH maintenance_provider_outputs USING COVERING INDEX maintenance_provider_outputs_run (provider_run_id=?)"
+        ]
+      ]
+    },
+    {
+      "name": "maintenance-subject",
+      "rows": 1,
+      "eqp": [
+        [
+          2,
+          0,
+          54,
+          "SEARCH maintenance_items USING COVERING INDEX maintenance_items_subject (subject_id=? AND state=?)"
+        ]
+      ]
+    }
+  ]
+}

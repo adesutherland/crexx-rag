@@ -1,0 +1,47 @@
+--- crexx/application/ragbacklog.crexx
++++ diagnosticbacklog.crexx
+@@ -3 +3 @@
+-namespace ragbacklog expose taskretryfacts continuebacklogwindow waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh
++namespace diagnosticbacklog expose profilescan  taskretryfacts continuebacklogwindow waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh
+@@ -455,0 +456 @@
++  sql_started=time("us") as .int
+@@ -460,0 +462,2 @@
++  sql_elapsed=(time("us") as .int)-sql_started
++  if sql_elapsed>10000 then say "SLOW_SQL us=" || sql_elapsed "hash=" || _hash(sql) "prefix=" || left(sql,180)
+@@ -463,0 +467 @@
++  sql_started=time("us") as .int
+@@ -468,0 +473,2 @@
++  sql_elapsed=(time("us") as .int)-sql_started
++  if sql_elapsed>10000 then say "SLOW_SQL us=" || sql_elapsed "hash=" || _hash(sql) "prefix=" || left(sql,180)
+@@ -627,0 +634 @@
++    profile_started=time("us") as .int
+@@ -639,0 +647 @@
++    say "CENSUS_SELECT=" || kinds[i] "rows=" || ids.0 "us=" || ((time("us") as .int)-profile_started)
+@@ -646,0 +655 @@
++    say "SCAN_KIND=" || kinds[i] "rows=" || ids.0 "us=" || ((time("us") as .int)-profile_started)
+@@ -896,0 +906 @@
++    profile_started=time("us") as .int
+@@ -897,0 +908 @@
++    say "WORKFLOW=" || ids[i] "us=" || ((time("us") as .int)-profile_started)
+@@ -1695,0 +1707,21 @@
++
++profilescan: procedure = .int
++  arg database=.binary, expose error=.string, disable_indexes=0
++  policy=.jsondocument(_text(database,"SELECT policy_json FROM maintenance_windows ORDER BY created_epoch DESC LIMIT 1"))
++  say "DIAGNOSTIC batch_items=" || _n(policy,"batch_items")
++  if sqliteexec(database,"BEGIN IMMEDIATE")<>0 then return -2
++  say "SQLITE_VERSION=" || _text(database,"SELECT sqlite_version()")
++  if disable_indexes=1 then do
++    names="review_extraction_event_task review_alias_target review_mentions_concept review_active_concept_label review_open_issue_label review_candidate_generation review_alias_lower review_note_chunk review_output_task review_admission_expiry"
++    do index_number=1 to words(names)
++      if sqliteexec(database,"DROP INDEX " || word(names,index_number))<>0 then do;call sqliteexec database,"ROLLBACK";return -3;end
++    end
++  end
++  started=time("us") as .int
++  status=_scan(database,policy,error,"window:sql-review:1:1")
++  say "SCAN_TOTAL_US=" || ((time("us") as .int)-started) "status=" || status "error=" || error
++  task_projection=_text(database,"SELECT json_group_array(json_array(task_id,evidence_fingerprint,state,required_capability,kind,subject_type,subject_id,workflow_id,parent_task_id,priority,question,last_error)) FROM (SELECT * FROM maintenance_tasks ORDER BY task_id)")
++  say "TASK_SEMANTIC_DIGEST=" || _hash(task_projection)
++  say "TASK_COUNT=" || _number(database,"SELECT count(*) FROM maintenance_tasks")
++  call sqliteexec database,"ROLLBACK"
++  return status

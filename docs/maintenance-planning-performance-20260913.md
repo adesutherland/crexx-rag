@@ -1,5 +1,8 @@
 # Maintenance planning and apply performance review — 13 September 2026
 
+This diagnostic is historical. The complete repair and passing acceptance are
+recorded in the [SQL delivery checklist](sql-performance-delivery-20260913.md).
+
 The six minutes eighteen seconds of Test 3 preparation has a substantial SQL
 indexing cause. Three experimental indexes reduced a fresh full planning run
 from **190.18 seconds to 20.63 seconds**, with the same maintenance worklist and

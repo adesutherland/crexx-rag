@@ -7,6 +7,7 @@ import rxjson
 import rxhash
 import rxplatform
 import rxsqlite
+import ragsqlsupport
 import ragstore
 import ragjob
 import ragclaims
@@ -52,11 +53,11 @@ claimnext: procedure = .int
   if expired = 1 then do
     if ragusage..closeexpiredreservations(database,error) \= 0 then return _rollback(database,error,error)
     uncertain = "EXISTS(SELECT 1 FROM job_events e WHERE e.attempt_id=attempts.attempt_id AND e.event_type='provider-intent' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response'))"
-    sql = "INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) SELECT i.job_id,i.item_id,a.attempt_id,'provider-outcome-uncertain','Provider intent has no durable response; explicit retry may redo unfinished work',strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM attempts a JOIN job_items i ON i.item_id=a.item_id AND i.fence=a.fence WHERE a.outcome='running' AND i.lease_until<=unixepoch() AND " || changestr("attempts.attempt_id",uncertain,"a.attempt_id")
+    sql = "INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at) SELECT i.job_id,i.item_id,a.attempt_id,'provider-outcome-uncertain','Provider intent has no durable response; explicit retry may redo unfinished work',strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM job_items i CROSS JOIN attempts a ON a.item_id=i.item_id AND a.fence=i.fence WHERE i.state IN('running','cancel_requested') AND i.lease_until<=unixepoch() AND a.outcome='running' AND " || changestr("attempts.attempt_id",uncertain,"a.attempt_id")
     if sqliteexec(database,sql) \= 0 then return _rollback(database,"cannot preserve uncertain provider outcome",error)
     /* An uncertain call holds its item; unrelated items retain admission. */
     /* Expired attempts are closed before their items become eligible again. */
-    sql = "UPDATE attempts SET outcome='expired',validation_state='lease-expired',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE outcome='running' AND EXISTS(SELECT 1 FROM job_items i WHERE i.item_id=attempts.item_id AND i.fence=attempts.fence AND i.lease_until<=CAST(strftime('%s','now') AS INTEGER))"
+    sql = "UPDATE attempts SET outcome='expired',validation_state='lease-expired',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE attempt_id IN(SELECT a.attempt_id FROM job_items i CROSS JOIN attempts a ON a.item_id=i.item_id AND a.fence=i.fence WHERE i.state IN('running','cancel_requested') AND i.lease_until<=unixepoch() AND a.outcome='running')"
     if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot expire stale attempts", error)
     sql = "UPDATE job_items SET state=CASE WHEN EXISTS(SELECT 1 FROM job_events e WHERE e.item_id=job_items.item_id AND e.event_type='provider-outcome-uncertain' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')) THEN 'dead_letter' WHEN (SELECT count(*) FROM attempts a WHERE a.item_id=job_items.item_id AND a.outcome<>'cancelled')>=" || maximum_attempts || " AND NOT EXISTS(SELECT 1 FROM job_events e WHERE e.item_id=job_items.item_id AND e.event_type='provider-response') THEN 'dead_letter' ELSE 'queued' END,worker_id=NULL,lease_until=NULL,retry_at=CAST(strftime('%s','now') AS INTEGER),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='running' AND lease_until<=CAST(strftime('%s','now') AS INTEGER)"
     if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot recover expired items", error)
@@ -601,13 +602,10 @@ readjobstatus: procedure = .int
   columns = sqlitecolumntext(prepared, 0, state) | sqlitecolumnint(prepared, 1, item_limit) | sqlitecolumntext(prepared, 2, created) | sqlitecolumntext(prepared, 3, updated)
   call sqlitefinalize prepared
   if columns \= 0 then do; error = "job status is malformed"; return -3; end
-  queued = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='queued'", job_id)
-  running = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state IN('running','cancel_requested')", job_id)
-  processed = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='processed'", job_id)
-  skipped = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='skipped'", job_id)
-  dead = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='dead_letter'", job_id)
-  cancelled = _boundcount(database, "SELECT count(*) FROM job_items WHERE job_id=?1 AND state='cancelled'", job_id)
-  if min(queued,running,processed,skipped,dead,cancelled)<0 then do; error="cannot read consistent job item counts";return -3;end
+  counts=.int[]
+  sql="SELECT coalesce(sum(state='queued'),0),coalesce(sum(state IN('running','cancel_requested')),0),coalesce(sum(state='processed'),0),coalesce(sum(state='skipped'),0),coalesce(sum(state='dead_letter'),0),coalesce(sum(state='cancelled'),0) FROM job_items WHERE job_id=" || _q(job_id)
+  if sqlreadints(database,sql,counts,6)<>0 then do;error="cannot read consistent job item counts";return -3;end
+  queued=counts[1];running=counts[2];processed=counts[3];skipped=counts[4];dead=counts[5];cancelled=counts[6]
   planned=queued+running+processed+skipped+dead+cancelled
   uncertain=_boundcount(database,"SELECT count(*) FROM job_items i WHERE i.job_id=?1 AND " || uncertainitem("i.item_id"),job_id)
   window=_boundscalartext(database,"SELECT state FROM maintenance_windows WHERE job_id=?1",job_id)

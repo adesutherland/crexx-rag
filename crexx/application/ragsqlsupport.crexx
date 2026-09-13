@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragsqlsupport expose sqlreadtext sqlreadint sqlquote sqliteerrordetail
+namespace ragsqlsupport expose sqlreadints sqlreadtext sqlreadint sqlquote sqliteerrordetail
 
 import rxfnsb
 import rxsqlite
@@ -27,3 +27,17 @@ sqliteerrordetail: procedure = .string
   boundary_code = 0; sqlite_code = 0; sqlite_extended = 0; operation = ""; message = ""
   call sqliteerrorextended boundary_code, sqlite_code, sqlite_extended, operation, message
   return message || " [boundary=" || boundary_code || ",sqlite=" || sqlite_code || ",extended=" || sqlite_extended || ",operation=" || operation || "]"
+
+/* One numeric row per domain projection; transaction ownership stays with the caller. */
+sqlreadints: procedure = .int
+  arg database = .binary, sql = .string, expose values = .int[], columns = .int
+  clear values; prepared = .binary
+  if columns < 1 | sqliteprepare(database,sql,prepared) <> 0 then return -1
+  if sqlitestep(prepared) <> 100 then do; call sqlitefinalize prepared; return -1; end
+  do i=1 to columns
+    value=0
+    if sqlitecolumnint(prepared,i-1,value) <> 0 then do; call sqlitefinalize prepared; clear values; return -1; end
+    values[i]=value
+  end
+  call sqlitefinalize prepared
+  return 0

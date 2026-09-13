@@ -1,0 +1,31 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 32: maintenance_methodology
+1/4 Test #32: maintenance_methodology ..........   Passed    4.00 sec
+    Start 42: durable_backlog
+2/4 Test #42: durable_backlog ..................   Passed   14.94 sec
+    Start 64: regression_lifecycle
+3/4 Test #64: regression_lifecycle .............   Passed    3.52 sec
+    Start 70: regression_sql_performance
+4/4 Test #70: regression_sql_performance .......   Passed    3.05 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Label Time Summary:
+RAG-OPS-002      =   3.52 sec*proc (1 test)
+accounting       =   3.52 sec*proc (1 test)
+atomic           =  14.94 sec*proc (1 test)
+census           =   4.00 sec*proc (1 test)
+lifecycle        =  14.94 sec*proc (1 test)
+maintenance      =  18.94 sec*proc (2 tests)
+merge            =  14.94 sec*proc (1 test)
+ranking          =   4.00 sec*proc (1 test)
+regression       =   6.57 sec*proc (2 tests)
+replay           =   4.00 sec*proc (1 test)
+retirement       =  14.94 sec*proc (1 test)
+split            =  14.94 sec*proc (1 test)
+sqlite           =  21.99 sec*proc (3 tests)
+worker           =   3.52 sec*proc (1 test)
+worklist         =   4.00 sec*proc (1 test)
+zero-outbound    =   6.57 sec*proc (2 tests)
+
+Total Test time (real) =  25.51 sec

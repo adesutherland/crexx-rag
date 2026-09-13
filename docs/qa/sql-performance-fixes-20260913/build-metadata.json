@@ -1,0 +1,146 @@
+{
+  "baseline_head": "bfbbdfd95d95a080262d47711c759bc2a9df18a0",
+  "branch": "main",
+  "crexx": "CREXX compiler driver crexx-1.0.0-beta.3+local.g037e7939bc29  (macOS 64 20260913)\ncREXX License (MIT)\nCopyright (c) 2020-2026 Adrian Sutherland, Peter Jacob, Ren\u00e9 Jansen\nSee https://github.com/adesutherland/CREXX for project details",
+  "source_file_count": 179,
+  "schema_version": 18,
+  "user_library_modified": false,
+  "hosted_calls": 0,
+  "installed_rxsqlite_version": "3.53.2",
+  "diagnostic_sqlite_version": "3.53.4",
+  "schema_migration_columns": [
+    "version",
+    "name",
+    "checksum",
+    "applied_at",
+    "tool_version"
+  ],
+  "schema_migrations": [
+    [
+      1,
+      "initial-library",
+      "ce67d40ab29bd35585af51b2011a6350f2b8305e7969d066a2ef1d9a7a703ca0",
+      "2026-09-04T21:18:02.219Z",
+      "crexxrag"
+    ],
+    [
+      2,
+      "worker-hot-path-indexes",
+      "de4592a26543a0c6d8d3a1ef9c6fd4922f17123548e2930366cb8638be9503c4",
+      "2026-09-04T21:18:02.219Z",
+      "crexxrag"
+    ],
+    [
+      3,
+      "provider-run-accounting-index",
+      "28cc9a080e1a5adcd1c16114cd21a0d0edee0432740d6a26c2b39925013e0370",
+      "2026-09-04T21:18:02.219Z",
+      "crexxrag"
+    ],
+    [
+      4,
+      "library-report-cache",
+      "f0669147b3b07b1b1a8754937821de63b94e0e40cce69daa9d2ab7a4b0877699",
+      "2026-09-04T21:18:02.219Z",
+      "crexxrag"
+    ],
+    [
+      5,
+      "historic-observability",
+      "9177f2f3130c175008a6514f072bfa413cca0f327fe4619930d9c77d44f11bd3",
+      "2026-09-04T21:18:02.220Z",
+      "crexxrag"
+    ],
+    [
+      6,
+      "configuration-lifecycle-and-provider-resilience",
+      "529919045d2777013a0cdf4dcdec8d31fa103d069122677b55f4fd6c38aa7583",
+      "2026-09-04T21:18:02.221Z",
+      "crexxrag"
+    ],
+    [
+      7,
+      "indexed-term-statistics-and-backlog-reconciliation",
+      "9bdc5094e03f56e47f46cdc99a0a0886747f73ca11dbeb4ddaf3ecf5451d7443",
+      "2026-09-04T21:18:02.222Z",
+      "crexxrag"
+    ],
+    [
+      8,
+      "direct-provider-history",
+      "add7adb59016bab71709aa6575d507ff4271d3157333216208708142473753c1",
+      "2026-09-04T21:18:02.223Z",
+      "crexxrag"
+    ],
+    [
+      9,
+      "prospective-configuration-transitions",
+      "dcfd1a148310f1c2cddd1f0c5b0a9396a07ce496e3dd5eb5a91b2084a6793ce4",
+      "2026-09-06T07:06:39.700Z",
+      "crexxrag"
+    ],
+    [
+      10,
+      "durable-maintenance-backlog",
+      "7bf90419a4f3e691691f4e18e86f2faa87ca59c06c1e863b6dcc4aa83e388a9c",
+      "2026-09-06T19:04:10.820Z",
+      "crexxrag"
+    ],
+    [
+      11,
+      "claim-time-and-source-provenance",
+      "641b75b26a3946f1a55c40eb6b7913c8264501aaec4d7a4166e1720ed09acd74",
+      "2026-09-08T18:16:32.134Z",
+      "crexxrag"
+    ],
+    [
+      12,
+      "agent-maintenance-handoff",
+      "abe73ac0a801d3a824f08b7689bdc756b0c50a209ef3ff0eb88c1cfd17a2ce2d",
+      "2026-09-09T19:29:11.259Z",
+      "crexxrag"
+    ],
+    [
+      13,
+      "embedding-retry-admission",
+      "9d5236180dd1c7b39c1853658f0ed0b167521f4e1a56c52942af4f1bebf470f9",
+      "2026-09-10T09:24:01.155Z",
+      "crexxrag"
+    ],
+    [
+      14,
+      "durable-retry-requests",
+      "95002606a4552c399870908d7c1c42128c9e3ddde1427a1c10dc2ef0d6d39996",
+      "2026-09-12T21:56:27.533Z",
+      "crexxrag"
+    ],
+    [
+      15,
+      "reasoned-task-waivers",
+      "4595893c9edfdae7b4e05965c8ae88ec3b0419878e83e918159111827dbe9b33",
+      "2026-09-12T21:56:27.534Z",
+      "crexxrag"
+    ],
+    [
+      16,
+      "indexed-recovery-and-allowance-periods",
+      "0fb69902fc0e01a37b02fdd48c206a0b3c412cd762cf7b158add6b56ebee39cc",
+      "2026-09-12T21:56:33.977Z",
+      "crexxrag"
+    ],
+    [
+      17,
+      "indexed-review-holds",
+      "9ab5f09ae6a287250dec45e2f546afe743145724af5dd5f749d833b8bdbb506c",
+      "2026-09-13T00:20:38.749Z",
+      "crexxrag"
+    ],
+    [
+      18,
+      "indexed-sql-access-paths",
+      "4cb2a9720f37963a3b3be2e5683590eaea03cf6a12e3c2c271121627b46618e9",
+      "2026-09-13T19:23:57.015Z",
+      "crexxrag"
+    ]
+  ]
+}

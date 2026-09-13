@@ -5,6 +5,7 @@ namespace ragenvironment expose admitprovidercall updatecooldown replacementwait
 import rxfnsb
 import rxhash
 import rxsqlite
+import ragsqlsupport
 import ragstore
 import ragworktypes
 
@@ -21,20 +22,20 @@ admitprovidercall: procedure = .int
     /* Capacity waits are reads. Recheck after taking the writer lock before
      * inserting admission, so independent workers cannot oversubscribe. */
     scope = "provider_id=" || _q(provider_id) || " AND model=" || _q(model)
-    cooldown = _scalarint(database,"SELECT coalesce((SELECT not_before_epoch FROM provider_cooldowns WHERE " || scope || "),0)")
-    if cooldown > _scalarint(database,"SELECT unixepoch()") then do; admission_id = ""; wait_ms = (cooldown-_scalarint(database,"SELECT unixepoch()"))*1000; error = "provider cooldown pending"; return 1; end
+    cooldown = _scalarint(database,"SELECT max(0,coalesce((SELECT not_before_epoch FROM provider_cooldowns WHERE " || scope || "),0)-unixepoch())")
+    if cooldown < 0 then do; error="cannot read provider cooldown"; return -3; end
+    if cooldown > 0 then do; admission_id = ""; wait_ms = cooldown*1000; error = "provider cooldown pending"; return 1; end
     if beginwritetransaction(database,"begin provider admission",error) \= 0 then return -3
     now_epoch = _scalarint(database, "SELECT CAST(strftime('%s','now') AS INTEGER)")
     if now_epoch < 0 then return _rollback(database, "cannot read the provider admission clock", error)
     if sqliteexec(database, "UPDATE provider_admissions SET outcome='expired',released_epoch=" || now_epoch || " WHERE outcome='active' AND lease_until_epoch<=" || now_epoch) \= 0 then return _rollback(database, "cannot expire stale provider admissions", error)
     if _boundcount(database,"SELECT count(*) FROM maintenance_windows WHERE job_id=?1 AND (state<>'active' OR (deadline_epoch-unixepoch()-coalesce(json_extract(nullif(json_extract(policy_json,'$.timing'),''),'$.cleanup_seconds'),0))*1000<" || timeout_ms || ")",claim.job_id()) > 0 then return _rollback(database,"maintenance deadline reached during provider admission",error)
     scope = "provider_id=" || _q(provider_id) || " AND model=" || _q(model)
-    recent_requests = _scalarint(database, "SELECT count(*) FROM provider_admissions WHERE " || scope || " AND admitted_epoch>" || (now_epoch - 60))
-    recent_tokens = _scalarint(database, "SELECT coalesce(sum(reserved_tokens),0) FROM provider_admissions WHERE " || scope || " AND admitted_epoch>" || (now_epoch - 60))
-    active_requests = _scalarint(database, "SELECT count(*) FROM provider_admissions WHERE " || scope || " AND outcome='active' AND lease_until_epoch>" || now_epoch)
-    cooldown = _scalarint(database,"SELECT coalesce((SELECT not_before_epoch FROM provider_cooldowns WHERE " || scope || "),0)")
-    recovering = _scalarint(database,"SELECT coalesce((SELECT failure_count FROM provider_cooldowns WHERE " || scope || "),0)")
-    if recent_requests < 0 | recent_tokens < 0 | active_requests < 0 | cooldown < 0 | recovering < 0 then return _rollback(database, "cannot inspect provider admission capacity", error)
+    capacity=.int[]
+    /* Cooldown may outlive every recent admission. Read its row independently. */
+    sql="SELECT r.requests,r.tokens,r.first_epoch,(SELECT count(*) FROM provider_admissions WHERE " || scope || " AND outcome='active' AND lease_until_epoch>" || now_epoch || "),coalesce(c.not_before_epoch,0),coalesce(c.failure_count,0) FROM (SELECT count(*) requests,coalesce(sum(reserved_tokens),0) tokens,coalesce(min(admitted_epoch)," || now_epoch || ") first_epoch FROM provider_admissions WHERE " || scope || " AND admitted_epoch>" || (now_epoch-60) || ") r LEFT JOIN provider_cooldowns c ON c.provider_id=" || _q(provider_id) || " AND c.model=" || _q(model)
+    if sqlreadints(database,sql,capacity,6)<>0 then return _rollback(database,"cannot inspect provider admission capacity",error)
+    recent_requests=capacity[1];recent_tokens=capacity[2];first_epoch=capacity[3];active_requests=capacity[4];cooldown=capacity[5];recovering=capacity[6]
     if cooldown <= now_epoch & (recovering = 0 | active_requests = 0) & recent_requests < requests_per_minute & recent_tokens + reserved_tokens <= tokens_per_minute & active_requests < concurrent_requests then do
       lease_seconds = (((timeout_ms + 999) / 1000) as .int) + 30
       wait_ms = _elapsedms(started)
@@ -49,8 +50,6 @@ admitprovidercall: procedure = .int
     end
     wait_ms = 1000
     if recent_requests >= requests_per_minute | recent_tokens + reserved_tokens > tokens_per_minute then do
-      first_epoch = _scalarint(database,"SELECT coalesce(min(admitted_epoch)," || now_epoch || ") FROM provider_admissions WHERE " || scope || " AND admitted_epoch>" || (now_epoch-60))
-      if first_epoch < 0 then return _rollback(database,"cannot inspect provider capacity release",error)
       wait_ms = max(wait_ms,(first_epoch+61-now_epoch)*1000)
     end
     if cooldown > now_epoch then wait_ms = max(wait_ms,(cooldown-now_epoch)*1000)

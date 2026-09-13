@@ -1,9 +1,38 @@
 # Operator continuation: live handoff
 
-Updated: 2026-09-13, after local version consolidation. This file records the current result and next action.
+Updated: 2026-09-13, after acceptance of the complete SQL performance repair. This file records the current result and next action.
 The detailed history below is retained for reference.
 
-## Current checkpoint — complete refactoring merged into main and installed
+## Current checkpoint — all twelve SQL repairs complete and locally tested
+
+Continue in **`/Users/adrian/CLionProjects/crexx-rag` on `main`**. The
+[delivery checklist](sql-performance-delivery-20260913.md) records F01–F12,
+their shared owners, regression evidence and measured corpus results. The SQL
+repair changeset is based on `bfbbdfd95d95a080262d47711c759bc2a9df18a0`.
+Schema 18 adds the reviewed access paths; earlier migrations remain unchanged.
+The authoritative SQL/data rules are in `docs/architecture.md`, referenced by
+`AGENTS.md` rather than duplicated in adapters or approval gates.
+
+Final build and focused QA pass (4/4 in 25.51 seconds). Full acceptance passes
+**70/70 in 919.24 seconds**, exit 0. The final
+native scratch smoke plans in 0.204 seconds and applies eight items in 0.625
+seconds, with a full 900-second allowance and zero provider calls. The job and
+all eight items were cancelled. Corpus report semantic output matches the
+installed baseline, with zero storage/repository verification issues.
+
+The built native is `e3967d87a24df035fa43373719bc5ed611592c7cf49433326dca85115cc762ab`.
+The normal installed executable remains the earlier baseline below. The repair
+is committed locally; no new hosted run, normal installation or push occurred.
+All library mutations used test fixtures or the new disposable corpus copy.
+
+Recommended next smoke: repeat Test 3 once using the repaired executable and
+a fresh five-minute window, preserving the prior eight-item, eight-call,
+four-Codex-turn and $0.005 monetary limits. This exercises actual worker
+execution after the changes to selection, cursor progress and timing; the
+latest corpus smoke stopped after plan/apply. Then move to Test 4's targeted
+extraction-hold inspection. This recommendation does not start either run.
+
+## Previous checkpoint — complete refactoring merged into main and installed
 
 Use **`/Users/adrian/CLionProjects/crexx-rag` on `main`** for further product work.
 The complete `temp/project-review` history, including the substantial shared-owner
@@ -23,6 +52,14 @@ See the [consolidation record](version-consolidation-20260913.md) for exact
 scope and evidence. This was a local merge/install; no push, release, user-library
 change or new hosted run occurred. The next engineering work is the
 [unfinished maintenance preparation performance repair](maintenance-planning-performance-20260913.md).
+
+The subsequent [wider SQL review](sql-performance-review-20260913.md) catalogues
+all production SQL construction sites and ranks twelve findings. The installed
+provider census experiment improved from 76.14 to 6.00 seconds on a disposable
+copy, with identical task identities, evidence fingerprints and dispositions.
+The proposed first repair is eight P1 access paths plus reducing repeated
+automatic preparation. These remain proposals: product code and installation
+are unchanged, and no further hosted smoke has run.
 
 ## Previous checkpoint — Test 3 bounded maintenance complete
 

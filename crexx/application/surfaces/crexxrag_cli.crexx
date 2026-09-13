@@ -459,18 +459,27 @@ _maintainplansummary: procedure = .string
   triggers = _fieldvalue(plan_result, 2, "trigger_count")
   cognitive = _fieldvalue(plan_result, 2, "cognitive_items")
   calls = _fieldvalue(plan_result, 2, "work_provider_calls")
+  deferred=_fieldvalue(plan_result,2,"selection_deferred")="true"
   output = "Maintenance plan"
   timing = _fieldvalue(plan_result,2,"timing")
   if timing \= "" then do
     clock = .jsondocument(timing); local_finish = ""; utc_finish = ""
     ignored = clock.node_string(clock.member(clock.root(),"deadline_local"),local_finish); ignored = clock.node_string(clock.member(clock.root(),"deadline_utc"),utc_finish)
-    output = output || "0A"x || "  Finish by:        " || local_finish || " local (" || utc_finish || ")"
+    timing_mode="";ignored=clock.node_string(clock.member(clock.root(),"mode"),timing_mode)
+    if timing_mode="duration" then output=output || "0A"x || "  Duration:         " || _fieldvalue(plan_result,2,"window_seconds") || " seconds from activation"
+    else output = output || "0A"x || "  Finish by:        " || local_finish || " local (" || utc_finish || ")"
     output = output || "0A"x || "  Cleanup allowance: 5 seconds; calls must fit before it"
   end
-  output = output || "0A0A"x || "  Items selected:   " || items
-  output = output || "0A"x || "  Cognitive items:  " || cognitive
-  output = output || "0A"x || "  Provider work:    " || calls || " calls"
-  output = output || "0A"x || "  Triggers checked: " || triggers
+  if deferred then do
+    output=output || "0A0A"x || "  Selection:        Durable backlog at activation"
+    output=output || "0A"x || "  Item limit:       " || budget.item_limit()
+  end
+  else do
+    output = output || "0A0A"x || "  Items selected:   " || items
+    output = output || "0A"x || "  Cognitive items:  " || cognitive
+    output = output || "0A"x || "  Provider work:    " || calls || " calls"
+    output = output || "0A"x || "  Triggers checked: " || triggers
+  end
   output = output || "0A"x || "  Worker processes: " || workers
   if provider.kind() = "codex" then output = output || "0A"x || "  Extraction:       Codex using your ChatGPT subscription"
   else output = output || "0A"x || "  Extraction:       " || provider.kind() || " / " || provider.model()

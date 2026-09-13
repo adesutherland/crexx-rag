@@ -193,24 +193,31 @@ createimproveplan: procedure = .int
    * durable dead-letter replay, so a later maintenance plan must not silently
    * enqueue it again. The subquery is evaluated as one SQLite set rather than
    * growing a cREXX identity array or scanning prior work once per chunk. */
-  sql = "SELECT c.revision_chunk_id,c.content_id FROM revision_chunks c WHERE c.visible_from_generation<=?1 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?1) AND c.content_id NOT IN(SELECT json_extract(i.input_json,'$.content_id') FROM job_items i WHERE i.item_type='improve-extraction' AND json_valid(i.input_json) AND json_extract(i.input_json,'$.content_id') IS NOT NULL AND json_extract(i.input_json,'$.policy_version')=?2 AND json_extract(i.input_json,'$.prompt_version')=?3) ORDER BY c.revision_chunk_id"
+  sql = "WITH content_reuse AS MATERIALIZED (SELECT content_id,count(*)-1 n FROM revision_chunks WHERE visible_from_generation<=?1 GROUP BY content_id) SELECT c.revision_chunk_id,c.content_id," || chunkrankprojection("c",generation,"reuse.n") || " FROM revision_chunks c JOIN content_reuse reuse ON reuse.content_id=c.content_id WHERE c.visible_from_generation<=?1 AND (c.visible_to_generation IS NULL OR c.visible_to_generation>?1) AND c.content_id NOT IN(SELECT json_extract(i.input_json,'$.content_id') FROM job_items i WHERE i.item_type='improve-extraction' AND json_valid(i.input_json) AND json_extract(i.input_json,'$.content_id') IS NOT NULL AND json_extract(i.input_json,'$.policy_version')=?2 AND json_extract(i.input_json,'$.prompt_version')=?3) ORDER BY c.revision_chunk_id"
   if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindint(prepared, 1, generation) \= 0 | sqlitebindtext(prepared, 2, policy_version) \= 0 | sqlitebindtext(prepared, 3, prompt_version) \= 0 then do; call sqlitefinalize prepared; error = "cannot prepare improvement census"; return -3; end
   do while maximum_items > 0
     step = sqlitestep(prepared)
     if step = 101 then leave
     if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read improvement census"; return -3; end
-    chunk_id = ""; content_id = ""
-    if sqlitecolumntext(prepared, 0, chunk_id) \= 0 | sqlitecolumntext(prepared, 1, content_id) \= 0 then do; call sqlitefinalize prepared; error = "cannot decode improvement census"; return -3; end
-    if _contains(content_ids, content_id) = 1 then iterate
+    chunk_id = ""; content_id = ""; facts_json=""
+    if sqlitecolumntext(prepared, 0, chunk_id) \= 0 | sqlitecolumntext(prepared, 1, content_id) \= 0 | sqlitecolumntext(prepared,2,facts_json)<>0 then do; call sqlitefinalize prepared; error = "cannot decode improvement census"; return -3; end
     rank = .ragextractionrank
-    if rankchunk(store, chunk_id, policy_version, rank, error) \= 0 then do; call sqlitefinalize prepared; return -3; end
+    if rankchunk(store, chunk_id, policy_version, rank, error,generation,facts_json,0) \= 0 then do; call sqlitefinalize prepared; return -3; end
     if _selectedbytriggers(store.database(), chunk_id, triggers, rank) \= 1 then iterate
-    maintenance_context = _maintenancecontext(store.database(), chunk_id, generation, error)
-    if error \= "" then do; call sqlitefinalize prepared; return -3; end
-    input_hash = rxhash..sha256hex(("crexx-rag.improve-input/2" || "00"x || content_id || "00"x || policy_version || "00"x || prompt_version || "00"x || rank.input_fingerprint() || "00"x || rxhash..sha256hex(maintenance_context as .binary) || "00"x || rxhash..sha256hex(discovery_context as .binary)) as .binary)
-    call _insertordered chunk_ids, content_ids, input_hashes, scores, chunk_id, content_id, input_hash, rank.total(), maximum_items
+    call _insertordered chunk_ids, content_ids, input_hashes, scores, chunk_id, content_id, facts_json, rank.total(), maximum_items
   end
   call sqlitefinalize prepared
+  global_context=""
+  if chunk_ids.0>0 then global_context=_querygapcontext(store.database(),error)
+  if error<>"" then return -3
+  discovery_hash=rxhash..sha256hex(discovery_context as .binary)
+  do i=1 to chunk_ids.0
+    rank=.ragextractionrank
+    if rankchunk(store,chunk_ids[i],policy_version,rank,error,generation,input_hashes[i])<>0 then return -3
+    maintenance_context=_maintenancecontext(store.database(),chunk_ids[i],generation,error,global_context)
+    if error<>"" then return -3
+    input_hashes[i]=rxhash..sha256hex(("crexx-rag.improve-input/2" || "00"x || content_ids[i] || "00"x || policy_version || "00"x || prompt_version || "00"x || rank.input_fingerprint() || "00"x || rxhash..sha256hex(maintenance_context as .binary) || "00"x || discovery_hash) as .binary)
+  end
   canonical = _canonicalimprove(generation, config_snapshot_id, policy_version, prompt_version, triggers, maximum_items, model_call_budget, input_token_budget, output_token_budget, cost_budget, time_budget_ms, maximum_call_input_tokens, maximum_call_output_tokens, maximum_call_cost, maximum_call_time_ms, maximum_inflight_calls, maximum_attempts, privacy_class, route_id, secret_reference, discovery_context, chunk_ids, content_ids, input_hashes, scores)
   digest = rxhash..sha256hex(canonical as .binary)
   plan = .ragimproveplan("crexx-rag.improve-plan/1", generation, config_snapshot_id, policy_version, prompt_version, triggers, maximum_items, model_call_budget, input_token_budget, output_token_budget, cost_budget, time_budget_ms, maximum_call_input_tokens, maximum_call_output_tokens, maximum_call_cost, maximum_call_time_ms, maximum_inflight_calls, maximum_attempts, privacy_class, route_id, secret_reference, discovery_context, chunk_ids, content_ids, input_hashes, scores, canonical, digest)
@@ -385,9 +392,9 @@ _candidatecatalog: procedure = .string
   call sqlitefinalize prepared
   return output
 
-_maintenancecontext: procedure = .string
-  arg database = .binary, chunk_id = .string, generation = .int, expose error = .string
-  error = ""; output = '{"query_gaps":['; prepared = .binary; count = 0
+_querygapcontext: procedure = .string
+  arg database=.binary, expose error=.string
+  error="";output='{"query_gaps":[';prepared=.binary;count=0
   sql = "SELECT gap_id,gap_text,occurrence_count FROM query_gaps WHERE state='open' ORDER BY occurrence_count DESC,gap_id LIMIT 8"
   if sqliteprepare(database, sql, prepared) \= 0 then do; error = "cannot prepare maintenance query-gap context"; return ""; end
   do forever
@@ -399,7 +406,14 @@ _maintenancecontext: procedure = .string
     output = output || '{"gap_id":' || jsonquote(gap_id) || ',"text":' || jsonquote(gap_text) || ',"occurrences":' || occurrences || '}'
   end
   call sqlitefinalize prepared
-  output = output || '],"analysis_notes":['; prepared = .binary; count = 0
+  return output || ']'
+
+_maintenancecontext: procedure = .string
+  arg database = .binary, chunk_id = .string, generation = .int, expose error = .string, global_context = ""
+  error=""
+  if global_context="" then global_context=_querygapcontext(database,error)
+  if error<>"" then return ""
+  output = global_context || ',"analysis_notes":['; prepared=.binary;count=0
   /* A note already produced by a cognitive provider is a durable diagnosis
    * for the maintenance worklist; feeding it straight back to the same chunk
    * would create an unbounded self-review loop. Operator/external notes remain
@@ -471,6 +485,16 @@ _canonicalimprove: procedure = .string
 
 _insertordered: procedure
   arg expose chunk_ids = .string[], expose content_ids = .string[], expose input_hashes = .string[], expose scores = .int[], chunk_id = .string, content_id = .string, input_hash = .string, score = .int, maximum_items = .int
+  /* Retain one strongest occurrence per content. Evidence belongs to the
+   * occurrence, so sharing content must not skip a later stronger candidate.
+   * A discarded score cannot beat the monotonically increasing top-N floor. */
+  existing=0
+  do i=1 to content_ids.0
+    if content_ids[i]=content_id then do
+      if score<scores[i] | (score=scores[i] & chunk_id>=chunk_ids[i]) then return
+      existing=i;leave
+    end
+  end
   position = scores.0 + 1
   do i = 1 to scores.0
     if score > scores[i] | (score = scores[i] & chunk_id < chunk_ids[i]) then do; position = i; leave; end
@@ -478,6 +502,7 @@ _insertordered: procedure
   if position > maximum_items then return
   limit = scores.0 + 1
   if limit > maximum_items then limit = maximum_items
+  if existing>0 then limit=existing
   do i = limit to position + 1 by -1
     chunk_ids[i] = chunk_ids[i - 1]; content_ids[i] = content_ids[i - 1]
     input_hashes[i] = input_hashes[i - 1]; scores[i] = scores[i - 1]
@@ -514,7 +539,7 @@ _selectedbytriggers: procedure = .int
     if trigger = "conflict" | trigger = "operator-review" then do
       review_type = "conflict"
       if trigger = "operator-review" then review_type = ""
-      count = _boundcount(database, "SELECT count(*) FROM reviews WHERE state='pending' AND json_extract(proposal_json,'$.revision_chunk_id')=?1 AND (?2='' OR review_type=?2)", revision_chunk_id, review_type)
+      count = _boundcount(database, "SELECT count(*) FROM reviews WHERE state='pending' AND CASE WHEN json_valid(proposal_json) THEN json_extract(proposal_json,'$.revision_chunk_id') END=?1 AND (?2='' OR review_type=?2)", revision_chunk_id, review_type)
       if count > 0 then return 1
     end
   end

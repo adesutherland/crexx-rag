@@ -55,14 +55,14 @@ libraryreport: procedure = .ragcommandresult
   if verifyragstore(store, 1, verification, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, error); end
   repository_verification = .ragrepositoryverifyresult
   report_snapshot = .ragreadsnapshot(database, generation)
-  if verifyrepositories(report_snapshot, repository_verification, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, error); end
+  if verifyrepositories(report_snapshot, repository_verification, error,verification.fts_issues()) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, error); end
 
   sources = sqlreadint(database, "SELECT count(*) FROM sources WHERE " || visible_source)
   revisions = sqlreadint(database, "SELECT count(*) FROM source_revisions WHERE " || visible_revision)
   chunks = sqlreadint(database, "SELECT count(*) FROM revision_chunks WHERE " || visible_chunk)
-  chunk_bytes = sqlreadint(database, "SELECT coalesce(sum(length(t.text)),0) FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c." || visible_chunk)
-  chunk_min = sqlreadint(database, "SELECT coalesce(min(length(t.text)),0) FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c." || visible_chunk)
-  chunk_max = sqlreadint(database, "SELECT coalesce(max(length(t.text)),0) FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c." || visible_chunk)
+  span_counts=.int[]
+  if sqlreadints(database,"SELECT coalesce(sum(length(t.text)),0),coalesce(min(length(t.text)),0),coalesce(max(length(t.text)),0) FROM revision_chunks c JOIN chunk_contents t ON t.content_id=c.content_id WHERE c." || visible_chunk,span_counts,3)<>0 then do;ignored="";call closeragstore store,ignored;return commandfailure(operation,7,"cannot read report span statistics");end
+  chunk_bytes=span_counts[1]; chunk_min=span_counts[2]; chunk_max=span_counts[3]
   chunk_average = 0; if chunks > 0 then chunk_average = (chunk_bytes / chunks) as .int
 
   concepts = sqlreadint(database, "SELECT count(*) FROM concepts WHERE lifecycle_state='active' AND " || visible_concept)
@@ -83,38 +83,34 @@ libraryreport: procedure = .ragcommandresult
   relationship_kinds = sqlreadint(database, "SELECT count(DISTINCT relationship_type) FROM claims WHERE " || visible_claim)
   largest_relationship = sqlreadint(database, "SELECT coalesce(max(n),0) FROM (SELECT count(*) AS n FROM claims WHERE " || visible_claim || " GROUP BY relationship_type)")
   relationship_concentration = 0; if claims > 0 then relationship_concentration = ((largest_relationship * 1000000) / claims) as .int
-  support_min = sqlreadint(database, "SELECT coalesce(min(span_end-span_start),0) FROM claim_support WHERE " || visible_support)
-  support_max = sqlreadint(database, "SELECT coalesce(max(span_end-span_start),0) FROM claim_support WHERE " || visible_support)
-  support_total = sqlreadint(database, "SELECT coalesce(sum(span_end-span_start),0) FROM claim_support WHERE " || visible_support)
+  span_counts=.int[]
+  if sqlreadints(database,"SELECT coalesce(min(span_end-span_start),0),coalesce(max(span_end-span_start),0),coalesce(sum(span_end-span_start),0) FROM claim_support WHERE " || visible_support,span_counts,3)<>0 then do;ignored="";call closeragstore store,ignored;return commandfailure(operation,7,"cannot read report span statistics");end
+  support_min=span_counts[1]; support_max=span_counts[2]; support_total=span_counts[3]
   support_average = 0; if supports > 0 then support_average = (support_total / supports) as .int
 
   embedding_links = sqlreadint(database, "SELECT count(*) FROM revision_chunk_embeddings WHERE " || visible_chunk)
-  vector_rows = sqlreadint(database, "SELECT coalesce(max(row_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
-  vector_dimension = sqlreadint(database, "SELECT coalesce(max(dimension),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
-  vector_centroids = sqlreadint(database, "SELECT coalesce(max(centroid_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
-  vector_probes = sqlreadint(database, "SELECT coalesce(max(probe_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
+  vector_counts=_vectorreportcounts(database,generation)
+  vector_rows=vector_counts[1]; vector_dimension=vector_counts[2]; vector_centroids=vector_counts[3]; vector_probes=vector_counts[4]
+
   vector_model = sqlreadtext(database, "SELECT p.model FROM vector_generations v JOIN embedding_profiles p ON p.embedding_profile_id=v.embedding_profile_id WHERE v.state='published' AND " || compatiblevectorpredicate(generation as .string, "v.") || " ORDER BY v.published_at DESC LIMIT 1")
   vector_coverage = 0; if chunks > 0 then vector_coverage = ((vector_rows * 1000000) / chunks) as .int
   fts_rows = sqlreadint(database, "SELECT count(*) FROM chunks_fts")
 
   incomplete_runs = sqlreadint(database, "SELECT count(*) FROM maintenance_runs WHERE state<>'complete'")
-  pending_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state='pending'")
-  diagnosed_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state='diagnosed'")
-  review_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state IN('review-required','approved')")
-  blocked_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state IN('blocked','failed')")
-  applied_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state='applied'")
+  maintenance_counts=_maintenancereportcounts(database,generation)
+  pending_items=maintenance_counts[1]; diagnosed_items=maintenance_counts[2]; review_items=maintenance_counts[3]; blocked_items=maintenance_counts[4]; applied_items=maintenance_counts[5]
+
   active_jobs = 0; error_jobs = 0
   if countlifecyclejobs(database,active_jobs,error_jobs) \= 0 then do; active_jobs = -1; error_jobs = -1; end
-  dead_letters = sqlreadint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter'")
-  dead_extraction = sqlreadint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='claim-extraction'")
-  dead_improvement = sqlreadint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='improve-extraction'")
-  dead_embeddings = sqlreadint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='embedding'")
+  dead_counts=_deadreportcounts(database,generation)
+  dead_letters=dead_counts[1]; dead_extraction=dead_counts[2]; dead_improvement=dead_counts[3]; dead_embeddings=dead_counts[4]
+
   dead_other = dead_letters - dead_extraction - dead_improvement - dead_embeddings; if dead_other < 0 then dead_other = 0
-  actionable_dead_letters = sqlreadint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='actionable'")
-  replaying_dead_letters = sqlreadint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='in-progress'")
-  resolved_dead_letters = sqlreadint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='resolved'")
+  reconciliation_counts=_reconciliationreportcounts(database,generation)
+  actionable_dead_letters=reconciliation_counts[1]; replaying_dead_letters=reconciliation_counts[2]; resolved_dead_letters=reconciliation_counts[3]
+
   reconciliation_warning = actionable_dead_letters > 0 & active_jobs = 0
-  dispositions=_dispositionreportjson(database)
+  dispositions=_dispositionreportjson(database,reconciliation_counts[4])
   if dispositions="" then do; ignored="";call closeragstore store,ignored;return commandfailure(operation,7,"cannot read operator dispositions");end
   disposition_document=.jsondocument(dispositions)
   waived_tasks=0;unwaived_open=0;waived_dead=0
@@ -416,23 +412,26 @@ reportoperationaldigest: procedure = .string
   arg database = .binary, generation = .int, verification_issues = .int, repository_issues = .int
   visible = "visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ")"
   embedding_links = sqlreadint(database, "SELECT count(*) FROM revision_chunk_embeddings WHERE " || visible)
-  vector_rows = sqlreadint(database, "SELECT coalesce(max(row_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
-  vector_dimension = sqlreadint(database, "SELECT coalesce(max(dimension),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
-  vector_centroids = sqlreadint(database, "SELECT coalesce(max(centroid_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
-  vector_probes = sqlreadint(database, "SELECT coalesce(max(probe_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string))
+  vector_counts=_vectorreportcounts(database,generation)
+  vector_rows=vector_counts[1]; vector_dimension=vector_counts[2]; vector_centroids=vector_counts[3]; vector_probes=vector_counts[4]
+
   chunks = sqlreadint(database, "SELECT count(*) FROM revision_chunks WHERE " || visible); vector_coverage = 0; if chunks > 0 then vector_coverage = ((vector_rows * 1000000) / chunks) as .int
-  incomplete_runs = sqlreadint(database, "SELECT count(*) FROM maintenance_runs WHERE state<>'complete'"); pending_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state='pending'"); diagnosed_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state='diagnosed'"); review_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state IN('review-required','approved')"); blocked_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state IN('blocked','failed')"); applied_items = sqlreadint(database, "SELECT count(*) FROM maintenance_items WHERE state='applied'")
+  incomplete_runs = sqlreadint(database, "SELECT count(*) FROM maintenance_runs WHERE state<>'complete'")
+  maintenance_counts=_maintenancereportcounts(database,generation)
+  pending_items=maintenance_counts[1];diagnosed_items=maintenance_counts[2];review_items=maintenance_counts[3];blocked_items=maintenance_counts[4];applied_items=maintenance_counts[5]
   active_jobs = 0; error_jobs = 0
   if countlifecyclejobs(database,active_jobs,error_jobs) \= 0 then return ""
-  dead_letters = sqlreadint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter'"); dead_extraction = sqlreadint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='claim-extraction'"); dead_improvement = sqlreadint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='improve-extraction'"); dead_embeddings = sqlreadint(database, "SELECT count(*) FROM job_items WHERE state='dead_letter' AND item_type='embedding'"); dead_other = dead_letters - dead_extraction - dead_improvement - dead_embeddings
-  actionable_dead_letters = sqlreadint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='actionable'"); replaying_dead_letters = sqlreadint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='in-progress'"); resolved_dead_letters = sqlreadint(database, "SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='resolved'")
+  dead_counts=_deadreportcounts(database,generation)
+  dead_letters=dead_counts[1]; dead_extraction=dead_counts[2]; dead_improvement=dead_counts[3]; dead_embeddings=dead_counts[4]; dead_other = dead_letters - dead_extraction - dead_improvement - dead_embeddings
+  reconciliation_counts=_reconciliationreportcounts(database,generation)
+  actionable_dead_letters=reconciliation_counts[1]; replaying_dead_letters=reconciliation_counts[2]; resolved_dead_letters=reconciliation_counts[3]
   reviews = sqlreadint(database, "SELECT count(*) FROM reviews WHERE state='pending'"); gaps = sqlreadint(database, "SELECT count(*) FROM query_gaps WHERE state='open' AND observed_generation<=" || generation); fts_rows = sqlreadint(database, "SELECT count(*) FROM chunks_fts"); reconciliation_warning = actionable_dead_letters > 0 & active_jobs = 0
   operational = '{"schema":"crexx-rag.library-report-operational/1","generation":' || generation || ',"vector":[' || embedding_links || ',' || vector_rows || ',' || vector_dimension || ',' || vector_centroids || ',' || vector_probes || ',' || vector_coverage || '],"maintenance":[' || incomplete_runs || ',' || pending_items || ',' || diagnosed_items || ',' || review_items || ',' || blocked_items || ',' || applied_items || ',' || active_jobs || ',' || error_jobs || ',' || dead_letters || ',' || dead_extraction || ',' || dead_improvement || ',' || dead_embeddings || ',' || dead_other || ',' || actionable_dead_letters || ',' || replaying_dead_letters || ',' || resolved_dead_letters || '],"review":[' || reviews || ',' || gaps || '],"verification":[' || verification_issues || ',' || repository_issues || ',' || fts_rows || '],"reconciliation_warning":' || commandboolean(reconciliation_warning) || '}'
   durable = _durablereportcensus(database)
   do i = 1 to durable.0
     if durable[i] < 0 then return ""
   end
-  dispositions=_dispositionreportjson(database)
+  dispositions=_dispositionreportjson(database,reconciliation_counts[4])
   if dispositions="" then return ""
   operational = substr(operational,1,length(operational)-1) || ',"durable":' || _durablereportjson(durable) || ',"operator_dispositions":' || dispositions || '}'
   return rxhash..sha256hex(operational as .binary)
@@ -445,20 +444,17 @@ _durablereportcensus: procedure = .int[]
   schema_version = sqlreadint(database,"SELECT schema_version FROM library_meta WHERE singleton=1")
   if schema_version < 0 then do; counts[1] = -1; return counts; end
   if schema_version < 10 then return counts
-  task_states = "pending dispatched unresolved review failed resolved superseded"
-  do i = 1 to 7
-    counts[i] = sqlreadint(database,"SELECT count(*) FROM maintenance_tasks WHERE state=" || sqlquote(word(task_states,i)))
-  end
-  workflow_states = "migrating waiting complete"
-  do i = 1 to 3
-    counts[i+7] = sqlreadint(database,"SELECT count(*) FROM maintenance_workflows WHERE state=" || sqlquote(word(workflow_states,i)))
-  end
+  values=.int[]
+  if sqlreadints(database,"SELECT coalesce(sum(state='pending'),0),coalesce(sum(state='dispatched'),0),coalesce(sum(state='unresolved'),0),coalesce(sum(state='review'),0),coalesce(sum(state='failed'),0),coalesce(sum(state='resolved'),0),coalesce(sum(state='superseded'),0) FROM maintenance_tasks",values,7)<>0 then do;counts[1]=-1;return counts;end
+  do i=1 to 7;counts[i]=values[i];end
+  if sqlreadints(database,"SELECT coalesce(sum(state='migrating'),0),coalesce(sum(state='waiting'),0),coalesce(sum(state='complete'),0) FROM maintenance_workflows",values,3)<>0 then do;counts[1]=-1;return counts;end
+  do i=1 to 3;counts[i+7]=values[i];end
   counts[11] = sqlreadint(database,"SELECT count(*) FROM maintenance_decisions")
   return counts
 /* Named operational additions preserve the existing durable census array.
  * Both public report context and cache comparison use this exact projection. */
 _dispositionreportjson: procedure = .string
-  arg database = .binary
+  arg database = .binary, waived_dead = -1
   version=sqlreadint(database,"SELECT schema_version FROM library_meta WHERE singleton=1")
   waived=taskwaivercount(database);unwaived=0;dead=0
   if version<0 | waived<0 then return ""
@@ -467,7 +463,10 @@ _dispositionreportjson: procedure = .string
     if version>=15 then sql=sql || " AND NOT " || taskwaived("t.task_id")
     unwaived=sqlreadint(database,sql)
   end
-  if version>=15 then dead=sqlreadint(database,"SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='waived'")
+  if version>=15 then do
+    dead=waived_dead
+    if dead<0 then dead=sqlreadint(database,"SELECT count(*) FROM dead_letter_reconciliation WHERE reconciliation_state='waived'")
+  end
   if unwaived<0 | dead<0 then return ""
   return '{"waived_tasks":' || waived || ',"unwaived_open_tasks":' || unwaived || ',"waived_dead_letters":' || dead || '}'
 _durablereportjson: procedure = .string
@@ -482,3 +481,39 @@ _healthrecord: procedure = .ragresultrecord
   arg dimension = .string, state = .string, issue_count = .int, detail = .string
   fields = .ragresultfield[]; fields[1] = .ragresultfield("dimension", "string", dimension); fields[2] = .ragresultfield("state", "string", state); fields[3] = .ragresultfield("issue_count", "integer", issue_count); fields[4] = .ragresultfield("detail", "string", detail)
   return .ragresultrecord("health", fields)
+
+_vectorreportcounts: procedure = .int[]
+  arg database=.binary, generation=.int
+  values=.int[]
+  sql="SELECT coalesce(max(row_count),0),coalesce(max(dimension),0),coalesce(max(centroid_count),0),coalesce(max(probe_count),0) FROM vector_generations WHERE state='published' AND " || compatiblevectorpredicate(generation as .string)
+  if sqlreadints(database,sql,values,4)<>0 then do
+    do i=1 to 4;values[i]=-1;end
+  end
+  return values
+
+_maintenancereportcounts: procedure = .int[]
+  arg database=.binary, generation=.int
+  values=.int[]
+  sql="SELECT coalesce(sum(state='pending'),0),coalesce(sum(state='diagnosed'),0),coalesce(sum(state IN('review-required','approved')),0),coalesce(sum(state IN('blocked','failed')),0),coalesce(sum(state='applied'),0) FROM maintenance_items"
+  if sqlreadints(database,sql,values,5)<>0 then do
+    do i=1 to 5;values[i]=-1;end
+  end
+  return values
+
+_deadreportcounts: procedure = .int[]
+  arg database=.binary, generation=.int
+  values=.int[]
+  sql="SELECT count(*),coalesce(sum(item_type='claim-extraction'),0),coalesce(sum(item_type='improve-extraction'),0),coalesce(sum(item_type='embedding'),0) FROM job_items WHERE state='dead_letter'"
+  if sqlreadints(database,sql,values,4)<>0 then do
+    do i=1 to 4;values[i]=-1;end
+  end
+  return values
+
+_reconciliationreportcounts: procedure = .int[]
+  arg database=.binary, generation=.int
+  values=.int[]
+  sql="SELECT coalesce(sum(reconciliation_state='actionable'),0),coalesce(sum(reconciliation_state='in-progress'),0),coalesce(sum(reconciliation_state='resolved'),0),coalesce(sum(reconciliation_state='waived'),0) FROM dead_letter_reconciliation"
+  if sqlreadints(database,sql,values,4)<>0 then do
+    do i=1 to 4;values[i]=-1;end
+  end
+  return values
