@@ -1,0 +1,14 @@
+{
+  "jsonrpc": "2.0",
+  "id": 12,
+  "method": "tools/call",
+  "params": {
+    "name": "rag_query_inspect",
+    "arguments": {
+      "question": "Who defeated Edward II at Bannockburn?",
+      "mode": "lexical",
+      "hops": 3,
+      "limit": 3
+    }
+  }
+}

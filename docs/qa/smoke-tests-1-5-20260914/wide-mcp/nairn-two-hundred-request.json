@@ -1,0 +1,1 @@
+{"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {"name": "rag_query_inspect", "arguments": {"question": "\"Fitz-James\u2019s horse\"", "hops": 0, "limit": 200}}}

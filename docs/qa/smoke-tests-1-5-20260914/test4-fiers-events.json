@@ -1,0 +1,92 @@
+[
+  {
+    "event_id": 647314,
+    "job_id": "job-replay-sha256:60d901fba05abd051e69e2ae4e5718a76b71db10155954b4e6894a5446414f11",
+    "item_id": null,
+    "attempt_id": null,
+    "event_type": "budget-policy",
+    "message": "{\"time_budget_ms\":300000,\"maximum_call_input_tokens\":65536,\"maximum_call_output_tokens\":16384,\"maximum_call_cost\":5000,\"maximum_call_time_ms\":120000,\"maximum_inflight_calls\":1,\"maximum_attempts\":2}",
+    "occurred_at": "2026-09-14T11:42:04.021Z"
+  },
+  {
+    "event_id": 647315,
+    "job_id": "job-replay-sha256:60d901fba05abd051e69e2ae4e5718a76b71db10155954b4e6894a5446414f11",
+    "item_id": null,
+    "attempt_id": null,
+    "event_type": "replay-created",
+    "message": "source_job=job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622; reason=Test 4 repeat: selected public Fiers hold under normal configuration",
+    "occurred_at": "2026-09-14T11:42:04.123Z"
+  },
+  {
+    "event_id": 647316,
+    "job_id": "job-replay-sha256:60d901fba05abd051e69e2ae4e5718a76b71db10155954b4e6894a5446414f11",
+    "item_id": null,
+    "attempt_id": null,
+    "event_type": "worker-supervision",
+    "message": "{\"controller\":\"controller-9b2f83b5ea8c7935436dcc9edb243af0\",\"configured_workers\":2,\"max_restarts\":2,\"window_seconds\":3600}",
+    "occurred_at": "2026-09-14T11:42:31.974Z"
+  },
+  {
+    "event_id": 647317,
+    "job_id": "job-replay-sha256:60d901fba05abd051e69e2ae4e5718a76b71db10155954b4e6894a5446414f11",
+    "item_id": "item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394",
+    "attempt_id": "item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394#attempt-1",
+    "event_type": "claimed",
+    "message": "worker=worker-d481160b1765b7602ecacbade94e69a0;fence=1",
+    "occurred_at": "2026-09-14T11:42:33.042Z"
+  },
+  {
+    "event_id": 647318,
+    "job_id": "job-replay-sha256:60d901fba05abd051e69e2ae4e5718a76b71db10155954b4e6894a5446414f11",
+    "item_id": "item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394",
+    "attempt_id": "item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394#attempt-1",
+    "event_type": "reservation-open:item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394#attempt-1#call-1\",\"input\":32768,\"output\":16384,\"cost\":0,\"time\":120000,\"codex_turn\":1}",
+    "occurred_at": "2026-09-14T11:42:33.043Z"
+  },
+  {
+    "event_id": 647319,
+    "job_id": "job-replay-sha256:60d901fba05abd051e69e2ae4e5718a76b71db10155954b4e6894a5446414f11",
+    "item_id": "item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394",
+    "attempt_id": "item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394#attempt-1",
+    "event_type": "provider-intent",
+    "message": "{\"input_hash\":\"9bcbefb456f88ae2e422e14752a2470bbe76f3e020af9e4da6909a5e0304a5a2\",\"config_snapshot_id\":\"config-a211c0fede4237fe77bbc797\",\"request_id\":\"extract-6d58e4e81a73a9d12db9a811c944d46b\"}",
+    "occurred_at": "2026-09-14T11:42:33.828Z"
+  },
+  {
+    "event_id": 647320,
+    "job_id": "job-replay-sha256:60d901fba05abd051e69e2ae4e5718a76b71db10155954b4e6894a5446414f11",
+    "item_id": "item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394",
+    "attempt_id": "item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394#attempt-1",
+    "event_type": "provider-response",
+    "message": "{\"schema\":\"crexx-rag.provider-receipt/1\",\"expected_request_id\":\"extract-6d58e4e81a73a9d12db9a811c944d46b\",\"provider_run_id\":\"provider-run-sha256:c575a2d3f5caf1deddf17257f09685d8eaca9b90e19c29ce8cc157b17af5d89e\",\"status\":0,\"provider\":\"codex\",\"model\":\"gpt-5.6-luna\",\"request_id\":\"extract-6d58e4e81a73a9d12db9a811c944d46b\",\"content\":\"{\\\"mentions\\\":[{\\\"label\\\":\\\"fall of Fiers\\\",\\\"canonical_label\\\":\\\"fall of Fiers\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"the river which makes the\\\\ncelebrated fall of Fiers\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"river\\\",\\\"canonical_label\\\":\\\"river\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"the river which makes the\\\\ncelebrated fall of Fiers\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"bridge\\\",\\\"canonical_label\\\":\\\"bridge\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"The country at the bridge strikes the\\\\nimagination\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"mountains\\\",\\\"canonical_label\\\":\\\"mountains\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"the mountains, covered with trees, rise at once\\\\non the left hand and in the front\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Siberian solitude\\\",\\\"canonical_label\\\":\\\"Siberian solitude\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"The country at the bridge strikes the\\\\nimagination with all the gloom and grandeur of Siberian solitude\\\",\\\"aliases\\\":[]}],\\\"relationships\\\":[{\\\"source_mention\\\":1,\\\"relationship_type\\\":\\\"related-to\\\",\\\"target_mention\\\":0,\\\"evidence_quote\\\":\\\"the river which makes the\\\\ncelebrated fall of Fiers\\\",\\\"confidence_millionths\\\":970000}],\\\"notes\\\":[{\\\"kind\\\":\\\"observation\\\",\\\"text\\\":\\\"The passage describes a rugged and hazardous approach to the waterfall.\\\",\\\"importance_millionths\\\":700000,\\\"uncertainty_millionths\\\":10000,\\\"next_action\\\":\\\"\\\",\\\"evidence_quote\\\":\\\"dismounting, clambered over very rugged crags, till I began to\\\\nwish that our curiosity might have been gratified with less trouble and\\\\ndanger.\\\"},{\\\"kind\\\":\\\"observation\\\",\\\"text\\\":\\\"The waterfall is described as a very steep descent of dreadful depth.\\\",\\\"importance_millionths\\\":800000,\\\"uncertainty_millionths\\\":10000,\\\"next_action\\\":\\\"\\\",\\\"evidence_quote\\\":\\\"till it comes to a very steep\\\\ndescent, of such dreadful depth, that we were naturally inclined to turn\\\\naside our eyes.\\\"}]}\",\"content_sha256\":\"95218cb6fd17d601750a3041502b1dd4488d5586a10131ef149845e52448b2e3\",\"content_bytes\":1772,\"omitted\":\"\",\"finish\":\"completed\",\"input\":18125,\"output\":646,\"input_count\":1,\"cost\":-1,\"attempts\":1,\"retry_delay\":0,\"latency_us\":15746377,\"error_category\":\"none\",\"error_code\":0,\"http_status\":0,\"retryable\":0,\"error_attempt\":0,\"error_message\":\"\",\"vectors\":[]}",
+    "occurred_at": "2026-09-14T11:42:49.585Z"
+  },
+  {
+    "event_id": 647321,
+    "job_id": "job-replay-sha256:60d901fba05abd051e69e2ae4e5718a76b71db10155954b4e6894a5446414f11",
+    "item_id": "item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394",
+    "attempt_id": "item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394#attempt-1",
+    "event_type": "reservation-close:item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394#attempt-1#call-1\",\"input\":-32768,\"output\":-16384,\"cost\":0,\"time\":-120000,\"actual_cost\":0,\"codex_turn\":-1}",
+    "occurred_at": "2026-09-14T11:42:49.926Z"
+  },
+  {
+    "event_id": 647322,
+    "job_id": "job-replay-sha256:60d901fba05abd051e69e2ae4e5718a76b71db10155954b4e6894a5446414f11",
+    "item_id": "item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394",
+    "attempt_id": "item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394#attempt-1",
+    "event_type": "settlement-receipt:item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394#attempt-1#call-1",
+    "message": "[\"codex-extract\",\"gpt-5.6-luna\",\"extract-6d58e4e81a73a9d12db9a811c944d46b\",\"succeeded\",18125,646,0,15747,\"provider-run-sha256:c575a2d3f5caf1deddf17257f09685d8eaca9b90e19c29ce8cc157b17af5d89e\",\"subscription-allowance\",1,\"\",\"\",\"\"]",
+    "occurred_at": "2026-09-14T11:42:49.926Z"
+  },
+  {
+    "event_id": 647323,
+    "job_id": "job-replay-sha256:60d901fba05abd051e69e2ae4e5718a76b71db10155954b4e6894a5446414f11",
+    "item_id": "item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394",
+    "attempt_id": "item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394#attempt-1",
+    "event_type": "processed",
+    "message": "{\"mentions\":6,\"relationships\":1,\"notes\":2,\"dispositions\":\",identity-review-required\"}",
+    "occurred_at": "2026-09-14T11:42:49.952Z"
+  }
+]

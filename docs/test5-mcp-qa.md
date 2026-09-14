@@ -1,5 +1,11 @@
 # Test 5 — MCP access, evidence, relationships and Q&A
 
+Latest repeat: the [committed-baseline Tests 1–5 run](smoke-tests-1-5-20260914.md)
+passes all 59 Test 5 MCP requests with zero provider calls, no ordinary QA
+writes and preserved corpus state. Limits 12/13/200/201 and full citations are
+verified again. No new Test 5 defect was identified; the repeat's C1/C2 content
+follow-ups belong to extraction/maintenance and remain in its checklist.
+
 Test 5 is the separate, repeatable successor to the MCP extensions previously
 recorded alongside Test 4. Test 4 remains the extraction/replay smoke. The user
 requested this test on 14 September 2026, including performance observations on
@@ -128,8 +134,8 @@ same native artifact and the generated CTest file restored byte-for-byte.
 All F0–F4 follow-ups are complete. Corpus hashes/generation are unchanged;
 ordinary Q&A is read-only, while explicit paths add their normal ambiguity gap.
 There are zero new provider runs or attempts. Timings remain observations on
-the shared computer, not performance gates. Changes are uncommitted and the
-normal installation is unchanged.
+the shared computer, not performance gates. Implementation was subsequently
+committed in baseline `696858c`; the normal installation is unchanged.
 
 Evidence: [follow-up capture](qa/test5-followups-20260914/README.md).
 

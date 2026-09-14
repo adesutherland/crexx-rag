@@ -1,5 +1,13 @@
 # Test strategy
 
+The [committed-baseline Tests 1–5 repeat](smoke-tests-1-5-20260914.md) ran on
+`696858c` with the unchanged 71/71-qualified artifact. Publication, retry,
+selected replay and 59 provider-free MCP requests pass; final verification
+has zero issues and complete vector coverage. The report separates operational
+acceptance from the rejected maintenance choice, unresolved decisions and
+figurative-place content finding. Shared-computer CPU observations remain
+measurements, not elapsed-time acceptance gates.
+
 The [Test 5 MCP smoke](test5-mcp-qa.md) now owns ordinary agent access, search,
 relationship follow-up, citation paging, assistant-composed answers and local
 performance characterization. The 14 September run passed 56 actual JSON-RPC

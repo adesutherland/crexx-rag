@@ -1,0 +1,1261 @@
+[
+  {
+    "check": "initialize: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "initialize: expected outcome",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "tools: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "tools: expected outcome",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "MCP instructions route ordinary Q&A to current assistant",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "inspect schema and annotations",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "answerer is explicit and has generation cost",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "denied-control: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "denied-control: expected outcome",
+    "pass": true,
+    "detail": {
+      "code": -32602,
+      "message": "unknown or unavailable tool"
+    }
+  },
+  {
+    "check": "bad-limit: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bad-limit: expected outcome",
+    "pass": true,
+    "detail": {
+      "code": -32602,
+      "message": "tool argument limit is below its minimum"
+    }
+  },
+  {
+    "check": "status: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "status: expected outcome",
+    "pass": true,
+    "detail": "library status read without mutation"
+  },
+  {
+    "check": "status matches independent library identity",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "sources-page-1: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "sources-page-1: expected outcome",
+    "pass": true,
+    "detail": "bounded repository page read without mutation"
+  },
+  {
+    "check": "sources-page-2: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "sources-page-2: expected outcome",
+    "pass": true,
+    "detail": "bounded repository page read without mutation"
+  },
+  {
+    "check": "sources-page-3: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "sources-page-3: expected outcome",
+    "pass": true,
+    "detail": "bounded repository page read without mutation"
+  },
+  {
+    "check": "all sources paged exactly once",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "profile: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "profile: expected outcome",
+    "pass": true,
+    "detail": "registered profile vocabulary and policy shown"
+  },
+  {
+    "check": "bannockburn-h0: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h0: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "bannockburn-h0: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h0: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h0: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h0: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h0: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h1: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h1: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "bannockburn-h1: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h1: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h1: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h1: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h1: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h3: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h3: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "bannockburn-h3: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h3: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h3: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h3: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h3: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h4: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h4: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "bannockburn-h4: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h4: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h4: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h4: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-h4: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-repeat-1: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-repeat-1: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "bannockburn-repeat-1: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-repeat-1: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-repeat-1: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-repeat-1: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-repeat-1: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn: repeated evidence stable 1",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-repeat-2: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-repeat-2: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "bannockburn-repeat-2: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-repeat-2: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-repeat-2: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-repeat-2: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn-repeat-2: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "bannockburn: repeated evidence stable 2",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h0: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h0: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "mackay-h0: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h0: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h0: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h0: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h0: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h1: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h1: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "mackay-h1: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h1: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h1: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h1: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h1: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h3: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h3: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "mackay-h3: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h3: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h3: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h3: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h3: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h4: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h4: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "mackay-h4: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h4: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h4: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h4: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-h4: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-repeat-1: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-repeat-1: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "mackay-repeat-1: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-repeat-1: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-repeat-1: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-repeat-1: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-repeat-1: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay: repeated evidence stable 1",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-repeat-2: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-repeat-2: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "mackay-repeat-2: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-repeat-2: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-repeat-2: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-repeat-2: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay-repeat-2: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "mackay: repeated evidence stable 2",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "scotland-dense: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "scotland-dense: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "scotland-dense: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "scotland-dense: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "scotland-dense: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "scotland-dense: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "scotland-dense: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "absent-term: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "absent-term: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "absent-term: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "absent-term: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "absent-term: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "absent-term: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "absent-term: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "absent-term returns no invented evidence",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "follow-returned-lead: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "follow-returned-lead: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "follow-returned-lead: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "follow-returned-lead: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "follow-returned-lead: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "follow-returned-lead: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "follow-returned-lead: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "returned lead can be followed",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-compact: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-compact: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "battle-compact: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-compact: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-compact: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-compact: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-compact: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-normal: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-normal: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "battle-normal: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-normal: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-normal: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-normal: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-normal: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "normal evidence retains direct battle answer",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-citation: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-citation: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "battle-citation: complete citation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-citation-page-1: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-citation-page-1: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "battle-citation-page-2: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-citation-page-2: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "battle-citation-page-3: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-citation-page-3: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "battle-citation-page-4: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "battle-citation-page-4: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "battle-citation: paged text exactly matches full span",
+    "pass": true,
+    "detail": {
+      "pages": 4,
+      "characters": 443,
+      "utf8_bytes": 449
+    }
+  },
+  {
+    "check": "nairn-quoted-unicode: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-quoted-unicode: expected outcome",
+    "pass": true,
+    "detail": "typed evidence retrieved"
+  },
+  {
+    "check": "nairn-quoted-unicode: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-quoted-unicode: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-quoted-unicode: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-quoted-unicode: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-quoted-unicode: no gap writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "quoted Unicode retrieves repaired Nairn passage",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-citation: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-citation: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "nairn-citation: complete citation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-citation-page-1: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-citation-page-1: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "nairn-citation-page-2: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-citation-page-2: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "nairn-citation-page-3: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-citation-page-3: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "nairn-citation-page-4: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-citation-page-4: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "nairn-citation-page-5: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-citation-page-5: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "nairn-citation-page-6: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-citation-page-6: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "nairn-citation-page-7: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-citation-page-7: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "nairn-citation-page-8: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-citation-page-8: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "nairn-citation-page-9: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-citation-page-9: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "nairn-citation-page-10: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-citation-page-10: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "nairn-citation-page-11: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "nairn-citation-page-11: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "nairn-citation: paged text exactly matches full span",
+    "pass": true,
+    "detail": {
+      "pages": 11,
+      "characters": 1309,
+      "utf8_bytes": 1321
+    }
+  },
+  {
+    "check": "lead-claim-citation: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "lead-claim-citation: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "lead-claim-citation: complete citation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "lead-passage-citation: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "lead-passage-citation: expected outcome",
+    "pass": true,
+    "detail": "citation resolved to immutable source text"
+  },
+  {
+    "check": "lead-passage-citation: complete citation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "ordinary MCP Q&A makes no database writes",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-outbound-h1: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-outbound-h1: expected outcome",
+    "pass": true,
+    "detail": "bounded typed paths and follow-up leads retrieved"
+  },
+  {
+    "check": "path-outbound-h1: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-outbound-h1: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-outbound-h1: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-outbound-h1: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-outbound-h1: projection preserves stored endpoints",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-outbound-h3: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-outbound-h3: expected outcome",
+    "pass": true,
+    "detail": "bounded typed paths and follow-up leads retrieved"
+  },
+  {
+    "check": "path-outbound-h3: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-outbound-h3: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-outbound-h3: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-outbound-h3: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-outbound-h3: projection preserves stored endpoints",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-inbound-h1: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-inbound-h1: expected outcome",
+    "pass": true,
+    "detail": "bounded typed paths and follow-up leads retrieved"
+  },
+  {
+    "check": "path-inbound-h1: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-inbound-h1: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-inbound-h1: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-inbound-h1: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-inbound-h1: projection preserves stored endpoints",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-inbound-h3: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-inbound-h3: expected outcome",
+    "pass": true,
+    "detail": "bounded typed paths and follow-up leads retrieved"
+  },
+  {
+    "check": "path-inbound-h3: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-inbound-h3: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-inbound-h3: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-inbound-h3: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-inbound-h3: projection preserves stored endpoints",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-both-h1: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-both-h1: expected outcome",
+    "pass": true,
+    "detail": "bounded typed paths and follow-up leads retrieved"
+  },
+  {
+    "check": "path-both-h1: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-both-h1: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-both-h1: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-both-h1: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-both-h1: projection preserves stored endpoints",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-both-h3: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-both-h3: expected outcome",
+    "pass": true,
+    "detail": "bounded typed paths and follow-up leads retrieved"
+  },
+  {
+    "check": "path-both-h3: zero provider route",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-both-h3: current evidence generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-both-h3: configured bounds",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-both-h3: directional claims have support",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "path-both-h3: projection preserves stored endpoints",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "final-status: matching JSON-RPC ID",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "final-status: expected outcome",
+    "pass": true,
+    "detail": "library status read without mutation"
+  },
+  {
+    "check": "path calls preserve corpus and generation",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "all MCP requests make zero new provider runs or attempts",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "MCP server exits cleanly",
+    "pass": true,
+    "detail": null
+  }
+]

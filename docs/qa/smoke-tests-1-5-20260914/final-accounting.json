@@ -1,0 +1,156 @@
+{
+  "baseline": "696858c0a327d10594ecb6fcc5a88d5202ffb7be",
+  "meta": {
+    "singleton": 1,
+    "library_id": "library-61405eb8183ffd16da950f0d",
+    "bundle_format_version": 1,
+    "schema_version": 19,
+    "published_generation": 24928,
+    "next_generation": 24929,
+    "active_profile_id": "scottish-history-profile",
+    "active_profile_hash": "3e50bc08cfab707f916e8a195da5ce33414221e4842059b92e0f219a04bb4f92",
+    "required_capabilities": "sqlite-provider-v1",
+    "created_at": "2026-09-04T21:18:02.224Z",
+    "updated_at": "2026-09-14T11:44:37.677Z"
+  },
+  "counts": {
+    "sources": 9,
+    "source_revisions": 9,
+    "revision_chunks": 34907,
+    "mentions": 63098,
+    "claims": 7972,
+    "provider_runs": 82560,
+    "attempts": 116202
+  },
+  "new_provider_runs": 16,
+  "cost_microunits": 257,
+  "accounting": {
+    "test1": {
+      "job_id": "job-maintenance:b47503c1c0c08999bb977ae45826080785ca18a25e80403c213b954401177756",
+      "state": "completed",
+      "item_states": {
+        "processed": 5
+      },
+      "attempts": 15,
+      "provider_runs": 5,
+      "gemini_calls": 5,
+      "codex_turns": 0,
+      "cost_microunits": 208,
+      "provider_ms": 1960,
+      "reservations_clear": true
+    },
+    "test2": {
+      "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+      "state": "completed",
+      "item_states": {
+        "processed": 4
+      },
+      "attempts": 5,
+      "provider_runs": 4,
+      "gemini_calls": 2,
+      "codex_turns": 2,
+      "cost_microunits": 49,
+      "provider_ms": 41397,
+      "reservations_clear": true
+    },
+    "test3": {
+      "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+      "state": "completed_with_errors",
+      "item_states": {
+        "cancelled": 2,
+        "dead_letter": 1,
+        "processed": 3,
+        "skipped": 2
+      },
+      "attempts": 10,
+      "provider_runs": 4,
+      "gemini_calls": 0,
+      "codex_turns": 4,
+      "cost_microunits": 0,
+      "provider_ms": 42973,
+      "reservations_clear": true
+    },
+    "test4-fiers": {
+      "job_id": "job-replay-sha256:60d901fba05abd051e69e2ae4e5718a76b71db10155954b4e6894a5446414f11",
+      "state": "completed",
+      "item_states": {
+        "processed": 1
+      },
+      "attempts": 1,
+      "provider_runs": 1,
+      "gemini_calls": 0,
+      "codex_turns": 1,
+      "cost_microunits": 0,
+      "provider_ms": 15747,
+      "reservations_clear": true
+    },
+    "test4-nairn": {
+      "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+      "state": "completed",
+      "item_states": {
+        "processed": 1
+      },
+      "attempts": 2,
+      "provider_runs": 2,
+      "gemini_calls": 0,
+      "codex_turns": 2,
+      "cost_microunits": 0,
+      "provider_ms": 55824,
+      "reservations_clear": true
+    }
+  },
+  "original_rows_preserved": {
+    "sources": true,
+    "source_revisions": true,
+    "revision_chunks": true,
+    "attempts": true,
+    "provider_runs": true
+  },
+  "original_selected_items_preserved": {
+    "item-sha256:3e6fbb8477b2cf8335685d843ccee91c8881cf40597612c3d4be4d168e11068a": true,
+    "item-sha256:92a38a4adcec0c685fe8812213faa2581b593489cffd4aa35b62abfae7b00e7b": true
+  },
+  "published_vector": {
+    "vector_generation_id": "vg-b69b2a0326ba3dc33ad046fc",
+    "semantic_generation": 24925,
+    "embedding_profile_id": "embedding-768-203113f9024a",
+    "state": "published",
+    "algorithm": "ivf-flat-v1",
+    "sidecar_name": "vectors.24925.vg-b69b2a0326ba3dc33ad046fc.b69b2a0326ba3dc3.rxvec",
+    "sidecar_checksum": "b69b2a0326ba3dc33ad046fce035bbe62719889c4940148b307e087ce1acdcf4",
+    "dimension": 768,
+    "row_count": 34907,
+    "centroid_count": 16,
+    "probe_count": 4,
+    "created_at": "2026-09-14T11:38:00.006Z",
+    "published_at": "2026-09-14T11:38:00.006Z",
+    "input_revision": 7,
+    "build_iterations": 2
+  },
+  "stopped_runtime_count": 15,
+  "mcp_requests": 59,
+  "ordinary_qa_readonly": true,
+  "mcp_corpus_preserved": true,
+  "explicit_path_gap_delta": 1,
+  "cpu_observations": {
+    "rag_query_inspect": {
+      "count": 18,
+      "median": 0.08499999999999999,
+      "minimum": 0.03,
+      "maximum": 0.21
+    },
+    "rag_query_path": {
+      "count": 6,
+      "median": 0.06,
+      "minimum": 0.05,
+      "maximum": 0.07
+    },
+    "rag_citation_show": {
+      "count": 19,
+      "median": 0.01,
+      "minimum": 0.01,
+      "maximum": 0.02
+    }
+  },
+  "completed_at": "2026-09-14T11:49:24.553571+00:00"
+}

@@ -1,0 +1,17 @@
+[
+  {
+    "claim_id": "claim-sha256:177f32b5461d55538e7a3d7f27d7129b567c456d47ce9e32c89dc63687ec8c81",
+    "source_concept_id": "concept-sha256:ac81958895fc705421520ffdd9f4196c5f1a60884bbf59f7d26e18385999180b",
+    "relationship_type": "had-member",
+    "target_concept_id": "concept-sha256:03617bbadc0ca7272090d8c2590aeb83bf72668060846d00a7ea8f0222a9cb8d",
+    "direction": "outbound",
+    "qualifiers_json": "{}",
+    "effective_from": null,
+    "effective_to": null,
+    "policy_version": "surface-claim-v2:1",
+    "visible_from_generation": 24928,
+    "visible_to_generation": null,
+    "source_label": "duke’s advanced guard",
+    "target_label": "Argyleshire men"
+  }
+]

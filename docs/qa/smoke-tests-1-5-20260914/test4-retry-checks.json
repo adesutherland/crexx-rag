@@ -1,0 +1,19 @@
+{
+  "before_provider_runs_attempts": [
+    82560,
+    116202
+  ],
+  "unchanged": true,
+  "results": [
+    {
+      "label": "fiers",
+      "exit": 0,
+      "observed_seconds": 4.541579084005207
+    },
+    {
+      "label": "nairn",
+      "exit": 0,
+      "observed_seconds": 0.7006709589622915
+    }
+  ]
+}

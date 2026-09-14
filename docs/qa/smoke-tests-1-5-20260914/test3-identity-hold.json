@@ -1,0 +1,16 @@
+{
+  "task_id": "task:902129caf64ac0c5426cd694dc905ee950b4a5570b4d06776aa1bcec2b98b87b",
+  "rejected_target": "concept-sha256:163c07d897c8d719501b9d5f51ba5a7d225a2753b834833fdd62787d476ccdcc",
+  "supplied_identity_candidates": [
+    "concept-sha256:0e8cb1e346ef558b305495488adf9a10465d1c310f397ca2d2f9089506bdbd13",
+    "concept-sha256:9182d00653954287a04bbcabf1b3a7a1956d6342c3a46730db89dd1156e24102",
+    "concept-sha256:e5cad217b69934f092d3508ad5ccf885bf15ab82ef0a2ed0b9ed9d0b8bb2d632"
+  ],
+  "target_present_elsewhere_in_input": true,
+  "evidence_keys": [
+    "subject",
+    "successors",
+    "catalogue",
+    "passages"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "jsonrpc": "2.0",
+  "id": 22,
+  "method": "tools/call",
+  "params": {
+    "name": "rag_query_inspect",
+    "arguments": {
+      "question": "Scotland",
+      "mode": "lexical",
+      "hops": 4,
+      "limit": 12
+    }
+  }
+}

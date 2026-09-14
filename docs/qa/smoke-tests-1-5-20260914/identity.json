@@ -1,0 +1,13 @@
+{
+  "baseline": "696858c0a327d10594ecb6fcc5a88d5202ffb7be",
+  "executable": "/private/tmp/crexxrag-tests1-5-yhw_zrgr/crexxrag",
+  "native_sha256": "88b2fe4a045c42f6a514323bd93804761256b77a15928876e95b5557154bf9c7",
+  "root": "/private/tmp/crexxrag-tests1-5-yhw_zrgr",
+  "library": "/private/tmp/crexxrag-tests1-5-yhw_zrgr/library",
+  "backup": "/Users/adrian/testrag/overnight-scottish-20260909/test1-embeddings-20260913/before-backup",
+  "config": "/private/tmp/crexxrag-tests1-5-yhw_zrgr/test2.conf",
+  "started_at": "2026-09-14T11:29:13.256465+00:00",
+  "shared_computer": true,
+  "source": "/private/tmp/crexxrag-smk006-V6YatF/new-document/bannockburn-1911-excerpt.txt",
+  "source_sha256": "ee14983fd6abb2eae039338c4e1dc7c7b9ea4ec95b10f032cb3311f56e537cc4"
+}

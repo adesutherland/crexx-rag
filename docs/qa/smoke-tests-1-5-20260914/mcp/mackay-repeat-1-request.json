@@ -1,0 +1,14 @@
+{
+  "jsonrpc": "2.0",
+  "id": 20,
+  "method": "tools/call",
+  "params": {
+    "name": "rag_query_inspect",
+    "arguments": {
+      "question": "How were Mackay and Dundee connected?",
+      "mode": "lexical",
+      "hops": 3,
+      "limit": 3
+    }
+  }
+}

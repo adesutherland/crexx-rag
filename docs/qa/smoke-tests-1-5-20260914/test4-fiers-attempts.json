@@ -1,0 +1,15 @@
+[
+  {
+    "attempt_id": "item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394#attempt-1",
+    "item_id": "item-replay-sha256:5946b9c4696081b9266d57d5b2aedf12ed190d618bf6affabd5bf138505f2394",
+    "worker_id": "worker-d481160b1765b7602ecacbade94e69a0",
+    "fence": 1,
+    "input_hash": "9bcbefb456f88ae2e422e14752a2470bbe76f3e020af9e4da6909a5e0304a5a2",
+    "output_hash": "7e43ed8dfa4bfef50a715ae57cd00d37a3932e121e31b0dbd6c9ee5fc61e070a",
+    "provider_run_id": "provider-run-sha256:c575a2d3f5caf1deddf17257f09685d8eaca9b90e19c29ce8cc157b17af5d89e",
+    "validation_state": "validated-discovery-batch",
+    "outcome": "succeeded",
+    "started_at": "2026-09-14T11:42:33.041Z",
+    "completed_at": "2026-09-14T11:42:49.952Z"
+  }
+]

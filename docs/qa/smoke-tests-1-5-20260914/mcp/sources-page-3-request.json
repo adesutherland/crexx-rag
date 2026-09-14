@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": 8,
+  "method": "tools/call",
+  "params": {
+    "name": "rag_source_list",
+    "arguments": {
+      "limit": 3,
+      "cursor": "source-sha256:999783c0e74122a65702921eeeca8ecbd48c079eef3c332e52b92c5f8e312995"
+    }
+  }
+}

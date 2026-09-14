@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "singleton": 1,
+    "library_id": "library-61405eb8183ffd16da950f0d",
+    "bundle_format_version": 1,
+    "schema_version": 19,
+    "published_generation": 24928,
+    "next_generation": 24929,
+    "active_profile_id": "scottish-history-profile",
+    "active_profile_hash": "3e50bc08cfab707f916e8a195da5ce33414221e4842059b92e0f219a04bb4f92",
+    "required_capabilities": "sqlite-provider-v1",
+    "created_at": "2026-09-04T21:18:02.224Z",
+    "updated_at": "2026-09-14T11:44:37.677Z"
+  },
+  "counts": {
+    "sources": 9,
+    "source_revisions": 9,
+    "revision_chunks": 34907,
+    "mentions": 63098,
+    "claims": 7972,
+    "provider_runs": 82560,
+    "attempts": 116202,
+    "query_gaps": 20
+  },
+  "corpus_hashes": {
+    "sources": "4ebfc22ebc5583152eb1162857a57161efbf7f9e75b6b2692ec0443692579a0f",
+    "source_revisions": "a7546eedef41c437f318e132196021e6a9669dd155d626a2b41510e740df9889",
+    "revision_chunks": "cd8f9469fd7ffd0db7fb76e28a76eccf9244e48ed5a169ba22f9d18c5c2b9634",
+    "mentions": "2d78bc915fa41c499ee6643a234253fcd142261b2fd931f95e64251d85209aca",
+    "claims": "7adf7fdc9e2289127d345bceaf83d15512564bd9b9cc30c054e36c17bde5026b"
+  },
+  "data_version": 1
+}

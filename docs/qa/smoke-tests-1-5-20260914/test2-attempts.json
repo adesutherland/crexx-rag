@@ -1,0 +1,67 @@
+[
+  {
+    "attempt_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04#attempt-1",
+    "item_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04",
+    "worker_id": "worker-6d2c41ff9cb1a2219c08c04b17cb6f9a",
+    "fence": 1,
+    "input_hash": "eeec4742f6eb65ea5ec90fe4f1b54f6bb340a4539ee25497777170cc1026e1fc",
+    "output_hash": null,
+    "provider_run_id": null,
+    "validation_state": "provider admission deferred by request, token, concurrency or cooldown limits",
+    "outcome": "cancelled",
+    "started_at": "2026-09-14T11:36:37.108Z",
+    "completed_at": "2026-09-14T11:36:37.137Z"
+  },
+  {
+    "attempt_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-1",
+    "item_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49",
+    "worker_id": "worker-bd50ee5b4549f9097f78317d6342c3cb",
+    "fence": 1,
+    "input_hash": "3ba7427de3e3acd5dafdbe69dea4b5b2321b367f10d6d4dcd41a044dc101ed32",
+    "output_hash": "95841a44db5550bee43637c2dc0aa12dca4ba7e5951d64a36ec486bdeb0a947e",
+    "provider_run_id": "provider-run-sha256:690ad6882ae411e30a6ed44438a8fa4323cb1119e82feb9939f9b270dcce772d",
+    "validation_state": "validated-embedding",
+    "outcome": "succeeded",
+    "started_at": "2026-09-14T11:36:37.112Z",
+    "completed_at": "2026-09-14T11:36:37.561Z"
+  },
+  {
+    "attempt_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405#attempt-1",
+    "item_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405",
+    "worker_id": "worker-6d2c41ff9cb1a2219c08c04b17cb6f9a",
+    "fence": 1,
+    "input_hash": "39517d9bdc7662642bb37009b1234c0a10255e0e718b06110c7dc3934799e352",
+    "output_hash": "3551cab63a65675f91c99696d29c3ad115b00372d4450a833b0cf4004c177d19",
+    "provider_run_id": "provider-run-sha256:547450858cfcb20ae881739e7419b2cf4230f9c87aadfc92371109ac2de15512",
+    "validation_state": "validated-discovery-batch",
+    "outcome": "succeeded",
+    "started_at": "2026-09-14T11:36:37.249Z",
+    "completed_at": "2026-09-14T11:36:55.951Z"
+  },
+  {
+    "attempt_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa#attempt-1",
+    "item_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa",
+    "worker_id": "worker-bd50ee5b4549f9097f78317d6342c3cb",
+    "fence": 1,
+    "input_hash": "c3bc6ee072afd17d56210cfadd429d9b34cde62ad43b651d8921c87989bb1042",
+    "output_hash": "869f407aad6988aee14e951d17403d12ad92deab2a727794aa9c4cc7ea27dffe",
+    "provider_run_id": "provider-run-sha256:e3c6ba8279f8fb9e262b5f213c3f32f339298760a7d733f93d17c19ab8a63002",
+    "validation_state": "validated-discovery-batch",
+    "outcome": "succeeded",
+    "started_at": "2026-09-14T11:36:37.563Z",
+    "completed_at": "2026-09-14T11:37:03.030Z"
+  },
+  {
+    "attempt_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04#attempt-2",
+    "item_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04",
+    "worker_id": "worker-6d2c41ff9cb1a2219c08c04b17cb6f9a",
+    "fence": 2,
+    "input_hash": "eeec4742f6eb65ea5ec90fe4f1b54f6bb340a4539ee25497777170cc1026e1fc",
+    "output_hash": "ee50932b9df57f57b40206ad46f0370067547a701b92f28894a845feafa08cda",
+    "provider_run_id": "provider-run-sha256:c9d4c8261b83cbbe4b33b8f9f2888ea070fc068be2a61be798915627c7388307",
+    "validation_state": "validated-embedding",
+    "outcome": "succeeded",
+    "started_at": "2026-09-14T11:36:56.064Z",
+    "completed_at": "2026-09-14T11:36:56.517Z"
+  }
+]

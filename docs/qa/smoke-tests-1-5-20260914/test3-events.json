@@ -1,0 +1,335 @@
+[
+  {
+    "event_id": 647277,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": null,
+    "attempt_id": null,
+    "event_type": "budget-policy",
+    "message": "{\"time_budget_ms\":0,\"maximum_call_input_tokens\":32768,\"maximum_call_output_tokens\":16384,\"maximum_call_cost\":1000,\"maximum_call_time_ms\":120000,\"maximum_inflight_calls\":2,\"maximum_attempts\":1}",
+    "occurred_at": "2026-09-14T11:40:08.527Z"
+  },
+  {
+    "event_id": 647278,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": null,
+    "attempt_id": null,
+    "event_type": "worker-supervision",
+    "message": "{\"controller\":\"controller-3c33a2ff46f870978b87fa9e38a77bfb\",\"configured_workers\":2,\"max_restarts\":2,\"window_seconds\":3600}",
+    "occurred_at": "2026-09-14T11:40:42.238Z"
+  },
+  {
+    "event_id": 647279,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d",
+    "attempt_id": "item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d#attempt-1",
+    "event_type": "claimed",
+    "message": "worker=worker-114f86859bc499391b7196befdf0637c;fence=1",
+    "occurred_at": "2026-09-14T11:40:43.206Z"
+  },
+  {
+    "event_id": 647280,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d",
+    "attempt_id": "item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d#attempt-1",
+    "event_type": "reservation-open:item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d#attempt-1#call-1\",\"input\":32768,\"output\":16384,\"cost\":0,\"time\":120000,\"codex_turn\":1}",
+    "occurred_at": "2026-09-14T11:40:43.210Z"
+  },
+  {
+    "event_id": 647281,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88",
+    "attempt_id": "item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88#attempt-1",
+    "event_type": "claimed",
+    "message": "worker=worker-8aa4dacfef99bb6dd07871769cd196e7;fence=1",
+    "occurred_at": "2026-09-14T11:40:43.231Z"
+  },
+  {
+    "event_id": 647282,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88",
+    "attempt_id": "item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88#attempt-1",
+    "event_type": "reservation-open:item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88#attempt-1#call-1\",\"input\":32768,\"output\":16384,\"cost\":0,\"time\":120000,\"codex_turn\":1}",
+    "occurred_at": "2026-09-14T11:40:43.236Z"
+  },
+  {
+    "event_id": 647283,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d",
+    "attempt_id": "item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d#attempt-1",
+    "event_type": "provider-intent",
+    "message": "{\"input_hash\":\"ffaa1d5127fa4f6bbd84f09960615e61c38a409f49996690894653d6d7e457dd\",\"config_snapshot_id\":\"config-a211c0fede4237fe77bbc797\",\"request_id\":\"extract-717f82c9b43db89217994c5362be102a\"}",
+    "occurred_at": "2026-09-14T11:40:43.862Z"
+  },
+  {
+    "event_id": 647284,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88",
+    "attempt_id": "item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88#attempt-1",
+    "event_type": "provider-intent",
+    "message": "{\"input_hash\":\"0cd1ee736a12d1d3d541842c86c01eeeaf4b5b5a90ccf43199f39f30f9316abb\",\"config_snapshot_id\":\"config-a211c0fede4237fe77bbc797\",\"request_id\":\"extract-feda9229f9cca4ec9433e364b786d6b8\"}",
+    "occurred_at": "2026-09-14T11:40:44.023Z"
+  },
+  {
+    "event_id": 647285,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d",
+    "attempt_id": "item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d#attempt-1",
+    "event_type": "provider-response",
+    "message": "{\"schema\":\"crexx-rag.provider-receipt/1\",\"expected_request_id\":\"extract-717f82c9b43db89217994c5362be102a\",\"provider_run_id\":\"provider-run-sha256:a4babfecdeb6f1f25f8102dec49354c2b4c1705a551d9fabc93555ae6168c3fd\",\"status\":0,\"provider\":\"codex\",\"model\":\"gpt-5.6-luna\",\"request_id\":\"extract-717f82c9b43db89217994c5362be102a\",\"content\":\"{\\\"action\\\":\\\"unresolved\\\",\\\"object_id\\\":\\\"alias-issue:3b496d5aa17d41c6f81cc78bf9f9b851c7243cc51b1f48965b842ad94235c0ef\\\",\\\"target_concept_id\\\":\\\"\\\",\\\"canonical_label\\\":\\\"\\\",\\\"concept_type\\\":\\\"\\\",\\\"successors\\\":[],\\\"reason\\\":\\\"The sole occurrence is a bibliographic reference, “Spalding, vol. ii, p. 264.” It does not provide evidence distinguishing the supplied organisation, person, or place meanings.\\\",\\\"evidence\\\":[{\\\"evidence_id\\\":\\\"candidate-sha256:a56aa4ff70dc2f542a58978a8d0aa83948210e8c30742ba745343723c4b4dbee\\\",\\\"quote\\\":\\\"« Wishart, p. 89. + Spalding, vol. ii, p. 264.\\\"}],\\\"effective_from\\\":\\\"\\\",\\\"effective_to\\\":\\\"\\\",\\\"qualifiers_json\\\":\\\"{}\\\",\\\"question\\\":\\\"\\\"}\",\"content_sha256\":\"2dbbd5123109d86d1309e1c9b779ffd83477545553f052e3f517866cd829a1e7\",\"content_bytes\":630,\"omitted\":\"\",\"finish\":\"completed\",\"input\":16416,\"output\":285,\"input_count\":1,\"cost\":-1,\"attempts\":1,\"retry_delay\":0,\"latency_us\":11789399,\"error_category\":\"none\",\"error_code\":0,\"http_status\":0,\"retryable\":0,\"error_attempt\":0,\"error_message\":\"\",\"vectors\":[]}",
+    "occurred_at": "2026-09-14T11:40:55.658Z"
+  },
+  {
+    "event_id": 647286,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88",
+    "attempt_id": "item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88#attempt-1",
+    "event_type": "provider-response",
+    "message": "{\"schema\":\"crexx-rag.provider-receipt/1\",\"expected_request_id\":\"extract-feda9229f9cca4ec9433e364b786d6b8\",\"provider_run_id\":\"provider-run-sha256:e7a17d5a7b1390242a609d8f4db312ae6c91bdc13849f474c7fd247c92a50dc6\",\"status\":0,\"provider\":\"codex\",\"model\":\"gpt-5.6-luna\",\"request_id\":\"extract-feda9229f9cca4ec9433e364b786d6b8\",\"content\":\"{\\\"action\\\":\\\"reuse\\\",\\\"object_id\\\":\\\"alias-issue:3ad41c18da4e795d5a780a340478bf1c655428935db359139ebe5b0b345c112d\\\",\\\"target_concept_id\\\":\\\"concept-sha256:163c07d897c8d719501b9d5f51ba5a7d225a2753b834833fdd62787d476ccdcc\\\",\\\"canonical_label\\\":\\\"duke  of  Argyle\\\",\\\"concept_type\\\":\\\"person\\\",\\\"successors\\\":[],\\\"reason\\\":\\\"The occurrence identifies Argyle as the person advancing from Stirling, not the organisation Campbell of Argyll or the place Argyle.\\\",\\\"evidence\\\":[{\\\"evidence_id\\\":\\\"candidate-sha256:371e117502e8feec678a2c1a5ba70e5baa95439a141bdfdcb1b6f3f18c1bcfa4\\\",\\\"quote\\\":\\\"Argyle\\\"}],\\\"effective_from\\\":\\\"\\\",\\\"effective_to\\\":\\\"\\\",\\\"qualifiers_json\\\":\\\"{}\\\",\\\"question\\\":\\\"\\\"}\",\"content_sha256\":\"ba567fb50aa438fd96ddb9baa10c65d00ae962124b1fa67d9abca5ba7c27d4e6\",\"content_bytes\":637,\"omitted\":\"\",\"finish\":\"completed\",\"input\":18245,\"output\":450,\"input_count\":1,\"cost\":-1,\"attempts\":1,\"retry_delay\":0,\"latency_us\":11867500,\"error_category\":\"none\",\"error_code\":0,\"http_status\":0,\"retryable\":0,\"error_attempt\":0,\"error_message\":\"\",\"vectors\":[]}",
+    "occurred_at": "2026-09-14T11:40:55.896Z"
+  },
+  {
+    "event_id": 647287,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88",
+    "attempt_id": "item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88#attempt-1",
+    "event_type": "reservation-close:item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88#attempt-1#call-1\",\"input\":-32768,\"output\":-16384,\"cost\":0,\"time\":-120000,\"actual_cost\":0,\"codex_turn\":-1}",
+    "occurred_at": "2026-09-14T11:40:56.330Z"
+  },
+  {
+    "event_id": 647288,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88",
+    "attempt_id": "item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88#attempt-1",
+    "event_type": "settlement-receipt:item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88#attempt-1#call-1",
+    "message": "[\"codex-extract\",\"gpt-5.6-luna\",\"extract-feda9229f9cca4ec9433e364b786d6b8\",\"succeeded\",18245,450,0,11867,\"provider-run-sha256:e7a17d5a7b1390242a609d8f4db312ae6c91bdc13849f474c7fd247c92a50dc6\",\"subscription-allowance\",1,\"\",\"{\\\"action\\\":\\\"reuse\\\",\\\"object_id\\\":\\\"alias-issue:3ad41c18da4e795d5a780a340478bf1c655428935db359139ebe5b0b345c112d\\\",\\\"target_concept_id\\\":\\\"concept-sha256:163c07d897c8d719501b9d5f51ba5a7d225a2753b834833fdd62787d476ccdcc\\\",\\\"canonical_label\\\":\\\"duke  of  Argyle\\\",\\\"concept_type\\\":\\\"person\\\",\\\"successors\\\":[],\\\"reason\\\":\\\"The occurrence identifies Argyle as the person advancing from Stirling, not the organisation Campbell of Argyll or the place Argyle.\\\",\\\"evidence\\\":[{\\\"evidence_id\\\":\\\"candidate-sha256:371e117502e8feec678a2c1a5ba70e5baa95439a141bdfdcb1b6f3f18c1bcfa4\\\",\\\"quote\\\":\\\"Argyle\\\"}],\\\"effective_from\\\":\\\"\\\",\\\"effective_to\\\":\\\"\\\",\\\"qualifiers_json\\\":\\\"{}\\\",\\\"question\\\":\\\"\\\"}\",\"3e50bc08cfab707f916e8a195da5ce33414221e4842059b92e0f219a04bb4f92\"]",
+    "occurred_at": "2026-09-14T11:40:56.330Z"
+  },
+  {
+    "event_id": 647289,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d",
+    "attempt_id": "item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d#attempt-1",
+    "event_type": "reservation-close:item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d#attempt-1#call-1\",\"input\":-32768,\"output\":-16384,\"cost\":0,\"time\":-120000,\"actual_cost\":0,\"codex_turn\":-1}",
+    "occurred_at": "2026-09-14T11:40:56.331Z"
+  },
+  {
+    "event_id": 647290,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d",
+    "attempt_id": "item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d#attempt-1",
+    "event_type": "settlement-receipt:item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d#attempt-1#call-1",
+    "message": "[\"codex-extract\",\"gpt-5.6-luna\",\"extract-717f82c9b43db89217994c5362be102a\",\"succeeded\",16416,285,0,11812,\"provider-run-sha256:a4babfecdeb6f1f25f8102dec49354c2b4c1705a551d9fabc93555ae6168c3fd\",\"subscription-allowance\",1,\"\",\"{\\\"action\\\":\\\"unresolved\\\",\\\"object_id\\\":\\\"alias-issue:3b496d5aa17d41c6f81cc78bf9f9b851c7243cc51b1f48965b842ad94235c0ef\\\",\\\"target_concept_id\\\":\\\"\\\",\\\"canonical_label\\\":\\\"\\\",\\\"concept_type\\\":\\\"\\\",\\\"successors\\\":[],\\\"reason\\\":\\\"The sole occurrence is a bibliographic reference, “Spalding, vol. ii, p. 264.” It does not provide evidence distinguishing the supplied organisation, person, or place meanings.\\\",\\\"evidence\\\":[{\\\"evidence_id\\\":\\\"candidate-sha256:a56aa4ff70dc2f542a58978a8d0aa83948210e8c30742ba745343723c4b4dbee\\\",\\\"quote\\\":\\\"« Wishart, p. 89. + Spalding, vol. ii, p. 264.\\\"}],\\\"effective_from\\\":\\\"\\\",\\\"effective_to\\\":\\\"\\\",\\\"qualifiers_json\\\":\\\"{}\\\",\\\"question\\\":\\\"\\\"}\",\"3e50bc08cfab707f916e8a195da5ce33414221e4842059b92e0f219a04bb4f92\"]",
+    "occurred_at": "2026-09-14T11:40:56.331Z"
+  },
+  {
+    "event_id": 647291,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109",
+    "attempt_id": "item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109#attempt-1",
+    "event_type": "claimed",
+    "message": "worker=worker-114f86859bc499391b7196befdf0637c;fence=1",
+    "occurred_at": "2026-09-14T11:40:56.350Z"
+  },
+  {
+    "event_id": 647292,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109",
+    "attempt_id": "item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109#attempt-1",
+    "event_type": "reservation-open:item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109#attempt-1#call-1\",\"input\":32768,\"output\":16384,\"cost\":0,\"time\":120000,\"codex_turn\":1}",
+    "occurred_at": "2026-09-14T11:40:56.352Z"
+  },
+  {
+    "event_id": 647293,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88",
+    "attempt_id": "item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88#attempt-1",
+    "event_type": "dead_letter",
+    "message": "identity decision did not select a supplied candidate",
+    "occurred_at": "2026-09-14T11:40:56.358Z"
+  },
+  {
+    "event_id": 647294,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af",
+    "attempt_id": "item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af#attempt-1",
+    "event_type": "claimed",
+    "message": "worker=worker-8aa4dacfef99bb6dd07871769cd196e7;fence=1",
+    "occurred_at": "2026-09-14T11:40:56.373Z"
+  },
+  {
+    "event_id": 647295,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af",
+    "attempt_id": "item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af#attempt-1",
+    "event_type": "reservation-open:item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af#attempt-1#call-1\",\"input\":32768,\"output\":16384,\"cost\":0,\"time\":120000,\"codex_turn\":1}",
+    "occurred_at": "2026-09-14T11:40:56.376Z"
+  },
+  {
+    "event_id": 647296,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109",
+    "attempt_id": "item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109#attempt-1",
+    "event_type": "provider-intent",
+    "message": "{\"input_hash\":\"22538239de19d4984f95f588fbeca7e4eb10a13276ad3e730506ae30e4e5bba8\",\"config_snapshot_id\":\"config-a211c0fede4237fe77bbc797\",\"request_id\":\"extract-3f1e025455b5aa50b72e9486aa0d883a\"}",
+    "occurred_at": "2026-09-14T11:40:56.898Z"
+  },
+  {
+    "event_id": 647297,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af",
+    "attempt_id": "item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af#attempt-1",
+    "event_type": "provider-intent",
+    "message": "{\"input_hash\":\"196f2e20b537aca596d945173d19724c49e6d9267687664b145d02dc5cf5e91f\",\"config_snapshot_id\":\"config-a211c0fede4237fe77bbc797\",\"request_id\":\"extract-07b6ed6853323852b113460b25df5c9d\"}",
+    "occurred_at": "2026-09-14T11:40:57.270Z"
+  },
+  {
+    "event_id": 647298,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109",
+    "attempt_id": "item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109#attempt-1",
+    "event_type": "provider-response",
+    "message": "{\"schema\":\"crexx-rag.provider-receipt/1\",\"expected_request_id\":\"extract-3f1e025455b5aa50b72e9486aa0d883a\",\"provider_run_id\":\"provider-run-sha256:5a10d0fb2a4d4924f56f5eccd65747ec37bb876866cd066d6ece5db274f3c945\",\"status\":0,\"provider\":\"codex\",\"model\":\"gpt-5.6-luna\",\"request_id\":\"extract-3f1e025455b5aa50b72e9486aa0d883a\",\"content\":\"{\\\"action\\\":\\\"unresolved\\\",\\\"object_id\\\":\\\"alias-issue:3bf3f78ec525dad98ac9c55dd10f47ceeba9b31fb796b967fa598b9c8e1e239\\\",\\\"target_concept_id\\\":\\\"\\\",\\\"canonical_label\\\":\\\"\\\",\\\"concept_type\\\":\\\"\\\",\\\"successors\\\":[],\\\"reason\\\":\\\"The supplied passage identifies only the surface form “the Chevalier” and does not establish that it refers to the supplied person concept James Stuart.\\\",\\\"evidence\\\":[{\\\"evidence_id\\\":\\\"candidate-sha256:2316780ef2d187468093128e4aed889fbba04f9a2abb85d5e98d0598b8a21b05\\\",\\\"quote\\\":\\\"From  the  Chevalier , — 30 th  March .\\\"}],\\\"effective_from\\\":\\\"\\\",\\\"effective_to\\\":\\\"\\\",\\\"qualifiers_json\\\":\\\"{}\\\",\\\"question\\\":\\\"What independent evidence identifies “the Chevalier” as James Stuart rather than another person or an evidence-span label?\\\"}\",\"content_sha256\":\"92404ca077748f7e6510feadc3b16bd262a1b68e4821376eefd91632d423c029\",\"content_bytes\":725,\"omitted\":\"\",\"finish\":\"completed\",\"input\":17104,\"output\":322,\"input_count\":1,\"cost\":-1,\"attempts\":1,\"retry_delay\":0,\"latency_us\":9154319,\"error_category\":\"none\",\"error_code\":0,\"http_status\":0,\"retryable\":0,\"error_attempt\":0,\"error_message\":\"\",\"vectors\":[]}",
+    "occurred_at": "2026-09-14T11:41:06.060Z"
+  },
+  {
+    "event_id": 647299,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109",
+    "attempt_id": "item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109#attempt-1",
+    "event_type": "reservation-close:item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109#attempt-1#call-1\",\"input\":-32768,\"output\":-16384,\"cost\":0,\"time\":-120000,\"actual_cost\":0,\"codex_turn\":-1}",
+    "occurred_at": "2026-09-14T11:41:06.390Z"
+  },
+  {
+    "event_id": 647300,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109",
+    "attempt_id": "item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109#attempt-1",
+    "event_type": "settlement-receipt:item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109#attempt-1#call-1",
+    "message": "[\"codex-extract\",\"gpt-5.6-luna\",\"extract-3f1e025455b5aa50b72e9486aa0d883a\",\"succeeded\",17104,322,0,9155,\"provider-run-sha256:5a10d0fb2a4d4924f56f5eccd65747ec37bb876866cd066d6ece5db274f3c945\",\"subscription-allowance\",1,\"\",\"{\\\"action\\\":\\\"unresolved\\\",\\\"object_id\\\":\\\"alias-issue:3bf3f78ec525dad98ac9c55dd10f47ceeba9b31fb796b967fa598b9c8e1e239\\\",\\\"target_concept_id\\\":\\\"\\\",\\\"canonical_label\\\":\\\"\\\",\\\"concept_type\\\":\\\"\\\",\\\"successors\\\":[],\\\"reason\\\":\\\"The supplied passage identifies only the surface form “the Chevalier” and does not establish that it refers to the supplied person concept James Stuart.\\\",\\\"evidence\\\":[{\\\"evidence_id\\\":\\\"candidate-sha256:2316780ef2d187468093128e4aed889fbba04f9a2abb85d5e98d0598b8a21b05\\\",\\\"quote\\\":\\\"From  the  Chevalier , — 30 th  March .\\\"}],\\\"effective_from\\\":\\\"\\\",\\\"effective_to\\\":\\\"\\\",\\\"qualifiers_json\\\":\\\"{}\\\",\\\"question\\\":\\\"What independent evidence identifies “the Chevalier” as James Stuart rather than another person or an evidence-span label?\\\"}\",\"3e50bc08cfab707f916e8a195da5ce33414221e4842059b92e0f219a04bb4f92\"]",
+    "occurred_at": "2026-09-14T11:41:06.390Z"
+  },
+  {
+    "event_id": 647301,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:73f9c6788fb0159f09875c73d5bf90ea66bfb09030cb5f06724298daa86555cf",
+    "attempt_id": "item-maintenance:73f9c6788fb0159f09875c73d5bf90ea66bfb09030cb5f06724298daa86555cf#attempt-1",
+    "event_type": "claimed",
+    "message": "worker=worker-114f86859bc499391b7196befdf0637c;fence=1",
+    "occurred_at": "2026-09-14T11:41:06.447Z"
+  },
+  {
+    "event_id": 647302,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:73f9c6788fb0159f09875c73d5bf90ea66bfb09030cb5f06724298daa86555cf",
+    "attempt_id": "item-maintenance:73f9c6788fb0159f09875c73d5bf90ea66bfb09030cb5f06724298daa86555cf#attempt-1",
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted",
+    "occurred_at": "2026-09-14T11:41:06.451Z"
+  },
+  {
+    "event_id": 647303,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:b1fbd9da4dbe55dffa0b857795226f174b7e6bfd8d9c56a37a3efa5744ac75c1",
+    "attempt_id": "item-maintenance:b1fbd9da4dbe55dffa0b857795226f174b7e6bfd8d9c56a37a3efa5744ac75c1#attempt-1",
+    "event_type": "claimed",
+    "message": "worker=worker-114f86859bc499391b7196befdf0637c;fence=1",
+    "occurred_at": "2026-09-14T11:41:06.578Z"
+  },
+  {
+    "event_id": 647304,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:b1fbd9da4dbe55dffa0b857795226f174b7e6bfd8d9c56a37a3efa5744ac75c1",
+    "attempt_id": "item-maintenance:b1fbd9da4dbe55dffa0b857795226f174b7e6bfd8d9c56a37a3efa5744ac75c1#attempt-1",
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted",
+    "occurred_at": "2026-09-14T11:41:06.581Z"
+  },
+  {
+    "event_id": 647305,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:c8b481ac53f576c0fa6210eff6fc919fc3cbfd26d89701c9e787d104e5095e97",
+    "attempt_id": "item-maintenance:c8b481ac53f576c0fa6210eff6fc919fc3cbfd26d89701c9e787d104e5095e97#attempt-1",
+    "event_type": "claimed",
+    "message": "worker=worker-114f86859bc499391b7196befdf0637c;fence=1",
+    "occurred_at": "2026-09-14T11:41:06.715Z"
+  },
+  {
+    "event_id": 647306,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:f5045a992319969512c5ca311d33313bc79a406fb73bc9945b49ef036d90fffb",
+    "attempt_id": "item-maintenance:f5045a992319969512c5ca311d33313bc79a406fb73bc9945b49ef036d90fffb#attempt-1",
+    "event_type": "claimed",
+    "message": "worker=worker-114f86859bc499391b7196befdf0637c;fence=1",
+    "occurred_at": "2026-09-14T11:41:06.737Z"
+  },
+  {
+    "event_id": 647307,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:73f9c6788fb0159f09875c73d5bf90ea66bfb09030cb5f06724298daa86555cf",
+    "attempt_id": "item-maintenance:73f9c6788fb0159f09875c73d5bf90ea66bfb09030cb5f06724298daa86555cf#attempt-2",
+    "event_type": "claimed",
+    "message": "worker=worker-114f86859bc499391b7196befdf0637c;fence=2",
+    "occurred_at": "2026-09-14T11:41:07.011Z"
+  },
+  {
+    "event_id": 647308,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:73f9c6788fb0159f09875c73d5bf90ea66bfb09030cb5f06724298daa86555cf",
+    "attempt_id": "item-maintenance:73f9c6788fb0159f09875c73d5bf90ea66bfb09030cb5f06724298daa86555cf#attempt-2",
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted",
+    "occurred_at": "2026-09-14T11:41:07.013Z"
+  },
+  {
+    "event_id": 647309,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:b1fbd9da4dbe55dffa0b857795226f174b7e6bfd8d9c56a37a3efa5744ac75c1",
+    "attempt_id": "item-maintenance:b1fbd9da4dbe55dffa0b857795226f174b7e6bfd8d9c56a37a3efa5744ac75c1#attempt-2",
+    "event_type": "claimed",
+    "message": "worker=worker-114f86859bc499391b7196befdf0637c;fence=2",
+    "occurred_at": "2026-09-14T11:41:07.149Z"
+  },
+  {
+    "event_id": 647310,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:b1fbd9da4dbe55dffa0b857795226f174b7e6bfd8d9c56a37a3efa5744ac75c1",
+    "attempt_id": "item-maintenance:b1fbd9da4dbe55dffa0b857795226f174b7e6bfd8d9c56a37a3efa5744ac75c1#attempt-2",
+    "event_type": "provider-deferred",
+    "message": "Codex turn budget exhausted",
+    "occurred_at": "2026-09-14T11:41:07.151Z"
+  },
+  {
+    "event_id": 647311,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af",
+    "attempt_id": "item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af#attempt-1",
+    "event_type": "provider-response",
+    "message": "{\"schema\":\"crexx-rag.provider-receipt/1\",\"expected_request_id\":\"extract-07b6ed6853323852b113460b25df5c9d\",\"provider_run_id\":\"provider-run-sha256:af439643f7aae110ef43e387e4c629846aed9681208ab2c1c214f5726e202cee\",\"status\":0,\"provider\":\"codex\",\"model\":\"gpt-5.6-luna\",\"request_id\":\"extract-07b6ed6853323852b113460b25df5c9d\",\"content\":\"{\\\"action\\\":\\\"reuse\\\",\\\"object_id\\\":\\\"candidate-sha256:1e6ea3794040e951a07e1b45bd4e5e3118c6ff08c123c99aa649e2346356ae59\\\",\\\"target_concept_id\\\":\\\"concept-sha256:b5fc80bd4b0f769246b76aa891e13a5f850227b34c78ec0ac3b5de2925c7b2f8\\\",\\\"canonical_label\\\":\\\"collection of Gaelic poetry\\\",\\\"concept_type\\\":\\\"artefact\\\",\\\"successors\\\":[],\\\"reason\\\":\\\"The supplied occurrence names a collection of Gaelic poetry and matches the supplied artefact concept.\\\",\\\"evidence\\\":[{\\\"evidence_id\\\":\\\"candidate-sha256:1e6ea3794040e951a07e1b45bd4e5e3118c6ff08c123c99aa649e2346356ae59\\\",\\\"quote\\\":\\\"COLLECTION OF GAELIC POETRY\\\"}],\\\"effective_from\\\":\\\"\\\",\\\"effective_to\\\":\\\"\\\",\\\"qualifiers_json\\\":\\\"{}\\\",\\\"question\\\":\\\"\\\"}\",\"content_sha256\":\"ec5550e7ce78f1b9e6ab55cd3ab5cef2bed043e215d8e5124e703ce6407d3474\",\"content_bytes\":646,\"omitted\":\"\",\"finish\":\"completed\",\"input\":17063,\"output\":311,\"input_count\":1,\"cost\":-1,\"attempts\":1,\"retry_delay\":0,\"latency_us\":10139277,\"error_category\":\"none\",\"error_code\":0,\"http_status\":0,\"retryable\":0,\"error_attempt\":0,\"error_message\":\"\",\"vectors\":[]}",
+    "occurred_at": "2026-09-14T11:41:07.416Z"
+  },
+  {
+    "event_id": 647312,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af",
+    "attempt_id": "item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af#attempt-1",
+    "event_type": "reservation-close:item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af#attempt-1#call-1\",\"input\":-32768,\"output\":-16384,\"cost\":0,\"time\":-120000,\"actual_cost\":0,\"codex_turn\":-1}",
+    "occurred_at": "2026-09-14T11:41:07.732Z"
+  },
+  {
+    "event_id": 647313,
+    "job_id": "job-maintenance:a576846b7265d13a96dc927456239a6a47972833c30c9bb7bc926f8098ffc072",
+    "item_id": "item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af",
+    "attempt_id": "item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af#attempt-1",
+    "event_type": "settlement-receipt:item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af#attempt-1#call-1",
+    "message": "[\"codex-extract\",\"gpt-5.6-luna\",\"extract-07b6ed6853323852b113460b25df5c9d\",\"succeeded\",17063,311,0,10139,\"provider-run-sha256:af439643f7aae110ef43e387e4c629846aed9681208ab2c1c214f5726e202cee\",\"subscription-allowance\",1,\"\",\"{\\\"action\\\":\\\"reuse\\\",\\\"object_id\\\":\\\"candidate-sha256:1e6ea3794040e951a07e1b45bd4e5e3118c6ff08c123c99aa649e2346356ae59\\\",\\\"target_concept_id\\\":\\\"concept-sha256:b5fc80bd4b0f769246b76aa891e13a5f850227b34c78ec0ac3b5de2925c7b2f8\\\",\\\"canonical_label\\\":\\\"collection of Gaelic poetry\\\",\\\"concept_type\\\":\\\"artefact\\\",\\\"successors\\\":[],\\\"reason\\\":\\\"The supplied occurrence names a collection of Gaelic poetry and matches the supplied artefact concept.\\\",\\\"evidence\\\":[{\\\"evidence_id\\\":\\\"candidate-sha256:1e6ea3794040e951a07e1b45bd4e5e3118c6ff08c123c99aa649e2346356ae59\\\",\\\"quote\\\":\\\"COLLECTION OF GAELIC POETRY\\\"}],\\\"effective_from\\\":\\\"\\\",\\\"effective_to\\\":\\\"\\\",\\\"qualifiers_json\\\":\\\"{}\\\",\\\"question\\\":\\\"\\\"}\",\"3e50bc08cfab707f916e8a195da5ce33414221e4842059b92e0f219a04bb4f92\"]",
+    "occurred_at": "2026-09-14T11:41:07.732Z"
+  }
+]

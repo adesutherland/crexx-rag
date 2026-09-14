@@ -1,0 +1,41 @@
+[
+  {
+    "claim_id": "claim-sha256:43043cdd8757551adf878c074f0d55e47867b81f4bfcf2eaefe5de7f750fb27a",
+    "source_concept_id": "concept-sha256:ae9b9576d90fba9236a6fcd837ae7f84e828cd44f196a224bd54407a9f117b4f",
+    "relationship_type": "located-in",
+    "target_concept_id": "concept-sha256:1f11a9b3648ec4da91b3061c1a0541827baaae19a3bd8111770d58d9b1dde377",
+    "direction": "outbound",
+    "qualifiers_json": "{}",
+    "effective_from": null,
+    "effective_to": null,
+    "policy_version": "surface-claim-v2:1",
+    "visible_from_generation": 24924,
+    "visible_to_generation": null
+  },
+  {
+    "claim_id": "claim-sha256:cc25c68e77cff1863d29465453e6965853ab8b6701c08ad79b656e999a3ff932",
+    "source_concept_id": "concept-sha256:7aa4e8bf4136eee6192ecc6491691c1f02fc8713889b163b1a77be4f612cf7c7",
+    "relationship_type": "participated-in",
+    "target_concept_id": "concept-sha256:2d58d6b91d673c90f068bd405454be6501cb283f52f6ad2658a99a340eec19d1",
+    "direction": "outbound",
+    "qualifiers_json": "{}",
+    "effective_from": null,
+    "effective_to": null,
+    "policy_version": "surface-claim-v2:1",
+    "visible_from_generation": 24925,
+    "visible_to_generation": null
+  },
+  {
+    "claim_id": "claim-sha256:70c4fc315a23bddd04d18e946de0dc7a45831334abf9337f68fdf3583d8fd630",
+    "source_concept_id": "concept-sha256:f2466be1afea1b8d97148303b7ea9de45da8594e6e9eed28a936b175dbf37631",
+    "relationship_type": "related-to",
+    "target_concept_id": "concept-sha256:ab235e39a415ce83e93f8fd05635956f49a56d73dfc2ebee5f1f573aeef07bce",
+    "direction": "outbound",
+    "qualifiers_json": "{}",
+    "effective_from": null,
+    "effective_to": null,
+    "policy_version": "surface-claim-v2:1",
+    "visible_from_generation": 24925,
+    "visible_to_generation": null
+  }
+]

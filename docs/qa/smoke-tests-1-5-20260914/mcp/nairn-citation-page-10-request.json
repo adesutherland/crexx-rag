@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 43,
+  "method": "tools/call",
+  "params": {
+    "name": "rag_citation_show",
+    "arguments": {
+      "citation": "crexx-rag:library-61405eb8183ffd16da950f0d:source-sha256:96c31d2b06281b8812a87e8d5d97d865a8a4b17e7a207a28e254c732193dbf3b:revision-sha256:6a166117c3884941c76bd80360acb07e6a33968bbfabc3a46f16ecd19f88af73:utf8-842394-843715",
+      "limit": 127,
+      "cursor": "1143"
+    }
+  }
+}

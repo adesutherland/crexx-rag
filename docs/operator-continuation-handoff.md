@@ -1,7 +1,32 @@
 # Operator continuation: live handoff
 
-Updated: 2026-09-14, after completing Test 5 and its follow-ups. This file records the current result and next action.
+Updated: 2026-09-14, after committing the baseline and repeating Tests 1–5. This file records the current result and next action.
 The detailed history below is retained for reference.
+
+## Latest — baseline committed; Tests 1–5 repeated
+
+Baseline `696858c0a327d10594ecb6fcc5a88d5202ffb7be` is committed on `main`.
+The unchanged native artifact was used for a fresh pre-Test-1 restore and all
+five [smoke workflows](smoke-tests-1-5-20260914.md). Tests 1 and 2 pass with
+automatic vector publication and ordinary zero-call retry. Test 3 ends normally
+at its allowance, retaining one rejected identity decision and two unresolved
+decisions. Fiers and Nairn replay both succeed with the unrelated Bannockburn
+source retained; Nairn uses its normal correction. Test 5 passes 59 MCP requests
+with zero provider calls and read-only ordinary QA.
+
+Final verification: schema 19, generation 24,928, zero issues, 34,907 indexed
+chunks, original source/history rows preserved, all workers stopped. Usage:
+seven Gemini calls and nine Codex turns; $0.000257 API cost plus subscription
+usage. No manual index repair, normal install, master-library change or push.
+The prior 71/71 local suite still qualifies the unchanged source/artifact.
+
+The smoke is operationally complete; content is not uniformly correct. The
+repeat checklist records C1 (Fiers' figurative `Siberian solitude` was classified
+as a place) and C2 (rejected Argyll identity selection). Review those before
+further content retry/curation. No historical window remains active. The README
+now presents this implemented architecture and tested baseline as approaching a
+first release, with C1/C2 and wider operational/platform qualification explicit.
+The smoke evidence is included alongside that documentation update.
 
 ## Completed — Test 5 MCP access, search and Q&A
 

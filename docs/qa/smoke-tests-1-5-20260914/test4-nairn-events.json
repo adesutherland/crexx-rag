@@ -1,0 +1,164 @@
+[
+  {
+    "event_id": 647324,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": null,
+    "attempt_id": null,
+    "event_type": "budget-policy",
+    "message": "{\"time_budget_ms\":300000,\"maximum_call_input_tokens\":65536,\"maximum_call_output_tokens\":16384,\"maximum_call_cost\":5000,\"maximum_call_time_ms\":120000,\"maximum_inflight_calls\":1,\"maximum_attempts\":2}",
+    "occurred_at": "2026-09-14T11:43:15.298Z"
+  },
+  {
+    "event_id": 647325,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": null,
+    "attempt_id": null,
+    "event_type": "replay-created",
+    "message": "source_job=job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622; reason=Test 4 repeat: selected public Nairn hold under normal configuration",
+    "occurred_at": "2026-09-14T11:43:15.397Z"
+  },
+  {
+    "event_id": 647326,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": null,
+    "attempt_id": null,
+    "event_type": "worker-supervision",
+    "message": "{\"controller\":\"controller-d6e150f5ccc0642e1481adf7c4e657be\",\"configured_workers\":2,\"max_restarts\":2,\"window_seconds\":3600}",
+    "occurred_at": "2026-09-14T11:43:38.042Z"
+  },
+  {
+    "event_id": 647327,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9",
+    "attempt_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-1",
+    "event_type": "claimed",
+    "message": "worker=worker-4eb5d9a7566e1a03b31762c90151ae8e;fence=1",
+    "occurred_at": "2026-09-14T11:43:39.089Z"
+  },
+  {
+    "event_id": 647328,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9",
+    "attempt_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-1",
+    "event_type": "reservation-open:item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-1#call-1\",\"input\":32768,\"output\":16384,\"cost\":0,\"time\":120000,\"codex_turn\":1}",
+    "occurred_at": "2026-09-14T11:43:39.091Z"
+  },
+  {
+    "event_id": 647329,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9",
+    "attempt_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-1",
+    "event_type": "provider-intent",
+    "message": "{\"input_hash\":\"719726a98183e628da6f10a3d916861c529060f018e33ca88ec2df395ee5dd6b\",\"config_snapshot_id\":\"config-a211c0fede4237fe77bbc797\",\"request_id\":\"extract-e9e1ad73dd454a1893be30f7c7b4cf9f\"}",
+    "occurred_at": "2026-09-14T11:43:39.769Z"
+  },
+  {
+    "event_id": 647330,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9",
+    "attempt_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-1",
+    "event_type": "provider-response",
+    "message": "{\"schema\":\"crexx-rag.provider-receipt/1\",\"expected_request_id\":\"extract-e9e1ad73dd454a1893be30f7c7b4cf9f\",\"provider_run_id\":\"provider-run-sha256:ab0f59a1f92cc378280e56d69915291758458838580f73df061fd5954764578c\",\"status\":0,\"provider\":\"codex\",\"model\":\"gpt-5.6-luna\",\"request_id\":\"extract-e9e1ad73dd454a1893be30f7c7b4cf9f\",\"content\":\"{\\\"mentions\\\":[{\\\"label\\\":\\\"English army\\\",\\\"canonical_label\\\":\\\"English army\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"began  his  retreat  in  sight  of  the  English \\\\narmy\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Clanranald’s regiment\\\",\\\"canonical_label\\\":\\\"Clanranald’s regiment\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"Clanranald’s  regiment,  with  the  French  piquets \\\\nand  Fitz-James’s  horse,  formed  the  rear\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"French piquets\\\",\\\"canonical_label\\\":\\\"French piquets\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"Clanranald’s  regiment,  with  the  French  piquets \\\\nand  Fitz-James’s  horse,  formed  the  rear\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Fitz-James’s horse\\\",\\\"canonical_label\\\":\\\"Fitz-James’s horse\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"Clanranald’s  regiment,  with  the  French  piquets \\\\nand  Fitz-James’s  horse,  formed  the  rear\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"duke of Cumberland\\\",\\\"canonical_label\\\":\\\"duke of Cumberland\\\",\\\"concept_type\\\":\\\"person\\\",\\\"evidence_quote\\\":\\\"the  duke  of  Cumberland  sent  forward  his  cavalry\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"his cavalry\\\",\\\"canonical_label\\\":\\\"his cavalry\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"the  duke  of  Cumberland  sent  forward  his  cavalry\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"French horse\\\",\\\"canonical_label\\\":\\\"French horse\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"the  duke’s  cavalry  and  the  French  horse\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"duke’s advanced guard\\\",\\\"canonical_label\\\":\\\"duke’s advanced guard\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"the  duke’s  advanced  guard,  consist- \\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Argyleshire men\\\",\\\"canonical_label\\\":\\\"Argyleshire men\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"the  duke’s  advanced  guard,  consist- \\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Macdonalds of Clanranald\\\",\\\"canonical_label\\\":\\\"Macdonalds of Clanranald\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"the  Macdonalds \\\\nof  Clanranald,  and  the  Stewarts  of  Appin,  were  ordered  back\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Stewarts of Appin\\\",\\\"canonical_label\\\":\\\"Stewarts of Appin\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"the  Macdonalds \\\\nof  Clanranald,  and  the  Stewarts  of  Appin,  were  ordered  back\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Nairn\\\",\\\"canonical_label\\\":\\\"Nairn\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"continued  to  pursue  the \\\\nHighlanders  several  miles  beyond  Nairn\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Highlanders\\\",\\\"canonical_label\\\":\\\"Highlanders\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"continued  to  pursue  the \\\\nHighlanders  several  miles  beyond  Nairn\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Nairn\\\",\\\"canonical_label\\\":\\\"Nairn\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"encamp  on  a plain \\\\nto  the  west  of  Nairn\\\",\\\"aliases\\\":[]}],\\\"relationships\\\":[{\\\"source_mention\\\":7,\\\"relationship_type\\\":\\\"had-member\\\",\\\"target_mention\\\":8,\\\"evidence_quote\\\":\\\"the  duke’s  advanced  guard,  consist- \\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\",\\\"confidence_millionths\\\":980000},{\\\"source_mention\\\":7,\\\"relationship_type\\\":\\\"had-member\\\",\\\"target_mention\\\":5,\\\"evidence_quote\\\":\\\"the  duke’s  advanced  guard,  consist- \\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\",\\\"confidence_millionths\\\":850000}],\\\"notes\\\":[{\\\"kind\\\":\\\"observation\\\",\\\"text\\\":\\\"The passage explicitly describes the duke’s advanced guard as consisting of cavalry and the Argyleshire men.\\\",\\\"importance_millionths\\\":820000,\\\"uncertainty_millionths\\\":30000,\\\"next_action\\\":\\\"\\\",\\\"evidence_quote\\\":\\\"the  duke’s  advanced  guard,  consist- \\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\"},{\\\"kind\\\":\\\"observation\\\",\\\"text\\\":\\\"Several named formations are described as forming the rear or supporting the French, but no allowed relationship type precisely captures those tactical roles without an explicitly named event.\\\",\\\"importance_millionths\\\":760000,\\\"uncertainty_millionths\\\":420000,\\\"next_action\\\":\\\"\\\",\\\"evidence_quote\\\":\\\"Clanranald’s  regiment,  with  the  French  piquets \\\\nand  Fitz-James’s  horse,  formed  the  rear\\\"}]}\",\"content_sha256\":\"9fa1d3eb1f8cc8b1c5daea382f3ced59886931364ea5717e4f696b179e322056\",\"content_bytes\":4098,\"omitted\":\"\",\"finish\":\"completed\",\"input\":19464,\"output\":1517,\"input_count\":1,\"cost\":-1,\"attempts\":1,\"retry_delay\":0,\"latency_us\":31356604,\"error_category\":\"none\",\"error_code\":0,\"http_status\":0,\"retryable\":0,\"error_attempt\":0,\"error_message\":\"\",\"vectors\":[]}",
+    "occurred_at": "2026-09-14T11:44:11.138Z"
+  },
+  {
+    "event_id": 647331,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9",
+    "attempt_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-1",
+    "event_type": "reservation-close:item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-1#call-1\",\"input\":-32768,\"output\":-16384,\"cost\":0,\"time\":-120000,\"actual_cost\":0,\"codex_turn\":-1}",
+    "occurred_at": "2026-09-14T11:44:11.877Z"
+  },
+  {
+    "event_id": 647332,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9",
+    "attempt_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-1",
+    "event_type": "settlement-receipt:item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-1#call-1",
+    "message": "[\"codex-extract\",\"gpt-5.6-luna\",\"extract-e9e1ad73dd454a1893be30f7c7b4cf9f\",\"failed\",19464,1517,0,31356,\"provider-run-sha256:ab0f59a1f92cc378280e56d69915291758458838580f73df061fd5954764578c\",\"subscription-allowance\",1,\"{\\\"schema\\\":\\\"crexx-rag.rejected-output/1\\\",\\\"input_hash\\\":\\\"719726a98183e628da6f10a3d916861c529060f018e33ca88ec2df395ee5dd6b\\\",\\\"error\\\":\\\"provider relationship quotation does not contain both endpoints\\\",\\\"output_sha256\\\":\\\"9fa1d3eb1f8cc8b1c5daea382f3ced59886931364ea5717e4f696b179e322056\\\",\\\"output_bytes\\\":4098,\\\"omitted\\\":\\\"\\\",\\\"content\\\":\\\"{\\\\\\\"mentions\\\\\\\":[{\\\\\\\"label\\\\\\\":\\\\\\\"English army\\\\\\\",\\\\\\\"canonical_label\\\\\\\":\\\\\\\"English army\\\\\\\",\\\\\\\"concept_type\\\\\\\":\\\\\\\"organisation\\\\\\\",\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"began  his  retreat  in  sight  of  the  English \\\\\\\\narmy\\\\\\\",\\\\\\\"aliases\\\\\\\":[]},{\\\\\\\"label\\\\\\\":\\\\\\\"Clanranald’s regiment\\\\\\\",\\\\\\\"canonical_label\\\\\\\":\\\\\\\"Clanranald’s regiment\\\\\\\",\\\\\\\"concept_type\\\\\\\":\\\\\\\"organisation\\\\\\\",\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"Clanranald’s  regiment,  with  the  French  piquets \\\\\\\\nand  Fitz-James’s  horse,  formed  the  rear\\\\\\\",\\\\\\\"aliases\\\\\\\":[]},{\\\\\\\"label\\\\\\\":\\\\\\\"French piquets\\\\\\\",\\\\\\\"canonical_label\\\\\\\":\\\\\\\"French piquets\\\\\\\",\\\\\\\"concept_type\\\\\\\":\\\\\\\"organisation\\\\\\\",\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"Clanranald’s  regiment,  with  the  French  piquets \\\\\\\\nand  Fitz-James’s  horse,  formed  the  rear\\\\\\\",\\\\\\\"aliases\\\\\\\":[]},{\\\\\\\"label\\\\\\\":\\\\\\\"Fitz-James’s horse\\\\\\\",\\\\\\\"canonical_label\\\\\\\":\\\\\\\"Fitz-James’s horse\\\\\\\",\\\\\\\"concept_type\\\\\\\":\\\\\\\"organisation\\\\\\\",\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"Clanranald’s  regiment,  with  the  French  piquets \\\\\\\\nand  Fitz-James’s  horse,  formed  the  rear\\\\\\\",\\\\\\\"aliases\\\\\\\":[]},{\\\\\\\"label\\\\\\\":\\\\\\\"duke of Cumberland\\\\\\\",\\\\\\\"canonical_label\\\\\\\":\\\\\\\"duke of Cumberland\\\\\\\",\\\\\\\"concept_type\\\\\\\":\\\\\\\"person\\\\\\\",\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"the  duke  of  Cumberland  sent  forward  his  cavalry\\\\\\\",\\\\\\\"aliases\\\\\\\":[]},{\\\\\\\"label\\\\\\\":\\\\\\\"his cavalry\\\\\\\",\\\\\\\"canonical_label\\\\\\\":\\\\\\\"his cavalry\\\\\\\",\\\\\\\"concept_type\\\\\\\":\\\\\\\"organisation\\\\\\\",\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"the  duke  of  Cumberland  sent  forward  his  cavalry\\\\\\\",\\\\\\\"aliases\\\\\\\":[]},{\\\\\\\"label\\\\\\\":\\\\\\\"French horse\\\\\\\",\\\\\\\"canonical_label\\\\\\\":\\\\\\\"French horse\\\\\\\",\\\\\\\"concept_type\\\\\\\":\\\\\\\"organisation\\\\\\\",\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"the  duke’s  cavalry  and  the  French  horse\\\\\\\",\\\\\\\"aliases\\\\\\\":[]},{\\\\\\\"label\\\\\\\":\\\\\\\"duke’s advanced guard\\\\\\\",\\\\\\\"canonical_label\\\\\\\":\\\\\\\"duke’s advanced guard\\\\\\\",\\\\\\\"concept_type\\\\\\\":\\\\\\\"organisation\\\\\\\",\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"the  duke’s  advanced  guard,  consist- \\\\\\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\\\\\",\\\\\\\"aliases\\\\\\\":[]},{\\\\\\\"label\\\\\\\":\\\\\\\"Argyleshire men\\\\\\\",\\\\\\\"canonical_label\\\\\\\":\\\\\\\"Argyleshire men\\\\\\\",\\\\\\\"concept_type\\\\\\\":\\\\\\\"organisation\\\\\\\",\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"the  duke’s  advanced  guard,  consist- \\\\\\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\\\\\",\\\\\\\"aliases\\\\\\\":[]},{\\\\\\\"label\\\\\\\":\\\\\\\"Macdonalds of Clanranald\\\\\\\",\\\\\\\"canonical_label\\\\\\\":\\\\\\\"Macdonalds of Clanranald\\\\\\\",\\\\\\\"concept_type\\\\\\\":\\\\\\\"organisation\\\\\\\",\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"the  Macdonalds \\\\\\\\nof  Clanranald,  and  the  Stewarts  of  Appin,  were  ordered  back\\\\\\\",\\\\\\\"aliases\\\\\\\":[]},{\\\\\\\"label\\\\\\\":\\\\\\\"Stewarts of Appin\\\\\\\",\\\\\\\"canonical_label\\\\\\\":\\\\\\\"Stewarts of Appin\\\\\\\",\\\\\\\"concept_type\\\\\\\":\\\\\\\"organisation\\\\\\\",\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"the  Macdonalds \\\\\\\\nof  Clanranald,  and  the  Stewarts  of  Appin,  were  ordered  back\\\\\\\",\\\\\\\"aliases\\\\\\\":[]},{\\\\\\\"label\\\\\\\":\\\\\\\"Nairn\\\\\\\",\\\\\\\"canonical_label\\\\\\\":\\\\\\\"Nairn\\\\\\\",\\\\\\\"concept_type\\\\\\\":\\\\\\\"place\\\\\\\",\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"continued  to  pursue  the \\\\\\\\nHighlanders  several  miles  beyond  Nairn\\\\\\\",\\\\\\\"aliases\\\\\\\":[]},{\\\\\\\"label\\\\\\\":\\\\\\\"Highlanders\\\\\\\",\\\\\\\"canonical_label\\\\\\\":\\\\\\\"Highlanders\\\\\\\",\\\\\\\"concept_type\\\\\\\":\\\\\\\"organisation\\\\\\\",\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"continued  to  pursue  the \\\\\\\\nHighlanders  several  miles  beyond  Nairn\\\\\\\",\\\\\\\"aliases\\\\\\\":[]},{\\\\\\\"label\\\\\\\":\\\\\\\"Nairn\\\\\\\",\\\\\\\"canonical_label\\\\\\\":\\\\\\\"Nairn\\\\\\\",\\\\\\\"concept_type\\\\\\\":\\\\\\\"place\\\\\\\",\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"encamp  on  a plain \\\\\\\\nto  the  west  of  Nairn\\\\\\\",\\\\\\\"aliases\\\\\\\":[]}],\\\\\\\"relationships\\\\\\\":[{\\\\\\\"source_mention\\\\\\\":7,\\\\\\\"relationship_type\\\\\\\":\\\\\\\"had-member\\\\\\\",\\\\\\\"target_mention\\\\\\\":8,\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"the  duke’s  advanced  guard,  consist- \\\\\\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\\\\\",\\\\\\\"confidence_millionths\\\\\\\":980000},{\\\\\\\"source_mention\\\\\\\":7,\\\\\\\"relationship_type\\\\\\\":\\\\\\\"had-member\\\\\\\",\\\\\\\"target_mention\\\\\\\":5,\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"the  duke’s  advanced  guard,  consist- \\\\\\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\\\\\",\\\\\\\"confidence_millionths\\\\\\\":850000}],\\\\\\\"notes\\\\\\\":[{\\\\\\\"kind\\\\\\\":\\\\\\\"observation\\\\\\\",\\\\\\\"text\\\\\\\":\\\\\\\"The passage explicitly describes the duke’s advanced guard as consisting of cavalry and the Argyleshire men.\\\\\\\",\\\\\\\"importance_millionths\\\\\\\":820000,\\\\\\\"uncertainty_millionths\\\\\\\":30000,\\\\\\\"next_action\\\\\\\":\\\\\\\"\\\\\\\",\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"the  duke’s  advanced  guard,  consist- \\\\\\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\\\\\"},{\\\\\\\"kind\\\\\\\":\\\\\\\"observation\\\\\\\",\\\\\\\"text\\\\\\\":\\\\\\\"Several named formations are described as forming the rear or supporting the French, but no allowed relationship type precisely captures those tactical roles without an explicitly named event.\\\\\\\",\\\\\\\"importance_millionths\\\\\\\":760000,\\\\\\\"uncertainty_millionths\\\\\\\":420000,\\\\\\\"next_action\\\\\\\":\\\\\\\"\\\\\\\",\\\\\\\"evidence_quote\\\\\\\":\\\\\\\"Clanranald’s  regiment,  with  the  French  piquets \\\\\\\\nand  Fitz-James’s  horse,  formed  the  rear\\\\\\\"}]}\\\"}\",\"\",\"\"]",
+    "occurred_at": "2026-09-14T11:44:11.877Z"
+  },
+  {
+    "event_id": 647333,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9",
+    "attempt_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-1",
+    "event_type": "citation-correction-requested",
+    "message": "Detected citation problems=1. Up to 16 are listed; recheck the whole response. \nfield=relationships[1].evidence_quote; quote omits an endpoint; extend the contiguous source quote or remove this relationship; literal endpoints=\"duke’s advanced guard\" and \"his cavalry\"; rejected=\"the  duke’s  advanced  guard,  consist- \\ning of  two  hundred  cavalry  and  the  Argyleshire  men\"\n",
+    "occurred_at": "2026-09-14T11:44:11.878Z"
+  },
+  {
+    "event_id": 647334,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9",
+    "attempt_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-1",
+    "event_type": "queued",
+    "message": "provider relationship quotation does not contain both endpoints",
+    "occurred_at": "2026-09-14T11:44:11.878Z"
+  },
+  {
+    "event_id": 647335,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9",
+    "attempt_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-2",
+    "event_type": "claimed",
+    "message": "worker=worker-4eb5d9a7566e1a03b31762c90151ae8e;fence=2",
+    "occurred_at": "2026-09-14T11:44:11.881Z"
+  },
+  {
+    "event_id": 647336,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9",
+    "attempt_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-2",
+    "event_type": "reservation-open:item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-2#call-1",
+    "message": "{\"reservation_id\":\"item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-2#call-1\",\"input\":32768,\"output\":16384,\"cost\":0,\"time\":120000,\"codex_turn\":1}",
+    "occurred_at": "2026-09-14T11:44:11.882Z"
+  },
+  {
+    "event_id": 647337,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9",
+    "attempt_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-2",
+    "event_type": "provider-intent",
+    "message": "{\"input_hash\":\"719726a98183e628da6f10a3d916861c529060f018e33ca88ec2df395ee5dd6b\",\"config_snapshot_id\":\"config-a211c0fede4237fe77bbc797\",\"request_id\":\"extract-943eea527fe2cb4bc32c1a7fbb059f69\"}",
+    "occurred_at": "2026-09-14T11:44:12.499Z"
+  },
+  {
+    "event_id": 647338,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9",
+    "attempt_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-2",
+    "event_type": "provider-response",
+    "message": "{\"schema\":\"crexx-rag.provider-receipt/1\",\"expected_request_id\":\"extract-943eea527fe2cb4bc32c1a7fbb059f69\",\"provider_run_id\":\"provider-run-sha256:6052671cf7b49dcd05f4cbf978869e81edc0cb6dfafe749616af8fa001e19682\",\"status\":0,\"provider\":\"codex\",\"model\":\"gpt-5.6-luna\",\"request_id\":\"extract-943eea527fe2cb4bc32c1a7fbb059f69\",\"content\":\"{\\\"mentions\\\":[{\\\"label\\\":\\\"English army\\\",\\\"canonical_label\\\":\\\"English army\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"began  his  retreat  in  sight  of  the  English \\\\narmy\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Clanranald’s regiment\\\",\\\"canonical_label\\\":\\\"Clanranald’s regiment\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"Clanranald’s  regiment,  with  the  French  piquets \\\\nand  Fitz-James’s  horse,  formed  the  rear\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"French piquets\\\",\\\"canonical_label\\\":\\\"French piquets\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"Clanranald’s  regiment,  with  the  French  piquets \\\\nand  Fitz-James’s  horse,  formed  the  rear\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Fitz-James’s horse\\\",\\\"canonical_label\\\":\\\"Fitz-James’s horse\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"Clanranald’s  regiment,  with  the  French  piquets \\\\nand  Fitz-James’s  horse,  formed  the  rear\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"duke of Cumberland\\\",\\\"canonical_label\\\":\\\"duke of Cumberland\\\",\\\"concept_type\\\":\\\"person\\\",\\\"evidence_quote\\\":\\\"the  duke  of  Cumberland  sent  forward  his  cavalry\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"his cavalry\\\",\\\"canonical_label\\\":\\\"his cavalry\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"the  duke  of  Cumberland  sent  forward  his  cavalry\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"French horse\\\",\\\"canonical_label\\\":\\\"French horse\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"the  duke’s  cavalry  and  the  French  horse\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"duke’s advanced guard\\\",\\\"canonical_label\\\":\\\"duke’s advanced guard\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"the  duke’s  advanced  guard,  consist- \\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Argyleshire men\\\",\\\"canonical_label\\\":\\\"Argyleshire men\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"the  duke’s  advanced  guard,  consist- \\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Macdonalds of Clanranald\\\",\\\"canonical_label\\\":\\\"Macdonalds of Clanranald\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"the  Macdonalds \\\\nof  Clanranald,  and  the  Stewarts  of  Appin,  were  ordered  back\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Stewarts of Appin\\\",\\\"canonical_label\\\":\\\"Stewarts of Appin\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"the  Macdonalds \\\\nof  Clanranald,  and  the  Stewarts  of  Appin,  were  ordered  back\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Nairn\\\",\\\"canonical_label\\\":\\\"Nairn\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"continued  to  pursue  the \\\\nHighlanders  several  miles  beyond  Nairn\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Highlanders\\\",\\\"canonical_label\\\":\\\"Highlanders\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"continued  to  pursue  the \\\\nHighlanders  several  miles  beyond  Nairn\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Nairn\\\",\\\"canonical_label\\\":\\\"Nairn\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"encamp  on  a plain \\\\nto  the  west  of  Nairn\\\",\\\"aliases\\\":[]}],\\\"relationships\\\":[{\\\"source_mention\\\":7,\\\"relationship_type\\\":\\\"had-member\\\",\\\"target_mention\\\":8,\\\"evidence_quote\\\":\\\"the  duke’s  advanced  guard,  consist- \\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\",\\\"confidence_millionths\\\":980000}],\\\"notes\\\":[{\\\"kind\\\":\\\"observation\\\",\\\"text\\\":\\\"The passage explicitly describes the duke’s advanced guard as consisting of cavalry and the Argyleshire men.\\\",\\\"importance_millionths\\\":820000,\\\"uncertainty_millionths\\\":30000,\\\"next_action\\\":\\\"\\\",\\\"evidence_quote\\\":\\\"the  duke’s  advanced  guard,  consist- \\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\"},{\\\"kind\\\":\\\"observation\\\",\\\"text\\\":\\\"Several named formations are described as forming the rear or supporting the French, but no allowed relationship type precisely captures those tactical roles without an explicitly named event.\\\",\\\"importance_millionths\\\":760000,\\\"uncertainty_millionths\\\":420000,\\\"next_action\\\":\\\"\\\",\\\"evidence_quote\\\":\\\"Clanranald’s  regiment,  with  the  French  piquets \\\\nand  Fitz-James’s  horse,  formed  the  rear\\\"}]}\",\"content_sha256\":\"f4e87e13c21d96f6db3bf2d10d66e95e547117cff6549fa118eff191eb31c63c\",\"content_bytes\":3873,\"omitted\":\"\",\"finish\":\"completed\",\"input\":20705,\"output\":1140,\"input_count\":1,\"cost\":-1,\"attempts\":1,\"retry_delay\":0,\"latency_us\":24468539,\"error_category\":\"none\",\"error_code\":0,\"http_status\":0,\"retryable\":0,\"error_attempt\":0,\"error_message\":\"\",\"vectors\":[]}",
+    "occurred_at": "2026-09-14T11:44:36.981Z"
+  },
+  {
+    "event_id": 647339,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9",
+    "attempt_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-2",
+    "event_type": "reservation-close:item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-2#call-1",
+    "message": "{\"reservation_id\":\"item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-2#call-1\",\"input\":-32768,\"output\":-16384,\"cost\":0,\"time\":-120000,\"actual_cost\":0,\"codex_turn\":-1}",
+    "occurred_at": "2026-09-14T11:44:37.647Z"
+  },
+  {
+    "event_id": 647340,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9",
+    "attempt_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-2",
+    "event_type": "settlement-receipt:item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-2#call-1",
+    "message": "[\"codex-extract\",\"gpt-5.6-luna\",\"extract-943eea527fe2cb4bc32c1a7fbb059f69\",\"succeeded\",20705,1140,0,24468,\"provider-run-sha256:6052671cf7b49dcd05f4cbf978869e81edc0cb6dfafe749616af8fa001e19682\",\"subscription-allowance\",1,\"\",\"\",\"\"]",
+    "occurred_at": "2026-09-14T11:44:37.647Z"
+  },
+  {
+    "event_id": 647341,
+    "job_id": "job-replay-sha256:7d386eb911a5a8c5da8446f9336de4ec7af7b9c4237a8d3b96ee5fd7ff0ec362",
+    "item_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9",
+    "attempt_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-2",
+    "event_type": "processed",
+    "message": "{\"mentions\":14,\"relationships\":1,\"notes\":2,\"dispositions\":\"accepted\"}",
+    "occurred_at": "2026-09-14T11:44:37.677Z"
+  }
+]

@@ -1,5 +1,14 @@
 # Consolidated roadmap and defect register
 
+**14 September committed-baseline repeat:** `696858c` is committed and all
+[Tests 1–5 have run](smoke-tests-1-5-20260914.md). Independent publication,
+ordinary retry, selected Fiers/Nairn replay and 59 provider-free MCP requests
+pass. Final verification has zero issues and full 34,907-chunk vector coverage.
+Content follow-ups C1/C2 remain explicit: a figurative phrase classified as a
+place and a rejected maintenance identity choice. The latter window also keeps
+two unresolved decisions. Total usage is seven Gemini calls, nine Codex turns
+and $0.000257 monetary API cost. The normal installation remains unchanged.
+
 **14 September Test 5 complete:** ordinary MCP access/search/relationships/cited
 Q&A now have a [separate smoke definition](test5-mcp-qa.md). All 56 requests pass,
 with zero RAG provider calls and preserved corpus state. Performance is recorded
@@ -11,7 +20,8 @@ skips vector preparation for lexical mode and simplifies shared setup guidance.
 Fourth place is a coverage observation, not a ranking defect. All F0–F4 follow-ups
 are complete: eight affected focused tests, the **71/71** full local suite and
 59 provider-free MCP requests pass. The synthetic fixture returns all 200
-passages with resolved citations. Changes are uncommitted; installation is unchanged.
+passages with resolved citations. Implementation is committed in `696858c`;
+installation is unchanged.
 
 **14 September Test 4 complete:** **RAG-SMK-010 (P2, repaired)** uses the shared
 semantic projection to compare only selected replay work. Final QA **71/71**.
@@ -20,8 +30,8 @@ one Codex turn. Its supported claim is published; two incorrect proposals were
 held and rejected through normal review. Both Fiers and Nairn are resolved;
 543 other extraction roots remain outside this bounded smoke. Source history,
 vector coverage and zero-call retry are verified. See the
-[completed checklist](test4-repair-delivery-20260914.md). Changes are uncommitted
-after `300c2ac`; normal installation and authoritative libraries are unchanged.
+[completed checklist](test4-repair-delivery-20260914.md). Implementation is
+committed in `696858c`; normal installation and authoritative libraries are unchanged.
 
 **14 September Test 2 closure:** A0–A8 are complete and the
 [checklist is retired](test2-recovery-delivery-20260914.md). Final local QA is

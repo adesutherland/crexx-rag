@@ -1,0 +1,31 @@
+{
+  "baseline": "696858c0a327d10594ecb6fcc5a88d5202ffb7be",
+  "tests_executed": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "workflow_checklist_complete": true,
+  "test3_content_hold": true,
+  "test4_content_quality_finding": true,
+  "open_followups": [
+    "C1 Fiers figurative place classification",
+    "C2 Argyll target-selection contract review"
+  ],
+  "integrity_verified": true,
+  "mcp_requests": 59,
+  "new_provider_runs": 16,
+  "gemini_calls": 7,
+  "codex_turns": 9,
+  "cost_microunits": 257,
+  "original_rows_preserved": true,
+  "test_runtime_instances_stopped": 15,
+  "documentation_contract": "passed",
+  "authored_whitespace_check": "passed",
+  "product_changed_after_commit": false,
+  "normal_installation_changed": false,
+  "master_corpus_changed": false,
+  "followup_results_committed": false
+}

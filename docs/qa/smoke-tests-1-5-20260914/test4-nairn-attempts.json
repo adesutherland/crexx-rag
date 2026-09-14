@@ -1,0 +1,28 @@
+[
+  {
+    "attempt_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-1",
+    "item_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9",
+    "worker_id": "worker-4eb5d9a7566e1a03b31762c90151ae8e",
+    "fence": 1,
+    "input_hash": "719726a98183e628da6f10a3d916861c529060f018e33ca88ec2df395ee5dd6b",
+    "output_hash": null,
+    "provider_run_id": "provider-run-sha256:ab0f59a1f92cc378280e56d69915291758458838580f73df061fd5954764578c",
+    "validation_state": "provider relationship quotation does not contain both endpoints",
+    "outcome": "failed",
+    "started_at": "2026-09-14T11:43:39.088Z",
+    "completed_at": "2026-09-14T11:44:11.878Z"
+  },
+  {
+    "attempt_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9#attempt-2",
+    "item_id": "item-replay-sha256:8a9fa92d93b3a39beeb95a75031b338529171e165e96e92228c95336c566b5e9",
+    "worker_id": "worker-4eb5d9a7566e1a03b31762c90151ae8e",
+    "fence": 2,
+    "input_hash": "719726a98183e628da6f10a3d916861c529060f018e33ca88ec2df395ee5dd6b",
+    "output_hash": "1a27ef33f23dc7659673f72b48ca1792661224d92bf0d4aee4e99c95dcf60868",
+    "provider_run_id": "provider-run-sha256:6052671cf7b49dcd05f4cbf978869e81edc0cb6dfafe749616af8fa001e19682",
+    "validation_state": "validated-discovery-batch",
+    "outcome": "succeeded",
+    "started_at": "2026-09-14T11:44:11.879Z",
+    "completed_at": "2026-09-14T11:44:37.677Z"
+  }
+]

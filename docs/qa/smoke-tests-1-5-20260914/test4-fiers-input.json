@@ -1,0 +1,93 @@
+[
+  {
+    "schema": "crexx-rag.work-input/1",
+    "operation": "claim-extraction",
+    "revision_chunk_id": "occurrence-sha256:d23a16f319a5f97ec64c8a3d9211090eb3a4f126558493ef73178887a080549e",
+    "content_id": "content-sha256:942b675223bf13a1bd7479fd3624a8d23bdc876c54d838db5b9984e7deb39c8d",
+    "content_digest": "e92fb1eb261166800955cf836e01c43bc3b56866f665d27899e057cf57f19f37",
+    "text_digest": "e92fb1eb261166800955cf836e01c43bc3b56866f665d27899e057cf57f19f37",
+    "text": "Towards evening we crossed, by a bridge, the river which makes the\ncelebrated fall of Fiers.  The country at the bridge strikes the\nimagination with all the gloom and grandeur of Siberian solitude.  The\nway makes a flexure, and the mountains, covered with trees, rise at once\non the left hand and in the front.  We desired our guides to shew us the\nfall, and dismounting, clambered over very rugged crags, till I began to\nwish that our curiosity might have been gratified with less trouble and\ndanger.  We came at last to a place where we could overlook the river,\nand saw a channel torn, as it seems, through black piles of stone, by\nwhich the stream is obstructed and broken, till it comes to a very steep\ndescent, of such dreadful depth, that we were naturally inclined to turn\naside our eyes.",
+    "normalized_start": 56576,
+    "normalized_end": 57372,
+    "privacy": "public",
+    "source_scope": "folder:scotland-overnight",
+    "config_snapshot_id": "config-a211c0fede4237fe77bbc797",
+    "profile_id": "scottish-history-profile",
+    "policy_version": "surface-ingest-v1",
+    "prompt_version": "scottish-history-extractor:1",
+    "role": "extractor",
+    "provider_id": "codex-extract",
+    "model": "gpt-5.6-luna",
+    "charging_basis": "subscription-allowance",
+    "discovery_context": "{\"schema\":\"crexx-rag.discovery-context/1\",\"mode\":\"all\",\"glossary_digest\":\"6928f05034da110b370bbbc39956446c7b97d1eddbcb96deda39cf0d21b59bb7\",\"ranked_limit\":16,\"max_mentions\":16,\"max_relationships\":16,\"max_notes\":8,\"glossary\":{\"schema\":\"crexx-rag.glossary/1\",\"entries\":[{\"canonical_label\":\"Clan Gregor\",\"concept_type\":\"organisation\",\"aliases\":[\"Clan Gregor\",\"MacGregors\",\"Clan MacGregor\",\"Gregors\"]},{\"canonical_label\":\"Rob Roy MacGregor\",\"concept_type\":\"person\",\"aliases\":[\"Rob Roy MacGregor\",\"Rob Roy\"]},{\"canonical_label\":\"Campbell of Argyll\",\"concept_type\":\"organisation\",\"aliases\":[\"Campbell of Argyll\",\"Argyll\"]},{\"canonical_label\":\"Campbell of Breadalbane\",\"concept_type\":\"organisation\",\"aliases\":[\"Campbell of Breadalbane\",\"Breadalbane\"]},{\"canonical_label\":\"The Black Watch\",\"concept_type\":\"organisation\",\"aliases\":[\"The Black Watch\",\"Black Watch\",\"42nd Royal Highlanders\",\"Am Freiceadan Dubh\"]},{\"canonical_label\":\"Independent Companies\",\"concept_type\":\"organisation\",\"aliases\":[\"Independent Companies\",\"Highland Companies\"]},{\"canonical_label\":\"Belted Plaid\",\"concept_type\":\"artefact\",\"aliases\":[\"Belted Plaid\",\"Feile-breag\",\"Feileadh Mor\"]},{\"canonical_label\":\"Little Kilt\",\"concept_type\":\"artefact\",\"aliases\":[\"Little Kilt\",\"Feile-beg\",\"Feileadh Beag\"]},{\"canonical_label\":\"Thomas Rawlinson\",\"concept_type\":\"person\",\"aliases\":[\"Thomas Rawlinson\",\"Rawlinson\"]},{\"canonical_label\":\"Picts\",\"concept_type\":\"organisation\",\"aliases\":[\"Picts\",\"Pictish people\"]},{\"canonical_label\":\"Cymric peoples\",\"concept_type\":\"organisation\",\"aliases\":[\"Cymric peoples\",\"Cymric\",\"Brittonic\"]},{\"canonical_label\":\"James Macpherson\",\"concept_type\":\"person\",\"aliases\":[\"James Macpherson\",\"Macpherson\"]},{\"canonical_label\":\"Ossian\",\"concept_type\":\"person\",\"aliases\":[\"Ossian\",\"Poems of Ossian\"]},{\"canonical_label\":\"Sobieski Stuarts\",\"concept_type\":\"organisation\",\"aliases\":[\"Sobieski Stuarts\",\"Sobieski Stuart brothers\"]}],\"excluded\":[]}}",
+    "embedding_dimension": 768,
+    "reservation": {
+      "input_tokens": 32768,
+      "output_tokens": 16384,
+      "cost_microunits": 0,
+      "time_ms": 120000
+    },
+    "candidates": [
+      {
+        "candidate_id": "candidate-sha256:4a64a3041a36dd667da1dc5973da09d9211c7d02b8716623044007a2bb98e10e",
+        "label": "towards",
+        "span_start": 0,
+        "span_end": 7,
+        "evidence": {
+          "schema": "crexx-rag.candidate-evidence/1",
+          "normalized_candidate": "towards",
+          "occurrences": 21,
+          "source_diversity": 6
+        }
+      },
+      {
+        "candidate_id": "candidate-sha256:b8851f8114d48f7e71a9d4a1df8f87607fdc8d0f60e7b8cdc3e5020d91cfea8d",
+        "label": "fiers",
+        "span_start": 86,
+        "span_end": 91,
+        "evidence": {
+          "schema": "crexx-rag.candidate-evidence/1",
+          "normalized_candidate": "fiers",
+          "occurrences": 3,
+          "source_diversity": 1
+        }
+      },
+      {
+        "candidate_id": "candidate-sha256:de8ca033690463a2a8aee59f7e09c7f3dd558fec0dd9e677328e9eb4bce2d427",
+        "label": "the",
+        "span_start": 94,
+        "span_end": 97,
+        "evidence": {
+          "schema": "crexx-rag.candidate-evidence/1",
+          "normalized_candidate": "the",
+          "occurrences": 14416,
+          "source_diversity": 8
+        }
+      },
+      {
+        "candidate_id": "candidate-sha256:ab481fd9df48f86c43d55bc2d34661e15e076e900595d02661653dcf7b581be3",
+        "label": "siberian",
+        "span_start": 179,
+        "span_end": 187,
+        "evidence": {
+          "schema": "crexx-rag.candidate-evidence/1",
+          "normalized_candidate": "siberian",
+          "occurrences": 4,
+          "source_diversity": 2
+        }
+      },
+      {
+        "candidate_id": "candidate-sha256:122270761babf1bcd55422025008302a0866d6f73cbefd4ed8fb518f77878074",
+        "label": "the",
+        "span_start": 199,
+        "span_end": 202,
+        "evidence": {
+          "schema": "crexx-rag.candidate-evidence/1",
+          "normalized_candidate": "the",
+          "occurrences": 14416,
+          "source_diversity": 8
+        }
+      }
+    ]
+  }
+]

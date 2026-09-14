@@ -1,0 +1,35 @@
+[
+  {
+    "decision_id": "decision-maintenance:7018c11c8972717e2f3eee0a32a6f5625ea599d937aad8c273ba5d7ec7f3fc16",
+    "task_id": "task:ac06d10bb043cd0bb21760ed88129cb9f114a7585f84f521f2f95738ab22eaa8",
+    "item_id": "item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d",
+    "provider_run_id": "provider-run-sha256:a4babfecdeb6f1f25f8102dec49354c2b4c1705a551d9fabc93555ae6168c3fd",
+    "response_json": "{\"action\":\"unresolved\",\"object_id\":\"alias-issue:3b496d5aa17d41c6f81cc78bf9f9b851c7243cc51b1f48965b842ad94235c0ef\",\"target_concept_id\":\"\",\"canonical_label\":\"\",\"concept_type\":\"\",\"successors\":[],\"reason\":\"The sole occurrence is a bibliographic reference, “Spalding, vol. ii, p. 264.” It does not provide evidence distinguishing the supplied organisation, person, or place meanings.\",\"evidence\":[{\"evidence_id\":\"candidate-sha256:a56aa4ff70dc2f542a58978a8d0aa83948210e8c30742ba745343723c4b4dbee\",\"quote\":\"« Wishart, p. 89. + Spalding, vol. ii, p. 264.\"}],\"effective_from\":\"\",\"effective_to\":\"\",\"qualifiers_json\":\"{}\",\"question\":\"\"}",
+    "grounding_json": "[{\"evidence_id\":\"candidate-sha256:a56aa4ff70dc2f542a58978a8d0aa83948210e8c30742ba745343723c4b4dbee\",\"revision_chunk_id\":\"occurrence-sha256:e19ad68dd521f0e6c0e369815a24950960c9950355307bb1713a7417e1c1fb7a\",\"span_start\":0,\"span_end\":47}]",
+    "disposition": "unresolved:unresolved",
+    "applied_generation": null,
+    "created_epoch": 1789386056
+  },
+  {
+    "decision_id": "decision-maintenance:d3437c211ef906343a7d0cdb671093d0b486ffcf4723e0d955edbb5cd493bdfd",
+    "task_id": "task:8e0630d550bca8ef1e13d1d41453464494eb84411e95c799cefeb12eae0f71f9",
+    "item_id": "item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109",
+    "provider_run_id": "provider-run-sha256:5a10d0fb2a4d4924f56f5eccd65747ec37bb876866cd066d6ece5db274f3c945",
+    "response_json": "{\"action\":\"unresolved\",\"object_id\":\"alias-issue:3bf3f78ec525dad98ac9c55dd10f47ceeba9b31fb796b967fa598b9c8e1e239\",\"target_concept_id\":\"\",\"canonical_label\":\"\",\"concept_type\":\"\",\"successors\":[],\"reason\":\"The supplied passage identifies only the surface form “the Chevalier” and does not establish that it refers to the supplied person concept James Stuart.\",\"evidence\":[{\"evidence_id\":\"candidate-sha256:2316780ef2d187468093128e4aed889fbba04f9a2abb85d5e98d0598b8a21b05\",\"quote\":\"From  the  Chevalier , — 30 th  March .\"}],\"effective_from\":\"\",\"effective_to\":\"\",\"qualifiers_json\":\"{}\",\"question\":\"What independent evidence identifies “the Chevalier” as James Stuart rather than another person or an evidence-span label?\"}",
+    "grounding_json": "[{\"evidence_id\":\"candidate-sha256:2316780ef2d187468093128e4aed889fbba04f9a2abb85d5e98d0598b8a21b05\",\"revision_chunk_id\":\"occurrence-sha256:41a1bd0a3735b2836beac47baef5af1ca92bc57682727dfb46b07bea6d2ba3bf\",\"span_start\":0,\"span_end\":41}]",
+    "disposition": "unresolved:unresolved",
+    "applied_generation": null,
+    "created_epoch": 1789386066
+  },
+  {
+    "decision_id": "decision-maintenance:9549d647de10ab6bc2de9679845130c7907af8536edf60bf875eaf3c99dff20a",
+    "task_id": "task:adeed40dec657c85e109a609ce7a5101e819949d99c05bbaafc9aa9a7746ffd8",
+    "item_id": "item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af",
+    "provider_run_id": "provider-run-sha256:af439643f7aae110ef43e387e4c629846aed9681208ab2c1c214f5726e202cee",
+    "response_json": "{\"action\":\"reuse\",\"object_id\":\"candidate-sha256:1e6ea3794040e951a07e1b45bd4e5e3118c6ff08c123c99aa649e2346356ae59\",\"target_concept_id\":\"concept-sha256:b5fc80bd4b0f769246b76aa891e13a5f850227b34c78ec0ac3b5de2925c7b2f8\",\"canonical_label\":\"collection of Gaelic poetry\",\"concept_type\":\"artefact\",\"successors\":[],\"reason\":\"The supplied occurrence names a collection of Gaelic poetry and matches the supplied artefact concept.\",\"evidence\":[{\"evidence_id\":\"candidate-sha256:1e6ea3794040e951a07e1b45bd4e5e3118c6ff08c123c99aa649e2346356ae59\",\"quote\":\"COLLECTION OF GAELIC POETRY\"}],\"effective_from\":\"\",\"effective_to\":\"\",\"qualifiers_json\":\"{}\",\"question\":\"\"}",
+    "grounding_json": "[{\"evidence_id\":\"candidate-sha256:1e6ea3794040e951a07e1b45bd4e5e3118c6ff08c123c99aa649e2346356ae59\",\"revision_chunk_id\":\"occurrence-sha256:6a32ab72b77ed8fbb099485a2010d3a557f93669de6f34585db35257c4e38797\",\"span_start\":0,\"span_end\":27}]",
+    "disposition": "reuse:resolved",
+    "applied_generation": 24926,
+    "created_epoch": 1789386067
+  }
+]

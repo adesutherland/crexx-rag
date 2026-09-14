@@ -1,0 +1,676 @@
+[
+  {
+    "item_id": "item-maintenance:0c9c6f10f52ae12da40656aa8dfb9ec53208104a59da20ccdf0129b02c0f444d",
+    "kind": "maintenance-resolution",
+    "state": "queued",
+    "input": {
+      "schema": "crexx-rag.work-input/1",
+      "operation": "maintenance-resolution",
+      "task_id": "task:ac06d10bb043cd0bb21760ed88129cb9f114a7585f84f521f2f95738ab22eaa8",
+      "evidence_fingerprint": "966c8c54a57db51c8b68bdf7d6ba62922d14a00b0ae71f635db911366ff331b6",
+      "question": "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage.",
+      "evidence": {
+        "subject": {
+          "type": "alias-issue",
+          "id": "alias-issue:3b496d5aa17d41c6f81cc78bf9f9b851c7243cc51b1f48965b842ad94235c0ef",
+          "candidate_id": "candidate-sha256:a56aa4ff70dc2f542a58978a8d0aa83948210e8c30742ba745343723c4b4dbee",
+          "canonical_label": "Spalding",
+          "concept_type": "evidence-span",
+          "aliases": [
+            "Spalding"
+          ],
+          "candidates": [
+            {
+              "concept_id": "concept-sha256:06c03b54edf9ef48c86da2445f956ea68f642145bcf5858e05946e65fb0ab2aa",
+              "canonical_label": "Spalding",
+              "concept_type": "organisation"
+            },
+            {
+              "concept_id": "concept-sha256:7a0292e75ceb35e5b8e3cba7ccba118eb832f0ddd6cd38921dbd7af89e35d9e1",
+              "canonical_label": "Spalding",
+              "concept_type": "person"
+            },
+            {
+              "concept_id": "concept-sha256:8f280998f1a07d1e929f1ac20d21a3379f1f7b6ce5e6df0e5cca265dbd9f1e01",
+              "canonical_label": "Spalding",
+              "concept_type": "place"
+            }
+          ]
+        },
+        "successors": [],
+        "catalogue": [],
+        "passages": [
+          {
+            "evidence_id": "candidate-sha256:a56aa4ff70dc2f542a58978a8d0aa83948210e8c30742ba745343723c4b4dbee",
+            "revision_chunk_id": "occurrence-sha256:e19ad68dd521f0e6c0e369815a24950960c9950355307bb1713a7417e1c1fb7a",
+            "text": "« Wishart, p. 89. + Spalding, vol. ii, p. 264.",
+            "span_start": 21,
+            "span_end": 29
+          }
+        ]
+      },
+      "role": "extractor",
+      "provider_id": "codex-extract",
+      "model": "gpt-5.6-luna",
+      "charging_basis": "subscription-allowance",
+      "privacy": "public",
+      "config_snapshot_id": "config-a211c0fede4237fe77bbc797",
+      "profile_id": "scottish-history-profile",
+      "reservation": {
+        "input_tokens": 32768,
+        "output_tokens": 16384,
+        "cost_microunits": 0,
+        "time_ms": 120000
+      }
+    }
+  },
+  {
+    "item_id": "item-maintenance:2b7c1594ae6019e07403aa5c231da213f6d9784e1c3f58ba725ed4ab49195e88",
+    "kind": "maintenance-resolution",
+    "state": "queued",
+    "input": {
+      "schema": "crexx-rag.work-input/1",
+      "operation": "maintenance-resolution",
+      "task_id": "task:902129caf64ac0c5426cd694dc905ee950b4a5570b4d06776aa1bcec2b98b87b",
+      "evidence_fingerprint": "b21f82b30c50ca24c6344f79a2735c0e6f089e0826cc42bc70bcabc79fc61e20",
+      "question": "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage.",
+      "evidence": {
+        "subject": {
+          "type": "alias-issue",
+          "id": "alias-issue:3ad41c18da4e795d5a780a340478bf1c655428935db359139ebe5b0b345c112d",
+          "candidate_id": "candidate-sha256:371e117502e8feec678a2c1a5ba70e5baa95439a141bdfdcb1b6f3f18c1bcfa4",
+          "canonical_label": "Campbell of Argyll",
+          "concept_type": "organisation",
+          "aliases": [
+            "Campbell of Argyll",
+            "Argyle"
+          ],
+          "candidates": [
+            {
+              "concept_id": "concept-sha256:0e8cb1e346ef558b305495488adf9a10465d1c310f397ca2d2f9089506bdbd13",
+              "canonical_label": "Campbell of Argyll",
+              "concept_type": "organisation"
+            },
+            {
+              "concept_id": "concept-sha256:9182d00653954287a04bbcabf1b3a7a1956d6342c3a46730db89dd1156e24102",
+              "canonical_label": "Argyle",
+              "concept_type": "person"
+            },
+            {
+              "concept_id": "concept-sha256:e5cad217b69934f092d3508ad5ccf885bf15ab82ef0a2ed0b9ed9d0b8bb2d632",
+              "canonical_label": "Argyle",
+              "concept_type": "place"
+            }
+          ]
+        },
+        "successors": [],
+        "catalogue": [
+          {
+            "concept_id": "concept-sha256:163c07d897c8d719501b9d5f51ba5a7d225a2753b834833fdd62787d476ccdcc",
+            "canonical_label": "duke  of  Argyle",
+            "concept_type": "person",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:6c484b5422d6b14a9d50c679c1ccb950723aca150a8326ece61038faa16ecadf",
+            "canonical_label": "Proclamations",
+            "concept_type": "artefact",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:709c9ff29c9d21453d9d70ae8cbf07a3ba790f1b2a96793ed1c731644289afee",
+            "canonical_label": "non-jurant  clergy",
+            "concept_type": "organisation",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:739513e6561945a1057185c8a6a5d8db8ba6743bc78519523ad5c551dfbfbd69",
+            "canonical_label": "France",
+            "concept_type": "place",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:7685fbda0b59ed990c36d3eb5ae809b31dcf8e5fbb94b7120fc3b00cd755164c",
+            "canonical_label": "Inverness",
+            "concept_type": "place",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:7aafae06f504c771650eb338fceb982f60277dc2e09f760a0527c1177229ea44",
+            "canonical_label": "Jacobite  army",
+            "concept_type": "organisation",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:95e8f45df952e9fce6f3db35502a882a79dfd3cf49971f76bad0626cbee7be8e",
+            "canonical_label": "Fetteresso",
+            "concept_type": "place",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:976e652ede5e6291644f59b8237d359f4c5eb2b59e72ff6d3552a552d14f512e",
+            "canonical_label": "Stirling",
+            "concept_type": "place",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:98db021a1f9e8043e6d956fe8693c56ecb98016f8150b60180f4350ada752f30",
+            "canonical_label": "castle  Campbell",
+            "concept_type": "place",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:abb4232c06de5636bb16caf828bf17eb5118f6aec56431768cad15220274e388",
+            "canonical_label": "insurrection",
+            "concept_type": "event",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:be40d22080f3af0f5e3e39611944501ec84c6dd8d73406a9db82c35ded47584e",
+            "canonical_label": "Chevalier",
+            "concept_type": "person",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:c1ab1f648d85abf62e51a6732c8b309a09f6d35c4a985d955306a00059d2f5dd",
+            "canonical_label": "Battle  of  Sheriffmuir",
+            "concept_type": "event",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:f78df7372351b94f459429b1c481f5792a0db15cf0fae6770043fa784d869be8",
+            "canonical_label": "Dunblane",
+            "concept_type": "place",
+            "lifecycle": "active",
+            "version": 1
+          }
+        ],
+        "passages": [
+          {
+            "evidence_id": "candidate-sha256:371e117502e8feec678a2c1a5ba70e5baa95439a141bdfdcb1b6f3f18c1bcfa4",
+            "revision_chunk_id": "occurrence-sha256:a1469b9ce3e709ff71fdf2f5188256cb9c76c566d5fcc44b2fe21398d93011ee",
+            "text": "Mar  issues  an  order  of  assessment — Detachment  of  his  army  surprised  at  castle  Campbell \n— Preparations  for  opening  the  campaign — Departure  from  Perth — Junction  of  the \nwestern  clans — Advance  of  Argyle  from  Stirling — Enters  Dunblane— Preparations \nfor  battle — Battle  of  Sheriffmuir — Return  of  Mar  to  Perth,  and  of  Argyle  to  Stirling \n— Capture  of  Inverness — Arrival  of  the  Chevalier — Met  by  Mar  at  Fetteresso  — His \nreception  by  the  non-jurant  clergy — Issues  a variety  of  proclamations— Preparations \nof  the  duke  of  Argyle — Retreat  of  the  Jacobite  army  from  Perth — Departure  of  the \nChevalier  for  France — Conclusion  of  the  Insurrection.",
+            "span_start": 231,
+            "span_end": 237
+          }
+        ]
+      },
+      "role": "extractor",
+      "provider_id": "codex-extract",
+      "model": "gpt-5.6-luna",
+      "charging_basis": "subscription-allowance",
+      "privacy": "public",
+      "config_snapshot_id": "config-a211c0fede4237fe77bbc797",
+      "profile_id": "scottish-history-profile",
+      "reservation": {
+        "input_tokens": 32768,
+        "output_tokens": 16384,
+        "cost_microunits": 0,
+        "time_ms": 120000
+      }
+    }
+  },
+  {
+    "item_id": "item-maintenance:3960655329af67adeaa52e0cca6f32ae8bfb8f8071d9f8c2f2d703193039b109",
+    "kind": "maintenance-resolution",
+    "state": "queued",
+    "input": {
+      "schema": "crexx-rag.work-input/1",
+      "operation": "maintenance-resolution",
+      "task_id": "task:8e0630d550bca8ef1e13d1d41453464494eb84411e95c799cefeb12eae0f71f9",
+      "evidence_fingerprint": "28f3b16e85dfdfa3c9f0a122f82b66dc808314e0bd4b44b5f34f660a1cb31ef7",
+      "question": "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage.",
+      "evidence": {
+        "subject": {
+          "type": "alias-issue",
+          "id": "alias-issue:3bf3f78ec525dad98ac9c55dd10f47ceeba9b31fb796b967fa598b9c8e1e2397",
+          "candidate_id": "candidate-sha256:2316780ef2d187468093128e4aed889fbba04f9a2abb85d5e98d0598b8a21b05",
+          "canonical_label": "the Chevalier",
+          "concept_type": "evidence-span",
+          "aliases": [
+            "the Chevalier"
+          ],
+          "candidates": [
+            {
+              "concept_id": "concept-sha256:a2afbe8777cbc4175388b3ac523290856b5aef2dc71b80cd91e5c18f1c2c756f",
+              "canonical_label": "James Stuart",
+              "concept_type": "person"
+            }
+          ]
+        },
+        "successors": [],
+        "catalogue": [
+          {
+            "concept_id": "concept-sha256:5ff19f48530696a03b082bdf7f9c7b353f0d875285989017a2e61361909291dc",
+            "canonical_label": "30 th March",
+            "concept_type": "evidence-span",
+            "lifecycle": "active",
+            "version": 1
+          }
+        ],
+        "passages": [
+          {
+            "evidence_id": "candidate-sha256:2316780ef2d187468093128e4aed889fbba04f9a2abb85d5e98d0598b8a21b05",
+            "revision_chunk_id": "occurrence-sha256:41a1bd0a3735b2836beac47baef5af1ca92bc57682727dfb46b07bea6d2ba3bf",
+            "text": "From  the  Chevalier , — 30 th  March .",
+            "span_start": 6,
+            "span_end": 20
+          }
+        ]
+      },
+      "role": "extractor",
+      "provider_id": "codex-extract",
+      "model": "gpt-5.6-luna",
+      "charging_basis": "subscription-allowance",
+      "privacy": "public",
+      "config_snapshot_id": "config-a211c0fede4237fe77bbc797",
+      "profile_id": "scottish-history-profile",
+      "reservation": {
+        "input_tokens": 32768,
+        "output_tokens": 16384,
+        "cost_microunits": 0,
+        "time_ms": 120000
+      }
+    }
+  },
+  {
+    "item_id": "item-maintenance:400a9df1bca27c58f1bb5f121cf719dd52c69fe4095ca5781a12e8a53f8119af",
+    "kind": "maintenance-resolution",
+    "state": "queued",
+    "input": {
+      "schema": "crexx-rag.work-input/1",
+      "operation": "maintenance-resolution",
+      "task_id": "task:adeed40dec657c85e109a609ce7a5101e819949d99c05bbaafc9aa9a7746ffd8",
+      "evidence_fingerprint": "1454feeea5a61dc3588cf4dfa0581ebc072afca7eb4a53ba645fb1ee8a63e48a",
+      "question": "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage.",
+      "evidence": {
+        "subject": {
+          "type": "alias-issue",
+          "id": "alias-issue:3c1efd1fe295a1019853e3b04de4d5396a7facbcddba06d399a7cce4d0d9b6b9",
+          "candidate_id": "candidate-sha256:1e6ea3794040e951a07e1b45bd4e5e3118c6ff08c123c99aa649e2346356ae59",
+          "canonical_label": "COLLECTION OF GAELIC POETRY",
+          "concept_type": "evidence-span",
+          "aliases": [
+            "COLLECTION OF GAELIC POETRY"
+          ],
+          "candidates": [
+            {
+              "concept_id": "concept-sha256:b5fc80bd4b0f769246b76aa891e13a5f850227b34c78ec0ac3b5de2925c7b2f8",
+              "canonical_label": "collection of Gaelic poetry",
+              "concept_type": "artefact"
+            }
+          ]
+        },
+        "successors": [],
+        "catalogue": [],
+        "passages": [
+          {
+            "evidence_id": "candidate-sha256:1e6ea3794040e951a07e1b45bd4e5e3118c6ff08c123c99aa649e2346356ae59",
+            "revision_chunk_id": "occurrence-sha256:6a32ab72b77ed8fbb099485a2010d3a557f93669de6f34585db35257c4e38797",
+            "text": "COLLECTION OF GAELIC POETRY. Al",
+            "span_start": 0,
+            "span_end": 27
+          }
+        ]
+      },
+      "role": "extractor",
+      "provider_id": "codex-extract",
+      "model": "gpt-5.6-luna",
+      "charging_basis": "subscription-allowance",
+      "privacy": "public",
+      "config_snapshot_id": "config-a211c0fede4237fe77bbc797",
+      "profile_id": "scottish-history-profile",
+      "reservation": {
+        "input_tokens": 32768,
+        "output_tokens": 16384,
+        "cost_microunits": 0,
+        "time_ms": 120000
+      }
+    }
+  },
+  {
+    "item_id": "item-maintenance:73f9c6788fb0159f09875c73d5bf90ea66bfb09030cb5f06724298daa86555cf",
+    "kind": "maintenance-resolution",
+    "state": "queued",
+    "input": {
+      "schema": "crexx-rag.work-input/1",
+      "operation": "maintenance-resolution",
+      "task_id": "task:bfcb0460d38fd7867f0e03eb6482bfb91f7fbaf99d7390a24829c2877cd29ec6",
+      "evidence_fingerprint": "7b1969f0b3ac5abc2e689df2e9abcbe81392540ba61e20a83d91f398b05d7f49",
+      "question": "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage.",
+      "evidence": {
+        "subject": {
+          "type": "alias-issue",
+          "id": "alias-issue:3bfb0f51e08c423655144d3ee687b9352a4db9343ade069c031c95b434929e56",
+          "candidate_id": "candidate-sha256:5801c6a6f8a8f0837fd1731feec0920b79afd180491f405f1ce11af9e2dde367",
+          "canonical_label": "Highlanders",
+          "concept_type": "organisation",
+          "aliases": [
+            "Highlanders"
+          ],
+          "candidates": [
+            {
+              "concept_id": "concept-sha256:2b175f5ca3e39b411cfe0aad8d5e74a85a3d10ceb56486e51b4679d6f153f7a5",
+              "canonical_label": "Highlanders",
+              "concept_type": "organisation"
+            },
+            {
+              "concept_id": "concept-sha256:daa1f56cb87b58ac77f416fa913764da7c5a2a1366ce4333a1ddea2e8471dbec",
+              "canonical_label": "Highlanders",
+              "concept_type": "person"
+            }
+          ]
+        },
+        "successors": [],
+        "catalogue": [
+          {
+            "concept_id": "concept-sha256:47ae849049c4b3fb1022677647b2d6c0a7b934eaa98f686068156c3b58fe7ee3",
+            "canonical_label": "Shetland islands",
+            "concept_type": "place",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:6a1320633f2be6a5aa043f74d0be6c5e801f92d6882d50abbf4958800be1c307",
+            "canonical_label": "Birt",
+            "concept_type": "person",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:9fc301ca805cf804619d7d88313c27e5a3b2acac9b4c024e1f889065d5888ea0",
+            "canonical_label": "Scandinavian settlers",
+            "concept_type": "organisation",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:ff9fa35373c84b5f41f3def186d83dc6a178cb3563ada807188e203533694f80",
+            "canonical_label": "French and American wars",
+            "concept_type": "event",
+            "lifecycle": "active",
+            "version": 1
+          }
+        ],
+        "passages": [
+          {
+            "evidence_id": "candidate-sha256:5801c6a6f8a8f0837fd1731feec0920b79afd180491f405f1ce11af9e2dde367",
+            "revision_chunk_id": "occurrence-sha256:6ba83163b7fb3e9e748df72e412e27b254e0f0716ab2c0a95a8a949c26c8077e",
+            "text": "The use of stockings and shoes is comparatively of recent date in the \nHighlands. Originally they encased their feet in a piece of untanned \nhide, cut to the shape and size of the foot, and drawn close together with \nleather thongs, a practice which is observed by the descendants of the \nScandinavian settlers in the Shetland islands even to the present day ; \nbut this mode of covering the feet was far from being general, as the \ngreater part of the population went barefooted. Such was the state of \nthe Highlanders who fought at Killiecrankie; and Birt, who wrote up- \nwards of a century ago, says that he visited a well-educated and’ polite \nLaird, in the north, who wore neither shoes nor stockings, nor had any \ncovering for his feet. A modern writer observes, that when the High- \nJand regiments were embodied during the French and American wars, \nhundreds of the men were brought down without either stockings or \nshoes. . | fe",
+            "span_start": 508,
+            "span_end": 519
+          }
+        ]
+      },
+      "role": "extractor",
+      "provider_id": "codex-extract",
+      "model": "gpt-5.6-luna",
+      "charging_basis": "subscription-allowance",
+      "privacy": "public",
+      "config_snapshot_id": "config-a211c0fede4237fe77bbc797",
+      "profile_id": "scottish-history-profile",
+      "reservation": {
+        "input_tokens": 32768,
+        "output_tokens": 16384,
+        "cost_microunits": 0,
+        "time_ms": 120000
+      }
+    }
+  },
+  {
+    "item_id": "item-maintenance:b1fbd9da4dbe55dffa0b857795226f174b7e6bfd8d9c56a37a3efa5744ac75c1",
+    "kind": "maintenance-resolution",
+    "state": "queued",
+    "input": {
+      "schema": "crexx-rag.work-input/1",
+      "operation": "maintenance-resolution",
+      "task_id": "task:9c0ba1ac1269f9303dba37979c533de5a3244dca1c1c787436ad9d2b82d38b0f",
+      "evidence_fingerprint": "6946390da23810069cd7bf102464d99b74b300f475cdc08ba9ab57b88d886064",
+      "question": "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage.",
+      "evidence": {
+        "subject": {
+          "type": "alias-issue",
+          "id": "alias-issue:3bbf1c2a89078f1cd0dd3732fd491ede0d90db4e54dd0fc456de0891878ef5a2",
+          "candidate_id": "candidate-sha256:3d526c49168f932087dacecaed3adc2f01ac24e8d895c7253af7eb538411634a",
+          "canonical_label": "HISTORY  OF  THE  HIGHLAND  CLANS.",
+          "concept_type": "artefact",
+          "aliases": [
+            "HISTORY  OF  THE  HIGHLAND  CLANS."
+          ],
+          "candidates": [
+            {
+              "concept_id": "concept-sha256:6ab4559e4fdb6a5f88acbf201cf022ceb8d77445777515d4f2f9825b4a708834",
+              "canonical_label": "HISTORY  OF  THE  HIGHLAND  CLANS.",
+              "concept_type": "evidence-span"
+            }
+          ]
+        },
+        "successors": [],
+        "catalogue": [],
+        "passages": [
+          {
+            "evidence_id": "candidate-sha256:3d526c49168f932087dacecaed3adc2f01ac24e8d895c7253af7eb538411634a",
+            "revision_chunk_id": "occurrence-sha256:43152e6a1a2202a75524279c662f42db15187dd8c8c2637ce8b7673b19cc2167",
+            "text": "HISTORY  OF  THE  HIGHLAND  CLANS.",
+            "span_start": 0,
+            "span_end": 34
+          }
+        ]
+      },
+      "role": "extractor",
+      "provider_id": "codex-extract",
+      "model": "gpt-5.6-luna",
+      "charging_basis": "subscription-allowance",
+      "privacy": "public",
+      "config_snapshot_id": "config-a211c0fede4237fe77bbc797",
+      "profile_id": "scottish-history-profile",
+      "reservation": {
+        "input_tokens": 32768,
+        "output_tokens": 16384,
+        "cost_microunits": 0,
+        "time_ms": 120000
+      }
+    }
+  },
+  {
+    "item_id": "item-maintenance:c8b481ac53f576c0fa6210eff6fc919fc3cbfd26d89701c9e787d104e5095e97",
+    "kind": "maintenance-resolution",
+    "state": "queued",
+    "input": {
+      "schema": "crexx-rag.work-input/1",
+      "operation": "maintenance-resolution",
+      "task_id": "task:bd44c5b2af518109a7b1abe7dbf2815a0174f14da7a137776a927cc8f7c53a92",
+      "evidence_fingerprint": "4545019427b0e74a779581b4f9d2c23c05d33c5c4b0bb220aba523da7a47ac44",
+      "question": "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage.",
+      "evidence": {
+        "subject": {
+          "type": "alias-issue",
+          "id": "alias-issue:3af14fb987e0e865d66abd71d262374188665364c381f49e625943de148c8e67",
+          "candidate_id": "candidate-sha256:dea477162717b9a7142d05373a0a3ef54826b5a8fa6f545d56d0129c6aeb5ad9",
+          "canonical_label": "Lochgary",
+          "concept_type": "person",
+          "aliases": [
+            "Lochgary"
+          ],
+          "candidates": [
+            {
+              "concept_id": "concept-sha256:24cd240350e596422009c819ff60c2bddc6c44a35c763808630a6b4a4af07946",
+              "canonical_label": "Lochgary",
+              "concept_type": "place"
+            }
+          ]
+        },
+        "successors": [],
+        "catalogue": [
+          {
+            "concept_id": "concept-sha256:0c541ea3b3aa631fbff24d4ae6b124cdcdc9e83432afb897cac8c9c12732c2ad",
+            "canonical_label": "French king",
+            "concept_type": "person",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:4417bc1e29d38015ea886180f4aca3a1b912bac4fa919df69d3038dacb5f4a65",
+            "canonical_label": "Invermely",
+            "concept_type": "place",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:80fa0f412891392cc5bd5fdf7214359369152c6e2dc3c279dcd9f0bc26d7c171",
+            "canonical_label": "Auchnicarry",
+            "concept_type": "place",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:9a96461501dece780940facd39c1729862e8e956900bf97fb1a6bac05ba7c62d",
+            "canonical_label": "Loch Arkaig",
+            "concept_type": "place",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:d9a53b16166e0cf9d1266cfe6d28f53c95aa322782644e7ffc16f090d7c6d817",
+            "canonical_label": "government forces",
+            "concept_type": "organisation",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:f7313be82ffd3098522558edd14abb8e5beb457cf25c21dfcc4f023ceca37e6a",
+            "canonical_label": "Barisdale",
+            "concept_type": "person",
+            "lifecycle": "active",
+            "version": 1
+          }
+        ],
+        "passages": [
+          {
+            "evidence_id": "candidate-sha256:dea477162717b9a7142d05373a0a3ef54826b5a8fa6f545d56d0129c6aeb5ad9",
+            "revision_chunk_id": "occurrence-sha256:51a5047a49809099011c51d41358625cdceddcde9a2eea698a52538ad1777446",
+            "text": "The  associated  chiefs  had  been  too  sanguine  in  their  expectations, \nnot  one  of  them  being  able,  for  various  reasons,  to  meet  on  the  day \nappointed.  Clanranald  s people  refused  to  leave  their  own  country,  and \nmany  of  Glengary ’s  had  delivered  up  their  arms.  Lochgary  came  with \na small  party  to  Invermely  on  the  twentieth  of  May ; but,  after  staying \none  night,  he  crossed  Loch  Arkaig  and  did  not  return.  Lochiel  and \nBarisdale  met  at  Auchnicarry,  the  place  of  rendezvous,  on  the  twenty- \nfirst  or  twenty-second  of  May,  but  with  very  few  men,  and  they  were \nalmost  surprised  by  a large  party  of  the  government  forces  on  the  morn- \ning of  the  twenty-third,  who  took  an  officer  and  two  of  Lochiel’s  men \nprisoners.  The  Highlanders  immediately  dispersed,  and  Lochiel,  seeing \nno  chance  of  making  an  effectual  stand  under  existing  circumstances, \nwrote  a circular  to  his  brother  chiefs,  advising  them  to  disperse  their \npeople ; but,  as  great  expectations  were  .entertained  that  the  French \nking  would  send  assistance,  he  requested  them  to  preserve  their  arms  as \nlong  as  possible.f",
+            "span_start": 299,
+            "span_end": 307
+          }
+        ]
+      },
+      "role": "extractor",
+      "provider_id": "codex-extract",
+      "model": "gpt-5.6-luna",
+      "charging_basis": "subscription-allowance",
+      "privacy": "public",
+      "config_snapshot_id": "config-a211c0fede4237fe77bbc797",
+      "profile_id": "scottish-history-profile",
+      "reservation": {
+        "input_tokens": 32768,
+        "output_tokens": 16384,
+        "cost_microunits": 0,
+        "time_ms": 120000
+      }
+    }
+  },
+  {
+    "item_id": "item-maintenance:f5045a992319969512c5ca311d33313bc79a406fb73bc9945b49ef036d90fffb",
+    "kind": "maintenance-resolution",
+    "state": "queued",
+    "input": {
+      "schema": "crexx-rag.work-input/1",
+      "operation": "maintenance-resolution",
+      "task_id": "task:8d90e06c93955c72377f2e5360a3b4dd40adb71963b970f585c90f2ab89c8108",
+      "evidence_fingerprint": "2a33bed494cffc446277cdef19c6586d8076d6c292209ff6b8a771f5194c5b44",
+      "question": "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage.",
+      "evidence": {
+        "subject": {
+          "type": "alias-issue",
+          "id": "alias-issue:3b77a5ed55688ae0eabae299c569726537fe1c50216935e03123412f1550388f",
+          "candidate_id": "candidate-sha256:2943bd1249de24892078df05fd0bfc53328eef68f372f7aa833b5368a916ff4b",
+          "canonical_label": "Celtic",
+          "concept_type": "artefact",
+          "aliases": [
+            "Celtic"
+          ],
+          "candidates": [
+            {
+              "concept_id": "concept-sha256:6f3897c6f76886aff30338646fcfab3f9af9579901d4ba547ea4aa356467beea",
+              "canonical_label": "Celtic",
+              "concept_type": "evidence-span"
+            }
+          ]
+        },
+        "successors": [],
+        "catalogue": [
+          {
+            "concept_id": "concept-sha256:22cec14cbd5028fa1eecf5c90f5abdabe781c836da0d3a5e8e347826a9eaa83d",
+            "canonical_label": "Persian",
+            "concept_type": "artefact",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:531f4dcddeafb92745a128478b4272d1f06644ee3ea5ac6839e6672b0b81c7d8",
+            "canonical_label": "Teutonic dialects",
+            "concept_type": "artefact",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:71271f17cb911416e7a76629245251de83dc9a39ef3865fa700fc14e2766a1ab",
+            "canonical_label": "Sanskrit",
+            "concept_type": "artefact",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:76874846c18a6e79d1010b65cd1a4723adb29da0fc2e54226861deb574c643a7",
+            "canonical_label": "Davis",
+            "concept_type": "person",
+            "lifecycle": "active",
+            "version": 1
+          },
+          {
+            "concept_id": "concept-sha256:b892e940c1e745a1ef641aa370be6b5ebe865e4d883f64e69bb52178d0c6e9b7",
+            "canonical_label": "Britannic",
+            "concept_type": "artefact",
+            "lifecycle": "active",
+            "version": 1
+          }
+        ],
+        "passages": [
+          {
+            "evidence_id": "candidate-sha256:2943bd1249de24892078df05fd0bfc53328eef68f372f7aa833b5368a916ff4b",
+            "revision_chunk_id": "occurrence-sha256:2c258ec9865da9db2164e84081d0f4e3aed0291eab4ed6a91adac6789e8fa87f",
+            "text": "concludes, that “the Celtic, \nwhen divested of all words which have been introduced into it by con- \nquest and religion, is a perfectly original language ;” and that “ this \noriginality incontrovertibly proves that neither Greek, Latin, or the \nTeutonic dialects, nor Arabic, Persian, or Sanskrit, were derived from \nthe Celtic, since these languages have not any affinity whatever with \nthat tongue.”* Davis, however, in the preface to his dictionary, has \nsaid, “‘ Ausim affirmare linguam Britannicam (Celticam), tum vocibus, \ntum phrasibus et orationis contextu, tum literarum pronunciatione,",
+            "span_start": 23,
+            "span_end": 29
+          }
+        ]
+      },
+      "role": "extractor",
+      "provider_id": "codex-extract",
+      "model": "gpt-5.6-luna",
+      "charging_basis": "subscription-allowance",
+      "privacy": "public",
+      "config_snapshot_id": "config-a211c0fede4237fe77bbc797",
+      "profile_id": "scottish-history-profile",
+      "reservation": {
+        "input_tokens": 32768,
+        "output_tokens": 16384,
+        "cost_microunits": 0,
+        "time_ms": 120000
+      }
+    }
+  }
+]
