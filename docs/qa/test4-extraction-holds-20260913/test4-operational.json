@@ -1,0 +1,976 @@
+[
+  {
+    "item_id": "item-sha256:15d3a496e400d61e0811dc7474bf12998bd894b3f70316a06ca9f2f64e8e6f8b",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:15d3a496e400d61e0811dc7474bf12998bd894b3f70316a06ca9f2f64e8e6f8b#attempt-1",
+      "item_id": "item-sha256:15d3a496e400d61e0811dc7474bf12998bd894b3f70316a06ca9f2f64e8e6f8b",
+      "worker_id": "worker-f8757088abbf5f213e1d087956211937",
+      "fence": 1,
+      "input_hash": "40a0ad6ca5d2e9fff020b29dd93a2dd685f8d24de1d17edb21044f5300bd370b",
+      "output_hash": null,
+      "provider_run_id": null,
+      "validation_state": "cannot begin provider reservation",
+      "outcome": "dead_letter",
+      "started_at": "2026-09-09T22:13:10.067Z",
+      "completed_at": "2026-09-09T22:13:17.599Z"
+    },
+    "responses": [],
+    "reconciliations": [],
+    "event_types": {
+      "claimed": 1,
+      "dead_letter": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:3e390eedc97a79dfa57d45204d7574801a69f01ff9894a1c86865039d2edd5e4",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:3e390eedc97a79dfa57d45204d7574801a69f01ff9894a1c86865039d2edd5e4#attempt-2",
+      "item_id": "item-sha256:3e390eedc97a79dfa57d45204d7574801a69f01ff9894a1c86865039d2edd5e4",
+      "worker_id": "worker-27851a700dac5b28315235b6638e44e4",
+      "fence": 2,
+      "input_hash": "c7c56bc791c23f7f6d84a119c1d5fca9b470f621c35e1b634469b8905e768beb",
+      "output_hash": null,
+      "provider_run_id": "provider-run-sha256:a25dba099331050db9ce1c10a92e47438586adbd242377c949407936ed8fce2c",
+      "validation_state": "lease-expired",
+      "outcome": "expired",
+      "started_at": "2026-09-10T01:29:30.077Z",
+      "completed_at": "2026-09-10T01:32:02.543Z"
+    },
+    "responses": [
+      {
+        "event_id": 293108,
+        "attempt_id": "item-sha256:3e390eedc97a79dfa57d45204d7574801a69f01ff9894a1c86865039d2edd5e4#attempt-1",
+        "provider_run_id": "provider-run-sha256:3f723257b9f320a82f435eff8a7c9499d25cb5d1c8ae70984771ea8d05eb475e",
+        "status": 0,
+        "content_bytes": 2875,
+        "error_message": "",
+        "error_category": "none"
+      },
+      {
+        "event_id": 460477,
+        "attempt_id": "item-sha256:3e390eedc97a79dfa57d45204d7574801a69f01ff9894a1c86865039d2edd5e4#attempt-2",
+        "provider_run_id": "provider-run-sha256:a25dba099331050db9ce1c10a92e47438586adbd242377c949407936ed8fce2c",
+        "status": -105,
+        "content_bytes": 0,
+        "error_message": "observed Codex turn state: interrupted",
+        "error_category": "reconciliation"
+      }
+    ],
+    "reconciliations": [
+      {
+        "schema": "crexx-rag.external-observation/1",
+        "job_id": "job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622",
+        "item_id": "item-sha256:3e390eedc97a79dfa57d45204d7574801a69f01ff9894a1c86865039d2edd5e4",
+        "attempt_id": "item-sha256:3e390eedc97a79dfa57d45204d7574801a69f01ff9894a1c86865039d2edd5e4#attempt-2",
+        "provider_run_id": "provider-run-sha256:a25dba099331050db9ce1c10a92e47438586adbd242377c949407936ed8fce2c",
+        "thread_id": "01a088ef-708c-7360-a1cb-6eefabef7db1",
+        "turn_id": "01a088ef-70d9-76f3-b71f-19d3b633b66d",
+        "state": "interrupted",
+        "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "usage_complete": 0,
+        "usage_basis": "retained usage; incomplete values are lower bounds",
+        "provider_calls": 0,
+        "detail": "",
+        "digest": "e9bbec1b227423aedc7c0ef3966a9658cd4603fdbebf543da6f69f27bcd07899"
+      }
+    ],
+    "event_types": {
+      "claimed": 2,
+      "reservation-open": 2,
+      "provider-intent": 2,
+      "provider-response": 2,
+      "reservation-close": 2,
+      "settlement-receipt": 2,
+      "citation-correction-requested": 1,
+      "queued": 1,
+      "provider-outcome-uncertain": 1,
+      "settlement-exception": 1,
+      "provider-reconciled": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:3e5776e048728a23f25c9c193a638ca6cdb3599b85a41a3054202c98d20b4666",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:3e5776e048728a23f25c9c193a638ca6cdb3599b85a41a3054202c98d20b4666#attempt-2",
+      "item_id": "item-sha256:3e5776e048728a23f25c9c193a638ca6cdb3599b85a41a3054202c98d20b4666",
+      "worker_id": "worker-477e51ada3ef2df4e0ff619d80dd843e",
+      "fence": 2,
+      "input_hash": "37673e73fda8af30448a46178bdeb00055ae5516db27312674f0555ba705e3f9",
+      "output_hash": null,
+      "provider_run_id": "provider-run-sha256:2257875b2fa88b06b19cad04619d3f63b2cd942d98123b489ca4373bee2fea14",
+      "validation_state": "lease-expired",
+      "outcome": "expired",
+      "started_at": "2026-09-10T01:29:51.305Z",
+      "completed_at": "2026-09-10T01:32:03.635Z"
+    },
+    "responses": [
+      {
+        "event_id": 293179,
+        "attempt_id": "item-sha256:3e5776e048728a23f25c9c193a638ca6cdb3599b85a41a3054202c98d20b4666#attempt-1",
+        "provider_run_id": "provider-run-sha256:768e45f244976ea65ff9403213efd09444c824634ab87f3e49b147b0d0c8246e",
+        "status": 0,
+        "content_bytes": 2573,
+        "error_message": "",
+        "error_category": "none"
+      },
+      {
+        "event_id": 460482,
+        "attempt_id": "item-sha256:3e5776e048728a23f25c9c193a638ca6cdb3599b85a41a3054202c98d20b4666#attempt-2",
+        "provider_run_id": "provider-run-sha256:2257875b2fa88b06b19cad04619d3f63b2cd942d98123b489ca4373bee2fea14",
+        "status": -105,
+        "content_bytes": 0,
+        "error_message": "observed Codex turn state: interrupted",
+        "error_category": "reconciliation"
+      }
+    ],
+    "reconciliations": [
+      {
+        "schema": "crexx-rag.external-observation/1",
+        "job_id": "job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622",
+        "item_id": "item-sha256:3e5776e048728a23f25c9c193a638ca6cdb3599b85a41a3054202c98d20b4666",
+        "attempt_id": "item-sha256:3e5776e048728a23f25c9c193a638ca6cdb3599b85a41a3054202c98d20b4666#attempt-2",
+        "provider_run_id": "provider-run-sha256:2257875b2fa88b06b19cad04619d3f63b2cd942d98123b489ca4373bee2fea14",
+        "thread_id": "01a088ef-7f22-79d1-8dfb-748e7a0074a6",
+        "turn_id": "01a088ef-7f6f-7290-90ab-b4bc5eb68e18",
+        "state": "interrupted",
+        "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "usage_complete": 0,
+        "usage_basis": "retained usage; incomplete values are lower bounds",
+        "provider_calls": 0,
+        "detail": "",
+        "digest": "c4105131c6ede2fbd0a6bc6e7c93dc6ed14acbc6b071e19bf5162ef6c5e727b7"
+      }
+    ],
+    "event_types": {
+      "claimed": 2,
+      "reservation-open": 2,
+      "provider-intent": 2,
+      "provider-response": 2,
+      "reservation-close": 2,
+      "settlement-receipt": 2,
+      "citation-correction-requested": 1,
+      "queued": 1,
+      "provider-outcome-uncertain": 1,
+      "settlement-exception": 1,
+      "provider-reconciled": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:3e5c0c1248d6762aafc08d55e3998f1a07eaa7796da5af7e6581ef5f2d8d19ae",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:3e5c0c1248d6762aafc08d55e3998f1a07eaa7796da5af7e6581ef5f2d8d19ae#attempt-1",
+      "item_id": "item-sha256:3e5c0c1248d6762aafc08d55e3998f1a07eaa7796da5af7e6581ef5f2d8d19ae",
+      "worker_id": "worker-63a2ad2dd9c2833009931d1cdf523ade",
+      "fence": 1,
+      "input_hash": "38c4e6d2031aceb39f8ffc0297dc6302e1a5f6d63c17ba0a60359933ad1a5847",
+      "output_hash": null,
+      "provider_run_id": "provider-run-sha256:5b4250db84f2e742893cc729673899d7281f894d5c74a3d53e11bb396d50112e",
+      "validation_state": "lease-expired",
+      "outcome": "expired",
+      "started_at": "2026-09-10T01:29:33.875Z",
+      "completed_at": "2026-09-10T01:32:02.040Z"
+    },
+    "responses": [
+      {
+        "event_id": 460467,
+        "attempt_id": "item-sha256:3e5c0c1248d6762aafc08d55e3998f1a07eaa7796da5af7e6581ef5f2d8d19ae#attempt-1",
+        "provider_run_id": "provider-run-sha256:5b4250db84f2e742893cc729673899d7281f894d5c74a3d53e11bb396d50112e",
+        "status": -105,
+        "content_bytes": 0,
+        "error_message": "observed Codex turn state: interrupted",
+        "error_category": "reconciliation"
+      }
+    ],
+    "reconciliations": [
+      {
+        "schema": "crexx-rag.external-observation/1",
+        "job_id": "job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622",
+        "item_id": "item-sha256:3e5c0c1248d6762aafc08d55e3998f1a07eaa7796da5af7e6581ef5f2d8d19ae",
+        "attempt_id": "item-sha256:3e5c0c1248d6762aafc08d55e3998f1a07eaa7796da5af7e6581ef5f2d8d19ae#attempt-1",
+        "provider_run_id": "provider-run-sha256:5b4250db84f2e742893cc729673899d7281f894d5c74a3d53e11bb396d50112e",
+        "thread_id": "01a088ef-8f52-7a03-b2c0-f42fedce3c1b",
+        "turn_id": "01a088ef-8f9c-7371-aeaf-15267edeffd3",
+        "state": "interrupted",
+        "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "usage_complete": 0,
+        "usage_basis": "retained usage; incomplete values are lower bounds",
+        "provider_calls": 0,
+        "detail": "",
+        "digest": "f3d022e3cf11230fde552f469e2bedb8bce2fa74a3a1f9b0a434e41e96a3d047"
+      }
+    ],
+    "event_types": {
+      "claimed": 1,
+      "reservation-open": 1,
+      "provider-outcome-uncertain": 1,
+      "reservation-close": 1,
+      "provider-intent": 1,
+      "provider-response": 1,
+      "settlement-receipt": 1,
+      "settlement-exception": 1,
+      "provider-reconciled": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:3e5f61565895c83c492555dec45602bb8a4ebf5e3165c9fffd05ff412dd2ae52",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:3e5f61565895c83c492555dec45602bb8a4ebf5e3165c9fffd05ff412dd2ae52#attempt-1",
+      "item_id": "item-sha256:3e5f61565895c83c492555dec45602bb8a4ebf5e3165c9fffd05ff412dd2ae52",
+      "worker_id": "worker-ea7bab0123fa2aef7298fb5f4802353e",
+      "fence": 1,
+      "input_hash": "876eeefe00b54c859feea1368a66f8f78f7bdb717e9e1ed8b62f9b39248a741e",
+      "output_hash": null,
+      "provider_run_id": "provider-run-sha256:1ce809d866c0021e2bfe68c64159830462979190bc086332726c2b01c61bcf92",
+      "validation_state": "lease-expired",
+      "outcome": "expired",
+      "started_at": "2026-09-10T01:29:37.825Z",
+      "completed_at": "2026-09-10T01:32:03.094Z"
+    },
+    "responses": [
+      {
+        "event_id": 460472,
+        "attempt_id": "item-sha256:3e5f61565895c83c492555dec45602bb8a4ebf5e3165c9fffd05ff412dd2ae52#attempt-1",
+        "provider_run_id": "provider-run-sha256:1ce809d866c0021e2bfe68c64159830462979190bc086332726c2b01c61bcf92",
+        "status": -105,
+        "content_bytes": 0,
+        "error_message": "observed Codex turn state: interrupted",
+        "error_category": "reconciliation"
+      }
+    ],
+    "reconciliations": [
+      {
+        "schema": "crexx-rag.external-observation/1",
+        "job_id": "job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622",
+        "item_id": "item-sha256:3e5f61565895c83c492555dec45602bb8a4ebf5e3165c9fffd05ff412dd2ae52",
+        "attempt_id": "item-sha256:3e5f61565895c83c492555dec45602bb8a4ebf5e3165c9fffd05ff412dd2ae52#attempt-1",
+        "provider_run_id": "provider-run-sha256:1ce809d866c0021e2bfe68c64159830462979190bc086332726c2b01c61bcf92",
+        "thread_id": "01a088ef-7158-7b03-9080-9edd2e5a68c3",
+        "turn_id": "01a088ef-71ac-79f3-904a-8f83cffba518",
+        "state": "interrupted",
+        "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "usage_complete": 0,
+        "usage_basis": "retained usage; incomplete values are lower bounds",
+        "provider_calls": 0,
+        "detail": "",
+        "digest": "9d93c77ad4bbcd66295e306e1669e38165bb7bb95c0da8079e3d4f94031e23b4"
+      }
+    ],
+    "event_types": {
+      "claimed": 1,
+      "reservation-open": 1,
+      "provider-outcome-uncertain": 1,
+      "reservation-close": 1,
+      "provider-intent": 1,
+      "provider-response": 1,
+      "settlement-receipt": 1,
+      "settlement-exception": 1,
+      "provider-reconciled": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:3e65bbb561fad926d61acac8894d5bead5525a18117ed8a1309b031e26060d7d",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:3e65bbb561fad926d61acac8894d5bead5525a18117ed8a1309b031e26060d7d#attempt-1",
+      "item_id": "item-sha256:3e65bbb561fad926d61acac8894d5bead5525a18117ed8a1309b031e26060d7d",
+      "worker_id": "worker-71fe7263ac8c830eb38f3d1b2c4dc87b",
+      "fence": 1,
+      "input_hash": "3545489dbfcc10c23e68fad33a9299fb78a10f943f521da65a69e374d21b4404",
+      "output_hash": null,
+      "provider_run_id": null,
+      "validation_state": "Codex allowance preflight failed: Codex App Server response timed out",
+      "outcome": "dead_letter",
+      "started_at": "2026-09-10T01:29:55.059Z",
+      "completed_at": "2026-09-10T01:32:09.199Z"
+    },
+    "responses": [],
+    "reconciliations": [],
+    "event_types": {
+      "claimed": 1,
+      "reservation-open": 1,
+      "reservation-close": 1,
+      "settlement-receipt": 1,
+      "dead_letter": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:3e6c2611859cd435af7decfd71531b143c39a27c25786f062a8301c98ba27e71",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:3e6c2611859cd435af7decfd71531b143c39a27c25786f062a8301c98ba27e71#attempt-1",
+      "item_id": "item-sha256:3e6c2611859cd435af7decfd71531b143c39a27c25786f062a8301c98ba27e71",
+      "worker_id": "worker-fdc07a910d0c40e8822cecd4fc24fab4",
+      "fence": 1,
+      "input_hash": "fa18d7395de90a9cdbb45c8e1c401252abdefe6c9585b1f3e3b5afc6f74424b3",
+      "output_hash": null,
+      "provider_run_id": null,
+      "validation_state": "Codex allowance preflight failed: Codex App Server response timed out",
+      "outcome": "dead_letter",
+      "started_at": "2026-09-10T01:29:55.324Z",
+      "completed_at": "2026-09-10T01:32:04.635Z"
+    },
+    "responses": [],
+    "reconciliations": [],
+    "event_types": {
+      "claimed": 1,
+      "reservation-open": 1,
+      "reservation-close": 1,
+      "settlement-receipt": 1,
+      "dead_letter": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:3e6fbb8477b2cf8335685d843ccee91c8881cf40597612c3d4be4d168e11068a",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:3e6fbb8477b2cf8335685d843ccee91c8881cf40597612c3d4be4d168e11068a#attempt-1",
+      "item_id": "item-sha256:3e6fbb8477b2cf8335685d843ccee91c8881cf40597612c3d4be4d168e11068a",
+      "worker_id": "worker-c78ea165a186efc026409b5b6d7b5a90",
+      "fence": 1,
+      "input_hash": "83ef3f511ea5439443ea4cccdfd76d3a678b10fdb595902d90b2f33f53fbe758",
+      "output_hash": null,
+      "provider_run_id": null,
+      "validation_state": "Codex allowance preflight failed: Codex App Server response timed out",
+      "outcome": "dead_letter",
+      "started_at": "2026-09-10T01:29:59.049Z",
+      "completed_at": "2026-09-10T01:32:03.184Z"
+    },
+    "responses": [],
+    "reconciliations": [],
+    "event_types": {
+      "claimed": 1,
+      "reservation-open": 1,
+      "reservation-close": 1,
+      "settlement-receipt": 1,
+      "dead_letter": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:4169047a9f262624f6cb56b9ca78d68b9a6996486b2fe124884e20ef6f20a7b3",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:4169047a9f262624f6cb56b9ca78d68b9a6996486b2fe124884e20ef6f20a7b3#attempt-1",
+      "item_id": "item-sha256:4169047a9f262624f6cb56b9ca78d68b9a6996486b2fe124884e20ef6f20a7b3",
+      "worker_id": "worker-b51acac64f46405681b5709615a9eddd",
+      "fence": 1,
+      "input_hash": "5feb26781f056170ddc848101c53aa623ed9fd4fcc14e65e9472de21a8570091",
+      "output_hash": null,
+      "provider_run_id": "provider-run-sha256:1b62912109a35e11b3e7d90ce8a1d9bd3f4d84e6e1cd2a035dd6fa0522988cf3",
+      "validation_state": "lease-expired",
+      "outcome": "expired",
+      "started_at": "2026-09-10T13:46:33.086Z",
+      "completed_at": "2026-09-10T13:48:38.342Z"
+    },
+    "responses": [
+      {
+        "event_id": 464918,
+        "attempt_id": "item-sha256:4169047a9f262624f6cb56b9ca78d68b9a6996486b2fe124884e20ef6f20a7b3#attempt-1",
+        "provider_run_id": "provider-run-sha256:1b62912109a35e11b3e7d90ce8a1d9bd3f4d84e6e1cd2a035dd6fa0522988cf3",
+        "status": -105,
+        "content_bytes": 0,
+        "error_message": "observed Codex turn state: interrupted",
+        "error_category": "reconciliation"
+      }
+    ],
+    "reconciliations": [
+      {
+        "schema": "crexx-rag.external-observation/1",
+        "job_id": "job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622",
+        "item_id": "item-sha256:4169047a9f262624f6cb56b9ca78d68b9a6996486b2fe124884e20ef6f20a7b3",
+        "attempt_id": "item-sha256:4169047a9f262624f6cb56b9ca78d68b9a6996486b2fe124884e20ef6f20a7b3#attempt-1",
+        "provider_run_id": "provider-run-sha256:1b62912109a35e11b3e7d90ce8a1d9bd3f4d84e6e1cd2a035dd6fa0522988cf3",
+        "thread_id": "01a08b91-fc4a-75b0-8725-bf6b700267c7",
+        "turn_id": "01a08b91-fc8e-7762-b1ad-2d6943862bd9",
+        "state": "interrupted",
+        "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "usage_complete": 0,
+        "usage_basis": "retained usage; incomplete values are lower bounds",
+        "provider_calls": 0,
+        "detail": "",
+        "digest": "163e326808f234250a3d28401b040eeddd7cccf13d56a4134202392d1a59b1ce"
+      }
+    ],
+    "event_types": {
+      "claimed": 1,
+      "reservation-open": 1,
+      "provider-intent": 1,
+      "provider-outcome-uncertain": 2,
+      "reservation-close": 1,
+      "provider-response": 1,
+      "settlement-receipt": 1,
+      "settlement-exception": 1,
+      "provider-reconciled": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:4ee890139468d4264a519a5d7db58ac1107280040196925c56215b4e7aa0ac2c",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:4ee890139468d4264a519a5d7db58ac1107280040196925c56215b4e7aa0ac2c#attempt-1",
+      "item_id": "item-sha256:4ee890139468d4264a519a5d7db58ac1107280040196925c56215b4e7aa0ac2c",
+      "worker_id": "worker-c895cdea9a735b5f6c5be689d99d25af",
+      "fence": 1,
+      "input_hash": "5afd0eee38c76a9c041b467ce138564f41f5083425d32660ead5e06aaecb7743",
+      "output_hash": null,
+      "provider_run_id": "provider-run-sha256:c4566d8290477ea900df7c33a8fa5927a87c654601f144f2f53b3eb0d1363afa",
+      "validation_state": "lease-expired",
+      "outcome": "expired",
+      "started_at": "2026-09-10T14:49:43.142Z",
+      "completed_at": "2026-09-10T14:52:04.422Z"
+    },
+    "responses": [
+      {
+        "event_id": 597285,
+        "attempt_id": "item-sha256:4ee890139468d4264a519a5d7db58ac1107280040196925c56215b4e7aa0ac2c#attempt-1",
+        "provider_run_id": "provider-run-sha256:c4566d8290477ea900df7c33a8fa5927a87c654601f144f2f53b3eb0d1363afa",
+        "status": -105,
+        "content_bytes": 0,
+        "error_message": "observed Codex turn state: interrupted",
+        "error_category": "reconciliation"
+      }
+    ],
+    "reconciliations": [
+      {
+        "schema": "crexx-rag.external-observation/1",
+        "job_id": "job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622",
+        "item_id": "item-sha256:4ee890139468d4264a519a5d7db58ac1107280040196925c56215b4e7aa0ac2c",
+        "attempt_id": "item-sha256:4ee890139468d4264a519a5d7db58ac1107280040196925c56215b4e7aa0ac2c#attempt-1",
+        "provider_run_id": "provider-run-sha256:c4566d8290477ea900df7c33a8fa5927a87c654601f144f2f53b3eb0d1363afa",
+        "thread_id": "01a08bcc-0cac-75a2-98ec-6c341335e0e5",
+        "turn_id": "01a08bcc-184d-71f3-96fa-f48ad6af2a51",
+        "state": "interrupted",
+        "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "usage_complete": 0,
+        "usage_basis": "retained usage; incomplete values are lower bounds",
+        "provider_calls": 0,
+        "detail": "",
+        "digest": "fd7a0761606bf60539886140188efa95221ffcaa8e21689f81764e775ca063d9"
+      }
+    ],
+    "event_types": {
+      "claimed": 1,
+      "reservation-open": 1,
+      "provider-intent": 1,
+      "provider-outcome-uncertain": 2,
+      "reservation-close": 1,
+      "provider-response": 1,
+      "settlement-receipt": 1,
+      "settlement-exception": 1,
+      "provider-reconciled": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:92a38a4adcec0c685fe8812213faa2581b593489cffd4aa35b62abfae7b00e7b",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:92a38a4adcec0c685fe8812213faa2581b593489cffd4aa35b62abfae7b00e7b#attempt-3",
+      "item_id": "item-sha256:92a38a4adcec0c685fe8812213faa2581b593489cffd4aa35b62abfae7b00e7b",
+      "worker_id": "worker-acb8632aac1d9d0219d94eca6923525b",
+      "fence": 3,
+      "input_hash": "1fd068161e2776c2e52d806b5cefb4c2603b8a21bfd2e0a253c14d78439670ac",
+      "output_hash": null,
+      "provider_run_id": "provider-run-sha256:d1ce79db3cacd120c549fdd8d6ff9cc5ed46295a56995cd875319b46af978112",
+      "validation_state": "confirmed Codex turn interrupted",
+      "outcome": "dead_letter",
+      "started_at": "2026-09-10T21:01:30.931Z",
+      "completed_at": "2026-09-10T21:03:32.575Z"
+    },
+    "responses": [
+      {
+        "event_id": 532710,
+        "attempt_id": "item-sha256:92a38a4adcec0c685fe8812213faa2581b593489cffd4aa35b62abfae7b00e7b#attempt-2",
+        "provider_run_id": "provider-run-sha256:a0a66e4f504cf1807a3053ec8b3f7934e96621a569bde51799055f9c7902fac3",
+        "status": 0,
+        "content_bytes": 4678,
+        "error_message": "",
+        "error_category": "none"
+      },
+      {
+        "event_id": 533085,
+        "attempt_id": "item-sha256:92a38a4adcec0c685fe8812213faa2581b593489cffd4aa35b62abfae7b00e7b#attempt-3",
+        "provider_run_id": "provider-run-sha256:d1ce79db3cacd120c549fdd8d6ff9cc5ed46295a56995cd875319b46af978112",
+        "status": -103,
+        "content_bytes": 0,
+        "error_message": "confirmed Codex turn interrupted",
+        "error_category": "provider"
+      }
+    ],
+    "reconciliations": [],
+    "event_types": {
+      "claimed": 3,
+      "reservation-open": 3,
+      "reservation-close": 3,
+      "settlement-receipt": 3,
+      "queued": 2,
+      "provider-intent": 2,
+      "provider-response": 2,
+      "citation-correction-requested": 1,
+      "provider-observed": 1,
+      "dead_letter": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:a90dddfa088393404df7614f63c994f62ed4297a665f1655bcb12bac4a077078",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:a90dddfa088393404df7614f63c994f62ed4297a665f1655bcb12bac4a077078#attempt-2",
+      "item_id": "item-sha256:a90dddfa088393404df7614f63c994f62ed4297a665f1655bcb12bac4a077078",
+      "worker_id": "worker-092ad329b89e5776e9cd3217bbc428c1",
+      "fence": 2,
+      "input_hash": "9c7356379001693c6e050af3f199564039435f1cab71e88d425908b333ff82d8",
+      "output_hash": null,
+      "provider_run_id": "provider-run-sha256:dcd107c1a742893067410020b8c2ee568ea22fb55d7617656bca029691ef779f",
+      "validation_state": "lease-expired",
+      "outcome": "expired",
+      "started_at": "2026-09-10T22:29:15.880Z",
+      "completed_at": "2026-09-10T22:32:25.160Z"
+    },
+    "responses": [
+      {
+        "event_id": 548004,
+        "attempt_id": "item-sha256:a90dddfa088393404df7614f63c994f62ed4297a665f1655bcb12bac4a077078#attempt-1",
+        "provider_run_id": "provider-run-sha256:b721126181d3f412e1b0f1dbf9107ba12d67dab279d4913649eb7b33a0fe8a5d",
+        "status": 0,
+        "content_bytes": 3736,
+        "error_message": "",
+        "error_category": "none"
+      },
+      {
+        "event_id": 597289,
+        "attempt_id": "item-sha256:a90dddfa088393404df7614f63c994f62ed4297a665f1655bcb12bac4a077078#attempt-2",
+        "provider_run_id": "provider-run-sha256:dcd107c1a742893067410020b8c2ee568ea22fb55d7617656bca029691ef779f",
+        "status": -105,
+        "content_bytes": 0,
+        "error_message": "observed Codex turn state: interrupted",
+        "error_category": "reconciliation"
+      }
+    ],
+    "reconciliations": [
+      {
+        "schema": "crexx-rag.external-observation/1",
+        "job_id": "job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622",
+        "item_id": "item-sha256:a90dddfa088393404df7614f63c994f62ed4297a665f1655bcb12bac4a077078",
+        "attempt_id": "item-sha256:a90dddfa088393404df7614f63c994f62ed4297a665f1655bcb12bac4a077078#attempt-2",
+        "provider_run_id": "provider-run-sha256:dcd107c1a742893067410020b8c2ee568ea22fb55d7617656bca029691ef779f",
+        "thread_id": "01a08d70-85ff-7142-9064-77c86fca3c61",
+        "turn_id": "01a08d70-86bc-7d91-8c0b-f0139ab0207e",
+        "state": "interrupted",
+        "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "usage_complete": 0,
+        "usage_basis": "retained usage; incomplete values are lower bounds",
+        "provider_calls": 0,
+        "detail": "",
+        "digest": "8d9bc3df9c36e3ebe6eb62a01c7990cf33f74eb221a15b4faec78780b6447634"
+      }
+    ],
+    "event_types": {
+      "claimed": 2,
+      "reservation-open": 2,
+      "provider-intent": 2,
+      "provider-response": 2,
+      "reservation-close": 2,
+      "settlement-receipt": 2,
+      "citation-correction-requested": 1,
+      "queued": 1,
+      "provider-outcome-uncertain": 1,
+      "settlement-exception": 1,
+      "provider-reconciled": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:d7906334c8cd9fb329aa96c5118300581572043ca3c736a2d5a46bb7110035e5",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:d7906334c8cd9fb329aa96c5118300581572043ca3c736a2d5a46bb7110035e5#attempt-2",
+      "item_id": "item-sha256:d7906334c8cd9fb329aa96c5118300581572043ca3c736a2d5a46bb7110035e5",
+      "worker_id": "worker-1f07d4942b40caf9c7888c0c7647c6aa",
+      "fence": 2,
+      "input_hash": "f54c0261232ea2d4e215e2ac3cb7c7f059ee56b5f33f15d0c00345db5d007feb",
+      "output_hash": null,
+      "provider_run_id": "provider-run-sha256:83cf903a753c6d50360a8e66de00b7418eea871c14978906826f3f21c7aeb69e",
+      "validation_state": "confirmed Codex turn interrupted",
+      "outcome": "dead_letter",
+      "started_at": "2026-09-11T01:29:33.668Z",
+      "completed_at": "2026-09-11T01:31:47.002Z"
+    },
+    "responses": [
+      {
+        "event_id": 581492,
+        "attempt_id": "item-sha256:d7906334c8cd9fb329aa96c5118300581572043ca3c736a2d5a46bb7110035e5#attempt-2",
+        "provider_run_id": "provider-run-sha256:83cf903a753c6d50360a8e66de00b7418eea871c14978906826f3f21c7aeb69e",
+        "status": -103,
+        "content_bytes": 0,
+        "error_message": "confirmed Codex turn interrupted",
+        "error_category": "provider"
+      }
+    ],
+    "reconciliations": [],
+    "event_types": {
+      "claimed": 2,
+      "reservation-open": 2,
+      "reservation-close": 2,
+      "settlement-receipt": 2,
+      "queued": 1,
+      "provider-intent": 1,
+      "provider-response": 1,
+      "provider-observed": 1,
+      "dead_letter": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:d7992b4a5f98e324864bcad8fac30fab56daa70d9634024bc2a59d7e472b9c0b",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:d7992b4a5f98e324864bcad8fac30fab56daa70d9634024bc2a59d7e472b9c0b#attempt-1",
+      "item_id": "item-sha256:d7992b4a5f98e324864bcad8fac30fab56daa70d9634024bc2a59d7e472b9c0b",
+      "worker_id": "worker-4b87f48773a15d2826cd4615053417ec",
+      "fence": 1,
+      "input_hash": "19594ac604140cabdfea460052cc74c8e2ae9ad7ce5e4a963a0307349331d3c2",
+      "output_hash": null,
+      "provider_run_id": "provider-run-sha256:95537dc648d3430f9766ba5be4e53d57d1e69a739f206f2c2c226271ba66d575",
+      "validation_state": "confirmed Codex turn interrupted",
+      "outcome": "dead_letter",
+      "started_at": "2026-09-11T01:29:35.426Z",
+      "completed_at": "2026-09-11T01:31:46.625Z"
+    },
+    "responses": [
+      {
+        "event_id": 581487,
+        "attempt_id": "item-sha256:d7992b4a5f98e324864bcad8fac30fab56daa70d9634024bc2a59d7e472b9c0b#attempt-1",
+        "provider_run_id": "provider-run-sha256:95537dc648d3430f9766ba5be4e53d57d1e69a739f206f2c2c226271ba66d575",
+        "status": -103,
+        "content_bytes": 0,
+        "error_message": "confirmed Codex turn interrupted",
+        "error_category": "provider"
+      }
+    ],
+    "reconciliations": [],
+    "event_types": {
+      "claimed": 1,
+      "reservation-open": 1,
+      "provider-intent": 1,
+      "provider-response": 1,
+      "provider-observed": 1,
+      "reservation-close": 1,
+      "settlement-receipt": 1,
+      "dead_letter": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:d79a427895a0039d88cab75ed55529f4afb24004ae24316b584682d7b477bed0",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:d79a427895a0039d88cab75ed55529f4afb24004ae24316b584682d7b477bed0#attempt-2",
+      "item_id": "item-sha256:d79a427895a0039d88cab75ed55529f4afb24004ae24316b584682d7b477bed0",
+      "worker_id": "worker-86d78d34b3f8807e27fc5bf7e83f1ef0",
+      "fence": 2,
+      "input_hash": "10d7c49137d367ba39229304225b4e51120e56ca2cf62b3be6cfe074d33c894c",
+      "output_hash": null,
+      "provider_run_id": "provider-run-sha256:9e4b08334ef871bf2f1614bad6598702859f5be3956e767c1c1403ceb6958edd",
+      "validation_state": "confirmed Codex turn interrupted",
+      "outcome": "dead_letter",
+      "started_at": "2026-09-11T01:29:50.465Z",
+      "completed_at": "2026-09-11T01:31:56.940Z"
+    },
+    "responses": [
+      {
+        "event_id": 581497,
+        "attempt_id": "item-sha256:d79a427895a0039d88cab75ed55529f4afb24004ae24316b584682d7b477bed0#attempt-2",
+        "provider_run_id": "provider-run-sha256:9e4b08334ef871bf2f1614bad6598702859f5be3956e767c1c1403ceb6958edd",
+        "status": -103,
+        "content_bytes": 0,
+        "error_message": "confirmed Codex turn interrupted",
+        "error_category": "provider"
+      }
+    ],
+    "reconciliations": [],
+    "event_types": {
+      "claimed": 2,
+      "reservation-open": 2,
+      "reservation-close": 2,
+      "settlement-receipt": 2,
+      "queued": 1,
+      "provider-intent": 1,
+      "provider-response": 1,
+      "provider-observed": 1,
+      "dead_letter": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:d79efe8b734975ed8678fcb5dab4b618fc74483a6e267be6aedd8fced52a8b0c",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:d79efe8b734975ed8678fcb5dab4b618fc74483a6e267be6aedd8fced52a8b0c#attempt-1",
+      "item_id": "item-sha256:d79efe8b734975ed8678fcb5dab4b618fc74483a6e267be6aedd8fced52a8b0c",
+      "worker_id": "worker-da7fd7ec412ae66c6d33a7c466b4727c",
+      "fence": 1,
+      "input_hash": "3bf80cbeb0dbb73d03af5184444b9f05a66212c1075cb03478f08c950196bd77",
+      "output_hash": null,
+      "provider_run_id": "provider-run-sha256:05621df84277b51fdd8b90b74ebcdc0fc7f69676fba4d9e104e7342174cc6354",
+      "validation_state": "confirmed Codex turn interrupted",
+      "outcome": "dead_letter",
+      "started_at": "2026-09-11T01:29:55.409Z",
+      "completed_at": "2026-09-11T01:32:02.747Z"
+    },
+    "responses": [
+      {
+        "event_id": 581508,
+        "attempt_id": "item-sha256:d79efe8b734975ed8678fcb5dab4b618fc74483a6e267be6aedd8fced52a8b0c#attempt-1",
+        "provider_run_id": "provider-run-sha256:05621df84277b51fdd8b90b74ebcdc0fc7f69676fba4d9e104e7342174cc6354",
+        "status": -103,
+        "content_bytes": 0,
+        "error_message": "confirmed Codex turn interrupted",
+        "error_category": "provider"
+      }
+    ],
+    "reconciliations": [],
+    "event_types": {
+      "claimed": 1,
+      "reservation-open": 1,
+      "provider-intent": 1,
+      "provider-response": 1,
+      "provider-observed": 1,
+      "reservation-close": 1,
+      "settlement-receipt": 1,
+      "dead_letter": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:eb19238b1a0b6758bf86ed7b36d5a702db94710aa94a434f8971fbd254e00323",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:eb19238b1a0b6758bf86ed7b36d5a702db94710aa94a434f8971fbd254e00323#attempt-2",
+      "item_id": "item-sha256:eb19238b1a0b6758bf86ed7b36d5a702db94710aa94a434f8971fbd254e00323",
+      "worker_id": "worker-c04fba5928835fbc255a892cc9acf3d4",
+      "fence": 2,
+      "input_hash": "3cf9ed2153dc099c0f8a6cd8bb539beaab209680cb453a0057a9ff9c02cdcc00",
+      "output_hash": null,
+      "provider_run_id": null,
+      "validation_state": "provider time budget exhausted",
+      "outcome": "dead_letter",
+      "started_at": "2026-09-11T02:56:56.617Z",
+      "completed_at": "2026-09-11T02:57:04.434Z"
+    },
+    "responses": [],
+    "reconciliations": [],
+    "event_types": {
+      "claimed": 2,
+      "reservation-open": 1,
+      "reservation-close": 1,
+      "settlement-receipt": 1,
+      "queued": 1,
+      "dead_letter": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:eb553b95af691d62739f923cb6889929a8a6c5c3266555e71e41db95c6387e70",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:eb553b95af691d62739f923cb6889929a8a6c5c3266555e71e41db95c6387e70#attempt-2",
+      "item_id": "item-sha256:eb553b95af691d62739f923cb6889929a8a6c5c3266555e71e41db95c6387e70",
+      "worker_id": "worker-c9a492cf6b655b7b45f54037e905a5c5",
+      "fence": 2,
+      "input_hash": "12f671a6b4d2ff6b22de5aacd800ea7bdb8b13e5dcdfa55e67c18afebf94fb4f",
+      "output_hash": null,
+      "provider_run_id": null,
+      "validation_state": "provider time budget exhausted",
+      "outcome": "dead_letter",
+      "started_at": "2026-09-11T02:57:33.152Z",
+      "completed_at": "2026-09-11T02:57:36.001Z"
+    },
+    "responses": [],
+    "reconciliations": [],
+    "event_types": {
+      "claimed": 2,
+      "reservation-open": 1,
+      "reservation-close": 1,
+      "settlement-receipt": 1,
+      "queued": 1,
+      "dead_letter": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:eb8e19c0035c8ead6468bbbf58548a92c0d701664fb5aed0faf60f30ea9ac702",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:eb8e19c0035c8ead6468bbbf58548a92c0d701664fb5aed0faf60f30ea9ac702#attempt-1",
+      "item_id": "item-sha256:eb8e19c0035c8ead6468bbbf58548a92c0d701664fb5aed0faf60f30ea9ac702",
+      "worker_id": "worker-b62288fbb71bac4e07a5c8a39adb058e",
+      "fence": 1,
+      "input_hash": "b4c9c86f8257df55b28a3457fe07fc1c34aee851800ecd4027ca04ab6170808f",
+      "output_hash": null,
+      "provider_run_id": null,
+      "validation_state": "provider time budget exhausted",
+      "outcome": "dead_letter",
+      "started_at": "2026-09-11T02:58:02.920Z",
+      "completed_at": "2026-09-11T02:58:04.604Z"
+    },
+    "responses": [],
+    "reconciliations": [],
+    "event_types": {
+      "claimed": 1,
+      "dead_letter": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:ebbaae9f87e84599945eaae66bc325379b013d6b29afdf3b1eb805aace054835",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:ebbaae9f87e84599945eaae66bc325379b013d6b29afdf3b1eb805aace054835#attempt-2",
+      "item_id": "item-sha256:ebbaae9f87e84599945eaae66bc325379b013d6b29afdf3b1eb805aace054835",
+      "worker_id": "worker-79bc9cb6f9009544d7afaaa2f3975f78",
+      "fence": 2,
+      "input_hash": "769b4bb4002cc6a1c3a54a67e231f8540801d94552af2389be6b966fc32815f5",
+      "output_hash": null,
+      "provider_run_id": null,
+      "validation_state": "provider time budget exhausted",
+      "outcome": "dead_letter",
+      "started_at": "2026-09-11T02:58:49.542Z",
+      "completed_at": "2026-09-11T02:58:50.696Z"
+    },
+    "responses": [],
+    "reconciliations": [],
+    "event_types": {
+      "claimed": 2,
+      "reservation-open": 1,
+      "reservation-close": 1,
+      "settlement-receipt": 1,
+      "queued": 1,
+      "dead_letter": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:ebf44ba88d28ec0757495142ca1cf641e2b282130cac5790ad17f6609abce7e2",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:ebf44ba88d28ec0757495142ca1cf641e2b282130cac5790ad17f6609abce7e2#attempt-1",
+      "item_id": "item-sha256:ebf44ba88d28ec0757495142ca1cf641e2b282130cac5790ad17f6609abce7e2",
+      "worker_id": "worker-35fc69cd05cdc61f10856ab52ba86da8",
+      "fence": 1,
+      "input_hash": "1674d0abe55e5bf601967c8d84d9d2ba5d6b377a4061b4446f0b443bac94457f",
+      "output_hash": null,
+      "provider_run_id": null,
+      "validation_state": "provider time budget exhausted",
+      "outcome": "dead_letter",
+      "started_at": "2026-09-11T02:59:26.347Z",
+      "completed_at": "2026-09-11T02:59:29.202Z"
+    },
+    "responses": [],
+    "reconciliations": [],
+    "event_types": {
+      "claimed": 1,
+      "dead_letter": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:ec1bca64380c606fd833789fcf69df11410fabed20104ad01a8e435de09c26e1",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:ec1bca64380c606fd833789fcf69df11410fabed20104ad01a8e435de09c26e1#attempt-1",
+      "item_id": "item-sha256:ec1bca64380c606fd833789fcf69df11410fabed20104ad01a8e435de09c26e1",
+      "worker_id": "worker-6cc6a1dcac371f07f5a5a46e33817cd5",
+      "fence": 1,
+      "input_hash": "69ec88325273d44f0335ef8e9d8a13dffd8e1a003ae9deab08acb69dc0024247",
+      "output_hash": null,
+      "provider_run_id": null,
+      "validation_state": "provider time budget exhausted",
+      "outcome": "dead_letter",
+      "started_at": "2026-09-11T03:00:21.734Z",
+      "completed_at": "2026-09-11T03:00:24.907Z"
+    },
+    "responses": [],
+    "reconciliations": [],
+    "event_types": {
+      "claimed": 1,
+      "dead_letter": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:ec2a354fee61cc54b012c80bb7dc6cc5dfcd5075b458a5a7b65cb7b220291178",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:ec2a354fee61cc54b012c80bb7dc6cc5dfcd5075b458a5a7b65cb7b220291178#attempt-1",
+      "item_id": "item-sha256:ec2a354fee61cc54b012c80bb7dc6cc5dfcd5075b458a5a7b65cb7b220291178",
+      "worker_id": "worker-86a950675293a913e556d33b48e5e931",
+      "fence": 1,
+      "input_hash": "cf61aa1974b0cd42f3393cb37795cf7bbaf55e758dfc0bc77186b2088f4b3993",
+      "output_hash": null,
+      "provider_run_id": null,
+      "validation_state": "provider time budget exhausted",
+      "outcome": "dead_letter",
+      "started_at": "2026-09-11T03:01:32.499Z",
+      "completed_at": "2026-09-11T03:01:35.022Z"
+    },
+    "responses": [],
+    "reconciliations": [],
+    "event_types": {
+      "claimed": 1,
+      "dead_letter": 1
+    }
+  },
+  {
+    "item_id": "item-sha256:f385bee6340faf49dba0990fbca56c42ecd56e1e93c5fb24ecbddba486e15c3c",
+    "latest_attempt": {
+      "attempt_id": "item-sha256:f385bee6340faf49dba0990fbca56c42ecd56e1e93c5fb24ecbddba486e15c3c#attempt-4",
+      "item_id": "item-sha256:f385bee6340faf49dba0990fbca56c42ecd56e1e93c5fb24ecbddba486e15c3c",
+      "worker_id": "worker-eeaf2d2bfcee39b8117e9e8054b241ff",
+      "fence": 4,
+      "input_hash": "9f137b0ef70b8091cdbc54770eb5796e6ad2d85ef3e4baa638e7687d0b5a5339",
+      "output_hash": null,
+      "provider_run_id": "provider-run-sha256:01c2557d1ce2ddbadd1483843d909b0ddef18492458aa3109cd89e748c7b12e0",
+      "validation_state": "lease-expired",
+      "outcome": "expired",
+      "started_at": "2026-09-12T22:26:16.107Z",
+      "completed_at": "2026-09-12T22:26:21.681Z"
+    },
+    "responses": [
+      {
+        "event_id": 607583,
+        "attempt_id": "item-sha256:f385bee6340faf49dba0990fbca56c42ecd56e1e93c5fb24ecbddba486e15c3c#attempt-2",
+        "provider_run_id": "provider-run-sha256:851b89d81cfe6930628358dd54880c6da27bc7ce2d35fcb14485a6dc85807f5b",
+        "status": 0,
+        "content_bytes": 2668,
+        "error_message": "",
+        "error_category": "none"
+      },
+      {
+        "event_id": 622139,
+        "attempt_id": "item-sha256:f385bee6340faf49dba0990fbca56c42ecd56e1e93c5fb24ecbddba486e15c3c#attempt-4",
+        "provider_run_id": "provider-run-sha256:01c2557d1ce2ddbadd1483843d909b0ddef18492458aa3109cd89e748c7b12e0",
+        "status": -105,
+        "content_bytes": 0,
+        "error_message": "observed Codex turn state: interrupted",
+        "error_category": "reconciliation"
+      }
+    ],
+    "reconciliations": [
+      {
+        "schema": "crexx-rag.external-observation/1",
+        "job_id": "job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622",
+        "item_id": "item-sha256:f385bee6340faf49dba0990fbca56c42ecd56e1e93c5fb24ecbddba486e15c3c",
+        "attempt_id": "item-sha256:f385bee6340faf49dba0990fbca56c42ecd56e1e93c5fb24ecbddba486e15c3c#attempt-4",
+        "provider_run_id": "provider-run-sha256:01c2557d1ce2ddbadd1483843d909b0ddef18492458aa3109cd89e748c7b12e0",
+        "thread_id": "01a097ba-7fd3-7c30-b624-f51b177bddd9",
+        "turn_id": "01a097ba-809f-74e3-95d9-f4d7d09c03f7",
+        "state": "interrupted",
+        "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "known_input_tokens": 0,
+        "known_output_tokens": 0,
+        "usage_complete": 0,
+        "usage_basis": "retained usage; incomplete values are lower bounds",
+        "provider_calls": 0,
+        "detail": "",
+        "digest": "90ce81e20d097859b0d5b5a9142f859c9cd1eb2c96b3349a95fa2d1590c0281b"
+      }
+    ],
+    "event_types": {
+      "claimed": 4,
+      "reservation-open": 4,
+      "reservation-close": 4,
+      "settlement-receipt": 4,
+      "queued": 3,
+      "provider-intent": 2,
+      "provider-response": 2,
+      "citation-correction-requested": 1,
+      "provider-outcome-uncertain": 1,
+      "settlement-exception": 1,
+      "provider-reconciled": 1
+    }
+  }
+]

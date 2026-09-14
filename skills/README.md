@@ -14,6 +14,12 @@ The five packages provide narrow MCP operating instructions:
 - `crexxrag-diagnose` inspects libraries, jobs, and explicitly authorized
   provider smoke tests.
 
+Ordinary Q&A uses the current assistant to compose the cited answer from
+retrieved evidence. The QA skill defines the default route and the explicit
+request needed to use the separate cREXX-RAG answerer, including its performance
+cost. Use the [corpus workspace template](../docs/templates/corpus-AGENTS.md)
+for standing corpus-only, graph-exploration and quotation instructions.
+
 Start the shared MCP surface with `crexxrag --access CAPABILITIES serve mcp`.
 Knowledge of a mutation tool never grants its capability. Plans are zero-write
 review artifacts and apply requires the exact canonical bytes and digest.

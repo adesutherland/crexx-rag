@@ -1,0 +1,336 @@
+[
+  {
+    "label": "initialize",
+    "seconds": 0.18050345801748335,
+    "wire_bytes": 557
+  },
+  {
+    "label": "tools",
+    "seconds": 0.0010378749575465918,
+    "wire_bytes": 21286
+  },
+  {
+    "label": "status",
+    "seconds": 0.20131354196928442,
+    "wire_bytes": 675,
+    "exit_code": 0,
+    "message": "library status read without mutation",
+    "generation": 23208
+  },
+  {
+    "label": "overview",
+    "seconds": 8.952180791879073,
+    "wire_bytes": 10034,
+    "exit_code": 0,
+    "message": "deterministic library report generated without provider calls"
+  },
+  {
+    "label": "bannockburn-h0",
+    "seconds": 0.7589813340455294,
+    "wire_bytes": 18943,
+    "exit_code": 0,
+    "message": "typed evidence retrieved",
+    "generation": 23208,
+    "evidence_bytes": 15877,
+    "counts": {
+      "passages": 3,
+      "claims": 0,
+      "leads": 0,
+      "analysis_notes": 0
+    },
+    "trace": [
+      "lexical[original]=0;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[prefix]=8;per-variant-limit=8",
+      "lexical-context-neighbors=16;candidate-ceiling=48",
+      "graph-anchors=1;supported-claims=0;traversal=both;claims-preserve-stored-direction=1",
+      "diversity-source-count=5;per-source-cap=3",
+      "accepted-claims=0;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=48;selected=3;claims=0;leads=0;analysis-notes=0"
+    ]
+  },
+  {
+    "label": "bannockburn-h1",
+    "seconds": 0.7506406670436263,
+    "wire_bytes": 18943,
+    "exit_code": 0,
+    "message": "typed evidence retrieved",
+    "generation": 23208,
+    "evidence_bytes": 15877,
+    "counts": {
+      "passages": 3,
+      "claims": 0,
+      "leads": 0,
+      "analysis_notes": 0
+    },
+    "trace": [
+      "lexical[original]=0;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[prefix]=8;per-variant-limit=8",
+      "lexical-context-neighbors=16;candidate-ceiling=48",
+      "graph-anchors=1;supported-claims=0;traversal=both;claims-preserve-stored-direction=1",
+      "diversity-source-count=5;per-source-cap=3",
+      "accepted-claims=0;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=48;selected=3;claims=0;leads=0;analysis-notes=0"
+    ]
+  },
+  {
+    "label": "bannockburn-h3",
+    "seconds": 0.7500893329270184,
+    "wire_bytes": 18943,
+    "exit_code": 0,
+    "message": "typed evidence retrieved",
+    "generation": 23208,
+    "evidence_bytes": 15877,
+    "counts": {
+      "passages": 3,
+      "claims": 0,
+      "leads": 0,
+      "analysis_notes": 0
+    },
+    "trace": [
+      "lexical[original]=0;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[prefix]=8;per-variant-limit=8",
+      "lexical-context-neighbors=16;candidate-ceiling=48",
+      "graph-anchors=1;supported-claims=0;traversal=both;claims-preserve-stored-direction=1",
+      "diversity-source-count=5;per-source-cap=3",
+      "accepted-claims=0;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=48;selected=3;claims=0;leads=0;analysis-notes=0"
+    ]
+  },
+  {
+    "label": "bannockburn-h4",
+    "seconds": 0.7520804170053452,
+    "wire_bytes": 18943,
+    "exit_code": 0,
+    "message": "typed evidence retrieved",
+    "generation": 23208,
+    "evidence_bytes": 15877,
+    "counts": {
+      "passages": 3,
+      "claims": 0,
+      "leads": 0,
+      "analysis_notes": 0
+    },
+    "trace": [
+      "lexical[original]=0;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[prefix]=8;per-variant-limit=8",
+      "lexical-context-neighbors=16;candidate-ceiling=48",
+      "graph-anchors=1;supported-claims=0;traversal=both;claims-preserve-stored-direction=1",
+      "diversity-source-count=5;per-source-cap=3",
+      "accepted-claims=0;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=48;selected=3;claims=0;leads=0;analysis-notes=0"
+    ]
+  },
+  {
+    "label": "bannockburn-h3-repeat",
+    "seconds": 0.7583766249008477,
+    "wire_bytes": 18943,
+    "exit_code": 0,
+    "message": "typed evidence retrieved",
+    "generation": 23208,
+    "evidence_bytes": 15877,
+    "counts": {
+      "passages": 3,
+      "claims": 0,
+      "leads": 0,
+      "analysis_notes": 0
+    },
+    "trace": [
+      "lexical[original]=0;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[focused-term]=8;per-variant-limit=8",
+      "lexical[prefix]=8;per-variant-limit=8",
+      "lexical-context-neighbors=16;candidate-ceiling=48",
+      "graph-anchors=1;supported-claims=0;traversal=both;claims-preserve-stored-direction=1",
+      "diversity-source-count=5;per-source-cap=3",
+      "accepted-claims=0;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=48;selected=3;claims=0;leads=0;analysis-notes=0"
+    ]
+  },
+  {
+    "label": "bannockburn-citation",
+    "seconds": 0.011296625016257167,
+    "wire_bytes": 5214,
+    "exit_code": 0,
+    "message": "citation resolved to immutable source text"
+  },
+  {
+    "label": "mackay-h0",
+    "seconds": 0.7269102081190795,
+    "wire_bytes": 20863,
+    "exit_code": 0,
+    "message": "typed evidence retrieved",
+    "generation": 23208,
+    "evidence_bytes": 17673,
+    "counts": {
+      "passages": 3,
+      "claims": 0,
+      "leads": 2,
+      "analysis_notes": 3
+    },
+    "trace": [
+      "lexical[original]=0;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[prefix]=9;per-variant-limit=9",
+      "lexical-context-neighbors=22;candidate-ceiling=48",
+      "graph-anchors=3;supported-claims=0;traversal=both;claims-preserve-stored-direction=1",
+      "diversity-source-count=6;per-source-cap=3",
+      "accepted-claims=0;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=48;selected=3;claims=0;leads=2;analysis-notes=3"
+    ]
+  },
+  {
+    "label": "mackay-h1",
+    "seconds": 0.7539991668891162,
+    "wire_bytes": 41582,
+    "exit_code": 0,
+    "message": "typed evidence retrieved",
+    "generation": 23208,
+    "evidence_bytes": 35773,
+    "counts": {
+      "passages": 3,
+      "claims": 3,
+      "leads": 3,
+      "analysis_notes": 3
+    },
+    "trace": [
+      "lexical[original]=0;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[prefix]=9;per-variant-limit=9",
+      "lexical-context-neighbors=22;candidate-ceiling=48",
+      "graph-anchors=3;supported-claims=24;traversal=both;claims-preserve-stored-direction=1",
+      "diversity-source-count=6;per-source-cap=3",
+      "accepted-claims=3;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=70;selected=3;claims=3;leads=3;analysis-notes=3"
+    ]
+  },
+  {
+    "label": "mackay-h3",
+    "seconds": 0.7539416251238436,
+    "wire_bytes": 41582,
+    "exit_code": 0,
+    "message": "typed evidence retrieved",
+    "generation": 23208,
+    "evidence_bytes": 35773,
+    "counts": {
+      "passages": 3,
+      "claims": 3,
+      "leads": 3,
+      "analysis_notes": 3
+    },
+    "trace": [
+      "lexical[original]=0;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[prefix]=9;per-variant-limit=9",
+      "lexical-context-neighbors=22;candidate-ceiling=48",
+      "graph-anchors=3;supported-claims=24;traversal=both;claims-preserve-stored-direction=1",
+      "diversity-source-count=6;per-source-cap=3",
+      "accepted-claims=3;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=70;selected=3;claims=3;leads=3;analysis-notes=3"
+    ]
+  },
+  {
+    "label": "mackay-h4",
+    "seconds": 0.7529484170954674,
+    "wire_bytes": 41582,
+    "exit_code": 0,
+    "message": "typed evidence retrieved",
+    "generation": 23208,
+    "evidence_bytes": 35773,
+    "counts": {
+      "passages": 3,
+      "claims": 3,
+      "leads": 3,
+      "analysis_notes": 3
+    },
+    "trace": [
+      "lexical[original]=0;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[prefix]=9;per-variant-limit=9",
+      "lexical-context-neighbors=22;candidate-ceiling=48",
+      "graph-anchors=3;supported-claims=24;traversal=both;claims-preserve-stored-direction=1",
+      "diversity-source-count=6;per-source-cap=3",
+      "accepted-claims=3;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=70;selected=3;claims=3;leads=3;analysis-notes=3"
+    ]
+  },
+  {
+    "label": "mackay-h3-repeat",
+    "seconds": 0.7567224171943963,
+    "wire_bytes": 41582,
+    "exit_code": 0,
+    "message": "typed evidence retrieved",
+    "generation": 23208,
+    "evidence_bytes": 35773,
+    "counts": {
+      "passages": 3,
+      "claims": 3,
+      "leads": 3,
+      "analysis_notes": 3
+    },
+    "trace": [
+      "lexical[original]=0;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[prefix]=9;per-variant-limit=9",
+      "lexical-context-neighbors=22;candidate-ceiling=48",
+      "graph-anchors=3;supported-claims=24;traversal=both;claims-preserve-stored-direction=1",
+      "diversity-source-count=6;per-source-cap=3",
+      "accepted-claims=3;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=70;selected=3;claims=3;leads=3;analysis-notes=3"
+    ]
+  },
+  {
+    "label": "mackay-citation",
+    "seconds": 0.010843417141586542,
+    "wire_bytes": 5246,
+    "exit_code": 0,
+    "message": "citation resolved to immutable source text"
+  }
+]

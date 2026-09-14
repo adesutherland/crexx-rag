@@ -65,6 +65,15 @@ To see evidence without answer generation:
 
 That route reports `provider_calls: 0`.
 
+When setting up a Codex/MCP corpus workspace, follow the
+[agent setup](../agent-integration.md) and
+[corpus AGENTS.md template](../templates/corpus-AGENTS.md). Both are also
+packaged under `<prefix>/share/doc/crexxrag/`. For ordinary Q&A,
+the current assistant uses `rag_query_inspect`, follows evidence and resolves
+citations, then writes the answer itself. Only use cREXX-RAG's own answerer
+when explicitly requested: it adds another model generation step, latency and
+provider usage. The shared QA skill includes the measured performance context.
+
 Useful inspection commands are `./crexxrag worker list`, `./crexxrag job list`,
 and `./crexxrag --access diagnose library verify`.
 

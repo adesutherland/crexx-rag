@@ -1,0 +1,63 @@
+{
+  "mentions": [
+    {
+      "label": "Mackay",
+      "canonical_label": "Mackay",
+      "concept_type": "person",
+      "evidence_quote": "As  soon  as  Mackay  was  informed  of  this  retrograde  movement,  he  re- \nsolved to  pursue  Dundee",
+      "aliases": []
+    },
+    {
+      "label": "Dundee",
+      "canonical_label": "Dundee",
+      "concept_type": "person",
+      "evidence_quote": "solved to  pursue  Dundee,  and,  if  possible,  to  overtake  him",
+      "aliases": []
+    },
+    {
+      "label": "Dee",
+      "canonical_label": "Dee",
+      "concept_type": "place",
+      "evidence_quote": "he  crossed  the  Dee \nat  Kincardine",
+      "aliases": []
+    },
+    {
+      "label": "Kincardine",
+      "canonical_label": "Kincardine",
+      "concept_type": "place",
+      "evidence_quote": "crossed  the  Dee \nat  Kincardine,  in  the  expectation",
+      "aliases": []
+    },
+    {
+      "label": "Edinburgh",
+      "canonical_label": "Edinburgh",
+      "concept_type": "place",
+      "evidence_quote": "who  had  given  him  assurances  of \nsupport  before  leaving  Edinburgh",
+      "aliases": []
+    },
+    {
+      "label": "master  of  Forbes",
+      "canonical_label": "master  of  Forbes",
+      "concept_type": "person",
+      "evidence_quote": "with  the  exception  of  the  master  of  Forbes,  who \nmet  him",
+      "aliases": []
+    },
+    {
+      "label": "Tay",
+      "canonical_label": "Tay",
+      "concept_type": "place",
+      "evidence_quote": "the  people  residing  to  the  north \nof  the  Tay,  were  either  indifferent",
+      "aliases": []
+    }
+  ],
+  "relationships": [
+    {
+      "source_mention": 0,
+      "relationship_type": "related-to",
+      "target_mention": 1,
+      "evidence_quote": "As  soon  as  Mackay  was  informed  of  this  retrograde  movement,  he  re- \nsolved to  pursue  Dundee,  and,  if  possible,  to  overtake  him",
+      "confidence_millionths": 990000
+    }
+  ],
+  "notes": []
+}

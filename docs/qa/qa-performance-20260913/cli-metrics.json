@@ -1,0 +1,25 @@
+{
+  "seconds": 0.6565715840552002,
+  "bytes": 41447,
+  "exit_code": 0,
+  "argv": [
+    "/Users/adrian/.local/bin/crexxrag",
+    "--config-file",
+    "/private/tmp/crexxrag-smk006-V6YatF/test2.conf",
+    "--library",
+    "/private/tmp/crexxrag-test3-repeat-tadMRjFu/library",
+    "--format",
+    "json",
+    "--access",
+    "read",
+    "query",
+    "inspect",
+    "How were Mackay and Dundee connected?",
+    "--mode",
+    "lexical",
+    "--hops",
+    "3",
+    "--limit",
+    "3"
+  ]
+}

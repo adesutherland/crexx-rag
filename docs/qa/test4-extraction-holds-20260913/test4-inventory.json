@@ -1,0 +1,62 @@
+{
+  "source_job_id": "job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622",
+  "extraction_holds": 545,
+  "extraction_reasons": [
+    [
+      "provider relationship quotation does not contain both endpoints",
+      173
+    ],
+    [
+      "provider mention evidence quotation is not in the chunk",
+      139
+    ],
+    [
+      "provider mention label is not in its evidence quotation",
+      112
+    ],
+    [
+      "provider relationship evidence quotation is not in the chunk",
+      42
+    ],
+    [
+      "provider relationship endpoints are invalid",
+      20
+    ],
+    [
+      "provider analysis note quotation is not in the chunk",
+      12
+    ],
+    [
+      "provider mention contradicts the reviewed glossary identity",
+      11
+    ],
+    [
+      "provider discovery arrays violate the reviewed bounds",
+      11
+    ],
+    [
+      "lease-expired",
+      8
+    ],
+    [
+      "provider time budget exhausted",
+      7
+    ],
+    [
+      "confirmed Codex turn interrupted",
+      5
+    ],
+    [
+      "Codex allowance preflight failed: Codex App Server response timed out",
+      3
+    ],
+    [
+      "provider mention label is invalid",
+      1
+    ],
+    [
+      "cannot begin provider reservation",
+      1
+    ]
+  ]
+}

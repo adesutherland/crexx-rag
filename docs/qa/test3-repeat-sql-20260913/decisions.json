@@ -1,0 +1,46 @@
+[
+  {
+    "decision_id": "decision-maintenance:5fb84d6d3121d26b814fd31cbf17efc13c5579a0d0003c76aa6cd97119cb5c39",
+    "task_id": "task:6ed867e69b2628451ee93fdb1c6e697ec613159545241ce00b7d6c53c34955f9",
+    "item_id": "item-maintenance:8641afcad1f9203eac836f8b2b9550f0e2f8756c85c63e226578d4c51f07a44d",
+    "provider_run_id": "provider-run-sha256:61fcd46ba15d8766f319c0d0969444cd22b824432430340fa4add0547f52895d",
+    "response_json": "{\"action\":\"retain\",\"object_id\":\"concept-sha256:11592621c2a1ae812bccc986266962c7e7b69b2d583b28ffab864e11cd9fe5b3\",\"target_concept_id\":\"\",\"canonical_label\":\"Rothiemay\",\"concept_type\":\"person\",\"successors\":[],\"reason\":\"The source presents Rothiemay as an actor: he leads a party, fights, is wounded, and dies; it also identifies him as the laird of Rothiemay. The existing person classification is supported.\",\"evidence\":[{\"evidence_id\":\"support-sha256:227dff6b1a6349096059d2384fa50196e71748965dcad0c321455e92c82c5d85\",\"quote\":\"A sharp \\nconflict immediately took place, in which Rothiemay\u2019s horse was killed\"},{\"evidence_id\":\"support-sha256:f617b5ae20a3d977b421ec70e12fc871349a0916620f8083d2b5d51add276265\",\"quote\":\"Dispute between the lairds of Frendraught and Rothiemay\"}],\"effective_from\":\"\",\"effective_to\":\"\",\"qualifiers_json\":\"{}\",\"question\":\"\"}",
+    "grounding_json": "[{\"evidence_id\":\"support-sha256:227dff6b1a6349096059d2384fa50196e71748965dcad0c321455e92c82c5d85\",\"revision_chunk_id\":\"occurrence-sha256:3f6d0e6cde51486c967b9e2f4931f3ee8ae94e7df95f506e26712b22287d76fa\",\"span_start\":612,\"span_end\":693},{\"evidence_id\":\"support-sha256:f617b5ae20a3d977b421ec70e12fc871349a0916620f8083d2b5d51add276265\",\"revision_chunk_id\":\"occurrence-sha256:153db02a8aea05c31b4372e63c58584456f9a2b9fe5138e13090ee638b3bc082\",\"span_start\":193,\"span_end\":248}]",
+    "disposition": "retain:resolved",
+    "applied_generation": 24929,
+    "created_epoch": 1789330386
+  },
+  {
+    "decision_id": "decision-maintenance:940b458b7c21113ecf0203b3dd7b2e1d454953c7036b7e57f73fdb3a89d9ab3f",
+    "task_id": "task:cb87c11e4cd98962fbf94783dc4e235d68982057a8d21eed1e54c916c6e8a807",
+    "item_id": "item-maintenance:41ded8cabfc4830ea41ae4b477ffd211311646b306a38a10d1d26eee213931dd",
+    "provider_run_id": "provider-run-sha256:1a7808c44dab1a0584f64dcb6da0a63f0048b7f2b5c7c68b0ce165f09bcf22a9",
+    "response_json": "{\"action\":\"retain\",\"object_id\":\"concept-sha256:0d48fb6a31bfbf0ca5f1ce05dfbd4d405fa1dfd193e0c42585bad95a84661d10\",\"target_concept_id\":\"\",\"canonical_label\":\"Dunrobin castle\",\"concept_type\":\"place\",\"successors\":[],\"reason\":\"The supplied passages consistently use Dunrobin castle as a fortified location or stronghold, supporting the existing place classification; they do not establish a distinct artefact meaning requiring change.\",\"evidence\":[{\"evidence_id\":\"mention-sha256:60e1f5a2f1bb3d8275d45b068a6e050a27171b126ddce88ba2c3089afbea0c41\",\"quote\":\"attacked Dunrobin castle, the chief strength\\nof the earl, which he took.\"},{\"evidence_id\":\"mention-sha256:9e2d0d87a98c99fbd4652dfcf483bc121bdea0cd8221662b6f945a2417511a0b\",\"quote\":\"was at Dunrobin castle, and he, on hearing of the apprehension\"},{\"evidence_id\":\"mention-sha256:df3f68065030092f49dc94bc8f8dd00283e84e391ad815dd356c7ac3a3ec3a2c\",\"quote\":\"After being carried to Dunrobin castle, and\\npresented to the earl of Sutherland\"}],\"effective_from\":\"\",\"effective_to\":\"\",\"qualifiers_json\":\"{}\",\"question\":\"\"}",
+    "grounding_json": "[{\"evidence_id\":\"mention-sha256:60e1f5a2f1bb3d8275d45b068a6e050a27171b126ddce88ba2c3089afbea0c41\",\"revision_chunk_id\":\"occurrence-sha256:175c7627fbc68c2ad9bc861bc72d84e13ad1c0854d1e641b9cac6165cddda63a\",\"span_start\":91,\"span_end\":163},{\"evidence_id\":\"mention-sha256:9e2d0d87a98c99fbd4652dfcf483bc121bdea0cd8221662b6f945a2417511a0b\",\"revision_chunk_id\":\"occurrence-sha256:1d4d51464db9ed760e26b170c8951988dde8ee0a29d372abcba83359d700e8d5\",\"span_start\":1051,\"span_end\":1113},{\"evidence_id\":\"mention-sha256:df3f68065030092f49dc94bc8f8dd00283e84e391ad815dd356c7ac3a3ec3a2c\",\"revision_chunk_id\":\"occurrence-sha256:7a98ff4f7913a706946fbe3722a9085171d24da17c0df24b971e43141b4ef7f4\",\"span_start\":236,\"span_end\":316}]",
+    "disposition": "retain:resolved",
+    "applied_generation": 24930,
+    "created_epoch": 1789330390
+  },
+  {
+    "decision_id": "decision-maintenance:10168a4ca65fb4eeb5a23aea690f71ccc6a0eb764d54a7bdbfa7991be7b1380f",
+    "task_id": "task:66842325c6c10e5437349eb24d88f5a499daf945ce1c07684f284b5577f10b6c",
+    "item_id": "item-maintenance:a969121e5499f55a51b8c039dbdb25029390fda31ca9bcea24d08298bb1c8c19",
+    "provider_run_id": "provider-run-sha256:0459affccb0e1667ea690ad77bdb1573ce43749ddca7676b9a80c5c10cb169ca",
+    "response_json": "{\"action\":\"unresolved\",\"object_id\":\"concept-sha256:09769d62990864a7fc45fc0be7f0b915bc04227b8a778d95643a3e11d87d1af4\",\"target_concept_id\":\"\",\"canonical_label\":\"Welsh\",\"concept_type\":\"place\",\"successors\":[],\"reason\":\"The supplied passage shows Welsh in the phrase \\\"the Welsh Gwynn\\\" but does not establish whether Welsh denotes a place, people, organisation, or another meaning. No classification change is supported.\",\"evidence\":[{\"evidence_id\":\"mention-sha256:0a65180b53a6687228ffc3f9145d7545cd405193ba4923aae98ae785b672b214\",\"quote\":\"as the Welsh\\n_Gwynn_, and the Manx _Gawne_. It was originally Gun, but is now\\nspelled Gunn.\u201d\"}],\"effective_from\":\"\",\"effective_to\":\"\",\"qualifiers_json\":\"{}\",\"question\":\"Does Welsh in this passage denote a geographic place, a people or organisation, or another distinct entity?\"}",
+    "grounding_json": "[{\"evidence_id\":\"mention-sha256:0a65180b53a6687228ffc3f9145d7545cd405193ba4923aae98ae785b672b214\",\"revision_chunk_id\":\"occurrence-sha256:0cf3de7dfbae51cf9605d359922eb2e7a331299086ed0f3514084d994562698b\",\"span_start\":0,\"span_end\":94}]",
+    "disposition": "unresolved:unresolved",
+    "applied_generation": null,
+    "created_epoch": 1789330397
+  },
+  {
+    "decision_id": "decision-maintenance:179a57dc3a71304dda66dc33cc09177c9c796fb136c488c6f07405e2361a616d",
+    "task_id": "task:adeed40dec657c85e109a609ce7a5101e819949d99c05bbaafc9aa9a7746ffd8",
+    "item_id": "item-maintenance:16fceb9a3b6e3ee1b781fc2821aa6da0322c37287bfccf02a10e7958025e7a97",
+    "provider_run_id": "provider-run-sha256:266e2f15996fd146a4a901ea1384c677c31de5bfbf0f74de34651c37c5ffee50",
+    "response_json": "{\"action\":\"reuse\",\"object_id\":\"alias-issue:3c1efd1fe295a1019853e3b04de4d5396a7facbcddba06d399a7cce4d0d9b6b9\",\"target_concept_id\":\"concept-sha256:b5fc80bd4b0f769246b76aa891e13a5f850227b34c78ec0ac3b5de2925c7b2f8\",\"canonical_label\":\"collection of Gaelic poetry\",\"concept_type\":\"artefact\",\"successors\":[],\"reason\":\"The occurrence is the supplied candidate concept expressed in uppercase; no distinct meaning is evidenced.\",\"evidence\":[{\"evidence_id\":\"candidate-sha256:1e6ea3794040e951a07e1b45bd4e5e3118c6ff08c123c99aa649e2346356ae59\",\"quote\":\"COLLECTION OF GAELIC POETRY\"}],\"effective_from\":\"\",\"effective_to\":\"\",\"qualifiers_json\":\"{}\",\"question\":\"\"}",
+    "grounding_json": "[{\"evidence_id\":\"candidate-sha256:1e6ea3794040e951a07e1b45bd4e5e3118c6ff08c123c99aa649e2346356ae59\",\"revision_chunk_id\":\"occurrence-sha256:6a32ab72b77ed8fbb099485a2010d3a557f93669de6f34585db35257c4e38797\",\"span_start\":0,\"span_end\":27}]",
+    "disposition": "reuse:resolved",
+    "applied_generation": 24931,
+    "created_epoch": 1789330406
+  }
+]

@@ -1,0 +1,34 @@
+[
+  {
+    "draft": "mackay.json",
+    "original_item_id": "item-sha256:01878b1e836eefe54831220e889295e6e44e17614abdc2c5c28747b121eb5ba2",
+    "revision_chunk_id": "occurrence-sha256:9c1039d5e0b583606cb07d02a6e02ef82b5686f2b8cbf6fa229a93d5de37bdd5",
+    "reason": "provider relationship quotation does not contain both endpoints",
+    "original_response_sha256": "3258d0105a7d5328235bc809fc3bf38e0451ec2be0fad6805304eb51aca9186e",
+    "publication": "draft only; no review or accepted claim created"
+  },
+  {
+    "draft": "drummond.json",
+    "original_item_id": "item-sha256:00a7e1c47e2a074c9a994244d86c359a3cbbdff8d98e02e587fe5cee4b934957",
+    "revision_chunk_id": "occurrence-sha256:314f42d3b5f13e0faa91a259048b5b99d8800cffc647eb75ba5b47ab39d73b55",
+    "reason": "provider mention label is not in its evidence quotation",
+    "original_response_sha256": "43b399afea5ec02d7ea996837e52ff3614560fe6b65941bd03482755ff6857f9",
+    "publication": "draft only; no review or accepted claim created"
+  },
+  {
+    "draft": "somerled.json",
+    "original_item_id": "item-sha256:01ddd8bb488eda8e569eb932ce0405960ef0e02fd2b2a5c7ae37c5b6f0cb6ccd",
+    "revision_chunk_id": "occurrence-sha256:2a7d812becb42dc08622c9890b3db35518b26567ce59fbfa0a17afe0a205b07b",
+    "reason": "provider relationship evidence quotation is not in the chunk",
+    "original_response_sha256": "9486d87f043636345153555ed5e0367637cb4eda43e17adda6b610a901b11db0",
+    "publication": "draft only; no review or accepted claim created"
+  },
+  {
+    "draft": "mar.json",
+    "original_item_id": "item-sha256:2527eb8df8f8ab0a14be0351b63c8688e01c83ac1676a016fa19c6f6cf567e8b",
+    "revision_chunk_id": "occurrence-sha256:b0685b697aadcec467c4cd1a2ecdedef362edd6b946635ae1d537e2592ca4f67",
+    "reason": "provider analysis note quotation is not in the chunk",
+    "original_response_sha256": "582519dfbeeff09971463484b3c228b55d6aef77d92d5529f8909a292e2c582f",
+    "publication": "draft only; no review or accepted claim created"
+  }
+]

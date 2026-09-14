@@ -94,6 +94,13 @@ inspect evidence without an answer-generation call:
 Lexical mode makes no embedding or answer-provider call. It is the safest
 diagnostic when a hosted provider or local embedding service is unavailable.
 
+For an agent workspace, use the [MCP and skill setup](agent-integration.md)
+and [corpus AGENTS.md template](templates/corpus-AGENTS.md). Ordinary MCP Q&A
+uses `rag_query_inspect` and citation resolution, then the current assistant
+composes the answer. The separate cREXX-RAG answerer shown in this human
+walkthrough is for an explicit request to use or test it; it adds another
+model generation step, latency and provider usage.
+
 ## Codex generation with local embeddings
 
 This route uses a person's own ChatGPT-authenticated Codex allowance for

@@ -1,0 +1,60 @@
+{
+  "counts": {
+    "sources": 9,
+    "revision_chunks": 34907,
+    "claims": 7969,
+    "provider_runs": 82557,
+    "attempts": 116230,
+    "job_items": 95159,
+    "reviews": 4404
+  },
+  "generation": 24928,
+  "source_revision_digest": "012566fabeadeaec3c3b54e14d4abd009007f31df3ba1eaa301ca127fcf9a4e6",
+  "source_documents": [
+    [
+      "source-sha256:3a6541add3b99b6e6ca9b90de244dc1f5ed008e8611cb77a2907e7c8d0cd308d",
+      "browne-history-highlands-clans-vol-4-1838.txt",
+      "folder:scotland-overnight"
+    ],
+    [
+      "source-sha256:40ea83531ea42b40cada1ca4892a6aa5a84e3d2c4504efca8e5d6119601014d5",
+      "gutenberg-59468-scottish-highlands-clans-regiments-vol-1.txt",
+      "folder:scotland-corpus"
+    ],
+    [
+      "source-sha256:53d8880383be19e556932fed51bf579a6be02a20f8702805129e0a7f65e1c67c",
+      "mpherson-ossianic-controversy-1873.txt",
+      "folder:scotland-overnight"
+    ],
+    [
+      "source-sha256:592ffedcb177c22e1c9e8c4603a19b818e3df9398d4dc1c49503f8545f2d4664",
+      "bannockburn-1911-excerpt.txt",
+      "folder:smoke-bannockburn"
+    ],
+    [
+      "source-sha256:96c31d2b06281b8812a87e8d5d97d865a8a4b17e7a207a28e254c732193dbf3b",
+      "browne-history-highlands-clans-vol-3-1836.txt",
+      "folder:scotland-overnight"
+    ],
+    [
+      "source-sha256:999783c0e74122a65702921eeeca8ecbd48c079eef3c332e52b92c5f8e312995",
+      "browne-history-highlands-clans-vol-2-1836.txt",
+      "folder:scotland-overnight"
+    ],
+    [
+      "source-sha256:a9af046660baa1f4d03a5d52ec211c89176fb0a7efef5c432e6ec9c90d78162d",
+      "johnson-journey-western-islands-1775.txt",
+      "folder:scotland-overnight"
+    ],
+    [
+      "source-sha256:e0167833b4707e1087582b3865eedc123d93a59c1822bad2921252b7a202a3df",
+      "browne-history-highlands-clans-vol-1-1837.txt",
+      "folder:scotland-corpus"
+    ],
+    [
+      "source-sha256:f81b9b4cf61cc004e85bb26ed9691d2d4a3ee7f64517d3de331651ab64afeafd",
+      "gutenberg-59469-scottish-highlands-clans-regiments-vol-2.txt",
+      "folder:scotland-corpus"
+    ]
+  ]
+}

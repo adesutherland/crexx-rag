@@ -1,5 +1,15 @@
 # Consolidated roadmap and defect register
 
+**Current checkpoint, 13 September 2026:** all twelve SQL repairs are committed
+as `7febbca`, installed and qualified by 70/70 local tests plus the successful
+[Test 3 repeat](test3-repeat-sql-20260913.md). [Test 4 continuation](test4-operational-redo-20260913.md)
+repaired two operational extraction holds; 543 original roots remain actionable.
+**RAG-SMK-010 (P2, open):** whole-configuration replay compatibility rejects
+unchanged old items after an unrelated source-set addition. The corpus smoke
+demonstrates both the rejection and a temporary source-scope workaround;
+additive-source regression and shared-owner repair remain outstanding.
+The dated summaries below retain their historical qualification scopes.
+
 **Current implementation:** the approved [rule simplification](rule-simplification-repair-20260913.md)
 removes global configuration vetoes and duplicate checks, makes completion and
 cancellation stable, and supports explicit redo without repairing old responses.

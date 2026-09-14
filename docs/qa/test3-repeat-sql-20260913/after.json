@@ -1,0 +1,35 @@
+{
+  "counts": {
+    "sources": 9,
+    "revision_chunks": 34907,
+    "claims": 7969,
+    "provider_runs": 82561,
+    "attempts": 116272,
+    "job_items": 95167,
+    "reviews": 4404
+  },
+  "generation": 24931,
+  "source_revision_digest": "012566fabeadeaec3c3b54e14d4abd009007f31df3ba1eaa301ca127fcf9a4e6",
+  "attempts_by_outcome": [
+    {
+      "outcome": "cancelled",
+      "validation_state": "provider-deferred",
+      "count": 38
+    },
+    {
+      "outcome": "succeeded",
+      "validation_state": "validated-maintenance-resolution",
+      "count": 4
+    }
+  ],
+  "published_vectors": [
+    {
+      "vector_generation_id": "vg-b69b2a0326ba3dc33ad046fc",
+      "semantic_generation": 24925,
+      "row_count": 34907,
+      "sidecar_checksum": "b69b2a0326ba3dc33ad046fce035bbe62719889c4940148b307e087ce1acdcf4"
+    }
+  ],
+  "installed_native_sha256": "e3967d87a24df035fa43373719bc5ed611592c7cf49433326dca85115cc762ab",
+  "test2_citation_unchanged": true
+}

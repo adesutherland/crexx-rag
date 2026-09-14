@@ -1,0 +1,394 @@
+[
+  {
+    "item_id": "item-maintenance:16fceb9a3b6e3ee1b781fc2821aa6da0322c37287bfccf02a10e7958025e7a97",
+    "task_id": "task:adeed40dec657c85e109a609ce7a5101e819949d99c05bbaafc9aa9a7746ffd8",
+    "kind": "alias-resolution",
+    "input_keys": [
+      "schema",
+      "operation",
+      "task_id",
+      "evidence_fingerprint",
+      "question",
+      "evidence",
+      "role",
+      "provider_id",
+      "model",
+      "charging_basis",
+      "privacy",
+      "config_snapshot_id",
+      "profile_id",
+      "reservation"
+    ],
+    "subject": {
+      "type": "alias-issue",
+      "id": "alias-issue:3c1efd1fe295a1019853e3b04de4d5396a7facbcddba06d399a7cce4d0d9b6b9",
+      "candidate_id": "candidate-sha256:1e6ea3794040e951a07e1b45bd4e5e3118c6ff08c123c99aa649e2346356ae59",
+      "canonical_label": "COLLECTION OF GAELIC POETRY",
+      "concept_type": "evidence-span",
+      "aliases": [
+        "COLLECTION OF GAELIC POETRY"
+      ],
+      "candidates": [
+        {
+          "concept_id": "concept-sha256:b5fc80bd4b0f769246b76aa891e13a5f850227b34c78ec0ac3b5de2925c7b2f8",
+          "canonical_label": "collection of Gaelic poetry",
+          "concept_type": "artefact"
+        }
+      ]
+    },
+    "evidence_keys": [
+      "subject",
+      "successors",
+      "catalogue",
+      "passages"
+    ]
+  },
+  {
+    "item_id": "item-maintenance:3012f62d8778519702a7bf46ffc75a1fd1c107ed792ca18e3d458c7351231572",
+    "task_id": "task:ac06d10bb043cd0bb21760ed88129cb9f114a7585f84f521f2f95738ab22eaa8",
+    "kind": "alias-resolution",
+    "input_keys": [
+      "schema",
+      "operation",
+      "task_id",
+      "evidence_fingerprint",
+      "question",
+      "evidence",
+      "role",
+      "provider_id",
+      "model",
+      "charging_basis",
+      "privacy",
+      "config_snapshot_id",
+      "profile_id",
+      "reservation"
+    ],
+    "subject": {
+      "type": "alias-issue",
+      "id": "alias-issue:3b496d5aa17d41c6f81cc78bf9f9b851c7243cc51b1f48965b842ad94235c0ef",
+      "candidate_id": "candidate-sha256:a56aa4ff70dc2f542a58978a8d0aa83948210e8c30742ba745343723c4b4dbee",
+      "canonical_label": "Spalding",
+      "concept_type": "evidence-span",
+      "aliases": [
+        "Spalding"
+      ],
+      "candidates": [
+        {
+          "concept_id": "concept-sha256:06c03b54edf9ef48c86da2445f956ea68f642145bcf5858e05946e65fb0ab2aa",
+          "canonical_label": "Spalding",
+          "concept_type": "organisation"
+        },
+        {
+          "concept_id": "concept-sha256:7a0292e75ceb35e5b8e3cba7ccba118eb832f0ddd6cd38921dbd7af89e35d9e1",
+          "canonical_label": "Spalding",
+          "concept_type": "person"
+        },
+        {
+          "concept_id": "concept-sha256:8f280998f1a07d1e929f1ac20d21a3379f1f7b6ce5e6df0e5cca265dbd9f1e01",
+          "canonical_label": "Spalding",
+          "concept_type": "place"
+        }
+      ]
+    },
+    "evidence_keys": [
+      "subject",
+      "successors",
+      "catalogue",
+      "passages"
+    ]
+  },
+  {
+    "item_id": "item-maintenance:41ded8cabfc4830ea41ae4b477ffd211311646b306a38a10d1d26eee213931dd",
+    "task_id": "task:cb87c11e4cd98962fbf94783dc4e235d68982057a8d21eed1e54c916c6e8a807",
+    "kind": "identity-review",
+    "input_keys": [
+      "schema",
+      "operation",
+      "task_id",
+      "evidence_fingerprint",
+      "question",
+      "evidence",
+      "role",
+      "provider_id",
+      "model",
+      "charging_basis",
+      "privacy",
+      "config_snapshot_id",
+      "profile_id",
+      "reservation"
+    ],
+    "subject": {
+      "type": "concept",
+      "id": "concept-sha256:0d48fb6a31bfbf0ca5f1ce05dfbd4d405fa1dfd193e0c42585bad95a84661d10",
+      "canonical_label": "Dunrobin castle",
+      "concept_type": "place",
+      "lifecycle": "active",
+      "version": 1,
+      "aliases": [
+        "dunrobin castle"
+      ],
+      "recent_versions": [
+        {
+          "version": 1,
+          "canonical_label": "Dunrobin castle",
+          "concept_type": "place",
+          "reason": "initial validated promotion",
+          "generation": 7922
+        }
+      ],
+      "competing_identities": [
+        {
+          "concept_id": "concept-sha256:f8576412e78d4cd1f1bc4cb4ab62281a6868e594b340d6fc7547c318df8e6c55",
+          "canonical_label": "Dunrobin Castle",
+          "concept_type": "artefact"
+        }
+      ]
+    },
+    "evidence_keys": [
+      "subject",
+      "successors",
+      "catalogue",
+      "passages"
+    ]
+  },
+  {
+    "item_id": "item-maintenance:85865819ece76b72e22d67e2e072ec9d12a16db4e891b69cb84ea2ac04265f8f",
+    "task_id": "task:902129caf64ac0c5426cd694dc905ee950b4a5570b4d06776aa1bcec2b98b87b",
+    "kind": "alias-resolution",
+    "input_keys": [
+      "schema",
+      "operation",
+      "task_id",
+      "evidence_fingerprint",
+      "question",
+      "evidence",
+      "role",
+      "provider_id",
+      "model",
+      "charging_basis",
+      "privacy",
+      "config_snapshot_id",
+      "profile_id",
+      "reservation"
+    ],
+    "subject": {
+      "type": "alias-issue",
+      "id": "alias-issue:3ad41c18da4e795d5a780a340478bf1c655428935db359139ebe5b0b345c112d",
+      "candidate_id": "candidate-sha256:371e117502e8feec678a2c1a5ba70e5baa95439a141bdfdcb1b6f3f18c1bcfa4",
+      "canonical_label": "Campbell of Argyll",
+      "concept_type": "organisation",
+      "aliases": [
+        "Campbell of Argyll",
+        "Argyle"
+      ],
+      "candidates": [
+        {
+          "concept_id": "concept-sha256:0e8cb1e346ef558b305495488adf9a10465d1c310f397ca2d2f9089506bdbd13",
+          "canonical_label": "Campbell of Argyll",
+          "concept_type": "organisation"
+        },
+        {
+          "concept_id": "concept-sha256:9182d00653954287a04bbcabf1b3a7a1956d6342c3a46730db89dd1156e24102",
+          "canonical_label": "Argyle",
+          "concept_type": "person"
+        },
+        {
+          "concept_id": "concept-sha256:e5cad217b69934f092d3508ad5ccf885bf15ab82ef0a2ed0b9ed9d0b8bb2d632",
+          "canonical_label": "Argyle",
+          "concept_type": "place"
+        }
+      ]
+    },
+    "evidence_keys": [
+      "subject",
+      "successors",
+      "catalogue",
+      "passages"
+    ]
+  },
+  {
+    "item_id": "item-maintenance:8641afcad1f9203eac836f8b2b9550f0e2f8756c85c63e226578d4c51f07a44d",
+    "task_id": "task:6ed867e69b2628451ee93fdb1c6e697ec613159545241ce00b7d6c53c34955f9",
+    "kind": "identity-review",
+    "input_keys": [
+      "schema",
+      "operation",
+      "task_id",
+      "evidence_fingerprint",
+      "question",
+      "evidence",
+      "role",
+      "provider_id",
+      "model",
+      "charging_basis",
+      "privacy",
+      "config_snapshot_id",
+      "profile_id",
+      "reservation"
+    ],
+    "subject": {
+      "type": "concept",
+      "id": "concept-sha256:11592621c2a1ae812bccc986266962c7e7b69b2d583b28ffab864e11cd9fe5b3",
+      "canonical_label": "Rothiemay",
+      "concept_type": "person",
+      "lifecycle": "active",
+      "version": 1,
+      "aliases": [
+        "rothiemay",
+        "rothiemay"
+      ],
+      "recent_versions": [
+        {
+          "version": 1,
+          "canonical_label": "Rothiemay",
+          "concept_type": "person",
+          "reason": "initial validated promotion",
+          "generation": 7549
+        }
+      ],
+      "competing_identities": []
+    },
+    "evidence_keys": [
+      "subject",
+      "successors",
+      "catalogue",
+      "passages"
+    ]
+  },
+  {
+    "item_id": "item-maintenance:a969121e5499f55a51b8c039dbdb25029390fda31ca9bcea24d08298bb1c8c19",
+    "task_id": "task:66842325c6c10e5437349eb24d88f5a499daf945ce1c07684f284b5577f10b6c",
+    "kind": "identity-review",
+    "input_keys": [
+      "schema",
+      "operation",
+      "task_id",
+      "evidence_fingerprint",
+      "question",
+      "evidence",
+      "role",
+      "provider_id",
+      "model",
+      "charging_basis",
+      "privacy",
+      "config_snapshot_id",
+      "profile_id",
+      "reservation"
+    ],
+    "subject": {
+      "type": "concept",
+      "id": "concept-sha256:09769d62990864a7fc45fc0be7f0b915bc04227b8a778d95643a3e11d87d1af4",
+      "canonical_label": "Welsh",
+      "concept_type": "place",
+      "lifecycle": "active",
+      "version": 1,
+      "aliases": [
+        "welsh"
+      ],
+      "recent_versions": [
+        {
+          "version": 1,
+          "canonical_label": "Welsh",
+          "concept_type": "place",
+          "reason": "initial validated promotion",
+          "generation": 6720
+        }
+      ],
+      "competing_identities": []
+    },
+    "evidence_keys": [
+      "subject",
+      "successors",
+      "catalogue",
+      "passages"
+    ]
+  },
+  {
+    "item_id": "item-maintenance:b747eae041f19508fd46070bca827f19a4930cbd48193f97d74d258f79807dc8",
+    "task_id": "task:9c0ba1ac1269f9303dba37979c533de5a3244dca1c1c787436ad9d2b82d38b0f",
+    "kind": "alias-resolution",
+    "input_keys": [
+      "schema",
+      "operation",
+      "task_id",
+      "evidence_fingerprint",
+      "question",
+      "evidence",
+      "role",
+      "provider_id",
+      "model",
+      "charging_basis",
+      "privacy",
+      "config_snapshot_id",
+      "profile_id",
+      "reservation"
+    ],
+    "subject": {
+      "type": "alias-issue",
+      "id": "alias-issue:3bbf1c2a89078f1cd0dd3732fd491ede0d90db4e54dd0fc456de0891878ef5a2",
+      "candidate_id": "candidate-sha256:3d526c49168f932087dacecaed3adc2f01ac24e8d895c7253af7eb538411634a",
+      "canonical_label": "HISTORY  OF  THE  HIGHLAND  CLANS.",
+      "concept_type": "artefact",
+      "aliases": [
+        "HISTORY  OF  THE  HIGHLAND  CLANS."
+      ],
+      "candidates": [
+        {
+          "concept_id": "concept-sha256:6ab4559e4fdb6a5f88acbf201cf022ceb8d77445777515d4f2f9825b4a708834",
+          "canonical_label": "HISTORY  OF  THE  HIGHLAND  CLANS.",
+          "concept_type": "evidence-span"
+        }
+      ]
+    },
+    "evidence_keys": [
+      "subject",
+      "successors",
+      "catalogue",
+      "passages"
+    ]
+  },
+  {
+    "item_id": "item-maintenance:be9ddc24aa07d117677266afed8901b03a9a049c255a624b2936f3f1881a9c83",
+    "task_id": "task:8e0630d550bca8ef1e13d1d41453464494eb84411e95c799cefeb12eae0f71f9",
+    "kind": "alias-resolution",
+    "input_keys": [
+      "schema",
+      "operation",
+      "task_id",
+      "evidence_fingerprint",
+      "question",
+      "evidence",
+      "role",
+      "provider_id",
+      "model",
+      "charging_basis",
+      "privacy",
+      "config_snapshot_id",
+      "profile_id",
+      "reservation"
+    ],
+    "subject": {
+      "type": "alias-issue",
+      "id": "alias-issue:3bf3f78ec525dad98ac9c55dd10f47ceeba9b31fb796b967fa598b9c8e1e2397",
+      "candidate_id": "candidate-sha256:2316780ef2d187468093128e4aed889fbba04f9a2abb85d5e98d0598b8a21b05",
+      "canonical_label": "the Chevalier",
+      "concept_type": "evidence-span",
+      "aliases": [
+        "the Chevalier"
+      ],
+      "candidates": [
+        {
+          "concept_id": "concept-sha256:a2afbe8777cbc4175388b3ac523290856b5aef2dc71b80cd91e5c18f1c2c756f",
+          "canonical_label": "James Stuart",
+          "concept_type": "person"
+        }
+      ]
+    },
+    "evidence_keys": [
+      "subject",
+      "successors",
+      "catalogue",
+      "passages"
+    ]
+  }
+]

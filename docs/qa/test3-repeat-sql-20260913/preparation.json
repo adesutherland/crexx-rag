@@ -1,0 +1,223 @@
+{
+  "job_id": "job-maintenance:cfcba0821170d7acdab3fd8645b0787a753d409d6cb1146a1a887ae18d34ed00",
+  "plan_seconds": 0.20743483398109674,
+  "apply_seconds": 0.7054476251360029,
+  "items": 8,
+  "limits": {
+    "item_limit": 8,
+    "model_calls": 8,
+    "codex_turns": 4,
+    "cost_budget": 5000,
+    "window_seconds": 300
+  },
+  "selected": [
+    {
+      "kind": "alias-resolution",
+      "subject": "alias-issue:3c1efd1fe295a1019853e3b04de4d5396a7facbcddba06d399a7cce4d0d9b6b9",
+      "input_keys": [
+        "schema",
+        "operation",
+        "task_id",
+        "evidence_fingerprint",
+        "question",
+        "evidence",
+        "role",
+        "provider_id",
+        "model",
+        "charging_basis",
+        "privacy",
+        "config_snapshot_id",
+        "profile_id",
+        "reservation"
+      ],
+      "evidence_keys": [
+        "subject",
+        "successors",
+        "catalogue",
+        "passages"
+      ]
+    },
+    {
+      "kind": "alias-resolution",
+      "subject": "alias-issue:3b496d5aa17d41c6f81cc78bf9f9b851c7243cc51b1f48965b842ad94235c0ef",
+      "input_keys": [
+        "schema",
+        "operation",
+        "task_id",
+        "evidence_fingerprint",
+        "question",
+        "evidence",
+        "role",
+        "provider_id",
+        "model",
+        "charging_basis",
+        "privacy",
+        "config_snapshot_id",
+        "profile_id",
+        "reservation"
+      ],
+      "evidence_keys": [
+        "subject",
+        "successors",
+        "catalogue",
+        "passages"
+      ]
+    },
+    {
+      "kind": "identity-review",
+      "subject": "concept-sha256:0d48fb6a31bfbf0ca5f1ce05dfbd4d405fa1dfd193e0c42585bad95a84661d10",
+      "input_keys": [
+        "schema",
+        "operation",
+        "task_id",
+        "evidence_fingerprint",
+        "question",
+        "evidence",
+        "role",
+        "provider_id",
+        "model",
+        "charging_basis",
+        "privacy",
+        "config_snapshot_id",
+        "profile_id",
+        "reservation"
+      ],
+      "evidence_keys": [
+        "subject",
+        "successors",
+        "catalogue",
+        "passages"
+      ]
+    },
+    {
+      "kind": "alias-resolution",
+      "subject": "alias-issue:3ad41c18da4e795d5a780a340478bf1c655428935db359139ebe5b0b345c112d",
+      "input_keys": [
+        "schema",
+        "operation",
+        "task_id",
+        "evidence_fingerprint",
+        "question",
+        "evidence",
+        "role",
+        "provider_id",
+        "model",
+        "charging_basis",
+        "privacy",
+        "config_snapshot_id",
+        "profile_id",
+        "reservation"
+      ],
+      "evidence_keys": [
+        "subject",
+        "successors",
+        "catalogue",
+        "passages"
+      ]
+    },
+    {
+      "kind": "identity-review",
+      "subject": "concept-sha256:11592621c2a1ae812bccc986266962c7e7b69b2d583b28ffab864e11cd9fe5b3",
+      "input_keys": [
+        "schema",
+        "operation",
+        "task_id",
+        "evidence_fingerprint",
+        "question",
+        "evidence",
+        "role",
+        "provider_id",
+        "model",
+        "charging_basis",
+        "privacy",
+        "config_snapshot_id",
+        "profile_id",
+        "reservation"
+      ],
+      "evidence_keys": [
+        "subject",
+        "successors",
+        "catalogue",
+        "passages"
+      ]
+    },
+    {
+      "kind": "identity-review",
+      "subject": "concept-sha256:09769d62990864a7fc45fc0be7f0b915bc04227b8a778d95643a3e11d87d1af4",
+      "input_keys": [
+        "schema",
+        "operation",
+        "task_id",
+        "evidence_fingerprint",
+        "question",
+        "evidence",
+        "role",
+        "provider_id",
+        "model",
+        "charging_basis",
+        "privacy",
+        "config_snapshot_id",
+        "profile_id",
+        "reservation"
+      ],
+      "evidence_keys": [
+        "subject",
+        "successors",
+        "catalogue",
+        "passages"
+      ]
+    },
+    {
+      "kind": "alias-resolution",
+      "subject": "alias-issue:3bbf1c2a89078f1cd0dd3732fd491ede0d90db4e54dd0fc456de0891878ef5a2",
+      "input_keys": [
+        "schema",
+        "operation",
+        "task_id",
+        "evidence_fingerprint",
+        "question",
+        "evidence",
+        "role",
+        "provider_id",
+        "model",
+        "charging_basis",
+        "privacy",
+        "config_snapshot_id",
+        "profile_id",
+        "reservation"
+      ],
+      "evidence_keys": [
+        "subject",
+        "successors",
+        "catalogue",
+        "passages"
+      ]
+    },
+    {
+      "kind": "alias-resolution",
+      "subject": "alias-issue:3bf3f78ec525dad98ac9c55dd10f47ceeba9b31fb796b967fa598b9c8e1e2397",
+      "input_keys": [
+        "schema",
+        "operation",
+        "task_id",
+        "evidence_fingerprint",
+        "question",
+        "evidence",
+        "role",
+        "provider_id",
+        "model",
+        "charging_basis",
+        "privacy",
+        "config_snapshot_id",
+        "profile_id",
+        "reservation"
+      ],
+      "evidence_keys": [
+        "subject",
+        "successors",
+        "catalogue",
+        "passages"
+      ]
+    }
+  ]
+}

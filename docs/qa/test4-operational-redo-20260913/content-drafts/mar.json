@@ -1,0 +1,113 @@
+{
+  "mentions": [
+    {
+      "label": "Mar",
+      "canonical_label": "Mar",
+      "concept_type": "person",
+      "evidence_quote": "Mar departed  from  Perth,  leaving  a garrison  behind  under  Colonel \nBalfour",
+      "aliases": []
+    },
+    {
+      "label": "Perth",
+      "canonical_label": "Perth",
+      "concept_type": "place",
+      "evidence_quote": "Mar departed  from  Perth,  leaving  a garrison  behind",
+      "aliases": []
+    },
+    {
+      "label": "Colonel Balfour",
+      "canonical_label": "Colonel Balfour",
+      "concept_type": "person",
+      "evidence_quote": "leaving  a garrison  behind  under  Colonel \nBalfour,  besides  a scattered  force",
+      "aliases": []
+    },
+    {
+      "label": "Fife",
+      "canonical_label": "Fife",
+      "concept_type": "place",
+      "evidence_quote": "a scattered  force  of  about  three  thousand  men  quartered \nin  different  parts  of  Fife",
+      "aliases": []
+    },
+    {
+      "label": "insurgents",
+      "canonical_label": "insurgents",
+      "concept_type": "organisation",
+      "evidence_quote": "The  insurgents  took  up  their \nquarters  for  the  night  at  Auchterarder",
+      "aliases": []
+    },
+    {
+      "label": "Auchterarder",
+      "canonical_label": "Auchterarder",
+      "concept_type": "place",
+      "evidence_quote": "quarters  for  the  night  at  Auchterarder,  where  they  were  reviewed",
+      "aliases": []
+    },
+    {
+      "label": "western clans",
+      "canonical_label": "western clans",
+      "concept_type": "organisation",
+      "evidence_quote": "were  joined  by  the  western  clans \nunder  General  Gordon",
+      "aliases": []
+    },
+    {
+      "label": "General Gordon",
+      "canonical_label": "General Gordon",
+      "concept_type": "person",
+      "evidence_quote": "the  western  clans \nunder  General  Gordon.  The  army  rested",
+      "aliases": []
+    },
+    {
+      "label": "Dunblane",
+      "canonical_label": "Dunblane",
+      "concept_type": "place",
+      "evidence_quote": "march \nforward  with  three  thousand  of  the  clans,  and  eight  squadrons  of  horse \nunder  Brigadier  Ogilvy,  and  the  master  of  Sinclair,  and  take  posses- \nsion of  Dunblane",
+      "aliases": []
+    },
+    {
+      "label": "Brigadier Ogilvy",
+      "canonical_label": "Brigadier Ogilvy",
+      "concept_type": "person",
+      "evidence_quote": "eight  squadrons  of  horse \nunder  Brigadier  Ogilvy,  and  the  master  of  Sinclair",
+      "aliases": []
+    },
+    {
+      "label": "master of Sinclair",
+      "canonical_label": "master of Sinclair",
+      "concept_type": "person",
+      "evidence_quote": "under  Brigadier  Ogilvy,  and  the  master  of  Sinclair,  and  take  posses-",
+      "aliases": []
+    },
+    {
+      "label": "muir of Tullibardine",
+      "canonical_label": "muir of Tullibardine",
+      "concept_type": "place",
+      "evidence_quote": "After  ordering  the  rest  of  the  army  to  parade  on \n•the  muir  of  Tullibardine",
+      "aliases": []
+    },
+    {
+      "label": "Drummond castle",
+      "canonical_label": "Drummond castle",
+      "concept_type": "place",
+      "evidence_quote": "he  departed  for  Drummond  castle  to  hold  an \ninterview",
+      "aliases": []
+    },
+    {
+      "label": "earl of Breadalbane",
+      "canonical_label": "earl of Breadalbane",
+      "concept_type": "person",
+      "evidence_quote": "to  hold  an \ninterview  with  the  earl  of  Breadalbane",
+      "aliases": []
+    }
+  ],
+  "relationships": [],
+  "notes": [
+    {
+      "kind": "observation",
+      "text": "The passage describes Mar departing Perth, insurgents quartering at Auchterarder, the western clans joining under General Gordon, and a planned march toward Dunblane.",
+      "importance_millionths": 900000,
+      "uncertainty_millionths": 50000,
+      "next_action": "",
+      "evidence_quote": "Mar  departed  from  Perth,  leaving  a garrison  behind  under  Colonel \nBalfour,  besides  a scattered  force  of  about  three  thousand  men  quartered \nin  different  parts  of  Fife.  The  earl  not  calculating  upon  a return  to \nPerth,  took  all  his  baggage  along  with  him  and  provisions  sufficient  to \nsupport  his  army  for  twelve  days.  The  insurgents  took  up  their \nquarters  for  the  night  at  Auchterarder,  where  they  were  reviewed  by \nthe  earl,  and  on  the  following  day  were  joined  by  the  western  clans \nunder  General  Gordon.  The  army  rested  the  whole  of  the  eleventh. \nOn  the  morning  of  the  twelfth,  Mar  ordered  General  Gordon  to  march \nforward  with  three  thousand  of  the  clans,  and  eight  squadrons  of  horse \nunder  Brigadier  Ogilvy,  and  the  master  of  Sinclair,  and  take  posses- \nsion of  Dunblane."
+    }
+  ]
+}

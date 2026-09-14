@@ -1,0 +1,51 @@
+{
+  "mentions": [
+    {
+      "label": "Lady Clifford",
+      "canonical_label": "Lady Clifford",
+      "concept_type": "person",
+      "evidence_quote": "a certain  Lady Clifford, \nwho  has  been  some  time  in  France.",
+      "aliases": []
+    },
+    {
+      "label": "France",
+      "canonical_label": "France",
+      "concept_type": "place",
+      "evidence_quote": "Lady Clifford, \nwho  has  been  some  time  in  France.",
+      "aliases": []
+    },
+    {
+      "label": "Sir Hector Maclean",
+      "canonical_label": "Sir Hector Maclean",
+      "concept_type": "person",
+      "evidence_quote": "I  wish \nmuch  Sir  Hector  Maclean  were  made  lieutenant-colonel",
+      "aliases": []
+    },
+    {
+      "label": "Lord  John  Drum- \nmond’s new  regiment",
+      "canonical_label": "Lord John Drummond’s new regiment",
+      "concept_type": "organisation",
+      "evidence_quote": "to  Lord  John  Drum- \nmond’s new  regiment",
+      "aliases": []
+    }
+  ],
+  "relationships": [
+    {
+      "source_mention": 0,
+      "relationship_type": "located-in",
+      "target_mention": 1,
+      "evidence_quote": "a certain  Lady Clifford, \nwho  has  been  some  time  in  France.",
+      "confidence_millionths": 990000
+    }
+  ],
+  "notes": [
+    {
+      "kind": "observation",
+      "text": "The passage reports a proposed appointment of Sir Hector Maclean as lieutenant-colonel of Lord John Drummond’s new regiment, not a confirmed service relationship.",
+      "importance_millionths": 700000,
+      "uncertainty_millionths": 100000,
+      "next_action": "",
+      "evidence_quote": "I  wish \nmuch  Sir  Hector  Maclean  were  made  lieutenant-colonel  to  Lord  John  Drum- \nmond’s new  regiment"
+    }
+  ]
+}

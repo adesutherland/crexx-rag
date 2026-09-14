@@ -1,0 +1,58 @@
+[
+  {
+    "item_id": "item-maintenance:16fceb9a3b6e3ee1b781fc2821aa6da0322c37287bfccf02a10e7958025e7a97",
+    "item_type": "maintenance-resolution",
+    "state": "processed",
+    "validation_state": "validated-maintenance-resolution",
+    "outcome": "succeeded"
+  },
+  {
+    "item_id": "item-maintenance:3012f62d8778519702a7bf46ffc75a1fd1c107ed792ca18e3d458c7351231572",
+    "item_type": "maintenance-resolution",
+    "state": "cancelled",
+    "validation_state": "provider-deferred",
+    "outcome": "cancelled"
+  },
+  {
+    "item_id": "item-maintenance:41ded8cabfc4830ea41ae4b477ffd211311646b306a38a10d1d26eee213931dd",
+    "item_type": "maintenance-resolution",
+    "state": "processed",
+    "validation_state": "validated-maintenance-resolution",
+    "outcome": "succeeded"
+  },
+  {
+    "item_id": "item-maintenance:85865819ece76b72e22d67e2e072ec9d12a16db4e891b69cb84ea2ac04265f8f",
+    "item_type": "maintenance-resolution",
+    "state": "cancelled",
+    "validation_state": "provider-deferred",
+    "outcome": "cancelled"
+  },
+  {
+    "item_id": "item-maintenance:8641afcad1f9203eac836f8b2b9550f0e2f8756c85c63e226578d4c51f07a44d",
+    "item_type": "maintenance-resolution",
+    "state": "processed",
+    "validation_state": "validated-maintenance-resolution",
+    "outcome": "succeeded"
+  },
+  {
+    "item_id": "item-maintenance:a969121e5499f55a51b8c039dbdb25029390fda31ca9bcea24d08298bb1c8c19",
+    "item_type": "maintenance-resolution",
+    "state": "processed",
+    "validation_state": "validated-maintenance-resolution",
+    "outcome": "succeeded"
+  },
+  {
+    "item_id": "item-maintenance:b747eae041f19508fd46070bca827f19a4930cbd48193f97d74d258f79807dc8",
+    "item_type": "maintenance-resolution",
+    "state": "cancelled",
+    "validation_state": "provider-deferred",
+    "outcome": "cancelled"
+  },
+  {
+    "item_id": "item-maintenance:be9ddc24aa07d117677266afed8901b03a9a049c255a624b2936f3f1881a9c83",
+    "item_type": "maintenance-resolution",
+    "state": "cancelled",
+    "validation_state": "provider-deferred",
+    "outcome": "cancelled"
+  }
+]

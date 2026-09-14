@@ -1,0 +1,1 @@
+{"schema":"crexx-rag.command-result/1","operation":"maintain.inspect","status":"error","exit_code":5,"exit_name":"not-found","message":"maintenance object was not found","records":[]}

@@ -1,0 +1,17 @@
+{
+  "grounding_cases": 122,
+  "quotation_not_found": 6,
+  "quotation_found_with_missing_label": 18,
+  "reconciliation": {
+    "actionable": 545
+  },
+  "operational_reasons": {
+    "cannot begin provider reservation": 1,
+    "lease-expired": 8,
+    "Codex allowance preflight failed: Codex App Server response timed out": 3,
+    "confirmed Codex turn interrupted": 5,
+    "provider time budget exhausted": 7
+  },
+  "operational_items_with_earlier_nonempty_response": 5,
+  "operational_latest_nonempty_responses": 0
+}

@@ -87,11 +87,25 @@ Restart the Codex client after changing MCP configuration, then use `/mcp` or
 tools. This follows the current official
 [Codex MCP configuration](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
 
-Read access does not imply zero network use. Query `mode: auto` or `hybrid` may
-call the configured embedding provider, and `rag_query_answer` may call the
-answerer. Use `rag_query_evidence` with `mode: lexical` when the task must make
-no outbound provider call. For **zero writes as well as zero provider calls**,
-use `rag_query_inspect`. Its CLI equivalent is `query inspect QUESTION`.
+For ordinary MCP Q&A, the current assistant retrieves with `rag_query_inspect`,
+follows relevant evidence and graph leads, resolves citations with
+`rag_citation_show`, and composes the answer itself. This retrieval route makes
+**zero writes and zero cREXX-RAG provider calls**. Its CLI equivalent is
+`query inspect QUESTION`.
+
+Use `rag_query_answer` only when the user explicitly requests using or testing
+cREXX-RAG's own answerer, within the configured privacy and provider budget.
+An ordinary request for a cited answer, a configured answerer, or available
+budget does not select that route. It adds another model generation step and
+provider usage before the current assistant can respond. In the
+[13 September performance smoke](qa-performance-20260913.md), two answer calls
+took 11.9–13.0 seconds, including 9.2–10.5 seconds of provider generation;
+ordinary evidence searches on the repaired copy had a 0.47-second median.
+These are samples, not guarantees or measurements of the outer assistant's
+full response time. Keep useful evidence coverage and citation resolution.
+
+Read access does not enforce this route choice or imply zero network use.
+Query `mode: auto` or `hybrid` may call the configured embedding provider.
 The older query routes record durable gap observations even in lexical mode.
 `rag_library_overview` similarly exposes deterministic reporting without the
 optional narrative refresh, so Codex can approve it as a read-only tool.
@@ -139,7 +153,7 @@ The installation provides five skill sources:
 
 | Skill | Use | Expected MCP access |
 | --- | --- | --- |
-| `crexxrag-qa` | Cited evidence questions, traces, paths, and timelines | `read` |
+| `crexxrag-qa` | Evidence retrieval and citations; the current assistant composes ordinary answers | `read` |
 | `crexxrag-ingest` | Zero-write ingestion plan, followed by separately authorized apply | `read,plan`; `ingest` for apply |
 | `crexxrag-maintain` | Ranked maintenance census, exact apply, inspection and explicit review/curation | `read,plan`; `curate` for corpus writes; `control` for retry/waiver |
 | `crexxrag-diagnose` | Library verification, redacted diagnostics, bounded provider smoke tests | `read,diagnose` |
@@ -190,14 +204,23 @@ tools and adversarial tests; it is not a replacement for `SKILL.md`.
 Verify the integration with a read-only request first:
 
 ```text
-Use $crexxrag-qa to ask the crexxrag library which component BillingService
-depends on. Use query inspection with no writes or provider calls, and resolve
-the returned source citation.
+Use $crexxrag-qa to find which component BillingService depends on. Retrieve
+with rag_query_inspect, follow relevant graph leads, resolve the source
+citations with rag_citation_show, and compose the answer yourself. Do not call
+rag_query_answer: this is ordinary Q&A, not a test of crexxrag's own answerer.
 ```
 
-The expected tool sequence is library status or overview, `rag_query_inspect`,
-and `rag_citation_show`. Use additional trace/path/timeline views only when
-required by the question.
+The expected tool sequence is library status, scope inspection as needed,
+`rag_query_inspect`, and `rag_citation_show`, followed by the current assistant's
+answer. Follow graph leads through further focused inspections. Other query
+views require authority for their recorded gaps and any provider calls.
+
+For a reusable corpus workspace based on the ScottishHistory model, copy
+[the corpus AGENTS.md template](templates/corpus-AGENTS.md) to the workspace
+root, merging with any existing instructions. The installed copy is
+`<prefix>/share/doc/crexxrag/templates/corpus-AGENTS.md`. It adds corpus-only
+evidence, active graph exploration and complete source quotations, while the
+shared QA skill owns the detailed tool workflow and answerer performance note.
 
 ## Separate capabilities for mutation
 
@@ -260,7 +283,8 @@ graph leads, gaps, a trace identity, and answer guidance. An agent can then:
 
 1. state supported facts with the returned stable citations;
 2. label graph leads and gaps as unresolved rather than facts;
-3. use trace, path, or timeline tools for focused follow-up;
+3. follow graph leads with further inspections and the embedded trace; use
+   other query views only with authority for their effects;
 4. perform deeper analysis outside the library; and
 5. return new claims through the external-proposal path, or resolve an existing
    maintenance task through the task proposal and mandatory review path.

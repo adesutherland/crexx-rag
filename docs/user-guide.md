@@ -1162,6 +1162,13 @@ zero writes and no provider calls. Over MCP, `rag_query_inspect`,
 source-grounded answers without opening a writing route. Query limits are
 1–12 and graph hops 0–4. Resolve returned citations with `rag_citation_show`.
 
+For ordinary MCP Q&A, the current assistant composes the answer from that
+evidence. Use `rag_query_answer` only for an explicit request to use or test
+cREXX-RAG's own answerer; it adds a separate model generation step, latency and
+provider usage. Configuration and available budget alone do not select it.
+See [the agent setup and performance note](agent-integration.md#crexxrag-as-an-mcp-server)
+and [reusable corpus instructions](templates/corpus-AGENTS.md).
+
 `maintain tasks --capability advanced-reasoning` discovers difficult tasks;
 omit the filter to inspect all work. `maintain inspect TASK_ID` returns its
 subject, history and response schema, and `maintain evidence TASK_ID` pages

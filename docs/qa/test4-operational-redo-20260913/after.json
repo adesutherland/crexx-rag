@@ -1,0 +1,132 @@
+{
+  "counts": {
+    "sources": 9,
+    "revision_chunks": 34907,
+    "claims": 7971,
+    "provider_runs": 82564,
+    "attempts": 116275,
+    "job_items": 95169,
+    "reviews": 4404
+  },
+  "generation": 24933,
+  "config_snapshot": "config-a211c0fede4237fe77bbc797",
+  "source_revision_digest": "012566fabeadeaec3c3b54e14d4abd009007f31df3ba1eaa301ca127fcf9a4e6",
+  "provider_runs": [
+    {
+      "provider_run_id": "provider-run-sha256:ec8a230981fab96705da1929981e3ed1aea0ad6af894ea3e5028e59d94fa0e14",
+      "config_snapshot_id": "config-bbac47eed961d56bd65c0a8d",
+      "provider_id": "codex-extract",
+      "model": "gpt-5.6-luna",
+      "request_hash": "c22077747494079f78fadeb1c2457db24ea730416c182d784d2d084c443ff60a",
+      "outcome": "succeeded",
+      "input_tokens": 17440,
+      "output_tokens": 418,
+      "duration_ms": 10459,
+      "started_at": "2026-09-13T20:40:19.942Z",
+      "completed_at": "2026-09-13T20:40:31.562Z",
+      "charging_basis": "subscription-allowance",
+      "external_thread_id": "01a09c7f-da5c-7830-a79a-222ef43f9e2a",
+      "external_turn_id": "01a09c7f-dae8-7962-8e6a-0ff386a3b96f",
+      "allowance_used_before_percent": 57,
+      "allowance_used_after_percent": 57,
+      "recovery_json": "",
+      "cost_microunits": 0,
+      "purpose": "work-item"
+    },
+    {
+      "provider_run_id": "provider-run-sha256:ed5b2024ce4b733eb04a8da5197b31033ecfb039c898d378c7bcd73456c27931",
+      "config_snapshot_id": "config-bbac47eed961d56bd65c0a8d",
+      "provider_id": "codex-extract",
+      "model": "gpt-5.6-luna",
+      "request_hash": "5da785d2ffe1eda5753d36f86a293c3e307db1a388ba6736ea60ade989644bfb",
+      "outcome": "failed",
+      "input_tokens": 19508,
+      "output_tokens": 1658,
+      "duration_ms": 32617,
+      "started_at": "2026-09-13T20:41:30.774Z",
+      "completed_at": "2026-09-13T20:42:04.818Z",
+      "charging_basis": "subscription-allowance",
+      "external_thread_id": "01a09c80-ef38-79a2-b406-6d6e666407df",
+      "external_turn_id": "01a09c80-ef99-78a2-885e-da59f6b297d1",
+      "allowance_used_before_percent": 57,
+      "allowance_used_after_percent": 57,
+      "recovery_json": "{\"schema\":\"crexx-rag.rejected-output/1\",\"input_hash\":\"154756b11c7549e8350c0ce2ad8609c399dc55ace52d66a8dc7439c513604dbd\",\"error\":\"provider relationship quotation does not contain both endpoints\",\"output_sha256\":\"7401af78e5da140456cd1f0e404631b82fd07878402c3e066d54fda54698c7a4\",\"output_bytes\":4778,\"omitted\":\"\",\"content\":\"{\\\"mentions\\\":[{\\\"label\\\":\\\"the town\\\",\\\"canonical_label\\\":\\\"the town\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"within  a mile  of  the  town,  and  began  his  retreat\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"English army\\\",\\\"canonical_label\\\":\\\"English army\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"in  sight  of  the  English \\\\narmy.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Clanranald\u2019s regiment\\\",\\\"canonical_label\\\":\\\"Clanranald\u2019s regiment\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"Clanranald\u2019s  regiment,  with  the  French  piquets \\\\nand  Fitz-James\u2019s  horse,  formed  the  rear.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"French piquets\\\",\\\"canonical_label\\\":\\\"French piquets\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"Clanranald\u2019s  regiment,  with  the  French  piquets \\\\nand  Fitz-James\u2019s  horse,  formed  the  rear.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Fitz-James\u2019s horse\\\",\\\"canonical_label\\\":\\\"Fitz-James\u2019s horse\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"Clanranald\u2019s  regiment,  with  the  French  piquets \\\\nand  Fitz-James\u2019s  horse,  formed  the  rear.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"duke of Cumberland\\\",\\\"canonical_label\\\":\\\"duke of Cumberland\\\",\\\"concept_type\\\":\\\"person\\\",\\\"evidence_quote\\\":\\\"the  duke  of  Cumberland  sent  forward  his  cavalry.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"his cavalry\\\",\\\"canonical_label\\\":\\\"his cavalry\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"the  duke  of  Cumberland  sent  forward  his  cavalry.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"French horse\\\",\\\"canonical_label\\\":\\\"French horse\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"Several  shots  were \\\\nexchanged  between  the  duke\u2019s  cavalry  and  the  French  horse\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"duke\u2019s advanced guard\\\",\\\"canonical_label\\\":\\\"duke\u2019s advanced guard\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"in \\\\nexpectation  of  an  engagement  with  the  duke\u2019s  advanced  guard,  consist- \\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Argyleshire men\\\",\\\"canonical_label\\\":\\\"Argyleshire men\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"the  duke\u2019s  advanced  guard,  consist- \\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Macdonalds of Clanranald\\\",\\\"canonical_label\\\":\\\"Macdonalds of Clanranald\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"the  Argyleshire  men,  the  Macdonalds \\\\nof  Clanranald,  and  the  Stewarts  of  Appin,  were  ordered  back\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Stewarts of Appin\\\",\\\"canonical_label\\\":\\\"Stewarts of Appin\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"the  Argyleshire  men,  the  Macdonalds \\\\nof  Clanranald,  and  the  Stewarts  of  Appin,  were  ordered  back\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"the French\\\",\\\"canonical_label\\\":\\\"the French\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"the  Macdonalds \\\\nof  Clanranald,  and  the  Stewarts  of  Appin,  were  ordered  back  to  sup- \\\\nport the  French.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Highlanders\\\",\\\"canonical_label\\\":\\\"Highlanders\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"The  advanced  guard  continued  to  pursue  the \\\\nHighlanders  several  miles  beyond  Nairn\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Nairn\\\",\\\"canonical_label\\\":\\\"Nairn\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"The  advanced  guard  continued  to  pursue  the \\\\nHighlanders  several  miles  beyond  Nairn\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"the chase\\\",\\\"canonical_label\\\":\\\"the chase\\\",\\\"concept_type\\\":\\\"event\\\",\\\"evidence_quote\\\":\\\"beyond  Nairn,  but  finding  the  chase  useless, \\\\nreturned  to  the  main  body\\\",\\\"aliases\\\":[]}],\\\"relationships\\\":[{\\\"source_mention\\\":9,\\\"relationship_type\\\":\\\"had-member\\\",\\\"target_mention\\\":7,\\\"evidence_quote\\\":\\\"the  duke\u2019s  advanced  guard,  consist- \\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\",\\\"confidence_millionths\\\":970000},{\\\"source_mention\\\":9,\\\"relationship_type\\\":\\\"had-member\\\",\\\"target_mention\\\":8,\\\"evidence_quote\\\":\\\"the  duke\u2019s  advanced  guard,  consist- \\\\ning of  two  hundred  cavalry  and  the  Argyleshire  men\\\",\\\"confidence_millionths\\\":970000},{\\\"source_mention\\\":13,\\\"relationship_type\\\":\\\"participated-in\\\",\\\"target_mention\\\":14,\\\"evidence_quote\\\":\\\"The  advanced  guard  continued  to  pursue  the \\\\nHighlanders  several  miles  beyond  Nairn,  but  finding  the  chase  useless\\\",\\\"confidence_millionths\\\":850000},{\\\"source_mention\\\":14,\\\"relationship_type\\\":\\\"participated-in\\\",\\\"target_mention\\\":15,\\\"evidence_quote\\\":\\\"beyond  Nairn,  but  finding  the  chase  useless, \\\\nreturned  to  the  main  body\\\",\\\"confidence_millionths\\\":850000}],\\\"notes\\\":[{\\\"kind\\\":\\\"observation\\\",\\\"text\\\":\\\"The passage describes a retreat in which Clanranald\u2019s regiment, French piquets, and Fitz-James\u2019s horse formed the rear.\\\",\\\"importance_millionths\\\":800000,\\\"uncertainty_millionths\\\":0,\\\"next_action\\\":\\\"\\\",\\\"evidence_quote\\\":\\\"In  this  retreat,  Clanranald\u2019s  regiment,  with  the  French  piquets \\\\nand  Fitz-James\u2019s  horse,  formed  the  rear.\\\"}]}\"}",
+      "cost_microunits": 0,
+      "purpose": "work-item"
+    },
+    {
+      "provider_run_id": "provider-run-sha256:ea8c17652e0c5990ee39fdb58c2aab7f6cd7316fa837bf64d95360cc471522e1",
+      "config_snapshot_id": "config-bbac47eed961d56bd65c0a8d",
+      "provider_id": "codex-extract",
+      "model": "gpt-5.6-luna",
+      "request_hash": "7edd0e2c58ad1ffdeed032bc8501f2513e01ebe6485808ca530cc3367da60bfa",
+      "outcome": "succeeded",
+      "input_tokens": 20963,
+      "output_tokens": 1320,
+      "duration_ms": 26357,
+      "started_at": "2026-09-13T20:42:05.409Z",
+      "completed_at": "2026-09-13T20:42:32.777Z",
+      "charging_basis": "subscription-allowance",
+      "external_thread_id": "01a09c81-7693-7aa0-89ac-476cdb8441d8",
+      "external_turn_id": "01a09c81-76e5-7403-bd1d-4f9bc426ec11",
+      "allowance_used_before_percent": 57,
+      "allowance_used_after_percent": 57,
+      "recovery_json": "",
+      "cost_microunits": 0,
+      "purpose": "work-item"
+    }
+  ],
+  "reconciliation": [
+    {
+      "reconciliation_state": "actionable",
+      "count": 543
+    },
+    {
+      "reconciliation_state": "resolved",
+      "count": 2
+    }
+  ],
+  "selected_lineage": [
+    {
+      "source_item_id": "item-sha256:3e6fbb8477b2cf8335685d843ccee91c8881cf40597612c3d4be4d168e11068a",
+      "replay_job_id": "job-replay-sha256:a788c04a86a652c09d457181735490b663129ca5e4cadef94a16e69b9af4eb19",
+      "replay_item_id": "item-replay-sha256:8198e8f18e0b7f4dc9f5ad50f8df0d9162e7a3e669f76846ea9f10a4e6e2c300",
+      "state": "processed"
+    },
+    {
+      "source_item_id": "item-sha256:92a38a4adcec0c685fe8812213faa2581b593489cffd4aa35b62abfae7b00e7b",
+      "replay_job_id": "job-replay-sha256:b9f47a756ef090ffb56c2539221acf0c4f2c638cc34585b1149c98ef17cd62bf",
+      "replay_item_id": "item-replay-sha256:cc797017987994e525f4fea5372a9d0f6e2b82ea1a8745a8f2e3b67d9958154e",
+      "state": "processed"
+    }
+  ],
+  "new_claims": [
+    {
+      "claim_id": "claim-sha256:591b3693ad2323056000982030d4441f158f8cfb22a8ce66f63de0af85590fe9",
+      "source_concept_id": "concept-sha256:30718e6cc61d5c3ffac5324766f70bb342568b8ad258589cf0c3c09f4201cd11",
+      "relationship_type": "related-to",
+      "target_concept_id": "concept-sha256:a848620ba60e172b9b7a0158b739f524885954c65b4f1918d806040ef287e742",
+      "direction": "outbound",
+      "qualifiers_json": "{}",
+      "effective_from": null,
+      "effective_to": null,
+      "policy_version": "surface-claim-v2:1",
+      "visible_from_generation": 24932,
+      "visible_to_generation": null
+    },
+    {
+      "claim_id": "claim-sha256:177f32b5461d55538e7a3d7f27d7129b567c456d47ce9e32c89dc63687ec8c81",
+      "source_concept_id": "concept-sha256:ac81958895fc705421520ffdd9f4196c5f1a60884bbf59f7d26e18385999180b",
+      "relationship_type": "had-member",
+      "target_concept_id": "concept-sha256:03617bbadc0ca7272090d8c2590aeb83bf72668060846d00a7ea8f0222a9cb8d",
+      "direction": "outbound",
+      "qualifiers_json": "{}",
+      "effective_from": null,
+      "effective_to": null,
+      "policy_version": "surface-claim-v2:1",
+      "visible_from_generation": 24933,
+      "visible_to_generation": null
+    }
+  ],
+  "new_mentions": 20
+}

@@ -1,0 +1,11 @@
+--- /Users/adrian/testrag/scotland.glossary.tsv
++++ /Users/adrian/testrag/scotland.glossary.tsv
+@@ -2,7 +2,7 @@
+ concept	Clan Gregor	organisation	MacGregors|Clan MacGregor|Gregors
+ concept	Rob Roy MacGregor	person	Rob Roy
+ concept	Campbell of Argyll	organisation	Argyll
+-concept	Campbell of Breadalbane	organisation	Breadalbane
++concept	Campbell of Breadalbane	organisation	
+ concept	The Black Watch	organisation	Black Watch|42nd Royal Highlanders|Am Freiceadan Dubh
+ concept	Independent Companies	organisation	Highland Companies
+ concept	Belted Plaid	artefact	Feile-breag|Feileadh Mor

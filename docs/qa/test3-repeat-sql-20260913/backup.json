@@ -1,0 +1,1 @@
+{"schema":"crexx-rag.command-result/1","operation":"library.backup","status":"ok","exit_code":0,"exit_name":"success","message":"generation-pinned backup published","records":[{"kind":"backup-status","fields":{"path":"/private/tmp/crexxrag-test3-repeat-tadMRjFu/library","generation":24928,"sidecar_count":1,"pages":750622,"published":true}}]}

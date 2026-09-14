@@ -75,6 +75,14 @@ then investigate difficult maintenance tasks with the installed operating skills
 - `crexxrag-ingest` plans source ingestion;
 - `crexxrag-diagnose` inspects library and provider health.
 
+For ordinary MCP questions, the current assistant retrieves evidence, follows
+relevant graph leads, resolves citations and writes the answer itself.
+cREXX-RAG's own answerer is for explicit requests to use or test it and adds a
+separate model generation step, latency and provider usage. See the
+[agent setup](docs/agent-integration.md) and the
+[corpus workspace template](docs/templates/corpus-AGENTS.md), based on the
+ScottishHistory setup.
+
 Start with `read,plan` access. `query inspect` and `library overview` support
 exploration with no corpus writes or RAG provider calls. An agent can page task
 evidence and original citations, prepare inline new-claim proposals, or plan a

@@ -1,9 +1,119 @@
 # Operator continuation: live handoff
 
-Updated: 2026-09-13, after acceptance of the complete SQL performance repair. This file records the current result and next action.
+Updated: 2026-09-14, after shared MCP QA guidance and reusable corpus setup updates. This file records the current result and next action.
 The detailed history below is retained for reference.
 
-## Current checkpoint — all twelve SQL repairs complete and locally tested
+## Current checkpoint — baseline for the requested Tests 1–4 repeat
+
+Ordinary MCP Q&A now explicitly retrieves evidence, resolves citations and
+uses the current assistant to compose the answer. The separate product answerer
+requires an explicit request to use or test it; shared instructions document
+its additional generation latency and provider usage. MCP initialization and
+tool descriptions agree. The ScottishHistory model is available as
+`docs/templates/corpus-AGENTS.md`, linked from the setup examples and guides.
+ScottishHistory standing instructions and both installations' shared instruction
+and setup files have been refreshed. Installed executable files are unchanged.
+
+The build passes; its native SHA-256 is
+`4b5937a14302b4f1e8f121c0de78e60992a30db15f6157673e27fdf2db3baba5`.
+`native_surfaces` and `documentation_contract` passed before the wording change
+(2/2, 18.57s) and after it (2/2, 17.90s). Actual rebuilt MCP initialization,
+tool descriptions and unchanged access annotations were inspected. This is a
+guidance change; command execution, schemas and provider admission are unchanged.
+
+The user requested committing this baseline, then repeating Tests 1–4 under
+their existing bounded scopes on a fresh disposable copy. Use the retained
+pre-Test-1 public backup so the five missing embeddings and new-document path
+are exercised again. These new results must be recorded separately from the
+historical passes below. RAG-SMK-010 and the wider performance findings remain
+open; the instruction update does not repair them.
+
+## Previous checkpoint — Test 4 repairs two operational holds
+
+The user extended testing to search, answers and following relationships.
+[QA performance results](qa-performance-20260913.md) show 0.47-second median
+MCP searches and 0.45–0.60-second path calls on the repaired copy; two Codex
+answers took 12–13 seconds. The permanent ScottishHistory MCP configuration
+still launches a September 10 private executable. On the same permanent QA
+library, the current executable reduced overview time from 32.1 to 9.0 seconds,
+but did not improve search latency in this sample. No permanent QA files changed.
+
+Next QA fixes indicated: update that stale launch target deliberately, avoid
+the full health report in routine QA setup, skip vector-sidecar hashing in
+lexical mode, and improve answer-span ranking before reducing passage limits.
+Three passages missed the battle evidence; twelve retained it. Both benchmark
+answer calls were within the bounded extension, using subscription allowance
+and no Gemini or monetary-API route (the cost field remains unpriced).
+They recorded only query usage/gaps in the disposable copy; generation remains
+24,933. All benchmark servers have exited. These findings are not yet fixes.
+
+Continue in `/Users/adrian/CLionProjects/crexx-rag` on `main`, product commit
+`7febbca54fefa33ec90cc775f1b9ab01045fcad9`. Product code and installation are
+unchanged from the successful Test 3 repeat below.
+
+[Test 4 continuation](test4-operational-redo-20260913.md) repaired two original
+operational holds in the same disposable copy. Both explicit replay jobs
+completed, using three Codex turns including one citation correction, $0 API
+cost, no Gemini and no failed/restarted workers. The 183-second interval stayed
+within the fresh five-minute authority. No more hosted work is running.
+
+The copy now verifies at schema 18, generation **24,933** with zero issues,
+20 new mentions and two new claims. Sources, revisions, 34,907 chunks and vector
+coverage remain intact. Original extraction history is retained; reconciliation
+shows **543 actionable roots and two resolved** (521 content / 22 operational
+still actionable). Current snapshot `config-a211c0fede4237fe77bbc797` is restored.
+
+**Open RAG-SMK-010:** the whole-configuration replay hash rejects old items after
+an unrelated source set is added. Temporarily selecting the original source
+scope through public configuration commands allowed this smoke; that workaround
+is not a product repair. Add the additive-source regression and fix compatibility
+in its shared owner before making that an ordinary operator workflow.
+
+Four content-correction drafts pass 45 original-grounding checks; they remain
+unpublished and do not resolve their holds. A draft removes the ambiguous bare
+Breadalbane organisation alias; the global glossary remains unchanged. Review
+these through ordinary proposal/catalogue controls. Smoke evidence and the
+updated handoff are uncommitted; no push or authoritative-library change occurred.
+
+## Previous checkpoint — repaired installation and Test 3 pass; Test 4 inspected
+
+Continue in **`/Users/adrian/CLionProjects/crexx-rag` on `main`**, commit
+`7febbca54fefa33ec90cc775f1b9ab01045fcad9`. The normal installed executable now
+matches the qualified SQL repair native, SHA-256
+`e3967d87a24df035fa43373719bc5ed611592c7cf49433326dca85115cc762ab`.
+
+The approved [Test 3 repeat](test3-repeat-sql-20260913.md) passed: planning
+**0.207 seconds**, apply **0.705 seconds**, execution **55 seconds**, exit 0.
+The fresh five-minute window selected eight items and stopped at four managed
+Codex turns, with zero Gemini calls and **$0 monetary API usage**. Three tasks
+resolved; Welsh correctly remains unresolved. Four unstarted items were
+cancelled when the window closed and their tasks remain pending. One App Server
+timeout caused a successful automatic worker replacement. All workers and the
+controller stopped, with no uncertain or unsettled items in this job.
+
+Disposable library: `/private/tmp/crexxrag-test3-repeat-tadMRjFu/library`.
+Schema 18, generation **24,931**, zero verification issues; source revisions,
+34,907 chunks, 7,969 claims and the Test 2 citation remain unchanged. Existing
+published vectors still cover all 34,907 chunks. The original scratch corpus,
+master library and permanent query copy were not changed.
+
+[Test 4 inspection](test4-extraction-holds-20260913.md) is complete. All **545**
+original extraction holds remain actionable: **521 content** and **24
+operational**. One retained response per content reason was inspected using
+the existing cREXX grounding owner; all 24 operational histories were inspected.
+The samples show valid rejections, including changed OCR, stitched quotations,
+missing endpoints and invalid response shape. A bare `Breadalbane` glossary
+alias also conflicts with a geographical use. No hold was retried or waived.
+
+Next: a small bounded redo of operational failures, then targeted content
+correction through the existing extraction-review workflow, including a
+reviewed Breadalbane alias decision. There is no usable final response on the
+24 latest operational attempts; eight expired leases already have retained
+interrupted-turn reconciliation. Keep their historical incomplete usage explicit.
+The approved Test 3 window has finished; no further provider work is running.
+These smoke reports are uncommitted follow-up documentation; no push occurred.
+
+## Previous checkpoint — all twelve SQL repairs complete and locally tested
 
 Continue in **`/Users/adrian/CLionProjects/crexx-rag` on `main`**. The
 [delivery checklist](sql-performance-delivery-20260913.md) records F01–F12,

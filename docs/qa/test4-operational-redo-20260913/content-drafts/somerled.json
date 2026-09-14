@@ -1,0 +1,123 @@
+{
+  "mentions": [
+    {
+      "label": "conquest  of  Argyle",
+      "canonical_label": "conquest of Argyle",
+      "concept_type": "event",
+      "evidence_quote": "The  conquest  of  Argyle  by  Alexander  II.",
+      "aliases": []
+    },
+    {
+      "label": "Alexander  II.",
+      "canonical_label": "Alexander II",
+      "concept_type": "person",
+      "evidence_quote": "The  conquest  of  Argyle  by  Alexander  II.",
+      "aliases": []
+    },
+    {
+      "label": "Argyle",
+      "canonical_label": "Argyle",
+      "concept_type": "place",
+      "evidence_quote": "The  conquest  of  Argyle  by  Alexander  II.",
+      "aliases": []
+    },
+    {
+      "label": "Western  Islands",
+      "canonical_label": "Western Islands",
+      "concept_type": "place",
+      "evidence_quote": "annexa- \ntion of  the  Western  Islands  to  the  kingdom  of  Scotland",
+      "aliases": []
+    },
+    {
+      "label": "Scotland",
+      "canonical_label": "Scotland",
+      "concept_type": "place",
+      "evidence_quote": "the  Western  Islands  to  the  kingdom  of  Scotland",
+      "aliases": []
+    },
+    {
+      "label": "race  of  Conn",
+      "canonical_label": "race of Conn",
+      "concept_type": "organisation",
+      "evidence_quote": "annihilated  the  power  of  the  race  of  Conn  as  an  indepen- \ndent tribe",
+      "aliases": []
+    },
+    {
+      "label": "Dugall",
+      "canonical_label": "Dugall",
+      "concept_type": "person",
+      "evidence_quote": "the  failure  of  the  male  descendants  of  Dugall  in \nthe  person  of  Ewen",
+      "aliases": []
+    },
+    {
+      "label": "Ewen",
+      "canonical_label": "Ewen",
+      "concept_type": "person",
+      "evidence_quote": "the  male  descendants  of  Dugall  in \nthe  person  of  Ewen",
+      "aliases": []
+    },
+    {
+      "label": "clan  Rorj’-",
+      "canonical_label": "clan Rorj’-",
+      "concept_type": "organisation",
+      "evidence_quote": "These \nwere  the  clan  Rorj’-,  the  clan  Donald,  and  the  clan  Dugall",
+      "aliases": []
+    },
+    {
+      "label": "clan  Donald",
+      "canonical_label": "clan Donald",
+      "concept_type": "organisation",
+      "evidence_quote": "the  clan  Rorj’-,  the  clan  Donald,  and  the  clan  Dugall",
+      "aliases": []
+    },
+    {
+      "label": "clan  Dugall",
+      "canonical_label": "clan Dugall",
+      "concept_type": "organisation",
+      "evidence_quote": "the  clan  Rorj’-,  the  clan  Donald,  and  the  clan  Dugall",
+      "aliases": []
+    },
+    {
+      "label": "Ranald",
+      "canonical_label": "Ranald",
+      "concept_type": "person",
+      "evidence_quote": "three  sons  of  Ranald  or  Reginald,  the  son  of  Somerled",
+      "aliases": [
+        "Reginald"
+      ]
+    },
+    {
+      "label": "Somerled",
+      "canonical_label": "Somerled",
+      "concept_type": "person",
+      "evidence_quote": "Ranald  or  Reginald,  the  son  of  Somerled",
+      "aliases": []
+    }
+  ],
+  "relationships": [
+    {
+      "source_mention": 0,
+      "relationship_type": "had-participant",
+      "target_mention": 1,
+      "evidence_quote": "The  conquest  of  Argyle  by  Alexander  II.",
+      "confidence_millionths": 980000
+    },
+    {
+      "source_mention": 11,
+      "relationship_type": "related-to",
+      "target_mention": 12,
+      "evidence_quote": "Ranald  or  Reginald,  the  son  of  Somerled ",
+      "confidence_millionths": 900000
+    }
+  ],
+  "notes": [
+    {
+      "kind": "observation",
+      "text": "The passage states that the conquest of Argyle by Alexander II and the subsequent annexation of the Western Islands to Scotland contributed to the destruction of the race of Conn's power as an independent tribe.",
+      "importance_millionths": 850000,
+      "uncertainty_millionths": 50000,
+      "next_action": "",
+      "evidence_quote": "The  conquest  of  Argyle  by  Alexander  II.,  and  the  subsequent  annexa- \ntion of  the  Western  Islands  to  the  kingdom  of  Scotland,  under  the  reign \nof  his  successor,  annihilated  the  power  of  the  race  of  Conn  as  an  indepen- \ndent tribe"
+    }
+  ]
+}

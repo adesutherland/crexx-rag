@@ -8,6 +8,10 @@ description: Answer questions from a crexxrag library using source-bound typed e
 Prerequisites: a running `crexxrag serve mcp` session with `read` access and
 the `crexx-rag.command-result/1` / `crexx-rag.evidence/2` schemas.
 
+For ordinary MCP Q&A, retrieve evidence and compose the cited answer yourself
+in the current assistant conversation. cREXX-RAG supplies passages, graph
+evidence and citation resolution; no separate answer-generation call is needed.
+
 1. Call `rag_library_status` and stop on a non-zero `exit_code`.
 2. Use `rag_library_overview` for corpus coverage and `rag_source_list` for
    source metadata. Call `rag_query_inspect` with the user's question for
@@ -16,7 +20,8 @@ the `crexx-rag.command-result/1` / `crexx-rag.evidence/2` schemas.
    names or phrases before concluding evidence is absent. Prefer the
    returned citations, stance, attribution, effective time, ambiguity,
    conflict and gap fields.
-3. Answer only supported claims and cite the returned cREXX-RAG citations.
+3. Compose the answer yourself from supported claims and cite the returned
+   cREXX-RAG citations.
    Say plainly when evidence is absent or only a graph lead.
 4. Resolve returned citations with `rag_citation_show`; occurrence, note and
    concept IDs are not citation IDs. Its text is an immutable source span.
@@ -25,10 +30,21 @@ the `crexx-rag.command-result/1` / `crexx-rag.evidence/2` schemas.
    one accepted edge. Use `rag_query_trace`, `rag_query_path` or
    `rag_query_timeline` when their projections are needed and gap recording is
    authorized; these older query routes record durable query-gap observations.
-5. Use `rag_query_answer` only when the configured privacy route and API or
-   subscription budget authorize provider use. `rag_query_evidence` can use
+5. Use `rag_query_answer` only when the user explicitly requests using or
+   testing cREXX-RAG's own answerer, and the configured privacy route and API
+   or subscription budget authorize provider use. An ordinary request for a
+   cited answer, a configured provider, or available budget is not that request.
+   This route adds a separate model generation step, latency and provider
+   usage before the current assistant can respond. `rag_query_evidence` can use
    hybrid retrieval and records gaps; `rag_query_inspect` makes neither writes
    nor provider calls. A tool approval failure is not evidence of absence.
+
+Performance context: two 13 September 2026 smoke samples took 11.9–13.0 seconds
+for the separate answer route, including 9.2–10.5 seconds in provider generation;
+ordinary evidence searches on the repaired test copy had a 0.47-second median.
+These are samples, not guarantees or timings of the current assistant's full
+response. Its own reasoning and generation still take time. Do not reduce
+evidence coverage or skip citation resolution merely to save time.
 
 Query limits are 1–12 and graph hops 0–4. Source-list pages accept 1–100
 data rows plus a separate cursor record. Continue until `next_cursor` is empty. Keep

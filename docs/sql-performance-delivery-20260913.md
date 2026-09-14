@@ -3,7 +3,8 @@
 Implements the [whole SQL review](sql-performance-review-20260913.md) on main
 at baseline `bfbbdfd95d95a080262d47711c759bc2a9df18a0`. This record distinguishes
 implementation from acceptance; a finding is checked only after its complete
-repair and relevant checks pass. No hosted calls or user-library writes.
+repair and relevant checks pass. The original acceptance used no hosted calls
+or user-library writes; the separately approved installed smoke follows below.
 
 ## Acceptance checklist
 
@@ -116,5 +117,17 @@ passes. Product/build/test inputs remained unchanged during final acceptance.
 
 Evidence is retained under `docs/qa/sql-performance-fixes-20260913/`, with
 source hashes and an evidence checksum manifest. The repair and evidence are
-committed together; the normal installed executable remains the pre-repair baseline.
-No hosted regression run or authoritative library migration is claimed.
+committed together as `7febbca54fefa33ec90cc775f1b9ab01045fcad9`.
+
+## Approved installed follow-up
+
+The normal installation now matches the qualified native hash above. The
+separately approved [Test 3 repeat](test3-repeat-sql-20260913.md) ran on a fresh
+disposable corpus copy: plan 0.207 seconds, apply 0.705 seconds, execution
+55 seconds, exit 0. Four managed Codex turns produced three resolved tasks and
+one retained unresolved decision; monetary API usage was zero. One App Server
+timeout was recovered by automatic worker replacement. Verification found zero
+issues at generation 24,931, with source revisions, chunks, claims and the
+Test 2 citation unchanged. [Test 4](test4-extraction-holds-20260913.md) then
+inspected the remaining extraction holds without calls or data changes.
+No authoritative library migration or hosted cross-platform qualification is claimed.

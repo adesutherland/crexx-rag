@@ -395,6 +395,15 @@ in that context. An explicitly insufficient answer returns no citations and is
 rendered as a deterministic refusal, so irrelevant retrieval cannot become an
 uncited generated claim or a false command failure.
 
+For ordinary MCP Q&A, the external assistant consumes `query.inspect` evidence,
+resolves citations and composes the answer in its existing conversation.
+`query.answer` is an explicit request to use the product's own answerer and adds
+a separate model generation step, latency and provider usage. Agent routing
+guidance belongs in `skills/crexxrag-qa`, with discoverable tool descriptions
+in `ragcommandcatalog` and session guidance in `ragmcp`; it does not add a new
+runtime capability or admission gate. See [agent integration](agent-integration.md)
+for the route, measured performance and reusable corpus workspace template.
+
 The library report uses the same trust boundary. Its deterministic core reads
 one published semantic generation and computes bounded corpus, catalogue,
 graph, support-span and top-concept data in Level-G cREXX. Current vector,

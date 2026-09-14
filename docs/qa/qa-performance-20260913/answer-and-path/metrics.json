@@ -1,0 +1,341 @@
+[
+  {
+    "label": "initialize",
+    "seconds": 0.1771672919858247,
+    "wire_bytes": 557
+  },
+  {
+    "label": "status",
+    "seconds": 1.9333409159444273,
+    "wire_bytes": 675,
+    "exit_code": 0,
+    "message": "library status read without mutation",
+    "generation": 24933
+  },
+  {
+    "label": "path-outbound-h1",
+    "seconds": 0.5962690839078277,
+    "wire_bytes": 28338,
+    "exit_code": 0,
+    "message": "bounded typed paths and follow-up leads retrieved",
+    "generation": 24933,
+    "evidence_bytes": 22814,
+    "counts": {
+      "passages": 3,
+      "claims": 1,
+      "leads": 1,
+      "analysis_notes": 0
+    },
+    "trace": [
+      "lexical[original]=24;per-variant-limit=24",
+      "lexical[prefix]=24;per-variant-limit=24",
+      "lexical-context-neighbors=24;candidate-ceiling=48",
+      "graph-anchors=2;supported-claims=1;traversal=outbound;claims-preserve-stored-direction=1",
+      "diversity-source-count=4;per-source-cap=3",
+      "accepted-claims=1;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=49;selected=3;claims=1;leads=1;analysis-notes=0"
+    ]
+  },
+  {
+    "label": "path-outbound-h3",
+    "seconds": 0.4484920830000192,
+    "wire_bytes": 28338,
+    "exit_code": 0,
+    "message": "bounded typed paths and follow-up leads retrieved",
+    "generation": 24933,
+    "evidence_bytes": 22814,
+    "counts": {
+      "passages": 3,
+      "claims": 1,
+      "leads": 1,
+      "analysis_notes": 0
+    },
+    "trace": [
+      "lexical[original]=24;per-variant-limit=24",
+      "lexical[prefix]=24;per-variant-limit=24",
+      "lexical-context-neighbors=24;candidate-ceiling=48",
+      "graph-anchors=2;supported-claims=1;traversal=outbound;claims-preserve-stored-direction=1",
+      "diversity-source-count=4;per-source-cap=3",
+      "accepted-claims=1;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=49;selected=3;claims=1;leads=1;analysis-notes=0"
+    ]
+  },
+  {
+    "label": "path-inbound-h1",
+    "seconds": 0.44857616699300706,
+    "wire_bytes": 34579,
+    "exit_code": 0,
+    "message": "bounded typed paths and follow-up leads retrieved",
+    "generation": 24933,
+    "evidence_bytes": 27368,
+    "counts": {
+      "passages": 3,
+      "claims": 2,
+      "leads": 2,
+      "analysis_notes": 0
+    },
+    "trace": [
+      "lexical[original]=24;per-variant-limit=24",
+      "lexical[prefix]=24;per-variant-limit=24",
+      "lexical-context-neighbors=24;candidate-ceiling=48",
+      "graph-anchors=2;supported-claims=2;traversal=inbound;claims-preserve-stored-direction=1",
+      "diversity-source-count=4;per-source-cap=3",
+      "accepted-claims=2;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=50;selected=3;claims=2;leads=2;analysis-notes=0"
+    ]
+  },
+  {
+    "label": "path-inbound-h3",
+    "seconds": 0.4483573748730123,
+    "wire_bytes": 34579,
+    "exit_code": 0,
+    "message": "bounded typed paths and follow-up leads retrieved",
+    "generation": 24933,
+    "evidence_bytes": 27368,
+    "counts": {
+      "passages": 3,
+      "claims": 2,
+      "leads": 2,
+      "analysis_notes": 0
+    },
+    "trace": [
+      "lexical[original]=24;per-variant-limit=24",
+      "lexical[prefix]=24;per-variant-limit=24",
+      "lexical-context-neighbors=24;candidate-ceiling=48",
+      "graph-anchors=2;supported-claims=2;traversal=inbound;claims-preserve-stored-direction=1",
+      "diversity-source-count=4;per-source-cap=3",
+      "accepted-claims=2;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=50;selected=3;claims=2;leads=2;analysis-notes=0"
+    ]
+  },
+  {
+    "label": "path-both-h1",
+    "seconds": 0.44929204205982387,
+    "wire_bytes": 34681,
+    "exit_code": 0,
+    "message": "bounded typed paths and follow-up leads retrieved",
+    "generation": 24933,
+    "evidence_bytes": 27460,
+    "counts": {
+      "passages": 3,
+      "claims": 2,
+      "leads": 2,
+      "analysis_notes": 0
+    },
+    "trace": [
+      "lexical[original]=24;per-variant-limit=24",
+      "lexical[prefix]=24;per-variant-limit=24",
+      "lexical-context-neighbors=24;candidate-ceiling=48",
+      "graph-anchors=2;supported-claims=3;traversal=both;claims-preserve-stored-direction=1",
+      "diversity-source-count=4;per-source-cap=3",
+      "accepted-claims=2;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=51;selected=3;claims=2;leads=2;analysis-notes=0"
+    ]
+  },
+  {
+    "label": "path-both-h3",
+    "seconds": 0.45564570813439786,
+    "wire_bytes": 34681,
+    "exit_code": 0,
+    "message": "bounded typed paths and follow-up leads retrieved",
+    "generation": 24933,
+    "evidence_bytes": 27460,
+    "counts": {
+      "passages": 3,
+      "claims": 2,
+      "leads": 2,
+      "analysis_notes": 0
+    },
+    "trace": [
+      "lexical[original]=24;per-variant-limit=24",
+      "lexical[prefix]=24;per-variant-limit=24",
+      "lexical-context-neighbors=24;candidate-ceiling=48",
+      "graph-anchors=2;supported-claims=3;traversal=both;claims-preserve-stored-direction=1",
+      "diversity-source-count=4;per-source-cap=3",
+      "accepted-claims=2;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=51;selected=3;claims=2;leads=2;analysis-notes=0"
+    ]
+  },
+  {
+    "label": "evidence-compact",
+    "seconds": 0.5860797499772161,
+    "wire_bytes": 29121,
+    "exit_code": 0,
+    "message": "typed evidence retrieved",
+    "generation": 24933,
+    "evidence_bytes": 24669,
+    "counts": {
+      "passages": 3,
+      "claims": 1,
+      "leads": 2,
+      "analysis_notes": 1
+    },
+    "trace": [
+      "lexical[original]=0;per-variant-limit=9",
+      "lexical[focused-term]=5;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[prefix]=5;per-variant-limit=9",
+      "lexical-context-neighbors=25;candidate-ceiling=48",
+      "graph-anchors=2;supported-claims=1;traversal=both;claims-preserve-stored-direction=1",
+      "diversity-source-count=8;per-source-cap=3",
+      "accepted-claims=1;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=48;selected=3;claims=1;leads=2;analysis-notes=1"
+    ]
+  },
+  {
+    "label": "answer-compact",
+    "seconds": 13.022369249956682,
+    "wire_bytes": 30516,
+    "exit_code": 0,
+    "message": "evidence-backed answer generated with validated citations",
+    "generation": 24933,
+    "evidence_bytes": 24841,
+    "counts": {
+      "passages": 3,
+      "claims": 1,
+      "leads": 2,
+      "analysis_notes": 1
+    },
+    "trace": [
+      "lexical[original]=0;per-variant-limit=9",
+      "lexical[focused-term]=5;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[prefix]=5;per-variant-limit=9",
+      "lexical-context-neighbors=25;candidate-ceiling=48",
+      "graph-anchors=2;supported-claims=1;traversal=both;claims-preserve-stored-direction=1",
+      "diversity-source-count=8;per-source-cap=3",
+      "accepted-claims=1;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=48;selected=3;claims=1;leads=2;analysis-notes=1"
+    ]
+  },
+  {
+    "label": "evidence-default",
+    "seconds": 1.7495406249072403,
+    "wire_bytes": 83214,
+    "exit_code": 0,
+    "message": "typed evidence retrieved",
+    "generation": 24933,
+    "evidence_bytes": 73916,
+    "counts": {
+      "passages": 12,
+      "claims": 1,
+      "leads": 6,
+      "analysis_notes": 7
+    },
+    "trace": [
+      "lexical[original]=0;per-variant-limit=9",
+      "lexical[focused-term]=5;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[prefix]=5;per-variant-limit=9",
+      "lexical-context-neighbors=25;candidate-ceiling=48",
+      "graph-anchors=2;supported-claims=1;traversal=both;claims-preserve-stored-direction=1",
+      "diversity-source-count=8;per-source-cap=3",
+      "diversity-skip=occurrence-sha256:a82e8fe7878ae8a455a19bf3a9e6842765b85e19e1e227630a168be0280c1793;reason=source-cap",
+      "diversity-skip=occurrence-sha256:5019ff286109e8a2698a69a8956e9508ae496cf6675dacbfc16ddfcd80dbabc8;reason=source-cap",
+      "diversity-skip=occurrence-sha256:5dc1fc09105768425599f107e3b4fcd2353b5ddc26480b9ddd646aa147c55502;reason=source-cap",
+      "diversity-skip=occurrence-sha256:4a83826fed45b70cdcb87c815d4ebe8a6842255eca692261ff9b8d0d250d2d8c;reason=source-cap",
+      "diversity-skip=occurrence-sha256:b07604eeaac66382ea2fd47df6a22bf0435dae3d4a855ed623db69770d14aa55;reason=source-cap",
+      "diversity-skip=occurrence-sha256:c40bd7db2053bf0177a65494ab7794eae5800af829c43cd4247e6141d693824a;reason=source-cap",
+      "diversity-skip=occurrence-sha256:e6c1b19d2ee35ded535ca06b6cbb857085e021b7c8fdee247b7305b6cc7ba37f;reason=source-cap",
+      "diversity-skip=occurrence-sha256:f131e9e6c837166a9b6c671ae91b04dad64a1e56340c2c56ae6e2e8d4df945c6;reason=source-cap",
+      "diversity-skip=occurrence-sha256:9f13ab682bb4c34543012baa0e5b55bcf1c39ce97d836fac198deda47369327b;reason=source-cap",
+      "diversity-skip=occurrence-sha256:83c225ce1583c7e92b87ad49b8288d61990886a9374b5cdff5151663fbde11e7;reason=source-cap",
+      "diversity-skip=occurrence-sha256:6c64571a5b85fb31c441b503d44d8333a7f584a6e7b63071da50462701c23f10;reason=source-cap",
+      "diversity-skip=occurrence-sha256:75eb64c90c3509b99058a13ceadb3b0b17f5904218d4b01b6692f43a1567686e;reason=source-cap",
+      "diversity-skip=occurrence-sha256:95ced74e2df4fd0eaf74d0377b67297acce2b6f00822d0b7dce8015f7c99c860;reason=source-cap",
+      "diversity-skip=occurrence-sha256:69375f653e3f3235967cc48bd28a9389d7ac7f1ff65add0e4b60d89ca7510dfb;reason=source-cap",
+      "diversity-skip=occurrence-sha256:94781b7a1eff33b10e4a01aa14ede4db8822508d9f28b4be4dc9fcd4881e643f;reason=source-cap",
+      "diversity-skip=occurrence-sha256:9c52e5334401b13d607a417c18bfab9bc406f5e91044573c195b71da29cb172c;reason=source-cap",
+      "diversity-skip=occurrence-sha256:ee4cfb9c2d01161046fa4ac2e536e7e3dd4d27054d0e6b7d51c73afe53c3202a;reason=source-cap",
+      "diversity-skip=occurrence-sha256:5c977bb36fb6624946e339a875e85015bcbc932ffe7ec9d5ae76d1f737bd32ab;reason=source-cap",
+      "diversity-skip=occurrence-sha256:e62e2813e741d7e4024daee1be3de00d5d6486f100831010b0f9f487c8d9be46;reason=source-cap",
+      "diversity-skip=occurrence-sha256:149d20a91b297ab972ba1fb49a9fefc975b2156674db1cd49e2599bbb3e278ac;reason=source-cap",
+      "diversity-skip=occurrence-sha256:3b045abb8827dac7e9635f14d5d8ec05b64f87bb99d1b34cf692120c48ba55ab;reason=source-cap",
+      "diversity-skip=occurrence-sha256:b7e33530d356ab69d3e4b047de8be16e27eb7115c21bef21184ee4be13e1eb32;reason=source-cap",
+      "diversity-skip=occurrence-sha256:fed4cb2d45ad66ea75960e8f4d1b49cf3788e28a22cee1b34af9c77b1d46563f;reason=source-cap",
+      "diversity-skip=occurrence-sha256:391d2b8f1cd5a22ba195d6903cb7255773236a5daca9f452da61eaaf3fb7ad56;reason=source-cap",
+      "diversity-skip=occurrence-sha256:6a16dbbdadcc297cd1baa381e8bcdbbce1fb89c7ccd479052c51df8147bb1057;reason=source-cap",
+      "diversity-skip=occurrence-sha256:308ad0f37193cab9d7267c47a444d0f156da711b3e2248840e8a938c488a4921;reason=source-cap",
+      "diversity-skip=occurrence-sha256:b9b48e0cfe7a1ac10d9bffa8697129d39999c39e043faad2a0ae9b3645ae5470;reason=source-cap",
+      "accepted-claims=1;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=48;selected=12;claims=1;leads=6;analysis-notes=7"
+    ]
+  },
+  {
+    "label": "answer-default",
+    "seconds": 11.873467333847657,
+    "wire_bytes": 84865,
+    "exit_code": 0,
+    "message": "evidence-backed answer generated with validated citations",
+    "generation": 24933,
+    "evidence_bytes": 74255,
+    "counts": {
+      "passages": 12,
+      "claims": 1,
+      "leads": 6,
+      "analysis_notes": 7
+    },
+    "trace": [
+      "lexical[original]=0;per-variant-limit=9",
+      "lexical[focused-term]=5;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[focused-term]=9;per-variant-limit=9",
+      "lexical[prefix]=5;per-variant-limit=9",
+      "lexical-context-neighbors=25;candidate-ceiling=48",
+      "graph-anchors=2;supported-claims=1;traversal=both;claims-preserve-stored-direction=1",
+      "diversity-source-count=8;per-source-cap=3",
+      "diversity-skip=occurrence-sha256:a82e8fe7878ae8a455a19bf3a9e6842765b85e19e1e227630a168be0280c1793;reason=source-cap",
+      "diversity-skip=occurrence-sha256:5019ff286109e8a2698a69a8956e9508ae496cf6675dacbfc16ddfcd80dbabc8;reason=source-cap",
+      "diversity-skip=occurrence-sha256:5dc1fc09105768425599f107e3b4fcd2353b5ddc26480b9ddd646aa147c55502;reason=source-cap",
+      "diversity-skip=occurrence-sha256:4a83826fed45b70cdcb87c815d4ebe8a6842255eca692261ff9b8d0d250d2d8c;reason=source-cap",
+      "diversity-skip=occurrence-sha256:b07604eeaac66382ea2fd47df6a22bf0435dae3d4a855ed623db69770d14aa55;reason=source-cap",
+      "diversity-skip=occurrence-sha256:c40bd7db2053bf0177a65494ab7794eae5800af829c43cd4247e6141d693824a;reason=source-cap",
+      "diversity-skip=occurrence-sha256:e6c1b19d2ee35ded535ca06b6cbb857085e021b7c8fdee247b7305b6cc7ba37f;reason=source-cap",
+      "diversity-skip=occurrence-sha256:f131e9e6c837166a9b6c671ae91b04dad64a1e56340c2c56ae6e2e8d4df945c6;reason=source-cap",
+      "diversity-skip=occurrence-sha256:9f13ab682bb4c34543012baa0e5b55bcf1c39ce97d836fac198deda47369327b;reason=source-cap",
+      "diversity-skip=occurrence-sha256:83c225ce1583c7e92b87ad49b8288d61990886a9374b5cdff5151663fbde11e7;reason=source-cap",
+      "diversity-skip=occurrence-sha256:6c64571a5b85fb31c441b503d44d8333a7f584a6e7b63071da50462701c23f10;reason=source-cap",
+      "diversity-skip=occurrence-sha256:75eb64c90c3509b99058a13ceadb3b0b17f5904218d4b01b6692f43a1567686e;reason=source-cap",
+      "diversity-skip=occurrence-sha256:95ced74e2df4fd0eaf74d0377b67297acce2b6f00822d0b7dce8015f7c99c860;reason=source-cap",
+      "diversity-skip=occurrence-sha256:69375f653e3f3235967cc48bd28a9389d7ac7f1ff65add0e4b60d89ca7510dfb;reason=source-cap",
+      "diversity-skip=occurrence-sha256:94781b7a1eff33b10e4a01aa14ede4db8822508d9f28b4be4dc9fcd4881e643f;reason=source-cap",
+      "diversity-skip=occurrence-sha256:9c52e5334401b13d607a417c18bfab9bc406f5e91044573c195b71da29cb172c;reason=source-cap",
+      "diversity-skip=occurrence-sha256:ee4cfb9c2d01161046fa4ac2e536e7e3dd4d27054d0e6b7d51c73afe53c3202a;reason=source-cap",
+      "diversity-skip=occurrence-sha256:5c977bb36fb6624946e339a875e85015bcbc932ffe7ec9d5ae76d1f737bd32ab;reason=source-cap",
+      "diversity-skip=occurrence-sha256:e62e2813e741d7e4024daee1be3de00d5d6486f100831010b0f9f487c8d9be46;reason=source-cap",
+      "diversity-skip=occurrence-sha256:149d20a91b297ab972ba1fb49a9fefc975b2156674db1cd49e2599bbb3e278ac;reason=source-cap",
+      "diversity-skip=occurrence-sha256:3b045abb8827dac7e9635f14d5d8ec05b64f87bb99d1b34cf692120c48ba55ab;reason=source-cap",
+      "diversity-skip=occurrence-sha256:b7e33530d356ab69d3e4b047de8be16e27eb7115c21bef21184ee4be13e1eb32;reason=source-cap",
+      "diversity-skip=occurrence-sha256:fed4cb2d45ad66ea75960e8f4d1b49cf3788e28a22cee1b34af9c77b1d46563f;reason=source-cap",
+      "diversity-skip=occurrence-sha256:391d2b8f1cd5a22ba195d6903cb7255773236a5daca9f452da61eaaf3fb7ad56;reason=source-cap",
+      "diversity-skip=occurrence-sha256:6a16dbbdadcc297cd1baa381e8bcdbbce1fb89c7ccd479052c51df8147bb1057;reason=source-cap",
+      "diversity-skip=occurrence-sha256:308ad0f37193cab9d7267c47a444d0f156da711b3e2248840e8a938c488a4921;reason=source-cap",
+      "diversity-skip=occurrence-sha256:b9b48e0cfe7a1ac10d9bffa8697129d39999c39e043faad2a0ae9b3645ae5470;reason=source-cap",
+      "accepted-claims=1;support-required=1",
+      "policy=surface-retrieval-v2",
+      "vector=disabled",
+      "candidates=48;selected=12;claims=1;leads=6;analysis-notes=7"
+    ]
+  }
+]
