@@ -1,0 +1,17 @@
+[
+  {
+    "command": "captured-corrected-replay",
+    "exit": 0,
+    "seconds": 0.555
+  },
+  {
+    "command": "captured-corrected-run",
+    "exit": 0,
+    "seconds": 4.032
+  },
+  {
+    "command": "captured-corrected-status",
+    "exit": 0,
+    "seconds": 0.494
+  }
+]

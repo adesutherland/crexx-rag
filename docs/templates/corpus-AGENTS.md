@@ -22,6 +22,12 @@ provider usage; see the shared QA skill for measured performance context.
 
 ## Evidence and graph exploration
 
+Keep a broad evidence set for the current assistant to filter. The configured
+passage default is normally 12; omit `limit` to use it, or request up to 200 when
+useful. Candidate availability and the configured byte ceiling still apply.
+Routine setup uses status and source inventory; full overview is for an explicit
+coverage or health question. Follow the shared QA skill for these controls.
+
 The corpus is the only source of factual evidence for corpus answers. General
 knowledge may suggest names, spellings, possible connections and search terms;
 verify them in the corpus before stating them as facts. Do not supplement an

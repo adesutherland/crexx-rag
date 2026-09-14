@@ -1,0 +1,68 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 27: gemini_query
+1/2 Test #27: gemini_query .....................***Failed    6.65 sec
+-- Gemini query passed human hybrid retrieval and cited answer generation, explicit zero-outbound lexical mode, required-hybrid failure, citation rejection, valid insufficient-evidence handling, and post-query integrity
+-- Lexical database hashes: 6fa9bab6201694708f91bc441230b72f9d6b104595ede4485926d898a532d3b9 -> 32c57205500d33014b4dd6697adae1ae2c4a378523f0065bb8a16ebd2f93a1be
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/GeminiQuery.cmake:653 (message):
+  Lexical profile independence changed evidence or made database writes
+
+
+
+    Start 31: evidence_methodology
+2/2 Test #31: evidence_methodology .............***Failed    3.32 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/EvidenceMethodology.cmake:50 (message):
+  rxvme evidence methodology scenario failed:
+
+  EVIDENCE_METHODOLOGY_FAIL=all two hundred distinct passages returned;
+  actual=90
+
+  lexical[exact-phrase]=85;per-variant-limit=85
+
+  lexical[original]=85;per-variant-limit=85
+
+  lexical[prefix]=85;per-variant-limit=85
+
+  lexical-context-neighbors=5;candidate-ceiling=256
+
+  
+  graph-anchors=0;supported-claims=0;traversal=both;claims-preserve-stored-direction=1
+
+  diversity-source-count=1;per-source-cap=200
+
+  accepted-claims=0;support-required=1
+
+  policy=wide-net
+
+  vector=disabled
+
+  candidates=90;selected=90;claims=0;leads=0;analysis-notes=0
+
+
+
+
+
+0% tests passed, 2 tests failed out of 2
+
+Label Time Summary:
+answer       =   6.65 sec*proc (1 test)
+budget       =   6.65 sec*proc (1 test)
+citation     =   6.65 sec*proc (1 test)
+direction    =   3.32 sec*proc (1 test)
+embedding    =   6.65 sec*proc (1 test)
+gap          =   3.32 sec*proc (1 test)
+gemini       =   6.65 sec*proc (1 test)
+graph        =   3.32 sec*proc (1 test)
+hybrid       =   6.65 sec*proc (1 test)
+lead         =   3.32 sec*proc (1 test)
+note         =   3.32 sec*proc (1 test)
+privacy      =   6.65 sec*proc (1 test)
+query        =   6.65 sec*proc (1 test)
+retrieval    =   3.32 sec*proc (1 test)
+sqlite       =   3.32 sec*proc (1 test)
+
+Total Test time (real) =   9.97 sec
+
+The following tests FAILED:
+	 27 - gemini_query (Failed)                             answer budget citation embedding gemini hybrid privacy query
+	 31 - evidence_methodology (Failed)                     direction gap graph lead note retrieval sqlite
+Errors while running CTest

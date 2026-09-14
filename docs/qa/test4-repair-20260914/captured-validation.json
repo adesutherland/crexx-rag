@@ -1,0 +1,83 @@
+{
+  "fixture_only": true,
+  "counts": {
+    "sources": 9,
+    "source_revisions": 9,
+    "revision_chunks": 34907,
+    "mentions": 63101,
+    "claims": 7981,
+    "provider_runs": 82565,
+    "attempts": 116209
+  },
+  "delta": {
+    "sources": 0,
+    "source_revisions": 0,
+    "revision_chunks": 0,
+    "mentions": 15,
+    "claims": 7,
+    "provider_runs": 3,
+    "attempts": 3
+  },
+  "jobs": [
+    {
+      "job": "job-replay-sha256:980c9b7ecb774c5e115b7dc529b374930671d0d1a46e6c518db3eaa9ce96a654",
+      "state": "completed_with_errors",
+      "items": [
+        {
+          "item_id": "item-replay-sha256:474f800c26ef46efc23b02c8859878ab53f67dd67cc43efaf32081a0ae2bcdfd",
+          "state": "dead_letter",
+          "input_hash": "719726a98183e628da6f10a3d916861c529060f018e33ca88ec2df395ee5dd6b"
+        }
+      ],
+      "attempts": [
+        {
+          "outcome": "dead_letter",
+          "validation_state": "provider relationship quotation does not contain both endpoints"
+        },
+        {
+          "outcome": "failed",
+          "validation_state": "provider relationship quotation does not contain both endpoints"
+        }
+      ]
+    },
+    {
+      "job": "job-replay-sha256:d889e011077a14d1eef257047a2d889f02e32355e6440ed41ba5f8f7acb27c03",
+      "state": "completed",
+      "items": [
+        {
+          "item_id": "item-replay-sha256:860239325f252ccd1cf6bc4b9fd37ad709b323087a26886c1e6cfde92acbddfe",
+          "state": "processed",
+          "input_hash": "719726a98183e628da6f10a3d916861c529060f018e33ca88ec2df395ee5dd6b"
+        }
+      ],
+      "attempts": [
+        {
+          "outcome": "succeeded",
+          "validation_state": "validated-discovery-batch"
+        }
+      ]
+    }
+  ],
+  "snapshot": "config-a211c0fede4237fe77bbc797",
+  "generation": 24929,
+  "root": {
+    "root_item_id": "item-sha256:92a38a4adcec0c685fe8812213faa2581b593489cffd4aa35b62abfae7b00e7b",
+    "root_job_id": "job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622",
+    "item_type": "claim-extraction",
+    "reconciliation_state": "resolved",
+    "replay_count": 3,
+    "resolved_descendants": 1,
+    "active_descendants": 0,
+    "dead_descendants": 2,
+    "last_updated_at": "2026-09-14T10:07:59.254Z"
+  },
+  "sql_plans": {
+    "snapshots": [
+      "SEARCH s USING INDEX sqlite_autoindex_config_snapshots_1 (config_snapshot_id=?)",
+      "SEARCH t USING INDEX sqlite_autoindex_config_snapshots_1 (config_snapshot_id=?)"
+    ],
+    "selection": [
+      "SEARCH job_items USING INDEX sqlite_autoindex_job_items_1 (item_id=?)"
+    ]
+  }
+}

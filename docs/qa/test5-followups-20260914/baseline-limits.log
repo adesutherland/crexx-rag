@@ -1,0 +1,42 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 15: configuration_contract
+1/2 Test #15: configuration_contract ...........***Failed    4.83 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/ConfigContract.cmake:100 (message):
+  noopt-rxvme config scenario failed:
+
+  CONFIG_CONTRACT_FAIL=two hundred passages parse retrieval.passage_limit is
+  outside its supported range
+
+  CONFIG_CONTRACT_FAIL=typed two hundred passage policy
+
+
+
+
+    Start 34: address_surface
+2/2 Test #34: address_surface ..................***Failed    2.67 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/AddressSurface.cmake:64 (message):
+  ADDRESS RAG scenario failed:
+
+  ADDRESS_SURFACE_FAIL=query limit 200
+
+
+
+
+
+0% tests passed, 2 tests failed out of 2
+
+Label Time Summary:
+access           =   2.67 sec*proc (1 test)
+address          =   2.67 sec*proc (1 test)
+configuration    =   7.50 sec*proc (2 tests)
+gemini           =   4.83 sec*proc (1 test)
+privacy          =   4.83 sec*proc (1 test)
+surface          =   2.67 sec*proc (1 test)
+zero-outbound    =   7.50 sec*proc (2 tests)
+
+Total Test time (real) =   7.50 sec
+
+The following tests FAILED:
+	 15 - configuration_contract (Failed)                   configuration gemini privacy zero-outbound
+	 34 - address_surface (Failed)                          access address configuration surface zero-outbound
+Errors while running CTest

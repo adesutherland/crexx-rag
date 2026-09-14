@@ -620,6 +620,47 @@ if(NOT recovery_sql_result EQUAL 0 OR recovery_sidecar STREQUAL "")
     message(FATAL_ERROR "missing vector recovery fixture")
 endif()
 set(recovery_path "${CPRAG_WORK_DIR}/library/${recovery_sidecar}")
+# A malformed vector profile is irrelevant to lexical search but must still
+# prevent hybrid provider work. Damage only a separate fixture copy.
+set(lexical_library "${CPRAG_WORK_DIR}/lexical-profile-library")
+file(COPY "${CPRAG_WORK_DIR}/library/" DESTINATION "${lexical_library}")
+execute_process(COMMAND ${cli} --library "${lexical_library}" --format json query inspect BillingService
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE lexical_before RESULT_VARIABLE lexical_before_rc)
+if(NOT lexical_before_rc EQUAL 0)
+    message(FATAL_ERROR "Lexical independence positive control failed: ${lexical_before}")
+endif()
+string(JSON lexical_evidence_before GET "${lexical_before}" records 0 fields evidence_json)
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${lexical_library}/library.sqlite"
+    "UPDATE embedding_profiles SET input_envelope_fingerprint='invalid-profile-fixture';"
+    COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" -readonly "${lexical_library}/library.sqlite" .dump
+    OUTPUT_VARIABLE profile_rows_before COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND ${cli} --library "${lexical_library}" --format json query evidence BillingService --mode hybrid
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE profile_hybrid_out RESULT_VARIABLE profile_hybrid_rc)
+if(NOT profile_hybrid_rc EQUAL 7)
+    message(FATAL_ERROR "Hybrid accepted malformed profile: ${profile_hybrid_out}")
+endif()
+execute_process(COMMAND "${CREXXRAG_SQLITE3}" -readonly "${lexical_library}/library.sqlite" .dump
+    OUTPUT_VARIABLE profile_rows_after COMMAND_ERROR_IS_FATAL ANY)
+if(NOT profile_rows_before STREQUAL profile_rows_after)
+    message(FATAL_ERROR "Hybrid profile rejection changed logical database state")
+endif()
+# Hybrid opens readwrite and may checkpoint WAL; the following strict file
+# comparison applies specifically to the ordinary read-only inspection.
+file(SHA256 "${lexical_library}/library.sqlite" lexical_database_before)
+execute_process(COMMAND ${cli} --library "${lexical_library}" --format json query inspect BillingService
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE lexical_after RESULT_VARIABLE lexical_after_rc)
+if(NOT lexical_after_rc EQUAL 0)
+    message(FATAL_ERROR "Lexical search depends on unused vector profile: ${lexical_after}")
+endif()
+string(JSON lexical_evidence_after GET "${lexical_after}" records 0 fields evidence_json)
+file(SHA256 "${lexical_library}/library.sqlite" lexical_database_after)
+if(NOT lexical_evidence_before STREQUAL lexical_evidence_after OR NOT lexical_database_before STREQUAL lexical_database_after)
+    file(WRITE "${CPRAG_WORK_DIR}/lexical-before.json" "${lexical_before}")
+    file(WRITE "${CPRAG_WORK_DIR}/lexical-after.json" "${lexical_after}")
+    message(STATUS "Lexical database hashes: ${lexical_database_before} -> ${lexical_database_after}")
+    message(FATAL_ERROR "Lexical profile independence changed evidence or made database writes")
+endif()
 file(SHA256 "${recovery_path}" recovery_checksum)
 execute_process(COMMAND "${CREXXRAG_SQLITE3}" "${recovery_db}"
     "SELECT published_generation||':'||(SELECT count(*) FROM embeddings)||':'||(SELECT count(*) FROM provider_runs) FROM library_meta WHERE singleton=1"
@@ -635,6 +676,12 @@ foreach(damage IN ITEMS missing corrupt)
         OUTPUT_VARIABLE damaged_query_out ERROR_VARIABLE damaged_query_err TIMEOUT 30)
     if(NOT damaged_query_result EQUAL 8)
         message(FATAL_ERROR "invalid hybrid index did not fail before provider use: ${damaged_query_out}${damaged_query_err}")
+    endif()
+    execute_process(COMMAND ${cli} --format json query inspect "BillingService" --mode lexical
+        WORKING_DIRECTORY "${CPRAG_WORK_DIR}" RESULT_VARIABLE lexical_damage_rc
+        OUTPUT_VARIABLE lexical_damage_out ERROR_VARIABLE lexical_damage_err)
+    if(NOT lexical_damage_rc EQUAL 0 OR NOT lexical_damage_out MATCHES "\"provider_calls\":0")
+        message(FATAL_ERROR "Lexical search depends on a ${damage} sidecar: ${lexical_damage_out}${lexical_damage_err}")
     endif()
     execute_process(COMMAND ${cli} --format json --access read vector rebuild
         WORKING_DIRECTORY "${CPRAG_WORK_DIR}" RESULT_VARIABLE denied_rebuild_result

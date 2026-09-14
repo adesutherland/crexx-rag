@@ -745,9 +745,12 @@ usage is recorded once even when the original worker may no longer publish.
 selected dead letters into a new queued job under the current configuration
 and current item/call/token/cost/allowance budgets. The source job and source
 items remain terminal and unchanged; `job_replays` and `job_replay_items`
-retain the lineage. The target must be semantically compatible. If a model,
-profile, source or discovery change makes the failed input incompatible, review
-fresh work under the new interpretation. A replay rejection does not authorize
+retain the lineage. Compatibility applies to the selected source scope, role,
+provider and profile. Adding or changing unrelated sources/providers and changing
+operational budgets does not block replay. Keep the normal configuration; no
+temporary source-list edit is needed. A selected source/privacy, model, prompt,
+profile or extraction-discovery change still requires reviewed fresh work under
+the new interpretation. A replay rejection does not authorize
 reingesting the corpus or replacing its existing data.
 
 The command itself makes no provider call. Start workers for the returned
@@ -1175,7 +1178,14 @@ Agents can use `query inspect 'question'` for lexical source evidence with
 zero writes and no provider calls. Over MCP, `rag_query_inspect`,
 `rag_library_overview` and `rag_profile_show` support corpus orientation and
 source-grounded answers without opening a writing route. Query limits are
-1–12 and graph hops 0–4. Resolve returned citations with `rag_citation_show`.
+1–200 and graph hops 0–4. Omit the query limit to use `retrieval.passage_limit`
+(default 12). The CLI override is `--limit 200`; MCP uses `"limit": 200`.
+This is a maximum returned-passage count. Available candidates, source diversity
+and `retrieval.maximum_evidence_bytes` remain independent controls. To retrieve
+large packets, configure sufficient `retrieval.lexical_candidates` and evidence
+bytes; a byte ceiling exceeded is reported explicitly. Resolve returned citations
+with `rag_citation_show`. Ordinary agents should retain broad evidence and filter
+it, rather than routinely request only three passages.
 
 For ordinary MCP Q&A, the current assistant composes the answer from that
 evidence. Use `rag_query_answer` only for an explicit request to use or test

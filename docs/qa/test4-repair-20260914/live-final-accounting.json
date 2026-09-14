@@ -1,0 +1,105 @@
+{
+  "preserved": {
+    "sources": {
+      "rows": 9,
+      "sha256": "c8fdfbe4cfe7834d53808b71abe0b5981ad37e6cbb6d6e860ae7c19c70002b8d"
+    },
+    "source_revisions": {
+      "rows": 9,
+      "sha256": "4b943728ae5e2e67d46d87f5a4de363673598986bb70f392c44a799a3637e711"
+    },
+    "revision_chunks": {
+      "rows": 34907,
+      "sha256": "56ef0242321bed37cb7296b4224e9213ca7bf87b003d573e1f6730a646881b2d"
+    },
+    "nairn_job_items": {
+      "rows": 1,
+      "sha256": "69176f555d3ca8fba001ab44e0a6fc14fbac3a7db9935ba1b7cd837da16fe660"
+    },
+    "nairn_attempts": {
+      "rows": 3,
+      "sha256": "d2fba4e92e68a032240326f8c26d567ac175089e3d1d35ad7055f3c6d32bfca2"
+    },
+    "fiers_job_items": {
+      "rows": 1,
+      "sha256": "2466f22a1318bd41b0c86c41ef97f5aae936bb8a4c15380400df7264d7f8bebd"
+    },
+    "fiers_attempts": {
+      "rows": 1,
+      "sha256": "b47ffe9fc260c7e96b44a5233117ea7ed9a93485b1faff68bb7fe61c86dc5c0c"
+    }
+  },
+  "counts": {
+    "sources": 9,
+    "source_revisions": 9,
+    "revision_chunks": 34907,
+    "mentions": 63098,
+    "claims": 7975,
+    "provider_runs": 82563,
+    "attempts": 116207
+  },
+  "delta": {
+    "sources": 0,
+    "source_revisions": 0,
+    "revision_chunks": 0,
+    "mentions": 12,
+    "claims": 1,
+    "provider_runs": 1,
+    "attempts": 1
+  },
+  "selected_roots": [
+    {
+      "root_item_id": "item-sha256:92a38a4adcec0c685fe8812213faa2581b593489cffd4aa35b62abfae7b00e7b",
+      "root_job_id": "job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622",
+      "item_type": "claim-extraction",
+      "reconciliation_state": "resolved",
+      "replay_count": 2,
+      "resolved_descendants": 1,
+      "active_descendants": 0,
+      "dead_descendants": 1,
+      "last_updated_at": "2026-09-14T10:18:48.711Z"
+    },
+    {
+      "root_item_id": "item-sha256:3e6fbb8477b2cf8335685d843ccee91c8881cf40597612c3d4be4d168e11068a",
+      "root_job_id": "job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622",
+      "item_type": "claim-extraction",
+      "reconciliation_state": "resolved",
+      "replay_count": 1,
+      "resolved_descendants": 1,
+      "active_descendants": 0,
+      "dead_descendants": 0,
+      "last_updated_at": "2026-09-14T06:40:14.004Z"
+    }
+  ],
+  "original_extraction_roots": [
+    {
+      "reconciliation_state": "actionable",
+      "count": 543
+    },
+    {
+      "reconciliation_state": "resolved",
+      "count": 2
+    }
+  ],
+  "selected_runtime_states": [
+    {
+      "state": "stopped",
+      "count": 3
+    }
+  ],
+  "budget_reservations": {
+    "reserved_calls": 0,
+    "reserved_tokens": 0,
+    "reserved_cost": 0,
+    "state": "completed"
+  },
+  "configuration": "config-a211c0fede4237fe77bbc797",
+  "vector_state": [
+    {
+      "semantic_generation": 24925,
+      "row_count": 34907,
+      "input_revision": 0,
+      "vector_revision": 0
+    }
+  ]
+}

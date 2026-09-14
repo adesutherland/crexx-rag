@@ -1,0 +1,15 @@
+{
+  "jsonrpc": "2.0",
+  "id": 24,
+  "method": "tools/call",
+  "params": {
+    "name": "rag_query_inspect",
+    "arguments": {
+      "question": "What is the relationship between Alaster Macdonald and Dundee?",
+      "mode": "lexical",
+      "hops": 3,
+      "direction": "both",
+      "limit": 12
+    }
+  }
+}

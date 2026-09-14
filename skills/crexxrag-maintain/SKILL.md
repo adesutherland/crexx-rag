@@ -59,7 +59,7 @@ advanced reasoning with a concrete reason. Workers may assert `action:
 "escalate"`; two content-validation failures also flag a task. Transport,
 authentication and quota failures do not imply a reasoning requirement.
 Missing evidence can require additional sources, regardless of model strength.
-Task/evidence limits are 1–50 and query limits 1–12. Job/review/event schemas
+Task/evidence limits are 1–50 and query limits 1–200 (ordinary default 12). Job/review/event schemas
 accept 1–100 data rows plus a separate cursor record. Follow `next_cursor` until empty.
 For `limit_exceeded: true`, inspect `rag_task_evidence_inventory` pages
 for the current passages, catalogue and context. Use `rag_task_refresh_plan`

@@ -1,0 +1,14 @@
+{
+  "started_at": "2026-09-14T10:42:37.603292+00:00",
+  "executable": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/crexxrag-native/package/crexxrag",
+  "sha256": "88b2fe4a045c42f6a514323bd93804761256b77a15928876e95b5557154bf9c7",
+  "source_library": "/private/tmp/crexxrag-test4-repair-kw6or_2x/live-library",
+  "library": "/private/tmp/crexxrag-test5-followups-xmrd_jkq/library",
+  "config": "/private/tmp/crexxrag-test5-followups-xmrd_jkq/crexxrag.conf",
+  "config_sha256": "0541ed3efa5cfc78f07e39ea3e9fed50fb5547d1e5b82e8214fc92956be15dcb",
+  "baseline": "300c2acd1b85978eff02ef2f1e315c6414e8ba6f",
+  "uncommitted_test4_changes": true,
+  "machine_in_shared_use": true,
+  "rag_provider_calls_authorized": 0,
+  "scope": "Test 5 follow-up qualification; no RAG provider calls"
+}

@@ -13,6 +13,7 @@ import ragprovenance
 import ragstore
 import ragprofile
 import ragmodel
+import ragconfig
 import ragevidence
 import ragquery
 import ragfile
@@ -951,7 +952,7 @@ _validoptions: procedure = .int
   arg retrieval_options = .ragretrievaloptions
   if wordpos(retrieval_options.time_unknown(),"include exclude")=0 then return 0
   if retrieval_options.temporal_query()\="" then do; period=.ragperiod(retrieval_options.temporal_query()); if period.ok()=0 then return 0; end
-  return retrieval_options.policy_version() \= "" & retrieval_options.lexical_limit() >= 1 & retrieval_options.lexical_limit() <= 1000 & retrieval_options.vector_limit() >= 1 & retrieval_options.vector_limit() <= 1000 & retrieval_options.vector_scan_limit() >= retrieval_options.vector_limit() & retrieval_options.vector_scan_limit() <= 1000000 & retrieval_options.graph_hops() >= 0 & retrieval_options.graph_hops() <= 4 & retrieval_options.passage_limit() >= 1 & retrieval_options.passage_limit() <= 12 & retrieval_options.claim_limit() >= 0 & retrieval_options.claim_limit() <= 8 & retrieval_options.lead_limit() >= 0 & retrieval_options.lead_limit() <= 8 & retrieval_options.rrf_k() >= 1 & retrieval_options.rrf_k() <= 10000 & retrieval_options.graph_boost_millionths() >= 0 & retrieval_options.graph_boost_millionths() <= 1000000 & retrieval_options.graph_decay_millionths() >= 1 & retrieval_options.graph_decay_millionths() <= 1000000 & retrieval_options.directness_bonus_millionths() >= 0 & retrieval_options.directness_bonus_millionths() <= 1000000 & retrieval_options.maximum_sidecar_bytes() >= 1048576 & retrieval_options.maximum_sidecar_bytes() <= 2000000000 & wordpos(retrieval_options.graph_direction(), "outbound inbound both") > 0
+  return retrieval_options.policy_version() \= "" & retrieval_options.lexical_limit() >= 1 & retrieval_options.lexical_limit() <= 1000 & retrieval_options.vector_limit() >= 1 & retrieval_options.vector_limit() <= 1000 & retrieval_options.vector_scan_limit() >= retrieval_options.vector_limit() & retrieval_options.vector_scan_limit() <= 1000000 & retrieval_options.graph_hops() >= 0 & retrieval_options.graph_hops() <= 4 & retrieval_options.passage_limit() >= 1 & retrieval_options.passage_limit() <= querypassagemaximum() & retrieval_options.claim_limit() >= 0 & retrieval_options.claim_limit() <= 8 & retrieval_options.lead_limit() >= 0 & retrieval_options.lead_limit() <= 8 & retrieval_options.rrf_k() >= 1 & retrieval_options.rrf_k() <= 10000 & retrieval_options.graph_boost_millionths() >= 0 & retrieval_options.graph_boost_millionths() <= 1000000 & retrieval_options.graph_decay_millionths() >= 1 & retrieval_options.graph_decay_millionths() <= 1000000 & retrieval_options.directness_bonus_millionths() >= 0 & retrieval_options.directness_bonus_millionths() <= 1000000 & retrieval_options.maximum_sidecar_bytes() >= 1048576 & retrieval_options.maximum_sidecar_bytes() <= 2000000000 & wordpos(retrieval_options.graph_direction(), "outbound inbound both") > 0
 
 _scalarint: procedure = .int
   arg database = .binary, sql = .string

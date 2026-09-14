@@ -1,0 +1,115 @@
+{
+  "rag_library_status": {
+    "requests": 2,
+    "cpu_min_median_max": [
+      0.02,
+      0.025,
+      0.03
+    ],
+    "observed_elapsed_min_median_max": [
+      0.021508,
+      0.060869,
+      0.10023
+    ],
+    "wire_bytes_min_max": [
+      675,
+      676
+    ]
+  },
+  "rag_source_list": {
+    "requests": 3,
+    "cpu_min_median_max": [
+      0.01,
+      0.01,
+      0.01
+    ],
+    "observed_elapsed_min_median_max": [
+      0.00995,
+      0.010009,
+      0.010636
+    ],
+    "wire_bytes_min_max": [
+      9905,
+      11978
+    ]
+  },
+  "rag_library_overview": {
+    "requests": 1,
+    "cpu_min_median_max": [
+      10.37,
+      10.37,
+      10.37
+    ],
+    "observed_elapsed_min_median_max": [
+      41.110947,
+      41.110947,
+      41.110947
+    ],
+    "wire_bytes_min_max": [
+      10038,
+      10038
+    ]
+  },
+  "rag_query_inspect": {
+    "requests": 18,
+    "cpu_min_median_max": [
+      0.08,
+      0.11,
+      0.2
+    ],
+    "observed_elapsed_min_median_max": [
+      0.078709,
+      0.112773,
+      0.197252
+    ],
+    "wire_bytes_min_max": [
+      3166,
+      155427
+    ]
+  },
+  "rag_query_path": {
+    "requests": 6,
+    "cpu_min_median_max": [
+      0.09,
+      0.10500000000000001,
+      0.16
+    ],
+    "observed_elapsed_min_median_max": [
+      0.097382,
+      0.110161,
+      0.174921
+    ],
+    "wire_bytes_min_max": [
+      28339,
+      34682
+    ]
+  },
+  "rag_citation_show": {
+    "requests": 18,
+    "cpu_min_median_max": [
+      0.0,
+      0.01,
+      0.01
+    ],
+    "observed_elapsed_min_median_max": [
+      0.00868,
+      0.010048999999999999,
+      0.012301
+    ],
+    "wire_bytes_min_max": [
+      3256,
+      5584
+    ]
+  },
+  "total_requests": 56,
+  "provider_calls": 0,
+  "shared_computer": true,
+  "performance_thresholds": null,
+  "findings": {
+    "full_overview_cpu_seconds": 10.37,
+    "lexical_still_prepares_vector_sidecar": true,
+    "sidecar_bytes": 6696451,
+    "direct_battle_answer_rank": 4,
+    "compact_packet_loses_answer": true
+  }
+}

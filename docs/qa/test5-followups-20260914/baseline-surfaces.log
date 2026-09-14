@@ -1,0 +1,65 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start  3: regression_command_arguments
+1/3 Test  #3: regression_command_arguments .....***Failed    4.62 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/CommandArguments.cmake:34 (message):
+  Advertised argument did not reach product semantics (rag_query_inspect
+  {"question":"synthetic","limit":13}):
+  {"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"tool argument
+  limit exceeds its maximum"}}
+
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/CommandArguments.cmake:61 (tool_call)
+
+
+
+    Start 11: regression_command_catalogue
+2/3 Test #11: regression_command_catalogue .....***Failed    2.14 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/ProjectContract.cmake:33 (message):
+  /Users/adrian/.local/bin/rxvme contract failed:
+
+  COMMAND_CATALOGUE_OK
+
+  COMMAND_CATALOGUE_FAIL maximum 200 rag_query_search
+
+
+
+
+    Start 31: evidence_methodology
+3/3 Test #31: evidence_methodology .............***Failed    3.36 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/EvidenceMethodology.cmake:50 (message):
+  rxvme evidence methodology scenario failed:
+
+  EVIDENCE_METHODOLOGY_FAIL=wide retrieval retrieval input is invalid
+
+  EVIDENCE_METHODOLOGY_FAIL=all two hundred distinct passages returned
+
+  EVIDENCE_METHODOLOGY_FAIL=two hundred passages serialize within configured
+  ceiling evidence encoding input is invalid
+
+
+
+
+
+0% tests passed, 3 tests failed out of 3
+
+Label Time Summary:
+command          =   6.76 sec*proc (2 tests)
+contract         =   2.14 sec*proc (1 test)
+direction        =   3.36 sec*proc (1 test)
+gap              =   3.36 sec*proc (1 test)
+graph            =   3.36 sec*proc (1 test)
+lead             =   3.36 sec*proc (1 test)
+note             =   3.36 sec*proc (1 test)
+regression       =   6.76 sec*proc (2 tests)
+retrieval        =   3.36 sec*proc (1 test)
+sqlite           =   3.36 sec*proc (1 test)
+strict-json      =   4.62 sec*proc (1 test)
+zero-outbound    =   6.76 sec*proc (2 tests)
+
+Total Test time (real) =  10.12 sec
+
+The following tests FAILED:
+	  3 - regression_command_arguments (Failed)             command regression strict-json zero-outbound
+	 11 - regression_command_catalogue (Failed)             command contract regression zero-outbound
+	 31 - evidence_methodology (Failed)                     direction gap graph lead note retrieval sqlite
+Errors while running CTest

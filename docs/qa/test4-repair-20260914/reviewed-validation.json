@@ -1,0 +1,31 @@
+{
+  "timings": [
+    {
+      "command": "reviewed-migrate",
+      "exit": 0,
+      "seconds": 0.357
+    },
+    {
+      "command": "reviewed-replay",
+      "exit": 0,
+      "seconds": 0.4
+    },
+    {
+      "command": "reviewed-run",
+      "exit": 0,
+      "seconds": 36.136
+    },
+    {
+      "command": "reviewed-status",
+      "exit": 0,
+      "seconds": 0.226
+    }
+  ],
+  "items": [
+    [
+      "processed"
+    ]
+  ],
+  "mentions_added": 15,
+  "claims_added": 4
+}

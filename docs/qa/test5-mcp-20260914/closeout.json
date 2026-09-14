@@ -1,0 +1,17 @@
+{
+  "completed_at": "2026-09-14T10:52:36.766484+00:00",
+  "functional_smoke": "passed",
+  "performance": "characterized; no latency threshold or target claim",
+  "mcp_requests": 56,
+  "new_rag_provider_calls": 0,
+  "ordinary_qa_database_writes": 0,
+  "explicit_path_gap_rows_added": 1,
+  "gap_observations": 6,
+  "full_suite": "prior unchanged-artifact Test 4 result: 71/71",
+  "documentation_contract": "passed",
+  "git_diff_check": "passed",
+  "native_artifact_unchanged": true,
+  "citation_quotes_exact": true,
+  "installed_application_changed": false,
+  "committed": false
+}

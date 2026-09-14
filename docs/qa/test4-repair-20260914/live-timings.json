@@ -1,0 +1,27 @@
+[
+  {
+    "command": "live-migrate",
+    "exit": 0,
+    "seconds": 0.318
+  },
+  {
+    "command": "live-config-diff",
+    "exit": 0,
+    "seconds": 0.194
+  },
+  {
+    "command": "live-replay",
+    "exit": 0,
+    "seconds": 0.355
+  },
+  {
+    "command": "live-run",
+    "exit": 0,
+    "seconds": 77.35
+  },
+  {
+    "command": "live-status",
+    "exit": 0,
+    "seconds": 0.492
+  }
+]

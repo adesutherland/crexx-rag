@@ -1,0 +1,14 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 65: regression_lifecycle
+1/1 Test #65: regression_lifecycle .............   Passed    3.60 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+RAG-OPS-002      =   3.60 sec*proc (1 test)
+accounting       =   3.60 sec*proc (1 test)
+regression       =   3.60 sec*proc (1 test)
+worker           =   3.60 sec*proc (1 test)
+zero-outbound    =   3.60 sec*proc (1 test)
+
+Total Test time (real) =   3.60 sec

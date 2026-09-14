@@ -1,0 +1,185 @@
+{
+  "mentions": [
+    {
+      "label": "the English army",
+      "canonical_label": "the English army",
+      "concept_type": "organisation",
+      "evidence_quote": "began  his  retreat  in  sight  of  the  English \narmy.",
+      "aliases": []
+    },
+    {
+      "label": "this retreat",
+      "canonical_label": "this retreat",
+      "concept_type": "event",
+      "evidence_quote": "In  this  retreat,  Clanranald’s  regiment,  with  the  French  piquets \nand  Fitz-James’s  horse,  formed  the  rear.",
+      "aliases": []
+    },
+    {
+      "label": "Clanranald’s regiment",
+      "canonical_label": "Clanranald’s regiment",
+      "concept_type": "organisation",
+      "evidence_quote": "In  this  retreat,  Clanranald’s  regiment,  with  the  French  piquets \nand  Fitz-James’s  horse,  formed  the  rear.",
+      "aliases": []
+    },
+    {
+      "label": "the French piquets",
+      "canonical_label": "the French piquets",
+      "concept_type": "organisation",
+      "evidence_quote": "Clanranald’s  regiment,  with  the  French  piquets \nand  Fitz-James’s  horse,  formed  the  rear.",
+      "aliases": []
+    },
+    {
+      "label": "Fitz-James’s horse",
+      "canonical_label": "Fitz-James’s horse",
+      "concept_type": "organisation",
+      "evidence_quote": "with  the  French  piquets \nand  Fitz-James’s  horse,  formed  the  rear.",
+      "aliases": []
+    },
+    {
+      "label": "the duke of Cumberland",
+      "canonical_label": "the duke of Cumberland",
+      "concept_type": "person",
+      "evidence_quote": "the  duke  of  Cumberland  sent  forward  his  cavalry.",
+      "aliases": []
+    },
+    {
+      "label": "his cavalry",
+      "canonical_label": "his cavalry",
+      "concept_type": "organisation",
+      "evidence_quote": "the  duke  of  Cumberland  sent  forward  his  cavalry.",
+      "aliases": []
+    },
+    {
+      "label": "the French horse",
+      "canonical_label": "the French horse",
+      "concept_type": "organisation",
+      "evidence_quote": "Several  shots  were \nexchanged  between  the  duke’s  cavalry  and  the  French  horse",
+      "aliases": []
+    },
+    {
+      "label": "the duke’s advanced guard",
+      "canonical_label": "the duke’s advanced guard",
+      "concept_type": "organisation",
+      "evidence_quote": "in \nexpectation  of  an  engagement  with  the  duke’s  advanced  guard",
+      "aliases": []
+    },
+    {
+      "label": "the Argyleshire men",
+      "canonical_label": "the Argyleshire men",
+      "concept_type": "organisation",
+      "evidence_quote": "consist- \ning of  two  hundred  cavalry  and  the  Argyleshire  men,  the  Macdonalds \nof  Clanranald",
+      "aliases": []
+    },
+    {
+      "label": "the Macdonalds of Clanranald",
+      "canonical_label": "the Macdonalds of Clanranald",
+      "concept_type": "organisation",
+      "evidence_quote": "the  Argyleshire  men,  the  Macdonalds \nof  Clanranald,  and  the  Stewarts  of  Appin,  were  ordered  back",
+      "aliases": []
+    },
+    {
+      "label": "the Stewarts of Appin",
+      "canonical_label": "the Stewarts of Appin",
+      "concept_type": "organisation",
+      "evidence_quote": "the  Macdonalds \nof  Clanranald,  and  the  Stewarts  of  Appin,  were  ordered  back  to  sup- \nport the  French.",
+      "aliases": []
+    },
+    {
+      "label": "the French",
+      "canonical_label": "the French",
+      "concept_type": "organisation",
+      "evidence_quote": "the  Stewarts  of  Appin,  were  ordered  back  to  sup- \nport the  French.",
+      "aliases": []
+    },
+    {
+      "label": "the Highlanders",
+      "canonical_label": "the Highlanders",
+      "concept_type": "organisation",
+      "evidence_quote": "The  advanced  guard  continued  to  pursue  the \nHighlanders  several  miles  beyond  Nairn",
+      "aliases": []
+    },
+    {
+      "label": "Nairn",
+      "canonical_label": "Nairn",
+      "concept_type": "place",
+      "evidence_quote": "continued  to  pursue  the \nHighlanders  several  miles  beyond  Nairn",
+      "aliases": []
+    }
+  ],
+  "relationships": [
+    {
+      "source_mention": 2,
+      "relationship_type": "participated-in",
+      "target_mention": 1,
+      "evidence_quote": "In  this  retreat,  Clanranald’s  regiment,  with  the  French  piquets \nand  Fitz-James’s  horse,  formed  the  rear.",
+      "confidence_millionths": 980000
+    },
+    {
+      "source_mention": 3,
+      "relationship_type": "participated-in",
+      "target_mention": 1,
+      "evidence_quote": "In  this  retreat,  Clanranald’s  regiment,  with  the  French  piquets \nand  Fitz-James’s  horse,  formed  the  rear.",
+      "confidence_millionths": 960000
+    },
+    {
+      "source_mention": 4,
+      "relationship_type": "participated-in",
+      "target_mention": 1,
+      "evidence_quote": "In  this  retreat,  Clanranald’s  regiment,  with  the  French  piquets \nand  Fitz-James’s  horse,  formed  the  rear.",
+      "confidence_millionths": 960000
+    },
+    {
+      "source_mention": 5,
+      "relationship_type": "had-member",
+      "target_mention": 6,
+      "evidence_quote": "the  duke  of  Cumberland  sent  forward  his  cavalry.",
+      "confidence_millionths": 920000
+    },
+    {
+      "source_mention": 9,
+      "relationship_type": "related-to",
+      "target_mention": 10,
+      "evidence_quote": "consist- \ning of  two  hundred  cavalry  and  the  Argyleshire  men,  the  Macdonalds \nof  Clanranald",
+      "confidence_millionths": 900000
+    },
+    {
+      "source_mention": 11,
+      "relationship_type": "served-in",
+      "target_mention": 12,
+      "evidence_quote": "the  Macdonalds \nof  Clanranald,  and  the  Stewarts  of  Appin,  were  ordered  back  to  sup- \nport the  French.",
+      "confidence_millionths": 880000
+    },
+    {
+      "source_mention": 10,
+      "relationship_type": "served-in",
+      "target_mention": 12,
+      "evidence_quote": "the  Macdonalds \nof  Clanranald,  and  the  Stewarts  of  Appin,  were  ordered  back  to  sup- \nport the  French.",
+      "confidence_millionths": 880000
+    },
+    {
+      "source_mention": 13,
+      "relationship_type": "related-to",
+      "target_mention": 14,
+      "evidence_quote": "The  advanced  guard  continued  to  pursue  the \nHighlanders  several  miles  beyond  Nairn",
+      "confidence_millionths": 900000
+    }
+  ],
+  "notes": [
+    {
+      "kind": "observation",
+      "text": "The retreating rear comprised Clanranald’s regiment, the French piquets, and Fitz-James’s horse.",
+      "importance_millionths": 900000,
+      "uncertainty_millionths": 50000,
+      "next_action": "",
+      "evidence_quote": "In  this  retreat,  Clanranald’s  regiment,  with  the  French  piquets \nand  Fitz-James’s  horse,  formed  the  rear."
+    },
+    {
+      "kind": "observation",
+      "text": "The duke of Cumberland sent cavalry forward to harass and retard the retreat.",
+      "importance_millionths": 850000,
+      "uncertainty_millionths": 70000,
+      "next_action": "",
+      "evidence_quote": "To  harass  the  rear,  and  re- \ntard the  march  of  the  main  body  till  some  of  his  foot  should  come  up, \nthe  duke  of  Cumberland  sent  forward  his  cavalry."
+    }
+  ]
+}

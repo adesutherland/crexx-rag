@@ -1,0 +1,40 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 21: provider_durability
+1/1 Test #21: provider_durability ..............***Failed    3.22 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/ProviderDurability.cmake:57 (message):
+  noopt-rxvme provider durability failed (1):
+
+  PROVIDER_DURABILITY_FAIL=selected replay compatibility case 1 status=-2
+  replay target is not semantically compatible with the source job
+
+  PROVIDER_DURABILITY_FAIL=selected replay compatibility case 2 status=-2
+  replay target is not semantically compatible with the source job
+
+  PROVIDER_DURABILITY_FAIL=selected replay compatibility case 10 status=-2
+  replay target is not semantically compatible with the source job
+
+  PROVIDER_DURABILITY_FAIL=selected replay compatibility case 11 status=-2
+  replay target is not semantically compatible with the source job
+
+  PROVIDER_DURABILITY_ERRORS=4
+
+
+
+
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+codex                  =   3.22 sec*proc (1 test)
+durability             =   3.22 sec*proc (1 test)
+provider               =   3.22 sec*proc (1 test)
+subscription-budget    =   3.22 sec*proc (1 test)
+zero-outbound          =   3.22 sec*proc (1 test)
+
+Total Test time (real) =   3.22 sec
+
+The following tests FAILED:
+	 21 - provider_durability (Failed)                      codex durability provider subscription-budget zero-outbound
+Errors while running CTest

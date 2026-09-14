@@ -81,6 +81,21 @@ identities are preserved by this refactor.
 | `ragpolicypublication` | Bounded file reads/hashes, serialized edit ownership, verified sibling staging and rename publication. It accepts already validated candidate bytes and opens only an adjacent coordination database. |
 | `ragconfiguration` | Existing immutable library configuration history and reviewed prospective/operational transition; file publication never rewrites retained job snapshots. |
 
+Replay compatibility is owned by `ragconfiguration.replaysnapshotmatches`.
+It reads the immutable source/target snapshots once and compares distinct
+source-scope/role bindings from the selected dead letters. Scopes retain their
+connector prefix, such as `folder:scotland-overnight`. `ragcanonical.semanticconfigjson`
+owns the common semantic field projection for both frozen JSON and typed current
+configuration. Its unfiltered form preserves existing semantic identity bytes;
+the replay form selects the relevant source, role and provider. The selected
+profile remains compatible, and extractor discovery settings remain part of
+its interpretation. Unrelated sources/providers and operational settings do not
+veto replay. `ragwork` retains selection limits, current-target fencing, immutable
+lineage, completed-work and uncertain-outcome handling. Worker continuation
+still uses its original frozen request; replay creates explicitly requested
+new work under current policy. These are separate operations, not duplicate
+configuration rules.
+
 Worker defaults stay byte-compatible: poll 100 ms (10–60000), guided deadline
 0 seconds (0–604800), two replacements (0–10), 5000 ms backoff (10–60000), and a
 3600-second rolling window (1–86400). Explicit invalid typed values are rejected,
@@ -745,8 +760,9 @@ request/response content to its existing controlled inspection surface.
 `surfaces/ragcommandcatalog.crexx` owns the canonical operation inventory and
 MCP tool definitions: argument schemas, required fields, capabilities, library
 requirements, positional forwarding and fixed command variants. It depends only
-on primitive functions and JSON, so `ragcommand`, the CLI, MCP and access helpers
-can use it without importing product services. `ragmcp` only handles JSON-RPC,
+on primitive functions, JSON and the shared numeric passage ceiling in
+`ragconfig`, so `ragcommand`, the CLI, MCP and access helpers can use it without
+importing product services. `ragmcp` only handles JSON-RPC,
 server bindings and result rendering. `ragcommand` owns typed requests/results
 and CLI parsing. Guided CLI interactions remain in `crexxrag_cli`; domain
 services own state-dependent argument checks, authorization and execution.
@@ -854,3 +870,11 @@ The implementation and measured acceptance for these rules are tracked in the
 [SQL performance delivery](sql-performance-delivery-20260913.md). The original
 [statement review](sql-performance-review-20260913.md) records the pre-repair
 inventory and experiments; it is historical evidence, not another rule owner.
+
+Explicit lexical retrieval does not prepare or validate vector profiles or
+sidecars; auto/hybrid routing retains those checks before provider work.
+`ragconfig.querypassagemaximum` owns the optional passage ceiling (200), consumed
+by file/typed validation, query execution, core retrieval and the MCP schema.
+The default remains 12, with candidate/diversity/byte limits independent of the
+requested count. Agent-side evidence filtering is the ordinary broad-net
+workflow; a useful passage ranking fourth is not itself a defect.

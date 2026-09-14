@@ -1,5 +1,27 @@
 # Regression coverage baseline — REG-01
 
+Test 5 follow-up acceptance covers the shared optional passage maximum of 200
+with an unchanged default of 12: file/typed configuration, all seven MCP query
+schemas, native CLI/MCP, ADDRESS and actual core retrieval of 200 distinct
+passages with resolved citations. The original bound fails before implementation.
+The native Gemini query fixture also reproduces lexical refusal on an irrelevant
+malformed vector profile, then checks identical lexical evidence and zero writes
+while retaining malformed/missing/corrupt hybrid rejection and provider controls.
+Final qualification passes all eight affected focused tests, **71/71** in the
+full local suite and 59 provider-free MCP requests. The
+[workplan](test5-mcp-qa.md) is complete.
+
+Test 4 repair acceptance is tracked in the
+[active checklist](test4-repair-delivery-20260914.md). `provider_durability`
+adds selected replay cases for added/unrelated sources and providers, operational
+settings, incompatible selected source/privacy/model/prompt/profile, missing
+source and a bulk selection containing incompatible work. Scope spelling matches
+real `folder:ID` inputs. `configuration_contract` preserves the captured semantic
+identity hash. Nairn uses the retained rejected response and a corrected response
+through the complete provider validator; quotation rules are unchanged. Final
+QA passes **71/71 in 612.88 seconds**. The live selected replay, two normal
+review rejections and zero-call retry complete the bounded Test 4 acceptance.
+
 Current Test 2 follow-up: [action checklist](test2-recovery-delivery-20260914.md).
 The existing provider, publication, store and retrieval owners now implement
 independent item/search availability and ordinary completion retry. Qualification

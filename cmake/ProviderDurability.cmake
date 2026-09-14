@@ -14,7 +14,7 @@ list(JOIN project_member_dirs ";" project_imports)
 set(imports "${project_imports};${CPRAG_APPLICATION_DIR};${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers;${CPRAG_CREXX_BIN_DIR}")
 set(modules ragsupervision ragenrich ragproposalio ragperiod ragprovenance ragassessment ragschema ragfile
     ragstore ragmodel ragjob ragquotationcontract ragextractioncontract ragresolutioncontract raganswercontract ragreportcontract ragpromptdefaults ragpromptinspection ragcommandutil ragsqlsupport ragdirectcalls ragreportservice ragobservationservice ragqueryservice ragoperationsquery ragclaimrules ragclaims ragadmission raglifecycle ragworktypes ragenvironment ragusage ragreceipts ragallowance ragwork ragcommandcatalog ragcommand ragworkerdefaults ragpolicypublication ragpolicyfile ragtrace ragbacklog
-    ragmaintain ragimprove ragconfig ragprofile ragcanonical raggrounding rxfnsg rxsqlite
+    ragmaintain ragimprove ragconfiguration ragconfig ragprofile ragcanonical raggrounding rxfnsg rxsqlite
     rx_hash rx_system rxfs rxplatform library)
 
 foreach(mode IN ITEMS noopt opt)

@@ -1,0 +1,32 @@
+{
+  "workplan": "docs/test5-mcp-qa.md",
+  "completed_items": [
+    "F0",
+    "F1",
+    "F2",
+    "F3",
+    "F4"
+  ],
+  "default_passage_limit": 12,
+  "maximum_passage_limit": 200,
+  "focused_tests_passed": 8,
+  "full_tests_passed": 71,
+  "full_tests_failed": 0,
+  "final_documentation_contract": "passed",
+  "git_diff_check": "passed",
+  "native_sha256": "88b2fe4a045c42f6a514323bd93804761256b77a15928876e95b5557154bf9c7",
+  "generated_test_file_restored": true,
+  "mcp_requests": 59,
+  "provider_runs_added": 0,
+  "attempts_added": 0,
+  "corpus_generation": 24929,
+  "corpus_hashes_unchanged": true,
+  "ordinary_qa_unchanged": true,
+  "explicit_path_query_gaps_added": 1,
+  "normal_candidate_limit": 48,
+  "real_wide_passages_returned": 48,
+  "synthetic_passages_returned_and_resolved": 200,
+  "normal_installation_changed": false,
+  "committed": false,
+  "timing_interpretation": "Observations on a shared computer; no stopwatch gates or causal speedup claim."
+}

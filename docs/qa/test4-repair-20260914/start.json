@@ -1,0 +1,16 @@
+{
+  "scratch": "/private/tmp/crexxrag-test4-repair-kw6or_2x",
+  "source": "/private/tmp/crexxrag-smoke-repeat-20260914-718axbnf/library",
+  "nairn_root_job": "job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622",
+  "nairn_root_item": "item-sha256:92a38a4adcec0c685fe8812213faa2581b593489cffd4aa35b62abfae7b00e7b",
+  "latest_nairn_job": "job-replay-sha256:b61f42797bbdf05b4003afc676e12f897e0b3162df34ce78e457a26ba46bec8f",
+  "before_counts": {
+    "sources": 9,
+    "source_revisions": 9,
+    "revision_chunks": 34907,
+    "mentions": 63086,
+    "claims": 7974,
+    "provider_runs": 82562,
+    "attempts": 116206
+  }
+}

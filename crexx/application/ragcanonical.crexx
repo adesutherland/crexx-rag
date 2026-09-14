@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragcanonical expose ragsha256 canonicalconfig canonicalsemanticconfig canonicaloperationalconfig canonicalprofile canonicalproviderroute
+namespace ragcanonical expose ragsha256 canonicalconfig canonicalsemanticconfig semanticconfigjson canonicaloperationalconfig canonicalprofile canonicalproviderroute
 
 import rxfnsb
 import rxjson
@@ -82,42 +82,100 @@ canonicalconfig: procedure = .string
  * deliberately excluded. */
 canonicalsemanticconfig: procedure = .string
   arg config = .ragconfig
-  output = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.semantic-config/1") || "," || jsonquote("config_id") || ":" || jsonquote(config.config_id()) || "," || jsonquote("source_sets") || ":["
-  sources = config.source_sets()
-  do i = 1 to sources.0
-    if i > 1 then output = output || ","
-    source = sources[i]; patterns = source.include_patterns()
-    output = output || "{" || jsonquote("id") || ":" || jsonquote(source.source_set_id()) || "," || jsonquote("connector") || ":" || jsonquote(source.connector()) || "," || jsonquote("root") || ":" || jsonquote(source.root()) || "," || jsonquote("stable_key") || ":" || jsonquote(source.stable_key()) || "," || jsonquote("privacy") || ":" || jsonquote(source.privacy()) || "," || jsonquote("retain_raw_artifact") || ":" || _boolean(source.retain_raw_artifact()) || "," || jsonquote("include_patterns") || ":["
-    do j = 1 to patterns.0
-      if j > 1 then output = output || ","
-      output = output || jsonquote(patterns[j])
+  return semanticconfigjson(canonicalconfig(config))
+
+/* One semantic field projection for typed current policy and frozen snapshots.
+ * Optional selection compares only the source and role used by replay work.
+ * The unselected form preserves the persisted semantic-config/1 identity. */
+semanticconfigjson: procedure = .string
+  arg config_json = .string, source_id = "", role_id = ""
+  config = .jsondocument(config_json); root = config.root()
+  if config.valid() \= 1 | config.node_type(root) \= "object" then return ""
+  identity = _semanticfields(config,root,"config_id")
+  if identity = "" then return ""
+  source_fields = "id connector root stable_key privacy retain_raw_artifact include_patterns"
+  provider_fields = "id kind base_url model route_class privacy_policy credential_ref context_tokens maximum_output_tokens embedding_dimensions_minimum embedding_dimensions_maximum ?reasoning_effort"
+  role_fields = "role provider_id maximum_input_tokens maximum_output_tokens embedding_dimensions temperature_millionths system_prompt"
+  sources = _semanticarray(config,config.member(root,"source_sets"),source_fields,"source_scope",source_id)
+  roles = _semanticarray(config,config.member(root,"roles"),role_fields,"role",role_id)
+  provider_id = ""
+  if role_id \= "" then do
+    role = _semanticfind(config,config.member(root,"roles"),"role",role_id)
+    if role = 0 | config.node_string(config.member(role,"provider_id"),provider_id) \= 0 | provider_id = "" then return ""
+  end
+  providers = _semanticarray(config,config.member(root,"providers"),provider_fields,"id",provider_id)
+  if sources = "" | roles = "" | providers = "" then return ""
+  output = '{"schema":"crexx-rag.semantic-config/1",' || substr(identity,2,length(identity)-2) || ',"source_sets":' || sources || ',"providers":' || providers || ',"roles":' || roles
+  if role_id = "" then do
+    profiles = config.member(root,"profile_ids")
+    if config.node_type(profiles) \= "array" then return ""
+    output = output || ',"profile_ids":' || config.node_get(profiles)
+  end
+  if role_id = "" | role_id = "extractor" then do
+    discovery = _semanticfields(config,config.member(root,"discovery"),"mode glossary_file ranked_limit max_mentions max_relationships max_notes")
+    if discovery = "" then return ""
+    output = output || ',"discovery":' || discovery
+  end
+  return output || "}"
+
+_semanticfields: procedure = .string
+  arg doc = .jsondocument, node = .int, fields = .string
+  if doc.node_type(node) \= "object" then return ""
+  output = "{"
+  do i = 1 to words(fields)
+    field = word(fields,i); optional = left(field,1) = "?"
+    if optional then field = substr(field,2)
+    value_node = doc.member(node,field)
+    if value_node = 0 then do
+      if optional then iterate
+      return ""
     end
-    output = output || "]}"
+    value = doc.node_get(value_node)
+    if doc.node_type(value_node) = "string" then do
+      text = ""
+      if doc.node_string(value_node,text) \= 0 then return ""
+      value = jsonquote(text)
+    end
+    if output \= "{" then output = output || ","
+    output = output || jsonquote(field) || ":" || value
   end
-  output = output || "]," || jsonquote("providers") || ":["
-  providers = config.providers()
-  do i = 1 to providers.0
+  return output || "}"
+
+_semanticfind: procedure = .int
+  arg doc = .jsondocument, array = .int, key = .string, selected = .string
+  found = 0
+  do i = 1 to doc.node_count(array)
+    node = doc.element(array,i); value = ""
+    if key = "source_scope" then do
+      connector = ""
+      if doc.node_string(doc.member(node,"id"),value) \= 0 | doc.node_string(doc.member(node,"connector"),connector) \= 0 then return 0
+      value = connector || ":" || value
+    end
+    else if doc.node_string(doc.member(node,key),value) \= 0 then return 0
+    if value = selected then do
+      if found \= 0 then return 0
+      found = node
+    end
+  end
+  return found
+
+_semanticarray: procedure = .string
+  arg doc = .jsondocument, array = .int, fields = .string, key = .string, selected = .string
+  if doc.node_type(array) \= "array" then return ""
+  if selected \= "" then do
+    node = _semanticfind(doc,array,key,selected)
+    entry = _semanticfields(doc,node,fields)
+    if entry = "" then return ""
+    return "[" || entry || "]"
+  end
+  output = "["
+  do i = 1 to doc.node_count(array)
+    entry = _semanticfields(doc,doc.element(array,i),fields)
+    if entry = "" then return ""
     if i > 1 then output = output || ","
-    provider = providers[i]
-    output = output || "{" || jsonquote("id") || ":" || jsonquote(provider.provider_id()) || "," || jsonquote("kind") || ":" || jsonquote(provider.kind()) || "," || jsonquote("base_url") || ":" || jsonquote(provider.base_url()) || "," || jsonquote("model") || ":" || jsonquote(provider.model()) || "," || jsonquote("route_class") || ":" || jsonquote(provider.route_class()) || "," || jsonquote("privacy_policy") || ":" || jsonquote(provider.privacy_policy()) || "," || jsonquote("credential_ref") || ":" || jsonquote(provider.credential().ref_string()) || "," || jsonquote("context_tokens") || ":" || provider.context_tokens() || "," || jsonquote("maximum_output_tokens") || ":" || provider.maximum_output_tokens() || "," || jsonquote("embedding_dimensions_minimum") || ":" || provider.embedding_dimensions_minimum() || "," || jsonquote("embedding_dimensions_maximum") || ":" || provider.embedding_dimensions_maximum()
-    if provider.reasoning_effort() \= "" then output = output || "," || jsonquote("reasoning_effort") || ":" || jsonquote(provider.reasoning_effort())
-    output = output || "}"
+    output = output || entry
   end
-  output = output || "]," || jsonquote("roles") || ":["
-  roles = config.roles()
-  do i = 1 to roles.0
-    if i > 1 then output = output || ","
-    output = output || "{" || jsonquote("role") || ":" || jsonquote(roles[i].role()) || "," || jsonquote("provider_id") || ":" || jsonquote(roles[i].provider_id()) || "," || jsonquote("maximum_input_tokens") || ":" || roles[i].maximum_input_tokens() || "," || jsonquote("maximum_output_tokens") || ":" || roles[i].maximum_output_tokens() || "," || jsonquote("embedding_dimensions") || ":" || roles[i].embedding_dimensions() || "," || jsonquote("temperature_millionths") || ":" || roles[i].temperature_millionths() || "," || jsonquote("system_prompt") || ":" || jsonquote(roles[i].system_prompt()) || "}"
-  end
-  output = output || "]," || jsonquote("profile_ids") || ":["
-  profiles = config.profile_ids()
-  do i = 1 to profiles.0
-    if i > 1 then output = output || ","
-    output = output || jsonquote(profiles[i])
-  end
-  discovery = config.discovery()
-  output = output || "]," || jsonquote("discovery") || ":{" || jsonquote("mode") || ":" || jsonquote(discovery.mode()) || "," || jsonquote("glossary_file") || ":" || jsonquote(discovery.glossary_path()) || "," || jsonquote("ranked_limit") || ":" || discovery.ranked_limit() || "," || jsonquote("max_mentions") || ":" || discovery.max_mentions() || "," || jsonquote("max_relationships") || ":" || discovery.max_relationships() || "," || jsonquote("max_notes") || ":" || discovery.max_notes() || "}}"
-  return output
+  return output || "]"
 
 canonicaloperationalconfig: procedure = .string
   arg config = .ragconfig

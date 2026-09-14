@@ -1,0 +1,223 @@
+{
+  "schema": "crexx-rag.work-input/1",
+  "operation": "claim-extraction",
+  "revision_chunk_id": "occurrence-sha256:b577bdd6aae1bbd5f3faf56ebf2bb38c18272649b069a80439da1926bef7d6cc",
+  "content_id": "content-sha256:ad9a2ba4ee690a56b24365c5732548e60560a354d99a56b4e988fd4b2a12d903",
+  "content_digest": "87a1ba7c04dcfb262331587a8af8a4accecc3afe50b7e23d89f95331c201750f",
+  "text_digest": "87a1ba7c04dcfb262331587a8af8a4accecc3afe50b7e23d89f95331c201750f",
+  "text": "within  a mile  of  the  town,  and  began  his  retreat  in  sight  of  the  English \narmy.  In  this  retreat,  Clanranald’s  regiment,  with  the  French  piquets \nand  Fitz-James’s  horse,  formed  the  rear.  To  harass  the  rear,  and  re- \ntard the  march  of  the  main  body  till  some  of  his  foot  should  come  up, \nthe  duke  of  Cumberland  sent  forward  his  cavalry.  Several  shots  were \nexchanged  between  the  duke’s  cavalry  and  the  French  horse,  and  in \nexpectation  of  an  engagement  with  the  duke’s  advanced  guard,  consist- \ning of  two  hundred  cavalry  and  the  Argyleshire  men,  the  Macdonalds \nof  Clanranald,  and  the  Stewarts  of  Appin,  were  ordered  back  to  sup- \nport the  French.  These  regiments  accordingly  returned  and  took \nground,  and  Fitz-James’s  horse  formed  on  their  right  and  left.  The  duke’s \nadvanced  guard  thereupon  halted,  and  formed  in  order  of  battle,  but  as \nthe  main  body  of  the  English  army  was  in  full  march  the  rear  recom- \nmenced their  retreat.  The  advanced  guard  continued  to  pursue  the \nHighlanders  several  miles  beyond  Nairn,  but  finding  the  chase  useless, \nreturned  to  the  main  body  which  was  preparing  to  encamp  on  a plain \nto  the  west  of  Nairn.  *",
+  "normalized_start": 842394,
+  "normalized_end": 843715,
+  "privacy": "public",
+  "source_scope": "folder:scotland-overnight",
+  "config_snapshot_id": "config-bbac47eed961d56bd65c0a8d",
+  "profile_id": "scottish-history-profile",
+  "policy_version": "surface-ingest-v1",
+  "prompt_version": "scottish-history-extractor:1",
+  "role": "extractor",
+  "provider_id": "codex-extract",
+  "model": "gpt-5.6-luna",
+  "charging_basis": "subscription-allowance",
+  "discovery_context": "{\"schema\":\"crexx-rag.discovery-context/1\",\"mode\":\"all\",\"glossary_digest\":\"6928f05034da110b370bbbc39956446c7b97d1eddbcb96deda39cf0d21b59bb7\",\"ranked_limit\":16,\"max_mentions\":16,\"max_relationships\":16,\"max_notes\":8,\"glossary\":{\"schema\":\"crexx-rag.glossary/1\",\"entries\":[{\"canonical_label\":\"Clan Gregor\",\"concept_type\":\"organisation\",\"aliases\":[\"Clan Gregor\",\"MacGregors\",\"Clan MacGregor\",\"Gregors\"]},{\"canonical_label\":\"Rob Roy MacGregor\",\"concept_type\":\"person\",\"aliases\":[\"Rob Roy MacGregor\",\"Rob Roy\"]},{\"canonical_label\":\"Campbell of Argyll\",\"concept_type\":\"organisation\",\"aliases\":[\"Campbell of Argyll\",\"Argyll\"]},{\"canonical_label\":\"Campbell of Breadalbane\",\"concept_type\":\"organisation\",\"aliases\":[\"Campbell of Breadalbane\",\"Breadalbane\"]},{\"canonical_label\":\"The Black Watch\",\"concept_type\":\"organisation\",\"aliases\":[\"The Black Watch\",\"Black Watch\",\"42nd Royal Highlanders\",\"Am Freiceadan Dubh\"]},{\"canonical_label\":\"Independent Companies\",\"concept_type\":\"organisation\",\"aliases\":[\"Independent Companies\",\"Highland Companies\"]},{\"canonical_label\":\"Belted Plaid\",\"concept_type\":\"artefact\",\"aliases\":[\"Belted Plaid\",\"Feile-breag\",\"Feileadh Mor\"]},{\"canonical_label\":\"Little Kilt\",\"concept_type\":\"artefact\",\"aliases\":[\"Little Kilt\",\"Feile-beg\",\"Feileadh Beag\"]},{\"canonical_label\":\"Thomas Rawlinson\",\"concept_type\":\"person\",\"aliases\":[\"Thomas Rawlinson\",\"Rawlinson\"]},{\"canonical_label\":\"Picts\",\"concept_type\":\"organisation\",\"aliases\":[\"Picts\",\"Pictish people\"]},{\"canonical_label\":\"Cymric peoples\",\"concept_type\":\"organisation\",\"aliases\":[\"Cymric peoples\",\"Cymric\",\"Brittonic\"]},{\"canonical_label\":\"James Macpherson\",\"concept_type\":\"person\",\"aliases\":[\"James Macpherson\",\"Macpherson\"]},{\"canonical_label\":\"Ossian\",\"concept_type\":\"person\",\"aliases\":[\"Ossian\",\"Poems of Ossian\"]},{\"canonical_label\":\"Sobieski Stuarts\",\"concept_type\":\"organisation\",\"aliases\":[\"Sobieski Stuarts\",\"Sobieski Stuart brothers\"]}],\"excluded\":[]}}",
+  "embedding_dimension": 768,
+  "reservation": {
+    "input_tokens": 32768,
+    "output_tokens": 16384,
+    "cost_microunits": 0,
+    "time_ms": 120000
+  },
+  "candidates": [
+    {
+      "candidate_id": "candidate-sha256:abcbc0f71f8c092e98fe4c3a928ba3a5613ae1ee6612a774c1a150799f9cb975",
+      "label": "english",
+      "span_start": 78,
+      "span_end": 85,
+      "evidence": {
+        "schema": "crexx-rag.candidate-evidence/1",
+        "normalized_candidate": "english",
+        "occurrences": 998,
+        "source_diversity": 8
+      }
+    },
+    {
+      "candidate_id": "candidate-sha256:abbc742430a4850c95481f1c9bf751d176b6d11ee1afef0ef66d90bcf9423cac",
+      "label": "clanranald’s",
+      "span_start": 114,
+      "span_end": 126,
+      "evidence": {
+        "schema": "crexx-rag.candidate-evidence/1",
+        "normalized_candidate": "clanranald’s",
+        "occurrences": 29,
+        "source_diversity": 5
+      }
+    },
+    {
+      "candidate_id": "candidate-sha256:51c7968319ec2bbcd11c7449fe7f30bb2eb837e7bc7475024968f07b509596e7",
+      "label": "french",
+      "span_start": 150,
+      "span_end": 156,
+      "evidence": {
+        "schema": "crexx-rag.candidate-evidence/1",
+        "normalized_candidate": "french",
+        "occurrences": 1226,
+        "source_diversity": 8
+      }
+    },
+    {
+      "candidate_id": "candidate-sha256:ecfc04bdaf52592f4a2811028c62d0046e905153db428bab7d6b094125d87c63",
+      "label": "fitz-james’s",
+      "span_start": 172,
+      "span_end": 184,
+      "evidence": {
+        "schema": "crexx-rag.candidate-evidence/1",
+        "normalized_candidate": "fitz-james’s",
+        "occurrences": 21,
+        "source_diversity": 2
+      }
+    },
+    {
+      "candidate_id": "candidate-sha256:2a9ce7fb553f2ffb09046fe355feef27c4474836d70ce7381243415042665378",
+      "label": "cumberland",
+      "span_start": 347,
+      "span_end": 357,
+      "evidence": {
+        "schema": "crexx-rag.candidate-evidence/1",
+        "normalized_candidate": "cumberland",
+        "occurrences": 316,
+        "source_diversity": 6
+      }
+    },
+    {
+      "candidate_id": "candidate-sha256:b7e2d61aff11c8502db58cf3f4f0fd745c648cefc40e1439d67fbd0520957889",
+      "label": "several",
+      "span_start": 389,
+      "span_end": 396,
+      "evidence": {
+        "schema": "crexx-rag.candidate-evidence/1",
+        "normalized_candidate": "several",
+        "occurrences": 84,
+        "source_diversity": 7
+      }
+    },
+    {
+      "candidate_id": "candidate-sha256:c1d6558fa13fad3692c4da03a13f7f5277ddc1c1be37fded43c2db26b4ffc04c",
+      "label": "french",
+      "span_start": 463,
+      "span_end": 469,
+      "evidence": {
+        "schema": "crexx-rag.candidate-evidence/1",
+        "normalized_candidate": "french",
+        "occurrences": 1226,
+        "source_diversity": 8
+      }
+    },
+    {
+      "candidate_id": "candidate-sha256:70a2cf9ca921e3595723be4eb85a003ca43dab47906cc8ca1f03c38a011e58bd",
+      "label": "argyleshire",
+      "span_start": 609,
+      "span_end": 620,
+      "evidence": {
+        "schema": "crexx-rag.candidate-evidence/1",
+        "normalized_candidate": "argyleshire",
+        "occurrences": 133,
+        "source_diversity": 6
+      }
+    },
+    {
+      "candidate_id": "candidate-sha256:2de30dfc7b93a035b501a361f8db60a8862a0bba183a807b7dbabf38f3cf4412",
+      "label": "macdonalds",
+      "span_start": 633,
+      "span_end": 643,
+      "evidence": {
+        "schema": "crexx-rag.candidate-evidence/1",
+        "normalized_candidate": "macdonalds",
+        "occurrences": 297,
+        "source_diversity": 7
+      }
+    },
+    {
+      "candidate_id": "candidate-sha256:b9f2698ec2faa4e685361b67d0c5d9a7fc35227fcdc6e518e7adafbec8ee2867",
+      "label": "clanranald",
+      "span_start": 649,
+      "span_end": 659,
+      "evidence": {
+        "schema": "crexx-rag.candidate-evidence/1",
+        "normalized_candidate": "clanranald",
+        "occurrences": 294,
+        "source_diversity": 6
+      }
+    },
+    {
+      "candidate_id": "candidate-sha256:5b5819950f26f3046d365fa38635067304ed8dbaeacadcaeeb5f6d95a6d6c6e9",
+      "label": "stewarts",
+      "span_start": 672,
+      "span_end": 680,
+      "evidence": {
+        "schema": "crexx-rag.candidate-evidence/1",
+        "normalized_candidate": "stewarts",
+        "occurrences": 109,
+        "source_diversity": 6
+      }
+    },
+    {
+      "candidate_id": "candidate-sha256:1a42b145cec4b6838ace6bddbc4ed1eeeeb71e5c23ac20972a72be6a992f3ac5",
+      "label": "appin",
+      "span_start": 686,
+      "span_end": 691,
+      "evidence": {
+        "schema": "crexx-rag.candidate-evidence/1",
+        "normalized_candidate": "appin",
+        "occurrences": 74,
+        "source_diversity": 6
+      }
+    },
+    {
+      "candidate_id": "candidate-sha256:0e0c11cd6fada06a158a06f75a67bf8d4035dc44879d91104b5c93b224032167",
+      "label": "french",
+      "span_start": 735,
+      "span_end": 741,
+      "evidence": {
+        "schema": "crexx-rag.candidate-evidence/1",
+        "normalized_candidate": "french",
+        "occurrences": 1226,
+        "source_diversity": 8
+      }
+    },
+    {
+      "candidate_id": "candidate-sha256:2870a237cb6dbc1b2cf414b05bc17086115403cccd0c4ca4a2387a9dfbf8537a",
+      "label": "these",
+      "span_start": 744,
+      "span_end": 749,
+      "evidence": {
+        "schema": "crexx-rag.candidate-evidence/1",
+        "normalized_candidate": "these",
+        "occurrences": 709,
+        "source_diversity": 8
+      }
+    },
+    {
+      "candidate_id": "candidate-sha256:8c4fac679d9086e33b8fcbbf12d554a64c63243e15daa047dcafe3a87eeec443",
+      "label": "fitz-james’s",
+      "span_start": 810,
+      "span_end": 822,
+      "evidence": {
+        "schema": "crexx-rag.candidate-evidence/1",
+        "normalized_candidate": "fitz-james’s",
+        "occurrences": 21,
+        "source_diversity": 2
+      }
+    },
+    {
+      "candidate_id": "candidate-sha256:fd69734e376a2552779f2437f529d5e24e2ebe855fc67c638d6a6484a82556a9",
+      "label": "the",
+      "span_start": 869,
+      "span_end": 872,
+      "evidence": {
+        "schema": "crexx-rag.candidate-evidence/1",
+        "normalized_candidate": "the",
+        "occurrences": 14416,
+        "source_diversity": 8
+      }
+    }
+  ]
+}

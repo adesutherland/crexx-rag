@@ -1,5 +1,22 @@
 # Maintenance refactoring delivery
 
+Test 5 follow-ups: `ragconfig.querypassagemaximum` supplies the shared 200-passage
+ceiling to file/typed validation, core retrieval, public query execution and
+MCP schema construction. The catalogue gains only that configuration dependency;
+it remains independent of dispatcher/repository services. `ragqueryservice`
+keeps vector preparation inside non-lexical routing. Shared QA guidance owns
+routine status/inventory and broad agent-side evidence filtering. The default
+12, canonical identity bytes, candidate/byte policies and hybrid controls remain.
+The [Test 5 workplan](test5-mcp-qa.md) retains regression-first evidence, actual
+200-passage/citation acceptance and final qualification status.
+
+Test 4 replay repair: the whole-snapshot veto moves from `ragwork` to the
+existing `ragconfiguration` owner, using one field projection in `ragcanonical`
+for current configuration identities and selected frozen work. Source/role
+selection excludes unrelated configuration entries; original identity hashes
+and replay history remain unchanged. Regression-first and final qualification
+are tracked in the [Test 4 checklist](test4-repair-delivery-20260914.md).
+
 Current Test 2 follow-up: [action checklist](test2-recovery-delivery-20260914.md).
 The existing provider, publication, store and retrieval owners now implement
 independent item/search availability and ordinary completion retry. Qualification

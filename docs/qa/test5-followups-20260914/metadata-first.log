@@ -1,0 +1,24 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 2: regression_command_metadata
+1/1 Test #2: regression_command_metadata ......***Failed    0.38 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/CommandMetadata.cmake:34 (message):
+  Advertised command contracts changed; review
+  /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/test-command-metadata/observed.sha256
+  and captured metadata
+
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+command          =   0.38 sec*proc (1 test)
+contract         =   0.38 sec*proc (1 test)
+regression       =   0.38 sec*proc (1 test)
+zero-outbound    =   0.38 sec*proc (1 test)
+
+Total Test time (real) =   0.38 sec
+
+The following tests FAILED:
+	  2 - regression_command_metadata (Failed)              command contract regression zero-outbound
+Errors while running CTest

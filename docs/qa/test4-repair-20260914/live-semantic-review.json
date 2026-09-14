@@ -1,0 +1,37 @@
+{
+  "issue": "Test 4 source-meaning review",
+  "status": "completed through normal review rejection",
+  "native_literal_validation": "passed",
+  "content_acceptance": "one supported claim published; two unsupported proposals held then rejected",
+  "generation": 24929,
+  "complete_context": "and  in \nexpectation  of  an  engagement  with  the  duke’s  advanced  guard,  consist- \ning of  two  hundred  cavalry  and  the  Argyleshire  men,  the  Macdonalds \nof  Clanranald,  and  the  Stewarts  of  Appin,  were  ordered  back  to  sup- \nport the  French.",
+  "reviewed_claims": [
+    {
+      "claim_id": "claim-sha256:2d0feba11dc46073a1bafb8cb877e8b69fa82357d265b21893081d515689fa15",
+      "source_label": "the duke’s advanced guard",
+      "relationship_type": "had-member",
+      "target_label": "the Argyleshire men",
+      "decision": "retain",
+      "reason": "Explicitly part of the guard."
+    }
+  ],
+  "proposed_correction": "Completed: retained Argyleshire membership and rejected the two unpublished proposals. No claim retraction or extra provider call was required.",
+  "processed_event": {
+    "mentions": 12,
+    "relationships": 3,
+    "notes": 0,
+    "dispositions": "accepted,review,review"
+  },
+  "rejected_proposals": [
+    {
+      "review_id": "review-sha256:ebfc2ceab54c7b45e83fb94912303b2dc15a05d981a8b9285efa8b3709cafba5",
+      "target": "the Macdonalds of Clanranald",
+      "state": "rejected"
+    },
+    {
+      "review_id": "review-sha256:6dfdca8f57e06d736a87d8c18283e48610e3932354fb909b505c56dc66630ddd",
+      "target": "the Stewarts of Appin",
+      "state": "rejected"
+    }
+  ]
+}

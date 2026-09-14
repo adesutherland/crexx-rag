@@ -1,0 +1,17 @@
+[
+  {
+    "before": null,
+    "after": {
+      "gap_id": "gap-sha256:c3f6492f2a85ada26714e42079259608916c48f8870c2f98ddc4b1f70fff8aa4",
+      "question_hash": "bcc08a889a92032a26937e3e26f38f3c66d3da0f6ee3fefd960120b8a54c0c8a",
+      "normalized_question": "dundee",
+      "gap_text": "One or more query names remain ambiguous; do not transfer facts between senses.",
+      "trace_id": "trace-4667ed6ce8ec2bdc7df8b2aa",
+      "observed_generation": 24929,
+      "occurrence_count": 6,
+      "state": "open",
+      "first_observed_at": "2026-09-14T10:46:12.090Z",
+      "last_observed_at": "2026-09-14T10:46:12.737Z"
+    }
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "provider_run_id": "provider-run-sha256:56408d18e249d9ecb8c9a2482952159a20957e9ecb19b50c0ea5bacf4f983e1c",
+    "config_snapshot_id": "config-a211c0fede4237fe77bbc797",
+    "provider_id": "codex-extract",
+    "model": "gpt-5.6-luna",
+    "request_hash": "4183b7a165c22c1cf9632a453b740ecfd0cd1f44528998ccc2b2108b5de57c5c",
+    "outcome": "succeeded",
+    "input_tokens": 19464,
+    "output_tokens": 1461,
+    "duration_ms": 30035,
+    "started_at": "2026-09-14T10:18:17.848Z",
+    "completed_at": "2026-09-14T10:18:48.682Z",
+    "charging_basis": "subscription-allowance",
+    "external_thread_id": "01a09f6c-b8ea-79f2-a584-92f6fd6fc0e1",
+    "external_turn_id": "01a09f6c-b97c-7d60-bb85-9fae344eb6c3",
+    "allowance_used_before_percent": 65,
+    "allowance_used_after_percent": -1,
+    "recovery_json": "",
+    "cost_microunits": 0,
+    "purpose": "work-item"
+  }
+]

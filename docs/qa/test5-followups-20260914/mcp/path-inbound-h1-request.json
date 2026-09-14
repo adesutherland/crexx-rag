@@ -1,0 +1,15 @@
+{
+  "jsonrpc": "2.0",
+  "id": 49,
+  "method": "tools/call",
+  "params": {
+    "name": "rag_query_path",
+    "arguments": {
+      "question": "Dundee",
+      "mode": "lexical",
+      "direction": "inbound",
+      "hops": 1,
+      "limit": 3
+    }
+  }
+}

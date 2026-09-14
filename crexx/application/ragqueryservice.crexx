@@ -107,7 +107,7 @@ querycommand: procedure = .ragcommandresult
     if commandunsigned(hops_text) \= 1 then return commandfailure(operation, 2, "query hops must be an integer")
     hops = hops_text as .int
   end
-  if limit < 1 | limit > 12 | hops < 0 | hops > 4 then return commandfailure(operation, 2, "query limit must be 1 through 12 and hops 0 through 4")
+  if limit < 1 | limit > querypassagemaximum() | hops < 0 | hops > 4 then return commandfailure(operation, 2, "query limit must be 1 through " || querypassagemaximum() || " and hops 0 through 4")
   if mode = "" then mode = "auto"
   if operation = "query.inspect" then do
     if mode \= "auto" & mode \= "lexical" then return commandfailure(operation,2,"query inspect supports lexical evidence only")
@@ -132,11 +132,11 @@ querycommand: procedure = .ragcommandresult
   if planquery(store, profile, positionals[1], "surface-retrieval-v2", plan, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 1, error); end
   privacy = queryprivacy(config); embedding_provider = roleproviderconfig(config, "embedding"); answer_provider = roleproviderconfig(config, "answerer"); embedding_role = rolebinding(config, "embedding"); answer_role = rolebinding(config, "answerer")
   active_profile = ""; dimension = 0; query_vector = ''x as .binary
-  if _activequeryembedding(store.database(), embedding_provider, active_profile, dimension, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, error); end
-  if active_profile \= "" & _querysidecaravailable(store, active_profile, config.vector().maximum_sidecar_bytes()) \= 1 then do; active_profile = ""; dimension = 0; end
-  if active_profile \= "" & dimension \= embedding_role.embedding_dimensions() then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "active vector dimension does not match role.embedding.dimensions"); end
   embedding_state = "not-requested"; embedding_planned = 0
   if mode \= "lexical" then do
+    if _activequeryembedding(store.database(), embedding_provider, active_profile, dimension, error) \= 0 then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, error); end
+    if active_profile \= "" & _querysidecaravailable(store, active_profile, config.vector().maximum_sidecar_bytes()) \= 1 then do; active_profile = ""; dimension = 0; end
+    if active_profile \= "" & dimension \= embedding_role.embedding_dimensions() then do; ignored = ""; call closeragstore store, ignored; return commandfailure(operation, 7, "active vector dimension does not match role.embedding.dimensions"); end
     if active_profile = "" then embedding_state = "no-compatible-index"
     else if queryrouteallowed(embedding_provider, privacy) \= 1 then embedding_state = "privacy-fallback"
     else do; embedding_planned = 1; embedding_state = "planned"; end

@@ -1,0 +1,10 @@
+[
+  {
+    "command": "live-query-focused",
+    "seconds": 1.042
+  },
+  {
+    "command": "live-citation",
+    "seconds": 0.457
+  }
+]

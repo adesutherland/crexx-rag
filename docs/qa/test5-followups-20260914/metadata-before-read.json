@@ -1,0 +1,1430 @@
+[
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Read a job's durable items, worker/fence/retry state, task links and attempt counts; filters apply before pagination and raw inputs are omitted",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "cursor" : 
+        {
+          "type" : "string"
+        },
+        "id" : 
+        {
+          "type" : "string"
+        },
+        "limit" : 
+        {
+          "maximum" : 100,
+          "minimum" : 1,
+          "type" : "integer"
+        },
+        "state" : 
+        {
+          "enum" : 
+          [
+            "queued",
+            "running",
+            "processed",
+            "skipped",
+            "dead_letter",
+            "cancelled",
+            "cancel_requested"
+          ],
+          "type" : "string"
+        }
+      },
+      "required" : [ "id" ],
+      "type" : "object"
+    },
+    "name" : "rag_job_items",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Read a job's durable attempt history, optionally for one item; includes provider-run IDs and validation/outcome state without raw provider output",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "cursor" : 
+        {
+          "type" : "string"
+        },
+        "id" : 
+        {
+          "type" : "string"
+        },
+        "item" : 
+        {
+          "type" : "string"
+        },
+        "limit" : 
+        {
+          "maximum" : 100,
+          "minimum" : 1,
+          "type" : "integer"
+        }
+      },
+      "required" : [ "id" ],
+      "type" : "object"
+    },
+    "name" : "rag_job_attempts",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Discover migration workflows by exact subject ID or canonical concept label, including successor membership. Homonymous concepts remain separate. Use returned workflow_id with rag_task_list(workflow)",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "concept" : 
+        {
+          "maxLength" : 512,
+          "type" : "string"
+        },
+        "cursor" : 
+        {
+          "type" : "string"
+        },
+        "id" : 
+        {
+          "type" : "string"
+        },
+        "limit" : 
+        {
+          "maximum" : 100,
+          "minimum" : 1,
+          "type" : "integer"
+        },
+        "state" : 
+        {
+          "enum" : [ "migrating", "waiting", "complete" ],
+          "type" : "string"
+        },
+        "subject" : 
+        {
+          "maxLength" : 512,
+          "type" : "string"
+        }
+      },
+      "required" : [],
+      "type" : "object"
+    },
+    "name" : "rag_workflow_list",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Inspect the configured objective, effective system prompt, response schema and hashes without library access or provider calls",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "role" : 
+        {
+          "enum" : [ "extractor", "resolution", "answerer", "advisory" ],
+          "type" : "string"
+        }
+      },
+      "required" : [ "role" ],
+      "type" : "object"
+    },
+    "name" : "rag_config_prompt",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Read bounded library status",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : {},
+      "required" : [],
+      "type" : "object"
+    },
+    "name" : "rag_library_status",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Read deterministic corpus scope and health without writes, narrative refresh or provider calls",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "top" : 
+        {
+          "maximum" : 20,
+          "minimum" : 1,
+          "type" : "integer"
+        }
+      },
+      "required" : [],
+      "type" : "object"
+    },
+    "name" : "rag_library_overview",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Read the selected profile vocabulary, including permitted concept and relationship types",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : {},
+      "required" : [],
+      "type" : "object"
+    },
+    "name" : "rag_profile_show",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : true,
+      "idempotentHint" : false,
+      "openWorldHint" : true,
+      "readOnlyHint" : false
+    },
+    "description" : "Report deterministic generation-bound corpus, graph, vector, provenance and maintenance health; optional refresh makes one configured advisory-provider call and caches only citation-validated output",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "narrative" : 
+        {
+          "enum" : [ "off", "cached", "refresh" ],
+          "type" : "string"
+        },
+        "top" : 
+        {
+          "maximum" : 20,
+          "minimum" : 1,
+          "type" : "integer"
+        }
+      },
+      "required" : [],
+      "type" : "object"
+    },
+    "name" : "rag_library_report",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Read immutable historic observation points and deterministic deltas without provider calls",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "limit" : 
+        {
+          "maximum" : 50,
+          "minimum" : 1,
+          "type" : "integer"
+        }
+      },
+      "required" : [],
+      "type" : "object"
+    },
+    "name" : "rag_library_trend",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "List sources with cursor-bounded records",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "cursor" : 
+        {
+          "type" : "string"
+        },
+        "limit" : 
+        {
+          "maximum" : 100,
+          "minimum" : 1,
+          "type" : "integer"
+        }
+      },
+      "required" : [],
+      "type" : "object"
+    },
+    "name" : "rag_source_list",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Resolve a stable citation to immutable source text and provenance. Large spans are paged; follow next_cursor on the same citation until empty. Cursor counts Unicode characters; citation offsets remain UTF-8 bytes",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "citation" : 
+        {
+          "type" : "string"
+        },
+        "cursor" : 
+        {
+          "type" : "string"
+        },
+        "limit" : 
+        {
+          "maximum" : 8192,
+          "minimum" : 1,
+          "type" : "integer"
+        }
+      },
+      "required" : [ "citation" ],
+      "type" : "object"
+    },
+    "name" : "rag_citation_show",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "List configured recurring operation definitions; recurrence and invocation remain externally owned",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : {},
+      "required" : [],
+      "type" : "object"
+    },
+    "name" : "rag_schedule_list",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Show one configured recurring operation definition without invoking it",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "id" : 
+        {
+          "type" : "string"
+        }
+      },
+      "required" : [ "id" ],
+      "type" : "object"
+    },
+    "name" : "rag_schedule_show",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : true,
+      "idempotentHint" : false,
+      "openWorldHint" : true,
+      "readOnlyHint" : false
+    },
+    "description" : "Search and return typed evidence; records durable gap signals and configured auto or hybrid mode may call an embedding provider",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "at" : 
+        {
+          "type" : "string"
+        },
+        "direction" : 
+        {
+          "enum" : [ "outbound", "inbound", "both" ],
+          "type" : "string"
+        },
+        "during" : 
+        {
+          "type" : "string"
+        },
+        "hops" : 
+        {
+          "maximum" : 4,
+          "minimum" : 0,
+          "type" : "integer"
+        },
+        "limit" : 
+        {
+          "maximum" : 12,
+          "minimum" : 1,
+          "type" : "integer"
+        },
+        "mode" : 
+        {
+          "enum" : [ "auto", "lexical", "hybrid" ],
+          "type" : "string"
+        },
+        "question" : 
+        {
+          "type" : "string"
+        },
+        "time_unknown" : 
+        {
+          "enum" : [ "include", "exclude" ],
+          "type" : "string"
+        }
+      },
+      "required" : [ "question" ],
+      "type" : "object"
+    },
+    "name" : "rag_query_search",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : true,
+      "idempotentHint" : false,
+      "openWorldHint" : true,
+      "readOnlyHint" : false
+    },
+    "description" : "Return an LLM-ready typed evidence packet and record durable gap signals; configured auto or hybrid mode may call an embedding provider",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "at" : 
+        {
+          "type" : "string"
+        },
+        "direction" : 
+        {
+          "enum" : [ "outbound", "inbound", "both" ],
+          "type" : "string"
+        },
+        "during" : 
+        {
+          "type" : "string"
+        },
+        "hops" : 
+        {
+          "maximum" : 4,
+          "minimum" : 0,
+          "type" : "integer"
+        },
+        "limit" : 
+        {
+          "maximum" : 12,
+          "minimum" : 1,
+          "type" : "integer"
+        },
+        "mode" : 
+        {
+          "enum" : [ "auto", "lexical", "hybrid" ],
+          "type" : "string"
+        },
+        "question" : 
+        {
+          "type" : "string"
+        },
+        "time_unknown" : 
+        {
+          "enum" : [ "include", "exclude" ],
+          "type" : "string"
+        }
+      },
+      "required" : [ "question" ],
+      "type" : "object"
+    },
+    "name" : "rag_query_evidence",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Default for ordinary MCP Q&A: read lexical source passages and typed graph evidence without writes or provider calls; decode evidence_json, resolve citations with rag_citation_show, and compose the answer yourself. Use focused searches when a broad question returns no passages",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "at" : 
+        {
+          "type" : "string"
+        },
+        "direction" : 
+        {
+          "enum" : [ "outbound", "inbound", "both" ],
+          "type" : "string"
+        },
+        "during" : 
+        {
+          "type" : "string"
+        },
+        "hops" : 
+        {
+          "maximum" : 4,
+          "minimum" : 0,
+          "type" : "integer"
+        },
+        "limit" : 
+        {
+          "maximum" : 12,
+          "minimum" : 1,
+          "type" : "integer"
+        },
+        "mode" : 
+        {
+          "enum" : [ "lexical" ],
+          "type" : "string"
+        },
+        "question" : 
+        {
+          "type" : "string"
+        },
+        "time_unknown" : 
+        {
+          "enum" : [ "include", "exclude" ],
+          "type" : "string"
+        }
+      },
+      "required" : [ "question" ],
+      "type" : "object"
+    },
+    "name" : "rag_query_inspect",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : true,
+      "idempotentHint" : false,
+      "openWorldHint" : true,
+      "readOnlyHint" : false
+    },
+    "description" : "Use only when the user explicitly requests using or testing the crexxrag answerer. Return evidence and an optional provider-generated, citation-validated answer; adds separate model generation latency and provider usage, and records durable gap signals. For ordinary Q&A use rag_query_inspect and compose the answer yourself; configured provider or budget alone is not a request to use this tool",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "at" : 
+        {
+          "type" : "string"
+        },
+        "direction" : 
+        {
+          "enum" : [ "outbound", "inbound", "both" ],
+          "type" : "string"
+        },
+        "during" : 
+        {
+          "type" : "string"
+        },
+        "hops" : 
+        {
+          "maximum" : 4,
+          "minimum" : 0,
+          "type" : "integer"
+        },
+        "limit" : 
+        {
+          "maximum" : 12,
+          "minimum" : 1,
+          "type" : "integer"
+        },
+        "mode" : 
+        {
+          "enum" : [ "auto", "lexical", "hybrid" ],
+          "type" : "string"
+        },
+        "question" : 
+        {
+          "type" : "string"
+        },
+        "time_unknown" : 
+        {
+          "enum" : [ "include", "exclude" ],
+          "type" : "string"
+        }
+      },
+      "required" : [ "question" ],
+      "type" : "object"
+    },
+    "name" : "rag_query_answer",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : true,
+      "idempotentHint" : false,
+      "openWorldHint" : true,
+      "readOnlyHint" : false
+    },
+    "description" : "Return the bounded query trace and record durable gap signals; configured auto or hybrid mode may call an embedding provider",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "at" : 
+        {
+          "type" : "string"
+        },
+        "direction" : 
+        {
+          "enum" : [ "outbound", "inbound", "both" ],
+          "type" : "string"
+        },
+        "during" : 
+        {
+          "type" : "string"
+        },
+        "hops" : 
+        {
+          "maximum" : 4,
+          "minimum" : 0,
+          "type" : "integer"
+        },
+        "limit" : 
+        {
+          "maximum" : 12,
+          "minimum" : 1,
+          "type" : "integer"
+        },
+        "mode" : 
+        {
+          "enum" : [ "auto", "lexical", "hybrid" ],
+          "type" : "string"
+        },
+        "question" : 
+        {
+          "type" : "string"
+        },
+        "time_unknown" : 
+        {
+          "enum" : [ "include", "exclude" ],
+          "type" : "string"
+        }
+      },
+      "required" : [ "question" ],
+      "type" : "object"
+    },
+    "name" : "rag_query_trace",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : true,
+      "idempotentHint" : false,
+      "openWorldHint" : true,
+      "readOnlyHint" : false
+    },
+    "description" : "Return bounded typed paths and record durable gap signals; configured auto or hybrid mode may call an embedding provider",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "at" : 
+        {
+          "type" : "string"
+        },
+        "direction" : 
+        {
+          "enum" : [ "outbound", "inbound", "both" ],
+          "type" : "string"
+        },
+        "during" : 
+        {
+          "type" : "string"
+        },
+        "hops" : 
+        {
+          "maximum" : 4,
+          "minimum" : 0,
+          "type" : "integer"
+        },
+        "limit" : 
+        {
+          "maximum" : 12,
+          "minimum" : 1,
+          "type" : "integer"
+        },
+        "mode" : 
+        {
+          "enum" : [ "auto", "lexical", "hybrid" ],
+          "type" : "string"
+        },
+        "question" : 
+        {
+          "type" : "string"
+        },
+        "time_unknown" : 
+        {
+          "enum" : [ "include", "exclude" ],
+          "type" : "string"
+        }
+      },
+      "required" : [ "question" ],
+      "type" : "object"
+    },
+    "name" : "rag_query_path",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : true,
+      "idempotentHint" : false,
+      "openWorldHint" : true,
+      "readOnlyHint" : false
+    },
+    "description" : "Return a bounded evidence timeline and record durable gap signals; configured auto or hybrid mode may call an embedding provider",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "at" : 
+        {
+          "type" : "string"
+        },
+        "direction" : 
+        {
+          "enum" : [ "outbound", "inbound", "both" ],
+          "type" : "string"
+        },
+        "during" : 
+        {
+          "type" : "string"
+        },
+        "hops" : 
+        {
+          "maximum" : 4,
+          "minimum" : 0,
+          "type" : "integer"
+        },
+        "limit" : 
+        {
+          "maximum" : 12,
+          "minimum" : 1,
+          "type" : "integer"
+        },
+        "mode" : 
+        {
+          "enum" : [ "auto", "lexical", "hybrid" ],
+          "type" : "string"
+        },
+        "question" : 
+        {
+          "type" : "string"
+        },
+        "time_unknown" : 
+        {
+          "enum" : [ "include", "exclude" ],
+          "type" : "string"
+        }
+      },
+      "required" : [ "question" ],
+      "type" : "object"
+    },
+    "name" : "rag_query_timeline",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Read actual item totals by operation and immutable input source. Deferred items are separate from runnable queued items; attempts and corpus coverage have different denominators",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "cursor" : 
+        {
+          "type" : "string"
+        },
+        "id" : 
+        {
+          "type" : "string"
+        },
+        "limit" : 
+        {
+          "maximum" : 100,
+          "minimum" : 1,
+          "type" : "integer"
+        },
+        "operation" : 
+        {
+          "type" : "string"
+        },
+        "source" : 
+        {
+          "type" : "string"
+        }
+      },
+      "required" : [ "id" ],
+      "type" : "object"
+    },
+    "name" : "rag_job_progress",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Read consistent job item counts, separate limits, worker recovery, recorded usage and interval throughput. Defaults to the last 300 seconds",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "id" : 
+        {
+          "type" : "string"
+        },
+        "seconds" : 
+        {
+          "maximum" : 86400,
+          "minimum" : 1,
+          "type" : "integer"
+        }
+      },
+      "required" : [ "id" ],
+      "type" : "object"
+    },
+    "name" : "rag_job_status",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Discover durable jobs with their creation and update times; page all results to select the latest job",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "cursor" : 
+        {
+          "type" : "string"
+        },
+        "limit" : 
+        {
+          "maximum" : 100,
+          "minimum" : 1,
+          "type" : "integer"
+        }
+      },
+      "required" : [],
+      "type" : "object"
+    },
+    "name" : "rag_job_list",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Read exact retained plan text in bounded Unicode-character pages; concatenate text using next_cursor",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "cursor" : 
+        {
+          "type" : "string"
+        },
+        "id" : 
+        {
+          "type" : "string"
+        },
+        "limit" : 
+        {
+          "maximum" : 8192,
+          "minimum" : 1,
+          "type" : "integer"
+        }
+      },
+      "required" : [ "id" ],
+      "type" : "object"
+    },
+    "name" : "rag_job_plan",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Read durable job events in event order; continue using next_cursor",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "cursor" : 
+        {
+          "type" : "string"
+        },
+        "id" : 
+        {
+          "type" : "string"
+        },
+        "limit" : 
+        {
+          "maximum" : 100,
+          "minimum" : 1,
+          "type" : "integer"
+        }
+      },
+      "required" : [ "id" ],
+      "type" : "object"
+    },
+    "name" : "rag_job_events",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Validate effective configuration and compute split identities without resolving credentials",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : {},
+      "required" : [],
+      "type" : "object"
+    },
+    "name" : "rag_config_check",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Explain effective operational provider policy with redacted credential references",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : {},
+      "required" : [],
+      "type" : "object"
+    },
+    "name" : "rag_config_explain",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Classify the effective configuration against the current library snapshot without writes",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : {},
+      "required" : [],
+      "type" : "object"
+    },
+    "name" : "rag_config_diff",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : true,
+      "idempotentHint" : false,
+      "openWorldHint" : false,
+      "readOnlyHint" : false
+    },
+    "description" : "Read and reconcile one durable maintenance run with cursor pagination",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "cursor" : 
+        {
+          "type" : "string"
+        },
+        "id" : 
+        {
+          "type" : "string"
+        },
+        "limit" : 
+        {
+          "maximum" : 98,
+          "minimum" : 1,
+          "type" : "integer"
+        }
+      },
+      "required" : [],
+      "type" : "object"
+    },
+    "name" : "rag_maintain_status",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Inspect one maintenance run, work item, or analysis note with cursor pagination",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "cursor" : 
+        {
+          "type" : "string"
+        },
+        "id" : 
+        {
+          "type" : "string"
+        },
+        "limit" : 
+        {
+          "maximum" : 98,
+          "minimum" : 1,
+          "type" : "integer"
+        }
+      },
+      "required" : [ "id" ],
+      "type" : "object"
+    },
+    "name" : "rag_maintain_inspect",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Discover durable maintenance tasks independently of run IDs. Separate required_capability and escalation reason from priority, task state and failures. Use subject for an exact subject ID or concept for an exact canonical label plus related workflows; retain separate homonyms. Page until next_cursor is empty",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "capability" : 
+        {
+          "enum" : [ "standard", "advanced-reasoning" ],
+          "type" : "string"
+        },
+        "concept" : 
+        {
+          "maxLength" : 512,
+          "type" : "string"
+        },
+        "cursor" : 
+        {
+          "type" : "string"
+        },
+        "id" : 
+        {
+          "type" : "string"
+        },
+        "limit" : 
+        {
+          "maximum" : 50,
+          "minimum" : 1,
+          "type" : "integer"
+        },
+        "state" : 
+        {
+          "enum" : 
+          [
+            "pending",
+            "dispatched",
+            "resolved",
+            "unresolved",
+            "review",
+            "superseded",
+            "failed"
+          ],
+          "type" : "string"
+        },
+        "subject" : 
+        {
+          "maxLength" : 512,
+          "type" : "string"
+        },
+        "workflow" : 
+        {
+          "type" : "string"
+        }
+      },
+      "required" : [],
+      "type" : "object"
+    },
+    "name" : "rag_task_list",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Read a page of a task durable evidence packet with original source text, evidence_id and resolvable citations. Use these exact evidence IDs for a resolution; further query results are exploration until bound to a task",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "cursor" : 
+        {
+          "type" : "string"
+        },
+        "id" : 
+        {
+          "type" : "string"
+        },
+        "limit" : 
+        {
+          "maximum" : 50,
+          "minimum" : 1,
+          "type" : "integer"
+        }
+      },
+      "required" : [ "id" ],
+      "type" : "object"
+    },
+    "name" : "rag_task_evidence",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Page source evidence IDs/citations, catalogue concepts or context fields without loading the full packet. scope=current explores present evidence even when a task packet exceeded its limit; scope=stored inspects its frozen packet. Page limits 1..50. Pass the returned generation as expect_generation to reject changes across pages",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : 
+      {
+        "cursor" : 
+        {
+          "type" : "string"
+        },
+        "expect_generation" : 
+        {
+          "minimum" : 0,
+          "type" : "integer"
+        },
+        "id" : 
+        {
+          "type" : "string"
+        },
+        "kind" : 
+        {
+          "enum" : [ "passages", "catalogue", "context" ],
+          "type" : "string"
+        },
+        "limit" : 
+        {
+          "maximum" : 50,
+          "minimum" : 1,
+          "type" : "integer"
+        },
+        "scope" : 
+        {
+          "enum" : [ "current", "stored" ],
+          "type" : "string"
+        }
+      },
+      "required" : [ "id" ],
+      "type" : "object"
+    },
+    "name" : "rag_task_evidence_inventory",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  },
+  {
+    "annotations" : 
+    {
+      "destructiveHint" : false,
+      "idempotentHint" : true,
+      "openWorldHint" : false,
+      "readOnlyHint" : true
+    },
+    "description" : "Inspect the selected policy file, its SHA-256 and validation state without library access or provider calls",
+    "inputSchema" : 
+    {
+      "additionalProperties" : false,
+      "properties" : {},
+      "required" : [],
+      "type" : "object"
+    },
+    "name" : "rag_config_show",
+    "outputSchema" : 
+    {
+      "required" : [ "schema", "operation", "status", "exit_code", "records" ],
+      "type" : "object"
+    }
+  }
+]

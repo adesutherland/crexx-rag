@@ -1,0 +1,14 @@
+{
+  "jsonrpc": "2.0",
+  "id": 33,
+  "method": "tools/call",
+  "params": {
+    "name": "rag_query_inspect",
+    "arguments": {
+      "question": "\"Fitz-James’s horse\"",
+      "mode": "lexical",
+      "hops": 0,
+      "limit": 12
+    }
+  }
+}

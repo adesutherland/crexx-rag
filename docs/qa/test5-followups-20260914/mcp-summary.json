@@ -1,0 +1,41 @@
+{
+  "mcp_requests": 59,
+  "mcp_failures": [],
+  "regular_server_exit": 0,
+  "wide_server": {
+    "server_exit": 0,
+    "unchanged_database": true,
+    "requests": 6
+  },
+  "generation": 24929,
+  "default_passages": 12,
+  "maximum_passages": 200,
+  "actual_wide_passages": 48,
+  "actual_wide_evidence_bytes": 224580,
+  "provider_run_delta": 0,
+  "attempt_delta": 0,
+  "query_gap_delta": 1,
+  "corpus_hashes_unchanged": true,
+  "ordinary_qa_unchanged": true,
+  "full_overview_requested": false,
+  "server_cpu_observations": {
+    "rag_query_inspect": {
+      "count": 18,
+      "median": 0.06,
+      "min": 0.02,
+      "max": 0.14
+    },
+    "rag_query_path": {
+      "count": 6,
+      "median": 0.04,
+      "min": 0.04,
+      "max": 0.05
+    },
+    "rag_citation_show": {
+      "count": 19,
+      "median": 0.01,
+      "min": 0.0,
+      "max": 0.02
+    }
+  }
+}

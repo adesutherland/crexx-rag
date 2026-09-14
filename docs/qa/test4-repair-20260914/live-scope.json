@@ -1,0 +1,13 @@
+{
+  "source_item_id": "item-sha256:92a38a4adcec0c685fe8812213faa2581b593489cffd4aa35b62abfae7b00e7b",
+  "source_job_id": "job-sha256:fe38ada198b6c153eec6133810988200c510f9b37c9665d7d8583bc6a4938622",
+  "library": "/private/tmp/crexxrag-test4-repair-kw6or_2x/live-library",
+  "native_sha256": "88d257815970bbd786744c4c1ec48114060eb1ddf02356b4554ac2e74f8b9acd",
+  "start_utc": "2026-09-14T10:18:16.020771+00:00",
+  "maximum_seconds": 300,
+  "maximum_codex_turns": 2,
+  "model": "gpt-5.6-luna",
+  "gemini_calls": 0,
+  "monetary_api_cost": 0,
+  "scope": "One original public-history Nairn item and its existing public source/catalogue context; normal configuration; Fiers preserved"
+}

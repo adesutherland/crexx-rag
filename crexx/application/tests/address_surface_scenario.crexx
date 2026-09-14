@@ -23,6 +23,15 @@ main: procedure = .int
   address RAG "LIBRARY STATUS" output lines
   if rc \= 0 | lines.0 \= 1 | pos('"operation":"library.status"', lines[1]) = 0 | pos('"status":"ok"', lines[1]) = 0 then return 12
   status_document = .jsondocument(lines[1]); library_id = ""
+  clear lines
+  address RAG "QUERY INSPECT synthetic --limit 200" output lines
+  if rc \= 0 | pos('"effective_passage_limit":200',lines[1]) = 0 then do;say "ADDRESS_SURFACE_FAIL=query limit 200";return 47;end
+  clear lines
+  address RAG "QUERY INSPECT synthetic --limit 201" output lines
+  if rc \= 2 then do;say "ADDRESS_SURFACE_FAIL=query limit 201 accepted";return 48;end
+  clear lines
+  address RAG "QUERY INSPECT synthetic" output lines
+  if rc \= 0 | pos('"effective_passage_limit":12',lines[1]) = 0 then do;say "ADDRESS_SURFACE_FAIL=query default changed";return 49;end
   records_node = status_document.member(status_document.root(), "records")
   record_node = status_document.element(records_node, 1)
   fields_node = status_document.member(record_node, "fields")

@@ -95,6 +95,7 @@ main: procedure = .int
   path = args[1]; errors = 0; error = ""; store = .ragstorehandle
   errors = errors + check(initragstore(path, "library-p3r-03", "snapshot-p3r-03", "provider-addendum", "1", "generic-profile", "profile-hash", "config-hash", '{}', store, error) = 0, "initialize " || error)
   if errors \= 0 then return 1
+  errors = errors + replaycompatchecks(store)
   errors = errors + reviewindexchecks(store.database())
   errors = errors + sqlaccesschecks(store.database())
   database = store.database(); digest = copies("a", 64)
@@ -366,3 +367,54 @@ main: procedure = .int
   if errors \= 0 then do; say "PROVIDER_DURABILITY_ERRORS=" || errors; return 1; end
   say "PROVIDER_DURABILITY_OK completed_turn_reused=1 codex_turns=1 stale_reservations=0 fence=2 admissions=durable uncalled_provider_runs=0 paused_completion=sticky batch_retry=2 replay=immutable reconciliation=in-progress indexes=11 migration=1to6-validated-to11 provider_history=costed prospective_config=audited large_plan=renderable"
   return 0
+
+/* Selected-item replay must ignore unrelated configuration entries. */
+replaycompatchecks: procedure = .int
+  arg store = .ragstorehandle
+  database=store.database(); errors=0; error=""
+  config='{"config":{"config_id":"replay-test","source_sets":[{"id":"selected","connector":"folder","root":"/selected","stable_key":"path","privacy":"public","retain_raw_artifact":true,"include_patterns":["*.txt"]},{"id":"other","connector":"folder","root":"/other","stable_key":"path","privacy":"public","retain_raw_artifact":true,"include_patterns":["*.txt"]}],"providers":[{"id":"gen","kind":"gemini","base_url":"https://example.test","model":"same-model","route_class":"hosted","privacy_policy":"public-only","credential_ref":"env:FIXTURE","context_tokens":10000,"maximum_output_tokens":1000,"embedding_dimensions_minimum":1,"embedding_dimensions_maximum":768},{"id":"unrelated","kind":"gemini","base_url":"https://unused.test","model":"unused","route_class":"hosted","privacy_policy":"public-only","credential_ref":"env:FIXTURE","context_tokens":10000,"maximum_output_tokens":1000,"embedding_dimensions_minimum":1,"embedding_dimensions_maximum":768}],"roles":[{"role":"extractor","provider_id":"gen","maximum_input_tokens":128,"maximum_output_tokens":64,"embedding_dimensions":0,"temperature_millionths":0,"system_prompt":"Keep source grounding."}],"profile_ids":["generic-profile"],"discovery":{"mode":"all","glossary_file":"","ranked_limit":10,"max_mentions":10,"max_relationships":10,"max_notes":10}},"profile":{"id":"generic-profile"}}'
+  qconfig="'" || changestr("'",config,"''") || "'"
+  sql="INSERT INTO config_snapshots(config_snapshot_id,config_id,config_version,profile_id,profile_hash,config_hash,effective_json,created_at,semantic_hash,operational_hash) VALUES('replay-original','replay-test','1','generic-profile','same-profile','original'," || qconfig || ",'fixture','original-semantic','ops')"
+  errors=errors+check(sqliteexec(database,sql)=0,"seed replay compatibility configuration")
+  policy='{"time_budget_ms":10000,"maximum_call_input_tokens":128,"maximum_call_output_tokens":64,"maximum_call_cost":0,"maximum_call_time_ms":5000,"maximum_inflight_calls":1,"maximum_attempts":3}'
+  do kind=1 to 12
+    name="compat-" || kind; target=config; expected=0; profile_hash="same-profile"
+    if kind=1 then do; target=changestr('"source_sets":[',config,'"source_sets":[{"id":"added","connector":"folder","root":"/added","stable_key":"path","privacy":"public","retain_raw_artifact":true,"include_patterns":["*.txt"]},'); expected=1; end
+    if kind=2 then do; target=changestr('"root":"/other"',config,'"root":"/moved-unrelated"'); expected=1; end
+    if kind=3 then target=changestr('"root":"/selected"',config,'"root":"/moved-selected"')
+    if kind=4 then target=changestr('"privacy":"public"',config,'"privacy":"private"')
+    if kind=5 then target=changestr('"model":"same-model"',config,'"model":"different"')
+    if kind=6 then target=changestr('"privacy_policy":"public-only"',config,'"privacy_policy":"different"')
+    if kind=7 then target=changestr('Keep source grounding.',config,'Changed interpretation.')
+    if kind=8 then profile_hash="different-profile"
+    if kind=9 then target=changestr('"id":"selected"',config,'"id":"removed"')
+    if kind=10 then do; target=changestr('"model":"unused"',config,'"model":"changed-unrelated"'); expected=1; end
+    if kind=11 then do; target=changestr('"config_id":"replay-test"',config,'"config_id":"replay-test","budget":{"minutes":5},"workers":{"processes":2}'); expected=1; end
+    /* A bulk selection includes the changed other source; explicit selection does not. */
+    if kind=12 then target=changestr('"root":"/other"',config,'"root":"/moved-unrelated"')
+    qtarget="'" || changestr("'",target,"''") || "'"
+    sql="INSERT INTO config_snapshots(config_snapshot_id,config_id,config_version,profile_id,profile_hash,config_hash,effective_json,created_at,semantic_hash,operational_hash) VALUES('" || name || "','replay-test','1','generic-profile','" || profile_hash || "','" || name || "'," || qtarget || ",'fixture','changed-semantic','ops')"
+    errors=errors+check(sqliteexec(database,sql)=0,"seed replay target " || name)
+    errors=errors+check(sqliteexec(database,"UPDATE library_config_state SET current_config_snapshot_id='" || name || "' WHERE singleton=1")=0,"select replay target " || name)
+    sql="INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,created_at,updated_at) VALUES('" || name || "','" || name || "','{}','replay-original','completed_with_errors',2,2,256,128,0,'fixture','fixture')"
+    errors=errors+check(sqliteexec(database,sql)=0,"seed replay job " || name)
+    do item=1 to 2
+      scope="selected"; if item=2 then scope="other"
+      input='{"schema":"crexx-rag.work-input/1","role":"extractor","source_scope":"folder:' || scope || '","reservation":{"input_tokens":128,"output_tokens":64,"cost_microunits":0,"time_ms":5000}}'
+      sql="INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES('" || name || "-" || item || "','" || name || "','claim-extraction','dead_letter',1,'" || name || "-" || item || "','input','" || input || "','fixture','fixture')"
+      errors=errors+check(sqliteexec(database,sql)=0,"seed replay item " || name)
+    end
+    before_runs=scalarint(database,"SELECT count(*) FROM provider_runs"); before_jobs=scalarint(database,"SELECT count(*) FROM job_replays")
+    selected=name || "-1"; if kind=12 then selected=""
+    replay_id=""; replayed=0
+    status=replaydeadletters(store,name,selected,name,"selected compatibility regression",2,2,256,128,0,2,policy,replay_id,replayed,error)
+    errors=errors+check((status=0)=expected,"selected replay compatibility case " || kind || " status=" || status || " " || error)
+    errors=errors+check(scalarint(database,"SELECT count(*) FROM provider_runs")=before_runs & scalarint(database,"SELECT count(*) FROM job_items WHERE job_id='" || name || "' AND state='dead_letter'")=2,"compatibility preserves source and receipts " || name)
+    if expected=0 then errors=errors+check(scalarint(database,"SELECT count(*) FROM job_replays")=before_jobs,"rejected compatibility creates no replay " || name)
+    if status=0 then do
+      errors=errors+check(replayed=1 & scalarint(database,"SELECT count(*) FROM job_replay_items WHERE replay_job_id='" || replay_id || "' AND source_item_id='" || selected || "'")=1,"selected replay lineage " || name)
+      errors=errors+check(requestcancel(store,replay_id,"fixture completed",error)=0,"drain replay fixture " || name)
+    end
+  end
+  errors=errors+check(sqliteexec(database,"UPDATE library_config_state SET current_config_snapshot_id='snapshot-p3r-03' WHERE singleton=1")=0,"restore fixture configuration")
+  return errors

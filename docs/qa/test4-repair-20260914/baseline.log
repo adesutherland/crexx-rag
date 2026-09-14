@@ -1,0 +1,129 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 15: configuration_contract
+1/2 Test #15: configuration_contract ...........   Passed   30.93 sec
+    Start 21: provider_durability
+2/2 Test #21: provider_durability ..............***Failed    3.32 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/ProviderDurability.cmake:57 (message):
+  noopt-rxvme provider durability failed (1):
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-1
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-1
+
+  PROVIDER_DURABILITY_FAIL=selected replay compatibility case 1 status=-2
+  replay target is not semantically compatible with the source job
+
+  PROVIDER_DURABILITY_FAIL=compatibility preserves source and receipts
+  compat-1
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-2
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-2
+
+  PROVIDER_DURABILITY_FAIL=selected replay compatibility case 2 status=-2
+  replay target is not semantically compatible with the source job
+
+  PROVIDER_DURABILITY_FAIL=compatibility preserves source and receipts
+  compat-2
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-3
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-3
+
+  PROVIDER_DURABILITY_FAIL=compatibility preserves source and receipts
+  compat-3
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-4
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-4
+
+  PROVIDER_DURABILITY_FAIL=compatibility preserves source and receipts
+  compat-4
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-5
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-5
+
+  PROVIDER_DURABILITY_FAIL=compatibility preserves source and receipts
+  compat-5
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-6
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-6
+
+  PROVIDER_DURABILITY_FAIL=compatibility preserves source and receipts
+  compat-6
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-7
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-7
+
+  PROVIDER_DURABILITY_FAIL=compatibility preserves source and receipts
+  compat-7
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-8
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-8
+
+  PROVIDER_DURABILITY_FAIL=compatibility preserves source and receipts
+  compat-8
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-9
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-9
+
+  PROVIDER_DURABILITY_FAIL=compatibility preserves source and receipts
+  compat-9
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-10
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-10
+
+  PROVIDER_DURABILITY_FAIL=selected replay compatibility case 10 status=-2
+  replay target is not semantically compatible with the source job
+
+  PROVIDER_DURABILITY_FAIL=compatibility preserves source and receipts
+  compat-10
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-11
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-11
+
+  PROVIDER_DURABILITY_FAIL=selected replay compatibility case 11 status=-2
+  replay target is not semantically compatible with the source job
+
+  PROVIDER_DURABILITY_FAIL=compatibility preserves source and receipts
+  compat-11
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-12
+
+  PROVIDER_DURABILITY_FAIL=seed replay item compat-12
+
+  PROVIDER_DURABILITY_FAIL=compatibility preserves source and receipts
+  compat-12
+
+  PROVIDER_DURABILITY_ERRORS=40
+
+
+
+
+
+
+
+50% tests passed, 1 tests failed out of 2
+
+Label Time Summary:
+codex                  =   3.32 sec*proc (1 test)
+configuration          =  30.93 sec*proc (1 test)
+durability             =   3.32 sec*proc (1 test)
+gemini                 =  30.93 sec*proc (1 test)
+privacy                =  30.93 sec*proc (1 test)
+provider               =   3.32 sec*proc (1 test)
+subscription-budget    =   3.32 sec*proc (1 test)
+zero-outbound          =  34.25 sec*proc (2 tests)
+
+Total Test time (real) =  34.25 sec
+
+The following tests FAILED:
+	 21 - provider_durability (Failed)                      codex durability provider subscription-budget zero-outbound
+Errors while running CTest

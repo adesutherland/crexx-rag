@@ -1,0 +1,373 @@
+[
+  {
+    "marker": "C1",
+    "citation": "crexx-rag:library-61405eb8183ffd16da950f0d:source-sha256:592ffedcb177c22e1c9e8c4603a19b818e3df9398d4dc1c49503f8545f2d4664:revision-sha256:61ab16fde300893bdf7d4cbc332e42c2c1ab0eddf239098215399859a24ec21e:utf8-502-951",
+    "text": "The Bore Stone, in which Bruce planted his standard before the battle in which he defeated Edward II. in 1314 (see below), is preserved by an iron grating. A mile to the west is the Gillies’ Hill, now finely wooded, over which the Scots’ camp-followers appeared to complete the discomfiture of the English, to which event it owes its name. Bannockburn House was Prince Charles Edward’s headquarters in January 1746 before the fight at Falkirk.",
+    "source_metadata": {
+      "description_ids": [
+        "description:6f195137f8982e70002d191acb6b5c41d1d888aa45d2e63cf2581c4c69966639"
+      ],
+      "description": {
+        "title": "",
+        "work_ref": "",
+        "edition_ref": "",
+        "contributors": [],
+        "document_status": "unknown",
+        "written_period": {
+          "schema": "crexx-rag.period/1",
+          "kind": "unknown",
+          "start": {
+            "value": "",
+            "precision": "unresolved",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end": {
+            "value": "",
+            "precision": "unresolved",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end_condition": "unknown"
+        },
+        "published_period": {
+          "schema": "crexx-rag.period/1",
+          "kind": "unknown",
+          "start": {
+            "value": "",
+            "precision": "unresolved",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end": {
+            "value": "",
+            "precision": "unresolved",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end_condition": "unknown"
+        },
+        "asserted_period": {
+          "schema": "crexx-rag.period/1",
+          "kind": "unknown",
+          "start": {
+            "value": "",
+            "precision": "unresolved",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end": {
+            "value": "",
+            "precision": "unresolved",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end_condition": "unknown"
+        },
+        "captured_at": "",
+        "document_date": "2026-09-14"
+      },
+      "provenance": {
+        "document_date": {
+          "method": "operator-declared",
+          "actor": "ingest UI",
+          "review": "reviewed",
+          "reference": "document-date input; local today when omitted",
+          "quote": "",
+          "description_id": "description:6f195137f8982e70002d191acb6b5c41d1d888aa45d2e63cf2581c4c69966639"
+        }
+      },
+      "relations": []
+    }
+  },
+  {
+    "marker": "C2",
+    "citation": "crexx-rag:library-61405eb8183ffd16da950f0d:source-sha256:96c31d2b06281b8812a87e8d5d97d865a8a4b17e7a207a28e254c732193dbf3b:revision-sha256:6a166117c3884941c76bd80360acb07e6a33968bbfabc3a46f16ecd19f88af73:utf8-842394-843715",
+    "text": "within  a mile  of  the  town,  and  began  his  retreat  in  sight  of  the  English \narmy.  In  this  retreat,  Clanranald’s  regiment,  with  the  French  piquets \nand  Fitz-James’s  horse,  formed  the  rear.  To  harass  the  rear,  and  re- \ntard the  march  of  the  main  body  till  some  of  his  foot  should  come  up, \nthe  duke  of  Cumberland  sent  forward  his  cavalry.  Several  shots  were \nexchanged  between  the  duke’s  cavalry  and  the  French  horse,  and  in \nexpectation  of  an  engagement  with  the  duke’s  advanced  guard,  consist- \ning of  two  hundred  cavalry  and  the  Argyleshire  men,  the  Macdonalds \nof  Clanranald,  and  the  Stewarts  of  Appin,  were  ordered  back  to  sup- \nport the  French.  These  regiments  accordingly  returned  and  took \nground,  and  Fitz-James’s  horse  formed  on  their  right  and  left.  The  duke’s \nadvanced  guard  thereupon  halted,  and  formed  in  order  of  battle,  but  as \nthe  main  body  of  the  English  army  was  in  full  march  the  rear  recom- \nmenced their  retreat.  The  advanced  guard  continued  to  pursue  the \nHighlanders  several  miles  beyond  Nairn,  but  finding  the  chase  useless, \nreturned  to  the  main  body  which  was  preparing  to  encamp  on  a plain \nto  the  west  of  Nairn.  *",
+    "source_metadata": {
+      "description_ids": [
+        "description:1546f871bf1448ebe7600b0ece6bd39afa6045775a901dc980bade4b81e95fd1"
+      ],
+      "description": {
+        "title": "A history of the Highlands and of the Highland clans, Volume 3",
+        "work_ref": "",
+        "edition_ref": "",
+        "contributors": [
+          {
+            "label": "James Browne",
+            "role": "author",
+            "concept_id": ""
+          }
+        ],
+        "document_status": "published",
+        "written_period": {
+          "schema": "crexx-rag.period/1",
+          "kind": "unknown",
+          "start": {
+            "value": "",
+            "precision": "unresolved",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end": {
+            "value": "",
+            "precision": "unresolved",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end_condition": "unknown"
+        },
+        "published_period": {
+          "schema": "crexx-rag.period/1",
+          "kind": "point",
+          "start": {
+            "value": "1836",
+            "precision": "year",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end": {
+            "value": "",
+            "precision": "unresolved",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end_condition": "bounded"
+        },
+        "asserted_period": {
+          "schema": "crexx-rag.period/1",
+          "kind": "unknown",
+          "start": {
+            "value": "",
+            "precision": "unresolved",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end": {
+            "value": "",
+            "precision": "unresolved",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end_condition": "unknown"
+        },
+        "captured_at": ""
+      },
+      "provenance": {
+        "contributors": {
+          "method": "operator-declared",
+          "actor": "Codex",
+          "review": "reviewed",
+          "reference": "https://wellcomecollection.org/works/emyravt6 ; acquisition/register.json",
+          "quote": "",
+          "description_id": "description:1546f871bf1448ebe7600b0ece6bd39afa6045775a901dc980bade4b81e95fd1"
+        },
+        "document_status": {
+          "method": "operator-declared",
+          "actor": "Codex",
+          "review": "reviewed",
+          "reference": "https://wellcomecollection.org/works/emyravt6 ; acquisition/register.json",
+          "quote": "",
+          "description_id": "description:1546f871bf1448ebe7600b0ece6bd39afa6045775a901dc980bade4b81e95fd1"
+        },
+        "published_period": {
+          "method": "operator-declared",
+          "actor": "Codex",
+          "review": "reviewed",
+          "reference": "https://wellcomecollection.org/works/emyravt6 ; acquisition/register.json",
+          "quote": "",
+          "description_id": "description:1546f871bf1448ebe7600b0ece6bd39afa6045775a901dc980bade4b81e95fd1"
+        },
+        "title": {
+          "method": "operator-declared",
+          "actor": "Codex",
+          "review": "reviewed",
+          "reference": "https://wellcomecollection.org/works/emyravt6 ; acquisition/register.json",
+          "quote": "",
+          "description_id": "description:1546f871bf1448ebe7600b0ece6bd39afa6045775a901dc980bade4b81e95fd1"
+        }
+      },
+      "relations": []
+    }
+  },
+  {
+    "marker": "C3",
+    "citation": "crexx-rag:library-61405eb8183ffd16da950f0d:source-sha256:40ea83531ea42b40cada1ca4892a6aa5a84e3d2c4504efca8e5d6119601014d5:revision-sha256:133839d8feafca82fc3a86a55dbd6262d918f9bfa377bfcc190fb4c2b84c9234:utf8-3695950-3696004",
+    "text": "Macdonald, Alaster, knighted by Dundee (1645), i. 229.",
+    "source_metadata": {
+      "description_ids": [
+        "description:c7c834f335c65446f3768df172692d2e82c8b6bec1db506e59a8a338dc75c065"
+      ],
+      "description": {
+        "title": "The Scottish Highlands, Highland Clans and Highland Regiments, Volume 1 (of 2)",
+        "work_ref": "urn:crexx-rag:work:scottish-highlands-keltie",
+        "edition_ref": "urn:crexx-rag:edition:scottish-highlands-keltie:1875:volume-1",
+        "contributors": [
+          {
+            "label": "John S. Keltie",
+            "role": "editor",
+            "concept_id": ""
+          }
+        ],
+        "document_status": "published",
+        "written_period": {
+          "schema": "crexx-rag.period/1",
+          "kind": "unknown",
+          "start": {
+            "value": "",
+            "precision": "unresolved",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end": {
+            "value": "",
+            "precision": "unresolved",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end_condition": "unknown"
+        },
+        "published_period": {
+          "schema": "crexx-rag.period/1",
+          "kind": "point",
+          "start": {
+            "value": "1875",
+            "precision": "year",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end": {
+            "value": "",
+            "precision": "unresolved",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end_condition": "bounded"
+        },
+        "asserted_period": {
+          "schema": "crexx-rag.period/1",
+          "kind": "unknown",
+          "start": {
+            "value": "",
+            "precision": "unresolved",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end": {
+            "value": "",
+            "precision": "unresolved",
+            "certainty": "stated",
+            "calendar": "unspecified",
+            "constraint": "on",
+            "earliest": "",
+            "latest": ""
+          },
+          "end_condition": "unknown"
+        },
+        "captured_at": ""
+      },
+      "provenance": {
+        "contributors": {
+          "method": "operator-declared",
+          "actor": "Codex: approved preserved-copy provenance update",
+          "review": "machine-validated",
+          "reference": "",
+          "quote": "EDITED BY JOHN S. KELTIE, F.S.A.S.",
+          "description_id": "description:c7c834f335c65446f3768df172692d2e82c8b6bec1db506e59a8a338dc75c065"
+        },
+        "document_status": {
+          "method": "operator-declared",
+          "actor": "Codex: approved preserved-copy provenance update",
+          "review": "machine-validated",
+          "reference": "",
+          "quote": "A. FULLARTON & CO.\n  EDINBURGH AND LONDON\n  1875",
+          "description_id": "description:c7c834f335c65446f3768df172692d2e82c8b6bec1db506e59a8a338dc75c065"
+        },
+        "edition_ref": {
+          "method": "operator-declared",
+          "actor": "Codex: approved preserved-copy provenance update",
+          "review": "machine-validated",
+          "reference": "",
+          "quote": "A. FULLARTON & CO.\n  EDINBURGH AND LONDON\n  1875",
+          "description_id": "description:c7c834f335c65446f3768df172692d2e82c8b6bec1db506e59a8a338dc75c065"
+        },
+        "published_period": {
+          "method": "operator-declared",
+          "actor": "Codex: approved preserved-copy provenance update",
+          "review": "machine-validated",
+          "reference": "",
+          "quote": "A. FULLARTON & CO.\n  EDINBURGH AND LONDON\n  1875",
+          "description_id": "description:c7c834f335c65446f3768df172692d2e82c8b6bec1db506e59a8a338dc75c065"
+        },
+        "title": {
+          "method": "operator-declared",
+          "actor": "Codex: approved preserved-copy provenance update",
+          "review": "machine-validated",
+          "reference": "",
+          "quote": "Title: The Scottish Highlands, Highland Clans and Highland Regiments, Volume 1 (of 2)",
+          "description_id": "description:c7c834f335c65446f3768df172692d2e82c8b6bec1db506e59a8a338dc75c065"
+        },
+        "work_ref": {
+          "method": "operator-declared",
+          "actor": "Codex: approved preserved-copy provenance update",
+          "review": "machine-validated",
+          "reference": "",
+          "quote": "Title: The Scottish Highlands, Highland Clans and Highland Regiments, Volume 1 (of 2)",
+          "description_id": "description:c7c834f335c65446f3768df172692d2e82c8b6bec1db506e59a8a338dc75c065"
+        }
+      },
+      "relations": []
+    }
+  }
+]

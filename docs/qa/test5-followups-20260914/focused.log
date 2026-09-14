@@ -1,0 +1,67 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start  3: regression_command_arguments
+1/7 Test  #3: regression_command_arguments .....   Passed    7.30 sec
+    Start 11: regression_command_catalogue
+2/7 Test #11: regression_command_catalogue .....   Passed    2.31 sec
+    Start 15: configuration_contract
+3/7 Test #15: configuration_contract ...........   Passed   31.41 sec
+    Start 27: gemini_query
+4/7 Test #27: gemini_query .....................***Failed    7.31 sec
+-- Gemini query passed human hybrid retrieval and cited answer generation, explicit zero-outbound lexical mode, required-hybrid failure, citation rejection, valid insufficient-evidence handling, and post-query integrity
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/GeminiQuery.cmake:650 (message):
+  Lexical profile independence changed evidence or made database writes
+
+
+
+    Start 31: evidence_methodology
+5/7 Test #31: evidence_methodology .............***Failed    3.39 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/EvidenceMethodology.cmake:50 (message):
+  rxvme evidence methodology scenario failed:
+
+  EVIDENCE_METHODOLOGY_FAIL=all two hundred distinct passages returned
+
+
+
+
+    Start 34: address_surface
+6/7 Test #34: address_surface ..................   Passed    3.14 sec
+    Start 38: documentation_contract
+7/7 Test #38: documentation_contract ...........   Passed    0.34 sec
+
+71% tests passed, 2 tests failed out of 7
+
+Label Time Summary:
+access           =   3.14 sec*proc (1 test)
+address          =   3.14 sec*proc (1 test)
+answer           =   7.31 sec*proc (1 test)
+budget           =   7.31 sec*proc (1 test)
+citation         =   7.31 sec*proc (1 test)
+command          =   9.62 sec*proc (2 tests)
+configuration    =  34.55 sec*proc (2 tests)
+contract         =   2.31 sec*proc (1 test)
+direction        =   3.39 sec*proc (1 test)
+documentation    =   0.34 sec*proc (1 test)
+embedding        =   7.31 sec*proc (1 test)
+gap              =   3.39 sec*proc (1 test)
+gemini           =  38.72 sec*proc (2 tests)
+graph            =   3.39 sec*proc (1 test)
+hybrid           =   7.31 sec*proc (1 test)
+lead             =   3.39 sec*proc (1 test)
+methodology      =   0.34 sec*proc (1 test)
+note             =   3.39 sec*proc (1 test)
+privacy          =  38.72 sec*proc (2 tests)
+query            =   7.31 sec*proc (1 test)
+regression       =   9.62 sec*proc (2 tests)
+retrieval        =   3.39 sec*proc (1 test)
+skills           =   0.34 sec*proc (1 test)
+sqlite           =   3.39 sec*proc (1 test)
+strict-json      =   7.30 sec*proc (1 test)
+surface          =   3.14 sec*proc (1 test)
+zero-outbound    =  44.51 sec*proc (5 tests)
+
+Total Test time (real) =  55.22 sec
+
+The following tests FAILED:
+	 27 - gemini_query (Failed)                             answer budget citation embedding gemini hybrid privacy query
+	 31 - evidence_methodology (Failed)                     direction gap graph lead note retrieval sqlite
+Errors while running CTest

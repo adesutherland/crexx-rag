@@ -122,6 +122,40 @@ main: procedure = .int
   errors = errors + check(recordquerygaps(store, missing.evidence(), recorded, error) = 0 & recorded > 0, "first durable query gap " || error)
   errors = errors + check(recordquerygaps(store, missing.evidence(), recorded, error) = 0 & recorded > 0, "repeated durable query gap " || error)
   errors = errors + check(scalarint(database, "SELECT min(occurrence_count) FROM query_gaps WHERE normalized_question='what does missing depend on?'") = 2, "repeated gaps increment their deterministic occurrence census")
+  /* Independent broad-net fixture: 200 distinct passages from one source.
+     Unique contents prevent deduplication from disguising a twelve-row cap. */
+  full_text = ""
+  do i = 1 to 200
+    full_text = full_text || "WideNet evidence " || right("000" || i,3) || "." || "0A"x
+  end
+  errors = errors + check(sqliteexec(database,"INSERT INTO source_revision_texts(text_id,text_digest,normalized_utf8,extractor_version,normalization_version,created_at) VALUES('text-wide','digest-wide','" || full_text || "','fixture','utf8','fixture');INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('source-wide','fixture','wide','revision-wide','active','fixture://wide','Wide net',1);INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES('revision-wide','source-wide','envelope-wide','artifact-evidence','text-wide','metadata-wide','2026-01-01T00:00:00Z',1)") = 0,"wide source")
+  errors = errors + check(sqliteexec(database,"BEGIN") = 0,"wide fixture transaction")
+  offset = 0
+  do i = 1 to 200
+    body = "WideNet evidence " || right("000" || i,3) || "."; end_offset = offset + length(body)
+    sql = "INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('wide-content-" || i || "','wide-digest-" || i || "','" || body || "','wide-input-" || i || "');INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('wide-chunk-" || i || "','revision-wide'," || i || "," || offset || "," || end_offset || ",'wide-content-" || i || "','wide-continuity-" || i || "','fixture','direct',1);INSERT INTO chunks_fts(revision_chunk_id,content_id,body) VALUES('wide-chunk-" || i || "','wide-content-" || i || "','" || body || "')"
+    errors = errors + check(sqliteexec(database,sql) = 0,"wide passage " || i)
+    offset = end_offset + 1
+  end
+  errors = errors + check(sqliteexec(database,"COMMIT") = 0,"wide fixture commit")
+  /* The quoted word has three query variants. Give each its 200-row share. */
+  wide_options = .ragretrievaloptions("wide-net","",''x as .binary,600,12,100000,0,200,0,0)
+  wide = .ragretrievalresult
+  errors = errors + check(retrieveevidence(store,genericprofile(),'"WideNet"',wide_options,wide,error) = 0,"wide retrieval " || error)
+  wide_passages = wide.evidence().passages()
+  errors = errors + check(wide_passages.0 = 200,"all two hundred distinct passages returned; actual=" || wide_passages.0)
+  if wide_passages.0 \= 200 then do
+    wide_notes = wide.evidence().trace().notes()
+    do i = 1 to wide_notes.0
+      say wide_notes[i]
+    end
+  end
+  encoded = ""
+  errors = errors + check(encodeevidence(wide.evidence(),1048576,encoded,error) = 0,"two hundred passages serialize within configured ceiling " || error)
+  do i = 1 to wide_passages.0
+    resolved = .ragpassage
+    errors = errors + check(resolvecitation(store,wide_passages[i].citation(),resolved,error) = 0 & resolved.text() = wide_passages[i].text(),"wide source citation " || i)
+  end
   errors = errors + check(closeragstore(store, error) = 0, "close " || error)
   if errors > 0 then return 1
   say "EVIDENCE_METHODOLOGY_OK graph=explicit-anchors+outbound+inbound+both lexical_feedback=0 stored_direction=preserved inverse_claims=0 co_mentions=analysis-leads notes=durable+cited+analysis-only query_plans=quoted+frequency+fair query_gaps=partial+repeated projections=trace+path+timeline citation=parsed"

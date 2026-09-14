@@ -47,10 +47,17 @@ main: procedure = .int
   raw = .binary; bytes = 0
   errors = errors + check(ragfile..readbinaryfilebounded(path, 65536, raw, bytes, error) = 0, "fixture reread")
   text = raw as .string
+  passage_config = .ragconfig; passage_error = ""
+  errors = errors + check(retrieval.passage_limit() = 12 & .ragretrievalpolicy().passage_limit() = 12, "ordinary passage default remains twelve")
+  errors = errors + check(parseconfigtext(changestr("retrieval.passage_limit = 12",text,"retrieval.passage_limit = 200"),passage_config,passage_error) = 0 & passage_config.retrieval().passage_limit() = 200, "two hundred passages parse " || passage_error)
+  errors = errors + check(validateconfig(_withretrieval(config,.ragretrievalpolicy(256,12,100000,3,200))).ok() = 1, "typed two hundred passage policy")
+  errors = errors + check(validateconfig(_withretrieval(config,.ragretrievalpolicy(256,12,100000,3,201))).ok() = 0, "typed passage maximum is bounded")
+  errors = errors + check(rejected(changestr("retrieval.passage_limit = 12",text,"retrieval.passage_limit = 201"),"outside its supported range") = 1, "file passage maximum is bounded")
   time_config = .ragconfig; time_baseline = .ragconfig; time_error = ""
   errors = errors + check(parseconfigtext(text,time_baseline,time_error) = 0,"provider-time baseline parses")
   errors = errors + check(maintenance.provider_time_minutes() = 0,"provider-time cap is opt-in")
   errors = errors + check(parseconfigtext(text || "0A"x || "maintenance.provider_time_minutes = 260",time_config,time_error) = 0 & time_config.maintenance().provider_time_minutes() = 260,"explicit provider-time cap parses")
+  errors = errors + check(ragsha256(canonicalsemanticconfig(time_baseline)) = "1d1ea6f66d962a6921e4fdfe58c634c1661cf241b0f28ab8b948d928f1b8a5de", "persisted semantic identity bytes remain compatible")
   errors = errors + check(canonicalsemanticconfig(time_config) = canonicalsemanticconfig(time_baseline),"provider-time cap is operational")
   errors = errors + check(rejected(text || "0A"x || "maintenance.provider_time_minutes = 10081","outside its supported range") = 1,"provider-time cap is bounded")
   errors = errors + check(providers[1].reasoning_effort() = "" & pos('"reasoning_effort"', canonicalconfig(config)) = 0, "omitted effort preserves existing canonical identity")
@@ -174,3 +181,7 @@ main: procedure = .int
 _withworkers: procedure = .ragconfig
   arg config = .ragconfig, workers = .ragworkerpolicy
   return .ragconfig(config.config_id(),config.version(),config.source_sets(),config.providers(),config.roles(),config.profile_ids(),config.budget(),workers,config.schedules(),config.discovery(),config.vector(),config.retrieval(),config.maintenance(),config.observation(),config.profile_files(),config.plan_ttl_seconds())
+
+_withretrieval: procedure = .ragconfig
+  arg config = .ragconfig, retrieval = .ragretrievalpolicy
+  return .ragconfig(config.config_id(),config.version(),config.source_sets(),config.providers(),config.roles(),config.profile_ids(),config.budget(),config.workers(),config.schedules(),config.discovery(),config.vector(),retrieval,config.maintenance(),config.observation(),config.profile_files(),config.plan_ttl_seconds())

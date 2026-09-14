@@ -4,10 +4,12 @@ namespace ragcommandcatalog expose ragcommanddefinition commandcatalog commandde
 
 import rxfnsb
 import rxjson
+import ragconfig
 
 /* Public surface owner: operation, argument contract, capability and forwarding
    are declared together. Domain services retain state-dependent validation.
-   This module imports no dispatcher, repository or request/result type. */
+   The numeric passage ceiling comes from ragconfig; this module imports no
+   dispatcher, repository or request/result type. */
 ragcommanddefinition: class
   _name = .string
   _operation = .string
@@ -144,7 +146,7 @@ commandcatalog: procedure = .ragcommanddefinition[]
   return entries
 
 _queryschema: procedure = .string
-  return '{"type":"object","properties":{"question":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":12},"hops":{"type":"integer","minimum":0,"maximum":4},"mode":{"type":"string","enum":["auto","lexical","hybrid"]},"direction":{"type":"string","enum":["outbound","inbound","both"]},"at":{"type":"string"},"during":{"type":"string"},"time_unknown":{"type":"string","enum":["include","exclude"]}},"required":["question"],"additionalProperties":false}'
+  return '{"type":"object","properties":{"question":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":' || querypassagemaximum() || '},"hops":{"type":"integer","minimum":0,"maximum":4},"mode":{"type":"string","enum":["auto","lexical","hybrid"]},"direction":{"type":"string","enum":["outbound","inbound","both"]},"at":{"type":"string"},"during":{"type":"string"},"time_unknown":{"type":"string","enum":["include","exclude"]}},"required":["question"],"additionalProperties":false}'
 
 _applyschema: procedure = .string
   return '{"type":"object","properties":{"plan_json":{"type":"string"},"expect_digest":{"type":"string"}},"required":["plan_json","expect_digest"],"additionalProperties":false}'

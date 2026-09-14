@@ -1,0 +1,59 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start  9: regression_prompt_contract
+1/6 Test  #9: regression_prompt_contract .......   Passed   27.61 sec
+    Start 15: configuration_contract
+2/6 Test #15: configuration_contract ...........   Passed   37.56 sec
+    Start 21: provider_durability
+3/6 Test #21: provider_durability ..............   Passed   19.68 sec
+    Start 38: documentation_contract
+4/6 Test #38: documentation_contract ...........   Passed    0.62 sec
+    Start 40: quotation_grounding
+5/6 Test #40: quotation_grounding ..............   Passed    3.51 sec
+    Start 65: regression_lifecycle
+6/6 Test #65: regression_lifecycle .............***Failed    7.61 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/LifecycleRegression.cmake:41 (message):
+  RAG-OPS-002 acceptance failed:
+
+  RXVME: PANIC: ragconfiguration.replaysnapshotmatches (SIGNAL
+  FUNCTION_NOT_FOUND)
+
+
+
+  RXBVM: PANIC: ragconfiguration.replaysnapshotmatches (SIGNAL
+  FUNCTION_NOT_FOUND)
+
+
+
+
+
+83% tests passed, 1 tests failed out of 6
+
+Label Time Summary:
+RAG-OPS-002            =   7.61 sec*proc (1 test)
+accounting             =   7.61 sec*proc (1 test)
+codex                  =  19.68 sec*proc (1 test)
+configuration          =  37.56 sec*proc (1 test)
+documentation          =   0.62 sec*proc (1 test)
+durability             =  19.68 sec*proc (1 test)
+extraction             =   3.51 sec*proc (1 test)
+gemini                 =  37.56 sec*proc (1 test)
+loopback               =  27.61 sec*proc (1 test)
+methodology            =   0.62 sec*proc (1 test)
+privacy                =  37.56 sec*proc (1 test)
+prompt                 =  27.61 sec*proc (1 test)
+provenance             =   3.51 sec*proc (1 test)
+provider               =  19.68 sec*proc (1 test)
+quotation              =   3.51 sec*proc (1 test)
+regression             =  35.22 sec*proc (2 tests)
+schema                 =  27.61 sec*proc (1 test)
+skills                 =   0.62 sec*proc (1 test)
+subscription-budget    =  19.68 sec*proc (1 test)
+unicode                =   3.51 sec*proc (1 test)
+worker                 =   7.61 sec*proc (1 test)
+zero-outbound          =  96.58 sec*proc (6 tests)
+
+Total Test time (real) =  96.59 sec
+
+The following tests FAILED:
+	 65 - regression_lifecycle (Failed)                     RAG-OPS-002 accounting regression worker zero-outbound
+Errors while running CTest

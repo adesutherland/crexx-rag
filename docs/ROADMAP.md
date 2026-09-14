@@ -1,11 +1,34 @@
 # Consolidated roadmap and defect register
 
+**14 September Test 5 complete:** ordinary MCP access/search/relationships/cited
+Q&A now have a [separate smoke definition](test5-mcp-qa.md). All 56 requests pass,
+with zero RAG provider calls and preserved corpus state. Performance is recorded
+using server CPU, response sizes and bounded work on a shared computer, with no
+stopwatch gate. Full overview work, redundant lexical sidecar preparation and
+the fourth-ranked Bannockburn answer were the three initial follow-ups. The
+approved workplan now keeps default 12, raises the optional maximum to 200,
+skips vector preparation for lexical mode and simplifies shared setup guidance.
+Fourth place is a coverage observation, not a ranking defect. All F0–F4 follow-ups
+are complete: eight affected focused tests, the **71/71** full local suite and
+59 provider-free MCP requests pass. The synthetic fixture returns all 200
+passages with resolved citations. Changes are uncommitted; installation is unchanged.
+
+**14 September Test 4 complete:** **RAG-SMK-010 (P2, repaired)** uses the shared
+semantic projection to compare only selected replay work. Final QA **71/71**.
+The live Nairn retry succeeds under normal configuration in 77.35 seconds with
+one Codex turn. Its supported claim is published; two incorrect proposals were
+held and rejected through normal review. Both Fiers and Nairn are resolved;
+543 other extraction roots remain outside this bounded smoke. Source history,
+vector coverage and zero-call retry are verified. See the
+[completed checklist](test4-repair-delivery-20260914.md). Changes are uncommitted
+after `300c2ac`; normal installation and authoritative libraries are unchanged.
+
 **14 September Test 2 closure:** A0–A8 are complete and the
 [checklist is retired](test2-recovery-delivery-20260914.md). Final local QA is
 **71/71**; unchanged full-corpus job retry fell from **26.14 to 2.080 seconds**
-with no provider calls or repeated attempts. The user authorized the local
-commit. Active work is now the [Test 4 checklist](test4-repair-delivery-20260914.md):
-RAG-SMK-010 replay compatibility and the selected Nairn grounding hold.
+with no provider calls or repeated attempts. The baseline was committed as
+`300c2ac`. The subsequent [Test 4 checklist](test4-repair-delivery-20260914.md) also
+completed; its current result is recorded above.
 
 **14 September smoke repeat:** baseline `0a85f9d` was committed before all four
 tests ran on a fresh disposable pre-Test-1 restore. Tests 1 and 3 passed. Test 2
@@ -20,14 +43,15 @@ also reproduced. There are 544 actionable original extraction roots and one
 resolved root in this new copy. [Full results](smoke-repeat-20260914.md) distinguish
 controller, content and compatibility failures; this is not an all-green smoke.
 
-**Current checkpoint, 13 September 2026:** all twelve SQL repairs are committed
+**Historical checkpoint, 13 September 2026:** all twelve SQL repairs are committed
 as `7febbca`, installed and qualified by 70/70 local tests plus the successful
 [Test 3 repeat](test3-repeat-sql-20260913.md). [Test 4 continuation](test4-operational-redo-20260913.md)
 repaired two operational extraction holds; 543 original roots remain actionable.
-**RAG-SMK-010 (P2, open):** whole-configuration replay compatibility rejects
+**RAG-SMK-010 (P2, open at that checkpoint):** whole-configuration replay compatibility rejects
 unchanged old items after an unrelated source-set addition. The corpus smoke
 demonstrates both the rejection and a temporary source-scope workaround;
-additive-source regression and shared-owner repair remain outstanding.
+Additive-source regression and shared-owner repair were outstanding then;
+their completed qualification is recorded at the top of this file.
 The dated summaries below retain their historical qualification scopes.
 
 **Current implementation:** the approved [rule simplification](rule-simplification-repair-20260913.md)

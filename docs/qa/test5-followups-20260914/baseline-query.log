@@ -1,0 +1,31 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 27: gemini_query
+1/1 Test #27: gemini_query .....................***Failed    7.31 sec
+-- Gemini query passed human hybrid retrieval and cited answer generation, explicit zero-outbound lexical mode, required-hybrid failure, citation rejection, valid insufficient-evidence handling, and post-query integrity
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/GeminiQuery.cmake:645 (message):
+  Lexical search depends on unused vector profile:
+  {"schema":"crexx-rag.command-result/1","operation":"query.inspect","status":"error","exit_code":7,"exit_name":"integrity","message":"active
+  query embedding profile does not match the configured provider
+  envelope","records":[]}
+
+
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+answer       =   7.31 sec*proc (1 test)
+budget       =   7.31 sec*proc (1 test)
+citation     =   7.31 sec*proc (1 test)
+embedding    =   7.31 sec*proc (1 test)
+gemini       =   7.31 sec*proc (1 test)
+hybrid       =   7.31 sec*proc (1 test)
+privacy      =   7.31 sec*proc (1 test)
+query        =   7.31 sec*proc (1 test)
+
+Total Test time (real) =   7.31 sec
+
+The following tests FAILED:
+	 27 - gemini_query (Failed)                             answer budget citation embedding gemini hybrid privacy query
+Errors while running CTest

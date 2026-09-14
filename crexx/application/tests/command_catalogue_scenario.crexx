@@ -39,4 +39,12 @@ main: procedure = .int
   document=.jsondocument('{"input":"x","proposals_ndjson":"x"}')
   if catalogarguments(commanddefinition("rag_proposal_plan"),document,document.root(),error)=0 then do;say "COMMAND_CATALOGUE_FAIL line 40";return 1;end
   say "COMMAND_CATALOGUE_OK"
+  query_tools = "rag_query_search rag_query_evidence rag_query_inspect rag_query_answer rag_query_trace rag_query_path rag_query_timeline"
+  do tool_index = 1 to words(query_tools)
+    definition = commanddefinition(word(query_tools,tool_index))
+    document = .jsondocument('{"question":"wide net","limit":200}')
+    if catalogarguments(definition,document,document.root(),error) \= 0 then do;say "COMMAND_CATALOGUE_FAIL maximum 200 " || definition.name();return 1;end
+    document = .jsondocument('{"question":"wide net","limit":201}')
+    if catalogarguments(definition,document,document.root(),error) = 0 then do;say "COMMAND_CATALOGUE_FAIL accepted 201 " || definition.name();return 1;end
+  end
   return 0

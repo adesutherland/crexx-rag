@@ -13,8 +13,10 @@ in the current assistant conversation. cREXX-RAG supplies passages, graph
 evidence and citation resolution; no separate answer-generation call is needed.
 
 1. Call `rag_library_status` and stop on a non-zero `exit_code`.
-2. Use `rag_library_overview` for corpus coverage and `rag_source_list` for
-   source metadata. Call `rag_query_inspect` with the user's question for
+2. Use `rag_source_list` for routine source scope and reuse it while the library
+   generation is unchanged. Use `rag_library_overview` when the user asks for
+   corpus coverage or health: it includes full verification and is unnecessary
+   setup work for an ordinary question. Call `rag_query_inspect` with the user's question for
    strictly read-only lexical retrieval with no provider calls. Decode the
    returned `evidence_json`. If a broad question finds nothing, try focused
    names or phrases before concluding evidence is absent. Prefer the
@@ -46,7 +48,13 @@ These are samples, not guarantees or timings of the current assistant's full
 response. Its own reasoning and generation still take time. Do not reduce
 evidence coverage or skip citation resolution merely to save time.
 
-Query limits are 1–12 and graph hops 0–4. Source-list pages accept 1–100
+Query limits are 1–200 and graph hops 0–4. Omit `limit` to use the configured
+passage default (12 in the supplied configurations). For exploratory questions,
+retain a broad evidence set and filter it yourself; use a larger explicit limit
+when useful. Candidate availability, diversity and the configured evidence-byte
+ceiling still apply, so the requested maximum is not a promised result count.
+Do not reduce the ordinary limit to three merely to shorten an answer.
+Source-list pages accept 1–100
 data rows plus a separate cursor record. Continue until `next_cursor` is empty. Keep
 searches focused and decode nested JSON before answering; empty graph conflict
 fields do not override disagreement in the original passages.

@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragconfiguration expose ragconfigidentity ragconfigdiff identifyconfig inspectconfigchange createreconfigureplan applyreconfigureplan currentconfigsnapshotid worksnapshotmatches checkworkerconfiguration querysnapshotmatches
+namespace ragconfiguration expose replaysnapshotmatches ragconfigidentity ragconfigdiff identifyconfig inspectconfigchange createreconfigureplan applyreconfigureplan currentconfigsnapshotid worksnapshotmatches checkworkerconfiguration querysnapshotmatches
 
 import rxfnsb
 import rxjson
@@ -10,6 +10,45 @@ import ragconfig
 import ragprofile
 import ragcanonical
 import ragstore
+
+/* Frozen snapshots are immutable. Read each pair once, then compare distinct
+ * selected source/role bindings, not unrelated policy entries or whole jobs. */
+replaysnapshotmatches: procedure = .int
+  arg store = .ragstorehandle, source_snapshot = .string, target_snapshot = .string, job_id = .string, item_id = .string
+  database=store.database(); prepared=.binary
+  sql="SELECT s.effective_json,t.effective_json,s.profile_hash=t.profile_hash,s.semantic_hash=t.semantic_hash OR (s.semantic_hash='' AND EXISTS(SELECT 1 FROM config_change_events e WHERE e.source_config_snapshot_id=s.config_snapshot_id AND e.target_config_snapshot_id=t.config_snapshot_id AND e.classification='identity-upgrade')) FROM config_snapshots s JOIN config_snapshots t ON t.config_snapshot_id=?2 WHERE s.config_snapshot_id=?1"
+  if sqliteprepare(database,sql,prepared) \= 0 then return 0
+  binds=sqlitebindtext(prepared,1,source_snapshot) | sqlitebindtext(prepared,2,target_snapshot)
+  if binds \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; return 0; end
+  source_json=""; target_json=""; same_profile=0; same_semantics=0
+  columns=sqlitecolumntext(prepared,0,source_json) | sqlitecolumntext(prepared,1,target_json) | sqlitecolumnint(prepared,2,same_profile) | sqlitecolumnint(prepared,3,same_semantics)
+  call sqlitefinalize prepared
+  if columns \= 0 then return 0
+  if same_semantics=1 then return 1
+  if same_profile \= 1 then return 0
+  source=.jsondocument(source_json); target=.jsondocument(target_json)
+  if source.valid() \= 1 | target.valid() \= 1 then return 0
+  source_config=source.node_get(source.member(source.root(),"config"))
+  target_config=target.node_get(target.member(target.root(),"config"))
+  sql="SELECT DISTINCT json_extract(input_json,'$.source_scope'),json_extract(input_json,'$.role') FROM job_items WHERE job_id=?1 AND state='dead_letter'"
+  if item_id \= "" then sql=sql || " AND item_id=?2"
+  if sqliteprepare(database,sql,prepared) \= 0 then return 0
+  binds=sqlitebindtext(prepared,1,job_id)
+  if item_id \= "" then binds=binds | sqlitebindtext(prepared,2,item_id)
+  if binds \= 0 then do; call sqlitefinalize prepared; return 0; end
+  found=0
+  do forever
+    step=sqlitestep(prepared)
+    if step=101 then leave
+    scope=""; role=""
+    if step \= 100 | sqlitecolumntext(prepared,0,scope) \= 0 | sqlitecolumntext(prepared,1,role) \= 0 | scope="" | role="" then do; call sqlitefinalize prepared; return 0; end
+    old_binding=semanticconfigjson(source_config,scope,role)
+    new_binding=semanticconfigjson(target_config,scope,role)
+    if old_binding="" | old_binding \= new_binding then do; call sqlitefinalize prepared; return 0; end
+    found=found+1
+  end
+  call sqlitefinalize prepared
+  return found>0
 
 worksnapshotmatches: procedure = .int
   arg store = .ragstorehandle, snapshot_id = .string, config = .ragconfig, profile = .ragprofile
@@ -125,7 +164,7 @@ identifyconfig: procedure = .int
   if validation.ok() \= 1 | profile.valid_identity() \= 1 then do; error = "configuration or profile identity is invalid"; return -1; end
   config_json = canonicalconfig(config); profile_json = canonicalprofile(profile)
   effective_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.effective-config/2") || "," || jsonquote("config") || ":" || config_json || "," || jsonquote("profile") || ":" || profile_json || "}"
-  semantic_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.semantic-binding/1") || "," || jsonquote("config") || ":" || canonicalsemanticconfig(config) || "," || jsonquote("profile") || ":" || profile_json || "}"
+  semantic_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.semantic-binding/1") || "," || jsonquote("config") || ":" || semanticconfigjson(config_json) || "," || jsonquote("profile") || ":" || profile_json || "}"
   operational_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.operational-binding/1") || "," || jsonquote("config") || ":" || canonicaloperationalconfig(config) || "}"
   config_hash = ragsha256(effective_json); semantic_hash = ragsha256(semantic_json); operational_hash = ragsha256(operational_json); profile_hash = ragsha256(profile_json)
   legacy_json = "{" || jsonquote("schema") || ":" || jsonquote("crexx-rag.effective-config/1") || "," || jsonquote("config") || ":" || _legacycanonicalconfig(config) || "," || jsonquote("profile") || ":" || profile_json || "}"

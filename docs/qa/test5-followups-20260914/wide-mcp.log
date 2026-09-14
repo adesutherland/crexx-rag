@@ -1,0 +1,74 @@
+{
+  "result": {
+    "server_exit": 0,
+    "unchanged_database": true,
+    "requests": 6
+  },
+  "metrics": [
+    {
+      "label": "initialize",
+      "observed_elapsed_seconds": 0.20652479212731123,
+      "wire_bytes": 927,
+      "error": null,
+      "exit_code": null
+    },
+    {
+      "label": "default",
+      "observed_elapsed_seconds": 0.5632425001822412,
+      "wire_bytes": 73367,
+      "error": null,
+      "exit_code": 0,
+      "limit": 12,
+      "passages": 12,
+      "lexical_candidates": 48,
+      "evidence_bytes": 65264,
+      "provider_calls": 0
+    },
+    {
+      "label": "thirteen",
+      "observed_elapsed_seconds": 0.07499945815652609,
+      "wire_bytes": 79759,
+      "error": null,
+      "exit_code": 0,
+      "limit": 13,
+      "passages": 13,
+      "lexical_candidates": 48,
+      "evidence_bytes": 71083,
+      "provider_calls": 0
+    },
+    {
+      "label": "two-hundred",
+      "observed_elapsed_seconds": 0.1607375000603497,
+      "wire_bytes": 251176,
+      "error": null,
+      "exit_code": 0,
+      "limit": 200,
+      "passages": 48,
+      "lexical_candidates": 48,
+      "evidence_bytes": 224580,
+      "provider_calls": 0
+    },
+    {
+      "label": "nairn-two-hundred",
+      "observed_elapsed_seconds": 0.23185924999415874,
+      "wire_bytes": 261296,
+      "error": null,
+      "exit_code": 0,
+      "limit": 200,
+      "passages": 48,
+      "lexical_candidates": 48,
+      "evidence_bytes": 234396,
+      "provider_calls": 0
+    },
+    {
+      "label": "rejected-201",
+      "observed_elapsed_seconds": 0.00023208302445709705,
+      "wire_bytes": 101,
+      "error": {
+        "code": -32602,
+        "message": "tool argument limit exceeds its maximum"
+      },
+      "exit_code": null
+    }
+  ]
+}

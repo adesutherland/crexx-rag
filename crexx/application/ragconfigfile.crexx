@@ -300,7 +300,7 @@ parseconfigtext: procedure = .int
   setting = _optional(keys, values, "retrieval.vector_candidates"); if setting \= "" then if _uint(setting, 1, 1000, "retrieval.vector_candidates", vector_candidates, error) \= 0 then return -1
   setting = _optional(keys, values, "retrieval.vector_scan_limit"); if setting \= "" then if _uint(setting, 1, 1000000, "retrieval.vector_scan_limit", vector_scan_limit, error) \= 0 then return -1
   setting = _optional(keys, values, "retrieval.graph_hops"); if setting \= "" then if _uint(setting, 0, 4, "retrieval.graph_hops", graph_hops, error) \= 0 then return -1
-  setting = _optional(keys, values, "retrieval.passage_limit"); if setting \= "" then if _uint(setting, 1, 12, "retrieval.passage_limit", passage_limit, error) \= 0 then return -1
+  setting = _optional(keys, values, "retrieval.passage_limit"); if setting \= "" then if _uint(setting, 1, querypassagemaximum(), "retrieval.passage_limit", passage_limit, error) \= 0 then return -1
   setting = _optional(keys, values, "retrieval.claim_limit"); if setting \= "" then if _uint(setting, 0, 8, "retrieval.claim_limit", claim_limit, error) \= 0 then return -1
   setting = _optional(keys, values, "retrieval.lead_limit"); if setting \= "" then if _uint(setting, 0, 8, "retrieval.lead_limit", lead_limit, error) \= 0 then return -1
   setting = _optional(keys, values, "retrieval.rrf_k"); if setting \= "" then if _uint(setting, 1, 10000, "retrieval.rrf_k", rrf_k, error) \= 0 then return -1

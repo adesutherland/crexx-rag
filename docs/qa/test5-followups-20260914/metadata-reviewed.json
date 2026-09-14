@@ -1,0 +1,72 @@
+[
+  {
+    "lane": "read",
+    "tool": "rag_query_search",
+    "only_change": "limit maximum: 12 -> 200"
+  },
+  {
+    "lane": "read",
+    "tool": "rag_query_evidence",
+    "only_change": "limit maximum: 12 -> 200"
+  },
+  {
+    "lane": "read",
+    "tool": "rag_query_inspect",
+    "only_change": "limit maximum: 12 -> 200"
+  },
+  {
+    "lane": "read",
+    "tool": "rag_query_answer",
+    "only_change": "limit maximum: 12 -> 200"
+  },
+  {
+    "lane": "read",
+    "tool": "rag_query_trace",
+    "only_change": "limit maximum: 12 -> 200"
+  },
+  {
+    "lane": "read",
+    "tool": "rag_query_path",
+    "only_change": "limit maximum: 12 -> 200"
+  },
+  {
+    "lane": "read",
+    "tool": "rag_query_timeline",
+    "only_change": "limit maximum: 12 -> 200"
+  },
+  {
+    "lane": "all",
+    "tool": "rag_query_search",
+    "only_change": "limit maximum: 12 -> 200"
+  },
+  {
+    "lane": "all",
+    "tool": "rag_query_evidence",
+    "only_change": "limit maximum: 12 -> 200"
+  },
+  {
+    "lane": "all",
+    "tool": "rag_query_inspect",
+    "only_change": "limit maximum: 12 -> 200"
+  },
+  {
+    "lane": "all",
+    "tool": "rag_query_answer",
+    "only_change": "limit maximum: 12 -> 200"
+  },
+  {
+    "lane": "all",
+    "tool": "rag_query_trace",
+    "only_change": "limit maximum: 12 -> 200"
+  },
+  {
+    "lane": "all",
+    "tool": "rag_query_path",
+    "only_change": "limit maximum: 12 -> 200"
+  },
+  {
+    "lane": "all",
+    "tool": "rag_query_timeline",
+    "only_change": "limit maximum: 12 -> 200"
+  }
+]

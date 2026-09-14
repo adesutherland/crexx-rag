@@ -12,6 +12,7 @@ import ragstore
 import ragjob
 import ragclaims
 import ragcanonical
+import ragconfiguration
 import ragprofile
 import ragallowance
 import ragbacklog
@@ -522,13 +523,12 @@ replaydeadletters: procedure = .int
   if terminaljob(_boundscalartext(database,"SELECT state FROM jobs WHERE job_id=?1",source_job_id)) \= 1 then do; error = "source job must be terminal with explicit dead letters"; return -2; end
   source_snapshot = _boundscalartext(database, "SELECT config_snapshot_id FROM jobs WHERE job_id=?1", source_job_id)
   if source_snapshot = "" then do; error = "source job configuration snapshot is unavailable"; return -2; end
-  compatibility = _scalarint(database, "SELECT count(*) FROM config_snapshots s JOIN config_snapshots t ON t.config_snapshot_id=" || _q(target_config_snapshot_id) || " WHERE s.config_snapshot_id=" || _q(source_snapshot) || " AND (s.semantic_hash=t.semantic_hash OR (s.semantic_hash='' AND EXISTS(SELECT 1 FROM config_change_events e WHERE e.source_config_snapshot_id=s.config_snapshot_id AND e.target_config_snapshot_id=t.config_snapshot_id AND e.classification='identity-upgrade')))")
-  if compatibility \= 1 then do; error = "replay target is not semantically compatible with the source job"; return -2; end
   selector = ""
   if source_item_id \= "" then selector = " AND item_id=" || _q(source_item_id)
   selected = _scalarint(database, "SELECT count(*) FROM job_items WHERE job_id=" || _q(source_job_id) || " AND state='dead_letter'" || selector)
   if selected < 1 then do; error = "no matching dead-letter items are available"; return -2; end
   if selected > item_budget | selected > model_call_budget then do; error = "replay selection exceeds the current reviewed item or model-call budget"; return -2; end
+  if replaysnapshotmatches(store,source_snapshot,target_config_snapshot_id,source_job_id,source_item_id) \= 1 then do; error = "replay target changes the source, provider or interpretation of selected work"; return -2; end
   policy = .jsondocument(budget_policy); policy_root = policy.root()
   time_budget_ms = -1; maximum_call_input = -1; maximum_call_output = -1; maximum_call_cost = -1; maximum_call_time = -1; maximum_inflight = -1; maximum_attempts = -1
   if policy.valid() \= 1 | policy.node_type(policy_root) \= "object" | policy.node_int(policy.member(policy_root, "time_budget_ms"), time_budget_ms) \= 0 | policy.node_int(policy.member(policy_root, "maximum_call_input_tokens"), maximum_call_input) \= 0 | policy.node_int(policy.member(policy_root, "maximum_call_output_tokens"), maximum_call_output) \= 0 | policy.node_int(policy.member(policy_root, "maximum_call_cost"), maximum_call_cost) \= 0 | policy.node_int(policy.member(policy_root, "maximum_call_time_ms"), maximum_call_time) \= 0 | policy.node_int(policy.member(policy_root, "maximum_inflight_calls"), maximum_inflight) \= 0 | policy.node_int(policy.member(policy_root, "maximum_attempts"), maximum_attempts) \= 0 then do; error = "replay budget policy is malformed"; return -2; end

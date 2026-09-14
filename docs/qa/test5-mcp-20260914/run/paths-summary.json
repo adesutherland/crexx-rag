@@ -1,0 +1,72 @@
+{
+  "path-outbound-h1": {
+    "accepted": [
+      [
+        "Dundee",
+        "1645"
+      ]
+    ],
+    "leads": 1
+  },
+  "path-outbound-h3": {
+    "accepted": [
+      [
+        "Dundee",
+        "1645"
+      ]
+    ],
+    "leads": 1
+  },
+  "path-inbound-h1": {
+    "accepted": [
+      [
+        "Macdonald",
+        "Dundee"
+      ],
+      [
+        "Alaster Macdonald",
+        "Dundee"
+      ]
+    ],
+    "leads": 2
+  },
+  "path-inbound-h3": {
+    "accepted": [
+      [
+        "Macdonald",
+        "Dundee"
+      ],
+      [
+        "Alaster Macdonald",
+        "Dundee"
+      ]
+    ],
+    "leads": 2
+  },
+  "path-both-h1": {
+    "accepted": [
+      [
+        "Dundee",
+        "1645"
+      ],
+      [
+        "Macdonald",
+        "Dundee"
+      ]
+    ],
+    "leads": 2
+  },
+  "path-both-h3": {
+    "accepted": [
+      [
+        "Dundee",
+        "1645"
+      ],
+      [
+        "Macdonald",
+        "Dundee"
+      ]
+    ],
+    "leads": 2
+  }
+}

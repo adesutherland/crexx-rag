@@ -1,5 +1,28 @@
 # Test strategy
 
+The [Test 5 MCP smoke](test5-mcp-qa.md) now owns ordinary agent access, search,
+relationship follow-up, citation paging, assistant-composed answers and local
+performance characterization. The 14 September run passed 56 actual JSON-RPC
+requests with zero RAG provider calls; explicit path tests alone recorded one
+normal gap. Test 4 remains extraction/replay. On a shared computer, collect
+server CPU, work/result counts and response bytes; elapsed times are observations,
+not acceptance thresholds. Its approved follow-up raises the optional passage
+maximum to 200 while retaining default 12, removes vector preparation from
+lexical routing and simplifies shared setup guidance. A fourth-ranked useful
+passage is a coverage observation, not itself a demonstrated ranking defect.
+Regression coverage includes actual 200-passage retrieval and exact citations,
+public 200/201 boundaries and lexical independence with hybrid refusal controls.
+Final follow-up qualification passes **71/71 local tests** and 59 actual MCP
+requests with zero provider calls; all workplan items are complete.
+
+Test 4 replay compatibility is qualified by **71/71 local tests** and a bounded
+live Nairn replay under normal configuration. Source/role selection regressions
+retain incompatible selected-work and immutable-lineage controls. Captured bad
+and corrected responses exercise the complete validator. Live model proposals
+still require source-meaning review: the correct claim was published and two
+incorrect proposals were held and rejected through existing review controls.
+See [the completed checklist](test4-repair-delivery-20260914.md).
+
 Latest publication follow-up: `embedding_publication` reproduces RAG-SMK-006's
 partial ancestral index failure and now passes with four existing controls
 (**5/5 in 52.41s**). Full QA passes **68/68 in 944.08s**, with a passing

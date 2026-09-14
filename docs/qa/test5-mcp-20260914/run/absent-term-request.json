@@ -1,0 +1,14 @@
+{
+  "jsonrpc": "2.0",
+  "id": 24,
+  "method": "tools/call",
+  "params": {
+    "name": "rag_query_inspect",
+    "arguments": {
+      "question": "zzqtestfiveunfindablewordzzq",
+      "mode": "lexical",
+      "hops": 0,
+      "limit": 12
+    }
+  }
+}

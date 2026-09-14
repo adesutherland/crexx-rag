@@ -1,16 +1,59 @@
 # Operator continuation: live handoff
 
-Updated: 2026-09-14, after completing and retiring the Test 2 checklist. This file records the current result and next action.
+Updated: 2026-09-14, after completing Test 5 and its follow-ups. This file records the current result and next action.
 The detailed history below is retained for reference.
 
-## Active work — Test 4 replay and Nairn grounding
+## Completed — Test 5 MCP access, search and Q&A
 
-The user authorized committing the completed changes and moving on to Test 4.
-Follow [the Test 4 action checklist](test4-repair-delivery-20260914.md).
-RAG-SMK-011 and Test 2 A0–A8 are complete; retain their record and architecture
-principles without reopening them. Test 4 remains partial: the latest repeat
-repaired Fiers, but Nairn failed endpoint grounding twice and RAG-SMK-010 required
-a source-scope workaround. The earlier 13 September Nairn success is historical.
+The user approved the [follow-up workplan](test5-mcp-qa.md): optional passage
+maximum 200, ordinary default 12, shared status/inventory setup and lexical
+queries without vector preparation. All F0–F4 items are complete: the eight
+affected focused tests and the final full suite **71/71** pass. A fresh provider-free MCP
+repeat passes 53 requests plus six boundary/breadth requests. The real wide
+query returns 48 passages under the unchanged 48-candidate setting; a synthetic
+fixture returns all 200 with sufficient candidates and resolves every citation.
+Candidate/byte limits remain independent. Fourth place is not a ranking defect.
+Qualified native hash: `88b2fe4a045c42f6a514323bd93804761256b77a15928876e95b5557154bf9c7`.
+Copy: `/private/tmp/crexxrag-test5-followups-xmrd_jkq/library`. No install or commit.
+
+The initial [Test 5 checklist](test5-mcp-qa.md) completed 56 real MCP requests,
+zero RAG provider calls, correct access controls, pagination, bounded retrieval,
+directional paths and assistant-composed answers with resolved full citations.
+Ordinary Q&A made no database writes. Explicit paths added one ambiguity gap
+only; corpus hashes and generation remain unchanged. Native artifact is the
+same Test 4 build below. Test 5 copy: `/private/tmp/crexxrag-test5-tye6jn_s/library`.
+
+In the initial Test 5 measurement, the computer was shared. Server CPU samples identify full overview work
+(10.37 seconds) versus focused searches (0.11-second median); elapsed times are
+not performance gates. It identified three follow-ups: routine setup should use
+status/inventory without a full report, explicit lexical queries should skip
+vector-sidecar preparation, and ranking should retain the direct answering
+passage before reducing evidence limits. The Bannockburn answer still ranks
+fourth. The user subsequently clarified the broad-net intent and approved the
+implementation above. No product changes, commit, installation or provider run
+occurred in the initial Test 5 measurement.
+
+## Completed — Test 4 replay and Nairn grounding
+
+The [Test 4 checklist](test4-repair-delivery-20260914.md) is complete. RAG-SMK-010
+now compares selected source/role/provider bindings through the shared
+configuration owner. Final local QA is **71/71**. On a fresh independent copy,
+Nairn replay queued in 0.355 seconds under the unchanged normal configuration,
+then completed in 77.350 seconds using one Codex turn and zero monetary API cost.
+The supported Argyleshire membership was published. Two incorrect model
+proposals were held automatically and rejected through normal review; neither
+was published. Normal retry made no new calls or attempts. Both selected Fiers
+and Nairn roots are resolved; 543 other roots remain outside this test.
+
+Final native SHA-256:
+`88d257815970bbd786744c4c1ec48114060eb1ddf02356b4554ac2e74f8b9acd`.
+Live copy: `/private/tmp/crexxrag-test4-repair-kw6or_2x/live-library`.
+Schema 19, generation 24,929, full vector coverage, zero verification issues.
+The provider window ended at 10:19:34 UTC; later checks/review used no providers.
+Changes are uncommitted after baseline `300c2ac`. No install, push or
+authoritative-library change occurred. Both Test 2 and Test 4 checklists can
+remain retired; keep their principles in architecture. Do not relaunch other
+historical holds or paid windows without a new bounded task.
 
 ## Completed index retry follow-up
 
@@ -28,10 +71,10 @@ rows are unchanged; library verification reports zero issues. Focused QA passed
 passed **71/71 in 530.53 seconds**. A8 is complete. See
 [the checklist](test2-recovery-delivery-20260914.md) for its final result.
 
-Current candidate SHA-256:
+Test 2 candidate SHA-256:
 `32c4ac3f10340b590012ab344e1780fbc33c71eb66ac4e9503ab0ddf6d1f4bb7`.
 Final scratch: `/private/tmp/crexxrag-index-retry-final-cr61v8pl`.
-The user has authorized the local commit. The normal installation and
+This baseline was committed as `300c2ac`. The normal installation and
 authoritative corpus are unchanged. The earlier checkpoint below records the functional repair
 before this performance follow-up.
 
@@ -81,9 +124,9 @@ Ordinary MCP Q&A made zero provider calls: median search 0.477 seconds, returned
 lead follow-up 0.514 seconds, citations 0.008–0.012 seconds. Overview remains
 9.547 seconds. The current assistant composed the cited answer.
 
-RAG-SMK-011 was subsequently repaired and qualified above. RAG-SMK-010 replay
-compatibility and the bounded Nairn content correction remain active. Do not
-count this historical repeat as all green. No push occurred.
+RAG-SMK-011 and RAG-SMK-010 were subsequently repaired and qualified above;
+the selected Nairn hold is now resolved. This historical repeat itself was
+not all green. No push occurred.
 
 ## Previous checkpoint — baseline for the requested Tests 1–4 repeat
 

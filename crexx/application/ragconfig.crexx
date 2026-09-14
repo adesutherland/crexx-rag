@@ -1,10 +1,15 @@
 options levelg
 
-namespace ragconfig expose ragsecretref ragsourceset ragproviderconfig ragrolebinding ragprofilefilebinding ragbudget ragworkerpolicy ragschedule ragdiscoverypolicy ragvectorpolicy ragretrievalpolicy ragmaintenancepolicy ragobservationpolicy ragconfig ragconfigsnapshot validateconfig snapshotconfig invalidconfig roleproviderconfig rolebinding
+namespace ragconfig expose ragsecretref ragsourceset ragproviderconfig ragrolebinding ragprofilefilebinding ragbudget ragworkerpolicy ragschedule ragdiscoverypolicy ragvectorpolicy ragretrievalpolicy ragmaintenancepolicy ragobservationpolicy ragconfig ragconfigsnapshot validateconfig snapshotconfig invalidconfig roleproviderconfig rolebinding querypassagemaximum
 
 import ragmodel
 import rxfnsb
 import ragworkerdefaults
+
+/* Shared passage ceiling for typed/file configuration, retrieval and surfaces.
+   The ordinary default remains twelve; this is an optional request ceiling. */
+querypassagemaximum: procedure = .int
+  return 200
 
 ragsecretref: class
   _scheme = .string
@@ -829,7 +834,7 @@ validateconfig: procedure = .ragvalidationresult
 
   retrieval = config.retrieval()
   if retrieval.lexical_candidates() < 1 | retrieval.lexical_candidates() > 1000 | retrieval.vector_candidates() < 1 | retrieval.vector_candidates() > 1000 | retrieval.vector_scan_limit() < retrieval.vector_candidates() | retrieval.vector_scan_limit() > 1000000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_retrieval_limit", "retrieval", "retrieval candidate and vector scan limits are invalid")
-  if retrieval.graph_hops() < 0 | retrieval.graph_hops() > 4 | retrieval.passage_limit() < 1 | retrieval.passage_limit() > 12 | retrieval.claim_limit() < 0 | retrieval.claim_limit() > 8 | retrieval.lead_limit() < 0 | retrieval.lead_limit() > 8 | retrieval.rrf_k() < 1 | retrieval.rrf_k() > 10000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_retrieval_policy", "retrieval", "retrieval graph, passage, claim, lead, or RRF limits are invalid")
+  if retrieval.graph_hops() < 0 | retrieval.graph_hops() > 4 | retrieval.passage_limit() < 1 | retrieval.passage_limit() > querypassagemaximum() | retrieval.claim_limit() < 0 | retrieval.claim_limit() > 8 | retrieval.lead_limit() < 0 | retrieval.lead_limit() > 8 | retrieval.rrf_k() < 1 | retrieval.rrf_k() > 10000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_retrieval_policy", "retrieval", "retrieval graph, passage, claim, lead, or RRF limits are invalid")
   if retrieval.graph_boost_millionths() < 0 | retrieval.graph_boost_millionths() > 1000000 | retrieval.graph_decay_millionths() < 1 | retrieval.graph_decay_millionths() > 1000000 | retrieval.directness_bonus_millionths() < 0 | retrieval.directness_bonus_millionths() > 1000000 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_retrieval_ranking", "retrieval", "retrieval graph ranking values are invalid")
   if wordpos(retrieval.graph_direction(), "outbound inbound both") = 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_graph_direction", "retrieval.graph_direction", "graph direction must be outbound, inbound, or both")
   if retrieval.maximum_evidence_bytes() < 65536 | retrieval.maximum_evidence_bytes() > 1048576 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_retrieval_evidence_limit", "retrieval.maximum_evidence_bytes", "retrieval evidence byte ceiling must be from 65536 through 1048576")

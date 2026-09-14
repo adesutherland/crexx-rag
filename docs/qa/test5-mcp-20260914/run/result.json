@@ -1,0 +1,9 @@
+{
+  "checks": 248,
+  "failures": [],
+  "requests": 53,
+  "server_pid": 33389,
+  "server_exit": 0,
+  "shared_machine": true,
+  "timing_thresholds": null
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "review_id": "review-sha256:ebfc2ceab54c7b45e83fb94912303b2dc15a05d981a8b9285efa8b3709cafba5",
+    "review_type": "conflict",
+    "subject_id": "proposal-sha256:7f75d30ede89f04055859ed661e6be72d32b29fbf73015a58e862afa1032f496",
+    "state": "pending",
+    "proposal_json": "{\"schema\":\"crexx-rag.extraction-proposal/1\",\"proposal_id\":\"proposal-sha256:7f75d30ede89f04055859ed661e6be72d32b29fbf73015a58e862afa1032f496\",\"kind\":\"claim\",\"source_concept_id\":\"concept-sha256:36f90b46340f16b7da3d10a46275d59ac4964158fd834ab0b95eb93e031e52a5\",\"source_label\":\"the duke\u2019s advanced guard\",\"source_type\":\"organisation\",\"relationship_type\":\"had-member\",\"target_concept_id\":\"concept-sha256:9f70785306cd4f82cb33ac57820d62de0d2d0091e931e106e7cf735293a6c1a7\",\"target_label\":\"the Macdonalds of Clanranald\",\"target_type\":\"organisation\",\"direction\":\"outbound\",\"qualifiers\":{},\"effective_from\":\"\",\"effective_to\":\"\",\"revision_chunk_id\":\"occurrence-sha256:b577bdd6aae1bbd5f3faf56ebf2bb38c18272649b069a80439da1926bef7d6cc\",\"span_start\":533,\"span_end\":699,\"polarity\":\"support\",\"stance\":\"assertion\",\"directness\":\"direct\",\"attribution\":\"\",\"lineage_group\":\"lineage:occurrence-sha256:b577bdd6aae1bbd5f3faf56ebf2bb38c18272649b069a80439da1926bef7d6cc\",\"confidence_millionths\":990000,\"provider_id\":\"codex-extract\",\"model\":\"gpt-5.6-luna\",\"request_id\":\"extract-7951a44199a4b164da2f686d4e36ddf9\",\"prompt_version\":\"scottish-history-extractor:1\",\"extractor_identity\":\"crexx-rag-codex-adapter/3-quotes\",\"source_scope\":\"folder:scotland-overnight\",\"profile_id\":\"scottish-history-profile\",\"external\":0}",
+    "decision_json": null,
+    "created_at": "2026-09-14T10:18:48.709Z",
+    "decided_at": null
+  },
+  {
+    "review_id": "review-sha256:6dfdca8f57e06d736a87d8c18283e48610e3932354fb909b505c56dc66630ddd",
+    "review_type": "conflict",
+    "subject_id": "proposal-sha256:a699cbf73b304fdaa8938d36bb9fe66791f5116b7c1b49e13b64f98cbcf426b3",
+    "state": "pending",
+    "proposal_json": "{\"schema\":\"crexx-rag.extraction-proposal/1\",\"proposal_id\":\"proposal-sha256:a699cbf73b304fdaa8938d36bb9fe66791f5116b7c1b49e13b64f98cbcf426b3\",\"kind\":\"claim\",\"source_concept_id\":\"concept-sha256:36f90b46340f16b7da3d10a46275d59ac4964158fd834ab0b95eb93e031e52a5\",\"source_label\":\"the duke\u2019s advanced guard\",\"source_type\":\"organisation\",\"relationship_type\":\"had-member\",\"target_concept_id\":\"concept-sha256:d23da3ff7e5f6d6723d23cbe4e201e79ae75739349e779fd1dbc944bff8f2e61\",\"target_label\":\"the Stewarts of Appin\",\"target_type\":\"organisation\",\"direction\":\"outbound\",\"qualifiers\":{},\"effective_from\":\"\",\"effective_to\":\"\",\"revision_chunk_id\":\"occurrence-sha256:b577bdd6aae1bbd5f3faf56ebf2bb38c18272649b069a80439da1926bef7d6cc\",\"span_start\":533,\"span_end\":699,\"polarity\":\"support\",\"stance\":\"assertion\",\"directness\":\"direct\",\"attribution\":\"\",\"lineage_group\":\"lineage:occurrence-sha256:b577bdd6aae1bbd5f3faf56ebf2bb38c18272649b069a80439da1926bef7d6cc\",\"confidence_millionths\":990000,\"provider_id\":\"codex-extract\",\"model\":\"gpt-5.6-luna\",\"request_id\":\"extract-7951a44199a4b164da2f686d4e36ddf9\",\"prompt_version\":\"scottish-history-extractor:1\",\"extractor_identity\":\"crexx-rag-codex-adapter/3-quotes\",\"source_scope\":\"folder:scotland-overnight\",\"profile_id\":\"scottish-history-profile\",\"external\":0}",
+    "decision_json": null,
+    "created_at": "2026-09-14T10:18:48.710Z",
+    "decided_at": null
+  }
+]

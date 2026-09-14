@@ -17,7 +17,7 @@ Read its `rag_task_evidence` pages. Each passage supplies original text,
 Use `rag_query_inspect` for surrounding evidence and `rag_profile_show` for
 permitted types. Query results do not automatically extend the task's durable
 evidence packet; report that boundary if additional evidence is needed.
-Task lists and evidence pages accept limits 1–50; queries accept limits 1–12
+Task lists and evidence pages accept limits 1–50; queries accept limits 1–200
 and graph hops 0–4. For a large or incomplete packet, use
 `rag_task_evidence_inventory` with `scope: "current"` and `kind: "passages"`,
 `"catalogue"` or `"context"`. Follow `next_cursor`; pass the returned
