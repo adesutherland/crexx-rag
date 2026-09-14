@@ -1,0 +1,6 @@
+crexxrag worker worker-1ca7a6ffa1208c82b662feca8b1e7838: Codex App Server stdout failed: byte operation deadline exceeded
+crexxrag worker worker-1ca7a6ffa1208c82b662feca8b1e7838: Codex App Server stdout failed: byte operation deadline exceeded;processed=3;polls=3
+crexxrag controller: one or more worker processes failed: Codex App Server stdout failed: byte operation deadline exceeded;processed=3;polls=3
+real 47.43
+user 5.13
+sys 2.15

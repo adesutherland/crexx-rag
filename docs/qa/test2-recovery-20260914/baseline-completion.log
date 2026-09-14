@@ -1,0 +1,168 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 47: test2_completion
+1/1 Test #47: test2_completion .................***Failed   26.19 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  normal: ordinary completion retry: expected '0', got '6'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:98 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  optional-refresh: job outcome separates required work from optional
+  cleanup: expected '0', got '8'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:93 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  optional-refresh: completed work, index and settled usage: expected
+  '4:4:1:0', got '3:3:0:0'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:95 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  optional-refresh: ordinary completion retry: expected '0', got '8'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:98 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  optional-refresh: retry preserves receipts and makes no calls: expected
+  'item-sha256:2d9c3e2f37fbf2bf4422995a6b74be0194bbfe6aeea4b6554405363d00c4dae2#attempt-1|item-sha256:2d9c3e2f37fbf2bf4422995a6b74be0194bbfe6aeea4b6554405363d00c4dae2|worker-bc8e6044d86b83f70c8e8256222f928c|1|37e9b67f9e5d5e38572697af00a61ef71cde19b935ae0e30a188f42c2e29e7e0|a1b99c9254dc3269600b261557775c7a02ab900daa688a21d4efd16d41ccad70|provider-run-sha256:6821e724a6a89e4b990e62159f93c715d7bd6f1d442045de9b2cbc99aeb1efcc|validated-discovery-batch|succeeded|2026-09-14T07:23:08.139Z|2026-09-14T07:23:10.339Z
+
+  
+  item-sha256:85c586a37418e185b688e98a6d57b44d4085aee02cf6857386e44e5c2ddccc5e#attempt-1|item-sha256:85c586a37418e185b688e98a6d57b44d4085aee02cf6857386e44e5c2ddccc5e|worker-bc8e6044d86b83f70c8e8256222f928c|1|42d70f1f04ad108731136d13cef1f8593de6478262eeeb6171ed7e7f89dd81b8|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:ba912a577eb877f743b7665f7a5439ae457b2f857a6a959fe7741fef38298a57|validated-embedding|succeeded|2026-09-14T07:23:08.101Z|2026-09-14T07:23:08.122Z
+
+  
+  item-sha256:b5b6867bdc592df62eb1339d4afff2a169ce31c9011ea32d265cc29cebc825cc#attempt-1|item-sha256:b5b6867bdc592df62eb1339d4afff2a169ce31c9011ea32d265cc29cebc825cc|worker-bc8e6044d86b83f70c8e8256222f928c|1|f563379c487717e9a5795626ee390a8029c8387d3c642184695a6fabd113ce34|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:2b0ae5760df18b1c872f74ed338992d703d21bbf11dcc7fcba3d56f9f500f399|validated-embedding|succeeded|2026-09-14T07:23:08.124Z|2026-09-14T07:23:08.138Z
+
+  
+  provider-run-sha256:2b0ae5760df18b1c872f74ed338992d703d21bbf11dcc7fcba3d56f9f500f399|config-a2fc888d22b5e3ca591d3c83|gemini-embed|gemini-embedding-2|883c549300fc2f8e90aecfa4ced4b1f35f2956ea39223994ebdd705a31bd3962|succeeded|24|0|0|2026-09-14T07:23:08.137Z|2026-09-14T07:23:08.137Z|local-compute|||-1|-1||0|work-item
+
+  
+  provider-run-sha256:6821e724a6a89e4b990e62159f93c715d7bd6f1d442045de9b2cbc99aeb1efcc|config-a2fc888d22b5e3ca591d3c83|codex-extract|default|45ab21f8016f567e14fdca7f36681a247e4f4cb9721d5051c2b05de600a95404|succeeded|20000|4|0|2026-09-14T07:23:08.306Z|2026-09-14T07:23:10.335Z|subscription-allowance|fixture-thread|fixture-turn|12|-1||0|work-item
+
+  
+  provider-run-sha256:ba912a577eb877f743b7665f7a5439ae457b2f857a6a959fe7741fef38298a57|config-a2fc888d22b5e3ca591d3c83|gemini-embed|gemini-embedding-2|ac485851160898b3a6ff3ac570f001b6d67566a02f18a62d70aa27f07bcd2209|succeeded|24|0|2|2026-09-14T07:23:08.121Z|2026-09-14T07:23:08.121Z|local-compute|||-1|-1||0|work-item',
+  got
+  'item-sha256:2d9c3e2f37fbf2bf4422995a6b74be0194bbfe6aeea4b6554405363d00c4dae2#attempt-1|item-sha256:2d9c3e2f37fbf2bf4422995a6b74be0194bbfe6aeea4b6554405363d00c4dae2|worker-bc8e6044d86b83f70c8e8256222f928c|1|37e9b67f9e5d5e38572697af00a61ef71cde19b935ae0e30a188f42c2e29e7e0|a1b99c9254dc3269600b261557775c7a02ab900daa688a21d4efd16d41ccad70|provider-run-sha256:6821e724a6a89e4b990e62159f93c715d7bd6f1d442045de9b2cbc99aeb1efcc|validated-discovery-batch|succeeded|2026-09-14T07:23:08.139Z|2026-09-14T07:23:10.339Z
+
+  
+  item-sha256:85c586a37418e185b688e98a6d57b44d4085aee02cf6857386e44e5c2ddccc5e#attempt-1|item-sha256:85c586a37418e185b688e98a6d57b44d4085aee02cf6857386e44e5c2ddccc5e|worker-bc8e6044d86b83f70c8e8256222f928c|1|42d70f1f04ad108731136d13cef1f8593de6478262eeeb6171ed7e7f89dd81b8|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:ba912a577eb877f743b7665f7a5439ae457b2f857a6a959fe7741fef38298a57|validated-embedding|succeeded|2026-09-14T07:23:08.101Z|2026-09-14T07:23:08.122Z
+
+  
+  item-sha256:b5b6867bdc592df62eb1339d4afff2a169ce31c9011ea32d265cc29cebc825cc#attempt-1|item-sha256:b5b6867bdc592df62eb1339d4afff2a169ce31c9011ea32d265cc29cebc825cc|worker-bc8e6044d86b83f70c8e8256222f928c|1|f563379c487717e9a5795626ee390a8029c8387d3c642184695a6fabd113ce34|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:2b0ae5760df18b1c872f74ed338992d703d21bbf11dcc7fcba3d56f9f500f399|validated-embedding|succeeded|2026-09-14T07:23:08.124Z|2026-09-14T07:23:08.138Z
+
+  
+  item-sha256:c6c8ca707a4b62feb4ba307d9de88d6e40714487b669b26092e70e618085e632#attempt-1|item-sha256:c6c8ca707a4b62feb4ba307d9de88d6e40714487b669b26092e70e618085e632|worker-dc50dd517ad850b811a309fc5cc354b4|1|69491bc9b87f0f47dd964c1eb3afecd0838e250c454dc32dcc75c81ed84d0730|a1b99c9254dc3269600b261557775c7a02ab900daa688a21d4efd16d41ccad70|provider-run-sha256:4d23bd96e287a5a26df7fee4b27a76dc4d986d43513f99d77a9ce035d7ef597b|validated-discovery-batch|succeeded|2026-09-14T07:23:13.096Z|2026-09-14T07:23:15.156Z
+
+  
+  provider-run-sha256:2b0ae5760df18b1c872f74ed338992d703d21bbf11dcc7fcba3d56f9f500f399|config-a2fc888d22b5e3ca591d3c83|gemini-embed|gemini-embedding-2|883c549300fc2f8e90aecfa4ced4b1f35f2956ea39223994ebdd705a31bd3962|succeeded|24|0|0|2026-09-14T07:23:08.137Z|2026-09-14T07:23:08.137Z|local-compute|||-1|-1||0|work-item
+
+  
+  provider-run-sha256:4d23bd96e287a5a26df7fee4b27a76dc4d986d43513f99d77a9ce035d7ef597b|config-a2fc888d22b5e3ca591d3c83|codex-extract|default|3d3bfafca57e339ee6efa62f5be1eb32338c5d6e5b4e6571b10d1a0659044cf9|succeeded|20000|4|1|2026-09-14T07:23:13.127Z|2026-09-14T07:23:15.152Z|subscription-allowance|fixture-thread|fixture-turn|12|-1||0|work-item
+
+  
+  provider-run-sha256:6821e724a6a89e4b990e62159f93c715d7bd6f1d442045de9b2cbc99aeb1efcc|config-a2fc888d22b5e3ca591d3c83|codex-extract|default|45ab21f8016f567e14fdca7f36681a247e4f4cb9721d5051c2b05de600a95404|succeeded|20000|4|0|2026-09-14T07:23:08.306Z|2026-09-14T07:23:10.335Z|subscription-allowance|fixture-thread|fixture-turn|12|-1||0|work-item
+
+  
+  provider-run-sha256:ba912a577eb877f743b7665f7a5439ae457b2f857a6a959fe7741fef38298a57|config-a2fc888d22b5e3ca591d3c83|gemini-embed|gemini-embedding-2|ac485851160898b3a6ff3ac570f001b6d67566a02f18a62d70aa27f07bcd2209|succeeded|24|0|2|2026-09-14T07:23:08.121Z|2026-09-14T07:23:08.121Z|local-compute|||-1|-1||0|work-item'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:100 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  optional-delete: job outcome separates required work from optional cleanup:
+  expected '0', got '8'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:93 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  optional-delete: completed work, index and settled usage: expected
+  '4:4:1:0', got '3:3:0:0'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:95 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  optional-delete: ordinary completion retry: expected '0', got '8'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:98 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  optional-delete: retry preserves receipts and makes no calls: expected
+  'item-sha256:24f75af0a6ffb82af8301c180183786d5c8f41d2e3451876a727101e757fdcba#attempt-1|item-sha256:24f75af0a6ffb82af8301c180183786d5c8f41d2e3451876a727101e757fdcba|worker-7e1036603347e9ffb5dfede40f2dc6ba|1|8bc8b620fe0a8267f47f79abe2825c85f0cfad1675a45e44c035041a35f4abab|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:2740ede5a7c2c57009035f801900e1529eafc688115c8e59977a4e6fe89b29ca|validated-embedding|succeeded|2026-09-14T07:23:19.154Z|2026-09-14T07:23:19.176Z
+
+  
+  item-sha256:3e2ea3e81434b1e7c7d340461253afb8fda886c7dff0d2d21206ddc05e8753cc#attempt-1|item-sha256:3e2ea3e81434b1e7c7d340461253afb8fda886c7dff0d2d21206ddc05e8753cc|worker-7e1036603347e9ffb5dfede40f2dc6ba|1|d85bb99f368ee0b44299f947b14684379d79d257a1f3c78d1dbb5fb82a49a0ae|a1b99c9254dc3269600b261557775c7a02ab900daa688a21d4efd16d41ccad70|provider-run-sha256:fcc1a50698ce5e83a56a8da18c5d6081f5c33cb43320bc9f7394e44da838b680|validated-discovery-batch|succeeded|2026-09-14T07:23:19.193Z|2026-09-14T07:23:21.388Z
+
+  
+  item-sha256:71119661588ff2e771703587b517b9337ba0b186e01dddbb2f11a0e244f12afa#attempt-1|item-sha256:71119661588ff2e771703587b517b9337ba0b186e01dddbb2f11a0e244f12afa|worker-7e1036603347e9ffb5dfede40f2dc6ba|1|7425979c487450e83869532a643e702509b3187aba31c746af1cc8d179421ae3|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:f0aca167912d0cc374d651da52cfca8459bd6c14fef07d57388933fb19ca3629|validated-embedding|succeeded|2026-09-14T07:23:19.178Z|2026-09-14T07:23:19.191Z
+
+  
+  provider-run-sha256:2740ede5a7c2c57009035f801900e1529eafc688115c8e59977a4e6fe89b29ca|config-e6aec696ae4ce4798b2bc37b|gemini-embed|gemini-embedding-2|7d28357cd68e62a7b8c355085c952ecbd3ba6dbb8e7d801ae6d62d14ef9afaed|succeeded|24|0|1|2026-09-14T07:23:19.175Z|2026-09-14T07:23:19.175Z|local-compute|||-1|-1||0|work-item
+
+  
+  provider-run-sha256:f0aca167912d0cc374d651da52cfca8459bd6c14fef07d57388933fb19ca3629|config-e6aec696ae4ce4798b2bc37b|gemini-embed|gemini-embedding-2|1e10e83f4e51eb0d20ee8a7b9d9d6a5ff5a28cc2eff017a4f676e771fcc0fb80|succeeded|24|0|0|2026-09-14T07:23:19.191Z|2026-09-14T07:23:19.191Z|local-compute|||-1|-1||0|work-item
+
+  
+  provider-run-sha256:fcc1a50698ce5e83a56a8da18c5d6081f5c33cb43320bc9f7394e44da838b680|config-e6aec696ae4ce4798b2bc37b|codex-extract|default|ee7f7130351fdf8bfd1f8b6bcc1e30f872d748acd25a19a6834f13ee8fbce372|succeeded|20000|4|0|2026-09-14T07:23:19.357Z|2026-09-14T07:23:21.384Z|subscription-allowance|fixture-thread|fixture-turn|12|12||0|work-item',
+  got
+  'item-sha256:24f75af0a6ffb82af8301c180183786d5c8f41d2e3451876a727101e757fdcba#attempt-1|item-sha256:24f75af0a6ffb82af8301c180183786d5c8f41d2e3451876a727101e757fdcba|worker-7e1036603347e9ffb5dfede40f2dc6ba|1|8bc8b620fe0a8267f47f79abe2825c85f0cfad1675a45e44c035041a35f4abab|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:2740ede5a7c2c57009035f801900e1529eafc688115c8e59977a4e6fe89b29ca|validated-embedding|succeeded|2026-09-14T07:23:19.154Z|2026-09-14T07:23:19.176Z
+
+  
+  item-sha256:3e2ea3e81434b1e7c7d340461253afb8fda886c7dff0d2d21206ddc05e8753cc#attempt-1|item-sha256:3e2ea3e81434b1e7c7d340461253afb8fda886c7dff0d2d21206ddc05e8753cc|worker-7e1036603347e9ffb5dfede40f2dc6ba|1|d85bb99f368ee0b44299f947b14684379d79d257a1f3c78d1dbb5fb82a49a0ae|a1b99c9254dc3269600b261557775c7a02ab900daa688a21d4efd16d41ccad70|provider-run-sha256:fcc1a50698ce5e83a56a8da18c5d6081f5c33cb43320bc9f7394e44da838b680|validated-discovery-batch|succeeded|2026-09-14T07:23:19.193Z|2026-09-14T07:23:21.388Z
+
+  
+  item-sha256:71119661588ff2e771703587b517b9337ba0b186e01dddbb2f11a0e244f12afa#attempt-1|item-sha256:71119661588ff2e771703587b517b9337ba0b186e01dddbb2f11a0e244f12afa|worker-7e1036603347e9ffb5dfede40f2dc6ba|1|7425979c487450e83869532a643e702509b3187aba31c746af1cc8d179421ae3|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:f0aca167912d0cc374d651da52cfca8459bd6c14fef07d57388933fb19ca3629|validated-embedding|succeeded|2026-09-14T07:23:19.178Z|2026-09-14T07:23:19.191Z
+
+  
+  item-sha256:a76f56cad064280e41cf697f1c3c9128389656bde6d5ab35e169b4de440eef80#attempt-1|item-sha256:a76f56cad064280e41cf697f1c3c9128389656bde6d5ab35e169b4de440eef80|worker-d639f0950cc939ba7524ee4f66092721|1|fb782684fa07b490b697fb05bcca92eaebed74c0a1e0f1d5539bc9429b4965e3|a1b99c9254dc3269600b261557775c7a02ab900daa688a21d4efd16d41ccad70|provider-run-sha256:26d851f86c8801c592622ae6a948a1b126730a930c26edd32df87405d4d36be0|validated-discovery-batch|succeeded|2026-09-14T07:23:24.148Z|2026-09-14T07:23:26.197Z
+
+  
+  provider-run-sha256:26d851f86c8801c592622ae6a948a1b126730a930c26edd32df87405d4d36be0|config-e6aec696ae4ce4798b2bc37b|codex-extract|default|b09b023ebb763a868ff1d804ad4175b26b6409ec7999ced05daf9eed8b8657bf|succeeded|20000|4|0|2026-09-14T07:23:24.169Z|2026-09-14T07:23:26.193Z|subscription-allowance|fixture-thread|fixture-turn|12|12||0|work-item
+
+  
+  provider-run-sha256:2740ede5a7c2c57009035f801900e1529eafc688115c8e59977a4e6fe89b29ca|config-e6aec696ae4ce4798b2bc37b|gemini-embed|gemini-embedding-2|7d28357cd68e62a7b8c355085c952ecbd3ba6dbb8e7d801ae6d62d14ef9afaed|succeeded|24|0|1|2026-09-14T07:23:19.175Z|2026-09-14T07:23:19.175Z|local-compute|||-1|-1||0|work-item
+
+  
+  provider-run-sha256:f0aca167912d0cc374d651da52cfca8459bd6c14fef07d57388933fb19ca3629|config-e6aec696ae4ce4798b2bc37b|gemini-embed|gemini-embedding-2|1e10e83f4e51eb0d20ee8a7b9d9d6a5ff5a28cc2eff017a4f676e771fcc0fb80|succeeded|24|0|0|2026-09-14T07:23:19.191Z|2026-09-14T07:23:19.191Z|local-compute|||-1|-1||0|work-item
+
+  
+  provider-run-sha256:fcc1a50698ce5e83a56a8da18c5d6081f5c33cb43320bc9f7394e44da838b680|config-e6aec696ae4ce4798b2bc37b|codex-extract|default|ee7f7130351fdf8bfd1f8b6bcc1e30f872d748acd25a19a6834f13ee8fbce372|succeeded|20000|4|0|2026-09-14T07:23:19.357Z|2026-09-14T07:23:21.384Z|subscription-allowance|fixture-thread|fixture-turn|12|12||0|work-item'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:100 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  worker-exit: job outcome separates required work from optional cleanup:
+  expected '8', got '0'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:93 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  worker-exit: ordinary completion retry: expected '0', got '6'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:98 (expect)
+
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+provider         =  26.19 sec*proc (1 test)
+publication      =  26.19 sec*proc (1 test)
+recovery         =  26.19 sec*proc (1 test)
+worker           =  26.19 sec*proc (1 test)
+zero-outbound    =  26.19 sec*proc (1 test)
+
+Total Test time (real) =  26.20 sec
+
+The following tests FAILED:
+	 47 - test2_completion (Failed)                         provider publication recovery worker zero-outbound
+Errors while running CTest

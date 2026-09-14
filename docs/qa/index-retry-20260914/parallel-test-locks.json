@@ -1,0 +1,246 @@
+{
+  "parallel": 2,
+  "locks": {
+    "regression_policy_file": [
+      "index_retry_work_1390546308c1ef8e"
+    ],
+    "regression_command_metadata": [
+      "index_retry_work_00dd52633a8fe959"
+    ],
+    "regression_command_arguments": [
+      "index_retry_work_186e2c208c296d57"
+    ],
+    "regression_operator_diagnostics": [
+      "index_retry_work_ac2f4876ee855e27"
+    ],
+    "regression_smoke_stale_workers": [
+      "index_retry_work_9212aace0d2ee418"
+    ],
+    "regression_smoke_terminal_state": [
+      "index_retry_work_b116b56a4179425e"
+    ],
+    "regression_rule_simplification": [
+      "index_retry_work_501ed4b193b82b7c"
+    ],
+    "regression_prompt_inspection": [
+      "index_retry_work_51d405e262f37760"
+    ],
+    "regression_prompt_contract": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_bb13abf27edb39ec"
+    ],
+    "regression_policy_file_vm": [
+      "index_retry_work_35931ee10afbed0f"
+    ],
+    "regression_command_catalogue": [
+      "index_retry_work_1c33cd96d13d2c0d"
+    ],
+    "regression_claim_policy": [
+      "index_retry_work_9e3f3659368fcde6"
+    ],
+    "native_lifecycle": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_35cf6f866a031958"
+    ],
+    "linked_application": [
+      "index_retry_work_361fcb6fefb83119"
+    ],
+    "configuration_contract": [
+      "index_retry_work_ffccdc0bac9920d0"
+    ],
+    "regression_supervision": [
+      "index_retry_work_00abd183e23e1da9"
+    ],
+    "native_supervision": [
+      "index_retry_work_ca45e99012e3a07d"
+    ],
+    "process_workers": [
+      "index_retry_work_511fc622e5a02077"
+    ],
+    "gemini_ingestion": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_2c0b8660cdb52396"
+    ],
+    "gemini_extraction_validation": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_7befe4b21401c6ce"
+    ],
+    "provider_durability": [
+      "index_retry_work_06f9e73e41d54b01"
+    ],
+    "codex_protocol": [
+      "index_retry_work_e7ccb0434bf4b2b3"
+    ],
+    "codex_application": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_dbae75093a23df93"
+    ],
+    "worker_recovery": [
+      "index_retry_work_2d023b4962a66415"
+    ],
+    "controller_recovery": [
+      "index_retry_work_93af7223d2c18faf"
+    ],
+    "gemini_maintenance": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_4ebe25199b68bd43"
+    ],
+    "gemini_query": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_9a90b751e01b97ec"
+    ],
+    "query_policy": [
+      "index_retry_work_fcee5c604702b00e"
+    ],
+    "ann_methodology": [
+      "index_retry_work_71b493d7fa4f38b2"
+    ],
+    "lifecycle_methodology": [
+      "index_retry_work_520597080428c240"
+    ],
+    "evidence_methodology": [
+      "index_retry_work_25df9a38ebb7bf13"
+    ],
+    "maintenance_methodology": [
+      "index_retry_work_5e739ebd0dcf7164"
+    ],
+    "native_surfaces": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_bad1916c7818bdb5"
+    ],
+    "address_surface": [
+      "index_retry_work_95a20081616a6636"
+    ],
+    "regression_result_contract": [
+      "index_retry_work_61d5eda42c582a09"
+    ],
+    "gemini_provider_smoke": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_a220b12103936915"
+    ],
+    "installed_product": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_85506cfac8ab2b45"
+    ],
+    "documentation_contract": [
+      "index_retry_work_a5b33b7d04613abb"
+    ],
+    "local_embedding_protocol": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_0e0d49eeb1314943"
+    ],
+    "quotation_grounding": [
+      "index_retry_work_05205938ab17fbf4"
+    ],
+    "temporal_provenance": [
+      "index_retry_work_a123777d2065ab26"
+    ],
+    "durable_backlog": [
+      "index_retry_work_a4a92202e2c6c8eb"
+    ],
+    "durable_backlog_provider": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_fcf6c4e257aa3e04"
+    ],
+    "publication": [
+      "index_retry_work_c42f33c95d5569a4"
+    ],
+    "native_publication": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_68439245cd5151d0"
+    ],
+    "embedding_recovery": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_b9bdf3ece3097db1"
+    ],
+    "test2_completion": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_a5fd49f2d1a6e3be"
+    ],
+    "embedding_publication": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_6f050bdf7fc9c461"
+    ],
+    "embedding_exhaustion": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_0e5b1d271739efed"
+    ],
+    "native_receipt_failure": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_b2fb5c9f27fc1ca2"
+    ],
+    "native_receipts": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_827f7c3e57c217c4"
+    ],
+    "native_interruption": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_c8c6a2bdd324a22b"
+    ],
+    "regression_controller_loss": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_70cf5ed04ecd028d"
+    ],
+    "regression_restart_live": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_f167462b56a555c4"
+    ],
+    "regression_pages": [
+      "index_retry_work_4e83ba3bdd3bab36"
+    ],
+    "regression_page_max": [
+      "index_retry_work_593a134b659531e9"
+    ],
+    "regression_large_job": [
+      "index_retry_work_3743e30c665558ee"
+    ],
+    "regression_plan_detail": [
+      "index_retry_work_c49ebac2dc69218a"
+    ],
+    "regression_retry": [
+      "index_retry_work_7b1361942a83d10d"
+    ],
+    "regression_closed_retry": [
+      "index_retry_work_72d4d59e19b2635f"
+    ],
+    "regression_retrieval": [
+      "index_retry_work_8473c7400d231ed5"
+    ],
+    "regression_retrieval_unicode": [
+      "index_retry_work_3bfce5cc75115365"
+    ],
+    "regression_ingest_capacity": [
+      "index_retry_work_8ff8a547bf9f6085"
+    ],
+    "native_admission": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_9eb61a35f5763282"
+    ],
+    "regression_lifecycle": [
+      "index_retry_work_8ee567015c610122"
+    ],
+    "native_lifecycle_holds": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_3935c47af7850632"
+    ],
+    "native_continuation": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_da11a1ca2ee887a4"
+    ],
+    "native_legacy_retry_ceiling": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_731dd2112dc57b23"
+    ],
+    "native_continuation_holds": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_c9d38fb77ed9d29f"
+    ],
+    "native_embedding_retry_policy": [
+      "index_retry_tcp_fixture",
+      "index_retry_work_c8481d6e22963347"
+    ],
+    "regression_sql_performance": [
+      "index_retry_work_8f32351e24803d6c"
+    ]
+  }
+}

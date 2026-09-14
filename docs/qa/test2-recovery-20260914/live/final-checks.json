@@ -1,0 +1,21 @@
+{
+  "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+  "processed": 4,
+  "new_calls": 4,
+  "embedding_calls": 2,
+  "codex_turns": 2,
+  "cost_microunits": 49,
+  "old_sources_unchanged": true,
+  "historical_missing_ids": [
+    "occurrence-sha256:1badd12715a168952afb2ff9e9dfdeb924412c86d0f590c44d21808eddc392fb",
+    "occurrence-sha256:1c0ada1159b0461af38de9a49ec7b51da0becc57f144947e3233e849421e05a6",
+    "occurrence-sha256:1cf24db0072c2c26331472c7461519c8a3ca92b51a31a6ddda4f7ba979ade96a",
+    "occurrence-sha256:1d095f462902a4a96e5d7adb34249eacba4232fcb80e4ece903ca9e315d3637b",
+    "occurrence-sha256:1d64b87d3a4ceee948221bd859df404e029bda72cc4551fdd71a1073872bf45e"
+  ],
+  "retry_receipts_unchanged": true,
+  "retry_attempts_unchanged": true,
+  "reserved": 0,
+  "vector_rows": 34902,
+  "generation": 24925
+}

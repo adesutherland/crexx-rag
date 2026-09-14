@@ -1,0 +1,28 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 29: ann_methodology
+1/1 Test #29: ann_methodology ..................***Failed    2.97 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/AnnMethodology.cmake:50 (message):
+  rxvme ANN methodology scenario failed:
+
+  ANN_METHODOLOGY_FAIL=publication past a rolled-back generation invalidates
+  retained intervals
+
+
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+ann          =   2.97 sec*proc (1 test)
+recall       =   2.97 sec*proc (1 test)
+retrieval    =   2.97 sec*proc (1 test)
+rxvector     =   2.97 sec*proc (1 test)
+sqlite       =   2.97 sec*proc (1 test)
+tamper       =   2.97 sec*proc (1 test)
+
+Total Test time (real) =   2.97 sec
+
+The following tests FAILED:
+	 29 - ann_methodology (Failed)                          ann recall retrieval rxvector sqlite tamper
+Errors while running CTest

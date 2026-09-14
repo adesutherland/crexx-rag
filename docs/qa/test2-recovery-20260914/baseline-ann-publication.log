@@ -1,0 +1,443 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 29: ann_methodology
+1/3 Test #29: ann_methodology ..................***Failed    2.77 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/AnnMethodology.cmake:50 (message):
+  rxvme ANN methodology scenario failed:
+
+  ANN_METHODOLOGY_FAIL=remaining indexed members stay searchable after one
+  removal
+
+  ANN_METHODOLOGY_FAIL=remaining vector yields evidence after removal
+
+  ANN_METHODOLOGY_FAIL=unembedded source change retains ancestral indexed
+  coverage
+
+  ANN_METHODOLOGY_FAIL=unrelated pending work preserves vector search
+
+  ANN_METHODOLOGY_FAIL=previously indexed evidence remains available
+
+
+
+
+    Start 47: test2_completion
+2/3 Test #47: test2_completion .................***Failed   19.64 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  normal: job outcome separates required work from optional cleanup: expected
+  '0', got '8'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:91 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  normal: completed work, index and settled usage: expected '4:4:1:0', got
+  '2:2:0:0'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:93 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  normal: ordinary completion retry: expected '0', got '8'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:96 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  normal: retry preserves receipts and makes no calls: expected
+  'item-sha256:2ae9b15dd96a3ceb14b9968e5a1ad59c1839a36fb9a474da22c677295769cd19#attempt-1|item-sha256:2ae9b15dd96a3ceb14b9968e5a1ad59c1839a36fb9a474da22c677295769cd19|worker-4dd7084b9ac9919e9fe974affbb2823b|1|ba2fd21607a47481c3afa71ee6ca97bc0fef5878b76c7ca400c31c028f296b5b|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:e3553a456b3aa7bd9c5543bccd9b20a9056d4b352f969d10a70e588c4957fb7f|validated-embedding|succeeded|2026-09-14T07:22:14.123Z|2026-09-14T07:22:14.144Z
+
+  
+  item-sha256:57876ac76adb2b3acb88e91f2a6814a8182797bcd003626eb928d19bc71cb80b#attempt-1|item-sha256:57876ac76adb2b3acb88e91f2a6814a8182797bcd003626eb928d19bc71cb80b|worker-4dd7084b9ac9919e9fe974affbb2823b|1|d13678476edf142ee5e3c54ab61216183a0f3eb75bc1ac26f99c085b624d7291||provider-run-sha256:a0baa0271fa9fa2c358bce74633e74fc083010d0aa91f6113bbc8d9a74682a09|provider
+  mention evidence quotation is not in the
+  chunk|failed|2026-09-14T07:22:14.160Z|2026-09-14T07:22:14.577Z
+
+  
+  item-sha256:57876ac76adb2b3acb88e91f2a6814a8182797bcd003626eb928d19bc71cb80b#attempt-2|item-sha256:57876ac76adb2b3acb88e91f2a6814a8182797bcd003626eb928d19bc71cb80b|worker-4dd7084b9ac9919e9fe974affbb2823b|2|d13678476edf142ee5e3c54ab61216183a0f3eb75bc1ac26f99c085b624d7291|||provider
+  output-token budget
+  exhausted|dead_letter|2026-09-14T07:22:14.578Z|2026-09-14T07:22:14.579Z
+
+  
+  item-sha256:64eac79b396db9db59ddf8e73476215c34d97894647f4079c21596ab80d9bef9#attempt-1|item-sha256:64eac79b396db9db59ddf8e73476215c34d97894647f4079c21596ab80d9bef9|worker-4dd7084b9ac9919e9fe974affbb2823b|1|d116938927e021c4e085594c8a5f1298f7e8be7ced44e3be2b90098814fe0332|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:37c91baa144615c2c72517d639ac8f0893faf0db9c8cc42982156d3a2f2963c9|validated-embedding|succeeded|2026-09-14T07:22:14.146Z|2026-09-14T07:22:14.159Z
+
+  
+  provider-run-sha256:37c91baa144615c2c72517d639ac8f0893faf0db9c8cc42982156d3a2f2963c9|config-91975056d30982ca25dbd1d3|gemini-embed|gemini-embedding-2|7e8f5f472f8ff9f3c138099f5ce9a3b321256cb12c909813c5b0a5366b0eadf1|succeeded|24|0|0|2026-09-14T07:22:14.158Z|2026-09-14T07:22:14.158Z|local-compute|||-1|-1||0|work-item
+
+  
+  provider-run-sha256:a0baa0271fa9fa2c358bce74633e74fc083010d0aa91f6113bbc8d9a74682a09|config-91975056d30982ca25dbd1d3|codex-extract|default|c86b49d9a5fc20c4079a3b7204a391788debcfaf6bf46242de53e2e122a9ef8c|failed|20000|4|0|2026-09-14T07:22:14.563Z|2026-09-14T07:22:14.577Z|subscription-allowance|fixture-thread|fixture-turn|12|12|{"schema":"crexx-rag.rejected-output/1","input_hash":"d13678476edf142ee5e3c54ab61216183a0f3eb75bc1ac26f99c085b624d7291","error":"provider
+  mention evidence quotation is not in the
+  chunk","output_sha256":"093d9431c8cfae3193b4a5d97e70b310089c91022c2b3ebd588f4bf469241541","output_bytes":1036,"omitted":"","content":"{\"mentions\":[{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"BillingService\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"CustomerDatabase\",\"aliases\":[]},{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"aliases\":[]}],\"relationships\":[{\"source_mention\":0,\"relationship_type\":\"depends-on\",\"target_mention\":1,\"evidence_quote\":\"BillingService
+  depends on
+  CustomerDatabase.\",\"confidence_millionths\":940000},{\"source_mention\":2,\"relationship_type\":\"depends-on\",\"target_mention\":3,\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"confidence_millionths\":930000}],\"notes\":[]}"}|0|work-item
+
+  
+  provider-run-sha256:e3553a456b3aa7bd9c5543bccd9b20a9056d4b352f969d10a70e588c4957fb7f|config-91975056d30982ca25dbd1d3|gemini-embed|gemini-embedding-2|91c7edeb99ba508523d4c734b905b8f5e9a38d938ea692630ed0a558de533bc0|succeeded|24|0|2|2026-09-14T07:22:14.143Z|2026-09-14T07:22:14.143Z|local-compute|||-1|-1||0|work-item',
+  got
+  'item-sha256:2ae9b15dd96a3ceb14b9968e5a1ad59c1839a36fb9a474da22c677295769cd19#attempt-1|item-sha256:2ae9b15dd96a3ceb14b9968e5a1ad59c1839a36fb9a474da22c677295769cd19|worker-4dd7084b9ac9919e9fe974affbb2823b|1|ba2fd21607a47481c3afa71ee6ca97bc0fef5878b76c7ca400c31c028f296b5b|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:e3553a456b3aa7bd9c5543bccd9b20a9056d4b352f969d10a70e588c4957fb7f|validated-embedding|succeeded|2026-09-14T07:22:14.123Z|2026-09-14T07:22:14.144Z
+
+  
+  item-sha256:57876ac76adb2b3acb88e91f2a6814a8182797bcd003626eb928d19bc71cb80b#attempt-1|item-sha256:57876ac76adb2b3acb88e91f2a6814a8182797bcd003626eb928d19bc71cb80b|worker-4dd7084b9ac9919e9fe974affbb2823b|1|d13678476edf142ee5e3c54ab61216183a0f3eb75bc1ac26f99c085b624d7291||provider-run-sha256:a0baa0271fa9fa2c358bce74633e74fc083010d0aa91f6113bbc8d9a74682a09|provider
+  mention evidence quotation is not in the
+  chunk|failed|2026-09-14T07:22:14.160Z|2026-09-14T07:22:14.577Z
+
+  
+  item-sha256:57876ac76adb2b3acb88e91f2a6814a8182797bcd003626eb928d19bc71cb80b#attempt-2|item-sha256:57876ac76adb2b3acb88e91f2a6814a8182797bcd003626eb928d19bc71cb80b|worker-4dd7084b9ac9919e9fe974affbb2823b|2|d13678476edf142ee5e3c54ab61216183a0f3eb75bc1ac26f99c085b624d7291|||provider
+  output-token budget
+  exhausted|dead_letter|2026-09-14T07:22:14.578Z|2026-09-14T07:22:14.579Z
+
+  
+  item-sha256:64eac79b396db9db59ddf8e73476215c34d97894647f4079c21596ab80d9bef9#attempt-1|item-sha256:64eac79b396db9db59ddf8e73476215c34d97894647f4079c21596ab80d9bef9|worker-4dd7084b9ac9919e9fe974affbb2823b|1|d116938927e021c4e085594c8a5f1298f7e8be7ced44e3be2b90098814fe0332|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:37c91baa144615c2c72517d639ac8f0893faf0db9c8cc42982156d3a2f2963c9|validated-embedding|succeeded|2026-09-14T07:22:14.146Z|2026-09-14T07:22:14.159Z
+
+  
+  item-sha256:e942f3df3fe6bce11dbe79e1eecdfd3edfc5fec1c2250dddeb637cba4571dbbd#attempt-1|item-sha256:e942f3df3fe6bce11dbe79e1eecdfd3edfc5fec1c2250dddeb637cba4571dbbd|worker-d4749143f283ba8a065837c014e86eb3|1|d53ecdb16804f566f1c1cd1efb4ca482a9691b6acc14cff92b17ecf4a0a7e268|||provider
+  output-token budget
+  exhausted|failed|2026-09-14T07:22:15.079Z|2026-09-14T07:22:15.080Z
+
+  
+  provider-run-sha256:37c91baa144615c2c72517d639ac8f0893faf0db9c8cc42982156d3a2f2963c9|config-91975056d30982ca25dbd1d3|gemini-embed|gemini-embedding-2|7e8f5f472f8ff9f3c138099f5ce9a3b321256cb12c909813c5b0a5366b0eadf1|succeeded|24|0|0|2026-09-14T07:22:14.158Z|2026-09-14T07:22:14.158Z|local-compute|||-1|-1||0|work-item
+
+  
+  provider-run-sha256:a0baa0271fa9fa2c358bce74633e74fc083010d0aa91f6113bbc8d9a74682a09|config-91975056d30982ca25dbd1d3|codex-extract|default|c86b49d9a5fc20c4079a3b7204a391788debcfaf6bf46242de53e2e122a9ef8c|failed|20000|4|0|2026-09-14T07:22:14.563Z|2026-09-14T07:22:14.577Z|subscription-allowance|fixture-thread|fixture-turn|12|12|{"schema":"crexx-rag.rejected-output/1","input_hash":"d13678476edf142ee5e3c54ab61216183a0f3eb75bc1ac26f99c085b624d7291","error":"provider
+  mention evidence quotation is not in the
+  chunk","output_sha256":"093d9431c8cfae3193b4a5d97e70b310089c91022c2b3ebd588f4bf469241541","output_bytes":1036,"omitted":"","content":"{\"mentions\":[{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"BillingService\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"CustomerDatabase\",\"aliases\":[]},{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"aliases\":[]}],\"relationships\":[{\"source_mention\":0,\"relationship_type\":\"depends-on\",\"target_mention\":1,\"evidence_quote\":\"BillingService
+  depends on
+  CustomerDatabase.\",\"confidence_millionths\":940000},{\"source_mention\":2,\"relationship_type\":\"depends-on\",\"target_mention\":3,\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"confidence_millionths\":930000}],\"notes\":[]}"}|0|work-item
+
+  
+  provider-run-sha256:e3553a456b3aa7bd9c5543bccd9b20a9056d4b352f969d10a70e588c4957fb7f|config-91975056d30982ca25dbd1d3|gemini-embed|gemini-embedding-2|91c7edeb99ba508523d4c734b905b8f5e9a38d938ea692630ed0a558de533bc0|succeeded|24|0|2|2026-09-14T07:22:14.143Z|2026-09-14T07:22:14.143Z|local-compute|||-1|-1||0|work-item'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:98 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  optional-refresh: job outcome separates required work from optional
+  cleanup: expected '0', got '8'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:91 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  optional-refresh: completed work, index and settled usage: expected
+  '4:4:1:0', got '2:2:0:0'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:93 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  optional-refresh: ordinary completion retry: expected '0', got '8'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:96 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  optional-refresh: retry preserves receipts and makes no calls: expected
+  'item-sha256:4ee6d44a6222d2b23a7f0212505bb991d71bf6fb4406b80d5f0d678ddec530e2#attempt-1|item-sha256:4ee6d44a6222d2b23a7f0212505bb991d71bf6fb4406b80d5f0d678ddec530e2|worker-3f369b05952a4b078ece90188a4ec7f6|1|3c97bd7946a4c4ea6afa382f23c90612a9861553b1ba82890a4bec6860b668be||provider-run-sha256:d7bbc909796e2dbae452c71aa4b20afd964946d4e53174086d700f60235d6465|provider
+  mention evidence quotation is not in the
+  chunk|failed|2026-09-14T07:22:17.158Z|2026-09-14T07:22:19.357Z
+
+  
+  item-sha256:6e7dcd5ec08bbf29cc8a1655e7c8d1aaebd562837925a5c049b6f0525349f7dc#attempt-1|item-sha256:6e7dcd5ec08bbf29cc8a1655e7c8d1aaebd562837925a5c049b6f0525349f7dc|worker-3f369b05952a4b078ece90188a4ec7f6|1|229aaf18cad89c0c5d9f3a426d59dc813021f32e76278dc19f3fbfa547db2161|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:fffecc9138fc8e3db04e3cdc2d86f47f91e20e897038982097980e24677153b5|validated-embedding|succeeded|2026-09-14T07:22:17.122Z|2026-09-14T07:22:17.142Z
+
+  
+  item-sha256:eb4f147a3c9f993c129ab5cf3742a9396bc2d997b39036d40dd397ff92992b71#attempt-1|item-sha256:eb4f147a3c9f993c129ab5cf3742a9396bc2d997b39036d40dd397ff92992b71|worker-3f369b05952a4b078ece90188a4ec7f6|1|07f5aea6ceafc88e42efc62beb5df14af92b1add363600c021cee15413e8f7a9|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:55c7ad29893639d21a2c06b97f03bb4357a010241b7738b70cfb613679732ec5|validated-embedding|succeeded|2026-09-14T07:22:17.143Z|2026-09-14T07:22:17.157Z
+
+  
+  provider-run-sha256:55c7ad29893639d21a2c06b97f03bb4357a010241b7738b70cfb613679732ec5|config-1c675671344c223f1c0a6a17|gemini-embed|gemini-embedding-2|b014234298fd8e30abca734ef4b39bb31d76e26f3f5b144e08e5dc9ef3396bd5|succeeded|24|0|0|2026-09-14T07:22:17.156Z|2026-09-14T07:22:17.156Z|local-compute|||-1|-1||0|work-item
+
+  
+  provider-run-sha256:d7bbc909796e2dbae452c71aa4b20afd964946d4e53174086d700f60235d6465|config-1c675671344c223f1c0a6a17|codex-extract|default|ec8f60ec463ae792636d0478630758c194c118ff4c8611f6b5b597e3a4a04a17|failed|20000|4|0|2026-09-14T07:22:17.328Z|2026-09-14T07:22:19.356Z|subscription-allowance|fixture-thread|fixture-turn|12|-1|{"schema":"crexx-rag.rejected-output/1","input_hash":"3c97bd7946a4c4ea6afa382f23c90612a9861553b1ba82890a4bec6860b668be","error":"provider
+  mention evidence quotation is not in the
+  chunk","output_sha256":"093d9431c8cfae3193b4a5d97e70b310089c91022c2b3ebd588f4bf469241541","output_bytes":1036,"omitted":"","content":"{\"mentions\":[{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"BillingService\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"CustomerDatabase\",\"aliases\":[]},{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"aliases\":[]}],\"relationships\":[{\"source_mention\":0,\"relationship_type\":\"depends-on\",\"target_mention\":1,\"evidence_quote\":\"BillingService
+  depends on
+  CustomerDatabase.\",\"confidence_millionths\":940000},{\"source_mention\":2,\"relationship_type\":\"depends-on\",\"target_mention\":3,\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"confidence_millionths\":930000}],\"notes\":[]}"}|0|work-item
+
+  
+  provider-run-sha256:fffecc9138fc8e3db04e3cdc2d86f47f91e20e897038982097980e24677153b5|config-1c675671344c223f1c0a6a17|gemini-embed|gemini-embedding-2|d914432806954ba54672e5443ba8c40d128224172b94d9382f72ee11b51285fa|succeeded|24|0|0|2026-09-14T07:22:17.141Z|2026-09-14T07:22:17.141Z|local-compute|||-1|-1||0|work-item',
+  got
+  'item-sha256:4ee6d44a6222d2b23a7f0212505bb991d71bf6fb4406b80d5f0d678ddec530e2#attempt-1|item-sha256:4ee6d44a6222d2b23a7f0212505bb991d71bf6fb4406b80d5f0d678ddec530e2|worker-3f369b05952a4b078ece90188a4ec7f6|1|3c97bd7946a4c4ea6afa382f23c90612a9861553b1ba82890a4bec6860b668be||provider-run-sha256:d7bbc909796e2dbae452c71aa4b20afd964946d4e53174086d700f60235d6465|provider
+  mention evidence quotation is not in the
+  chunk|failed|2026-09-14T07:22:17.158Z|2026-09-14T07:22:19.357Z
+
+  
+  item-sha256:4ee6d44a6222d2b23a7f0212505bb991d71bf6fb4406b80d5f0d678ddec530e2#attempt-2|item-sha256:4ee6d44a6222d2b23a7f0212505bb991d71bf6fb4406b80d5f0d678ddec530e2|worker-267362c5c60e9fef3e185e18066b1b56|2|3c97bd7946a4c4ea6afa382f23c90612a9861553b1ba82890a4bec6860b668be|||provider
+  output-token budget
+  exhausted|dead_letter|2026-09-14T07:22:22.101Z|2026-09-14T07:22:22.104Z
+
+  
+  item-sha256:6e7dcd5ec08bbf29cc8a1655e7c8d1aaebd562837925a5c049b6f0525349f7dc#attempt-1|item-sha256:6e7dcd5ec08bbf29cc8a1655e7c8d1aaebd562837925a5c049b6f0525349f7dc|worker-3f369b05952a4b078ece90188a4ec7f6|1|229aaf18cad89c0c5d9f3a426d59dc813021f32e76278dc19f3fbfa547db2161|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:fffecc9138fc8e3db04e3cdc2d86f47f91e20e897038982097980e24677153b5|validated-embedding|succeeded|2026-09-14T07:22:17.122Z|2026-09-14T07:22:17.142Z
+
+  
+  item-sha256:eb4f147a3c9f993c129ab5cf3742a9396bc2d997b39036d40dd397ff92992b71#attempt-1|item-sha256:eb4f147a3c9f993c129ab5cf3742a9396bc2d997b39036d40dd397ff92992b71|worker-3f369b05952a4b078ece90188a4ec7f6|1|07f5aea6ceafc88e42efc62beb5df14af92b1add363600c021cee15413e8f7a9|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:55c7ad29893639d21a2c06b97f03bb4357a010241b7738b70cfb613679732ec5|validated-embedding|succeeded|2026-09-14T07:22:17.143Z|2026-09-14T07:22:17.157Z
+
+  
+  provider-run-sha256:55c7ad29893639d21a2c06b97f03bb4357a010241b7738b70cfb613679732ec5|config-1c675671344c223f1c0a6a17|gemini-embed|gemini-embedding-2|b014234298fd8e30abca734ef4b39bb31d76e26f3f5b144e08e5dc9ef3396bd5|succeeded|24|0|0|2026-09-14T07:22:17.156Z|2026-09-14T07:22:17.156Z|local-compute|||-1|-1||0|work-item
+
+  
+  provider-run-sha256:d7bbc909796e2dbae452c71aa4b20afd964946d4e53174086d700f60235d6465|config-1c675671344c223f1c0a6a17|codex-extract|default|ec8f60ec463ae792636d0478630758c194c118ff4c8611f6b5b597e3a4a04a17|failed|20000|4|0|2026-09-14T07:22:17.328Z|2026-09-14T07:22:19.356Z|subscription-allowance|fixture-thread|fixture-turn|12|-1|{"schema":"crexx-rag.rejected-output/1","input_hash":"3c97bd7946a4c4ea6afa382f23c90612a9861553b1ba82890a4bec6860b668be","error":"provider
+  mention evidence quotation is not in the
+  chunk","output_sha256":"093d9431c8cfae3193b4a5d97e70b310089c91022c2b3ebd588f4bf469241541","output_bytes":1036,"omitted":"","content":"{\"mentions\":[{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"BillingService\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"CustomerDatabase\",\"aliases\":[]},{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"aliases\":[]}],\"relationships\":[{\"source_mention\":0,\"relationship_type\":\"depends-on\",\"target_mention\":1,\"evidence_quote\":\"BillingService
+  depends on
+  CustomerDatabase.\",\"confidence_millionths\":940000},{\"source_mention\":2,\"relationship_type\":\"depends-on\",\"target_mention\":3,\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"confidence_millionths\":930000}],\"notes\":[]}"}|0|work-item
+
+  
+  provider-run-sha256:fffecc9138fc8e3db04e3cdc2d86f47f91e20e897038982097980e24677153b5|config-1c675671344c223f1c0a6a17|gemini-embed|gemini-embedding-2|d914432806954ba54672e5443ba8c40d128224172b94d9382f72ee11b51285fa|succeeded|24|0|0|2026-09-14T07:22:17.141Z|2026-09-14T07:22:17.141Z|local-compute|||-1|-1||0|work-item'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:98 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  optional-delete: job outcome separates required work from optional cleanup:
+  expected '0', got '8'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:91 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  optional-delete: completed work, index and settled usage: expected
+  '4:4:1:0', got '2:2:0:0'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:93 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  optional-delete: ordinary completion retry: expected '0', got '8'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:96 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  optional-delete: retry preserves receipts and makes no calls: expected
+  'item-sha256:1d4ffaab924f00847539d01667565f5e891ed776416a09346df9f4fcf72289a6#attempt-1|item-sha256:1d4ffaab924f00847539d01667565f5e891ed776416a09346df9f4fcf72289a6|worker-0f9f3b7f42b211e02c9fd5ce4958e2e3|1|efeb6ffb456de6dddd40e433c0241d20b980cdb0bcd1fb169f7fd2757280cc03||provider-run-sha256:ee81ce9badde49859dc0f707e8b84592a1714ceb240a843e51d157f0ca53ca98|provider
+  mention evidence quotation is not in the
+  chunk|failed|2026-09-14T07:22:24.197Z|2026-09-14T07:22:26.383Z
+
+  
+  item-sha256:7d39fce79760c50b03851cbcdf8eaf996e8a58f29fcb3c198a55cb58e7aade26#attempt-1|item-sha256:7d39fce79760c50b03851cbcdf8eaf996e8a58f29fcb3c198a55cb58e7aade26|worker-0f9f3b7f42b211e02c9fd5ce4958e2e3|1|c7a11564636872aab5b633fabb22edf816d1831c77dd1c6e226d64198d78cc1b|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:eaf9c62e172e0ef1c26c042c9c693ad4d0c0555dd1acc49496da3b4557f7d475|validated-embedding|succeeded|2026-09-14T07:22:24.160Z|2026-09-14T07:22:24.181Z
+
+  
+  item-sha256:a8570bdda7beb1b801506e9a3dae4346014a4af6cf2cdc9ae0e8ceb4865be240#attempt-1|item-sha256:a8570bdda7beb1b801506e9a3dae4346014a4af6cf2cdc9ae0e8ceb4865be240|worker-0f9f3b7f42b211e02c9fd5ce4958e2e3|1|abb1da4923fe631f8036ce0da35c33dc375d3938843fc8205b0a651c5537339d|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:3a59d553d74ecb7e120a3e488f9a0eef4a9df8d842cf50f941150291f628eae8|validated-embedding|succeeded|2026-09-14T07:22:24.183Z|2026-09-14T07:22:24.196Z
+
+  
+  provider-run-sha256:3a59d553d74ecb7e120a3e488f9a0eef4a9df8d842cf50f941150291f628eae8|config-7f812f7ec73183b85c8f0f41|gemini-embed|gemini-embedding-2|131d072d2a280bb615c9db79a47a00318caadb2e188c4814037fe5fca9947947|succeeded|24|0|0|2026-09-14T07:22:24.196Z|2026-09-14T07:22:24.196Z|local-compute|||-1|-1||0|work-item
+
+  
+  provider-run-sha256:eaf9c62e172e0ef1c26c042c9c693ad4d0c0555dd1acc49496da3b4557f7d475|config-7f812f7ec73183b85c8f0f41|gemini-embed|gemini-embedding-2|62619fa1cb72541f3dd2a307c0a6f2544fcf0170273dd4aae59c32f9cc98e515|succeeded|24|0|0|2026-09-14T07:22:24.181Z|2026-09-14T07:22:24.181Z|local-compute|||-1|-1||0|work-item
+
+  
+  provider-run-sha256:ee81ce9badde49859dc0f707e8b84592a1714ceb240a843e51d157f0ca53ca98|config-7f812f7ec73183b85c8f0f41|codex-extract|default|09370c4f8e7cfeb4b5e8b0474e4ad192027e1a82080798b25e85eeb632a2bd2a|failed|20000|4|0|2026-09-14T07:22:24.357Z|2026-09-14T07:22:26.383Z|subscription-allowance|fixture-thread|fixture-turn|12|12|{"schema":"crexx-rag.rejected-output/1","input_hash":"efeb6ffb456de6dddd40e433c0241d20b980cdb0bcd1fb169f7fd2757280cc03","error":"provider
+  mention evidence quotation is not in the
+  chunk","output_sha256":"093d9431c8cfae3193b4a5d97e70b310089c91022c2b3ebd588f4bf469241541","output_bytes":1036,"omitted":"","content":"{\"mentions\":[{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"BillingService\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"CustomerDatabase\",\"aliases\":[]},{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"aliases\":[]}],\"relationships\":[{\"source_mention\":0,\"relationship_type\":\"depends-on\",\"target_mention\":1,\"evidence_quote\":\"BillingService
+  depends on
+  CustomerDatabase.\",\"confidence_millionths\":940000},{\"source_mention\":2,\"relationship_type\":\"depends-on\",\"target_mention\":3,\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"confidence_millionths\":930000}],\"notes\":[]}"}|0|work-item',
+  got
+  'item-sha256:1d4ffaab924f00847539d01667565f5e891ed776416a09346df9f4fcf72289a6#attempt-1|item-sha256:1d4ffaab924f00847539d01667565f5e891ed776416a09346df9f4fcf72289a6|worker-0f9f3b7f42b211e02c9fd5ce4958e2e3|1|efeb6ffb456de6dddd40e433c0241d20b980cdb0bcd1fb169f7fd2757280cc03||provider-run-sha256:ee81ce9badde49859dc0f707e8b84592a1714ceb240a843e51d157f0ca53ca98|provider
+  mention evidence quotation is not in the
+  chunk|failed|2026-09-14T07:22:24.197Z|2026-09-14T07:22:26.383Z
+
+  
+  item-sha256:1d4ffaab924f00847539d01667565f5e891ed776416a09346df9f4fcf72289a6#attempt-2|item-sha256:1d4ffaab924f00847539d01667565f5e891ed776416a09346df9f4fcf72289a6|worker-55faabc5241b71c8fd776231cc48bcab|2|efeb6ffb456de6dddd40e433c0241d20b980cdb0bcd1fb169f7fd2757280cc03|||provider
+  output-token budget
+  exhausted|dead_letter|2026-09-14T07:22:29.159Z|2026-09-14T07:22:29.162Z
+
+  
+  item-sha256:7d39fce79760c50b03851cbcdf8eaf996e8a58f29fcb3c198a55cb58e7aade26#attempt-1|item-sha256:7d39fce79760c50b03851cbcdf8eaf996e8a58f29fcb3c198a55cb58e7aade26|worker-0f9f3b7f42b211e02c9fd5ce4958e2e3|1|c7a11564636872aab5b633fabb22edf816d1831c77dd1c6e226d64198d78cc1b|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:eaf9c62e172e0ef1c26c042c9c693ad4d0c0555dd1acc49496da3b4557f7d475|validated-embedding|succeeded|2026-09-14T07:22:24.160Z|2026-09-14T07:22:24.181Z
+
+  
+  item-sha256:a8570bdda7beb1b801506e9a3dae4346014a4af6cf2cdc9ae0e8ceb4865be240#attempt-1|item-sha256:a8570bdda7beb1b801506e9a3dae4346014a4af6cf2cdc9ae0e8ceb4865be240|worker-0f9f3b7f42b211e02c9fd5ce4958e2e3|1|abb1da4923fe631f8036ce0da35c33dc375d3938843fc8205b0a651c5537339d|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:3a59d553d74ecb7e120a3e488f9a0eef4a9df8d842cf50f941150291f628eae8|validated-embedding|succeeded|2026-09-14T07:22:24.183Z|2026-09-14T07:22:24.196Z
+
+  
+  provider-run-sha256:3a59d553d74ecb7e120a3e488f9a0eef4a9df8d842cf50f941150291f628eae8|config-7f812f7ec73183b85c8f0f41|gemini-embed|gemini-embedding-2|131d072d2a280bb615c9db79a47a00318caadb2e188c4814037fe5fca9947947|succeeded|24|0|0|2026-09-14T07:22:24.196Z|2026-09-14T07:22:24.196Z|local-compute|||-1|-1||0|work-item
+
+  
+  provider-run-sha256:eaf9c62e172e0ef1c26c042c9c693ad4d0c0555dd1acc49496da3b4557f7d475|config-7f812f7ec73183b85c8f0f41|gemini-embed|gemini-embedding-2|62619fa1cb72541f3dd2a307c0a6f2544fcf0170273dd4aae59c32f9cc98e515|succeeded|24|0|0|2026-09-14T07:22:24.181Z|2026-09-14T07:22:24.181Z|local-compute|||-1|-1||0|work-item
+
+  
+  provider-run-sha256:ee81ce9badde49859dc0f707e8b84592a1714ceb240a843e51d157f0ca53ca98|config-7f812f7ec73183b85c8f0f41|codex-extract|default|09370c4f8e7cfeb4b5e8b0474e4ad192027e1a82080798b25e85eeb632a2bd2a|failed|20000|4|0|2026-09-14T07:22:24.357Z|2026-09-14T07:22:26.383Z|subscription-allowance|fixture-thread|fixture-turn|12|12|{"schema":"crexx-rag.rejected-output/1","input_hash":"efeb6ffb456de6dddd40e433c0241d20b980cdb0bcd1fb169f7fd2757280cc03","error":"provider
+  mention evidence quotation is not in the
+  chunk","output_sha256":"093d9431c8cfae3193b4a5d97e70b310089c91022c2b3ebd588f4bf469241541","output_bytes":1036,"omitted":"","content":"{\"mentions\":[{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"BillingService\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"CustomerDatabase\",\"aliases\":[]},{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"aliases\":[]}],\"relationships\":[{\"source_mention\":0,\"relationship_type\":\"depends-on\",\"target_mention\":1,\"evidence_quote\":\"BillingService
+  depends on
+  CustomerDatabase.\",\"confidence_millionths\":940000},{\"source_mention\":2,\"relationship_type\":\"depends-on\",\"target_mention\":3,\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"confidence_millionths\":930000}],\"notes\":[]}"}|0|work-item'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:98 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  worker-exit: completed work, index and settled usage: expected '4:4:1:0',
+  got '2:2:0:0'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:93 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  worker-exit: ordinary completion retry: expected '0', got '8'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:96 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:28 (message):
+  worker-exit: retry preserves receipts and makes no calls: expected
+  'item-sha256:2547d5f9ef6d3f97b9783bae6819212f810e4ccacd60cac9042171a429f251b2#attempt-1|item-sha256:2547d5f9ef6d3f97b9783bae6819212f810e4ccacd60cac9042171a429f251b2|worker-c5e8272ce9e2d2ff4edf57fd2dd74218|1|7b36dee386f6cb60f9daff228da549833a5b4d30875b4a28b4fbf204506ff069||provider-run-sha256:585d9305d80686c1e671559c7eab81aff5de3085d3256adc900c88f8ff80c862|provider
+  mention evidence quotation is not in the
+  chunk|failed|2026-09-14T07:22:31.164Z|2026-09-14T07:22:31.341Z
+
+  
+  item-sha256:2547d5f9ef6d3f97b9783bae6819212f810e4ccacd60cac9042171a429f251b2#attempt-2|item-sha256:2547d5f9ef6d3f97b9783bae6819212f810e4ccacd60cac9042171a429f251b2|worker-c5e8272ce9e2d2ff4edf57fd2dd74218|2|7b36dee386f6cb60f9daff228da549833a5b4d30875b4a28b4fbf204506ff069|||provider
+  output-token budget
+  exhausted|dead_letter|2026-09-14T07:22:31.342Z|2026-09-14T07:22:31.343Z
+
+  
+  item-sha256:b049a38ac559802479a1edd20d33d03f4284cc8fc5d56159d3d1b2e91103c377#attempt-1|item-sha256:b049a38ac559802479a1edd20d33d03f4284cc8fc5d56159d3d1b2e91103c377|worker-c5e8272ce9e2d2ff4edf57fd2dd74218|1|49ed7ddb3554e9e763bdaf96212ecff222474dcb607549c693e4d0d21f2e7bcb|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:30ae86a654a66e37a83c4963073a51363e9b059c543aa583ec2c9bb4e4a78e7a|validated-embedding|succeeded|2026-09-14T07:22:31.125Z|2026-09-14T07:22:31.146Z
+
+  
+  item-sha256:f446381c66ceb00088f6c515b2b6d4e33c580fea3fb73c06bc65b2ba94fae87f#attempt-1|item-sha256:f446381c66ceb00088f6c515b2b6d4e33c580fea3fb73c06bc65b2ba94fae87f|worker-c5e8272ce9e2d2ff4edf57fd2dd74218|1|853665a36f408f956b14e5ed32d4b9554c7484c139aa368e7d588419751e4918|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:e85d96d7cae945e99eee56f154ee07570c6201dad7d696f43fc6a1cb8cfb8a34|validated-embedding|succeeded|2026-09-14T07:22:31.148Z|2026-09-14T07:22:31.162Z
+
+  
+  provider-run-sha256:30ae86a654a66e37a83c4963073a51363e9b059c543aa583ec2c9bb4e4a78e7a|config-fe41acd1b148892b1cc1f7bd|gemini-embed|gemini-embedding-2|c5bc8dd7ccb7e45b02c79cf4316da0cfbc2b8c9deb174ddfe010aba9ce23c63e|succeeded|24|0|1|2026-09-14T07:22:31.145Z|2026-09-14T07:22:31.145Z|local-compute|||-1|-1||0|work-item
+
+  
+  provider-run-sha256:585d9305d80686c1e671559c7eab81aff5de3085d3256adc900c88f8ff80c862|config-fe41acd1b148892b1cc1f7bd|codex-extract|default|4362683e701570984e8068385bb46d474e93fc88036b7d723db1907bd9d4a5b8|failed|20000|4|0|2026-09-14T07:22:31.328Z|2026-09-14T07:22:31.341Z|subscription-allowance|fixture-thread|fixture-turn|12|12|{"schema":"crexx-rag.rejected-output/1","input_hash":"7b36dee386f6cb60f9daff228da549833a5b4d30875b4a28b4fbf204506ff069","error":"provider
+  mention evidence quotation is not in the
+  chunk","output_sha256":"093d9431c8cfae3193b4a5d97e70b310089c91022c2b3ebd588f4bf469241541","output_bytes":1036,"omitted":"","content":"{\"mentions\":[{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"BillingService\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"CustomerDatabase\",\"aliases\":[]},{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"aliases\":[]}],\"relationships\":[{\"source_mention\":0,\"relationship_type\":\"depends-on\",\"target_mention\":1,\"evidence_quote\":\"BillingService
+  depends on
+  CustomerDatabase.\",\"confidence_millionths\":940000},{\"source_mention\":2,\"relationship_type\":\"depends-on\",\"target_mention\":3,\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"confidence_millionths\":930000}],\"notes\":[]}"}|0|work-item
+
+  
+  provider-run-sha256:e85d96d7cae945e99eee56f154ee07570c6201dad7d696f43fc6a1cb8cfb8a34|config-fe41acd1b148892b1cc1f7bd|gemini-embed|gemini-embedding-2|28dabf953ca14f39a54ca11449a06e45db6a25f61ece08bb4edaa2ba0794e8f8|succeeded|24|0|0|2026-09-14T07:22:31.162Z|2026-09-14T07:22:31.162Z|local-compute|||-1|-1||0|work-item',
+  got
+  'item-sha256:2547d5f9ef6d3f97b9783bae6819212f810e4ccacd60cac9042171a429f251b2#attempt-1|item-sha256:2547d5f9ef6d3f97b9783bae6819212f810e4ccacd60cac9042171a429f251b2|worker-c5e8272ce9e2d2ff4edf57fd2dd74218|1|7b36dee386f6cb60f9daff228da549833a5b4d30875b4a28b4fbf204506ff069||provider-run-sha256:585d9305d80686c1e671559c7eab81aff5de3085d3256adc900c88f8ff80c862|provider
+  mention evidence quotation is not in the
+  chunk|failed|2026-09-14T07:22:31.164Z|2026-09-14T07:22:31.341Z
+
+  
+  item-sha256:2547d5f9ef6d3f97b9783bae6819212f810e4ccacd60cac9042171a429f251b2#attempt-2|item-sha256:2547d5f9ef6d3f97b9783bae6819212f810e4ccacd60cac9042171a429f251b2|worker-c5e8272ce9e2d2ff4edf57fd2dd74218|2|7b36dee386f6cb60f9daff228da549833a5b4d30875b4a28b4fbf204506ff069|||provider
+  output-token budget
+  exhausted|dead_letter|2026-09-14T07:22:31.342Z|2026-09-14T07:22:31.343Z
+
+  
+  item-sha256:717b5596f36add77ec9fd3470a10ae731a84a625919e15fcdf3d3653fe601cea#attempt-1|item-sha256:717b5596f36add77ec9fd3470a10ae731a84a625919e15fcdf3d3653fe601cea|worker-a24696790b67e59a0eb93d7b5019352d|1|0b95da7075293d5cb38b483805fc4a891a316d69ea078bb65365cf9dfc9b1ac0|||provider
+  output-token budget
+  exhausted|failed|2026-09-14T07:22:32.069Z|2026-09-14T07:22:32.072Z
+
+  
+  item-sha256:b049a38ac559802479a1edd20d33d03f4284cc8fc5d56159d3d1b2e91103c377#attempt-1|item-sha256:b049a38ac559802479a1edd20d33d03f4284cc8fc5d56159d3d1b2e91103c377|worker-c5e8272ce9e2d2ff4edf57fd2dd74218|1|49ed7ddb3554e9e763bdaf96212ecff222474dcb607549c693e4d0d21f2e7bcb|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:30ae86a654a66e37a83c4963073a51363e9b059c543aa583ec2c9bb4e4a78e7a|validated-embedding|succeeded|2026-09-14T07:22:31.125Z|2026-09-14T07:22:31.146Z
+
+  
+  item-sha256:f446381c66ceb00088f6c515b2b6d4e33c580fea3fb73c06bc65b2ba94fae87f#attempt-1|item-sha256:f446381c66ceb00088f6c515b2b6d4e33c580fea3fb73c06bc65b2ba94fae87f|worker-c5e8272ce9e2d2ff4edf57fd2dd74218|1|853665a36f408f956b14e5ed32d4b9554c7484c139aa368e7d588419751e4918|b986dc6546268c387e753f7ec2139476f015c225ab5238317671e5829540636b|provider-run-sha256:e85d96d7cae945e99eee56f154ee07570c6201dad7d696f43fc6a1cb8cfb8a34|validated-embedding|succeeded|2026-09-14T07:22:31.148Z|2026-09-14T07:22:31.162Z
+
+  
+  provider-run-sha256:30ae86a654a66e37a83c4963073a51363e9b059c543aa583ec2c9bb4e4a78e7a|config-fe41acd1b148892b1cc1f7bd|gemini-embed|gemini-embedding-2|c5bc8dd7ccb7e45b02c79cf4316da0cfbc2b8c9deb174ddfe010aba9ce23c63e|succeeded|24|0|1|2026-09-14T07:22:31.145Z|2026-09-14T07:22:31.145Z|local-compute|||-1|-1||0|work-item
+
+  
+  provider-run-sha256:585d9305d80686c1e671559c7eab81aff5de3085d3256adc900c88f8ff80c862|config-fe41acd1b148892b1cc1f7bd|codex-extract|default|4362683e701570984e8068385bb46d474e93fc88036b7d723db1907bd9d4a5b8|failed|20000|4|0|2026-09-14T07:22:31.328Z|2026-09-14T07:22:31.341Z|subscription-allowance|fixture-thread|fixture-turn|12|12|{"schema":"crexx-rag.rejected-output/1","input_hash":"7b36dee386f6cb60f9daff228da549833a5b4d30875b4a28b4fbf204506ff069","error":"provider
+  mention evidence quotation is not in the
+  chunk","output_sha256":"093d9431c8cfae3193b4a5d97e70b310089c91022c2b3ebd588f4bf469241541","output_bytes":1036,"omitted":"","content":"{\"mentions\":[{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"BillingService\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"CustomerDatabase\",\"aliases\":[]},{\"label\":\"BillingService\",\"canonical_label\":\"BillingService\",\"concept_type\":\"application-component\",\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"aliases\":[]},{\"label\":\"CustomerDatabase\",\"canonical_label\":\"CustomerDatabase\",\"concept_type\":\"data-store\",\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"aliases\":[]}],\"relationships\":[{\"source_mention\":0,\"relationship_type\":\"depends-on\",\"target_mention\":1,\"evidence_quote\":\"BillingService
+  depends on
+  CustomerDatabase.\",\"confidence_millionths\":940000},{\"source_mention\":2,\"relationship_type\":\"depends-on\",\"target_mention\":3,\"evidence_quote\":\"Again,
+  BillingService depends on
+  CustomerDatabase.\",\"confidence_millionths\":930000}],\"notes\":[]}"}|0|work-item
+
+  
+  provider-run-sha256:e85d96d7cae945e99eee56f154ee07570c6201dad7d696f43fc6a1cb8cfb8a34|config-fe41acd1b148892b1cc1f7bd|gemini-embed|gemini-embedding-2|28dabf953ca14f39a54ca11449a06e45db6a25f61ece08bb4edaa2ba0794e8f8|succeeded|24|0|0|2026-09-14T07:22:31.162Z|2026-09-14T07:22:31.162Z|local-compute|||-1|-1||0|work-item'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/Test2Completion.cmake:98 (expect)
+
+
+
+    Start 48: embedding_publication
+3/3 Test #48: embedding_publication ............***Failed    3.99 sec
+-- PARTIAL_ANCESTRAL_CONTROL_OK
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/EmbeddingPublication.cmake:55 (message):
+  terminal job run is an idempotent completion retry: expected '0', got '6'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/EmbeddingPublication.cmake:113 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/EmbeddingPublication.cmake:55 (message):
+  rejected manifest publication remains an error: expected '8', got '6'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/EmbeddingPublication.cmake:118 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/EmbeddingPublication.cmake:41 (message):
+  Publication command failed:
+  --access;control;job;run;job-maintenance:8a1c0461a3e02a49f31397b96e485e4aef0755470436f8e9731176de1d38318b;--count;1;--poll-ms;20;--max-polls;1
+
+  
+  {"schema":"crexx-rag.command-result/1","operation":"job.run","status":"error","exit_code":6,"exit_name":"conflict","message":"job
+  is terminal; inspect job status and use job retry for reviewed dead
+  letters","records":[]}
+
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/EmbeddingPublication.cmake:122 (run_cli)
+
+
+
+
+0% tests passed, 3 tests failed out of 3
+
+Label Time Summary:
+accounting       =   3.99 sec*proc (1 test)
+ann              =   2.77 sec*proc (1 test)
+gemini           =   3.99 sec*proc (1 test)
+provider         =  19.64 sec*proc (1 test)
+publication      =  23.63 sec*proc (2 tests)
+recall           =   2.77 sec*proc (1 test)
+recovery         =  23.63 sec*proc (2 tests)
+retrieval        =   2.77 sec*proc (1 test)
+rxvector         =   2.77 sec*proc (1 test)
+sqlite           =   6.76 sec*proc (2 tests)
+tamper           =   2.77 sec*proc (1 test)
+worker           =  19.64 sec*proc (1 test)
+zero-outbound    =  23.63 sec*proc (2 tests)
+
+Total Test time (real) =  26.40 sec
+
+The following tests FAILED:
+	 29 - ann_methodology (Failed)                          ann recall retrieval rxvector sqlite tamper
+	 47 - test2_completion (Failed)                         provider publication recovery worker zero-outbound
+	 48 - embedding_publication (Failed)                    accounting gemini publication recovery sqlite zero-outbound
+Errors while running CTest

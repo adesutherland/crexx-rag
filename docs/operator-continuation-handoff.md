@@ -1,9 +1,91 @@
 # Operator continuation: live handoff
 
-Updated: 2026-09-14, after shared MCP QA guidance and reusable corpus setup updates. This file records the current result and next action.
+Updated: 2026-09-14, after completing and retiring the Test 2 checklist. This file records the current result and next action.
 The detailed history below is retained for reference.
 
-## Current checkpoint — baseline for the requested Tests 1–4 repeat
+## Active work — Test 4 replay and Nairn grounding
+
+The user authorized committing the completed changes and moving on to Test 4.
+Follow [the Test 4 action checklist](test4-repair-delivery-20260914.md).
+RAG-SMK-011 and Test 2 A0–A8 are complete; retain their record and architecture
+principles without reopening them. Test 4 remains partial: the latest repeat
+repaired Fiers, but Nairn failed endpoint grounding twice and RAG-SMK-010 required
+a source-scope workaround. The earlier 13 September Nairn success is historical.
+
+## Completed index retry follow-up
+
+Checklist A8 implements the user's simple database dirty marker. Relevant data
+transactions invalidate it; successful rebuilding clears it; `vector rebuild`
+forces the work. Existing indexes stay searchable. The first schema-19 rebuild
+establishes the marker without changing the sidecar format.
+
+The same 34,902-vector scratch library now completes unchanged job retries in
+**2.080 seconds** on the final executable, compared with the previous
+**26.14 seconds**. Earlier repeat measurements were 1.696–3.892 seconds. Explicit
+forced rebuilding still takes **25.839 seconds**. All provider-run and attempt
+rows are unchanged; library verification reports zero issues. Focused QA passed
+**6/6 in 54.29 seconds**. The final rollback/migration checks also passed 2/2, and the final full suite
+passed **71/71 in 530.53 seconds**. A8 is complete. See
+[the checklist](test2-recovery-delivery-20260914.md) for its final result.
+
+Current candidate SHA-256:
+`32c4ac3f10340b590012ab344e1780fbc33c71eb66ac4e9503ab0ddf6d1f4bb7`.
+Final scratch: `/private/tmp/crexxrag-index-retry-final-cr61v8pl`.
+The user has authorized the local commit. The normal installation and
+authoritative corpus are unchanged. The earlier checkpoint below records the functional repair
+before this performance follow-up.
+
+## Earlier functional repair checkpoint
+
+The initial A0–A7 [Test 2 action checklist](test2-recovery-delivery-20260914.md) was completed.
+Its A0 principles are authoritative: isolate failed embeddings, index successful
+ones independently, retain existing search coverage, and finish through normal
+restart/retry. Fresh live Test 2 processed all four items in 52.26 seconds and
+activated its index automatically. Normal retry made zero calls and preserved
+all attempts/receipts; its existing index recomputation still took 26.14 seconds.
+
+All 71 local checks have passing results: the full run was 70/71 with one stale
+metadata expectation from the earlier Q&A instruction commit, then its reviewed
+correction and documentation passed 2/2. Product SHA-256:
+`806487a1ee1a861fa17cffcfd55672bb8f269dabffe1f238cbd65fab032b0ba7`.
+Scratch: `/private/tmp/crexxrag-test2-repair-v2310lhx`. Changes are uncommitted;
+normal installed executables and authoritative libraries are unchanged.
+RAG-SMK-010 and the Nairn content hold remain separate work.
+
+## Historical checkpoint — repeat before the Test 2 repair
+
+Baseline **`0a85f9d5f7b2db5acd6699444c70b813b9b2fb4d`** was committed before the
+[Tests 1–4 repeat](smoke-repeat-20260914.md). Use its frozen installation under
+`/private/tmp/crexxrag-smoke-repeat-20260914-718axbnf/artifact`; the new disposable
+library is in that directory's `library/`. No authoritative library changed.
+
+Test 1 passed with five embedding repairs and automatic publication. Test 3
+passed in 51.01 seconds with four validated decisions, two resolved and two
+unresolved; plan/apply took 0.73 seconds. Test 2 processed its four items, but a
+worker App Server byte timeout caused exit 8 and skipped vector publication.
+The public vector rebuild recovered full coverage with zero calls. **RAG-SMK-011
+(P1)** tracks finalization of completed work after a worker failure.
+
+Test 4 reproduced RAG-SMK-010 and used the prior temporary source-scope workaround.
+Fiers was repaired; Nairn's initial and correction responses both cite cavalry
+for a relationship whose endpoint is the advanced guard. The original job has
+544 actionable extraction roots and one resolved root. All 122 original sample
+grounding outcomes and 45 existing draft checks were reproduced; drafts remain
+unpublished. The normal snapshot `config-a211c0fede4237fe77bbc797` is restored.
+
+Final verification passed at schema 18, generation 24,928, with 34,907/34,907
+embedding coverage and zero issues. The 18 provider calls comprise seven Gemini
+embeddings ($0.000257 total API cost) and eleven subscription Codex turns.
+All test processes stopped; no new uncertain or unsettled work remains.
+Ordinary MCP Q&A made zero provider calls: median search 0.477 seconds, returned
+lead follow-up 0.514 seconds, citations 0.008–0.012 seconds. Overview remains
+9.547 seconds. The current assistant composed the cited answer.
+
+RAG-SMK-011 was subsequently repaired and qualified above. RAG-SMK-010 replay
+compatibility and the bounded Nairn content correction remain active. Do not
+count this historical repeat as all green. No push occurred.
+
+## Previous checkpoint — baseline for the requested Tests 1–4 repeat
 
 Ordinary MCP Q&A now explicitly retrieves evidence, resolves citations and
 uses the current assistant to compose the answer. The separate product answerer

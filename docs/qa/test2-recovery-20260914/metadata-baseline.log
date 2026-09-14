@@ -1,0 +1,5 @@
+CMake Error at cmake/CommandMetadata.cmake:34 (message):
+  Advertised command contracts changed; review
+  /private/tmp/test2-metadata-baseline/observed.sha256 and captured metadata
+
+

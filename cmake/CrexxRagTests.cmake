@@ -592,6 +592,16 @@ add_test(NAME embedding_recovery
 set_tests_properties(embedding_recovery PROPERTIES
     TIMEOUT 240 LABELS "recovery;concurrency;accounting;gemini;sqlite;zero-outbound")
 
+add_test(NAME test2_completion
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CODEX_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-app-server-fixture.sh"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-application.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-test2-completion"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Test2Completion.cmake")
+set_tests_properties(test2_completion PROPERTIES TIMEOUT 240 LABELS "provider;worker;publication;recovery;zero-outbound")
+
 add_test(NAME embedding_publication
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"

@@ -1,0 +1,1 @@
+{"schema":"crexx-rag.command-result/1","operation":"job.run","status":"error","exit_code":8,"exit_name":"unavailable","message":"one or more worker processes failed: Codex App Server stdout failed: byte operation deadline exceeded;processed=3;polls=3","records":[]}

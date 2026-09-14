@@ -532,6 +532,20 @@ and reject active workers, running items or outstanding reservations.
 
 ## Retrying unfinished work
 
+For an interrupted run or unfinished vector index, repeat:
+
+```sh
+crexxrag --access control job run JOB_ID
+```
+
+Completed items and their receipts are preserved. A completed job can be run
+again to finish index activation without another model call. Successful vectors
+remain independent of failed extraction or embedding items; previously indexed
+documents remain searchable while new work proceeds. If index activation itself
+fails, the command reports the reason and this same retry command. Explicitly
+retry a failed item when it needs redoing; a completed-job run does not silently
+resubmit dead letters.
+
 A retry request is accepted even when a task's earlier job or maintenance
 window has finished. Acceptance records the intent; execution still needs a
 compatible reviewed window and available attempt allowance:
@@ -919,9 +933,10 @@ no item limit. The existing `--max-polls N` separately limits all checks,
 including empty ones; if both limits are set, the first one reached stops the
 worker. Both accept 0..1000000. Use `--max-items` for work batches.
 
-The bounded command returns success when its workers finish. If work remains, `vector_state` is
-`pending-work`; starting the group again continues that same job. Vector
-publication waits until the job completes or is explicitly paused. The nightly
+The bounded command activates the available committed vectors when its workers
+finish, even if other items remain pending or failed. `vector_state` reports
+`published` or `identical-no-op`, or `pending-embeddings` when no compatible
+embedding exists yet. Starting the group again continues the same job. The nightly
 wrapper plans once with `--minutes N`, an exact `--until` timestamp, or an
 `--overnight HH:MM-HH:MM` local-time window, and shares each batch across the
 configured workers. The main product checks its fixed deadline before each
@@ -1272,11 +1287,20 @@ index. It uses the configured vector build and byte limits. It cannot invent
 missing embedding coverage or restore membership removed by an earlier
 operation; those require a separately reviewed corpus recovery.
 
-Concept and claim maintenance can continue using an existing vector index when
-its source chunks and embedding links are unchanged. Its manifest entry retains
-the generation that built the index. The application proves compatibility from
-SQLite; source or embedding changes require a matching index publication.
-Pausing and draining work does not by itself invalidate compatible vectors.
+Ordinary job retries reuse a clean index without training it again. Relevant
+data changes mark it for rebuilding automatically. `vector rebuild` explicitly
+forces that work, even when the marker is clean; its `identical-no-op` result
+means the rebuilt content was unchanged. Failed rebuilding leaves the
+work outstanding for the next retry. Existing indexes remain searchable while
+dirty. After migration to schema 19, the first build establishes the marker;
+subsequent unchanged retries take the short path.
+
+Existing documents can continue using an ancestral vector index while new
+sources or embeddings are pending. Its manifest entry retains the generation
+that built it. Search checks indexed members against current SQLite data and
+excludes removed or changed members. New embeddings join the next index build.
+Pausing, a failed item or an unrelated worker failure does not invalidate the
+remaining vectors.
 
 Extraction uses source quotations. The application computes offsets, prefers
 exact matches, then accepts case differences using Unicode casefolding and ASCII whitespace

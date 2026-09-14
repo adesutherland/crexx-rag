@@ -1,0 +1,129 @@
+{
+  "baseline": "0a85f9d5f7b2db5acd6699444c70b813b9b2fb4d",
+  "root": "/private/tmp/crexxrag-smoke-repeat-20260914-718axbnf",
+  "jobs": {
+    "test1": {
+      "job_id": "job-maintenance:c7f3f01d0664d05cf168fd9b2a143a0de08b99ef2e07bccdb8a79a1a25e05779",
+      "state": "completed",
+      "items": {
+        "processed": 5
+      },
+      "calls": 5,
+      "providers": {
+        "gemini-embed": 5
+      },
+      "succeeded": 5,
+      "failed": 0,
+      "input_tokens": 1051,
+      "output_tokens": 0,
+      "cost_microunits": 208,
+      "uncertain": 0,
+      "unsettled": 0,
+      "controller_state": "stopped"
+    },
+    "test2": {
+      "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+      "state": "completed",
+      "items": {
+        "processed": 4
+      },
+      "calls": 6,
+      "providers": {
+        "codex-extract": 4,
+        "gemini-embed": 2
+      },
+      "succeeded": 4,
+      "failed": 2,
+      "input_tokens": 76720,
+      "output_tokens": 3307,
+      "cost_microunits": 49,
+      "uncertain": 0,
+      "unsettled": 0,
+      "controller_state": "failed"
+    },
+    "test3": {
+      "job_id": "job-maintenance:861f982c726084442358c564c5e06b872233f40e27d4e1649dbb4e55f8e79bd6",
+      "state": "completed",
+      "items": {
+        "cancelled": 2,
+        "processed": 4,
+        "skipped": 2
+      },
+      "calls": 4,
+      "providers": {
+        "codex-extract": 4
+      },
+      "succeeded": 4,
+      "failed": 0,
+      "input_tokens": 70047,
+      "output_tokens": 1755,
+      "cost_microunits": 0,
+      "uncertain": 0,
+      "unsettled": 0,
+      "controller_state": "stopped"
+    },
+    "test4-fiers": {
+      "job_id": "job-replay-sha256:55119d2c9e31bed41cd9f7fc00d8fcf99b9f28a090eec13cf212f91e53750279",
+      "state": "completed",
+      "items": {
+        "processed": 1
+      },
+      "calls": 1,
+      "providers": {
+        "codex-extract": 1
+      },
+      "succeeded": 1,
+      "failed": 0,
+      "input_tokens": 17390,
+      "output_tokens": 505,
+      "cost_microunits": 0,
+      "uncertain": 0,
+      "unsettled": 0,
+      "controller_state": "stopped"
+    },
+    "test4-nairn": {
+      "job_id": "job-replay-sha256:b61f42797bbdf05b4003afc676e12f897e0b3162df34ce78e457a26ba46bec8f",
+      "state": "completed_with_errors",
+      "items": {
+        "dead_letter": 1
+      },
+      "calls": 2,
+      "providers": {
+        "codex-extract": 2
+      },
+      "succeeded": 0,
+      "failed": 2,
+      "input_tokens": 40756,
+      "output_tokens": 3818,
+      "cost_microunits": 0,
+      "uncertain": 0,
+      "unsettled": 0,
+      "controller_state": "stopped"
+    }
+  },
+  "counts": {
+    "sources": 9,
+    "source_revisions": 9,
+    "revision_chunks": 34907,
+    "claims": 7974,
+    "mentions": 63086,
+    "provider_runs": 82562,
+    "embeddings": 30477,
+    "revision_chunk_embeddings": 34920,
+    "attempts": 116206
+  },
+  "generation": 24928,
+  "embedding_coverage": 34907,
+  "original_roots": {
+    "actionable": 544,
+    "resolved": 1
+  },
+  "total_calls": 18,
+  "total_cost_microunits": 257,
+  "live_run_processes": 0,
+  "provider_delta_matches_jobs": true,
+  "original_sources_unchanged": true,
+  "original_extraction_history_unchanged": true,
+  "search_median_seconds": 0.4772895413916558,
+  "mcp_calls": 21
+}

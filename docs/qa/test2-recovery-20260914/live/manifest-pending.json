@@ -1,0 +1,29 @@
+{
+  "bundle_format_version": 1,
+  "schema_version": 18,
+  "library_id": "library-61405eb8183ffd16da950f0d",
+  "created_at": "2026-09-04T21:18:02.224Z",
+  "published_generation": 24923,
+  "profile_id": "scottish-history-profile",
+  "profile_hash": "3e50bc08cfab707f916e8a195da5ce33414221e4842059b92e0f219a04bb4f92",
+  "required_capabilities": [
+    "sqlite-provider-v1"
+  ],
+  "sidecars": [
+    {
+      "vector_generation_id": "vg-c10041637d7bb04a66b490c8",
+      "semantic_generation": 15058,
+      "embedding_profile_id": "embedding-768-203113f9024a",
+      "name": "vectors.15058.vg-c10041637d7bb04a66b490c8.c10041637d7bb04a.rxvec",
+      "sha256": "c10041637d7bb04a66b490c8f34029e3e0d9a2c6884126fb4e76f3c2d3a75ff1",
+      "dimension": 768,
+      "algorithm": "ivf-flat-v1",
+      "row_count": 34900,
+      "centroid_count": 16,
+      "probe_count": 4
+    }
+  ],
+  "migration_pending": false,
+  "recovery_pending": false,
+  "updated_at": "2026-09-14T07:37:26.776Z"
+}

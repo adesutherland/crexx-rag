@@ -1,0 +1,100 @@
+{
+  "sources": 8,
+  "source_revisions": 8,
+  "revision_chunks": 34905,
+  "embeddings": 30470,
+  "revision_chunk_embeddings": 34913,
+  "provider_runs": 82544,
+  "jobs": 27,
+  "generation": 24922,
+  "sources_before": [
+    {
+      "source_id": "source-sha256:3a6541add3b99b6e6ca9b90de244dc1f5ed008e8611cb77a2907e7c8d0cd308d",
+      "connector_type": "folder:scotland-overnight",
+      "stable_key": "browne-history-highlands-clans-vol-4-1838.txt",
+      "current_revision_id": "revision-sha256:db06a34fa3c0ee62b5415e0750b7796d4df66841a17f365b775a7c455097b4c2",
+      "lifecycle_state": "active",
+      "observed_uri": "file:/Users/adrian/testrag/overnight-scottish-20260909/incoming/browne-history-highlands-clans-vol-4-1838.txt",
+      "observed_title": "browne-history-highlands-clans-vol-4-1838.txt",
+      "visible_from_generation": 11965,
+      "visible_to_generation": null
+    },
+    {
+      "source_id": "source-sha256:40ea83531ea42b40cada1ca4892a6aa5a84e3d2c4504efca8e5d6119601014d5",
+      "connector_type": "folder:scotland-corpus",
+      "stable_key": "gutenberg-59468-scottish-highlands-clans-regiments-vol-1.txt",
+      "current_revision_id": "revision-sha256:133839d8feafca82fc3a86a55dbd6262d918f9bfa377bfcc190fb4c2b84c9234",
+      "lifecycle_state": "active",
+      "observed_uri": "file:./source-docs/gutenberg-59468-scottish-highlands-clans-regiments-vol-1.txt",
+      "observed_title": "gutenberg-59468-scottish-highlands-clans-regiments-vol-1.txt",
+      "visible_from_generation": 2,
+      "visible_to_generation": null
+    },
+    {
+      "source_id": "source-sha256:53d8880383be19e556932fed51bf579a6be02a20f8702805129e0a7f65e1c67c",
+      "connector_type": "folder:scotland-overnight",
+      "stable_key": "mpherson-ossianic-controversy-1873.txt",
+      "current_revision_id": "revision-sha256:8a2e157e018a23665f0ba9e7e946a55821be39fff1582d8af397377ddda4ccda",
+      "lifecycle_state": "active",
+      "observed_uri": "file:/Users/adrian/testrag/overnight-scottish-20260909/incoming/mpherson-ossianic-controversy-1873.txt",
+      "observed_title": "mpherson-ossianic-controversy-1873.txt",
+      "visible_from_generation": 11965,
+      "visible_to_generation": null
+    },
+    {
+      "source_id": "source-sha256:96c31d2b06281b8812a87e8d5d97d865a8a4b17e7a207a28e254c732193dbf3b",
+      "connector_type": "folder:scotland-overnight",
+      "stable_key": "browne-history-highlands-clans-vol-3-1836.txt",
+      "current_revision_id": "revision-sha256:6a166117c3884941c76bd80360acb07e6a33968bbfabc3a46f16ecd19f88af73",
+      "lifecycle_state": "active",
+      "observed_uri": "file:/Users/adrian/testrag/overnight-scottish-20260909/incoming/browne-history-highlands-clans-vol-3-1836.txt",
+      "observed_title": "browne-history-highlands-clans-vol-3-1836.txt",
+      "visible_from_generation": 11965,
+      "visible_to_generation": null
+    },
+    {
+      "source_id": "source-sha256:999783c0e74122a65702921eeeca8ecbd48c079eef3c332e52b92c5f8e312995",
+      "connector_type": "folder:scotland-overnight",
+      "stable_key": "browne-history-highlands-clans-vol-2-1836.txt",
+      "current_revision_id": "revision-sha256:0e9325edd24f219f47c3118b4622d39be461e5bce9e9459c3af0f577de6f07e1",
+      "lifecycle_state": "active",
+      "observed_uri": "file:/Users/adrian/testrag/overnight-scottish-20260909/incoming/browne-history-highlands-clans-vol-2-1836.txt",
+      "observed_title": "browne-history-highlands-clans-vol-2-1836.txt",
+      "visible_from_generation": 11965,
+      "visible_to_generation": null
+    },
+    {
+      "source_id": "source-sha256:a9af046660baa1f4d03a5d52ec211c89176fb0a7efef5c432e6ec9c90d78162d",
+      "connector_type": "folder:scotland-overnight",
+      "stable_key": "johnson-journey-western-islands-1775.txt",
+      "current_revision_id": "revision-sha256:f28bace3210c0470867320e933ae253a0a74cb08ed37cf48f9a620c70a9f094c",
+      "lifecycle_state": "active",
+      "observed_uri": "file:/Users/adrian/testrag/overnight-scottish-20260909/incoming/johnson-journey-western-islands-1775.txt",
+      "observed_title": "johnson-journey-western-islands-1775.txt",
+      "visible_from_generation": 11965,
+      "visible_to_generation": null
+    },
+    {
+      "source_id": "source-sha256:e0167833b4707e1087582b3865eedc123d93a59c1822bad2921252b7a202a3df",
+      "connector_type": "folder:scotland-corpus",
+      "stable_key": "browne-history-highlands-clans-vol-1-1837.txt",
+      "current_revision_id": "revision-sha256:284f1bbacadfb7efc7c1632d7bf46210de15d4861cee69799780f28909778bb6",
+      "lifecycle_state": "active",
+      "observed_uri": "file:/Users/adrian/testrag/source-docs/browne-history-highlands-clans-vol-1-1837.txt",
+      "observed_title": "browne-history-highlands-clans-vol-1-1837.txt",
+      "visible_from_generation": 8912,
+      "visible_to_generation": null
+    },
+    {
+      "source_id": "source-sha256:f81b9b4cf61cc004e85bb26ed9691d2d4a3ee7f64517d3de331651ab64afeafd",
+      "connector_type": "folder:scotland-corpus",
+      "stable_key": "gutenberg-59469-scottish-highlands-clans-regiments-vol-2.txt",
+      "current_revision_id": "revision-sha256:c06cbb4ee5f8ddd72f157ed17bc080753fb2e48270c2c2ed4e852c92b5ec4953",
+      "lifecycle_state": "active",
+      "observed_uri": "file:./source-docs/gutenberg-59469-scottish-highlands-clans-regiments-vol-2.txt",
+      "observed_title": "gutenberg-59469-scottish-highlands-clans-regiments-vol-2.txt",
+      "visible_from_generation": 2,
+      "visible_to_generation": null
+    }
+  ]
+}

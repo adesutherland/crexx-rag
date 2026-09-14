@@ -1,0 +1,30 @@
+[
+  {
+    "lane": "read",
+    "tool": "rag_query_inspect",
+    "field": "description",
+    "before": "Read lexical source passages and typed graph evidence without writes or provider calls; decode evidence_json and cite its stable citations. Use focused searches when a broad question returns no passages",
+    "after": "Default for ordinary MCP Q&A: read lexical source passages and typed graph evidence without writes or provider calls; decode evidence_json, resolve citations with rag_citation_show, and compose the answer yourself. Use focused searches when a broad question returns no passages"
+  },
+  {
+    "lane": "read",
+    "tool": "rag_query_answer",
+    "field": "description",
+    "before": "Return evidence and an optional provider-generated, citation-validated answer; records durable gap signals",
+    "after": "Use only when the user explicitly requests using or testing the crexxrag answerer. Return evidence and an optional provider-generated, citation-validated answer; adds separate model generation latency and provider usage, and records durable gap signals. For ordinary Q&A use rag_query_inspect and compose the answer yourself; configured provider or budget alone is not a request to use this tool"
+  },
+  {
+    "lane": "all",
+    "tool": "rag_query_inspect",
+    "field": "description",
+    "before": "Read lexical source passages and typed graph evidence without writes or provider calls; decode evidence_json and cite its stable citations. Use focused searches when a broad question returns no passages",
+    "after": "Default for ordinary MCP Q&A: read lexical source passages and typed graph evidence without writes or provider calls; decode evidence_json, resolve citations with rag_citation_show, and compose the answer yourself. Use focused searches when a broad question returns no passages"
+  },
+  {
+    "lane": "all",
+    "tool": "rag_query_answer",
+    "field": "description",
+    "before": "Return evidence and an optional provider-generated, citation-validated answer; records durable gap signals",
+    "after": "Use only when the user explicitly requests using or testing the crexxrag answerer. Return evidence and an optional provider-generated, citation-validated answer; adds separate model generation latency and provider usage, and records durable gap signals. For ordinary Q&A use rag_query_inspect and compose the answer yourself; configured provider or budget alone is not a request to use this tool"
+  }
+]

@@ -138,6 +138,25 @@ See [public results and lexical repair](public-result-lexical-repair.md).
 5. Embeddings are recorded with provider/model/dimension/envelope identity and
    published as a generation-specific `.rxvec` sidecar.
 
+**Independent work and search availability:** a failed embedding leaves only
+that item pending or failed. Successfully stored embeddings are indexed
+independently of extraction outcomes, job state and worker health. Existing
+documents retain usable indexed coverage while other work proceeds. Ordinary
+`job run JOB_ID` restarts unfinished processing and finishes index activation;
+a completed job rerun makes no new provider calls. Index activation runs after
+a worker group ends, including bounded or unsuccessful runs, using committed
+SQLite embeddings. Failed activation reports the same retry command. This is
+the acceptance contract in the [Test 2 checklist](test2-recovery-delivery-20260914.md).
+
+Codex's required preflight reads current account allowance before new work.
+Durable receipts settle actual usage. There is no additional account refresh
+or hardcoded two-second timeout after a successful result. History cleanup uses
+the configured provider timeout within the existing operation budget. If that
+optional cleanup fails, the application retains the result and closes the
+unusable transport; the next item opens a fresh transport normally. Required
+transport failures and genuinely unknown submitted outcomes retain their
+existing classification.
+
 SQLite rows are the process communication mechanism. Leases, fencing,
 idempotency keys, attempts, provider runs, events, heartbeats, and requested
 worker state make recovery explicit.
@@ -613,16 +632,41 @@ missing or stale. Automatic job publication and explicit vector rebuild share
 that rule; command-level writer guards and transactional sidecar fencing stay
 in their existing owners. See [RAG-SMK-006](smk006-publication-repair-20260913.md).
 
+Schema 19 adds a database dirty marker for derived indexes. Relevant embedding,
+membership and chunk-visibility transactions invalidate the affected profile;
+rollback or a skipped generation invalidates all profiles. SQLite triggers own this rule so ingestion,
+maintenance and data repairs cannot omit it. Internally, dirty means the index's
+`input_revision` differs from its profile's `vector_revision`. Successful building
+records the revision observed at its start, so a concurrent data change remains
+dirty without holding a writer lock during training. Failed/interrupted building
+does not mark an index clean. A graph-only publication leaves the marker alone.
+
+`ragembedding` checks this marker and the recorded training settings before
+reading embedding rows or training. It retains the existing sidecar checksum
+check. A clean, intact index is reused; a dirty or missing/corrupt index is built
+normally. The existing `vector rebuild` command explicitly invalidates the
+marker first. Migration leaves old indexes dirty for one ordinary rebuild;
+their sidecar format and search availability are unchanged. Dirty is a rebuild
+request, never a prohibition on serving the valid members of an existing index.
+
 Semantic generations are immutable once published. Vector generations are
 separate rebuildable publications. Backup pins SQLite and sidecar identities;
 verification checks schema, manifest, repositories, and published sidecars.
-A graph-only generation can advertise the newest ancestral index for each
-embedding profile when SQLite proves identical source-chunk and embedding-link
-membership. The file retains its actual build generation and checksum; readers
-validate against that identity, then resolve evidence in their current SQLite
-snapshot. Changed membership or a non-ancestor index cannot pass this check.
-Manifest projection, hybrid preflight, retrieval, reports, maintenance census
-and backup use the same eligibility predicate. No schema migration is needed.
+A generation can advertise the newest ancestral index for each embedding
+profile while new work changes source or embedding membership. The file retains
+its actual build generation and checksum. Retrieval resolves each indexed member
+against the current SQLite snapshot, requiring its chunk, representation and
+input digest still to match; removed or changed members are skipped. Newly
+stored embeddings join the next index build. This retains useful existing
+coverage without exposing obsolete members or accepting a non-ancestor index.
+
+`ragstore.compatiblevectorpredicate` owns both serving eligibility and the
+stricter exact-membership option. Manifest projection, hybrid preflight,
+retrieval, reports and backup use serving eligibility. Full reconstruction and
+recovery retain exact-membership fencing. `ragstore.currentvectorpredicate`
+combines serving eligibility with the schema-19 dirty marker for maintenance
+census/completion, so available partial coverage is not mistaken for a current
+build.
 
 ## Durable maintenance windows
 
@@ -799,6 +843,9 @@ reads from different snapshots interchangeable.
   Parity includes both set directions and cardinality, so duplicate rows remain
   defects. Re-read operational projections after provider execution or another
   transaction boundary. No process-wide SQL or result cache is implied.
+- Derived-index freshness uses the database mutation marker and build settings,
+  not an embedding timestamp, row count or repeated corpus fingerprint. Maintain
+  invalidation in the schema owner alongside the affected data transitions.
 - Schema repairs are additive migrations with immutable ordered checksums.
   Keep old migration identities, foreign keys, evidence and audit triggers.
   Validate fresh and upgraded stores, including retained malformed history.

@@ -1,0 +1,10 @@
+WAVE: project compile/assemble jobs=3
+START: project member raggrounding
+START: project member ragfile
+START: project member grounding_check
+BUILT: project member ragfile
+BUILT: project member raggrounding
+BUILT: project member grounding_check
+BARRIER: link program
+PUBLISHED: program /private/tmp/crexxrag-smoke-repeat-20260914-718axbnf/grounding_check.rxbin
+PUBLISHED: native program /private/tmp/crexxrag-smoke-repeat-20260914-718axbnf/grounding_check

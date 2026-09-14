@@ -247,7 +247,7 @@ ragapplicationprovider: class implements .ragworkprovider
           provider_output = .providerresult()
           call provider_output.set_generation("codex", provider_config.model(), request_id, recovery.content(), "recovered", .providerusage(recovery.input_tokens(), recovery.output_tokens(), 1, -1, 1, 0), 0)
           call _tracer.emit("codex", "recovered", claim.item_id(), "reusing persisted completed output")
-          call _codex_backend.delete_thread(recovery.thread_id(), provider_config.timeout_ms())
+          call _finishcodexthread(recovery.thread_id(), provider_config.timeout_ms())
         end
         else if recovery.turn_id() = "" then do
           provider_output = _codexfailure(active_request, "persisted Codex thread has no confirmed turn identity; inspect before retry", 0, "reconciliation")
@@ -256,7 +256,7 @@ ragapplicationprovider: class implements .ragworkprovider
           provider_output = _codex_backend.recover_structured(active_request, recovery.thread_id(), recovery.turn_id(), recovery.input_tokens(), recovery.output_tokens())
           if provider_output.status() = 0 then do
             if completeexternalrun(_store, durable_run_id, recovery.thread_id(), recovery.turn_id(), request_id, provider_output.content(), recovery.input_tokens(), recovery.output_tokens(), codex_error) \= 0 then provider_output = _codexfailure(active_request, "Codex recovered output durability failed: " || codex_error, 0, "durability")
-            else call _codex_backend.delete_thread(recovery.thread_id(), provider_config.timeout_ms())
+            else call _finishcodexthread(recovery.thread_id(), provider_config.timeout_ms())
           end
         end
       end
@@ -323,11 +323,9 @@ ragapplicationprovider: class implements .ragworkprovider
                   receipt_body = _receiptjson(provider_output,provider_config,request_id,durable_run_id)
                   if recordproviderresponse(_store,claim,receipt_body,codex_error,observation) \= 0 then return _receiptfailure(provider_config,request_id,claim,empty_proposal,provider_output,codex_error,durable_run_id)
                   call _tracer.emit("codex", "persisted", claim.item_id(), "validated output and usage committed")
-                  after_account = ""; after_plan = ""; allowance_after = -1; allowance_error = ""
-                  /* Optional account refresh and history cleanup share the
-                   * remaining operation time; they cannot extend the lease. */
-                  if _codex_backend.account_status(2000, after_account, after_plan, allowance_after, allowance_error) = 0 & allowance_after >= 0 then ignored = updateexternalrunallowance(_store, durable_run_id, allowance_after, allowance_error)
-                  call _codex_backend.delete_thread(thread_id,2000)
+                  /* Actual usage is durable. The next required preflight reads
+                   * current allowance; do not add a second account refresh here. */
+                  call _finishcodexthread(thread_id,provider_config.timeout_ms())
                 end
               end
             end
@@ -460,6 +458,18 @@ ragapplicationprovider: class implements .ragworkprovider
       work_notes[work_notes.0 + 1] = .ragworknote(kind, note_text, importance, uncertainty, next_action, span_start, span_end)
     end
     return _successbatch(provider_config.provider_id(), provider_config.model(), request_id, provider_output, work_mentions, work_proposals, work_notes, durable_run_id, provider_config.charging_basis())
+
+  _finishcodexthread: method = .void
+    arg thread_id = .string, timeout_ms = .int
+    /* A required transport failure retains its existing recovery classification.
+     * Optional history cleanup cannot poison a successfully completed item. */
+    if _codex_backend.health_error() \= "" then return
+    if _codex_backend.delete_thread(thread_id,timeout_ms) = 0 then return
+    call _tracer.emit("codex","cleanup",thread_id,"history cleanup unavailable; completed output retained")
+    call _codex_backend.close()
+    if _codex_directory \= "" then call rxfs..rmdir _codex_directory
+    _codex_ready = 0; _codex_directory = ""
+    return
 
   _ensurecodex: method = .int
     arg expose error = .string

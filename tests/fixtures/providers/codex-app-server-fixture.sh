@@ -37,6 +37,7 @@ while IFS= read -r line; do
       ;;
     *'"method":"account/read"'*)
       log_method account/read
+      if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "optional-refresh" ] && [ "${finished_turn:-0}" = 1 ]; then sleep 4; exit 70; fi
       if [ "$cleanup_fault" = 1 ]; then sleep 4; exit 70; fi
       case "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" in
         utf8-fragments)
@@ -139,6 +140,8 @@ while IFS= read -r line; do
       ;;
     *'"method":"turn/start"'*)
       log_method turn/start
+      finished_turn=1
+      if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "optional-refresh" ]; then rate_limit_reads=0; fi
       if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = supervision-task ]; then
         case "$line" in
           *BAD_TASK*)
@@ -231,6 +234,10 @@ while IFS= read -r line; do
       ;;
     *'"method":"thread/delete"'*)
       log_method thread/delete
+      finished_turn=0
+      if [ "${CREXXRAG_CODEX_FIXTURE_PAUSE_AFTER_TURN:-}" = "1" ]; then sleep 5; fi
+      if [ "$cleanup_fault" = 1 ]; then sleep 4; exit 70; fi
+      if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "optional-delete" ]; then sleep 4; exit 70; fi
       printf '{"id":%s,"result":{}}\n' "$id"
       ;;
     *)

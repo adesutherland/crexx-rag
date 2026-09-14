@@ -1,0 +1,86 @@
+[
+  {
+    "item_id": "item-sha256:00a7e1c47e2a074c9a994244d86c359a3cbbdff8d98e02e587fe5cee4b934957",
+    "reason": "provider mention label is not in its evidence quotation",
+    "retained_events": 12,
+    "all_preserved": true
+  },
+  {
+    "item_id": "item-sha256:01878b1e836eefe54831220e889295e6e44e17614abdc2c5c28747b121eb5ba2",
+    "reason": "provider relationship quotation does not contain both endpoints",
+    "retained_events": 12,
+    "all_preserved": true
+  },
+  {
+    "item_id": "item-sha256:01ddd8bb488eda8e569eb932ce0405960ef0e02fd2b2a5c7ae37c5b6f0cb6ccd",
+    "reason": "provider relationship evidence quotation is not in the chunk",
+    "retained_events": 12,
+    "all_preserved": true
+  },
+  {
+    "item_id": "item-sha256:05214441d32d117858175729cd14e30dc55389e28b70782a21fc5dd148f8d7c0",
+    "reason": "provider mention evidence quotation is not in the chunk",
+    "retained_events": 12,
+    "all_preserved": true
+  },
+  {
+    "item_id": "item-sha256:13a9269fad0c1ce4bf78d2c7017be73fdcaf2c513c43b472ac4d891f9dde6db1",
+    "reason": "provider relationship endpoints are invalid",
+    "retained_events": 7,
+    "all_preserved": true
+  },
+  {
+    "item_id": "item-sha256:15d3a496e400d61e0811dc7474bf12998bd894b3f70316a06ca9f2f64e8e6f8b",
+    "reason": "cannot begin provider reservation",
+    "retained_events": 2,
+    "all_preserved": true
+  },
+  {
+    "item_id": "item-sha256:2527eb8df8f8ab0a14be0351b63c8688e01c83ac1676a016fa19c6f6cf567e8b",
+    "reason": "provider analysis note quotation is not in the chunk",
+    "retained_events": 12,
+    "all_preserved": true
+  },
+  {
+    "item_id": "item-sha256:26d37b35e7ed4373b216efb997876d06fde072d02f5a10fd06d5df30962424fd",
+    "reason": "provider mention contradicts the reviewed glossary identity",
+    "retained_events": 7,
+    "all_preserved": true
+  },
+  {
+    "item_id": "item-sha256:2ec9bb245e4b66f3ae418e54652d9945a401bc6297e6a9e67b6134c0e627a109",
+    "reason": "provider discovery arrays violate the reviewed bounds",
+    "retained_events": 7,
+    "all_preserved": true
+  },
+  {
+    "item_id": "item-sha256:3e390eedc97a79dfa57d45204d7574801a69f01ff9894a1c86865039d2edd5e4",
+    "reason": "lease-expired",
+    "retained_events": 12,
+    "all_preserved": true
+  },
+  {
+    "item_id": "item-sha256:3e65bbb561fad926d61acac8894d5bead5525a18117ed8a1309b031e26060d7d",
+    "reason": "Codex allowance preflight failed: Codex App Server response timed out",
+    "retained_events": 5,
+    "all_preserved": true
+  },
+  {
+    "item_id": "item-sha256:4ab36bd10d47dc021470efc06b22f17eb37efde5fe59b855024191754f57fa5c",
+    "reason": "provider mention label is invalid",
+    "retained_events": 8,
+    "all_preserved": true
+  },
+  {
+    "item_id": "item-sha256:92a38a4adcec0c685fe8812213faa2581b593489cffd4aa35b62abfae7b00e7b",
+    "reason": "confirmed Codex turn interrupted",
+    "retained_events": 12,
+    "all_preserved": true
+  },
+  {
+    "item_id": "item-sha256:eb19238b1a0b6758bf86ed7b36d5a702db94710aa94a434f8971fbd254e00323",
+    "reason": "provider time budget exhausted",
+    "retained_events": 7,
+    "all_preserved": true
+  }
+]

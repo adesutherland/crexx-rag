@@ -1,0 +1,30 @@
+options levelg
+import rxfnsb
+import rxjson
+import raggrounding
+import ragfile
+
+main: procedure = .int
+  arg args=.string[]
+  data=.binary;size=0;error=""
+  if args.0<>1 then return 2
+  if readbinaryfilebounded(args[1],8388608,data,size,error)<>0 then do;say error;return 2;end
+  document=.jsondocument(data as .string)
+  if document.valid()<>1 then return 2
+  do i=1 to document.node_count(document.root())
+    row=document.element(document.root(),i);id="";body="";quotation=""
+    decoded=document.node_string(document.member(row,"id"),id) | document.node_string(document.member(row,"body"),body) | document.node_string(document.member(row,"quote"),quotation)
+    if decoded<>0 then return 2
+    grounding=.raggrounding(body);first=0;last=0
+    found=grounding.find(quotation,first,last)
+    labels=document.member(row,"labels");matches="["
+    do j=1 to document.node_count(labels)
+      label="";begin=0;finish=0;label_found=0
+      if document.node_string(document.element(labels,j),label)<>0 then return 2
+      if found=1 then label_found=grounding.find(label,begin,finish,first,last)
+      if j>1 then matches=matches || ","
+      matches=matches || label_found
+    end
+    say '{"id":' || jsonquote(id) || ',"quotation_found":' || found || ',"start":' || first || ',"end":' || last || ',"labels_found":' || matches || ']}'
+  end
+  return 0

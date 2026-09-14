@@ -1,5 +1,11 @@
 # Maintenance refactoring delivery
 
+Current Test 2 follow-up: [action checklist](test2-recovery-delivery-20260914.md).
+The existing provider, publication, store and retrieval owners now implement
+independent item/search availability and ordinary completion retry. Qualification
+is complete: focused 5/5, live Test 2 pass, and all 71 local checks pass after
+the reviewed metadata-fixture correction. The checklist retains exact results.
+
 This implements the five opportunities in the
 [12 September ownership review](maintenance-refactoring-review-20260912.md),
 starting at `1ebee11`. Each stage confirms coverage before product edits,
@@ -521,3 +527,9 @@ FTS parity, row-decoding cleanup and workflow cursor progress across publication
 The final native corpus plan/apply takes 0.204/0.625 seconds for eight items,
 with no provider calls; full report semantics match the installed baseline.
 See the checklist's retained evidence for exact source and executable hashes.
+
+## Unchanged index retry — 14 September
+
+Schema 19 owns invalidation; `ragembedding` owns rebuild completion;
+`ragstore.currentvectorpredicate` supplies the shared maintenance census and
+completion rule. See [A8](test2-recovery-delivery-20260914.md) for acceptance.

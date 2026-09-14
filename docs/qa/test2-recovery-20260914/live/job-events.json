@@ -1,0 +1,326 @@
+[
+  {
+    "event_id": 647154,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": null,
+    "attempt_id": null,
+    "event_type": "budget-policy",
+    "message": "{\"time_budget_ms\":300000,\"maximum_call_input_tokens\":32768,\"maximum_call_output_tokens\":16384,\"maximum_call_cost\":2500,\"maximum_call_time_ms\":120000,\"maximum_inflight_calls\":2,\"maximum_attempts\":2,\"codex_turns\":4}",
+    "occurred_at": "2026-09-14T07:37:26.760Z"
+  },
+  {
+    "event_id": 647155,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": null,
+    "attempt_id": null,
+    "event_type": "worker-supervision",
+    "message": "{\"controller\":\"controller-1d0ac455f5a6e750f4030c7a779ff9de\",\"configured_workers\":2,\"max_restarts\":2,\"window_seconds\":3600}",
+    "occurred_at": "2026-09-14T07:37:51.186Z"
+  },
+  {
+    "event_id": 647156,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04",
+    "attempt_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04#attempt-1",
+    "event_type": "claimed",
+    "message": "worker=worker-01eb6bdad6b02f3431b0fa1df77c0b94;fence=1",
+    "occurred_at": "2026-09-14T07:37:52.140Z"
+  },
+  {
+    "event_id": 647157,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04",
+    "attempt_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04#attempt-1",
+    "event_type": "reservation-open:item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04#attempt-1#call-1\",\"input\":481,\"output\":0,\"cost\":1000,\"time\":120000,\"codex_turn\":0}",
+    "occurred_at": "2026-09-14T07:37:52.142Z"
+  },
+  {
+    "event_id": 647158,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04",
+    "attempt_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04#attempt-1",
+    "event_type": "provider-intent",
+    "message": "{\"input_hash\":\"eeec4742f6eb65ea5ec90fe4f1b54f6bb340a4539ee25497777170cc1026e1fc\",\"config_snapshot_id\":\"config-a211c0fede4237fe77bbc797\",\"request_id\":\"embed-ca315a25a03a5025beca91a18846024e\"}",
+    "occurred_at": "2026-09-14T07:37:52.149Z"
+  },
+  {
+    "event_id": 647159,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49",
+    "attempt_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-1",
+    "event_type": "claimed",
+    "message": "worker=worker-9128f3a4ff7e7ae4daaf4aaa2937b7a0;fence=1",
+    "occurred_at": "2026-09-14T07:37:52.165Z"
+  },
+  {
+    "event_id": 647160,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49",
+    "attempt_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-1",
+    "event_type": "reservation-open:item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-1#call-1\",\"input\":532,\"output\":0,\"cost\":1000,\"time\":120000,\"codex_turn\":0}",
+    "occurred_at": "2026-09-14T07:37:52.167Z"
+  },
+  {
+    "event_id": 647161,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49",
+    "attempt_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-1",
+    "event_type": "reservation-close:item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-1#call-1\",\"input\":-532,\"output\":0,\"cost\":-1000,\"time\":-120000,\"actual_cost\":0,\"codex_turn\":0}",
+    "occurred_at": "2026-09-14T07:37:52.172Z"
+  },
+  {
+    "event_id": 647162,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49",
+    "attempt_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-1",
+    "event_type": "settlement-receipt:item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-1#call-1",
+    "message": "[\"gemini-embed\",\"gemini-embedding-2\",\"failed-736af62c2f41cfe0d3f25948\",\"failed\",0,0,0,0,\"\",\"monetary-api\",0,\"\",\"\",\"\"]",
+    "occurred_at": "2026-09-14T07:37:52.172Z"
+  },
+  {
+    "event_id": 647163,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49",
+    "attempt_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-1",
+    "event_type": "queued",
+    "message": "provider admission deferred by request, token, concurrency or cooldown limits",
+    "occurred_at": "2026-09-14T07:37:52.172Z"
+  },
+  {
+    "event_id": 647164,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405",
+    "attempt_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405#attempt-1",
+    "event_type": "claimed",
+    "message": "worker=worker-9128f3a4ff7e7ae4daaf4aaa2937b7a0;fence=1",
+    "occurred_at": "2026-09-14T07:37:52.282Z"
+  },
+  {
+    "event_id": 647165,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405",
+    "attempt_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405#attempt-1",
+    "event_type": "reservation-open:item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405#attempt-1#call-1\",\"input\":32768,\"output\":16384,\"cost\":0,\"time\":120000,\"codex_turn\":1}",
+    "occurred_at": "2026-09-14T07:37:52.284Z"
+  },
+  {
+    "event_id": 647166,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04",
+    "attempt_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04#attempt-1",
+    "event_type": "provider-response",
+    "message": "{\"schema\":\"crexx-rag.provider-receipt/1\",\"expected_request_id\":\"embed-ca315a25a03a5025beca91a18846024e\",\"provider_run_id\":\"\",\"status\":0,\"provider\":\"gemini\",\"model\":\"gemini-embedding-2\",\"request_id\":\"embed-ca315a25a03a5025beca91a18846024e\",\"content\":\"\",\"content_sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"content_bytes\":0,\"omitted\":\"\",\"finish\":\"complete\",\"input\":105,\"output\":0,\"input_count\":1,\"cost\":21,\"attempts\":1,\"retry_delay\":0,\"latency_us\":445146,\"error_category\":\"none\",\"error_code\":0,\"http_status\":0,\"retryable\":0,\"error_attempt\":0,\"error_message\":\"\",\"vectors\":[{\"codec\":\"f32le-v1\",\"count\":768,\"hex\":\"6A88BC3C834D06BCE4B913BDB511E5BBCFEFF7BCA55019BDFFFC363BEFFECB3BBEDC99BC8D8551BDEAE643BC45BCC7BC0F4EF43CD726943D2FE0A5394ABF24BB7559B2BC19E6F03C9CB32F3DA1B960BB4300D93CBB0772BD1A1FCA3C4A6518BCE5A026BD15ACF43C3006DF3CC4C9CCBC974C283C36415C3ED97247BC693E8A3C50FE203C0EA0C0BCBAC346BDD6C2193D5BD7CFBB4517D03CA2EB03BD0FEE0EBD023458BAD7ED1E3C4A9B093D076BA83CB1CE083DF5A50ABC9067713BEB464C3C52D5AABCD7FE9D3CF990003DECDD89BB323543BB35B09B3A4FD1613DE93DE13C21AB6C3C35D9473B7C857B3DA4D80A3DED4396BC5EDE333C2CEA073D6C698436BFAA02BDB083A73C91A068BCF200E23CCF10143DC2492D3C5751003DFBE6E5BB6550D0BC85BC13BDF9B26CBC3D81CEBBC45919BDB0EC8FBC99F2933C0BED36BCDD35B53C12561D3DE20A1F3D76546A3C7D8601BD781809BDBFA8FA3B00CA1D3DBAE098BB2F30323CF3BE68BC33DD7C3C847D673C7A2041BCB7C3F2BB42B8C13879362CBC85AB143D8B82723CD183733D3DC4133C471FC83C4EF086BC686542BD472CB23C2355B13BC9C01FBC8A3121BCEAF02D3DEF6FA23C8DE132BCD48094BE212452BD021198391F8CCFBCFFC2DEBC77ED123D37ACB1BB9448A43BDB3928BC6A80A33CFBFA773C77808ABC6825ED3B44AE9D3C30B8D03C3A78D33C8FE42ABC33609C3B3818723CD506743CACD0BEBC1BCD87BCC43E0D3DD4D03D3CD47F38BD634B89BCDE1FB2BC1145D5BC69FF1D3CFE6C52BD84736FBB5286273C43EC4F3D09C20FBB345DD63C8CC6233C785E183DE127263949DF8BBC9F4F8FBB6842ADBC43711EBC67B195BC46E2C33CA7BD10BDCA4092BB359E233D9E571D3CDD9F403B9BCBE0BC31C8863DC7B0DCBC5934713DC7FF0CBD1E6A253D8EDC9ABC2637513DFF9910BDC71D17BD4CB913BD20FD06BDEEDE2C3D9DFF093D40B68E3C3B65853CED338E3C88815C3C084C90BC9D51643D6E0B92BCE53768BCC64B873C903A3A3C6A4DABBC7A78313D2B3B06BCBDCD8BBA67F7B73C27A39D3C5821CF3A054E193B9510E7BAF8311D3C8913823A56990DBDCED7013DF2EF413DC22006BD5339F03C9EE7513CCC56CC39F0B1AB3CAEF67DBDBF0E41BC9F20023C032E0EBD4F9D09BCF9BF0FBB4530C83C7F1E183DCF032ABCBBAE0EBD3006063D8AF1D0BC43B854BBF4998A3CDDA33C3DF7BF113CD2A45ABC764382BC6E54DABCC57A263D5AA8063B44A2393C39900B3DA157883DFEC08E3CD03ADEB98B11BB3C0630A73CD57E6B3CF50FCABCE1BD9CBC785CC2BCDCE1703D74C2D93C61B4103D7F5CFF3B0D23FCBC3FFF39BD3D2FBEBC6AE720BCB128EC3C044FB73C1731DDBC59410FBC02769E3C055FAA3CF0697DBBDC0F873CE8FB1ABD8595153C57B262BD47FDFCBC8128AE3C0D542E39CF99A3BC73073BBC70D297BCB2C6C03C538E543BA9B0A9BB4FF51D3CB88093BBB5AC833ACC4F3FBC1B1FED3C6C53563B7F0C6C3C0E03563BED4CCEBC5CF8513C49C3D1BCD07E01BD3C7BE4BC1E3500BBCFDBDB3BAE68B1BB4339F33C9DC5EFBCC9FE0ABD0794EC3B59643FBD672F57BD3F7C273C10725DBD686EAEBB117DAABC58F25F3DEB0BF1BC609FE83C6AF462BC4DB4803CB42C93BBD3F0553B066262BC603893BC0CA7CFBC1EB5F7BC2B26CEBC2D0AD13C17C3083DCA5A9BBC9B75653C92472FBCCC812CBB8D9D4939896E85BB95F2B83C64C798BC595A40BCDA9CB0BC4CFC153DAED5793D69AD503DA6415A3C574C483C9D43A9BCA7F651BEAD07A93BFDF2C0BC5E5615BCC3F9333C20E4DBBB4262403D6DBACB3BCBDCE1BBC40AF13BCE8EBCBB096B463DD261073CB459473DA6EECB3B7521283D85BB013DB3A3B6BC8686EF3BBB09223D8662DE3C50B2743CABB1ACBEAD5A943B0496F0BC8457763C841503BD760CB93C2C3ABABC589F04BC9DD71D3CC655063D9A3D4FBBF3DA5BBC4B4762BB996246BCAD3D3A3D57B0543C156F0EBD8D9903BDBC2985BC77BADE3B23814ABDDDF3B33B928DD439D8CD6F3CD22F17BD6781AA3C39E7D13C0B2C573B0CFD5EB9725F2F3D6AB1923CFEEF52BC349492BC93D488BCA15410BDC949203BE132083CA1618D3D61874B3C4E76833D8CE489BCFDEA903C44581E3DAA2C993C71723D3D8C32A53C93E943BCC62E303C0777BE3C93D7023C8003913DFD364BBDAFF857BCDEB4AA3C30A7103DF0FA1BBC26CB8C3C71409C3CE9F3FBBC5C5E33BCFFD83E3D8B44CA3CBC1A4E3D7B19F93C1207B9BCD61141BBE3A71DBC0B5E23BC026EA6BC2C01D93C4CE07DBD80F4473CD06283BC3709203D43EC233D8A5882BCE0513D3CC1DE9C3C045CDDB94000363DAECF6A3DB7643CBB7F8F8ABC26A47B3C535A0BBD1C26A23C7AA4A7BC768A1C3D790B083C74D9663B82E423B92DC024BDC5FD3EBC13849E3A8B78223B925692BAB7F5BABC3B42C6BCA48F84BCC31BB43C61CA0CBD9F421ABCF2EB82BBB30E123C9356203C886F06BD50B827BD13642ABD322B523CBDB53D3D41C3193C795B7BBCB1C8B7BC1135543B89D1A13C6A366D3C6995173B1F8EF93CF7B3243DBBBD253DF71230BD7850333C19E4E93C55D4C33B788FB9BBD3F8693D5F91A5BC3F2A263B56CEB0BC24D6EE3A0690803C5813703CA8678B3C4A0C943C658896BB15D1BEBC78FE02BC52B317BBF99D7C3CA1A116BCD5431B3D9F5E9EBAB7FAF8BBF7AE6C3C8C31EEBCAE1A82399C50D238FBB8AFBB58DEE33C4D88283C2A918E3C27E6273D3F7BA53C46C2EBBB11FADBBC402601BD9FA55E3D3F89063D52AF57BCC2FFE23C82522DBC9DE1673C1828F73C11688EBAC6F19D3C3EAF643C9A6EA6BE68243E3B77C91A3D9B355FBC64EDB13C4F0E403C09FF77BC51CCBD3CFA6B433C489E6A3D58F98BBBD75DA33C39F4283C26E03FBDAD57BEBCB67EB8BCAD575FBC6DD8A3BB97D35E3CFC5BCBBC82E517BDE55342BB96F89DBCB18603BC9334413A76452BBCCE5043BDE4E71ABDFDF7583C7E8866BB424F8BBC6C9B29BDA68149BC886A143D71EE9FBC3670A3BB027696BB64D7F63CCFD5B3BC10C6FD3C0AEAB13B62E1F03C57CD4F3DE6C8143CED55BCBC6A7B18BC3E81D73C1565F3BDF050AE3C41F40F3CFB6D463D13FC8EBCD23E37BD94CA0EBC2543903B6403743C07B4843CE35C89BCF2128E3CC3AFC9BC2DDC0B3C5871EFBB5A58843C21A970BDD349F53CE1318EBBBA8EE6BCF5BE5A3E0E517CBB1DDE5ABCA62E35BD4023853D3310403B72F7153BA26EC93B22CCA83BEC6DF3BC49B7D8BCC165BCBC383230BDC846043DBDD4D93BA9A544BC9E07D8BC50EEBB3CC66A80BA98323A3DDC9001BC69F9313C013B143B3652BEB99BCE20BD7C5EA5BC8E353E3BD428473D18FE9B3C397F863C688C1EBC46B044BAF771CABCEA26AABC84C3CD3BE19E8ABD9FB7223C17DDF03CD1819EBC63408BBC6AFCB5BCBC4818BABFED79BC434C47BD1DE3803D61A2793CC76B00BD6800283DCB90093D14A8103D33C3B7BCB3B7833AB5F9983C70EA2EBD45B5393BB90313BDA478DF3CC980F63B03D1193CDFB06ABC919E21BD5E1A2B3DCE4AAC3AE29CC23A02F061BCE525183DF30868BC2B6E5BBA1354E23C73459BBCB674033DDDE8ECBC110408BB2696C6BC0EB126BD0436673D97610EBD1CB3DBBC991BE83C2054903C1AE5A4BC8ABA15BC94CBEB3CA3E61F3DB07EA1BCE9E6B7BCF45C6EB8DB8D3E3C66D7C5BC98BB113D8836C73CA8FE3C3D9CAEF13A2995563D1106D8BC08BFE9BC85BB6A3C8FE496BC016D2CBDC5E34FB9A30B5A3CC5D910BDA78BCEBCA305183C0D4FB13CAC0FE3BCF93801BC1C7D15BAD4899F3CD561E7BCE5E2053DF4DFCCBB2729A03CD179EF3AB24BA3BCBA3B8BBC2C67F4BCDF71E33B341CF23C09DCD13CFB77FFBC6E4181BC3D81203C6F2C76BC6F9FAC3B3BF896BCB2B88A3DD220F13C43EBE4BC11CDA33B9E9A70BBB9CF0BBD5EA8B8BBA4D0203CB127D9BCB871073D1FB8A0BC543BB33CD05BE4BB1A37EEBB118F3CBD61261C3B4D4C333BC701A63A096D48BCBFC0983CD07DF23CFAF9643CD0609E3C0F1D353D58EF3ABDE6D0D9BCE1109E3C83264C3CA898813C2C198ABCEAE5D8BC6C8CE5BAE9E6BE3D40AFE5BCE9842FBDC239B5BC2482203C378D34BDD17B563CE31894BD9E1A453B76CB3BBD572B9E3C6DFBCFBD47C32EBD16F3F5BCCD6CB53CABC0983C60C5EEBCB474BC3ABC871CBC59EA9DBC7DC45CBD112C873CFD489A3B828B263D9F7E14BC3E6124BD907F843CA208273A3CF85BBC6704A4BC6E1CCABC67AA8EBBCBD3C6BC3C700D3D2CBC403D441E14BD\"}]}",
+    "occurred_at": "2026-09-14T07:37:52.597Z"
+  },
+  {
+    "event_id": 647167,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04",
+    "attempt_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04#attempt-1",
+    "event_type": "reservation-close:item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04#attempt-1#call-1\",\"input\":-481,\"output\":0,\"cost\":-1000,\"time\":-120000,\"actual_cost\":21,\"codex_turn\":0}",
+    "occurred_at": "2026-09-14T07:37:52.599Z"
+  },
+  {
+    "event_id": 647168,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04",
+    "attempt_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04#attempt-1",
+    "event_type": "settlement-receipt:item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04#attempt-1#call-1",
+    "message": "[\"gemini-embed\",\"gemini-embedding-2\",\"embed-ca315a25a03a5025beca91a18846024e\",\"succeeded\",105,0,21,446,\"\",\"monetary-api\",1,\"\",\"\",\"\"]",
+    "occurred_at": "2026-09-14T07:37:52.599Z"
+  },
+  {
+    "event_id": 647169,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04",
+    "attempt_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04#attempt-1",
+    "event_type": "processed",
+    "message": "validated embedding stored",
+    "occurred_at": "2026-09-14T07:37:52.600Z"
+  },
+  {
+    "event_id": 647170,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa",
+    "attempt_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa#attempt-1",
+    "event_type": "claimed",
+    "message": "worker=worker-01eb6bdad6b02f3431b0fa1df77c0b94;fence=1",
+    "occurred_at": "2026-09-14T07:37:52.601Z"
+  },
+  {
+    "event_id": 647171,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa",
+    "attempt_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa#attempt-1",
+    "event_type": "reservation-open:item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa#attempt-1#call-1\",\"input\":32768,\"output\":16384,\"cost\":0,\"time\":120000,\"codex_turn\":1}",
+    "occurred_at": "2026-09-14T07:37:52.603Z"
+  },
+  {
+    "event_id": 647172,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405",
+    "attempt_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405#attempt-1",
+    "event_type": "provider-intent",
+    "message": "{\"input_hash\":\"39517d9bdc7662642bb37009b1234c0a10255e0e718b06110c7dc3934799e352\",\"config_snapshot_id\":\"config-a211c0fede4237fe77bbc797\",\"request_id\":\"extract-24346cac66f874fb88dcad0afbdbd836\"}",
+    "occurred_at": "2026-09-14T07:37:52.923Z"
+  },
+  {
+    "event_id": 647173,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa",
+    "attempt_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa#attempt-1",
+    "event_type": "provider-intent",
+    "message": "{\"input_hash\":\"c3bc6ee072afd17d56210cfadd429d9b34cde62ad43b651d8921c87989bb1042\",\"config_snapshot_id\":\"config-a211c0fede4237fe77bbc797\",\"request_id\":\"extract-a6a6771a09e33a799be20a12b1f774a9\"}",
+    "occurred_at": "2026-09-14T07:37:53.353Z"
+  },
+  {
+    "event_id": 647174,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405",
+    "attempt_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405#attempt-1",
+    "event_type": "provider-response",
+    "message": "{\"schema\":\"crexx-rag.provider-receipt/1\",\"expected_request_id\":\"extract-24346cac66f874fb88dcad0afbdbd836\",\"provider_run_id\":\"provider-run-sha256:547450858cfcb20ae881739e7419b2cf4230f9c87aadfc92371109ac2de15512\",\"status\":0,\"provider\":\"codex\",\"model\":\"gpt-5.6-luna\",\"request_id\":\"extract-24346cac66f874fb88dcad0afbdbd836\",\"content\":\"{\\\"mentions\\\":[{\\\"label\\\":\\\"BANNOCKBURN\\\",\\\"canonical_label\\\":\\\"BANNOCKBURN\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"BANNOCKBURN, a town of Stirlingshire, Scotland.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Stirlingshire\\\",\\\"canonical_label\\\":\\\"Stirlingshire\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"BANNOCKBURN, a town of Stirlingshire, Scotland.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Scotland\\\",\\\"canonical_label\\\":\\\"Scotland\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"BANNOCKBURN, a town of Stirlingshire, Scotland.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"the Bannock\\\",\\\"canonical_label\\\":\\\"the Bannock\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"the Bannock (Gaelic, ban oc, \u201cwhite, shining stream\u201d), a right-hand affluent of the Forth\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"the Forth\\\",\\\"canonical_label\\\":\\\"the Forth\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"the Bannock (Gaelic, ban oc, \u201cwhite, shining stream\u201d), a right-hand affluent of the Forth\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Stirling\\\",\\\"canonical_label\\\":\\\"Stirling\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"The town lies 2\u20601/4\u2060 m. S.S.E. of Stirling by the Caledonian railway\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"the Caledonian railway\\\",\\\"canonical_label\\\":\\\"the Caledonian railway\\\",\\\"concept_type\\\":\\\"artefact\\\",\\\"evidence_quote\\\":\\\"The town lies 2\u20601/4\u2060 m. S.S.E. of Stirling by the Caledonian railway\\\",\\\"aliases\\\":[]}],\\\"relationships\\\":[{\\\"source_mention\\\":0,\\\"relationship_type\\\":\\\"located-in\\\",\\\"target_mention\\\":1,\\\"evidence_quote\\\":\\\"BANNOCKBURN, a town of Stirlingshire, Scotland.\\\",\\\"confidence_millionths\\\":990000},{\\\"source_mention\\\":1,\\\"relationship_type\\\":\\\"located-in\\\",\\\"target_mention\\\":2,\\\"evidence_quote\\\":\\\"BANNOCKBURN, a town of Stirlingshire, Scotland.\\\",\\\"confidence_millionths\\\":990000}],\\\"notes\\\":[{\\\"kind\\\":\\\"observation\\\",\\\"text\\\":\\\"The source identifies BANNOCKBURN as a town and places it in Stirlingshire, Scotland.\\\",\\\"importance_millionths\\\":850000,\\\"uncertainty_millionths\\\":10000,\\\"next_action\\\":\\\"\\\",\\\"evidence_quote\\\":\\\"BANNOCKBURN, a town of Stirlingshire, Scotland.\\\"}]}\",\"content_sha256\":\"dc8baaf7820b4eb0143b5e89afd4470159e213cbd5224078bde6056cc957a34c\",\"content_bytes\":1917,\"omitted\":\"\",\"finish\":\"completed\",\"input\":18357,\"output\":768,\"input_count\":1,\"cost\":-1,\"attempts\":1,\"retry_delay\":0,\"latency_us\":17141747,\"error_category\":\"none\",\"error_code\":0,\"http_status\":0,\"retryable\":0,\"error_attempt\":0,\"error_message\":\"\",\"vectors\":[]}",
+    "occurred_at": "2026-09-14T07:38:10.073Z"
+  },
+  {
+    "event_id": 647175,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405",
+    "attempt_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405#attempt-1",
+    "event_type": "reservation-close:item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405#attempt-1#call-1\",\"input\":-32768,\"output\":-16384,\"cost\":0,\"time\":-120000,\"actual_cost\":0,\"codex_turn\":-1}",
+    "occurred_at": "2026-09-14T07:38:10.724Z"
+  },
+  {
+    "event_id": 647176,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405",
+    "attempt_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405#attempt-1",
+    "event_type": "settlement-receipt:item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405#attempt-1#call-1",
+    "message": "[\"codex-extract\",\"gpt-5.6-luna\",\"extract-24346cac66f874fb88dcad0afbdbd836\",\"succeeded\",18357,768,0,17141,\"provider-run-sha256:547450858cfcb20ae881739e7419b2cf4230f9c87aadfc92371109ac2de15512\",\"subscription-allowance\",1,\"\",\"\",\"\"]",
+    "occurred_at": "2026-09-14T07:38:10.724Z"
+  },
+  {
+    "event_id": 647177,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405",
+    "attempt_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405#attempt-1",
+    "event_type": "processed",
+    "message": "{\"mentions\":7,\"relationships\":2,\"notes\":1,\"dispositions\":\",identity-review-required,accepted\"}",
+    "occurred_at": "2026-09-14T07:38:10.740Z"
+  },
+  {
+    "event_id": 647178,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49",
+    "attempt_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-2",
+    "event_type": "claimed",
+    "message": "worker=worker-9128f3a4ff7e7ae4daaf4aaa2937b7a0;fence=2",
+    "occurred_at": "2026-09-14T07:38:10.751Z"
+  },
+  {
+    "event_id": 647179,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49",
+    "attempt_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-2",
+    "event_type": "reservation-open:item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-2#call-1",
+    "message": "{\"reservation_id\":\"item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-2#call-1\",\"input\":532,\"output\":0,\"cost\":1000,\"time\":120000,\"codex_turn\":0}",
+    "occurred_at": "2026-09-14T07:38:10.752Z"
+  },
+  {
+    "event_id": 647180,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49",
+    "attempt_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-2",
+    "event_type": "provider-intent",
+    "message": "{\"input_hash\":\"3ba7427de3e3acd5dafdbe69dea4b5b2321b367f10d6d4dcd41a044dc101ed32\",\"config_snapshot_id\":\"config-a211c0fede4237fe77bbc797\",\"request_id\":\"embed-bbd6c2dbe57e745495aa9fdc8296281f\"}",
+    "occurred_at": "2026-09-14T07:38:10.757Z"
+  },
+  {
+    "event_id": 647181,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49",
+    "attempt_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-2",
+    "event_type": "provider-response",
+    "message": "{\"schema\":\"crexx-rag.provider-receipt/1\",\"expected_request_id\":\"embed-bbd6c2dbe57e745495aa9fdc8296281f\",\"provider_run_id\":\"\",\"status\":0,\"provider\":\"gemini\",\"model\":\"gemini-embedding-2\",\"request_id\":\"embed-bbd6c2dbe57e745495aa9fdc8296281f\",\"content\":\"\",\"content_sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"content_bytes\":0,\"omitted\":\"\",\"finish\":\"complete\",\"input\":143,\"output\":0,\"input_count\":1,\"cost\":28,\"attempts\":1,\"retry_delay\":0,\"latency_us\":417390,\"error_category\":\"none\",\"error_code\":0,\"http_status\":0,\"retryable\":0,\"error_attempt\":0,\"error_message\":\"\",\"vectors\":[{\"codec\":\"f32le-v1\",\"count\":768,\"hex\":\"189A393CF060963971E6E1BCC256443CF1B4BFBC08657BBC2BC8D83A2513473CBD0589BC482087BDF54F8F3C9803FCBBEEE30B3D71BFEC3CAE6D46BD5B71B33CE4E1093D0BB3C1BC2DA5043D76D23FBDF33CC43CCE0A3BBD4CE4713DA5E788BCA577AFBC61B9133C6D4A1B3DB436493C8330D43CF04F663E93FDC3BC781F143CFF3CA2BCA0415C3C9567863B2596CE38B731F7BBC818703CBF248BBD435142BDAD91593CDB100D3C17C2D93B06E68CBB28382C3D30D1E53BAC2C93BBBBDF543ADCEA7DBC6C22C8BCCB0F293D93C41F3C4031433DAD4AB7BC9B072C3D6FE2813B95319DBB26DAC63BECEF7A3D57FF883C9C1D2ABCAD798C3D51FF243DC47D5CBB029098BCA798C83B0AD8CA3C98395E3CDB4D193DC6E6AB3C3D5BA53C20324B3C98EE54BDD62AA4BCF2FB21BCC1F7EBBCD90167BD58A75EBC1FA9303D6654273C1C37B43C40243D3CD240B33C0C46453D820256BD5AF40BBD1557FA3CAD49F23CF3F8F53B7D7FEE3B77C963BBDF1E933CF05FDE3CB178D5BC6920983CD66BF6BCE38742BC1D38FD3C7E78053D3A4676BC7397BABC43D2F43C7B6421BC190CA8BB7A0202BDEC440C3D71EC1C3C9AE749BB1FA9B43C862A36BCF56F91BC52D98EBE20083ABCCB5CA53CA564273D650DB5BC6530C13C443D33BCDED48ABC32B6093D01043B3C8F19B73AF8B4373CC44A64BA26FFCC3CB3B1BD3CD55CD93C259131BC3EC7B7BC40D5183C663C0A3D4127A2BCFEEA05BDF1BC67BC9B7707BC395B12BD8919CEBB379933BD09DD053B946D63BB71512FBDBA1D283C0EC002BC125B833BF6C6A83C6444143DD33C183D359EBDBCFB7F893C6DD01B3CCE4B79BC02B206BCC5D2ECBC6CD9D73CB9A5B0397683913C2269973C2CE0B7BBA9489F3C9126A1BBC8837C3CF397473D2F0DB7BAB205643D36D17ABCF746C63CF0E151BCF6D9353DBC0EC83B7E5187BC6BD3B2BC7B16A3BD938450BC43102E3C52D8D3BBEB5943BBBB228ABB8064B6BC5D76B2BC9CEFA63C5746503CC9D4503B89D11B3DE7A4B1BCBC5BB6BCA7F5813DE4CD0D3A7791C2BC91B9DF3C3AF102BD73DA973BBA8FA9BC004D5ABC6DADC5BCE95AD33B5F2522BC627D803D2CF8373CCC041ABDBF9C363D8AEB053C4727B1BB9C1F50BCC17F26BDFD21F2BBF2560DBD62BF39BCEDBDB8BC604710BD76857D3C6925803C23E868BC0691BABC4867563D511C0D3A5DF8C53B871FF23CBE91593D7E68003CE2B20BBCAACD653C6A5B253DBF7E123D239236BDC82C6FBC2286EC3CF49B0D3DFA213B3A1816F43A20EF123DE219C53C948C093DC9D0113B9245BDB9EFE9D1BCAD6A623D74AFDF3BC34922BD2619153CA659BEBC0B1404BDB9C049BD5AB7C73A32952C3C8D83DB3C1AA60A3D3CDDA2BCA44EBA3C5D331D3CEAC309BD484001BCA3998FBB58BA503C30C3053CBE32693CEF5C2C3C74C412BDC6BA43BCAA12503C34E792BC1642EB3C4F4CB73C1F300A3D25B596BC510295BB036662BC872600BDE89EF83C2D9D72BA2E71A53C01E49DBB638CC4BCF512BD3AFA6C4BBDD43211BC76A329BD5C9B54BD44C3513B700F473CB125C43CBE57C63A226DD3BCE454DBBB627D13BD0CE100BC646E02BB99AF14BD1B6C813BCDD0A2BC8F07B63C6EB1893CF5BB7C3DC75C1DBCA211813C5968CDBBB55A0A3DD35E5B3CD0D92CBD18D5F6BCCC15BEBC1A691DBC0FD19AB9A3BBB43C274A9ABDE565D3BCAFBF633CC191E5BC6B9FBEBB9FD81ABD8708A03B9361B93CD58FFF3BCF1C2CBD9E8E013D46AEC83C416A1E3DCE19F33B25C0AF3C2F1C9FBC8B8C54BE280B78BAE18EB9BC683D16BDB90C1C3C10B417BDEE46263D8F9816BDAE0A1CBDE5FE1FBC5E29893C2CB84D3D69B4463CD3B3A13D23FF1D3DC8F000BCE2DCD0BCCDF85EBD7BCB303B9CEE713C1AA5833CD188A03B33A6AABEF4C2AABB7FAE9D3BF724733D113FD3BC1E41123CAF7C333A71774FBC53D4CE3B6F39BDBCFD4EA4BC0C7C87BD303FC13C0C08ACBC5394A23C86C096BBEB660C3BF769DABC70B725BCBD6953BA51A757BC311F163D560BA6BCCC63FF3B8093D8BBAF01D5BCF04B363D213F063C2F39C13C59C60E3DA1919E3C399B33BC5FD8E9BBCEECDF3B7714193CD88CA7BC6BF0713CB363303D7646AF3CEBF23E3D50B79EBC3DC645BC7C97F73A6717A4BC81AC413D2300AD3CAC41FFBCA41B08BD9219C73BDBBDE2BC808A6E3DF41716BDFBF966BC0C2EB93CA6FC1B3C24EB48BD3636613DAD71A1BCA3471CBDB88ED53C141E20BC214EE53C29BCE33CFBF5A33C9DF33A3C438301BC4C7017BC0A1C9EBC1B0EE0BC4FB537B9A907CCBC016E9F3CCE2D2A3DAB02E03CDC58663D47A585BC895FD53C2C6A503CC38F0A3C9AFE093CB9895E3CF3CD8CBC80F8C4BCCFE0FE3B04A5ACBC9A231A3DD351EBBCD45D423D1BD1BA3CFC2CBA3CF97D443C6CAF76BC458273BC15A8583DE963493CC96770BC448A8ABC586102BC7123E93AF7EED83CC2DFC2BC458A21BCF193043DB0BBBFBB2214FFBCCAB209BC2FD887BDAE3CFEBCA8C39D3B3C1F943C32AA18BDB8923BBD28F31C3CA437593DEED19D3C0BA74B3C5BE9B13BFF55AEBB928C63BC127C223B375213BDCA75CD3B6EB7B9BC7C77BCBBEB08BEBC0294953CB32B0DBC5FF00B3C7808CABC7921B8BC1880E53BC8AF6BBCFC71023B9DAD323CC4F117BD6FA684BC477BD8BC0C4A99BC360B873CCFABB7BA1E9302BA26A82B3D1AF237BC1408A73C01B3F6BCD2281C3DA58024BD301888BC1F9FD23CB775A2BC2D58983BC26B8FBB5452DE3CDE737DBCDEB7A13B494419BC7DF77B3C8A56CCBC9CA1FF3C9DC870BBC5C611BC71AF523B115CBABA4FDF4DBDD91B553DC078583D58069ABEED42AA3B7A02113DD32AEB3C288A1ABB4393E6BBCE7A8EBC9BFE993C39A7313DCA5D3F3D916EDBBC845B63BBF1610F3D0712373B79308A3C652816BCC013BA3B2D06B8BC7EFA753CF86F8DBD75353EBD3BB247BDEE674FBC7F268BBC403F4E3D16C6CABC69B234BDD058BABC150B3C3C9D62593ADEF6163C70ECB2BC6B2CC5BBBC5F383D85DC0BBDB51E47BD7E703ABCE952FEBCCAF78FBC301FBA3C99860ABC96DDE73BF95E123D2FA9213BB4B985BC1BC807BDC54D3D3D007701BEE793753D7B0AB73C72FD233DBA75F9B9D973CFBC4DA49ABC947BC5BC5AB9EE3C33C6563C6945B33B559DB33CA39B32BD67061B3D594D0EBB24E34B3CD20A85BD4A0291BA3737913B183D57BD38AF583ED63B26BD013CB9BC953CC5BC5E582E3D054817BCFDD996BC1B0B743BECCBCF3CCE50363B2A1DE03B6C5BA43A70F650BCAA53453D410C2B3C33C0443CBC1442BDC0ABC23C93318EBCAEBC733D4F801EBC5C78AF3B219B0F3CEA37C23CEFFC49BDEF42FFBB164E47BC7FAA053CB68C183D3E5AD93C0E362DBDABCC4F3CB1EE0EBC78598EBD2A5770BCFE19BFB969136CBCE32FDC3C52F6C5BCADD46B3C9076053CED6F263C3ECEEEBA7E09E2BCEB34A43D74EA1E3D2208BABC886BA0BB79132B3D0863CCBB43435F3D97121EBD1E0ED53BA676F5BA8C63683A202D7ABC8C3BB0BCC46C763C059A1FBCB060D53CD6DFB3BC5E8482BC6CF970BB2840B73C6011EDBC90CFED3CBDA1FBBC9E0C98BB9FD1C53CF0B477BB06F411BB41A645BD936763BD13F189BCF17A14BDF5BAB13CFED6CEBB108475BD87D7E538FD3FEB3BBB8E023B2704313BF79DCB3B02790F3D4E4107BDAF9BB53B6302BF3B25D28A3C216363BBE684ADBB13C5DC3CDF0423BCF84B523CA3B6C83C628A353B73772CBD0A210C3C2B3A2DBD9DF7FABCD71A593C7C61113C3E8E91BB1A2ACCBA8699FD3C07F7A33C36D10FBD6638C6BC3C6A763C8BECDA3CDCF184BC19DD243D89CA39BD6674A3BAE9D24FBC06F27FBB29FC32BD3800D4BAA423F03C364BD73CF9844339BDA3AABC245925BB91A18DBC14180F3A9E20523D809F0FBD1626AB3D77D3DABA34D9A1BCEED2FDBC3E502F3BD252E4BCCC2F113C05E1E5BBC2BCF6BCB129463D806F00BC8EB9BB3CC1313C3D66FE50BDCACF7F3CD8C78FBC8C19DBBCED1A0E3DCFF1D03C0273133DD9A52FBDB93ABEBCDE74203CC88167BC0FE5FFBC924FF2BC02DD0C3CBFE4403BCC3EADBC2FF1E43CF28684BC463CD93CE3E4D33D858118BD6A5AC3BC5DD925BBF97CFDB8354F71BD514987BB4AA444BD76AADFBC1B774DBDA14B00BC60FC10BDCED637BD1A1EFB3B0C604F3C68A3C63B844497BC9F7EC1BCB7F8213CE7BDF13B871908BD40E02BBD29B29BBC70DD933C0DB223BDD708D7BBA9BFC1BBE5C306BCD7FEBBBB3C2FF33A2760733B2820933B19D20B3C865D9C3C96A1043C1D51DEBC\"}]}",
+    "occurred_at": "2026-09-14T07:38:11.177Z"
+  },
+  {
+    "event_id": 647182,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49",
+    "attempt_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-2",
+    "event_type": "reservation-close:item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-2#call-1",
+    "message": "{\"reservation_id\":\"item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-2#call-1\",\"input\":-532,\"output\":0,\"cost\":-1000,\"time\":-120000,\"actual_cost\":28,\"codex_turn\":0}",
+    "occurred_at": "2026-09-14T07:38:11.180Z"
+  },
+  {
+    "event_id": 647183,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49",
+    "attempt_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-2",
+    "event_type": "settlement-receipt:item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-2#call-1",
+    "message": "[\"gemini-embed\",\"gemini-embedding-2\",\"embed-bbd6c2dbe57e745495aa9fdc8296281f\",\"succeeded\",143,0,28,417,\"\",\"monetary-api\",1,\"\",\"\",\"\"]",
+    "occurred_at": "2026-09-14T07:38:11.180Z"
+  },
+  {
+    "event_id": 647184,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49",
+    "attempt_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49#attempt-2",
+    "event_type": "processed",
+    "message": "validated embedding stored",
+    "occurred_at": "2026-09-14T07:38:11.181Z"
+  },
+  {
+    "event_id": 647185,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa",
+    "attempt_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa#attempt-1",
+    "event_type": "provider-response",
+    "message": "{\"schema\":\"crexx-rag.provider-receipt/1\",\"expected_request_id\":\"extract-a6a6771a09e33a799be20a12b1f774a9\",\"provider_run_id\":\"provider-run-sha256:e3c6ba8279f8fb9e262b5f213c3f32f339298760a7d733f93d17c19ab8a63002\",\"status\":0,\"provider\":\"codex\",\"model\":\"gpt-5.6-luna\",\"request_id\":\"extract-a6a6771a09e33a799be20a12b1f774a9\",\"content\":\"{\\\"mentions\\\":[{\\\"label\\\":\\\"The Bore Stone\\\",\\\"canonical_label\\\":\\\"The Bore Stone\\\",\\\"concept_type\\\":\\\"artefact\\\",\\\"evidence_quote\\\":\\\"The Bore Stone, in which Bruce planted his standard before the battle in which he defeated Edward II.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Bruce\\\",\\\"canonical_label\\\":\\\"Bruce\\\",\\\"concept_type\\\":\\\"person\\\",\\\"evidence_quote\\\":\\\"The Bore Stone, in which Bruce planted his standard before the battle in which he defeated Edward II.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"the battle\\\",\\\"canonical_label\\\":\\\"the battle\\\",\\\"concept_type\\\":\\\"event\\\",\\\"evidence_quote\\\":\\\"The Bore Stone, in which Bruce planted his standard before the battle in which he defeated Edward II.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Edward II.\\\",\\\"canonical_label\\\":\\\"Edward II.\\\",\\\"concept_type\\\":\\\"person\\\",\\\"evidence_quote\\\":\\\"The Bore Stone, in which Bruce planted his standard before the battle in which he defeated Edward II.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Gillies\u2019 Hill\\\",\\\"canonical_label\\\":\\\"Gillies\u2019 Hill\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"A mile to the west is the Gillies\u2019 Hill, now finely wooded, over which the Scots\u2019 camp-followers appeared to complete the discomfiture of the English, to which event it owes its name.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"the Scots\u2019 camp-followers\\\",\\\"canonical_label\\\":\\\"the Scots\u2019 camp-followers\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"A mile to the west is the Gillies\u2019 Hill, now finely wooded, over which the Scots\u2019 camp-followers appeared to complete the discomfiture of the English, to which event it owes its name.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"the English\\\",\\\"canonical_label\\\":\\\"the English\\\",\\\"concept_type\\\":\\\"organisation\\\",\\\"evidence_quote\\\":\\\"A mile to the west is the Gillies\u2019 Hill, now finely wooded, over which the Scots\u2019 camp-followers appeared to complete the discomfiture of the English, to which event it owes its name.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Bannockburn House\\\",\\\"canonical_label\\\":\\\"Bannockburn House\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"Bannockburn House was Prince Charles Edward\u2019s headquarters in January 1746 before the fight at Falkirk.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Prince Charles Edward\\\",\\\"canonical_label\\\":\\\"Prince Charles Edward\\\",\\\"concept_type\\\":\\\"person\\\",\\\"evidence_quote\\\":\\\"Bannockburn House was Prince Charles Edward\u2019s headquarters in January 1746 before the fight at Falkirk.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"the fight at Falkirk\\\",\\\"canonical_label\\\":\\\"the fight at Falkirk\\\",\\\"concept_type\\\":\\\"event\\\",\\\"evidence_quote\\\":\\\"Bannockburn House was Prince Charles Edward\u2019s headquarters in January 1746 before the fight at Falkirk.\\\",\\\"aliases\\\":[]},{\\\"label\\\":\\\"Falkirk\\\",\\\"canonical_label\\\":\\\"Falkirk\\\",\\\"concept_type\\\":\\\"place\\\",\\\"evidence_quote\\\":\\\"Bannockburn House was Prince Charles Edward\u2019s headquarters in January 1746 before the fight at Falkirk.\\\",\\\"aliases\\\":[]}],\\\"relationships\\\":[{\\\"source_mention\\\":1,\\\"relationship_type\\\":\\\"participated-in\\\",\\\"target_mention\\\":2,\\\"evidence_quote\\\":\\\"The Bore Stone, in which Bruce planted his standard before the battle in which he defeated Edward II.\\\",\\\"confidence_millionths\\\":850000},{\\\"source_mention\\\":3,\\\"relationship_type\\\":\\\"participated-in\\\",\\\"target_mention\\\":2,\\\"evidence_quote\\\":\\\"The Bore Stone, in which Bruce planted his standard before the battle in which he defeated Edward II.\\\",\\\"confidence_millionths\\\":780000},{\\\"source_mention\\\":5,\\\"relationship_type\\\":\\\"participated-in\\\",\\\"target_mention\\\":6,\\\"evidence_quote\\\":\\\"A mile to the west is the Gillies\u2019 Hill, now finely wooded, over which the Scots\u2019 camp-followers appeared to complete the discomfiture of the English, to which event it owes its name.\\\",\\\"confidence_millionths\\\":700000},{\\\"source_mention\\\":8,\\\"relationship_type\\\":\\\"located-in\\\",\\\"target_mention\\\":7,\\\"evidence_quote\\\":\\\"Bannockburn House was Prince Charles Edward\u2019s headquarters in January 1746 before the fight at Falkirk.\\\",\\\"confidence_millionths\\\":900000},{\\\"source_mention\\\":8,\\\"relationship_type\\\":\\\"participated-in\\\",\\\"target_mention\\\":9,\\\"evidence_quote\\\":\\\"Bannockburn House was Prince Charles Edward\u2019s headquarters in January 1746 before the fight at Falkirk.\\\",\\\"confidence_millionths\\\":650000},{\\\"source_mention\\\":9,\\\"relationship_type\\\":\\\"located-in\\\",\\\"target_mention\\\":10,\\\"evidence_quote\\\":\\\"Bannockburn House was Prince Charles Edward\u2019s headquarters in January 1746 before the fight at Falkirk.\\\",\\\"confidence_millionths\\\":850000}],\\\"notes\\\":[]}\",\"content_sha256\":\"4141a4d5a37d68bda2678cb90897d60d49dc7191aed8044d8406594f0c081fad\",\"content_bytes\":4222,\"omitted\":\"\",\"finish\":\"completed\",\"input\":18283,\"output\":1206,\"input_count\":1,\"cost\":-1,\"attempts\":1,\"retry_delay\":0,\"latency_us\":24895949,\"error_category\":\"none\",\"error_code\":0,\"http_status\":0,\"retryable\":0,\"error_attempt\":0,\"error_message\":\"\",\"vectors\":[]}",
+    "occurred_at": "2026-09-14T07:38:18.258Z"
+  },
+  {
+    "event_id": 647186,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa",
+    "attempt_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa#attempt-1",
+    "event_type": "reservation-close:item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa#attempt-1#call-1",
+    "message": "{\"reservation_id\":\"item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa#attempt-1#call-1\",\"input\":-32768,\"output\":-16384,\"cost\":0,\"time\":-120000,\"actual_cost\":0,\"codex_turn\":-1}",
+    "occurred_at": "2026-09-14T07:38:18.567Z"
+  },
+  {
+    "event_id": 647187,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa",
+    "attempt_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa#attempt-1",
+    "event_type": "settlement-receipt:item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa#attempt-1#call-1",
+    "message": "[\"codex-extract\",\"gpt-5.6-luna\",\"extract-a6a6771a09e33a799be20a12b1f774a9\",\"succeeded\",18283,1206,0,24895,\"provider-run-sha256:e3c6ba8279f8fb9e262b5f213c3f32f339298760a7d733f93d17c19ab8a63002\",\"subscription-allowance\",1,\"\",\"\",\"\"]",
+    "occurred_at": "2026-09-14T07:38:18.567Z"
+  },
+  {
+    "event_id": 647188,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa",
+    "attempt_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa#attempt-1",
+    "event_type": "processed",
+    "message": "{\"mentions\":12,\"relationships\":6,\"notes\":0,\"dispositions\":\"accepted,accepted,accepted,accepted,accepted,accepted\"}",
+    "occurred_at": "2026-09-14T07:38:18.594Z"
+  },
+  {
+    "event_id": 647189,
+    "job_id": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+    "item_id": null,
+    "attempt_id": null,
+    "event_type": "worker-supervision",
+    "message": "{\"controller\":\"controller-368c6d55a8afd302c69431cb1da9cea1\",\"configured_workers\":2,\"max_restarts\":2,\"window_seconds\":3600}",
+    "occurred_at": "2026-09-14T07:39:42.218Z"
+  }
+]

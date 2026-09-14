@@ -375,7 +375,7 @@ _vector: procedure = .int
   if _positivepackednorm(query_vector) \= 1 | _allrowspositive(centroid_vectors, centroid_count, dimension) \= 1 then do; error = "ANN centroid probe contains a zero-norm vector"; return -1; end
   probed_ids = .packedint(0); probe_scores = .packedfloat(0)
   call rxvector..topkcosine(centroid_vectors, centroid_ids, dimension, query_vector, probe_count, probed_ids, probe_scores)
-  member_ids = .string[]
+  member_ids = .string[]; member_digests = .string[]
   do p = 0 to probed_ids.size() - 1
     cluster_number = probed_ids.get(p); cluster_node = document.element(clusters_node, cluster_number); encoded_cluster = 0
     members_node = document.member(cluster_node, "members")
@@ -383,29 +383,37 @@ _vector: procedure = .int
     do m = 1 to document.node_count(members_node)
       member = document.element(members_node, m); chunk_id = ""; input_digest = ""
       if document.node_type(member) \= "object" | document.node_count(member) \= 2 | document.node_string(document.member(member, "revision_chunk_id"), chunk_id) \= 0 | document.node_string(document.member(member, "input_digest"), input_digest) \= 0 | chunk_id = "" | length(input_digest) \= 64 then do; error = "ANN cluster member is invalid"; return -1; end
-      if _contains(member_ids, chunk_id) = 0 then member_ids[member_ids.0 + 1] = chunk_id
+      if _contains(member_ids, chunk_id) = 0 then do; member_ids[member_ids.0 + 1] = chunk_id; member_digests[member_ids.0] = input_digest; end
       if member_ids.0 > retrieval_options.vector_scan_limit() then do; vector_state = "fallback-ann-candidate-ceiling"; trace_notes[trace_notes.0 + 1] = "vector-fallback=ann-candidate-ceiling"; return 0; end
     end
   end
   if member_ids.0 < 1 then do; error = "ANN probes selected no members"; return -1; end
   page_size = 128; offset = 1; searched = 0
+  member_sql = "SELECT e.vector FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE rc.revision_chunk_id=?1 AND e.embedding_profile_id=?2 AND e.dimension=?3 AND e.input_digest=?5 AND rce.visible_from_generation<=?4 AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>?4) AND rc.visible_from_generation<=?4 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?4)"
   do while offset <= member_ids.0
     prepared = .binary
+    if sqliteprepare(store.database(),member_sql,prepared) \= 0 then do; error = "cannot prepare ANN member lookup"; return -1; end
     page_wire = .binary; page_ids = .string[]; page_owners = .packedint(page_size); page_rows = 0
+    scanned = 0
     do m = offset to member_ids.0
-      if page_rows >= page_size then leave
-      sql = "SELECT e.vector FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE rc.revision_chunk_id=?1 AND e.embedding_profile_id=?2 AND e.dimension=?3 AND rce.visible_from_generation<=?4 AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>?4) AND rc.visible_from_generation<=?4 AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>?4)"
-      if sqliteprepare(store.database(), sql, prepared) \= 0 | sqlitebindtext(prepared, 1, member_ids[m]) \= 0 | sqlitebindtext(prepared, 2, profile_id) \= 0 | sqlitebindint(prepared, 3, dimension) \= 0 | sqlitebindint(prepared, 4, generation) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "cannot resolve ANN member vector"; return -1; end
-      vector_wire = .binary
-      if sqlitecolumnblob(prepared, 0, vector_wire) \= 0 | binlength(vector_wire) \= dimension * 4 | sqlitestep(prepared) \= 101 then do; call sqlitefinalize prepared; error = "cannot decode unique ANN member vector"; return -1; end
-      call sqlitefinalize prepared
-      chunk_id = member_ids[m]
-      page_ids[page_ids.0 + 1] = chunk_id
-      call page_owners.set(page_rows, page_ids.0)
-      call binappend page_wire, vector_wire
-      page_rows = page_rows + 1
+      if scanned >= page_size then leave
+      scanned = scanned + 1
+      if sqlitebindtext(prepared, 1, member_ids[m]) \= 0 | sqlitebindtext(prepared, 2, profile_id) \= 0 | sqlitebindint(prepared, 3, dimension) \= 0 | sqlitebindint(prepared, 4, generation) \= 0 | sqlitebindtext(prepared, 5, member_digests[m]) \= 0 then do; call sqlitefinalize prepared; error = "cannot bind ANN member vector"; return -1; end
+      member_step = sqlitestep(prepared)
+      if member_step = 100 then do
+        vector_wire = .binary
+        if sqlitecolumnblob(prepared, 0, vector_wire) \= 0 | binlength(vector_wire) \= dimension * 4 | sqlitestep(prepared) \= 101 then do; call sqlitefinalize prepared; error = "cannot decode unique ANN member vector"; return -1; end
+        page_ids[page_ids.0 + 1] = member_ids[m]
+        call page_owners.set(page_rows, page_ids.0)
+        call binappend page_wire, vector_wire
+        page_rows = page_rows + 1
+      end
+      else if member_step \= 101 then do; call sqlitefinalize prepared; error = "cannot resolve ANN member vector"; return -1; end
+      if sqlitereset(prepared) \= 0 | sqliteclearbindings(prepared) \= 0 then do; call sqlitefinalize prepared; error = "cannot reset ANN member lookup"; return -1; end
     end
-    if page_ids.0 = 0 then leave
+    call sqlitefinalize prepared
+    offset = offset + scanned
+    if page_ids.0 = 0 then iterate
     call page_owners.resize(page_rows)
     page_vectors = rxvector..decodef32le(page_wire)
     requested = retrieval_options.vector_limit()
@@ -419,7 +427,7 @@ _vector: procedure = .int
       index = _candidate(page_ids[owner], candidate_ids, lexical_ranks, vector_ranks, graph_ranks, vector_scores, graph_hops, directness_values)
       if similarity > vector_scores[index] | vector_ranks[index] = 0 then vector_scores[index] = similarity
     end
-    searched = searched + page_ids.0; offset = offset + page_ids.0
+    searched = searched + page_ids.0
   end
   call _rankvectors(candidate_ids, vector_ranks, vector_scores, retrieval_options.vector_limit())
   vector_state = "active-ann-ivf-rxvector"

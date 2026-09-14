@@ -1,0 +1,6 @@
+{
+  "path": "/private/tmp/crexxrag-index-retry-final-cr61v8pl",
+  "source": "/private/tmp/crexxrag-test2-repair-v2310lhx",
+  "fixture_schema": 18,
+  "construction": "SQLite backup; remove only unreleased migration 19 marker metadata, then exercise the final public migration."
+}

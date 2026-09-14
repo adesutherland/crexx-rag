@@ -1,0 +1,8 @@
+crexxrag controller start workers=2
+crexxrag worker complete [worker-77418286a1a14c14411f6ada64916565] completed=1/2
+crexxrag worker complete [worker-f272f6d88e40759d8beac31bf22253f9] completed=2/2
+crexxrag vector identical-no-op [job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095] generations=1
+crexxrag controller complete [controller-368c6d55a8afd302c69431cb1da9cea1] workers=2
+real 26.14
+user 23.00
+sys 0.70

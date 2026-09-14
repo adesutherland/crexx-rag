@@ -1,0 +1,22 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 21: provider_durability
+1/2 Test #21: provider_durability ..............   Passed   12.86 sec
+    Start 29: ann_methodology
+2/2 Test #29: ann_methodology ..................   Passed    5.61 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Label Time Summary:
+ann                    =   5.61 sec*proc (1 test)
+codex                  =  12.86 sec*proc (1 test)
+durability             =  12.86 sec*proc (1 test)
+provider               =  12.86 sec*proc (1 test)
+recall                 =   5.61 sec*proc (1 test)
+retrieval              =   5.61 sec*proc (1 test)
+rxvector               =   5.61 sec*proc (1 test)
+sqlite                 =   5.61 sec*proc (1 test)
+subscription-budget    =  12.86 sec*proc (1 test)
+tamper                 =   5.61 sec*proc (1 test)
+zero-outbound          =  12.86 sec*proc (1 test)
+
+Total Test time (real) =  18.47 sec

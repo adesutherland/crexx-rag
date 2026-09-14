@@ -1,5 +1,25 @@
 # Consolidated roadmap and defect register
 
+**14 September Test 2 closure:** A0–A8 are complete and the
+[checklist is retired](test2-recovery-delivery-20260914.md). Final local QA is
+**71/71**; unchanged full-corpus job retry fell from **26.14 to 2.080 seconds**
+with no provider calls or repeated attempts. The user authorized the local
+commit. Active work is now the [Test 4 checklist](test4-repair-delivery-20260914.md):
+RAG-SMK-010 replay compatibility and the selected Nairn grounding hold.
+
+**14 September smoke repeat:** baseline `0a85f9d` was committed before all four
+tests ran on a fresh disposable pre-Test-1 restore. Tests 1 and 3 passed. Test 2
+completed its items but required provider-free vector recovery after a worker
+stream failure. **RAG-SMK-011 (P1, repaired 14 September):** the
+[Test 2 repair](test2-recovery-delivery-20260914.md) removes optional account
+refresh, isolates committed vector availability and makes ordinary job retry
+finish indexing. Focused tests and fresh live Test 2 pass; all 71 local checks
+pass after correcting the previously stale metadata expectation. Test 4 repaired
+Fiers, but Nairn's corrected response still lacked a literal endpoint. RAG-SMK-010
+also reproduced. There are 544 actionable original extraction roots and one
+resolved root in this new copy. [Full results](smoke-repeat-20260914.md) distinguish
+controller, content and compatibility failures; this is not an all-green smoke.
+
 **Current checkpoint, 13 September 2026:** all twelve SQL repairs are committed
 as `7febbca`, installed and qualified by 70/70 local tests plus the successful
 [Test 3 repeat](test3-repeat-sql-20260913.md). [Test 4 continuation](test4-operational-redo-20260913.md)

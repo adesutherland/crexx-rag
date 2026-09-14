@@ -1,0 +1,55 @@
+{
+  "final-migrate": {
+    "elapsed_seconds": 0.352,
+    "records": [
+      {
+        "kind": "library-status",
+        "fields": {
+          "library_id": "library-61405eb8183ffd16da950f0d",
+          "schema_version": 19,
+          "published_generation": 24925,
+          "next_generation": 24926,
+          "profile_id": "scottish-history-profile",
+          "profile_hash": "3e50bc08cfab707f916e8a195da5ce33414221e4842059b92e0f219a04bb4f92",
+          "manifest_state": "aligned",
+          "issue_count": 0,
+          "state": "migration-current"
+        }
+      }
+    ]
+  },
+  "final-establish-marker": {
+    "elapsed_seconds": 26.093,
+    "records": [
+      {
+        "kind": "worker-controller",
+        "fields": {
+          "controller_id": "controller-50fb5d7b9787814281698763a578f404",
+          "workers_requested": 2,
+          "workers_completed": 2,
+          "workers_failed": 0,
+          "vector_generations": 1,
+          "vector_state": "identical-no-op",
+          "workers_restarted": 0
+        }
+      }
+    ]
+  },
+  "final-retry": {
+    "elapsed_seconds": 2.08,
+    "records": [
+      {
+        "kind": "worker-controller",
+        "fields": {
+          "controller_id": "controller-88d9a54337cee207b13b8031fbf91dd4",
+          "workers_requested": 2,
+          "workers_completed": 2,
+          "workers_failed": 0,
+          "vector_generations": 1,
+          "vector_state": "identical-no-op",
+          "workers_restarted": 0
+        }
+      }
+    ]
+  }
+}

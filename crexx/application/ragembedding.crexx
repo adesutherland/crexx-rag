@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragembedding expose ragembeddingresult ragvectorgenerationresult registerembeddingprofile embedmissing buildannvectorgeneration reconcileembeddings embeddingwriters
+namespace ragembedding expose ragembeddingresult ragvectorgenerationresult registerembeddingprofile embedmissing buildannvectorgeneration invalidateannindex reconcileembeddings embeddingwriters
 
 import rxfnsb
 import rxfnsg
@@ -240,6 +240,11 @@ buildannvectorgeneration: procedure = .int
   generation = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
   provider_id = ""; model = ""; dimension = 0; envelope = ""
   if generation < 1 | _profile(store.database(), embedding_profile_id, provider_id, model, dimension, envelope, error) \= 0 then return -3
+  input_revision = _scalarint(store.database(),"SELECT vector_revision FROM embedding_profiles WHERE embedding_profile_id=" || _q(embedding_profile_id))
+  if input_revision < 0 then do; error = "cannot read vector dirty marker"; return -3; end
+  reused = _reusecleanindex(store,generation,embedding_profile_id,dimension,input_revision,maximum_rows,requested_centroids,requested_probes,iterations,maximum_sidecar_bytes,result,error)
+  if reused < 0 then return -3
+  if reused = 1 then return 0
   invalid = _scalarint(store.database(), "SELECT count(*) FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE e.embedding_profile_id=" || _q(embedding_profile_id) || " AND rce.visible_from_generation<=" || generation || " AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>" || generation || ") AND rc.visible_from_generation<=" || generation || " AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>" || generation || ") AND (e.dimension<>" || dimension || " OR length(e.vector)<>" || dimension * 4 || ")")
   if invalid \= 0 then do; error = "active embeddings contain an incompatible dimension or byte count"; return -2; end
   rows = _scalarint(store.database(), "SELECT count(*) FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id JOIN revision_chunks rc ON rc.revision_chunk_id=rce.revision_chunk_id WHERE e.embedding_profile_id=" || _q(embedding_profile_id) || " AND rce.visible_from_generation<=" || generation || " AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>" || generation || ") AND rc.visible_from_generation<=" || generation || " AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>" || generation || ")")
@@ -274,7 +279,7 @@ buildannvectorgeneration: procedure = .int
    * Compare the complete deterministic payload, including trained centroids,
    * after proving identical source/embedding membership along the ancestry. */
   target_generation = generation; compatible = .binary
-  sql = "SELECT semantic_generation,sidecar_checksum FROM vector_generations WHERE state='published' AND embedding_profile_id=" || _q(embedding_profile_id) || " AND " || compatiblevectorpredicate(generation as .string) || " ORDER BY semantic_generation DESC LIMIT 1"
+  sql = "SELECT semantic_generation,sidecar_checksum FROM vector_generations WHERE state='published' AND embedding_profile_id=" || _q(embedding_profile_id) || " AND " || compatiblevectorpredicate(generation as .string,"",1,1) || " ORDER BY semantic_generation DESC LIMIT 1"
   if sqliteprepare(store.database(),sql,compatible) \= 0 then do; error = "cannot inspect compatible vector replay"; return -3; end
   compatible_step = sqlitestep(compatible)
   if compatible_step = 100 then do
@@ -307,7 +312,7 @@ buildannvectorgeneration: procedure = .int
       state = "rebuilt-from-sqlite"
     end
     result = .ragvectorgenerationresult(0, state, vector_generation_id, generation, embedding_profile_id, dimension, rows, sidecar_name, checksum, "")
-    return 0
+    return _markindexbuilt(store,vector_generation_id,input_revision,iterations,error)
   end
   call sqlitefinalize prepared
   source_path = store.path() || "/." || vector_generation_id || ".rxvec.build"
@@ -319,13 +324,50 @@ buildannvectorgeneration: procedure = .int
   if publish_status \= 0 then return -3
   if delete_status \= 0 then do; error = "published vector generation but could not remove its build input"; return -3; end
   result = .ragvectorgenerationresult(0, "published", vector_generation_id, generation, embedding_profile_id, dimension, rows, publication.sidecar_name(), checksum, "")
+  return _markindexbuilt(store,vector_generation_id,input_revision,iterations,error)
+
+/* Dirty is input_revision <> embedding_profiles.vector_revision. Recording
+ * the revision observed before building also retains invalidation if another
+ * data transaction commits during the build; no worker lock or new timeout. */
+invalidateannindex: procedure = .int
+  arg store = .ragstorehandle, profile_id = .string, expose error = .string
+  if sqliteexec(store.database(),"UPDATE embedding_profiles SET vector_revision=vector_revision+1 WHERE embedding_profile_id=" || _q(profile_id)) \= 0 then do; error = "cannot invalidate vector index"; return -3; end
   return 0
+
+_markindexbuilt: procedure = .int
+  arg store = .ragstorehandle, vector_id = .string, input_revision = .int, iterations = .int, expose error = .string
+  if sqliteexec(store.database(),"UPDATE vector_generations SET input_revision=" || input_revision || ",build_iterations=" || iterations || " WHERE vector_generation_id=" || _q(vector_id)) \= 0 then do; error = "cannot mark vector index built; retry index activation"; return -3; end
+  return 0
+
+_reusecleanindex: procedure = .int
+  arg store = .ragstorehandle, generation = .int, profile_id = .string, dimension = .int, input_revision = .int, maximum_rows = .int, requested_centroids = .int, requested_probes = .int, iterations = .int, maximum_bytes = .int, expose result = .ragvectorgenerationresult, expose error = .string
+  prepared = .binary
+  sql = "SELECT vector_generation_id,semantic_generation,sidecar_name,sidecar_checksum,row_count FROM vector_generations WHERE state='published' AND algorithm='ivf-flat-v1' AND embedding_profile_id=" || _q(profile_id) || " AND dimension=" || dimension || " AND input_revision=" || input_revision || " AND build_iterations=" || iterations || " AND row_count BETWEEN 1 AND " || maximum_rows || " AND centroid_count=min(" || requested_centroids || ",row_count) AND probe_count=min(" || requested_probes || ",centroid_count) AND " || compatiblevectorpredicate(generation as .string) || " ORDER BY semantic_generation DESC LIMIT 1"
+  if sqliteprepare(store.database(),sql,prepared) \= 0 then do; error = "cannot inspect vector dirty marker"; return -1; end
+  step = sqlitestep(prepared)
+  if step = 101 then do; call sqlitefinalize prepared; return 0; end
+  if step \= 100 then do; call sqlitefinalize prepared; error = "cannot read vector dirty marker"; return -1; end
+  vector_id = ""; index_generation = 0; sidecar_name = ""; checksum = ""; rows = 0
+  columns = sqlitecolumntext(prepared,0,vector_id) | sqlitecolumnint(prepared,1,index_generation) | sqlitecolumntext(prepared,2,sidecar_name) | sqlitecolumntext(prepared,3,checksum) | sqlitecolumnint(prepared,4,rows)
+  call sqlitefinalize prepared
+  if columns \= 0 then do; error = "cannot decode vector dirty marker"; return -1; end
+  expected_name = "vectors." || index_generation || "." || vector_id || "." || substr(checksum,1,16) || ".rxvec"
+  if sidecar_name \= expected_name then do; error = "stored sidecar name conflicts with its content identity"; return -1; end
+  raw = .binary; bytes = 0; read_error = ""
+  if readbinaryfilebounded(store.path() || "/" || sidecar_name,maximum_bytes,raw,bytes,read_error) \= 0 | rxhash..sha256hex(raw) \= checksum then return 0
+  manifest_status = ""
+  if manifeststate(store,manifest_status,error) \= 0 | manifest_status \= "aligned" then do
+    error = ""
+    if recovermanifest(store,error) \= 0 then return -1
+  end
+  result = .ragvectorgenerationresult(0,"identical-no-op",vector_id,index_generation,profile_id,dimension,rows,sidecar_name,checksum,"")
+  return 1
 
 _restorederivedsidecar: procedure = .int
   arg store = .ragstorehandle, generation = .int, vector_generation_id = .string, sidecar_name = .string, payload = .string, expose error = .string, target_generation = .int
   database = store.database(); error = ""
   if sqliteexec(database, "BEGIN IMMEDIATE") \= 0 then do; error = "cannot lock vector recovery"; return -1; end
-  if _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1") \= target_generation | _scalarint(database, "SELECT count(*) FROM vector_generations WHERE vector_generation_id=" || _q(vector_generation_id) || " AND state='published' AND semantic_generation=" || generation || " AND " || compatiblevectorpredicate(target_generation as .string)) \= 1 then do
+  if _scalarint(database, "SELECT published_generation FROM library_meta WHERE singleton=1") \= target_generation | _scalarint(database, "SELECT count(*) FROM vector_generations WHERE vector_generation_id=" || _q(vector_generation_id) || " AND state='published' AND semantic_generation=" || generation || " AND " || compatiblevectorpredicate(target_generation as .string,"",1,1)) \= 1 then do
     call sqliteexec database, "ROLLBACK"; error = "vector publication changed during recovery"; return -1
   end
   temporary = store.path() || "/." || sidecar_name || ".recovery"

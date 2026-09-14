@@ -1,0 +1,62 @@
+{
+  "instances": [
+    {
+      "instance_id": "controller-368c6d55a8afd302c69431cb1da9cea1",
+      "kind": "controller",
+      "parent_instance_id": null,
+      "host_id": "Adrians-MacBook-Air.local",
+      "pid": 68118,
+      "process_start_token": "83eeb7b5eb166f8ed54b463abaee4a5d",
+      "executable_identity": "/private/tmp/crexxrag-test2-repair-v2310lhx/artifact/bin/crexxrag",
+      "mode": "wait",
+      "job_filter": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+      "state": "stopped",
+      "requested_state": "none",
+      "current_item_id": "",
+      "started_at": 1789371582,
+      "heartbeat_at": 1789371584,
+      "stopped_at": 1789371584,
+      "exit_code": 0,
+      "detail": "all worker processes completed"
+    },
+    {
+      "instance_id": "worker-77418286a1a14c14411f6ada64916565",
+      "kind": "worker",
+      "parent_instance_id": "controller-368c6d55a8afd302c69431cb1da9cea1",
+      "host_id": "Adrians-MacBook-Air.local",
+      "pid": 68120,
+      "process_start_token": "30b68c65a91955f35b34d402894ed468",
+      "executable_identity": "/private/tmp/crexxrag-test2-repair-v2310lhx/artifact/bin/crexxrag",
+      "mode": "follow",
+      "job_filter": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+      "state": "stopped",
+      "requested_state": "none",
+      "current_item_id": "",
+      "started_at": 1789371582,
+      "heartbeat_at": 1789371583,
+      "stopped_at": 1789371583,
+      "exit_code": 0,
+      "detail": "application worker stopped cleanly;processed=0;polls=1"
+    },
+    {
+      "instance_id": "worker-f272f6d88e40759d8beac31bf22253f9",
+      "kind": "worker",
+      "parent_instance_id": "controller-368c6d55a8afd302c69431cb1da9cea1",
+      "host_id": "Adrians-MacBook-Air.local",
+      "pid": 68121,
+      "process_start_token": "9839962a23c032014b5683b8ef2c6d3f",
+      "executable_identity": "/private/tmp/crexxrag-test2-repair-v2310lhx/artifact/bin/crexxrag",
+      "mode": "follow",
+      "job_filter": "job-sha256:0916c52c55fea9da892cd37de730e5abc2af5c17e882fb5cd0bf8444e2f38095",
+      "state": "stopped",
+      "requested_state": "none",
+      "current_item_id": "",
+      "started_at": 1789371582,
+      "heartbeat_at": 1789371584,
+      "stopped_at": 1789371584,
+      "exit_code": 0,
+      "detail": "application worker stopped cleanly;processed=0;polls=1"
+    }
+  ],
+  "confirmed_live_pids": []
+}

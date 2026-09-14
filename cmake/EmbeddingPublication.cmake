@@ -108,19 +108,18 @@ run_cli(--access control vector rebuild)
 run_cli(--access diagnose library verify)
 set(history_sql "SELECT * FROM attempts ORDER BY attempt_id; SELECT * FROM provider_runs ORDER BY provider_run_id; SELECT * FROM revision_chunk_embeddings ORDER BY 1,2,3;")
 sql(history_before "${history_sql}")
-# Terminal job run keeps its documented refusal; worker start exercises the
-# same automatic publication path for a drained completed group.
+# A repeat completes finalization without redoing completed provider work.
 call_cli(--access control job run "${job}" --count 1 --max-polls 1)
-expect("${last_status}" "6" "terminal job run retains lifecycle refusal")
+expect("${last_status}" "0" "terminal job run is an idempotent completion retry")
 # Remove the derived projection and reject its replacement after work commits.
 file(REMOVE "${library}/manifest.json")
 file(MAKE_DIRECTORY "${library}/manifest.json.new")
-call_cli(--access control worker start --job "${job}" --count 1 --poll-ms 20 --max-polls 1)
+call_cli(--access control job run "${job}" --count 1 --poll-ms 20 --max-polls 1)
 expect("${last_status}" "8" "rejected manifest publication remains an error")
 sql(history_rejected "${history_sql}")
 expect("${history_rejected}" "${history_before}" "rejected publication preserves committed work and receipts")
 file(REMOVE_RECURSE "${library}/manifest.json.new")
-run_cli(--access control worker start --job "${job}" --count 1 --poll-ms 20 --max-polls 1)
+run_cli(--access control job run "${job}" --count 1 --poll-ms 20 --max-polls 1)
 run_cli(--access diagnose library verify)
 sql(history_after "${history_sql}")
 expect("${history_after}" "${history_before}" "repeated completed job makes no provider call or work change")

@@ -1,0 +1,13 @@
+CMake Error at cmake/Test2Completion.cmake:28 (message):
+  worker-exit: completed work, index and settled usage: expected '4:4:1:0',
+  got '4:4:0:0'
+Call Stack (most recent call first):
+  cmake/Test2Completion.cmake:103 (expect)
+
+
+CMake Error at cmake/Test2Completion.cmake:28 (message):
+  worker-exit: ordinary completion retry: expected '0', got '6'
+Call Stack (most recent call first):
+  cmake/Test2Completion.cmake:106 (expect)
+
+

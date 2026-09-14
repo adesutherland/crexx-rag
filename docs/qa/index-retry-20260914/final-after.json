@@ -1,0 +1,21 @@
+{
+  "provider_runs": {
+    "rows": 82548,
+    "sha256": "75acbc09f067c77b1a102be00454666652465bdbe8f8fc31a24ecc3522a6013c"
+  },
+  "attempts": {
+    "rows": 116174,
+    "sha256": "dc325ca1499e01441cc40ef8eeeaa58683f56c3fdf23ebae20d978fb54021122"
+  },
+  "no_provider_calls_or_repeated_attempts": true,
+  "markers": [
+    [
+      "vg-8577c45bfeb9f0a24d6c66db",
+      34902,
+      0,
+      0,
+      2
+    ]
+  ],
+  "native_sha256": "32c4ac3f10340b590012ab344e1780fbc33c71eb66ac4e9503ab0ddf6d1f4bb7"
+}

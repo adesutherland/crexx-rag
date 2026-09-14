@@ -3,10 +3,11 @@ options levelg
 namespace ragschema expose ragschemaversion migrationname migrationchecksum migrationstatements
 
 ragschemaversion: procedure = .int
-  return 18
+  return 19
 
 migrationname: procedure = .string
   arg version = .int
+  if version = 19 then return "vector-index-dirty-marker"
   if version = 1 then return "initial-library"
   if version = 2 then return "worker-hot-path-indexes"
   if version = 3 then return "provider-run-accounting-index"
@@ -29,6 +30,7 @@ migrationname: procedure = .string
 
 migrationchecksum: procedure = .string
   arg version = .int
+  if version = 19 then return "0355843e3530385b64aaf22b123649d923b027cd14094c14315cb0ae7583c534"
   if version = 18 then return "4cb2a9720f37963a3b3be2e5683590eaea03cf6a12e3c2c271121627b46618e9"
   if version = 17 then return "9ab5f09ae6a287250dec45e2f546afe743145724af5dd5f749d833b8bdbb506c"
   if version = 16 then return "0fb69902fc0e01a37b02fdd48c206a0b3c412cd762cf7b158add6b56ebee39cc"
@@ -53,6 +55,19 @@ migrationchecksum: procedure = .string
 migrationstatements: procedure = .int
   arg version = .int, expose statements = .string[]
   statements = .string[]
+  if version = 19 then do
+    statements[statements.0 + 1] = "ALTER TABLE embedding_profiles ADD COLUMN vector_revision INTEGER NOT NULL DEFAULT 0"
+    statements[statements.0 + 1] = "ALTER TABLE vector_generations ADD COLUMN input_revision INTEGER NOT NULL DEFAULT -1"
+    statements[statements.0 + 1] = "ALTER TABLE vector_generations ADD COLUMN build_iterations INTEGER NOT NULL DEFAULT 0"
+    statements[statements.0 + 1] = "CREATE TRIGGER vector_dirty_membership_insert AFTER INSERT ON revision_chunk_embeddings BEGIN UPDATE embedding_profiles SET vector_revision=vector_revision+1 WHERE embedding_profile_id=(SELECT embedding_profile_id FROM embeddings WHERE embedding_id=NEW.embedding_id); END"
+    statements[statements.0 + 1] = "CREATE TRIGGER vector_dirty_membership_delete AFTER DELETE ON revision_chunk_embeddings BEGIN UPDATE embedding_profiles SET vector_revision=vector_revision+1 WHERE embedding_profile_id=(SELECT embedding_profile_id FROM embeddings WHERE embedding_id=OLD.embedding_id); END"
+    statements[statements.0 + 1] = "CREATE TRIGGER vector_dirty_membership_update AFTER UPDATE ON revision_chunk_embeddings BEGIN UPDATE embedding_profiles SET vector_revision=vector_revision+1 WHERE embedding_profile_id IN(SELECT embedding_profile_id FROM embeddings WHERE embedding_id IN(OLD.embedding_id,NEW.embedding_id)); END"
+    statements[statements.0 + 1] = "CREATE TRIGGER vector_dirty_embedding_update AFTER UPDATE OF vector,dimension,input_digest,embedding_profile_id ON embeddings BEGIN UPDATE embedding_profiles SET vector_revision=vector_revision+1 WHERE embedding_profile_id IN(OLD.embedding_profile_id,NEW.embedding_profile_id); END"
+    statements[statements.0 + 1] = "CREATE TRIGGER vector_dirty_profile_update AFTER UPDATE OF provider_id,model,dimension,input_envelope_fingerprint ON embedding_profiles BEGIN UPDATE embedding_profiles SET vector_revision=vector_revision+1 WHERE embedding_profile_id=NEW.embedding_profile_id; END"
+    statements[statements.0 + 1] = "CREATE TRIGGER vector_dirty_chunk_update AFTER UPDATE OF visible_from_generation,visible_to_generation,revision_chunk_id ON revision_chunks BEGIN UPDATE embedding_profiles SET vector_revision=vector_revision+1 WHERE embedding_profile_id IN(SELECT e.embedding_profile_id FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id WHERE rce.revision_chunk_id IN(OLD.revision_chunk_id,NEW.revision_chunk_id)); END"
+    statements[statements.0 + 1] = "CREATE TRIGGER vector_dirty_generation_jump AFTER UPDATE OF published_generation ON library_meta WHEN NEW.published_generation<OLD.published_generation OR NEW.published_generation>OLD.published_generation+1 BEGIN UPDATE embedding_profiles SET vector_revision=vector_revision+1; END"
+    return statements.0
+  end
   /* Expression predicates intentionally tolerate retained malformed legacy JSON. */
   if version = 18 then do
     statements[statements.0 + 1] = "CREATE INDEX revision_chunks_content_generation ON revision_chunks(content_id,visible_from_generation)"

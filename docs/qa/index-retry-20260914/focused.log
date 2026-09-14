@@ -1,0 +1,45 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 21: provider_durability
+1/6 Test #21: provider_durability ..............   Passed   12.49 sec
+    Start 27: gemini_query
+2/6 Test #27: gemini_query .....................   Passed    9.43 sec
+    Start 29: ann_methodology
+3/6 Test #29: ann_methodology ..................   Passed    3.81 sec
+    Start 38: documentation_contract
+4/6 Test #38: documentation_contract ...........   Passed    0.65 sec
+    Start 47: test2_completion
+5/6 Test #47: test2_completion .................   Passed   19.98 sec
+    Start 48: embedding_publication
+6/6 Test #48: embedding_publication ............   Passed    7.92 sec
+
+100% tests passed, 0 tests failed out of 6
+
+Label Time Summary:
+accounting             =   7.92 sec*proc (1 test)
+ann                    =   3.81 sec*proc (1 test)
+answer                 =   9.43 sec*proc (1 test)
+budget                 =   9.43 sec*proc (1 test)
+citation               =   9.43 sec*proc (1 test)
+codex                  =  12.49 sec*proc (1 test)
+documentation          =   0.65 sec*proc (1 test)
+durability             =  12.49 sec*proc (1 test)
+embedding              =   9.43 sec*proc (1 test)
+gemini                 =  17.35 sec*proc (2 tests)
+hybrid                 =   9.43 sec*proc (1 test)
+methodology            =   0.65 sec*proc (1 test)
+privacy                =   9.43 sec*proc (1 test)
+provider               =  32.47 sec*proc (2 tests)
+publication            =  27.90 sec*proc (2 tests)
+query                  =   9.43 sec*proc (1 test)
+recall                 =   3.81 sec*proc (1 test)
+recovery               =  27.90 sec*proc (2 tests)
+retrieval              =   3.81 sec*proc (1 test)
+rxvector               =   3.81 sec*proc (1 test)
+skills                 =   0.65 sec*proc (1 test)
+sqlite                 =  11.74 sec*proc (2 tests)
+subscription-budget    =  12.49 sec*proc (1 test)
+tamper                 =   3.81 sec*proc (1 test)
+worker                 =  19.98 sec*proc (1 test)
+zero-outbound          =  41.04 sec*proc (4 tests)
+
+Total Test time (real) =  54.29 sec

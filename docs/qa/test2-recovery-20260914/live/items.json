@@ -1,0 +1,22 @@
+[
+  {
+    "item_id": "item-sha256:7ec20dc47c32ae40e14babf765eb25a42aeaabdff1b2d9ccc08b4828d7a49a04",
+    "item_type": "embedding",
+    "state": "processed"
+  },
+  {
+    "item_id": "item-sha256:e83e2e15229b10cc2dec17bc1c98de02c6d3270d470b1b17624c563c9183cd49",
+    "item_type": "embedding",
+    "state": "processed"
+  },
+  {
+    "item_id": "item-sha256:eb55b0f936d30bf6d1be4f8778692c3765712f91a6bd086ce204a71dda959405",
+    "item_type": "claim-extraction",
+    "state": "processed"
+  },
+  {
+    "item_id": "item-sha256:ff33ce8b1b2c4da9e9f58cc2f8e778b06e63661f2b0ab06aec59608104e961aa",
+    "item_type": "claim-extraction",
+    "state": "processed"
+  }
+]

@@ -1,0 +1,36 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 29: ann_methodology
+1/5 Test #29: ann_methodology ..................   Passed    3.54 sec
+    Start 38: documentation_contract
+2/5 Test #38: documentation_contract ...........   Passed    0.37 sec
+    Start 43: durable_backlog_provider
+3/5 Test #43: durable_backlog_provider .........   Passed   49.65 sec
+    Start 47: test2_completion
+4/5 Test #47: test2_completion .................   Passed   19.61 sec
+    Start 48: embedding_publication
+5/5 Test #48: embedding_publication ............   Passed    7.05 sec
+
+100% tests passed, 0 tests failed out of 5
+
+Label Time Summary:
+accounting       =   7.05 sec*proc (1 test)
+ann              =   3.54 sec*proc (1 test)
+documentation    =   0.37 sec*proc (1 test)
+gemini           =  56.70 sec*proc (2 tests)
+maintenance      =  49.65 sec*proc (1 test)
+methodology      =   0.37 sec*proc (1 test)
+provider         =  19.61 sec*proc (1 test)
+publication      =  26.66 sec*proc (2 tests)
+recall           =   3.54 sec*proc (1 test)
+recovery         =  26.66 sec*proc (2 tests)
+redaction        =  49.65 sec*proc (1 test)
+resolution       =  49.65 sec*proc (1 test)
+retrieval        =   3.54 sec*proc (1 test)
+rxvector         =   3.54 sec*proc (1 test)
+skills           =   0.37 sec*proc (1 test)
+sqlite           =  60.23 sec*proc (3 tests)
+tamper           =   3.54 sec*proc (1 test)
+worker           =  19.61 sec*proc (1 test)
+zero-outbound    =  76.68 sec*proc (4 tests)
+
+Total Test time (real) =  80.23 sec

@@ -1,0 +1,27 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 29: ann_methodology
+1/1 Test #29: ann_methodology ..................***Failed    3.41 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/AnnMethodology.cmake:50 (message):
+  rxvme ANN methodology scenario failed:
+
+  ANN_METHODOLOGY_FAIL=changed training iterations require a new build
+
+
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+ann          =   3.41 sec*proc (1 test)
+recall       =   3.41 sec*proc (1 test)
+retrieval    =   3.41 sec*proc (1 test)
+rxvector     =   3.41 sec*proc (1 test)
+sqlite       =   3.41 sec*proc (1 test)
+tamper       =   3.41 sec*proc (1 test)
+
+Total Test time (real) =   3.41 sec
+
+The following tests FAILED:
+	 29 - ann_methodology (Failed)                          ann recall retrieval rxvector sqlite tamper
+Errors while running CTest

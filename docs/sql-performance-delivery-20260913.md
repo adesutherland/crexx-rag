@@ -1,5 +1,11 @@
 # SQL performance repair delivery — 13 September 2026
 
+Current Test 2 follow-up: [action checklist](test2-recovery-delivery-20260914.md).
+The existing provider, publication, store and retrieval owners now implement
+independent item/search availability and ordinary completion retry. Qualification
+is complete: focused 5/5, live Test 2 pass, and all 71 local checks pass after
+the reviewed metadata-fixture correction. The checklist retains exact results.
+
 Implements the [whole SQL review](sql-performance-review-20260913.md) on main
 at baseline `bfbbdfd95d95a080262d47711c759bc2a9df18a0`. This record distinguishes
 implementation from acceptance; a finding is checked only after its complete
@@ -131,3 +137,10 @@ issues at generation 24,931, with source revisions, chunks, claims and the
 Test 2 citation unchanged. [Test 4](test4-extraction-holds-20260913.md) then
 inspected the remaining extraction holds without calls or data changes.
 No authoritative library migration or hosted cross-platform qualification is claimed.
+
+## Unchanged index retry — 14 September
+
+[A8](test2-recovery-delivery-20260914.md) moves the unchanged-index decision
+ahead of corpus reads and training. Invalidation uses existing indexed
+membership/embedding lookups; whole-command retry fell from 26.14 seconds to
+2.080 seconds on the final 34,902-vector scratch corpus.

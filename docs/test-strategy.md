@@ -71,6 +71,18 @@ mode. A repeated unchanged CMake build must report no work. Native packaging
 uses the installed CREXX package's `rxsqlite` archive and native dependency
 metadata directly.
 
+The [Test 2 repair checklist](test2-recovery-delivery-20260914.md) adds native
+`test2_completion` fault injection, ordinary terminal job completion retry and
+ANN availability during unrelated changes. Its baseline failures and current
+qualification are recorded there.
+
+Its A8 follow-up covers index dirty-marker invalidation, transaction rollback,
+changed training settings, unchanged and forced retries, failed builds and
+same-count membership changes without new embedding timestamps. ANN methodology
+retains corrupt/missing-sidecar, graph-only, branch rollback and replacement
+controls on both VMs. Full-corpus timings use the disposable Test 2 copy without
+provider calls.
+
 ## Default matrix
 
 | Test | Main assurance |
@@ -242,7 +254,7 @@ an atomically persisted budget policy. Cancellation covers queued, drained,
 in-flight, expired-lease and already failed jobs.
 
 ANN methodology also advances a graph-only generation without rebuilding its
-index, verifies retrieval and backup, rejects changed embedding/source membership,
+index, verifies retrieval and backup, retains valid members across source/embedding changes,
 and tests rollback with an index from a non-ancestor branch. These tests make no
 provider calls and retain the existing dimension, checksum and corruption checks.
 

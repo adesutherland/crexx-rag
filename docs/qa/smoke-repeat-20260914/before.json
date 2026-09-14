@@ -1,0 +1,12 @@
+{
+  "sources": 8,
+  "source_revisions": 8,
+  "revision_chunks": 34905,
+  "claims": 7968,
+  "mentions": 63066,
+  "provider_runs": 82544,
+  "embeddings": 30470,
+  "revision_chunk_embeddings": 34913,
+  "attempts": 116169,
+  "source_revision_digest": "26420091e776f627684d5623a1498648be35616a6ac71ac305ea92eb5b408ab1"
+}

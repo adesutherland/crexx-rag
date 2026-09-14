@@ -1,5 +1,11 @@
 # Regression coverage baseline — REG-01
 
+Current Test 2 follow-up: [action checklist](test2-recovery-delivery-20260914.md).
+The existing provider, publication, store and retrieval owners now implement
+independent item/search availability and ordinary completion retry. Qualification
+is complete: focused 5/5, live Test 2 pass, and all 71 local checks pass after
+the reviewed metadata-fixture correction. The checklist retains exact results.
+
 SQL review implementation is tracked in the [delivery checklist](sql-performance-delivery-20260913.md).
 Its clean product baseline passed 69/69 in 943.87 seconds. New acceptance covers
 fresh/upgraded SQL access paths, legacy JSON, unrelated-job recovery isolation,
@@ -493,3 +499,9 @@ installed-product regressions. The repaired bounded maintenance smoke subsequent
 workers drained, one recovered timeout and no held uncertainty. See the
 [final report](operator-continuation-smoke-20260913.md) for its actual 56m55s
 worker runtime, retained holds and remaining status defects.
+
+## Unchanged index retry — 14 September
+
+`ann_methodology` now covers dirty-marker invalidation, settings, transaction
+rollback and generation jumps, forced rebuild, failure/retry and reuse without a new embedding
+timestamp on both VMs. See [A8 and its results](test2-recovery-delivery-20260914.md).

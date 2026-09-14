@@ -1,0 +1,20 @@
+{
+  "migration_statements": 10,
+  "upgrade_indexes_start_dirty": true,
+  "same_transaction_invalidation": true,
+  "rollback_preserves_clean": true,
+  "invalidation_lookup_plan": [
+    [
+      4,
+      0,
+      66,
+      "SEARCH rce USING PRIMARY KEY (revision_chunk_id=?)"
+    ],
+    [
+      22,
+      0,
+      46,
+      "SEARCH e USING INDEX sqlite_autoindex_embeddings_1 (embedding_id=?)"
+    ]
+  ]
+}

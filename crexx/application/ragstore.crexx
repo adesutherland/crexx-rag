@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragstore expose ftsparityissues beginwritetransaction sqlitebusyerror compatiblevectorpredicate ragstorehandle ragreadsnapshot ragstorestatus ragverifyresult applymigrations validatemigrations initragstore openragstore closeragstore storagestatus beginreadsnapshot closereadsnapshot begingeneration stagegeneration commitgeneration abortgeneration rollbackgeneration writemanifesttemporary publishmanifest manifeststate recovermanifest verifyragstore
+namespace ragstore expose currentvectorpredicate ftsparityissues beginwritetransaction sqlitebusyerror compatiblevectorpredicate ragstorehandle ragreadsnapshot ragstorestatus ragverifyresult applymigrations validatemigrations initragstore openragstore closeragstore storagestatus beginreadsnapshot closereadsnapshot begingeneration stagegeneration commitgeneration abortgeneration rollbackgeneration writemanifesttemporary publishmanifest manifeststate recovermanifest verifyragstore
 
 import rxfnsb
 import rxjson
@@ -1091,13 +1091,21 @@ _addissue: procedure = .string
   if summary = "" then return issue
   return summary || "," || issue
 
-/* An index belongs to the generation that built it. Graph-only generations
- * may reuse that immutable file if the published ancestry and both source and
- * embedding membership are identical. Callers supply an internal SQL integer
- * expression (or a bound parameter), never operator text. */
+/* Serving keeps the latest ancestral index for each representation while
+ * current SQLite membership filters its candidates. Rebuild/replay and repair
+ * completion require exact membership. Callers supply only internal SQL integer
+ * expressions (or bound parameters), never operator text. */
+/* Rebuild completion is separate from serving eligibility. Schema 19 dirty
+ * markers cover changes inside a generation as well as between generations. */
+currentvectorpredicate: procedure = .string
+  arg generation_sql = .string
+  return compatiblevectorpredicate(generation_sql) || " AND input_revision=(SELECT vector_revision FROM embedding_profiles p WHERE p.embedding_profile_id=vector_generations.embedding_profile_id)"
+
 compatiblevectorpredicate: procedure = .string
-  arg generation_sql = .string, qualifier = "", newest_only = 1
-  sql = qualifier || "vector_generation_id IN (WITH RECURSIVE target(generation) AS (SELECT " || generation_sql || "), lineage(generation) AS (SELECT generation FROM target UNION ALL SELECT p.parent_generation FROM published_generations p JOIN lineage l ON p.generation=l.generation WHERE p.parent_generation IS NOT NULL), candidates AS (SELECT v.* FROM vector_generations v JOIN lineage l ON l.generation=v.semantic_generation WHERE v.state='published'), latest AS (SELECT a.* FROM candidates a WHERE NOT EXISTS(SELECT 1 FROM candidates b WHERE b.embedding_profile_id=a.embedding_profile_id AND b.semantic_generation>a.semantic_generation)) SELECT v.vector_generation_id FROM latest v CROSS JOIN target t WHERE v.semantic_generation=t.generation OR (NOT EXISTS(SELECT 1 FROM revision_chunks rc WHERE (rc.visible_from_generation<=v.semantic_generation AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>v.semantic_generation))<>(rc.visible_from_generation<=t.generation AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>t.generation))) AND NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id WHERE e.embedding_profile_id=v.embedding_profile_id AND (rce.visible_from_generation<=v.semantic_generation AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>v.semantic_generation))<>(rce.visible_from_generation<=t.generation AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>t.generation)))))"
+  arg generation_sql = .string, qualifier = "", newest_only = 1, exact_membership = 0
+  sql = qualifier || "vector_generation_id IN (WITH RECURSIVE target(generation) AS (SELECT " || generation_sql || "), lineage(generation) AS (SELECT generation FROM target UNION ALL SELECT p.parent_generation FROM published_generations p JOIN lineage l ON p.generation=l.generation WHERE p.parent_generation IS NOT NULL), candidates AS (SELECT v.* FROM vector_generations v JOIN lineage l ON l.generation=v.semantic_generation WHERE v.state='published'), latest AS (SELECT a.* FROM candidates a WHERE NOT EXISTS(SELECT 1 FROM candidates b WHERE b.embedding_profile_id=a.embedding_profile_id AND b.semantic_generation>a.semantic_generation)) SELECT v.vector_generation_id FROM latest v CROSS JOIN target t"
+  if exact_membership = 1 then sql = sql || " WHERE v.semantic_generation=t.generation OR (NOT EXISTS(SELECT 1 FROM revision_chunks rc WHERE (rc.visible_from_generation<=v.semantic_generation AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>v.semantic_generation))<>(rc.visible_from_generation<=t.generation AND (rc.visible_to_generation IS NULL OR rc.visible_to_generation>t.generation))) AND NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings rce JOIN embeddings e ON e.embedding_id=rce.embedding_id WHERE e.embedding_profile_id=v.embedding_profile_id AND (rce.visible_from_generation<=v.semantic_generation AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>v.semantic_generation))<>(rce.visible_from_generation<=t.generation AND (rce.visible_to_generation IS NULL OR rce.visible_to_generation>t.generation)))))"
+  else sql = sql || ")"
   /* Historical observations retain the index they actually used. A later
    * compatible index must not invalidate that independently recorded view. */
   if newest_only = 0 then sql = changestr(" WHERE NOT EXISTS(SELECT 1 FROM candidates b WHERE b.embedding_profile_id=a.embedding_profile_id AND b.semantic_generation>a.semantic_generation)",sql,"")

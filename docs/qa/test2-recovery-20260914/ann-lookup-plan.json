@@ -1,0 +1,20 @@
+[
+  [
+    6,
+    0,
+    46,
+    "SEARCH rc USING INDEX sqlite_autoindex_revision_chunks_1 (revision_chunk_id=?)"
+  ],
+  [
+    19,
+    0,
+    47,
+    "SEARCH e USING INDEX sqlite_autoindex_embeddings_2 (input_digest=? AND embedding_profile_id=?)"
+  ],
+  [
+    30,
+    0,
+    47,
+    "SEARCH rce USING PRIMARY KEY (revision_chunk_id=? AND embedding_id=? AND visible_from_generation<?)"
+  ]
+]

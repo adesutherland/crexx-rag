@@ -1,0 +1,167 @@
+[
+  {
+    "item_id": "item-maintenance:5a612a05d23c3f7edfae85c9c29ffff2a198d0ac96b307a092c0f8d26e9bf1af",
+    "item_type": "embedding",
+    "state": "queued",
+    "input": {
+      "schema": "crexx-rag.work-input/1",
+      "operation": "embedding",
+      "task_id": "task:5494fef31857fdbebc4bc585c19f59a21437359eba5913680c64f44520f41d3c",
+      "revision_chunk_id": "occurrence-sha256:1d095f462902a4a96e5d7adb34249eacba4232fcb80e4ece903ca9e315d3637b",
+      "content_id": "content-sha256:4a6661008f9a15fb176dc1ef680d225f927cbc092df49af2ca002c266ce6e4c4",
+      "content_digest": "55f14bc9e0ac496fee43101917992aa59c417ee1009c065e1fa3ca2b58737375",
+      "text_digest": "55f14bc9e0ac496fee43101917992aa59c417ee1009c065e1fa3ca2b58737375",
+      "text": "March  of  ]\\lackintosh  towards  Edinburgh \u2014 Enters  Leith\u2014March  of  the  Duke  of  Ar- \ngvle  to  Leith \u2014 Retires \u2014 Retreat  of  Mackintosh \u2014 Reaches  Kelso  and  joins  the  forces \nunder  Forster \u2014 Disputes  among  the  Insurgents \u2014 Secession  of  five  hundred  High- \nlanders\u2014 March  of  the  rebels  through  Cumberland  and  Westmoreland \u2014 Battle  of \nPreston,  ..........  pp.  276 \u2014 814.",
+      "normalized_start": 1818983,
+      "normalized_end": 1819401,
+      "source_scope": "file:/Users/adrian/testrag/overnight-scottish-20260909/incoming/browne-history-highlands-clans-vol-4-1838.txt",
+      "role": "embedding",
+      "provider_id": "gemini-embed",
+      "model": "gemini-embedding-2",
+      "charging_basis": "monetary-api",
+      "embedding_dimension": 768,
+      "privacy": "public",
+      "profile_id": "scottish-history-profile",
+      "config_snapshot_id": "config-3fe6f6fef7802c6ee9a3b084",
+      "reservation": {
+        "input_tokens": 8192,
+        "output_tokens": 0,
+        "cost_microunits": 1000,
+        "time_ms": 60000
+      },
+      "candidates": []
+    }
+  },
+  {
+    "item_id": "item-maintenance:5e1e36dee04c2f6d76222faaaab3e7803a9f105935262663dcd8345a24daa188",
+    "item_type": "embedding",
+    "state": "queued",
+    "input": {
+      "schema": "crexx-rag.work-input/1",
+      "operation": "embedding",
+      "task_id": "task:3fddf5678266e9521d3a49bd97543cbf355917d88b6e64e341c8a3c907112e28",
+      "revision_chunk_id": "occurrence-sha256:1badd12715a168952afb2ff9e9dfdeb924412c86d0f590c44d21808eddc392fb",
+      "content_id": "content-sha256:d130d52a9f7b87282bbc2a01c088481fa370fb8cacfb67259cf18948ae042923",
+      "content_digest": "787bae26f3c67cbfd44746b6f77a8e117d6972ff0d83990d3e0c1ca2f5d9b931",
+      "text_digest": "787bae26f3c67cbfd44746b6f77a8e117d6972ff0d83990d3e0c1ca2f5d9b931",
+      "text": "\u201c Wherefore,  if  in  this  affair  I have  acted  rashly,  it  ought  not  to  affect \nthe  innocent.  I intended  to  wrong  no  body,  but  to  serve  my  king  and \ncountry,  and  that  without  self-interest ; hoping  b}^  the  example  I gave, \nto  have  induced  others  to  their  duty  ; and  God,  who  sees  the  secrets  of \nmy  heart,  knows  I speak  truth.  Some  means  have  been  proposed  to \nme  for  saving  my  life,  which  I looked  upon  as  inconsistent  with  honour \nand  conscience,  and  therefore  I rejected  them  ; for  with  God\u2019s  assistance \nI shall  prefer  any  death  to  the  doing  a base  unworthy  action.  I only \nwish  now  that  the  laying  down  my  life  might  contribute  to  the  service \nof  my  king  and  country,  and  the  re-establishment  of  the  ancient  and \nfundamental  constitution  of  these  kingdoms,  without  which  no  lasting \npeace  or  true  happiness  can  attend  them ; then  I should  indeed  part \nwith  life  even  with  pleasure : As  it  is,  I can  only  pray  that  those  bless- \nings may  be  bestowed  upon  my  dear  country ; and,  since  I can  do  no \nmore,  I beseech  God  to  accept  of  my  life  as  a small  sacrifice  towards  it.",
+      "normalized_start": 1258783,
+      "normalized_end": 1260016,
+      "source_scope": "file:/Users/adrian/testrag/overnight-scottish-20260909/incoming/browne-history-highlands-clans-vol-2-1836.txt",
+      "role": "embedding",
+      "provider_id": "gemini-embed",
+      "model": "gemini-embedding-2",
+      "charging_basis": "monetary-api",
+      "embedding_dimension": 768,
+      "privacy": "public",
+      "profile_id": "scottish-history-profile",
+      "config_snapshot_id": "config-3fe6f6fef7802c6ee9a3b084",
+      "reservation": {
+        "input_tokens": 8192,
+        "output_tokens": 0,
+        "cost_microunits": 1000,
+        "time_ms": 60000
+      },
+      "candidates": []
+    }
+  },
+  {
+    "item_id": "item-maintenance:60de76acdb75ff4da09d426cb28e3bdd637c97a1f7cceeab85f6281b08e85758",
+    "item_type": "embedding",
+    "state": "queued",
+    "input": {
+      "schema": "crexx-rag.work-input/1",
+      "operation": "embedding",
+      "task_id": "task:53242ae0c8f2c5188314589e09d637c4d40807fdb1ab733fa3f1dc7cca698f71",
+      "revision_chunk_id": "occurrence-sha256:1c0ada1159b0461af38de9a49ec7b51da0becc57f144947e3233e849421e05a6",
+      "content_id": "content-sha256:f962c9ca7b5bc1872f23bd6c9e145b15b4ba69868f13326d89b68818f196cc56",
+      "content_digest": "876a9596fab65fc3d82640b237a6b559078575422fda5874f5a05d7128537b2b",
+      "text_digest": "876a9596fab65fc3d82640b237a6b559078575422fda5874f5a05d7128537b2b",
+      "text": "bodied  by  Sir  Hector  Munro  at  Fort  George,  whence  it  immediately \nproceeded  to  Ireland,  where  it  soon  acquired  the  confidence  of  Generals \nLake  and  Nugent.  The  former  was  particularly  attached  to  the  Reay \nFencibles,  and,  after  the  defeat  of  Castlebar,  he  frequently  exclaimed, \n\u201c If  I had  had  my  brave  and  honest  Reays  there,  this  would  not  have \nhappened.\u201d  The  only  opportunity  they  had  of  proving  their  firmness \nin  the  unhappy  service  in  which  they  were  engaged  was  at  Tara-Hiil, \non  the  twenty-sixth  of  May  seventeen  hundred  and  ninety-eight,  where, \nin  conjunction  with  two  troops  of  Lord  Fingal\u2019s  and  the  Tower  Flill \nyeomanry,  three  companies  of  the  Reays,  under  Captain  Hector  Mac- \nlean,  an  experienced  officer,  who  had  served  thirty  years  in  the  42d, \nattacked  a large  body  of  rebels,  and  drove  them  from  their  strong  and \nelevated  position,  with  a loss  of  about  four  hundred  killed  and  wounded. \nIn  this  affair  the  Reays  had  twenty-six  men  killed  and  wounded.",
+      "normalized_start": 1316484,
+      "normalized_end": 1317603,
+      "source_scope": "file:/Users/adrian/testrag/overnight-scottish-20260909/incoming/browne-history-highlands-clans-vol-4-1838.txt",
+      "role": "embedding",
+      "provider_id": "gemini-embed",
+      "model": "gemini-embedding-2",
+      "charging_basis": "monetary-api",
+      "embedding_dimension": 768,
+      "privacy": "public",
+      "profile_id": "scottish-history-profile",
+      "config_snapshot_id": "config-3fe6f6fef7802c6ee9a3b084",
+      "reservation": {
+        "input_tokens": 8192,
+        "output_tokens": 0,
+        "cost_microunits": 1000,
+        "time_ms": 60000
+      },
+      "candidates": []
+    }
+  },
+  {
+    "item_id": "item-maintenance:9be26d0a575bbcac4453e3ee81948701c0fcf2eb97cdce2dedf968aa7a2aaa5e",
+    "item_type": "embedding",
+    "state": "queued",
+    "input": {
+      "schema": "crexx-rag.work-input/1",
+      "operation": "embedding",
+      "task_id": "task:8c4b4035cc6cb1c5eeb35f741574b5e229402c2ded964f00efc4a411c22af7e2",
+      "revision_chunk_id": "occurrence-sha256:1d64b87d3a4ceee948221bd859df404e029bda72cc4551fdd71a1073872bf45e",
+      "content_id": "content-sha256:1018b0aca446d0f6c23555dcd390dc557bf49558a831fce5ffc5751e610680b5",
+      "content_digest": "366cac089a3802e2de6b88996ad2d3636cde82b0ffc0958928ed6fa3bd125af0",
+      "text_digest": "366cac089a3802e2de6b88996ad2d3636cde82b0ffc0958928ed6fa3bd125af0",
+      "text": "CXIII.  Prince  Charles  to  Lord  Marischal,  14th  August,  1747,  requiring  his  ser-",
+      "normalized_start": 1561646,
+      "normalized_end": 1561735,
+      "source_scope": "file:/Users/adrian/testrag/overnight-scottish-20260909/incoming/browne-history-highlands-clans-vol-3-1836.txt",
+      "role": "embedding",
+      "provider_id": "gemini-embed",
+      "model": "gemini-embedding-2",
+      "charging_basis": "monetary-api",
+      "embedding_dimension": 768,
+      "privacy": "public",
+      "profile_id": "scottish-history-profile",
+      "config_snapshot_id": "config-3fe6f6fef7802c6ee9a3b084",
+      "reservation": {
+        "input_tokens": 8192,
+        "output_tokens": 0,
+        "cost_microunits": 1000,
+        "time_ms": 60000
+      },
+      "candidates": []
+    }
+  },
+  {
+    "item_id": "item-maintenance:ca7eec61fdb5b7f4dd2cd62697fe21c302eac46d6a3047258f5709858c9b0c54",
+    "item_type": "embedding",
+    "state": "queued",
+    "input": {
+      "schema": "crexx-rag.work-input/1",
+      "operation": "embedding",
+      "task_id": "task:e8007cfb217820c4cf554a04615be8dd31789fc73c4be2b381d1991affe4a99d",
+      "revision_chunk_id": "occurrence-sha256:1cf24db0072c2c26331472c7461519c8a3ca92b51a31a6ddda4f7ba979ade96a",
+      "content_id": "content-sha256:a227388bebed1dfd50453c0f4114709902a283de485bd34db61467863ac638ba",
+      "content_digest": "e07c47fc00cde444b85cf156454b1e27b5606f2dbad3246b56a8e68766405496",
+      "text_digest": "e07c47fc00cde444b85cf156454b1e27b5606f2dbad3246b56a8e68766405496",
+      "text": "t Caravajal  to  Charles,  10th  March,  1747;  Charles\u2019s  answer  to  Caravajal\u2019s  of  11th \nMarch,  in  the  Appendix.  Stuart  Papers.",
+      "normalized_start": 1394291,
+      "normalized_end": 1394432,
+      "source_scope": "file:/Users/adrian/testrag/overnight-scottish-20260909/incoming/browne-history-highlands-clans-vol-3-1836.txt",
+      "role": "embedding",
+      "provider_id": "gemini-embed",
+      "model": "gemini-embedding-2",
+      "charging_basis": "monetary-api",
+      "embedding_dimension": 768,
+      "privacy": "public",
+      "profile_id": "scottish-history-profile",
+      "config_snapshot_id": "config-3fe6f6fef7802c6ee9a3b084",
+      "reservation": {
+        "input_tokens": 8192,
+        "output_tokens": 0,
+        "cost_microunits": 1000,
+        "time_ms": 60000
+      },
+      "candidates": []
+    }
+  }
+]

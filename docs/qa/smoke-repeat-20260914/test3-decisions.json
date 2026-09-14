@@ -1,0 +1,82 @@
+[
+  {
+    "task_id": "task:ac06d10bb043cd0bb21760ed88129cb9f114a7585f84f521f2f95738ab22eaa8",
+    "subject_type": "alias-issue",
+    "subject_id": "alias-issue:3b496d5aa17d41c6f81cc78bf9f9b851c7243cc51b1f48965b842ad94235c0ef",
+    "question": "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage.",
+    "state": "unresolved",
+    "attempt_count": 1,
+    "last_error": "The occurrence is a bibliographic reference and does not supply enough evidence to identify whether Spalding denotes the organisation, person, or place candidate.",
+    "item_state": "processed"
+  },
+  {
+    "task_id": "task:9c0ba1ac1269f9303dba37979c533de5a3244dca1c1c787436ad9d2b82d38b0f",
+    "subject_type": "alias-issue",
+    "subject_id": "alias-issue:3bbf1c2a89078f1cd0dd3732fd491ede0d90db4e54dd0fc456de0891878ef5a2",
+    "question": "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage.",
+    "state": "resolved",
+    "attempt_count": 1,
+    "last_error": "The occurrence exactly matches the supplied catalogue concept and its supplied type is evidence-span.",
+    "item_state": "processed"
+  },
+  {
+    "task_id": "task:bfcb0460d38fd7867f0e03eb6482bfb91f7fbaf99d7390a24829c2877cd29ec6",
+    "subject_type": "alias-issue",
+    "subject_id": "alias-issue:3bfb0f51e08c423655144d3ee687b9352a4db9343ade069c031c95b434929e56",
+    "question": "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage.",
+    "state": "unresolved",
+    "attempt_count": 1,
+    "last_error": "The passage uses \u201cHighlanders\u201d as a collective population of people, including men who fought and soldiers in regiments, but the supplied evidence does not distinguish whether the intended catalogue meaning is the organisation or person candidate.",
+    "item_state": "processed"
+  },
+  {
+    "task_id": "task:902129caf64ac0c5426cd694dc905ee950b4a5570b4d06776aa1bcec2b98b87b",
+    "subject_type": "alias-issue",
+    "subject_id": "alias-issue:3ad41c18da4e795d5a780a340478bf1c655428935db359139ebe5b0b345c112d",
+    "question": "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage.",
+    "state": "resolved",
+    "attempt_count": 1,
+    "last_error": "The occurrence is a named person advancing from Stirling, so it reuses the supplied person concept rather than the organisation or place meanings.",
+    "item_state": "processed"
+  },
+  {
+    "task_id": "task:8d90e06c93955c72377f2e5360a3b4dd40adb71963b970f585c90f2ab89c8108",
+    "subject_type": "alias-issue",
+    "subject_id": "alias-issue:3b77a5ed55688ae0eabae299c569726537fe1c50216935e03123412f1550388f",
+    "question": "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage.",
+    "state": "superseded",
+    "attempt_count": 1,
+    "last_error": "evidence changed before provider admission",
+    "item_state": "skipped"
+  },
+  {
+    "task_id": "task:8e0630d550bca8ef1e13d1d41453464494eb84411e95c799cefeb12eae0f71f9",
+    "subject_type": "alias-issue",
+    "subject_id": "alias-issue:3bf3f78ec525dad98ac9c55dd10f47ceeba9b31fb796b967fa598b9c8e1e2397",
+    "question": "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage.",
+    "state": "pending",
+    "attempt_count": 1,
+    "last_error": "",
+    "item_state": "cancelled"
+  },
+  {
+    "task_id": "task:bd44c5b2af518109a7b1abe7dbf2815a0174f14da7a137776a927cc8f7c53a92",
+    "subject_type": "alias-issue",
+    "subject_id": "alias-issue:3af14fb987e0e865d66abd71d262374188665364c381f49e625943de148c8e67",
+    "question": "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage.",
+    "state": "superseded",
+    "attempt_count": 1,
+    "last_error": "evidence changed before provider admission",
+    "item_state": "skipped"
+  },
+  {
+    "task_id": "task:adeed40dec657c85e109a609ce7a5101e819949d99c05bbaafc9aa9a7746ffd8",
+    "subject_type": "alias-issue",
+    "subject_id": "alias-issue:3c1efd1fe295a1019853e3b04de4d5396a7facbcddba06d399a7cce4d0d9b6b9",
+    "question": "Review this occurrence and the competing catalogue meanings. Does it reuse a supplied concept, express a distinct meaning, or remain unresolved? Existing classifications and earlier corrections may be wrong. Do not infer identity or type from spelling alone. A person's action upon a place does not make that person a place. Preserve distinct meanings instead of globally changing a concept to fit one passage.",
+    "state": "pending",
+    "attempt_count": 1,
+    "last_error": "",
+    "item_state": "cancelled"
+  }
+]
