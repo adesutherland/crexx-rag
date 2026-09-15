@@ -6,7 +6,8 @@ corpus prompt/extraction work are outside this repair. No master processing,
 installation, paid calls, commit or publication is part of this acceptance.
 
 **Complete — final candidate passes 79/79 local tests.** This repair checklist
-is retired. Installation and corpus soak qualification remain separate work.
+is retired. The subsequent [publication/update](publication-20260915.md) is
+complete; corpus soak qualification remains separate work.
 
 ## Agreed behaviour
 
@@ -98,10 +99,10 @@ the baseline failures, targeted acceptance, final full log and identity.
 
 ## Remaining work
 
-- Install the qualified candidate and run the next authorized soak, including
+- Run the next authorized soak on the updated Scottish installation, including
   T7-10 controller/restart endurance. The exact mechanism of the two historical
   host-associated losses remains unconfirmed; this local suite does not claim
-  to establish it. The Scottish executable and cancelled master job are unchanged.
+  to establish it. The cancelled master job remains cancelled.
 - Exercise T7-02's returned review IDs with a naturally valid corpus proposal;
   its synthetic regression passes, but that real caller case remains open.
 - Improve Scottish extraction prompts and resolve corpus content/review work
@@ -113,5 +114,6 @@ the baseline failures, targeted acceptance, final full log and identity.
   [RAG-OPS-007](ROADMAP.md#commented-job-files--rag-ops-007), with core and Scottish
   guidance updated. Its implementation remains separate from this closed repair.
 
-No implementation or QA item remains in this repair. Changes are uncommitted;
-the rolling retry proposal is closed as superseded by explicit reset.
+No implementation or QA item remains in this repair. Changes are committed,
+published and installed; the rolling retry proposal is closed as superseded
+by explicit reset.

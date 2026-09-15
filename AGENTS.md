@@ -34,7 +34,8 @@ first; tests should prove the agreed behavior, not expand it.
 The authoritative controller-recovery direction is the simple restart decision
 in `docs/architecture.md`: one routine cleanup/start path, fresh children and
 accepted loss of unfinished work. Follow it instead of extending the earlier
-more elaborate proposal. Use the four-smoke-fixes repair record for current implementation and QA status.
+more elaborate proposal. Use `docs/publication-20260915.md` for the current
+published/installed repair and QA status; earlier repair records retain history.
 
 Keep the logic for each cohesive aspect together in its owning source module,
 and separate different aspects behind narrow module interfaces. Shared policy

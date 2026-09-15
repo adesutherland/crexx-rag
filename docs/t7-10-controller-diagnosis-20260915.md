@@ -3,7 +3,9 @@
 The subsequent [job-controls repair](job-controls-delivery-20260915.md) closes
 PC-01 and passes **79/79 local tests**, including both controller regressions.
 The 75/76 results below retain this investigation's earlier checkpoint.
-Installation, host-mechanism attribution and endurance confirmation remain open.
+The [published update](publication-20260915.md) installs the combined repair and
+passes fresh CLI/MCP acceptance. Host-mechanism attribution and endurance
+confirmation remain open. Installation statements below are earlier checkpoints.
 
 **Local pipe/signal repair tested; historical host-resume mechanism remains open.**
 Both controller heartbeats stop in the exact second that Codex Desktop resumes

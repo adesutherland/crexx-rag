@@ -14,6 +14,8 @@ The quality/status report remains in that Scottish report directory.
 Engineering repair is complete in the current candidate: focused acceptance and
 all 79 local tests pass. The [job controls delivery record](job-controls-delivery-20260915.md)
 retains the evidence; this repair checklist is retired.
+The subsequent [published update](publication-20260915.md) installs this repair
+and passes Scottish CLI/MCP acceptance.
 The original master job remains cancelled. The obsolete caller-completion step
 below is retired; completing those 34 cancelled items is not an outstanding
 acceptance requirement for this repair.
@@ -41,7 +43,7 @@ is part of this request. The overnight monitor remains paused.
   period is added, queued identities survive, and completion adds no other work.
 - [x] Run focused and full acceptance; document the ordinary command behaviour.
 - [x] Retire the original 34-item caller step after explicit master cancellation.
-  Installation and the next authorized soak remain separate qualification.
+  Installation is complete; the next authorized soak remains separate qualification.
 
 This repair is separate from T7-10, the still-unexplained controller lifetime
 failure. It must not be described as fixing that failure.

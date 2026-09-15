@@ -5,7 +5,8 @@ continuation after expiry, compact job lists and one/all-job retry reset pass
 **79/79 local tests**, including the controller repairs. PC-01 is closed;
 RAG-OPS-006's rolling retry proposal is closed as superseded. The
 [completed checklist](job-controls-delivery-20260915.md) records evidence and
-remaining installation, soak and corpus work. This candidate is not yet installed.
+remaining soak/corpus work. Scottish installation and read-only MCP acceptance
+pass; [publication and handoff](publication-20260915.md) record the current state.
 
 **15 September overnight outcome:** [Test 7](test7-overnight-soak-20260914.md)
 repaired the master's five embedding gaps, imported and embedded two public

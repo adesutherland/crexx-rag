@@ -8,13 +8,13 @@ this update does not start processing or revive the closed Test 7 authority.
 
 - [x] Inspect branch, remote, pending changes and retained 79/79 acceptance.
 - [x] Confirm the build matches the tested candidate and review publication files.
-- [ ] Back up the Scottish library and retain its previous tools/setup.
-- [ ] Commit the repaired product and documentation.
-- [ ] Install matching executable, documentation and all shared skills.
-- [ ] Verify installed status/integrity and read-only MCP search/graph/citation
+- [x] Back up the Scottish library and retain its previous tools/setup.
+- [x] Commit the repaired product and documentation.
+- [x] Install matching executable, documentation and all shared skills.
+- [x] Verify installed status/integrity and read-only MCP search/graph/citation
   access, including discovery of the new job controls.
-- [ ] Update installed-state records and prepare a fresh-session soak prompt.
-- [ ] Publish main, verify the remote commit and report completion.
+- [x] Update installed-state records and prepare a fresh-session soak prompt.
+- [x] Publish main, verify the remote commit and report completion.
 
 ## Qualification and scope
 
@@ -36,3 +36,34 @@ Scottish installation evidence and the new-session prompt will be retained in
 Use public backup, status and verification commands. No paid provider calls,
 new ingestion, retry reset, controller launch or cancelled-job continuation is
 part of this installation.
+
+## Completed result
+
+Implementation commit `ab7943d42d459c7d8fc6e146f7709dfac7a2d827` is published
+on `origin/main`. The closeout documentation retains the same product/test
+inputs and tested native artifact. The Scottish installation identity file
+records the final publication HEAD as well as that implementation commit.
+
+The generation-pinned backup and its public verification pass. Prior tools are
+retained at `backups/tools-before-published-repairs-20260915`; setup copies and
+all receipts are in the Scottish update report. Migration reports already
+current at schema 19, generation 26751. Installed verification reports zero
+issues. Nine fresh MCP requests pass, including new job-control discovery,
+compact lists, two lexical/graph queries and complete citation resolution.
+They make no provider calls or query-gap writes; database and manifest hashes
+are identical before and after. All five skills match their repository files,
+and policy/MCP configuration remains unchanged.
+
+The new-session prompt is
+`reports/published-update-20260915/NEW-SESSION-PROMPT.md` in ScottishHistory.
+It starts with a short status/backlog survey and one combined agreement on the
+next cutoff, Gemini cap and configured subscription use. Then it directs
+embeddings-first ingestion, source extraction, backlog/review work, instance
+prompt improvement, retrieval and ordinary recovery in substantial blocks with
+light monitoring. The new session owns its run record and engineering reports.
+
+Outstanding: real installed soak endurance/T7-10 host attribution, T7-02's
+natural review-ID caller case, corpus prompt/content work and RAG-OPS-007's
+commented job-file implementation. CREXX #699 is filed with a supported working
+alternative. The cancelled master job and the old overnight authority remain
+closed. There is no incomplete installation or local repair QA item.

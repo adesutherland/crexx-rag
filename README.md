@@ -14,7 +14,7 @@ not establish a fact.
 
 **Status: approaching a first release — 15 September 2026.** The core
 architecture, public interfaces and recovery workflows are implemented. The
-installed baseline passed **74/74 local tests**, and five smoke workflows
+installed baseline passed **79/79 local tests**, and five smoke workflows
 have been repeated on a disposable copy of a real historical corpus, including
 **59 successful MCP requests**. Release preparation now centres on the remaining
 content-quality findings and wider operational/platform qualification. See
@@ -23,7 +23,8 @@ and remaining work.
 
 The [Scottish overnight soak](docs/test7-overnight-soak-20260914.md) exercised
 imports, embeddings, source-scoped extraction, backlog processing and recovery
-on the master corpus. Tested repairs are installed there but remain uncommitted.
+on the master corpus. The completed repairs are committed and installed there;
+the [publication record](docs/publication-20260915.md) owns the current identity.
 Content failures and long-run qualification remain. The
 [controller investigation](docs/t7-10-controller-diagnosis-20260915.md) links two
 losses to host task resumption and independently reproduces broken-output and
@@ -34,7 +35,8 @@ The [job-controls repair](docs/job-controls-delivery-20260915.md) adds deadline-
 updates, admitted-work continuation after expiry and explicit one/all-job retry
 resets, and makes all job lists compact. The combined candidate passes **79/79
 local tests**, including the controller repairs. Its completed checklist retains
-the evidence; installation and the next soak remain outstanding.
+the evidence. Scottish installation and read-only MCP acceptance pass; a fresh
+soak remains the next operational qualification.
 
 For operational diagnosis, safe retry, reasoned waivers and migration completion,
 follow the [public recovery journey](docs/public-recovery-journey.md).

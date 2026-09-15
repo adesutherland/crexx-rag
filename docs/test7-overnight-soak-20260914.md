@@ -2,8 +2,9 @@
 
 **Later engineering acceptance:** the [completed job-controls repair](job-controls-delivery-20260915.md)
 closes PC-01 and the superseded rolling retry proposal. The combined candidate
-passes 79/79 local tests, including T7-10's controller regressions. It is not yet
-installed; historical results below do not claim final-candidate soak acceptance.
+passes 79/79 local tests, including T7-10's controller regressions. The
+[published update](publication-20260915.md) installs it with fresh CLI/MCP
+acceptance; historical results below do not claim final-candidate soak acceptance.
 
 Status: **CLOSED at 05:55 BST on 15 September, before the 06:00 cutoff.
 Restoration, verification and backup passed. Functional repairs passed; clean endurance qualification remains

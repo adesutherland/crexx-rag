@@ -1,9 +1,22 @@
 # Operator continuation: live handoff
 
-Updated: 2026-09-14, after committing the baseline and repeating Tests 1–5. This file records the current result and next action.
+Updated: 2026-09-15, after committing the soak/recovery and job-control repairs
+and updating the Scottish installation. The [publication record](publication-20260915.md)
+owns the exact source/artifact identities and completion checklist. All 79 local
+tests pass. Scottish migration is already current at schema 19/generation 26751;
+integrity and nine read-only MCP requests pass with no provider calls or corpus
+changes. Executable, shared skills and documentation are installed together.
+
+Next: a fresh Scottish task uses
+`reports/published-update-20260915/NEW-SESSION-PROMPT.md` in the master workspace
+to agree the next soak's limits, process embeddings before new extraction,
+reduce backlog, improve Scottish prompts and exercise ordinary recovery. T7-02's
+natural returned-review-ID check and real endurance remain open. RAG-OPS-007 is
+the agreed future commented job-file interface; CREXX #699 records the compiler
+finding with its working alternative. The cancelled Test 7 job stays cancelled.
 The detailed history below is retained for reference.
 
-## Latest — baseline committed; Tests 1–5 repeated
+## 14 September — baseline committed; Tests 1–5 repeated
 
 Baseline `696858c0a327d10594ecb6fcc5a88d5202ffb7be` is committed on `main`.
 The unchanged native artifact was used for a fresh pre-Test-1 restore and all
