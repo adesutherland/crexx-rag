@@ -5,6 +5,7 @@ import rxsqlite
 import rxjson
 import ragstore
 import ragwork
+import ragjob
 import ragworktypes
 import raglifecycle
 
@@ -25,6 +26,55 @@ seed: procedure = .int
   policy = '{"time_budget_ms":10000,"maximum_call_input_tokens":128,"maximum_call_output_tokens":64,"maximum_call_cost":100,"maximum_call_time_ms":5000,"maximum_inflight_calls":1,"maximum_attempts":3}'
   sql = "INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,created_at,updated_at) VALUES('" || id || "','" || id || "','{}','snapshot-lifecycle','" || parent || "',10,10,1000,1000,1000,'fixture','fixture'); INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES('" || id || "','" || id || "','claim-extraction','" || state || "',1,'" || id || "','input','{}','fixture','fixture'); INSERT INTO job_events(job_id,event_type,message,occurred_at) VALUES('" || id || "','budget-policy','" || policy || "','fixture')"
   return sqliteexec(database,sql)
+
+windowcase: procedure = .int
+  arg store = .ragstorehandle, id = .string, embedding = .int, window = .string, outcome = .string, current = .string, expected = .string
+  database=store.database(); errors=0; error=""
+  errors=errors+check(seed(database,id,current,"processed")=0,"seed window " || id)
+  window_policy='{"embeddings_only":' || embedding || '}'
+  sql="DELETE FROM job_items WHERE job_id='" || id || "'; INSERT INTO maintenance_runs(run_id,expected_generation,config_snapshot_id,mode,state,plan_digest,canonical_plan,created_at) VALUES('run-" || id || "',1,'snapshot-lifecycle','automatic','" || outcome || "','run-" || id || "','{}','fixture'); INSERT INTO maintenance_windows(window_id,run_id,job_id,state,deadline_epoch,policy_json,policy_fingerprint,created_epoch) VALUES('window-" || id || "','run-" || id || "','" || id || "','" || window || "',0,'" || window_policy || "','fixture',0)"
+  errors=errors+check(sqliteexec(database,sql)=0,"seed empty maintenance window " || id)
+  errors=errors+check(readlifecyclejob(database,id)=expected,"shared empty-window projection " || id)
+  status=.ragjobstatus
+  errors=errors+check(readjobstatus(store,id,status,error)=0 & status.state()=expected,"public empty-window projection " || id)
+  errors=errors+check(refreshlifecyclejob(database,id)=0 & refreshlifecyclejob(database,id)=0,"repeat empty-window refresh " || id)
+  errors=errors+check(number(database,"SELECT count(*) FROM jobs WHERE job_id='" || id || "' AND state='" || expected || "'")=1,"durable empty-window outcome " || id)
+  return errors
+
+resetcase: procedure = .int
+  arg store=.ragstorehandle
+  database=store.database();errors=0;error="";claim=.ragworkclaim
+  errors=errors+check(seed(database,"reset-cycle","queued","queued")=0,"seed reset cycle")
+  do cycle=1 to 2
+    do attempt=1 to 3
+      errors=errors+check(claimnext(store,"reset-cycle","reset-worker",30,3,claim,error)=0 & claim.claimed()=1,"claim reset cycle " || cycle || ":" || attempt || " " || error)
+      errors=errors+check(failattempt(store,claim,1,0,3,"transport failure",error)=0,"settle reset cycle " || error)
+      expected="queued";if attempt=3 then expected="dead_letter"
+      errors=errors+check(number(database,"SELECT count(*) FROM job_items WHERE item_id='reset-cycle' AND state='" || expected || "'")=1,"reset cycle enforces its own ceiling")
+    end
+    if cycle=1 then do
+      jobs=0;items=0
+      errors=errors+check(sqliteexec(database,"BEGIN IMMEDIATE")=0,"begin reset cycle")
+      errors=errors+check(recordretryreset(database,"reset-cycle",jobs,items,error)=0 & jobs=1 & items=1,"record count baseline " || error)
+      errors=errors+check(sqliteexec(database,"COMMIT")=0,"commit reset cycle")
+      errors=errors+check(number(database,"SELECT " || itemretrycount("'reset-cycle'"))=0,"effective attempts zero after reset")
+      accepted=0
+      errors=errors+check(retrydeadletter(store,"reset-cycle","reset-cycle","operator reset",accepted,error)=0 & accepted=1,"retry reset cycle " || error)
+    end
+  end
+  errors=errors+check(number(database,"SELECT count(*) FROM attempts WHERE item_id='reset-cycle'")=6,"reset retains all six actual attempts")
+  errors=errors+check(number(database,"SELECT " || itemretrycount("'reset-cycle'"))=3,"second allowance exhausted")
+  /* A later lease expiry must also ignore the earlier allowance's attempts. */
+  jobs=0;items=0;accepted=0
+  errors=errors+check(sqliteexec(database,"BEGIN IMMEDIATE")=0,"begin lease reset")
+  errors=errors+check(recordretryreset(database,"reset-cycle",jobs,items,error)=0,"record lease reset")
+  errors=errors+check(sqliteexec(database,"COMMIT")=0,"commit lease reset")
+  errors=errors+check(retrydeadletter(store,"reset-cycle","reset-cycle","retry expired work",accepted,error)=0,"request lease cycle")
+  errors=errors+check(claimnext(store,"reset-cycle","lost-worker",30,3,claim,error)=0,"claim before loss")
+  errors=errors+check(sqliteexec(database,"UPDATE job_items SET lease_until=0 WHERE item_id='reset-cycle'")=0,"expire fixture lease")
+  errors=errors+check(claimnext(store,"reset-cycle","replacement",30,3,claim,error)=0 & claim.claimed()=1,"expired claim retains fresh allowance " || error)
+  errors=errors+check(failattempt(store,claim,1,0,3,"transport failure",error)=0,"settle replacement")
+  return errors
 
 main: procedure = .int
   arg args = .string[]
@@ -157,6 +207,12 @@ main: procedure = .int
   errors=errors+check(recordretryrequest(database,"task:waiver","","reconsider again",second_retry,accepted,error)=0 & second_retry<>reopened & accepted=1,"new waiver can reopen without changing evidence or attempts")
   errors=errors+check(number(database,"SELECT count(*) FROM maintenance_task_waivers WHERE task_id='task:waiver' AND state='reopened'")=2 & number(database,"SELECT attempt_count FROM maintenance_tasks WHERE task_id='task:waiver'")=0,"all closure history and attempt ceilings remain")
   errors=errors+check(sqliteexec(database,"COMMIT")=0,"commit waiver ledger fixture")
+  errors=errors+windowcase(store,"embedding-covered",1,"complete","complete","completed","completed")
+  errors=errors+windowcase(store,"embedding-missing",1,"complete","incomplete","completed","completed_with_errors")
+  errors=errors+windowcase(store,"catalogue-remainder",0,"complete","incomplete","completed","completed")
+  errors=errors+windowcase(store,"embedding-active",1,"active","running","running","running")
+  errors=errors+windowcase(store,"embedding-cancelled",1,"cancelled","incomplete","cancelled","cancelled")
+  errors=errors+resetcase(store)
   errors = errors + check(number(database,"SELECT count(*) FROM provider_runs")=0,"no fabricated provider calls")
   errors = errors + check(number(database,"SELECT count(*) FROM pragma_foreign_key_check")=0,"foreign keys intact")
   errors = errors + check(closeragstore(store,error)=0,"close " || error)

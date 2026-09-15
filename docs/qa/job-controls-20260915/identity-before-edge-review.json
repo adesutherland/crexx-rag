@@ -1,0 +1,20 @@
+{
+  "branch": "main",
+  "head": "dd96144bb3689ad4da4a9a43c8df914555402877",
+  "native_sha256": "122fd07f7c7014325cd377c1385f0e09887028f8bdd506eeae811cecec6568d4",
+  "linked_sha256": "c9818713bfbc2b4b35e01ed38b008695b18af3ac5be2484149a65b259ea82c40",
+  "files": {
+    "crexx/application/ragbacklog.crexx": "b7e56c4b264bfc3168dbca49747f5d6a34dbbe52696739bb207eb31723e94ac9",
+    "crexx/application/ragcontinuation.crexx": "32f3b1d47522fd6aedcac2faf95c8d941c62b349a2fa6ebfb36c6a805e66d8c4",
+    "crexx/application/raglifecycle.crexx": "3f15f297300ee93507b1c85911d157e4479f77be1d296fffcd7fb777b5b60f34",
+    "crexx/application/ragreceipts.crexx": "69cfac1686a8c1464b8fc19fd37d1edff12700046e7560e986199eeb5afe6be0",
+    "crexx/application/ragwork.crexx": "aa145243badbdfff55a3db398522576bcca1b5e105c478caf5811a909b64aeca",
+    "crexx/application/ragrepository.crexx": "d4a476d7efeba464dbf2430e30784d250eaf517de8b57379e66e8f4325ce3c8e",
+    "crexx/application/ragresultpages.crexx": "b849f5bc2cf4b1ea3f128d91472c14a125c971f159c78e996a376fc115f6f4f7",
+    "crexx/application/ragproduct.crexx": "f19fc40191949c5d246ad395fa832fb2313d1ba25b01c8f52c9117386a41079b",
+    "crexx/application/surfaces/ragcommandcatalog.crexx": "ddb91ce7c13d964e40ece44a1ec67316d076b267c52fb3484b95970fb6b9eb74",
+    "cmake/JobDeadline.cmake": "f150d354bafbc863f1ecabefa98dcfec7b9f613a39b7c43e605af5bc3ae25142",
+    "cmake/JobRetryReset.cmake": "5254cf3bf2eb5488ca6e0e1125f29258aa80dea01587fd8272d54638c547ca43"
+  },
+  "authority": "Scratch-library local fixtures only; no hosted calls or master processing/install."
+}

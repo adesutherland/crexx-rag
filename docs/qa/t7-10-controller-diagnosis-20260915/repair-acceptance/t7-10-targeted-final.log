@@ -1,0 +1,15 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 56: regression_controller_closure
+1/2 Test #56: regression_controller_closure ....   Passed   44.44 sec
+    Start 59: regression_controller_term
+2/2 Test #59: regression_controller_term .......   Passed    1.03 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Label Time Summary:
+native           =  45.48 sec*proc (2 tests)
+recovery         =  45.48 sec*proc (2 tests)
+regression       =  45.48 sec*proc (2 tests)
+zero-outbound    =  45.48 sec*proc (2 tests)
+
+Total Test time (real) =  45.48 sec

@@ -1,6 +1,6 @@
 options levelg
 
-namespace raglifecycle expose activeworkfence terminaljob lifecyclejobstate readlifecyclejob countlifecyclejobs refreshlifecyclejob retrydisposition recordretryrequest setretrydisposition retryrequestjson jobretrysummary uncertainitem retryrequested retryblockeditem retryfamilyhold recordtaskwaiver taskwaived taskwaiverjson taskwaiveractive taskwaivercount
+namespace raglifecycle expose itemretrycount itemretrycallcount taskretrycallcount embeddingretrycallcount recordretryreset activeworkfence terminaljob lifecyclejobstate readlifecyclejob countlifecyclejobs refreshlifecyclejob retrydisposition recordretryrequest setretrydisposition retryrequestjson jobretrysummary uncertainitem retryrequested retryblockeditem retryfamilyhold recordtaskwaiver taskwaived taskwaiverjson taskwaiveractive taskwaivercount
 
 import rxfnsb
 import rxhash
@@ -15,7 +15,7 @@ terminaljob: procedure = .int
   return 0
 
 lifecyclejobstate: procedure = .string
-  arg current = .string, active = .int, dead = .int, cancelled = .int, uncertain = .int, window = .string
+  arg current = .string, active = .int, dead = .int, cancelled = .int, uncertain = .int, window = .string, embedding = 0, outcome = ""
   if current = "" | min(active,dead,cancelled,uncertain) < 0 then return ""
   if current = "cancelled" then return current
   if window = "active" & current \= "paused" & current \= "cancel_requested" then return current
@@ -26,6 +26,9 @@ lifecyclejobstate: procedure = .string
   end
   if current = "cancel_requested" then return "cancelled"
   if current = "paused" & dead > 0 & window = "" then return "paused"
+  /* An empty repair batch may leave every gap blocked by earlier attempts.
+   * Preserve the owning run's outcome even without new dead-letter items. */
+  if embedding = 1 & outcome = "incomplete" then return "completed_with_errors"
   if dead > 0 then return "completed_with_errors"
   if cancelled > 0 then do
     if wordpos(window,"budget-exhausted deadline complete") > 0 then return "completed"
@@ -36,13 +39,13 @@ lifecyclejobstate: procedure = .string
 /* Shared read projection. Callers retain their existing read/write snapshot;
  * indexed existence checks avoid reading full plans or scanning event history. */
 _lifecycleprojection: procedure = .string
-  return "SELECT j.state,coalesce(w.state,''),EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=j.job_id AND i.state IN('queued','running','cancel_requested')),EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=j.job_id AND i.state='dead_letter'),EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=j.job_id AND i.state='cancelled') FROM jobs j LEFT JOIN maintenance_windows w ON w.job_id=j.job_id"
+  return "SELECT j.state,coalesce(w.state,''),EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=j.job_id AND i.state IN('queued','running','cancel_requested')),EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=j.job_id AND i.state='dead_letter'),EXISTS(SELECT 1 FROM job_items i WHERE i.job_id=j.job_id AND i.state='cancelled'),coalesce(json_extract(w.policy_json,'$.embeddings_only'),0),coalesce(r.state,'') FROM jobs j LEFT JOIN maintenance_windows w ON w.job_id=j.job_id LEFT JOIN maintenance_runs r ON r.run_id=w.run_id"
 
 _lifecyclerow: procedure = .string
   arg prepared=.binary
-  current="";window="";active=0;dead=0;cancelled=0
-  if sqlitecolumntext(prepared,0,current)<>0 | sqlitecolumntext(prepared,1,window)<>0 | sqlitecolumnint(prepared,2,active)<>0 | sqlitecolumnint(prepared,3,dead)<>0 | sqlitecolumnint(prepared,4,cancelled)<>0 then return ""
-  return lifecyclejobstate(current,active,dead,cancelled,0,window)
+  current="";window="";active=0;dead=0;cancelled=0;embedding=0;outcome=""
+  if sqlitecolumntext(prepared,0,current)<>0 | sqlitecolumntext(prepared,1,window)<>0 | sqlitecolumnint(prepared,2,active)<>0 | sqlitecolumnint(prepared,3,dead)<>0 | sqlitecolumnint(prepared,4,cancelled)<>0 | sqlitecolumnint(prepared,5,embedding)<>0 | sqlitecolumntext(prepared,6,outcome)<>0 then return ""
+  return lifecyclejobstate(current,active,dead,cancelled,0,window,embedding,outcome)
 
 readlifecyclejob: procedure = .string
   arg database = .binary, job_id = .string
@@ -72,6 +75,68 @@ refreshlifecyclejob: procedure = .int
   state=readlifecyclejob(database,job_id)
   if state="" then return -1
   return sqliteexec(database,"UPDATE jobs SET state=" || _q(state) || ",updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE job_id=" || _q(job_id) || " AND (state IN('paused','cancel_requested') OR NOT EXISTS(SELECT 1 FROM maintenance_windows w WHERE w.job_id=jobs.job_id AND w.state='active'))")
+
+/* SQL expressions accept source-owned identifiers only. Reset baselines are
+ * counts, not timestamps or implicit rowids: tied clocks and VACUUM cannot
+ * change their meaning. Immutable history and actual usage remain untouched. */
+_itemresetvalue: procedure = .string
+  arg item_expression=.string,field=.string
+  return "coalesce((SELECT json_extract(ir.message,'$." || field || "') FROM job_events ir WHERE ir.item_id=" || item_expression || " AND ir.event_type='retry-reset' ORDER BY ir.event_id DESC LIMIT 1),0)"
+
+itemretrycount: procedure = .string
+  arg item_expression=.string,history=0,settled=0
+  predicate=" AND ia.outcome<>'cancelled'"
+  if settled=1 then predicate=predicate || " AND ia.outcome<>'running'"
+  total="(SELECT count(*) FROM attempts ia WHERE ia.item_id=" || item_expression || predicate || ")"
+  if history=1 then return total
+  return "max(0," || total || "-" || _itemresetvalue(item_expression,"attempts") || ")"
+
+itemretrycallcount: procedure = .string
+  arg item_expression=.string,history=0,settled=0
+  predicate=""
+  if settled=1 then predicate=" AND ip.outcome NOT IN('starting','running','completed-unsettled')"
+  total="(SELECT count(DISTINCT ip.provider_run_id) FROM attempts ica JOIN provider_runs ip ON ip.provider_run_id=ica.provider_run_id WHERE ica.item_id=" || item_expression || predicate || ")"
+  if history=1 then return total
+  return "max(0," || total || "-" || _itemresetvalue(item_expression,"paid_calls") || ")"
+
+taskretrycallcount: procedure = .string
+  arg task_expression=.string,history=0,settled=0
+  predicate=""
+  if settled=1 then predicate=" AND tp.outcome NOT IN('starting','running','completed-unsettled')"
+  total="(SELECT count(DISTINCT tp.provider_run_id) FROM maintenance_task_items tm JOIN attempts ta ON ta.item_id=tm.item_id JOIN provider_runs tp ON tp.provider_run_id=ta.provider_run_id WHERE tm.task_id=" || task_expression || predicate || ")"
+  if history=1 then return total
+  baseline="(SELECT coalesce(max(json_extract(tr.message,'$.task_calls')),0) FROM maintenance_task_items trm JOIN job_events tr ON tr.item_id=trm.item_id AND tr.event_type='retry-reset' WHERE trm.task_id=" || task_expression || ")"
+  return "max(0," || total || "-" || baseline || ")"
+
+embeddingretrycallcount: procedure = .string
+  arg input_expression=.string,history=0,settled=0
+  fields="revision_chunk_id provider_id model embedding_dimension"
+  predicate="ei.item_type='embedding' AND json_valid(ei.input_json)"
+  do i=1 to words(fields)
+    field=word(fields,i)
+    predicate=predicate || " AND json_extract(ei.input_json,'$." || field || "')=json_extract(" || input_expression || ",'$." || field || "')"
+  end
+  paid=""
+  if settled=1 then paid=" AND ep.outcome NOT IN('starting','running','completed-unsettled')"
+  total="(SELECT count(DISTINCT ep.provider_run_id) FROM job_items ei JOIN attempts ea ON ea.item_id=ei.item_id JOIN provider_runs ep ON ep.provider_run_id=ea.provider_run_id WHERE " || predicate || paid || ")"
+  if history=1 then return total
+  baseline="(SELECT coalesce(max(json_extract(er.message,'$.embedding_calls')),0) FROM job_items ei JOIN job_events er ON er.item_id=ei.item_id AND er.event_type='retry-reset' WHERE " || predicate || ")"
+  return "max(0," || total || "-" || baseline || ")"
+
+/* Caller owns the single writer transaction. One set-based insert records
+ * only changed baselines. A repeat before further attempts is a no-op. */
+recordretryreset: procedure = .int
+  arg database=.binary,job_id=.string,expose jobs=.int,expose items=.int,expose error=.string
+  jobs=0;items=0;error=""
+  scope="";if job_id<>"" then scope=" WHERE i.job_id=" || _q(job_id)
+  start=_number(database,"SELECT coalesce(max(event_id),0) FROM job_events")
+  task="(SELECT task_id FROM maintenance_task_items WHERE item_id=i.item_id)"
+  values="json_object('attempts'," || itemretrycount("i.item_id",1,1) || ",'paid_calls'," || itemretrycallcount("i.item_id",1,1) || ",'task_calls'," || taskretrycallcount(task,1,1) || ",'embedding_calls',CASE WHEN i.item_type='embedding' THEN " || embeddingretrycallcount("i.input_json",1,1) || " ELSE 0 END)"
+  sql="WITH reset_values AS MATERIALIZED(SELECT i.job_id,i.item_id," || values || " AS baseline FROM job_items i" || scope || ") INSERT INTO job_events(job_id,item_id,event_type,message,occurred_at) SELECT v.job_id,v.item_id,'retry-reset',v.baseline,strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM reset_values v WHERE v.baseline<>coalesce((SELECT r.message FROM job_events r WHERE r.item_id=v.item_id AND r.event_type='retry-reset' ORDER BY r.event_id DESC LIMIT 1)," || _q('{"attempts":0,"paid_calls":0,"task_calls":0,"embedding_calls":0}') || ")"
+  if sqliteexec(database,sql)<>0 then do;error="cannot record retry reset";return -1;end
+  items=_number(database,"SELECT changes()")
+  jobs=_number(database,"SELECT count(DISTINCT job_id) FROM job_events WHERE event_id>" || start || " AND event_type='retry-reset'")
+  return 0
 
 retrydisposition: procedure = .string
   arg state = .string, owned = .int, uncertain = .int, review = .int, ceiling = .int, spent = .int, delayed = .int, hold = .string
@@ -187,6 +252,10 @@ recordretryrequest: procedure = .int
     task_value = "NULL"; item_value = _q(item_id)
   end
   if version = "" then do; error = "retry target was not found"; return -1; end
+  reset_scope="e.item_id=" || _q(item_id)
+  if task_id<>"" then reset_scope="e.item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id=" || _q(task_id) || ")"
+  reset=_number(database,"SELECT coalesce(max(e.event_id),0) FROM job_events e WHERE e.event_type='retry-reset' AND " || reset_scope)
+  if reset>0 then version=version || ":reset:" || reset
   request_id = _text(database,"SELECT request_id FROM retry_requests WHERE " || selector || " AND state='pending'")
   if request_id \= "" then return 0
   request_id = "retry:" || rxhash..sha256hex((task_id || "00"x || item_id || "00"x || version) as .binary)

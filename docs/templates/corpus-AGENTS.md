@@ -78,6 +78,28 @@ figures use the live tool and generation as operational provenance.
 
 ## Operations and continuity
 
+Worker models and reasoning effort come from the selected `crexxrag.conf`,
+independently of the coordinating assistant's model. Record instance choices
+in README.md; do not change them merely because a different assistant is used.
+Keep corpus-specific extraction/resolution prompts in the selected policy or
+referenced prompt files; shared skill and validation rules belong upstream.
+
+For authorized long jobs, follow the shared maintenance skill's
+`Long jobs and model selection` section. Let healthy jobs run independently,
+with one light monitor and checks at phase boundaries or significant failures.
+Keep one continuation checklist with the active job, next phase, remaining
+authority and unresolved issues. Missing IDs, per-document backlog or necessary
+controls are engineering gaps; do not replace them with manual item tracking.
+Use public source summaries where the installed build supports them, and report
+version gaps otherwise. Document candidate-versus-installed capabilities in the
+run record; documentation updates alone do not install a repair.
+
+After a lost launcher/session, follow the shared maintenance skill's **Resume
+after a lost command session** procedure: inspect the durable job, observe live
+or draining work, and resume exited unfinished work under existing authority.
+Treat this as routine recovery, including after SIGKILL; do not begin another
+investigation or repair data solely because the launcher receipt is missing.
+
 Ordinary questions do not authorize ingestion, maintenance, provider tests or
 corpus changes. For explicitly requested operational work, read the matching
 installed `crexxrag-*` skill and use supported commands within granted access
@@ -89,3 +111,11 @@ limitation; do not silently switch to outside facts or direct database access.
 Keep workspace-specific paths, corpus refresh arrangements and current setup
 details in the workspace README. Do not treat dated reports as current answers
 or restart imported jobs merely because a new session has begun.
+
+For deadline-only extensions and explicit retry-count resets, follow the shared
+maintenance skill. Keep the current run's notes and already-granted approvals
+in its run record, with a pointer here. The product's standing job-file design
+(RAG-OPS-007) requires editable parameters and preserved comments, run notes and
+retry instructions. Until that interface is implemented, keep using the current
+run record and public commands. Resetting eligibility never erases provider
+history or increases a spending budget.

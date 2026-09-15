@@ -1,0 +1,20 @@
+init
+OK: library initialized
+library status
+  library id: library-8ac28e71de59ef3aad34dade
+  schema version: 19
+  published generation: 1
+  next generation: 2
+  profile id: it-architecture-profile
+  manifest state: aligned
+  issue count: 0
+  state: initialized
+config snapshot
+  config id: gemini-loopback
+  config version: 1
+  profile id: it-architecture-profile
+  semantic hash: 93abab410d7ed79be85e43447f8c25b936e6543d8cd693159e5e0917069edce2
+  operational hash: ad76dd137dace2651ea72c4af340684b05113dbef3857cf657e6a386a6232d8b
+
+--format;json;worker;list
+{"schema":"crexx-rag.command-result/1","operation":"worker.list","status":"ok","exit_code":0,"exit_name":"success","message":"bounded runtime registry read; heartbeat classification is authoritative and PID state is diagnostic","records":[{"kind":"runtime-process","fields":{"instance_id":"controller-6bfd051a64831b60e307e1aa67fc8517","kind":"controller","parent_instance_id":"","host_id":"Adrians-MacBook-Air.local","pid":49245,"process_start_token":"24525f0d61c66b229ec339761a594d60","mode":"wait","job_filter":"job-sha256:4173f52612c2adb0b5cff1d2f7712e4bbe85063b2e5cc69554dcfd028b6de48f","state":"stopped","classification":"stopped","requested_state":"drain","current_item_id":"","heartbeat_age_seconds":0,"pid_check":"not-running","detail":"shutdown requested: SIGTERM; all worker processes completed"}},{"kind":"runtime-process","fields":{"instance_id":"worker-296ca07e7ed38017d32d77e2e7a30f22","kind":"worker","parent_instance_id":"controller-6bfd051a64831b60e307e1aa67fc8517","host_id":"Adrians-MacBook-Air.local","pid":49252,"process_start_token":"e8d274ff856d3403145853e06573effb","mode":"follow","job_filter":"job-sha256:4173f52612c2adb0b5cff1d2f7712e4bbe85063b2e5cc69554dcfd028b6de48f","state":"stopped","classification":"stopped","requested_state":"drain","current_item_id":"","heartbeat_age_seconds":0,"pid_check":"not-running","detail":"application worker stopped cleanly;processed=1;polls=2"}}]}

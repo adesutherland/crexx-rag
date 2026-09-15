@@ -13,14 +13,14 @@ import ragingest
  * remains in the bounded Level-B ragfile exception; all identity and ingestion
  * policy remains in Level G. */
 collectfolderobservations: procedure = .int
-  arg root = .string, source_set_id = .string, retain_raw = .int, maximum_file_bytes = .int, captured_at = .string, expose observations = .ragsourceobservation[], expose error = .string, maximum_depth = 64
+  arg root = .string, source_set_id = .string, retain_raw = .int, maximum_file_bytes = .int, captured_at = .string, expose observations = .ragsourceobservation[], expose error = .string, include_patterns = .string[], maximum_depth = 64
   clear observations
   error = ""
   if root = "" | source_set_id = "" | captured_at = "" | (retain_raw \= 0 & retain_raw \= 1) | maximum_file_bytes < 1 | maximum_depth < 0 | maximum_depth > 256 | rxfs..isdir(root) \= 1 then do
     error = "folder source set, root, retention policy, or file ceiling is invalid"
     return -1
   end
-  if _walk(root, "", source_set_id, retain_raw, maximum_file_bytes, captured_at, 0, observations, error, maximum_depth) \= 0 then do
+  if _walk(root, "", source_set_id, retain_raw, maximum_file_bytes, captured_at, 0, observations, error, include_patterns, maximum_depth) \= 0 then do
     clear observations
     return -2
   end
@@ -28,7 +28,7 @@ collectfolderobservations: procedure = .int
   return observations.0
 
 _walk: procedure = .int
-  arg root = .string, relative = .string, source_set_id = .string, retain_raw = .int, maximum_file_bytes = .int, captured_at = .string, depth = .int, expose observations = .ragsourceobservation[], expose error = .string, maximum_depth = .int
+  arg root = .string, relative = .string, source_set_id = .string, retain_raw = .int, maximum_file_bytes = .int, captured_at = .string, depth = .int, expose observations = .ragsourceobservation[], expose error = .string, include_patterns = .string[], maximum_depth = .int
   if depth > maximum_depth then do; error = "folder nesting exceeds the connector ceiling"; return -1; end
   path = root
   if relative \= "" then path = root || "/" || relative
@@ -46,9 +46,10 @@ _walk: procedure = .int
     if relative \= "" then child_relative = relative || "/" || entry
     child_path = root || "/" || child_relative
     if rxfs..isdir(child_path) = 1 then do
-      if _walk(root, child_relative, source_set_id, retain_raw, maximum_file_bytes, captured_at, depth + 1, observations, error, maximum_depth) \= 0 then return -1
+      if _walk(root, child_relative, source_set_id, retain_raw, maximum_file_bytes, captured_at, depth + 1, observations, error, include_patterns, maximum_depth) \= 0 then return -1
     end
     else if rxfs..isfile(child_path) = 1 & _supported(child_relative) = 1 then do
+      if _included(child_relative, include_patterns) = 0 then iterate
       raw = .binary; bytes = 0
       if ragfile..readbinaryfilebounded(child_path, maximum_file_bytes, raw, bytes, error) \= 0 then return -1
       format = _format(child_relative); mime = _mime(format)
@@ -64,6 +65,60 @@ _walk: procedure = .int
     end
   end
   return 0
+
+/* Patterns are relative to the source root. * and ? match within a path
+ * component; a whole ** component matches zero or more components. Both
+ * planning and apply filter here, before opening or hashing file contents. */
+_included: procedure = .int
+  arg path = .string, patterns = .string[]
+  components = _components(path)
+  do p = 1 to patterns.0
+    pattern = _components(patterns[p])
+    previous = .int[]; previous[1] = 1
+    do j = 1 to components.0; previous[j + 1] = 0; end
+    do i = 1 to pattern.0
+      current = .int[]; current[1] = 0
+      if pattern[i] = "**" then current[1] = previous[1]
+      do j = 1 to components.0
+        current[j + 1] = 0
+        if pattern[i] = "**" then current[j + 1] = previous[j + 1] | current[j]
+        else if previous[j] = 1 then current[j + 1] = _componentmatches(components[j], pattern[i])
+      end
+      previous = current
+    end
+    if previous[components.0 + 1] = 1 then return 1
+  end
+  return 0
+
+_components: procedure = .string[]
+  arg path = .string
+  output = .string[]; remaining = path
+  do while pos("/", remaining) > 0
+    separator = pos("/", remaining)
+    output[output.0 + 1] = left(remaining, separator - 1)
+    remaining = substr(remaining, separator + 1)
+  end
+  output[output.0 + 1] = remaining
+  return output
+
+_componentmatches: procedure = .int
+  arg value = .string, pattern = .string
+  v = 1; p = 1; star = 0; retry = 0
+  do while v <= length(value)
+    token = substr(pattern, p, 1)
+    if p <= length(pattern) & token \= "*" & (token = "?" | token = substr(value, v, 1)) then do
+      v = v + 1; p = p + 1
+    end
+    else if p <= length(pattern) & token = "*" then do
+      star = p; retry = v; p = p + 1
+    end
+    else if star > 0 then do
+      retry = retry + 1; v = retry; p = star + 1
+    end
+    else return 0
+  end
+  do while p <= length(pattern) & substr(pattern, p, 1) = "*"; p = p + 1; end
+  return p > length(pattern)
 
 _supported: procedure = .int
   arg path = .string

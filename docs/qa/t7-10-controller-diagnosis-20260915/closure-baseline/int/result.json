@@ -1,0 +1,52 @@
+{
+  "mode": "int",
+  "controller_pid": 25647,
+  "os_exit_code": -2,
+  "os_signal": "SIGINT",
+  "before": {
+    "process": {
+      "pid": 25647,
+      "ppid": 25311,
+      "pgid": 25308,
+      "state": "S"
+    },
+    "runtime": [
+      {
+        "kind": "controller",
+        "pid": 25647,
+        "state": "running",
+        "heartbeat_at": 1789457599,
+        "exit_code": null,
+        "detail": "supervising 1 worker processes"
+      },
+      {
+        "kind": "worker",
+        "pid": 25648,
+        "state": "idle",
+        "heartbeat_at": 1789457599,
+        "exit_code": null,
+        "detail": "waiting for durable work"
+      }
+    ]
+  },
+  "final_runtime": [
+    {
+      "kind": "controller",
+      "pid": 25647,
+      "state": "running",
+      "heartbeat_at": 1789457599,
+      "exit_code": null,
+      "detail": "supervising 1 worker processes"
+    },
+    {
+      "kind": "worker",
+      "pid": 25648,
+      "state": "stopped",
+      "heartbeat_at": 1789457599,
+      "exit_code": 0,
+      "detail": "application worker stopped cleanly;processed=0;polls=2"
+    }
+  ],
+  "jobs": 0,
+  "provider_runs": 0
+}

@@ -1,0 +1,45 @@
+
+/Applications/ChatGPT.app/Contents/Resources/codex:	file format mach-o arm64
+
+Disassembly of section __TEXT,__text:
+
+00000001085a4e34 <__ZN15codex_utils_pty7process13ProcessHandle17request_terminate17hd1f69482694eaf07E>:
+1085a4e34: a9ba6ffc    	stp	x28, x27, [sp, #-0x60]!
+1085a4e38: a90167fa    	stp	x26, x25, [sp, #0x10]
+1085a4e3c: a9025ff8    	stp	x24, x23, [sp, #0x20]
+1085a4e40: a90357f6    	stp	x22, x21, [sp, #0x30]
+1085a4e44: a9044ff4    	stp	x20, x19, [sp, #0x40]
+1085a4e48: a9057bfd    	stp	x29, x30, [sp, #0x50]
+1085a4e4c: 910143fd    	add	x29, sp, #0x50
+1085a4e50: aa0003f3    	mov	x19, x0
+1085a4e54: d9428000    	ldapur	x0, [x0, #0x28]
+1085a4e58: b40007a0    	cbz	x0, 0x1085a4f4c <__ZN15codex_utils_pty7process13ProcessHandle17request_terminate17hd1f69482694eaf07E+0x118>
+1085a4e5c: 945e659f    	bl	0x109d3e4d8 <dyld_stub_binder+0x109d3e4d8>
+1085a4e60: 350007e0    	cbnz	w0, 0x1085a4f5c <__ZN15codex_utils_pty7process13ProcessHandle17request_terminate17hd1f69482694eaf07E+0x128>
+1085a4e64: f002325a    	adrp	x26, 0x10cbef000 <__ZN15crossbeam_utils6atomic11atomic_cell4lock5LOCKS17hb46abf62cddcd85aE+0x1880>
+1085a4e68: 9130e35a    	add	x26, x26, #0xc38
+1085a4e6c: f9400348    	ldr	x8, [x26]
+1085a4e70: f240f91f    	tst	x8, #0x7fffffffffffffff
+1085a4e74: 54000761    	b.ne	0x1085a4f60 <__ZN15codex_utils_pty7process13ProcessHandle17request_terminate17hd1f69482694eaf07E+0x12c>
+1085a4e78: 9100c278    	add	x24, x19, #0x30
+1085a4e7c: 3940c268    	ldrb	w8, [x19, #0x30]
+1085a4e80: 34000188    	cbz	w8, 0x1085a4eb0 <__ZN15codex_utils_pty7process13ProcessHandle17request_terminate17hd1f69482694eaf07E+0x7c>
+1085a4e84: f9400348    	ldr	x8, [x26]
+1085a4e88: f240f91f    	tst	x8, #0x7fffffffffffffff
+1085a4e8c: 54000761    	b.ne	0x1085a4f78 <__ZN15codex_utils_pty7process13ProcessHandle17request_terminate17hd1f69482694eaf07E+0x144>
+1085a4e90: f8428260    	ldur	x0, [x19, #0x28]
+1085a4e94: a9457bfd    	ldp	x29, x30, [sp, #0x50]
+1085a4e98: a9444ff4    	ldp	x20, x19, [sp, #0x40]
+1085a4e9c: a94357f6    	ldp	x22, x21, [sp, #0x30]
+1085a4ea0: a9425ff8    	ldp	x24, x23, [sp, #0x20]
+1085a4ea4: a94167fa    	ldp	x26, x25, [sp, #0x10]
+1085a4ea8: a8c66ffc    	ldp	x28, x27, [sp], #0x60
+1085a4eac: 145e6591    	b	0x109d3e4f0 <dyld_stub_binder+0x109d3e4f0>
+1085a4eb0: a943da75    	ldp	x21, x22, [x19, #0x38]
+1085a4eb4: f9001e7f    	str	xzr, [x19, #0x38]
+1085a4eb8: b4fffe75    	cbz	x21, 0x1085a4e84 <__ZN15codex_utils_pty7process13ProcessHandle17request_terminate17hd1f69482694eaf07E+0x50>
+1085a4ebc: 52800014    	mov	w20, #0x0               ; =0
+1085a4ec0: f94012c8    	ldr	x8, [x22, #0x20]
+1085a4ec4: aa1503e0    	mov	x0, x21
+1085a4ec8: d63f0100    	blr	x8
+1085a4ecc: aa0003f7    	mov	x23, x0

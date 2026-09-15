@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragtrace expose ragtracer validtracemode
+namespace ragtrace expose ragtracer validtracemode writeoperatorline
 
 import rxfnsb
 
@@ -40,8 +40,35 @@ ragtracer: class
       if safe_state = "waiting" | safe_state = "idle" then colour = "33"
       line = "1B"x || "[" || colour || "m" || line || "1B"x || "[0m"
     end
-    call lineout "stderr", line
+    call writeoperatorline line
     return
+
+/* Losing an operator output sink is not a product or provider failure. Catch
+ * NOTREADY only around this write, never around the caller's work. Each VM
+ * stops using its failed sink; provider/file I/O keeps its normal failures. */
+writeoperatorline: procedure = .void expose _stdout_closed _stderr_closed
+  arg line = .string, stream = "stderr"
+  _stdout_closed = .int; _stderr_closed = .int
+  if stream = "stdout" then do; if _stdout_closed = 1 then return; end
+  else do; if _stderr_closed = 1 then return; end
+  failed = 0
+  do
+    failed = lineout(stream,line)
+  on signal notready
+    failed = 1
+  end
+  if failed \= 0 then do
+    if stream = "stdout" then _stdout_closed = 1
+    else _stderr_closed = 1
+    /* Remove any buffered bytes before process-exit stdio flushing. Closing
+     * the failed sink can raise the same condition once more. */
+    do
+      call lineout stream
+    on signal notready
+      nop
+    end
+  end
+  return
 
 validtracemode: procedure = .int
   arg mode = .string, format = .string

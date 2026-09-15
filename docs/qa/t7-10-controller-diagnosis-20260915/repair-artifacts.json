@@ -1,0 +1,26 @@
+[
+  {
+    "path": "/Users/adrian/CLionProjects/crexx-rag/crexx/application/ragprocess.crexx",
+    "sha256": "0de1b916581993946b4c840ee0ab0b29bfbc984a5aa07273f4e0e507180e9480"
+  },
+  {
+    "path": "/Users/adrian/CLionProjects/crexx-rag/crexx/application/ragtrace.crexx",
+    "sha256": "45f4173c42a4031f2fb3a22fc155305ee94a6bd71048020695857024843bc960"
+  },
+  {
+    "path": "/Users/adrian/CLionProjects/crexx-rag/crexx/application/ragstore.crexx",
+    "sha256": "0fbf06d68a78e632a15101a9af6cbb5adaaa107ebf0098d195f81e490c82fce8"
+  },
+  {
+    "path": "/Users/adrian/CLionProjects/crexx-rag/crexx/application/surfaces/crexxrag_cli.crexx",
+    "sha256": "c7b9968c241efa8708d266941e3d39b4432d5838d1d4c24f28ee25eb229129fc"
+  },
+  {
+    "path": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/crexxrag-native/package/crexxrag",
+    "sha256": "f3c4ff83b07df7170599541e72bd00441cdcf009c151b6edfa197f154248bb48"
+  },
+  {
+    "path": "/Users/adrian/Documents/ScottishHistory/tools/bin/crexxrag",
+    "sha256": "fd7b6537ebb73e3ea23d328a21fefbef58d7193602ef8130ebdca324bb44bbf7"
+  }
+]

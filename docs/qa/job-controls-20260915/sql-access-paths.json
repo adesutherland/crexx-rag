@@ -1,0 +1,21 @@
+{
+  "item_attempts": [
+    "SEARCH a USING COVERING INDEX attempts_item (item_id=?)"
+  ],
+  "item_reset": [
+    "SEARCH e USING INDEX job_events_item_type (item_id=? AND event_type=?)",
+    "USE TEMP B-TREE FOR ORDER BY"
+  ],
+  "embedding_family": [
+    "USE TEMP B-TREE FOR count(DISTINCT)",
+    "SEARCH i USING INDEX job_items_embedding_subject (<expr>=? AND <expr>=? AND <expr>=? AND <expr>=?)",
+    "SEARCH a USING INDEX attempts_item (item_id=?)",
+    "SEARCH p USING COVERING INDEX sqlite_autoindex_provider_runs_1 (provider_run_id=?)"
+  ],
+  "maintenance_reset": [
+    "SEARCH m USING INDEX maintenance_task_items_task (task_id=?)",
+    "SCALAR SUBQUERY 1",
+    "SEARCH maintenance_task_items USING INDEX sqlite_autoindex_maintenance_task_items_1 (item_id=?)",
+    "SEARCH e USING INDEX job_events_item_type (item_id=? AND event_type=?)"
+  ]
+}

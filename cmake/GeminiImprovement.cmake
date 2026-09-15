@@ -351,8 +351,19 @@ endif()
 if(NOT review_list_result EQUAL 0 OR external_review_id STREQUAL "")
     message(FATAL_ERROR "external proposal review was not visible:\n${review_list_out}${review_list_err}")
 endif()
+# The stored review is the independent positive control. The caller must get
+# its identity directly, without scanning an unrelated corpus-sized queue.
+string(JSON returned_review ERROR_VARIABLE returned_review_error GET
+    "${proposal_apply_out}" records 1 fields review_id)
+string(JSON returned_proposal ERROR_VARIABLE returned_proposal_error GET
+    "${proposal_apply_out}" records 1 fields proposal_id)
+if(returned_review_error OR returned_proposal_error OR
+   NOT returned_review STREQUAL external_review_id OR
+   NOT returned_proposal STREQUAL "external-accesses-1")
+    message(FATAL_ERROR "proposal apply omitted or misidentified its stored review: ${proposal_apply_out}")
+endif()
 execute_process(COMMAND ${cli} --profile it-architecture-profile --access curate
-        --format json review decide "${external_review_id}"
+        --format json review decide "${returned_review}"
         --decision accept --apply
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE review_decide_out ERROR_VARIABLE review_decide_err
@@ -363,6 +374,19 @@ if(NOT review_decide_result EQUAL 0 OR
    NOT review_decide_out MATCHES "\"vector_state\":\"identical-no-op\"" OR
    NOT review_decide_out MATCHES "\"vector_generations\":1")
     message(FATAL_ERROR "external proposal review promotion failed:\n${review_decide_out}${review_decide_err}")
+endif()
+
+# Preserve a useful validator diagnosis when an external proposal cannot reach
+# the ordinary external-review route. The valid proposal above is the control.
+string(REPLACE "\"confidence_millionths\":900000" "\"confidence_millionths\":450000"
+    low_confidence_proposal "${inline_proposal}")
+execute_process(COMMAND ${cli} --profile it-architecture-profile --access plan
+        --format json proposal plan --proposals-ndjson "${low_confidence_proposal}"
+    WORKING_DIRECTORY "${CPRAG_WORK_DIR}" OUTPUT_VARIABLE diagnostic_out
+    ERROR_VARIABLE diagnostic_err RESULT_VARIABLE diagnostic_result TIMEOUT 30)
+if(NOT diagnostic_result EQUAL 7 OR NOT diagnostic_out MATCHES
+    "proposal confidence is below the deterministic promotion threshold")
+    message(FATAL_ERROR "external proposal lost its validator diagnosis: ${diagnostic_out}${diagnostic_err}")
 endif()
 
 execute_process(COMMAND ${cli} --access diagnose library verify

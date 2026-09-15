@@ -2,6 +2,42 @@ set(CREXXRAG_NATIVE_APPLICATION
     "${CMAKE_BINARY_DIR}/crexxrag-native/package/crexxrag${CMAKE_EXECUTABLE_SUFFIX}")
 set(CREXXRAG_PROVIDER_FIXTURE "$<TARGET_FILE:crexxrag_provider_fixture>")
 
+add_test(NAME regression_folder_include
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-folder-include"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/FolderInclude.cmake")
+set_tests_properties(regression_folder_include PROPERTIES
+    TIMEOUT 120 LABELS "regression;ingestion;configuration;zero-outbound")
+
+add_test(NAME regression_source_backlog
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-source-backlog"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/SourceBacklog.cmake")
+set_tests_properties(regression_source_backlog PROPERTIES
+    TIMEOUT 90 LABELS "regression;operator;pagination;zero-outbound")
+
+add_test(NAME regression_source_maintenance
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-source-maintenance"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/SourceMaintenance.cmake")
+set_tests_properties(regression_source_maintenance PROPERTIES
+    TIMEOUT 180 LABELS "regression;maintenance;source;zero-outbound")
+
+add_test(NAME regression_job_deadline
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-job-deadline"
+        -DCPRAG_DEADLINE_TEST=ON -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/SourceMaintenance.cmake")
+set_tests_properties(regression_job_deadline PROPERTIES
+    TIMEOUT 180 LABELS "regression;maintenance;source;zero-outbound")
+
 add_test(NAME regression_policy_file
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
@@ -654,7 +690,16 @@ set_tests_properties(native_interruption PROPERTIES
     TIMEOUT 180 LABELS "native;recovery;cancellation;accounting;publication;sqlite;zero-outbound")
 
 # Agreed simple restart behavior, tested before its implementation.
-foreach(case IN ITEMS controller_loss restart_live)
+add_test(NAME regression_controller_closure
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/controller-closure.py"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-controller-closure"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ControllerClosure.cmake")
+set_tests_properties(regression_controller_closure PROPERTIES
+    TIMEOUT 120 LABELS "regression;native;recovery;zero-outbound")
+
+foreach(case IN ITEMS controller_loss restart_live controller_term)
     add_test(NAME regression_${case}
         COMMAND "${CMAKE_COMMAND}"
             "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
@@ -669,7 +714,7 @@ endforeach()
 
 # Keep repaired defects as ordinary regressions in the full workflow; no
 # WILL_FAIL property can turn a setup error or crash into a passing result.
-foreach(case IN ITEMS pages page_max large_job plan_detail retry closed_retry retrieval retrieval_unicode)
+foreach(case IN ITEMS pages page_max large_job plan_detail retry closed_retry reset_retries retrieval retrieval_unicode)
     add_test(NAME regression_${case}
         COMMAND "${CMAKE_COMMAND}"
             "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
@@ -775,6 +820,16 @@ add_test(NAME native_embedding_retry_policy
         -DCPRAG_LEGACY_CEILING=ON -DCPRAG_EMBEDDING_POLICY=ON
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeLifecycle.cmake")
 set_tests_properties(native_embedding_retry_policy PROPERTIES TIMEOUT 180 LABELS "native;recovery;lifecycle;regression;loopback")
+
+add_test(NAME native_retry_reset
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-retry-reset"
+        -DCPRAG_LEGACY_CEILING=ON -DCPRAG_RESET_RETRIES=ON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeLifecycle.cmake")
+set_tests_properties(native_retry_reset PROPERTIES TIMEOUT 180 LABELS "native;recovery;lifecycle;regression;loopback")
 
 add_test(NAME regression_sql_performance
     COMMAND "${CMAKE_COMMAND}"

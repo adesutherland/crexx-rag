@@ -48,6 +48,18 @@ INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at)
 SELECT job_id,item_id,'attempt-'||item_id,'provider-intent','{}','2026-09-12' FROM job_items WHERE item_id IN('a-item-001','a-item-002','a-item-003');
 INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at)
 VALUES('job-noise','a-item-003','attempt-a-item-003','provider-response','{}','2026-09-12');
+-- Held outcomes beyond the first hundred ordinary failures must be selectable
+-- directly, and a matching receipt must remove the hold from selection.
+INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at)
+SELECT job_id,item_id,'attempt-'||item_id,'provider-intent','{}','2026-09-14' FROM job_items WHERE item_id IN('z-item-101','z-item-102','z-item-103');
+INSERT INTO job_events(job_id,item_id,attempt_id,event_type,message,occurred_at)
+VALUES('job-target','z-item-101','attempt-z-item-101','provider-response','{}','2026-09-14');
+WITH RECURSIVE seq(n) AS(SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<125)
+INSERT INTO reviews(review_id,review_type,subject_id,state,proposal_json,created_at)
+SELECT 'review-'||printf('%03d',n),'external-proposal','proposal-'||n,'pending','{}','2026-09-14' FROM seq;
+WITH RECURSIVE seq(n) AS(SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<125)
+INSERT INTO sources(source_id,connector_type,stable_key,lifecycle_state,observed_uri,observed_title,visible_from_generation)
+SELECT 'source-'||printf('%03d',n),'folder:fixture','file-'||n,'active','file:fixture-'||n,'Fixture '||n,(SELECT published_generation FROM library_meta) FROM seq;
 ]=])
 file(WRITE "${CPRAG_WORK_DIR}/seed.sql" "${seed}")
 execute_process(COMMAND "${CREXXRAG_SQLITE3}" -bail "${database}" INPUT_FILE "${CPRAG_WORK_DIR}/seed.sql"
@@ -67,6 +79,18 @@ function(read_command expected)
 endfunction()
 # Existing positive control is required before checking the missing interface.
 read_command(0 job status job-target)
+# Exact show must find records beyond every list page. The first record is
+# a positive control; missing keys must retain the normal not-found result.
+foreach(kind IN ITEMS review source)
+    read_command(0 ${kind} show ${kind}-001)
+    read_command(0 ${kind} show ${kind}-125)
+    string(JSON shown GET "${response}" records 0 fields identity)
+    string(JSON shown_count LENGTH "${response}" records)
+    if(NOT shown STREQUAL "${kind}-125" OR NOT shown_count EQUAL 1)
+        message(FATAL_ERROR "Exact ${kind} lookup returned unrelated rows or pagination: ${response}")
+    endif()
+    read_command(5 ${kind} show ${kind}-missing)
+endforeach()
 # A live call is still unresolved, but is not a reconciliation hold. Preserve
 # the old total while exposing its disjoint active/held parts; matched receipts
 # must disappear from all three counts. Reads may not change any outcome.
@@ -83,6 +107,49 @@ string(JSON held GET "${response}" records 0 fields held_uncertain_items)
 if(NOT unresolved EQUAL 2 OR NOT active EQUAL 1 OR NOT held EQUAL 1)
     message(FATAL_ERROR "Live/held uncertainty counts overlap, lose outcomes or include a matched receipt")
 endif()
+# Select uncertainty using the same live/held split as status, before pagination.
+read_command(0 job items job-target --uncertainty held --limit 1)
+string(JSON selected GET "${response}" records 0 fields id)
+string(JSON cursor GET "${response}" records 1 fields next_cursor)
+if(NOT selected STREQUAL "z-item-102" OR NOT cursor STREQUAL "z-item-102")
+    message(FATAL_ERROR "Held outcome filter ran after pagination or included unrelated failures: ${response}")
+endif()
+read_command(0 job items job-target --uncertainty held --cursor "${cursor}")
+string(JSON count LENGTH "${response}" records)
+string(JSON selected GET "${response}" records 0 fields id)
+if(NOT count EQUAL 1 OR NOT selected STREQUAL "z-item-103")
+    message(FATAL_ERROR "Held outcome continuation lost or duplicated a record: ${response}")
+endif()
+foreach(mode IN ITEMS active held)
+    read_command(0 job items job-noise --uncertainty ${mode})
+    string(JSON count LENGTH "${response}" records)
+    string(JSON selected GET "${response}" records 0 fields id)
+    if("${mode}" STREQUAL "active")
+        set(expected a-item-001)
+    else()
+        set(expected a-item-002)
+    endif()
+    if(NOT count EQUAL 1 OR NOT selected STREQUAL expected)
+        message(FATAL_ERROR "Uncertainty filter disagrees with independent status totals: ${response}")
+    endif()
+endforeach()
+read_command(0 job items job-noise --uncertainty all)
+string(JSON count LENGTH "${response}" records)
+if(NOT count EQUAL 2)
+    message(FATAL_ERROR "Uncertainty filter included matched receipts or omitted unresolved calls")
+endif()
+read_command(0 job items job-noise --uncertainty held --state running)
+string(JSON count LENGTH "${response}" records)
+if(NOT count EQUAL 0)
+    message(FATAL_ERROR "State and uncertainty filters were not intersected")
+endif()
+read_command(0 job items job-empty --uncertainty held)
+string(JSON count LENGTH "${response}" records)
+if(NOT count EQUAL 0)
+    message(FATAL_ERROR "Empty job produced held outcomes")
+endif()
+read_command(2 job items job-target --uncertainty unknown)
+read_command(2 job attempts job-target --uncertainty held)
 # Empty, malformed and missing input remains safe to inspect. Public totals
 # group by actual operation/source, with no hidden denominator or raw payload.
 read_command(0 job progress job-target)
@@ -179,6 +246,8 @@ read_command(0 maintain tasks --subject concept-target --limit 2)
 string(JSON expected_records_2 GET "${response}" records)
 read_command(0 maintain workflows --concept Turray)
 string(JSON expected_records_3 GET "${response}" records)
+read_command(0 job items job-target --uncertainty held --limit 1)
+string(JSON expected_held_records GET "${response}" records)
 set(requests [=[
 {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rag_job_items","arguments":{"id":"job-target","limit":2}}}
 {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"rag_job_attempts","arguments":{"id":"job-target","item":"z-item-103"}}}
@@ -186,6 +255,7 @@ set(requests [=[
 {"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"rag_workflow_list","arguments":{"concept":"Turray"}}}
 {"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"rag_job_items","arguments":{"id":"job-target","unexpected":"value"}}}
 {"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"rag_workflow_list","arguments":{"concept":"\u0000"}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"rag_job_items","arguments":{"id":"job-target","uncertainty":"held","limit":1}}}
 ]=])
 file(WRITE "${CPRAG_WORK_DIR}/requests.jsonl" "${requests}")
 execute_process(COMMAND ${base} --access read serve mcp INPUT_FILE "${CPRAG_WORK_DIR}/requests.jsonl"
@@ -195,7 +265,7 @@ if(NOT result EQUAL 0)
 endif()
 file(STRINGS "${CPRAG_WORK_DIR}/responses.jsonl" responses)
 list(LENGTH responses count)
-if(NOT count EQUAL 6)
+if(NOT count EQUAL 7)
     message(FATAL_ERROR "Diagnostic MCP response count changed")
 endif()
 foreach(index RANGE 0 3)
@@ -218,6 +288,11 @@ list(GET responses 5 response)
 string(JSON code GET "${response}" result structuredContent exit_code)
 if(NOT code EQUAL 2)
     message(FATAL_ERROR "NUL in diagnostic filter did not return usage")
+endif()
+list(GET responses 6 response)
+string(JSON actual_held_records GET "${response}" result structuredContent records)
+if(NOT actual_held_records STREQUAL expected_held_records)
+    message(FATAL_ERROR "CLI/MCP held-outcome selection differs: ${response}")
 endif()
 execute_process(COMMAND "${CREXXRAG_SQLITE3}" -readonly "${database}" .dump OUTPUT_VARIABLE after)
 if(NOT before STREQUAL after)

@@ -1,0 +1,24 @@
+{
+  "mode": "wait",
+  "argv": [
+    "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/crexxrag-native/package/crexxrag",
+    "--library",
+    "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/t7-10-parent-exit-final-20260915/wait/library",
+    "--config-file",
+    "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/t7-10-parent-exit-final-20260915/wait/crexxrag.conf",
+    "--profile",
+    "it-architecture-profile",
+    "--format",
+    "json",
+    "--progress",
+    "plain",
+    "--access",
+    "control",
+    "worker",
+    "start",
+    "--poll-ms",
+    "100",
+    "--max-polls",
+    "80"
+  ]
+}

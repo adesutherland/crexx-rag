@@ -1,0 +1,147 @@
+[0/5] Building the cREXX application project
+SKIP: project member current provider_contract
+SKIP: project member current provider_catalog
+SKIP: project member current codex_provider
+SKIP: project member current ragmodel
+SKIP: project member current ragevidence
+SKIP: project member current ragjob
+SKIP: project member current ragconfig
+SKIP: project member current ragconfigfile
+SKIP: project member current ragglossary
+SKIP: project member current ragprofile
+SKIP: project member current ragprofilefile
+SKIP: project member current ragregistry
+SKIP: project member current ragschema
+SKIP: project member current ragfile
+SKIP: project member current ragcanonical
+SKIP: project member current raggrounding
+SKIP: project member current ragperiod
+SKIP: project member current ragassessment
+SKIP: project member current ragcommandcatalog
+SKIP: project member current ragworkerdefaults
+SKIP: project member current ragpolicypublication
+SKIP: project member current ragsqlsupport
+SKIP: project member current ragquotationcontract
+SKIP: project member current ragextractioncontract
+SKIP: project member current raganswercontract
+SKIP: project member current ragreportcontract
+SKIP: project member current ragpromptdefaults
+SKIP: project member current raglifecycle
+SKIP: project member current ragadmission
+SKIP: project member current ragquerypolicy
+SKIP: project member current architecture_local_config
+SKIP: project member current generic_profile
+SKIP: project member current it_architecture_profile
+SKIP: project member current operator_registry
+WAVE: project compile/assemble jobs=49
+START: project member industrial_provider
+START: project member ragbackup
+START: project member ragreportservice
+START: project member ragtrace
+START: project member ragplanning
+START: project member ragingest
+START: project member provider_http
+START: project member ragobservationservice
+START: project member ragimprove
+START: project member ragfolder
+START: project member ragclaims
+START: project member ragpolicyfile
+START: project member ragresultpages
+START: project member ragenrich
+START: project member ragpromptinspection
+START: project member ragprovenance
+BUILT: project member ragpromptinspection
+BUILT: project member ragpolicyfile
+BUILT: project member ragprovenance
+START: project member ragretrieval
+START: project member ragenvironment
+BUILT: project member ragenvironment
+START: project member ragrepository
+START: project member ragcommand
+START: project member ragresolutioncontract
+START: project member crexxrag_cli
+START: project member ragdirectcalls
+START: project member ragmaintain
+START: project member ragbacklog
+START: project member ragstore
+START: project member ragconfiguration
+START: project member ragcommandutil
+BUILT: project member ragcommandutil
+START: project member ragproduct
+BUILT: project member ragresultpages
+START: project member ragproviderdiagnostics
+START: project member ragqueryservice
+START: project member ragproposalio
+START: project member ragoperationsquery
+START: project member ragclaimrules
+BUILT: project member ragenrich
+START: project member ragembedding
+BUILT: project member ragplanning
+BUILT: project member ragstore
+BUILT: project member ragconfiguration
+BUILT: project member ragimprove
+BUILT: project member ragtrace
+START: project member ragprocess
+START: project member ragfoundation
+BUILT: project member ragingest
+BUILT: project member ragqueryservice
+BUILT: project member ragproposalio
+START: project member ragapplicationprovider
+BUILT: project member ragproduct
+START: project member ragallowance
+BUILT: project member ragrepository
+BUILT: project member ragreportservice
+BUILT: project member ragobservationservice
+BUILT: project member ragfolder
+BUILT: project member ragcommand
+BUILT: project member ragbackup
+BUILT: project member ragclaims
+BUILT: project member provider_http
+BUILT: project member industrial_provider
+START: project member ragsupervision
+START: project member ragwork
+START: project member ragreceipts
+START: project member ragcontinuation
+START: project member ragusage
+START: project member ragevidencejson
+BUILT: project member ragdirectcalls
+BUILT: project member ragresolutioncontract
+BUILT: project member ragproviderdiagnostics
+BUILT: project member ragmaintain
+BUILT: project member ragretrieval
+START: project member ragmcp
+BUILT: project member ragfoundation
+BUILT: project member ragbacklog
+BUILT: project member crexxrag_cli
+START: project member ragworktypes
+START: project member ragquery
+START: project member ragqueryprovider
+BUILT: project member ragprocess
+BUILT: project member ragclaimrules
+BUILT: project member ragallowance
+BUILT: project member ragusage
+BUILT: project member ragapplicationprovider
+BUILT: project member ragembedding
+BUILT: project member ragoperationsquery
+BUILT: project member ragevidencejson
+BUILT: project member ragsupervision
+BUILT: project member ragquery
+BUILT: project member ragcontinuation
+BUILT: project member ragmcp
+BUILT: project member ragreceipts
+BUILT: project member ragworktypes
+BUILT: project member ragwork
+BUILT: project member ragqueryprovider
+BARRIER: link program
+PUBLISHED: program /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/crexx-application/project/crexxrag-project.rxbin
+[1/5] Building the ADDRESS RAG environment module
+WAVE: project compile/assemble jobs=1
+START: project member rag_address_environment
+BUILT: project member rag_address_environment
+BARRIER: link library
+PUBLISHED: library /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/crexx-application/address/rag_address_environment.rxbin
+[2/5] Publishing the linked Level-G crexxrag application
+-- Built linked cREXX application /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/crexx-application/crexxrag.rxbin (82e9ec30aa91f341e86378ac9fc29e8ec3b6936dc9fed429bef459338f7a50ba)
+[3/5] Staging the runnable crexxrag product directory
+[4/5] Packaging the native crexxrag executable
+-- CREXX native application passed library init and two-worker supervision (f3c4ff83b07df7170599541e72bd00441cdcf009c151b6edfa197f154248bb48)

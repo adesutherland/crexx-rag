@@ -28,7 +28,7 @@ repositoryresultrecords: procedure = .ragresultrecord[]
     if repository="jobs" then do
       detail=.jsondocument(source.detail()); total=0
       ignored=detail.node_int(detail.member(detail.root(),"plan_characters"),total)
-      complete="true"; if total>65535 then complete="false"
+      complete="false"
       fields[10]=.ragresultfield("value_complete","boolean",complete)
       fields[11]=.ragresultfield("plan_characters","integer",total)
       fields[12]=.ragresultfield("detail_operation","string","job.plan")

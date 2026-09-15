@@ -6,6 +6,55 @@ maps these dependencies and qualification limits to the product backlog.
 These are current boundaries, accepted limitations and recorded repairs. Any
 source-level containment used by the product is stated explicitly.
 
+## Test 7 long-run controller lifetime — open, 15 September 2026
+
+The Scottish soak's first Boswell controller was absent with no launcher
+completion receipt and an unavailable tool session. Public pause, missing-PID
+confirmation and prune retained unfinished work; a fresh source window recovered
+it normally. At 05:52 the final window also reports no live workers, a controller
+heartbeat 1986 seconds old and unfinished work before its configured deadline.
+The second controller PID 51500 was independently confirmed absent in the
+launcher's visibility domain; public pause/prune receipts 129–133 retain its
+34 queued items and confirm no active ownership. The reporting wrapper has
+no subprocess timeout and writes the final receipt only on return.
+
+The 15 September [T7-10 diagnosis](t7-10-controller-diagnosis-20260915.md)
+now strongly implicates Codex coordinator resumption: both last controller
+heartbeats match the exact second of Desktop `thread/resume`, and the second
+incident's App Server log records shutdown and replacement of that coordinator
+instance. The first incident's detailed host records have rotated out. The exact
+OS exit signal and host reproduction remain outstanding. A separate plain
+parent-exit fixture now passes: the real controller survives reparenting to
+PID 1 and finishes cleanly, so parent exit alone does not explain the incident.
+Explicit command termination in the installed Codex App Server has separately
+returned 137 (SIGKILL) for a signal-recording synthetic child; this is not a
+reproduction of task resumption. Real-controller fixtures also reproduce SIGPIPE
+on closed stderr and abrupt TERM/HUP/INT exits. The candidate product repair
+tolerates lost operator output and drains catchable shutdown requests; the
+linked T7-10 checklist owns its qualification. No clean endurance result is
+claimed. The installed
+product passed 74 developer tests, but this interrupted/repaired night does not
+qualify clean long-running process endurance. Exact phase/receipt references and
+the pending investigation are T7-10 in
+[the soak checklist](test7-overnight-soak-20260914.md).
+
+## Installed compiler source-import finding during T7-10
+
+Filed as [CREXX #699](https://github.com/adesutherland/CREXX/issues/699) under
+`adesutherland` on 15 September 2026. The report contains the repeated build
+failure, successful alternative and explicit absence of a reduced reproducer.
+
+On installed CREXX `g037e7939bc29`, the first failed-output cleanup using public
+`closefile` compiled and ran on both VMs, but the full source-project build
+repeatedly reported `INTERNAL_CONVERGENCE_ERROR` in `ragcommand` and a provider
+`TYPE_MISMATCH` in `ragprocess`. Both importing modules compiled successfully
+against built interfaces. The equivalent existing `lineout(stream)` close form
+passes both VMs and the ordinary project build, and is used by the repair.
+This is a bounded source-form finding, not evidence that all `closefile` use
+fails. No compiler change or native product workaround was introduced. The
+[T7-10 evidence](t7-10-controller-diagnosis-20260915.md) retains the failed retry
+and successful build; the compiler issue remains upstream work.
+
 ## Worker execution architecture
 
 CREXX now supports declared native-provider discovery and isolated RXPA

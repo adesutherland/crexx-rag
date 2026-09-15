@@ -1,12 +1,17 @@
 # Continue interrupted processing
 
-Delivery status: implementation and the repaired bounded maintenance smoke passed.
+Historical 13 September delivery: implementation and the repaired bounded maintenance smoke passed.
 The final product gate is **63/63**; the worker group exited 0 after **56m55s**
 within its fixed 60-minute window. Original ingestion is drained; the actual
 Turray recovery is complete. Five embeddings, retained content/operational holds
 and two status defects remain, so the whole corpus recovery outcome is open.
 See the [final acceptance report](operator-continuation-smoke-20260913.md) for
 actual closures, counts, the failed first run and pending policy authorization.
+
+Current deadline-only updates, expired admitted-work completion and explicit
+retry resets are described in the [user guide](user-guide.md#continue-interrupted-ingestion-or-maintenance)
+and tracked by the [15 September checklist](job-controls-delivery-20260915.md).
+The older smoke counts below remain dated evidence.
 
 ## Ordinary command journey
 
@@ -41,8 +46,10 @@ then `worker drain WORKER_ID` for each live worker belonging to that controller,
 as listed by `worker list`. Drain accepts a worker identity, not a controller or
 job selector. Wait for those workers and their controller to exit; check their
 public status before restarting. Use `worker prune` for confirmed stale
-ownership. Then repeat the same continuation. Ordinary continuation keeps the
-existing allowance and deadline. `--prepare` performs the durable preparation
+ownership. Then repeat the same continuation. Ordinary continuation keeps the existing allowance. Before expiry it keeps
+the deadline; after expiry it bounds completion to admitted items. Use
+`job deadline JOB --until TIMESTAMP` first to extend only time and retain the
+original discovery scope. `--prepare` performs the durable preparation
 without launching workers; `job run JOB` subsequently uses that preparation.
 
 ## Explicit renewal
@@ -99,7 +106,7 @@ all `next_cursor` values. The command itself never returns raw input payloads.
 | Queued or paused job | `job continue JOB`; add a new explicit named period only when allowance/deadline renewal is authorized. |
 | Deferred quota/capacity | Inspect `provider status` and retry time; let the shared cooldown/probe recover. Deferral is not a paid attempt. |
 | Retained failed task | `job retry JOB --item ITEM --reason REASON` or `maintain retry TASK --reason REASON`; repeat is deduplicated. Then continue the eligible job/window. |
-| Closed maintenance window | Continue while its original deadline remains valid, or explicitly renew it. Existing tasks and paid history remain. |
+| Closed maintenance window | Continue admitted unfinished work with its remaining allowance, or set `job deadline JOB --until TIMESTAMP` before continuing with the original scope. Extra budget requires separate renewal. |
 | Attempt ceiling | Inspect recorded calls and current policy. Renewal does not reset attempts; a reviewed new maintenance policy may authorize a different cumulative ceiling. |
 | Unknown provider outcome | Inspect `job reconcile JOB --item ITEM`; only apply the returned digest when a terminal saved outcome is actually observed. Do not resubmit an unknown call. |
 | Evidence, advanced reasoning or pending review | Follow `maintain inspect`, bounded evidence/resolve tools and public review preview/decision. Missing evidence is not successful maintenance. |

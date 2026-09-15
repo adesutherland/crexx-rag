@@ -1,0 +1,12 @@
+{
+  "docs/qa/t7-10-controller-diagnosis-20260915/parent-exit/exit/controller.stderr": "be2e46498f306310b19a18f5b16ff18eb922ccdc19b9fa88f39959d0f668b870",
+  "docs/qa/t7-10-controller-diagnosis-20260915/parent-exit/exit/controller.stdout": "1317ae32dbf2524211e774269a9876be351be27c53446c89d30d82da1373cadf",
+  "docs/qa/t7-10-controller-diagnosis-20260915/parent-exit/exit/launch.json": "81e721c01036970d242167a619ba7accb20bf3a08b2ba641d308d8329fb4c71d",
+  "docs/qa/t7-10-controller-diagnosis-20260915/parent-exit/exit/parent.json": "9407557251caeda3a02bb77132c3ed150ee48b51e50e2ad455488aca9e50cf84",
+  "docs/qa/t7-10-controller-diagnosis-20260915/parent-exit/exit/result.json": "0d0ddde265669afd43663300400efe6d1c1b04b0f1cba990bb8d7f3a177f2fac",
+  "docs/qa/t7-10-controller-diagnosis-20260915/parent-exit/wait/controller.stderr": "e2d866e8a85950ac7aa435847e210e3cd2f7bcc09e8aaa5997591698b463dad6",
+  "docs/qa/t7-10-controller-diagnosis-20260915/parent-exit/wait/controller.stdout": "573680ee879d56b533f0e649813adce1a3e797c041e3b2f09d9a797549415766",
+  "docs/qa/t7-10-controller-diagnosis-20260915/parent-exit/wait/launch.json": "e9a5de3e5190033298bfa1678ec6374eb7a6dc080177b88cbfc4e333b5c90fd0",
+  "docs/qa/t7-10-controller-diagnosis-20260915/parent-exit/wait/parent.json": "3d86e7d8dc9d2919d855736974925b7c46f52b06bd47df063ad45f4029b545ad",
+  "docs/qa/t7-10-controller-diagnosis-20260915/parent-exit/wait/result.json": "bead7d29dfa88def90a7ea598da60483b9308b807232ea6afabe9b1abc09fc2b"
+}

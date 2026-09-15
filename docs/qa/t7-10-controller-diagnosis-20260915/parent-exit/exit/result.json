@@ -1,0 +1,86 @@
+{
+  "mode": "exit",
+  "before": {
+    "parent": {
+      "pid": 16655,
+      "ppid": 16549,
+      "pgid": 16549,
+      "state": "S"
+    },
+    "controller": {
+      "pid": 16656,
+      "ppid": 16655,
+      "pgid": 16549,
+      "state": "S"
+    },
+    "runtime": [
+      {
+        "kind": "controller",
+        "pid": 16656,
+        "state": "running",
+        "heartbeat_at": 1789456814,
+        "exit_code": null,
+        "detail": "supervising 1 worker processes"
+      },
+      {
+        "kind": "worker",
+        "pid": 16657,
+        "state": "idle",
+        "heartbeat_at": 1789456813,
+        "exit_code": null,
+        "detail": "active"
+      }
+    ]
+  },
+  "after": {
+    "parent": null,
+    "controller": {
+      "pid": 16656,
+      "ppid": 1,
+      "pgid": 16549,
+      "state": "S"
+    },
+    "runtime": [
+      {
+        "kind": "controller",
+        "pid": 16656,
+        "state": "running",
+        "heartbeat_at": 1789456815,
+        "exit_code": null,
+        "detail": "supervising 1 worker processes"
+      },
+      {
+        "kind": "worker",
+        "pid": 16657,
+        "state": "idle",
+        "heartbeat_at": 1789456814,
+        "exit_code": null,
+        "detail": "waiting for durable work"
+      }
+    ]
+  },
+  "final_runtime": [
+    {
+      "kind": "controller",
+      "pid": 16656,
+      "state": "stopped",
+      "heartbeat_at": 1789456822,
+      "exit_code": 0,
+      "detail": "all worker processes completed"
+    },
+    {
+      "kind": "worker",
+      "pid": 16657,
+      "state": "stopped",
+      "heartbeat_at": 1789456822,
+      "exit_code": 0,
+      "detail": "application worker stopped cleanly;processed=0;polls=80"
+    }
+  ],
+  "product_exit_code": 0,
+  "jobs": 0,
+  "provider_runs": 0,
+  "parent_exit_code": 0,
+  "controller_os_exit_code": null,
+  "outcome": "controller and worker survived; bounded run completed"
+}

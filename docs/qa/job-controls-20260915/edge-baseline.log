@@ -1,0 +1,40 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start  4: regression_job_deadline
+1/2 Test  #4: regression_job_deadline ..........***Failed    2.53 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/JobDeadline.cmake:11 (message):
+  Deadline-only update changed job, limits, scope or work
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/SourceMaintenance.cmake:99 (include)
+
+
+
+    Start 74: native_continuation
+2/2 Test #74: native_continuation ..............***Failed    8.64 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/NativeLifecycle.cmake:327 (message):
+  Expired named renewal moved its deadline:
+  {"schema":"crexx-rag.command-result/1","operation":"job.continue","status":"ok","exit_code":0,"exit_name":"success","message":"existing
+  job prepared; job run starts its configured workers; holds and history
+  retained","records":[{"kind":"job-continuation","fields":{"job_id":"job-maintenance:b4ad9983dafefbb1a383f36d98f2048826538f9901adbcdcca22f96cbb27f8f2","period":"regression-period","provider_calls":0}}]}
+
+
+
+
+
+0% tests passed, 2 tests failed out of 2
+
+Label Time Summary:
+continuation     =   8.64 sec*proc (1 test)
+loopback         =   8.64 sec*proc (1 test)
+maintenance      =   2.53 sec*proc (1 test)
+native           =   8.64 sec*proc (1 test)
+recovery         =   8.64 sec*proc (1 test)
+regression       =  11.17 sec*proc (2 tests)
+source           =   2.53 sec*proc (1 test)
+zero-outbound    =   2.53 sec*proc (1 test)
+
+Total Test time (real) =  11.18 sec
+
+The following tests FAILED:
+	  4 - regression_job_deadline (Failed)                  maintenance regression source zero-outbound
+	 74 - native_continuation (Failed)                      continuation loopback native recovery regression
+Errors while running CTest

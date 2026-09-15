@@ -1,0 +1,144 @@
+Start testing: Sep 15 08:32 BST
+----------------------------------------------------------
+56/76 Testing: regression_controller_closure
+56/76 Test: regression_controller_closure
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_FIXTURE=/Users/adrian/CLionProjects/crexx-rag/tests/fixtures/controller-closure.py" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/test-controller-closure" "-P" "/Users/adrian/CLionProjects/crexx-rag/cmake/ControllerClosure.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+"regression_controller_closure" start time: Sep 15 08:32 BST
+Output:
+----------------------------------------------------------
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/ControllerClosure.cmake:8 (message):
+  Controller closure acceptance failed: {"mode": "control", "os_exit_code":
+  0, "os_signal": null, "final_runtime": [{"kind": "controller", "pid":
+  25315, "state": "stopped", "heartbeat_at": 1789457565, "exit_code": 0,
+  "detail": "all worker processes completed"}, {"kind": "worker", "pid":
+  25317, "state": "stopped", "heartbeat_at": 1789457565, "exit_code": 0,
+  "detail": "application worker stopped cleanly;processed=0;polls=80"}]}
+
+  {"mode": "stdin_eof", "os_exit_code": 0, "os_signal": null,
+  "final_runtime": [{"kind": "controller", "pid": 25359, "state": "stopped",
+  "heartbeat_at": 1789457575, "exit_code": 0, "detail": "all worker processes
+  completed"}, {"kind": "worker", "pid": 25360, "state": "stopped",
+  "heartbeat_at": 1789457575, "exit_code": 0, "detail": "application worker
+  stopped cleanly;processed=0;polls=80"}]}
+
+  {"mode": "stdout_closed", "os_exit_code": -13, "os_signal": "SIGPIPE",
+  "final_runtime": [{"kind": "controller", "pid": 25604, "state": "stopped",
+  "heartbeat_at": 1789457585, "exit_code": 0, "detail": "all worker processes
+  completed"}, {"kind": "worker", "pid": 25605, "state": "stopped",
+  "heartbeat_at": 1789457585, "exit_code": 0, "detail": "application worker
+  stopped cleanly;processed=0;polls=80"}]}
+
+  {"mode": "stderr_closed", "os_exit_code": -13, "os_signal": "SIGPIPE",
+  "final_runtime": [{"kind": "controller", "pid": 25617, "state": "running",
+  "heartbeat_at": 1789457595, "exit_code": null, "detail": "supervising 1
+  worker processes"}, {"kind": "worker", "pid": 25618, "state": "stopped",
+  "heartbeat_at": 1789457595, "exit_code": 0, "detail": "application worker
+  stopped cleanly;processed=0;polls=80"}]}
+
+  {"mode": "term", "os_exit_code": -15, "os_signal": "SIGTERM",
+  "final_runtime": [{"kind": "controller", "pid": 25629, "state": "running",
+  "heartbeat_at": 1789457597, "exit_code": null, "detail": "supervising 1
+  worker processes"}, {"kind": "worker", "pid": 25630, "state": "stopped",
+  "heartbeat_at": 1789457597, "exit_code": 0, "detail": "application worker
+  stopped cleanly;processed=0;polls=2"}]}
+
+  {"mode": "hup", "os_exit_code": -1, "os_signal": "SIGHUP", "final_runtime":
+  [{"kind": "controller", "pid": 25639, "state": "running", "heartbeat_at":
+  1789457598, "exit_code": null, "detail": "supervising 1 worker processes"},
+  {"kind": "worker", "pid": 25640, "state": "stopped", "heartbeat_at":
+  1789457598, "exit_code": 0, "detail": "application worker stopped
+  cleanly;processed=0;polls=2"}]}
+
+  {"mode": "int", "os_exit_code": -2, "os_signal": "SIGINT", "final_runtime":
+  [{"kind": "controller", "pid": 25647, "state": "running", "heartbeat_at":
+  1789457599, "exit_code": null, "detail": "supervising 1 worker processes"},
+  {"kind": "worker", "pid": 25648, "state": "stopped", "heartbeat_at":
+  1789457599, "exit_code": 0, "detail": "application worker stopped
+  cleanly;processed=0;polls=2"}]}
+
+  {"mode": "kill", "os_exit_code": -9, "os_signal": "SIGKILL",
+  "final_runtime": [{"kind": "controller", "pid": 25657, "state": "running",
+  "heartbeat_at": 1789457600, "exit_code": null, "detail": "supervising 1
+  worker processes"}, {"kind": "worker", "pid": 25658, "state": "stopped",
+  "heartbeat_at": 1789457600, "exit_code": 0, "detail": "application worker
+  stopped cleanly;processed=0;polls=2"}]}
+
+  Traceback (most recent call last):
+
+    File "/Users/adrian/CLionProjects/crexx-rag/tests/fixtures/controller-closure.py", line 87, in <module>
+      raise AssertionError("; ".join(failures))
+
+  AssertionError: stdout_closed: stdout_closed: expected ordinary exit, got
+  -13; stderr_closed: stderr_closed: expected ordinary exit, got -13; term:
+  term: expected ordinary exit, got -15; hup: hup: expected ordinary exit,
+  got -1; int: int: expected ordinary exit, got -2
+
+
+
+<end of output>
+Test time =  44.41 sec
+----------------------------------------------------------
+Test Failed.
+"regression_controller_closure" end time: Sep 15 08:33 BST
+"regression_controller_closure" time elapsed: 00:00:44
+----------------------------------------------------------
+
+59/76 Testing: regression_controller_term
+59/76 Test: regression_controller_term
+Command: "/opt/homebrew/bin/cmake" "-DCPRAG_NATIVE_APPLICATION=/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/crexxrag-native/package/crexxrag" "-DCPRAG_LOOPBACK=/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/crexxrag_provider_fixture" "-DCPRAG_CONFIG_TEMPLATE=/Users/adrian/CLionProjects/crexx-rag/tests/fixtures/providers/gemini-ingestion.conf.in" "-DCPRAG_WORK_DIR=/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/test-controller_term" "-DCPRAG_CASES=controller_term" "-P" "/Users/adrian/CLionProjects/crexx-rag/cmake/NativeInterruption.cmake"
+Directory: /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+"regression_controller_term" start time: Sep 15 08:33 BST
+Output:
+----------------------------------------------------------
+-- RESTART_CONTROLS_OK: one held call, one queued peer, live controller and child
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/NativeInterruption.cmake:66 (message):
+  SIGTERM records drain for controller and busy child: expected '2', got '0'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/NativeInterruption.cmake:171 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/NativeInterruption.cmake:66 (message):
+  SIGTERM waits for the admitted provider response: expected 'FALSE', got
+  'TRUE'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/NativeInterruption.cmake:172 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/NativeInterruption.cmake:66 (message):
+  SIGTERM finishes through the ordinary completion path: expected '0', got
+  '143'
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/NativeInterruption.cmake:207 (expect)
+
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/NativeInterruption.cmake:212 (message):
+  SIGTERM reason missing from public worker list:
+  {"schema":"crexx-rag.command-result/1","operation":"worker.list","status":"ok","exit_code":0,"exit_name":"success","message":"bounded
+  runtime registry read; heartbeat classification is authoritative and PID
+  state is
+  diagnostic","records":[{"kind":"runtime-process","fields":{"instance_id":"controller-6cbc302b2e6adad2718faf9c5b54a144","kind":"controller","parent_instance_id":"","host_id":"Adrians-MacBook-Air.local","pid":25682,"process_start_token":"e9ac6c05d180f1243312ce67b177ee61","mode":"wait","job_filter":"job-sha256:4173f52612c2adb0b5cff1d2f7712e4bbe85063b2e5cc69554dcfd028b6de48f","state":"running","classification":"running","requested_state":"none","current_item_id":"","heartbeat_age_seconds":0,"pid_check":"missing","detail":"supervising
+  1 worker
+  processes"}},{"kind":"runtime-process","fields":{"instance_id":"worker-fe38f0a770223f127102c9ea1a08019b","kind":"worker","parent_instance_id":"controller-6cbc302b2e6adad2718faf9c5b54a144","host_id":"Adrians-MacBook-Air.local","pid":25694,"process_start_token":"ffe8ff6052de20f752868243bd11ca90","mode":"follow","job_filter":"job-sha256:4173f52612c2adb0b5cff1d2f7712e4bbe85063b2e5cc69554dcfd028b6de48f","state":"stopped","classification":"stopped","requested_state":"none","current_item_id":"","heartbeat_age_seconds":0,"pid_check":"not-running","detail":"application
+  worker stopped cleanly;processed=1;polls=2"}}]}
+
+
+
+-- RESTART_CLEANUP_CHECKED: controller_term; errors above remain failures
+<end of output>
+Test time =   1.22 sec
+----------------------------------------------------------
+Test Failed.
+"regression_controller_term" end time: Sep 15 08:33 BST
+"regression_controller_term" time elapsed: 00:00:01
+----------------------------------------------------------
+
+End testing: Sep 15 08:33 BST
+
+native =  45.63 sec*proc
+
+recovery =  45.63 sec*proc
+
+regression =  45.63 sec*proc
+
+zero-outbound =  45.63 sec*proc

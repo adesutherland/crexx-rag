@@ -232,7 +232,7 @@ heartbeatprocess: procedure = .int
     call sqlitefinalize prepared
     if boundary_code \= -6 | sqlite_code \= 5 | (extended \= 5 & extended \= 261) then return -2
     if attempt = 3 then do; error = error || ";heartbeat_attempts=3"; return -2; end
-    call lineout "stderr", "crexxrag heartbeat " || instance_id || " retry=" || attempt || "/2: " || error
+    call writeoperatorline "crexxrag heartbeat " || instance_id || " retry=" || attempt || "/2: " || error
     call rxplatform..sleep (attempt * 100)
   end
   return -2
@@ -520,18 +520,20 @@ runidleworker: procedure = .int
   if status \= 0 | close_status \= 0 then return -2
   return 0
 
-runapplicationworker: procedure = .int
+runapplicationworker: procedure = .int expose _shutdown_signal
   arg library = .string, instance_id = .string, parent_instance_id = .string, host_id = .string, mode = .string, job_filter = .string, poll_milliseconds = .int, maximum_polls = .int, config = .ragconfig, profile = .ragprofile, progress = .string, format = .string, expose final_id = .string, expose processed = .int, expose error = .string, maximum_items = 0
+  _shutdown_signal = ""
+  signal on term, posix_int, posix_hup call _requestshutdown
   status = -2
   do
     status = _runapplicationworker(library,instance_id,parent_instance_id,host_id,mode,job_filter,poll_milliseconds,maximum_polls,config,profile,progress,format,final_id,processed,error,maximum_items)
   on signal channel_error as problem
     error = "worker channel failure: " || problem.message()
   end
-  if status \= 0 then call lineout "stderr", "crexxrag worker " || instance_id || ": " || error
+  if status \= 0 then call writeoperatorline "crexxrag worker " || instance_id || ": " || error
   return status
 
-_runapplicationworker: procedure = .int
+_runapplicationworker: procedure = .int expose _shutdown_signal
   arg library = .string, instance_id = .string, parent_instance_id = .string, host_id = .string, mode = .string, job_filter = .string, poll_milliseconds = .int, maximum_polls = .int, config = .ragconfig, profile = .ragprofile, progress = .string, format = .string, expose final_id = .string, expose processed = .int, expose error = .string, maximum_items = 0
   final_id = instance_id; processed = 0; error = ""; parent_available = 1
   if poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | maximum_items < 0 | maximum_items > 1000000 | (mode \= "once" & mode \= "follow") | _validtext(instance_id, 128, 1) \= 1 | _validtext(parent_instance_id, 128, 1) \= 1 | _validtext(host_id, 255, 1) \= 1 | _validtext(job_filter, 256, 1) \= 1 then do; error = "worker poll bounds are invalid"; return -1; end
@@ -548,14 +550,17 @@ _runapplicationworker: procedure = .int
   if parent_instance_id \= "" then do
     parent_state = ""; parent_available = 1
     do startup_poll = 1 to 600
+      if _shutdown_signal \= "" then leave
       parent_available = _parentavailable(store,parent_instance_id,error)
       if parent_available \= 1 then leave
       parent_state = _scalartext(store.database(),"SELECT state FROM runtime_instances WHERE instance_id=" || _sqlquote(parent_instance_id),error)
-      if error \= "" | parent_state = "running" | parent_state = "failed" | parent_state = "stopped" then leave
+      if error \= "" | parent_state = "running" | parent_state = "failed" | parent_state = "stopped" | parent_state = "draining" then leave
       call rxplatform..sleep 100
     end
-    if parent_available = 0 then do
-      ignored = ""; call finishprocess store,final_id,"stopped",0,"controller ended before group admission",ignored
+    if parent_available = 0 | parent_state = "draining" | _shutdown_signal \= "" then do
+      detail = "controller ended before group admission"
+      if _shutdown_signal \= "" then detail = "shutdown requested: " || _shutdown_signal
+      ignored = ""; call finishprocess store,final_id,"stopped",0,detail,ignored
       call closeragstore store,ignored
       return 0
     end
@@ -571,6 +576,7 @@ _runapplicationworker: procedure = .int
   polls = 0; status = 0; call tracer.emit("worker", "start", final_id, mode)
   do forever
     polls = polls + 1
+    if _shutdown_signal \= "" then leave
     parent_available = _parentavailable(store,parent_instance_id,error)
     if parent_available < 0 then do; status = -2; leave; end
     if parent_available = 0 then leave
@@ -607,6 +613,7 @@ _runapplicationworker: procedure = .int
     if maximum_items > 0 & processed >= maximum_items then leave
   end
   terminal = "stopped"; exit_code = 0; detail = "application worker stopped cleanly"
+  if _shutdown_signal \= "" then detail = "shutdown requested: " || _shutdown_signal || "; current work drained"
   if status \= 0 then do; terminal = "failed"; exit_code = 1; detail = error; end
   if status \= 0 & sqlitebusyerror(error) = 1 then exit_code = 75
   if provider.health_error() \= "" then do; terminal = "failed"; exit_code = 75; detail = provider.health_error(); status = -4; end
@@ -627,18 +634,20 @@ _runapplicationworker: procedure = .int
   call tracer.emit("worker", "complete", final_id, "processed=" || processed)
   return 0
 
-startworkerprocesses: procedure = .int
+startworkerprocesses: procedure = .int expose _shutdown_signal
   arg library = .string, count = .int, poll_milliseconds = .int, maximum_polls = .int, job_filter = .string, config_id = .string, profile_id = .string, config_file = .string, progress = .string, format = .string, expose result = .ragprocessstartresult, expose error = .string, maximum_items = 0, max_restarts = 2, restart_backoff_ms = 5000, restart_window_seconds = 3600
+  _shutdown_signal = ""
+  signal on term, posix_int, posix_hup call _requestshutdown
   status = -2
   do
     status = _startworkerprocesses(library,count,poll_milliseconds,maximum_polls,job_filter,config_id,profile_id,config_file,progress,format,result,error,maximum_items,max_restarts,restart_backoff_ms,restart_window_seconds)
   on signal channel_error as problem
     error = "controller channel failure: " || problem.message()
   end
-  if status \= 0 then call lineout "stderr", "crexxrag controller: " || error
+  if status \= 0 then call writeoperatorline "crexxrag controller: " || error
   return status
 
-_startworkerprocesses: procedure = .int
+_startworkerprocesses: procedure = .int expose _shutdown_signal
   arg library = .string, count = .int, poll_milliseconds = .int, maximum_polls = .int, job_filter = .string, config_id = .string, profile_id = .string, config_file = .string, progress = .string, format = .string, expose result = .ragprocessstartresult, expose error = .string, maximum_items = 0, max_restarts = 2, restart_backoff_ms = 5000, restart_window_seconds = 3600
   result = .ragprocessstartresult("", count, 0, count); error = ""
   if count < 1 | count > 32 | poll_milliseconds < 10 | poll_milliseconds > 60000 | maximum_polls < 0 | maximum_polls > 1000000 | maximum_items < 0 | maximum_items > 1000000 | _validtext(job_filter, 256, 1) \= 1 then do; error = "controller bounds are invalid"; return -1; end
@@ -706,8 +715,10 @@ _startworkerprocesses: procedure = .int
     heartbeat_error = ""
     requested = processrequest(store,controller_id,heartbeat_error)
     if heartbeat_error \= "" then do; error = heartbeat_error; leave; end
+    if _shutdown_signal \= "" then requested = "drain"
     if draining = 0 & (requested = "drain" | requested = "stop") then do
       draining = 1
+      if _shutdown_signal \= "" then if sqliteexec(store.database(),"UPDATE runtime_instances SET requested_state='drain' WHERE instance_id=" || _sqlquote(controller_id)) \= 0 then do; error = "cannot record controller shutdown request"; leave; end
       if sqliteexec(store.database(),"UPDATE runtime_instances SET requested_state='drain',detail='controller draining' WHERE parent_instance_id=" || _sqlquote(controller_id) || " AND state NOT IN('stopped','failed')") \= 0 then do; error = "cannot drain controller children"; leave; end
     end
     if group_ready = 0 & draining = 0 then do
@@ -719,6 +730,7 @@ _startworkerprocesses: procedure = .int
     controller_state = "idle"; controller_detail = "waiting for all worker registrations"
     if group_ready = 1 then do; controller_state = "running"; controller_detail = "supervising " || count || " worker processes"; end
     if draining = 1 then do; controller_state = "draining"; controller_detail = "waiting for selected children to drain"; end
+    if _shutdown_signal \= "" then controller_detail = "shutdown requested: " || _shutdown_signal || "; " || controller_detail
     now_epoch = _scalarint(store.database(),"SELECT unixepoch()",heartbeat_error)
     if now_epoch \= heartbeat_epoch then do
       if _supervisorheartbeat(store, controller_id, controller_state, "", controller_detail, heartbeat_error) \= 0 then do; error = heartbeat_error; leave; end
@@ -757,7 +769,7 @@ _startworkerprocesses: procedure = .int
           detail_error = ""
           first_failure_detail = _scalartext(store.database(), "SELECT coalesce((SELECT detail FROM runtime_instances WHERE instance_id=" || _sqlquote(worker_ids[worker_index]) || "),'child process failed without a runtime detail')", detail_error)
           if detail_error \= "" then first_failure_detail = "child process failed without a readable runtime detail"
-          call lineout "stderr", "crexxrag worker " || worker_ids[worker_index] || ": " || first_failure_detail
+          call writeoperatorline "crexxrag worker " || worker_ids[worker_index] || ": " || first_failure_detail
         end
       end
       if group_ready = 1 & draining = 0 & worker_index > 0 & job_filter \= "" then do
@@ -831,7 +843,7 @@ _startworkerprocesses: procedure = .int
   end
   if error \= "" then do
     /* Publish failure and drain requests before waiting for child cleanup. */
-    call lineout "stderr", "crexxrag controller " || controller_id || ": " || error
+    call writeoperatorline "crexxrag controller " || controller_id || ": " || error
     ignored = ""; call finishprocess store,controller_id,"failed",1,error,ignored
     do i = 1 to worker_ids.0
       ignored = ""; call requestprocess store,worker_ids[i],"drain",ignored
@@ -842,6 +854,7 @@ _startworkerprocesses: procedure = .int
   call null_output.close()
   controller_state = "stopped"; controller_exit = 0; controller_detail = "all worker processes completed"
   if error \= "" | failed > 0 then do; controller_state = "failed"; controller_exit = 1; controller_detail = "one or more worker processes failed"; end
+  if _shutdown_signal \= "" then controller_detail = "shutdown requested: " || _shutdown_signal || "; " || controller_detail
   finish_error = ""; call finishprocess store, controller_id, controller_state, controller_exit, controller_detail, finish_error
   close_error = ""; close_status = closeragstore(store, close_error)
   result = .ragprocessstartresult(controller_id, count, completed, failed, restarted)
@@ -853,6 +866,20 @@ _startworkerprocesses: procedure = .int
   end
   if error \= "" | failed > 0 | close_status \= 0 then return -2
   return 0
+
+/* CREXX delivers this at a VM signal point. Only remember the first request;
+ * the ordinary loops own SQLite, claims, child draining and final cleanup. */
+_requestshutdown: procedure = .signalaction expose _shutdown_signal
+  arg condition = .signal
+  _shutdown_signal = .string
+  if _shutdown_signal = "" then do
+    select condition.name()
+      when "TERM" then _shutdown_signal = "SIGTERM"
+      when "POSIX_INT" then _shutdown_signal = "SIGINT"
+      when "POSIX_HUP" then _shutdown_signal = "SIGHUP"
+    end
+  end
+  return .signalaction.skip()
 
 /* Only explicitly unhealthy, fully exited workers are candidates. The caller
  * has already observed child completion before invoking this reservation. */

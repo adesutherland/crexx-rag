@@ -1,0 +1,56 @@
+{
+  "source": "/Users/adrian/.codex/logs_2.sqlite",
+  "read_only": true,
+  "retained_thread_bounds": [
+    "2026-09-15 02:37:28",
+    "2026-09-15 06:10:14",
+    1000
+  ],
+  "entries": [
+    {
+      "id": 328024806,
+      "ts": 1789445912,
+      "ts_nanos": 323951000,
+      "level": "DEBUG",
+      "target": "codex_core::session::handlers",
+      "feedback_log_body": "session_loop{thread_id=01a0a027-4ffe-7832-a904-42fd1381ab06}: Submission sub=Submission { id: \"01a0a349-b703-7ce2-a6bb-e7754b60ad36\", op: Shutdown, trace: None, parent_turn_id: None, root_turn_id: None }",
+      "thread_id": "01a0a027-4ffe-7832-a904-42fd1381ab06"
+    },
+    {
+      "id": 328024813,
+      "ts": 1789445912,
+      "ts_nanos": 325772000,
+      "level": "INFO",
+      "target": "codex_core::session::handlers",
+      "feedback_log_body": "session_loop{thread_id=01a0a027-4ffe-7832-a904-42fd1381ab06}:submission_dispatch{otel.name=\"op.dispatch.shutdown\" submission.id=\"01a0a349-b703-7ce2-a6bb-e7754b60ad36\" codex.op=\"shutdown\"}: Shutting down Codex instance",
+      "thread_id": "01a0a027-4ffe-7832-a904-42fd1381ab06"
+    },
+    {
+      "id": 328024821,
+      "ts": 1789445912,
+      "ts_nanos": 328321000,
+      "level": "DEBUG",
+      "target": "codex_core::session::handlers",
+      "feedback_log_body": "session_loop{thread_id=01a0a027-4ffe-7832-a904-42fd1381ab06}: Agent loop exited",
+      "thread_id": "01a0a027-4ffe-7832-a904-42fd1381ab06"
+    },
+    {
+      "id": 328024822,
+      "ts": 1789445912,
+      "ts_nanos": 328353000,
+      "level": "DEBUG",
+      "target": "codex_app_server::thread_state",
+      "feedback_log_body": "app_server.request{otel.kind=\"server\" otel.name=\"thread/resume\" rpc.system=\"jsonrpc\" rpc.method=\"thread/resume\" rpc.transport=\"stdio\" rpc.request_id=37cdcea1-68ae-4263-ac53-63fada0f2dd5 app_server.connection_id=0 app_server.api_version=\"v2\" app_server.client_name=\"Codex Desktop\" app_server.client_version=\"26.901.51231\"}:resume_running_thread: clearing thread listener during thread-state teardown thread_id=01a0a027-4ffe-7832-a904-42fd1381ab06 listener_generation=1 had_listener=true had_active_turn=false",
+      "thread_id": "01a0a027-4ffe-7832-a904-42fd1381ab06"
+    },
+    {
+      "id": 328024895,
+      "ts": 1789445912,
+      "ts_nanos": 609761000,
+      "level": "INFO",
+      "target": "codex_core::shell_snapshot",
+      "feedback_log_body": "app_server.request{otel.kind=\"server\" otel.name=\"thread/resume\" rpc.system=\"jsonrpc\" rpc.method=\"thread/resume\" rpc.transport=\"stdio\" rpc.request_id=37cdcea1-68ae-4263-ac53-63fada0f2dd5 app_server.connection_id=0 app_server.api_version=\"v2\" app_server.client_name=\"Codex Desktop\" app_server.client_version=\"26.901.51231\"}:resume_thread_with_history:thread_spawn{otel.name=\"thread_spawn\"}:session_init:environments.resolve{environment_id=local remote=false configuration_pending=false}:shell_snapshot{thread_id=01a0a027-4ffe-7832-a904-42fd1381ab06}: Shell snapshot successfully created: /Users/adrian/.codex/shell_snapshots/01a0a027-4ffe-7832-a904-42fd1381ab06.tmp-1789445912336722000",
+      "thread_id": "01a0a027-4ffe-7832-a904-42fd1381ab06"
+    }
+  ]
+}

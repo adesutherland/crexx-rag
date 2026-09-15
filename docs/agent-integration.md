@@ -12,6 +12,41 @@ Codex can occupy both positions: Codex App Server can be the configured
 extractor, while a separate Codex task can operate the `crexxrag` MCP tools.
 They are separate processes, sessions, permissions, and budgets.
 
+## Model selection and long-running work
+
+The model selected for the outer Codex task does not select the product's
+worker model. `role.*` selects a provider in `crexxrag.conf`; that provider's
+`model` and, for Codex, `reasoning_effort` select routine generation. The
+project MCP configuration selects the executable, paths and capabilities.
+Document the workspace's chosen provider settings in its README and inspect
+the effective policy when diagnosing a routing problem. Do not copy the
+coordinator's model into worker configuration implicitly.
+
+For example, the Scottish Test 7 configuration uses managed
+`gpt-5.6-luna` with `low` reasoning for routine processing and
+`gemini-embedding-2` for embeddings, while Adrian selected Astra High for
+coordination and engineering. This is a dated instance configuration, not a
+new product default. Corpus-specific extraction/resolution objectives belong
+in the selected policy or referenced prompt files; reusable contracts and
+validation stay in their product owners.
+
+The `crexxrag-maintain` skill's **Long jobs and model selection** section
+owns light monitoring and continuation guidance. Use one monitor, phase-level
+outcomes and an actionable issue checklist. Existing authorization may cover
+multiple plans and review decisions; review their scope and limits without
+adding a fresh approval for every item. Let healthy jobs run while the agent
+is idle. Missing identifiers or source-scoped backlog visibility belong in
+engineering reports, not manual queue scans. A long soak's deadlines, budgets,
+selected models and staging checkpoints belong in its single run record.
+
+The same skill's **Resume after a lost command session** section owns recovery:
+read the recorded job's durable status, observe a live/draining controller, or
+continue the authorized unfinished job after actual exit. A missing tool session
+does not imply corpus corruption, and SIGKILL cannot leave a graceful final
+receipt. Fresh CLI/MCP commands communicate through SQLite; reconnecting old
+pipes, reconstructing every item, or obtaining the same approval again is not
+necessary. Escalate an actual failed recovery or recurring inability to progress.
+
 ## Codex as a `crexxrag` provider
 
 The packaged `crexxrag-codex-local.conf` demonstrates the recommended
@@ -251,10 +286,11 @@ requires `--access read,control`. Leave mutation servers disabled or absent
 unless the workflow genuinely needs them.
 
 Apply always requires the exact `canonical_plan` bytes and digest returned by
-planning. The agent must not reconstruct, reformat, or edit the plan. Worker
-supervision is deliberately outside the ingest skill: the human
-`crexxrag ingest` command owns that complete experience, while canonical MCP operations
-preserve explicit authority boundaries.
+planning. The agent must not reconstruct, reformat, or edit the plan. Existing
+user authority can cover the planned work; a generated plan is not itself
+authority. The human `crexxrag ingest` command owns its complete supervised
+experience. Machine callers use normal job continuation within granted control
+access and the shared light-monitoring workflow.
 
 ## Other LLM and agent hosts
 
@@ -264,7 +300,7 @@ JSON schemas, and use the same capability split. Configure its working
 directory, executable, arguments, timeouts, and approval policy using that
 host's supported MCP mechanism.
 
-If the host supports skill directories, adapt the four `SKILL.md` packages to
+If the host supports skill directories, adapt the five `SKILL.md` packages to
 its documented discovery location without changing their authority rules. If
 it does not support skills, keep the MCP server read-only by default and use the
 relevant `SKILL.md` as reviewed operating instructions. Do not copy examples
@@ -326,6 +362,21 @@ supports cursor/limit continuation. `rag_job_plan` accepts `id`, a string
 `cursor` and `limit` (1–8192 Unicode characters). Concatenate its `text` pages
 until `next_cursor` is empty, checking the retained `plan_digest`. Job IDs are
 not ordered by creation time.
+
+For document-specific inspection, `rag_task_list(source: SOURCE_ID)` returns
+a `source-backlog` summary plus the matching task page. Decode its `detail`
+JSON: active chunks, extraction-task presence and absence, states and priority
+range are independent of page filters. Task presence is not proof of successful
+extraction; shared catalogue work is outside this source scope. This is an
+inspection filter, not a dispatch control. `rag_source_show` and
+`rag_review_show` perform direct indexed identity reads, independently of list
+pagination. External `rag_proposal_apply` returns `proposal-review` records
+pairing proposal IDs with the actual review IDs. Use those IDs for review;
+specific proposal validation failures retain the validator's reason.
+These Test 7 repairs require an updated installation: check the advertised
+schema and staged build before using them. An older executable omitting a
+parameter or record is an installation/engineering gap, not a reason to derive
+identities or enumerate the whole library.
 
 The external resolution sequence is:
 
@@ -418,9 +469,9 @@ The detailed data, ranking and maintenance methodology is in
 
 Review, repository and event pages support 100 data rows plus one bounded final
 cursor record. Follow `next_cursor` to finish discovery. Job lists expose
-`value_complete`; small plans retain their original inline `value`, while a
-larger plan has an empty `value`, an explicit character count and
-`detail_operation: job.plan`. Use `rag_job_plan` to read its complete text;
+`value_complete=false` and an empty `value` at every plan size, alongside the
+character count and `detail_operation: job.plan`. Use `rag_job_plan` to read
+the complete retained text;
 reducing the listing size is no longer necessary to discover that job.
 The [public-result repair record](public-result-lexical-repair.md) describes the
 cross-surface and installed-copy qualification. Subject/workflow discovery
@@ -468,3 +519,30 @@ Follow the [public recovery journey](public-recovery-journey.md), including
 report reconciliation and paged discovery. Prefer these supported commands to
 SQL or per-run repair scripts. Corpus changes retain their existing plan/review
 contract; operational dispositions do not establish facts or successful coverage.
+
+### Source-scoped maintenance windows
+
+`rag_maintain_plan` accepts optional `source` for automatic, supervised or manual
+ordinary maintenance. Apply its exact returned plan with `rag_maintain_apply`;
+the selected source survives in the window policy. It restricts discovery before
+pagination and selects direct source chunk extraction/follow-up and embedding
+repair work. `embeddings_only` can narrow it further. Catalogue/workflow backlog
+stays for an ordinary unscoped window, and advanced-reasoning/review/waiver holds
+remain effective. The source filter is unavailable for reviewed worklists or
+provenance enrichment. Use `rag_task_list` with the same source for the compact
+coverage summary. Existing configured window budgets still apply; source
+selection neither pools nor renews allowance across separate windows.
+
+## Job controls after interruption
+
+Follow the shared maintenance skill for `rag_job_deadline`,
+`rag_job_reset_retries` and `rag_job_continue`. Deadline changes preserve all
+other limits; retry resets preserve attempt history, actual usage and held
+outcomes. Neither reset nor deadline update starts work. `rag_job_list` returns
+compact metadata for every job; use `rag_job_plan` for paged original input.
+Keep a particular run's cutoff, approvals and retry notes in its run record;
+AGENTS contains enduring conventions and a pointer to that record. The
+[commented job-file design](architecture.md#commented-job-files--agreed-design)
+is now a standing requirement, tracked as RAG-OPS-007. Until implemented, retain
+the current run record and use public commands for parameter changes; editing
+notes alone does not change the running job.

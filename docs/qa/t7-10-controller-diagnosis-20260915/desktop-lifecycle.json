@@ -1,0 +1,61 @@
+{
+  "source": "/Users/adrian/Library/Logs/com.openai.codex/2026/09/15/codex-desktop-cf851471-1082-4c62-a7bf-deb03390495c-32798-t0-i1-000144-0.log",
+  "entries": [
+    {
+      "source_line": 83,
+      "text": "2026-09-15T00:36:22.142Z info [electron-message-handler] maybe_resume_started conversationId=01a0a027-4ffe-7832-a904-42fd1381ab06 documentVisibilityState=hidden hostId=local previousResumeState=resumed previousStreamRole=owner rendererWebContentsId=1 rendererWindowAppearance=primary rendererWindowFocused=false rendererWindowId=1 rendererWindowVisible=true routePath=/index.html"
+    },
+    {
+      "source_line": 248,
+      "text": "2026-09-15T01:38:56.118Z info [AppServerConnection] response_routed broadcastFallback=false conversationId=01a0a027-4ffe-7832-a904-42fd1381ab06 durationMs=0 errorCode=null hadInternalHandler=false hadPending=true method=thread/unsubscribe originWebcontentsId=1 queueWaitMs=0 requestId=16d1cd0a-c8b0-458d-9fea-8f0d9a8e3243 targetDestroyed=false"
+    },
+    {
+      "source_line": 282,
+      "text": "2026-09-15T01:58:45.319Z info [electron-message-handler] dynamic_app_tool_renderer_execution_started callId=exec-f9a2c0b9-5302-41d6-bedd-5030d4a8fb25 isRemoteHost=false rendererWebContentsId=1 rendererWindowAppearance=primary rendererWindowFocused=false rendererWindowId=1 rendererWindowVisible=true tool=send_message_to_thread turnId=01a0a2c7-fdde-7983-bdc4-fc34ca479918"
+    },
+    {
+      "source_line": 287,
+      "text": "2026-09-15T01:58:45.347Z info [electron-message-handler] maybe_resume_started conversationId=01a0a027-4ffe-7832-a904-42fd1381ab06 documentVisibilityState=hidden hostId=local previousResumeState=needs_resume previousStreamRole=null rendererWebContentsId=1 rendererWindowAppearance=primary rendererWindowFocused=false rendererWindowId=1 rendererWindowVisible=true routePath=/index.html"
+    },
+    {
+      "source_line": 316,
+      "text": "2026-09-15T01:58:45.664Z info [AppServerConnection] response_routed broadcastFallback=false conversationId=01a0a027-4ffe-7832-a904-42fd1381ab06 durationMs=252 errorCode=null hadInternalHandler=false hadPending=true method=thread/resume originWebcontentsId=1 queueWaitMs=0 requestId=8b314de7-db00-4fdd-b335-294ac46757d3 targetDestroyed=false"
+    },
+    {
+      "source_line": 407,
+      "text": "2026-09-15T02:30:43.865Z info [electron-message-handler] maybe_resume_started conversationId=01a0a027-4ffe-7832-a904-42fd1381ab06 documentVisibilityState=hidden hostId=local previousResumeState=resumed previousStreamRole=owner rendererWebContentsId=1 rendererWindowAppearance=primary rendererWindowFocused=false rendererWindowId=1 rendererWindowVisible=true routePath=/index.html"
+    },
+    {
+      "source_line": 545,
+      "text": "2026-09-15T02:36:05.211Z info [electron-message-handler] maybe_resume_started conversationId=01a0a027-4ffe-7832-a904-42fd1381ab06 documentVisibilityState=hidden hostId=local previousResumeState=resumed previousStreamRole=owner rendererWebContentsId=1 rendererWindowAppearance=primary rendererWindowFocused=false rendererWindowId=1 rendererWindowVisible=true routePath=/index.html"
+    },
+    {
+      "source_line": 609,
+      "text": "2026-09-15T02:41:49.256Z info [electron-message-handler] maybe_resume_started conversationId=01a0a027-4ffe-7832-a904-42fd1381ab06 documentVisibilityState=hidden hostId=local previousResumeState=resumed previousStreamRole=owner rendererWebContentsId=1 rendererWindowAppearance=primary rendererWindowFocused=false rendererWindowId=1 rendererWindowVisible=true routePath=/index.html"
+    },
+    {
+      "source_line": 674,
+      "text": "2026-09-15T03:13:15.455Z info [electron-message-handler] maybe_resume_started conversationId=01a0a027-4ffe-7832-a904-42fd1381ab06 documentVisibilityState=hidden hostId=local previousResumeState=resumed previousStreamRole=owner rendererWebContentsId=1 rendererWindowAppearance=primary rendererWindowFocused=false rendererWindowId=1 rendererWindowVisible=true routePath=/index.html"
+    },
+    {
+      "source_line": 822,
+      "text": "2026-09-15T04:15:49.117Z info [AppServerConnection] response_routed broadcastFallback=false conversationId=01a0a027-4ffe-7832-a904-42fd1381ab06 durationMs=0 errorCode=null hadInternalHandler=false hadPending=true method=thread/unsubscribe originWebcontentsId=1 queueWaitMs=0 requestId=7524aad5-5b44-4307-8c93-8a2131f68178 targetDestroyed=false"
+    },
+    {
+      "source_line": 830,
+      "text": "2026-09-15T04:18:32.255Z info [electron-message-handler] dynamic_app_tool_renderer_execution_started callId=exec-0cfdff30-ace3-4b55-b925-63479e79a452 isRemoteHost=false rendererWebContentsId=1 rendererWindowAppearance=primary rendererWindowFocused=false rendererWindowId=1 rendererWindowVisible=true tool=send_message_to_thread turnId=01a0a348-a18a-76c0-aadd-16bf42b785fb"
+    },
+    {
+      "source_line": 835,
+      "text": "2026-09-15T04:18:32.267Z info [electron-message-handler] maybe_resume_started conversationId=01a0a027-4ffe-7832-a904-42fd1381ab06 documentVisibilityState=hidden hostId=local previousResumeState=needs_resume previousStreamRole=null rendererWebContentsId=1 rendererWindowAppearance=primary rendererWindowFocused=false rendererWindowId=1 rendererWindowVisible=true routePath=/index.html"
+    },
+    {
+      "source_line": 864,
+      "text": "2026-09-15T04:18:32.568Z info [AppServerConnection] response_routed broadcastFallback=false conversationId=01a0a027-4ffe-7832-a904-42fd1381ab06 durationMs=245 errorCode=null hadInternalHandler=false hadPending=true method=thread/resume originWebcontentsId=1 queueWaitMs=0 requestId=37cdcea1-68ae-4263-ac53-63fada0f2dd5 targetDestroyed=false"
+    },
+    {
+      "source_line": 878,
+      "text": "2026-09-15T04:18:32.892Z info [electron-message-handler] Sending server response callId=exec-0cfdff30-ace3-4b55-b925-63479e79a452 isRemoteHost=false rendererWebContentsId=1 rendererWindowAppearance=primary rendererWindowFocused=false rendererWindowId=1 rendererWindowVisible=true success=true tool=send_message_to_thread turnId=01a0a348-a18a-76c0-aadd-16bf42b785fb"
+    }
+  ]
+}

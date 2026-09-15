@@ -1,0 +1,23 @@
+{
+  "route": "explicit command/exec/terminate; not Desktop thread unload/resume",
+  "messages": [
+    {
+      "id": 3,
+      "result": {}
+    },
+    {
+      "id": 2,
+      "result": {
+        "exitCode": 137,
+        "stdout": "",
+        "stderr": ""
+      }
+    }
+  ],
+  "received_signal": null,
+  "child": {
+    "pid": 35171,
+    "pgid": 35171
+  },
+  "model_turns": 0
+}

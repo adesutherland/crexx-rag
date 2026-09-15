@@ -12,14 +12,29 @@ graph. SQLite holds the authoritative corpus, graph and work history.
 Embeddings and rebuildable vector indexes help find evidence; similarity does
 not establish a fact.
 
-**Status: approaching a first release — 14 September 2026.** The core
+**Status: approaching a first release — 15 September 2026.** The core
 architecture, public interfaces and recovery workflows are implemented. The
-current local regression suite passes **71/71 tests**, and five smoke workflows
+installed baseline passed **74/74 local tests**, and five smoke workflows
 have been repeated on a disposable copy of a real historical corpus, including
 **59 successful MCP requests**. Release preparation now centres on the remaining
 content-quality findings and wider operational/platform qualification. See
 [testing and release readiness](#testing-and-release-readiness) for the evidence
 and remaining work.
+
+The [Scottish overnight soak](docs/test7-overnight-soak-20260914.md) exercised
+imports, embeddings, source-scoped extraction, backlog processing and recovery
+on the master corpus. Tested repairs are installed there but remain uncommitted.
+Content failures and long-run qualification remain. The
+[controller investigation](docs/t7-10-controller-diagnosis-20260915.md) links two
+losses to host task resumption and independently reproduces broken-output and
+signal-handling defects. Their candidate repair and regression results are
+tracked there; this repaired night is not a clean endurance pass.
+
+The [job-controls repair](docs/job-controls-delivery-20260915.md) adds deadline-only
+updates, admitted-work continuation after expiry and explicit one/all-job retry
+resets, and makes all job lists compact. The combined candidate passes **79/79
+local tests**, including the controller repairs. Its completed checklist retains
+the evidence; installation and the next soak remain outstanding.
 
 For operational diagnosis, safe retry, reasoned waivers and migration completion,
 follow the [public recovery journey](docs/public-recovery-journey.md).

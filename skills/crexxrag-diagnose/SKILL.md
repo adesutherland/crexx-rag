@@ -8,7 +8,9 @@ description: Diagnose a crexxrag library, provider route, and job state without 
 Prerequisites: `diagnose` access for verification/provider diagnostics and
 `read` access for status, sources and jobs.
 
-1. Call `rag_library_status`, `rag_library_overview`, then `rag_library_verify`.
+1. Start with `rag_library_status` and the reported failing operation. Use
+   `rag_library_overview` for coverage questions and `rag_library_verify` when
+   integrity is in question or at a requested qualification checkpoint.
    Distinguish original failure history from actionable, resolved or waived
    work. Waived tasks retain any missing corpus coverage.
 2. Use `rag_provider_diagnostics` to inspect redacted route/capability state.
@@ -27,7 +29,12 @@ Prerequisites: `diagnose` access for verification/provider diagnostics and
    Report accepted item throughput and correction completions separately from
    provider attempts, recorded usage, incomplete usage and uncertain outcomes.
 5. Use `rag_job_items`, `rag_job_attempts` and `rag_job_events` for the retained
-   ownership, retry, validation and provider-run references. Inspect a linked
+   ownership, retry, validation and provider-run references.
+   Use `rag_job_items` with `uncertainty: "held"` for held outcome IDs when
+   advertised by the installed build; `active` and `all` match the other status
+   uncertainty scopes. This filters before pagination and can combine with
+   `state`. Missing filter support is an engineering/version gap, not a reason
+   to scan the entire failed queue. Inspect a linked
    task with `rag_maintain_inspect` for evidence, retry holds and waiver state.
    Follow every relevant `next_cursor`; job/item/attempt/event pages allow
    1–100 data rows plus a cursor record. Use these tools instead of SQL.
@@ -41,6 +48,13 @@ Prerequisites: `diagnose` access for verification/provider diagnostics and
    check. Hand off recovery to the maintenance workflow with the observed IDs
    and holds; this diagnostic session cannot retry, waive or accept a proposal.
    Do not claim provider cancellation, streaming or lifetime reuse.
+
+Follow the [shared long-job workflow](../crexxrag-maintain/SKILL.md#long-jobs-and-model-selection)
+for monitoring. A healthy job does not need repeated full diagnostics. Missing
+IDs, document-specific backlog or actionable error text should be reported with
+the operation, installed build, expected/actual result and a small retained
+receipt; investigate relevant pages only. Keep unresolved work on the continuation
+checklist rather than compensating with ongoing manual item tracking.
 
 Example: `rag_library_verify({})` followed by
 `rag_provider_diagnostics({})`. An explicitly authorized smoke call is

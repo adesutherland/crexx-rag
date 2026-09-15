@@ -1,5 +1,52 @@
 # Test strategy
 
+Job controls acceptance (15 September) is tracked in
+[the checked delivery record](job-controls-delivery-20260915.md): deadline-only
+CLI/MCP mutation, expired admitted completion, compact lists at all plan sizes,
+and one/all-job count reset. Native loopback tests exercise maintenance and
+embedding identity across repair jobs; both VMs exercise ordinary failure and
+lease recovery. Exact Codex reconciliation also consumes reset-adjusted paid
+counts. Provider calls in these fixtures are local synthetic calls only.
+The completed candidate passes **79/79** local tests, including preserved timing
+start and idempotent named renewal after expiry. Installation and corpus soak
+qualification remain separate.
+
+The [Test 7 overnight soak](test7-overnight-soak-20260914.md) ran on the Scottish
+master through 06:00 BST on 15 September: embeddings-first imports, sustained
+LLM/maintenance blocks, delegated curation, concurrent queries and engineering
+repairs. Its functional results are recorded; two controller losses prevent
+clean endurance qualification. The later master continuation was cancelled.
+The [T7-10 checklist](t7-10-controller-diagnosis-20260915.md) now owns real-parent,
+pipe and signal probes, graceful-drain acceptance and agent recovery guidance.
+At the earlier T7-10 checkpoint, QA was **75/76**: only the separate PC-01
+expired-window continuation case failed. New pipe/signal tests, existing
+provider/recovery/retrieval checks and scratch installation passed. The combined
+79/79 candidate above includes the subsequent PC-01 repair.
+
+The first Test 7 repairs cover source include matching, returned proposal/review
+IDs, useful validator diagnostics, indexed exact source/review lookup and
+per-source backlog inspection. Their regression-first focused acceptance passes;
+the expanded 73-test full local suite passed with zero failures (1437.92 seconds
+on the shared machine, session 95038). The repaired package was installed at
+23:45 BST after the first block drained; fresh CLI status passed at generation
+24640. T7-01/03/04/05 caller checks pass; T7-02 awaits a naturally valid new
+external proposal and final repaired-build endurance remains pending.
+
+Subsequent T7-06/07 fixes add held-outcome selection and source-scoped durable
+maintenance. Their combined full suite passes **74/74** in 1045.12 seconds;
+the tested native `eb74de625d11fbb2f5416385a0c3e7a43dbe48885734e5198d2486e202747fcc`
+was installed at 00:54 BST after Boswell's embedding phase drained. Fresh CLI
+status passes at generation 24641. Live source-window results and final soak
+qualification remain pending.
+Routine soak monitoring is light;
+missing product observability is repaired instead of replaced by manual tracking.
+
+The [Test 6 agent functional checklist](test6-agent-functional-20260914.md)
+extends the completed smoke/acceptance journeys into capability coverage and
+Scottish-instance prompt tuning before soak testing. It separates generic
+fixture qualification, actual agent tool use and a bounded configured-model
+pilot; a prepared prompt is not a measured improvement.
+
 The [committed-baseline Tests 1–5 repeat](smoke-tests-1-5-20260914.md) ran on
 `696858c` with the unchanged 71/71-qualified artifact. Publication, retry,
 selected replay and 59 provider-free MCP requests pass; final verification
@@ -366,6 +413,12 @@ native command path. `durable_backlog_provider` uses real correction outcomes
 to check public requested/processed correction counts. Required baseline reds
 and final exact-artifact results are in [the recovery record](public-recovery-journey.md).
 
+The [Scottish acceptance repairs](acceptance-repairs-20260914.md) extend these
+tests with empty incomplete embedding runs and run-ID inspection. Native
+`embedding_exhaustion` also checks atomic item/call limits and an embeddings-first
+positive control. `durable_backlog` and `regression_ingest_capacity` cover zero
+monetary routes, independent subscription/local work, and positive paid controls.
+
 For local wall-time qualification on a Mac that may enter idle sleep,
 `caffeinate -i ctest --preset debug --output-on-failure` keeps the host awake
 only for that test process. It changes no product or CTest timeout. A real
@@ -399,3 +452,20 @@ installed-product regressions. The repaired bounded maintenance smoke subsequent
 workers drained, one recovered timeout and no held uncertainty. See the
 [final report](operator-continuation-smoke-20260913.md) for its actual 56m55s
 worker runtime, retained holds and remaining status defects.
+
+The T7-07 source-control regression (`regression_source_maintenance`) verifies
+public CLI and MCP plan/apply scope before census/dispatch bounds, late-sorting
+new-document chunks, source-local embedding completion, held task preservation,
+out-of-source retry exclusion, and resumption of ordinary backlog. Its baseline
+passed the unscoped priority control and failed source planning before repair.
+`durable_backlog` separately verifies existing continuation preserves source
+scope, deadline and allowance. This is zero-outbound scheduling/state coverage;
+source content quality and the overall overnight block remain separate live gates.
+
+T7-08 extends `worker_recovery` reconciliation with source and budget changes
+after the original turn, including a lower selected attempt limit. Inspection
+must retain its original digest without database writes; wrong provider identity
+must fail. Apply preserves the retained job policy, atomic settlement and usage,
+and repeated apply remains a no-op. Normal execution still rejects a changed
+request configuration before claiming work. Its baseline passes original-config
+inspection and route rejection, then fails changed-config inspection with exit 6.

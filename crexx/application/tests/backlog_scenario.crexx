@@ -595,6 +595,73 @@ timingchecks: procedure = .int
   errors = errors + check(resolvemaintenancetime(database,"","","06:00-18:00",7200,timing,error,now) < 0 & resolvemaintenancetime(database,"","","25:00-06:00",7200,timing,error,now) < 0,"reject invalid overnight window")
   return errors
 
+zerobudgetchecks: procedure = .int
+  arg store = .ragstorehandle, base = .string
+  database = store.database(); errors = 0; error = ""
+  job_id = scalartext(database,"SELECT job_id FROM maintenance_windows WHERE state='active' LIMIT 1")
+  original_calls = scalarint(database,"SELECT count(*) FROM provider_runs")
+  do cell = 1 to 5
+    charging = "monetary-api"; cost = 0; budget = 0
+    if cell = 2 then do; cost = 100; budget = 100; end
+    if cell = 3 | cell = 4 then charging = "local-compute"
+    raw = changestr('"charging_basis":"local-compute"',base,'"charging_basis":"subscription-allowance"')
+    if cell > 3 then raw = changestr('"charging_basis":"subscription-allowance"',raw,'"charging_basis":"monetary-api"')
+    raw = changestr('"codex_turns":0',raw,'"codex_turns":100')
+    raw = changestr('"batch_items":100',raw,'"batch_items":1')
+    /* Only the mixed-route case needs a one-item batch. Let the no-route
+     * closure control finish discovery over the earlier scale fixtures. */
+    if cell = 5 then raw = changestr('"batch_items":1',raw,'"batch_items":100')
+    raw = changestr('"knowledge_policy":"fixture-v1"',raw,'"knowledge_policy":"zero-budget-' || cell || '"')
+    raw = changestr('"cost_budget":0',raw,'"cost_budget":' || budget)
+    raw = left(raw,length(raw)-1) || ',"embedding_profile":"zero-budget-' || cell || '","embedding_envelope":"fixture","embedding_provider":"fixture","embedding_model":"fixture","embedding_charging":"' || charging || '","embedding_input":100000,"embedding_cost":' || cost || ',"embedding_time":1000,"embedding_dimension":2}'
+    policy = .jsondocument(raw); task = ""
+    errors = errors + check(enqueuebacklogtask(database,"embedding-repair:zero-budget-" || cell,"chunk","chunk-lifecycle","","",1000000,policy,task,error) = 0,"zero-budget embedding fixture " || error)
+    errors = errors + check(nextwindow(store,raw,job_id,error) = 0,"zero-budget window " || error)
+    embedded = scalarint(database,"SELECT count(*) FROM job_items WHERE job_id='" || job_id || "' AND item_type='embedding'")
+    if cell = 1 | cell = 5 then do
+      errors = errors + check(embedded = 0,"zero monetary budget cannot queue paid embedding: " || cell)
+      errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE task_id='" || task || "' AND state='pending' AND attempt_count=0") = 1,"unfunded task stays pending without an attempt")
+      if cell = 1 then errors = errors + check(scalarint(database,"SELECT count(*) FROM job_items WHERE job_id='" || job_id || "' AND item_type<>'embedding'") = 1,"paid embedding cannot starve zero-cost subscription work")
+      if cell = 5 then do
+        do pass = 1 to 20
+          if scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || job_id || "'") \= "active" then leave
+          if tickbacklogwindow(store,job_id,error) < 0 then return errors + check(0,"zero-budget closure " || error)
+        end
+        errors = errors + check(scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || job_id || "'") = "complete","no funded tasks closes without a busy retry")
+      end
+    end
+    else errors = errors + check(embedded = 1,"positive paid and zero-cost local embedding controls: " || cell)
+  end
+  if scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || job_id || "'") = "active" then do
+    if pausejob(store,job_id,error) \= 0 | tickbacklogwindow(store,job_id,error) < 0 then errors = errors + check(0,"close cost-route fixture " || error)
+  end
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM provider_runs") = original_calls,"cost-route planning makes no provider calls")
+  return errors
+
+/* Source selection is operational state retained by the existing continuation
+ * owner. Continuing grants no fresh item allowance and makes no provider call. */
+sourcecontinuationchecks: procedure = .int
+  arg store=.ragstorehandle,base=.string
+  database=store.database();errors=0;error="";job_id="";task=""
+  raw=changestr('"knowledge_policy":"fixture-v1"',base,'"knowledge_policy":"source-continuation"')
+  raw=changestr('"batch_items":100',raw,'"batch_items":1')
+  raw=left(raw,length(raw)-1) || ',"source_id":"source-lifecycle"}'
+  policy=.jsondocument(raw)
+  calls=scalarint(database,"SELECT count(*) FROM provider_runs")
+  errors=errors+check(enqueuebacklogtask(database,"alias-follow-up:source-continuation","chunk","chunk-lifecycle","","",1000000,policy,task,error)=0 & nextwindow(store,raw,job_id,error)=0,"source continuation fixture " || error)
+  original=scalartext(database,"SELECT policy_json FROM maintenance_windows WHERE job_id='" || job_id || "'")
+  deadline=scalarint(database,"SELECT deadline_epoch FROM maintenance_windows WHERE job_id='" || job_id || "'")
+  allowance=scalarint(database,"SELECT item_budget FROM jobs WHERE job_id='" || job_id || "'")
+  errors=errors+check(pausejob(store,job_id,error)=0 & tickbacklogwindow(store,job_id,error)>=0,"pause source window")
+  errors=errors+check(sqliteexec(database,"BEGIN IMMEDIATE")=0,"begin source continuation")
+  errors=errors+check(continuebacklogwindow(database,job_id,0,0,error)=0,"continue existing source window " || error)
+  errors=errors+check(sqliteexec(database,"UPDATE jobs SET state='queued' WHERE job_id='" || job_id || "';COMMIT")=0,"commit source continuation")
+  errors=errors+check(tickbacklogwindow(store,job_id,error)>=0,"checkpoint continued source window " || error)
+  errors=errors+check(scalartext(database,"SELECT policy_json FROM maintenance_windows WHERE job_id='" || job_id || "'")=original & scalarint(database,"SELECT deadline_epoch FROM maintenance_windows WHERE job_id='" || job_id || "'")=deadline & scalarint(database,"SELECT item_budget FROM jobs WHERE job_id='" || job_id || "'")=allowance,"source continuation retains exact scope deadline and allowance")
+  errors=errors+check(scalarint(database,"SELECT count(*) FROM job_items WHERE job_id='" || job_id || "' AND json_extract(input_json,'$.revision_chunk_id') NOT IN(SELECT revision_chunk_id FROM revision_chunks WHERE revision_id='revision-lifecycle')")=0 & scalarint(database,"SELECT count(*) FROM provider_runs")=calls,"source continuation never widens or calls a provider")
+  errors=errors+check(pausejob(store,job_id,error)=0 & tickbacklogwindow(store,job_id,error)>=0,"close source continuation fixture")
+  return errors
+
 main: procedure = .int
   arg args = .string[]
   if args.0 \= 1 then return 2
@@ -1008,6 +1075,8 @@ main: procedure = .int
   errors = errors + connectioneffectchecks(store,policy_json)
   errors = errors + workflowclosurechecks(store,policy_json)
   errors = errors + refreshchecks(store,policy_json)
+  errors = errors + zerobudgetchecks(store,policy_json)
+  errors = errors + sourcecontinuationchecks(store,policy_json)
   call closeragstore store,error
   if errors > 0 then return 1
   say "DURABLE_BACKLOG_OK deduplicated split_fanout fenced_decisions resume uncertainty source_preservation"

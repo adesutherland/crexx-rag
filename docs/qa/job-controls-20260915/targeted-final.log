@@ -1,0 +1,42 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start  3: regression_source_maintenance
+1/9 Test  #3: regression_source_maintenance ....   Passed   16.58 sec
+    Start  4: regression_job_deadline
+2/9 Test  #4: regression_job_deadline ..........   Passed    6.01 sec
+    Start  6: regression_command_metadata
+3/9 Test  #6: regression_command_metadata ......   Passed    0.64 sec
+    Start 28: worker_recovery
+4/9 Test #28: worker_recovery ..................   Passed  147.23 sec
+    Start 63: regression_large_job
+5/9 Test #63: regression_large_job .............   Passed    1.80 sec
+    Start 64: regression_plan_detail
+6/9 Test #64: regression_plan_detail ...........   Passed    8.17 sec
+    Start 67: regression_reset_retries
+7/9 Test #67: regression_reset_retries .........   Passed    2.94 sec
+    Start 72: regression_lifecycle
+8/9 Test #72: regression_lifecycle .............   Passed    2.94 sec
+    Start 78: native_retry_reset
+9/9 Test #78: native_retry_reset ...............   Passed   11.56 sec
+
+100% tests passed, 0 tests failed out of 9
+
+Label Time Summary:
+RAG-OPS-002        =   2.94 sec*proc (1 test)
+RAG-UX-02          =   1.80 sec*proc (1 test)
+accounting         =   2.94 sec*proc (1 test)
+command            =   0.64 sec*proc (1 test)
+contract           =   0.64 sec*proc (1 test)
+durability         = 147.23 sec*proc (1 test)
+lifecycle          =  11.56 sec*proc (1 test)
+loopback           =  11.56 sec*proc (1 test)
+maintenance        =  22.59 sec*proc (2 tests)
+native             =  24.47 sec*proc (4 tests)
+provider           = 147.23 sec*proc (1 test)
+public-contract    =  12.91 sec*proc (3 tests)
+recovery           = 158.79 sec*proc (2 tests)
+regression         =  50.66 sec*proc (8 tests)
+source             =  22.59 sec*proc (2 tests)
+worker             = 150.17 sec*proc (2 tests)
+zero-outbound      = 186.32 sec*proc (8 tests)
+
+Total Test time (real) = 197.89 sec

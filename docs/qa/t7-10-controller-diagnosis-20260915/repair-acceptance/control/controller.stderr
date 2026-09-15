@@ -1,0 +1,3 @@
+crexxrag controller start workers=1
+crexxrag worker complete [worker-6949b715c93503f67e29966540b26e26] completed=1/1
+crexxrag controller complete [controller-f83853a0cb0091d24b7a066c75590f93] workers=1

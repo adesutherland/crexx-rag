@@ -1,0 +1,18 @@
+
+/Applications/ChatGPT.app/Contents/Resources/codex:	file format mach-o arm64
+
+Disassembly of section __TEXT,__text:
+
+00000001085a54a0 <__ZN15codex_utils_pty7process13ProcessHandle9terminate17h57b915f54cc469c1E>:
+1085a54a0: d10283ff    	sub	sp, sp, #0xa0
+1085a54a4: a9046ffc    	stp	x28, x27, [sp, #0x40]
+1085a54a8: a90567fa    	stp	x26, x25, [sp, #0x50]
+1085a54ac: a9065ff8    	stp	x24, x23, [sp, #0x60]
+1085a54b0: a90757f6    	stp	x22, x21, [sp, #0x70]
+1085a54b4: a9084ff4    	stp	x20, x19, [sp, #0x80]
+1085a54b8: a9097bfd    	stp	x29, x30, [sp, #0x90]
+1085a54bc: 910243fd    	add	x29, sp, #0x90
+1085a54c0: aa0003f3    	mov	x19, x0
+1085a54c4: 97fffe5c    	bl	0x1085a4e34 <__ZN15codex_utils_pty7process13ProcessHandle17request_terminate17hd1f69482694eaf07E>
+1085a54c8: d9448260    	ldapur	x0, [x19, #0x48]
+1085a54cc: b40025a0    	cbz	x0, 0x1085a5980 <__ZN15codex_utils_pty7process13ProcessHandle9terminate17h57b915f54cc469c1E+0x4e0>

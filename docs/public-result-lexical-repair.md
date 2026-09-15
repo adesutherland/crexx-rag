@@ -38,10 +38,11 @@ were corrected before interpreting executable failures as product evidence.
 - `ragresultpages` owns repository result projection, cursor construction and
   plan-page presentation. Repository and event handlers compose it.
   `ragproduct` retains command access and routing.
-- `ragrepository` owns the SQL projections. A small job plan remains in `value`;
-  a larger plan yields an empty value with `value_complete=false`, its character
-  count and `detail_operation=job.plan`. The summary query does not return the
-  complete large plan to cREXX. No stored plan is truncated or modified.
+- `ragrepository` owns the SQL projections. The 15 September
+  [job-controls follow-up](job-controls-delivery-20260915.md) extends this repair
+  to every plan size: lists return empty `value`, `value_complete=false`, the
+  character count and `detail_operation=job.plan`. No plan body enters the list
+  response. Stored plans remain unchanged and fully available through detail.
 - `job plan JOB_ID --cursor OFFSET --limit N` and MCP `rag_job_plan` expose
   exact text in at most 8,192 Unicode characters per page. The read includes
   original plan digest, offset, total characters and the next cursor. SQLite

@@ -1,0 +1,85 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+      Start  1: regression_policy_file
+ 1/16 Test  #1: regression_policy_file ...........   Passed    7.47 sec
+      Start  2: regression_command_metadata
+ 2/16 Test  #2: regression_command_metadata ......   Passed    0.37 sec
+      Start  3: regression_command_arguments
+ 3/16 Test  #3: regression_command_arguments .....   Passed    7.25 sec
+      Start  8: regression_prompt_inspection
+ 4/16 Test  #8: regression_prompt_inspection .....   Passed    3.63 sec
+      Start  9: regression_prompt_contract
+ 5/16 Test  #9: regression_prompt_contract .......   Passed   27.16 sec
+      Start 13: native_lifecycle
+ 6/16 Test #13: native_lifecycle .................   Passed   10.88 sec
+      Start 15: configuration_contract
+ 7/16 Test #15: configuration_contract ...........   Passed   32.35 sec
+      Start 24: worker_recovery
+ 8/16 Test #24: worker_recovery ..................   Passed  141.16 sec
+      Start 28: query_policy
+ 9/16 Test #28: query_policy .....................   Passed    6.46 sec
+      Start 33: native_surfaces
+10/16 Test #33: native_surfaces ..................   Passed   18.55 sec
+      Start 34: address_surface
+11/16 Test #34: address_surface ..................   Passed    3.17 sec
+      Start 37: installed_product
+12/16 Test #37: installed_product ................   Passed   32.23 sec
+      Start 38: documentation_contract
+13/16 Test #38: documentation_contract ...........   Passed    0.50 sec
+      Start 39: local_embedding_protocol
+14/16 Test #39: local_embedding_protocol .........   Passed    6.67 sec
+      Start 41: temporal_provenance
+15/16 Test #41: temporal_provenance ..............   Passed   22.18 sec
+      Start 42: durable_backlog
+16/16 Test #42: durable_backlog ..................   Passed   15.63 sec
+
+100% tests passed, 0 tests failed out of 16
+
+Label Time Summary:
+access               =   3.17 sec*proc (1 test)
+address              =   3.17 sec*proc (1 test)
+answer               =  18.55 sec*proc (1 test)
+atomic               =  15.63 sec*proc (1 test)
+budget               =   6.46 sec*proc (1 test)
+codex                =   6.46 sec*proc (1 test)
+command              =   7.62 sec*proc (2 tests)
+configuration        =  65.17 sec*proc (5 tests)
+contract             =   0.37 sec*proc (1 test)
+documentation        =   0.50 sec*proc (1 test)
+durability           = 141.16 sec*proc (1 test)
+embedding            =   6.67 sec*proc (1 test)
+extraction           =  22.18 sec*proc (1 test)
+gemini               =  83.13 sec*proc (3 tests)
+human                =  18.55 sec*proc (1 test)
+ingestion            =  32.23 sec*proc (1 test)
+installed            =  32.23 sec*proc (1 test)
+lifecycle            =  26.51 sec*proc (2 tests)
+llama.cpp            =   6.67 sec*proc (1 test)
+local                =   6.67 sec*proc (1 test)
+loopback             =  38.04 sec*proc (2 tests)
+maintenance          =  47.86 sec*proc (2 tests)
+mcp                  =  18.55 sec*proc (1 test)
+merge                =  15.63 sec*proc (1 test)
+methodology          =   0.50 sec*proc (1 test)
+native               =  61.66 sec*proc (3 tests)
+openai-compatible    =   6.67 sec*proc (1 test)
+policy               =   7.47 sec*proc (1 test)
+privacy              =  45.48 sec*proc (3 tests)
+prompt               =  30.79 sec*proc (2 tests)
+provenance           =  22.18 sec*proc (1 test)
+provider             = 147.82 sec*proc (2 tests)
+query                =  38.69 sec*proc (2 tests)
+quotation            =  22.18 sec*proc (1 test)
+recovery             = 159.50 sec*proc (3 tests)
+regression           =  56.76 sec*proc (6 tests)
+retirement           =  15.63 sec*proc (1 test)
+schema               =  27.16 sec*proc (1 test)
+skills               =  32.73 sec*proc (2 tests)
+split                =  15.63 sec*proc (1 test)
+sqlite               =  15.63 sec*proc (1 test)
+strict-json          =  25.80 sec*proc (2 tests)
+surface              =   3.17 sec*proc (1 test)
+unicode              =  22.18 sec*proc (1 test)
+worker               = 141.16 sec*proc (1 test)
+zero-outbound        = 251.70 sec*proc (11 tests)
+
+Total Test time (real) = 335.67 sec

@@ -76,7 +76,8 @@ ragapplicationprovider: class implements .ragworkprovider
     end
     provider_config = _providerconfig(_config,_jsonstring(identity,node,"provider_id"))
     if provider_config.kind() \= "codex" | provider_config.model() \= _jsonstring(identity,node,"model") | provider_config.charging_basis() \= _jsonstring(identity,node,"charging_basis") then do; error = "reconciliation requires the original Codex provider route"; return -1; end
-    if worksnapshotmatches(_store,_jsonstring(identity,node,"snapshot"),_config,_profile) \= 1 then do; error = "reconciliation requires the original configuration; use config diff to inspect the mismatch"; return -1; end
+    /* Observation settles an existing turn, not a new request. Later source or
+     * budget edits do not change its identity or its retained attempt policy. */
     thread_id = _jsonstring(identity,node,"thread_id"); turn_id = _jsonstring(identity,node,"turn_id"); request_id = _jsonstring(identity,node,"request_id")
     content = ""; state = "unavailable"; usage_complete = 0; detail = ""
     if _jsonstring(identity,node,"outcome") = "completed-unsettled" then do
@@ -99,7 +100,7 @@ ragapplicationprovider: class implements .ragworkprovider
     plan_json = '{"schema":"crexx-rag.external-observation/1","job_id":' || jsonquote(job_id) || ',"item_id":' || jsonquote(item_id) || ',"attempt_id":' || jsonquote(attempt) || ',"provider_run_id":' || jsonquote(_jsonstring(identity,node,"provider_run_id")) || ',"thread_id":' || jsonquote(thread_id) || ',"turn_id":' || jsonquote(turn_id) || ',"state":' || jsonquote(state) || ',"content_sha256":' || jsonquote(rxhash..sha256hex(content as .binary)) || ',"known_input_tokens":' || input_tokens || ',"known_output_tokens":' || output_tokens || ',"usage_complete":' || usage_complete || ',"usage_basis":' || jsonquote("retained usage; incomplete values are lower bounds") || ',"provider_calls":0,"detail":' || jsonquote(detail) || ',"digest":' || jsonquote(digest) || '}'
     if apply = 0 then return 0
     if expected_digest \= digest then do; error = "reconciliation observation changed or digest is missing; inspect and apply the new digest"; return -1; end
-    return applyexternalobservation(_store,identity_json,plan_json,receipt,provider_config.max_attempts(),error)
+    return applyexternalobservation(_store,identity_json,plan_json,receipt,_receiptint(identity,node,"maximum_attempts"),error)
 
   process: method = .ragworkproviderresult
     arg claim = .ragworkclaim

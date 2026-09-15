@@ -1,0 +1,63 @@
+
+/Applications/ChatGPT.app/Contents/Resources/codex:	file format mach-o arm64
+
+Disassembly of section __TEXT,__text:
+
+00000001085a1e44 <__ZN15codex_utils_pty13process_group18kill_process_group17h6b117ac9e8f6153dE>:
+1085a1e44: a9be4ff4    	stp	x20, x19, [sp, #-0x20]!
+1085a1e48: a9017bfd    	stp	x29, x30, [sp, #0x10]
+1085a1e4c: 910043fd    	add	x29, sp, #0x10
+1085a1e50: 52800121    	mov	w1, #0x9                ; =9
+1085a1e54: 945e708a    	bl	0x109d3e07c <dyld_stub_binder+0x109d3e07c>
+1085a1e58: 3100041f    	cmn	w0, #0x1
+1085a1e5c: 54000060    	b.eq	0x1085a1e68 <__ZN15codex_utils_pty13process_group18kill_process_group17h6b117ac9e8f6153dE+0x24>
+1085a1e60: d2800000    	mov	x0, #0x0                ; =0
+1085a1e64: 1400000b    	b	0x1085a1e90 <__ZN15codex_utils_pty13process_group18kill_process_group17h6b117ac9e8f6153dE+0x4c>
+1085a1e68: 945e6f47    	bl	0x109d3db84 <dyld_stub_binder+0x109d3db84>
+1085a1e6c: b9400014    	ldr	w20, [x0]
+1085a1e70: 52800048    	mov	w8, #0x2                ; =2
+1085a1e74: aa148113    	orr	x19, x8, x20, lsl #32
+1085a1e78: aa1303e0    	mov	x0, x19
+1085a1e7c: 97fffebf    	bl	0x1085a1978 <__ZN5alloc4sync16Arc$LT$T$C$A$GT$9drop_slow17he3b1412363ced80bE+0x1b84>
+1085a1e80: 12001c08    	and	w8, w0, #0xff
+1085a1e84: 7100011f    	cmp	w8, #0x0
+1085a1e88: 7a431a84    	ccmp	w20, #0x3, #0x4, ne
+1085a1e8c: 9a9303e0    	csel	x0, xzr, x19, eq
+1085a1e90: a9417bfd    	ldp	x29, x30, [sp, #0x10]
+1085a1e94: a8c24ff4    	ldp	x20, x19, [sp], #0x20
+1085a1e98: d65f03c0    	ret
+
+00000001085a1e9c <__ZN15codex_utils_pty13process_group23terminate_process_group17he3b4b9db32550261E>:
+1085a1e9c: a9bd57f6    	stp	x22, x21, [sp, #-0x30]!
+1085a1ea0: a9014ff4    	stp	x20, x19, [sp, #0x10]
+1085a1ea4: a9027bfd    	stp	x29, x30, [sp, #0x20]
+1085a1ea8: 910083fd    	add	x29, sp, #0x20
+1085a1eac: aa0803f3    	mov	x19, x8
+1085a1eb0: 528001e1    	mov	w1, #0xf                ; =15
+1085a1eb4: 945e7072    	bl	0x109d3e07c <dyld_stub_binder+0x109d3e07c>
+1085a1eb8: 3100041f    	cmn	w0, #0x1
+1085a1ebc: 540000a0    	b.eq	0x1085a1ed0 <__ZN15codex_utils_pty13process_group23terminate_process_group17he3b4b9db32550261E+0x34>
+1085a1ec0: 52800008    	mov	w8, #0x0                ; =0
+1085a1ec4: 52800029    	mov	w9, #0x1                ; =1
+1085a1ec8: 39000669    	strb	w9, [x19, #0x1]
+1085a1ecc: 14000010    	b	0x1085a1f0c <__ZN15codex_utils_pty13process_group23terminate_process_group17he3b4b9db32550261E+0x70>
+1085a1ed0: 945e6f2d    	bl	0x109d3db84 <dyld_stub_binder+0x109d3db84>
+1085a1ed4: b9400015    	ldr	w21, [x0]
+1085a1ed8: 52800048    	mov	w8, #0x2                ; =2
+1085a1edc: aa158114    	orr	x20, x8, x21, lsl #32
+1085a1ee0: aa1403e0    	mov	x0, x20
+1085a1ee4: 97fffea5    	bl	0x1085a1978 <__ZN5alloc4sync16Arc$LT$T$C$A$GT$9drop_slow17he3b1412363ced80bE+0x1b84>
+1085a1ee8: 12001c08    	and	w8, w0, #0xff
+1085a1eec: 71000ebf    	cmp	w21, #0x3
+1085a1ef0: 7a401904    	ccmp	w8, #0x0, #0x4, ne
+1085a1ef4: 54000081    	b.ne	0x1085a1f04 <__ZN15codex_utils_pty13process_group23terminate_process_group17he3b4b9db32550261E+0x68>
+1085a1ef8: 52800008    	mov	w8, #0x0                ; =0
+1085a1efc: 3900067f    	strb	wzr, [x19, #0x1]
+1085a1f00: 14000003    	b	0x1085a1f0c <__ZN15codex_utils_pty13process_group23terminate_process_group17he3b4b9db32550261E+0x70>
+1085a1f04: f9000674    	str	x20, [x19, #0x8]
+1085a1f08: 52800028    	mov	w8, #0x1                ; =1
+1085a1f0c: 39000268    	strb	w8, [x19]
+1085a1f10: a9427bfd    	ldp	x29, x30, [sp, #0x20]
+1085a1f14: a9414ff4    	ldp	x20, x19, [sp, #0x10]
+1085a1f18: a8c357f6    	ldp	x22, x21, [sp], #0x30
+1085a1f1c: d65f03c0    	ret

@@ -1,5 +1,50 @@
 # SQL performance repair delivery — 13 September 2026
 
+Job controls (15 September): the job-list projection no longer materializes
+canonical plan bodies at any size. Deadline writes use the existing unique
+maintenance job key. Retry reset snapshots counts in one set-based INSERT under
+one writer transaction, and skips unchanged snapshots. Its reads reuse
+`attempts_item`, `attempts_provider_run`, `maintenance_task_items_task`,
+`job_items_embedding_subject` and `job_events_item_type`; no schema/index change.
+The shared embedding expression retains the exact JSON-index predicates.
+Paid counts remain DISTINCT provider identities, preserving receipt reuse.
+History counts are separate from reset-adjusted eligibility counts. Baselines
+are numbers rather than clock timestamps or unstable implicit rowids.
+The [job controls record](job-controls-delivery-20260915.md) owns acceptance.
+
+T7-10 reuses the controller's existing runtime row and drain queries. The one
+new request write is bounded by the `runtime_instances` primary key and runs
+once when entering signal-requested drain, outside the signal handler. Child
+drain remains bounded by the existing parent-instance index; ordinary heartbeat
+and terminal writes carry the reason. No new query per item or schema/index
+is needed. Baseline and final evidence are in the
+[T7-10 checklist](t7-10-controller-diagnosis-20260915.md).
+
+Test 7 T7-06 adds an uncertainty selector to the existing job-items query.
+The job key bounds candidates, `raglifecycle.uncertainitem` uses the existing
+item/type and attempt/type event indexes, and held/active/state filters precede
+the cursor limit. It reuses the same read snapshot and per-returned-item
+recovery projection. No extra catalogue read, queue scan in the client, new
+index or stored status is introduced. The operator regression includes indexed
+event-plan assertions and selects late held IDs through CLI/MCP without writes.
+
+Test 7 T7-05 adds source-filtered backlog inspection in `ragoperationsquery`.
+Source primary-key selection and `revision_chunks_visibility` bound the chunk
+set; `maintenance_tasks_subject` supplies its tasks. The summary materializes
+that source's chunk/task sets and reuses aggregate counts, while the task page
+filters before its cursor and limit. Both share a read transaction; there is
+no JSON scan of corpus-wide job inputs, new index, schema or reporting state.
+`regression_source_backlog` verifies source denominators, states, pagination,
+CLI/MCP, empty/missing sources and unchanged database/provider data.
+
+Test 7 T7-04 repairs the missed `source.show`/`review.show` path: the existing
+projection in `ragrepository` uses bound primary-key equality for exact reads;
+listing keeps indexed range pagination. The adapter no longer loads a page and
+then filters it for the requested ID. No index/migration or per-row lookup loop
+is added. `regression_operator_diagnostics` reproduces the late-ID failure with
+125 unrelated/target source and review rows, first-ID positive controls, missing
+IDs and complete database-dump parity. Final qualification is in [Test 7](test7-overnight-soak-20260914.md).
+
 Current Test 2 follow-up: [action checklist](test2-recovery-delivery-20260914.md).
 The existing provider, publication, store and retrieval owners now implement
 independent item/search availability and ordinary completion retry. Qualification
@@ -144,3 +189,39 @@ No authoritative library migration or hosted cross-platform qualification is cla
 ahead of corpus reads and training. Invalidation uses existing indexed
 membership/embedding lookups; whole-command retry fell from 26.14 seconds to
 2.080 seconds on the final 34,902-vector scratch corpus.
+
+## Acceptance reporting queries — 14 September
+
+The [acceptance repairs](acceptance-repairs-20260914.md) join maintenance run
+outcomes through existing unique/primary keys, removing the separate window
+read in public job status. Dispatch and its eligibility counts share one route
+predicate over existing task fields. No schema, extra census, or per-item
+database read is introduced by the route decision.
+
+## T7-08 retained reconciliation policy
+
+`ragreceipts.readexternalidentity` includes the original job's attempt ceiling
+in its existing exact job/item projection. A scalar lookup uses
+`job_events_type(job_id,event_type,event_id)` and descending event ID with
+LIMIT 1; the scratch-library query plan confirms indexed lookup without a sort.
+No extra query per inspection step, schema change or worker-loop read is added.
+The whole-configuration lookup is removed from reconciliation only; ordinary
+worker compatibility remains unchanged. The extended `worker_recovery` case
+asserts original budget-policy use after a selected configuration change.
+
+## T7-07 bounded source census
+
+The selected source membership now constrains `ragbacklog` chunk discovery
+before its keyset predicate and LIMIT, not after a whole-corpus page. The same
+`ragrepository.currentsourcechunks` projection serves operator inspection and
+scoped dispatch/coverage; existing source primary key, revision membership and
+task subject indexes are reused. Census pages and dispatch waves retain the
+configured bounds. No full census, new cursor protocol or schema change was
+introduced. `regression_source_maintenance` seeds an old chunk prefix larger
+than the page and higher-ranked unrelated tasks; it passes (8.17s), alongside
+`regression_sql_performance` (3.41s). Representative query plans use the source
+primary key, `revision_chunks_visibility` for current source membership, and
+`maintenance_tasks_subject` for scoped task lookup. Only the selected task set
+requires the existing priority sort. Summary reads reuse one window-policy
+read; scoped waiver counts replace the global count, and unscoped retry checks
+retain their scalar path without a new membership query.

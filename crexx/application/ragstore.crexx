@@ -9,6 +9,7 @@ import rxsqlite
 import rxplatform
 import ragschema
 import ragfile
+import ragtrace
 
 ragstorehandle: class
   _database = .binary
@@ -1046,7 +1047,7 @@ _acquirelock: procedure = .int
     if sqliteexec(database,statement) = 0 then return 0
     ignored = _sqlitefailure(context,error)
     if sqlitebusyerror(error) = 0 | attempt = 6 then return -3
-    call lineout "stderr", "crexxrag lock retry=" || attempt || "/5: " || error
+    call writeoperatorline "crexxrag lock retry=" || attempt || "/5: " || error
     call rxplatform..sleep (100 * attempt + ((time("us") as .int) % 97))
   end
   return -3

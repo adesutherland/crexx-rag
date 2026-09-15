@@ -1,0 +1,52 @@
+{
+  "mode": "kill",
+  "controller_pid": 25657,
+  "os_exit_code": -9,
+  "os_signal": "SIGKILL",
+  "before": {
+    "process": {
+      "pid": 25657,
+      "ppid": 25311,
+      "pgid": 25308,
+      "state": "S"
+    },
+    "runtime": [
+      {
+        "kind": "controller",
+        "pid": 25657,
+        "state": "running",
+        "heartbeat_at": 1789457600,
+        "exit_code": null,
+        "detail": "supervising 1 worker processes"
+      },
+      {
+        "kind": "worker",
+        "pid": 25658,
+        "state": "idle",
+        "heartbeat_at": 1789457600,
+        "exit_code": null,
+        "detail": "waiting for durable work"
+      }
+    ]
+  },
+  "final_runtime": [
+    {
+      "kind": "controller",
+      "pid": 25657,
+      "state": "running",
+      "heartbeat_at": 1789457600,
+      "exit_code": null,
+      "detail": "supervising 1 worker processes"
+    },
+    {
+      "kind": "worker",
+      "pid": 25658,
+      "state": "stopped",
+      "heartbeat_at": 1789457600,
+      "exit_code": 0,
+      "detail": "application worker stopped cleanly;processed=0;polls=2"
+    }
+  ],
+  "jobs": 0,
+  "provider_runs": 0
+}

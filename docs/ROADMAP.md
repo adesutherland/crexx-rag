@@ -1,6 +1,26 @@
 # Consolidated roadmap and defect register
 
-**14 September committed-baseline repeat:** `696858c` is committed and all
+**15 September job controls repair complete:** deadline-only edits, admitted-work
+continuation after expiry, compact job lists and one/all-job retry reset pass
+**79/79 local tests**, including the controller repairs. PC-01 is closed;
+RAG-OPS-006's rolling retry proposal is closed as superseded. The
+[completed checklist](job-controls-delivery-20260915.md) records evidence and
+remaining installation, soak and corpus work. This candidate is not yet installed.
+
+**15 September overnight outcome:** [Test 7](test7-overnight-soak-20260914.md)
+repaired the master's five embedding gaps, imported and embedded two public
+sources, exercised extraction/backlog/recovery and recorded 5265 processed items
+across 6479 provider runs. Gemini cost was US$0.035403. The installed repaired
+working tree passes 74/74 developer tests; final master verification and backup
+pass at generation 26751 with zero integrity issues. Temporary policy is restored.
+Content/backlog work and twelve incomplete-usage attempts remain. T7-02 needs
+its natural real-caller retest; T7-10 links both controller losses to host
+resumption and now has a candidate closed-output/graceful-signal repair with
+routine agent recovery guidance. Exact historical signal and installed
+endurance remain open. This is functional progress, not clean endurance
+qualification. RAG-OPS-006 is superseded by the explicit retry-reset repair below.
+
+**14 September committed-baseline repeat (disposable copy):** `696858c` is committed and all
 [Tests 1–5 have run](smoke-tests-1-5-20260914.md). Independent publication,
 ordinary retry, selected Fiers/Nairn replay and 59 provider-free MCP requests
 pass. Final verification has zero issues and full 34,907-chunk vector coverage.
@@ -174,7 +194,7 @@ window on 1edb325: full 63/63 QA, exit 0, eight workers completed and one safe
 timeout replacement. The fixed window was 60 minutes; actual worker runtime
 was 56m55s. Integrity passes at generation 24,922. **OPS-005 is closed.**
 Turray's actual UX-01/03/04 recovery and RAG-SMK-001/002/003 are closed on their
-named evidence. The five embedding repairs are complete in Test 1. The whole recovery outcome
+named evidence. The five embedding repairs passed in Test 1's test copy. The whole recovery outcome
 remains open for retained extraction holds, broader retry-policy authorization
 and the new-source configuration boundary beside inherited held jobs. RAG-SMK-004/005
 now have local repairs; their qualification is recorded separately above.
@@ -187,6 +207,31 @@ Do not label the remaining corpus outcomes complete.
 | RAG-OPS-003 | Partial — job/worker/task/report queries and command adapters; step 5 public-result repairs delivered | Documented commands alone explain progress, denominators, unique coverage versus attempts, failures, retry eligibility, waiting reasons, configured/live workers, recovery allowance, interval throughput and known/incomplete usage. Steps 1/4 add admission/supervision waiting status, pool counts and rolling capacity. Step 5 repairs UX-02's maximum-page and large-plan discovery failures, with complete detail reads. The [public recovery follow-up](public-recovery-journey.md) adds consistent actual item counts versus limits, recorded/incomplete usage, interval throughput and correction outcomes; The continuation follow-up adds paged source/operation totals, current item retry facts, provider time and controller/heartbeat/replacement details, with corpus-scale read evidence. Final full QA and corpus-scale reads passed. RAG-SMK-004 (stale registrations called live) and RAG-SMK-005 (disagreeing final states/activity) are repaired through shared supervision and lifecycle readers; their CLI/MCP parity regressions pass. See the four-fix record for exact full and installed qualification. |
 | RAG-OPS-004 | Partial — `ragadmission`, `ragsupervision`, `ragenvironment` | Temporary capacity pressure, rolling worker replacement and safely uncalled shared preflight backoff are implemented. [Supervision evidence](supervision-recovery.md) covers expiry, controller restart, concurrent reservations, zero healthy workers, eight-worker outage/recovery and task isolation. Task attempts, uncertain outcomes, cumulative usage and cutoffs remain independent. The continuation gate additionally reproduced a WAL startup race; `ragstore` now shares bounded BUSY acquisition retry with transaction admission, tested by an exclusive-lock rendezvous on both VMs. Final full QA passed 63/63; actual timeout interruption/replacement and healthy-peer progress passed in the bounded corpus smoke. Wider outage/platform classification remains open and separate. |
 | RAG-OPS-005 | Closed — local full QA 63/63 and actual same-job ingestion/maintenance continuation; configuration, job, budget and window owners | One continuation/renewal operation handles optional exhausted budgets, operational configuration registration and remaining work under terminal internal jobs/windows. Preserve cumulative usage, attempts, receipts, held outcomes and completed work through a new authorization period; do not erase history. Distinguish reserved from consumed capacity. Agree essential versus optional controls, omission/renewal semantics and defaults before code; external account restrictions and the user's unchanged cutoff remain binding. |
+
+### Time-window retry policy — RAG-OPS-006
+
+**Closed as superseded — 15 September 2026.** Adrian withdrew the rolling-hour
+retry proposal in favour of explicit `job reset-retries JOB` or `--all`.
+The [job controls checklist](job-controls-delivery-20260915.md) owns implementation
+and acceptance. Reset preserves historical attempts, receipts, actual usage,
+other limits and held outcomes. It does not run work or replenish a budget.
+Provider cooldown and worker replacement windows remain separate existing
+controls. No rolling retry policy remains planned under this item.
+
+### Commented job files — RAG-OPS-007
+
+**Agreed requirement — implementation open, 15 September 2026.** The
+[standing architecture guidance](architecture.md#commented-job-files--agreed-design)
+owns the design; this replaces the earlier optional-feature wording.
+
+- [x] Record the requirement in core and Scottish standing instructions and the
+  corpus template, with one shared design owner.
+- [ ] Implement a simple editable job-file surface over existing controls,
+  documenting when edits take effect and preserving unrelated parameters.
+- [ ] Preserve explanatory comments, run notes, existing approvals and retry
+  instructions through edit/continue; keep per-run content out of AGENTS.
+- [ ] Verify those public journeys and retained job/usage history with local
+  acceptance before claiming the interface is available.
 
 ### Simple controller restart — OPS-001/004, implemented
 

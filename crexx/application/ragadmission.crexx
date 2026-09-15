@@ -1,6 +1,12 @@
 options levelg
 
-namespace ragadmission expose ragadmissiondecision
+namespace ragadmission expose ragadmissiondecision callcostallowed
+
+/* Zero monetary allowance leaves paid work for a later funded run. It does
+ * not disable local compute or the separately budgeted Codex subscription. */
+callcostallowed: procedure = .boolean
+  arg charging_basis = .string, cost = .int
+  return charging_basis \= "monetary-api" | cost > 0
 
 /* One decision across all job allowance dimensions. The caller reads the
  * ledger and reserves inside the SAME writer transaction; this module neither

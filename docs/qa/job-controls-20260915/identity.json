@@ -1,0 +1,23 @@
+{
+  "branch": "main",
+  "head": "dd96144bb3689ad4da4a9a43c8df914555402877",
+  "native_sha256": "30879436fcd8ac113435296cd7d8f6d03cab9b9387fe9e43f4bcf0ee5f0bd083",
+  "linked_sha256": "9fc3ba5e7aa6fd88e80bd9eec5d18f0b9b0968b70025e4bcbf7399920e42c129",
+  "files": {
+    "crexx/application/ragbacklog.crexx": "e5e0382bf3bba0b69bcacfb3cde88577a759f2f177f8806ac50ef3c5791cfcaf",
+    "crexx/application/ragcontinuation.crexx": "928452c3ebbdf1b4aed171dfcd752f8c19c86cb4b60db6acdef4fa40e5e3d2fd",
+    "crexx/application/raglifecycle.crexx": "3f15f297300ee93507b1c85911d157e4479f77be1d296fffcd7fb777b5b60f34",
+    "crexx/application/ragreceipts.crexx": "69cfac1686a8c1464b8fc19fd37d1edff12700046e7560e986199eeb5afe6be0",
+    "crexx/application/ragwork.crexx": "aa145243badbdfff55a3db398522576bcca1b5e105c478caf5811a909b64aeca",
+    "crexx/application/ragrepository.crexx": "d4a476d7efeba464dbf2430e30784d250eaf517de8b57379e66e8f4325ce3c8e",
+    "crexx/application/ragresultpages.crexx": "b849f5bc2cf4b1ea3f128d91472c14a125c971f159c78e996a376fc115f6f4f7",
+    "crexx/application/ragproduct.crexx": "f19fc40191949c5d246ad395fa832fb2313d1ba25b01c8f52c9117386a41079b",
+    "crexx/application/surfaces/ragcommandcatalog.crexx": "ddb91ce7c13d964e40ece44a1ec67316d076b267c52fb3484b95970fb6b9eb74",
+    "cmake/JobDeadline.cmake": "4b5cb178c5e3f5f5f3a802e1a87d64085557b9a69ffc6a6c601313908c816427",
+    "cmake/JobRetryReset.cmake": "5254cf3bf2eb5488ca6e0e1125f29258aa80dea01587fd8272d54638c547ca43",
+    "cmake/NativeLifecycle.cmake": "be5d82dbe8c68c015d371d2c1e3022d78063b8372ced822878159d4a5b2f8a7d",
+    "cmake/WorkerRecovery.cmake": "eb47cea0b61c1aae4961d0ebd0f63ece0453b39a022cb2b018d879997050ce6f",
+    "crexx/application/tests/lifecycle_regression.crexx": "986fb73fa7b6330613a59463a13cba5f909361d08e4cecbd6ef54925da307c0e"
+  },
+  "authority": "Scratch-library local fixtures only; no hosted calls or master processing/install."
+}

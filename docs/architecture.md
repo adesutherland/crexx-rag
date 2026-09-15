@@ -129,8 +129,8 @@ remain unchanged.
 job-plan text pages. `ragrepository` owns the SQL projections and bounded plan
 slice reads; `ragproduct` composes access checks and commands. `ragcommand`
 validates at most 100 data records plus one bounded final cursor record, rather
-than counting the cursor against the advertised data limit. Large plans no
-longer enter a generic list value: summaries state completeness and link to
+than counting the cursor against the advertised data limit. Plans of every size are omitted from generic list values: summaries state
+that detail is separate and link to
 `job.plan`. SQLite supplies a bounded character slice on each detail read.
 
 `ragquery` owns lexical query preparation. It preserves non-ASCII text,
@@ -139,7 +139,66 @@ ASCII FTS syntax out of generated terms. Index normalization remains SQLite's
 responsibility; evidence text and citation byte offsets are not rewritten.
 See [public results and lexical repair](public-result-lexical-repair.md).
 
+## Job deadlines, continuation and retry resets
+
+`ragbacklog.setbacklogdeadline` owns deadline-only edits and reuses the existing
+absolute-time parser. It preserves the original start time, changes the window
+deadline/timing and appends a
+`deadline-update` event in one writer transaction. Checkpoints read that same
+window; no restart or new timer is needed. `ragcontinuation` retains continuation
+transaction ownership. Expired ordinary continuation caps discovery at the
+materialized item count and reuses the window duration without renewing any
+allowance. Explicit `job deadline` preserves the original discovery limit.
+An expired repeat of a named renewal cannot enter the ordinary completion path
+or move its deadline. Cancelled jobs are not implicitly resumed.
+
+`raglifecycle` owns effective item, maintenance-task and embedding retry counts.
+Explicit `job reset-retries JOB|--all` records per-item cumulative baselines as
+`retry-reset` events through `ragcontinuation`; it never edits old attempts,
+provider runs, task attempt numbering or usage. Shared task/embedding identity
+uses the largest retained baseline across its linked items. This prevents a
+fresh repair/replay job from restoring the old exhausted count. Active work is
+excluded from the settled reset baseline and still consumes the new allowance.
+Actual totals remain separately reportable (`recorded_calls` versus
+`retry_calls`). Existing retry requests and their holds retain their owner.
+
+The reset is a set-based insert under one writer transaction, with unchanged
+baselines skipped. Existing item/attempt, task-item, embedding-identity and
+job-event indexes serve the reads. No schema change, rolling-time retry policy,
+background reset process, budget renewal or automatic retry is introduced.
+CLI/MCP schemas and routing remain in `ragcommandcatalog`.
+
+### Commented job files — agreed design
+
+Standing requirement agreed on 15 September 2026; implementation is tracked as
+[RAG-OPS-007](ROADMAP.md#commented-job-files--rag-ops-007). A job file should be
+comfortable for humans and agents to edit, with named parameters and explanatory
+comments. Keep the run's notes, already-granted approvals and retry/continuation
+instructions in that same record. Preserve comments and notes when updating
+parameters or resuming work. AGENTS contains enduring conventions and a pointer
+to the run record, rather than accumulating each run's temporary instructions.
+
+Parameter updates must reuse the existing job controls and their owners,
+including deadline-only updates that preserve all other values. State clearly
+when an edit takes effect. The file is operator input and a run record; SQLite,
+retained original plans and execution history remain authoritative. Configuration
+still has its existing selected policy owner. Recording an approval preserves
+the user's actual scope; it does not create authority or extend an expired run.
+Use a simple comment-capable format without a second policy engine or runner.
+Until this interface exists, the current run record and public commands provide
+the workflow; merely editing that record does not change a running job.
+
 ## Durable ingestion
+
+`ragfolder` owns source discovery and include matching. Plan and apply pass the
+selected source set's same include patterns to that collector, which filters
+root-relative paths before reading or hashing file contents. Comma-separated
+patterns are alternatives, matched case-sensitively: `*` and `?` stay within a
+path component, and a complete `**` component matches zero or more components.
+The supported text formats and existing file/depth ceilings still apply.
+Adapters must not maintain a second filter. Source-set ingestion remains a
+reconciliation: files omitted from a newly applied selection are removed from
+that source set's current membership through the existing ingestion owner.
 
 1. The controller discovers configured source files and creates a canonical,
    digest-bound zero-write plan.
@@ -163,6 +222,12 @@ a worker group ends, including bounded or unsuccessful runs, using committed
 SQLite embeddings. Failed activation reports the same retry command. This is
 the acceptance contract in the [Test 2 checklist](test2-recovery-delivery-20260914.md).
 
+An embeddings-only window that ends with missing coverage retains an incomplete
+run and `completed_with_errors` job outcome, including when no item was admitted.
+`raglifecycle` owns that outcome for reads and refreshes; `ragbacklog` exposes
+the same run through status and inspection. Ordinary catalogue maintenance can
+finish its bounded window with a remaining backlog without becoming an error.
+
 Codex's required preflight reads current account allowance before new work.
 Durable receipts settle actual usage. There is no additional account refresh
 or hardcoded two-second timeout after a successful result. History cleanup uses
@@ -175,6 +240,20 @@ existing classification.
 SQLite rows are the process communication mechanism. Leases, fencing,
 idempotency keys, attempts, provider runs, events, heartbeats, and requested
 worker state make recovery explicit.
+
+Operator output and process lifetime are independent. `ragtrace.writeoperatorline`
+owns best-effort stdout/stderr writes: after a failed sink it stops writing to
+that sink and the work continues. Its NOTREADY handler covers only the output
+write; provider transports and corpus file failures retain their normal errors.
+Controller stdin EOF does not request a shutdown. `ragprocess` owns catchable
+SIGTERM/SIGINT/SIGHUP: its VM handler records only the first signal in process
+memory; the ordinary loop requests drain, admits no further work, waits for
+current work and persists `shutdown requested: SIGNAL` in runtime detail. No
+SQL runs in the signal handler and no extra timeout or supervisor is added.
+SIGKILL cannot be caught and cannot produce a final receipt. Use ordinary
+restart after confirmed process loss; missing final output alone is not proof
+of corpus damage. The shared maintenance skill owns the agent's short recovery
+procedure. See [T7-10](t7-10-controller-diagnosis-20260915.md) for qualification.
 
 **Simple restart implementation, 13 September 2026:** controller
 failure ends the run. Workers record their own PID and their controller's PID
@@ -242,6 +321,10 @@ both queue an uncalled capacity waiter without consuming a failed attempt;
 closed maintenance windows keep their existing backlog policy. Real exhaustion
 and uncertain outcomes retain their existing stopping/reconciliation paths.
 The module does not own settlement, worker replacement or provider rate limits.
+Its `callcostallowed` rule distinguishes a funded monetary call from local or
+subscription work. Backlog selection uses it before filling a batch; the worker
+reservation uses the same rule. Zero API budget leaves paid tasks pending while
+independently funded work continues. No extra approval or persisted hold is added.
 `job status` reports the latest queued deferral in `waiting_reason`, separately
 from `last_error`; it clears when that item is reclaimed or stops waiting.
 
@@ -252,7 +335,7 @@ and disposition. Its creation and the owner's reconsideration run in one
 SQLite writer transaction. `ragwork` retains leases, fences and same-job
 execution; `ragbacklog` retains policy, windows and task dispatch. Closing a
 window no longer hides dead letters behind an unconditional completed job.
-A request cannot reopen a closed window, reset attempts, renew an allowance,
+A retry request cannot reopen a closed window, reset eligibility counts, renew an allowance,
 resume a pause/cancellation or erase an uncertain provider intent.
 Completion takes precedence over historical uncertainty. `retryrequested` and
 `retryblockeditem` share the distinction between automatic recovery and an
@@ -324,7 +407,14 @@ admission without requiring reconstruction of the old answer.
 Codex intent is durable before turn submission. Public `job reconcile` binds
 the original attempt, input hash, snapshot, provider run, thread and turn to a
 fresh observation. Inspect reads App Server history without cancellation or
-resumption. Apply checks the digest again and atomically records the response,
+resumption. Later source or budget edits do not require restoring the old
+configuration merely to inspect or settle that turn. `ragapplicationprovider`
+checks the retained provider ID, Codex kind, model and charging basis;
+`ragreceipts.readexternalidentity` projects the original job's attempt ceiling
+from its existing indexed budget-policy event into the observation identity.
+Apply uses that retained ceiling, never the currently selected retry setting.
+Normal execution and validation still use `worksnapshotmatches`.
+Apply checks the digest again and atomically records the response,
 ordinary settlement receipt, observation and item disposition. Actual worker
 and claim ownership must be drained; a separate paused-parent gate is unnecessary.
 The shared lifecycle refresh preserves an intentional pause and makes a drained
@@ -492,11 +582,53 @@ assertions can flag a task; transport failure alone cannot.
 
 Inline new-claim NDJSON and server-file proposals share one decoder and the
 existing claim validator. Both produce canonical plans and mandatory reviews.
+If that route is unavailable, the plan returns the validator's actual reason;
+it does not replace evidence, type or ambiguity diagnoses with a generic gate
+failure, and it does not weaken the validator to force a plan through.
+`ragclaims` returns the stored review identity; `ragimprove` retains that result
+for each proposal, and public apply renders paired proposal/review IDs. Consumers
+use those IDs directly rather than scanning reviews or reconstructing hashes.
 Task resolution does not itself add relationships absent from the graph; those
 require separately grounded claim proposals. Neither exploration nor an LLM's
 reasoning bypasses ownership, exact-plan, review or lifecycle retirement gates.
 
 ## Historic observability
+
+`ragoperationsquery` owns per-source backlog inspection on `maintain.tasks`.
+Its `job.items` uncertainty selector composes `raglifecycle.uncertainitem` with
+the same running/cancel-requested versus held split used by `ragusage` status.
+The job-keyed query filters before its cursor/limit; matching provider receipts
+remove an item from all uncertainty scopes. Existing event item/type and
+attempt/type indexes serve the correlated predicate. The selector adds no
+schema, recovery transition or independent uncertainty rule.
+Its optional source filter uses current source membership and the existing
+revision/subject indexes before keyset pagination. A single read transaction
+covers the source-wide summary and page. Retained `concept-review` task counts,
+undiscovered chunks, task states and priorities are observations; they do not
+invent a new scheduler, claim complete extraction or conflate source-local
+work with library-wide graph maintenance. No reporting tables or migrations
+are needed. Ordinary monitoring uses this summary at block boundaries.
+
+Source-scoped ordinary maintenance uses the optional `maintain --source SOURCE_ID`
+selector. `ragrepository.currentsourcechunks` owns the current-membership query
+shared by `ragoperationsquery` inspection and `ragbacklog`. The selected source
+is frozen in the canonical preview and immutable window policy, not the
+knowledge fingerprint. `ragbacklog` restricts chunk census before its existing
+cursor/limit, then applies the same source scope to direct chunk dispatch,
+retry eligibility, outcome reconciliation, completion and coverage. Catalogue
+and workflow census remains outside a source window. Existing queued work,
+receipts, holds, budgets and continuation semantics retain their owners; a
+source selection does not grant another allowance or change priorities.
+The current source revision supplies eligible chunks; publication and queued
+work retain the normal generation/evidence freshness rules. An empty or
+retired membership never falls back to the whole corpus. Reviewed worklists
+and provenance enrichment reject this selector explicitly.
+
+`ragrepository` owns list and exact source/review projections. Exact detail
+reads use bound primary-key equality before limiting rows; an adapter must not
+find a requested ID by filtering the first list page. List cursors retain their
+ordered range predicates. Source detail retains snapshot visibility and reads
+metadata only for the selected record.
 
 The detailed history remains in the existing append-only publication, job,
 item, attempt, provider-run, review and maintenance records. Provider runs

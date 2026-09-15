@@ -1,0 +1,47 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start  3: regression_source_maintenance
+1/7 Test  #3: regression_source_maintenance ....***Failed    2.16 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/SourceMaintenance.cmake:29 (message):
+  Source maintenance command failed (expected 0, got 6):
+  {"schema":"crexx-rag.command-result/1","operation":"job.continue","status":"error","exit_code":6,"exit_name":"conflict","message":"maintenance
+  deadline has passed; job continue requires --renew PERIOD [--minutes N] for
+  a new explicit allowance period","records":[]}
+
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/SourceMaintenance.cmake:116 (cli)
+
+
+
+    Start 62: regression_large_job
+2/7 Test #62: regression_large_job .............   Passed    1.75 sec
+    Start 63: regression_plan_detail
+3/7 Test #63: regression_plan_detail ...........   Passed    7.86 sec
+    Start 64: regression_retry
+4/7 Test #64: regression_retry .................   Passed    1.74 sec
+    Start 65: regression_closed_retry
+5/7 Test #65: regression_closed_retry ..........   Passed    3.46 sec
+    Start 73: native_legacy_retry_ceiling
+6/7 Test #73: native_legacy_retry_ceiling ......   Passed   10.50 sec
+    Start 75: native_embedding_retry_policy
+7/7 Test #75: native_embedding_retry_policy ....   Passed   11.03 sec
+
+86% tests passed, 1 tests failed out of 7
+
+Label Time Summary:
+RAG-OPS-002        =   3.46 sec*proc (1 test)
+RAG-UX-02          =   1.75 sec*proc (1 test)
+lifecycle          =  21.53 sec*proc (2 tests)
+loopback           =  21.53 sec*proc (2 tests)
+maintenance        =   2.16 sec*proc (1 test)
+native             =  36.34 sec*proc (6 tests)
+public-contract    =  14.81 sec*proc (4 tests)
+recovery           =  21.53 sec*proc (2 tests)
+regression         =  38.50 sec*proc (7 tests)
+source             =   2.16 sec*proc (1 test)
+zero-outbound      =  16.97 sec*proc (5 tests)
+
+Total Test time (real) =  38.50 sec
+
+The following tests FAILED:
+	  3 - regression_source_maintenance (Failed)            maintenance regression source zero-outbound
+Errors while running CTest

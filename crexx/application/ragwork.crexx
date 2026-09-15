@@ -60,7 +60,7 @@ claimnext: procedure = .int
     /* Expired attempts are closed before their items become eligible again. */
     sql = "UPDATE attempts SET outcome='expired',validation_state='lease-expired',completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE attempt_id IN(SELECT a.attempt_id FROM job_items i CROSS JOIN attempts a ON a.item_id=i.item_id AND a.fence=i.fence WHERE i.state IN('running','cancel_requested') AND i.lease_until<=unixepoch() AND a.outcome='running')"
     if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot expire stale attempts", error)
-    sql = "UPDATE job_items SET state=CASE WHEN EXISTS(SELECT 1 FROM job_events e WHERE e.item_id=job_items.item_id AND e.event_type='provider-outcome-uncertain' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')) THEN 'dead_letter' WHEN (SELECT count(*) FROM attempts a WHERE a.item_id=job_items.item_id AND a.outcome<>'cancelled')>=" || maximum_attempts || " AND NOT EXISTS(SELECT 1 FROM job_events e WHERE e.item_id=job_items.item_id AND e.event_type='provider-response') THEN 'dead_letter' ELSE 'queued' END,worker_id=NULL,lease_until=NULL,retry_at=CAST(strftime('%s','now') AS INTEGER),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='running' AND lease_until<=CAST(strftime('%s','now') AS INTEGER)"
+    sql = "UPDATE job_items SET state=CASE WHEN EXISTS(SELECT 1 FROM job_events e WHERE e.item_id=job_items.item_id AND e.event_type='provider-outcome-uncertain' AND NOT EXISTS(SELECT 1 FROM job_events r WHERE r.attempt_id=e.attempt_id AND r.event_type='provider-response')) THEN 'dead_letter' WHEN " || itemretrycount("job_items.item_id") || ">=" || maximum_attempts || " AND NOT EXISTS(SELECT 1 FROM job_events e WHERE e.item_id=job_items.item_id AND e.event_type='provider-response') THEN 'dead_letter' ELSE 'queued' END,worker_id=NULL,lease_until=NULL,retry_at=CAST(strftime('%s','now') AS INTEGER),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='running' AND lease_until<=CAST(strftime('%s','now') AS INTEGER)"
     if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot recover expired items", error)
     sql = "UPDATE job_items SET state='cancelled',worker_id=NULL,lease_until=NULL,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='cancel_requested' AND lease_until<=CAST(strftime('%s','now') AS INTEGER)"
     if sqliteexec(database, sql) \= 0 then return _rollback(database, "cannot recover cancelled items", error)
@@ -198,6 +198,7 @@ reservecall: procedure = .int
     input_document = .jsondocument(input_json)
     charging_basis = ""
     if input_document.valid() = 1 & input_document.node_type(input_document.root()) = "object" then ignored = input_document.node_string(input_document.member(input_document.root(), "charging_basis"), charging_basis)
+    if callcostallowed(charging_basis,maximum_cost) = 0 then return _rollback(database,"paid provider call has no monetary allowance",error)
     if charging_basis = "subscription-allowance" then codex_turn = 1
   end
   if codex_turn = 1 then do
@@ -345,7 +346,7 @@ failattempt: procedure = .int
   database = store.database()
   if beginwritetransaction(database,"begin failed attempt",error) \= 0 then return -3
   if _activefence(database, claim) \= 1 then return _rollback(database, "worker fence is stale or cancelled", error)
-  attempts = _boundcount(database, "SELECT count(*) FROM attempts WHERE item_id=?1 AND outcome<>'cancelled'", claim.item_id())
+  attempts = _boundcount(database, "SELECT " || itemretrycount("?1"), claim.item_id())
   if retryable = 1 & attempts < maximum_attempts then next_state = "queued"
   else next_state = "dead_letter"
   if uncalled = 1 & retryable = 1 then next_state = "queued"
@@ -495,7 +496,7 @@ _reconsideritemretries: procedure = .int
     owned = _boundcount(database,"SELECT count(*) FROM job_items WHERE item_id=?1 AND state IN('queued','running','cancel_requested')",item_id)
     uncertain = _scalarint(database,"SELECT CASE WHEN " || retryblockeditem(_q(item_id)) || " THEN 1 ELSE 0 END")
     ceiling = _boundscalarint(database,"SELECT coalesce(json_extract(message,'$.maximum_attempts'),0) FROM job_events WHERE job_id=?1 AND event_type='budget-policy' AND json_valid(message) ORDER BY event_id DESC LIMIT 1",job_id)
-    spent = _boundcount(database,"SELECT count(*) FROM attempts WHERE item_id=?1 AND outcome<>'cancelled'",item_id)
+    spent = _boundcount(database,"SELECT " || itemretrycount("?1"),item_id)
     delayed = _boundcount(database,"SELECT count(*) FROM job_items WHERE item_id=?1 AND retry_at>unixepoch()",item_id)
     hold = ""
     if parent = "paused" then hold = "job-paused"
@@ -596,10 +597,10 @@ readjobstatus: procedure = .int
   error = ""; status = .ragjobstatus("", "failed", 0, 0, 0, 0, 0, 0, 0, 0, "", "", "", 0.0, "", "", "", "", "", "")
   if store.open() \= 1 | job_id = "" then do; error = "job status inputs are invalid"; return -1; end
   database = store.database(); prepared = .binary
-  sql = "SELECT state,item_budget,created_at,updated_at FROM jobs WHERE job_id=?1"
+  sql = "SELECT j.state,j.item_budget,j.created_at,j.updated_at,coalesce(w.state,''),coalesce(json_extract(w.policy_json,'$.embeddings_only'),0),coalesce(r.state,'') FROM jobs j LEFT JOIN maintenance_windows w ON w.job_id=j.job_id LEFT JOIN maintenance_runs r ON r.run_id=w.run_id WHERE j.job_id=?1"
   if sqliteprepare(database, sql, prepared) \= 0 | sqlitebindtext(prepared, 1, job_id) \= 0 | sqlitestep(prepared) \= 100 then do; call sqlitefinalize prepared; error = "job is unavailable"; return -2; end
-  state = ""; item_limit = 0; created = ""; updated = ""
-  columns = sqlitecolumntext(prepared, 0, state) | sqlitecolumnint(prepared, 1, item_limit) | sqlitecolumntext(prepared, 2, created) | sqlitecolumntext(prepared, 3, updated)
+  state = ""; item_limit = 0; created = ""; updated = ""; window=""; embedding=0; run_outcome=""
+  columns = sqlitecolumntext(prepared, 0, state) | sqlitecolumnint(prepared, 1, item_limit) | sqlitecolumntext(prepared, 2, created) | sqlitecolumntext(prepared, 3, updated) | sqlitecolumntext(prepared,4,window) | sqlitecolumnint(prepared,5,embedding) | sqlitecolumntext(prepared,6,run_outcome)
   call sqlitefinalize prepared
   if columns \= 0 then do; error = "job status is malformed"; return -3; end
   counts=.int[]
@@ -608,8 +609,7 @@ readjobstatus: procedure = .int
   queued=counts[1];running=counts[2];processed=counts[3];skipped=counts[4];dead=counts[5];cancelled=counts[6]
   planned=queued+running+processed+skipped+dead+cancelled
   uncertain=_boundcount(database,"SELECT count(*) FROM job_items i WHERE i.job_id=?1 AND " || uncertainitem("i.item_id"),job_id)
-  window=_boundscalartext(database,"SELECT state FROM maintenance_windows WHERE job_id=?1",job_id)
-  state=lifecyclejobstate(state,queued+running,dead,cancelled,uncertain,window)
+  state=lifecyclejobstate(state,queued+running,dead,cancelled,uncertain,window,embedding,run_outcome)
   if state="" then do;error="cannot project job lifecycle state";return -3;end
   failures = _boundcount(database, "SELECT count(*) FROM attempts a JOIN job_items i ON i.item_id=a.item_id WHERE i.job_id=?1 AND a.outcome IN('failed','expired','dead_letter')", job_id)
   current = _boundscalartext(database, "SELECT coalesce(min(item_id),'') FROM job_items WHERE job_id=?1 AND state IN('running','cancel_requested')", job_id)
@@ -621,6 +621,7 @@ readjobstatus: procedure = .int
   if uncertain>0 then last_error = "provider outcome uncertain: inspect durable job events before reconciliation or retry"
   waiting_reason = ""
   if state = "queued" | state = "running" | state="paused" then waiting_reason = _boundscalartext(database,"SELECT e.message FROM job_events e JOIN attempts a ON a.attempt_id=e.attempt_id JOIN job_items i ON i.item_id=e.item_id AND i.fence=a.fence WHERE e.job_id=?1 AND e.event_type='provider-deferred' AND a.outcome='cancelled' AND i.state='queued' ORDER BY e.event_id DESC LIMIT 1",job_id)
+  if waiting_reason="" & state="completed_with_errors" & embedding=1 & run_outcome="incomplete" then waiting_reason="embedding repair incomplete; inspect embedding tasks and resolve retry holds before continuing"
   if waiting_reason="" & window<>"" & window<>"active" then waiting_reason="maintenance window " || window || "; use job continue, with --renew PERIOD if its allowance or deadline is exhausted"
   if waiting_reason="" & state="paused" then waiting_reason="job paused; inspect held items, then job continue"
   retry_summary = .jsondocument(jobretrysummary(database,job_id)); retry_pending = 0; retry_reason = ""

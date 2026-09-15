@@ -1,0 +1,17 @@
+{
+  "source": "/Users/adrian/.codex/sessions/2026/09/14/rollout-2026-09-14T14-42-06-01a0a027-4ffe-7832-a904-42fd1381ab06.jsonl",
+  "entries": [
+    {
+      "source_line": 3192,
+      "timestamp": "2026-09-15T01:58:45.925Z",
+      "type": "task_started",
+      "turn_id": "01a0a2c9-bfa2-7931-b597-4a4ec29edb7b"
+    },
+    {
+      "source_line": 3478,
+      "timestamp": "2026-09-15T04:18:32.818Z",
+      "type": "task_started",
+      "turn_id": "01a0a349-b8ee-7d11-a8c6-ed5963994d86"
+    }
+  ]
+}

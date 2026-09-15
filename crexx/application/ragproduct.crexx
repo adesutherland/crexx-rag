@@ -82,6 +82,7 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "job.status" then return jobstatuscommand(request)
   if operation = "job.pause" | operation = "job.resume" | operation = "job.cancel" then return _jobcontrol(request)
   if operation = "job.retry" then return _jobretry(request)
+  if operation = "job.deadline" | operation = "job.reset-retries" then return _joblimits(request)
   if operation = "maintain.waive" then return _taskwaive(request)
   if operation = "maintain.retry" then return _taskretry(request)
   if operation = "maintain.reconcile" then return _workflowreconcile(request)
@@ -458,8 +459,8 @@ _proposalapply: procedure = .ragcommandresult
   policy = effectiveclaimpolicy(lookup.profile()); plan = .ragexternalproposalplan
   plan_status = createexternalproposalplan(store, snapshot_id, policy, proposals, plan, error)
   if plan_status = 0 & (plan.canonical() \= plan_json | plan.digest() \= digest) then do; plan_status = -2; error = "external proposals or library generation changed after review"; end
-  reviews_created = 0; apply_status = -1
-  if plan_status = 0 then apply_status = applyexternalproposalplan(store, plan, policy, proposals, reviews_created, error)
+  reviews_created = 0; apply_status = -1; review_ids = .string[]
+  if plan_status = 0 then apply_status = applyexternalproposalplan(store, plan, policy, proposals, reviews_created, error, review_ids)
   close_error = ""; close_status = closeragstore(store, close_error)
   if plan_status \= 0 | apply_status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return commandfailure(operation, 6, error); end
   fields = .ragresultfield[]
@@ -468,6 +469,12 @@ _proposalapply: procedure = .ragcommandresult
   fields[3] = .ragresultfield("reviews_created", "integer", reviews_created)
   fields[4] = .ragresultfield("provider_calls", "integer", 0)
   records = .ragresultrecord[]; records[1] = .ragresultrecord("proposal-apply", fields)
+  do i = 1 to review_ids.0
+    review_fields = .ragresultfield[]
+    review_fields[1] = .ragresultfield("proposal_id", "string", proposals[i].proposal_id())
+    review_fields[2] = .ragresultfield("review_id", "string", review_ids[i])
+    records[records.0 + 1] = .ragresultrecord("proposal-review", review_fields)
+  end
   return .ragcommandresult(operation, "ok", 0, "reviewed external proposals applied through the mandatory review gate", records)
 
 _providerstatus: procedure = .ragcommandresult
@@ -648,7 +655,9 @@ _repository: procedure = .ragcommandresult
   read_snapshot = .ragreadsnapshot
   if beginreadsnapshot(request.library(), read_snapshot, error) \= 0 then return commandopenfailure(operation, error)
   page = .ragrepositorypage
-  page_status = pagerepository(read_snapshot, repository, cursor, limit, page, error)
+  lookup_id = ""; result_filter = id
+  if operation = "source.show" | operation = "review.show" then do; lookup_id = id; result_filter = ""; end
+  page_status = pagerepository(read_snapshot, repository, cursor, limit, page, error, lookup_id)
   metadata_rows = .string[]
   if page_status = 0 & repository = "sources" then do
     source_rows = page.records()
@@ -661,7 +670,7 @@ _repository: procedure = .ragcommandresult
     if error = "" then error = close_error
     return commandfailure(operation, 7, error)
   end
-  records = repositoryresultrecords(page,metadata_rows,id,limit)
+  records = repositoryresultrecords(page,metadata_rows,result_filter,limit)
   if id \= "" & records.0 = 0 then return commandfailure(operation, 5, "requested record was not found")
   return .ragcommandresult(operation, "ok", 0, "bounded repository page read without mutation", records)
 
@@ -691,6 +700,44 @@ _jobcontrol: procedure = .ragcommandresult
   if operation = "worker.drain" then fields[3] = .ragresultfield("running", "integer", running)
   records = .ragresultrecord[]; records[1] = .ragresultrecord("job-control", fields)
   return .ragcommandresult(operation, "ok", 0, "job control applied through the durable fenced store", records)
+
+_joblimits: procedure = .ragcommandresult
+  arg request=.ragcommandrequest
+  operation=request.operation();error=""
+  if commandhasaccess(request,"control")<>1 then return commandfailure(operation,4,"job controls require control access")
+  allowed="id until";if operation="job.reset-retries" then allowed="id all"
+  if commandworkeroptions(request,allowed,"all",error)<>0 then return commandfailure(operation,2,error)
+  all_jobs=commandoption(request,"all",error);job_id=""
+  if all_jobs="true" then do
+    positionals=request.positionals()
+    if positionals.0>0 | commandoption(request,"id",error)<>"" then return commandfailure(operation,2,"choose one job id or --all")
+  end
+  else do
+    job_id=commandid(request,error)
+    if job_id="" | error<>"" then return commandfailure(operation,2,"supply one job id or use job reset-retries --all")
+  end
+  store=.ragstorehandle
+  if openragstore(request.library(),"readwrite",store,error)<>0 then return commandopenfailure(operation,error)
+  jobs=0;items=0;deadline=0;changed=0
+  if operation="job.deadline" then status=setbacklogdeadline(store,job_id,commandoption(request,"until",error),deadline,changed,error)
+  else status=resetjobretries(store,job_id,jobs,items,error)
+  close_error="";close_status=closeragstore(store,close_error)
+  if status<>0 | close_status<>0 then do
+    code=6;if status=-2 then code=2;if status=-4 then code=5
+    if error="" then error=close_error
+    return commandfailure(operation,code,error)
+  end
+  fields=.ragresultfield[];fields[1]=.ragresultfield("job_id","string",job_id);fields[2]=.ragresultfield("provider_calls","integer",0)
+  message="retry counts reset; attempt history and usage retained; use retry/continue for outstanding work"
+  if operation="job.deadline" then do
+    fields[3]=.ragresultfield("deadline_epoch","integer",deadline);fields[4]=.ragresultfield("changed","integer",changed)
+    message="deadline updated; other limits and job state unchanged; continue a stopped job normally"
+  end
+  else do
+    fields[3]=.ragresultfield("jobs_reset","integer",jobs);fields[4]=.ragresultfield("items_reset","integer",items)
+  end
+  records=.ragresultrecord[];records[1]=.ragresultrecord("job-control",fields)
+  return .ragcommandresult(operation,"ok",0,message,records)
 
 _jobretry: procedure = .ragcommandresult
   arg request = .ragcommandrequest
@@ -1120,7 +1167,7 @@ _ingestplan: procedure = .ragcommandresult
   end
   if source_index = 0 then return commandfailure(operation, 5, "source set is not registered")
   observations = .ragsourceobservation[]
-  if collectfolderobservations(source_sets[source_index].root(), source_set_id, source_sets[source_index].retain_raw_artifact(), source_sets[source_index].maximum_file_bytes(), "surface-plan", observations, error, source_sets[source_index].maximum_depth()) < 0 then return commandfailure(operation, 1, error)
+  if collectfolderobservations(source_sets[source_index].root(), source_set_id, source_sets[source_index].retain_raw_artifact(), source_sets[source_index].maximum_file_bytes(), "surface-plan", observations, error, source_sets[source_index].include_patterns(), source_sets[source_index].maximum_depth()) < 0 then return commandfailure(operation, 1, error)
   store = .ragstorehandle
   if openragstore(request.library(), "readonly", store, error) \= 0 then return commandopenfailure(operation, error)
   snapshot_id = currentconfigsnapshotid(store.database(), error)
@@ -1177,7 +1224,7 @@ _ingestapply: procedure = .ragcommandresult
   if openragstore(request.library(), "readwrite", store, error) \= 0 then return commandopenfailure(operation, error)
   captured_at = sqlreadtext(store.database(),"SELECT strftime('%Y-%m-%dT%H:%M:%fZ','now')")
   observations = .ragsourceobservation[]
-  if collectfolderobservations(source_sets[source_index].root(), source_set_id, source_sets[source_index].retain_raw_artifact(), source_sets[source_index].maximum_file_bytes(), captured_at, observations, error, source_sets[source_index].maximum_depth()) < 0 then do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation, 1, error); end
+  if collectfolderobservations(source_sets[source_index].root(), source_set_id, source_sets[source_index].retain_raw_artifact(), source_sets[source_index].maximum_file_bytes(), captured_at, observations, error, source_sets[source_index].include_patterns(), source_sets[source_index].maximum_depth()) < 0 then do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation, 1, error); end
   snapshot_id = currentconfigsnapshotid(store.database(), error)
   domain_plan = .ragingestplan
   chunks = profile_lookup.profile().chunk_policy().max_characters()
@@ -1279,9 +1326,10 @@ _maintainapply: procedure = .ragcommandresult
     return _enrichmentapply(request,registry,store,config,plan_json,digest,timing_json,enrichment_input,snapshot_id)
   end
   embedding_only = sqlreadint(store.database(),"SELECT coalesce(json_extract(" || sqlquote(reviewed_policy) || ",'$.embeddings_only'),0)") = 1
+  source_id=sqlreadtext(store.database(),"SELECT coalesce(json_extract(" || sqlquote(reviewed_policy) || ",'$.source_id'),'')")
   plan = .ragimproveplan
   census = .ragmaintenancecensus
-  plan_status = _preparemaintenance(store, config, snapshot_id, plan, census, error, embedding_only)
+  plan_status = _preparemaintenance(store, config, snapshot_id, plan, census, error, embedding_only, source_id)
   reviewed_maintenance_digest = _actionstring(plan_json, "maintenance_digest", error)
   if plan_status = 0 & (reviewed_maintenance_digest = "" | reviewed_maintenance_digest \= census.digest()) then do; error = "reviewed maintenance digest does not match the current canonical census"; plan_status = -2; end
   if plan_status = 0 & config.maintenance().mode() \= "reviewed" then do
@@ -1292,7 +1340,7 @@ _maintainapply: procedure = .ragcommandresult
     if recovery_status < 0 then do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation,7,error); end
     old_job = sqlreadtext(store.database(),"SELECT job_id FROM maintenance_windows WHERE state='active' ORDER BY created_epoch LIMIT 1")
     if old_job \= "" then if tickbacklogwindow(store,old_job,error) < 0 then do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation,7,error); end
-    policy_json = backlogpolicy(config,profile_lookup.profile(),plan.discovery_context(),timing_json,embedding_only)
+    policy_json = backlogpolicy(config,profile_lookup.profile(),plan.discovery_context(),timing_json,embedding_only,source_id)
     reviewed_policy = _actionstring(plan_json,"window_policy",error)
     if reviewed_policy \= policy_json then do; ignored = ""; call closeragstore store,ignored; return commandfailure(operation,6,"reviewed maintenance window policy changed"); end
     run_id = ""; job_id = ""; items = 0
@@ -1353,7 +1401,7 @@ _maintainplan: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
   operation = request.operation(); error = ""
   if commandhasaccess(request, "plan") \= 1 then return commandfailure(operation, 4, "maintenance planning requires plan access")
-  if commandoptions(request, "minutes until overnight embeddings-only enrich-provenance input", error) \= 0 then return commandfailure(operation, 2, error)
+  if commandoptions(request, "minutes until overnight embeddings-only enrich-provenance input source", error) \= 0 then return commandfailure(operation, 2, error)
   positionals = request.positionals()
   if positionals.0 \= 0 | request.config_id() = "" | request.profile_id() = "" then return commandfailure(operation, 2, "maintenance planning requires registered --config and --profile ids and no positional arguments")
   config_lookup = registry.config(request.config_id())
@@ -1373,9 +1421,16 @@ _maintainplan: procedure = .ragcommandresult
   if enrichment \= "" & enrichment \= "true" then return commandfailure(operation,2,"--enrich-provenance is an enabling flag")
   if (enrichment = "true") \= (enrichment_input \= "") then return commandfailure(operation,2,"provenance enrichment requires --enrich-provenance and --input FILE together")
   if enrichment = "true" & maintenance.mode() = "reviewed" then return commandfailure(operation,2,"provenance enrichment uses automatic, supervised or manual maintenance workers")
+  source_id=commandoption(request,"source",error)
+  if length(source_id)>512 | pos("00"x,source_id)>0 then return commandfailure(operation,2,"source must be at most 512 characters without NUL")
+  if source_id<>"" & maintenance.mode()="reviewed" then return commandfailure(operation,2,"source-scoped maintenance requires automatic, supervised or manual mode")
+  if source_id<>"" & enrichment="true" then return commandfailure(operation,2,"source selection applies to ordinary maintenance, not provenance enrichment")
   privacy = queryprivacy(config)
   store = .ragstorehandle
   if openragstore(request.library(), "readonly", store, error) \= 0 then return commandopenfailure(operation, error)
+  if source_id<>"" then do
+    if sqlreadint(store.database(),"SELECT count(*) FROM sources WHERE source_id=" || sqlquote(source_id) || " AND visible_to_generation IS NULL")<>1 then do;ignored="";call closeragstore store,ignored;return commandfailure(operation,5,"source was not found");end
+  end
   timing_json = ""
   if maintenance.mode() \= "reviewed" then do
     timing_status = resolvemaintenancetime(store.database(),minutes,until_text,overnight,maintenance.window_seconds(),timing_json,error)
@@ -1387,12 +1442,12 @@ _maintainplan: procedure = .ragcommandresult
   if enrichment = "true" then return _enrichmentplan(request,registry,store,config,profile_lookup.profile(),timing_json,enrichment_input)
   plan = .ragimproveplan
   census = .ragmaintenancecensus
-  plan_status = _preparemaintenance(store, config, snapshot_id, plan, census, error, embedding_only)
+  plan_status = _preparemaintenance(store, config, snapshot_id, plan, census, error, embedding_only, source_id)
   close_error = ""; close_status = closeragstore(store, close_error)
   if plan_status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return commandfailure(operation, 1, error); end
   foundation_plan = .ragplan
   action = '{"maintenance_digest":' || jsonquote(census.digest()) || '}'
-  if maintenance.mode() \= "reviewed" then action = '{"maintenance_digest":' || jsonquote(census.digest()) || ',"window_policy":' || jsonquote(backlogpolicy(config,profile_lookup.profile(),plan.discovery_context(),timing_json,embedding_only)) || '}'
+  if maintenance.mode() \= "reviewed" then action = '{"maintenance_digest":' || jsonquote(census.digest()) || ',"window_policy":' || jsonquote(backlogpolicy(config,profile_lookup.profile(),plan.discovery_context(),timing_json,embedding_only,source_id)) || '}'
   foundation_status = createfoundationplan(request.library(), request.config_id(), request.profile_id(), "maintain.apply", action, "curate", registry, foundation_plan, error)
   if foundation_status = -2 then return commandfailure(operation, 6, error)
   if foundation_status \= 0 then return commandfailure(operation, 7, error)
@@ -1436,12 +1491,13 @@ _maintainplan: procedure = .ragcommandresult
     fields[fields.0+1] = .ragresultfield("selection_deferred","boolean","true")
   end
   fields[fields.0+1] = .ragresultfield("embeddings_only","boolean",changestr("0",changestr("1",embedding_only || "","true"),"false"))
+  if source_id<>"" then fields[fields.0+1]=.ragresultfield("source_id","string",source_id)
   records[records.0 + 1] = .ragresultrecord("maintenance-preview", fields)
   if maintenance.mode()<>"reviewed" then return .ragcommandresult(operation,"ok",0,"bounded maintenance policy previewed; task selection occurs at activation",records)
   return .ragcommandresult(operation, "ok", 0, "bounded maintenance census and worklist created without library writes", records)
 
 _preparemaintenance: procedure = .int
-  arg store = .ragstorehandle, config = .ragconfig, snapshot_id = .string, expose plan = .ragimproveplan, expose census = .ragmaintenancecensus, expose error = .string, embedding_only = 0
+  arg store = .ragstorehandle, config = .ragconfig, snapshot_id = .string, expose plan = .ragimproveplan, expose census = .ragmaintenancecensus, expose error = .string, embedding_only = 0, source_id = ""
   error = ""; budget = config.budget(); workers = config.workers(); maintenance_policy = config.maintenance()
   extractor = roleproviderconfig(config, "extractor"); embedder = roleproviderconfig(config, "embedding"); extractor_role = rolebinding(config, "extractor"); embedding_role = rolebinding(config, "embedding")
   if snapshot_id = "" | budget.item_limit() < 1 | budget.item_limit() > 100000 | budget.model_calls() < 1 | (maintenance_policy.mode() = "reviewed" & budget.minutes() < 1) | extractor.provider_id() = "" | embedder.provider_id() = "" | embedder.kind() = "codex" then do; error = "maintenance requires positive item, provider-call and time budgets plus extractor and embedding providers"; return -1; end
@@ -1483,7 +1539,7 @@ _preparemaintenance: procedure = .int
   if maintenance_policy.mode()<>"reviewed" then do
     if embedding_only=0 & queryrouteallowed(extractor,privacy)<>1 then do;error="library privacy denies the configured maintenance extractor route";return -2;end
     if queryrouteallowed(embedder,privacy)<>1 then do;error="library privacy denies the configured maintenance embedding route";return -2;end
-    return previewbacklogwindow(store.database(),embedding_profile_id,batch_items,embedding_only,census,error)
+    return previewbacklogwindow(store.database(),embedding_profile_id,batch_items,embedding_only,census,error,source_id)
   end
   maximum_passes = plan.item_count() + 2
   do pass = 1 to maximum_passes

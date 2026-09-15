@@ -1,0 +1,47 @@
+crexxrag - local evidence library
+
+Human workflow
+  crexxrag init
+  crexxrag ingest [SOURCE_SET] [--workers N] [--yes]
+  crexxrag maintain [--minutes N | --until TIMESTAMP | --overnight HH:MM-HH:MM] [--workers N] [--yes]
+  crexxrag maintain status [RUN_ID]
+  crexxrag maintain inspect ITEM_OR_NOTE_ID
+  crexxrag maintain tasks [--subject ID | --concept LABEL] [--workflow ID]
+  crexxrag maintain workflows [--subject ID | --concept LABEL]
+  crexxrag job items JOB_ID [--state STATE] [--cursor ID] [--limit N]
+  crexxrag job attempts JOB_ID [--item ITEM_ID] [--cursor ID] [--limit N]
+  crexxrag --access control maintain retry TASK_ID --reason TEXT
+  crexxrag review list
+  crexxrag --access control job replay JOB_ID [--item ITEM_ID] [--reason TEXT]
+  crexxrag query QUESTION
+  crexxrag citation show CITATION
+  crexxrag library report [--top N] [--narrative off|cached|refresh] [--yes]
+  crexxrag library snapshot [--trigger TYPE] [--reason TEXT]
+  crexxrag library trend [--limit N]
+  crexxrag config show
+  crexxrag --access admin config set --key KEY --value TEXT --expect-sha256 SHA256
+  crexxrag --access admin config replace --input FILE --expect-sha256 SHA256_OR_missing
+  crexxrag config check|explain
+  crexxrag config prompt --role extractor|resolution|answerer|advisory
+  crexxrag config diff
+  crexxrag --access plan config plan --reason TEXT
+  crexxrag --access admin config apply --plan-json JSON --expect-digest SHA256
+  crexxrag provider status
+  crexxrag provider test [PROVIDER] [--yes]
+  crexxrag provider login codex
+  crexxrag doctor
+  crexxrag serve mcp
+
+The current directory defaults are ./crexxrag.conf and ./library.
+Ingest and maintain review privacy, providers, worklists and budgets before starting workers.
+
+Global options
+  --config-file PATH        configuration file
+  --library PATH            library folder
+  --format human|json|ndjson
+  --progress off|plain|ansi
+  --access CAPABILITY       repeat or comma-separate for canonical commands
+
+Automation uses canonical commands such as ingest plan, ingest apply,
+worker start, job status, library report/snapshot/trend, query evidence, query answer, citation show, vector rebuild (SQLite only), and library verify.
+Agents can use the same local defaults through crexxrag serve mcp.

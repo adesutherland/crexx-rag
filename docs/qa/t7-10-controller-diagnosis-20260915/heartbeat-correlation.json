@@ -1,0 +1,35 @@
+[
+  {
+    "source": "/Users/adrian/Documents/ScottishHistory/reports/overnight-soak-20260914/execution/099-boswell-controller-boundary.json",
+    "source_sha256": "4b7ba71f4c7ff309f933ca37a7282ddec313f572d090dc73c96982f76c063896",
+    "observed_at": "2026-09-15T02:32:24.052943+00:00",
+    "heartbeat_age_seconds": 2019,
+    "last_heartbeat_utc": "2026-09-15T01:58:45+00:00",
+    "controller": "controller-0e668908651fffe66d6a2837b5de7fb6",
+    "queued": 17,
+    "state": "paused",
+    "pid": null
+  },
+  {
+    "source": "/Users/adrian/Documents/ScottishHistory/reports/overnight-soak-20260914/execution/128-engineering-final-0552-status.json",
+    "source_sha256": "05dd8ffdf83b4604bfdf8a6025604546108c69849e09f427b9de5041cc74e6b7",
+    "observed_at": "2026-09-15T04:51:38Z",
+    "heartbeat_age_seconds": 1986,
+    "last_heartbeat_utc": "2026-09-15T04:18:32+00:00",
+    "controller": "controller-cf2f4250711ee142b8e2b1dddc0b5f66",
+    "queued": 34,
+    "state": "running",
+    "pid": null
+  },
+  {
+    "source": "/Users/adrian/Documents/ScottishHistory/reports/overnight-soak-20260914/execution/130-final-worker-inspection.json",
+    "source_sha256": "fadba45498d4d40f2eac85451e8d9b2044ccb723abf08a33748940068bb21f8f",
+    "observed_at": "2026-09-15T04:52:29.694008+00:00",
+    "heartbeat_age_seconds": 2037,
+    "last_heartbeat_utc": "2026-09-15T04:18:32+00:00",
+    "controller": "controller-cf2f4250711ee142b8e2b1dddc0b5f66",
+    "queued": null,
+    "state": "running",
+    "pid": 51500
+  }
+]

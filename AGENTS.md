@@ -108,6 +108,17 @@ authentication; never extract tokens. Local embeddings use the
 OpenAI-compatible llama.cpp endpoint. Preserve privacy route classification and
 charging basis in reviewed plans and completed usage.
 
+## Job files and run notes
+
+Commented, human/agent-editable job files are an agreed product requirement.
+Follow the [standing design](docs/architecture.md#commented-job-files--agreed-design)
+and track implementation under RAG-OPS-007 in the roadmap. Keep each run's
+parameters, notes, already-granted approvals and retry instructions together;
+AGENTS holds enduring conventions and a pointer to that run record. Preserve
+comments through edits and reuse existing job controls and policy owners.
+Until the interface is implemented, use the existing run record and public
+commands. Recording this requirement does not make file edits executable.
+
 ## CREXX boundary
 
 Use the installed CREXX package. A sibling CREXX checkout is read-only unless

@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragcontinuation expose preparecontinuation
+namespace ragcontinuation expose preparecontinuation resetjobretries
 
 import ragallowance
 import ragbacklog
@@ -19,6 +19,8 @@ preparecontinuation: procedure = .int
   arg store=.ragstorehandle,job_id=.string,period=.string,minutes=.int,config=.ragconfig,profile=.ragprofile,expose error=.string
   error="";database=store.database()
   if store.writable()<>1 then do;error="continuation requires a writable library";return -1;end
+  state=sqlreadtext(database,"SELECT state FROM jobs WHERE job_id=" || sqlquote(job_id))
+  if state="cancelled" | state="cancel_requested" then do;error="cancelled jobs cannot be continued";return -1;end
   if checkworkerconfiguration(store,job_id,config,profile,error)<>0 then return -1
   /* The selected policy remains authoritative. Register only an already
    * compatible operational change through the existing reviewed-plan owner. */
@@ -37,7 +39,8 @@ preparecontinuation: procedure = .int
   if minutes>0 & sqlreadint(database,"SELECT count(*) FROM maintenance_windows" || selector)<>1 then return _rollback(database,"--minutes sets a maintenance wall-clock period; ordinary job renewal retains its original aggregate provider-time allocation",error)
   renewed=0
   if period<>"" then if renewjoballowance(database,job_id,period,minutes,renewed,error)<>0 then return _rollback(database,error,error)
-  if continuebacklogwindow(database,job_id,renewed,minutes,error)<>0 then return _rollback(database,error,error)
+  finish_admitted=1;if period<>"" then finish_admitted=0
+  if continuebacklogwindow(database,job_id,renewed,minutes,error,finish_admitted)<>0 then return _rollback(database,error,error)
   /* Resume the job; held items require the existing explicit retry/reconcile
    * operations. No paid request or uncertain outcome is silently repeated. */
   if sqliteexec(database,"UPDATE jobs SET state='queued',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')" || selector)<>0 then return _rollback(database,"cannot continue job",error)
@@ -45,6 +48,17 @@ preparecontinuation: procedure = .int
   if sqliteexec(database,"INSERT INTO job_events(job_id,event_type,message,occurred_at) VALUES(" || sqlquote(job_id) || ",'operator-continue','continued through existing task, attempt and admission controls',strftime('%Y-%m-%dT%H:%M:%fZ','now'))")<>0 then return _rollback(database,"cannot retain continuation event",error)
   if sqliteexec(database,"COMMIT")<>0 then return _rollback(database,"cannot commit continuation",error)
   if tickbacklogwindow(store,job_id,error)<0 then return -1
+  return 0
+
+resetjobretries: procedure = .int
+  arg store=.ragstorehandle,job_id=.string,expose jobs=.int,expose items=.int,expose error=.string
+  jobs=0;items=0;error="";database=store.database()
+  if sqliteexec(database,"BEGIN IMMEDIATE")<>0 then do;error="cannot begin retry reset";return -1;end
+  if job_id<>"" then if sqlreadint(database,"SELECT count(*) FROM jobs WHERE job_id=" || sqlquote(job_id))<>1 then do
+    ignored=_rollback(database,"job was not found",error);return -4
+  end
+  if recordretryreset(database,job_id,jobs,items,error)<>0 then return _rollback(database,error,error)
+  if sqliteexec(database,"COMMIT")<>0 then return _rollback(database,"cannot commit retry reset",error)
   return 0
 
 _rollback: procedure = .int

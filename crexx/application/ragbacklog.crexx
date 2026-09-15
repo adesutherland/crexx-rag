@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragbacklog expose previewbacklogwindow taskretryfacts continuebacklogwindow waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh
+namespace ragbacklog expose setbacklogdeadline previewbacklogwindow taskretryfacts continuebacklogwindow waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh
 
 import rxfnsb
 import rxjson
@@ -18,18 +18,14 @@ import ragmaintain
 import raggrounding
 import ragclaims
 import raglifecycle
+import ragadmission
+import ragrepository
 
 /* Paid attempts follow immutable embedding identity across ingestion, repair
  * and replay jobs. Uncalled deferrals and shared receipt replays add no call. */
 embeddingcallcount: procedure = .int
   arg database = .binary, input_json = .string
-  fields = "revision_chunk_id provider_id model embedding_dimension"
-  predicate = "i.item_type='embedding' AND json_valid(i.input_json)"
-  do i = 1 to words(fields)
-    field = word(fields,i)
-    predicate = predicate || " AND json_extract(i.input_json,'$." || field || "')=json_extract(" || _q(input_json) || ",'$." || field || "')"
-  end
-  return _number(database,"SELECT count(DISTINCT a.provider_run_id) FROM job_items i JOIN attempts a ON a.item_id=i.item_id WHERE " || predicate || " AND a.provider_run_id IS NOT NULL")
+  return _number(database,"SELECT " || embeddingretrycallcount(_q(input_json)))
 
 /* Resolve once, before the census. SQLite uses the host timezone rules for
  * civil overnight dates; UTC epochs remain fixed across worker restarts. */
@@ -117,7 +113,7 @@ _cleanupseconds: procedure = .int
 /* Durable, evidence-bound maintenance. This module owns no provider transport:
  * ordinary fenced job items carry its questions through the configured route. */
 backlogpolicy: procedure = .string
-  arg config = .ragconfig, profile = .ragprofile, discovery_context = .string, timing_json = "", embedding_only = 0
+  arg config = .ragconfig, profile = .ragprofile, discovery_context = .string, timing_json = "", embedding_only = 0, source_id = ""
   policy = config.maintenance(); budget = config.budget(); workers = config.workers()
   roles = config.roles(); providers = config.providers(); role = .ragrolebinding; provider = .ragproviderconfig
   do i = 1 to roles.0
@@ -157,17 +153,19 @@ backlogpolicy: procedure = .string
     provider = embedding_provider; input_cap = embedding_input; output_cap = 0; cost_cap = embedding_cost; time_cap = embedding_provider.timeout_ms()
   end
   if embedding_only = 1 then embedding_json = embedding_json || '"embeddings_only":1,"embedding_attempts":' || embedding_provider.max_attempts() || ','
+  if source_id <> "" then embedding_json = embedding_json || '"source_id":' || jsonquote(source_id) || ','
   identity = _hash(canonicalprofile(profile) || "00"x || role.system_prompt() || "00"x || policy.resolution_prompt() || "00"x || "durable-resolution-v1")
   return embedding_json || '"timing":' || jsonquote(timing_json) || ',"provider_time_budget_ms":' || policy.provider_time_minutes() * 60000 || ',"mode":' || jsonquote(policy.mode()) || ',"window_seconds":' || seconds || ',"automatic_actions":' || jsonquote(policy.automatic_actions()) || ',"maximum_impact":' || policy.maximum_impact() || ',"maximum_attempts":' || _configuredattemptlimit(policy.maximum_attempts(),embedding_only,embedding_provider.max_attempts()) || ',"retry_seconds":' || policy.retry_seconds() || ',"maximum_evidence_bytes":' || policy.maximum_evidence_bytes() || ',"sparse_max_degree":' || policy.sparse_max_degree() || ',"query_gap_min_occurrences":' || policy.query_gap_min_occurrences() || ',"batch_items":' || policy.batch_items() || ',"resolution_prompt":' || jsonquote(policy.resolution_prompt()) || ',"knowledge_policy":' || jsonquote(identity) || ',"provider_id":' || jsonquote(provider.provider_id()) || ',"model":' || jsonquote(provider.model()) || ',"charging_basis":' || jsonquote(provider.charging_basis()) || ',"privacy":' || jsonquote(privacy) || ',"profile_id":' || jsonquote(profile.profile_id()) || ',"discovery_context":' || jsonquote(discovery_context) || ',"input_tokens":' || input_cap || ',"output_tokens":' || output_cap || ',"cost_microunits":' || cost_cap || ',"time_ms":' || time_cap || ',"inflight":' || inflight || ',"item_limit":' || budget.item_limit() || ',"model_calls":' || budget.model_calls() || ',"input_budget":' || budget.input_tokens() || ',"output_budget":' || budget.output_tokens() || ',"cost_budget":' || budget.cost_microunits() || ',"codex_turns":' || budget.codex_turns() || '}'
 
 /* Automatic plans approve the durable selection policy. Discovery and task
  * packets belong to activation/checkpoints, not a discarded cognitive census. */
 previewbacklogwindow: procedure = .int
-  arg database=.binary, embedding_profile=.string, maximum_items=.int, embedding_only=.int, expose census=.ragmaintenancecensus, expose error=.string
+  arg database=.binary, embedding_profile=.string, maximum_items=.int, embedding_only=.int, expose census=.ragmaintenancecensus, expose error=.string, source_id=""
   generation=_number(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
   if generation<1 then do;error="cannot read backlog preview generation";return -1;end
   canonical='{"schema":"crexx-rag.backlog-preview/1","expected_generation":' || generation || ',"embedding_profile_id":' || jsonquote(embedding_profile) || ',"maximum_items":' || maximum_items || ',"embeddings_only":' || embedding_only || ',"selection":"durable-backlog-at-activation"}'
   strings=.string[];scores=.int[]
+  if source_id<>"" then canonical=left(canonical,length(canonical)-1) || ',"source_id":' || jsonquote(source_id) || '}'
   census=.ragmaintenancecensus(generation,embedding_profile,strings,strings,strings,scores,strings,strings,strings,canonical,rxhash..sha256hex(canonical as .binary))
   return 0
 
@@ -280,7 +278,9 @@ taskretryfacts: procedure = .string
   active_policy = .jsondocument(_text(database,window_sql || " ORDER BY w.created_epoch DESC LIMIT 1"))
   if active_policy.valid() = 1 then do
     hold = "policy-mismatch"
-    if _s(task,"policy") = _s(active_policy,"knowledge_policy") & (_n(active_policy,"embeddings_only") = 0 | _s(task,"kind") = "embedding-repair:" || _s(active_policy,"embedding_profile")) then do
+    in_scope=(_n(active_policy,"embeddings_only")=0 | _s(task,"kind")="embedding-repair:" || _s(active_policy,"embedding_profile"))
+    if in_scope & _s(active_policy,"source_id")<>"" then in_scope=_number(database,"SELECT count(*) FROM maintenance_tasks WHERE task_id=" || _q(task_id) || _taskscope(active_policy))=1
+    if _s(task,"policy") = _s(active_policy,"knowledge_policy") & in_scope then do
       hold = ""
       ceiling = _attemptlimit(active_policy)
       if _s(active_policy,"mode") = "manual" then review = 1
@@ -290,7 +290,7 @@ taskretryfacts: procedure = .string
   if _number(database,"SELECT " || retryrequested("NULL",_q(task_id)))=1 then retry_uncertain=0
   disposition = retrydisposition(_s(task,"state"),owned,retry_uncertain,review,ceiling,spent,_n(task,"delayed"),hold)
   if taskwaiveractive(database,task_id)>0 then disposition="waived"
-  return '{"state":' || jsonquote(_s(task,"state")) || ',"disposition":' || jsonquote(disposition) || ',"attempt_limit":' || ceiling || ',"recorded_calls":' || _number(database,"SELECT " || _taskcallcount(_q(task_id))) || ',"reusable_output":' || recoverable || ',"uncertain_items":' || uncertain || ',"review_required":' || review || '}'
+  return '{"state":' || jsonquote(_s(task,"state")) || ',"disposition":' || jsonquote(disposition) || ',"attempt_limit":' || ceiling || ',"recorded_calls":' || _number(database,"SELECT " || taskretrycallcount(_q(task_id),1)) || ',"retry_calls":' || _number(database,"SELECT " || taskretrycallcount(_q(task_id))) || ',"reusable_output":' || recoverable || ',"uncertain_items":' || uncertain || ',"review_required":' || review || '}'
 
 _updatetaskretry: procedure = .int
   arg database = .binary, task_id = .string, request_id = .string, job_id = .string, expose error = .string
@@ -634,7 +634,12 @@ _scan: procedure = .int
   review_index = queries.0 + 1
   queries[review_index] = "SELECT c.concept_id FROM concepts c WHERE c.lifecycle_state='active' AND c.visible_to_generation IS NULL AND EXISTS(SELECT 1 FROM maintenance_alias_issues i WHERE i.state='open' AND lower(i.proposed_label)=lower(c.canonical_label) AND (i.proposed_type<>c.concept_type OR EXISTS(SELECT 1 FROM concepts d WHERE d.concept_id<>c.concept_id AND d.lifecycle_state='active' AND d.visible_to_generation IS NULL AND lower(d.canonical_label)=lower(c.canonical_label))))"
   kinds[review_index] = "identity-review"; types[review_index] = "concept"; priorities[review_index] = 960000
+  source_id=_s(policy,"source_id")
   do i = 1 to queries.0
+    if source_id<>"" then do
+      if types[i]<>"chunk" then iterate
+      queries[i]=queries[i] || " AND " || _idcolumn(types[i]) || " IN(" || currentsourcechunks(source_id) || ")"
+    end
     if _n(policy,"embeddings_only") = 1 & left(kinds[i],17) \= "embedding-repair:" then iterate
     /* Finish each category once for a stable evidence snapshot. New provider
      * outcomes or graph generations reopen the census while preserving progress. */
@@ -667,7 +672,7 @@ _scan: procedure = .int
     if ids.0 >= batch_items then do; cursor = ids[ids.0]; completed = 0; more = 1; end
     if sqliteexec(database,"INSERT INTO maintenance_scan_cursors(kind,after_id,scan_token,completed) VALUES(" || _q(kinds[i]) || "," || _q(cursor) || "," || _q(scan_token) || "," || completed || ") ON CONFLICT(kind) DO UPDATE SET after_id=excluded.after_id,scan_token=excluded.scan_token,completed=excluded.completed") \= 0 then do; error = "cannot checkpoint backlog census"; return -1; end
   end
-  if _n(policy,"embeddings_only") <> 1 then do
+  if _n(policy,"embeddings_only") <> 1 & source_id="" then do
     workflow_status=_expandworkflows(database,policy,error,batch_items,scan_token)
     if workflow_status<0 then return -1
     if workflow_status>0 then more=1
@@ -720,6 +725,7 @@ tickbacklogwindow: procedure = .int
   /* Reconcile task state from durable outcomes; an interrupted window does
    * not consume another attempt for an item that never called a provider. */
   item_scope = ""; if _n(policy,"embeddings_only") = 1 then item_scope = " AND item_type='embedding'"
+  if _s(policy,"source_id")<>"" then item_scope=item_scope || " AND item_id IN(SELECT m.item_id FROM maintenance_task_items m JOIN maintenance_tasks ON maintenance_tasks.task_id=m.task_id WHERE 1=1" || _taskscope(policy) || ")"
   if sqliteexec(database,"UPDATE job_items SET state='cancelled',updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE state='queued' AND job_id IN(SELECT job_id FROM maintenance_windows WHERE state<>'active')" || item_scope) \= 0 then return _rollback(database,"cannot reconcile closed-window work",error)
   if _s(policy,"mode") \= "manual" then do
     sql = "UPDATE maintenance_tasks SET state='pending',last_error='',updated_epoch=unixepoch() WHERE state='review' AND last_error='manual maintenance mode' AND attempt_count=0 AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending')" || _taskscope(policy) || " AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy"))
@@ -758,8 +764,8 @@ tickbacklogwindow: procedure = .int
       if _reconsidertaskretries(database,job_id,error) \= 0 then return _rollback(database,error,error)
       if _dispatch(store,job_id,window_id,policy,generation,error) \= 0 then return _rollback(database,error,error)
       queued = _number(database,"SELECT count(*) FROM job_items WHERE job_id=" || _q(job_id) || " AND state='queued'")
-      waiting_retry = _number(database,"SELECT count(*) FROM maintenance_tasks WHERE state='pending' AND required_capability='standard' AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending')" || _taskscope(policy) || _taskdispatchsafe() || " AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy")) || " AND not_before_epoch>unixepoch() AND not_before_epoch<(SELECT deadline_epoch FROM maintenance_windows WHERE job_id=" || _q(job_id) || ")")
-      eligible = _number(database,"SELECT count(*) FROM maintenance_tasks WHERE state='pending' AND required_capability='standard' AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending') AND not_before_epoch<=unixepoch()" || _taskscope(policy) || _taskdispatchsafe() || " AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy")))
+      waiting_retry = _number(database,"SELECT count(*) FROM maintenance_tasks WHERE state='pending' AND required_capability='standard' AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending')" || _taskdispatchscope(policy) || _taskdispatchsafe() || " AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy")) || " AND not_before_epoch>unixepoch() AND not_before_epoch<(SELECT deadline_epoch FROM maintenance_windows WHERE job_id=" || _q(job_id) || ")")
+      eligible = _number(database,"SELECT count(*) FROM maintenance_tasks WHERE state='pending' AND required_capability='standard' AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending') AND not_before_epoch<=unixepoch()" || _taskdispatchscope(policy) || _taskdispatchsafe() || " AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy")))
       if queued = 0 & scan_status = 0 & waiting_retry = 0 & eligible = 0 then if _closewindow(database,job_id,"complete",error) \= 0 then return _rollback(database,error,error)
     end
   end
@@ -790,29 +796,42 @@ _closewindow: procedure = .int
   if sqliteexec(database,sql) \= 0 then do; error = "cannot retain unfinished maintenance tasks"; return -1; end
   sql = "UPDATE maintenance_windows SET state=" || _q(reason) || ",closed_epoch=unixepoch() WHERE job_id=" || _q(job_id) || " AND state='active'"
   if sqliteexec(database,sql) \= 0 then do; error = "cannot close maintenance window"; return -1; end
-  if refreshlifecyclejob(database,job_id) \= 0 then do; error = "cannot checkpoint maintenance job"; return -1; end
   policy = .jsondocument(_text(database,"SELECT policy_json FROM maintenance_windows WHERE job_id=" || _q(job_id)))
   task_scope = _taskscope(policy)
   if _s(policy,"enrichment") \= "" then task_scope = " AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy"))
   sql = "UPDATE maintenance_runs SET state=CASE WHEN EXISTS(SELECT 1 FROM maintenance_tasks WHERE state IN('pending','dispatched','unresolved','review','failed')" || task_scope || ") THEN 'incomplete' ELSE 'complete' END,completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=(SELECT run_id FROM maintenance_windows WHERE job_id=" || _q(job_id) || ")"
-  if sqliteexec(database,sql) \= 0 then do; error = "cannot checkpoint maintenance report"; return -1; end
   if _n(policy,"embeddings_only") = 1 then do
     missing = _embeddingmissing(database,policy)
     if missing < 0 then do; error = "cannot inspect embedding completion"; return -1; end
     run_state = "complete"; if missing > 0 then run_state = "incomplete"
-    if sqliteexec(database,"UPDATE maintenance_runs SET state=" || _q(run_state) || " WHERE run_id=(SELECT run_id FROM maintenance_windows WHERE job_id=" || _q(job_id) || ")") \= 0 then do; error = "cannot retain embedding completion"; return -1; end
-    if missing > 0 then if sqliteexec(database,"UPDATE jobs SET state='completed_with_errors' WHERE job_id=" || _q(job_id) || " AND state='completed'") \= 0 then do; error = "cannot retain incomplete embedding job"; return -1; end
+    sql = "UPDATE maintenance_runs SET state=" || _q(run_state) || ",completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE run_id=(SELECT run_id FROM maintenance_windows WHERE job_id=" || _q(job_id) || ")"
   end
+  if sqliteexec(database,sql) \= 0 then do; error = "cannot checkpoint maintenance report"; return -1; end
+  if refreshlifecyclejob(database,job_id) \= 0 then do; error = "cannot checkpoint maintenance job"; return -1; end
   return _reconsidertaskretries(database,job_id,error)
 
 _embeddingmissing: procedure = .int
   arg database = .binary, policy = .jsondocument
-  return _number(database,"SELECT count(*) FROM revision_chunks r WHERE r.visible_to_generation IS NULL AND NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings l JOIN embeddings e ON e.embedding_id=l.embedding_id WHERE l.revision_chunk_id=r.revision_chunk_id AND l.visible_to_generation IS NULL AND e.embedding_profile_id=" || _q(_s(policy,"embedding_profile")) || ")")
+  scope=""; if _s(policy,"source_id")<>"" then scope=" AND r.revision_chunk_id IN(" || currentsourcechunks(_s(policy,"source_id")) || ")"
+  return _number(database,"SELECT count(*) FROM revision_chunks r WHERE r.visible_to_generation IS NULL" || scope || " AND NOT EXISTS(SELECT 1 FROM revision_chunk_embeddings l JOIN embeddings e ON e.embedding_id=l.embedding_id WHERE l.revision_chunk_id=r.revision_chunk_id AND l.visible_to_generation IS NULL AND e.embedding_profile_id=" || _q(_s(policy,"embedding_profile")) || ")")
 
 _taskscope: procedure = .string
   arg policy = .jsondocument
-  if _n(policy,"embeddings_only") = 1 then return " AND kind=" || _q("embedding-repair:" || _s(policy,"embedding_profile"))
-  return ""
+  scope=""
+  if _n(policy,"embeddings_only") = 1 then scope=" AND kind=" || _q("embedding-repair:" || _s(policy,"embedding_profile"))
+  if _s(policy,"source_id")<>"" then scope=scope || " AND subject_type='chunk' AND subject_id IN(" || currentsourcechunks(_s(policy,"source_id")) || ")"
+  return scope
+
+/* Apply the configured route allowance while choosing work, so an unfunded
+ * paid route cannot occupy the batch ahead of eligible local/Codex tasks.
+ * Reporting and retry history still include all pending tasks. */
+_taskdispatchscope: procedure = .string
+  arg policy = .jsondocument
+  scope = _taskscope(policy)
+  if _s(policy,"mode") = "manual" then return scope
+  if callcostallowed(_s(policy,"embedding_charging"),_n(policy,"embedding_cost")) = 0 then scope = scope || " AND kind NOT LIKE 'embedding-repair:%'"
+  if callcostallowed(_s(policy,"charging_basis"),_n(policy,"cost_microunits")) = 0 then scope = scope || " AND kind LIKE 'embedding-repair:%'"
+  return scope
 
 _dispatch: procedure = .int
   arg store = .ragstorehandle, job_id = .string, window_id = .string, policy = .jsondocument, expose generation = .int, expose error = .string
@@ -822,7 +841,7 @@ _dispatch: procedure = .int
   if remaining > _n(policy,"batch_items") then remaining = _n(policy,"batch_items")
   if remaining < 1 then return 0
   prepared = .binary; ids = .string[]
-  sql = "SELECT task_id FROM maintenance_tasks WHERE state='pending' AND required_capability='standard' AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending')" || _taskscope(policy) || _taskdispatchsafe() || " AND not_before_epoch<=unixepoch() AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy")) || " AND (" || _taskcallcount("maintenance_tasks.task_id") || "<" || _attemptlimit(policy) || " OR " || _recoverablecount("maintenance_tasks.task_id") || ">0) ORDER BY min(1000000,priority+(unixepoch()-created_epoch)/60) DESC,created_epoch,task_id LIMIT " || remaining
+  sql = "SELECT task_id FROM maintenance_tasks WHERE state='pending' AND required_capability='standard' AND NOT EXISTS(SELECT 1 FROM reviews WHERE subject_id=maintenance_tasks.task_id AND state='pending')" || _taskdispatchscope(policy) || _taskdispatchsafe() || " AND not_before_epoch<=unixepoch() AND policy_fingerprint=" || _q(_s(policy,"knowledge_policy")) || " AND (" || _taskcallcount("maintenance_tasks.task_id") || "<" || _attemptlimit(policy) || " OR " || _recoverablecount("maintenance_tasks.task_id") || ">0) ORDER BY min(1000000,priority+(unixepoch()-created_epoch)/60) DESC,created_epoch,task_id LIMIT " || remaining
   if sqliteprepare(database,sql,prepared) \= 0 then do; error = "cannot select eligible maintenance tasks"; return -1; end
   do forever
     step = sqlitestep(prepared); if step = 101 then leave
@@ -1230,6 +1249,8 @@ inspectbacklog: procedure = .string
   if left(id,5) = "task:" then return _text(database,"SELECT json_object('task_id',task_id,'kind',kind,'subject_type',subject_type,'subject_id',subject_id,'workflow_id',workflow_id,'parent_task_id',parent_task_id,'state',state,'priority',priority,'required_capability',required_capability,'escalation_origin',escalation_origin,'escalation_reason',escalation_reason,'semantic_failures',semantic_failures,'attempts',attempt_count,'not_before_epoch',not_before_epoch,'evidence_fingerprint',evidence_fingerprint,'policy_fingerprint',policy_fingerprint,'question',question,'evidence',json(CASE WHEN length(json_remove(evidence_json,'$.passages'))<=16384 THEN json_remove(evidence_json,'$.passages') ELSE json_object('subject',json_object('type',subject_type,'id',subject_id),'summary_only',json('true')) END),'evidence_passage_count',json_array_length(evidence_json,'$.passages'),'evidence_catalogue_count',coalesce(json_array_length(evidence_json,'$.catalogue'),0),'evidence_tool','rag_task_evidence','inventory_tool','rag_task_evidence_inventory','refresh_successor',coalesce((SELECT task_id FROM maintenance_tasks child WHERE child.parent_task_id=t.task_id AND json_type(child.evidence_json,'$.external_refresh')='object' ORDER BY created_epoch DESC,task_id LIMIT 1),''),'waiver',json(" || _q(waiver_json) || "),'retry_request',json(" || _q(retry_json) || "),'reason',last_error,'decision_count',(SELECT count(*) FROM maintenance_decisions d WHERE d.task_id=t.task_id),'agent_actions',json((SELECT json_group_array(action_id) FROM (SELECT action_id FROM maintenance_agent_actions a WHERE a.task_id=t.task_id ORDER BY action_id LIMIT " || limit || " OFFSET " || offset || "))),'next_cursor',CASE WHEN max((SELECT count(*) FROM maintenance_decisions d WHERE d.task_id=t.task_id),(SELECT count(*) FROM maintenance_agent_actions a WHERE a.task_id=t.task_id))>" || (offset+limit) || " THEN '" || (offset+limit) || "' ELSE '' END,'decisions',json((SELECT json_group_array(json_object('decision_id',decision_id,'disposition',disposition,'provider_run_id',provider_run_id)) FROM (SELECT * FROM maintenance_decisions d WHERE d.task_id=t.task_id ORDER BY decision_id LIMIT " || limit || " OFFSET " || offset || ") d))) FROM maintenance_tasks t WHERE task_id=" || _q(id))
   if left(id,9) = "workflow:" then return _text(database,"SELECT json_object('workflow_id',workflow_id,'kind',kind,'origin_task_id',origin_task_id,'parent_concept_id',parent_concept_id,'successors',json(successors_json),'state',state,'created_generation',created_generation,'completed_generation',completed_generation,'task_count',(SELECT count(*) FROM maintenance_tasks t WHERE t.workflow_id=w.workflow_id),'next_cursor',CASE WHEN max((SELECT count(*) FROM maintenance_tasks t WHERE t.workflow_id=w.workflow_id),(SELECT count(*) FROM maintenance_link_history h WHERE h.object_type='concept' AND h.object_id=w.parent_concept_id))>" || (offset+limit) || " THEN '" || (offset+limit) || "' ELSE '' END,'note_link_history',json((SELECT json_group_array(json_object('link_id',h.link_id,'note_id',h.note_id,'object_type',h.object_type,'object_id',h.object_id,'revision_chunk_id',h.revision_chunk_id,'span_start',h.span_start,'span_end',h.span_end,'from_generation',h.from_generation,'to_generation',h.to_generation)) FROM (SELECT * FROM maintenance_link_history h WHERE h.object_type='concept' AND h.object_id=w.parent_concept_id ORDER BY link_id,to_generation LIMIT " || limit || " OFFSET " || offset || ") h)),'tasks',json((SELECT json_group_array(json_object('task_id',task_id,'subject_type',subject_type,'subject_id',subject_id,'state',state)) FROM (SELECT * FROM maintenance_tasks t WHERE t.workflow_id=w.workflow_id ORDER BY task_id LIMIT " || limit || " OFFSET " || offset || ") t))) FROM maintenance_workflows w WHERE workflow_id=" || _q(id))
   if left(id,21) = "decision-maintenance:" then return _text(database,"SELECT json_object('decision_id',decision_id,'task_id',task_id,'item_id',item_id,'provider_run_id',provider_run_id,'response',json(response_json),'grounding',json(grounding_json),'disposition',disposition,'applied_generation',applied_generation) FROM maintenance_decisions WHERE decision_id=" || _q(id))
+  job_id = _text(database,"SELECT job_id FROM maintenance_windows WHERE run_id=" || _q(id))
+  if job_id <> "" then return backlogsummary(database,job_id)
   return ""
 
 _applydecision: procedure = .int
@@ -1412,11 +1433,19 @@ backlogsummary: procedure = .string
   arg database = .binary, job_id = .string
   usage=.int[]
   if jobusagevalues(database,job_id,usage)<>0 then return ""
-  summary = _text(database,"SELECT json_object('window_id',window_id,'run_id',run_id,'job_id',job_id,'state',state,'deadline_epoch',deadline_epoch,'timing',json_extract(policy_json,'$.timing'),'provider_time_budget_ms',coalesce(json_extract(policy_json,'$.provider_time_budget_ms'),json_extract(policy_json,'$.window_seconds')*1000),'provider_time_used_ms'," || usage[5] || ",'pending',t.pending,'dispatched',t.dispatched,'resolved',t.resolved,'unresolved',t.unresolved,'review',t.review,'failed',t.failed,'workflows',(SELECT count(*) FROM maintenance_workflows WHERE state<>'complete'),'decisions',(SELECT count(*) FROM maintenance_decisions d JOIN maintenance_task_items m ON m.item_id=d.item_id WHERE m.window_id=maintenance_windows.window_id),'provider_calls'," || usage[1] || ",'cost_microunits'," || usage[4] || ") FROM maintenance_windows CROSS JOIN (SELECT coalesce(sum(state='pending'),0) pending,coalesce(sum(state='dispatched'),0) dispatched,coalesce(sum(state='resolved'),0) resolved,coalesce(sum(state='unresolved'),0) unresolved,coalesce(sum(state='review'),0) review,coalesce(sum(state='failed'),0) failed FROM maintenance_tasks) t WHERE job_id=" || _q(job_id))
-
   policy = .jsondocument(_text(database,"SELECT policy_json FROM maintenance_windows WHERE job_id=" || _q(job_id)))
+  scope="";chunk_scope="";workflow_count="(SELECT count(*) FROM maintenance_workflows WHERE state<>'complete')"
+  if _s(policy,"source_id")<>"" then do
+    scope=_taskscope(policy);chunk_scope=" AND revision_chunk_id IN(" || currentsourcechunks(_s(policy,"source_id")) || ")";workflow_count="0"
+  end
+  summary = _text(database,"SELECT json_object('window_id',w.window_id,'run_id',w.run_id,'job_id',w.job_id,'state',CASE WHEN w.state='complete' AND json_extract(w.policy_json,'$.embeddings_only')=1 THEN r.state ELSE w.state END,'deadline_epoch',w.deadline_epoch,'timing',json_extract(w.policy_json,'$.timing'),'provider_time_budget_ms',coalesce(json_extract(w.policy_json,'$.provider_time_budget_ms'),json_extract(w.policy_json,'$.window_seconds')*1000),'provider_time_used_ms'," || usage[5] || ",'pending',t.pending,'dispatched',t.dispatched,'resolved',t.resolved,'unresolved',t.unresolved,'review',t.review,'failed',t.failed,'workflows'," || workflow_count || ",'decisions',(SELECT count(*) FROM maintenance_decisions d JOIN maintenance_task_items m ON m.item_id=d.item_id WHERE m.window_id=w.window_id),'provider_calls'," || usage[1] || ",'cost_microunits'," || usage[4] || ") FROM maintenance_windows w JOIN maintenance_runs r ON r.run_id=w.run_id CROSS JOIN (SELECT coalesce(sum(state='pending'),0) pending,coalesce(sum(state='dispatched'),0) dispatched,coalesce(sum(state='resolved'),0) resolved,coalesce(sum(state='unresolved'),0) unresolved,coalesce(sum(state='review'),0) review,coalesce(sum(state='failed'),0) failed FROM maintenance_tasks WHERE 1=1" || scope || ") t WHERE w.job_id=" || _q(job_id))
+
   if summary = "" then return summary
-  return _text(database,"SELECT json_set(" || _q(summary) || ",'$.embeddings_only'," || _n(policy,"embeddings_only") || ",'$.embedding_missing'," || _embeddingmissing(database,policy) || ",'$.embedding_total',(SELECT count(*) FROM revision_chunks WHERE visible_to_generation IS NULL),'$.waived_tasks'," || taskwaivercount(database) || ")")
+  if _s(policy,"source_id")<>"" then summary=_text(database,"SELECT json_set(" || _q(summary) || ",'$.source_id'," || _q(_s(policy,"source_id")) || ")")
+  waived=0
+  if _s(policy,"source_id")<>"" then waived=_number(database,"SELECT count(*) FROM maintenance_tasks WHERE " || taskwaived("maintenance_tasks.task_id") || scope)
+  else waived=taskwaivercount(database)
+  return _text(database,"SELECT json_set(" || _q(summary) || ",'$.embeddings_only'," || _n(policy,"embeddings_only") || ",'$.embedding_missing'," || _embeddingmissing(database,policy) || ",'$.embedding_total',(SELECT count(*) FROM revision_chunks WHERE visible_to_generation IS NULL" || chunk_scope || "),'$.waived_tasks'," || waived || ")")
 
 _backlogimpact: procedure = .int
   arg database = .binary, parent = .string, generation = .int, expose types = .string[], expose ids = .string[], expose error = .string
@@ -1472,7 +1501,7 @@ _applyconnection: procedure = .int
 
 _taskcallcount: procedure = .string
   arg task_expression = .string
-  return "(SELECT count(DISTINCT p.provider_run_id) FROM maintenance_task_items m JOIN attempts a ON a.item_id=m.item_id JOIN provider_runs p ON p.provider_run_id=a.provider_run_id WHERE m.task_id=" || task_expression || ")"
+  return taskretrycallcount(task_expression)
 
 _recoverablecount: procedure = .string
   arg task_expression = .string
@@ -1710,8 +1739,37 @@ enrichmentpolicy: procedure = .string
 
 /* Caller owns the continuation transaction. Reopen this existing window without
  * a new census or task identities. A repeated period never moves its deadline. */
+/* An explicit deadline edit changes time only, including while workers run.
+ * The checkpoint reads this same window row; no worker restart is required. */
+setbacklogdeadline: procedure = .int
+  arg store=.ragstorehandle,job_id=.string,until_text=.string,expose deadline=.int,expose changed=.int,expose error=.string
+  deadline=0;changed=0;error="";database=store.database();timing=""
+  if until_text="" then do;error="job deadline requires --until TIMESTAMP";return -2;end
+  if resolvemaintenancetime(database,"",until_text,"",0,timing,error)<>0 then return -2
+  deadline=_number(database,"SELECT json_extract(" || _q(timing) || ",'$.deadline_epoch')")
+  if deadline<=_number(database,"SELECT unixepoch()") then do;error="job deadline must be in the future";return -2;end
+  if sqliteexec(database,"BEGIN IMMEDIATE")<>0 then do;error="cannot begin deadline update";return -1;end
+  selector=" WHERE job_id=" || _q(job_id)
+  if _number(database,"SELECT count(*) FROM maintenance_windows" || selector)<>1 then do
+    ignored=_rollback(database,"job has no maintenance deadline",error);return -4
+  end
+  state=_text(database,"SELECT state FROM jobs" || selector)
+  if state="cancelled" | state="cancel_requested" then return _rollback(database,"cancelled jobs cannot change deadline",error)
+  previous=_number(database,"SELECT deadline_epoch FROM maintenance_windows" || selector)
+  if previous<>deadline then do
+    original=.jsondocument(_text(database,"SELECT json_extract(policy_json,'$.timing') FROM maintenance_windows" || selector))
+    started=_n(original,"started_epoch")
+    if started>0 then timing=_text(database,"SELECT json_set(" || _q(timing) || ",'$.started_epoch'," || started || ")")
+    if sqliteexec(database,"UPDATE maintenance_windows SET deadline_epoch=" || deadline || ",policy_json=json_set(policy_json,'$.timing'," || _q(timing) || ")" || selector)<>0 then return _rollback(database,"cannot update job deadline",error)
+    message=_text(database,"SELECT json_object('previous_deadline_epoch'," || previous || ",'deadline_epoch'," || deadline || ",'until'," || _q(until_text) || ")")
+    if sqliteexec(database,"INSERT INTO job_events(job_id,event_type,message,occurred_at) VALUES(" || _q(job_id) || ",'deadline-update'," || _q(message) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))")<>0 then return _rollback(database,"cannot record deadline update",error)
+    changed=1
+  end
+  if sqliteexec(database,"COMMIT")<>0 then return _rollback(database,"cannot commit deadline update",error)
+  return 0
+
 continuebacklogwindow: procedure = .int
-  arg database=.binary,job_id=.string,renewed=.int,minutes=.int,expose error=.string
+  arg database=.binary,job_id=.string,renewed=.int,minutes=.int,expose error=.string,finish_admitted=1
   error="";selector=" WHERE job_id=" || _q(job_id)
   raw=_text(database,"SELECT policy_json FROM maintenance_windows" || selector)
   if raw="" then return 0
@@ -1728,7 +1786,16 @@ continuebacklogwindow: procedure = .int
     raw=_text(database,"SELECT json_set(" || _q(raw) || ",'$.window_seconds'," || seconds || ",'$.timing'," || _q(timing) || ", '$.item_limit',json_extract(" || _q(allowance) || ",'$.item_limit'),'$.model_calls',json_extract(" || _q(allowance) || ",'$.model_calls'),'$.input_budget',json_extract(" || _q(allowance) || ",'$.input_tokens'),'$.output_budget',json_extract(" || _q(allowance) || ",'$.output_tokens'),'$.cost_budget',json_extract(" || _q(allowance) || ",'$.cost_microunits'),'$.codex_turns',json_extract(" || _q(allowance) || ",'$.codex_turns'),'$.provider_time_budget_ms',json_extract(" || _q(allowance) || ",'$.provider_policy.time_budget_ms'))")
     if raw="" then do;error="cannot project renewed maintenance policy";return -1;end
   end
-  if deadline<=_number(database,"SELECT unixepoch()") then do;error="maintenance deadline has passed; job continue requires --renew PERIOD [--minutes N] for a new explicit allowance period";return -1;end
+  if deadline<=_number(database,"SELECT unixepoch()") then do
+    if finish_admitted<>1 then do;error="renewal period has expired; use job deadline or ordinary job continue for admitted work";return -1;end
+    /* Finish the existing queue with the remaining allowance. Freezing its
+     * materialized size prevents another discovery wave in this completion. */
+    policy=.jsondocument(raw);timing=""
+    if resolvemaintenancetime(database,"","","",_n(policy,"window_seconds"),timing,error)<>0 then return -1
+    deadline=_number(database,"SELECT json_extract(" || _q(timing) || ",'$.deadline_epoch')")
+    raw=_text(database,"SELECT json_set(" || _q(raw) || ",'$.timing'," || _q(timing) || ",'$.item_limit',(SELECT count(*) FROM job_items" || selector || "))")
+    if sqliteexec(database,"INSERT INTO job_events(job_id,event_type,message,occurred_at) VALUES(" || _q(job_id) || ",'completion-period'," || _q(timing) || ",strftime('%Y-%m-%dT%H:%M:%fZ','now'))")<>0 then do;error="cannot record admitted-work continuation";return -1;end
+  end
   if sqliteexec(database,"UPDATE maintenance_windows SET state='active',closed_epoch=NULL,deadline_epoch=" || deadline || ",policy_json=" || _q(raw) || selector)<>0 then do;error="cannot continue maintenance window";return -1;end
   if sqliteexec(database,"UPDATE maintenance_runs SET state='running',completed_at=NULL WHERE run_id=(SELECT run_id FROM maintenance_windows" || selector || ")")<>0 then do;error="cannot continue maintenance run";return -1;end
   return 0

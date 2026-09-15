@@ -1,0 +1,14 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 28: controller_recovery
+1/1 Test #28: controller_recovery ..............   Passed   40.12 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+concurrency      =  40.12 sec*proc (1 test)
+provider         =  40.12 sec*proc (1 test)
+recovery         =  40.12 sec*proc (1 test)
+worker           =  40.12 sec*proc (1 test)
+zero-outbound    =  40.12 sec*proc (1 test)
+
+Total Test time (real) =  40.12 sec

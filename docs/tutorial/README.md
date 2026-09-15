@@ -74,6 +74,11 @@ citations, then writes the answer itself. Only use cREXX-RAG's own answerer
 when explicitly requested: it adds another model generation step, latency and
 provider usage. The shared QA skill includes the measured performance context.
 
+The reusable corpus template also covers long-job monitoring and model
+separation. Worker models come from the selected product policy, independently
+of the outer assistant. Record the instance choices in its README; use the
+shared maintenance workflow for phase-level supervision and engineering issues.
+
 Useful inspection commands are `./crexxrag worker list`, `./crexxrag job list`,
 and `./crexxrag --access diagnose library verify`.
 

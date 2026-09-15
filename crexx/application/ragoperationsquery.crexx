@@ -24,15 +24,15 @@ readtaskpage: procedure = .ragcommandresult
   arg request = .ragcommandrequest
   operation = request.operation(); error = ""
   if commandhasaccess(request,"read") \= 1 then return commandfailure(operation,4,"task inspection requires read access")
-  if commandoptions(request,"id cursor limit state capability workflow subject concept",error) \= 0 then return commandfailure(operation,2,error)
+  if commandoptions(request,"id cursor limit state capability workflow subject concept source",error) \= 0 then return commandfailure(operation,2,error)
   id = commandid(request,error)
   if error\="" then return commandfailure(operation,2,error)
   cursor = commandoption(request,"cursor",error); count_text = commandoption(request,"limit",error)
   state = commandoption(request,"state",error); capability = commandoption(request,"capability",error); workflow = commandoption(request,"workflow",error)
-  subject=commandoption(request,"subject",error);concept=commandoption(request,"concept",error)
-  if pos("00"x,id || cursor || state || capability || workflow || subject || concept)>0 then return commandfailure(operation,2,"inspection filters must not contain NUL")
-  if length(subject)>512 | length(concept)>512 then return commandfailure(operation,2,"subject and concept filters must be at most 512 characters")
-  if operation\="maintain.tasks" & (subject\="" | concept\="") then return commandfailure(operation,2,"subject/concept filters apply to task lists only")
+  subject=commandoption(request,"subject",error);concept=commandoption(request,"concept",error);source=commandoption(request,"source",error)
+  if pos("00"x,id || cursor || state || capability || workflow || subject || concept || source)>0 then return commandfailure(operation,2,"inspection filters must not contain NUL")
+  if length(subject)>512 | length(concept)>512 | length(source)>512 then return commandfailure(operation,2,"subject, concept and source filters must be at most 512 characters")
+  if operation\="maintain.tasks" & (subject\="" | concept\="" | source\="") then return commandfailure(operation,2,"subject/concept/source filters apply to task lists only")
   if error \= "" then return commandfailure(operation,2,error)
   if count_text = "" then count_text = "20"
   if commandunsigned(count_text) \= 1 then return commandfailure(operation,2,"limit must be an integer")
@@ -42,7 +42,14 @@ readtaskpage: procedure = .ragcommandresult
   if capability \= "" & wordpos(capability,"standard advanced-reasoning") = 0 then return commandfailure(operation,2,"unknown resolver capability")
   store = .ragstorehandle
   if openragstore(request.library(),"readonly",store,error) \= 0 then return commandopenfailure(operation,error)
-  database = store.database(); sql = ""
+  database = store.database(); sql = ""; source_summary = ""; source_chunks = ""
+  if source \= "" then do
+    if sqliteexec(database,"BEGIN") \= 0 then do; ignored="";call closeragstore store,ignored;return commandfailure(operation,7,"cannot open source backlog read snapshot");end
+    if sqlreadint(database,"SELECT count(*) FROM sources WHERE source_id=" || sqlquote(source) || " AND visible_to_generation IS NULL") \= 1 then do;ignored="";call closeragstore store,ignored;return commandfailure(operation,5,"source was not found");end
+    source_chunks = currentsourcechunks(source)
+    source_summary = _sourcebacklogsummary(database,source,source_chunks)
+    if source_summary="" then do;ignored="";call closeragstore store,ignored;return commandfailure(operation,7,"cannot read source backlog summary");end
+  end
   if operation = "maintain.tasks" then do
     filter = ""
     if id \= "" then filter = filter || " AND task_id=" || sqlquote(id)
@@ -50,6 +57,7 @@ readtaskpage: procedure = .ragcommandresult
     if capability \= "" then filter = filter || " AND required_capability=" || sqlquote(capability)
     if workflow \= "" then filter = filter || " AND workflow_id=" || sqlquote(workflow)
     if subject\="" then filter=filter || " AND subject_id=" || sqlquote(subject)
+    if source\="" then filter=filter || " AND subject_type IN('chunk','provenance-chunk') AND subject_id IN(" || source_chunks || ")"
     if concept\="" then filter=filter || " AND ((subject_type='concept' AND subject_id IN(SELECT concept_id FROM concepts WHERE canonical_label=" || sqlquote(concept) || ")) OR workflow_id IN(SELECT w.workflow_id FROM maintenance_workflows w WHERE " || _workflowconceptpredicate(concept) || "))"
     sql = "SELECT task_id,json_object('task_id',task_id,'kind',kind,'subject_type',subject_type,'subject_id',subject_id,'workflow_id',workflow_id,'state',state,'priority',priority,'question',question,'attempts',attempt_count,'required_capability',required_capability,'escalation_origin',escalation_origin,'escalation_reason',escalation_reason,'semantic_failures',semantic_failures,'reason',last_error) FROM maintenance_tasks WHERE task_id>" || sqlquote(cursor) || filter || " ORDER BY task_id LIMIT " || (limit+1)
   end
@@ -60,6 +68,10 @@ readtaskpage: procedure = .ragcommandresult
     sql = "SELECT CAST(p.key+1 AS TEXT),json_set(p.value,'$.citation','crexx-rag:'||l.library_id||':'||v.source_id||':'||v.revision_id||':utf8-'||r.normalized_start||'-'||r.normalized_end,'$.source_title',s.observed_title) FROM maintenance_tasks t,json_each(t.evidence_json,'$.passages') p JOIN revision_chunks r ON r.revision_chunk_id=json_extract(p.value,'$.revision_chunk_id') JOIN source_revisions v ON v.revision_id=r.revision_id JOIN sources s ON s.source_id=v.source_id CROSS JOIN library_meta l WHERE t.task_id=" || sqlquote(id) || " AND p.key+1>" || (cursor as .int) || " ORDER BY p.key LIMIT " || (limit+1)
   end
   records = .ragresultrecord[]; prepared = .binary; returned = 0; next_cursor = ""; previous = ""
+  if source_summary \= "" then do
+    fields = .ragresultfield[];fields[1]=.ragresultfield("source_id","string",source);fields[2]=.ragresultfield("detail","string",source_summary)
+    records[1]=.ragresultrecord("source-backlog",fields)
+  end
   if sqliteprepare(database,sql,prepared) \= 0 then do; detail = sqliteerrordetail(); ignored = ""; call closeragstore store,ignored; return commandfailure(operation,7,"cannot prepare task page: " || detail); end
   do forever
     step = sqlitestep(prepared); if step = 101 then leave
@@ -81,6 +93,14 @@ readtaskpage: procedure = .ragcommandresult
   records[records.0+1] = .ragresultrecord("page",fields)
   return .ragcommandresult(operation,"ok",0,"bounded task inspection without writes or provider calls",records)
 
+/* One source-wide census summary accompanies the bounded task page. It uses
+ * current source membership and the subject index, not a scan of job inputs.
+ * Retained task state is not a claim that all extraction/provider work is done. */
+_sourcebacklogsummary: procedure = .string
+  arg database = .binary, source = .string, chunks = .string
+  sql = "WITH chunks AS MATERIALIZED (" || chunks || "), tasks AS MATERIALIZED (SELECT t.subject_id,t.state,t.priority FROM chunks c JOIN maintenance_tasks t ON t.subject_id=c.revision_chunk_id WHERE t.subject_type='chunk' AND t.kind='concept-review'), counts AS (SELECT count(DISTINCT subject_id) represented,min(priority) minimum_priority,max(priority) maximum_priority FROM tasks), total AS (SELECT count(*) active_chunks FROM chunks) SELECT json_object('source_id'," || sqlquote(source) || ",'generation',(SELECT published_generation FROM library_meta),'active_chunks',active_chunks,'chunks_with_extraction_task',represented,'chunks_without_extraction_task',active_chunks-represented,'extraction_tasks_by_state',json((SELECT json_group_object(state,total) FROM (SELECT state,count(*) total FROM tasks GROUP BY state))),'minimum_priority',minimum_priority,'maximum_priority',maximum_priority,'denominator','Current source chunks and retained maintenance concept-review tasks, across all task states and policies; counts ignore task-page filters and do not prove completed extraction. Listed tasks cover direct chunk/provenance work, not library-wide catalogue work.') FROM counts CROSS JOIN total"
+  return sqlreadtext(database,sql)
+
 /* The WHERE clause owns filtering before the keyset cursor and row limit.
  * These queries expose durable identities and summaries, never raw inputs or
  * provider response bodies. All reads share one SQLite snapshot. */
@@ -89,6 +109,7 @@ operatordiagnostics: procedure = .ragcommandresult
   operation=request.operation();error=""
   if commandhasaccess(request,"read")\=1 then return commandfailure(operation,4,"operator inspection requires read access")
   allowed="id cursor limit state"
+  if operation="job.items" then allowed=allowed || " uncertainty"
   if operation="job.attempts" then allowed="id item cursor limit"
   if operation="maintain.workflows" then allowed="id subject concept state cursor limit"
   if commandoptions(request,allowed,error)\=0 then return commandfailure(operation,2,error)
@@ -97,12 +118,14 @@ operatordiagnostics: procedure = .ragcommandresult
   cursor=commandoption(request,"cursor",error);count_text=commandoption(request,"limit",error)
   state=commandoption(request,"state",error);item=commandoption(request,"item",error)
   subject=commandoption(request,"subject",error);concept=commandoption(request,"concept",error)
-  if pos("00"x,id || cursor || state || item || subject || concept)>0 then return commandfailure(operation,2,"inspection filters must not contain NUL")
+  uncertainty=commandoption(request,"uncertainty",error)
+  if pos("00"x,id || cursor || state || item || subject || concept || uncertainty)>0 then return commandfailure(operation,2,"inspection filters must not contain NUL")
   if count_text="" then count_text="20"
   if commandunsigned(count_text)\=1 then return commandfailure(operation,2,"limit must be an integer")
   limit=count_text as .int
   if limit<1 | limit>100 | length(cursor)>512 | length(id)>512 | length(item)>512 | length(subject)>512 | length(concept)>512 then return commandfailure(operation,2,"inspection limit must be 1 through 100 and identities/labels/cursors at most 512 characters")
   if operation="job.items" & state\="" then if wordpos(state,"queued running processed skipped dead_letter cancelled cancel_requested")=0 then return commandfailure(operation,2,"unknown job item state")
+  if uncertainty\="" then if wordpos(uncertainty,"all active held")=0 then return commandfailure(operation,2,"uncertainty must be all, active or held")
   if operation="maintain.workflows" & state\="" then if wordpos(state,"migrating waiting complete")=0 then return commandfailure(operation,2,"unknown workflow state")
   if left(operation,4)="job." & id="" then return commandfailure(operation,2,"job inspection requires one job id")
   view=.ragreadsnapshot
@@ -119,7 +142,10 @@ operatordiagnostics: procedure = .ragcommandresult
   filter="";sql="";kind=""
   if operation="job.items" then do
     kind="job-item"
-    sql="SELECT i.item_id,json_object('item_id',i.item_id,'job_id',i.job_id,'item_type',i.item_type,'state',i.state,'worker_id',i.worker_id,'fence',i.fence,'lease_until',i.lease_until,'retry_at',i.retry_at,'input_hash',i.input_hash,'created_at',i.created_at,'updated_at',i.updated_at,'attempts',(SELECT count(*) FROM attempts a WHERE a.item_id=i.item_id),'task_id',(SELECT task_id FROM maintenance_task_items t WHERE t.item_id=i.item_id)) FROM job_items i WHERE i.job_id=?1 AND i.item_id>?2 AND (?3='' OR i.state=?3) ORDER BY i.item_id LIMIT ?4"
+    if uncertainty\="" then filter=" AND " || uncertainitem("i.item_id")
+    if uncertainty="active" then filter=filter || " AND i.state IN('running','cancel_requested')"
+    if uncertainty="held" then filter=filter || " AND i.state NOT IN('running','cancel_requested')"
+    sql="SELECT i.item_id,json_object('item_id',i.item_id,'job_id',i.job_id,'item_type',i.item_type,'state',i.state,'worker_id',i.worker_id,'fence',i.fence,'lease_until',i.lease_until,'retry_at',i.retry_at,'input_hash',i.input_hash,'created_at',i.created_at,'updated_at',i.updated_at,'attempts',(SELECT count(*) FROM attempts a WHERE a.item_id=i.item_id),'task_id',(SELECT task_id FROM maintenance_task_items t WHERE t.item_id=i.item_id)) FROM job_items i WHERE i.job_id=?1 AND i.item_id>?2 AND (?3='' OR i.state=?3)" || filter || " ORDER BY i.item_id LIMIT ?4"
   end
   if operation="job.attempts" then do
     kind="job-attempt"

@@ -13,6 +13,7 @@ import ragproduct
 import ragproviderdiagnostics
 import ragmcp
 import operator_registry
+import ragtrace
 
 /* Human-first native CLI.  The short commands below only compose the shared
  * product vocabulary; machine callers retain the exact canonical operations. */
@@ -461,6 +462,8 @@ _maintainplansummary: procedure = .string
   calls = _fieldvalue(plan_result, 2, "work_provider_calls")
   deferred=_fieldvalue(plan_result,2,"selection_deferred")="true"
   output = "Maintenance plan"
+  source_id=_fieldvalue(plan_result,2,"source_id")
+  if source_id<>"" then output=output || "0A"x || "  Source:           " || source_id
   timing = _fieldvalue(plan_result,2,"timing")
   if timing \= "" then do
     clock = .jsondocument(timing); local_finish = ""; utc_finish = ""
@@ -511,7 +514,7 @@ _showresult: procedure = .int
   arg result = .ragcommandresult, format = .string
   output = ""; error = ""
   if rendercommandresult(result, format, output, error) \= 0 then return _clierror("render", "internal", error, 10)
-  say output
+  call writeoperatorline output,"stdout"
   return result.exit_code()
 
 _fieldvalue: procedure = .string
@@ -622,11 +625,11 @@ _aliases: procedure = .string[]
       end
       else if left(token, 10) = "--workers=" then worker_count = substr(token, 11)
       else if token = "--embeddings-only" then timing_args[timing_args.0+1] = token
-      else if token = "--minutes" | token = "--until" | token = "--overnight" then do
+      else if token = "--minutes" | token = "--until" | token = "--overnight" | token = "--source" then do
         if i = args.0 then do; error = token || " requires a value"; return args; end
         timing_args[timing_args.0+1] = token; i = i+1; timing_args[timing_args.0+1] = args[i]
       end
-      else if left(token,10) = "--minutes=" | left(token,8) = "--until=" | left(token,12) = "--overnight=" then timing_args[timing_args.0+1] = token
+      else if left(token,10) = "--minutes=" | left(token,8) = "--until=" | left(token,12) = "--overnight=" | left(token,9) = "--source=" then timing_args[timing_args.0+1] = token
       else do; error = "unknown guided maintenance option " || token; return args; end
       i = i + 1
     end

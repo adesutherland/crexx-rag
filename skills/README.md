@@ -20,6 +20,12 @@ request needed to use the separate cREXX-RAG answerer, including its performance
 cost. Use the [corpus workspace template](../docs/templates/corpus-AGENTS.md)
 for standing corpus-only, graph-exploration and quotation instructions.
 
+The maintenance skill owns the shared long-job workflow: light monitoring,
+independent worker model selection, embedding progress and engineering handoff
+for missing public controls. Ingest and diagnosis link to it. Workspace READMEs
+record chosen models and installation status; run records own temporary budgets
+and deadlines. Existing user authorization persists across skill use.
+
 Start the shared MCP surface with `crexxrag --access CAPABILITIES serve mcp`.
 Knowledge of a mutation tool never grants its capability. Plans are zero-write
 review artifacts and apply requires the exact canonical bytes and digest.

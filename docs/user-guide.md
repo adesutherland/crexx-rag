@@ -34,6 +34,11 @@ before asking for confirmation. After approval it applies the reviewed plan,
 starts the configured number of worker processes, and reports the final job and
 vector state. `--yes` is intended for an already reviewed non-interactive run.
 
+For embeddings-first ingestion, use `discovery.mode = maintenance`. Set the
+item and model-call budgets to the desired chunk limit. Apply checks the actual
+workload inside its transaction and rolls back an oversized import before any
+provider call. A separate preview chunk count is unnecessary.
+
 Re-running unchanged ingestion is an `identical-no-op`: no work and no provider
 calls are made.
 
@@ -114,6 +119,17 @@ resolved from the configuration file's directory. The resulting paths enter
 the effective configuration identity. A copied configuration in a new
 directory therefore needs either its referenced files copied with it or
 explicit absolute paths. Credential references stay symbolic.
+
+`source.ID.include` selects paths relative to that source root. Give an exact
+filename such as `wanted.txt`, or comma-separated alternatives such as
+`**/*.txt,**/*.md`. Matching is case-sensitive: `*` matches within one filename,
+`?` matches one character, and a complete `**` path component includes zero or
+more directory levels. Thus `*.txt` selects root files, `nested/*.txt` selects
+that directory's files, and `**/*.txt` includes root and nested files. Only the
+supported text formats are ingested. Plan and apply use the same selection.
+Applying a narrower selection to an existing source set also removes omitted
+files from its current corpus membership; use a separate source set when
+adding an independent document batch.
 
 Libraries created by older versions may retain `file:./...` source URIs.
 Repeat ingestion from their original working directory so equivalent absolute
@@ -403,6 +419,17 @@ unverified processes. An old heartbeat does not remove a confirmed live worker
 from the count. Inspect controller state, heartbeat age and `worker list`
 together. These reads do not prune or change the library.
 
+If a launcher or command session disappears, read the same job's status through
+a fresh CLI/MCP call. Let a live controller run and a draining controller finish.
+After confirmed exit, resume authorized unfinished work with `job run JOB_ID`
+or `rag_job_continue`; ordinary cleanup starts fresh children and preserves
+completed work and history. A lost final receipt does not require data repair.
+The controller's TERM/INT/HUP drain records `shutdown requested: SIGNAL` in
+`worker list`; SIGKILL cannot record a final reason. Operator output-pipe loss
+is tolerated independently of actual provider transport failure. See the
+[T7-10 qualification record](t7-10-controller-diagnosis-20260915.md) and the
+shared maintenance skill for agent continuation guidance.
+
 Workers are operating-system processes, not attached cREXX threads. Each owns a
 VM, provider process/session, and SQLite connection.
 
@@ -546,6 +573,12 @@ fails, the command reports the reason and this same retry command. Explicitly
 retry a failed item when it needs redoing; a completed-job run does not silently
 resubmit dead letters.
 
+An embeddings-only run can finish with missing coverage even when it admitted
+no work. Its job reports `completed_with_errors`; maintenance status reports
+`incomplete` with the missing count. Use `maintain inspect RUN_ID` on the run
+returned by apply to see the same summary. Outstanding attempt limits remain
+visible and are preserved by retry.
+
 A retry request is accepted even when a task's earlier job or maintenance
 window has finished. Acceptance records the intent; execution still needs a
 compatible reviewed window and available attempt allowance:
@@ -613,14 +646,24 @@ outcome inspection. `unpriced_runs` and `timestamp_unknown_runs` can also
 include work that has not yet settled; terminal uncertainty must be assessed
 alongside item state rather than inferred from an aggregate counter.
 
+Select the corresponding item IDs directly with
+`job items JOB_ID --uncertainty held` (MCP: `rag_job_items` with
+`uncertainty: "held"`). `active` selects unsettled running/cancel-requested
+items, and `all` selects both parts. Omitting the option keeps the ordinary
+item list. The filter intersects `state` and applies before keyset pagination,
+using the same unmatched-provider-event definition as status. Read the returned
+recovery details and normal reconciliation guidance; selection changes no state
+and makes no provider calls. Do not scan all failed items to locate a few held
+outcomes or treat ordinary active calls as recovery failures.
+
 
 List jobs with `job list --limit 100`, following the final `page` record's
 `next_cursor`. The limit counts data rows; a cursor is additional metadata.
 The same rule applies to review and event pages.
 
-Job lists retain small canonical plans in `value`. If `value_complete` is
-`false`, `value` is empty and `detail_operation` identifies `job.plan`; the job
-summary remains available. Read the exact retained plan in bounded pages:
+Job lists return metadata only at every plan size: `value` is empty,
+`value_complete=false`, and `detail_operation=job.plan`. The plan character
+count and job summary remain available. Read the exact retained plan in bounded pages:
 
 ```sh
 crexxrag --format json job plan JOB_ID --limit 8192
@@ -668,7 +711,12 @@ crexxrag --access control job run JOB_ID
 Inspection reads stored output or the exact App Server thread/turn history. It
 never resumes, cancels or deletes an external turn. Apply requires drained
 workers and claims and rechecks the observation digest. A terminal job does not
-need a pause transition. Completed output is queued
+need a pause transition. Later source registration or budget edits do not block
+inspection or settlement; keep the original Codex provider ID, model and
+charging basis available. Apply retains the original job's attempt limit.
+Running the old job afterward still requires compatible request configuration;
+reconciliation itself neither rolls back policy nor permits a changed request.
+Completed output is queued
 for normal validation without another generation call. A confirmed interrupted
 or failed turn **without a final answer** is settled once and becomes retryable
 only within the existing attempt and job limits. Still-running work, missing
@@ -681,6 +729,12 @@ The returned `observation_json` includes `known_input_tokens`,
 `known_output_tokens` and `usage_complete`. Incomplete usage is a lower bound;
 the unobserved part of the original reservation still counts against admission
 budgets. The receipt and `provider-reconciled` event retain that distinction.
+`job status.incomplete_usage_observations` counts attempts whose latest retained
+provider observation reports incomplete usage, once per attempt. It does not
+count every observation event. A held outcome with no observation is separate;
+reconciliation can remove that hold and increase the incomplete-usage count
+without another provider call or a change to known token totals. Count known
+runs once and preserve the remaining unknown reservation across phases.
 No SQL/config patch script, rebuild or reimport is part of ordinary restart.
 MCP exposes `rag_job_reconcile_inspect` with `diagnose` access and
 `rag_job_reconcile_apply` with `control` access.
@@ -787,7 +841,9 @@ crexxrag --access plan --format json \
 Automation then submits the exact returned `canonical_plan` and `digest` to
 `proposal apply`. Apply only creates mandatory pending reviews. Accepting an
 external review internalizes the proposal and runs the normal deterministic
-claim validator before publication.
+claim validator before publication. The apply result includes a `proposal-review`
+record for each proposal, pairing `proposal_id` with `review_id`. Use that ID
+directly for `review show` and the decision preview; no review-list scan is needed.
 
 ## Catalogue and graph maintenance cycle
 
@@ -796,6 +852,11 @@ authorized worklist. It inspects chunks, concept nodes, claim edges, pending
 reviews, query gaps, failed work and embedding/vector coverage; ranks what is
 worth further analysis; and optionally uses the configured LLM to diagnose and
 propose actions.
+
+A zero monetary budget leaves paid-provider tasks pending and lets eligible
+Codex subscription or local work proceed within its own configured limits.
+When no eligible work remains, the window finishes; it does not keep retrying
+the unfunded route. A later funded run can pick up those pending tasks.
 
 Query gaps enter this cycle automatically when they meet
 `maintenance.query_gap_min_occurrences`. Their evidence search uses the recorded
@@ -898,6 +959,30 @@ mean the library has no work. Reviewed mode still previews an exact worklist.
 `--minutes` gives the activated window its full duration after preparation;
 worker restarts retain that deadline. `--until` and overnight closing times
 remain fixed. The window status is authoritative for the activated deadline.
+
+To process a particular newly ingested document after its embeddings, select its
+source ID for a normal maintenance window:
+
+```sh
+crexxrag maintain --source SOURCE_ID --minutes 60 --yes
+crexxrag maintain tasks --source SOURCE_ID
+```
+
+Source selection happens before the bounded census page and dispatch wave, so
+older catalogue work cannot fill that window. It selects the source's current
+chunks, their extraction/follow-up tasks and missing embedding repairs. Use
+`--embeddings-only` with the same selector for source-only vector repair. It
+supports automatic, supervised and manual modes; reviewed worklists and
+provenance enrichment reject it. Held/review tasks and exhausted attempts stay
+held. Source status counts describe this scope, including incomplete held work;
+source extraction does not imply that all related catalogue questions are solved.
+
+Machine callers pass `--source` to `maintain plan` and apply the returned exact
+plan. The source is retained in that window and through its normal continuation;
+`maintain apply` cannot substitute a source. Each window uses the existing
+configured bounds. After checking the source block and remaining overall
+allowance, start ordinary `maintain` without `--source` to resume the library
+backlog. No per-chunk worklist or reingestion is needed.
 
 For automatic maintenance, `maintain --yes` returns success (exit code 0) when
 its reviewed budget or window is exhausted and admitted calls have finished.
@@ -1146,9 +1231,48 @@ JOB`, then `job continue JOB`. `job items JOB --state dead_letter` includes
 source identity and recovery facts; full plans remain available through paged
 `job plan JOB`. `job list` returns compact metadata.
 
+To change only an existing maintenance job's deadline, use:
+
+```sh
+crexxrag job deadline JOB --until 2026-09-16T06:00:00+01:00
+```
+
+Use your intended future timestamp with an explicit timezone. This updates the
+window's time and its recorded timing metadata, preserving scope, item limits,
+models, budgets, usage, original start time and job state. Running workers observe it at their next
+checkpoint. A stopped job can then use `job continue JOB`. Repeating the same
+absolute deadline is a no-op. It does not resume a cancelled job.
+
+Ordinary continuation after expiry finishes already-admitted work using the
+original window duration and remaining allowance. It freezes discovery at the
+existing item count. To keep the original discovery scope and extend time only,
+set the deadline explicitly before continuing. Neither route adds a budget.
+
+To reset exhausted attempt eligibility counts explicitly:
+
+```sh
+crexxrag job reset-retries JOB
+crexxrag job reset-retries --all
+```
+
+`--all` means all existing jobs in the selected library. Reset records count
+baselines; it preserves attempt numbering/history, provider receipts, cumulative
+usage, budgets, completed work, cancellation, reviews and unresolved outcomes.
+It neither starts workers nor submits retry requests: use the existing `job
+retry`, `maintain retry` and continuation commands for the intended work.
+Pending retry requests are reconsidered through their normal owner. Shared
+maintenance tasks and identical embedding work share their reset allowance
+across original, repair and replay jobs. New attempts consume it normally.
+In-flight work still counts; a repeat before further completed attempts is a
+no-op. Provider pacing/cooldown and worker replacement limits are separate.
+MCP exposes the same controls as `rag_job_deadline` and `rag_job_reset_retries`.
+
 For explicitly authorized extra allowance, use `job continue JOB --renew NAME`.
 A maintenance period can add `--minutes 60`. Repeat the same NAME after a
-restart; it cannot grant a second allocation or move the deadline. `--prepare`
+restart; it cannot grant a second allocation or move the deadline. If that
+named period has expired, use ordinary continuation for admitted work or set
+a new explicit deadline; repeating the expired name leaves its deadline intact.
+`--prepare`
 records preparation without launching workers and refuses active ownership
 without draining it. Existing per-task attempts, unknown outcomes, cumulative
 usage and original plans are retained. `--minutes`
@@ -1350,13 +1474,25 @@ successor for workflow listings). Combined filters are intersected.
 
 ```sh
 crexxrag maintain workflows --concept Turray
+crexxrag maintain tasks --source SOURCE_ID
 crexxrag maintain tasks --concept Turray
 crexxrag maintain tasks --workflow WORKFLOW_ID
 crexxrag job items JOB_ID --state dead_letter --limit 100
 crexxrag job attempts JOB_ID --item ITEM_ID
 ```
 
-Use `--cursor` with the returned `next_cursor` until it is empty or there is no
+`maintain tasks --source SOURCE_ID` (or `rag_task_list` with `source`) returns
+one compact `source-backlog` summary before the task page. It reports active
+chunks, chunks with/without a retained maintenance extraction task, task counts
+by state and their priority range. These totals cover the source regardless of
+page filters. They describe maintenance census coverage, not proof that all
+extraction is complete. The task page includes direct chunk/provenance work;
+library-wide catalogue tasks stay separate. An existing empty source returns
+zero counts; a missing source returns `not-found`. Use the summary to assess a
+processing block; fetch further task pages only when an individual case needs
+investigation.
+
+When individual records are needed, use `--cursor` with `next_cursor` until it is empty or there is no
 page record. Task pages retain a maximum of 50 rows; workflow/item/attempt pages
 allow 100. An existing empty job returns an empty page; an unknown job returns
 `not-found`. These commands make no provider calls or library changes. Item

@@ -1,0 +1,45 @@
+
+/Applications/ChatGPT.app/Contents/Resources/codex:	file format mach-o arm64
+
+Disassembly of section __TEXT,__text:
+
+000000010859a9b8 <__ZN104_$LT$codex_utils_pty..pipe..PipeChildTerminator$u20$as$u20$codex_utils_pty..process..ChildTerminator$GT$4kill17hb94dbc6d92e65dd4E>:
+10859a9b8: d10083ff    	sub	sp, sp, #0x20
+10859a9bc: a9017bfd    	stp	x29, x30, [sp, #0x10]
+10859a9c0: 910043fd    	add	x29, sp, #0x10
+10859a9c4: b9400001    	ldr	w1, [x0]
+10859a9c8: 910003e0    	mov	x0, sp
+10859a9cc: 52800122    	mov	w2, #0x9                ; =9
+10859a9d0: 94001d9b    	bl	0x1085a203c <__ZN15codex_utils_pty13process_group25kill_process_group_by_pid17h6deb93ff389eeb81E+0xd8>
+10859a9d4: 394003e8    	ldrb	w8, [sp]
+10859a9d8: f94007e9    	ldr	x9, [sp, #0x8]
+10859a9dc: 7100011f    	cmp	w8, #0x0
+10859a9e0: 9a9f1120    	csel	x0, x9, xzr, ne
+10859a9e4: a9417bfd    	ldp	x29, x30, [sp, #0x10]
+10859a9e8: 910083ff    	add	sp, sp, #0x20
+10859a9ec: d65f03c0    	ret
+
+000000010859a9f0 <__ZN104_$LT$codex_utils_pty..pipe..PipeChildTerminator$u20$as$u20$codex_utils_pty..process..ChildTerminator$GT$6signal17h907504e0b3b6d287E>:
+10859a9f0: a9be4ff4    	stp	x20, x19, [sp, #-0x20]!
+10859a9f4: a9017bfd    	stp	x29, x30, [sp, #0x10]
+10859a9f8: 910043fd    	add	x29, sp, #0x10
+10859a9fc: b9400000    	ldr	w0, [x0]
+10859aa00: 52800041    	mov	w1, #0x2                ; =2
+10859aa04: 945e8d9e    	bl	0x109d3e07c <dyld_stub_binder+0x109d3e07c>
+10859aa08: 3100041f    	cmn	w0, #0x1
+10859aa0c: 54000060    	b.eq	0x10859aa18 <__ZN104_$LT$codex_utils_pty..pipe..PipeChildTerminator$u20$as$u20$codex_utils_pty..process..ChildTerminator$GT$6signal17h907504e0b3b6d287E+0x28>
+10859aa10: d2800000    	mov	x0, #0x0                ; =0
+10859aa14: 1400000b    	b	0x10859aa40 <__ZN104_$LT$codex_utils_pty..pipe..PipeChildTerminator$u20$as$u20$codex_utils_pty..process..ChildTerminator$GT$6signal17h907504e0b3b6d287E+0x50>
+10859aa18: 945e8c5b    	bl	0x109d3db84 <dyld_stub_binder+0x109d3db84>
+10859aa1c: b9400014    	ldr	w20, [x0]
+10859aa20: 52800048    	mov	w8, #0x2                ; =2
+10859aa24: aa148113    	orr	x19, x8, x20, lsl #32
+10859aa28: aa1303e0    	mov	x0, x19
+10859aa2c: 94001bd3    	bl	0x1085a1978 <__ZN5alloc4sync16Arc$LT$T$C$A$GT$9drop_slow17he3b1412363ced80bE+0x1b84>
+10859aa30: 12001c08    	and	w8, w0, #0xff
+10859aa34: 7100011f    	cmp	w8, #0x0
+10859aa38: 7a431a84    	ccmp	w20, #0x3, #0x4, ne
+10859aa3c: 9a9303e0    	csel	x0, xzr, x19, eq
+10859aa40: a9417bfd    	ldp	x29, x30, [sp, #0x10]
+10859aa44: a8c24ff4    	ldp	x20, x19, [sp], #0x20
+10859aa48: d65f03c0    	ret

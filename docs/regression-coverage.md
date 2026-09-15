@@ -1,5 +1,75 @@
 # Regression coverage baseline — REG-01
 
+15 September job controls: `regression_job_deadline` covers CLI/MCP absolute
+time edits, unchanged scope/limits/work, repeated updates and cancelled-job
+refusal. `regression_source_maintenance` now passes its formerly red admitted
+completion case. `regression_large_job`/`regression_plan_detail` reject plan
+bodies at every size and retain complete paged detail on four surfaces.
+`regression_reset_retries` covers one job/all jobs, counts and preserved history;
+`native_retry_reset` completes five exhausted embeddings through shared task
+and embedding counts. `regression_lifecycle` exercises two three-attempt cycles
+and lease expiry after reset on both VMs. `worker_recovery` reproduces reset
+followed by exact Codex reconciliation retaining an incorrect lifetime ceiling;
+its added isolated fixture requires the effective paid-call count instead.
+Final candidate QA passes **79/79**, including the start-time and expired
+named-renewal edge assertions. See [the completed checklist](job-controls-delivery-20260915.md)
+for baseline failures, targeted panels and the final full result.
+The T7-10 result below is its historical pre-job-controls checkpoint.
+
+T7-10 adds `regression_controller_closure` (real native controller, normal/EOF
+controls, broken stdout/stderr, TERM/INT/HUP, uncatchable KILL, independent OS
+wait status and runtime rows) and `regression_controller_term` (held local
+provider response, queued peer, no new claim, retained claim/receipt/accounting
+and public shutdown reason). Both failed their intended baseline assertions
+before product changes; the positive controls passed. See the
+[repair checklist](t7-10-controller-diagnosis-20260915.md) for final results.
+PC-01's separate expired-window continuation regression was still failing then.
+That T7-10 checkpoint passes the targeted pair and **75/76** in the full local suite
+(1037.72 seconds). Only PC-01 `regression_source_maintenance` fails; every other
+existing check, both new regressions and the scratch installation pass. The
+plain parent-exit pair also passes on native `f3c4ff83b07d...`. This qualifies
+the local repair, not historical-signal attribution or installed endurance.
+
+Test 7 T7-08 extends `worker_recovery` exact-turn reconciliation with later
+source/budget edits and a reduced current retry limit. Original-config inspection
+and wrong-provider rejection pass before the new case reproduces exit 6.
+Acceptance requires the same observation digest and unchanged SQLite on inspect,
+original ten-attempt policy on apply despite a current limit of one, atomic and
+idempotent settlement, original usage, and unchanged worker compatibility before
+retained-output validation. Final results are recorded in the Test 7 checklist.
+
+Test 7 T7-06 extends `regression_operator_diagnostics` with held outcomes after
+100 unrelated failed items, receipt exclusion, disjoint active/held scopes,
+state/job filtering, keyset continuation, empty jobs, invalid options and
+CLI/MCP equivalence. The pre-fix native returns usage for `--uncertainty held`
+after ordinary/status positive controls pass. The repaired acceptance passes
+with complete SQLite dump parity; metadata/full-suite/staging follow the shared
+Test 7 checklist. A CMake literal-quoting collision in the first repaired test
+run was corrected without changing the asserted IDs or implementation.
+
+Test 7 `regression_source_backlog` reproduces the missing source filter after
+an ordinary task-read positive control. Its scratch corpus checks undiscovered
+chunks, retained extraction task states, unrelated tasks ordered before the
+source's tasks, pagination, CLI/MCP, empty/missing sources and independent
+database-dump/provider-call parity. Full qualification is recorded in Test 7.
+
+Test 7 extends `gemini_maintenance` to require actual returned proposal/review
+IDs, complete acceptance with the returned ID and preserve a known validator
+diagnosis for an invalid proposal. Both missing fields and the masked diagnosis
+fail before their respective fixes. `regression_operator_diagnostics` adds
+source/review exact lookup after 125 rows, missing-ID controls and existing
+read-only dump parity; the first-page-only baseline fails. [Test 7](test7-overnight-soak-20260914.md)
+retains the implementation and final acceptance status.
+
+Test 7 adds `regression_folder_include`: public native plan/apply with exact
+filenames, root/nested `*`, recursive `**`, `?`, alternative and overlapping
+patterns, case sensitivity, unsupported extensions and zero provider calls.
+Independent stored membership must equal the selected keys; changing excluded
+bytes between planning and apply must not stale the plan. Before implementation,
+the unrestricted positive control passes and exact selection fails with six
+files instead of one. Post-fix focused/full qualification is recorded in
+[Test 7](test7-overnight-soak-20260914.md).
+
 Test 5 follow-up acceptance covers the shared optional passage maximum of 200
 with an unchanged default of 12: file/typed configuration, all seven MCP query
 schemas, native CLI/MCP, ADDRESS and actual core retrieval of 200 distinct
@@ -527,3 +597,30 @@ worker runtime, retained holds and remaining status defects.
 `ann_methodology` now covers dirty-marker invalidation, settings, transaction
 rollback and generation jumps, forced rebuild, failure/retry and reuse without a new embedding
 timestamp on both VMs. See [A8 and its results](test2-recovery-delivery-20260914.md).
+
+## Scottish master acceptance repairs — 14 September
+
+| Journey | Regression evidence |
+|---|---|
+| Empty embedding repair with missing coverage | `regression_lifecycle` checks shared, public and persisted outcomes on both VMs; `embedding_exhaustion` checks native job/status reporting and run-ID inspection. Covered, active, cancelled and ordinary catalogue controls remain. |
+| Bounded embeddings-first ingestion | `embedding_exhaustion` applies separate item/call-limit failures and checks full rollback with zero calls, plus a successful two-item embeddings-only control. No preview-count gate is required. |
+| Zero monetary budget with mixed routes | `durable_backlog` checks pending paid tasks, subscription work in a one-item batch, local/positive-paid controls and clean empty-window closure. `regression_ingest_capacity` checks the shared reservation boundary, including a zero per-call cap with positive job budget. |
+
+Baseline failures and final results are tracked in the
+[acceptance repair checklist](acceptance-repairs-20260914.md).
+
+## T7-07 source-scoped maintenance acceptance
+
+`regression_source_maintenance` is a zero-outbound public CLI/MCP acceptance for
+source selection frozen into a normal durable window, late-sorting chunks behind
+an older corpus prefix, complete extraction-task discovery across bounded
+checkpoints, source-local embedding repair/completion, retained
+advanced-reasoning/review/waiver holds, and normal unscoped backlog resumption.
+The baseline passed its unscoped control and failed the requested source plan
+with `unknown option --source` before implementation. The focused set passed
+6/6 in 38.89s on native
+`eb74de625d11fbb2f5416385a0c3e7a43dbe48885734e5198d2486e202747fcc`;
+`durable_backlog` additionally proves exact source scope/deadline/allowance
+retention through ordinary window continuation. Combined full-suite and live
+source-window results remain pending. Fixture worker settlement is simulated
+in disposable SQLite state; this test does not qualify live extraction content.

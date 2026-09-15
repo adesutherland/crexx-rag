@@ -1,0 +1,10 @@
+options levelg
+import rxfnsb
+import ragtrace
+main: procedure = .int
+  call lineout "stderr", "READY"
+  input = linein()
+  call writeoperatorline "PAYLOAD","stdout"
+  call writeoperatorline "SECOND WRITE","stdout"
+  call lineout "stderr", "DONE"
+  return 0

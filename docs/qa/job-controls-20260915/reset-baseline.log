@@ -1,0 +1,27 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 67: regression_reset_retries
+1/1 Test #67: regression_reset_retries .........***Failed    0.79 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/PublicRegression.cmake:87 (message):
+  Expected exit 4, got 2: ERROR parse [usage]: unknown operation job
+  reset-retries
+
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/JobRetryReset.cmake:10 (require_status)
+  /Users/adrian/CLionProjects/crexx-rag/cmake/PublicRegression.cmake:201 (include)
+
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+native             =   0.79 sec*proc (1 test)
+public-contract    =   0.79 sec*proc (1 test)
+regression         =   0.79 sec*proc (1 test)
+zero-outbound      =   0.79 sec*proc (1 test)
+
+Total Test time (real) =   0.79 sec
+
+The following tests FAILED:
+	 67 - regression_reset_retries (Failed)                 native public-contract regression zero-outbound
+Errors while running CTest

@@ -1,0 +1,1509 @@
+{
+  "native_sha256": "2828fc4a3a251aab3731afd2c9f378c8f670c7e171aa3a8397fa129de6f8abb6",
+  "catalogue_sha256": "fb0ea09e5dfb88a8b758aff5651c017bca51df2dfb2d62ca89f2ee306eee202c",
+  "interface_entries": 88,
+  "unique_operations": 84,
+  "mcp_tools": 71,
+  "public_catalogue_match": true,
+  "entries": [
+    {
+      "operation": "job.items",
+      "tool": "rag_job_items",
+      "capability": "read",
+      "requires_library": true,
+      "family": "job",
+      "functional_journeys": [
+        "F6-03",
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "native_surfaces",
+        "durable_backlog"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "job.attempts",
+      "tool": "rag_job_attempts",
+      "capability": "read",
+      "requires_library": true,
+      "family": "job",
+      "functional_journeys": [
+        "F6-03",
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "native_surfaces",
+        "durable_backlog"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.workflows",
+      "tool": "rag_workflow_list",
+      "capability": "read",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "config.prompt",
+      "tool": "rag_config_prompt",
+      "capability": "read",
+      "requires_library": false,
+      "family": "config",
+      "functional_journeys": [
+        "F6-01",
+        "F6-10"
+      ],
+      "family_test_evidence": [
+        "regression_policy_file",
+        "regression_prompt_inspection",
+        "regression_prompt_contract",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "library.status",
+      "tool": "rag_library_status",
+      "capability": "read",
+      "requires_library": true,
+      "family": "library",
+      "functional_journeys": [
+        "F6-01",
+        "F6-08"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "native_publication",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "library.report",
+      "tool": "rag_library_overview",
+      "capability": "read",
+      "requires_library": true,
+      "family": "library",
+      "functional_journeys": [
+        "F6-01",
+        "F6-08"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "native_publication",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "profile.show",
+      "tool": "rag_profile_show",
+      "capability": "read",
+      "requires_library": false,
+      "family": "profile",
+      "functional_journeys": [
+        "F6-01"
+      ],
+      "family_test_evidence": [
+        "configuration_contract",
+        "native_surfaces"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "library.report",
+      "tool": "rag_library_report",
+      "capability": "read",
+      "requires_library": true,
+      "family": "library",
+      "functional_journeys": [
+        "F6-01",
+        "F6-08"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "native_publication",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "library.trend",
+      "tool": "rag_library_trend",
+      "capability": "read",
+      "requires_library": true,
+      "family": "library",
+      "functional_journeys": [
+        "F6-01",
+        "F6-08"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "native_publication",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "source.list",
+      "tool": "rag_source_list",
+      "capability": "read",
+      "requires_library": true,
+      "family": "source",
+      "functional_journeys": [
+        "F6-01",
+        "F6-06"
+      ],
+      "family_test_evidence": [
+        "installed_product",
+        "native_surfaces"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "citation.show",
+      "tool": "rag_citation_show",
+      "capability": "read",
+      "requires_library": true,
+      "family": "citation",
+      "functional_journeys": [
+        "F6-02"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "temporal_provenance"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "schedule.list",
+      "tool": "rag_schedule_list",
+      "capability": "read",
+      "requires_library": false,
+      "family": "schedule",
+      "functional_journeys": [
+        "F6-01"
+      ],
+      "family_test_evidence": [
+        "native_surfaces"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "schedule.show",
+      "tool": "rag_schedule_show",
+      "capability": "read",
+      "requires_library": false,
+      "family": "schedule",
+      "functional_journeys": [
+        "F6-01"
+      ],
+      "family_test_evidence": [
+        "native_surfaces"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "query.search",
+      "tool": "rag_query_search",
+      "capability": "read",
+      "requires_library": true,
+      "family": "query",
+      "functional_journeys": [
+        "F6-02",
+        "F6-09"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "query_policy",
+        "temporal_provenance"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "query.evidence",
+      "tool": "rag_query_evidence",
+      "capability": "read",
+      "requires_library": true,
+      "family": "query",
+      "functional_journeys": [
+        "F6-02",
+        "F6-09"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "query_policy",
+        "temporal_provenance"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "query.inspect",
+      "tool": "rag_query_inspect",
+      "capability": "read",
+      "requires_library": true,
+      "family": "query",
+      "functional_journeys": [
+        "F6-02",
+        "F6-09"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "query_policy",
+        "temporal_provenance"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "query.answer",
+      "tool": "rag_query_answer",
+      "capability": "read",
+      "requires_library": true,
+      "family": "query",
+      "functional_journeys": [
+        "F6-02",
+        "F6-09"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "query_policy",
+        "temporal_provenance"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "query.trace",
+      "tool": "rag_query_trace",
+      "capability": "read",
+      "requires_library": true,
+      "family": "query",
+      "functional_journeys": [
+        "F6-02",
+        "F6-09"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "query_policy",
+        "temporal_provenance"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "query.path",
+      "tool": "rag_query_path",
+      "capability": "read",
+      "requires_library": true,
+      "family": "query",
+      "functional_journeys": [
+        "F6-02",
+        "F6-09"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "query_policy",
+        "temporal_provenance"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "query.timeline",
+      "tool": "rag_query_timeline",
+      "capability": "read",
+      "requires_library": true,
+      "family": "query",
+      "functional_journeys": [
+        "F6-02",
+        "F6-09"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "query_policy",
+        "temporal_provenance"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "job.progress",
+      "tool": "rag_job_progress",
+      "capability": "read",
+      "requires_library": true,
+      "family": "job",
+      "functional_journeys": [
+        "F6-03",
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "native_surfaces",
+        "durable_backlog"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "job.status",
+      "tool": "rag_job_status",
+      "capability": "read",
+      "requires_library": true,
+      "family": "job",
+      "functional_journeys": [
+        "F6-03",
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "native_surfaces",
+        "durable_backlog"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "job.list",
+      "tool": "rag_job_list",
+      "capability": "read",
+      "requires_library": true,
+      "family": "job",
+      "functional_journeys": [
+        "F6-03",
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "native_surfaces",
+        "durable_backlog"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "job.plan",
+      "tool": "rag_job_plan",
+      "capability": "read",
+      "requires_library": true,
+      "family": "job",
+      "functional_journeys": [
+        "F6-03",
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "native_surfaces",
+        "durable_backlog"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "job.events",
+      "tool": "rag_job_events",
+      "capability": "read",
+      "requires_library": true,
+      "family": "job",
+      "functional_journeys": [
+        "F6-03",
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "native_surfaces",
+        "durable_backlog"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "config.check",
+      "tool": "rag_config_check",
+      "capability": "read",
+      "requires_library": false,
+      "family": "config",
+      "functional_journeys": [
+        "F6-01",
+        "F6-10"
+      ],
+      "family_test_evidence": [
+        "regression_policy_file",
+        "regression_prompt_inspection",
+        "regression_prompt_contract",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "config.explain",
+      "tool": "rag_config_explain",
+      "capability": "read",
+      "requires_library": false,
+      "family": "config",
+      "functional_journeys": [
+        "F6-01",
+        "F6-10"
+      ],
+      "family_test_evidence": [
+        "regression_policy_file",
+        "regression_prompt_inspection",
+        "regression_prompt_contract",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "config.diff",
+      "tool": "rag_config_diff",
+      "capability": "read",
+      "requires_library": true,
+      "family": "config",
+      "functional_journeys": [
+        "F6-01",
+        "F6-10"
+      ],
+      "family_test_evidence": [
+        "regression_policy_file",
+        "regression_prompt_inspection",
+        "regression_prompt_contract",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.status",
+      "tool": "rag_maintain_status",
+      "capability": "read",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.inspect",
+      "tool": "rag_maintain_inspect",
+      "capability": "read",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.tasks",
+      "tool": "rag_task_list",
+      "capability": "read",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.evidence",
+      "tool": "rag_task_evidence",
+      "capability": "read",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.evidence-index",
+      "tool": "rag_task_evidence_inventory",
+      "capability": "read",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "job.reconcile",
+      "tool": "rag_job_reconcile_inspect",
+      "capability": "diagnose",
+      "requires_library": true,
+      "family": "job",
+      "functional_journeys": [
+        "F6-03",
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "native_surfaces",
+        "durable_backlog"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "library.verify",
+      "tool": "rag_library_verify",
+      "capability": "diagnose",
+      "requires_library": true,
+      "family": "library",
+      "functional_journeys": [
+        "F6-01",
+        "F6-08"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "native_publication",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "provider.status",
+      "tool": "rag_provider_diagnostics",
+      "capability": "diagnose",
+      "requires_library": false,
+      "family": "provider",
+      "functional_journeys": [
+        "F6-09"
+      ],
+      "family_test_evidence": [
+        "installed_product",
+        "local_embedding_protocol",
+        "worker_recovery",
+        "query_policy"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "provider.test",
+      "tool": "rag_provider_test",
+      "capability": "diagnose",
+      "requires_library": false,
+      "family": "provider",
+      "functional_journeys": [
+        "F6-09"
+      ],
+      "family_test_evidence": [
+        "installed_product",
+        "local_embedding_protocol",
+        "worker_recovery",
+        "query_policy"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.refresh-plan",
+      "tool": "rag_task_refresh_plan",
+      "capability": "plan",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.resolve-plan",
+      "tool": "rag_task_resolve_plan",
+      "capability": "plan",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.escalate-plan",
+      "tool": "rag_task_escalate_plan",
+      "capability": "plan",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "ingest.plan",
+      "tool": "rag_ingest_plan",
+      "capability": "plan",
+      "requires_library": true,
+      "family": "ingest",
+      "functional_journeys": [
+        "F6-06"
+      ],
+      "family_test_evidence": [
+        "installed_product",
+        "native_surfaces"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.plan",
+      "tool": "rag_maintain_plan",
+      "capability": "plan",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "proposal.plan",
+      "tool": "rag_proposal_plan",
+      "capability": "plan",
+      "requires_library": true,
+      "family": "proposal",
+      "functional_journeys": [
+        "F6-04"
+      ],
+      "family_test_evidence": [
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "review.list",
+      "tool": "rag_review_list",
+      "capability": "plan",
+      "requires_library": true,
+      "family": "review",
+      "functional_journeys": [
+        "F6-04"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "review.decide",
+      "tool": "rag_review_decide_preview",
+      "capability": "plan",
+      "requires_library": true,
+      "family": "review",
+      "functional_journeys": [
+        "F6-04"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "config.plan",
+      "tool": "rag_config_plan",
+      "capability": "plan",
+      "requires_library": true,
+      "family": "config",
+      "functional_journeys": [
+        "F6-01",
+        "F6-10"
+      ],
+      "family_test_evidence": [
+        "regression_policy_file",
+        "regression_prompt_inspection",
+        "regression_prompt_contract",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.reconcile",
+      "tool": "rag_workflow_reconcile_preview",
+      "capability": "plan",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.reconcile",
+      "tool": "rag_workflow_reconcile",
+      "capability": "curate",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.waive",
+      "tool": "rag_task_waive",
+      "capability": "control",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.retry",
+      "tool": "rag_task_retry",
+      "capability": "control",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "job.retry",
+      "tool": "rag_job_retry",
+      "capability": "control",
+      "requires_library": true,
+      "family": "job",
+      "functional_journeys": [
+        "F6-03",
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "native_surfaces",
+        "durable_backlog"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "job.reconcile",
+      "tool": "rag_job_reconcile_apply",
+      "capability": "control",
+      "requires_library": true,
+      "family": "job",
+      "functional_journeys": [
+        "F6-03",
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "native_surfaces",
+        "durable_backlog"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "vector.rebuild",
+      "tool": "rag_vector_rebuild",
+      "capability": "control",
+      "requires_library": true,
+      "family": "vector",
+      "functional_journeys": [
+        "F6-06",
+        "F6-08"
+      ],
+      "family_test_evidence": [
+        "native_publication"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "library.snapshot",
+      "tool": "rag_library_snapshot",
+      "capability": "control",
+      "requires_library": true,
+      "family": "library",
+      "functional_journeys": [
+        "F6-01",
+        "F6-08"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "native_publication",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "job.pause",
+      "tool": "rag_job_pause",
+      "capability": "control",
+      "requires_library": true,
+      "family": "job",
+      "functional_journeys": [
+        "F6-03",
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "native_surfaces",
+        "durable_backlog"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "job.continue",
+      "tool": "rag_job_continue",
+      "capability": "control",
+      "requires_library": true,
+      "family": "job",
+      "functional_journeys": [
+        "F6-03",
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "native_surfaces",
+        "durable_backlog"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "job.resume",
+      "tool": "rag_job_resume",
+      "capability": "control",
+      "requires_library": true,
+      "family": "job",
+      "functional_journeys": [
+        "F6-03",
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "native_surfaces",
+        "durable_backlog"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "job.cancel",
+      "tool": "rag_job_cancel",
+      "capability": "control",
+      "requires_library": true,
+      "family": "job",
+      "functional_journeys": [
+        "F6-03",
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "native_surfaces",
+        "durable_backlog"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "job.replay",
+      "tool": "rag_job_replay",
+      "capability": "control",
+      "requires_library": true,
+      "family": "job",
+      "functional_journeys": [
+        "F6-03",
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "native_surfaces",
+        "durable_backlog"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "worker.drain",
+      "tool": "rag_worker_drain",
+      "capability": "control",
+      "requires_library": true,
+      "family": "worker",
+      "functional_journeys": [
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "installed_product",
+        "native_publication"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "ingest.apply",
+      "tool": "rag_ingest_apply",
+      "capability": "ingest",
+      "requires_library": true,
+      "family": "ingest",
+      "functional_journeys": [
+        "F6-06"
+      ],
+      "family_test_evidence": [
+        "installed_product",
+        "native_surfaces"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.refresh-apply",
+      "tool": "rag_task_refresh_apply",
+      "capability": "curate",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.resolve-apply",
+      "tool": "rag_task_resolve_apply",
+      "capability": "curate",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.escalate-apply",
+      "tool": "rag_task_escalate_apply",
+      "capability": "curate",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "maintain.apply",
+      "tool": "rag_maintain_apply",
+      "capability": "curate",
+      "requires_library": true,
+      "family": "maintain",
+      "functional_journeys": [
+        "F6-03",
+        "F6-04",
+        "F6-05",
+        "F6-11"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "proposal.apply",
+      "tool": "rag_proposal_apply",
+      "capability": "curate",
+      "requires_library": true,
+      "family": "proposal",
+      "functional_journeys": [
+        "F6-04"
+      ],
+      "family_test_evidence": [
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "review.decide",
+      "tool": "rag_review_decide",
+      "capability": "curate",
+      "requires_library": true,
+      "family": "review",
+      "functional_journeys": [
+        "F6-04"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "config.apply",
+      "tool": "rag_config_apply",
+      "capability": "admin",
+      "requires_library": true,
+      "family": "config",
+      "functional_journeys": [
+        "F6-01",
+        "F6-10"
+      ],
+      "family_test_evidence": [
+        "regression_policy_file",
+        "regression_prompt_inspection",
+        "regression_prompt_contract",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "config.show",
+      "tool": "rag_config_show",
+      "capability": "read",
+      "requires_library": false,
+      "family": "config",
+      "functional_journeys": [
+        "F6-01",
+        "F6-10"
+      ],
+      "family_test_evidence": [
+        "regression_policy_file",
+        "regression_prompt_inspection",
+        "regression_prompt_contract",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "config.set",
+      "tool": "rag_config_set",
+      "capability": "admin",
+      "requires_library": false,
+      "family": "config",
+      "functional_journeys": [
+        "F6-01",
+        "F6-10"
+      ],
+      "family_test_evidence": [
+        "regression_policy_file",
+        "regression_prompt_inspection",
+        "regression_prompt_contract",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "config.replace",
+      "tool": "rag_config_replace",
+      "capability": "admin",
+      "requires_library": false,
+      "family": "config",
+      "functional_journeys": [
+        "F6-01",
+        "F6-10"
+      ],
+      "family_test_evidence": [
+        "regression_policy_file",
+        "regression_prompt_inspection",
+        "regression_prompt_contract",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "doctor",
+      "tool": null,
+      "capability": "read",
+      "requires_library": false,
+      "family": "doctor",
+      "functional_journeys": [
+        "F6-01"
+      ],
+      "family_test_evidence": [
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "library.init",
+      "tool": null,
+      "capability": "admin",
+      "requires_library": true,
+      "family": "library",
+      "functional_journeys": [
+        "F6-01",
+        "F6-08"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "native_publication",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "library.backup",
+      "tool": null,
+      "capability": "admin",
+      "requires_library": true,
+      "family": "library",
+      "functional_journeys": [
+        "F6-01",
+        "F6-08"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "native_publication",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "library.restore",
+      "tool": null,
+      "capability": "admin",
+      "requires_library": false,
+      "family": "library",
+      "functional_journeys": [
+        "F6-01",
+        "F6-08"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "native_publication",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "library.migrate",
+      "tool": null,
+      "capability": "admin",
+      "requires_library": true,
+      "family": "library",
+      "functional_journeys": [
+        "F6-01",
+        "F6-08"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "native_publication",
+        "configuration_contract"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "provider.list",
+      "tool": null,
+      "capability": "read",
+      "requires_library": false,
+      "family": "provider",
+      "functional_journeys": [
+        "F6-09"
+      ],
+      "family_test_evidence": [
+        "installed_product",
+        "local_embedding_protocol",
+        "worker_recovery",
+        "query_policy"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "profile.list",
+      "tool": null,
+      "capability": "read",
+      "requires_library": false,
+      "family": "profile",
+      "functional_journeys": [
+        "F6-01"
+      ],
+      "family_test_evidence": [
+        "configuration_contract",
+        "native_surfaces"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "profile.validate",
+      "tool": null,
+      "capability": "read",
+      "requires_library": false,
+      "family": "profile",
+      "functional_journeys": [
+        "F6-01"
+      ],
+      "family_test_evidence": [
+        "configuration_contract",
+        "native_surfaces"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "source.show",
+      "tool": null,
+      "capability": "read",
+      "requires_library": true,
+      "family": "source",
+      "functional_journeys": [
+        "F6-01",
+        "F6-06"
+      ],
+      "family_test_evidence": [
+        "installed_product",
+        "native_surfaces"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "review.show",
+      "tool": null,
+      "capability": "read",
+      "requires_library": true,
+      "family": "review",
+      "functional_journeys": [
+        "F6-04"
+      ],
+      "family_test_evidence": [
+        "durable_backlog",
+        "native_lifecycle",
+        "installed_product"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "job.run",
+      "tool": null,
+      "capability": "control",
+      "requires_library": true,
+      "family": "job",
+      "functional_journeys": [
+        "F6-03",
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "native_surfaces",
+        "durable_backlog"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "worker.start",
+      "tool": null,
+      "capability": "control",
+      "requires_library": true,
+      "family": "worker",
+      "functional_journeys": [
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "installed_product",
+        "native_publication"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "worker.run",
+      "tool": null,
+      "capability": "control",
+      "requires_library": true,
+      "family": "worker",
+      "functional_journeys": [
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "installed_product",
+        "native_publication"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "worker.list",
+      "tool": null,
+      "capability": "read",
+      "requires_library": true,
+      "family": "worker",
+      "functional_journeys": [
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "installed_product",
+        "native_publication"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "worker.status",
+      "tool": null,
+      "capability": "read",
+      "requires_library": true,
+      "family": "worker",
+      "functional_journeys": [
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "installed_product",
+        "native_publication"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "worker.prune",
+      "tool": null,
+      "capability": "control",
+      "requires_library": true,
+      "family": "worker",
+      "functional_journeys": [
+        "F6-07"
+      ],
+      "family_test_evidence": [
+        "worker_recovery",
+        "installed_product",
+        "native_publication"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    },
+    {
+      "operation": "serve.mcp",
+      "tool": null,
+      "capability": "read",
+      "requires_library": true,
+      "family": "serve",
+      "functional_journeys": [
+        "F6-01",
+        "F6-02"
+      ],
+      "family_test_evidence": [
+        "native_surfaces",
+        "address_surface"
+      ],
+      "coverage_note": "Family-level mapping, not an assertion that each interface variant was individually executed in this panel; consult the Test 6 checklist and retained baseline."
+    }
+  ]
+}

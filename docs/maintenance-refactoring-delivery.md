@@ -1,5 +1,85 @@
 # Maintenance refactoring delivery
 
+Job controls (15 September): `ragbacklog` owns deadline-only mutation and
+expired admitted-work completion; `ragcontinuation` owns their orchestration
+and the reset transaction. `raglifecycle` now owns effective ordinary attempts,
+paid item calls, maintenance-task calls and embedding-identity calls, with
+explicit immutable count baselines. `ragwork`, `ragbacklog`,
+`ragapplicationprovider` and `ragreceipts` consume those same counts. Repository
+SQL omits every job plan body; `ragresultpages` consistently points to detail.
+The [checked delivery record](job-controls-delivery-20260915.md) records red
+baselines, new boundary coverage and final QA. No schema or native changes.
+
+T7-10 controller closure: `ragprocess` owns a process-local shutdown flag and
+composes its existing drain/finish path for TERM/INT/HUP. `ragtrace` owns narrow
+best-effort operator writes, shared by CLI result, process and store diagnostics;
+provider and corpus I/O handlers remain unchanged. No owner moves, schema,
+configuration, protocol or timeout is added. Before product edits,
+`regression_controller_closure` passed healthy/EOF controls and failed closed
+outputs and catchable signals; `regression_controller_term` passed its live
+held-response control and failed graceful drain/reason assertions. The
+[T7-10 checklist](t7-10-controller-diagnosis-20260915.md) records final QA.
+The targeted pair and repaired parent-exit controls pass; full QA is **75/76**
+with only the separate, already-red PC-01 expired-window continuation case.
+
+Test 7 T7-08: `ragapplicationprovider.reconcile` no longer applies the worker's
+whole-configuration guard to inspection/settlement of an existing Codex turn.
+Original provider identity remains checked; `ragreceipts.readexternalidentity`
+reads the retained attempt ceiling through the existing indexed budget-policy
+event and apply uses it instead of current configuration. Worker validation
+retains its compatibility guard. `worker_recovery` first passed original-config
+inspection and wrong-provider controls, then reproduced exit 6 after source,
+budget and retry-setting changes (`test7-reconcile-baseline.log`). Added controls
+cover unchanged observation digest/SQLite, retained ceiling, atomic rollback,
+idempotence, usage, and refusal to run the old request under altered policy.
+Final acceptance and installation status remain in the Test 7 checklist.
+
+Test 7 T7-06: `ragoperationsquery.operatordiagnostics` owns the optional
+`job.items` uncertainty filter, reusing `raglifecycle.uncertainitem` and the
+existing status state split. The catalogue advertises `all`, `active` and
+`held`; filtering precedes pagination and intersects state. The regression first
+passed ordinary reads and live/held status, then failed on the missing option.
+It selects two held outcomes beyond 100 ordinary failures and checks receipts,
+active/held separation, job/state scope, continuation, empty jobs, strict
+arguments, CLI/MCP parity and unchanged database. Final test/staging evidence
+remains in the Test 7 checklist.
+
+Test 7 agent guidance: `skills/crexxrag-maintain/SKILL.md` owns the common
+long-job monitoring, model-selection and progress workflow. Ingest/diagnose
+skills reference it; the reusable corpus template and Scottish instance files
+record setup and continuity without adding per-item approval or monitoring
+requirements. Agent integration documents source-scoped backlog and returned
+review IDs with installed-version qualifications. Documentation contract and
+all four changed skill validators pass; installed guidance copies match the
+source. Runtime staging and live repair retests remain on the Test 7 checklist.
+
+Test 7 T7-03/04/05: `ragimprove` preserves the existing validator's reason on
+rejected external plans. `ragrepository` owns indexed exact source/review reads
+through its existing projection; `ragproduct` routes instead of post-filtering
+a list page. `ragoperationsquery` owns source-filtered task inspection and a
+compact backlog summary in one read transaction, using current source/chunk
+membership and the existing subject index. `regression_source_backlog` first
+passes ordinary inspection then fails on the missing source option; it covers
+undiscovered chunks, unrelated tasks before pagination, states, cursor, empty
+and missing sources, CLI/MCP and independent zero-write/zero-call assertions.
+
+Test 7 T7-02: `ragimprove.applyexternalproposalplan` now retains review IDs
+already returned by `ragclaims`; public `proposal.apply` emits one paired
+`proposal-review` result per proposal after its existing summary. This adds no
+query or identity rule. `gemini_maintenance` first confirms the stored external
+review independently, then fails on the baseline's missing returned ID; repaired
+acceptance uses the returned ID for the ordinary decision/publication journey.
+
+Test 7 T7-01: source include matching belongs in `ragfolder`. The existing
+`ragproduct` plan/apply callers now forward validated include patterns; no
+adapter filtering, SQL, schema or configuration format is added. The new
+`regression_folder_include` public journey first passes unrestricted discovery
+and apply with zero provider calls, then reproduces exact-filename selection
+returning six files instead of one against the pre-fix native artifact. It also
+covers root/nested wildcards, zero-directory `**`, alternative/overlapping
+patterns, case sensitivity, unsupported files and apply's independent stored
+membership. [Test 7](test7-overnight-soak-20260914.md) records final qualification.
+
 Test 5 follow-ups: `ragconfig.querypassagemaximum` supplies the shared 200-passage
 ceiling to file/typed validation, core retrieval, public query execution and
 MCP schema construction. The catalogue gains only that configuration dependency;
@@ -550,3 +630,37 @@ See the checklist's retained evidence for exact source and executable hashes.
 Schema 19 owns invalidation; `ragembedding` owns rebuild completion;
 `ragstore.currentvectorpredicate` supplies the shared maintenance census and
 completion rule. See [A8](test2-recovery-delivery-20260914.md) for acceptance.
+
+## Scottish acceptance repairs — 14 September
+
+Existing owners remain: `raglifecycle` projects incomplete embedding outcomes,
+`ragbacklog` supplies run status/inspection, and `ragadmission` owns the monetary
+route decision used by backlog selection and worker reservation. No new state or
+orchestration layer. See the [repair checklist](acceptance-repairs-20260914.md).
+
+## T7-07 source selection, 14–15 September 2026
+
+The confirmed source starvation had two causes: lexicographic whole-corpus
+census pages only advanced after busy dispatch waves, and retained old catalogue
+tasks ranked above extraction. The bounded repair adds source selection to
+ordinary durable windows; it does not alter priorities or add scheduling.
+`ragrepository.currentsourcechunks` is shared by task inspection and backlog
+selection. `ragbacklog` owns scope before census bounds, dispatch, retry facts,
+closure and source-local summary. Plan/apply freeze selection in operational
+window policy without changing knowledge/task identity. CLI and MCP compose it.
+
+Regression-first `regression_source_maintenance` passed the unscoped high-ranked
+work positive control, then failed on the baseline binary
+`74ac6bbc5629f2710e380d741d2f173ab0092d5fc43a2abddc4173c1190f22f4`
+with exit 2, `unknown option --source`. After repair, the focused set passed
+6/6 in 38.89 seconds: `regression_source_maintenance` (8.17s),
+`regression_source_backlog` (2.06s), `regression_command_arguments` (8.19s),
+`documentation_contract` (0.25s), `durable_backlog` (16.81s) and
+`regression_sql_performance` (3.41s). The backlog scenario now characterizes
+source continuation retaining exact policy, deadline and item allowance without
+widening or calls. Final native SHA-256 is
+`eb74de625d11fbb2f5416385a0c3e7a43dbe48885734e5198d2486e202747fcc`.
+Combined full suite passed 74/74 in 1045.12 seconds (session 43642); the tested
+artifact was installed at 00:54 BST after Boswell drained. Fresh installed CLI
+status passed at schema 19/generation 24641. Live source-window qualification
+remains in the Test 7 checklist.

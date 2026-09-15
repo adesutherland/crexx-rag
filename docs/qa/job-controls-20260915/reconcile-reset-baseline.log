@@ -1,0 +1,10 @@
+CMake Error at cmake/WorkerRecovery.cmake:48 (message):
+  Recovery SQL assertion failed: SELECT state FROM job_items WHERE
+  item_id='item-sha256:ce4715b839bf02d1081415ada0f11f0ff1212ed58b5bfd7ef8e9f2f1761c3721';
+
+  Expected: queued
+
+  Actual: dead_letter
+
+Call Stack (most recent call first):
+  cmake/WorkerRecovery.cmake:291 (sql)

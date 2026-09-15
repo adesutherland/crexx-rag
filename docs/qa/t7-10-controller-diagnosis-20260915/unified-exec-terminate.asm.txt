@@ -1,0 +1,59 @@
+
+/Applications/ChatGPT.app/Contents/Resources/codex:	file format mach-o arm64
+
+Disassembly of section __TEXT,__text:
+
+00000001046566b0 <__ZN10codex_core12unified_exec7process18UnifiedExecProcess9terminate17h93d59f0452cffe04E>:
+1046566b0: d10583ff    	sub	sp, sp, #0x160
+1046566b4: a9116ffc    	stp	x28, x27, [sp, #0x110]
+1046566b8: a9125ff8    	stp	x24, x23, [sp, #0x120]
+1046566bc: a91357f6    	stp	x22, x21, [sp, #0x130]
+1046566c0: a9144ff4    	stp	x20, x19, [sp, #0x140]
+1046566c4: a9157bfd    	stp	x29, x30, [sp, #0x150]
+1046566c8: 910543fd    	add	x29, sp, #0x150
+1046566cc: aa0003f4    	mov	x20, x0
+1046566d0: f9400008    	ldr	x8, [x0]
+1046566d4: b4000528    	cbz	x8, 0x104656778 <__ZN10codex_core12unified_exec7process18UnifiedExecProcess9terminate17h93d59f0452cffe04E+0xc8>
+1046566d8: 52800029    	mov	w9, #0x1                ; =1
+1046566dc: f8290108    	ldadd	x9, x8, [x8]
+1046566e0: b7f817e8    	tbnz	x8, #0x3f, 0x1046569dc <__ZN10codex_core12unified_exec7process18UnifiedExecProcess9terminate17h93d59f0452cffe04E+0x32c>
+1046566e4: 3dc00280    	ldr	q0, [x20]
+1046566e8: b0042c68    	adrp	x8, 0x10cbe3000 <__ZN7syntect7parsing5scope10SCOPE_REPO17hd6639e2ffd75feb9E+0x370>
+1046566ec: 91070108    	add	x8, x8, #0x1c0
+1046566f0: 52800029    	mov	w9, #0x1                ; =1
+1046566f4: f829010a    	ldadd	x9, x10, [x8]
+1046566f8: b4ffffea    	cbz	x10, 0x1046566f4 <__ZN10codex_core12unified_exec7process18UnifiedExecProcess9terminate17h93d59f0452cffe04E+0x44>
+1046566fc: 910003e8    	mov	x8, sp
+104656700: d10107a9    	sub	x9, x29, #0x41
+104656704: a90023ea    	stp	x10, x8, [sp]
+104656708: f9000be9    	str	x9, [sp, #0x10]
+10465670c: 910023f5    	add	x21, sp, #0x8
+104656710: 3c8183e0    	stur	q0, [sp, #0x18]
+104656714: 3900e3ff    	strb	wzr, [sp, #0x38]
+104656718: d0042ca0    	adrp	x0, 0x10cbec000 <_ts_current_free+0x238>
+10465671c: 91384000    	add	x0, x0, #0xe10
+104656720: f9400008    	ldr	x8, [x0]
+104656724: d63f0100    	blr	x8
+104656728: aa0003f3    	mov	x19, x0
+10465672c: 39412008    	ldrb	w8, [x0, #0x48]
+104656730: 7100051f    	cmp	w8, #0x1
+104656734: 54000340    	b.eq	0x10465679c <__ZN10codex_core12unified_exec7process18UnifiedExecProcess9terminate17h93d59f0452cffe04E+0xec>
+104656738: 7100091f    	cmp	w8, #0x2
+10465673c: 54000241    	b.ne	0x104656784 <__ZN10codex_core12unified_exec7process18UnifiedExecProcess9terminate17h93d59f0452cffe04E+0xd4>
+104656740: 910042a0    	add	x0, x21, #0x10
+104656744: 940685e8    	bl	0x1047f7ee4 <__ZN266_$LT$codex_core..context..world_state..collaboration_mode.._..$LT$impl$u20$serde_core..de..Deserialize$u20$for$u20$codex_core..context..world_state..collaboration_mode..CollaborationModeSnapshot$GT$..deserialize..__FieldVisitor$u20$as$u20$serde_core..de..Visitor$GT$9expecting17h3d89bfb5b78a6fe6E+0x2dbe4>
+104656748: 52800028    	mov	w8, #0x1                ; =1
+10465674c: 390103e8    	strb	w8, [sp, #0x40]
+104656750: 910103e8    	add	x8, sp, #0x40
+104656754: f0026869    	adrp	x9, 0x109365000 <__ZN5tokio7runtime9scheduler14current_thread7Context4park17h8af28aa0573dd838E+0x22c>
+104656758: 91345129    	add	x9, x9, #0xd14
+10465675c: a90827e8    	stp	x8, x9, [sp, #0x80]
+104656760: f002b960    	adrp	x0, 0x109d85000 <dyld_stub_binder+0x109d85000>
+104656764: 912b5000    	add	x0, x0, #0xad4
+104656768: d00411a2    	adrp	x2, 0x10c88c000 <__ZN10codex_core12hook_runtime31run_pending_session_start_hooks28_$u7b$$u7b$closure$u7d$$u7d$10__CALLSITE4META17h0bc5cc64ea43bbcbE+0x1b0>
+10465676c: 91066042    	add	x2, x2, #0x198
+104656770: 910203e1    	add	x1, sp, #0x80
+104656774: 95592255    	bl	0x109c9f0c8 <__RNvNtCsl8K0bEFm1U0_4core9panicking9panic_fmt>
+104656778: f9400680    	ldr	x0, [x20, #0x8]
+10465677c: 94fd3b49    	bl	0x1085a54a0 <__ZN15codex_utils_pty7process13ProcessHandle9terminate17h57b915f54cc469c1E>
+104656780: 1400005a    	b	0x1046568e8 <__ZN10codex_core12unified_exec7process18UnifiedExecProcess9terminate17h93d59f0452cffe04E+0x238>

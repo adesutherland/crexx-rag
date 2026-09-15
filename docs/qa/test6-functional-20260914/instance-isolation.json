@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "candidate_characters": 3796,
+  "candidate_file": "/Users/adrian/Documents/ScottishHistory/reports/functional-test6-20260914/resolution-scottish-v2.txt",
+  "candidate_sha256": "d5558b8d36a28ee1cb90e202753b07f50f65f8df6cee9256d9160e100baa4660",
+  "native_sha256": "2828fc4a3a251aab3731afd2c9f378c8f670c7e171aa3a8397fa129de6f8abb6",
+  "public_calls_this_step": 7,
+  "checks": {
+    "selected_objective_loaded": true,
+    "response_schema_unchanged": true,
+    "mandatory_contract_unchanged": true,
+    "generic_instance_prompt_unchanged": true,
+    "configuration_apply_preserves_generation": true,
+    "binary_original_config_and_shared_contracts_skills_unchanged": true
+  },
+  "protected_sha256": {
+    "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/crexxrag-native/package/crexxrag": "2828fc4a3a251aab3731afd2c9f378c8f670c7e171aa3a8397fa129de6f8abb6",
+    "/Users/adrian/CLionProjects/crexx-rag/crexx/application/config/google-gemini.conf": "38bc888b60c595163ebf7c12c391956e1de41284e27993feccc59d68fe6999ff",
+    "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/test6-instance-isolation-20260914/generic-control/crexxrag.conf": "38bc888b60c595163ebf7c12c391956e1de41284e27993feccc59d68fe6999ff",
+    "/Users/adrian/CLionProjects/crexx-rag/crexx/application/ragextractioncontract.crexx": "55faabaa292077d5b447a492b63521ea37c42197480fb3c81a2c3186c13b8391",
+    "/Users/adrian/CLionProjects/crexx-rag/crexx/application/raganswercontract.crexx": "048b0832469f23d939578729ec60e8a20891b468d3f73d37696495060a6792ac",
+    "/Users/adrian/CLionProjects/crexx-rag/crexx/application/ragquotationcontract.crexx": "ddb8a84c562ead0846ac27fce5d717d426cb7d0fde52a22be28b428fcb75a9fa",
+    "/Users/adrian/CLionProjects/crexx-rag/crexx/application/ragreportcontract.crexx": "32dcfafa755b727c1d335aed75330566e9014d085731eadd5cb15fc93a2c40c5",
+    "/Users/adrian/CLionProjects/crexx-rag/crexx/application/ragresolutioncontract.crexx": "7cf70ac26bf47a79eeb1c3d949173b01a8e4fc7b7b02d2b111f416d3cfd22966",
+    "/Users/adrian/CLionProjects/crexx-rag/skills/crexxrag-diagnose/SKILL.md": "a7be734fd3b1aa53201bb7e141f2085716df62730cab0bd3bfabd609c009e3f2",
+    "/Users/adrian/CLionProjects/crexx-rag/skills/crexxrag-resolve/SKILL.md": "2774cdec4de96f33eb59d04e0f17c2009ecc18ba4b9f08f7bb7ccc2e9c36e320",
+    "/Users/adrian/CLionProjects/crexx-rag/skills/crexxrag-ingest/SKILL.md": "7c0d6a433f2aabf7c7c8e9aeed4e06ade5cc584cf3a914157fdb618a2a61336a",
+    "/Users/adrian/CLionProjects/crexx-rag/skills/crexxrag-maintain/SKILL.md": "f24853a30b144905efffab2cfb385c914c672164a1db9a5d4b853324fc9c6c0e",
+    "/Users/adrian/CLionProjects/crexx-rag/skills/crexxrag-qa/SKILL.md": "71c7e13364de0a1535edfd184120d617576fbe8edf9896091b2ba1fe44d23597"
+  },
+  "scratch_work": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/test6-instance-isolation-20260914"
+}

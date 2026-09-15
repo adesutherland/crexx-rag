@@ -442,7 +442,11 @@ createexternalproposalplan: procedure = .int
   do i = 1 to proposals.0
     if proposals[i].external() \= 1 then do; error = "external proposal plan contains an internal proposal"; return -1; end
     validation = .ragproposalvalidation
-    if validateproposal(store, proposals[i], policy, validation, error) \= 0 | validation.disposition() \= "review" | validation.review_type() \= "external-proposal" then do; if error = "" then error = "external proposal did not reach its mandatory review gate"; return -1; end
+    if validateproposal(store, proposals[i], policy, validation, error) \= 0 | validation.disposition() \= "review" | validation.review_type() \= "external-proposal" then do
+      if error = "" then error = validation.reason()
+      if error = "" then error = "external proposal did not reach its mandatory review gate"
+      return -1
+    end
     hash = rxhash..sha256hex(proposals[i].canonical() as .binary)
     if previous \= "" & hash <= previous then do; error = "external proposals must be in unique canonical hash order"; return -1; end
     previous = hash; hashes[hashes.0 + 1] = hash
@@ -455,8 +459,8 @@ createexternalproposalplan: procedure = .int
   return 0
 
 applyexternalproposalplan: procedure = .int
-  arg store = .ragstorehandle, plan = .ragexternalproposalplan, policy = .ragclaimpolicy, proposals = .ragextractionproposal[], expose reviews_created = .int, expose error = .string
-  reviews_created = 0; error = ""
+  arg store = .ragstorehandle, plan = .ragexternalproposalplan, policy = .ragclaimpolicy, proposals = .ragextractionproposal[], expose reviews_created = .int, expose error = .string, expose review_ids = .string[]
+  reviews_created = 0; error = ""; clear review_ids
   if store.writable() \= 1 | plan.schema() \= "crexx-rag.external-proposal-plan/1" | rxhash..sha256hex(plan.canonical() as .binary) \= plan.digest() then do; error = "external proposal plan is invalid"; return -1; end
   current = _scalarint(store.database(), "SELECT published_generation FROM library_meta WHERE singleton=1")
   if current \= plan.expected_generation() then do; error = "published generation changed; re-plan"; return -2; end
@@ -466,6 +470,7 @@ applyexternalproposalplan: procedure = .int
     result = .ragproposalresult
     if applyproposal(store, proposals[i], policy, current, plan.config_snapshot_id(), result, error) \= 0 | result.disposition() \= "review" then return -3
     reviews_created = reviews_created + 1
+    review_ids[reviews_created] = result.review_id()
   end
   return 0
 

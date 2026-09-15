@@ -1,0 +1,91 @@
+{
+  "mode": "wait",
+  "before": {
+    "parent": {
+      "pid": 16551,
+      "ppid": 16549,
+      "pgid": 16549,
+      "state": "S"
+    },
+    "controller": {
+      "pid": 16552,
+      "ppid": 16551,
+      "pgid": 16549,
+      "state": "S"
+    },
+    "runtime": [
+      {
+        "kind": "controller",
+        "pid": 16552,
+        "state": "running",
+        "heartbeat_at": 1789456804,
+        "exit_code": null,
+        "detail": "supervising 1 worker processes"
+      },
+      {
+        "kind": "worker",
+        "pid": 16561,
+        "state": "idle",
+        "heartbeat_at": 1789456803,
+        "exit_code": null,
+        "detail": "active"
+      }
+    ]
+  },
+  "after": {
+    "parent": {
+      "pid": 16551,
+      "ppid": 16549,
+      "pgid": 16549,
+      "state": "S"
+    },
+    "controller": {
+      "pid": 16552,
+      "ppid": 16551,
+      "pgid": 16549,
+      "state": "S"
+    },
+    "runtime": [
+      {
+        "kind": "controller",
+        "pid": 16552,
+        "state": "running",
+        "heartbeat_at": 1789456805,
+        "exit_code": null,
+        "detail": "supervising 1 worker processes"
+      },
+      {
+        "kind": "worker",
+        "pid": 16561,
+        "state": "idle",
+        "heartbeat_at": 1789456805,
+        "exit_code": null,
+        "detail": "waiting for durable work"
+      }
+    ]
+  },
+  "final_runtime": [
+    {
+      "kind": "controller",
+      "pid": 16552,
+      "state": "stopped",
+      "heartbeat_at": 1789456812,
+      "exit_code": 0,
+      "detail": "all worker processes completed"
+    },
+    {
+      "kind": "worker",
+      "pid": 16561,
+      "state": "stopped",
+      "heartbeat_at": 1789456812,
+      "exit_code": 0,
+      "detail": "application worker stopped cleanly;processed=0;polls=80"
+    }
+  ],
+  "product_exit_code": 0,
+  "jobs": 0,
+  "provider_runs": 0,
+  "parent_exit_code": 0,
+  "controller_os_exit_code": 0,
+  "outcome": "controller and worker survived; bounded run completed"
+}

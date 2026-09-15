@@ -1,0 +1,52 @@
+{
+  "mode": "stderr_closed",
+  "controller_pid": 49065,
+  "os_exit_code": 0,
+  "os_signal": null,
+  "before": {
+    "process": {
+      "pid": 49065,
+      "ppid": 49000,
+      "pgid": 48998,
+      "state": "S"
+    },
+    "runtime": [
+      {
+        "kind": "controller",
+        "pid": 49065,
+        "state": "running",
+        "heartbeat_at": 1789459153,
+        "exit_code": null,
+        "detail": "supervising 1 worker processes"
+      },
+      {
+        "kind": "worker",
+        "pid": 49066,
+        "state": "idle",
+        "heartbeat_at": 1789459153,
+        "exit_code": null,
+        "detail": "waiting for durable work"
+      }
+    ]
+  },
+  "final_runtime": [
+    {
+      "kind": "controller",
+      "pid": 49065,
+      "state": "stopped",
+      "heartbeat_at": 1789459161,
+      "exit_code": 0,
+      "detail": "all worker processes completed"
+    },
+    {
+      "kind": "worker",
+      "pid": 49066,
+      "state": "stopped",
+      "heartbeat_at": 1789459161,
+      "exit_code": 0,
+      "detail": "application worker stopped cleanly;processed=0;polls=80"
+    }
+  ],
+  "jobs": 0,
+  "provider_runs": 0
+}

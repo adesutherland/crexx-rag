@@ -1,11 +1,18 @@
 options levelg
 
-namespace ragrepository expose ragjobplanpage readjobplanpage ragrepositoryrecord ragrepositorypage ragrepositoryverifyresult repositorynames pagerepository verifyrepositories
+namespace ragrepository expose currentsourcechunks ragjobplanpage readjobplanpage ragrepositoryrecord ragrepositorypage ragrepositoryverifyresult repositorynames pagerepository verifyrepositories
 
 import rxfnsb
 import rxsqlite
 import ragstore
 import raglifecycle
+import ragsqlsupport
+
+/* Current source membership shared by inspection and maintenance selection.
+ * Callers add their operation predicates before pagination or dispatch limits. */
+currentsourcechunks: procedure = .string
+  arg source_id = .string
+  return "SELECT c.revision_chunk_id FROM sources s JOIN revision_chunks c ON c.revision_id=s.current_revision_id WHERE s.source_id=" || sqlquote(source_id) || " AND s.visible_to_generation IS NULL AND c.visible_to_generation IS NULL"
 
 /* Plan pages are character slices of the immutable retained plan. SQLite
  * returns only the requested slice; listings need not load the whole plan. */
@@ -174,7 +181,7 @@ repositorynames: procedure = .string[]
   return names
 
 pagerepository: procedure = .int
-  arg read_snapshot = .ragreadsnapshot, repository = .string, cursor = .string, limit = .int, expose page = .ragrepositorypage, expose error = .string
+  arg read_snapshot = .ragreadsnapshot, repository = .string, cursor = .string, limit = .int, expose page = .ragrepositorypage, expose error = .string, identity = ""
   records = .ragrepositoryrecord[]
   page = .ragrepositorypage(repository, 0, records, "")
   error = ""
@@ -189,10 +196,14 @@ pagerepository: procedure = .int
   generation = read_snapshot.generation()
   visible = "visible_from_generation<=" || generation || " AND (visible_to_generation IS NULL OR visible_to_generation>" || generation || ")"
   empty_blob = "CAST(x'' AS BLOB)"
+  /* Source/review detail uses the same projection with an indexed exact key.
+   * It must never filter an already limited list page to find an identity. */
+  comparison = ">"; key = cursor
+  if identity \= "" then do; comparison = "="; key = identity; end
 
   if repository = "sources" then do
-    sql = "SELECT source_id,source_id,'',coalesce(current_revision_id,''),observed_title,connector_type,lifecycle_state,observed_uri,stable_key," || empty_blob || ",0,0,visible_from_generation,coalesce(visible_to_generation,0) FROM sources WHERE source_id>?1 AND " || visible || " ORDER BY source_id LIMIT ?2"
-    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+    sql = "SELECT source_id,source_id,'',coalesce(current_revision_id,''),observed_title,connector_type,lifecycle_state,observed_uri,stable_key," || empty_blob || ",0,0,visible_from_generation,coalesce(visible_to_generation,0) FROM sources WHERE source_id" || comparison || "?1 AND " || visible || " ORDER BY source_id LIMIT ?2"
+    return _page(read_snapshot, repository, sql, key, limit, page, error)
   end
   if repository = "source-artifacts" then do
     sql = "SELECT a.artifact_id,a.artifact_id,'','',a.raw_digest,a.mime_type,a.encoding,coalesce(a.external_reference,''),a.created_at,coalesce(a.bytes," || empty_blob || "),0,coalesce(length(a.bytes),0),0,0 FROM source_artifacts a WHERE a.artifact_id>?1 AND EXISTS(SELECT 1 FROM source_revisions r WHERE r.artifact_id=a.artifact_id AND r.visible_from_generation<=" || generation || " AND (r.visible_to_generation IS NULL OR r.visible_to_generation>" || generation || ")) ORDER BY a.artifact_id LIMIT ?2"
@@ -245,7 +256,7 @@ pagerepository: procedure = .int
     return _page(read_snapshot, repository, sql, cursor, limit, page, error)
   end
   if repository = "jobs" then do
-    sql = "SELECT job_id,job_id,config_snapshot_id,'',plan_digest,'job',state,CASE WHEN length(canonical_plan)<=65535 THEN canonical_plan ELSE '' END,json_object('plan_characters',length(canonical_plan),'item_budget',item_budget,'model_call_budget',model_call_budget,'input_token_budget',input_token_budget,'output_token_budget',output_token_budget,'cost_budget',cost_budget,'reserved_calls',reserved_calls,'reserved_tokens',reserved_tokens,'reserved_cost',reserved_cost,'created_at',created_at,'updated_at',updated_at)," || empty_blob || ",item_budget,model_call_budget,0,0 FROM jobs WHERE job_id>?1 ORDER BY job_id LIMIT ?2"
+    sql = "SELECT job_id,job_id,config_snapshot_id,'',plan_digest,'job',state,'',json_object('plan_characters',length(canonical_plan),'item_budget',item_budget,'model_call_budget',model_call_budget,'input_token_budget',input_token_budget,'output_token_budget',output_token_budget,'cost_budget',cost_budget,'reserved_calls',reserved_calls,'reserved_tokens',reserved_tokens,'reserved_cost',reserved_cost,'created_at',created_at,'updated_at',updated_at)," || empty_blob || ",item_budget,model_call_budget,0,0 FROM jobs WHERE job_id>?1 ORDER BY job_id LIMIT ?2"
     return _page(read_snapshot, repository, sql, cursor, limit, page, error)
   end
   if repository = "job-items" then do
@@ -257,8 +268,8 @@ pagerepository: procedure = .int
     return _page(read_snapshot, repository, sql, cursor, limit, page, error)
   end
   if repository = "reviews" then do
-    sql = "SELECT review_id,review_id,subject_id,'',review_type,'review',state,proposal_json,coalesce(decision_json,'')," || empty_blob || ",0,0,0,0 FROM reviews WHERE review_id>?1 ORDER BY review_id LIMIT ?2"
-    return _page(read_snapshot, repository, sql, cursor, limit, page, error)
+    sql = "SELECT review_id,review_id,subject_id,'',review_type,'review',state,proposal_json,coalesce(decision_json,'')," || empty_blob || ",0,0,0,0 FROM reviews WHERE review_id" || comparison || "?1 ORDER BY review_id LIMIT ?2"
+    return _page(read_snapshot, repository, sql, key, limit, page, error)
   end
   error = "unknown repository"
   return -1

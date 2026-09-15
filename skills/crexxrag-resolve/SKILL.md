@@ -90,7 +90,13 @@ proposal. Use `rag_proposal_plan({"proposals_ndjson":"..."})` for inline new
 claims, or `input` for a server-side file; supply exactly one. Inline input is
 at most 65535 bytes, one complete JSON object per line. Planning uses normal
 claim validation; inspect every result for grounding, endpoint and type issues.
-`rag_proposal_apply` queues mandatory reviews. Only their authorized acceptance
+`rag_proposal_apply` queues mandatory reviews. Use its paired
+`proposal_id`/`review_id` values in `proposal-review` records for subsequent
+preview and decision. Older installed builds can omit those records: report
+that engineering gap instead of reconstructing IDs or scanning the whole queue.
+Planning failures should expose the validator's actual reason; a generic message
+is a diagnostic gap, not a reason to weaken source grounding or raise confidence.
+Only their authorized acceptance
 creates accepted claims. Apply a split first and discover its actual successor
 IDs before proposing claims about those successors.
 

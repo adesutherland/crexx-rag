@@ -1,0 +1,1 @@
+First repair: stderr closure passed. Signal dispatch mistakenly used SELECT CASE instead of SELECT expression; corrected to SELECT condition.name(). Stdout required closing the failed buffered sink; the narrow cleanup probe now prints DONE and exits 0 on both installed VMs. Full native regression remains required.

@@ -1,0 +1,18 @@
+options levelg
+import rxfnsb
+import rxplatform
+main: procedure = .int expose seen
+  seen = ""
+  signal on term, posix_hup, posix_int call stopped
+  call lineout "stderr", "READY"
+  do i=1 to 200
+    if seen \= "" then leave
+    call rxplatform..sleep 50
+  end
+  call lineout "stderr", "SEEN=" || seen
+  return 0
+stopped: procedure = .signalaction expose seen
+  arg condition = .signal
+  seen = condition.name() || ":" || condition.code()
+  call lineout "stderr", "HANDLER=" || seen
+  return .signalaction.skip()
