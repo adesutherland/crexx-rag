@@ -1,5 +1,32 @@
 # Regression coverage baseline — REG-01
 
+Task-reset implementation and current QA are tracked in
+[task reset delivery](task-reset-delivery-20260915.md). `task_reset` exercises
+legacy no-window closure, fresh context and cleared counters, old reviews and
+waivers, preserved receipts/knowledge, and single/all CLI/MCP access. The
+baseline three relevant controls passed; new acceptance failed before repair.
+Final candidate qualification: 79 passing checks in the full run, then the
+reviewed new-tool metadata snapshot passes its targeted rerun: **80 enabled
+checks passed** in aggregate. `worker_unexpected_exit` remains the separately
+approved disabled upstream CREXX #701 test. No second full run or product
+change was needed for the metadata-only snapshot update.
+
+ISSUE-01 worker replenishment (15 September): the [repair checklist](worker-pool-repair-20260915.md)
+records the active qualification. `regression_supervision` first reproduced
+exit-16/1/137 exclusion, a blank partial-pool reason and the pre-claim
+`.ragworkclaim` panic on both VMs. `worker_unexpected_exit` exercises actual
+native child loss before/after submission and an ignored runtime write failure.
+The initial full run completed **77/80**. The subsequent approved test-only
+follow-up passes **2/2** (`native_receipts`, `native_interruption`) using the
+unchanged candidate binary. Their manual fault/restart fixtures now explicitly
+set `worker.max_restarts = 0`, and the receipt helper rejects timeout as an
+expected failure. Original data/accounting assertions remain unchanged.
+`worker_unexpected_exit` is temporarily **Disabled**, explicitly approved by
+Adrian pending [CREXX #701](https://github.com/adesutherland/CREXX/issues/701);
+it is retained and reported as not run, never as passed. Other supervision
+tests remain enabled. No full rerun was requested for this test-only change;
+the preceding 79-test baseline below remains a historical result.
+
 15 September job controls: `regression_job_deadline` covers CLI/MCP absolute
 time edits, unchanged scope/limits/work, repeated updates and cancelled-job
 refusal. `regression_source_maintenance` now passes its formerly red admitted

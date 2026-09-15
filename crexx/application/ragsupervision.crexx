@@ -20,7 +20,9 @@ reserveworkerreplacement: procedure = .int
   database = store.database()
   if beginwritetransaction(database,"begin worker replacement",error) \= 0 then return -2
   if now_epoch = 0 then now_epoch = _scalarint(database,"SELECT unixepoch()",error)
-  job_id = _scalartext(database,"SELECT coalesce((SELECT job_filter FROM runtime_instances WHERE instance_id=" || _sqlquote(previous_id) || " AND parent_instance_id=" || _sqlquote(controller_id) || " AND kind='worker' AND ((state='failed' AND exit_code=75) OR (state='stopped' AND exit_code=0)) AND requested_state='none'), '')",error)
+  /* A process exit needs replacement, not a provider diagnosis. The caller
+   * has observed completion; existing work, drain and allowance bounds apply. */
+  job_id = _scalartext(database,"SELECT coalesce((SELECT job_filter FROM runtime_instances WHERE instance_id=" || _sqlquote(previous_id) || " AND parent_instance_id=" || _sqlquote(controller_id) || " AND kind='worker' AND (state='failed' OR (state='stopped' AND exit_code=0)) AND requested_state='none'), '')",error)
   if error \= "" then return _rollback(database,"read failed worker",error)
   eligible = 0
   if job_id \= "" then eligible = replacementallowed(store,job_id,previous_id,error)
@@ -102,9 +104,12 @@ readsupervision: procedure = .string
     if reason = "" then reason = "provider-backoff-or-probe"
   end
   if unverified>0 & reason="" then reason="process-liveness-unverified"
-  if live=0 & reason="" then do
-    remaining=_scalarint(database,"SELECT count(*) FROM job_items WHERE job_id=" || _sqlquote(job_id) || " AND state='queued'",error)
-    if remaining>0 then reason="no-active-workers; use job continue"
+  if (live=0 | live<requested) & reason="" then do
+    remaining=_scalarint(database,"SELECT count(*) FROM job_items WHERE job_id=" || _sqlquote(job_id) || " AND state IN('queued','running')",error)
+    if remaining>0 then do
+      reason="worker-pool-below-requested; inspect worker status"
+      if live=0 then reason="no-active-workers; use job continue"
+    end
   end
   if error \= "" then return ""
   return '{"controller_id":' || jsonquote(controller) || ',"controller_state":' || jsonquote(controller_state) || ',"heartbeat_age_seconds":' || heartbeat_age || ',"requested_workers":' || requested || ',"remaining_replacements":' || max(0,maximum-used) || ',"configured_workers":' || configured || ',"live_workers":' || live || ',"registered_workers":' || registered || ',"unverified_workers":' || unverified || ',"window_seconds":' || window_seconds || ',"max_restarts":' || maximum || ',"recent_replacements":' || used || ',"next_eligible_epoch":' || next_epoch || ',"waiting_reason":"' || reason || '"}'

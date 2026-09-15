@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragbacklog expose setbacklogdeadline previewbacklogwindow taskretryfacts continuebacklogwindow waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh
+namespace ragbacklog expose resetbacklogtasks setbacklogdeadline previewbacklogwindow taskretryfacts continuebacklogwindow waivebacklogtask reconcileworkflow requestbacklogretry enqueueextractionreview embeddingcallcount enrichmentpolicy resolvemaintenancetime backlogpolicy startbacklogwindow tickbacklogwindow buildbacklogevidence enqueuebacklogtask validatebacklogresponse completebacklogdecision checkbacklogclaim reviewbacklogdecision inspectbacklog backlogschema recordaliasissue resolveknownconcept resolveknownmention backlogsummary planagentaction applyagentaction reviewagentaction previewagentaction backlogindexquery planbacklogrefresh applybacklogrefresh
 
 import rxfnsb
 import rxjson
@@ -600,13 +600,61 @@ _inventoryidentity: procedure = .int
 _refreshpacket: procedure = .int
   arg database = .binary, task = .jsondocument, metadata = .string, expose packet = .string, expose fingerprint = .string, expose error = .string
   refresh = .jsondocument(metadata); maximum_bytes = _n(refresh,"maximum_bytes"); maximum_concepts = _n(refresh,"maximum_concepts")
-  if maximum_bytes<1024 | maximum_bytes>8388608 | maximum_concepts<1 | maximum_concepts>1000 | _s(task,"subject_type")="provenance-chunk" then do; error = "external refresh envelope is unsupported"; return -1; end
+  if maximum_bytes<1024 | maximum_bytes>8388608 | maximum_concepts<1 | maximum_concepts>1000 then do; error = "external refresh envelope is unsupported"; return -1; end
   status = buildbacklogevidence(database,_s(task,"subject_type"),_s(task,"subject_id"),_s(task,"workflow_id"),maximum_bytes-binlength(metadata as .binary)-32,packet,fingerprint,error,maximum_concepts)
   if status \= 0 then return status
   packet = left(packet,length(packet)-1) || ',"external_refresh":' || metadata || '}'
   if binlength(packet as .binary)>maximum_bytes then do; error = "complete refreshed evidence exceeds its byte ceiling"; return 2; end
   fingerprint = _hash(packet)
   return 0
+
+/* Reset discards obsolete scheduling/review context. A fresh task reuses the
+ * current evidence builder and policy; original receipts and accepted facts
+ * remain untouched. Only genuinely in-flight items must be drained first. */
+resetbacklogtasks: procedure = .int
+  arg store=.ragstorehandle,config=.ragconfig,profile=.ragprofile,task_id=.string,expose successor=.string,expose changed=.int,expose skipped=.int,expose error=.string
+  database=store.database();successor=task_id;changed=0;skipped=0;error=""
+  if sqliteexec(database,"BEGIN IMMEDIATE")<>0 then do;error="cannot begin task reset";return -1;end
+  scope="state NOT IN('resolved','superseded')";if task_id<>"" then scope="task_id=" || _q(task_id)
+  inventory=_text(database,"SELECT json_group_array(task_id) FROM maintenance_tasks WHERE " || scope)
+  tasks=.jsondocument(inventory)
+  if tasks.valid()<>1 then return _rollback(database,"cannot read tasks for reset",error)
+  if task_id<>"" & tasks.node_count(tasks.root())=0 then return _rollback(database,"task was not found",error)
+  policy=.jsondocument(backlogpolicy(config,profile,""));policy_hash=_s(policy,"knowledge_policy")
+  do i=1 to tasks.node_count(tasks.root())
+    id="";ignored=tasks.node_string(tasks.element(tasks.root(),i),id)
+    task=.jsondocument(_agenttaskstamp(database,id));state=_s(task,"state")
+    if state="resolved" then iterate
+    if state="superseded" then do
+      successor=_text(database,"SELECT task_id FROM maintenance_tasks WHERE parent_task_id=" || _q(id) || " ORDER BY created_epoch DESC,task_id LIMIT 1")
+      if successor="" then successor=id
+      iterate
+    end
+    if _number(database,"SELECT count(*) FROM maintenance_task_items m JOIN job_items j ON j.item_id=m.item_id WHERE m.task_id=" || _q(id) || " AND j.state IN('running','cancel_requested')")>0 then do
+      if task_id<>"" then return _rollback(database,"task has running work; use worker drain on its job, then repeat maintain reset",error)
+      skipped=skipped+1;iterate
+    end
+    metadata='{"schema":"crexx-rag.task-refresh/1","source_task_id":' || jsonquote(id) || ',"maximum_bytes":8388608,"maximum_concepts":1000,"reset":true}'
+    packet="";fingerprint="";status=_refreshpacket(database,task,metadata,packet,fingerprint,error)
+    if status<>0 & status<>1 then return _rollback(database,error,error)
+    jobs=0;items=0
+    if recordretryreset(database,"",jobs,items,error,id)<>0 then return _rollback(database,error,error)
+    if sqliteexec(database,"UPDATE job_items SET state='cancelled' WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id=" || _q(id) || ") AND state IN('queued','failed','deferred')")<>0 then return _rollback(database,"cannot retire old task work",error)
+    if sqliteexec(database,"UPDATE reviews SET state='dismissed',decision_json='{" || '"reason":"task reset"' || "}',decided_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE subject_id=" || _q(id) || " AND state='pending'")<>0 then return _rollback(database,"cannot dismiss obsolete task reviews",error)
+    if sqliteexec(database,"UPDATE retry_requests SET state='completed',disposition='task-reset',updated_epoch=unixepoch() WHERE state='pending' AND (task_id=" || _q(id) || " OR item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id=" || _q(id) || "))")<>0 then return _rollback(database,"cannot retire obsolete retry requests",error)
+    successor=id;next_state="resolved";message="task reset: subject is absent or already settled"
+    if status=0 then do
+      successor="task:" || _hash(_s(task,"kind") || "00"x || _s(task,"subject_type") || "00"x || _s(task,"subject_id") || "00"x || _s(task,"workflow_id") || "00"x || fingerprint || "00"x || policy_hash)
+      sql="INSERT INTO maintenance_tasks(task_id,kind,subject_type,subject_id,workflow_id,parent_task_id,evidence_fingerprint,policy_fingerprint,evidence_json,question,state,priority,created_epoch,updated_epoch) SELECT " || _q(successor) || ",kind,subject_type,subject_id,workflow_id,task_id," || _q(fingerprint) || "," || _q(policy_hash) || "," || _q(packet) || "," || _q(_question(_s(task,"kind"))) || ",'pending',priority,unixepoch(),unixepoch() FROM maintenance_tasks WHERE task_id=" || _q(id)
+      if sqliteexec(database,sql)<>0 then return _rollback(database,"cannot create reset task",error)
+      next_state="superseded";message="task reset as " || successor
+    end
+    if sqliteexec(database,"UPDATE maintenance_tasks SET state=" || _q(next_state) || ",last_error=" || _q(message) || ",attempt_count=0,semantic_failures=0,not_before_epoch=0,updated_epoch=unixepoch() WHERE task_id=" || _q(id))<>0 then return _rollback(database,"cannot retire obsolete task",error)
+    changed=changed+1
+  end
+  if sqliteexec(database,"COMMIT")<>0 then return _rollback(database,"cannot commit task reset",error)
+  if task_id="" then successor=""
+  error="";return 0
 
 _freshbacklogtask: procedure = .int
   arg database = .binary, task_id = .string, maximum_bytes = .int, expose packet = .string, expose fingerprint = .string, expose error = .string
@@ -1525,7 +1573,6 @@ planagentaction: procedure = .int
   job_id = _text(database,"SELECT job_id FROM maintenance_windows WHERE policy_fingerprint=" || _q(_s(task,"policy_fingerprint")) || " ORDER BY created_epoch DESC,window_id DESC LIMIT 1")
   impact = "[]"; grounds = "[]"
   if kind = "resolution" then do
-    if job_id = "" then do; error = "task has no compatible maintenance window context"; return -1; end
     fresh = ""; fingerprint = ""
     if _freshbacklogtask(database,task_id,config.maintenance().maximum_evidence_bytes(),fresh,fingerprint,error) \= 0 | fingerprint \= _s(task,"evidence_fingerprint") then do; error = "task evidence changed or exceeds its bound; obtain a fresh maintenance task"; return -1; end
     if validatebacklogresponse(database,task_id,response,grounds,error) \= 0 then return -1
@@ -1596,7 +1643,6 @@ planbacklogrefresh: procedure = .int
   if planagentaction(store,config,profile,task_id,"escalation","",reason,actor,model,binding,error) \= 0 then return -1
   context = .jsondocument(binding); database = store.database(); task = .jsondocument(_agenttaskstamp(database,task_id))
   if _s(task,"subject_type")="provenance-chunk" then do; error = "provenance enrichment uses its separate complete-support assessment envelope; generic refresh is not applicable"; return -1; end
-  if _s(context,"job_id")="" then do; error = "task has no compatible maintenance window context"; return -1; end
   metadata = '{"schema":"crexx-rag.task-refresh/1","source_task_id":' || jsonquote(task_id) || ',"source_task_stamp":' || jsonquote(_s(context,"task_stamp")) || ',"source_parent_task_id":' || jsonquote(_s(task,"parent_task_id")) || ',"maximum_bytes":' || maximum_bytes || ',"maximum_concepts":' || maximum_concepts || ',"generation":' || _n(context,"generation") || ',"config_snapshot_id":' || jsonquote(_s(context,"config_snapshot_id")) || ',"profile_hash":' || jsonquote(_s(context,"profile_hash")) || ',"reason":' || jsonquote(reason) || ',"actor":' || jsonquote(actor) || ',"model":' || jsonquote(model) || '}'
   packet = ""; fingerprint = ""
   status = _refreshpacket(database,task,metadata,packet,fingerprint,error)

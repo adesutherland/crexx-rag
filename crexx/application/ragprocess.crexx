@@ -257,16 +257,20 @@ finishprocess: procedure = .int
   arg store = .ragstorehandle, instance_id = .string, state = .string, exit_code = .int, detail = .string, expose error = .string
   error = ""
   if (state \= "stopped" & state \= "failed") | _validtext(detail, 1024, 1) \= 1 then do; error = "terminal process state is invalid"; return -1; end
-  prepared = .binary
+  database=store.database(); prepared = .binary
+  if beginwritetransaction(database,"begin process finish",error) \= 0 then return -2
   sql = "UPDATE runtime_instances SET state=?2,current_item_id='',heartbeat_at=CAST(strftime('%s','now') AS INTEGER),stopped_at=CAST(strftime('%s','now') AS INTEGER),exit_code=?3,detail=?4 WHERE instance_id=?1"
-  if sqliteprepare(store.database(), sql, prepared) \= 0 then return _sqlitefailure("prepare process finish", error)
+  if sqliteprepare(database, sql, prepared) \= 0 then return _rollback(database,"prepare process finish", error)
   binds = sqlitebindtext(prepared, 1, instance_id)
   binds = binds | sqlitebindtext(prepared, 2, state)
   binds = binds | sqlitebindint(prepared, 3, exit_code)
   binds = binds | sqlitebindtext(prepared, 4, detail)
   step = sqlitestep(prepared)
+  /* Finalizing clears the provider diagnostic; retain the failed write first. */
+  if binds \= 0 | step \= 101 then ignored=_sqlitefailure("finish process",error)
   call sqlitefinalize prepared
-  if binds \= 0 | step \= 101 then return _sqlitefailure("finish process", error)
+  if error \= "" then return _rollback(database,"finish process", error)
+  if sqliteexec(database,"COMMIT") \= 0 then return _rollback(database,"commit process finish",error)
   return 0
 
 requestprocess: procedure = .int
@@ -755,15 +759,16 @@ _startworkerprocesses: procedure = .int expose _shutdown_signal
         worker_state = "complete"; if exit_code \= 0 then worker_state = "failed"
         call tracer.emit("worker", worker_state, worker_ids[worker_index], "completed=" || completed || "/" || count)
         state = _scalartext(store.database(), "SELECT state FROM runtime_instances WHERE instance_id=" || _sqlquote(worker_ids[worker_index]), heartbeat_error)
+        if heartbeat_error \= "" then do; error=heartbeat_error; leave; end
         if state = "starting" then do
           terminal = "failed"; detail = "child process exited with code " || exit_code || " before worker registration"
           if exit_code = 0 then do; terminal = "stopped"; detail = "child process completed before worker registration"; end
-          ignored = ""; call finishprocess store, worker_ids[worker_index], terminal, exit_code, detail, ignored
+          if finishprocess(store,worker_ids[worker_index],terminal,exit_code,detail,error) \= 0 then leave
         end
         else if state \= "stopped" & state \= "failed" then do
           terminal = "failed"; detail = "child process exited with code " || exit_code || " after worker registration"
           if exit_code = 0 then do; terminal = "stopped"; detail = "child process completed after worker registration"; end
-          ignored = ""; call finishprocess store, worker_ids[worker_index], terminal, exit_code, detail, ignored
+          if finishprocess(store,worker_ids[worker_index],terminal,exit_code,detail,error) \= 0 then leave
         end
         if exit_code \= 0 & first_failure_detail = "" then do
           detail_error = ""

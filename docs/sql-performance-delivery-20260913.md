@@ -1,5 +1,13 @@
 # SQL performance repair delivery — 13 September 2026
 
+ISSUE-01 worker replenishment (15 September): exit eligibility still uses the
+`runtime_instances` primary key; only its exit-code predicate changes. Process
+finish adds the shared `BEGIN IMMEDIATE` acquisition around its single keyed
+UPDATE, outside provider work and existing caller transactions. The partial-pool
+status extends its existing conditional job-item count to queued/running states,
+using `job_items_claim`; no per-item or new per-poll query, index or migration
+is added. The [repair checklist](worker-pool-repair-20260915.md) owns evidence.
+
 Job controls (15 September): the job-list projection no longer materializes
 canonical plan bodies at any size. Deadline writes use the existing unique
 maintenance job key. Retry reset snapshots counts in one set-based INSERT under
@@ -225,3 +233,14 @@ primary key, `revision_chunks_visibility` for current source membership, and
 requires the existing priority sort. Summary reads reuse one window-policy
 read; scoped waiver counts replace the global count, and unscoped retry checks
 retain their scalar path without a new membership query.
+
+## Task reset (15 September)
+
+Reset selects its task inventory once and owns one writer transaction. Per-task
+source/evidence reads use the existing complete packet builder. Retry baselines
+reuse `raglifecycle.recordretryreset`, narrowed by linked item IDs; this avoids
+scanning all job items for every reset task. Scratch `EXPLAIN QUERY PLAN` confirms
+`maintenance_task_items_task (task_id=?)` plus the `job_items` primary key, with
+no added index or schema. Old review/retry/work transitions are set-based within
+each selected task; there is no worker-loop query or duplicate provider-history
+implementation. Acceptance/QA: [task-reset checklist](task-reset-delivery-20260915.md).

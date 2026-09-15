@@ -249,6 +249,20 @@ add_test(NAME native_supervision
 set_tests_properties(native_supervision PROPERTIES
     TIMEOUT 240 LABELS "regression;worker;recovery;native;zero-outbound")
 
+add_test(NAME worker_unexpected_exit
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CODEX_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-app-server-fixture.sh"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-application.conf.in"
+        "-DCPRAG_CASES=worker-kill;worker-unknown;worker-write-error"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-worker-unexpected-exit"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeSupervision.cmake")
+# Adrian approved this temporary exclusion: child completion can wait on a
+# sibling's inherited pipe. Re-enable after https://github.com/adesutherland/CREXX/issues/701.
+set_tests_properties(worker_unexpected_exit PROPERTIES
+    DISABLED TRUE TIMEOUT 300
+    LABELS "regression;worker;recovery;native;zero-outbound;known-upstream;crexx-701")
+
 add_test(NAME process_workers
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
@@ -582,6 +596,15 @@ add_test(NAME durable_backlog
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/DurableBacklog.cmake")
 set_tests_properties(durable_backlog PROPERTIES
     TIMEOUT 300 LABELS "maintenance;lifecycle;split;merge;retirement;atomic;sqlite")
+
+add_test(NAME task_reset
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-task-reset"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/TaskReset.cmake")
+set_tests_properties(task_reset PROPERTIES
+    TIMEOUT 150 LABELS "regression;maintenance;recovery;surface;zero-outbound")
 
 add_test(NAME durable_backlog_provider
     COMMAND "${CMAKE_COMMAND}"

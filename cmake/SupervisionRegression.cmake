@@ -107,6 +107,13 @@ foreach(runtime IN ITEMS RXVME RXBVM)
     if(NOT status EQUAL 0 OR NOT output MATCHES "SUPERVISION_REGRESSION_OK")
         list(APPEND failures "${runtime}: ${output}${errors}")
     endif()
+    execute_process(COMMAND "${CPRAG_${runtime}}" -l "${imports}" "${program}" ${modules}
+        -a "${CPRAG_WORK_DIR}/library-${runtime}" checkpoint-error
+        RESULT_VARIABLE checkpoint_status OUTPUT_VARIABLE checkpoint_output ERROR_VARIABLE checkpoint_error TIMEOUT 30)
+    file(WRITE "${CPRAG_WORK_DIR}/checkpoint-${runtime}.log" "exit=${checkpoint_status}\n${checkpoint_output}${checkpoint_error}")
+    if(NOT checkpoint_status EQUAL 0 OR NOT checkpoint_output MATCHES "CHECKPOINT_ERROR_OK")
+        list(APPEND failures "${runtime} checkpoint: ${checkpoint_output}${checkpoint_error}")
+    endif()
 endforeach()
 if(failures)
     list(JOIN failures "\n" detail)

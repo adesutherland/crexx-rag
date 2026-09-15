@@ -496,8 +496,13 @@ that cooldown without consuming a provider call or failed-task allowance.
 next eligibility epoch and worker waiting reason. See the
 [recovery contract and regression evidence](supervision-recovery.md).
 
-The existing recoverable-exit classification governs replacement; generic
-failures remain inspectable while healthy peers continue. Group startup failures
+Every unexpected registered-worker exit is considered for replacement within
+these existing limits. The failure code is retained for diagnosis; it does not
+exclude the worker from replacement or label the provider unhealthy. Unknown
+submitted work stays held on its own item while peers and replacements continue.
+If a partial pool cannot currently be explained by cooldown or allowance,
+`job status` reports `worker-pool-below-requested; inspect worker status`.
+Group startup failures
 and unfiltered worker groups still require operator restart. Successful controller
 results include `workers_restarted`; historical failed process records remain
 available for diagnosis.
@@ -1351,6 +1356,29 @@ See [the complete external workflow](external-workflow-recovery.md).
 `maintain escalate-plan` and
 `maintain escalate-apply` persist an external agent's explicit reasoning flag.
 See [the full agent workflow and evidence limits](agent-integration.md#difficult-maintenance-tasks).
+
+For an old or blocked task, use control access:
+
+```sh
+crexxrag maintain reset TASK
+crexxrag maintain reset --all
+```
+
+Reset returns a fresh `task_id` with current evidence and policy, zero retry
+counts and no inherited review, escalation or retry delay. Read that task and
+resolve it through the normal proposal/review path, including a justified
+`retain` decision, or include it in the next maintenance run. `--all` resets
+outstanding tasks and leaves completed decisions closed. Old pending reviews
+and retry requests are retired. Documents, accepted knowledge, provider history
+and cumulative usage remain intact. Reset makes no provider calls or budget
+changes. If work is running, drain its job and repeat reset; `--all` reports
+skipped running tasks and resets the others. Repeating reset on the original
+superseded ID returns its successor without reopening a resolved decision.
+
+MCP uses `rag_task_reset({"id":"TASK"})` or `rag_task_reset({"all":true})`.
+Use this for obsolete task context such as a missing historical maintenance
+window. `job reset-retries` remains the narrower command for resetting only
+job attempt eligibility; ordinary `maintain retry` keeps the task context.
 
 For an oversized task, `maintain evidence-index --id TASK_ID --kind passages
 --scope current` pages an addressable inventory; catalogue and context are also

@@ -16,6 +16,17 @@ case "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" in
 esac
 cleanup_fault=0
 
+hold_worker_loss() {
+  sync=${CREXXRAG_CODEX_FIXTURE_SYNC:?}
+  : > "$sync/$$.ready"
+  polls=0
+  while [ ! -f "$sync/released" ]; do
+    polls=$((polls + 1))
+    [ "$polls" -lt 3000 ] || exit 72
+    sleep 0.01
+  done
+}
+
 log_method()
 {
   if [ -n "${CREXXRAG_CODEX_FIXTURE_LOG:-}" ]; then
@@ -75,6 +86,7 @@ while IFS= read -r line; do
         done
       fi
       case "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" in
+        worker-kill|worker-write-error) hold_worker_loss ;;
         supervision-outage)
           n=1
           while [ "$n" -le 8 ]; do
@@ -140,6 +152,7 @@ while IFS= read -r line; do
       ;;
     *'"method":"turn/start"'*)
       log_method turn/start
+      if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = worker-unknown ]; then hold_worker_loss; fi
       finished_turn=1
       if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = "optional-refresh" ]; then rate_limit_reads=0; fi
       if [ "${CREXXRAG_CODEX_FIXTURE_FAILURE:-}" = supervision-task ]; then

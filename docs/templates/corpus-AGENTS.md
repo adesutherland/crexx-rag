@@ -100,6 +100,17 @@ or draining work, and resume exited unfinished work under existing authority.
 Treat this as routine recovery, including after SIGKILL; do not begin another
 investigation or repair data solely because the launcher receipt is missing.
 
+For obsolete or blocked maintenance tasks, use authorized control access with
+`maintain reset TASK` / `rag_task_reset({"id":"TASK"})`; `--all` / `{"all":true}`
+selects all outstanding tasks. Read and resolve the returned fresh task, or
+include it in maintenance. Reset restores current evidence/policy and clears
+retry counts and obsolete review/scheduling holds; completed decisions stay
+closed. Drain running work and repeat when reported. Follow the shared
+maintenance/resolve skills; do not reconstruct historical windows or repair
+state with SQL. Report a concrete failed reset or resolution to engineering
+rather than auditing every old rule. Accepted loss of obsolete task bookkeeping
+must not prevent a usable resolution or closure.
+
 Ordinary questions do not authorize ingestion, maintenance, provider tests or
 corpus changes. For explicitly requested operational work, read the matching
 installed `crexxrag-*` skill and use supported commands within granted access

@@ -85,6 +85,7 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "job.deadline" | operation = "job.reset-retries" then return _joblimits(request)
   if operation = "maintain.waive" then return _taskwaive(request)
   if operation = "maintain.retry" then return _taskretry(request)
+  if operation = "maintain.reset" then return _taskreset(request,registry)
   if operation = "maintain.reconcile" then return _workflowreconcile(request)
   if operation = "job.replay" then return _jobreplay(request, registry)
   if operation = "job.reconcile" then return _jobreconcile(request, registry)
@@ -813,6 +814,38 @@ _taskwaive: procedure = .ragcommandresult
   fields[3]=.ragresultfield("operator_disposition","string","waived");fields[4]=.ragresultfield("provider_calls","integer",0)
   records=.ragresultrecord[];records[1]=.ragresultrecord("task-waiver",fields)
   return .ragcommandresult(operation,"ok",0,"task waived with retained history; missing coverage remains missing; maintain retry reopens under existing limits",records)
+
+_taskreset: procedure = .ragcommandresult
+  arg request=.ragcommandrequest,registry=.ragregistry
+  operation=request.operation();error=""
+  if commandhasaccess(request,"control")<>1 then return commandfailure(operation,4,"task reset requires control access")
+  if commandworkeroptions(request,"id all","all",error)<>0 then return commandfailure(operation,2,error)
+  id="";all_tasks=commandoption(request,"all",error)
+  if all_tasks="true" then do
+    positionals=request.positionals()
+    if positionals.0>0 | commandoption(request,"id",error)<>"" then return commandfailure(operation,2,"choose one task id or --all")
+  end
+  else do
+    id=commandid(request,error)
+    if id="" | error<>"" then return commandfailure(operation,2,"supply one task id or use maintain reset --all")
+  end
+  config_lookup=registry.config(request.config_id());profile_lookup=registry.profile(request.profile_id())
+  if config_lookup.found()<>1 | profile_lookup.found()<>1 then return commandfailure(operation,5,"configuration or profile is unavailable")
+  store=.ragstorehandle
+  if openragstore(request.library(),"readwrite",store,error)<>0 then return commandopenfailure(operation,error)
+  successor="";changed=0;skipped=0
+  status=resetbacklogtasks(store,config_lookup.config(),profile_lookup.profile(),id,successor,changed,skipped,error)
+  close_error="";closed=closeragstore(store,close_error)
+  if status<>0 then return commandfailure(operation,3,error)
+  if closed<>0 then return commandfailure(operation,7,close_error)
+  fields=.ragresultfield[]
+  fields[1]=.ragresultfield("source_task_id","string",id);fields[2]=.ragresultfield("task_id","string",successor)
+  fields[3]=.ragresultfield("tasks_reset","integer",changed);fields[4]=.ragresultfield("running_tasks_skipped","integer",skipped)
+  fields[5]=.ragresultfield("provider_calls","integer",0)
+  records=.ragresultrecord[];records[1]=.ragresultrecord("task-reset",fields)
+  message="tasks reset with current evidence and policy; retries cleared; resolve the returned task or run maintenance"
+  if skipped>0 then message=message || "; running tasks skipped: drain their jobs, then repeat maintain reset --all"
+  return .ragcommandresult(operation,"ok",0,message,records)
 
 _taskretry: procedure = .ragcommandresult
   arg request = .ragcommandrequest

@@ -10,9 +10,12 @@ function(cli output expected)
         "CPRAG_FIXTURE_GEMINI_KEY=synthetic-product-gemini-key"
         "CREXXRAG_SELF=${CPRAG_NATIVE_APPLICATION}" "${CPRAG_NATIVE_APPLICATION}" ${ARGN}
         WORKING_DIRECTORY "${work}" RESULT_VARIABLE status OUTPUT_VARIABLE result ERROR_VARIABLE detail TIMEOUT 60)
-    file(APPEND "${work}/commands.log" "${ARGN}\n${result}${detail}\n")
+    file(APPEND "${work}/commands.log" "${ARGN}\nstatus=${status}\n${result}${detail}\n")
     if(expected STREQUAL "success" AND NOT status EQUAL 0)
         message(FATAL_ERROR "receipt command failed: ${ARGN}\n${result}${detail}")
+    endif()
+    if(expected STREQUAL "failure" AND (NOT "${status}" MATCHES "^[0-9]+$" OR status EQUAL 0))
+        message(FATAL_ERROR "receipt fault did not produce a failure exit (${status}): ${ARGN}\n${result}${detail}")
     endif()
     set(${output} "${result}${detail}" PARENT_SCOPE)
 endfunction()
@@ -40,6 +43,8 @@ foreach(kind IN ITEMS embedding extraction)
     configure_file("${CPRAG_CONFIG_TEMPLATE}" "${work}/crexxrag.conf" @ONLY)
     file(READ "${work}/crexxrag.conf" config)
     string(REPLACE "max_attempts = 1" "max_attempts = 3" config "${config}")
+    # Repair the injected fault before explicitly restarting recovery workers.
+    string(APPEND config "\nworker.max_restarts = 0\n")
     file(WRITE "${work}/crexxrag.conf" "${config}")
     execute_process(COMMAND /bin/sh -c
         "( \"$1\" \"$2\" 2 product-ingestion; printf '%s' $? >\"$5\" ) >\"$3\" 2>\"$4\" &"

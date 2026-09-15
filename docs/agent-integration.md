@@ -428,6 +428,18 @@ Unicode character offsets are explicitly distinguished. For inventory, follow `n
 passing the first page's generation as `expect_generation`; restart pagination
 if it changes. Current inventory is exploration, not accepted task evidence.
 
+When old task context blocks progress, use authorized control access with
+`rag_task_reset({"id":"TASK"})`, or `{"all":true}` for an explicitly selected
+whole backlog. CLI equivalents are `maintain reset TASK` and `maintain reset
+--all`. Read and resolve the returned fresh task; reset clears retry counts,
+obsolete reviews and scheduling holds and binds current evidence/policy. Normal
+resolution can close a justified no-change decision without an old maintenance
+window. Completed tasks stay closed, sources/accepted knowledge/usage remain,
+and no provider is called. Drain running work and repeat when instructed;
+`--all` skips running tasks while resetting the others. Do not hand-edit SQL,
+reconstruct historical windows or add run-specific approvals to enduring agent
+instructions. See the [shared reset contract](architecture.md#task-reset).
+
 `rag_task_refresh_plan` assembles a complete current packet with per-task
 ceilings, defaulting to 1 MiB/1000 concepts and allowing up to 8 MiB/1000 concepts.
 It returns completeness/counts, immutable bindings and a successor task ID.
@@ -503,6 +515,15 @@ requires no library access or provider call. Capability filtering and runtime
 authorization both remain enforced.
 
 ## Public recovery observations and dispositions
+
+During an active job, an unexpected worker exit uses the existing automatic
+replacement allowance regardless of its exit code. Read `job status` for live
+workers, remaining replacement capacity and any waiting reason; use
+`worker status` for the retained exit detail. A panic does not by itself imply
+that the provider is unavailable. Healthy peers continue, and an unknown
+submitted outcome holds only its item. Let automatic replacement proceed;
+use the ordinary continuation journey if the controller has stopped. See
+[worker recovery](supervision-recovery.md).
 
 `rag_job_status({id, seconds})` observes actual items separately from the item
 allowance and records usage/uncertainty and interval outcomes in one snapshot.

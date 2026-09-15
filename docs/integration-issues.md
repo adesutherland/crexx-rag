@@ -55,6 +55,29 @@ fails. No compiler change or native product workaround was introduced. The
 [T7-10 evidence](t7-10-controller-diagnosis-20260915.md) retains the failed retry
 and successful build; the compiler issue remains upstream work.
 
+## Child pipe inheritance — transferred upstream, local investigation closed
+
+Filed as [CREXX #701](https://github.com/adesutherland/CREXX/issues/701) under
+`adesutherland` on 15 September 2026, against installed CREXX `g037e7939bc29` on
+macOS arm64. Concurrent process launches can leave a worker holding an unrelated
+worker's stdout pipe write end. The runtime obtains the original worker's exit
+status but waits for output EOF before delivering completion; a healthy peer's
+unused inherited handle delays EOF and therefore automatic replacement.
+
+The [worker repair record](worker-pool-repair-20260915.md#full-suite-finding--upstream-child-pipe-inheritance)
+contains the descriptor evidence and qualification result. The GitHub report
+includes the reproduction procedure, exact source links and standard descriptor
+cleanup/close-on-exec repair direction. Launch timing is intermittent; a reduced
+standalone CREXX reproducer has not yet been packaged.
+
+**Adrian's decision:** close this investigation in RAG and let CREXX own the
+repair. Accept delayed replacement as a known runtime limitation in the meantime;
+do not add product monitoring or a native workaround. The upstream issue remains
+open and no runtime fix is claimed. Adrian subsequently approved temporarily
+disabling `worker_unexpected_exit` pending this fix; retain its code and report
+it as not run, never as passing. Other supervision coverage remains enabled.
+This exclusion does not establish the cause of every historical stale worker.
+
 ## Worker execution architecture
 
 CREXX now supports declared native-provider discovery and isolated RXPA
@@ -144,6 +167,13 @@ Those paths discarded the SQLite diagnostic and exited as generic failures,
 which the controller deliberately did not replace. Contention is consistent
 with the retained heartbeat diagnostics and writer workload, but the old generic
 errors cannot prove their exact SQLite result codes retrospectively.
+
+The [15 September ISSUE-01 repair](worker-pool-repair-20260915.md) removes that
+exit-code exclusion: every unexpected registered-worker exit is eligible under
+the existing replacement limits. It also preserves errors during exit-state
+writes and removes a secondary panic after pre-claim checkpoint failure.
+These are product fixes; they do not retrospectively identify the SQLite cause
+of the earlier incidents or require a CREXX provider change.
 
 The current candidate consolidates four reservation-ledger scans under the
 writer lock into one indexed pass, parks quota-blocked work until capacity can

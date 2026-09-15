@@ -654,7 +654,9 @@ runworkeronce: procedure = .int
 
 _runworkeronce: procedure = .int
   arg store = .ragstorehandle, job_filter = .string, worker_id = .string, lease_seconds = .int, maximum_attempts = .int, policy = .ragclaimpolicy, provider = .ragworkprovider, expose disposition = .string, expose error = .string, recovery_profile = .ragprofile, expose claim = .ragworkclaim, parent_instance_id = ""
-  disposition = "idle"; error = ""; claim = .ragworkclaim
+  /* The pre-claim checkpoint can fail. Its caller still inspects claimed(),
+   * so every return must expose a valid empty claim until claimnext sets it. */
+  disposition = "idle"; error = ""; claim = .ragworkclaim(1,"","","","",worker_id,0,"",0,"")
   if tickbacklogwindow(store, job_filter, error) < 0 then return -3
   claim_status = claimnext(store, job_filter, worker_id, lease_seconds, maximum_attempts, claim, error, 1, parent_instance_id)
   if claim_status = 1 then return 1

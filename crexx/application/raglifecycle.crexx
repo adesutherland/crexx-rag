@@ -126,9 +126,10 @@ embeddingretrycallcount: procedure = .string
 /* Caller owns the single writer transaction. One set-based insert records
  * only changed baselines. A repeat before further attempts is a no-op. */
 recordretryreset: procedure = .int
-  arg database=.binary,job_id=.string,expose jobs=.int,expose items=.int,expose error=.string
+  arg database=.binary,job_id=.string,expose jobs=.int,expose items=.int,expose error=.string,task_id=""
   jobs=0;items=0;error=""
   scope="";if job_id<>"" then scope=" WHERE i.job_id=" || _q(job_id)
+  if task_id<>"" then scope=" WHERE i.item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id=" || _q(task_id) || ")"
   start=_number(database,"SELECT coalesce(max(event_id),0) FROM job_events")
   task="(SELECT task_id FROM maintenance_task_items WHERE item_id=i.item_id)"
   values="json_object('attempts'," || itemretrycount("i.item_id",1,1) || ",'paid_calls'," || itemretrycallcount("i.item_id",1,1) || ",'task_calls'," || taskretrycallcount(task,1,1) || ",'embedding_calls',CASE WHEN i.item_type='embedding' THEN " || embeddingretrycallcount("i.input_json",1,1) || " ELSE 0 END)"

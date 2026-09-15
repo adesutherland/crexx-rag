@@ -104,6 +104,10 @@ foreach(kind IN LISTS CPRAG_CASES)
     configure_file("${CPRAG_CONFIG_TEMPLATE}" "${work}/crexxrag.conf" @ONLY)
     file(READ "${work}/crexxrag.conf" config)
     string(REPLACE "max_attempts = 1" "max_attempts = 3" config "${config}")
+    if(kind STREQUAL "manifest_failure")
+        # Observe the committed item before repairing the fault and restarting.
+        string(APPEND config "\nworker.max_restarts = 0\n")
+    endif()
     file(WRITE "${work}/crexxrag.conf" "${config}")
     execute_process(COMMAND /bin/sh -c
         "( \"$1\" \"$2\" \"$3\" \"$4\" \"$5\"; printf '%s' $? >\"$8\" ) >\"$6\" 2>\"$7\" &"

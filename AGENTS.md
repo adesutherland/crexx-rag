@@ -31,11 +31,20 @@ When proposing additional complexity, name the observed problem it solves and
 explain why the simple approach is insufficient. Regression coverage comes
 first; tests should prove the agreed behavior, not expand it.
 
+Old task state must have a supported recovery path under the current software.
+An explicit task reset restores a task that can be resolved or closed, including
+its retry allowance; clearing counters alone is insufficient. Accepted loss of
+obsolete task bookkeeping must not be defeated by additional preservation rules.
+A refusal must name a supported next action. Fix encountered blockers in their
+owner; do not turn a recovery request into a broad audit of hypothetical rules.
+See the task-reset contract in `docs/architecture.md`.
+
 The authoritative controller-recovery direction is the simple restart decision
 in `docs/architecture.md`: one routine cleanup/start path, fresh children and
 accepted loss of unfinished work. Follow it instead of extending the earlier
-more elaborate proposal. Use `docs/publication-20260915.md` for the current
-published/installed repair and QA status; earlier repair records retain history.
+more elaborate proposal. Use `docs/task-reset-delivery-20260915.md` for the current
+repair/QA and installation record; `docs/publication-20260915.md` retains the
+earlier publication history.
 
 Keep the logic for each cohesive aspect together in its owning source module,
 and separate different aspects behind narrow module interfaces. Shared policy

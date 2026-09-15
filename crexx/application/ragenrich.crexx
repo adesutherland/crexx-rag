@@ -99,6 +99,7 @@ applyenrichment: procedure = .int
   database=store.database(); task=.jsondocument(_text(database,"SELECT evidence_json FROM maintenance_tasks WHERE task_id=" || _q(task_id)))
   doc=.jsondocument(response); rows=doc.member(doc.root(),"assessments"); subject=task.member(task.root(),"subject"); chunk=_s(task,subject,"id"); body=_s(task,subject,"text"); metadata=task.node_get(task.member(task.root(),"source_metadata"))
   snapshot_id=_text(database,"SELECT config_snapshot_id FROM jobs WHERE job_id=" || _q(job_id)); policy=profileclaimpolicy(profile)
+  if job_id="" then snapshot_id=_text(database,"SELECT current_config_snapshot_id FROM library_config_state WHERE singleton=1")
   provider_metadata=.jsondocument(_outputprovider(database,task_id))
   provider_run=_s(provider_metadata,provider_metadata.root(),"run");provider_id=_s(provider_metadata,provider_metadata.root(),"provider");model=_s(provider_metadata,provider_metadata.root(),"model")
   do i=1 to doc.node_count(rows)

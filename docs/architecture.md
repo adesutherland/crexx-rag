@@ -168,6 +168,34 @@ job-event indexes serve the reads. No schema change, rolling-time retry policy,
 background reset process, budget renewal or automatic retry is introduced.
 CLI/MCP schemas and routing remain in `ragcommandcatalog`.
 
+### Task reset
+
+`ragbacklog.resetbacklogtasks` owns `maintain reset TASK` and `maintain reset
+--all`; `ragcommandcatalog` exposes the same operation as `rag_task_reset`.
+This is operational recovery to current evidence and knowledge policy. A fresh
+successor starts pending with zero attempts, semantic failures and retry delay,
+standard capability and the current question. The original becomes superseded;
+its accepted facts and provider receipts are retained. Missing subjects close
+without invented evidence. Completed tasks are not reopened. Pending old
+reviews and retry requests are retired; queued old work is cancelled and old
+waivers do not attach to the successor. Running items must drain; `--all` skips
+those tasks and reports the count so other tasks can reset independently.
+
+The existing complete-evidence builder and refresh marker keep subsequent
+census and normal resolution tied to that packet. `raglifecycle.recordretryreset`
+accepts a task selector and records existing item/task/embedding retry baselines
+within the same transaction. Usage remains cumulative. Reset does not call a
+provider, renew a budget, create a maintenance window or accept a graph change.
+External resolution and evidence refresh use the selected current configuration;
+a historical window is optional attribution, never a prerequisite for closure.
+The normal source validator and review acceptance still apply.
+
+Recovery must leave a usable task, not merely a successful counter update.
+Do not preserve obsolete bookkeeping at the expense of that outcome. Fix
+encountered blockers in the shared owner and give a concrete recovery command
+when work cannot yet proceed. The regression and checklist are in
+[task reset delivery](task-reset-delivery-20260915.md).
+
 ### Commented job files — agreed design
 
 Standing requirement agreed on 15 September 2026; implementation is tracked as
@@ -383,6 +411,15 @@ task attempts. Old events age out of active capacity but remain in `job_events`;
 controller restart and runtime pruning cannot erase them. The controller
 reconsiders even a completely empty pool. Explicit poll limits also bound parked
 slots; pause, cancellation and the original maintenance cutoff remain binding.
+Every unexpected registered-worker exit is eligible for that same replacement
+path, regardless of exit code. An unknown submitted outcome holds its item,
+while a fresh worker can process other eligible work. Exit classification does
+not grant additional attempts or establish a provider outage. `ragprocess`
+persists observed exits using the shared bounded writer-lock acquisition and
+reports a persistence failure instead of silently discarding the slot.
+`ragwork` initializes its empty claim before maintenance checkpointing so a
+pre-claim failure returns its original diagnostic without a secondary panic.
+See the [ISSUE-01 repair record](worker-pool-repair-20260915.md).
 
 `ragenvironment` owns provider/model cooldowns, shared admission and the single
 recovery probe. Both called retryable failures and safely uncalled unhealthy

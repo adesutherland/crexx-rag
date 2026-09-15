@@ -1,5 +1,13 @@
 # Maintenance refactoring delivery
 
+ISSUE-01 worker replenishment (15 September): ownership stays in
+`ragsupervision` (eligibility/status), `ragprocess` (observed completion and
+durable process finish), and `ragwork` (initialized claim on early error).
+Unexpected exit classification no longer excludes replacement. The existing
+writer-lock helper handles process-finish contention; no new retry setting or
+supervisor is introduced. Regression-first evidence and QA are tracked in the
+[repair checklist](worker-pool-repair-20260915.md).
+
 Job controls (15 September): `ragbacklog` owns deadline-only mutation and
 expired admitted-work completion; `ragcontinuation` owns their orchestration
 and the reset transaction. `raglifecycle` now owns effective ordinary attempts,
@@ -664,3 +672,18 @@ Combined full suite passed 74/74 in 1045.12 seconds (session 43642); the tested
 artifact was installed at 00:54 BST after Boswell drained. Fresh installed CLI
 status passed at schema 19/generation 24641. Live source-window qualification
 remains in the Test 7 checklist.
+
+## Task reset (15 September)
+
+The bounded reset remains in `ragbacklog`, with current evidence/policy and
+existing successor handling. `raglifecycle` shares effective retry baselines
+with job reset through an optional task selector; catalogue/dispatcher changes
+expose one CLI/MCP operation. No new module, schema, recovery protocol or
+window reconstruction. External resolution/refresh no longer depends on a
+historical window; normal validators/review remain. Baseline and acceptance
+are tracked in [the task-reset checklist](task-reset-delivery-20260915.md).
+
+Task-reset final QA: 80 enabled checks passed across the complete run and the
+new-tool metadata snapshot's targeted correction; one user-approved CREXX #701
+test remains disabled. The prior command-contract hash is reproduced exactly
+by removing only `rag_task_reset`. No schema or additional recovery framework.

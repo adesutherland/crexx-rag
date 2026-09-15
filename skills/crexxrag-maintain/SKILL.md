@@ -204,3 +204,13 @@ when a sandbox hides the process: the current CREXX PID probe reports that as
 missing. A stale heartbeat or retained registry count alone cannot establish
 exit. Do not use a restricted missing result to prune ownership; preserve the
 hold and use the launcher's visibility for the next public recovery command.
+
+For obsolete or blocked task context, use `rag_task_reset({"id":"TASK"})`
+with existing operator authority and control access. `{"all":true}` selects
+all outstanding tasks. Read and resolve the returned fresh task, or include it
+in maintenance. Reset clears effective retries and old review/scheduling holds;
+it retains accepted knowledge and usage and does not make provider calls.
+Completed decisions stay closed. Drain running jobs and repeat when reported.
+Follow the shared task-reset contract in `docs/architecture.md`; do not recreate
+historical windows or repair task state with SQL. A missing old window is not
+a reason to abandon a grounded resolution or closure.

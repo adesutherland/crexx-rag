@@ -1,5 +1,27 @@
 # Test strategy
 
+Task-reset implementation and current QA are tracked in
+[task reset delivery](task-reset-delivery-20260915.md). `task_reset` exercises
+legacy no-window closure, fresh context and cleared counters, old reviews and
+waivers, preserved receipts/knowledge, and single/all CLI/MCP access. The
+baseline three relevant controls passed; new acceptance failed before repair.
+Final candidate qualification: 79 passing checks in the full run, then the
+reviewed new-tool metadata snapshot passes its targeted rerun: **80 enabled
+checks passed** in aggregate. `worker_unexpected_exit` remains the separately
+approved disabled upstream CREXX #701 test. No second full run or product
+change was needed for the metadata-only snapshot update.
+
+The current [worker-replacement candidate](worker-pool-repair-20260915.md)
+completed an initial **77/80**, followed by the approved test-only correction
+and **2/2** targeted passes (`native_receipts`, `native_interruption`). Manual
+fault/restart fixtures explicitly disable automatic replacement; original
+data/accounting assertions remain. No product code or binary changed and no
+full rerun was requested. Adrian approved temporarily disabling
+`worker_unexpected_exit` pending [CREXX #701](https://github.com/adesutherland/CREXX/issues/701).
+It remains recorded as not run, with its test code retained. Other supervision
+tests remain enabled. The earlier full passing results below are historical
+checkpoints; the disabled test is not counted as passing.
+
 Job controls acceptance (15 September) is tracked in
 [the checked delivery record](job-controls-delivery-20260915.md): deadline-only
 CLI/MCP mutation, expired admitted completion, compact lists at all plan sizes,
@@ -174,7 +196,8 @@ provider calls.
 | `configuration_contract` | format-1 compatibility, format-2/3 bounded settings, omitted/explicit worker defaults and typed bounds, split identities, credential-free check/explain, identical/operational/prospective diff, tamper-resistant plan/apply, and a regression proving a provider-policy change leaves an existing corpus generation unchanged with zero new jobs or provider calls |
 | `process_workers` | eight-worker registration before admission, failed-launch diagnostics, observation, drain, stale PID detection, explicit pruning |
 | `worker_recovery` | native managed-process disconnects; bounded replacement and durable rolling restart history; no preflight phantom calls; public exact-turn inspection, stale digest and ambiguous-history holds, atomic reconciliation rollback, repeated settlement, completed-output reuse and bounded retry; OCR/multiple-citation feedback, uncalled correction deferral, advanced-reasoning handoff; admission-release diagnostics; a real receipt-write fault preserves completed Codex output and public reconciliation reuses it without another generation |
-| `regression_supervision` | optimized two-VM rolling-window boundaries, burst expiry, restart before/after expiry, generic exit exclusion, temporary queue emptiness while peers own work, pause and competing process reservations |
+| `regression_supervision` | optimized two-VM rolling-window boundaries, burst expiry, restart before/after expiry, unexpected exit replacement, initialized pre-claim error return, partial-pool status, temporary queue emptiness while peers own work, pause and competing process reservations |
+| `worker_unexpected_exit` | native SIGKILL before and after submission; slot restored while seven peers continue; unchanged budgets, retained attempts/receipts and item-specific unknown hold; persistent exit-write failure reported |
 | `native_supervision` | public aged-history recovery, zero-worker replenishment, parked status and cancellation, eight failed preflights followed by one recovery probe and restoration; exact calls and retained budgets; one bad task exhausts its own attempts while seven peers finish without replacement |
 | `controller_recovery` | eight overlapping native Codex workers; one command recovers confirmed interruption and completed output, replaces optional-cleanup failure, isolates unavailable history, and keeps healthy peers running after three failures exhaust two replacements; exact call counts, unchanged budgets and released ownership |
 | `gemini_ingestion` | Gemini request/response mapping, compact gap-free LF/CR/CRLF normalization maps, durable work, claims, embeddings, vector publication, replay and failure paths |

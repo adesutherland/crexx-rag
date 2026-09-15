@@ -4,8 +4,36 @@ import rxsqlite
 import rxplatform
 import ragwork
 import ragworktypes
+import ragclaims
+import generic_profile
 import ragstore
 import ragsupervision
+
+uncalledprovider: class implements .ragworkprovider
+  *: factory
+    return
+  process: method = .ragworkproviderresult
+    arg claim = .ragworkclaim
+    say "SUPERVISION_FAIL=unexpected provider call"
+    result=.ragworkproviderresult
+    return result
+
+checkpointfailure: procedure = .int
+  arg store = .ragstorehandle
+  database=store.database(); error=""; errors=0
+  errors=errors+check(sqliteexec(database,"INSERT INTO maintenance_runs(run_id,expected_generation,config_snapshot_id,mode,state,plan_digest,canonical_plan,created_at) SELECT 'checkpoint',published_generation,'snapshot-supervision','manual','complete','checkpoint','{}','fixture' FROM library_meta; INSERT INTO maintenance_windows(window_id,run_id,job_id,state,deadline_epoch,policy_json,policy_fingerprint,created_epoch) VALUES('checkpoint','checkpoint','job','complete',1,'{}','checkpoint',1); UPDATE job_items SET state='cancelled'")=0,"checkpoint fixture")
+  before=number(database,"SELECT count(*) FROM attempts")
+  policy=.ragclaimpolicy("fixture","concept","related-to",1000000,750000,500000,-1000000,250000)
+  provider=.uncalledprovider(); disposition=""
+  /* Force the real pre-claim checkpoint to fail its BEGIN. The failure must
+   * return the original diagnostic, before any claim/provider state exists. */
+  errors=errors+check(sqliteexec(database,"BEGIN IMMEDIATE")=0,"checkpoint conflict")
+  status=runworkeronce(store,"job","checkpoint-worker",30,3,policy,provider,disposition,error,genericprofile())
+  errors=errors+check(status=-3 & error="cannot checkpoint maintenance backlog","checkpoint preserves original error " || error)
+  errors=errors+check(sqliteexec(database,"ROLLBACK")=0,"release checkpoint conflict")
+  errors=errors+check(runworkeronce(store,"job","checkpoint-worker",30,3,policy,provider,disposition,error,genericprofile())=1,"checkpoint succeeds after conflict clears " || error)
+  errors=errors+check(number(database,"SELECT count(*) FROM attempts")=before & number(database,"SELECT count(*) FROM provider_runs")=0,"pre-claim error creates no attempt or call")
+  return errors
 
 check: procedure = .int
   arg condition = .boolean, label = .string
@@ -30,6 +58,13 @@ main: procedure = .int
       say "WAL_OPEN_OK"
       return 0
     end
+    if args[2]="checkpoint-error" then do
+      errors=checkpointfailure(store)
+      call closeragstore store,error
+      if errors>0 then return 1
+      say "CHECKPOINT_ERROR_OK"
+      return 0
+    end
     replacement = ""; delay = 0
     status = ragsupervision..reserveworkerreplacement(store,"controller",args[2],1,10,replacement,delay,error,100,5000)
     say "RACE=" || status
@@ -41,7 +76,7 @@ main: procedure = .int
   database = store.database()
   errors = errors + check(sqliteexec(database,"INSERT INTO jobs(job_id,plan_digest,canonical_plan,config_snapshot_id,state,item_budget,model_call_budget,input_token_budget,output_token_budget,cost_budget,created_at,updated_at) VALUES('job','plan','{}','snapshot-supervision','running',10,10,1000,1000,1000,'fixture','fixture'); INSERT INTO job_items(item_id,job_id,item_type,state,priority,idempotency_key,input_hash,input_json,created_at,updated_at) VALUES('item','job','claim-extraction','queued',1,'item','input','{}','fixture','fixture')")=0,"seed eligible work")
   errors = errors + check(sqliteexec(database,"INSERT INTO runtime_instances(instance_id,kind,host_id,pid,process_start_token,executable_identity,mode,job_filter,state,started_at,heartbeat_at) VALUES('controller','controller','fixture',1,'token','exe','wait','job','running',1,1)")=0,"seed controller")
-  do i = 1 to 6
+  do i = 1 to 9
     errors = errors + check(sqliteexec(database,"INSERT INTO runtime_instances(instance_id,kind,parent_instance_id,host_id,pid,process_start_token,executable_identity,mode,job_filter,state,started_at,heartbeat_at,exit_code) VALUES('worker-" || i || "','worker','controller','fixture',0,'token','exe','follow','job','failed',1,1,75)")=0,"seed exited worker")
   end
   replacement = ""; delay = 0
@@ -57,8 +92,6 @@ main: procedure = .int
   database = store.database()
   errors = errors + check(number(database,"SELECT count(*) FROM job_events WHERE event_type='worker-replacement'")=4,"all historic events retained")
   errors = errors + check(number(database,"SELECT count(*) FROM attempts")=0 & number(database,"SELECT count(*) FROM provider_runs")=0,"supervision creates no task attempts or provider calls")
-  errors = errors + check(sqliteexec(database,"UPDATE runtime_instances SET exit_code=1 WHERE instance_id='worker-5'")=0,"unclassified exit fixture")
-  errors = errors + check(ragsupervision..reserveworkerreplacement(store,"controller","worker-5",2,10,replacement,delay,error,100,1300)=1,"generic nonzero exit is not classified")
   errors = errors + check(sqliteexec(database,"UPDATE runtime_instances SET exit_code=75 WHERE instance_id='worker-5'; UPDATE jobs SET state='paused'")=0,"pause fixture")
   errors = errors + check(ragsupervision..reserveworkerreplacement(store,"controller","worker-5",2,10,replacement,delay,error,100,1300)=1,"pause binds replacements")
   errors = errors + check(sqliteexec(database,"UPDATE jobs SET state='running'")=0,"restore fixture for concurrent reservations")
@@ -92,6 +125,19 @@ main: procedure = .int
   errors = errors + check(claimnext(store,"job","worker-5",30,3,refused,error,1,"controller")=1 & refused.claimed()=0,"claim writer retains original controller identity")
   errors = errors + check(number(database,"SELECT count(*) FROM attempts")=before_attempts,"orphan claim creates no attempt")
   errors = errors + check(sqliteexec(database,"INSERT INTO runtime_instances(instance_id,kind,host_id,pid,process_start_token,executable_identity,mode,job_filter,state,started_at,heartbeat_at) VALUES('controller','controller','fixture',1,'token','exe','wait','job','running',1,1); UPDATE runtime_instances SET parent_instance_id='controller' WHERE kind='worker'; UPDATE runtime_instances SET state='failed' WHERE instance_id='worker-5'")=0,"restore parent for reservation races")
+  do i=7 to 9
+    code=16; if i=8 then code=1; if i=9 then code=137
+    errors=errors+check(sqliteexec(database,"UPDATE runtime_instances SET exit_code=" || code || " WHERE instance_id='worker-" || i || "'")=0,"unexpected exit fixture")
+    errors=errors+check(ragsupervision..reserveworkerreplacement(store,"controller","worker-" || i,0,10,replacement,delay,error,100,2000)=1,"disabled replacement remains effective")
+    errors=errors+check(ragsupervision..reserveworkerreplacement(store,"controller","worker-" || i,3,10,replacement,delay,error,100,2000)=0,"unexpected exit " || code || " is replaceable " || error)
+  end
+  errors=errors+check(number(database,"SELECT count(*) FROM job_events WHERE event_type='worker-replacement'")=7,"unexpected replacements retain all history")
+  errors=errors+check(number(database,"SELECT count(*) FROM attempts")=before_attempts & number(database,"SELECT count(*) FROM provider_runs")=0,"replacement creates no calls or item attempts")
+  errors=errors+check(sqliteexec(database,"UPDATE runtime_instances SET state='failed' WHERE kind='worker'; UPDATE runtime_instances SET state='idle',pid=" || local_pid || ",host_id='" || rxplatform..host() || "' WHERE instance_id='worker-5'")=0,"partial pool fixture")
+  errors=errors+check(recordsupervision(store,"job","controller",2,2,3600,error)=0,"record public pool policy")
+  observed=readsupervision(store,"job",error)
+  errors=errors+check(pos('"live_workers":1',observed)>0 & pos('worker-pool-below-requested; inspect worker status',observed)>0,"partial pool has a public explanation " || observed)
+  errors=errors+check(sqliteexec(database,"UPDATE runtime_instances SET state='failed' WHERE instance_id='worker-5'")=0,"restore race worker")
   errors = errors + check(closeragstore(store,error)=0,"close " || error)
   if errors > 0 then return 1
   say "SUPERVISION_REGRESSION_OK"

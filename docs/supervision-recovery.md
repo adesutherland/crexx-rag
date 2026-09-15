@@ -47,8 +47,16 @@ The added classification is narrow: a retryable, explicitly unhealthy transport
 that failed before provider submission now establishes a shared cooldown too.
 It consumes no provider call or failed-task allowance. Existing retryable called
 provider failures retain their previous cooldown policy. Unknown submitted work
-retains its reconciliation hold. Generic nonzero process exits do not establish
-an environment diagnosis or become automatically replaceable.
+retains its reconciliation hold on that item. Every unexpected registered-worker
+exit is eligible for replacement within the same existing limits. Generic
+nonzero process exits do not establish an environment diagnosis. The controller
+does not need to diagnose a panic before restoring its slot.
+
+The process owner records observed exits with the existing bounded writer-lock
+helper. A persistent write failure is reported, rather than leaving a silent
+stale registration. Status explains a partial pool with no more specific
+cooldown/allowance reason. See the [15 September ISSUE-01 repair](worker-pool-repair-20260915.md)
+for current coverage and qualification; the results below are historical.
 
 When every remaining eligible route is cooling, replacement waits. Surviving
 workers can perform the admission-gated recovery probe. With no live workers,
@@ -84,8 +92,13 @@ or production clock override.
 
 - `regression_supervision`: optimized code on both VMs; exact window boundary,
   burst backoff, expiry, reopen before/after expiry, retained history, a queue
-  temporarily emptied by healthy owners, generic
-  exit exclusion, pause and competing independent-process reservations.
+  temporarily emptied by healthy owners, generic exit replacement, pause and
+  competing independent-process reservations. The ISSUE-01 extension also
+  covers pre-claim checkpoint failure and partial-pool status.
+- `worker_unexpected_exit`: actual native worker SIGKILL before submission and
+  after a durable provider intent, seven continuing peers, restored capacity,
+  original accounting and item-specific unknown holds. An injected runtime
+  exit-write failure must surface its original diagnostic.
 - `native_supervision`: public `job run` positive control, aged history,
   zero-worker automatic replenishment, public waiting status, cancellation
   while parked, and an eight-worker outage followed by recovery. The outage
