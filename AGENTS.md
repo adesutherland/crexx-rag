@@ -164,7 +164,8 @@ where relevant. Record the test names, baseline results and remaining gaps in
 the change notes. Extend coverage at each new module boundary.
 
 After implementation, the targeted acceptance must pass and previously passing
-checks must remain passing. Run the required full suite and report any remaining
+checks must remain passing. Use focused checks while iterating and account for
+the complete required suite once at formal qualification. Report any remaining
 tracked defects explicitly. Never hide failures by disabling tests, weakening
 their assertions, or treating known-defect labels as passes. The maintained
 [coverage matrix](docs/regression-coverage.md) records the current baseline and
@@ -173,12 +174,26 @@ unimplemented acceptance; update it with the work.
 ```sh
 cmake --preset debug
 cmake --build --preset debug
-ctest --preset debug --output-on-failure
+ctest --preset fast --output-on-failure
+# Select affected component cases while iterating:
+ctest --preset component -R '<affected-case-pattern>'
+# Before a requested formal commit or publication:
+ctest --preset regression
+python3 tests/qa/report.py --json cmake-build-debug/qa-report.json
 git diff --check
 ```
 
-Run focused tests while iterating, then the full suite after changes affecting
-schema, providers, workers, public commands, or retrieval. Provider changes
+The `debug` test preset is an alias for fast development checks. Fast, component
+and integration tiers are disjoint; `regression` covers their union. Exact-input
+passing receipts are reused when widening a selection, with no duplicate product
+execution. CTest reports reuse as skipped: audit the report, and distinguish
+retained passes from disabled, failed, interrupted and not-run cases. A disabled
+case is never a pass. Keep the explicit scale lane separate. Never rebuild over
+running tests; all writable state belongs to the private execution directory.
+Tests run in parallel by default with declared process demand and narrow locks
+only for unavoidable fixed endpoints. See `docs/test-strategy.md` for ownership,
+selection and formal coverage. Changes affecting schema, providers, workers,
+public commands or retrieval require the full local gate before delivery. Provider changes
 must retain the Gemini smoke test and the malformed-output/secret-redaction
 negative cases. Hosted live calls require explicit bounded authority.
 

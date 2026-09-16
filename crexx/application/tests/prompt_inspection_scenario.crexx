@@ -21,6 +21,9 @@ main: procedure = .int
   if wordpos("move",resolutionactions("support",0))>0 | wordpos("move",resolutionactions("support",1))=0 then return 1
   if resolutionresponseschema("provenance-chunk",0)\=enrichmentschema() then return 1
   if resolutionprompt("ignored","provenance-chunk")\=enrichmentprompt() || "0A"x || quotationcontract() then return 1
+  final_prompt=resolutioninputprompt('{"required_capability":"advanced-reasoning","evidence_expected":0,"remaining_calls_including_this":1,"remaining_evidence_reads":0}',"Final objective","chunk")
+  if pos("final reasoning route",final_prompt)=0 | pos("defer is forbidden",final_prompt)=0 | pos("including this one: 1",final_prompt)=0 | pos("action extract",final_prompt)=0 then return 1
+  if wordpos("extract",resolutionactions("chunk",0))=0 | wordpos("extract",resolutionactions("claim",0))>0 then return 1
   feedback=quotationfeedback("Alpha",'{"mentions":[{"label":"Beta","evidence_quote":"Beta"}],"relationships":[],"notes":[]}')
   if pos("Detected citation problems=1",feedback)=0 | pos(feedback,correctionmessage(feedback))=0 then return 1
   database=.binary

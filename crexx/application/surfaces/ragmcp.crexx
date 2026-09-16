@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragmcp expose mcpdispatch mcpdispatchwithregistry
+namespace ragmcp expose mcpdispatch mcpdispatchwithregistry mcpdispatchsession
 
 import rxfnsb
 import rxjson
@@ -20,6 +20,13 @@ mcpdispatch: procedure = .string
 
 mcpdispatchwithregistry: procedure = .string
   arg request_json = .string, library = .string, config = .string, profile = .string, access = .string, registry = .ragregistry, config_file = ""
+  stop_requested = 0
+  return mcpdispatchsession(request_json,library,config,profile,access,registry,stop_requested,config_file)
+
+/* The stream owner writes the response before acting on this local flag. */
+mcpdispatchsession: procedure = .string
+  arg request_json = .string, library = .string, config = .string, profile = .string, access = .string, registry = .ragregistry, expose stop_requested = .int, config_file = ""
+  stop_requested = 0
   document = .jsondocument(request_json)
   if document.valid() \= 1 then return _error("null", -32700, "request is not strict JSON")
   root = document.root()
@@ -48,6 +55,14 @@ mcpdispatchwithregistry: procedure = .string
   if _toolcommand(definition, document, arguments, library, config, profile, access, config_file, command_args, error) \= 0 then return _error(id_json, -32602, error)
   request = .ragcommandrequest
   if parsecommand(command_args, request, error) \= 0 then return _error(id_json, -32602, error)
+  if request.operation() = "mcp.stop" then do
+    fields = .ragresultfield[]
+    fields[1] = .ragresultfield("session_state","string","stopping")
+    fields[2] = .ragresultfield("restart_owner","string","client")
+    records = .ragresultrecord[]; records[1] = .ragresultrecord("mcp-session",fields)
+    stop_requested = 1
+    return _commandresponse(id_json,.ragcommandresult("mcp.stop","ok",0,"MCP session closing; reconnect the client to load the installed binary. Corpus jobs are unchanged.",records))
+  end
   effective_registry = registry
   if refreshpolicyrequest(request,effective_registry,error) \= 0 then return _commandresponse(id_json,commandfailure(request.operation(),3,error))
   return _commandresponse(id_json,dispatchproduct(request,effective_registry))

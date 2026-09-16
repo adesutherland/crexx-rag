@@ -47,6 +47,16 @@ main: procedure = .int
   raw = .binary; bytes = 0
   errors = errors + check(ragfile..readbinaryfilebounded(path, 65536, raw, bytes, error) = 0, "fixture reread")
   text = raw as .string
+  resolution_text = text; resolution_config = .ragconfig; resolution_error = ""
+  do route_index = 1 to 2
+    route_name = word("resolver advanced-resolver",route_index)
+    prefix = "0A"x || "role." || route_name || "."
+    resolution_text = resolution_text || prefix || "provider = gemini-generate" || prefix || "max_input_tokens = 8192" || prefix || "max_output_tokens = 4096" || prefix || "max_call_cost_microunits = 100000" || prefix || "temperature_millionths = 0" || prefix || "system_prompt = " || route_name || " evidence objective"
+  end
+  errors = errors + check(parseconfigtext(resolution_text,resolution_config,resolution_error)=0,"ordinary and advanced resolution bindings parse " || resolution_error)
+  selected_role = rolebinding(resolution_config,"advanced-resolver")
+  errors = errors + check(selected_role.provider_id()="gemini-generate" & selected_role.system_prompt()="advanced-resolver evidence objective","resolution role retains prompt and provider")
+  errors = errors + check(parseconfigtext(text || "0A"x || "maintenance.advanced_attempts = 4" || "0A"x || "maintenance.search_reads = 2" || "0A"x || "maintenance.evidence_expected = true" || "0A"x || "maintenance.advanced_first = false",resolution_config,resolution_error)=0,"bounded resolution policy parses " || resolution_error)
   passage_config = .ragconfig; passage_error = ""
   errors = errors + check(retrieval.passage_limit() = 12 & .ragretrievalpolicy().passage_limit() = 12, "ordinary passage default remains twelve")
   errors = errors + check(parseconfigtext(changestr("retrieval.passage_limit = 12",text,"retrieval.passage_limit = 200"),passage_config,passage_error) = 0 & passage_config.retrieval().passage_limit() = 200, "two hundred passages parse " || passage_error)

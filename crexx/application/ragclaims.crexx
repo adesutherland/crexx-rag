@@ -1,6 +1,6 @@
 options levelg
 
-namespace ragclaims expose validateassessment ragclaimpolicy ragextractionproposal ragproposalvalidation ragproposalresult ragtraversalstep ragextractionrank promotemention chunkrankprojection rankchunk validateproposal applyproposal applyproposaltransaction applyclaimedproposal retractsupport traverseclaims
+namespace ragclaims expose activeclaimconcept validateassessment ragclaimpolicy ragextractionproposal ragproposalvalidation ragproposalresult ragtraversalstep ragextractionrank promotemention chunkrankprojection rankchunk validateproposal applyproposal applyproposaltransaction applyclaimedproposal retractsupport traverseclaims
 
 import rxfnsb
 import rxjson
@@ -783,6 +783,11 @@ _candidate: procedure = .int
   return 1
 
 _activeconcept: procedure = .int
+  arg database = .binary, concept_id = .string, generation = .int, expose label = .string, expose concept_type = .string
+  return activeclaimconcept(database,concept_id,generation,label,concept_type)
+
+/* Identity proposals and claim publication share the same lifecycle test. */
+activeclaimconcept: procedure = .int
   arg database = .binary, concept_id = .string, generation = .int, expose label = .string, expose concept_type = .string
   label = ""; concept_type = ""; prepared = .binary; status = 0
   sql = "SELECT canonical_label,concept_type FROM concepts WHERE concept_id=?1 AND lifecycle_state='active' AND visible_from_generation<=?2 AND (visible_to_generation IS NULL OR visible_to_generation>?2)"

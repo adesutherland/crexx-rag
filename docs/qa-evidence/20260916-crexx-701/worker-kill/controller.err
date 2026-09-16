@@ -1,0 +1,14 @@
+crexxrag controller start workers=8
+crexxrag worker failed [worker-2bfccb018703c003e216b040994c2c99] completed=1/8
+crexxrag worker worker-2bfccb018703c003e216b040994c2c99: child process exited with code 137 after worker registration
+crexxrag worker replacing [worker-2bfccb018703c003e216b040994c2c99] replacement=worker-6cae4c0ecfe1d92727de9ee52f4bfd30
+crexxrag worker complete [worker-9d44e19cfa56cdd87216a191bf9eb6f4] completed=1/8
+crexxrag worker complete [worker-ae270bf2257d969de42a927490c1558b] completed=2/8
+crexxrag worker complete [worker-a6f2c9133b6ec817e99fb232241fa5b6] completed=3/8
+crexxrag worker complete [worker-93c1b2c776458d3b49a82ca218f1bbd5] completed=4/8
+crexxrag worker complete [worker-ea2f2d562156cd2b387015610bc60855] completed=5/8
+crexxrag worker complete [worker-6cae4c0ecfe1d92727de9ee52f4bfd30] completed=6/8
+crexxrag worker complete [worker-ee13f685dad69a68cd8ec5445dc22ba8] completed=7/8
+crexxrag worker complete [worker-8654f554cfc17368a563118afb14f6da] completed=8/8
+crexxrag vector pending-embeddings [job-sha256:f46b9d2506d121d78146928a0aba3edabd6c71f20f6a915706176873f0017bef] generations=0
+crexxrag controller complete [controller-014a268c5f56e1e6b9d91a3ffd98de0a] workers=8

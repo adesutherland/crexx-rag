@@ -669,7 +669,7 @@ _runworkeronce: procedure = .int
   /* Reuse a settled answer before reserving or contacting a provider. The
    * original run owns its usage; this recovered attempt does not charge it again. */
   if claim.item_type() = "maintenance-resolution" then do
-    cached = _boundscalartext(store.database(),"SELECT json_object('response',o.response_json,'provider_run_id',o.provider_run_id,'profile_hash',o.profile_hash) FROM maintenance_provider_outputs o JOIN maintenance_task_items m ON m.task_id=o.task_id WHERE m.item_id=?1 AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.item_id=o.item_id AND a.outcome IN('failed','dead_letter')) ORDER BY o.created_epoch DESC,o.item_id LIMIT 1",claim.item_id())
+    cached = _boundscalartext(store.database(),"SELECT json_object('response',o.response_json,'provider_run_id',o.provider_run_id,'profile_hash',o.profile_hash) FROM maintenance_provider_outputs o JOIN maintenance_task_items m ON m.task_id=o.task_id WHERE m.item_id=?1 AND NOT EXISTS(SELECT 1 FROM attempts a WHERE a.item_id=o.item_id AND a.outcome IN('failed','dead_letter')) AND NOT EXISTS(SELECT 1 FROM maintenance_decisions d WHERE d.provider_run_id=o.provider_run_id) ORDER BY o.created_epoch DESC,o.item_id LIMIT 1",claim.item_id())
     if cached \= "" then do
       cached_document = .jsondocument(cached); cached_response = ""; cached_run = ""; cached_profile = ""
       ignored = cached_document.node_string(cached_document.member(cached_document.root(),"response"),cached_response)

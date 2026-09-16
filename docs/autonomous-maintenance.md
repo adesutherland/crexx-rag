@@ -54,6 +54,12 @@ An interrupted process cannot publish through an expired lease or fence.
 
 ## Handoff for difficult questions
 
+See [work tasks, prompts, models and completion](work-tasks-and-escalation.md)
+for the complete current vocabulary and diagrams. Escalation is a capability
+flag, not the `review` state. The requested final-pass model/prompt selection
+and terminal no-change/conditional-deferral rules are recorded there as design
+intent; the current external handoff below remains the implemented route.
+
 Resolver capability is separate from task priority and work state. A worker can
 assert that a task needs `advanced-reasoning`; two resolution-content validation
 failures also flag the task. Ordinary workers skip flagged tasks. Transport or

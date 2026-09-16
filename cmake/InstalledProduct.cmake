@@ -14,8 +14,17 @@ set(legacy_sqlite_provider
     "${prefix}/libexec/crexxrag/providers/rx_sqlite_boundary.rxplugin")
 file(MAKE_DIRECTORY "${prefix}/libexec/crexxrag/providers")
 file(WRITE "${legacy_sqlite_provider}" "obsolete downstream provider fixture\n")
-execute_process(COMMAND "${CMAKE_COMMAND}" --install "${CPRAG_BUILD_DIR}"
-        --prefix "${prefix}"
+# CMake writes its manifest to a configure-time absolute build path even with
+# LOCAL_ONLY. Relocate only manifest outputs in a private copy of the installer;
+# package sources and installation rules remain exactly the generated rules.
+file(READ "${CPRAG_BUILD_DIR}/cmake_install.cmake" installer)
+string(REPLACE "${CPRAG_BUILD_DIR}/install_local_manifest.txt"
+    "${CPRAG_WORK_DIR}/install_local_manifest.txt" installer "${installer}")
+string(REPLACE "${CPRAG_BUILD_DIR}/\${CMAKE_INSTALL_MANIFEST}"
+    "${CPRAG_WORK_DIR}/\${CMAKE_INSTALL_MANIFEST}" installer "${installer}")
+file(WRITE "${CPRAG_WORK_DIR}/cmake_install.cmake" "${installer}")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DCMAKE_INSTALL_PREFIX=${prefix}"
+        -DCMAKE_INSTALL_LOCAL_ONLY=ON -P "${CPRAG_WORK_DIR}/cmake_install.cmake"
     RESULT_VARIABLE install_result OUTPUT_VARIABLE install_out
     ERROR_VARIABLE install_err TIMEOUT 120)
 if(NOT install_result EQUAL 0)

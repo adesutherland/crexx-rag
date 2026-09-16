@@ -15,7 +15,8 @@ set(imports "${project_imports};${CPRAG_APPLICATION_DIR};${CPRAG_PLUGIN_DIR};${C
 set(modules ragsupervision ragenrich ragproposalio ragperiod ragprovenance ragassessment ragschema ragfile
     ragstore ragmodel ragjob ragquotationcontract ragextractioncontract ragresolutioncontract raganswercontract ragreportcontract ragpromptdefaults ragpromptinspection ragcommandutil ragsqlsupport ragdirectcalls ragreportservice ragobservationservice ragqueryservice ragoperationsquery ragclaimrules ragclaims ragadmission raglifecycle ragworktypes ragenvironment ragusage ragreceipts ragallowance ragwork ragcommandcatalog ragcommand ragworkerdefaults ragpolicypublication ragpolicyfile ragtrace ragbacklog
     ragmaintain ragimprove ragconfiguration ragconfig ragprofile ragcanonical raggrounding rxfnsg rxsqlite
-    rx_hash rx_system rxfs rxplatform library)
+    rx_hash rx_system rxfs rxplatform library
+    ragretrieval ragevidence ragquery ragquerypolicy ragingest ragglossary rxvector provider_contract provider_catalog)
 
 foreach(mode IN ITEMS noopt opt)
     set(mode_flag)

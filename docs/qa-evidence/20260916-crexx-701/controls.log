@@ -1,0 +1,20 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 21: native_supervision_positive
+1/2 Test #21: native_supervision_positive ......   Passed    4.93 sec
+    Start 28: process_workers
+2/2 Test #28: process_workers ..................   Passed   27.47 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Label Time Summary:
+multi-process       = 219.73 sec*proc (1 test)
+native              =   9.85 sec*proc (1 test)
+process             = 219.73 sec*proc (1 test)
+recovery            =   9.85 sec*proc (1 test)
+regression          =   9.85 sec*proc (1 test)
+sqlite              = 219.73 sec*proc (1 test)
+tier-integration    = 229.58 sec*proc (2 tests)
+worker              = 229.58 sec*proc (2 tests)
+zero-outbound       = 229.58 sec*proc (2 tests)
+
+Total Test time (real) =  32.40 sec

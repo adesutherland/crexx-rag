@@ -1,0 +1,274 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+        Start   6: regression_command_metadata
+        Start   9: regression_smoke_stale_workers
+        Start  10: regression_smoke_terminal_state
+        Start  12: regression_prompt_inspection
+        Start  15: regression_command_catalogue
+        Start  16: regression_claim_policy
+        Start  18: linked_application
+        Start  64: documentation_contract
+  1/115 Test  #18: linked_application ...........................***Skipped   0.07 sec
+        Start 115: qa_execution
+  2/115 Test  #16: regression_claim_policy ......................***Skipped   0.08 sec
+        Start  11: regression_rule_simplification
+  3/115 Test   #9: regression_smoke_stale_workers ...............***Skipped   0.08 sec
+  4/115 Test  #10: regression_smoke_terminal_state ..............***Skipped   0.08 sec
+  5/115 Test  #12: regression_prompt_inspection .................***Skipped   0.08 sec
+        Start  14: regression_policy_file_vm
+        Start  19: configuration_contract
+        Start  20: regression_supervision
+  6/115 Test   #6: regression_command_metadata ..................***Skipped   0.08 sec
+        Start  31: provider_durability
+  7/115 Test  #15: regression_command_catalogue .................***Skipped   0.08 sec
+        Start  32: codex_protocol_noopt_rxvme
+  8/115 Test  #64: documentation_contract .......................***Skipped   0.10 sec
+        Start  33: codex_protocol_noopt_rxbvm
+  9/115 Test #115: qa_execution .................................***Skipped   0.08 sec
+        Start  34: codex_protocol_opt_rxvme
+ 10/115 Test  #14: regression_policy_file_vm ....................   Passed    2.06 sec
+        Start  35: codex_protocol_opt_rxbvm
+ 11/115 Test  #11: regression_rule_simplification ...............   Passed    3.62 sec
+        Start  55: ann_methodology
+ 12/115 Test  #33: codex_protocol_noopt_rxbvm ...................   Passed    8.38 sec
+        Start  56: lifecycle_methodology
+ 13/115 Test  #35: codex_protocol_opt_rxbvm .....................   Passed    8.25 sec
+        Start  57: evidence_methodology
+ 14/115 Test  #55: ann_methodology ..............................   Passed    6.95 sec
+        Start  58: maintenance_methodology
+ 15/115 Test  #32: codex_protocol_noopt_rxvme ...................   Passed   12.42 sec
+        Start  66: quotation_grounding
+ 16/115 Test  #34: codex_protocol_opt_rxvme .....................   Passed   12.46 sec
+        Start  67: temporal_provenance
+ 17/115 Test  #66: quotation_grounding ..........................   Passed    3.55 sec
+        Start  68: durable_backlog
+ 18/115 Test  #56: lifecycle_methodology ........................   Passed   11.49 sec
+        Start  69: durable_backlog_escalation
+ 19/115 Test  #58: maintenance_methodology ......................   Passed   10.70 sec
+        Start  70: task_reset
+ 20/115 Test  #31: provider_durability ..........................   Passed   21.46 sec
+        Start 107: regression_lifecycle
+ 21/115 Test  #57: evidence_methodology .........................   Passed   11.63 sec
+        Start 114: regression_sql_performance
+ 22/115 Test #114: regression_sql_performance ...................   Passed    2.14 sec
+        Start   1: regression_folder_include
+ 23/115 Test  #69: durable_backlog_escalation ...................   Passed    8.51 sec
+        Start   2: regression_source_backlog
+ 24/115 Test #107: regression_lifecycle .........................   Passed    7.91 sec
+        Start   3: regression_source_maintenance
+ 25/115 Test  #20: regression_supervision .......................   Passed   29.80 sec
+        Start   4: regression_job_deadline
+ 26/115 Test  #68: durable_backlog ..............................   Passed   13.94 sec
+        Start   5: regression_policy_file
+ 27/115 Test   #2: regression_source_backlog ....................   Passed    4.78 sec
+        Start   7: regression_command_arguments
+ 28/115 Test  #70: task_reset ...................................   Passed   12.52 sec
+        Start   8: regression_operator_diagnostics
+ 29/115 Test   #4: regression_job_deadline ......................   Passed    8.49 sec
+        Start  13: regression_prompt_contract
+ 30/115 Test   #1: regression_folder_include ....................   Passed   15.77 sec
+        Start  27: worker_unexpected_exit
+ 31/115 Test  #27: worker_unexpected_exit .......................***Not Run (Disabled)   0.00 sec
+        Start  29: gemini_ingestion
+ 32/115 Test  #19: configuration_contract .......................   Passed   42.83 sec
+        Start  30: gemini_extraction_validation
+ 33/115 Test   #5: regression_policy_file .......................   Passed   18.99 sec
+        Start  37: codex_application
+ 34/115 Test   #3: regression_source_maintenance ................   Passed   20.54 sec
+        Start  38: worker_recovery_receipt-write
+ 35/115 Test   #7: regression_command_arguments .................   Passed   18.39 sec
+        Start  39: worker_recovery_preflight-once
+ 36/115 Test  #30: gemini_extraction_validation .................   Passed    9.87 sec
+        Start  40: worker_recovery_preflight-always
+ 37/115 Test  #37: codex_application ............................   Passed    4.06 sec
+        Start  41: worker_recovery_preflight-disabled
+ 38/115 Test   #8: regression_operator_diagnostics ..............   Passed   21.25 sec
+        Start  42: worker_recovery_turn-disconnect
+ 39/115 Test  #29: gemini_ingestion .............................   Passed   15.64 sec
+        Start  43: worker_recovery_admission-release
+ 40/115 Test  #41: worker_recovery_preflight-disabled ...........   Passed    2.85 sec
+        Start  44: worker_recovery_citation-feedback
+ 41/115 Test  #38: worker_recovery_receipt-write ................   Passed    7.70 sec
+        Start  45: worker_recovery_citation-exhausted
+ 42/115 Test  #43: worker_recovery_admission-release ............   Passed    3.33 sec
+        Start  52: gemini_maintenance
+ 43/115 Test  #44: worker_recovery_citation-feedback ............   Passed    4.84 sec
+        Start  54: query_policy
+ 44/115 Test  #45: worker_recovery_citation-exhausted ...........   Passed    5.94 sec
+        Start  60: address_surface
+ 45/115 Test  #13: regression_prompt_contract ...................***Failed   30.83 sec
+FAILED regression_prompt_contract: 30.71s; logs: /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_prompt_contract/20260916T132127-e778a5c7
+-- Gemini ingestion passed canonical JSON and human-default execution through native workers, truthful replay, vector publication, meaningful pre/post-registration child failure, evidence retrieval, integrity verification, and sanitized progress
+-- Gemini query passed human hybrid retrieval and cited answer generation, explicit zero-outbound lexical mode, required-hybrid failure, citation rejection, valid insufficient-evidence handling, and post-query integrity
+CMake Warning (dev) at /Users/adrian/CLionProjects/crexx-rag/cmake/GeminiQuery.cmake:744 (file):
+  Policy CMP0152 is not set: file(REAL_PATH) resolves symlinks before
+  collapsing ../ components.  Run "cmake --help-policy CMP0152" for policy
+  details.  Use the cmake_policy command to set the policy and suppress this
+  warning.
+
+  From input path:
+
+    /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_prompt_contract/20260916T132127-e778a5c7/inputs/15/../../../crexx/application/config/profiles/it-architecture.profile.tsv
+
+  the policy OLD behavior produces path:
+
+    /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_prompt_contract/crexx/application/config/profiles/it-architecture.profile.tsv
+
+  but the policy NEW behavior produces path:
+
+    /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_prompt_contract/20260916T132127-e778a5c7/inputs/15/../../../crexx/application/config/profiles/it-architecture.profile.tsv
+
+  Since the policy is not set, CMake is using the OLD behavior for
+  compatibility.
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/PromptContract.cmake:10 (include)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+CMake Warning (dev) at /Users/adrian/CLionProjects/crexx-rag/cmake/GeminiQuery.cmake:744 (file):
+  Given path:
+
+    /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_prompt_contract/20260916T132127-e778a5c7/inputs/15/../../../crexx/application/config/profiles/it-architecture.profile.tsv
+
+  does not refer to an existing path on disk.
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/PromptContract.cmake:10 (include)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/GeminiQuery.cmake:745 (file):
+  file failed to open for reading (No such file or directory):
+
+    /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_prompt_contract/crexx/application/config/profiles/it-architecture.profile.tsv
+Call Stack (most recent call first):
+  /Users/adrian/CLionProjects/crexx-rag/cmake/PromptContract.cmake:10 (include)
+
+
+
+
+ 46/115 Test  #60: address_surface ..............................   Passed    5.73 sec
+ 47/115 Test  #67: temporal_provenance ..........................   Passed   56.99 sec
+ 48/115 Test  #54: query_policy .................................   Passed   10.68 sec
+ 49/115 Test  #52: gemini_maintenance ...........................   Passed   13.92 sec
+ 50/115 Test  #42: worker_recovery_turn-disconnect ..............   Passed   21.61 sec
+ 51/115 Test  #40: worker_recovery_preflight-always .............   Passed   45.95 sec
+ 52/115 Test  #39: worker_recovery_preflight-once ...............   Passed   67.98 sec
+
+98% tests passed, 1 tests failed out of 51
+
+Label Time Summary:
+RAG-OPS-002            =   7.91 sec*proc (1 test)
+RAG-OPS-004            =   0.00 sec*proc (0 test)
+RAG-QE-06              =   0.00 sec*proc (0 test)
+RAG-UX-02              =   0.00 sec*proc (0 test)
+access                 =   5.73 sec*proc (1 test)
+accounting             =   7.91 sec*proc (1 test)
+address                =   5.73 sec*proc (1 test)
+ann                    =  20.87 sec*proc (2 tests)
+answer                 =   0.00 sec*proc (0 test)
+application            =   4.13 sec*proc (2 tests)
+atomic                 =  33.93 sec*proc (3 tests)
+budget                 =  10.68 sec*proc (1 test)
+cancellation           =   0.00 sec*proc (0 test)
+census                 =  10.70 sec*proc (1 test)
+citation               =   0.00 sec*proc (0 test)
+claim                  =  29.64 sec*proc (3 tests)
+codex                  =  77.71 sec*proc (7 tests)
+command                =  18.56 sec*proc (3 tests)
+concurrency            =   0.00 sec*proc (0 test)
+configuration          =  89.08 sec*proc (7 tests)
+continuation           =   0.00 sec*proc (0 test)
+contract               =   0.17 sec*proc (2 tests)
+crexx-701              =   0.00 sec*proc (1 test)
+dead-letter            =   9.87 sec*proc (1 test)
+direction              =  11.63 sec*proc (1 test)
+documentation          =   0.10 sec*proc (1 test)
+durability             = 185.72 sec*proc (10 tests)
+embedding              =  15.64 sec*proc (1 test)
+extraction             =  70.40 sec*proc (3 tests)
+gap                    =  11.63 sec*proc (1 test)
+gemini                 =  82.26 sec*proc (4 tests)
+generation             =   0.00 sec*proc (0 test)
+graph                  =  11.63 sec*proc (1 test)
+harness                =   0.08 sec*proc (1 test)
+human                  =   0.00 sec*proc (0 test)
+hybrid                 =   0.00 sec*proc (0 test)
+ingestion              =  31.41 sec*proc (2 tests)
+installed              =   0.00 sec*proc (0 test)
+isolation              =   0.08 sec*proc (1 test)
+jsonl                  =  41.51 sec*proc (4 tests)
+known-upstream         =   0.00 sec*proc (1 test)
+lead                   =  11.63 sec*proc (1 test)
+lifecycle              =  37.55 sec*proc (4 tests)
+linked                 =   0.07 sec*proc (1 test)
+llama.cpp              =   0.00 sec*proc (0 test)
+local                  =   0.00 sec*proc (0 test)
+loopback               =  46.47 sec*proc (2 tests)
+maintenance            = 100.11 sec*proc (8 tests)
+mcp                    =   0.00 sec*proc (0 test)
+merge                  =  33.93 sec*proc (3 tests)
+methodology            =   0.10 sec*proc (1 test)
+multi-process          =   0.00 sec*proc (0 test)
+native                 =   0.00 sec*proc (1 test)
+note                   =  11.63 sec*proc (1 test)
+openai-compatible      =   0.00 sec*proc (0 test)
+operator               =  26.20 sec*proc (4 tests)
+pagination             =  26.04 sec*proc (2 tests)
+policy                 =  21.13 sec*proc (3 tests)
+privacy                =  53.50 sec*proc (2 tests)
+process                =   0.00 sec*proc (0 test)
+prompt                 =  30.91 sec*proc (2 tests)
+provenance             =  60.53 sec*proc (2 tests)
+provider               = 227.30 sec*proc (15 tests)
+public-contract        =   0.00 sec*proc (0 test)
+publication            =   0.00 sec*proc (0 test)
+query                  =  10.68 sec*proc (1 test)
+quotation              =  60.53 sec*proc (2 tests)
+ranking                =  10.70 sec*proc (1 test)
+recall                 =   6.95 sec*proc (1 test)
+recovery               = 225.74 sec*proc (15 tests)
+redaction              =   0.00 sec*proc (0 test)
+registry               =   9.87 sec*proc (1 test)
+regression             = 197.59 sec*proc (21 tests)
+replay                 =  10.70 sec*proc (1 test)
+resolution             =   0.00 sec*proc (0 test)
+retirement             =  33.93 sec*proc (3 tests)
+retrieval              =  18.58 sec*proc (2 tests)
+reviewed-plan          =  13.92 sec*proc (1 test)
+rxvector               =   6.95 sec*proc (1 test)
+schema                 =  72.34 sec*proc (5 tests)
+secret-free            =   9.87 sec*proc (1 test)
+skills                 =   0.10 sec*proc (1 test)
+source                 =  29.03 sec*proc (2 tests)
+span                   =   9.87 sec*proc (1 test)
+split                  =  33.93 sec*proc (3 tests)
+sqlite                 =  67.49 sec*proc (9 tests)
+strict-json            =  18.39 sec*proc (1 test)
+subscription-budget    =  21.46 sec*proc (1 test)
+surface                =  18.25 sec*proc (2 tests)
+tamper                 =   6.95 sec*proc (1 test)
+tier-component         = 287.59 sec*proc (20 tests)
+tier-fast              =   0.74 sec*proc (9 tests)
+tier-integration       = 359.16 sec*proc (23 tests)
+timing                 =   0.00 sec*proc (0 test)
+trace                  =  15.64 sec*proc (1 test)
+unicode                =  60.53 sec*proc (2 tests)
+validation             =   9.87 sec*proc (1 test)
+worker                 = 215.89 sec*proc (13 tests)
+worklist               =  10.70 sec*proc (1 test)
+zero-outbound          = 544.84 sec*proc (43 tests)
+
+Total Test time (real) = 119.64 sec
+
+The following tests did not run:
+	  6 - regression_command_metadata (Skipped)
+	  9 - regression_smoke_stale_workers (Skipped)
+	 10 - regression_smoke_terminal_state (Skipped)
+	 12 - regression_prompt_inspection (Skipped)
+	 15 - regression_command_catalogue (Skipped)
+	 16 - regression_claim_policy (Skipped)
+	 18 - linked_application (Skipped)
+	 27 - worker_unexpected_exit (Disabled)
+	 64 - documentation_contract (Skipped)
+	115 - qa_execution (Skipped)
+
+The following tests FAILED:
+	 13 - regression_prompt_contract (Failed)               loopback prompt regression schema tier-integration zero-outbound
+Errors while running CTest

@@ -72,11 +72,19 @@ standalone CREXX reproducer has not yet been packaged.
 
 **Adrian's decision:** close this investigation in RAG and let CREXX own the
 repair. Accept delayed replacement as a known runtime limitation in the meantime;
-do not add product monitoring or a native workaround. The upstream issue remains
-open and no runtime fix is claimed. Adrian subsequently approved temporarily
+do not add product monitoring or a native workaround. At that checkpoint no runtime fix was claimed. Adrian subsequently approved temporarily
 disabling `worker_unexpected_exit` pending this fix; retain its code and report
 it as not run, never as passing. Other supervision coverage remains enabled.
 This exclusion does not establish the cause of every historical stale worker.
+
+**16 September follow-up:** installed CREXX `17e844441ed8` passes the unchanged
+three-case downstream `worker_unexpected_exit` regression after rebuilding the
+native RAG executable. Replacement happens while the seven healthy peers stay
+alive and undrained; unknown outcomes and exit-write refusal remain correct.
+The temporary exclusion is removed and the regression is enabled with eight
+scheduling slots. See [exact artifacts and focused evidence](crexx-701-retest-20260916.md).
+This verifies the reported mechanism locally; it does not retrospectively assign
+all historical controller failures to #701 or assert a fresh full-suite result.
 
 ## Worker execution architecture
 

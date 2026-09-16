@@ -1303,6 +1303,14 @@ normal churn matrix decides whether a new historic point is warranted.
 
 ## Automation and MCP
 
+To stop the current MCP session for a requested reconnect, call
+`rag_mcp_stop({})` through that connection. The server acknowledges and exits;
+reconnect the client to load the installed binary. This leaves corpus jobs and
+other sessions running and needs only read access. It also works without a
+usable library/policy. Requests are serial, so it is not an out-of-band
+cancellation of an earlier call. See [session control](agent-integration.md#stopping-an-mcp-session)
+and [pending batch qualification](batch-changes-20260915.md).
+
 Agents can use `query inspect 'question'` for lexical source evidence with
 zero writes and no provider calls. Over MCP, `rag_query_inspect`,
 `rag_library_overview` and `rag_profile_show` support corpus orientation and

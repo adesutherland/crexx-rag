@@ -14,8 +14,8 @@ import ragreportcontract
 promptrecords: procedure = .ragresultrecord[]
   arg config=.ragconfig,profile=.ragprofile,role=.string,expose error=.string
   records=.ragresultrecord[];fields=.ragresultfield[];error=""
-  if wordpos(role,"extractor resolution answerer advisory")=0 then do
-    error="prompt role must be extractor, resolution, answerer or advisory";return records
+  if wordpos(role,"extractor resolution resolver advanced-resolver answerer advisory")=0 then do
+    error="prompt role must be extractor, resolution, resolver, advanced-resolver, answerer or advisory";return records
   end
   objective="";roles=config.roles()
   do i=1 to roles.0
@@ -27,8 +27,16 @@ promptrecords: procedure = .ragresultrecord[]
     system=extractionprompt(objective);schema=extractionresponseschema(profile);version=extractioncontractversion()
     scope=scope || " Optional provenance assessment adds its own contract."
   end
-  if role="resolution" then do
-    objective=config.maintenance().resolution_prompt();system=resolutionprompt(objective)
+  selected_role = rolebinding(config,role)
+  if role="resolution" | role="resolver" | role="advanced-resolver" then do
+    binding = "resolver"; if role="advanced-resolver" then binding=role
+    selected_role=rolebinding(config,binding)
+    objective=selected_role.system_prompt()
+    if objective="" & role<>"advanced-resolver" then do; objective=config.maintenance().resolution_prompt(); selected_role=rolebinding(config,"extractor"); end
+    if objective="" then do; error="configure role.advanced-resolver before processing advanced tasks"; return records; end
+    capability="standard";if role="advanced-resolver" then capability="advanced-reasoning"
+    prompt_context='{"required_capability":"' || capability || '","evidence_expected":' || config.maintenance().evidence_expected() || '}'
+    system=resolutioninputprompt(prompt_context,objective,"")
     schema=resolutionresponseschema();version=resolutioncontractversion()
     scope=scope || " This schema lists all actions; maintain inspect returns the narrower task-specific schema."
   end
@@ -42,5 +50,8 @@ promptrecords: procedure = .ragresultrecord[]
   fields[6]=.ragresultfield("system_prompt_sha256","string",rxhash..sha256hex(system as .binary))
   fields[7]=.ragresultfield("response_schema_sha256","string",rxhash..sha256hex(schema as .binary))
   fields[8]=.ragresultfield("scope","string",scope)
+  provider=roleproviderconfig(config,selected_role.role())
+  fields[9]=.ragresultfield("provider_id","string",provider.provider_id())
+  fields[10]=.ragresultfield("model","string",provider.model())
   records[1]=.ragresultrecord("prompt-contract",fields)
   return records

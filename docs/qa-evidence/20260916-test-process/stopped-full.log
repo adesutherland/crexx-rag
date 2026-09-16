@@ -1,0 +1,108 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+      Start  1: regression_folder_include
+ 1/81 Test  #1: regression_folder_include .........   Passed    6.66 sec
+      Start  2: regression_source_backlog
+ 2/81 Test  #2: regression_source_backlog .........   Passed    2.11 sec
+      Start  3: regression_source_maintenance
+ 3/81 Test  #3: regression_source_maintenance .....***Failed    1.05 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/SourceMaintenance.cmake:70 (message):
+  Unscoped positive control did not select older high-ranked work
+
+
+
+      Start  4: regression_job_deadline
+ 4/81 Test  #4: regression_job_deadline ...........***Failed    1.04 sec
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/SourceMaintenance.cmake:70 (message):
+  Unscoped positive control did not select older high-ranked work
+
+
+
+      Start  5: regression_policy_file
+ 5/81 Test  #5: regression_policy_file ............   Passed    7.71 sec
+      Start  6: regression_command_metadata
+ 6/81 Test  #6: regression_command_metadata .......   Passed    0.39 sec
+      Start  7: regression_command_arguments
+ 7/81 Test  #7: regression_command_arguments ......   Passed    7.44 sec
+      Start  8: regression_operator_diagnostics
+ 8/81 Test  #8: regression_operator_diagnostics ...   Passed    8.69 sec
+      Start  9: regression_smoke_stale_workers
+ 9/81 Test  #9: regression_smoke_stale_workers ....   Passed    1.98 sec
+      Start 10: regression_smoke_terminal_state
+10/81 Test #10: regression_smoke_terminal_state ...   Passed    2.20 sec
+      Start 11: regression_rule_simplification
+11/81 Test #11: regression_rule_simplification ....   Passed    1.80 sec
+      Start 12: regression_prompt_inspection
+12/81 Test #12: regression_prompt_inspection ......   Passed    3.49 sec
+      Start 13: regression_prompt_contract
+13/81 Test #13: regression_prompt_contract ........   Passed   27.63 sec
+      Start 14: regression_policy_file_vm
+14/81 Test #14: regression_policy_file_vm .........   Passed    2.41 sec
+      Start 15: regression_command_catalogue
+15/81 Test #15: regression_command_catalogue ......   Passed    2.29 sec
+      Start 16: regression_claim_policy
+16/81 Test #16: regression_claim_policy ...........   Passed    0.68 sec
+      Start 17: native_lifecycle
+17/81 Test #17: native_lifecycle ..................   Passed   11.41 sec
+      Start 18: linked_application
+18/81 Test #18: linked_application ................   Passed    1.65 sec
+      Start 19: configuration_contract
+19/81 Test #19: configuration_contract ............   Passed   33.14 sec
+      Start 20: regression_supervision
+20/81 Test #20: regression_supervision ............   Passed   19.45 sec
+      Start 21: native_supervision
+21/81 Test #21: native_supervision ................   Passed   58.41 sec
+      Start 22: worker_unexpected_exit
+22/81 Test #22: worker_unexpected_exit ............***Not Run (Disabled)   0.00 sec
+      Start 23: process_workers
+23/81 Test #23: process_workers ...................   Passed   28.11 sec
+      Start 24: gemini_ingestion
+24/81 Test #24: gemini_ingestion ..................   Passed    8.24 sec
+      Start 25: gemini_extraction_validation
+25/81 Test #25: gemini_extraction_validation ......   Passed    4.26 sec
+      Start 26: provider_durability
+26/81 Test #26: provider_durability ...............   Passed   13.08 sec
+      Start 27: codex_protocol
+27/81 Test #27: codex_protocol ....................   Passed   41.04 sec
+      Start 28: codex_application
+28/81 Test #28: codex_application .................   Passed    2.06 sec
+      Start 29: worker_recovery
+29/81 Test #29: worker_recovery ...................   Passed  144.07 sec
+      Start 30: controller_recovery
+30/81 Test #30: controller_recovery ...............   Passed   48.63 sec
+      Start 31: gemini_maintenance
+31/81 Test #31: gemini_maintenance ................   Passed    9.77 sec
+      Start 32: gemini_query
+32/81 Test #32: gemini_query ......................   Passed   10.53 sec
+      Start 33: query_policy
+33/81 Test #33: query_policy ......................   Passed    6.38 sec
+      Start 34: ann_methodology
+34/81 Test #34: ann_methodology ...................   Passed    4.04 sec
+      Start 35: lifecycle_methodology
+35/81 Test #35: lifecycle_methodology .............   Passed    5.04 sec
+      Start 36: evidence_methodology
+36/81 Test #36: evidence_methodology ..............   Passed    4.54 sec
+      Start 37: maintenance_methodology
+37/81 Test #37: maintenance_methodology ...........   Passed    4.16 sec
+      Start 38: native_surfaces
+38/81 Test #38: native_surfaces ...................   Passed   19.37 sec
+      Start 39: address_surface
+39/81 Test #39: address_surface ...................   Passed    3.09 sec
+      Start 40: regression_result_contract
+40/81 Test #40: regression_result_contract ........   Passed    3.04 sec
+      Start 41: gemini_provider_smoke
+41/81 Test #41: gemini_provider_smoke .............   Passed    1.50 sec
+      Start 42: installed_product
+42/81 Test #42: installed_product .................   Passed   33.04 sec
+      Start 43: documentation_contract
+43/81 Test #43: documentation_contract ............   Passed    0.75 sec
+      Start 44: local_embedding_protocol
+44/81 Test #44: local_embedding_protocol ..........   Passed    6.58 sec
+      Start 45: quotation_grounding
+45/81 Test #45: quotation_grounding ...............   Passed    1.76 sec
+      Start 46: temporal_provenance
+46/81 Test #46: temporal_provenance ...............   Passed   22.83 sec
+      Start 47: durable_backlog
+47/81 Test #47: durable_backlog ...................   Passed   18.48 sec
+      Start 48: task_reset
+48/81 Test #48: task_reset ........................   Passed    5.32 sec
+      Start 49: durable_backlog_provider

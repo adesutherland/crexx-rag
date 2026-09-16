@@ -687,3 +687,27 @@ Task-reset final QA: 80 enabled checks passed across the complete run and the
 new-tool metadata snapshot's targeted correction; one user-approved CREXX #701
 test remains disabled. The prior command-contract hash is reproduced exactly
 by removing only `rag_task_reset`. No schema or additional recovery framework.
+
+## MCP session stop — original batch (15 September)
+
+`ragcommandcatalog` owns `rag_mcp_stop`/`mcp.stop`; `ragmcp` owns a local stop flag
+and standard response, and the CLI stream owner exits only after writing it.
+Current stateless dispatcher signatures remain compatible; non-MCP execution
+returns an explicit usage error. No domain/policy/SQL decision moved into the
+adapter. `native_surfaces` now contains closure/reconnect, invalid-argument and
+missing-policy cases with an unchanged-database assertion. The original build/test deferral and its subsequent release by approval are
+recorded in [the batch checklist](batch-changes-20260915.md); current combined
+qualification is in the [delivery record](maintenance-escalation-delivery-20260916.md).
+
+## Approved maintenance escalation routing (16 September 2026)
+
+The [delivery record](maintenance-escalation-delivery-20260916.md) tracks the
+regression-first evidence and final combined gate. `ragbacklog` retains one
+eligibility/order/outcome implementation for worker dispatch, queue inspection,
+external plans and reviews. Search composes existing `ragretrieval` and
+`ragevidence`; source identity remains validated by the citation and claim
+owners. Configuration and prompt/schema owners retain their established split.
+The public queue/defer operations live in `ragcommandcatalog` and delegate to
+that owner. No database migration, provider implementation or alternate runner
+is introduced. Explicit extraction is a resolver action using the existing
+work-item type and claim pipeline, not a new task family.

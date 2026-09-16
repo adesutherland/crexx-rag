@@ -150,8 +150,10 @@ _servemcp: procedure = .int
     access_text = access_text || access[i]
   end
   do while lines("stdin") > 0
-    response = mcpdispatchwithregistry(linein("stdin"), request.library(), request.config_id(), request.profile_id(), access_text, registry, request.config_file())
+    stop_requested = 0
+    response = mcpdispatchsession(linein("stdin"), request.library(), request.config_id(), request.profile_id(), access_text, registry, stop_requested, request.config_file())
     if response \= "" then say response
+    if stop_requested = 1 then leave
   end
   return 0
 

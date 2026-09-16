@@ -50,6 +50,9 @@ foreach(mode IN ITEMS noopt opt)
     if(mode STREQUAL "noopt")
         set(mode_flag -n)
     endif()
+    if(CPRAG_PREBUILT)
+        file(COPY "${CPRAG_PREBUILT}/${mode}/" DESTINATION "${CPRAG_WORK_DIR}")
+    else()
     compile_crexx("${CPRAG_MODEL}" "${CPRAG_WORK_DIR}/ragmodel"
         "${base_import}" "${mode_flag}" "${mode} ragmodel")
     compile_crexx("${config_source_dir}/ragworkerdefaults.crexx" "${CPRAG_WORK_DIR}/ragworkerdefaults"
@@ -73,6 +76,12 @@ foreach(mode IN ITEMS noopt opt)
     compile_crexx("${CPRAG_SCENARIO}" "${CPRAG_WORK_DIR}/scenario-${mode}"
         "${program_import}" "${mode_flag}" "${mode} config scenario")
 
+    endif()
+    if(CPRAG_COMPILE_ONLY)
+        file(GLOB binaries "${CPRAG_WORK_DIR}/*.rxbin")
+        file(COPY ${binaries} DESTINATION "${CPRAG_WORK_DIR}/${mode}")
+        continue()
+    endif()
     foreach(runtime_name IN ITEMS rxvme rxbvm)
         if(runtime_name STREQUAL "rxvme")
             set(runtime "${CPRAG_RXVME}")
@@ -105,6 +114,11 @@ foreach(mode IN ITEMS noopt opt)
         file(APPEND "${report}" "${cell}: ${vm_out}${vm_err}")
     endforeach()
 endforeach()
+
+if(CPRAG_COMPILE_ONLY)
+    file(WRITE "${CPRAG_WORK_DIR}/compiled.stamp" "configuration scenario built\n")
+    return()
+endif()
 
 execute_process(COMMAND "${CMAKE_COMMAND}" -E env
     "GEMINI_API_KEY=${secret_marker}"

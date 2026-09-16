@@ -1,0 +1,536 @@
+[
+  {
+    "log": "crexxrag-escalation-baseline-20260916.log",
+    "test": "regression_policy_file",
+    "result": "Passed",
+    "seconds": 7.51
+  },
+  {
+    "log": "crexxrag-escalation-baseline-20260916.log",
+    "test": "regression_prompt_inspection",
+    "result": "Passed",
+    "seconds": 3.76
+  },
+  {
+    "log": "crexxrag-escalation-baseline-20260916.log",
+    "test": "regression_prompt_contract",
+    "result": "Passed",
+    "seconds": 26.69
+  },
+  {
+    "log": "crexxrag-escalation-baseline-20260916.log",
+    "test": "regression_command_catalogue",
+    "result": "Passed",
+    "seconds": 2.32
+  },
+  {
+    "log": "crexxrag-escalation-baseline-20260916.log",
+    "test": "provider_durability",
+    "result": "Passed",
+    "seconds": 12.9
+  },
+  {
+    "log": "crexxrag-escalation-baseline-20260916.log",
+    "test": "codex_application",
+    "result": "Passed",
+    "seconds": 2.06
+  },
+  {
+    "log": "crexxrag-escalation-baseline-20260916.log",
+    "test": "durable_backlog",
+    "result": "Passed",
+    "seconds": 15.42
+  },
+  {
+    "log": "crexxrag-escalation-baseline-20260916.log",
+    "test": "task_reset",
+    "result": "Passed",
+    "seconds": 5.35
+  },
+  {
+    "log": "crexxrag-escalation-config-red-20260916.log",
+    "test": "configuration_contract",
+    "result": "***Failed",
+    "seconds": 4.19
+  },
+  {
+    "log": "crexxrag-escalation-config-targeted-20260916.log",
+    "test": "configuration_contract",
+    "result": "Passed",
+    "seconds": 40.38
+  },
+  {
+    "log": "crexxrag-escalation-extract-red-20260916.log",
+    "test": "durable_backlog",
+    "result": "***Failed",
+    "seconds": 13.87
+  },
+  {
+    "log": "crexxrag-escalation-final-gaps-20260916.log",
+    "test": "regression_command_metadata",
+    "result": "***Failed",
+    "seconds": 0.7
+  },
+  {
+    "log": "crexxrag-escalation-final-gaps-20260916.log",
+    "test": "regression_prompt_inspection",
+    "result": "Passed",
+    "seconds": 4.73
+  },
+  {
+    "log": "crexxrag-escalation-final-gaps-20260916.log",
+    "test": "regression_prompt_contract",
+    "result": "***Failed",
+    "seconds": 10.09
+  },
+  {
+    "log": "crexxrag-escalation-final-gaps-20260916.log",
+    "test": "regression_command_catalogue",
+    "result": "Passed",
+    "seconds": 3.1
+  },
+  {
+    "log": "crexxrag-escalation-final-gaps-20260916.log",
+    "test": "provider_durability",
+    "result": "Passed",
+    "seconds": 14.16
+  },
+  {
+    "log": "crexxrag-escalation-final-gaps-20260916.log",
+    "test": "durable_backlog",
+    "result": "***Failed",
+    "seconds": 14.27
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_folder_include",
+    "result": "Passed",
+    "seconds": 6.66
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_source_backlog",
+    "result": "Passed",
+    "seconds": 2.11
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_source_maintenance",
+    "result": "***Failed",
+    "seconds": 1.05
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_job_deadline",
+    "result": "***Failed",
+    "seconds": 1.04
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_policy_file",
+    "result": "Passed",
+    "seconds": 7.71
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_command_metadata",
+    "result": "Passed",
+    "seconds": 0.39
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_command_arguments",
+    "result": "Passed",
+    "seconds": 7.44
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_operator_diagnostics",
+    "result": "Passed",
+    "seconds": 8.69
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_smoke_stale_workers",
+    "result": "Passed",
+    "seconds": 1.98
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_smoke_terminal_state",
+    "result": "Passed",
+    "seconds": 2.2
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_rule_simplification",
+    "result": "Passed",
+    "seconds": 1.8
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_prompt_inspection",
+    "result": "Passed",
+    "seconds": 3.49
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_prompt_contract",
+    "result": "Passed",
+    "seconds": 27.63
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_policy_file_vm",
+    "result": "Passed",
+    "seconds": 2.41
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_command_catalogue",
+    "result": "Passed",
+    "seconds": 2.29
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_claim_policy",
+    "result": "Passed",
+    "seconds": 0.68
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "native_lifecycle",
+    "result": "Passed",
+    "seconds": 11.41
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "linked_application",
+    "result": "Passed",
+    "seconds": 1.65
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "configuration_contract",
+    "result": "Passed",
+    "seconds": 33.14
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_supervision",
+    "result": "Passed",
+    "seconds": 19.45
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "native_supervision",
+    "result": "Passed",
+    "seconds": 58.41
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "worker_unexpected_exit",
+    "result": "***Not Run",
+    "seconds": 0.0
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "process_workers",
+    "result": "Passed",
+    "seconds": 28.11
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "gemini_ingestion",
+    "result": "Passed",
+    "seconds": 8.24
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "gemini_extraction_validation",
+    "result": "Passed",
+    "seconds": 4.26
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "provider_durability",
+    "result": "Passed",
+    "seconds": 13.08
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "codex_protocol",
+    "result": "Passed",
+    "seconds": 41.04
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "codex_application",
+    "result": "Passed",
+    "seconds": 2.06
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "worker_recovery",
+    "result": "Passed",
+    "seconds": 144.07
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "controller_recovery",
+    "result": "Passed",
+    "seconds": 48.63
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "gemini_maintenance",
+    "result": "Passed",
+    "seconds": 9.77
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "gemini_query",
+    "result": "Passed",
+    "seconds": 10.53
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "query_policy",
+    "result": "Passed",
+    "seconds": 6.38
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "ann_methodology",
+    "result": "Passed",
+    "seconds": 4.04
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "lifecycle_methodology",
+    "result": "Passed",
+    "seconds": 5.04
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "evidence_methodology",
+    "result": "Passed",
+    "seconds": 4.54
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "maintenance_methodology",
+    "result": "Passed",
+    "seconds": 4.16
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "native_surfaces",
+    "result": "Passed",
+    "seconds": 19.37
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "address_surface",
+    "result": "Passed",
+    "seconds": 3.09
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "regression_result_contract",
+    "result": "Passed",
+    "seconds": 3.04
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "gemini_provider_smoke",
+    "result": "Passed",
+    "seconds": 1.5
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "installed_product",
+    "result": "Passed",
+    "seconds": 33.04
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "documentation_contract",
+    "result": "Passed",
+    "seconds": 0.75
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "local_embedding_protocol",
+    "result": "Passed",
+    "seconds": 6.58
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "quotation_grounding",
+    "result": "Passed",
+    "seconds": 1.76
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "temporal_provenance",
+    "result": "Passed",
+    "seconds": 22.83
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "durable_backlog",
+    "result": "Passed",
+    "seconds": 18.48
+  },
+  {
+    "log": "crexxrag-escalation-full-qa-20260916.log",
+    "test": "task_reset",
+    "result": "Passed",
+    "seconds": 5.32
+  },
+  {
+    "log": "crexxrag-escalation-oldpolicy-red-20260916.log",
+    "test": "durable_backlog",
+    "result": "***Failed",
+    "seconds": 30.19
+  },
+  {
+    "log": "crexxrag-escalation-outcomes-red-20260916.log",
+    "test": "durable_backlog",
+    "result": "***Failed",
+    "seconds": 13.86
+  },
+  {
+    "log": "crexxrag-escalation-remaining-budget-red-20260916.log",
+    "test": "durable_backlog",
+    "result": "***Failed",
+    "seconds": 15.43
+  },
+  {
+    "log": "crexxrag-escalation-reset-confirmation-20260916.log",
+    "test": "durable_backlog",
+    "result": "***Failed",
+    "seconds": 16.22
+  },
+  {
+    "log": "crexxrag-escalation-route-reset-red-20260916.log",
+    "test": "durable_backlog",
+    "result": "***Failed",
+    "seconds": 19.73
+  },
+  {
+    "log": "crexxrag-escalation-routes-red-20260916.log",
+    "test": "durable_backlog",
+    "result": "***Failed",
+    "seconds": 13.32
+  },
+  {
+    "log": "crexxrag-escalation-search-red-20260916.log",
+    "test": "durable_backlog",
+    "result": "***Failed",
+    "seconds": 13.65
+  },
+  {
+    "log": "crexxrag-escalation-search-targeted-20260916.log",
+    "test": "durable_backlog",
+    "result": "***Failed",
+    "seconds": 20.26
+  },
+  {
+    "log": "crexxrag-escalation-serial-red-20260916.log",
+    "test": "durable_backlog",
+    "result": "***Failed",
+    "seconds": 13.37
+  },
+  {
+    "log": "crexxrag-escalation-targeted2-20260916.log",
+    "test": "regression_command_metadata",
+    "result": "***Failed",
+    "seconds": 0.42
+  },
+  {
+    "log": "crexxrag-escalation-targeted2-20260916.log",
+    "test": "regression_prompt_inspection",
+    "result": "Passed",
+    "seconds": 4.52
+  },
+  {
+    "log": "crexxrag-escalation-targeted2-20260916.log",
+    "test": "regression_prompt_contract",
+    "result": "***Failed",
+    "seconds": 30.47
+  },
+  {
+    "log": "crexxrag-escalation-targeted2-20260916.log",
+    "test": "configuration_contract",
+    "result": "Passed",
+    "seconds": 42.66
+  },
+  {
+    "log": "crexxrag-escalation-targeted2-20260916.log",
+    "test": "durable_backlog",
+    "result": "***Failed",
+    "seconds": 19.99
+  },
+  {
+    "log": "crexxrag-escalation-targeted2-20260916.log",
+    "test": "task_reset",
+    "result": "Passed",
+    "seconds": 7.07
+  },
+  {
+    "log": "crexxrag-escalation-targeted2-20260916.log",
+    "test": "durable_backlog_provider",
+    "result": "***Failed",
+    "seconds": 9.96
+  },
+  {
+    "log": "crexxrag-escalation-targeted3-20260916.log",
+    "test": "durable_backlog",
+    "result": "***Failed",
+    "seconds": 19.73
+  },
+  {
+    "log": "crexxrag-escalation-targeted4-20260916.log",
+    "test": "regression_command_metadata",
+    "result": "***Failed",
+    "seconds": 0.39
+  },
+  {
+    "log": "crexxrag-escalation-targeted4-20260916.log",
+    "test": "durable_backlog",
+    "result": "***Failed",
+    "seconds": 15.34
+  },
+  {
+    "log": "crexxrag-escalation-targeted4-20260916.log",
+    "test": "durable_backlog_provider",
+    "result": "***Failed",
+    "seconds": 7.03
+  },
+  {
+    "log": "crexxrag-escalation-targeted4-20260916.log",
+    "test": "regression_lifecycle",
+    "result": "Passed",
+    "seconds": 3.19
+  },
+  {
+    "log": "crexxrag-escalation-targeted5-20260916.log",
+    "test": "durable_backlog",
+    "result": "***Failed",
+    "seconds": 15.44
+  },
+  {
+    "log": "crexxrag-escalation-targeted5-20260916.log",
+    "test": "durable_backlog_provider",
+    "result": "Passed",
+    "seconds": 53.57
+  },
+  {
+    "log": "crexxrag-escalation-validation-red-20260916.log",
+    "test": "durable_backlog",
+    "result": "***Failed",
+    "seconds": 13.16
+  }
+]

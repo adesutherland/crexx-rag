@@ -1,3 +1,4 @@
+include("${CMAKE_CURRENT_LIST_DIR}/FixtureEndpoint.cmake")
 foreach(required_var CPRAG_NATIVE_APPLICATION CPRAG_LOOPBACK
         CPRAG_CONFIG_TEMPLATE CPRAG_PROPOSAL_FIXTURE CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
@@ -16,6 +17,7 @@ set(glossary_text
 file(WRITE "${CPRAG_FIXTURE_GLOSSARY}" "${glossary_text}")
 set(CPRAG_FIXTURE_PORT 18998)
 set(CPRAG_FIXTURE_SOURCE "${CPRAG_WORK_DIR}/source")
+set(CPRAG_FIXTURE_PORT 0)
 configure_file("${CPRAG_CONFIG_TEMPLATE}"
     "${CPRAG_WORK_DIR}/crexxrag.conf" @ONLY)
 file(READ "${CPRAG_WORK_DIR}/crexxrag.conf" large_budget_config)
@@ -42,7 +44,7 @@ set(ready FALSE)
 foreach(poll RANGE 1 200)
     if(EXISTS "${server_out}")
         file(READ "${server_out}" current_server_out)
-        if(current_server_out MATCHES "READY ${CPRAG_FIXTURE_PORT}")
+        if(current_server_out MATCHES "READY [0-9]+")
             set(ready TRUE)
             break()
         endif()
@@ -61,6 +63,7 @@ set(cli "${CMAKE_COMMAND}" -E env
     "CREXXRAG_SELF=${CPRAG_NATIVE_APPLICATION}"
     "${CPRAG_NATIVE_APPLICATION}")
 
+crexxrag_fixture_endpoint("${server_out}" "${CPRAG_WORK_DIR}/crexxrag.conf")
 execute_process(COMMAND ${cli} init
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err

@@ -1,8 +1,9 @@
+include("${CMAKE_CURRENT_LIST_DIR}/CrexxRagTestExecution.cmake")
 set(CREXXRAG_NATIVE_APPLICATION
     "${CMAKE_BINARY_DIR}/crexxrag-native/package/crexxrag${CMAKE_EXECUTABLE_SUFFIX}")
 set(CREXXRAG_PROVIDER_FIXTURE "$<TARGET_FILE:crexxrag_provider_fixture>")
 
-add_test(NAME regression_folder_include
+crexxrag_add_test(NAME regression_folder_include
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
@@ -11,7 +12,7 @@ add_test(NAME regression_folder_include
 set_tests_properties(regression_folder_include PROPERTIES
     TIMEOUT 120 LABELS "regression;ingestion;configuration;zero-outbound")
 
-add_test(NAME regression_source_backlog
+crexxrag_add_test(NAME regression_source_backlog
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
@@ -20,7 +21,7 @@ add_test(NAME regression_source_backlog
 set_tests_properties(regression_source_backlog PROPERTIES
     TIMEOUT 90 LABELS "regression;operator;pagination;zero-outbound")
 
-add_test(NAME regression_source_maintenance
+crexxrag_add_test(NAME regression_source_maintenance
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
@@ -29,7 +30,7 @@ add_test(NAME regression_source_maintenance
 set_tests_properties(regression_source_maintenance PROPERTIES
     TIMEOUT 180 LABELS "regression;maintenance;source;zero-outbound")
 
-add_test(NAME regression_job_deadline
+crexxrag_add_test(NAME regression_job_deadline
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
@@ -38,7 +39,7 @@ add_test(NAME regression_job_deadline
 set_tests_properties(regression_job_deadline PROPERTIES
     TIMEOUT 180 LABELS "regression;maintenance;source;zero-outbound")
 
-add_test(NAME regression_policy_file
+crexxrag_add_test(NAME regression_policy_file
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
@@ -48,7 +49,7 @@ add_test(NAME regression_policy_file
 set_tests_properties(regression_policy_file PROPERTIES
     TIMEOUT 240 LABELS "regression;configuration;policy;recovery;zero-outbound")
 
-add_test(NAME regression_command_metadata
+crexxrag_add_test(NAME regression_command_metadata
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
@@ -57,7 +58,7 @@ add_test(NAME regression_command_metadata
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CommandMetadata.cmake")
 set_tests_properties(regression_command_metadata PROPERTIES TIMEOUT 60 LABELS "regression;command;contract;zero-outbound")
 
-add_test(NAME regression_command_arguments
+crexxrag_add_test(NAME regression_command_arguments
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
@@ -65,7 +66,7 @@ add_test(NAME regression_command_arguments
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CommandArguments.cmake")
 set_tests_properties(regression_command_arguments PROPERTIES TIMEOUT 120 LABELS "regression;command;strict-json;zero-outbound")
 
-add_test(NAME regression_operator_diagnostics
+crexxrag_add_test(NAME regression_operator_diagnostics
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
@@ -77,7 +78,7 @@ set_tests_properties(regression_operator_diagnostics PROPERTIES
 # Smoke regressions retain ordinary assertions after their product repairs.
 # Labels describe the cause; they never invert or suppress failures.
 foreach(case IN ITEMS stale_workers terminal_state)
-    add_test(NAME regression_smoke_${case}
+    crexxrag_add_test(NAME regression_smoke_${case}
         COMMAND "${CMAKE_COMMAND}"
             "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
             "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
@@ -88,7 +89,7 @@ foreach(case IN ITEMS stale_workers terminal_state)
         TIMEOUT 90 LABELS "regression;operator;recovery;zero-outbound")
 endforeach()
 
-add_test(NAME regression_rule_simplification
+crexxrag_add_test(NAME regression_rule_simplification
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
@@ -97,7 +98,7 @@ add_test(NAME regression_rule_simplification
 set_tests_properties(regression_rule_simplification PROPERTIES
     TIMEOUT 90 LABELS "regression;configuration;lifecycle;zero-outbound")
 
-add_test(NAME regression_prompt_inspection
+crexxrag_add_test(NAME regression_prompt_inspection
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -115,7 +116,7 @@ add_test(NAME regression_prompt_inspection
 set_tests_properties(regression_prompt_inspection PROPERTIES
     TIMEOUT 150 LABELS "regression;prompt;configuration;zero-outbound")
 
-add_test(NAME regression_prompt_contract
+crexxrag_add_test(NAME regression_prompt_contract
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
         "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
@@ -130,7 +131,7 @@ add_test(NAME regression_prompt_contract
 set_tests_properties(regression_prompt_contract PROPERTIES
     TIMEOUT 180 LABELS "regression;prompt;schema;loopback;zero-outbound")
 
-add_test(NAME regression_policy_file_vm
+crexxrag_add_test(NAME regression_policy_file_vm
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -148,7 +149,7 @@ set_tests_properties(regression_policy_file_vm PROPERTIES
 set_tests_properties(regression_policy_file_vm PROPERTIES
     ENVIRONMENT "CPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf")
 
-add_test(NAME regression_command_catalogue
+crexxrag_add_test(NAME regression_command_catalogue
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -164,7 +165,7 @@ add_test(NAME regression_command_catalogue
 set_tests_properties(regression_command_catalogue PROPERTIES
     TIMEOUT 150 LABELS "regression;command;contract;zero-outbound")
 
-add_test(NAME regression_claim_policy
+crexxrag_add_test(NAME regression_claim_policy
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -180,7 +181,7 @@ add_test(NAME regression_claim_policy
 set_tests_properties(regression_claim_policy PROPERTIES
     TIMEOUT 150 LABELS "regression;claim;policy;zero-outbound")
 
-add_test(NAME native_lifecycle
+crexxrag_add_test(NAME native_lifecycle
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -190,7 +191,7 @@ add_test(NAME native_lifecycle
 set_tests_properties(native_lifecycle PROPERTIES
     TIMEOUT 180 LABELS "native;recovery;lifecycle;regression;loopback")
 
-add_test(NAME linked_application
+crexxrag_add_test(NAME linked_application
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
         "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
@@ -200,7 +201,7 @@ add_test(NAME linked_application
 set_tests_properties(linked_application PROPERTIES
     LABELS "application;linked;sqlite;provider;zero-outbound")
 
-add_test(NAME configuration_contract
+crexxrag_add_test(NAME configuration_contract
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -224,7 +225,7 @@ add_test(NAME configuration_contract
 set_tests_properties(configuration_contract PROPERTIES
     LABELS "configuration;gemini;privacy;zero-outbound")
 
-add_test(NAME regression_supervision
+crexxrag_add_test(NAME regression_supervision
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -239,17 +240,20 @@ add_test(NAME regression_supervision
 set_tests_properties(regression_supervision PROPERTIES
     TIMEOUT 150 LABELS "regression;worker;recovery;zero-outbound")
 
-add_test(NAME native_supervision
+foreach(case IN ITEMS positive aged replenish cancel outage bad-task)
+crexxrag_add_test(NAME native_supervision_${case}
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_CODEX_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-app-server-fixture.sh"
         "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-application.conf.in"
-        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-supervision"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-native-supervision-${case}"
+        "-DCPRAG_CASES=${case}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeSupervision.cmake")
-set_tests_properties(native_supervision PROPERTIES
+set_tests_properties(native_supervision_${case} PROPERTIES
     TIMEOUT 240 LABELS "regression;worker;recovery;native;zero-outbound")
+endforeach()
 
-add_test(NAME worker_unexpected_exit
+crexxrag_add_test(NAME worker_unexpected_exit
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_CODEX_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-app-server-fixture.sh"
@@ -257,13 +261,13 @@ add_test(NAME worker_unexpected_exit
         "-DCPRAG_CASES=worker-kill;worker-unknown;worker-write-error"
         "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-worker-unexpected-exit"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeSupervision.cmake")
-# Adrian approved this temporary exclusion: child completion can wait on a
-# sibling's inherited pipe. Re-enable after https://github.com/adesutherland/CREXX/issues/701.
+# Re-enabled for installed CREXX 17e844441ed8 qualification of
+# https://github.com/adesutherland/CREXX/issues/701. Keep all original fault cases.
 set_tests_properties(worker_unexpected_exit PROPERTIES
-    DISABLED TRUE TIMEOUT 300
-    LABELS "regression;worker;recovery;native;zero-outbound;known-upstream;crexx-701")
+    TIMEOUT 300 PROCESSORS 8
+    LABELS "regression;worker;recovery;native;zero-outbound;crexx-701")
 
-add_test(NAME process_workers
+crexxrag_add_test(NAME process_workers
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
         "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
@@ -275,7 +279,7 @@ add_test(NAME process_workers
 set_tests_properties(process_workers PROPERTIES
     TIMEOUT 150 LABELS "process;sqlite;multi-process;worker;zero-outbound")
 
-add_test(NAME gemini_ingestion
+crexxrag_add_test(NAME gemini_ingestion
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
         "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
@@ -288,7 +292,7 @@ add_test(NAME gemini_ingestion
 set_tests_properties(gemini_ingestion PROPERTIES
     TIMEOUT 180 LABELS "gemini;ingestion;embedding;claim;trace;loopback")
 
-add_test(NAME gemini_extraction_validation
+crexxrag_add_test(NAME gemini_extraction_validation
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -298,7 +302,7 @@ add_test(NAME gemini_extraction_validation
 set_tests_properties(gemini_extraction_validation PROPERTIES
     TIMEOUT 300 LABELS "gemini;extraction;validation;span;registry;dead-letter;secret-free")
 
-add_test(NAME provider_durability
+crexxrag_add_test(NAME provider_durability
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -313,8 +317,11 @@ add_test(NAME provider_durability
 set_tests_properties(provider_durability PROPERTIES
     LABELS "provider;codex;subscription-budget;durability;zero-outbound")
 
-add_test(NAME codex_protocol
+foreach(mode IN ITEMS noopt opt)
+foreach(runtime IN ITEMS rxvme rxbvm)
+crexxrag_add_test(NAME codex_protocol_${mode}_${runtime}
     COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_MODE=${mode}" "-DCPRAG_RUNTIME=${runtime}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
         "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
@@ -326,10 +333,30 @@ add_test(NAME codex_protocol
         "-DCPRAG_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-app-server-fixture.sh"
         "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-codex-protocol"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CodexProtocol.cmake")
-set_tests_properties(codex_protocol PROPERTIES
+set_tests_properties(codex_protocol_${mode}_${runtime} PROPERTIES
     LABELS "provider;codex;jsonl;schema;zero-outbound")
 
-add_test(NAME codex_application
+endforeach()
+endforeach()
+
+crexxrag_add_test(NAME codex_protocol_turnover
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_PLUGIN_DIR=${CREXXRAG_SQLITE_PROVIDER_DIR}"
+        "-DCPRAG_PROBE=${CREXXRAG_PROVIDER_DIR}/tests/codex_protocol_scenario.crexx"
+        "-DCPRAG_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-app-server-fixture.sh"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-codex-protocol"
+        -DCPRAG_TURNOVER=ON
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CodexProtocol.cmake")
+set_tests_properties(codex_protocol_turnover PROPERTIES
+    LABELS "provider;codex;jsonl;schema;zero-outbound")
+
+crexxrag_add_test(NAME codex_application
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -340,27 +367,33 @@ add_test(NAME codex_application
 set_tests_properties(codex_application PROPERTIES
     TIMEOUT 180 LABELS "provider;codex;application;worker;durability;recovery;zero-outbound")
 
-add_test(NAME worker_recovery
+foreach(case IN ITEMS receipt-write preflight-once preflight-always preflight-disabled turn-disconnect admission-release citation-feedback citation-exhausted)
+crexxrag_add_test(NAME worker_recovery_${case}
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_CODEX_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-app-server-fixture.sh"
         "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-application.conf.in"
-        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-worker-recovery"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-worker-recovery-${case}"
+        "-DCPRAG_CASE=${case}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/WorkerRecovery.cmake")
-set_tests_properties(worker_recovery PROPERTIES
+set_tests_properties(worker_recovery_${case} PROPERTIES
     TIMEOUT 180 LABELS "provider;worker;durability;recovery;zero-outbound")
+endforeach()
 
-add_test(NAME controller_recovery
+foreach(case IN ITEMS interrupted completed cleanup unavailable exhausted unavailable-only)
+crexxrag_add_test(NAME controller_recovery_${case}
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_CODEX_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-app-server-fixture.sh"
         "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/codex-application.conf.in"
-        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-controller-recovery"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-controller-recovery-${case}"
+        "-DCPRAG_CASES=${case}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ControllerRecovery.cmake")
-set_tests_properties(controller_recovery PROPERTIES
+set_tests_properties(controller_recovery_${case} PROPERTIES
     TIMEOUT 180 LABELS "provider;worker;concurrency;recovery;zero-outbound")
+endforeach()
 
-add_test(NAME gemini_maintenance
+crexxrag_add_test(NAME gemini_maintenance
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -371,7 +404,7 @@ add_test(NAME gemini_maintenance
 set_tests_properties(gemini_maintenance PROPERTIES
     TIMEOUT 180 LABELS "gemini;maintenance;claim;worker;reviewed-plan;ann")
 
-add_test(NAME gemini_query
+crexxrag_add_test(NAME gemini_query
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -381,7 +414,7 @@ add_test(NAME gemini_query
 set_tests_properties(gemini_query PROPERTIES
     TIMEOUT 300 LABELS "gemini;query;embedding;hybrid;answer;citation;privacy;budget")
 
-add_test(NAME query_policy
+crexxrag_add_test(NAME query_policy
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -396,7 +429,7 @@ add_test(NAME query_policy
 set_tests_properties(query_policy PROPERTIES
     LABELS "query;privacy;budget;codex;zero-outbound")
 
-add_test(NAME ann_methodology
+crexxrag_add_test(NAME ann_methodology
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -411,7 +444,7 @@ add_test(NAME ann_methodology
 set_tests_properties(ann_methodology PROPERTIES
     TIMEOUT 240 LABELS "ann;retrieval;recall;tamper;rxvector;sqlite")
 
-add_test(NAME lifecycle_methodology
+crexxrag_add_test(NAME lifecycle_methodology
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -426,7 +459,7 @@ add_test(NAME lifecycle_methodology
 set_tests_properties(lifecycle_methodology PROPERTIES
     TIMEOUT 300 LABELS "maintenance;lifecycle;split;merge;retirement;atomic;sqlite")
 
-add_test(NAME evidence_methodology
+crexxrag_add_test(NAME evidence_methodology
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -441,7 +474,7 @@ add_test(NAME evidence_methodology
 set_tests_properties(evidence_methodology PROPERTIES
     TIMEOUT 300 LABELS "retrieval;graph;direction;lead;note;gap;sqlite")
 
-add_test(NAME maintenance_methodology
+crexxrag_add_test(NAME maintenance_methodology
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -456,7 +489,7 @@ add_test(NAME maintenance_methodology
 set_tests_properties(maintenance_methodology PROPERTIES
     TIMEOUT 300 LABELS "maintenance;census;worklist;ranking;replay;sqlite")
 
-add_test(NAME native_surfaces
+crexxrag_add_test(NAME native_surfaces
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -466,7 +499,7 @@ add_test(NAME native_surfaces
 set_tests_properties(native_surfaces PROPERTIES
     TIMEOUT 300 LABELS "native;human;mcp;gemini;answer;strict-json;configuration")
 
-add_test(NAME address_surface
+crexxrag_add_test(NAME address_surface
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -484,7 +517,7 @@ add_test(NAME address_surface
 set_tests_properties(address_surface PROPERTIES
     TIMEOUT 180 LABELS "address;surface;configuration;access;zero-outbound")
 
-add_test(NAME regression_result_contract
+crexxrag_add_test(NAME regression_result_contract
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -502,7 +535,7 @@ add_test(NAME regression_result_contract
 set_tests_properties(regression_result_contract PROPERTIES
     TIMEOUT 180 LABELS "regression;address;public-contract;query;zero-outbound")
 
-add_test(NAME gemini_provider_smoke
+crexxrag_add_test(NAME gemini_provider_smoke
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -512,7 +545,7 @@ add_test(NAME gemini_provider_smoke
 set_tests_properties(gemini_provider_smoke PROPERTIES
     TIMEOUT 300 LABELS "provider;gemini;generation;embedding;citation;budget;secret-free")
 
-add_test(NAME installed_product
+crexxrag_add_test(NAME installed_product
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_BUILD_DIR=${CMAKE_BINARY_DIR}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -526,7 +559,7 @@ add_test(NAME installed_product
 set_tests_properties(installed_product PROPERTIES
     TIMEOUT 720 LABELS "installed;native;gemini;ingestion;maintenance;query;skills")
 
-add_test(NAME documentation_contract
+crexxrag_add_test(NAME documentation_contract
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
         "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-documentation-contract"
@@ -534,7 +567,7 @@ add_test(NAME documentation_contract
 set_tests_properties(documentation_contract PROPERTIES
     LABELS "documentation;methodology;skills;zero-outbound")
 
-add_test(NAME local_embedding_protocol
+crexxrag_add_test(NAME local_embedding_protocol
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -550,7 +583,7 @@ set_tests_properties(local_embedding_protocol PROPERTIES
     TIMEOUT 180 LABELS "provider;local;openai-compatible;llama.cpp;embedding;privacy")
 
 
-add_test(NAME quotation_grounding
+crexxrag_add_test(NAME quotation_grounding
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -565,7 +598,7 @@ add_test(NAME quotation_grounding
 set_tests_properties(quotation_grounding PROPERTIES
     LABELS "extraction;quotation;unicode;provenance;zero-outbound")
 
-add_test(NAME temporal_provenance
+crexxrag_add_test(NAME temporal_provenance
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -580,7 +613,7 @@ add_test(NAME temporal_provenance
 set_tests_properties(temporal_provenance PROPERTIES
     LABELS "extraction;quotation;unicode;provenance;zero-outbound")
 
-add_test(NAME durable_backlog
+crexxrag_add_test(NAME durable_backlog
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -597,7 +630,25 @@ add_test(NAME durable_backlog
 set_tests_properties(durable_backlog PROPERTIES
     TIMEOUT 300 LABELS "maintenance;lifecycle;split;merge;retirement;atomic;sqlite")
 
-add_test(NAME task_reset
+crexxrag_add_test(NAME durable_backlog_escalation
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
+        "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
+        "-DCPRAG_RXVME=${CREXX_RXVME_EXECUTABLE}"
+        "-DCPRAG_RXBVM=${CREXX_RXBVM_EXECUTABLE}"
+        "-DCPRAG_CREXX_BIN_DIR=${CREXX_INSTALL_BIN_DIR}"
+        "-DCPRAG_APPLICATION_DIR=${CREXXRAG_APPLICATION_DIR}"
+        "-DCPRAG_PLUGIN_DIR=${CREXXRAG_SQLITE_PROVIDER_DIR}"
+        "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
+        "-DCPRAG_CONFIG_FIXTURE=${CREXXRAG_APP_DIR}/config/google-gemini.conf"
+        "-DCPRAG_SCENARIO=${CREXXRAG_APP_DIR}/tests/backlog_scenario.crexx"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-durable-backlog"
+        -DCPRAG_CASE=escalation
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/DurableBacklog.cmake")
+set_tests_properties(durable_backlog_escalation PROPERTIES
+    TIMEOUT 300 LABELS "maintenance;lifecycle;split;merge;retirement;atomic;sqlite")
+
+crexxrag_add_test(NAME task_reset
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
@@ -606,17 +657,20 @@ add_test(NAME task_reset
 set_tests_properties(task_reset PROPERTIES
     TIMEOUT 150 LABELS "regression;maintenance;recovery;surface;zero-outbound")
 
-add_test(NAME durable_backlog_provider
+foreach(case IN ITEMS valid advanced malformed rejected manual concurrent budget continuation item-limit correction correction-failed correction-budget)
+crexxrag_add_test(NAME durable_backlog_provider_${case}
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
         "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
-        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-durable-backlog-provider"
+        "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-durable-backlog-provider-${case}"
+        "-DCPRAG_CASES=${case}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/DurableBacklogProvider.cmake")
-set_tests_properties(durable_backlog_provider PROPERTIES
+set_tests_properties(durable_backlog_provider_${case} PROPERTIES
     TIMEOUT 240 LABELS "maintenance;gemini;resolution;redaction;sqlite;zero-outbound")
+endforeach()
 
-add_test(NAME publication
+crexxrag_add_test(NAME publication
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -631,7 +685,7 @@ add_test(NAME publication
 set_tests_properties(publication PROPERTIES
     TIMEOUT 240 LABELS "publication;concurrency;atomic;sqlite;zero-outbound")
 
-add_test(NAME native_publication
+crexxrag_add_test(NAME native_publication
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -641,7 +695,7 @@ add_test(NAME native_publication
 set_tests_properties(native_publication PROPERTIES
     TIMEOUT 240 LABELS "publication;concurrency;atomic;gemini;sqlite;zero-outbound")
 
-add_test(NAME embedding_recovery
+crexxrag_add_test(NAME embedding_recovery
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -651,7 +705,7 @@ add_test(NAME embedding_recovery
 set_tests_properties(embedding_recovery PROPERTIES
     TIMEOUT 240 LABELS "recovery;concurrency;accounting;gemini;sqlite;zero-outbound")
 
-add_test(NAME test2_completion
+crexxrag_add_test(NAME test2_completion
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -661,7 +715,7 @@ add_test(NAME test2_completion
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Test2Completion.cmake")
 set_tests_properties(test2_completion PROPERTIES TIMEOUT 240 LABELS "provider;worker;publication;recovery;zero-outbound")
 
-add_test(NAME embedding_publication
+crexxrag_add_test(NAME embedding_publication
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -671,7 +725,7 @@ add_test(NAME embedding_publication
 set_tests_properties(embedding_publication PROPERTIES
     TIMEOUT 120 LABELS "recovery;publication;accounting;gemini;sqlite;zero-outbound")
 
-add_test(NAME embedding_exhaustion
+crexxrag_add_test(NAME embedding_exhaustion
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -682,7 +736,7 @@ add_test(NAME embedding_exhaustion
 set_tests_properties(embedding_exhaustion PROPERTIES
     TIMEOUT 240 LABELS "recovery;concurrency;accounting;gemini;sqlite;zero-outbound")
 
-add_test(NAME native_receipt_failure
+crexxrag_add_test(NAME native_receipt_failure
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -692,7 +746,7 @@ add_test(NAME native_receipt_failure
 set_tests_properties(native_receipt_failure PROPERTIES
     TIMEOUT 240 LABELS "recovery;concurrency;accounting;gemini;sqlite;zero-outbound")
 
-add_test(NAME native_receipts
+crexxrag_add_test(NAME native_receipts
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -702,7 +756,7 @@ add_test(NAME native_receipts
 set_tests_properties(native_receipts PROPERTIES
     TIMEOUT 240 LABELS "recovery;concurrency;accounting;gemini;sqlite;zero-outbound")
 
-add_test(NAME native_interruption
+crexxrag_add_test(NAME native_interruption
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -713,17 +767,21 @@ set_tests_properties(native_interruption PROPERTIES
     TIMEOUT 180 LABELS "native;recovery;cancellation;accounting;publication;sqlite;zero-outbound")
 
 # Agreed simple restart behavior, tested before its implementation.
-add_test(NAME regression_controller_closure
+foreach(case IN ITEMS control stdin_eof stdout_closed stderr_closed term hup int kill)
+crexxrag_add_test(NAME regression_controller_closure_${case}
     COMMAND "${CMAKE_COMMAND}"
+        "-DCPRAG_CASE=${case}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_FIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/controller-closure.py"
         "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-controller-closure"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ControllerClosure.cmake")
-set_tests_properties(regression_controller_closure PROPERTIES
+set_tests_properties(regression_controller_closure_${case} PROPERTIES
     TIMEOUT 120 LABELS "regression;native;recovery;zero-outbound")
 
+endforeach()
+
 foreach(case IN ITEMS controller_loss restart_live controller_term)
-    add_test(NAME regression_${case}
+    crexxrag_add_test(NAME regression_${case}
         COMMAND "${CMAKE_COMMAND}"
             "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
             "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -738,7 +796,7 @@ endforeach()
 # Keep repaired defects as ordinary regressions in the full workflow; no
 # WILL_FAIL property can turn a setup error or crash into a passing result.
 foreach(case IN ITEMS pages page_max large_job plan_detail retry closed_retry reset_retries retrieval retrieval_unicode)
-    add_test(NAME regression_${case}
+    crexxrag_add_test(NAME regression_${case}
         COMMAND "${CMAKE_COMMAND}"
             "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
             "-DCPRAG_CONFIG_TEMPLATE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/providers/gemini-ingestion.conf.in"
@@ -753,7 +811,7 @@ set_property(TEST regression_page_max regression_large_job APPEND PROPERTY LABEL
 set_property(TEST regression_closed_retry APPEND PROPERTY LABELS "RAG-OPS-002")
 set_property(TEST regression_retrieval_unicode APPEND PROPERTY LABELS "RAG-QE-06")
 
-add_test(NAME regression_ingest_capacity
+crexxrag_add_test(NAME regression_ingest_capacity
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -768,7 +826,7 @@ add_test(NAME regression_ingest_capacity
 set_tests_properties(regression_ingest_capacity PROPERTIES
     TIMEOUT 180 LABELS "regression;RAG-OPS-004;worker;accounting;zero-outbound")
 
-add_test(NAME native_admission
+crexxrag_add_test(NAME native_admission
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -778,7 +836,7 @@ add_test(NAME native_admission
 set_tests_properties(native_admission PROPERTIES
     TIMEOUT 180 LABELS "regression;native;worker;accounting;zero-outbound")
 
-add_test(NAME regression_lifecycle
+crexxrag_add_test(NAME regression_lifecycle
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -793,7 +851,7 @@ add_test(NAME regression_lifecycle
 set_tests_properties(regression_lifecycle PROPERTIES
     TIMEOUT 180 LABELS "regression;RAG-OPS-002;worker;accounting;zero-outbound")
 
-add_test(NAME native_lifecycle_holds
+crexxrag_add_test(NAME native_lifecycle_holds
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -804,7 +862,7 @@ add_test(NAME native_lifecycle_holds
 set_tests_properties(native_lifecycle_holds PROPERTIES
     TIMEOUT 180 LABELS "native;recovery;lifecycle;regression;loopback")
 
-add_test(NAME native_continuation
+crexxrag_add_test(NAME native_continuation
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -814,7 +872,7 @@ add_test(NAME native_continuation
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeLifecycle.cmake")
 set_tests_properties(native_continuation PROPERTIES TIMEOUT 180 LABELS "native;recovery;continuation;regression;loopback")
 
-add_test(NAME native_legacy_retry_ceiling
+crexxrag_add_test(NAME native_legacy_retry_ceiling
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -824,7 +882,7 @@ add_test(NAME native_legacy_retry_ceiling
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeLifecycle.cmake")
 set_tests_properties(native_legacy_retry_ceiling PROPERTIES TIMEOUT 180 LABELS "native;recovery;lifecycle;regression;loopback")
 
-add_test(NAME native_continuation_holds
+crexxrag_add_test(NAME native_continuation_holds
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -834,7 +892,7 @@ add_test(NAME native_continuation_holds
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeLifecycle.cmake")
 set_tests_properties(native_continuation_holds PROPERTIES TIMEOUT 180 LABELS "native;recovery;continuation;regression;loopback")
 
-add_test(NAME native_embedding_retry_policy
+crexxrag_add_test(NAME native_embedding_retry_policy
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -844,7 +902,7 @@ add_test(NAME native_embedding_retry_policy
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeLifecycle.cmake")
 set_tests_properties(native_embedding_retry_policy PROPERTIES TIMEOUT 180 LABELS "native;recovery;lifecycle;regression;loopback")
 
-add_test(NAME native_retry_reset
+crexxrag_add_test(NAME native_retry_reset
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_NATIVE_APPLICATION=${CREXXRAG_NATIVE_APPLICATION}"
         "-DCPRAG_LOOPBACK=${CREXXRAG_PROVIDER_FIXTURE}"
@@ -854,7 +912,7 @@ add_test(NAME native_retry_reset
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NativeLifecycle.cmake")
 set_tests_properties(native_retry_reset PROPERTIES TIMEOUT 180 LABELS "native;recovery;lifecycle;regression;loopback")
 
-add_test(NAME regression_sql_performance
+crexxrag_add_test(NAME regression_sql_performance
     COMMAND "${CMAKE_COMMAND}"
         "-DCPRAG_RXC=${CREXX_RXC_EXECUTABLE}"
         "-DCPRAG_RXAS=${CREXX_RXAS_EXECUTABLE}"
@@ -868,3 +926,11 @@ add_test(NAME regression_sql_performance
         "-DCPRAG_WORK_DIR=${CMAKE_BINARY_DIR}/test-sql-performance"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ProjectContract.cmake")
 set_tests_properties(regression_sql_performance PROPERTIES TIMEOUT 150 LABELS "regression;sqlite;zero-outbound")
+
+crexxrag_add_test(NAME qa_execution COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/qa/test_execution.py")
+set_tests_properties(qa_execution PROPERTIES TIMEOUT 30 LABELS "harness;isolation;zero-outbound")
+crexxrag_add_test(NAME qa_fixture_lifetime COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/qa/fixture_lifetime.py" "$<TARGET_FILE:crexxrag_provider_fixture>")
+set_tests_properties(qa_fixture_lifetime PROPERTIES TIMEOUT 30 LABELS "harness;timing;loopback;zero-outbound")
+include("${CMAKE_CURRENT_LIST_DIR}/CrexxRagTestSuites.cmake")

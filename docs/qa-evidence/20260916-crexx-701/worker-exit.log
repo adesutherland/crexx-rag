@@ -1,0 +1,16 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 27: worker_unexpected_exit
+1/1 Test #27: worker_unexpected_exit ...........   Passed    6.86 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+crexx-701           =  54.90 sec*proc (1 test)
+native              =  54.90 sec*proc (1 test)
+recovery            =  54.90 sec*proc (1 test)
+regression          =  54.90 sec*proc (1 test)
+tier-integration    =  54.90 sec*proc (1 test)
+worker              =  54.90 sec*proc (1 test)
+zero-outbound       =  54.90 sec*proc (1 test)
+
+Total Test time (real) =   6.87 sec

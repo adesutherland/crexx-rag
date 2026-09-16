@@ -111,6 +111,12 @@ state with SQL. Report a concrete failed reset or resolution to engineering
 rather than auditing every old rule. Accepted loss of obsolete task bookkeeping
 must not prevent a usable resolution or closure.
 
+For a requested MCP session stop/reconnect after an installation, use
+`rag_mcp_stop({})` when the installed server advertises it. Reconnect the client
+to load the new binary. The tool stops only that connection's server, leaves
+corpus jobs running, and does not guarantee automatic client reconnection.
+Follow the shared diagnosis skill; do not kill unrelated sessions or controllers.
+
 Ordinary questions do not authorize ingestion, maintenance, provider tests or
 corpus changes. For explicitly requested operational work, read the matching
 installed `crexxrag-*` skill and use supported commands within granted access

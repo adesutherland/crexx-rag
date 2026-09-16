@@ -1,0 +1,5 @@
+fast        passed        0.74s        slots=1 documentation_contract [DocumentationContract]
+integration passed        4.87s        slots=2 native_supervision_positive [NativeSupervision]
+integration passed        27.41s       slots=8 process_workers [ProcessWorkers]
+integration passed        6.78s        slots=8 worker_unexpected_exit [NativeSupervision]
+{"passed": 4}

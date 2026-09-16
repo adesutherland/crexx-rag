@@ -1,0 +1,20 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 18: linked_application
+    Start 64: documentation_contract
+1/2 Test #64: documentation_contract ...........   Passed    0.49 sec
+2/2 Test #18: linked_application ...............   Passed    1.70 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Label Time Summary:
+application      =   1.70 sec*proc (1 test)
+documentation    =   0.49 sec*proc (1 test)
+linked           =   1.70 sec*proc (1 test)
+methodology      =   0.49 sec*proc (1 test)
+provider         =   1.70 sec*proc (1 test)
+skills           =   0.49 sec*proc (1 test)
+sqlite           =   1.70 sec*proc (1 test)
+tier-fast        =   2.19 sec*proc (2 tests)
+zero-outbound    =   2.19 sec*proc (2 tests)
+
+Total Test time (real) =   1.70 sec

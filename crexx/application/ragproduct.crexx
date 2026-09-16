@@ -64,6 +64,7 @@ import rxsqlite
 dispatchproduct: procedure = .ragcommandresult
   arg request = .ragcommandrequest, registry = .ragregistry
   operation = request.operation()
+  if operation = "mcp.stop" then return commandfailure(operation,2,"call rag_mcp_stop through the MCP connection to stop that session")
   if policyfileoperation(operation) = 1 then return policyfilecommand(request)
   if left(operation, 7) = "config." then return _configcommand(request, registry)
   if operation = "library.report" then return libraryreport(request, registry)
@@ -85,6 +86,8 @@ dispatchproduct: procedure = .ragcommandresult
   if operation = "job.deadline" | operation = "job.reset-retries" then return _joblimits(request)
   if operation = "maintain.waive" then return _taskwaive(request)
   if operation = "maintain.retry" then return _taskretry(request)
+  if operation = "maintain.defer" then return _taskdefer(request)
+  if operation = "maintain.queue" then return _taskqueue(request,registry)
   if operation = "maintain.reset" then return _taskreset(request,registry)
   if operation = "maintain.reconcile" then return _workflowreconcile(request)
   if operation = "job.replay" then return _jobreplay(request, registry)
@@ -847,6 +850,50 @@ _taskreset: procedure = .ragcommandresult
   if skipped>0 then message=message || "; running tasks skipped: drain their jobs, then repeat maintain reset --all"
   return .ragcommandresult(operation,"ok",0,message,records)
 
+_taskqueue: procedure = .ragcommandresult
+  arg request = .ragcommandrequest, registry = .ragregistry
+  operation = request.operation(); error = ""
+  if commandhasaccess(request,"read")<>1 then return commandfailure(operation,4,"maintenance queue inspection requires read access")
+  if commandoptions(request,"job source cursor limit",error)<>0 then return commandfailure(operation,2,error)
+  positionals = request.positionals(); if positionals.0<>0 then return commandfailure(operation,2,"queue inspection accepts options only")
+  job_id = commandoption(request,"job",error); source_id = commandoption(request,"source",error)
+  cursor = commandoption(request,"cursor",error); limit_text = commandoption(request,"limit",error)
+  if cursor="" then cursor="0"
+  if limit_text="" then limit_text="20"
+  if commandunsigned(cursor)<>1 | length(cursor)>9 | commandunsigned(limit_text)<>1 | length(limit_text)>2 then return commandfailure(operation,2,"queue cursor and limit must be bounded integers")
+  offset = cursor as .int; limit = limit_text as .int
+  if limit<1 | limit>98 | length(source_id)>512 | (job_id<>"" & source_id<>"") then return commandfailure(operation,2,"limit must be 1..98; choose a frozen job or a current source scope")
+  config_lookup = registry.config(request.config_id()); profile_lookup = registry.profile(request.profile_id())
+  if config_lookup.found()<>1 | profile_lookup.found()<>1 then return commandfailure(operation,5,"configuration or profile is unavailable")
+  store = .ragstorehandle
+  if openragstore(request.library(),"readonly",store,error)<>0 then return commandopenfailure(operation,error)
+  policy_json = backlogpolicy(config_lookup.config(),profile_lookup.profile(),"","",0,source_id)
+  if job_id<>"" then policy_json = sqlreadtext(store.database(),"SELECT policy_json FROM maintenance_windows WHERE job_id=" || sqlquote(job_id))
+  detail = ""; if policy_json<>"" then detail = backlogselection(store.database(),.jsondocument(policy_json),offset,limit,job_id)
+  close_error = ""; closed = closeragstore(store,close_error)
+  if detail="" then return commandfailure(operation,5,"maintenance policy or job selection is unavailable")
+  if closed<>0 then return commandfailure(operation,7,close_error)
+  fields = .ragresultfield[]; fields[1]=.ragresultfield("detail","string",detail); fields[2]=.ragresultfield("provider_calls","integer",0)
+  records = .ragresultrecord[]; records[1]=.ragresultrecord("maintenance-selection",fields)
+  return .ragcommandresult(operation,"ok",0,"prioritised maintenance selection and exclusions; eligibility is rechecked when dispatched",records)
+
+_taskdefer: procedure = .ragcommandresult
+  arg request = .ragcommandrequest
+  operation = request.operation(); error = ""
+  if commandhasaccess(request,"control") <> 1 then return commandfailure(operation,4,"task deferral requires control access")
+  if commandoptions(request,"id until months reason",error) <> 0 then return commandfailure(operation,2,error)
+  id = commandid(request,error); until_text = commandoption(request,"until",error); months = commandoption(request,"months",error); reason = commandoption(request,"reason",error)
+  if error<>"" | id="" then return commandfailure(operation,2,"maintain defer requires one task id")
+  store = .ragstorehandle
+  if openragstore(request.library(),"readwrite",store,error)<>0 then return commandopenfailure(operation,error)
+  until_epoch = 0; status = deferbacklogtask(store,id,until_text,months,reason,until_epoch,error)
+  close_error = ""; closed = closeragstore(store,close_error)
+  if status<>0 then return commandfailure(operation,3,error)
+  if closed<>0 then return commandfailure(operation,7,close_error)
+  fields = .ragresultfield[]; fields[1]=.ragresultfield("task_id","string",id); fields[2]=.ragresultfield("not_before_epoch","integer",until_epoch); fields[3]=.ragresultfield("reason","string",reason); fields[4]=.ragresultfield("provider_calls","integer",0)
+  records = .ragresultrecord[]; records[1]=.ragresultrecord("task-deferral",fields)
+  return .ragcommandresult(operation,"ok",0,"task deferred until the recorded date; a later maintenance run reconsiders it",records)
+
 _taskretry: procedure = .ragcommandresult
   arg request = .ragcommandrequest
   operation = request.operation(); error = ""
@@ -1476,6 +1523,8 @@ _maintainplan: procedure = .ragcommandresult
   plan = .ragimproveplan
   census = .ragmaintenancecensus
   plan_status = _preparemaintenance(store, config, snapshot_id, plan, census, error, embedding_only, source_id)
+  selection_json = ""
+  if plan_status=0 & maintenance.mode()<>"reviewed" then selection_json = backlogselection(store.database(),.jsondocument(backlogpolicy(config,profile_lookup.profile(),plan.discovery_context(),timing_json,embedding_only,source_id)),0,min(98,maintenance.batch_items()),"")
   close_error = ""; close_status = closeragstore(store, close_error)
   if plan_status \= 0 | close_status \= 0 then do; if error = "" then error = close_error; return commandfailure(operation, 1, error); end
   foundation_plan = .ragplan
@@ -1525,6 +1574,7 @@ _maintainplan: procedure = .ragcommandresult
   end
   fields[fields.0+1] = .ragresultfield("embeddings_only","boolean",changestr("0",changestr("1",embedding_only || "","true"),"false"))
   if source_id<>"" then fields[fields.0+1]=.ragresultfield("source_id","string",source_id)
+  if selection_json<>"" then fields[fields.0+1]=.ragresultfield("selection","string",selection_json)
   records[records.0 + 1] = .ragresultrecord("maintenance-preview", fields)
   if maintenance.mode()<>"reviewed" then return .ragcommandresult(operation,"ok",0,"bounded maintenance policy previewed; task selection occurs at activation",records)
   return .ragcommandresult(operation, "ok", 0, "bounded maintenance census and worklist created without library writes", records)

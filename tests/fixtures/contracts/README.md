@@ -16,3 +16,11 @@ an intentional prompt/schema change needs its own behavior and identity review,
 not automatic acceptance of a new digest. Source context and correction history
 are variable request data, and their semantic controls remain in the journey
 tests and the direct contract scenario.
+
+On 16 September 2026 the approved maintenance escalation contract intentionally
+updated the resolution pair. Captured extraction, answer and report pairs are
+unchanged. Resolution now includes final no-change, dated expected-evidence
+waits and bounded corpus search/read controls, with explicit remaining calls
+and the final-route instructions. `durable_backlog`, prompt inspection and the
+native advanced fixture exercise the behavior; this snapshot guards the exact
+approved effective text/schema rather than treating a changed hash as proof.

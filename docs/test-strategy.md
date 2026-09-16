@@ -1,5 +1,98 @@
 # Test strategy
 
+**Latest runtime follow-up:** CREXX `17e844441ed8` passes all three #701 worker-exit
+fault cases. `worker_unexpected_exit` is re-enabled; the temporary exclusion is
+removed. [The focused retest](crexx-701-retest-20260916.md) records its controls and
+new native artifact. Full-suite results below retain their original runtime and
+candidate identity; the update does not turn them into a full rerun.
+
+**16 September test-process implementation:** Adrian approved implementing the
+[redesign](test-process-redesign-20260916.md). The former serial gate is replaced
+by the selections below. Historical qualification records later in this document
+remain historical; the redesign document owns current measurements.
+
+## Development and formal qualification
+
+```sh
+cmake --preset debug
+cmake --build --preset debug
+python3 tests/qa/report.py --tier 'fast|component' --match 'backlog|prompt|configuration'
+ctest --preset fast
+ctest --preset component -R 'backlog|prompt|configuration'
+# Formal local gate, when the candidate is stable:
+ctest --preset regression
+python3 tests/qa/report.py --json cmake-build-debug/qa-report.json
+# Explicit scale/boundary lane:
+ctest --preset scale
+```
+
+`debug` selects the fast tier. `fast`, `component` and `integration` are disjoint;
+`regression` selects their union. The workflow preset builds once and runs those
+three tiers in order. A single regression selection prioritises fast, then
+component, then integration work as resources become available. It prints the
+case name as it starts. CTest remains the only scheduler, with eight execution
+slots on this host. Eight-worker cases request eight slots; ordinary cases can
+run alongside independent work. Override concurrency with `-j` for another host.
+
+The read-only report previews selection, owner, slots, retained measured estimate
+(or `unmeasured`) and current exact-input evidence. Priority is a scheduling
+preference, not a guaranteed total order among concurrent cases. CTest's `-N`
+shows the raw selection; it does not run tests. Use names for the affected
+journey, rather than running every component after each edit.
+
+| Change owner / concern | First relevant selection | Wider coverage when stable |
+| --- | --- | --- |
+| Backlog routing, deferral, evidence, finality | `durable_backlog_escalation`, `durable_backlog` | Relevant `durable_backlog_provider_*`, task reset, prompt/configuration; full gate |
+| Prompt/configuration | `regression_prompt_inspection`, `configuration_contract` | Prompt captures, provider route, native policy; full gate |
+| Receipt reuse, attempts, recovery | Named `worker_recovery_*` case plus positive control | `controller_recovery_*`, native receipt/publication and process matrices; full gate |
+| Codex transport | One `codex_protocol_<mode>_<VM>` case | All four variants, native Codex journey; separate turnover scale lane |
+| Command/MCP surface | Catalogue/metadata and affected public case | Native surfaces, installed proof; full gate |
+| Documentation only | `documentation_contract` | Package test only if installed content or behavior changes |
+| Harness/fixtures | `qa_execution` and affected consumers | Parallel qualification; no automatic unrelated rerun |
+
+`tests/qa/run_case.py` gives every execution a private directory beneath
+`cmake-build-debug/qa/runs/<case>/<execution>/`, including temporary files,
+fixture data, generated configuration, SQLite stores and logs. Source drivers,
+compiled executables and immutable build prerequisites remain shared read-only.
+Configuration cohorts are copied together so relative profile/prompt references
+stay private. The installed-product proof redirects CMake's manifest into its
+own scratch directory. Build and test must not overlap. Use one CTest invocation per build tree;
+CTest owns aggregate metadata there while individual cases own all runtime
+logs. Independent simultaneous invocations use separate build trees.
+
+Loopback fixtures bind port zero and publish their still-owned listener. The
+remaining frozen-plan/relaunch fixtures retain explicit fixed-port locks:
+GeminiQuery/PromptContract 18999; LocalEmbeddingProtocol 19020;
+GeminiExtractionValidation 19021–19024; EmbeddingRecovery 19031–19032;
+NativeAdmission 19045; NativeLifecycle 19046–19047;
+EmbeddingPublication 19051; Test2Completion 19053. Their owning CMake drivers
+retain those endpoints across a preplanned or restarted journey. Only tests
+sharing the actual endpoint wait; no suite uses `RUN_SERIAL`. OS file locks also
+protect these ports across concurrent CTest invocations by this user.
+
+A receipt records command, input/artifact hashes, runtime identity, relevant
+environment, outcome, rerun reason, setup/resource-wait/run/cleanup durations
+and logs. Successful exact matches return CTest skip code 125 with `REUSED PASS`;
+the report verifies the original successful receipt. Failed or interrupted
+runs never count. Changed test/fixture, binary/provider or relevant environment
+invalidates the receipt. This is a local run record, not a transitive dependency
+engine: helper dependencies are explicit in `CrexxRagTestExecution.cmake` and
+must be maintained with the owning driver. Product binary changes conservatively
+invalidate product tests. `--force` is only for named repeatability experiments.
+
+CTest's headline cannot by itself certify the gate because it calls retained
+passes “Skipped”. Audit all selected rows in the report. `--require-complete`
+returns nonzero for any disabled, failed, interrupted, missing-input or not-run
+case. The historical #701 exclusion is now removed after its focused installed-
+runtime retest. No incomplete coverage is silently promoted to a complete pass.
+
+The 17,000-request Codex turnover boundary has its own `scale` preset. The
+30,000-question/5,000-review provider-durability fixture remains functional
+coverage for query shape and retained-state correctness, not a performance
+benchmark. Real hosted, corpus endurance and platform qualification remain
+separate and require their existing authority. Slow tests are findings to
+investigate; a timeout increase is not a speed improvement.
+
 Task-reset implementation and current QA are tracked in
 [task reset delivery](task-reset-delivery-20260915.md). `task_reset` exercises
 legacy no-window closure, fresh context and cleared counters, old reviews and
@@ -160,7 +253,7 @@ are not instructions to resume a live library.
 ```sh
 cmake --preset debug
 cmake --build --preset debug
-ctest --preset debug --output-on-failure
+ctest --preset regression --output-on-failure
 ```
 
 The build declares the Level-G executable source cohort to CMake and invokes the
@@ -443,7 +536,7 @@ positive control. `durable_backlog` and `regression_ingest_capacity` cover zero
 monetary routes, independent subscription/local work, and positive paid controls.
 
 For local wall-time qualification on a Mac that may enter idle sleep,
-`caffeinate -i ctest --preset debug --output-on-failure` keeps the host awake
+`caffeinate -i ctest --preset regression --output-on-failure` keeps the host awake
 only for that test process. It changes no product or CTest timeout. A real
 392-second idle sleep interrupted the recovery follow-up's first full run;
 retain that failure and repeat the full gate on the unchanged artifact, rather

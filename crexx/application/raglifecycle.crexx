@@ -100,12 +100,14 @@ itemretrycallcount: procedure = .string
   return "max(0," || total || "-" || _itemresetvalue(item_expression,"paid_calls") || ")"
 
 taskretrycallcount: procedure = .string
-  arg task_expression=.string,history=0,settled=0
+  arg task_expression=.string,history=0,settled=0,capability=""
   predicate=""
   if settled=1 then predicate=" AND tp.outcome NOT IN('starting','running','completed-unsettled')"
+  if capability<>"" then predicate=predicate || " AND EXISTS(SELECT 1 FROM job_items ti WHERE ti.item_id=tm.item_id AND json_extract(ti.input_json,'$.required_capability')=" || _q(capability) || ")"
   total="(SELECT count(DISTINCT tp.provider_run_id) FROM maintenance_task_items tm JOIN attempts ta ON ta.item_id=tm.item_id JOIN provider_runs tp ON tp.provider_run_id=ta.provider_run_id WHERE tm.task_id=" || task_expression || predicate || ")"
   if history=1 then return total
-  baseline="(SELECT coalesce(max(json_extract(tr.message,'$.task_calls')),0) FROM maintenance_task_items trm JOIN job_events tr ON tr.item_id=trm.item_id AND tr.event_type='retry-reset' WHERE trm.task_id=" || task_expression || ")"
+  field="task_calls";if capability="advanced-reasoning" then field="advanced_calls"
+  baseline="(SELECT coalesce(max(json_extract(tr.message,'$." || field || "')),0) FROM maintenance_task_items trm JOIN job_events tr ON tr.item_id=trm.item_id AND tr.event_type='retry-reset' WHERE trm.task_id=" || task_expression || ")"
   return "max(0," || total || "-" || baseline || ")"
 
 embeddingretrycallcount: procedure = .string
@@ -133,6 +135,8 @@ recordretryreset: procedure = .int
   start=_number(database,"SELECT coalesce(max(event_id),0) FROM job_events")
   task="(SELECT task_id FROM maintenance_task_items WHERE item_id=i.item_id)"
   values="json_object('attempts'," || itemretrycount("i.item_id",1,1) || ",'paid_calls'," || itemretrycallcount("i.item_id",1,1) || ",'task_calls'," || taskretrycallcount(task,1,1) || ",'embedding_calls',CASE WHEN i.item_type='embedding' THEN " || embeddingretrycallcount("i.input_json",1,1) || " ELSE 0 END)"
+  advanced_calls=taskretrycallcount(task,1,1,"advanced-reasoning")
+  values="CASE WHEN " || advanced_calls || ">0 THEN json_set(" || values || ",'$.advanced_calls'," || advanced_calls || ") ELSE " || values || " END"
   sql="WITH reset_values AS MATERIALIZED(SELECT i.job_id,i.item_id," || values || " AS baseline FROM job_items i" || scope || ") INSERT INTO job_events(job_id,item_id,event_type,message,occurred_at) SELECT v.job_id,v.item_id,'retry-reset',v.baseline,strftime('%Y-%m-%dT%H:%M:%fZ','now') FROM reset_values v WHERE v.baseline<>coalesce((SELECT r.message FROM job_events r WHERE r.item_id=v.item_id AND r.event_type='retry-reset' ORDER BY r.event_id DESC LIMIT 1)," || _q('{"attempts":0,"paid_calls":0,"task_calls":0,"embedding_calls":0}') || ")"
   if sqliteexec(database,sql)<>0 then do;error="cannot record retry reset";return -1;end
   items=_number(database,"SELECT changes()")

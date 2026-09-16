@@ -1,5 +1,29 @@
 # Regression coverage baseline — REG-01
 
+**New-runtime follow-up:** the original #701 worker-kill, unknown-outcome and
+exit-write-failure cases now pass on installed CREXX `17e844441ed8` after native
+rebuild. `worker_unexpected_exit` is enabled again. See [the focused record](crexx-701-retest-20260916.md).
+The full-batch counts below are the prior-runtime qualification snapshot.
+
+Approved combined batch: maintenance escalation and current-session MCP stop.
+The [delivery record](maintenance-escalation-delivery-20260916.md) separates the
+regression-first evidence and stopped historical gate from final local evidence.
+The [implemented test process](test-process-redesign-20260916.md) qualifies all
+121 enabled functional cases plus one separate scale case. The approved upstream
+CREXX #701 disabled probe remains explicit. Hosted/endurance/platform claims are
+separate. Assertion-to-case mapping and harness isolation acceptance are in that
+record and its machine-readable results.
+
+| Increment | Acceptance and existing controls | Current qualification |
+| --- | --- | --- |
+| Ordinary/advanced routing, ordering, pagination, missing binding | `durable_backlog_escalation`, prompt/configuration and named backlog-provider cases | Local pass |
+| Search/read handoff, binding, dated waits and final no-change | Escalation plus core backlog, validation and source/publication controls | Local pass |
+| Advanced extraction and empty completion | Escalation, extraction/grounding/provider families | Local pass |
+| Route reset and remaining-budget selection | Escalation, job controls/admission/lifecycle families | Local pass |
+| Identity validation and serial external reuse | Core backlog valid/stale, merge/split/retirement/refresh controls | Local pass |
+| MCP session stop and public metadata | `native_surfaces`, catalogue/metadata, documentation contract | Local pass |
+| Parallel QA boundary and retained passes | `qa_execution`, private directories/listeners, cancellation, input invalidation | Local pass; disabled and missing evidence never become passes |
+
 Task-reset implementation and current QA are tracked in
 [task reset delivery](task-reset-delivery-20260915.md). `task_reset` exercises
 legacy no-window closure, fresh context and cleared counters, old reviews and

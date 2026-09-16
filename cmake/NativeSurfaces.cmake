@@ -1,3 +1,4 @@
+include("${CMAKE_CURRENT_LIST_DIR}/FixtureEndpoint.cmake")
 foreach(required_var CPRAG_NATIVE_APPLICATION CPRAG_LOOPBACK
         CPRAG_CONFIG_TEMPLATE CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
@@ -12,6 +13,7 @@ file(WRITE "${CPRAG_WORK_DIR}/source/architecture.txt"
     "Again, BillingService depends on CustomerDatabase.\n")
 set(CPRAG_FIXTURE_PORT 19000)
 set(CPRAG_FIXTURE_SOURCE "${CPRAG_WORK_DIR}/source")
+set(CPRAG_FIXTURE_PORT 0)
 configure_file("${CPRAG_CONFIG_TEMPLATE}"
     "${CPRAG_WORK_DIR}/crexxrag.conf" @ONLY)
 
@@ -39,7 +41,7 @@ set(ready FALSE)
 foreach(poll RANGE 1 200)
     if(EXISTS "${server_out}")
         file(READ "${server_out}" current_server_out)
-        if(current_server_out MATCHES "READY ${CPRAG_FIXTURE_PORT}")
+        if(current_server_out MATCHES "READY [0-9]+")
             set(ready TRUE)
             break()
         endif()
@@ -51,7 +53,10 @@ if(NOT ready)
 endif()
 
 # Exercise slow preparation after readiness; product call timeouts are separate.
-execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 11)
+if(CPRAG_SLOW_PREPARATION)
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 11)
+endif()
+crexxrag_fixture_endpoint("${server_out}" "${CPRAG_WORK_DIR}/crexxrag.conf")
 execute_process(COMMAND ${cli} init
     WORKING_DIRECTORY "${CPRAG_WORK_DIR}"
     OUTPUT_VARIABLE init_out ERROR_VARIABLE init_err
@@ -334,6 +339,64 @@ if(NOT read_database_before STREQUAL read_database_after)
     message(FATAL_ERROR "Read-only MCP batch changed the SQLite database")
 endif()
 file(APPEND "${CPRAG_WORK_DIR}/result.txt" "read_only_mcp=zero-database-writes\nmissing_review_preview=rejected\nping=supported\n")
+
+# Session stop acknowledges before EOF and never touches corpus/job state.
+# Each invocation starts a fresh connection, including after a previous stop.
+foreach(stop_case valid invalid_arguments unavailable_policy)
+    set(stop_config "${CPRAG_WORK_DIR}/crexxrag.conf")
+    if(stop_case STREQUAL unavailable_policy)
+        set(stop_config "${CPRAG_WORK_DIR}/missing-session-policy.conf")
+    endif()
+    set(stop_arguments "{}")
+    if(stop_case STREQUAL invalid_arguments)
+        set(stop_arguments "{\"all\":true}")
+    endif()
+    file(WRITE "${requests}"
+        "{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"session-stop-fixture\",\"version\":\"1\"}}}\n"
+        "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n"
+        "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"rag_mcp_stop\",\"arguments\":${stop_arguments}}}\n"
+        "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"ping\"}\n")
+    execute_process(COMMAND "${CPRAG_NATIVE_APPLICATION}" --config-file "${stop_config}"
+        --library "${CPRAG_WORK_DIR}/library" --access read serve mcp
+        WORKING_DIRECTORY "${CPRAG_WORK_DIR}" INPUT_FILE "${requests}"
+        OUTPUT_FILE "${CPRAG_WORK_DIR}/mcp-stop-${stop_case}.jsonl"
+        ERROR_VARIABLE stop_err RESULT_VARIABLE stop_rc TIMEOUT 10)
+    if(NOT stop_rc EQUAL 0)
+        message(FATAL_ERROR "MCP stop failed: ${stop_case}: ${stop_rc}: ${stop_err}")
+    endif()
+    file(STRINGS "${CPRAG_WORK_DIR}/mcp-stop-${stop_case}.jsonl" stop_responses)
+    list(LENGTH stop_responses stop_count)
+    list(GET stop_responses 0 initialized_response)
+    string(JSON initialized_id GET "${initialized_response}" id)
+    string(JSON server_name GET "${initialized_response}" result serverInfo name)
+    if(NOT initialized_id EQUAL 0 OR NOT server_name STREQUAL "crexxrag-mcp")
+        message(FATAL_ERROR "Fresh MCP connection did not initialize after the prior stop")
+    endif()
+    list(GET stop_responses 1 stop_response)
+    if(stop_case STREQUAL invalid_arguments)
+        string(JSON stop_code GET "${stop_response}" error code)
+        if(NOT stop_count EQUAL 3 OR NOT stop_code EQUAL -32602)
+            message(FATAL_ERROR "Invalid stop request closed the MCP connection")
+        endif()
+        list(GET stop_responses 2 ping_response)
+        string(JSON ping_id GET "${ping_response}" id)
+        string(JSON ping_type TYPE "${ping_response}" result)
+        if(NOT ping_id EQUAL 2 OR NOT ping_type STREQUAL "OBJECT")
+            message(FATAL_ERROR "MCP did not remain usable after rejected stop")
+        endif()
+    else()
+        string(JSON stop_code GET "${stop_response}" result structuredContent exit_code)
+        string(JSON stop_operation GET "${stop_response}" result structuredContent operation)
+        if(NOT stop_count EQUAL 2 OR NOT stop_code EQUAL 0 OR NOT stop_operation STREQUAL "mcp.stop")
+            message(FATAL_ERROR "MCP stop did not acknowledge and stop before the next request")
+        endif()
+    endif()
+endforeach()
+file(SHA256 "${CPRAG_WORK_DIR}/library/library.sqlite" stop_database_after)
+if(NOT read_database_after STREQUAL stop_database_after)
+    message(FATAL_ERROR "MCP session stop changed corpus or job state")
+endif()
+file(APPEND "${CPRAG_WORK_DIR}/result.txt" "mcp_stop=acknowledge-then-exit\nstop_invalid_arguments=connection-retained\nstop_missing_policy=allowed\nstop_corpus=unchanged\n")
 
 # Independent oversized immutable-text fixture: exercise Unicode paging through
 # the public citation command without provider calls or changing the main case.

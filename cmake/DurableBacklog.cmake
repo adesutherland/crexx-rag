@@ -20,6 +20,9 @@ set(modules ragsupervision ragenrich ragproposalio ragperiod ragprovenance ragas
     generic_profile it_architecture_profile operator_registry rxsqlite rx_hash rx_system rxfs rxplatform
     rxvector rxfnsg library)
 
+if(CPRAG_PREBUILT)
+    file(COPY "${CPRAG_PREBUILT}/backlog_scenario.rxbin" DESTINATION "${CPRAG_WORK_DIR}")
+else()
 execute_process(COMMAND "${CPRAG_RXC}" -i "${imports}"
     -o "${CPRAG_WORK_DIR}/backlog_scenario" "${CPRAG_SCENARIO}"
     RESULT_VARIABLE compile_result OUTPUT_VARIABLE compile_out ERROR_VARIABLE compile_err)
@@ -33,6 +36,13 @@ if(NOT assemble_result EQUAL 0)
     message(FATAL_ERROR "Durable backlog scenario assembly failed:\n${assemble_out}${assemble_err}")
 endif()
 
+endif()
+if(CPRAG_COMPILE_ONLY)
+    return()
+endif()
+if(NOT CPRAG_CASE)
+    set(CPRAG_CASE core)
+endif()
 foreach(runtime_name IN ITEMS rxvme rxbvm)
     if(runtime_name STREQUAL "rxvme")
         set(runtime "${CPRAG_RXVME}")
@@ -43,12 +53,16 @@ foreach(runtime_name IN ITEMS rxvme rxbvm)
     execute_process(COMMAND "${CMAKE_COMMAND}" -E env "TZ=Europe/London" "${runtime}"
         --provider-path "${CPRAG_PLUGIN_DIR};${CPRAG_CREXX_BIN_DIR}/providers"
         -l "${imports}" "${CPRAG_WORK_DIR}/backlog_scenario" ${modules}
-        -a "${library}"
+        -a "${library}" "${CPRAG_CASE}"
         RESULT_VARIABLE run_result OUTPUT_VARIABLE run_out ERROR_VARIABLE run_err TIMEOUT 120)
     if(NOT run_result EQUAL 0 OR NOT run_out MATCHES "DURABLE_BACKLOG_OK")
         message(FATAL_ERROR "${runtime_name} durable backlog failed:\n${run_out}${run_err}")
     endif()
 endforeach()
+
+if(CPRAG_CASE STREQUAL "escalation")
+    return()
+endif()
 
 # Replay the old unfinished marker through the shipped native command path.
 # SQL only represents historical state and checks retained facts.

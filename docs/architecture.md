@@ -50,14 +50,18 @@ and subsequent owners. Operator settings still enter through `crexxrag.conf`.
 | --- | --- |
 | `ragpromptdefaults` | Compatibility role objectives for older config formats; consumed by `ragconfigfile`. Explicit operator objectives remain config data. |
 | `ragextractioncontract` | Effective extraction messages, profile-shaped schema and optional assessment extension; consumed by `ragapplicationprovider` and prompt inspection. |
-| `ragresolutioncontract` | Effective resolution messages, selected-span excerpts, schema and subject/workflow action vocabulary. Both `ragapplicationprovider` and `ragbacklog` validation consume this vocabulary. |
+| `ragresolutioncontract` | Effective resolution messages, selected-span excerpts, ordinary/final-route controls, bounded search/read/extraction requests, schema and subject/workflow action vocabulary. Both `ragapplicationprovider` and `ragbacklog` validation consume this vocabulary. |
 | `ragquotationcontract` | Shared literal-quotation instructions and bounded correction feedback; normal `raggrounding` validation remains independent and authoritative. |
 | `raganswercontract` / `ragreportcontract` | Answer and advisory-report message/schema pairs; consumed by `ragqueryprovider`. |
 | `ragpromptinspection` | Public projection of those same builders, including exact system/schema hashes; no provider or library access. |
 
 `ragapplicationprovider` retains execution, input-envelope checks, receipt
 recovery, secret redaction and extraction decoding/validation. `ragbacklog`
-retains task evidence validation and transactional lifecycle application.
+retains shared eligibility/order, durable deferral and evidence handoff, task
+evidence validation and transactional lifecycle application. Its search/read
+steps compose `ragretrieval` and `ragevidence`; the coordinator retains worker
+fences and immutable receipts. Queue/status and public controls delegate to the
+same owner. `raglifecycle` owns total and capability-specific reset baselines.
 `ragassessment` and `ragenrich` retain their specialized provenance contracts.
 Domain contract modules do not import the product dispatcher or provider
 execution adapters. The optional extraction schema extension uses SQLite JSON
@@ -176,7 +180,9 @@ This is operational recovery to current evidence and knowledge policy. A fresh
 successor starts pending with zero attempts, semantic failures and retry delay,
 standard capability and the current question. The original becomes superseded;
 its accepted facts and provider receipts are retained. Missing subjects close
-without invented evidence. Completed tasks are not reopened. Pending old
+without invented evidence. `--all` does not reopen completed tasks. An explicit
+`maintain reset TASK` may reconsider a completed assessment under the approved
+maintenance convergence policy. Pending old
 reviews and retry requests are retired; queued old work is cancelled and old
 waivers do not attach to the successor. Running items must drain; `--all` skips
 those tasks and reports the count so other tasks can reset independently.
@@ -576,6 +582,11 @@ has no graph-mutation path.
 
 ## External maintenance agents
 
+The [task and escalation guide](work-tasks-and-escalation.md) connects the
+current record/state model, prompt/model selection and processing diagrams.
+Its bounded final-pass section records the 16 September user direction and
+pending acceptance; it does not add an implemented processor or configuration.
+
 External maintenance agents use the same durable task evidence validator and
 lifecycle engine as workers. Task resolver capability is separate from work
 priority and status. Schema 12 records external action plans in an immutable
@@ -932,7 +943,7 @@ requirements, positional forwarding and fixed command variants. It depends only
 on primitive functions, JSON and the shared numeric passage ceiling in
 `ragconfig`, so `ragcommand`, the CLI, MCP and access helpers can use it without
 importing product services. `ragmcp` only handles JSON-RPC,
-server bindings and result rendering. `ragcommand` owns typed requests/results
+server bindings, session closure and result rendering. `ragcommand` owns typed requests/results
 and CLI parsing. Guided CLI interactions remain in `crexxrag_cli`; domain
 services own state-dependent argument checks, authorization and execution.
 
@@ -940,6 +951,15 @@ When adding a public operation, update its catalogue entry, owning service,
 focused public-surface regression and user/agent documentation. Review the
 captured metadata contract when changing an advertised schema. Do not add
 parallel tool-name, required-argument or capability maps to an adapter.
+
+`rag_mcp_stop` (`mcp.stop`) is a transport-local operation. The shared catalogue
+owns its empty schema/read capability/no-library requirement. `ragmcp` validates
+that contract and returns a normal result plus a local stop flag before policy
+reload; `crexxrag_cli` writes the response and leaves the stdio loop. Existing
+stateless dispatch APIs retain their signatures. No SQLite state, controller
+signal, global process scan or server replacement service is involved. A new
+connection is client-owned. Native stream acceptance is queued in
+[the batch record](batch-changes-20260915.md).
 
 ## Continuation and allowance ownership
 

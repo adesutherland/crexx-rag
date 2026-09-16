@@ -112,7 +112,9 @@ int main(int argc, char** argv)
         ::close(server);
         return 2;
     }
-    std::cout << "READY " << port << std::endl;
+    socklen_t address_size = sizeof(address);
+    if (::getsockname(server, reinterpret_cast<sockaddr*>(&address), &address_size) != 0) return 2;
+    std::cout << "READY " << ntohs(address.sin_port) << std::endl;
 
     if (scenario == "zero-outbound" && requests == 0) {
         pollfd unexpected {server, POLLIN, 0};
@@ -251,7 +253,7 @@ int main(int argc, char** argv)
                 }
             } else if (request.find("Durable resolution input:") != std::string::npos) {
                 if (!valid_auth || !valid_structured || request.find("maintenance-resolution") == std::string::npos
-                    || request.find("fixture-resolution-prompt") == std::string::npos
+                    || (scenario != "product-backlog-advanced" && request.find("fixture-resolution-prompt") == std::string::npos)
                     || request.find("fixture-note-link") == std::string::npos) {
                     http_status = 400;
                     body = R"({"error":{"message":"product Gemini resolution request shape mismatch"}})";
@@ -261,6 +263,13 @@ int main(int argc, char** argv)
                         : scenario == "product-backlog-rejected"
                         ? R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"synthetic-product-gemini-key","evidence":[{"evidence_id":"fixture-note-link","quote":"An unsupported invented quotation."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":""})"
                         : R"({"action":"retain","object_id":"fixture-note","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The independently quoted passage answers the note.","evidence":[{"evidence_id":"fixture-note-link","quote":"billingservice depends on customerdatabase."}],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":""})";
+                    if (scenario == "product-backlog-advanced") {
+                        if (request.find("Resolve the maintenance question using validated source evidence") == std::string::npos
+                            || request.find("advanced-resolver") == std::string::npos
+                            || request.find("final reasoning route") == std::string::npos
+                            || request.find("prompt_sha256") == std::string::npos) return 6;
+                        resolution = R"({"action":"no-change","object_id":"","target_concept_id":"","canonical_label":"","concept_type":"","successors":[],"reason":"The retained evidence does not justify an additional change.","evidence":[],"effective_from":"","effective_to":"","qualifiers_json":"{}","question":""})";
+                    }
                     if (scenario.rfind("product-backlog-correction", 0) == 0) {
                         const bool correcting = request.find("Citation correction (one attempt)") != std::string::npos;
                         if (request.find("Never insert ellipses") == std::string::npos

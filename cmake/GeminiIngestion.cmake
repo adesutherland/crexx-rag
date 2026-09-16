@@ -1,3 +1,4 @@
+include("${CMAKE_CURRENT_LIST_DIR}/FixtureEndpoint.cmake")
 foreach(required_var CPRAG_RXVME CPRAG_CREXX_BIN_DIR CPRAG_APPLICATION
         CPRAG_NATIVE_APPLICATION CPRAG_LOOPBACK CPRAG_CONFIG_TEMPLATE CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
@@ -27,7 +28,7 @@ set(CPRAG_FIXTURE_GLOSSARY "${CPRAG_WORK_DIR}/architecture.glossary.tsv")
 set(glossary_text
     "format\tcrexx-rag.glossary/1\nconcept\tBillingService\tapplication-component\tBilling Service\nconcept\tCustomerDatabase\tdata-store\tCustomer DB\nexclude\tDeprecatedSystem\n")
 file(WRITE "${CPRAG_FIXTURE_GLOSSARY}" "${glossary_text}")
-set(CPRAG_FIXTURE_PORT 18997)
+set(CPRAG_FIXTURE_PORT 0)
 set(CPRAG_FIXTURE_SOURCE "${CPRAG_WORK_DIR}/source")
 configure_file("${CPRAG_CONFIG_TEMPLATE}"
     "${CPRAG_WORK_DIR}/gemini-loopback.conf" @ONLY)
@@ -51,7 +52,7 @@ set(ready FALSE)
 foreach(poll RANGE 1 200)
     if(EXISTS "${server_out}")
         file(READ "${server_out}" current_server_out)
-        if(current_server_out MATCHES "READY ${CPRAG_FIXTURE_PORT}")
+        if(current_server_out MATCHES "READY [0-9]+")
             set(ready TRUE)
             break()
         endif()
@@ -62,6 +63,7 @@ if(NOT ready)
     message(FATAL_ERROR "product Gemini loopback did not become ready")
 endif()
 
+crexxrag_fixture_endpoint("${server_out}" "${CPRAG_WORK_DIR}/gemini-loopback.conf")
 set(config "${CPRAG_WORK_DIR}/gemini-loopback.conf")
 configure_file("${CPRAG_CONFIG_TEMPLATE}"
     "${CPRAG_WORK_DIR}/crexxrag.conf" @ONLY)

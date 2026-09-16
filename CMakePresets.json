@@ -42,24 +42,74 @@
   "testPresets": [
     {
       "name": "debug",
-      "displayName": "Test Debug",
+      "displayName": "Fast development checks",
       "configurePreset": "debug",
+      "filter": {
+        "include": {
+          "label": "^tier-fast$"
+        }
+      },
       "output": {
         "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 8,
+        "stopOnFailure": true,
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "fast",
+      "inherits": "debug",
+      "displayName": "Fast development checks"
+    },
+    {
+      "name": "component",
+      "inherits": "debug",
+      "displayName": "Component checks (filter by name for iteration)",
+      "filter": {
+        "include": {
+          "label": "^tier-component$"
+        }
+      }
+    },
+    {
+      "name": "integration",
+      "inherits": "debug",
+      "displayName": "Additional integration cases",
+      "filter": {
+        "include": {
+          "label": "^tier-integration$"
+        }
       }
     },
     {
       "name": "regression",
-      "displayName": "Full regression gate, including known defects",
-      "inherits": "debug",
+      "configurePreset": "debug",
+      "displayName": "Formal gate: every required case once",
       "output": {
         "outputOnFailure": true,
         "outputLogFile": "${sourceDir}/cmake-build-debug/regression.log"
       },
       "execution": {
-        "jobs": 1,
-        "stopOnFailure": false,
+        "jobs": 8,
+        "stopOnFailure": true,
         "noTestsAction": "error"
+      },
+      "filter": {
+        "include": {
+          "label": "^tier-(fast|component|integration)$"
+        }
+      }
+    },
+    {
+      "name": "scale",
+      "inherits": "debug",
+      "displayName": "Explicit scale and boundary workload checks",
+      "filter": {
+        "include": {
+          "label": "^tier-scale$"
+        }
       }
     }
   ],
@@ -68,9 +118,26 @@
       "name": "regression",
       "displayName": "Configure, build and run the full regression gate",
       "steps": [
-        { "type": "configure", "name": "debug" },
-        { "type": "build", "name": "debug" },
-        { "type": "test", "name": "regression" }
+        {
+          "type": "configure",
+          "name": "debug"
+        },
+        {
+          "type": "build",
+          "name": "debug"
+        },
+        {
+          "type": "test",
+          "name": "fast"
+        },
+        {
+          "type": "test",
+          "name": "component"
+        },
+        {
+          "type": "test",
+          "name": "integration"
+        }
       ]
     }
   ]

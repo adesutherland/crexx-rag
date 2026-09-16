@@ -1,0 +1,6 @@
+crexxrag controller start workers=8
+crexxrag worker failed [worker-303eb882b31c438527fa5f1817e5b8cc] completed=1/8
+crexxrag controller controller-ba35cce70dff5940baf62b4e8d1c8cac: finish process: fixture exit persistence failure [boundary=-6,sqlite=19,extended=1811,operation=step]
+crexxrag controller: finish process: fixture exit persistence failure [boundary=-6,sqlite=19,extended=1811,operation=step]
+crexxrag vector pending-embeddings [job-sha256:b85b4178944fe493948600e96640280ec31778ece7ba951c44be541a798fce8e] generations=0
+crexxrag controller complete [controller-ba35cce70dff5940baf62b4e8d1c8cac] workers=1

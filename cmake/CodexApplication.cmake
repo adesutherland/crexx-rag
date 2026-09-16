@@ -1,3 +1,4 @@
+include("${CMAKE_CURRENT_LIST_DIR}/FixtureEndpoint.cmake")
 foreach(required_var CPRAG_NATIVE_APPLICATION CPRAG_LOOPBACK
         CPRAG_CODEX_FIXTURE CPRAG_CONFIG_TEMPLATE CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
@@ -15,7 +16,7 @@ file(WRITE "${CPRAG_FIXTURE_GLOSSARY}"
     "format\tcrexx-rag.glossary/1\n"
     "concept\tBillingService\tapplication-component\tBilling Service\n"
     "concept\tCustomerDatabase\tdata-store\tCustomer DB\n")
-set(CPRAG_FIXTURE_PORT 19007)
+set(CPRAG_FIXTURE_PORT 0)
 set(CPRAG_FIXTURE_SOURCE "${CPRAG_WORK_DIR}/source")
 configure_file("${CPRAG_CONFIG_TEMPLATE}"
     "${CPRAG_WORK_DIR}/crexxrag.conf" @ONLY)
@@ -35,7 +36,7 @@ set(ready FALSE)
 foreach(poll RANGE 1 200)
     if(EXISTS "${server_out}")
         file(READ "${server_out}" current_server_out)
-        if(current_server_out MATCHES "READY ${CPRAG_FIXTURE_PORT}")
+        if(current_server_out MATCHES "READY [0-9]+")
             set(ready TRUE)
             break()
         endif()
@@ -46,6 +47,7 @@ if(NOT ready)
     message(FATAL_ERROR "Codex application embedding loopback did not become ready")
 endif()
 
+crexxrag_fixture_endpoint("${server_out}" "${CPRAG_WORK_DIR}/crexxrag.conf")
 set(library "${CPRAG_WORK_DIR}/library")
 set(codex_log "${CPRAG_WORK_DIR}/codex-methods.log")
 set(codex_wrapper "${CPRAG_WORK_DIR}/codex-extraction-fixture.sh")

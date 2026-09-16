@@ -257,6 +257,22 @@ root, merging with any existing instructions. The installed copy is
 evidence, active graph exploration and complete source quotations, while the
 shared QA skill owns the detailed tool workflow and answerer performance note.
 
+## Stopping an MCP session
+
+When a session stop or reconnect is requested, `rag_mcp_stop({})` acknowledges
+and cleanly exits only that `serve mcp` process. It is available with read
+access, including when the library or selected policy is unavailable. Corpus
+jobs and other MCP sessions are unchanged. The server processes requests in
+order, so this does not interrupt an earlier in-progress call.
+
+The client must reconnect/start a new MCP process to load the installed binary;
+automatic reconnection depends on the client. The server does not spawn a second
+copy or claim it restarted. Calling `crexxrag mcp stop` in another terminal does
+not target an existing connection; use the tool through that connection.
+This is a product tool followed by ordinary transport closure, consistent with
+the [MCP lifecycle](https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle#shutdown).
+See [the pending batch record](batch-changes-20260915.md) for build/QA status.
+
 ## Separate capabilities for mutation
 
 MCP advertises and accepts tools only for capabilities granted when the server
@@ -567,3 +583,16 @@ AGENTS contains enduring conventions and a pointer to that record. The
 is now a standing requirement, tracked as RAG-OPS-007. Until implemented, retain
 the current run record and use public commands for parameter changes; editing
 notes alone does not change the running job.
+
+## Maintenance reasoning routes
+
+Use `rag_maintenance_queue` to inspect bounded eligible work and frozen queued
+routes. `rag_task_defer` sets a hard earliest date with `until` or UTC calendar
+`months` plus a reason; a later ordinary maintenance invocation handles it.
+An internal resolver can request bounded corpus search/read steps through the
+resolution contract. External agents continue using the existing read tools,
+then submit a grounded proposal. Advanced reasoning has its own configured
+prompt/model and bounded allowance, with supported change or explicit final
+no-change. Expected-evidence deferral is governed by selected policy and cannot
+roll forward on unchanged evidence. See the [task guide](work-tasks-and-escalation.md)
+and [qualification record](maintenance-escalation-delivery-20260916.md).

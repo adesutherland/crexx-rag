@@ -1,0 +1,15 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 36: codex_protocol_turnover
+1/1 Test #36: codex_protocol_turnover ..........   Passed    4.76 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+codex            =   4.76 sec*proc (1 test)
+jsonl            =   4.76 sec*proc (1 test)
+provider         =   4.76 sec*proc (1 test)
+schema           =   4.76 sec*proc (1 test)
+tier-scale       =   4.76 sec*proc (1 test)
+zero-outbound    =   4.76 sec*proc (1 test)
+
+Total Test time (real) =   4.77 sec

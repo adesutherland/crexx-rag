@@ -1,5 +1,33 @@
 # Consolidated roadmap and defect register
 
+**16 September CREXX #701 follow-up:** the rebuilt native candidate using installed
+CREXX `17e844441ed8` passes all three original worker-exit fault cases. The regression
+is re-enabled and its temporary exclusion removed. The [focused retest record](crexx-701-retest-20260916.md)
+separates these new-runtime results from the preceding full qualification below.
+
+**Latest direction:** Adrian approved implementation of the [test-process
+redesign](test-process-redesign-20260916.md). Parallel suites, private execution
+state, case selection and retained-pass accounting are implemented. Local
+qualification has 121 enabled functional passes plus a separate scale pass;
+the approved upstream #701 exclusion remains explicit. Fast QA takes 3.38 s;
+composed functional qualification took 8m33s versus the old 19m30s baseline.
+
+**16 September maintenance escalation — locally qualified:** one
+maintenance job selects ordinary/advanced prompt and model routes, prioritises
+due work, preserves dated deferrals, gathers bounded corpus evidence and records
+supported change or final no-change. The [approved plan](maintenance-escalation-plan-20260916.md)
+retains R1–R10/C1–C14 and AC1–AC12. The [delivery record](maintenance-escalation-delivery-20260916.md)
+separates reproduced failures, focused acceptance, the interrupted old gate
+and replacement local qualification;
+[the task guide](work-tasks-and-escalation.md) describes the resulting model.
+
+ESC-VAL-01/02 were reproduced in ordinary regressions. Shared identity validation
+now rejects empty distinct identity fields and inactive migration parents before
+review. ESC-OPS-01 has serial revalidation with unaffected-response reuse and
+true-staleness controls. These changes and the previously staged MCP-stop tool
+are included in the [combined batch](batch-changes-20260915.md). Installation,
+corpus processing and hosted/endurance qualification remain separate.
+
 **15 September job controls repair complete:** deadline-only edits, admitted-work
 continuation after expiry, compact job lists and one/all-job retry reset pass
 **79/79 local tests**, including the controller repairs. PC-01 is closed;

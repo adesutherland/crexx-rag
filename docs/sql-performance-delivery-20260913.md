@@ -244,3 +244,16 @@ scanning all job items for every reset task. Scratch `EXPLAIN QUERY PLAN` confir
 no added index or schema. Old review/retry/work transitions are set-based within
 each selected task; there is no worker-loop query or duplicate provider-history
 implementation. Acceptance/QA: [task-reset checklist](task-reset-delivery-20260915.md).
+
+## Maintenance route selection follow-up — 16 September 2026
+
+The approved [escalation delivery](maintenance-escalation-delivery-20260916.md)
+reuses task/item/provider indexes and transaction ownership. Eligibility and
+ordering have one SQL producer shared by dispatch and bounded queue pages;
+status aggregate counts are separate from the bounded item projection. Selected
+source reads use canonical source/revision/span equality and visible-generation
+checks. Supplemental catalogue reads are bounded to selected chunks and the
+existing 1000-concept/packet-byte envelopes. Relevant-evidence refresh happens
+once before freezing a dispatched item, with provider receipts left immutable.
+The existing scale, publication, source-scope and durable backlog fixtures form
+the final regression gate; no performance result is claimed before that gate.

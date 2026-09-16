@@ -343,7 +343,7 @@ the user documentation under `share/doc/crexxrag`.
 ## Testing and release readiness
 
 ```sh
-ctest --preset debug --output-on-failure
+ctest --preset regression --output-on-failure
 ```
 
 The latest full local suite passes **71/71**. It uses deterministic local

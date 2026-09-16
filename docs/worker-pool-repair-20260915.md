@@ -1,5 +1,10 @@
 # ISSUE-01 — replenish worker slots after unexpected exits
 
+**16 September superseding evidence:** [the installed CREXX #701 retest](crexx-701-retest-20260916.md)
+passes all three original fault cases using `17e844441ed8`. The downstream regression
+is re-enabled; the temporary exclusion described in this historical record no
+longer applies to that updated runtime.
+
 ## Vision and scope
 
 A running controller should restore an unexpectedly lost worker slot using the

@@ -1,0 +1,45 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start   6: regression_command_metadata
+    Start   9: regression_smoke_stale_workers
+    Start  10: regression_smoke_terminal_state
+    Start  12: regression_prompt_inspection
+    Start  15: regression_command_catalogue
+    Start  16: regression_claim_policy
+    Start  18: linked_application
+    Start  64: documentation_contract
+1/9 Test  #16: regression_claim_policy ...........   Passed    0.35 sec
+    Start 115: qa_execution
+2/9 Test  #64: documentation_contract ............   Passed    0.53 sec
+3/9 Test   #6: regression_command_metadata .......   Passed    0.87 sec
+4/9 Test  #15: regression_command_catalogue ......   Passed    1.68 sec
+5/9 Test #115: qa_execution ......................   Passed    1.56 sec
+6/9 Test  #18: linked_application ................   Passed    2.93 sec
+7/9 Test   #9: regression_smoke_stale_workers ....   Passed    3.14 sec
+8/9 Test  #12: regression_prompt_inspection ......   Passed    3.16 sec
+9/9 Test  #10: regression_smoke_terminal_state ...   Passed    3.37 sec
+
+100% tests passed, 0 tests failed out of 9
+
+Label Time Summary:
+application      =   2.93 sec*proc (1 test)
+claim            =   0.35 sec*proc (1 test)
+command          =   2.55 sec*proc (2 tests)
+configuration    =   3.16 sec*proc (1 test)
+contract         =   2.55 sec*proc (2 tests)
+documentation    =   0.53 sec*proc (1 test)
+harness          =   1.56 sec*proc (1 test)
+isolation        =   1.56 sec*proc (1 test)
+linked           =   2.93 sec*proc (1 test)
+methodology      =   0.53 sec*proc (1 test)
+operator         =   6.51 sec*proc (2 tests)
+policy           =   0.35 sec*proc (1 test)
+prompt           =   3.16 sec*proc (1 test)
+provider         =   2.93 sec*proc (1 test)
+recovery         =   6.51 sec*proc (2 tests)
+regression       =  12.57 sec*proc (6 tests)
+skills           =   0.53 sec*proc (1 test)
+sqlite           =   2.93 sec*proc (1 test)
+tier-fast        =  17.58 sec*proc (9 tests)
+zero-outbound    =  17.58 sec*proc (9 tests)
+
+Total Test time (real) =   3.38 sec

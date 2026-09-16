@@ -13,7 +13,8 @@ set(imports "${member_imports};${CPRAG_APPLICATION_DIR};${CPRAG_PLUGIN_DIR};${CP
 set(modules ragsupervision ragenrich ragproposalio ragperiod ragprovenance ragassessment ragschema ragfile
     ragstore ragmodel ragjob ragquotationcontract ragextractioncontract ragresolutioncontract raganswercontract ragreportcontract ragpromptdefaults ragpromptinspection ragcommandutil ragsqlsupport ragdirectcalls ragreportservice ragobservationservice ragqueryservice ragoperationsquery ragclaimrules ragclaims ragadmission raglifecycle ragworktypes ragenvironment ragusage ragreceipts ragallowance ragwork ragcommandcatalog ragcommand ragworkerdefaults ragpolicypublication ragpolicyfile ragtrace ragbacklog
     ragmaintain ragimprove ragconfiguration ragconfig ragprofile ragcanonical raggrounding generic_profile
-    rxfnsg rxsqlite rx_hash rx_system rxfs rxplatform library)
+    rxfnsg rxsqlite rx_hash rx_system rxfs rxplatform library
+    ragretrieval ragevidence ragquery ragquerypolicy ragingest ragglossary rxvector provider_contract provider_catalog)
 set(program "${CPRAG_WORK_DIR}/lifecycle-regression")
 execute_process(COMMAND "${CPRAG_RXC}" -i "${imports}" -o "${program}" "${CPRAG_SCENARIO}"
     RESULT_VARIABLE status OUTPUT_VARIABLE output ERROR_VARIABLE errors)

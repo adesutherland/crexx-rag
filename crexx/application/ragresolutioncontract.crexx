@@ -1,5 +1,5 @@
 options levelg
-namespace ragresolutioncontract expose resolutioncontractversion resolutionprompt resolutionmessages resolutionresponseschema resolutionactions
+namespace ragresolutioncontract expose resolutioncontractversion resolutioninputprompt resolutionprompt resolutionmessages resolutionresponseschema resolutionactions
 import rxfnsb
 import rxjson
 import ragprofile
@@ -10,18 +10,18 @@ import provider_contract
 /* Resolution prompt, schema and allowed actions share one subject/workflow
  * vocabulary. ragbacklog owns evidence validation and transactional decisions. */
 resolutioncontractversion: procedure = .string
-  return "crexx-rag.resolution-contract/1"
+  return "crexx-rag.resolution-contract/2"
 
 resolutionprompt: procedure = .string
   arg objective=.string,subject_type=""
   if subject_type="provenance-chunk" then return enrichmentprompt() || "0A"x || quotationcontract()
-  return objective || "0A"x || quotationcontract() || " Return exactly the requested fields. Cite evidence_id values and contiguous quotations from the packet. Use empty strings and arrays for unused fields; qualifiers_json is a JSON object string. For split, introduce successors; for merge, select target_concept_id from the supplied catalogue and leave successors empty. Retain connections for the follow-up workflow; do not guess their assignment. For move/retract/qualify, cite every affected support. A retirement may cite no passages only when the impact census is empty. For reuse, choose a supplied candidate; for move, choose a supplied successor. Unresolved is a valid decision, not a failure."
+  return objective || "0A"x || quotationcontract() || " Return exactly the requested fields. Cite evidence_id values and contiguous quotations from the packet. Use empty strings and arrays for unused fields; qualifiers_json is a JSON object string. For split, introduce successors; for merge, select target_concept_id from the supplied catalogue and leave successors empty. Retain connections for the follow-up workflow; do not guess their assignment. For move/retract/qualify, cite every affected support. A retirement may cite no passages only when the impact census is empty. For distinct, provide both a nonempty canonical_label and a permitted concept_type. For reuse, choose an active supplied candidate; migration parents are evidence, not eligible identities; for move, choose a supplied successor. Unresolved is a valid decision, not a failure."
 
 resolutionmessages: procedure = .providermessage[]
   arg profile=.ragprofile,input_json=.string,objective=.string,subject_type=""
   messages=.providermessage[];document=.jsondocument(input_json);root=document.root()
   types=_types(profile);relationships=_relationships(profile)
-  messages[1]=.providermessage("system",resolutionprompt(objective,subject_type))
+  messages[1]=.providermessage("system",resolutioninputprompt(input_json,objective,subject_type))
   messages[2] = .providermessage("user", "Allowed concept types: " || types || "0A"x || "Allowed relationship types: " || relationships || "0A"x || "Durable resolution input: " || input_json || "0A"x || _selectedexcerpts(document,root))
   return messages
 
@@ -38,8 +38,9 @@ resolutionresponseschema: procedure = .string
 
 resolutionactions: procedure = .string
   arg subject_type = .string, workflow = .int
-  if subject_type = "" then return "unresolved reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate escalate"
-  actions = "unresolved retain investigate escalate"
+  if subject_type = "" then return "no-change defer search read extract unresolved reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate escalate"
+  actions = "no-change defer search read unresolved retain investigate escalate"
+  if subject_type = "chunk" then actions = actions || " extract"
   if subject_type = "alias-issue" then actions = actions || " reuse distinct"
   if subject_type = "concept" | (subject_type = "note" & workflow = 0) then actions = actions || " split merge synonym type-correction retire restore"
   if subject_type = "claim" | subject_type = "conflict" then actions = actions || " retract qualify"
@@ -83,3 +84,21 @@ _jsonstring: procedure = .string
   value = ""
   if document.node_string(document.member(root, name), value) \= 0 then return ""
   return value
+
+resolutioninputprompt: procedure = .string
+  arg input_json = .string, objective = .string, subject_type = .string
+  result = resolutionprompt(objective,subject_type)
+  if subject_type = "provenance-chunk" then return result
+  document = .jsondocument(input_json); root = document.root()
+  result = result || " Final no-change is an explicit, reasoned conclusion that the evidence does not justify a change; use action no-change and leave mutation fields empty. A search action uses question for a bounded lexical corpus query. A read action uses object_id for an exact corpus citation; it returns a retained source span. Search hits are leads, not cited support, until read and bound. Consult resolution_history and the existing evidence; do not repeat a read or query. Each step consumes the remaining call/read allowance. Use the last allowed call for a conclusion. No web, file, command, ingestion or other tools are available."
+  family = _jsonstring(document,root,"family_instruction"); if family<>"" then result = result || " Work-family instruction: " || family
+  if _jsonstring(document,root,"required_capability") = "advanced-reasoning" then result = result || " This is the final reasoning route: do not return unresolved, investigate or escalate. Decide a supported change or final no-change, including when uncertainty prevents a change."
+  calls=0; reads=0
+  ignored=document.node_int(document.member(root,"remaining_calls_including_this"),calls)
+  ignored=document.node_int(document.member(root,"remaining_evidence_reads"),reads)
+  if calls>0 then result=result || " Remaining reasoning calls including this one: " || calls || "; remaining evidence reads: " || reads || "."
+  if subject_type="chunk" then result=result || " An advanced chunk decision may request action extract to use its next call for the existing typed extraction contract. Choose it only when a further extraction is justified; a valid empty extraction is a completed assessment."
+  expected = 0; ignored = document.node_int(document.member(root,"evidence_expected"),expected)
+  if expected = 1 then result = result || " Deferral is exceptional: action defer requires a realistic expected source of new evidence and why it matters in question, a reason, and a future timezone-qualified timestamp in effective_from. It cannot repeat on unchanged evidence."
+  else result = result || " No additional relevant ingestion is expected: defer is forbidden. Conclude from available evidence; do not invent facts to force a change."
+  return result

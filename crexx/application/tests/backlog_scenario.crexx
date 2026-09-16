@@ -7,6 +7,7 @@ import ragmaintain
 import rxhash
 import rxjson
 import ragbacklog
+import raglifecycle
 import ragwork
 import ragworktypes
 import ragclaims
@@ -52,7 +53,7 @@ fixtureprovider: class implements .ragworkprovider
     arg claim = .ragworkclaim
     empty = .ragextractionproposal; mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
     result = .ragworkproviderresult(0,"fixture","fixture","request-" || claim.attempt_id(),10,10,0,1,0,empty,"",0,"","",.ragworkembedding("","","","","",0,"",''x as .binary),"","local-compute",mentions,proposals,notes)
-    call result.resolution(_response,genericprofile())
+    if _response<>"empty-extraction" then call result.resolution(_response,genericprofile())
     return result
 
 /* Invoke the second worker while the first owns the final call reservation.
@@ -331,7 +332,8 @@ connectioneffectchecks: procedure = .int
   errors = errors + check(reviewagentaction(store,review_id,"accept",config,profile,error) = 0,"accept claim retraction " || error)
   errors = errors + check(scalarint(database,"SELECT count(*) FROM claims WHERE claim_id='effect-claim' AND visible_to_generation IS NOT NULL") = 1 & scalarint(database,"SELECT count(*) FROM claim_support WHERE claim_id='effect-claim' AND visible_to_generation IS NULL") = 0 & scalarint(database,"SELECT count(*) FROM claim_conflicts WHERE conflict_id='effect-conflict' AND visible_to_generation IS NOT NULL") = 1,"claim support conflict publication matches effect preview")
   errors = errors + check(applyagentaction(store,config,profile,canonical,digest,"resolution",review_id,error) = 0 & reviewagentaction(store,review_id,"accept",config,profile,error) <> 0,"exact replay retains history without repeated publication")
-  errors = errors + check(scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1") = current+2 & scalarint(database,"SELECT count(*) FROM provider_runs") = calls & scalarint(database,"SELECT count(*) FROM source_revisions") = sources & scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"effect checks preserve sources usage history and foreign keys")
+  /* Two accepted effects plus the explicit unrelated-publication control. */
+  errors = errors + check(scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1") = current+3 & scalarint(database,"SELECT count(*) FROM provider_runs") = calls & scalarint(database,"SELECT count(*) FROM source_revisions") = sources & scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"effect checks preserve sources usage history and foreign keys")
   return errors
 
 connectionvariantchecks: procedure = .int
@@ -369,6 +371,13 @@ stalepreviewchecks: procedure = .int
   result = dispatchproduct(request,operatorregistry())
   errors = errors + check(result.exit_code() = 0,"stale review can still be rejected")
   errors = errors + check(sqliteexec(database,"UPDATE library_meta SET published_generation=" || preview_generation || " WHERE singleton=1") = 0,"restore review snapshot")
+  publication_error = ""; unrelated_generation = 0
+  publication_snapshot = scalartext(database,"SELECT config_snapshot_id FROM published_generations WHERE generation=" || preview_generation)
+  errors = errors + check(begingeneration(store,preview_generation,publication_snapshot,"unrelated publication control",unrelated_generation,publication_error)=0 & commitgeneration(store,unrelated_generation,publication_error)=0 & publishmanifest(store,publication_error)=0,"unrelated generation fixture " || publication_error)
+  command_options[2] = .ragcommandoption("decision","accept",0)
+  request = .ragcommandrequest(store.path(),config.config_id(),"generic-profile","","json","off",access,"review","decide","review.decide",command_options,positionals)
+  result = dispatchproduct(request,operatorregistry())
+  errors = errors + check(result.exit_code()=0,"unrelated publication preserves validated review effects " || result.message())
   return errors
 
 effectboundchecks: procedure = .int
@@ -539,7 +548,7 @@ runresolution: procedure = .int
   database = store.database()
   if tickbacklogwindow(store,job_id,error) < 0 then return -1
   /* The fixture explicitly selects the question being exercised. */
-  if sqliteexec(database,"UPDATE job_items SET priority=1000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || task_id || "') AND state='queued'") \= 0 then return -1
+  if sqliteexec(database,"UPDATE job_items SET priority=4000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || task_id || "') AND state='queued'") \= 0 then return -1
   provider = .fixtureprovider(response); disposition = ""
   policy = .ragclaimpolicy("fixture-v1","concept|source-artifact|evidence-span","related-to|mentioned-in|mentions",1000000,750000,500000,-1000000,250000)
   status = runworkeronce(store,job_id,"backlog-fixture",60,3,policy,provider,disposition,error,genericprofile())
@@ -595,6 +604,211 @@ timingchecks: procedure = .int
   errors = errors + check(resolvemaintenancetime(database,"","","06:00-18:00",7200,timing,error,now) < 0 & resolvemaintenancetime(database,"","","25:00-06:00",7200,timing,error,now) < 0,"reject invalid overnight window")
   return errors
 
+escalationroutechecks: procedure = .int
+  arg store = .ragstorehandle, base = .string
+  database = store.database(); errors = 0; error = ""
+  job_id = scalartext(database,"SELECT job_id FROM maintenance_windows WHERE state='active' LIMIT 1")
+  if job_id<>"" then errors=errors+check(pausejob(store,job_id,error)=0 & tickbacklogwindow(store,job_id,error)>=0,"drain preceding fixture window")
+  /* The preceding scale/recovery cases deliberately leave unfinished work.
+   * Hold that unrelated fixture work using the real waiver state, so this
+   * handoff has a deterministic single-question call ledger. */
+  errors=errors+check(sqliteexec(database,"INSERT INTO maintenance_task_waivers(waiver_id,task_id,reason,state,created_epoch) SELECT 'route-fixture-hold:'||task_id,task_id,'Isolate subsequent route fixture','active',unixepoch() FROM maintenance_tasks t WHERE state IN('pending','unresolved','failed','review') AND NOT EXISTS(SELECT 1 FROM maintenance_task_waivers w WHERE w.task_id=t.task_id AND w.state='active') AND NOT EXISTS(SELECT 1 FROM reviews r WHERE r.subject_id=t.task_id AND r.state='pending')")=0,"waive unrelated unfinished fixture questions")
+  raw = changestr('"knowledge_policy":"fixture-v1"',base,'"knowledge_policy":"route-fixture"')
+  raw = changestr('"batch_items":100',raw,'"batch_items":1')
+  raw = changestr("retain investigate",raw,"retain investigate no-change defer")
+  advanced = '{"role":"advanced-resolver","provider_id":"fixture","model":"advanced-fixture","charging_basis":"local-compute","input_tokens":100000,"output_tokens":10000,"cost_microunits":0,"time_ms":1000,"resolution_prompt":"Conclude from evidence or record final no-change."}'
+  raw = left(raw,length(raw)-1) || ',"advanced_route":' || advanced || ',"advanced_attempts":4,"search_reads":2,"evidence_expected":1,"source_id":"source-lifecycle"}'
+  policy = .jsondocument(raw); ordinary = ""; advanced_task = ""; deferred = ""
+  errors = errors + check(enqueuebacklogtask(database,"route-ordinary","chunk","chunk-lifecycle","","",1000000,policy,ordinary,error)=0,"ordinary route fixture")
+  errors = errors + check(enqueuebacklogtask(database,"route-advanced","chunk","chunk-lifecycle","","",1,policy,advanced_task,error)=0,"advanced route fixture")
+  errors = errors + check(enqueuebacklogtask(database,"route-deferred","chunk","chunk-lifecycle","","",1000000,policy,deferred,error)=0,"deferred route fixture")
+  errors = errors + check(sqliteexec(database,"UPDATE maintenance_tasks SET required_capability='advanced-reasoning',state='unresolved' WHERE task_id IN('" || advanced_task || "','" || deferred || "')")=0,"legacy escalation fixture")
+  due = scalarint(database,"SELECT unixepoch('now','+6 months')")
+  errors = errors + check(sqliteexec(database,"UPDATE maintenance_tasks SET not_before_epoch=" || due || " WHERE task_id='" || deferred || "'")=0,"six month earliest date")
+  config = architecturelocalconfig(); access = .string[]; access[1] = "control"; positionals = .string[]
+  command_options = .ragcommandoption[]
+  command_options[1] = .ragcommandoption("id",deferred,0)
+  command_options[2] = .ragcommandoption("until",scalartext(database,"SELECT strftime('%Y-%m-%dT%H:%M:%SZ'," || due || ",'unixepoch')"),0)
+  command_options[3] = .ragcommandoption("reason","Await the scheduled archive release",0)
+  request = .ragcommandrequest(store.path(),config.config_id(),"generic-profile","","json","off",access,"maintain","defer","maintain.defer",command_options,positionals)
+  deferred_result = dispatchproduct(request,operatorregistry())
+  errors = errors + check(deferred_result.exit_code()=0,"public dated task deferral " || deferred_result.message())
+  first_page=backlogselection(database,policy,0,1,""); next_page=backlogselection(database,policy,1,1,"")
+  errors=errors+check(scalarint(database,"SELECT json_array_length(" || _testquote(first_page) || ",'$.eligible')")=1 & scalartext(database,"SELECT json_extract(" || _testquote(first_page) || ",'$.next_cursor')")="1","queue supplies a bounded next page")
+  errors=errors+check(scalartext(database,"SELECT json_extract(" || _testquote(first_page) || ",'$.eligible[0].task_id')")=advanced_task & scalartext(database,"SELECT json_extract(" || _testquote(next_page) || ",'$.eligible[0].task_id')")<>advanced_task,"queue pagination does not repeat the first eligible task")
+  unbound_policy=scalartext(database,"SELECT json_remove(" || _testquote(raw) || ",'$.advanced_route')")
+  unbound_queue=backlogselection(database,.jsondocument(unbound_policy),0,98,"")
+  errors=errors+check(scalarint(database,"SELECT json_extract(" || _testquote(unbound_queue) || ",'$.counts.missing_advanced_binding')")>=2 & scalarint(database,"SELECT count(*) FROM json_each(" || _testquote(unbound_queue) || ",'$.eligible') WHERE json_extract(value,'$.required_capability')='advanced-reasoning'")=0,"missing advanced binding is visible and never falls back")
+  calls = scalarint(database,"SELECT count(*) FROM provider_runs")
+  errors = errors + check(nextwindow(store,raw,job_id,error)=0,"mixed maintenance window " || error)
+  selected = scalartext(database,"SELECT m.task_id FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE i.job_id='" || job_id || "' AND i.state='queued' ORDER BY i.priority DESC,i.item_id LIMIT 1")
+  errors = errors + check(selected=advanced_task,"due advanced precedes higher-priority ordinary work")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM job_items WHERE job_id='" || job_id || "' AND json_extract(input_json,'$.model')='advanced-fixture' AND json_extract(input_json,'$.role')='advanced-resolver' AND json_extract(input_json,'$.resolution_prompt')='Conclude from evidence or record final no-change.'")=1,"advanced prompt and model frozen together")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_task_items WHERE task_id='" || deferred || "'")=0 & scalarint(database,"SELECT not_before_epoch FROM maintenance_tasks WHERE task_id='" || deferred || "'")=due,"future escalation stays deferred")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM provider_runs")=calls,"selection consumes no provider call")
+  queue_access = .string[]; queue_access[1] = "read"; queue_options = .ragcommandoption[]
+  queue_options[1] = .ragcommandoption("job",job_id,0); queue_options[2] = .ragcommandoption("limit","1",0)
+  request = .ragcommandrequest(store.path(),config.config_id(),"generic-profile","","json","off",queue_access,"maintain","queue","maintain.queue",queue_options,positionals)
+  queue_result = dispatchproduct(request,operatorregistry()); queue_json = ""; queue_error = ""
+  errors = errors + check(queue_result.exit_code()=0 & rendercommandresult(queue_result,"json",queue_json,queue_error)=0 & pos("advanced-fixture",queue_json)>0,"inspectable frozen route and prioritised queue " || queue_result.message())
+  rpc='{"jsonrpc":"2.0","id":301,"method":"tools/call","params":{"name":"rag_maintenance_queue","arguments":{"job":' || jsonquote(job_id) || ',"limit":1}}}'
+  rpc_result=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","read")
+  errors=errors+check(pos('"isError":false',rpc_result)>0 & pos("advanced-fixture",rpc_result)>0,"MCP shares frozen queue route")
+  rpc='{"jsonrpc":"2.0","id":302,"method":"tools/call","params":{"name":"rag_task_defer","arguments":{"id":' || jsonquote(deferred) || ',"until":' || jsonquote(scalartext(database,"SELECT strftime('%Y-%m-%dT%H:%M:%SZ'," || due || ",'unixepoch')")) || ',"reason":"Await the scheduled archive release"}}}'
+  rpc_result=mcpdispatch(rpc,store.path(),config.config_id(),"generic-profile","control")
+  errors=errors+check(pos('"isError":false',rpc_result)>0 & scalarint(database,"SELECT not_before_epoch FROM maintenance_tasks WHERE task_id='" || deferred || "'")=due,"MCP shares exact UTC deferral without shortening it")
+  if selected <> advanced_task then return errors
+  current = scalarint(database,"SELECT published_generation FROM library_meta")
+  status = runresolution(store,job_id,advanced_task,responsejson("no-change"),error)
+  errors = errors + check(status=0,"advanced final no-change is accepted " || error)
+  if status <> 0 then return errors
+  errors = errors + check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || advanced_task || "'")="resolved","final no-change closes task")
+  errors = errors + check(scalarint(database,"SELECT published_generation FROM library_meta")=current,"final no-change invents no graph publication")
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM provider_runs")=calls+1,"final decision retains exactly one charged call")
+  mixed_job=job_id
+  errors = errors + searchhandoffchecks(store,raw,job_id,ordinary)
+  errors=errors+check(scalarint(database,"SELECT count(DISTINCT json_extract(i.input_json,'$.required_capability')) FROM maintenance_decisions d JOIN job_items i ON i.item_id=d.item_id WHERE i.job_id='" || mixed_job || "'")=2,"one maintenance job processes ordinary and advanced reasoning")
+  extract_task=""
+  errors=errors+check(enqueuebacklogtask(database,"explicit-advanced-extraction","chunk","chunk-lifecycle","","",1000000,policy,extract_task,error)=0,"explicit extraction fixture")
+  errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET required_capability='advanced-reasoning' WHERE task_id='" || extract_task || "'")=0,"advanced extraction handoff")
+  errors=errors+check(nextwindow(store,raw,job_id,error)=0,"advanced extraction window")
+  status=runresolution(store,job_id,extract_task,responsejson("extract"),error)
+  errors=errors+check(status=0,"advanced resolver explicitly selects extraction " || error)
+  if status=0 then do
+    errors=errors+check(tickbacklogwindow(store,job_id,error)>=0,"selected extraction dispatch")
+    errors=errors+check(scalarint(database,"SELECT count(*) FROM job_items i JOIN maintenance_task_items m ON m.item_id=i.item_id WHERE m.task_id='" || extract_task || "' AND i.state='queued' AND i.item_type='improve-extraction' AND json_extract(i.input_json,'$.role')='advanced-resolver'")=1,"explicit extraction keeps advanced model and correct operation")
+    errors=errors+check(sqliteexec(database,"UPDATE job_items SET priority=4000001 WHERE state='queued' AND item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || extract_task || "')")=0,"select explicit extraction")
+    extraction_provider=.fixtureprovider("empty-extraction"); disposition=""
+    claim_policy=.ragclaimpolicy("fixture-v1","concept|source-artifact|evidence-span","related-to|mentioned-in|mentions",1000000,750000,500000,-1000000,250000)
+    status=runworkeronce(store,job_id,"explicit-extraction",60,3,claim_policy,extraction_provider,disposition,error,genericprofile())
+    errors=errors+check(status=0 & tickbacklogwindow(store,job_id,error)>=0,"advanced empty extraction completes " || error)
+    errors=errors+check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || extract_task || "'")="resolved","examined with no claims closes the question")
+  end
+  budget_policy=scalartext(database,"SELECT json_set(" || _testquote(raw) || ",'$.batch_items',1,'$.input_budget',100005,'$.input_tokens',100000,'$.advanced_route.input_tokens',10000)")
+  budget_a="";budget_b=""
+  errors=errors+check(enqueuebacklogtask(database,"route-budget-a","chunk","chunk-lifecycle","","",1000000,.jsondocument(budget_policy),budget_a,error)=0 & enqueuebacklogtask(database,"route-budget-b","chunk","chunk-lifecycle","","",999999,.jsondocument(budget_policy),budget_b,error)=0,"remaining budget route fixture")
+  errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET required_capability='advanced-reasoning' WHERE task_id IN('" || budget_a || "','" || budget_b || "')")=0,"remaining budget advanced routes")
+  errors=errors+check(nextwindow(store,budget_policy,job_id,error)=0 & runresolution(store,job_id,budget_a,responsejson("no-change"),error)=0,"first smaller advanced reservation fits shared budget " || error)
+  errors=errors+check(tickbacklogwindow(store,job_id,error)>=0,"checkpoint next affordable route")
+  errors=errors+check(scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || job_id || "'")="active" & scalarint(database,"SELECT count(*) FROM job_items i JOIN maintenance_task_items m ON m.item_id=i.item_id WHERE m.task_id='" || budget_b || "' AND i.state='queued'")=1,"remaining budget permits advanced work when ordinary reservation no longer fits")
+  reset_successor=""; reset_changed=0; reset_skipped=0
+  errors=errors+check(resetbacklogtasks(store,architecturelocalconfig(),genericprofile(),ordinary,reset_successor,reset_changed,reset_skipped,error)=0 & reset_successor<>ordinary & reset_changed=1,"explicit one-task reset can reconsider a final assessment " || error)
+
+  return errors
+
+outcomeboundarychecks: procedure = .int
+  arg store = .ragstorehandle, base = .string
+  database=store.database(); errors=0; error=""
+  job_id=scalartext(database,"SELECT job_id FROM maintenance_windows WHERE state='active' LIMIT 1")
+  raw=left(base,length(base)-1) || ',"source_id":"source-lifecycle","evidence_expected":0,"search_reads":0,"advanced_attempts":3,"advanced_route":{"role":"advanced-resolver","provider_id":"fixture","model":"advanced-fixture","charging_basis":"local-compute","input_tokens":100000,"output_tokens":10000,"cost_microunits":0,"time_ms":1000,"resolution_prompt":"Conclude."}}'
+  current=scalarint(database,"SELECT published_generation FROM library_meta")
+  advanced_failed=""
+  do cell=1 to 4
+    task_id=""
+    errors=errors+check(enqueuebacklogtask(database,"outcome-boundary-" || cell,"chunk","chunk-lifecycle","","",1000000,.jsondocument(raw),task_id,error)=0,"outcome boundary fixture")
+    proposed=responsejson("search","","[]","[]","","Cobalt")
+    if cell=1 then proposed=responsejson("defer","","[]","[]","","Await more evidence","{}",scalartext(database,"SELECT strftime('%Y-%m-%dT%H:%M:%SZ','now','+6 months')"))
+    if cell=2 then do
+      errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET required_capability='advanced-reasoning' WHERE task_id='" || task_id || "'")=0,"final route refusal fixture")
+      advanced_failed=task_id
+      proposed=responsejson("unresolved")
+    end
+    if cell=4 then do
+      raw=changestr('"search_reads":0',raw,'"search_reads":2')
+      proposed=responsejson("read","","[]","[]","forged-citation")
+    end
+    errors=errors+check(nextwindow(store,raw,job_id,error)=0,"boundary window " || error)
+    status=runresolution(store,job_id,task_id,proposed,error)
+    errors=errors+check(status<>0,"unsupported outcome refused: " || cell)
+    errors=errors+check(scalarint(database,"SELECT count(*) FROM maintenance_decisions WHERE task_id='" || task_id || "'")=0 & scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || task_id || "'")<>"resolved","refusal is not semantic success: " || cell)
+  end
+  errors=errors+check(scalarint(database,"SELECT published_generation FROM library_meta")=current,"outcome refusals do not publish facts")
+  one_call_policy=changestr('"advanced_attempts":3',raw,'"advanced_attempts":1')
+  before_reset=backlogselection(database,.jsondocument(one_call_policy),0,98,"")
+  errors=errors+check(scalarint(database,"SELECT count(*) FROM json_each(" || _testquote(before_reset) || ",'$.eligible') WHERE json_extract(value,'$.task_id')=" || _testquote(advanced_failed))=0,"failed advanced call exhausts its own route allowance")
+  reset_jobs=0; reset_items=0
+  errors=errors+check(recordretryreset(database,"",reset_jobs,reset_items,error,advanced_failed)=0,"existing retry reset records the advanced baseline")
+  errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET not_before_epoch=0 WHERE task_id=" || _testquote(advanced_failed))=0,"reach retry delay after counter reset")
+  after_reset=backlogselection(database,.jsondocument(one_call_policy),0,98,"")
+  errors=errors+check(scalarint(database,"SELECT count(*) FROM json_each(" || _testquote(after_reset) || ",'$.eligible') WHERE json_extract(value,'$.task_id')=" || _testquote(advanced_failed))=1 & scalarint(database,"SELECT " || taskretrycallcount(_testquote(advanced_failed),1))=1,"reset restores advanced allowance while preserving paid history")
+  date_policy=changestr('"source-lifecycle"',raw,'"source-sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"')
+  dated=""; successor=""; due=0
+  errors=errors+check(enqueuebacklogtask(database,"dated-successor","chunk","chunk-cobalt","","",1000000,.jsondocument(date_policy),dated,error)=0,"dated successor fixture")
+  errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET required_capability='advanced-reasoning' WHERE task_id='" || dated || "'")=0,"dated successor route")
+  errors=errors+check(deferbacklogtask(store,dated,"","6","Expected archive release",due,error)=0 & due>scalarint(database,"SELECT unixepoch('now','+5 months')"),"six calendar months becomes durable absolute UTC")
+  errors=errors+check(sqliteexec(database,"UPDATE chunk_contents SET text='Cobalt archives',content_digest='digest-cobalt-new' WHERE content_id='content-cobalt'")=0,"relevant evidence changes before date")
+  errors=errors+check(enqueuebacklogtask(database,"dated-successor","chunk","chunk-cobalt","","",1000000,.jsondocument(date_policy),successor,error)=0 & successor=dated,"relevant evidence cannot silently shorten a hard date")
+  errors=errors+check(nextwindow(store,date_policy,job_id,error)=0 & scalarint(database,"SELECT count(*) FROM maintenance_task_items WHERE task_id='" || dated || "'")=0,"changed deferred question does not run early")
+  errors=errors+check(sqliteexec(database,"UPDATE maintenance_tasks SET not_before_epoch=unixepoch()-1 WHERE task_id='" || dated || "'")=0,"advance dated successor fixture to due time")
+  due=scalarint(database,"SELECT not_before_epoch FROM maintenance_tasks WHERE task_id='" || dated || "'")
+  errors=errors+check(nextwindow(store,date_policy,job_id,error)=0,"due evidence refresh window " || error)
+  successor=scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE parent_task_id='" || dated || "' AND state='dispatched'")
+  errors=errors+check(successor<>"" & successor<>dated & scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE task_id='" || successor || "' AND required_capability='advanced-reasoning' AND not_before_epoch=" || due)=1,"evidence successor preserves route and earliest date")
+
+  return errors
+
+oldpolicychecks: procedure = .int
+  arg store = .ragstorehandle, base = .string
+  database = store.database(); errors = 0; error = ""; task_id = ""
+  raw = changestr('"knowledge_policy":"fixture-v1"',base,'"knowledge_policy":"previous-route-default"')
+  raw = left(raw,length(raw)-1) || ',"source_id":"source-lifecycle"}'
+  errors = errors + check(enqueuebacklogtask(database,"old-policy-ordinary","chunk","chunk-lifecycle","","",1000000,.jsondocument(raw),task_id,error)=0,"old ordinary route fixture")
+  raw = changestr('"previous-route-default"',raw,'"current-route-default"')
+  job_id = scalartext(database,"SELECT job_id FROM maintenance_windows WHERE state='active' LIMIT 1")
+  errors = errors + check(nextwindow(store,raw,job_id,error)=0,"maintenance considers prior ordinary policy " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_task_items m JOIN job_items i ON i.item_id=m.item_id WHERE m.task_id='" || task_id || "' AND i.job_id='" || job_id || "' AND i.state='queued'")=1,"routine route-default changes cannot hide unfinished ordinary work")
+  return errors
+
+searchhandoffchecks: procedure = .int
+  arg store = .ragstorehandle, raw = .string, expose job_id = .string, task_id = .string
+  database = store.database(); errors = 0; error = ""; policy = .jsondocument(raw)
+  current = scalarint(database,"SELECT published_generation FROM library_meta")
+  original_calls = scalarint(database,"SELECT count(*) FROM provider_runs")
+  errors = errors + check(sqliteexec(database,"INSERT INTO source_artifacts SELECT 'artifact-cobalt','raw-cobalt',mime_type,encoding,NULL,'fixture://cobalt',created_at FROM source_artifacts WHERE artifact_id='artifact-lifecycle'")=0,"outside evidence artifact")
+  errors = errors + check(sqliteexec(database,"INSERT INTO source_revision_texts SELECT 'text-cobalt','digest-cobalt','Cobalt evidence',extractor_version,normalization_version,created_at FROM source_revision_texts WHERE text_id='text-lifecycle'")=0,"outside normalized text")
+  errors = errors + check(sqliteexec(database,"INSERT INTO sources(source_id,connector_type,stable_key,current_revision_id,lifecycle_state,observed_uri,observed_title,visible_from_generation) VALUES('source-sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc','fixture','cobalt','revision-sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd','active','fixture://cobalt','Cobalt archive'," || current || ")")=0,"outside source")
+  errors = errors + check(sqliteexec(database,"INSERT INTO source_revisions(revision_id,source_id,revision_envelope_digest,artifact_id,text_id,metadata_fingerprint,captured_at,visible_from_generation) VALUES('revision-sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd','source-sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc','envelope-cobalt','artifact-cobalt','text-cobalt','metadata-cobalt','fixture-time'," || current || ")")=0,"outside revision")
+  errors = errors + check(sqliteexec(database,"INSERT INTO chunk_contents(content_id,content_digest,text,input_fingerprint) VALUES('content-cobalt','digest-cobalt','Cobalt evidence','input-cobalt')")=0,"outside content")
+  errors = errors + check(sqliteexec(database,"INSERT INTO revision_chunks(revision_chunk_id,revision_id,ordinal,normalized_start,normalized_end,content_id,continuity_key,parser_version,evidence_class,visible_from_generation) VALUES('chunk-cobalt','revision-sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',1,0,15,'content-cobalt','continuity-cobalt','fixture-v1','direct'," || current || ")")=0,"outside chunk")
+  errors = errors + check(sqliteexec(database,"INSERT INTO chunks_fts(revision_chunk_id,content_id,body) VALUES('chunk-cobalt','content-cobalt','Cobalt evidence')")=0,"outside lexical index")
+  status = runresolution(store,job_id,task_id,responsejson("search","","[]","[]","","Cobalt"),error)
+  errors = errors + check(status=0,"bounded corpus search step " || error)
+  if status<>0 then return errors
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_decisions WHERE task_id='" || task_id || "' AND disposition='search:pending' AND grounding_json LIKE '%source-sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc%'")=1,"search retains outside lead without binding it")
+  repeat_grounds=""; repeat_error=""
+  errors=errors+check(validatebacklogresponse(database,task_id,responsejson("search","","[]","[]","","Cobalt"),repeat_grounds,repeat_error,raw)<>0 & pos("already",repeat_error)>0,"repeat search is refused before another step")
+  citation = "crexx-rag:" || scalartext(database,"SELECT library_id FROM library_meta") || ":source-sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc:revision-sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd:utf8-0-15"
+  evidence_id = "resolver:" || rxhash..sha256hex(citation as .binary)
+  proposed = responsejson("no-change","","[]",'[{"evidence_id":' || jsonquote(evidence_id) || ',"quote":"Cobalt evidence"}]')
+  grounds = ""; validation_error = ""
+  errors = errors + check(validatebacklogresponse(database,task_id,proposed,grounds,validation_error)<>0,"search lead cannot yet be cited as bound support")
+  status = runresolution(store,job_id,task_id,responsejson("read","","[]","[]",citation),error)
+  errors = errors + check(status=0,"bounded citation read step " || error)
+  if status<>0 then return errors
+  errors = errors + check(validatebacklogresponse(database,task_id,proposed,grounds,validation_error)=0,"read binds the exact new source span " || validation_error)
+  errors = errors + check(pos('"revision_chunk_id":"chunk-cobalt"',grounds)>0 & pos('"span_end":15',grounds)>0,"binding uses source offsets")
+  larger_read_allowance=changestr('"search_reads":2',raw,'"search_reads":16')
+  errors=errors+check(validatebacklogresponse(database,task_id,responsejson("read","","[]","[]",citation,"A different wording"),repeat_grounds,repeat_error,larger_read_allowance)<>0 & pos("already",repeat_error)>0,"rewording cannot repeat a bound citation read")
+  until_text = scalartext(database,"SELECT strftime('%Y-%m-%dT%H:%M:%SZ','now','+6 months')")
+  status = runresolution(store,job_id,task_id,responsejson("defer","","[]","[]","","A scheduled archive addition can settle the remaining attribution","{}",until_text),error)
+  errors = errors + check(status=0,"ordinary evidence handoff and dated escalation " || error)
+  if status<>0 then return errors
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE task_id='" || task_id || "' AND required_capability='advanced-reasoning' AND not_before_epoch>unixepoch()")=1,"handoff retains advanced route and future date")
+  errors=errors+check(validatebacklogresponse(database,task_id,responsejson("defer","","[]","[]","","Keep waiting","{}",until_text),repeat_grounds,repeat_error,raw)<>0 & pos("already been deferred",repeat_error)>0,"unchanged evidence cannot roll its deferral forward")
+  errors = errors + check(nextwindow(store,raw,job_id,error)=0,"restart deferred maintenance " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM job_items i JOIN maintenance_task_items m ON m.item_id=i.item_id WHERE m.task_id='" || task_id || "' AND i.state IN('queued','running')")=0,"restart cannot run a deferred handoff early")
+  errors = errors + check(sqliteexec(database,"UPDATE maintenance_tasks SET not_before_epoch=unixepoch()-1 WHERE task_id='" || task_id || "'")=0,"simulate reaching the due date")
+  errors = errors + check(nextwindow(store,raw,job_id,error)=0,"due handoff dispatch " || error)
+  status = runresolution(store,job_id,task_id,proposed,error)
+  errors = errors + check(status=0,"advanced worker concludes from retained outside evidence " || error)
+  errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_decisions WHERE task_id='" || task_id || "'")=4 & scalarint(database,"SELECT count(*) FROM provider_runs")=original_calls+4,"three ordinary steps and one advanced decision retain all calls without replay")
+  errors = errors + check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || task_id || "'")="resolved" & scalarint(database,"SELECT published_generation FROM library_meta")=current,"final no-change converges without publication")
+  final_again=""; changed_policy=changestr('"route-fixture"',raw,'"routine-route-edit"')
+  errors=errors+check(enqueuebacklogtask(database,"route-ordinary","chunk","chunk-lifecycle","","",1000000,.jsondocument(changed_policy),final_again,error)=0 & final_again=task_id,"final bound-evidence question survives route-default edits")
+
+
+  return errors
+
 zerobudgetchecks: procedure = .int
   arg store = .ragstorehandle, base = .string
   database = store.database(); errors = 0; error = ""
@@ -615,13 +829,17 @@ zerobudgetchecks: procedure = .int
     raw = changestr('"cost_budget":0',raw,'"cost_budget":' || budget)
     raw = left(raw,length(raw)-1) || ',"embedding_profile":"zero-budget-' || cell || '","embedding_envelope":"fixture","embedding_provider":"fixture","embedding_model":"fixture","embedding_charging":"' || charging || '","embedding_input":100000,"embedding_cost":' || cost || ',"embedding_time":1000,"embedding_dimension":2}'
     policy = .jsondocument(raw); task = ""
+    if cell=1 then do
+      funded_task=""
+      errors=errors+check(enqueuebacklogtask(database,"funded-ordinary-control","chunk","chunk-lifecycle","","",1000000,policy,funded_task,error)=0,"explicit unfinished zero-cost ordinary control")
+    end
     errors = errors + check(enqueuebacklogtask(database,"embedding-repair:zero-budget-" || cell,"chunk","chunk-lifecycle","","",1000000,policy,task,error) = 0,"zero-budget embedding fixture " || error)
     errors = errors + check(nextwindow(store,raw,job_id,error) = 0,"zero-budget window " || error)
     embedded = scalarint(database,"SELECT count(*) FROM job_items WHERE job_id='" || job_id || "' AND item_type='embedding'")
     if cell = 1 | cell = 5 then do
       errors = errors + check(embedded = 0,"zero monetary budget cannot queue paid embedding: " || cell)
       errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_tasks WHERE task_id='" || task || "' AND state='pending' AND attempt_count=0") = 1,"unfunded task stays pending without an attempt")
-      if cell = 1 then errors = errors + check(scalarint(database,"SELECT count(*) FROM job_items WHERE job_id='" || job_id || "' AND item_type<>'embedding'") = 1,"paid embedding cannot starve zero-cost subscription work")
+      if cell = 1 then errors = errors + check(scalarint(database,"SELECT count(*) FROM job_items WHERE job_id='" || job_id || "' AND item_type<>'embedding' AND json_extract(input_json,'$.charging_basis')='subscription-allowance'") >= 1,"paid embedding cannot starve eligible zero-cost subscription work across policies")
       if cell = 5 then do
         do pass = 1 to 20
           if scalartext(database,"SELECT state FROM maintenance_windows WHERE job_id='" || job_id || "'") \= "active" then leave
@@ -664,7 +882,9 @@ sourcecontinuationchecks: procedure = .int
 
 main: procedure = .int
   arg args = .string[]
-  if args.0 \= 1 then return 2
+  if args.0 < 1 | args.0 > 2 then return 2
+  selected_case = "core"; if args.0=2 then selected_case=args[2]
+  if selected_case<>"core" & selected_case<>"escalation" then return 2
   path = args[1]; errors = 0; error = ""; store = .ragstorehandle
   /* Applicability is a request contract as well as an apply-time guard. */
   note_schema = backlogschema("note",0); alias_schema = backlogschema("alias-issue",0)
@@ -704,6 +924,15 @@ main: procedure = .int
 
 
   policy_json = '{"mode":"automatic","window_seconds":1000,"automatic_actions":"reuse distinct split merge synonym type-correction retire restore move retract qualify retain investigate","maximum_impact":100,"maximum_attempts":3,"retry_seconds":1,"maximum_evidence_bytes":65536,"batch_items":100,"resolution_prompt":"Fixture resolution","knowledge_policy":"fixture-v1","provider_id":"fixture","model":"fixture","charging_basis":"local-compute","privacy":"public","profile_id":"generic-profile","discovery_context":"{}","input_tokens":100000,"output_tokens":10000,"cost_microunits":0,"time_ms":1000,"inflight":1,"item_limit":100,"model_calls":100,"input_budget":10000000,"output_budget":1000000,"cost_budget":0,"codex_turns":0}'
+  if selected_case="escalation" then do
+    errors = errors + escalationroutechecks(store,policy_json)
+    errors = errors + oldpolicychecks(store,policy_json)
+    errors = errors + outcomeboundarychecks(store,policy_json)
+    call closeragstore store,error
+    if errors>0 then return 1
+    say "DURABLE_BACKLOG_OK escalation"
+    return 0
+  end
   policy = .jsondocument(policy_json); task_id = ""
   errors = errors + check(enqueuebacklogtask(database,"lifecycle","concept","concept-parent","","",999999,policy,task_id,error) = 0, "queue split decision " || error)
   grounds = ""
@@ -786,7 +1015,7 @@ main: procedure = .int
    * replacement lease. The fixture's next response is deliberately malformed. */
   recovery_task = ""
   errors = errors + check(enqueuebacklogtask(database,"recovery-test","concept","concept-survivor","","",999999,policy,recovery_task,error) = 0 & nextwindow(store,policy_json,job_id,error) = 0, "queue recovery fixture")
-  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=1000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || recovery_task || "') AND state='queued'") = 0, "select recovery fixture")
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=4000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || recovery_task || "') AND state='queued'") = 0, "select recovery fixture")
   claim = .ragworkclaim; reservation = .ragcallreservation
   errors = errors + check(claimnext(store,job_id,"crashed-fixture",60,3,claim,error) = 0 & reservecall(store,claim,100000,10000,0,1000,reservation,error) = 0, "claim and reserve before crash " || error)
   settled_run = ""; response = responsejson("unresolved")
@@ -917,7 +1146,7 @@ main: procedure = .int
    * without publishing an empty or stale semantic generation. */
   stale_task = ""
   errors = errors + check(enqueuebacklogtask(database,"stale-after-call","concept","concept-survivor","","",999999,policy,stale_task,error) = 0 & nextwindow(store,policy_json,job_id,error) = 0, "queue post-call stale decision")
-  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=1000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || stale_task || "') AND state='queued'") = 0, "select post-call stale fixture")
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=4000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || stale_task || "') AND state='queued'") = 0, "select post-call stale fixture")
   previous_generation = scalarint(database,"SELECT published_generation FROM library_meta WHERE singleton=1")
   stale_provider = .staleprovider(database,responsejson("retire","","[]","[]","concept-survivor"))
   errors = errors + check(runworkeronce(store,job_id,"stale-fixture",60,3,claim_policy,stale_provider,disposition,error,genericprofile()) = 0, "settle stale result " || error)
@@ -928,14 +1157,14 @@ main: procedure = .int
   recovery_task = ""
   capped_policy = changestr('"maximum_attempts":3',policy_json,'"maximum_attempts":1')
   errors = errors + check(enqueuebacklogtask(database,"closed-window-recovery","concept","concept-survivor","","",999999,policy,recovery_task,error) = 0 & nextwindow(store,capped_policy,job_id,error) = 0, "queue capped recovery fixture")
-  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=1000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || recovery_task || "') AND state='queued'") = 0, "select capped recovery")
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=4000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || recovery_task || "') AND state='queued'") = 0, "select capped recovery")
   errors = errors + check(claimnext(store,job_id,"crashed-window-fixture",60,1,claim,error) = 0 & reservecall(store,claim,100000,10000,0,1000,reservation,error) = 0, "claim capped recovery")
   errors = errors + check(settlecall(store,reservation,"fixture","fixture","settled-at-window-boundary","succeeded",10,10,0,1,settled_run,error,"","local-compute",1,"",responsejson("unresolved"),ragsha256(canonicalprofile(genericprofile()))) = 0, "settle at window boundary")
   previous = scalarint(database,"SELECT count(*) FROM provider_runs")
   errors = errors + check(sqliteexec(database,"UPDATE maintenance_windows SET deadline_epoch=unixepoch() WHERE job_id='" || job_id || "'; UPDATE job_items SET lease_until=0 WHERE item_id='" || claim.item_id() || "'") = 0 & tickbacklogwindow(store,job_id,error) >= 0, "close expired window")
   recovery_claim = .ragworkclaim
   errors = errors + check(claimnext(store,"","recovery-only",60,1,recovery_claim,error,0) = 1 & nextwindow(store,capped_policy,job_id,error) = 0, "recover lease before next window " || error)
-  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=1000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || recovery_task || "') AND state='queued'") = 0, "select cached cross-window result")
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=4000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || recovery_task || "') AND state='queued'") = 0, "select cached cross-window result")
   errors = errors + check(runworkeronce(store,job_id,"new-window-worker",60,1,claim_policy,provider,disposition,error,genericprofile()) = 0 & disposition = "resolution-recorded", "reuse settled output at paid-attempt cap " || error)
   errors = errors + check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || recovery_task || "'") = "unresolved" & scalarint(database,"SELECT count(*) FROM provider_runs") = previous, "cross-window recovery makes zero duplicate calls")
 
@@ -990,7 +1219,7 @@ main: procedure = .int
   bounded_policy = changestr('"maximum_attempts":3',changestr('"model_calls":100',changestr('"inflight":1',policy_json,'"inflight":2'),'"model_calls":1'),'"maximum_attempts":1')
   budget_first = ""; budget_peer = ""
   errors = errors + check(enqueuebacklogtask(database,"budget-first","concept","concept-survivor","","",1000000,policy,budget_first,error) = 0 & enqueuebacklogtask(database,"budget-peer","concept","concept-survivor","","",1000000,policy,budget_peer,error) = 0 & nextwindow(store,bounded_policy,job_id,error) = 0,"start final-call race fixture " || error)
-  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=1000002 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || budget_first || "'); UPDATE job_items SET priority=1000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || budget_peer || "')") = 0,"select budget race claims")
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=4000002 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || budget_first || "'); UPDATE job_items SET priority=4000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || budget_peer || "')") = 0,"select budget race claims")
   peer_provider = .budgetpeerprovider(store)
   previous = scalarint(database,"SELECT count(*) FROM provider_runs")
   errors = errors + check(runworkeronce(store,job_id,"budget-owner",60,1,claim_policy,peer_provider,disposition,error,genericprofile()) = 0,"finish admitted final call " || error)
@@ -1018,7 +1247,7 @@ main: procedure = .int
    * minutes. Disabling the explicit provider cap must admit both and continue. */
   closing_task = ""
   errors = errors + check(enqueuebacklogtask(database,"alias-follow-up:closed-worker","chunk","chunk-lifecycle","","",1000000,policy,closing_task,error) = 0 & nextwindow(store,policy_json,job_id,error) = 0,"queue final extraction fixture " || error)
-  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=1000002 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || closing_task || "')") = 0,"select closing extraction")
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=4000002 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || closing_task || "')") = 0,"select closing extraction")
   closing_provider = .closingextractionprovider(store)
   errors = errors + check(runworkeronce(store,job_id,"last-worker",60,1,claim_policy,closing_provider,disposition,error,genericprofile()) = 0 & closing_provider.closed() = 1,"finish extraction after concurrent window closure " || error)
   errors = errors + check(scalartext(database,"SELECT state FROM maintenance_tasks WHERE task_id='" || closing_task || "'") = "resolved" & scalarint(database,"SELECT reserved_calls FROM jobs WHERE job_id='" || job_id || "'") = 0,"last worker reconciles before stopping without another poll")
@@ -1051,7 +1280,7 @@ main: procedure = .int
   errors = errors + check(sqliteexec(database,"INSERT INTO concepts(concept_id,canonical_label,concept_type,lifecycle_state,visible_from_generation) VALUES('" || collision_id || "','Platform','concept','active'," || generation || ")") = 0,"seed retained ID after type correction")
   collision_task = ""
   errors = errors + check(enqueuebacklogtask(database,"alias-follow-up:identity-collision","chunk","chunk-lifecycle","","",1000000,policy,collision_task,error) = 0 & nextwindow(store,policy_json,job_id,error) = 0,"dispatch colliding extraction " || error)
-  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=1000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || collision_task || "') AND state='queued'") = 0,"select colliding extraction")
+  errors = errors + check(sqliteexec(database,"UPDATE job_items SET priority=4000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || collision_task || "') AND state='queued'") = 0,"select colliding extraction")
   collision_provider = .identitycollisionprovider()
   identity_policy = .ragclaimpolicy("fixture-v1","concept|source-artifact|evidence-span","related-to|mentioned-in|mentions",1000000,750000,500000,-1000000,250000)
   errors = errors + check(runworkeronce(store,job_id,"identity-fixture",60,3,identity_policy,collision_provider,disposition,error,genericprofile()) = 0 & disposition = "concepts-and-notes","collision becomes durable repair instead of batch failure " || disposition || " " || error)
@@ -1062,12 +1291,27 @@ main: procedure = .int
   evidence = '[{"evidence_id":"candidate-identity-collision","quote":"Platform"}]'
   response = changestr('"canonical_label":""',responsejson("distinct","","[]",evidence),'"canonical_label":"Platform"')
   response = changestr('"concept_type":""',response,'"concept_type":"evidence-span"')
+  /* ESC-VAL-01/02: validate the same alias requirements before publication.
+   * Existing distinct application below remains the positive graph control. */
+  validation_grounds = ""; validation_error = ""
+  validation_generation = scalarint(database,"SELECT published_generation FROM library_meta")
+  errors = errors + check(validatebacklogresponse(database,alias_task,response,validation_grounds,validation_error) = 0,"ESC valid distinct control " || validation_error)
+  invalid_label = changestr('"canonical_label":"Platform"',response,'"canonical_label":""')
+  invalid_type = changestr('"concept_type":"evidence-span"',response,'"concept_type":""')
+  errors = errors + check(validatebacklogresponse(database,alias_task,invalid_label,validation_grounds,validation_error) <> 0,"ESC-VAL-01 empty distinct label rejected before review")
+  errors = errors + check(validatebacklogresponse(database,alias_task,invalid_type,validation_grounds,validation_error) <> 0,"ESC-VAL-01 empty distinct type rejected before review")
+  reuse_response = responsejson("reuse",collision_id,"[]",evidence)
+  errors = errors + check(validatebacklogresponse(database,alias_task,reuse_response,validation_grounds,validation_error) = 0,"ESC active supplied reuse control " || validation_error)
+  errors = errors + check(sqliteexec(database,"UPDATE concepts SET lifecycle_state='migration-parent' WHERE concept_id='" || collision_id || "'") = 0,"ESC migration-parent fixture at unchanged generation")
+  errors = errors + check(validatebacklogresponse(database,alias_task,reuse_response,validation_grounds,validation_error) <> 0,"ESC-VAL-02 supplied migration parent rejected before review")
+  errors = errors + check(scalarint(database,"SELECT published_generation FROM library_meta") = validation_generation,"ESC rejection does not publish")
+  errors = errors + check(sqliteexec(database,"UPDATE concepts SET lifecycle_state='active' WHERE concept_id='" || collision_id || "'") = 0,"restore active supplied target")
   errors = errors + check(runresolution(store,job_id,alias_task,response,error) = 0,"grounded distinct identity repairs retained-ID conflict " || error)
   label = "Platform"; selected_type = "evidence-span"; selected = ""
   errors = errors + check(resolveknownmention(database,"candidate-identity-collision",label,selected_type,selected,error) = 1 & selected \= collision_id & selected_type = "evidence-span","occurrence remembers its resolved identity")
   errors = errors + check(scalartext(database,"SELECT concept_type FROM concepts WHERE concept_id='" || collision_id || "'") = "concept","repair never overwrites old identity")
   repair_followup = scalartext(database,"SELECT task_id FROM maintenance_tasks WHERE parent_task_id='" || alias_task || "' AND kind LIKE 'alias-follow-up:%'")
-  errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0 & sqliteexec(database,"UPDATE job_items SET priority=1000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || repair_followup || "') AND state='queued'") = 0,"dispatch repaired extraction follow-up")
+  errors = errors + check(nextwindow(store,policy_json,job_id,error) = 0 & sqliteexec(database,"UPDATE job_items SET priority=4000001 WHERE item_id IN(SELECT item_id FROM maintenance_task_items WHERE task_id='" || repair_followup || "') AND state='queued'") = 0,"dispatch repaired extraction follow-up")
   errors = errors + check(runworkeronce(store,job_id,"identity-fixture",60,3,identity_policy,collision_provider,disposition,error,genericprofile()) = 0 & disposition = "concepts-and-notes","follow-up reuses resolved identity " || disposition || " " || error)
   errors = errors + check(scalarint(database,"SELECT count(*) FROM maintenance_alias_issues WHERE candidate_id='candidate-identity-collision' AND state='open'") = 0 & scalarint(database,"SELECT count(*) FROM mentions WHERE concept_id='" || selected || "' AND visible_to_generation IS NULL") > 0,"repair converges without reopening the same question")
   errors = errors + check(scalarint(database,"SELECT count(*) FROM pragma_foreign_key_check") = 0,"identity repair preserves foreign keys")

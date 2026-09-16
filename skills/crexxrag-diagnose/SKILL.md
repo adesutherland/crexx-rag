@@ -64,3 +64,11 @@ This skill declares no write capability. Refuse repair-by-SQL, job control,
 apply calls, supervisor launch/kill, outbound provider tests without explicit
 operator authorization and a declared budget, and any request to print a
 credential value.
+
+When the user requests stopping/reconnecting this MCP session, call
+`rag_mcp_stop({})`. It acknowledges and closes only the current server process;
+reconnect the client to load the installed binary. This needs read access and
+works even with unavailable policy/library. It does not stop corpus jobs or
+other sessions, and cannot interrupt an earlier blocking call. Automatic client
+reconnection is not guaranteed. Use this for an intended session stop/update,
+not merely because a corpus query has no results.

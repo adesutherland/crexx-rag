@@ -1,5 +1,15 @@
 # Documentation
 
+- [One maintenance job: approved escalation plan](maintenance-escalation-plan-20260916.md):
+  requirements, capability gaps, priorities, deferral, prompt/model routing,
+  bounded corpus search and numbered acceptance.
+
+- [Work tasks, prompts, models and completion](work-tasks-and-escalation.md):
+  current task kinds/states, routing diagrams, prompt/model selection, chunk
+  rediscovery and bounded final-pass behavior.
+- [Maintenance escalation delivery and QA](maintenance-escalation-delivery-20260916.md):
+  regression reproductions, implementation owners and the combined batch gate.
+
 - [Maintenance refactoring delivery](maintenance-refactoring-delivery.md):
   stage-by-stage coverage, qualification and source ownership, including
   the operator policy and command interface.
@@ -63,3 +73,6 @@ Guides describe the current product contracts. Proposals and qualification
 records retain their dates, tested artifacts and limits; an older run's status
 is not a live operational status report. Historical phase packets and the
 unreleased native prototype remain available through Git history.
+
+- [Test-process redesign and measured timings](test-process-redesign-20260916.md):
+  stopped 16 September gate, test classifications, ordering and result reuse.

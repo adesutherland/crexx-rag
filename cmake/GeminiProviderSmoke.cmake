@@ -1,3 +1,4 @@
+include("${CMAKE_CURRENT_LIST_DIR}/FixtureEndpoint.cmake")
 foreach(required_var CPRAG_NATIVE_APPLICATION CPRAG_LOOPBACK
         CPRAG_CONFIG_TEMPLATE CPRAG_WORK_DIR)
     if(NOT DEFINED ${required_var} OR "${${required_var}}" STREQUAL "")
@@ -16,7 +17,8 @@ if(NOT EXISTS "${CPRAG_NATIVE_APPLICATION}")
 endif()
 
 function(run_provider_smoke mode port expected_requests)
-    set(CPRAG_FIXTURE_PORT "${port}")
+    set(port 0)
+    set(CPRAG_FIXTURE_PORT 0)
     configure_file("${CPRAG_CONFIG_TEMPLATE}"
         "${CPRAG_WORK_DIR}/${mode}.conf" @ONLY)
     if(mode STREQUAL "aggregate")
@@ -44,7 +46,7 @@ function(run_provider_smoke mode port expected_requests)
     foreach(poll RANGE 1 200)
         if(EXISTS "${server_out}")
             file(READ "${server_out}" current_server_out)
-            if(current_server_out MATCHES "READY ${port}")
+            if(current_server_out MATCHES "READY [0-9]+")
                 set(ready TRUE)
                 break()
             endif()
@@ -55,6 +57,8 @@ function(run_provider_smoke mode port expected_requests)
         message(FATAL_ERROR "${mode} provider loopback did not become ready")
     endif()
 
+    crexxrag_fixture_endpoint("${server_out}" "${CPRAG_WORK_DIR}/${mode}.conf")
+    set(port "${CPRAG_FIXTURE_PORT}")
     set(cli "${CMAKE_COMMAND}" -E env
         "CPRAG_FIXTURE_GEMINI_KEY=synthetic-product-gemini-key"
         "CREXXRAG_SELF=${CPRAG_NATIVE_APPLICATION}"

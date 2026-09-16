@@ -184,7 +184,8 @@ ragapplicationprovider: class implements .ragworkprovider
     arg document = .jsondocument, root = .int, input_json = .string, claim = .ragworkclaim, provider_config = .ragproviderconfig, backend = .provider, receipt_body = ""
     empty_proposal = .ragextractionproposal
     messages = .providermessage[]; inputs = .string[]
-    role_policy = rolebinding(_config, "extractor")
+    role_name = _jsonstring(document,root,"role"); if role_name = "" then role_name = "extractor"
+    role_policy = rolebinding(_config,role_name)
     if role_policy.provider_id() \= provider_config.provider_id() | role_policy.system_prompt() = "" then return _failedwork(provider_config.provider_id(), provider_config.model(), claim, empty_proposal, "configured extraction role policy is unavailable", 0)
     discovery=_config.discovery()
     messages=extractionmessages(_profile,discovery,input_json,role_policy.system_prompt())
@@ -206,8 +207,13 @@ ragapplicationprovider: class implements .ragworkprovider
       subject_node = document.member(evidence_node,"subject")
       subject_type = _jsonstring(document,subject_node,"type")
       workflow = document.node_count(document.member(evidence_node,"successors")) > 0
-      messages=resolutionmessages(_profile,input_json,_config.maintenance().resolution_prompt(),subject_type)
+      if document.member(root,"workflow_id")>0 then workflow=_jsonstring(document,root,"workflow_id")<>""
+      objective = _jsonstring(document,root,"resolution_prompt"); if objective = "" then objective = _config.maintenance().resolution_prompt()
+      messages=resolutionmessages(_profile,input_json,objective,subject_type)
       schema=resolutionresponseschema(subject_type,workflow)
+      frozen_prompt=_jsonstring(document,root,"prompt_sha256"); frozen_schema=_jsonstring(document,root,"schema_sha256")
+      if frozen_prompt<>"" & frozen_prompt<>rxhash..sha256hex(messages[1].content() as .binary) then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,"resolution prompt identity changed; reset/re-plan the task",0)
+      if frozen_schema<>"" & frozen_schema<>rxhash..sha256hex(schema as .binary) then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,"resolution schema identity changed; reset/re-plan the task",0)
     end
     request_id = "extract-" || substr(rxhash..sha256hex(claim.attempt_id() as .binary), 1, 32)
     reservation = document.member(root, "reservation"); maximum_output = -1
@@ -228,7 +234,15 @@ ragapplicationprovider: class implements .ragworkprovider
       /* Retain the existing conservative input-envelope estimate and caps. */
       if request_bytes > maximum_input * 3 then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,"citation correction exceeds the reviewed input envelope",0)
     end
-    request = .providerrequest("generate_structured", "extractor", provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), 1, _jsonstring(document, root, "privacy"), claim.item_id(), request_id, maximum_output, 0, 0, role_policy.temperature_millionths(), provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms(), provider_config.reasoning_effort())
+    if resolution_work then do
+      maximum_input=0; ignored=document.node_int(document.member(reservation,"input_tokens"),maximum_input)
+      request_bytes=binlength(schema as .binary)
+      do m=1 to messages.0
+        request_bytes=request_bytes+binlength(messages[m].content() as .binary)
+      end
+      if maximum_input<1 | request_bytes>maximum_input*3 then return _failedwork(provider_config.provider_id(),provider_config.model(),claim,empty_proposal,"resolution request exceeds its input envelope; refresh a smaller evidence bundle or adjust policy and reset",0)
+    end
+    request = .providerrequest("generate_structured", role_name, provider_config.model(), messages, inputs, schema, provider_config.timeout_ms(), 1, _jsonstring(document, root, "privacy"), claim.item_id(), request_id, maximum_output, 0, 0, role_policy.temperature_millionths(), provider_config.initial_backoff_ms(), provider_config.maximum_backoff_ms(), provider_config.jitter_ms(), provider_config.reasoning_effort())
     durable_run_id = ""; provider_charging_basis = provider_config.charging_basis(); provider_output = .providerresult(); terminal_observed = 0; observation = ""; recovered_usage_complete = -1
     if receipt_body \= "" then do
       provider_output = _receiptoutput(receipt_body); receipt_document = .jsondocument(receipt_body)
@@ -373,7 +387,7 @@ ragapplicationprovider: class implements .ragworkprovider
     if provider_output.provider() \= _backendidentity(provider_config.kind()) | provider_output.model() \= provider_config.model() | provider_output.request_id() = "" then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, "provider returned incomplete provider/model identity", durable_run_id)
     if resolution_work then do
       grounding_json = ""; resolution_error = ""
-      if validatebacklogresponse(_store.database(), _jsonstring(document,root,"task_id"), provider_output.content(), grounding_json, resolution_error) \= 0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, resolution_error, durable_run_id, 1)
+      if validatebacklogresponse(_store.database(), _jsonstring(document,root,"task_id"), provider_output.content(), grounding_json, resolution_error,input_json) \= 0 then return _failedoutput(provider_config, request_id, claim, empty_proposal, provider_output, resolution_error, durable_run_id, 1)
       usage = provider_output.usage(); cost = usage.cost_microunits(); if cost < 0 | provider_charging_basis \= "monetary-api" then cost = 0
       mentions = .ragworkmention[]; proposals = .ragworkproposal[]; notes = .ragworknote[]
       result = .ragworkproviderresult(0, provider_config.provider_id(), provider_config.model(), request_id, usage.input_tokens(), usage.output_tokens(), cost, (provider_output.latency_us() / 1000) as .int, 0, empty_proposal, "", 0, "", "", .ragworkembedding("", "", "", "", "", 0, "", ''x as .binary), durable_run_id, provider_charging_basis, mentions, proposals, notes)
