@@ -1,0 +1,14 @@
+{
+  "native_sha256": "d9bd6040b99f83bc9bac6ca4f8ff0240445853e5e27c1b1838aab3bc158d54d9",
+  "cli_checks": 5,
+  "mcp_requests": 11,
+  "read_catalogue_hides_control_tools": true,
+  "control_catalogue_exposes_defer": true,
+  "database_and_manifest_unchanged": {
+    "library.sqlite": "9e4b97d5edca760bbf92d0d205e522cb5413fee39f5e0fd67c71e22d051d946b",
+    "manifest.json": "65dda6e8b5cf70ec0c5807c26e606f4e9c63dbd09f9958ec5a17ca4b3c109f8b"
+  },
+  "hosted_calls": 0,
+  "work": "/Users/adrian/.local/state/crexxrag/publications/20260916T143845Z/installed-smoke",
+  "harness_note": "Initial postcheck incorrectly expected the control-only defer tool in read/diagnose discovery. All 9 requests succeeded. Corrected permission check on retained responses, then independently verified control discovery; no product change or repeated functional calls."
+}

@@ -3,7 +3,8 @@
 Current decision and status authority — reconciled 16 September 2026.
 Baseline `549887f` delivers maintenance escalation, current-session MCP stop and
 isolated parallel QA. Installed CREXX `17e844441ed8` resolves the downstream #701
-regression. The qualified bounded publication is tracked in
+regression. Publication `858c67f` is installed in the normal user prefix and published to
+main. Current evidence and the documentation-only closeout are tracked in
 [the acceptance and publication record](baseline-publication-20260916.md).
 
 ## Recent defects and delivery status

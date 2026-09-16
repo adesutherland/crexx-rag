@@ -21,10 +21,10 @@ current-status authority. Starting baseline is `549887f` on `main`, clean.
 5. [x] Qualify the complete local functional gate once for the final product
    candidate; reuse exact-input passes, audit receipts and include #701. Run the
    separate scale lane for the updated runtime. Check whitespace and package.
-6. [ ] Commit, publish main and install the exact qualified revision to the
+6. [x] Commit, publish main and install the exact qualified revision to the
    normal user prefix. Verify artifact hashes and fresh installed CLI/MCP
    behavior, preserve prior RAG artifacts and record rollback information.
-7. [ ] Review remaining status, explicitly retaining hosted, endurance, platform
+7. [x] Review remaining status, explicitly retaining hosted, endurance, platform
    and content-quality work. No tagged release or corpus processing is implied.
 
 ## Selected quick fixes and baseline evidence
@@ -106,3 +106,36 @@ Its `before.json` records the prior native hash and installed CREXX identity.
 To roll back, stop the affected RAG sessions and restore those RAG paths from
 the archive into `/Users/adrian/.local`; no CREXX runtime, policy or library
 rollback is included. New source-only package files can remain unused.
+
+## Completed publication and status review
+
+Implementation commit `858c67f42dbb76d77ccff0a0b53012f300bfcf18` is installed in
+`/Users/adrian/.local` and published to `origin/main`; the remote SHA was checked
+independently. Both native and linked installed hashes match the qualified
+artifacts above. This closeout changes documentation/evidence only; final
+publication HEAD is recorded beside the rollback archive in `installed.json`.
+
+Five fresh installed CLI checks passed (doctor, status, verify, lexical inspect
+and citation resolution), followed by nine MCP requests covering discovery,
+status, verification, query/citation, queue, prompt and session stop. Two further
+MCP requests verified control-permission discovery. All eleven succeeded;
+read/diagnose correctly hides the control-only deferral tool, and read/control
+exposes it. The initial harness postcheck incorrectly expected that tool in the
+read-only catalogue. Retained responses proved the functional calls had passed;
+correcting that assertion required no product edit or repeated functional calls.
+The copied fixture database and manifest remain byte-identical. No hosted calls,
+user library writes or Scottish installation changes occurred.
+
+The final receipt audit accounts for **123 passed cases** (122 functional and
+one scale), with no disabled, failed or missing case. Documentation changes after
+functional QA receive only a fresh documentation-contract check; the unchanged
+product receipts remain valid. `git diff --check` passes. No tagged release or
+hosted/cross-platform/endurance qualification is claimed.
+
+Closed in this batch: master-register omissions/stale #701 status, HC-31's typed
+lease-range mismatch and outdated escalation guidance. HC-46's format guidance
+is delivered; per-file unsupported-format reporting stays proposed. #701 is
+closed upstream and qualified downstream. #699, T7-10 and broader OPS/QA/QE work
+retain their explicit scope in the master. Recommended next choices are a small
+T7-10 host-lifetime experiment, OPS-007 job files, then measured QE-09 retrieval
+baselining before larger query/model changes. No such work is started here.

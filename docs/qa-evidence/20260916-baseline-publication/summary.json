@@ -8,9 +8,9 @@
       "tier": "fast",
       "processors": 1,
       "state": "passed",
-      "evidence_key": "e9df6c0b63165a981faa9e3c13f0d671a9d72d2eb764c4c127927914daca15d2",
-      "seconds": 0.687,
-      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/documentation_contract/20260916T154609-e6ec9e9f"
+      "evidence_key": "0585e9cdb51fd518fa47ccd37de139b6b444907caa3fb521fc23bbf8c66b7542",
+      "seconds": 0.537,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/documentation_contract/20260916T154832-1984b557"
     },
     {
       "case": "linked_application",
