@@ -1,0 +1,30 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start  19: configuration_contract
+    Start  64: documentation_contract
+    Start  14: regression_policy_file_vm
+    Start 114: regression_lifecycle
+1/4 Test  #64: documentation_contract ...........   Passed    1.06 sec
+2/4 Test  #14: regression_policy_file_vm ........   Passed    1.10 sec
+3/4 Test #114: regression_lifecycle .............   Passed    3.41 sec
+4/4 Test  #19: configuration_contract ...........   Passed   17.55 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Label Time Summary:
+RAG-OPS-002       =   3.41 sec*proc (1 test)
+accounting        =   3.41 sec*proc (1 test)
+configuration     =  18.65 sec*proc (2 tests)
+documentation     =   1.06 sec*proc (1 test)
+gemini            =  17.55 sec*proc (1 test)
+methodology       =   1.06 sec*proc (1 test)
+policy            =   1.10 sec*proc (1 test)
+privacy           =  17.55 sec*proc (1 test)
+regression        =   4.52 sec*proc (2 tests)
+skills            =   1.06 sec*proc (1 test)
+sqlite            =   1.10 sec*proc (1 test)
+tier-component    =  22.06 sec*proc (3 tests)
+tier-fast         =   1.06 sec*proc (1 test)
+worker            =   3.41 sec*proc (1 test)
+zero-outbound     =  23.12 sec*proc (4 tests)
+
+Total Test time (real) =  17.56 sec

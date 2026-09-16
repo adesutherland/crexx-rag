@@ -1,0 +1,1114 @@
+{
+  "counts": {
+    "passed": 123
+  },
+  "cases": [
+    {
+      "case": "documentation_contract",
+      "tier": "fast",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "e9df6c0b63165a981faa9e3c13f0d671a9d72d2eb764c4c127927914daca15d2",
+      "seconds": 0.687,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/documentation_contract/20260916T154609-e6ec9e9f"
+    },
+    {
+      "case": "linked_application",
+      "tier": "fast",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "b239e844fc9f1c6ecfe485a6a862e3546e7f4b9e8b471979e1a72de63e8a0e85",
+      "seconds": 3.375,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/linked_application/20260916T153756-b41e9f4e"
+    },
+    {
+      "case": "qa_execution",
+      "tier": "fast",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "18d5b91afc632852d6be9797b6d113b5b03c15f135347b8083d905a106f10ddf",
+      "seconds": 1.668,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/qa_execution/20260916T153756-ae4353ad"
+    },
+    {
+      "case": "regression_claim_policy",
+      "tier": "fast",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "8bea04fe0266ead9568f716c107cabd61b2b96d66e1d5c8fa298acc67386fa3f",
+      "seconds": 0.277,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_claim_policy/20260916T153756-5c5702aa"
+    },
+    {
+      "case": "regression_command_catalogue",
+      "tier": "fast",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "3ad862e5f8a82d13b56ddb984ded7df5ee9adcbb08d3a7eeaa9467073d01fe57",
+      "seconds": 1.691,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_command_catalogue/20260916T153756-1ca86eec"
+    },
+    {
+      "case": "regression_command_metadata",
+      "tier": "fast",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "88d6e962d0a7cd18ce777fc3eb1d5f4e19f03c0c97a3852bf9dba7aea01837f9",
+      "seconds": 0.688,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_command_metadata/20260916T153756-3b197e41"
+    },
+    {
+      "case": "regression_prompt_inspection",
+      "tier": "fast",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "14cd3631d4410a1c18111619fb155c5e4ccb8ea0dfd0dacfd39275b4b00d1c25",
+      "seconds": 3.792,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_prompt_inspection/20260916T153756-cde578d1"
+    },
+    {
+      "case": "regression_smoke_stale_workers",
+      "tier": "fast",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "286eb59359fb4449cbe7700602da28eca8f77d9b3bf3a0aaf420c205864ed2b7",
+      "seconds": 3.629,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_smoke_stale_workers/20260916T153756-a01730cd"
+    },
+    {
+      "case": "regression_smoke_terminal_state",
+      "tier": "fast",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "d45b6affea54e690e11288060c833cb74d23bad8f00b6368ac5de9476e24b37c",
+      "seconds": 3.932,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_smoke_terminal_state/20260916T153756-ec296e67"
+    },
+    {
+      "case": "ann_methodology",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "8006509e92e52b8ed6f41e0f939e6088bf0dfde70a70f302c0f0b641dd51e96f",
+      "seconds": 6.719,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/ann_methodology/20260916T153800-29cae064"
+    },
+    {
+      "case": "codex_protocol_noopt_rxbvm",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "5c0da4b5a195a891e11ea913d744ec17a59e5f7fbe31b3ccbf20544172175594",
+      "seconds": 8.041,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/codex_protocol_noopt_rxbvm/20260916T153800-20c5c204"
+    },
+    {
+      "case": "codex_protocol_noopt_rxvme",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "1caeefa477502128158f37e42249e762f9ef84f17700f86b43ccc848d2fa3736",
+      "seconds": 11.814,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/codex_protocol_noopt_rxvme/20260916T153758-9f35eb32"
+    },
+    {
+      "case": "codex_protocol_opt_rxbvm",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "319d5810edfbbc6941e400fbfeb834d12a2db29b827f915d31ec3d739e35cf6a",
+      "seconds": 8.052,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/codex_protocol_opt_rxbvm/20260916T153800-1474c623"
+    },
+    {
+      "case": "codex_protocol_opt_rxvme",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "fa8a5f35569677c6836a182af67426d3816ebc3aeb50738f9cc1efb21d132492",
+      "seconds": 11.599,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/codex_protocol_opt_rxvme/20260916T153800-13b33694"
+    },
+    {
+      "case": "configuration_contract",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "40ff4b28493fae59cea1473494312f560b291c2f9c9f7fe6181e013c7b058455",
+      "seconds": 17.458,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/configuration_contract/20260916T153624-f995ad2e"
+    },
+    {
+      "case": "durable_backlog",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "3747c57aa1944565544840d5756a16ed5117fa711d44d0ff19b5d8d20b02cc1f",
+      "seconds": 12.839,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/durable_backlog/20260916T153810-ea6709d6"
+    },
+    {
+      "case": "durable_backlog_escalation",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "54b590f24df226b992d8e5fc6b45aeb15ef286326c8e227193e17e66479d8030",
+      "seconds": 3.376,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/durable_backlog_escalation/20260916T153654-2a1ec046"
+    },
+    {
+      "case": "evidence_methodology",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "18965276da1052c3f37df4d39316ab02471a848e32b85e7226bf646bda209d7c",
+      "seconds": 11.015,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/evidence_methodology/20260916T153807-257b4fc1"
+    },
+    {
+      "case": "lifecycle_methodology",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "19d7cc3fccdc3b108986e2a6dd53bd6cd2641b8f9a9fba4e8902897dfcc3eed3",
+      "seconds": 8.129,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/lifecycle_methodology/20260916T153800-56018005"
+    },
+    {
+      "case": "maintenance_methodology",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "d0612bc3cab402c7ee7ff6c64e73bd2019f9b47889ae623693922983a56d235d",
+      "seconds": 10.638,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/maintenance_methodology/20260916T153808-24361750"
+    },
+    {
+      "case": "provider_durability",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "24b7853e5e270b00fb49ced7fa1ca97d02e683614c713d70a0d0ceafe6839278",
+      "seconds": 21.149,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/provider_durability/20260916T153758-e2f02fc2"
+    },
+    {
+      "case": "quotation_grounding",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "1d25dc4987ad3b8bbad70817608c63affc0b33063cd47c2ec5753521fb7f82b0",
+      "seconds": 3.015,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/quotation_grounding/20260916T153808-c96aaee7"
+    },
+    {
+      "case": "regression_lifecycle",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "d214f72095a44731b180a751ce823a50e73d5ea64968a429570d313f1c927469",
+      "seconds": 3.331,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_lifecycle/20260916T153624-109501f5"
+    },
+    {
+      "case": "regression_policy_file_vm",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "3cad5df4772d4ae96e5529ef0550d550a6b119c0e0992a66de56baa9f177fb59",
+      "seconds": 1.022,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_policy_file_vm/20260916T153624-70ead65a"
+    },
+    {
+      "case": "regression_rule_simplification",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "56770dbf8bbfd61b82e1b8fbe983d94bbb025892e22359291ac4c826810778eb",
+      "seconds": 3.434,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_rule_simplification/20260916T153757-0b4fff6f"
+    },
+    {
+      "case": "regression_sql_performance",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "e94ea02546aff34dcd78678f0dbe3279c2a1d853f8d5bc75ca4df3e028522598",
+      "seconds": 2.308,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_sql_performance/20260916T153812-4a63dd3f"
+    },
+    {
+      "case": "regression_supervision",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "db4e51a7ef174951c1328cc277bb7f12adbb468d0145e05dd1670790f9fa47d0",
+      "seconds": 28.377,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_supervision/20260916T153757-8a063c67"
+    },
+    {
+      "case": "task_reset",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "171e2d4f61d34587c9d1ef929763ba549acbf8e3844c2bc5b75cf203db9a7a9f",
+      "seconds": 11.711,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/task_reset/20260916T153811-9393a67d"
+    },
+    {
+      "case": "temporal_provenance",
+      "tier": "component",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "276b71145f88842f61b0305c7a2149b4a559724c10b455fa88b7642989ace224",
+      "seconds": 54.165,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/temporal_provenance/20260916T153808-9edc2de0"
+    },
+    {
+      "case": "address_surface",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "7734b0eb87907a690153493d30c5dfb292af8491e494c593621b331fb3b59124",
+      "seconds": 5.825,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/address_surface/20260916T153853-15db64c4"
+    },
+    {
+      "case": "codex_application",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "2be3040c793ca555d496beeb538db390c89ca63644e97b3f6409af20e8e44343",
+      "seconds": 4.697,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/codex_application/20260916T153837-e63c9713"
+    },
+    {
+      "case": "codex_protocol_turnover",
+      "tier": "scale",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "f4a67ec4db17d7ddffdcc09df786d69e38f37ae291d5af5303ead2de633f8faf",
+      "seconds": 4.732,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/codex_protocol_turnover/20260916T154513-37eac54a"
+    },
+    {
+      "case": "controller_recovery_cleanup",
+      "tier": "integration",
+      "processors": 8,
+      "state": "passed",
+      "evidence_key": "be80387074f3ac32fc6f70d561a372204c44a348d3decc025d95b2ae04082740",
+      "seconds": 9.622,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/controller_recovery_cleanup/20260916T154210-a8b4fbb2"
+    },
+    {
+      "case": "controller_recovery_completed",
+      "tier": "integration",
+      "processors": 8,
+      "state": "passed",
+      "evidence_key": "8c388abe5f1e3e229e667f6a794bad00cca0b5b7653709dbe5615af8260564e3",
+      "seconds": 5.873,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/controller_recovery_completed/20260916T154204-ee93d350"
+    },
+    {
+      "case": "controller_recovery_exhausted",
+      "tier": "integration",
+      "processors": 8,
+      "state": "passed",
+      "evidence_key": "2c9ad8c446c3131d99b7b3e9a177d39d945a3be06ee93742c120027425112c52",
+      "seconds": 5.894,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/controller_recovery_exhausted/20260916T154226-e9968961"
+    },
+    {
+      "case": "controller_recovery_interrupted",
+      "tier": "integration",
+      "processors": 8,
+      "state": "passed",
+      "evidence_key": "88b72279463823811209179ee492e7cb0c6d4be3eb145f5ab920444ce8d666f5",
+      "seconds": 5.98,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/controller_recovery_interrupted/20260916T154158-80e2edb8"
+    },
+    {
+      "case": "controller_recovery_unavailable",
+      "tier": "integration",
+      "processors": 8,
+      "state": "passed",
+      "evidence_key": "f968446fef25907992c4dd5f274705990dc84599dfb1287b130adc3b8911a9e0",
+      "seconds": 6.225,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/controller_recovery_unavailable/20260916T154220-53e5ae3d"
+    },
+    {
+      "case": "controller_recovery_unavailable-only",
+      "tier": "integration",
+      "processors": 8,
+      "state": "passed",
+      "evidence_key": "f308786a8fc4223e4cb14b4750a3a1476c37c78906186bed96cfa4f4140b8d6e",
+      "seconds": 4.405,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/controller_recovery_unavailable-only/20260916T154232-9ee7316b"
+    },
+    {
+      "case": "durable_backlog_provider_advanced",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "d0961280ddadbf88b7a0e2db6cd04337af31a55a9929463eb118b7483852a602",
+      "seconds": 3.466,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/durable_backlog_provider_advanced/20260916T153654-d7240180"
+    },
+    {
+      "case": "durable_backlog_provider_budget",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "ea88573590e50336cc8c7b39fc406da97443df8db421b94bd2f424a71f9b973e",
+      "seconds": 5.876,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/durable_backlog_provider_budget/20260916T154007-fe70ed46"
+    },
+    {
+      "case": "durable_backlog_provider_concurrent",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "f505aeccd5aa1f00443266fad463aedad8442eb05078d3d4f64c6ff4778024f4",
+      "seconds": 6.181,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/durable_backlog_provider_concurrent/20260916T154006-a1c6d8a6"
+    },
+    {
+      "case": "durable_backlog_provider_continuation",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "8c167337374eec1527284a4fa9fa0ea48cc7d8411f66109d1f9e78f294a88854",
+      "seconds": 7.248,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/durable_backlog_provider_continuation/20260916T154008-2b545d80"
+    },
+    {
+      "case": "durable_backlog_provider_correction",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "d82aa79595db979d6ef6bcacc36931b5a54ca565f651f3f205e79e77ff76dee0",
+      "seconds": 4.499,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/durable_backlog_provider_correction/20260916T154012-e15f92e3"
+    },
+    {
+      "case": "durable_backlog_provider_correction-budget",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "aa996d08f4144c80af711757d5766af23a6b0af210493373e2bbb1d20abf8b4a",
+      "seconds": 4.66,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/durable_backlog_provider_correction-budget/20260916T154015-42f57849"
+    },
+    {
+      "case": "durable_backlog_provider_correction-failed",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "a1f6f732482c3a945c45f716af4a24d2054acdf1b06da9ce16f389c96f1fc05a",
+      "seconds": 4.44,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/durable_backlog_provider_correction-failed/20260916T154013-4aa629f9"
+    },
+    {
+      "case": "durable_backlog_provider_item-limit",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "fb2fbf75fe4fb32416690276d2df16417dbe369367e0976e2ea3a5f9d61e854f",
+      "seconds": 7.939,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/durable_backlog_provider_item-limit/20260916T154009-1e23bc12"
+    },
+    {
+      "case": "durable_backlog_provider_malformed",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "bcd00bc014c88fe8f311e6a6a4ae64bdc5c3740f49568dbacc7702fcd89f58d9",
+      "seconds": 4.399,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/durable_backlog_provider_malformed/20260916T153959-ed64523e"
+    },
+    {
+      "case": "durable_backlog_provider_manual",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "ce543410f22b2cf3b476c6c791d73dbed6640e34eba8854106662a85d19c0702",
+      "seconds": 4.685,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/durable_backlog_provider_manual/20260916T154004-73693439"
+    },
+    {
+      "case": "durable_backlog_provider_rejected",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "b1947bc4e9687f576c6338b62cc9dbcdbe9bf1bc5908b407c7f448f13bb699ec",
+      "seconds": 3.845,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/durable_backlog_provider_rejected/20260916T154003-01ca638c"
+    },
+    {
+      "case": "durable_backlog_provider_valid",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "9a277d412aa4a6aeba9c6303670b1a075c7dda37bf7527d080f660d2320752b2",
+      "seconds": 5.41,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/durable_backlog_provider_valid/20260916T153959-8018de99"
+    },
+    {
+      "case": "embedding_exhaustion",
+      "tier": "integration",
+      "processors": 8,
+      "state": "passed",
+      "evidence_key": "e8ecbee6848fcbc466de7391b09c12d02cdf064378577f43d0e90f482df6de7d",
+      "seconds": 45.044,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/embedding_exhaustion/20260916T154257-4b0b9c56"
+    },
+    {
+      "case": "embedding_publication",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "e02d769f442ba133cc341b7d7b49effec12f5f439a716f011b008b2634c4ca21",
+      "seconds": 9.117,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/embedding_publication/20260916T154017-b14a7e16"
+    },
+    {
+      "case": "embedding_recovery",
+      "tier": "integration",
+      "processors": 8,
+      "state": "passed",
+      "evidence_key": "88f02742e6068dfdd1cbecae2001e072945003b08b19b6d30e64efb91a26ba5a",
+      "seconds": 20.769,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/embedding_recovery/20260916T154236-93d630fa"
+    },
+    {
+      "case": "gemini_extraction_validation",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "fec7247acd983449d71e401b089d66317a5e2d71fb3762b2f769a46eaeeacf65",
+      "seconds": 9.898,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/gemini_extraction_validation/20260916T153829-291cc250"
+    },
+    {
+      "case": "gemini_ingestion",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "04e911145e406e98655a2dd3aac6584911bb291db466e05baa7aea8194a85efb",
+      "seconds": 16.001,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/gemini_ingestion/20260916T153827-28861272"
+    },
+    {
+      "case": "gemini_maintenance",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "e3f7581c8c0a266eeeb847899d1070641a0dbe8a60f86dc0a08fa1d5a47ee25a",
+      "seconds": 16.21,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/gemini_maintenance/20260916T153849-1ac98b9f"
+    },
+    {
+      "case": "gemini_provider_smoke",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "851455b38b2db54b581404c36ba931ccb79102d919fb79d346a59c3165d802ea",
+      "seconds": 2.675,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/gemini_provider_smoke/20260916T153902-90d85604"
+    },
+    {
+      "case": "gemini_query",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "167b1f82568d0b619c12c58c65da2df3f70128ace3e079ddcccc7f0ecdafa67a",
+      "seconds": 13.512,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/gemini_query/20260916T153912-1c347eea"
+    },
+    {
+      "case": "installed_product",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "a8460fbe23e3e8e02ed003555679414437358aecdd8866146427f8213b37b31e",
+      "seconds": 32.756,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/installed_product/20260916T153654-ff934c58"
+    },
+    {
+      "case": "local_embedding_protocol",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "e8a3ae9e0456883c0740042f40d23f14e63b8cf8979d4b7ac7f000e86aa34db8",
+      "seconds": 8.037,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/local_embedding_protocol/20260916T153903-8dd6dbbb"
+    },
+    {
+      "case": "native_admission",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "173f65d9b40e96836ed77bfd979900ec54b21fd48e54ee93666f44a0d503c6ca",
+      "seconds": 4.679,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_admission/20260916T154026-9842989b"
+    },
+    {
+      "case": "native_continuation",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "8fef59a502c0d1548d822b3a9b5c618c9cba02324c1521062182231969bccdbd",
+      "seconds": 13.312,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_continuation/20260916T154342-291ed306"
+    },
+    {
+      "case": "native_continuation_holds",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "be5d9a49cf57de428ed8225610ad4088b28dfc571f54093aa65752e9e3ab6d92",
+      "seconds": 19.278,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_continuation_holds/20260916T154407-b7e16fa5"
+    },
+    {
+      "case": "native_embedding_retry_policy",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "0bb91b689fd08ca5e6b7428f3f8aa2f031f5a0a6c50a205b37d0759d574ee17a",
+      "seconds": 11.605,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_embedding_retry_policy/20260916T154427-f7d396f4"
+    },
+    {
+      "case": "native_interruption",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "3094e4a4e4c49ed7d78be66b7c5bd9e7bcf1f4de1e39c64ffd3316c3cc809d56",
+      "seconds": 8.545,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_interruption/20260916T154026-e8e0aefb"
+    },
+    {
+      "case": "native_legacy_retry_ceiling",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "ee88128536c243f238bb718467ea055d456e9d001322e62180fec9660aee3143",
+      "seconds": 11.432,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_legacy_retry_ceiling/20260916T154356-1152566a"
+    },
+    {
+      "case": "native_lifecycle",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "1ec1e97d43929e37314efb3560e0c24c21bdb07fbb0df7d04411accbb8276455",
+      "seconds": 17.1,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_lifecycle/20260916T153940-6774d746"
+    },
+    {
+      "case": "native_lifecycle_holds",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "0a7297c685869032d36ab398b60588caedf4d120e8c1f300125d39bf6fdc3259",
+      "seconds": 18.292,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_lifecycle_holds/20260916T154028-f0f76953"
+    },
+    {
+      "case": "native_publication",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "0217b7dab4e9988b0b9acc2a05f79ddb72b84ad01d731e79fc0dae93c3be86af",
+      "seconds": 13.188,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_publication/20260916T154017-3bb79a85"
+    },
+    {
+      "case": "native_receipt_failure",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "d5310bf60d98c0eef5303714a4f74c15dbe586e774e515ee768d5578c83b20ea",
+      "seconds": 8.471,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_receipt_failure/20260916T154018-53c1b0bc"
+    },
+    {
+      "case": "native_receipts",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "893c4cc01c8233ac8bdaee377db313fd638b98e506ad36da13d8a2ea9bc08517",
+      "seconds": 7.92,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_receipts/20260916T154020-6b4269dc"
+    },
+    {
+      "case": "native_retry_reset",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "baeab5963c74f655dded8b394150fe0bfcb700a7333d426c0fa0630b3740a4af",
+      "seconds": 11.987,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_retry_reset/20260916T154438-97066088"
+    },
+    {
+      "case": "native_supervision_aged",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "3f0fc2ea917ae5e4447f1be32d5b082cdfedde6005a773099f5f89e127a00f90",
+      "seconds": 6.074,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_supervision_aged/20260916T153950-98c862f2"
+    },
+    {
+      "case": "native_supervision_bad-task",
+      "tier": "integration",
+      "processors": 8,
+      "state": "passed",
+      "evidence_key": "11fc0f17ec1e45a00b58aa88866f1ff665a5bc9cc11ff8551347c7ed314adcc6",
+      "seconds": 27.472,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_supervision_bad-task/20260916T154058-bcb3b026"
+    },
+    {
+      "case": "native_supervision_cancel",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "d19ef0f641d1596db2cc77ae874050493eb18334cacd72e892086cdc218a9c27",
+      "seconds": 2.63,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_supervision_cancel/20260916T153956-fd35851f"
+    },
+    {
+      "case": "native_supervision_outage",
+      "tier": "integration",
+      "processors": 8,
+      "state": "passed",
+      "evidence_key": "660db434890a434b8e8ace5dfedef3d602d62ab20b3cec9f9e98c891d195d028",
+      "seconds": 11.569,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_supervision_outage/20260916T154046-80a75804"
+    },
+    {
+      "case": "native_supervision_positive",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "3c8083e869c5bbd6505522700f9eb1bd0a19d6b915ae2125d4bbd6fdc48654f7",
+      "seconds": 5.353,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_supervision_positive/20260916T153945-d56ec5a8"
+    },
+    {
+      "case": "native_supervision_replenish",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "6492a606881ef42ed07f6fb943104ec67485f1e6ab9822c34b58045bb3afa0dc",
+      "seconds": 8.762,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_supervision_replenish/20260916T153950-f2e5fdd4"
+    },
+    {
+      "case": "native_surfaces",
+      "tier": "integration",
+      "processors": 2,
+      "state": "passed",
+      "evidence_key": "417733990b91f32b7cf3139d01b79b0f39cc4ec31eb9f35f45051cf73e6cdcda",
+      "seconds": 10.811,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/native_surfaces/20260916T153957-a41deba7"
+    },
+    {
+      "case": "process_workers",
+      "tier": "integration",
+      "processors": 8,
+      "state": "passed",
+      "evidence_key": "b00d69e3082c161e9e674fc088dbb8fe3b91607d4189fd1a51979de37dcc8939",
+      "seconds": 27.093,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/process_workers/20260916T154131-c23acbe4"
+    },
+    {
+      "case": "publication",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "ca8c350dd801d8f2d8f07030f738fdd020f6c541f2ae2f43fab389950353bb8c",
+      "seconds": 28.692,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/publication/20260916T153905-8d090c0d"
+    },
+    {
+      "case": "qa_fixture_lifetime",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "bc4359deff24279c70396c4ddd9717d5dd9ee6d2c1173059838d9cfa5ee500d5",
+      "seconds": 11.113,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/qa_fixture_lifetime/20260916T153937-a5c893d2"
+    },
+    {
+      "case": "query_policy",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "c68ad3e24069198ee81596139e51503d912d8226b6b81da1c84ed60635c814d1",
+      "seconds": 11.516,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/query_policy/20260916T153851-844ca5a3"
+    },
+    {
+      "case": "regression_closed_retry",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "3da80113bdc77d3a9bb65c6a9d1b8dd5a17598da68553e6d4b9816a46bc5d6cd",
+      "seconds": 8.249,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_closed_retry/20260916T153930-caa19190"
+    },
+    {
+      "case": "regression_command_arguments",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "837d9162e4e8202ebadfccd1447c6577c4371c940384788dbf7b5d77ad853c1b",
+      "seconds": 17.557,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_command_arguments/20260916T153823-8e90037f"
+    },
+    {
+      "case": "regression_controller_closure_control",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "56f588efd3e5a758292e4851d39ee08abf1b7788070413395c58615865e886a2",
+      "seconds": 9.78,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_controller_closure_control/20260916T153905-6be3123e"
+    },
+    {
+      "case": "regression_controller_closure_hup",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "1241c0edbca7350f06a4a262e8a795041d43b433d5656fb97c9d27e52c244d8c",
+      "seconds": 2.012,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_controller_closure_hup/20260916T153921-600a9aff"
+    },
+    {
+      "case": "regression_controller_closure_int",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "74f19658cb77a2d69c93e5ce9e8bea3a3faad05e4f24f4f216635b01b7842f3a",
+      "seconds": 1.669,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_controller_closure_int/20260916T153921-a9f4bb79"
+    },
+    {
+      "case": "regression_controller_closure_kill",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "7f66b6f03fb43a65e6975d5d178c64bd9395cad31ec8705de79659a3d1c8ea94",
+      "seconds": 1.905,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_controller_closure_kill/20260916T153923-f0305d7b"
+    },
+    {
+      "case": "regression_controller_closure_stderr_closed",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "786b79f6e15572d5348d46407c743ca3726ec477e455d0116d1f53a94e033e3e",
+      "seconds": 9.841,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_controller_closure_stderr_closed/20260916T153915-d2f50711"
+    },
+    {
+      "case": "regression_controller_closure_stdin_eof",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "141e2899382cb746b8738173064ccf60b9b071213dbb75cd595eb40c7963c2f6",
+      "seconds": 10.138,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_controller_closure_stdin_eof/20260916T153909-247d3878"
+    },
+    {
+      "case": "regression_controller_closure_stdout_closed",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "94cad2bb33e5590614dccc1f5132a2dba8d32a61ef6d30572fec7c8cc2be4111",
+      "seconds": 10.095,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_controller_closure_stdout_closed/20260916T153911-1e81c6bb"
+    },
+    {
+      "case": "regression_controller_closure_term",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "2a1460d19b598a5a8e642aecf494a947d53a76d29db8fc55e5fda162cf794b44",
+      "seconds": 1.806,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_controller_closure_term/20260916T153919-1cdba2b5"
+    },
+    {
+      "case": "regression_controller_loss",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "22b0c930da36a1ae987c44b56ca10e1d9954f677571e4f9eaaf425a47613abf0",
+      "seconds": 2.072,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_controller_loss/20260916T153923-dc70a6aa"
+    },
+    {
+      "case": "regression_controller_term",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "96055145f64d2c3dc529669215c46ed3882f317218e05b4d446ddd9bd00df1da",
+      "seconds": 2.345,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_controller_term/20260916T153925-880c95c6"
+    },
+    {
+      "case": "regression_folder_include",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "e5268041a9c1c3ddc2fc2ec285a6f3293a62d3c6173c32bffdd4580e2aba3351",
+      "seconds": 14.449,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_folder_include/20260916T153814-b2ffc16e"
+    },
+    {
+      "case": "regression_ingest_capacity",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "d1680a6acac0265dee0ec8893b139d3e4a2e437bb614b0f36dc17279621a1c95",
+      "seconds": 6.056,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_ingest_capacity/20260916T153933-c27cce93"
+    },
+    {
+      "case": "regression_job_deadline",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "2588f05d972601ea9afca8e87325832f3db583b54de59dbee8ae7b2e2d912358",
+      "seconds": 7.692,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_job_deadline/20260916T153819-369ce41b"
+    },
+    {
+      "case": "regression_large_job",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "dafd83001407763d79fbc9b7f86da13df524bd7e15c3d338a468f1f08de86472",
+      "seconds": 4.038,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_large_job/20260916T153927-5847de3f"
+    },
+    {
+      "case": "regression_operator_diagnostics",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "37e60d6c32f223c635db9e3e5b1f773da352c3090b38f5ee5f1b01003cd79002",
+      "seconds": 20.757,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_operator_diagnostics/20260916T153823-49eae858"
+    },
+    {
+      "case": "regression_page_max",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "3c3ab62366aa89abd29d942c6f163549b0897aee1c2c79911a73b7136fe4884c",
+      "seconds": 4.297,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_page_max/20260916T153925-202ec4b9"
+    },
+    {
+      "case": "regression_pages",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "688a18a67d86df4925cda159d46b1b36d60fc024146673b65edba7d3a6f827a1",
+      "seconds": 40.617,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_pages/20260916T153925-21ca6985"
+    },
+    {
+      "case": "regression_plan_detail",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "d4ce4d5a8b9c3a64d28d3212c491e78e7f706e7e185d0138c2bb3447972e912d",
+      "seconds": 16.962,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_plan_detail/20260916T153928-8b18d9ef"
+    },
+    {
+      "case": "regression_policy_file",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "a9ea9ee875851bdcb234d4c6d46cbe26082ac020d2ce0c69e8a24fa6585ce1d5",
+      "seconds": 18.179,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_policy_file/20260916T153822-a492991c"
+    },
+    {
+      "case": "regression_prompt_contract",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "89786d40508f045de3733fcdbc0a6b7e4f52652a5299a6866fbd76b3525344e4",
+      "seconds": 45.939,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_prompt_contract/20260916T153826-a453a6b3"
+    },
+    {
+      "case": "regression_reset_retries",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "6102d79e40b0d2ed501f2a95d0f0dca8826bc54818f3bc7fd0ff4666bd185efa",
+      "seconds": 6.766,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_reset_retries/20260916T153930-db014a00"
+    },
+    {
+      "case": "regression_restart_live",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "3b3634b60b50dae2bce8d20ee0ae657a72f7b222921862a3d5f35164ffba5f88",
+      "seconds": 5.314,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_restart_live/20260916T153925-e19252a1"
+    },
+    {
+      "case": "regression_result_contract",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "fb01508d62db00cc37f817707cb8ddfa8e40b469b7cdb3e0ebe9472a58cfbeb0",
+      "seconds": 5.629,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_result_contract/20260916T153859-9a1a569b"
+    },
+    {
+      "case": "regression_retrieval",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "226cae254dc9a34bdd0aa4acdc0869cf8ef816ecfdd3565797618c73b564d474",
+      "seconds": 11.494,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_retrieval/20260916T153931-8d0b9260"
+    },
+    {
+      "case": "regression_retrieval_unicode",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "1b73c1b45ffe6ada4779c3494f6d79781088eecf266ed632a5aaa60ae730bd1e",
+      "seconds": 21.494,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_retrieval_unicode/20260916T153932-daeac859"
+    },
+    {
+      "case": "regression_retry",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "29dc33eba49b59bba5de4374e4fb50b1020852596bb17a04f54e7b7256252048",
+      "seconds": 3.78,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_retry/20260916T153928-4d3f83d7"
+    },
+    {
+      "case": "regression_source_backlog",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "dd516acee3e2e6f9339a380fee2a6aebe240f26725ad2e7a3c383db743beed05",
+      "seconds": 4.094,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_source_backlog/20260916T153818-e4a3a29f"
+    },
+    {
+      "case": "regression_source_maintenance",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "09616acf898e62cb2ac1b00f0deb6d193ad21cd0de996f30b2f2b14f8e83a3c7",
+      "seconds": 18.742,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/regression_source_maintenance/20260916T153819-9d872568"
+    },
+    {
+      "case": "test2_completion",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "58c10880bcc58117d3921afcd86f7a3efb0e8bb99686350196f4bbedd78d38a6",
+      "seconds": 23.138,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/test2_completion/20260916T153905-a7278ce6"
+    },
+    {
+      "case": "worker_recovery_admission-release",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "bf99375ac9783d398ccd637317870aabc558feda920a36bbd059df30bd3bc559",
+      "seconds": 2.666,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/worker_recovery_admission-release/20260916T153844-7fd5c655"
+    },
+    {
+      "case": "worker_recovery_citation-exhausted",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "200eb8dea87e38717e0937b89b3ce3192761153bcd1e3174cd478514849726ef",
+      "seconds": 5.861,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/worker_recovery_citation-exhausted/20260916T153847-f778d060"
+    },
+    {
+      "case": "worker_recovery_citation-feedback",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "6b64259671103a0d24171d8de3592b9f5be9356955a48136ae74d3c9d515bfe0",
+      "seconds": 5.704,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/worker_recovery_citation-feedback/20260916T153845-f359f4c6"
+    },
+    {
+      "case": "worker_recovery_preflight-always",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "20e14fc28d61338c4260ca9a3ceb4b032f6b861da622d471a4d91e51056c50f6",
+      "seconds": 46.061,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/worker_recovery_preflight-always/20260916T153841-3a5ae9dd"
+    },
+    {
+      "case": "worker_recovery_preflight-disabled",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "43ce49fbd9de2dbb33d6668ce9cef0359f35b794b9d7d7fce0dd9a0a39e2aaa7",
+      "seconds": 2.628,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/worker_recovery_preflight-disabled/20260916T153842-b606a88b"
+    },
+    {
+      "case": "worker_recovery_preflight-once",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "551f39d9d35d2243a451323e777d865e23068d5edcc6d2ee76f1a43faf9ca110",
+      "seconds": 69.025,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/worker_recovery_preflight-once/20260916T153841-66a908eb"
+    },
+    {
+      "case": "worker_recovery_receipt-write",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "cf3e64dbb8b21eea72b659072d43d12fc571ba76fa48ab158be9524cc1770e28",
+      "seconds": 9.898,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/worker_recovery_receipt-write/20260916T153839-75421a96"
+    },
+    {
+      "case": "worker_recovery_turn-disconnect",
+      "tier": "integration",
+      "processors": 1,
+      "state": "passed",
+      "evidence_key": "dfbf0c10070c26776d69e4e6eab647ba56c9a3501bd4c499243583caf4d4e364",
+      "seconds": 25.535,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/worker_recovery_turn-disconnect/20260916T153843-62fa2240"
+    },
+    {
+      "case": "worker_unexpected_exit",
+      "tier": "integration",
+      "processors": 8,
+      "state": "passed",
+      "evidence_key": "86eb99940f10df80dab002930203136a5d66e68eaa968e41867b9b4ca5049724",
+      "seconds": 5.733,
+      "directory": "/Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/worker_unexpected_exit/20260916T154125-46624916"
+    }
+  ]
+}

@@ -1,5 +1,9 @@
 # First recovery refactors and fixes
 
+**Status authority:** [the master register](ROADMAP.md) owns current status and
+priority. This document retains dated evidence and detailed requirements; its
+checkpoint labels and checklists are historical unless linked as current by the master.
+
 Sequence proposed 11 September, status reviewed 12 September 2026. This turns the
 [consolidated roadmap](ROADMAP.md) into small implementation slices. Robust
 recovery and cohesive source modules take priority. Separate executables are

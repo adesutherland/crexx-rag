@@ -1,5 +1,9 @@
 # Reliability and use-case coverage review
 
+**Status authority:** [the master register](ROADMAP.md) owns current status and
+priority. This document retains dated evidence and detailed requirements; its
+checkpoint labels and checklists are historical unless linked as current by the master.
+
 13 September coverage clarification: the historical REL-006 kill case below
 kills controller and children together. It did not prove that children stop
 when only the controller dies. The [new regression baseline](regression-coverage.md#current-status--13-september-2026)

@@ -21,6 +21,7 @@ ragworkersetting: class
 
 _spec: procedure = .ragworkersetting
   arg name = .string
+  if name = "lease_seconds" then return .ragworkersetting(120,1,86400)
   if name = "poll_ms" then return .ragworkersetting(100,10,60000)
   if name = "guided_deadline_seconds" then return .ragworkersetting(0,0,604800)
   if name = "max_restarts" then return .ragworkersetting(2,0,10)

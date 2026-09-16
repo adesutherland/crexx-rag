@@ -1,5 +1,9 @@
 # Operational hardening and recovery defects
 
+**Status authority:** [the master register](ROADMAP.md) owns current status and
+priority. This document retains dated evidence and detailed requirements; its
+checkpoint labels and checklists are historical unless linked as current by the master.
+
 Start with the [consolidated roadmap](ROADMAP.md) for cross-project priorities,
 current status and related query, configuration and agent findings. This file
 retains the complete operational requirements and dated incident evidence.

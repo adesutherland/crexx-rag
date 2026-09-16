@@ -131,6 +131,16 @@ Applying a narrower selection to an existing source set also removes omitted
 files from its current corpus membership; use a separate source set when
 adding an independent document batch.
 
+### Folder connector formats
+
+The folder connector supports UTF-8 `.txt` (text/plain), `.md` and `.markdown`
+(text/markdown), and `.rexx` and `.crexx` (text/x-crexx). Extension recognition
+is case-insensitive; include-pattern matching remains case-sensitive. Include
+patterns select among supported formats and do not enable additional parsers.
+PDF, office documents and other unsupported extensions are skipped; there is
+currently no per-file skipped-format report. Convert these inputs to supported
+text before ingestion. Byte/depth limits still apply to the selected sources.
+
 Libraries created by older versions may retain `file:./...` source URIs.
 Repeat ingestion from their original working directory so equivalent absolute
 paths can be proved without replacing revisions or vector membership. The
@@ -1309,7 +1319,7 @@ reconnect the client to load the installed binary. This leaves corpus jobs and
 other sessions running and needs only read access. It also works without a
 usable library/policy. Requests are serial, so it is not an out-of-band
 cancellation of an earlier call. See [session control](agent-integration.md#stopping-an-mcp-session)
-and [pending batch qualification](batch-changes-20260915.md).
+and [completed batch evidence](maintenance-escalation-delivery-20260916.md).
 
 Agents can use `query inspect 'question'` for lexical source evidence with
 zero writes and no provider calls. Over MCP, `rag_query_inspect`,

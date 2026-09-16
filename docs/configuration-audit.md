@@ -1,5 +1,9 @@
 # Hard-coded configuration audit
 
+**Status authority:** [the master register](ROADMAP.md) owns current status and
+priority. This document retains dated evidence and detailed requirements; its
+checkpoint labels and checklists are historical unless linked as current by the master.
+
 See the [consolidated roadmap](ROADMAP.md#configuration-audit-reconciliation)
 for all HC IDs reconciled with later repairs and overlapping requirements.
 The inventory and source locations below retain the dated audit's evidence.

@@ -1,5 +1,9 @@
 # LLM processing repair plan — 10 September 2026
 
+**Status authority:** [the master register](ROADMAP.md) owns current status and
+priority. This document retains dated requirements and acceptance evidence;
+its old run instructions do not authorize new processing.
+
 Use the [consolidated roadmap](ROADMAP.md) for current cross-cutting status.
 This dated plan retains its original qualification checkpoints; the later
 [controller report](controller-recovery-report.md) records subsequent repair

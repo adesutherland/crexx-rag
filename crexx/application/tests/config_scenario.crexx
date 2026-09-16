@@ -123,6 +123,16 @@ main: procedure = .int
   maximum_workers = .ragworkerpolicy(1,1,60,60000,604800,10,60000,86400)
   errors = errors + check(validateconfig(_withworkers(time_baseline,minimum_workers)).ok() = 1 & validateconfig(_withworkers(time_baseline,maximum_workers)).ok() = 1,"typed worker boundaries remain inclusive")
   errors = errors + check(canonicalsemanticconfig(_withworkers(time_baseline,minimum_workers)) = canonicalsemanticconfig(time_baseline) & canonicaloperationalconfig(_withworkers(time_baseline,minimum_workers)) \= canonicaloperationalconfig(time_baseline),"worker recovery changes remain operational")
+  /* HC-31: typed construction must reject what file parsing and claims reject. */
+  do lease_case = 1 to 4
+    lease_value = word("1 86400 0 86401",lease_case) as .int
+    lease_valid = lease_case <= 2
+    lease_config = .ragconfig; lease_error = ""
+    lease_text = changestr("worker.lease_seconds = 120",text,"worker.lease_seconds = " || lease_value)
+    lease_status = parseconfigtext(lease_text,lease_config,lease_error)
+    errors = errors + check((lease_status = 0) = lease_valid,"file lease boundary " || lease_value)
+    errors = errors + check(validateconfig(_withworkers(time_baseline,.ragworkerpolicy(1,1,lease_value))).ok() = lease_valid,"typed lease boundary " || lease_value)
+  end
   invalid_workers = .ragworkerpolicy[]
   invalid_workers[1] = .ragworkerpolicy(1,1,60,9,0,2,5000,3600)
   invalid_workers[2] = .ragworkerpolicy(1,1,60,60001,0,2,5000,3600)

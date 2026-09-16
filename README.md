@@ -12,31 +12,16 @@ graph. SQLite holds the authoritative corpus, graph and work history.
 Embeddings and rebuildable vector indexes help find evidence; similarity does
 not establish a fact.
 
-**Status: approaching a first release — 15 September 2026.** The core
-architecture, public interfaces and recovery workflows are implemented. The
-installed baseline passed **79/79 local tests**, and five smoke workflows
-have been repeated on a disposable copy of a real historical corpus, including
-**59 successful MCP requests**. Release preparation now centres on the remaining
-content-quality findings and wider operational/platform qualification. See
-[testing and release readiness](#testing-and-release-readiness) for the evidence
-and remaining work.
+**Status: local operational baseline — 16 September 2026.** Maintenance now
+processes ordinary and advanced work through one job, with explicit prompts,
+models, evidence gathering, deferral and final decisions. The test process uses
+isolated parallel cases and reuses unchanged passing evidence.
 
-The [Scottish overnight soak](docs/test7-overnight-soak-20260914.md) exercised
-imports, embeddings, source-scoped extraction, backlog processing and recovery
-on the master corpus. The completed repairs are committed and installed there;
-the [publication record](docs/publication-20260915.md) owns the current identity.
-Content failures and long-run qualification remain. The
-[controller investigation](docs/t7-10-controller-diagnosis-20260915.md) links two
-losses to host task resumption and independently reproduces broken-output and
-signal-handling defects. Their candidate repair and regression results are
-tracked there; this repaired night is not a clean endurance pass.
-
-The [job-controls repair](docs/job-controls-delivery-20260915.md) adds deadline-only
-updates, admitted-work continuation after expiry and explicit one/all-job retry
-resets, and makes all job lists compact. The combined candidate passes **79/79
-local tests**, including the controller repairs. Its completed checklist retains
-the evidence. Scottish installation and read-only MCP acceptance pass; a fresh
-soak remains the next operational qualification.
+The [master roadmap](docs/ROADMAP.md) is the sole current defect and capability
+register. [Current acceptance and publication](docs/baseline-publication-20260916.md)
+records exact candidate identity, local QA and installation. Historical Scottish
+smokes and interrupted endurance runs remain supporting evidence; hosted,
+long-running and platform qualification are explicitly separate.
 
 For operational diagnosis, safe retry, reasoned waivers and migration completion,
 follow the [public recovery journey](docs/public-recovery-journey.md).
@@ -346,15 +331,13 @@ the user documentation under `share/doc/crexxrag`.
 ctest --preset regression --output-on-failure
 ```
 
-The latest full local suite passes **71/71**. It uses deterministic local
-provider fixtures and covers native and linked applications, both CREXX VMs,
-installed `rxsqlite` integration, migrations, process workers, interruption and
-retry, independent vector publication, Gemini and Codex protocols, maintenance,
-external review, hybrid retrieval, exact citations, MCP/CLI/ADDRESS contracts,
-budget accounting, malformed output and secret redaction. New behavior is
-covered before implementation, with failing reproductions and positive controls
-for defect repairs. See the [test strategy](docs/test-strategy.md) and
-[latest full-suite evidence](docs/qa/test5-followups-20260914/README.md).
+The local suite uses deterministic loopback providers and covers native and
+linked applications, both CREXX VMs, installed SQLite integration, migrations,
+process workers, recovery, publication, maintenance escalation, exact citations,
+CLI/MCP/ADDRESS parity, malformed output, budgets and secret redaction. The
+[test strategy](docs/test-strategy.md) defines fast, component, integration and
+scale selections. [Current qualification evidence](docs/baseline-publication-20260916.md)
+records passes, retained evidence and any unqualified boundaries by artifact.
 
 The [14 September Tests 1–5 repeat](docs/smoke-tests-1-5-20260914.md) used committed
 baseline `696858c` and the same tested native artifact, starting from a fresh

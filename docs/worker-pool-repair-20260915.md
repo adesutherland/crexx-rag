@@ -1,5 +1,9 @@
 # ISSUE-01 — replenish worker slots after unexpected exits
 
+**Status authority:** [the master register](ROADMAP.md) owns current status and
+priority. This document retains dated evidence and detailed requirements; its
+checkpoint labels and checklists are historical unless linked as current by the master.
+
 **16 September superseding evidence:** [the installed CREXX #701 retest](crexx-701-retest-20260916.md)
 passes all three original fault cases using `17e844441ed8`. The downstream regression
 is re-enabled; the temporary exclusion described in this historical record no

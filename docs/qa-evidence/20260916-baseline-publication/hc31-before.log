@@ -1,0 +1,28 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 19: configuration_contract
+1/1 Test #19: configuration_contract ...........***Failed    0.53 sec
+FAILED configuration_contract: 0.41s; logs: /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug/qa/runs/configuration_contract/20260916T153156-a6429f3d
+CMake Error at /Users/adrian/CLionProjects/crexx-rag/cmake/ConfigContract.cmake:109 (message):
+  noopt-rxvme config scenario failed:
+
+  CONFIG_CONTRACT_FAIL=typed lease boundary 86401
+
+
+
+
+
+
+0% tests passed, 1 tests failed out of 1
+
+Label Time Summary:
+configuration     =   0.53 sec*proc (1 test)
+gemini            =   0.53 sec*proc (1 test)
+privacy           =   0.53 sec*proc (1 test)
+tier-component    =   0.53 sec*proc (1 test)
+zero-outbound     =   0.53 sec*proc (1 test)
+
+Total Test time (real) =   0.54 sec
+
+The following tests FAILED:
+	 19 - configuration_contract (Failed)                   configuration gemini privacy tier-component zero-outbound
+Errors while running CTest

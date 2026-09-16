@@ -1,5 +1,9 @@
 # Methodology closure checklist
 
+**Status authority:** [the master register](ROADMAP.md) owns current status and
+priority. This document retains dated requirements and acceptance evidence;
+its old run instructions do not authorize new processing.
+
 This records the original methodology acceptance baseline and its executable
 QA evidence. The closure artifact and 21-test result below are dated
 26 August 2026; they do not identify today's executable. Later contracts and

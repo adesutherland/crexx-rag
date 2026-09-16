@@ -1,5 +1,9 @@
 # Test 7 — Scottish overnight soak, 14–15 September 2026
 
+**Status authority:** [the master register](ROADMAP.md) owns current status and
+priority. This document retains dated evidence and detailed requirements; its
+checkpoint labels and checklists are historical unless linked as current by the master.
+
 **Later engineering acceptance:** the [completed job-controls repair](job-controls-delivery-20260915.md)
 closes PC-01 and the superseded rolling retry proposal. The combined candidate
 passes 79/79 local tests, including T7-10's controller regressions. The

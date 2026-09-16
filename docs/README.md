@@ -1,5 +1,9 @@
 # Documentation
 
+Start with the [master roadmap and defect register](ROADMAP.md) for current
+status and priorities. Other registers are supporting evidence, not competing
+current worklists. [Current publication acceptance](baseline-publication-20260916.md).
+
 - [One maintenance job: approved escalation plan](maintenance-escalation-plan-20260916.md):
   requirements, capability gaps, priorities, deferral, prompt/model routing,
   bounded corpus search and numbered acceptance.

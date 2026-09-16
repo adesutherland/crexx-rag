@@ -1,5 +1,9 @@
 # Scottish master acceptance: operator workflow repairs
 
+**Status authority:** [the master register](ROADMAP.md) owns current status and
+priority. This document retains dated requirements and acceptance evidence;
+its old run instructions do not authorize new processing.
+
 Baseline: published `dd96144bb3689ad4da4a9a43c8df914555402877`. The separate
 ScottishHistory acceptance task reported AC-04 through AC-08 from the installed
 build. Its evidence remains under

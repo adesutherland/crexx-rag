@@ -79,7 +79,7 @@ identities are preserved by this refactor.
 
 | Owner | Responsibility and callers |
 | --- | --- |
-| `ragworkerdefaults` | Default, minimum and maximum for worker poll, guided deadline, replacement count, replacement backoff and rolling window. Typed `ragworkerpolicy`, file parsing and canonical default omission consume the same specification. |
+| `ragworkerdefaults` | Default, minimum and maximum for worker lease, poll, guided deadline, replacement count, replacement backoff and rolling window. Typed validation, file parsing, lease claim/heartbeat checks and canonical default omission consume the same specification. |
 | `ragconfigfile` | Bounded declarative parsing, relative paths and complete typed configuration construction. It owns no publication or command access. |
 | `ragpolicyfile` | `config show/set/replace`, whole-candidate and referenced-profile validation, prompt-source pair edits, selected-file registry loading and `refreshpolicyrequest` for file-bound transports. CLI, dispatcher, MCP and ADDRESS compose it. |
 | `ragpolicypublication` | Bounded file reads/hashes, serialized edit ownership, verified sibling staging and rename publication. It accepts already validated candidate bytes and opens only an adjacent coordination database. |
@@ -584,8 +584,9 @@ has no graph-mutation path.
 
 The [task and escalation guide](work-tasks-and-escalation.md) connects the
 current record/state model, prompt/model selection and processing diagrams.
-Its bounded final-pass section records the 16 September user direction and
-pending acceptance; it does not add an implemented processor or configuration.
+Its bounded final-pass section describes the implemented ordinary/advanced
+routes, dated deferral, evidence tools and final no-change decisions. See the
+[delivery evidence](maintenance-escalation-delivery-20260916.md).
 
 External maintenance agents use the same durable task evidence validator and
 lifecycle engine as workers. Task resolver capability is separate from work
@@ -624,8 +625,8 @@ from a task's frozen packet. Both are paged with generation checks; large source
 citations are read in bounded Unicode-character pages while retaining their
 original UTF-8 byte identities. A reviewed, complete refresh supersedes the old
 task and freezes a larger per-task evidence envelope without changing global
-policy, semantic generation or provider receipts. Ordinary workers skip tasks
-flagged for advanced reasoning. Content-validation failures and explicit worker
+policy, semantic generation or provider receipts. Workers select the configured advanced resolver for eligible tasks
+flagged for advanced reasoning, within the same maintenance job. Content-validation failures and explicit worker
 assertions can flag a task; transport failure alone cannot.
 
 Inline new-claim NDJSON and server-file proposals share one decoder and the

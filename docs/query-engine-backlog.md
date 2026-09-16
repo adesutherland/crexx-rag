@@ -1,5 +1,9 @@
 # Query engine and local embedding requirements backlog
 
+**Status authority:** [the master register](ROADMAP.md) owns current status and
+priority. This document retains dated evidence and detailed requirements; its
+checkpoint labels and checklists are historical unless linked as current by the master.
+
 The [consolidated roadmap](ROADMAP.md) places these requirements alongside the
 operational P1s and other outstanding findings. This file retains their full
 design intent and acceptance conditions.

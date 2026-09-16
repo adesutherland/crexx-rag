@@ -1,5 +1,9 @@
 # CREXX and platform integration issues
 
+**Status authority:** [the master register](ROADMAP.md) owns current status and
+priority. This document retains dated evidence and detailed requirements; its
+checkpoint labels and checklists are historical unless linked as current by the master.
+
 The [consolidated roadmap](ROADMAP.md#other-qualification-research-and-upstream-dependencies)
 maps these dependencies and qualification limits to the product backlog.
 

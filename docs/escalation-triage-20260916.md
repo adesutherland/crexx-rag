@@ -1,5 +1,9 @@
 # Scottish escalation findings — engineering triage, 16 September 2026
 
+**Status authority:** [the master register](ROADMAP.md) owns current status and
+priority. This document retains dated evidence and detailed requirements; its
+checkpoint labels and checklists are historical unless linked as current by the master.
+
 **Implementation follow-up:** the approved [delivery record](maintenance-escalation-delivery-20260916.md)
 now records regression reproductions and bounded repairs for ESC-VAL-01/02 and
 ESC-OPS-01. The observations below retain their original evidence status; final

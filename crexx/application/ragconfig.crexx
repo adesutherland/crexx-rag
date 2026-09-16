@@ -834,7 +834,7 @@ validateconfig: procedure = .ragvalidationresult
   workers = config.workers()
   if workers.processes() < 1 | workers.processes() > 32 then issues[issues.0 + 1] = .ragvalidationissue("config", "worker_processes", "workers.processes", "worker processes must be from 1 through 32")
   if workers.max_in_flight() \= 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "worker_in_flight", "workers.max_in_flight", "each worker process currently owns one in-flight item")
-  if workers.lease_seconds() <= 0 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_lease", "workers.lease_seconds", "worker lease must be positive")
+  if workerinrange("lease_seconds",workers.lease_seconds()) \= 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_lease", "workers.lease_seconds", "worker lease must be from 1 through 86400 seconds")
   if workerinrange("restart_window_seconds",workers.restart_window_seconds()) \= 1 | workerinrange("max_restarts",workers.max_restarts()) \= 1 | workerinrange("restart_backoff_ms",workers.restart_backoff_ms()) \= 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_worker_recovery", "workers", "worker restart ceiling or backoff is invalid")
   if workerinrange("poll_ms",workers.poll_ms()) \= 1 | workerinrange("guided_deadline_seconds",workers.guided_deadline_seconds()) \= 1 then issues[issues.0 + 1] = .ragvalidationissue("config", "invalid_worker_runtime", "workers", "worker poll and guided deadline policy is invalid")
 

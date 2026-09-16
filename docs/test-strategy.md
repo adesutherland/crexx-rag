@@ -1,15 +1,11 @@
 # Test strategy
 
-**Latest runtime follow-up:** CREXX `17e844441ed8` passes all three #701 worker-exit
-fault cases. `worker_unexpected_exit` is re-enabled; the temporary exclusion is
-removed. [The focused retest](crexx-701-retest-20260916.md) records its controls and
-new native artifact. Full-suite results below retain their original runtime and
-candidate identity; the update does not turn them into a full rerun.
-
-**16 September test-process implementation:** Adrian approved implementing the
-[redesign](test-process-redesign-20260916.md). The former serial gate is replaced
-by the selections below. Historical qualification records later in this document
-remain historical; the redesign document owns current measurements.
+Current execution policy is below. The [master register](ROADMAP.md) owns
+remaining work; [current publication evidence](baseline-publication-20260916.md)
+owns this candidate's measured results. CREXX #701 is repaired downstream and
+`worker_unexpected_exit` is enabled without exclusions. Later dated paragraphs
+retain historical qualification only. The [redesign](test-process-redesign-20260916.md)
+records why the tiers, isolation and receipt reuse were introduced.
 
 ## Development and formal qualification
 
@@ -93,7 +89,12 @@ benchmark. Real hosted, corpus endurance and platform qualification remain
 separate and require their existing authority. Slow tests are findings to
 investigate; a timeout increase is not a speed improvement.
 
-Task-reset implementation and current QA are tracked in
+## Historical qualification checkpoints
+
+The following results retain the runtime and artifact at their recorded date.
+Old disabled/pending labels do not override the master or current test inventory.
+
+Task-reset implementation and its original QA are tracked in
 [task reset delivery](task-reset-delivery-20260915.md). `task_reset` exercises
 legacy no-window closure, fresh context and cleared counters, old reviews and
 waivers, preserved receipts/knowledge, and single/all CLI/MCP access. The

@@ -1,5 +1,9 @@
 # Reliability and use-case coverage review
 
+**Status authority:** [the master register](ROADMAP.md) owns current status and
+priority. This document retains dated evidence and detailed requirements; its
+checkpoint labels and checklists are historical unless linked as current by the master.
+
 > Historical record of the 6 September baseline and held hosted run. The
 > [current repair register](reliability-coverage-review.md) supersedes the status
 > labels below. The original assessment and incident evidence are retained.

@@ -230,7 +230,7 @@ parseconfigtext: procedure = .int
   processes = 0; max_in_flight = 0; lease_seconds = 0; poll_ms = workerdefault("poll_ms"); guided_deadline_seconds = workerdefault("guided_deadline_seconds"); max_restarts = workerdefault("max_restarts"); restart_backoff_ms = workerdefault("restart_backoff_ms"); restart_window_seconds = workerdefault("restart_window_seconds")
   if _uint(_required(keys, values, "worker.processes", error), 1, 32, "worker.processes", processes, error) \= 0 then return -1
   if _uint(_required(keys, values, "worker.max_in_flight", error), 1, 1, "worker.max_in_flight", max_in_flight, error) \= 0 then return -1
-  if _uint(_required(keys, values, "worker.lease_seconds", error), 1, 86400, "worker.lease_seconds", lease_seconds, error) \= 0 then return -1
+  if _uint(_required(keys, values, "worker.lease_seconds", error), workerminimum("lease_seconds"), workermaximum("lease_seconds"), "worker.lease_seconds", lease_seconds, error) \= 0 then return -1
   setting = _optional(keys, values, "worker.restart_window_seconds")
   if setting \= "" then if _uint(setting, workerminimum("restart_window_seconds"), workermaximum("restart_window_seconds"), "worker.restart_window_seconds", restart_window_seconds, error) \= 0 then return -1
   setting = _optional(keys, values, "worker.max_restarts")

@@ -1,5 +1,16 @@
 # Regression coverage baseline — REG-01
 
+## Lease validation follow-up — 16 September 2026
+
+`configuration_contract` covers typed/file lease bounds at 1, 86,400, 0 and
+86,401 seconds, with a pre-repair failure only at the typed upper rejection.
+The existing `ragworkerdefaults` owner now supplies lease bounds to
+`ragconfig`, `ragconfigfile` and `ragwork` claims/heartbeats. No reverse import,
+transaction, schema, prompt or canonical-identity change. Final acceptance and
+artifact evidence: [bounded publication](baseline-publication-20260916.md).
+Current backlog status: [master register](ROADMAP.md).
+
+
 **New-runtime follow-up:** the original #701 worker-kill, unknown-outcome and
 exit-write-failure cases now pass on installed CREXX `17e844441ed8` after native
 rebuild. `worker_unexpected_exit` is enabled again. See [the focused record](crexx-701-retest-20260916.md).

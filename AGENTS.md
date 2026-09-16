@@ -82,6 +82,10 @@ use case without expanding implementation scope to suit the tests.
 
 ## Required reading
 
+`docs/ROADMAP.md` is the sole current defect, capability and qualification
+register. Update status there and link detailed evidence; other audit, incident
+and delivery records retain their dated scope rather than competing worklists.
+
 Before product work, read:
 
 - `README.md`

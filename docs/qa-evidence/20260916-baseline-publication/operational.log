@@ -1,0 +1,31 @@
+Test project /Users/adrian/CLionProjects/crexx-rag/cmake-build-debug
+    Start 69: durable_backlog_escalation
+    Start 63: installed_product
+    Start 72: durable_backlog_provider_advanced
+1/3 Test #69: durable_backlog_escalation ..........   Passed    3.45 sec
+2/3 Test #72: durable_backlog_provider_advanced ...   Passed    3.53 sec
+3/3 Test #63: installed_product ...................   Passed   32.84 sec
+
+100% tests passed, 0 tests failed out of 3
+
+Label Time Summary:
+atomic              =   3.45 sec*proc (1 test)
+gemini              =  39.90 sec*proc (2 tests)
+ingestion           =  32.84 sec*proc (1 test)
+installed           =  32.84 sec*proc (1 test)
+lifecycle           =   3.45 sec*proc (1 test)
+maintenance         =  43.35 sec*proc (3 tests)
+merge               =   3.45 sec*proc (1 test)
+native              =  32.84 sec*proc (1 test)
+query               =  32.84 sec*proc (1 test)
+redaction           =   7.06 sec*proc (1 test)
+resolution          =   7.06 sec*proc (1 test)
+retirement          =   3.45 sec*proc (1 test)
+skills              =  32.84 sec*proc (1 test)
+split               =   3.45 sec*proc (1 test)
+sqlite              =  10.51 sec*proc (2 tests)
+tier-component      =   3.45 sec*proc (1 test)
+tier-integration    =  39.90 sec*proc (2 tests)
+zero-outbound       =   7.06 sec*proc (1 test)
+
+Total Test time (real) =  32.84 sec

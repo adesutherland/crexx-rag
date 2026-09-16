@@ -1,5 +1,9 @@
 # Operator continuation: live handoff
 
+**Status authority:** [the master register](ROADMAP.md) owns current status and
+priority. This document retains dated evidence and detailed requirements; its
+checkpoint labels and checklists are historical unless linked as current by the master.
+
 Updated: 2026-09-15, after committing the soak/recovery and job-control repairs
 and updating the Scottish installation. The [publication record](publication-20260915.md)
 owns the exact source/artifact identities and completion checklist. All 79 local
