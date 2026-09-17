@@ -44,3 +44,20 @@ premature failed task; do not reset or force it. All advanced calls must count,
 including evidence search/read and correction; total job usage retains ordinary
 calls too. A short successful run cannot establish full historical accuracy,
 long endurance, hosted Gemini or cross-platform qualification.
+
+## Completed publication, installation and live repeat
+
+Source/runtime commit `4a9a8c318196fc7c8fb4ac597d49f565fc3633bb` was pushed to
+origin/main, independently checked and installed without rebuilding in ~/.local
+and ScottishHistory/tools. Both artifact hashes above match at both prefixes.
+Previous RAG packages and a public generation-pinned corpus backup are retained.
+Four installed CLI checks and four fresh MCP calls passed. Schema19/generation 29317
+were unchanged by installation. No tag/release created.
+
+The [authorised fifteen-minute repeat](maintenance-budget-soak-20260917.md) is
+closed: original policy restored, workers/reservations drained, verification
+passed at generation 29385. ESC-OPS-02 live acceptance passed. ESC-OPS-03 lifecycle
+recording remains open, as do the specified grounding/prompt and wider acceptance
+boundaries. Final documentation-only qualification and the resulting closeout
+commit are recorded beside candidate.json in the Scottish run directory; the
+runtime source identity above remains unchanged.

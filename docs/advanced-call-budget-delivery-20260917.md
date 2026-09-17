@@ -125,3 +125,15 @@ it is not authority to restart the expired soak.
 Full selection and receipt-audit logs are retained in
 `cmake-build-debug/qa/esc-ops-02/`, alongside the report and targeted acceptance
 log. The initial failing executions remain under the ordinary per-case QA paths.
+
+## Subsequent authorised publication and live acceptance
+
+The earlier pending-install statement above is the local qualification boundary.
+Adrian subsequently authorised commit/publication, installation and a new bounded
+run. Baseline `4a9a8c3` is published and installed; the [fresh soak](maintenance-budget-soak-20260917.md)
+selected the original premature failed task naturally. It resolved on its third
+advanced call, fourth total call, with the accurate one-call-left instruction.
+A separate invalid final response exhausted exactly three advanced calls while
+retaining five total calls. No reset or increased allowance. ESC-OPS-02 bounded
+live acceptance is complete. ESC-OPS-03 recording failure and correction prompt
+wording remain separate observed follow-ups; no broad quality sign-off follows.
